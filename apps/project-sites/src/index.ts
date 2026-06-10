@@ -107,7 +107,7 @@ import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
-import { DOMAINS } from '@project-sites/shared';
+import { DOMAINS, escapeHtml } from '@project-sites/shared';
 import { parseEnv } from './lib/env.js';
 export { SiteGenerationWorkflow } from './workflows/site-generation.js';
 export { DriveSyncWorkflow } from './workflows/drive-sync.js';
@@ -440,7 +440,7 @@ app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
 app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
-app.route('/', siteDna);          // /api/site-dna/:siteId/{feedback,preferences,history} — #7 Site DNA Taste Graph
+app.route('/', siteDna); // /api/site-dna/:siteId/{feedback,preferences,history} — #7 Site DNA Taste Graph
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
@@ -592,19 +592,25 @@ function renderAppShellHtml(
     stopped: 'App is stopped',
     'not-found': 'App not found',
   };
+  // Escape every request/container-derived field — this page is served as HTML
+  // and `sub` (from the Host header, NOT DNS-validated at the HTTP layer),
+  // `err` (container output), `slug`, and `id` could otherwise reflect markup.
+  const safeSub = escapeHtml(data.sub);
+  const safeSlug = escapeHtml(data.slug ?? '—');
+  const safeErr = escapeHtml(data.err ?? 'Unknown error');
+  const safeId = escapeHtml(data.id ?? '');
   const bodies: Record<typeof state, string> = {
-    booting:
-      'Your container is provisioning. This page refreshes automatically every 3 seconds.',
-    crashed: `${data.err ?? 'Unknown error'} — open the admin to inspect logs and restart.`,
+    booting: 'Your container is provisioning. This page refreshes automatically every 3 seconds.',
+    crashed: `${safeErr} — open the admin to inspect logs and restart.`,
     stopped: 'The container is stopped. Restart it from the admin dashboard.',
-    'not-found': `No app instance with subdomain "${data.sub}".`,
+    'not-found': `No app instance with subdomain "${safeSub}".`,
   };
   const cta =
     state === 'not-found'
       ? '<a class="btn" href="https://projectsites.dev/admin/apps">Browse apps</a>'
-      : `<a class="btn" href="https://projectsites.dev/admin/apps/${data.id ?? ''}">Open admin</a>`;
+      : `<a class="btn" href="https://projectsites.dev/admin/apps/${safeId}">Open admin</a>`;
   const title = titles[state];
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · ProjectSites</title><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0f;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;padding:2rem}.box{max-width:560px;text-align:center}h1{font-size:2.2rem;background:linear-gradient(135deg,#00ffc8,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#00ffc8;animation:pulse 1.4s ease-in-out infinite;margin-right:.5rem;vertical-align:middle}@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}p{color:#8892a4;font-size:1.05rem;line-height:1.5;margin-bottom:2rem}.btn{display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00ffc8,#7c3aed);color:#0a0a0f;font-weight:600;border-radius:50px;text-decoration:none}.meta{margin-top:2rem;font-family:'Fira Code',monospace;font-size:.75rem;color:#4a9;background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.1);padding:1rem;border-radius:8px;text-align:left}</style></head><body><div class="box"><h1>${state === 'booting' ? '<span class="dot"></span>' : ''}${title}</h1><p>${bodies[state]}</p>${cta}<div class="meta">app: ${data.slug ?? '—'}<br>subdomain: ${data.sub}<br>state: ${state}</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · ProjectSites</title><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0f;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;padding:2rem}.box{max-width:560px;text-align:center}h1{font-size:2.2rem;background:linear-gradient(135deg,#00ffc8,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#00ffc8;animation:pulse 1.4s ease-in-out infinite;margin-right:.5rem;vertical-align:middle}@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}p{color:#8892a4;font-size:1.05rem;line-height:1.5;margin-bottom:2rem}.btn{display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00ffc8,#7c3aed);color:#0a0a0f;font-weight:600;border-radius:50px;text-decoration:none}.meta{margin-top:2rem;font-family:'Fira Code',monospace;font-size:.75rem;color:#4a9;background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.1);padding:1rem;border-radius:8px;text-align:left}</style></head><body><div class="box"><h1>${state === 'booting' ? '<span class="dot"></span>' : ''}${title}</h1><p>${bodies[state]}</p>${cta}<div class="meta">app: ${safeSlug}<br>subdomain: ${safeSub}<br>state: ${state}</div></div></body></html>`;
 }
 
 // ─── Site Serving (catch-all for subdomain routing) ──────────
@@ -861,10 +867,13 @@ app.all('*', async (c) => {
       );
     }
     if (inst.status === 'stopped' || inst.status === 'destroyed') {
-      return new Response(renderAppShellHtml('stopped', { sub, slug: inst.app_slug, id: inst.id }), {
-        status: 503,
-        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' },
-      });
+      return new Response(
+        renderAppShellHtml('stopped', { sub, slug: inst.app_slug, id: inst.id }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' },
+        },
+      );
     }
     return proxyToContainer(c.env, inst.do_instance_id ?? inst.id, c.req.raw, inst.app_slug);
   }
@@ -892,12 +901,7 @@ app.all('*', async (c) => {
   // visitor navigations surface in the per-site analytics dashboard. Never
   // blocks or fails serving — see recordPageviewFromRequest.
   c.executionCtx.waitUntil(
-    recordPageviewFromRequest(
-      c.env,
-      { orgId: site.org_id, siteId: site.site_id },
-      c.req.raw,
-      path,
-    ),
+    recordPageviewFromRequest(c.env, { orgId: site.org_id, siteId: site.site_id }, c.req.raw, path),
   );
 
   // Serve static site from R2
@@ -1131,9 +1135,7 @@ export default {
     // per run so a backlog never melts Browser Rendering quota.
     if (_event.cron === '0 6 * * *') {
       try {
-        const { runSnapshotMetricsBackfillCron } = await import(
-          './workflows/snapshot-quality.js'
-        );
+        const { runSnapshotMetricsBackfillCron } = await import('./workflows/snapshot-quality.js');
         const result = await runSnapshotMetricsBackfillCron(env);
         console.warn(
           JSON.stringify({
@@ -1238,9 +1240,13 @@ export default {
             ORDER BY scheduled_at ASC LIMIT 25`,
           [upper, lower],
         );
-        const wfBinding = (env as unknown as {
-          SOCIAL_PUBLISH_WORKFLOW?: { create: (opts: { id: string; params: { post_id: string } }) => Promise<unknown> };
-        }).SOCIAL_PUBLISH_WORKFLOW;
+        const wfBinding = (
+          env as unknown as {
+            SOCIAL_PUBLISH_WORKFLOW?: {
+              create: (opts: { id: string; params: { post_id: string } }) => Promise<unknown>;
+            };
+          }
+        ).SOCIAL_PUBLISH_WORKFLOW;
         let fired = 0;
         for (const p of due) {
           // Optimistically flip → publishing so the next sweep skips this row.
@@ -1256,25 +1262,39 @@ export default {
             await wfBinding
               .create({ id: `social-publish-${p.id}-${Date.now()}`, params: { post_id: p.id } })
               .catch((err: unknown) => {
-                console.warn(JSON.stringify({
-                  level: 'warn', service: 'cron', message: 'social_publish_create_failed',
-                  post_id: p.id, error: err instanceof Error ? err.message : String(err),
-                }));
+                console.warn(
+                  JSON.stringify({
+                    level: 'warn',
+                    service: 'cron',
+                    message: 'social_publish_create_failed',
+                    post_id: p.id,
+                    error: err instanceof Error ? err.message : String(err),
+                  }),
+                );
               });
           }
           fired++;
         }
         if (fired > 0) {
-          console.warn(JSON.stringify({
-            level: 'info', service: 'cron', message: 'Pulse Social due-post sweep',
-            fired, scanned: due.length,
-          }));
+          console.warn(
+            JSON.stringify({
+              level: 'info',
+              service: 'cron',
+              message: 'Pulse Social due-post sweep',
+              fired,
+              scanned: due.length,
+            }),
+          );
         }
       } catch (err) {
-        console.warn(JSON.stringify({
-          level: 'error', service: 'cron', message: 'Pulse Social sweep failed',
-          error: err instanceof Error ? err.message : String(err),
-        }));
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Pulse Social sweep failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       }
     }
 
