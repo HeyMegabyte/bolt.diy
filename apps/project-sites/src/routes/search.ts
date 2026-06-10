@@ -29,6 +29,7 @@ import {
   unauthorized,
   sanitizeHtml,
   stripHtml,
+  escapeHtml,
   timingSafeEqual,
   DOMAINS,
 } from '@project-sites/shared';
@@ -67,22 +68,6 @@ import { writeAuditLog } from '../services/audit.js';
 function containerAuthorized(env: Env, secretHeader: string | undefined): boolean {
   const expected = env.ANTHROPIC_API_KEY?.slice(0, 16);
   return !!expected && !!secretHeader && timingSafeEqual(secretHeader, expected);
-}
-
-/**
- * HTML-entity-escape untrusted text before interpolating it into an HTML
- * document/email. `sanitizeHtml` only strips *dangerous* constructs (scripts,
- * event handlers) — a benign `<a href="https://evil.com">` survives it, which
- * is still a phishing vector inside a contact-form email delivered to a site
- * owner. Escaping renders ALL user markup as inert text.
- */
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 const search = new Hono<{ Bindings: Env; Variables: Variables }>();

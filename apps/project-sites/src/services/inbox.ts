@@ -20,22 +20,9 @@
  * ```
  */
 
+import { escapeHtml } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import type { VisitorIdentityRow } from './visitor_identity.js';
-
-/**
- * HTML-entity-escape an owner-authored plain-text reply before wrapping it in
- * the outbound email HTML. Without this, a literal `<` / `&` in a reply renders
- * broken (and any markup would be injected) in the visitor's inbox.
- */
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 export interface ConversationRow {
   id: string;

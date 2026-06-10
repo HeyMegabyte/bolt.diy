@@ -8,7 +8,7 @@
  * 2. Confirmation email to the user acknowledging receipt.
  */
 
-import { BRAND, contactFormSchema, badRequest } from '@project-sites/shared';
+import { BRAND, contactFormSchema, badRequest, escapeHtml } from '@project-sites/shared';
 import type { ContactForm } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { log } from '../lib/log.js';
@@ -89,7 +89,9 @@ async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
       return await sendViaResend(env.RESEND_API_KEY, opts);
     } catch (err) {
       if (env.SENDGRID_API_KEY) {
-        contactLog.warn('resend_fallback_to_sendgrid', { error: err instanceof Error ? err.message : String(err) });
+        contactLog.warn('resend_fallback_to_sendgrid', {
+          error: err instanceof Error ? err.message : String(err),
+        });
         return sendViaSendGrid(env.SENDGRID_API_KEY, opts);
       }
       throw err;
@@ -101,18 +103,6 @@ async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
   }
 
   throw badRequest('Email delivery is not configured. Please contact support.');
-}
-
-/* ------------------------------------------------------------------ */
-/*  HTML helpers                                                       */
-/* ------------------------------------------------------------------ */
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function buildContactNotificationEmail(data: ContactForm): string {

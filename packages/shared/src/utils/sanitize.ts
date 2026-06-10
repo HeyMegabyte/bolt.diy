@@ -52,6 +52,31 @@
  * // => '<div>Hi</div>'
  * ```
  */
+/**
+ * HTML-entity-escape untrusted text before interpolating it into an HTML
+ * document or email. Unlike {@link sanitizeHtml} (which only strips *dangerous*
+ * constructs and preserves benign markup), this renders ALL markup inert — the
+ * right choice when the field is plain text and any tag is unexpected (contact
+ * forms, inbox replies, owner-notification emails).
+ *
+ * @param input - The raw text to escape.
+ * @returns The text with `& < > " '` replaced by their HTML entities.
+ *
+ * @example
+ * ```ts
+ * escapeHtml('<a href="x">hi</a> & bye');
+ * // => '&lt;a href=&quot;x&quot;&gt;hi&lt;/a&gt; &amp; bye'
+ * ```
+ */
+export function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function sanitizeHtml(input: string): string {
   // Apply the removal passes repeatedly until the string is stable. A single
   // pass can REVEAL a new vector by deleting an inner construct — e.g.

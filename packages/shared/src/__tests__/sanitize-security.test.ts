@@ -8,7 +8,30 @@
  * gap was reachable. These cases assert the dangerous constructs are gone while
  * benign markup + benign `on…`-looking text is preserved.
  */
-import { sanitizeHtml } from '../utils/sanitize.js';
+import { sanitizeHtml, escapeHtml } from '../utils/sanitize.js';
+
+describe('escapeHtml — entity encoding', () => {
+  it('escapes the five HTML-significant characters', () => {
+    expect(escapeHtml(`<a href="x">'&'</a>`)).toBe(
+      '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;',
+    );
+  });
+
+  it('escapes & first so existing entities are not double-mangled into tags', () => {
+    // & must be escaped BEFORE < / > or "&lt;" could be re-processed.
+    expect(escapeHtml('5 < 10 & 3 > 1')).toBe('5 &lt; 10 &amp; 3 &gt; 1');
+  });
+
+  it('renders injected markup inert (no live tag survives)', () => {
+    const out = escapeHtml('<script>alert(1)</script>');
+    expect(out).not.toContain('<script>');
+    expect(out).toBe('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
+  it('is a no-op on text with no special characters', () => {
+    expect(escapeHtml('Hello world 123')).toBe('Hello world 123');
+  });
+});
 
 describe('sanitizeHtml — XSS vectors', () => {
   const dangerous: Array<[string, string]> = [

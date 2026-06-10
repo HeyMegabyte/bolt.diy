@@ -18,6 +18,7 @@
  * @packageDocumentation
  */
 
+import { escapeHtml } from '@project-sites/shared';
 import { dbQuery, dbQueryOne, dbInsert } from './db.js';
 import type { Env } from '../types/env.js';
 
@@ -227,15 +228,6 @@ export function renderDigestHtml(opts: {
 function metricRow(label: string, value: number): string {
   return `<tr><td style="padding:6px 0;font-size:14px;color:${BRAND_TEXT_SECONDARY};">${escapeHtml(label)}</td>
     <td style="padding:6px 0;font-size:18px;color:${BRAND_TEXT_PRIMARY};text-align:right;font-weight:700;">${value.toLocaleString()}</td></tr>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 /**
