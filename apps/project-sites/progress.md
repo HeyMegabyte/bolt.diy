@@ -6,7 +6,10 @@
 ## Done
 - **Iter 1:** worker test-login seam — `authenticateTestLogin` + `POST /api/auth/test-login` (secret-gated by `E2E_TEST_PASSWORD`, 404 when unset, constant-time compare, idempotent owner upsert, real session). 7 Jest tests green.
 - **Iter 2 (partial):** `scripts/e2e-seed.mjs` + `e2e:seed` npm script (idempotent seed via the seam). `node --check` + eslint clean.
+- **Iter 3:** flag-cache staleness FIXED (`routes/features.ts` `POST /api/site-features/:key` now `invalidateFlagCache` after the override write — ce6bd17a; tsc clean, flag suite 12/12). conversational_edits guard = N/A (route unbuilt). dead-code excision scoped + name-collision trap documented in `features.ts` header.
 - Repo `*.md` consolidated 277→73; all 16 generation prompts enhanced; convergence prompt rewritten with 2026 SOTA.
+
+> Honest note on "50 rounds": the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 50 — per loop doctrine §2 (10/fire, checkpoint at 60% ctx). The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
 ## Active item (resume here) — finish P0 test harness
 1. **Wire `/signin` UI → the seam** — password field when `?test=1`/build flag active; submit to `POST /api/auth/test-login`; store bearer via `AuthService`; redirect `/admin`. RED Karma/Playwright first. Files: `frontend/src/app/pages/signin/`, `services/auth.service.ts`, `services/api.service.ts`.

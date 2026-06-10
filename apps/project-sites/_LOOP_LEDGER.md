@@ -6,6 +6,7 @@
 
 ## Iteration log
 - **Iter 1 (2026-06-09):** `[x]` worker test-login seam (`authenticateTestLogin` + `POST /api/auth/test-login`, secret-gated by `E2E_TEST_PASSWORD`, 7 Jest tests green, typecheck clean). `[x]` this ledger.
+- **Iter 3 (2026-06-09):** `[x]` flag-cache staleness fix (ce6bd17a, P2). `[x]` conversational_edits guard → N/A (route unbuilt). `[x]` dead-code excision scoped + `generatePodcast` name-collision trap documented (next focused session). Local-only (no prod push — Brian gates that).
 
 ---
 
@@ -26,11 +27,11 @@
 - [ ] **Post-publish autonomous growth agent** (#2, ~80h)
 
 ## P2 — Known gaps / drift / cleanup (from repo audit + project CLAUDE.md)
-- [ ] **`conversational_edits.ts` cross-tenant write guard** — verify `:siteId`/`:changesetId` belongs to caller's org before any beta promotion (security). (~6h)
+- [x] **N/A — `conversational_edits.ts` cross-tenant write guard** — no such route/service exists in `src` (only migration `0519_conversational_editing.sql`). Feature unbuilt → zero live exposure; re-open WITH the guard when the route lands. (verified 2026-06-09)
 - [ ] **`features.ts` Zod-validation drift** — ~33 POST handlers use `as`-cast, no runtime validation; convert per-feature as each flag is promoted (NOT a blind mass-retrofit). (~per-feature)
 - [ ] **`big_bets.ts` 30 mock features** — replace mock shapes with real backend per-feature as prioritized. (~varies)
-- [ ] **`features.ts` dead code** — 44 knip-confirmed dead exports from the flag trim; remove in a quiet-tree session. (~3h)
-- [ ] **Flag-cache staleness** — `routes/features.ts` override-write never calls `invalidateFlagCache` → 60s stale cache (one-line). (~1h)
+- [ ] **`features.ts` dead code** — 44 knip-confirmed dead exports from the flag trim; remove in a quiet-tree session. ⚠️ Excise per knip's exact file:line, NOT by name — `generatePodcast` here collides with the live media-route `generatePodcast` (10 external refs are the sibling, not this one). Keep live set + deps (recordTokenEvent/getMonthlyBurn/getPwaManifest + estimatePromptCost/pickModel/listModels). Reverify with full 902-suite jest. Scoped + trap documented in the file header 2026-06-09. (~3h)
+- [x] **Flag-cache staleness** — `routes/features.ts` `POST /api/site-features/:key` override-write now calls `invalidateFlagCache(c.env, key)` → no more 60s stale tenant flag after a toggle. tsc clean, flag-resolution suite 12/12. (ce6bd17a, 2026-06-09)
 - [ ] **Wire `*.e2e.ts` prod suite into CI** — frontend a11y/contrast/reflow gates run only manually; add a post-deploy job with `PROD_URL` + `E2E_API_KEY`. (~4h)
 - [ ] **Perf wave: ag-grid → TanStack** — both admin log grids ship 782KB eager ag-grid (205KB over budget); migrate per `docs/perf-wave-ag-grid-to-tanstack.md`. (~30h, dedicated session)
 - [ ] **LLM eval/regression harness in CI** — no graders/thresholds on prompt/model changes. (#11, ~40h)

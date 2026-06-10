@@ -5,6 +5,15 @@
  * a category from `_ideas-50-allstar.md`. Routes in `routes/allstar.ts` invoke
  * these. Mock/seed data is deterministic but realistic — real vendor calls
  * land here in follow-up turns; for now the contracts + D1 writes are real.
+ *
+ * NOTE (dead-code cleanup, deferred to a focused session): knip reports ~44 of
+ * these exports as unused (flag-trim residue). They are zero-runtime-impact
+ * (unused exports tree-shake at bundle time). Do NOT name-delete in bulk —
+ * `generatePodcast` here collides with the live media-route `generatePodcast`,
+ * so a name-based sweep would corrupt a sibling. Excise per knip's exact
+ * file:line locations, keep the live set (recordTokenEvent / getMonthlyBurn /
+ * getPwaManifest + their deps estimatePromptCost / pickModel / listModels),
+ * then reverify with the full 902-suite jest run.
  */
 
 import type { Env } from '../types/env.js';
