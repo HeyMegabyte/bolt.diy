@@ -611,7 +611,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     );
   }
 
-  const body = (await c.req.json()) as CreateFromSearchBody;
+  const body = (await c.req.json().catch(() => ({}))) as CreateFromSearchBody;
 
   // Normalize: support both v1 (flat) and v2 (nested business object) payload formats
   const mode = body.mode ?? null;
@@ -1094,7 +1094,7 @@ async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
  * Uses Workers AI to classify a business into one of the predefined categories.
  */
 search.post('/api/ai/categorize', async (c) => {
-  const body = (await c.req.json()) as { name: string; address?: string; types?: string[] };
+  const body = (await c.req.json().catch(() => ({}))) as { name: string; address?: string; types?: string[] };
   if (!body.name) {
     return c.json({ data: { category: '' } });
   }
@@ -1741,7 +1741,7 @@ interface DiscoveredImage {
  * 4. Annotated with a quality score and usage recommendation
  */
 search.post('/api/ai/discover-images', async (c) => {
-  const body = (await c.req.json()) as { name: string; address?: string; website?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { name: string; address?: string; website?: string };
   if (!body.name) {
     return c.json({ data: { logo: null, favicon: null, images: [], brand_assessment: null } });
   }
@@ -2475,7 +2475,7 @@ search.post('/api/ai/discover-images', async (c) => {
  * All videos include attribution data for the `/attribution` page.
  */
 search.post('/api/ai/discover-videos', async (c) => {
-  const body = (await c.req.json()) as { name: string; address?: string; business_type?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { name: string; address?: string; business_type?: string };
   if (!body.name) {
     return c.json({ data: { videos: [], attribution: [] } });
   }
@@ -2663,7 +2663,7 @@ search.post('/api/ai/discover-videos', async (c) => {
  * Returns a proxied URL to the generated image.
  */
 search.post('/api/ai/edit-image', async (c) => {
-  const body = (await c.req.json()) as { prompt: string; originalUrl?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { prompt: string; originalUrl?: string };
   if (!body.prompt?.trim()) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Prompt is required' } }, 400);
   }
