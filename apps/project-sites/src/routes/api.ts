@@ -124,6 +124,7 @@ import {
   forbidden,
   unauthorized,
   safeRelativePath,
+  pickSafeRedirect,
 } from '@project-sites/shared';
 import { budgetTierSchema, type BudgetTier } from '@project-sites/shared/schemas';
 import * as authService from '../services/auth.js';
@@ -4800,6 +4801,18 @@ api.get('/api/domains/search', async (c) => {
 // ─── Domain Purchase (Stripe subscription) ───────────────────
 
 /**
+ * Body contract for `POST /api/domains/purchase`. `success_url`/`cancel_url`
+ * are optional https URLs that are further clamped to the site's own domains
+ * via {@link pickSafeRedirect} before reaching Stripe (open-redirect guard).
+ */
+const DomainPurchaseSchema = z.object({
+  domain: z.string().min(1).max(253),
+  site_id: z.string().min(1),
+  success_url: z.string().url().startsWith('https://').optional(),
+  cancel_url: z.string().url().startsWith('https://').optional(),
+});
+
+/**
  * Initiate a Stripe checkout session for a $15/yr custom-domain
  * registration tied to an existing site. The actual domain provisioning
  * happens asynchronously in the `customer.subscription.created` webhook
@@ -4861,24 +4874,48 @@ api.post('/api/domains/purchase', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const body = (await c.req.json()) as {
-    domain: string;
-    site_id: string;
-    success_url: string;
-    cancel_url: string;
-  };
-
-  if (!body.domain || !body.site_id) {
-    throw badRequest('domain and site_id are required');
+  // Zod boundary: malformed JSON → clean 400 (not an unhandled 500), and the
+  // client-supplied redirect URLs MUST be https (no `javascript:`/`data:`
+  // scheme injection into Stripe's hosted-checkout return URL).
+  const parsed = DomainPurchaseSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    throw badRequest(
+      'domain and site_id are required; success_url/cancel_url must be https URLs',
+    );
   }
+  const body = parsed.data;
 
-  // Verify site ownership
-  const site = await dbQueryOne<{ id: string; org_id: string }>(
+  // Verify site ownership (also fetch the slug to build the redirect allowlist)
+  const site = await dbQueryOne<{ id: string; org_id: string; slug: string }>(
     c.env.DB,
-    'SELECT id, org_id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    'SELECT id, org_id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
     [body.site_id, orgId],
   );
   if (!site) throw notFound('Site not found');
+
+  // Clamp the Stripe redirect URLs to the site's OWN domains + the platform
+  // host. Without this an authed user could set `success_url=https://evil.com`
+  // and Stripe would redirect the buyer off-site post-payment (open-redirect /
+  // phishing) — the same class fixed for /api/donate (cf4c8f22). Graceful:
+  // an off-domain/missing URL falls back to a safe default, never errors.
+  const allowedHosts = new Set<string>([
+    DOMAINS.SITES_BASE,
+    `${site.slug}${DOMAINS.SITES_SUFFIX}`,
+  ]);
+  const hns = await c.env.DB.prepare(
+    'SELECT hostname FROM hostnames WHERE site_id = ? AND deleted_at IS NULL',
+  )
+    .bind(site.id)
+    .all<{ hostname: string }>()
+    .catch(() => ({ results: [] as { hostname: string }[] }));
+  for (const r of hns.results ?? []) allowedHosts.add(String(r.hostname).toLowerCase());
+  const siteUrl = `https://${site.slug}${DOMAINS.SITES_SUFFIX}`;
+  const safeSuccessUrl = pickSafeRedirect(
+    body.success_url,
+    `${siteUrl}/?domain_purchase=success`,
+    allowedHosts,
+  );
+  const safeCancelUrl = pickSafeRedirect(body.cancel_url, siteUrl, allowedHosts);
 
   // Create a Stripe checkout for domain subscription
   const userId = c.get('userId') || '';
@@ -4896,8 +4933,8 @@ api.post('/api/domains/purchase', async (c) => {
     },
     body: new URLSearchParams({
       mode: 'subscription',
-      success_url: body.success_url,
-      cancel_url: body.cancel_url,
+      success_url: safeSuccessUrl,
+      cancel_url: safeCancelUrl,
       customer_email: user?.email || '',
       'line_items[0][price_data][currency]': 'usd',
       'line_items[0][price_data][recurring][interval]': 'year',

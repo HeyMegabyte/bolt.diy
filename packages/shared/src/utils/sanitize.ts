@@ -53,6 +53,42 @@ export function safeRelativePath(raw: string | undefined, fallback: string): str
 }
 
 /**
+ * Return `provided` only when its host is one of an allowlist of OWN domains;
+ * otherwise fall back to `fallback`. Use for any ABSOLUTE redirect URL handed to
+ * a third party (e.g. a Stripe Checkout `success_url`/`cancel_url`) — the
+ * open-redirect/phishing vector is a crafted `success_url=https://evil.com` that
+ * sends the user off-site after a payment completes. Unlike
+ * {@link safeRelativePath} (for `https://our-host${path}` composition), this is
+ * for fully-qualified URLs validated against an explicit host Set. Graceful
+ * (never throws) so a legitimate payment always completes — a too-strict
+ * allowlist degrades to the safe fallback, never to an error.
+ *
+ * @param provided - The client-supplied absolute URL (may be undefined).
+ * @param fallback - The safe default URL to use when `provided` is unsafe.
+ * @param allowedHosts - Lowercased hosts that are allowed redirect targets.
+ *
+ * @example
+ * ```ts
+ * const own = new Set(['nsk.projectsites.dev', 'projectsites.dev']);
+ * pickSafeRedirect('https://nsk.projectsites.dev/ok', fb, own); // => kept
+ * pickSafeRedirect('https://evil.com/phish', fb, own);          // => fb
+ * pickSafeRedirect('::::not a url', fb, own);                   // => fb
+ * ```
+ */
+export function pickSafeRedirect(
+  provided: string | undefined,
+  fallback: string,
+  allowedHosts: Set<string>,
+): string {
+  if (!provided) return fallback;
+  try {
+    return allowedHosts.has(new URL(provided).host.toLowerCase()) ? provided : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Sanitize an HTML string by removing known XSS vectors.
  *
  * The following dangerous patterns are stripped:

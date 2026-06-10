@@ -30,9 +30,15 @@ import {
   sanitizeHtml,
   stripHtml,
   escapeHtml,
+  pickSafeRedirect,
   timingSafeEqual,
   DOMAINS,
 } from '@project-sites/shared';
+
+// Re-exported for callers (and tests) that imported it from this module before
+// it was promoted to @project-sites/shared (2026-06-11). New consumers should
+// import `pickSafeRedirect` directly from the shared package.
+export { pickSafeRedirect };
 
 /**
  * Boundary contract for the PUBLIC `POST /api/donate` endpoint. Hardened
@@ -52,26 +58,6 @@ const DonateSchema = z.object({
   cancelUrl: z.string().url().startsWith('https://').optional(),
 });
 
-/**
- * Return `provided` only when its host is one of the donation site's OWN domains
- * (`{slug}.projectsites.dev` + any registered custom hostname); otherwise fall
- * back to `fallback`. Closes the open-redirect/phishing vector where a crafted
- * donate link set `successUrl=https://evil.com` and Stripe redirected the donor
- * off-site post-payment. Graceful (never errors) so a legit donation always
- * completes. Exported for unit testing.
- */
-export function pickSafeRedirect(
-  provided: string | undefined,
-  fallback: string,
-  allowedHosts: Set<string>,
-): string {
-  if (!provided) return fallback;
-  try {
-    return allowedHosts.has(new URL(provided).host.toLowerCase()) ? provided : fallback;
-  } catch {
-    return fallback;
-  }
-}
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 

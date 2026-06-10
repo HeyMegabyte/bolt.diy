@@ -8,7 +8,7 @@
  * gap was reachable. These cases assert the dangerous constructs are gone while
  * benign markup + benign `on…`-looking text is preserved.
  */
-import { sanitizeHtml, escapeHtml, safeRelativePath } from '../utils/sanitize.js';
+import { sanitizeHtml, escapeHtml, safeRelativePath, pickSafeRedirect } from '../utils/sanitize.js';
 
 describe('safeRelativePath — open-redirect defense', () => {
   const fb = '/admin';
@@ -28,6 +28,37 @@ describe('safeRelativePath — open-redirect defense', () => {
   it('falls back on undefined/empty', () => {
     expect(safeRelativePath(undefined, fb)).toBe(fb);
     expect(safeRelativePath('', fb)).toBe(fb);
+  });
+});
+
+describe('pickSafeRedirect — absolute-URL open-redirect defense', () => {
+  const allowed = new Set(['nsk.projectsites.dev', 'projectsites.dev', 'donate.nsk.org']);
+  const fb = 'https://nsk.projectsites.dev/ok';
+
+  it('keeps a URL whose host is on the allowlist', () => {
+    expect(pickSafeRedirect('https://nsk.projectsites.dev/thanks', fb, allowed)).toBe(
+      'https://nsk.projectsites.dev/thanks',
+    );
+    expect(pickSafeRedirect('https://donate.nsk.org/done', fb, allowed)).toBe(
+      'https://donate.nsk.org/done',
+    );
+  });
+
+  it('falls back for a cross-host (phishing) URL', () => {
+    expect(pickSafeRedirect('https://evil.com/steal', fb, allowed)).toBe(fb);
+    // userinfo bypass: host is evil.com, not the allowlisted prefix
+    expect(pickSafeRedirect('https://nsk.projectsites.dev@evil.com/x', fb, allowed)).toBe(fb);
+  });
+
+  it('falls back when undefined or unparseable', () => {
+    expect(pickSafeRedirect(undefined, fb, allowed)).toBe(fb);
+    expect(pickSafeRedirect('::::not a url', fb, allowed)).toBe(fb);
+  });
+
+  it('matches host case-insensitively', () => {
+    expect(pickSafeRedirect('https://NSK.ProjectSites.dev/x', fb, allowed)).toBe(
+      'https://NSK.ProjectSites.dev/x',
+    );
   });
 });
 
