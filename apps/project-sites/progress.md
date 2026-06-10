@@ -11,6 +11,12 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-10 (fire 9) — open-redirect sweep (3 fixes) + IDOR verified clean
+- **R1 (cf4c8f22):** `/api/donate` cross-host redirect → `pickSafeRedirect` own-domains-only (shipped the 4-fire-deferred host-policy with the safe default). +4 tests.
+- **R2 (b9460894):** mcp + social OAuth `return_url` userinfo-bypass (`@evil.com`→host evil.com when composed `https://projectsites.dev${return_url}`). New shared `safeRelativePath()`. +7 tests.
+- **R3 (3a56df27):** GitHub backup `return_url` — DIRECT `c.redirect(${returnUrl})` open redirect. Same util.
+Open-redirect class SWEPT (donate/mcp/social/github fixed; magic-link already allowlisted; billing Stripe-mediated). Also: IDOR write-sweep VERIFIED CLEAN + test-covered. Worker 4418 + shared green. NOT pushed (Brian gates prod).
+
 ## Fire 2026-06-10 (fire 8) — served-HTML XSS sweep + audit-arc detector
 Applied the audit-arc ladder (Detect→Fix→Surface) after fixing the HTML-injection class 3×:
 - **R1 (953d4608):** REFLECTED XSS on the served error page — `brandedErrorPage` interpolated `opts.message`/`details` (error msgs echo user input, e.g. `Slug "${newSlug}"…`) unescaped. escapeHtml all dynamic fields. +1 regression test.
