@@ -1,69 +1,122 @@
-# ULTIMATE LOOP — projectsites.dev admin: resolve everything, perfect the UI, E2E-TDD all of it
+# ULTIMATE CONVERGENCE LOOP — projectsites.dev
 
-> Run this as a relentless single-session loop. Operate under EVERY rule, skill, and agent in
-> `~/.claude` + `~/.agentskills` — that knowledge base IS the spirit of this project. Each
-> iteration ships ONE coherent, fully-verified slice and leaves the tree greener, more gorgeous,
-> better tested, and better documented than it found it. Do not stop until the ledger is empty
-> and every gate is green.
-
----
-
-## 0 — One-time setup (iteration 1 only)
-
-**A. Test sign-in seam (so `brian@megabyte.space` signs in with a hardcoded test password):**
-- Add `POST /api/auth/test-login` to the worker, **enabled ONLY when the `E2E_TEST_PASSWORD` secret is set** — return `404` when it's absent so the path never exists in normal prod (per `feature-flags` + `ai-agent-security`). It accepts `{ email, password }`, asserts `email === "brian@megabyte.space" && password === env.E2E_TEST_PASSWORD` (timing-safe compare), idempotently upserts the D1 `users` + `orgs` + `memberships(owner)` + a paid `subscriptions` row, mints a real session, and returns the bearer.
-- Wire the **real** `/signin` UI to drive this path: render a password field only when a build/`?test=1` flag is active, so Playwright signs in through the ACTUAL UI (homepage → click "Sign in" → type `brian@megabyte.space` + password → land on `/admin`). No API-only shortcuts inside journey specs.
-- `npm run e2e:seed` performs the idempotent D1 upsert. Set `E2E_TEST_PASSWORD` via `wrangler secret put` (prod) + `.dev.vars` (local). Document it in this app's `CLAUDE.md` and `packages/shared/CLAUDE.md`.
-
-**B. Build the issue ledger — `apps/project-sites/_LOOP_LEDGER.md`:** scan the whole repo and enumerate every open item across:
-- `TODO` / `FIXME` / `XXX` in `src/**` (grep), every Rec ever surfaced, `_ideas-50.md`, the audit gaps in recent sessions
-- `npm run validate:features` drift · `knip` dead code · `eslint`/`stylelint`/`semgrep` findings · `jscpd` dupes
-- Every failing OR missing unit test (Karma frontend, Jest worker+shared) and every admin section lacking an E2E + visual spec
-Rank each by **value × user-impact**. This ledger is the loop's worklist.
+> The single source of truth for driving this entire project to a finished, fully-tested,
+> gorgeous, deployed state. Supersedes and absorbs every prior convergence/completion doctrine
+> (`_ULTIMATE_COMPLETION`, `_ULTIMATE_CONVERGENCE`, `_SPARTAN_CONVERGENCE`, `CONVERGENCE`,
+> the cluster/WS integration logs — all now retired). Operate under EVERY rule, skill, and
+> agent in `~/.claude` + `~/.agentskills`. **The loop is the unit of intelligence; the agent
+> is fungible.** Do not stop until the ledger is empty and every gate is green.
 
 ---
 
-## The loop (repeat until the ledger is empty AND all gates green)
+## 0 — Operating doctrine (read every iteration)
 
-1. **PICK** the single highest-value open item from the ledger.
-2. **RED** — write the failing test first: a Playwright E2E that starts at the homepage, signs in as `brian@megabyte.space` via the test password, and navigates by clicks/keyboard only; plus a Karma/Jest unit where logic warrants. Run it; watch it fail. (Skipping TDD = the feature does not exist.)
-3. **GREEN** — implement the minimal "super-coded" change: full drop-in files, **zero stubs/placeholders**, god-tier-engineering patterns, **Spartan UI only** + cyan/black tokens (`--ps-*`), `gorgeous-by-default` (enumerables as pills not CSV, `0.333s` transitions, `<app-rolling-counter>` on every stat, `appReveal` on every section, `:focus-within` on wrapped controls), RxJS-first at backend edges, **Zod at every boundary**, feature-flagged (`enabled=0, rollout=0, stage=experimental`) if non-trivial.
-4. **REFACTOR + CLEAN** — run the full `~/.agentskills` lint stack in order: `oxlint → eslint --fix → prettier --write → stylelint → knip → jscpd → semgrep`, then `ng build` (AOT catches strict-template errors that `tsc` misses) + worker/shared `tsc --noEmit`. **Delete the dead code knip surfaces** (only when no concurrent worktree touches it).
-5. **VERIFY (parallel)** — fan out Playwright across all **6 breakpoints (375/390/768/1024/1280/1920)** for the touched admin section: **visual** (axe-core 0 violations, AI-vision rubric ≥8/10, screenshot every step) AND **technical** (console-error-free, no 4xx/5xx, CSP/Trusted-Types clean). Worker Jest + shared Jest green. 100% of the touched feature has ≥1 E2E asserting it against the running app.
-6. **DOCUMENT** — improve intent-level JSDoc on touched exports, update the section README + `e2e/FEATURES.md` + `e2e/COVERAGE.yml` + the project `CLAUDE.md` for any changed surface. Stale docs are bugs.
-7. **DEPLOY + PROD-E2E** — build + deploy (worker + R2) with `CLOUDFLARE_API_KEY` + `blzalewski@gmail.com` via the green `container-deploy` path; verify the changed routes live; purge cache.
-8. **SELF-IMPROVE** — ask: *"What brilliant addition would make this surface measurably better, and what assumed-required feature is missing here?"* Use best judgment; ship the best per `auto-integrate-recs` (<2h → inline). Append anything bigger to the ledger.
-9. **CLOSE** — mark the item done in the ledger; commit (conventional + gitmoji via the lint-doctrine hooks); pick the next item.
+- **Fresh-context Ralph skeleton.** Each iteration is a fresh spawn whose ONLY inherited memory is `progress.md` + `git log`/`git diff` + `_LOOP_LEDGER.md` — never one long conversation (kills context rot + goal drift). Checkpoint = a git commit after every green phase; if compaction fires, read `git log` FIRST before any tool call.
+- **Machine-verifiable DONE — the orchestrator decides, not the agent.** Every item resolves to named test(s). A phase closes only when its tests pass AND its **critic** approves (§4). No "I think it looks done." Emit a parseable `<promise>DONE: <item-id></promise>` so the outer loop advances deterministically.
+- **Model-tier routing per phase.** Haiku → grep/format/lint/changelog. Sonnet → implementation, test-writing, debugging, deploy. Opus → architecture, security/payment/auth review, visual-QA, the critic gate, meta-orchestration. **Never Opus for anything greppable.**
+- **Hard budgets (cost runaway is the #1 failure mode).** Set `max_parallel_agents = 4` (ceiling 6, justify in the assignment table), and a token budget per phase. Treat budget exhaustion as a hard stop + checkpoint, not a reason to degrade quality.
+- **Termination guards.** (a) max-iteration cap; (b) **repetition detector** — hash the last 3 tool-call sequences; identical → halt + escalate; (c) the zero-recommendations gate in §10.
+- **Drift fixes ship the SAME turn** — never defer architecture drift to a follow-up PR (`drift-detection`). Stale docs are bugs.
 
 ---
 
-## Coverage mandate (every admin section must reach "done")
+## 1 — One-time setup (skip the `[x]` items)
 
-Each of these MUST end with a parallel-safe E2E that signs in as `brian@megabyte.space` and exercises every clickable / form field / nav link / modal / keyboard shortcut / empty / loading / error state — axe-clean at 6bp, AI-vision ≥8, console-error-free:
-
-`dashboard · sites · site-detail (+ branches/mcp-server/dna/swarm/copilot/deliverability) · forms · media · snapshots · billing · audit · docs · ai-endpoints · ai-logs · analytics · mcp · social · voice · seo · domains · apps · settings · user-settings · editor · feature-flags · site-features`
-
-No section is "done" without it. Maintain the inventory in `e2e/FEATURES.md` + `e2e/COVERAGE.yml`; CI fails on any feature without a mapped, passing spec.
-
----
-
-## Hard gates (per iteration — non-negotiable, build-fail if missed)
-
-Deployed + purged · Playwright E2E green at 6bp · AI-vision ≥8/10 · axe 0 violations · Lighthouse A11y ≥95 / Perf ≥75 · zero errors/stubs/TODOs in shipped output · CSP L3 strict-dynamic + nonce · Trusted Types · all hyperlinks valid · INP ≤200ms · JSON-LD accurate-only · every new feature behind a flag · knip/jscpd/semgrep clean · `validate:features` drift = 0.
+- [x] **Worker test-login seam** — `authenticateTestLogin` + `POST /api/auth/test-login`, secret-gated by `E2E_TEST_PASSWORD` (404 when unset — never a live backdoor), constant-time compare, idempotent owner upsert, real session. 7 Jest tests green.
+- [ ] **Wire `/signin` UI → the seam** — password field shown only under `?test=1`/build flag; submit to `/api/auth/test-login`; store bearer; redirect to `/admin`. Playwright signs in through the REAL homepage→admin flow (no API shortcut).
+- [ ] **`scripts/e2e-seed.mjs` + `e2e:seed`** — idempotent D1 owner upsert.
+- [ ] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars` (local); wire into both `playwright.prod.config.ts`.
+- [ ] **`CONVERGENCE.md`** — write per-phase acceptance criteria (the rubric each critic checks). The loop reads it before every iteration.
+- [ ] **Ledger is live** — `_LOOP_LEDGER.md` holds every open item (P0→P3), re-scanned each iteration.
 
 ---
 
-## Discipline
+## 2 — The per-item loop (RED → GREEN → … → CLOSE)
 
-- **TDD-first, always** — failing test before code; bug fix = failing regression test first.
-- **Parallelize** per `parallel-subagent-economy` — fan out 3-4 purpose-built specialists (not generic workers) for independent sections/specs; emit the assignment table + run the Agent Diversity Review gate before declaring DONE.
-- **Spirit of `~/.agentskills`** in every decision — `god-tier-engineering`, `gorgeous-by-default`, `cinematic-ui-patterns`, `spartan-ui-design-system`, `verification-loop`, `drift-detection`, `feature-flags`, `zod-everywhere`.
-- **Context hygiene** — checkpoint to `progress.md` at 60% context, then continue in a fresh session.
-- **Terminate ONLY when**: the ledger is empty, every listed section's E2E + visual is green, `knip`/lint/`validate:features` are clean, and a final `completeness-checker` + `agent-diversity-review` pass with zero recommendations.
+1. **PICK** the single highest-value open `[ ]` item from `_LOOP_LEDGER.md` (run prod gates first; inspect any NEW sections that appeared).
+2. **RED (tests-first halves thrash).** Write the failing test first: a Playwright E2E that starts at the homepage, signs in as `brian@megabyte.space` via the test password, navigates by clicks/keyboard only; plus Jest/Karma unit where logic warrants. Run it; watch it fail.
+3. **GREEN.** Minimal "super-coded" change — full drop-in files, **zero stubs/placeholders**, god-tier-engineering patterns, **Spartan UI only** + cyan/black `--ps-*` tokens, `gorgeous-by-default` (enumerables → pills not CSV, `0.333s` transitions, `<app-rolling-counter>` on every stat, `appReveal` on every section, `:focus-within` on wrapped controls), RxJS-first at backend edges, **Zod at every boundary**, feature-flagged (`enabled=0, rollout=0, stage=experimental`) if non-trivial.
+4. **REFACTOR + CLEAN.** Full lint stack in order: `oxlint → eslint --fix → prettier --write → stylelint → knip → jscpd → semgrep`, then `ng build` (AOT catches strict-template errors `tsc` misses) + worker/shared `tsc --noEmit`. Delete the dead code `knip` surfaces (only when no concurrent worktree touches it). Use `nx affected` / scoped test runs so each iteration only re-verifies what changed.
+5. **VERIFY (Playwright Test-Agent triad, parallel).** Run planner→generator→healer. Default to **a11y-snapshot mode** (~230 tokens/step, CSS-resilient); reserve **AI vision** for canvas/chart surfaces + visual-regression diffs. Across **6 breakpoints (375/390/768/1024/1280/1920)**: **visual** (axe-core 0 violations, AI-vision rubric ≥8/10, screenshot every step) AND **technical** (console-error-free, no 4xx/5xx, CSP/Trusted-Types clean, INP ≤200ms). Worker Jest (902 suite) + shared Jest + frontend Karma green.
+6. **EVAL gate** (for any AI-output surface). Score with the **60/30/10 mix**: 60% deterministic (schema/exact-match/latency), 30% LLM-as-judge, 10% human spot-check — never LLM-only. Auth/payment/AI surfaces also pass a **promptfoo red-team** probe. After deploy, harvest any anomalous prod trace into the eval dataset before closing.
+7. **CRITIC gate** (§4) — a fresh adversarial reviewer must approve against `CONVERGENCE.md`. No advance without it.
+8. **DOCUMENT.** Intent-level JSDoc on touched exports; update the section README, `e2e/FEATURES.md` + `e2e/COVERAGE.yml` (both worker + frontend), and the project `CLAUDE.md` for any changed surface.
+9. **DEPLOY + PROD-E2E.** Build + deploy (worker via `wrangler deploy`, frontend via R2, container DOs via `container-deploy`) with `CLOUDFLARE_API_KEY` + `blzalewski@gmail.com`; verify changed routes live; purge. Push → treat **CI-green as the convergence signal**, not self-assessment.
+10. **SELF-IMPROVE.** Ask: *"What brilliant addition would make this surface measurably better, and what assumed-required feature is missing here?"* Ship the best inline (`auto-integrate-recs`, <2h); append bigger finds to the ledger.
+11. **CLOSE.** Check the item off; commit (conventional + gitmoji); emit `<promise>DONE: <id></promise>`; next.
+
+---
+
+## 3 — Builder / Critic adversarial split (mandatory)
+
+"The agent that wrote the code is compromised." Every item runs through two distinct agents:
+- **Builder** (Sonnet, speed) — writes the test + implementation.
+- **Critic** (Opus, reasoning) — fresh context, reviews against the `CONVERGENCE.md` acceptance criteria + the Definition of Done (§7) + the hard gates (§7), returns **pass/fail with explanation**. Builder iterates until BOTH the critic and the tests pass.
+- **Sequential critic for architecture decisions** (epistemic diversity beats parallel-merge's "Frankenstein" incoherence); **parallel fan-out only for independent feature branches** (disjoint files).
+
+---
+
+## 4 — Coverage manifest (the loop is NOT done until ALL of this is green)
+
+Every surface below MUST end with a parallel-safe `*.e2e.ts` that signs in as `brian@megabyte.space` and exercises every clickable / form field / nav link / modal / keyboard shortcut / empty / loading / error state — axe-clean at 6bp, AI-vision ≥8, console-clean. Track in `e2e/FEATURES.md` + `COVERAGE.yml`; CI fails on any gap.
+
+**Admin sections (47):** accept-invite · ai-chat-extras · ai-endpoints (+ code-editor, ide) · ai-logs · analytics · api-tokens · apps (+ detail, instances) · audit · billing · content-freshness · dashboard (+ calendar-widget) · deliverability · docs (+ endpoint, overview) · domain-stack · domains · editor · email · feature-flags (+ audit-timeline, badge-row, mode-switcher) · forms · inbox · logs-dashboard · logs-explorer · mcp · media · not-found · progressive-preview · pseo · seo · settings · site-branches · site-copilot · site-detail · site-dna · site-features · site-mcp-server · sites · snapshots · snapshots-diff · social · social-analytics · swarm · user-settings · voice (+ agent-settings, conversations, mcps, numbers, share, test-console) · webhooks
+
+**Public/marketing pages (17):** blog · changelog · checkout · create · error · homepage · import-from-url · integrations · legal · press · review · roadmap · search · signin · status · super-admin · waiting
+
+**Worker route families (54) — each needs Jest + a contract/E2E:** agency · agentic_commerce · agents · ai_admin · ai_endpoints_public · api · apps · assets · autofill · billing_addons · bolt_admin · concierge · copilot · dashboard · docs · domain_purchase · domain_stack · editor_chats · email_deliverability · env_vars · experiments · feature_e2e · features · forms · health · i18n · inbox · mcp_oauth · mcp_site · media · page_audio · pseo · pseo_matrix_v2 · public · pulse_analytics · review_links · review_public · search · seo_autopilot · site_branches · site_detail_tabs · site_dna · snapshot_quality · social · social_oauth · storefront · super_admin · templates · vision_qa · voice · voice_webhooks · wallet · webhooks · webhooks_admin
+
+**Feature modules (48 dirs: 29 built · 9 partial · 7 stub · 3 alias):** every non-alias module reaches the 6-criterion DoD (§7). Alias shims (`inbox`/`public-api`/`swarm-editor`) are intentional — never delete.
+
+---
+
+## 5 — Open-work ledger (P0→P3, re-scan every iteration)
+
+- **P0 — finish the test harness** (§1 unchecked items).
+- **P1 — highest-value features** (`_IDEAS.md`): concierge widget injection · visitor-analytics beacon · voice receptionist at publish · native booking engine · GEO layer + citation tracking · edge per-visitor personalization · post-publish growth agent.
+- **P2 — drift/security/cleanup:** `conversational_edits.ts` cross-tenant write guard (security) · `features.ts` ~33 `as`-cast handlers → Zod **per-feature on promotion, never mass-retrofit** · `big_bets.ts` 30 mock features → real backends per-flag · 44 knip-dead `features.ts` exports → remove · flag-cache one-liner (`features.ts` override-write must call `invalidateFlagCache`) · wire the `*.e2e.ts` prod suite into CI · ag-grid → TanStack perf wave (`docs/perf-wave-ag-grid-to-tanstack.md`) · LLM eval harness · pre-publish content guardrails.
+- **P2 — TODO/FIXME sweep (14 in src):** Stripe refund stub (`super_admin.ts`) · impersonation JWT stub · agency-invite email stub · `seo_autopilot` site-serving wiring · Sora/Veo API placeholder · snapshot `commit_iso` gap · `revertSnapshot` FIXME.
+- **P2 — UNFINISHED_FEATURES.md:** ~36 dark-but-backed flags (verify + promote) · ~104 thin-404 flags (build or retire) · 8 genuinely-missing core modules · owner Features page (1/8 backed) · 7 logged-unfixed bugs.
+- **P3 — per-section E2E + visual coverage** for all 47 admin sections + 17 public pages (§4).
+
+---
+
+## 6 — Definition of Done + Hard gates
+
+**A feature module is DONE only with all 6:** (1) `manifest.ts` (7 fields); (2) D1 flag `enabled=0, rollout=0, stage=experimental`; (3) Zod at every boundary; (4) unit tests green; (5) `e2e/<slug>/` homepage-first Playwright signed in as `brian@megabyte.space`; (6) PostHog event + Sentry breadcrumb tagged `featureSlug`.
+
+**Per-iteration hard gates (build-fail if missed):** deployed + purged · Playwright green 6bp · AI-vision ≥8/10 · axe 0 · Lighthouse A11y ≥95 / Perf ≥75 · zero errors/stubs/TODOs in shipped output · CSP L3 strict-dynamic + nonce · Trusted Types · all hyperlinks valid · INP ≤200ms · JSON-LD accurate-only · every new feature flagged · knip/jscpd/semgrep clean · **`validate:features` drift = 0** (CI `feature-architecture.yml --strict` is a merge-blocker) · resurrection-guard clean.
+
+---
+
+## 7 — Context + cost discipline
+
+- Checkpoint to `progress.md` (≤30 lines: what's done, what's next, the active item) at 60% context → continue in a fresh session.
+- One fold, one build, one deploy per iteration — subagents NEVER build/commit/deploy independently; they return ≤200-word summaries.
+- Read shared context (schema/brand-tokens/fixtures) ONCE in the orchestrator; pass a 100-300-word slice into each subagent brief — never have N agents re-grep the same files.
+- Per `parallel-subagent-economy`: fan out only when it saves ≥5 min wall-clock AND units are disjoint; 3-4 wide, ceiling 6.
+
+---
+
+## 8 — Termination (the loop is DONE only when ALL hold)
+
+1. `_LOOP_LEDGER.md` has zero `[ ]` items.
+2. Every §4 surface (47 admin + 17 public + 54 route families + non-alias modules) has a green E2E + visual spec listed in `FEATURES.md`/`COVERAGE.yml`.
+3. `knip` + full lint stack + `validate:features` + resurrection-guard all clean.
+4. All CI workflows green; prod E2E green at 6bp.
+5. A final **`completeness-checker`** pass (Feature Completeness Engine + Zero-Recommendations gate) AND **`agent-diversity-review`** pass — both with zero recommendations.
+
+If any fail, it is NOT done — fix-forward in the same session.
+
+---
+
+## 9 — Self-evolution
+
+After each major session, the meta-orchestrator proposes improvements to THIS prompt (gaps it hit, new SOTA, recurring failure modes) and folds confirmed lessons back into `~/.agentskills` + this file the SAME turn (`prompt-as-training-signal`). The convergence prompt improves itself.
 
 ---
 
 ### Run it
-
-- Direct: paste this file's contents as the prompt, or: *"Execute `apps/project-sites/_ULTIMATE_LOOP.prompt.md` — start at setup, then loop."*
-- Scheduled: `/loop 30m Execute apps/project-sites/_ULTIMATE_LOOP.prompt.md — pick the next ledger item, close it end-to-end (RED→GREEN→clean→verify→doc→deploy→self-improve), commit.`
+- Direct: *"Execute `apps/project-sites/_ULTIMATE_LOOP.prompt.md` — pick the next ledger item, close it end-to-end (RED→GREEN→clean→verify→eval→critic→doc→deploy→self-improve), commit, emit `<promise>DONE</promise>`."*
+- Scheduled: `/loop 30m Execute apps/project-sites/_ULTIMATE_LOOP.prompt.md — next ledger item, full loop, commit.`
+- Each fire is a FRESH context that reads `progress.md` + `git log` + `_LOOP_LEDGER.md` first.
