@@ -15,7 +15,8 @@
 - **Machine-verifiable DONE — the orchestrator decides, not the agent.** Every item resolves to named test(s). A phase closes only when its tests pass AND its **critic** approves (§4). No "I think it looks done." Emit a parseable `<promise>DONE: <item-id></promise>` so the outer loop advances deterministically.
 - **Model-tier routing per phase.** Haiku → grep/format/lint/changelog. Sonnet → implementation, test-writing, debugging, deploy. Opus → architecture, security/payment/auth review, visual-QA, the critic gate, meta-orchestration. **Never Opus for anything greppable.**
 - **Hard budgets (cost runaway is the #1 failure mode).** Set `max_parallel_agents = 4` (ceiling 6, justify in the assignment table), and a token budget per phase. Treat budget exhaustion as a hard stop + checkpoint, not a reason to degrade quality.
-- **Termination guards.** (a) max-iteration cap; (b) **repetition detector** — hash the last 3 tool-call sequences; identical → halt + escalate; (c) the zero-recommendations gate in §10.
+- **Batch of 10 per fire.** Each invocation runs **10 convergence rounds** (10 ledger items closed end-to-end), then reports — see §2. Budgets + parallelism caps apply across the whole batch.
+- **Termination guards.** (a) 10-round batch cap per fire + a max-iteration cap; (b) **repetition detector** — hash the last 3 tool-call sequences; identical → halt + escalate; (c) a hard gate failing twice on one item → escalate, don't thrash; (d) the zero-recommendations gate in §8.
 - **Drift fixes ship the SAME turn** — never defer architecture drift to a follow-up PR (`drift-detection`). Stale docs are bugs.
 
 ---
@@ -33,6 +34,8 @@
 
 ## 2 — The per-item loop (RED → GREEN → … → CLOSE)
 
+**Batch cadence: run 10 rounds per fire.** Each invocation closes **up to 10 ledger items** (10 full passes of steps 1-11 below) before reporting — not one. Track them as `Round 1/10 … 10/10`. Re-checkpoint `progress.md` after every round so a mid-batch crash resumes cleanly. **Stop the batch early** (and report) if ANY of: the ledger empties · a hard gate fails twice on the same item (escalate it, don't thrash) · the repetition detector trips · the per-fire token budget is exhausted · context hits 60% (checkpoint → the next fire continues). Honor the `max_parallel_agents`/budget caps ACROSS the whole batch, not per round. One round = one item end-to-end:
+
 1. **PICK** the single highest-value open `[ ]` item from `_LOOP_LEDGER.md` (run prod gates first; inspect any NEW sections that appeared).
 2. **RED (tests-first halves thrash).** Write the failing test first: a Playwright E2E that starts at the homepage, signs in as `brian@megabyte.space` via the test password, navigates by clicks/keyboard only; plus Jest/Karma unit where logic warrants. Run it; watch it fail.
 3. **GREEN.** Minimal "super-coded" change — full drop-in files, **zero stubs/placeholders**, god-tier-engineering patterns, **Spartan UI only** + cyan/black `--ps-*` tokens, `gorgeous-by-default` (enumerables → pills not CSV, `0.333s` transitions, `<app-rolling-counter>` on every stat, `appReveal` on every section, `:focus-within` on wrapped controls), RxJS-first at backend edges, **Zod at every boundary**, feature-flagged (`enabled=0, rollout=0, stage=experimental`) if non-trivial.
@@ -43,7 +46,7 @@
 8. **DOCUMENT.** Intent-level JSDoc on touched exports; update the section README, `e2e/FEATURES.md` + `e2e/COVERAGE.yml` (both worker + frontend), and the project `CLAUDE.md` for any changed surface.
 9. **DEPLOY + PROD-E2E.** Build + deploy (worker via `wrangler deploy`, frontend via R2, container DOs via `container-deploy`) with `CLOUDFLARE_API_KEY` + `blzalewski@gmail.com`; verify changed routes live; purge. Push → treat **CI-green as the convergence signal**, not self-assessment.
 10. **SELF-IMPROVE.** Ask: *"What brilliant addition would make this surface measurably better, and what assumed-required feature is missing here?"* Ship the best inline (`auto-integrate-recs`, <2h); append bigger finds to the ledger.
-11. **CLOSE.** Check the item off; commit (conventional + gitmoji); emit `<promise>DONE: <id></promise>`; next.
+11. **CLOSE.** Check the item off; commit (conventional + gitmoji); emit `<promise>DONE: <id> (round N/10)</promise>`; loop to the next round (until 10 rounds done or an early-stop condition above fires), then report all 10.
 
 ---
 
@@ -117,6 +120,7 @@ After each major session, the meta-orchestrator proposes improvements to THIS pr
 ---
 
 ### Run it
-- Direct: *"Execute `apps/project-sites/_ULTIMATE_LOOP.prompt.md` — pick the next ledger item, close it end-to-end (RED→GREEN→clean→verify→eval→critic→doc→deploy→self-improve), commit, emit `<promise>DONE</promise>`."*
-- Scheduled: `/loop 30m Execute apps/project-sites/_ULTIMATE_LOOP.prompt.md — next ledger item, full loop, commit.`
+- **Each fire = 10 rounds.** Per invocation, close 10 ledger items end-to-end (RED→GREEN→clean→verify→eval→critic→doc→deploy→self-improve→CLOSE per round), re-checkpoint `progress.md` between rounds, then report all 10 (or fewer if an early-stop in §2 fired).
+- Direct: *"Execute `apps/project-sites/_ULTIMATE_LOOP.prompt.md` — run 10 convergence rounds; commit + `<promise>DONE: <id> (round N/10)</promise>` each."*
+- Scheduled: `/loop 30m Execute apps/project-sites/_ULTIMATE_LOOP.prompt.md` (each 30-min fire runs the 10-round batch).
 - Each fire is a FRESH context that reads `progress.md` + `git log` + `_LOOP_LEDGER.md` first.
