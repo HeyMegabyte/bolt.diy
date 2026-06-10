@@ -66,5 +66,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ## Unit-coverage backlog (autonomous — no Brian; repo mandates 100%)
 - [x] `build_budget.ts` — AI-spend gate `checkBudget`/`recordSpend` (fire-23, 10 tests).
-- [ ] `build_events.ts` (243L) — untested; next.
-- [ ] re-run find-untested scan after build_events for more gaps.
+- [x] `build_events.ts` — event-sourced build stream `appendBuildEvent`/`replayBuildEvents`/`isTerminalBuildEvent` + schema (fire-24, 16 tests). **All `src/services/*.ts` now have a referencing test.**
+- [ ] **NEXT: `src/durable_objects/voice_browse_helpers.ts` (171L)** — helpers = likely pure fns, ideal unit targets. VERIFY first it isn't already covered by the colocated `voice_browse_agent.test.ts`.
+- [ ] Then: `src/prompts/social_persona.ts` (195L), `dashboard_persona.ts` (89L); `src/workflows/social-publish.ts` (224L), `pseo-generation-workflow.ts` (78L). (NOTE: `voice_browse_agent.ts` IS tested — colocated `*.test.ts`, my find-scan false-flagged it.)
+- [ ] Deeper: run an actual coverage report to find under-covered BRANCHES within already-referenced files (the find-scan only finds files with zero references, not shallow coverage).
