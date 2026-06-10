@@ -9,7 +9,14 @@
 - **Iter 3:** flag-cache staleness FIXED (`routes/features.ts` `POST /api/site-features/:key` now `invalidateFlagCache` after the override write — ce6bd17a; tsc clean, flag suite 12/12). conversational_edits guard = N/A (route unbuilt). dead-code excision scoped + name-collision trap documented in `features.ts` header.
 - Repo `*.md` consolidated 277→73; all 16 generation prompts enhanced; convergence prompt rewritten with 2026 SOTA.
 
-> Honest note on "50 rounds": the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 50 — per loop doctrine §2 (10/fire, checkpoint at 60% ctx). The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
+> Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
+
+## Fire 2026-06-09 (this fire) — investigation + de-risk, 0 risky closures
+After fire-1 closed the flag-cache class (both write paths), NO clean small closable rounds remain. Investigated 3 candidates, all rejected with reasons banked to the ledger:
+- **Dead-code excision (`features.ts`)** — fully de-risked to a ~10-min mechanical job (exact keep-set of 10 + remove 44 knip-dead + 3 transitive `sha256Hex`/`runCwvGate`/`previewVeoCost`). NOT executed: zero runtime value (tree-shaken) + 550-line delete at tail-of-budget = wrong time to risk the 902-suite build. **Next fire with fresh budget: just run the spec'd excision + `tsc`+jest+knip+eslint.**
+- **`env_vars.ts` `as`-casts** — verified NOT a security hole (`setEnvVar`→`validateScopeFields` already validates). Downgraded to style-drift convert-on-touch.
+- **copilot config cache** — already fixed fire-1 (1a2ebce1).
+Tree green (tsc clean, features.ts untouched). The genuinely-valuable P1 work needs Brian's scope/cost go-ahead before the loop spends on 40–80h features.
 
 ## Active item (resume here) — finish P0 test harness
 1. **Wire `/signin` UI → the seam** — password field when `?test=1`/build flag active; submit to `POST /api/auth/test-login`; store bearer via `AuthService`; redirect `/admin`. RED Karma/Playwright first. Files: `frontend/src/app/pages/signin/`, `services/auth.service.ts`, `services/api.service.ts`.
