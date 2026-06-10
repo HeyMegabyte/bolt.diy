@@ -33,13 +33,16 @@ import {
   DOMAINS,
   randomHex,
   sha256Hex,
+  timingSafeEqual,
   type CreateMagicLink,
   type VerifyMagicLink,
   createMagicLinkSchema,
   verifyMagicLinkSchema,
   unauthorized,
+  notFound,
   badRequest,
 } from '@project-sites/shared';
+import { z } from 'zod';
 import { dbQuery, dbInsert, dbUpdate, dbExecute, dbQueryOne } from './db.js';
 import type { Env } from '../types/env.js';
 
@@ -1011,4 +1014,90 @@ export async function findOrCreateUser(
     }),
   );
   return { user_id: userId, org_id: orgId, is_new: true };
+}
+
+// ---------------------------------------------------------------------------
+// E2E test sign-in seam
+// ---------------------------------------------------------------------------
+
+/**
+ * The single account the test-login seam authenticates. Brian's owner account
+ * already gets unlimited build quota (`build_limits`), so the E2E suite signs
+ * in as this identity to exercise every paid/owner surface.
+ */
+export const TEST_LOGIN_EMAIL = 'brian@megabyte.space';
+
+/** Zod contract for the test-login body — strict, rejects unknown keys. */
+const testLoginSchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(1).max(256),
+  })
+  .strict();
+
+/**
+ * Authenticate the `brian@megabyte.space` E2E test-login seam.
+ *
+ * @remarks
+ * Secret-gated by `env.E2E_TEST_PASSWORD`. When that secret is UNSET the seam
+ * is OFF and this throws {@link notFound} (404) so the route does not exist for
+ * normal prod — it is never a live auth backdoor (per `ai-agent-security`).
+ * When ON, it accepts ONLY the canonical {@link TEST_LOGIN_EMAIL} plus the
+ * exact secret (constant-time compare of equal-length SHA-256 digests, so no
+ * password length is leaked), then idempotently upserts the user/org/owner
+ * membership via {@link findOrCreateUser} and mints a real {@link createSession}
+ * — so Playwright signs in through the real UI and reaches a live session.
+ *
+ * @param db       - D1 binding.
+ * @param env      - Needs only `E2E_TEST_PASSWORD`.
+ * @param rawInput - Untrusted request body; validated against `testLoginSchema`.
+ * @returns `{ token, email, user_id, org_id }` — a real bearer session.
+ * @throws 404 when the seam is disabled; 401 on wrong email/password; 400 (ZodError) on a malformed body.
+ *
+ * @example
+ * ```ts
+ * const { token } = await authenticateTestLogin(env.DB, env, await c.req.json());
+ * ```
+ */
+export async function authenticateTestLogin(
+  db: D1Database,
+  env: Pick<Env, 'E2E_TEST_PASSWORD'>,
+  rawInput: unknown,
+): Promise<{ token: string; email: string; user_id: string; org_id: string }> {
+  const expected = env.E2E_TEST_PASSWORD;
+  // Seam OFF unless the secret is provisioned — caller maps this to a 404.
+  if (!expected) {
+    throw notFound('Not found');
+  }
+
+  const input = testLoginSchema.parse(rawInput);
+  const emailOk = input.email.toLowerCase() === TEST_LOGIN_EMAIL;
+  // Constant-time over equal-length digests — avoids leaking the secret length.
+  const passwordOk = timingSafeEqual(await sha256Hex(input.password), await sha256Hex(expected));
+  if (!emailOk || !passwordOk) {
+    throw unauthorized('Invalid test credentials');
+  }
+
+  const user = await findOrCreateUser(db, {
+    email: TEST_LOGIN_EMAIL,
+    display_name: 'Brian Zalewski',
+  });
+  const session = await createSession(db, user.user_id, 'e2e-test-login');
+
+  console.warn(
+    JSON.stringify({
+      level: 'info',
+      service: 'auth',
+      message: 'Test-login seam authenticated',
+      user_id: user.user_id,
+      email: TEST_LOGIN_EMAIL,
+    }),
+  );
+
+  return {
+    token: session.token,
+    email: TEST_LOGIN_EMAIL,
+    user_id: user.user_id,
+    org_id: user.org_id,
+  };
 }

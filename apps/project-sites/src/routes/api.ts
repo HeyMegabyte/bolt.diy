@@ -404,6 +404,37 @@ api.post('/api/auth/magic-link/verify', async (c) => {
 });
 
 /**
+ * E2E test sign-in — the `brian@megabyte.space` + hardcoded-password seam the
+ * Playwright suite drives through the real UI.
+ *
+ * @route POST /api/auth/test-login
+ * @remarks
+ * Secret-gated: returns `404` whenever `E2E_TEST_PASSWORD` is unset, so the
+ * endpoint does not exist in normal prod (never a live auth backdoor, per
+ * `ai-agent-security`). When enabled it accepts ONLY the canonical test email +
+ * the exact secret, upserts the owner account, and returns a real bearer
+ * session — identical shape to the magic-link JSON variant above.
+ * @returns `{ data: { token, email, user_id, org_id } }`
+ */
+api.post('/api/auth/test-login', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const result = await authService.authenticateTestLogin(c.env.DB, c.env, body);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: result.org_id,
+    actor_id: result.user_id,
+    action: 'auth.test_login',
+    message: `E2E test-login seam — '${result.email}' signed in`,
+    target_type: 'user',
+    target_id: result.user_id,
+    metadata_json: { method: 'test_login' },
+    request_id: c.get('requestId'),
+  });
+
+  return c.json({ data: result });
+});
+
+/**
  * Start the Google OAuth flow — generates state, persists it to D1
  * via `oauth_states`, and 302-redirects the browser to Google's
  * consent screen.

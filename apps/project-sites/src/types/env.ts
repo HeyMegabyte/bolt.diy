@@ -48,6 +48,16 @@ export interface Env {
   /** Primary relational store (SQLite via Cloudflare D1). */
   DB: D1Database;
 
+  // ── E2E test sign-in seam ─────────────────────────────────
+  /**
+   * Hardcoded password for the `brian@megabyte.space` test-login seam used by
+   * the Playwright E2E suite. The `/api/auth/test-login` endpoint returns 404
+   * whenever this is UNSET, so the seam never exists in normal prod — it is a
+   * test affordance, never a live auth backdoor. Provision via
+   * `wrangler secret put E2E_TEST_PASSWORD`. See `authenticateTestLogin`.
+   */
+  E2E_TEST_PASSWORD?: string;
+
   // ── R2 Object Storage ─────────────────────────────────────
   /** Static site output bucket (`sites/{slug}/{version}/`, `marketing/`). */
   SITES_BUCKET: R2Bucket;
