@@ -27,6 +27,7 @@
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { safeRelativePath } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { getAdapter, type Provider } from '../services/mcp_client.js';
 import { encrypt } from '../services/ai_crypto.js';
@@ -120,7 +121,10 @@ mcpOauth.get('/api/mcp/:provider/connect', async (c) => {
   if (!isOauthConfigured(c.env, provider)) {
     return c.json({ error: 'oauth_not_configured', provider }, 501);
   }
-  const returnUrl = c.req.query('return_url') ?? '/admin/mcp';
+  // Sanitize to a same-origin relative path — the callback composes
+  // `https://projectsites.dev${returnUrl}`, so an unchecked `@evil.com` /
+  // `//evil.com` would be an open redirect. (Stored safe → callback is safe.)
+  const returnUrl = safeRelativePath(c.req.query('return_url'), '/admin/mcp');
   const state = crypto.randomUUID().replace(/-/g, '');
   const codeVerifier = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(48))))
     .replace(/[^A-Za-z0-9]/g, '')

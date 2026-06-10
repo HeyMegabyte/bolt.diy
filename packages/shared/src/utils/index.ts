@@ -57,13 +57,7 @@
  * }
  * ```
  */
-export {
-  escapeHtml,
-  sanitizeHtml,
-  stripHtml,
-  sanitizeSlug,
-  businessNameToSlug,
-} from './sanitize.js';
+export { escapeHtml, safeRelativePath, sanitizeHtml, stripHtml, sanitizeSlug, businessNameToSlug } from './sanitize.js';
 export { redact, redactObject } from './redact.js';
 export {
   AppError,

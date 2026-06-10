@@ -31,6 +31,28 @@
  */
 
 /**
+ * Return `raw` only when it is a SAFE same-origin relative path (begins with a
+ * single `/`, no scheme, host, userinfo, or backslash/control tricks);
+ * otherwise return `fallback`. Use for any `return_url`/`next`/redirect param
+ * that is later composed as `https://our-host${path}` — the classic
+ * open-redirect bypass is `@evil.com` (→ `https://our-host@evil.com`, host
+ * `evil.com`) and `//evil.com` (protocol-relative).
+ *
+ * @example
+ * ```ts
+ * safeRelativePath('/admin/mcp', '/admin');   // => '/admin/mcp'
+ * safeRelativePath('@evil.com', '/admin');    // => '/admin'  (no leading slash)
+ * safeRelativePath('//evil.com', '/admin');   // => '/admin'  (protocol-relative)
+ * ```
+ */
+export function safeRelativePath(raw: string | undefined, fallback: string): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\') || /\s/.test(raw)) {
+    return fallback;
+  }
+  return raw;
+}
+
+/**
  * Sanitize an HTML string by removing known XSS vectors.
  *
  * The following dangerous patterns are stripped:

@@ -226,6 +226,18 @@ describe('GET /api/mcp/:provider/connect', () => {
     expect(opts.codeVerifier).toBe(codeVerifier);
   });
 
+  it('sanitizes a malicious return_url to the fallback (open-redirect defense)', async () => {
+    const authorizeUrl = jest.fn(() => 'https://github.com/login/oauth/authorize?x=1');
+    mockGetAdapter.mockReturnValue(makeAdapter({ authorizeUrl }));
+    const env = makeEnv({ DB: makeDb() });
+    // `@evil.com` → callback would compose https://projectsites.dev@evil.com (host evil.com).
+    await req(makeApp(AUTH), '/api/mcp/github/connect?site_id=s1&return_url=@evil.com', env);
+    const stmts = (env.DB as unknown as { _statements: BoundStatement[] })._statements;
+    const insert = stmts.find((s) => /INSERT INTO mcp_oauth_states/i.test(s.sql));
+    const returnUrl = (insert!.params as string[])[5];
+    expect(returnUrl).toBe('/admin/mcp'); // NOT '@evil.com'
+  });
+
   it('returns a paste-key spec when the adapter signals __paste_key__ (Resend)', async () => {
     const authorizeUrl = jest.fn(() => '__paste_key__');
     mockGetAdapter.mockReturnValue({ ...makeAdapter({ authorizeUrl }), provider: 'resend' });

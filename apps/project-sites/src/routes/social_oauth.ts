@@ -11,10 +11,16 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import { safeRelativePath } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { encrypt } from '../services/ai_crypto.js';
 import { dbExecute } from '../services/db.js';
-import { getPublisher, PLATFORMS, MissingAppCredsError, type Platform } from '../services/social_publishers/index.js';
+import {
+  getPublisher,
+  PLATFORMS,
+  MissingAppCredsError,
+  type Platform,
+} from '../services/social_publishers/index.js';
 import { blueskyLogin } from '../services/social_publishers/bluesky.js';
 import { mastodonVerify } from '../services/social_publishers/mastodon.js';
 
@@ -48,12 +54,17 @@ function redirectUriFor(req: Request, platform: Platform): string {
 socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
   const orgId = c.get('orgId') as string | undefined;
   const userId = c.get('userId') as string | undefined;
-  if (!orgId || !userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  if (!orgId || !userId)
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
   const platform = c.req.param('platform');
-  if (!isPlatform(platform)) return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
+  if (!isPlatform(platform))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
 
   const siteId = c.req.query('site_id') ?? null;
-  const returnUrl = c.req.query('return_url') ?? '/admin/social';
+  // Same-origin relative path only — the callback composes
+  // `https://projectsites.dev${returnUrl}`; an unchecked `@evil.com` would be
+  // an open redirect post-auth.
+  const returnUrl = safeRelativePath(c.req.query('return_url'), '/admin/social');
   const pub = getPublisher(platform);
 
   // Platforms with no OAuth dance get a paste-key spec
@@ -66,12 +77,12 @@ socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
           platform === 'bluesky'
             ? 'Paste your Bluesky identifier (handle or email) and an app password from https://bsky.app/settings/app-passwords.'
             : platform === 'mastodon'
-            ? 'Paste your Mastodon instance URL (e.g. https://mastodon.social) and an access token from Settings → Development.'
-            : platform === 'telegram'
-            ? 'Paste the chat_id of the channel or group where the bot should post (the bot must already be added).'
-            : platform === 'discord'
-            ? 'Paste the Discord channel ID where the bot should post (the bot must already be invited).'
-            : 'Paste your API token.',
+              ? 'Paste your Mastodon instance URL (e.g. https://mastodon.social) and an access token from Settings → Development.'
+              : platform === 'telegram'
+                ? 'Paste the chat_id of the channel or group where the bot should post (the bot must already be added).'
+                : platform === 'discord'
+                  ? 'Paste the Discord channel ID where the bot should post (the bot must already be invited).'
+                  : 'Paste your API token.',
       },
     });
   }
@@ -86,17 +97,33 @@ socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
     authorizeUrl = pub.authorizeUrl(c.env, { state, codeVerifier, redirectUri });
   } catch (err) {
     if (err instanceof MissingAppCredsError) {
-      return c.json({ error: { code: 'APP_CREDS_MISSING', message: err.message, deeplink: err.deeplink } }, 501);
+      return c.json(
+        { error: { code: 'APP_CREDS_MISSING', message: err.message, deeplink: err.deeplink } },
+        501,
+      );
     }
     throw err;
   }
   if (!authorizeUrl) {
-    return c.json({ error: { code: 'APP_CREDS_MISSING', message: `${platform} OAuth client ID not configured` } }, 501);
+    return c.json(
+      {
+        error: { code: 'APP_CREDS_MISSING', message: `${platform} OAuth client ID not configured` },
+      },
+      501,
+    );
   }
 
   await c.env.CACHE_KV.put(
     `social-oauth-state:${state}`,
-    JSON.stringify({ org_id: orgId, user_id: userId, site_id: siteId, platform, code_verifier: codeVerifier, return_url: returnUrl, redirect_uri: redirectUri }),
+    JSON.stringify({
+      org_id: orgId,
+      user_id: userId,
+      site_id: siteId,
+      platform,
+      code_verifier: codeVerifier,
+      return_url: returnUrl,
+      redirect_uri: redirectUri,
+    }),
     { expirationTtl: OAUTH_STATE_TTL },
   );
   return Response.redirect(authorizeUrl, 302);
@@ -120,13 +147,16 @@ socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
  */
 socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
   const platform = c.req.param('platform');
-  if (!isPlatform(platform)) return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
+  if (!isPlatform(platform))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
   const code = c.req.query('code');
   const state = c.req.query('state');
-  if (!code || !state) return c.json({ error: { code: 'BAD_REQUEST', message: 'code + state required' } }, 400);
+  if (!code || !state)
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'code + state required' } }, 400);
 
   const stored = await c.env.CACHE_KV.get(`social-oauth-state:${state}`);
-  if (!stored) return c.json({ error: { code: 'BAD_REQUEST', message: 'state expired or invalid' } }, 400);
+  if (!stored)
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'state expired or invalid' } }, 400);
   const ctx = JSON.parse(stored) as {
     org_id: string;
     user_id: string;
@@ -136,24 +166,46 @@ socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
     return_url: string;
     redirect_uri: string;
   };
-  if (ctx.platform !== platform) return c.json({ error: { code: 'BAD_REQUEST', message: 'platform mismatch' } }, 400);
+  if (ctx.platform !== platform)
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'platform mismatch' } }, 400);
 
   const pub = getPublisher(platform);
-  if (!pub.exchangeCode) return c.json({ error: { code: 'BAD_REQUEST', message: `${platform} has no exchange flow` } }, 400);
+  if (!pub.exchangeCode)
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: `${platform} has no exchange flow` } },
+      400,
+    );
 
   let exch;
   try {
-    exch = await pub.exchangeCode(c.env, { code, codeVerifier: ctx.code_verifier, redirectUri: ctx.redirect_uri });
+    exch = await pub.exchangeCode(c.env, {
+      code,
+      codeVerifier: ctx.code_verifier,
+      redirectUri: ctx.redirect_uri,
+    });
   } catch (err) {
     if (err instanceof MissingAppCredsError) {
-      return c.json({ error: { code: 'APP_CREDS_MISSING', message: err.message, deeplink: err.deeplink } }, 501);
+      return c.json(
+        { error: { code: 'APP_CREDS_MISSING', message: err.message, deeplink: err.deeplink } },
+        501,
+      );
     }
-    return c.json({ error: { code: 'OAUTH_EXCHANGE_FAILED', message: err instanceof Error ? err.message : 'exchange failed' } }, 502);
+    return c.json(
+      {
+        error: {
+          code: 'OAUTH_EXCHANGE_FAILED',
+          message: err instanceof Error ? err.message : 'exchange failed',
+        },
+      },
+      502,
+    );
   }
 
   const accessEnc = await encrypt(c.env, exch.access_token);
   const refreshEnc = exch.refresh_token ? await encrypt(c.env, exch.refresh_token) : null;
-  const expiresAt = exch.expires_in ? new Date(Date.now() + exch.expires_in * 1000).toISOString() : null;
+  const expiresAt = exch.expires_in
+    ? new Date(Date.now() + exch.expires_in * 1000).toISOString()
+    : null;
 
   await dbExecute(
     c.env.DB,
@@ -195,10 +247,26 @@ socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
 
 // ── POST /api/social/:platform/paste — paste-key/login flow ──
 const PasteSchema = z.union([
-  z.object({ kind: z.literal('bluesky'), identifier: z.string().min(2).max(120), app_password: z.string().min(8).max(120) }),
-  z.object({ kind: z.literal('mastodon'), instance_url: z.string().url(), access_token: z.string().min(20).max(500) }),
-  z.object({ kind: z.literal('telegram'), chat_id: z.string().min(1).max(80), display_name: z.string().max(120).optional() }),
-  z.object({ kind: z.literal('discord'), channel_id: z.string().min(5).max(40), display_name: z.string().max(120).optional() }),
+  z.object({
+    kind: z.literal('bluesky'),
+    identifier: z.string().min(2).max(120),
+    app_password: z.string().min(8).max(120),
+  }),
+  z.object({
+    kind: z.literal('mastodon'),
+    instance_url: z.string().url(),
+    access_token: z.string().min(20).max(500),
+  }),
+  z.object({
+    kind: z.literal('telegram'),
+    chat_id: z.string().min(1).max(80),
+    display_name: z.string().max(120).optional(),
+  }),
+  z.object({
+    kind: z.literal('discord'),
+    channel_id: z.string().min(5).max(40),
+    display_name: z.string().max(120).optional(),
+  }),
 ]);
 
 /**
@@ -216,61 +284,66 @@ const PasteSchema = z.union([
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 404 NOT_FOUND when `platform` isn't paste-key supported.
  */
-socialOauthRoutes.post('/api/social/:platform/paste', zValidator('json', PasteSchema), async (c) => {
-  const orgId = c.get('orgId') as string | undefined;
-  const userId = c.get('userId') as string | undefined;
-  if (!orgId || !userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-  const platform = c.req.param('platform');
-  if (!isPlatform(platform)) return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
-  const body = c.req.valid('json');
+socialOauthRoutes.post(
+  '/api/social/:platform/paste',
+  zValidator('json', PasteSchema),
+  async (c) => {
+    const orgId = c.get('orgId') as string | undefined;
+    const userId = c.get('userId') as string | undefined;
+    if (!orgId || !userId)
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+    const platform = c.req.param('platform');
+    if (!isPlatform(platform))
+      return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
+    const body = c.req.valid('json');
 
-  let access_token: string;
-  let refresh_token: string | null = null;
-  let external_id: string | null = null;
-  let handle: string | null = null;
-  let display_name: string | null = null;
-  let avatar_url: string | null = null;
-  let metadata: Record<string, unknown> = {};
-  let expires_at: string | null = null;
+    let access_token: string;
+    let refresh_token: string | null = null;
+    let external_id: string | null = null;
+    let handle: string | null = null;
+    let display_name: string | null = null;
+    let avatar_url: string | null = null;
+    let metadata: Record<string, unknown> = {};
+    let expires_at: string | null = null;
 
-  if (body.kind === 'bluesky' && platform === 'bluesky') {
-    const res = await blueskyLogin(body.identifier, body.app_password);
-    access_token = res.access_token;
-    refresh_token = res.refresh_token;
-    external_id = res.external_id;
-    handle = res.handle;
-    display_name = res.display_name;
-    expires_at = res.expires_at;
-  } else if (body.kind === 'mastodon' && platform === 'mastodon') {
-    const res = await mastodonVerify(body.instance_url, body.access_token);
-    access_token = body.access_token;
-    external_id = res.external_id;
-    handle = res.handle;
-    display_name = res.display_name;
-    avatar_url = res.avatar_url;
-    metadata = { instance_url: body.instance_url.replace(/\/$/, '') };
-  } else if (body.kind === 'telegram' && platform === 'telegram') {
-    access_token = 'shared_bot_token'; // sentinel; real token is env.TELEGRAM_BOT_TOKEN
-    external_id = body.chat_id;
-    handle = body.display_name ?? body.chat_id;
-    display_name = body.display_name ?? null;
-    metadata = { chat_id: body.chat_id };
-  } else if (body.kind === 'discord' && platform === 'discord') {
-    access_token = 'shared_bot_token';
-    external_id = body.channel_id;
-    handle = body.display_name ?? body.channel_id;
-    display_name = body.display_name ?? null;
-    metadata = { channel_id: body.channel_id };
-  } else {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'kind/platform mismatch' } }, 400);
-  }
+    if (body.kind === 'bluesky' && platform === 'bluesky') {
+      const res = await blueskyLogin(body.identifier, body.app_password);
+      access_token = res.access_token;
+      refresh_token = res.refresh_token;
+      external_id = res.external_id;
+      handle = res.handle;
+      display_name = res.display_name;
+      expires_at = res.expires_at;
+    } else if (body.kind === 'mastodon' && platform === 'mastodon') {
+      const res = await mastodonVerify(body.instance_url, body.access_token);
+      access_token = body.access_token;
+      external_id = res.external_id;
+      handle = res.handle;
+      display_name = res.display_name;
+      avatar_url = res.avatar_url;
+      metadata = { instance_url: body.instance_url.replace(/\/$/, '') };
+    } else if (body.kind === 'telegram' && platform === 'telegram') {
+      access_token = 'shared_bot_token'; // sentinel; real token is env.TELEGRAM_BOT_TOKEN
+      external_id = body.chat_id;
+      handle = body.display_name ?? body.chat_id;
+      display_name = body.display_name ?? null;
+      metadata = { chat_id: body.chat_id };
+    } else if (body.kind === 'discord' && platform === 'discord') {
+      access_token = 'shared_bot_token';
+      external_id = body.channel_id;
+      handle = body.display_name ?? body.channel_id;
+      display_name = body.display_name ?? null;
+      metadata = { channel_id: body.channel_id };
+    } else {
+      return c.json({ error: { code: 'BAD_REQUEST', message: 'kind/platform mismatch' } }, 400);
+    }
 
-  const accessEnc = await encrypt(c.env, access_token);
-  const refreshEnc = refresh_token ? await encrypt(c.env, refresh_token) : null;
+    const accessEnc = await encrypt(c.env, access_token);
+    const refreshEnc = refresh_token ? await encrypt(c.env, refresh_token) : null;
 
-  await dbExecute(
-    c.env.DB,
-    `INSERT INTO social_accounts
+    await dbExecute(
+      c.env.DB,
+      `INSERT INTO social_accounts
        (id, org_id, created_by, platform, external_id, handle, display_name, avatar_url,
         access_token_encrypted, access_token_iv, refresh_token_encrypted, refresh_token_iv,
         token_expires_at, scopes, status, metadata_json)
@@ -287,21 +360,22 @@ socialOauthRoutes.post('/api/social/:platform/paste', zValidator('json', PasteSc
        metadata_json = excluded.metadata_json,
        updated_at = datetime('now'),
        deleted_at = NULL`,
-    [
-      crypto.randomUUID(),
-      orgId,
-      userId,
-      platform,
-      external_id,
-      handle,
-      display_name,
-      avatar_url,
-      accessEnc,
-      refreshEnc,
-      expires_at,
-      null,
-      JSON.stringify(metadata),
-    ],
-  );
-  return c.json({ data: { connected: true, platform, handle, display_name } });
-});
+      [
+        crypto.randomUUID(),
+        orgId,
+        userId,
+        platform,
+        external_id,
+        handle,
+        display_name,
+        avatar_url,
+        accessEnc,
+        refreshEnc,
+        expires_at,
+        null,
+        JSON.stringify(metadata),
+      ],
+    );
+    return c.json({ data: { connected: true, platform, handle, display_name } });
+  },
+);

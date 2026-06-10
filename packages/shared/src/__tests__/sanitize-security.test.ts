@@ -8,13 +8,32 @@
  * gap was reachable. These cases assert the dangerous constructs are gone while
  * benign markup + benign `on…`-looking text is preserved.
  */
-import { sanitizeHtml, escapeHtml } from '../utils/sanitize.js';
+import { sanitizeHtml, escapeHtml, safeRelativePath } from '../utils/sanitize.js';
+
+describe('safeRelativePath — open-redirect defense', () => {
+  const fb = '/admin';
+  it('keeps a genuine same-origin relative path', () => {
+    expect(safeRelativePath('/admin/mcp', fb)).toBe('/admin/mcp');
+    expect(safeRelativePath('/ok?x=1&y=2', fb)).toBe('/ok?x=1&y=2');
+  });
+  it('rejects the userinfo bypass (@evil.com → host evil.com when composed)', () => {
+    expect(safeRelativePath('@evil.com', fb)).toBe(fb);
+    expect(safeRelativePath('https://evil.com', fb)).toBe(fb);
+  });
+  it('rejects protocol-relative + backslash + whitespace tricks', () => {
+    expect(safeRelativePath('//evil.com', fb)).toBe(fb);
+    expect(safeRelativePath('/\\evil.com', fb)).toBe(fb);
+    expect(safeRelativePath('/a b', fb)).toBe(fb);
+  });
+  it('falls back on undefined/empty', () => {
+    expect(safeRelativePath(undefined, fb)).toBe(fb);
+    expect(safeRelativePath('', fb)).toBe(fb);
+  });
+});
 
 describe('escapeHtml — entity encoding', () => {
   it('escapes the five HTML-significant characters', () => {
-    expect(escapeHtml(`<a href="x">'&'</a>`)).toBe(
-      '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;',
-    );
+    expect(escapeHtml(`<a href="x">'&'</a>`)).toBe('&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;');
   });
 
   it('escapes & first so existing entities are not double-mangled into tags', () => {
@@ -70,12 +89,8 @@ describe('sanitizeHtml — XSS vectors', () => {
   }
 
   it('preserves benign markup', () => {
-    expect(sanitizeHtml('<p>Hello <strong>world</strong></p>')).toBe(
-      '<p>Hello <strong>world</strong></p>',
-    );
-    expect(sanitizeHtml('<a href="https://example.com">link</a>')).toBe(
-      '<a href="https://example.com">link</a>',
-    );
+    expect(sanitizeHtml('<p>Hello <strong>world</strong></p>')).toBe('<p>Hello <strong>world</strong></p>');
+    expect(sanitizeHtml('<a href="https://example.com">link</a>')).toBe('<a href="https://example.com">link</a>');
   });
 
   it('does not corrupt text that merely contains "on" or attribute-like words', () => {
