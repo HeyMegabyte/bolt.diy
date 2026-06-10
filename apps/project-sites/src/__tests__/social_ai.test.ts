@@ -78,7 +78,12 @@ describe('generatePost', () => {
   it('falls back to the twitter persona when no platforms are supplied', async () => {
     let seenSystemPrompt = '';
     const env = makeEnv({
-      aiReply: JSON.stringify({ content: 'x', per_platform_overrides: {}, hashtags: [], mentions: [] }),
+      aiReply: JSON.stringify({
+        content: 'x',
+        per_platform_overrides: {},
+        hashtags: [],
+        mentions: [],
+      }),
       captureCall: (_m, params) => {
         const msgs = params['messages'] as { role: string; content: string }[];
         seenSystemPrompt = msgs[0]?.content ?? '';
@@ -106,13 +111,23 @@ describe('generatePost', () => {
   it('treats hashtag_count above 15 as 15 and negative as 0', async () => {
     const big = Array.from({ length: 30 }, (_v, i) => `t${i}`);
     const envHi = makeEnv({
-      aiReply: JSON.stringify({ content: 'c', per_platform_overrides: {}, hashtags: big, mentions: [] }),
+      aiReply: JSON.stringify({
+        content: 'c',
+        per_platform_overrides: {},
+        hashtags: big,
+        mentions: [],
+      }),
     });
     const hi = await generatePost(envHi, { topic: 't', platforms: ['x'], hashtag_count: 99 });
     expect(hi.hashtags).toHaveLength(15);
 
     const envZero = makeEnv({
-      aiReply: JSON.stringify({ content: 'c', per_platform_overrides: {}, hashtags: ['a'], mentions: [] }),
+      aiReply: JSON.stringify({
+        content: 'c',
+        per_platform_overrides: {},
+        hashtags: ['a'],
+        mentions: [],
+      }),
     });
     const zero = await generatePost(envZero, { topic: 't', platforms: ['x'], hashtag_count: -5 });
     expect(zero.hashtags).toEqual([]);
@@ -158,7 +173,12 @@ describe('generatePost', () => {
   it('includes tone, brand_voice, and link in the prompt when provided', async () => {
     let prompt = '';
     const env = makeEnv({
-      aiReply: JSON.stringify({ content: 'c', per_platform_overrides: {}, hashtags: [], mentions: [] }),
+      aiReply: JSON.stringify({
+        content: 'c',
+        per_platform_overrides: {},
+        hashtags: [],
+        mentions: [],
+      }),
       captureCall: (_m, params) => {
         const msgs = params['messages'] as { role: string; content: string }[];
         prompt = msgs[1]?.content ?? '';
@@ -285,6 +305,25 @@ describe('repurpose', () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it('SSRF guard: never fetches an internal/non-https source_url', async () => {
+    const fetchMock = jest.fn(async () => ({ ok: true, text: async () => '<p>secret</p>' }));
+    (global as any).fetch = fetchMock;
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const env = makeEnv({ aiReply: JSON.stringify({ content: 'fallback', hashtags: [] }) });
+
+    // Cloud-metadata / loopback / non-https must be refused BEFORE any fetch.
+    for (const url of [
+      'http://169.254.169.254/latest/meta-data',
+      'https://localhost/x',
+      'http://example.com',
+    ]) {
+      const out = await repurpose(env, { source_url: url, target_platforms: ['twitter'] });
+      expect(out.posts).toHaveLength(1); // still generates from other inputs
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it('continues with empty source text when the response is not ok', async () => {
     (global as any).fetch = jest.fn(async () => ({ ok: false, text: async () => 'ignored' }));
     let capturedPrompt = '';
@@ -310,7 +349,10 @@ describe('repurpose', () => {
   it('uses the fallback shape when AI output is unparseable per platform', async () => {
     (global as any).fetch = jest.fn(async () => ({ ok: true, text: async () => '<p>hi</p>' }));
     const env = makeEnv({ aiReply: 'garbage' });
-    const out = await repurpose(env, { source_url: 'https://x.co', target_platforms: ['mastodon'] });
+    const out = await repurpose(env, {
+      source_url: 'https://x.co',
+      target_platforms: ['mastodon'],
+    });
     expect(out.posts[0]).toEqual({ platform: 'mastodon', content: '', hashtags: [] });
   });
 

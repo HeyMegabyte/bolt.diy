@@ -17,6 +17,7 @@
 import type { Env } from '../types/env.js';
 import { SOCIAL_PERSONA_SYSTEM_PROMPT, type SocialPlatform } from '../prompts/social_persona.js';
 import { REAL_BROWSER_HEADERS } from './import_crawler.js';
+import { isSafeWebhookUrl } from './outbound_webhooks.js';
 import { dbQuery } from './db.js';
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -199,7 +200,14 @@ export async function repurpose(
   input: RepurposeInput,
 ): Promise<{ posts: RepurposedPost[] }> {
   let sourceText = '';
+  // SSRF guard (defense-in-depth, safe-by-construction for when this is wired
+  // to a route): only fetch public https URLs — never localhost / private /
+  // link-local / IPv6-mapped-internal. Unsafe → skip the fetch, generate from
+  // the other inputs with sourceText=''.
   try {
+    if (!isSafeWebhookUrl(input.source_url)) {
+      throw new Error('source_url is not a public https URL');
+    }
     const res = await fetch(input.source_url, { headers: REAL_BROWSER_HEADERS });
     if (res.ok) {
       const html = await res.text();
@@ -238,7 +246,11 @@ export async function repurpose(
       `Return STRICT JSON: { "content": "...", "hashtags": ["..."] }`,
     ].join('\n');
     const raw = await callAi(env, String(platform), prompt, { json: true, maxTokens: 700 });
-    const parsed = parseJson<RepurposedPost>(raw, { platform: String(platform), content: '', hashtags: [] });
+    const parsed = parseJson<RepurposedPost>(raw, {
+      platform: String(platform),
+      content: '',
+      hashtags: [],
+    });
     posts.push({
       platform: String(platform),
       content: parsed.content ?? '',
@@ -327,7 +339,9 @@ export async function bestTimeToPost(
         AND pp.published_at > datetime('now', '-90 days')
         ${input.account_id ? 'AND sp.account_id = ?' : ''}
     `,
-    input.account_id ? [input.platform, input.org_id, input.account_id] : [input.platform, input.org_id],
+    input.account_id
+      ? [input.platform, input.org_id, input.account_id]
+      : [input.platform, input.org_id],
   );
 
   const buckets = new Map<string, number[]>();
