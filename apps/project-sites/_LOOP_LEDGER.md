@@ -63,3 +63,8 @@ For each: parallel-safe `*.e2e.ts` that signs in as `brian@megabyte.space`, exer
 ---
 
 _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, semgrep, drift, Recs)._
+
+## Unit-coverage backlog (autonomous — no Brian; repo mandates 100%)
+- [x] `build_budget.ts` — AI-spend gate `checkBudget`/`recordSpend` (fire-23, 10 tests).
+- [ ] `build_events.ts` (243L) — untested; next.
+- [ ] re-run find-untested scan after build_events for more gaps.

@@ -3,10 +3,12 @@
 > Read this + `git log --oneline -15` + `_LOOP_LEDGER.md` FIRST each fresh iteration.
 > Loop doctrine: `_ULTIMATE_LOOP.prompt.md`. Cron `45b46ee7` fires every 30m.
 
-## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-20, 2026-06-11)
-**The autonomous frontier is EXHAUSTED.** All cheap security + reliability classes are closed (XSS/SSRF/open-redirect/auth-bypass/header-injection/rate-limits/Zod-boundaries/no-catch-malformed-body/canonical-gate). Every remaining ledger item is Brian-gated: P0 `E2E_TEST_PASSWORD` prod-secret + `/signin` wiring; 7 P1 features (40-80h); supervised perf-wave; CI wiring; 24 P3 E2E specs (blocked on the test-login harness).
-- **No-op fires logged:** fire-20 (nothing clean+autonomous; awaiting Brian).
-- **Fast-confirm recipe for the next fire** (don't re-investigate from scratch — just run these; if all unchanged → no-op): (1) `git log d2e53755..HEAD` empty? (2) `E2E_TEST_PASSWORD` still absent from wrangler.toml/.dev.vars? (3) repo-wide `(await c.req.json()) as ` count still 1 (the try/catch api.ts:3893)? (4) no new always.md/rule via system-reminder? → all yes = NO-OP honestly, do NOT manufacture churn. Only act if Brian unblocked something (new commit / provisioned secret / new ledger item).
+## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-23, 2026-06-11)
+**Security + reliability BUG-classes are closed** (XSS/SSRF/open-redirect/auth-bypass/header-injection/rate-limits/Zod-boundaries/no-catch-malformed-body/canonical-gate). The fire-19/20 "frontier EXHAUSTED / no-op" call was an OVERCLAIM — it only considered bug-classes, NOT **unit-coverage gaps** (the repo mandates 100% coverage). **Untested services with real logic ARE autonomous work** and the right thing to mine when bug-classes are dry.
+- **Coverage-gap backlog (autonomous, no Brian):** find services without a dedicated test via the recipe below; write characterization tests for their branchy logic. DONE: `build_budget.ts` (checkBudget tiers/over-cap/clamp + recordSpend validate/micro-USD/best-effort — fire-23, 10 tests). **NEXT: `build_events.ts` (243L, untested).** Then re-scan for more.
+  - Find-untested recipe: `for f in src/services/*.ts; do base=$(basename $f .ts); /usr/bin/grep -rlq "$base" src/__tests__ || echo "NO-TEST $f"; done` (then VERIFY it's a real gap — a comment-only mention isn't coverage, e.g. token_burn_meter.test only *mentions* build_budget).
+- Still Brian-gated (NOT autonomous): P0 `E2E_TEST_PASSWORD` prod-secret + `/signin`; 7 P1 features; supervised perf-wave; CI wiring; 24 P3 admin E2E specs (need the test-login harness).
+- **Fast-confirm for next fire:** (1) `git log d2e53755..HEAD` only loop-docs? (2) `E2E_TEST_PASSWORD` still absent? (3) bare `(await c.req.json()) as ` count still 1? (4) no new rule? → if all yes, the BUG-class frontier is unchanged, so go straight to the coverage-gap backlog (build_events next) — that's real work, NOT a no-op. Only no-op when coverage gaps are ALSO dry.
 
 ## Done
 - **Iter 1:** worker test-login seam — `authenticateTestLogin` + `POST /api/auth/test-login` (secret-gated by `E2E_TEST_PASSWORD`, 404 when unset, constant-time compare, idempotent owner upsert, real session). 7 Jest tests green.
@@ -15,6 +17,12 @@
 - Repo `*.md` consolidated 277→73; all 16 generation prompts enhanced; convergence prompt rewritten with 2026 SOTA.
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
+
+## Fire 2026-06-11 (fire 23) — unit-coverage on the AI-spend budget gate (frontier was NOT exhausted)
+- **R1:** Pivoted off the premature "no-op / frontier exhausted" conclusion (fires 19-22). The repo mandates 100% unit coverage; a find-untested scan showed `build_budget.ts` (262L) + `build_events.ts` (243L) have NO dedicated test (`token_burn_meter.test` only mentions build_budget in a comment — it tests features.ts). Wrote `build_budget.test.ts` (10 tests) covering the AI-spend GATE: `checkBudget` (unlimited→Infinity short-circuit, paid-under-cap spent/remaining/pct math, free-over-cap blocked + clamp remaining→0 & pct→100, unknown/null→free tier, exactly-at-cap NOT allowed) + `recordSpend` (valid→micro-USD insert, invalid→dropped no-throw, $0→skip, insert-failure→swallowed). Harness gotcha: `monthSpendMicroUsd` uses `dbQueryOne`→`.all().results[0]` (NOT `.first()`) — mock must surface the SUM row via `.all()` (fire-13 lesson; 3 tests RED until fixed).
+- **Lesson (corrects fires 19-22):** "autonomous frontier exhausted" must mean BUG-classes AND coverage-gaps AND drift are dry — not just bug-classes. Untested branchy services are always autonomous work. Updated the CONVERGENCE STATUS marker with a find-untested recipe + coverage backlog.
+- Gates: worker tsc clean + 4467 jest green; eslint 0-err. NOT pushed (Brian gates prod).
+> Fire-23: 1 verified coverage round on billing-adjacent logic. NEXT: `build_events.ts` (243L, untested), then re-scan for more coverage gaps before ever no-op'ing.
 
 ## Fire 2026-06-11 (fire 19) — close ai_admin.ts no-catch reads → class TRULY closed (grep-verified)
 - **R1:** Executed the fire-18-scoped sweep. Added `.catch(() => ({}))` to ai_admin's 5 bare reads (L469/611/726/1115/2685). ai_admin has its OWN `onError` (non-`HTTPError` → 500), so malformed-body SyntaxError → 500; now collapses to `{}` → each handler's own semantics (guards → 400; graceful updates → 200), never a 5xx. Test `ai_admin_malformed_body.test.ts` (5 cases, never-5xx; RED-proven: all 5 = 500 pre-fix). Harness note: ai-settings audits via `c.executionCtx.waitUntil` → jest has no executionCtx → pass a stub as `app.request`'s 4th arg.
