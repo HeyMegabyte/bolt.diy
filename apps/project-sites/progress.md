@@ -3,10 +3,12 @@
 > Read this + `git log --oneline -15` + `_LOOP_LEDGER.md` FIRST each fresh iteration.
 > Loop doctrine: `_ULTIMATE_LOOP.prompt.md`. Cron `45b46ee7` fires every 30m.
 
-## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-26, 2026-06-11)
+## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-28, 2026-06-11)
 **Security + reliability BUG-classes are closed** (XSS/SSRF/open-redirect/auth-bypass/header-injection/rate-limits/Zod-boundaries/no-catch-malformed-body/canonical-gate). The fire-19/20 "frontier EXHAUSTED / no-op" call was an OVERCLAIM — it only considered bug-classes, NOT **unit-coverage gaps** (the repo mandates 100% coverage). **Untested services with real logic ARE autonomous work** and the right thing to mine when bug-classes are dry.
-- **CLEAN autonomous coverage frontier is now EXHAUSTED (fires 23-26):** covered `build_budget` (f23), `build_events` (f24), `social_persona` (f25), `resolveZoneForHostname` (f26). All zero-reference real-logic files + all lowest-coverage PURE functions are now tested (verified via `npm run test:coverage`).
-- **Remaining coverage = heavy-async-orchestration ONLY** (diminishing ROI; NOT 30-min-cron-shaped): `site-generation.ts` (9%) + 3 other Workflows, 11 `social_publishers/*` (~20% fetch adapters), `loadMultiUrlAnalytics`/`listSiteUrls` (DB+GraphQL), HTTP routes (~50%). Needs heavy env/fetch/KV/DB mocking + tests implementation-not-behavior → do as a FOCUSED session, not cron rounds.
+- **Clean coverage rounds (fires 23-28):** `build_budget` (f23), `build_events` (f24), `social_persona` (f25), `resolveZoneForHostname` (f26), `social_publishers/types.ts` shared helpers `composeContent`/`requireEnv`/`emptyAnalytics` (f28, high-leverage across all 11 publishers).
+- ⚠️ **RECURRING LESSON (fires 23, 28): do NOT declare "coverage exhausted" by dismissing a CATEGORY wholesale.** "Publishers are fetch-only" was wrong — their SHARED `types.ts` had pure untested helpers. Before any no-op, GREP each low-coverage dir for a shared `types.ts`/`utils.ts`/`helpers.ts`/`*_lib.ts` with PURE exported fns (`export function` taking plain args, no env/fetch). Those are the real remaining clean wins.
+- **Remaining truly-heavy coverage** (diminishing ROI; FOCUSED session not cron): the 11 `social_publishers/*` fetch bodies, `site-generation.ts` (9%) + 3 Workflows, `loadMultiUrlAnalytics`/`listSiteUrls` (DB+GraphQL), HTTP routes (~50%).
+- **Next-fire coverage recipe:** `grep -rlE "^export function" src/**/types.ts src/**/utils*.ts src/lib/*.ts | xargs -I{} sh -c 'grep -Lq <basename> <test refs>'` — i.e. hunt SHARED pure-helper modules across lib/utils/types that aren't referenced in `__tests__`. Only no-op once THAT is also dry.
 - Still Brian-gated (NOT autonomous): P0 `E2E_TEST_PASSWORD` prod-secret + `/signin`; 7 P1 features; supervised perf-wave; CI wiring; 24 P3 admin E2E specs.
 - **Fast-confirm for next fire:** (1) `git log d2e53755..HEAD` only loop-docs? (2) `E2E_TEST_PASSWORD` still absent? (3) bare `(await c.req.json()) as ` count still 1? (4) no new rule? → if all yes: BOTH the bug-class AND clean-coverage frontiers are dry → **honest NO-OP** (or a deliberate focused heavy-mock-coverage session). Only resume real cron rounds when Brian unblocks something.
 
@@ -17,6 +19,12 @@
 - Repo `*.md` consolidated 277→73; all 16 generation prompts enhanced; convergence prompt rewritten with 2026 SOTA.
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
+
+## Fire 2026-06-11 (fire 28) — shared social-publisher helpers (caught another "exhausted" overclaim)
+- **R1:** Almost no-op'd on "publishers are fetch-only" — but INSPECTED first (fire-23 lesson) and found `social_publishers/types.ts` (the SHARED module all 11 publishers import) had untested pure helpers. Covered `composeContent` (override→skip-hashtags, hashtag `#`-normalize+append, link append-once/no-double, hashtags+link order), `requireEnv` (present→map, missing/empty→`MissingAppCredsError` w/ platform+deeplink+vars), `emptyAnalytics` (all-null + raw passthrough). `social_publishers_types.test.ts`, 12 tests. High leverage — a bug here mis-composes every social post / mis-reports creds across all platforms.
+- ⚠️ **Recurring meta-lesson banked in the marker:** stop declaring "coverage exhausted" by dismissing a CATEGORY (publishers/routes/workflows) wholesale — grep each low-coverage dir for a shared `types.ts`/`utils.ts`/`helpers.ts` with pure `export function`s FIRST. fire-23 (services) + fire-28 (publishers) both proved the "exhausted" call premature.
+- Gates: worker tsc clean + 4507 jest green; eslint 0-err. NOT pushed (Brian gates prod).
+> Fire-28: 1 verified coverage round. NEXT: run the shared-pure-helper hunt across `src/lib/*`, `src/**/utils*.ts`, `src/**/types.ts` (recipe in the marker) before any no-op.
 
 ## Fire 2026-06-11 (fire 26) — branch coverage on CF zone resolution + coverage-report triage
 - **R1:** Ran `npm run test:coverage`. Confirmed the lowest-coverage *pure* functions are ALREADY covered (multi_url_analytics `parseRange`/`apexDomain`; email_deliverability service — the 47% was its ROUTE). Picked the best remaining DI-able async target: covered `resolveZoneForHostname` (multi_url_analytics — CF zone resolution + 7d KV cache) with 6 branch tests appended to `multi_url_analytics.test.ts`: cache-hit short-circuit, projectsites.dev hardcoded fast-path, CF-API success+cache, empty-result→null, !ok→null, fetch-throws→null. Mocked `global.fetch` + `env.CACHE_KV`.
