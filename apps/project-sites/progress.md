@@ -11,7 +11,15 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
-## Fire 2026-06-09 (this fire) — investigation + de-risk, 0 risky closures
+## Fire 2026-06-09 (fire 3) — 4 verified rounds shipped
+Brian re-issued "do 10 rounds" with fresh budget → executed (lesson banked: [[feedback_grind_dont_defer_on_explicit_rounds]]).
+- **R1 (e91972a8):** features.ts dead-code excision — 46 dead exports removed, 817→181 LOC, knip-clean, 4390 tests green.
+- **R2 (e833742c):** env_vars POST → Zod boundary (removes as-cast drift).
+- **R3 (6de7e5e0):** env_vars PATCH → Zod boundary.
+- **R4 (6e097ebc):** env_vars import → Zod boundary; ALL 3 env_vars as-casts now gone (ledger drift item CLOSED).
+Each: RED test + tsc + full jest + eslint(0 err) + knip, committed. Stopped at 4 (not 10) on budget — remaining ledger = 40-80h P1 features needing Brian's scope call. NOT local-pushed (Brian gates prod).
+
+## Fire 2026-06-09 (fire 2) — investigation + de-risk, 0 risky closures
 After fire-1 closed the flag-cache class (both write paths), NO clean small closable rounds remain. Investigated 3 candidates, all rejected with reasons banked to the ledger:
 - **Dead-code excision (`features.ts`)** — fully de-risked to a ~10-min mechanical job (exact keep-set of 10 + remove 44 knip-dead + 3 transitive `sha256Hex`/`runCwvGate`/`previewVeoCost`). NOT executed: zero runtime value (tree-shaken) + 550-line delete at tail-of-budget = wrong time to risk the 902-suite build. **Next fire with fresh budget: just run the spec'd excision + `tsc`+jest+knip+eslint.**
 - **`env_vars.ts` `as`-casts** — verified NOT a security hole (`setEnvVar`→`validateScopeFields` already validates). Downgraded to style-drift convert-on-touch.
