@@ -466,7 +466,7 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json()) as Record<string, unknown>;
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const allowed = [
     'chat_persona',
     'chat_system_prompt',
@@ -608,7 +608,7 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   const site = await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json()) as {
+  const body = (await c.req.json().catch(() => ({}))) as {
     endpoint_slug: string;
     display_name?: string;
     description?: string;
@@ -723,7 +723,7 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json()) as Record<string, unknown>;
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const existing = await c.env.DB.prepare(
     `SELECT id, endpoint_slug, kind, wfp_script_name, language FROM ai_endpoints WHERE id = ? AND site_id = ?`,
   )
@@ -1112,7 +1112,7 @@ aiAdmin.get('/api/billing/credits', async (c) => {
  */
 aiAdmin.post('/api/billing/credits/topup', async (c) => {
   const { orgId, userId } = need(c);
-  const { bundle } = (await c.req.json()) as { bundle: BundleKey };
+  const { bundle } = (await c.req.json().catch(() => ({}))) as { bundle: BundleKey };
   const cfg = CREDIT_BUNDLES[bundle];
   if (!cfg) throw new HTTPError(400, 'unknown bundle');
   const priceKey = cfg.price_id as keyof Env;
@@ -2682,7 +2682,7 @@ aiAdmin.post('/api/sites/:siteId/ai/drive/select-folder', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   const site = await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json()) as { folder_id?: string; folder_name?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { folder_id?: string; folder_name?: string };
   if (!body.folder_id || !body.folder_name) {
     throw new HTTPError(400, 'folder_id and folder_name required');
   }
