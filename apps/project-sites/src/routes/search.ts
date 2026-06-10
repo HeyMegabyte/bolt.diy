@@ -22,6 +22,7 @@
  */
 
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import {
   badRequest,
@@ -31,6 +32,24 @@ import {
   timingSafeEqual,
   DOMAINS,
 } from '@project-sites/shared';
+
+/**
+ * Boundary contract for the PUBLIC `POST /api/donate` endpoint. Hardened
+ * 2026-06-09: the old cast let a non-integer/`NaN` amount (`"abc" < 100` is
+ * `false`) reach Stripe's `unit_amount`, a malformed JSON body 500'd, and
+ * `successUrl`/`cancelUrl` were unconstrained (a `javascript:`/`data:` URL
+ * would be handed to Stripe's redirect). Amount is an integer in cents capped
+ * at Stripe's own 8-digit max; redirect URLs must be https.
+ */
+const DonateSchema = z.object({
+  slug: z.string().min(1),
+  amount: z.number().int().min(100).max(99_999_999),
+  interval: z.enum(['month', 'year', 'one_time']).optional(),
+  donorName: z.string().max(200).optional(),
+  donorEmail: z.string().email().max(320).optional(),
+  successUrl: z.string().url().startsWith('https://').optional(),
+  cancelUrl: z.string().url().startsWith('https://').optional(),
+});
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -427,9 +446,7 @@ search.get('/api/search/command', async (c) => {
   try {
     const ai = c.env.AI as unknown as {
       autorag?: (name: string) => {
-        search: (opts: {
-          query: string;
-        }) => Promise<{
+        search: (opts: { query: string }) => Promise<{
           data?: Array<{ filename?: string; attributes?: Record<string, unknown> }>;
         }>;
       };
@@ -3154,19 +3171,22 @@ search.get('/api/container-script', async (c) => {
  * Returns: { url } — redirect the user to this Stripe Checkout URL
  */
 search.post('/api/donate', async (c) => {
-  const body = (await c.req.json()) as {
-    slug: string;
-    amount: number; // in cents (e.g., 5000 = $50)
-    interval?: 'month' | 'year' | 'one_time';
-    donorName?: string;
-    donorEmail?: string;
-    successUrl?: string;
-    cancelUrl?: string;
-  };
-
-  if (!body.slug || !body.amount || body.amount < 100) {
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
     return c.json({ error: 'Invalid donation: slug and amount (min $1.00) required' }, 400);
   }
+  const parsed = DonateSchema.safeParse(raw);
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0];
+    const msg =
+      field === 'slug' || field === 'amount'
+        ? 'Invalid donation: slug and amount (min $1.00) required'
+        : `Invalid donation: ${String(field ?? 'request')}`;
+    return c.json({ error: msg }, 400);
+  }
+  const body = parsed.data;
 
   const stripeKey = c.env.STRIPE_SECRET_KEY;
   if (!stripeKey) {
