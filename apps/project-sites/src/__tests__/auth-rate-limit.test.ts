@@ -82,7 +82,24 @@ function createApp() {
     rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github-callback' }),
   );
 
+  // Public, cost-incurring endpoints (must mirror src/index.ts).
+  app.use(
+    '/api/donate',
+    rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' }),
+  );
+  app.use(
+    '/api/contact-form/*',
+    rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' }),
+  );
+  app.use(
+    '/api/search/address',
+    rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' }),
+  );
+
   app.all('/api/auth/*', (c) => c.json({ ok: true }));
+  app.all('/api/donate', (c) => c.json({ ok: true }));
+  app.all('/api/contact-form/*', (c) => c.json({ ok: true }));
+  app.all('/api/search/address', (c) => c.json({ ok: true }));
   return app;
 }
 
@@ -98,16 +115,8 @@ describe('auth rate-limit (item #6)', () => {
    * stable IP, returning the Response. Mirrors how production traffic hits
    * the worker (CF-Connecting-IP header + KV binding via env).
    */
-  function hit(
-    path: string,
-    method: 'GET' | 'POST' = 'POST',
-    ip: string = IP,
-  ): Promise<Response> {
-    return app.request(
-      path,
-      { method, headers: { 'cf-connecting-ip': ip } },
-      { CACHE_KV: kv },
-    );
+  function hit(path: string, method: 'GET' | 'POST' = 'POST', ip: string = IP): Promise<Response> {
+    return app.request(path, { method, headers: { 'cf-connecting-ip': ip } }, { CACHE_KV: kv });
   }
 
   beforeEach(() => {
@@ -177,6 +186,20 @@ describe('auth rate-limit (item #6)', () => {
 
     const reopened = await hit('/api/auth/magic-link');
     expect(reopened.status).toBe(200);
+  });
+
+  it.each([
+    ['/api/donate', 10, 'POST'],
+    ['/api/contact-form/nsk', 5, 'POST'],
+    ['/api/search/address', 30, 'GET'],
+  ])('rate-limits the public cost endpoint %s (budget=%i)', async (path, budget, method) => {
+    for (let i = 0; i < budget; i++) {
+      const ok = await hit(path, method as 'GET' | 'POST');
+      expect(ok.status).toBe(200);
+    }
+    const blocked = await hit(path, method as 'GET' | 'POST');
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('Retry-After')).toBe('60');
   });
 
   it('partitions counters per IP (one abuser does not starve another)', async () => {

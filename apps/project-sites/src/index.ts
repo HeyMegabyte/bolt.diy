@@ -322,6 +322,21 @@ app.use(
   rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search' }),
 );
 app.use(
+  '/api/search/address',
+  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' }),
+);
+// Public, unauthenticated, COST-incurring endpoints: donate creates real Stripe
+// Checkout sessions, contact-form sends real emails (cost + spam-relay /
+// deliverability-reputation risk). Per-IP budgets shield against abuse.
+app.use(
+  '/api/donate',
+  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' }),
+);
+app.use(
+  '/api/contact-form/*',
+  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' }),
+);
+app.use(
   '/api/sites/create-from-search',
   rateLimitMiddleware({ maxRequests: 10, windowSeconds: 3600, prefix: 'rl:create' }),
 );
