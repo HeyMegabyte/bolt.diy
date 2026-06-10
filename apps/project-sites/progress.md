@@ -11,6 +11,13 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-10 (fire 8) — served-HTML XSS sweep + audit-arc detector
+Applied the audit-arc ladder (Detect→Fix→Surface) after fixing the HTML-injection class 3×:
+- **R1 (953d4608):** REFLECTED XSS on the served error page — `brandedErrorPage` interpolated `opts.message`/`details` (error msgs echo user input, e.g. `Slug "${newSlug}"…`) unescaped. escapeHtml all dynamic fields. +1 regression test.
+- **R2 (e9d5e0a6):** reflected XSS on the app-shell status page — `data.sub` (Host header, not DNS-validated at HTTP) + `data.err` (container output) unescaped. escapeHtml. Structural verify (internal helper, full-worker harness disproportionate).
+- **R3 (1db18c88):** `scripts/check-html-injection.mjs` detector — codifies the class, clean 0 baseline, wired into `npm run check`, 6 self-tests. The detector grep FOUND R1+R2.
+Worker 4413 green. NOT pushed (Brian gates prod).
+
 ## Fire 2026-06-10 (fire 7) — escapeHtml consolidation + ghost-route injection guard
 - **R1 (802b621f):** consolidated 4 escapeHtml copies → `@project-sites/shared` (sanitize.ts); contact.ts gained `'`-escaping; +4 shared tests. Shared 483 + worker 4410 green.
 - **R2 (73b5eab4):** ghost-route `isGhostRouteEligible` `/services/.*` accepted `/services/<script>` (HTML injection) + `/services/../../x` (R2-key traversal) → `^/[a-z0-9/-]*$` charset guard + defense-in-depth escapeHtml. +2 tests.
