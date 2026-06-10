@@ -14,12 +14,39 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
-import { search } from '../routes/search.js';
+import { search, pickSafeRedirect } from '../routes/search.js';
 
+describe('pickSafeRedirect — own-domain-only Stripe redirect', () => {
+  const allowed = new Set(['nsk.projectsites.dev', 'donate.nsk.org']);
+  const fallback = 'https://nsk.projectsites.dev/donate.html';
+
+  it('keeps a URL on one of the site own domains', () => {
+    expect(pickSafeRedirect('https://nsk.projectsites.dev/thanks', fallback, allowed)).toBe(
+      'https://nsk.projectsites.dev/thanks',
+    );
+    expect(pickSafeRedirect('https://donate.nsk.org/ok', fallback, allowed)).toBe(
+      'https://donate.nsk.org/ok',
+    );
+  });
+
+  it('falls back for a cross-host (phishing) URL', () => {
+    expect(pickSafeRedirect('https://evil.com/steal', fallback, allowed)).toBe(fallback);
+  });
+
+  it('falls back when undefined or unparseable', () => {
+    expect(pickSafeRedirect(undefined, fallback, allowed)).toBe(fallback);
+    expect(pickSafeRedirect('::::not a url', fallback, allowed)).toBe(fallback);
+  });
+});
+
+// .first() answers the site lookup (id + business_name); .all() answers the
+// hostnames lookup (default: no custom domains → only {slug}.projectsites.dev).
+let mockHostnames: { hostname: string }[] = [];
 const mockDb = {
   prepare: jest.fn(() => ({
     bind: jest.fn(() => ({
-      first: jest.fn().mockResolvedValue({ business_name: 'Newark Soup Kitchen' }),
+      first: jest.fn().mockResolvedValue({ id: 'site-1', business_name: 'Newark Soup Kitchen' }),
+      all: jest.fn().mockResolvedValue({ results: mockHostnames }),
     })),
   })),
 } as unknown as D1Database;
@@ -86,6 +113,26 @@ describe('POST /api/donate — input boundary', () => {
       successUrl: 'javascript:alert(1)',
     });
     expect(res.status).toBe(400);
+  });
+
+  it('ignores a cross-host successUrl and falls back to the site own domain', async () => {
+    mockHostnames = []; // no custom domains → only nsk.projectsites.dev allowed
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ url: 'https://x', id: 'cs_1' }), { status: 200 }),
+      );
+    global.fetch = fetchMock;
+    const res = await post(makeEnv(), {
+      slug: 'nsk',
+      amount: 5000,
+      successUrl: 'https://evil.com/phish',
+    });
+    expect(res.status).toBe(200);
+    const sentForm = (fetchMock.mock.calls[0][1] as RequestInit).body;
+    const success = new URLSearchParams(String(sentForm)).get('success_url');
+    expect(success).not.toContain('evil.com');
+    expect(success).toContain('nsk.projectsites.dev');
   });
 
   it('creates a Stripe checkout session for a valid donation', async () => {

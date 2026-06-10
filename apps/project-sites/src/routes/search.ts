@@ -51,6 +51,27 @@ const DonateSchema = z.object({
   successUrl: z.string().url().startsWith('https://').optional(),
   cancelUrl: z.string().url().startsWith('https://').optional(),
 });
+
+/**
+ * Return `provided` only when its host is one of the donation site's OWN domains
+ * (`{slug}.projectsites.dev` + any registered custom hostname); otherwise fall
+ * back to `fallback`. Closes the open-redirect/phishing vector where a crafted
+ * donate link set `successUrl=https://evil.com` and Stripe redirected the donor
+ * off-site post-payment. Graceful (never errors) so a legit donation always
+ * completes. Exported for unit testing.
+ */
+export function pickSafeRedirect(
+  provided: string | undefined,
+  fallback: string,
+  allowedHosts: Set<string>,
+): string {
+  if (!provided) return fallback;
+  try {
+    return allowedHosts.has(new URL(provided).host.toLowerCase()) ? provided : fallback;
+  } catch {
+    return fallback;
+  }
+}
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -3201,11 +3222,26 @@ search.post('/api/donate', async (c) => {
     return c.json({ error: 'Donations not configured' }, 503);
   }
 
-  // Look up the site to get business name
-  const site = (await c.env.DB.prepare('SELECT business_name FROM sites WHERE slug = ?')
+  // Look up the site (id for hostname lookup + business name for the line item).
+  const site = (await c.env.DB.prepare(
+    'SELECT id, business_name FROM sites WHERE slug = ? AND deleted_at IS NULL',
+  )
     .bind(body.slug)
-    .first()) as { business_name: string } | null;
+    .first()) as { id: string; business_name: string } | null;
   const businessName = site?.business_name || body.slug;
+
+  // Build the set of the site's OWN domains — only these may be a Stripe
+  // redirect target (prevents post-payment phishing redirects to a third party).
+  const allowedHosts = new Set<string>([`${body.slug}.projectsites.dev`]);
+  if (site?.id) {
+    const hns = await c.env.DB.prepare(
+      'SELECT hostname FROM hostnames WHERE site_id = ? AND deleted_at IS NULL',
+    )
+      .bind(site.id)
+      .all<{ hostname: string }>()
+      .catch(() => ({ results: [] as { hostname: string }[] }));
+    for (const r of hns.results ?? []) allowedHosts.add(String(r.hostname).toLowerCase());
+  }
 
   const isRecurring = body.interval && body.interval !== 'one_time';
   const siteUrl = `https://${body.slug}.projectsites.dev`;
@@ -3213,8 +3249,14 @@ search.post('/api/donate', async (c) => {
   // Create Stripe Checkout Session via REST API (no SDK needed)
   const params = new URLSearchParams();
   params.append('mode', isRecurring ? 'subscription' : 'payment');
-  params.append('success_url', body.successUrl || `${siteUrl}/donate.html?success=true`);
-  params.append('cancel_url', body.cancelUrl || `${siteUrl}/donate.html`);
+  params.append(
+    'success_url',
+    pickSafeRedirect(body.successUrl, `${siteUrl}/donate.html?success=true`, allowedHosts),
+  );
+  params.append(
+    'cancel_url',
+    pickSafeRedirect(body.cancelUrl, `${siteUrl}/donate.html`, allowedHosts),
+  );
   params.append('line_items[0][price_data][currency]', 'usd');
   params.append('line_items[0][price_data][unit_amount]', String(body.amount));
   params.append('line_items[0][price_data][product_data][name]', `Donation to ${businessName}`);
