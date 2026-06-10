@@ -123,6 +123,7 @@ import {
   notFound,
   forbidden,
   unauthorized,
+  safeRelativePath,
 } from '@project-sites/shared';
 import { budgetTierSchema, type BudgetTier } from '@project-sites/shared/schemas';
 import * as authService from '../services/auth.js';
@@ -135,7 +136,10 @@ import * as posthog from '../lib/posthog.js';
 import { captureError } from '../lib/sentry.js';
 import { fetchSheetData, fetchSheetMeta } from '../services/google_sheets.js';
 import { migrateExternalAssets } from '../services/asset_migration.js';
-import { isCloudflareAnalyticsConfigured, loadSiteTraffic } from '../services/cloudflare_analytics.js';
+import {
+  isCloudflareAnalyticsConfigured,
+  loadSiteTraffic,
+} from '../services/cloudflare_analytics.js';
 import {
   listSiteUrls,
   loadMultiUrlAnalytics,
@@ -152,7 +156,10 @@ import {
 } from '../services/cf_credentials.js';
 import { z } from 'zod';
 import { crawlSiteForImport, estimateRebuildMinutes } from '../services/import_crawler.js';
-import { checkBatch as rdapCheckBatch, checkAvailability as rdapCheck } from '../services/rdap_availability.js';
+import {
+  checkBatch as rdapCheckBatch,
+  checkAvailability as rdapCheck,
+} from '../services/rdap_availability.js';
 import {
   buildTldPriceMap,
   porkbunFallback,
@@ -1068,13 +1075,27 @@ api.get('/api/sites/sparklines', async (c) => {
     [days, orgId],
   );
 
-  type Daily = { date: string; lcp_ms: number | null; cls: number | null; inp_ms: number | null; lh_perf: number | null };
+  type Daily = {
+    date: string;
+    lcp_ms: number | null;
+    cls: number | null;
+    inp_ms: number | null;
+    lh_perf: number | null;
+  };
   type SiteRow = {
     site_id: string;
     slug: string;
     business_name: string | null;
     daily: Daily[];
-    latest: { lcp_ms: number | null; cls: number | null; inp_ms: number | null; lh_perf: number | null; lh_accessibility: number | null; axe_violations: number | null; captured_at: string | null };
+    latest: {
+      lcp_ms: number | null;
+      cls: number | null;
+      inp_ms: number | null;
+      lh_perf: number | null;
+      lh_accessibility: number | null;
+      axe_violations: number | null;
+      captured_at: string | null;
+    };
     composite_score: number | null;
   };
 
@@ -1087,7 +1108,15 @@ api.get('/api/sites/sparklines', async (c) => {
         slug: r.slug,
         business_name: r.business_name,
         daily: [],
-        latest: { lcp_ms: null, cls: null, inp_ms: null, lh_perf: null, lh_accessibility: null, axe_violations: null, captured_at: null },
+        latest: {
+          lcp_ms: null,
+          cls: null,
+          inp_ms: null,
+          lh_perf: null,
+          lh_accessibility: null,
+          axe_violations: null,
+          captured_at: null,
+        },
         composite_score: null,
       };
       bySite.set(r.site_id, site);
@@ -1534,13 +1563,10 @@ api.post('/api/billing/payment-intent', async (c) => {
     .catch(() => {});
 
   try {
-    posthog.trackSite(
-      c.env,
-      c.executionCtx,
-      'payment_intent_created',
-      userId,
-      { site_id: validated.site_id, amount_cents: validated.amount_cents },
-    );
+    posthog.trackSite(c.env, c.executionCtx, 'payment_intent_created', userId, {
+      site_id: validated.site_id,
+      amount_cents: validated.amount_cents,
+    });
   } catch {
     /* fire-and-forget */
   }
@@ -1926,7 +1952,8 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
         c.executionCtx?.waitUntil(
           notifyUser(c.env, {
             subscriberId: owner.email,
-            subject: validated.type === 'custom_cname' ? 'Domain connected 🌐' : 'Subdomain ready 🌐',
+            subject:
+              validated.type === 'custom_cname' ? 'Domain connected 🌐' : 'Subdomain ready 🌐',
             body: `${result.hostname} is now connected to your site.`,
           }),
         );
@@ -2463,17 +2490,19 @@ api.get('/api/audit-logs', async (c) => {
   scopedSql += ` ORDER BY a.created_at DESC LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
-  const rs = await c.env.DB.prepare(scopedSql).bind(...params).all<{
-    id: string;
-    action: string;
-    target_type: string | null;
-    target_id: string | null;
-    actor_id: string | null;
-    metadata_json: string | null;
-    request_id: string | null;
-    created_at: string;
-    site_slug: string | null;
-  }>();
+  const rs = await c.env.DB.prepare(scopedSql)
+    .bind(...params)
+    .all<{
+      id: string;
+      action: string;
+      target_type: string | null;
+      target_id: string | null;
+      actor_id: string | null;
+      metadata_json: string | null;
+      request_id: string | null;
+      created_at: string;
+      site_slug: string | null;
+    }>();
 
   // If we scoped by site_id but the JOIN didn't fire for metadata-only
   // rows, resolve the slug once and stamp it on every row in this scope.
@@ -3467,8 +3496,14 @@ api.patch('/api/sites/:id', async (c) => {
    * in lockstep — a value that survives Zod never overflows the column.
    */
   type BusinessField = {
-    body_key: 'business_address' | 'business_phone' | 'business_email' |
-      'business_website' | 'original_prompt' | 'logo_url' | 'app_icon_url';
+    body_key:
+      | 'business_address'
+      | 'business_phone'
+      | 'business_email'
+      | 'business_website'
+      | 'original_prompt'
+      | 'logo_url'
+      | 'app_icon_url';
     column: string;
     cap: number;
     trim: boolean;
@@ -4731,7 +4766,10 @@ api.get('/api/domains/search', async (c) => {
   if (!query || query.trim().length < 2 || query.trim().length > 63) {
     return c.json({ data: [] });
   }
-  const sanitised = query.trim().toLowerCase().replace(/[^a-z0-9.-]/g, '');
+  const sanitised = query
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]/g, '');
   if (!sanitised) return c.json({ data: [] });
 
   const TOP_TLDS = ['com', 'app', 'io', 'dev', 'co', 'ai', 'org', 'net', 'me', 'xyz'];
@@ -6546,8 +6584,26 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
   // membership but skip body load — keeps the response under 10MB even for
   // 200-file diffs that include hero images on both sides.
   const DIFF_TEXT_EXTS = new Set([
-    'html', 'htm', 'css', 'scss', 'sass', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
-    'json', 'md', 'txt', 'xml', 'svg', 'yml', 'yaml', 'toml', 'webmanifest',
+    'html',
+    'htm',
+    'css',
+    'scss',
+    'sass',
+    'js',
+    'mjs',
+    'cjs',
+    'ts',
+    'tsx',
+    'jsx',
+    'json',
+    'md',
+    'txt',
+    'xml',
+    'svg',
+    'yml',
+    'yaml',
+    'toml',
+    'webmanifest',
   ]);
   const MAX_FILE_BYTES = 256 * 1024;
 
@@ -6565,13 +6621,20 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
     return keys;
   }
 
-  async function loadText(prefix: string, path: string): Promise<{ value: string; truncated: boolean } | null> {
+  async function loadText(
+    prefix: string,
+    path: string,
+  ): Promise<{ value: string; truncated: boolean } | null> {
     const obj = await c.env.SITES_BUCKET.get(prefix + path);
     if (!obj) return null;
     if (obj.size > MAX_FILE_BYTES) {
       const stream = obj.body.getReader();
       const { value: chunk } = await stream.read();
-      try { stream.cancel(); } catch { /* noop */ }
+      try {
+        stream.cancel();
+      } catch {
+        /* noop */
+      }
       const decoded = chunk ? new TextDecoder().decode(chunk).slice(0, MAX_FILE_BYTES) : '';
       return { value: decoded, truncated: true };
     }
@@ -6586,7 +6649,13 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
   const { diffLines } = await import('diff');
 
   type Hunk = { added: boolean; removed: boolean; value: string };
-  type Modified = { path: string; before: string; after: string; hunks: Hunk[]; truncated: boolean };
+  type Modified = {
+    path: string;
+    before: string;
+    after: string;
+    hunks: Hunk[];
+    truncated: boolean;
+  };
   type Plain = { path: string; contents: string; binary: boolean; truncated: boolean };
 
   const added: Plain[] = [];
@@ -6602,10 +6671,20 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
 
       if (inFrom && !inTo) {
         const body = isText ? await loadText(fromPrefix, path) : null;
-        removed.push({ path, contents: body?.value ?? '', binary: !isText, truncated: body?.truncated ?? false });
+        removed.push({
+          path,
+          contents: body?.value ?? '',
+          binary: !isText,
+          truncated: body?.truncated ?? false,
+        });
       } else if (!inFrom && inTo) {
         const body = isText ? await loadText(toPrefix, path) : null;
-        added.push({ path, contents: body?.value ?? '', binary: !isText, truncated: body?.truncated ?? false });
+        added.push({
+          path,
+          contents: body?.value ?? '',
+          binary: !isText,
+          truncated: body?.truncated ?? false,
+        });
       } else if (inFrom && inTo && isText) {
         const [b, a] = await Promise.all([loadText(fromPrefix, path), loadText(toPrefix, path)]);
         const before = b?.value ?? '';
@@ -6638,7 +6717,10 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
     ].slice(0, 80);
     const prompt = `You are a senior code reviewer summarizing a website-snapshot diff.\nSnapshots: "${fromSnap.snapshot_name}" -> "${toSnap.snapshot_name}".\nFiles (+ added, - removed, ~ modified):\n${fileList.join('\n')}\n\nWrite ONE paragraph (max 2 sentences) describing what likely changed at a high level. No bullet list, no preamble.`;
     const ai = c.env.AI as unknown as {
-      run: (model: string, input: { messages: Array<{ role: string; content: string }>; max_tokens?: number }) => Promise<{ response?: string }>;
+      run: (
+        model: string,
+        input: { messages: Array<{ role: string; content: string }>; max_tokens?: number },
+      ) => Promise<{ response?: string }>;
     };
     const res = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       messages: [{ role: 'user', content: prompt }],
@@ -7986,10 +8068,16 @@ api.get('/api/analytics/:siteId', async (c) => {
             avgSessionDuration: '—',
             bounceRate: 0,
           },
-          chartData: traffic.by_day.map((b) => ({ date: b.day, views: b.page_views || b.requests })),
+          chartData: traffic.by_day.map((b) => ({
+            date: b.day,
+            views: b.page_views || b.requests,
+          })),
           trafficSources: [], // not available at the edge layer
           topPages: traffic.top_paths.map((p) => ({ path: p.path, views: p.requests })),
-          topCountries: traffic.by_country.map((cc) => ({ country: cc.country, views: cc.requests })),
+          topCountries: traffic.by_country.map((cc) => ({
+            country: cc.country,
+            views: cc.requests,
+          })),
         },
       });
     } catch (err) {
@@ -8519,7 +8607,10 @@ api.get('/api/sites/:id/github/connect', async (c) => {
     throw badRequest('GitHub OAuth is not configured. GITHUB_CLIENT_ID secret is missing.');
   }
 
-  const returnUrl = c.req.query('return_url') ?? '/admin/github';
+  // Same-origin relative path only — the callback redirects to this value
+  // DIRECTLY (`c.redirect(`${returnUrl}?connected=1`)`), so an absolute
+  // `return_url=https://evil.com` would be an open redirect.
+  const returnUrl = safeRelativePath(c.req.query('return_url'), '/admin/github');
   const state = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
 
   await dbInsert(c.env.DB, 'github_backup_states', {
@@ -8854,14 +8945,11 @@ api.post('/api/sites/:id/github/backup', async (c) => {
   const branchName = `snapshot-${branchSeed}-${branchTs}`;
 
   // Create the snapshot branch pointing at the new tree commit.
-  const createRefRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/refs`,
-    {
-      method: 'POST',
-      headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: commit.sha }),
-    },
-  );
+  const createRefRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+    method: 'POST',
+    headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: commit.sha }),
+  });
   if (!createRefRes.ok) {
     const body = await createRefRes.text().catch(() => '');
     throw badRequest(`GitHub branch create failed: ${createRefRes.status} ${body.slice(0, 200)}`);
@@ -8881,7 +8969,11 @@ api.post('/api/sites/:id/github/backup', async (c) => {
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       {
         messages: [
-          { role: 'system', content: 'You write concise, helpful GitHub PR descriptions for website-snapshot mirrors. Plain markdown, no preamble.' },
+          {
+            role: 'system',
+            content:
+              'You write concise, helpful GitHub PR descriptions for website-snapshot mirrors. Plain markdown, no preamble.',
+          },
           { role: 'user', content: aiPrompt },
         ],
         max_tokens: 320,
@@ -9077,16 +9169,56 @@ function guessContentTypeForRevert(filename: string): string {
  * alliterative, ...). Deduped + availability-checked downstream.
  */
 const AI_DOMAIN_STRATEGIES: ReadonlyArray<{ id: string; instruction: string }> = [
-  { id: 'literal', instruction: 'Suggest 4 literal, descriptive domain names that say exactly what the business does. Plain English, .com preferred.' },
-  { id: 'metaphor', instruction: 'Suggest 4 metaphor-driven domain names that evoke the business through a vivid image (e.g. "ironpaw.com" for a gym). Avoid the business type word directly.' },
-  { id: 'compound', instruction: 'Suggest 4 invented compound-word domain names that fuse two relevant nouns or a noun + verb. Keep them under 14 characters.' },
-  { id: 'alliterative', instruction: 'Suggest 4 alliterative domain names where the first letter repeats. Memorable, brand-able, .com or .co.' },
-  { id: 'rhyming', instruction: 'Suggest 4 rhyming or near-rhyming two-word domain names. Playful but professional.' },
-  { id: 'jargon', instruction: 'Suggest 4 industry-jargon domain names that insiders would instantly recognize. Authentic vocabulary, no marketing speak.' },
-  { id: 'playful', instruction: 'Suggest 4 playful, slightly irreverent domain names with a wink. Short. .co, .fun, .biz allowed.' },
-  { id: 'minimalist', instruction: 'Suggest 4 minimalist single-word or two-syllable domain names. Premium, easy to spell. .com or .io.' },
-  { id: 'premium-tld', instruction: 'Suggest 4 domain names paired with premium TLDs (.io, .app, .dev, .ai) where the TLD adds meaning.' },
-  { id: 'geography', instruction: 'Suggest 4 geography-flavored domain names that subtly include city, neighborhood, or regional flavor.' },
+  {
+    id: 'literal',
+    instruction:
+      'Suggest 4 literal, descriptive domain names that say exactly what the business does. Plain English, .com preferred.',
+  },
+  {
+    id: 'metaphor',
+    instruction:
+      'Suggest 4 metaphor-driven domain names that evoke the business through a vivid image (e.g. "ironpaw.com" for a gym). Avoid the business type word directly.',
+  },
+  {
+    id: 'compound',
+    instruction:
+      'Suggest 4 invented compound-word domain names that fuse two relevant nouns or a noun + verb. Keep them under 14 characters.',
+  },
+  {
+    id: 'alliterative',
+    instruction:
+      'Suggest 4 alliterative domain names where the first letter repeats. Memorable, brand-able, .com or .co.',
+  },
+  {
+    id: 'rhyming',
+    instruction:
+      'Suggest 4 rhyming or near-rhyming two-word domain names. Playful but professional.',
+  },
+  {
+    id: 'jargon',
+    instruction:
+      'Suggest 4 industry-jargon domain names that insiders would instantly recognize. Authentic vocabulary, no marketing speak.',
+  },
+  {
+    id: 'playful',
+    instruction:
+      'Suggest 4 playful, slightly irreverent domain names with a wink. Short. .co, .fun, .biz allowed.',
+  },
+  {
+    id: 'minimalist',
+    instruction:
+      'Suggest 4 minimalist single-word or two-syllable domain names. Premium, easy to spell. .com or .io.',
+  },
+  {
+    id: 'premium-tld',
+    instruction:
+      'Suggest 4 domain names paired with premium TLDs (.io, .app, .dev, .ai) where the TLD adds meaning.',
+  },
+  {
+    id: 'geography',
+    instruction:
+      'Suggest 4 geography-flavored domain names that subtly include city, neighborhood, or regional flavor.',
+  },
 ];
 
 /**
@@ -9360,8 +9492,7 @@ api.post('/api/sites/:siteId/domains/register', async (c) => {
   if (!site) throw notFound('Site not found');
 
   const body = (await c.req.json().catch(() => ({}))) as { domain?: unknown };
-  const domain =
-    typeof body.domain === 'string' ? body.domain.toLowerCase().trim() : '';
+  const domain = typeof body.domain === 'string' ? body.domain.toLowerCase().trim() : '';
   if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(domain)) {
     throw badRequest('`domain` must be a valid FQDN like "acme.com"');
   }
@@ -9516,11 +9647,10 @@ api.get('/api/auth/google-drive/callback', async (c) => {
   if (!code || !state) {
     return c.redirect(`https://${DOMAINS.SITES_BASE}/admin/settings?tab=ai-chat&drive=error`);
   }
-  const stateRow = await c.env.DB
-    .prepare(
-      `SELECT id, site_id, org_id, redirect_url, expires_at FROM google_drive_oauth_states
+  const stateRow = await c.env.DB.prepare(
+    `SELECT id, site_id, org_id, redirect_url, expires_at FROM google_drive_oauth_states
        WHERE state = ? AND deleted_at IS NULL`,
-    )
+  )
     .bind(state)
     .first<{
       id: string;
@@ -9530,17 +9660,16 @@ api.get('/api/auth/google-drive/callback', async (c) => {
       expires_at: string;
     }>();
   if (!stateRow || Date.parse(stateRow.expires_at) < Date.now()) {
-    return c.redirect(
-      `https://${DOMAINS.SITES_BASE}/admin/settings?tab=ai-chat&drive=expired`,
-    );
+    return c.redirect(`https://${DOMAINS.SITES_BASE}/admin/settings?tab=ai-chat&drive=expired`);
   }
   try {
     const callbackUrl = `${new URL(c.req.url).origin}/api/auth/google-drive/callback`;
     const { exchangeCode, persistTokens } = await import('../services/google_drive.js');
     const tokens = await exchangeCode(c.env, code, callbackUrl);
     await persistTokens(c.env, c.env.DB, stateRow.site_id, tokens);
-    await c.env.DB
-      .prepare(`UPDATE google_drive_oauth_states SET deleted_at = datetime('now') WHERE id = ?`)
+    await c.env.DB.prepare(
+      `UPDATE google_drive_oauth_states SET deleted_at = datetime('now') WHERE id = ?`,
+    )
       .bind(stateRow.id)
       .run();
     const target = stateRow.redirect_url ?? '/admin/settings?tab=ai-chat';
@@ -9625,10 +9754,7 @@ api.post('/api/internal/client-error', async (c) => {
 
 import * as connectService from '../services/stripe_connect.js';
 import * as usageMetering from '../services/usage_metering.js';
-import {
-  sendWeeklyDigestsForAllOrgs,
-  verifyUnsubscribeToken,
-} from '../services/weekly_digest.js';
+import { sendWeeklyDigestsForAllOrgs, verifyUnsubscribeToken } from '../services/weekly_digest.js';
 
 /**
  * @route POST /api/billing/connect/start
@@ -9653,8 +9779,7 @@ api.post('/api/billing/connect/start', async (c) => {
   };
   const refreshUrl =
     body.refresh_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=refresh`;
-  const returnUrl =
-    body.return_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=done`;
+  const returnUrl = body.return_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=done`;
 
   const result = await connectService.startConnectOnboarding(c.env, c.env.DB, {
     orgId,
@@ -9734,7 +9859,12 @@ api.post('/api/billing/usage', async (c) => {
     value?: number;
     site_id?: string | null;
   };
-  if (!body.metric || (body.metric !== 'ai_calls' && body.metric !== 'bytes_egress' && body.metric !== 'image_generations')) {
+  if (
+    !body.metric ||
+    (body.metric !== 'ai_calls' &&
+      body.metric !== 'bytes_egress' &&
+      body.metric !== 'image_generations')
+  ) {
     throw badRequest('metric must be one of: ai_calls, bytes_egress, image_generations');
   }
   if (typeof body.value !== 'number' || body.value < 0) {
@@ -10112,19 +10242,43 @@ api.get('/api/sites/:id/snapshots/:snapId/download', async (c) => {
  * Returns the {site, org_id} pair on success, or `null` after writing a 4xx
  * envelope to `c`. Used by the multi-URL analytics + URL CRUD handlers.
  */
-async function loadSiteAndAuth(c: Context<{ Bindings: Env; Variables: Variables }>, siteId: string) {
+async function loadSiteAndAuth(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  siteId: string,
+) {
   const requestId = c.get('requestId') ?? crypto.randomUUID();
   const userId = c.get('userId');
   if (!userId) {
-    return { err: c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401) };
+    return {
+      err: c.json(
+        {
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+            request_id: requestId,
+          },
+        },
+        401,
+      ),
+    };
   }
-  const site = await dbQueryOne<{ id: string; slug: string; org_id: string; primary_hostname: string | null }>(
+  const site = await dbQueryOne<{
+    id: string;
+    slug: string;
+    org_id: string;
+    primary_hostname: string | null;
+  }>(
     c.env.DB,
     'SELECT id, slug, org_id, primary_hostname FROM sites WHERE id = ? AND deleted_at IS NULL',
     [siteId],
   );
   if (!site) {
-    return { err: c.json({ error: { code: 'NOT_FOUND', message: 'Site not found', request_id: requestId } }, 404) };
+    return {
+      err: c.json(
+        { error: { code: 'NOT_FOUND', message: 'Site not found', request_id: requestId } },
+        404,
+      ),
+    };
   }
   const membership = await dbQueryOne(
     c.env.DB,
@@ -10132,7 +10286,12 @@ async function loadSiteAndAuth(c: Context<{ Bindings: Env; Variables: Variables 
     [site.org_id, userId],
   );
   if (!membership) {
-    return { err: c.json({ error: { code: 'FORBIDDEN', message: 'Access denied', request_id: requestId } }, 403) };
+    return {
+      err: c.json(
+        { error: { code: 'FORBIDDEN', message: 'Access denied', request_id: requestId } },
+        403,
+      ),
+    };
   }
   return { site, requestId };
 }
@@ -10183,7 +10342,16 @@ api.post('/api/sites/:id/urls', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { hostname?: unknown };
   const hostname = typeof body.hostname === 'string' ? body.hostname.trim().toLowerCase() : '';
   if (!hostname || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(hostname)) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'hostname must be a valid domain', request_id: ctx.requestId } }, 400);
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hostname must be a valid domain',
+          request_id: ctx.requestId,
+        },
+      },
+      400,
+    );
   }
   const id = crypto.randomUUID();
   const { error } = await dbInsert(c.env.DB, 'site_urls', {
@@ -10195,15 +10363,29 @@ api.post('/api/sites/:id/urls', async (c) => {
   if (error) {
     // UNIQUE(hostname) collision = 409.
     if (/UNIQUE constraint failed/i.test(error)) {
-      return c.json({ error: { code: 'CONFLICT', message: 'Hostname already bound to a site', request_id: ctx.requestId } }, 409);
+      return c.json(
+        {
+          error: {
+            code: 'CONFLICT',
+            message: 'Hostname already bound to a site',
+            request_id: ctx.requestId,
+          },
+        },
+        409,
+      );
     }
-    return c.json({ error: { code: 'INTERNAL_ERROR', message: error, request_id: ctx.requestId } }, 500);
+    return c.json(
+      { error: { code: 'INTERNAL_ERROR', message: error, request_id: ctx.requestId } },
+      500,
+    );
   }
   // Invalidate any cached aggregates so the next analytics call sees the new URL.
   try {
     // Best-effort cache nuke; can't enumerate KV by prefix so we let TTL expire.
     await c.env.CACHE_KV.delete(`zone:${hostname}`);
-  } catch { /* */ }
+  } catch {
+    /* */
+  }
   return c.json({ data: { id, hostname, is_primary: 0 } });
 });
 
@@ -10227,16 +10409,28 @@ api.delete('/api/sites/:id/urls/:urlId', async (c) => {
     [urlId, siteId],
   );
   if (!row) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'URL binding not found', request_id: ctx.requestId } }, 404);
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: 'URL binding not found', request_id: ctx.requestId } },
+      404,
+    );
   }
   if (row.is_primary) {
-    return c.json({ error: { code: 'CONFLICT', message: 'Cannot remove the primary URL — set a different primary first', request_id: ctx.requestId } }, 409);
+    return c.json(
+      {
+        error: {
+          code: 'CONFLICT',
+          message: 'Cannot remove the primary URL — set a different primary first',
+          request_id: ctx.requestId,
+        },
+      },
+      409,
+    );
   }
-  await dbExecute(
-    c.env.DB,
-    'UPDATE site_urls SET deleted_at = ?, updated_at = ? WHERE id = ?',
-    [new Date().toISOString(), new Date().toISOString(), urlId],
-  );
+  await dbExecute(c.env.DB, 'UPDATE site_urls SET deleted_at = ?, updated_at = ? WHERE id = ?', [
+    new Date().toISOString(),
+    new Date().toISOString(),
+    urlId,
+  ]);
   return c.json({ data: { id: urlId, deleted: true } });
 });
 
@@ -10263,7 +10457,10 @@ api.get('/api/sites/:id/analytics', async (c) => {
   const range = parseRange(c.req.query('range'));
   const excludeRaw = c.req.query('exclude') ?? '';
   const exclude = new Set(
-    excludeRaw.split(',').map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0),
+    excludeRaw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0),
   );
 
   // Ensure at least the primary URL row exists before aggregating.
@@ -10282,17 +10479,26 @@ api.get('/api/sites/:id/analytics', async (c) => {
   try {
     envelope = await loadMultiUrlAnalytics(c.env, siteId, ctx.site.org_id, range, exclude);
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn',
-      service: 'api',
-      route: 'GET /api/sites/:id/analytics',
-      site_id: siteId,
-      error: err instanceof Error ? err.message : String(err),
-      request_id: ctx.requestId,
-    }));
-    return c.json({
-      error: { code: 'AI_GENERATION_ERROR', message: 'Failed to aggregate Cloudflare analytics', request_id: ctx.requestId },
-    }, 502);
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'api',
+        route: 'GET /api/sites/:id/analytics',
+        site_id: siteId,
+        error: err instanceof Error ? err.message : String(err),
+        request_id: ctx.requestId,
+      }),
+    );
+    return c.json(
+      {
+        error: {
+          code: 'AI_GENERATION_ERROR',
+          message: 'Failed to aggregate Cloudflare analytics',
+          request_id: ctx.requestId,
+        },
+      },
+      502,
+    );
   }
   return c.json({ data: envelope });
 });
@@ -10318,7 +10524,12 @@ api.get('/api/admin/cloudflare-credentials', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+    return c.json(
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
+      401,
+    );
   }
   const stored = orgId ? await loadCfCredentials(c.env, orgId) : null;
   const auth = await resolveCfCredentials(c.env, orgId ?? null);
@@ -10354,26 +10565,46 @@ api.put('/api/admin/cloudflare-credentials', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+    return c.json(
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
+      401,
+    );
   }
   if (!orgId) {
-    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } }, 403);
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } },
+      403,
+    );
   }
   const body = (await c.req.json().catch(() => ({}))) as { email?: unknown; api_key?: unknown };
   const email = typeof body.email === 'string' ? body.email.trim() : '';
   const apiKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || apiKey.length < 20) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'email + api_key required', request_id: requestId } }, 400);
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'email + api_key required',
+          request_id: requestId,
+        },
+      },
+      400,
+    );
   }
   const validation = await validateCfCredentials(email, apiKey);
   if (!validation.ok) {
-    return c.json({
-      error: {
-        code: 'BAD_REQUEST',
-        message: `Cloudflare rejected the credentials (${validation.status}). ${validation.message}`,
-        request_id: requestId,
+    return c.json(
+      {
+        error: {
+          code: 'BAD_REQUEST',
+          message: `Cloudflare rejected the credentials (${validation.status}). ${validation.message}`,
+          request_id: requestId,
+        },
       },
-    }, 400);
+      400,
+    );
   }
   await saveCfCredentials(c.env, orgId, email, apiKey, validation.account_id);
   return c.json({
@@ -10401,10 +10632,18 @@ api.post('/api/admin/cloudflare-credentials/validate', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+    return c.json(
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
+      401,
+    );
   }
   if (!orgId) {
-    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } }, 403);
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } },
+      403,
+    );
   }
   const stored = await loadCfCredentials(c.env, orgId);
   if (!stored) {
@@ -10414,7 +10653,9 @@ api.post('/api/admin/cloudflare-credentials/validate', async (c) => {
   if (validation.ok) {
     // Refresh validation timestamp + cached account id.
     await saveCfCredentials(c.env, orgId, stored.email, stored.api_key, validation.account_id);
-    return c.json({ data: { ok: true, account_id: validation.account_id, validated_at: new Date().toISOString() } });
+    return c.json({
+      data: { ok: true, account_id: validation.account_id, validated_at: new Date().toISOString() },
+    });
   }
   return c.json({ data: { ok: false, status: validation.status, message: validation.message } });
 });
@@ -10432,10 +10673,18 @@ api.delete('/api/admin/cloudflare-credentials', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+    return c.json(
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
+      401,
+    );
   }
   if (!orgId) {
-    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } }, 403);
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } },
+      403,
+    );
   }
   await deleteCfCredentials(c.env, orgId);
   return c.json({ data: { deleted: true } });
@@ -10465,7 +10714,12 @@ api.get('/api/admin/notifications', async (c) => {
   const requestId = c.get('requestId') ?? crypto.randomUUID();
   const userId = c.get('userId');
   if (!userId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+    return c.json(
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
+      401,
+    );
   }
   const raw = await getMemory(c.env, { kind: 'user', id: userId }, NOTIFICATION_PREFS_KEY);
   let prefs: Record<string, boolean> = {};
@@ -10485,13 +10739,32 @@ api.post('/api/admin/notifications', async (c) => {
   const requestId = c.get('requestId') ?? crypto.randomUUID();
   const userId = c.get('userId');
   if (!userId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+    return c.json(
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
+      401,
+    );
   }
   const parsed = NotificationPrefsSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Body must be { prefs: Record<string, boolean> }', request_id: requestId } }, 400);
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Body must be { prefs: Record<string, boolean> }',
+          request_id: requestId,
+        },
+      },
+      400,
+    );
   }
-  await setMemory(c.env, { kind: 'user', id: userId }, NOTIFICATION_PREFS_KEY, JSON.stringify(parsed.data.prefs));
+  await setMemory(
+    c.env,
+    { kind: 'user', id: userId },
+    NOTIFICATION_PREFS_KEY,
+    JSON.stringify(parsed.data.prefs),
+  );
   return c.json({ data: { saved: true, prefs: parsed.data.prefs } });
 });
 
@@ -10523,7 +10796,9 @@ api.delete('/api/admin/account', async (c) => {
   const orgId = c.get('orgId');
   if (!userId) {
     return c.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } },
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
       401,
     );
   }
@@ -10615,7 +10890,9 @@ api.post('/api/audit-logs/editor-error', async (c) => {
 
   if (!userId) {
     return c.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } },
+      {
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId },
+      },
       401,
     );
   }
@@ -10802,7 +11079,9 @@ api.post('/api/sites/import-from-url', async (c) => {
           businessWebsite: validated.url,
           googlePlaceId: '',
           additionalContext: [
-            `Source-site import. Crawled ${crawl.total_urls} URLs via ${Object.entries(crawl.by_source)
+            `Source-site import. Crawled ${crawl.total_urls} URLs via ${Object.entries(
+              crawl.by_source,
+            )
               .filter(([, n]) => n > 0)
               .map(([k, n]) => `${k}:${n}`)
               .join(', ')}.`,
