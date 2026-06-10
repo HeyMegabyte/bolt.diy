@@ -143,6 +143,57 @@ describe('Container query endpoint', () => {
     // Verify D1 prepare was called
     expect(mockDb.prepare).toHaveBeenCalledWith('UPDATE sites SET status = ?1 WHERE id = ?2');
   });
+
+  it('does NOT bypass auth when ANTHROPIC_API_KEY is unset (no header)', async () => {
+    // Regression: `undefined !== undefined` previously skipped the 401, opening
+    // unauthenticated SQL execution when the secret env was absent.
+    const envNoKey = { ...(mockEnv as object), ANTHROPIC_API_KEY: undefined } as unknown as Env;
+    const res = await app.request(
+      '/api/container-query',
+      {
+        method: 'POST',
+        body: JSON.stringify({ sql: 'DROP TABLE sites' }),
+        headers: { 'Content-Type': 'application/json' },
+      },
+      envNoKey,
+    );
+    expect(res.status).toBe(401);
+    expect(mockDb.prepare).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when sql is missing/non-string (authorized but malformed)', async () => {
+    const res = await app.request(
+      '/api/container-query',
+      {
+        method: 'POST',
+        body: JSON.stringify({ params: [1] }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-container-secret': MOCK_API_KEY.slice(0, 16),
+        },
+      },
+      mockEnv,
+    );
+    expect(res.status).toBe(400);
+    expect(mockDb.prepare).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 (not 500) on a malformed JSON body', async () => {
+    const res = await app.request(
+      '/api/container-query',
+      {
+        method: 'POST',
+        body: 'not-json',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-container-secret': MOCK_API_KEY.slice(0, 16),
+        },
+      },
+      mockEnv,
+    );
+    expect(res.status).toBe(400);
+    expect(mockDb.prepare).not.toHaveBeenCalled();
+  });
 });
 
 describe('Container script endpoint', () => {

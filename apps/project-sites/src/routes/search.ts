@@ -23,9 +23,32 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
-import { badRequest, unauthorized, sanitizeHtml, stripHtml, DOMAINS } from '@project-sites/shared';
+import {
+  badRequest,
+  unauthorized,
+  sanitizeHtml,
+  stripHtml,
+  timingSafeEqual,
+  DOMAINS,
+} from '@project-sites/shared';
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
+
+/**
+ * Authorize a build-container request against the shared secret
+ * (`x-container-secret` === first 16 chars of `ANTHROPIC_API_KEY`).
+ *
+ * Hardened 2026-06-09: the old inline check `secret !== env.KEY?.slice(0,16)`
+ * had a latent AUTH BYPASS — when `ANTHROPIC_API_KEY` was unset, `?.slice`
+ * yielded `undefined` and a header-less request (`undefined`) compared
+ * `undefined !== undefined` → false → the 401 was SKIPPED, opening arbitrary
+ * R2 writes + SQL execution unauthenticated. This requires BOTH sides present
+ * and uses a constant-time compare (no length/timing oracle).
+ */
+function containerAuthorized(env: Env, secretHeader: string | undefined): boolean {
+  const expected = env.ANTHROPIC_API_KEY?.slice(0, 16);
+  return !!expected && !!secretHeader && timingSafeEqual(secretHeader, expected);
+}
 
 const search = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -316,17 +339,47 @@ const ADMIN_COMMAND_CATALOG: ReadonlyArray<CommandResult> = [
   { id: 'cs-dashboard', label: 'Dashboard', icon: 'dashboard', route: '/admin', detail: 'Admin' },
   { id: 'cs-sites', label: 'Sites', icon: 'dashboard', route: '/admin/sites', detail: 'Admin' },
   { id: 'cs-editor', label: 'Editor', icon: 'edit', route: '/admin/editor', detail: 'Admin' },
-  { id: 'cs-media', label: 'Media library', icon: 'document', route: '/admin/media', detail: 'Admin' },
-  { id: 'cs-analytics', label: 'Analytics', icon: 'status', route: '/admin/analytics', detail: 'Admin' },
+  {
+    id: 'cs-media',
+    label: 'Media library',
+    icon: 'document',
+    route: '/admin/media',
+    detail: 'Admin',
+  },
+  {
+    id: 'cs-analytics',
+    label: 'Analytics',
+    icon: 'status',
+    route: '/admin/analytics',
+    detail: 'Admin',
+  },
   { id: 'cs-forms', label: 'Forms', icon: 'document', route: '/admin/forms', detail: 'Admin' },
   { id: 'cs-seo', label: 'SEO', icon: 'search', route: '/admin/seo', detail: 'Admin' },
   { id: 'cs-social', label: 'Social', icon: 'changelog', route: '/admin/social', detail: 'Admin' },
   { id: 'cs-apps', label: 'Apps', icon: 'plus', route: '/admin/apps', detail: 'Admin' },
   { id: 'cs-domains', label: 'Domains', icon: 'lock', route: '/admin/domains', detail: 'Admin' },
   { id: 'cs-billing', label: 'Billing', icon: 'billing', route: '/admin/billing', detail: 'Admin' },
-  { id: 'cs-feature-flags', label: 'Feature Flags', icon: 'settings', route: '/admin/feature-flags', detail: 'Admin' },
-  { id: 'cs-features', label: 'Features', icon: 'sparkle', route: '/admin/site-features', detail: 'Admin' },
-  { id: 'cs-settings', label: 'Settings', icon: 'settings', route: '/admin/settings', detail: 'Admin' },
+  {
+    id: 'cs-feature-flags',
+    label: 'Feature Flags',
+    icon: 'settings',
+    route: '/admin/feature-flags',
+    detail: 'Admin',
+  },
+  {
+    id: 'cs-features',
+    label: 'Features',
+    icon: 'sparkle',
+    route: '/admin/site-features',
+    detail: 'Admin',
+  },
+  {
+    id: 'cs-settings',
+    label: 'Settings',
+    icon: 'settings',
+    route: '/admin/settings',
+    detail: 'Admin',
+  },
   { id: 'cs-docs', label: 'API Docs', icon: 'document', route: '/admin/docs', detail: 'Admin' },
   { id: 'cs-status', label: 'System Status', icon: 'status', route: '/status', detail: 'Public' },
 ];
@@ -335,9 +388,10 @@ const ADMIN_COMMAND_CATALOG: ReadonlyArray<CommandResult> = [
 export function matchCommandCatalog(q: string, limit = 6): CommandResult[] {
   const term = q.trim().toLowerCase();
   if (!term) return [];
-  return ADMIN_COMMAND_CATALOG
-    .filter((cmd) => cmd.label.toLowerCase().includes(term) || (cmd.route ?? '').toLowerCase().includes(term))
-    .slice(0, limit);
+  return ADMIN_COMMAND_CATALOG.filter(
+    (cmd) =>
+      cmd.label.toLowerCase().includes(term) || (cmd.route ?? '').toLowerCase().includes(term),
+  ).slice(0, limit);
 }
 
 search.get('/api/search/command', async (c) => {
@@ -372,14 +426,26 @@ search.get('/api/search/command', async (c) => {
   // Best-effort AutoRAG enrichment over indexed content (skipped when unconfigured).
   try {
     const ai = c.env.AI as unknown as {
-      autorag?: (name: string) => { search: (opts: { query: string }) => Promise<{ data?: Array<{ filename?: string; attributes?: Record<string, unknown> }> }> };
+      autorag?: (name: string) => {
+        search: (opts: {
+          query: string;
+        }) => Promise<{
+          data?: Array<{ filename?: string; attributes?: Record<string, unknown> }>;
+        }>;
+      };
     };
     if (ai?.autorag) {
       const rag = await ai.autorag('projectsites-rag').search({ query: bounded });
       for (const d of (rag?.data ?? []).slice(0, 4)) {
         const title = String(d.attributes?.['title'] ?? d.filename ?? 'Result');
         const url = d.attributes?.['url'] ? String(d.attributes['url']) : undefined;
-        results.push({ id: `cs-rag-${title}`, label: title, icon: 'sparkle', url, detail: 'AI · AutoRAG' });
+        results.push({
+          id: `cs-rag-${title}`,
+          label: title,
+          icon: 'sparkle',
+          url,
+          detail: 'AI · AutoRAG',
+        });
       }
     }
   } catch {
@@ -771,14 +837,17 @@ search.post('/api/sites/improve-prompt', async (c) => {
       return c.json({ data: { improved_text: fallbackText } });
     }
 
-    const result = await ai.run('@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof ai.run>[0], {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 2048,
-      temperature: 0.3,
-    });
+    const result = await ai.run(
+      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof ai.run>[0],
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 2048,
+        temperature: 0.3,
+      },
+    );
 
     const improved =
       typeof result === 'object' && result !== null && 'response' in result
@@ -1073,7 +1142,12 @@ search.post('/api/contact-form/:slug', async (c) => {
 
   try {
     const { dbQueryOne } = await import('../services/db.js');
-    const site = await dbQueryOne<{ id: string; org_id: string; business_name: string; contact_email?: string }>(
+    const site = await dbQueryOne<{
+      id: string;
+      org_id: string;
+      business_name: string;
+      contact_email?: string;
+    }>(
       c.env.DB,
       'SELECT id, org_id, business_name, contact_email FROM sites WHERE slug = ? AND deleted_at IS NULL',
       [slug],
@@ -1132,7 +1206,11 @@ search.post('/api/contact-form/:slug', async (c) => {
           subject: `New message from ${body.name} ✉️`,
           body: `${body.name} (${body.email}) contacted you via ${site.business_name}.`,
         });
-        try { c.executionCtx.waitUntil(p); } catch { void p; }
+        try {
+          c.executionCtx.waitUntil(p);
+        } catch {
+          void p;
+        }
       } catch {
         /* notify is best-effort — email already sent above */
       }
@@ -1220,12 +1298,15 @@ export function isProxyableImageUrl(raw: string): boolean {
     const a = Number(m[1]);
     const b = Number(m[2]);
     if (
-      a === 10 || a === 127 || a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      a === 0 ||
       (a === 169 && b === 254) || // link-local + cloud metadata 169.254.169.254
       (a === 192 && b === 168) ||
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 100 && b >= 64 && b <= 127) // CGNAT
-    ) return false;
+    )
+      return false;
   }
   return true;
 }
@@ -1245,7 +1326,11 @@ search.get('/api/image-proxy', async (c) => {
   // never fetch — so the <img> degrades without leaking internal reachability.
   if (!isProxyableImageUrl(imageUrl)) {
     return new Response(TRANSPARENT_PIXEL, {
-      headers: { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*', 'X-Proxy-Status': 'blocked' },
+      headers: {
+        'Content-Type': 'image/png',
+        'Access-Control-Allow-Origin': '*',
+        'X-Proxy-Status': 'blocked',
+      },
     });
   }
 
@@ -1268,7 +1353,10 @@ search.get('/api/image-proxy', async (c) => {
       const loc = res.headers.get('location');
       if (!loc) break;
       const next = new URL(loc, current).toString();
-      if (!isProxyableImageUrl(next)) { res = null; break; } // redirect to a blocked host → refuse
+      if (!isProxyableImageUrl(next)) {
+        res = null;
+        break;
+      } // redirect to a blocked host → refuse
       current = next;
     }
 
@@ -2934,7 +3022,11 @@ search.get('/api/sites/:siteId/data/:table', async (c) => {
 
   const rows = (result.results || []).map((row: Record<string, unknown>) => {
     try {
-      return { id: row['id'], sort_order: row['sort_order'], ...JSON.parse((row['data_json'] as string | undefined) ?? '{}') };
+      return {
+        id: row['id'],
+        sort_order: row['sort_order'],
+        ...JSON.parse((row['data_json'] as string | undefined) ?? '{}'),
+      };
     } catch {
       return { id: row['id'], sort_order: row['sort_order'] };
     }
@@ -3005,8 +3097,7 @@ search.get('/api/sites/:siteId/data', async (c) => {
  * Authenticated via a shared secret passed in the build payload.
  */
 search.put('/api/container-upload/*', async (c) => {
-  const secret = c.req.header('x-container-secret');
-  if (secret !== c.env.ANTHROPIC_API_KEY?.slice(0, 16)) {
+  if (!containerAuthorized(c.env, c.req.header('x-container-secret'))) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
   const key = c.req.path.replace('/api/container-upload/', '');
@@ -3023,13 +3114,22 @@ search.put('/api/container-upload/*', async (c) => {
  * parameterized SQL via the public worker URL.
  */
 search.post('/api/container-query', async (c) => {
-  const secret = c.req.header('x-container-secret');
-  if (secret !== c.env.ANTHROPIC_API_KEY?.slice(0, 16)) {
+  if (!containerAuthorized(c.env, c.req.header('x-container-secret'))) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
-  const body = (await c.req.json()) as { sql: string; params?: unknown[] };
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: 'invalid JSON body' }, 400);
+  }
+  const body = raw as { sql?: unknown; params?: unknown };
+  if (typeof body.sql !== 'string' || body.sql.length === 0) {
+    return c.json({ error: 'sql (non-empty string) required' }, 400);
+  }
+  const params = Array.isArray(body.params) ? body.params : undefined;
   const stmt = c.env.DB.prepare(body.sql);
-  const result = body.params ? await stmt.bind(...body.params).run() : await stmt.run();
+  const result = params ? await stmt.bind(...params).run() : await stmt.run();
   return c.json({ ok: true, meta: result.meta });
 });
 
