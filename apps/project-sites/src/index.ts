@@ -284,138 +284,14 @@ app.use(
   }),
 );
 
-// Rate limiting on sensitive endpoints
-import { rateLimitMiddleware } from './middleware/rate_limit.js';
+// Rate limiting on sensitive endpoints (config + applier in one module)
+import { applyRateLimits } from './middleware/rate_limit.js';
 
-// ─── Auth endpoints (per-IP sliding window, KV-backed) ──────
-// Item #6: every /api/auth/* surface gets a budget. Magic-link send is
-// strictest (email cost + DoS shield); verifies and OAuth start/callback
-// pairs share looser budgets. Keys partition by path so one endpoint's
-// abuse never starves another.
-app.use(
-  '/api/auth/magic-link',
-  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'auth:magic-link' }),
-);
-app.use(
-  '/api/auth/magic-link/verify',
-  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'auth:magic-link-verify' }),
-);
-app.use(
-  '/api/auth/google',
-  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:google' }),
-);
-app.use(
-  '/api/auth/google/callback',
-  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:google-callback' }),
-);
-app.use(
-  '/api/auth/github',
-  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github' }),
-);
-app.use(
-  '/api/auth/github/callback',
-  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github-callback' }),
-);
-
-app.use(
-  '/api/search/businesses',
-  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search' }),
-);
-app.use(
-  '/api/search/address',
-  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' }),
-);
-// Public, unauthenticated, COST-incurring endpoints: donate creates real Stripe
-// Checkout sessions, contact-form sends real emails (cost + spam-relay /
-// deliverability-reputation risk). Per-IP budgets shield against abuse.
-app.use(
-  '/api/donate',
-  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' }),
-);
-app.use(
-  '/api/contact-form/*',
-  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' }),
-);
-app.use(
-  '/api/sites/create-from-search',
-  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 3600, prefix: 'rl:create' }),
-);
-app.use(
-  '/api/v1/forms/submit',
-  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:forms' }),
-);
-app.use('/api/ai/*', rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'rl:ai' }));
-// AI autofill (create-site wizard inference) — IP-level guardrail. A second,
-// per-session soft limit lives in the handler itself (KV-keyed by userId).
-app.use(
-  '/api/sites/autofill',
-  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'rl:autofill' }),
-);
-
-// ─── Bolt admin endpoints (Workers AI + D1 abuse vectors) ───
-// Rec 3 from .claude/RECS.md — vision OCR + Whisper transcribe are token/sec
-// billable, prompt suggestions fire per chat-state change, chat-state mirror
-// writes D1 every 30s. Per-IP windowing prevents one client from melting the
-// AI binding or burning through Workers AI neurons.
-//
-// Each handler lives at BOTH `/admin-api/...` (legacy, dev-only) and
-// `/api/bolt/...` (current; survives Cloudflare zone WAF that 403's every
-// POST against `/admin*`). Rate-limit both prefixes so the limiter applies
-// regardless of which URL the iframe ultimately calls. See bolt_admin.ts.
-app.use(
-  '/admin-api/vision-ocr',
-  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' }),
-);
-app.use(
-  '/api/bolt/vision-ocr',
-  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' }),
-);
-app.use(
-  '/admin-api/transcribe',
-  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' }),
-);
-app.use(
-  '/api/bolt/transcribe',
-  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' }),
-);
-app.use(
-  '/admin-api/chat/suggest-prompts',
-  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:suggest' }),
-);
-app.use(
-  '/api/bolt/chat/suggest-prompts',
-  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:suggest' }),
-);
-app.use(
-  '/admin-api/sites/by-slug/*/chat-state',
-  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:chat-state' }),
-);
-app.use(
-  '/api/bolt/sites/by-slug/*/chat-state',
-  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:chat-state' }),
-);
-
-// ─── Read/stream parity (idea #19) ──────────────────────────
-// Polling + SSE GET endpoints were previously unthrottled. Workflow-status
-// and audit-log reads get a generous polling budget; SSE surfaces (build
-// progress + dashboard chat) get tighter budgets since each holds a
-// long-lived connection + (for chat) burns LLM tokens.
-app.use(
-  '/api/sites/:id/workflow',
-  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:workflow-status' }),
-);
-app.use(
-  '/api/sites/:id/logs',
-  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:site-logs' }),
-);
-app.use(
-  '/api/sites/:id/build/stream',
-  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:build-stream' }),
-);
-app.use(
-  '/api/dashboard/chat',
-  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'rl:dashboard-chat' }),
-);
+// ─── Per-IP rate limits (single source: middleware/rate_limit.ts) ──────
+// Every throttled surface (auth, public cost endpoints, bolt-AI, SSE polls)
+// is declared in RATE_LIMIT_RULES + applied here in one loop. Add new budgets
+// THERE so the limiter config + its test never drift. See applyRateLimits().
+applyRateLimits(app);
 
 // Auth middleware for API routes (sets userId/orgId if valid session)
 app.use('/api/*', authMiddleware);

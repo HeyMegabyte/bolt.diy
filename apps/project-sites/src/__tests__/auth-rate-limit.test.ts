@@ -13,7 +13,7 @@
  */
 
 import { Hono } from 'hono';
-import { rateLimitMiddleware } from '../middleware/rate_limit.js';
+import { applyRateLimits, RATE_LIMIT_RULES } from '../middleware/rate_limit.js';
 
 /**
  * Build an in-memory KV stub that honours `expirationTtl` against a virtual
@@ -51,55 +51,15 @@ function createKv(now: () => number): KVNamespace {
 }
 
 /**
- * Spin a Hono app that wires the rate-limit middleware in front of every
- * configured auth path.
+ * Spin a Hono app that applies the PRODUCTION rate-limit config
+ * ({@link RATE_LIMIT_RULES} via {@link applyRateLimits}) — no hand-mirroring,
+ * so this test verifies the real budgets and can never pass while index.ts
+ * drifts. A catch-all responder answers every request the limiter lets through.
  */
 function createApp() {
   const app = new Hono<{ Bindings: { CACHE_KV: KVNamespace }; Variables: Record<string, never> }>();
-
-  app.use(
-    '/api/auth/magic-link',
-    rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'auth:magic-link' }),
-  );
-  app.use(
-    '/api/auth/magic-link/verify',
-    rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'auth:magic-link-verify' }),
-  );
-  app.use(
-    '/api/auth/google',
-    rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:google' }),
-  );
-  app.use(
-    '/api/auth/google/callback',
-    rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:google-callback' }),
-  );
-  app.use(
-    '/api/auth/github',
-    rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github' }),
-  );
-  app.use(
-    '/api/auth/github/callback',
-    rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github-callback' }),
-  );
-
-  // Public, cost-incurring endpoints (must mirror src/index.ts).
-  app.use(
-    '/api/donate',
-    rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' }),
-  );
-  app.use(
-    '/api/contact-form/*',
-    rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' }),
-  );
-  app.use(
-    '/api/search/address',
-    rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' }),
-  );
-
-  app.all('/api/auth/*', (c) => c.json({ ok: true }));
-  app.all('/api/donate', (c) => c.json({ ok: true }));
-  app.all('/api/contact-form/*', (c) => c.json({ ok: true }));
-  app.all('/api/search/address', (c) => c.json({ ok: true }));
+  applyRateLimits(app);
+  app.all('*', (c) => c.json({ ok: true }));
   return app;
 }
 
@@ -200,6 +160,17 @@ describe('auth rate-limit (item #6)', () => {
     const blocked = await hit(path, method as 'GET' | 'POST');
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('RATE_LIMIT_RULES is well-formed (unique paths, positive budgets)', () => {
+    expect(RATE_LIMIT_RULES.length).toBeGreaterThanOrEqual(20);
+    const paths = RATE_LIMIT_RULES.map((r) => r.path);
+    expect(new Set(paths).size).toBe(paths.length); // no duplicate paths
+    for (const r of RATE_LIMIT_RULES) {
+      expect(r.maxRequests).toBeGreaterThan(0);
+      expect(r.windowSeconds).toBeGreaterThan(0);
+      expect(r.prefix.length).toBeGreaterThan(0);
+    }
   });
 
   it('partitions counters per IP (one abuser does not starve another)', async () => {

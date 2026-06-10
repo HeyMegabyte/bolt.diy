@@ -15,13 +15,123 @@
 import type { MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 
-interface RateLimitOptions {
+export interface RateLimitOptions {
   /** Maximum requests allowed in the window */
   maxRequests: number;
   /** Window duration in seconds */
   windowSeconds: number;
   /** KV key prefix for this limiter */
   prefix: string;
+}
+
+/** A rate-limit rule = a path pattern + its budget. */
+export interface RateLimitRule extends RateLimitOptions {
+  /** Hono path pattern the limiter is mounted on via `app.use(path, …)`. */
+  path: string;
+}
+
+/**
+ * THE single source of truth for every per-IP rate-limit budget in the worker.
+ * `src/index.ts` applies these in a loop; `auth-rate-limit.test.ts` imports the
+ * same array — so the test can never pass while production drifts (the prior
+ * hand-mirrored config was drift-prone). Add a new throttled surface HERE only.
+ *
+ * Prefixes may repeat across paths (e.g. the legacy `/admin-api/*` + current
+ * `/api/bolt/*` aliases share a counter on purpose).
+ */
+export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
+  // Auth surface (email cost + DoS shield; OAuth start/callback looser).
+  { path: '/api/auth/magic-link', maxRequests: 5, windowSeconds: 60, prefix: 'auth:magic-link' },
+  {
+    path: '/api/auth/magic-link/verify',
+    maxRequests: 10,
+    windowSeconds: 60,
+    prefix: 'auth:magic-link-verify',
+  },
+  { path: '/api/auth/google', maxRequests: 20, windowSeconds: 60, prefix: 'auth:google' },
+  {
+    path: '/api/auth/google/callback',
+    maxRequests: 20,
+    windowSeconds: 60,
+    prefix: 'auth:google-callback',
+  },
+  { path: '/api/auth/github', maxRequests: 20, windowSeconds: 60, prefix: 'auth:github' },
+  {
+    path: '/api/auth/github/callback',
+    maxRequests: 20,
+    windowSeconds: 60,
+    prefix: 'auth:github-callback',
+  },
+  // Public / cost-incurring (paid APIs, Stripe sessions, email sends).
+  { path: '/api/search/businesses', maxRequests: 30, windowSeconds: 60, prefix: 'rl:search' },
+  { path: '/api/search/address', maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' },
+  { path: '/api/donate', maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' },
+  { path: '/api/contact-form/*', maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' },
+  {
+    path: '/api/sites/create-from-search',
+    maxRequests: 10,
+    windowSeconds: 3600,
+    prefix: 'rl:create',
+  },
+  { path: '/api/v1/forms/submit', maxRequests: 30, windowSeconds: 60, prefix: 'rl:forms' },
+  { path: '/api/ai/*', maxRequests: 20, windowSeconds: 60, prefix: 'rl:ai' },
+  { path: '/api/sites/autofill', maxRequests: 20, windowSeconds: 60, prefix: 'rl:autofill' },
+  // Bolt admin (Workers AI + D1 abuse vectors) — legacy + current aliases.
+  { path: '/admin-api/vision-ocr', maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' },
+  { path: '/api/bolt/vision-ocr', maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' },
+  { path: '/admin-api/transcribe', maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' },
+  { path: '/api/bolt/transcribe', maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' },
+  {
+    path: '/admin-api/chat/suggest-prompts',
+    maxRequests: 30,
+    windowSeconds: 60,
+    prefix: 'rl:suggest',
+  },
+  {
+    path: '/api/bolt/chat/suggest-prompts',
+    maxRequests: 30,
+    windowSeconds: 60,
+    prefix: 'rl:suggest',
+  },
+  {
+    path: '/admin-api/sites/by-slug/*/chat-state',
+    maxRequests: 60,
+    windowSeconds: 60,
+    prefix: 'rl:chat-state',
+  },
+  {
+    path: '/api/bolt/sites/by-slug/*/chat-state',
+    maxRequests: 60,
+    windowSeconds: 60,
+    prefix: 'rl:chat-state',
+  },
+  // Read/stream parity — polling + SSE GET budgets.
+  {
+    path: '/api/sites/:id/workflow',
+    maxRequests: 60,
+    windowSeconds: 60,
+    prefix: 'rl:workflow-status',
+  },
+  { path: '/api/sites/:id/logs', maxRequests: 60, windowSeconds: 60, prefix: 'rl:site-logs' },
+  {
+    path: '/api/sites/:id/build/stream',
+    maxRequests: 30,
+    windowSeconds: 60,
+    prefix: 'rl:build-stream',
+  },
+  { path: '/api/dashboard/chat', maxRequests: 20, windowSeconds: 60, prefix: 'rl:dashboard-chat' },
+];
+
+/**
+ * Apply every {@link RATE_LIMIT_RULES} entry to a Hono app via `app.use`.
+ * Used by `src/index.ts` (production) and the rate-limit test (mirror-free).
+ */
+export function applyRateLimits(app: {
+  use: (path: string, mw: ReturnType<typeof rateLimitMiddleware>) => unknown;
+}): void {
+  for (const { path, ...opts } of RATE_LIMIT_RULES) {
+    app.use(path, rateLimitMiddleware(opts));
+  }
 }
 
 /**
