@@ -1,4 +1,6 @@
-import { parseRange, apexDomain } from '../services/multi_url_analytics';
+import { parseRange, apexDomain, resolveZoneForHostname } from '../services/multi_url_analytics';
+import type { Env } from '../types/env';
+import type { CfAuth } from '../services/cf_credentials';
 
 /**
  * Guards the two pure helpers the admin Analytics surface depends on:
@@ -58,5 +60,83 @@ describe('apexDomain', () => {
     // .co.uk is out of scope (see service JSDoc) — last-two-labels gives 'co.uk'.
     // If this ever gets fixed, update this expectation intentionally.
     expect(apexDomain('shop.example.co.uk')).toBe('co.uk');
+  });
+});
+
+/**
+ * resolveZoneForHostname — maps a hostname to its CF zone (zone_id + account_id),
+ * KV-cached 7d. A wrong/missing zone = no analytics, so the branches matter:
+ * cache-hit short-circuit, the projectsites.dev hardcoded fast-path, the CF API
+ * success/empty/!ok/throw paths (all of which must degrade to null, not throw).
+ * `fetch` is mocked; env.CACHE_KV is a stub.
+ */
+describe('resolveZoneForHostname', () => {
+  const AUTH: CfAuth = { kind: 'token', token: 't' };
+  const originalFetch = global.fetch;
+
+  function makeEnv(over: Partial<Record<string, unknown>> = {}, kvGet: unknown = null) {
+    return {
+      CACHE_KV: {
+        get: jest.fn().mockResolvedValue(kvGet),
+        put: jest.fn().mockResolvedValue(undefined),
+      },
+      ...over,
+    } as unknown as Env;
+  }
+
+  beforeEach(() => jest.spyOn(console, 'warn').mockImplementation(() => {}));
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('returns the cached zone without calling the CF API', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const env = makeEnv({}, { zone_id: 'z-cached', account_id: 'a-cached' });
+    const out = await resolveZoneForHostname(env, AUTH, 'shop.example.com');
+    expect(out).toEqual({ zone_id: 'z-cached', account_id: 'a-cached' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('uses the hardcoded projectsites.dev fast-path (no CF API) and caches it', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const env = makeEnv({ CF_ZONE_ID: 'zone-ps', CF_ACCOUNT_ID: 'acc-ps' });
+    const out = await resolveZoneForHostname(env, AUTH, 'mysite.projectsites.dev');
+    expect(out).toEqual({ zone_id: 'zone-ps', account_id: 'acc-ps' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((env.CACHE_KV.put as jest.Mock)).toHaveBeenCalled();
+  });
+
+  it('resolves a zone from a successful CF API response and caches it', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, result: [{ id: 'z1', account: { id: 'a1' } }] }), {
+        status: 200,
+      }),
+    ) as unknown as typeof fetch;
+    const env = makeEnv();
+    const out = await resolveZoneForHostname(env, AUTH, 'example.com');
+    expect(out).toEqual({ zone_id: 'z1', account_id: 'a1' });
+    expect((env.CACHE_KV.put as jest.Mock)).toHaveBeenCalled();
+  });
+
+  it('returns null when the CF API returns no matching zone', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, result: [] }), { status: 200 }),
+    ) as unknown as typeof fetch;
+    expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
+  });
+
+  it('returns null (not throw) on a non-OK CF API response', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response('forbidden', { status: 403 }),
+    ) as unknown as typeof fetch;
+    expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
+  });
+
+  it('returns null (not throw) when fetch rejects', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
+    expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
   });
 });
