@@ -11,6 +11,11 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-10 (fire 7) — escapeHtml consolidation + ghost-route injection guard
+- **R1 (802b621f):** consolidated 4 escapeHtml copies → `@project-sites/shared` (sanitize.ts); contact.ts gained `'`-escaping; +4 shared tests. Shared 483 + worker 4410 green.
+- **R2 (73b5eab4):** ghost-route `isGhostRouteEligible` `/services/.*` accepted `/services/<script>` (HTML injection) + `/services/../../x` (R2-key traversal) → `^/[a-z0-9/-]*$` charset guard + defense-in-depth escapeHtml. +2 tests.
+R2-key-traversal sweep verified clean elsewhere. Worker 4412 green. NOT pushed (Brian gates prod).
+
 ## Fire 2026-06-10 (fire 6) — 2 SECURITY rounds + email-injection sweep closed
 - **R1 (ab694ef3):** contact-form HTML-injection — public/unauth submitter could inject `<a>`/`<script>` into the email sent to the site OWNER (phishing-the-owner). New escapeHtml() entity-encodes every field. +3 tests.
 - **R2 (3fa52f31):** inbox reply email — owner reply wrapped in `<p>${body}</p>` unescaped (correctness + hardening). escapeHtml + newline→<br>. +2 tests.
