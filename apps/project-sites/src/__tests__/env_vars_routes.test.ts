@@ -518,6 +518,20 @@ describe('POST /api/env-vars/import', () => {
     expect(body.error.message).toMatch(/dotenv/);
   });
 
+  it('returns 400 (VALIDATION_ERROR) at the boundary when dotenv is not a string — never sets', async () => {
+    const env = makeEnv();
+    const res = await req(
+      makeApp(AUTH),
+      '/api/env-vars/import',
+      env,
+      json({ scope: 'org', dotenv: 123 }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockSetEnvVar).not.toHaveBeenCalled();
+  });
+
   it('returns {imported:0} no-op for an all-comment / empty dotenv blob', async () => {
     const env = makeEnv();
     const res = await req(

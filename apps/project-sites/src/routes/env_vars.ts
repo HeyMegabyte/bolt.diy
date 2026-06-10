@@ -57,6 +57,20 @@ const PatchEnvVarBodySchema = z.object({
   exposedToAi: z.boolean().optional(),
 });
 
+/**
+ * Zod boundary contract for `POST /api/env-vars/import` (bulk dotenv import).
+ * Replaces the old `as typeof body` cast. Per-scope conditional id checks
+ * still run per-pair inside `setEnvVar`.
+ */
+const ImportEnvVarsBodySchema = z.object({
+  scope: z.enum(['org', 'site', 'mcp', 'endpoint', 'agent']),
+  dotenv: z.string(),
+  siteId: z.string().optional(),
+  mcpProvider: z.string().optional(),
+  endpointId: z.string().optional(),
+  agentId: z.string().optional(),
+});
+
 /** Standard error envelope matching the rest of the worker. */
 function errorJson(code: string, message: string, requestId?: string) {
   return { error: { code, message, request_id: requestId } };
@@ -404,29 +418,26 @@ envVarsRoutes.post('/api/env-vars/import', async (c) => {
   const requestId = c.get('requestId');
   if (!orgId) return c.json(errorJson('UNAUTHORIZED', 'auth required', requestId), 401);
 
-  let body: {
-    scope?: EnvVarScope;
-    siteId?: string;
-    mcpProvider?: string;
-    endpointId?: string;
-    agentId?: string;
-    dotenv?: string;
-  };
+  let raw: unknown;
   try {
-    body = (await c.req.json()) as typeof body;
+    raw = await c.req.json();
   } catch {
     return c.json(errorJson('BAD_REQUEST', 'invalid JSON body', requestId), 400);
   }
-  const scope = parseScope(body.scope);
-  if (!scope) {
-    return c.json(
-      errorJson('VALIDATION_ERROR', 'scope must be org|site|mcp|endpoint|agent', requestId),
-      400,
-    );
+  const parsed = ImportEnvVarsBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = issue?.path[0];
+    const msg =
+      field === 'scope'
+        ? 'scope must be org|site|mcp|endpoint|agent'
+        : field === 'dotenv'
+          ? 'dotenv (string) required'
+          : `${field ?? 'body'}: ${issue?.message ?? 'invalid'}`;
+    return c.json(errorJson('VALIDATION_ERROR', msg, requestId), 400);
   }
-  if (typeof body.dotenv !== 'string') {
-    return c.json(errorJson('VALIDATION_ERROR', 'dotenv (string) required', requestId), 400);
-  }
+  const body = parsed.data;
+  const scope = body.scope;
   const pairs = parseDotenv(body.dotenv);
   if (pairs.length === 0) {
     return c.json({ imported: 0, failed: 0, errors: [] });
