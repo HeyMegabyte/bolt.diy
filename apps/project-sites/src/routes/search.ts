@@ -3077,8 +3077,17 @@ search.put('/api/sites/:siteId/data/:table/:rowId', async (c) => {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Unknown table' } }, 400);
   }
 
-  const body = await c.req.json();
-  const dataJson = JSON.stringify(body.data || body);
+  // `.catch(() => null)` + object-guard: a malformed or non-object body must
+  // never silently clobber the row's `data_json` with garbage (a bare string
+  // or `{}` recovered from a parse failure). Reject with a 400 BEFORE the write;
+  // a well-formed object (incl. an intentional empty `{}` clear) still writes.
+  const body = (await c.req.json().catch(() => null)) as
+    | { data?: unknown; sort_order?: number }
+    | null;
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'Invalid JSON object body' } }, 400);
+  }
+  const dataJson = JSON.stringify(body.data ?? body);
 
   await c.env.DB.prepare(
     `INSERT INTO site_data (id, site_id, table_name, data_json, sort_order, created_at, updated_at)
