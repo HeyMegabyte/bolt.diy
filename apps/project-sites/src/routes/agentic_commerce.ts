@@ -45,7 +45,8 @@ export function toAgentProduct(row: ProductRow): AgentProduct {
     title: row.name,
     description: row.description ?? '',
     price: { amount: row.price_cents, currency: row.currency ?? 'USD' },
-    availability: row.stock === null || row.stock === undefined || row.stock > 0 ? 'in_stock' : 'out_of_stock',
+    availability:
+      row.stock === null || row.stock === undefined || row.stock > 0 ? 'in_stock' : 'out_of_stock',
   };
   if (row.image_url) out.image = row.image_url;
   if (row.sku) out.sku = row.sku;

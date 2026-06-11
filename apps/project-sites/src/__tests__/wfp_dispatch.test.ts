@@ -108,7 +108,10 @@ describe('uploadUserWorker (unconfigured short-circuit)', () => {
       language: 'javascript',
       code: 'export default {}',
     });
-    expect(out).toEqual({ ok: false, error: 'Workers for Platforms not configured on this account' });
+    expect(out).toEqual({
+      ok: false,
+      error: 'Workers for Platforms not configured on this account',
+    });
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });

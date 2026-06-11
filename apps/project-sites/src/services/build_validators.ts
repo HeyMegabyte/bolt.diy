@@ -201,10 +201,7 @@ export const validateImageFormat = (files: BuildFile[]): Violation[] => {
   return files
     .filter(
       (f) =>
-        isPng(f.path) &&
-        !isFavicon(f.path) &&
-        f.size > 200 * 1024 &&
-        !hasOptimizedSibling(f.path),
+        isPng(f.path) && !isFavicon(f.path) && f.size > 200 * 1024 && !hasOptimizedSibling(f.path),
     )
     .map((f) => ({
       code: 'image.png_too_large',

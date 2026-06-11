@@ -31,11 +31,7 @@ import type { Env } from '../types/env.js';
 
 const handleStripeEvent = jest.fn(async () => {}) as unknown as jest.Mock;
 
-jest.mock(
-  '../services/wallet.js',
-  () => ({ handleStripeEvent }),
-  { virtual: true },
-);
+jest.mock('../services/wallet.js', () => ({ handleStripeEvent }), { virtual: true });
 
 import {
   handleWalletStripeEvent,
@@ -69,11 +65,7 @@ describe('handleWalletStripeEvent — module present', () => {
     ).resolves.toBeUndefined();
 
     expect(handleStripeEvent).toHaveBeenCalledTimes(1);
-    expect(handleStripeEvent).toHaveBeenCalledWith(
-      env,
-      'checkout.session.completed',
-      obj,
-    );
+    expect(handleStripeEvent).toHaveBeenCalledWith(env, 'checkout.session.completed', obj);
     // identity preserved — dispatcher does not clone/re-shape the payload
     expect((handleStripeEvent as jest.Mock).mock.calls[0]![2]).toBe(obj);
   });
@@ -89,9 +81,7 @@ describe('handleWalletStripeEvent — module present', () => {
   );
 
   it('forwards an empty / malformed payload as-is (no gating in the dispatcher)', async () => {
-    await expect(
-      handleWalletStripeEvent(env, 'invoice.paid', {}),
-    ).resolves.toBeUndefined();
+    await expect(handleWalletStripeEvent(env, 'invoice.paid', {})).resolves.toBeUndefined();
     expect(handleStripeEvent).toHaveBeenCalledWith(env, 'invoice.paid', {});
   });
 
@@ -104,21 +94,16 @@ describe('handleWalletStripeEvent — module present', () => {
     expect(handleStripeEvent).toHaveBeenNthCalledWith(1, env, 'invoice.paid', {
       a: 1,
     });
-    expect(handleStripeEvent).toHaveBeenNthCalledWith(
-      2,
-      env,
-      'payment_intent.succeeded',
-      { b: 2 },
-    );
+    expect(handleStripeEvent).toHaveBeenNthCalledWith(2, env, 'payment_intent.succeeded', { b: 2 });
   });
 
   it('propagates an error thrown by the wallet handler (no silent swallow)', async () => {
     (handleStripeEvent as unknown as jest.Mock).mockImplementation(async () => {
       throw new Error('wallet mutation failed');
     });
-    await expect(
-      handleWalletStripeEvent(env, 'invoice.paid', { kind: 'wallet' }),
-    ).rejects.toThrow('wallet mutation failed');
+    await expect(handleWalletStripeEvent(env, 'invoice.paid', { kind: 'wallet' })).rejects.toThrow(
+      'wallet mutation failed',
+    );
   });
 
   it('re-resolves after reset — proving the cache was cleared, not stuck', async () => {
@@ -139,11 +124,7 @@ describe('handleWalletStripeEvent — module present', () => {
 describe('handleWalletStripeEvent — module absent / missing handler', () => {
   it('no-ops with a structured info log when wallet exports no handleStripeEvent', async () => {
     jest.resetModules();
-    jest.doMock(
-      '../services/wallet.js',
-      () => ({ somethingUnrelated: true }),
-      { virtual: true },
-    );
+    jest.doMock('../services/wallet.js', () => ({ somethingUnrelated: true }), { virtual: true });
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     const mod = await import('../services/wallet_webhook.js');

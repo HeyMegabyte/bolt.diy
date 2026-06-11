@@ -239,7 +239,9 @@ describe('buildWhereClause', () => {
   it('emits the FTS sub-select with the full-text binding', () => {
     const q = { ...empty(), fullText: 'connection refused' };
     const { where, bindings } = buildWhereClause(q);
-    expect(where).toContain('rowid IN (SELECT rowid FROM worker_logs_fts WHERE worker_logs_fts MATCH ?)');
+    expect(where).toContain(
+      'rowid IN (SELECT rowid FROM worker_logs_fts WHERE worker_logs_fts MATCH ?)',
+    );
     expect(bindings).toEqual(['connection refused']);
   });
 

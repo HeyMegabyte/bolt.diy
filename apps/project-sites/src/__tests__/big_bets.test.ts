@@ -113,7 +113,7 @@ function createMockEnv(opts: DbOpts = {}): {
           throw new Error('d1 all boom');
         return opts.allResult ?? { results: [] };
       },
-      first: async <T,>() => {
+      first: async <T>() => {
         if (opts.throwOn === 'first' || opts.throwOn === 'all-and-first')
           throw new Error('d1 first boom');
         return (opts.firstResult ?? null) as T | null;
@@ -185,7 +185,12 @@ describe('ecommerceCreateOrder', () => {
       email: 'a@b.co',
       cents: 1250,
     });
-    expect(r).toMatchObject({ site_id: 'site-1', email: 'a@b.co', total_cents: 1250, status: 'pending' });
+    expect(r).toMatchObject({
+      site_id: 'site-1',
+      email: 'a@b.co',
+      total_cents: 1250,
+      status: 'pending',
+    });
     expect(r.checkout_url).toContain('https://checkout.stripe.com/c/pay/cs_demo_');
   });
 
@@ -224,7 +229,11 @@ describe('bookingReserve', () => {
   it('confirms a reservation and flags the email as sent', async () => {
     const { env } = createMockEnv();
     const r = await bookingReserve(env, { slotId: 'slot-1', email: 'a@b.co' });
-    expect(r).toMatchObject({ slot_id: 'slot-1', status: 'confirmed', confirmation_email_sent: true });
+    expect(r).toMatchObject({
+      slot_id: 'slot-1',
+      status: 'confirmed',
+      confirmation_email_sent: true,
+    });
     expect(typeof r.id).toBe('string');
   });
 });
@@ -237,7 +246,12 @@ describe('lmsCreateCourse', () => {
       title: 'Sourdough 101',
       modules: [{}, {}, {}],
     });
-    expect(r).toMatchObject({ site_id: 'site-1', title: 'Sourdough 101', module_count: 3, status: 'draft' });
+    expect(r).toMatchObject({
+      site_id: 'site-1',
+      title: 'Sourdough 101',
+      module_count: 3,
+      status: 'draft',
+    });
     // price_cents defaults to 0 in the bound params
     expect(binds[0]).toContain(0);
   });
@@ -312,7 +326,11 @@ describe('newsletterCreateCampaign', () => {
       subject: 'Spring sale',
       bodyHtml: '<p>hi</p>',
     });
-    expect(r).toMatchObject({ status: 'draft', estimated_recipients: 1247, send_window_minutes: 12 });
+    expect(r).toMatchObject({
+      status: 'draft',
+      estimated_recipients: 1247,
+      send_window_minutes: 12,
+    });
     expect(binds[0]).toContain('all'); // default segment
   });
 
@@ -331,7 +349,11 @@ describe('newsletterCreateCampaign', () => {
 describe('newsletterSubscribe', () => {
   it('returns the double-opt-in shape', async () => {
     const { env } = createMockEnv({ firstResult: { org_id: 'org-1' } });
-    const r = await newsletterSubscribe(env, { siteId: 'site-1', email: 'a@b.co', segment: 'weekly' });
+    const r = await newsletterSubscribe(env, {
+      siteId: 'site-1',
+      email: 'a@b.co',
+      segment: 'weekly',
+    });
     expect(r).toMatchObject({ confirm_email_sent: true, double_opt_in_required: true });
   });
 
@@ -384,7 +406,12 @@ describe('donationCreateCampaign', () => {
       name: 'Build fund',
       goalCents: 100000,
     });
-    expect(r).toMatchObject({ name: 'Build fund', goalCents: 100000, raised_cents: 0, donor_count: 0 });
+    expect(r).toMatchObject({
+      name: 'Build fund',
+      goalCents: 100000,
+      raised_cents: 0,
+      donor_count: 0,
+    });
     expect(binds[0]).toContain(null); // ends_at default
   });
 });
@@ -517,7 +544,12 @@ describe('pciTokenize', () => {
     const { env } = createMockEnv();
     const r = await pciTokenize(env, { customerId: 'c1', last4: '4242', brand: 'visa' });
     expect(r.token).toMatch(/^tok_/);
-    expect(r).toMatchObject({ last4: '4242', brand: 'visa', pci_dss_level: 1, scope_reduced: true });
+    expect(r).toMatchObject({
+      last4: '4242',
+      brand: 'visa',
+      pci_dss_level: 1,
+      scope_reduced: true,
+    });
   });
 });
 

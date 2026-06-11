@@ -16,8 +16,17 @@ jest.mock('../services/db.js', () => ({
   dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
-jest.mock('../lib/sentry.js', () => ({ captureError: jest.fn(), captureMessage: jest.fn(), createSentry: jest.fn() }));
-jest.mock('../lib/posthog.js', () => ({ capture: jest.fn(), trackAuth: jest.fn(), trackSite: jest.fn(), trackError: jest.fn() }));
+jest.mock('../lib/sentry.js', () => ({
+  captureError: jest.fn(),
+  captureMessage: jest.fn(),
+  createSentry: jest.fn(),
+}));
+jest.mock('../lib/posthog.js', () => ({
+  capture: jest.fn(),
+  trackAuth: jest.fn(),
+  trackSite: jest.fn(),
+  trackError: jest.fn(),
+}));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -116,7 +125,13 @@ describe('POST /api/sites/:siteId/ai-endpoints/suggest', () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      data: { slug: string; method: string; language: string; files: Record<string, string>; description: string };
+      data: {
+        slug: string;
+        method: string;
+        language: string;
+        files: Record<string, string>;
+        description: string;
+      };
     };
     expect(body.data.slug).toBe('lead-qualifier');
     expect(body.data.method).toBe('POST');

@@ -19,11 +19,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { unauthorized, notFound, badRequest } from '@project-sites/shared';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import {
-  createStackRun,
-  advanceStackRun,
-  getStackStatus,
-} from '../services/domain_stack.js';
+import { createStackRun, advanceStackRun, getStackStatus } from '../services/domain_stack.js';
 import { dbQueryOne } from '../services/db.js';
 import * as auditService from '../services/audit.js';
 
@@ -42,54 +38,61 @@ const startSchema = z.object({
  * If `run_id` is provided, resumes from the current state (idempotent).
  * Otherwise, creates a new run and advances one step.
  */
-domainStack.post(
-  '/api/domains/:hostname/stack',
-  zValidator('json', startSchema),
-  async (c) => {
-    const orgId = c.get('orgId');
-    if (!orgId) throw unauthorized('Must be authenticated');
+domainStack.post('/api/domains/:hostname/stack', zValidator('json', startSchema), async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
 
-    const flagOn = await isFlagOn(c.env, 'domain_stack_wizard', { orgId });
-    if (!flagOn) return c.json({ error: { code: 'feature_disabled', message: 'Domain stack wizard is not enabled.' } }, 404);
+  const flagOn = await isFlagOn(c.env, 'domain_stack_wizard', { orgId });
+  if (!flagOn)
+    return c.json(
+      { error: { code: 'feature_disabled', message: 'Domain stack wizard is not enabled.' } },
+      404,
+    );
 
-    const hostname = decodeURIComponent(c.req.param('hostname'));
-    const body = c.req.valid('json');
+  const hostname = decodeURIComponent(c.req.param('hostname'));
+  const body = c.req.valid('json');
 
-    // Guard: hostname must belong to caller's org
-    const hn = await dbQueryOne<{ id: string; org_id: string }>(
-      c.env.DB,
-      `SELECT h.id, s.org_id FROM hostnames h
+  // Guard: hostname must belong to caller's org
+  const hn = await dbQueryOne<{ id: string; org_id: string }>(
+    c.env.DB,
+    `SELECT h.id, s.org_id FROM hostnames h
          JOIN sites s ON s.id = h.site_id
        WHERE h.hostname = ? AND h.deleted_at IS NULL
          AND s.id = ? AND s.org_id = ?`,
-      [hostname, body.site_id, orgId],
-    );
-    if (!hn) throw notFound('Hostname not found for this site / org');
+    [hostname, body.site_id, orgId],
+  );
+  if (!hn) throw notFound('Hostname not found for this site / org');
 
-    const runId = body.run_id ?? crypto.randomUUID();
-    let run = await createStackRun(c.env, { runId, orgId, hostnameId: hn.id, hostname });
+  const runId = body.run_id ?? crypto.randomUUID();
+  let run = await createStackRun(c.env, { runId, orgId, hostnameId: hn.id, hostname });
 
-    // Advance one step per call (caller polls until state === 'done' | 'error')
-    if (run.state !== 'done' && run.state !== 'error') {
-      run = await advanceStackRun(c.env, runId);
-    }
+  // Advance one step per call (caller polls until state === 'done' | 'error')
+  if (run.state !== 'done' && run.state !== 'error') {
+    run = await advanceStackRun(c.env, runId);
+  }
 
-    auditService
-      .writeAuditLog(c.env.DB, {
-        org_id: orgId,
-        actor_id: c.get('userId') ?? null,
-        action: 'domain.stack.advanced',
-        message: `Domain stack for '${hostname}' advanced to state '${run.state}'`,
-        target_type: 'domain',
-        target_id: hn.id,
-        metadata_json: { hostname, state: run.state, run_id: runId },
-        request_id: c.get('requestId'),
-      })
-      .catch(() => {});
+  auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'domain.stack.advanced',
+      message: `Domain stack for '${hostname}' advanced to state '${run.state}'`,
+      target_type: 'domain',
+      target_id: hn.id,
+      metadata_json: { hostname, state: run.state, run_id: runId },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
 
-    return c.json({ data: { run_id: runId, state: run.state, step_results: run.step_results, last_error: run.last_error } });
-  },
-);
+  return c.json({
+    data: {
+      run_id: runId,
+      state: run.state,
+      step_results: run.step_results,
+      last_error: run.last_error,
+    },
+  });
+});
 
 // ─── GET /api/domains/:hostname/stack-status ────────────────────────────
 
@@ -98,7 +101,11 @@ domainStack.get('/api/domains/:hostname/stack-status', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const flagOn = await isFlagOn(c.env, 'domain_stack_wizard', { orgId });
-  if (!flagOn) return c.json({ error: { code: 'feature_disabled', message: 'Domain stack wizard is not enabled.' } }, 404);
+  if (!flagOn)
+    return c.json(
+      { error: { code: 'feature_disabled', message: 'Domain stack wizard is not enabled.' } },
+      404,
+    );
 
   const hostname = decodeURIComponent(c.req.param('hostname'));
   const run = await getStackStatus(c.env, hostname);

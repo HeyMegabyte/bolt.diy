@@ -34,16 +34,19 @@ describe('FLAG_DOCS — completeness', () => {
     expect(orphans).toEqual([]);
   });
 
-  it.each(Object.entries(FLAG_DOCS))('%s carries a 3-6 item checklist + smoke_test', (_key, doc) => {
-    expect(Array.isArray(doc.checklist)).toBe(true);
-    expect(doc.checklist.length).toBeGreaterThanOrEqual(3);
-    expect(doc.checklist.length).toBeLessThanOrEqual(6);
-    expect(doc.checklist.every((c) => typeof c === 'string' && c.trim().length > 0)).toBe(true);
-    expect(typeof doc.explanation).toBe('string');
-    expect(doc.explanation.trim().length).toBeGreaterThan(40);
-    expect(Array.isArray(doc.smoke_test)).toBe(true);
-    expect(doc.smoke_test.length).toBeGreaterThanOrEqual(1);
-  });
+  it.each(Object.entries(FLAG_DOCS))(
+    '%s carries a 3-6 item checklist + smoke_test',
+    (_key, doc) => {
+      expect(Array.isArray(doc.checklist)).toBe(true);
+      expect(doc.checklist.length).toBeGreaterThanOrEqual(3);
+      expect(doc.checklist.length).toBeLessThanOrEqual(6);
+      expect(doc.checklist.every((c) => typeof c === 'string' && c.trim().length > 0)).toBe(true);
+      expect(typeof doc.explanation).toBe('string');
+      expect(doc.explanation.trim().length).toBeGreaterThan(40);
+      expect(Array.isArray(doc.smoke_test)).toBe(true);
+      expect(doc.smoke_test.length).toBeGreaterThanOrEqual(1);
+    },
+  );
 });
 
 describe('FLAG_DOCS — e2e_tests reference real specs', () => {

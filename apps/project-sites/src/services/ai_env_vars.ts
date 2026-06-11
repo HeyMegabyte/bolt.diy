@@ -142,7 +142,10 @@ const MAX_VALUE_LEN = 64 * 1024; // 64 KiB ciphertext-input cap
  * `Error` whose message is safe to surface in a route JSON envelope.
  */
 function validateScopeFields(
-  args: Pick<SetEnvVarArgs, 'scope' | 'siteId' | 'mcpProvider' | 'endpointId' | 'agentId' | 'key' | 'value'>,
+  args: Pick<
+    SetEnvVarArgs,
+    'scope' | 'siteId' | 'mcpProvider' | 'endpointId' | 'agentId' | 'key' | 'value'
+  >,
 ): void {
   if (!SCOPE_ORDER.includes(args.scope)) {
     throw new Error(`invalid scope: ${args.scope}`);
@@ -196,12 +199,14 @@ async function rowToEnvVar(env: Env, row: EnvVarRow, unmask: boolean): Promise<E
   try {
     plaintext = await decrypt(env, row.value_encrypted);
   } catch (err) {
-    console.warn(JSON.stringify({
-      service: 'ai_env_vars',
-      event: 'decrypt_failed',
-      id: row.id,
-      error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        service: 'ai_env_vars',
+        event: 'decrypt_failed',
+        id: row.id,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
     plaintext = '';
   }
   const masked = isSecret ? maskValue(plaintext) : plaintext;
@@ -309,7 +314,11 @@ export async function setEnvVar(env: Env, args: SetEnvVarArgs): Promise<EnvVar> 
  *
  * Order: scope rank (org→site→mcp→endpoint→agent), then key alphabetical.
  */
-export async function listEnvVars(env: Env, orgId: string, opts: ListEnvVarsOpts = {}): Promise<EnvVar[]> {
+export async function listEnvVars(
+  env: Env,
+  orgId: string,
+  opts: ListEnvVarsOpts = {},
+): Promise<EnvVar[]> {
   const where: string[] = ['org_id = ?', 'deleted_at IS NULL'];
   const params: unknown[] = [orgId];
   if (opts.scope) {
@@ -357,7 +366,11 @@ export async function listEnvVars(env: Env, orgId: string, opts: ListEnvVarsOpts
  * Fetch a single env var by id, returning the decrypted plaintext.
  * SERVER-SIDE ONLY — for use inside resolver/dispatcher code paths.
  */
-export async function getEnvVar(env: Env, orgId: string, id: string): Promise<{ envVar: EnvVar; value: string } | null> {
+export async function getEnvVar(
+  env: Env,
+  orgId: string,
+  id: string,
+): Promise<{ envVar: EnvVar; value: string } | null> {
   const row = await dbQueryOne<EnvVarRow>(
     env.DB,
     `SELECT * FROM ai_env_vars WHERE org_id = ? AND id = ? AND deleted_at IS NULL`,
@@ -408,7 +421,10 @@ export async function deleteEnvVar(env: Env, orgId: string, id: string): Promise
  * {@link ../services/external_llm.ts} and {@link ../services/mcp_client.ts})
  * to surface user-defined env vars to the AI.
  */
-export async function resolveEnvVarsForAI(env: Env, args: ResolveEnvVarsArgs): Promise<Record<string, string>> {
+export async function resolveEnvVarsForAI(
+  env: Env,
+  args: ResolveEnvVarsArgs,
+): Promise<Record<string, string>> {
   // Pull all candidate rows in one query — keeps the merge in-memory.
   const orClauses: string[] = [`scope = 'org'`];
   const params: unknown[] = [args.orgId];
@@ -453,14 +469,16 @@ export async function resolveEnvVarsForAI(env: Env, args: ResolveEnvVarsArgs): P
       try {
         merged[row.key] = await decrypt(env, row.value_encrypted);
       } catch (err) {
-        console.warn(JSON.stringify({
-          service: 'ai_env_vars',
-          event: 'resolve_decrypt_failed',
-          id: row.id,
-          scope: row.scope,
-          key: row.key,
-          error: err instanceof Error ? err.message : String(err),
-        }));
+        console.warn(
+          JSON.stringify({
+            service: 'ai_env_vars',
+            event: 'resolve_decrypt_failed',
+            id: row.id,
+            scope: row.scope,
+            key: row.key,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       }
     }
   }
@@ -475,7 +493,10 @@ export async function resolveEnvVarsForAI(env: Env, args: ResolveEnvVarsArgs): P
  * The format is deliberately bash-compatible so the LLM can quote values
  * verbatim into tool calls or code snippets.
  */
-export function injectIntoSystemPrompt(systemPrompt: string, resolved: Record<string, string>): string {
+export function injectIntoSystemPrompt(
+  systemPrompt: string,
+  resolved: Record<string, string>,
+): string {
   const keys = Object.keys(resolved);
   if (keys.length === 0) return systemPrompt;
   const lines = keys

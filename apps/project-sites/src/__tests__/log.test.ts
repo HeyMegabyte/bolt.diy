@@ -71,9 +71,9 @@ describe('log.* — structured logger', () => {
     const { calls, restore } = captureWarn();
     try {
       log.warn('payment_failed', {
-        order_id: 'should-be-dropped',      // not in allowlist → dropped
+        order_id: 'should-be-dropped', // not in allowlist → dropped
         message: 'sk_live_' + 'x'.repeat(32), // allowlisted key but secret value → redacted
-        status: 500,  // allowlisted
+        status: 500, // allowlisted
         slug: 'vitos', // allowlisted
       });
       const entry = calls[0]!;

@@ -1,8 +1,15 @@
 import { rubricToFindings, type VisionScore } from '../routes/vision_qa';
 
 const base: VisionScore = {
-  layout: 8, typography: 8, color: 8, imagery: 8, whitespace: 8, distinctiveness: 8,
-  overall: 8, notes: '', model: 'x',
+  layout: 8,
+  typography: 8,
+  color: 8,
+  imagery: 8,
+  whitespace: 8,
+  distinctiveness: 8,
+  overall: 8,
+  notes: '',
+  model: 'x',
 };
 
 describe('rubricToFindings', () => {

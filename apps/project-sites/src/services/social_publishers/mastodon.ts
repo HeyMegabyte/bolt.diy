@@ -25,10 +25,15 @@ export const mastodon: Publisher = {
     const text = composeContent(post, 'mastodon').slice(0, 500);
     const res = await fetch(`${instance(account)}/api/v1/statuses`, {
       method: 'POST',
-      headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' },
+      headers: {
+        ...BROWSER_HEADERS,
+        Authorization: `Bearer ${account.access_token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ status: text, visibility: 'public' }),
     });
-    if (!res.ok) throw new Error(`mastodon_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
+    if (!res.ok)
+      throw new Error(`mastodon_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
     const data = (await res.json()) as { id: string; url: string };
     return { external_id: data.id, external_url: data.url };
   },
@@ -56,16 +61,26 @@ export const mastodon: Publisher = {
 };
 
 /** Verify a Mastodon token + return account details. */
-export async function mastodonVerify(instanceUrl: string, accessToken: string): Promise<{
+export async function mastodonVerify(
+  instanceUrl: string,
+  accessToken: string,
+): Promise<{
   external_id: string;
   handle: string;
   display_name: string | null;
   avatar_url: string | null;
 }> {
   const url = `${instanceUrl.replace(/\/$/, '')}/api/v1/accounts/verify_credentials`;
-  const res = await fetch(url, { headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${accessToken}` } });
+  const res = await fetch(url, {
+    headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${accessToken}` },
+  });
   if (!res.ok) throw new Error(`mastodon_verify_failed:${res.status}`);
-  const data = (await res.json()) as { id: string; username: string; display_name?: string; avatar?: string };
+  const data = (await res.json()) as {
+    id: string;
+    username: string;
+    display_name?: string;
+    avatar?: string;
+  };
   return {
     external_id: data.id,
     handle: `@${data.username}`,

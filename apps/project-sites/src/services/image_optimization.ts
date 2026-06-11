@@ -217,15 +217,24 @@ export async function optimizeAndStoreToR2(
 
   await Promise.all([
     env.SITES_BUCKET.put(avifKey, optimized.avif, {
-      httpMetadata: { contentType: 'image/avif', cacheControl: 'public, max-age=31536000, immutable' },
+      httpMetadata: {
+        contentType: 'image/avif',
+        cacheControl: 'public, max-age=31536000, immutable',
+      },
       customMetadata: { ...customMetadata, format: 'avif' },
     }),
     env.SITES_BUCKET.put(webpKey, optimized.webp, {
-      httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' },
+      httpMetadata: {
+        contentType: 'image/webp',
+        cacheControl: 'public, max-age=31536000, immutable',
+      },
       customMetadata: { ...customMetadata, format: 'webp' },
     }),
     env.SITES_BUCKET.put(pngKey, optimized.png, {
-      httpMetadata: { contentType: 'image/png', cacheControl: 'public, max-age=31536000, immutable' },
+      httpMetadata: {
+        contentType: 'image/png',
+        cacheControl: 'public, max-age=31536000, immutable',
+      },
       customMetadata: { ...customMetadata, format: 'png' },
     }),
   ]);

@@ -70,14 +70,11 @@ export async function streamChatResponse(env: Env, args: StreamArgs): Promise<vo
 async function streamWorkersAi(env: Env, args: StreamArgs): Promise<void> {
   const model = (args.model || DEFAULT_WORKERS_AI_MODEL) as Parameters<typeof env.AI.run>[0];
   // Workers AI returns a ReadableStream<Uint8Array> when `stream: true`.
-  const response = (await env.AI.run(
-    model,
-    {
-      messages: args.messages.map((m) => ({ role: m.role, content: m.content })),
-      stream: true,
-      max_tokens: 4096,
-    } as unknown as Parameters<typeof env.AI.run>[1],
-  )) as unknown as ReadableStream<Uint8Array>;
+  const response = (await env.AI.run(model, {
+    messages: args.messages.map((m) => ({ role: m.role, content: m.content })),
+    stream: true,
+    max_tokens: 4096,
+  } as unknown as Parameters<typeof env.AI.run>[1])) as unknown as ReadableStream<Uint8Array>;
 
   await parseSseStream(response, (data) => {
     // Workers AI emits `data: {"response":"...delta..."}` per chunk.

@@ -48,11 +48,7 @@ type BuildEventBody = BuildEvent extends infer T
  * `appendBuildEvent`; a malformed event is swallowed here so build progress
  * never breaks the workflow. See feature module `libs/features/build_progress/`.
  */
-async function emitBuildEvent(
-  env: Env,
-  siteId: string,
-  event: BuildEventBody,
-): Promise<void> {
+async function emitBuildEvent(env: Env, siteId: string, event: BuildEventBody): Promise<void> {
   try {
     await appendBuildEvent(env, {
       ...event,
@@ -126,14 +122,7 @@ async function workflowLog(
         `INSERT INTO audit_logs (id, org_id, actor_id, action, message, target_type, target_id, metadata_json, created_at)
          VALUES (?, ?, NULL, ?, ?, 'site', ?, ?, datetime('now'))`,
       )
-      .bind(
-        crypto.randomUUID(),
-        orgId,
-        action,
-        message,
-        siteId,
-        JSON.stringify(enrichedMeta),
-      )
+      .bind(crypto.randomUUID(), orgId, action, message, siteId, JSON.stringify(enrichedMeta))
       .run();
   } catch (err) {
     console.warn(

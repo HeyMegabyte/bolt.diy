@@ -26,11 +26,9 @@ jest.mock('@cloudflare/containers', () => ({
 
 // `cloudflare:workers` is a runtime-only virtual module (DurableObject +
 // WorkflowEntrypoint base classes) with no npm package to resolve under Jest.
-jest.mock(
-  'cloudflare:workers',
-  () => ({ DurableObject: class {}, WorkflowEntrypoint: class {} }),
-  { virtual: true },
-);
+jest.mock('cloudflare:workers', () => ({ DurableObject: class {}, WorkflowEntrypoint: class {} }), {
+  virtual: true,
+});
 
 import worker from '../index.js';
 
@@ -91,7 +89,13 @@ describe('marketing serve — structured_data_autopilot injection', () => {
   it('emits Organization + WebSite + WebPage + BreadcrumbList JSON-LD on the homepage', async () => {
     const html = await (await serve('/')).text();
     expect(html).toContain('application/ld+json');
-    for (const t of ['"Organization"', '"WebSite"', '"WebPage"', '"BreadcrumbList"', '"SearchAction"']) {
+    for (const t of [
+      '"Organization"',
+      '"WebSite"',
+      '"WebPage"',
+      '"BreadcrumbList"',
+      '"SearchAction"',
+    ]) {
       expect(html).toContain(t);
     }
   });

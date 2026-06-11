@@ -39,32 +39,33 @@ export const LANGUAGE_ENTRYPOINTS: Readonly<Record<IdeLanguage, string>> = Objec
 });
 
 /** Starter templates dropped into the IDE when the user picks a language. */
-export const LANGUAGE_STARTERS: Readonly<Record<IdeLanguage, Record<string, string>>> = Object.freeze({
-  'ai-prompt': {
-    'prompt.md':
-      '# AI Prompt Endpoint\n\nYou are the endpoint. Read the request body, return JSON.\n',
-  },
-  javascript: {
-    'src/index.js':
-      '/** Entry point. Receives a standard Fetch Request. */\nexport default {\n  async fetch(request, env, ctx) {\n    const body = await request.json().catch(() => ({}));\n    return Response.json({ ok: true, echo: body });\n  },\n};\n',
-    'package.json': '{\n  "name": "ai-endpoint",\n  "private": true,\n  "type": "module"\n}\n',
-  },
-  typescript: {
-    'src/index.ts':
-      'export default {\n  async fetch(request: Request, _env: unknown, _ctx: ExecutionContext): Promise<Response> {\n    const body = await request.json().catch(() => ({}));\n    return Response.json({ ok: true, echo: body });\n  },\n} satisfies ExportedHandler;\n',
-    'package.json': '{\n  "name": "ai-endpoint",\n  "private": true,\n  "type": "module"\n}\n',
-  },
-  python: {
-    'worker.py':
-      'from workers import Response\n\nasync def on_fetch(request, env):\n    body = await request.json()\n    return Response.json({"ok": True, "echo": body})\n',
-  },
-  'rust-wasm': {
-    'src/lib.rs':
-      'use worker::*;\n\n#[event(fetch)]\nasync fn fetch(req: Request, _env: Env, _ctx: Context) -> Result<Response> {\n    Response::ok("hi from rust")\n}\n',
-    'Cargo.toml':
-      '[package]\nname = "ai-endpoint"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\ncrate-type = ["cdylib"]\n\n[dependencies]\nworker = "0.3"\n',
-  },
-});
+export const LANGUAGE_STARTERS: Readonly<Record<IdeLanguage, Record<string, string>>> =
+  Object.freeze({
+    'ai-prompt': {
+      'prompt.md':
+        '# AI Prompt Endpoint\n\nYou are the endpoint. Read the request body, return JSON.\n',
+    },
+    javascript: {
+      'src/index.js':
+        '/** Entry point. Receives a standard Fetch Request. */\nexport default {\n  async fetch(request, env, ctx) {\n    const body = await request.json().catch(() => ({}));\n    return Response.json({ ok: true, echo: body });\n  },\n};\n',
+      'package.json': '{\n  "name": "ai-endpoint",\n  "private": true,\n  "type": "module"\n}\n',
+    },
+    typescript: {
+      'src/index.ts':
+        'export default {\n  async fetch(request: Request, _env: unknown, _ctx: ExecutionContext): Promise<Response> {\n    const body = await request.json().catch(() => ({}));\n    return Response.json({ ok: true, echo: body });\n  },\n} satisfies ExportedHandler;\n',
+      'package.json': '{\n  "name": "ai-endpoint",\n  "private": true,\n  "type": "module"\n}\n',
+    },
+    python: {
+      'worker.py':
+        'from workers import Response\n\nasync def on_fetch(request, env):\n    body = await request.json()\n    return Response.json({"ok": True, "echo": body})\n',
+    },
+    'rust-wasm': {
+      'src/lib.rs':
+        'use worker::*;\n\n#[event(fetch)]\nasync fn fetch(req: Request, _env: Env, _ctx: Context) -> Result<Response> {\n    Response::ok("hi from rust")\n}\n',
+      'Cargo.toml':
+        '[package]\nname = "ai-endpoint"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\ncrate-type = ["cdylib"]\n\n[dependencies]\nworker = "0.3"\n',
+    },
+  });
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

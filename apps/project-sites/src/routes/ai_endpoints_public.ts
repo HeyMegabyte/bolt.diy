@@ -46,7 +46,11 @@ interface EndpointRow {
   enabled: number;
 }
 
-async function loadEndpoint(env: Env, siteSlug: string, endpointSlug: string): Promise<EndpointRow | null> {
+async function loadEndpoint(
+  env: Env,
+  siteSlug: string,
+  endpointSlug: string,
+): Promise<EndpointRow | null> {
   const row = await env.DB.prepare(
     `SELECT e.id, e.org_id, e.site_id, e.endpoint_slug, e.kind, e.method,
             e.prompt_template, e.worker_language, e.wfp_script_name, e.enabled
@@ -64,7 +68,10 @@ async function handle(c: Ctx): Promise<Response> {
   const ep = await loadEndpoint(c.env, siteSlug, endpointSlug);
   if (!ep) return c.json({ error: { message: 'endpoint not found' } }, 404);
   if (ep.method !== 'BOTH' && ep.method !== c.req.method) {
-    return c.json({ error: { message: `method ${c.req.method} not allowed (expected ${ep.method})` } }, 405);
+    return c.json(
+      { error: { message: `method ${c.req.method} not allowed (expected ${ep.method})` } },
+      405,
+    );
   }
 
   // Credit gate — fail closed if balance ≤ 0.
@@ -99,7 +106,12 @@ async function handle(c: Ctx): Promise<Response> {
       outputText: text.slice(0, 4096),
       creditsDebited: 1,
     });
-    const newBal = await debitCredits(c.env, { orgId: ep.org_id, siteId: ep.site_id, amount: 1, reason: 'endpoint' });
+    const newBal = await debitCredits(c.env, {
+      orgId: ep.org_id,
+      siteId: ep.site_id,
+      amount: 1,
+      reason: 'endpoint',
+    });
     c.executionCtx.waitUntil(maybeFireAlerts(c.env, ep.org_id, newBal));
     return upstream;
   }
@@ -160,8 +172,14 @@ async function handle(c: Ctx): Promise<Response> {
     input: { method: c.req.method, query, body },
     outputText: outText,
     outputJson: parsed,
-    toolName: parsed && typeof parsed === 'object' && 'tool' in parsed ? (parsed as { tool: string }).tool : undefined,
-    toolArgs: parsed && typeof parsed === 'object' && 'args' in parsed ? (parsed as { args: unknown }).args : undefined,
+    toolName:
+      parsed && typeof parsed === 'object' && 'tool' in parsed
+        ? (parsed as { tool: string }).tool
+        : undefined,
+    toolArgs:
+      parsed && typeof parsed === 'object' && 'args' in parsed
+        ? (parsed as { args: unknown }).args
+        : undefined,
     toolResult: toolResult ?? undefined,
     toolStatus: toolResult ? (toolResult.ok ? 'ok' : 'error') : undefined,
     model,
@@ -181,14 +199,17 @@ async function handle(c: Ctx): Promise<Response> {
   });
   c.executionCtx.waitUntil(maybeFireAlerts(c.env, ep.org_id, newBal));
 
-  return c.json({
-    ok: status === 'ok',
-    output: parsed ?? outText,
-    tool_result: toolResult,
-    error: errorMessage,
-    credits_remaining: newBal,
-    trace_id: logId,
-  }, status === 'ok' ? 200 : 502);
+  return c.json(
+    {
+      ok: status === 'ok',
+      output: parsed ?? outText,
+      tool_result: toolResult,
+      error: errorMessage,
+      credits_remaining: newBal,
+      trace_id: logId,
+    },
+    status === 'ok' ? 200 : 502,
+  );
 }
 
 /**

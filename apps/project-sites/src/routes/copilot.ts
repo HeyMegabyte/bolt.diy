@@ -196,7 +196,9 @@ copilotRoutes.get('/api/sites/:siteId/copilot/config', async (c) => {
     .first<{ value_json: string }>()
     .catch(() => null);
 
-  const enabled = row ? (JSON.parse(row.value_json) as { enabled?: boolean }).enabled ?? false : false;
+  const enabled = row
+    ? ((JSON.parse(row.value_json) as { enabled?: boolean }).enabled ?? false)
+    : false;
 
   return c.json({ site_id: siteId, enabled });
 });
@@ -207,36 +209,49 @@ const CopilotConfigBodySchema = z.object({
   enabled: z.boolean({ required_error: 'enabled (boolean) required' }),
 });
 
-copilotRoutes.put('/api/sites/:siteId/copilot/config', zValidator('json', CopilotConfigBodySchema), async (c) => {
-  const siteId = c.req.param('siteId');
-  const blocked = await adminGuard(c, siteId);
-  if (blocked) return blocked;
-  const userId = c.get('userId');
+copilotRoutes.put(
+  '/api/sites/:siteId/copilot/config',
+  zValidator('json', CopilotConfigBodySchema),
+  async (c) => {
+    const siteId = c.req.param('siteId');
+    const blocked = await adminGuard(c, siteId);
+    if (blocked) return blocked;
+    const userId = c.get('userId');
 
-  const body = c.req.valid('json');
+    const body = c.req.valid('json');
 
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-  await c.env.DB.prepare(
-    `INSERT INTO flag_overrides (id, scope, scope_id, flag_key, value_json, set_by, set_at, created_at, updated_at)
+    await c.env.DB.prepare(
+      `INSERT INTO flag_overrides (id, scope, scope_id, flag_key, value_json, set_by, set_at, created_at, updated_at)
      VALUES (?,?,?,?,?,?,?,?,?)
      ON CONFLICT(scope, scope_id, flag_key) WHERE deleted_at IS NULL
      DO UPDATE SET value_json = excluded.value_json, set_by = excluded.set_by,
                    set_at = excluded.set_at, updated_at = excluded.updated_at`,
-  )
-    .bind(id, 'tenant', siteId, 'multimodal_copilot', JSON.stringify({ enabled: body.enabled }),
-      userId ?? null, now, now, now)
-    .run()
-    .catch(() => null);
+    )
+      .bind(
+        id,
+        'tenant',
+        siteId,
+        'multimodal_copilot',
+        JSON.stringify({ enabled: body.enabled }),
+        userId ?? null,
+        now,
+        now,
+        now,
+      )
+      .run()
+      .catch(() => null);
 
-  // The route guard reads this flag via isFlagOn → resolveFlag's 60s KV cache
-  // (`flag:multimodal_copilot:<siteId>:<orgId>`). Without this bust, a just-
-  // toggled copilot stays 404 (or stays on) for up to KV_TTL.
-  await invalidateFlagCache(c.env, 'multimodal_copilot');
+    // The route guard reads this flag via isFlagOn → resolveFlag's 60s KV cache
+    // (`flag:multimodal_copilot:<siteId>:<orgId>`). Without this bust, a just-
+    // toggled copilot stays 404 (or stays on) for up to KV_TTL.
+    await invalidateFlagCache(c.env, 'multimodal_copilot');
 
-  return c.json({ ok: true, site_id: siteId, enabled: body.enabled });
-});
+    return c.json({ ok: true, site_id: siteId, enabled: body.enabled });
+  },
+);
 
 // ── GET /sites/:slug/copilot.js — per-site widget JS ─────────────────────────
 // Serves the vanilla-JS copilot widget with the site slug baked in.
@@ -251,7 +266,8 @@ copilotRoutes.get('/sites/:slug/copilot.js', async (c) => {
     .first<{ id: string }>()
     .catch(() => null);
 
-  if (!site) return c.text('/* site not found */', 404, { 'Content-Type': 'application/javascript' });
+  if (!site)
+    return c.text('/* site not found */', 404, { 'Content-Type': 'application/javascript' });
 
   // Inline a tiny IIFE that reads the widget template from R2
   const widgetObj = await c.env.SITES_BUCKET.get('copilot/widget.js').catch(() => null);

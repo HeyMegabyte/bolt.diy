@@ -89,7 +89,11 @@ function postForm(
     path,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', host: 'projectsites.dev', ...headers },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        host: 'projectsites.dev',
+        ...headers,
+      },
       body,
     },
     env,
@@ -123,7 +127,13 @@ beforeEach(() => {
 describe('POST /webhooks/voice/inbound', () => {
   it('returns 403 when the Twilio signature is invalid', async () => {
     mockValidateSignature.mockResolvedValue(false);
-    const res = await postForm(makeApp(), '/webhooks/voice/inbound', { CallSid: 'CA1' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/voice/inbound',
+      { CallSid: 'CA1' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(403);
     expect(mockHandleInboundCall).not.toHaveBeenCalled();
   });
@@ -141,7 +151,13 @@ describe('POST /webhooks/voice/inbound', () => {
     const res = await postForm(
       makeApp(),
       '/webhooks/voice/inbound',
-      { CallSid: 'CA1', From: '+15551112222', To: '+15553334444', AccountSid: 'AC1', Direction: 'inbound' },
+      {
+        CallSid: 'CA1',
+        From: '+15551112222',
+        To: '+15553334444',
+        AccountSid: 'AC1',
+        Direction: 'inbound',
+      },
       makeEnv(),
       SIG,
     );
@@ -150,7 +166,10 @@ describe('POST /webhooks/voice/inbound', () => {
     expect(await res.text()).toContain('<Say>Hi</Say>');
     // Form params + host are forwarded to the orchestrator.
     expect(mockHandleInboundCall).toHaveBeenCalledTimes(1);
-    expect(mockHandleInboundCall.mock.calls[0][1]).toMatchObject({ CallSid: 'CA1', From: '+15551112222' });
+    expect(mockHandleInboundCall.mock.calls[0][1]).toMatchObject({
+      CallSid: 'CA1',
+      From: '+15551112222',
+    });
     expect(mockHandleInboundCall.mock.calls[0][2]).toBe('projectsites.dev');
   });
 });
@@ -172,7 +191,13 @@ describe('GET /webhooks/voice/stream', () => {
 describe('POST /webhooks/voice/status', () => {
   it('returns 403 when the signature is invalid', async () => {
     mockValidateSignature.mockResolvedValue(false);
-    const res = await postForm(makeApp(), '/webhooks/voice/status', { CallSid: 'CA1' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/voice/status',
+      { CallSid: 'CA1' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(403);
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });
@@ -200,7 +225,13 @@ describe('POST /webhooks/voice/status', () => {
   it('omits ended_at + nulls duration for a non-terminal status', async () => {
     mockValidateSignature.mockResolvedValue(true);
     mockDbUpdate.mockResolvedValue(undefined);
-    await postForm(makeApp(), '/webhooks/voice/status', { CallSid: 'CA9', CallStatus: 'ringing' }, makeEnv(), SIG);
+    await postForm(
+      makeApp(),
+      '/webhooks/voice/status',
+      { CallSid: 'CA9', CallStatus: 'ringing' },
+      makeEnv(),
+      SIG,
+    );
     const updates = mockDbUpdate.mock.calls[0][2];
     expect(updates.status).toBe('ringing');
     expect(updates.duration_seconds).toBeNull();
@@ -209,7 +240,13 @@ describe('POST /webhooks/voice/status', () => {
 
   it('skips the DB write when CallSid is absent but still returns 200', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    const res = await postForm(makeApp(), '/webhooks/voice/status', { CallStatus: 'completed' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/voice/status',
+      { CallStatus: 'completed' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(200);
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });
@@ -217,7 +254,13 @@ describe('POST /webhooks/voice/status', () => {
   it('swallows a DB failure and still returns 200 TwiML (idempotent-safe)', async () => {
     mockValidateSignature.mockResolvedValue(true);
     mockDbUpdate.mockRejectedValue(new Error('D1 down'));
-    const res = await postForm(makeApp(), '/webhooks/voice/status', { CallSid: 'CA9', CallStatus: 'busy' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/voice/status',
+      { CallSid: 'CA9', CallStatus: 'busy' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(200);
   });
 });
@@ -239,7 +282,13 @@ describe('POST /webhooks/voice/recording-ready', () => {
 
   it('returns 200 (no-op) when RecordingSid or CallSid is missing', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    const res = await postForm(makeApp(), '/webhooks/voice/recording-ready', { CallSid: 'CA1' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/voice/recording-ready',
+      { CallSid: 'CA1' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('<Response/>');
     expect(mockDbQueryOne).not.toHaveBeenCalled();
@@ -263,7 +312,12 @@ describe('POST /webhooks/voice/recording-ready', () => {
   it('returns TwiML immediately and persists the recording to R2 + D1 out-of-band', async () => {
     mockValidateSignature.mockResolvedValue(true);
     mockDbQueryOne.mockResolvedValue({ id: 'call-1', site_id: 'site-1' });
-    mockFetchRecording.mockResolvedValue({ sid: 'RE1', duration: 30, channels: 1, download_url: 'https://api.twilio/x.mp3' });
+    mockFetchRecording.mockResolvedValue({
+      sid: 'RE1',
+      duration: 30,
+      channels: 1,
+      download_url: 'https://api.twilio/x.mp3',
+    });
     mockDownloadRecordingBytes.mockResolvedValue({ bytes: new ArrayBuffer(8), mime: 'audio/mpeg' });
     mockDbInsert.mockResolvedValue(undefined);
     mockDbUpdate.mockResolvedValue(undefined);
@@ -288,7 +342,11 @@ describe('POST /webhooks/voice/recording-ready', () => {
     expect(bucket.put.mock.calls[0][0]).toBe('voice/site-1/call-1/RE1.mp3');
     expect(mockDbInsert).toHaveBeenCalledTimes(1);
     expect(mockDbInsert.mock.calls[0][1]).toBe('voice_recordings');
-    expect(mockDbInsert.mock.calls[0][2]).toMatchObject({ call_id: 'call-1', kind: 'audio', r2_key: 'voice/site-1/call-1/RE1.mp3' });
+    expect(mockDbInsert.mock.calls[0][2]).toMatchObject({
+      call_id: 'call-1',
+      kind: 'audio',
+      r2_key: 'voice/site-1/call-1/RE1.mp3',
+    });
     expect(mockDbUpdate).toHaveBeenCalledTimes(1);
   });
 
@@ -314,7 +372,13 @@ describe('POST /webhooks/voice/recording-ready', () => {
 describe('POST /webhooks/sms/inbound', () => {
   it('returns 403 when the signature is invalid', async () => {
     mockValidateSignature.mockResolvedValue(false);
-    const res = await postForm(makeApp(), '/webhooks/sms/inbound', { MessageSid: 'SM1' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/sms/inbound',
+      { MessageSid: 'SM1' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(403);
     expect(mockHandleInboundSms).not.toHaveBeenCalled();
   });
@@ -325,14 +389,24 @@ describe('POST /webhooks/sms/inbound', () => {
     const res = await postForm(
       makeApp(),
       '/webhooks/sms/inbound',
-      { MessageSid: 'SM1', From: '+15551112222', To: '+15553334444', Body: 'hello', AccountSid: 'AC1', NumMedia: '0' },
+      {
+        MessageSid: 'SM1',
+        From: '+15551112222',
+        To: '+15553334444',
+        Body: 'hello',
+        AccountSid: 'AC1',
+        NumMedia: '0',
+      },
       makeEnv(),
       SIG,
     );
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/xml');
     expect(await res.text()).toContain('<Message>ok</Message>');
-    expect(mockHandleInboundSms.mock.calls[0][1]).toMatchObject({ MessageSid: 'SM1', Body: 'hello' });
+    expect(mockHandleInboundSms.mock.calls[0][1]).toMatchObject({
+      MessageSid: 'SM1',
+      Body: 'hello',
+    });
   });
 });
 
@@ -341,7 +415,13 @@ describe('POST /webhooks/sms/inbound', () => {
 describe('POST /webhooks/sms/status', () => {
   it('returns 403 when the signature is invalid', async () => {
     mockValidateSignature.mockResolvedValue(false);
-    const res = await postForm(makeApp(), '/webhooks/sms/status', { MessageSid: 'SM1' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/sms/status',
+      { MessageSid: 'SM1' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(403);
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });
@@ -369,13 +449,25 @@ describe('POST /webhooks/sms/status', () => {
   it('omits delivered_at for non-delivered statuses', async () => {
     mockValidateSignature.mockResolvedValue(true);
     mockDbUpdate.mockResolvedValue(undefined);
-    await postForm(makeApp(), '/webhooks/sms/status', { MessageSid: 'SM9', MessageStatus: 'sent' }, makeEnv(), SIG);
+    await postForm(
+      makeApp(),
+      '/webhooks/sms/status',
+      { MessageSid: 'SM9', MessageStatus: 'sent' },
+      makeEnv(),
+      SIG,
+    );
     expect(mockDbUpdate.mock.calls[0][2]).not.toHaveProperty('delivered_at');
   });
 
   it('skips the DB write when MessageSid is absent', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    const res = await postForm(makeApp(), '/webhooks/sms/status', { MessageStatus: 'delivered' }, makeEnv(), SIG);
+    const res = await postForm(
+      makeApp(),
+      '/webhooks/sms/status',
+      { MessageStatus: 'delivered' },
+      makeEnv(),
+      SIG,
+    );
     expect(res.status).toBe(200);
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });
@@ -402,7 +494,11 @@ describe('POST /internal/voice/recording-saved', () => {
   it('returns 401 when the HMAC signature does not match', async () => {
     const res = await makeApp().request(
       PATH,
-      { method: 'POST', headers: { 'x-internal-sig': 'deadbeef' }, body: JSON.stringify({ callId: 'c1' }) },
+      {
+        method: 'POST',
+        headers: { 'x-internal-sig': 'deadbeef' },
+        body: JSON.stringify({ callId: 'c1' }),
+      },
       makeEnv(),
     );
     expect(res.status).toBe(401);
@@ -473,7 +569,11 @@ describe('POST /internal/voice/recording-saved', () => {
   it('also updates voice_calls with the video URL when kind is video', async () => {
     mockDbInsert.mockResolvedValue(undefined);
     mockDbUpdate.mockResolvedValue(undefined);
-    const body = JSON.stringify({ callId: 'call-8', kind: 'video', r2Key: 'voice/site/call-8/v.mp4' });
+    const body = JSON.stringify({
+      callId: 'call-8',
+      kind: 'video',
+      r2Key: 'voice/site/call-8/v.mp4',
+    });
     const sig = await hmacHex(SECRET, body);
     const res = await makeApp().request(
       PATH,

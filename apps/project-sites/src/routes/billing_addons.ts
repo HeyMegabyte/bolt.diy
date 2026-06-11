@@ -94,7 +94,10 @@ billingAddons.post(
 
     if (!resp.ok) {
       const err = await resp.json<{ error: { message: string } }>();
-      return c.json({ error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe error' } }, 400);
+      return c.json(
+        { error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe error' } },
+        400,
+      );
     }
 
     const session = await resp.json<{ url: string; id: string }>();
@@ -155,7 +158,10 @@ billingAddons.post(
 
     if (!resp.ok) {
       const err = await resp.json<{ error: { message: string } }>();
-      return c.json({ error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe error' } }, 400);
+      return c.json(
+        { error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe error' } },
+        400,
+      );
     }
 
     const session = await resp.json<{ url: string; id: string }>();
@@ -181,11 +187,13 @@ billingAddons.post(
   '/api/billing/usage/report',
   zValidator(
     'json',
-    z.object({
-      meter: z.string().default('site_renders'),
-      value: z.number().int().min(1).default(1),
-      site_id: z.string().optional(),
-    }).optional(),
+    z
+      .object({
+        meter: z.string().default('site_renders'),
+        value: z.number().int().min(1).default(1),
+        site_id: z.string().optional(),
+      })
+      .optional(),
   ),
   async (c) => {
     const orgId = c.get('orgId');
@@ -220,7 +228,10 @@ billingAddons.post(
 
     if (!resp.ok) {
       const err = await resp.json<{ error: { message: string } }>();
-      return c.json({ error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe meter error' } }, 400);
+      return c.json(
+        { error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe meter error' } },
+        400,
+      );
     }
 
     const evt = await resp.json<{ id: string }>();
@@ -300,7 +311,9 @@ billingAddons.post('/api/billing/subscription/cancel', async (c) => {
   let stripeSubId: string | null = null;
 
   const row = await db
-    .prepare('SELECT stripe_subscription_id FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL LIMIT 1')
+    .prepare(
+      'SELECT stripe_subscription_id FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL LIMIT 1',
+    )
     .bind(orgId)
     .first<{ stripe_subscription_id: string | null }>();
   stripeSubId = row?.stripe_subscription_id ?? null;
@@ -322,7 +335,10 @@ billingAddons.post('/api/billing/subscription/cancel', async (c) => {
 
   if (!resp.ok) {
     const err = await resp.json<{ error: { message: string } }>();
-    return c.json({ error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Cancel failed' } }, 400);
+    return c.json(
+      { error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Cancel failed' } },
+      400,
+    );
   }
 
   const updated = await resp.json<{ status: string; cancel_at: number | null }>();
@@ -361,7 +377,10 @@ billingAddons.post('/api/agency/stripe-connect/onboard', async (c) => {
   });
 
   if (!acctResp.ok) {
-    return c.json({ error: { code: 'STRIPE_ERROR', message: 'Could not create Connect account' } }, 400);
+    return c.json(
+      { error: { code: 'STRIPE_ERROR', message: 'Could not create Connect account' } },
+      400,
+    );
   }
 
   const acct = await acctResp.json<{ id: string }>();
@@ -381,7 +400,10 @@ billingAddons.post('/api/agency/stripe-connect/onboard', async (c) => {
   });
 
   if (!linkResp.ok) {
-    return c.json({ error: { code: 'STRIPE_ERROR', message: 'Could not create onboarding link' } }, 400);
+    return c.json(
+      { error: { code: 'STRIPE_ERROR', message: 'Could not create onboarding link' } },
+      400,
+    );
   }
 
   const link = await linkResp.json<{ url: string }>();

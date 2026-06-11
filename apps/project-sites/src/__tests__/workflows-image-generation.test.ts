@@ -9,18 +9,27 @@
  *     each closure to exactly one invocation.
  */
 
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) { this.env = env; }
-  },
-  DurableObject: class<E> {
-    ctx: unknown;
-    env: E;
-    constructor(ctx: unknown, env: E) { this.ctx = ctx; this.env = env; }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+    DurableObject: class<E> {
+      ctx: unknown;
+      env: E;
+      constructor(ctx: unknown, env: E) {
+        this.ctx = ctx;
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 import { ImageGenerationWorkflow } from '../workflows/image-generation.js';
 import type { Env } from '../types/env.js';
@@ -32,14 +41,18 @@ interface StepInvocation {
 
 function makeStep(): {
   step: {
-    do: <T>(name: string, configOrFn: Record<string, unknown> | (() => Promise<T>), fn?: () => Promise<T>) => Promise<T>;
+    do: <T>(
+      name: string,
+      configOrFn: Record<string, unknown> | (() => Promise<T>),
+      fn?: () => Promise<T>,
+    ) => Promise<T>;
     waitForEvent: <T>(name: string, opts: { timeout: string }) => Promise<T>;
   };
   invocations: StepInvocation[];
 } {
   const invocations: StepInvocation[] = [];
   const step = {
-    do: async <T,>(
+    do: async <T>(
       name: string,
       configOrFn: Record<string, unknown> | (() => Promise<T>),
       fn?: () => Promise<T>,
@@ -50,7 +63,9 @@ function makeStep(): {
       invocations.push({ name, config });
       return actualFn();
     },
-    waitForEvent: async (): Promise<never> => { throw new Error('event timeout'); },
+    waitForEvent: async (): Promise<never> => {
+      throw new Error('event timeout');
+    },
   };
   return { step, invocations };
 }
@@ -103,7 +118,9 @@ describe('ImageGenerationWorkflow', () => {
     const { step, invocations } = makeStep();
 
     const result = await wf.run(
-      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<typeof wf.run>[0],
+      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<
+        typeof wf.run
+      >[0],
       step as unknown as Parameters<typeof wf.run>[1],
     );
 
@@ -116,7 +133,9 @@ describe('ImageGenerationWorkflow', () => {
     ]);
 
     for (const inv of invocations) {
-      const retries = (inv.config as { retries?: { limit?: number; delay?: string; backoff?: string } } | undefined)?.retries;
+      const retries = (
+        inv.config as { retries?: { limit?: number; delay?: string; backoff?: string } } | undefined
+      )?.retries;
       expect(retries?.limit).toBe(3);
       expect(retries?.delay).toBe('30 seconds');
       expect(retries?.backoff).toBe('exponential');
@@ -140,7 +159,9 @@ describe('ImageGenerationWorkflow', () => {
     const wf = new ImageGenerationWorkflow({} as unknown as DurableObjectState, env);
     const { step } = makeStep();
     const result = await wf.run(
-      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<typeof wf.run>[0],
+      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<
+        typeof wf.run
+      >[0],
       step as unknown as Parameters<typeof wf.run>[1],
     );
     expect(result).toMatchObject({ ok: true, provider: 'stability' });
@@ -154,20 +175,20 @@ describe('ImageGenerationWorkflow', () => {
     const wf = new ImageGenerationWorkflow({} as unknown as DurableObjectState, env);
     const { step } = makeStep();
     const result = await wf.run(
-      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<typeof wf.run>[0],
+      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<
+        typeof wf.run
+      >[0],
       step as unknown as Parameters<typeof wf.run>[1],
     );
     expect(result).toEqual({ ok: false, error: 'all_providers_failed' });
   });
 
   it('is resumable: cached step results bypass closure on replay', async () => {
-    (global as unknown as { fetch: jest.Mock }).fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ data: [{ url: 'https://img.example/x.png' }] }),
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(16)),
-      });
+    (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [{ url: 'https://img.example/x.png' }] }),
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(16)),
+    });
 
     const env = makeEnv({ hasDalle: true });
     const wf = new ImageGenerationWorkflow({} as unknown as DurableObjectState, env);
@@ -175,27 +196,35 @@ describe('ImageGenerationWorkflow', () => {
     const cache = new Map<string, unknown>();
     const calls = new Map<string, number>();
     const step = {
-      do: async <T,>(
+      do: async <T>(
         name: string,
         configOrFn: Record<string, unknown> | (() => Promise<T>),
         fn?: () => Promise<T>,
       ): Promise<T> => {
         if (cache.has(name)) return cache.get(name) as T;
         calls.set(name, (calls.get(name) ?? 0) + 1);
-        const actualFn = (typeof configOrFn === 'function' ? (configOrFn as () => Promise<T>) : fn) as () => Promise<T>;
+        const actualFn = (
+          typeof configOrFn === 'function' ? (configOrFn as () => Promise<T>) : fn
+        ) as () => Promise<T>;
         const v = await actualFn();
         cache.set(name, v);
         return v;
       },
-      waitForEvent: async (): Promise<never> => { throw new Error('event timeout'); },
+      waitForEvent: async (): Promise<never> => {
+        throw new Error('event timeout');
+      },
     };
 
     await wf.run(
-      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<typeof wf.run>[0],
+      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<
+        typeof wf.run
+      >[0],
       step as unknown as Parameters<typeof wf.run>[1],
     );
     await wf.run(
-      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<typeof wf.run>[0],
+      { payload: baseParams, timestamp: new Date(), instanceId: 'i1' } as Parameters<
+        typeof wf.run
+      >[0],
       step as unknown as Parameters<typeof wf.run>[1],
     );
 

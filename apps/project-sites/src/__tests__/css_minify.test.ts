@@ -15,7 +15,9 @@ import { minifyCss, minifyCssCached } from '../services/css_minify';
 import lightningInit, { transform } from 'lightningcss-wasm';
 
 const mockInit = lightningInit as unknown as jest.MockedFunction<() => Promise<void>>;
-const mockTransform = transform as unknown as jest.MockedFunction<(opts: unknown) => { code: Uint8Array }>;
+const mockTransform = transform as unknown as jest.MockedFunction<
+  (opts: unknown) => { code: Uint8Array }
+>;
 
 const toBytes = (s: string) => new TextEncoder().encode(s).buffer;
 const fromBytes = (b: ArrayBuffer) => new TextDecoder().decode(b);
@@ -25,7 +27,9 @@ describe('css_minify', () => {
     jest.clearAllMocks();
     mockInit.mockResolvedValue(undefined);
     mockTransform.mockImplementation(({ code }: { code: Uint8Array }) => ({
-      code: new Uint8Array(new TextEncoder().encode(new TextDecoder().decode(code).replace(/\s+/g, ''))),
+      code: new Uint8Array(
+        new TextEncoder().encode(new TextDecoder().decode(code).replace(/\s+/g, '')),
+      ),
     }));
   });
 

@@ -483,7 +483,10 @@ export async function resolveSite(
           if (snapshot) {
             siteRow = candidateRow;
             snapshotVersion = snapshot.build_version;
-            serveLog.debug('snapshot_resolved', { slug: candidateSlug, version: snapshot.build_version });
+            serveLog.debug('snapshot_resolved', {
+              slug: candidateSlug,
+              version: snapshot.build_version,
+            });
           }
           break;
         }
@@ -605,7 +608,9 @@ export async function serveSiteFromR2(
 
   // Helper: build a versioned R2 path respecting branch-path format.
   const versionedPath = (suffix: string): string =>
-    isBranchPath ? `${version}${suffix.replace(/^\//, '')}` : `sites/${site.slug}/${version}${suffix}`;
+    isBranchPath
+      ? `${version}${suffix.replace(/^\//, '')}`
+      : `sites/${site.slug}/${version}${suffix}`;
 
   // For paths without extensions (e.g. /about), try directory index then .html extension
   if (!object && !filePath.includes('.')) {
@@ -867,7 +872,9 @@ async function buildSiteResponse(
       headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
       return new Response(bytes, { status: 200, headers });
     } catch (err) {
-      serveLog.warn('css_minify_failed', { error: err instanceof Error ? err.message : String(err) });
+      serveLog.warn('css_minify_failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

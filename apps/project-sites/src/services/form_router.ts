@@ -11,7 +11,7 @@ import { loadAvailableTools, executeTool, type ToolDescriptor } from './mcp_clie
 import { resolveTemplate, type TemplateContext } from './template.js';
 
 export interface RouterAction {
-  tool: string;                          // tool name from any connected MCP
+  tool: string; // tool name from any connected MCP
   args?: Record<string, unknown>;
   reason?: string;
 }
@@ -328,7 +328,6 @@ shares them, replace with [REDACTED] in your reply and tell them not to.
 
 OUTPUT
 Plain text only — no markdown, no asterisks, no headers. Sentences only.`;
-
 
 /** Execute the chosen tool. Returns the tool result envelope for the log. */
 export async function executeRouterAction(

@@ -43,7 +43,7 @@ const dbQueryMock = dbQuery as unknown as jest.Mock;
 const dbQueryOneMock = dbQueryOne as unknown as jest.Mock;
 const dbExecuteMock = dbExecute as unknown as jest.Mock;
 
-const makeEnv = (): Env => ({ DB: {} } as unknown as Env);
+const makeEnv = (): Env => ({ DB: {} }) as unknown as Env;
 
 const FIXED_NOW = 1_700_000_000_000;
 const FIXED_UUID = '11111111-2222-4333-8444-555555555555';
@@ -222,7 +222,10 @@ describe('listMemory', () => {
   });
 
   it('maps malformed metadata_json to null (safeJsonParse)', async () => {
-    dbQueryMock.mockResolvedValueOnce({ data: [makeRow({ metadata_json: '{not json' })], error: null });
+    dbQueryMock.mockResolvedValueOnce({
+      data: [makeRow({ metadata_json: '{not json' })],
+      error: null,
+    });
     expect((await listMemory(makeEnv(), orgScope))[0]!.metadata).toBeNull();
   });
 
@@ -276,7 +279,13 @@ describe('buildMemoryToolDef', () => {
     expect(schema.required).toEqual(['action']);
     expect(schema.additionalProperties).toBe(false);
     const props = schema.properties as Record<string, unknown>;
-    expect(Object.keys(props).sort()).toEqual(['action', 'key', 'metadata', 'ttl_seconds', 'value']);
+    expect(Object.keys(props).sort()).toEqual([
+      'action',
+      'key',
+      'metadata',
+      'ttl_seconds',
+      'value',
+    ]);
     expect((props.action as { enum: string[] }).enum).toEqual(['read', 'write', 'delete', 'list']);
   });
 

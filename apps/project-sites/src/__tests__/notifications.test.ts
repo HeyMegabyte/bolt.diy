@@ -156,7 +156,12 @@ describe('notifications — Resend provider (primary)', () => {
 describe('notifications — Resend failure resilience', () => {
   it('on !res.ok captures a Sentry error with a ≤400-char body excerpt and never throws', async () => {
     const longBody = 'E'.repeat(600);
-    mockFetchOnce({ ok: false, status: 422, body: longBody, headers: { 'x-resend-request-id': 'req-fail' } });
+    mockFetchOnce({
+      ok: false,
+      status: 422,
+      body: longBody,
+      headers: { 'x-resend-request-id': 'req-fail' },
+    });
 
     // Public wrapper swallows the throw from sendEmail.
     await expect(notifyDomainVerified(resendEnv(), DOMAIN_OPTS)).resolves.toBeUndefined();

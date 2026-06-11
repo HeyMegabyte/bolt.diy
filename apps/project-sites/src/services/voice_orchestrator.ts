@@ -159,10 +159,7 @@ export async function handleInboundSms(
  * Returns the `Response` that Cloudflare's runtime expects for a WebSocket
  * upgrade (with `webSocket: client` body).
  */
-export async function handleMediaStream(
-  env: Env,
-  request: Request,
-): Promise<Response> {
+export async function handleMediaStream(env: Env, request: Request): Promise<Response> {
   const upgrade = request.headers.get('upgrade');
   if (upgrade !== 'websocket') {
     return new Response('Expected WebSocket upgrade', { status: 426 });
@@ -214,7 +211,10 @@ export async function handleMediaStream(
     // All processing async — fire and forget per event
     void (async () => {
       try {
-        const raw = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data as ArrayBuffer);
+        const raw =
+          typeof event.data === 'string'
+            ? event.data
+            : new TextDecoder().decode(event.data as ArrayBuffer);
         const frame = JSON.parse(raw) as {
           event?: string;
           streamSid?: string;
@@ -253,19 +253,17 @@ export async function handleMediaStream(
 
               // Persist signals as they happen
               if (turn.signal === 'escalated_safety' || turn.signal === 'flagged_scam') {
-                await dbUpdate(
-                  env.DB,
-                  'voice_calls',
-                  { sentiment: turn.signal },
-                  'id = ?',
-                  [callRow.id],
-                ).catch(() => undefined);
+                await dbUpdate(env.DB, 'voice_calls', { sentiment: turn.signal }, 'id = ?', [
+                  callRow.id,
+                ]).catch(() => undefined);
               }
 
               // Deferred browse-agent call → fire DO
               for (const tc of turn.toolCalls) {
                 if (tc.name === 'browse_web' || tc.name === 'fill_form') {
-                  void triggerBrowseAgent(env, callRow.id, JSON.stringify(tc.args)).catch(() => undefined);
+                  void triggerBrowseAgent(env, callRow.id, JSON.stringify(tc.args)).catch(
+                    () => undefined,
+                  );
                 }
               }
 
@@ -348,11 +346,7 @@ async function loadBusinessProfile(env: Env, siteId: string): Promise<VoiceAgent
   const site = await dbQueryOne<{
     business_name: string | null;
     business_address: string | null;
-  }>(
-    env.DB,
-    `SELECT business_name, business_address FROM sites WHERE id = ? LIMIT 1`,
-    [siteId],
-  );
+  }>(env.DB, `SELECT business_name, business_address FROM sites WHERE id = ? LIMIT 1`, [siteId]);
   return {
     businessName: site?.business_name ?? 'this business',
     businessLocation: site?.business_address ?? undefined,

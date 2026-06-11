@@ -6,7 +6,12 @@
  * (tier resolution, over/under cap, clamping, unlimited short-circuit) and the
  * best-effort spend writer (validate → micro-USD → insert) must be covered.
  */
-import { checkBudget, recordSpend, PLAN_BUDGET_USD, AI_SPEND_METRIC } from '../services/build_budget.js';
+import {
+  checkBudget,
+  recordSpend,
+  PLAN_BUDGET_USD,
+  AI_SPEND_METRIC,
+} from '../services/build_budget.js';
 
 // SQL-aware D1 mock. The owner-email lookup (hasUnlimitedBudget) returns null so
 // the test org is never treated as unlimited; the SUM lookup returns a
@@ -19,14 +24,14 @@ const mockDb = {
     // must surface its row via `all`. Owner-email lookup → empty → not unlimited.
     const isSum = /SUM\(value\)/i.test(sql);
     return {
-    bind: jest.fn(() => ({
-      first: jest.fn().mockResolvedValue(isSum ? { total: spendMicro } : null),
-      all: jest.fn().mockResolvedValue({ results: isSum ? [{ total: spendMicro }] : [] }),
-      run: jest.fn().mockImplementation(() => {
-        if (/^INSERT/i.test(sql)) inserts.push(sql);
-        return Promise.resolve({});
-      }),
-    })),
+      bind: jest.fn(() => ({
+        first: jest.fn().mockResolvedValue(isSum ? { total: spendMicro } : null),
+        all: jest.fn().mockResolvedValue({ results: isSum ? [{ total: spendMicro }] : [] }),
+        run: jest.fn().mockImplementation(() => {
+          if (/^INSERT/i.test(sql)) inserts.push(sql);
+          return Promise.resolve({});
+        }),
+      })),
     };
   }),
 } as unknown as D1Database;

@@ -112,7 +112,8 @@ const SqlExecSchema = z.object({
 });
 
 const READONLY_PREFIX = /^\s*(SELECT|EXPLAIN|WITH|PRAGMA)\b/i;
-const FORBIDDEN_KEYWORDS = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|DETACH|REINDEX|VACUUM|REPLACE|TRUNCATE)\b/i;
+const FORBIDDEN_KEYWORDS =
+  /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|DETACH|REINDEX|VACUUM|REPLACE|TRUNCATE)\b/i;
 
 tabs.post('/api/sites/:siteId/sql/exec', async (c) => {
   const siteId = c.req.param('siteId');
@@ -131,7 +132,10 @@ tabs.post('/api/sites/:siteId/sql/exec', async (c) => {
 
   const q = body.query.trim();
   if (!READONLY_PREFIX.test(q)) {
-    return c.json({ ok: false, error: 'read-only: only SELECT / EXPLAIN / WITH / PRAGMA allowed' }, 400);
+    return c.json(
+      { ok: false, error: 'read-only: only SELECT / EXPLAIN / WITH / PRAGMA allowed' },
+      400,
+    );
   }
   if (FORBIDDEN_KEYWORDS.test(q)) {
     return c.json({ ok: false, error: 'DDL not allowed' }, 400);

@@ -158,7 +158,10 @@ describe('GET|POST /api/ai/:siteSlug/:endpointSlug', () => {
     const res = await call(makeApp(), env);
     expect(res.status).toBe(200);
     // Slug params bound into the D1 lookup.
-    expect((db as unknown as { _bind: jest.Mock })._bind).toHaveBeenCalledWith('my-site', 'summarize');
+    expect((db as unknown as { _bind: jest.Mock })._bind).toHaveBeenCalledWith(
+      'my-site',
+      'summarize',
+    );
   });
 
   it('returns 404 when the site/endpoint slug does not resolve', async () => {
@@ -265,7 +268,10 @@ describe('GET|POST /api/ai/:siteSlug/:endpointSlug', () => {
     const env = makeEnv({ AI: makeAi('{"tool":"fetch_weather","args":{"city":"NYC"}}') });
     const res = await call(makeApp(), env, { method: 'POST', body: { city: 'NYC' } });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { ok: boolean; tool_result: { ok: boolean; data?: unknown } };
+    const json = (await res.json()) as {
+      ok: boolean;
+      tool_result: { ok: boolean; data?: unknown };
+    };
     expect(json.ok).toBe(true);
     expect(json.tool_result.ok).toBe(true);
     expect(mockExecuteTool).toHaveBeenCalledWith(
@@ -304,7 +310,9 @@ describe('GET|POST /api/ai/:siteSlug/:endpointSlug', () => {
   it('dispatches a worker-kind endpoint to the user Worker and returns its response', async () => {
     mockDispatch.mockResolvedValue(new Response('worker output', { status: 200 }));
     const env = makeEnv({
-      DB: makeDb(makeEndpoint({ kind: 'worker', worker_language: 'js', wfp_script_name: 'user-script-1' })),
+      DB: makeDb(
+        makeEndpoint({ kind: 'worker', worker_language: 'js', wfp_script_name: 'user-script-1' }),
+      ),
     });
     const res = await call(makeApp(), env, { method: 'POST', body: { x: 1 } });
     expect(res.status).toBe(200);
@@ -334,11 +342,16 @@ describe('GET|POST /api/ai/:siteSlug/:endpointSlug', () => {
   it('logs an error status when the dispatched worker returns a non-2xx response', async () => {
     mockDispatch.mockResolvedValue(new Response('boom', { status: 500 }));
     const env = makeEnv({
-      DB: makeDb(makeEndpoint({ kind: 'worker', worker_language: 'py', wfp_script_name: 'user-script-2' })),
+      DB: makeDb(
+        makeEndpoint({ kind: 'worker', worker_language: 'py', wfp_script_name: 'user-script-2' }),
+      ),
     });
     const res = await call(makeApp(), env, { method: 'POST', body: {} });
     expect(res.status).toBe(500);
     expect(mockWriteAiLog).toHaveBeenCalledTimes(1);
-    expect(mockWriteAiLog.mock.calls[0][1]).toMatchObject({ status: 'error', traceKind: 'endpoint' });
+    expect(mockWriteAiLog.mock.calls[0][1]).toMatchObject({
+      status: 'error',
+      traceKind: 'endpoint',
+    });
   });
 });

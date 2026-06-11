@@ -92,9 +92,7 @@ beforeEach(() => {
   // Default pricing + TLD support: every TLD supported, $12/yr.
   mockUnsupportedTld.mockReturnValue(false);
   mockPrice.mockReturnValue(12);
-  mockPorkbun.mockImplementation(
-    (d: string) => `https://porkbun.com/checkout/search?q=${d}`,
-  );
+  mockPorkbun.mockImplementation((d: string) => `https://porkbun.com/checkout/search?q=${d}`);
 });
 
 // ────────────────────────────────────────────────────────────
@@ -125,8 +123,16 @@ describe('suggestDomains — happy path', () => {
       .mockResolvedValueOnce(
         aiJson({
           rows: [
-            { domain: 'acmecut.com', reason: 'Sharp brand match.', pitch: 'Lock it before a rival does.' },
-            { domain: 'acmehair.app', reason: 'Mobile-first cue.', pitch: 'Premium app TLD signals craft.' },
+            {
+              domain: 'acmecut.com',
+              reason: 'Sharp brand match.',
+              pitch: 'Lock it before a rival does.',
+            },
+            {
+              domain: 'acmehair.app',
+              reason: 'Mobile-first cue.',
+              pitch: 'Premium app TLD signals craft.',
+            },
           ],
         }),
       );
@@ -172,19 +178,24 @@ describe('suggestDomains — availability filter & dedup', () => {
   it('drops taken/unknown candidates, keeps only strictly-available', async () => {
     mockGather.mockResolvedValue(makeCtx());
     aiRun
-      .mockResolvedValueOnce(
-        aiJson({ domains: ['takenone.com', 'freeone.io', 'unknownone.dev'] }),
-      )
+      .mockResolvedValueOnce(aiJson({ domains: ['takenone.com', 'freeone.io', 'unknownone.dev'] }))
       // round 2 (need refill) — no fresh domains, breaks the loop.
       .mockResolvedValueOnce(aiJson({ domains: [] }))
       .mockResolvedValueOnce(
-        aiJson({ rows: [{ domain: 'freeone.io', reason: 'Tight tech cue.', pitch: 'Grab it now.' }] }),
+        aiJson({
+          rows: [{ domain: 'freeone.io', reason: 'Tight tech cue.', pitch: 'Grab it now.' }],
+        }),
       );
 
     mockCheckBatch.mockResolvedValueOnce([
       rdap('takenone.com', false),
       rdap('freeone.io', true),
-      { domain: 'unknownone.dev', available: false, status: 'unknown', source: 'rdap-error' } as RdapResult,
+      {
+        domain: 'unknownone.dev',
+        available: false,
+        status: 'unknown',
+        source: 'rdap-error',
+      } as RdapResult,
     ]);
 
     const out = await suggestDomains(makeEnv(), { siteId: 'site-1', count: 3 });
@@ -199,7 +210,9 @@ describe('suggestDomains — availability filter & dedup', () => {
       .mockResolvedValueOnce(aiJson({ domains: ['SkipMe.com', 'newpick.co'] }))
       .mockResolvedValueOnce(aiJson({ domains: [] }))
       .mockResolvedValueOnce(
-        aiJson({ rows: [{ domain: 'newpick.co', reason: 'Modern shorthand.', pitch: 'Claim it.' }] }),
+        aiJson({
+          rows: [{ domain: 'newpick.co', reason: 'Modern shorthand.', pitch: 'Claim it.' }],
+        }),
       );
     mockCheckBatch.mockResolvedValue([rdap('newpick.co', true)]);
 
@@ -324,7 +337,9 @@ describe('suggestDomains — enrichment & anti-slop', () => {
       )
       // retry enrichment: clean copy.
       .mockResolvedValueOnce(
-        aiJson({ rows: [{ domain: 'acme.com', reason: 'Sharp brand fit.', pitch: 'Grab it now.' }] }),
+        aiJson({
+          rows: [{ domain: 'acme.com', reason: 'Sharp brand fit.', pitch: 'Grab it now.' }],
+        }),
       );
     mockCheckBatch.mockResolvedValue([rdap('acme.com', true)]);
 

@@ -106,37 +106,44 @@ describe('resolveZoneForHostname', () => {
     const out = await resolveZoneForHostname(env, AUTH, 'mysite.projectsites.dev');
     expect(out).toEqual({ zone_id: 'zone-ps', account_id: 'acc-ps' });
     expect(fetchMock).not.toHaveBeenCalled();
-    expect((env.CACHE_KV.put as jest.Mock)).toHaveBeenCalled();
+    expect(env.CACHE_KV.put as jest.Mock).toHaveBeenCalled();
   });
 
   it('resolves a zone from a successful CF API response and caches it', async () => {
     global.fetch = jest.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true, result: [{ id: 'z1', account: { id: 'a1' } }] }), {
-        status: 200,
-      }),
+      new Response(
+        JSON.stringify({ success: true, result: [{ id: 'z1', account: { id: 'a1' } }] }),
+        {
+          status: 200,
+        },
+      ),
     ) as unknown as typeof fetch;
     const env = makeEnv();
     const out = await resolveZoneForHostname(env, AUTH, 'example.com');
     expect(out).toEqual({ zone_id: 'z1', account_id: 'a1' });
-    expect((env.CACHE_KV.put as jest.Mock)).toHaveBeenCalled();
+    expect(env.CACHE_KV.put as jest.Mock).toHaveBeenCalled();
   });
 
   it('returns null when the CF API returns no matching zone', async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true, result: [] }), { status: 200 }),
-    ) as unknown as typeof fetch;
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, result: [] }), { status: 200 }),
+      ) as unknown as typeof fetch;
     expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
   });
 
   it('returns null (not throw) on a non-OK CF API response', async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      new Response('forbidden', { status: 403 }),
-    ) as unknown as typeof fetch;
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(new Response('forbidden', { status: 403 })) as unknown as typeof fetch;
     expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
   });
 
   it('returns null (not throw) when fetch rejects', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
     expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
   });
 });

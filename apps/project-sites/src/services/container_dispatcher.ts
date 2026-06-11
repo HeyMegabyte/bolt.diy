@@ -132,9 +132,10 @@ async function callDo(
       // non-JSON response (e.g. SSE) — fall through.
     }
     if (!res.ok) {
-      const detail = typeof body === 'object' && body && 'error' in body
-        ? String((body as { error: unknown }).error)
-        : `status_${res.status}`;
+      const detail =
+        typeof body === 'object' && body && 'error' in body
+          ? String((body as { error: unknown }).error)
+          : `status_${res.status}`;
       logWarn('do_call_failed', instanceId, { path, status: res.status, detail });
       return { ok: false, detail, body };
     }
@@ -207,7 +208,11 @@ export async function getContainerLogs(
   instanceId: string,
   tail = 100,
   appSlug?: string,
-): Promise<{ ok: boolean; lines?: Array<{ ts: number; stream: string; line: string }>; detail?: string }> {
+): Promise<{
+  ok: boolean;
+  lines?: Array<{ ts: number; stream: string; line: string }>;
+  detail?: string;
+}> {
   const binding = getBinding(env, appSlug);
   if (!binding) {
     logWarn('binding_missing', instanceId, { path: '/logs', app_slug: appSlug });
@@ -221,7 +226,9 @@ export async function getContainerLogs(
       { method: 'GET' },
     );
     if (!res.ok) return { ok: false, detail: `status_${res.status}` };
-    const body = (await res.json()) as { lines?: Array<{ ts: number; stream: string; line: string }> };
+    const body = (await res.json()) as {
+      lines?: Array<{ ts: number; stream: string; line: string }>;
+    };
     return { ok: true, lines: body.lines ?? [] };
   } catch (err) {
     return { ok: false, detail: err instanceof Error ? err.message : 'dispatch_failed' };

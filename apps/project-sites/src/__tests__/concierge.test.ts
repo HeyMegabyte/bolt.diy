@@ -21,7 +21,11 @@ describe('concierge formatSources', () => {
   });
 
   it('caps at 5 sources', () => {
-    const many = Array.from({ length: 9 }, (_, i) => ({ kind: 'p', score: 0.5, sourceId: `s${i}` }));
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      kind: 'p',
+      score: 0.5,
+      sourceId: `s${i}`,
+    }));
     expect(formatSources(many)).toHaveLength(5);
   });
 

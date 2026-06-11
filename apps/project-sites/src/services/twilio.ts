@@ -18,14 +18,32 @@ import { AppError } from '@project-sites/shared';
 
 // ─── Letter → digit (E.161 keypad) ───────────────────────────────
 const LETTER_DIGIT_MAP: Record<string, string> = {
-  A: '2', B: '2', C: '2',
-  D: '3', E: '3', F: '3',
-  G: '4', H: '4', I: '4',
-  J: '5', K: '5', L: '5',
-  M: '6', N: '6', O: '6',
-  P: '7', Q: '7', R: '7', S: '7',
-  T: '8', U: '8', V: '8',
-  W: '9', X: '9', Y: '9', Z: '9',
+  A: '2',
+  B: '2',
+  C: '2',
+  D: '3',
+  E: '3',
+  F: '3',
+  G: '4',
+  H: '4',
+  I: '4',
+  J: '5',
+  K: '5',
+  L: '5',
+  M: '6',
+  N: '6',
+  O: '6',
+  P: '7',
+  Q: '7',
+  R: '7',
+  S: '7',
+  T: '8',
+  U: '8',
+  V: '8',
+  W: '9',
+  X: '9',
+  Y: '9',
+  Z: '9',
 };
 
 /**
@@ -134,16 +152,16 @@ export function isTwilioConfigured(env: Env): boolean {
 // ─── Number search ───────────────────────────────────────────────
 
 export interface NumberSearchOpts {
-  country?: string;            // ISO-3166 alpha-2, default 'US'
+  country?: string; // ISO-3166 alpha-2, default 'US'
   areaCode?: number | string;
-  contains?: string;           // Twilio `Contains` param — supports letters
+  contains?: string; // Twilio `Contains` param — supports letters
   voiceEnabled?: boolean;
   smsEnabled?: boolean;
-  limit?: number;              // 1-30
+  limit?: number; // 1-30
 }
 
 export interface AvailableNumber {
-  phone_number: string;        // +1…
+  phone_number: string; // +1…
   friendly_name: string;
   locality: string | null;
   region: string | null;
@@ -178,7 +196,9 @@ export async function searchAvailableNumbers(
   const creds = getCreds(env);
   const country = opts.country ?? 'US';
 
-  const url = new URL(`${TWILIO_BASE}/Accounts/${creds.sid}/AvailablePhoneNumbers/${country}/Local.json`);
+  const url = new URL(
+    `${TWILIO_BASE}/Accounts/${creds.sid}/AvailablePhoneNumbers/${country}/Local.json`,
+  );
   if (opts.areaCode) url.searchParams.set('AreaCode', String(opts.areaCode));
   if (opts.contains) url.searchParams.set('Contains', letterToDigit(opts.contains));
   if (opts.voiceEnabled !== false) url.searchParams.set('VoiceEnabled', 'true');
@@ -291,8 +311,8 @@ export async function releaseNumber(env: Env, twilioSid: string): Promise<void> 
 // ─── SMS ────────────────────────────────────────────────────────
 
 export interface SendSmsOpts {
-  from: string;     // E.164
-  to: string;       // E.164
+  from: string; // E.164
+  to: string; // E.164
   body: string;
   mediaUrl?: string;
 }
@@ -348,17 +368,14 @@ export async function createCallRecording(env: Env, callSid: string): Promise<{ 
   const creds = getCreds(env);
   const body = new URLSearchParams();
   body.set('RecordingStatusCallbackEvent', 'completed');
-  const res = await fetch(
-    `${TWILIO_BASE}/Accounts/${creds.sid}/Calls/${callSid}/Recordings.json`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: basicAuthHeader(creds),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
+  const res = await fetch(`${TWILIO_BASE}/Accounts/${creds.sid}/Calls/${callSid}/Recordings.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: basicAuthHeader(creds),
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-  );
+    body: body.toString(),
+  });
   if (!res.ok) {
     throw new AppError({
       code: 'SERVICE_UNAVAILABLE',
@@ -380,10 +397,9 @@ export interface FetchedRecording {
 
 export async function fetchRecording(env: Env, recordingSid: string): Promise<FetchedRecording> {
   const creds = getCreds(env);
-  const res = await fetch(
-    `${TWILIO_BASE}/Accounts/${creds.sid}/Recordings/${recordingSid}.json`,
-    { headers: { Authorization: basicAuthHeader(creds), Accept: 'application/json' } },
-  );
+  const res = await fetch(`${TWILIO_BASE}/Accounts/${creds.sid}/Recordings/${recordingSid}.json`, {
+    headers: { Authorization: basicAuthHeader(creds), Accept: 'application/json' },
+  });
   if (!res.ok) {
     throw new AppError({
       code: 'NOT_FOUND',
@@ -476,7 +492,8 @@ export async function validateSignature(
   // Constant-time compare
   if (expected.length !== signature.length) return false;
   let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  for (let i = 0; i < expected.length; i++)
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
   return diff === 0;
 }
 

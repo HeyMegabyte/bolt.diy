@@ -13,9 +13,7 @@ export const CREDIT_BUNDLES = {
 export type BundleKey = keyof typeof CREDIT_BUNDLES;
 
 export async function getBalance(env: Env, orgId: string): Promise<number> {
-  const row = await env.DB.prepare(
-    'SELECT balance FROM ai_credits_balance WHERE org_id = ?',
-  )
+  const row = await env.DB.prepare('SELECT balance FROM ai_credits_balance WHERE org_id = ?')
     .bind(orgId)
     .first<{ balance: number }>();
   return row?.balance ?? 0;
@@ -74,11 +72,7 @@ export interface SpendAlertRow {
 }
 
 /** Check alerts after a debit; fire-and-forget Resend if any trip. */
-export async function maybeFireAlerts(
-  env: Env,
-  orgId: string,
-  newBalance: number,
-): Promise<void> {
+export async function maybeFireAlerts(env: Env, orgId: string, newBalance: number): Promise<void> {
   const alerts = await env.DB.prepare(
     `SELECT id, name, threshold_credits, alert_kind, notify_email, enabled, last_triggered_at
      FROM spend_alerts WHERE org_id = ? AND enabled = 1`,
@@ -105,9 +99,7 @@ export async function maybeFireAlerts(
       const lastMs = Date.parse(a.last_triggered_at);
       if (Date.now() - lastMs < 12 * 60 * 60 * 1000) continue;
     }
-    await env.DB.prepare(
-      `UPDATE spend_alerts SET last_triggered_at = datetime('now') WHERE id = ?`,
-    )
+    await env.DB.prepare(`UPDATE spend_alerts SET last_triggered_at = datetime('now') WHERE id = ?`)
       .bind(a.id)
       .run();
     if (env.RESEND_API_KEY) {

@@ -41,11 +41,14 @@ const CreateBody = z
 
 const reviewLinks = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-async function gate(c: Context<{ Bindings: Env; Variables: Variables }>): Promise<{ orgId: string } | Response> {
+async function gate(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<{ orgId: string } | Response> {
   if (!c.get('userId')) return c.json(UNAUTH, 401);
   const orgId = c.get('orgId');
   const siteId = c.req.param('siteId');
-  if (!(await isFlagOn(c.env, 'approval_workflow', { siteId, orgId }))) return c.json(NOT_FOUND, 404);
+  if (!(await isFlagOn(c.env, 'approval_workflow', { siteId, orgId })))
+    return c.json(NOT_FOUND, 404);
   if (!orgId || !(await assertSiteOwned(c.env, orgId, siteId))) return c.json(NOT_FOUND, 404);
   return { orgId };
 }
@@ -62,7 +65,10 @@ reviewLinks.post('/api/sites/:siteId/review-links', async (c) => {
 
   const parsed = CreateBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'Invalid request', details: parsed.error.issues } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: 'Invalid request', details: parsed.error.issues } },
+      400,
+    );
   }
   const ttlMs = parsed.data.ttlDays ? parsed.data.ttlDays * 86_400_000 : undefined;
   const res = await createReviewLink(c.env, g.orgId, c.req.param('siteId'), {
@@ -70,9 +76,18 @@ reviewLinks.post('/api/sites/:siteId/review-links', async (c) => {
     ...(parsed.data.password ? { password: parsed.data.password } : {}),
   });
   if (!res.ok) {
-    return c.json({ error: { code: 'INTERNAL_ERROR', message: res.error ?? 'Could not create review link' } }, 500);
+    return c.json(
+      { error: { code: 'INTERNAL_ERROR', message: res.error ?? 'Could not create review link' } },
+      500,
+    );
   }
-  return c.json({ ok: true, id: res.id, url: res.url, expiresAt: res.expiresAt, passwordProtected: res.passwordProtected });
+  return c.json({
+    ok: true,
+    id: res.id,
+    url: res.url,
+    expiresAt: res.expiresAt,
+    passwordProtected: res.passwordProtected,
+  });
 });
 
 export { reviewLinks };

@@ -9,13 +9,27 @@ import type { Env } from '../types/env.js';
 
 const ENV = { DISCORD_BOT_TOKEN: 'bot' } as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'discord', external_id: null, handle: null,
-  access_token: 'tok', refresh_token: null, token_expires_at: null, scopes: null,
-  metadata: { channel_id: 'CHAN1' }, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'discord',
+  external_id: null,
+  handle: null,
+  access_token: 'tok',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: { channel_id: 'CHAN1' },
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hi Discord', per_platform_overrides: null, media_urls: [], hashtags: [],
-  mentions: [], link: null, ...over,
+  id: 'p1',
+  content: 'Hi Discord',
+  per_platform_overrides: null,
+  media_urls: [],
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
@@ -25,13 +39,17 @@ const mock = (h: () => Response) => {
   return fn;
 };
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('discord.publish', () => {
   it('posts a message and builds the guild channel URL', async () => {
     mock(() => json({ id: 'M1', channel_id: 'CHAN1', guild_id: 'G1' }));
     expect(await discord.publish(ENV, account(), post())).toEqual({
-      external_id: 'M1', external_url: 'https://discord.com/channels/G1/CHAN1/M1',
+      external_id: 'M1',
+      external_url: 'https://discord.com/channels/G1/CHAN1/M1',
     });
   });
   it('uses @me when there is no guild_id (DM)', async () => {
@@ -52,7 +70,9 @@ describe('discord.publish', () => {
   });
   it('throws when the messages endpoint is not OK', async () => {
     mock(() => new Response('no', { status: 403 }));
-    await expect(discord.publish(ENV, account(), post())).rejects.toThrow(/discord_publish_failed:403/);
+    await expect(discord.publish(ENV, account(), post())).rejects.toThrow(
+      /discord_publish_failed:403/,
+    );
   });
 });
 

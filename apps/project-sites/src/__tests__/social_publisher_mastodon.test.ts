@@ -10,13 +10,27 @@ import type { Env } from '../types/env.js';
 
 const ENV = {} as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'mastodon', external_id: 'm1', handle: '@bob',
-  access_token: 'tok', refresh_token: null, token_expires_at: null, scopes: null,
-  metadata: { instance_url: 'https://m.test' }, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'mastodon',
+  external_id: 'm1',
+  handle: '@bob',
+  access_token: 'tok',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: { instance_url: 'https://m.test' },
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hello Masto', per_platform_overrides: null, media_urls: [], hashtags: [],
-  mentions: [], link: null, ...over,
+  id: 'p1',
+  content: 'Hello Masto',
+  per_platform_overrides: null,
+  media_urls: [],
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
@@ -26,13 +40,17 @@ function mockFetch(handler: (u: string) => Response) {
   return fn;
 }
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('mastodon.publish', () => {
   it('posts a status to the account instance and returns id + url', async () => {
     mockFetch(() => json({ id: 'S1', url: 'https://m.test/@bob/S1' }));
     expect(await mastodon.publish(ENV, account(), post())).toEqual({
-      external_id: 'S1', external_url: 'https://m.test/@bob/S1',
+      external_id: 'S1',
+      external_url: 'https://m.test/@bob/S1',
     });
   });
   it('falls back to mastodon.social when no instance_url in metadata', async () => {
@@ -47,7 +65,9 @@ describe('mastodon.publish', () => {
   });
   it('throws when the statuses endpoint is not OK', async () => {
     mockFetch(() => new Response('no', { status: 422 }));
-    await expect(mastodon.publish(ENV, account(), post())).rejects.toThrow(/mastodon_publish_failed:422/);
+    await expect(mastodon.publish(ENV, account(), post())).rejects.toThrow(
+      /mastodon_publish_failed:422/,
+    );
   });
 });
 
@@ -67,14 +87,21 @@ describe('mastodon.fetchAnalytics', () => {
 
 describe('mastodonVerify', () => {
   it('returns account details from verify_credentials', async () => {
-    mockFetch(() => json({ id: 'm9', username: 'bob', display_name: 'Bob', avatar: 'https://a/x.png' }));
+    mockFetch(() =>
+      json({ id: 'm9', username: 'bob', display_name: 'Bob', avatar: 'https://a/x.png' }),
+    );
     const out = await mastodonVerify('https://m.test/', 'tok');
     expect(out).toEqual({
-      external_id: 'm9', handle: '@bob', display_name: 'Bob', avatar_url: 'https://a/x.png',
+      external_id: 'm9',
+      handle: '@bob',
+      display_name: 'Bob',
+      avatar_url: 'https://a/x.png',
     });
   });
   it('throws on a failed verification', async () => {
     mockFetch(() => new Response('no', { status: 401 }));
-    await expect(mastodonVerify('https://m.test', 'bad')).rejects.toThrow(/mastodon_verify_failed:401/);
+    await expect(mastodonVerify('https://m.test', 'bad')).rejects.toThrow(
+      /mastodon_verify_failed:401/,
+    );
   });
 });

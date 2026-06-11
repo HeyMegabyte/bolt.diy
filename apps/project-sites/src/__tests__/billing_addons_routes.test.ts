@@ -88,14 +88,24 @@ afterEach(() => {
 
 describe('POST /api/billing/addons/purchase', () => {
   it('returns 401 when unauthenticated', async () => {
-    const res = await jsonReq(makeApp(), '/api/billing/addons/purchase', { addon: 'extra-sites' }, makeEnv());
+    const res = await jsonReq(
+      makeApp(),
+      '/api/billing/addons/purchase',
+      { addon: 'extra-sites' },
+      makeEnv(),
+    );
     expect(res.status).toBe(401);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('UNAUTHORIZED');
   });
 
   it('returns 400 when the body fails Zod validation (empty addon)', async () => {
-    const res = await jsonReq(makeApp(AUTH), '/api/billing/addons/purchase', { addon: '' }, makeEnv());
+    const res = await jsonReq(
+      makeApp(AUTH),
+      '/api/billing/addons/purchase',
+      { addon: '' },
+      makeEnv(),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -119,14 +129,22 @@ describe('POST /api/billing/addons/purchase', () => {
   });
 
   it('defaults billing to monthly when omitted (mock path)', async () => {
-    const res = await jsonReq(makeApp(AUTH), '/api/billing/addons/purchase', { addon: 'seats' }, makeEnv());
+    const res = await jsonReq(
+      makeApp(AUTH),
+      '/api/billing/addons/purchase',
+      { addon: 'seats' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { billing: string };
     expect(json.billing).toBe('monthly');
   });
 
   it('creates a live Stripe checkout session when keys are present', async () => {
-    global.fetch = fetchReturning({ url: 'https://checkout.stripe.com/c/pay/live_addon', id: 'cs_live_1' });
+    global.fetch = fetchReturning({
+      url: 'https://checkout.stripe.com/c/pay/live_addon',
+      id: 'cs_live_1',
+    });
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/addons/purchase',
@@ -144,7 +162,10 @@ describe('POST /api/billing/addons/purchase', () => {
   });
 
   it('returns 400 with STRIPE_ERROR when Stripe rejects the session', async () => {
-    global.fetch = fetchReturning({ error: { message: 'No such price' } }, { ok: false, status: 402 });
+    global.fetch = fetchReturning(
+      { error: { message: 'No such price' } },
+      { ok: false, status: 402 },
+    );
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/addons/purchase',
@@ -162,24 +183,42 @@ describe('POST /api/billing/addons/purchase', () => {
 
 describe('POST /api/billing/checkout/topup', () => {
   it('returns 401 when unauthenticated', async () => {
-    const res = await jsonReq(makeApp(), '/api/billing/checkout/topup', { bundle: 'pack-10' }, makeEnv());
+    const res = await jsonReq(
+      makeApp(),
+      '/api/billing/checkout/topup',
+      { bundle: 'pack-10' },
+      makeEnv(),
+    );
     expect(res.status).toBe(401);
   });
 
   it('returns 400 when amount_cents is not a positive integer', async () => {
-    const res = await jsonReq(makeApp(AUTH), '/api/billing/checkout/topup', { amount_cents: -5 }, makeEnv());
+    const res = await jsonReq(
+      makeApp(AUTH),
+      '/api/billing/checkout/topup',
+      { amount_cents: -5 },
+      makeEnv(),
+    );
     expect(res.status).toBe(400);
   });
 
   it('returns a synthetic checkout_url (mock path) using the bundle name', async () => {
-    const res = await jsonReq(makeApp(AUTH), '/api/billing/checkout/topup', { bundle: 'pack-10' }, makeEnv());
+    const res = await jsonReq(
+      makeApp(AUTH),
+      '/api/billing/checkout/topup',
+      { bundle: 'pack-10' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { checkout_url: string };
     expect(json.checkout_url).toContain('cs_test_topup_pack-10');
   });
 
   it('creates a live one-time checkout session with provided cents', async () => {
-    global.fetch = fetchReturning({ url: 'https://checkout.stripe.com/c/pay/topup', id: 'cs_topup_1' });
+    global.fetch = fetchReturning({
+      url: 'https://checkout.stripe.com/c/pay/topup',
+      id: 'cs_topup_1',
+    });
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/checkout/topup',
@@ -193,7 +232,10 @@ describe('POST /api/billing/checkout/topup', () => {
   });
 
   it('returns 400 with STRIPE_ERROR when topup session creation fails', async () => {
-    global.fetch = fetchReturning({ error: { message: 'card_declined' } }, { ok: false, status: 402 });
+    global.fetch = fetchReturning(
+      { error: { message: 'card_declined' } },
+      { ok: false, status: 402 },
+    );
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/checkout/topup',
@@ -242,7 +284,10 @@ describe('POST /api/billing/usage/report', () => {
   });
 
   it('returns 400 with STRIPE_ERROR when the meter event is rejected', async () => {
-    global.fetch = fetchReturning({ error: { message: 'meter not found' } }, { ok: false, status: 400 });
+    global.fetch = fetchReturning(
+      { error: { message: 'meter not found' } },
+      { ok: false, status: 400 },
+    );
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/usage/report',
@@ -274,11 +319,20 @@ describe('GET /api/billing/invoices/upcoming', () => {
 
   it('maps Stripe invoice lines into the response shape', async () => {
     global.fetch = fetchReturning({
-      lines: { data: [{ description: 'Pro plan', quantity: 1, amount: 5000 }, { description: null, quantity: null, amount: 250 }] },
+      lines: {
+        data: [
+          { description: 'Pro plan', quantity: 1, amount: 5000 },
+          { description: null, quantity: null, amount: 250 },
+        ],
+      },
       amount_due: 5250,
       currency: 'usd',
     });
-    const res = await getReq(makeApp(AUTH), '/api/billing/invoices/upcoming', makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }));
+    const res = await getReq(
+      makeApp(AUTH),
+      '/api/billing/invoices/upcoming',
+      makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       lines: Array<{ description: string; amount_cents: number }>;
@@ -292,7 +346,11 @@ describe('GET /api/billing/invoices/upcoming', () => {
 
   it('falls back to a default preview when Stripe returns an error', async () => {
     global.fetch = fetchReturning({}, { ok: false, status: 404 });
-    const res = await getReq(makeApp(AUTH), '/api/billing/invoices/upcoming', makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }));
+    const res = await getReq(
+      makeApp(AUTH),
+      '/api/billing/invoices/upcoming',
+      makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { total_cents: number };
     expect(json.total_cents).toBe(5000);
@@ -308,7 +366,12 @@ describe('POST /api/billing/subscription/cancel', () => {
   });
 
   it('returns a 30-day mock cancellation when Stripe is not configured', async () => {
-    const res = await jsonReq(makeApp(AUTH), '/api/billing/subscription/cancel', undefined, makeEnv());
+    const res = await jsonReq(
+      makeApp(AUTH),
+      '/api/billing/subscription/cancel',
+      undefined,
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { status: string; cancel_at: string };
     expect(json.status).toBe('canceled');
@@ -372,12 +435,22 @@ describe('POST /api/billing/subscription/cancel', () => {
 
 describe('POST /api/agency/stripe-connect/onboard', () => {
   it('returns 401 when unauthenticated', async () => {
-    const res = await jsonReq(makeApp(), '/api/agency/stripe-connect/onboard', undefined, makeEnv());
+    const res = await jsonReq(
+      makeApp(),
+      '/api/agency/stripe-connect/onboard',
+      undefined,
+      makeEnv(),
+    );
     expect(res.status).toBe(401);
   });
 
   it('returns a mock onboarding_url when Stripe is not configured', async () => {
-    const res = await jsonReq(makeApp(AUTH), '/api/agency/stripe-connect/onboard', undefined, makeEnv());
+    const res = await jsonReq(
+      makeApp(AUTH),
+      '/api/agency/stripe-connect/onboard',
+      undefined,
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { onboarding_url: string };
     expect(json.onboarding_url).toContain('connect.stripe.com');
@@ -388,7 +461,11 @@ describe('POST /api/agency/stripe-connect/onboard', () => {
     global.fetch = jest.fn(async () => {
       call += 1;
       if (call === 1) return { ok: true, status: 200, json: async () => ({ id: 'acct_live_1' }) };
-      return { ok: true, status: 200, json: async () => ({ url: 'https://connect.stripe.com/setup/acct_live_1' }) };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ url: 'https://connect.stripe.com/setup/acct_live_1' }),
+      };
     }) as unknown as typeof fetch;
 
     const res = await jsonReq(
@@ -401,7 +478,7 @@ describe('POST /api/agency/stripe-connect/onboard', () => {
     const json = (await res.json()) as { onboarding_url: string; account_id: string };
     expect(json.account_id).toBe('acct_live_1');
     expect(json.onboarding_url).toBe('https://connect.stripe.com/setup/acct_live_1');
-    expect((global.fetch as jest.Mock)).toHaveBeenCalledTimes(2);
+    expect(global.fetch as jest.Mock).toHaveBeenCalledTimes(2);
   });
 
   it('returns 400 when the Connect account cannot be created', async () => {

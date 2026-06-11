@@ -499,7 +499,16 @@ describe('isProxyableImageUrl (image-proxy SSRF guard)', () => {
   });
 
   it('rejects private/reserved IPv4 + the cloud metadata endpoint', () => {
-    for (const h of ['127.0.0.1', '10.1.2.3', '192.168.1.1', '172.16.0.1', '172.31.255.255', '0.0.0.0', '100.64.0.1', '169.254.169.254']) {
+    for (const h of [
+      '127.0.0.1',
+      '10.1.2.3',
+      '192.168.1.1',
+      '172.16.0.1',
+      '172.31.255.255',
+      '0.0.0.0',
+      '100.64.0.1',
+      '169.254.169.254',
+    ]) {
       expect(isProxyableImageUrl(`http://${h}/x`)).toBe(false);
     }
   });

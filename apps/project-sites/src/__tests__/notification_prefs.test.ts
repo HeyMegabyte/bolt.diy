@@ -27,20 +27,32 @@ jest.mock('../services/db.js', () => ({
 
 jest.mock('../services/anthropic_memory.js', () => {
   const store = new Map<string, string>();
-  const k = (scope: { kind: string; id: string }, key: string) => `${scope.kind}:${scope.id}:${key}`;
+  const k = (scope: { kind: string; id: string }, key: string) =>
+    `${scope.kind}:${scope.id}:${key}`;
   return {
     __store: store,
     getMemory: jest.fn(async (_env: unknown, scope: { kind: string; id: string }, key: string) =>
       store.has(k(scope, key)) ? store.get(k(scope, key)) : null,
     ),
-    setMemory: jest.fn(async (_env: unknown, scope: { kind: string; id: string }, key: string, value: string) => {
-      store.set(k(scope, key), value);
-    }),
+    setMemory: jest.fn(
+      async (_env: unknown, scope: { kind: string; id: string }, key: string, value: string) => {
+        store.set(k(scope, key), value);
+      },
+    ),
   };
 });
 
-jest.mock('../lib/sentry.js', () => ({ captureError: jest.fn(), captureMessage: jest.fn(), createSentry: jest.fn() }));
-jest.mock('../lib/posthog.js', () => ({ capture: jest.fn(), trackAuth: jest.fn(), trackSite: jest.fn(), trackError: jest.fn() }));
+jest.mock('../lib/sentry.js', () => ({
+  captureError: jest.fn(),
+  captureMessage: jest.fn(),
+  createSentry: jest.fn(),
+}));
+jest.mock('../lib/posthog.js', () => ({
+  capture: jest.fn(),
+  trackAuth: jest.fn(),
+  trackSite: jest.fn(),
+  trackError: jest.fn(),
+}));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -71,7 +83,11 @@ function createApp(vars: Partial<Variables> = {}) {
 const getReq = (app: Hono<{ Bindings: Env; Variables: Variables }>, env: Env) =>
   app.request('/api/admin/notifications', { method: 'GET' }, env);
 const postReq = (app: Hono<{ Bindings: Env; Variables: Variables }>, env: Env, body: unknown) =>
-  app.request('/api/admin/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, env);
+  app.request(
+    '/api/admin/notifications',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    env,
+  );
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -100,7 +116,9 @@ describe('GET/POST /api/admin/notifications (cross-device notification prefs)', 
     const prefs = { product_digest: true, security_alerts: true, marketing: false };
     const res = await postReq(app, env, { prefs });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data?: { saved?: boolean; prefs?: Record<string, boolean> } };
+    const body = (await res.json()) as {
+      data?: { saved?: boolean; prefs?: Record<string, boolean> };
+    };
     expect(body.data?.saved).toBe(true);
     expect(body.data?.prefs).toEqual(prefs);
     // Stored under the USER scope (cross-device), serialized.
@@ -115,7 +133,9 @@ describe('GET/POST /api/admin/notifications (cross-device notification prefs)', 
     const { app, env } = createApp({ userId: 'user-1' });
     const res = await postReq(app, env, { prefs: { digest: 'yes' } }); // value not boolean
     expect(res.status).toBe(400);
-    expect(((await res.json()) as { error?: { code?: string } }).error?.code).toBe('VALIDATION_ERROR');
+    expect(((await res.json()) as { error?: { code?: string } }).error?.code).toBe(
+      'VALIDATION_ERROR',
+    );
     expect(setMemory).not.toHaveBeenCalled();
   });
 
@@ -140,7 +160,9 @@ describe('GET/POST /api/admin/notifications (cross-device notification prefs)', 
     const { app, env } = createApp({ userId: 'fresh-user' });
     const res = await getReq(app, env);
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { data?: { prefs?: Record<string, boolean> } }).data?.prefs).toEqual({});
+    expect(
+      ((await res.json()) as { data?: { prefs?: Record<string, boolean> } }).data?.prefs,
+    ).toEqual({});
   });
 
   it('GET never throws on corrupt stored JSON — falls back to empty prefs', async () => {
@@ -148,7 +170,9 @@ describe('GET/POST /api/admin/notifications (cross-device notification prefs)', 
     const { app, env } = createApp({ userId: 'user-1' });
     const res = await getReq(app, env);
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { data?: { prefs?: Record<string, boolean> } }).data?.prefs).toEqual({});
+    expect(
+      ((await res.json()) as { data?: { prefs?: Record<string, boolean> } }).data?.prefs,
+    ).toEqual({});
   });
 
   it('two devices (same userId) see the same prefs — POST on one, GET on another', async () => {
@@ -157,6 +181,8 @@ describe('GET/POST /api/admin/notifications (cross-device notification prefs)', 
     await postReq(deviceA.app, deviceA.env, { prefs });
     const deviceB = createApp({ userId: 'shared-user' }); // fresh app instance = different "device"
     const res = await getReq(deviceB.app, deviceB.env);
-    expect(((await res.json()) as { data?: { prefs?: Record<string, boolean> } }).data?.prefs).toEqual(prefs);
+    expect(
+      ((await res.json()) as { data?: { prefs?: Record<string, boolean> } }).data?.prefs,
+    ).toEqual(prefs);
   });
 });

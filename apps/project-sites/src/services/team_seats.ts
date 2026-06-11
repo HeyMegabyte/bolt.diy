@@ -44,7 +44,9 @@ export interface SeatAvailability {
  * const limit = resolveSeatLimit(await getOrgEntitlements(env.DB, orgId)); // 1 | 10 | -1
  * ```
  */
-export function resolveSeatLimit(entitlements: { maxTeamSeats?: number } | null | undefined): number {
+export function resolveSeatLimit(
+  entitlements: { maxTeamSeats?: number } | null | undefined,
+): number {
   const limit = entitlements?.maxTeamSeats;
   return typeof limit === 'number' ? limit : 1;
 }
@@ -112,8 +114,13 @@ export interface TransferDecision {
  * re-checks membership against D1 — this guards the decision shape.
  */
 export function canTransferOwnership(actorRole: string, targetIsMember: boolean): TransferDecision {
-  if (actorRole !== 'owner') return { allowed: false, reason: 'Only the owner can transfer ownership' };
-  if (!targetIsMember) return { allowed: false, reason: 'Ownership can only be transferred to an existing team member' };
+  if (actorRole !== 'owner')
+    return { allowed: false, reason: 'Only the owner can transfer ownership' };
+  if (!targetIsMember)
+    return {
+      allowed: false,
+      reason: 'Ownership can only be transferred to an existing team member',
+    };
   return { allowed: true };
 }
 
@@ -141,16 +148,19 @@ export async function transferOwnership(
   actorUserId: string,
   targetUserId: string,
 ): Promise<TransferResult> {
-  if (actorUserId === targetUserId) return { ok: false, error: 'You already own this organization' };
+  if (actorUserId === targetUserId)
+    return { ok: false, error: 'You already own this organization' };
 
-  const sel = 'SELECT role FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL';
+  const sel =
+    'SELECT role FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL';
   const actor = await dbQueryOne<{ role: string }>(env.DB, sel, [orgId, actorUserId]);
   const target = await dbQueryOne<{ role: string }>(env.DB, sel, [orgId, targetUserId]);
 
   const decision = canTransferOwnership(actor?.role ?? 'none', !!target);
   if (!decision.allowed) return { ok: false, error: decision.reason };
 
-  const upd = "UPDATE memberships SET role = ?, updated_at = datetime('now') WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL";
+  const upd =
+    "UPDATE memberships SET role = ?, updated_at = datetime('now') WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL";
   await dbExecute(env.DB, upd, ['admin', orgId, actorUserId]); // step the old owner down
   await dbExecute(env.DB, upd, ['owner', orgId, targetUserId]); // promote the new owner
   return { ok: true };

@@ -7,12 +7,7 @@
  * with `source='drive'`. Matches existing rows by `drive_file_id`.
  */
 import type { Env } from '../types/env.js';
-import {
-  downloadFile,
-  getAccessToken,
-  listFolderFiles,
-  type DriveFile,
-} from './google_drive.js';
+import { downloadFile, getAccessToken, listFolderFiles, type DriveFile } from './google_drive.js';
 import { extractContext, MAX_CONTEXT_FILE_BYTES } from './ai_context_extract.js';
 
 /** Sync result counts. */
@@ -103,9 +98,7 @@ export async function syncDriveFolder(
   let removed = 0;
   for (const orphan of existingByDriveId.values()) {
     await db
-      .prepare(
-        `UPDATE ai_context_files SET deleted_at = datetime('now') WHERE id = ?`,
-      )
+      .prepare(`UPDATE ai_context_files SET deleted_at = datetime('now') WHERE id = ?`)
       .bind(orphan.id)
       .run();
     removed += 1;
@@ -208,7 +201,11 @@ export async function syncAllSites(
       const result = await syncDriveFolder(env, db, r.site_id, r.org_id, r.slug);
       out.push({ site_id: r.site_id, ok: true, result });
     } catch (e) {
-      out.push({ site_id: r.site_id, ok: false, error: e instanceof Error ? e.message : 'unknown' });
+      out.push({
+        site_id: r.site_id,
+        ok: false,
+        error: e instanceof Error ? e.message : 'unknown',
+      });
     }
   }
   return out;

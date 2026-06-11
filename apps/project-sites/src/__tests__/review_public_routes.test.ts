@@ -180,7 +180,9 @@ describe('GET /api/review/:id', () => {
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('NOT_FOUND');
-    expect(mockIsFlagOn).toHaveBeenCalledWith(expect.anything(), 'approval_workflow', { orgId: 'org-1' });
+    expect(mockIsFlagOn).toHaveBeenCalledWith(expect.anything(), 'approval_workflow', {
+      orgId: 'org-1',
+    });
   });
 });
 
@@ -267,7 +269,10 @@ describe('POST /api/review/:id/decision', () => {
 
   it('rejects a decision on an expired/used link (service returns a guard error)', async () => {
     mockGetReviewLink.mockResolvedValue({ ...ROW });
-    mockRecordDecision.mockResolvedValue({ ok: false, error: 'link is expired; only a pending link can be approved' });
+    mockRecordDecision.mockResolvedValue({
+      ok: false,
+      error: 'link is expired; only a pending link can be approved',
+    });
     const res = await postDecision(makeApp(), 'rev-1', { action: 'approve' }, makeEnv());
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { message: string } };
@@ -302,7 +307,12 @@ describe('POST /api/review/:id/decision', () => {
 
   it('400s on an unknown extra key (Zod .strict())', async () => {
     mockGetReviewLink.mockResolvedValue({ ...ROW });
-    const res = await postDecision(makeApp(), 'rev-1', { action: 'approve', evil: true }, makeEnv());
+    const res = await postDecision(
+      makeApp(),
+      'rev-1',
+      { action: 'approve', evil: true },
+      makeEnv(),
+    );
     expect(res.status).toBe(400);
     expect(mockRecordDecision).not.toHaveBeenCalled();
   });
@@ -343,13 +353,20 @@ describe('POST /api/review/:id/decision', () => {
 // ─── Password protection (GET password_required + POST /unlock) ───────────────
 
 describe('review-link password protection', () => {
-  function postUnlock(app: ReturnType<typeof makeApp>, id: string, body: unknown, env: Env, rawBody?: string) {
+  function postUnlock(
+    app: ReturnType<typeof makeApp>,
+    id: string,
+    body: unknown,
+    env: Env,
+    rawBody?: string,
+  ) {
     return app.request(
       `/api/review/${id}/unlock`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: rawBody !== undefined ? rawBody : body === undefined ? undefined : JSON.stringify(body),
+        body:
+          rawBody !== undefined ? rawBody : body === undefined ? undefined : JSON.stringify(body),
       },
       env,
       makeCtx(),
@@ -364,7 +381,11 @@ describe('review-link password protection', () => {
   });
 
   it('GET reports password_required=true when a hash is stored (never exposes the hash)', async () => {
-    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: 'deadbeef', password_salt: 'cafe' });
+    mockGetReviewLink.mockResolvedValue({
+      ...ROW,
+      password_hash: 'deadbeef',
+      password_salt: 'cafe',
+    });
     const res = await getReview(makeApp(), 'rev-1', makeEnv());
     const json = (await res.json()) as { review: Record<string, unknown> };
     expect(json.review.password_required).toBe(true);
@@ -385,7 +406,9 @@ describe('review-link password protection', () => {
     mockVerifyPassword.mockResolvedValue({ found: true, required: true, ok: false });
     const res = await postUnlock(makeApp(), 'rev-1', { password: 'nope' }, makeEnv());
     expect(res.status).toBe(401);
-    expect((await res.json()) as { error: { code: string } }).toMatchObject({ error: { code: 'UNAUTHORIZED' } });
+    expect((await res.json()) as { error: { code: string } }).toMatchObject({
+      error: { code: 'UNAUTHORIZED' },
+    });
   });
 
   it('POST /unlock on an open link returns ok required=false (no gate)', async () => {
@@ -393,7 +416,10 @@ describe('review-link password protection', () => {
     mockVerifyPassword.mockResolvedValue({ found: true, required: false, ok: false });
     const res = await postUnlock(makeApp(), 'rev-1', { password: 'anything' }, makeEnv());
     expect(res.status).toBe(200);
-    expect((await res.json()) as { required: boolean }).toMatchObject({ ok: true, required: false });
+    expect((await res.json()) as { required: boolean }).toMatchObject({
+      ok: true,
+      required: false,
+    });
   });
 
   it('POST /unlock returns 404 for an unknown id', async () => {

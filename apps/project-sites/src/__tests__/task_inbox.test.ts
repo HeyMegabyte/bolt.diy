@@ -391,7 +391,12 @@ describe('applyExpiredDefaults', () => {
     expect(n).toBe(2);
     expect(mockUpdate).toHaveBeenCalledTimes(2);
     const first = JSON.parse(mockUpdate.mock.calls[0][2].resolution_json);
-    expect(first).toEqual({ choice: 'cyan', by: 'system:expired-default', at: NOW, autoDefaulted: true });
+    expect(first).toEqual({
+      choice: 'cyan',
+      by: 'system:expired-default',
+      at: NOW,
+      autoDefaulted: true,
+    });
   });
 
   it('does not count a task that resolveTask reports as already-resolved', async () => {

@@ -74,7 +74,8 @@ wallet.post(
       cancel_url: `${return_url}?wallet=canceled`,
       email: user?.email,
     });
-    if (!result.ok) return c.json({ error: { code: 'CHECKOUT_FAILED', message: result.message } }, 400);
+    if (!result.ok)
+      return c.json({ error: { code: 'CHECKOUT_FAILED', message: result.message } }, 400);
     return c.json({ checkout_url: result.checkout_url });
   },
 );

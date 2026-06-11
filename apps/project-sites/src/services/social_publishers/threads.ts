@@ -18,8 +18,9 @@ const GRAPH = 'https://graph.threads.net/v1.0';
 
 export const threads: Publisher = {
   authorizeUrl(env, { state, redirectUri }) {
-    const appId = (env as unknown as Record<string, string>).THREADS_APP_ID
-      ?? (env as unknown as Record<string, string>).FACEBOOK_APP_ID;
+    const appId =
+      (env as unknown as Record<string, string>).THREADS_APP_ID ??
+      (env as unknown as Record<string, string>).FACEBOOK_APP_ID;
     if (!appId) return null;
     return `https://threads.net/oauth/authorize?${new URLSearchParams({
       client_id: appId,
@@ -30,7 +31,13 @@ export const threads: Publisher = {
     }).toString()}`;
   },
   async exchangeCode(env, { code, redirectUri }) {
-    const creds = requireEnv(env, 'threads', 'https://developers.facebook.com/apps/', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET');
+    const creds = requireEnv(
+      env,
+      'threads',
+      'https://developers.facebook.com/apps/',
+      'FACEBOOK_APP_ID',
+      'FACEBOOK_APP_SECRET',
+    );
     const res = await fetch('https://graph.threads.net/oauth/access_token', {
       method: 'POST',
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -44,7 +51,10 @@ export const threads: Publisher = {
     });
     if (!res.ok) throw new Error(`threads_exchange_failed:${res.status}`);
     const data = (await res.json()) as { access_token: string; user_id: string };
-    const meRes = await fetch(`${GRAPH}/me?fields=username,name&access_token=${data.access_token}`, { headers: BROWSER_HEADERS });
+    const meRes = await fetch(
+      `${GRAPH}/me?fields=username,name&access_token=${data.access_token}`,
+      { headers: BROWSER_HEADERS },
+    );
     const me = meRes.ok ? ((await meRes.json()) as { username?: string; name?: string }) : {};
     return {
       access_token: data.access_token,
@@ -73,7 +83,10 @@ export const threads: Publisher = {
     const pRes = await fetch(`${GRAPH}/${account.external_id}/threads_publish`, {
       method: 'POST',
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ creation_id: c.id, access_token: account.access_token }).toString(),
+      body: new URLSearchParams({
+        creation_id: c.id,
+        access_token: account.access_token,
+      }).toString(),
     });
     if (!pRes.ok) throw new Error(`threads_publish_failed:${pRes.status}`);
     const p = (await pRes.json()) as { id: string };
@@ -85,7 +98,9 @@ export const threads: Publisher = {
     const url = `${GRAPH}/${externalPostId}/insights?metric=${metrics}&access_token=${account.access_token}`;
     const res = await fetch(url, { headers: BROWSER_HEADERS });
     if (!res.ok) return emptyAnalytics({ status: res.status });
-    const data = (await res.json()) as { data?: Array<{ name: string; values?: Array<{ value: number }> }> };
+    const data = (await res.json()) as {
+      data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+    };
     const m: Record<string, number | null> = {};
     for (const x of data.data ?? []) m[x.name] = x.values?.[0]?.value ?? null;
     return {

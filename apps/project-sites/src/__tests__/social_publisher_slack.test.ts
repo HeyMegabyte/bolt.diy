@@ -10,13 +10,27 @@ import type { Env } from '../types/env.js';
 
 const ENV = {} as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'slack', external_id: 'T1', handle: 'Team',
-  access_token: 'tok', refresh_token: null, token_expires_at: null, scopes: null,
-  metadata: { channel_id: 'C1', team_id: 'T1' }, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'slack',
+  external_id: 'T1',
+  handle: 'Team',
+  access_token: 'tok',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: { channel_id: 'C1', team_id: 'T1' },
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hi Slack', per_platform_overrides: null, media_urls: [], hashtags: [],
-  mentions: [], link: null, ...over,
+  id: 'p1',
+  content: 'Hi Slack',
+  per_platform_overrides: null,
+  media_urls: [],
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
@@ -26,13 +40,17 @@ const mock = (h: () => Response) => {
   return fn;
 };
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('slack.publish', () => {
   it('posts a message and returns channel:ts + permalink', async () => {
     mock(() => json({ ok: true, ts: '1.2', channel: 'C1', permalink: 'https://slack.com/p/1' }));
     expect(await slack.publish(ENV, account(), post())).toEqual({
-      external_id: 'C1:1.2', external_url: 'https://slack.com/p/1',
+      external_id: 'C1:1.2',
+      external_url: 'https://slack.com/p/1',
     });
   });
   it('falls back to a client URL when no permalink', async () => {
@@ -43,7 +61,9 @@ describe('slack.publish', () => {
   });
   it('throws when Slack returns ok:false', async () => {
     mock(() => json({ ok: false, error: 'channel_not_found' }));
-    await expect(slack.publish(ENV, account(), post())).rejects.toThrow(/slack_publish_err:channel_not_found/);
+    await expect(slack.publish(ENV, account(), post())).rejects.toThrow(
+      /slack_publish_err:channel_not_found/,
+    );
   });
   it('throws when the HTTP call is not OK', async () => {
     mock(() => new Response('no', { status: 500 }));
@@ -51,9 +71,9 @@ describe('slack.publish', () => {
   });
   it('throws without a channel id', async () => {
     mock(() => json({}));
-    await expect(slack.publish(ENV, account({ metadata: {}, external_id: null }), post())).rejects.toThrow(
-      /slack_channel_id_missing/,
-    );
+    await expect(
+      slack.publish(ENV, account({ metadata: {}, external_id: null }), post()),
+    ).rejects.toThrow(/slack_channel_id_missing/);
   });
 });
 

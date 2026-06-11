@@ -62,7 +62,8 @@ const callExternalLLM: typeof ExternalLLM.callExternalLLM = (...a) => sut.callEx
 const callExternalLLMWithVision: typeof ExternalLLM.callExternalLLMWithVision = (...a) =>
   sut.callExternalLLMWithVision(...a);
 const aiGatewayUrl: typeof ExternalLLM.aiGatewayUrl = (...a) => sut.aiGatewayUrl(...a);
-const uploadDocToOpenAI: typeof ExternalLLM.uploadDocToOpenAI = (...a) => sut.uploadDocToOpenAI(...a);
+const uploadDocToOpenAI: typeof ExternalLLM.uploadDocToOpenAI = (...a) =>
+  sut.uploadDocToOpenAI(...a);
 
 const ACCT = '84fa0d1b16ff8086dd958c468ce7fd59';
 
@@ -85,7 +86,11 @@ function gwOk(bodyObj: unknown, gatewayUsed = false): { response: Response; gate
   };
 }
 
-function gwErr(status: number, body = 'boom', gatewayUsed = false): { response: Response; gatewayUsed: boolean } {
+function gwErr(
+  status: number,
+  body = 'boom',
+  gatewayUsed = false,
+): { response: Response; gatewayUsed: boolean } {
   return { response: new Response(body, { status }), gatewayUsed };
 }
 
@@ -204,7 +209,12 @@ describe('OpenAI request build', () => {
 
   it('sets response_format json_object when jsonMode is set without jsonSchema', async () => {
     mockGatewayFetch.mockResolvedValueOnce(gwOk(openAIBody()));
-    await callExternalLLM(makeEnv(), { system: 's', user: 'u', provider: 'openai', jsonMode: true });
+    await callExternalLLM(makeEnv(), {
+      system: 's',
+      user: 'u',
+      provider: 'openai',
+      jsonMode: true,
+    });
     const body = JSON.parse((mockGatewayFetch.mock.calls[0][3] as RequestInit).body as string);
     expect(body.response_format).toEqual({ type: 'json_object' });
   });
@@ -259,7 +269,9 @@ describe('Anthropic request build', () => {
       responseSchema: { type: 'object' },
     });
     const init = mockGatewayFetch.mock.calls[0][3] as RequestInit;
-    expect((init.headers as Record<string, string>)['anthropic-beta']).toBe('structured-outputs-2025-11-13');
+    expect((init.headers as Record<string, string>)['anthropic-beta']).toBe(
+      'structured-outputs-2025-11-13',
+    );
     const body = JSON.parse(init.body as string);
     expect(body.output_schema).toEqual({ type: 'json_schema', schema: { type: 'object' } });
   });
@@ -267,11 +279,7 @@ describe('Anthropic request build', () => {
   it('joins multiple text blocks and reports input+output token sum', async () => {
     mockGatewayFetch.mockResolvedValueOnce(
       gwOk({
-        content: [
-          { type: 'text', text: 'a' },
-          { type: 'tool_use' },
-          { type: 'text', text: 'b' },
-        ],
+        content: [{ type: 'text', text: 'a' }, { type: 'tool_use' }, { type: 'text', text: 'b' }],
         usage: { input_tokens: 200, output_tokens: 80 },
       }),
     );
@@ -321,7 +329,11 @@ describe('Anthropic request build', () => {
     const firstMsg = body.messages[0];
     expect(firstMsg.content[0].type).toBe('document');
     expect(firstMsg.content[0].citations).toEqual({ enabled: true });
-    expect(firstMsg.content[0].source).toEqual({ type: 'text', media_type: 'text/plain', data: 'source text' });
+    expect(firstMsg.content[0].source).toEqual({
+      type: 'text',
+      media_type: 'text/plain',
+      data: 'source text',
+    });
     // Response surfaces the parsed citation on the result.
     expect(res.citations).toHaveLength(1);
     expect(res.citations![0]).toMatchObject({
@@ -478,7 +490,11 @@ describe('telemetry capture', () => {
 describe('callExternalLLMWithVision', () => {
   it('delegates to the plain text call when no image is provided', async () => {
     mockGatewayFetch.mockResolvedValueOnce(gwOk(openAIBody('text-only')));
-    const res = await callExternalLLMWithVision(makeEnv(), { system: 's', user: 'u', provider: 'openai' });
+    const res = await callExternalLLMWithVision(makeEnv(), {
+      system: 's',
+      user: 'u',
+      provider: 'openai',
+    });
     expect(res.output).toBe('text-only');
     // No image → behaves identically to callExternalLLM (chat completions).
     expect(mockGatewayFetch.mock.calls[0][2]).toBe('/v1/chat/completions');
@@ -579,12 +595,18 @@ describe('uploadDocToOpenAI', () => {
   it('throws when OPENAI_API_KEY is missing', async () => {
     const env = makeEnv({ OPENAI_API_KEY: undefined });
     await expect(
-      uploadDocToOpenAI(env, { name: 'a.pdf', bytes: new Uint8Array([1, 2]), mime: 'application/pdf' }),
+      uploadDocToOpenAI(env, {
+        name: 'a.pdf',
+        bytes: new Uint8Array([1, 2]),
+        mime: 'application/pdf',
+      }),
     ).rejects.toThrow(/OPENAI_API_KEY is not configured/);
   });
 
   it('posts multipart form data with Bearer auth and returns the file id', async () => {
-    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ id: 'file_abc123' }), { status: 200 }));
+    const fetchMock = jest.fn(
+      async () => new Response(JSON.stringify({ id: 'file_abc123' }), { status: 200 }),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
     const id = await uploadDocToOpenAI(makeEnv(), {
       name: 'report.pdf',
@@ -602,7 +624,11 @@ describe('uploadDocToOpenAI', () => {
     const fetchMock = jest.fn(async () => new Response('bad file', { status: 400 }));
     global.fetch = fetchMock as unknown as typeof fetch;
     await expect(
-      uploadDocToOpenAI(makeEnv(), { name: 'a.pdf', bytes: new Uint8Array([1]), mime: 'application/pdf' }),
+      uploadDocToOpenAI(makeEnv(), {
+        name: 'a.pdf',
+        bytes: new Uint8Array([1]),
+        mime: 'application/pdf',
+      }),
     ).rejects.toThrow(/OpenAI Files API error 400: bad file/);
   });
 });

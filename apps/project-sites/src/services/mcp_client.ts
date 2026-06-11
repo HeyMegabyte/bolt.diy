@@ -72,10 +72,7 @@ export interface ToolDescriptor {
 export interface ProviderAdapter {
   provider: Provider;
   /** Authorization URL for the OAuth consent screen. */
-  authorizeUrl(
-    env: Env,
-    opts: { state: string; codeVerifier?: string; returnUrl: string },
-  ): string;
+  authorizeUrl(env: Env, opts: { state: string; codeVerifier?: string; returnUrl: string }): string;
   /** Exchange auth code for tokens. Returns the raw provider response. */
   exchangeCode(
     env: Env,
@@ -137,7 +134,9 @@ const mailchimp: ProviderAdapter = {
     // Mailchimp requires a follow-up call to discover the data center.
     const meta = await fetch('https://login.mailchimp.com/oauth2/metadata', {
       headers: { Authorization: `OAuth ${token.access_token}` },
-    }).then((r) => r.json() as Promise<{ dc: string; api_endpoint: string; login: { email: string } }>);
+    }).then(
+      (r) => r.json() as Promise<{ dc: string; api_endpoint: string; login: { email: string } }>,
+    );
     return {
       access_token: token.access_token,
       metadata: { dc: meta.dc, api_endpoint: meta.api_endpoint, login_email: meta.login.email },
@@ -183,12 +182,15 @@ const mailchimp: ProviderAdapter = {
       }),
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok && String(body['title'] ?? '').toLowerCase().includes('exists')) {
+    if (
+      !res.ok &&
+      String(body['title'] ?? '')
+        .toLowerCase()
+        .includes('exists')
+    ) {
       return { ok: true, data: { already_subscribed: true } };
     }
-    return res.ok
-      ? { ok: true, data: body }
-      : { ok: false, error: `mailchimp ${res.status}` };
+    return res.ok ? { ok: true, data: body } : { ok: false, error: `mailchimp ${res.status}` };
   },
 };
 
@@ -198,7 +200,11 @@ const stripe: ProviderAdapter = {
   authorizeUrl(env, { state, returnUrl }) {
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: env.STRIPE_OAUTH_CLIENT_ID || env.STRIPE_CONNECT_CLIENT_ID || env.STRIPE_CONNECT_CLIENT_ID_TEST || '',
+      client_id:
+        env.STRIPE_OAUTH_CLIENT_ID ||
+        env.STRIPE_CONNECT_CLIENT_ID ||
+        env.STRIPE_CONNECT_CLIENT_ID_TEST ||
+        '',
       scope: 'read_write',
       state,
       redirect_uri: `${new URL(returnUrl).origin}/api/mcp/stripe/callback`,
@@ -249,10 +255,10 @@ const stripe: ProviderAdapter = {
   async execute(_env, { tool, args, accessToken }) {
     if (tool !== 'create_stripe_invoice') return { ok: false, error: 'unknown tool' };
     const form = new URLSearchParams({
-      'customer_email': String(args['email'] ?? ''),
-      'collection_method': 'send_invoice',
-      'days_until_due': '30',
-      'description': String(args['description'] ?? ''),
+      customer_email: String(args['email'] ?? ''),
+      collection_method: 'send_invoice',
+      days_until_due: '30',
+      description: String(args['description'] ?? ''),
     });
     const inv = await fetch('https://api.stripe.com/v1/invoices', {
       method: 'POST',
@@ -410,9 +416,15 @@ function pasteKeyAdapter(opts: {
 }): ProviderAdapter {
   return {
     provider: opts.provider,
-    authorizeUrl(_env, { state }) { return `__paste_key__?state=${state}`; },
-    async exchangeCode(_env, { code }) { return { access_token: code }; },
-    tools() { return [opts.tool]; },
+    authorizeUrl(_env, { state }) {
+      return `__paste_key__?state=${state}`;
+    },
+    async exchangeCode(_env, { code }) {
+      return { access_token: code };
+    },
+    tools() {
+      return [opts.tool];
+    },
     async execute(_env, { tool, args, accessToken }) {
       if (tool !== opts.tool.name) return { ok: false, error: 'unknown tool' };
       const { url, init } = opts.endpoint({ ...args, _token: accessToken });
@@ -430,7 +442,8 @@ const slack: ProviderAdapter = pasteKeyAdapter({
   provider: 'slack',
   tool: {
     name: 'post_to_slack',
-    description: 'Post a message to a Slack channel (use the channel name or ID). Great for new-form alerts, order notices, urgent leads.',
+    description:
+      'Post a message to a Slack channel (use the channel name or ID). Great for new-form alerts, order notices, urgent leads.',
     parameters: {
       type: 'object',
       required: ['channel', 'text'],
@@ -451,7 +464,8 @@ const notion: ProviderAdapter = pasteKeyAdapter({
   provider: 'notion',
   tool: {
     name: 'create_notion_page',
-    description: 'Create a new page in a Notion database (great for capturing leads, support tickets, content ideas).',
+    description:
+      'Create a new page in a Notion database (great for capturing leads, support tickets, content ideas).',
     parameters: {
       type: 'object',
       required: ['database_id', 'title'],
@@ -471,7 +485,7 @@ const notion: ProviderAdapter = pasteKeyAdapter({
         parent: { database_id: String(args['database_id']) },
         properties: {
           Name: { title: [{ text: { content: String(args['title']) } }] },
-          ...(args['properties'] as Record<string, unknown> ?? {}),
+          ...((args['properties'] as Record<string, unknown>) ?? {}),
         },
       }),
     },
@@ -482,7 +496,8 @@ const github: ProviderAdapter = pasteKeyAdapter({
   provider: 'github',
   tool: {
     name: 'open_github_issue',
-    description: 'Open a GitHub issue in a repo (great for bug reports captured from a website form).',
+    description:
+      'Open a GitHub issue in a repo (great for bug reports captured from a website form).',
     parameters: {
       type: 'object',
       required: ['repo', 'title', 'body'],
@@ -534,8 +549,15 @@ const linear: ProviderAdapter = pasteKeyAdapter({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: 'mutation($i: IssueCreateInput!) { issueCreate(input: $i) { success issue { id identifier url } } }',
-        variables: { i: { teamId: String(args['team_id']), title: String(args['title']), description: String(args['description'] ?? '') } },
+        query:
+          'mutation($i: IssueCreateInput!) { issueCreate(input: $i) { success issue { id identifier url } } }',
+        variables: {
+          i: {
+            teamId: String(args['team_id']),
+            title: String(args['title']),
+            description: String(args['description'] ?? ''),
+          },
+        },
       }),
     },
   }),
@@ -545,8 +567,13 @@ const discord: ProviderAdapter = pasteKeyAdapter({
   provider: 'discord',
   tool: {
     name: 'post_to_discord',
-    description: 'Post a message to a Discord channel via a webhook URL (the "API key" here is the webhook URL).',
-    parameters: { type: 'object', required: ['content'], properties: { content: { type: 'string' } } },
+    description:
+      'Post a message to a Discord channel via a webhook URL (the "API key" here is the webhook URL).',
+    parameters: {
+      type: 'object',
+      required: ['content'],
+      properties: { content: { type: 'string' } },
+    },
   },
   endpoint: (args) => ({
     url: String(args['_token']),
@@ -562,7 +589,8 @@ const googleCalendar: ProviderAdapter = pasteKeyAdapter({
   provider: 'google_calendar',
   tool: {
     name: 'create_calendar_event',
-    description: 'Create a Google Calendar event (paste an OAuth access token; use Calendly MCP for full booking flows).',
+    description:
+      'Create a Google Calendar event (paste an OAuth access token; use Calendly MCP for full booking flows).',
     parameters: {
       type: 'object',
       required: ['calendar_id', 'summary', 'start_iso', 'end_iso'],
@@ -596,8 +624,13 @@ const twilio: ProviderAdapter = pasteKeyAdapter({
   provider: 'twilio',
   tool: {
     name: 'send_sms',
-    description: 'Send an SMS via Twilio (paste-key = ACCOUNT_SID:AUTH_TOKEN combined as Basic auth).',
-    parameters: { type: 'object', required: ['to', 'from', 'body'], properties: { to: { type: 'string' }, from: { type: 'string' }, body: { type: 'string' } } },
+    description:
+      'Send an SMS via Twilio (paste-key = ACCOUNT_SID:AUTH_TOKEN combined as Basic auth).',
+    parameters: {
+      type: 'object',
+      required: ['to', 'from', 'body'],
+      properties: { to: { type: 'string' }, from: { type: 'string' }, body: { type: 'string' } },
+    },
   },
   endpoint: (args) => {
     const token = String(args['_token']);
@@ -610,7 +643,11 @@ const twilio: ProviderAdapter = pasteKeyAdapter({
           Authorization: `Basic ${btoa(`${sid}:${key}`)}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({ To: String(args['to']), From: String(args['from']), Body: String(args['body']) }).toString(),
+        body: new URLSearchParams({
+          To: String(args['to']),
+          From: String(args['from']),
+          Body: String(args['body']),
+        }).toString(),
       },
     };
   },
@@ -699,7 +736,8 @@ const airtable: ProviderAdapter = {
       client_id: env.AIRTABLE_OAUTH_CLIENT_ID ?? '',
       redirect_uri: `${new URL(returnUrl).origin}/api/mcp/airtable/callback`,
       response_type: 'code',
-      scope: 'data.records:read data.records:write schema.bases:read user.email:read webhook:manage',
+      scope:
+        'data.records:read data.records:write schema.bases:read user.email:read webhook:manage',
       state,
       // We append the challenge below by re-building the URL after async hash.
       // Since authorizeUrl is sync, callers must pre-derive the challenge.
@@ -834,12 +872,16 @@ const pagerduty: ProviderAdapter = {
     return [
       {
         name: 'trigger_pagerduty_incident',
-        description: 'Trigger a PagerDuty incident on a service (great for high-priority form submissions, AI alerts, downtime detection).',
+        description:
+          'Trigger a PagerDuty incident on a service (great for high-priority form submissions, AI alerts, downtime detection).',
         parameters: {
           type: 'object',
           required: ['service_id', 'title'],
           properties: {
-            service_id: { type: 'string', description: 'PagerDuty service ID (starts with `P...`)' },
+            service_id: {
+              type: 'string',
+              description: 'PagerDuty service ID (starts with `P...`)',
+            },
             title: { type: 'string' },
             urgency: { type: 'string', enum: ['high', 'low'], default: 'high' },
             details: { type: 'string' },
@@ -919,10 +961,20 @@ const zapier: ProviderAdapter = pasteKeyAdapter({
  * handle the "no adapter" case and surface a paste-key / coming-soon toast.
  */
 const ADAPTERS: Partial<Record<Provider, ProviderAdapter>> = {
-  mailchimp, stripe, resend, hubspot,
-  slack, notion, github, linear, discord,
+  mailchimp,
+  stripe,
+  resend,
+  hubspot,
+  slack,
+  notion,
+  github,
+  linear,
+  discord,
   google_calendar: googleCalendar,
-  twilio, calendly, airtable, zapier,
+  twilio,
+  calendly,
+  airtable,
+  zapier,
   pagerduty,
 };
 
@@ -989,7 +1041,11 @@ export async function loadConnections(
      WHERE site_id = ? AND status = 'active'${placeholders}`,
   )
     .bind(siteId, ...(onlyProviders ?? []))
-    .all<{ provider: Provider; access_token_encrypted: string; account_metadata_json: string | null }>();
+    .all<{
+      provider: Provider;
+      access_token_encrypted: string;
+      account_metadata_json: string | null;
+    }>();
   const out: ActiveConnection[] = [];
   for (const r of rows.results ?? []) {
     try {

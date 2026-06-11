@@ -12,10 +12,7 @@
  *     gets a usable prompt
  */
 
-import {
-  improveRouterPrompt,
-  SAMPLE_ROUTER_PROMPT,
-} from '../services/form_router.js';
+import { improveRouterPrompt, SAMPLE_ROUTER_PROMPT } from '../services/form_router.js';
 
 interface MinimalEnv {
   AI: { run: jest.Mock };

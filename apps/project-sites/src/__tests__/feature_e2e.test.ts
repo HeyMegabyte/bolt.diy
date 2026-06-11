@@ -48,7 +48,9 @@ describe('feature_e2e check registry', () => {
 
   describe('resolveCheckUrl', () => {
     it('prefixes a path with the prod origin', () => {
-      expect(resolveCheckUrl({ label: 'x', kind: 'http', url: '/llms.txt' } as E2eCheck)).toBe('https://projectsites.dev/llms.txt');
+      expect(resolveCheckUrl({ label: 'x', kind: 'http', url: '/llms.txt' } as E2eCheck)).toBe(
+        'https://projectsites.dev/llms.txt',
+      );
     });
     it('leaves an absolute URL untouched', () => {
       const abs = 'https://example.com/x';

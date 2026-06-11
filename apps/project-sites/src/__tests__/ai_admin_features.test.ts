@@ -107,18 +107,24 @@ describe('explainTrace', () => {
   });
 
   it('calls the LLM on cache miss, trims response, and writes to KV', async () => {
-    const { env, aiRun, kv } = makeEnv({ kvGet: null, aiResponse: { response: '  ## Post-mortem  ' } });
+    const { env, aiRun, kv } = makeEnv({
+      kvGet: null,
+      aiResponse: { response: '  ## Post-mortem  ' },
+    });
     const out = await explainTrace(env, makeTraceRow());
     expect(out.markdown).toBe('## Post-mortem');
     expect(out.cached).toBe(false);
     expect(aiRun).toHaveBeenCalledTimes(1);
-    expect(kv.put).toHaveBeenCalledWith('trace:trace-1:explain', '## Post-mortem', { expirationTtl: 3600 });
+    expect(kv.put).toHaveBeenCalledWith('trace:trace-1:explain', '## Post-mortem', {
+      expirationTtl: 3600,
+    });
   });
 
   it('truncates output_text to 600 chars in the LLM payload', async () => {
     const { env, aiRun } = makeEnv({ kvGet: null, aiResponse: { response: 'ok' } });
     await explainTrace(env, makeTraceRow({ output_text: 'y'.repeat(1000) }));
-    const userMsg = (aiRun.mock.calls[0]![1] as { messages: { content: string }[] }).messages[1]!.content;
+    const userMsg = (aiRun.mock.calls[0]![1] as { messages: { content: string }[] }).messages[1]!
+      .content;
     expect(userMsg).toContain('"output_preview"');
     expect(userMsg).not.toContain('y'.repeat(601));
     expect(userMsg).toContain('y'.repeat(600));
@@ -127,7 +133,8 @@ describe('explainTrace', () => {
   it('passes null output_preview when output_text is null', async () => {
     const { env, aiRun } = makeEnv({ kvGet: null, aiResponse: { response: 'ok' } });
     await explainTrace(env, makeTraceRow({ output_text: null }));
-    const userMsg = (aiRun.mock.calls[0]![1] as { messages: { content: string }[] }).messages[1]!.content;
+    const userMsg = (aiRun.mock.calls[0]![1] as { messages: { content: string }[] }).messages[1]!
+      .content;
     expect(userMsg).toContain('"output_preview": null');
   });
 
@@ -147,7 +154,11 @@ describe('explainTrace', () => {
   });
 
   it('does not throw when the KV write fails', async () => {
-    const { env } = makeEnv({ kvGet: null, aiResponse: { response: 'explanation' }, kvPutThrows: true });
+    const { env } = makeEnv({
+      kvGet: null,
+      aiResponse: { response: 'explanation' },
+      kvPutThrows: true,
+    });
     const out = await explainTrace(env, makeTraceRow());
     expect(out.markdown).toBe('explanation');
     expect(out.cached).toBe(false);
@@ -251,10 +262,7 @@ describe('buildSearchSql', () => {
   });
 
   it('joins memberships and prefixes columns with u. for the users entity', () => {
-    const plan = buildSearchSql(
-      { entity: 'users', filters: { email: 'a@b.com' } },
-      'org-5',
-    );
+    const plan = buildSearchSql({ entity: 'users', filters: { email: 'a@b.com' } }, 'org-5');
     expect(plan.sql).toContain('JOIN memberships m ON m.user_id = u.id');
     expect(plan.sql).toContain('m.org_id = ? AND m.deleted_at IS NULL');
     expect(plan.sql).toContain('u.email = ?');
@@ -288,7 +296,10 @@ describe('aiSearch', () => {
   it('translates an LLM filter into a parameterised SELECT and returns rows', async () => {
     const filter = { entity: 'audit', filters: { action: 'site.created' } };
     const rows = [{ id: 'a1', action: 'site.created' }];
-    const { env, prepare, bind } = makeEnv({ aiResponse: { response: JSON.stringify(filter) }, dbAll: rows });
+    const { env, prepare, bind } = makeEnv({
+      aiResponse: { response: JSON.stringify(filter) },
+      dbAll: rows,
+    });
     const out = await aiSearch(env, 'org-X', 'show site creations');
     expect(out.entity).toBe('audit');
     expect(out.rows).toEqual(rows);
@@ -430,7 +441,13 @@ describe('forecastCost', () => {
 
   it('falls back to a deterministic tip when the LLM throws', async () => {
     const env = envWithRollups({
-      costRow: { ai_calls: 0, ai_credits: 0, bandwidth_bytes: 0, storage_bytes: 0, estimated_cost_micro_usd: 0 },
+      costRow: {
+        ai_calls: 0,
+        ai_credits: 0,
+        bandwidth_bytes: 0,
+        storage_bytes: 0,
+        estimated_cost_micro_usd: 0,
+      },
       tokenRow: { ti: 0, to_: 0, calls: 0 },
       aiThrows: true,
     });
@@ -449,7 +466,13 @@ describe('forecastCost', () => {
 
   it('models request_count from (calls + ai_calls) * 1000 with a 1000 floor', async () => {
     const env = envWithRollups({
-      costRow: { ai_calls: 2, ai_credits: 0, bandwidth_bytes: 0, storage_bytes: 0, estimated_cost_micro_usd: 0 },
+      costRow: {
+        ai_calls: 2,
+        ai_credits: 0,
+        bandwidth_bytes: 0,
+        storage_bytes: 0,
+        estimated_cost_micro_usd: 0,
+      },
       tokenRow: { ti: 0, to_: 0, calls: 3 },
       aiResponse: { response: 'tip' },
     });

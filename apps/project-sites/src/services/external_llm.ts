@@ -247,7 +247,9 @@ async function fetchWithGatewayFallback(
  * Temperature ≥ 0.5 means the caller WANTS variation, so a cached identical
  * response would defeat the purpose — skip. Otherwise cache for the default TTL.
  */
-function cacheOptionsFor(options: ExternalLLMOptions): Pick<GatewayCallOptions, 'cacheTtl' | 'skipCache'> {
+function cacheOptionsFor(
+  options: ExternalLLMOptions,
+): Pick<GatewayCallOptions, 'cacheTtl' | 'skipCache'> {
   const temperature = options.temperature ?? 0.3;
   return temperature >= 0.5 ? { skipCache: true } : { cacheTtl: 3600 };
 }
@@ -672,7 +674,9 @@ async function safeCaptureLLM(
   try {
     await captureLLMCall(env, params);
   } catch (err) {
-    llmLog.warn('analytics_capture_failed', { error: err instanceof Error ? err.message : String(err) });
+    llmLog.warn('analytics_capture_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -747,7 +751,12 @@ export async function callExternalLLM(
           maxRetries: 3,
           baseDelayMs: 1000,
           onRetry: (attempt, err, _delayMs) => {
-            llmLog.warn('retry', { provider, model, attempt, error: err instanceof Error ? err.message : String(err) });
+            llmLog.warn('retry', {
+              provider,
+              model,
+              attempt,
+              error: err instanceof Error ? err.message : String(err),
+            });
           },
         },
       );
@@ -799,7 +808,12 @@ export async function callExternalLLM(
       const errorCategory = classifyError(err);
       recordFailure(provider);
 
-      llmLog.warn('provider_exhausted', { provider, model, durationMs: latency, error: err instanceof Error ? err.message : String(err) });
+      llmLog.warn('provider_exhausted', {
+        provider,
+        model,
+        durationMs: latency,
+        error: err instanceof Error ? err.message : String(err),
+      });
 
       void safeCaptureLLM(env, {
         distinctId,
@@ -896,7 +910,12 @@ export async function callExternalLLMWithVision(
           maxRetries: 3,
           baseDelayMs: 1000,
           onRetry: (attempt, err, _delayMs) => {
-            llmLog.warn('retry_vision', { provider, model, attempt, error: err instanceof Error ? err.message : String(err) });
+            llmLog.warn('retry_vision', {
+              provider,
+              model,
+              attempt,
+              error: err instanceof Error ? err.message : String(err),
+            });
           },
         },
       );
@@ -912,7 +931,12 @@ export async function callExternalLLMWithVision(
       const gatewayUsed = Boolean(r.gatewayUsed);
       const costUsd = estimateCostPrecise(model, inputTokens, outputTokens);
 
-      llmLog.info('vision_call_success', { provider, model, durationMs: latency, count: result.tokens });
+      llmLog.info('vision_call_success', {
+        provider,
+        model,
+        durationMs: latency,
+        count: result.tokens,
+      });
 
       void safeCaptureLLM(env, {
         distinctId,
@@ -944,7 +968,12 @@ export async function callExternalLLMWithVision(
       const errorCategory = classifyError(err);
       recordFailure(provider);
 
-      llmLog.warn('vision_provider_exhausted', { provider, model, durationMs: latency, error: err instanceof Error ? err.message : String(err) });
+      llmLog.warn('vision_provider_exhausted', {
+        provider,
+        model,
+        durationMs: latency,
+        error: err instanceof Error ? err.message : String(err),
+      });
 
       void safeCaptureLLM(env, {
         distinctId,

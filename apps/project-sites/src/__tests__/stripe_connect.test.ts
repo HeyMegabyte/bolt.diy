@@ -31,7 +31,12 @@ const originalFetch = global.fetch;
 let warnSpy: jest.SpyInstance;
 
 function jsonOk(body: unknown): Response {
-  return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) } as any;
+  return {
+    ok: true,
+    status: 200,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as any;
 }
 function httpErr(status: number, text: string): Response {
   return { ok: false, status, json: async () => ({}), text: async () => text } as any;
@@ -125,7 +130,9 @@ describe('startConnectOnboarding', () => {
     expect(result.account_id).toBe('acct_existing');
     // only the account-link call fires; no account-create
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe('https://api.stripe.com/v1/account_links');
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(
+      'https://api.stripe.com/v1/account_links',
+    );
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 

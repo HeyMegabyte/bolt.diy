@@ -213,9 +213,15 @@ describe('gatewayFetch', () => {
 
   it('rejects invalid options before any fetch', async () => {
     await expect(
-      gatewayFetch(makeEnv(), 'openai', '/v1/chat/completions', { method: 'POST' }, {
-        cacheTtl: -5,
-      }),
+      gatewayFetch(
+        makeEnv(),
+        'openai',
+        '/v1/chat/completions',
+        { method: 'POST' },
+        {
+          cacheTtl: -5,
+        },
+      ),
     ).rejects.toThrow();
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -252,12 +258,11 @@ describe('gatewayFetch fallback', () => {
   it('does NOT fall back on a 4xx (real vendor error passes through)', async () => {
     mockFetch.mockResolvedValueOnce(new Response('bad key', { status: 401 }));
 
-    const { response, gatewayUsed } = await gatewayFetch(
-      makeEnv(),
-      'anthropic',
-      '/v1/messages',
-      { method: 'POST', headers: { 'x-api-key': 'bad' }, body: '{}' },
-    );
+    const { response, gatewayUsed } = await gatewayFetch(makeEnv(), 'anthropic', '/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': 'bad' },
+      body: '{}',
+    });
 
     expect(response.status).toBe(401);
     expect(gatewayUsed).toBe(true);
@@ -291,8 +296,11 @@ describe('gatewayMetadata', () => {
   });
 
   it('maps all known trace fields', () => {
-    expect(
-      gatewayMetadata({ orgId: 'o', userId: 'u', traceId: 't', promptId: 'p' }),
-    ).toEqual({ orgId: 'o', userId: 'u', traceId: 't', promptId: 'p' });
+    expect(gatewayMetadata({ orgId: 'o', userId: 'u', traceId: 't', promptId: 'p' })).toEqual({
+      orgId: 'o',
+      userId: 'u',
+      traceId: 't',
+      promptId: 'p',
+    });
   });
 });

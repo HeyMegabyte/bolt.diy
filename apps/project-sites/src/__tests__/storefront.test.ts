@@ -3,7 +3,13 @@ import { ProductInput, ProductPatch } from '../routes/storefront';
 describe('storefront ProductInput schema', () => {
   it('accepts a minimal valid product and applies defaults', () => {
     const r = ProductInput.parse({ name: 'Mug', price_cents: 1500 });
-    expect(r).toMatchObject({ name: 'Mug', price_cents: 1500, currency: 'USD', status: 'active', description: '' });
+    expect(r).toMatchObject({
+      name: 'Mug',
+      price_cents: 1500,
+      currency: 'USD',
+      status: 'active',
+      description: '',
+    });
   });
 
   it('uppercases currency', () => {
@@ -17,17 +23,28 @@ describe('storefront ProductInput schema', () => {
 
   it('rejects a missing name and a too-long currency', () => {
     expect(ProductInput.safeParse({ price_cents: 100 }).success).toBe(false);
-    expect(ProductInput.safeParse({ name: 'x', price_cents: 100, currency: 'DOLLARS' }).success).toBe(false);
+    expect(
+      ProductInput.safeParse({ name: 'x', price_cents: 100, currency: 'DOLLARS' }).success,
+    ).toBe(false);
   });
 
   it('requires https image urls (SSRF-safe)', () => {
-    expect(ProductInput.safeParse({ name: 'x', price_cents: 1, image_url: 'http://insecure/x.png' }).success).toBe(false);
-    expect(ProductInput.safeParse({ name: 'x', price_cents: 1, image_url: 'https://cdn/x.png' }).success).toBe(true);
+    expect(
+      ProductInput.safeParse({ name: 'x', price_cents: 1, image_url: 'http://insecure/x.png' })
+        .success,
+    ).toBe(false);
+    expect(
+      ProductInput.safeParse({ name: 'x', price_cents: 1, image_url: 'https://cdn/x.png' }).success,
+    ).toBe(true);
   });
 
   it('only allows known statuses', () => {
-    expect(ProductInput.safeParse({ name: 'x', price_cents: 1, status: 'on-sale' }).success).toBe(false);
-    expect(ProductInput.safeParse({ name: 'x', price_cents: 1, status: 'hidden' }).success).toBe(true);
+    expect(ProductInput.safeParse({ name: 'x', price_cents: 1, status: 'on-sale' }).success).toBe(
+      false,
+    );
+    expect(ProductInput.safeParse({ name: 'x', price_cents: 1, status: 'hidden' }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -42,7 +59,11 @@ describe('storefront ProductPatch schema', () => {
   });
 
   it('allows nulling optional fields', () => {
-    expect(ProductPatch.parse({ image_url: null, sku: null, stock: null })).toEqual({ image_url: null, sku: null, stock: null });
+    expect(ProductPatch.parse({ image_url: null, sku: null, stock: null })).toEqual({
+      image_url: null,
+      sku: null,
+      stock: null,
+    });
   });
 
   it('rejects unknown keys (strict)', () => {

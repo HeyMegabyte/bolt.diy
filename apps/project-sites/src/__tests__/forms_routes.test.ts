@@ -299,7 +299,6 @@ describe('POST /api/v1/forms/submit', () => {
     expect(json.data.status).toBe('partial');
     expect(json.data.failed).toBe(1);
   });
-
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -422,7 +421,9 @@ describe('integrations CRUD', () => {
       env,
     );
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { provider: string; api_key_preview: string | null } };
+    const json = (await res.json()) as {
+      data: { provider: string; api_key_preview: string | null };
+    };
     expect(json.data.provider).toBe('mailchimp');
     // Preview masks the raw key — never echoed in full.
     expect(json.data.api_key_preview).not.toBe('mc-secret-key');
@@ -451,9 +452,7 @@ describe('integrations CRUD', () => {
   });
 
   it('PATCH integration toggles active and returns { updated: true }', async () => {
-    mockDbQueryOne
-      .mockResolvedValueOnce(OWNED_SITE)
-      .mockResolvedValueOnce({ id: 'int-1' }); // existing
+    mockDbQueryOne.mockResolvedValueOnce(OWNED_SITE).mockResolvedValueOnce({ id: 'int-1' }); // existing
     const env = makeEnv();
     const res = await request(
       makeApp(AUTH),

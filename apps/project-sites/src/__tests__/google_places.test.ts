@@ -110,9 +110,7 @@ describe('lookupBusiness — short-circuit + guards', () => {
 
 describe('lookupBusiness — Text Search request build', () => {
   it('builds the search URL with an encoded "name address" query + the key', async () => {
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(detailsFull()));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(detailsFull()));
 
     await lookupBusiness('KEY-XYZ', 'Vitos Mens Salon', '74 N Beverwyck Rd, NJ');
 
@@ -126,9 +124,7 @@ describe('lookupBusiness — Text Search request build', () => {
   });
 
   it('trims a query when the address is empty', async () => {
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(detailsFull()));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(detailsFull()));
 
     await lookupBusiness('KEY', 'Vitos', '');
 
@@ -182,18 +178,14 @@ describe('lookupBusiness — success parse + field mapping', () => {
   it('falls back to formatted_phone_number when international is absent', async () => {
     const details = detailsFull();
     delete (details.result as { international_phone_number?: string }).international_phone_number;
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(details));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(details));
 
     const result = await lookupBusiness('KEY', 'Vitos', 'NJ');
     expect(result!.phone).toBe('(973) 555-0100');
   });
 
   it('parses 7-day hours with closed days, formatted times, and null close', async () => {
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(detailsFull()));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(detailsFull()));
 
     const result = await lookupBusiness('KEY', 'Vitos', 'NJ');
     const hours = result!.hours!;
@@ -224,9 +216,7 @@ describe('lookupBusiness — success parse + field mapping', () => {
       height: 480,
       html_attributions: [`<a>Author ${i}</a>`],
     }));
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(details));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(details));
 
     const result = await lookupBusiness('KEY-PHOTO', 'Vitos', 'NJ');
     expect(result!.photos).toHaveLength(10); // capped
@@ -245,9 +235,7 @@ describe('lookupBusiness — success parse + field mapping', () => {
       rating: 4,
       relative_time_description: `${i} days ago`,
     }));
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(details));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(details));
 
     const result = await lookupBusiness('KEY', 'Vitos', 'NJ');
     expect(result!.reviews).toHaveLength(5); // capped
@@ -292,9 +280,7 @@ describe('lookupBusiness — defaults + coercion', () => {
     const details = detailsFull();
     details.result.rating = 0;
     details.result.price_level = 0;
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(details));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(details));
 
     const result = await lookupBusiness('KEY', 'Vitos', 'NJ');
     expect(result!.rating).toBe(0);
@@ -306,9 +292,7 @@ describe('lookupBusiness — defaults + coercion', () => {
     details.result.photos = [
       { photo_reference: 'r', width: 100, height: 100, html_attributions: [] },
     ];
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res(details));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res(details));
 
     const result = await lookupBusiness('KEY', 'Vitos', 'NJ');
     expect(result!.photos[0].attribution).toBe('');
@@ -338,9 +322,7 @@ describe('lookupBusiness — empty + error branches', () => {
   });
 
   it('returns null when the Place Details response is non-200', async () => {
-    mockFetch
-      .mockResolvedValueOnce(res(searchOk()))
-      .mockResolvedValueOnce(res({}, false, 500));
+    mockFetch.mockResolvedValueOnce(res(searchOk())).mockResolvedValueOnce(res({}, false, 500));
     const result = await lookupBusiness('KEY', 'Vitos', 'NJ');
     expect(result).toBeNull();
     expect(mockFetch).toHaveBeenCalledTimes(2);

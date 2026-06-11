@@ -107,8 +107,7 @@ export function trackSite(
   // Dot-named alias for parity with the frontend telemetry convention.
   // Mapping: `created` → `site.create.submitted` (matches GA4 generate_lead
   // conversion alias); everything else stays `site.<action>`.
-  const dotted =
-    action === 'created' ? 'site.create.submitted' : `site.${action}`;
+  const dotted = action === 'created' ? 'site.create.submitted' : `site.${action}`;
   capture(env, ctx, {
     event: dotted,
     distinctId,

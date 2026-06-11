@@ -19,8 +19,17 @@ jest.mock('../services/db.js', () => ({
   dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
-jest.mock('../lib/sentry.js', () => ({ captureError: jest.fn(), captureMessage: jest.fn(), createSentry: jest.fn() }));
-jest.mock('../lib/posthog.js', () => ({ capture: jest.fn(), trackAuth: jest.fn(), trackSite: jest.fn(), trackError: jest.fn() }));
+jest.mock('../lib/sentry.js', () => ({
+  captureError: jest.fn(),
+  captureMessage: jest.fn(),
+  createSentry: jest.fn(),
+}));
+jest.mock('../lib/posthog.js', () => ({
+  capture: jest.fn(),
+  trackAuth: jest.fn(),
+  trackSite: jest.fn(),
+  trackError: jest.fn(),
+}));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -151,7 +160,11 @@ describe('POST /api/admin/search/ai', () => {
 describe('buildSearchSql', () => {
   it('always binds org_id first for traces', () => {
     const plan = buildSearchSql(
-      { entity: 'traces', filters: { status: 'error', endpoint_slug: 'lead-qualifier' }, limit: 25 },
+      {
+        entity: 'traces',
+        filters: { status: 'error', endpoint_slug: 'lead-qualifier' },
+        limit: 25,
+      },
       ORG_ID,
     );
     expect(plan.entity).toBe('traces');
@@ -165,7 +178,10 @@ describe('buildSearchSql', () => {
 
   it('drops unknown filter columns silently (no SQL injection vector)', () => {
     const plan = buildSearchSql(
-      { entity: 'audit', filters: { action: 'site.created', evil: "1' OR 1=1; --" } as Record<string, string> },
+      {
+        entity: 'audit',
+        filters: { action: 'site.created', evil: "1' OR 1=1; --" } as Record<string, string>,
+      },
       ORG_ID,
     );
     expect(plan.sql).toContain('action = ?');

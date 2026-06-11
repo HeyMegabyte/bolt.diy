@@ -4895,9 +4895,7 @@ api.post('/api/domains/purchase', async (c) => {
   // scheme injection into Stripe's hosted-checkout return URL).
   const parsed = DomainPurchaseSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    throw badRequest(
-      'domain and site_id are required; success_url/cancel_url must be https URLs',
-    );
+    throw badRequest('domain and site_id are required; success_url/cancel_url must be https URLs');
   }
   const body = parsed.data;
 
@@ -4914,10 +4912,7 @@ api.post('/api/domains/purchase', async (c) => {
   // and Stripe would redirect the buyer off-site post-payment (open-redirect /
   // phishing) — the same class fixed for /api/donate (cf4c8f22). Graceful:
   // an off-domain/missing URL falls back to a safe default, never errors.
-  const allowedHosts = new Set<string>([
-    DOMAINS.SITES_BASE,
-    `${site.slug}${DOMAINS.SITES_SUFFIX}`,
-  ]);
+  const allowedHosts = new Set<string>([DOMAINS.SITES_BASE, `${site.slug}${DOMAINS.SITES_SUFFIX}`]);
   const hns = await c.env.DB.prepare(
     'SELECT hostname FROM hostnames WHERE site_id = ? AND deleted_at IS NULL',
   )

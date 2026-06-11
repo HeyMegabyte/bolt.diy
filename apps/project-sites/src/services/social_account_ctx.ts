@@ -35,7 +35,10 @@ export async function loadAccount(env: Env, id: string): Promise<SocialAccountCt
   return buildCtx(env, row);
 }
 
-export async function loadAccountsByIds(env: Env, ids: readonly string[]): Promise<SocialAccountCtx[]> {
+export async function loadAccountsByIds(
+  env: Env,
+  ids: readonly string[],
+): Promise<SocialAccountCtx[]> {
   if (ids.length === 0) return [];
   const placeholders = ids.map(() => '?').join(',');
   const { data } = await dbQuery<SocialAccountRow>(
@@ -56,8 +59,12 @@ export async function loadAccountsByIds(env: Env, ids: readonly string[]): Promi
 
 async function buildCtx(env: Env, row: SocialAccountRow): Promise<SocialAccountCtx> {
   const access_token = await decrypt(env, row.access_token_encrypted!);
-  const refresh_token = row.refresh_token_encrypted ? await decrypt(env, row.refresh_token_encrypted) : null;
-  const metadata = row.metadata_json ? (JSON.parse(row.metadata_json) as Record<string, unknown>) : {};
+  const refresh_token = row.refresh_token_encrypted
+    ? await decrypt(env, row.refresh_token_encrypted)
+    : null;
+  const metadata = row.metadata_json
+    ? (JSON.parse(row.metadata_json) as Record<string, unknown>)
+    : {};
   const accountId = row.id;
   return {
     id: row.id,
@@ -85,5 +92,11 @@ async function buildCtx(env: Env, row: SocialAccountRow): Promise<SocialAccountC
 
 /** Mark account as error (e.g. invalid token) with a human-readable reason. */
 export async function markAccountError(env: Env, accountId: string, reason: string): Promise<void> {
-  await dbUpdate(env.DB, 'social_accounts', { status: 'error', last_error: reason.slice(0, 500) }, 'id = ?', [accountId]);
+  await dbUpdate(
+    env.DB,
+    'social_accounts',
+    { status: 'error', last_error: reason.slice(0, 500) },
+    'id = ?',
+    [accountId],
+  );
 }

@@ -25,7 +25,10 @@ function mockCountEnv(counts: { members: number; invites: number }): Env {
 }
 
 /** Mock D1: SELECT role via .first() keyed by user_id (bind arg 1); UPDATE records {role,user} (args 0,2). */
-function mockEnv(roles: Record<string, string | undefined>, updates: Array<{ role: string; user: string }>): Env {
+function mockEnv(
+  roles: Record<string, string | undefined>,
+  updates: Array<{ role: string; user: string }>,
+): Env {
   return {
     DB: {
       prepare: (_sql: string) => ({
@@ -68,7 +71,10 @@ describe('evaluateSeats', () => {
 
 describe('canInviteMember', () => {
   it('allows an invite with seats remaining', () => {
-    expect(canInviteMember({ activeMembers: 2, pendingInvites: 0 }, 5)).toEqual({ allowed: true, remaining: 3 });
+    expect(canInviteMember({ activeMembers: 2, pendingInvites: 0 }, 5)).toEqual({
+      allowed: true,
+      remaining: 3,
+    });
   });
 
   it('blocks an invite at the seat cap with a reason', () => {
@@ -99,7 +105,10 @@ describe('resolveSeatLimit', () => {
 describe('countSeatUsage', () => {
   it('counts active members + pending invites from D1', async () => {
     const env = mockCountEnv({ members: 3, invites: 2 });
-    await expect(countSeatUsage(env, 'org1')).resolves.toEqual({ activeMembers: 3, pendingInvites: 2 });
+    await expect(countSeatUsage(env, 'org1')).resolves.toEqual({
+      activeMembers: 3,
+      pendingInvites: 2,
+    });
   });
 });
 

@@ -29,8 +29,7 @@ const runMock = jest.fn().mockResolvedValue({ success: true });
 const bindMock = jest.fn().mockReturnValue({ run: runMock });
 const prepareMock = jest.fn().mockReturnValue({ bind: bindMock });
 
-const makeEnv = (): Env =>
-  ({ DB: { prepare: prepareMock } } as unknown as Env);
+const makeEnv = (): Env => ({ DB: { prepare: prepareMock } }) as unknown as Env;
 
 /** Returns the positional args passed to `.bind(...)` on the last call. */
 const lastBindArgs = (): unknown[] => bindMock.mock.calls[bindMock.mock.calls.length - 1]!;
@@ -170,10 +169,7 @@ describe('writeAiLog', () => {
 
   it('treats falsy-but-present JSON values (0, false) as absent → null', async () => {
     // The source uses `log.outputJson ? ... : null`, so 0 / false / '' bind null.
-    await writeAiLog(
-      makeEnv(),
-      baseLog({ outputJson: 0, toolArgs: false, toolResult: '' }),
-    );
+    await writeAiLog(makeEnv(), baseLog({ outputJson: 0, toolArgs: false, toolResult: '' }));
     const args = lastBindArgs();
     expect(args[9]).toBeNull();
     expect(args[11]).toBeNull();
@@ -185,7 +181,12 @@ describe('writeAiLog', () => {
   it('preserves org/site/trace_kind/endpoint tagging verbatim', async () => {
     await writeAiLog(
       makeEnv(),
-      baseLog({ orgId: 'org-XYZ', siteId: 'site-ABC', traceKind: 'endpoint', endpointSlug: 'quote' }),
+      baseLog({
+        orgId: 'org-XYZ',
+        siteId: 'site-ABC',
+        traceKind: 'endpoint',
+        endpointSlug: 'quote',
+      }),
     );
     const args = lastBindArgs();
     expect(args[1]).toBe('org-XYZ');
@@ -223,10 +224,7 @@ describe('writeAiLog', () => {
   // ── token / cost capture ──
 
   it('captures token counts and credits debited as numbers', async () => {
-    await writeAiLog(
-      makeEnv(),
-      baseLog({ tokensInput: 0, tokensOutput: 2048, creditsDebited: 0 }),
-    );
+    await writeAiLog(makeEnv(), baseLog({ tokensInput: 0, tokensOutput: 2048, creditsDebited: 0 }));
     const args = lastBindArgs();
     // 0 is a valid numeric value, NOT coalesced to null (uses `?? null`).
     expect(args[18]).toBe(0);

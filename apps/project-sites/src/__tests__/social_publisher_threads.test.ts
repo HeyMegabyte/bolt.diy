@@ -9,16 +9,35 @@ import type { Env } from '../types/env.js';
 
 const ENV = {} as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'threads', external_id: 'USER1', handle: '@bob',
-  access_token: 'tok', refresh_token: null, token_expires_at: null, scopes: null, metadata: {}, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'threads',
+  external_id: 'USER1',
+  handle: '@bob',
+  access_token: 'tok',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: {},
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hello Threads', per_platform_overrides: null, media_urls: [], hashtags: [],
-  mentions: [], link: null, ...over,
+  id: 'p1',
+  content: 'Hello Threads',
+  per_platform_overrides: null,
+  media_urls: [],
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
-function mockFetch(r: { container?: () => Response; publish?: () => Response; insights?: () => Response }) {
+function mockFetch(r: {
+  container?: () => Response;
+  publish?: () => Response;
+  insights?: () => Response;
+}) {
   const fn = jest.fn(async (url: string | URL) => {
     const u = String(url);
     if (u.includes('/insights')) return r.insights?.() ?? json({ data: [] });
@@ -30,13 +49,17 @@ function mockFetch(r: { container?: () => Response; publish?: () => Response; in
   return fn;
 }
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('threads.publish', () => {
   it('runs container→publish and returns id + profile post URL', async () => {
     mockFetch({ container: () => json({ id: 'C1' }), publish: () => json({ id: 'T9' }) });
     expect(await threads.publish(ENV, account(), post())).toEqual({
-      external_id: 'T9', external_url: 'https://www.threads.net/@bob/post/T9',
+      external_id: 'T9',
+      external_url: 'https://www.threads.net/@bob/post/T9',
     });
   });
   it('throws without a user id', async () => {
@@ -47,11 +70,18 @@ describe('threads.publish', () => {
   });
   it('throws when the container step is not OK', async () => {
     mockFetch({ container: () => new Response('no', { status: 400 }) });
-    await expect(threads.publish(ENV, account(), post())).rejects.toThrow(/threads_container_failed:400/);
+    await expect(threads.publish(ENV, account(), post())).rejects.toThrow(
+      /threads_container_failed:400/,
+    );
   });
   it('throws when the publish step is not OK', async () => {
-    mockFetch({ container: () => json({ id: 'C1' }), publish: () => new Response('no', { status: 500 }) });
-    await expect(threads.publish(ENV, account(), post())).rejects.toThrow(/threads_publish_failed:500/);
+    mockFetch({
+      container: () => json({ id: 'C1' }),
+      publish: () => new Response('no', { status: 500 }),
+    });
+    await expect(threads.publish(ENV, account(), post())).rejects.toThrow(
+      /threads_publish_failed:500/,
+    );
   });
 });
 

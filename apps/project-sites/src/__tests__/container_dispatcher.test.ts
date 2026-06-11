@@ -280,7 +280,9 @@ describe('container_dispatcher — stop / restart / destroy', () => {
 
 describe('container_dispatcher — DO response mapping', () => {
   it('returns ok:false with the DO error detail on a non-ok JSON response', async () => {
-    const b = new FakeBinding(() => new Response(JSON.stringify({ error: 'boom' }), { status: 500 }));
+    const b = new FakeBinding(
+      () => new Response(JSON.stringify({ error: 'boom' }), { status: 500 }),
+    );
     const res = await stopContainer(makeEnv({ APP_RUNTIME: b }), 'inst-9');
     expect(res.ok).toBe(false);
     expect(res.detail).toBe('boom');
@@ -360,9 +362,16 @@ describe('container_dispatcher — getContainerLogs', () => {
   });
 
   it('routes log fetches through the per-image binding for a known slug', async () => {
-    const perImage = new FakeBinding(() => new Response(JSON.stringify({ lines: [] }), { status: 200 }));
+    const perImage = new FakeBinding(
+      () => new Response(JSON.stringify({ lines: [] }), { status: 200 }),
+    );
     const generic = new FakeBinding();
-    await getContainerLogs(makeEnv({ APP_RUNTIME_N8N: perImage, APP_RUNTIME: generic }), 'inst-9', 10, 'n8n');
+    await getContainerLogs(
+      makeEnv({ APP_RUNTIME_N8N: perImage, APP_RUNTIME: generic }),
+      'inst-9',
+      10,
+      'n8n',
+    );
     expect(perImage.fetchCalls).toHaveLength(1);
     expect(generic.fetchCalls).toHaveLength(0);
   });
@@ -403,7 +412,9 @@ describe('container_dispatcher — getContainerStatus', () => {
   });
 
   it('returns ok:false with the detail when the /status call fails', async () => {
-    const b = new FakeBinding(() => new Response(JSON.stringify({ error: 'crashed' }), { status: 503 }));
+    const b = new FakeBinding(
+      () => new Response(JSON.stringify({ error: 'crashed' }), { status: 503 }),
+    );
     const res = await getContainerStatus(makeEnv({ APP_RUNTIME: b }), 'inst-9');
     expect(res.ok).toBe(false);
     expect(res.detail).toBe('crashed');

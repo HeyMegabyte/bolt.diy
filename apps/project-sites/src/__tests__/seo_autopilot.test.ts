@@ -377,7 +377,8 @@ describe('seo_autopilot handler (route layer — tenant isolation)', () => {
     owner?: { site_id: string; org_id: string } | null;
   }): void => {
     mockQueryOne.mockImplementation((async (_db: unknown, sql: string) => {
-      if (sql.includes('flag_overrides')) return opts.on ? { value_json: '{"enabled":true}' } : null;
+      if (sql.includes('flag_overrides'))
+        return opts.on ? { value_json: '{"enabled":true}' } : null;
       if (sql.includes('seo_meta_drafts')) return opts.owner ?? null;
       if (sql.includes('FROM sites')) return opts.siteOrg ? { org_id: opts.siteOrg } : null;
       return null;

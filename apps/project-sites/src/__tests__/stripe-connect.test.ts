@@ -94,7 +94,10 @@ describe('startConnectOnboarding', () => {
   });
 
   it('throws when STRIPE_CONNECT_CLIENT_ID is missing', async () => {
-    const noConnectEnv = { ...env, STRIPE_CONNECT_CLIENT_ID: undefined } as unknown as import('../types/env.js').Env;
+    const noConnectEnv = {
+      ...env,
+      STRIPE_CONNECT_CLIENT_ID: undefined,
+    } as unknown as import('../types/env.js').Env;
     await expect(
       startConnectOnboarding(noConnectEnv, mockDb, {
         orgId: 'org-1',

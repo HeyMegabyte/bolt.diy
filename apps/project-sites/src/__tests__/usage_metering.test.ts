@@ -90,7 +90,12 @@ describe('currentMonthPeriod', () => {
 
 describe('recordUsage', () => {
   it('inserts a floored event for a positive value', async () => {
-    await recordUsage(baseEnv, db, { orgId: ORG, metric: 'ai_calls', value: 3.9, siteId: 'site-1' });
+    await recordUsage(baseEnv, db, {
+      orgId: ORG,
+      metric: 'ai_calls',
+      value: 3.9,
+      siteId: 'site-1',
+    });
     expect(mockInsert).toHaveBeenCalledTimes(1);
     const [, table, record] = mockInsert.mock.calls[0];
     expect(table).toBe('usage_events');
@@ -189,7 +194,9 @@ describe('getOrgTier', () => {
 
 describe('computeOverageMicroUsd', () => {
   it('returns zero overage when usage is within inclusions', async () => {
-    mockQueryOne.mockImplementation(usageSumImpl({ ai_calls: 10, bytes_egress: 1024, image_generations: 1 }));
+    mockQueryOne.mockImplementation(
+      usageSumImpl({ ai_calls: 10, bytes_egress: 1024, image_generations: 1 }),
+    );
     const out = await computeOverageMicroUsd(db, ORG, 'pro');
     expect(out.ai_calls_overage).toBe(0);
     expect(out.bytes_egress_overage).toBe(0);
@@ -219,7 +226,11 @@ describe('computeOverageMicroUsd', () => {
 
   it('rounds egress up to the next whole GB (2.x GB over → 3 GB billed)', async () => {
     mockQueryOne.mockImplementation(
-      usageSumImpl({ ai_calls: 1000, bytes_egress: 1 * GB + Math.floor(2.4 * GB), image_generations: 50 }),
+      usageSumImpl({
+        ai_calls: 1000,
+        bytes_egress: 1 * GB + Math.floor(2.4 * GB),
+        image_generations: 50,
+      }),
     );
     const out = await computeOverageMicroUsd(db, ORG, 'free');
     // 2.4 GB over → ceil → 3 GB
@@ -227,7 +238,9 @@ describe('computeOverageMicroUsd', () => {
   });
 
   it('floors negative deltas at zero per metric', async () => {
-    mockQueryOne.mockImplementation(usageSumImpl({ ai_calls: 0, bytes_egress: 0, image_generations: 0 }));
+    mockQueryOne.mockImplementation(
+      usageSumImpl({ ai_calls: 0, bytes_egress: 0, image_generations: 0 }),
+    );
     const out = await computeOverageMicroUsd(db, ORG, 'scale');
     expect(out.total_micro_usd).toBe(0);
   });
@@ -239,7 +252,9 @@ describe('parseUsagePriceIds', () => {
   });
 
   it('returns null on malformed JSON', () => {
-    expect(parseUsagePriceIds({ STRIPE_USAGE_PRICE_IDS: '{not json' } as unknown as Env)).toBeNull();
+    expect(
+      parseUsagePriceIds({ STRIPE_USAGE_PRICE_IDS: '{not json' } as unknown as Env),
+    ).toBeNull();
   });
 
   it('returns null when a metric price id is missing', () => {
@@ -278,7 +293,11 @@ describe('parseUsagePriceIds', () => {
 
   it('ignores non-string metric values', () => {
     const env = {
-      STRIPE_USAGE_PRICE_IDS: JSON.stringify({ ai_calls: 123, bytes_egress: 'b', image_generations: 'c' }),
+      STRIPE_USAGE_PRICE_IDS: JSON.stringify({
+        ai_calls: 123,
+        bytes_egress: 'b',
+        image_generations: 'c',
+      }),
     } as unknown as Env;
     expect(parseUsagePriceIds(env)).toBeNull();
   });
@@ -465,7 +484,11 @@ describe('dispatchUsageToStripe', () => {
 describe('meter* wrappers', () => {
   it('meterAiCall records one ai_call', async () => {
     await meterAiCall(baseEnv, db, ORG, 'site-x');
-    expect(mockInsert.mock.calls[0][2]).toMatchObject({ metric: 'ai_calls', value: 1, site_id: 'site-x' });
+    expect(mockInsert.mock.calls[0][2]).toMatchObject({
+      metric: 'ai_calls',
+      value: 1,
+      site_id: 'site-x',
+    });
   });
 
   it('meterImageGeneration records one image_generation', async () => {
@@ -494,7 +517,9 @@ describe('getUsagePanelPayload', () => {
     // 1st queryOne → getOrgTier (free), then 3 → getMonthUsage, then 3 → computeOverage's getMonthUsage
     mockQueryOne
       .mockResolvedValueOnce(null) // getOrgTier → free
-      .mockImplementation(usageSumImpl({ ai_calls: 100, bytes_egress: 1024, image_generations: 1 }));
+      .mockImplementation(
+        usageSumImpl({ ai_calls: 100, bytes_egress: 1024, image_generations: 1 }),
+      );
     const out = await getUsagePanelPayload(db, ORG, new Date('2026-03-15T00:00:00Z'));
     expect(out.tier).toBe('free');
     expect(out.tier_label).toBe(USAGE_TIERS.free.label);

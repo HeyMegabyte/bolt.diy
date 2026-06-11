@@ -111,10 +111,7 @@ function rowToConfig(row: SocialAutoPilotRow | null): AutoPilotConfig {
  * if (cfg.enabled) await runAutoPilot(env, orgId, cfg);
  * ```
  */
-export async function loadAutoPilotConfig(
-  db: D1Database,
-  orgId: string,
-): Promise<AutoPilotConfig> {
+export async function loadAutoPilotConfig(db: D1Database, orgId: string): Promise<AutoPilotConfig> {
   const row = await dbQueryOne<SocialAutoPilotRow>(
     db,
     `SELECT enabled, prompt, cadence_hours, target_networks_json,
@@ -217,10 +214,7 @@ interface BusinessContext {
  * Falls back to neutral defaults so the prompt remains coherent when the
  * org has no published site yet.
  */
-async function loadBusinessContext(
-  db: D1Database,
-  orgId: string,
-): Promise<BusinessContext> {
+async function loadBusinessContext(db: D1Database, orgId: string): Promise<BusinessContext> {
   const site = await dbQueryOne<{
     business_name: string | null;
     business_address: string | null;
@@ -236,7 +230,9 @@ async function loadBusinessContext(
     business_name: site?.business_name ?? 'our brand',
     business_type: 'small business',
     brand_voice: 'warm, confident, specific, never salesy',
-    recent_news: site?.business_address ? `Based in ${site.business_address}.` : 'No recent updates available.',
+    recent_news: site?.business_address
+      ? `Based in ${site.business_address}.`
+      : 'No recent updates available.',
   };
 }
 
@@ -306,7 +302,8 @@ export async function generateAutoPilotPostForNetwork(
   }
   let text = typeof parsed.text === 'string' ? parsed.text.trim() : String(result.output).trim();
   if (text.length > limit) text = text.slice(0, limit - 1).trimEnd() + '…';
-  const mediaSuggestion = typeof parsed.mediaSuggestion === 'string' ? parsed.mediaSuggestion : undefined;
+  const mediaSuggestion =
+    typeof parsed.mediaSuggestion === 'string' ? parsed.mediaSuggestion : undefined;
   return { text, mediaSuggestion };
 }
 
@@ -359,7 +356,12 @@ export async function runAutoPilotIfDue(
     const effectivePrompt = row.prompt || DEFAULT_AUTO_PILOT_PROMPT;
     for (const network of networks) {
       try {
-        const draft = await generateAutoPilotPostForNetwork(env, row.org_id, network, effectivePrompt);
+        const draft = await generateAutoPilotPostForNetwork(
+          env,
+          row.org_id,
+          network,
+          effectivePrompt,
+        );
         await dbInsert(env.DB, 'pulse_posts', {
           id: crypto.randomUUID(),
           org_id: row.org_id,

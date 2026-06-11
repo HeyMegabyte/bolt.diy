@@ -1094,7 +1094,11 @@ async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
  * Uses Workers AI to classify a business into one of the predefined categories.
  */
 search.post('/api/ai/categorize', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { name: string; address?: string; types?: string[] };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name: string;
+    address?: string;
+    types?: string[];
+  };
   if (!body.name) {
     return c.json({ data: { category: '' } });
   }
@@ -1741,7 +1745,11 @@ interface DiscoveredImage {
  * 4. Annotated with a quality score and usage recommendation
  */
 search.post('/api/ai/discover-images', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { name: string; address?: string; website?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name: string;
+    address?: string;
+    website?: string;
+  };
   if (!body.name) {
     return c.json({ data: { logo: null, favicon: null, images: [], brand_assessment: null } });
   }
@@ -2475,7 +2483,11 @@ search.post('/api/ai/discover-images', async (c) => {
  * All videos include attribution data for the `/attribution` page.
  */
 search.post('/api/ai/discover-videos', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { name: string; address?: string; business_type?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name: string;
+    address?: string;
+    business_type?: string;
+  };
   if (!body.name) {
     return c.json({ data: { videos: [], attribution: [] } });
   }
@@ -3081,9 +3093,10 @@ search.put('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   // never silently clobber the row's `data_json` with garbage (a bare string
   // or `{}` recovered from a parse failure). Reject with a 400 BEFORE the write;
   // a well-formed object (incl. an intentional empty `{}` clear) still writes.
-  const body = (await c.req.json().catch(() => null)) as
-    | { data?: unknown; sort_order?: number }
-    | null;
+  const body = (await c.req.json().catch(() => null)) as {
+    data?: unknown;
+    sort_order?: number;
+  } | null;
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Invalid JSON object body' } }, 400);
   }

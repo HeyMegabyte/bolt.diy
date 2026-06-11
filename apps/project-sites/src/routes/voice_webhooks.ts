@@ -204,7 +204,10 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
       await dbUpdate(
         c.env.DB,
         'voice_calls',
-        { recording_url: `/api/voice/recordings/proxy/${recordingSid}`, recording_sid: recordingSid },
+        {
+          recording_url: `/api/voice/recordings/proxy/${recordingSid}`,
+          recording_sid: recordingSid,
+        },
         'id = ?',
         [call.id],
       );

@@ -18,14 +18,35 @@ import type { Env } from '../types/env.js';
 export type Language = 'javascript' | 'typescript' | 'python' | 'rust-wasm';
 
 export function isWfpConfigured(env: Env): boolean {
-  return !!env.USER_DISPATCH && !!env.WFP_NAMESPACE_NAME && !!env.CF_ACCOUNT_ID && !!env.CF_API_TOKEN;
+  return (
+    !!env.USER_DISPATCH && !!env.WFP_NAMESPACE_NAME && !!env.CF_ACCOUNT_ID && !!env.CF_API_TOKEN
+  );
 }
 
 export const SUPPORTED_LANGUAGES: { id: Language; label: string; helper: string }[] = [
-  { id: 'javascript', label: 'JavaScript', helper: 'export default { fetch(req, env, ctx) { return new Response("hi") } }' },
-  { id: 'typescript', label: 'TypeScript', helper: 'export default { async fetch(req: Request): Promise<Response> { return new Response("hi") } }' },
-  { id: 'python', label: 'Python (Pyodide)', helper: 'from workers import Response\n\nasync def on_fetch(request, env):\n    return Response("hi")' },
-  { id: 'rust-wasm', label: 'Rust → Wasm', helper: '// Build a workers-rs project then upload the .wasm; see https://github.com/cloudflare/workers-rs' },
+  {
+    id: 'javascript',
+    label: 'JavaScript',
+    helper: 'export default { fetch(req, env, ctx) { return new Response("hi") } }',
+  },
+  {
+    id: 'typescript',
+    label: 'TypeScript',
+    helper:
+      'export default { async fetch(req: Request): Promise<Response> { return new Response("hi") } }',
+  },
+  {
+    id: 'python',
+    label: 'Python (Pyodide)',
+    helper:
+      'from workers import Response\n\nasync def on_fetch(request, env):\n    return Response("hi")',
+  },
+  {
+    id: 'rust-wasm',
+    label: 'Rust → Wasm',
+    helper:
+      '// Build a workers-rs project then upload the .wasm; see https://github.com/cloudflare/workers-rs',
+  },
 ];
 
 /**
@@ -44,7 +65,9 @@ export async function uploadUserWorker(
   if (!isWfpConfigured(env)) {
     return { ok: false, error: 'Workers for Platforms not configured on this account' };
   }
-  const scriptName = `ai-${opts.siteId.slice(0, 8)}-${opts.endpointSlug}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const scriptName = `ai-${opts.siteId.slice(0, 8)}-${opts.endpointSlug}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-');
   const namespace = env.WFP_NAMESPACE_NAME!;
   const accountId = env.CF_ACCOUNT_ID!;
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/dispatch/namespaces/${namespace}/scripts/${scriptName}`;
@@ -64,9 +87,7 @@ export async function uploadUserWorker(
   form.append(
     mainModule,
     new Blob([opts.code], {
-      type: isPython
-        ? 'text/x-python'
-        : 'application/javascript+module',
+      type: isPython ? 'text/x-python' : 'application/javascript+module',
     }),
     mainModule,
   );

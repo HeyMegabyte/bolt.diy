@@ -929,8 +929,7 @@ export async function initiateDomainTransfer(
   return {
     auth_code: authCode,
     registrar_locked: false,
-    instructions_url:
-      'https://developers.cloudflare.com/registrar/domains/transfer-domain-away/',
+    instructions_url: 'https://developers.cloudflare.com/registrar/domains/transfer-domain-away/',
   };
 }
 

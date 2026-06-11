@@ -24,7 +24,10 @@ const TranslateBody = z.object({
   source: z.string().trim().min(2).max(10).optional().default('en'),
 });
 
-export interface HreflangTag { hreflang: string; href: string }
+export interface HreflangTag {
+  hreflang: string;
+  href: string;
+}
 
 /** Normalize a locale to a lowercase base code (`es-419` → `es`, `EN` → `en`). */
 export function normalizeLocale(code: string): string {
@@ -68,10 +71,25 @@ export const i18n = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 i18n.post('/api/sites/:id/i18n/translate', async (c) => {
   const siteId = c.req.param('id');
-  if (!(await isFlagOn(c.env, 'i18n_localization', { siteId, orgId: c.get('orgId'), userId: c.get('userId') }))) return c.notFound();
+  if (
+    !(await isFlagOn(c.env, 'i18n_localization', {
+      siteId,
+      orgId: c.get('orgId'),
+      userId: c.get('userId'),
+    }))
+  )
+    return c.notFound();
   const parsed = TranslateBody.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Provide text + a target language code.' } }, 400);
-  if (!c.env.AI) return c.json({ translated: null, notes: 'Translation is provisioning for this account.' }, 200);
+  if (!parsed.success)
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Provide text + a target language code.' } },
+      400,
+    );
+  if (!c.env.AI)
+    return c.json(
+      { translated: null, notes: 'Translation is provisioning for this account.' },
+      200,
+    );
   try {
     const res = (await c.env.AI.run(TRANSLATE_MODEL, {
       text: parsed.data.text,
@@ -90,8 +108,18 @@ i18n.post('/api/sites/:id/i18n/translate', async (c) => {
 
 i18n.get('/api/sites/:id/i18n/hreflang', async (c) => {
   const siteId = c.req.param('id');
-  if (!(await isFlagOn(c.env, 'i18n_localization', { siteId, orgId: c.get('orgId'), userId: c.get('userId') }))) return c.notFound();
+  if (
+    !(await isFlagOn(c.env, 'i18n_localization', {
+      siteId,
+      orgId: c.get('orgId'),
+      userId: c.get('userId'),
+    }))
+  )
+    return c.notFound();
   const locales = parseLocales(c.req.query('locales') ?? '');
   const path = c.req.query('path') || '/';
-  return c.json({ tags: buildHreflang(PROD, path, locales), locales: locales.map((l) => ({ locale: l, dir: dirFor(l) })) });
+  return c.json({
+    tags: buildHreflang(PROD, path, locales),
+    locales: locales.map((l) => ({ locale: l, dir: dirFor(l) })),
+  });
 });

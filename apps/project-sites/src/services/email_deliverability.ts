@@ -12,7 +12,14 @@
  */
 
 /** Common DKIM selectors to probe (DKIM is selector-specific; can't enumerate). */
-export const COMMON_DKIM_SELECTORS = ['google', 'default', 'k1', 's1', 'selector1', 'mail'] as const;
+export const COMMON_DKIM_SELECTORS = [
+  'google',
+  'default',
+  'k1',
+  's1',
+  'selector1',
+  'mail',
+] as const;
 
 export interface DeliverabilityReport {
   domain: string;
@@ -66,7 +73,10 @@ async function txtRecords(fetchFn: Fetcher, name: string): Promise<string[]> {
  * if (report.score < 70) sendFixes(report.recommendations);
  * ```
  */
-export async function checkDeliverability(fetchFn: Fetcher, domain: string): Promise<DeliverabilityReport> {
+export async function checkDeliverability(
+  fetchFn: Fetcher,
+  domain: string,
+): Promise<DeliverabilityReport> {
   const clean = normalizeDomain(domain);
 
   const results = await Promise.all([
@@ -80,7 +90,9 @@ export async function checkDeliverability(fetchFn: Fetcher, domain: string): Pro
 
   const spfRecord = rootTxt.find((r) => r.toLowerCase().startsWith('v=spf1')) ?? null;
   const dmarcRecord = dmarcTxt.find((r) => r.toLowerCase().startsWith('v=dmarc1')) ?? null;
-  const dmarcPolicy = dmarcRecord ? (dmarcRecord.match(/\bp=([a-z]+)/i)?.[1]?.toLowerCase() ?? null) : null;
+  const dmarcPolicy = dmarcRecord
+    ? (dmarcRecord.match(/\bp=([a-z]+)/i)?.[1]?.toLowerCase() ?? null)
+    : null;
   const foundSelectors = COMMON_DKIM_SELECTORS.filter((_, i) =>
     (dkimTxt[i] ?? []).some((r) => {
       const v = r.toLowerCase();
@@ -92,11 +104,20 @@ export async function checkDeliverability(fetchFn: Fetcher, domain: string): Pro
   const recommendations: string[] = [];
   let score = 0;
   if (spfRecord) score += 35;
-  else recommendations.push('Add an SPF TXT record (start with "v=spf1") authorizing your mail senders.');
+  else
+    recommendations.push(
+      'Add an SPF TXT record (start with "v=spf1") authorizing your mail senders.',
+    );
   if (dmarcRecord) score += 35;
-  else recommendations.push('Add a DMARC TXT record at _dmarc.' + clean + ' — start with "v=DMARC1; p=none" to monitor.');
+  else
+    recommendations.push(
+      'Add a DMARC TXT record at _dmarc.' + clean + ' — start with "v=DMARC1; p=none" to monitor.',
+    );
   if (dmarcPolicy === 'reject' || dmarcPolicy === 'quarantine') score += 10;
-  else if (dmarcRecord) recommendations.push('Strengthen DMARC to p=quarantine or p=reject once monitoring reports look clean.');
+  else if (dmarcRecord)
+    recommendations.push(
+      'Strengthen DMARC to p=quarantine or p=reject once monitoring reports look clean.',
+    );
   if (dkimPresent) score += 20;
   else
     recommendations.push(

@@ -202,8 +202,7 @@ export async function gatherProfileContext(
     researchByTask.get('research_selling_points') ||
     {}) as Record<string, unknown>;
 
-  const buildBrand =
-    (buildSnapshot?.research?.brand as Record<string, unknown> | undefined) || {};
+  const buildBrand = (buildSnapshot?.research?.brand as Record<string, unknown> | undefined) || {};
   const buildProfile =
     (buildSnapshot?.research?.profile as Record<string, unknown> | undefined) || {};
   const buildSelling =
@@ -216,9 +215,7 @@ export async function gatherProfileContext(
     buildSnapshot?.business?.category;
 
   const businessType =
-    confidence.get('business_type') ||
-    (profile.business_type as string | undefined) ||
-    category;
+    confidence.get('business_type') || (profile.business_type as string | undefined) || category;
 
   const businessDescription =
     confidence.get('business_description') ||
@@ -243,13 +240,13 @@ export async function gatherProfileContext(
     (buildBrand.tone as string | undefined);
 
   const uspList = extractStringArray(
-    (usps.usps as unknown) ??
-      (usps.selling_points as unknown) ??
-      (buildSelling.usps as unknown),
+    (usps.usps as unknown) ?? (usps.selling_points as unknown) ?? (buildSelling.usps as unknown),
   );
 
   const services = extractStringArray(
-    (profile.services as unknown) ?? (buildProfile.services as unknown) ?? confidence.get('services'),
+    (profile.services as unknown) ??
+      (buildProfile.services as unknown) ??
+      confidence.get('services'),
   );
 
   const recentKeywords = deriveKeywords({
@@ -289,7 +286,8 @@ export async function gatherProfileContext(
     business_email: site.business_email || undefined,
     business_phone: site.business_phone || undefined,
     business_address: site.business_address || undefined,
-    business_website: site.business_website || (buildSnapshot?.business?.website as string | undefined),
+    business_website:
+      site.business_website || (buildSnapshot?.business?.website as string | undefined),
     primary_hostname: primaryHostname,
     logo_url: site.logo_url || undefined,
     brand_colors: brandColors.length ? brandColors : undefined,
@@ -396,9 +394,36 @@ function deriveKeywords(input: {
   description?: string;
 }): string[] {
   const STOP = new Set([
-    'the', 'and', 'for', 'with', 'from', 'your', 'our', 'this', 'that',
-    'are', 'was', 'were', 'have', 'has', 'a', 'an', 'in', 'on', 'of', 'to',
-    'by', 'at', 'is', 'be', 'will', 'us', 'we', 'i', 'you', 'they',
+    'the',
+    'and',
+    'for',
+    'with',
+    'from',
+    'your',
+    'our',
+    'this',
+    'that',
+    'are',
+    'was',
+    'were',
+    'have',
+    'has',
+    'a',
+    'an',
+    'in',
+    'on',
+    'of',
+    'to',
+    'by',
+    'at',
+    'is',
+    'be',
+    'will',
+    'us',
+    'we',
+    'i',
+    'you',
+    'they',
   ]);
   const bag = new Set<string>();
   const push = (s: string | undefined): void => {

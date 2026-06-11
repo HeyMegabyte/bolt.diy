@@ -360,11 +360,16 @@ describe('sendWeeklyDigestForOrg (send paths)', () => {
     mockFetch.mockResolvedValueOnce(res(true));
     const now = new Date('2026-05-25T14:00:00Z');
 
-    const out = await sendWeeklyDigestForOrg(makeEnv(), mockDb, {
-      id: 'org-9',
-      name: 'Acme',
-      digest_opt_out: 0,
-    }, now);
+    const out = await sendWeeklyDigestForOrg(
+      makeEnv(),
+      mockDb,
+      {
+        id: 'org-9',
+        name: 'Acme',
+        digest_opt_out: 0,
+      },
+      now,
+    );
 
     expect(out).toEqual({ sent: true });
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
@@ -374,7 +379,9 @@ describe('sendWeeklyDigestForOrg (send paths)', () => {
     const body = JSON.parse(init.body as string);
     expect(body.to).toEqual(['owner@x.com']);
     expect(body.subject).toBe('Weekly digest · Acme');
-    expect(body.headers['List-Unsubscribe']).toMatch(/^<https:\/\/projectsites\.dev\/api\/email\/unsubscribe\?token=/);
+    expect(body.headers['List-Unsubscribe']).toMatch(
+      /^<https:\/\/projectsites\.dev\/api\/email\/unsubscribe\?token=/,
+    );
     // Idempotency row written AFTER the send.
     expect(mockInsert).toHaveBeenCalledWith(
       mockDb,

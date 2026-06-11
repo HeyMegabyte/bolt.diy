@@ -167,7 +167,7 @@ describe('GET /api/usage/burn (token_burn_meter)', () => {
     ]);
     const res = await features.request('/api/usage/burn?org_id=org-9', {}, env);
     expect(res.status).toBe(200);
-    expect((await res.json() as { used_usd: number }).used_usd).toBe(3);
+    expect(((await res.json()) as { used_usd: number }).used_usd).toBe(3);
   });
 });
 
@@ -192,12 +192,17 @@ describe('POST /api/usage/record (token_burn_meter)', () => {
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ org_id: 'org-9', model: 'claude-sonnet-4-6', input_tokens: 1_000_000, output_tokens: 0 }),
+        body: JSON.stringify({
+          org_id: 'org-9',
+          model: 'claude-sonnet-4-6',
+          input_tokens: 1_000_000,
+          output_tokens: 0,
+        }),
       },
       env,
     );
     expect(res.status).toBe(200);
-    expect((await res.json() as { cents: number }).cents).toBe(300);
+    expect(((await res.json()) as { cents: number }).cents).toBe(300);
     expect(prepares[0]).toMatch(/INSERT INTO token_events/);
   });
 });

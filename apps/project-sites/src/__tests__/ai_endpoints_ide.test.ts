@@ -201,7 +201,12 @@ describe('deployEndpointFromFiles', () => {
       language: 'ai-prompt',
       files: { 'prompt.md': '# hi' },
     });
-    expect(res).toEqual({ ok: true, scriptName: null, runtimePending: false, language: 'ai-prompt' });
+    expect(res).toEqual({
+      ok: true,
+      scriptName: null,
+      runtimePending: false,
+      language: 'ai-prompt',
+    });
     expect(mockUpload).not.toHaveBeenCalled();
     expect(mockIsConfigured).not.toHaveBeenCalled();
   });
@@ -222,7 +227,12 @@ describe('deployEndpointFromFiles', () => {
       language: 'rust-wasm',
       files: { 'src/lib.rs': 'fn main(){}' },
     });
-    expect(res).toEqual({ ok: true, scriptName: null, runtimePending: true, language: 'rust-wasm' });
+    expect(res).toEqual({
+      ok: true,
+      scriptName: null,
+      runtimePending: true,
+      language: 'rust-wasm',
+    });
     expect(mockUpload).not.toHaveBeenCalled();
   });
 
@@ -233,7 +243,12 @@ describe('deployEndpointFromFiles', () => {
       language: 'javascript',
       files: { 'src/index.js': 'export default {}' },
     });
-    expect(res).toEqual({ ok: true, scriptName: null, runtimePending: true, language: 'javascript' });
+    expect(res).toEqual({
+      ok: true,
+      scriptName: null,
+      runtimePending: true,
+      language: 'javascript',
+    });
     expect(mockUpload).not.toHaveBeenCalled();
   });
 

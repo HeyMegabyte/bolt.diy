@@ -66,13 +66,17 @@ export async function provisionInfra(
     if (infra.includes('postgres')) {
       const name = `app-${ctx.slug}-${ctx.instanceId.slice(0, 8)}`;
       result.postgres = await neon.createProject(env, name);
-      rollback.push(() => neon.deleteProject(env, result.postgres!.projectId).catch(() => undefined));
+      rollback.push(() =>
+        neon.deleteProject(env, result.postgres!.projectId).catch(() => undefined),
+      );
     }
 
     if (infra.includes('redis')) {
       const name = `app-${ctx.slug}-${ctx.instanceId.slice(0, 8)}`;
       result.redis = await upstash.createDatabase(env, name);
-      rollback.push(() => upstash.deleteDatabase(env, result.redis!.databaseId).catch(() => undefined));
+      rollback.push(() =>
+        upstash.deleteDatabase(env, result.redis!.databaseId).catch(() => undefined),
+      );
     }
 
     if (infra.includes('s3')) {

@@ -47,7 +47,7 @@ async function getTransformer(): Promise<(opts: TransformOptions) => TransformRe
   transformer = (async () => {
     // lightningcss-wasm exports a default async init() in the browser/Workers path,
     // followed by sync `transform()`. The module shape is: { default: init, transform }
-    const mod = await import('lightningcss-wasm') as {
+    const mod = (await import('lightningcss-wasm')) as {
       default?: () => Promise<void>;
       transform: (opts: TransformOptions) => TransformResult;
     };

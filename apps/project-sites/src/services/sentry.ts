@@ -243,9 +243,7 @@ const SCRUBBED_HEADERS = new Set([
  * Remove sensitive headers from a header map.
  * Returns a new record — never mutates the input.
  */
-export function scrubHeaders(
-  headers: Record<string, string>,
-): Record<string, string> {
+export function scrubHeaders(headers: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers)) {
     if (SCRUBBED_HEADERS.has(k.toLowerCase())) {

@@ -52,8 +52,7 @@ beforeAll(() => {
         `${(++uuidCounter).toString(16).padStart(8, '0')}-abcd-4ef0-8123-abcdef012345`,
       subtle: {
         // Return a fixed 32-byte buffer so hashToken is deterministic.
-        digest: async (_alg: string, _data: ArrayBuffer) =>
-          new Uint8Array(32).fill(0xab).buffer,
+        digest: async (_alg: string, _data: ArrayBuffer) => new Uint8Array(32).fill(0xab).buffer,
       },
     },
   });

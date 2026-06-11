@@ -9,15 +9,19 @@
  * `cloudflare:workers` is virtual-mocked; db/account/publisher deps + the
  * `step.do` runner (2- or 3-arg) are mocked.
  */
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 jest.mock('../services/db.js', () => ({
   __esModule: true,
@@ -50,13 +54,30 @@ const getPub = getPublisher as jest.Mock;
 const markErr = markAccountError as jest.Mock;
 
 const postRow = (over: Record<string, unknown> = {}) => ({
-  id: 'post1', org_id: 'o1', created_by: 'u1', content: 'Hi', per_platform_overrides: null,
-  media_keys: null, account_ids: JSON.stringify(['a1']), hashtags: null, mentions: null,
-  link: null, status: 'queued', ...over,
+  id: 'post1',
+  org_id: 'o1',
+  created_by: 'u1',
+  content: 'Hi',
+  per_platform_overrides: null,
+  media_keys: null,
+  account_ids: JSON.stringify(['a1']),
+  hashtags: null,
+  mentions: null,
+  link: null,
+  status: 'queued',
+  ...over,
 });
 const acct = (id: string, platform: string) => ({
-  id, org_id: 'o1', platform, external_id: 'x', handle: '@h', access_token: 't',
-  refresh_token: null, token_expires_at: null, scopes: null, metadata: {},
+  id,
+  org_id: 'o1',
+  platform,
+  external_id: 'x',
+  handle: '@h',
+  access_token: 't',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: {},
 });
 
 function makeStep() {
@@ -87,13 +108,21 @@ describe('SocialPublishWorkflow.run', () => {
     const { step } = makeStep();
     const out = await run(step);
     expect(out).toEqual({ ok: false, succeeded: 0, failed: 0 });
-    expect(dbup).toHaveBeenCalledWith(expect.anything(), 'pulse_posts', { status: 'failed' }, 'id = ?', ['post1']);
+    expect(dbup).toHaveBeenCalledWith(
+      expect.anything(),
+      'pulse_posts',
+      { status: 'failed' },
+      'id = ?',
+      ['post1'],
+    );
   });
 
   it('publishes to all accounts and returns published/ok when all succeed', async () => {
     dbqo.mockResolvedValue(postRow());
     loadAccts.mockResolvedValue([acct('a1', 'twitter')]);
-    getPub.mockReturnValue({ publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'https://x/e1' }) });
+    getPub.mockReturnValue({
+      publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'https://x/e1' }),
+    });
     const { step, names } = makeStep();
     const out = await run(step);
     expect(out).toEqual({ ok: true, succeeded: 1, failed: 0 });
@@ -106,7 +135,9 @@ describe('SocialPublishWorkflow.run', () => {
     dbqo.mockResolvedValue(postRow({ account_ids: JSON.stringify(['a1', 'a2']) }));
     loadAccts.mockResolvedValue([acct('a1', 'twitter'), acct('a2', 'linkedin')]);
     getPub
-      .mockReturnValueOnce({ publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'u1' }) })
+      .mockReturnValueOnce({
+        publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'u1' }),
+      })
       .mockReturnValueOnce({ publish: jest.fn().mockRejectedValue(new Error('401 unauthorized')) });
     const { step, names } = makeStep();
     const out = await run(step);
@@ -121,7 +152,9 @@ describe('SocialPublishWorkflow.run', () => {
   it('treats a MissingAppCredsError as skipped (no retry, no markAccountError)', async () => {
     dbqo.mockResolvedValue(postRow());
     loadAccts.mockResolvedValue([acct('a1', 'discord')]);
-    getPub.mockReturnValue({ publish: jest.fn().mockRejectedValue(new MissingAppCredsError('no creds')) });
+    getPub.mockReturnValue({
+      publish: jest.fn().mockRejectedValue(new MissingAppCredsError('no creds')),
+    });
     const { step } = makeStep();
     const out = await run(step);
     expect(out.ok).toBe(false);

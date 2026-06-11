@@ -189,7 +189,7 @@ webhooks.post('/webhooks/stripe', async (c) => {
             const p = notifySiteOwner(c.env, db, {
               orgId: failMeta.org_id,
               subject: 'Payment failed ⚠️',
-              body: 'We couldn\'t process your latest payment. Update your card to keep paid features.',
+              body: "We couldn't process your latest payment. Update your card to keep paid features.",
             });
             try {
               c.executionCtx.waitUntil(p);

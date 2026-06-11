@@ -239,10 +239,7 @@ export async function listFolders(
  * @param folderId    - Drive folder ID to enumerate.
  * @returns Files eligible for context ingest.
  */
-export async function listFolderFiles(
-  accessToken: string,
-  folderId: string,
-): Promise<DriveFile[]> {
+export async function listFolderFiles(accessToken: string, folderId: string): Promise<DriveFile[]> {
   const q = [
     `'${folderId}' in parents`,
     `trashed = false`,

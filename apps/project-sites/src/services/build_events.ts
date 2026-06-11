@@ -40,7 +40,10 @@ const BuildEventBaseSchema = z.object({
   /** ISO-8601 emission timestamp. Drives replay ordering. */
   ts: z.string().datetime(),
   /** Optional feature-module correlation per [[feature-module-architecture]]. */
-  featureSlug: z.string().regex(/^[a-z][a-z0-9_-]*$/).optional(),
+  featureSlug: z
+    .string()
+    .regex(/^[a-z][a-z0-9_-]*$/)
+    .optional(),
 });
 
 /**

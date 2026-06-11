@@ -31,10 +31,7 @@ import { dbInsert, dbQueryOne, dbUpdate, dbExecute } from '../services/db.js';
 import { sendSms } from '../services/twilio.js';
 import { composeSystemPrompt, runTurn } from '../services/voice_agent.js';
 import { replyToInbound, simulateInbound } from '../services/sms_agent.js';
-import type {
-  VoiceAgentBusinessProfile,
-  VoiceAgentSiteSettings,
-} from '../services/voice_agent.js';
+import type { VoiceAgentBusinessProfile, VoiceAgentSiteSettings } from '../services/voice_agent.js';
 import type { Env } from '../types/env.js';
 
 const mockInsert = dbInsert as unknown as jest.Mock;
@@ -88,7 +85,12 @@ beforeEach(() => {
   mockQueryOne.mockResolvedValue(null);
   mockUpdate.mockResolvedValue({ error: null, changes: 1 });
   mockExecute.mockResolvedValue({ error: null });
-  mockSendSms.mockResolvedValue({ sid: 'SM-out-001', status: 'queued', num_segments: 1, price: null });
+  mockSendSms.mockResolvedValue({
+    sid: 'SM-out-001',
+    status: 'queued',
+    num_segments: 1,
+    price: null,
+  });
   mockComposeSystemPrompt.mockReturnValue('SYSTEM PROMPT');
   mockRunTurn.mockResolvedValue(turnResult());
 });
@@ -140,7 +142,11 @@ describe('replyToInbound — happy path (new conversation)', () => {
   it('carries org + site scoping onto persisted message rows', async () => {
     await replyToInbound(env, inbound(), profile, settings);
     for (const call of mockInsert.mock.calls.filter((c) => c[1] === 'voice_messages')) {
-      expect(call[2]).toMatchObject({ org_id: 'org-1', site_id: 'site-1', voice_number_id: 'vn-1' });
+      expect(call[2]).toMatchObject({
+        org_id: 'org-1',
+        site_id: 'site-1',
+        voice_number_id: 'vn-1',
+      });
     }
   });
 });
@@ -374,6 +380,10 @@ describe('simulateInbound — dry run', () => {
       profile,
       settings,
     });
-    expect(mockRunTurn.mock.calls[0][1]).toMatchObject({ siteId: 'site-x', orgId: 'org-x', mode: 'sms' });
+    expect(mockRunTurn.mock.calls[0][1]).toMatchObject({
+      siteId: 'site-x',
+      orgId: 'org-x',
+      mode: 'sms',
+    });
   });
 });

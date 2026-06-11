@@ -38,5 +38,12 @@ export function getPublisher(platform: Platform): Publisher {
 }
 
 export { PLATFORMS } from './types.js';
-export type { Platform, Publisher, SocialAccountCtx, PostCtx, PublishResult, AnalyticsSnapshot } from './types.js';
+export type {
+  Platform,
+  Publisher,
+  SocialAccountCtx,
+  PostCtx,
+  PublishResult,
+  AnalyticsSnapshot,
+} from './types.js';
 export { MissingAppCredsError } from './types.js';

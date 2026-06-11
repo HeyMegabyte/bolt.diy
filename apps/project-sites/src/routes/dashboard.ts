@@ -121,12 +121,8 @@ app.post('/api/dashboard/chat', zValidator('json', ChatSchema), async (c) => {
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'sign in' } }, 401);
 
   const body = c.req.valid('json');
-  const ctxLine = body.context
-    ? `\n\nCONTEXT: ${JSON.stringify(body.context)}`
-    : '';
-  const slashLine = body.slash_command
-    ? `\n\nSLASH_COMMAND: ${body.slash_command}`
-    : '';
+  const ctxLine = body.context ? `\n\nCONTEXT: ${JSON.stringify(body.context)}` : '';
+  const slashLine = body.slash_command ? `\n\nSLASH_COMMAND: ${body.slash_command}` : '';
 
   const messages = [
     { role: 'system' as const, content: SYSTEM_PROMPT + ctxLine + slashLine },
@@ -137,9 +133,7 @@ app.post('/api/dashboard/chat', zValidator('json', ChatSchema), async (c) => {
     async start(controller) {
       const enc = new TextEncoder();
       const send = (event: string, data: unknown): void => {
-        controller.enqueue(
-          enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-        );
+        controller.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
       try {
         // Workers AI streaming returns chunks of { response: string }
@@ -506,10 +500,7 @@ app.post('/api/calendar/bookings', zValidator('json', BookingCreateSchema), asyn
     }
     throw e;
   }
-  return c.json(
-    { data: { id, public_url: `https://projectsites.dev/book/${body.slug}` } },
-    201,
-  );
+  return c.json({ data: { id, public_url: `https://projectsites.dev/book/${body.slug}` } }, 201);
 });
 
 export { app as dashboard };

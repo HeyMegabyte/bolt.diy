@@ -123,33 +123,55 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
             limit: 1
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
           ) {
-            sum { requests pageViews edgeResponseBytes }
-            uniq { uniques }
+            sum {
+              requests
+              pageViews
+              edgeResponseBytes
+            }
+            uniq {
+              uniques
+            }
           }
           byDay: httpRequestsAdaptiveGroups(
             limit: 90
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [date_ASC]
           ) {
-            dimensions { date }
-            sum { requests pageViews edgeResponseBytes }
-            uniq { uniques }
+            dimensions {
+              date
+            }
+            sum {
+              requests
+              pageViews
+              edgeResponseBytes
+            }
+            uniq {
+              uniques
+            }
           }
           topPaths: httpRequestsAdaptiveGroups(
             limit: 25
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [sum_requests_DESC]
           ) {
-            dimensions { clientRequestPath }
-            sum { requests }
+            dimensions {
+              clientRequestPath
+            }
+            sum {
+              requests
+            }
           }
           byCountry: httpRequestsAdaptiveGroups(
             limit: 25
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [sum_requests_DESC]
           ) {
-            dimensions { clientCountryName }
-            sum { requests }
+            dimensions {
+              clientCountryName
+            }
+            sum {
+              requests
+            }
           }
         }
       }
@@ -203,7 +225,15 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
     requests: Number(r.sum?.requests ?? 0),
   }));
 
-  return { range_days: range, total_requests, page_views, unique_visitors, by_day, top_paths, by_country };
+  return {
+    range_days: range,
+    total_requests,
+    page_views,
+    unique_visitors,
+    by_day,
+    top_paths,
+    by_country,
+  };
 }
 
 /** Empty envelope returned when the zone has no rows for the window. */

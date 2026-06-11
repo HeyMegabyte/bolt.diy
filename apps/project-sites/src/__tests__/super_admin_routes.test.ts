@@ -113,13 +113,7 @@ function makeCtx(): ExecutionContext {
 
 type App = Hono<{ Bindings: Env; Variables: Variables }>;
 
-function req(
-  app: App,
-  method: string,
-  path: string,
-  env: Env,
-  body?: unknown,
-) {
+function req(app: App, method: string, path: string, env: Env, body?: unknown) {
   const init: RequestInit = { method };
   if (body !== undefined) {
     init.headers = { 'Content-Type': 'application/json' };
@@ -157,7 +151,11 @@ const ROUTES: Array<[string, string, unknown?]> = [
   ['GET', '/api/super-admin/wallets/org-7/transactions'],
   ['GET', '/api/super-admin/stats'],
   ['GET', '/api/super-admin/transactions'],
-  ['POST', '/api/super-admin/manual-adjustment', { org_id: 'org-7', amount_cents: 500, reason: 'goodwill credit' }],
+  [
+    'POST',
+    '/api/super-admin/manual-adjustment',
+    { org_id: 'org-7', amount_cents: 500, reason: 'goodwill credit' },
+  ],
   ['GET', '/api/super-admin/whoami'],
   ['POST', '/api/super-admin/pro/grant', { user_id: 'u1', reason: 'comp' }],
   ['POST', '/api/super-admin/pro/revoke', { user_id: 'u1', reason: 'expired' }],
@@ -166,7 +164,11 @@ const ROUTES: Array<[string, string, unknown?]> = [
   ['DELETE', '/api/super-admin/coupons/LAUNCH50'],
   ['POST', '/api/super-admin/refunds', { org_id: 'org-7', amount_cents: 999, reason: 'duplicate' }],
   ['GET', '/api/super-admin/refunds'],
-  ['POST', '/api/super-admin/broadcasts', { channel: 'email', segment: {}, body_md: 'hello world' }],
+  [
+    'POST',
+    '/api/super-admin/broadcasts',
+    { channel: 'email', segment: {}, body_md: 'hello world' },
+  ],
   ['GET', '/api/super-admin/broadcasts'],
   ['GET', '/api/super-admin/announcements'],
   ['POST', '/api/super-admin/announcements', { title: 'Heads up', body_md: 'maintenance soon' }],
@@ -180,7 +182,11 @@ const ROUTES: Array<[string, string, unknown?]> = [
   ['POST', '/api/super-admin/ai-blocklist', { pattern: 'badword' }],
   ['POST', '/api/super-admin/tags', { org_id: 'org-7', tag: 'vip' }],
   ['DELETE', '/api/super-admin/tags', { org_id: 'org-7', tag: 'vip' }],
-  ['POST', '/api/super-admin/rate-limit-overrides', { route_pattern: '/api/x', limit_per_min: 100 }],
+  [
+    'POST',
+    '/api/super-admin/rate-limit-overrides',
+    { route_pattern: '/api/x', limit_per_min: 100 },
+  ],
   ['GET', '/api/super-admin/audit'],
   ['POST', '/api/super-admin/cache/purge', { key: 'host:foo' }],
 ];
@@ -253,9 +259,15 @@ describe('cost categories', () => {
       if (/is_super_admin/i.test(sql)) return { is_super_admin: 1 };
       return null; // category lookup → not found
     });
-    const res = await req(makeApp(SUPER), 'PATCH', '/api/super-admin/cost-categories/nope', makeEnv(), {
-      markup_factor: 2,
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'PATCH',
+      '/api/super-admin/cost-categories/nope',
+      makeEnv(),
+      {
+        markup_factor: 2,
+      },
+    );
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
@@ -263,14 +275,26 @@ describe('cost categories', () => {
   });
 
   it('PATCH 400s on empty body (refine: at least one field)', async () => {
-    const res = await req(makeApp(SUPER), 'PATCH', '/api/super-admin/cost-categories/ai_generation', makeEnv(), {});
+    const res = await req(
+      makeApp(SUPER),
+      'PATCH',
+      '/api/super-admin/cost-categories/ai_generation',
+      makeEnv(),
+      {},
+    );
     expect(res.status).toBe(400);
   });
 
   it('PATCH 400s when markup_factor is out of range', async () => {
-    const res = await req(makeApp(SUPER), 'PATCH', '/api/super-admin/cost-categories/ai_generation', makeEnv(), {
-      markup_factor: 99, // max is 5
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'PATCH',
+      '/api/super-admin/cost-categories/ai_generation',
+      makeEnv(),
+      {
+        markup_factor: 99, // max is 5
+      },
+    );
     expect(res.status).toBe(400);
   });
 
@@ -280,10 +304,16 @@ describe('cost categories', () => {
       if (/FROM cost_categories WHERE slug/i.test(sql)) return { slug: 'ai_generation' };
       return null;
     });
-    const res = await req(makeApp(SUPER), 'PATCH', '/api/super-admin/cost-categories/ai_generation', makeEnv(), {
-      markup_factor: 2.5,
-      billable: false,
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'PATCH',
+      '/api/super-admin/cost-categories/ai_generation',
+      makeEnv(),
+      {
+        markup_factor: 2.5,
+        billable: false,
+      },
+    );
     expect(res.status).toBe(200);
     expect(mockDbUpdate).toHaveBeenCalledTimes(1);
     const patchArg = mockDbUpdate.mock.calls[0][2] as Record<string, unknown>;
@@ -300,7 +330,12 @@ describe('wallets + stats reads', () => {
 
   it('GET wallets returns the list', async () => {
     mockDbQuery.mockResolvedValue({ data: [{ org_id: 'org-7', balance_cents: 1000 }] });
-    const res = await req(makeApp(SUPER), 'GET', '/api/super-admin/wallets?q=org&status=active&limit=5', makeEnv());
+    const res = await req(
+      makeApp(SUPER),
+      'GET',
+      '/api/super-admin/wallets?q=org&status=active&limit=5',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { wallets: unknown[] };
     expect(json.wallets).toHaveLength(1);
@@ -313,7 +348,12 @@ describe('wallets + stats reads', () => {
       if (/FROM wallet_accounts WHERE org_id/i.test(sql)) return { id: 'w-1', balance_cents: 500 };
       return null;
     });
-    const res = await req(makeApp(SUPER), 'GET', '/api/super-admin/wallets/org-7/transactions?days=14&direction=debit', makeEnv());
+    const res = await req(
+      makeApp(SUPER),
+      'GET',
+      '/api/super-admin/wallets/org-7/transactions?days=14&direction=debit',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { wallet: unknown; transactions: unknown[] };
     expect(json.transactions).toHaveLength(1);
@@ -338,7 +378,12 @@ describe('wallets + stats reads', () => {
 
   it('GET transactions feed returns the rows', async () => {
     mockDbQuery.mockResolvedValue({ data: [{ id: 'tx-9' }] });
-    const res = await req(makeApp(SUPER), 'GET', '/api/super-admin/transactions?days=7&limit=10', makeEnv());
+    const res = await req(
+      makeApp(SUPER),
+      'GET',
+      '/api/super-admin/transactions?days=7&limit=10',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { transactions: unknown[] };
     expect(json.transactions).toHaveLength(1);
@@ -351,7 +396,11 @@ describe('manual wallet adjustment', () => {
   beforeEach(grantSuperAdmin);
 
   it('POST 200s and delegates to the wallet service with the actor id', async () => {
-    mockManualAdjustment.mockResolvedValue({ ok: true, balance_after: 1500, transaction_id: 'tx-1' });
+    mockManualAdjustment.mockResolvedValue({
+      ok: true,
+      balance_after: 1500,
+      transaction_id: 'tx-1',
+    });
     const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/manual-adjustment', makeEnv(), {
       org_id: 'org-7',
       amount_cents: 500,
@@ -361,7 +410,11 @@ describe('manual wallet adjustment', () => {
     expect(mockManualAdjustment).toHaveBeenCalledTimes(1);
     const [, orgId, opts] = mockManualAdjustment.mock.calls[0];
     expect(orgId).toBe('org-7');
-    expect(opts).toMatchObject({ amount_cents: 500, reason: 'goodwill credit', actor_id: 'admin-1' });
+    expect(opts).toMatchObject({
+      amount_cents: 500,
+      reason: 'goodwill credit',
+      actor_id: 'admin-1',
+    });
   });
 
   it('POST 400s when amount_cents is zero', async () => {
@@ -615,7 +668,12 @@ describe('impersonation', () => {
   });
 
   it('POST end 200s', async () => {
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/impersonate/imp-1/end', makeEnv());
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/impersonate/imp-1/end',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
   });
 });
@@ -634,17 +692,29 @@ describe('moderation', () => {
   });
 
   it('POST resolve 200s', async () => {
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/moderation/m-1/resolve', makeEnv(), {
-      status: 'resolved',
-      notes: 'handled',
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/moderation/m-1/resolve',
+      makeEnv(),
+      {
+        status: 'resolved',
+        notes: 'handled',
+      },
+    );
     expect(res.status).toBe(200);
   });
 
   it('POST resolve 400s on an invalid status enum', async () => {
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/moderation/m-1/resolve', makeEnv(), {
-      status: 'maybe-later',
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/moderation/m-1/resolve',
+      makeEnv(),
+      {
+        status: 'maybe-later',
+      },
+    );
     expect(res.status).toBe(400);
   });
 });
@@ -692,24 +762,41 @@ describe('blocklist / tags / rate-limits / audit / cache', () => {
   });
 
   it('POST rate-limit-override 201s', async () => {
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/rate-limit-overrides', makeEnv(), {
-      route_pattern: '/api/sites/*',
-      limit_per_min: 200,
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/rate-limit-overrides',
+      makeEnv(),
+      {
+        route_pattern: '/api/sites/*',
+        limit_per_min: 200,
+      },
+    );
     expect(res.status).toBe(201);
   });
 
   it('POST rate-limit-override 400s when limit is below 1', async () => {
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/rate-limit-overrides', makeEnv(), {
-      route_pattern: '/api/sites/*',
-      limit_per_min: 0,
-    });
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/rate-limit-overrides',
+      makeEnv(),
+      {
+        route_pattern: '/api/sites/*',
+        limit_per_min: 0,
+      },
+    );
     expect(res.status).toBe(400);
   });
 
   it('GET audit lists rows', async () => {
     mockDbQuery.mockResolvedValue({ data: [{ id: 'au-1', action: 'pro_grant' }] });
-    const res = await req(makeApp(SUPER), 'GET', '/api/super-admin/audit?days=14&action=pro_grant', makeEnv());
+    const res = await req(
+      makeApp(SUPER),
+      'GET',
+      '/api/super-admin/audit?days=14&action=pro_grant',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { audit: unknown[] };
     expect(json.audit).toHaveLength(1);
@@ -717,13 +804,19 @@ describe('blocklist / tags / rate-limits / audit / cache', () => {
 
   it('POST cache purge 200s for a single key', async () => {
     const env = makeEnv();
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/cache/purge', env, { key: 'host:foo' });
+    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/cache/purge', env, {
+      key: 'host:foo',
+    });
     expect(res.status).toBe(200);
-    expect((env.CACHE_KV as unknown as { delete: jest.Mock }).delete).toHaveBeenCalledWith('host:foo');
+    expect((env.CACHE_KV as unknown as { delete: jest.Mock }).delete).toHaveBeenCalledWith(
+      'host:foo',
+    );
   });
 
   it('POST cache purge 200s for purge-all (best-effort)', async () => {
-    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/cache/purge', makeEnv(), { all: true });
+    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/cache/purge', makeEnv(), {
+      all: true,
+    });
     expect(res.status).toBe(200);
   });
 

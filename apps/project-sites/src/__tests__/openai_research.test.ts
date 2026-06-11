@@ -120,7 +120,7 @@ describe('researchAndFormulatePrompt — happy path', () => {
     expect(result.sellingPoints).toEqual({ hero_headline: 'Best Cuts in Town' });
     expect(result.social).toEqual({ website_url: 'https://example.com' });
     expect(result.expertPrompt).toBe(EXPERT);
-    expect((global.fetch as jest.Mock)).toHaveBeenCalledTimes(5);
+    expect(global.fetch as jest.Mock).toHaveBeenCalledTimes(5);
   });
 
   it('builds the OpenAI request with auth, content-type, method and message shape', async () => {
@@ -180,8 +180,8 @@ describe('researchAndFormulatePrompt — happy path', () => {
       additionalContext: 'family owned',
     });
 
-    const userPrompt = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)
-      .messages[1].content;
+    const userPrompt = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body).messages[1]
+      .content;
     expect(userPrompt).toContain('1 Main St');
     expect(userPrompt).toContain('555-1212');
     expect(userPrompt).toContain('place-xyz');
@@ -223,9 +223,7 @@ describe('researchAndFormulatePrompt — JSON extraction', () => {
   it('throws when a research body is unparseable JSON', async () => {
     queueFullPipeline({ profile: 'totally not json at all' });
 
-    await expect(
-      researchAndFormulatePrompt(keyEnv(), { businessName: 'Bad' }),
-    ).rejects.toThrow();
+    await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Bad' })).rejects.toThrow();
   });
 });
 
@@ -233,11 +231,11 @@ describe('researchAndFormulatePrompt — JSON extraction', () => {
 
 describe('researchAndFormulatePrompt — missing API key', () => {
   it('throws "OPENAI_API_KEY is not configured" before any fetch', async () => {
-    await expect(
-      researchAndFormulatePrompt(noKeyEnv(), { businessName: 'Acme' }),
-    ).rejects.toThrow('OPENAI_API_KEY is not configured');
+    await expect(researchAndFormulatePrompt(noKeyEnv(), { businessName: 'Acme' })).rejects.toThrow(
+      'OPENAI_API_KEY is not configured',
+    );
 
-    expect((global.fetch as jest.Mock)).not.toHaveBeenCalled();
+    expect(global.fetch as jest.Mock).not.toHaveBeenCalled();
   });
 });
 
@@ -249,9 +247,9 @@ describe('researchAndFormulatePrompt — non-200 response', () => {
       chatResponse('rate limited', { ok: false, status: 429 }),
     );
 
-    await expect(
-      researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' }),
-    ).rejects.toThrow('OpenAI API error 429');
+    await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' })).rejects.toThrow(
+      'OpenAI API error 429',
+    );
 
     // The first (and only) call should have produced an error capture.
     const errorCapture = mockCaptureLLMCall.mock.calls.find(
@@ -268,9 +266,9 @@ describe('researchAndFormulatePrompt — network throw', () => {
   it('bubbles the fetch rejection and fires an error analytics capture', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('ECONNRESET'));
 
-    await expect(
-      researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' }),
-    ).rejects.toThrow('ECONNRESET');
+    await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' })).rejects.toThrow(
+      'ECONNRESET',
+    );
 
     const errorCapture = mockCaptureLLMCall.mock.calls.find(
       (c) => (c[1] as { status?: string }).status === 'error',
@@ -287,9 +285,7 @@ describe('researchAndFormulatePrompt — empty choice content', () => {
     // Empty content '' → extractJson('') → JSON.parse('') throws.
     (global.fetch as jest.Mock).mockResolvedValueOnce(chatResponse(''));
 
-    await expect(
-      researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' }),
-    ).rejects.toThrow();
+    await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' })).rejects.toThrow();
   });
 
   it('treats a response with no choices array as empty content', async () => {
@@ -301,9 +297,7 @@ describe('researchAndFormulatePrompt — empty choice content', () => {
     });
 
     // No choices → content '' → extractJson throws.
-    await expect(
-      researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' }),
-    ).rejects.toThrow();
+    await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Acme' })).rejects.toThrow();
   });
 });
 

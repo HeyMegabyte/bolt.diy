@@ -82,10 +82,7 @@ function createAuthenticatedApp(vars: Partial<Variables> = {}, envOverrides: Par
   return { app, env: createMockEnv(envOverrides) };
 }
 
-function del(
-  app: Hono<{ Bindings: Env; Variables: Variables }>,
-  env: Env,
-) {
+function del(app: Hono<{ Bindings: Env; Variables: Variables }>, env: Env) {
   return app.request('/api/admin/account', { method: 'DELETE' }, env);
 }
 
@@ -131,13 +128,17 @@ describe('DELETE /api/admin/account', () => {
     const { app, env } = createAuthenticatedApp({ userId: 'user-1', orgId: 'org-1' });
     const res = await del(app, env);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data?: { deleted?: boolean; subscription_canceled?: boolean } };
+    const body = (await res.json()) as {
+      data?: { deleted?: boolean; subscription_canceled?: boolean };
+    };
     expect(body.data?.deleted).toBe(true);
     expect(body.data?.subscription_canceled).toBe(false);
 
     // Three soft-delete UPDATEs ran: sites, sessions, user.
     const sqls = mockDbExecute.mock.calls.map((call) => String(call[1]));
-    expect(sqls.some((s) => /UPDATE sites SET.*deleted_at.*org_id = \?/i.test(s) && /archived/i.test(s))).toBe(true);
+    expect(
+      sqls.some((s) => /UPDATE sites SET.*deleted_at.*org_id = \?/i.test(s) && /archived/i.test(s)),
+    ).toBe(true);
     expect(sqls.some((s) => /UPDATE sessions SET.*deleted_at.*user_id = \?/i.test(s))).toBe(true);
     expect(sqls.some((s) => /UPDATE users SET.*deleted_at.*WHERE id = \?/i.test(s))).toBe(true);
 
@@ -171,7 +172,9 @@ describe('DELETE /api/admin/account', () => {
     const { app, env } = createAuthenticatedApp({ userId: 'user-1', orgId: 'org-1' });
     const res = await del(app, env);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data?: { deleted?: boolean; subscription_canceled?: boolean } };
+    const body = (await res.json()) as {
+      data?: { deleted?: boolean; subscription_canceled?: boolean };
+    };
     expect(body.data?.deleted).toBe(true);
     expect(body.data?.subscription_canceled).toBe(false);
     // The user soft-delete still ran despite the Stripe failure.

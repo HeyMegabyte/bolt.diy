@@ -1,4 +1,9 @@
-import { dispatchEvent, loadDispatchEndpoints, type DispatchDeps, type DispatchEndpoint } from '../services/webhook_dispatch';
+import {
+  dispatchEvent,
+  loadDispatchEndpoints,
+  type DispatchDeps,
+  type DispatchEndpoint,
+} from '../services/webhook_dispatch';
 import { nextRetryDelayMs } from '../services/outbound_webhooks';
 import type { Env } from '../types/env';
 
@@ -65,7 +70,15 @@ describe('dispatchEvent', () => {
     expect(out).toEqual({ delivered: 1, failed: 0, skipped: 0, attempts: 1 });
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(fetchFn.mock.calls[0][0]).toBe(URL_OK);
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({ endpointId: 'e1', siteId: SITE, ok: true, statusCode: 200, attempt: 1 }));
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpointId: 'e1',
+        siteId: SITE,
+        ok: true,
+        statusCode: 200,
+        attempt: 1,
+      }),
+    );
   });
 
   it('skips disabled + not-subscribed endpoints without fetching', async () => {
@@ -73,7 +86,10 @@ describe('dispatchEvent', () => {
     const out = await dispatchEvent(
       deps,
       EVENT,
-      [endpoint({ id: 'off', enabled: false }), endpoint({ id: 'other', eventTypes: ['payment.succeeded'] })],
+      [
+        endpoint({ id: 'off', enabled: false }),
+        endpoint({ id: 'other', eventTypes: ['payment.succeeded'] }),
+      ],
       SITE,
       TS,
     );
@@ -83,15 +99,21 @@ describe('dispatchEvent', () => {
 
   it('retries on 5xx then succeeds, sleeping with exponential backoff', async () => {
     const { deps, fetchFn, sleep, record } = makeDeps();
-    fetchFn.mockResolvedValueOnce({ status: 503 } as Response).mockResolvedValueOnce({ status: 200 } as Response);
+    fetchFn
+      .mockResolvedValueOnce({ status: 503 } as Response)
+      .mockResolvedValueOnce({ status: 200 } as Response);
 
     const out = await dispatchEvent(deps, EVENT, [endpoint()], SITE, TS);
 
     expect(out).toEqual({ delivered: 1, failed: 0, skipped: 0, attempts: 2 });
     expect(sleep).toHaveBeenCalledTimes(1);
     expect(sleep).toHaveBeenCalledWith(nextRetryDelayMs(1));
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 503, ok: false, attempt: 1 }));
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 200, ok: true, attempt: 2 }));
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 503, ok: false, attempt: 1 }),
+    );
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 200, ok: true, attempt: 2 }),
+    );
   });
 
   it('does NOT retry a permanent 4xx', async () => {
@@ -105,12 +127,16 @@ describe('dispatchEvent', () => {
   });
 
   it('records a sign_error and skips the fetch when decrypt throws', async () => {
-    const { deps, fetchFn, record } = makeDeps({ decrypt: jest.fn().mockRejectedValue(new Error('bad key')) });
+    const { deps, fetchFn, record } = makeDeps({
+      decrypt: jest.fn().mockRejectedValue(new Error('bad key')),
+    });
     const out = await dispatchEvent(deps, EVENT, [endpoint()], SITE, TS);
 
     expect(out).toEqual({ delivered: 0, failed: 1, skipped: 0, attempts: 1 });
     expect(fetchFn).not.toHaveBeenCalled();
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({ error: 'sign_error', ok: false }));
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'sign_error', ok: false }),
+    );
   });
 
   it('records missing_secret when an endpoint has no stored secret', async () => {
@@ -126,22 +152,46 @@ describe('dispatchEvent', () => {
 describe('loadDispatchEndpoints', () => {
   it('maps enabled rows to DispatchEndpoint[] with parsed eventTypes + secret', async () => {
     const { env, captured } = mockEnv([
-      { id: 'e1', url: 'https://a.example.com/h', event_types: '["site.published","form.submitted"]', secret_encrypted: 'enc-a' },
+      {
+        id: 'e1',
+        url: 'https://a.example.com/h',
+        event_types: '["site.published","form.submitted"]',
+        secret_encrypted: 'enc-a',
+      },
     ]);
     const rows = await loadDispatchEndpoints(env, 'site-9');
 
     expect(rows).toEqual([
-      { id: 'e1', url: 'https://a.example.com/h', eventTypes: ['site.published', 'form.submitted'], enabled: true, secretEncrypted: 'enc-a' },
+      {
+        id: 'e1',
+        url: 'https://a.example.com/h',
+        eventTypes: ['site.published', 'form.submitted'],
+        enabled: true,
+        secretEncrypted: 'enc-a',
+      },
     ]);
     expect(captured.boundArgs).toEqual(['site-9']); // scoped to the site (enabled=1 + deleted_at IS NULL in SQL)
   });
 
   it('degrades a malformed event_types row to no subscriptions instead of throwing', async () => {
     const { env } = mockEnv([
-      { id: 'bad', url: 'https://b.example.com/h', event_types: 'not-json', secret_encrypted: 'enc-b' },
+      {
+        id: 'bad',
+        url: 'https://b.example.com/h',
+        event_types: 'not-json',
+        secret_encrypted: 'enc-b',
+      },
     ]);
     const rows = await loadDispatchEndpoints(env, 'site-9');
-    expect(rows).toEqual([{ id: 'bad', url: 'https://b.example.com/h', eventTypes: [], enabled: true, secretEncrypted: 'enc-b' }]);
+    expect(rows).toEqual([
+      {
+        id: 'bad',
+        url: 'https://b.example.com/h',
+        eventTypes: [],
+        enabled: true,
+        secretEncrypted: 'enc-b',
+      },
+    ]);
   });
 
   it('returns [] when the site has no endpoints', async () => {

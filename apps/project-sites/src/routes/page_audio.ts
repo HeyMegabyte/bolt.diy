@@ -34,7 +34,10 @@ export function chunkForTts(text: string, max = 4000): string[] {
   let cur = '';
   for (const s of sentences) {
     if (s.length > max) {
-      if (cur.trim()) { chunks.push(cur.trim()); cur = ''; }
+      if (cur.trim()) {
+        chunks.push(cur.trim());
+        cur = '';
+      }
       for (let i = 0; i < s.length; i += max) chunks.push(s.slice(i, i + max).trim());
       continue;
     }
@@ -53,19 +56,31 @@ export const pageAudio = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 pageAudio.post('/api/sites/:id/page-audio', async (c) => {
   const siteId = c.req.param('id');
-  const on = await isFlagOn(c.env, 'page_audio', { siteId, orgId: c.get('orgId'), userId: c.get('userId') });
+  const on = await isFlagOn(c.env, 'page_audio', {
+    siteId,
+    orgId: c.get('orgId'),
+    userId: c.get('userId'),
+  });
   if (!on) return c.notFound();
 
   const orgId = c.get('orgId');
-  if (!orgId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to generate page audio.' } }, 401);
+  if (!orgId)
+    return c.json(
+      { error: { code: 'UNAUTHORIZED', message: 'Sign in to generate page audio.' } },
+      401,
+    );
 
   const parsed = Body.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Provide page text (1-50000 characters).' } }, 400);
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Provide page text (1-50000 characters).' } },
+      400,
+    );
   }
 
   const chunks = chunkForTts(parsed.data.text);
-  if (!chunks.length) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'No readable text found.' } }, 400);
+  if (!chunks.length)
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'No readable text found.' } }, 400);
 
   const voice = parsed.data.voice ?? 'alloy';
   try {
@@ -76,7 +91,11 @@ pageAudio.post('/api/sites/:id/page-audio', async (c) => {
       script: chunks.map((text) => ({ voice, text })),
       voiceProvider: 'openai',
     });
-    return c.json({ assetId: asset.id, audioUrl: `/api/media/assets/${asset.id}/raw`, segments: chunks.length });
+    return c.json({
+      assetId: asset.id,
+      audioUrl: `/api/media/assets/${asset.id}/raw`,
+      segments: chunks.length,
+    });
   } catch (e) {
     const msg = (e as Error).message;
     const notes =

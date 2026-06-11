@@ -31,7 +31,14 @@ export function classifyUserAgent(ua: string | null): 'desktop' | 'mobile' | 'ta
 export function recordEvent(
   env: Env,
   ev: {
-    event: 'admin_visit' | 'form_submit' | 'ai_call' | 'site_serve' | 'mcp_call' | 'login' | 'signup';
+    event:
+      | 'admin_visit'
+      | 'form_submit'
+      | 'ai_call'
+      | 'site_serve'
+      | 'mcp_call'
+      | 'login'
+      | 'signup';
     routePath?: string;
     siteId?: string | null;
     orgId?: string | null;
@@ -58,10 +65,16 @@ export function recordEvent(
 }
 
 function safeHost(referrer: string): string {
-  try { return new URL(referrer).hostname; } catch { return '-'; }
+  try {
+    return new URL(referrer).hostname;
+  } catch {
+    return '-';
+  }
 }
 
-interface SqlRow { [k: string]: string | number; }
+interface SqlRow {
+  [k: string]: string | number;
+}
 
 /**
  * Query the Analytics Engine SQL API.
@@ -110,21 +123,54 @@ export async function loadOverview(env: Env, orgId: string, days = 30): Promise<
   // CF Analytics Engine: blob1 was event in our writeDataPoint; double1 is count.
   const [total, byDay, byRoute, byUa, byRef, byCountry, lastHour] = await Promise.all([
     querySql(env, `SELECT SUM(_sample_interval) AS visits FROM ${ds} ${where30d}`),
-    querySql(env, `SELECT toStartOfDay(timestamp) AS day, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY day ORDER BY day ASC`),
-    querySql(env, `SELECT blob2 AS route_path, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY route_path ORDER BY visits DESC LIMIT 15`),
-    querySql(env, `SELECT blob5 AS user_agent_class, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY user_agent_class ORDER BY visits DESC`),
-    querySql(env, `SELECT blob6 AS referrer, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY referrer ORDER BY visits DESC LIMIT 15`),
-    querySql(env, `SELECT blob7 AS country, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY country ORDER BY visits DESC LIMIT 15`),
-    querySql(env, `SELECT SUM(_sample_interval) AS visits FROM ${ds} WHERE ${evFilter} AND ${orgFilter} AND timestamp > NOW() - INTERVAL '1' HOUR`),
+    querySql(
+      env,
+      `SELECT toStartOfDay(timestamp) AS day, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY day ORDER BY day ASC`,
+    ),
+    querySql(
+      env,
+      `SELECT blob2 AS route_path, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY route_path ORDER BY visits DESC LIMIT 15`,
+    ),
+    querySql(
+      env,
+      `SELECT blob5 AS user_agent_class, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY user_agent_class ORDER BY visits DESC`,
+    ),
+    querySql(
+      env,
+      `SELECT blob6 AS referrer, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY referrer ORDER BY visits DESC LIMIT 15`,
+    ),
+    querySql(
+      env,
+      `SELECT blob7 AS country, SUM(_sample_interval) AS visits FROM ${ds} ${where30d} GROUP BY country ORDER BY visits DESC LIMIT 15`,
+    ),
+    querySql(
+      env,
+      `SELECT SUM(_sample_interval) AS visits FROM ${ds} WHERE ${evFilter} AND ${orgFilter} AND timestamp > NOW() - INTERVAL '1' HOUR`,
+    ),
   ]);
   return {
     total_visits: Number(total?.[0]?.['visits'] ?? 0),
     unique_orgs: 0,
-    visits_by_day: (byDay ?? []).map((r) => ({ day: String(r['day']), visits: Number(r['visits']) })),
-    top_routes: (byRoute ?? []).map((r) => ({ route_path: String(r['route_path']), visits: Number(r['visits']) })),
-    ua_breakdown: (byUa ?? []).map((r) => ({ user_agent_class: String(r['user_agent_class']), visits: Number(r['visits']) })),
-    top_referrers: (byRef ?? []).map((r) => ({ referrer: String(r['referrer']), visits: Number(r['visits']) })),
-    top_countries: (byCountry ?? []).map((r) => ({ country: String(r['country']), visits: Number(r['visits']) })),
+    visits_by_day: (byDay ?? []).map((r) => ({
+      day: String(r['day']),
+      visits: Number(r['visits']),
+    })),
+    top_routes: (byRoute ?? []).map((r) => ({
+      route_path: String(r['route_path']),
+      visits: Number(r['visits']),
+    })),
+    ua_breakdown: (byUa ?? []).map((r) => ({
+      user_agent_class: String(r['user_agent_class']),
+      visits: Number(r['visits']),
+    })),
+    top_referrers: (byRef ?? []).map((r) => ({
+      referrer: String(r['referrer']),
+      visits: Number(r['visits']),
+    })),
+    top_countries: (byCountry ?? []).map((r) => ({
+      country: String(r['country']),
+      visits: Number(r['visits']),
+    })),
     last_hour_visits: Number(lastHour?.[0]?.['visits'] ?? 0),
   };
 }

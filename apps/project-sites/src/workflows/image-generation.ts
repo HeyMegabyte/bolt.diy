@@ -160,23 +160,20 @@ export class ImageGenerationWorkflow extends WorkflowEntrypoint<Env, ImageGenera
         const [wStr, hStr] = validated.size.split('x');
         const width = Number.parseInt(wStr ?? '1024', 10);
         const height = Number.parseInt(hStr ?? '1024', 10);
-        const res = await fetch(
-          'https://api.stability.ai/v2beta/stable-image/generate/core',
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              Accept: 'image/png',
-            },
-            body: (() => {
-              const fd = new FormData();
-              fd.set('prompt', validated.prompt);
-              fd.set('output_format', 'png');
-              fd.set('aspect_ratio', width >= height ? '16:9' : '9:16');
-              return fd;
-            })(),
+        const res = await fetch('https://api.stability.ai/v2beta/stable-image/generate/core', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: 'image/png',
           },
-        );
+          body: (() => {
+            const fd = new FormData();
+            fd.set('prompt', validated.prompt);
+            fd.set('output_format', 'png');
+            fd.set('aspect_ratio', width >= height ? '16:9' : '9:16');
+            return fd;
+          })(),
+        });
         if (!res.ok) return null;
         const bytes = await res.arrayBuffer();
         return Array.from(new Uint8Array(bytes));

@@ -72,7 +72,11 @@ describe('GET /api/pwa/manifest (route, pwa_manifest_full)', () => {
     mockIsFlagOn.mockResolvedValue(true);
     const res = await features.request('/api/pwa/manifest?org_id=org-9', {}, env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { display: string; screenshots: unknown[]; share_target: unknown };
+    const json = (await res.json()) as {
+      display: string;
+      screenshots: unknown[];
+      share_target: unknown;
+    };
     expect(json.display).toBe('standalone');
     expect(json.screenshots.length).toBeGreaterThanOrEqual(3);
     expect(json.share_target).toBeTruthy();

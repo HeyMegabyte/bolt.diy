@@ -46,12 +46,7 @@ import { Container } from '@cloudflare/containers';
 import type { Env } from '../types/env.js';
 
 /** Container lifecycle states observable from the worker. */
-export type AppRuntimeState =
-  | 'idle'
-  | 'booting'
-  | 'running'
-  | 'crashed'
-  | 'stopped';
+export type AppRuntimeState = 'idle' | 'booting' | 'running' | 'crashed' | 'stopped';
 
 /** Options the dispatcher passes when first booting an instance. */
 export interface AppRuntimeStartOpts {
@@ -159,10 +154,10 @@ export class AppRuntimeContainer extends Container<Env> {
   private metaGet(key: string): string | null {
     if (!this.appSql) return null;
     const row = this.appSql
-      .exec<{ value: string; [k: string]: SqlStorageValue }>(
-        'SELECT value FROM app_meta WHERE key = ?',
-        key,
-      )
+      .exec<{
+        value: string;
+        [k: string]: SqlStorageValue;
+      }>('SELECT value FROM app_meta WHERE key = ?', key)
       .toArray()[0];
     return row?.value ?? null;
   }
@@ -228,11 +223,15 @@ export class AppRuntimeContainer extends Container<Env> {
     this.liveState = 'booting';
     this.writeLog('system', `Booting container · image=${opts.image} port=${opts.port}`);
     try {
-      await this.startAndWaitForPorts([opts.port], { portReadyTimeoutMS: 120_000 }, {
-        envVars: opts.env as Record<string, string>,
-        entrypoint: opts.entrypoint as string[] | undefined,
-        enableInternet: this.enableInternet,
-      });
+      await this.startAndWaitForPorts(
+        [opts.port],
+        { portReadyTimeoutMS: 120_000 },
+        {
+          envVars: opts.env as Record<string, string>,
+          entrypoint: opts.entrypoint as string[] | undefined,
+          enableInternet: this.enableInternet,
+        },
+      );
       this.liveState = 'running';
       this.bootedAt = Date.now();
       this.metaSet('state', 'running');
@@ -446,10 +445,7 @@ export class AppRuntimeContainer extends Container<Env> {
     const now = Date.now();
     this.restartTimestamps = this.restartTimestamps.filter((t) => now - t < RESTART_WINDOW_MS);
     if (this.restartTimestamps.length >= RESTART_MAX_PER_WINDOW) {
-      this.writeLog(
-        'system',
-        `Auto-restart suppressed: ${RESTART_MAX_PER_WINDOW}/min cap hit`,
-      );
+      this.writeLog('system', `Auto-restart suppressed: ${RESTART_MAX_PER_WINDOW}/min cap hit`);
       return;
     }
     this.restartTimestamps.push(now);
@@ -474,10 +470,7 @@ export class AppRuntimeContainer extends Container<Env> {
   override async onStop(params: { exitCode: number; reason: string }): Promise<void> {
     this.liveState = 'stopped';
     this.metaSet('state', 'stopped');
-    this.writeLog(
-      'system',
-      `Container stopped · exit=${params.exitCode} reason=${params.reason}`,
-    );
+    this.writeLog('system', `Container stopped · exit=${params.exitCode} reason=${params.reason}`);
   }
 
   override onError(error: unknown): unknown {

@@ -14,7 +14,10 @@ import type { ProvisionedInfra } from './app_provisioner.js';
 
 export class MissingEnvError extends Error {
   readonly code = 'missing_env';
-  constructor(public readonly key: string, public readonly appId: string) {
+  constructor(
+    public readonly key: string,
+    public readonly appId: string,
+  ) {
     super(`Required env var ${key} for app ${appId} could not be resolved.`);
   }
 }

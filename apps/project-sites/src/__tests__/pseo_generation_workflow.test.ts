@@ -7,15 +7,19 @@
  *
  * `cloudflare:workers` is virtual-mocked; the service deps + step runner are mocked.
  */
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 jest.mock('../services/pseo_matrix.js', () => ({
   __esModule: true,
@@ -23,11 +27,21 @@ jest.mock('../services/pseo_matrix.js', () => ({
   generatePseoPageContent: jest.fn().mockResolvedValue(undefined),
   getPseoMatrixStats: jest.fn().mockResolvedValue({ total: 0 }),
 }));
-jest.mock('../services/db.js', () => ({ __esModule: true, dbQuery: jest.fn().mockResolvedValue({ data: [] }) }));
-jest.mock('../modules/feature_flags/services.js', () => ({ __esModule: true, isFlagOn: jest.fn() }));
+jest.mock('../services/db.js', () => ({
+  __esModule: true,
+  dbQuery: jest.fn().mockResolvedValue({ data: [] }),
+}));
+jest.mock('../modules/feature_flags/services.js', () => ({
+  __esModule: true,
+  isFlagOn: jest.fn(),
+}));
 
 import { PseoGenerationWorkflow } from '../workflows/pseo-generation-workflow.js';
-import { buildPseoMatrix, generatePseoPageContent, getPseoMatrixStats } from '../services/pseo_matrix.js';
+import {
+  buildPseoMatrix,
+  generatePseoPageContent,
+  getPseoMatrixStats,
+} from '../services/pseo_matrix.js';
 import { dbQuery } from '../services/db.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import type { Env } from '../types/env.js';
@@ -51,7 +65,10 @@ function makeStep() {
 
 const run = (step: WorkflowStep) => {
   const wf = new PseoGenerationWorkflow({} as never, { DB: {} } as unknown as Env);
-  const event = { payload: { siteId: 's1', orgId: 'o1' } } as WorkflowEvent<{ siteId: string; orgId: string }>;
+  const event = { payload: { siteId: 's1', orgId: 'o1' } } as WorkflowEvent<{
+    siteId: string;
+    orgId: string;
+  }>;
   return wf.run(event, step);
 };
 

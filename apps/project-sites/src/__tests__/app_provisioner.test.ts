@@ -40,8 +40,7 @@ const deleteProject = neon.deleteProject as unknown as jest.Mock;
 const createDatabase = upstash.createDatabase as unknown as jest.Mock;
 const deleteDatabase = upstash.deleteDatabase as unknown as jest.Mock;
 
-const env = (overrides: Record<string, unknown> = {}): Env =>
-  ({ ...overrides }) as unknown as Env;
+const env = (overrides: Record<string, unknown> = {}): Env => ({ ...overrides }) as unknown as Env;
 
 const ctx = { instanceId: 'abcdef1234567890', slug: 'my-app' };
 

@@ -10,21 +10,27 @@
  *   - ActivityHub mirrors the same pattern for /activity.
  */
 
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) { this.env = env; }
-  },
-  DurableObject: class<E> {
-    ctx: { storage: { sql: { exec: jest.Mock } } };
-    env: E;
-    constructor(ctx: unknown, env: E) {
-      this.ctx = ctx as { storage: { sql: { exec: jest.Mock } } };
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+    DurableObject: class<E> {
+      ctx: { storage: { sql: { exec: jest.Mock } } };
+      env: E;
+      constructor(ctx: unknown, env: E) {
+        this.ctx = ctx as { storage: { sql: { exec: jest.Mock } } };
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 import { TraceHub, ActivityHub } from '../durable_objects/trace_hub.js';
 import type { Env } from '../types/env.js';
@@ -65,14 +71,18 @@ describe('TraceHub (SQLite-backed DO)', () => {
   it('does not re-run schema DDL on subsequent fetches (schemaReady cache)', async () => {
     const { ctx, calls } = makeCtx();
     const hub = new TraceHub(ctx as unknown as DurableObjectState, {} as Env);
-    await hub.fetch(new Request('http://do/events', {
-      method: 'POST',
-      body: JSON.stringify({ service: 'a', level: 'info', message: 'x' }),
-    }));
-    await hub.fetch(new Request('http://do/events', {
-      method: 'POST',
-      body: JSON.stringify({ service: 'b', level: 'info', message: 'y' }),
-    }));
+    await hub.fetch(
+      new Request('http://do/events', {
+        method: 'POST',
+        body: JSON.stringify({ service: 'a', level: 'info', message: 'x' }),
+      }),
+    );
+    await hub.fetch(
+      new Request('http://do/events', {
+        method: 'POST',
+        body: JSON.stringify({ service: 'b', level: 'info', message: 'y' }),
+      }),
+    );
     const schemaCalls = calls.filter((c) => c.sql.includes('CREATE TABLE'));
     expect(schemaCalls.length).toBe(1);
   });
@@ -83,7 +93,17 @@ describe('TraceHub (SQLite-backed DO)', () => {
     ctx.storage.sql.exec.mockReset().mockImplementation((sql: string) => ({
       toArray: () =>
         sql.startsWith('SELECT')
-          ? [{ id: 'r1', ts: 1, request_id: null, service: 'route', level: 'info', message: 'hi', payload: null }]
+          ? [
+              {
+                id: 'r1',
+                ts: 1,
+                request_id: null,
+                service: 'route',
+                level: 'info',
+                message: 'hi',
+                payload: null,
+              },
+            ]
           : [],
     }));
     const hub = new TraceHub(ctx as unknown as DurableObjectState, {} as Env);
@@ -98,10 +118,12 @@ describe('ActivityHub (SQLite-backed DO)', () => {
   it('runs schema DDL and inserts activity rows with parameterized SQL', async () => {
     const { ctx, calls } = makeCtx();
     const hub = new ActivityHub(ctx as unknown as DurableObjectState, {} as Env);
-    const res = await hub.fetch(new Request('http://do/activity', {
-      method: 'POST',
-      body: JSON.stringify({ org_id: 'o1', action: 'site.published', target_id: 's1' }),
-    }));
+    const res = await hub.fetch(
+      new Request('http://do/activity', {
+        method: 'POST',
+        body: JSON.stringify({ org_id: 'o1', action: 'site.published', target_id: 's1' }),
+      }),
+    );
     expect(res.status).toBe(200);
     expect(calls[0]!.sql).toContain('CREATE TABLE IF NOT EXISTS activity_events');
     const insert = calls.find((c) => c.sql.includes('INSERT INTO activity_events'));

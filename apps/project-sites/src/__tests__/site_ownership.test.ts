@@ -56,11 +56,7 @@ describe('assertSiteOwned — multi-tenant ownership guard', () => {
 
     it('passes env.DB as the binding to dbQueryOne', async () => {
       await assertSiteOwned(env, OWNER_ORG, SITE_ID);
-      expect(mockDbQueryOne).toHaveBeenCalledWith(
-        env.DB,
-        expect.any(String),
-        expect.any(Array),
-      );
+      expect(mockDbQueryOne).toHaveBeenCalledWith(env.DB, expect.any(String), expect.any(Array));
     });
   });
 

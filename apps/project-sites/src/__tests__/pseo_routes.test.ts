@@ -374,7 +374,12 @@ describe('POST /api/pseo/:siteId/pages/:pageId/publish', () => {
   });
 
   it('returns 400 when the page has no generated html_content', async () => {
-    mockDbQueryOne.mockResolvedValue({ id: 'p1', html_content: null, route_slug: '/x', status: 'draft' });
+    mockDbQueryOne.mockResolvedValue({
+      id: 'p1',
+      html_content: null,
+      route_slug: '/x',
+      status: 'draft',
+    });
     const env = makeEnv();
     const res = await req(makeApp(AUTH), 'POST', '/api/pseo/site-1/pages/p1/publish', env);
     expect(res.status).toBe(400);
@@ -384,7 +389,12 @@ describe('POST /api/pseo/:siteId/pages/:pageId/publish', () => {
 
   it('returns 404 when the site slug lookup fails after the page check', async () => {
     mockDbQueryOne
-      .mockResolvedValueOnce({ id: 'p1', html_content: '<p>hi</p>', route_slug: '/x', status: 'draft' })
+      .mockResolvedValueOnce({
+        id: 'p1',
+        html_content: '<p>hi</p>',
+        route_slug: '/x',
+        status: 'draft',
+      })
       .mockResolvedValueOnce(null); // site slug lookup
     const env = makeEnv();
     const res = await req(makeApp(AUTH), 'POST', '/api/pseo/site-1/pages/p1/publish', env);
@@ -415,7 +425,10 @@ describe('POST /api/pseo/:siteId/pages/:pageId/publish', () => {
     expect(mockDbUpdate).toHaveBeenCalledWith(
       env.DB,
       'pseo_pages',
-      expect.objectContaining({ status: 'published', r2_path: 'sites/vitos/latest/plumber/newark/index.html' }),
+      expect.objectContaining({
+        status: 'published',
+        r2_path: 'sites/vitos/latest/plumber/newark/index.html',
+      }),
       'id = ?',
       ['p1'],
     );

@@ -240,7 +240,9 @@ snapshotQuality.get('/api/sites/:siteId/snapshots/metrics', async (c) => {
       ORDER BY m.captured_at DESC`,
   )
     .bind(siteId)
-    .all<MetricsRow & { snapshot_name: string; build_version: string; snapshot_created_at: string }>();
+    .all<
+      MetricsRow & { snapshot_name: string; build_version: string; snapshot_created_at: string }
+    >();
 
   const enriched = (rows.results ?? []).map((row) => ({
     ...row,

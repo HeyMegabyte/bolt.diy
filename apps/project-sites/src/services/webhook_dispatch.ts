@@ -51,7 +51,12 @@ export interface DispatchEndpoint extends EndpointForDispatch {
  * @returns enabled, non-deleted endpoints mapped to {@link DispatchEndpoint}.
  */
 export async function loadDispatchEndpoints(env: Env, siteId: string): Promise<DispatchEndpoint[]> {
-  const { data } = await dbQuery<{ id: string; url: string; event_types: string; secret_encrypted: string }>(
+  const { data } = await dbQuery<{
+    id: string;
+    url: string;
+    event_types: string;
+    secret_encrypted: string;
+  }>(
     env.DB,
     `SELECT id, url, event_types, secret_encrypted FROM webhook_endpoints
      WHERE site_id = ? AND enabled = 1 AND deleted_at IS NULL`,

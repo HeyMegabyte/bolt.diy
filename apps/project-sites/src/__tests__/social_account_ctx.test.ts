@@ -15,7 +15,11 @@ jest.mock('../services/ai_crypto.js', () => ({
 
 import { dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { decrypt, encrypt } from '../services/ai_crypto.js';
-import { loadAccount, loadAccountsByIds, markAccountError } from '../services/social_account_ctx.js';
+import {
+  loadAccount,
+  loadAccountsByIds,
+  markAccountError,
+} from '../services/social_account_ctx.js';
 import type { Env } from '../types/env.js';
 
 const mQuery = dbQuery as unknown as jest.Mock;
@@ -28,9 +32,17 @@ const env = { DB: {} } as unknown as Env;
 
 function row(over: Record<string, unknown> = {}) {
   return {
-    id: 'acc-1', org_id: 'org-1', platform: 'x', external_id: 'ext', handle: '@h',
-    access_token_encrypted: 'ct-access', refresh_token_encrypted: 'ct-refresh',
-    token_expires_at: '2030-01-01', scopes: 'read,write', metadata_json: '{"k":1}', status: 'active',
+    id: 'acc-1',
+    org_id: 'org-1',
+    platform: 'x',
+    external_id: 'ext',
+    handle: '@h',
+    access_token_encrypted: 'ct-access',
+    refresh_token_encrypted: 'ct-refresh',
+    token_expires_at: '2030-01-01',
+    scopes: 'read,write',
+    metadata_json: '{"k":1}',
+    status: 'active',
     ...over,
   };
 }
@@ -87,7 +99,9 @@ describe('loadAccountsByIds', () => {
   });
 
   it('skips rows that lack an access token', async () => {
-    mQuery.mockResolvedValue({ data: [row({ id: 'a' }), row({ id: 'b', access_token_encrypted: null })] });
+    mQuery.mockResolvedValue({
+      data: [row({ id: 'a' }), row({ id: 'b', access_token_encrypted: null })],
+    });
     const out = await loadAccountsByIds(env, ['a', 'b']);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('a');
@@ -101,7 +115,10 @@ describe('onTokenRefresh callback', () => {
     await ctx!.onTokenRefresh({ access_token: 'newA', expires_at: '2031-01-01' });
     const [, table, updates, where, params] = mUpdate.mock.calls[0];
     expect(table).toBe('social_accounts');
-    expect(updates).toMatchObject({ access_token_encrypted: 'enc(newA)', token_expires_at: '2031-01-01' });
+    expect(updates).toMatchObject({
+      access_token_encrypted: 'enc(newA)',
+      token_expires_at: '2031-01-01',
+    });
     expect(updates.refresh_token_encrypted).toBeUndefined(); // no refresh supplied
     expect(where).toBe('id = ?');
     expect(params).toEqual(['acc-1']);

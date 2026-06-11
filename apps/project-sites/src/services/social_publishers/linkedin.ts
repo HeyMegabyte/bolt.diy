@@ -29,7 +29,13 @@ export const linkedin: Publisher = {
     }).toString()}`;
   },
   async exchangeCode(env, { code, redirectUri }) {
-    const creds = requireEnv(env, 'linkedin', 'https://www.linkedin.com/developers/apps', 'LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET');
+    const creds = requireEnv(
+      env,
+      'linkedin',
+      'https://www.linkedin.com/developers/apps',
+      'LINKEDIN_CLIENT_ID',
+      'LINKEDIN_CLIENT_SECRET',
+    );
     const res = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
       method: 'POST',
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -41,12 +47,19 @@ export const linkedin: Publisher = {
         client_secret: creds.LINKEDIN_CLIENT_SECRET,
       }).toString(),
     });
-    if (!res.ok) throw new Error(`linkedin_exchange_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
-    const data = (await res.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+    if (!res.ok)
+      throw new Error(`linkedin_exchange_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
+    const data = (await res.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
     const meRes = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${data.access_token}` },
     });
-    const me = meRes.ok ? ((await meRes.json()) as { sub?: string; name?: string; picture?: string }) : {};
+    const me = meRes.ok
+      ? ((await meRes.json()) as { sub?: string; name?: string; picture?: string })
+      : {};
     return {
       access_token: data.access_token,
       refresh_token: data.refresh_token ?? null,
@@ -82,10 +95,14 @@ export const linkedin: Publisher = {
       },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`linkedin_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
+    if (!res.ok)
+      throw new Error(`linkedin_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
     const data = (await res.json()) as { id: string };
     const id = data.id.replace('urn:li:share:', '').replace('urn:li:ugcPost:', '');
-    return { external_id: data.id, external_url: `https://www.linkedin.com/feed/update/${data.id}/` };
+    return {
+      external_id: data.id,
+      external_url: `https://www.linkedin.com/feed/update/${data.id}/`,
+    };
   },
   async fetchAnalytics(_env, account, externalPostId): Promise<AnalyticsSnapshot> {
     // LinkedIn analytics require Marketing Developer Platform access.

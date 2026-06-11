@@ -89,13 +89,7 @@ function makeCtx(): ExecutionContext {
 
 type App = Hono<{ Bindings: Env; Variables: Variables }>;
 
-function req(
-  app: App,
-  path: string,
-  method: string,
-  env: Env,
-  body?: unknown,
-): Promise<Response> {
+function req(app: App, path: string, method: string, env: Env, body?: unknown): Promise<Response> {
   const hasBody = body !== undefined;
   return app.request(
     path,
@@ -285,7 +279,11 @@ describe('POST /api/calendar/events', () => {
     const json = (await res.json()) as { data: { id: string } };
     expect(typeof json.data.id).toBe('string');
     expect(mockDbInsert).toHaveBeenCalledTimes(1);
-    const [, table, record] = mockDbInsert.mock.calls[0]! as [unknown, string, Record<string, unknown>];
+    const [, table, record] = mockDbInsert.mock.calls[0]! as [
+      unknown,
+      string,
+      Record<string, unknown>,
+    ];
     expect(table).toBe('calendar_events');
     expect(record['user_id']).toBe('user-1');
     expect(record['org_id']).toBe('org-1');
@@ -443,7 +441,11 @@ describe('POST /api/calendar/calendars', () => {
       is_default: true,
     });
     expect(res.status).toBe(201);
-    const [, table, record] = mockDbInsert.mock.calls[0]! as [unknown, string, Record<string, unknown>];
+    const [, table, record] = mockDbInsert.mock.calls[0]! as [
+      unknown,
+      string,
+      Record<string, unknown>,
+    ];
     expect(table).toBe('calendar_calendars');
     expect(record['user_id']).toBe('user-1');
     expect(record['org_id']).toBe('org-1');
@@ -522,7 +524,11 @@ describe('POST /api/calendar/bookings', () => {
     expect(res.status).toBe(201);
     const json = (await res.json()) as { data: { id: string; public_url: string } };
     expect(json.data.public_url).toBe('https://projectsites.dev/book/intro-call');
-    const [, table, record] = mockDbInsert.mock.calls[0]! as [unknown, string, Record<string, unknown>];
+    const [, table, record] = mockDbInsert.mock.calls[0]! as [
+      unknown,
+      string,
+      Record<string, unknown>,
+    ];
     expect(table).toBe('calendar_bookings');
     expect(record['user_id']).toBe('user-1');
     expect(record['org_id']).toBe('org-1');

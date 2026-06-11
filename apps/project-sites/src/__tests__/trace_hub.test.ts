@@ -16,23 +16,27 @@
  *   - request_id / actor_id / target_id null-coalescing on POST.
  */
 
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-  DurableObject: class<E> {
-    ctx: { storage: { sql?: { exec: jest.Mock } } };
-    env: E;
-    constructor(ctx: unknown, env: E) {
-      this.ctx = ctx as { storage: { sql?: { exec: jest.Mock } } };
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+    DurableObject: class<E> {
+      ctx: { storage: { sql?: { exec: jest.Mock } } };
+      env: E;
+      constructor(ctx: unknown, env: E) {
+        this.ctx = ctx as { storage: { sql?: { exec: jest.Mock } } };
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 import { TraceHub, ActivityHub } from '../durable_objects/trace_hub.js';
 import type { Env } from '../types/env.js';

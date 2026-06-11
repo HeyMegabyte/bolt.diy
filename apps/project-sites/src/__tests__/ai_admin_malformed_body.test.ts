@@ -21,7 +21,13 @@ const mockDb = {
     const row = isSites
       ? { slug: 'nsk', business_name: 'NSK' }
       : isEndpoints
-        ? { id: 'ep-1', endpoint_slug: 'hello', kind: 'prompt', wfp_script_name: null, language: null }
+        ? {
+            id: 'ep-1',
+            endpoint_slug: 'hello',
+            kind: 'prompt',
+            wfp_script_name: null,
+            language: null,
+          }
         : null;
     return {
       bind: jest.fn(() => ({

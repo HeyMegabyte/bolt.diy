@@ -81,7 +81,10 @@ export async function resolveCfCredentials(env: Env, orgId: string | null): Prom
 }
 
 /** Load + decrypt the stored credentials for an org. Returns `null` if absent. */
-export async function loadCfCredentials(env: Env, orgId: string): Promise<CfCredentialRecord | null> {
+export async function loadCfCredentials(
+  env: Env,
+  orgId: string,
+): Promise<CfCredentialRecord | null> {
   const row = await dbQueryOne<{
     id: string;
     org_id: string;
@@ -108,13 +111,15 @@ export async function loadCfCredentials(env: Env, orgId: string): Promise<CfCred
       org_id: row.org_id,
     };
   } catch (err) {
-    console.warn(JSON.stringify({
-      error: err instanceof Error ? err.message : String(err),
-      level: 'warn',
-      op: 'loadCfCredentials',
-      org_id: orgId,
-      service: 'cf_credentials',
-    }));
+    console.warn(
+      JSON.stringify({
+        error: err instanceof Error ? err.message : String(err),
+        level: 'warn',
+        op: 'loadCfCredentials',
+        org_id: orgId,
+        service: 'cf_credentials',
+      }),
+    );
     return null;
   }
 }
@@ -166,7 +171,9 @@ export async function deleteCfCredentials(env: Env, orgId: string): Promise<void
 export async function validateCfCredentials(
   email: string,
   apiKey: string,
-): Promise<{ ok: true; account_id: string | null } | { ok: false; status: number; message: string }> {
+): Promise<
+  { ok: true; account_id: string | null } | { ok: false; status: number; message: string }
+> {
   try {
     const res = await fetch('https://api.cloudflare.com/client/v4/zones?per_page=1', {
       headers: cfAuthHeaders({ apiKey, email, kind: 'global' }),
@@ -175,7 +182,10 @@ export async function validateCfCredentials(
       const body = await res.text();
       return { message: body.slice(0, 300), ok: false, status: res.status };
     }
-    const json = (await res.json()) as { result?: Array<{ account?: { id?: string } }>; success?: boolean };
+    const json = (await res.json()) as {
+      result?: Array<{ account?: { id?: string } }>;
+      success?: boolean;
+    };
     if (!json.success) {
       return { message: 'Cloudflare API returned success=false', ok: false, status: res.status };
     }

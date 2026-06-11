@@ -70,9 +70,7 @@ function makeWorkflow() {
 function makeBucket(obj: { body: unknown; contentType?: string } | null) {
   return {
     get: jest.fn(async () =>
-      obj
-        ? { body: obj.body, httpMetadata: { contentType: obj.contentType } }
-        : null,
+      obj ? { body: obj.body, httpMetadata: { contentType: obj.contentType } } : null,
     ),
   };
 }
@@ -145,8 +143,9 @@ describe('POST /api/sites/:siteId/snapshots/:snapshotId/capture', () => {
     expect(res.status).toBe(401);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('UNAUTHORIZED');
-    expect((env.SNAPSHOT_QUALITY_WORKFLOW as unknown as { create: jest.Mock }).create)
-      .not.toHaveBeenCalled();
+    expect(
+      (env.SNAPSHOT_QUALITY_WORKFLOW as unknown as { create: jest.Mock }).create,
+    ).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the capture body fails Zod (unknown key / wrong type)', async () => {
@@ -167,8 +166,9 @@ describe('POST /api/sites/:siteId/snapshots/:snapshotId/capture', () => {
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
-    expect((env.SNAPSHOT_QUALITY_WORKFLOW as unknown as { create: jest.Mock }).create)
-      .not.toHaveBeenCalled();
+    expect(
+      (env.SNAPSHOT_QUALITY_WORKFLOW as unknown as { create: jest.Mock }).create,
+    ).not.toHaveBeenCalled();
   });
 
   it('returns 503 when the workflow binding is missing', async () => {
@@ -210,8 +210,9 @@ describe('POST /api/sites/:siteId/snapshots/:snapshotId/capture', () => {
     const env = makeEnv({ DB: makeDb({ snapshot: SNAP_ROW }) });
     const res = await req(makeApp(AUTH), CAPTURE_PATH, env, { method: 'POST' });
     expect(res.status).toBe(200);
-    expect((env.SNAPSHOT_QUALITY_WORKFLOW as unknown as { create: jest.Mock }).create)
-      .toHaveBeenCalledTimes(1);
+    expect(
+      (env.SNAPSHOT_QUALITY_WORKFLOW as unknown as { create: jest.Mock }).create,
+    ).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -254,9 +255,7 @@ describe('GET /api/sites/:siteId/snapshots/:snapshotId/metrics', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: Record<string, unknown> };
     expect(json.data['lh_performance']).toBe(98);
-    expect(json.data['screenshot_url']).toBe(
-      '/api/sites/site-1/snapshots/snap-1/screenshot.png',
-    );
+    expect(json.data['screenshot_url']).toBe('/api/sites/site-1/snapshots/snap-1/screenshot.png');
   });
 
   it('returns a null screenshot_url when the metrics row has no R2 key', async () => {

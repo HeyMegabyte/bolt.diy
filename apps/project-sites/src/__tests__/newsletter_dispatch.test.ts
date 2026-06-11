@@ -79,7 +79,11 @@ describe('dispatchToIntegrations', () => {
     expect(out).toHaveLength(3);
     expect(out.every((r) => r.ok && r.error === null)).toBe(true);
     expect(out.map((r) => r.provider)).toEqual(['mailchimp', 'sendgrid', 'webhook']);
-    expect(out.map((r) => r.integration_id)).toEqual(['int-mailchimp', 'int-sendgrid', 'int-webhook']);
+    expect(out.map((r) => r.integration_id)).toEqual([
+      'int-mailchimp',
+      'int-sendgrid',
+      'int-webhook',
+    ]);
     expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
@@ -218,7 +222,9 @@ describe('klaviyo', () => {
     const headers = init.headers as Record<string, string>;
     expect(headers['Authorization']).toBe('Klaviyo-API-Key key-us21');
     expect(headers['revision']).toBe('2024-10-15');
-    const body = bodyOf() as { data: { attributes: Record<string, unknown>; relationships: Record<string, unknown> } };
+    const body = bodyOf() as {
+      data: { attributes: Record<string, unknown>; relationships: Record<string, unknown> };
+    };
     expect(body.data.attributes['custom_source']).toBe('projectsites:acme:newsletter');
     expect(body.data.relationships).toEqual({ list: { data: { type: 'list', id: 'list-9' } } });
   });
@@ -234,9 +240,7 @@ describe('klaviyo', () => {
 
 describe('resend', () => {
   it('adds a contact to the audience with split name', async () => {
-    await dispatchToIntegrations(submission(), [
-      integration('resend', { list_id: 'aud-42' }),
-    ]);
+    await dispatchToIntegrations(submission(), [integration('resend', { list_id: 'aud-42' })]);
     expect(urlOf()).toBe('https://api.resend.com/audiences/aud-42/contacts');
     const body = bodyOf();
     expect(body).toEqual({
@@ -311,38 +315,34 @@ describe('name + merge-field extraction', () => {
   });
 
   it('omits merge fields entirely when no name can be derived', async () => {
-    await dispatchToIntegrations(
-      submission({ fields: { message: 'hello' } }),
-      [integration('mailchimp')],
-    );
+    await dispatchToIntegrations(submission({ fields: { message: 'hello' } }), [
+      integration('mailchimp'),
+    ]);
     expect(bodyOf()['merge_fields']).toEqual({});
   });
 
   it('does not split a single-word name into first/last', async () => {
-    await dispatchToIntegrations(
-      submission({ fields: { name: 'Cher' } }),
-      [integration('resend', { list_id: 'aud-1' })],
-    );
+    await dispatchToIntegrations(submission({ fields: { name: 'Cher' } }), [
+      integration('resend', { list_id: 'aud-1' }),
+    ]);
     const body = bodyOf();
     expect(body['first_name']).toBeUndefined();
     expect(body['last_name']).toBeUndefined();
   });
 
   it('splits a multi-word combined name into first + remaining last', async () => {
-    await dispatchToIntegrations(
-      submission({ fields: { name: 'Mary Jane Watson' } }),
-      [integration('resend', { list_id: 'aud-1' })],
-    );
+    await dispatchToIntegrations(submission({ fields: { name: 'Mary Jane Watson' } }), [
+      integration('resend', { list_id: 'aud-1' }),
+    ]);
     const body = bodyOf();
     expect(body['first_name']).toBe('Mary');
     expect(body['last_name']).toBe('Jane Watson');
   });
 
   it('ignores blank/whitespace-only field values', async () => {
-    await dispatchToIntegrations(
-      submission({ fields: { first_name: '   ', name: 'Real Name' } }),
-      [integration('resend', { list_id: 'aud-1' })],
-    );
+    await dispatchToIntegrations(submission({ fields: { first_name: '   ', name: 'Real Name' } }), [
+      integration('resend', { list_id: 'aud-1' }),
+    ]);
     // blank first_name is skipped → falls through to combined "name" split
     expect(bodyOf()['first_name']).toBe('Real');
   });

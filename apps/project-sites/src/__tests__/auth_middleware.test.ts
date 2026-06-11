@@ -70,7 +70,12 @@ beforeEach(() => {
 describe('authMiddleware — API-key (psk_) path', () => {
   it('matches the key by SHA-256 hash, never the raw token', async () => {
     const token = 'psk_test_deadbeefcafef00d';
-    mockDbQueryOne.mockResolvedValue({ id: 'k1', org_id: 'org-1', created_by: 'user-1', expires_at: null });
+    mockDbQueryOne.mockResolvedValue({
+      id: 'k1',
+      org_id: 'org-1',
+      created_by: 'user-1',
+      expires_at: null,
+    });
 
     await request({ Authorization: `Bearer ${token}` });
 
@@ -83,7 +88,12 @@ describe('authMiddleware — API-key (psk_) path', () => {
   });
 
   it('authenticates a valid, non-expired key as its creator + org', async () => {
-    mockDbQueryOne.mockResolvedValue({ id: 'k1', org_id: 'org-9', created_by: 'user-7', expires_at: null });
+    mockDbQueryOne.mockResolvedValue({
+      id: 'k1',
+      org_id: 'org-9',
+      created_by: 'user-7',
+      expires_at: null,
+    });
     const res = await request({ Authorization: 'Bearer psk_live_validkey123' });
     const body = (await res.json()) as AuthProbe;
     expect(body).toEqual({ userId: 'user-7', orgId: 'org-9' });
@@ -91,14 +101,24 @@ describe('authMiddleware — API-key (psk_) path', () => {
 
   it('honors a future expiry', async () => {
     const future = new Date(Date.now() + 86_400_000).toISOString();
-    mockDbQueryOne.mockResolvedValue({ id: 'k1', org_id: 'org-9', created_by: 'user-7', expires_at: future });
+    mockDbQueryOne.mockResolvedValue({
+      id: 'k1',
+      org_id: 'org-9',
+      created_by: 'user-7',
+      expires_at: future,
+    });
     const res = await request({ Authorization: 'Bearer psk_test_future' });
     expect(await res.json()).toEqual({ userId: 'user-7', orgId: 'org-9' });
   });
 
   it('does NOT authenticate an expired key', async () => {
     const past = new Date(Date.now() - 1000).toISOString();
-    mockDbQueryOne.mockResolvedValue({ id: 'k1', org_id: 'org-9', created_by: 'user-7', expires_at: past });
+    mockDbQueryOne.mockResolvedValue({
+      id: 'k1',
+      org_id: 'org-9',
+      created_by: 'user-7',
+      expires_at: past,
+    });
     const res = await request({ Authorization: 'Bearer psk_test_expired' });
     expect(await res.json()).toEqual({ userId: null, orgId: null });
   });

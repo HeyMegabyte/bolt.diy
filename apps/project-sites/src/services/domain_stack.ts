@@ -61,7 +61,15 @@ const CF_API = 'https://api.cloudflare.com/client/v4';
 const ACCOUNT_ID = '84fa0d1b16ff8086dd958c468ce7fd59';
 const MAX_RETRIES = 3;
 
-const STEP_ORDER: StackState[] = ['register', 'dns', 'ssl', 'email_auth', 'discovery', 'gsc', 'done'];
+const STEP_ORDER: StackState[] = [
+  'register',
+  'dns',
+  'ssl',
+  'email_auth',
+  'discovery',
+  'gsc',
+  'done',
+];
 
 // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -171,12 +179,22 @@ export async function advanceStackRun(env: Env, runId: string): Promise<StackRun
     return await transitionNext(env, { ...run, step_results: updated }, step, result);
   }
 
-  return { ...run, step_results: updated, retries: run.retries + 1, last_error: result.error ?? null };
+  return {
+    ...run,
+    step_results: updated,
+    retries: run.retries + 1,
+    last_error: result.error ?? null,
+  };
 }
 
 // ─── Step runner ─────────────────────────────────────────────────────────
 
-async function runStep(env: Env, run: StackRun, step: StackState, prev: StepResult): Promise<StepResult> {
+async function runStep(
+  env: Env,
+  run: StackRun,
+  step: StackState,
+  prev: StepResult,
+): Promise<StepResult> {
   const attempts = prev.attempts + 1;
   try {
     switch (step) {
@@ -220,12 +238,20 @@ async function stepDns(env: Env, run: StackRun, attempts: number): Promise<StepR
   const resp = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'CNAME', name: run.hostname, content: cname, proxied: true, ttl: 1 }),
+    body: JSON.stringify({
+      type: 'CNAME',
+      name: run.hostname,
+      content: cname,
+      proxied: true,
+      ttl: 1,
+    }),
   });
-  const body = await resp.json() as { success: boolean; errors?: Array<{ message: string }> };
+  const body = (await resp.json()) as { success: boolean; errors?: Array<{ message: string }> };
   if (!body.success) {
     // Code 81057 = record already exists — idempotent success
-    const alreadyExists = body.errors?.some((e) => e.message.includes('already exists') || String(e).includes('81057'));
+    const alreadyExists = body.errors?.some(
+      (e) => e.message.includes('already exists') || String(e).includes('81057'),
+    );
     if (!alreadyExists) {
       return { ok: false, error: body.errors?.[0]?.message ?? 'DNS CNAME failed', attempts };
     }
@@ -246,7 +272,10 @@ async function stepSsl(env: Env, run: StackRun, attempts: number): Promise<StepR
     `${CF_API}/zones/${cfZone}/custom_hostnames?hostname=${encodeURIComponent(run.hostname)}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
-  const checkBody = await checkResp.json() as { success: boolean; result?: Array<{ ssl?: { status: string } }> };
+  const checkBody = (await checkResp.json()) as {
+    success: boolean;
+    result?: Array<{ ssl?: { status: string } }>;
+  };
   const existing = checkBody.result?.[0];
   if (existing?.ssl?.status === 'active') {
     return { ok: true, attempts, data: { ssl_status: 'active' } };
@@ -256,14 +285,30 @@ async function stepSsl(env: Env, run: StackRun, attempts: number): Promise<StepR
     const createResp = await fetch(`${CF_API}/zones/${cfZone}/custom_hostnames`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hostname: run.hostname, ssl: { method: 'http', type: 'dv', settings: { min_tls_version: '1.2' } } }),
+      body: JSON.stringify({
+        hostname: run.hostname,
+        ssl: { method: 'http', type: 'dv', settings: { min_tls_version: '1.2' } },
+      }),
     });
-    const createBody = await createResp.json() as { success: boolean; result?: { ssl?: { status: string } }; errors?: Array<{ message: string }> };
+    const createBody = (await createResp.json()) as {
+      success: boolean;
+      result?: { ssl?: { status: string } };
+      errors?: Array<{ message: string }>;
+    };
     if (!createBody.success) {
-      return { ok: false, error: createBody.errors?.[0]?.message ?? 'Custom hostname creation failed', attempts };
+      return {
+        ok: false,
+        error: createBody.errors?.[0]?.message ?? 'Custom hostname creation failed',
+        attempts,
+      };
     }
     const sslStatus = createBody.result?.ssl?.status ?? 'pending';
-    return { ok: sslStatus === 'active', error: sslStatus !== 'active' ? 'SSL pending — retry' : undefined, attempts, data: { ssl_status: sslStatus } };
+    return {
+      ok: sslStatus === 'active',
+      error: sslStatus !== 'active' ? 'SSL pending — retry' : undefined,
+      attempts,
+      data: { ssl_status: sslStatus },
+    };
   }
 
   // ssl not active yet
@@ -282,9 +327,19 @@ async function stepEmailAuth(env: Env, run: StackRun, attempts: number): Promise
     // SPF
     { type: 'TXT', name: domain, content: '"v=spf1 include:_spf.projectsites.dev ~all"', ttl: 300 },
     // DMARC
-    { type: 'TXT', name: `_dmarc.${domain}`, content: '"v=DMARC1; p=quarantine; rua=mailto:dmarc@projectsites.dev; adkim=r; aspf=r"', ttl: 300 },
+    {
+      type: 'TXT',
+      name: `_dmarc.${domain}`,
+      content: '"v=DMARC1; p=quarantine; rua=mailto:dmarc@projectsites.dev; adkim=r; aspf=r"',
+      ttl: 300,
+    },
     // DKIM selector (placeholder public key — real key provisioned by email provider)
-    { type: 'TXT', name: `ps._domainkey.${domain}`, content: '"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAplaceholder"', ttl: 300 },
+    {
+      type: 'TXT',
+      name: `ps._domainkey.${domain}`,
+      content: '"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAplaceholder"',
+      ttl: 300,
+    },
     // MX — route to projectsites mail relay
     { type: 'MX', name: domain, content: 'mail.projectsites.dev', priority: 10, ttl: 300 },
   ];
@@ -296,9 +351,11 @@ async function stepEmailAuth(env: Env, run: StackRun, attempts: number): Promise
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(record),
     });
-    const body = await resp.json() as { success: boolean; errors?: Array<{ message: string }> };
+    const body = (await resp.json()) as { success: boolean; errors?: Array<{ message: string }> };
     if (!body.success) {
-      const alreadyExists = body.errors?.some((e) => e.message.includes('already exists') || String(e).includes('81057'));
+      const alreadyExists = body.errors?.some(
+        (e) => e.message.includes('already exists') || String(e).includes('81057'),
+      );
       if (!alreadyExists) errors.push(body.errors?.[0]?.message ?? 'DNS error');
     }
   }
@@ -318,11 +375,9 @@ Policy: https://projectsites.dev/security
 Canonical: https://${run.hostname}/.well-known/security.txt
 `;
   try {
-    await env.SITES_BUCKET.put(
-      `sites/${run.hostname}/.well-known/security.txt`,
-      securityTxt,
-      { httpMetadata: { contentType: 'text/plain; charset=utf-8' } },
-    );
+    await env.SITES_BUCKET.put(`sites/${run.hostname}/.well-known/security.txt`, securityTxt, {
+      httpMetadata: { contentType: 'text/plain; charset=utf-8' },
+    });
     return { ok: true, attempts, data: { path: `sites/${run.hostname}/.well-known/security.txt` } };
   } catch (err) {
     return { ok: false, error: String(err), attempts };
@@ -332,7 +387,8 @@ Canonical: https://${run.hostname}/.well-known/security.txt
 async function stepGsc(env: Env, run: StackRun, attempts: number): Promise<StepResult> {
   const token = (env as unknown as Record<string, string>)['CLOUDFLARE_API_TOKEN'] ?? '';
   const zoneId = (env as unknown as Record<string, string>)['CF_ZONE_ID'] ?? '';
-  const gscToken = (env as unknown as Record<string, string>)['GOOGLE_SEARCH_CONSOLE_VERIFY_TOKEN'] ?? '';
+  const gscToken =
+    (env as unknown as Record<string, string>)['GOOGLE_SEARCH_CONSOLE_VERIFY_TOKEN'] ?? '';
 
   if (!token || !zoneId) {
     return { ok: false, error: 'CLOUDFLARE_API_TOKEN or CF_ZONE_ID not configured', attempts };
@@ -340,7 +396,11 @@ async function stepGsc(env: Env, run: StackRun, attempts: number): Promise<StepR
 
   // If no GSC token configured, skip gracefully
   if (!gscToken) {
-    return { ok: true, attempts, data: { skipped: true, reason: 'GOOGLE_SEARCH_CONSOLE_VERIFY_TOKEN not set' } };
+    return {
+      ok: true,
+      attempts,
+      data: { skipped: true, reason: 'GOOGLE_SEARCH_CONSOLE_VERIFY_TOKEN not set' },
+    };
   }
 
   const resp = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
@@ -353,9 +413,11 @@ async function stepGsc(env: Env, run: StackRun, attempts: number): Promise<StepR
       ttl: 300,
     }),
   });
-  const body = await resp.json() as { success: boolean; errors?: Array<{ message: string }> };
+  const body = (await resp.json()) as { success: boolean; errors?: Array<{ message: string }> };
   if (!body.success) {
-    const alreadyExists = body.errors?.some((e) => e.message.includes('already exists') || String(e).includes('81057'));
+    const alreadyExists = body.errors?.some(
+      (e) => e.message.includes('already exists') || String(e).includes('81057'),
+    );
     if (!alreadyExists) {
       return { ok: false, error: body.errors?.[0]?.message ?? 'GSC TXT record failed', attempts };
     }
@@ -365,11 +427,15 @@ async function stepGsc(env: Env, run: StackRun, attempts: number): Promise<StepR
 
 // ─── State transitions ────────────────────────────────────────────────────
 
-async function transitionNext(env: Env, run: StackRun, completedStep: StackState, result: StepResult): Promise<StackRun> {
+async function transitionNext(
+  env: Env,
+  run: StackRun,
+  completedStep: StackState,
+  result: StepResult,
+): Promise<StackRun> {
   const idx = STEP_ORDER.indexOf(completedStep);
-  const nextState: StackState = idx >= 0 && idx < STEP_ORDER.length - 1
-    ? STEP_ORDER[idx + 1]
-    : 'done';
+  const nextState: StackState =
+    idx >= 0 && idx < STEP_ORDER.length - 1 ? STEP_ORDER[idx + 1] : 'done';
 
   const now = new Date().toISOString();
   await dbUpdate(
@@ -385,12 +451,24 @@ async function transitionNext(env: Env, run: StackRun, completedStep: StackState
     [run.id],
   );
 
-  return { ...run, state: nextState, step_results: { ...run.step_results, [completedStep]: result }, updated_at: now, done_at: nextState === 'done' ? now : null };
+  return {
+    ...run,
+    state: nextState,
+    step_results: { ...run.step_results, [completedStep]: result },
+    updated_at: now,
+    done_at: nextState === 'done' ? now : null,
+  };
 }
 
 async function markError(env: Env, run: StackRun, error: string): Promise<StackRun> {
   const now = new Date().toISOString();
-  await dbUpdate(env.DB, 'domain_stack_runs', { state: 'error', last_error: error, updated_at: now }, 'id = ?', [run.id]);
+  await dbUpdate(
+    env.DB,
+    'domain_stack_runs',
+    { state: 'error', last_error: error, updated_at: now },
+    'id = ?',
+    [run.id],
+  );
   return { ...run, state: 'error', last_error: error, updated_at: now };
 }
 
@@ -399,8 +477,9 @@ async function markError(env: Env, run: StackRun, error: string): Promise<StackR
 function deserialize(row: StackRun): StackRun {
   return {
     ...row,
-    step_results: typeof row.step_results === 'string'
-      ? (JSON.parse(row.step_results as unknown as string) as Record<string, StepResult>)
-      : (row.step_results ?? {}),
+    step_results:
+      typeof row.step_results === 'string'
+        ? (JSON.parse(row.step_results as unknown as string) as Record<string, StepResult>)
+        : (row.step_results ?? {}),
   };
 }

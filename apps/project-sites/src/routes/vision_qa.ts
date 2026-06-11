@@ -42,8 +42,17 @@ const AXIS_HINTS: Record<string, string> = {
  * Turn a rubric into plain-English findings: any axis scoring below 7 becomes a
  * fix suggestion. Pure + deterministic (exported for unit tests).
  */
-export function rubricToFindings(score: VisionScore): Array<{ axis: string; value: number; suggestion: string }> {
-  const axes: Array<keyof VisionScore> = ['layout', 'typography', 'color', 'imagery', 'whitespace', 'distinctiveness'];
+export function rubricToFindings(
+  score: VisionScore,
+): Array<{ axis: string; value: number; suggestion: string }> {
+  const axes: Array<keyof VisionScore> = [
+    'layout',
+    'typography',
+    'color',
+    'imagery',
+    'whitespace',
+    'distinctiveness',
+  ];
   const out: Array<{ axis: string; value: number; suggestion: string }> = [];
   for (const a of axes) {
     const v = score[a];
@@ -58,14 +67,22 @@ export function rubricToFindings(score: VisionScore): Array<{ axis: string; valu
 function bytesToDataUrl(bytes: Uint8Array, contentType = 'image/png'): string {
   let binary = '';
   const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  for (let i = 0; i < bytes.length; i += CHUNK)
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   return `data:${contentType};base64,${btoa(binary)}`;
 }
 
 async function scoreImageBytes(env: Env, bytes: Uint8Array): Promise<VisionScore> {
   const fallback = (notes: string): VisionScore => ({
-    layout: null, typography: null, color: null, imagery: null, whitespace: null, distinctiveness: null,
-    overall: null, notes, model: VISION_MODEL,
+    layout: null,
+    typography: null,
+    color: null,
+    imagery: null,
+    whitespace: null,
+    distinctiveness: null,
+    overall: null,
+    notes,
+    model: VISION_MODEL,
   });
   if (!env.AI) return fallback('model_unavailable');
   const system =
@@ -79,16 +96,27 @@ async function scoreImageBytes(env: Env, bytes: Uint8Array): Promise<VisionScore
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Score this page screenshot and reply with the JSON rubric only.' },
+            {
+              type: 'text',
+              text: 'Score this page screenshot and reply with the JSON rubric only.',
+            },
             { type: 'image_url', image_url: { url: bytesToDataUrl(bytes) } },
           ],
         },
       ],
       max_tokens: 512,
     })) as { response?: string } | string;
-    const raw = typeof response === 'string' ? response : typeof response?.response === 'string' ? response.response : '';
+    const raw =
+      typeof response === 'string'
+        ? response
+        : typeof response?.response === 'string'
+          ? response.response
+          : '';
     if (!raw) return fallback('empty_response');
-    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    const cleaned = raw
+      .replace(/```json\s*/gi, '')
+      .replace(/```/g, '')
+      .trim();
     const a = cleaned.indexOf('{');
     const b = cleaned.lastIndexOf('}');
     if (a === -1 || b <= a) return fallback('parse_failed');
@@ -98,20 +126,35 @@ async function scoreImageBytes(env: Env, bytes: Uint8Array): Promise<VisionScore
     } catch {
       return fallback('parse_failed');
     }
-    const rubric = (parsed.score as Record<string, unknown>) || (parsed.rubric as Record<string, unknown>) || parsed;
+    const rubric =
+      (parsed.score as Record<string, unknown>) ||
+      (parsed.rubric as Record<string, unknown>) ||
+      parsed;
     const num = (k: string): number | null => {
       const v = rubric[k];
       if (typeof v === 'number' && Number.isFinite(v)) return Math.max(0, Math.min(10, v));
-      if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v))) return Math.max(0, Math.min(10, Number(v)));
+      if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v)))
+        return Math.max(0, Math.min(10, Number(v)));
       return null;
     };
     const axes = {
-      layout: num('layout'), typography: num('typography'), color: num('color'),
-      imagery: num('imagery'), whitespace: num('whitespace'), distinctiveness: num('distinctiveness'),
+      layout: num('layout'),
+      typography: num('typography'),
+      color: num('color'),
+      imagery: num('imagery'),
+      whitespace: num('whitespace'),
+      distinctiveness: num('distinctiveness'),
     };
     const present = Object.values(axes).filter((v): v is number => v !== null);
-    const overall = present.length ? Math.round((present.reduce((s, v) => s + v, 0) / present.length) * 10) / 10 : null;
-    return { ...axes, overall, notes: typeof rubric.notes === 'string' ? rubric.notes : '', model: VISION_MODEL };
+    const overall = present.length
+      ? Math.round((present.reduce((s, v) => s + v, 0) / present.length) * 10) / 10
+      : null;
+    return {
+      ...axes,
+      overall,
+      notes: typeof rubric.notes === 'string' ? rubric.notes : '',
+      model: VISION_MODEL,
+    };
   } catch (err) {
     return fallback(`vision_failed: ${(err as Error).message}`.slice(0, 200));
   }
@@ -144,10 +187,15 @@ visionQa.post('/api/vision-qa', async (c) => {
 
   const body = (await c.req.json().catch(() => ({}))) as { url?: string };
   const url = (body.url ?? '').trim();
-  if (!/^https:\/\//i.test(url)) return c.json({ error: { code: 'BAD_REQUEST', message: 'A https url is required.' } }, 400);
+  if (!/^https:\/\//i.test(url))
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'A https url is required.' } }, 400);
 
   const bytes = await screenshot(c.env, url).catch(() => null);
-  if (!bytes) return c.json({ score: null, findings: [], notes: 'Browser Rendering binding unavailable.' }, 200);
+  if (!bytes)
+    return c.json(
+      { score: null, findings: [], notes: 'Browser Rendering binding unavailable.' },
+      200,
+    );
 
   const score = await scoreImageBytes(c.env, bytes);
   return c.json({ score, findings: rubricToFindings(score) });

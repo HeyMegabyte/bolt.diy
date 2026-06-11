@@ -82,7 +82,9 @@ export async function createDatabase(
   });
   const json = (await res.json().catch(() => ({}))) as UpstashCreateDbResponse;
   if (!res.ok || !json.database_id) {
-    throw new Error(`Upstash createDatabase failed: ${res.status} ${json.message ?? JSON.stringify(json).slice(0, 200)}`);
+    throw new Error(
+      `Upstash createDatabase failed: ${res.status} ${json.message ?? JSON.stringify(json).slice(0, 200)}`,
+    );
   }
   const endpoint = json.endpoint ?? '';
   const port = json.port ?? 6379;

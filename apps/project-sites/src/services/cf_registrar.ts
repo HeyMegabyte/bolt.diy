@@ -363,9 +363,7 @@ export async function registerDomain(
   // either shape keep working.
   const c = opts.contact;
   const fullName =
-    c.name ||
-    [c.first_name, c.last_name].filter(Boolean).join(' ').trim() ||
-    'Site Owner';
+    c.name || [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || 'Site Owner';
   const street = c.street || c.address || '';
   const postalCode = c.postal_code || c.zip || '';
   const countryCode = (c.country_code || c.country || 'US').toUpperCase().slice(0, 2);

@@ -148,9 +148,7 @@ describe('querySql', () => {
     const rows = await querySql(makeEnv(), 'SELECT 1');
     expect(rows).toEqual([{ visits: 7 }]);
     const [url, init] = mockFetch.mock.calls[0];
-    expect(url).toBe(
-      `https://api.cloudflare.com/client/v4/accounts/${ACCT}/analytics_engine/sql`,
-    );
+    expect(url).toBe(`https://api.cloudflare.com/client/v4/accounts/${ACCT}/analytics_engine/sql`);
     expect(init.method).toBe('POST');
     expect(init.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     expect(init.headers['Content-Type']).toBe('text/plain');
@@ -214,7 +212,7 @@ describe('loadOverview', () => {
     expect(out.top_countries).toEqual([]);
   });
 
-  it("escapes single quotes in orgId to prevent SQL breakage", async () => {
+  it('escapes single quotes in orgId to prevent SQL breakage', async () => {
     queueOverviewResponses();
     await loadOverview(makeEnv(), "o'rg", 30);
     const totalSql = mockFetch.mock.calls[0][1].body as string;

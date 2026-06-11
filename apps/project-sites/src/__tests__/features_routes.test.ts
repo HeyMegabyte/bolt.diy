@@ -67,13 +67,13 @@ describe('features public discovery routes (LIVE flag surfaces)', () => {
   it('GET /api/openapi.json → 200 OpenAPI 3.1', async () => {
     const res = await get('/api/openapi.json');
     expect(res.status).toBe(200);
-    expect((await res.json() as { openapi: string }).openapi).toBe('3.1.0');
+    expect(((await res.json()) as { openapi: string }).openapi).toBe('3.1.0');
   });
 
   it('GET /api/cli/version → 200 with commands', async () => {
     const res = await get('/api/cli/version');
     expect(res.status).toBe(200);
-    expect((await res.json() as { commands: string[] }).commands).toContain('deploy');
+    expect(((await res.json()) as { commands: string[] }).commands).toContain('deploy');
   });
 });
 
@@ -88,15 +88,38 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
   });
 
   it('KEEPS the core + surviving flags', async () => {
-    const keys = ((await (await get('/api/feature-flags')).json()) as { flags: Array<{ key: string }> }).flags.map((f) => f.key);
-    for (const k of ['core_auth', 'core_billing', 'core_feature_flags', 'mcp_server', 'public_api', 'abuse_takedown']) {
+    const keys = (
+      (await (await get('/api/feature-flags')).json()) as { flags: Array<{ key: string }> }
+    ).flags.map((f) => f.key);
+    for (const k of [
+      'core_auth',
+      'core_billing',
+      'core_feature_flags',
+      'mcp_server',
+      'public_api',
+      'abuse_takedown',
+    ]) {
       expect(keys).toContain(k);
     }
   });
 
   it('EXCLUDES the 2026-06-07 removed flags (trim holds)', async () => {
-    const keys = ((await (await get('/api/feature-flags')).json()) as { flags: Array<{ key: string }> }).flags.map((f) => f.key);
-    for (const k of ['crm_engine', 'cdp_engine', 'lms_engine', 'donations_engine', 'dunning_recovery', 'stripe_meters', 'ecommerce_engine', 'native_booking_engine', 'membership_paywall', 'swarm_editor', 'public_api_v1']) {
+    const keys = (
+      (await (await get('/api/feature-flags')).json()) as { flags: Array<{ key: string }> }
+    ).flags.map((f) => f.key);
+    for (const k of [
+      'crm_engine',
+      'cdp_engine',
+      'lms_engine',
+      'donations_engine',
+      'dunning_recovery',
+      'stripe_meters',
+      'ecommerce_engine',
+      'native_booking_engine',
+      'membership_paywall',
+      'swarm_editor',
+      'public_api_v1',
+    ]) {
       expect(keys).not.toContain(k);
     }
   });
@@ -106,7 +129,10 @@ describe('GET /api/feature-flags/:key', () => {
   it('200s with definition + resolved state for a known flag', async () => {
     const res = await get('/api/feature-flags/core_auth');
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { definition: { key: string }; resolved: { enabled: boolean } };
+    const json = (await res.json()) as {
+      definition: { key: string };
+      resolved: { enabled: boolean };
+    };
     expect(json.definition.key).toBe('core_auth');
     expect(typeof json.resolved.enabled).toBe('boolean');
   });
@@ -120,7 +146,10 @@ describe('GET /api/site-features (owner catalog, plan-aware)', () => {
   it('returns the owner feature catalog with a fallback free plan', async () => {
     const res = await get('/api/site-features');
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { features: Array<{ key: string; entitled: string }>; plan: string };
+    const json = (await res.json()) as {
+      features: Array<{ key: string; entitled: string }>;
+      plan: string;
+    };
     expect(json.plan).toBe('free');
     expect(json.features.length).toBeGreaterThanOrEqual(8); // the trimmed "handful"
     expect(json.features.map((f) => f.key)).toContain('donations_engine');
@@ -129,7 +158,15 @@ describe('GET /api/site-features (owner catalog, plan-aware)', () => {
 
 describe('POST /api/site-features/:key', () => {
   const post = (path: string, body: unknown) =>
-    features.request(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, env);
+    features.request(
+      path,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      env,
+    );
 
   it('404s for a key not in the catalog', async () => {
     expect((await post('/api/site-features/not_a_feature', { site_id: 's1' })).status).toBe(404);

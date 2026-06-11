@@ -91,7 +91,10 @@ export const TEMPLATE_VARIABLES: ReadonlyArray<{
   { token: '{{form.form_name}}', description: 'The form’s name (e.g. "contact", "newsletter").' },
   { token: '{{form.email}}', description: 'Submitter’s email address.' },
   { token: '{{form.fields}}', description: 'All submitted fields as JSON.' },
-  { token: '{{form.fields.<name>}}', description: 'Any specific field by key (e.g. {{form.fields.message}}).' },
+  {
+    token: '{{form.fields.<name>}}',
+    description: 'Any specific field by key (e.g. {{form.fields.message}}).',
+  },
   { token: '{{query.<name>}}', description: 'A URL query parameter (e.g. {{query.utm_source}}).' },
   { token: '{{meta.ip}}', description: 'Submitter’s IP address.' },
   { token: '{{meta.user_agent}}', description: 'Browser user agent string.' },

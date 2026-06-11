@@ -112,18 +112,14 @@ describe('handleInboundCall', () => {
   });
 
   it('omits the recording clause when recording_enabled is 0', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce(NUM_ROW)
-      .mockResolvedValueOnce({ recording_enabled: 0 });
+    mockQueryOne.mockResolvedValueOnce(NUM_ROW).mockResolvedValueOnce({ recording_enabled: 0 });
     const out = await handleInboundCall(makeEnv(), payload, 'host.dev');
     expect(out).not.toContain('recordingStatusCallback=');
     expect(out).toContain('<Connect><Stream url=');
   });
 
   it('defaults to recording on when settings row is empty (recording_enabled undefined)', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce(NUM_ROW)
-      .mockResolvedValueOnce(null); // loadAgentSettings → {} fallback
+    mockQueryOne.mockResolvedValueOnce(NUM_ROW).mockResolvedValueOnce(null); // loadAgentSettings → {} fallback
     const out = await handleInboundCall(makeEnv(), payload, 'host.dev');
     // undefined !== 0 → recording clause included
     expect(out).toContain('recordingStatusCallback=');
@@ -167,7 +163,11 @@ describe('handleInboundSms', () => {
       .mockResolvedValueOnce(NUM_ROW) // voice_numbers
       .mockResolvedValueOnce({}) // loadAgentSettings
       .mockResolvedValueOnce({ business_name: 'Acme', business_address: '1 Main St' }); // profile
-    mockReply.mockResolvedValueOnce({ replyText: 'Thanks for reaching out!', signal: 'ok', sent: true });
+    mockReply.mockResolvedValueOnce({
+      replyText: 'Thanks for reaching out!',
+      signal: 'ok',
+      sent: true,
+    });
 
     const out = await handleInboundSms(makeEnv(), sms);
     expect(out).toContain('<Message>Thanks for reaching out!</Message>');

@@ -39,8 +39,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-const keyEnv = (key = 'neon-key-abc'): Env =>
-  ({ NEON_API_KEY: key }) as unknown as Env;
+const keyEnv = (key = 'neon-key-abc'): Env => ({ NEON_API_KEY: key }) as unknown as Env;
 
 const noKeyEnv = (): Env => ({}) as unknown as Env;
 
@@ -82,9 +81,7 @@ describe('MissingNeonKeyError', () => {
 
 describe('createProject', () => {
   it('throws MissingNeonKeyError when NEON_API_KEY is absent (no fetch)', async () => {
-    await expect(createProject(noKeyEnv(), 'my-app')).rejects.toBeInstanceOf(
-      MissingNeonKeyError,
-    );
+    await expect(createProject(noKeyEnv(), 'my-app')).rejects.toBeInstanceOf(MissingNeonKeyError);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -137,8 +134,7 @@ describe('createProject', () => {
       successBody({
         connection_uris: [
           {
-            connection_uri:
-              'postgresql://a%40b:p%40ss@host.neon.tech/db1?sslmode=require',
+            connection_uri: 'postgresql://a%40b:p%40ss@host.neon.tech/db1?sslmode=require',
           },
         ],
       }),
@@ -169,10 +165,7 @@ describe('createProject', () => {
   });
 
   it('falls back to empty fields when neither URI nor roles supply them', async () => {
-    mockFetchOnce(
-      { project: { id: 'proj-789' } },
-      { ok: true, status: 201 },
-    );
+    mockFetchOnce({ project: { id: 'proj-789' } }, { ok: true, status: 201 });
     const res = await createProject(keyEnv(), 'app');
     expect(res.projectId).toBe('proj-789');
     expect(res.connectionString).toBe('');
@@ -183,10 +176,7 @@ describe('createProject', () => {
   });
 
   it('throws when the response is non-200', async () => {
-    mockFetchOnce(
-      { message: 'quota exceeded' },
-      { ok: false, status: 402 },
-    );
+    mockFetchOnce({ message: 'quota exceeded' }, { ok: false, status: 402 });
     await expect(createProject(keyEnv(), 'app')).rejects.toThrow(
       /Neon createProject failed: 402 quota exceeded/,
     );
@@ -194,9 +184,7 @@ describe('createProject', () => {
 
   it('throws when ok but project.id is missing', async () => {
     mockFetchOnce({ project: {} }, { ok: true, status: 200 });
-    await expect(createProject(keyEnv(), 'app')).rejects.toThrow(
-      /Neon createProject failed: 200/,
-    );
+    await expect(createProject(keyEnv(), 'app')).rejects.toThrow(/Neon createProject failed: 200/);
   });
 
   it('handles a non-JSON response body gracefully (json throws → empty body)', async () => {
@@ -207,9 +195,7 @@ describe('createProject', () => {
         throw new Error('not json');
       },
     });
-    await expect(createProject(keyEnv(), 'app')).rejects.toThrow(
-      /Neon createProject failed: 500/,
-    );
+    await expect(createProject(keyEnv(), 'app')).rejects.toThrow(/Neon createProject failed: 500/);
   });
 
   it('propagates a network throw from fetch', async () => {
@@ -222,9 +208,7 @@ describe('createProject', () => {
 
 describe('deleteProject', () => {
   it('throws MissingNeonKeyError when NEON_API_KEY is absent (no fetch)', async () => {
-    await expect(deleteProject(noKeyEnv(), 'proj-123')).rejects.toBeInstanceOf(
-      MissingNeonKeyError,
-    );
+    await expect(deleteProject(noKeyEnv(), 'proj-123')).rejects.toBeInstanceOf(MissingNeonKeyError);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

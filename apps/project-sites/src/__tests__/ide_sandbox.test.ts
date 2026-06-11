@@ -52,7 +52,12 @@ interface DbOpts {
   allThrows?: boolean;
 }
 
-function makeEnv(opts: DbOpts = {}): { env: Env; prepare: jest.Mock; run: jest.Mock; bind: jest.Mock } {
+function makeEnv(opts: DbOpts = {}): {
+  env: Env;
+  prepare: jest.Mock;
+  run: jest.Mock;
+  bind: jest.Mock;
+} {
   const run = jest.fn(async () => {
     if (opts.runThrows) throw new Error('D1 write failed');
     return { success: true };
@@ -207,7 +212,13 @@ describe('getSandboxStatus', () => {
     const created = new Date(Date.now() - 120_000).toISOString(); // 2 min ago
     const last = new Date(Date.now() - 30_000).toISOString(); // 30s ago
     const { env } = makeEnv({
-      first: { state: 'ready', site_id: 'site-9', user_id: 'u-9', created_at: created, last_activity_at: last },
+      first: {
+        state: 'ready',
+        site_id: 'site-9',
+        user_id: 'u-9',
+        created_at: created,
+        last_activity_at: last,
+      },
     });
     const out = await getSandboxStatus(env, 'sb-9');
     expect(out.state).toBe('ready');
@@ -221,7 +232,13 @@ describe('getSandboxStatus', () => {
   it('clamps auto_destroy_in_seconds at 0 for a stale sandbox', async () => {
     const created = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1h ago
     const { env } = makeEnv({
-      first: { state: 'ready', site_id: 's', user_id: 'u', created_at: created, last_activity_at: created },
+      first: {
+        state: 'ready',
+        site_id: 's',
+        user_id: 'u',
+        created_at: created,
+        last_activity_at: created,
+      },
     });
     const out = await getSandboxStatus(env, 'old');
     expect(out.auto_destroy_in_seconds).toBe(0);
@@ -253,7 +270,11 @@ describe('destroySandbox', () => {
 describe('startMultiAgentRun', () => {
   it('maps requested agents to specs and assigns canonical file globs', async () => {
     const { env, prepare, run } = makeEnv();
-    const out = await startMultiAgentRun(env, { siteId: 'site-7', agents: ['visual', 'qa'], prompt: 'Build bakery' });
+    const out = await startMultiAgentRun(env, {
+      siteId: 'site-7',
+      agents: ['visual', 'qa'],
+      prompt: 'Build bakery',
+    });
     expect(out.agents).toHaveLength(2);
     expect(out.agents[0].name).toBe('visual');
     expect(out.agents[0].status).toBe('queued');
@@ -269,7 +290,11 @@ describe('startMultiAgentRun', () => {
 
   it('uses the max estimated duration across requested agents', async () => {
     const { env } = makeEnv();
-    const out = await startMultiAgentRun(env, { siteId: 's', agents: ['motion', 'media'], prompt: 'p' });
+    const out = await startMultiAgentRun(env, {
+      siteId: 's',
+      agents: ['motion', 'media'],
+      prompt: 'p',
+    });
     // media = 28_000 > motion = 10_000
     expect(out.estimated_total_ms).toBe(SPECIALIST_PARTITION.media.estimated_duration_ms);
   });
@@ -308,7 +333,15 @@ describe('listMultiAgentRuns', () => {
   it('maps D1 rows and parses agents_json', async () => {
     const agents = [{ id: 'a1', name: 'visual', status: 'done', file_glob: 'src/**' }];
     const { env, prepare, bind } = makeEnv({
-      all: [{ id: 'r1', prompt: 'Real run', status: 'running', agents_json: JSON.stringify(agents), started_at: '2026-06-01T00:00:00Z' }],
+      all: [
+        {
+          id: 'r1',
+          prompt: 'Real run',
+          status: 'running',
+          agents_json: JSON.stringify(agents),
+          started_at: '2026-06-01T00:00:00Z',
+        },
+      ],
     });
     const out = await listMultiAgentRuns(env, 'site-2');
     expect(out).toHaveLength(1);
@@ -332,7 +365,7 @@ describe('listMultiAgentRuns', () => {
 describe('getMultiAgentRunDetail', () => {
   it('returns demo detail when the run is not found', async () => {
     const { env } = makeEnv({ first: null });
-    const out = await getMultiAgentRunDetail(env, 'run-x') as Record<string, unknown>;
+    const out = (await getMultiAgentRunDetail(env, 'run-x')) as Record<string, unknown>;
     expect(out.run_id).toBe('run-x');
     expect(out.file_partitioning).toBe(true);
     expect(Array.isArray(out.agents)).toBe(true);
@@ -342,16 +375,24 @@ describe('getMultiAgentRunDetail', () => {
 
   it('returns demo detail when the D1 read throws', async () => {
     const { env } = makeEnv({ firstThrows: true });
-    const out = await getMultiAgentRunDetail(env, 'run-z') as Record<string, unknown>;
+    const out = (await getMultiAgentRunDetail(env, 'run-z')) as Record<string, unknown>;
     expect(out.run_id).toBe('run-z');
   });
 
   it('maps a real row and parses agents_json', async () => {
     const agents = [{ id: 'a1', name: 'seo', status: 'queued', file_glob: 'src/meta/**' }];
     const { env } = makeEnv({
-      first: { id: 'r9', site_id: 's9', prompt: 'p', status: 'done', agents_json: JSON.stringify(agents), started_at: 't', finished_at: 't2' },
+      first: {
+        id: 'r9',
+        site_id: 's9',
+        prompt: 'p',
+        status: 'done',
+        agents_json: JSON.stringify(agents),
+        started_at: 't',
+        finished_at: 't2',
+      },
     });
-    const out = await getMultiAgentRunDetail(env, 'r9') as Record<string, unknown>;
+    const out = (await getMultiAgentRunDetail(env, 'r9')) as Record<string, unknown>;
     expect(out.id).toBe('r9');
     expect(out.agents).toEqual(agents);
   });
@@ -361,7 +402,10 @@ describe('getMultiAgentRunDetail', () => {
 
 describe('buildSwarmSseStream', () => {
   beforeEach(() => jest.useFakeTimers());
-  afterEach(() => { jest.runOnlyPendingTimers(); jest.useRealTimers(); });
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
 
   async function drain(stream: ReadableStream, maxAdvanceMs: number): Promise<string[]> {
     const reader = stream.getReader();
@@ -459,7 +503,12 @@ describe('getBuildStream', () => {
   it('uses persisted components_done when present', async () => {
     const done = ['nav', 'hero', 'features'];
     const { env } = makeEnv({
-      first: { state: 'building', components_done_json: JSON.stringify(done), started_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      first: {
+        state: 'building',
+        components_done_json: JSON.stringify(done),
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
     });
     const out = await getBuildStream(env, 'site-b');
     expect(out.state).toBe('building');
@@ -472,7 +521,12 @@ describe('getBuildStream', () => {
   it('simulates done-count from age when no persisted components', async () => {
     const started = new Date(Date.now() - 16_000).toISOString(); // 16s → floor(16/4)=4 done
     const { env } = makeEnv({
-      first: { state: 'skeleton_live', components_done_json: JSON.stringify([]), started_at: started, updated_at: started },
+      first: {
+        state: 'skeleton_live',
+        components_done_json: JSON.stringify([]),
+        started_at: started,
+        updated_at: started,
+      },
     });
     const out = await getBuildStream(env, 'site-s');
     expect(out.components_done.length).toBe(4);
@@ -490,7 +544,10 @@ describe('getBuildStream', () => {
 
 describe('buildProgressiveSseStream', () => {
   beforeEach(() => jest.useFakeTimers());
-  afterEach(() => { jest.runOnlyPendingTimers(); jest.useRealTimers(); });
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
 
   it('emits skeleton_live immediately listing all components', async () => {
     const { env } = makeEnv();

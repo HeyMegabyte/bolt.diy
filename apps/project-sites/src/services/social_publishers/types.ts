@@ -119,7 +119,10 @@ export class MissingAppCredsError extends Error {
 /** Per-platform publisher contract. */
 export interface Publisher {
   /** Build the OAuth authorize URL with PKCE state (or return null when no OAuth). */
-  authorizeUrl?(env: Env, args: { state: string; codeVerifier: string; redirectUri: string }): string | null;
+  authorizeUrl?(
+    env: Env,
+    args: { state: string; codeVerifier: string; redirectUri: string },
+  ): string | null;
   /** Exchange OAuth callback code for tokens. */
   exchangeCode?(
     env: Env,
@@ -160,7 +163,12 @@ export function composeContent(post: PostCtx, platform: Platform): string {
 }
 
 /** Helper: assert env var present, else throw MissingAppCredsError. */
-export function requireEnv(env: Env, platform: Platform, deeplink: string, ...vars: string[]): Record<string, string> {
+export function requireEnv(
+  env: Env,
+  platform: Platform,
+  deeplink: string,
+  ...vars: string[]
+): Record<string, string> {
   const out: Record<string, string> = {};
   const missing: string[] = [];
   for (const v of vars) {

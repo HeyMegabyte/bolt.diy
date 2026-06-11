@@ -54,7 +54,11 @@ interface Collected {
   tokens: Array<{ in?: number; out?: number }>;
 }
 
-function collector(): { c: Collected; onDelta: StreamArgs['onDelta']; onTokens: StreamArgs['onTokens'] } {
+function collector(): {
+  c: Collected;
+  onDelta: StreamArgs['onDelta'];
+  onTokens: StreamArgs['onTokens'];
+} {
   const c: Collected = { deltas: [], tokens: [] };
   return {
     c,
@@ -68,9 +72,7 @@ function makeArgs(
   overrides?: Partial<StreamArgs>,
   col = collector(),
 ): { args: StreamArgs; c: Collected } {
-  const messages: ChatMessage[] = overrides?.messages ?? [
-    { role: 'user', content: 'hello' },
-  ];
+  const messages: ChatMessage[] = overrides?.messages ?? [{ role: 'user', content: 'hello' }];
   return {
     c: col.c,
     args: {
@@ -141,7 +143,11 @@ describe('streamChatResponse — workers-ai', () => {
     const { args } = makeArgs('workers-ai');
     await streamChatResponse(makeEnv({}, aiRun), args);
     expect(aiRun.mock.calls[0]![0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
-    const body = aiRun.mock.calls[0]![1] as { stream: boolean; max_tokens: number; messages: unknown[] };
+    const body = aiRun.mock.calls[0]![1] as {
+      stream: boolean;
+      max_tokens: number;
+      messages: unknown[];
+    };
     expect(body.stream).toBe(true);
     expect(body.max_tokens).toBe(4096);
     expect(body.messages).toEqual([{ role: 'user', content: 'hello' }]);
@@ -228,7 +234,9 @@ describe('streamChatResponse — openai', () => {
   it('throws a coded error on non-200 (and reads the body)', async () => {
     fetchSpy.mockResolvedValue(new Response('rate limited', { status: 429 }));
     const { args } = makeArgs('openai');
-    await expect(streamChatResponse(makeEnv(), args)).rejects.toThrow(/^openai_error:429:rate limited/);
+    await expect(streamChatResponse(makeEnv(), args)).rejects.toThrow(
+      /^openai_error:429:rate limited/,
+    );
   });
 
   it('throws when the response has no body', async () => {
@@ -243,9 +251,9 @@ describe('streamChatResponse — openai', () => {
 describe('streamChatResponse — anthropic', () => {
   it('throws when ANTHROPIC_API_KEY is missing', async () => {
     const { args } = makeArgs('anthropic');
-    await expect(streamChatResponse(makeEnv({ ANTHROPIC_API_KEY: undefined }), args)).rejects.toThrow(
-      'anthropic_api_key_missing',
-    );
+    await expect(
+      streamChatResponse(makeEnv({ ANTHROPIC_API_KEY: undefined }), args),
+    ).rejects.toThrow('anthropic_api_key_missing');
   });
 
   it('hoists the system message, remaps tool→user, sets default model + headers', async () => {
@@ -291,18 +299,26 @@ describe('streamChatResponse — anthropic', () => {
     const { args, c } = makeArgs('anthropic');
     await streamChatResponse(makeEnv(), args);
     expect(c.deltas).toEqual(['He', 'llo']);
-    expect(c.tokens).toEqual([{ in: 7, out: undefined }, { in: undefined, out: 9 }]);
+    expect(c.tokens).toEqual([
+      { in: 7, out: undefined },
+      { in: undefined, out: 9 },
+    ]);
   });
 
   it('throws a coded error on non-200', async () => {
     fetchSpy.mockResolvedValue(new Response('overloaded', { status: 529 }));
     const { args } = makeArgs('anthropic');
-    await expect(streamChatResponse(makeEnv(), args)).rejects.toThrow(/^anthropic_error:529:overloaded/);
+    await expect(streamChatResponse(makeEnv(), args)).rejects.toThrow(
+      /^anthropic_error:529:overloaded/,
+    );
   });
 
   it('ignores malformed chunks without throwing', async () => {
     fetchSpy.mockResolvedValue(
-      sseResponse(['data: {bad\n\n', 'data: {"type":"content_block_delta","delta":{"text":"ok"}}\n\n']),
+      sseResponse([
+        'data: {bad\n\n',
+        'data: {"type":"content_block_delta","delta":{"text":"ok"}}\n\n',
+      ]),
     );
     const { args, c } = makeArgs('anthropic');
     await streamChatResponse(makeEnv(), args);
@@ -315,7 +331,9 @@ describe('streamChatResponse — anthropic', () => {
 describe('streamChatResponse — ollama', () => {
   it('hits localhost with the default model + NDJSON body', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(streamFrom(['{"message":{"content":"hi"},"done":false}\n', '{"done":true}\n']), { status: 200 }),
+      new Response(streamFrom(['{"message":{"content":"hi"},"done":false}\n', '{"done":true}\n']), {
+        status: 200,
+      }),
     );
     const { args } = makeArgs('ollama');
     await streamChatResponse(makeEnv(), args);
@@ -380,10 +398,7 @@ describe('streamChatResponse — ollama', () => {
 describe('streamChatResponse — SSE parser buffering + edges', () => {
   it('reassembles a `data:` line split across read boundaries', async () => {
     fetchSpy.mockResolvedValue(
-      sseResponse([
-        'data: {"choices":[{"delta":{"content":"split',
-        '-content"}}]}\n\n',
-      ]),
+      sseResponse(['data: {"choices":[{"delta":{"content":"split', '-content"}}]}\n\n']),
     );
     const { args, c } = makeArgs('openai');
     await streamChatResponse(makeEnv(), args);

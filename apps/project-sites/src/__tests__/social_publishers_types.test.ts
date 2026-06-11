@@ -63,7 +63,10 @@ describe('composeContent', () => {
 
   it('does NOT double-append a link already in the body', () => {
     expect(
-      composeContent(post({ content: 'see https://x.co/a now', link: 'https://x.co/a' }), 'twitter'),
+      composeContent(
+        post({ content: 'see https://x.co/a now', link: 'https://x.co/a' }),
+        'twitter',
+      ),
     ).toBe('see https://x.co/a now');
   });
 

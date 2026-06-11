@@ -12,11 +12,7 @@
  * ts-jest: GLOBAL `jest` (NOT `@jest/globals`); HTTP via `global.fetch`.
  */
 
-import {
-  checkAvailability,
-  checkBatch,
-  type RdapResult,
-} from '../services/rdap_availability.js';
+import { checkAvailability, checkBatch, type RdapResult } from '../services/rdap_availability.js';
 import type { Env } from '../types/env.js';
 
 const realFetch = global.fetch;
@@ -216,7 +212,12 @@ describe('checkAvailability — cache', () => {
     const { kv, store } = makeKv();
     store.set(
       'rdap:cached.com',
-      JSON.stringify({ domain: 'cached.com', available: true, status: 'available', source: 'rdap' }),
+      JSON.stringify({
+        domain: 'cached.com',
+        available: true,
+        status: 'available',
+        source: 'rdap',
+      }),
     );
 
     const r = await checkAvailability(makeEnv(kv), 'cached.com');

@@ -387,9 +387,7 @@ describe('generatePseoPageContent', () => {
   });
 
   it('defaults business name to "Local Business" when the site row is missing', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce(pageRow)
-      .mockResolvedValueOnce(null); // site lookup misses
+    mockQueryOne.mockResolvedValueOnce(pageRow).mockResolvedValueOnce(null); // site lookup misses
     let captured = '';
     const env = makeEnv();
     // capture the user prompt content sent to AI
@@ -405,9 +403,7 @@ describe('generatePseoPageContent', () => {
   });
 
   it('truncates html to 131072 chars before persisting', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce(pageRow)
-      .mockResolvedValueOnce({ name: 'Joe', slug: 'joe' });
+    mockQueryOne.mockResolvedValueOnce(pageRow).mockResolvedValueOnce({ name: 'Joe', slug: 'joe' });
     const huge = '<p>' + 'a'.repeat(200000) + '</p>';
     const env = makeEnv({ aiReply: huge });
 

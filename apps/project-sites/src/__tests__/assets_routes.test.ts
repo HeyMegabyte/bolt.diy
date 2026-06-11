@@ -108,11 +108,7 @@ function uploadReq(
   return app.request('/api/assets/upload', { method: 'POST', body: form }, env, makeCtx());
 }
 
-function listReq(
-  app: Hono<{ Bindings: Env; Variables: Variables }>,
-  siteId: string,
-  env: Env,
-) {
+function listReq(app: Hono<{ Bindings: Env; Variables: Variables }>, siteId: string, env: Env) {
   return app.request(`/api/sites/${siteId}/build-assets`, { method: 'GET' }, env, makeCtx());
 }
 

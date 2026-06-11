@@ -381,8 +381,15 @@ export class VoiceBrowseAgent extends Container<Env> {
       res = await this.containerCall('/playwright/step', { call_id, action: parsed });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.appendNarration(call_id, { ts: Date.now(), kind: 'observation', text: `Step failed: ${msg}` });
-      return Response.json({ ok: false, observation: msg, narration: narrationText }, { status: 502 });
+      this.appendNarration(call_id, {
+        ts: Date.now(),
+        kind: 'observation',
+        text: `Step failed: ${msg}`,
+      });
+      return Response.json(
+        { ok: false, observation: msg, narration: narrationText },
+        { status: 502 },
+      );
     }
 
     const data = (await res.json()) as { observation?: string; screenshot_url?: string };
@@ -424,9 +431,7 @@ export class VoiceBrowseAgent extends Container<Env> {
     const row = this.getCall(callId);
     if (row) {
       const log = JSON.parse(row.narration_log) as NarrationEntry[];
-      const init = log
-        .map((e) => `data: ${JSON.stringify(e)}\n\n`)
-        .join('');
+      const init = log.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('');
       if (init) writer.write(new TextEncoder().encode(init)).catch(() => undefined);
     }
 
@@ -464,7 +469,11 @@ export class VoiceBrowseAgent extends Container<Env> {
       durationMs = data.duration_ms;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.appendNarration(call_id, { ts: Date.now(), kind: 'system', text: `Stop failed: ${msg}` });
+      this.appendNarration(call_id, {
+        ts: Date.now(),
+        kind: 'system',
+        text: `Stop failed: ${msg}`,
+      });
     }
 
     // Pull the MP4 from the container and stream into R2.
@@ -579,7 +588,11 @@ export class VoiceBrowseAgent extends Container<Env> {
       )) as { response?: string };
       const text = (out.response ?? '').trim();
       const jsonStart = text.indexOf('{');
-      if (jsonStart < 0) return { type: 'goto', url: `https://www.google.com/search?q=${encodeURIComponent(query)}` };
+      if (jsonStart < 0)
+        return {
+          type: 'goto',
+          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+        };
       const parsed = JSON.parse(text.slice(jsonStart)) as { done?: boolean; action?: unknown };
       if (parsed.done) return null;
       return dispatchAction(parsed.action);
@@ -645,9 +658,9 @@ export class VoiceBrowseAgent extends Container<Env> {
     const history = this.restartHistory();
     if (!shouldRestart(history, now)) {
       // Cap hit — mark every running call failed and stop trying.
-      const failingCalls = this.vbSql
-        ?.exec<CallRow>("SELECT call_id FROM calls WHERE status = 'running'")
-        .toArray() ?? [];
+      const failingCalls =
+        this.vbSql?.exec<CallRow>("SELECT call_id FROM calls WHERE status = 'running'").toArray() ??
+        [];
       for (const row of failingCalls) {
         this.upsertCall({
           call_id: row.call_id,
@@ -668,4 +681,3 @@ export class VoiceBrowseAgent extends Container<Env> {
     return error;
   }
 }
-

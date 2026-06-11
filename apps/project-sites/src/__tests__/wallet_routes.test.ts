@@ -45,7 +45,11 @@ function app(ids?: { orgId?: string; userId?: string }) {
 }
 const authed = () => app({ orgId: 'org1', userId: 'u1' });
 const env = {} as never;
-const jsonReq = (b: unknown) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+const jsonReq = (b: unknown) => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(b),
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -62,32 +66,48 @@ describe('GET /api/wallet', () => {
     mState.mockResolvedValue({ balance_cents: 5000 } as never);
     const res = await authed().request('/api/wallet', {}, env);
     expect(res.status).toBe(200);
-    expect((await res.json() as { balance_cents: number }).balance_cents).toBe(5000);
+    expect(((await res.json()) as { balance_cents: number }).balance_cents).toBe(5000);
   });
 });
 
 describe('POST /api/wallet/subscribe', () => {
   it('401 when unauthenticated', async () => {
-    expect((await app().request('/api/wallet/subscribe', jsonReq({ return_url: 'https://x/y' }), env)).status).toBe(401);
+    expect(
+      (await app().request('/api/wallet/subscribe', jsonReq({ return_url: 'https://x/y' }), env))
+        .status,
+    ).toBe(401);
   });
 
   it('400 on an invalid return_url (zValidator)', async () => {
-    expect((await authed().request('/api/wallet/subscribe', jsonReq({ return_url: 'not-a-url' }), env)).status).toBe(400);
+    expect(
+      (await authed().request('/api/wallet/subscribe', jsonReq({ return_url: 'not-a-url' }), env))
+        .status,
+    ).toBe(400);
   });
 
   it('400 when the upstream checkout fails', async () => {
     mSub.mockResolvedValue({ ok: false, message: 'card declined' } as never);
-    const res = await authed().request('/api/wallet/subscribe', jsonReq({ return_url: 'https://x/y' }), env);
+    const res = await authed().request(
+      '/api/wallet/subscribe',
+      jsonReq({ return_url: 'https://x/y' }),
+      env,
+    );
     expect(res.status).toBe(400);
-    expect((await res.json() as { error: { code: string } }).error.code).toBe('CHECKOUT_FAILED');
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('CHECKOUT_FAILED');
   });
 
   it('200 returns the checkout_url on success', async () => {
     mDbOne.mockResolvedValue({ email: 'u@x.com' } as never);
     mSub.mockResolvedValue({ ok: true, checkout_url: 'https://stripe/cs_1' } as never);
-    const res = await authed().request('/api/wallet/subscribe', jsonReq({ return_url: 'https://x/y' }), env);
+    const res = await authed().request(
+      '/api/wallet/subscribe',
+      jsonReq({ return_url: 'https://x/y' }),
+      env,
+    );
     expect(res.status).toBe(200);
-    expect((await res.json() as { checkout_url: string }).checkout_url).toBe('https://stripe/cs_1');
+    expect(((await res.json()) as { checkout_url: string }).checkout_url).toBe(
+      'https://stripe/cs_1',
+    );
   });
 });
 
@@ -128,7 +148,7 @@ describe('GET /api/wallet/transactions', () => {
     mDbQuery.mockResolvedValue({ data: [{ id: 't1' }] } as never);
     const res = await authed().request('/api/wallet/transactions', {}, env);
     expect(res.status).toBe(200);
-    expect((await res.json() as { transactions: unknown[] }).transactions).toHaveLength(1);
+    expect(((await res.json()) as { transactions: unknown[] }).transactions).toHaveLength(1);
   });
 
   it('clamps days to 365', async () => {
@@ -143,6 +163,6 @@ describe('GET /api/wallet/cost-categories (public)', () => {
     mDbQuery.mockResolvedValue({ data: [{ slug: 'ai_call' }] } as never);
     const res = await app().request('/api/wallet/cost-categories', {}, env);
     expect(res.status).toBe(200);
-    expect((await res.json() as { categories: unknown[] }).categories).toHaveLength(1);
+    expect(((await res.json()) as { categories: unknown[] }).categories).toHaveLength(1);
   });
 });

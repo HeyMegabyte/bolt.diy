@@ -55,18 +55,17 @@ function proPassThrough() {
 
 /** 402 implementation for `requirePro` — mirrors the real billing gate. */
 function proBlocks() {
-  mockRequirePro.mockImplementation(
-    async (c: Context<{ Bindings: Env; Variables: Variables }>) =>
-      c.json(
-        {
-          error: {
-            code: 'PRO_REQUIRED',
-            message: 'This feature is included in Project Sites Pro ($50/mo).',
-            upgrade_url: '/admin/billing?plan=pro',
-          },
+  mockRequirePro.mockImplementation(async (c: Context<{ Bindings: Env; Variables: Variables }>) =>
+    c.json(
+      {
+        error: {
+          code: 'PRO_REQUIRED',
+          message: 'This feature is included in Project Sites Pro ($50/mo).',
+          upgrade_url: '/admin/billing?plan=pro',
         },
-        402,
-      ),
+      },
+      402,
+    ),
   );
 }
 
@@ -500,8 +499,22 @@ describe('GET /api/agency/snapshots', () => {
   it('lists the agency-owned + global snapshots scoped by author_org_id', async () => {
     mockQuery.mockResolvedValue({
       data: [
-        { id: 't1', slug: 'cafe', name: 'Cafe', category: 'restaurant', install_count: 12, price_cents: 0 },
-        { id: 't2', slug: 'law', name: 'Law', category: 'legal', install_count: 4, price_cents: 4900 },
+        {
+          id: 't1',
+          slug: 'cafe',
+          name: 'Cafe',
+          category: 'restaurant',
+          install_count: 12,
+          price_cents: 0,
+        },
+        {
+          id: 't2',
+          slug: 'law',
+          name: 'Law',
+          category: 'legal',
+          install_count: 4,
+          price_cents: 4900,
+        },
       ],
       error: null,
     });

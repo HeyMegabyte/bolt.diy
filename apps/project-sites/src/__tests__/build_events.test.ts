@@ -44,7 +44,12 @@ describe('isTerminalBuildEvent', () => {
     expect(isTerminalBuildEvent('build.failed')).toBe(true);
   });
   it('mid-stream events are not terminal', () => {
-    for (const t of ['build.started', 'agent.started', 'file.changed', 'tests.completed'] as const) {
+    for (const t of [
+      'build.started',
+      'agent.started',
+      'file.changed',
+      'tests.completed',
+    ] as const) {
       expect(isTerminalBuildEvent(t)).toBe(false);
     }
   });
@@ -146,7 +151,12 @@ describe('replayBuildEvents', () => {
   });
 
   it('returns [] (swallowed) when KV.get throws', async () => {
-    const kv = { get: jest.fn(async () => { throw new Error('kv read fail'); }), put: jest.fn() };
+    const kv = {
+      get: jest.fn(async () => {
+        throw new Error('kv read fail');
+      }),
+      put: jest.fn(),
+    };
     expect(await replayBuildEvents(envWith(kv), BID)).toEqual([]);
   });
 

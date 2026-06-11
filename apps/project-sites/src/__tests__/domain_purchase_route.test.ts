@@ -139,12 +139,14 @@ describe('POST /api/domains/purchase — input boundary', () => {
   });
 
   it('creates a Stripe checkout session for a valid purchase', async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ url: 'https://checkout.stripe.com/c/pay/cs_test_1', id: 'cs_test_1' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ url: 'https://checkout.stripe.com/c/pay/cs_test_1', id: 'cs_test_1' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
     const res = await post(makeEnv(), { domain: 'example.com', site_id: 'site-1' });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { checkout_url: string; session_id: string } };

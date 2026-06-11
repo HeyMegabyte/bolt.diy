@@ -36,7 +36,9 @@ async function safeCaptureWorkersAi(
   try {
     await captureLLMCall(env, params);
   } catch (err) {
-    wfLog.warn('analytics_capture_failed', { error: err instanceof Error ? err.message : String(err) });
+    wfLog.warn('analytics_capture_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -457,7 +459,9 @@ USE THESE COLORS as the primary palette. Do NOT override with industry-generic c
       wfLog.info('color_extraction_ok', { slug: websiteUrl });
     } catch (err) {
       // Non-fatal — fall back to LLM color inference
-      wfLog.warn('color_extraction_failed', { error: err instanceof Error ? err.message : String(err) });
+      wfLog.warn('color_extraction_failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -599,7 +603,10 @@ export async function runSiteGenerationWorkflowV2(
 
   const research: WorkflowResearch = { profile, social, brand, sellingPoints, images };
 
-  wfLog.info('phase_2_done', { message: 'Parallel research complete', success: brand.logo.found_online });
+  wfLog.info('phase_2_done', {
+    message: 'Parallel research complete',
+    success: brand.logo.found_online,
+  });
 
   // Phase 3: Generate main website HTML
   const html = await runGenerateWebsite(env, research, input.uploadedAssets);
@@ -840,7 +847,10 @@ export function registerAllPrompts(): void {
 
   // ── V2 Workflow Prompts ──────────────────────────────────────
 
-  const defaultModels = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'];
+  const defaultModels = [
+    '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    '@cf/meta/llama-3.1-8b-instruct-fp8',
+  ];
 
   registry.registerAll([
     {

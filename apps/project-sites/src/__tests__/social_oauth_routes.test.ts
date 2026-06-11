@@ -168,7 +168,9 @@ describe('GET /api/social/:platform/connect', () => {
     const env = makeEnv();
     const res = await makeApp(AUTH).request('/api/social/bluesky/connect', {}, env, makeCtx());
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { mode: string; platform: string; instructions: string } };
+    const json = (await res.json()) as {
+      data: { mode: string; platform: string; instructions: string };
+    };
     expect(json.data.mode).toBe('paste_key');
     expect(json.data.platform).toBe('bluesky');
     expect(json.data.instructions).toMatch(/app-passwords/i);
@@ -179,7 +181,10 @@ describe('GET /api/social/:platform/connect', () => {
   it('builds the authorize URL, redirects 302, and stashes PKCE state in KV', async () => {
     let captured: { state: string; codeVerifier: string; redirectUri: string } | null = null;
     mockGetPublisher.mockReturnValue({
-      authorizeUrl: (_env: unknown, args: { state: string; codeVerifier: string; redirectUri: string }) => {
+      authorizeUrl: (
+        _env: unknown,
+        args: { state: string; codeVerifier: string; redirectUri: string },
+      ) => {
         captured = args;
         return `https://twitter.com/i/oauth2/authorize?state=${args.state}`;
       },
@@ -256,7 +261,12 @@ describe('GET /api/social/:platform/callback', () => {
 
   it('returns 404 for an unknown platform', async () => {
     const env = makeEnv();
-    const res = await makeApp().request('/api/social/myspace/callback?code=c&state=s', {}, env, makeCtx());
+    const res = await makeApp().request(
+      '/api/social/myspace/callback?code=c&state=s',
+      {},
+      env,
+      makeCtx(),
+    );
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
@@ -272,15 +282,27 @@ describe('GET /api/social/:platform/callback', () => {
 
   it('returns 400 when the state row is expired or missing from KV', async () => {
     const env = makeEnv(); // empty KV
-    const res = await makeApp().request('/api/social/twitter/callback?code=c&state=gone', {}, env, makeCtx());
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=gone',
+      {},
+      env,
+      makeCtx(),
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: { message?: string } };
     expect(json.error?.message).toMatch(/expired or invalid/);
   });
 
   it('returns 400 when the stored platform mismatches the URL platform (state-binding/CSRF guard)', async () => {
-    const env = makeEnv({ CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('linkedin') }) });
-    const res = await makeApp().request('/api/social/twitter/callback?code=c&state=s1', {}, env, makeCtx());
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('linkedin') }),
+    });
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=s1',
+      {},
+      env,
+      makeCtx(),
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: { message?: string } };
     expect(json.error?.message).toMatch(/platform mismatch/);
@@ -289,8 +311,15 @@ describe('GET /api/social/:platform/callback', () => {
 
   it('returns 400 when the publisher has no exchange flow', async () => {
     mockGetPublisher.mockReturnValue({}); // no exchangeCode
-    const env = makeEnv({ CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }) });
-    const res = await makeApp().request('/api/social/twitter/callback?code=c&state=s1', {}, env, makeCtx());
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }),
+    });
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=s1',
+      {},
+      env,
+      makeCtx(),
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: { message?: string } };
     expect(json.error?.message).toMatch(/no exchange flow/);
@@ -320,7 +349,9 @@ describe('GET /api/social/:platform/callback', () => {
     );
 
     expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('https://projectsites.dev/admin/social?connected=twitter');
+    expect(res.headers.get('location')).toBe(
+      'https://projectsites.dev/admin/social?connected=twitter',
+    );
 
     // Code exchange used the stored PKCE verifier + redirect URI.
     expect(exchangeCode).toHaveBeenCalledTimes(1);
@@ -354,7 +385,9 @@ describe('GET /api/social/:platform/callback', () => {
   it('persists a null refresh blob + null expiry when the exchange omits them', async () => {
     const exchangeCode = jest.fn(async () => ({ access_token: 'A', external_id: 'e1' }));
     mockGetPublisher.mockReturnValue({ exchangeCode });
-    const env = makeEnv({ CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }) });
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }),
+    });
     const res = await makeApp().request(
       '/api/social/twitter/callback?code=c&state=s1',
       { redirect: 'manual' },
@@ -375,8 +408,15 @@ describe('GET /api/social/:platform/callback', () => {
         throw new MissingAppCredsError('twitter' as never, 'https://developer.twitter.com');
       }),
     });
-    const env = makeEnv({ CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }) });
-    const res = await makeApp().request('/api/social/twitter/callback?code=c&state=s1', {}, env, makeCtx());
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }),
+    });
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=s1',
+      {},
+      env,
+      makeCtx(),
+    );
     expect(res.status).toBe(501);
     const json = (await res.json()) as { error?: { code?: string; deeplink?: string } };
     expect(json.error?.code).toBe('APP_CREDS_MISSING');
@@ -390,8 +430,15 @@ describe('GET /api/social/:platform/callback', () => {
         throw new Error('upstream 400 invalid_grant');
       }),
     });
-    const env = makeEnv({ CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }) });
-    const res = await makeApp().request('/api/social/twitter/callback?code=c&state=s1', {}, env, makeCtx());
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }),
+    });
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=s1',
+      {},
+      env,
+      makeCtx(),
+    );
     expect(res.status).toBe(502);
     const json = (await res.json()) as { error?: { code?: string; message?: string } };
     expect(json.error?.code).toBe('OAUTH_EXCHANGE_FAILED');
@@ -417,7 +464,11 @@ describe('POST /api/social/:platform/paste', () => {
   }
 
   it('returns 401 when org/user context is missing', async () => {
-    const res = await post('bluesky', { kind: 'bluesky', identifier: 'me.bsky.social', app_password: 'abcd1234efgh' }, {});
+    const res = await post(
+      'bluesky',
+      { kind: 'bluesky', identifier: 'me.bsky.social', app_password: 'abcd1234efgh' },
+      {},
+    );
     expect(res.status).toBe(401);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('UNAUTHORIZED');
@@ -439,9 +490,15 @@ describe('POST /api/social/:platform/paste', () => {
       display_name: 'Me',
       expires_at: '2026-01-01T00:00:00.000Z',
     });
-    const res = await post('bluesky', { kind: 'bluesky', identifier: 'me.bsky.social', app_password: 'abcd1234efgh' });
+    const res = await post('bluesky', {
+      kind: 'bluesky',
+      identifier: 'me.bsky.social',
+      app_password: 'abcd1234efgh',
+    });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { connected: boolean; platform: string; handle: string } };
+    const json = (await res.json()) as {
+      data: { connected: boolean; platform: string; handle: string };
+    };
     expect(json.data.connected).toBe(true);
     expect(json.data.platform).toBe('bluesky');
     expect(mockBlueskyLogin).toHaveBeenCalledWith('me.bsky.social', 'abcd1234efgh');
@@ -478,7 +535,11 @@ describe('POST /api/social/:platform/paste', () => {
   });
 
   it('connects Telegram via chat_id without an external verify call', async () => {
-    const res = await post('telegram', { kind: 'telegram', chat_id: '-100123', display_name: 'My Channel' });
+    const res = await post('telegram', {
+      kind: 'telegram',
+      chat_id: '-100123',
+      display_name: 'My Channel',
+    });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { handle: string } };
     expect(json.data.handle).toBe('My Channel');
@@ -490,7 +551,11 @@ describe('POST /api/social/:platform/paste', () => {
 
   it('returns 400 when the body kind mismatches the URL platform', async () => {
     // Valid bluesky body posted to the telegram route → kind/platform mismatch.
-    const res = await post('telegram', { kind: 'bluesky', identifier: 'me.bsky.social', app_password: 'abcd1234efgh' });
+    const res = await post('telegram', {
+      kind: 'bluesky',
+      identifier: 'me.bsky.social',
+      app_password: 'abcd1234efgh',
+    });
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: { message?: string } };
     expect(json.error?.message).toMatch(/kind\/platform mismatch/);

@@ -9,15 +9,19 @@
  * closure is never invoked). The pre-guard log/status/event helpers are
  * best-effort (swallow), so a minimal DB+KV env suffices.
  */
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 import { SiteGenerationWorkflow } from '../workflows/site-generation.js';
 import type { Env } from '../types/env.js';
@@ -25,7 +29,15 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 
 function baseEnv(extra: Record<string, unknown> = {}): Env {
   return {
-    DB: { prepare: () => ({ bind: () => ({ run: async () => ({}), first: async () => null, all: async () => ({ results: [] }) }) }) },
+    DB: {
+      prepare: () => ({
+        bind: () => ({
+          run: async () => ({}),
+          first: async () => null,
+          all: async () => ({ results: [] }),
+        }),
+      }),
+    },
     CACHE_KV: { get: async () => null, put: async () => undefined },
     ...extra,
   } as unknown as Env;
@@ -40,7 +52,11 @@ function makeStep(canned: Record<string, unknown>) {
 }
 
 const params = (over: Record<string, unknown> = {}) => ({
-  siteId: 's1', slug: 'mysite', businessName: 'Acme', orgId: 'o1', ...over,
+  siteId: 's1',
+  slug: 'mysite',
+  businessName: 'Acme',
+  orgId: 'o1',
+  ...over,
 });
 const run = (env: Env, step: WorkflowStep, p: Record<string, unknown>) => {
   const wf = new SiteGenerationWorkflow({} as never, env);
@@ -52,13 +68,19 @@ afterEach(() => jest.restoreAllMocks());
 
 describe('SiteGenerationWorkflow.run — entry guard + minimal mode', () => {
   it('throws when the SITE_BUILDER container binding is missing', async () => {
-    await expect(run(baseEnv(), makeStep({}), params())).rejects.toThrow(/SITE_BUILDER container not configured/);
+    await expect(run(baseEnv(), makeStep({}), params())).rejects.toThrow(
+      /SITE_BUILDER container not configured/,
+    );
   });
 
   it('publishes and returns {ok,minimal} when minimal build reports ok', async () => {
-    const step = makeStep({ 'minimal-build': JSON.stringify({ ok: true, uploadResult: { uploaded: 5 } }) });
+    const step = makeStep({
+      'minimal-build': JSON.stringify({ ok: true, uploadResult: { uploaded: 5 } }),
+    });
     const out = (await run(withBuilder(), step, params({ minimalMode: true }))) as {
-      ok: boolean; mode: string; uploaded: number;
+      ok: boolean;
+      mode: string;
+      uploaded: number;
     };
     expect(out).toEqual({ ok: true, mode: 'minimal', uploaded: 5 });
   });

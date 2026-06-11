@@ -70,7 +70,12 @@ function parsePostgresUri(uri: string): {
   if (!m) {
     return { host: '', database: '', user: '', password: '' };
   }
-  return { user: decodeURIComponent(m[1]), password: decodeURIComponent(m[2]), host: m[3], database: m[4] };
+  return {
+    user: decodeURIComponent(m[1]),
+    password: decodeURIComponent(m[2]),
+    host: m[3],
+    database: m[4],
+  };
 }
 
 /**
@@ -95,9 +100,13 @@ export async function createProject(env: Env, name: string): Promise<NeonProvisi
       },
     }),
   });
-  const json = (await res.json().catch(() => ({}))) as NeonCreateProjectResponse & { message?: string };
+  const json = (await res.json().catch(() => ({}))) as NeonCreateProjectResponse & {
+    message?: string;
+  };
   if (!res.ok || !json.project?.id) {
-    throw new Error(`Neon createProject failed: ${res.status} ${json.message ?? JSON.stringify(json).slice(0, 200)}`);
+    throw new Error(
+      `Neon createProject failed: ${res.status} ${json.message ?? JSON.stringify(json).slice(0, 200)}`,
+    );
   }
   const uri = json.connection_uris?.[0]?.connection_uri ?? '';
   const parts = parsePostgresUri(uri);

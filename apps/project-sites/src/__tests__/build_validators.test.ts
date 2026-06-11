@@ -397,15 +397,24 @@ describe('validateCanonical — per-route self-referencing canonical (no site-wi
 
   it('passes when each route self-references a distinct canonical', () => {
     const out = validateCanonical([
-      file('index.html', html('<p>Home</p>', '<link rel="canonical" href="https://acme.projectsites.dev/">')),
-      file('about.html', html('<p>About</p>', '<link rel="canonical" href="https://acme.projectsites.dev/about">')),
+      file(
+        'index.html',
+        html('<p>Home</p>', '<link rel="canonical" href="https://acme.projectsites.dev/">'),
+      ),
+      file(
+        'about.html',
+        html('<p>About</p>', '<link rel="canonical" href="https://acme.projectsites.dev/about">'),
+      ),
     ]);
     expect(out.length).toBe(0);
   });
 
   it('does not flag collapse on a single-page site with a canonical', () => {
     const out = validateCanonical([
-      file('index.html', html('<p>Home</p>', '<link rel="canonical" href="https://acme.projectsites.dev/">')),
+      file(
+        'index.html',
+        html('<p>Home</p>', '<link rel="canonical" href="https://acme.projectsites.dev/">'),
+      ),
     ]);
     expect(out.filter((v) => v.code === 'meta.canonical_collapsed').length).toBe(0);
     expect(out.filter((v) => v.code === 'meta.canonical_missing').length).toBe(0);
@@ -413,7 +422,10 @@ describe('validateCanonical — per-route self-referencing canonical (no site-wi
 
   it('matches rel/href in either attribute order', () => {
     const out = validateCanonical([
-      file('index.html', html('<p>Home</p>', '<link href="https://acme.projectsites.dev/" rel="canonical">')),
+      file(
+        'index.html',
+        html('<p>Home</p>', '<link href="https://acme.projectsites.dev/" rel="canonical">'),
+      ),
     ]);
     expect(out.length).toBe(0);
   });

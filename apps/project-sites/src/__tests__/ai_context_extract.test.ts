@@ -32,7 +32,7 @@ import {
 } from '../services/ai_context_extract.js';
 import type { Env } from '../types/env.js';
 
-const makeEnv = (key?: string): Env => ({ OPENAI_API_KEY: key } as unknown as Env);
+const makeEnv = (key?: string): Env => ({ OPENAI_API_KEY: key }) as unknown as Env;
 
 /** Build a Vision chat-completions OK response with the given content. */
 const okVision = (content: string | null): Response =>
@@ -135,9 +135,9 @@ describe('extractPdf', () => {
     expect(res.truncated).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-    expect(body.messages[0].content[1].image_url.url.startsWith('data:application/pdf;base64,')).toBe(
-      true,
-    );
+    expect(
+      body.messages[0].content[1].image_url.url.startsWith('data:application/pdf;base64,'),
+    ).toBe(true);
   });
 
   it('reports 0 pages when extraction yields no text', async () => {
@@ -187,7 +187,11 @@ describe('extractImage', () => {
 describe('extractContext', () => {
   it('routes application/pdf to the PDF extractor', async () => {
     fetchMock.mockResolvedValue(okVision('pdf text'));
-    const res = await extractContext(makeEnv('sk-test'), new Uint8Array([1]).buffer, 'application/pdf');
+    const res = await extractContext(
+      makeEnv('sk-test'),
+      new Uint8Array([1]).buffer,
+      'application/pdf',
+    );
     expect(res.text).toBe('pdf text');
     expect(res.pages_processed).toBe(1);
   });

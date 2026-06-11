@@ -163,7 +163,11 @@ function seedDbOwned() {
       return Promise.resolve({ id: 'site_test', org_id: 'org_test' });
     }
     if (sql.includes('FROM users')) {
-      return Promise.resolve({ email: 'owner@example.com', name: 'Test Owner', phone: '+15555550000' });
+      return Promise.resolve({
+        email: 'owner@example.com',
+        name: 'Test Owner',
+        phone: '+15555550000',
+      });
     }
     if (sql.includes('FROM hostnames')) {
       return Promise.resolve({ id: 'host_abc' });
@@ -188,10 +192,16 @@ afterEach(() => {
 describe('POST /api/domains/purchase — auth + validation + wallet edge branches', () => {
   it('returns 401 when unauthenticated (no orgId)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'vito.com',
-    }, env);
+    const res = await jsonReq(
+      makeApp(),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'vito.com',
+      },
+      env,
+    );
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe('UNAUTHORIZED');
@@ -203,42 +213,71 @@ describe('POST /api/domains/purchase — auth + validation + wallet edge branche
 
   it('returns 400 when site_id is missing (Zod)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      domain: 'vito.com',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        domain: 'vito.com',
+      },
+      env,
+    );
     expect(res.status).toBe(400);
     expect(mockCheckAvail).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the domain is malformed (Zod regex)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'not a domain',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'not a domain',
+      },
+      env,
+    );
     expect(res.status).toBe(400);
     expect(mockCheckAvail).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the domain is too short (Zod min length)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'ab',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'ab',
+      },
+      env,
+    );
     expect(res.status).toBe(400);
   });
 
   it('returns 503 wallet_not_configured when the wallet binding is absent', async () => {
     mockWalletAvailable.mockReturnValue(false);
-    mockCheckAvail.mockResolvedValue({ domain: 'vito.com', available: true, status: 'available', source: 'rdap' });
+    mockCheckAvail.mockResolvedValue({
+      domain: 'vito.com',
+      available: true,
+      status: 'available',
+      source: 'rdap',
+    });
     mockBuildTldMap.mockResolvedValue(tldMapFor('com', 9.5));
 
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'vito.com',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'vito.com',
+      },
+      env,
+    );
 
     expect(res.status).toBe(503);
     const body = (await res.json()) as { error?: { code?: string; topup_url?: string } };
@@ -248,15 +287,26 @@ describe('POST /api/domains/purchase — auth + validation + wallet edge branche
   });
 
   it('returns 500 wallet_error when chargeWallet throws unexpectedly', async () => {
-    mockCheckAvail.mockResolvedValue({ domain: 'vito.com', available: true, status: 'available', source: 'rdap' });
+    mockCheckAvail.mockResolvedValue({
+      domain: 'vito.com',
+      available: true,
+      status: 'available',
+      source: 'rdap',
+    });
     mockBuildTldMap.mockResolvedValue(tldMapFor('com', 9.5));
     mockCharge.mockRejectedValue(new Error('D1 deadlock'));
 
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'vito.com',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'vito.com',
+      },
+      env,
+    );
 
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error?: { code?: string } };
@@ -266,15 +316,26 @@ describe('POST /api/domains/purchase — auth + validation + wallet edge branche
   });
 
   it('returns 500 wallet_error when charge resolves ok:false reason:error', async () => {
-    mockCheckAvail.mockResolvedValue({ domain: 'vito.com', available: true, status: 'available', source: 'rdap' });
+    mockCheckAvail.mockResolvedValue({
+      domain: 'vito.com',
+      available: true,
+      status: 'available',
+      source: 'rdap',
+    });
     mockBuildTldMap.mockResolvedValue(tldMapFor('com', 9.5));
     mockCharge.mockResolvedValue({ ok: false, reason: 'error', message: 'stripe declined' });
 
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'vito.com',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'vito.com',
+      },
+      env,
+    );
 
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error?: { code?: string; message?: string } };
@@ -284,7 +345,12 @@ describe('POST /api/domains/purchase — auth + validation + wallet edge branche
   });
 
   it('returns 200 with ssl_status="failed" when registrar succeeds but provisioning throws', async () => {
-    mockCheckAvail.mockResolvedValue({ domain: 'vito.com', available: true, status: 'available', source: 'rdap' });
+    mockCheckAvail.mockResolvedValue({
+      domain: 'vito.com',
+      available: true,
+      status: 'available',
+      source: 'rdap',
+    });
     mockBuildTldMap.mockResolvedValue(tldMapFor('com', 9.5));
     mockCharge.mockResolvedValue({
       ok: true,
@@ -296,10 +362,16 @@ describe('POST /api/domains/purchase — auth + validation + wallet edge branche
     mockProvision.mockRejectedValue(new Error('CF for SaaS rejected hostname'));
 
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/domains/purchase', {
-      site_id: 'site_test',
-      domain: 'vito.com',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/domains/purchase',
+      {
+        site_id: 'site_test',
+        domain: 'vito.com',
+      },
+      env,
+    );
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; data: Record<string, unknown> };
@@ -328,10 +400,16 @@ describe('POST /api/billing/checkout/wallet', () => {
 
   it('returns 400 when success_url is not a URL (Zod)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/billing/checkout/wallet', {
-      success_url: 'not-a-url',
-      cancel_url: 'https://app.projectsites.dev/cancel',
-    }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/billing/checkout/wallet',
+      {
+        success_url: 'not-a-url',
+        cancel_url: 'https://app.projectsites.dev/cancel',
+      },
+      env,
+    );
     expect(res.status).toBe(400);
     expect(mockStartSub).not.toHaveBeenCalled();
   });
@@ -374,21 +452,39 @@ describe('POST /api/billing/checkout/wallet', () => {
 describe('POST /api/billing/checkout/topup', () => {
   it('returns 401 when unauthenticated', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(), 'POST', '/api/billing/checkout/topup', { amount_cents: 2000 }, env);
+    const res = await jsonReq(
+      makeApp(),
+      'POST',
+      '/api/billing/checkout/topup',
+      { amount_cents: 2000 },
+      env,
+    );
     expect(res.status).toBe(401);
     expect(mockTopUp).not.toHaveBeenCalled();
   });
 
   it('returns 400 when amount_cents is below the 500 floor (Zod)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/billing/checkout/topup', { amount_cents: 100 }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/billing/checkout/topup',
+      { amount_cents: 100 },
+      env,
+    );
     expect(res.status).toBe(400);
     expect(mockTopUp).not.toHaveBeenCalled();
   });
 
   it('returns 400 when amount_cents exceeds the 50000 ceiling (Zod)', async () => {
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/billing/checkout/topup', { amount_cents: 99999 }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/billing/checkout/topup',
+      { amount_cents: 99999 },
+      env,
+    );
     expect(res.status).toBe(400);
     expect(mockTopUp).not.toHaveBeenCalled();
   });
@@ -396,7 +492,13 @@ describe('POST /api/billing/checkout/topup', () => {
   it('returns 400 when the wallet binding is not configured', async () => {
     mockWalletAvailable.mockReturnValue(false);
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/billing/checkout/topup', { amount_cents: 2000 }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/billing/checkout/topup',
+      { amount_cents: 2000 },
+      env,
+    );
     expect(res.status).toBe(400);
     expect(mockTopUp).not.toHaveBeenCalled();
   });
@@ -404,9 +506,17 @@ describe('POST /api/billing/checkout/topup', () => {
   it('charges the wallet and echoes the amount + state on success', async () => {
     mockTopUp.mockResolvedValue({ ok: true, state: { balance_cents: 5000 } });
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/billing/checkout/topup', { amount_cents: 2000 }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/billing/checkout/topup',
+      { amount_cents: 2000 },
+      env,
+    );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { ok: boolean; charged_cents: number; state: unknown } };
+    const body = (await res.json()) as {
+      data: { ok: boolean; charged_cents: number; state: unknown };
+    };
     expect(body.data.ok).toBe(true);
     expect(body.data.charged_cents).toBe(2000);
     expect(body.data.state).toEqual({ balance_cents: 5000 });
@@ -416,7 +526,13 @@ describe('POST /api/billing/checkout/topup', () => {
   it('returns 400 when topUpWallet reports failure', async () => {
     mockTopUp.mockResolvedValue({ ok: false, message: 'No payment method on file' });
     const env = makeEnv();
-    const res = await jsonReq(makeApp(AUTH), 'POST', '/api/billing/checkout/topup', { amount_cents: 2000 }, env);
+    const res = await jsonReq(
+      makeApp(AUTH),
+      'POST',
+      '/api/billing/checkout/topup',
+      { amount_cents: 2000 },
+      env,
+    );
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error?: { message?: string } };
     expect(body.error?.message).toBe('No payment method on file');

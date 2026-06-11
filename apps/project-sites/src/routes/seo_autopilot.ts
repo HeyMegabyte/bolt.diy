@@ -64,7 +64,8 @@ async function guard(c: AppContext, siteId?: string): Promise<Response | null> {
   const userId = c.get('userId');
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
-  if (!(await autopilotOn(c, siteId))) return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
+  if (!(await autopilotOn(c, siteId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
   return null;
 }
@@ -166,7 +167,8 @@ seoAutopilot.post('/drafts/:draftId/approve', async (c) => {
   );
   const siteId = owner?.site_id;
 
-  if (!(await autopilotOn(c, siteId))) return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
+  if (!(await autopilotOn(c, siteId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
   // Missing draft OR a draft owned by another org → 404 (never leak existence).
   if (!owner || owner.org_id !== c.get('orgId')) {

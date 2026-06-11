@@ -9,12 +9,27 @@ import type { Env } from '../types/env.js';
 
 const ENV = {} as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'facebook', external_id: 'PAGE1', handle: 'My Page',
-  access_token: 'tok', refresh_token: null, token_expires_at: null, scopes: null, metadata: {}, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'facebook',
+  external_id: 'PAGE1',
+  handle: 'My Page',
+  access_token: 'tok',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: {},
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hello FB', per_platform_overrides: null, media_urls: [], hashtags: [],
-  mentions: [], link: null, ...over,
+  id: 'p1',
+  content: 'Hello FB',
+  per_platform_overrides: null,
+  media_urls: [],
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
@@ -29,13 +44,17 @@ function mockFetch(routes: { feed?: (i?: RequestInit) => Response; insights?: ()
   return fn;
 }
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('facebook.publish', () => {
   it('posts to the page feed and returns id + url', async () => {
     mockFetch({ feed: () => json({ id: '987' }) });
     expect(await facebook.publish(ENV, account(), post())).toEqual({
-      external_id: '987', external_url: 'https://www.facebook.com/987',
+      external_id: '987',
+      external_url: 'https://www.facebook.com/987',
     });
   });
   it('attaches a link when the post has one', async () => {
@@ -53,7 +72,9 @@ describe('facebook.publish', () => {
   });
   it('throws when the feed endpoint is not OK', async () => {
     mockFetch({ feed: () => new Response('no', { status: 400 }) });
-    await expect(facebook.publish(ENV, account(), post())).rejects.toThrow(/facebook_publish_failed:400/);
+    await expect(facebook.publish(ENV, account(), post())).rejects.toThrow(
+      /facebook_publish_failed:400/,
+    );
   });
 });
 

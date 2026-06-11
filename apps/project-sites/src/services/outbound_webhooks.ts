@@ -206,7 +206,11 @@ export async function createWebhookEndpoint(
 }
 
 /** List a site's endpoints (org+site scoped) — NEVER includes the secret. */
-export async function listWebhookEndpoints(env: Env, orgId: string, siteId: string): Promise<StoredEndpoint[]> {
+export async function listWebhookEndpoints(
+  env: Env,
+  orgId: string,
+  siteId: string,
+): Promise<StoredEndpoint[]> {
   const { data } = await dbQuery<{ id: string; url: string; event_types: string; enabled: number }>(
     env.DB,
     `SELECT id, url, event_types, enabled FROM webhook_endpoints
@@ -364,7 +368,11 @@ export interface StoredDelivery {
 }
 
 /** Recent delivery attempts for a site (newest first). Caller must own the site. */
-export async function listDeliveries(env: Env, siteId: string, limit = 50): Promise<StoredDelivery[]> {
+export async function listDeliveries(
+  env: Env,
+  siteId: string,
+  limit = 50,
+): Promise<StoredDelivery[]> {
   const capped = Math.min(Math.max(1, Math.floor(limit)), 200);
   const { data } = await dbQuery<{
     id: string;

@@ -107,7 +107,10 @@ describe('saveCfCredentials (encrypt at rest)', () => {
 describe('loadCfCredentials (decrypt round-trip)', () => {
   it('decrypts a stored blob back to the original email + api_key', async () => {
     const env = makeEnv();
-    const blob = await encrypt(env, JSON.stringify({ api_key: 'cf-roundtrip-key', email: 'rt@example.com' }));
+    const blob = await encrypt(
+      env,
+      JSON.stringify({ api_key: 'cf-roundtrip-key', email: 'rt@example.com' }),
+    );
     mockQueryOne.mockResolvedValueOnce(storedRow(blob));
 
     const rec = await loadCfCredentials(env, 'org-A');
@@ -171,7 +174,9 @@ describe('save → load full cycle', () => {
 
     // Reuse the ciphertext the save produced as the row a subsequent load reads.
     const writtenBlob = (mockExecute.mock.calls[0][2] as unknown[])[2] as string;
-    mockQueryOne.mockResolvedValueOnce(storedRow(writtenBlob, { last_validated_account_id: 'acct-99' }));
+    mockQueryOne.mockResolvedValueOnce(
+      storedRow(writtenBlob, { last_validated_account_id: 'acct-99' }),
+    );
 
     const rec = await loadCfCredentials(env, 'org-A');
     expect(rec!.email).toBe('cycle@example.com');

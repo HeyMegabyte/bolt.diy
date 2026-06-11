@@ -29,12 +29,19 @@ export interface ConciergeSource {
  * the source id, then the kind; rounds the score to 2dp; caps at 5.
  */
 export function formatSources(
-  data: ReadonlyArray<{ kind?: string; score?: number; sourceId?: string; metadata?: Record<string, unknown> }>,
+  data: ReadonlyArray<{
+    kind?: string;
+    score?: number;
+    sourceId?: string;
+    metadata?: Record<string, unknown>;
+  }>,
 ): ConciergeSource[] {
   const seen = new Set<string>();
   const out: ConciergeSource[] = [];
   for (const d of data ?? []) {
-    const title = String(d.metadata?.['title'] ?? d.metadata?.['url'] ?? d.sourceId ?? d.kind ?? 'Result');
+    const title = String(
+      d.metadata?.['title'] ?? d.metadata?.['url'] ?? d.sourceId ?? d.kind ?? 'Result',
+    );
     const key = title.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -47,22 +54,38 @@ export const concierge = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 concierge.post('/api/sites/:id/concierge', async (c) => {
   const siteId = c.req.param('id');
-  const on = await isFlagOn(c.env, 'ai_concierge_widget', { siteId, orgId: c.get('orgId'), userId: c.get('userId') });
+  const on = await isFlagOn(c.env, 'ai_concierge_widget', {
+    siteId,
+    orgId: c.get('orgId'),
+    userId: c.get('userId'),
+  });
   if (!on) return c.notFound();
 
   const parsed = ConciergeBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Ask a question (2-500 characters).' } }, 400);
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Ask a question (2-500 characters).' } },
+      400,
+    );
   }
 
   if (!c.env.AI) {
-    return c.json({ answer: null, sources: [], notes: 'The AI concierge is still provisioning for this site.' }, 200);
+    return c.json(
+      { answer: null, sources: [], notes: 'The AI concierge is still provisioning for this site.' },
+      200,
+    );
   }
 
   try {
-    const { response, data } = await autoRagQuery(c.env, parsed.data.q, { orgId: c.get('orgId'), topK: 5 });
+    const { response, data } = await autoRagQuery(c.env, parsed.data.q, {
+      orgId: c.get('orgId'),
+      topK: 5,
+    });
     return c.json({ answer: response, sources: formatSources(data) });
   } catch {
-    return c.json({ answer: null, sources: [], notes: 'Couldn’t answer that right now — please try again.' }, 200);
+    return c.json(
+      { answer: null, sources: [], notes: 'Couldn’t answer that right now — please try again.' },
+      200,
+    );
   }
 });

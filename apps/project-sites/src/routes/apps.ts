@@ -31,10 +31,7 @@ import { APPS_CATALOG, type CatalogApp } from '../data/apps-catalog.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { decrypt, encrypt } from '../services/ai_crypto.js';
 import { deprovisionInfra, provisionInfra } from '../services/app_provisioner.js';
-import {
-  MissingEnvError,
-  resolveAppEnv,
-} from '../services/app_env_resolver.js';
+import { MissingEnvError, resolveAppEnv } from '../services/app_env_resolver.js';
 import { MissingNeonKeyError } from '../services/neon_provisioner.js';
 import { MissingUpstashKeyError } from '../services/upstash_provisioner.js';
 import * as dispatcher from '../services/container_dispatcher.js';
@@ -53,7 +50,10 @@ const createInstanceBody = z.object({
     .string()
     .min(2)
     .max(63)
-    .regex(SUBDOMAIN_RE, 'subdomain must be lowercase alphanumeric + hyphen, not starting/ending with hyphen'),
+    .regex(
+      SUBDOMAIN_RE,
+      'subdomain must be lowercase alphanumeric + hyphen, not starting/ending with hyphen',
+    ),
   env_overrides: z.record(z.string().max(8_000)).optional(),
 });
 
@@ -85,7 +85,10 @@ interface AppInstanceRow {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function requireAuth(c: { get: (k: string) => string | undefined }): { userId: string; orgId: string } {
+function requireAuth(c: { get: (k: string) => string | undefined }): {
+  userId: string;
+  orgId: string;
+} {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId) throw unauthorized('Sign in to use the Apps tab.');
@@ -105,7 +108,9 @@ async function loadInstance(env: Env, orgId: string, id: string): Promise<AppIns
   );
 }
 
-function sanitizeInstance(row: AppInstanceRow): Omit<AppInstanceRow, 'env_encrypted' | 'env_iv'> & { env: null } {
+function sanitizeInstance(
+  row: AppInstanceRow,
+): Omit<AppInstanceRow, 'env_encrypted' | 'env_iv'> & { env: null } {
   // Default list/get does NOT include the decrypted env — separate detail
   // route requires admin role.
   const { env_encrypted: _ee, env_iv: _ev, ...rest } = row;
@@ -146,9 +151,7 @@ apps.get('/api/apps/catalog', (c) => {
   // the rest. Default (no flag) returns the full curated set.
   const supportedFilter = c.req.query('supported');
   const items =
-    supportedFilter === 'true'
-      ? APPS_CATALOG.filter((a) => isSupportedSlug(a.id))
-      : APPS_CATALOG;
+    supportedFilter === 'true' ? APPS_CATALOG.filter((a) => isSupportedSlug(a.id)) : APPS_CATALOG;
   const decorated = items.map((a) => ({ ...a, supported: isSupportedSlug(a.id) }));
   return c.json(
     {
@@ -169,11 +172,9 @@ apps.get('/api/apps/catalog', (c) => {
 apps.get('/api/apps/catalog/:id', (c) => {
   const app = catalogById(c.req.param('id'));
   if (!app) throw notFound(`No app with id '${c.req.param('id')}' in catalog`);
-  return c.json(
-    { app: { ...app, supported: isSupportedSlug(app.id) } },
-    200,
-    { 'Cache-Control': 'public, max-age=300, s-maxage=300' },
-  );
+  return c.json({ app: { ...app, supported: isSupportedSlug(app.id) } }, 200, {
+    'Cache-Control': 'public, max-age=300, s-maxage=300',
+  });
 });
 
 // ─── Instance list ───────────────────────────────────────────
@@ -230,8 +231,7 @@ apps.post('/api/apps/instances', async (c) => {
       {
         error: 'app_not_supported',
         app_id: app.id,
-        message:
-          'Coming soon — this catalog app is queued for a future subclass registration.',
+        message: 'Coming soon — this catalog app is queued for a future subclass registration.',
       },
       424,
     );
@@ -279,7 +279,10 @@ apps.post('/api/apps/instances', async (c) => {
       r2BucketName: infra.s3?.bucketName,
     });
     if (err instanceof MissingEnvError) {
-      return c.json({ error: err.code, key: err.key, app_id: err.appId, message: err.message }, 400);
+      return c.json(
+        { error: err.code, key: err.key, app_id: err.appId, message: err.message },
+        400,
+      );
     }
     throw err;
   }
@@ -350,7 +353,10 @@ apps.post('/api/apps/instances', async (c) => {
     request_id: c.get('requestId'),
   });
 
-  return c.json({ instance_id: instanceId, status: 'provisioning', subdomain: body.subdomain }, 201);
+  return c.json(
+    { instance_id: instanceId, status: 'provisioning', subdomain: body.subdomain },
+    201,
+  );
 });
 
 // ─── Instance detail (decrypted env, admin only) ────────────
@@ -471,21 +477,29 @@ apps.patch('/api/apps/instances/:id/env', async (c) => {
   const current = await decryptEnv(c.env, row);
   const merged = { ...current, ...body.env_overrides };
   const encrypted = await encrypt(c.env, JSON.stringify(merged));
-  await dbUpdate(c.env.DB, 'app_instances', { env_encrypted: encrypted, env_iv: 'inline' }, 'id = ?', [row.id]);
+  await dbUpdate(
+    c.env.DB,
+    'app_instances',
+    { env_encrypted: encrypted, env_iv: 'inline' },
+    'id = ?',
+    [row.id],
+  );
 
   // Schedule a restart so the new env-var values take effect.
   c.executionCtx.waitUntil(
-    dispatcher.restartContainer(c.env, row.id, row.app_slug).then((r) =>
-      dbUpdate(
-        c.env.DB,
-        'app_instances',
-        r.ok
-          ? { status: 'starting', last_started_at: new Date().toISOString(), last_error: null }
-          : { status: 'error', last_error: r.detail ?? 'restart_failed' },
-        'id = ?',
-        [row.id],
+    dispatcher
+      .restartContainer(c.env, row.id, row.app_slug)
+      .then((r) =>
+        dbUpdate(
+          c.env.DB,
+          'app_instances',
+          r.ok
+            ? { status: 'starting', last_started_at: new Date().toISOString(), last_error: null }
+            : { status: 'error', last_error: r.detail ?? 'restart_failed' },
+          'id = ?',
+          [row.id],
+        ),
       ),
-    ),
   );
 
   await auditService.writeAuditLog(c.env.DB, {

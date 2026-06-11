@@ -57,11 +57,16 @@ pseo.post('/:siteId/generate', async (c) => {
   // Start Workflow
   const workflow = c.env.PSEO_GENERATION_WORKFLOW;
   if (!workflow) {
-    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'pSEO workflow binding not available' } }, 503);
+    return c.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'pSEO workflow binding not available' } },
+      503,
+    );
   }
 
   try {
-    const instance = await (workflow as { create: (params: unknown) => Promise<{ id: string }> }).create({
+    const instance = await (
+      workflow as { create: (params: unknown) => Promise<{ id: string }> }
+    ).create({
       params: { siteId, orgId: orgId ?? '' },
     });
     return c.json({ ok: true, workflowInstanceId: instance.id });
@@ -174,7 +179,10 @@ pseo.post('/:siteId/pages/:pageId/approve', async (c) => {
   if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
 
   // Scope to site_id too — a verified-owned :siteId must not approve a foreign page by guessed id.
-  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'approved' }, 'id = ? AND site_id = ?', [pageId, siteId]);
+  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'approved' }, 'id = ? AND site_id = ?', [
+    pageId,
+    siteId,
+  ]);
 
   return c.json({ ok: true, pageId, status: 'approved' });
 });
@@ -200,7 +208,8 @@ pseo.post('/:siteId/pages/:pageId/publish', async (c) => {
   );
 
   if (!row) return c.json({ error: { code: 'NOT_FOUND', message: 'Page not found' } }, 404);
-  if (!row.html_content) return c.json({ error: { code: 'BAD_REQUEST', message: 'No content generated yet' } }, 400);
+  if (!row.html_content)
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'No content generated yet' } }, 400);
 
   const site = await dbQueryOne<{ slug: string }>(
     c.env.DB,
@@ -248,7 +257,10 @@ pseo.post('/:siteId/pages/:pageId/reject', async (c) => {
   const { siteId, pageId } = c.req.param();
   if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
 
-  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'rejected' }, 'id = ? AND site_id = ?', [pageId, siteId]);
+  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'rejected' }, 'id = ? AND site_id = ?', [
+    pageId,
+    siteId,
+  ]);
 
   return c.json({ ok: true, pageId, status: 'rejected' });
 });

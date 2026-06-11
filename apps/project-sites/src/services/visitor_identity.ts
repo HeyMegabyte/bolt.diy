@@ -26,8 +26,8 @@ export interface IdentitySignals {
   siteId: string;
   email?: string | null;
   phone?: string | null;
-  visitorId?: string | null;  // client-provided persistent cookie
-  anonId?: string | null;     // CF-Ray or ephemeral token
+  visitorId?: string | null; // client-provided persistent cookie
+  anonId?: string | null; // CF-Ray or ephemeral token
   displayName?: string | null;
 }
 
@@ -118,13 +118,20 @@ export async function resolveOrCreateIdentity(
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .bind(
-      id, orgId, siteId,
+      id,
+      orgId,
+      siteId,
       email ?? null,
       phone ?? null,
       visitorId ?? null,
       anonId ?? null,
       displayName ?? null,
-      now, now, channelFlags, '{}', now, now,
+      now,
+      now,
+      channelFlags,
+      '{}',
+      now,
+      now,
     )
     .run();
 
@@ -227,11 +234,19 @@ export async function openOrFetchConversation(
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .bind(
-      id, orgId, siteId, visitorId, channel,
+      id,
+      orgId,
+      siteId,
+      visitorId,
+      channel,
       subject ?? null,
       'open',
       slaDueAt ?? null,
-      now, '[]', '{}', now, now,
+      now,
+      '[]',
+      '{}',
+      now,
+      now,
     )
     .run();
 

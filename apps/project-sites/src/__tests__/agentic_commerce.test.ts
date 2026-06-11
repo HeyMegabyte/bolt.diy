@@ -1,12 +1,24 @@
 import { toAgentProduct } from '../routes/agentic_commerce';
 
-const base = { id: 'p1', name: 'Mug', description: 'A mug', price_cents: 1500, currency: 'USD', image_url: null, sku: null, stock: null };
+const base = {
+  id: 'p1',
+  name: 'Mug',
+  description: 'A mug',
+  price_cents: 1500,
+  currency: 'USD',
+  image_url: null,
+  sku: null,
+  stock: null,
+};
 
 describe('toAgentProduct', () => {
   it('maps to the ACP/UCP money + availability shape', () => {
     expect(toAgentProduct(base)).toEqual({
-      id: 'p1', title: 'Mug', description: 'A mug',
-      price: { amount: 1500, currency: 'USD' }, availability: 'in_stock',
+      id: 'p1',
+      title: 'Mug',
+      description: 'A mug',
+      price: { amount: 1500, currency: 'USD' },
+      availability: 'in_stock',
     });
   });
 

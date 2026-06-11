@@ -124,9 +124,7 @@ describe('ConversationHub (deprecated Pulse Inbox DO stub)', () => {
   it('returns 410 regardless of method (PUT/DELETE/PATCH/HEAD)', async () => {
     const { hub } = makeHub();
     for (const method of ['PUT', 'DELETE', 'PATCH', 'HEAD']) {
-      const res = await hub.fetch(
-        new Request('http://do/inbox', { method }),
-      );
+      const res = await hub.fetch(new Request('http://do/inbox', { method }));
       expect(res.status).toBe(410);
     }
   });

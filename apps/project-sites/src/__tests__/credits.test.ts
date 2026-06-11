@@ -54,9 +54,8 @@ function makeDb(): DbHarness {
         harness.prepared!.push(rec);
         return stmt;
       },
-      first: async <T,>(): Promise<T | null> =>
-        (harness.firstQueue!.shift() ?? null) as T | null,
-      all: async <T,>(): Promise<{ results?: T[] }> =>
+      first: async <T>(): Promise<T | null> => (harness.firstQueue!.shift() ?? null) as T | null,
+      all: async <T>(): Promise<{ results?: T[] }> =>
         (harness.allQueue!.shift() ?? { results: [] }) as { results?: T[] },
       run: async () => ({ meta: {} }),
     };

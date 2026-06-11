@@ -191,8 +191,18 @@ describe('dispatchUsageToStripe', () => {
         }),
         text: async () => '',
       })
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}), text: async () => '' })
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}), text: async () => '' });
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+        text: async () => '',
+      });
 
     const result = await dispatchUsageToStripe(e, mockDb, 'org-1');
     expect(result.dispatched).toBe(2);

@@ -44,8 +44,15 @@ export const authMiddleware: MiddlewareHandler<{
       // reads userId + orgId from context Just Works.
       if (token.startsWith('psk_live_') || token.startsWith('psk_test_')) {
         const hashBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-        const hash = Array.from(new Uint8Array(hashBytes)).map((b) => b.toString(16).padStart(2, '0')).join('');
-        const key = await dbQueryOne<{ id: string; org_id: string; created_by: string; expires_at: string | null }>(
+        const hash = Array.from(new Uint8Array(hashBytes))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+        const key = await dbQueryOne<{
+          id: string;
+          org_id: string;
+          created_by: string;
+          expires_at: string | null;
+        }>(
           c.env.DB,
           `SELECT id, org_id, created_by, expires_at FROM api_keys
            WHERE hash = ? AND revoked_at IS NULL LIMIT 1`,
@@ -57,7 +64,9 @@ export const authMiddleware: MiddlewareHandler<{
           // Best-effort last-used timestamp; failure must not block the request.
           c.executionCtx.waitUntil(
             c.env.DB.prepare(`UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?`)
-              .bind(key.id).run().catch(() => undefined) as Promise<unknown>,
+              .bind(key.id)
+              .run()
+              .catch(() => undefined) as Promise<unknown>,
           );
         }
       } else {

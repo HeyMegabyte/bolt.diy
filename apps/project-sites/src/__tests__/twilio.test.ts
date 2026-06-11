@@ -67,7 +67,12 @@ const noCredsEnv = (): Env => ({}) as unknown as Env;
 
 function mockFetchOnce(
   body: unknown,
-  init: { ok?: boolean; status?: number; arrayBuffer?: ArrayBuffer; contentType?: string | null } = {},
+  init: {
+    ok?: boolean;
+    status?: number;
+    arrayBuffer?: ArrayBuffer;
+    contentType?: string | null;
+  } = {},
 ) {
   (global.fetch as jest.Mock).mockResolvedValueOnce({
     ok: init.ok ?? true,
@@ -78,7 +83,9 @@ function mockFetchOnce(
     headers: {
       get: (k: string) =>
         k.toLowerCase() === 'content-type'
-          ? (init.contentType === undefined ? 'audio/mpeg' : init.contentType)
+          ? init.contentType === undefined
+            ? 'audio/mpeg'
+            : init.contentType
           : null,
     },
   });
@@ -164,9 +171,9 @@ describe('TWILIO_NOT_CONFIGURED guard', () => {
       purchaseNumber(noCredsEnv(), { phoneNumber: '+1', voiceUrl: 'v', smsUrl: 's' }),
     ).rejects.toMatchObject(matcher);
     await expect(releaseNumber(noCredsEnv(), 'PN1')).rejects.toMatchObject(matcher);
-    await expect(
-      sendSms(noCredsEnv(), { from: '+1', to: '+2', body: 'hi' }),
-    ).rejects.toMatchObject(matcher);
+    await expect(sendSms(noCredsEnv(), { from: '+1', to: '+2', body: 'hi' })).rejects.toMatchObject(
+      matcher,
+    );
     await expect(createCallRecording(noCredsEnv(), 'CA1')).rejects.toMatchObject(matcher);
     await expect(fetchRecording(noCredsEnv(), 'RE1')).rejects.toMatchObject(matcher);
     await expect(downloadRecordingBytes(noCredsEnv(), 'http://x')).rejects.toMatchObject(matcher);

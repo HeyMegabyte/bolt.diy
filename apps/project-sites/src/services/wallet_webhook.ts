@@ -22,11 +22,7 @@
 import type { Env } from '../types/env.js';
 
 interface WalletWebhookModule {
-  handleStripeEvent(
-    env: Env,
-    eventType: string,
-    obj: Record<string, unknown>,
-  ): Promise<void>;
+  handleStripeEvent(env: Env, eventType: string, obj: Record<string, unknown>): Promise<void>;
 }
 
 let cached: WalletWebhookModule | null | undefined;
@@ -34,9 +30,9 @@ let cached: WalletWebhookModule | null | undefined;
 async function load(): Promise<WalletWebhookModule | null> {
   if (cached !== undefined) return cached;
   try {
-    const mod: unknown = await import(
-      /* webpackIgnore: true */ './wallet.js' as string
-    ).catch(() => null);
+    const mod: unknown = await import(/* webpackIgnore: true */ './wallet.js' as string).catch(
+      () => null,
+    );
     if (mod && typeof mod === 'object' && 'handleStripeEvent' in (mod as object)) {
       cached = mod as WalletWebhookModule;
       return cached;

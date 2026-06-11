@@ -285,8 +285,17 @@ describe('POST /api/sites/:slug/copilot/intent', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('GET /api/sites/:siteId/copilot/sessions', () => {
-  function get(app: Hono<{ Bindings: Env; Variables: Variables }>, env: Env, headers: Record<string, string> = {}) {
-    return app.request('/api/sites/site-1/copilot/sessions', { method: 'GET', headers }, env, makeCtx());
+  function get(
+    app: Hono<{ Bindings: Env; Variables: Variables }>,
+    env: Env,
+    headers: Record<string, string> = {},
+  ) {
+    return app.request(
+      '/api/sites/site-1/copilot/sessions',
+      { method: 'GET', headers },
+      env,
+      makeCtx(),
+    );
   }
 
   it('returns 401 when the request is unauthenticated', async () => {
@@ -331,7 +340,8 @@ describe('GET /api/sites/:siteId/copilot/sessions', () => {
     const distRows = [{ intent: 'book', count: 4 }];
     const env = makeEnv({
       DB: makeDb({
-        all: (sql) => (sql.includes('GROUP BY intent') ? { results: distRows } : { results: sessionRows }),
+        all: (sql) =>
+          sql.includes('GROUP BY intent') ? { results: distRows } : { results: sessionRows },
       }),
     });
     mockAssertSiteOwned.mockResolvedValue(true);
@@ -397,7 +407,9 @@ describe('GET /api/sites/:siteId/copilot/config', () => {
   });
 
   it('returns the stored enabled flag from the override row', async () => {
-    const env = makeEnv({ DB: makeDb({ first: () => ({ value_json: JSON.stringify({ enabled: true }) }) }) });
+    const env = makeEnv({
+      DB: makeDb({ first: () => ({ value_json: JSON.stringify({ enabled: true }) }) }),
+    });
     mockAssertSiteOwned.mockResolvedValue(true);
     mockIsFlagOn.mockResolvedValue(true);
     const res = await get(makeApp(AUTH), env);

@@ -10,15 +10,19 @@
  *
  * `cloudflare:workers` is virtual-mocked.
  */
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 import { SnapshotQualityWorkflow } from '../workflows/snapshot-quality.js';
 import type { Env } from '../types/env.js';
@@ -37,11 +41,18 @@ function makeStep(canned: Record<string, unknown>, throwOn?: string) {
 }
 
 const params = {
-  snapshotId: 'snap1', siteId: 's1', slug: 'mysite', snapshotName: 'v1',
-  buildVersion: 'b1', capturedVia: 'cron' as const,
+  snapshotId: 'snap1',
+  siteId: 's1',
+  slug: 'mysite',
+  snapshotName: 'v1',
+  buildVersion: 'b1',
+  capturedVia: 'cron' as const,
 };
 const run = (step: WorkflowStep) => {
-  const wf = new SnapshotQualityWorkflow({} as never, { DB: {}, SITES_BUCKET: {} } as unknown as Env);
+  const wf = new SnapshotQualityWorkflow(
+    {} as never,
+    { DB: {}, SITES_BUCKET: {} } as unknown as Env,
+  );
   return wf.run({ payload: params } as unknown as WorkflowEvent<typeof params>, step);
 };
 

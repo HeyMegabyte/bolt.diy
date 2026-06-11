@@ -121,7 +121,7 @@ function buildPrompt(name: string): { system: string; user: string } {
     '   (e.g. apple.com, mcdonalds.com). Include the https:// scheme. If',
     '   unsure, return null.',
     '6. `suggested_subdomains` are short lowercase slugs the user might pick',
-    "   for their site (kebab-case, no dots, 3-30 chars). Max 5 items.",
+    '   for their site (kebab-case, no dots, 3-30 chars). Max 5 items.',
     '7. `brand_colors` are 1-5 hex colors (`#RRGGBB`) representing the',
     '   brand identity. If you do not know, return null.',
     '8. `description` is one tight sentence, max 160 chars.',
@@ -297,11 +297,7 @@ function coerceResponse(name: string, raw: unknown): AutofillResponse {
 
   const brandColors = Array.isArray(r['brand_colors'])
     ? Array.from(
-        new Set(
-          (r['brand_colors'] as unknown[])
-            .map(normalizeHex)
-            .filter((s): s is string => !!s),
-        ),
+        new Set((r['brand_colors'] as unknown[]).map(normalizeHex).filter((s): s is string => !!s)),
       ).slice(0, 5)
     : null;
 
@@ -380,15 +376,18 @@ autofill.post('/api/sites/autofill', async (c) => {
   let errorMessage: string | undefined;
 
   try {
-    const ai = (await c.env.AI.run(MODEL as Parameters<typeof c.env.AI.run>[0], {
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      max_tokens: 600,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-    } as Parameters<typeof c.env.AI.run>[1])) as { response?: string };
+    const ai = (await c.env.AI.run(
+      MODEL as Parameters<typeof c.env.AI.run>[0],
+      {
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: 600,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      } as Parameters<typeof c.env.AI.run>[1],
+    )) as { response?: string };
 
     outputText = (ai.response ?? '').trim();
     const parsedJson = parseJsonResponse(outputText);
@@ -412,9 +411,8 @@ autofill.post('/api/sites/autofill', async (c) => {
         model: MODEL,
         status,
         latency_ms: Date.now() - started,
-        fields_returned: Object.entries(response).filter(
-          ([k, v]) => k !== 'name' && v !== null,
-        ).length,
+        fields_returned: Object.entries(response).filter(([k, v]) => k !== 'name' && v !== null)
+          .length,
         error: errorMessage,
       },
       request_id: c.get('requestId'),

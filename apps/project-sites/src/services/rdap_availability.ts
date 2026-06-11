@@ -59,10 +59,7 @@ export interface RdapResult {
  * Results are cached for 1h in `CACHE_KV` keyed `rdap:{domain}` so a user
  * paging through suggestions doesn't re-hit the registry on every keystroke.
  */
-export async function checkAvailability(
-  env: Env,
-  domain: string,
-): Promise<RdapResult> {
+export async function checkAvailability(env: Env, domain: string): Promise<RdapResult> {
   const normalized = domain.trim().toLowerCase();
   const cacheKey = `rdap:${normalized}`;
 
@@ -137,10 +134,7 @@ export async function checkAvailability(
  * still letting the picker render its 10-domain suggestion list in
  * roughly one HTTP round-trip's worth of wall time.
  */
-export async function checkBatch(
-  env: Env,
-  domains: string[],
-): Promise<RdapResult[]> {
+export async function checkBatch(env: Env, domains: string[]): Promise<RdapResult[]> {
   const out: RdapResult[] = new Array(domains.length);
   let cursor = 0;
 

@@ -113,18 +113,45 @@ describe('GET /api/sites/:siteId/logs/tail', () => {
   it('maps audit rows to leveled log entries, scoped by org + site', async () => {
     mockDbQuery.mockResolvedValueOnce({
       data: [
-        { created_at: '2026-06-03T00:00:00Z', actor_id: 'u-9', action: 'site.deploy', target_id: SITE, message: 'Deployed', metadata_json: null },
-        { created_at: '2026-06-03T00:01:00Z', actor_id: null, action: 'build.error.fatal', target_id: SITE, message: null, metadata_json: null },
-        { created_at: '2026-06-03T00:02:00Z', actor_id: 'u-3', action: 'cache.warn.miss', target_id: SITE, message: 'miss', metadata_json: null },
+        {
+          created_at: '2026-06-03T00:00:00Z',
+          actor_id: 'u-9',
+          action: 'site.deploy',
+          target_id: SITE,
+          message: 'Deployed',
+          metadata_json: null,
+        },
+        {
+          created_at: '2026-06-03T00:01:00Z',
+          actor_id: null,
+          action: 'build.error.fatal',
+          target_id: SITE,
+          message: null,
+          metadata_json: null,
+        },
+        {
+          created_at: '2026-06-03T00:02:00Z',
+          actor_id: 'u-3',
+          action: 'cache.warn.miss',
+          target_id: SITE,
+          message: 'miss',
+          metadata_json: null,
+        },
       ],
     });
     const env = makeEnv(makeDb());
     const res = await req(makeApp(AUTH), PATH, { method: 'GET' }, env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { logs: Array<{ level: string; source: string; message: string }> };
+    const json = (await res.json()) as {
+      logs: Array<{ level: string; source: string; message: string }>;
+    };
     expect(json.logs).toHaveLength(3);
     expect(json.logs[0]).toMatchObject({ level: 'info', source: 'u-9', message: 'Deployed' });
-    expect(json.logs[1]).toMatchObject({ level: 'error', source: 'system', message: 'build.error.fatal' });
+    expect(json.logs[1]).toMatchObject({
+      level: 'error',
+      source: 'system',
+      message: 'build.error.fatal',
+    });
     expect(json.logs[2]).toMatchObject({ level: 'warn', source: 'u-3' });
     // Query is org+site scoped.
     expect(mockDbQuery.mock.calls[0][2]).toEqual(['org-1', SITE]);
@@ -249,7 +276,10 @@ describe('POST /api/sites/:siteId/sql/exec', () => {
 
   it('executes a read-only query, returns columns/rows, and audits', async () => {
     mockDbQueryOne.mockResolvedValueOnce({ id: SITE });
-    const db = makeDb([{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }]);
+    const db = makeDb([
+      { id: 'a', name: 'Alpha' },
+      { id: 'b', name: 'Beta' },
+    ]);
     const env = makeEnv(db);
     const res = await exec(makeApp(AUTH), { query: '  SELECT id, name FROM widgets  ' }, env);
     expect(res.status).toBe(200);
@@ -258,8 +288,13 @@ describe('POST /api/sites/:siteId/sql/exec', () => {
     expect(json.columns).toEqual(['id', 'name']);
     expect(json.rows).toHaveLength(2);
     // Trimmed query is what hits prepare().
-    expect((db as unknown as { prepare: jest.Mock }).prepare).toHaveBeenCalledWith('SELECT id, name FROM widgets');
-    expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'site.sql.exec', target_id: SITE });
+    expect((db as unknown as { prepare: jest.Mock }).prepare).toHaveBeenCalledWith(
+      'SELECT id, name FROM widgets',
+    );
+    expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({
+      action: 'site.sql.exec',
+      target_id: SITE,
+    });
   });
 
   it('returns ok:true with empty columns when the result set is empty', async () => {

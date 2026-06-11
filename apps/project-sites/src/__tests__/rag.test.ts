@@ -44,7 +44,10 @@ function makeEnv() {
   });
 
   const run = jest.fn().mockResolvedValue({ success: true, meta: { changes: 1 } });
-  const bind = jest.fn(() => ({ run, all: jest.fn().mockResolvedValue({ results: [], success: true }) }));
+  const bind = jest.fn(() => ({
+    run,
+    all: jest.fn().mockResolvedValue({ results: [], success: true }),
+  }));
   const prepare = jest.fn(() => ({ bind }));
 
   const env = {
@@ -74,7 +77,11 @@ describe('services/rag', () => {
     expect(aiRun).toHaveBeenCalledTimes(1);
     expect(upsert).toHaveBeenCalledTimes(1);
 
-    const upsertArg = upsert.mock.calls[0][0] as Array<{ id: string; values: number[]; metadata: Record<string, unknown> }>;
+    const upsertArg = upsert.mock.calls[0][0] as Array<{
+      id: string;
+      values: number[];
+      metadata: Record<string, unknown>;
+    }>;
     expect(upsertArg).toHaveLength(1);
     expect(upsertArg[0].id).toBe('chunk-1');
     expect(upsertArg[0].values).toHaveLength(EMBED_DIM);

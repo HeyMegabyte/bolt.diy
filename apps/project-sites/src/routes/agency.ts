@@ -125,8 +125,14 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
 const brandSchema = z.object({
   logoUrl: z.string().url().optional(),
   faviconUrl: z.string().url().optional(),
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  primaryColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
   supportUrl: z.string().url().optional(),
   fromEmail: z.string().email().optional(),
   fromName: z.string().max(80).optional(),
@@ -175,8 +181,13 @@ agency.put('/api/agency/brand', zValidator('json', brandSchema), async (c) => {
     'SELECT brand_overrides_json FROM orgs WHERE id = ? LIMIT 1',
     [orgId],
   );
-  const merged = { ...(existing?.brand_overrides_json ? JSON.parse(existing.brand_overrides_json) : {}), ...body };
-  await dbUpdate(c.env.DB, 'orgs', { brand_overrides_json: JSON.stringify(merged) }, 'id = ?', [orgId]);
+  const merged = {
+    ...(existing?.brand_overrides_json ? JSON.parse(existing.brand_overrides_json) : {}),
+    ...body,
+  };
+  await dbUpdate(c.env.DB, 'orgs', { brand_overrides_json: JSON.stringify(merged) }, 'id = ?', [
+    orgId,
+  ]);
   // Invalidate brand KV cache for this org's hostnames.
   try {
     await c.env.CACHE_KV.delete(`brand:${orgId}`);

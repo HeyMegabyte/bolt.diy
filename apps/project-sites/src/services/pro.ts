@@ -46,7 +46,14 @@ export async function getProStatus(
 ): Promise<ProStatus> {
   const userId = c.get('userId');
   if (!userId) {
-    return { is_pro: false, reason: null, granted_at: null, expires_at: null, user_id: null, upgrade_url: UPGRADE_URL };
+    return {
+      is_pro: false,
+      reason: null,
+      granted_at: null,
+      expires_at: null,
+      user_id: null,
+      upgrade_url: UPGRADE_URL,
+    };
   }
   const row = await dbQueryOne<{
     is_pro: number;
@@ -60,7 +67,14 @@ export async function getProStatus(
     [userId],
   );
   if (!row) {
-    return { is_pro: false, reason: null, granted_at: null, expires_at: null, user_id: userId, upgrade_url: UPGRADE_URL };
+    return {
+      is_pro: false,
+      reason: null,
+      granted_at: null,
+      expires_at: null,
+      user_id: userId,
+      upgrade_url: UPGRADE_URL,
+    };
   }
   const expired = row.pro_expires_at && Date.parse(row.pro_expires_at) < Date.now();
   const isPro = row.is_pro === 1 && !expired;

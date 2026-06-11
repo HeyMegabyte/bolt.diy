@@ -146,11 +146,7 @@ export async function listAssets(
 }
 
 /** Fetch a single asset by id (org-scoped). Returns `null` when not found. */
-export async function getAsset(
-  env: Env,
-  orgId: string,
-  id: string,
-): Promise<MediaAsset | null> {
+export async function getAsset(env: Env, orgId: string, id: string): Promise<MediaAsset | null> {
   return dbQueryOne<MediaAsset>(
     env.DB,
     'SELECT * FROM media_assets WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
@@ -295,7 +291,9 @@ export async function searchStock(
     fetchers.push(searchPexelsPhotos(query, perPage, env.PEXELS_API_KEY));
   }
   if (allow.has('pexels-video') && env.PEXELS_API_KEY) {
-    fetchers.push(searchPexelsVideos(query, Math.max(Math.floor(perPage / 2), 1), env.PEXELS_API_KEY));
+    fetchers.push(
+      searchPexelsVideos(query, Math.max(Math.floor(perPage / 2), 1), env.PEXELS_API_KEY),
+    );
   }
   if (allow.has('pixabay') && env.PIXABAY_API_KEY) {
     fetchers.push(searchPixabay(query, perPage, env.PIXABAY_API_KEY));
@@ -341,7 +339,8 @@ export async function saveStockToLibrary(
   if (!res.ok) {
     throw new Error(`MEDIA_STOCK_DOWNLOAD_FAILED: ${res.status} ${candidate.fullUrl}`);
   }
-  const mime = res.headers.get('content-type') || (candidate.kind === 'video' ? 'video/mp4' : 'image/jpeg');
+  const mime =
+    res.headers.get('content-type') || (candidate.kind === 'video' ? 'video/mp4' : 'image/jpeg');
   const buf = await res.arrayBuffer();
   if (buf.byteLength > STOCK_MAX_BYTES) {
     throw new Error(`MEDIA_STOCK_TOO_LARGE: ${buf.byteLength} bytes exceeds ${STOCK_MAX_BYTES}`);
@@ -783,7 +782,9 @@ async function searchPexelsVideos(
           kind: 'video' as const,
           thumbUrl: v.image ?? hd.link,
           fullUrl: hd.link,
-          title: v.url ? `Pexels video — ${v.url.split('/').filter(Boolean).pop() ?? ''}` : 'Pexels video',
+          title: v.url
+            ? `Pexels video — ${v.url.split('/').filter(Boolean).pop() ?? ''}`
+            : 'Pexels video',
           attribution: v.user?.name ? `Video by ${v.user.name} on Pexels` : 'Pexels',
           sourceUrl: v.url ?? hd.link,
           width: v.width,
@@ -873,7 +874,9 @@ async function searchGoogleCSE(
           thumbUrl: i.image?.thumbnailLink ?? i.link,
           fullUrl: i.link,
           title: i.title ?? 'Web image',
-          attribution: i.image?.contextLink ? `Source: ${i.image.contextLink}` : 'Google Image Search',
+          attribution: i.image?.contextLink
+            ? `Source: ${i.image.contextLink}`
+            : 'Google Image Search',
           sourceUrl: i.image?.contextLink ?? i.link,
           width: i.image?.width,
           height: i.image?.height,

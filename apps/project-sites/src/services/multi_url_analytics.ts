@@ -82,7 +82,10 @@ export function parseRange(input: string | null | undefined): AnalyticsRange {
  * those are out of scope until we hit one in production).
  */
 export function apexDomain(hostname: string): string {
-  const host = hostname.toLowerCase().replace(/^\*\./, '').replace(/^www\./, '');
+  const host = hostname
+    .toLowerCase()
+    .replace(/^\*\./, '')
+    .replace(/^www\./, '');
   if (host.endsWith('.projectsites.dev') || host === 'projectsites.dev') {
     return 'projectsites.dev';
   }
@@ -117,12 +120,18 @@ export async function resolveZoneForHostname(
     if (cached && typeof cached === 'object' && 'zone_id' in cached) {
       return cached as { zone_id: string; account_id: string };
     }
-  } catch { /* cache miss is fine */ }
+  } catch {
+    /* cache miss is fine */
+  }
 
   // Hardcoded fast path — every projectsites.dev subdomain shares one zone.
   if (apex === 'projectsites.dev' && env.CF_ZONE_ID) {
     const zone = { account_id: env.CF_ACCOUNT_ID ?? '', zone_id: env.CF_ZONE_ID };
-    try { await env.CACHE_KV.put(cacheKey, JSON.stringify(zone), { expirationTtl: 7 * 86_400 }); } catch { /* */ }
+    try {
+      await env.CACHE_KV.put(cacheKey, JSON.stringify(zone), { expirationTtl: 7 * 86_400 });
+    } catch {
+      /* */
+    }
     return zone;
   }
 
@@ -132,30 +141,38 @@ export async function resolveZoneForHostname(
       { headers: cfAuthHeaders(auth) },
     );
     if (!res.ok) {
-      console.warn(JSON.stringify({
-        apex,
-        hostname,
-        level: 'warn',
-        op: 'resolveZoneForHostname',
-        service: 'multi_url_analytics',
-        status: res.status,
-      }));
+      console.warn(
+        JSON.stringify({
+          apex,
+          hostname,
+          level: 'warn',
+          op: 'resolveZoneForHostname',
+          service: 'multi_url_analytics',
+          status: res.status,
+        }),
+      );
       return null;
     }
     const body = (await res.json()) as { result?: CfZoneRow[]; success?: boolean };
     const z = body.result?.[0];
     if (!z?.id) return null;
     const zone = { account_id: z.account?.id ?? '', zone_id: z.id };
-    try { await env.CACHE_KV.put(cacheKey, JSON.stringify(zone), { expirationTtl: 7 * 86_400 }); } catch { /* */ }
+    try {
+      await env.CACHE_KV.put(cacheKey, JSON.stringify(zone), { expirationTtl: 7 * 86_400 });
+    } catch {
+      /* */
+    }
     return zone;
   } catch (err) {
-    console.warn(JSON.stringify({
-      error: err instanceof Error ? err.message : String(err),
-      hostname,
-      level: 'warn',
-      op: 'resolveZoneForHostname',
-      service: 'multi_url_analytics',
-    }));
+    console.warn(
+      JSON.stringify({
+        error: err instanceof Error ? err.message : String(err),
+        hostname,
+        level: 'warn',
+        op: 'resolveZoneForHostname',
+        service: 'multi_url_analytics',
+      }),
+    );
     return null;
   }
 }
@@ -175,8 +192,14 @@ interface CfGraphQlResponse {
   };
   errors?: Array<{ message: string }>;
 }
-interface SumFields { requests?: number; pageViews?: number; edgeResponseBytes?: number; }
-interface UniqFields { uniques?: number; }
+interface SumFields {
+  requests?: number;
+  pageViews?: number;
+  edgeResponseBytes?: number;
+}
+interface UniqFields {
+  uniques?: number;
+}
 
 /** Per-host CF GraphQL aggregate. */
 interface HostAggregate {
@@ -227,41 +250,67 @@ async function loadHostAggregate(
             limit: 1
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
           ) {
-            sum { requests pageViews edgeResponseBytes }
-            uniq { uniques }
+            sum {
+              requests
+              pageViews
+              edgeResponseBytes
+            }
+            uniq {
+              uniques
+            }
           }
           byDay: httpRequestsAdaptiveGroups(
             limit: 100
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [date_ASC]
           ) {
-            dimensions { date }
-            sum { requests pageViews }
-            uniq { uniques }
+            dimensions {
+              date
+            }
+            sum {
+              requests
+              pageViews
+            }
+            uniq {
+              uniques
+            }
           }
           topPaths: httpRequestsAdaptiveGroups(
             limit: 50
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [sum_requests_DESC]
           ) {
-            dimensions { clientRequestPath }
-            sum { requests pageViews }
+            dimensions {
+              clientRequestPath
+            }
+            sum {
+              requests
+              pageViews
+            }
           }
           byCountry: httpRequestsAdaptiveGroups(
             limit: 25
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [sum_requests_DESC]
           ) {
-            dimensions { clientCountryName }
-            sum { requests }
+            dimensions {
+              clientCountryName
+            }
+            sum {
+              requests
+            }
           }
           byReferer: httpRequestsAdaptiveGroups(
             limit: 25
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
             orderBy: [sum_requests_DESC]
           ) {
-            dimensions { clientRequestReferer }
-            sum { requests }
+            dimensions {
+              clientRequestReferer
+            }
+            sum {
+              requests
+            }
           }
         }
       }
@@ -279,25 +328,32 @@ async function loadHostAggregate(
     });
     if (!res.ok) {
       const body = await res.text();
-      console.warn(JSON.stringify({
-        body: body.slice(0, 300),
-        hostname,
-        level: 'warn',
-        op: 'loadHostAggregate',
-        service: 'multi_url_analytics',
-        status: res.status,
-      }));
+      console.warn(
+        JSON.stringify({
+          body: body.slice(0, 300),
+          hostname,
+          level: 'warn',
+          op: 'loadHostAggregate',
+          service: 'multi_url_analytics',
+          status: res.status,
+        }),
+      );
       return empty;
     }
     const json = (await res.json()) as CfGraphQlResponse;
     if (json.errors?.length) {
-      console.warn(JSON.stringify({
-        graphql_errors: json.errors.map((e) => e.message).join('; ').slice(0, 300),
-        hostname,
-        level: 'warn',
-        op: 'loadHostAggregate',
-        service: 'multi_url_analytics',
-      }));
+      console.warn(
+        JSON.stringify({
+          graphql_errors: json.errors
+            .map((e) => e.message)
+            .join('; ')
+            .slice(0, 300),
+          hostname,
+          level: 'warn',
+          op: 'loadHostAggregate',
+          service: 'multi_url_analytics',
+        }),
+      );
       return empty;
     }
     const zoneRow = json.data?.viewer?.zones?.[0];
@@ -339,24 +395,31 @@ async function loadHostAggregate(
       const raw = String(row.dimensions?.clientRequestReferer ?? '');
       const referrer = safeHost(raw) || '(direct)';
       const views = Number(row.sum?.requests ?? 0);
-      if (views > 0) agg.top_referrers.set(referrer, (agg.top_referrers.get(referrer) ?? 0) + views);
+      if (views > 0)
+        agg.top_referrers.set(referrer, (agg.top_referrers.get(referrer) ?? 0) + views);
     }
     return agg;
   } catch (err) {
-    console.warn(JSON.stringify({
-      error: err instanceof Error ? err.message : String(err),
-      hostname,
-      level: 'warn',
-      op: 'loadHostAggregate',
-      service: 'multi_url_analytics',
-    }));
+    console.warn(
+      JSON.stringify({
+        error: err instanceof Error ? err.message : String(err),
+        hostname,
+        level: 'warn',
+        op: 'loadHostAggregate',
+        service: 'multi_url_analytics',
+      }),
+    );
     return empty;
   }
 }
 
 function safeHost(referrer: string): string {
   if (!referrer || referrer === '-') return '';
-  try { return new URL(referrer).hostname; } catch { return ''; }
+  try {
+    return new URL(referrer).hostname;
+  } catch {
+    return '';
+  }
 }
 
 /** List the URLs bound to a site (primary first, alternates after). */
@@ -405,7 +468,10 @@ export async function loadMultiUrlAnalytics(
   // URL-set hash so cache invalidates on add/remove. Excluded hostnames
   // intentionally NOT folded in — the exclude pill is a UI affordance,
   // not a cache-key dimension.
-  const urlSetHash = urls.map((u) => u.hostname).sort().join('|');
+  const urlSetHash = urls
+    .map((u) => u.hostname)
+    .sort()
+    .join('|');
   const cacheKey = `analytics:${siteId}:${range}:${hashStr(urlSetHash)}:${hashStr(Array.from(excludeHostnames).sort().join(','))}`;
 
   try {
@@ -413,7 +479,9 @@ export async function loadMultiUrlAnalytics(
     if (cached && typeof cached === 'object' && 'pageviews' in cached) {
       return cached as MultiUrlAnalytics;
     }
-  } catch { /* cache miss fine */ }
+  } catch {
+    /* cache miss fine */
+  }
 
   const auth = await resolveCfCredentials(env, orgId);
 
@@ -442,7 +510,10 @@ export async function loadMultiUrlAnalytics(
   );
 
   // Merge by-day buckets across all hosts.
-  const mergedByDay = new Map<string, { page_views: number; unique_visitors: number; requests: number }>();
+  const mergedByDay = new Map<
+    string,
+    { page_views: number; unique_visitors: number; requests: number }
+  >();
   for (const agg of aggregates) {
     for (const [date, bucket] of agg.by_day) {
       const existing = mergedByDay.get(date) ?? { page_views: 0, requests: 0, unique_visitors: 0 };
@@ -455,14 +526,22 @@ export async function loadMultiUrlAnalytics(
   }
   const series = [...mergedByDay.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, b]) => ({ date, page_views: b.page_views, requests: b.requests, unique_visitors: b.unique_visitors }));
+    .map(([date, b]) => ({
+      date,
+      page_views: b.page_views,
+      requests: b.requests,
+      unique_visitors: b.unique_visitors,
+    }));
 
   // Top pages / countries / referrers: sum across hosts, then top-15.
-  const topPages = sumMaps(aggregates.map((a) => a.top_paths)).slice(0, 15)
+  const topPages = sumMaps(aggregates.map((a) => a.top_paths))
+    .slice(0, 15)
     .map(([path, views]) => ({ path, views }));
-  const topCountries = sumMaps(aggregates.map((a) => a.top_countries)).slice(0, 15)
+  const topCountries = sumMaps(aggregates.map((a) => a.top_countries))
+    .slice(0, 15)
     .map(([country, views]) => ({ country, views }));
-  const topReferrers = sumMaps(aggregates.map((a) => a.top_referrers)).slice(0, 15)
+  const topReferrers = sumMaps(aggregates.map((a) => a.top_referrers))
+    .slice(0, 15)
     .map(([referrer, views]) => ({ referrer, views }));
 
   const envelope: MultiUrlAnalytics = {
@@ -483,7 +562,9 @@ export async function loadMultiUrlAnalytics(
 
   try {
     await env.CACHE_KV.put(cacheKey, JSON.stringify(envelope), { expirationTtl: 300 });
-  } catch { /* */ }
+  } catch {
+    /* */
+  }
   return envelope;
 }
 

@@ -219,9 +219,9 @@ describe('AppRuntimeContainer — startApp lifecycle', () => {
 
   it('flips to crashed + records last_error when boot throws', async () => {
     const { inst, sql } = makeDO();
-    (inst as unknown as { startAndWaitForPorts: jest.Mock }).startAndWaitForPorts.mockRejectedValueOnce(
-      new Error('port timeout'),
-    );
+    (
+      inst as unknown as { startAndWaitForPorts: jest.Mock }
+    ).startAndWaitForPorts.mockRejectedValueOnce(new Error('port timeout'));
     await expect(inst.startApp(baseOpts)).rejects.toThrow('port timeout');
     expect(sql!.meta.get('state')).toBe('crashed');
     expect(sql!.meta.get('last_error')).toBe('port timeout');
@@ -315,9 +315,7 @@ describe('AppRuntimeContainer — ring-buffer logging (1000-line cap)', () => {
 describe('AppRuntimeContainer — restart-count rolling-window cap (≤3/min)', () => {
   it('schedules auto-restarts up to the 3/min cap then suppresses', () => {
     const { inst, sql, ctx } = makeDO();
-    const restartSpy = jest
-      .spyOn(inst, 'restartApp')
-      .mockResolvedValue({ state: 'running' });
+    const restartSpy = jest.spyOn(inst, 'restartApp').mockResolvedValue({ state: 'running' });
 
     // 3 errors within the rolling window → 3 scheduled restarts.
     inst.onError(new Error('crash 1'));
@@ -404,7 +402,9 @@ describe('AppRuntimeContainer — proxyRequest lazy boot', () => {
     const res = await inst.proxyRequest(new Request('https://x/path'));
     expect(res.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalled();
-    expect((inst as unknown as { renewActivityTimeout: jest.Mock }).renewActivityTimeout).toHaveBeenCalled();
+    expect(
+      (inst as unknown as { renewActivityTimeout: jest.Mock }).renewActivityTimeout,
+    ).toHaveBeenCalled();
   });
 
   it('502s + flips to crashed + schedules restart on container error', async () => {
@@ -424,9 +424,9 @@ describe('AppRuntimeContainer — proxyRequest lazy boot', () => {
     const { inst } = makeDO();
     await inst.startApp(baseOpts);
     await inst.stopApp();
-    (inst as unknown as { startAndWaitForPorts: jest.Mock }).startAndWaitForPorts.mockRejectedValueOnce(
-      new Error('boot fail'),
-    );
+    (
+      inst as unknown as { startAndWaitForPorts: jest.Mock }
+    ).startAndWaitForPorts.mockRejectedValueOnce(new Error('boot fail'));
     const res = await inst.proxyRequest(new Request('https://x/'));
     expect(res.status).toBe(502);
     expect(await res.text()).toMatch(/boot failed/i);

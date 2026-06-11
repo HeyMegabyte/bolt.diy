@@ -48,21 +48,56 @@ export type SwarmSpecialist = 'visual' | 'copy' | 'seo' | 'a11y' | 'motion' | 'm
 export type AgentStatus = 'queued' | 'running' | 'done' | 'error';
 
 /** Canonical file-ownership map — no overlap, full site coverage. */
-export const SPECIALIST_PARTITION: Record<SwarmSpecialist, { file_glob: string; focus: string; estimated_duration_ms: number }> = {
-  visual:  { file_glob: 'src/components/**/*.{tsx,jsx,scss,css}',       focus: 'Layout grid, brand tokens, component hierarchy',       estimated_duration_ms: 22_000 },
-  copy:    { file_glob: 'src/content/**/*.{ts,json,md}',                focus: 'Headlines, microcopy, anti-slop voice',                 estimated_duration_ms: 18_000 },
-  seo:     { file_glob: 'src/meta/**/*.ts,public/sitemap.xml,public/robots.txt', focus: 'Title/meta/JSON-LD/OG/sitemap/llms.txt',       estimated_duration_ms: 12_000 },
-  a11y:    { file_glob: 'src/a11y/**/*.ts,src/**/*.spec.a11y.ts',       focus: 'axe 0 violations + WCAG 2.2 manual review',            estimated_duration_ms: 14_000 },
-  motion:  { file_glob: 'src/animations/**/*.ts,src/**/*.motion.ts',    focus: 'View Transitions + scroll-driven + @starting-style',   estimated_duration_ms: 10_000 },
-  media:   { file_glob: 'public/images/**,public/videos/**,src/assets/**', focus: 'Hero/section imagery (AVIF triplet) + Veo loops',   estimated_duration_ms: 28_000 },
-  qa:      { file_glob: 'e2e/**/*.spec.ts,playwright.config.ts',         focus: 'Lighthouse + Playwright smoke + visual diff',          estimated_duration_ms: 16_000 },
+export const SPECIALIST_PARTITION: Record<
+  SwarmSpecialist,
+  { file_glob: string; focus: string; estimated_duration_ms: number }
+> = {
+  visual: {
+    file_glob: 'src/components/**/*.{tsx,jsx,scss,css}',
+    focus: 'Layout grid, brand tokens, component hierarchy',
+    estimated_duration_ms: 22_000,
+  },
+  copy: {
+    file_glob: 'src/content/**/*.{ts,json,md}',
+    focus: 'Headlines, microcopy, anti-slop voice',
+    estimated_duration_ms: 18_000,
+  },
+  seo: {
+    file_glob: 'src/meta/**/*.ts,public/sitemap.xml,public/robots.txt',
+    focus: 'Title/meta/JSON-LD/OG/sitemap/llms.txt',
+    estimated_duration_ms: 12_000,
+  },
+  a11y: {
+    file_glob: 'src/a11y/**/*.ts,src/**/*.spec.a11y.ts',
+    focus: 'axe 0 violations + WCAG 2.2 manual review',
+    estimated_duration_ms: 14_000,
+  },
+  motion: {
+    file_glob: 'src/animations/**/*.ts,src/**/*.motion.ts',
+    focus: 'View Transitions + scroll-driven + @starting-style',
+    estimated_duration_ms: 10_000,
+  },
+  media: {
+    file_glob: 'public/images/**,public/videos/**,src/assets/**',
+    focus: 'Hero/section imagery (AVIF triplet) + Veo loops',
+    estimated_duration_ms: 28_000,
+  },
+  qa: {
+    file_glob: 'e2e/**/*.spec.ts,playwright.config.ts',
+    focus: 'Lighthouse + Playwright smoke + visual diff',
+    estimated_duration_ms: 16_000,
+  },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function safeJsonParse<T>(s: string | null | undefined, fallback: T): T {
   if (!s) return fallback;
-  try { return JSON.parse(s) as T; } catch { return fallback; }
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return fallback;
+  }
 }
 
 /**
@@ -101,7 +136,10 @@ export async function spinUpSandbox(env: Env, p: { siteId: string; userId: strin
   const t = nowIso();
   await env.DB.prepare(
     'INSERT INTO ide_sandboxes (id, site_id, user_id, state, created_at, last_activity_at) VALUES (?, ?, ?, ?, ?, ?)',
-  ).bind(id, p.siteId, p.userId, 'spinning_up', t, t).run().catch(() => {});
+  )
+    .bind(id, p.siteId, p.userId, 'spinning_up', t, t)
+    .run()
+    .catch(() => {});
   return {
     sandbox_id: id,
     site_id: p.siteId,
@@ -125,7 +163,13 @@ export async function spinUpSandbox(env: Env, p: { siteId: string; userId: strin
 export async function getSandboxStatus(env: Env, sandboxId: string) {
   const row = await env.DB.prepare('SELECT * FROM ide_sandboxes WHERE id = ?')
     .bind(sandboxId)
-    .first<{ state: string; site_id: string; user_id: string; created_at: string; last_activity_at: string }>()
+    .first<{
+      state: string;
+      site_id: string;
+      user_id: string;
+      created_at: string;
+      last_activity_at: string;
+    }>()
     .catch(() => null);
   if (!row) return { sandbox_id: sandboxId, state: 'not_found', error: 'sandbox_not_found' };
   const ageMs = Date.now() - new Date(row.created_at).getTime();
@@ -142,8 +186,12 @@ export async function getSandboxStatus(env: Env, sandboxId: string) {
 
 export async function destroySandbox(env: Env, sandboxId: string) {
   const t = nowIso();
-  await env.DB.prepare("UPDATE ide_sandboxes SET state = 'destroyed', destroyed_at = ? WHERE id = ?")
-    .bind(t, sandboxId).run().catch(() => {});
+  await env.DB.prepare(
+    "UPDATE ide_sandboxes SET state = 'destroyed', destroyed_at = ? WHERE id = ?",
+  )
+    .bind(t, sandboxId)
+    .run()
+    .catch(() => {});
   return { sandbox_id: sandboxId, state: 'destroyed', destroyed_at: t };
 }
 
@@ -166,7 +214,10 @@ export interface AgentSpec {
  * Start a new multi-agent swarm run.
  * Per [[feature-flags]] gated by `multi_agent_concurrent` + `swarm_editor`.
  */
-export async function startMultiAgentRun(env: Env, p: { siteId: string; agents: string[]; prompt: string }) {
+export async function startMultiAgentRun(
+  env: Env,
+  p: { siteId: string; agents: string[]; prompt: string },
+) {
   const runId = uuid();
   const t = nowIso();
   const agents: AgentSpec[] = p.agents.map((name) => {
@@ -180,7 +231,10 @@ export async function startMultiAgentRun(env: Env, p: { siteId: string; agents: 
   });
   await env.DB.prepare(
     'INSERT INTO multi_agent_runs (id, site_id, prompt, agents_json, status, started_at) VALUES (?, ?, ?, ?, ?, ?)',
-  ).bind(runId, p.siteId, p.prompt, JSON.stringify(agents), 'running', t).run().catch(() => {});
+  )
+    .bind(runId, p.siteId, p.prompt, JSON.stringify(agents), 'running', t)
+    .run()
+    .catch(() => {});
   return {
     run_id: runId,
     site_id: p.siteId,
@@ -190,7 +244,11 @@ export async function startMultiAgentRun(env: Env, p: { siteId: string; agents: 
     file_partitioning: true,
     conflict_detection: true,
     sse_url: `/api/swarm/${p.siteId}/stream?run_id=${runId}`,
-    estimated_total_ms: Math.max(...p.agents.map((a) => SPECIALIST_PARTITION[a as SwarmSpecialist]?.estimated_duration_ms ?? 15_000)),
+    estimated_total_ms: Math.max(
+      ...p.agents.map(
+        (a) => SPECIALIST_PARTITION[a as SwarmSpecialist]?.estimated_duration_ms ?? 15_000,
+      ),
+    ),
     started_at: t,
   };
 }
@@ -198,8 +256,18 @@ export async function startMultiAgentRun(env: Env, p: { siteId: string; agents: 
 export async function listMultiAgentRuns(env: Env, siteId: string) {
   const rows = await env.DB.prepare(
     'SELECT * FROM multi_agent_runs WHERE site_id = ? ORDER BY started_at DESC LIMIT 20',
-  ).bind(siteId).all<{ id: string; prompt: string; status: string; agents_json: string; started_at: string }>()
-    .catch(() => ({ results: [] as Array<{ id: string; prompt: string; status: string; agents_json: string; started_at: string }> }));
+  )
+    .bind(siteId)
+    .all<{ id: string; prompt: string; status: string; agents_json: string; started_at: string }>()
+    .catch(() => ({
+      results: [] as Array<{
+        id: string;
+        prompt: string;
+        status: string;
+        agents_json: string;
+        started_at: string;
+      }>,
+    }));
   if (!rows.results?.length) {
     return getDemoRuns();
   }
@@ -213,13 +281,40 @@ function getDemoRuns() {
       prompt: 'Build a landing page for an artisan bakery',
       status: 'running',
       agents: [
-        { id: 'a1', name: 'visual', status: 'done', file_glob: SPECIALIST_PARTITION.visual.file_glob, duration_ms: 21_400 },
-        { id: 'a2', name: 'copy',   status: 'done', file_glob: SPECIALIST_PARTITION.copy.file_glob,   duration_ms: 17_900 },
-        { id: 'a3', name: 'seo',    status: 'running', file_glob: SPECIALIST_PARTITION.seo.file_glob },
-        { id: 'a4', name: 'a11y',   status: 'queued',  file_glob: SPECIALIST_PARTITION.a11y.file_glob },
-        { id: 'a5', name: 'motion', status: 'queued',  file_glob: SPECIALIST_PARTITION.motion.file_glob },
-        { id: 'a6', name: 'media',  status: 'queued',  file_glob: SPECIALIST_PARTITION.media.file_glob },
-        { id: 'a7', name: 'qa',     status: 'queued',  file_glob: SPECIALIST_PARTITION.qa.file_glob },
+        {
+          id: 'a1',
+          name: 'visual',
+          status: 'done',
+          file_glob: SPECIALIST_PARTITION.visual.file_glob,
+          duration_ms: 21_400,
+        },
+        {
+          id: 'a2',
+          name: 'copy',
+          status: 'done',
+          file_glob: SPECIALIST_PARTITION.copy.file_glob,
+          duration_ms: 17_900,
+        },
+        { id: 'a3', name: 'seo', status: 'running', file_glob: SPECIALIST_PARTITION.seo.file_glob },
+        {
+          id: 'a4',
+          name: 'a11y',
+          status: 'queued',
+          file_glob: SPECIALIST_PARTITION.a11y.file_glob,
+        },
+        {
+          id: 'a5',
+          name: 'motion',
+          status: 'queued',
+          file_glob: SPECIALIST_PARTITION.motion.file_glob,
+        },
+        {
+          id: 'a6',
+          name: 'media',
+          status: 'queued',
+          file_glob: SPECIALIST_PARTITION.media.file_glob,
+        },
+        { id: 'a7', name: 'qa', status: 'queued', file_glob: SPECIALIST_PARTITION.qa.file_glob },
       ],
       conflict_detected: false,
       started_at: new Date(Date.now() - 28_000).toISOString(),
@@ -230,7 +325,15 @@ function getDemoRuns() {
 export async function getMultiAgentRunDetail(env: Env, runId: string) {
   const row = await env.DB.prepare('SELECT * FROM multi_agent_runs WHERE id = ?')
     .bind(runId)
-    .first<{ id: string; site_id: string; prompt: string; status: string; agents_json: string; started_at: string; finished_at: string | null }>()
+    .first<{
+      id: string;
+      site_id: string;
+      prompt: string;
+      status: string;
+      agents_json: string;
+      started_at: string;
+      finished_at: string | null;
+    }>()
     .catch(() => null);
   if (!row) return getDemoRunDetail(runId);
   return { ...row, agents: safeJsonParse(row.agents_json, []) };
@@ -245,22 +348,58 @@ function getDemoRunDetail(runId: string) {
     file_partitioning: true,
     conflict_detection: true,
     agents: [
-      { id: 'a1', name: 'visual',  status: 'done',    file_glob: SPECIALIST_PARTITION.visual.file_glob,  duration_ms: 21_400, output_preview: '<section class="hero" data-gallery="hero">…</section>' },
-      { id: 'a2', name: 'copy',    status: 'done',    file_glob: SPECIALIST_PARTITION.copy.file_glob,    duration_ms: 17_900, output_preview: 'Artisan sourdough since 2008. Hand-shaped, wood-fired.' },
-      { id: 'a3', name: 'seo',     status: 'running', file_glob: SPECIALIST_PARTITION.seo.file_glob,     started_at: new Date(Date.now() - 4_000).toISOString() },
-      { id: 'a4', name: 'a11y',    status: 'queued',  file_glob: SPECIALIST_PARTITION.a11y.file_glob },
-      { id: 'a5', name: 'motion',  status: 'queued',  file_glob: SPECIALIST_PARTITION.motion.file_glob },
-      { id: 'a6', name: 'media',   status: 'queued',  file_glob: SPECIALIST_PARTITION.media.file_glob },
-      { id: 'a7', name: 'qa',      status: 'queued',  file_glob: SPECIALIST_PARTITION.qa.file_glob },
+      {
+        id: 'a1',
+        name: 'visual',
+        status: 'done',
+        file_glob: SPECIALIST_PARTITION.visual.file_glob,
+        duration_ms: 21_400,
+        output_preview: '<section class="hero" data-gallery="hero">…</section>',
+      },
+      {
+        id: 'a2',
+        name: 'copy',
+        status: 'done',
+        file_glob: SPECIALIST_PARTITION.copy.file_glob,
+        duration_ms: 17_900,
+        output_preview: 'Artisan sourdough since 2008. Hand-shaped, wood-fired.',
+      },
+      {
+        id: 'a3',
+        name: 'seo',
+        status: 'running',
+        file_glob: SPECIALIST_PARTITION.seo.file_glob,
+        started_at: new Date(Date.now() - 4_000).toISOString(),
+      },
+      { id: 'a4', name: 'a11y', status: 'queued', file_glob: SPECIALIST_PARTITION.a11y.file_glob },
+      {
+        id: 'a5',
+        name: 'motion',
+        status: 'queued',
+        file_glob: SPECIALIST_PARTITION.motion.file_glob,
+      },
+      {
+        id: 'a6',
+        name: 'media',
+        status: 'queued',
+        file_glob: SPECIALIST_PARTITION.media.file_glob,
+      },
+      { id: 'a7', name: 'qa', status: 'queued', file_glob: SPECIALIST_PARTITION.qa.file_glob },
     ],
     conflicts: [],
     live_stream_events: [
       { ts: new Date(Date.now() - 28_000).toISOString(), agent: 'visual', event: 'started' },
-      { ts: new Date(Date.now() - 26_000).toISOString(), agent: 'copy',   event: 'started' },
-      { ts: new Date(Date.now() - 8_000).toISOString(),  agent: 'visual', event: 'emitted_component', component: 'Hero', path: 'src/components/Hero.tsx' },
-      { ts: new Date(Date.now() - 6_400).toISOString(),  agent: 'visual', event: 'done' },
-      { ts: new Date(Date.now() - 4_100).toISOString(),  agent: 'copy',   event: 'done' },
-      { ts: new Date(Date.now() - 4_000).toISOString(),  agent: 'seo',    event: 'started' },
+      { ts: new Date(Date.now() - 26_000).toISOString(), agent: 'copy', event: 'started' },
+      {
+        ts: new Date(Date.now() - 8_000).toISOString(),
+        agent: 'visual',
+        event: 'emitted_component',
+        component: 'Hero',
+        path: 'src/components/Hero.tsx',
+      },
+      { ts: new Date(Date.now() - 6_400).toISOString(), agent: 'visual', event: 'done' },
+      { ts: new Date(Date.now() - 4_100).toISOString(), agent: 'copy', event: 'done' },
+      { ts: new Date(Date.now() - 4_000).toISOString(), agent: 'seo', event: 'started' },
     ],
   };
 }
@@ -270,7 +409,11 @@ function getDemoRunDetail(runId: string) {
  * Returns a ReadableStream that emits `data:` JSON events.
  * Per [[feature-flags]] `swarm_editor` must be on to use this.
  */
-export function buildSwarmSseStream(env: Env, siteId: string, runId: string | null): ReadableStream {
+export function buildSwarmSseStream(
+  env: Env,
+  siteId: string,
+  runId: string | null,
+): ReadableStream {
   let interval: ReturnType<typeof setInterval> | undefined;
   const agentNames: SwarmSpecialist[] = ['visual', 'copy', 'seo', 'a11y', 'motion', 'media', 'qa'];
   let tick = 0;
@@ -292,7 +435,8 @@ export function buildSwarmSseStream(env: Env, siteId: string, runId: string | nu
         if (tick % 3 === 1) {
           send({ type: 'agent_started', agent, file_glob: spec.file_glob, ts: nowIso() });
         } else if (tick % 3 === 2) {
-          const path = spec.file_glob.split(',')[0]?.replace('**/*', 'Component.tsx') ?? 'src/component.tsx';
+          const path =
+            spec.file_glob.split(',')[0]?.replace('**/*', 'Component.tsx') ?? 'src/component.tsx';
           send({
             type: 'file_emitted',
             agent,
@@ -302,11 +446,22 @@ export function buildSwarmSseStream(env: Env, siteId: string, runId: string | nu
             ts: nowIso(),
           });
         } else {
-          send({ type: 'agent_done', agent, duration_ms: spec.estimated_duration_ms, ts: nowIso() });
+          send({
+            type: 'agent_done',
+            agent,
+            duration_ms: spec.estimated_duration_ms,
+            ts: nowIso(),
+          });
         }
 
         if (tick >= agentNames.length * 3) {
-          send({ type: 'swarm_complete', site_id: siteId, agents_done: agentNames.length, conflicts: 0, ts: nowIso() });
+          send({
+            type: 'swarm_complete',
+            site_id: siteId,
+            agents_done: agentNames.length,
+            conflicts: 0,
+            ts: nowIso(),
+          });
           clearInterval(interval);
           controller.close();
         }
@@ -320,13 +475,26 @@ export function buildSwarmSseStream(env: Env, siteId: string, runId: string | nu
 
 // ── #33 Progressive skeleton build (live-streaming components) ─────────────
 
-const SKELETON_COMPONENTS = ['nav', 'hero', 'features', 'social-proof', 'pricing', 'testimonials', 'faq', 'cta', 'footer'];
+const SKELETON_COMPONENTS = [
+  'nav',
+  'hero',
+  'features',
+  'social-proof',
+  'pricing',
+  'testimonials',
+  'faq',
+  'cta',
+  'footer',
+];
 
 export async function publishSkeleton(env: Env, siteId: string) {
   const t = nowIso();
   await env.DB.prepare(
     "INSERT OR REPLACE INTO progressive_builds (site_id, state, components_done_json, started_at, updated_at) VALUES (?, 'skeleton_live', ?, ?, ?)",
-  ).bind(siteId, JSON.stringify([]), t, t).run().catch(() => {});
+  )
+    .bind(siteId, JSON.stringify([]), t, t)
+    .run()
+    .catch(() => {});
   return {
     site_id: siteId,
     state: 'skeleton_live',
@@ -342,12 +510,18 @@ export async function publishSkeleton(env: Env, siteId: string) {
 export async function getBuildStream(env: Env, siteId: string) {
   const row = await env.DB.prepare('SELECT * FROM progressive_builds WHERE site_id = ?')
     .bind(siteId)
-    .first<{ state: string; components_done_json: string; started_at: string; updated_at: string }>()
+    .first<{
+      state: string;
+      components_done_json: string;
+      started_at: string;
+      updated_at: string;
+    }>()
     .catch(() => null);
   const componentsDone = row ? safeJsonParse(row.components_done_json, []) : [];
   const ageSeconds = row ? Math.round((Date.now() - new Date(row.started_at).getTime()) / 1000) : 0;
   const simulatedDone = Math.min(SKELETON_COMPONENTS.length, Math.floor(ageSeconds / 4));
-  const done: string[] = componentsDone.length > 0 ? componentsDone : SKELETON_COMPONENTS.slice(0, simulatedDone);
+  const done: string[] =
+    componentsDone.length > 0 ? componentsDone : SKELETON_COMPONENTS.slice(0, simulatedDone);
   const next = SKELETON_COMPONENTS[done.length];
   return {
     site_id: siteId,
@@ -377,7 +551,12 @@ export function buildProgressiveSseStream(env: Env, siteId: string): ReadableStr
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
-      send({ type: 'skeleton_live', site_id: siteId, components: SKELETON_COMPONENTS, ts: nowIso() });
+      send({
+        type: 'skeleton_live',
+        site_id: siteId,
+        components: SKELETON_COMPONENTS,
+        ts: nowIso(),
+      });
 
       interval = setInterval(() => {
         if (idx >= SKELETON_COMPONENTS.length) {

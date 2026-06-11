@@ -66,11 +66,19 @@ describe('image_optimization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Default mocks: small input, no resize needed, fake encoded output bytes.
-    mockDecodePng.mockResolvedValue({ width: 1024, height: 768, data: new Uint8ClampedArray(0) } as never);
+    mockDecodePng.mockResolvedValue({
+      width: 1024,
+      height: 768,
+      data: new Uint8ClampedArray(0),
+    } as never);
     mockEncodeAvif.mockResolvedValue(new ArrayBuffer(100));
     mockEncodeWebp.mockResolvedValue(new ArrayBuffer(200));
     mockEncodePng.mockResolvedValue(new ArrayBuffer(400));
-    mockResize.mockResolvedValue({ width: 800, height: 600, data: new Uint8ClampedArray(0) } as never);
+    mockResize.mockResolvedValue({
+      width: 800,
+      height: 600,
+      data: new Uint8ClampedArray(0),
+    } as never);
   });
 
   it('decodes PNG by magic bytes and skips resize when source ≤ maxWidth', async () => {
@@ -85,8 +93,16 @@ describe('image_optimization', () => {
   });
 
   it('resizes when source exceeds maxWidth, preserving aspect ratio', async () => {
-    mockDecodePng.mockResolvedValue({ width: 3200, height: 1800, data: new Uint8ClampedArray(0) } as never);
-    mockResize.mockResolvedValue({ width: 1600, height: 900, data: new Uint8ClampedArray(0) } as never);
+    mockDecodePng.mockResolvedValue({
+      width: 3200,
+      height: 1800,
+      data: new Uint8ClampedArray(0),
+    } as never);
+    mockResize.mockResolvedValue({
+      width: 1600,
+      height: 900,
+      data: new Uint8ClampedArray(0),
+    } as never);
     const result = await optimizeImage(makePngHeader(), { maxWidth: 1600 });
     expect(mockResize).toHaveBeenCalledWith(
       expect.objectContaining({ width: 3200, height: 1800 }),
@@ -117,9 +133,19 @@ describe('image_optimization', () => {
     const puts: { key: string; ct?: string; format?: string }[] = [];
     const env = {
       SITES_BUCKET: {
-        put: jest.fn(async (key: string, _body: unknown, opts: { httpMetadata?: { contentType?: string }; customMetadata?: { format?: string } }) => {
-          puts.push({ key, ct: opts.httpMetadata?.contentType, format: opts.customMetadata?.format });
-        }),
+        put: jest.fn(
+          async (
+            key: string,
+            _body: unknown,
+            opts: { httpMetadata?: { contentType?: string }; customMetadata?: { format?: string } },
+          ) => {
+            puts.push({
+              key,
+              ct: opts.httpMetadata?.contentType,
+              format: opts.customMetadata?.format,
+            });
+          },
+        ),
       },
     } as unknown as Parameters<typeof optimizeAndStoreToR2>[0];
 

@@ -47,13 +47,20 @@ jest.mock('../services/ai_crypto.js', () => ({
 jest.mock('../services/app_env_resolver.js', () => {
   class MissingEnvError extends Error {
     code = 'missing_env';
-    constructor(public key: string, public appId: string) {
+    constructor(
+      public key: string,
+      public appId: string,
+    ) {
       super(`Required env var ${key} for app ${appId} could not be resolved.`);
     }
   }
   return {
     MissingEnvError,
-    resolveAppEnv: jest.fn(() => ({ DATABASE_URL: 'postgres://x', APP_SECRET: 's', HASH_SALT: 'h' })),
+    resolveAppEnv: jest.fn(() => ({
+      DATABASE_URL: 'postgres://x',
+      APP_SECRET: 's',
+      HASH_SALT: 'h',
+    })),
   };
 });
 
@@ -203,7 +210,10 @@ describe('GET /api/apps/catalog', () => {
     const res = await req(makeApp(), '/api/apps/catalog', { method: 'GET' }, makeEnv());
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toContain('max-age=300');
-    const json = (await res.json()) as { apps: Array<{ id: string; supported: boolean }>; count: number };
+    const json = (await res.json()) as {
+      apps: Array<{ id: string; supported: boolean }>;
+      count: number;
+    };
     expect(json.count).toBeGreaterThan(0);
     expect(json.apps.length).toBe(json.count);
     const umami = json.apps.find((a) => a.id === 'umami');
@@ -211,7 +221,12 @@ describe('GET /api/apps/catalog', () => {
   });
 
   it('filters to supported apps with ?supported=true', async () => {
-    const res = await req(makeApp(), '/api/apps/catalog?supported=true', { method: 'GET' }, makeEnv());
+    const res = await req(
+      makeApp(),
+      '/api/apps/catalog?supported=true',
+      { method: 'GET' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { apps: Array<{ supported: boolean }> };
     expect(json.apps.length).toBeGreaterThan(0);
@@ -229,7 +244,12 @@ describe('GET /api/apps/catalog/:id', () => {
   });
 
   it('returns 404 for an unknown catalog id', async () => {
-    const res = await req(makeApp(), '/api/apps/catalog/does-not-exist', { method: 'GET' }, makeEnv());
+    const res = await req(
+      makeApp(),
+      '/api/apps/catalog/does-not-exist',
+      { method: 'GET' },
+      makeEnv(),
+    );
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
@@ -268,13 +288,23 @@ describe('GET /api/apps/instances', () => {
 
 describe('POST /api/apps/instances', () => {
   it('returns 401 when org context is missing', async () => {
-    const res = await req(makeApp(), '/api/apps/instances', jsonInit('POST', { app_id: 'umami', subdomain: 'x1' }), makeEnv());
+    const res = await req(
+      makeApp(),
+      '/api/apps/instances',
+      jsonInit('POST', { app_id: 'umami', subdomain: 'x1' }),
+      makeEnv(),
+    );
     expect(res.status).toBe(401);
     expect(mockProvision).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the body fails Zod validation (missing app_id)', async () => {
-    const res = await req(makeApp(AUTH), '/api/apps/instances', jsonInit('POST', { subdomain: 'my-umami' }), makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances',
+      jsonInit('POST', { subdomain: 'my-umami' }),
+      makeEnv(),
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: { code?: string } };
     // `.parse()` throws a ZodError → the shared handler maps it to VALIDATION_ERROR.
@@ -380,7 +410,12 @@ describe('GET /api/apps/instances/:id', () => {
   it('returns 404 (non-leak) when the instance belongs to another org', async () => {
     // loadInstance is org-scoped → returns null for a foreign instance.
     mockDbQueryOne.mockResolvedValue(null);
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-foreign', { method: 'GET' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-foreign',
+      { method: 'GET' },
+      makeEnv(),
+    );
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
@@ -420,14 +455,24 @@ describe('GET /api/apps/instances/:id', () => {
 describe('POST /api/apps/instances/:id/restart', () => {
   it('returns 404 when the instance is not found', async () => {
     mockDbQueryOne.mockResolvedValue(null);
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-x/restart', { method: 'POST' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-x/restart',
+      { method: 'POST' },
+      makeEnv(),
+    );
     expect(res.status).toBe(404);
     expect(mockRestart).not.toHaveBeenCalled();
   });
 
   it('dispatches a restart and audit-logs it', async () => {
     mockDbQueryOne.mockResolvedValue(instanceRow());
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-1/restart', { method: 'POST' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/restart',
+      { method: 'POST' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean };
     expect(json.ok).toBe(true);
@@ -440,7 +485,12 @@ describe('POST /api/apps/instances/:id/restart', () => {
 describe('POST /api/apps/instances/:id/stop', () => {
   it('dispatches a stop and persists the stopped status', async () => {
     mockDbQueryOne.mockResolvedValue(instanceRow());
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-1/stop', { method: 'POST' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/stop',
+      { method: 'POST' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     expect(mockStop).toHaveBeenCalledWith(expect.anything(), 'inst-1', 'umami');
     expect(mockDbUpdate.mock.calls[0][2]).toMatchObject({ status: 'stopped' });
@@ -450,12 +500,20 @@ describe('POST /api/apps/instances/:id/stop', () => {
   it('persists an error status when the dispatcher reports failure', async () => {
     mockDbQueryOne.mockResolvedValue(instanceRow());
     mockStop.mockResolvedValue({ ok: false, detail: 'do_unreachable' });
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-1/stop', { method: 'POST' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/stop',
+      { method: 'POST' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; detail: string | null };
     expect(json.ok).toBe(false);
     expect(json.detail).toBe('do_unreachable');
-    expect(mockDbUpdate.mock.calls[0][2]).toMatchObject({ status: 'error', last_error: 'do_unreachable' });
+    expect(mockDbUpdate.mock.calls[0][2]).toMatchObject({
+      status: 'error',
+      last_error: 'do_unreachable',
+    });
   });
 });
 
@@ -468,14 +526,24 @@ describe('DELETE /api/apps/instances/:id', () => {
 
   it('returns 404 when the instance is not found', async () => {
     mockDbQueryOne.mockResolvedValue(null);
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-x', { method: 'DELETE' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-x',
+      { method: 'DELETE' },
+      makeEnv(),
+    );
     expect(res.status).toBe(404);
     expect(mockDestroy).not.toHaveBeenCalled();
   });
 
   it('destroys the container, deprovisions infra, soft-deletes, and audit-logs', async () => {
     mockDbQueryOne.mockResolvedValue(instanceRow());
-    const res = await req(makeApp(AUTH), '/api/apps/instances/inst-1', { method: 'DELETE' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1',
+      { method: 'DELETE' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; cleanup: Record<string, boolean> };
     expect(json.ok).toBe(true);

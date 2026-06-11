@@ -29,7 +29,12 @@ import type { Env } from '../types/env.js';
 
 /** Build a text/200 Response. */
 const okText = (body: string): Response =>
-  ({ ok: true, status: 200, text: async () => body, json: async () => JSON.parse(body) }) as unknown as Response;
+  ({
+    ok: true,
+    status: 200,
+    text: async () => body,
+    json: async () => JSON.parse(body),
+  }) as unknown as Response;
 
 /** Build a non-ok Response. */
 const notOk = (status = 404): Response =>
@@ -37,7 +42,12 @@ const notOk = (status = 404): Response =>
 
 /** Build a JSON/200 Response (Wayback CDX rows). */
 const okJson = (data: unknown): Response =>
-  ({ ok: true, status: 200, json: async () => data, text: async () => JSON.stringify(data) }) as unknown as Response;
+  ({
+    ok: true,
+    status: 200,
+    json: async () => data,
+    text: async () => JSON.stringify(data),
+  }) as unknown as Response;
 
 /** Mock R2 bucket whose `put` we can assert on / make throw. */
 const makeBucket = (throwOnPut = false) => {
@@ -48,8 +58,7 @@ const makeBucket = (throwOnPut = false) => {
   return { put };
 };
 
-const makeEnv = (bucket: { put: jest.Mock }): Env =>
-  ({ SITES_BUCKET: bucket } as unknown as Env);
+const makeEnv = (bucket: { put: jest.Mock }): Env => ({ SITES_BUCKET: bucket }) as unknown as Env;
 
 const SITEMAP_XML = `<?xml version="1.0"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -144,7 +153,11 @@ describe('crawlSiteForImport — sitemap discovery', () => {
       ['/sub-sitemap.xml', okText(SUB_SITEMAP)],
       ['example.com/', okText('<html></html>')],
     ]);
-    const report = await crawlSiteForImport('https://example.com', 'imp-nested', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-nested',
+      makeEnv(makeBucket()),
+    );
     expect(report.urls.some((u) => u.path === '/nested-page')).toBe(true);
   });
 
@@ -154,7 +167,11 @@ describe('crawlSiteForImport — sitemap discovery', () => {
       ['/sitemap.xml', okText(dirty)],
       ['example.com/', okText('<html></html>')],
     ]);
-    const report = await crawlSiteForImport('https://example.com', 'imp-clean', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-clean',
+      makeEnv(makeBucket()),
+    );
     const page = report.urls.find((u) => u.path === '/page');
     expect(page).toBeDefined();
     expect(page!.url).not.toContain('utm_source');
@@ -189,7 +206,11 @@ describe('crawlSiteForImport — robots.txt fallback', () => {
       ['example.com/', okText('<html></html>')],
       // /sitemap.xml etc return 404 via default fall-through
     ]);
-    const report = await crawlSiteForImport('https://example.com', 'imp-robots', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-robots',
+      makeEnv(makeBucket()),
+    );
     const row = report.urls.find((u) => u.path === '/from-robots');
     expect(row).toBeDefined();
     expect(row!.source).toBe('robots');
@@ -230,7 +251,11 @@ describe('crawlSiteForImport — Wayback CDX fallback', () => {
       ['web.archive.org', okJson({ not: 'an array' })],
       ['example.com/', okText('<html></html>')],
     ]);
-    const report = await crawlSiteForImport('https://example.com', 'imp-wbbad', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-wbbad',
+      makeEnv(makeBucket()),
+    );
     expect(report.by_source.wayback).toBe(0);
     // still ships the seeded homepage
     expect(report.total_urls).toBeGreaterThanOrEqual(1);
@@ -249,7 +274,11 @@ describe('crawlSiteForImport — Wayback CDX fallback', () => {
       ['web.archive.org', throwingJson],
       ['example.com/', okText('<html></html>')],
     ]);
-    const report = await crawlSiteForImport('https://example.com', 'imp-wbthrow', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-wbthrow',
+      makeEnv(makeBucket()),
+    );
     expect(report.by_source.wayback).toBe(0);
   });
 });
@@ -269,7 +298,11 @@ describe('crawlSiteForImport — homepage HTML BFS', () => {
       <a href="https://evil.com/x">x-origin</a>
       </body></html>`;
     routeFetch([['example.com', okText(homepage)]]); // sitemap/robots also match example.com → HTML parse yields no <url>/<loc>, so only BFS surfaces links
-    const report = await crawlSiteForImport('https://example.com', 'imp-bfs', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-bfs',
+      makeEnv(makeBucket()),
+    );
     expect(report.homepage_title).toBe('My Homepage');
     expect(report.theme_color).toBe('#0a0a1a');
     expect(report.urls.some((u) => u.path === '/page-a' && u.source === 'html_bfs')).toBe(true);
@@ -282,7 +315,11 @@ describe('crawlSiteForImport — homepage HTML BFS', () => {
   it('returns null title + theme_color when the homepage fetch is non-200', async () => {
     // Everything 404s → homepage BFS returns nulls, only seeded homepage remains.
     fetchMock.mockResolvedValue(notOk());
-    const report = await crawlSiteForImport('https://example.com', 'imp-empty', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-empty',
+      makeEnv(makeBucket()),
+    );
     expect(report.homepage_title).toBeNull();
     expect(report.theme_color).toBeNull();
     expect(report.total_urls).toBe(1); // just the seed
@@ -294,7 +331,11 @@ describe('crawlSiteForImport — homepage HTML BFS', () => {
 describe('crawlSiteForImport — resilience & dedupe', () => {
   it('swallows total network failure and still returns the seeded homepage report', async () => {
     fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
-    const report = await crawlSiteForImport('https://example.com', 'imp-net', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-net',
+      makeEnv(makeBucket()),
+    );
     expect(report.total_urls).toBe(1);
     expect(report.urls[0].url).toBe('https://example.com/');
   });
@@ -308,7 +349,11 @@ describe('crawlSiteForImport — resilience & dedupe', () => {
       if (u === 'https://example.com' || u === 'https://example.com/') return okText(homepage);
       return notOk();
     });
-    const report = await crawlSiteForImport('https://example.com', 'imp-dedup', makeEnv(makeBucket()));
+    const report = await crawlSiteForImport(
+      'https://example.com',
+      'imp-dedup',
+      makeEnv(makeBucket()),
+    );
     const shared = report.urls.filter((u) => u.path === '/shared');
     expect(shared).toHaveLength(1);
     expect(shared[0].source).toBe('sitemap'); // priority wins over html_bfs
@@ -330,16 +375,29 @@ describe('crawlSiteForImport — resilience & dedupe', () => {
       ['/sitemap.xml', okText(SITEMAP_XML)],
       ['example.com/', okText('<html><title>T</title></html>')],
     ]);
-    const report: CrawlReport = await crawlSiteForImport('https://example.com', 'imp-shape', makeEnv(makeBucket()));
+    const report: CrawlReport = await crawlSiteForImport(
+      'https://example.com',
+      'imp-shape',
+      makeEnv(makeBucket()),
+    );
     expect(report).toMatchObject({
       source_url: 'https://example.com',
       base_origin: 'https://example.com',
-      by_source: expect.objectContaining({ sitemap: expect.any(Number), robots: 0, wayback: 0, html_bfs: 0 }),
+      by_source: expect.objectContaining({
+        sitemap: expect.any(Number),
+        robots: 0,
+        wayback: 0,
+        html_bfs: 0,
+      }),
     });
     expect(typeof report.discovered_at).toBe('string');
     expect(Array.isArray(report.urls)).toBe(true);
     report.urls.forEach((u) => {
-      expect(u).toMatchObject({ url: expect.any(String), path: expect.any(String), classification: 'keep' });
+      expect(u).toMatchObject({
+        url: expect.any(String),
+        path: expect.any(String),
+        classification: 'keep',
+      });
     });
   });
 });

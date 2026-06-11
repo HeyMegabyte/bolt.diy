@@ -95,11 +95,7 @@ function isExpired(row: { expires_at: number | null }): boolean {
  * if (!tz) await setMemory(env, scope, 'timezone', 'America/New_York');
  * ```
  */
-export async function getMemory(
-  env: Env,
-  scope: MemoryScope,
-  key: string,
-): Promise<string | null> {
+export async function getMemory(env: Env, scope: MemoryScope, key: string): Promise<string | null> {
   const row = await dbQueryOne<MemoryRow>(
     env.DB,
     'SELECT * FROM anthropic_memory WHERE scope_kind = ? AND scope_id = ? AND key = ?',
@@ -177,10 +173,7 @@ export async function setMemory(
  * for (const e of entries) console.warn(e.key, '=', e.value);
  * ```
  */
-export async function listMemory(
-  env: Env,
-  scope: MemoryScope,
-): Promise<MemoryEntry[]> {
+export async function listMemory(env: Env, scope: MemoryScope): Promise<MemoryEntry[]> {
   const { data } = await dbQuery<MemoryRow>(
     env.DB,
     'SELECT * FROM anthropic_memory WHERE scope_kind = ? AND scope_id = ? ORDER BY updated_at DESC',
@@ -197,11 +190,7 @@ export async function listMemory(
  * await deleteMemory(env, { kind: 'voice_agent', id: callId }, 'last_caller_name');
  * ```
  */
-export async function deleteMemory(
-  env: Env,
-  scope: MemoryScope,
-  key: string,
-): Promise<void> {
+export async function deleteMemory(env: Env, scope: MemoryScope, key: string): Promise<void> {
   const { error } = await dbExecute(
     env.DB,
     'DELETE FROM anthropic_memory WHERE scope_kind = ? AND scope_id = ? AND key = ?',
@@ -279,8 +268,7 @@ export function buildMemoryToolDef(scope: MemoryScope): {
         },
         key: {
           type: 'string',
-          description:
-            'Snake_case identifier (omit for list). Example: "caller_preferred_name".',
+          description: 'Snake_case identifier (omit for list). Example: "caller_preferred_name".',
         },
         value: {
           type: 'string',

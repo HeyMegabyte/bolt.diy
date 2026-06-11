@@ -38,11 +38,7 @@
 import type { Env } from '../types/env.js';
 import { gatherProfileContext, type ProfileContext } from './profile_context.js';
 import { checkBatch as rdapCheckBatch } from './rdap_availability.js';
-import {
-  isKnownUnsupportedTld,
-  porkbunFallback,
-  staticTldPriceUsd,
-} from './cf_registrar.js';
+import { isKnownUnsupportedTld, porkbunFallback, staticTldPriceUsd } from './cf_registrar.js';
 import { DASHBOARD_PERSONA_SYSTEM_PROMPT } from '../prompts/dashboard_persona.js';
 
 /** Workers AI model — pinned to the FP8-fast variant per regression rule. */
@@ -145,10 +141,7 @@ No emoji. No "elevate" / "unlock" / "transform". The HBO-executive voice carries
  *   fallback row or an empty array (when even RDAP/CF Registrar both fail).
  *   The picker UI never receives an exception envelope from this function.
  */
-export async function suggestDomains(
-  env: Env,
-  params: SuggestParams,
-): Promise<DomainSuggestion[]> {
+export async function suggestDomains(env: Env, params: SuggestParams): Promise<DomainSuggestion[]> {
   const count = Math.max(1, Math.min(params.count ?? 10, 20));
   const excludeSet = new Set((params.excludeDomains || []).map((d) => d.toLowerCase()));
 
@@ -356,10 +349,7 @@ interface CandidateParams {
  * gets dropped on the floor. The prompt embeds the persona overlay so the
  * AI internalizes the no-slop rule before generation.
  */
-async function generateCandidates(
-  env: Env,
-  params: CandidateParams,
-): Promise<string[]> {
+async function generateCandidates(env: Env, params: CandidateParams): Promise<string[]> {
   const { ctx } = params;
   const ctxLines = [
     `Business: ${ctx.business_name}`,
@@ -451,9 +441,10 @@ async function enrichWithReasonAndPitch(
   let lastViolations: string[] = [];
 
   for (let attempt = 0; attempt <= MAX_ENRICH_REROLLS && pending.length; attempt++) {
-    const stricter = attempt > 0
-      ? `\nPREVIOUS ATTEMPT VIOLATED ANTI-SLOP RULES. NEVER use any of: ${lastViolations.join(', ')}. Drop them. Write specific, concrete, persona-voiced copy.`
-      : '';
+    const stricter =
+      attempt > 0
+        ? `\nPREVIOUS ATTEMPT VIOLATED ANTI-SLOP RULES. NEVER use any of: ${lastViolations.join(', ')}. Drop them. Write specific, concrete, persona-voiced copy.`
+        : '';
 
     const prompt = `For each candidate domain below, write a REASON and a PITCH.
 
@@ -481,7 +472,8 @@ ${pending
   )
   .join('\n')}`;
 
-    let parsed: { rows?: Array<{ domain?: string; reason?: string; pitch?: string }> } | null = null;
+    let parsed: { rows?: Array<{ domain?: string; reason?: string; pitch?: string }> } | null =
+      null;
     try {
       const res = (await env.AI.run(AI_MODEL, {
         messages: [
@@ -605,7 +597,11 @@ function fallbackCopy(
  * brief's "type-able domain" constraint.
  */
 function normalizeDomain(raw: string): string | null {
-  const trimmed = raw.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  const trimmed = raw
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '');
   if (!trimmed) return null;
   if (!/^[a-z0-9-]+\.[a-z0-9-]+$/.test(trimmed)) return null;
   if (trimmed.length < 5 || trimmed.length > 22) return null;

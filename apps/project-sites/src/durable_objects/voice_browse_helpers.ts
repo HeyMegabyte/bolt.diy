@@ -164,8 +164,6 @@ export function narrateAction(action: BrowseAction): string {
     case 'screenshot':
       return 'Taking a screenshot.';
     case 'wait':
-      return action.selector
-        ? `Waiting for ${action.selector}.`
-        : `Waiting ${action.ms ?? 0}ms.`;
+      return action.selector ? `Waiting for ${action.selector}.` : `Waiting ${action.ms ?? 0}ms.`;
   }
 }

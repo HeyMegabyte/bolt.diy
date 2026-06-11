@@ -22,12 +22,7 @@ import type { Env } from '../types/env.js';
 
 // ─── Public types (UI + route contracts) ──────────────────────────
 
-export type WalletSubscriptionStatus =
-  | 'none'
-  | 'active'
-  | 'past_due'
-  | 'canceled'
-  | 'trialing';
+export type WalletSubscriptionStatus = 'none' | 'active' | 'past_due' | 'canceled' | 'trialing';
 
 export interface WalletTransaction {
   id: string;
@@ -123,9 +118,9 @@ async function loadWallet(env: Env): Promise<WalletModule | null> {
   }
   try {
     // Dynamic so typecheck stays green before sibling #100 lands the file.
-    const mod: unknown = await import(
-      /* webpackIgnore: true */ './wallet.js' as string
-    ).catch(() => null);
+    const mod: unknown = await import(/* webpackIgnore: true */ './wallet.js' as string).catch(
+      () => null,
+    );
     if (mod && typeof mod === 'object' && 'chargeWallet' in (mod as object)) {
       cached = mod as WalletModule;
       return cached;

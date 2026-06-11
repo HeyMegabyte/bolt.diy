@@ -123,7 +123,9 @@ describe('GET /changelog.json', () => {
   });
 
   it('falls back to inline entries when the R2 file parses to zero entries', async () => {
-    const env = makeEnv({ SITES_BUCKET: makeBucket(makeR2Object('# Just a heading, no releases')) });
+    const env = makeEnv({
+      SITES_BUCKET: makeBucket(makeR2Object('# Just a heading, no releases')),
+    });
     const res = await get(makeApp(), '/changelog.json', env);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { source: string; count: number };
@@ -168,7 +170,9 @@ describe('GET /feed.xml', () => {
     // One <item> per inline fallback entry, with RFC-822 pubDates.
     const itemCount = (xml.match(/<item>/g) ?? []).length;
     expect(itemCount).toBeGreaterThan(0);
-    expect(xml).toMatch(/<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT<\/pubDate>/);
+    expect(xml).toMatch(
+      /<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT<\/pubDate>/,
+    );
     // Tags become <category> elements.
     expect(xml).toContain('<category>');
   });
@@ -178,7 +182,7 @@ describe('GET /feed.xml', () => {
       '## v3.0.0 - 2026-06-02',
       'Title with <angle> & "quotes"',
       '',
-      "- (a&b) body with <tags> & ampersands",
+      '- (a&b) body with <tags> & ampersands',
     ].join('\n');
     const env = makeEnv({ SITES_BUCKET: makeBucket(makeR2Object(md)) });
     const res = await get(makeApp(), '/feed.xml', env);

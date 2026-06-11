@@ -61,7 +61,11 @@ function createDbStub(): D1Database {
             const [deletedAt, updatedAt, id, orgId] = params;
             let changed = 0;
             for (const r of rows) {
-              if (r.id === id && r.org_id === orgId && (r.deleted_at === null || r.deleted_at === undefined)) {
+              if (
+                r.id === id &&
+                r.org_id === orgId &&
+                (r.deleted_at === null || r.deleted_at === undefined)
+              ) {
                 r.deleted_at = deletedAt;
                 r.updated_at = updatedAt;
                 changed += 1;
@@ -142,7 +146,10 @@ describe('services/media', () => {
             JSON.stringify({
               results: [
                 {
-                  urls: { regular: 'https://images.unsplash.com/p1', small: 'https://images.unsplash.com/p1-small' },
+                  urls: {
+                    regular: 'https://images.unsplash.com/p1',
+                    small: 'https://images.unsplash.com/p1-small',
+                  },
                   description: 'unsplash-photo',
                   user: { name: 'Jane' },
                   links: { html: 'https://unsplash.com/photos/p1' },
@@ -159,7 +166,10 @@ describe('services/media', () => {
             JSON.stringify({
               photos: [
                 {
-                  src: { large: 'https://pexels.com/p2-large', medium: 'https://pexels.com/p2-med' },
+                  src: {
+                    large: 'https://pexels.com/p2-large',
+                    medium: 'https://pexels.com/p2-med',
+                  },
                   alt: 'pexels-photo',
                   photographer: 'John',
                   url: 'https://pexels.com/photo/p2',

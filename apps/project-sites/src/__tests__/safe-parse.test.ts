@@ -43,13 +43,15 @@ describe('safeParseJSON', () => {
 
   it('parses nested objects', () => {
     const raw = '{"a":{"b":{"c":[1,2,{"d":true}]}}}';
-    expect(safeParseJSON<{ a: { b: { c: unknown[] } } }>(raw, { a: { b: { c: [] } } }))
-      .toEqual({ a: { b: { c: [1, 2, { d: true }] } } });
+    expect(safeParseJSON<{ a: { b: { c: unknown[] } } }>(raw, { a: { b: { c: [] } } })).toEqual({
+      a: { b: { c: [1, 2, { d: true }] } },
+    });
   });
 
   it('parses unicode strings', () => {
-    expect(safeParseJSON<{ name: string }>('{"name":"Doña Élise"}', { name: '' }))
-      .toEqual({ name: 'Doña Élise' });
+    expect(safeParseJSON<{ name: string }>('{"name":"Doña Élise"}', { name: '' })).toEqual({
+      name: 'Doña Élise',
+    });
   });
 
   it('never throws on bizarre input', () => {

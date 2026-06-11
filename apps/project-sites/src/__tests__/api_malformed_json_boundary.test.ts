@@ -73,10 +73,13 @@ describe('routes/api.ts — malformed JSON body → 400 (not 500)', () => {
     expect(res.status).toBeLessThan(500);
   });
 
-  it.each(endpoints)('POST %s with an empty {} body also returns a 4xx (required fields)', async (path) => {
-    const res = await postRaw(path, '{}');
-    expect(res.status).not.toBe(500);
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
-  });
+  it.each(endpoints)(
+    'POST %s with an empty {} body also returns a 4xx (required fields)',
+    async (path) => {
+      const res = await postRaw(path, '{}');
+      expect(res.status).not.toBe(500);
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
+    },
+  );
 });

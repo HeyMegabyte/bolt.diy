@@ -38,7 +38,10 @@ const post = (over: Partial<PostCtx> = {}): PostCtx => ({
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-function mockFetch(routes: { publish?: (init?: RequestInit) => Response; analytics?: () => Response }) {
+function mockFetch(routes: {
+  publish?: (init?: RequestInit) => Response;
+  analytics?: () => Response;
+}) {
   const fn = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.includes('/v2/socialActions/')) return routes.analytics?.() ?? json({});
@@ -73,7 +76,9 @@ describe('linkedin.publish', () => {
       specificContent: { 'com.linkedin.ugc.ShareContent': { shareCommentary: { text: string } } };
     };
     expect(body.author).toBe('urn:li:person:P9');
-    expect(body.specificContent['com.linkedin.ugc.ShareContent'].shareCommentary.text).toBe('Body text');
+    expect(body.specificContent['com.linkedin.ugc.ShareContent'].shareCommentary.text).toBe(
+      'Body text',
+    );
   });
 
   it('throws when the account has no external_id (author urn)', async () => {
@@ -85,7 +90,9 @@ describe('linkedin.publish', () => {
 
   it('throws when the ugcPosts endpoint is not OK', async () => {
     mockFetch({ publish: () => new Response('bad', { status: 422 }) });
-    await expect(linkedin.publish(ENV, account(), post())).rejects.toThrow(/linkedin_publish_failed:422/);
+    await expect(linkedin.publish(ENV, account(), post())).rejects.toThrow(
+      /linkedin_publish_failed:422/,
+    );
   });
 });
 

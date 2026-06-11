@@ -57,7 +57,9 @@ describe('authenticateTestLogin', () => {
 
   it('rejects a malformed body (ZodError) when the seam is on', async () => {
     await expect(
-      authenticateTestLogin(mockDb, { E2E_TEST_PASSWORD: PASSWORD } as never, { email: 'not-an-email' }),
+      authenticateTestLogin(mockDb, { E2E_TEST_PASSWORD: PASSWORD } as never, {
+        email: 'not-an-email',
+      }),
     ).rejects.toBeDefined();
   });
 

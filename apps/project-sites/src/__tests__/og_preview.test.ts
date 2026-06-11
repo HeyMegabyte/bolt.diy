@@ -22,19 +22,29 @@ describe('parseOgTags', () => {
   });
 
   it('prefers og:title over twitter:title and falls back to <title>', () => {
-    expect(parseOgTags('<meta property="og:title" content="OG"><meta name="twitter:title" content="TW"><title>T</title>').title).toBe('OG');
-    expect(parseOgTags('<meta name="twitter:title" content="TW"><title>T</title>').title).toBe('TW');
+    expect(
+      parseOgTags(
+        '<meta property="og:title" content="OG"><meta name="twitter:title" content="TW"><title>T</title>',
+      ).title,
+    ).toBe('OG');
+    expect(parseOgTags('<meta name="twitter:title" content="TW"><title>T</title>').title).toBe(
+      'TW',
+    );
     expect(parseOgTags('<title>Just Title</title>').title).toBe('Just Title');
   });
 
   it('falls back to name="description" and twitter:image', () => {
-    const og = parseOgTags('<meta name="description" content="Meta desc"><meta name="twitter:image" content="https://x.com/t.png">');
+    const og = parseOgTags(
+      '<meta name="description" content="Meta desc"><meta name="twitter:image" content="https://x.com/t.png">',
+    );
     expect(og.description).toBe('Meta desc');
     expect(og.image).toBe('https://x.com/t.png');
   });
 
   it('decodes HTML entities in content', () => {
-    expect(parseOgTags('<meta property="og:title" content="Tom &amp; Jerry &#39;24">').title).toBe("Tom & Jerry '24");
+    expect(parseOgTags('<meta property="og:title" content="Tom &amp; Jerry &#39;24">').title).toBe(
+      "Tom & Jerry '24",
+    );
   });
 
   it('returns {} for empty/malformed input without throwing', () => {

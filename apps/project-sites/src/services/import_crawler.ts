@@ -114,7 +114,15 @@ function normalizeUrl(raw: string, base?: string): string | null {
     const u = new URL(raw, base);
     u.hash = '';
     // Strip session-y trackers that fragment the inventory unnecessarily.
-    const drops = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+    const drops = [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'fbclid',
+      'gclid',
+    ];
     for (const k of drops) u.searchParams.delete(k);
     return u.toString();
   } catch {
@@ -318,7 +326,8 @@ async function fromHomepageBfs(
   for (const m of hrefMatches) {
     const href = m[1];
     if (!href) continue;
-    if (href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) continue;
+    if (href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:'))
+      continue;
     const norm = normalizeUrl(href, origin);
     if (!norm || !sameOrigin(norm, origin) || alreadySeen.has(norm)) continue;
     alreadySeen.add(norm);

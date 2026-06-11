@@ -14,7 +14,12 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { dbExecute, dbInsert, dbQueryOne, dbUpdate } from '../services/db.js';
 import { loadAccountsByIds, markAccountError } from '../services/social_account_ctx.js';
-import { getPublisher, MissingAppCredsError, type PostCtx, type Platform } from '../services/social_publishers/index.js';
+import {
+  getPublisher,
+  MissingAppCredsError,
+  type PostCtx,
+  type Platform,
+} from '../services/social_publishers/index.js';
 
 export interface SocialPublishParams {
   post_id: string;
@@ -72,9 +77,15 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
     //    URL helper would go here; out of scope for v1.
     const mediaUrls = await step.do('prepareMedia', RETRY_30S, async () => {
       const mediaKeys = ctx.row.media_keys
-        ? (JSON.parse(ctx.row.media_keys) as Array<{ r2_key: string; mime: string; alt?: string; type?: 'image' | 'video' }>)
+        ? (JSON.parse(ctx.row.media_keys) as Array<{
+            r2_key: string;
+            mime: string;
+            alt?: string;
+            type?: 'image' | 'video';
+          }>)
         : [];
-      const accountBase = 'https://pub-' + (env as unknown as Record<string, string>).CF_ACCOUNT_ID + '.r2.dev/';
+      const accountBase =
+        'https://pub-' + (env as unknown as Record<string, string>).CF_ACCOUNT_ID + '.r2.dev/';
       // We expose media via /assets/r2/* route (existing assets route) — public read
       return mediaKeys.map((m) => ({
         url: `https://projectsites.dev/assets/r2/${m.r2_key}`,
@@ -100,45 +111,51 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
     // 3. fanoutPublish — load accounts then run per-account publishes in parallel
     const accounts = await loadAccountsByIds(env, ctx.accountIds);
     const publishPromises = accounts.map((acc) =>
-      step.do(`publish-${acc.platform}-${acc.id}`, RETRY_30S, async () => {
-        try {
-          const pub = getPublisher(acc.platform as Platform);
-          const result = await pub.publish(env, acc, post);
-          return {
-            account_id: acc.id,
-            platform: acc.platform,
-            status: 'succeeded' as const,
-            external_id: result.external_id,
-            external_url: result.external_url,
-            error: null,
-          };
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (err instanceof MissingAppCredsError) {
-            // Don't retry app-cred errors; surface and skip
+      step
+        .do(`publish-${acc.platform}-${acc.id}`, RETRY_30S, async () => {
+          try {
+            const pub = getPublisher(acc.platform as Platform);
+            const result = await pub.publish(env, acc, post);
             return {
               account_id: acc.id,
               platform: acc.platform,
-              status: 'skipped' as const,
-              external_id: null,
-              external_url: null,
-              error: msg,
+              status: 'succeeded' as const,
+              external_id: result.external_id,
+              external_url: result.external_url,
+              error: null,
             };
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (err instanceof MissingAppCredsError) {
+              // Don't retry app-cred errors; surface and skip
+              return {
+                account_id: acc.id,
+                platform: acc.platform,
+                status: 'skipped' as const,
+                external_id: null,
+                external_url: null,
+                error: msg,
+              };
+            }
+            // Mark expired/revoked tokens
+            if (
+              msg.includes('401') ||
+              msg.includes('unauthorized') ||
+              msg.includes('refresh_failed')
+            ) {
+              await markAccountError(env, acc.id, msg).catch(() => undefined);
+            }
+            throw err;
           }
-          // Mark expired/revoked tokens
-          if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('refresh_failed')) {
-            await markAccountError(env, acc.id, msg).catch(() => undefined);
-          }
-          throw err;
-        }
-      }).catch((err: unknown) => ({
-        account_id: acc.id,
-        platform: acc.platform,
-        status: 'failed' as const,
-        external_id: null,
-        external_url: null,
-        error: err instanceof Error ? err.message : String(err),
-      })),
+        })
+        .catch((err: unknown) => ({
+          account_id: acc.id,
+          platform: acc.platform,
+          status: 'failed' as const,
+          external_id: null,
+          external_url: null,
+          error: err instanceof Error ? err.message : String(err),
+        })),
     );
     const results = await Promise.all(publishPromises);
 
@@ -176,8 +193,7 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
         if (r.status === 'succeeded') succeeded++;
         else failed++;
       }
-      const finalStatus =
-        failed === 0 ? 'published' : succeeded === 0 ? 'failed' : 'partial';
+      const finalStatus = failed === 0 ? 'published' : succeeded === 0 ? 'failed' : 'partial';
       await dbUpdate(
         env.DB,
         'pulse_posts',
@@ -205,16 +221,26 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
             message: `Pulse Social: ${failed} of ${results.length} platform publishes failed for post ${post_id}`,
             target_type: 'pulse_post',
             target_id: post_id,
-            metadata_json: JSON.stringify({ succeeded, failed, results: results.map((r) => ({ platform: r.platform, status: r.status, error: r.error })) }),
+            metadata_json: JSON.stringify({
+              succeeded,
+              failed,
+              results: results.map((r) => ({
+                platform: r.platform,
+                status: r.status,
+                error: r.error,
+              })),
+            }),
           });
         } catch (err) {
-          console.warn(JSON.stringify({
-            level: 'warn',
-            service: 'social-publish-workflow',
-            message: 'notify_on_failure_failed',
-            post_id,
-            error: err instanceof Error ? err.message : String(err),
-          }));
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              service: 'social-publish-workflow',
+              message: 'notify_on_failure_failed',
+              post_id,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
         }
       });
     }

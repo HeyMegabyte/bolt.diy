@@ -164,7 +164,7 @@ export type EndpointSuggestion = z.infer<typeof endpointSuggestionSchema>;
  */
 export async function suggestEndpoint(env: Env, description: string): Promise<EndpointSuggestion> {
   const system =
-    "Given this natural-language description, propose a Cloudflare Worker AI endpoint. " +
+    'Given this natural-language description, propose a Cloudflare Worker AI endpoint. ' +
     "Output STRICT JSON: { slug: string (lowercase-kebab, 2-64 chars), method: 'GET'|'POST', " +
     "language: 'ai-prompt'|'javascript'|'typescript', files: {<path>: <content>}, description: string }. " +
     'The slug must be derived from the description and unique-friendly. Output JSON only, no prose.';
@@ -180,7 +180,9 @@ export async function suggestEndpoint(env: Env, description: string): Promise<En
   if (!json) throw new Error('LLM did not return parseable JSON');
   const parsed = endpointSuggestionSchema.safeParse(json);
   if (!parsed.success) {
-    throw new Error(`LLM JSON failed validation: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
+    throw new Error(
+      `LLM JSON failed validation: ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+    );
   }
   return parsed.data;
 }
@@ -219,7 +221,9 @@ export type SearchEntity = (typeof SEARCH_ENTITIES)[number];
 /** Zod schema for the LLM-translated structured filter. */
 export const searchFilterSchema = z.object({
   entity: z.enum(SEARCH_ENTITIES),
-  filters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]).nullable()).optional(),
+  filters: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]).nullable())
+    .optional(),
   limit: z.number().int().min(1).max(100).optional(),
 });
 
@@ -268,7 +272,15 @@ export function buildSearchSql(filter: SearchFilter, orgId: string): SearchSqlPl
     },
     traces: {
       table: 'ai_form_logs',
-      cols: ['trace_kind', 'endpoint_slug', 'model', 'status', 'tool_name', 'tool_status', 'site_id'],
+      cols: [
+        'trace_kind',
+        'endpoint_slug',
+        'model',
+        'status',
+        'tool_name',
+        'tool_status',
+        'site_id',
+      ],
       select:
         'SELECT id, site_id, trace_kind, endpoint_slug, model, status, latency_ms, created_at FROM ai_form_logs',
     },
@@ -352,7 +364,7 @@ export async function aiSearch(env: Env, orgId: string, query: string): Promise<
     'traces (ai_form_logs: trace_kind,endpoint_slug,model,status,tool_name,tool_status,site_id), ' +
     'sites (slug,business_name,status), users (email,display_name). ' +
     "Output STRICT JSON ONLY: { entity: 'audit'|'forms'|'traces'|'sites'|'users', " +
-    "filters: { <column>: <value> }, limit?: number }. " +
+    'filters: { <column>: <value> }, limit?: number }. ' +
     'Values are exact-match strings or SQL LIKE patterns with %. Output JSON only, no prose.';
 
   const result = (await env.AI.run(MODEL_PARAM, {
@@ -366,7 +378,9 @@ export async function aiSearch(env: Env, orgId: string, query: string): Promise<
   const json = extractFirstJsonObject(raw);
   const parsed = searchFilterSchema.safeParse(json);
   if (!parsed.success) {
-    throw new Error(`AI search filter invalid: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
+    throw new Error(
+      `AI search filter invalid: ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+    );
   }
 
   const plan = buildSearchSql(parsed.data, orgId);

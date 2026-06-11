@@ -59,7 +59,10 @@ const whisperResponse = (text: string) => ({ text });
 
 /** Default vision OK response with a description. */
 const okVision = (content: string): Response =>
-  ({ ok: true, json: async () => ({ choices: [{ message: { content } }] }) }) as unknown as Response;
+  ({
+    ok: true,
+    json: async () => ({ choices: [{ message: { content } }] }),
+  }) as unknown as Response;
 
 const originalFetch = global.fetch;
 let fetchMock: jest.Mock;
@@ -95,7 +98,10 @@ describe('processMultimodalIntent', () => {
     const env = makeEnv();
     aiRunMock.mockResolvedValueOnce(classifyResponse(defaultClassifyJson));
 
-    const result = await processMultimodalIntent(env, baseInput({ text: 'I need a quote for a roof repair' }));
+    const result = await processMultimodalIntent(
+      env,
+      baseInput({ text: 'I need a quote for a roof repair' }),
+    );
 
     expect(result.intent).toBe('quote');
     expect(result.extracted_fields).toEqual({ service: 'roof repair' });
@@ -106,14 +112,18 @@ describe('processMultimodalIntent', () => {
     expect(aiRunMock).toHaveBeenCalledTimes(1);
     expect(aiRunMock.mock.calls[0][0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
     // the visitor text is fused into the classifier prompt
-    expect((aiRunMock.mock.calls[0][1] as { prompt: string }).prompt).toContain('I need a quote for a roof repair');
+    expect((aiRunMock.mock.calls[0][1] as { prompt: string }).prompt).toContain(
+      'I need a quote for a roof repair',
+    );
   });
 
   it('transcribes audio via Whisper and fuses the transcript into classification', async () => {
     const env = makeEnv();
     aiRunMock
       .mockResolvedValueOnce(whisperResponse('  book me for tuesday  ')) // whisper (trimmed)
-      .mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'book', suggested_route: '/book' })));
+      .mockResolvedValueOnce(
+        classifyResponse(JSON.stringify({ intent: 'book', suggested_route: '/book' })),
+      );
 
     const result = await processMultimodalIntent(env, baseInput({ audio: new ArrayBuffer(8) }));
 
@@ -123,13 +133,17 @@ describe('processMultimodalIntent', () => {
     expect(aiRunMock.mock.calls[0][0]).toBe('@cf/openai/whisper-tiny-en');
     expect(Array.isArray((aiRunMock.mock.calls[0][1] as { audio: number[] }).audio)).toBe(true);
     // classifier prompt carries the transcript
-    expect((aiRunMock.mock.calls[1][1] as { prompt: string }).prompt).toContain('book me for tuesday');
+    expect((aiRunMock.mock.calls[1][1] as { prompt: string }).prompt).toContain(
+      'book me for tuesday',
+    );
   });
 
   it('describes an image via vision and fuses the description into classification', async () => {
     const env = makeEnv({ openaiKey: 'sk-test' });
     fetchMock.mockResolvedValueOnce(okVision('A damaged roof with missing shingles.'));
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'support', suggested_route: '/contact' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'support', suggested_route: '/contact' })),
+    );
 
     // PNG magic bytes so detectMimeType returns image/png
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer;
@@ -142,7 +156,9 @@ describe('processMultimodalIntent', () => {
     expect(body.model).toBe('gpt-4o-mini');
     expect(body.messages[0].content[1].image_url.url).toContain('data:image/png;base64,');
     // classifier prompt carries the description
-    expect((aiRunMock.mock.calls[0][1] as { prompt: string }).prompt).toContain('A damaged roof with missing shingles.');
+    expect((aiRunMock.mock.calls[0][1] as { prompt: string }).prompt).toContain(
+      'A damaged roof with missing shingles.',
+    );
   });
 
   it('fuses all three signals (text + audio + image) into one classification', async () => {
@@ -168,17 +184,23 @@ describe('processMultimodalIntent', () => {
 
   it('sends "No input provided" to the classifier when nothing is supplied', async () => {
     const env = makeEnv();
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+    );
 
     const result = await processMultimodalIntent(env, baseInput());
 
-    expect((aiRunMock.mock.calls[0][1] as { prompt: string }).prompt).toContain('No input provided');
+    expect((aiRunMock.mock.calls[0][1] as { prompt: string }).prompt).toContain(
+      'No input provided',
+    );
     expect(result.intent).toBe('browse');
   });
 
   it('coerces an out-of-vocabulary intent to "unknown"', async () => {
     const env = makeEnv();
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'purchase', suggested_route: '/x' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'purchase', suggested_route: '/x' })),
+    );
 
     const result = await processMultimodalIntent(env, baseInput({ text: 'hi' }));
 
@@ -199,7 +221,8 @@ describe('processMultimodalIntent', () => {
 
   it('extracts JSON embedded in markdown fences', async () => {
     const env = makeEnv();
-    const wrapped = '```json\n' + JSON.stringify({ intent: 'support', suggested_route: '/contact' }) + '\n```';
+    const wrapped =
+      '```json\n' + JSON.stringify({ intent: 'support', suggested_route: '/contact' }) + '\n```';
     aiRunMock.mockResolvedValueOnce(classifyResponse(wrapped));
 
     const result = await processMultimodalIntent(env, baseInput({ text: 'broken' }));
@@ -241,7 +264,9 @@ describe('processMultimodalIntent', () => {
     const env = makeEnv();
     aiRunMock
       .mockRejectedValueOnce(new Error('whisper down')) // whisper throws
-      .mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+      .mockResolvedValueOnce(
+        classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+      );
 
     const result = await processMultimodalIntent(env, baseInput({ audio: new ArrayBuffer(2) }));
 
@@ -251,7 +276,9 @@ describe('processMultimodalIntent', () => {
 
   it('short-circuits vision (description empty) when OPENAI_API_KEY is absent', async () => {
     const env = makeEnv(); // no key
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+    );
 
     const result = await processMultimodalIntent(env, baseInput({ image: new ArrayBuffer(4) }));
 
@@ -263,7 +290,9 @@ describe('processMultimodalIntent', () => {
   it('returns empty description when the vision API responds non-ok', async () => {
     const env = makeEnv({ openaiKey: 'sk-test' });
     fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({}) } as unknown as Response);
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+    );
 
     const result = await processMultimodalIntent(env, baseInput({ image: new ArrayBuffer(4) }));
 
@@ -273,7 +302,9 @@ describe('processMultimodalIntent', () => {
   it('survives a vision fetch throw (description empty, still classifies)', async () => {
     const env = makeEnv({ openaiKey: 'sk-test' });
     fetchMock.mockRejectedValueOnce(new Error('network'));
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+    );
 
     const result = await processMultimodalIntent(env, baseInput({ image: new ArrayBuffer(4) }));
 
@@ -284,7 +315,9 @@ describe('processMultimodalIntent', () => {
   it('detects GIF magic bytes and builds an image/gif data URL', async () => {
     const env = makeEnv({ openaiKey: 'sk-test' });
     fetchMock.mockResolvedValueOnce(okVision('a gif'));
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+    );
 
     const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38]).buffer; // "GIF8"
     await processMultimodalIntent(env, baseInput({ image: gif }));
@@ -296,7 +329,9 @@ describe('processMultimodalIntent', () => {
   it('defaults unknown image bytes to image/jpeg', async () => {
     const env = makeEnv({ openaiKey: 'sk-test' });
     fetchMock.mockResolvedValueOnce(okVision('unknown'));
-    aiRunMock.mockResolvedValueOnce(classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })));
+    aiRunMock.mockResolvedValueOnce(
+      classifyResponse(JSON.stringify({ intent: 'browse', suggested_route: '/' })),
+    );
 
     const blob = new Uint8Array([0x00, 0x01, 0x02, 0x03]).buffer;
     await processMultimodalIntent(env, baseInput({ image: blob }));
@@ -346,7 +381,12 @@ describe('saveCopilotSession', () => {
 
   it('inserts a row, returns a UUID, and binds the correct columns', async () => {
     const env = makeEnv();
-    const input = baseInput({ text: 'hi', audio: new ArrayBuffer(2), visitorId: 'v1', anonId: 'a1' });
+    const input = baseInput({
+      text: 'hi',
+      audio: new ArrayBuffer(2),
+      visitorId: 'v1',
+      anonId: 'a1',
+    });
     const result = makeResult({ transcript: 't', image_description: 'd' });
 
     const id = await saveCopilotSession(env, {
@@ -412,7 +452,9 @@ describe('saveCopilotSession', () => {
   it('swallows a DB run failure without throwing and still returns an id', async () => {
     const env = makeEnv();
     // .run() returns an object whose .catch resolves the rejection to null
-    dbRunMock.mockReturnValueOnce({ catch: (fn: (e: unknown) => unknown) => Promise.resolve(fn(new Error('d1 down'))) });
+    dbRunMock.mockReturnValueOnce({
+      catch: (fn: (e: unknown) => unknown) => Promise.resolve(fn(new Error('d1 down'))),
+    });
 
     const id = await saveCopilotSession(env, {
       orgId: 'o',

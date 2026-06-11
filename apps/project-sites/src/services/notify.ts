@@ -65,7 +65,13 @@ export async function notifyUser(env: Env, input: NotifyInput): Promise<NotifyRe
       }),
     });
     if (!res.ok) {
-      console.warn(JSON.stringify({ event: 'notify.failed', status: res.status, subscriber: input.subscriberId }));
+      console.warn(
+        JSON.stringify({
+          event: 'notify.failed',
+          status: res.status,
+          subscriber: input.subscriberId,
+        }),
+      );
       return { ok: false, detail: `http_${res.status}` };
     }
     const json = (await res.json().catch(() => ({}))) as { data?: { transactionId?: string } };
@@ -108,7 +114,9 @@ export async function notifySiteOwner(
       workflowId: input.workflowId,
     });
   } catch (err) {
-    console.warn(JSON.stringify({ event: 'notify.owner_lookup_failed', message: (err as Error)?.message }));
+    console.warn(
+      JSON.stringify({ event: 'notify.owner_lookup_failed', message: (err as Error)?.message }),
+    );
     return { ok: false, detail: 'lookup_failed' };
   }
 }

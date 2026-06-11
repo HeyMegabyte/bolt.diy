@@ -21,7 +21,11 @@ import {
 import type { Env } from '../types/env.js';
 
 /** Mock env with a valid 32-byte AES key so ai_crypto.encrypt round-trips, + a mock D1. */
-function mockEnv(rows: Record<string, unknown>[], changes: number, captured: unknown[][] = []): Env {
+function mockEnv(
+  rows: Record<string, unknown>[],
+  changes: number,
+  captured: unknown[][] = [],
+): Env {
   return {
     MCP_ENCRYPTION_KEY: Buffer.from(new Uint8Array(32)).toString('base64'),
     DB: {
@@ -98,7 +102,10 @@ describe('outbound_webhooks shouldRetry', () => {
 
 describe('validateEndpointInput', () => {
   it('accepts an https url subscribed to allowlisted events', () => {
-    expect(validateEndpointInput('https://hooks.example.com/x', ['site.published'])).toEqual({ ok: true, errors: [] });
+    expect(validateEndpointInput('https://hooks.example.com/x', ['site.published'])).toEqual({
+      ok: true,
+      errors: [],
+    });
   });
 
   it('rejects a non-https url', () => {
@@ -143,7 +150,15 @@ describe('isSafeWebhookUrl (SSRF guard)', () => {
   });
 
   it('rejects private + reserved IPv4 literals', () => {
-    for (const h of ['127.0.0.1', '10.1.2.3', '192.168.1.1', '172.16.0.1', '172.31.255.255', '0.0.0.0', '100.64.0.1']) {
+    for (const h of [
+      '127.0.0.1',
+      '10.1.2.3',
+      '192.168.1.1',
+      '172.16.0.1',
+      '172.31.255.255',
+      '0.0.0.0',
+      '100.64.0.1',
+    ]) {
       expect(isSafeWebhookUrl(`https://${h}/x`)).toBe(false);
     }
   });
@@ -175,7 +190,13 @@ describe('isSafeWebhookUrl (SSRF guard)', () => {
 describe('createWebhookEndpoint', () => {
   it('encrypts the secret and inserts; returns the plaintext secret once', async () => {
     const captured: unknown[][] = [];
-    const res = await createWebhookEndpoint(mockEnv([], 1, captured), 'o1', 's1', 'https://hooks.example.com/x', ['site.published']);
+    const res = await createWebhookEndpoint(
+      mockEnv([], 1, captured),
+      'o1',
+      's1',
+      'https://hooks.example.com/x',
+      ['site.published'],
+    );
     expect(res.ok).toBe(true);
     expect(res.secret).toMatch(/^whsec_/);
     // bind: [id, site_id, org_id, url, secret_encrypted, event_types]
@@ -187,7 +208,13 @@ describe('createWebhookEndpoint', () => {
 
   it('rejects an invalid subscription without inserting', async () => {
     const captured: unknown[][] = [];
-    const res = await createWebhookEndpoint(mockEnv([], 1, captured), 'o1', 's1', 'http://insecure', ['site.published']);
+    const res = await createWebhookEndpoint(
+      mockEnv([], 1, captured),
+      'o1',
+      's1',
+      'http://insecure',
+      ['site.published'],
+    );
     expect(res.ok).toBe(false);
     expect(captured.length).toBe(0);
   });
@@ -195,9 +222,14 @@ describe('createWebhookEndpoint', () => {
 
 describe('listWebhookEndpoints', () => {
   it('parses event_types and never returns a secret', async () => {
-    const env = mockEnv([{ id: 'e1', url: 'https://x.com', event_types: '["form.submitted"]', enabled: 1 }], 0);
+    const env = mockEnv(
+      [{ id: 'e1', url: 'https://x.com', event_types: '["form.submitted"]', enabled: 1 }],
+      0,
+    );
     const list = await listWebhookEndpoints(env, 'o1', 's1');
-    expect(list).toEqual([{ id: 'e1', url: 'https://x.com', eventTypes: ['form.submitted'], enabled: true }]);
+    expect(list).toEqual([
+      { id: 'e1', url: 'https://x.com', eventTypes: ['form.submitted'], enabled: true },
+    ]);
     expect(JSON.stringify(list)).not.toContain('secret');
   });
 });
@@ -205,14 +237,18 @@ describe('listWebhookEndpoints', () => {
 describe('deleteWebhookEndpoint', () => {
   it('reports ok/not-ok by rows changed', async () => {
     expect(await deleteWebhookEndpoint(mockEnv([], 1), 'o1', 's1', 'e1')).toEqual({ ok: true });
-    expect(await deleteWebhookEndpoint(mockEnv([], 0), 'o1', 's1', 'missing')).toEqual({ ok: false });
+    expect(await deleteWebhookEndpoint(mockEnv([], 0), 'o1', 's1', 'missing')).toEqual({
+      ok: false,
+    });
   });
 });
 
 describe('planDeliveries', () => {
   const TS = '1700000000';
   const ev = { type: 'site.published', payload: { siteId: 's1' } };
-  const base = (over: Partial<{ id: string; url: string; eventTypes: string[]; enabled: boolean }> = {}) => ({
+  const base = (
+    over: Partial<{ id: string; url: string; eventTypes: string[]; enabled: boolean }> = {},
+  ) => ({
     id: 'e1',
     url: 'https://hooks.example.com/x',
     eventTypes: ['site.published'],
@@ -227,16 +263,24 @@ describe('planDeliveries', () => {
     expect(d.endpointId).toBe('e1');
     expect(d.timestamp).toBe(TS);
     expect(d.signatureBase).toBe(signedPayloadBase(TS, d.body));
-    expect(JSON.parse(d.body)).toEqual({ type: 'site.published', payload: { siteId: 's1' }, timestamp: TS });
+    expect(JSON.parse(d.body)).toEqual({
+      type: 'site.published',
+      payload: { siteId: 's1' },
+      timestamp: TS,
+    });
   });
 
   it('skips disabled / not-subscribed / unsafe-url endpoints with reasons', () => {
-    const plan = planDeliveries(ev, [
-      base({ id: 'off', enabled: false }),
-      base({ id: 'other', eventTypes: ['form.submitted'] }),
-      base({ id: 'ssrf', url: 'https://127.0.0.1/x' }),
-      base({ id: 'ok' }),
-    ], TS);
+    const plan = planDeliveries(
+      ev,
+      [
+        base({ id: 'off', enabled: false }),
+        base({ id: 'other', eventTypes: ['form.submitted'] }),
+        base({ id: 'ssrf', url: 'https://127.0.0.1/x' }),
+        base({ id: 'ok' }),
+      ],
+      TS,
+    );
     expect(plan.deliveries.map((d) => d.endpointId)).toEqual(['ok']);
     expect(plan.skipped).toEqual([
       { endpointId: 'off', reason: 'disabled' },
@@ -268,7 +312,9 @@ describe('attemptDelivery', () => {
     expect(url).toBe(delivery.url);
     expect(init.method).toBe('POST');
     expect(init.body).toBe(delivery.body);
-    expect((init.headers as Record<string, string>)['webhook-signature']).toBe('t=1700000000,v1=sigabc');
+    expect((init.headers as Record<string, string>)['webhook-signature']).toBe(
+      't=1700000000,v1=sigabc',
+    );
     expect((init.headers as Record<string, string>)['webhook-timestamp']).toBe('1700000000');
   });
 
@@ -292,7 +338,11 @@ describe('attemptDelivery', () => {
     const fetchFn = (async () => {
       throw new Error('down');
     }) as unknown as typeof fetch;
-    expect(await attemptDelivery(fetchFn, delivery, 'x')).toEqual({ statusCode: 0, ok: false, error: 'network_error' });
+    expect(await attemptDelivery(fetchFn, delivery, 'x')).toEqual({
+      statusCode: 0,
+      ok: false,
+      error: 'network_error',
+    });
   });
 });
 
@@ -300,7 +350,12 @@ describe('recordDelivery + listDeliveries', () => {
   it('inserts a delivery row mapping ok->1 and undefined error->null', async () => {
     const captured: unknown[][] = [];
     await recordDelivery(mockEnv([], 1, captured), {
-      endpointId: 'e1', siteId: 's1', eventType: 'site.published', statusCode: 200, ok: true, attempt: 1,
+      endpointId: 'e1',
+      siteId: 's1',
+      eventType: 'site.published',
+      statusCode: 200,
+      ok: true,
+      attempt: 1,
     });
     // bind: [id, endpoint_id, site_id, event_type, status_code, ok, attempt, error]
     expect(captured[0]?.[1]).toBe('e1');
@@ -311,13 +366,31 @@ describe('recordDelivery + listDeliveries', () => {
 
   it('lists deliveries mapping ok 1->true (newest first per the query)', async () => {
     const env = mockEnv(
-      [{ id: 'd1', endpoint_id: 'e1', event_type: 'site.published', status_code: 503, ok: 0, attempt: 2, error: 'network_error', created_at: '2026-06-02T00:00:00Z' }],
+      [
+        {
+          id: 'd1',
+          endpoint_id: 'e1',
+          event_type: 'site.published',
+          status_code: 503,
+          ok: 0,
+          attempt: 2,
+          error: 'network_error',
+          created_at: '2026-06-02T00:00:00Z',
+        },
+      ],
       0,
     );
     const list = await listDeliveries(env, 's1');
     expect(list.length).toBe(1);
     expect(list[0]).toEqual({
-      id: 'd1', endpointId: 'e1', eventType: 'site.published', statusCode: 503, ok: false, attempt: 2, error: 'network_error', createdAt: '2026-06-02T00:00:00Z',
+      id: 'd1',
+      endpointId: 'e1',
+      eventType: 'site.published',
+      statusCode: 503,
+      ok: false,
+      attempt: 2,
+      error: 'network_error',
+      createdAt: '2026-06-02T00:00:00Z',
     });
   });
 });

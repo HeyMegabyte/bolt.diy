@@ -59,8 +59,14 @@ function createApp() {
         })),
       })),
     } as unknown as D1Database,
-    SITES_BUCKET: { put: r2Put, delete: jest.fn().mockResolvedValue(undefined) } as unknown as R2Bucket,
-    CACHE_KV: { get: jest.fn().mockResolvedValue(null), put: jest.fn().mockResolvedValue(undefined) } as unknown as KVNamespace,
+    SITES_BUCKET: {
+      put: r2Put,
+      delete: jest.fn().mockResolvedValue(undefined),
+    } as unknown as R2Bucket,
+    CACHE_KV: {
+      get: jest.fn().mockResolvedValue(null),
+      put: jest.fn().mockResolvedValue(undefined),
+    } as unknown as KVNamespace,
     OPENAI_API_KEY: 'sk-test',
   } as unknown as Env;
 
@@ -121,7 +127,9 @@ describe('POST /api/sites/:siteId/ai/context/upload', () => {
       env,
     );
     expect(res.status).toBe(201);
-    const body = (await res.json()) as { data: { id: string; extracted_chars: number; filename: string } };
+    const body = (await res.json()) as {
+      data: { id: string; extracted_chars: number; filename: string };
+    };
     expect(body.data.filename).toBe('doc.pdf');
     expect(body.data.extracted_chars).toBeGreaterThan(0);
     expect(r2Put).toHaveBeenCalledTimes(1);

@@ -104,7 +104,8 @@ superAdmin.patch(
       'SELECT slug FROM cost_categories WHERE slug = ? LIMIT 1',
       [slug],
     );
-    if (!existing) return c.json({ error: { code: 'NOT_FOUND', message: 'category not found' } }, 404);
+    if (!existing)
+      return c.json({ error: { code: 'NOT_FOUND', message: 'category not found' } }, 404);
 
     const patch: Record<string, unknown> = { updated_by: userId };
     if (body.markup_factor !== undefined) patch.markup_factor = body.markup_factor;
@@ -359,7 +360,10 @@ superAdmin.get('/api/super-admin/transactions', async (c) => {
 
 const adjustmentSchema = z.object({
   org_id: z.string().min(1),
-  amount_cents: z.number().int().refine((n) => n !== 0, 'amount cannot be zero'),
+  amount_cents: z
+    .number()
+    .int()
+    .refine((n) => n !== 0, 'amount cannot be zero'),
   reason: z.string().min(3).max(500),
 });
 
@@ -413,9 +417,19 @@ superAdmin.get('/api/super-admin/whoami', async (c) => {
 // ─── Audit helper — every super-admin write goes through here ─────────────
 
 async function audit(
-  c: { env: Env; get: (k: string) => string | undefined; req: { header: (k: string) => string | undefined } },
+  c: {
+    env: Env;
+    get: (k: string) => string | undefined;
+    req: { header: (k: string) => string | undefined };
+  },
   action: string,
-  detail: { target_kind?: string; target_id?: string; before?: unknown; after?: unknown; reason?: string },
+  detail: {
+    target_kind?: string;
+    target_id?: string;
+    before?: unknown;
+    after?: unknown;
+    reason?: string;
+  },
 ): Promise<void> {
   try {
     await c.env.DB.prepare(
@@ -483,14 +497,24 @@ superAdmin.post('/api/super-admin/pro/grant', zValidator('json', proGrantSchema)
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
-superAdmin.post('/api/super-admin/pro/revoke', zValidator('json', z.object({ user_id: z.string(), reason: z.string() })), async (c) => {
-  const body = c.req.valid('json');
-  await c.env.DB.prepare(`UPDATE users SET is_pro = 0, pro_grant_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-    .bind(`revoked:${body.reason}`, body.user_id)
-    .run();
-  await audit(c, 'pro_revoke', { target_kind: 'user', target_id: body.user_id, reason: body.reason });
-  return c.json({ ok: true });
-});
+superAdmin.post(
+  '/api/super-admin/pro/revoke',
+  zValidator('json', z.object({ user_id: z.string(), reason: z.string() })),
+  async (c) => {
+    const body = c.req.valid('json');
+    await c.env.DB.prepare(
+      `UPDATE users SET is_pro = 0, pro_grant_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    )
+      .bind(`revoked:${body.reason}`, body.user_id)
+      .run();
+    await audit(c, 'pro_revoke', {
+      target_kind: 'user',
+      target_id: body.user_id,
+      reason: body.reason,
+    });
+    return c.json({ ok: true });
+  },
+);
 
 // ─── Coupons ───────────────────────────────────────────────────────────────
 
@@ -535,7 +559,15 @@ superAdmin.post('/api/super-admin/coupons', zValidator('json', couponSchema), as
     `INSERT INTO coupons (code, kind, amount, max_redemptions, applies_to, expires_at, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(body.code, body.kind, body.amount, body.max_redemptions ?? null, body.applies_to, body.expires_at ?? null, userId)
+    .bind(
+      body.code,
+      body.kind,
+      body.amount,
+      body.max_redemptions ?? null,
+      body.applies_to,
+      body.expires_at ?? null,
+      userId,
+    )
     .run();
   await audit(c, 'coupon_create', { target_kind: 'coupon', target_id: body.code, after: body });
   return c.json({ code: body.code }, 201);
@@ -703,24 +735,32 @@ superAdmin.get('/api/super-admin/announcements', async (c) => {
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
-superAdmin.post('/api/super-admin/announcements', zValidator('json', announcementSchema), async (c) => {
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
-  const id = `ann_${crypto.randomUUID()}`;
-  await dbInsert(c.env.DB, 'announcements', {
-    id,
-    title: body.title,
-    body_md: body.body_md,
-    kind: body.kind,
-    active: body.active ? 1 : 0,
-    shows_in: body.shows_in,
-    starts_at: body.starts_at ?? null,
-    ends_at: body.ends_at ?? null,
-    created_by: userId,
-  });
-  await audit(c, 'announcement_create', { target_kind: 'announcement', target_id: id, after: body });
-  return c.json({ id }, 201);
-});
+superAdmin.post(
+  '/api/super-admin/announcements',
+  zValidator('json', announcementSchema),
+  async (c) => {
+    const body = c.req.valid('json');
+    const userId = c.get('userId') as string;
+    const id = `ann_${crypto.randomUUID()}`;
+    await dbInsert(c.env.DB, 'announcements', {
+      id,
+      title: body.title,
+      body_md: body.body_md,
+      kind: body.kind,
+      active: body.active ? 1 : 0,
+      shows_in: body.shows_in,
+      starts_at: body.starts_at ?? null,
+      ends_at: body.ends_at ?? null,
+      created_by: userId,
+    });
+    await audit(c, 'announcement_create', {
+      target_kind: 'announcement',
+      target_id: id,
+      after: body,
+    });
+    return c.json({ id }, 201);
+  },
+);
 
 // ─── Feature flags + per-org overrides ────────────────────────────────────
 
@@ -765,11 +805,14 @@ const flagPatchSchema = z.object({
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
-superAdmin.post('/api/super-admin/feature-flags', zValidator('json', flagPatchSchema), async (c) => {
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
-  await c.env.DB.prepare(
-    `INSERT INTO feature_flags (key, description, enabled_globally, rollout_pct, kill_switch, updated_by, updated_at)
+superAdmin.post(
+  '/api/super-admin/feature-flags',
+  zValidator('json', flagPatchSchema),
+  async (c) => {
+    const body = c.req.valid('json');
+    const userId = c.get('userId') as string;
+    await c.env.DB.prepare(
+      `INSERT INTO feature_flags (key, description, enabled_globally, rollout_pct, kill_switch, updated_by, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
        ON CONFLICT(key) DO UPDATE SET
          description = COALESCE(excluded.description, feature_flags.description),
@@ -778,19 +821,25 @@ superAdmin.post('/api/super-admin/feature-flags', zValidator('json', flagPatchSc
          kill_switch = COALESCE(excluded.kill_switch, feature_flags.kill_switch),
          updated_by = excluded.updated_by,
          updated_at = CURRENT_TIMESTAMP`,
-  )
-    .bind(
-      body.key,
-      body.description ?? null,
-      body.enabled_globally === undefined ? null : body.enabled_globally ? 1 : 0,
-      body.rollout_pct ?? null,
-      body.kill_switch === undefined ? null : body.kill_switch ? 1 : 0,
-      userId,
     )
-    .run();
-  await audit(c, 'feature_flag_upsert', { target_kind: 'feature_flag', target_id: body.key, after: body, reason: body.reason });
-  return c.json({ ok: true });
-});
+      .bind(
+        body.key,
+        body.description ?? null,
+        body.enabled_globally === undefined ? null : body.enabled_globally ? 1 : 0,
+        body.rollout_pct ?? null,
+        body.kill_switch === undefined ? null : body.kill_switch ? 1 : 0,
+        userId,
+      )
+      .run();
+    await audit(c, 'feature_flag_upsert', {
+      target_kind: 'feature_flag',
+      target_id: body.key,
+      after: body,
+      reason: body.reason,
+    });
+    return c.json({ ok: true });
+  },
+);
 
 /**
  * `GET /api/super-admin/feature-flags/:key/audit` — Per-flag change history for
@@ -842,9 +891,11 @@ function summarizeAuditRow(beforeJson: string | null, afterJson: string | null):
     after = {};
   }
   const parts: string[] = [];
-  if (typeof after.enabled_globally === 'boolean') parts.push(`enabled → ${after.enabled_globally ? 'on' : 'off'}`);
+  if (typeof after.enabled_globally === 'boolean')
+    parts.push(`enabled → ${after.enabled_globally ? 'on' : 'off'}`);
   if (typeof after.rollout_pct === 'number') parts.push(`rollout → ${after.rollout_pct}%`);
-  if (typeof after.kill_switch === 'boolean') parts.push(`kill switch → ${after.kill_switch ? 'on' : 'off'}`);
+  if (typeof after.kill_switch === 'boolean')
+    parts.push(`kill switch → ${after.kill_switch ? 'on' : 'off'}`);
   return parts.length ? parts.join(', ') : 'flag updated';
 }
 
@@ -868,29 +919,38 @@ const impersonateSchema = z.object({
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
-superAdmin.post('/api/super-admin/impersonate', zValidator('json', impersonateSchema), async (c) => {
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
-  const id = `imp_${crypto.randomUUID()}`;
-  const targetOrg = await dbQueryOne<{ org_id: string }>(
-    c.env.DB,
-    `SELECT m.org_id FROM memberships m WHERE m.user_id = ? ORDER BY m.created_at LIMIT 1`,
-    [body.target_user_id],
-  );
-  await dbInsert(c.env.DB, 'impersonation_sessions', {
-    id,
-    super_admin_user_id: userId,
-    target_user_id: body.target_user_id,
-    target_org_id: targetOrg?.org_id ?? null,
-    mode: body.mode,
-    reason: body.reason,
-    ip_address: c.req.header('cf-connecting-ip') ?? null,
-    user_agent: c.req.header('user-agent') ?? null,
-  });
-  await audit(c, 'impersonate_start', { target_kind: 'user', target_id: body.target_user_id, reason: body.reason, after: body });
-  // TODO: issue a short-lived signed JWT containing { sub: target_user_id, impersonator_id: userId, exp: +30min }.
-  return c.json({ session_id: id, mode: body.mode, target_org_id: targetOrg?.org_id ?? null });
-});
+superAdmin.post(
+  '/api/super-admin/impersonate',
+  zValidator('json', impersonateSchema),
+  async (c) => {
+    const body = c.req.valid('json');
+    const userId = c.get('userId') as string;
+    const id = `imp_${crypto.randomUUID()}`;
+    const targetOrg = await dbQueryOne<{ org_id: string }>(
+      c.env.DB,
+      `SELECT m.org_id FROM memberships m WHERE m.user_id = ? ORDER BY m.created_at LIMIT 1`,
+      [body.target_user_id],
+    );
+    await dbInsert(c.env.DB, 'impersonation_sessions', {
+      id,
+      super_admin_user_id: userId,
+      target_user_id: body.target_user_id,
+      target_org_id: targetOrg?.org_id ?? null,
+      mode: body.mode,
+      reason: body.reason,
+      ip_address: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+    await audit(c, 'impersonate_start', {
+      target_kind: 'user',
+      target_id: body.target_user_id,
+      reason: body.reason,
+      after: body,
+    });
+    // TODO: issue a short-lived signed JWT containing { sub: target_user_id, impersonator_id: userId, exp: +30min }.
+    return c.json({ session_id: id, mode: body.mode, target_org_id: targetOrg?.org_id ?? null });
+  },
+);
 
 /**
  * `POST /api/super-admin/impersonate/:id/end` — End an active impersonation
@@ -901,7 +961,11 @@ superAdmin.post('/api/super-admin/impersonate', zValidator('json', impersonateSc
  */
 superAdmin.post('/api/super-admin/impersonate/:id/end', async (c) => {
   const id = c.req.param('id');
-  await c.env.DB.prepare(`UPDATE impersonation_sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(id).run();
+  await c.env.DB.prepare(
+    `UPDATE impersonation_sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  )
+    .bind(id)
+    .run();
   await audit(c, 'impersonate_end', { target_kind: 'impersonation_session', target_id: id });
   return c.json({ ok: true });
 });
@@ -943,20 +1007,28 @@ const moderationResolveSchema = z.object({
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  * @throws 404 NOT_FOUND when the report id doesn't exist.
  */
-superAdmin.post('/api/super-admin/moderation/:id/resolve', zValidator('json', moderationResolveSchema), async (c) => {
-  const id = c.req.param('id');
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
-  await c.env.DB.prepare(
-    `UPDATE moderation_queue
+superAdmin.post(
+  '/api/super-admin/moderation/:id/resolve',
+  zValidator('json', moderationResolveSchema),
+  async (c) => {
+    const id = c.req.param('id');
+    const body = c.req.valid('json');
+    const userId = c.get('userId') as string;
+    await c.env.DB.prepare(
+      `UPDATE moderation_queue
         SET status = ?, resolver_id = ?, resolution_notes = ?, resolved_at = CURRENT_TIMESTAMP
       WHERE id = ?`,
-  )
-    .bind(body.status, userId, body.notes ?? null, id)
-    .run();
-  await audit(c, 'moderation_resolve', { target_kind: 'moderation_item', target_id: id, after: body });
-  return c.json({ ok: true });
-});
+    )
+      .bind(body.status, userId, body.notes ?? null, id)
+      .run();
+    await audit(c, 'moderation_resolve', {
+      target_kind: 'moderation_item',
+      target_id: id,
+      after: body,
+    });
+    return c.json({ ok: true });
+  },
+);
 
 // ─── AI prompt blocklist ──────────────────────────────────────────────────
 
@@ -1020,9 +1092,7 @@ const tagSchema = z.object({ org_id: z.string(), tag: z.string().regex(/^[a-z0-9
 superAdmin.post('/api/super-admin/tags', zValidator('json', tagSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
-  await c.env.DB.prepare(
-    `INSERT OR IGNORE INTO org_tags (org_id, tag, tagged_by) VALUES (?, ?, ?)`,
-  )
+  await c.env.DB.prepare(`INSERT OR IGNORE INTO org_tags (org_id, tag, tagged_by) VALUES (?, ?, ?)`)
     .bind(body.org_id, body.tag, userId)
     .run();
   return c.json({ ok: true });
@@ -1039,7 +1109,9 @@ superAdmin.post('/api/super-admin/tags', zValidator('json', tagSchema), async (c
  */
 superAdmin.delete('/api/super-admin/tags', zValidator('json', tagSchema), async (c) => {
   const body = c.req.valid('json');
-  await c.env.DB.prepare(`DELETE FROM org_tags WHERE org_id = ? AND tag = ?`).bind(body.org_id, body.tag).run();
+  await c.env.DB.prepare(`DELETE FROM org_tags WHERE org_id = ? AND tag = ?`)
+    .bind(body.org_id, body.tag)
+    .run();
   return c.json({ ok: true });
 });
 
@@ -1063,18 +1135,29 @@ const rateLimitSchema = z.object({
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
-superAdmin.post('/api/super-admin/rate-limit-overrides', zValidator('json', rateLimitSchema), async (c) => {
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
-  await c.env.DB.prepare(
-    `INSERT INTO rate_limit_overrides (org_id, route_pattern, limit_per_min, reason, set_by, expires_at)
+superAdmin.post(
+  '/api/super-admin/rate-limit-overrides',
+  zValidator('json', rateLimitSchema),
+  async (c) => {
+    const body = c.req.valid('json');
+    const userId = c.get('userId') as string;
+    await c.env.DB.prepare(
+      `INSERT INTO rate_limit_overrides (org_id, route_pattern, limit_per_min, reason, set_by, expires_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(body.org_id ?? null, body.route_pattern, body.limit_per_min, body.reason ?? null, userId, body.expires_at ?? null)
-    .run();
-  await audit(c, 'rate_limit_override', { after: body });
-  return c.json({ ok: true }, 201);
-});
+    )
+      .bind(
+        body.org_id ?? null,
+        body.route_pattern,
+        body.limit_per_min,
+        body.reason ?? null,
+        userId,
+        body.expires_at ?? null,
+      )
+      .run();
+    await audit(c, 'rate_limit_override', { after: body });
+    return c.json({ ok: true }, 201);
+  },
+);
 
 // ─── Audit log viewer ─────────────────────────────────────────────────────
 
@@ -1132,7 +1215,10 @@ superAdmin.post('/api/super-admin/cache/purge', async (c) => {
   };
   if (body.all === true) {
     await audit(c, 'cache_purge_all', { reason: 'bulk' });
-    return c.json({ ok: true, note: 'bulk purge requires KV bulk-delete cron — best-effort logged' });
+    return c.json({
+      ok: true,
+      note: 'bulk purge requires KV bulk-delete cron — best-effort logged',
+    });
   }
   if (typeof body.key === 'string' && body.key.length > 0) {
     await c.env.CACHE_KV.delete(body.key);

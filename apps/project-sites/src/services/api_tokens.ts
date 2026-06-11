@@ -145,7 +145,9 @@ export async function verifyApiToken(
 
   if (row) {
     // Fire-and-forget last_used_at update
-    db.prepare(`UPDATE api_tokens SET last_used_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
+    db.prepare(
+      `UPDATE api_tokens SET last_used_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+    )
       .bind(row.id)
       .run()
       .catch(() => {});
@@ -188,7 +190,12 @@ export async function listApiTokens(db: D1Database, orgId: string): Promise<ApiT
        ORDER BY created_at DESC`,
     )
     .bind(orgId)
-    .all<Pick<ApiTokenRow, 'id' | 'org_id' | 'name' | 'scopes' | 'last_used_at' | 'expires_at' | 'created_at'>>()
+    .all<
+      Pick<
+        ApiTokenRow,
+        'id' | 'org_id' | 'name' | 'scopes' | 'last_used_at' | 'expires_at' | 'created_at'
+      >
+    >()
     .catch(() => ({ results: [] }));
 
   return (rows.results ?? []).map((r) => ({

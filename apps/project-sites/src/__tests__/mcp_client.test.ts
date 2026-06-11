@@ -34,7 +34,23 @@ beforeEach(() => jest.clearAllMocks());
 describe('registry — allProviders / getAdapter', () => {
   it('lists every provider that ships a worker adapter', () => {
     const ps = allProviders();
-    for (const expected of ['mailchimp', 'stripe', 'resend', 'hubspot', 'slack', 'notion', 'github', 'linear', 'discord', 'google_calendar', 'twilio', 'calendly', 'airtable', 'zapier', 'pagerduty']) {
+    for (const expected of [
+      'mailchimp',
+      'stripe',
+      'resend',
+      'hubspot',
+      'slack',
+      'notion',
+      'github',
+      'linear',
+      'discord',
+      'google_calendar',
+      'twilio',
+      'calendly',
+      'airtable',
+      'zapier',
+      'pagerduty',
+    ]) {
       expect(ps).toContain(expected as Provider);
     }
   });
@@ -78,7 +94,9 @@ describe('ToolDescriptor contract — every adapter', () => {
 
   it('tool names are unique within each adapter', () => {
     for (const p of allProviders()) {
-      const names = getAdapter(p)!.tools().map((t) => t.name);
+      const names = getAdapter(p)!
+        .tools()
+        .map((t) => t.name);
       expect(new Set(names).size).toBe(names.length);
     }
   });
@@ -86,7 +104,10 @@ describe('ToolDescriptor contract — every adapter', () => {
 
 describe('authorizeUrl — paste-key providers', () => {
   it('resend returns the __paste_key__ marker carrying state', () => {
-    const url = getAdapter('resend')!.authorizeUrl({} as never, { state: 'abc123', returnUrl: 'https://x' });
+    const url = getAdapter('resend')!.authorizeUrl({} as never, {
+      state: 'abc123',
+      returnUrl: 'https://x',
+    });
     expect(url).toContain('__paste_key__');
     expect(url).toContain('state=abc123');
   });
@@ -100,13 +121,15 @@ describe('loadConnections', () => {
     ]);
     const conns = await loadConnections(env, 'site-1');
     expect(conns).toHaveLength(1);
-    expect(conns[0]).toEqual({ provider: 'stripe', accessToken: 'plain-token', metadata: { acct: 'a1' } });
+    expect(conns[0]).toEqual({
+      provider: 'stripe',
+      accessToken: 'plain-token',
+      metadata: { acct: 'a1' },
+    });
   });
 
   it('silently skips rows whose ciphertext fails to decrypt', async () => {
-    mockDecrypt
-      .mockResolvedValueOnce('ok-token')
-      .mockRejectedValueOnce(new Error('bad key'));
+    mockDecrypt.mockResolvedValueOnce('ok-token').mockRejectedValueOnce(new Error('bad key'));
     const { env } = envWithRows([
       { provider: 'stripe', access_token_encrypted: 'good', account_metadata_json: null },
       { provider: 'slack', access_token_encrypted: 'bad', account_metadata_json: null },

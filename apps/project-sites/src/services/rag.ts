@@ -48,7 +48,9 @@ export interface RagSearchResult {
 
 /** Minimal Vectorize binding shape — avoids dependency on `@cloudflare/workers-types` Vectorize typings drift. */
 interface VectorizeBinding {
-  upsert(vectors: Array<{ id: string; values: number[]; metadata?: Record<string, unknown> }>): Promise<unknown>;
+  upsert(
+    vectors: Array<{ id: string; values: number[]; metadata?: Record<string, unknown> }>,
+  ): Promise<unknown>;
   query(
     vector: number[],
     options?: {
@@ -57,13 +59,19 @@ interface VectorizeBinding {
       returnMetadata?: 'all' | 'indexed' | boolean;
       returnValues?: boolean;
     },
-  ): Promise<{ matches?: Array<{ id: string; score: number; metadata?: Record<string, unknown> }> }>;
+  ): Promise<{
+    matches?: Array<{ id: string; score: number; metadata?: Record<string, unknown> }>;
+  }>;
   deleteByIds(ids: string[]): Promise<unknown>;
 }
 
 /** Minimal AutoRAG binding shape (Cloudflare AI Search). */
 interface AutoRagBinding {
-  aiSearch(args: { query: string; max_num_results?: number; filters?: Record<string, unknown> }): Promise<unknown>;
+  aiSearch(args: {
+    query: string;
+    max_num_results?: number;
+    filters?: Record<string, unknown>;
+  }): Promise<unknown>;
 }
 
 /** Local env intersection — augments the worker `Env` with the optional RAG bindings without editing `types/env.ts`. */
@@ -84,12 +92,17 @@ const SYNTHESIS_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export async function embedText(env: Env, text: string): Promise<number[]> {
   const trimmed = text.trim();
   if (!trimmed) throw new Error('embedText: empty input');
-  const result = (await env.AI.run(EMBEDDING_MODEL as unknown as Parameters<typeof env.AI.run>[0], {
-    text: trimmed,
-  } as never)) as { data?: number[][]; shape?: number[] };
+  const result = (await env.AI.run(
+    EMBEDDING_MODEL as unknown as Parameters<typeof env.AI.run>[0],
+    {
+      text: trimmed,
+    } as never,
+  )) as { data?: number[][]; shape?: number[] };
   const vector = result?.data?.[0];
   if (!vector || !Array.isArray(vector) || vector.length !== EMBEDDING_DIM) {
-    throw new Error(`embedText: invalid embedding (got ${vector?.length ?? 0}, expected ${EMBEDDING_DIM})`);
+    throw new Error(
+      `embedText: invalid embedding (got ${vector?.length ?? 0}, expected ${EMBEDDING_DIM})`,
+    );
   }
   return vector;
 }
@@ -102,7 +115,13 @@ export async function embedText(env: Env, text: string): Promise<number[]> {
  */
 export async function indexChunk(
   env: Env,
-  args: { id: string; kind: string; sourceId: string; text: string; metadata?: Record<string, unknown> },
+  args: {
+    id: string;
+    kind: string;
+    sourceId: string;
+    text: string;
+    metadata?: Record<string, unknown>;
+  },
 ): Promise<{ id: string }> {
   if (!env.RAG_INDEX) throw new Error('indexChunk: RAG_INDEX binding missing');
   const { id, kind, sourceId, text } = args;
@@ -204,7 +223,11 @@ export async function autoRagQuery(
     };
   }
 
-  const matches = await semanticSearch(env, question, { topK, orgId: opts.orgId, kinds: opts.kinds });
+  const matches = await semanticSearch(env, question, {
+    topK,
+    orgId: opts.orgId,
+    kinds: opts.kinds,
+  });
   if (matches.length === 0) {
     return { response: 'No matching context found.', data: [] };
   }
@@ -223,13 +246,19 @@ export async function autoRagQuery(
     `QUESTION: ${question}`,
   ].join('\n');
 
-  const completion = (await env.AI.run(SYNTHESIS_MODEL as unknown as Parameters<typeof env.AI.run>[0], {
-    messages: [
-      { role: 'system', content: 'You are a precise retrieval-augmented assistant. Cite every claim.' },
-      { role: 'user', content: prompt },
-    ],
-    max_tokens: 600,
-  } as never)) as { response?: string };
+  const completion = (await env.AI.run(
+    SYNTHESIS_MODEL as unknown as Parameters<typeof env.AI.run>[0],
+    {
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a precise retrieval-augmented assistant. Cite every claim.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 600,
+    } as never,
+  )) as { response?: string };
 
   return {
     response: typeof completion?.response === 'string' ? completion.response : '',
@@ -240,7 +269,11 @@ export async function autoRagQuery(
 /**
  * Remove a chunk from both Vectorize and the D1 mirror by `(kind, sourceId)`.
  */
-export async function deleteIndex(env: Env, kind: string, sourceId: string): Promise<{ removed: number }> {
+export async function deleteIndex(
+  env: Env,
+  kind: string,
+  sourceId: string,
+): Promise<{ removed: number }> {
   const { data } = await dbQuery<{ id: string }>(
     env.DB,
     `SELECT id FROM rag_chunks WHERE kind = ? AND source_id = ?`,
@@ -257,6 +290,9 @@ export async function deleteIndex(env: Env, kind: string, sourceId: string): Pro
     }
   }
 
-  await dbExecute(env.DB, `DELETE FROM rag_chunks WHERE kind = ? AND source_id = ?`, [kind, sourceId]);
+  await dbExecute(env.DB, `DELETE FROM rag_chunks WHERE kind = ? AND source_id = ?`, [
+    kind,
+    sourceId,
+  ]);
   return { removed: ids.length };
 }

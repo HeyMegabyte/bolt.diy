@@ -42,13 +42,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { socialRoutes } from '../routes/social.js';
-import {
-  dbQuery,
-  dbQueryOne,
-  dbInsert,
-  dbUpdate,
-  dbExecute,
-} from '../services/db.js';
+import { dbQuery, dbQueryOne, dbInsert, dbUpdate, dbExecute } from '../services/db.js';
 import {
   loadAutoPilotConfig,
   upsertAutoPilotConfig,
@@ -228,7 +222,11 @@ describe('POST /api/social/posts', () => {
     expect(json.data.status).toBe('draft');
     expect(mDbInsert).toHaveBeenCalledTimes(1);
     expect(mDbInsert.mock.calls[0][1]).toBe('pulse_posts');
-    expect(mDbInsert.mock.calls[0][2]).toMatchObject({ org_id: 'org-1', created_by: 'user-1', status: 'draft' });
+    expect(mDbInsert.mock.calls[0][2]).toMatchObject({
+      org_id: 'org-1',
+      created_by: 'user-1',
+      status: 'draft',
+    });
   });
 
   it('201 creates a scheduled post when schedule_at is present', async () => {
@@ -271,7 +269,12 @@ describe('GET /api/social/posts', () => {
 
   it('applies the status filter and caps the limit at 200', async () => {
     mDbQuery.mockResolvedValueOnce({ data: [], error: null });
-    const res = await req(makeApp(AUTH), '/api/social/posts?status=scheduled&limit=999', 'GET', makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      '/api/social/posts?status=scheduled&limit=999',
+      'GET',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     expect(mDbQuery.mock.calls[0][2]).toEqual(['org-1', 'scheduled', 200]);
   });
@@ -296,7 +299,9 @@ describe('GET /api/social/posts/:id', () => {
 
 describe('PATCH /api/social/posts/:id', () => {
   it('401s when unauthenticated', async () => {
-    const res = await req(makeApp(), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), { content: 'x' });
+    const res = await req(makeApp(), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), {
+      content: 'x',
+    });
     expect(res.status).toBe(401);
   });
 
@@ -309,20 +314,26 @@ describe('PATCH /api/social/posts/:id', () => {
 
   it('404s when the post is not in the org', async () => {
     mDbQueryOne.mockResolvedValueOnce(null);
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), { content: 'x' });
+    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), {
+      content: 'x',
+    });
     expect(res.status).toBe(404);
   });
 
   it('409s when the post is already published', async () => {
     mDbQueryOne.mockResolvedValueOnce({ status: 'published' });
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), { content: 'x' });
+    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), {
+      content: 'x',
+    });
     expect(res.status).toBe(409);
     expect((await jsonOf<{ error: { code: string } }>(res)).error.code).toBe('CONFLICT');
   });
 
   it('updates an editable draft', async () => {
     mDbQueryOne.mockResolvedValueOnce({ status: 'draft' });
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), { content: 'edited' });
+    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}`, 'PATCH', makeEnv(), {
+      content: 'edited',
+    });
     expect(res.status).toBe(200);
     expect((await jsonOf<{ data: { updated: boolean } }>(res)).data.updated).toBe(true);
     expect(mDbUpdate).toHaveBeenCalledTimes(1);
@@ -341,15 +352,27 @@ describe('PATCH /api/social/posts/:id', () => {
 
 describe('POST /api/social/posts/:id/schedule', () => {
   it('400s on a missing scheduled_at', async () => {
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}/schedule`, 'POST', makeEnv(), {});
+    const res = await req(
+      makeApp(AUTH),
+      `/api/social/posts/${UUID_A}/schedule`,
+      'POST',
+      makeEnv(),
+      {},
+    );
     expect(res.status).toBe(400);
   });
 
   it('schedules a draft', async () => {
     mDbExecute.mockResolvedValueOnce({ error: null, changes: 1 });
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}/schedule`, 'POST', makeEnv(), {
-      scheduled_at: '2030-01-01T00:00:00.000Z',
-    });
+    const res = await req(
+      makeApp(AUTH),
+      `/api/social/posts/${UUID_A}/schedule`,
+      'POST',
+      makeEnv(),
+      {
+        scheduled_at: '2030-01-01T00:00:00.000Z',
+      },
+    );
     expect(res.status).toBe(200);
     expect((await jsonOf<{ data: { scheduled_at: string } }>(res)).data.scheduled_at).toBe(
       '2030-01-01T00:00:00.000Z',
@@ -358,9 +381,15 @@ describe('POST /api/social/posts/:id/schedule', () => {
 
   it('404s when nothing was updated (not found / not editable)', async () => {
     mDbExecute.mockResolvedValueOnce({ error: null, changes: 0 });
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}/schedule`, 'POST', makeEnv(), {
-      scheduled_at: '2030-01-01T00:00:00.000Z',
-    });
+    const res = await req(
+      makeApp(AUTH),
+      `/api/social/posts/${UUID_A}/schedule`,
+      'POST',
+      makeEnv(),
+      {
+        scheduled_at: '2030-01-01T00:00:00.000Z',
+      },
+    );
     expect(res.status).toBe(404);
   });
 });
@@ -373,7 +402,12 @@ describe('POST /api/social/posts/:id/publish-now', () => {
 
   it('schedules the post for ~now+1min', async () => {
     mDbExecute.mockResolvedValueOnce({ error: null, changes: 1 });
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}/publish-now`, 'POST', makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      `/api/social/posts/${UUID_A}/publish-now`,
+      'POST',
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = await jsonOf<{ data: { scheduled_at: string } }>(res);
     expect(new Date(json.data.scheduled_at).getTime()).toBeGreaterThan(Date.now());
@@ -381,7 +415,12 @@ describe('POST /api/social/posts/:id/publish-now', () => {
 
   it('404s when nothing was updated', async () => {
     mDbExecute.mockResolvedValueOnce({ error: null, changes: 0 });
-    const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}/publish-now`, 'POST', makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      `/api/social/posts/${UUID_A}/publish-now`,
+      'POST',
+      makeEnv(),
+    );
     expect(res.status).toBe(404);
   });
 });
@@ -421,8 +460,20 @@ describe('GET /api/social/posts/:id/publishes', () => {
     mDbQueryOne.mockResolvedValueOnce({ id: UUID_A });
     mDbQuery.mockResolvedValueOnce({
       data: [
-        { id: 'p1', platform: 'twitter', status: 'succeeded', external_url: 'https://x/1', last_error: null },
-        { id: 'p2', platform: 'linkedin', status: 'failed', external_url: null, last_error: 'token expired' },
+        {
+          id: 'p1',
+          platform: 'twitter',
+          status: 'succeeded',
+          external_url: 'https://x/1',
+          last_error: null,
+        },
+        {
+          id: 'p2',
+          platform: 'linkedin',
+          status: 'failed',
+          external_url: null,
+          last_error: 'token expired',
+        },
       ],
       error: null,
     });
@@ -448,14 +499,36 @@ describe('GET /api/social/posts/:id/analytics', () => {
     mDbQueryOne.mockResolvedValueOnce({ id: UUID_A });
     mDbQuery.mockResolvedValueOnce({
       data: [
-        { publish_id: 'p1', platform: 'twitter', impressions: 100, likes: 10, shares: 2, clicks: 5, reach: null, comments: null, saves: null },
-        { publish_id: 'p2', platform: 'linkedin', impressions: 50, likes: null, shares: 1, clicks: null, reach: 20, comments: 3, saves: null },
+        {
+          publish_id: 'p1',
+          platform: 'twitter',
+          impressions: 100,
+          likes: 10,
+          shares: 2,
+          clicks: 5,
+          reach: null,
+          comments: null,
+          saves: null,
+        },
+        {
+          publish_id: 'p2',
+          platform: 'linkedin',
+          impressions: 50,
+          likes: null,
+          shares: 1,
+          clicks: null,
+          reach: 20,
+          comments: 3,
+          saves: null,
+        },
       ],
       error: null,
     });
     const res = await req(makeApp(AUTH), `/api/social/posts/${UUID_A}/analytics`, 'GET', makeEnv());
     expect(res.status).toBe(200);
-    const json = await jsonOf<{ data: { totals: Record<string, number>; per_platform: unknown[] } }>(res);
+    const json = await jsonOf<{
+      data: { totals: Record<string, number>; per_platform: unknown[] };
+    }>(res);
     expect(json.data.totals.impressions).toBe(150);
     expect(json.data.totals.likes).toBe(10);
     expect(json.data.totals.shares).toBe(3);
@@ -473,7 +546,12 @@ describe('GET /api/social/auto-pilot/config', () => {
   });
 
   it('returns the config with the default prompt attached', async () => {
-    mLoadCfg.mockResolvedValueOnce({ enabled: false, prompt: '', cadence_hours: 24, target_networks: [] });
+    mLoadCfg.mockResolvedValueOnce({
+      enabled: false,
+      prompt: '',
+      cadence_hours: 24,
+      target_networks: [],
+    });
     const res = await req(makeApp(AUTH), '/api/social/auto-pilot/config', 'GET', makeEnv());
     expect(res.status).toBe(200);
     const json = await jsonOf<{ data: { default_prompt: string } }>(res);
@@ -484,13 +562,20 @@ describe('GET /api/social/auto-pilot/config', () => {
 
 describe('POST /api/social/auto-pilot/config', () => {
   it('400s on an unknown field (strict schema)', async () => {
-    const res = await req(makeApp(AUTH), '/api/social/auto-pilot/config', 'POST', makeEnv(), { bogus: true });
+    const res = await req(makeApp(AUTH), '/api/social/auto-pilot/config', 'POST', makeEnv(), {
+      bogus: true,
+    });
     expect(res.status).toBe(400);
     expect(mUpsertCfg).not.toHaveBeenCalled();
   });
 
   it('upserts and echoes the row + default prompt', async () => {
-    mUpsertCfg.mockResolvedValueOnce({ enabled: true, prompt: 'P', cadence_hours: 6, target_networks: ['twitter'] });
+    mUpsertCfg.mockResolvedValueOnce({
+      enabled: true,
+      prompt: 'P',
+      cadence_hours: 6,
+      target_networks: ['twitter'],
+    });
     const res = await req(makeApp(AUTH), '/api/social/auto-pilot/config', 'POST', makeEnv(), {
       enabled: true,
       cadence_hours: 6,
@@ -508,17 +593,26 @@ describe('POST /api/social/auto-pilot/config', () => {
 
 describe('POST /api/social/auto-pilot/preview', () => {
   it('401s when unauthenticated', async () => {
-    const res = await req(makeApp(), '/api/social/auto-pilot/preview', 'POST', makeEnv(), { network: 'twitter' });
+    const res = await req(makeApp(), '/api/social/auto-pilot/preview', 'POST', makeEnv(), {
+      network: 'twitter',
+    });
     expect(res.status).toBe(401);
   });
 
   it('400s on an invalid network', async () => {
-    const res = await req(makeApp(AUTH), '/api/social/auto-pilot/preview', 'POST', makeEnv(), { network: 'myspace' });
+    const res = await req(makeApp(AUTH), '/api/social/auto-pilot/preview', 'POST', makeEnv(), {
+      network: 'myspace',
+    });
     expect(res.status).toBe(400);
   });
 
   it('returns a generated sample on success', async () => {
-    mLoadCfg.mockResolvedValueOnce({ enabled: false, prompt: '', cadence_hours: 24, target_networks: [] });
+    mLoadCfg.mockResolvedValueOnce({
+      enabled: false,
+      prompt: '',
+      cadence_hours: 24,
+      target_networks: [],
+    });
     mGenPost.mockResolvedValueOnce({ text: 'sample tweet', mediaSuggestion: null });
     const res = await req(makeApp(AUTH), '/api/social/auto-pilot/preview', 'POST', makeEnv(), {
       network: 'twitter',
@@ -531,9 +625,16 @@ describe('POST /api/social/auto-pilot/preview', () => {
   });
 
   it('502s with AI_GENERATION_ERROR when the LLM call throws', async () => {
-    mLoadCfg.mockResolvedValueOnce({ enabled: false, prompt: '', cadence_hours: 24, target_networks: [] });
+    mLoadCfg.mockResolvedValueOnce({
+      enabled: false,
+      prompt: '',
+      cadence_hours: 24,
+      target_networks: [],
+    });
     mGenPost.mockRejectedValueOnce(new Error('no provider configured'));
-    const res = await req(makeApp(AUTH), '/api/social/auto-pilot/preview', 'POST', makeEnv(), { network: 'twitter' });
+    const res = await req(makeApp(AUTH), '/api/social/auto-pilot/preview', 'POST', makeEnv(), {
+      network: 'twitter',
+    });
     expect(res.status).toBe(502);
     expect((await jsonOf<{ error: { code: string } }>(res)).error.code).toBe('AI_GENERATION_ERROR');
   });
@@ -548,7 +649,12 @@ describe('POST /api/social/auto-pilot/run-now', () => {
   });
 
   it('409s when no target networks are configured', async () => {
-    mLoadCfg.mockResolvedValueOnce({ enabled: false, prompt: '', cadence_hours: 24, target_networks: [] });
+    mLoadCfg.mockResolvedValueOnce({
+      enabled: false,
+      prompt: '',
+      cadence_hours: 24,
+      target_networks: [],
+    });
     const res = await req(makeApp(AUTH), '/api/social/auto-pilot/run-now', 'POST', makeEnv());
     expect(res.status).toBe(409);
     expect((await jsonOf<{ error: { code: string } }>(res)).error.code).toBe('CONFLICT');
@@ -567,7 +673,9 @@ describe('POST /api/social/auto-pilot/run-now', () => {
       .mockRejectedValueOnce(new Error('linkedin down')); // linkedin fails — must not abort the loop
     const res = await req(makeApp(AUTH), '/api/social/auto-pilot/run-now', 'POST', makeEnv());
     expect(res.status).toBe(200);
-    const json = await jsonOf<{ data: { count: number; created: Array<{ network: string }> } }>(res);
+    const json = await jsonOf<{ data: { count: number; created: Array<{ network: string }> } }>(
+      res,
+    );
     expect(json.data.count).toBe(1);
     expect(json.data.created[0].network).toBe('twitter');
     expect(mDbInsert).toHaveBeenCalledTimes(1);
@@ -588,7 +696,9 @@ describe('POST /api/social/import-rss', () => {
 
   it('400s when the feed URL fails the SSRF guard', async () => {
     mSafeUrl.mockReturnValueOnce(false);
-    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), { url: FEED });
+    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), {
+      url: FEED,
+    });
     expect(res.status).toBe(400);
   });
 
@@ -598,7 +708,10 @@ describe('POST /api/social/import-rss', () => {
     const fetchSpy = jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response('<rss/>', { status: 200 }));
-    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), { url: FEED, preview: true });
+    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), {
+      url: FEED,
+      preview: true,
+    });
     expect(res.status).toBe(200);
     expect((await jsonOf<{ items: unknown[] }>(res)).items).toHaveLength(1);
     expect(mBuildRss).not.toHaveBeenCalled();
@@ -612,7 +725,9 @@ describe('POST /api/social/import-rss', () => {
     const fetchSpy = jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response('<rss/>', { status: 200 }));
-    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), { url: FEED });
+    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), {
+      url: FEED,
+    });
     expect(res.status).toBe(200);
     expect((await jsonOf<{ ok: boolean; created: number }>(res)).created).toBe(1);
     expect(mDbInsert).toHaveBeenCalledTimes(1);
@@ -624,7 +739,9 @@ describe('POST /api/social/import-rss', () => {
     const fetchSpy = jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response('nope', { status: 503 }));
-    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), { url: FEED });
+    const res = await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), {
+      url: FEED,
+    });
     expect(res.status).toBe(400);
     fetchSpy.mockRestore();
   });
@@ -636,13 +753,17 @@ describe('POST /api/social/og-preview', () => {
   const PAGE_URL = 'https://example.com/article';
 
   it('401s when unauthenticated', async () => {
-    const res = await req(makeApp(), '/api/social/og-preview', 'POST', makeEnv(), { url: PAGE_URL });
+    const res = await req(makeApp(), '/api/social/og-preview', 'POST', makeEnv(), {
+      url: PAGE_URL,
+    });
     expect(res.status).toBe(401);
   });
 
   it('400s when the URL fails the SSRF guard', async () => {
     mSafeUrl.mockReturnValueOnce(false);
-    const res = await req(makeApp(AUTH), '/api/social/og-preview', 'POST', makeEnv(), { url: PAGE_URL });
+    const res = await req(makeApp(AUTH), '/api/social/og-preview', 'POST', makeEnv(), {
+      url: PAGE_URL,
+    });
     expect(res.status).toBe(400);
   });
 
@@ -652,7 +773,9 @@ describe('POST /api/social/og-preview', () => {
     const fetchSpy = jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response('<html/>', { status: 200 }));
-    const res = await req(makeApp(AUTH), '/api/social/og-preview', 'POST', makeEnv(), { url: PAGE_URL });
+    const res = await req(makeApp(AUTH), '/api/social/og-preview', 'POST', makeEnv(), {
+      url: PAGE_URL,
+    });
     expect(res.status).toBe(200);
     expect((await jsonOf<{ og: { title: string } }>(res)).og.title).toBe('Article');
     fetchSpy.mockRestore();

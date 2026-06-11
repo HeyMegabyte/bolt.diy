@@ -126,7 +126,13 @@ export async function hashReviewPassword(
   saltHex?: string,
 ): Promise<{ hash: string; salt: string }> {
   const salt = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  );
   const bits = await crypto.subtle.deriveBits(
     { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     key,
@@ -235,7 +241,13 @@ export async function listReviewLinks(
   siteId: string,
   nowIso: string = new Date().toISOString(),
 ): Promise<ReviewLinkSummary[]> {
-  const { data } = await dbQuery<{ id: string; decision: string | null; expires_at: string; used_at: string | null; password_hash: string | null }>(
+  const { data } = await dbQuery<{
+    id: string;
+    decision: string | null;
+    expires_at: string;
+    used_at: string | null;
+    password_hash: string | null;
+  }>(
     env.DB,
     `SELECT id, decision, expires_at, used_at, password_hash FROM review_tokens
      WHERE agency_org_id = ? AND site_id = ? ORDER BY expires_at DESC`,
@@ -243,7 +255,10 @@ export async function listReviewLinks(
   );
   return data.map((r) => ({
     id: r.id,
-    status: effectiveApprovalStatus({ status: (r.decision as ApprovalStatus) ?? 'pending', expiresAt: r.expires_at }, nowIso),
+    status: effectiveApprovalStatus(
+      { status: (r.decision as ApprovalStatus) ?? 'pending', expiresAt: r.expires_at },
+      nowIso,
+    ),
     url: `/review/${r.id}`,
     expiresAt: r.expires_at,
     usedAt: r.used_at,
@@ -285,7 +300,11 @@ export interface ReviewPasswordCheck {
  * `ok` reflecting the PBKDF2 compare for a protected link. The hash/salt never
  * leave this module.
  */
-export async function verifyReviewPassword(env: Env, id: string, password: string): Promise<ReviewPasswordCheck> {
+export async function verifyReviewPassword(
+  env: Env,
+  id: string,
+  password: string,
+): Promise<ReviewPasswordCheck> {
   const row = await getReviewLink(env, id);
   if (!row) return { found: false, required: false, ok: false };
   if (!row.password_hash) return { found: true, required: false, ok: false };
@@ -324,11 +343,13 @@ export async function recordReviewDecision(
   nowIso: string,
   comment?: string,
 ): Promise<ReviewDecisionResult> {
-  const row = await dbQueryOne<{ decision: string | null; expires_at: string; agency_org_id: string }>(
-    env.DB,
-    'SELECT decision, expires_at, agency_org_id FROM review_tokens WHERE id = ?',
-    [reviewId],
-  );
+  const row = await dbQueryOne<{
+    decision: string | null;
+    expires_at: string;
+    agency_org_id: string;
+  }>(env.DB, 'SELECT decision, expires_at, agency_org_id FROM review_tokens WHERE id = ?', [
+    reviewId,
+  ]);
   if (!row) return { ok: false, error: 'not_found' };
 
   const link: ApprovalLinkState = {
@@ -388,11 +409,13 @@ export async function recordReviewComment(
     return { ok: false, error: `comment exceeds ${MAX_REVIEW_COMMENT_LEN} characters` };
   }
 
-  const row = await dbQueryOne<{ decision: string | null; expires_at: string; agency_org_id: string }>(
-    env.DB,
-    'SELECT decision, expires_at, agency_org_id FROM review_tokens WHERE id = ?',
-    [reviewId],
-  );
+  const row = await dbQueryOne<{
+    decision: string | null;
+    expires_at: string;
+    agency_org_id: string;
+  }>(env.DB, 'SELECT decision, expires_at, agency_org_id FROM review_tokens WHERE id = ?', [
+    reviewId,
+  ]);
   if (!row) return { ok: false, error: 'not_found' };
 
   const status = effectiveApprovalStatus(

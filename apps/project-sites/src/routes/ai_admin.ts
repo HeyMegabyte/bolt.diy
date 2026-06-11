@@ -2682,7 +2682,10 @@ aiAdmin.post('/api/sites/:siteId/ai/drive/select-folder', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   const site = await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json().catch(() => ({}))) as { folder_id?: string; folder_name?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    folder_id?: string;
+    folder_name?: string;
+  };
   if (!body.folder_id || !body.folder_name) {
     throw new HTTPError(400, 'folder_id and folder_name required');
   }

@@ -32,12 +32,38 @@ const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 // Slop words imported inline (subset of copy-writing rule's banned list)
 const SLOP_WORDS = [
-  'limitless','revolutionize','game-changing','cutting-edge','next-generation',
-  'world-class','best-in-class','turnkey','synergy','disrupt','seamless',
-  'robust','scalable','leverage','utilize','facilitate','innovative',
-  'state-of-the-art','paradigm','holistic','harness','foster','bolster',
-  'spearhead','streamline','cornerstone','pivotal','myriad','plethora',
-  'supercharge','unleash','boundless',
+  'limitless',
+  'revolutionize',
+  'game-changing',
+  'cutting-edge',
+  'next-generation',
+  'world-class',
+  'best-in-class',
+  'turnkey',
+  'synergy',
+  'disrupt',
+  'seamless',
+  'robust',
+  'scalable',
+  'leverage',
+  'utilize',
+  'facilitate',
+  'innovative',
+  'state-of-the-art',
+  'paradigm',
+  'holistic',
+  'harness',
+  'foster',
+  'bolster',
+  'spearhead',
+  'streamline',
+  'cornerstone',
+  'pivotal',
+  'myriad',
+  'plethora',
+  'supercharge',
+  'unleash',
+  'boundless',
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -110,7 +136,11 @@ async function loadLocationCities(env: Env, siteId: string): Promise<string[]> {
 // ─── Route slug builder ───────────────────────────────────────────────
 
 function buildRouteSlug(city: string, service: string, intent: Intent, season: Season): string {
-  const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const slugify = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   const parts = [slugify(service), slugify(intent)];
   if (season !== 'spring') parts.push(slugify(season)); // spring is default, omit for cleaner URL
   return `/c/${slugify(city)}/${parts.join('-')}`;
@@ -119,7 +149,10 @@ function buildRouteSlug(city: string, service: string, intent: Intent, season: S
 // ─── Thin-content guardrails ──────────────────────────────────────────
 
 function countWords(html: string): number {
-  return html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
 function countSlopHits(html: string): number {
@@ -178,13 +211,16 @@ Route: ${row.routeSlug}
 Write the full HTML content section for this page.`;
 
   try {
-    const response = await env.AI.run(AI_MODEL as Parameters<typeof env.AI.run>[0], {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 3000,
-    } as Parameters<typeof env.AI.run>[1]);
+    const response = await env.AI.run(
+      AI_MODEL as Parameters<typeof env.AI.run>[0],
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 3000,
+      } as Parameters<typeof env.AI.run>[1],
+    );
 
     const result = response as { response?: string; usage?: { total_tokens?: number } };
     return {
@@ -298,7 +334,7 @@ export async function generatePseoPageContent(
   // Get business name
   const site = await dbQueryOne<{ name: string; slug: string }>(
     env.DB,
-    "SELECT name, slug FROM sites WHERE id = ? AND deleted_at IS NULL",
+    'SELECT name, slug FROM sites WHERE id = ? AND deleted_at IS NULL',
     [row.site_id],
   );
   const businessName = site?.name ?? 'Local Business';

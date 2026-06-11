@@ -87,7 +87,9 @@ describe('notifySiteOwner', () => {
   it('resolves the org owner email then triggers Novu for that subscriber', async () => {
     const fetchMock = jest
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ data: { transactionId: 'txn_owner' } }), { status: 201 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { transactionId: 'txn_owner' } }), { status: 201 }),
+      );
     const res = await notifySiteOwner(baseEnv, makeDb('owner@org.com'), {
       orgId: 'org_1',
       subject: 'Payment received',
@@ -100,18 +102,30 @@ describe('notifySiteOwner', () => {
 
   it('returns ok:false (no fetch) when the org has no resolvable owner', async () => {
     const fetchMock = jest.spyOn(globalThis, 'fetch');
-    const res = await notifySiteOwner(baseEnv, makeDb(null), { orgId: 'org_1', subject: 's', body: 'b' });
+    const res = await notifySiteOwner(baseEnv, makeDb(null), {
+      orgId: 'org_1',
+      subject: 's',
+      body: 'b',
+    });
     expect(res).toEqual({ ok: false, detail: 'no_owner' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('returns ok:false when orgId is empty', async () => {
-    const res = await notifySiteOwner(baseEnv, makeDb('x@y.com'), { orgId: '', subject: 's', body: 'b' });
+    const res = await notifySiteOwner(baseEnv, makeDb('x@y.com'), {
+      orgId: '',
+      subject: 's',
+      body: 'b',
+    });
     expect(res).toEqual({ ok: false, detail: 'no_org' });
   });
 
   it('returns ok:false on a D1 lookup failure (never throws)', async () => {
-    const res = await notifySiteOwner(baseEnv, throwingDb(), { orgId: 'org_1', subject: 's', body: 'b' });
+    const res = await notifySiteOwner(baseEnv, throwingDb(), {
+      orgId: 'org_1',
+      subject: 's',
+      body: 'b',
+    });
     expect(res).toEqual({ ok: false, detail: 'lookup_failed' });
   });
 });

@@ -123,7 +123,10 @@ describe('GET /api/sites/:siteId/review-links', () => {
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
-    expect(mockIsFlagOn).toHaveBeenCalledWith(env, 'approval_workflow', { siteId: SITE_ID, orgId: 'org-1' });
+    expect(mockIsFlagOn).toHaveBeenCalledWith(env, 'approval_workflow', {
+      siteId: SITE_ID,
+      orgId: 'org-1',
+    });
     // Never reaches the ownership check or the service when the flag is off.
     expect(mockAssertSiteOwned).not.toHaveBeenCalled();
     expect(mockListReviewLinks).not.toHaveBeenCalled();
@@ -142,8 +145,20 @@ describe('GET /api/sites/:siteId/review-links', () => {
 
   it('returns 200 with the links from the service on success', async () => {
     const links = [
-      { id: 'rl-1', status: 'pending', url: '/review/rl-1', expiresAt: '2026-07-01T00:00:00.000Z', usedAt: null },
-      { id: 'rl-2', status: 'approved', url: '/review/rl-2', expiresAt: '2026-06-01T00:00:00.000Z', usedAt: '2026-05-30T00:00:00.000Z' },
+      {
+        id: 'rl-1',
+        status: 'pending',
+        url: '/review/rl-1',
+        expiresAt: '2026-07-01T00:00:00.000Z',
+        usedAt: null,
+      },
+      {
+        id: 'rl-2',
+        status: 'approved',
+        url: '/review/rl-2',
+        expiresAt: '2026-06-01T00:00:00.000Z',
+        usedAt: '2026-05-30T00:00:00.000Z',
+      },
     ];
     mockListReviewLinks.mockResolvedValue(links);
     const env = makeEnv();
@@ -211,7 +226,12 @@ describe('POST /api/sites/:siteId/review-links', () => {
     // `c.req.json().catch(() => ({}))` yields `{}`, which passes the optional
     // schema — so a non-JSON body is a VALID create with the service default.
     const env = makeEnv();
-    mockCreateReviewLink.mockResolvedValue({ ok: true, id: 'rl-x', url: '/review/rl-x', expiresAt: '2026-07-01T00:00:00.000Z' });
+    mockCreateReviewLink.mockResolvedValue({
+      ok: true,
+      id: 'rl-x',
+      url: '/review/rl-x',
+      expiresAt: '2026-07-01T00:00:00.000Z',
+    });
     const res = await makeApp(AUTH).request(
       PATH,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'not-json' },
@@ -223,7 +243,12 @@ describe('POST /api/sites/:siteId/review-links', () => {
   });
 
   it('returns 200 with the created link (default ttl) on success', async () => {
-    const created = { ok: true, id: 'rl-new', url: '/review/rl-new', expiresAt: '2026-07-08T00:00:00.000Z' };
+    const created = {
+      ok: true,
+      id: 'rl-new',
+      url: '/review/rl-new',
+      expiresAt: '2026-07-08T00:00:00.000Z',
+    };
     mockCreateReviewLink.mockResolvedValue(created);
     const env = makeEnv();
     const res = await post(makeApp(AUTH), {}, env);
@@ -235,24 +260,39 @@ describe('POST /api/sites/:siteId/review-links', () => {
   });
 
   it('converts ttlDays to ttlMs and forwards it to the service', async () => {
-    const created = { ok: true, id: 'rl-ttl', url: '/review/rl-ttl', expiresAt: '2026-06-15T00:00:00.000Z' };
+    const created = {
+      ok: true,
+      id: 'rl-ttl',
+      url: '/review/rl-ttl',
+      expiresAt: '2026-06-15T00:00:00.000Z',
+    };
     mockCreateReviewLink.mockResolvedValue(created);
     const env = makeEnv();
     const res = await post(makeApp(AUTH), { ttlDays: 14 }, env);
     expect(res.status).toBe(200);
     // 14 days × 86_400_000 ms.
-    expect(mockCreateReviewLink).toHaveBeenCalledWith(env, 'org-1', SITE_ID, { ttlMs: 14 * 86_400_000 });
+    expect(mockCreateReviewLink).toHaveBeenCalledWith(env, 'org-1', SITE_ID, {
+      ttlMs: 14 * 86_400_000,
+    });
   });
 
   it('forwards a password to the service and echoes passwordProtected', async () => {
-    const created = { ok: true, id: 'rl-pw', url: '/review/rl-pw', expiresAt: '2026-07-01T00:00:00.000Z', passwordProtected: true };
+    const created = {
+      ok: true,
+      id: 'rl-pw',
+      url: '/review/rl-pw',
+      expiresAt: '2026-07-01T00:00:00.000Z',
+      passwordProtected: true,
+    };
     mockCreateReviewLink.mockResolvedValue(created);
     const env = makeEnv();
     const res = await post(makeApp(AUTH), { password: 'hunter2!' }, env);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { passwordProtected?: boolean };
     expect(json.passwordProtected).toBe(true);
-    expect(mockCreateReviewLink).toHaveBeenCalledWith(env, 'org-1', SITE_ID, { password: 'hunter2!' });
+    expect(mockCreateReviewLink).toHaveBeenCalledWith(env, 'org-1', SITE_ID, {
+      password: 'hunter2!',
+    });
   });
 
   it('rejects a too-short password (min 6) with 400 — never reaches the service', async () => {

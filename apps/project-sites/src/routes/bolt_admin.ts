@@ -294,8 +294,7 @@ const suggestPromptsHandler = async (
   }
 
   const cacheKey =
-    'bolt-suggest:' +
-    btoa(unescape(encodeURIComponent(JSON.stringify(tail)))).slice(0, 96);
+    'bolt-suggest:' + btoa(unescape(encodeURIComponent(JSON.stringify(tail)))).slice(0, 96);
 
   try {
     const cached = await c.env.CACHE_KV.get(cacheKey, 'json');
@@ -345,7 +344,10 @@ const suggestPromptsHandler = async (
     const suggestions = (parsed.suggestions ?? [])
       .filter((s) => s && s.label && s.prompt)
       .slice(0, Math.min(body.max ?? 3, 3))
-      .map((s) => ({ label: String(s.label).slice(0, 60), prompt: String(s.prompt).slice(0, 400) }));
+      .map((s) => ({
+        label: String(s.label).slice(0, 60),
+        prompt: String(s.prompt).slice(0, 400),
+      }));
 
     const payload = { suggestions };
 

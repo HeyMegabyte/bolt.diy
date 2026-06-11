@@ -1,7 +1,10 @@
 import { checkDeliverability, normalizeDomain } from '../services/email_deliverability.js';
 
 /** Build a fake `fetch` that returns DoH-shaped TXT answers keyed by query `name`. */
-function mockFetch(records: Record<string, string[]>, opts: { throwOn?: string } = {}): typeof fetch {
+function mockFetch(
+  records: Record<string, string[]>,
+  opts: { throwOn?: string } = {},
+): typeof fetch {
   return (async (url: string | URL | Request) => {
     const u = typeof url === 'string' ? url : (url as URL | Request).toString();
     const name = new URL(u).searchParams.get('name') ?? '';

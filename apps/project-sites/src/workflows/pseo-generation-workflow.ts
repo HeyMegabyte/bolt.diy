@@ -25,7 +25,10 @@ export interface PseoGenerationParams {
 }
 
 export class PseoGenerationWorkflow extends WorkflowEntrypoint<Env, PseoGenerationParams> {
-  override async run(event: WorkflowEvent<PseoGenerationParams>, step: WorkflowStep): Promise<void> {
+  override async run(
+    event: WorkflowEvent<PseoGenerationParams>,
+    step: WorkflowStep,
+  ): Promise<void> {
     const { siteId, orgId } = event.payload;
 
     const flagOn = await step.do('check-flag', async () => {
@@ -42,7 +45,9 @@ export class PseoGenerationWorkflow extends WorkflowEntrypoint<Env, PseoGenerati
       return await buildPseoMatrix(this.env, siteId, orgId);
     });
 
-    console.warn(`[pseo-wf] matrix built: queued=${buildResult.queued} skipped=${buildResult.skipped}`);
+    console.warn(
+      `[pseo-wf] matrix built: queued=${buildResult.queued} skipped=${buildResult.skipped}`,
+    );
 
     // Step 2: generate content for new draft rows (up to 200)
     const { data: newRows } = await dbQuery<{ id: string }>(

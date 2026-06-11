@@ -109,26 +109,65 @@ const LEVEL_COLOR: Record<LogLevel, string> = {
  * Add a key ONLY after confirming it cannot carry PII or secrets.
  */
 const SAFE_FIELD_ALLOWLIST: ReadonlySet<string> = new Set([
-  'service', 'env', 'eventName', 'event',
-  'requestId', 'request_id',
-  'userId', 'user_id',
-  'orgId', 'org_id',
-  'siteId', 'site_id',
-  'slug', 'path', 'method', 'status', 'statusCode',
-  'durationMs', 'duration_ms',
-  'attempt', 'max',
-  'provider', 'event_id', 'eventId',
-  'job_name', 'jobId',
-  'version', 'release',
-  'code', 'error_code', 'error', 'message', 'cause',
-  'ts', 'level', 'scope',
-  'route', 'cf_ray', 'colo',
-  'business_name', 'ip_hash',
-  'count', 'success', 'failed', 'ok', 'total', 'fields',
-  'action', 'r2Path', 'r2Key', 'hostname',
-  'phase', 'html_size', 'quality_score',
-  'social_links_found', 'logo_found', 'missing_sections',
-  'flatPath', 'requestPath',
+  'service',
+  'env',
+  'eventName',
+  'event',
+  'requestId',
+  'request_id',
+  'userId',
+  'user_id',
+  'orgId',
+  'org_id',
+  'siteId',
+  'site_id',
+  'slug',
+  'path',
+  'method',
+  'status',
+  'statusCode',
+  'durationMs',
+  'duration_ms',
+  'attempt',
+  'max',
+  'provider',
+  'event_id',
+  'eventId',
+  'job_name',
+  'jobId',
+  'version',
+  'release',
+  'code',
+  'error_code',
+  'error',
+  'message',
+  'cause',
+  'ts',
+  'level',
+  'scope',
+  'route',
+  'cf_ray',
+  'colo',
+  'business_name',
+  'ip_hash',
+  'count',
+  'success',
+  'failed',
+  'ok',
+  'total',
+  'fields',
+  'action',
+  'r2Path',
+  'r2Key',
+  'hostname',
+  'phase',
+  'html_size',
+  'quality_score',
+  'social_links_found',
+  'logo_found',
+  'missing_sections',
+  'flatPath',
+  'requestPath',
   'msg',
 ]);
 
@@ -232,10 +271,14 @@ function isJsonEnv(env: string): boolean {
 function shouldSampleInfo(): boolean {
   let n = 1;
   try {
-    const raw = (typeof process !== 'undefined' && process.env?.LOG_INFO_SAMPLE)
-      || (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).LOG_INFO_SAMPLE);
+    const raw =
+      (typeof process !== 'undefined' && process.env?.LOG_INFO_SAMPLE) ||
+      (typeof globalThis !== 'undefined' &&
+        (globalThis as Record<string, unknown>).LOG_INFO_SAMPLE);
     if (raw) n = Math.max(1, parseInt(String(raw), 10));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return n <= 1 || Math.random() < 1 / n;
 }
 
@@ -272,9 +315,8 @@ function emit(
     // Human-friendly colourised output for local dev
     const time = new Date().toTimeString().slice(0, 8);
     const colour = LEVEL_COLOR[level];
-    const ctxStr = Object.keys(merged).length > 0
-      ? ` ${ANSI.dim}${JSON.stringify(merged)}${ANSI.reset}`
-      : '';
+    const ctxStr =
+      Object.keys(merged).length > 0 ? ` ${ANSI.dim}${JSON.stringify(merged)}${ANSI.reset}` : '';
     const scopePart = scope ? ` ${ANSI.blue}${scope}${ANSI.reset}` : '';
     console.warn(
       `${ANSI.gray}[${time}]${ANSI.reset} ${colour}${ANSI.bold}${level.toUpperCase()}${ANSI.reset}${scopePart} · ${msg}${ctxStr}`,
@@ -288,17 +330,18 @@ function makeLogger(scope: string): Logger {
   return {
     debug(msg, ctx = {}, c): void {
       // Debug: only in non-production, unless LOG_LEVEL=debug explicitly set
-      const envStr = extractContext(c).env as string | undefined ?? getNodeEnv();
+      const envStr = (extractContext(c).env as string | undefined) ?? getNodeEnv();
       if (envStr === 'production') {
-        const logLevel = (typeof process !== 'undefined' && process.env?.LOG_LEVEL)
-          || (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).LOG_LEVEL);
+        const logLevel =
+          (typeof process !== 'undefined' && process.env?.LOG_LEVEL) ||
+          (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).LOG_LEVEL);
         if (logLevel !== 'debug') return;
       }
       emit('debug', msg, ctx, c, scope);
     },
 
     info(msg, ctx = {}, c): void {
-      const envStr = extractContext(c).env as string | undefined ?? getNodeEnv();
+      const envStr = (extractContext(c).env as string | undefined) ?? getNodeEnv();
       if (envStr === 'production' && !shouldSampleInfo()) return;
       emit('info', msg, ctx, c, scope);
     },
@@ -358,12 +401,16 @@ export async function requestLogger(c: LogContext, next: () => Promise<void>): P
   } finally {
     const durationMs = Date.now() - start;
     try {
-      log.info('http_request', {
-        method: c.req.method,
-        path: new URL(c.req.url).pathname,
-        status: c.res.status,
-        durationMs,
-      }, c);
+      log.info(
+        'http_request',
+        {
+          method: c.req.method,
+          path: new URL(c.req.url).pathname,
+          status: c.res.status,
+          durationMs,
+        },
+        c,
+      );
     } catch {
       // Never let logging break a response.
     }

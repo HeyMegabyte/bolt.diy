@@ -64,7 +64,12 @@ describe('resolveFlag', () => {
   it('fail-closes an unknown flag without touching KV or D1', async () => {
     const { env, prepares, puts } = makeEnv();
     const state = await resolveFlag(env, 'totally_unknown_flag_xyz', { siteId: 's1' });
-    expect(state).toEqual({ enabled: false, rollout_percent: 0, stage: 'experimental', source: 'registry' });
+    expect(state).toEqual({
+      enabled: false,
+      rollout_percent: 0,
+      stage: 'experimental',
+      source: 'registry',
+    });
     expect(prepares).toHaveLength(0); // no override lookups
     expect(puts).toHaveLength(0); // nothing cached
   });
@@ -91,7 +96,9 @@ describe('resolveFlag', () => {
   });
 
   it('lets a TENANT override win (source=tenant) over the registry default', async () => {
-    const { env } = makeEnv({ overrideRow: overrideRow({ enabled: false, rollout_percent: 0, stage: 'killswitch' }) });
+    const { env } = makeEnv({
+      overrideRow: overrideRow({ enabled: false, rollout_percent: 0, stage: 'killswitch' }),
+    });
     const state = await resolveFlag(env, KNOWN, { siteId: 's1', orgId: 'o1' });
     expect(state.source).toBe('tenant');
     expect(state.enabled).toBe(false);
@@ -114,17 +121,23 @@ describe('resolveFlag', () => {
 
 describe('isFlagOn (rollout gating)', () => {
   it('false when the resolved state is disabled', async () => {
-    const { env } = makeEnv({ cacheGet: { enabled: false, rollout_percent: 100, stage: 'beta', source: 'global' } });
+    const { env } = makeEnv({
+      cacheGet: { enabled: false, rollout_percent: 100, stage: 'beta', source: 'global' },
+    });
     expect(await isFlagOn(env, KNOWN, { userId: 'u1' })).toBe(false);
   });
 
   it('true at 100% rollout', async () => {
-    const { env } = makeEnv({ cacheGet: { enabled: true, rollout_percent: 100, stage: 'stable', source: 'global' } });
+    const { env } = makeEnv({
+      cacheGet: { enabled: true, rollout_percent: 100, stage: 'stable', source: 'global' },
+    });
     expect(await isFlagOn(env, KNOWN, { userId: 'u1' })).toBe(true);
   });
 
   it('false at 0% rollout even when enabled', async () => {
-    const { env } = makeEnv({ cacheGet: { enabled: true, rollout_percent: 0, stage: 'beta', source: 'global' } });
+    const { env } = makeEnv({
+      cacheGet: { enabled: true, rollout_percent: 0, stage: 'beta', source: 'global' },
+    });
     expect(await isFlagOn(env, KNOWN, { userId: 'u1' })).toBe(false);
   });
 

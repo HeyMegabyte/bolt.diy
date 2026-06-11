@@ -29,8 +29,12 @@ export const telegram: Publisher = {
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId(account), text, disable_web_page_preview: false }),
     });
-    if (!res.ok) throw new Error(`telegram_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
-    const data = (await res.json()) as { ok: boolean; result?: { message_id: number; chat: { id: number; username?: string } } };
+    if (!res.ok)
+      throw new Error(`telegram_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
+    const data = (await res.json()) as {
+      ok: boolean;
+      result?: { message_id: number; chat: { id: number; username?: string } };
+    };
     if (!data.ok || !data.result) throw new Error('telegram_publish_err');
     const username = data.result.chat.username;
     const url = username

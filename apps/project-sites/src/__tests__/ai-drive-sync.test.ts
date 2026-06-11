@@ -43,7 +43,12 @@ interface MockRun {
 
 function makeDb(opts: {
   folderId: string | null;
-  existing: Array<{ id: string; drive_file_id: string; drive_modified_time: string; r2_key: string }>;
+  existing: Array<{
+    id: string;
+    drive_file_id: string;
+    drive_modified_time: string;
+    r2_key: string;
+  }>;
 }): { db: D1Database; runs: MockRun[] } {
   const runs: MockRun[] = [];
   const db = {
@@ -106,8 +111,8 @@ describe('syncDriveFolder', () => {
     expect(result.added).toBe(1);
     expect(result.updated).toBe(0);
     expect(result.removed).toBe(0);
-    const insertRun = runs.find((r) =>
-      r.sql.includes("INSERT INTO ai_context_files") && r.sql.includes("'drive'"),
+    const insertRun = runs.find(
+      (r) => r.sql.includes('INSERT INTO ai_context_files') && r.sql.includes("'drive'"),
     );
     expect(insertRun).toBeDefined();
   });

@@ -147,56 +147,64 @@ const ROADMAP: readonly RoadmapItem[] = [
   {
     id: 'apps-store',
     title: 'Self-hostable Apps Store',
-    description: 'One-click deploys for Umami, Outline, n8n, Vaultwarden, Listmonk on Workers Containers.',
+    description:
+      'One-click deploys for Umami, Outline, n8n, Vaultwarden, Listmonk on Workers Containers.',
     status: 'shipped',
     quarter: 'Q2 2026',
   },
   {
     id: 'pulse-inbox',
     title: 'Pulse Inbox',
-    description: 'Unified conversation hub across email, Slack, Discord, Telegram, and website widget.',
+    description:
+      'Unified conversation hub across email, Slack, Discord, Telegram, and website widget.',
     status: 'shipped',
     quarter: 'Q2 2026',
   },
   {
     id: 'pulse-social',
     title: 'Pulse Social composer',
-    description: 'Composer + scheduler for eleven social networks with per-account analytics rollups.',
+    description:
+      'Composer + scheduler for eleven social networks with per-account analytics rollups.',
     status: 'shipped',
     quarter: 'Q2 2026',
   },
   {
     id: 'rss-distribution',
     title: 'Public RSS + roadmap + integrations',
-    description: 'Distribution flywheel pages so users (and AI crawlers) can subscribe to ship notes and discover every supported tool.',
+    description:
+      'Distribution flywheel pages so users (and AI crawlers) can subscribe to ship notes and discover every supported tool.',
     status: 'shipped',
     quarter: 'Q2 2026',
   },
   {
     id: 'memory-primitives',
     title: 'Anthropic Memory + Files + Skills',
-    description: 'Native Anthropic memory primitives so each site retains operator context across sessions.',
+    description:
+      'Native Anthropic memory primitives so each site retains operator context across sessions.',
     status: 'in_progress',
     quarter: 'Q2 2026',
   },
   {
     id: 'citations-api',
     title: 'Citations API for AI chats',
-    description: 'Every AI response cites the exact source document so users can verify the answer.',
+    description:
+      'Every AI response cites the exact source document so users can verify the answer.',
     status: 'in_progress',
     quarter: 'Q2 2026',
   },
   {
     id: 'agency-white-label',
     title: 'White-label agency mode',
-    description: 'Sub-orgs with brand overrides + Stripe Connect payouts for agencies reselling project sites.',
+    description:
+      'Sub-orgs with brand overrides + Stripe Connect payouts for agencies reselling project sites.',
     status: 'in_progress',
     quarter: 'Q2 2026',
   },
   {
     id: 'predictive-prerender',
     title: 'Predictive prerender + Thompson A/B',
-    description: 'Per-site experiments with multi-armed bandit allocation and Speculation Rules prerender.',
+    description:
+      'Per-site experiments with multi-armed bandit allocation and Speculation Rules prerender.',
     status: 'planned',
     quarter: 'Q3 2026',
   },
@@ -224,7 +232,8 @@ const ROADMAP: readonly RoadmapItem[] = [
   {
     id: 'desktop-electron',
     title: 'Desktop Electron app',
-    description: 'Offline-first desktop client with local site preview and bolt.diy editor bundled.',
+    description:
+      'Offline-first desktop client with local site preview and bolt.diy editor bundled.',
     status: 'planned',
     quarter: 'Q4 2026',
   },
@@ -273,7 +282,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Stripe',
     category: 'Payments',
     status: 'live',
-    description: 'Subscription billing, Connect Express payouts, embedded checkout, and webhook idempotency.',
+    description:
+      'Subscription billing, Connect Express payouts, embedded checkout, and webhook idempotency.',
     logo_url: 'https://logo.clearbit.com/stripe.com',
     docs_url: 'https://stripe.com/docs',
     mcp_supported: true,
@@ -283,7 +293,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Square',
     category: 'Payments',
     status: 'live',
-    description: 'Web Payments SDK for donations, point of sale, and recurring giving with a single ledger.',
+    description:
+      'Web Payments SDK for donations, point of sale, and recurring giving with a single ledger.',
     logo_url: 'https://logo.clearbit.com/squareup.com',
     docs_url: 'https://developer.squareup.com/docs',
     mcp_supported: false,
@@ -294,7 +305,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Twilio',
     category: 'Communication',
     status: 'live',
-    description: 'Voice + SMS for the AI Voice Agent. Phone-number provisioning, vanity search, media streams.',
+    description:
+      'Voice + SMS for the AI Voice Agent. Phone-number provisioning, vanity search, media streams.',
     logo_url: 'https://logo.clearbit.com/twilio.com',
     docs_url: 'https://www.twilio.com/docs',
     mcp_supported: false,
@@ -304,7 +316,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Slack',
     category: 'Communication',
     status: 'live',
-    description: 'Pulse Inbox channel, alerts on form submissions and billing events, slash-command posting.',
+    description:
+      'Pulse Inbox channel, alerts on form submissions and billing events, slash-command posting.',
     logo_url: 'https://logo.clearbit.com/slack.com',
     docs_url: 'https://api.slack.com',
     mcp_supported: true,
@@ -325,7 +338,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'OpenAI',
     category: 'AI',
     status: 'live',
-    description: 'GPT-4o, GPT Image 1.5, Whisper, and Sora. Routed through the AI Gateway for caching and fallback.',
+    description:
+      'GPT-4o, GPT Image 1.5, Whisper, and Sora. Routed through the AI Gateway for caching and fallback.',
     logo_url: 'https://logo.clearbit.com/openai.com',
     docs_url: 'https://platform.openai.com/docs',
     mcp_supported: true,
@@ -335,7 +349,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Anthropic',
     category: 'AI',
     status: 'live',
-    description: 'Claude Opus 4.7 + Sonnet 4.6 with prompt caching, Citations API, and Memory primitives.',
+    description:
+      'Claude Opus 4.7 + Sonnet 4.6 with prompt caching, Citations API, and Memory primitives.',
     logo_url: 'https://logo.clearbit.com/anthropic.com',
     docs_url: 'https://docs.anthropic.com',
     mcp_supported: true,
@@ -355,7 +370,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Deepgram',
     category: 'AI',
     status: 'live',
-    description: 'Streaming speech-to-text for live voice transcription during Twilio media-stream calls.',
+    description:
+      'Streaming speech-to-text for live voice transcription during Twilio media-stream calls.',
     logo_url: 'https://logo.clearbit.com/deepgram.com',
     docs_url: 'https://developers.deepgram.com',
     mcp_supported: false,
@@ -426,7 +442,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Mailchimp',
     category: 'Email',
     status: 'live',
-    description: 'Newsletter list sync via OAuth — every form submission can push to a Mailchimp audience.',
+    description:
+      'Newsletter list sync via OAuth — every form submission can push to a Mailchimp audience.',
     logo_url: 'https://logo.clearbit.com/mailchimp.com',
     docs_url: 'https://mailchimp.com/developer',
     mcp_supported: true,
@@ -437,7 +454,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'PostHog',
     category: 'Analytics',
     status: 'live',
-    description: 'Product analytics, session replay, feature flags, and LLM observability in one platform.',
+    description:
+      'Product analytics, session replay, feature flags, and LLM observability in one platform.',
     logo_url: 'https://logo.clearbit.com/posthog.com',
     docs_url: 'https://posthog.com/docs',
     mcp_supported: true,
@@ -447,7 +465,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Google Analytics 4',
     category: 'Analytics',
     status: 'live',
-    description: 'Per-site GA4 measurement ID injection with Consent Mode v2 and Tag Manager support.',
+    description:
+      'Per-site GA4 measurement ID injection with Consent Mode v2 and Tag Manager support.',
     logo_url: 'https://logo.clearbit.com/google.com',
     docs_url: 'https://developers.google.com/analytics',
     mcp_supported: false,
@@ -488,7 +507,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Linear',
     category: 'CRM',
     status: 'live',
-    description: 'Convert inbox conversations into Linear issues with full message context attached.',
+    description:
+      'Convert inbox conversations into Linear issues with full message context attached.',
     logo_url: 'https://logo.clearbit.com/linear.app',
     docs_url: 'https://developers.linear.app',
     mcp_supported: true,
@@ -509,7 +529,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Calendly',
     category: 'Calendar',
     status: 'live',
-    description: 'Embed a Calendly scheduler on any site and capture booking events as form submissions.',
+    description:
+      'Embed a Calendly scheduler on any site and capture booking events as form submissions.',
     logo_url: 'https://logo.clearbit.com/calendly.com',
     docs_url: 'https://developer.calendly.com',
     mcp_supported: false,
@@ -520,7 +541,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Google Places',
     category: 'Maps',
     status: 'live',
-    description: 'Business search, geocoding, photos, and hours used during the create-from-search flow.',
+    description:
+      'Business search, geocoding, photos, and hours used during the create-from-search flow.',
     logo_url: 'https://logo.clearbit.com/google.com',
     docs_url: 'https://developers.google.com/maps/documentation/places/web-service',
     mcp_supported: false,
@@ -530,7 +552,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Foursquare',
     category: 'Maps',
     status: 'live',
-    description: 'Secondary venue search source and tip aggregation for hospitality and retail sites.',
+    description:
+      'Secondary venue search source and tip aggregation for hospitality and retail sites.',
     logo_url: 'https://logo.clearbit.com/foursquare.com',
     docs_url: 'https://docs.foursquare.com',
     mcp_supported: false,
@@ -540,7 +563,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Yelp',
     category: 'Maps',
     status: 'live',
-    description: 'Pulls venue photos and review snippets to enrich generated sites with social proof.',
+    description:
+      'Pulls venue photos and review snippets to enrich generated sites with social proof.',
     logo_url: 'https://logo.clearbit.com/yelp.com',
     docs_url: 'https://docs.developer.yelp.com',
     mcp_supported: false,
@@ -550,7 +574,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Mapbox',
     category: 'Maps',
     status: 'live',
-    description: 'Custom-styled map embeds when a site needs more design control than Google Maps offers.',
+    description:
+      'Custom-styled map embeds when a site needs more design control than Google Maps offers.',
     logo_url: 'https://logo.clearbit.com/mapbox.com',
     docs_url: 'https://docs.mapbox.com',
     mcp_supported: false,
@@ -581,7 +606,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Pixabay',
     category: 'Media',
     status: 'live',
-    description: 'Illustrations, vectors, and supplementary photos beyond the Unsplash + Pexels catalog.',
+    description:
+      'Illustrations, vectors, and supplementary photos beyond the Unsplash + Pexels catalog.',
     logo_url: 'https://logo.clearbit.com/pixabay.com',
     docs_url: 'https://pixabay.com/api/docs',
     mcp_supported: false,
@@ -591,7 +617,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Cloudinary',
     category: 'Media',
     status: 'live',
-    description: 'Image optimization CDN — auto WebP/AVIF, responsive sizing, on-the-fly transforms.',
+    description:
+      'Image optimization CDN — auto WebP/AVIF, responsive sizing, on-the-fly transforms.',
     logo_url: 'https://logo.clearbit.com/cloudinary.com',
     docs_url: 'https://cloudinary.com/documentation',
     mcp_supported: false,
@@ -611,7 +638,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Logo.dev',
     category: 'Media',
     status: 'live',
-    description: 'Logo lookup-by-domain used during brand research before falling back to AI generation.',
+    description:
+      'Logo lookup-by-domain used during brand research before falling back to AI generation.',
     logo_url: 'https://logo.clearbit.com/logo.dev',
     docs_url: 'https://www.logo.dev/docs',
     mcp_supported: false,
@@ -622,7 +650,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'Cloudflare',
     category: 'Infrastructure',
     status: 'live',
-    description: 'Workers, D1, KV, R2, Workflows, Containers, AI Gateway, and Vectorize — the entire platform.',
+    description:
+      'Workers, D1, KV, R2, Workflows, Containers, AI Gateway, and Vectorize — the entire platform.',
     logo_url: 'https://logo.clearbit.com/cloudflare.com',
     docs_url: 'https://developers.cloudflare.com',
     mcp_supported: true,
@@ -633,7 +662,8 @@ const INTEGRATIONS: readonly Integration[] = [
     name: 'GitHub',
     category: 'Developer',
     status: 'live',
-    description: 'OAuth sign-in, source-of-truth for templates, and per-site repository sync on Pro plan.',
+    description:
+      'OAuth sign-in, source-of-truth for templates, and per-site repository sync on Pro plan.',
     logo_url: 'https://logo.clearbit.com/github.com',
     docs_url: 'https://docs.github.com',
     mcp_supported: true,
@@ -664,9 +694,13 @@ function parseChangelogMarkdown(markdown: string): ChangelogEntry[] {
     const headerMatch = block.match(/^(v?[\d.]+)\s*[-–]\s*(\d{4}-\d{2}-\d{2})\s*\n([\s\S]*)/);
     if (!headerMatch) continue;
     const [, version, date, rest] = headerMatch;
-    const lines = rest.split('\n').map((l) => l.trim()).filter(Boolean);
+    const lines = rest
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
     const titleLine = lines.find((l) => !l.startsWith('-') && !l.startsWith('*')) ?? '';
-    const bullets = lines.filter((l) => l.startsWith('-') || l.startsWith('*'))
+    const bullets = lines
+      .filter((l) => l.startsWith('-') || l.startsWith('*'))
       .map((l) => l.replace(/^[-*]\s*/, ''));
     const tagSet = new Set<string>();
     for (const bullet of bullets) {

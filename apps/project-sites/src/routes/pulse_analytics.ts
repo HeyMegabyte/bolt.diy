@@ -173,9 +173,7 @@ app.get('/api/social/analytics/aggregate', async (c) => {
     }
   }
 
-  const platformTotals = Array.from(totals.values()).sort(
-    (a, b) => b.impressions - a.impressions,
-  );
+  const platformTotals = Array.from(totals.values()).sort((a, b) => b.impressions - a.impressions);
 
   const bestPosts = Array.from(bestByPost.values())
     .sort((a, b) => b.impressions + b.engagement * 5 - (a.impressions + a.engagement * 5))

@@ -16,8 +16,17 @@ jest.mock('../services/db.js', () => ({
   dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
-jest.mock('../lib/sentry.js', () => ({ captureError: jest.fn(), captureMessage: jest.fn(), createSentry: jest.fn() }));
-jest.mock('../lib/posthog.js', () => ({ capture: jest.fn(), trackAuth: jest.fn(), trackSite: jest.fn(), trackError: jest.fn() }));
+jest.mock('../lib/sentry.js', () => ({
+  captureError: jest.fn(),
+  captureMessage: jest.fn(),
+  createSentry: jest.fn(),
+}));
+jest.mock('../lib/posthog.js', () => ({
+  capture: jest.fn(),
+  trackAuth: jest.fn(),
+  trackSite: jest.fn(),
+  trackError: jest.fn(),
+}));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -35,7 +44,10 @@ interface FirstShape {
   estimated_cost_micro_usd: number;
 }
 
-function makeDb(rollup: FirstShape, tokens: { ti: number; to_: number; calls: number }): D1Database {
+function makeDb(
+  rollup: FirstShape,
+  tokens: { ti: number; to_: number; calls: number },
+): D1Database {
   let callIdx = 0;
   return {
     prepare: jest.fn(() => ({
@@ -122,9 +134,19 @@ describe('GET /api/admin/forecast/cost', () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
     app.route('/', aiAdmin);
-    const env = makeEnv(makeDb({
-      ai_calls: 0, ai_credits: 0, bandwidth_bytes: 0, storage_bytes: 0, estimated_cost_micro_usd: 0,
-    }, { ti: 0, to_: 0, calls: 0 }), 'tip');
+    const env = makeEnv(
+      makeDb(
+        {
+          ai_calls: 0,
+          ai_credits: 0,
+          bandwidth_bytes: 0,
+          storage_bytes: 0,
+          estimated_cost_micro_usd: 0,
+        },
+        { ti: 0, to_: 0, calls: 0 },
+      ),
+      'tip',
+    );
     const res = await app.request('/api/admin/forecast/cost', {}, env);
     expect(res.status).toBe(401);
   });

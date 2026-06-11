@@ -213,7 +213,10 @@ describe('getWalletState', () => {
     expect(state.balance_cents).toBe(4200);
     expect(state.subscription_status).toBe('active');
     expect(state.recent_transactions).toHaveLength(2);
-    expect(state.recent_transactions[0]).toMatchObject({ direction: 'debit', category: 'ai_token' });
+    expect(state.recent_transactions[0]).toMatchObject({
+      direction: 'debit',
+      category: 'ai_token',
+    });
     expect(state.recent_transactions[1].direction).toBe('credit');
     // org-scoped query
     const sql = mockDbQuery.mock.calls[0][1] as string;
@@ -228,8 +231,24 @@ describe('getWalletState', () => {
     mockDbQueryOne.mockResolvedValueOnce(walletRow({ stripe_default_payment_method: null }));
     mockDbQuery.mockResolvedValueOnce({
       data: [
-        { id: 'a', created_at: 't', category_slug: null, amount_cents: 1, reference_type: 'topup', reference_id: null, direction: 'credit' },
-        { id: 'b', created_at: 't', category_slug: null, amount_cents: 1, reference_type: null, reference_id: null, direction: 'debit' },
+        {
+          id: 'a',
+          created_at: 't',
+          category_slug: null,
+          amount_cents: 1,
+          reference_type: 'topup',
+          reference_id: null,
+          direction: 'credit',
+        },
+        {
+          id: 'b',
+          created_at: 't',
+          category_slug: null,
+          amount_cents: 1,
+          reference_type: null,
+          reference_id: null,
+          direction: 'debit',
+        },
       ],
       error: null,
     });
@@ -368,7 +387,9 @@ describe('chargeWallet', () => {
   it('debits the wallet and writes a debit ledger row on the happy path', async () => {
     mockDbQueryOne
       .mockResolvedValueOnce(walletRow({ balance_cents: 5000 })) // ensureWalletRow
-      .mockResolvedValueOnce(category({ base_cost_cents: 10, markup_factor: 2, min_charge_cents: 1 })); // loadCategory
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 10, markup_factor: 2, min_charge_cents: 1 }),
+      ); // loadCategory
     const { db, boundCalls } = fakeDb(okRun);
     const res = await chargeWallet(makeEnv(db), ORG, chargeParams);
     expect(res.ok).toBe(true);
@@ -396,7 +417,9 @@ describe('chargeWallet', () => {
   it('applies the min_charge_cents floor when computed cost is below it', async () => {
     mockDbQueryOne
       .mockResolvedValueOnce(walletRow())
-      .mockResolvedValueOnce(category({ base_cost_cents: 1, markup_factor: 1, min_charge_cents: 50 }));
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 1, markup_factor: 1, min_charge_cents: 50 }),
+      );
     const { db, boundCalls } = fakeDb(okRun);
     const res = await chargeWallet(makeEnv(db), ORG, { ...chargeParams, quantity: 1 });
     expect(res.ok).toBe(true);
@@ -407,7 +430,9 @@ describe('chargeWallet', () => {
   it('honors a base_cost_cents override for variable-cost categories', async () => {
     mockDbQueryOne
       .mockResolvedValueOnce(walletRow())
-      .mockResolvedValueOnce(category({ base_cost_cents: 10, markup_factor: 1.5, min_charge_cents: 1 }));
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 10, markup_factor: 1.5, min_charge_cents: 1 }),
+      );
     const { db } = fakeDb(okRun);
     const res = await chargeWallet(makeEnv(db), ORG, {
       ...chargeParams,
@@ -419,9 +444,7 @@ describe('chargeWallet', () => {
   });
 
   it('returns reason:error for an unknown category (no debit, no ledger)', async () => {
-    mockDbQueryOne
-      .mockResolvedValueOnce(walletRow())
-      .mockResolvedValueOnce(null); // loadCategory → none
+    mockDbQueryOne.mockResolvedValueOnce(walletRow()).mockResolvedValueOnce(null); // loadCategory → none
     const { db } = fakeDb(okRun);
     const res = await chargeWallet(makeEnv(db), ORG, chargeParams);
     expect(res).toMatchObject({ ok: false, reason: 'error' });
@@ -442,14 +465,20 @@ describe('chargeWallet', () => {
       .mockResolvedValueOnce(walletRow({ subscription_status: 'past_due' }))
       .mockResolvedValueOnce(category());
     const res = await chargeWallet(makeEnv(fakeDb(okRun).db), ORG, chargeParams);
-    expect(res).toMatchObject({ ok: false, reason: 'error', message: 'wallet_subscription_inactive' });
+    expect(res).toMatchObject({
+      ok: false,
+      reason: 'error',
+      message: 'wallet_subscription_inactive',
+    });
     expect(mockDbInsert).not.toHaveBeenCalled();
   });
 
   it('returns insufficient when the atomic UPDATE changes 0 rows (no double-debit ledger)', async () => {
     mockDbQueryOne
       .mockResolvedValueOnce(walletRow({ balance_cents: 5, stripe_default_payment_method: null }))
-      .mockResolvedValueOnce(category({ base_cost_cents: 100, markup_factor: 1, min_charge_cents: 1 }));
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 100, markup_factor: 1, min_charge_cents: 1 }),
+      );
     const { db } = fakeDb(noChangeRun);
     const res = await chargeWallet(makeEnv(db), ORG, { ...chargeParams, quantity: 1 });
     expect(res).toMatchObject({ ok: false, reason: 'insufficient', balance_cents: 5 });
@@ -461,31 +490,45 @@ describe('chargeWallet', () => {
     mockDbQueryOne
       // chargeWallet ensureWalletRow
       .mockResolvedValueOnce(walletRow({ balance_cents: 5 }))
-      .mockResolvedValueOnce(category({ base_cost_cents: 100, markup_factor: 1, min_charge_cents: 1 }))
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 100, markup_factor: 1, min_charge_cents: 1 }),
+      )
       // topUpWallet ensureWalletRow (async, not awaited by chargeWallet)
       .mockResolvedValueOnce(walletRow({ balance_cents: 5 }));
     // topUp PaymentIntent
     (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ id: 'pi_1' }) });
-    const res = await chargeWallet(makeEnv(fakeDb(noChangeRun).db), ORG, { ...chargeParams, quantity: 1 });
+    const res = await chargeWallet(makeEnv(fakeDb(noChangeRun).db), ORG, {
+      ...chargeParams,
+      quantity: 1,
+    });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.reason).toBe('insufficient');
     // give the un-awaited topup microtask a tick
     await new Promise((r) => setTimeout(r, 0));
-    expect((global.fetch as jest.Mock).mock.calls.some((c) => String(c[0]).includes('/payment_intents'))).toBe(true);
+    expect(
+      (global.fetch as jest.Mock).mock.calls.some((c) => String(c[0]).includes('/payment_intents')),
+    ).toBe(true);
   });
 
   it('fires auto-topup after a successful debit drops below threshold', async () => {
     mockDbQueryOne
       .mockResolvedValueOnce(walletRow({ balance_cents: 60, auto_topup_threshold_cents: 500 }))
-      .mockResolvedValueOnce(category({ base_cost_cents: 10, markup_factor: 1, min_charge_cents: 1 }))
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 10, markup_factor: 1, min_charge_cents: 1 }),
+      )
       // topUpWallet ensureWalletRow
       .mockResolvedValueOnce(walletRow({ balance_cents: 50 }));
     (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ id: 'pi_2' }) });
-    const res = await chargeWallet(makeEnv(fakeDb(okRun).db), ORG, { ...chargeParams, quantity: 1 });
+    const res = await chargeWallet(makeEnv(fakeDb(okRun).db), ORG, {
+      ...chargeParams,
+      quantity: 1,
+    });
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.balance_after_cents).toBe(50); // 60 - 10, below 500 threshold
     await new Promise((r) => setTimeout(r, 0));
-    expect((global.fetch as jest.Mock).mock.calls.some((c) => String(c[0]).includes('/payment_intents'))).toBe(true);
+    expect(
+      (global.fetch as jest.Mock).mock.calls.some((c) => String(c[0]).includes('/payment_intents')),
+    ).toBe(true);
   });
 });
 
@@ -543,7 +586,11 @@ describe('creditWallet', () => {
     expect(mockDbInsert).toHaveBeenCalledWith(
       db,
       'wallet_transactions',
-      expect.objectContaining({ amount_cents: 250, balance_after_cents: 250, stripe_event_id: null }),
+      expect.objectContaining({
+        amount_cents: 250,
+        balance_after_cents: 250,
+        stripe_event_id: null,
+      }),
     );
   });
 });
@@ -567,7 +614,10 @@ describe('topUpWallet', () => {
     mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'pi_ok' }) }) // payment_intent
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ card: { brand: 'visa', last4: '1' } }) }); // PM lookup in getWalletState
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ card: { brand: 'visa', last4: '1' } }),
+      }); // PM lookup in getWalletState
     const res = await topUpWallet(makeEnv(fakeDb(okRun).db), ORG, 5000);
     expect(res.ok).toBe(true);
     expect((res.state as WalletState).balance_cents).toBe(5000);
@@ -635,7 +685,11 @@ describe('handleStripeEvent', () => {
     expect(mockDbInsert).toHaveBeenCalledWith(
       db,
       'wallet_transactions',
-      expect.objectContaining({ direction: 'credit', amount_cents: 5000, stripe_event_id: 'evt_inv_1' }),
+      expect.objectContaining({
+        direction: 'credit',
+        amount_cents: 5000,
+        stripe_event_id: 'evt_inv_1',
+      }),
     );
     expect(mockDbUpdate).toHaveBeenCalledWith(
       db,
@@ -677,7 +731,11 @@ describe('handleStripeEvent', () => {
     expect(mockDbInsert).toHaveBeenCalledWith(
       db,
       'wallet_transactions',
-      expect.objectContaining({ amount_cents: 5000, reference_type: 'topup', stripe_event_id: 'pi_top' }),
+      expect.objectContaining({
+        amount_cents: 5000,
+        reference_type: 'topup',
+        stripe_event_id: 'pi_top',
+      }),
     );
   });
 
@@ -736,9 +794,7 @@ describe('handleStripeEvent', () => {
   });
 
   it('payment_method.attached adopts the PM as default when none is set', async () => {
-    mockDbQueryOne.mockResolvedValueOnce(
-      walletRow({ stripe_default_payment_method: null }),
-    );
+    mockDbQueryOne.mockResolvedValueOnce(walletRow({ stripe_default_payment_method: null }));
     const { db } = fakeDb(okRun);
     await handleStripeEvent(makeEnv(db), 'payment_method.attached', {
       id: 'pm_attached',
@@ -754,7 +810,9 @@ describe('handleStripeEvent', () => {
   });
 
   it('payment_method.attached does NOT overwrite an existing default PM', async () => {
-    mockDbQueryOne.mockResolvedValueOnce(walletRow({ stripe_default_payment_method: 'pm_existing' }));
+    mockDbQueryOne.mockResolvedValueOnce(
+      walletRow({ stripe_default_payment_method: 'pm_existing' }),
+    );
     await handleStripeEvent(makeEnv(fakeDb(okRun).db), 'payment_method.attached', {
       id: 'pm_new',
       customer: 'cus_c',
@@ -790,14 +848,20 @@ describe('handleStripeEvent', () => {
     expect(mockDbUpdate).toHaveBeenCalledWith(
       db,
       'wallet_accounts',
-      expect.objectContaining({ subscription_status: 'inactive', stripe_default_payment_method: 'pm_z' }),
+      expect.objectContaining({
+        subscription_status: 'inactive',
+        stripe_default_payment_method: 'pm_z',
+      }),
       'id = ?',
       ['wallet-1'],
     );
   });
 
   it('ignores unrelated event types', async () => {
-    await handleStripeEvent(makeEnv(fakeDb(okRun).db), 'charge.refunded', { id: 'ch_1', metadata: {} });
+    await handleStripeEvent(makeEnv(fakeDb(okRun).db), 'charge.refunded', {
+      id: 'ch_1',
+      metadata: {},
+    });
     expect(mockDbInsert).not.toHaveBeenCalled();
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });

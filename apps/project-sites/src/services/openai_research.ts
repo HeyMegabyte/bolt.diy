@@ -138,8 +138,7 @@ async function callOpenAI(
     body.response_format = { type: 'json_object' };
   }
 
-  const distinctId =
-    options?.traceContext?.orgId ?? options?.traceContext?.userId ?? 'system';
+  const distinctId = options?.traceContext?.orgId ?? options?.traceContext?.userId ?? 'system';
   const traceId = options?.traceContext?.traceId;
   const promptId = options?.promptId ?? options?.traceContext?.promptId;
   const start = Date.now();

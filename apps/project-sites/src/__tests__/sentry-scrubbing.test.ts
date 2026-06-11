@@ -35,7 +35,10 @@ beforeEach(() => {
 
 describe('scrubHeaders', () => {
   it('replaces Authorization with [Filtered]', () => {
-    const result = scrubHeaders({ Authorization: 'Bearer secret', 'Content-Type': 'application/json' });
+    const result = scrubHeaders({
+      Authorization: 'Bearer secret',
+      'Content-Type': 'application/json',
+    });
     expect(result['Authorization']).toBe('[Filtered]');
     expect(result['Content-Type']).toBe('application/json');
   });

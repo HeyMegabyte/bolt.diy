@@ -60,11 +60,7 @@ describe('migrateExternalAssets', () => {
   });
 
   it('tolerates unusual slug/version edge inputs', async () => {
-    const report = await migrateExternalAssets(
-      bucket,
-      'slug-with-../weird~chars',
-      'v999.beta',
-    );
+    const report = await migrateExternalAssets(bucket, 'slug-with-../weird~chars', 'v999.beta');
     expect(report.uploaded).toBe(0);
     expect(report.rewritten_files).toBe(0);
   });

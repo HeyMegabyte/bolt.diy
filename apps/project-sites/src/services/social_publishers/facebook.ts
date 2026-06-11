@@ -29,7 +29,13 @@ export const facebook: Publisher = {
     }).toString()}`;
   },
   async exchangeCode(env, { code, redirectUri }) {
-    const creds = requireEnv(env, 'facebook', 'https://developers.facebook.com/apps/', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET');
+    const creds = requireEnv(
+      env,
+      'facebook',
+      'https://developers.facebook.com/apps/',
+      'FACEBOOK_APP_ID',
+      'FACEBOOK_APP_SECRET',
+    );
     const res = await fetch(
       `${GRAPH}/oauth/access_token?${new URLSearchParams({
         client_id: creds.FACEBOOK_APP_ID,
@@ -51,11 +57,17 @@ export const facebook: Publisher = {
       }).toString()}`,
       { headers: BROWSER_HEADERS },
     );
-    const long = longRes.ok ? ((await longRes.json()) as { access_token: string; expires_in?: number }) : data;
+    const long = longRes.ok
+      ? ((await longRes.json()) as { access_token: string; expires_in?: number })
+      : data;
     // Fetch the first page the user manages — Pulse posts to that page
-    const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${long.access_token}`, { headers: BROWSER_HEADERS });
+    const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${long.access_token}`, {
+      headers: BROWSER_HEADERS,
+    });
     const pages = pagesRes.ok
-      ? ((await pagesRes.json()) as { data?: Array<{ id: string; name: string; access_token: string }> })
+      ? ((await pagesRes.json()) as {
+          data?: Array<{ id: string; name: string; access_token: string }>;
+        })
       : { data: [] };
     const page = pages.data?.[0];
     if (!page) throw new Error('facebook_no_pages_found');
@@ -79,12 +91,14 @@ export const facebook: Publisher = {
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     });
-    if (!res.ok) throw new Error(`facebook_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
+    if (!res.ok)
+      throw new Error(`facebook_publish_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
     const data = (await res.json()) as { id: string };
     return { external_id: data.id, external_url: `https://www.facebook.com/${data.id}` };
   },
   async fetchAnalytics(_env, account, externalPostId): Promise<AnalyticsSnapshot> {
-    const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total';
+    const metrics =
+      'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total';
     const url = `${GRAPH}/${externalPostId}/insights?metric=${metrics}&access_token=${account.access_token}`;
     const res = await fetch(url, { headers: BROWSER_HEADERS });
     if (!res.ok) return emptyAnalytics({ status: res.status });
@@ -93,7 +107,8 @@ export const facebook: Publisher = {
     };
     const map: Record<string, unknown> = {};
     for (const m of data.data ?? []) map[m.name] = m.values?.[0]?.value;
-    const reactions = (map.post_reactions_by_type_total as Record<string, number> | undefined) ?? {};
+    const reactions =
+      (map.post_reactions_by_type_total as Record<string, number> | undefined) ?? {};
     const likes = Object.values(reactions).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
     return {
       impressions: typeof map.post_impressions === 'number' ? map.post_impressions : null,

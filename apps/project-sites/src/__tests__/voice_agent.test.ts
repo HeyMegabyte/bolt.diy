@@ -306,7 +306,10 @@ describe('runTurn — tool-call dispatch', () => {
     const res = await runTurn(env, baseOpts());
 
     expect(res.toolCalls).toHaveLength(1);
-    expect(res.toolCalls[0]).toMatchObject({ name: 'escalate_to_human', result: { ok: true, handoff: true } });
+    expect(res.toolCalls[0]).toMatchObject({
+      name: 'escalate_to_human',
+      result: { ok: true, handoff: true },
+    });
     expect(res.signal).toBe('human_handoff');
     // TOOL_CALL JSON stripped from spoken text
     expect(res.text).not.toContain('TOOL_CALL');
@@ -321,7 +324,9 @@ describe('runTurn — tool-call dispatch', () => {
     const env = baseEnv();
     const res = await runTurn(env, baseOpts());
     expect(res.toolCalls[0].result).toMatchObject({ deferred: 'browse_agent' });
-    expect(res.toolCalls[0].result).toMatchObject({ deferred_call: { name: 'browse_web', args: {} } });
+    expect(res.toolCalls[0].result).toMatchObject({
+      deferred_call: { name: 'browse_web', args: {} },
+    });
   });
 
   it('defers fill_form to the orchestrator browse agent (args-less)', async () => {
@@ -462,7 +467,10 @@ describe('runTurn — signal detection', () => {
 
   it('flags STOP/opt-out keywords as opted_out_sms ONLY in sms mode', async () => {
     const env = baseEnv();
-    const sms = await runTurn(env, baseOpts({ mode: 'sms', userTranscript: 'STOP', enableBrowseAgent: false }));
+    const sms = await runTurn(
+      env,
+      baseOpts({ mode: 'sms', userTranscript: 'STOP', enableBrowseAgent: false }),
+    );
     expect(sms.signal).toBe('opted_out_sms');
 
     const voice = await runTurn(env, baseOpts({ mode: 'voice', userTranscript: 'stop' }));
@@ -520,7 +528,9 @@ describe('transcribeAudioChunk', () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        results: { channels: [{ alternatives: [{ transcript: 'hello there', confidence: 0.97 }] }] },
+        results: {
+          channels: [{ alternatives: [{ transcript: 'hello there', confidence: 0.97 }] }],
+        },
       }),
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -585,7 +595,9 @@ describe('transcribeAudioChunk', () => {
   });
 
   it('treats a missing transcript field in the Deepgram payload as empty', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ results: {} }) });
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ results: {} }) });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const env = baseEnv({ DEEPGRAM_API_KEY: 'dg-key' });
     const res = await transcribeAudioChunk(env, audio);
@@ -654,7 +666,9 @@ describe('synthesizeSpeech', () => {
   });
 
   it('returns a stub when ElevenLabs responds non-ok', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 429, headers: { get: () => null } });
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: false, status: 429, headers: { get: () => null } });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const env = baseEnv({ ELEVENLABS_API_KEY: 'el-key' });
     const res = await synthesizeSpeech(env, 'hi');

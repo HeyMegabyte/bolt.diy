@@ -108,7 +108,10 @@ export class DriveSyncWorkflow extends WorkflowEntrypoint<Env, DriveSyncParams> 
     // waitForEvent times out instantly and execution proceeds.
     const disconnected = await step.do('check-disconnect', RETRY_30S, async () => {
       try {
-        await step.waitForEvent<{ reason?: string }>('user-disconnect', { type: 'user-disconnect', timeout: '1 seconds' });
+        await step.waitForEvent<{ reason?: string }>('user-disconnect', {
+          type: 'user-disconnect',
+          timeout: '1 seconds',
+        });
         return true;
       } catch {
         return false;
@@ -119,68 +122,60 @@ export class DriveSyncWorkflow extends WorkflowEntrypoint<Env, DriveSyncParams> 
     }
 
     // ── Step 1: list-folder ─────────────────────────────────
-    const { accessToken, folderId, remote } = await step.do(
-      'list-folder',
-      RETRY_30S,
-      async () => {
-        const settings = await db
-          .prepare(`SELECT drive_folder_id FROM ai_site_settings WHERE site_id = ?`)
-          .bind(siteId)
-          .first<{ drive_folder_id: string | null }>();
-        if (!settings?.drive_folder_id) throw new Error('drive_folder_not_configured');
-        const token = await getAccessToken(env, db, siteId);
-        if (!token) throw new Error('drive_not_connected');
-        const files = await listFolderFiles(token, settings.drive_folder_id);
-        return { accessToken: token, folderId: settings.drive_folder_id, remote: files };
-      },
-    );
+    const { accessToken, folderId, remote } = await step.do('list-folder', RETRY_30S, async () => {
+      const settings = await db
+        .prepare(`SELECT drive_folder_id FROM ai_site_settings WHERE site_id = ?`)
+        .bind(siteId)
+        .first<{ drive_folder_id: string | null }>();
+      if (!settings?.drive_folder_id) throw new Error('drive_folder_not_configured');
+      const token = await getAccessToken(env, db, siteId);
+      if (!token) throw new Error('drive_not_connected');
+      const files = await listFolderFiles(token, settings.drive_folder_id);
+      return { accessToken: token, folderId: settings.drive_folder_id, remote: files };
+    });
 
     // ── Step 2: dedupe-against-existing ─────────────────────
-    const { decisions, orphans } = await step.do(
-      'dedupe-against-existing',
-      RETRY_30S,
-      async () => {
-        const existing = await db
-          .prepare(
-            `SELECT id, drive_file_id, drive_modified_time, r2_key FROM ai_context_files
+    const { decisions, orphans } = await step.do('dedupe-against-existing', RETRY_30S, async () => {
+      const existing = await db
+        .prepare(
+          `SELECT id, drive_file_id, drive_modified_time, r2_key FROM ai_context_files
              WHERE site_id = ? AND source = 'drive' AND deleted_at IS NULL`,
-          )
-          .bind(siteId)
-          .all<{
-            id: string;
-            drive_file_id: string;
-            drive_modified_time: string | null;
-            r2_key: string;
-          }>();
-        const byId = new Map((existing.results ?? []).map((r) => [r.drive_file_id, r] as const));
-        const out: FileDecision[] = [];
-        for (const rf of remote) {
-          if (rf.size > MAX_CONTEXT_FILE_BYTES) {
-            out.push({ remote: rf, action: 'skip' });
-            byId.delete(rf.id);
-            continue;
-          }
-          const existingRow = byId.get(rf.id);
-          if (!existingRow) {
-            out.push({ remote: rf, action: 'add' });
-            continue;
-          }
-          const isNewer =
-            !existingRow.drive_modified_time ||
-            Date.parse(rf.modified_time) > Date.parse(existingRow.drive_modified_time);
-          out.push({
-            remote: rf,
-            action: isNewer ? 'update' : 'skip',
-            existingRowId: existingRow.id,
-          });
+        )
+        .bind(siteId)
+        .all<{
+          id: string;
+          drive_file_id: string;
+          drive_modified_time: string | null;
+          r2_key: string;
+        }>();
+      const byId = new Map((existing.results ?? []).map((r) => [r.drive_file_id, r] as const));
+      const out: FileDecision[] = [];
+      for (const rf of remote) {
+        if (rf.size > MAX_CONTEXT_FILE_BYTES) {
+          out.push({ remote: rf, action: 'skip' });
           byId.delete(rf.id);
+          continue;
         }
-        return {
-          decisions: out,
-          orphans: Array.from(byId.values()).map((o) => o.id),
-        };
-      },
-    );
+        const existingRow = byId.get(rf.id);
+        if (!existingRow) {
+          out.push({ remote: rf, action: 'add' });
+          continue;
+        }
+        const isNewer =
+          !existingRow.drive_modified_time ||
+          Date.parse(rf.modified_time) > Date.parse(existingRow.drive_modified_time);
+        out.push({
+          remote: rf,
+          action: isNewer ? 'update' : 'skip',
+          existingRowId: existingRow.id,
+        });
+        byId.delete(rf.id);
+      }
+      return {
+        decisions: out,
+        orphans: Array.from(byId.values()).map((o) => o.id),
+      };
+    });
 
     // ── Step 3: fetch-each-file (only for add/update) ───────
     const toIngest = decisions.filter((d) => d.action === 'add' || d.action === 'update');

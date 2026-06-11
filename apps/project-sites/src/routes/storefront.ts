@@ -60,7 +60,11 @@ interface ProductRow {
 export const storefront = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 async function gate(c: Context<{ Bindings: Env; Variables: Variables }>): Promise<boolean> {
-  return isFlagOn(c.env, 'storefront_ecommerce', { siteId: c.req.param('id'), orgId: c.get('orgId'), userId: c.get('userId') });
+  return isFlagOn(c.env, 'storefront_ecommerce', {
+    siteId: c.req.param('id'),
+    orgId: c.get('orgId'),
+    userId: c.get('userId'),
+  });
 }
 
 storefront.get('/api/sites/:id/products', async (c) => {
@@ -80,11 +84,21 @@ storefront.post('/api/sites/:id/products', async (c) => {
   if (!(await gate(c))) return c.notFound();
   const orgId = c.get('orgId');
   const siteId = c.req.param('id');
-  if (!orgId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
+  if (!orgId)
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
 
   const parsed = ProductInput.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Check the product fields (name + a price in cents are required; image must be https).' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message:
+            'Check the product fields (name + a price in cents are required; image must be https).',
+        },
+      },
+      400,
+    );
   }
   const id = crypto.randomUUID();
   const { error } = await dbInsert(c.env.DB, 'storefront_products', {
@@ -100,18 +114,31 @@ storefront.post('/api/sites/:id/products', async (c) => {
     stock: parsed.data.stock ?? null,
     status: parsed.data.status,
   });
-  if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Could not save the product.' } }, 500);
+  if (error)
+    return c.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Could not save the product.' } },
+      500,
+    );
   return c.json({ id }, 201);
 });
 
 storefront.patch('/api/sites/:id/products/:productId', async (c) => {
   if (!(await gate(c))) return c.notFound();
   const orgId = c.get('orgId');
-  if (!orgId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
+  if (!orgId)
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
 
   const parsed = ProductPatch.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Check the fields you’re changing (image must be https).' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Check the fields you’re changing (image must be https).',
+        },
+      },
+      400,
+    );
   }
   const updates: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(parsed.data)) if (v !== undefined) updates[k] = v;
@@ -132,7 +159,8 @@ storefront.patch('/api/sites/:id/products/:productId', async (c) => {
 storefront.delete('/api/sites/:id/products/:productId', async (c) => {
   if (!(await gate(c))) return c.notFound();
   const orgId = c.get('orgId');
-  if (!orgId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
+  if (!orgId)
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
   const { changes } = await dbUpdate(
     c.env.DB,
     'storefront_products',

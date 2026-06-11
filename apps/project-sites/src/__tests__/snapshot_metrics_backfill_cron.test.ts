@@ -7,27 +7,43 @@
  *
  * `cloudflare:workers` is virtual-mocked (the file imports WorkflowEntrypoint).
  */
-jest.mock('cloudflare:workers', () => ({
-  __esModule: true,
-  WorkflowEntrypoint: class<E, P> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-  DurableObject: class<E> {
-    env: E;
-    constructor(_ctx: unknown, env: E) {
-      this.env = env;
-    }
-  },
-}), { virtual: true });
+jest.mock(
+  'cloudflare:workers',
+  () => ({
+    __esModule: true,
+    WorkflowEntrypoint: class<E, P> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+    DurableObject: class<E> {
+      env: E;
+      constructor(_ctx: unknown, env: E) {
+        this.env = env;
+      }
+    },
+  }),
+  { virtual: true },
+);
 
 import { runSnapshotMetricsBackfillCron } from '../workflows/snapshot-quality.js';
 import type { Env } from '../types/env.js';
 
-type Row = { snapshot_id: string; site_id: string; snapshot_name: string; build_version: string; slug: string };
-const row = (id: string): Row => ({ snapshot_id: id, site_id: 's1', snapshot_name: 'n', build_version: 'v1', slug: 'slug' });
+type Row = {
+  snapshot_id: string;
+  site_id: string;
+  snapshot_name: string;
+  build_version: string;
+  slug: string;
+};
+const row = (id: string): Row => ({
+  snapshot_id: id,
+  site_id: 's1',
+  snapshot_name: 'n',
+  build_version: 'v1',
+  slug: 'slug',
+});
 
 function makeEnv(rows: Row[], create: jest.Mock | null): Env {
   return {
@@ -54,7 +70,9 @@ describe('runSnapshotMetricsBackfillCron', () => {
 
   it('enqueues one workflow per snapshot and counts them', async () => {
     const create = jest.fn().mockResolvedValue({});
-    const out = await runSnapshotMetricsBackfillCron(makeEnv([row('a'), row('b'), row('c')], create));
+    const out = await runSnapshotMetricsBackfillCron(
+      makeEnv([row('a'), row('b'), row('c')], create),
+    );
     expect(out).toEqual({ attempted: 3, enqueued: 3 });
     expect(create).toHaveBeenCalledTimes(3);
   });
@@ -65,7 +83,9 @@ describe('runSnapshotMetricsBackfillCron', () => {
       .mockResolvedValueOnce({})
       .mockRejectedValueOnce(new Error('queue full'))
       .mockResolvedValueOnce({});
-    const out = await runSnapshotMetricsBackfillCron(makeEnv([row('a'), row('b'), row('c')], create));
+    const out = await runSnapshotMetricsBackfillCron(
+      makeEnv([row('a'), row('b'), row('c')], create),
+    );
     expect(out).toEqual({ attempted: 3, enqueued: 2 });
   });
 });

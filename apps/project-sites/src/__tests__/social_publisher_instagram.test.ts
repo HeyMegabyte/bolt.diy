@@ -10,30 +10,53 @@ import type { Env } from '../types/env.js';
 
 const ENV = {} as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'instagram', external_id: 'IGACCT', handle: 'My IG',
-  access_token: 'tok', refresh_token: null, token_expires_at: null, scopes: null, metadata: {}, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'instagram',
+  external_id: 'IGACCT',
+  handle: 'My IG',
+  access_token: 'tok',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: {},
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hello IG', per_platform_overrides: null,
+  id: 'p1',
+  content: 'Hello IG',
+  per_platform_overrides: null,
   media_urls: [{ url: 'https://img/x.jpg', mime: 'image/jpeg', type: 'image' }],
-  hashtags: [], mentions: [], link: null, ...over,
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
-function mockFetch(r: { container?: () => Response; publish?: () => Response; permalink?: () => Response; insights?: () => Response }) {
+function mockFetch(r: {
+  container?: () => Response;
+  publish?: () => Response;
+  permalink?: () => Response;
+  insights?: () => Response;
+}) {
   const fn = jest.fn(async (url: string | URL) => {
     const u = String(url);
     if (u.includes('/insights')) return r.insights?.() ?? json({ data: [] });
     if (u.includes('/media_publish')) return r.publish?.() ?? json({ id: 'IGPOST' });
     if (u.includes('/media')) return r.container?.() ?? json({ id: 'CONTAINER' });
-    if (u.includes('fields=permalink')) return r.permalink?.() ?? json({ permalink: 'https://instagram.com/p/abc/' });
+    if (u.includes('fields=permalink'))
+      return r.permalink?.() ?? json({ permalink: 'https://instagram.com/p/abc/' });
     throw new Error(`unexpected fetch: ${u}`);
   });
   global.fetch = fn as unknown as typeof fetch;
   return fn;
 }
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('instagram.publish', () => {
   it('runs container→publish→permalink and returns id + permalink URL', async () => {
@@ -43,7 +66,8 @@ describe('instagram.publish', () => {
       permalink: () => json({ permalink: 'https://www.instagram.com/p/XYZ/' }),
     });
     expect(await instagram.publish(ENV, account(), post())).toEqual({
-      external_id: 'IG1', external_url: 'https://www.instagram.com/p/XYZ/',
+      external_id: 'IG1',
+      external_url: 'https://www.instagram.com/p/XYZ/',
     });
   });
   it('falls back to a constructed URL when permalink lookup fails', async () => {
@@ -69,11 +93,18 @@ describe('instagram.publish', () => {
   });
   it('throws when the container step is not OK', async () => {
     mockFetch({ container: () => new Response('no', { status: 400 }) });
-    await expect(instagram.publish(ENV, account(), post())).rejects.toThrow(/instagram_container_failed:400/);
+    await expect(instagram.publish(ENV, account(), post())).rejects.toThrow(
+      /instagram_container_failed:400/,
+    );
   });
   it('throws when the media_publish step is not OK', async () => {
-    mockFetch({ container: () => json({ id: 'C1' }), publish: () => new Response('no', { status: 500 }) });
-    await expect(instagram.publish(ENV, account(), post())).rejects.toThrow(/instagram_publish_failed:500/);
+    mockFetch({
+      container: () => json({ id: 'C1' }),
+      publish: () => new Response('no', { status: 500 }),
+    });
+    await expect(instagram.publish(ENV, account(), post())).rejects.toThrow(
+      /instagram_publish_failed:500/,
+    );
   });
 });
 

@@ -226,7 +226,9 @@ describe('loadSiteTraffic — success parse + aggregation', () => {
     expect(out.total_requests).toBe(0);
     expect(out.page_views).toBe(0);
     expect(out.unique_visitors).toBe(0);
-    expect(out.by_day).toEqual([{ day: '', requests: 0, page_views: 0, unique_visitors: 0, bytes: 0 }]);
+    expect(out.by_day).toEqual([
+      { day: '', requests: 0, page_views: 0, unique_visitors: 0, bytes: 0 },
+    ]);
     expect(out.top_paths).toEqual([{ path: '/', requests: 0 }]);
     expect(out.by_country).toEqual([{ country: 'Unknown', requests: 0 }]);
   });
@@ -302,9 +304,7 @@ describe('loadSiteTraffic — error handling', () => {
   });
 
   it('ignores an empty errors[] array and proceeds to parse data', async () => {
-    mockFetch.mockResolvedValueOnce(
-      gqlResponse({ errors: [], ...fullZonePayload() }),
-    );
+    mockFetch.mockResolvedValueOnce(gqlResponse({ errors: [], ...fullZonePayload() }));
     const out = await loadSiteTraffic(makeEnv(), 'site', 7);
     expect(out.total_requests).toBe(1000);
   });

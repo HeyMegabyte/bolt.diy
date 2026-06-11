@@ -20,11 +20,7 @@ import type { Env } from '../types/env.js';
 import { callExternalLLM } from './external_llm.js';
 import { executeTool, loadAvailableTools } from './mcp_client.js';
 import { writeAiLog } from './ai_logger.js';
-import {
-  buildMemoryToolDef,
-  executeMemoryTool,
-  type MemoryScope,
-} from './anthropic_memory.js';
+import { buildMemoryToolDef, executeMemoryTool, type MemoryScope } from './anthropic_memory.js';
 
 // ─── PROMPT_META (IMMUTABLE — pre + post wrap on every turn) ───
 
@@ -85,20 +81,16 @@ export function composeSystemPrompt(
   const meta = PROMPT_META.replaceAll(
     '{{BUSINESS_NAME}}',
     profile.businessName || 'this business',
-  ).replaceAll(
-    '{{BUSINESS_LOCATION}}',
-    profile.businessLocation || 'the United States',
-  );
+  ).replaceAll('{{BUSINESS_LOCATION}}', profile.businessLocation || 'the United States');
 
-  const ownerBody = (mode === 'voice' ? settings.voice_system_prompt : settings.sms_system_prompt)
-    ?.trim();
+  const ownerBody = (
+    mode === 'voice' ? settings.voice_system_prompt : settings.sms_system_prompt
+  )?.trim();
   const ownerSection = ownerBody
     ? `\n\n# Business-Owner Guidance (subordinate to the immutable rules above)\n${ownerBody}`
     : `\n\n# Business-Owner Guidance\nNo custom guidance configured — default to gracious, accurate hospitality for ${profile.businessName}.`;
 
-  const factSection = profile.factSheet
-    ? `\n\n# Reference Facts\n${profile.factSheet}`
-    : '';
+  const factSection = profile.factSheet ? `\n\n# Reference Facts\n${profile.factSheet}` : '';
 
   const servicesSection =
     profile.services && profile.services.length
@@ -167,7 +159,9 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
   if (opts.enableBrowseAgent || opts.mode === 'voice') {
     try {
       const mcpTools = await loadAvailableTools(env, opts.siteId);
-      const lines: string[] = ['Available tools (invoke by saying TOOL_CALL: {"name":"...","args":{...}}):'];
+      const lines: string[] = [
+        'Available tools (invoke by saying TOOL_CALL: {"name":"...","args":{...}}):',
+      ];
       lines.push('- browse_web(query: string)');
       lines.push('- fill_form(url: string, fields: object)');
       lines.push('- escalate_to_human()');
@@ -198,9 +192,10 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
     text = result.output;
     modelUsed = result.model_used;
   } catch (err) {
-    text = signal === 'escalated_safety'
-      ? 'Please call 911 right now if you are in immediate danger. I am an AI assistant and cannot dispatch emergency services. You can also reach the 988 Suicide & Crisis Lifeline by dialing 988. I am flagging this conversation so a human teammate can follow up.'
-      : 'I am having a brief connection issue. One moment — let me try that again.';
+    text =
+      signal === 'escalated_safety'
+        ? 'Please call 911 right now if you are in immediate danger. I am an AI assistant and cannot dispatch emergency services. You can also reach the 988 Suicide & Crisis Lifeline by dialing 988. I am flagging this conversation so a human teammate can follow up.'
+        : 'I am having a brief connection issue. One moment — let me try that again.';
     console.warn(
       JSON.stringify({
         level: 'warn',
@@ -268,9 +263,10 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
   return {
     text,
     toolCalls,
-    signal: signal === 'ok' && toolCalls.some((c) => c.name === 'escalate_to_human')
-      ? 'human_handoff'
-      : signal,
+    signal:
+      signal === 'ok' && toolCalls.some((c) => c.name === 'escalate_to_human')
+        ? 'human_handoff'
+        : signal,
     model_used: modelUsed,
     latency_ms: latency,
   };
@@ -334,7 +330,9 @@ function extractToolCall(text: string): { json: string; full: string } | null {
 function detectSignal(transcript: string, mode: 'voice' | 'sms'): RunTurnResult['signal'] {
   const t = transcript.toLowerCase();
   if (
-    /\b(kill myself|suicide|hurt myself|hurt (someone|him|her|them)|emergency|911|help me)\b/.test(t)
+    /\b(kill myself|suicide|hurt myself|hurt (someone|him|her|them)|emergency|911|help me)\b/.test(
+      t,
+    )
   ) {
     return 'escalated_safety';
   }

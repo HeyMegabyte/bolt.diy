@@ -30,7 +30,13 @@ export const instagram: Publisher = {
     }).toString()}`;
   },
   async exchangeCode(env, { code, redirectUri }) {
-    const creds = requireEnv(env, 'instagram', 'https://developers.facebook.com/apps/', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET');
+    const creds = requireEnv(
+      env,
+      'instagram',
+      'https://developers.facebook.com/apps/',
+      'FACEBOOK_APP_ID',
+      'FACEBOOK_APP_SECRET',
+    );
     const res = await fetch(
       `${GRAPH}/oauth/access_token?${new URLSearchParams({
         client_id: creds.FACEBOOK_APP_ID,
@@ -49,7 +55,12 @@ export const instagram: Publisher = {
     );
     const pages = pagesRes.ok
       ? ((await pagesRes.json()) as {
-          data?: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }>;
+          data?: Array<{
+            id: string;
+            name: string;
+            access_token: string;
+            instagram_business_account?: { id: string };
+          }>;
         })
       : { data: [] };
     const page = pages.data?.find((p) => p.instagram_business_account?.id);
@@ -85,21 +96,35 @@ export const instagram: Publisher = {
     const pubRes = await fetch(`${GRAPH}/${account.external_id}/media_publish`, {
       method: 'POST',
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ creation_id: container.id, access_token: account.access_token }).toString(),
+      body: new URLSearchParams({
+        creation_id: container.id,
+        access_token: account.access_token,
+      }).toString(),
     });
-    if (!pubRes.ok) throw new Error(`instagram_publish_failed:${pubRes.status}:${(await pubRes.text()).slice(0, 200)}`);
+    if (!pubRes.ok)
+      throw new Error(
+        `instagram_publish_failed:${pubRes.status}:${(await pubRes.text()).slice(0, 200)}`,
+      );
     const pub = (await pubRes.json()) as { id: string };
     // Permalink lookup
-    const permRes = await fetch(`${GRAPH}/${pub.id}?fields=permalink&access_token=${account.access_token}`, { headers: BROWSER_HEADERS });
+    const permRes = await fetch(
+      `${GRAPH}/${pub.id}?fields=permalink&access_token=${account.access_token}`,
+      { headers: BROWSER_HEADERS },
+    );
     const perm = permRes.ok ? ((await permRes.json()) as { permalink?: string }) : {};
-    return { external_id: pub.id, external_url: perm.permalink ?? `https://www.instagram.com/p/${pub.id}/` };
+    return {
+      external_id: pub.id,
+      external_url: perm.permalink ?? `https://www.instagram.com/p/${pub.id}/`,
+    };
   },
   async fetchAnalytics(_env, account, externalPostId): Promise<AnalyticsSnapshot> {
     const metrics = 'impressions,reach,likes,comments,saved,shares';
     const url = `${GRAPH}/${externalPostId}/insights?metric=${metrics}&access_token=${account.access_token}`;
     const res = await fetch(url, { headers: BROWSER_HEADERS });
     if (!res.ok) return emptyAnalytics({ status: res.status });
-    const data = (await res.json()) as { data?: Array<{ name: string; values?: Array<{ value: number }> }> };
+    const data = (await res.json()) as {
+      data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+    };
     const m: Record<string, number | null> = {};
     for (const x of data.data ?? []) m[x.name] = x.values?.[0]?.value ?? null;
     return {

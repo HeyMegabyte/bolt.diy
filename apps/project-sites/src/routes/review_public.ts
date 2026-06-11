@@ -88,13 +88,17 @@ reviewPublic.post(
     if (!(await isFlagOn(c.env, 'approval_workflow', { orgId: row.agency_org_id }))) {
       return c.json(NOT_FOUND, 404);
     }
-    const parsed = z.object({ password: z.string().min(1).max(128) }).strict().safeParse(await c.req.json().catch(() => ({})));
+    const parsed = z
+      .object({ password: z.string().min(1).max(128) })
+      .strict()
+      .safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {
       return c.json({ error: { code: 'BAD_REQUEST', message: 'password is required' } }, 400);
     }
     const check = await verifyReviewPassword(c.env, id, parsed.data.password);
     if (!check.required) return c.json({ ok: true, required: false });
-    if (!check.ok) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Incorrect password' } }, 401);
+    if (!check.ok)
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Incorrect password' } }, 401);
     return c.json({ ok: true, required: true });
   },
 );
@@ -104,40 +108,56 @@ reviewPublic.post(
   '/api/review/:id/decision',
   rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:review-decision' }),
   async (c) => {
-  const { id } = c.req.param();
-  const row = await getReviewLink(c.env, id);
-  if (!row) return c.json(NOT_FOUND, 404);
-  if (!(await isFlagOn(c.env, 'approval_workflow', { orgId: row.agency_org_id }))) {
-    return c.json(NOT_FOUND, 404);
-  }
+    const { id } = c.req.param();
+    const row = await getReviewLink(c.env, id);
+    if (!row) return c.json(NOT_FOUND, 404);
+    if (!(await isFlagOn(c.env, 'approval_workflow', { orgId: row.agency_org_id }))) {
+      return c.json(NOT_FOUND, 404);
+    }
 
-  const parsed = DecisionBody.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) {
-    return c.json(
-      { error: { code: 'BAD_REQUEST', message: 'action must be approve|reject|revoke|comment' } },
-      400,
+    const parsed = DecisionBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: 'action must be approve|reject|revoke|comment' } },
+        400,
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // 'comment' records a note without transitioning the link state.
+    if (parsed.data.action === 'comment') {
+      if (!parsed.data.comment) {
+        return c.json(
+          { error: { code: 'BAD_REQUEST', message: 'comment is required for action=comment' } },
+          400,
+        );
+      }
+      const cr = await recordReviewComment(c.env, id, parsed.data.comment, nowIso);
+      if (!cr.ok) {
+        return c.json(
+          { error: { code: 'BAD_REQUEST', message: cr.error ?? 'Comment failed' } },
+          400,
+        );
+      }
+      return c.json({ ok: true, commented: true });
+    }
+
+    const res = await recordReviewDecision(
+      c.env,
+      id,
+      parsed.data.action,
+      nowIso,
+      parsed.data.comment,
     );
-  }
-
-  const nowIso = new Date().toISOString();
-
-  // 'comment' records a note without transitioning the link state.
-  if (parsed.data.action === 'comment') {
-    if (!parsed.data.comment) {
-      return c.json({ error: { code: 'BAD_REQUEST', message: 'comment is required for action=comment' } }, 400);
+    if (!res.ok) {
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: res.error ?? 'Decision failed' } },
+        400,
+      );
     }
-    const cr = await recordReviewComment(c.env, id, parsed.data.comment, nowIso);
-    if (!cr.ok) {
-      return c.json({ error: { code: 'BAD_REQUEST', message: cr.error ?? 'Comment failed' } }, 400);
-    }
-    return c.json({ ok: true, commented: true });
-  }
-
-  const res = await recordReviewDecision(c.env, id, parsed.data.action, nowIso, parsed.data.comment);
-  if (!res.ok) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: res.error ?? 'Decision failed' } }, 400);
-  }
-  return c.json({ ok: true, status: res.status });
-});
+    return c.json({ ok: true, status: res.status });
+  },
+);
 
 export { reviewPublic };

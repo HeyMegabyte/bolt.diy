@@ -186,7 +186,9 @@ describe('sendWeeklyDigestForOrg', () => {
     expect(body.html).toContain('Sites updated');
     expect(body.html).toContain('2'); // sites_updated
     expect(body.html).toContain('25'); // ai_traces
-    expect(body.headers?.['List-Unsubscribe']).toMatch(/^<https:\/\/projectsites\.dev\/api\/email\/unsubscribe/);
+    expect(body.headers?.['List-Unsubscribe']).toMatch(
+      /^<https:\/\/projectsites\.dev\/api\/email\/unsubscribe/,
+    );
 
     expect(mockInsert).toHaveBeenCalledWith(
       mockDb,

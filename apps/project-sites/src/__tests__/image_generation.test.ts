@@ -50,25 +50,23 @@ function makeEnv(overrides: Partial<Record<string, unknown>> = {}): Env {
 
 /** Build a successful DALL-E generations JSON response + the follow-up image bytes. */
 function stubDallE3Success(imageBytes = new ArrayBuffer(64)) {
-  const fetchMock = jest.fn(
-    async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString();
-      if (url.includes('api.openai.com')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [{ url: 'https://img.example.com/generated.png' }] }),
-          text: async () => '',
-        } as unknown as Response;
-      }
-      // Image fetch
+  const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.includes('api.openai.com')) {
       return {
         ok: true,
         status: 200,
-        arrayBuffer: async () => imageBytes,
+        json: async () => ({ data: [{ url: 'https://img.example.com/generated.png' }] }),
+        text: async () => '',
       } as unknown as Response;
-    },
-  );
+    }
+    // Image fetch
+    return {
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => imageBytes,
+    } as unknown as Response;
+  });
   return fetchMock;
 }
 
@@ -100,9 +98,7 @@ describe('image_generation service', () => {
       const env = makeEnv({ OPENAI_API_KEY: undefined });
       const result = await callDallE3(env, 'a prompt');
       expect(result).toBeNull();
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('OPENAI_API_KEY not set'),
-      );
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('OPENAI_API_KEY not set'));
     });
 
     it('returns null when OPENAI_API_KEY is an empty string', async () => {
@@ -379,14 +375,19 @@ describe('image_generation service', () => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('api.openai.com')) {
           call += 1;
-          if (call === 2) return { ok: false, status: 500, text: async () => 'err' } as unknown as Response;
+          if (call === 2)
+            return { ok: false, status: 500, text: async () => 'err' } as unknown as Response;
           return {
             ok: true,
             status: 200,
             json: async () => ({ data: [{ url: 'https://img/x.png' }] }),
           } as unknown as Response;
         }
-        return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(16) } as unknown as Response;
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => new ArrayBuffer(16),
+        } as unknown as Response;
       }) as unknown as typeof fetch;
 
       const env = makeEnv({ MAX_GENERATED_IMAGES: '2' });

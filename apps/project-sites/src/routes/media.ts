@@ -163,7 +163,13 @@ mediaRoutes.get('/api/media/assets/:id/raw', async (c) => {
   const obj = await c.env.SITES_BUCKET.get(asset.r2_key);
   if (!obj) {
     return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Underlying object missing', request_id: c.get('requestId') } },
+      {
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Underlying object missing',
+          request_id: c.get('requestId'),
+        },
+      },
       404,
     );
   }
@@ -444,7 +450,11 @@ mediaRoutes.post('/api/media/generate/podcast', async (c) => {
   if (!title) {
     return c.json(
       {
-        error: { code: 'BAD_REQUEST', message: 'title is required', request_id: c.get('requestId') },
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'title is required',
+          request_id: c.get('requestId'),
+        },
       },
       400,
     );

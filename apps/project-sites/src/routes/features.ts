@@ -23,7 +23,12 @@ import { assertSiteOwned } from '../services/site_ownership.js';
 import { createReviewLink } from '../services/review_approval.js';
 import * as F from '../services/features.js';
 import * as B from '../services/brilliant.js';
-import { isFlagOn, resolveFlag, invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
+import {
+  isFlagOn,
+  resolveFlag,
+  invalidateFlagCache,
+  FLAG_REGISTRY,
+} from '../modules/feature_flags/services.js';
 import { listFlags } from '../modules/feature_flags/registry.js';
 import { FLAG_DOCS, getDocs } from '../modules/feature_flags/docs.js';
 
@@ -82,7 +87,12 @@ features.get('/llms.txt', () => {
 - Allow: GPTBot, ClaudeBot, Claude-User, Claude-SearchBot, PerplexityBot, Google-Extended, CCBot.
 - All routes public; no login wall on content pages.
 `;
-  return new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
 });
 
 features.get('/llms-full.txt', () => {
@@ -107,7 +117,12 @@ Project Sites is an AI website builder for solo founders and small agencies. Cus
 - Business $100/month — unlimited, agency tier, white-label.
 - Usage — AI tokens metered via Stripe Meters at $0.10/1M.
 `;
-  return new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
 });
 
 features.get('/robots.txt', () => {
@@ -156,7 +171,12 @@ Disallow: /api/private
 
 Sitemap: https://projectsites.dev/sitemap.xml
 `;
-  return new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
 });
 
 features.get('/accessibility', () => {
@@ -189,21 +209,67 @@ features.get('/accessibility', () => {
 </main>
 </body>
 </html>`;
-  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+  });
 });
 
 features.get('/.well-known/mcp', (c) =>
   c.json({
     name: 'projectsites.dev',
     version: '0.1.0',
-    description: 'Model Context Protocol server for Project Sites — manage AI-generated websites from Claude, Cursor, or any MCP client.',
+    description:
+      'Model Context Protocol server for Project Sites — manage AI-generated websites from Claude, Cursor, or any MCP client.',
     capabilities: { tools: { listChanged: false } },
     tools: [
-      { name: 'list_sites', description: 'List all sites owned by the authenticated user', input_schema: { type: 'object', properties: {} } },
-      { name: 'create_site', description: 'Create a new site from a prompt + business profile', input_schema: { type: 'object', required: ['prompt'], properties: { prompt: { type: 'string' }, industry: { type: 'string' }, city: { type: 'string' } } } },
-      { name: 'deploy_site', description: 'Publish a site (runs CWV + axe gates)', input_schema: { type: 'object', required: ['site_id'], properties: { site_id: { type: 'string' } } } },
-      { name: 'get_site_metrics', description: 'CWV + axe + visitor analytics for a site', input_schema: { type: 'object', required: ['site_id'], properties: { site_id: { type: 'string' } } } },
-      { name: 'regenerate_section', description: 'Regenerate a section via the AI pipeline', input_schema: { type: 'object', required: ['site_id', 'section'], properties: { site_id: { type: 'string' }, section: { type: 'string', enum: ['hero', 'features', 'pricing', 'faq', 'cta'] } } } },
+      {
+        name: 'list_sites',
+        description: 'List all sites owned by the authenticated user',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'create_site',
+        description: 'Create a new site from a prompt + business profile',
+        input_schema: {
+          type: 'object',
+          required: ['prompt'],
+          properties: {
+            prompt: { type: 'string' },
+            industry: { type: 'string' },
+            city: { type: 'string' },
+          },
+        },
+      },
+      {
+        name: 'deploy_site',
+        description: 'Publish a site (runs CWV + axe gates)',
+        input_schema: {
+          type: 'object',
+          required: ['site_id'],
+          properties: { site_id: { type: 'string' } },
+        },
+      },
+      {
+        name: 'get_site_metrics',
+        description: 'CWV + axe + visitor analytics for a site',
+        input_schema: {
+          type: 'object',
+          required: ['site_id'],
+          properties: { site_id: { type: 'string' } },
+        },
+      },
+      {
+        name: 'regenerate_section',
+        description: 'Regenerate a section via the AI pipeline',
+        input_schema: {
+          type: 'object',
+          required: ['site_id', 'section'],
+          properties: {
+            site_id: { type: 'string' },
+            section: { type: 'string', enum: ['hero', 'features', 'pricing', 'faq', 'cta'] },
+          },
+        },
+      },
     ],
     transport: { type: 'sse', endpoint: 'https://projectsites.dev/api/mcp/sse' },
     authorization_server: 'https://projectsites.dev/.well-known/oauth-protected-resource',
@@ -224,13 +290,34 @@ features.get('/api/openapi.json', (c) =>
   c.json(
     {
       openapi: '3.1.0',
-      info: { title: 'Project Sites API', version: '0.1.0', description: 'Public REST API. Bearer-token authentication.', contact: { email: 'api@projectsites.dev' }, license: { name: 'Commercial', url: 'https://projectsites.dev/terms' } },
+      info: {
+        title: 'Project Sites API',
+        version: '0.1.0',
+        description: 'Public REST API. Bearer-token authentication.',
+        contact: { email: 'api@projectsites.dev' },
+        license: { name: 'Commercial', url: 'https://projectsites.dev/terms' },
+      },
       servers: [{ url: 'https://projectsites.dev', description: 'Production' }],
-      components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'opaque' } } },
+      components: {
+        securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'opaque' } },
+      },
       security: [{ BearerAuth: [] }],
       paths: {
-        '/api/v1/sites': { get: { summary: 'List sites', responses: { 200: { description: 'OK' }, 401: { description: 'Unauthorized' } } } },
-        '/api/v1/sites/{id}/deploy': { post: { summary: 'Publish a site (runs CWV + axe gates)', responses: { 202: { description: 'Queued' }, 412: { description: 'Publish-gate violations' } } } },
+        '/api/v1/sites': {
+          get: {
+            summary: 'List sites',
+            responses: { 200: { description: 'OK' }, 401: { description: 'Unauthorized' } },
+          },
+        },
+        '/api/v1/sites/{id}/deploy': {
+          post: {
+            summary: 'Publish a site (runs CWV + axe gates)',
+            responses: {
+              202: { description: 'Queued' },
+              412: { description: 'Publish-gate violations' },
+            },
+          },
+        },
       },
     },
     200,
@@ -238,7 +325,14 @@ features.get('/api/openapi.json', (c) =>
   ),
 );
 
-features.get('/api/cli/version', (c) => c.json({ version: '0.1.0', install: 'npx projectsites@latest', commands: ['init', 'deploy', 'preview', 'logs'], minimum_node: '18.18.0' }));
+features.get('/api/cli/version', (c) =>
+  c.json({
+    version: '0.1.0',
+    install: 'npx projectsites@latest',
+    commands: ['init', 'deploy', 'preview', 'logs'],
+    minimum_node: '18.18.0',
+  }),
+);
 
 // ─── Feature-flag admin surface (always available; needed to read state) ──
 
@@ -251,7 +345,11 @@ features.get('/api/feature-flags/:key', async (c) => {
   const key = c.req.param('key');
   const def = FLAG_REGISTRY[key];
   if (!def) return c.json({ error: 'unknown_flag' }, 404);
-  const state = await resolveFlag(c.env, key, { orgId: c.req.query('org_id'), siteId: c.req.query('site_id'), userId: c.req.query('user_id') });
+  const state = await resolveFlag(c.env, key, {
+    orgId: c.req.query('org_id'),
+    siteId: c.req.query('site_id'),
+    userId: c.req.query('user_id'),
+  });
   return c.json({ definition: def, resolved: state, docs: getDocs(key) ?? null });
 });
 
@@ -276,27 +374,139 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
   isAddon: boolean;
   category: string;
 }> = [
-  { key: 'donations_engine', name: 'Donations', description: 'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
-  { key: 'email_marketing', name: 'Newsletter', description: 'Collect subscribers and send branded email campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'seo_autopilot', name: 'AI SEO Autopilot', description: 'AI writes titles, meta, and answer blocks per page and keeps stale sections fresh — you approve before it applies.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'gbp_assist', name: 'Google Business Profile', description: 'One-click setup + AI-optimized content for your Google Business Profile so you show up in local search and Maps.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'search_engine_submit', name: 'Instant Indexing', description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.', requiredPlan: 'free', isAddon: false, category: 'Grow' },
-  { key: 'pseo_matrix_v2', name: 'Local SEO Pages', description: 'Auto-generate location and service landing pages from real data to rank for "near me" searches.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
-  { key: 'unified_inbox', name: 'Visitor Inbox', description: 'Every form, chat, and message from your site in one inbox, with AI-drafted replies.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
-  { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
+  {
+    key: 'donations_engine',
+    name: 'Donations',
+    description:
+      'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.',
+    requiredPlan: 'free',
+    isAddon: false,
+    category: 'Sell',
+  },
+  {
+    key: 'email_marketing',
+    name: 'Newsletter',
+    description: 'Collect subscribers and send branded email campaigns from your own domain.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Grow',
+  },
+  {
+    key: 'seo_autopilot',
+    name: 'AI SEO Autopilot',
+    description:
+      'AI writes titles, meta, and answer blocks per page and keeps stale sections fresh — you approve before it applies.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Grow',
+  },
+  {
+    key: 'gbp_assist',
+    name: 'Google Business Profile',
+    description:
+      'One-click setup + AI-optimized content for your Google Business Profile so you show up in local search and Maps.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Grow',
+  },
+  {
+    key: 'search_engine_submit',
+    name: 'Instant Indexing',
+    description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.',
+    requiredPlan: 'free',
+    isAddon: false,
+    category: 'Grow',
+  },
+  {
+    key: 'pseo_matrix_v2',
+    name: 'Local SEO Pages',
+    description:
+      'Auto-generate location and service landing pages from real data to rank for "near me" searches.',
+    requiredPlan: 'business',
+    isAddon: false,
+    category: 'Grow',
+  },
+  {
+    key: 'unified_inbox',
+    name: 'Visitor Inbox',
+    description:
+      'Every form, chat, and message from your site in one inbox, with AI-drafted replies.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Engage',
+  },
+  {
+    key: 'site_mcp_server',
+    name: 'AI Assistant Access',
+    description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.',
+    requiredPlan: 'business',
+    isAddon: false,
+    category: 'Grow',
+  },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
-  { key: 'storefront_ecommerce', name: 'Online Store', description: 'Sell products from your site — catalog, cart, and secure checkout, with inventory tracking.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
-  { key: 'agentic_commerce', name: 'AI Checkout', description: 'Let shoppers buy from your store right inside ChatGPT and Gemini via the Agentic Commerce + Universal Commerce protocols.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
-  { key: 'ai_concierge_widget', name: 'AI Concierge', description: 'A visitor-facing chat that answers questions using your own content — hours, pricing, services — grounded, never made up.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
-  { key: 'page_audio', name: 'Page Audio', description: 'Auto-generate a short narrated audio version of each page — better dwell time and an accessible, audio-first experience.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
-  { key: 'a11y_autopilot', name: 'Accessibility Autopilot', description: 'Continuous accessibility scans with one-click fixes and an ADA-ready compliance report for your site.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'i18n_localization', name: 'Languages', description: 'Mirror your site into more languages with AI translation, correct hreflang tags, and right-to-left support.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  {
+    key: 'storefront_ecommerce',
+    name: 'Online Store',
+    description:
+      'Sell products from your site — catalog, cart, and secure checkout, with inventory tracking.',
+    requiredPlan: 'business',
+    isAddon: false,
+    category: 'Sell',
+  },
+  {
+    key: 'agentic_commerce',
+    name: 'AI Checkout',
+    description:
+      'Let shoppers buy from your store right inside ChatGPT and Gemini via the Agentic Commerce + Universal Commerce protocols.',
+    requiredPlan: 'business',
+    isAddon: false,
+    category: 'Sell',
+  },
+  {
+    key: 'ai_concierge_widget',
+    name: 'AI Concierge',
+    description:
+      'A visitor-facing chat that answers questions using your own content — hours, pricing, services — grounded, never made up.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Engage',
+  },
+  {
+    key: 'page_audio',
+    name: 'Page Audio',
+    description:
+      'Auto-generate a short narrated audio version of each page — better dwell time and an accessible, audio-first experience.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Engage',
+  },
+  {
+    key: 'a11y_autopilot',
+    name: 'Accessibility Autopilot',
+    description:
+      'Continuous accessibility scans with one-click fixes and an ADA-ready compliance report for your site.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Grow',
+  },
+  {
+    key: 'i18n_localization',
+    name: 'Languages',
+    description:
+      'Mirror your site into more languages with AI translation, correct hreflang tags, and right-to-left support.',
+    requiredPlan: 'pro',
+    isAddon: false,
+    category: 'Grow',
+  },
 ];
 
 const PLAN_RANK: Record<string, number> = { free: 0, pro: 1, business: 2, enterprise: 3 };
 
 /** Read the caller's org plan tier (best-effort; defaults to 'free'). */
-async function readOrgPlan(c: Context<{ Bindings: Env }>, orgId: string | undefined): Promise<'free' | 'pro' | 'business' | 'enterprise'> {
+async function readOrgPlan(
+  c: Context<{ Bindings: Env }>,
+  orgId: string | undefined,
+): Promise<'free' | 'pro' | 'business' | 'enterprise'> {
   if (!orgId) return 'free';
   try {
     const row = await c.env.DB.prepare(
@@ -312,7 +522,10 @@ async function readOrgPlan(c: Context<{ Bindings: Env }>, orgId: string | undefi
 }
 
 /** Read tenant-scoped enable/preview state for a site's features. */
-async function readSiteFeatureState(c: Context<{ Bindings: Env }>, siteId: string | undefined): Promise<Record<string, { enabled: boolean; preview: boolean }>> {
+async function readSiteFeatureState(
+  c: Context<{ Bindings: Env }>,
+  siteId: string | undefined,
+): Promise<Record<string, { enabled: boolean; preview: boolean }>> {
   const out: Record<string, { enabled: boolean; preview: boolean }> = {};
   if (!siteId) return out;
   try {
@@ -340,16 +553,20 @@ async function readSiteFeatureState(c: Context<{ Bindings: Env }>, siteId: strin
  * entitlement + enable/preview state for the caller's selected site.
  */
 features.get('/api/site-features', async (c) => {
-  const orgId = (c as unknown as { get(k: string): string | undefined }).get('orgId') ?? c.req.query('org_id') ?? undefined;
+  const orgId =
+    (c as unknown as { get(k: string): string | undefined }).get('orgId') ??
+    c.req.query('org_id') ??
+    undefined;
   const siteId = c.req.query('site_id') ?? undefined;
   const plan = await readOrgPlan(c, orgId);
   const state = await readSiteFeatureState(c, siteId);
   const featureList = SITE_FEATURE_CATALOG.map((f) => {
-    const entitled = PLAN_RANK[plan] >= PLAN_RANK[f.requiredPlan]
-      ? 'available'
-      : f.isAddon
-        ? 'addon-required'
-        : 'upgrade-required';
+    const entitled =
+      PLAN_RANK[plan] >= PLAN_RANK[f.requiredPlan]
+        ? 'available'
+        : f.isAddon
+          ? 'addon-required'
+          : 'upgrade-required';
     const s = state[f.key] ?? { enabled: false, preview: false };
     return { ...f, entitled, enabled: s.enabled, preview: s.preview };
   });
@@ -372,7 +589,8 @@ features.post('/api/site-features/:key', async (c) => {
   const def = SITE_FEATURE_CATALOG.find((f) => f.key === key);
   if (!def) return c.json({ error: 'not_found' }, 404);
   const parsed = siteFeatureToggleSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: 'validation_error', details: parsed.error.flatten() }, 400);
+  if (!parsed.success)
+    return c.json({ error: 'validation_error', details: parsed.error.flatten() }, 400);
   const body = parsed.data;
 
   const orgId = (c as unknown as { get(k: string): string | undefined }).get('orgId') ?? undefined;
@@ -409,90 +627,41 @@ features.post('/api/site-features/:key', async (c) => {
 
 // ─── Semantic per-feature endpoints (every endpoint flag-gated) ──────
 
-
-
-
-
 // Token-burn meter
-features.get('/api/usage/burn', requireFlag('token_burn_meter'), async (c) => c.json(await F.getMonthlyBurn(c.env, c.req.query('org_id') ?? 'demo-org')));
+features.get('/api/usage/burn', requireFlag('token_burn_meter'), async (c) =>
+  c.json(await F.getMonthlyBurn(c.env, c.req.query('org_id') ?? 'demo-org')),
+);
 features.post('/api/usage/record', requireFlag('token_burn_meter'), async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { org_id?: string; model?: F.ModelId; input_tokens?: number; output_tokens?: number };
-  return c.json(await F.recordTokenEvent(c.env, { orgId: body.org_id ?? 'demo-org', model: body.model ?? '@cf/meta/llama-3.3-70b-instruct-fp8-fast', inputTokens: body.input_tokens ?? 0, outputTokens: body.output_tokens ?? 0 }));
+  const body = (await c.req.json().catch(() => ({}))) as {
+    org_id?: string;
+    model?: F.ModelId;
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+  return c.json(
+    await F.recordTokenEvent(c.env, {
+      orgId: body.org_id ?? 'demo-org',
+      model: body.model ?? '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      inputTokens: body.input_tokens ?? 0,
+      outputTokens: body.output_tokens ?? 0,
+    }),
+  );
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Approval workflow — owned, auth + ownership-guarded (NO demo defaults).
 // The agency org is the caller's authed session org (set by the auth
 
-
-
-
-
-
-
-
-
-
 // PWA manifest
-features.get('/api/pwa/manifest', requireFlag('pwa_manifest_full'), (c) => c.json(F.getPwaManifest(c.env, c.req.query('org_id') ?? 'demo-org')));
-
-
+features.get('/api/pwa/manifest', requireFlag('pwa_manifest_full'), (c) =>
+  c.json(F.getPwaManifest(c.env, c.req.query('org_id') ?? 'demo-org')),
+);
 
 // ── 30 big-bet features — semantic per-feature endpoints ──────────────
 
-const json = async (c: { req: { json: () => Promise<unknown> } }) => (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+const json = async (c: { req: { json: () => Promise<unknown> } }) =>
+  (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // ── 3 NEW: IDE Sandbox + multi-agent + progressive skeleton ──────────
-
-
-
 
 // ── 10 brilliant — semantic per-feature endpoints ────────────────────
 
@@ -504,19 +673,15 @@ features.post('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server')
   c.json(await B.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
 );
 
-
 // #3 AI auto-router
 features.post('/api/router/pick', requireFlag('ai_auto_router'), async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { prompt?: string; org_id?: string };
-  return c.json(await B.autoRoutePrompt(c.env, { prompt: body.prompt ?? 'demo prompt', orgId: body.org_id }));
+  return c.json(
+    await B.autoRoutePrompt(c.env, { prompt: body.prompt ?? 'demo prompt', orgId: body.org_id }),
+  );
 });
-features.get('/api/router/stats', requireFlag('ai_auto_router'), async (c) => c.json(await B.getRouterStats(c.env, c.req.query('org_id') ?? 'demo-org')));
-
-
-
-
-
-
-
+features.get('/api/router/stats', requireFlag('ai_auto_router'), async (c) =>
+  c.json(await B.getRouterStats(c.env, c.req.query('org_id') ?? 'demo-org')),
+);
 
 export default features;

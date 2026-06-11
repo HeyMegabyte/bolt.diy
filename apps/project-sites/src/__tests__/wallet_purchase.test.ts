@@ -59,11 +59,7 @@ import { dbQueryOne } from '../services/db.js';
 import { checkAvailability } from '../services/rdap_availability.js';
 import { buildTldPriceMap, registerDomain } from '../services/cf_registrar.js';
 import { provisionCustomDomain } from '../services/domains.js';
-import {
-  chargeWallet,
-  creditWallet,
-  walletAvailable,
-} from '../services/wallet_adapter.js';
+import { chargeWallet, creditWallet, walletAvailable } from '../services/wallet_adapter.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
 const mockCheckAvail = checkAvailability as jest.Mock;

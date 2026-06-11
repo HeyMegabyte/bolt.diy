@@ -92,47 +92,49 @@ const ReplyBodySchema = z.object({
   body: z.string().min(1, 'body is required').max(10000),
 });
 
-inboxRoutes.post('/api/inbox/conversations/:id/reply', zValidator('json', ReplyBodySchema), async (c) => {
-  const orgId = c.get('orgId') ?? '';
-  if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
+inboxRoutes.post(
+  '/api/inbox/conversations/:id/reply',
+  zValidator('json', ReplyBodySchema),
+  async (c) => {
+    const orgId = c.get('orgId') ?? '';
+    if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
-  const convId = c.req.param('id');
-  const userId = c.get('userId');
+    const convId = c.req.param('id');
+    const userId = c.get('userId');
 
-  const body = c.req.valid('json');
+    const body = c.req.valid('json');
 
-  // Verify the conversation belongs to this org
-  const conv = await c.env.DB.prepare(
-    `SELECT * FROM conversations WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
-  )
-    .bind(convId, orgId)
-    .first<ConversationWithVisitor>()
-    .catch(() => null);
-  if (!conv) return c.json({ error: 'not_found' }, 404);
+    // Verify the conversation belongs to this org
+    const conv = await c.env.DB.prepare(
+      `SELECT * FROM conversations WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+    )
+      .bind(convId, orgId)
+      .first<ConversationWithVisitor>()
+      .catch(() => null);
+    if (!conv) return c.json({ error: 'not_found' }, 404);
 
-  // Load visitor for channel dispatch
-  const visitor = await c.env.DB.prepare(
-    `SELECT * FROM visitor_identities WHERE id = ? LIMIT 1`,
-  )
-    .bind(conv.visitor_id)
-    .first()
-    .catch(() => null) as ConversationWithVisitor['visitor'];
+    // Load visitor for channel dispatch
+    const visitor = (await c.env.DB.prepare(`SELECT * FROM visitor_identities WHERE id = ? LIMIT 1`)
+      .bind(conv.visitor_id)
+      .first()
+      .catch(() => null)) as ConversationWithVisitor['visitor'];
 
-  // Append message
-  const message = await appendMessage(c.env, {
-    conversationId: convId,
-    direction: 'outbound',
-    authorType: 'agent',
-    authorId: userId ?? null,
-    body: body.body.trim(),
-    channel: conv.channel,
-  });
+    // Append message
+    const message = await appendMessage(c.env, {
+      conversationId: convId,
+      direction: 'outbound',
+      authorType: 'agent',
+      authorId: userId ?? null,
+      body: body.body.trim(),
+      channel: conv.channel,
+    });
 
-  // Dispatch via channel-native method
-  const sendResult = await sendViaChannel(c.env, conv, visitor, body.body.trim());
+    // Dispatch via channel-native method
+    const sendResult = await sendViaChannel(c.env, conv, visitor, body.body.trim());
 
-  return c.json({ message, sent: sendResult.sent, send_reason: sendResult.reason ?? null });
-});
+    return c.json({ message, sent: sendResult.sent, send_reason: sendResult.reason ?? null });
+  },
+);
 
 // ── POST /api/inbox/conversations/:id/assign ──────────────────────────────────
 
@@ -140,17 +142,21 @@ const AssignBodySchema = z.object({
   assigned_to: z.string().uuid().nullable(),
 });
 
-inboxRoutes.post('/api/inbox/conversations/:id/assign', zValidator('json', AssignBodySchema), async (c) => {
-  const orgId = c.get('orgId') ?? '';
-  if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
+inboxRoutes.post(
+  '/api/inbox/conversations/:id/assign',
+  zValidator('json', AssignBodySchema),
+  async (c) => {
+    const orgId = c.get('orgId') ?? '';
+    if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
-  const convId = c.req.param('id');
-  const body = c.req.valid('json');
-  const ok = await assignConversation(c.env, convId, orgId, body.assigned_to);
-  if (!ok) return c.json({ error: 'not_found' }, 404);
+    const convId = c.req.param('id');
+    const body = c.req.valid('json');
+    const ok = await assignConversation(c.env, convId, orgId, body.assigned_to);
+    if (!ok) return c.json({ error: 'not_found' }, 404);
 
-  return c.json({ ok: true, assigned_to: body.assigned_to });
-});
+    return c.json({ ok: true, assigned_to: body.assigned_to });
+  },
+);
 
 // ── POST /api/inbox/conversations/:id/status ──────────────────────────────────
 
@@ -158,18 +164,22 @@ const ConversationStatusBodySchema = z.object({
   status: z.enum(['open', 'pending', 'resolved', 'spam']),
 });
 
-inboxRoutes.post('/api/inbox/conversations/:id/status', zValidator('json', ConversationStatusBodySchema), async (c) => {
-  const orgId = c.get('orgId') ?? '';
-  if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
+inboxRoutes.post(
+  '/api/inbox/conversations/:id/status',
+  zValidator('json', ConversationStatusBodySchema),
+  async (c) => {
+    const orgId = c.get('orgId') ?? '';
+    if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
-  const convId = c.req.param('id');
-  const body = c.req.valid('json');
+    const convId = c.req.param('id');
+    const body = c.req.valid('json');
 
-  const ok = await updateConversationStatus(c.env, convId, orgId, body.status);
-  if (!ok) return c.json({ error: 'not_found' }, 404);
+    const ok = await updateConversationStatus(c.env, convId, orgId, body.status);
+    if (!ok) return c.json({ error: 'not_found' }, 404);
 
-  return c.json({ ok: true, status: body.status });
-});
+    return c.json({ ok: true, status: body.status });
+  },
+);
 
 // ── POST /api/inbox/conversations/:id/draft-with-ai ───────────────────────────
 inboxRoutes.post('/api/inbox/conversations/:id/draft-with-ai', async (c) => {

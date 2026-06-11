@@ -17,8 +17,17 @@ jest.mock('../services/db.js', () => ({
   dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
-jest.mock('../lib/sentry.js', () => ({ captureError: jest.fn(), captureMessage: jest.fn(), createSentry: jest.fn() }));
-jest.mock('../lib/posthog.js', () => ({ capture: jest.fn(), trackAuth: jest.fn(), trackSite: jest.fn(), trackError: jest.fn() }));
+jest.mock('../lib/sentry.js', () => ({
+  captureError: jest.fn(),
+  captureMessage: jest.fn(),
+  createSentry: jest.fn(),
+}));
+jest.mock('../lib/posthog.js', () => ({
+  capture: jest.fn(),
+  trackAuth: jest.fn(),
+  trackSite: jest.fn(),
+  trackError: jest.fn(),
+}));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -72,7 +81,11 @@ function makeDb(traceRow: Record<string, unknown> | null): D1Database {
   } as unknown as D1Database;
 }
 
-function makeEnv(opts: { traceRow: Record<string, unknown> | null; aiResponse: string; kv: KvStub }): Env {
+function makeEnv(opts: {
+  traceRow: Record<string, unknown> | null;
+  aiResponse: string;
+  kv: KvStub;
+}): Env {
   return {
     DB: makeDb(opts.traceRow),
     CACHE_KV: opts.kv as unknown as KVNamespace,
@@ -148,7 +161,9 @@ describe('POST /api/admin/traces/:traceId/explain', () => {
       execCtx,
     );
     expect(res1.status).toBe(200);
-    const body1 = (await res1.json()) as { data: { markdown: string; cached: boolean; model: string } };
+    const body1 = (await res1.json()) as {
+      data: { markdown: string; cached: boolean; model: string };
+    };
     expect(body1.data.markdown).toContain('Failed');
     expect(body1.data.cached).toBe(false);
     expect(body1.data.model).toBe('@cf/meta/llama-3.1-8b-instruct-fp8');

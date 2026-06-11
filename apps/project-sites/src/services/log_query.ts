@@ -20,7 +20,7 @@
 
 export interface ParsedQuery {
   levels: string[];
-  routes: string[];         // glob-style, * becomes SQL LIKE %
+  routes: string[]; // glob-style, * becomes SQL LIKE %
   minDurationMs: number | null;
   maxDurationMs: number | null;
   statuses: number[];
@@ -31,7 +31,7 @@ export interface LogSearchParams {
   query: string;
   range?: '1h' | '6h' | '24h' | '7d' | '30d';
   limit?: number;
-  cursor?: string;  // ISO timestamp for pagination
+  cursor?: string; // ISO timestamp for pagination
 }
 
 /** Parse the DSL string into structured predicates. */
@@ -95,14 +95,20 @@ export function parseLogQuery(raw: string): ParsedQuery {
 }
 
 /** Build a D1-compatible SQL WHERE clause + bindings from a parsed query. */
-export function buildWhereClause(q: ParsedQuery, range: string = '24h'): { where: string; bindings: (string | number)[] } {
+export function buildWhereClause(
+  q: ParsedQuery,
+  range: string = '24h',
+): { where: string; bindings: (string | number)[] } {
   const conditions: string[] = [];
   const bindings: (string | number)[] = [];
 
   // Time range
   const rangeMap: Record<string, string> = {
-    '1h': '-1 hours', '6h': '-6 hours', '24h': '-24 hours',
-    '7d': '-7 days', '30d': '-30 days',
+    '1h': '-1 hours',
+    '6h': '-6 hours',
+    '24h': '-24 hours',
+    '7d': '-7 days',
+    '30d': '-30 days',
   };
   const rangeExpr = rangeMap[range] ?? '-24 hours';
   conditions.push(`ts >= datetime('now', '${rangeExpr}')`);
@@ -154,9 +160,12 @@ export function buildWhereClause(q: ParsedQuery, range: string = '24h'): { where
 function parseDuration(value: string, unit: string): number {
   const n = Number(value);
   switch (unit.toLowerCase()) {
-    case 's': return n * 1000;
-    case 'm': return n * 60 * 1000;
-    default: return n; // ms
+    case 's':
+      return n * 1000;
+    case 'm':
+      return n * 60 * 1000;
+    default:
+      return n; // ms
   }
 }
 

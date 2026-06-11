@@ -251,9 +251,7 @@ async function runVisionScore(env: Env, screenshotKey: string): Promise<VisionSc
         : null;
     const notesField = rubric.notes;
     const notes =
-      typeof notesField === 'string' && notesField.trim()
-        ? notesField.trim().slice(0, 1000)
-        : 'ok';
+      typeof notesField === 'string' && notesField.trim() ? notesField.trim().slice(0, 1000) : 'ok';
 
     return {
       ...axes,
@@ -347,9 +345,7 @@ function parseSeoMetrics(html: string, originHost: string): SeoMetrics {
   const h1Matches = html.match(/<h1\b[^>]*>/gi);
   const h1Count = h1Matches ? h1Matches.length : 0;
 
-  const jsonldMatches = html.match(
-    /<script\s+[^>]*type=["']application\/ld\+json["'][^>]*>/gi,
-  );
+  const jsonldMatches = html.match(/<script\s+[^>]*type=["']application\/ld\+json["'][^>]*>/gi);
   const jsonldBlockCount = jsonldMatches ? jsonldMatches.length : 0;
 
   // Count anchors. Internal vs outbound is best-effort host comparison.
@@ -593,10 +589,7 @@ function buildMetricsRow(
  * UPSERT a snapshot_metrics row. Because the table carries `UNIQUE(snapshot_id)`,
  * re-running the workflow on the same snapshot updates the same row.
  */
-async function upsertMetricsRow(
-  db: D1Database,
-  row: Record<string, unknown>,
-): Promise<void> {
+async function upsertMetricsRow(db: D1Database, row: Record<string, unknown>): Promise<void> {
   const columns = Object.keys(row);
   const placeholders = columns.map(() => '?').join(', ');
   const updateAssignments = columns
@@ -640,7 +633,10 @@ export class SnapshotQualityWorkflow extends WorkflowEntrypoint<Env, SnapshotQua
     try {
       const screenshotResult = await step.do(
         'screenshot',
-        { retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' }, timeout: '2 minutes' },
+        {
+          retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
+          timeout: '2 minutes',
+        },
         async () => {
           const shot = await captureScreenshot(env, url);
           if (!shot) return null;
@@ -666,7 +662,10 @@ export class SnapshotQualityWorkflow extends WorkflowEntrypoint<Env, SnapshotQua
     try {
       const html = await step.do(
         'fetch-html',
-        { retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' }, timeout: '2 minutes' },
+        {
+          retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
+          timeout: '2 minutes',
+        },
         async () => fetchRenderedHtml(env, url),
       );
       if (typeof html === 'string') {
@@ -779,7 +778,10 @@ export class SnapshotQualityWorkflow extends WorkflowEntrypoint<Env, SnapshotQua
     try {
       await step.do(
         'write-metrics',
-        { retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' }, timeout: '30 seconds' },
+        {
+          retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' },
+          timeout: '30 seconds',
+        },
         async () => upsertMetricsRow(env.DB, row),
       );
     } catch (err) {

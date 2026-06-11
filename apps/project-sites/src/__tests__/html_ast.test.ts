@@ -203,10 +203,7 @@ describe('countH1', () => {
 
   it('counts nested <h1> deep in the tree (recursive walk)', async () => {
     const src = 'nested-h1';
-    setTree(
-      src,
-      doc([element('section', [element('article', [element('h1', [text('Deep')])])])]),
-    );
+    setTree(src, doc([element('section', [element('article', [element('h1', [text('Deep')])])])]));
     expect(await countH1(src)).toBe(1);
   });
 
@@ -233,10 +230,7 @@ describe('countH1', () => {
 describe('extractVisibleText', () => {
   it('collects visible text nodes joined by single spaces', async () => {
     const src = 'visible';
-    setTree(
-      src,
-      doc([element('p', [text('Hello')]), element('p', [text('World')])]),
-    );
+    setTree(src, doc([element('p', [text('Hello')]), element('p', [text('World')])]));
     expect(await extractVisibleText(src)).toBe('Hello World');
   });
 
@@ -319,10 +313,7 @@ describe('extractAttributeRefs', () => {
 
   it('ignores non-src/href attributes', async () => {
     const src = 'other-attr';
-    setTree(
-      src,
-      doc([element('div', [], [attr('class', 'quoted_attribute_value', '"hero"')])]),
-    );
+    setTree(src, doc([element('div', [], [attr('class', 'quoted_attribute_value', '"hero"')])]));
     expect(await extractAttributeRefs(src)).toEqual([]);
   });
 

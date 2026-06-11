@@ -86,8 +86,12 @@ describe('applyApprovalAction', () => {
   });
 
   it('refuses to act on a rejected or revoked link', () => {
-    expect(applyApprovalAction({ status: 'rejected', expiresAt: null }, 'reject', NOW).ok).toBe(false);
-    expect(applyApprovalAction({ status: 'revoked', expiresAt: null }, 'revoke', NOW).ok).toBe(false);
+    expect(applyApprovalAction({ status: 'rejected', expiresAt: null }, 'reject', NOW).ok).toBe(
+      false,
+    );
+    expect(applyApprovalAction({ status: 'revoked', expiresAt: null }, 'revoke', NOW).ok).toBe(
+      false,
+    );
   });
 });
 
@@ -107,13 +111,23 @@ describe('recordReviewDecision', () => {
   });
 
   it('refuses an already-decided review (state machine)', async () => {
-    const res = await recordReviewDecision(mockEnv({ decision: 'approved', expires_at: FUTURE }), 'rev1', 'reject', NOW);
+    const res = await recordReviewDecision(
+      mockEnv({ decision: 'approved', expires_at: FUTURE }),
+      'rev1',
+      'reject',
+      NOW,
+    );
     expect(res.ok).toBe(false);
     expect(res.error).toContain('approved');
   });
 
   it('refuses an expired pending review', async () => {
-    const res = await recordReviewDecision(mockEnv({ decision: null, expires_at: PAST }), 'rev1', 'approve', NOW);
+    const res = await recordReviewDecision(
+      mockEnv({ decision: null, expires_at: PAST }),
+      'rev1',
+      'approve',
+      NOW,
+    );
     expect(res.ok).toBe(false);
     expect(res.error).toContain('expired');
   });
@@ -128,12 +142,20 @@ describe('recordReviewDecision', () => {
 describe('getReviewLink', () => {
   function rowEnv(row: Record<string, unknown> | null): Env {
     return {
-      DB: { prepare: () => ({ bind: () => ({ all: async () => ({ results: row ? [row] : [] }) }) }) },
+      DB: {
+        prepare: () => ({ bind: () => ({ all: async () => ({ results: row ? [row] : [] }) }) }),
+      },
     } as unknown as Env;
   }
 
   it('returns the review row when found', async () => {
-    const row = { id: 'r1', site_id: 's1', agency_org_id: 'o1', decision: null, expires_at: FUTURE };
+    const row = {
+      id: 'r1',
+      site_id: 's1',
+      agency_org_id: 'o1',
+      decision: null,
+      expires_at: FUTURE,
+    };
     expect(await getReviewLink(rowEnv(row), 'r1')).toEqual(row);
   });
 
@@ -169,7 +191,15 @@ describe('createReviewLink', () => {
 
   it('returns ok:false with the error when the insert fails', async () => {
     const env = {
-      DB: { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('UNIQUE constraint'); } }) }) },
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            run: async () => {
+              throw new Error('UNIQUE constraint');
+            },
+          }),
+        }),
+      },
     } as unknown as Env;
     const res = await createReviewLink(env, 'o', 's', { nowMs });
     expect(res.ok).toBe(false);
@@ -202,9 +232,30 @@ describe('listReviewLinks', () => {
     const rows = await listReviewLinks(env, 'org-1', 'site-1', NOW);
 
     expect(rows).toEqual([
-      { id: 'a', status: 'pending', url: '/review/a', expiresAt: FUTURE, usedAt: null, passwordProtected: true },
-      { id: 'b', status: 'expired', url: '/review/b', expiresAt: PAST, usedAt: null, passwordProtected: false },
-      { id: 'c', status: 'approved', url: '/review/c', expiresAt: PAST, usedAt: NOW, passwordProtected: false },
+      {
+        id: 'a',
+        status: 'pending',
+        url: '/review/a',
+        expiresAt: FUTURE,
+        usedAt: null,
+        passwordProtected: true,
+      },
+      {
+        id: 'b',
+        status: 'expired',
+        url: '/review/b',
+        expiresAt: PAST,
+        usedAt: null,
+        passwordProtected: false,
+      },
+      {
+        id: 'c',
+        status: 'approved',
+        url: '/review/c',
+        expiresAt: PAST,
+        usedAt: NOW,
+        passwordProtected: false,
+      },
     ]);
     expect(captured.args).toEqual(['org-1', 'site-1']);
   });
@@ -251,7 +302,9 @@ describe('recordReviewComment', () => {
     // exactly one audit_logs INSERT fired (the comment was recorded)
     expect(audits.length).toBe(1);
     // the comment text round-trips inside the metadata_json bind
-    expect(audits[0]?.some((a) => typeof a === 'string' && a.includes('Looks great, ship it'))).toBe(true);
+    expect(
+      audits[0]?.some((a) => typeof a === 'string' && a.includes('Looks great, ship it')),
+    ).toBe(true);
   });
 
   it('returns not_found for a missing review', async () => {
@@ -321,7 +374,9 @@ describe('recordReviewDecision — audit on success', () => {
     const res = await recordReviewDecision(env, 'rev1', 'approve', NOW, 'approved with notes');
     expect(res).toEqual({ ok: true, status: 'approved' });
     expect(audits.length).toBe(1);
-    expect(audits[0]?.some((a) => typeof a === 'string' && a.includes('approved with notes'))).toBe(true);
+    expect(audits[0]?.some((a) => typeof a === 'string' && a.includes('approved with notes'))).toBe(
+      true,
+    );
   });
 });
 

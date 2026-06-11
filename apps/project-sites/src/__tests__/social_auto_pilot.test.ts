@@ -52,7 +52,14 @@ function makeEnv(): Env {
 
 /** Build an LLM result envelope with the given raw output string. */
 function llmResult(output: string) {
-  return { output, model_used: 'claude-sonnet-4-6', provider: 'anthropic', latency_ms: 1, token_count: 1, cost_estimate: 0 };
+  return {
+    output,
+    model_used: 'claude-sonnet-4-6',
+    provider: 'anthropic',
+    latency_ms: 1,
+    token_count: 1,
+    cost_estimate: 0,
+  };
 }
 
 beforeEach(() => {
@@ -260,7 +267,9 @@ describe('generateAutoPilotPostForNetwork', () => {
 
   it('renders the prompt template with site context and parses JSON output', async () => {
     mDbQueryOne.mockResolvedValueOnce(siteRow());
-    mLLM.mockResolvedValueOnce(llmResult(JSON.stringify({ text: '  Hook line here  ', mediaSuggestion: 'a photo' })));
+    mLLM.mockResolvedValueOnce(
+      llmResult(JSON.stringify({ text: '  Hook line here  ', mediaSuggestion: 'a photo' })),
+    );
 
     const out = await generateAutoPilotPostForNetwork(
       makeEnv(),
@@ -272,7 +281,12 @@ describe('generateAutoPilotPostForNetwork', () => {
     expect(out.text).toBe('Hook line here'); // trimmed
     expect(out.mediaSuggestion).toBe('a photo');
 
-    const opts = mLLM.mock.calls[0][1] as { system: string; jsonMode: boolean; model: string; provider: string };
+    const opts = mLLM.mock.calls[0][1] as {
+      system: string;
+      jsonMode: boolean;
+      model: string;
+      provider: string;
+    };
     expect(opts.system).toContain('Acme Co');
     expect(opts.system).toContain('small business');
     expect(opts.system).toContain('Based in 123 Main St.');
@@ -306,7 +320,12 @@ describe('generateAutoPilotPostForNetwork', () => {
     mDbQueryOne.mockResolvedValueOnce(null); // no site
     mLLM.mockResolvedValueOnce(llmResult(JSON.stringify({ text: 'ok' })));
 
-    await generateAutoPilotPostForNetwork(makeEnv(), 'org-1', 'bluesky', '{{business_name}} / {{recent_news}}');
+    await generateAutoPilotPostForNetwork(
+      makeEnv(),
+      'org-1',
+      'bluesky',
+      '{{business_name}} / {{recent_news}}',
+    );
     const opts = mLLM.mock.calls[0][1] as { system: string };
     expect(opts.system).toContain('our brand');
     expect(opts.system).toContain('No recent updates available.');
@@ -349,7 +368,10 @@ describe('runAutoPilotIfDue', () => {
     expect(mDbInsert).not.toHaveBeenCalled();
     expect(mDbUpdate).not.toHaveBeenCalled();
     // due query is parameterized with now + the default limit (10)
-    expect(mDbQuery).toHaveBeenCalledWith(db, expect.stringContaining('WHERE enabled = 1'), [FIXED_NOW, 10]);
+    expect(mDbQuery).toHaveBeenCalledWith(db, expect.stringContaining('WHERE enabled = 1'), [
+      FIXED_NOW,
+      10,
+    ]);
   });
 
   it('passes a custom limit through to the due query', async () => {
@@ -399,7 +421,12 @@ describe('runAutoPilotIfDue', () => {
   it('skips an org with empty/invalid target networks without bumping it', async () => {
     mDbQuery.mockResolvedValueOnce({
       data: [
-        { org_id: 'org-empty', prompt: 'p', cadence_hours: 24, target_networks_json: JSON.stringify([]) },
+        {
+          org_id: 'org-empty',
+          prompt: 'p',
+          cadence_hours: 24,
+          target_networks_json: JSON.stringify([]),
+        },
         { org_id: 'org-bad', prompt: 'p', cadence_hours: 24, target_networks_json: '{broken' },
       ],
     });
@@ -414,7 +441,14 @@ describe('runAutoPilotIfDue', () => {
 
   it('falls back to DEFAULT_AUTO_PILOT_PROMPT when the row prompt is empty', async () => {
     mDbQuery.mockResolvedValueOnce({
-      data: [{ org_id: 'org-D', prompt: '', cadence_hours: 24, target_networks_json: JSON.stringify(['twitter']) }],
+      data: [
+        {
+          org_id: 'org-D',
+          prompt: '',
+          cadence_hours: 24,
+          target_networks_json: JSON.stringify(['twitter']),
+        },
+      ],
     });
     mDbQueryOne.mockResolvedValue({ business_name: 'X', business_address: null });
     mLLM.mockResolvedValue(llmResult(JSON.stringify({ text: 'p' })));
@@ -439,7 +473,9 @@ describe('runAutoPilotIfDue', () => {
     });
     mDbQueryOne.mockResolvedValue({ business_name: 'X', business_address: null });
     // first network throws, second succeeds
-    mLLM.mockRejectedValueOnce(new Error('LLM down')).mockResolvedValueOnce(llmResult(JSON.stringify({ text: 'ok' })));
+    mLLM
+      .mockRejectedValueOnce(new Error('LLM down'))
+      .mockResolvedValueOnce(llmResult(JSON.stringify({ text: 'ok' })));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const out = await runAutoPilotIfDue(makeEnv());

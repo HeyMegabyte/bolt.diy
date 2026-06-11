@@ -51,20 +51,22 @@ export interface CopilotResult {
     [key: string]: string | undefined;
   };
   suggested_route: string;
-  transcript?: string;       // from Whisper, if audio provided
+  transcript?: string; // from Whisper, if audio provided
   image_description?: string; // from GPT-4o vision, if image provided
   latency: { whisper_ms: number; vision_ms: number; classify_ms: number; total_ms: number };
 }
 
 // ── Whisper STT ───────────────────────────────────────────────────────────────
 
-async function transcribeAudio(env: Env, audio: ArrayBuffer): Promise<{ text: string; ms: number }> {
+async function transcribeAudio(
+  env: Env,
+  audio: ArrayBuffer,
+): Promise<{ text: string; ms: number }> {
   const t0 = Date.now();
   try {
-    const response = await (env.AI.run as (model: string, opts: Record<string, unknown>) => Promise<{ text?: string }>)(
-      '@cf/openai/whisper-tiny-en',
-      { audio: [...new Uint8Array(audio)] },
-    );
+    const response = await (
+      env.AI.run as (model: string, opts: Record<string, unknown>) => Promise<{ text?: string }>
+    )('@cf/openai/whisper-tiny-en', { audio: [...new Uint8Array(audio)] });
     return { text: response?.text?.trim() ?? '', ms: Date.now() - t0 };
   } catch {
     return { text: '', ms: Date.now() - t0 };
@@ -74,7 +76,10 @@ async function transcribeAudio(env: Env, audio: ArrayBuffer): Promise<{ text: st
 // ── GPT-4o Vision ─────────────────────────────────────────────────────────────
 // Uses OpenAI directly when OPENAI_API_KEY is set; gracefully degrades otherwise.
 
-async function describeImage(env: Env, image: ArrayBuffer): Promise<{ description: string; ms: number }> {
+async function describeImage(
+  env: Env,
+  image: ArrayBuffer,
+): Promise<{ description: string; ms: number }> {
   const t0 = Date.now();
   if (!env.OPENAI_API_KEY) return { description: '', ms: 0 };
 
@@ -84,7 +89,10 @@ async function describeImage(env: Env, image: ArrayBuffer): Promise<{ descriptio
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         max_tokens: 200,
@@ -96,7 +104,10 @@ async function describeImage(env: Env, image: ArrayBuffer): Promise<{ descriptio
                 type: 'text',
                 text: 'Describe what you see in this image in 1-3 sentences. Focus on any visible service needs, problems, or requests a customer might have.',
               },
-              { type: 'image_url', image_url: { url: `data:${ext};base64,${base64}`, detail: 'low' } },
+              {
+                type: 'image_url',
+                image_url: { url: `data:${ext};base64,${base64}`, detail: 'low' },
+              },
             ],
           },
         ],
@@ -124,7 +135,10 @@ function detectMimeType(buffer: ArrayBuffer): string {
 async function classifyIntent(
   env: Env,
   combined: string,
-): Promise<{ result: Pick<CopilotResult, 'intent' | 'extracted_fields' | 'suggested_route'>; ms: number }> {
+): Promise<{
+  result: Pick<CopilotResult, 'intent' | 'extracted_fields' | 'suggested_route'>;
+  ms: number;
+}> {
   const t0 = Date.now();
   const prompt = `You are an AI that classifies visitor intent for a small business website.
 
@@ -148,10 +162,9 @@ ${combined}
 JSON:`;
 
   try {
-    const response = await (env.AI.run as (model: string, opts: Record<string, unknown>) => Promise<{ response?: string }>)(
-      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-      { prompt, max_tokens: 300 },
-    );
+    const response = await (
+      env.AI.run as (model: string, opts: Record<string, unknown>) => Promise<{ response?: string }>
+    )('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { prompt, max_tokens: 300 });
     const raw = (response?.response ?? '').trim();
     // Extract JSON from response (LLM sometimes wraps in markdown)
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -228,7 +241,12 @@ export async function processMultimodalIntent(
     ...result,
     transcript: transcript || undefined,
     image_description: imageDescription || undefined,
-    latency: { whisper_ms: whisperMs, vision_ms: visionMs, classify_ms: classifyMs, total_ms: totalMs },
+    latency: {
+      whisper_ms: whisperMs,
+      vision_ms: visionMs,
+      classify_ms: classifyMs,
+      total_ms: totalMs,
+    },
   };
 }
 
@@ -258,17 +276,27 @@ export async function saveCopilotSession(
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   )
     .bind(
-      id, orgId, siteId, siteSlug,
-      input.text ? 1 : 0, input.audio ? 1 : 0, input.image ? 1 : 0,
+      id,
+      orgId,
+      siteId,
+      siteSlug,
+      input.text ? 1 : 0,
+      input.audio ? 1 : 0,
+      input.image ? 1 : 0,
       result.transcript ?? null,
       result.image_description ?? null,
       result.intent,
       JSON.stringify(result.extracted_fields),
       result.suggested_route,
-      result.latency.whisper_ms, result.latency.vision_ms,
-      result.latency.classify_ms, result.latency.total_ms,
-      input.visitorId ?? null, input.anonId ?? null,
-      'done', now, now,
+      result.latency.whisper_ms,
+      result.latency.vision_ms,
+      result.latency.classify_ms,
+      result.latency.total_ms,
+      input.visitorId ?? null,
+      input.anonId ?? null,
+      'done',
+      now,
+      now,
     )
     .run()
     .catch(() => null);

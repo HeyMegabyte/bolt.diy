@@ -22,7 +22,7 @@ import { sha256Hex } from '@project-sites/shared';
 export interface VanityBusinessProfile {
   businessName: string;
   services?: string[];
-  location?: string;          // City or city+state
+  location?: string; // City or city+state
   usps?: string[];
   industry?: string;
 }
@@ -35,7 +35,7 @@ export interface VanityBusinessProfile {
  * `theme` lets the UI group suggestions (e.g. all `service` words together).
  */
 export interface VanitySuggestion {
-  word: string;               // ALL CAPS, 4-7 letters
+  word: string; // ALL CAPS, 4-7 letters
   rationale: string;
   theme: 'name' | 'service' | 'location' | 'usp' | 'memorable';
 }
@@ -158,11 +158,16 @@ function parseVanityJson(raw: string): VanitySuggestion[] {
     const items = Array.isArray(parsed.words) ? parsed.words : [];
     const out: VanitySuggestion[] = [];
     for (const item of items) {
-      const word = String(item.word ?? '').toUpperCase().replace(/[^A-Z]/g, '');
+      const word = String(item.word ?? '')
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '');
       if (word.length < 4 || word.length > 7) continue;
       const themeRaw = String(item.theme ?? 'memorable');
       const theme: VanitySuggestion['theme'] =
-        themeRaw === 'name' || themeRaw === 'service' || themeRaw === 'location' || themeRaw === 'usp'
+        themeRaw === 'name' ||
+        themeRaw === 'service' ||
+        themeRaw === 'location' ||
+        themeRaw === 'usp'
           ? themeRaw
           : 'memorable';
       out.push({
@@ -180,21 +185,12 @@ function parseVanityJson(raw: string): VanitySuggestion[] {
 // ─── fallback when Workers AI is unavailable ─────────────────────
 
 function heuristicFallback(p: VanityBusinessProfile): VanitySuggestion[] {
-  const seeds = [
-    p.businessName,
-    ...(p.services ?? []),
-    p.industry ?? '',
-    p.location ?? '',
-  ]
+  const seeds = [p.businessName, ...(p.services ?? []), p.industry ?? '', p.location ?? '']
     .join(' ')
     .toUpperCase()
     .replace(/[^A-Z ]/g, ' ');
   const tokens = Array.from(
-    new Set(
-      seeds
-        .split(/\s+/)
-        .filter((t) => t.length >= 4 && t.length <= 7),
-    ),
+    new Set(seeds.split(/\s+/).filter((t) => t.length >= 4 && t.length <= 7)),
   );
   const fallbacks = ['HELP', 'CALL', 'FAST', 'NEAR', 'BEST', 'PROS', 'SAVE', 'EASY'];
   const combined = [...tokens, ...fallbacks].slice(0, 12);

@@ -144,7 +144,9 @@ export async function replyToInbound(
 
   // 6. Send + persist outbound
   const sent = await safeSendSms(env, msg.toNumber, msg.fromNumber, replyText);
-  const outboundId = sent ? await persistOutbound(env, msg, sent.sid, replyText, inboundId) : undefined;
+  const outboundId = sent
+    ? await persistOutbound(env, msg, sent.sid, replyText, inboundId)
+    : undefined;
 
   // 7. Advance session
   ctx.turns.push({ role: 'user', content: msg.body, ts: Date.now() });
@@ -261,11 +263,10 @@ async function persistOutbound(
     ai_reply_id: inReplyToId,
   });
   // Back-link the inbound row to its AI reply id for easy timeline rendering.
-  await dbExecute(
-    env.DB,
-    `UPDATE voice_messages SET ai_reply_id = ? WHERE id = ?`,
-    [id, inReplyToId],
-  ).catch(() => undefined);
+  await dbExecute(env.DB, `UPDATE voice_messages SET ai_reply_id = ? WHERE id = ?`, [
+    id,
+    inReplyToId,
+  ]).catch(() => undefined);
   return id;
 }
 

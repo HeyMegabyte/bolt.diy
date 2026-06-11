@@ -110,11 +110,7 @@ function makeCtx(): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-function get(
-  app: Hono<{ Bindings: Env; Variables: Variables }>,
-  query: string,
-  env: Env,
-) {
+function get(app: Hono<{ Bindings: Env; Variables: Variables }>, query: string, env: Env) {
   return app.request(`/api/social/analytics/aggregate${query}`, { method: 'GET' }, env, makeCtx());
 }
 
@@ -240,9 +236,39 @@ describe('GET /api/social/analytics/aggregate', () => {
   // ── Aggregation ───────────────────────────────────────────────────────────
   it('sums per-platform posts/impressions/reach/engagement across snapshots', async () => {
     resolveSnapshots([
-      row({ publish_id: 'p1', platform: 'twitter', impressions: 100, reach: 80, likes: 5, comments: 1, shares: 2, clicks: 3, saves: 0 }),
-      row({ publish_id: 'p2', platform: 'twitter', impressions: 50, reach: 40, likes: 1, comments: 1, shares: 0, clicks: 0, saves: 1 }),
-      row({ publish_id: 'p3', platform: 'instagram', impressions: 200, reach: 150, likes: 10, comments: 4, shares: 1, clicks: 0, saves: 5 }),
+      row({
+        publish_id: 'p1',
+        platform: 'twitter',
+        impressions: 100,
+        reach: 80,
+        likes: 5,
+        comments: 1,
+        shares: 2,
+        clicks: 3,
+        saves: 0,
+      }),
+      row({
+        publish_id: 'p2',
+        platform: 'twitter',
+        impressions: 50,
+        reach: 40,
+        likes: 1,
+        comments: 1,
+        shares: 0,
+        clicks: 0,
+        saves: 1,
+      }),
+      row({
+        publish_id: 'p3',
+        platform: 'instagram',
+        impressions: 200,
+        reach: 150,
+        likes: 10,
+        comments: 4,
+        shares: 1,
+        clicks: 0,
+        saves: 5,
+      }),
     ]);
     const env = makeEnv();
     const res = await get(makeApp(AUTH), '', env);
@@ -265,7 +291,17 @@ describe('GET /api/social/analytics/aggregate', () => {
 
   it('treats null metric columns as zero in the aggregation', async () => {
     resolveSnapshots([
-      row({ publish_id: 'p1', platform: 'twitter', impressions: null, reach: null, likes: null, comments: null, shares: null, clicks: null, saves: null }),
+      row({
+        publish_id: 'p1',
+        platform: 'twitter',
+        impressions: null,
+        reach: null,
+        likes: null,
+        comments: null,
+        shares: null,
+        clicks: null,
+        saves: null,
+      }),
     ]);
     const env = makeEnv();
     const res = await get(makeApp(AUTH), '', env);
@@ -310,8 +346,26 @@ describe('GET /api/social/analytics/aggregate', () => {
   it('keeps the highest-scoring snapshot per publish_id and truncates content_preview to 200 chars', async () => {
     const longContent = 'x'.repeat(300);
     resolveSnapshots([
-      row({ publish_id: 'pub-1', content: longContent, impressions: 10, likes: 0, comments: 0, shares: 0, clicks: 0, saves: 0 }),
-      row({ publish_id: 'pub-1', content: longContent, impressions: 90, likes: 0, comments: 0, shares: 0, clicks: 0, saves: 0 }),
+      row({
+        publish_id: 'pub-1',
+        content: longContent,
+        impressions: 10,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        clicks: 0,
+        saves: 0,
+      }),
+      row({
+        publish_id: 'pub-1',
+        content: longContent,
+        impressions: 90,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        clicks: 0,
+        saves: 0,
+      }),
     ]);
     const env = makeEnv();
     const res = await get(makeApp(AUTH), '', env);

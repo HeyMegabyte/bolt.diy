@@ -41,7 +41,11 @@ const authed = () => authApp(mediaRoutes, { userId: 'u', orgId: 'org1' });
 const anon = () => authApp(mediaRoutes);
 const env = (bucket?: { get: (k: string) => Promise<unknown> }) =>
   ({ SITES_BUCKET: bucket ?? { get: async () => null } }) as never;
-const jsonReq = (b: unknown) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+const jsonReq = (b: unknown) => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(b),
+});
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -54,8 +58,12 @@ describe('GET /api/media/assets', () => {
     m.listAssets.mockResolvedValue([{ id: 'a1' }] as never);
     const res = await authed().request('/api/media/assets?kind=image&q=logo&limit=10', {}, env());
     expect(res.status).toBe(200);
-    expect((await res.json() as { assets: unknown[] }).assets).toHaveLength(1);
-    expect(m.listAssets).toHaveBeenCalledWith(expect.anything(), 'org1', expect.objectContaining({ kind: 'image', search: 'logo', limit: 10 }));
+    expect(((await res.json()) as { assets: unknown[] }).assets).toHaveLength(1);
+    expect(m.listAssets).toHaveBeenCalledWith(
+      expect.anything(),
+      'org1',
+      expect.objectContaining({ kind: 'image', search: 'logo', limit: 10 }),
+    );
   });
 });
 
@@ -79,13 +87,21 @@ describe('GET /api/media/assets/:id/raw', () => {
 
   it('404 when the underlying R2 object is missing', async () => {
     m.getAsset.mockResolvedValue({ r2_key: 'k', mime: 'image/png', size_bytes: 10 } as never);
-    const res = await authed().request('/api/media/assets/a1/raw', {}, env({ get: async () => null }));
+    const res = await authed().request(
+      '/api/media/assets/a1/raw',
+      {},
+      env({ get: async () => null }),
+    );
     expect(res.status).toBe(404);
   });
 
   it('200 streams the object with its content-type', async () => {
     m.getAsset.mockResolvedValue({ r2_key: 'k', mime: 'image/png', size_bytes: 3 } as never);
-    const res = await authed().request('/api/media/assets/a1/raw', {}, env({ get: async () => ({ body: 'abc', size: 3 }) }));
+    const res = await authed().request(
+      '/api/media/assets/a1/raw',
+      {},
+      env({ get: async () => ({ body: 'abc', size: 3 }) }),
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('image/png');
   });
@@ -105,25 +121,35 @@ describe('POST /api/media/upload', () => {
 describe('DELETE /api/media/assets/:id', () => {
   it('404 when the service reports "Asset not found"', async () => {
     m.softDeleteAsset.mockResolvedValue({ ok: false, error: 'Asset not found' } as never);
-    expect((await authed().request('/api/media/assets/x', { method: 'DELETE' }, env())).status).toBe(404);
+    expect(
+      (await authed().request('/api/media/assets/x', { method: 'DELETE' }, env())).status,
+    ).toBe(404);
   });
 
   it('200 on a successful soft delete', async () => {
     m.softDeleteAsset.mockResolvedValue({ ok: true } as never);
-    expect((await authed().request('/api/media/assets/a1', { method: 'DELETE' }, env())).status).toBe(200);
+    expect(
+      (await authed().request('/api/media/assets/a1', { method: 'DELETE' }, env())).status,
+    ).toBe(200);
   });
 });
 
 describe('POST /api/media/stock/search', () => {
   it('400 when query is blank', async () => {
-    expect((await authed().request('/api/media/stock/search', jsonReq({ query: '  ' }), env())).status).toBe(400);
+    expect(
+      (await authed().request('/api/media/stock/search', jsonReq({ query: '  ' }), env())).status,
+    ).toBe(400);
   });
 
   it('200 returns candidates', async () => {
     m.searchStock.mockResolvedValue([{ id: 's1' }] as never);
-    const res = await authed().request('/api/media/stock/search', jsonReq({ query: 'sunset' }), env());
+    const res = await authed().request(
+      '/api/media/stock/search',
+      jsonReq({ query: 'sunset' }),
+      env(),
+    );
     expect(res.status).toBe(200);
-    expect((await res.json() as { candidates: unknown[] }).candidates).toHaveLength(1);
+    expect(((await res.json()) as { candidates: unknown[] }).candidates).toHaveLength(1);
   });
 });
 
@@ -134,29 +160,50 @@ describe('POST /api/media/stock/save', () => {
 
   it('201 on save', async () => {
     m.saveStockToLibrary.mockResolvedValue({ id: 'a1' } as never);
-    expect((await authed().request('/api/media/stock/save', jsonReq({ candidate: { fullUrl: 'https://x/y.jpg' } }), env())).status).toBe(201);
+    expect(
+      (
+        await authed().request(
+          '/api/media/stock/save',
+          jsonReq({ candidate: { fullUrl: 'https://x/y.jpg' } }),
+          env(),
+        )
+      ).status,
+    ).toBe(201);
   });
 
   it('413 maps MEDIA_STOCK_TOO_LARGE → PAYLOAD_TOO_LARGE', async () => {
     m.saveStockToLibrary.mockRejectedValue(new Error('MEDIA_STOCK_TOO_LARGE: 30MB'));
-    const res = await authed().request('/api/media/stock/save', jsonReq({ candidate: { fullUrl: 'https://x/y.jpg' } }), env());
+    const res = await authed().request(
+      '/api/media/stock/save',
+      jsonReq({ candidate: { fullUrl: 'https://x/y.jpg' } }),
+      env(),
+    );
     expect(res.status).toBe(413);
   });
 });
 
 describe('POST /api/media/generate/image', () => {
   it('400 when prompt is blank', async () => {
-    expect((await authed().request('/api/media/generate/image', jsonReq({ prompt: '' }), env())).status).toBe(400);
+    expect(
+      (await authed().request('/api/media/generate/image', jsonReq({ prompt: '' }), env())).status,
+    ).toBe(400);
   });
 
   it('201 on success', async () => {
     m.generateImage.mockResolvedValue([{ id: 'a1' }] as never);
-    expect((await authed().request('/api/media/generate/image', jsonReq({ prompt: 'a cat' }), env())).status).toBe(201);
+    expect(
+      (await authed().request('/api/media/generate/image', jsonReq({ prompt: 'a cat' }), env()))
+        .status,
+    ).toBe(201);
   });
 
   it('503 maps MEDIA_OPENAI_NOT_CONFIGURED → OPENAI_NOT_CONFIGURED', async () => {
     m.generateImage.mockRejectedValue(new Error('MEDIA_OPENAI_NOT_CONFIGURED'));
-    const res = await authed().request('/api/media/generate/image', jsonReq({ prompt: 'a cat' }), env());
+    const res = await authed().request(
+      '/api/media/generate/image',
+      jsonReq({ prompt: 'a cat' }),
+      env(),
+    );
     expect(res.status).toBe(503);
   });
 });
@@ -164,34 +211,63 @@ describe('POST /api/media/generate/image', () => {
 describe('POST /api/media/generate/video', () => {
   it('202 (queued) on success', async () => {
     m.generateVideo.mockResolvedValue({ id: 'v1' } as never);
-    expect((await authed().request('/api/media/generate/video', jsonReq({ prompt: 'waves' }), env())).status).toBe(202);
+    expect(
+      (await authed().request('/api/media/generate/video', jsonReq({ prompt: 'waves' }), env()))
+        .status,
+    ).toBe(202);
   });
 });
 
 describe('POST /api/media/generate/podcast', () => {
   it('400 when title is missing', async () => {
-    expect((await authed().request('/api/media/generate/podcast', jsonReq({ script: [{ voice: 'a', text: 'hi' }] }), env())).status).toBe(400);
+    expect(
+      (
+        await authed().request(
+          '/api/media/generate/podcast',
+          jsonReq({ script: [{ voice: 'a', text: 'hi' }] }),
+          env(),
+        )
+      ).status,
+    ).toBe(400);
   });
 
   it('400 when the script is empty', async () => {
-    expect((await authed().request('/api/media/generate/podcast', jsonReq({ title: 'Ep 1', script: [] }), env())).status).toBe(400);
+    expect(
+      (
+        await authed().request(
+          '/api/media/generate/podcast',
+          jsonReq({ title: 'Ep 1', script: [] }),
+          env(),
+        )
+      ).status,
+    ).toBe(400);
   });
 
   it('201 on success', async () => {
     m.generatePodcast.mockResolvedValue({ id: 'p1' } as never);
-    const res = await authed().request('/api/media/generate/podcast', jsonReq({ title: 'Ep 1', script: [{ voice: 'a', text: 'hi' }] }), env());
+    const res = await authed().request(
+      '/api/media/generate/podcast',
+      jsonReq({ title: 'Ep 1', script: [{ voice: 'a', text: 'hi' }] }),
+      env(),
+    );
     expect(res.status).toBe(201);
   });
 });
 
 describe('POST /api/media/send-to-bolt', () => {
   it('400 when assetId is missing', async () => {
-    expect((await authed().request('/api/media/send-to-bolt', jsonReq({}), env())).status).toBe(400);
+    expect((await authed().request('/api/media/send-to-bolt', jsonReq({}), env())).status).toBe(
+      400,
+    );
   });
 
   it('404 maps MEDIA_ASSET_NOT_FOUND → NOT_FOUND', async () => {
     m.sendToBolt.mockRejectedValue(new Error('MEDIA_ASSET_NOT_FOUND'));
-    const res = await authed().request('/api/media/send-to-bolt', jsonReq({ assetId: 'ghost' }), env());
+    const res = await authed().request(
+      '/api/media/send-to-bolt',
+      jsonReq({ assetId: 'ghost' }),
+      env(),
+    );
     expect(res.status).toBe(404);
   });
 });

@@ -30,12 +30,7 @@ import { badRequest } from '@project-sites/shared';
 
 // ─── Public types ───────────────────────────────────────────────────────────
 
-export type WalletSubscriptionStatus =
-  | 'none'
-  | 'active'
-  | 'past_due'
-  | 'canceled'
-  | 'trialing';
+export type WalletSubscriptionStatus = 'none' | 'active' | 'past_due' | 'canceled' | 'trialing';
 
 export interface WalletTransaction {
   id: string;
@@ -60,7 +55,7 @@ export interface WalletState {
 export interface ChargeWalletParams {
   category: string;
   quantity: number;
-  base_cost_cents?: number;            // override cost for variable categories
+  base_cost_cents?: number; // override cost for variable categories
   reference_type: string;
   reference_id: string;
   metadata?: Record<string, unknown>;
@@ -605,13 +600,9 @@ export async function handleStripeEvent(
         metadata: { invoice_amount_paid: obj.amount_paid as number | undefined },
       });
       // Also flip status to active in case it was past_due.
-      await dbUpdate(
-        env.DB,
-        'wallet_accounts',
-        { subscription_status: 'active' },
-        'org_id = ?',
-        [orgId],
-      );
+      await dbUpdate(env.DB, 'wallet_accounts', { subscription_status: 'active' }, 'org_id = ?', [
+        orgId,
+      ]);
       return;
     }
 
@@ -658,13 +649,9 @@ export async function handleStripeEvent(
       });
       // The first invoice.paid usually fires immediately; if not, this ensures
       // the wallet at least has the customer-on-file recorded.
-      await dbUpdate(
-        env.DB,
-        'wallet_accounts',
-        { stripe_customer_id: customerId },
-        'org_id = ?',
-        [orgId],
-      );
+      await dbUpdate(env.DB, 'wallet_accounts', { stripe_customer_id: customerId }, 'org_id = ?', [
+        orgId,
+      ]);
       return;
     }
 
@@ -705,7 +692,10 @@ export async function handleStripeEvent(
       if (meta.purpose !== 'wallet_subscription') return;
       const status = obj.status as string;
       const mapped: 'active' | 'past_due' | 'canceled' | 'trialing' | 'inactive' =
-        status === 'active' || status === 'past_due' || status === 'canceled' || status === 'trialing'
+        status === 'active' ||
+        status === 'past_due' ||
+        status === 'canceled' ||
+        status === 'trialing'
           ? status
           : 'inactive';
       await syncSubscriptionStatus(env, {

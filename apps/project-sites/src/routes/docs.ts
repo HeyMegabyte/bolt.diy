@@ -63,7 +63,13 @@ function requireUser(c: DocsCtx): string | null {
   const userId = c.get('userId') as string | undefined;
   if (!userId) {
     c.res = c.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: (c.get('requestId') as string | undefined) ?? '' } },
+      {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+          request_id: (c.get('requestId') as string | undefined) ?? '',
+        },
+      },
       401,
     );
     return null;
@@ -151,19 +157,73 @@ interface OpenApiSchema {
  */
 const API_SURFACE: readonly ApiSurfaceRow[] = [
   // ─── health ───
-  { method: 'GET', path: '/health', summary: 'Liveness probe (KV + R2 latency)', tag: 'health', authRequired: false },
-  { method: 'GET', path: '/health/deep', summary: 'Deep health (KV + R2 + D1 + AI)', tag: 'health', authRequired: false },
+  {
+    method: 'GET',
+    path: '/health',
+    summary: 'Liveness probe (KV + R2 latency)',
+    tag: 'health',
+    authRequired: false,
+  },
+  {
+    method: 'GET',
+    path: '/health/deep',
+    summary: 'Deep health (KV + R2 + D1 + AI)',
+    tag: 'health',
+    authRequired: false,
+  },
 
   // ─── search (public) ───
-  { method: 'GET', path: '/api/search/businesses', summary: 'Google Places business search proxy (≤10 results)', tag: 'search', authRequired: false },
-  { method: 'GET', path: '/api/search/address', summary: 'Address autocomplete proxy', tag: 'search', authRequired: false },
-  { method: 'GET', path: '/api/sites/search', summary: 'Search pre-built sites (LIKE)', tag: 'search', authRequired: false },
-  { method: 'GET', path: '/api/sites/lookup', summary: 'Check whether a site exists for place_id/slug', tag: 'search', authRequired: false },
+  {
+    method: 'GET',
+    path: '/api/search/businesses',
+    summary: 'Google Places business search proxy (≤10 results)',
+    tag: 'search',
+    authRequired: false,
+  },
+  {
+    method: 'GET',
+    path: '/api/search/address',
+    summary: 'Address autocomplete proxy',
+    tag: 'search',
+    authRequired: false,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/search',
+    summary: 'Search pre-built sites (LIKE)',
+    tag: 'search',
+    authRequired: false,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/lookup',
+    summary: 'Check whether a site exists for place_id/slug',
+    tag: 'search',
+    authRequired: false,
+  },
 
   // ─── auth ───
-  { method: 'GET', path: '/api/auth/google', summary: 'Start Google OAuth flow', tag: 'auth', authRequired: false },
-  { method: 'GET', path: '/api/auth/google/callback', summary: 'Google OAuth callback', tag: 'auth', authRequired: false },
-  { method: 'GET', path: '/api/auth/magic-link/verify', summary: 'Verify magic link via email click', tag: 'auth', authRequired: false },
+  {
+    method: 'GET',
+    path: '/api/auth/google',
+    summary: 'Start Google OAuth flow',
+    tag: 'auth',
+    authRequired: false,
+  },
+  {
+    method: 'GET',
+    path: '/api/auth/google/callback',
+    summary: 'Google OAuth callback',
+    tag: 'auth',
+    authRequired: false,
+  },
+  {
+    method: 'GET',
+    path: '/api/auth/magic-link/verify',
+    summary: 'Verify magic link via email click',
+    tag: 'auth',
+    authRequired: false,
+  },
   {
     method: 'POST',
     path: '/api/auth/magic-link',
@@ -191,7 +251,12 @@ const API_SURFACE: readonly ApiSurfaceRow[] = [
       properties: { token: { type: 'string', description: 'Single-use magic-link token' } },
     },
   },
-  { method: 'GET', path: '/api/auth/me', summary: 'Current session — userId, orgId, email', tag: 'auth', authRequired: true,
+  {
+    method: 'GET',
+    path: '/api/auth/me',
+    summary: 'Current session — userId, orgId, email',
+    tag: 'auth',
+    authRequired: true,
     responseExample: { data: { user_id: 'uuid', org_id: 'uuid', email: 'you@example.com' } },
   },
 
@@ -214,63 +279,305 @@ const API_SURFACE: readonly ApiSurfaceRow[] = [
       },
     },
   },
-  { method: 'POST', path: '/api/sites', summary: 'Manually create a site', tag: 'sites', authRequired: true,
-    requestBody: { type: 'object', required: ['business_name'], properties: { business_name: { type: 'string' }, slug: { type: 'string' } } },
+  {
+    method: 'POST',
+    path: '/api/sites',
+    summary: 'Manually create a site',
+    tag: 'sites',
+    authRequired: true,
+    requestBody: {
+      type: 'object',
+      required: ['business_name'],
+      properties: { business_name: { type: 'string' }, slug: { type: 'string' } },
+    },
   },
-  { method: 'GET', path: '/api/slug/check', summary: 'Check slug availability', tag: 'sites', authRequired: true },
-  { method: 'GET', path: '/api/sites', summary: 'List sites owned by the current org', tag: 'sites', authRequired: true },
-  { method: 'GET', path: '/api/sites/{id}', summary: 'Fetch a single site by id', tag: 'sites', authRequired: true },
-  { method: 'GET', path: '/api/sites/{id}/workflow', summary: 'Read AI workflow status for a site', tag: 'sites', authRequired: true },
-  { method: 'GET', path: '/api/sites/{id}/logs', summary: 'Audit log for a single site', tag: 'sites', authRequired: true },
-  { method: 'POST', path: '/api/sites/{id}/reset', summary: 'Reset a site (kick off a rebuild)', tag: 'sites', authRequired: true },
-  { method: 'POST', path: '/api/sites/{id}/deploy', summary: 'Deploy a zip to a site', tag: 'sites', authRequired: true },
-  { method: 'POST', path: '/api/sites/{id}/publish-bolt', summary: 'Publish a build authored in the bolt editor', tag: 'sites', authRequired: true },
-  { method: 'DELETE', path: '/api/sites/{id}', summary: 'Soft-delete a site', tag: 'sites', authRequired: true },
-  { method: 'POST', path: '/api/sites/improve-prompt', summary: 'AI prompt-improvement assistant', tag: 'ai', authRequired: true },
-  { method: 'POST', path: '/api/sites/generate-prompt', summary: 'AI prompt-generation assistant', tag: 'ai', authRequired: true },
-  { method: 'POST', path: '/api/ai/categorize', summary: 'AI business categorisation', tag: 'ai', authRequired: true },
-  { method: 'POST', path: '/api/sites/autofill', summary: 'AI create-form autofill from a business name', tag: 'ai', authRequired: true },
-  { method: 'POST', path: '/api/contact-form/{slug}', summary: 'Submit a contact form to a generated site', tag: 'forms', authRequired: true },
-  { method: 'GET', path: '/api/sites/by-slug/{slug}/build-context', summary: 'Build-context blob for a site slug', tag: 'sites', authRequired: true },
-  { method: 'GET', path: '/api/sites/by-slug/{slug}/chat', summary: 'Chat context for a site slug', tag: 'sites', authRequired: true },
-  { method: 'GET', path: '/api/sites/by-slug/{slug}/research.json', summary: 'Research JSON for a site slug', tag: 'sites', authRequired: true },
+  {
+    method: 'GET',
+    path: '/api/slug/check',
+    summary: 'Check slug availability',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites',
+    summary: 'List sites owned by the current org',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/{id}',
+    summary: 'Fetch a single site by id',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/{id}/workflow',
+    summary: 'Read AI workflow status for a site',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/{id}/logs',
+    summary: 'Audit log for a single site',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/{id}/reset',
+    summary: 'Reset a site (kick off a rebuild)',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/{id}/deploy',
+    summary: 'Deploy a zip to a site',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/{id}/publish-bolt',
+    summary: 'Publish a build authored in the bolt editor',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'DELETE',
+    path: '/api/sites/{id}',
+    summary: 'Soft-delete a site',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/improve-prompt',
+    summary: 'AI prompt-improvement assistant',
+    tag: 'ai',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/generate-prompt',
+    summary: 'AI prompt-generation assistant',
+    tag: 'ai',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/ai/categorize',
+    summary: 'AI business categorisation',
+    tag: 'ai',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/autofill',
+    summary: 'AI create-form autofill from a business name',
+    tag: 'ai',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/contact-form/{slug}',
+    summary: 'Submit a contact form to a generated site',
+    tag: 'forms',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/by-slug/{slug}/build-context',
+    summary: 'Build-context blob for a site slug',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/by-slug/{slug}/chat',
+    summary: 'Chat context for a site slug',
+    tag: 'sites',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/sites/by-slug/{slug}/research.json',
+    summary: 'Research JSON for a site slug',
+    tag: 'sites',
+    authRequired: true,
+  },
 
   // ─── billing ───
-  { method: 'POST', path: '/api/billing/checkout', summary: 'Create a Stripe checkout session', tag: 'billing', authRequired: true,
-    requestBody: { type: 'object', required: ['price_id'], properties: { price_id: { type: 'string' }, success_url: { type: 'string' }, cancel_url: { type: 'string' } } },
+  {
+    method: 'POST',
+    path: '/api/billing/checkout',
+    summary: 'Create a Stripe checkout session',
+    tag: 'billing',
+    authRequired: true,
+    requestBody: {
+      type: 'object',
+      required: ['price_id'],
+      properties: {
+        price_id: { type: 'string' },
+        success_url: { type: 'string' },
+        cancel_url: { type: 'string' },
+      },
+    },
   },
-  { method: 'POST', path: '/api/billing/embedded-checkout', summary: 'Create an embedded Stripe checkout', tag: 'billing', authRequired: true },
-  { method: 'GET', path: '/api/billing/subscription', summary: 'Current subscription status', tag: 'billing', authRequired: true },
-  { method: 'GET', path: '/api/billing/entitlements', summary: 'Plan entitlements (limits + features)', tag: 'billing', authRequired: true },
-  { method: 'POST', path: '/api/billing/portal', summary: 'Stripe billing-portal session', tag: 'billing', authRequired: true },
+  {
+    method: 'POST',
+    path: '/api/billing/embedded-checkout',
+    summary: 'Create an embedded Stripe checkout',
+    tag: 'billing',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/billing/subscription',
+    summary: 'Current subscription status',
+    tag: 'billing',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/billing/entitlements',
+    summary: 'Plan entitlements (limits + features)',
+    tag: 'billing',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/billing/portal',
+    summary: 'Stripe billing-portal session',
+    tag: 'billing',
+    authRequired: true,
+  },
 
   // ─── hostnames ───
-  { method: 'GET', path: '/api/sites/{siteId}/hostnames', summary: 'List hostnames for a site', tag: 'hostnames', authRequired: true },
-  { method: 'POST', path: '/api/sites/{siteId}/hostnames', summary: 'Provision a custom hostname', tag: 'hostnames', authRequired: true,
-    requestBody: { type: 'object', required: ['hostname'], properties: { hostname: { type: 'string', example: 'www.example.com' } } },
+  {
+    method: 'GET',
+    path: '/api/sites/{siteId}/hostnames',
+    summary: 'List hostnames for a site',
+    tag: 'hostnames',
+    authRequired: true,
   },
-  { method: 'PUT', path: '/api/sites/{siteId}/hostnames/{hostnameId}/primary', summary: 'Set a hostname as primary', tag: 'hostnames', authRequired: true },
-  { method: 'POST', path: '/api/sites/{siteId}/hostnames/reset-primary', summary: 'Reset primary to the default sub-domain', tag: 'hostnames', authRequired: true },
-  { method: 'DELETE', path: '/api/sites/{siteId}/hostnames/{hostnameId}', summary: 'Delete a hostname', tag: 'hostnames', authRequired: true },
-  { method: 'POST', path: '/api/sites/{siteId}/hostnames/{hostnameId}/unsubscribe', summary: 'Unsubscribe (release) a hostname', tag: 'hostnames', authRequired: true },
+  {
+    method: 'POST',
+    path: '/api/sites/{siteId}/hostnames',
+    summary: 'Provision a custom hostname',
+    tag: 'hostnames',
+    authRequired: true,
+    requestBody: {
+      type: 'object',
+      required: ['hostname'],
+      properties: { hostname: { type: 'string', example: 'www.example.com' } },
+    },
+  },
+  {
+    method: 'PUT',
+    path: '/api/sites/{siteId}/hostnames/{hostnameId}/primary',
+    summary: 'Set a hostname as primary',
+    tag: 'hostnames',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/{siteId}/hostnames/reset-primary',
+    summary: 'Reset primary to the default sub-domain',
+    tag: 'hostnames',
+    authRequired: true,
+  },
+  {
+    method: 'DELETE',
+    path: '/api/sites/{siteId}/hostnames/{hostnameId}',
+    summary: 'Delete a hostname',
+    tag: 'hostnames',
+    authRequired: true,
+  },
+  {
+    method: 'POST',
+    path: '/api/sites/{siteId}/hostnames/{hostnameId}/unsubscribe',
+    summary: 'Unsubscribe (release) a hostname',
+    tag: 'hostnames',
+    authRequired: true,
+  },
 
   // ─── domains ───
-  { method: 'GET', path: '/api/domains/search', summary: 'Search for available domains', tag: 'domains', authRequired: true },
-  { method: 'POST', path: '/api/domains/purchase', summary: 'Purchase a domain', tag: 'domains', authRequired: true,
-    requestBody: { type: 'object', required: ['domain'], properties: { domain: { type: 'string' } } },
+  {
+    method: 'GET',
+    path: '/api/domains/search',
+    summary: 'Search for available domains',
+    tag: 'domains',
+    authRequired: true,
   },
-  { method: 'GET', path: '/api/admin/domains', summary: 'Admin: list every provisioned domain', tag: 'admin', authRequired: true },
+  {
+    method: 'POST',
+    path: '/api/domains/purchase',
+    summary: 'Purchase a domain',
+    tag: 'domains',
+    authRequired: true,
+    requestBody: {
+      type: 'object',
+      required: ['domain'],
+      properties: { domain: { type: 'string' } },
+    },
+  },
+  {
+    method: 'GET',
+    path: '/api/admin/domains',
+    summary: 'Admin: list every provisioned domain',
+    tag: 'admin',
+    authRequired: true,
+  },
 
   // ─── webhooks (public, signature-verified) ───
-  { method: 'POST', path: '/webhooks/stripe', summary: 'Stripe webhook (signature verified)', tag: 'webhooks', authRequired: false },
+  {
+    method: 'POST',
+    path: '/webhooks/stripe',
+    summary: 'Stripe webhook (signature verified)',
+    tag: 'webhooks',
+    authRequired: false,
+  },
 
   // ─── publish ───
-  { method: 'POST', path: '/api/publish/bolt', summary: 'Publish a build from the bolt editor', tag: 'sites', authRequired: true },
+  {
+    method: 'POST',
+    path: '/api/publish/bolt',
+    summary: 'Publish a build from the bolt editor',
+    tag: 'sites',
+    authRequired: true,
+  },
 
   // ─── docs (self) ───
-  { method: 'GET', path: '/api/admin/docs/openapi.json', summary: 'OpenAPI 3.1 spec for the entire API', tag: 'admin', category: 'Docs', authRequired: true },
-  { method: 'GET', path: '/api/admin/docs/app-overview', summary: 'Markdown walkthrough of the Angular SPA', tag: 'admin', category: 'Docs', authRequired: true },
-  { method: 'GET', path: '/api/admin/docs/stats', summary: 'Aggregate counts powering the Docs overview hero', tag: 'admin', category: 'Docs', authRequired: true, addedAt: '2026-05-24' },
+  {
+    method: 'GET',
+    path: '/api/admin/docs/openapi.json',
+    summary: 'OpenAPI 3.1 spec for the entire API',
+    tag: 'admin',
+    category: 'Docs',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/admin/docs/app-overview',
+    summary: 'Markdown walkthrough of the Angular SPA',
+    tag: 'admin',
+    category: 'Docs',
+    authRequired: true,
+  },
+  {
+    method: 'GET',
+    path: '/api/admin/docs/stats',
+    summary: 'Aggregate counts powering the Docs overview hero',
+    tag: 'admin',
+    category: 'Docs',
+    authRequired: true,
+    addedAt: '2026-05-24',
+  },
 ];
 
 /**
@@ -288,10 +595,20 @@ const ERROR_SCHEMA = {
         code: {
           type: 'string',
           enum: [
-            'BAD_REQUEST', 'UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'CONFLICT',
-            'PAYLOAD_TOO_LARGE', 'RATE_LIMITED', 'VALIDATION_ERROR', 'INTERNAL_ERROR',
-            'WEBHOOK_SIGNATURE_INVALID', 'WEBHOOK_DUPLICATE', 'STRIPE_ERROR',
-            'DOMAIN_PROVISIONING_ERROR', 'AI_GENERATION_ERROR',
+            'BAD_REQUEST',
+            'UNAUTHORIZED',
+            'FORBIDDEN',
+            'NOT_FOUND',
+            'CONFLICT',
+            'PAYLOAD_TOO_LARGE',
+            'RATE_LIMITED',
+            'VALIDATION_ERROR',
+            'INTERNAL_ERROR',
+            'WEBHOOK_SIGNATURE_INVALID',
+            'WEBHOOK_DUPLICATE',
+            'STRIPE_ERROR',
+            'DOMAIN_PROVISIONING_ERROR',
+            'AI_GENERATION_ERROR',
           ],
         },
         message: { type: 'string' },
@@ -304,7 +621,10 @@ const ERROR_SCHEMA = {
 /**
  * Standard responses block reused by every authenticated path.
  */
-function standardResponses(authRequired: boolean, successExample?: unknown): Record<string, unknown> {
+function standardResponses(
+  authRequired: boolean,
+  successExample?: unknown,
+): Record<string, unknown> {
   const responses: Record<string, unknown> = {
     '200': {
       description: 'Success',
@@ -315,14 +635,32 @@ function standardResponses(authRequired: boolean, successExample?: unknown): Rec
         },
       },
     },
-    '400': { description: 'Bad request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-    '429': { description: 'Rate limited', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-    '500': { description: 'Internal error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+    '400': {
+      description: 'Bad request',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+    },
+    '429': {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+    },
+    '500': {
+      description: 'Internal error',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+    },
   };
   if (authRequired) {
-    responses['401'] = { description: 'Authentication required', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
-    responses['403'] = { description: 'Forbidden', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
-    responses['404'] = { description: 'Not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
+    responses['401'] = {
+      description: 'Authentication required',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+    };
+    responses['403'] = {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+    };
+    responses['404'] = {
+      description: 'Not found',
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+    };
   }
   return responses;
 }
@@ -418,7 +756,8 @@ export function buildOpenApiSpec(): Record<string, unknown> {
         bearerAuth: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'Opaque session token (32 bytes hex) — issued by /api/auth/magic-link/verify',
+          bearerFormat:
+            'Opaque session token (32 bytes hex) — issued by /api/auth/magic-link/verify',
           description: 'Auto-attached by the Docs explorer using your signed-in session.',
         },
       },

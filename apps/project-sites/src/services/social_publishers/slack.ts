@@ -33,7 +33,13 @@ export const slack: Publisher = {
     }).toString()}`;
   },
   async exchangeCode(env, { code, redirectUri }) {
-    const creds = requireEnv(env, 'slack', 'https://api.slack.com/apps', 'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET');
+    const creds = requireEnv(
+      env,
+      'slack',
+      'https://api.slack.com/apps',
+      'SLACK_CLIENT_ID',
+      'SLACK_CLIENT_SECRET',
+    );
     const res = await fetch('https://slack.com/api/oauth.v2.access', {
       method: 'POST',
       headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -66,11 +72,21 @@ export const slack: Publisher = {
     const text = composeContent(post, 'slack');
     const res = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
-      headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=utf-8' },
+      headers: {
+        ...BROWSER_HEADERS,
+        Authorization: `Bearer ${account.access_token}`,
+        'Content-Type': 'application/json; charset=utf-8',
+      },
       body: JSON.stringify({ channel: channelId(account), text, unfurl_links: true }),
     });
     if (!res.ok) throw new Error(`slack_publish_failed:${res.status}`);
-    const data = (await res.json()) as { ok: boolean; ts?: string; channel?: string; permalink?: string; error?: string };
+    const data = (await res.json()) as {
+      ok: boolean;
+      ts?: string;
+      channel?: string;
+      permalink?: string;
+      error?: string;
+    };
     if (!data.ok) throw new Error(`slack_publish_err:${data.error}`);
     const teamId = (account.metadata?.team_id as string | undefined) ?? account.external_id ?? '';
     return {
@@ -86,7 +102,9 @@ export const slack: Publisher = {
       { headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${account.access_token}` } },
     );
     if (!res.ok) return emptyAnalytics({ status: res.status });
-    const data = (await res.json()) as { message?: { reactions?: Array<{ count?: number }>; reply_count?: number } };
+    const data = (await res.json()) as {
+      message?: { reactions?: Array<{ count?: number }>; reply_count?: number };
+    };
     const likes = (data.message?.reactions ?? []).reduce((a, r) => a + (r.count ?? 0), 0) || null;
     return {
       impressions: null,

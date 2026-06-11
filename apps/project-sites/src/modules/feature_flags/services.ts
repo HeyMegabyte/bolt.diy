@@ -38,7 +38,12 @@ export interface FlagScope {
 
 const KV_TTL = 60;
 
-async function fetchOverride(env: Env, scope: 'tenant' | 'org' | 'global', scopeId: string, flagKey: string): Promise<FlagOverrideRow | null> {
+async function fetchOverride(
+  env: Env,
+  scope: 'tenant' | 'org' | 'global',
+  scopeId: string,
+  flagKey: string,
+): Promise<FlagOverrideRow | null> {
   const row = await env.DB.prepare(
     `SELECT scope, scope_id, flag_key, value_json, expires_at FROM flag_overrides
      WHERE scope = ? AND scope_id = ? AND flag_key = ? AND deleted_at IS NULL
@@ -51,9 +56,17 @@ async function fetchOverride(env: Env, scope: 'tenant' | 'org' | 'global', scope
   return row ?? null;
 }
 
-function parseOverride(row: FlagOverrideRow, fallback: FlagDefinition, source: 'global' | 'org' | 'tenant'): FlagState {
+function parseOverride(
+  row: FlagOverrideRow,
+  fallback: FlagDefinition,
+  source: 'global' | 'org' | 'tenant',
+): FlagState {
   try {
-    const value = JSON.parse(row.value_json) as Partial<{ enabled: boolean; rollout_percent: number; stage: string }>;
+    const value = JSON.parse(row.value_json) as Partial<{
+      enabled: boolean;
+      rollout_percent: number;
+      stage: string;
+    }>;
     return {
       enabled: value.enabled ?? fallback.default_enabled,
       rollout_percent: value.rollout_percent ?? fallback.default_rollout_percent,
@@ -61,7 +74,12 @@ function parseOverride(row: FlagOverrideRow, fallback: FlagDefinition, source: '
       source,
     };
   } catch {
-    return { enabled: fallback.default_enabled, rollout_percent: fallback.default_rollout_percent, stage: fallback.stage, source };
+    return {
+      enabled: fallback.default_enabled,
+      rollout_percent: fallback.default_rollout_percent,
+      stage: fallback.stage,
+      source,
+    };
   }
 }
 
@@ -71,10 +89,16 @@ function parseOverride(row: FlagOverrideRow, fallback: FlagDefinition, source: '
  *
  * Killswitch stage forces `enabled=false` regardless of override or rollout.
  */
-export async function resolveFlag(env: Env, flagKey: string, scope: FlagScope = {}): Promise<FlagState> {
+export async function resolveFlag(
+  env: Env,
+  flagKey: string,
+  scope: FlagScope = {},
+): Promise<FlagState> {
   const def = FLAG_REGISTRY[flagKey];
-  if (!def) return { enabled: false, rollout_percent: 0, stage: 'experimental', source: 'registry' };
-  if (def.stage === 'killswitch') return { enabled: false, rollout_percent: 0, stage: 'killswitch', source: 'registry' };
+  if (!def)
+    return { enabled: false, rollout_percent: 0, stage: 'experimental', source: 'registry' };
+  if (def.stage === 'killswitch')
+    return { enabled: false, rollout_percent: 0, stage: 'killswitch', source: 'registry' };
 
   const cacheKey = `flag:${flagKey}:${scope.siteId ?? ''}:${scope.orgId ?? ''}`;
   const cached = await env.CACHE_KV.get(cacheKey, 'json').catch(() => null);
@@ -85,7 +109,9 @@ export async function resolveFlag(env: Env, flagKey: string, scope: FlagScope = 
     const row = await fetchOverride(env, 'tenant', scope.siteId, flagKey);
     if (row) {
       const state = parseOverride(row, def, 'tenant');
-      await env.CACHE_KV.put(cacheKey, JSON.stringify(state), { expirationTtl: KV_TTL }).catch(() => {});
+      await env.CACHE_KV.put(cacheKey, JSON.stringify(state), { expirationTtl: KV_TTL }).catch(
+        () => {},
+      );
       return state;
     }
   }
@@ -94,7 +120,9 @@ export async function resolveFlag(env: Env, flagKey: string, scope: FlagScope = 
     const row = await fetchOverride(env, 'org', scope.orgId, flagKey);
     if (row) {
       const state = parseOverride(row, def, 'org');
-      await env.CACHE_KV.put(cacheKey, JSON.stringify(state), { expirationTtl: KV_TTL }).catch(() => {});
+      await env.CACHE_KV.put(cacheKey, JSON.stringify(state), { expirationTtl: KV_TTL }).catch(
+        () => {},
+      );
       return state;
     }
   }
@@ -102,12 +130,21 @@ export async function resolveFlag(env: Env, flagKey: string, scope: FlagScope = 
   const globalRow = await fetchOverride(env, 'global', '*', flagKey);
   if (globalRow) {
     const state = parseOverride(globalRow, def, 'global');
-    await env.CACHE_KV.put(cacheKey, JSON.stringify(state), { expirationTtl: KV_TTL }).catch(() => {});
+    await env.CACHE_KV.put(cacheKey, JSON.stringify(state), { expirationTtl: KV_TTL }).catch(
+      () => {},
+    );
     return state;
   }
 
-  const fallback: FlagState = { enabled: def.default_enabled, rollout_percent: def.default_rollout_percent, stage: def.stage, source: 'registry' };
-  await env.CACHE_KV.put(cacheKey, JSON.stringify(fallback), { expirationTtl: KV_TTL }).catch(() => {});
+  const fallback: FlagState = {
+    enabled: def.default_enabled,
+    rollout_percent: def.default_rollout_percent,
+    stage: def.stage,
+    source: 'registry',
+  };
+  await env.CACHE_KV.put(cacheKey, JSON.stringify(fallback), { expirationTtl: KV_TTL }).catch(
+    () => {},
+  );
   return fallback;
 }
 

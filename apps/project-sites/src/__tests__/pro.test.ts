@@ -218,7 +218,9 @@ describe('requirePro middleware', () => {
     expect(nexted).toBe(false);
     expect(jsonCalls).toHaveLength(1);
     expect(jsonCalls[0].status).toBe(402);
-    const body = jsonCalls[0].body as { error: { code: string; upgrade_url: string; message: string } };
+    const body = jsonCalls[0].body as {
+      error: { code: string; upgrade_url: string; message: string };
+    };
     expect(body.error.code).toBe('PRO_REQUIRED');
     expect(body.error.upgrade_url).toBe(UPGRADE_URL);
     expect(body.error.message).toContain('Pro');

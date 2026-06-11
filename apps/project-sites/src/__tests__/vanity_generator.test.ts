@@ -14,10 +14,12 @@ import type { VanityBusinessProfile } from '../services/vanity_generator.js';
 
 // ── helpers ──────────────────────────────────────────────────────
 
-function makeKv(opts: {
-  get?: jest.Mock;
-  put?: jest.Mock;
-} = {}) {
+function makeKv(
+  opts: {
+    get?: jest.Mock;
+    put?: jest.Mock;
+  } = {},
+) {
   return {
     get: opts.get ?? jest.fn().mockResolvedValue(null),
     put: opts.put ?? jest.fn().mockResolvedValue(undefined),
@@ -119,7 +121,8 @@ describe('suggestVanityWords – AI happy path', () => {
   });
 
   it('strips ```json code fences before parsing', async () => {
-    const fenced = '```json\n' + JSON.stringify({ words: [{ word: 'FADE', theme: 'service' }] }) + '\n```';
+    const fenced =
+      '```json\n' + JSON.stringify({ words: [{ word: 'FADE', theme: 'service' }] }) + '\n```';
     const aiRun = jest.fn().mockResolvedValue({ response: fenced });
     const env = makeEnv(makeAi(aiRun), makeKv());
 
@@ -129,9 +132,9 @@ describe('suggestVanityWords – AI happy path', () => {
   });
 
   it('accepts a raw string AI response', async () => {
-    const aiRun = jest.fn().mockResolvedValue(
-      JSON.stringify({ words: [{ word: 'TRIM', theme: 'service' }] }),
-    );
+    const aiRun = jest
+      .fn()
+      .mockResolvedValue(JSON.stringify({ words: [{ word: 'TRIM', theme: 'service' }] }));
     const env = makeEnv(makeAi(aiRun), makeKv());
 
     const result = await suggestVanityWords(env, { siteId: 's', businessProfile: PROFILE });
@@ -157,9 +160,9 @@ describe('suggestVanityWords – AI happy path', () => {
 
   it('coerces an unknown theme to "memorable" and truncates long rationale', async () => {
     const longRationale = 'x'.repeat(400);
-    const aiRun = jest.fn().mockResolvedValue(
-      aiResponse([{ word: 'GLOW', theme: 'banana', rationale: longRationale }]),
-    );
+    const aiRun = jest
+      .fn()
+      .mockResolvedValue(aiResponse([{ word: 'GLOW', theme: 'banana', rationale: longRationale }]));
     const env = makeEnv(makeAi(aiRun), makeKv());
 
     const result = await suggestVanityWords(env, { siteId: 's', businessProfile: PROFILE });

@@ -21,10 +21,7 @@ import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from './db.js';
  * Uses the Web Crypto API available in Workers.
  */
 async function hashToken(raw: string): Promise<string> {
-  const buf = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(raw),
-  );
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
@@ -129,9 +126,9 @@ export const SITE_MCP_TOOLS: readonly McpToolDef[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        slug:        { type: 'string', description: 'Page slug' },
-        section_id:  { type: 'string', description: 'Section identifier' },
-        content:     { type: 'string', description: 'New HTML or markdown content' },
+        slug: { type: 'string', description: 'Page slug' },
+        section_id: { type: 'string', description: 'Section identifier' },
+        content: { type: 'string', description: 'New HTML or markdown content' },
       },
       required: ['slug', 'section_id', 'content'],
     },
@@ -142,8 +139,8 @@ export const SITE_MCP_TOOLS: readonly McpToolDef[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        slug:    { type: 'string', description: 'URL slug, e.g. "/new-page"' },
-        title:   { type: 'string', description: 'Page title' },
+        slug: { type: 'string', description: 'URL slug, e.g. "/new-page"' },
+        title: { type: 'string', description: 'Page title' },
         content: { type: 'string', description: 'Page content (HTML or markdown)' },
       },
       required: ['slug', 'title', 'content'],
@@ -171,9 +168,9 @@ export const SITE_MCP_TOOLS: readonly McpToolDef[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        title:   { type: 'string', description: 'Post title' },
+        title: { type: 'string', description: 'Post title' },
         content: { type: 'string', description: 'Post content (HTML or markdown)' },
-        slug:    { type: 'string', description: 'URL slug (optional — auto-generated if omitted)' },
+        slug: { type: 'string', description: 'URL slug (optional — auto-generated if omitted)' },
       },
       required: ['title', 'content'],
     },
@@ -266,9 +263,16 @@ async function handleUpdatePageSection(
   siteId: string,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const { slug, section_id, content } = args as { slug: string; section_id: string; content: string };
+  const { slug, section_id, content } = args as {
+    slug: string;
+    section_id: string;
+    content: string;
+  };
   if (!slug || !section_id || content === undefined) {
-    return { content: [{ type: 'text', text: 'slug, section_id, and content are required' }], isError: true };
+    return {
+      content: [{ type: 'text', text: 'slug, section_id, and content are required' }],
+      isError: true,
+    };
   }
   // Read the current page content, update the section, write back.
   const row = await dbQueryOne<{ id: string; content: string }>(
@@ -296,7 +300,10 @@ async function handleCreatePage(
 ): Promise<ToolResult> {
   const { slug, title, content } = args as { slug: string; title: string; content: string };
   if (!slug || !title || content === undefined) {
-    return { content: [{ type: 'text', text: 'slug, title, and content are required' }], isError: true };
+    return {
+      content: [{ type: 'text', text: 'slug, title, and content are required' }],
+      isError: true,
+    };
   }
   const id = crypto.randomUUID();
   await dbInsert(db, 'site_pages', { id, site_id: siteId, slug, title, content });
@@ -337,8 +344,12 @@ async function handleCreateBlogPost(
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   const { title, content } = args as { title: string; content: string };
-  const slug = (args.slug as string | undefined) ??
-    `/${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+  const slug =
+    (args.slug as string | undefined) ??
+    `/${title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')}`;
   if (!title || content === undefined) {
     return { content: [{ type: 'text', text: 'title and content are required' }], isError: true };
   }
@@ -347,10 +358,7 @@ async function handleCreateBlogPost(
   return { content: [{ type: 'text', text: `Blog post created: ${slug} (id: ${id})` }] };
 }
 
-async function handleGetAnalyticsSummary(
-  db: D1Database,
-  siteId: string,
-): Promise<ToolResult> {
+async function handleGetAnalyticsSummary(db: D1Database, siteId: string): Promise<ToolResult> {
   const { data } = await dbQuery<Record<string, unknown>>(
     db,
     `SELECT metric, SUM(value) AS total
@@ -360,7 +368,9 @@ async function handleGetAnalyticsSummary(
       ORDER BY metric`,
     [siteId],
   );
-  return { content: [{ type: 'text', text: JSON.stringify({ period: '30d', metrics: data }, null, 2) }] };
+  return {
+    content: [{ type: 'text', text: JSON.stringify({ period: '30d', metrics: data }, null, 2) }],
+  };
 }
 
 async function handleListMediaAssets(

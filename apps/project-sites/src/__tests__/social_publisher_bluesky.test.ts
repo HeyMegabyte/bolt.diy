@@ -10,12 +10,27 @@ import type { Env } from '../types/env.js';
 
 const ENV = {} as unknown as Env;
 const account = (over: Partial<SocialAccountCtx> = {}): SocialAccountCtx => ({
-  id: 'a1', org_id: 'o1', platform: 'bluesky', external_id: 'did:plc:xyz', handle: '@bob.bsky',
-  access_token: 'jwt', refresh_token: null, token_expires_at: null, scopes: null, metadata: {}, ...over,
+  id: 'a1',
+  org_id: 'o1',
+  platform: 'bluesky',
+  external_id: 'did:plc:xyz',
+  handle: '@bob.bsky',
+  access_token: 'jwt',
+  refresh_token: null,
+  token_expires_at: null,
+  scopes: null,
+  metadata: {},
+  ...over,
 });
 const post = (over: Partial<PostCtx> = {}): PostCtx => ({
-  id: 'p1', content: 'Hello bsky', per_platform_overrides: null, media_urls: [], hashtags: [],
-  mentions: [], link: null, ...over,
+  id: 'p1',
+  content: 'Hello bsky',
+  per_platform_overrides: null,
+  media_urls: [],
+  hashtags: [],
+  mentions: [],
+  link: null,
+  ...over,
 });
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
@@ -27,17 +42,23 @@ function mockFetch(r: {
 }) {
   const fn = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
-    if (u.includes('refreshSession')) return r.refresh?.() ?? json({ accessJwt: 'a2', refreshJwt: 'r2' });
-    if (u.includes('createSession')) return r.session?.() ?? json({ accessJwt: 'a', refreshJwt: 'r', did: 'd', handle: 'h' });
+    if (u.includes('refreshSession'))
+      return r.refresh?.() ?? json({ accessJwt: 'a2', refreshJwt: 'r2' });
+    if (u.includes('createSession'))
+      return r.session?.() ?? json({ accessJwt: 'a', refreshJwt: 'r', did: 'd', handle: 'h' });
     if (u.includes('getPostThread')) return r.thread?.() ?? json({ thread: { post: {} } });
-    if (u.includes('createRecord')) return r.create?.(init) ?? json({ uri: 'at://x/app.bsky.feed.post/k1', cid: 'c' });
+    if (u.includes('createRecord'))
+      return r.create?.(init) ?? json({ uri: 'at://x/app.bsky.feed.post/k1', cid: 'c' });
     throw new Error(`unexpected fetch: ${u}`);
   });
   global.fetch = fn as unknown as typeof fetch;
   return fn;
 }
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; jest.clearAllMocks(); });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.clearAllMocks();
+});
 
 describe('bluesky.publish', () => {
   it('creates a record and returns uri + bsky.app post URL', async () => {
@@ -49,7 +70,11 @@ describe('bluesky.publish', () => {
   });
   it('adds a link facet when the post has a link', async () => {
     const fn = mockFetch({ create: () => json({ uri: 'at://x/app.bsky.feed.post/k', cid: 'c' }) });
-    await bluesky.publish(ENV, account(), post({ content: 'see https://x.co/a', link: 'https://x.co/a' }));
+    await bluesky.publish(
+      ENV,
+      account(),
+      post({ content: 'see https://x.co/a', link: 'https://x.co/a' }),
+    );
     const body = JSON.parse(String((fn.mock.calls[0][1] as RequestInit).body)) as {
       record: { facets?: unknown[] };
     };
@@ -57,7 +82,9 @@ describe('bluesky.publish', () => {
   });
   it('throws when createRecord is not OK', async () => {
     mockFetch({ create: () => new Response('no', { status: 400 }) });
-    await expect(bluesky.publish(ENV, account(), post())).rejects.toThrow(/bluesky_publish_failed:400/);
+    await expect(bluesky.publish(ENV, account(), post())).rejects.toThrow(
+      /bluesky_publish_failed:400/,
+    );
   });
   it('refreshes an expired JWT before posting and fires onTokenRefresh', async () => {
     const onTokenRefresh = jest.fn().mockResolvedValue(undefined);
@@ -92,7 +119,10 @@ describe('bluesky.fetchAnalytics', () => {
 
 describe('blueskyLogin', () => {
   it('returns tokens + did + handle from a successful createSession', async () => {
-    mockFetch({ session: () => json({ accessJwt: 'A', refreshJwt: 'R', did: 'did:plc:1', handle: 'bob.bsky' }) });
+    mockFetch({
+      session: () =>
+        json({ accessJwt: 'A', refreshJwt: 'R', did: 'did:plc:1', handle: 'bob.bsky' }),
+    });
     const out = await blueskyLogin('bob.bsky', 'app-pass');
     expect(out.access_token).toBe('A');
     expect(out.refresh_token).toBe('R');

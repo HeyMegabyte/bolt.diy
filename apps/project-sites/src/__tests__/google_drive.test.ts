@@ -137,9 +137,7 @@ describe('google_drive — constants + buildAuthUrl', () => {
   it('builds a consent URL with all required OAuth params', () => {
     const url = buildAuthUrl(makeEnv(), 'state-xyz', 'https://app.test/cb');
     const parsed = new URL(url);
-    expect(parsed.origin + parsed.pathname).toBe(
-      'https://accounts.google.com/o/oauth2/v2/auth',
-    );
+    expect(parsed.origin + parsed.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth');
     expect(parsed.searchParams.get('client_id')).toBe('client-id-123');
     expect(parsed.searchParams.get('redirect_uri')).toBe('https://app.test/cb');
     expect(parsed.searchParams.get('response_type')).toBe('code');
@@ -178,9 +176,7 @@ describe('google_drive — exchangeCode', () => {
 
   it('propagates a network throw', async () => {
     mockFetch().mockRejectedValueOnce(new Error('ECONNRESET'));
-    await expect(exchangeCode(makeEnv(), 'c', 'https://app.test/cb')).rejects.toThrow(
-      'ECONNRESET',
-    );
+    await expect(exchangeCode(makeEnv(), 'c', 'https://app.test/cb')).rejects.toThrow('ECONNRESET');
   });
 });
 
@@ -229,12 +225,7 @@ describe('google_drive — persistTokens', () => {
   it('UPDATEs only the access column when no refresh token is returned', async () => {
     const { db, calls, queueFirst } = makeDbStub();
     queueFirst({ 1: 1 });
-    await persistTokens(
-      makeEnv(),
-      db,
-      'site-2',
-      tokenResponse({ refresh_token: undefined }),
-    );
+    await persistTokens(makeEnv(), db, 'site-2', tokenResponse({ refresh_token: undefined }));
     const update = calls.find((c) => c.sql.includes('UPDATE'));
     expect(update).toBeDefined();
     expect(update!.sql).toContain('drive_access_token_enc');
@@ -253,12 +244,7 @@ describe('google_drive — persistTokens', () => {
 
   it('INSERTs a null refresh column when no refresh token is returned', async () => {
     const { db, calls } = makeDbStub();
-    await persistTokens(
-      makeEnv(),
-      db,
-      'site-4',
-      tokenResponse({ refresh_token: undefined }),
-    );
+    await persistTokens(makeEnv(), db, 'site-4', tokenResponse({ refresh_token: undefined }));
     const insert = calls.find((c) => c.sql.includes('INSERT INTO ai_site_settings'));
     expect(insert).toBeDefined();
     expect(insert!.binds[2]).toBeNull();
@@ -345,9 +331,7 @@ describe('google_drive — listFolders', () => {
 
   it('throws on a non-200 folder list', async () => {
     mockFetch().mockResolvedValueOnce(fetchErr(403));
-    await expect(listFolders('tok', undefined)).rejects.toThrow(
-      'drive_list_folders_failed: 403',
-    );
+    await expect(listFolders('tok', undefined)).rejects.toThrow('drive_list_folders_failed: 403');
   });
 
   it('propagates a network throw', async () => {

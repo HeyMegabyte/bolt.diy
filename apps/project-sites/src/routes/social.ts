@@ -52,9 +52,16 @@ socialRoutes.get('/api/social/accounts', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
   const { data } = await dbQuery<{
-    id: string; platform: string; handle: string | null; display_name: string | null;
-    avatar_url: string | null; status: string; last_error: string | null; token_expires_at: string | null;
-    created_at: string; updated_at: string;
+    id: string;
+    platform: string;
+    handle: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+    status: string;
+    last_error: string | null;
+    token_expires_at: string | null;
+    created_at: string;
+    updated_at: string;
   }>(
     c.env.DB,
     `SELECT id, platform, handle, display_name, avatar_url, status, last_error,
@@ -83,7 +90,8 @@ socialRoutes.delete('/api/social/accounts/:id', async (c) => {
     [c.req.param('id'), ctx.orgId],
   );
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
-  if (changes === 0) return c.json({ error: { code: 'NOT_FOUND', message: 'account not found' } }, 404);
+  if (changes === 0)
+    return c.json({ error: { code: 'NOT_FOUND', message: 'account not found' } }, 404);
   return c.json({ data: { deleted: true } });
 });
 
@@ -91,22 +99,35 @@ socialRoutes.delete('/api/social/accounts/:id', async (c) => {
 
 const CreatePostSchema = z.object({
   content: z.string().min(1).max(10000),
-  per_platform_overrides: z.record(platformEnum, z.object({
-    content: z.string().max(10000).optional(),
-    alt: z.string().max(500).optional(),
-    subreddit: z.string().max(50).optional(),
-  })).optional(),
-  media_keys: z.array(z.object({
-    r2_key: z.string().max(500),
-    mime: z.string().max(100),
-    width: z.number().int().positive().optional(),
-    height: z.number().int().positive().optional(),
-    alt: z.string().max(500).optional(),
-    type: z.enum(['image', 'video']).optional(),
-  })).max(10).optional(),
+  per_platform_overrides: z
+    .record(
+      platformEnum,
+      z.object({
+        content: z.string().max(10000).optional(),
+        alt: z.string().max(500).optional(),
+        subreddit: z.string().max(50).optional(),
+      }),
+    )
+    .optional(),
+  media_keys: z
+    .array(
+      z.object({
+        r2_key: z.string().max(500),
+        mime: z.string().max(100),
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+        alt: z.string().max(500).optional(),
+        type: z.enum(['image', 'video']).optional(),
+      }),
+    )
+    .max(10)
+    .optional(),
   account_ids: z.array(z.string().uuid()).min(1).max(20),
   hashtags: z.array(z.string().min(1).max(80)).max(30).optional(),
-  mentions: z.array(z.object({ platform: platformEnum, handle: z.string().max(120) })).max(20).optional(),
+  mentions: z
+    .array(z.object({ platform: platformEnum, handle: z.string().max(120) }))
+    .max(20)
+    .optional(),
   link: z.string().url().max(2000).optional(),
   thread_id: z.string().uuid().optional(),
   site_id: z.string().uuid().optional(),
@@ -138,7 +159,10 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
     [...body.account_ids, ctx.orgId],
   );
   if (accounts.length !== body.account_ids.length) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'one or more account_ids invalid or inactive' } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: 'one or more account_ids invalid or inactive' } },
+      400,
+    );
   }
 
   const id = crypto.randomUUID();
@@ -151,7 +175,9 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
     status,
     scheduled_at: body.schedule_at ?? null,
     content: body.content,
-    per_platform_overrides: body.per_platform_overrides ? JSON.stringify(body.per_platform_overrides) : null,
+    per_platform_overrides: body.per_platform_overrides
+      ? JSON.stringify(body.per_platform_overrides)
+      : null,
     media_keys: body.media_keys ? JSON.stringify(body.media_keys) : null,
     account_ids: JSON.stringify(body.account_ids),
     hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
@@ -235,7 +261,10 @@ socialRoutes.patch('/api/social/posts/:id', zValidator('json', PatchPostSchema),
   );
   if (!existing) return c.json({ error: { code: 'NOT_FOUND', message: 'post not found' } }, 404);
   if (existing.status === 'published' || existing.status === 'publishing') {
-    return c.json({ error: { code: 'CONFLICT', message: `cannot edit ${existing.status} post` } }, 409);
+    return c.json(
+      { error: { code: 'CONFLICT', message: `cannot edit ${existing.status} post` } },
+      409,
+    );
   }
   const updates: Record<string, unknown> = {};
   if (body.content !== undefined) updates.content = body.content;
@@ -251,7 +280,10 @@ socialRoutes.patch('/api/social/posts/:id', zValidator('json', PatchPostSchema),
     updates.status = body.schedule_at ? 'scheduled' : 'draft';
   }
   if (Object.keys(updates).length === 0) return c.json({ data: { updated: false } });
-  const { error } = await dbUpdate(c.env.DB, 'pulse_posts', updates, 'id = ? AND org_id = ?', [c.req.param('id'), ctx.orgId]);
+  const { error } = await dbUpdate(c.env.DB, 'pulse_posts', updates, 'id = ? AND org_id = ?', [
+    c.req.param('id'),
+    ctx.orgId,
+  ]);
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
   return c.json({ data: { updated: true } });
 });
@@ -270,20 +302,28 @@ const ScheduleSchema = z.object({ scheduled_at: z.string().datetime() });
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
  */
-socialRoutes.post('/api/social/posts/:id/schedule', zValidator('json', ScheduleSchema), async (c) => {
-  const ctx = requireAuth(c);
-  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-  const { scheduled_at } = c.req.valid('json');
-  const { error, changes } = await dbExecute(
-    c.env.DB,
-    `UPDATE pulse_posts SET status = 'scheduled', scheduled_at = ?, updated_at = datetime('now')
+socialRoutes.post(
+  '/api/social/posts/:id/schedule',
+  zValidator('json', ScheduleSchema),
+  async (c) => {
+    const ctx = requireAuth(c);
+    if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+    const { scheduled_at } = c.req.valid('json');
+    const { error, changes } = await dbExecute(
+      c.env.DB,
+      `UPDATE pulse_posts SET status = 'scheduled', scheduled_at = ?, updated_at = datetime('now')
       WHERE id = ? AND org_id = ? AND deleted_at IS NULL AND status IN ('draft', 'scheduled')`,
-    [scheduled_at, c.req.param('id'), ctx.orgId],
-  );
-  if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
-  if (changes === 0) return c.json({ error: { code: 'NOT_FOUND', message: 'post not found or not editable' } }, 404);
-  return c.json({ data: { scheduled_at } });
-});
+      [scheduled_at, c.req.param('id'), ctx.orgId],
+    );
+    if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
+    if (changes === 0)
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'post not found or not editable' } },
+        404,
+      );
+    return c.json({ data: { scheduled_at } });
+  },
+);
 
 /**
  * `POST /api/social/posts/:id/publish-now` — Schedule the post to publish
@@ -303,7 +343,8 @@ socialRoutes.post('/api/social/posts/:id/publish-now', async (c) => {
     [when, c.req.param('id'), ctx.orgId],
   );
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
-  if (changes === 0) return c.json({ error: { code: 'NOT_FOUND', message: 'post not found or not editable' } }, 404);
+  if (changes === 0)
+    return c.json({ error: { code: 'NOT_FOUND', message: 'post not found or not editable' } }, 404);
   return c.json({ data: { scheduled_at: when } });
 });
 
@@ -324,7 +365,8 @@ socialRoutes.delete('/api/social/posts/:id', async (c) => {
     [c.req.param('id'), ctx.orgId],
   );
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
-  if (changes === 0) return c.json({ error: { code: 'NOT_FOUND', message: 'post not found' } }, 404);
+  if (changes === 0)
+    return c.json({ error: { code: 'NOT_FOUND', message: 'post not found' } }, 404);
   return c.json({ data: { deleted: true } });
 });
 
@@ -376,8 +418,15 @@ socialRoutes.get('/api/social/posts/:id/analytics', async (c) => {
   if (!post) return c.json({ error: { code: 'NOT_FOUND', message: 'post not found' } }, 404);
   // Aggregate the most recent snapshot per publish.
   const { data } = await dbQuery<{
-    publish_id: string; platform: string; impressions: number | null; reach: number | null;
-    likes: number | null; comments: number | null; shares: number | null; clicks: number | null; saves: number | null;
+    publish_id: string;
+    platform: string;
+    impressions: number | null;
+    reach: number | null;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    clicks: number | null;
+    saves: number | null;
     captured_at: string;
   }>(
     c.env.DB,
@@ -415,7 +464,12 @@ const AutoPilotConfigSchema = z
   .object({
     enabled: z.boolean().optional(),
     prompt: z.string().max(8000).optional(),
-    cadence_hours: z.number().int().min(1).max(24 * 30).optional(),
+    cadence_hours: z
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 30)
+      .optional(),
     target_networks: targetNetworksSchema.optional(),
   })
   .strict();
@@ -503,9 +557,15 @@ socialRoutes.post(
     if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
     const { network, prompt } = c.req.valid('json');
     const cfg = await loadAutoPilotConfig(c.env.DB, ctx.orgId);
-    const effectivePrompt = prompt && prompt.trim().length > 0 ? prompt : cfg.prompt || DEFAULT_AUTO_PILOT_PROMPT;
+    const effectivePrompt =
+      prompt && prompt.trim().length > 0 ? prompt : cfg.prompt || DEFAULT_AUTO_PILOT_PROMPT;
     try {
-      const result = await generateAutoPilotPostForNetwork(c.env, ctx.orgId, network, effectivePrompt);
+      const result = await generateAutoPilotPostForNetwork(
+        c.env,
+        ctx.orgId,
+        network,
+        effectivePrompt,
+      );
       return c.json({ data: result });
     } catch (err) {
       return c.json(
@@ -621,14 +681,23 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
   const { url, preview } = c.req.valid('json');
   if (!isSafeWebhookUrl(url)) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'Feed URL not allowed — use a public https feed.' } }, 400);
+    return c.json(
+      {
+        error: { code: 'BAD_REQUEST', message: 'Feed URL not allowed — use a public https feed.' },
+      },
+      400,
+    );
   }
   let xml: string;
   try {
     const res = await fetch(url, {
       headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
     });
-    if (!res.ok) return c.json({ error: { code: 'BAD_REQUEST', message: `Feed returned ${res.status}.` } }, 400);
+    if (!res.ok)
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: `Feed returned ${res.status}.` } },
+        400,
+      );
     xml = await res.text();
   } catch {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Could not fetch the feed.' } }, 400);
@@ -683,12 +752,19 @@ socialRoutes.post('/api/social/og-preview', zValidator('json', OgPreviewSchema),
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
   const { url } = c.req.valid('json');
   if (!isSafeWebhookUrl(url)) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'URL not allowed — use a public https URL.' } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: 'URL not allowed — use a public https URL.' } },
+      400,
+    );
   }
   let html: string;
   try {
     const res = await fetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
-    if (!res.ok) return c.json({ error: { code: 'BAD_REQUEST', message: `URL returned ${res.status}.` } }, 400);
+    if (!res.ok)
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: `URL returned ${res.status}.` } },
+        400,
+      );
     html = (await res.text()).slice(0, 512_000); // cap parse work at ~500KB of head/body
   } catch {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Could not fetch the URL.' } }, 400);

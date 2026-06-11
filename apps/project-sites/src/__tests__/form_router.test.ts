@@ -59,7 +59,9 @@ describe('parseRouterAction', () => {
   });
 
   it('strips bare ``` fences before parsing', () => {
-    const action = parseRouterAction('```\n{"tool":"add_to_mailchimp","args":{"email":"a@b.co"}}\n```');
+    const action = parseRouterAction(
+      '```\n{"tool":"add_to_mailchimp","args":{"email":"a@b.co"}}\n```',
+    );
     expect(action?.tool).toBe('add_to_mailchimp');
     expect(action?.args).toEqual({ email: 'a@b.co' });
   });
@@ -144,7 +146,11 @@ describe('buildPrompt', () => {
 
   it('caps reference material at 5 snippets', () => {
     const snippets = Array.from({ length: 8 }, (_, i) => `snip-${i}`);
-    const out = buildPrompt({ businessName: 'Acme', availableTools: [], contextSnippets: snippets });
+    const out = buildPrompt({
+      businessName: 'Acme',
+      availableTools: [],
+      contextSnippets: snippets,
+    });
     expect(out).toContain('snip-4');
     expect(out).not.toContain('snip-5');
   });
@@ -235,7 +241,9 @@ describe('executeRouterAction', () => {
 
   it('short-circuits on noop without touching fetch or MCP', async () => {
     const action: RouterAction = { tool: 'noop', reason: 'spam: empty email' };
-    const res = await executeRouterAction(baseEnv, 'site-1', action, { replyEmail: 'owner@acme.co' });
+    const res = await executeRouterAction(baseEnv, 'site-1', action, {
+      replyEmail: 'owner@acme.co',
+    });
     expect(res).toEqual({
       tool: 'noop',
       status: 'ok',
@@ -246,7 +254,12 @@ describe('executeRouterAction', () => {
   });
 
   it('noop with no reason reports a default reason', async () => {
-    const res = await executeRouterAction(baseEnv, 'site-1', { tool: 'noop' }, { replyEmail: 'o@acme.co' });
+    const res = await executeRouterAction(
+      baseEnv,
+      'site-1',
+      { tool: 'noop' },
+      { replyEmail: 'o@acme.co' },
+    );
     expect(res.detail).toEqual({ reason: 'no action' });
   });
 
@@ -255,7 +268,9 @@ describe('executeRouterAction', () => {
       tool: 'send_email',
       args: { subject: '[contact] hello', body: 'Name: Jane', reply_to: 'jane@x.co' },
     };
-    const res = await executeRouterAction(baseEnv, 'site-1', action, { replyEmail: 'owner@acme.co' });
+    const res = await executeRouterAction(baseEnv, 'site-1', action, {
+      replyEmail: 'owner@acme.co',
+    });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.resend.com/emails');
@@ -270,7 +285,12 @@ describe('executeRouterAction', () => {
   });
 
   it('defaults subject and body when send_email args are missing', async () => {
-    const res = await executeRouterAction(baseEnv, 'site-1', { tool: 'send_email' }, { replyEmail: 'o@acme.co' });
+    const res = await executeRouterAction(
+      baseEnv,
+      'site-1',
+      { tool: 'send_email' },
+      { replyEmail: 'o@acme.co' },
+    );
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.subject).toBe('New form submission');
     // body falls back to a JSON dump of the (empty) args
@@ -313,7 +333,12 @@ describe('executeRouterAction', () => {
   it('routes send_email through MCP when RESEND_API_KEY is absent', async () => {
     mockExecuteTool.mockResolvedValue({ ok: true, data: {} });
     const noKeyEnv = {} as any;
-    await executeRouterAction(noKeyEnv, 'site-1', { tool: 'send_email', args: {} }, { replyEmail: 'o@acme.co' });
+    await executeRouterAction(
+      noKeyEnv,
+      'site-1',
+      { tool: 'send_email', args: {} },
+      { replyEmail: 'o@acme.co' },
+    );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(mockExecuteTool).toHaveBeenCalledTimes(1);
   });
@@ -331,7 +356,12 @@ describe('executeRouterAction', () => {
 
   it('defaults arguments to an empty object when action.args is undefined', async () => {
     mockExecuteTool.mockResolvedValue({ ok: true, data: {} });
-    await executeRouterAction(baseEnv, 'site-1', { tool: 'open_github_issue' }, { replyEmail: null });
+    await executeRouterAction(
+      baseEnv,
+      'site-1',
+      { tool: 'open_github_issue' },
+      { replyEmail: null },
+    );
     expect(mockExecuteTool).toHaveBeenCalledWith(baseEnv, 'site-1', {
       name: 'open_github_issue',
       arguments: {},
@@ -351,7 +381,12 @@ describe('executeRouterAction', () => {
 
   it('defaults detail to {} when the MCP tool returns no data', async () => {
     mockExecuteTool.mockResolvedValue({ ok: true });
-    const res = await executeRouterAction(baseEnv, 'site-1', { tool: 'create_linear_issue' }, { replyEmail: null });
+    const res = await executeRouterAction(
+      baseEnv,
+      'site-1',
+      { tool: 'create_linear_issue' },
+      { replyEmail: null },
+    );
     expect(res.detail).toEqual({});
     expect(res.status).toBe('ok');
   });

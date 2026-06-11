@@ -45,13 +45,15 @@ interface MockEnv {
   r2Get: jest.Mock;
 }
 
-function makeEnv(opts: {
-  kvCached?: unknown;
-  kvGetThrows?: boolean;
-  kvPutThrows?: boolean;
-  r2Body?: unknown | null;
-  r2Throws?: boolean;
-} = {}): MockEnv {
+function makeEnv(
+  opts: {
+    kvCached?: unknown;
+    kvGetThrows?: boolean;
+    kvPutThrows?: boolean;
+    r2Body?: unknown | null;
+    r2Throws?: boolean;
+  } = {},
+): MockEnv {
   const kvGet = jest.fn(async () => {
     if (opts.kvGetThrows) throw new Error('kv down');
     return opts.kvCached ?? null;
@@ -196,9 +198,7 @@ describe('gatherProfileContext — cache layer', () => {
 
     expect(kvGet).toHaveBeenCalledWith(`profile_ctx:${SITE_ID}:v9`, 'json');
     expect(kvPut.mock.calls[0][0]).toBe(`profile_ctx:${SITE_ID}:v9`);
-    expect(kvPut.mock.calls[0][2]).toEqual(
-      expect.objectContaining({ expirationTtl: 3600 }),
-    );
+    expect(kvPut.mock.calls[0][2]).toEqual(expect.objectContaining({ expirationTtl: 3600 }));
   });
 
   it('falls back to the "unbuilt" cache suffix when no build version exists', async () => {
@@ -496,7 +496,9 @@ describe('gatherProfileContext — string-array normalization', () => {
     const { env } = makeEnv();
     wireDb({
       site: siteRow(),
-      confidence: [{ attribute_name: 'services', attribute_value: 'Cut; Color, Wash\nBeard', confidence: 0.5 }],
+      confidence: [
+        { attribute_name: 'services', attribute_value: 'Cut; Color, Wash\nBeard', confidence: 0.5 },
+      ],
     });
 
     const ctx = await gatherProfileContext(env, SITE_ID);
@@ -507,7 +509,9 @@ describe('gatherProfileContext — string-array normalization', () => {
     const { env } = makeEnv();
     wireDb({
       site: siteRow(),
-      confidence: [{ attribute_name: 'brand_colors', attribute_value: '["#0a0","#b0b"]', confidence: 0.5 }],
+      confidence: [
+        { attribute_name: 'brand_colors', attribute_value: '["#0a0","#b0b"]', confidence: 0.5 },
+      ],
     });
 
     const ctx = await gatherProfileContext(env, SITE_ID);
@@ -630,9 +634,7 @@ describe('gatherProfileContext — keyword derivation', () => {
     const { env } = makeEnv();
     wireDb({
       site: siteRow({ business_name: 'The Best Barber Shop' }),
-      confidence: [
-        { attribute_name: 'category', attribute_value: 'Barber', confidence: 0.9 },
-      ],
+      confidence: [{ attribute_name: 'category', attribute_value: 'Barber', confidence: 0.9 }],
       research: [
         {
           task_name: 'research-profile',

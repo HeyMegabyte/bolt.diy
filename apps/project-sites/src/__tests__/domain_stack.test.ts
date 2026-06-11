@@ -217,9 +217,7 @@ describe('advanceStackRun — control flow', () => {
   });
 
   it('transitions to the next state when the current step is already ok', async () => {
-    mockQueryOne.mockResolvedValue(
-      makeRun('register', { register: { ok: true, attempts: 1 } }),
-    );
+    mockQueryOne.mockResolvedValue(makeRun('register', { register: { ok: true, attempts: 1 } }));
     const run = await advanceStackRun(makeEnv(), 'run-1');
     // register already ok → advance to dns, persisted via dbUpdate
     expect(run.state).toBe('dns');
@@ -323,7 +321,9 @@ describe('step ssl', () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({ json: async () => ({ success: true, result: [] }) })
-      .mockResolvedValueOnce({ json: async () => ({ success: true, result: { ssl: { status: 'active' } } }) });
+      .mockResolvedValueOnce({
+        json: async () => ({ success: true, result: { ssl: { status: 'active' } } }),
+      });
     mockQueryOne.mockResolvedValue(makeRun('ssl', {}));
     const run = await advanceStackRun(makeEnv(), 'run-1');
     expect(run.state).toBe('email_auth');
@@ -333,7 +333,9 @@ describe('step ssl', () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({ json: async () => ({ success: true, result: [] }) })
-      .mockResolvedValueOnce({ json: async () => ({ success: true, result: { ssl: { status: 'pending_validation' } } }) });
+      .mockResolvedValueOnce({
+        json: async () => ({ success: true, result: { ssl: { status: 'pending_validation' } } }),
+      });
     mockQueryOne.mockResolvedValue(makeRun('ssl', {}));
     const run = await advanceStackRun(makeEnv(), 'run-1');
     expect(run.state).toBe('ssl');
@@ -344,7 +346,9 @@ describe('step ssl', () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({ json: async () => ({ success: true, result: [] }) })
-      .mockResolvedValueOnce({ json: async () => ({ success: false, errors: [{ message: 'limit reached' }] }) });
+      .mockResolvedValueOnce({
+        json: async () => ({ success: false, errors: [{ message: 'limit reached' }] }),
+      });
     mockQueryOne.mockResolvedValue(makeRun('ssl', {}));
     const run = await advanceStackRun(makeEnv(), 'run-1');
     expect(run.state).toBe('ssl');
@@ -352,7 +356,10 @@ describe('step ssl', () => {
   });
 
   it('retries when an existing hostname SSL is not yet active', async () => {
-    global.fetch = fetchJson({ success: true, result: [{ ssl: { status: 'pending_validation' } }] });
+    global.fetch = fetchJson({
+      success: true,
+      result: [{ ssl: { status: 'pending_validation' } }],
+    });
     mockQueryOne.mockResolvedValue(makeRun('ssl', {}));
     const run = await advanceStackRun(makeEnv(), 'run-1');
     expect(run.state).toBe('ssl');

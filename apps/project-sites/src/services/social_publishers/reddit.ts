@@ -18,21 +18,40 @@ const SCOPES = 'identity submit read';
 const UA_OVERRIDE = 'web:projectsites.dev:pulse-social:v1 (by /u/projectsites_bot)';
 
 async function refreshIfExpired(env: Env, account: SocialAccountCtx): Promise<void> {
-  if (account.token_expires_at && new Date(account.token_expires_at).getTime() > Date.now() + 60_000) return;
+  if (
+    account.token_expires_at &&
+    new Date(account.token_expires_at).getTime() > Date.now() + 60_000
+  )
+    return;
   if (!account.refresh_token) return;
-  const creds = requireEnv(env, 'reddit', 'https://www.reddit.com/prefs/apps', 'REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET');
+  const creds = requireEnv(
+    env,
+    'reddit',
+    'https://www.reddit.com/prefs/apps',
+    'REDDIT_CLIENT_ID',
+    'REDDIT_CLIENT_SECRET',
+  );
   const basic = btoa(`${creds.REDDIT_CLIENT_ID}:${creds.REDDIT_CLIENT_SECRET}`);
   const res = await fetch('https://www.reddit.com/api/v1/access_token', {
     method: 'POST',
-    headers: { ...BROWSER_HEADERS, 'User-Agent': UA_OVERRIDE, Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: account.refresh_token }).toString(),
+    headers: {
+      ...BROWSER_HEADERS,
+      'User-Agent': UA_OVERRIDE,
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: account.refresh_token,
+    }).toString(),
   });
   if (!res.ok) throw new Error(`reddit_refresh_failed:${res.status}`);
   const data = (await res.json()) as { access_token: string; expires_in: number };
   account.access_token = data.access_token;
   const exp = new Date(Date.now() + data.expires_in * 1000).toISOString();
   account.token_expires_at = exp;
-  if (account.onTokenRefresh) await account.onTokenRefresh({ access_token: data.access_token, expires_at: exp });
+  if (account.onTokenRefresh)
+    await account.onTokenRefresh({ access_token: data.access_token, expires_at: exp });
 }
 
 export const reddit: Publisher = {
@@ -49,17 +68,41 @@ export const reddit: Publisher = {
     }).toString()}`;
   },
   async exchangeCode(env, { code, redirectUri }) {
-    const creds = requireEnv(env, 'reddit', 'https://www.reddit.com/prefs/apps', 'REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET');
+    const creds = requireEnv(
+      env,
+      'reddit',
+      'https://www.reddit.com/prefs/apps',
+      'REDDIT_CLIENT_ID',
+      'REDDIT_CLIENT_SECRET',
+    );
     const basic = btoa(`${creds.REDDIT_CLIENT_ID}:${creds.REDDIT_CLIENT_SECRET}`);
     const res = await fetch('https://www.reddit.com/api/v1/access_token', {
       method: 'POST',
-      headers: { ...BROWSER_HEADERS, 'User-Agent': UA_OVERRIDE, Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }).toString(),
+      headers: {
+        ...BROWSER_HEADERS,
+        'User-Agent': UA_OVERRIDE,
+        Authorization: `Basic ${basic}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      }).toString(),
     });
     if (!res.ok) throw new Error(`reddit_exchange_failed:${res.status}`);
-    const data = (await res.json()) as { access_token: string; refresh_token: string; expires_in: number; scope: string };
+    const data = (await res.json()) as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+      scope: string;
+    };
     const meRes = await fetch('https://oauth.reddit.com/api/v1/me', {
-      headers: { ...BROWSER_HEADERS, 'User-Agent': UA_OVERRIDE, Authorization: `Bearer ${data.access_token}` },
+      headers: {
+        ...BROWSER_HEADERS,
+        'User-Agent': UA_OVERRIDE,
+        Authorization: `Bearer ${data.access_token}`,
+      },
     });
     const me = meRes.ok ? ((await meRes.json()) as { id?: string; name?: string }) : {};
     return {
@@ -105,11 +148,24 @@ export const reddit: Publisher = {
   async fetchAnalytics(env, account, externalPostId): Promise<AnalyticsSnapshot> {
     await refreshIfExpired(env, account);
     const res = await fetch(`https://oauth.reddit.com/api/info?id=${externalPostId}`, {
-      headers: { ...BROWSER_HEADERS, 'User-Agent': UA_OVERRIDE, Authorization: `Bearer ${account.access_token}` },
+      headers: {
+        ...BROWSER_HEADERS,
+        'User-Agent': UA_OVERRIDE,
+        Authorization: `Bearer ${account.access_token}`,
+      },
     });
     if (!res.ok) return emptyAnalytics({ status: res.status });
     const data = (await res.json()) as {
-      data?: { children?: Array<{ data?: { ups?: number; num_comments?: number; view_count?: number | null; score?: number } }> };
+      data?: {
+        children?: Array<{
+          data?: {
+            ups?: number;
+            num_comments?: number;
+            view_count?: number | null;
+            score?: number;
+          };
+        }>;
+      };
     };
     const post = data.data?.children?.[0]?.data ?? {};
     return {

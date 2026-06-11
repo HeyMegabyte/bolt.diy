@@ -39,7 +39,10 @@ describe('parseRssFeed', () => {
   });
 
   it('caps results at the limit', () => {
-    const items = Array.from({ length: 25 }, (_, i) => `<item><title>P${i}</title><link>https://x.com/${i}</link></item>`).join('');
+    const items = Array.from(
+      { length: 25 },
+      (_, i) => `<item><title>P${i}</title><link>https://x.com/${i}</link></item>`,
+    ).join('');
     expect(parseRssFeed(`<rss><channel>${items}</channel></rss>`, 10).length).toBe(10);
   });
 
@@ -62,10 +65,12 @@ describe('parseRssFeed', () => {
 
 describe('buildRssDraftRows', () => {
   it('maps items to draft payloads (content = title + url, link = url)', () => {
-    expect(buildRssDraftRows([
-      { title: 'First', url: 'https://x.com/a' },
-      { title: 'Second', url: 'https://x.com/b' },
-    ])).toEqual([
+    expect(
+      buildRssDraftRows([
+        { title: 'First', url: 'https://x.com/a' },
+        { title: 'Second', url: 'https://x.com/b' },
+      ]),
+    ).toEqual([
       { content: 'First\n\nhttps://x.com/a', link: 'https://x.com/a' },
       { content: 'Second\n\nhttps://x.com/b', link: 'https://x.com/b' },
     ]);

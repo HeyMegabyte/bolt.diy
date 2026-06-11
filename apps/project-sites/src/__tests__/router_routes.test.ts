@@ -38,7 +38,11 @@ const env = {} as never;
 const post = (path: string, body?: unknown) =>
   features.request(
     path,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) },
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    },
     env,
   );
 const get = (path: string) => features.request(path, {}, env);
@@ -55,7 +59,7 @@ describe('POST /api/router/pick (ai_auto_router)', () => {
     mockIsFlagOn.mockResolvedValue(false);
     const res = await post('/api/router/pick', { prompt: 'x' });
     expect(res.status).toBe(404);
-    expect((await res.json() as { error: string }).error).toBe('not_found');
+    expect(((await res.json()) as { error: string }).error).toBe('not_found');
     expect(mockAutoRoute).not.toHaveBeenCalled();
   });
 

@@ -105,7 +105,10 @@ describe('webhooks_admin — gate', () => {
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND'); // never 403 — don't leak feature existence
-    expect(mockIsFlagOn).toHaveBeenCalledWith(env, 'outbound_webhooks', { siteId: SITE, orgId: 'org-1' });
+    expect(mockIsFlagOn).toHaveBeenCalledWith(env, 'outbound_webhooks', {
+      siteId: SITE,
+      orgId: 'org-1',
+    });
     expect(mockList).not.toHaveBeenCalled();
   });
 
@@ -123,7 +126,12 @@ describe('webhooks_admin — gate', () => {
   it('returns 404 when authenticated but orgId is absent', async () => {
     const env = makeEnv();
     // userId present, orgId missing → gate's `!orgId` short-circuits to 404.
-    const res = await req(makeApp({ userId: 'user-1' }), `/api/sites/${SITE}/webhooks`, { method: 'GET' }, env);
+    const res = await req(
+      makeApp({ userId: 'user-1' }),
+      `/api/sites/${SITE}/webhooks`,
+      { method: 'GET' },
+      env,
+    );
     expect(res.status).toBe(404);
     expect(mockList).not.toHaveBeenCalled();
   });
@@ -153,7 +161,12 @@ describe('GET /api/sites/:siteId/webhooks', () => {
 
   it('returns 200 with an empty list when no endpoints exist', async () => {
     mockList.mockResolvedValue([]);
-    const res = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks`, { method: 'GET' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks`,
+      { method: 'GET' },
+      makeEnv(),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; endpoints: unknown[] };
     expect(json.endpoints).toEqual([]);
@@ -167,7 +180,12 @@ describe('GET /api/sites/:siteId/webhooks/deliveries', () => {
     const deliveries = [{ id: 'dlv-1', status: 'success', responseStatus: 200 }];
     mockDeliveries.mockResolvedValue(deliveries);
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks/deliveries`, { method: 'GET' }, env);
+    const res = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks/deliveries`,
+      { method: 'GET' },
+      env,
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; deliveries: typeof deliveries };
     expect(json.ok).toBe(true);
@@ -176,7 +194,12 @@ describe('GET /api/sites/:siteId/webhooks/deliveries', () => {
   });
 
   it('is gated: 401 when unauthenticated', async () => {
-    const res = await req(makeApp(), `/api/sites/${SITE}/webhooks/deliveries`, { method: 'GET' }, makeEnv());
+    const res = await req(
+      makeApp(),
+      `/api/sites/${SITE}/webhooks/deliveries`,
+      { method: 'GET' },
+      makeEnv(),
+    );
     expect(res.status).toBe(401);
     expect(mockDeliveries).not.toHaveBeenCalled();
   });
@@ -190,7 +213,12 @@ describe('POST /api/sites/:siteId/webhooks', () => {
   it('returns 201 with id + secret on success (secret shown ONCE)', async () => {
     mockCreate.mockResolvedValue({ ok: true, id: 'ep-new', secret: 'whsec_abc123' });
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks`, jsonInit('POST', VALID), env);
+    const res = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks`,
+      jsonInit('POST', VALID),
+      env,
+    );
     expect(res.status).toBe(201);
     const json = (await res.json()) as { ok: boolean; id: string; secret: string };
     expect(json.ok).toBe(true);
@@ -250,7 +278,12 @@ describe('POST /api/sites/:siteId/webhooks', () => {
   it('returns 400 when the service rejects the endpoint', async () => {
     mockCreate.mockResolvedValue({ ok: false, errors: ['url host not allowed'] });
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks`, jsonInit('POST', VALID), env);
+    const res = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks`,
+      jsonInit('POST', VALID),
+      env,
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: { code?: string; details?: unknown } };
     expect(json.error?.code).toBe('BAD_REQUEST');
@@ -259,11 +292,21 @@ describe('POST /api/sites/:siteId/webhooks', () => {
 
   it('is gated: 401 unauthenticated, 404 flag-off — never reaches the service', async () => {
     const env = makeEnv();
-    const unauth = await req(makeApp(), `/api/sites/${SITE}/webhooks`, jsonInit('POST', VALID), env);
+    const unauth = await req(
+      makeApp(),
+      `/api/sites/${SITE}/webhooks`,
+      jsonInit('POST', VALID),
+      env,
+    );
     expect(unauth.status).toBe(401);
 
     mockIsFlagOn.mockResolvedValue(false);
-    const off = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks`, jsonInit('POST', VALID), env);
+    const off = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks`,
+      jsonInit('POST', VALID),
+      env,
+    );
     expect(off.status).toBe(404);
     expect(mockCreate).not.toHaveBeenCalled();
   });
@@ -275,7 +318,12 @@ describe('DELETE /api/sites/:siteId/webhooks/:id', () => {
   it('returns 200 when an owned endpoint is deleted', async () => {
     mockDelete.mockResolvedValue({ ok: true });
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks/ep-1`, { method: 'DELETE' }, env);
+    const res = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks/ep-1`,
+      { method: 'DELETE' },
+      env,
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean };
     expect(json.ok).toBe(true);
@@ -284,14 +332,24 @@ describe('DELETE /api/sites/:siteId/webhooks/:id', () => {
 
   it('returns 404 when the endpoint is missing or already deleted', async () => {
     mockDelete.mockResolvedValue({ ok: false });
-    const res = await req(makeApp(AUTH), `/api/sites/${SITE}/webhooks/ep-x`, { method: 'DELETE' }, makeEnv());
+    const res = await req(
+      makeApp(AUTH),
+      `/api/sites/${SITE}/webhooks/ep-x`,
+      { method: 'DELETE' },
+      makeEnv(),
+    );
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
   });
 
   it('is gated: 401 unauthenticated — never reaches the service', async () => {
-    const res = await req(makeApp(), `/api/sites/${SITE}/webhooks/ep-1`, { method: 'DELETE' }, makeEnv());
+    const res = await req(
+      makeApp(),
+      `/api/sites/${SITE}/webhooks/ep-1`,
+      { method: 'DELETE' },
+      makeEnv(),
+    );
     expect(res.status).toBe(401);
     expect(mockDelete).not.toHaveBeenCalled();
   });

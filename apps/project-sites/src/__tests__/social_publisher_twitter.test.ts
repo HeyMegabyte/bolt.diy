@@ -7,10 +7,7 @@
  * Establishes the reusable shape for covering the other 10 publishers.
  */
 import { twitter } from '../services/social_publishers/twitter.js';
-import type {
-  SocialAccountCtx,
-  PostCtx,
-} from '../services/social_publishers/types.js';
+import type { SocialAccountCtx, PostCtx } from '../services/social_publishers/types.js';
 import type { Env } from '../types/env.js';
 
 const ENV = { TWITTER_CLIENT_ID: 'cid', TWITTER_CLIENT_SECRET: 'sec' } as unknown as Env;
@@ -85,7 +82,9 @@ describe('twitter.publish', () => {
 
   it('throws when the tweets endpoint is not OK', async () => {
     mockFetch({ publish: () => new Response('bad', { status: 401 }) });
-    await expect(twitter.publish(ENV, account(), post())).rejects.toThrow(/twitter_publish_failed:401/);
+    await expect(twitter.publish(ENV, account(), post())).rejects.toThrow(
+      /twitter_publish_failed:401/,
+    );
   });
 });
 
@@ -114,7 +113,9 @@ describe('twitter token refresh (publish path)', () => {
       token_expires_at: new Date(Date.now() - 60_000).toISOString(),
       refresh_token: null,
     });
-    await expect(twitter.publish(ENV, acc, post())).rejects.toThrow(/twitter_refresh_token_missing/);
+    await expect(twitter.publish(ENV, acc, post())).rejects.toThrow(
+      /twitter_refresh_token_missing/,
+    );
   });
 });
 

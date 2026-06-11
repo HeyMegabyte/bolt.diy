@@ -265,12 +265,7 @@ describe('POST /api/bolt/sites/by-slug/:slug/chat-state', () => {
 
   it('returns 500 when the D1 write throws', async () => {
     const env = makeEnv({ DB: makeDb({ throws: true }) });
-    const res = await postJson(
-      makeApp(SESSION),
-      PATH('vitos'),
-      { chat_id: 'chat-9' },
-      env,
-    );
+    const res = await postJson(makeApp(SESSION), PATH('vitos'), { chat_id: 'chat-9' }, env);
     expect(res.status).toBe(500);
     expect(((await res.json()) as { error?: string }).error).toBe('persist_failed');
   });
@@ -377,7 +372,13 @@ describe('POST /api/bolt/vision-ocr', () => {
 
   it('returns 400 when the data URL is not a base64 image', async () => {
     const env = makeEnv();
-    const res = await postJson(makeApp(), PATH, { image_data_url: 'https://x.png' }, env, IFRAME_HEADER);
+    const res = await postJson(
+      makeApp(),
+      PATH,
+      { image_data_url: 'https://x.png' },
+      env,
+      IFRAME_HEADER,
+    );
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error?: string }).error).toBe('invalid_data_url');
   });
@@ -466,7 +467,10 @@ describe('POST /api/bolt/chat/suggest-prompts', () => {
       ],
     });
     const kv = makeKv();
-    const env = makeEnv({ CACHE_KV: kv, AI: makeAi({ response: '```json\n' + modelOut + '\n```' }) });
+    const env = makeEnv({
+      CACHE_KV: kv,
+      AI: makeAi({ response: '```json\n' + modelOut + '\n```' }),
+    });
     const res = await postJson(
       makeApp(SESSION),
       PATH,
