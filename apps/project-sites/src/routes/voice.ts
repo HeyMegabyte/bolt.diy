@@ -199,7 +199,7 @@ const purchaseBody = z.object({
 voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
   const { userId, orgId } = requireAuth(c);
   if (!isTwilioConfigured(c.env)) throw notConfigured();
-  const body = purchaseBody.parse(await c.req.json());
+  const body = purchaseBody.parse(await c.req.json().catch(() => ({})));
   await requireSiteMembership(c.env, body.siteId, orgId);
 
   // 3-number cap per site
@@ -574,7 +574,7 @@ voiceRoutes.get('/api/voice/agent-settings', async (c) => {
  */
 voiceRoutes.put('/api/voice/agent-settings', async (c) => {
   const { userId, orgId } = requireAuth(c);
-  const body = agentSettingsBody.parse(await c.req.json());
+  const body = agentSettingsBody.parse(await c.req.json().catch(() => ({})));
   await requireSiteMembership(c.env, body.siteId, orgId);
 
   const updates: Record<string, unknown> = {
@@ -640,7 +640,7 @@ const testSmsBody = z.object({
  */
 voiceRoutes.post('/api/voice/test/sms', async (c) => {
   const { orgId } = requireAuth(c);
-  const body = testSmsBody.parse(await c.req.json());
+  const body = testSmsBody.parse(await c.req.json().catch(() => ({})));
   const site = await requireSiteMembership(c.env, body.siteId, orgId);
 
   const settingsRow = await dbQueryOne<Record<string, unknown>>(
@@ -675,7 +675,7 @@ voiceRoutes.post('/api/voice/test/sms', async (c) => {
  */
 voiceRoutes.post('/api/voice/test/call-token', async (c) => {
   const { userId, orgId } = requireAuth(c);
-  const body = z.object({ siteId: z.string().min(1) }).parse(await c.req.json());
+  const body = z.object({ siteId: z.string().min(1) }).parse(await c.req.json().catch(() => ({})));
   await requireSiteMembership(c.env, body.siteId, orgId);
 
   const apiKey = (c.env.TWILIO_API_KEY ?? '').trim();

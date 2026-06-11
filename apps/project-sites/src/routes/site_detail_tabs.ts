@@ -124,7 +124,7 @@ tabs.post('/api/sites/:siteId/sql/exec', async (c) => {
 
   let body: { query: string };
   try {
-    body = SqlExecSchema.parse(await c.req.json());
+    body = SqlExecSchema.parse(await c.req.json().catch(() => ({})));
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : 'invalid body' }, 400);
   }

@@ -216,7 +216,7 @@ apps.get('/api/apps/instances', async (c) => {
  */
 apps.post('/api/apps/instances', async (c) => {
   const { userId, orgId } = requireAuth(c);
-  const body = createInstanceBody.parse(await c.req.json());
+  const body = createInstanceBody.parse(await c.req.json().catch(() => ({})));
   const app = catalogById(body.app_id);
   if (!app) throw badRequest(`Unknown app id '${body.app_id}'`);
 
@@ -462,7 +462,7 @@ apps.post('/api/apps/instances/:id/stop', async (c) => {
  */
 apps.patch('/api/apps/instances/:id/env', async (c) => {
   const { userId, orgId } = requireAuth(c);
-  const body = patchEnvBody.parse(await c.req.json());
+  const body = patchEnvBody.parse(await c.req.json().catch(() => ({})));
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
   if (!row) throw notFound('app_instance not found');
   const app = catalogById(row.app_slug);

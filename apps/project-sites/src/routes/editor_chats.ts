@@ -188,7 +188,7 @@ editorChats.post('/api/editor-chats', async (c) => {
 
   let body: z.infer<typeof createChatBody>;
   try {
-    body = createChatBody.parse(await c.req.json());
+    body = createChatBody.parse(await c.req.json().catch(() => ({})));
   } catch (err) {
     if (err instanceof z.ZodError) throw badRequest('Invalid body', { issues: err.issues });
     throw badRequest('Invalid JSON');
@@ -257,7 +257,7 @@ editorChats.post('/api/editor-chats/:chatId/messages', async (c) => {
 
   let body: z.infer<typeof appendMessageBody>;
   try {
-    body = appendMessageBody.parse(await c.req.json());
+    body = appendMessageBody.parse(await c.req.json().catch(() => ({})));
   } catch (err) {
     if (err instanceof z.ZodError) throw badRequest('Invalid body', { issues: err.issues });
     throw badRequest('Invalid JSON');
@@ -336,7 +336,7 @@ editorChats.post('/api/editor-chats/:chatId/stream', async (c) => {
 
   let body: z.infer<typeof streamBody>;
   try {
-    body = streamBody.parse(await c.req.json());
+    body = streamBody.parse(await c.req.json().catch(() => ({})));
   } catch (err) {
     if (err instanceof z.ZodError) throw badRequest('Invalid body', { issues: err.issues });
     throw badRequest('Invalid JSON');
