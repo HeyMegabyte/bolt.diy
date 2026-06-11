@@ -540,6 +540,31 @@ describe('getOrgEntitlements', () => {
       maxTeamSeats: 1,
     });
   });
+
+  // Revenue-integrity guard: a delinquent (past_due) or canceled subscriber whose
+  // `plan` column still reads 'paid' MUST lose premium entitlements — otherwise a
+  // failed payment leaves them on premium forever (direct revenue leak). The impl
+  // gates on `status === 'active'`; these lock that so a regression to a
+  // plan-only check can't silently keep delinquents premium.
+  it('returns FREE entitlements when paid but past_due (failed payment → premium revoked)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ plan: 'paid', status: 'past_due' });
+
+    const result = await getOrgEntitlements(mockDb, 'org_1');
+
+    expect(result.plan).toBe('free');
+    expect(result.topBarHidden).toBe(false);
+    expect(result.maxCustomDomains).toBe(0);
+    expect(result.analyticsEnabled).toBe(false);
+  });
+
+  it('returns FREE entitlements when paid but canceled (premium revoked on cancel)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ plan: 'paid', status: 'canceled' });
+
+    const result = await getOrgEntitlements(mockDb, 'org_1');
+
+    expect(result.plan).toBe('free');
+    expect(result.topBarHidden).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
