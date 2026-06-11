@@ -421,6 +421,44 @@ export const validateContactPath = (files: BuildFile[]): Violation[] => {
   ];
 };
 
+/**
+ * Per-route image-weight budget (CWV / LCP → conversion). A route whose total
+ * referenced internal image bytes exceed the budget ships slow — high LCP, poor
+ * mobile CWV — which measurably depresses conversion (a slow generated site
+ * earns the owner fewer leads → lower ROI → churn). `validateImageFormat`
+ * already flags a single oversized PNG; this catches the OTHER failure mode:
+ * many individually-OK images that sum to a heavy page. Warn (report mode), per
+ * route; non-route shells (404/500/offline) excluded. Budget per
+ * `quality-metrics.md` (images ≤ 500KB total/route).
+ */
+const IMAGE_WEIGHT_BUDGET = 500 * 1024;
+const isImageRef = (p: string) => /\.(png|jpe?g|webp|avif|gif|svg)$/i.test(p);
+export const validateImageWeightBudget = (files: BuildFile[]): Violation[] => {
+  const sizeByPath = new Map(files.map((f) => [f.path, f.size]));
+  const out: Violation[] = [];
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text || NON_ROUTE_HTML.test(file.path)) continue;
+    let total = 0;
+    const seen = new Set<string>();
+    for (const ref of collectRefs(file.text)) {
+      if (!isInternalRef(ref) || !isImageRef(ref)) continue;
+      const norm = normalizeRef(ref);
+      if (!norm || seen.has(norm)) continue;
+      seen.add(norm);
+      total += sizeByPath.get(norm) ?? 0;
+    }
+    if (total > IMAGE_WEIGHT_BUDGET) {
+      out.push({
+        code: 'image.route_weight_over_budget',
+        severity: 'warn',
+        message: `Route images total ${Math.round(total / 1024)}KB (budget ${IMAGE_WEIGHT_BUDGET / 1024}KB) — heavy page → high LCP → lower conversion.`,
+        file: file.path,
+      });
+    }
+  }
+  return out;
+};
+
 /** Sitemap — every <url> must have <lastmod>. */
 export const validateSitemapLastmod = (files: BuildFile[]): Violation[] => {
   const sitemap = files.find((f) => f.path === 'sitemap.xml');
@@ -713,6 +751,7 @@ export const validateBuildAst = async (
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
     ...validateContactPath(files),
+    ...validateImageWeightBudget(files),
     ...(typeof opts.sourceRouteCount === 'number'
       ? validateRouteCount(files, opts.sourceRouteCount)
       : []),
@@ -750,6 +789,7 @@ export const validateBuild = (
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
     ...validateContactPath(files),
+    ...validateImageWeightBudget(files),
     ...(typeof opts.sourceRouteCount === 'number'
       ? validateRouteCount(files, opts.sourceRouteCount)
       : []),

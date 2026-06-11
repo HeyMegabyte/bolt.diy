@@ -15,6 +15,7 @@ import {
   validateRequiredFiles,
   validateRouteCount,
   validateContactPath,
+  validateImageWeightBudget,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -499,5 +500,73 @@ describe('validateContactPath', () => {
 
   it('returns [] when there is no route HTML at all (nothing to judge)', () => {
     expect(validateContactPath([file('styles.css', 'body{}')])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateImageWeightBudget — per-route CWV/LCP weight (fire-57, P0-REV)
+// Many individually-OK images summing to a heavy page → high LCP → lower
+// conversion. Warn (report mode), per route. Budget 500KB/route.
+// ---------------------------------------------------------------------------
+describe('validateImageWeightBudget', () => {
+  const img = (p: string, kb: number) => file(p, undefined, kb * 1024);
+
+  it('warns when a route exceeds the 500KB image budget', () => {
+    const out = validateImageWeightBudget([
+      file('index.html', html('<img src="/a.jpg"><img src="/b.jpg"><img src="/c.jpg">')),
+      img('a.jpg', 250),
+      img('b.jpg', 250),
+      img('c.jpg', 100),
+    ]);
+    expect(out.length).toBe(1);
+    expect(out[0].code).toBe('image.route_weight_over_budget');
+    expect(out[0].severity).toBe('warn');
+    expect(out[0].file).toBe('index.html');
+  });
+
+  it('passes a route within budget', () => {
+    const out = validateImageWeightBudget([
+      file('index.html', html('<img src="/a.jpg"><img src="/b.jpg">')),
+      img('a.jpg', 150),
+      img('b.jpg', 150),
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('counts a repeated image only once', () => {
+    const out = validateImageWeightBudget([
+      file('index.html', html('<img src="/hero.jpg"><img src="/hero.jpg"><img src="/hero.jpg">')),
+      img('hero.jpg', 300), // 300KB once, not 900KB
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('ignores external + non-image refs', () => {
+    const out = validateImageWeightBudget([
+      file(
+        'index.html',
+        html('<img src="https://images.unsplash.com/x.jpg"><script src="/big.js"></script>'),
+      ),
+      img('big.js', 900), // a .js is not an image
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('excludes non-route shells (404/500/offline)', () => {
+    const out = validateImageWeightBudget([
+      file('404.html', html('<img src="/a.jpg">')),
+      img('a.jpg', 800),
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('flags each over-budget route independently', () => {
+    const out = validateImageWeightBudget([
+      file('index.html', html('<img src="/a.jpg">')),
+      file('gallery.html', html('<img src="/b.jpg">')),
+      img('a.jpg', 600),
+      img('b.jpg', 700),
+    ]);
+    expect(out.length).toBe(2);
   });
 });
