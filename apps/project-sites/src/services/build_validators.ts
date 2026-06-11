@@ -393,6 +393,34 @@ export const validateCanonical = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * Conversion-path integrity. A generated BUSINESS site must give visitors at
+ * least ONE way to act on / contact the business somewhere across its routes —
+ * a `tel:` / `mailto:` link, a `<form>`, or a contact / booking link
+ * (`/contact`, `/book`, `/appointment`, `/schedule`, `/quote`, calendly,
+ * cal.com, wa.me). A site with NO reachable contact affordance anywhere
+ * converts $0 for the owner → the owner sees no ROI → churns (Retention).
+ * Site-level warn (report mode): emit ONE violation only when the ENTIRE site
+ * lacks any affordance — per-page would false-positive on `/about` etc.
+ * Non-route shells (404 / 500 / offline) are excluded from the judgement.
+ */
+const CONTACT_AFFORDANCE =
+  /href=["']\s*(?:tel:|mailto:)|<form[\s>]|href=["'][^"']*(?:\/contact|\/book|\/appointment|\/schedule|\/quote|calendly\.com|cal\.com|wa\.me)/i;
+export const validateContactPath = (files: BuildFile[]): Violation[] => {
+  const routeHtml = files.filter((f) => isHtml(f.path) && f.text && !NON_ROUTE_HTML.test(f.path));
+  if (routeHtml.length === 0) return [];
+  const hasAffordance = routeHtml.some((f) => CONTACT_AFFORDANCE.test(f.text!));
+  if (hasAffordance) return [];
+  return [
+    {
+      code: 'conversion.contact_path_missing',
+      severity: 'warn',
+      message:
+        'No contact/conversion affordance found anywhere on the site (tel:/mailto:/<form>/contact|booking link) — visitors have no way to act, so the site converts $0 for the business owner.',
+    },
+  ];
+};
+
 /** Sitemap — every <url> must have <lastmod>. */
 export const validateSitemapLastmod = (files: BuildFile[]): Violation[] => {
   const sitemap = files.find((f) => f.path === 'sitemap.xml');
@@ -684,6 +712,7 @@ export const validateBuildAst = async (
     ...astBanned,
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
+    ...validateContactPath(files),
     ...(typeof opts.sourceRouteCount === 'number'
       ? validateRouteCount(files, opts.sourceRouteCount)
       : []),
@@ -720,6 +749,7 @@ export const validateBuild = (
     ...validateBannedWords(files),
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
+    ...validateContactPath(files),
     ...(typeof opts.sourceRouteCount === 'number'
       ? validateRouteCount(files, opts.sourceRouteCount)
       : []),

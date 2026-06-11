@@ -14,6 +14,7 @@ import {
   validateLightboxPresence,
   validateRequiredFiles,
   validateRouteCount,
+  validateContactPath,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -439,5 +440,64 @@ describe('validateCanonical — per-route self-referencing canonical (no site-wi
     ]);
     // Only index.html is a route → no collapse, no missing.
     expect(out.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateContactPath — conversion-path integrity (fire-56, P0-REV Quality×5)
+// A generated business site with NO way to contact/act converts $0 for the
+// owner → the owner sees no ROI → churns. Site-level warn (report mode).
+// ---------------------------------------------------------------------------
+describe('validateContactPath', () => {
+  it('warns when the whole site has no contact/conversion affordance', () => {
+    const out = validateContactPath([
+      file('index.html', html('<p>We make great bread.</p>')),
+      file('about.html', html('<p>Our story since 1990.</p>')),
+    ]);
+    expect(out.length).toBe(1);
+    expect(out[0].code).toBe('conversion.contact_path_missing');
+    expect(out[0].severity).toBe('warn');
+  });
+
+  it('passes when a tel: link exists somewhere on the site', () => {
+    const out = validateContactPath([
+      file('index.html', html('<p>Call us</p>')),
+      file('contact.html', html('<a href="tel:+15551234567">Call</a>')),
+    ]);
+    expect(out.length).toBe(0);
+  });
+
+  it('passes when a mailto: link exists', () => {
+    const out = validateContactPath([
+      file('index.html', html('<a href="mailto:hi@acme.com">Email</a>')),
+    ]);
+    expect(out.length).toBe(0);
+  });
+
+  it('passes when a <form> exists (contact form)', () => {
+    const out = validateContactPath([
+      file('index.html', html('<form action="/api/contact"><input name="email"></form>')),
+    ]);
+    expect(out.length).toBe(0);
+  });
+
+  it('passes when a booking/contact link exists (calendly / /book / /contact)', () => {
+    const out = validateContactPath([
+      file('index.html', html('<a href="https://calendly.com/acme">Book</a>')),
+    ]);
+    expect(out.length).toBe(0);
+  });
+
+  it('ignores non-route shells (404/500/offline) when judging affordance presence', () => {
+    // The only affordance is on a 404 shell → still counts as "site has none".
+    const out = validateContactPath([
+      file('index.html', html('<p>Home</p>')),
+      file('404.html', html('<a href="tel:+15551234567">Call</a>')),
+    ]);
+    expect(out.length).toBe(1);
+  });
+
+  it('returns [] when there is no route HTML at all (nothing to judge)', () => {
+    expect(validateContactPath([file('styles.css', 'body{}')])).toEqual([]);
   });
 });
