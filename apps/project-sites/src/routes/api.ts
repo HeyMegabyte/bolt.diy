@@ -786,7 +786,8 @@ api.get('/api/auth/me', async (c) => {
  * @see {@link dbInsert}
  */
 api.post('/api/sites', async (c) => {
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (createSiteSchema required fields), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const validated = createSiteSchema.parse(body);
 
   const orgId = c.get('orgId');
@@ -1874,7 +1875,8 @@ api.get('/api/sites/:siteId/hostnames', async (c) => {
  * @see {@link https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/ CF for SaaS}
  */
 api.post('/api/sites/:siteId/hostnames', async (c) => {
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (createHostnameSchema required fields), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
@@ -5284,7 +5286,8 @@ api.post('/api/domains/suggest/refine', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (suggestRefineSchema required fields), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const parsed = suggestRefineSchema.parse(body);
 
   const site = await dbQueryOne<{ id: string }>(
@@ -10036,7 +10039,8 @@ api.post('/api/billing/spend-alerts', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const { createSpendAlertSchema: cas } = await import('@project-sites/shared/schemas');
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (createSpendAlertSchema required fields), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const parsed = cas.parse(body);
 
   const id = crypto.randomUUID();
