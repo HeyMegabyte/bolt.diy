@@ -233,7 +233,10 @@ const importFromUrlSchema = z.object({
  * @see {@link ../services/auth.ts | authService.createMagicLink}
  */
 api.post('/api/auth/magic-link', async (c) => {
-  const body = await c.req.json();
+  // `.catch(() => ({}))`: a malformed REQUEST body is a client 400 (falls
+  // through to the same ZodError the schema raises on a missing `email`), not
+  // an uncaught SyntaxError → 500 on this public endpoint.
+  const body = await c.req.json().catch(() => ({}));
   const validated = createMagicLinkSchema.parse(body);
   const result = await authService.createMagicLink(c.env.DB, c.env, validated);
   posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'requested', validated.email);
@@ -375,7 +378,8 @@ api.get('/api/auth/magic-link/verify', async (c) => {
  * Worker.
  */
 api.post('/api/auth/magic-link/verify', async (c) => {
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (missing `token`), not SyntaxError 500.
+  const body = await c.req.json().catch(() => ({}));
   const validated = verifyMagicLinkSchema.parse(body);
   const result = await authService.verifyMagicLink(c.env.DB, validated);
 
@@ -1364,7 +1368,8 @@ api.get('/api/sites/:id/workflow', async (c) => {
  * @see {@link billingService.createCheckoutSession}
  */
 api.post('/api/billing/checkout', async (c) => {
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (missing success_url/cancel_url), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const validated = createCheckoutSessionSchema.parse(body);
 
   const orgId = c.get('orgId');
@@ -1444,7 +1449,8 @@ api.post('/api/billing/checkout', async (c) => {
  * @see {@link https://stripe.com/docs/checkout/embedded/quickstart Stripe Embedded Checkout}
  */
 api.post('/api/billing/embedded-checkout', async (c) => {
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (missing return_url), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const validated = createEmbeddedCheckoutSchema.parse(body);
 
   const orgId = c.get('orgId');
@@ -1519,7 +1525,8 @@ api.post('/api/billing/embedded-checkout', async (c) => {
  * poll status server-side if needed.
  */
 api.post('/api/billing/payment-intent', async (c) => {
-  const body = await c.req.json();
+  // Malformed body → ZodError 400 (missing amount_cents), not 500.
+  const body = await c.req.json().catch(() => ({}));
   const validated = createPaymentIntentSchema.parse(body);
 
   const orgId = c.get('orgId');
@@ -5905,7 +5912,10 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
  * @see {@link contactService.handleContactForm}
  */
 api.post('/api/contact', async (c) => {
-  const body = await c.req.json();
+  // `.catch(() => ({}))`: a malformed body lands on the service's own
+  // `contactFormSchema.parse` → ZodError 400 (not SyntaxError 500) on this
+  // public endpoint.
+  const body = await c.req.json().catch(() => ({}));
   await contactService.handleContactForm(c.env, body);
 
   auditService
