@@ -474,6 +474,23 @@ describe('serveSiteFromR2', () => {
     const html = await response.text();
     expect(html).toContain('ps-bar');
   });
+
+  // Conversion-correctness pair to the unpaid-inject cases above: a PAID site
+  // must NOT get the upgrade bar injected — nagging a paying subscriber to
+  // "upgrade" they already bought reads as broken + erodes the trust that keeps
+  // them subscribed. The impl gates on `site.plan !== 'paid'`; this locks the
+  // paid branch so a regression can't start nagging customers.
+  it('does NOT inject the upgrade bar for a PAID site', async () => {
+    const r2Obj = createMockR2Object(SAMPLE_HTML);
+    (env.SITES_BUCKET.get as jest.Mock).mockResolvedValue(r2Obj);
+
+    const site = makeSite({ slug: 'paid-biz', plan: 'paid' });
+    const response = await serveSiteFromR2(env as any, site, '/index.html');
+
+    const html = await response.text();
+    expect(html).not.toContain('ps-bar');
+    expect(html).not.toContain('slug=paid-biz');
+  });
 });
 
 // ─── Served-site analytics policy: GA4+GTM only, never PostHog/Sentry ─────
