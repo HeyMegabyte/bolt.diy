@@ -97,3 +97,51 @@ describe('loadMultiUrlAnalytics — creds present but zone resolution fails (fai
     expect(out.urls_included.every((u) => u.resolved_zone === false)).toBe(true);
   });
 });
+
+describe('loadMultiUrlAnalytics — GraphQL happy-path merge across hosts', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; });
+
+  it('sums per-host aggregates, merges by-day + top-N, and flags any_real_data', async () => {
+    mockResolve.mockResolvedValue({ kind: 'token', token: 't' });
+    const zone = { zone_id: 'z1', account_id: 'acc1' };
+    // Two hosts sharing apex example.com → both resolve the SAME primed zone.
+    const env = {
+      DB: { prepare: jest.fn(() => ({ bind: jest.fn(() => ({ all: jest.fn().mockResolvedValue({
+        results: [
+          { id: 'u-a', site_id: 's1', hostname: 'a.example.com', is_primary: 1, zone_id: null, account_id: null, added_at: 't0' },
+          { id: 'u-b', site_id: 's1', hostname: 'b.example.com', is_primary: 0, zone_id: null, account_id: null, added_at: 't1' },
+        ],
+      }) })) })) },
+      CACHE_KV: {
+        get: jest.fn(async (key: string) => (key.startsWith('zone:') ? zone : null)), // analytics cache miss; zone primed
+        put: jest.fn().mockResolvedValue(undefined),
+      },
+    } as unknown as Env;
+
+    const gql = {
+      data: { viewer: { zones: [{
+        totals: [{ sum: { pageViews: 100, requests: 120 }, uniq: { uniques: 80 } }],
+        byDay: [{ dimensions: { date: '2026-06-01' }, sum: { pageViews: 100, requests: 120 }, uniq: { uniques: 80 } }],
+        topPaths: [{ dimensions: { clientRequestPath: '/' }, sum: { pageViews: 60 } }],
+        byCountry: [{ dimensions: { clientCountryName: 'US' }, sum: { requests: 90 } }],
+        byReferer: [{ dimensions: { clientRequestReferer: 'https://google.com/' }, sum: { requests: 40 } }],
+      }] } },
+    };
+    global.fetch = jest.fn().mockImplementation(
+      () => new Response(JSON.stringify(gql), { status: 200 }),
+    ) as unknown as typeof fetch;
+
+    const out = await loadMultiUrlAnalytics(env, 's1', 'o1', '7d');
+    expect(out.any_real_data).toBe(true);
+    expect(out.pageviews).toBe(200); // 2 hosts × 100
+    expect(out.total_requests).toBe(240);
+    expect(out.uniques).toBe(160);
+    expect(out.series).toEqual([
+      { date: '2026-06-01', page_views: 200, requests: 240, unique_visitors: 160 },
+    ]);
+    expect(out.top_pages).toEqual([{ path: '/', views: 120 }]); // merged 60 + 60
+    expect(out.top_countries).toEqual([{ country: 'US', views: 180 }]);
+    expect(out.urls_included.every((u) => u.resolved_zone)).toBe(true);
+  });
+});

@@ -3,7 +3,7 @@
 > Read this + `git log --oneline -15` + `_LOOP_LEDGER.md` FIRST each fresh iteration.
 > Loop doctrine: `_ULTIMATE_LOOP.prompt.md`. Cron `45b46ee7` fires every 30m.
 
-## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-39, 2026-06-11)
+## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-40, 2026-06-11)
 **Security + reliability BUG-classes are closed** (XSS/SSRF/open-redirect/auth-bypass/header-injection/rate-limits/Zod-boundaries/no-catch-malformed-body/canonical-gate). The fire-19/20 "frontier EXHAUSTED / no-op" call was an OVERCLAIM — it only considered bug-classes, NOT **unit-coverage gaps** (the repo mandates 100% coverage). **Untested services with real logic ARE autonomous work** and the right thing to mine when bug-classes are dry.
 - **Clean coverage rounds (fires 23-28):** `build_budget` (f23), `build_events` (f24), `social_persona` (f25), `resolveZoneForHostname` (f26), `social_publishers/types.ts` shared helpers `composeContent`/`requireEnv`/`emptyAnalytics` (f28, high-leverage across all 11 publishers).
 - ⚠️ **RECURRING LESSON (fires 23, 28): do NOT declare "coverage exhausted" by dismissing a CATEGORY wholesale.** "Publishers are fetch-only" was wrong — their SHARED `types.ts` had pure untested helpers. Before any no-op, GREP each low-coverage dir for a shared `types.ts`/`utils.ts`/`helpers.ts`/`*_lib.ts` with PURE exported fns (`export function` taking plain args, no env/fetch). Those are the real remaining clean wins.
@@ -22,6 +22,11 @@
 - Repo `*.md` consolidated 277→73; all 16 generation prompts enhanced; convergence prompt rewritten with 2026 SOTA.
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
+
+## Fire 2026-06-11 (fire 40) — analytics GraphQL happy-path MERGE (multi_url_analytics now fully covered)
+- Added the per-host GraphQL merge test: 2 hosts (shared apex → same primed zone) × identical GraphQL aggregate → asserts summed pageviews/requests/uniques, merged-by-day series, merged top_pages/top_countries (sum across hosts), any_real_data:true, resolved_zone:true. Primed `CACHE_KV.get('zone:…')`→zone so `resolveZoneForHostname` short-circuits (only the GraphQL POST is mocked). **`loadMultiUrlAnalytics` now covered across all paths** (cache-hit/no-creds/exclude/zones-unresolved/full-merge).
+- ⚠️ **Jest fetch-mock gotcha banked:** `mockResolvedValue(new Response(...))` returns ONE Response whose body is single-use → the 2nd consumer gets an empty body. For multi-call fetch use `mockImplementation(() => new Response(...))` (fresh each call). (Caught here: merge read 100 not 200.)
+- Gates: worker tsc clean + 4595 jest green; eslint 0-err. NOT pushed. **ONLY remaining coverage = the 4 workflow `run()` orchestration methods** (lowest ROI — assert step order/retry via the `cloudflare:workers` mock). After those, unit-coverage is genuinely dry; the high-value work stays Brian-gated.
 
 ## Fire 2026-06-11 (fire 39) — analytics fail-soft-when-zones-unresolved branch
 - Appended 1 test to `multi_url_analytics_load.test.ts`: creds DO resolve but the CF zones API returns no zone for any host → `loadHostAggregate` zeroes out (GraphQL never called) → envelope `any_real_data:false`, pageviews/total_requests 0, empty series, `resolved_zone:false`. Covers `loadHostAggregate`'s zone-unresolved early-return + the merge-with-zeros path (distinct from f38's no-creds branch). Mocked `global.fetch`→zones-empty.
