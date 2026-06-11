@@ -1,0 +1,4 @@
+{
+  "_doc": "Allow-list for validate-no-fabricated-people.mjs. A name enters `confirmed_voices` ONLY when the testimonial is collected with permission AND verified (signed release / public LinkedIn / institutional staff page / press release). Empty is the correct default — blank > faked.",
+  "confirmed_voices": []
+}

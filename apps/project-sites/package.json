@@ -25,11 +25,13 @@
     "check:html-injection": "node scripts/check-html-injection.mjs",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "check": "npm run typecheck && npm run lint && npm run check:html-injection && npm run format:check && npm run test:unit",
+    "check": "npm run typecheck && npm run lint && npm run check:html-injection && npm run check:fabricated-people && npm run format:check && npm run test:unit",
     "upload-sourcemaps": "node scripts/upload-sentry-sourcemaps.mjs",
     "gen:feature": "node scripts/gen-feature.mjs",
     "validate:features": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs",
-    "validate:features:quick": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs --quick"
+    "validate:features:quick": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs --quick",
+    "check:fabricated-people": "node scripts/validate-no-fabricated-people.mjs",
+    "test:scripts": "node --test scripts/__tests__/validate_no_fabricated_people.test.mjs"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.2",
