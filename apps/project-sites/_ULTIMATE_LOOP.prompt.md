@@ -36,7 +36,7 @@
 
 **Batch cadence: run 10 rounds per fire.** Each invocation closes **up to 10 ledger items** (10 full passes of steps 1-11 below) before reporting — not one. Track them as `Round 1/10 … 10/10`. Re-checkpoint `progress.md` after every round so a mid-batch crash resumes cleanly. **Stop the batch early** (and report) if ANY of: the ledger empties · a hard gate fails twice on the same item (escalate it, don't thrash) · the repetition detector trips · the per-fire token budget is exhausted · context hits 60% (checkpoint → the next fire continues). Honor the `max_parallel_agents`/budget caps ACROSS the whole batch, not per round. One round = one item end-to-end:
 
-1. **PICK** the single highest-value open `[ ]` item from `_LOOP_LEDGER.md` (run prod gates first; inspect any NEW sections that appeared).
+1. **PICK** the single highest-value open `[ ]` item from `_LOOP_LEDGER.md` — where **"highest-value" = highest SaaS-subscription-revenue $-impact** per the §5.0 lens (NOT just technical severity). Run prod gates first; inspect any NEW sections. **If the top-ranked revenue item is Brian-gated** (needs a secret / a design call / a supervised window — tagged `⛔gated` in the ledger), skip to the highest-ranked AUTONOMOUS item and note the gated one in the report so Brian can unblock it. Never fabricate make-work: if no autonomous revenue/quality/correctness item exists, fast-no-op (read marker → cheap confirm → report) and surface the gated tier.
 2. **RED (tests-first halves thrash).** Write the failing test first: a Playwright E2E that starts at the homepage, signs in as `brian@megabyte.space` via the test password, navigates by clicks/keyboard only; plus Jest/Karma unit where logic warrants. Run it; watch it fail.
 3. **GREEN.** Minimal "super-coded" change — full drop-in files, **zero stubs/placeholders**, god-tier-engineering patterns, **Spartan UI only** + cyan/black `--ps-*` tokens, `gorgeous-by-default` (enumerables → pills not CSV, `0.333s` transitions, `<app-rolling-counter>` on every stat, `appReveal` on every section, `:focus-within` on wrapped controls), RxJS-first at backend edges, **Zod at every boundary**, feature-flagged (`enabled=0, rollout=0, stage=experimental`) if non-trivial.
 4. **REFACTOR + CLEAN.** Full lint stack in order: `oxlint → eslint --fix → prettier --write → stylelint → knip → jscpd → semgrep`, then `ng build` (AOT catches strict-template errors `tsc` misses) + worker/shared `tsc --noEmit`. Delete the dead code `knip` surfaces (only when no concurrent worktree touches it). Use `nx affected` / scoped test runs so each iteration only re-verifies what changed.
@@ -73,8 +73,27 @@ Every surface below MUST end with a parallel-safe `*.e2e.ts` that signs in as `b
 
 ---
 
-## 5 — Open-work ledger (P0→P3, re-scan every iteration)
+## 5 — Open-work ledger (re-scan every iteration)
 
+### 5.0 — Value-ranking lens (the prime directive: drive SaaS-subscription revenue)
+
+The mission is to make projectsites.dev a product people PAY a recurring subscription for, and to raise quality every fire so it compounds. Rank every open item by its impact on the subscription funnel, NOT by technical-severity label alone. The funnel:
+
+`search → build → preview → UPGRADE (remove top-bar / publish / custom domain) → Stripe checkout → published → RETAINED (renews)`
+
+Score each candidate item 1-5 on each lens, pick the highest total that is AUTONOMOUS-safe:
+
+- **Conversion** — does it move a previewer to a paying subscriber? (upgrade CTA, checkout reliability, embedded-checkout UX, entitlement unlock, trust signals at the pay step)
+- **Activation** — does it get a new user to their first published, gorgeous site faster / more reliably? (golden-path speed, build success rate, fewer dead-ends)
+- **Retention** — does it reduce churn / keep sites live + impressive? (site uptime, quality that ages well, the admin surfaces that make a subscriber stay)
+- **Trust** — does it make the pay decision safer? (no console errors / 5xx on money paths, security on billing/auth, honest copy — incl. the fabricated-people gate, working hyperlinks, fast CWV)
+- **Quality-compounding** — does it raise the bar so EVERY future generated site / admin surface is better? (template polish, shared components, build-validator gates, eval harness)
+
+Tie-breakers: prefer the item that is (a) autonomous (no Brian gate), (b) TDD-able now, (c) smallest blast radius. **A correctness/security bug ON a money path outranks a feature** — a broken checkout earns $0. Money paths (Stripe checkout/subscription/webhook/entitlements/publish-unlock) are P0-REVENUE by definition.
+
+### 5.1 — Ledger priority bands (re-scan every iteration)
+
+- **P0-REVENUE — money-path correctness + conversion funnel** (see `_LOOP_LEDGER.md § P0-REV`). Highest $-impact; do these first when autonomous.
 - **P0 — finish the test harness** (§1 unchecked items).
 - **P1 — highest-value features** (`_IDEAS.md`): concierge widget injection · visitor-analytics beacon · voice receptionist at publish · native booking engine · GEO layer + citation tracking · edge per-visitor personalization · post-publish growth agent.
 - **P2 — drift/security/cleanup:** `conversational_edits.ts` cross-tenant write guard (security) · `features.ts` ~33 `as`-cast handlers → Zod **per-feature on promotion, never mass-retrofit** · `big_bets.ts` 30 mock features → real backends per-flag · 44 knip-dead `features.ts` exports → remove · flag-cache one-liner (`features.ts` override-write must call `invalidateFlagCache`) · wire the `*.e2e.ts` prod suite into CI · ag-grid → TanStack perf wave (`docs/perf-wave-ag-grid-to-tanstack.md`) · LLM eval harness · pre-publish content guardrails.

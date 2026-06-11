@@ -17,6 +17,26 @@
 
 ---
 
+## P0-REV — SaaS-subscription revenue funnel (rank by §5.0 lens; do autonomous ones FIRST)
+
+> The prime directive (set 2026-06-11): make projectsites.dev a product people pay a recurring
+> subscription for, raising quality every fire so it compounds. Score each item on
+> Conversion · Activation · Retention · Trust · Quality-compounding. A correctness/security bug
+> on a money path outranks any feature (a broken checkout earns $0). `⛔gated` = needs Brian
+> (secret / design call / supervised window) — skip to the next autonomous item, surface the gate.
+
+### Autonomous-safe (the loop can close these now, TDD-first — VERIFY current coverage before writing)
+- [ ] **Money-path correctness coverage (Trust×5, Conversion×4)** — audit + close test gaps on the billing money paths so a regression can't silently break revenue: Stripe webhook idempotency + signature, entitlement-unlock-after-`payment`/`subscription` events, `GET /api/billing/subscription`+`/entitlements` shape, embedded-checkout + payment-intent error envelopes. Per-path: confirm an existing test asserts it; if not, RED→GREEN one path per round. (autonomous; mock Stripe/D1 — never live keys)
+- [ ] **Upgrade-funnel trust gate (Trust×5, Conversion×4)** — a build-validator/E2E gate asserting the conversion-critical surfaces (marketing `/`, pricing, embedded-checkout, the unpaid-site top-bar upgrade CTA) are console-error-free + 5xx-free + the upgrade CTA/link resolves. A 500 or dead CTA on the pay path = lost subscriber. (autonomous once a harness route exists; pairs with the E2E secret for full prod-E2E)
+- [ ] **Top-bar upgrade-CTA correctness (Conversion×5)** — `site_serving.ts` injects the unpaid top-bar; assert it renders, links to the real checkout, and disappears post-upgrade (entitlement-driven). The single most direct previewer→subscriber nudge. (autonomous; unit + DOM test)
+- [ ] **Generated-site quality-compounding gates (Quality×5, Retention×4)** — every gate added to `build_validators.ts` raises the floor on EVERY future generated site (the product a subscriber pays for). Flip more `report`-mode invariants → `strict` once the template ships clean; add the conversion-affecting ones (LCP/CWV budget, hero/CTA presence, working contact path). (autonomous; the fire-14/50 pattern)
+
+### ⛔gated — biggest $-levers, need a Brian unblock (surfaced every fire until cleared)
+- [ ] ⛔gated **Provision `E2E_TEST_PASSWORD`** (Trust×5) — `wrangler secret put E2E_TEST_PASSWORD` (prod) + `.dev.vars` + `playwright.prod.config.ts`. ~1h of Brian's time. Unlocks authed prod-E2E on the WHOLE funnel (sign-in→admin→billing→publish) — turns "tested in mocks" into "verified live on the money path". Smallest unblock, highest leverage.
+- [ ] ⛔gated **Perf wave: ag-grid → TanStack** (Activation×4, Trust×4, Quality×5) — both admin log grids ship 782KB eager ag-grid (205KB over budget) → slow admin = churn signal. Per `docs/perf-wave-ag-grid-to-tanstack.md`. All-or-nothing, ~30h, needs a supervised window (don't start unattended).
+- [ ] ⛔gated **P1 revenue features (design + 40-80h each)** — ranked by subscription-value: native booking engine (#3, Retention×5 — recurring utility) · post-publish growth agent (#2, Retention×5) · bundled voice receptionist at publish (#1, Conversion×4 premium tier) · AI-native GEO + citation tracking (#4, Activation×4) · edge per-visitor personalization (#8) · visitor analytics beacon + admin surface (#7, Retention×4) · concierge widget injection (#6). Each needs a design call before the loop can TDD it.
+- [ ] ⛔gated **LLM eval/regression harness in CI (#11) + pre-publish content guardrails (#12)** — protect the GENERATED-SITE quality that justifies the subscription; needs the CI-wiring decision (item 53).
+
 ## P0 — Test-harness setup (finish before the feature loop runs hot)
 - [x] **Worker test-login seam** — `brian@megabyte.space` + `E2E_TEST_PASSWORD`, idempotent owner upsert, real session. Unit-tested.
 - [ ] **Wire `/signin` UI to the seam** — render a password field when `?test=1`/build flag is active; submit to `POST /api/auth/test-login`; store bearer; redirect to `/admin`. (~6h)
