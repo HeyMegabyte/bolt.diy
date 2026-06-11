@@ -75,3 +75,25 @@ describe('loadMultiUrlAnalytics — short-circuit branches', () => {
     expect(out.range_days).toBe(30);
   });
 });
+
+describe('loadMultiUrlAnalytics — creds present but zone resolution fails (fail-soft zeros)', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; });
+
+  it('returns zeroed data with any_real_data:false when no host resolves a CF zone', async () => {
+    // Credentials DO resolve, but the CF zones API returns no matching zone for
+    // either host → resolveZoneForHostname → null → loadHostAggregate zeroes out
+    // (GraphQL is never called). Distinct from the no-credentials branch above.
+    mockResolve.mockResolvedValue({ kind: 'token', token: 't' });
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, result: [] }), { status: 200 }),
+    ) as unknown as typeof fetch;
+    const env = makeEnv([urlRow('a.example.com', 1), urlRow('b.example.com')]); // kvGet=null → zone cache miss → fetch
+    const out = await loadMultiUrlAnalytics(env, 's1', 'o1', '7d');
+    expect(out.any_real_data).toBe(false);
+    expect(out.pageviews).toBe(0);
+    expect(out.total_requests).toBe(0);
+    expect(out.series).toEqual([]); // no by-day buckets merged
+    expect(out.urls_included.every((u) => u.resolved_zone === false)).toBe(true);
+  });
+});
