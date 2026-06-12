@@ -93,18 +93,23 @@ export interface CrawlReport {
  * hang the entire crawl. Never throws.
  */
 async function safeFetch(url: string, timeoutMs = 15_000): Promise<Response | null> {
+  // `timer` + `clearTimeout` must live OUTSIDE the try so the `finally` clears
+  // the abort timer on BOTH paths. Previously `clearTimeout` was only on the
+  // success line, so when `fetch` threw (network error / abort) the timer
+  // leaked until it fired — a dangling handle per call (the source of the test
+  // fleet's "worker failed to exit gracefully" force-exit, and a real prod leak).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, {
+    return await fetch(url, {
       headers: REAL_BROWSER_HEADERS,
       signal: controller.signal,
       redirect: 'follow',
     });
-    clearTimeout(timer);
-    return res;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
