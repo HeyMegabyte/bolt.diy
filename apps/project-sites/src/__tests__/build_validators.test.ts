@@ -16,6 +16,7 @@ import {
   validateRouteCount,
   validateContactPath,
   validateImageWeightBudget,
+  validateJsonLdStructure,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -568,5 +569,66 @@ describe('validateImageWeightBudget', () => {
       img('b.jpg', 700),
     ]);
     expect(out.length).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateJsonLdStructure — structural integrity (fire-74, drift-guard)
+// Counts ≠ validity: 4 empty/malformed blocks pass the count gate but fail
+// Rich Results. Parse each block; require @context + @type. Warn/report-mode.
+// ---------------------------------------------------------------------------
+describe('validateJsonLdStructure', () => {
+  const page = (blocks: string) =>
+    file('index.html', `<!DOCTYPE html><html><head>${blocks}</head><body><h1>x</h1></body></html>`);
+  const ld = (json: string) => `<script type="application/ld+json">${json}</script>`;
+
+  it('passes a well-formed block (@context + @type)', () => {
+    const out = validateJsonLdStructure([
+      page(ld('{"@context":"https://schema.org","@type":"WebSite","name":"Acme"}')),
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('flags an empty block', () => {
+    const out = validateJsonLdStructure([page(ld(''))]);
+    expect(out.length).toBe(1);
+    expect(out[0].code).toBe('jsonld.malformed');
+  });
+
+  it('flags a malformed (non-JSON) block', () => {
+    const out = validateJsonLdStructure([page(ld('{not valid json'))]);
+    expect(out[0].code).toBe('jsonld.malformed');
+  });
+
+  it('flags a block missing @context', () => {
+    const out = validateJsonLdStructure([page(ld('{"@type":"WebSite"}'))]);
+    expect(out.some((v) => v.code === 'jsonld.missing_required_field')).toBe(true);
+  });
+
+  it('flags a block missing @type', () => {
+    const out = validateJsonLdStructure([page(ld('{"@context":"https://schema.org"}'))]);
+    expect(out.some((v) => v.code === 'jsonld.missing_required_field')).toBe(true);
+  });
+
+  it('accepts an @graph container where each node has @type', () => {
+    const out = validateJsonLdStructure([
+      page(
+        ld(
+          '{"@context":"https://schema.org","@graph":[{"@type":"WebSite"},{"@type":"Organization"}]}',
+        ),
+      ),
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('accepts a top-level array of typed nodes', () => {
+    const out = validateJsonLdStructure([
+      page(ld('[{"@context":"https://schema.org","@type":"WebSite"},{"@type":"WebPage"}]')),
+    ]);
+    expect(out).toEqual([]);
+  });
+
+  it('ignores HTML with no JSON-LD blocks at all', () => {
+    expect(validateJsonLdStructure([page('')])).toEqual([]);
   });
 });

@@ -285,6 +285,75 @@ export const validateMetaLengths = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * JSON-LD structural integrity (build-artifact drift guard per
+ * `drift-detection.md § Build-artifact drift guards`). `validateJsonLdCount`
+ * only counts the `application/ld+json` string — a site can ship 4 EMPTY or
+ * MALFORMED blocks and pass, then fail Google Rich Results (no rich snippets →
+ * less SEO traffic → fewer leads for the owner → lower ROI). This parses each
+ * block and asserts it is valid JSON carrying `@context` + `@type` (handling a
+ * top-level array and `@graph` containers). Warn (report mode), per block.
+ */
+const JSONLD_BLOCK = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+const jsonLdNodeOk = (node: unknown): boolean =>
+  typeof node === 'object' && node !== null && '@type' in (node as Record<string, unknown>);
+export const validateJsonLdStructure = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text) continue;
+    for (const m of file.text.matchAll(JSONLD_BLOCK)) {
+      const raw = (m[1] ?? '').trim();
+      if (!raw) {
+        out.push({
+          code: 'jsonld.malformed',
+          severity: 'warn',
+          message: 'Empty JSON-LD block (no content) — fails Rich Results.',
+          file: file.path,
+        });
+        continue;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        out.push({
+          code: 'jsonld.malformed',
+          severity: 'warn',
+          message: 'JSON-LD block is not valid JSON — fails Rich Results.',
+          file: file.path,
+        });
+        continue;
+      }
+      const root = parsed as Record<string, unknown>;
+      const nodes = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(root['@graph'])
+          ? (root['@graph'] as unknown[])
+          : [parsed];
+      const hasContext =
+        (typeof root === 'object' && root !== null && '@context' in root) ||
+        nodes.some((n) => typeof n === 'object' && n !== null && '@context' in (n as object));
+      if (!hasContext) {
+        out.push({
+          code: 'jsonld.missing_required_field',
+          severity: 'warn',
+          message: 'JSON-LD block missing @context — fails Rich Results.',
+          file: file.path,
+        });
+      }
+      if (!nodes.every(jsonLdNodeOk)) {
+        out.push({
+          code: 'jsonld.missing_required_field',
+          severity: 'warn',
+          message: 'JSON-LD block has a node missing @type — fails Rich Results.',
+          file: file.path,
+        });
+      }
+    }
+  }
+  return out;
+};
+
 /** JSON-LD — at least 4 blocks per HTML page. */
 export const validateJsonLdCount = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
@@ -743,6 +812,7 @@ export const validateBuildAst = async (
     ...validateAppleTouchIcon(files),
     ...validateMetaLengths(files),
     ...validateJsonLdCount(files),
+    ...validateJsonLdStructure(files),
     ...astH1,
     ...validateColorScheme(files),
     ...validateCanonical(files),
@@ -781,6 +851,7 @@ export const validateBuild = (
     ...validateAppleTouchIcon(files),
     ...validateMetaLengths(files),
     ...validateJsonLdCount(files),
+    ...validateJsonLdStructure(files),
     ...validateH1InShell(files),
     ...validateColorScheme(files),
     ...validateCanonical(files),
