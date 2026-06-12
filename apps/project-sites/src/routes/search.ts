@@ -2321,11 +2321,18 @@ search.post('/api/ai/discover-images', async (c) => {
       inspectionTasks.push(...batchTasks);
     }
 
-    // Wait for all inspections (with a 15s timeout so we don't block forever)
+    // Wait for all inspections (with a 15s timeout so we don't block forever).
+    // The timer MUST be cleared once allSettled wins the race — otherwise the
+    // dangling 15s setTimeout keeps the runtime alive (a real test force-exit:
+    // "worker failed to exit gracefully", + minor prod resource waste per call).
+    let inspectionTimer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
       Promise.allSettled(inspectionTasks),
-      new Promise((resolve) => setTimeout(resolve, 15000)),
+      new Promise((resolve) => {
+        inspectionTimer = setTimeout(resolve, 15000);
+      }),
     ]);
+    clearTimeout(inspectionTimer);
 
     // Filter out unsafe or rejected images
     if (logo?.quality && (!logo.quality.is_safe || logo.quality.recommendation === 'reject')) {
