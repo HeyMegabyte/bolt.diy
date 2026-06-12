@@ -84,7 +84,8 @@ features.get('/llms.txt', () => {
 
 ## Site policy for AI crawlers
 
-- Allow: GPTBot, ClaudeBot, Claude-User, Claude-SearchBot, PerplexityBot, Google-Extended, CCBot.
+- Allow (search/retrieval): OAI-SearchBot, Claude-SearchBot, Claude-User, PerplexityBot.
+- Disallow (training-only): GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, CCBot, Bytespider.
 - All routes public; no login wall on content pages.
 `;
   return new Response(body, {
@@ -126,17 +127,13 @@ Project Sites is an AI website builder for solo founders and small agencies. Cus
 });
 
 features.get('/robots.txt', () => {
-  const body = `User-agent: GPTBot
-Allow: /
-Disallow: /admin
-Disallow: /api
-
-User-agent: ClaudeBot
-Allow: /
-Disallow: /admin
-Disallow: /api
-
-User-agent: Claude-User
+  // Per `always.md` § robots.txt: split AI crawlers by PURPOSE. Allow
+  // search/retrieval bots (keeps projectsites.dev cited in ChatGPT/Perplexity/
+  // Google AI Overviews → discovery → signups). Disallow training-only bots
+  // (opt out of model training). Never blanket-block — that drops the site from
+  // AI answers entirely.
+  const body = `# Search/retrieval crawlers — allowed (keeps us cited in AI answers)
+User-agent: OAI-SearchBot
 Allow: /
 Disallow: /admin
 Disallow: /api
@@ -146,20 +143,31 @@ Allow: /
 Disallow: /admin
 Disallow: /api
 
+User-agent: Claude-User
+Allow: /
+Disallow: /admin
+Disallow: /api
+
 User-agent: PerplexityBot
 Allow: /
 Disallow: /admin
 Disallow: /api
 
+# Training-only crawlers — disallowed (opt out of model training)
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
 User-agent: Google-Extended
-Allow: /
-Disallow: /admin
-Disallow: /api
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
 
 User-agent: CCBot
-Allow: /
-Disallow: /admin
-Disallow: /api
+Disallow: /
 
 User-agent: Bytespider
 Disallow: /

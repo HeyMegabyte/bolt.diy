@@ -42,12 +42,36 @@ describe('features public discovery routes (LIVE flag surfaces)', () => {
     expect((await get('/llms-full.txt')).status).toBe(200);
   });
 
-  it('GET /robots.txt → 200 with AI-crawler allows', async () => {
+  it('GET /robots.txt → 200; training bots Disallowed, search/retrieval bots Allowed', async () => {
     const res = await get('/robots.txt');
     expect(res.status).toBe(200);
     const body = await res.text();
-    expect(body).toContain('GPTBot');
-    expect(body).toContain('ClaudeBot');
+    // Parse `User-agent: X` groups → the directive line(s) until the next blank line.
+    const groupFor = (ua: string): string => {
+      const lines = body.split('\n');
+      const i = lines.findIndex((l) => l.trim() === `User-agent: ${ua}`);
+      if (i < 0) return '';
+      const out: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ''; j++)
+        out.push(lines[j].trim());
+      return out.join(' ');
+    };
+    // Training-only crawlers must be fully disallowed (opt out of model training).
+    for (const ua of [
+      'GPTBot',
+      'ClaudeBot',
+      'Google-Extended',
+      'CCBot',
+      'Applebot-Extended',
+      'Bytespider',
+    ]) {
+      expect(groupFor(ua)).toContain('Disallow: /');
+      expect(groupFor(ua)).not.toContain('Allow: /');
+    }
+    // Search/retrieval crawlers must be allowed (keeps the site cited in AI answers).
+    for (const ua of ['OAI-SearchBot', 'Claude-SearchBot', 'Claude-User', 'PerplexityBot']) {
+      expect(groupFor(ua)).toContain('Allow: /');
+    }
   });
 
   it('GET /accessibility → 200 HTML with WCAG statement', async () => {
