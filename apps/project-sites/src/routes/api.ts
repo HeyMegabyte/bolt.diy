@@ -9400,6 +9400,10 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
       const ai = c.env.AI as unknown as {
         run: (model: string, opts: unknown) => Promise<unknown>;
       };
+      // Clear the race-timeout once AI.run wins, else the dangling setTimeout
+      // keeps the runtime alive (the f87/discover-images uncleaned-race-timer
+      // class — caused the domains-ai-search suite force-exit).
+      let raceTimer: ReturnType<typeof setTimeout> | undefined;
       const raw = await Promise.race([
         ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
@@ -9408,8 +9412,11 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
           ],
           max_tokens: 256,
         }),
-        new Promise((resolve) => setTimeout(() => resolve(null), Math.min(remaining, 12_000))),
+        new Promise((resolve) => {
+          raceTimer = setTimeout(() => resolve(null), Math.min(remaining, 12_000));
+        }),
       ]);
+      clearTimeout(raceTimer);
       return { strategy: strategy.id, candidates: parseDomainCandidates(raw) };
     } catch (err) {
       console.warn(

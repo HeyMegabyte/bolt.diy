@@ -2819,26 +2819,28 @@ search.get('/api/domains/availability', async (c) => {
   };
 
   async function checkViaRdap(domain: string): Promise<{ domain: string; available: boolean }> {
+    const tld = domain.split('.').pop() || '';
+    const server = rdapServers[tld];
+    const url = server ? `${server}/${domain}` : `https://rdap.org/domain/${domain}`;
+    const controller = new AbortController();
+    // `clearTimeout` in `finally` so a thrown fetch (catch path) can't leak the
+    // 8s abort-timer (the f86/f87 abort-timer-leak class; sibling sites in
+    // external_llm/newsletter_dispatch already clear in finally).
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const tld = domain.split('.').pop() || '';
-      const server = rdapServers[tld];
-      const url = server ? `${server}/${domain}` : `https://rdap.org/domain/${domain}`;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const rdapRes = await fetch(url, {
         signal: controller.signal,
         redirect: 'follow',
         headers: { Accept: 'application/rdap+json' },
       });
-      clearTimeout(timeoutId);
       // 404 = not registered = available; 200 = registered = unavailable
-      const available = rdapRes.status === 404;
-      return { domain, available };
+      return { domain, available: rdapRes.status === 404 };
     } catch (err) {
       // Network error or timeout — conservatively mark as unknown/unavailable
       console.warn(`[domain-availability] RDAP check failed for ${domain}:`, err);
       return { domain, available: false };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

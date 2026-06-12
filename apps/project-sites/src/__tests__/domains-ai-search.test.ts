@@ -103,6 +103,18 @@ const originalFetch = globalThis.fetch;
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(console, 'warn').mockImplementation(() => {});
+  // Default fetch stub so NO test (incl. the no-explicit-mock 401/404 cases and
+  // any availability check that runs after the response) can hit the REAL
+  // network — a real outbound RDAP/Registrar fetch leaves an undici keepalive
+  // socket that force-exits the worker ("worker failed to exit gracefully",
+  // scheduling-flaky suite FAIL). The two tests below override this with their
+  // own richer mock.
+  globalThis.fetch = jest.fn().mockResolvedValue(
+    new Response(JSON.stringify({ available_domains: [], status: 200 }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
 });
 
 afterEach(() => {
