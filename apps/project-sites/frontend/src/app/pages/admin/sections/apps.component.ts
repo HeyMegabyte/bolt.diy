@@ -194,8 +194,11 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       } @else {
         <div class="apps-grid" role="list" aria-label="App catalog">
           @for (app of filteredApps(); track app.id) {
+            <!-- §17: NO appReveal on result cards — a from-hidden enter animation on a
+                 live-filtered loop re-hides every matched card per keystroke ("list
+                 disappears / waits on stale animations"). First-paint reveal stays on
+                 the static header/result-bar above. -->
             <a
-              appReveal
               role="listitem"
               class="app-card"
               [routerLink]="['/admin/apps', app.id]"

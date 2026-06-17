@@ -180,3 +180,43 @@ describe('AppsComponent (catalog grid has semantic list markup)', () => {
     expect(host.querySelectorAll('.apps-grid [role="listitem"]').length).toBe(cards.length);
   });
 });
+
+/**
+ * §17 (apps-filter delayed reveal): result cards must NOT carry `appReveal`.
+ * `appReveal` starts a host at opacity:0 + translateY(16px) and animates it in —
+ * a first-paint flourish. On the LIVE-filtered `@for (app of filteredApps())`
+ * grid, that re-hides + re-animates every freshly-matched card on each filter
+ * keystroke, so the list appears to "disappear / wait on stale animations".
+ * First-paint reveal stays on the static header/result-bar; result cards render
+ * IMMEDIATELY at full opacity. This guard locks that (real-DOM render).
+ *
+ * Lesson (banked to ~/.agentskills): animated filter/result lists need an
+ * immediate-visible-state test — never put a from-hidden enter animation on a
+ * per-item loop that re-renders on filter change.
+ */
+describe('AppsComponent (filter reveal — §17 immediate-visible-state)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('does NOT put appReveal on the per-card @for loop (cards render immediately on filter)', () => {
+    TestBed.configureTestingModule({
+      imports: [AppsComponent],
+      providers: [
+        provideRouter([{ path: '**', children: [] }]),
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AppsComponent);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('.app-card').length)
+      .withContext('catalog renders cards')
+      .toBeGreaterThan(0);
+    expect(host.querySelector('.app-card[appReveal]'))
+      .withContext('result cards must not re-reveal on every filter change')
+      .toBeNull();
+    // First-paint reveal still lives on the static shell (cohesion preserved).
+    expect(host.querySelector('[appReveal]'))
+      .withContext('static header/result-bar keep first-paint reveal')
+      .not.toBeNull();
+  });
+});
