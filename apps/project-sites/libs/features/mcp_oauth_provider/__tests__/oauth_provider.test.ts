@@ -124,6 +124,21 @@ describe('GET /.well-known/oauth-authorization-server', () => {
     expect(body.grant_types_supported).toContain('authorization_code');
     expect((body.code_challenge_methods_supported as string[]).includes('S256')).toBe(true);
   });
+
+  it('discovery is self-consistent: every endpoint shares the issuer origin', async () => {
+    // Guards the RFC 8414 chain — a client that discovered `issuer` (via the PRM)
+    // must be able to reach authorize/token/register under that same origin. This
+    // catches the class of bug where an endpoint drifts to a different host/path.
+    mockIsFlagOn.mockResolvedValue(true);
+    const kv = makeKv();
+    const res = await app(kv).request('/.well-known/oauth-authorization-server', {}, baseEnv(kv));
+    const body = (await res.json()) as Record<string, string>;
+    const origin = new URL(body.issuer).origin;
+    for (const ep of ['authorization_endpoint', 'token_endpoint', 'registration_endpoint']) {
+      expect(typeof body[ep]).toBe('string');
+      expect(new URL(body[ep]).origin).toBe(origin);
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────
