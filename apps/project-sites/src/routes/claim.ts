@@ -21,9 +21,15 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { resolveLeadByShortlink, markClaimLinkClicked } from '../services/claim_links.js';
-import { loadOrCreateSession, applyClaimEvent } from '../services/claim_session_store.js';
+import {
+  loadOrCreateSession,
+  applyClaimEvent,
+  getSession,
+} from '../services/claim_session_store.js';
 import { canStartBuild } from '../services/claim_build_session.js';
 import { buildClaimAttribution } from '../services/claim_attribution.js';
+import { getLead } from '../services/lead_store.js';
+import { toCreateFormPrefill } from '../services/claim_lead_profile.js';
 
 export const claimRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -75,4 +81,35 @@ claimRoutes.get('/api/claim/:shortlink', async (c) => {
 
   // Send the visitor to the prefilled create funnel.
   return c.redirect(`/create?claim=${encodeURIComponent(shortlink)}`, 302);
+});
+
+/**
+ * `GET /api/claim/:shortlink/profile` — the prefill payload the Angular `/create`
+ * page fetches when opened via a claim link. Resolves the shortlink → lead →
+ * researched profile, returns the flat form-prefill values + the live build
+ * status (so the page can show "building…" while the background build runs).
+ */
+claimRoutes.get('/api/claim/:shortlink/profile', async (c) => {
+  const shortlink = c.req.param('shortlink');
+  const link = await resolveLeadByShortlink(c.env.DB, shortlink);
+  if (!link) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'This claim link is not valid.' } }, 404);
+  }
+  const lead = await getLead(c.env.DB, link.leadId);
+  if (!lead) {
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: 'This lead is no longer available.' } },
+      404,
+    );
+  }
+  const sessionId = `claim_${shortlink}`;
+  const session = await getSession(c.env.DB, sessionId);
+  return c.json({
+    data: {
+      prefill: toCreateFormPrefill(lead.profile),
+      sessionId,
+      buildStatus: session?.status ?? 'pending',
+      previewUrl: session?.previewUrl ?? null,
+    },
+  });
 });
