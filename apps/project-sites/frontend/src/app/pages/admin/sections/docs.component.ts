@@ -637,13 +637,7 @@ export class DocsSpecService {
             [brnTooltip]="'API overview'"
             data-testid="docs-overview-link"
           ><span class="docs-tab-label">Overview</span><span class="docs-tab-underline" aria-hidden="true"></span></a>
-          <button class="btn-ghost docs-refresh" (click)="specService.load()" [disabled]="specService.loading()" [attr.aria-busy]="specService.loading()" [brnTooltip]="'Re-fetch spec'">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-            {{ specService.loading() ? 'Refreshing…' : 'Refresh' }}
-          </button>
+          <!-- §17: redundant header Refresh removed — spec auto-loads on init; error state has its own Retry. -->
         </div>
       </header>
 
@@ -874,11 +868,6 @@ export class DocsSpecService {
     }
     .docs-tab:hover .docs-tab-underline { width: 40%; }
     .docs-tab.is-active .docs-tab-underline { width: calc(100% - 1.4rem); }
-    .docs-refresh { padding: 0.5rem 0.9rem; font-size: 0.74rem; min-height: 28px; }
-    .docs-refresh:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00E5FF);
-      outline-offset: var(--ps-ring-focus-offset, 2px);
-    }
 
     .docs-divider {
       height: 1px;

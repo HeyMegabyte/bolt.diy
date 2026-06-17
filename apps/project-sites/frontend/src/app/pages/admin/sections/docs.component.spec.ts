@@ -5,24 +5,28 @@ import { AdminDocsComponent, renderMarkdown, highlightJson, type OpenApiSpec } f
 import { ApiService } from '../../../services/api.service';
 
 /**
- * The header Refresh button matches the rest of /admin: it announces aria-busy
- * while the spec re-fetches and reads "Refreshing…" (not a bare "…" ellipsis a
- * screen reader can't interpret). A NEVER api leaves specService.loading() true.
+ * §17 ticket: the header "Refresh" button is removed — it was redundant. The
+ * OpenAPI spec auto-loads on `ngOnInit` (a static doc that doesn't change
+ * mid-session, so manual re-fetch buys nothing), and the error state keeps its
+ * own dedicated "Retry" button for the only case re-fetch matters (a failed
+ * load). This guard locks the removal: no `button.docs-refresh` may return,
+ * while the auto-load on init is preserved.
  */
-describe('AdminDocsComponent (Refresh button busy state — cohesion + a11y)', () => {
+describe('AdminDocsComponent (header Refresh button removed — §17)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  it('the spec Refresh button binds aria-busy and reads "Refreshing…" while loading', () => {
+  it('renders NO header Refresh button, yet still auto-loads the spec on init', () => {
+    const get = jasmine.createSpy('get').and.returnValue(NEVER);
     TestBed.configureTestingModule({
       imports: [AdminDocsComponent],
-      providers: [provideRouter([{ path: '**', children: [] }]), { provide: ApiService, useValue: { get: () => NEVER } }],
+      providers: [provideRouter([{ path: '**', children: [] }]), { provide: ApiService, useValue: { get } }],
     });
     const f = TestBed.createComponent(AdminDocsComponent);
-    f.detectChanges(); // ngOnInit → specService.load() → loading stays true (NEVER)
-    const btn = (f.nativeElement as HTMLElement).querySelector('button.docs-refresh') as HTMLButtonElement;
-    expect(btn).withContext('Refresh button renders in the header').not.toBeNull();
-    expect(btn.getAttribute('aria-busy')).withContext('busy state announced to AT').toBe('true');
-    expect(btn.textContent ?? '').withContext('a real busy label, not a bare ellipsis').toContain('Refreshing…');
+    f.detectChanges(); // ngOnInit → specService.load() (auto-load — the refresh path)
+    expect((f.nativeElement as HTMLElement).querySelector('button.docs-refresh'))
+      .withContext('the redundant header Refresh button must be gone')
+      .toBeNull();
+    expect(get).withContext('spec still auto-loads on init (covers re-fetch)').toHaveBeenCalled();
   });
 });
 
