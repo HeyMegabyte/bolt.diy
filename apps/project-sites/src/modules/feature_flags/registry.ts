@@ -299,6 +299,193 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+
+  // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
+  // Commerce & money rail (payments_rail is foundational — unblocks the rest)
+  payments_rail: {
+    key: 'payments_rail',
+    description:
+      'Unified payments seam over Square (accept) + Stripe (SaaS/payouts): one idempotency key, one webhook verifier, one entitlement grant path per rules/payments-routing',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  storefront_ecommerce: {
+    key: 'storefront_ecommerce',
+    description:
+      'Lightweight native storefront for generated sites: products/variants in D1, assets in R2, checkout via Square Web Payments behind payments_rail (not MedusaJS)',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  native_booking_engine: {
+    key: 'native_booking_engine',
+    description:
+      'First-class booking/availability engine with slots, holds, reminders and optional deposit via payments_rail — eliminates the third-party scheduler dependency',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  credit_wallet_rollover: {
+    key: 'credit_wallet_rollover',
+    description:
+      'AI-credit wallet rollover + promo credits + expiry: unused monthly credits carry forward, promo grants stack, expiring balances surface urgency in the billing wallet',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  referral_loop: {
+    key: 'referral_loop',
+    description:
+      'In-product refer-a-friend: tracked referral codes/links, attributed signups, and credit rewards granted through the wallet on a referred conversion',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+
+  // Visitor-facing AI + platform AI UX
+  ai_concierge_widget: {
+    key: 'ai_concierge_widget',
+    description:
+      'Visitor-facing per-site AI concierge grounded in the site own content with real tool-calls (book/quote/route) — stateful agent, not a chatbot placeholder',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  site_semantic_search: {
+    key: 'site_semantic_search',
+    description:
+      'Auto-installed semantic search over a published site own R2 content via Vectorize/AutoRAG, re-indexed on content change — answers, not just keyword match',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  page_audio_summary: {
+    key: 'page_audio_summary',
+    description:
+      'Per-route AI-narrated 2-3 minute audio summary generated via TTS as an accessibility + engagement surface; OFF by default, per-tenant opt-in only',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  edge_personalization: {
+    key: 'edge_personalization',
+    description:
+      'No-PII edge swap of hero headline/sub/image/primary-CTA/sticky-bar from geo/device/referrer/time/return signals via sub-10ms Workers-AI call, A/B-eval looped',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  generative_ui_stream: {
+    key: 'generative_ui_stream',
+    description:
+      'Admin copilot streams live UI components (charts/forms/compare cards) from the model as schema-bound contracts instead of plain text replies',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  prompt_studio: {
+    key: 'prompt_studio',
+    description:
+      'Admin surface over the existing prompt registry: versioned templates with A/B variants, KV hot-patch, and one-click rollback for non-engineers',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  ai_gateway_guardrails: {
+    key: 'ai_gateway_guardrails',
+    description:
+      'Llama Guard middleware on /ai/* routes blocking prompt-injection/hate/off-brand input+output before publish, with a no-redeploy killswitch per rules/ai-agent-security',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+
+  // Generation/editing + growth + Cloudflare quick wins
+  visual_point_edit: {
+    key: 'visual_point_edit',
+    description:
+      'Click any live-preview element and have AI mutate only that node (copy/style/layout) without a full regeneration — frontend-primary, backed by a scoped edit endpoint',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  wireframe_planning: {
+    key: 'wireframe_planning',
+    description:
+      'Pre-generation sitemap + page-level wireframe plan surfaced as an approval gate in /create before section generation, so IA problems are caught up front',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  url_clone_seed: {
+    key: 'url_clone_seed',
+    description:
+      'Paste a URL and seed the builder from it: Browser-Rendering extracts layout + copy + structured-data JSON to prefill a new site as an acquisition fast-start',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  figma_import: {
+    key: 'figma_import',
+    description:
+      'Import a Figma file and map its tokens/components/responsive rules into a generated site so existing design systems accelerate the build — frontend-primary',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  cmdk_ai_actions: {
+    key: 'cmdk_ai_actions',
+    description:
+      'AI actions layer on the existing Cmd+K palette: natural language routes to navigation, bulk mutations, or agent tasks (the palette + focus gate already ship)',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  aeo_pass: {
+    key: 'aeo_pass',
+    description:
+      'Answer-Engine-Optimization audit + structured-data tuning on every publish targeting ChatGPT/Perplexity/AI-Overviews citation, extending seo_autopilot',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  status_page_live: {
+    key: 'status_page_live',
+    description:
+      'Public status page backed by real uptime/incident data with subscriber alerts; extends the existing /status route shell — frontend-primary with a status feed endpoint',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  site_thumbnail_grid: {
+    key: 'site_thumbnail_grid',
+    description:
+      'Real-browser thumbnail of every site in the admin catalog via Browser-Rendering screenshot, cached in R2 and reused from the snapshot path',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;
