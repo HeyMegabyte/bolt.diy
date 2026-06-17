@@ -12,7 +12,7 @@
 | ---- | -------------------------------------------------------- | -------- | ---------- | ---------- |
 | 0001 | Adopt Nx 20 monorepo as workspace shell                  | Accepted | 2026-05-26 | —          |
 | 0002 | Angular 21 + standalone + signals + zoneless             | Accepted | 2026-05-26 | —          |
-| 0003 | PrimeNG 18 + Tailwind v4 as the UI substrate             | Accepted | 2026-05-26 | —          |
+| 0003 | ~~PrimeNG 18~~ → Spartan UI + Tailwind v4 (UI substrate) | Superseded | 2026-05-26 | Spartan UI |
 | 0004 | Stripe Link exclusively for all payment capture          | Accepted | 2026-05-26 | —          |
 | 0005 | Cloudflare-native runtime: Workers + D1 + R2 + DO        | Accepted | 2026-05-26 | —          |
 | 0006 | RxJS-first at the backend edge, signals at the template  | Accepted | 2026-05-26 | —          |
@@ -201,8 +201,14 @@ Adopt **Angular 21** with:
 
 ## ADR-0003 — PrimeNG 18 + Tailwind v4 as the UI substrate
 
-- **Status:** Accepted
-- **Date:** 2026-05-26
+> ⚠️ **SUPERSEDED (2026-06-17): PrimeNG was fully removed.** The admin uses **Spartan UI**
+> (`@spartan-ng/brain` + helm wrappers) + Angular CDK + Tailwind v4 as the only UI kit —
+> no PrimeNG, no `providePrimeNG`/CockpitPreset (see `app.config.ts`). Per
+> `package-preference-registry`, PrimeNG/Material are rejected (mixing kits). The PrimeNG
+> decision below is retained only as a historical record.
+
+- **Status:** Superseded → Spartan UI
+- **Date:** 2026-05-26 (superseded 2026-06-17)
 - **Deciders:** Brian Zalewski, Architect
 - **Tags:** `ui`, `design-system`, `frontend`
 
