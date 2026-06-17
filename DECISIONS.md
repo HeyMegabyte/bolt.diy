@@ -881,4 +881,14 @@ Links to docs, RFCs, sibling ADRs.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — current topology reflecting all accepted ADRs
 - [BILLING.md](./BILLING.md) — implements ADR-0004
 - [SECURITY.md](./SECURITY.md) — what's shipped vs what's deferred
-- [BACKLOG.md](./BACKLOG.md) — v2+ candidates, some of which will become ADR-0009+
+- [apps/project-sites/FEATURE_CATALOG.md](./apps/project-sites/FEATURE_CATALOG.md) § Ideas backlog — v2+ candidates (BACKLOG.md/_IDEAS.md dissolved into it)
+
+## ADR-0009 — Cost guardrails + deferred scope (merged from WONT_BUILD_YET.md, 2026-06-17)
+
+**Cost guardrails** (enforced in `src/services/build_limits.ts` + `token_burn_meter`):
+- Max LLM spend **$20/day** (AI Gateway + org backstop) · max **20 sites/day** · max **25 emails/day**
+- Max compute **5 min/job** · max **5 queued retries** · storage **100 MB free / 500 MB paid** per tenant
+
+**Still-deferred** (UI/enforcement pending): TOTP/WebAuthn MFA UI · Chatwoot email-channel config (awaiting inbox/from-name decisions).
+
+**Superseded** (since shipped — were "won't build yet", now done): registrar domain purchasing (domain-picker + Buy flow), rich admin dashboards, A/B via feature flags, PostHog (wired). Source doc `WONT_BUILD_YET.md` removed; this ADR is the record.
