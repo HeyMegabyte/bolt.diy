@@ -469,7 +469,8 @@ const LOW_BALANCE_CENTS = 500;
         border-radius: 4px;
       }
       .dp-mono {
-        font-family: Consolas, var(--ps-font-mono, 'JetBrains Mono', ui-monospace, monospace);
+        /* Consolas-first comes from the global --ps-font-mono token (_polish.scss). */
+        font-family: var(--ps-font-mono, Consolas, 'JetBrains Mono', ui-monospace, monospace);
         font-size: 0.78rem;
         color: var(--ps-ink, #f4f4ff);
       }
