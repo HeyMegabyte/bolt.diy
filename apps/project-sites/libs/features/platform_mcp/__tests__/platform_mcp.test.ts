@@ -62,7 +62,7 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status']));
+    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log']));
   });
 
   it('tools/call without a token is unauthorized (-32001)', async () => {

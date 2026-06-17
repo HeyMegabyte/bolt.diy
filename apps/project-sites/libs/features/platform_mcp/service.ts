@@ -80,6 +80,17 @@ export const PLATFORM_MCP_TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'get_audit_log',
+    description: 'Recent audit-log actions for a site (deploys, edits, config changes) — inspect what happened.',
+    requiredScope: 'sites:read' as const,
+    inputSchema: {
+      type: 'object',
+      properties: { site_id: { type: 'string' }, limit: { type: 'number', minimum: 1, maximum: 50, default: 20 } },
+      required: ['site_id'],
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 /**
@@ -163,6 +174,25 @@ export async function dispatchPlatformTool(
         [site_id],
       );
       return ok({ site_id, site_status: owned.status, build: job ?? { status: 'none' } });
+    }
+
+    case 'get_audit_log': {
+      const site_id = String(args.site_id ?? '');
+      if (!site_id) return err('site_id is required.');
+      const limit = Math.min(50, Math.max(1, Number(args.limit) || 20));
+      const owned = await dbQueryOne<{ id: string }>(
+        db,
+        `SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        [site_id, orgId],
+      );
+      if (!owned) return err('Site not found.');
+      const { data } = await dbQuery<{ action: string; created_at: string }>(
+        db,
+        `SELECT action, created_at FROM audit_logs
+           WHERE org_id = ? AND site_id = ? ORDER BY created_at DESC LIMIT ?`,
+        [orgId, site_id, limit],
+      );
+      return ok({ site_id, count: data.length, entries: data });
     }
 
     default:
