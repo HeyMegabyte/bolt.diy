@@ -166,3 +166,35 @@ describe('VoiceNumbersComponent (area-code-only search shows the no-results hint
     expect(c.searchAttempted()).toBeFalse();
   });
 });
+
+/**
+ * §17 Find-a-Number live keypad preview — the operator types a vanity word and
+ * sees the exact digits the `contains=` search resolves to. Drives off the pure
+ * vanity-keypad util; here we lock the component-level getters that the chip
+ * binds to (template stripped by make()).
+ */
+describe('VoiceNumbersComponent (keypad-digit preview)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('queryDigits() renders the keypad digits for a vanity word', () => {
+    const { c } = make();
+    c.query = 'MOVE';
+    expect(c.queryDigits()).toBe('6683');
+    c.query = '82labor';
+    expect(c.queryDigits()).toBe('8252267');
+  });
+
+  it('queryDigits() is null for digits-only or empty (no preview needed)', () => {
+    const { c } = make();
+    c.query = '8553334444';
+    expect(c.queryDigits()).toBeNull();
+    c.query = '   ';
+    expect(c.queryDigits()).toBeNull();
+  });
+
+  it('queryUpper() upper-cases the trimmed word for the chip label', () => {
+    const { c } = make();
+    c.query = '  move  ';
+    expect(c.queryUpper()).toBe('MOVE');
+  });
+});

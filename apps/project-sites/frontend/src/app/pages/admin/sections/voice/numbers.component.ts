@@ -38,6 +38,7 @@ import { RollingCounterComponent } from '../../../../components/rolling-counter/
 import { EmptyStateComponent } from '../../empty-state.component';
 import { ErrorCardComponent } from '../../../../components/states';
 import { HlmInputDirective } from '../../../../ui';
+import { vanityToDigits, hasVanityLetters } from '../../../../utils/vanity-keypad';
 
 interface PurchasedNumber {
   id: string;
@@ -151,7 +152,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
         <header class="mb-3">
           <div class="kicker">Find a number</div>
           <h3 class="section-h text-base font-bold text-white m-0 mt-1">Vanity + area-code search</h3>
-          <p class="muted-help m-0 mt-1">Type letters or digits. "LABOR" matches "5227", "MOVE" matches "6683".</p>
+          <p class="muted-help m-0 mt-1">Type letters or digits. "LABOR" matches "52267", "MOVE" matches "6683".</p>
         </header>
 
         <div class="search-row">
@@ -177,6 +178,17 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
                    aria-label="Area code" />
           </label>
         </div>
+
+        <!-- §17: live keypad-digit preview — surfaces the exact digits the
+             contains= search resolves to, the moment the operator types a word. -->
+        @if (queryDigits(); as digits) {
+          <p class="keypad-preview mt-2" role="status" aria-live="polite" data-testid="voice-keypad-preview">
+            <span class="keypad-preview-word">{{ queryUpper() }}</span>
+            <span class="keypad-preview-eq" aria-hidden="true">=</span>
+            <span class="keypad-preview-digits">{{ digits }}</span>
+            <span class="sr-only"> on the phone keypad</span>
+          </p>
+        }
 
         @if (cappedNotice()) {
           <p class="notice notice-amber mt-3" role="status">
@@ -269,6 +281,16 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
       padding: 1.2rem;
     }
     .search-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    /* §17 keypad preview chip — cyan/black, monospace digits, tabular nums. */
+    .keypad-preview { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+      font: 600 0.74rem 'JetBrains Mono', ui-monospace, monospace; }
+    .keypad-preview-word { color: rgba(255,255,255,0.62); letter-spacing: 0.06em; }
+    .keypad-preview-eq { color: color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent); }
+    .keypad-preview-digits { font-variant-numeric: tabular-nums; letter-spacing: 0.14em;
+      color: oklch(from var(--ps-accent, #00E5FF) max(l, 0.8) max(c, 0.2) h);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+      padding: 0.05rem 0.45rem; border-radius: 6px; }
     /* .input-field removed — both search/area-code inputs now use hlmInput
        (mono + 44px tap target preserved via font-mono min-h-[44px] Tailwind). */
 
@@ -393,6 +415,21 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
    *  empty-results hint so an area-code-only search never shows a silent blank. */
   searchAttempted(): boolean {
     return this.query.trim().length > 0 || this.areaCode.trim().length > 0;
+  }
+
+  /** Upper-cased query for the keypad preview label. */
+  queryUpper(): string {
+    return this.query.trim().toUpperCase();
+  }
+
+  /**
+   * Live keypad-digit rendering of the typed vanity word — null (no chip) when
+   * the query has no letters (digits-only needs no translation). Re-evaluated
+   * each CD cycle, which `ngModelChange` already fires under OnPush.
+   */
+  queryDigits(): string | null {
+    const q = this.query.trim();
+    return q && hasVanityLetters(q) ? vanityToDigits(q.toUpperCase()) : null;
   }
 
   private debounceTimer?: ReturnType<typeof setTimeout>;
