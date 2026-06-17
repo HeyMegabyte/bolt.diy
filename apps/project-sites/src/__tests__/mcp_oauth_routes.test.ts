@@ -64,14 +64,23 @@ function makeDb(
   opts: {
     firstRow?: Record<string, unknown> | null;
     allRows?: Array<Record<string, unknown>>;
+    // Whether the caller's org owns the target site (gates the IDOR ownership
+    // check `SELECT id FROM sites WHERE id = ? AND org_id = ?`). Default true so
+    // existing happy-path tests model an owned site.
+    ownsSite?: boolean;
   } = {},
 ) {
+  const ownsSite = opts.ownsSite ?? true;
   const statements: BoundStatement[] = [];
   const prepare = jest.fn((sql: string) => {
     const bind = jest.fn((...params: unknown[]) => {
       statements.push({ sql, params });
       return {
-        first: jest.fn(async () => opts.firstRow ?? null),
+        first: jest.fn(async () => {
+          // The site-ownership probe is SQL-distinct from the state lookup.
+          if (/FROM sites\b/i.test(sql)) return ownsSite ? { id: 's1' } : null;
+          return opts.firstRow ?? null;
+        }),
         run: jest.fn(async () => ({ success: true, meta: {} })),
         all: jest.fn(async () => ({ results: opts.allRows ?? [] })),
       };
@@ -284,9 +293,18 @@ describe('GET /api/mcp/:provider/callback', () => {
     const res = await req(makeApp(), '/api/mcp/github/callback?code=c&state=forged', env);
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { message: string } };
-    expect(json.error.message).toBe('invalid state');
+    expect(json.error.message).toBe('invalid or expired state');
     // No token should be encrypted for a forged/unknown state.
     expect(mockEncrypt).not.toHaveBeenCalled();
+  });
+
+  it('connect 404s when the site belongs to another org (IDOR guard)', async () => {
+    const env = makeEnv({ DB: makeDb({ ownsSite: false }) });
+    const res = await req(makeApp(AUTH), '/api/mcp/github/connect?site_id=foreign', env);
+    expect(res.status).toBe(404);
+    // No PKCE state row was persisted for an unowned site.
+    const stmts = (env.DB as unknown as { _statements: BoundStatement[] })._statements;
+    expect(stmts.some((s) => /INSERT INTO mcp_oauth_states/i.test(s.sql))).toBe(false);
   });
 
   it('returns 502 when the upstream token exchange throws', async () => {
@@ -416,6 +434,13 @@ describe('POST /api/mcp/:provider/paste', () => {
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { message: string } };
     expect(json.error.message).toBe('api_key required');
+  });
+
+  it('404s on a site_id (no state) the caller org does not own (IDOR guard)', async () => {
+    const env = makeEnv({ DB: makeDb({ ownsSite: false }) });
+    const res = await postPaste(env, '/api/mcp/resend/paste?site_id=foreign', { api_key: 're_x' });
+    expect(res.status).toBe(404);
+    expect(mockEncrypt).not.toHaveBeenCalled();
   });
 
   it('returns 400 (not a 500) on a malformed JSON body — never reaches encrypt', async () => {

@@ -38,7 +38,7 @@ export default defineFeatureManifest({
     defaultEnabled: false,
     environments: { development: true },
     notes:
-      'Alpha. Read tools (whoami/list_sites/get_site/get_build_status) live + tested. deploy_site/create_site are the next slice (see README + ROADMAP). Promote after deploy_site ships + a prod connect-from-Claude-Code smoke.',
+      'Alpha. Read tools (whoami/list_sites/get_site/get_build_status/list_snapshots/get_research/tail_logs) live + tested. deploy_site/create_site also live. tail_logs surfaces workflow_jobs build entries newest-first (sites:read, org-isolated). Promote after prod connect-from-Claude-Code smoke.',
   },
 
   risks: [

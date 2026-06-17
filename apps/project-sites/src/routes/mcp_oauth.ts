@@ -36,6 +36,23 @@ import * as auditService from '../services/audit.js';
 /** Boundary contract for the paste-key flow — a non-empty secret string. */
 const PasteKeyBodySchema = z.object({ api_key: z.string().min(1) });
 
+/** OAuth/paste state rows older than this are rejected (replay protection). */
+const STATE_TTL = "datetime('now', '-10 minutes')";
+
+/**
+ * Confirm a site belongs to the caller's org before we bind a credential to it.
+ * Without this, a user could pass another org's `site_id` (IDOR / CWE-639) and
+ * write MCP credentials onto a site they don't own. Returns false on missing /
+ * foreign / deleted sites — callers answer 404 (never leak existence).
+ */
+async function siteBelongsToOrg(db: Env['DB'], siteId: string, orgId: string): Promise<boolean> {
+  const row = await db
+    .prepare(`SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`)
+    .bind(siteId, orgId)
+    .first<{ id: string }>();
+  return !!row;
+}
+
 export const mcpOauth = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
@@ -121,6 +138,10 @@ mcpOauth.get('/api/mcp/:provider/connect', async (c) => {
   if (!isOauthConfigured(c.env, provider)) {
     return c.json({ error: 'oauth_not_configured', provider }, 501);
   }
+  // Ownership check — never bind a connection to a site the caller doesn't own.
+  if (!(await siteBelongsToOrg(c.env.DB, siteId, orgId))) {
+    return c.json({ error: { message: 'site not found' } }, 404);
+  }
   // Sanitize to a same-origin relative path — the callback composes
   // `https://projectsites.dev${returnUrl}`, so an unchecked `@evil.com` /
   // `//evil.com` would be an open redirect. (Stored safe → callback is safe.)
@@ -185,11 +206,12 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
   if (!code || !state) return c.json({ error: { message: 'code + state required' } }, 400);
 
   const stateRow = await c.env.DB.prepare(
-    `SELECT org_id, site_id, code_verifier, return_url FROM mcp_oauth_states WHERE state = ?`,
+    `SELECT org_id, site_id, code_verifier, return_url FROM mcp_oauth_states
+       WHERE state = ? AND created_at > ${STATE_TTL}`,
   )
     .bind(state)
     .first<{ org_id: string; site_id: string; code_verifier: string; return_url: string }>();
-  if (!stateRow) return c.json({ error: { message: 'invalid state' } }, 400);
+  if (!stateRow) return c.json({ error: { message: 'invalid or expired state' } }, 400);
 
   let exchange;
   try {
@@ -287,12 +309,19 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
   if (!parsed.success) return c.json({ error: { message: 'api_key required' } }, 400);
   const { api_key } = parsed.data;
   const stateRow = state
-    ? await c.env.DB.prepare(`SELECT site_id FROM mcp_oauth_states WHERE state = ? AND org_id = ?`)
+    ? await c.env.DB.prepare(
+        `SELECT site_id FROM mcp_oauth_states WHERE state = ? AND org_id = ? AND created_at > ${STATE_TTL}`,
+      )
         .bind(state, orgId)
         .first<{ site_id: string }>()
     : null;
   const siteId = stateRow?.site_id ?? (c.req.query('site_id') as string | undefined);
   if (!siteId) return c.json({ error: { message: 'site_id required' } }, 400);
+  // Ownership check — the `site_id` query fallback (no state) is attacker-controlled;
+  // never write a credential onto a site the caller's org doesn't own (IDOR).
+  if (!(await siteBelongsToOrg(c.env.DB, siteId, orgId))) {
+    return c.json({ error: { message: 'site not found' } }, 404);
+  }
   const enc = await encrypt(c.env, api_key);
   const id = crypto.randomUUID();
   await c.env.DB.prepare(

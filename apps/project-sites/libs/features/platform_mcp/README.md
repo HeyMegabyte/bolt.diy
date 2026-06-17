@@ -53,7 +53,8 @@ catalog) — curl it to verify the connection is live.
 | `create_site` *(args: business_name, slug?)* | sites:write | ✅ live — creates a draft site (unique slug), returns site_id + URL; then deploy_site to publish |
 | `list_snapshots` *(args: site_id)* | sites:read | ✅ live — lists saved snapshots for a site (id, snapshot_name, build_version, description, created_at) |
 | `get_research` *(args: site_id)* | sites:read | ✅ live — returns AI research data collected for a site (business profile, brand, selling points), keyed by task_name |
-| *(future)* `set_domain`, `tail_logs` | varies | roadmap |
+| `tail_logs` *(args: site_id, limit?)* | sites:read | ✅ live — returns recent build/workflow log entries from `workflow_jobs` newest-first (`{status, step, updated_at}`); default limit 20, max 100 |
+| *(future)* `set_domain` | sites:write | roadmap |
 
 **Scope discipline (the "is it rude to expose the whole API?" answer):** No — the
 MCP intentionally exposes a *curated* surface, not the raw 400-route API. Tools

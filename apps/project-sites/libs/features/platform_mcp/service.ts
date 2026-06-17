@@ -16,7 +16,7 @@ import type { Env } from '../../../src/types/env.js';
 import { dbQuery, dbQueryOne, dbExecute, dbInsert } from '../../../src/services/db.js';
 import type { ApiTokenRow } from '../../../src/services/api_tokens.js';
 import { hasScope } from '../../../src/services/api_tokens.js';
-import { ListSitesInput, GetSiteInput, BuildStatusInput, DeploySiteInput } from './schemas.js';
+import { ListSitesInput, GetSiteInput, BuildStatusInput, DeploySiteInput, TailLogsInput } from './schemas.js';
 
 /** Mirrors DOMAINS.SITES_SUFFIX — the public site subdomain suffix. */
 const SITES_SUFFIX = '.projectsites.dev';
@@ -192,6 +192,20 @@ export const PLATFORM_MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: { site_id: { type: 'string' } },
+      required: ['site_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'tail_logs',
+    description: 'Return recent build/workflow log entries for a site (newest-first) to debug deploys.',
+    requiredScope: 'sites:read' as const,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site_id: { type: 'string' },
+        limit: { type: 'number', minimum: 1, maximum: 100, default: 20 },
+      },
       required: ['site_id'],
       additionalProperties: false,
     },
@@ -436,6 +450,23 @@ export async function dispatchPlatformTool(
         }
       }
       return ok({ site_id, tasks: data.map((r) => r.task_name), research });
+    }
+
+    case 'tail_logs': {
+      const { site_id, limit } = TailLogsInput.parse(args);
+      const owned = await dbQueryOne<{ id: string }>(
+        db,
+        `SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        [site_id, orgId],
+      );
+      if (!owned) return err('Site not found.');
+      const { data } = await dbQuery<{ status: string; step: string | null; updated_at: string }>(
+        db,
+        `SELECT status, step, updated_at FROM workflow_jobs
+           WHERE site_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`,
+        [site_id, limit],
+      );
+      return ok({ site_id, count: data.length, entries: data });
     }
 
     default:

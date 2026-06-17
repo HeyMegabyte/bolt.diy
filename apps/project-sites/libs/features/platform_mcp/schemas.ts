@@ -72,7 +72,13 @@ export const DeploySiteInput = z
     'Total deploy size exceeds the 20 MB limit.',
   );
 
+export const TailLogsInput = z.object({
+  site_id: z.string().min(1),
+  limit: z.number().int().min(1).max(100).default(20),
+});
+
 export type ListSitesArgs = z.infer<typeof ListSitesInput>;
 export type GetSiteArgs = z.infer<typeof GetSiteInput>;
 export type BuildStatusArgs = z.infer<typeof BuildStatusInput>;
 export type DeploySiteArgs = z.infer<typeof DeploySiteInput>;
+export type TailLogsArgs = z.infer<typeof TailLogsInput>;

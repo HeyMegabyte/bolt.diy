@@ -63,7 +63,7 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research']));
+    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research', 'tail_logs']));
   });
 
   it('tools/call without a token is unauthorized (-32001)', async () => {
@@ -190,5 +190,37 @@ describe('platform_mcp JSON-RPC', () => {
     const payload = JSON.parse(body.result.content[0].text);
     expect(payload.research['business_profile']).toEqual({ name: 'Acme' });
     expect(Object.keys(payload.research)).toHaveLength(1); // only one unique task
+  });
+
+  it('tail_logs returns newest-first workflow_jobs entries for an owned site', async () => {
+    const { dbQueryOne, dbQuery } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 'site-1' }); // ownership check passes
+    dbQuery.mockResolvedValueOnce({
+      data: [
+        { status: 'success', step: 'publish', updated_at: '2026-06-17T00:00:00Z' },
+        { status: 'running', step: 'build', updated_at: '2026-06-16T23:59:00Z' },
+      ],
+    });
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
+    const res = await rpc('tools/call', { name: 'tail_logs', arguments: { site_id: 'site-1', limit: 2 } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBeFalsy();
+    const payload = JSON.parse(body.result.content[0].text);
+    expect(payload.site_id).toBe('site-1');
+    expect(payload.count).toBe(2);
+    expect(payload.entries[0].status).toBe('success');
+    expect(payload.entries[0].step).toBe('publish');
+  });
+
+  it('tail_logs returns not found for a site the org does not own', async () => {
+    const { dbQueryOne } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce(null); // ownership check fails
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
+    const res = await rpc('tools/call', { name: 'tail_logs', arguments: { site_id: 'foreign' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain('Site not found');
   });
 });
