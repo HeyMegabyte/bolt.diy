@@ -19,6 +19,7 @@
  */
 
 import { authLogin, authWhoami, authLogout } from './commands/auth.js';
+import { connectCmd } from './commands/connect.js';
 import {
   sitesList,
   sitesGet,
@@ -38,6 +39,7 @@ Commands:
   auth login [psk_token] [--base-url=URL]   Save API token to ~/.config/psctl/config.json
   auth whoami                                Show current identity
   auth logout                                Remove saved token
+  connect [--global] [--token=psk_]          Wire projectsites into Claude Code/Cursor (.mcp.json)
   sites list [--limit=20] [--offset=0]      List your sites
   sites get <id>                             Get a site by ID
   sites create --from='JSON'                 Create a site
@@ -68,6 +70,9 @@ async function main(): Promise<void> {
         default: console.log(HELP);
       }
       break;
+
+    case 'connect':
+      await connectCmd([subcommand, ...rest].filter((s): s is string => typeof s === 'string')); break;
 
     case 'deploy':
       await sitesDeploy([subcommand, ...rest].filter((s): s is string => typeof s === 'string')); break;
