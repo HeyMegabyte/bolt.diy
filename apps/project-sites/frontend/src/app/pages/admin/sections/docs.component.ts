@@ -429,11 +429,17 @@ export function renderMarkdown(md: string): string {
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   const fences: string[] = [];
-  let src = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
+  let src = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
     const id = fences.length;
     const raw = escapeHtml(code as string);
+    // §17: surface the fenced language (```bash) as a data-lang attr + a visible
+    // chip so a cURL reads differently from a JSON body. `\w*` so it's safe, but
+    // escape for consistency; a language-less fence renders no chip/attr.
+    const lng = (lang as string) ?? '';
+    const langAttr = lng ? ` data-lang="${escapeHtml(lng)}"` : '';
+    const langChip = lng ? `<span class="code-lang" aria-hidden="true">${escapeHtml(lng)}</span>` : '';
     fences.push(
-      `<pre><button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
+      `<pre${langAttr}>${langChip}<button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
     );
     return ` FENCE${id} `;
   });
@@ -441,7 +447,10 @@ export function renderMarkdown(md: string): string {
   const blocks = src.split(/\n{2,}/).map((blk) => blk.trim()).filter(Boolean);
 
   const html = blocks.map((blk) => {
-    if (/^ FENCE\d+ $/.test(blk)) {
+    // The placeholder is ` FENCE${id} ` but `blocks` are trimmed above, so match
+    // the trimmed form (the spaced-only regex never fired → a standalone fence
+    // rendered as literal "<p>FENCE0</p>"; §17 fix exposed by the lang-label spec).
+    if (/^FENCE\d+$/.test(blk)) {
       const idx = Number(blk.match(/\d+/)?.[0] ?? '0');
       return fences[idx] ?? '';
     }

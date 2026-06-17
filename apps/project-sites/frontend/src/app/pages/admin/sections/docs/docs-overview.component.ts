@@ -449,6 +449,14 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
     :host ::ng-deep .prose-docs pre:focus-within .copy-code-btn { opacity: 1; transform: translateY(0); }
     :host ::ng-deep .prose-docs pre .copy-code-btn:hover { background: rgba(0,229,255,0.18); color: #fff; }
     :host ::ng-deep .prose-docs pre .copy-code-btn.is-copied { background: rgba(74,222,128,0.18); color: #4ade80; border-color: rgba(74,222,128,0.32); opacity: 1; }
+    /* §17 language label — top-left chip, opposite the top-right copy button. */
+    :host ::ng-deep .prose-docs pre[data-lang] { padding-top: 26px; }
+    :host ::ng-deep .prose-docs pre .code-lang {
+      position: absolute; top: 6px; left: 8px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.56rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: color-mix(in oklch, #00E5FF 78%, #fff); opacity: 0.75;
+    }
     :host ::ng-deep .prose-docs a { color: #00E5FF; text-decoration: none; border-bottom: 1px dashed rgba(0,229,255,0.4); }
     :host ::ng-deep .prose-docs a:hover { border-bottom-color: #00E5FF; color: #fff; }
     :host ::ng-deep .prose-docs strong { color: #fff; font-weight: 700; }

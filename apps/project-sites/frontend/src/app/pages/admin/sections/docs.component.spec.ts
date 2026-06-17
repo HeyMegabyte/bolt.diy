@@ -89,6 +89,38 @@ describe('renderMarkdown — link XSS hardening', () => {
   });
 });
 
+/**
+ * §17 docs code-samples: a fenced block's language (```bash) was captured then
+ * discarded — readers couldn't tell a cURL from a JSON body at a glance. The
+ * renderer now surfaces it as a `data-lang` attr + a visible `.code-lang` chip
+ * (alongside the already-wired copy button). A language-less fence stays clean.
+ */
+describe('renderMarkdown — fenced code language label (§17)', () => {
+  it('surfaces a fenced language as a data-lang attr + a visible chip', () => {
+    const html = renderMarkdown('```bash\ncurl https://x\n```');
+    expect(html).toContain('data-lang="bash"');
+    expect(html).toContain('class="code-lang"');
+    expect(html).toContain('>bash<');
+    // the existing copy affordance must survive.
+    expect(html).toContain('copy-code-btn');
+  });
+
+  it('omits the chip + attr for a language-less fence', () => {
+    const html = renderMarkdown('```\nplain\n```');
+    expect(html).not.toContain('data-lang');
+    expect(html).not.toContain('code-lang');
+    expect(html).toContain('copy-code-btn');
+    expect(html).toContain('plain');
+  });
+
+  it('still escapes the code body (no markup injection via a fence)', () => {
+    const html = renderMarkdown('```html\n<script>alert(1)</script>\n```');
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).toContain('data-lang="html"');
+  });
+});
+
 /** Collect CSS from BOTH injected <style> tags and constructable/adopted
  *  stylesheets — Angular may use either depending on view-encapsulation mode,
  *  so scoping to the host element (or only <style> tags) misses the component CSS. */
