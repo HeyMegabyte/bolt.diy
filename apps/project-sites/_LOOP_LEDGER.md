@@ -17,6 +17,28 @@
 
 ---
 
+## ★ MISSION v2 (2026-06-17) — multi-tenant AI website platform convergence (cron 72c00c52)
+
+> New broad mission: converge ProjectSites.dev into a shippable multi-tenant platform for SMB / nonprofit-donation / contractor sites. Fresh-context Ralph executes these per fire, TDD-first, local-commit-only (Brian gates prod). Most are MULTI-SESSION epics — close in vertical slices, not big-bang. OSS-first per `package-preference-registry` prime principle.
+
+### §26 priority order (this run → next runs)
+- [ ] **claimyour.site auto-background-build flow** — shortlink resolve → attribution → build session → prefilled `/create` → idempotent background build (survives page-leave, no dup on refresh) → start/finish emails → preview link → edits-while-building stored as pending rebuild context → "Rebuild with my changes". (epic; slice: idempotent build-session state machine + Zod contract + unit tests FIRST)
+- [ ] **§17 deployed-site bug fixes (most tractable — do these as warm-up rounds, each its own RED→GREEN):** signin redundant top-right "Sign In" link → Home/Pricing/Contact · umami `<aside>` bg removal · nested duplicate `border:1px var(--ps-hairline)!important` · `/admin/apps` filter delayed-reveal (rapid-filter Playwright test + agentskills note on animated-filter immediate-visible-state) · `/admin/site-features` "Spec" fullscreen modal (Esc/backdrop/focus-trap + E2E) · white `i-ph:push-pin` icon contrast (+ sweep similar) · analytics-unavailable for megabytespace.projectsites.dev (+ fallback/status UI) · Find-a-Number Twilio search (one input, 8533 digits, MOVE keypad mapping, anywhere/starts/ends dropdown, live results) · API-docs remove Refresh button · `/create`→combined Settings persistence · `router-outlet:empty{display:none}` (don't break nested routing) · merge `/admin/logs`+`/admin/traces`+Bolt logs → unified Logs · docs code-sample syntax-highlight+copy+lang-label · Bolt full-screen button · CMD+K works under Bolt focus.
+- [ ] **Payments/subscription/credits foundation** — Stripe Link/Payment Element/Express Checkout/Apple+Google Pay, Billing subs, credits wallet, dunning, webhook idempotency, audit, test-mode isolation. (audit what billing.ts already has FIRST — much exists.)
+- [ ] **AI payment-command endpoint safety model** — `POST /api/ai-actions/payment-command`: parse NL intent, NEVER raw card / last4-only, resolve saved PM alias, disambiguation, dry-run→confirmation-token→idempotent PaymentIntent→audit→receipt→refund path. Constrained MCP tool layer (lookup_customer/list_saved_payment_methods/create+confirm_payment_intent/create_invoice/refund/get_status). (Zod-first + policy engine + RED tests for every reject-path.)
+- [ ] **MCP OAuth connection tiles + ?-tooltips + PKCE** — per-tile status/scopes/reconnect/disconnect/logs/test + `?` tooltip (account needed, OAuth vs API-key, scopes, redirect URI, webhook, tenant-vs-site, capabilities, security). Fix `/api/mcp/*/connect` unauthorized flows (state+PKCE, session+tenant/site perm, secure token store, never-log-tokens, mocked E2E). Builds on existing `mcp_oauth.ts`.
+- [ ] **Turnstile** on signin/create/claim/lead-form/newsletter/payment-sensitive (server verify, graceful degrade, test-key/mocked E2E, never block the E2E account w/o bypass flag).
+- [ ] **Novu** notification orchestration (build started/finished/failed, claim-clicked, payment events, MCP-disconnect, oauth-reconnect, lead-scan-done…) — frontend bell already wired (see [[novu-admin-bell-wired]]); next = server-side workflow triggers.
+- [ ] **listmonk** (listmonk.megabyte.space) — connection settings + health + subscriber/list sync + campaign drafts + GrapesJS-MJML email editor + AI newsletter draft POC (approval-gated, never auto-send). NO Mailchimp/HubSpot/Pipedrive.
+- [ ] **Lead scanner + claim links** (Super Admin) — Google Places no-website detection, compliant enrichment (email NOT from Places), lead score, claim-link gen, bulk actions; outreach send requires explicit admin enablement (never auto-send).
+- [ ] **Site-generation context pipeline** — feed lead-research + /create + edits + Places + brand + SEO into the generation prompts; model routing (DeepSeek cheap-gen · Anthropic plan · OpenAI fallback · OpenRouter experiments · CF-AI/Ollama fallback); persist prompt/context/model/cost/tokens/trace/artifacts.
+
+### Banked notes
+- §1 OSS-first principle → added to `package-preference-registry.md § Prime principle` (2026-06-17).
+- Data model (§19, ~90 tables), security (§20), observability (§21), docs (§22), TypeDoc (§23), full E2E matrix (§24) are cross-cutting — apply per-slice as each feature lands, NOT as standalone rounds.
+
+---
+
 ## P0-REV — SaaS-subscription revenue funnel (rank by §5.0 lens; do autonomous ones FIRST)
 
 > The prime directive (set 2026-06-11): make projectsites.dev a product people pay a recurring
