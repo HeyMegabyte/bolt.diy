@@ -70,3 +70,7 @@ storybook-static/
 # Generated drift report (written by validate-feature-drift)
 _drift-report.json
 **/_drift-report.json
+
+# Vite transient config bundle (esbuild temp)
+vite.config.*.timestamp-*
+*.timestamp-*.mjs

@@ -459,6 +459,14 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  platform_mcp: {
+    key: 'platform_mcp',
+    description: 'Account-level MCP server so Claude Code/Cursor/MCP clients connect with a scoped psk_ API token and manage their sites (list/inspect/build-status; deploy next)',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

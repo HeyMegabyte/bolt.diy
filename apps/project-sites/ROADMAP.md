@@ -18,6 +18,7 @@ Legend: **NEW** new module · **EXTEND** grow existing · **STUB→** finish a s
 
 ## TIER 0 — Direct revenue + margin/churn protection (DO FIRST)
 The money path. `payments_rail` is the keystone — it unblocks every item below it.
+- [ ] **Platform MCP server** — `platform_mcp` · ALPHA (read tools live) · Claude Code/Cursor connect via scoped `psk_` API key → list/inspect/build-status today; **`deploy_site` next** (deploy from the editor). Distribution play — opens the developer market. See `libs/features/platform_mcp/README.md`.
 
 - [ ] **Unified payments rail** — `payments_rail` · STUB→ · one Square(accept)+Stripe(SaaS/payouts) idempotency+webhook+entitlement seam. **Foundational: unblocks booking deposits, storefront, donations capture, marketplace, dunning.** Build FIRST.
 - [ ] **Dunning / failed-payment recovery** — `dunning_recovery` · NEW · retry + recovery emails on failed charges. Direct churn-revenue protection; missing today. Rides `billing`.

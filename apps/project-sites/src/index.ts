@@ -104,6 +104,7 @@ import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; /
 import { searchSubmit } from '../libs/features/search_submit/handlers.js'; // #3 IndexNow + Bing/Google submit on publish (flag: search_engine_submit)
 import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Google Business Profile setup + optimizer (flag: gbp_assist)
 import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // abuse + takedown intake (flag: abuse_takedown)
+import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
 import { storefrontEcommerce } from '../libs/features/storefront_ecommerce/handlers.js'; // native storefront (flag: storefront_ecommerce)
@@ -390,6 +391,7 @@ app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webho
 app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)
 app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
+app.route('/', platformMcp); // GET+POST /api/mcp — platform MCP (flag: platform_mcp)
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
