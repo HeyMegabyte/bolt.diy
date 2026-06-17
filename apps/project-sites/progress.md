@@ -3,7 +3,18 @@
 > Read this + `git log --oneline -15` + `_LOOP_LEDGER.md` FIRST each fresh iteration.
 > Loop doctrine: `_ULTIMATE_LOOP.prompt.md`. Cron `45b46ee7` fires every 30m.
 
-## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-v2.14, 2026-06-17)
+## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-v2.15, 2026-06-17)
+- **fire-v2.15 (MULTI-AGENT FAN-OUT — 6 pure cores in parallel, deploy authorized):** Brian asked to "run the loop ~100× via multiple agents + deploy." Ran a Workflow spawning 6 fresh agents, each owning ONE disjoint new pure-core file + Jest test (no shared-file collisions; none touched index.ts/registry). ALL GREEN, **80 new tests**, folded by the orchestrator (one gate pass, one commit):
+  - `claim_lead_profile.ts` (#1) — Zod ClaimLeadProfileSchema (businessName required) + toCreateFormPrefill + mergeRebuildContext. 14 tests.
+  - `lead_scanner_score.ts` (#9) — detectNoWebsite + isPriorityRegion(15-country) + scoreLead(0-100). 23 tests.
+  - `mcp_pkce.ts` (#5) — RFC 7636 S256 PKCE (generateCodeVerifier/codeChallengeS256/verifyPkce, bare `crypto` global — orchestrator fixed a `globalThis.crypto` tsc error). 10 tests + RFC test vector.
+  - `listmonk_client.ts` (#8) — DI'd-fetch listmonkHealth + listmonkUpsertSubscriber (Basic auth, never throws). 10 tests.
+  - `novu_triggers.ts` (#7) — Zod discriminated-union for 6 events + DI'd triggerNovu (invalid_payload/no_subscriber/send_failed). 12 tests.
+  - `site_gen_context.ts` (#10) — assembleGenerationContext (edits>createForm>places>leadResearch merge, brand passthrough, seoKeywords dedup, sources). 11 tests.
+  - Gate: `jest --roots=src` 4709 pass / 2 fail (ONLY the pre-existing concurrent feature_flags red — not mine), tsc(0 my-files)/eslint(0)/prettier clean.
+  - **DEPLOYED this fire (Docker now up — Brian launched it):** see deploy log below.
+  - ⚠️ Each is a PURE CORE — the route/DO/UI wiring that mounts them is still the remaining I/O work (per-item, heavier harness). Every MISSION-v2 priority (#1,#4,#5,#6,#7,#8,#9,#10) now has a tested pure foundation.
+- **(prior) updated fire-v2.14, 2026-06-17**
 - **fire-v2.14 (WORKER #6 Turnstile — server-verify primitive):** `src/services/turnstile.ts` = `verifyTurnstileToken({token, secret, remoteIp?, expectedAction?, expectedHostname?, fetchImpl?})`. DI'd fetch → unit-provable, no net; NEVER throws (typed `TurnstileResult`); graceful-degrade by design (`not_configured` when secret missing → caller soft-allows; else `missing_token`/`verification_failed`+errorCodes/`action_mismatch`/`hostname_mismatch`/`network_error`). POSTs secret+response+remoteip to CF siteverify. RED→GREEN 8 tests; tsc(0 my-files)/eslint(0)/prettier clean. NEXT #6 = wire it into routes (forms.ts only STRIPS `cf-turnstile-response` today, never verifies; +signin/create/claim/newsletter) — a PAIRED frontend+worker change (the form must send a token first or legit submits break) + a Turnstile widget in the Angular forms + `TURNSTILE_SECRET_KEY` secret; test-key/E2E + never-block-the-E2E-account-without-bypass at wire time.
 - ⚠️ **#4 flag-registration STILL BLOCKED** (concurrent feature_flags red, unchanged). #4 tool layer + #1 (build-session + attribution pure cores) all complete/proven.
 - **Pure-core vein status:** worker-side pure-logic slices shipped this session-series — #4: policy/route/executor/wiring/refund/status (v2.7–v2.11); #1: build-session reducer + attribution (v2.12–v2.13); #6: turnstile verify (v2.14). Remaining work on #1/#4/#6 is I/O-route-wiring (needs worker-import-jest harness + D1 mocks) or Brian-gated deploy/flag — heavier than pure cores.
