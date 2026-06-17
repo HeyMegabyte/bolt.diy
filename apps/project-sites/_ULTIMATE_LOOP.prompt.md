@@ -18,6 +18,7 @@
 - **Batch of 10 per fire.** Each invocation runs **10 convergence rounds** (10 ledger items closed end-to-end), then reports — see §2. Budgets + parallelism caps apply across the whole batch.
 - **Termination guards.** (a) 10-round batch cap per fire + a max-iteration cap; (b) **repetition detector** — hash the last 3 tool-call sequences; identical → halt + escalate; (c) a hard gate failing twice on one item → escalate, don't thrash; (d) the zero-recommendations gate in §8.
 - **Drift fixes ship the SAME turn** — never defer architecture drift to a follow-up PR (`drift-detection`). Stale docs are bugs.
+- **Dogfood-first (no perf-harming abstractions).** Prefer the path that builds/deploys/operates the platform THROUGH its own primitives: deploy via `platform_mcp` (`deploy_site` once wired), generate our own marketing via `site-generation.ts`, compose admin/marketing from `site-kit` blocks. Use Cloudflare primitives DIRECTLY per `cloudflare-lock-in-is-leverage` — NEVER a portability/wrapper layer in the hot path; adopt only abstractions that RAISE perf (KV-poll → per-site DO actor, 5s-poll → AG-UI/SSE stream, D1 read-replica lookups, AI Gateway cache, inline WASM hardening gate). Measure INP/p99 before+after every structural swap; revert any regression. Full plan + the 30-idea edge-hosting thesis: `EDGE_HOSTING_STRATEGY.md`.
 
 ---
 
