@@ -561,8 +561,10 @@ npm run check         # All of the above
 | Resource | ID |
 |----------|-----|
 | Account | `84fa0d1b16ff8086dd958c468ce7fd59` |
-| Zone (projectsites.dev) | `75a6f8d5e441cd7124552976ba894f83` |
+| Zone (projectsites.dev) | `9ceaa211750dd31899fd5d1bf8d1ec46` |
+| Zone (megabyte.space) | `75a6f8d5e441cd7124552976ba894f83` |
 | Pages (bolt-diy) | `76c34b4f-1bd1-410c-af32-74fd8ee3b23f` |
+| Pages (projectsites-storybook) | `storybook.projectsites.dev` |
 | D1 production | `ea3e839a-c641-4861-ae30-dfc63bff8032` |
 
 ## Deployment Environments
