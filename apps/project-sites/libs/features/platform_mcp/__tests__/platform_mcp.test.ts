@@ -81,10 +81,14 @@ describe('platform_mcp JSON-RPC', () => {
     expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research', 'tail_logs', 'set_domain']));
   });
 
-  it('tools/call without a token is unauthorized (-32001)', async () => {
+  it('tools/call without a token is 401 + WWW-Authenticate (RFC 9728) with -32001 body', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue(null);
     const res = await rpc('tools/call', { name: 'whoami', arguments: {} });
+    expect(res.status).toBe(401);
+    // The header points OAuth-capable clients at the Protected Resource Metadata.
+    expect(res.headers.get('WWW-Authenticate') ?? '').toContain('resource_metadata="');
+    expect(res.headers.get('WWW-Authenticate') ?? '').toContain('/.well-known/oauth-protected-resource');
     const body = await res.json();
     expect(body.result.code).toBe(-32001);
   });

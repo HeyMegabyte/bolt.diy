@@ -188,19 +188,17 @@ test.describe("POST /api/mcp — tools/call unauthorized", () => {
     const res = await rpcPost(request, rpc('tools/call', { name: 'whoami' }));
     const status = res.status();
 
-    // Flag off → 404. Flag on → 200 with error embedded in `error`.
-    expect([200, 404]).toContain(status);
+    // Flag off → 404. Flag on → 401 with WWW-Authenticate (RFC 9728) so OAuth-capable
+    // clients auto-discover the authorization server; the JSON-RPC -32001 is in `result`.
+    expect([401, 404]).toContain(status);
     if (status === 404) return; // flag off — cannot test auth enforcement
 
-    // When the flag is ON the handler MUST return HTTP 200 with a JSON-RPC
-    // error object (not a plain 401) — this is the JSON-RPC contract.
-    expect(status).toBe(200);
+    expect(status).toBe(401);
+    expect(res.headers()['www-authenticate'] ?? '').toContain('resource_metadata=');
     const body = await res.json();
     expect(body).toHaveProperty('jsonrpc', '2.0');
 
-    // Must be an error, not a result with data.
-    expect(body).toHaveProperty('error');
-    const error = body.error as { code?: unknown; message?: unknown };
+    const error = body.result as { code?: unknown; message?: unknown };
     // -32001 is the unauthorized code defined in handlers.ts.
     expect(error.code).toBe(-32001);
     expect(typeof error.message).toBe('string');
@@ -215,18 +213,18 @@ test.describe("POST /api/mcp — tools/call unauthorized", () => {
     );
     const status = res.status();
 
-    expect([200, 404]).toContain(status);
+    expect([401, 404]).toContain(status);
     if (status === 404) return;
 
     const body = await res.json();
 
-    // Whether the bad token hits -32001 (unauth) or a parse error, there
-    // must be NO org_id, site data, or internal error details in the response.
+    // The bad token is unauthorized — there must be NO org_id, site data, or
+    // internal error details in the response.
     const text = JSON.stringify(body);
     expect(text).not.toMatch(/"org_id"/);
     expect(text).not.toMatch(/"scopes"\s*:\s*\[/);
 
-    expect(body).toHaveProperty('error');
+    expect(body).toHaveProperty('result');
   });
 });
 

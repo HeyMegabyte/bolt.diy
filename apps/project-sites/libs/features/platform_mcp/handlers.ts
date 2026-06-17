@@ -144,5 +144,18 @@ platformMcp.post('/api/mcp', async (c) => {
     }).catch(() => undefined),
   );
 
+  if (status === 'unauthorized') {
+    // RFC 9728 / MCP auth: answer an unauthenticated tools/call with HTTP 401 +
+    // a WWW-Authenticate header pointing at the Protected Resource Metadata, so an
+    // OAuth-capable client auto-discovers the authorization server instead of needing
+    // the PRM URL out-of-band. The JSON-RPC -32001 body is preserved for clients that
+    // read it. (initialize/tools/list stay open 200 — no auth, no data.)
+    const host = c.req.header('host') ?? 'projectsites.dev';
+    const proto = c.req.header('x-forwarded-proto') ?? 'https';
+    const prm = `${proto}://${host}/.well-known/oauth-protected-resource`;
+    return c.json({ jsonrpc: '2.0', id: body.id ?? null, result }, 401, {
+      'WWW-Authenticate': `Bearer resource_metadata="${prm}"`,
+    });
+  }
   return c.json({ jsonrpc: '2.0', id: body.id ?? null, result });
 });
