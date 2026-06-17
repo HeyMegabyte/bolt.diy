@@ -367,28 +367,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  page_audio_summary: {
-    key: 'page_audio_summary',
-    description:
-      'Per-route AI-narrated 2-3 minute audio summary generated via TTS as an accessibility + engagement surface; OFF by default, per-tenant opt-in only',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   edge_personalization: {
     key: 'edge_personalization',
     description:
       'No-PII edge swap of hero headline/sub/image/primary-CTA/sticky-bar from geo/device/referrer/time/return signals via sub-10ms Workers-AI call, A/B-eval looped',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  generative_ui_stream: {
-    key: 'generative_ui_stream',
-    description:
-      'Admin copilot streams live UI components (charts/forms/compare cards) from the model as schema-bound contracts instead of plain text replies',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -436,15 +418,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'url_clone_seed',
     description:
       'Paste a URL and seed the builder from it: Browser-Rendering extracts layout + copy + structured-data JSON to prefill a new site as an acquisition fast-start',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  figma_import: {
-    key: 'figma_import',
-    description:
-      'Import a Figma file and map its tokens/components/responsive rules into a generated site so existing design systems accelerate the build — frontend-primary',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

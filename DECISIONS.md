@@ -898,3 +898,20 @@ Links to docs, RFCs, sibling ADRs.
 **Still-deferred** (UI/enforcement pending): TOTP/WebAuthn MFA UI · Chatwoot email-channel config (awaiting inbox/from-name decisions).
 
 **Superseded** (since shipped — were "won't build yet", now done): registrar domain purchasing (domain-picker + Buy flow), rich admin dashboards, A/B via feature flags, PostHog (wired). Source doc `WONT_BUILD_YET.md` removed; this ADR is the record.
+
+## ADR-0010 — Descoped features (trim, 2026-06-17)
+
+- **Status:** Accepted
+- **Date:** 2026-06-17
+
+Cut from scope to focus the loop on the money path (payments → booking → conversion). Removed because off the SMB-revenue path, redundant, or scope-creep for a pre-scale product.
+
+**Code removed** (modules + flags + index.ts mounts + manifests): `figma_import`, `page_audio_summary`, `generative_ui_stream` (the 3 were scaffolded this session; tsc + drift green after removal).
+
+**Descoped — do not build** (flag/stub-only, none in the active registry except site_mcp_server; recorded here so the loop won't scaffold them): `brand_voice_clone`, `media_library` (owner DAM — duplicates builder `media.ts`+R2), `i18n_localization` as a platform module (do i18n at generation time instead), `enterprise_sso`/`enterprise_plan` (no enterprise pipeline; Clerk is auth — revisit on a real deal), `site_mcp_server` (speculative), conversational generative-admin-UI.
+
+**Marketplace sprawl → keep one:** keep `template_marketplace`; descope `plugin_marketplace`, `integration_directory`, `stripe_marketplace`/`stripe_app_status` as further surfaces. Where these already exist as built+deployed+tested code, they stay **deprecated-in-place** (NOT deleted mid-convergence-loop — deleting loop-owned deployed modules is destructive); remove in a quiet window if desired.
+
+**Heavy commerce:** keep the lightweight D1+Square storefront (`storefront_ecommerce`, TIER 0); descope the Medusa/`ecommerce_engine` path (Neon+Upstash+Docker) — reserve as an opt-in for a rare heavy-commerce tenant.
+
+**Kept (deprioritized, NOT cut):** AI voice receptionist (high MRR, big session), `membership_paywall` (recurring revenue).

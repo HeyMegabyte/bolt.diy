@@ -46,9 +46,7 @@ Faster/better generation → more activated tenants.
 - [ ] **Visual point-and-click edit** — `visual_point_edit` · NEW (extends bolt editor + `swarm`) · click any node → AI mutates only it, no full regen. Industry's #1 churn reducer.
 - [ ] **Onboarding copilot** — `onboarding_copilot` · NEW (mandated CLAUDE.md PART 6) · in-product next-action guidance → activation.
 - [ ] **Prompt-versioning studio** — `prompt_studio` · NEW admin section over existing `prompts/registry` (A/B + KV hot-patch already internal).
-- [ ] **Streaming generative UI** — `generative_ui_stream` · EXTEND `agent-message` + `ai-chat-widget`.
 - [ ] **Cmd+K AI actions** — `cmdk_ai_actions` · EXTEND `command-palette` (palette already shipped) · NL → nav/bulk-mutations/agent-tasks.
-- [ ] **Enterprise SSO** — `enterprise_sso` · NEW · SAML/OIDC → enterprise-tier unlock (tier jump).
 
 ## TIER 3 — Trust, compliance, ops, polish (necessary; indirect revenue)
 - [ ] **AI content guardrails** — `ai_gateway_guardrails` · EXTEND `external_llm` + AI Gateway · Llama Guard on `/ai/*`, no-redeploy killswitch. Per `ai-agent-security`.
@@ -58,11 +56,6 @@ Faster/better generation → more activated tenants.
 - [ ] **Make `/api/site-features` toggles live** — currently persists state with no serving backend.
 - [ ] **Public status page + uptime SLA** — `status_page_live` · EXTEND `pages/status` shell.
 - [ ] **Newsletter engine** — `newsletter_engine` · NEW (distinct from `email_marketing`).
-- [ ] **Media library (owner DAM)** — `media_library` · NEW (R2; distinct from builder `media.ts`).
-- [ ] **i18n locale mirrors** — `i18n_localization` · NEW · auto `/{locale}/*` from ACS demographics.
-- [ ] **Brand voice clone** — `brand_voice_clone` · NEW · ElevenLabs consent-gated.
-- [ ] **Per-page AI audio summary** — `page_audio_summary` · NEW (OFF by default).
-- [ ] **Figma import** — `figma_import` · NEW (lower priority).
 - [ ] **Live thumbnail grid** — `site_thumbnail_grid` · EXTEND admin sites (reuse `snapshots` screenshot). Small polish.
 
 ## Known bugs / drift to fix in-band (P2, fast wins)
@@ -72,3 +65,18 @@ Faster/better generation → more activated tenants.
 
 > Reference impl: `libs/features/donations_engine/` (canonical module). Module statuses:
 > `FEATURE_CATALOG.md`. Generated-site blocks: `SITE_KIT.md`. Cost guardrails: DECISIONS ADR-0009.
+
+## From deep research (#36-100, mined 2026-06-17 from _research/)
+The non-duplicate high-value ideas pulled before retiring the research files:
+- [ ] **External booking-widget embed** (#62) · TIER 1 · one-line `<script>` that drops the tenant's `native_booking_engine` onto an EXTERNAL host (their existing WordPress/Squarespace) → captures leads beyond the generated site. Rides `payments_rail` + booking.
+- [ ] **AI competitor-gap detector** (#57) · TIER 2 · scan 5 peer sites at build → propose missing sections. Makes generated output provably beat competitors (activation/retention).
+- [ ] **AI a11y auto-fixer** (#54) · TIER 3 · axe-core findings → AI proposes + applies fixes pre-publish. ADA-compliance differentiator (legal risk reducer for tenants).
+- [ ] **AI alt-text writer** (#97) · TIER 3 · propose alt text for uploaded images (a11y + image SEO).
+- [ ] **Workers Queues background jobs** (#93) · TIER 3 (infra) · move snapshots/email/image-proc off the request path → reliability + lower p99.
+- [ ] **R2 lifecycle: Standard → IA after 30d** (#92) · TIER 3 (margin) · auto cold-tier old site versions/assets → hosting-cost reduction at scale.
+
+> **Descoped** (cut from scope — see DECISIONS ADR-0010): figma_import, page_audio_summary,
+> generative_ui_stream (modules removed), brand_voice_clone, media_library, i18n_localization
+> (platform module), enterprise_sso/enterprise_plan, site_mcp_server, generative admin UI, and the
+> marketplace-sprawl trio (plugin_marketplace / integration_directory / stripe_marketplace —
+> kept template_marketplace). Built+deployed ones stay deprecated-in-place, not deleted mid-loop.
