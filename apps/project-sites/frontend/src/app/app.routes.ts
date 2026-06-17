@@ -567,6 +567,15 @@ export const routes: Routes = [
       import('./pages/roadmap/roadmap.component').then((m) => m.RoadmapComponent),
   },
   {
+    // /developers — MCP acquisition page for developers living in Claude Code /
+    // Cursor / Cline. Hero is the .mcp.json connect snippet. No auth required.
+    path: 'developers',
+    loadComponent: () =>
+      import('./pages/developers/developers.component').then(
+        (m) => m.DevelopersComponent,
+      ),
+  },
+  {
     // Public integrations catalog — every third-party service the platform
     // speaks to. Filterable + searchable, backed by
     // /api/public/integrations. Lazy-loaded.

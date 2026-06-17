@@ -26,6 +26,9 @@ import { dbInsert } from '../../../src/services/db.js';
 import { JsonRpcRequestSchema, ToolCallParamsSchema } from './schemas.js';
 import { FLAG_KEY, PLATFORM_MCP_TOOLS, dispatchPlatformTool } from './service.js';
 
+/** Known tool names — audit logging records only these (never caller-supplied junk). */
+const KNOWN_TOOLS = new Set<string>(PLATFORM_MCP_TOOLS.map((t) => t.name));
+
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const platformMcp = new Hono<AppContext>();
@@ -116,14 +119,23 @@ platformMcp.post('/api/mcp', async (c) => {
     }
   } catch (e) {
     status = 'error';
-    result = jsonRpcError(body.id, -32603, e instanceof Error ? e.message : 'internal error').error;
+    // Log the real cause server-side; return a generic message (never leak
+    // stack traces / SQL / internal object keys to the caller).
+    console.warn(JSON.stringify({ event: 'platform_mcp.dispatch_error', method: body.method, error: e instanceof Error ? e.message : String(e) }));
+    result = jsonRpcError(body.id, -32603, 'internal server error').error;
   }
 
   c.executionCtx.waitUntil(
     dbInsert(c.env.DB, 'mcp_calls', {
       id: crypto.randomUUID(),
       site_id: null,
-      tool_name: body.method === 'tools/call' ? ((body.params as { name?: string })?.name ?? '?') : body.method,
+      tool_name:
+        body.method === 'tools/call'
+          ? (() => {
+              const n = (body.params as { name?: string })?.name;
+              return n && KNOWN_TOOLS.has(n) ? n : 'unknown';
+            })()
+          : body.method,
       agent_user_agent: c.req.header('user-agent') ?? null,
       agent_client_id: 'platform',
       result_status: status,

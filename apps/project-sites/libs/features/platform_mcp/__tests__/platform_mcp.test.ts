@@ -63,7 +63,7 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site']));
+    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research']));
   });
 
   it('tools/call without a token is unauthorized (-32001)', async () => {
@@ -91,6 +91,23 @@ describe('platform_mcp JSON-RPC', () => {
     expect(body.result.isError).toBe(true);
   });
 
+  it('deploy_site rejects a path-traversal file path (never reaches R2)', async () => {
+    const { dbQueryOne } = require('../../../../src/services/db.js');
+    dbQueryOne.mockClear();
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'deploy_site', arguments: { site_id: 's1', files: [{ path: '../../other/_manifest.json', content: 'x' }] } },
+      { authorization: 'Bearer psk_x' },
+    );
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain('".." segments');
+    // Validation fails BEFORE the ownership query — the unsafe path never hits the DB/R2.
+    expect(dbQueryOne).not.toHaveBeenCalled();
+  });
+
   it('deploy_site 404s on a site the token org does not own', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
@@ -106,5 +123,38 @@ describe('platform_mcp JSON-RPC', () => {
     const body = await res.json();
     expect(body.result.isError).toBeFalsy();
     expect(body.result.content[0].text).toContain('acme-co');
+  });
+
+  it('list_snapshots returns an empty snapshot list when none exist', async () => {
+    const { dbQueryOne, dbQuery } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 'site-1' }); // ownership check passes
+    dbQuery.mockResolvedValueOnce({ data: [] });          // no snapshots
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
+    const res = await rpc('tools/call', { name: 'list_snapshots', arguments: { site_id: 'site-1' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBeFalsy();
+    const payload = JSON.parse(body.result.content[0].text);
+    expect(payload.count).toBe(0);
+    expect(Array.isArray(payload.snapshots)).toBe(true);
+  });
+
+  it('get_research returns deduplicated research keyed by task_name', async () => {
+    const { dbQueryOne, dbQuery } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 'site-1' }); // ownership check passes
+    dbQuery.mockResolvedValueOnce({
+      data: [
+        { task_name: 'business_profile', parsed_output: '{"name":"Acme"}', raw_output: '' },
+        { task_name: 'business_profile', parsed_output: '{"name":"OLD"}', raw_output: '' }, // duplicate, should be skipped
+      ],
+    });
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
+    const res = await rpc('tools/call', { name: 'get_research', arguments: { site_id: 'site-1' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBeFalsy();
+    const payload = JSON.parse(body.result.content[0].text);
+    expect(payload.research['business_profile']).toEqual({ name: 'Acme' });
+    expect(Object.keys(payload.research)).toHaveLength(1); // only one unique task
   });
 });

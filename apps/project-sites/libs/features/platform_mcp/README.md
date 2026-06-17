@@ -51,7 +51,9 @@ catalog) — curl it to verify the connection is live.
 | `get_build_status` | sites:read | ✅ live |
 | `deploy_site` *(args: site_id, files[])* | sites:write | ✅ live — writes files to R2 sites/{slug}/{version}/…, points _manifest at it, busts cache, returns the live URL |
 | `create_site` *(args: business_name, slug?)* | sites:write | ✅ live — creates a draft site (unique slug), returns site_id + URL; then deploy_site to publish |
-| *(future)* `get_research`, `list_snapshots`, `set_domain`, `tail_logs` | varies | roadmap |
+| `list_snapshots` *(args: site_id)* | sites:read | ✅ live — lists saved snapshots for a site (id, snapshot_name, build_version, description, created_at) |
+| `get_research` *(args: site_id)* | sites:read | ✅ live — returns AI research data collected for a site (business profile, brand, selling points), keyed by task_name |
+| *(future)* `set_domain`, `tail_logs` | varies | roadmap |
 
 **Scope discipline (the "is it rude to expose the whole API?" answer):** No — the
 MCP intentionally exposes a *curated* surface, not the raw 400-route API. Tools

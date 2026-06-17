@@ -16,7 +16,7 @@ import type { Env } from '../../../src/types/env.js';
 import { dbQuery, dbQueryOne, dbExecute, dbInsert } from '../../../src/services/db.js';
 import type { ApiTokenRow } from '../../../src/services/api_tokens.js';
 import { hasScope } from '../../../src/services/api_tokens.js';
-import { ListSitesInput, GetSiteInput, BuildStatusInput } from './schemas.js';
+import { ListSitesInput, GetSiteInput, BuildStatusInput, DeploySiteInput } from './schemas.js';
 
 /** Mirrors DOMAINS.SITES_SUFFIX — the public site subdomain suffix. */
 const SITES_SUFFIX = '.projectsites.dev';
@@ -42,8 +42,14 @@ async function publishSiteFiles(
 ): Promise<{ url: string; version: string; files: number }> {
   const version = new Date().toISOString().replace(/[:.]/g, '-');
   const puts: Promise<unknown>[] = files.map((f) => {
-    const ext = f.path.split('.').pop()?.toLowerCase() ?? '';
-    return env.SITES_BUCKET.put(`sites/${slug}/${version}/${f.path}`, f.content, {
+    // Defense-in-depth: callers validate via DeploySiteInput, but never let a
+    // path escape the site/version prefix even if a future caller forgets to.
+    const rel = f.path.replace(/\\/g, '/').replace(/^\/+/, '');
+    if (rel.split('/').some((seg) => seg === '..' || seg === '.' || seg.length === 0)) {
+      throw new Error(`Unsafe file path rejected: ${f.path}`);
+    }
+    const ext = rel.split('.').pop()?.toLowerCase() ?? '';
+    return env.SITES_BUCKET.put(`sites/${slug}/${version}/${rel}`, f.content, {
       httpMetadata: { contentType: MIME[ext] ?? 'application/octet-stream' },
     });
   });
@@ -168,6 +174,28 @@ export const PLATFORM_MCP_TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'list_snapshots',
+    description: 'List saved snapshots for a site (id, name, build version, description, date).',
+    requiredScope: 'sites:read' as const,
+    inputSchema: {
+      type: 'object',
+      properties: { site_id: { type: 'string' } },
+      required: ['site_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_research',
+    description: 'Return the AI research data collected for a site (business profile, brand, selling points).',
+    requiredScope: 'sites:read' as const,
+    inputSchema: {
+      type: 'object',
+      properties: { site_id: { type: 'string' } },
+      required: ['site_id'],
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 /** Slugify a name the same way the create-from-search handler does. */
@@ -279,14 +307,12 @@ export async function dispatchPlatformTool(
     }
 
     case 'deploy_site': {
-      const site_id = String(args.site_id ?? '');
-      if (!site_id) return err('site_id is required.');
-      const raw = Array.isArray(args.files) ? (args.files as Array<{ path?: unknown; content?: unknown }>) : [];
-      const files = raw.filter(
-        (f): f is { path: string; content: string } =>
-          typeof f?.path === 'string' && f.path.length > 0 && typeof f?.content === 'string',
-      );
-      if (files.length === 0) return err('Provide at least one file as {path, content}.');
+      const parsed = DeploySiteInput.safeParse(args);
+      if (!parsed.success) {
+        // First human-readable issue (path traversal / size / shape) — never raw Zod.
+        return err(parsed.error.issues[0]?.message ?? 'Invalid deploy_site arguments.');
+      }
+      const { site_id, files } = parsed.data;
       const site = await dbQueryOne<{ id: string; slug: string }>(
         db,
         `SELECT id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
@@ -338,6 +364,54 @@ export async function dispatchPlatformTool(
         url: `https://${slug}${SITES_SUFFIX}`,
         next: 'Use deploy_site with your built files to publish.',
       });
+    }
+
+    case 'list_snapshots': {
+      const { site_id } = GetSiteInput.parse(args);
+      const owned = await dbQueryOne<{ id: string }>(
+        db,
+        `SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        [site_id, orgId],
+      );
+      if (!owned) return err('Site not found.');
+      const { data } = await dbQuery<{
+        id: string;
+        snapshot_name: string;
+        build_version: string;
+        description: string | null;
+        created_at: string;
+      }>(
+        db,
+        `SELECT id, snapshot_name, build_version, description, created_at FROM site_snapshots WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+        [site_id],
+      );
+      return ok({ site_id, count: data.length, snapshots: data });
+    }
+
+    case 'get_research': {
+      const { site_id } = GetSiteInput.parse(args);
+      const owned = await dbQueryOne<{ id: string }>(
+        db,
+        `SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        [site_id, orgId],
+      );
+      if (!owned) return err('Site not found.');
+      const { data } = await dbQuery<{ task_name: string; parsed_output: string; raw_output: string }>(
+        db,
+        `SELECT task_name, parsed_output, raw_output FROM research_data WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+        [site_id],
+      );
+      const research: Record<string, unknown> = {};
+      for (const row of data) {
+        if (row.task_name in research) continue; // first-write-wins (newest first)
+        const raw = row.parsed_output || row.raw_output;
+        try {
+          research[row.task_name] = JSON.parse(raw);
+        } catch {
+          research[row.task_name] = raw;
+        }
+      }
+      return ok({ site_id, tasks: data.map((r) => r.task_name), research });
     }
 
     default:

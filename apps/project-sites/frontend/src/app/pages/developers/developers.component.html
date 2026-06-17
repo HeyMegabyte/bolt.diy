@@ -1,0 +1,193 @@
+<!-- /developers — MCP acquisition hero for Claude Code / Cursor developers -->
+
+<!-- ═══ NAV ═══ -->
+<header class="dev-nav">
+  <a routerLink="/" class="dev-nav__logo" aria-label="ProjectSites home">
+    <span class="dev-nav__wordmark">ProjectSites<span class="dev-nav__dot">.</span>dev</span>
+  </a>
+  <nav class="dev-nav__links" aria-label="Developers page nav">
+    <a href="#tools" class="dev-nav__link">Tools</a>
+    <a href="#steps" class="dev-nav__link">Quick start</a>
+    <a routerLink="/admin/api-tokens" class="dev-nav__cta">Get API token →</a>
+  </nav>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<main>
+  <section class="dev-hero" aria-labelledby="dev-hero-heading" appReveal>
+    <div class="dev-hero__eyebrow">MCP Server · Claude Code · Cursor · Cline</div>
+    <h1 id="dev-hero-heading" class="dev-hero__headline">Deploy from your editor.</h1>
+    <p class="dev-hero__sub">
+      ProjectSites ships an MCP server. Paste one config block, run <code>/mcp</code>,
+      and manage every site without leaving Claude Code.
+    </p>
+
+    <!-- Snippet block — the hero IS the config -->
+    <div class="dev-snippet" role="region" aria-label="MCP JSON configuration">
+      <div class="dev-snippet__bar">
+        <span class="dev-snippet__filename">.mcp.json</span>
+        <button
+          class="dev-snippet__copy"
+          type="button"
+          [attr.aria-label]="copyState() === 'copied' ? 'Copied to clipboard' : 'Copy MCP config to clipboard'"
+          [class.dev-snippet__copy--done]="copyState() === 'copied'"
+          [class.dev-snippet__copy--err]="copyState() === 'error'"
+          (click)="copySnippet()"
+        >
+          @if (copyState() === 'copied') {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Copied
+          } @else if (copyState() === 'error') {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Failed
+          } @else {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          }
+        </button>
+      </div>
+      <pre class="dev-snippet__code"><code>{{ mcpSnippet }}</code></pre>
+    </div>
+
+    <p class="dev-hero__note">
+      Replace <code>psk_YOUR_TOKEN</code> with a token minted at
+      <a routerLink="/admin/api-tokens" class="dev-link">
+        /admin/api-tokens
+      </a>.
+      Token scopes: <code>sites:read</code> (inspect) · <code>sites:write</code> (deploy + create).
+    </p>
+  </section>
+
+  <!-- ═══ 3-STEP GUIDE ═══ -->
+  <section class="dev-steps" id="steps" aria-labelledby="dev-steps-heading" appReveal>
+    <h2 id="dev-steps-heading" class="dev-section-title">Connect in 3 steps.</h2>
+    <ol class="dev-steps__list" role="list">
+      @for (step of steps; track step.n) {
+        <li class="dev-step">
+          <span class="dev-step__n" aria-hidden="true">{{ step.n }}</span>
+          <div class="dev-step__body">
+            <h3 class="dev-step__title">{{ step.title }}</h3>
+            <p class="dev-step__desc">{{ step.body }}</p>
+            @if (step.url) {
+              <a [href]="step.url" class="dev-link" target="_blank" rel="noopener noreferrer">
+                {{ step.urlLabel }}
+              </a>
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <!-- ═══ TOOL TABLE ═══ -->
+  <section class="dev-tools" id="tools" aria-labelledby="dev-tools-heading" appReveal>
+    <h2 id="dev-tools-heading" class="dev-section-title">Available tools.</h2>
+    <p class="dev-tools__intro">
+      The MCP exposes a curated, scope-gated subset of the platform — enough
+      to read, inspect, and deploy. Destructive routes, billing, and admin
+      stay out of the MCP by design.
+    </p>
+
+    <div class="dev-table-wrap" role="region" aria-label="MCP tool list">
+      <table class="dev-table" aria-label="MCP tools">
+        <thead>
+          <tr>
+            <th scope="col">Tool</th>
+            <th scope="col">Scope</th>
+            <th scope="col">What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tool of tools; track tool.name) {
+            <tr>
+              <td><code class="dev-tool-name">{{ tool.name }}</code></td>
+              <td>
+                <span
+                  class="dev-scope-pill"
+                  [class.dev-scope-pill--write]="tool.scope === 'sites:write'"
+                >
+                  {{ tool.scope }}
+                </span>
+              </td>
+              <td class="dev-tool-desc">{{ tool.description }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <p class="dev-tools__roadmap">
+      Coming soon: <code>get_research</code> · <code>list_snapshots</code> ·
+      <code>set_domain</code> · <code>tail_logs</code>.
+    </p>
+  </section>
+
+  <!-- ═══ AUTH DETAILS ═══ -->
+  <section class="dev-auth" aria-labelledby="dev-auth-heading" appReveal>
+    <h2 id="dev-auth-heading" class="dev-section-title">Auth model.</h2>
+    <div class="dev-auth__grid">
+      <div class="dev-auth__card">
+        <h3 class="dev-auth__card-title">API key (v1 — available now)</h3>
+        <p>
+          Pass <code>Authorization: Bearer psk_…</code> in the config header. Every
+          tool call is scope-checked and org-isolated. Mint read-only keys for
+          inspection-only agents; add <code>sites:write</code> to also deploy.
+        </p>
+      </div>
+      <div class="dev-auth__card">
+        <h3 class="dev-auth__card-title">OAuth 2.1 (roadmap)</h3>
+        <p>
+          One-click "Connect ProjectSites" flow via PKCE + RFC&nbsp;8707 resource
+          indicators. Eliminates the manual paste step entirely.
+          <code>initialize</code> and <code>tools/list</code> are always open —
+          no token needed to discover the catalog.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ VERIFY ═══ -->
+  <section class="dev-verify" aria-labelledby="dev-verify-heading" appReveal>
+    <h2 id="dev-verify-heading" class="dev-verify__heading">Test the connection first.</h2>
+    <p class="dev-verify__body">
+      Before wiring your editor, curl the discovery manifest to confirm the server is up:
+    </p>
+    <div class="dev-snippet dev-snippet--sm" role="region" aria-label="curl command to verify MCP connection">
+      <div class="dev-snippet__bar">
+        <span class="dev-snippet__filename">shell</span>
+      </div>
+      <pre class="dev-snippet__code"><code>curl https://projectsites.dev/api/mcp</code></pre>
+    </div>
+    <p class="dev-verify__note">
+      Returns the server info, auth how-to, and full tool catalog as JSON.
+    </p>
+  </section>
+
+  <!-- ═══ CTA ═══ -->
+  <section class="dev-cta" aria-labelledby="dev-cta-heading" appReveal>
+    <h2 id="dev-cta-heading" class="dev-cta__heading">Ready?</h2>
+    <p class="dev-cta__body">Mint a token and you're live in under a minute.</p>
+    <div class="dev-cta__buttons">
+      <a routerLink="/admin/api-tokens" class="dev-btn dev-btn--primary">
+        Get API token →
+      </a>
+      <a
+        href="https://projectsites.dev/api/mcp"
+        class="dev-btn dev-btn--ghost"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View MCP manifest ↗
+      </a>
+    </div>
+  </section>
+</main>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="dev-footer">
+  <a routerLink="/" class="dev-footer__home">← projectsites.dev</a>
+  <span class="dev-footer__sep" aria-hidden="true">·</span>
+  <a routerLink="/integrations" class="dev-footer__link">Integrations</a>
+  <span class="dev-footer__sep" aria-hidden="true">·</span>
+  <a routerLink="/changelog" class="dev-footer__link">Changelog</a>
+</footer>
