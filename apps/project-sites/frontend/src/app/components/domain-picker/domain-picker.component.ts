@@ -469,13 +469,22 @@ const LOW_BALANCE_CENTS = 500;
         border-radius: 4px;
       }
       .dp-mono {
-        font-family: var(--ps-font-mono, 'JetBrains Mono', ui-monospace, monospace);
+        font-family: Consolas, var(--ps-font-mono, 'JetBrains Mono', ui-monospace, monospace);
         font-size: 0.78rem;
         color: var(--ps-ink, #f4f4ff);
       }
       .dp-mono--accent {
         color: var(--ps-accent, #00e5ff);
       }
+      /* Availability symbol shown right beside each domain URL: green = available,
+         red = taken. Decorative ● — the adjacent badge carries the accessible text. */
+      .dp-avail {
+        font-size: 0.7rem;
+        line-height: 1;
+        flex: 0 0 auto;
+      }
+      .dp-avail--ok { color: #34d399; }
+      .dp-avail--no { color: #f87171; }
       .dp-pill {
         display: inline-block;
         padding: 1px 6px;
@@ -551,8 +560,8 @@ const LOW_BALANCE_CENTS = 500;
         background: rgba(52, 211, 153, 0.1);
       }
       .dp-status--no {
-        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 52%, transparent);
-        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 9%, transparent);
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.1);
       }
       .dp-status--load {
         color: #f59e0b;
@@ -590,6 +599,21 @@ const LOW_BALANCE_CENTS = 500;
           color-mix(in oklch, #7c3aed 14%, transparent)
         );
         border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 25%, transparent);
+      }
+      /* "Recommended" pill on every AI-suggested URL — short descriptor that the
+         name was auto-determined as a recommendable URL for the business. */
+      .dp-rec-pill {
+        flex: 0 0 auto;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--ps-accent, #00e5ff);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+        transition: background 0.333s, border-color 0.333s;
       }
       .dp-reason {
         font-size: 0.76rem;
@@ -1008,7 +1032,17 @@ const LOW_BALANCE_CENTS = 500;
           (mouseenter)="onSuggestionHover(section, i, s)"
         >
           <div class="dp-row-head">
+            @if (!s.checking) {
+              @if (s.status === 'available' || purchasedDomains().has(s.domain)) {
+                <span class="dp-avail dp-avail--ok" title="Available" aria-hidden="true">●</span>
+              } @else if (s.status === 'taken') {
+                <span class="dp-avail dp-avail--no" title="Taken" aria-hidden="true">●</span>
+              }
+            }
             <span class="dp-mono" [class.dp-mono--accent]="s.status === 'available' && !purchasedDomains().has(s.domain)">{{ s.domain }}</span>
+            @if (section === 'register' && !purchasedDomains().has(s.domain)) {
+              <span class="dp-rec-pill" title="Automatically determined as a recommendable URL for your business">Recommended</span>
+            }
             @if (s.checking) {
               <span class="dp-status dp-status--load" title="Checking…">
                 <span class="dp-spinner dp-spinner--mini" aria-hidden="true"></span>
@@ -1312,7 +1346,8 @@ export class DomainPickerComponent {
     return candidates
       .filter((d) => { const k = d.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
       .slice(0, AI_SUGGESTION_COUNT)
-      .map((domain) => ({ domain, reason: 'Brand-fit idea — type it to check availability.' } as DomainSuggestion));
+      // No reason copy — the "Recommended" pill (rendered on every AI row) says it.
+      .map((domain) => ({ domain } as DomainSuggestion));
   }
 
   /** "Show me different ones" — POST refine endpoint with current 10 excluded. */
@@ -1589,11 +1624,11 @@ export class DomainPickerComponent {
 
   /** Cinematic CTA label varies by wallet state + price tier. */
   registerCtaLabel(s: DomainSuggestion): string {
-    if (!s.price_usd_yr) return 'Register';
+    if (!s.price_usd_yr) return 'Buy';
     const flow = this.computeFlowState(Math.round(s.price_usd_yr * 100));
-    if (flow === 'active_wallet') return `Buy for $${s.price_usd_yr}/yr · 1 click`;
-    if (flow === 'insufficient_balance') return `Buy $${s.price_usd_yr}/yr · top up & charge`;
-    return `Start $50/mo wallet + buy $${s.price_usd_yr}/yr`;
+    if (flow === 'active_wallet') return `Buy · $${s.price_usd_yr}/yr`;
+    if (flow === 'insufficient_balance') return `Buy · $${s.price_usd_yr}/yr · top up`;
+    return `Buy · $${s.price_usd_yr}/yr · start wallet`;
   }
 
   /** Render the result-discriminated-union into UI: success effect or punchline toast. */
