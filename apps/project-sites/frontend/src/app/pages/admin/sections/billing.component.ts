@@ -418,6 +418,8 @@ interface ForecastBar {
         </div>
       }
 
+      <!-- Plan tiers — scoped to the Subscription tab (was always-rendered) -->
+      @if (activeTab() === 'subscription') {
       <!-- ─────────────────── PLAN TIERS ─────────────────── -->
       <section class="card" id="plan" appReveal>
         <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
@@ -492,11 +494,14 @@ interface ForecastBar {
           }
         </div>
       </section>
+      }
 
+      <!-- Usage/metering sections — scoped to the Usage tab (was always-rendered) -->
+      @if (activeTab() === 'usage') {
       <!-- ─────────────────── PER-PROJECT CREDIT CAPS ─────────────────── -->
       <!-- id="caps" anchor so other admin surfaces can deep-link to this
-           section via #caps. Bulk modal handles cross-site editing; inline
-           rows handle single-site adjustments. -->
+           section via #caps (it lives under the Usage tab). Bulk modal handles
+           cross-site editing; inline rows handle single-site adjustments. -->
       <section class="card" id="caps" appReveal [revealDelay]="60">
         <div class="flex items-start justify-between gap-3 mb-1 flex-wrap">
           <div>
@@ -736,7 +741,10 @@ interface ForecastBar {
           <div class="p-6 text-center text-text-secondary text-sm">Rolling forecast unavailable.</div>
         }
       </section>
+      }
 
+      <!-- AI Credits — scoped to the Wallet tab (was always-rendered) -->
+      @if (activeTab() === 'wallet') {
       <!-- ─────────────────── AI CREDITS ─────────────────── -->
       <section class="card border border-primary/30" appReveal [revealDelay]="240">
         <div class="flex items-center justify-between mb-3">
@@ -868,7 +876,10 @@ interface ForecastBar {
           </details>
         }
       </section>
+      }
 
+      <!-- Per-site cost + spend alerts — scoped to the Usage tab -->
+      @if (activeTab() === 'usage') {
       <!-- ─────────────────── PER-SITE COST BREAKDOWN ─────────────────── -->
       <section class="card" appReveal [revealDelay]="300">
         <h3 class="m-0 text-base font-semibold text-white mb-1">Per-site cost breakdown</h3>
@@ -966,6 +977,7 @@ interface ForecastBar {
           }
         }
       </section>
+      }
 
       <!-- ─────────────────── SPEND ALERT MODAL ─────────────────── -->
       @if (alertModalOpen()) {

@@ -85,8 +85,11 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
 
   it('renders the credits-remaining stat through <app-rolling-counter> (numeric stat mandate)', () => {
     build();
+    // AI Credits now lives under the Wallet tab — its balance is an
+    // <app-rolling-counter>, never a raw text node.
+    fixture.componentInstance.setTab('wallet');
+    fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
-    // The AI Credits balance is NOT a raw text node — it is an <app-rolling-counter>.
     expect(el.querySelectorAll('app-rolling-counter').length).toBeGreaterThan(0);
   });
 
@@ -100,11 +103,18 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(walletStat!.querySelector('app-rolling-counter')).toBeTruthy();
   });
 
-  it('applies the appReveal entrance host on the header + every section shell', () => {
+  it('applies the appReveal entrance host on the header + each tab\'s sections', () => {
     build();
     const el: HTMLElement = fixture.nativeElement;
-    // header + 7 sections = 8 reveal hosts.
-    expect(el.querySelectorAll('[appReveal]').length).toBe(8);
+    const cmp = fixture.componentInstance;
+    // Sections are now tab-scoped, so reveal hosts are distributed: the default
+    // Subscription tab carries header + Plan tiers = 2.
+    expect(el.querySelectorAll('[appReveal]').length).toBe(2);
+    // The Usage tab owns the five metering/cost section shells (caps + two
+    // forecasts + per-site cost + spend alerts) → header + 5 = 6.
+    cmp.setTab('usage');
+    fixture.detectChanges();
+    expect(el.querySelectorAll('[appReveal]').length).toBe(6);
   });
 
   it('exposes the WAI-ARIA tablist contract with exactly one selected tab', () => {
@@ -137,6 +147,9 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
 
   it('marks the credit-caps empty-state with role=status for AT announcement', () => {
     build();
+    // Per-project caps now live under the Usage tab.
+    fixture.componentInstance.setTab('usage');
+    fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     const empty = el.querySelector('[data-testid="billing-caps-empty"]');
     expect(empty).toBeTruthy();
@@ -251,6 +264,7 @@ describe('AdminBillingComponent (per-site cap input accessible names)', () => {
 
   it('the cost-list cap input names its site', () => {
     const fx = render();
+    fx.componentInstance.setTab('usage'); // caps list lives under the Usage tab
     fx.componentInstance.siteCosts.set([
       { site_id: 'a', slug: 'alpha', business_name: 'Alpha Co', ai_calls: 0, ai_credits: 0, estimated_cost_micro_usd: 0, bandwidth_bytes: 0 } as never,
     ]);
@@ -476,6 +490,74 @@ describe('AdminBillingComponent (credit top-up double-submit guard)', () => {
     // A retry is allowed — the guard no longer blocks the next POST.
     c.topup('500');
     expect(post).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * Re-scaffolding contract (2026-06-17): the sections that used to render ALWAYS
+ * below the tab nav (Plan tiers, AI Credits, per-project caps, both forecasts,
+ * per-site cost, spend alerts) are now each scoped to exactly ONE tab, so every
+ * tab is a self-contained page and nothing billing-content leaks outside the
+ * active tab. Plan → Subscription · AI Credits → Wallet · caps/forecasts/cost/
+ * alerts → Usage.
+ */
+describe('AdminBillingComponent (each section scoped to its owning tab)', () => {
+  function mk(): ComponentFixture<AdminBillingComponent> {
+    const apiStub = {
+      get: () => of({ data: {} }), post: () => of({ data: {} }), put: () => of({ data: {} }), delete: () => of({ ok: true }),
+      getCostForecast: () => of({ data: { projected_usd: 0, current_period_usd: 0, rolling_daily_avg: 0, days_until_cap_hit: null, plan_cap_usd: 0, percent_of_cap: 0, daily: [], breakdown: [] } }),
+    };
+    TestBed.configureTestingModule({
+      imports: [AdminBillingComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ApiService, useValue: apiStub },
+        { provide: AdminStateService, useValue: { sites: signal([]) } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminBillingComponent);
+    fx.detectChanges();
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('Plan tiers (#plan) render only under the Subscription tab', () => {
+    const fx = mk();
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('#plan')).withContext('Plan visible on the default Subscription tab').toBeTruthy();
+    fx.componentInstance.setTab('wallet');
+    fx.detectChanges();
+    expect(el.querySelector('#plan')).withContext('Plan hidden on Wallet').toBeNull();
+  });
+
+  it('AI Credits tiles render only under the Wallet tab', () => {
+    const fx = mk();
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="billing-tier-5000"]')).withContext('AI Credits hidden on the default Subscription tab').toBeNull();
+    fx.componentInstance.setTab('wallet');
+    fx.detectChanges();
+    expect(el.querySelector('[data-testid="billing-tier-5000"]')).withContext('AI Credits visible on Wallet').toBeTruthy();
+  });
+
+  it('caps, both forecasts, per-site cost + spend alerts render only under the Usage tab', () => {
+    const fx = mk();
+    const el = fx.nativeElement as HTMLElement;
+    // Hidden on the default Subscription tab.
+    expect(el.querySelector('#caps')).withContext('caps hidden off-tab').toBeNull();
+    expect(el.querySelector('[data-testid="forecast-card"]')).withContext('30-day forecast hidden off-tab').toBeNull();
+    expect(el.querySelector('[data-testid="forecast-v2-card"]')).withContext('rolling forecast hidden off-tab').toBeNull();
+    expect(el.querySelector('[data-testid="billing-spend-alert-create"]')).withContext('spend alerts hidden off-tab').toBeNull();
+    fx.componentInstance.setTab('usage');
+    fx.detectChanges();
+    expect(el.querySelector('#caps')).withContext('caps under Usage').toBeTruthy();
+    expect(el.querySelector('[data-testid="forecast-card"]')).withContext('30-day forecast under Usage').toBeTruthy();
+    expect(el.querySelector('[data-testid="forecast-v2-card"]')).withContext('rolling forecast under Usage').toBeTruthy();
+    expect(el.querySelector('[data-testid="billing-costs-empty"]')).withContext('per-site cost under Usage').toBeTruthy();
+    expect(el.querySelector('[data-testid="billing-spend-alert-create"]')).withContext('spend alerts under Usage').toBeTruthy();
   });
 });
 
