@@ -142,6 +142,10 @@ Step 5: visual-inspection-final (non-blocking)
 - **Audit and build run concurrently** — visual-qa screenshots while domain-builder writes, both finish ~5 min instead of 15 min sequential.
 - **Single container call** — no R2 upload between stages, no workflow step boundaries to lose state across.
 
+### Build Agent LLM Provider (DeepSeek-primary, Anthropic fallback)
+
+When `DEEPSEEK_API_KEY` is set in the Worker env AND `BUILD_LLM_PROVIDER` is NOT `'anthropic'`, the `/build` POST carries `_deepseekKey`, `_anthropicBaseUrl: 'https://api.deepseek.com/anthropic'`, and `_anthropicModel: 'deepseek-chat'`. `container-server.mjs` then exports `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` (set to the DeepSeek key), and `ANTHROPIC_MODEL` into the shell that runs Claude Code — Claude Code reads these env vars and routes all API calls through DeepSeek's Anthropic-compatible endpoint. `ANTHROPIC_API_KEY` remains set as a passive fallback in case the DeepSeek endpoint errors. To force Anthropic regardless of key availability, set `BUILD_LLM_PROVIDER=anthropic` in the Worker secrets. For higher-order reasoning use `deepseek-reasoner` as the model value.
+
 ### Container entrypoint (`scripts/container-server.mjs`)
 1. Boot: `git pull` on `~/.agentskills` + `~/template`, then `syncAgents()` copies `*.md` from `~/.agentskills/agents/` to `~/.claude/agents/` (project agents already on disk are preserved).
 2. Every 10 min: `maybeRefreshSkills()` re-pulls + re-syncs.

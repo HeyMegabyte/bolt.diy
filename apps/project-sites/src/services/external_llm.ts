@@ -26,6 +26,7 @@ import {
   gatewayMetadata,
   type GatewayCallOptions,
 } from './ai_gateway.js';
+export { DIRECT_BASE_URLS_EXPORT } from './ai_gateway.js';
 
 const llmLog = log.child('external_llm');
 
@@ -103,8 +104,18 @@ export interface ExternalLLMOptions {
   jsonMode?: boolean;
   /** JSON schema for OpenAI structured output (response_format) */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
-  /** Preferred provider: 'openai' | 'anthropic' | 'auto' (default: 'auto' uses GPT-4o primary) */
-  provider?: 'openai' | 'anthropic' | 'auto';
+  /** Preferred provider: 'openai' | 'anthropic' | 'deepseek' | 'auto' (default: 'auto' uses GPT-4o primary) */
+  provider?: 'openai' | 'anthropic' | 'deepseek' | 'auto';
+  /**
+   * Cost tier for automatic provider selection when `provider` is not explicitly set.
+   *
+   * - `'premium'`  — Anthropic if ANTHROPIC_API_KEY present, else OpenAI
+   * - `'standard'` — DeepSeek if DEEPSEEK_API_KEY present, else OpenAI (default)
+   * - `'instant'`  — DeepSeek if DEEPSEEK_API_KEY present, else OpenAI
+   *
+   * Ignored when `provider` is given explicitly.
+   */
+  tier?: 'premium' | 'standard' | 'instant';
   /** Specific model override (e.g. 'gpt-4o-mini', 'claude-sonnet-4-6') */
   model?: string;
   /**
@@ -154,7 +165,7 @@ export interface ExternalLLMOptions {
 export interface ExternalLLMResult {
   output: string;
   model_used: string;
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'deepseek';
   latency_ms: number;
   token_count: number;
   cost_estimate: number;
@@ -189,10 +200,14 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
 };
 
 /** Default model IDs per provider — used when caller does not pass `model`. */
-const DEFAULT_MODELS: Record<'openai' | 'anthropic', string> = {
+const DEFAULT_MODELS: Record<'openai' | 'anthropic' | 'deepseek', string> = {
   openai: 'gpt-4o-2024-11-20',
   anthropic: 'claude-sonnet-4-6',
+  deepseek: 'deepseek-chat',
 };
+
+/** Exported for unit tests. */
+export const DEFAULT_MODELS_EXPORT: Record<'openai' | 'anthropic' | 'deepseek', string> = DEFAULT_MODELS;
 
 // ─── AI Gateway Helper ──────────────────────────────────────────────────────
 
@@ -270,12 +285,13 @@ const CIRCUIT_OPEN_DURATION_MS = 30_000;
 const circuitState: Record<string, CircuitBreakerState> = {
   openai: { failures: 0, lastFailureTime: 0, openUntil: 0 },
   anthropic: { failures: 0, lastFailureTime: 0, openUntil: 0 },
+  deepseek: { failures: 0, lastFailureTime: 0, openUntil: 0 },
 };
 
 /**
  * Check if a provider's circuit is open (should be skipped).
  */
-function isCircuitOpen(provider: 'openai' | 'anthropic'): boolean {
+function isCircuitOpen(provider: 'openai' | 'anthropic' | 'deepseek'): boolean {
   const state = circuitState[provider];
   if (Date.now() < state.openUntil) {
     return true;
@@ -291,7 +307,7 @@ function isCircuitOpen(provider: 'openai' | 'anthropic'): boolean {
 /**
  * Record a failure for the circuit breaker.
  */
-function recordFailure(provider: 'openai' | 'anthropic'): void {
+function recordFailure(provider: 'openai' | 'anthropic' | 'deepseek'): void {
   const state = circuitState[provider];
   const now = Date.now();
 
@@ -312,7 +328,7 @@ function recordFailure(provider: 'openai' | 'anthropic'): void {
 /**
  * Record a success — resets the failure counter.
  */
-function recordSuccess(provider: 'openai' | 'anthropic'): void {
+function recordSuccess(provider: 'openai' | 'anthropic' | 'deepseek'): void {
   const state = circuitState[provider];
   state.failures = 0;
   state.openUntil = 0;
@@ -321,21 +337,57 @@ function recordSuccess(provider: 'openai' | 'anthropic'): void {
 // ─── Provider Selection ─────────────────────────────────────────────────────
 
 /**
+ * Choose provider for a given cost tier.
+ *
+ * - `premium`  — Anthropic when ANTHROPIC_API_KEY present, else OpenAI
+ * - `standard` — DeepSeek when DEEPSEEK_API_KEY present, else OpenAI
+ * - `instant`  — DeepSeek when DEEPSEEK_API_KEY present, else OpenAI
+ *
+ * @remarks Vision calls MUST NOT use this; pass `provider:'openai'` explicitly
+ * to `callExternalLLMWithVision` — DeepSeek has no vision API.
+ *
+ * @example
+ * ```ts
+ * const provider = chooseProviderForTier(env, 'standard');
+ * ```
+ */
+export function chooseProviderForTier(
+  env: Env,
+  tier: 'premium' | 'standard' | 'instant',
+): 'openai' | 'anthropic' | 'deepseek' {
+  if (tier === 'premium') {
+    return env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai';
+  }
+  // standard and instant both prefer DeepSeek
+  return env.DEEPSEEK_API_KEY ? 'deepseek' : 'openai';
+}
+
+/**
  * Choose provider. GPT-4o is ALWAYS primary for research/vision calls.
  * Anthropic is the fallback. Explicit preference overrides this.
  *
  * @remarks
  * The old A/B split randomness has been removed. OpenAI is deterministically
  * primary because GPT-4o provides better vision and research results.
+ *
+ * When `options.tier` is supplied and no explicit provider is given, delegates
+ * to {@link chooseProviderForTier}.
  */
 function chooseProvider(
   env: Env,
-  preference?: 'openai' | 'anthropic' | 'auto',
-): 'openai' | 'anthropic' {
+  preference?: 'openai' | 'anthropic' | 'deepseek' | 'auto',
+  tier?: 'premium' | 'standard' | 'instant',
+): 'openai' | 'anthropic' | 'deepseek' {
   if (preference === 'openai') return 'openai';
   if (preference === 'anthropic') return 'anthropic';
+  if (preference === 'deepseek') return 'deepseek';
 
-  // GPT-4o is always primary (no more A/B split)
+  // Tier-based selection when explicitly requested
+  if (tier) {
+    return chooseProviderForTier(env, tier);
+  }
+
+  // Default: GPT-4o is always primary (no more A/B split)
   const hasOpenAI = !!env.OPENAI_API_KEY;
   const hasAnthropic = !!env.ANTHROPIC_API_KEY;
 
@@ -707,10 +759,10 @@ export async function callExternalLLM(
   env: Env,
   options: ExternalLLMOptions,
 ): Promise<ExternalLLMResult> {
-  const primary = chooseProvider(env, options.provider);
+  const primary = chooseProvider(env, options.provider, options.tier);
   const fallback: 'openai' | 'anthropic' = primary === 'openai' ? 'anthropic' : 'openai';
 
-  const providers: Array<'openai' | 'anthropic'> = [primary, fallback];
+  const providers: Array<'openai' | 'anthropic' | 'deepseek'> = [primary, fallback];
 
   const distinctId = resolveDistinctId(options.traceContext);
   const traceId = options.traceContext?.traceId;
@@ -734,7 +786,11 @@ export async function callExternalLLM(
     }
 
     const apiKey =
-      provider === 'openai' ? env.OPENAI_API_KEY : (env.ANTHROPIC_API_KEY as string | undefined);
+      provider === 'openai'
+        ? env.OPENAI_API_KEY
+        : provider === 'deepseek'
+          ? env.DEEPSEEK_API_KEY
+          : (env.ANTHROPIC_API_KEY as string | undefined);
 
     if (!apiKey) continue;
 
@@ -744,7 +800,7 @@ export async function callExternalLLM(
     try {
       const result = await withRetry(
         () =>
-          provider === 'openai'
+          provider === 'openai' || provider === 'deepseek'
             ? callOpenAI(env, apiKey, model, options)
             : callAnthropic(env, apiKey, model, options),
         {
@@ -865,7 +921,10 @@ export async function callExternalLLMWithVision(
     return callExternalLLM(env, options);
   }
 
-  const primary = chooseProvider(env, options.provider);
+  // Vision calls must never use DeepSeek — DeepSeek has no vision API.
+  // Cast to narrow union; vision callers always pass provider 'openai'|'anthropic'|undefined
+  // so chooseProvider won't resolve to 'deepseek' here.
+  const primary = chooseProvider(env, options.provider) as 'openai' | 'anthropic';
   const fallback: 'openai' | 'anthropic' = primary === 'openai' ? 'anthropic' : 'openai';
 
   const providers: Array<'openai' | 'anthropic'> = [primary, fallback];

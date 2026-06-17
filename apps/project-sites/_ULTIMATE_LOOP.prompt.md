@@ -13,7 +13,8 @@
 
 - **Fresh-context Ralph skeleton.** Each iteration is a fresh spawn whose ONLY inherited memory is `progress.md` + `git log`/`git diff` + `_LOOP_LEDGER.md` — never one long conversation (kills context rot + goal drift). Checkpoint = a git commit after every green phase; if compaction fires, read `git log` FIRST before any tool call.
 - **Machine-verifiable DONE — the orchestrator decides, not the agent.** Every item resolves to named test(s). A phase closes only when its tests pass AND its **critic** approves (§4). No "I think it looks done." Emit a parseable `<promise>DONE: <item-id></promise>` so the outer loop advances deterministically.
-- **Model-tier routing per phase.** Haiku → grep/format/lint/changelog. Sonnet → implementation, test-writing, debugging, deploy. Opus → architecture, security/payment/auth review, visual-QA, the critic gate, meta-orchestration. **Never Opus for anything greppable.**
+- **Model-tier routing per phase (the LOOP's own Claude agents).** Haiku → grep/format/lint/changelog. Sonnet → implementation, test-writing, debugging, deploy. Opus → architecture, security/payment/auth review, visual-QA, the critic gate, meta-orchestration. **Never Opus for anything greppable.**
+- **Provider cost-tier routing (the APP + the container build agent — distinct axis from the Claude-altitude line above).** Three tiers per `model-routing` § Provider cost tiers: **premium = Anthropic / OpenAI** for higher-order research, architecture, money/auth decisions, and ALL vision (DeepSeek has none); **mid-grade = DeepSeek** (`deepseek-chat`, `DEEPSEEK_API_KEY`) — the DEFAULT for most generation/implementation; **instant = Cloudflare Workers AI** (`@cf/meta/llama-*`, free, edge) for pre-routing, classification, and anything it does well. The container's Claude Code build agent runs **DeepSeek-primary** via `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` (Anthropic passive fallback; `BUILD_LLM_PROVIDER=anthropic` forces Claude; `deepseek-reasoner` for higher-order). End state: collapse everything toward Workers AI as it catches up — until then, premium for judgment, DeepSeek for volume, Workers AI for reflexes. Implemented in `external_llm.chooseProviderForTier` + `ai_gateway` deepseek slug.
 - **Hard budgets (cost runaway is the #1 failure mode).** Set `max_parallel_agents = 4` (ceiling 6, justify in the assignment table), and a token budget per phase. Treat budget exhaustion as a hard stop + checkpoint, not a reason to degrade quality.
 - **Batch of 10 per fire.** Each invocation runs **10 convergence rounds** (10 ledger items closed end-to-end), then reports — see §2. Budgets + parallelism caps apply across the whole batch.
 - **Termination guards.** (a) 10-round batch cap per fire + a max-iteration cap; (b) **repetition detector** — hash the last 3 tool-call sequences; identical → halt + escalate; (c) a hard gate failing twice on one item → escalate, don't thrash; (d) the zero-recommendations gate in §8.
@@ -60,6 +61,31 @@
 
 ---
 
+## 3.1 — Multi-section parallel convergence (the loop runs WIDE, then folds)
+
+The loop is not one serial queue — the orchestrator runs **multiple convergence sub-loops in
+parallel, one per disjoint SECTION**, and folds once. A "section" = an admin section, a worker
+route-family, a feature module, a prompt cluster, or a quality axis (lint / jscpd / semgrep).
+
+- **Decompose by file ownership.** Each fire, the orchestrator (Opus) picks the top **3-4
+  sections (ceiling 6)** whose files do NOT overlap and spawns **one Builder per section**
+  (Sonnet on the loop axis; DeepSeek for the app/build work per §0) + a shared **Critic**
+  pass. Each sub-loop runs its OWN RED→GREEN→clean→verify on its files only (`nx affected` /
+  scoped jest), per `parallel-subagent-economy` (fan out only when it saves ≥5 min).
+- **Disjoint or worktree.** Sections sharing a hot file (root `index.ts`, a barrel, a
+  migration, a design-token) run sequentially OR in `isolation: worktree` — never naive-parallel
+  on a shared file (clobber). Emit the assignment table + rejected-agent note before spawning
+  (`agent-selection`).
+- **One fold, one build, one deploy.** Sub-loops return ≤200-word summaries; the orchestrator
+  merges, runs the FULL gate suite once (§6), deploys once, verifies prod once.
+- **Self-pushing (never runs dry while work remains).** Every sub-loop ends with the §2.10
+  self-improve question and appends new finds to `_LOOP_LEDGER.md`, so the loop generates its
+  own next fire. It terminates ONLY on §8.
+- **Provider tiers apply per phase** (§0): Workers AI for the instant pre-routing that ASSIGNS
+  sections, DeepSeek for the Builders, premium (Anthropic/OpenAI) for the Critic + architecture.
+
+---
+
 ## 4 — Coverage manifest (the loop is NOT done until ALL of this is green)
 
 Every surface below MUST end with a parallel-safe `*.e2e.ts` that signs in as `brian@megabyte.space` and exercises every clickable / form field / nav link / modal / keyboard shortcut / empty / loading / error state — axe-clean at 6bp, AI-vision ≥8, console-clean. Track in `e2e/FEATURES.md` + `COVERAGE.yml`; CI fails on any gap.
@@ -71,6 +97,12 @@ Every surface below MUST end with a parallel-safe `*.e2e.ts` that signs in as `b
 **Worker route families (54) — each needs Jest + a contract/E2E:** agency · agentic_commerce · agents · ai_admin · ai_endpoints_public · api · apps · assets · autofill · billing_addons · bolt_admin · concierge · copilot · dashboard · docs · domain_purchase · domain_stack · editor_chats · email_deliverability · env_vars · experiments · feature_e2e · features · forms · health · i18n · inbox · mcp_oauth · mcp_site · media · page_audio · pseo · pseo_matrix_v2 · public · pulse_analytics · review_links · review_public · search · seo_autopilot · site_branches · site_detail_tabs · site_dna · snapshot_quality · social · social_oauth · storefront · super_admin · templates · vision_qa · voice · voice_webhooks · wallet · webhooks · webhooks_admin
 
 **Feature modules (48 dirs: 29 built · 9 partial · 7 stub · 3 alias):** every non-alias module reaches the 6-criterion DoD (§7). Alias shims (`inbox`/`public-api`/`swarm-editor`) are intentional — never delete.
+
+**Prompts (15 `*.prompt.md` + `prompts/registry`) — "improve every prompt" is a tracked axis, not a one-off:** research_profile · research_brand · research_social · research_selling_points · research_images · generate_website · generate_multipage_site · generate_legal_pages · plan_site_structure · score_website · site_copy (a/b) · research_business · generate_site · score_quality. Each touch must leave the prompt measurably better AND carry a Zod I/O schema (`prompts/schemas.ts`) + an eval case set (§2.6 60/30/10) + a registered version.
+
+**Two integrated idea-sets (60) — `AGENT_NATIVE_POSITIONING.md` §4-5 + `ROADMAP.md` § Capital efficiency:** the **30 agent-grade** MCP/OAuth/trust/reliability features + the **30 capital-efficiency** margin/revenue levers are LEDGER ITEMS, not a side doc. Each lands as a flagged module/change with its own E2E + 6-criterion DoD. **The loop is NOT done until all 60 are shipped or explicitly retired in `DECISIONS`.**
+
+**E2E coverage target = 100%.** Every clickable / route / form field / nav link / modal / keyboard shortcut / empty / loading / error state across all sections above carries ≥1 green Playwright spec; `COVERAGE.yml` shows zero gaps; the worker + shared Jest suites hold **100% coverage thresholds on every touched module** (TDD-first — the failing spec precedes the code, always).
 
 ---
 
@@ -97,6 +129,7 @@ Tie-breakers: prefer the item that is (a) autonomous (no Brian gate), (b) TDD-ab
 - **P0-REVENUE — money-path correctness + conversion funnel** (see `_LOOP_LEDGER.md § P0-REV`). Highest $-impact; do these first when autonomous.
 - **P0 — finish the test harness** (§1 unchecked items).
 - **P1 — highest-value features** (see `ROADMAP.md` — the single revenue-sorted build list): concierge widget injection · visitor-analytics beacon · voice receptionist at publish · native booking engine · GEO layer + citation tracking · edge per-visitor personalization · post-publish growth agent.
+- **P1 — the 60 integrated ideas** (`AGENT_NATIVE_POSITIONING.md` §4-5 + `ROADMAP.md` § Capital efficiency): **30 agent-grade** MCP/OAuth/trust features + **30 capital-efficiency** levers. Rank each by §5.0. **The capital-efficiency flag-flips are near-free margin wins — do them EARLY:** turn the `org_ai_budget_cap`/`token_burn_meter` killswitch ON · route ALL external LLM + vision through AI Gateway always (+ normalize deterministic calls to `temperature<0.5` so the 1h cache hits) · default text generation to DeepSeek + instant work to Workers AI per §0 · wire `chargeWallet()` to every paid action (video/DALL·E/TTS/container) · gate the full container build behind paid-intent or a hard free-credit budget.
 - **P2 — drift/security/cleanup:** `conversational_edits.ts` cross-tenant write guard (security) · `features.ts` ~33 `as`-cast handlers → Zod **per-feature on promotion, never mass-retrofit** · `big_bets.ts` 30 mock features → real backends per-flag · 44 knip-dead `features.ts` exports → remove · flag-cache one-liner (`features.ts` override-write must call `invalidateFlagCache`) · wire the `*.e2e.ts` prod suite into CI · ag-grid → TanStack perf wave (`docs/perf-wave-ag-grid-to-tanstack.md`) · LLM eval harness · pre-publish content guardrails.
 - **P2 — TODO/FIXME sweep (14 in src):** Stripe refund stub (`super_admin.ts`) · impersonation JWT stub · agency-invite email stub · `seo_autopilot` site-serving wiring · Sora/Veo API placeholder · snapshot `commit_iso` gap · `revertSnapshot` FIXME.
 - **P2 — ROADMAP.md Tier 3 + known-bugs:** ~36 dark-but-backed flags (verify + promote) · ~104 thin-404 flags (build or retire) · 8 genuinely-missing core modules · owner Features page (1/8 backed) · 7 logged-unfixed bugs.

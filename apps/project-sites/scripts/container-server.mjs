@@ -589,6 +589,13 @@ http.createServer((q, r) => {
         if (P.envVars && typeof P.envVars === 'object') {
           for (const ek in P.envVars) envVars[ek] = P.envVars[ek];
         }
+        // DeepSeek-primary path: override Claude Code's Anthropic endpoint with DeepSeek's
+        // Anthropic-compatible API. ANTHROPIC_API_KEY stays as fallback if DeepSeek errors.
+        if (P._deepseekKey && P._anthropicBaseUrl) {
+          envVars.ANTHROPIC_BASE_URL = P._anthropicBaseUrl;
+          envVars.ANTHROPIC_AUTH_TOKEN = P._deepseekKey;
+          envVars.ANTHROPIC_MODEL = P._anthropicModel || 'deepseek-chat';
+        }
 
         const callbackUrl = P.callbackUrl || envVars.CALLBACK_URL || null;
         const callbackSecret = P.callbackSecret || envVars.CALLBACK_SECRET || null;

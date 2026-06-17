@@ -723,9 +723,18 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       async () => {
         const container = getContainer();
 
+        const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
+        const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string }).BUILD_LLM_PROVIDER;
+        const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
+
         const payload = {
           slug: params.slug,
           _anthropicKey: env.ANTHROPIC_API_KEY || '',
+          ...(useDeepSeek && {
+            _deepseekKey,
+            _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
+            _anthropicModel: 'deepseek-chat',
+          }),
           prompt,
           contextFiles,
           envVars,

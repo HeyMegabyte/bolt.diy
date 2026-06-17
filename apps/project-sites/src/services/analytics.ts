@@ -191,7 +191,7 @@ export async function captureLLMCall(
   env: Env,
   params: {
     distinctId: string;
-    provider: 'openai' | 'anthropic' | 'workers_ai' | 'deepgram' | 'elevenlabs';
+    provider: 'openai' | 'anthropic' | 'deepseek' | 'workers_ai' | 'deepgram' | 'elevenlabs';
     model: string;
     promptId?: string;
     inputTokens?: number;

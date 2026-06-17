@@ -47,6 +47,7 @@ send_metrics = false
 #   "MAX_GENERATED_IMAGES",
 #   "MCP_ENCRYPTION_KEY",
 #   "NEON_API_KEY",
+#   "DEEPSEEK_API_KEY",
 #   "OPENAI_API_KEY",
 #   "PAGESPEED_API_KEY",
 #   "PEXELS_API_KEY",

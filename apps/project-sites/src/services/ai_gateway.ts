@@ -46,7 +46,7 @@ import { log } from '../lib/log.js';
 const gatewayLog = log.child('ai_gateway');
 
 /** Supported upstream providers routed through the gateway. */
-export type GatewayProvider = 'openai' | 'anthropic';
+export type GatewayProvider = 'openai' | 'anthropic' | 'deepseek';
 
 /** Default AI Gateway name when {@link Env.AI_GATEWAY_NAME} is unset. */
 export const DEFAULT_GATEWAY_NAME = 'projectsites';
@@ -58,7 +58,11 @@ export const DEFAULT_CACHE_TTL_SECONDS = 3600;
 const DIRECT_BASE_URLS: Record<GatewayProvider, string> = {
   openai: 'https://api.openai.com',
   anthropic: 'https://api.anthropic.com',
+  deepseek: 'https://api.deepseek.com',
 };
+
+/** Exported for unit tests that need to assert DeepSeek's base URL. */
+export const DIRECT_BASE_URLS_EXPORT: Record<GatewayProvider, string> = DIRECT_BASE_URLS;
 
 /**
  * Zod schema for the per-call gateway options a caller may supply.

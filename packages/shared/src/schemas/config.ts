@@ -77,6 +77,7 @@ export const envConfigSchema = z
     OPENAI_API_KEY: z.string().min(1).optional(),
     OPEN_ROUTER_API_KEY: z.string().min(1).optional(),
     GROQ_API_KEY: z.string().min(1).optional(),
+    DEEPSEEK_API_KEY: z.string().min(1).optional(),
 
     // Cloudflare
     CF_API_TOKEN: z.string().min(1),

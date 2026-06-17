@@ -190,6 +190,8 @@ export interface Env {
   OPEN_ROUTER_API_KEY?: string;
   /** Groq API key for fast inference fallback. */
   GROQ_API_KEY?: string;
+  /** DeepSeek API key — used for standard/instant tiers (OpenAI-compatible, model deepseek-chat). */
+  DEEPSEEK_API_KEY?: string;
 
   // ── Headless Pipeline Config ────────────────────────────────
   /** A/B model split ratio (0-1). 0.5 = 50% OpenAI, 50% Anthropic. Default: 0.5. */
