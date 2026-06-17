@@ -47,6 +47,7 @@ import { concierge } from './routes/concierge.js';
 import { pageAudio } from './routes/page_audio.js';
 import { storefront } from './routes/storefront.js';
 import { agenticCommerce } from './routes/agentic_commerce.js';
+import { aiActions } from './routes/ai_actions.js';
 import { i18n } from './routes/i18n.js';
 import { webhooks } from './routes/webhooks.js';
 import { assets } from './routes/assets.js';
@@ -340,6 +341,7 @@ app.route('/', concierge); // /api/sites/:id/concierge — "Ask my site" RAG con
 app.route('/', pageAudio); // /api/sites/:id/page-audio — TTS page narration → R2 (flag: page_audio)
 app.route('/', storefront); // /api/sites/:id/products[/:productId] — product catalog CRUD (flag: storefront_ecommerce)
 app.route('/', agenticCommerce); // /api/sites/:id/commerce/feed — agent-readable product feed (flag: agentic_commerce)
+app.route('/', aiActions); // /api/ai-actions/payment-command — safety-gated AI payment-command (flag: ai_payment_command)
 app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (flag: i18n_localization)
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', assets); // Asset uploads + build-assets listing
