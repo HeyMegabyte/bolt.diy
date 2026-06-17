@@ -142,6 +142,32 @@ export class MetaService {
     });
   }
 
+  /**
+   * Imperatively set page meta from a component (for routes whose meta isn't in
+   * the route-driven PAGE_META table, e.g. /developers). Only provided fields apply.
+   */
+  setMeta(opts: { title?: string; description?: string; canonical?: string; ogImage?: string }): void {
+    if (opts.title) {
+      this.title.setTitle(opts.title);
+      this.meta.updateTag({ property: 'og:title', content: opts.title });
+      this.meta.updateTag({ name: 'twitter:title', content: opts.title });
+    }
+    if (opts.description) {
+      this.meta.updateTag({ name: 'description', content: opts.description });
+      this.meta.updateTag({ property: 'og:description', content: opts.description });
+      this.meta.updateTag({ name: 'twitter:description', content: opts.description });
+    }
+    if (opts.ogImage) {
+      this.meta.updateTag({ property: 'og:image', content: opts.ogImage });
+      this.meta.updateTag({ name: 'twitter:image', content: opts.ogImage });
+    }
+    if (opts.canonical) {
+      const link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+      if (link) link.href = opts.canonical;
+      this.meta.updateTag({ property: 'og:url', content: opts.canonical });
+    }
+  }
+
   /** Apply the meta payload to the document head and update the canonical link. */
   private updateMeta(page: PageMeta, path: string): void {
     const url = `${BASE_URL}/${path}`;

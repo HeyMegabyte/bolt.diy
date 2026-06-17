@@ -7,6 +7,7 @@ import { AuthService, type SelectedBusiness } from '../../services/auth.service'
 import { GeolocationService } from '../../services/geolocation.service';
 import { ToastService } from '../../services/toast.service';
 import { TelemetryService } from '../../services/telemetry.service';
+import { mapClaimPrefillToFields } from './claim-prefill';
 
 /**
  * Clean a URL for display and storage — strips tracking parameters (utm_*,
@@ -305,6 +306,9 @@ export class CreateComponent implements OnInit, OnDestroy {
     if (params['phone']) { this.businessPhone = params['phone']; this.markTouched('phone'); }
     if (params['website']) { this.businessWebsite = cleanUrl(params['website']); this.markTouched('website'); }
     if (params['reset']) this.resetSiteId = params['reset'];
+    // claimyour.site funnel: ?claim=<shortlink> → fetch the researched profile +
+    // prefill the form (the background build is already running server-side).
+    if (params['claim']) this.loadClaimPrefill(params['claim']);
 
     // Check if coming from search selection
     const shouldAutoCreate = this.auth.getAutoCreate();
@@ -961,6 +965,27 @@ export class CreateComponent implements OnInit, OnDestroy {
 
   clearFormDraft(): void {
     localStorage.removeItem(CreateComponent.DRAFT_KEY);
+  }
+
+  /**
+   * Prefill the form from a claimyour.site claim link. Fetches the researched
+   * lead profile and applies present fields; failures are silent (the form just
+   * stays empty for the user to fill). The background build is already running.
+   */
+  loadClaimPrefill(shortlink: string): void {
+    this.api.get<{ data?: { prefill?: Record<string, unknown> } }>(`/claim/${encodeURIComponent(shortlink)}/profile`).subscribe({
+      next: (res) => {
+        const f = mapClaimPrefillToFields(res?.data?.prefill ?? {});
+        if (f.businessName) { this.businessName = f.businessName; this.markTouched('name'); }
+        if (f.businessAddress) { this.businessAddress = f.businessAddress; this.markTouched('address'); }
+        if (f.businessPhone) { this.businessPhone = f.businessPhone; this.markTouched('phone'); }
+        if (f.businessWebsite) { this.businessWebsite = f.businessWebsite; this.markTouched('website'); }
+        if (f.businessCategory) this.businessCategory = f.businessCategory;
+        if (f.additionalContext) this.additionalContext = f.additionalContext;
+        this.cdr.detectChanges();
+      },
+      error: () => { /* claim prefill is best-effort — leave the form empty */ },
+    });
   }
 
   onLogoSelected(event: Event): void {
