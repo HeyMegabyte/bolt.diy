@@ -43,7 +43,7 @@ export interface ChargeResult {
 
 /** An audit record for a payment-command execution attempt (no card data). */
 export interface ExecAuditEntry {
-  readonly action: 'payment_command.executed';
+  readonly action: 'payment_command.executed' | 'payment_command.refunded';
   readonly tenantId: string;
   readonly siteId: string;
   readonly amountCents: number;
@@ -163,11 +163,14 @@ function baseAudit(
   };
 }
 
-async function safeAudit(deps: ExecuteDeps, entry: ExecAuditEntry): Promise<void> {
+async function safeAudit(
+  deps: { audit: (entry: ExecAuditEntry) => Promise<void> },
+  entry: ExecAuditEntry,
+): Promise<void> {
   try {
     await deps.audit(entry);
   } catch {
-    /* audit is best-effort — never let it break the charge report */
+    /* audit is best-effort — never let it break the charge/refund report */
   }
 }
 
@@ -215,5 +218,201 @@ export function stripeOffSessionCharge(env: Env): ExecuteDeps['charge'] {
       throw new Error(json.error?.message ?? `stripe_error_${res.status}`);
     }
     return { paymentIntentId: json.id, status: json.status ?? 'unknown' };
+  };
+}
+
+const PAYMENT_INTENT = /^pi_[A-Za-z0-9]+$/;
+
+/** A refund request — `amountCents: null` means a full refund. */
+export interface RefundRequest {
+  readonly paymentIntentId: string;
+  readonly amountCents: number | null;
+  readonly idempotencyKey: string;
+  readonly tenantId: string;
+  readonly siteId: string;
+  readonly reason: string | null;
+}
+
+/** What the Stripe refund seam returns. */
+export interface RefundResult {
+  readonly refundId: string;
+  readonly status: string;
+}
+
+/** Injected deps for {@link refundPayment}. */
+export interface RefundDeps {
+  refund: (req: RefundRequest) => Promise<RefundResult>;
+  audit: (entry: ExecAuditEntry) => Promise<void>;
+}
+
+export type RefundOutcome =
+  | { ok: true; refundId: string; status: string }
+  | {
+      ok: false;
+      code:
+        | 'invalid_payment_intent'
+        | 'idempotency_key_required'
+        | 'amount_invalid'
+        | 'refund_failed';
+      message: string;
+    };
+
+/**
+ * Refund a prior payment-command charge. Same safety posture as the charge
+ * executor: a valid `pi_` id, a mandatory idempotency key (passed through so a
+ * retried refund dedupes), a positive partial amount when given (`null` = full),
+ * and both outcomes audited.
+ *
+ * @param req - The refund request.
+ * @param deps - Injected `refund` (Stripe) + `audit` (D1).
+ * @returns A {@link RefundOutcome}; never throws.
+ */
+export async function refundPayment(req: RefundRequest, deps: RefundDeps): Promise<RefundOutcome> {
+  if (!PAYMENT_INTENT.test(req.paymentIntentId)) {
+    return {
+      ok: false,
+      code: 'invalid_payment_intent',
+      message: 'A valid payment-intent id (pi_…) is required to refund.',
+    };
+  }
+  if (!req.idempotencyKey) {
+    return {
+      ok: false,
+      code: 'idempotency_key_required',
+      message: 'An idempotency key is required before a refund can run.',
+    };
+  }
+  if (req.amountCents !== null && (!Number.isInteger(req.amountCents) || req.amountCents <= 0)) {
+    return {
+      ok: false,
+      code: 'amount_invalid',
+      message:
+        'A partial refund amount must be a positive integer-cents value (or null for a full refund).',
+    };
+  }
+
+  let result: RefundResult;
+  try {
+    result = await deps.refund(req);
+  } catch (err) {
+    await safeAudit(deps, refundAudit(req, 'failed', { detail: errMessage(err) }));
+    return { ok: false, code: 'refund_failed', message: 'The refund could not be completed.' };
+  }
+  await safeAudit(deps, refundAudit(req, 'succeeded', { paymentIntentId: req.paymentIntentId }));
+  return { ok: true, refundId: result.refundId, status: result.status };
+}
+
+function refundAudit(
+  req: RefundRequest,
+  outcome: 'succeeded' | 'failed',
+  extra: { paymentIntentId?: string; detail?: string },
+): ExecAuditEntry {
+  return {
+    action: 'payment_command.refunded',
+    tenantId: req.tenantId,
+    siteId: req.siteId,
+    amountCents: req.amountCents ?? 0,
+    currency: 'usd',
+    paymentMethodRef: req.paymentIntentId,
+    idempotencyKey: req.idempotencyKey,
+    outcome,
+    ...(extra.paymentIntentId ? { paymentIntentId: extra.paymentIntentId } : {}),
+    ...(extra.detail ? { detail: extra.detail } : {}),
+  };
+}
+
+/** Read-only status of a PaymentIntent. */
+export type StatusOutcome =
+  | { ok: true; paymentIntentId: string; status: string; amountCents?: number }
+  | { ok: false; code: 'invalid_payment_intent' | 'status_unavailable'; message: string };
+
+/** Injected dep for {@link getPaymentStatus}. */
+export interface StatusDeps {
+  getStatus: (
+    paymentIntentId: string,
+  ) => Promise<{ paymentIntentId: string; status: string; amountCents?: number }>;
+}
+
+/**
+ * Read the live status of a prior payment-command charge. Read-only → no audit.
+ *
+ * @param paymentIntentId - The `pi_…` id to look up.
+ * @param deps - Injected `getStatus` (Stripe).
+ * @returns A {@link StatusOutcome}; never throws.
+ */
+export async function getPaymentStatus(
+  paymentIntentId: string,
+  deps: StatusDeps,
+): Promise<StatusOutcome> {
+  if (!PAYMENT_INTENT.test(paymentIntentId)) {
+    return {
+      ok: false,
+      code: 'invalid_payment_intent',
+      message: 'A valid payment-intent id (pi_…) is required.',
+    };
+  }
+  try {
+    const s = await deps.getStatus(paymentIntentId);
+    return {
+      ok: true,
+      paymentIntentId: s.paymentIntentId,
+      status: s.status,
+      ...(s.amountCents !== undefined ? { amountCents: s.amountCents } : {}),
+    };
+  } catch {
+    return {
+      ok: false,
+      code: 'status_unavailable',
+      message: 'The payment status could not be retrieved.',
+    };
+  }
+}
+
+/** Production Stripe refund seam (idempotency key on the header). */
+export function stripeRefund(env: Env): RefundDeps['refund'] {
+  return async (req: RefundRequest): Promise<RefundResult> => {
+    const params = new URLSearchParams({ payment_intent: req.paymentIntentId });
+    if (req.amountCents !== null) params.append('amount', String(req.amountCents));
+    if (req.reason) params.append('metadata[reason]', req.reason);
+    const res = await fetch('https://api.stripe.com/v1/refunds', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Idempotency-Key': req.idempotencyKey,
+      },
+      body: params,
+    });
+    const json = (await res.json()) as {
+      id?: string;
+      status?: string;
+      error?: { message?: string };
+    };
+    if (!res.ok || !json.id) throw new Error(json.error?.message ?? `stripe_error_${res.status}`);
+    return { refundId: json.id, status: json.status ?? 'unknown' };
+  };
+}
+
+/** Production Stripe PaymentIntent-status seam (read-only). */
+export function stripeGetPaymentStatus(env: Env): StatusDeps['getStatus'] {
+  return async (paymentIntentId: string) => {
+    const res = await fetch(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
+      {
+        headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
+      },
+    );
+    const json = (await res.json()) as {
+      id?: string;
+      status?: string;
+      amount?: number;
+      error?: { message?: string };
+    };
+    if (!res.ok || !json.id) throw new Error(json.error?.message ?? `stripe_error_${res.status}`);
+    return {
+      paymentIntentId: json.id,
+      status: json.status ?? 'unknown',
+      ...(typeof json.amount === 'number' ? { amountCents: json.amount } : {}),
+    };
   };
 }
