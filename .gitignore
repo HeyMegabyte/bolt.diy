@@ -59,3 +59,14 @@ _research/
 /*.png
 /*.jpg
 /*.jpeg
+
+# Build caches + generated artifacts (regenerated; never commit)
+.angular/
+.nx/
+storybook-static/
+*.tsbuildinfo
+.eslintcache
+*.log
+# Generated drift report (written by validate-feature-drift)
+_drift-report.json
+**/_drift-report.json
