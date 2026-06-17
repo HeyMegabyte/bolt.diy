@@ -337,6 +337,9 @@ export class FeatureDossierComponent implements OnDestroy {
   private tocObserver?: IntersectionObserver;
   private readonly tocVisible = new Set<string>();
 
+  /** Body scroll-lock bookkeeping — restore the page's prior overflow on close. */
+  private prevBodyOverflow: string | null = null;
+
   constructor() {
     // Re-wire the scroll-spy whenever the dossier opens or its rendered content
     // changes (html() depends on the model). setTimeout lets the innerHTML paint.
@@ -346,6 +349,26 @@ export class FeatureDossierComponent implements OnDestroy {
       this.teardownTocSpy();
       if (isOpen) setTimeout(() => this.setupTocSpy(), 60);
     });
+
+    // §17: lock background page scroll while the full-screen takeover is open.
+    // The `.fd-root` is `position:fixed inset:0`, so without this a trackpad
+    // swipe at the dossier's scroll boundary bleeds to the admin page behind.
+    effect(() => {
+      if (this.open()) this.lockBodyScroll();
+      else this.unlockBodyScroll();
+    });
+  }
+
+  private lockBodyScroll(): void {
+    if (typeof document === 'undefined' || this.prevBodyOverflow !== null) return;
+    this.prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+
+  private unlockBodyScroll(): void {
+    if (typeof document === 'undefined' || this.prevBodyOverflow === null) return;
+    document.body.style.overflow = this.prevBodyOverflow;
+    this.prevBodyOverflow = null;
   }
 
   private setupTocSpy(): void {
@@ -465,6 +488,7 @@ export class FeatureDossierComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopPolling();
     this.teardownTocSpy();
+    this.unlockBodyScroll();
   }
 
   /** Safe rendered HTML — same pipeline as agent-message, plus heading anchors. */
