@@ -18,7 +18,7 @@ jest.mock('../../../../src/services/api_tokens.js', () => ({
 }));
 
 jest.mock('../../../../src/services/db.js', () => ({
-  dbInsert: jest.fn().mockResolvedValue(undefined),
+  dbInsert: jest.fn().mockResolvedValue({}),
   dbQuery: jest.fn().mockResolvedValue({ data: [] }),
   dbQueryOne: jest.fn().mockResolvedValue(null),
   dbExecute: jest.fn().mockResolvedValue(undefined),
@@ -63,7 +63,7 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site']));
+    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site']));
   });
 
   it('tools/call without a token is unauthorized (-32001)', async () => {
@@ -97,5 +97,14 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/call', { name: 'deploy_site', arguments: { site_id: 'foreign', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] } }, { authorization: 'Bearer psk_x' });
     const body = await res.json();
     expect(body.result.content[0].text).toContain('Site not found');
+  });
+
+  it('create_site creates a draft + returns the slug', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc('tools/call', { name: 'create_site', arguments: { business_name: 'Acme Co' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBeFalsy();
+    expect(body.result.content[0].text).toContain('acme-co');
   });
 });

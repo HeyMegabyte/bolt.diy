@@ -13,7 +13,7 @@
  * success from an unwired tool.
  */
 import type { Env } from '../../../src/types/env.js';
-import { dbQuery, dbQueryOne, dbExecute } from '../../../src/services/db.js';
+import { dbQuery, dbQueryOne, dbExecute, dbInsert } from '../../../src/services/db.js';
 import type { ApiTokenRow } from '../../../src/services/api_tokens.js';
 import { hasScope } from '../../../src/services/api_tokens.js';
 import { ListSitesInput, GetSiteInput, BuildStatusInput } from './schemas.js';
@@ -156,7 +156,24 @@ export const PLATFORM_MCP_TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'create_site',
+    description:
+      'Create a new empty site in your account (draft). Returns site_id + slug + URL; then deploy_site with your built files to publish.',
+    requiredScope: 'sites:write' as const,
+    inputSchema: {
+      type: 'object',
+      properties: { business_name: { type: 'string' }, slug: { type: 'string' } },
+      required: ['business_name'],
+      additionalProperties: false,
+    },
+  },
 ] as const;
+
+/** Slugify a name the same way the create-from-search handler does. */
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 63);
+}
 
 /**
  * Dispatch a `tools/call`. `token` is the verified API-token row (carries org_id
@@ -283,6 +300,44 @@ export async function dispatchPlatformTool(
         [site_id],
       );
       return ok({ deployed: files.length, site_id, ...result });
+    }
+
+    case 'create_site': {
+      const business_name = String(args.business_name ?? '').trim();
+      if (!business_name) return err('business_name is required.');
+      const base = slugify(typeof args.slug === 'string' && args.slug ? args.slug : business_name) || 'site';
+      let slug = base;
+      const taken = await dbQueryOne<{ id: string }>(
+        db,
+        `SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL`,
+        [slug],
+      );
+      if (taken) slug = `${base.substring(0, 58)}-${crypto.randomUUID().slice(0, 4)}`;
+      const id = crypto.randomUUID();
+      const res = await dbInsert(db, 'sites', {
+        id,
+        org_id: orgId,
+        slug,
+        business_name,
+        business_phone: null,
+        business_email: null,
+        business_address: null,
+        google_place_id: null,
+        bolt_chat_id: null,
+        current_build_version: null,
+        status: 'draft',
+        lighthouse_score: null,
+        lighthouse_last_run: null,
+        deleted_at: null,
+      });
+      if (res.error) return err(`Failed to create site: ${res.error}`);
+      return ok({
+        site_id: id,
+        slug,
+        status: 'draft',
+        url: `https://${slug}${SITES_SUFFIX}`,
+        next: 'Use deploy_site with your built files to publish.',
+      });
     }
 
     default:

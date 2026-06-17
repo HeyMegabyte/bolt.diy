@@ -50,7 +50,7 @@ catalog) — curl it to verify the connection is live.
 | `get_site` | sites:read | ✅ live |
 | `get_build_status` | sites:read | ✅ live |
 | `deploy_site` *(args: site_id, files[])* | sites:write | ✅ live — writes files to R2 sites/{slug}/{version}/…, points _manifest at it, busts cache, returns the live URL |
-| `create_site` *(args: business_name, slug?)* | sites:write | ⏳ next slice — reuses `create-from-search` |
+| `create_site` *(args: business_name, slug?)* | sites:write | ✅ live — creates a draft site (unique slug), returns site_id + URL; then deploy_site to publish |
 | *(future)* `get_research`, `list_snapshots`, `set_domain`, `tail_logs` | varies | roadmap |
 
 **Scope discipline (the "is it rude to expose the whole API?" answer):** No — the
