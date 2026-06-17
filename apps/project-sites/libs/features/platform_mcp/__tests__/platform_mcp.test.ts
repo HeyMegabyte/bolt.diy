@@ -116,6 +116,40 @@ describe('platform_mcp JSON-RPC', () => {
     expect(body.result.content[0].text).toContain('Site not found');
   });
 
+  it('deploy_site publishes + returns a version-pinned preview_url', async () => {
+    const { dbQueryOne, dbInsert, dbExecute } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 's1', slug: 'acme' }); // owned site
+    dbInsert.mockResolvedValueOnce({}); // snapshot insert ok
+    dbExecute.mockResolvedValueOnce(undefined);
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const env = {
+      SITES_BUCKET: { put: jest.fn().mockResolvedValue({}) },
+      CACHE_KV: { delete: jest.fn().mockResolvedValue(undefined) },
+    };
+    const res = await app().request(
+      '/api/mcp',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer psk_x' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'deploy_site', arguments: { site_id: 's1', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] } },
+        }),
+      },
+      env as never,
+      { waitUntil() {}, passThroughOnException() {} } as never,
+    );
+    const body = await res.json();
+    expect(body.result.isError).toBeFalsy();
+    const payload = JSON.parse(body.result.content[0].text);
+    expect(payload.live_url).toBe('https://acme.projectsites.dev');
+    expect(payload.preview_url).toMatch(/^https:\/\/acme-d[0-9a-f]{8}\.projectsites\.dev$/);
+    expect(env.SITES_BUCKET.put).toHaveBeenCalled();
+  });
+
   it('create_site creates a draft + returns the slug', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });

@@ -16,6 +16,7 @@
       <button class="text-text-secondary hover:text-primary transition-colors text-sm font-medium" (click)="scrollTo('features')">{{ 'nav.features' | translate }}</button>
       <button class="text-text-secondary hover:text-primary transition-colors text-sm font-medium" (click)="scrollTo('pricing')">{{ 'nav.pricing' | translate }}</button>
       <button class="text-text-secondary hover:text-primary transition-colors text-sm font-medium" (click)="scrollTo('faq')">{{ 'nav.faq' | translate }}</button>
+      <a routerLink="/developers" class="text-text-secondary hover:text-primary transition-colors text-sm font-medium">{{ 'nav.developers' | translate }}</a>
       <button
         class="px-3 py-1.5 rounded-full border border-white/10 text-xs font-mono text-text-secondary hover:text-primary hover:border-primary/30 transition-all"
         (click)="toggleLang()"
@@ -62,6 +63,7 @@
         <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="scrollTo('features')">{{ 'nav.features' | translate }}</button>
         <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="scrollTo('pricing')">{{ 'nav.pricing' | translate }}</button>
         <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="scrollTo('faq')">{{ 'nav.faq' | translate }}</button>
+        <a routerLink="/developers" class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="toggleMobileMenu()">{{ 'nav.developers' | translate }}</a>
         <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="toggleLang()">
           {{ currentLang() === 'en' ? 'Español' : 'English' }}
         </button>

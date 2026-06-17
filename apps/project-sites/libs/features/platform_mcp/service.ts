@@ -141,7 +141,7 @@ export const PLATFORM_MCP_TOOLS = [
   {
     name: 'deploy_site',
     description:
-      'Deploy files to one of your sites from your editor: writes them to R2, points the site at the new version, busts cache, returns the live URL. files = [{path, content}] (the built dist of your app).',
+      'Deploy files to one of your sites from your editor: writes them to R2, points the site at the new version, busts cache, returns the live URL AND a stable version-pinned preview_url. files = [{path, content}] (the built dist of your app).',
     requiredScope: 'sites:write' as const,
     inputSchema: {
       type: 'object',
@@ -325,7 +325,31 @@ export async function dispatchPlatformTool(
         `UPDATE sites SET status = 'published', updated_at = datetime('now') WHERE id = ?`,
         [site_id],
       );
-      return ok({ deployed: files.length, site_id, ...result });
+      // Version-pin this deploy as a snapshot so the agent gets a STABLE preview URL
+      // (served via the existing {slug}-{snapshot} host path, unaffected by later
+      // deploys). Dash-free short name keeps the snapshot host a single clean label.
+      // Skip the preview only if the composed host would exceed the 63-char DNS label.
+      const previewName = `d${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+      const previewLabel = `${site.slug}-${previewName}`;
+      let preview_url: string | undefined;
+      if (previewLabel.length <= 63) {
+        const snap = await dbInsert(db, 'site_snapshots', {
+          id: crypto.randomUUID(),
+          site_id,
+          snapshot_name: previewName,
+          build_version: result.version,
+          description: 'Deploy preview (platform MCP)',
+          deleted_at: null,
+        });
+        if (!snap.error) preview_url = `https://${previewLabel}${SITES_SUFFIX}`;
+      }
+      return ok({
+        deployed: files.length,
+        site_id,
+        ...result,
+        live_url: result.url,
+        ...(preview_url ? { preview_url } : {}),
+      });
     }
 
     case 'create_site': {

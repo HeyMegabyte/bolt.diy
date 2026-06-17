@@ -49,7 +49,7 @@ catalog) — curl it to verify the connection is live.
 | `list_sites` | sites:read | ✅ live |
 | `get_site` | sites:read | ✅ live |
 | `get_build_status` | sites:read | ✅ live |
-| `deploy_site` *(args: site_id, files[])* | sites:write | ✅ live — writes files to R2 sites/{slug}/{version}/…, points _manifest at it, busts cache, returns the live URL |
+| `deploy_site` *(args: site_id, files[])* | sites:write | ✅ live — writes files to R2 sites/{slug}/{version}/…, points _manifest at it, busts cache; returns `live_url` + a stable version-pinned `preview_url` (`{slug}-{id}.projectsites.dev`, served via the snapshot host path, unaffected by later deploys). Paths are traversal-validated + size-capped (500 files · 2MB/file · 20MB total) |
 | `create_site` *(args: business_name, slug?)* | sites:write | ✅ live — creates a draft site (unique slug), returns site_id + URL; then deploy_site to publish |
 | `list_snapshots` *(args: site_id)* | sites:read | ✅ live — lists saved snapshots for a site (id, snapshot_name, build_version, description, created_at) |
 | `get_research` *(args: site_id)* | sites:read | ✅ live — returns AI research data collected for a site (business profile, brand, selling points), keyed by task_name |
