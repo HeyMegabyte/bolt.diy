@@ -2,10 +2,11 @@
  * @module services/build_limits
  *
  * @description
- * Per-org build allowance — free users get 3 builds, paid users get 50, owners
- * of unlimited orgs get `Infinity`. Tracked by counting non-deleted rows in the
- * `sites` table (soft-deletes don't free a slot — by design, so users can't
- * dodge the quota by churning).
+ * Per-org site allowance — free accounts get exactly 1 site; paid plans are
+ * billed at $50/month per site (PAID_LIMIT is the runaway-cost sanity ceiling,
+ * not an "all you can eat" allotment). Owners of unlimited orgs get `Infinity`.
+ * Tracked by counting non-deleted rows in the `sites` table (soft-deletes don't
+ * free a slot — by design, so users can't dodge the quota by churning).
  *
  * @remarks
  * - The `UNLIMITED_ORGS` set is request-cached, populated lazily when the
@@ -18,9 +19,9 @@
  */
 import { dbQuery, dbQueryOne } from './db.js';
 
-/** Free-tier site quota — kept in lock-step with PRICING constants in shared/. */
-const FREE_LIMIT = 3;
-/** Paid-tier site quota — kept in lock-step with PRICING constants in shared/. */
+/** Free-tier site quota — free accounts get exactly ONE site. */
+const FREE_LIMIT = 1;
+/** Paid-tier runaway-cost ceiling. Billing is $50/mo PER site (PRICING.MONTHLY_CENTS). */
 const PAID_LIMIT = 50;
 
 /** Per-isolate cache of orgs known to have unlimited builds (populated lazily). */
@@ -31,8 +32,8 @@ const UNLIMITED_ORGS = new Set<string>();
  *
  * @param db    - D1Database binding.
  * @param orgId - Organization to check.
- * @param plan  - The active billing plan (`'paid'` → 50, anything else → 3).
- *   `null` is the unsigned-in / no-subscription default → free tier.
+ * @param plan  - The active billing plan (`'paid'` → 50, anything else → 1).
+ *   `null` is the unsigned-in / no-subscription default → free tier (1 site).
  * @returns Quota snapshot — `allowed`, `used`, `limit`, `remaining`.
  *
  * @example

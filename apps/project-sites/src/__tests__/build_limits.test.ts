@@ -1,8 +1,9 @@
 /**
  * Unit coverage for services/build_limits — per-org site-build quota.
  *
- * Guards the runaway-cost surface: free=3, paid=50, brian@-owned orgs=Infinity,
- * counts non-deleted `sites` rows (soft-deletes do NOT free a slot).
+ * Guards the runaway-cost surface: free=1, paid=50 ($50/mo per site),
+ * brian@-owned orgs=Infinity, counts non-deleted `sites` rows (soft-deletes do
+ * NOT free a slot).
  *
  * NOTE: `UNLIMITED_ORGS` is a module-level per-isolate cache that persists
  * across tests in this file, so every test uses a DISTINCT orgId to avoid
@@ -34,20 +35,20 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('checkBuildLimit — free tier (plan null / non-paid → limit 3)', () => {
-  it('allows when under the free limit', async () => {
+describe('checkBuildLimit — free tier (plan null / non-paid → limit 1)', () => {
+  it('allows the first site when none exist yet', async () => {
     ordinaryOwner();
-    siteCount(1);
+    siteCount(0);
     const q = await checkBuildLimit(db, 'org-free-under', null);
-    expect(q).toEqual({ allowed: true, used: 1, limit: 3, remaining: 2 });
+    expect(q).toEqual({ allowed: true, used: 0, limit: 1, remaining: 1 });
   });
 
-  it('blocks at the free-limit boundary (used === limit)', async () => {
+  it('blocks at the free-limit boundary (1 site already used)', async () => {
     ordinaryOwner();
-    siteCount(3);
+    siteCount(1);
     const q = await checkBuildLimit(db, 'org-free-at', null);
     expect(q.allowed).toBe(false);
-    expect(q).toMatchObject({ used: 3, limit: 3, remaining: 0 });
+    expect(q).toMatchObject({ used: 1, limit: 1, remaining: 0 });
   });
 
   it('clamps remaining to 0 when over limit (never negative)', async () => {
@@ -62,7 +63,7 @@ describe('checkBuildLimit — free tier (plan null / non-paid → limit 3)', () 
     ordinaryOwner();
     siteCount(0);
     const q = await checkBuildLimit(db, 'org-unknown-plan', 'enterprise-typo');
-    expect(q.limit).toBe(3);
+    expect(q.limit).toBe(1);
     expect(q.allowed).toBe(true);
   });
 });
@@ -121,6 +122,6 @@ describe('checkBuildLimit — edge cases', () => {
     const q = await checkBuildLimit(db, 'org-empty-count', null);
     expect(q.used).toBe(0);
     expect(q.allowed).toBe(true);
-    expect(q.remaining).toBe(3);
+    expect(q.remaining).toBe(1);
   });
 });

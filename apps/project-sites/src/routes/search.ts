@@ -574,7 +574,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw unauthorized('Must be authenticated');
   }
 
-  // Check build limits (3 free, 50 paid)
+  // Check build limits (1 free, then $50/mo per site)
   const { checkBuildLimit } = await import('../services/build_limits.js');
   const { dbQueryOne } = await import('../services/db.js');
   const sub = await dbQueryOne<{ plan: string }>(
@@ -604,7 +604,7 @@ search.post('/api/sites/create-from-search', async (c) => {
       {
         error: {
           code: 'BUILD_LIMIT_REACHED',
-          message: `You've used ${limitCheck.used} of ${limitCheck.limit} builds. ${limitCheck.limit === 3 ? 'Upgrade to a paid plan for 50 builds.' : 'Contact support for additional builds.'}`,
+          message: `You've used ${limitCheck.used} of ${limitCheck.limit} ${limitCheck.limit === 1 ? 'site' : 'sites'}. ${limitCheck.limit === 1 ? 'Free accounts include 1 site — add more for $50/month per site.' : 'Contact support to raise your site ceiling.'}`,
         },
       },
       403,
