@@ -191,7 +191,7 @@ When using Neon with Workers, prefer **Cloudflare Hyperdrive** to stabilize conn
 ## 5.2 Target toolchain (for new apps and migrations)
 - **Nx** monorepo with **Nx Cloud** for remote caching and distributed CI execution
 - **Angular** (SSR where applicable) for new UI apps
-- **PrimeNG** as the primary component library
+- **Spartan UI** (`@spartan-ng/brain` + helm) + Angular CDK as the only component kit — NOT PrimeNG/Material (removed; see DECISIONS ADR-0003 superseded)
 - **Ionic** (only if building mobile/PWA shells)
 - **Storybook** for shared UI components, tokens, and UX regression checks
 
