@@ -19,7 +19,10 @@
     "test:e2e:prod": "playwright test --config=playwright.prod.config.ts",
     "ship:production": "npm run deploy:production && npm run verify:production && npm run test:e2e:prod",
     "upload-sourcemaps": "node scripts/upload-sourcemaps.mjs",
-    "check:brand": "node scripts/check-brand-colors.mjs"
+    "check:brand": "node scripts/check-brand-colors.mjs",
+    "storybook": "ng run project-sites-frontend:storybook",
+    "build-storybook": "ng run project-sites-frontend:build-storybook",
+    "deploy:storybook": "npm run build-storybook && npx wrangler pages deploy storybook-static --project-name=projectsites-storybook --branch=main"
   },
   "private": true,
   "dependencies": {
@@ -93,6 +96,15 @@
     "karma-coverage": "^2.2.1",
     "karma-jasmine": "^5.1.0",
     "karma-jasmine-html-reporter": "^2.1.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "storybook": "^10.4.6",
+    "@storybook/angular": "^10.4.6",
+    "@storybook/addon-a11y": "^10.4.6",
+    "@storybook/addon-docs": "^10.4.6",
+    "@storybook/addon-onboarding": "^10.4.6",
+    "@angular-devkit/architect": "^0.2102.14",
+    "@angular-devkit/core": "^21.2.14",
+    "@compodoc/compodoc": "^1.2.1",
+    "eslint-plugin-storybook": "^10.4.6"
   }
 }

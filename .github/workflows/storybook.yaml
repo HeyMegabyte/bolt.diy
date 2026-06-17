@@ -1,0 +1,50 @@
+name: storybook
+
+# Builds + deploys the component workshop to storybook.projectsites.dev
+# (Cloudflare Pages project: projectsites-storybook) on every merge to main that
+# touches the frontend. Storybook is the single source of truth for the
+# storybook → template → generator pipeline.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/frontend/**'
+      - '.github/workflows/storybook.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storybook-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/project-sites/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+
+      - name: Install deps
+        run: npm install --legacy-peer-deps
+
+      - name: Build Storybook
+        run: npm run build-storybook
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/project-sites/frontend
+          command: pages deploy storybook-static --project-name=projectsites-storybook --branch=main

@@ -45,3 +45,7 @@ Thumbs.db
 # loose binary capture artifacts (a stray `git add -A` would otherwise commit them).
 /_s*.png
 /shot_*.png
+
+*storybook.log
+storybook-static
+documentation.json
