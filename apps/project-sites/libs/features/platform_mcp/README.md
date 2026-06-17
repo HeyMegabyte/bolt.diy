@@ -54,7 +54,7 @@ catalog) — curl it to verify the connection is live.
 | `list_snapshots` *(args: site_id)* | sites:read | ✅ live — lists saved snapshots for a site (id, snapshot_name, build_version, description, created_at) |
 | `get_research` *(args: site_id)* | sites:read | ✅ live — returns AI research data collected for a site (business profile, brand, selling points), keyed by task_name |
 | `tail_logs` *(args: site_id, limit?)* | sites:read | ✅ live — returns recent build/workflow log entries from `workflow_jobs` newest-first (`{status, step, updated_at}`); default limit 20, max 100 |
-| *(future)* `set_domain` | sites:write | roadmap |
+| `set_domain` *(args: site_id, hostname)* | sites:write | ✅ live — connects a custom domain (paid plan; requires a DNS CNAME `hostname → projectsites.dev` set first), provisions the CF custom hostname + SSL, returns status |
 
 **Scope discipline (the "is it rude to expose the whole API?" answer):** No — the
 MCP intentionally exposes a *curated* surface, not the raw 400-route API. Tools

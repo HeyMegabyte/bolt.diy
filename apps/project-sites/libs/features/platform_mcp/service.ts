@@ -12,11 +12,21 @@
  * the next slice — advertised there, NOT here, so we never return a fake
  * success from an unwired tool.
  */
+import { DOMAINS } from '@project-sites/shared';
 import type { Env } from '../../../src/types/env.js';
 import { dbQuery, dbQueryOne, dbExecute, dbInsert } from '../../../src/services/db.js';
 import type { ApiTokenRow } from '../../../src/services/api_tokens.js';
 import { hasScope } from '../../../src/services/api_tokens.js';
-import { ListSitesInput, GetSiteInput, BuildStatusInput, DeploySiteInput, TailLogsInput } from './schemas.js';
+import { provisionCustomDomain, checkCnameTarget } from '../../../src/services/domains.js';
+import { getOrgEntitlements } from '../../../src/services/billing.js';
+import {
+  ListSitesInput,
+  GetSiteInput,
+  BuildStatusInput,
+  DeploySiteInput,
+  TailLogsInput,
+  SetDomainInput,
+} from './schemas.js';
 
 /** Mirrors DOMAINS.SITES_SUFFIX — the public site subdomain suffix. */
 const SITES_SUFFIX = '.projectsites.dev';
@@ -207,6 +217,18 @@ export const PLATFORM_MCP_TOOLS = [
         limit: { type: 'number', minimum: 1, maximum: 100, default: 20 },
       },
       required: ['site_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'set_domain',
+    description:
+      'Connect a custom domain (hostname) to one of your sites. Requires a paid plan + a DNS CNAME from the hostname to projectsites.dev set BEFOREHAND. Returns provisioning status + SSL state.',
+    requiredScope: 'sites:write' as const,
+    inputSchema: {
+      type: 'object',
+      properties: { site_id: { type: 'string' }, hostname: { type: 'string' } },
+      required: ['site_id', 'hostname'],
       additionalProperties: false,
     },
   },
@@ -467,6 +489,45 @@ export async function dispatchPlatformTool(
         [site_id, limit],
       );
       return ok({ site_id, count: data.length, entries: data });
+    }
+
+    case 'set_domain': {
+      const { site_id, hostname } = SetDomainInput.parse(args);
+      const site = await dbQueryOne<{ id: string }>(
+        db,
+        `SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        [site_id, orgId],
+      );
+      if (!site) return err('Site not found.');
+      // Custom domains are a paid capability (same gate as POST /hostnames).
+      const entitlements = await getOrgEntitlements(db, orgId);
+      if (!entitlements.topBarHidden) {
+        return err('Custom domains require a paid plan. Upgrade at https://projectsites.dev/admin/billing, then retry.');
+      }
+      // The customer must point DNS at us first — verify the CNAME before provisioning.
+      const cnameTarget = await checkCnameTarget(hostname);
+      if (!cnameTarget || cnameTarget !== DOMAINS.SITES_BASE) {
+        return err(
+          `Before connecting ${hostname}, add a DNS CNAME record: ${hostname} → ${DOMAINS.SITES_BASE}. ` +
+            `Then call set_domain again.`,
+        );
+      }
+      try {
+        const result = await provisionCustomDomain(db, env, { org_id: orgId, site_id, hostname });
+        return ok({
+          hostname: result.hostname,
+          status: result.status,
+          is_primary: result.is_primary,
+          dns: `CNAME ${hostname} → ${DOMAINS.SITES_BASE}`,
+          next:
+            result.status === 'active'
+              ? `Live at https://${hostname}`
+              : 'SSL is provisioning — usually active within minutes; poll get_site for the primary hostname.',
+        });
+      } catch (e) {
+        // provisionCustomDomain throws user-safe conflicts (domain cap / already registered).
+        return err(e instanceof Error ? e.message : 'Failed to connect the domain.');
+      }
     }
 
     default:

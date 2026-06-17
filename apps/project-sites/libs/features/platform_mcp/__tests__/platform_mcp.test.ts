@@ -24,6 +24,18 @@ jest.mock('../../../../src/services/db.js', () => ({
   dbExecute: jest.fn().mockResolvedValue(undefined),
 }));
 
+const mockEntitlements = jest.fn();
+jest.mock('../../../../src/services/billing.js', () => ({
+  getOrgEntitlements: (...a: unknown[]) => mockEntitlements(...a),
+}));
+
+const mockCheckCname = jest.fn();
+const mockProvision = jest.fn();
+jest.mock('../../../../src/services/domains.js', () => ({
+  checkCnameTarget: (...a: unknown[]) => mockCheckCname(...a),
+  provisionCustomDomain: (...a: unknown[]) => mockProvision(...a),
+}));
+
 import { platformMcp } from '../handlers.js';
 
 function app() {
@@ -41,6 +53,9 @@ const rpc = (method: string, params?: unknown, headers: Record<string, string> =
 beforeEach(() => {
   mockIsFlagOn.mockReset();
   mockVerify.mockReset();
+  mockEntitlements.mockReset();
+  mockCheckCname.mockReset();
+  mockProvision.mockReset();
 });
 
 describe('platform_mcp JSON-RPC', () => {
@@ -63,7 +78,7 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research', 'tail_logs']));
+    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research', 'tail_logs', 'set_domain']));
   });
 
   it('tools/call without a token is unauthorized (-32001)', async () => {
@@ -222,5 +237,49 @@ describe('platform_mcp JSON-RPC', () => {
     const body = await res.json();
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain('Site not found');
+  });
+
+  it('set_domain requires a paid plan', async () => {
+    const { dbQueryOne } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 's1' }); // owned site
+    mockEntitlements.mockResolvedValueOnce({ topBarHidden: false }); // free plan
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc('tools/call', { name: 'set_domain', arguments: { site_id: 's1', hostname: 'app.acme.com' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain('paid plan');
+    expect(mockProvision).not.toHaveBeenCalled();
+  });
+
+  it('set_domain instructs the user to set a CNAME when DNS is not pointed yet', async () => {
+    const { dbQueryOne } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 's1' });
+    mockEntitlements.mockResolvedValueOnce({ topBarHidden: true }); // paid
+    mockCheckCname.mockResolvedValueOnce(null); // CNAME not pointed
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc('tools/call', { name: 'set_domain', arguments: { site_id: 's1', hostname: 'app.acme.com' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toMatch(/CNAME record: app\.acme\.com . projectsites\.dev/);
+    expect(mockProvision).not.toHaveBeenCalled();
+  });
+
+  it('set_domain provisions when paid + CNAME is correctly pointed', async () => {
+    const { dbQueryOne } = require('../../../../src/services/db.js');
+    dbQueryOne.mockResolvedValueOnce({ id: 's1' });
+    mockEntitlements.mockResolvedValueOnce({ topBarHidden: true });
+    mockCheckCname.mockResolvedValueOnce('projectsites.dev');
+    mockProvision.mockResolvedValueOnce({ hostname: 'app.acme.com', status: 'pending', is_primary: true });
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc('tools/call', { name: 'set_domain', arguments: { site_id: 's1', hostname: 'APP.acme.com' } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBeFalsy();
+    const payload = JSON.parse(body.result.content[0].text);
+    expect(payload.hostname).toBe('app.acme.com');
+    expect(payload.is_primary).toBe(true);
+    expect(mockProvision).toHaveBeenCalled();
   });
 });

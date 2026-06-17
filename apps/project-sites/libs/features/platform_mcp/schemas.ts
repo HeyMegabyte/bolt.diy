@@ -77,8 +77,24 @@ export const TailLogsInput = z.object({
   limit: z.number().int().min(1).max(100).default(20),
 });
 
+/** `set_domain` — connect a custom hostname to a site. Hostname is lowercased +
+ *  validated as a real FQDN (no scheme/path/port) before any provisioning. */
+export const SetDomainInput = z.object({
+  site_id: z.string().min(1),
+  hostname: z
+    .string()
+    .min(1)
+    .max(253)
+    .transform((s) => s.trim().toLowerCase())
+    .refine(
+      (h) => /^(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,}$/.test(h),
+      'Enter a bare domain like app.example.com (no https://, path, or port).',
+    ),
+});
+
 export type ListSitesArgs = z.infer<typeof ListSitesInput>;
 export type GetSiteArgs = z.infer<typeof GetSiteInput>;
 export type BuildStatusArgs = z.infer<typeof BuildStatusInput>;
 export type DeploySiteArgs = z.infer<typeof DeploySiteInput>;
 export type TailLogsArgs = z.infer<typeof TailLogsInput>;
+export type SetDomainArgs = z.infer<typeof SetDomainInput>;
