@@ -10,7 +10,20 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
  * the exact stable code. The flag service is mocked so no KV/D1 is touched.
  */
 jest.mock('../modules/feature_flags/services.js', () => ({ isFlagOn: jest.fn() }));
+// The executor + Stripe seam are mocked so the route's authorized→charge wiring
+// is tested without any network/D1; the executor's own guards are unit-proven
+// separately in ai_payment_execute.test.ts.
+jest.mock('../services/ai_payment_execute.js', () => ({
+  executeAuthorizedPaymentCommand: jest.fn(),
+  stripeOffSessionCharge: jest.fn(() => jest.fn()),
+}));
+jest.mock('../services/audit.js', () => ({
+  writeAuditLog: jest.fn().mockResolvedValue(undefined),
+}));
 const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mockExecute = require('../services/ai_payment_execute.js')
+  .executeAuthorizedPaymentCommand as jest.Mock;
 
 /** Mount the route behind a middleware that injects the authed-session vars. */
 function makeApp(auth: { userId?: string; orgId?: string }) {
@@ -41,7 +54,10 @@ const validBody = {
 };
 
 describe('POST /api/ai-actions/payment-command', () => {
-  beforeEach(() => mockIsFlagOn.mockReset());
+  beforeEach(() => {
+    mockIsFlagOn.mockReset();
+    mockExecute.mockReset();
+  });
 
   it('401s when unauthenticated (never anonymous)', async () => {
     const res = await post(makeApp({}), validBody);
@@ -70,6 +86,7 @@ describe('POST /api/ai-actions/payment-command', () => {
     expect(json.data.stage).toBe('dry_run');
     expect(json.data.confirmation_token.length).toBeGreaterThan(0);
     expect(json.data.preview.amountCents).toBe(5000);
+    expect(mockExecute).not.toHaveBeenCalled(); // a dry-run never charges
   });
 
   it('binds tenant_id to the SESSION org, ignoring any client-supplied tenant_id', async () => {
@@ -101,8 +118,9 @@ describe('POST /api/ai-actions/payment-command', () => {
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe('validation_error');
   });
 
-  it('a live charge with the matching confirmation token → 200 authorized, executed:false (no charge yet)', async () => {
+  it('a live charge with the matching confirmation token executes the tool → 200 charged', async () => {
     mockIsFlagOn.mockResolvedValue(true);
+    mockExecute.mockResolvedValue({ ok: true, paymentIntentId: 'pi_1', status: 'succeeded' });
     const app = makeApp({ userId: 'u1', orgId: 'o1' });
     const dry = (await (await post(app, validBody)).json()) as {
       data: { confirmation_token: string };
@@ -113,11 +131,36 @@ describe('POST /api/ai-actions/payment-command', () => {
       confirmation_token: dry.data.confirmation_token,
     });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as {
-      data: { stage: string; executed: boolean; idempotency_key: string };
+    const json = (await res.json()) as { data: { stage: string; payment_intent_id: string } };
+    expect(json.data.stage).toBe('charged');
+    expect(json.data.payment_intent_id).toBe('pi_1');
+    // executed with the authorized intent + an idempotency key + injected deps.
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const [intentArg, idemArg] = mockExecute.mock.calls[0];
+    expect(intentArg).toEqual(
+      expect.objectContaining({ amountCents: 5000, paymentMethodRef: 'pm_123', tenantId: 'o1' }),
+    );
+    expect(typeof idemArg).toBe('string');
+    expect(idemArg.length).toBeGreaterThan(0);
+  });
+
+  it('a declined / failed charge maps to 402 with the charge_failed code', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockExecute.mockResolvedValue({
+      ok: false,
+      code: 'charge_failed',
+      message: 'The charge could not be completed.',
+    });
+    const app = makeApp({ userId: 'u1', orgId: 'o1' });
+    const dry = (await (await post(app, validBody)).json()) as {
+      data: { confirmation_token: string };
     };
-    expect(json.data.stage).toBe('authorized');
-    expect(json.data.executed).toBe(false);
-    expect(json.data.idempotency_key.length).toBeGreaterThan(0);
+    const res = await post(app, {
+      ...validBody,
+      dry_run: false,
+      confirmation_token: dry.data.confirmation_token,
+    });
+    expect(res.status).toBe(402);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('charge_failed');
   });
 });
