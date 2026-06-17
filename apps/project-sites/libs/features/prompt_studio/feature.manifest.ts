@@ -1,0 +1,28 @@
+import { defineFeatureManifest } from '@projectsites/feature-manifests';
+export default defineFeatureManifest({
+  slug: 'prompt_studio',
+  name: 'Prompt Studio',
+  description: 'Admin UI for browsing, versioning, and A/B testing prompt templates via the prompt registry with KV hot-patching support.',
+  lifecycle: 'alpha',
+  flagKey: 'prompt_studio',
+  owner: 'brian@megabyte.space',
+  createdAt: '2026-06-17',
+  updatedAt: '2026-06-17',
+  routes: [],
+  apiRoutes: [
+    'GET /api/prompt-studio/templates',
+    'POST /api/prompt-studio/:key/variant',
+    'POST /api/prompt-studio/:key/rollback',
+  ],
+  permissions: ['admin:read', 'admin:write'],
+  dependencies: [],
+  e2eTests: [],
+  unitTests: ['../libs/features/prompt_studio/__tests__/prompt_studio.test.ts'],
+  integrationTests: [],
+  testStatus: 'partial',
+  zodSchemas: ['schemas.ts'],
+  observability: { sentry: false, logs: true, analytics: false },
+  rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Admin-only feature.' },
+  risks: ['Rollback replaces live prompt weights; test variant before promoting.'],
+  removalNotes: 'Drop /api/prompt-studio routes. Prompt registry is in-memory; no persistent state beyond KV cache.',
+});

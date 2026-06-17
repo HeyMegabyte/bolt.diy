@@ -103,6 +103,27 @@ import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; /
 import { searchSubmit } from '../libs/features/search_submit/handlers.js'; // #3 IndexNow + Bing/Google submit on publish (flag: search_engine_submit)
 import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Google Business Profile setup + optimizer (flag: gbp_assist)
 import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // abuse + takedown intake (flag: abuse_takedown)
+// ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
+import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
+import { storefrontEcommerce } from '../libs/features/storefront_ecommerce/handlers.js'; // native storefront (flag: storefront_ecommerce)
+import { nativeBookingEngine } from '../libs/features/native_booking_engine/handlers.js'; // booking/availability (flag: native_booking_engine)
+import { creditWalletRollover } from '../libs/features/credit_wallet_rollover/handlers.js'; // wallet rollover+promo (flag: credit_wallet_rollover)
+import { referralLoop } from '../libs/features/referral_loop/handlers.js'; // refer-a-friend (flag: referral_loop)
+import { aiConciergeWidget } from '../libs/features/ai_concierge_widget/handlers.js'; // visitor-facing concierge (flag: ai_concierge_widget)
+import { siteSemanticSearch } from '../libs/features/site_semantic_search/handlers.js'; // per-site RAG search (flag: site_semantic_search)
+import { pageAudioSummary } from '../libs/features/page_audio_summary/handlers.js'; // per-route TTS summary (flag: page_audio_summary)
+import { edgePersonalization } from '../libs/features/edge_personalization/handlers.js'; // no-PII hero/CTA swap (flag: edge_personalization)
+import { generativeUiStream } from '../libs/features/generative_ui_stream/handlers.js'; // streamed generative UI (flag: generative_ui_stream)
+import { promptStudio } from '../libs/features/prompt_studio/handlers.js'; // prompt versioning surface (flag: prompt_studio)
+import { aiGatewayGuardrails } from '../libs/features/ai_gateway_guardrails/handlers.js'; // Llama Guard middleware (flag: ai_gateway_guardrails)
+import { visualPointEdit } from '../libs/features/visual_point_edit/handlers.js'; // point-and-click AI edit (flag: visual_point_edit)
+import { wireframePlanning } from '../libs/features/wireframe_planning/handlers.js'; // pre-gen wireframe plan (flag: wireframe_planning)
+import { urlCloneSeedRouter } from '../libs/features/url_clone_seed/handlers.js'; // paste-URL seed (flag: url_clone_seed)
+import { figmaImport } from '../libs/features/figma_import/handlers.js'; // Figma import (flag: figma_import)
+import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.js'; // Cmd+K AI actions (flag: cmdk_ai_actions)
+import { aeoPass } from '../libs/features/aeo_pass/handlers.js'; // answer-engine optimization (flag: aeo_pass)
+import { statusPageLive } from '../libs/features/status_page_live/handlers.js'; // live status feed (flag: status_page_live)
+import { siteThumbnailGrid } from '../libs/features/site_thumbnail_grid/handlers.js'; // browser-rendered thumbnails (flag: site_thumbnail_grid)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -370,6 +391,28 @@ app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webho
 app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)
 app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
+
+// ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
+app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
+app.route('/', storefrontEcommerce); // /api/storefront/* (flag: storefront_ecommerce)
+app.route('/', nativeBookingEngine); // /api/booking/* (flag: native_booking_engine)
+app.route('/', creditWalletRollover); // /api/credits/* (flag: credit_wallet_rollover)
+app.route('/', referralLoop); // /api/referrals/* (flag: referral_loop)
+app.route('/', aiConciergeWidget); // /api/concierge/* (flag: ai_concierge_widget)
+app.route('/', siteSemanticSearch); // /api/site-search/* (flag: site_semantic_search)
+app.route('/', pageAudioSummary); // /api/audio-summary/* (flag: page_audio_summary)
+app.route('/', edgePersonalization); // /api/personalize/* (flag: edge_personalization)
+app.route('/', generativeUiStream); // /api/copilot/ui (flag: generative_ui_stream)
+app.route('/', promptStudio); // /api/prompt-studio/* (flag: prompt_studio)
+app.route('/', aiGatewayGuardrails); // /api/guardrails/* (flag: ai_gateway_guardrails)
+app.route('/', visualPointEdit); // /api/editor/point-edit (flag: visual_point_edit)
+app.route('/', wireframePlanning); // /api/wireframe/* (flag: wireframe_planning)
+app.route('/', urlCloneSeedRouter); // /api/clone/seed (flag: url_clone_seed)
+app.route('/', figmaImport); // /api/figma/import (flag: figma_import)
+app.route('/', cmdkAiActionsRouter); // /api/cmdk/resolve (flag: cmdk_ai_actions)
+app.route('/', aeoPass); // /api/aeo/* (flag: aeo_pass)
+app.route('/', statusPageLive); // /api/status/* (flag: status_page_live)
+app.route('/', siteThumbnailGrid); // /api/thumbnails/* (flag: site_thumbnail_grid)
 
 app.route('/', api);
 app.route('/', webhooks);
