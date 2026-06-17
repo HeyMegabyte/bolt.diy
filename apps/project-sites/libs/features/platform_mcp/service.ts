@@ -12,11 +12,52 @@
  * the next slice — advertised there, NOT here, so we never return a fake
  * success from an unwired tool.
  */
-import type { D1Database } from '@cloudflare/workers-types';
-import { dbQuery, dbQueryOne } from '../../../src/services/db.js';
+import type { Env } from '../../../src/types/env.js';
+import { dbQuery, dbQueryOne, dbExecute } from '../../../src/services/db.js';
 import type { ApiTokenRow } from '../../../src/services/api_tokens.js';
 import { hasScope } from '../../../src/services/api_tokens.js';
 import { ListSitesInput, GetSiteInput, BuildStatusInput } from './schemas.js';
+
+/** Mirrors DOMAINS.SITES_SUFFIX — the public site subdomain suffix. */
+const SITES_SUFFIX = '.projectsites.dev';
+
+/** Content-type by extension (mirrors the /api/publish/bolt handler). */
+const MIME: Record<string, string> = {
+  html: 'text/html', css: 'text/css', js: 'application/javascript', mjs: 'application/javascript',
+  json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+  svg: 'image/svg+xml', ico: 'image/x-icon', webp: 'image/webp', woff: 'font/woff', woff2: 'font/woff2',
+  ttf: 'font/ttf', xml: 'application/xml', txt: 'text/plain', webmanifest: 'application/manifest+json',
+};
+
+/**
+ * Publish a set of files to a site: write each to R2 under
+ * `sites/{slug}/{version}/`, update `_manifest.json` so serving points at the new
+ * version, bust the KV host cache. Mirrors the proven `/api/publish/bolt` path
+ * (kept colocated so deploy_site reuses it without touching the hot route).
+ */
+async function publishSiteFiles(
+  env: Env,
+  slug: string,
+  files: Array<{ path: string; content: string }>,
+): Promise<{ url: string; version: string; files: number }> {
+  const version = new Date().toISOString().replace(/[:.]/g, '-');
+  const puts: Promise<unknown>[] = files.map((f) => {
+    const ext = f.path.split('.').pop()?.toLowerCase() ?? '';
+    return env.SITES_BUCKET.put(`sites/${slug}/${version}/${f.path}`, f.content, {
+      httpMetadata: { contentType: MIME[ext] ?? 'application/octet-stream' },
+    });
+  });
+  puts.push(
+    env.SITES_BUCKET.put(
+      `sites/${slug}/_manifest.json`,
+      JSON.stringify({ current_version: version, slug, updated_at: new Date().toISOString(), source: 'platform_mcp' }),
+      { httpMetadata: { contentType: 'application/json' } },
+    ),
+  );
+  await Promise.all(puts);
+  await env.CACHE_KV.delete(`host:${slug}${SITES_SUFFIX}`);
+  return { url: `https://${slug}${SITES_SUFFIX}`, version, files: files.length };
+}
 
 /** Flag key gating the whole platform MCP surface. */
 export const FLAG_KEY = 'platform_mcp';
@@ -91,6 +132,30 @@ export const PLATFORM_MCP_TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'deploy_site',
+    description:
+      'Deploy files to one of your sites from your editor: writes them to R2, points the site at the new version, busts cache, returns the live URL. files = [{path, content}] (the built dist of your app).',
+    requiredScope: 'sites:write' as const,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site_id: { type: 'string' },
+        files: {
+          type: 'array',
+          minItems: 1,
+          items: {
+            type: 'object',
+            properties: { path: { type: 'string' }, content: { type: 'string' } },
+            required: ['path', 'content'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['site_id', 'files'],
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 /**
@@ -100,11 +165,12 @@ export const PLATFORM_MCP_TOOLS = [
  * @throws never — all failures become an `isError` ToolResult so JSON-RPC stays 200.
  */
 export async function dispatchPlatformTool(
-  db: D1Database,
+  env: Env,
   token: ApiTokenRow,
   name: string,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
+  const db = env.DB;
   const tool = PLATFORM_MCP_TOOLS.find((t) => t.name === name);
   if (!tool) return err(`Unknown tool: ${name}. Call tools/list for the catalog.`);
   if (!hasScope(token, tool.requiredScope)) {
@@ -193,6 +259,30 @@ export async function dispatchPlatformTool(
         [orgId, site_id, limit],
       );
       return ok({ site_id, count: data.length, entries: data });
+    }
+
+    case 'deploy_site': {
+      const site_id = String(args.site_id ?? '');
+      if (!site_id) return err('site_id is required.');
+      const raw = Array.isArray(args.files) ? (args.files as Array<{ path?: unknown; content?: unknown }>) : [];
+      const files = raw.filter(
+        (f): f is { path: string; content: string } =>
+          typeof f?.path === 'string' && f.path.length > 0 && typeof f?.content === 'string',
+      );
+      if (files.length === 0) return err('Provide at least one file as {path, content}.');
+      const site = await dbQueryOne<{ id: string; slug: string }>(
+        db,
+        `SELECT id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        [site_id, orgId],
+      );
+      if (!site) return err('Site not found.');
+      const result = await publishSiteFiles(env, site.slug, files);
+      await dbExecute(
+        db,
+        `UPDATE sites SET status = 'published', updated_at = datetime('now') WHERE id = ?`,
+        [site_id],
+      );
+      return ok({ deployed: files.length, site_id, ...result });
     }
 
     default:

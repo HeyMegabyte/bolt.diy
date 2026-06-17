@@ -105,7 +105,7 @@ platformMcp.post('/api/mcp', async (c) => {
           result = jsonRpcError(body.id, -32001, 'unauthorized — connect with a psk_ API token (Bearer)').error;
           break;
         }
-        const r = await dispatchPlatformTool(c.env.DB, token, p.data.name, p.data.arguments);
+        const r = await dispatchPlatformTool(c.env, token, p.data.name, p.data.arguments);
         if (r.isError) status = 'error';
         result = r;
         break;

@@ -21,6 +21,7 @@ jest.mock('../../../../src/services/db.js', () => ({
   dbInsert: jest.fn().mockResolvedValue(undefined),
   dbQuery: jest.fn().mockResolvedValue({ data: [] }),
   dbQueryOne: jest.fn().mockResolvedValue(null),
+  dbExecute: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { platformMcp } from '../handlers.js';
@@ -62,7 +63,7 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log']));
+    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site']));
   });
 
   it('tools/call without a token is unauthorized (-32001)', async () => {
@@ -80,5 +81,21 @@ describe('platform_mcp JSON-RPC', () => {
     const body = await res.json();
     expect(body.result.content[0].text).toContain('org-1');
     expect(body.result.isError).toBeFalsy();
+  });
+
+  it('deploy_site rejects an empty file set', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc('tools/call', { name: 'deploy_site', arguments: { site_id: 's1', files: [] } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+  });
+
+  it('deploy_site 404s on a site the token org does not own', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
+    const res = await rpc('tools/call', { name: 'deploy_site', arguments: { site_id: 'foreign', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] } }, { authorization: 'Bearer psk_x' });
+    const body = await res.json();
+    expect(body.result.content[0].text).toContain('Site not found');
   });
 });
