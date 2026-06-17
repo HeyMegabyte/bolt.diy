@@ -287,7 +287,10 @@ features.get('/.well-known/mcp', (c) =>
 features.get('/.well-known/oauth-protected-resource', (c) =>
   c.json({
     resource: 'https://projectsites.dev',
-    authorization_servers: ['https://projectsites.dev/oauth'],
+    // The AS issuer (RFC 8414) — clients fetch metadata at
+    // {issuer}/.well-known/oauth-authorization-server (served by mcp_oauth_provider).
+    // Must be the bare issuer, NOT a /oauth subpath, or discovery 404s.
+    authorization_servers: ['https://projectsites.dev'],
     bearer_methods_supported: ['header'],
     resource_documentation: 'https://projectsites.dev/docs/mcp',
     scopes_supported: ['sites:read', 'sites:write', 'sites:publish', 'metrics:read'],

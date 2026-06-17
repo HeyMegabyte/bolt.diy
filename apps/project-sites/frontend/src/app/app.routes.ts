@@ -576,6 +576,16 @@ export const routes: Routes = [
       ),
   },
   {
+    // /oauth/consent — OAuth 2.1 consent screen for the MCP one-click connect
+    // flow. The worker's GET /oauth/authorize 302s here with the OAuth params;
+    // on Allow it POSTs /api/oauth/authorize (server re-validates everything).
+    path: 'oauth/consent',
+    loadComponent: () =>
+      import('./pages/oauth-consent/oauth-consent.component').then(
+        (m) => m.OauthConsentComponent,
+      ),
+  },
+  {
     // Public integrations catalog — every third-party service the platform
     // speaks to. Filterable + searchable, backed by
     // /api/public/integrations. Lazy-loaded.
