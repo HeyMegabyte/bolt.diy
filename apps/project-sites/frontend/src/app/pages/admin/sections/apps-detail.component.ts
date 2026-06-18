@@ -132,7 +132,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                   <div class="env-row env-row-head" role="row">
                     <div role="columnheader">Key</div>
                     <div role="columnheader">Description</div>
-                    <div role="columnheader" class="text-right">Source</div>
+                    <div role="columnheader">Value</div>
                   </div>
                   @for (e of a.env; track e.key) {
                     <div class="env-row" role="row">
@@ -148,13 +148,22 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                           <div class="env-default">default: <code>{{ e.default }}</code></div>
                         }
                       </div>
-                      <div role="cell" class="text-right">
+                      <div role="cell" class="env-value-cell">
                         @if (e.auto) {
+                          <!-- Platform-injected — not user-editable. -->
                           <span class="env-auto" [title]="autoSourceLabel(e.auto)">{{ autoSourceLabel(e.auto) }}</span>
-                        } @else if (!e.required) {
-                          <span class="env-optional">optional</span>
                         } @else {
-                          <span class="env-manual">you provide</span>
+                          <!-- Customize before deploy (seeded with the default). -->
+                          <input
+                            class="env-input"
+                            [class.env-input--missing]="e.required && !envValue(e.key).trim()"
+                            [value]="envValue(e.key)"
+                            (input)="setEnvOverride(e.key, $any($event.target).value)"
+                            [attr.placeholder]="e.default || (e.required ? 'required' : 'optional')"
+                            [attr.aria-label]="'Value for ' + e.key"
+                            [attr.aria-invalid]="e.required && !envValue(e.key).trim()"
+                            [attr.data-testid]="'apps-env-input-' + e.key"
+                            autocomplete="off" spellcheck="false" />
                         }
                       </div>
                     </div>
@@ -243,7 +252,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
               <button
                 type="button"
                 class="btn-deploy"
-                [disabled]="!canDeploy() || deploying()"
+                [disabled]="!readyToDeploy() || deploying()"
                 [attr.aria-busy]="deploying()"
                 (click)="deploy(a)"
                 data-testid="apps-deploy-cta">
@@ -256,9 +265,13 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                 }
               </button>
 
-              @if (!canDeploy() && !deploying()) {
-                <span class="form-help form-help--muted">
-                  Fix the form to unlock deploy.
+              @if (!readyToDeploy() && !deploying()) {
+                <span class="form-help form-help--muted" data-testid="apps-deploy-help">
+                  @if (canDeploy() && missingRequiredEnv().length > 0) {
+                    Set required env: <strong>{{ missingRequiredEnv().join(', ') }}</strong>.
+                  } @else {
+                    Fix the form to unlock deploy.
+                  }
                 </span>
               }
               } @else {
@@ -444,12 +457,32 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
     }
     .env-row {
       display: grid;
-      grid-template-columns: minmax(120px, 1fr) minmax(200px, 2fr) minmax(100px, auto);
-      gap: 0.85rem; align-items: start;
+      grid-template-columns: minmax(110px, 1fr) minmax(160px, 1.5fr) minmax(150px, 1.3fr);
+      gap: 0.85rem; align-items: center;
       padding: 0.65rem 0.85rem;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       font-size: 0.74rem;
     }
+    .env-value-cell { display: flex; justify-content: flex-end; }
+    .env-value-cell .env-auto { white-space: nowrap; }
+    /* Editable env value — customize before deploy. */
+    .env-input {
+      width: 100%; min-width: 0;
+      padding: 0.32rem 0.5rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.7rem;
+      color: var(--ps-ink, #fff);
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      transition: border-color 0.333s ease, box-shadow 0.333s ease;
+    }
+    .env-input::placeholder { color: rgba(255,255,255,0.34); }
+    .env-input:focus-visible {
+      outline: none;
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent);
+      box-shadow: 0 0 0 2px color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent);
+    }
+    .env-input--missing { border-color: rgba(251,191,36,0.55); background: rgba(251,191,36,0.06); }
     .env-row:last-child { border-bottom: none; }
     .env-row-head {
       background: rgba(255,255,255,0.03);
@@ -868,6 +901,30 @@ export class AppDetailComponent implements OnInit {
     return v.length >= 3 && v.length <= 40 && /^[a-z0-9-]+$/.test(v) && !v.startsWith('-') && !v.endsWith('-');
   });
 
+  /** User-customized env values (brief: customize env vars before deploy). Seeded
+   *  from each non-`auto` var's default when the app resolves; only non-empty
+   *  values ride along as `env_overrides`. Auto (platform-injected) vars excluded. */
+  envOverrides = signal<Record<string, string>>({});
+
+  envValue(key: string): string {
+    return this.envOverrides()[key] ?? '';
+  }
+
+  setEnvOverride(key: string, value: string): void {
+    this.envOverrides.update((m) => ({ ...m, [key]: value }));
+  }
+
+  /** Required, user-provided (non-auto) env keys still missing a value. */
+  readonly missingRequiredEnv = computed<string[]>(() => {
+    const a = this.app();
+    if (!a) return [];
+    const o = this.envOverrides();
+    return a.env.filter((e) => e.required && !e.auto && !(o[e.key] ?? '').trim()).map((e) => e.key);
+  });
+
+  /** Deploy-ready only when the subdomain is valid AND every required user-var is set. */
+  readonly readyToDeploy = computed<boolean>(() => this.canDeploy() && this.missingRequiredEnv().length === 0);
+
   /** Live (deployable today) vs Soon (catalog placeholder — no runtime container yet). */
   readonly supported = computed<boolean>(() => {
     const a = this.app();
@@ -885,6 +942,12 @@ export class AppDetailComponent implements OnInit {
       if (found) {
         this.subdomain = `${found.id}-${this.shortSlug()}`;
         this.subdomainSignal.set(this.subdomain);
+        // Pre-fill the editable env inputs with each user-provided var's default.
+        const seed: Record<string, string> = {};
+        for (const e of found.env) {
+          if (!e.auto) seed[e.key] = e.default ?? '';
+        }
+        this.envOverrides.set(seed);
       }
     });
   }
@@ -931,12 +994,18 @@ export class AppDetailComponent implements OnInit {
    */
   deploy(a: CatalogApp): void {
     // Soon apps have no runtime container yet — never POST a doomed deploy.
-    if (!isAppSupported(a.id) || !this.canDeploy() || this.deploying()) return;
+    // readyToDeploy also blocks until every REQUIRED user-provided var has a value.
+    if (!isAppSupported(a.id) || !this.readyToDeploy() || this.deploying()) return;
     this.deploying.set(true);
+    // Only non-empty values ride along; the worker fills auto vars + defaults.
+    const env_overrides: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this.envOverrides())) {
+      if (v.trim()) env_overrides[k] = v.trim();
+    }
     const payload = {
       app_id: a.id,
       subdomain: this.subdomain.trim(),
-      env_overrides: {} as Record<string, string>,
+      env_overrides,
     };
     this.api.post<{ instance_id: string }>('/apps/instances', payload).subscribe({
       next: (r) => {

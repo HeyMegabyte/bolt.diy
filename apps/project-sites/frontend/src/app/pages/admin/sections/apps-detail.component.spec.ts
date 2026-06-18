@@ -247,3 +247,83 @@ describe('AppDetailComponent (AI Recommends + prev/next pager)', () => {
     expect(c.app()?.id).withContext('reflects the latest param emission').toBe('matomo');
   });
 });
+
+/**
+ * Customize environment variables before deploy. The user-provided (non-auto)
+ * env vars become editable inputs seeded with their defaults; required ones gate
+ * deploy; only non-empty values ride along as `env_overrides` in the POST.
+ */
+describe('AppDetailComponent (customize env vars before deploy)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('seeds the editable env inputs from each non-auto var default on load', () => {
+    const { c } = make(undefined, 'umami');
+    c.ngOnInit();
+    const a = c.app()!;
+    for (const e of a.env) {
+      if (!e.auto && e.default) {
+        expect(c.envValue(e.key)).withContext(`${e.key} seeded with its default`).toBe(e.default);
+      }
+    }
+  });
+
+  it('setEnvOverride updates the value the user types', () => {
+    const { c } = make(undefined, 'umami');
+    c.ngOnInit();
+    const key = c.app()!.env.find((e) => !e.auto)?.key;
+    if (!key) return; // umami always has user vars, but stay defensive
+    c.setEnvOverride(key, 'my-custom-value');
+    expect(c.envValue(key)).toBe('my-custom-value');
+  });
+
+  it('readyToDeploy stays false until every REQUIRED user-provided env has a value', () => {
+    const { c } = make(undefined, 'umami');
+    c.ngOnInit();
+    c.onSubdomainChange('valid-subdomain'); // subdomain side is valid
+    const reqUserVar = c.app()!.env.find((e) => e.required && !e.auto);
+    if (reqUserVar) {
+      c.setEnvOverride(reqUserVar.key, '');
+      expect(c.missingRequiredEnv()).toContain(reqUserVar.key);
+      expect(c.readyToDeploy()).withContext('blocked on missing required env').toBeFalse();
+      c.setEnvOverride(reqUserVar.key, 'now-set');
+      expect(c.readyToDeploy()).withContext('unblocks once provided').toBeTrue();
+    } else {
+      // No required user var → readiness mirrors the subdomain validity.
+      expect(c.readyToDeploy()).toBe(c.canDeploy());
+    }
+  });
+
+  it('deploy() POSTs the customized env_overrides (non-empty values only)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'i1' }));
+    const { c } = make(post, 'umami');
+    c.ngOnInit();
+    c.onSubdomainChange('my-umami-site');
+    c.subdomain = 'my-umami-site';
+    const a = c.app()!;
+    // Satisfy every required user var so deploy isn't blocked.
+    for (const e of a.env) {
+      if (e.required && !e.auto && !c.envValue(e.key).trim()) c.setEnvOverride(e.key, 'req-val');
+    }
+    const userVar = a.env.find((e) => !e.auto);
+    if (userVar) c.setEnvOverride(userVar.key, 'custom-value');
+    c.deploy(a);
+    expect(post).toHaveBeenCalled();
+    const body = post.calls.mostRecent().args[1] as { env_overrides: Record<string, string> };
+    if (userVar) expect(body.env_overrides[userVar.key]).toBe('custom-value');
+    // No empty-string values leak into the payload.
+    expect(Object.values(body.env_overrides).every((v) => v.trim().length > 0)).toBeTrue();
+  });
+
+  it('deploy() is blocked while a required user-provided env is empty', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'i1' }));
+    const { c } = make(post, 'umami');
+    c.ngOnInit();
+    c.onSubdomainChange('my-umami-site');
+    c.subdomain = 'my-umami-site';
+    const reqUserVar = c.app()!.env.find((e) => e.required && !e.auto);
+    if (!reqUserVar) return; // only meaningful for apps with a required user var
+    c.setEnvOverride(reqUserVar.key, '');
+    c.deploy(c.app()!);
+    expect(post).not.toHaveBeenCalled();
+  });
+});
