@@ -1,25 +1,30 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 
-jest.mock('../../../../src/services/db', () => ({
-  dbQuery: jest.fn().mockResolvedValue({ data: [] }),
-  dbExecute: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('../../../../src/modules/feature_flags/services.js', () => ({
-  isFlagOn: jest.fn().mockResolvedValue(true),
-}));
-
+// D1-stub pattern — no jest.mock of db.js (@swc/jest's hoist doesn't reliably
+// apply per-test overrides here; see _LOOP_LEDGER fire-v2.40+). A fake
+// D1Database returns a queued `{results}` per `.all()` (dbQuery reads it and
+// catches internally, so a queued Error simulates a D1 outage); dbExecute uses
+// .run().
 import { upsertVariants, resolveVariant, FLAG_KEY } from '../service.js';
 import type { Env } from '../../../../src/types/env.js';
 
-const mockEnv = {
-  DB: { prepare: jest.fn() },
-  CACHE_KV: { get: jest.fn(), put: jest.fn() },
-} as unknown as Env;
+function makeDb(queue: Array<{ results: unknown[] } | Error> = []) {
+  let i = 0;
+  const stmt = {
+    bind: () => stmt,
+    all: async () => {
+      const entry = queue[i++];
+      if (entry instanceof Error) throw entry;
+      return entry ?? { results: [] };
+    },
+    run: async () => ({ meta: { changes: 1 } }),
+  };
+  return { prepare: () => stmt } as unknown as D1Database;
+}
 
-// Access the actual mock registry objects so per-test overrides work under @swc/jest CJS
-// (casting imported bindings as jest.Mock fails — use requireMock instead)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const dbMock = jest.requireMock('../../../../src/services/db') as any;
+function envWith(db: D1Database): Env {
+  return { DB: db } as unknown as Env;
+}
 
 describe('edge_personalization', () => {
   it('exports the correct FLAG_KEY', () => {
@@ -27,29 +32,34 @@ describe('edge_personalization', () => {
   });
 
   it('upsertVariants() calls dbExecute for each variant', async () => {
-    const count = await upsertVariants(mockEnv, 'site1', [
+    const count = await upsertVariants(envWith(makeDb()), 'site1', [
       { id: 'v1', name: 'Mobile', conditions: { device: 'mobile' }, priority: 10 },
     ]);
     expect(count).toBe(1);
   });
 
   it('resolveVariant() returns default when no variants match', async () => {
-    const result = await resolveVariant(mockEnv, 'site1', { device: 'desktop' });
+    const result = await resolveVariant(envWith(makeDb([{ results: [] }])), 'site1', {
+      device: 'desktop',
+    });
     expect(result.variantId).toBe('default');
   });
 
   it('resolveVariant() matches mobile device condition', async () => {
-    dbMock.dbQuery.mockResolvedValueOnce({
-      data: [{ id: 'v1', name: 'Mobile', conditions: '{"device":"mobile"}', priority: 10 }],
-    });
-    const result = await resolveVariant(mockEnv, 'site1', { device: 'mobile' });
+    const env = envWith(
+      makeDb([
+        {
+          results: [{ id: 'v1', name: 'Mobile', conditions: '{"device":"mobile"}', priority: 10 }],
+        },
+      ]),
+    );
+    const result = await resolveVariant(env, 'site1', { device: 'mobile' });
     expect(result.variantId).toBe('v1');
     expect(result.variantName).toBe('Mobile');
   });
 
   it('resolveVariant() returns default on DB error', async () => {
-    dbMock.dbQuery.mockRejectedValueOnce(new Error('DB down'));
-    const result = await resolveVariant(mockEnv, 'site1', {});
+    const result = await resolveVariant(envWith(makeDb([new Error('DB down')])), 'site1', {});
     expect(result.variantId).toBe('default');
   });
 });

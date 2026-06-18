@@ -1,14 +1,19 @@
 import { describe, it, expect, jest } from '@jest/globals';
 
-jest.mock('../../../../src/services/rag', () => ({
-  semanticSearch: jest.fn().mockResolvedValue([{ id: 'c1', text: 'Website info' }]),
-}));
+// RAG is injected (answer() takes a `search` seam) — no jest.mock of it, which is
+// @swc/jest-unreliable for per-test overrides (see _LOOP_LEDGER fire-v2.44). The
+// feature_flags mock stays for the handler route test (its inline default works).
 jest.mock('../../../../src/modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn().mockResolvedValue(true),
 }));
 
-import { answer, getConfig, FLAG_KEY } from '../service.js';
+import { answer, getConfig, FLAG_KEY, type SemanticSearchFn } from '../service.js';
 import { aiConciergeWidget } from '../handlers.js';
+
+// Fake RAG search returning one grounded chunk.
+const fakeSearch = (async () => [
+  { id: 'c1', text: 'Website info' },
+]) as unknown as SemanticSearchFn;
 
 // Access the actual mock objects via jest.requireMock so we can assert/override per-test
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,8 +32,10 @@ describe('ai_concierge_widget', () => {
   });
 
   it('answer() returns a reply grounded on RAG chunks', async () => {
-    (mockEnv.AI as { run: jest.Mock }).run = jest.fn().mockResolvedValue({ response: 'Hello from AI' });
-    const result = await answer(mockEnv, 'site-abc', 'What do you do?');
+    (mockEnv.AI as { run: jest.Mock }).run = jest
+      .fn()
+      .mockResolvedValue({ response: 'Hello from AI' });
+    const result = await answer(mockEnv, 'site-abc', 'What do you do?', fakeSearch);
     expect(result.reply).toBe('Hello from AI');
     expect(result.groundedOn).toContain('c1');
   });

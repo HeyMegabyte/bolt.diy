@@ -4,13 +4,17 @@ import type { SiteSearchResult, SiteReindexRequest } from './schemas.js';
 
 export const FLAG_KEY = 'site_semantic_search';
 
+/** Injectable RAG-search seam — defaults to the real Vectorize-backed search. */
+export type SemanticSearchFn = typeof semanticSearch;
+
 export async function querySearch(
   env: Env,
   siteId: string,
   query: string,
   topK: number,
+  search: SemanticSearchFn = semanticSearch,
 ): Promise<SiteSearchResult[]> {
-  const chunks = await semanticSearch(env, query, { topK, orgId: siteId }).catch(() => []);
+  const chunks = await search(env, query, { topK, orgId: siteId }).catch(() => []);
   return chunks.map((c: { id?: string; text?: string; content?: string; score?: number }) => ({
     id: c.id ?? '',
     text: c.text ?? c.content ?? '',
