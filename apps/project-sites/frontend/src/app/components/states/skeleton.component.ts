@@ -35,6 +35,7 @@ export type SkeletonVariant = 'card' | 'table' | 'text' | 'chart';
   host: {
     '[attr.data-variant]': 'variant',
     '[style.--sk-cols]': 'columns',
+    '[style.--sk-card-min.px]': 'cardMinPx',
     'aria-busy': 'true',
     'aria-live': 'polite',
     role: 'status',
@@ -123,7 +124,10 @@ export type SkeletonVariant = 'card' | 'table' | 'text' | 'chart';
       /* CARD variant */
       .sk-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        /* Match the real grid's min column width so the skeleton renders the
+           SAME column count as the content it stands in for (default 220px;
+           callers with wider cards pass [cardMinPx] — e.g. site-features 340). */
+        grid-template-columns: repeat(auto-fill, minmax(min(var(--sk-card-min, 220px), 100%), 1fr));
         gap: var(--ps-gap, 14px);
       }
       .sk-card {
@@ -296,6 +300,10 @@ export class SkeletonComponent {
     return this._cols();
   }
   private readonly _cols = signal(5);
+
+  /** Min card width (px) for the `card` variant grid — match the real grid's
+   *  `minmax()` min so the skeleton shows the same column count as the content. */
+  @Input() cardMinPx = 220;
 
   /** Screen-reader label announced while loading. */
   @Input() label = 'Loading…';

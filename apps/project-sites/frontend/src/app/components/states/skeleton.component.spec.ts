@@ -67,4 +67,15 @@ describe('SkeletonComponent', () => {
     fixture.detectChanges();
     expect(q('.sk-table')?.getAttribute('aria-hidden')).toBe('true');
   });
+
+  it('cardMinPx drives the --sk-card-min host var so the skeleton column count matches the real grid', () => {
+    // Default — no override.
+    fixture.detectChanges();
+    expect(fixture.componentInstance.cardMinPx).toBe(220);
+    expect(host.style.getPropertyValue('--sk-card-min')).toBe('220px');
+    // Wider cards (e.g. site-features sf-grid minmax(340px)) → fewer columns.
+    fixture.componentRef.setInput('cardMinPx', 340);
+    fixture.detectChanges();
+    expect(host.style.getPropertyValue('--sk-card-min')).toBe('340px');
+  });
 });

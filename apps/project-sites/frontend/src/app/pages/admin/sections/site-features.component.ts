@@ -216,7 +216,9 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
       </div>
 
       @if (loading()) {
-        <app-skeleton variant="card" [rows]="6" label="Loading your site features…" />
+        <!-- cardMinPx 340 matches the sf-grid minmax(340px) so the skeleton
+             renders the SAME column count as the real cards (was 4-vs-2). -->
+        <app-skeleton variant="card" [rows]="6" [cardMinPx]="340" label="Loading your site features…" />
       } @else if (error()) {
         <app-error-card
           title="Couldn't load features"
