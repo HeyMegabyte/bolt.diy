@@ -67,7 +67,7 @@ interface E2eSpec {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open() && model(); as m) {
-      <div class="fd-root" role="dialog" aria-modal="true" [attr.aria-label]="'Spec sheet — ' + m.name"
+      <div #root class="fd-root" role="dialog" aria-modal="true" [attr.aria-label]="'Spec sheet — ' + m.name"
            cdkTrapFocus [cdkTrapFocusAutoCapture]="true" data-testid="feature-dossier">
         <header class="fd-bar">
           <div class="fd-bar-id">
@@ -329,6 +329,12 @@ export class FeatureDossierComponent implements OnDestroy {
 
   private readonly body = viewChild<ElementRef<HTMLElement>>('body');
 
+  /** The fixed full-screen overlay root. Re-parented to <body> on open so its
+   *  z-index (`--ps-z-overlay-takeover`) is not trapped by a stacking-context
+   *  ancestor in the admin shell (the sidebar otherwise paints over it). */
+  private readonly rootEl = viewChild<ElementRef<HTMLElement>>('root');
+  private reparentedRoot: HTMLElement | null = null;
+
   readonly stages = STAGES;
   readonly circumference = 2 * Math.PI * 52;
 
@@ -356,6 +362,22 @@ export class FeatureDossierComponent implements OnDestroy {
     effect(() => {
       if (this.open()) this.lockBodyScroll();
       else this.unlockBodyScroll();
+    });
+
+    // Stacking-context fix (per gorgeous-by-default § the z-index trap): the
+    // dossier is declared inside an admin section that lives under transformed
+    // / contained ancestors, so `z-index:100000` is confined to that ancestor's
+    // stacking level — the sidebar (a higher body-level sibling) paints OVER
+    // it. Move the `.fd-root` node up to <body> on open so its z-index competes
+    // at the document level. `position:fixed` stays viewport-relative once no
+    // transformed ancestor remains. Angular still owns the node (the `@if`
+    // removes it from <body> on close), and ngOnDestroy detaches any stray.
+    effect(() => {
+      const el = this.open() ? this.rootEl()?.nativeElement : undefined;
+      if (el && typeof document !== 'undefined' && el.parentElement !== document.body) {
+        document.body.appendChild(el);
+        this.reparentedRoot = el;
+      }
     });
   }
 
@@ -489,6 +511,13 @@ export class FeatureDossierComponent implements OnDestroy {
     this.stopPolling();
     this.teardownTocSpy();
     this.unlockBodyScroll();
+    // If we re-parented the overlay to <body> (stacking-context fix) and the
+    // component is destroyed (route change) while it's still mounted there,
+    // remove the orphan ourselves — Angular's `@if` can't reach a node we moved.
+    if (this.reparentedRoot?.parentElement === document.body) {
+      this.reparentedRoot.remove();
+    }
+    this.reparentedRoot = null;
   }
 
   /** Safe rendered HTML — same pipeline as agent-message, plus heading anchors. */

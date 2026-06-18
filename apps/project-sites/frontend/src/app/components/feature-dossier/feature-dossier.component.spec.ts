@@ -42,8 +42,10 @@ describe('FeatureDossierComponent (§17 spec-sheet takeover modal)', () => {
   });
 
   afterEach(() => {
-    // Guard the global side effect can't leak between specs.
+    // Guard the global side effects can't leak between specs: the scroll-lock
+    // overflow AND any overlay we re-parented to <body> that survived.
     document.body.style.overflow = '';
+    document.body.querySelectorAll('[data-testid="feature-dossier"]').forEach((n) => n.remove());
     TestBed.resetTestingModule();
   });
 
@@ -52,6 +54,12 @@ describe('FeatureDossierComponent (§17 spec-sheet takeover modal)', () => {
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
+  }
+
+  /** The `.fd-root` is re-parented to <body> on open (stacking-context fix), so
+   *  it's no longer under the component host — resolve it from the document. */
+  function dossierRoot(): HTMLElement | null {
+    return document.querySelector('[data-testid="feature-dossier"]');
   }
 
   it('renders nothing when closed and locks no scroll', () => {
@@ -64,13 +72,32 @@ describe('FeatureDossierComponent (§17 spec-sheet takeover modal)', () => {
   });
 
   it('is a focus-trapped dialog with the right aria when open', () => {
-    const host = open();
-    const root = host.querySelector('[data-testid="feature-dossier"]') as HTMLElement | null;
+    open();
+    const root = dossierRoot();
     expect(root).withContext('dossier renders when open').not.toBeNull();
     expect(root?.getAttribute('role')).toBe('dialog');
     expect(root?.getAttribute('aria-modal')).toBe('true');
     // cdkTrapFocus keeps Tab inside the takeover.
     expect(root?.hasAttribute('cdkTrapFocus')).withContext('focus is trapped').toBeTrue();
+  });
+
+  it('re-parents the overlay to <body> on open so the sidebar can never cover it', () => {
+    // The dossier is declared inside a deeply-nested admin section; its
+    // `z-index:100000` is trapped unless the fixed root sits at the document
+    // level. Assert the rendered root's parent is <body>, not the component host.
+    open();
+    const root = dossierRoot();
+    expect(root).withContext('overlay renders when open').not.toBeNull();
+    expect(root?.parentElement).withContext('overlay lives directly under <body>').toBe(document.body);
+    expect((fixture.nativeElement as HTMLElement).contains(root)).withContext('not trapped under host').toBeFalse();
+  });
+
+  it('removes the body-mounted overlay on close (no orphan left behind)', () => {
+    open();
+    expect(dossierRoot()).withContext('mounted while open').not.toBeNull();
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    expect(dossierRoot()).withContext('gone from <body> on close').toBeNull();
   });
 
   it('locks background page scroll while open, restores it on close', () => {
