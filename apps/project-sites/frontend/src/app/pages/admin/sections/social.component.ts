@@ -130,6 +130,9 @@ interface OgData {
 }
 
 type Tab = 'compose' | 'drafts' | 'queue' | 'sent' | 'calendar';
+/** Valid `?tab=` deep-link values + the post-status each one loads. */
+const SOCIAL_TABS: readonly Tab[] = ['compose', 'drafts', 'queue', 'sent', 'calendar'];
+const TAB_STATUS: Partial<Record<Tab, PostStatus>> = { drafts: 'draft', queue: 'scheduled', sent: 'published' };
 
 /* ──────────────────────────────────────────────────────────────────── */
 /*  Platform registry — single source of truth                          */
@@ -295,17 +298,17 @@ const PLATFORMS: readonly PlatformDef[] = [
       </div>
     </div>
     <nav class="tab-row" role="tablist" hlmTablist aria-label="Pulse Social tabs">
-      <button class="tab" role="tab" [class.is-active]="tab() === 'compose'" (click)="tab.set('compose')">Compose</button>
-      <button class="tab" role="tab" [class.is-active]="tab() === 'drafts'" (click)="loadPosts('draft'); tab.set('drafts')">
+      <button class="tab" role="tab" [class.is-active]="tab() === 'compose'" [attr.aria-selected]="tab() === 'compose'" (click)="selectTab('compose')">Compose</button>
+      <button class="tab" role="tab" [class.is-active]="tab() === 'drafts'" [attr.aria-selected]="tab() === 'drafts'" (click)="selectTab('drafts')">
         Drafts <span class="tab-count">{{ draftsCount() }}</span>
       </button>
-      <button class="tab" role="tab" [class.is-active]="tab() === 'queue'" (click)="loadPosts('scheduled'); tab.set('queue')">
+      <button class="tab" role="tab" [class.is-active]="tab() === 'queue'" [attr.aria-selected]="tab() === 'queue'" (click)="selectTab('queue')">
         Queue <span class="tab-count">{{ scheduledCount() }}</span>
       </button>
-      <button class="tab" role="tab" [class.is-active]="tab() === 'sent'" (click)="loadPosts('published'); tab.set('sent')">
+      <button class="tab" role="tab" [class.is-active]="tab() === 'sent'" [attr.aria-selected]="tab() === 'sent'" (click)="selectTab('sent')">
         Sent <span class="tab-count">{{ publishedCount() }}</span>
       </button>
-      <button class="tab" role="tab" [class.is-active]="tab() === 'calendar'" (click)="tab.set('calendar')">Calendar</button>
+      <button class="tab" role="tab" [class.is-active]="tab() === 'calendar'" [attr.aria-selected]="tab() === 'calendar'" (click)="selectTab('calendar')">Calendar</button>
     </nav>
   </header>
 
@@ -659,7 +662,7 @@ const PLATFORMS: readonly PlatformDef[] = [
               <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
               <h3>Nothing here yet</h3>
               <p>{{ tab() === 'drafts' ? 'Save a draft from the composer to see it here.' : tab() === 'queue' ? 'Schedule a post to fill the queue.' : 'Published posts will appear here with analytics.' }}</p>
-              <button type="button" class="btn-primary" (click)="tab.set('compose')">Open composer</button>
+              <button type="button" class="btn-primary" (click)="selectTab('compose')">Open composer</button>
             </div>
           } @else {
             @for (post of filteredPosts(); track post.id) {
@@ -1774,10 +1777,18 @@ export class AdminSocialComponent implements OnInit {
 
   /* ── Lifecycle ── */
   ngOnInit(): void {
-    // Slash command `/social new` → focus composer
+    // Deep links: `?tab=compose|drafts|queue|sent|calendar` selects the tab so
+    // every tab is a bookmarkable/shareable URL; `?action=new` focuses the
+    // composer. Guard against the navigate-loop — only apply when the param
+    // differs from the current tab (selectTab sets the signal BEFORE writing
+    // the URL, so the echo-back fires here as a no-op).
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
+      const t = q.get('tab');
+      if (t && SOCIAL_TABS.includes(t as Tab) && t !== this.tab()) {
+        this.applyTab(t as Tab);
+      }
       if (q.get('action') === 'new') {
-        this.tab.set('compose');
+        this.applyTab('compose');
         queueMicrotask(() => this.taRef?.nativeElement?.focus());
       }
     });
@@ -2430,6 +2441,28 @@ export class AdminSocialComponent implements OnInit {
     }
     if (this.scheduledInPast()) return 'Scheduled time is in the past — pick a future time or switch to Post now.';
     return null;
+  }
+
+  /* ── Tabs (deep-linked) ── */
+  /** User clicked a tab: apply it + reflect it in the URL (`?tab=…`) so the
+   *  tab is shareable/bookmarkable. `replaceUrl` keeps tab-flipping out of the
+   *  back-history stack while still updating the address bar. */
+  selectTab(t: Tab): void {
+    if (t !== this.tab()) this.applyTab(t);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: t },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** Set the active tab + run its data side-effect. Pure state — no URL write,
+   *  so it's safe to call from the `?tab=` deep-link handler without looping. */
+  private applyTab(t: Tab): void {
+    this.tab.set(t);
+    const status = TAB_STATUS[t];
+    if (status) this.loadPosts(status);
   }
 
   /* ── Posts ── */

@@ -650,10 +650,23 @@ describe('AdminSocialComponent (paste-key connect)', () => {
     TestBed.configureTestingModule({
       imports: [AdminSocialComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: () => of({}) } },
+        // OAuth connect now fetches the authorize URL WITH the bearer (the X /
+        // Twitter "auth required" fix) THEN opens the popup, so the `/connect`
+        // GET must resolve an `authorize_url` for the popup to fire.
+        {
+          provide: ApiService,
+          useValue: {
+            get: (path: string) =>
+              /\/connect$/.test(path)
+                ? of({ data: { authorize_url: 'https://x.com/oauth/authorize?x=1' } })
+                : of({ data: [] }),
+            post,
+            delete: () => of({}),
+          },
+        },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
-        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true), navigateByUrl: () => undefined } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
       ],
     });
@@ -671,11 +684,12 @@ describe('AdminSocialComponent (paste-key connect)', () => {
     expect(windowOpen).not.toHaveBeenCalled();
   });
 
-  it('connect(OAuth platform) keeps the untouched popup flow — does NOT open the paste form', () => {
+  it('connect(OAuth platform) fetches the authorize URL with the bearer, THEN opens the popup', () => {
     const c = make();
     c.connect('twitter' as never);
     expect(c.pasteOpen()).toBeNull();
-    expect(windowOpen).toHaveBeenCalled();
+    // Popup opens at the provider's authorize URL (returned by the bearer-auth GET).
+    expect(windowOpen).toHaveBeenCalledWith('https://x.com/oauth/authorize?x=1', 'social-oauth', jasmine.any(String));
   });
 
   it('openPaste resets fields + error; closePaste clears the open platform', () => {
@@ -946,5 +960,57 @@ describe('AdminSocialComponent (AI-assist aria-busy)', () => {
     fixture.componentInstance.aiLoading.set(true);
     fixture.detectChanges();
     expect(btn()?.getAttribute('aria-busy')).withContext('drafting → aria-busy true').toBe('true');
+  });
+});
+
+describe('AdminSocialComponent (deep-linked tabs — brief #8)', () => {
+  let fixture: ComponentFixture<AdminSocialComponent>;
+  let navigate: jasmine.Spy;
+  let get: jasmine.Spy;
+
+  function build(tabParam: string | null): void {
+    get = jasmine.createSpy('get').and.callFake((path: string) => {
+      if (path === '/social/auto-pilot/config') return of({ data: null });
+      return of({ data: [] });
+    });
+    navigate = jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true));
+    const qp = tabParam === null ? {} : { tab: tabParam };
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: jasmine.createSpy('post').and.returnValue(of({ data: {} })), delete: jasmine.createSpy('delete').and.returnValue(of({})) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap(qp)) } },
+        { provide: Router, useValue: { navigate, navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        // A resolved site so loadPosts (from drafts/queue/sent) can actually fire.
+        { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>({ id: 'site-tabs' }) } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges(); // ngOnInit reads ?tab=
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('honors `?tab=queue` on load (deep-link IN) and loads its posts', () => {
+    build('queue');
+    expect(fixture.componentInstance.tab()).withContext('deep-linked tab applied').toBe('queue');
+    // queue → loadPosts('scheduled')
+    expect(get).toHaveBeenCalledWith('/social/posts', { site_id: 'site-tabs', status: 'scheduled' });
+  });
+
+  it('ignores an unknown `?tab=` value and stays on compose', () => {
+    build('bogus');
+    expect(fixture.componentInstance.tab()).toBe('compose');
+  });
+
+  it('writes the tab to the URL on click (deep-link OUT) and switches tab', () => {
+    build(null);
+    expect(fixture.componentInstance.tab()).toBe('compose');
+    fixture.componentInstance.selectTab('sent');
+    expect(fixture.componentInstance.tab()).withContext('tab switched').toBe('sent');
+    const args = navigate.calls.mostRecent().args;
+    expect(args[1].queryParams).withContext('tab reflected in URL').toEqual({ tab: 'sent' });
+    expect(args[1].queryParamsHandling).toBe('merge');
   });
 });
