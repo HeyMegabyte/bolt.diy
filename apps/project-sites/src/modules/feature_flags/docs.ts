@@ -873,6 +873,23 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the endpoint 404s',
     ],
   },
+  lead_scanner: {
+    checklist: [
+      'POST /api/admin/leads/scan — Google Places text-search → scored leads',
+      'Keeps the no-website businesses (the scanner’s purpose)',
+      'Persists each as a claim-able lead via createLead (place_id-deduped)',
+      'Returns a scan summary (scanned / created / skipped / errors)',
+      'Outreach send is a separate, explicitly-enabled step — never auto-sends',
+    ],
+    explanation:
+      'Super-Admin lead scanner. A free-text Google Places query (e.g. "roofers newark nj") runs a text search, each result is scored (no-website detection, rating/review signals, priority), and the no-website businesses are persisted as claim-able leads via createLead — deduped by place_id within the batch and by a unique index across batches. Returns a tally summary. Read-and-create only: it never sends outreach (that is a separate, explicitly-enabled action). Disabled by default → the route 404s (never 403). Compliant email enrichment is NOT done here (Places emails are not used).',
+    smoke_test: [
+      'POST /api/admin/leads/scan {query:"plumbers austin tx"} → 200 {summary:{scanned, created, skippedHasWebsite, skippedDuplicate, errors}}',
+      'Re-run the same query → created stays flat (place_id dedupe), no duplicate leads',
+      'POST with a 1-char query → 400 VALIDATION_ERROR',
+      'Disable the flag → the route 404s',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {
