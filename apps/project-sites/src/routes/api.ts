@@ -131,6 +131,7 @@ import * as authService from '../services/auth.js';
 import * as billingService from '../services/billing.js';
 import * as domainService from '../services/domains.js';
 import * as auditService from '../services/audit.js';
+import { createSite } from '../services/site_create.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import * as posthog from '../lib/posthog.js';
@@ -840,53 +841,25 @@ api.post('/api/sites', async (c) => {
     }
   }
 
-  const site = {
-    id: crypto.randomUUID(),
-    org_id: orgId,
-    slug,
-    business_name: validated.business_name,
-    business_phone: validated.business_phone ?? null,
-    business_email: validated.business_email ?? null,
-    business_address: validated.business_address ?? null,
-    google_place_id: validated.google_place_id ?? null,
-    bolt_chat_id: null,
-    current_build_version: null,
-    status: 'draft',
-    lighthouse_score: null,
-    lighthouse_last_run: null,
-    deleted_at: null,
-  };
-
-  const result = await dbInsert(c.env.DB, 'sites', site);
-
-  if (result.error) {
-    throw badRequest(`Failed to create site: ${result.error}`);
-  }
-
-  // Log audit
-  await auditService.writeAuditLog(c.env.DB, {
-    org_id: orgId,
-    actor_id: c.get('userId') ?? null,
-    action: 'site.created',
-    message: `Site '${slug}' created for '${validated.business_name}'`,
-    target_type: 'site',
-    target_id: site.id,
-    metadata_json: {
-      site_id: site.id,
+  // Persist row + audit + analytics via the shared site-creation core (also
+  // used by the claimyour.site funnel — one site-creation definition).
+  const site = await createSite(
+    c.env,
+    {
+      orgId,
       slug,
-      business_name: validated.business_name,
+      businessName: validated.business_name,
+      businessPhone: validated.business_phone ?? null,
+      businessEmail: validated.business_email ?? null,
+      businessAddress: validated.business_address ?? null,
+      googlePlaceId: validated.google_place_id ?? null,
     },
-    request_id: c.get('requestId'),
-  });
-
-  try {
-    posthog.trackSite(c.env, c.executionCtx, 'created', c.get('userId') || orgId, {
-      site_id: site.id,
-      slug: site.slug,
-    });
-  } catch {
-    /* fire-and-forget */
-  }
+    {
+      actorId: c.get('userId') ?? null,
+      requestId: c.get('requestId'),
+      executionCtx: c.executionCtx,
+    },
+  );
 
   return c.json({ data: site }, 201);
 });
