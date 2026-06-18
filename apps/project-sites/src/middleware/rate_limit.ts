@@ -120,6 +120,12 @@ export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
     prefix: 'rl:build-stream',
   },
   { path: '/api/dashboard/chat', maxRequests: 20, windowSeconds: 60, prefix: 'rl:dashboard-chat' },
+  // MCP/OAuth surface — public + bot-challenge-exempt (WAF skip rule for automated
+  // clients), so the unauthenticated mint/registration paths need an explicit budget
+  // against KV-write + token-mint cost abuse (the bot challenge previously covered this).
+  { path: '/oauth/register', maxRequests: 5, windowSeconds: 60, prefix: 'rl:oauth-register' },
+  { path: '/oauth/token', maxRequests: 10, windowSeconds: 60, prefix: 'rl:oauth-token' },
+  { path: '/api/mcp', maxRequests: 60, windowSeconds: 60, prefix: 'rl:platform-mcp' },
 ];
 
 /**
