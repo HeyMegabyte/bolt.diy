@@ -1,5 +1,21 @@
-import { type ApplicationConfig, APP_INITIALIZER, ErrorHandler, Injector, importProvidersFrom, inject, isDevMode, provideZoneChangeDetection } from '@angular/core';
-import { PreloadAllModules, provideRouter, Router, withPreloading, withViewTransitions } from '@angular/router';
+import {
+  type ApplicationConfig,
+  APP_INITIALIZER,
+  ErrorHandler,
+  Injector,
+  importProvidersFrom,
+  inject,
+  isDevMode,
+  provideZoneChangeDetection,
+} from '@angular/core';
+import {
+  PreloadAllModules,
+  provideRouter,
+  Router,
+  withInMemoryScrolling,
+  withPreloading,
+  withViewTransitions,
+} from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -90,6 +106,9 @@ export const appConfig: ApplicationConfig = {
       routes,
       withPreloading(PreloadAllModules),
       withViewTransitions({ skipInitialTransition: true }),
+      // Lets `routerLink="/" fragment="pricing"` (e.g. the /signin header nav)
+      // scroll to the homepage #pricing section after navigation.
+      withInMemoryScrolling({ anchorScrolling: 'enabled' }),
     ),
     provideHttpClient(
       withFetch(),
@@ -128,7 +147,7 @@ export const appConfig: ApplicationConfig = {
     importProvidersFrom(
       TranslateModule.forRoot({
         fallbackLang: 'en',
-      })
+      }),
     ),
     provideTranslateHttpLoader({ prefix: './assets/i18n/', suffix: '.json' }),
     {
