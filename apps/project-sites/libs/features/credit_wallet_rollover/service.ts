@@ -141,11 +141,12 @@ export async function applyCredits(
  * `ROLLOVER_CAP_MULTIPLIER × monthlyAllowance`.
  *
  * Intended to be called once per billing cycle (cron or webhook).
- * This is a no-op when the balance already meets the new-month grant.
+ * This is a no-op when the balance already meets the cap.
  *
  * @param env   - Worker env.
  * @param orgId - Org to process.
- * @returns New balance after rollover + grant.
+ * @returns Credits granted this cycle (0 when already at/above the cap). The
+ *   caller can read the resulting balance via {@link getBalance} if needed.
  */
 export async function processMonthlyRollover(env: Env, orgId: string): Promise<number> {
   const allowance = await resolveMonthlyAllowance(env.DB, orgId);
@@ -155,7 +156,7 @@ export async function processMonthlyRollover(env: Env, orgId: string): Promise<n
   const newBalance = Math.min(currentBalance + allowance, cap);
   const grant = newBalance - currentBalance;
 
-  if (grant <= 0) return currentBalance;
+  if (grant <= 0) return 0;
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -169,7 +170,7 @@ export async function processMonthlyRollover(env: Env, orgId: string): Promise<n
     .run()
     .catch(() => null);
 
-  return newBalance;
+  return grant;
 }
 
 // ---------------------------------------------------------------------------

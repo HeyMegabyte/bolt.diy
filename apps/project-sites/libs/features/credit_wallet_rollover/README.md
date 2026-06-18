@@ -50,6 +50,9 @@ Append-only double-entry ledger. Positive `amount` = credits added; negative = c
 3. Grant = `MIN(balance + allowance, cap) − balance`.
 4. If grant > 0, insert a `rollover` ledger entry.
 
+Returns the **credits granted this cycle** (0 when the wallet is already at/above
+the cap). Read the resulting balance separately via `getBalance` if needed.
+
 ## Idempotency
 
 `POST /api/credits/apply` accepts an optional `idempotency_key` (max 128 chars). On retry with the same key the prior result is returned without a second debit.

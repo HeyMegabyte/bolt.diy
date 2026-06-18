@@ -13,10 +13,10 @@ import { z } from 'zod';
 
 /** Credit transaction kinds stored in the ledger. */
 export const CreditKindSchema = z.enum([
-  'earned',   // credits granted at billing cycle start or manually
+  'earned', // credits granted at billing cycle start or manually
   'rollover', // unused credits carried from prior month
-  'applied',  // credits consumed by a feature (negative value)
-  'expired',  // credits that exceeded the rollover cap and were dropped
+  'applied', // credits consumed by a feature (negative value)
+  'expired', // credits that exceeded the rollover cap and were dropped
 ]);
 
 export type CreditKind = z.infer<typeof CreditKindSchema>;
@@ -29,7 +29,7 @@ export const CreditLedgerRowSchema = z
     kind: CreditKindSchema,
     amount: z.number().int(), // positive for earned/rollover, negative for applied
     balance_after: z.number().int().min(0),
-    description: z.string().max(500).optional(),
+    description: z.string().max(500).optional().nullable(),
     idempotency_key: z.string().max(128).optional().nullable(),
     created_at: z.string().optional(),
   })
