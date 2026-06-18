@@ -183,3 +183,61 @@ describe('GET /api/claim/:shortlink/profile', () => {
     expect(json.data.buildStatus).toBe('pending');
   });
 });
+
+describe('POST /api/claim/:shortlink/adopt', () => {
+  /** D1 stub whose SELECT returns the given site row (for transferClaimSite). */
+  function siteDb(siteRow: Record<string, unknown> | null) {
+    const stmt = {
+      bind: () => stmt,
+      all: async () => ({ results: siteRow ? [siteRow] : [] }),
+      run: async () => ({ meta: { changes: 1 } }),
+      first: async () => null,
+    };
+    return { prepare: () => stmt } as unknown as D1Database;
+  }
+  /** Mount the route behind a middleware that injects the authed-session vars. */
+  function postAdopt(shortlink: string, auth: { userId?: string; orgId?: string }, db: D1Database) {
+    const a = new Hono();
+    a.use('*', async (c, next) => {
+      if (auth.userId) c.set('userId', auth.userId);
+      if (auth.orgId) c.set('orgId', auth.orgId);
+      await next();
+    });
+    a.route('/', claimRoutes);
+    return a.request(`/api/claim/${shortlink}/adopt`, { method: 'POST' }, { DB: db } as never);
+  }
+
+  it('401s an anonymous caller', async () => {
+    const res = await postAdopt('abc12345', {}, siteDb(null));
+    expect(res.status).toBe(401);
+  });
+
+  it('404s when the session has no started build (no siteId yet)', async () => {
+    mockGetSession.mockResolvedValue({ siteId: null, status: 'pending' });
+    const res = await postAdopt('abc12345', { userId: 'u1', orgId: 'org-user' }, siteDb(null));
+    expect(res.status).toBe(404);
+  });
+
+  it('200s + claims a platform-owned site for the caller’s org', async () => {
+    mockGetSession.mockResolvedValue({ siteId: 'site_x', status: 'completed' });
+    const res = await postAdopt(
+      'abc12345',
+      { userId: 'u1', orgId: 'org-user' },
+      siteDb({ id: 'site_x', org_id: PLATFORM_CLAIMS_ORG_ID, slug: 'acme' }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { claimed: boolean; slug: string } };
+    expect(json.data.claimed).toBe(true);
+    expect(json.data.slug).toBe('acme');
+  });
+
+  it('409s when the site was already claimed by another org', async () => {
+    mockGetSession.mockResolvedValue({ siteId: 'site_x', status: 'completed' });
+    const res = await postAdopt(
+      'abc12345',
+      { userId: 'u1', orgId: 'org-user' },
+      siteDb({ id: 'site_x', org_id: 'org-someone-else', slug: 'acme' }),
+    );
+    expect(res.status).toBe(409);
+  });
+});

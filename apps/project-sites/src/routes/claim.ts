@@ -32,14 +32,10 @@ import { getLead } from '../services/lead_store.js';
 import { toCreateFormPrefill } from '../services/claim_lead_profile.js';
 import { createSite } from '../services/site_create.js';
 import { buildClaimSiteParams } from '../services/claim_site_params.js';
+import { PLATFORM_CLAIMS_ORG_ID, transferClaimSite } from '../services/claim_org.js';
 
-/**
- * The platform org that owns claim-built sites until the visitor signs in and
- * claims them (design option A — seeded by migration 0571; ownership transfers
- * to the user's org at claim time). A claim site is provisioned before the
- * visitor has an org, and `sites.org_id` is NOT NULL — so it parents here.
- */
-export const PLATFORM_CLAIMS_ORG_ID = 'org_platform_claims';
+// Re-export so existing importers (+ tests) keep resolving it from this route.
+export { PLATFORM_CLAIMS_ORG_ID };
 
 /** Derive a collision-resistant site slug from a business name (+ short rand). */
 function deriveClaimSlug(businessName: string): string {
@@ -166,4 +162,47 @@ claimRoutes.get('/api/claim/:shortlink/profile', async (c) => {
       previewUrl: session?.previewUrl ?? null,
     },
   });
+});
+
+/**
+ * `POST /api/claim/:shortlink/adopt` — the authed visitor claims the build.
+ *
+ * Re-parents the claim-built site (currently owned by the platform org) to the
+ * caller's org ({@link transferClaimSite}, design option A second half). 401 when
+ * anonymous; 404 when the shortlink has no started build; 409 when the site was
+ * already claimed by another org. Idempotent for the caller's own org.
+ */
+claimRoutes.post('/api/claim/:shortlink/adopt', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to claim this site.' } }, 401);
+  }
+
+  const shortlink = c.req.param('shortlink');
+  const session = await getSession(c.env.DB, `claim_${shortlink}`);
+  if (!session?.siteId) {
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: 'No site to claim for this link yet.' } },
+      404,
+    );
+  }
+
+  const result = await transferClaimSite(c.env, session.siteId, orgId, userId);
+  if (result.transferred) {
+    return c.json({ data: { siteId: session.siteId, slug: result.slug, claimed: true } }, 200);
+  }
+  if (result.reason === 'already_yours') {
+    return c.json({ data: { siteId: session.siteId, claimed: true } }, 200);
+  }
+  if (result.reason === 'already_claimed') {
+    return c.json(
+      { error: { code: 'CONFLICT', message: 'This site has already been claimed.' } },
+      409,
+    );
+  }
+  return c.json(
+    { error: { code: 'NOT_FOUND', message: 'No site to claim for this link yet.' } },
+    404,
+  );
 });
