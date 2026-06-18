@@ -16,6 +16,7 @@ import { z } from 'zod';
 
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
 import { createLead } from '../services/lead_store.js';
@@ -75,6 +76,12 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
   // Flag gate — 404 (not 403) when off so the route's existence isn't leaked.
   if (!(await isFlagOn(c.env, LEAD_SCANNER_FLAG, { orgId: c.get('orgId'), userId }))) {
     return c.json(errorBody('NOT_FOUND', 'Not found', requestId), 404);
+  }
+
+  // Super-Admin only — authorization is server-resolved, never trusted from the
+  // client. The flag hides existence; this gates the operator-only action.
+  if (!(await isSuperAdmin(c.env, userId))) {
+    return c.json(errorBody('FORBIDDEN', 'Super-admin access required', requestId), 403);
   }
 
   const raw = await c.req.json().catch(() => ({}));

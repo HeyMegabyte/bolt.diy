@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 
 import { adminLeads } from '../routes/admin_leads';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+import { isSuperAdmin } from '../services/sysadmin.js';
 
 /**
  * Super-Admin lead scanner route (#9) — the HTTP transport guards layered on the
@@ -13,10 +14,12 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
  * runs for real over the mocked search results.
  */
 jest.mock('../modules/feature_flags/services.js', () => ({ isFlagOn: jest.fn() }));
+jest.mock('../services/sysadmin.js', () => ({ isSuperAdmin: jest.fn() }));
 jest.mock('../services/places_search.js', () => ({ searchPlacesByQuery: jest.fn() }));
 jest.mock('../services/lead_store.js', () => ({ createLead: jest.fn() }));
 
 const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
+const mockIsSuperAdmin = isSuperAdmin as jest.MockedFunction<typeof isSuperAdmin>;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mockSearch = require('../services/places_search.js').searchPlacesByQuery as jest.Mock;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -65,6 +68,7 @@ function hit(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsFlagOn.mockResolvedValue(true);
+  mockIsSuperAdmin.mockResolvedValue(true);
   mockSearch.mockResolvedValue([]);
   mockCreateLead.mockResolvedValue({ leadId: 'lead_1' });
 });
@@ -79,6 +83,13 @@ describe('POST /api/admin/leads/scan', () => {
     mockIsFlagOn.mockResolvedValue(false);
     const res = await post(makeApp({ userId: 'u1', orgId: 'o1' }), { query: 'plumbers austin tx' });
     expect(res.status).toBe(404);
+  });
+
+  it('403s when authed + flag-on but the user is not a super-admin', async () => {
+    mockIsSuperAdmin.mockResolvedValue(false);
+    const res = await post(makeApp({ userId: 'u1', orgId: 'o1' }), { query: 'plumbers austin tx' });
+    expect(res.status).toBe(403);
+    expect(mockSearch).not.toHaveBeenCalled();
   });
 
   it('400s on an invalid body (query too short)', async () => {
