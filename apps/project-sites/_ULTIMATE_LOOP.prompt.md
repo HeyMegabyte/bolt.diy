@@ -26,8 +26,8 @@
 ## 1 — One-time setup (skip the `[x]` items)
 
 - [x] **Worker test-login seam** — `authenticateTestLogin` + `POST /api/auth/test-login`, secret-gated by `E2E_TEST_PASSWORD` (404 when unset — never a live backdoor), constant-time compare, idempotent owner upsert, real session. 7 Jest tests green.
-- [ ] **Wire `/signin` UI → the seam** — password field shown only under `?test=1`/build flag; submit to `/api/auth/test-login`; store bearer; redirect to `/admin`. Playwright signs in through the REAL homepage→admin flow (no API shortcut).
-- [ ] **`scripts/e2e-seed.mjs` + `e2e:seed`** — idempotent D1 owner upsert.
+- [x] **Wire `/signin` UI → the seam** (fire-v2.55) — `?test=1` renders a `data-testid="test-signin-panel"`; `ApiService.testLogin` → `POST /api/auth/test-login`; store bearer; redirect to sanitized `returnUrl`. 5 Karma specs green. (Live Playwright run still needs `E2E_TEST_PASSWORD` — see below.)
+- [x] **`scripts/e2e-seed.mjs` + `e2e:seed`** — idempotent D1 owner upsert. ALREADY BUILT (real script: realistic UA, 404/401/!ok→exit-1, success→exit-0, safe to re-run; `e2e:seed` wired in package.json). Runs once `E2E_TEST_PASSWORD` is provisioned.
 - [ ] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars` (local); wire into both `playwright.prod.config.ts`.
 - [ ] **`CONVERGENCE.md`** — write per-phase acceptance criteria (the rubric each critic checks). The loop reads it before every iteration.
 - [ ] **Ledger is live** — `_LOOP_LEDGER.md` holds every open item (P0→P3), re-scanned each iteration.
