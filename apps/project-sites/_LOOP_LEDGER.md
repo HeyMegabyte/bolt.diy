@@ -113,6 +113,13 @@ For each: parallel-safe `*.e2e.ts` that signs in as `brian@megabyte.space`, exer
 
 _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, semgrep, drift, Recs)._
 
+## AI context-quality axis (5 ship-first — `_ULTIMATE_LOOP.prompt.md` § AI context-quality axis, 2026-06-18)
+- [x] **#3 readiness gate** — `src/services/context_readiness.ts` `computeContextReadiness` (pure, slots/retrieval/confidence → 0-100, ready≥70 + zero-missing-slot; Zod, never throws; 8 Jest tests). fire-v2.37.
+- [ ] **#2 labeled context blocks** — pure `assembleLabeledContext(sections)` → `SYSTEM / RETRIEVED_FACTS / BRAND / CONSTRAINTS / EXAMPLES` (data-not-instructions; injection defense). Pure → NEXT clean cron round.
+- [ ] **#1 Context7 pre-step** — build agent pulls current lib docs before coding (container/workflow integration — attended).
+- [ ] **#4 rerank-before-pack** — Workers AI BGE reranker over broad retrieval (needs `env.AI` — integration, not pure).
+- [ ] **#5 context manifest in traces** — hashed assembled-context + section sizes + provenance per generation (PostHog/AI-Gateway wiring — integration).
+
 ## Unit-coverage backlog (autonomous — no Brian; repo mandates 100%)
 - [x] `build_budget.ts` — AI-spend gate `checkBudget`/`recordSpend` (fire-23, 10 tests).
 - [x] `build_events.ts` — event-sourced build stream `appendBuildEvent`/`replayBuildEvents`/`isTerminalBuildEvent` + schema (fire-24, 16 tests). **All `src/services/*.ts` now have a referencing test.**
