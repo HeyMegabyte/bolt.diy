@@ -106,6 +106,16 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
             <article class="card">
               <h3 class="card-h">About</h3>
               <p class="text-[0.85rem] text-text-secondary leading-relaxed m-0">{{ a.description }}</p>
+              @if (a.features?.length) {
+                <ul class="feature-list" aria-label="Key features" data-testid="apps-feature-list">
+                  @for (f of a.features; track f) {
+                    <li class="feature-item">
+                      <svg class="feature-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                      <span>{{ f }}</span>
+                    </li>
+                  }
+                </ul>
+              }
               <div class="meta-row">
                 <a class="meta-link" [href]="a.homepage" target="_blank" rel="noopener noreferrer">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
@@ -422,6 +432,19 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
     }
 
+    .feature-list {
+      list-style: none; margin: 0.9rem 0 0; padding: 0;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+      gap: 0.4rem 0.9rem;
+    }
+    .feature-item {
+      display: flex; align-items: flex-start; gap: 0.5rem;
+      font-size: 0.78rem; color: rgba(255,255,255,0.82); line-height: 1.4;
+    }
+    .feature-check {
+      flex-shrink: 0; margin-top: 0.15rem;
+      color: var(--ps-accent, #00E5FF);
+    }
     .meta-row {
       display: flex; flex-wrap: wrap; gap: 6px;
       margin-top: 0.85rem;

@@ -156,6 +156,14 @@ describe('AppDetailComponent (cost-total a11y group)', () => {
     return fx;
   }
 
+  it('renders the About feature checklist for an app that lists features (umami)', () => {
+    const fx = render('umami');
+    const list: HTMLElement | null = fx.nativeElement.querySelector('[data-testid="apps-feature-list"]');
+    expect(list).withContext('umami documents features → checklist renders').toBeTruthy();
+    const items = list!.querySelectorAll('.feature-item');
+    expect(items.length).withContext('one <li> per feature').toBe(fx.componentInstance.app()!.features!.length);
+  });
+
   it('renders the cost total as a labelled group (role=group + aria-label)', () => {
     const fx = render();
     const total: HTMLElement | null = fx.nativeElement.querySelector('.cost-total');

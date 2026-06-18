@@ -60,6 +60,25 @@ describe('apps-catalog.data (catalog integrity)', () => {
     }
   });
 
+  it('every Live (deployable) app documents a non-empty feature checklist', () => {
+    for (const slug of SUPPORTED_APP_SLUGS) {
+      const app = APPS_CATALOG.find((a) => a.id === slug);
+      expect(app).withContext(`supported slug ${slug} exists`).toBeDefined();
+      expect((app?.features?.length ?? 0))
+        .withContext(`${slug} (Live) should list its features in the About checklist`)
+        .toBeGreaterThan(0);
+    }
+  });
+
+  it('every feature entry is a non-empty string', () => {
+    for (const a of APPS_CATALOG) {
+      for (const f of a.features ?? []) {
+        expect(typeof f === 'string' && f.trim().length > 0)
+          .withContext(`feature of ${a.id}`).toBeTrue();
+      }
+    }
+  });
+
   it('isAppSupported() agrees with the supported-slug set', () => {
     for (const slug of SUPPORTED_APP_SLUGS) {
       expect(isAppSupported(slug)).withContext(`${slug} should be supported`).toBeTrue();

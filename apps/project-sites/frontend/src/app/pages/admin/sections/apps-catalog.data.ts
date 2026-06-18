@@ -72,6 +72,9 @@ export interface CatalogApp {
   readonly tagline: string;
   /** Full description rendered on the detail page. */
   readonly description: string;
+  /** Headline capabilities — rendered as a checklist on the detail page's About
+   *  card. Optional: only populated apps show the checklist. */
+  readonly features?: readonly string[];
   /** Filter taxonomy. */
   readonly category: AppCategory;
   /** Container image reference (`registry/name:tag`). */
@@ -149,6 +152,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     tagline: 'Privacy-respecting web analytics',
     description:
       'Cookieless, GDPR-compliant analytics. ~30KB script, real-time dashboard, event tracking. The clean alternative to Google Analytics.',
+    features: [
+      'Cookieless tracking — GDPR, CCPA & PECR compliant',
+      'Real-time dashboard with live visitor view',
+      'Unlimited websites & custom event tracking',
+      'Lightweight ~30KB tracker script',
+      'Team accounts & sharable report URLs',
+    ],
     category: 'analytics',
     image: 'ghcr.io/umami-software/umami:postgresql-latest',
     composeRef: 'https://github.com/umami-software/umami/blob/master/docker-compose.yml',
@@ -225,6 +235,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     tagline: 'Collaborative team wiki — like Notion',
     description:
       'Real-time collaborative editing, markdown native, slack integration. The polished open-source Notion alternative.',
+    features: [
+      'Real-time collaborative document editor',
+      'Markdown-native with nested collections',
+      'Full-text search across the knowledge base',
+      'Slack & API integrations + SSO',
+      'Granular sharing & access permissions',
+    ],
     category: 'knowledge',
     image: 'outlinewiki/outline:latest',
     infra: ['postgres', 'redis', 's3'],
@@ -281,6 +298,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'Memos',
     tagline: 'Lightweight note-taking with markdown',
     description: 'Twitter-style microblog for personal knowledge. Self-host your second brain.',
+    features: [
+      'Markdown note-taking with tags',
+      'Privacy-first & fully self-hosted',
+      'Public / private sharing links',
+      'Keyboard-driven, lightning-fast UI',
+      'REST API & resource attachments',
+    ],
     category: 'knowledge',
     image: 'neosmemo/memos:stable',
     infra: ['sqlite', 'volume'],
@@ -354,6 +378,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'NocoDB',
     tagline: 'No-code Airtable alternative',
     description: 'Turn any Postgres / MySQL DB into a smart spreadsheet UI. Forms, kanban, gallery, calendar views.',
+    features: [
+      'Turns Postgres / MySQL / SQLite into a spreadsheet UI',
+      'Grid, gallery, kanban, form & calendar views',
+      'Auto-generated REST & GraphQL APIs',
+      'Role-based access & record sharing',
+      'Formulas, lookups & rollups',
+    ],
     category: 'productivity',
     image: 'nocodb/nocodb:latest',
     infra: ['postgres'],
@@ -596,6 +627,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'Vaultwarden',
     tagline: 'Self-hosted Bitwarden-compatible password manager',
     description: 'Rust rewrite of Bitwarden server, 1/10th the resources. Works with all Bitwarden clients.',
+    features: [
+      'Compatible with every Bitwarden client (browser, mobile, desktop, CLI)',
+      'Organizations, collections & secure sharing',
+      'Built-in 2FA — TOTP, WebAuthn & Duo',
+      'Password generator & breach reports',
+      'Lightweight Rust server — runs in <100MB RAM',
+    ],
     category: 'privacy',
     image: 'vaultwarden/server:latest',
     infra: ['sqlite', 'volume'],
@@ -671,6 +709,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'Listmonk',
     tagline: 'Self-hosted email + campaign manager',
     description: 'Newsletter blasts, transactional email, segmentation. Go-fast, sends 5M+ emails/hour.',
+    features: [
+      'Subscriber & list management with segmentation',
+      'High-throughput sending (millions/hour)',
+      'Rich + plain-text templating',
+      'Campaign analytics — opens, clicks, bounces',
+      'Double opt-in, import/export & multi-list',
+    ],
     category: 'marketing',
     image: 'listmonk/listmonk:latest',
     infra: ['postgres', 'mailrelay'],
@@ -697,6 +742,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'n8n',
     tagline: 'Workflow automation — Zapier alternative',
     description: '400+ integrations, visual workflow editor, self-hosted forever-free.',
+    features: [
+      '400+ app integrations & triggers',
+      'Visual node-based workflow editor',
+      'Custom JavaScript / Python code nodes',
+      'Webhook, schedule & polling triggers',
+      'Self-hostable, fair-code licensed',
+    ],
     category: 'marketing',
     image: 'n8nio/n8n:latest',
     infra: ['postgres', 'volume'],
@@ -751,6 +803,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'Uptime Kuma',
     tagline: 'Self-hosted uptime monitor',
     description: 'HTTP / DNS / Ping / Steam / Postgres / Redis probes. Beautiful status pages. Single-container.',
+    features: [
+      'HTTP(s), TCP, Ping, DNS, Docker & database probes',
+      'Public status pages',
+      '90+ notification channels (Slack, Discord, Telegram, email…)',
+      'Configurable check intervals & retries',
+      'Multi-language, mobile-friendly dashboard',
+    ],
     category: 'monitoring',
     image: 'louislam/uptime-kuma:1',
     infra: ['sqlite', 'volume'],
@@ -826,6 +885,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'Open WebUI',
     tagline: 'Beautiful UI for Ollama + OpenAI + Anthropic',
     description: 'ChatGPT-like UI for your local LLMs. RAG, multi-model, voice. The polished AI playground.',
+    features: [
+      'ChatGPT-style chat for Ollama + OpenAI-compatible APIs',
+      'RAG — chat with your own documents',
+      'Multi-model switching mid-conversation',
+      'Markdown, code & LaTeX rendering',
+      'Voice input & multi-user with roles',
+    ],
     category: 'ai',
     image: 'ghcr.io/open-webui/open-webui:main',
     infra: ['sqlite', 'volume'],
@@ -904,6 +970,13 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     name: 'PocketBase',
     tagline: 'Backend-as-a-service in one Go binary',
     description: 'Database + auth + file storage + realtime + admin UI. Single 50MB executable, SQLite-backed.',
+    features: [
+      'SQLite database with realtime subscriptions',
+      'Built-in auth — email, OAuth2 & OTP',
+      'File storage with local or S3 backends',
+      'Admin dashboard UI',
+      'REST-ish API + JS / Dart SDKs — single binary',
+    ],
     category: 'backend',
     image: 'spectado/pocketbase:latest',
     infra: ['sqlite', 'volume'],
