@@ -530,6 +530,14 @@ export interface Env {
    * and the voice agent degrades to plain LLM-only replies.
    */
   VOICE_BROWSE_AGENT?: DurableObjectNamespace;
+
+  /**
+   * Cloudflare native rate-limit binding for the two public OAuth mint endpoints
+   * (POST /oauth/register + POST /oauth/token). Atomic, per-colo, free tier.
+   * Declared optional so local/test envs without the binding compile + run.
+   * Configured: 15 requests / 10 s / colo in wrangler.toml [[unsafe.bindings]].
+   */
+  OAUTH_RATELIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
 /** Cloudflare Workers for Platforms dispatch namespace runtime shape. */

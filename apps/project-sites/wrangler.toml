@@ -174,6 +174,17 @@ index_name = "projectsites-rag"
 # binding = "AUTORAG"
 # name = "projectsites-knowledge"
 
+# ─── Native Rate Limiting (local dev / wrangler dev) ─────────
+# Atomic, per-colo, free. Guards POST /oauth/register + POST /oauth/token
+# against burst abuse that the eventually-consistent KV counter misses.
+# namespace_id "2001" is a local-dev placeholder; CF assigns the real one
+# on first production deploy. period MUST be 10 or 60 (no other values).
+[[unsafe.bindings]]
+name = "OAUTH_RATELIMIT"
+type = "ratelimit"
+namespace_id = "2001"
+simple = { limit = 15, period = 10 }
+
 # ─── Production ──────────────────────────────────────────────
 [env.production]
 name = "project-sites"
@@ -487,6 +498,16 @@ class_name = "ConversationHub"
 # rather than querying. TraceHub + ActivityHub move to the SQLite backend
 # (GA April 2025, paid since Jan 2026) so they can use this.ctx.storage.sql.
 # [[env.production.migrations]] block intentionally omitted.
+
+# ─── Native Rate Limiting (production) ───────────────────────
+# env configs do NOT inherit top-level bindings, so the ratelimit binding
+# must be declared explicitly here as well. Identical fields to the
+# top-level [[unsafe.bindings]] block above.
+[[env.production.unsafe.bindings]]
+name = "OAUTH_RATELIMIT"
+type = "ratelimit"
+namespace_id = "2001"
+simple = { limit = 15, period = 10 }
 
 # Pulse Inbox — REMOVED from UI/code 2026-05-25. Class kept as a 410-stub
 # at `src/durable_objects/conversation_hub.ts` so the existing

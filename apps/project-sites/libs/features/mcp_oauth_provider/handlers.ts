@@ -71,6 +71,12 @@ oauthProvider.get('/.well-known/oauth-authorization-server', async (c) => {
 oauthProvider.post('/oauth/register', async (c) => {
   if (!(await flagGuard(c))) return c.json({ error: { code: 'NOT_FOUND' } }, 404);
 
+  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const rl = await c.env.OAUTH_RATELIMIT?.limit({ key: `oauth:${ip}` });
+  if (rl && !rl.success) {
+    return c.json({ error: 'rate_limited', error_description: 'Too many requests — slow down and retry shortly.' }, 429);
+  }
+
   let body: unknown;
   try {
     body = await c.req.json();
@@ -221,6 +227,12 @@ oauthProvider.post('/api/oauth/authorize', async (c) => {
 // ── Token endpoint — exchange code for access_token ──────────────────────────
 oauthProvider.post('/oauth/token', async (c) => {
   if (!(await flagGuard(c))) return c.json({ error: { code: 'NOT_FOUND' } }, 404);
+
+  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const rl = await c.env.OAUTH_RATELIMIT?.limit({ key: `oauth:${ip}` });
+  if (rl && !rl.success) {
+    return c.json({ error: 'rate_limited', error_description: 'Too many requests — slow down and retry shortly.' }, 429);
+  }
 
   // Accept both JSON and application/x-www-form-urlencoded
   let rawBody: unknown;
