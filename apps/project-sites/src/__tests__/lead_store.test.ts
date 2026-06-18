@@ -30,7 +30,7 @@ describe('createLead', () => {
     expect(r.leadId).toMatch(/[0-9a-f-]{8,}/i);
     expect(mockInsert).toHaveBeenCalledTimes(1);
     const [, table, record] = mockInsert.mock.calls[0];
-    expect(table).toBe('leads');
+    expect(table).toBe('scanned_leads');
     expect(record).toEqual(
       expect.objectContaining({
         id: r.leadId,

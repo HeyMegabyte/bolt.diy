@@ -4,10 +4,10 @@
  *
  * @remarks
  * The scanner persists a researched {@link ClaimLeadProfile} (+ no-website /
- * score / priority meta) as a `leads` row; the claim flow reads it back to
+ * score / priority meta) as a `scanned_leads` row; the claim flow reads it back to
  * prefill `/create`. The profile is stored as validated JSON (reusing
  * `ClaimLeadProfileSchema`), scoring signals as queryable columns. D1 via the
- * helper layer (mockable). Table: migration `0569_leads.sql`.
+ * helper layer (mockable). Table: migration `0569_scanned_leads.sql`.
  *
  * @example
  * ```ts
@@ -19,7 +19,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { dbQueryOne, dbInsert } from './db.js';
 import { ClaimLeadProfileSchema, type ClaimLeadProfile } from './claim_lead_profile.js';
 
-const TABLE = 'leads';
+const TABLE = 'scanned_leads';
 
 /** Scoring / provenance meta stored alongside the profile (queryable columns). */
 export interface LeadMeta {
