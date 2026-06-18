@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  Injectable,
   ViewChild,
   computed,
   inject,
@@ -83,6 +84,19 @@ function resolveApp(id: string): CatalogApp | null {
  * `/api/apps/instances` every 15s while at least one instance is in a
  * non-terminal state (`provisioning`).
  */
+
+/**
+ * Stale-while-revalidate cache of the last-loaded instances list. A root
+ * singleton so it survives component teardown (re-visiting the page paints the
+ * last list instantly instead of flashing a skeleton) yet is injector-scoped —
+ * so it resets cleanly per test + on full page reload. Holds a perfect home for
+ * the cached list per `state-is-the-enemy` (a service, not a module global).
+ */
+@Injectable({ providedIn: 'root' })
+export class AppsInstancesCache {
+  value: readonly AppInstance[] | null = null;
+}
+
 @Component({
   selector: 'app-admin-apps-instances',
   standalone: true,
@@ -385,6 +399,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private confirmSvc = inject(ConfirmService);
   private router = inject(Router);
+  private cache = inject(AppsInstancesCache);
 
   instances = signal<readonly AppInstance[]>([]);
   loading = signal<boolean>(false);
@@ -405,7 +420,15 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   };
 
   ngOnInit(): void {
-    this.load();
+    const cached = this.cache.value;
+    if (cached) {
+      // Stale-while-revalidate: paint the last-known list instantly (no skeleton
+      // flash on re-visit), then refresh quietly in the background.
+      this.instances.set(cached);
+      this.refresh();
+    } else {
+      this.load();
+    }
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.onVisibility);
   }
 
@@ -456,7 +479,9 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
           console.warn('[apps] instances response had no array — kept prior list');
           return;
         }
-        this.instances.set(r.instances.map(adaptInstance));
+        const adapted = r.instances.map(adaptInstance);
+        this.instances.set(adapted);
+        this.cache.value = adapted; // feed the stale-while-revalidate cache
         this.loadError.set(null);
         this.loading.set(false);
         this.startPolling();

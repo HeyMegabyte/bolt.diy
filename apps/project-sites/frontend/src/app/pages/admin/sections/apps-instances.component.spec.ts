@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { NEVER, of, throwError } from 'rxjs';
 import { Router, provideRouter } from '@angular/router';
-import { AppInstancesComponent } from './apps-instances.component';
+import { AppInstancesComponent, AppsInstancesCache } from './apps-instances.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -466,5 +466,41 @@ describe('AppInstanceDetailComponent (logs refresh aria-busy)', () => {
     expect(btn).withContext('Refresh button shows the busy label').toBeTruthy();
     expect(btn?.getAttribute('aria-label')).toBe('Refreshing logs');
     expect((btn as HTMLButtonElement | undefined)?.disabled).toBeTrue();
+  });
+});
+
+/**
+ * Stale-while-revalidate: re-visiting App Instances should paint the last list
+ * instantly (no skeleton flash) and refresh in the background — "blazing fast,
+ * preloaded" per the brief. The cache is a root singleton (survives route nav,
+ * resets per test injector).
+ */
+describe('AppInstancesComponent (stale-while-revalidate cache)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a successful load populates the shared cache for instant re-visits', () => {
+    const { c } = make();
+    c.load(); // default api.get → { instances: [] }; a real (non-shapeless) 200
+    const cache = TestBed.inject(AppsInstancesCache);
+    expect(cache.value).withContext('cache filled after a successful load').not.toBeNull();
+  });
+
+  it('paints from a populated cache immediately (no skeleton) + revalidates in the background', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({ instances: [inst('a')] })); // revalidation echoes the cache
+    const cache = TestBed.inject(AppsInstancesCache);
+    cache.value = [inst('a')] as never;
+    c.ngOnInit();
+    expect(c.instances().length).withContext('painted from cache').toBe(1);
+    expect(c.loading()).withContext('no skeleton on re-visit').toBeFalse();
+    expect(api.get).withContext('background revalidation still fires').toHaveBeenCalled();
+  });
+
+  it('cold cache (first visit) takes the loading path, not the cache path', () => {
+    const { c, api } = make(); // default api.get → empty, cache starts null
+    expect(TestBed.inject(AppsInstancesCache).value).toBeNull();
+    c.ngOnInit();
+    // load() ran (fetch with poll=false) → at least one GET issued.
+    expect(api.get).toHaveBeenCalled();
   });
 });

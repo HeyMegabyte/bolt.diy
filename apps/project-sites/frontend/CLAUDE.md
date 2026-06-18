@@ -178,6 +178,33 @@ preserve continuity across hero → sub-page navigations. Pair with
 `prefers-reduced-motion` — every animation in `animations/` checks that media
 query before scheduling.
 
+## Performance & Preload Doctrine (app principle)
+
+The app must feel **blazing fast** — preloaded, ready, never a needless skeleton.
+This is a standing principle, not a one-off; new surfaces follow it.
+
+- **Preload every route after first paint.** `app.config.ts` uses
+  `withPreloading(PreloadAllModules)`, so every lazy chunk downloads in the
+  background once the shell is interactive — a click never waits on a chunk.
+- **Lazy-load heavy libs, never eagerly.** monaco / echarts / ag-grid / uppy /
+  jszip live behind `@defer` or lazy-routed sections — never an eager `imports:`
+  array. See § Known perf-budget items.
+- **Stale-while-revalidate for list pages.** A list surface that is re-visited
+  (component re-created on route nav) must paint its **last-known data instantly**
+  from an injector-scoped cache, then refresh in the background — no skeleton
+  flash on re-visit. Reference impl: `AppsInstancesCache` (a `providedIn:'root'`
+  singleton) feeding `apps-instances.component`'s `ngOnInit` SWR path. First
+  visit (cold cache) shows the skeleton; every re-visit is instant.
+- **Visibility-gated background sync.** Polling pauses when `document.hidden` and
+  catches up on return (mirrors `AdminStateService`) — fresh without burning
+  requests on a backgrounded tab.
+- **Per-route `<head>` is owned server-side** by the Worker's `HTMLRewriter`
+  pass (title/desc/canonical/OG per route) — never client-only, so crawlers +
+  scrapers read the right meta. Client `MetaService` is an enhancement, not the
+  source of truth.
+- **North star: TTFR.** Target LCP ≤ 2.0s. SSR-shell-first for the marketing
+  surface; the admin SPA preloads + lazy-loads so navigation feels instant.
+
 ## Build + Deploy
 
 ```bash
