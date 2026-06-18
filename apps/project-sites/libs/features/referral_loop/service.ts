@@ -68,11 +68,9 @@ export async function getOrCreateReferralCode(
     code: string;
     clicks: number;
     conversions: number;
-  }>(
-    env.DB,
-    'SELECT id, code, clicks, conversions FROM referral_codes WHERE org_id = ? LIMIT 1',
-    [orgId],
-  ).catch(() => null);
+  }>(env.DB, 'SELECT id, code, clicks, conversions FROM referral_codes WHERE org_id = ? LIMIT 1', [
+    orgId,
+  ]).catch(() => null);
 
   if (existing) {
     return {
@@ -87,9 +85,7 @@ export async function getOrCreateReferralCode(
   const id = crypto.randomUUID();
   const code = generateCode();
 
-  await env.DB.prepare(
-    'INSERT OR IGNORE INTO referral_codes (id, org_id, code) VALUES (?, ?, ?)',
-  )
+  await env.DB.prepare('INSERT OR IGNORE INTO referral_codes (id, org_id, code) VALUES (?, ?, ?)')
     .bind(id, orgId, code)
     .run();
 
@@ -135,9 +131,7 @@ export async function trackReferral(
   }
 
   // Increment click counter (best-effort; D1 outage silently under-counts).
-  await env.DB.prepare(
-    'UPDATE referral_codes SET clicks = clicks + 1 WHERE id = ?',
-  )
+  await env.DB.prepare('UPDATE referral_codes SET clicks = clicks + 1 WHERE id = ?')
     .bind(codeRow.id)
     .run()
     .catch(() => null);
@@ -147,12 +141,7 @@ export async function trackReferral(
   await env.DB.prepare(
     'INSERT INTO referral_attributions (id, referral_code_id, referred_org_id, status) VALUES (?, ?, ?, ?)',
   )
-    .bind(
-      attributionId,
-      codeRow.id,
-      body.referred_org_id ?? null,
-      'click',
-    )
+    .bind(attributionId, codeRow.id, body.referred_org_id ?? null, 'click')
     .run();
 
   return { attribution_id: attributionId, status: 'click' };
@@ -165,19 +154,20 @@ export async function trackReferral(
  * @param orgId - Org to query.
  * @returns Code string, click/conversion counts, and pending attribution count.
  */
-export async function getReferralStats(
-  env: Env,
-  orgId: string,
-): Promise<ReferralStatsResponse> {
-  const codeRow = await dbQueryOne<{ id: string; code: string; clicks: number; conversions: number }>(
-    env.DB,
-    'SELECT id, code, clicks, conversions FROM referral_codes WHERE org_id = ? LIMIT 1',
-    [orgId],
-  );
+export async function getReferralStats(env: Env, orgId: string): Promise<ReferralStatsResponse> {
+  const codeRow = await dbQueryOne<{
+    id: string;
+    code: string;
+    clicks: number;
+    conversions: number;
+  }>(env.DB, 'SELECT id, code, clicks, conversions FROM referral_codes WHERE org_id = ? LIMIT 1', [
+    orgId,
+  ]);
 
   if (!codeRow) {
+    // No referral code yet → null code with zero counts (honest zero-state).
     return ReferralStatsResponseSchema.parse({
-      code: '',
+      code: null,
       clicks: 0,
       conversions: 0,
       pending: 0,

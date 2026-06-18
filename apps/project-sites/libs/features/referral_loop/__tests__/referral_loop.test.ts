@@ -57,7 +57,13 @@ describe('referral_loop/schemas', () => {
 
   it('ReferralCodeRowSchema rejects missing org_id', async () => {
     const { ReferralCodeRowSchema } = await import('../schemas.js');
-    const result = ReferralCodeRowSchema.safeParse({ id: 'x', code: 'AB', clicks: 0, conversions: 0, created_at: 'now' });
+    const result = ReferralCodeRowSchema.safeParse({
+      id: 'x',
+      code: 'AB',
+      clicks: 0,
+      conversions: 0,
+      created_at: 'now',
+    });
     expect(result.success).toBe(false);
   });
 
@@ -91,10 +97,8 @@ describe('referral_loop/schemas', () => {
 
 describe('referral_loop/service — getOrCreateReferralCode', () => {
   it('returns existing code when one is present', async () => {
-    const db = makeDb([
-      { id: 'rc-1', code: 'EXIST001', clicks: 3, conversions: 1 },
-    ]);
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const db = makeDb([{ id: 'rc-1', code: 'EXIST001', clicks: 3, conversions: 1 }]);
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
 
     const { getOrCreateReferralCode } = await import('../service.js');
     const result = await getOrCreateReferralCode(env, 'org-1');
@@ -107,16 +111,17 @@ describe('referral_loop/service — getOrCreateReferralCode', () => {
   });
 
   it('creates a new code when none exists', async () => {
-    // First SELECT returns null; INSERT runs; second SELECT returns the new row.
+    // dbQueryOne resolves via .all() + data[0] (not .first()): the first SELECT
+    // returns no rows; INSERT runs; the post-insert re-read returns the new row.
     const db = makeDb();
     let callCount = 0;
-    db._prepared.first.mockImplementation(() => {
+    db._prepared.all.mockImplementation(() => {
       callCount += 1;
-      if (callCount === 1) return Promise.resolve(null);
-      return Promise.resolve({ code: 'NEWCODE1', clicks: 0, conversions: 0 });
+      if (callCount === 1) return Promise.resolve({ results: [] });
+      return Promise.resolve({ results: [{ code: 'NEWCODE1', clicks: 0, conversions: 0 }] });
     });
 
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { getOrCreateReferralCode } = await import('../service.js');
     const result = await getOrCreateReferralCode(env, 'org-2');
 
@@ -129,7 +134,7 @@ describe('referral_loop/service — getOrCreateReferralCode', () => {
     const db = makeDb();
     db._prepared.first.mockResolvedValue(null);
 
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { getOrCreateReferralCode } = await import('../service.js');
 
     await expect(getOrCreateReferralCode(env, 'org-3')).rejects.toThrow(
@@ -146,7 +151,7 @@ describe('referral_loop/service — trackReferral', () => {
   it('returns attribution_id and click status on success', async () => {
     const db = makeDb([{ id: 'rc-1' }]);
 
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { trackReferral } = await import('../service.js');
     const result = await trackReferral(env, { code: 'EXIST001' });
 
@@ -158,7 +163,7 @@ describe('referral_loop/service — trackReferral', () => {
   it('throws 404 when code is not found', async () => {
     const db = makeDb([]);
 
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { trackReferral } = await import('../service.js');
 
     await expect(trackReferral(env, { code: 'UNKNOWN' })).rejects.toMatchObject({
@@ -175,26 +180,30 @@ describe('referral_loop/service — getReferralStats', () => {
   it('returns zero stats when org has no referral code', async () => {
     const db = makeDb([]);
 
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { getReferralStats } = await import('../service.js');
     const stats = await getReferralStats(env, 'org-no-code');
 
-    expect(stats).toEqual({ code: '', clicks: 0, conversions: 0, pending: 0 });
+    // No code yet → null code, zero counts (honest zero-state).
+    expect(stats).toEqual({ code: null, clicks: 0, conversions: 0, pending: 0 });
   });
 
   it('returns aggregated stats for an existing code', async () => {
     const db = makeDb([]);
+    // Both lookups go through dbQueryOne/dbQuery → .all(): 1st = the code row,
+    // 2nd = the pending-attribution COUNT.
     let selectCall = 0;
-    db._prepared.first.mockImplementation(() => {
+    db._prepared.all.mockImplementation(() => {
       selectCall += 1;
       if (selectCall === 1) {
-        return Promise.resolve({ id: 'rc-1', code: 'MYCODE01', clicks: 10, conversions: 2 });
+        return Promise.resolve({
+          results: [{ id: 'rc-1', code: 'MYCODE01', clicks: 10, conversions: 2 }],
+        });
       }
-      return Promise.resolve(null);
+      return Promise.resolve({ results: [{ count: 8 }] });
     });
-    db._prepared.all.mockResolvedValue({ results: [{ count: 8 }] });
 
-    const env = { DB: db } as unknown as import('../../../src/types/env.js').Env;
+    const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { getReferralStats } = await import('../service.js');
     const stats = await getReferralStats(env, 'org-1');
 

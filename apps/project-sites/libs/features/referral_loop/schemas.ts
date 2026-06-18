@@ -87,7 +87,8 @@ export type TrackReferralResponse = z.infer<typeof TrackReferralResponseSchema>;
 /** GET /api/referral/stats */
 export const ReferralStatsResponseSchema = z
   .object({
-    code: z.string().min(1),
+    // `null` when the org has no referral code yet (zero-stats state).
+    code: z.string().min(1).nullable(),
     clicks: z.number().int().nonnegative(),
     conversions: z.number().int().nonnegative(),
     pending: z.number().int().nonnegative(),
