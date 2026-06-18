@@ -143,31 +143,47 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
           </button>
         </div>
 
-        <div class="chip-strip" role="tablist" hlmTablist aria-label="App category">
+        <!-- Category multi-select filter (brief #12) — sits beside the
+             lifecycle strip; check any number of categories to union-filter. -->
+        <div class="cat-filter" [class.open]="categoryMenuOpen()">
           <button
             type="button"
-            role="tab"
-            class="chip"
-            [class.active]="activeCategory() === null"
-            [attr.aria-selected]="activeCategory() === null"
-            (click)="setCategory(null)">
-            <span class="chip-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275z"/></svg></span>
-            <span>All</span>
-            <span class="chip-count" aria-hidden="true">{{ totalCount }}</span>
+            class="cat-trigger"
+            [class.active]="selectedCategoryCount() > 0 || categoryMenuOpen()"
+            aria-haspopup="true"
+            [attr.aria-expanded]="categoryMenuOpen()"
+            data-testid="apps-category-filter"
+            (click)="toggleCategoryMenu()">
+            <span class="chip-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.2v5.3l-4 2V12.7z"/></svg></span>
+            <span>Categories</span>
+            @if (selectedCategoryCount() > 0) {
+              <span class="cat-badge" aria-hidden="true">{{ selectedCategoryCount() }}</span>
+            }
+            <span class="cat-chevron" aria-hidden="true">▾</span>
           </button>
-          @for (c of categories; track c.id) {
-            <button
-              type="button"
-              role="tab"
-              class="chip"
-              [class.active]="activeCategory() === c.id"
-              [attr.aria-selected]="activeCategory() === c.id"
-              [attr.data-testid]="'apps-chip-' + c.id"
-              (click)="setCategory(c.id)">
-              <span class="chip-glyph" aria-hidden="true">{{ c.glyph }}</span>
-              <span>{{ c.label }}</span>
-              <span class="chip-count" aria-hidden="true">{{ countByCategory(c.id) }}</span>
-            </button>
+
+          @if (categoryMenuOpen()) {
+            <button type="button" class="cat-backdrop" aria-label="Close category filter" (click)="closeCategoryMenu()"></button>
+            <div class="cat-menu" role="group" aria-label="Filter by category" data-testid="apps-category-menu">
+              <div class="cat-menu-head">
+                <span class="cat-menu-title">Show categories</span>
+                @if (selectedCategoryCount() > 0) {
+                  <button type="button" class="cat-menu-clear" (click)="clearCategories()" data-testid="apps-category-clear">Clear ({{ selectedCategoryCount() }})</button>
+                }
+              </div>
+              <ul class="cat-menu-list">
+                @for (c of categories; track c.id) {
+                  <li>
+                    <label class="cat-opt" [class.checked]="isCategoryActive(c.id)">
+                      <input type="checkbox" [checked]="isCategoryActive(c.id)" (change)="toggleCategory(c.id)" [attr.data-testid]="'apps-category-opt-' + c.id" />
+                      <span class="cat-opt-glyph" aria-hidden="true">{{ c.glyph }}</span>
+                      <span class="cat-opt-label">{{ c.label }}</span>
+                      <span class="cat-opt-count" aria-hidden="true">{{ countByCategory(c.id) }}</span>
+                    </label>
+                  </li>
+                }
+              </ul>
+            </div>
           }
         </div>
       </div>
@@ -215,7 +231,6 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                         title="Deployable today — ships an upstream container"
                         aria-label="Live"
                         [attr.data-testid]="'apps-pill-live-' + app.id">
-                        <span class="status-dot" aria-hidden="true"></span>
                         Live
                       </span>
                     } @else {
@@ -342,47 +357,90 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
     }
 
     /* ─── Chip strip ─── */
-    .chip-strip {
-      display: flex; flex-wrap: wrap; gap: 6px;
-    }
-    .chip {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 0.42rem 0.78rem;
+    .chip-glyph { line-height: 1; display: inline-flex; }
+    .chip-glyph svg { width: 0.92rem; height: 0.92rem; display: block; }
+
+    /* ─── Category multi-select filter (brief #12) ─── */
+    .cat-filter { position: relative; display: inline-flex; }
+    .cat-trigger {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 0.42rem 0.8rem;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.74);
+      color: rgba(255, 255, 255, 0.78);
       font-family: 'Sora', system-ui, sans-serif;
       font-size: 0.72rem; font-weight: 600;
       cursor: pointer;
-      transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+      transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
     }
-    .chip:hover {
-      background: rgba(255, 255, 255, 0.07);
-      color: var(--ps-ink, #fff);
-      border-color: rgba(255, 255, 255, 0.16);
-    }
-    .chip.active {
-      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 16%, transparent);
-      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent);
+    .cat-trigger:hover { background: rgba(255, 255, 255, 0.07); color: var(--ps-ink, #fff); border-color: rgba(255, 255, 255, 0.16); }
+    .cat-trigger.active {
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent);
       color: var(--ps-accent, #00E5FF);
-      box-shadow: inset 2px 0 0 0 var(--ps-accent, #00E5FF), 0 4px 16px -8px color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent);
     }
-    .chip:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00E5FF);
-      outline-offset: 2px;
+    .cat-trigger:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
+    .cat-badge {
+      min-width: 1.05rem; padding: 0 5px; height: 1.05rem;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.6rem; font-weight: 700;
+      border-radius: 999px;
+      background: var(--ps-accent, #00E5FF); color: #03070a;
     }
-    .chip-glyph { line-height: 1; display: inline-flex; }
-    .chip-glyph svg { width: 0.92rem; height: 0.92rem; display: block; }
-    .chip-count {
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 0.6rem; opacity: 0.7;
-      padding: 1px 6px;
-      background: rgba(255,255,255,0.06); border-radius: 999px;
+    .cat-chevron { font-size: 0.62rem; opacity: 0.7; transition: transform 200ms ease; }
+    .cat-filter.open .cat-chevron { transform: rotate(180deg); }
+
+    /* Full-viewport click-catcher so an outside click closes the popover. */
+    .cat-backdrop {
+      position: fixed; inset: 0; z-index: 40;
+      background: transparent; border: 0; padding: 0; cursor: default;
     }
-    .chip.active .chip-count {
-      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent);
-      opacity: 1;
+    .cat-menu {
+      position: absolute; top: calc(100% + 8px); left: 0; z-index: 41;
+      width: max(248px, 100%);
+      max-height: min(60vh, 420px); overflow-y: auto;
+      padding: 8px;
+      border-radius: var(--ps-radius-lg, 16px);
+      /* Opaque enough that bright page content never bleeds through (≥0.9). */
+      background: color-mix(in oklch, var(--ps-bg, #060610) 97%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent);
+      box-shadow: var(--ps-shadow-modal, 0 24px 60px -20px rgba(0, 0, 0, 0.7));
+      backdrop-filter: blur(10px);
+      animation: cat-menu-in 200ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
+    }
+    @keyframes cat-menu-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .cat-menu { animation: none; } }
+    .cat-menu-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 6px 8px;
+    }
+    .cat-menu-title {
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    .cat-menu-clear {
+      background: none; border: 0; cursor: pointer;
+      font-family: 'Sora', system-ui, sans-serif; font-size: 0.66rem; font-weight: 600;
+      color: var(--ps-accent, #00E5FF);
+    }
+    .cat-menu-clear:hover { text-decoration: underline; }
+    .cat-menu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    .cat-opt {
+      display: flex; align-items: center; gap: 9px;
+      padding: 0.4rem 0.5rem; border-radius: 10px;
+      cursor: pointer; color: rgba(255, 255, 255, 0.82);
+      font-size: 0.74rem;
+      transition: background 140ms ease;
+    }
+    .cat-opt:hover { background: rgba(255, 255, 255, 0.05); }
+    .cat-opt.checked { background: color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent); color: var(--ps-ink, #fff); }
+    .cat-opt input[type='checkbox'] { accent-color: var(--ps-accent, #00E5FF); width: 15px; height: 15px; cursor: pointer; }
+    .cat-opt-glyph { line-height: 1; }
+    .cat-opt-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cat-opt-count {
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.58rem;
+      opacity: 0.6; padding: 1px 6px; background: rgba(255, 255, 255, 0.06); border-radius: 999px;
     }
 
     /* ─── Result bar (count + live region) ─── */
@@ -487,9 +545,12 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.09);
     }
-    .status-dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: var(--ps-accent, #00E5FF);
+    /* The single status dot is the GLOBAL .status-pill::before (color-blind
+       safety, currentColor). We previously ALSO rendered an explicit
+       <span class="status-dot"> → two dots on the Live badge. The span is gone;
+       these rules just lend the live ::before its glow + pulse so the one dot
+       keeps the cinematic effect. (brief: "two different dots … ensure only one") */
+    .status-pill--live::before {
       box-shadow: 0 0 6px color-mix(in oklch, var(--ps-accent, #00E5FF) 60%, transparent);
       animation: status-pulse 2.4s ease-in-out infinite;
     }
@@ -498,7 +559,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       50% { opacity: 0.55; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .status-dot { animation: none; }
+      .status-pill--live::before { animation: none; }
     }
 
     /* Lifecycle pill row (above category chip strip) */
@@ -642,7 +703,12 @@ export class AppsComponent implements AfterViewInit, OnInit {
   readonly soonCount = APPS_CATALOG.length - this.liveCount;
   readonly infraMeta = INFRA_META;
 
-  activeCategory = signal<AppCategory | null>(null);
+  /** Multi-select category filter (brief #12) — empty Set = show every category. */
+  activeCategories = signal<ReadonlySet<AppCategory>>(new Set<AppCategory>());
+  /** Whether the category multi-select popover is open. */
+  categoryMenuOpen = signal(false);
+  /** How many categories are currently checked (drives the trigger badge). */
+  selectedCategoryCount = computed<number>(() => this.activeCategories().size);
   /** Lifecycle filter — all|live|soon. Live = ships an upstream container today. */
   lifecycle = signal<LifecycleFilter>('all');
   searchQuery = signal<string>('');
@@ -653,11 +719,11 @@ export class AppsComponent implements AfterViewInit, OnInit {
 
   /** Live-filtered catalog driven by category + fuzzy query + lifecycle pill. */
   filteredApps = computed<readonly CatalogApp[]>(() => {
-    const cat = this.activeCategory();
+    const cats = this.activeCategories();
     const lc = this.lifecycle();
     const q = this.searchQuery().trim().toLowerCase();
     return APPS_CATALOG.filter((app) => {
-      if (cat && app.category !== cat) return false;
+      if (cats.size && !cats.has(app.category)) return false;
       if (lc === 'live' && !isAppSupported(app.id)) return false;
       if (lc === 'soon' && isAppSupported(app.id)) return false;
       if (!q) return true;
@@ -670,7 +736,8 @@ export class AppsComponent implements AfterViewInit, OnInit {
 
   emptyTitle = computed<string>(() => {
     const q = this.searchQuery().trim();
-    return q ? `Nothing matches "${q}"` : 'No apps in this category';
+    if (q) return `Nothing matches "${q}"`;
+    return this.selectedCategoryCount() > 1 ? 'No apps in these categories' : 'No apps in this category';
   });
 
   /**
@@ -698,10 +765,11 @@ export class AppsComponent implements AfterViewInit, OnInit {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const raw = params.get('category');
       if (!raw) return;
-      const validIds = APP_CATEGORIES.map((c) => c.id);
-      if ((validIds as readonly string[]).includes(raw)) {
-        this.activeCategory.set(raw as AppCategory);
-      }
+      // Supports a single category (`?category=ai`) or a comma-separated set
+      // (`?category=ai,vector-db`) so a deep link can pre-select the multi-filter.
+      const valid = new Set(APP_CATEGORIES.map((c) => c.id) as readonly string[]);
+      const picked = raw.split(',').map((s) => s.trim()).filter((s) => valid.has(s)) as AppCategory[];
+      if (picked.length) this.activeCategories.set(new Set(picked));
     });
   }
 
@@ -712,14 +780,37 @@ export class AppsComponent implements AfterViewInit, OnInit {
       event.preventDefault();
       this.focusSearch();
     }
+    if (event.key === 'Escape' && this.categoryMenuOpen()) {
+      this.categoryMenuOpen.set(false);
+    }
   }
 
   focusSearch(): void {
     requestAnimationFrame(() => this.searchInputRef?.nativeElement.focus({ preventScroll: true }));
   }
 
-  setCategory(id: AppCategory | null): void {
-    this.activeCategory.set(id);
+  /** Add/remove a category from the multi-select (brief #12). */
+  toggleCategory(id: AppCategory): void {
+    const next = new Set(this.activeCategories());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.activeCategories.set(next);
+  }
+
+  isCategoryActive(id: AppCategory): boolean {
+    return this.activeCategories().has(id);
+  }
+
+  clearCategories(): void {
+    this.activeCategories.set(new Set<AppCategory>());
+  }
+
+  toggleCategoryMenu(): void {
+    this.categoryMenuOpen.update((open) => !open);
+  }
+
+  closeCategoryMenu(): void {
+    this.categoryMenuOpen.set(false);
   }
 
   /** Toggle the lifecycle pill row — All / Live / Coming soon. */
@@ -742,7 +833,8 @@ export class AppsComponent implements AfterViewInit, OnInit {
   }
 
   resetFilters(): void {
-    this.activeCategory.set(null);
+    this.activeCategories.set(new Set<AppCategory>());
+    this.categoryMenuOpen.set(false);
     this.clearSearch();
   }
 

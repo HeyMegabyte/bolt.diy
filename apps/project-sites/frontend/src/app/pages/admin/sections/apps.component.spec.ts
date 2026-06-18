@@ -29,7 +29,7 @@ describe('AppsComponent (catalog filter + a11y)', () => {
   it('starts with the full catalog and no active filters', () => {
     const c = make();
     expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
-    expect(c.activeCategory()).toBeNull();
+    expect(c.activeCategories().size).toBe(0);
     expect(c.lifecycle()).toBe('all');
   });
 
@@ -52,13 +52,54 @@ describe('AppsComponent (catalog filter + a11y)', () => {
     expect(c.filteredApps().every((a) => !isAppSupported(a.id))).toBe(true);
   });
 
-  it('category filter narrows to that category only', () => {
+  it('a single checked category narrows to that category only', () => {
     const c = make();
     const cat = APP_CATEGORIES[0].id;
-    c.setCategory(cat);
+    c.toggleCategory(cat);
     const filtered = c.filteredApps();
     expect(filtered.length).toBe(c.countByCategory(cat));
     expect(filtered.every((a) => a.category === cat)).toBe(true);
+  });
+
+  it('multi-select shows the UNION of all checked categories (brief #12)', () => {
+    const c = make();
+    const a = APP_CATEGORIES[0].id;
+    const b = APP_CATEGORIES[1].id;
+    c.toggleCategory(a);
+    c.toggleCategory(b);
+    expect(c.selectedCategoryCount()).toBe(2);
+    const filtered = c.filteredApps();
+    expect(filtered.length).toBe(c.countByCategory(a) + c.countByCategory(b));
+    expect(filtered.every((app) => app.category === a || app.category === b)).toBe(true);
+  });
+
+  it('toggling a checked category off removes it from the filter', () => {
+    const c = make();
+    const a = APP_CATEGORIES[0].id;
+    c.toggleCategory(a);
+    expect(c.isCategoryActive(a)).toBe(true);
+    c.toggleCategory(a);
+    expect(c.isCategoryActive(a)).toBe(false);
+    expect(c.activeCategories().size).toBe(0);
+    expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
+  });
+
+  it('clearCategories empties the multi-select back to all', () => {
+    const c = make();
+    c.toggleCategory(APP_CATEGORIES[0].id);
+    c.toggleCategory(APP_CATEGORIES[1].id);
+    c.clearCategories();
+    expect(c.activeCategories().size).toBe(0);
+    expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
+  });
+
+  it('toggleCategoryMenu opens + closes the popover', () => {
+    const c = make();
+    expect(c.categoryMenuOpen()).toBe(false);
+    c.toggleCategoryMenu();
+    expect(c.categoryMenuOpen()).toBe(true);
+    c.closeCategoryMenu();
+    expect(c.categoryMenuOpen()).toBe(false);
   });
 
   it('search matches by name / tagline / id / tag', () => {
@@ -84,23 +125,33 @@ describe('AppsComponent (catalog filter + a11y)', () => {
 
   it('clearSearch + resetFilters restore the full catalog', () => {
     const c = make();
-    c.setCategory(APP_CATEGORIES[0].id);
+    c.toggleCategory(APP_CATEGORIES[0].id);
     c.onSearchChange('x');
     c.resetFilters();
-    expect(c.activeCategory()).toBeNull();
+    expect(c.activeCategories().size).toBe(0);
     expect(c.searchQuery()).toBe('');
     expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
   });
 
-  it('honours a ?category= deep link from the route', () => {
+  it('honours a single ?category= deep link from the route', () => {
     const validCat = APP_CATEGORIES[0].id;
     const c = make(validCat);
-    expect(c.activeCategory()).toBe(validCat);
+    expect(c.activeCategories().has(validCat)).toBe(true);
+    expect(c.selectedCategoryCount()).toBe(1);
+  });
+
+  it('honours a comma-separated ?category= multi deep link', () => {
+    const a = APP_CATEGORIES[0].id;
+    const b = APP_CATEGORIES[1].id;
+    const c = make(`${a},${b}`);
+    expect(c.activeCategories().has(a)).toBe(true);
+    expect(c.activeCategories().has(b)).toBe(true);
+    expect(c.selectedCategoryCount()).toBe(2);
   });
 
   it('ignores an unknown ?category= deep link', () => {
     const c = make('not-a-real-category');
-    expect(c.activeCategory()).toBeNull();
+    expect(c.activeCategories().size).toBe(0);
   });
 });
 
