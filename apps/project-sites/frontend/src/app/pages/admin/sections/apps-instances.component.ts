@@ -20,7 +20,6 @@ import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmInputDirective } from '../../../ui';
 import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
-import { SyncedPillComponent } from '../../../components/synced-pill/synced-pill.component';
 import { APPS_CATALOG, findApp, type CatalogApp } from './apps-catalog.data';
 
 type InstanceStatus = 'provisioning' | 'running' | 'error' | 'stopped';
@@ -87,7 +86,7 @@ function resolveApp(id: string): CatalogApp | null {
 @Component({
   selector: 'app-admin-apps-instances',
   standalone: true,
-  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective, SyncedPillComponent, ErrorCardComponent],
+  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -109,7 +108,6 @@ function resolveApp(id: string): CatalogApp | null {
           </p>
         </div>
         <div class="flex items-center gap-3">
-          <app-synced-pill [at]="syncedAt()" />
           <a class="btn-primary" routerLink="/admin/apps">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             <span>Deploy new app</span>
@@ -394,16 +392,26 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   loadError = signal<string | null>(null);
   /** Worker request_id from a failed instances load → copyable support reference on the error card. */
   loadErrorRef = signal('');
-  /** Epoch ms of the last successful instances load — feeds <app-synced-pill> (this list polls while apps provision). */
-  syncedAt = signal<number | null>(null);
   runningCount = computed(() => this.instances().filter((i) => i.status === 'running').length);
 
   private pollHandle?: ReturnType<typeof setInterval>;
+  /** Visibility-gated background sync — pause when the tab is hidden, catch up
+   *  immediately when it returns. Keeps the list "always synced" without burning
+   *  requests on a backgrounded tab (mirrors AdminStateService's pattern). */
+  private readonly onVisibility = (): void => {
+    if (typeof document === 'undefined') return;
+    if (document.hidden) { this.stopPolling(); }
+    else { this.refresh(); this.startPolling(); }
+  };
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.onVisibility);
+  }
 
   ngOnDestroy(): void {
-    if (this.pollHandle) clearInterval(this.pollHandle);
+    this.stopPolling();
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisibility);
   }
 
   /** First/manual load — a failure (or stale shapeless 200) shows the retry card. */
@@ -450,9 +458,8 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
         }
         this.instances.set(r.instances.map(adaptInstance));
         this.loadError.set(null);
-        this.syncedAt.set(Date.now());
         this.loading.set(false);
-        this.maybeStartPolling();
+        this.startPolling();
       },
       error: (err) => {
         if (poll) {
@@ -473,14 +480,22 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
-  private maybeStartPolling(): void {
-    const provisioning = this.instances().some((i) => i.status === 'provisioning');
-    if (provisioning && !this.pollHandle) {
-      this.pollHandle = setInterval(() => this.refresh(), 15_000);
-    } else if (!provisioning && this.pollHandle) {
-      clearInterval(this.pollHandle);
-      this.pollHandle = undefined;
-    }
+  /** Steady-state refresh cadence: 15s while any app provisions (the list
+   *  changes fast), 30s otherwise (catch external start/stop/crash). */
+  private pollMs(): number {
+    return this.instances().some((i) => i.status === 'provisioning') ? 15_000 : 30_000;
+  }
+
+  /** (Re)arm the background poll so the list stays synced. Never polls a hidden
+   *  tab; re-arms at the current cadence after every successful fetch. */
+  private startPolling(): void {
+    this.stopPolling();
+    if (typeof document !== 'undefined' && document.hidden) return;
+    this.pollHandle = setInterval(() => this.refresh(), this.pollMs());
+  }
+
+  private stopPolling(): void {
+    if (this.pollHandle) { clearInterval(this.pollHandle); this.pollHandle = undefined; }
   }
 
   glyphFor(i: AppInstance): string { return resolveApp(i.app_id)?.glyph ?? '📦'; }

@@ -112,22 +112,30 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
   // ── Instances load-error gating: a failed fetch must NOT masquerade as the
   // "No app instances yet" empty state (which could prompt re-installing an app
   // the user already has). It records a retryable loadError instead.
-  it('load() success leaves loadError null + populates instances + stamps syncedAt', () => {
+  it('load() success leaves loadError null + populates instances + clears loading', () => {
     const { c, api } = make();
     api.get.and.returnValue(of({ instances: [inst('a')] }));
-    expect(c.syncedAt()).toBeNull();
     c.load();
     expect(c.loadError()).toBeNull();
     expect(c.instances().length).toBe(1);
     expect(c.loading()).toBeFalse();
-    expect(c.syncedAt()).withContext('a successful load feeds the live freshness pill').not.toBeNull();
   });
 
-  it('load() failure leaves syncedAt null (no false freshness)', () => {
+  it('load() failure does not populate instances (no false data)', () => {
     const { c, api } = make();
     api.get.and.returnValue(throwError(() => ({ status: 500 })));
     c.load();
-    expect(c.syncedAt()).toBeNull();
+    expect(c.instances().length).toBe(0);
+  });
+
+  it('stays synced — arms a background poll after a successful load (no visible "Synced" stamp needed)', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({ instances: [inst('a')] }));
+    c.load();
+    // A poll handle keeps the list fresh continuously rather than showing a
+    // last-synced timestamp the user has to read.
+    expect((c as unknown as { pollHandle?: unknown }).pollHandle)
+      .withContext('background sync armed').toBeDefined();
   });
 
   it('load() failure sets a retryable loadError (not a fake empty) + clears loading', () => {
