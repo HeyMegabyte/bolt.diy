@@ -314,6 +314,15 @@ jobs:
           sleep 15
           node scripts/verify-deploy.mjs https://projectsites.dev
 
+      # Non-blocking: guards the live MCP/OAuth surface (discovery → 11 tools →
+      # 401+WWW-Authenticate → DCR → token). Not a hard gate because flag state is
+      # operational (a legit flags-off rollback shouldn't fail the deploy), but a
+      # silent MCP regression (e.g. the mcpSite route-shadow) shows loudly here.
+      - name: MCP/OAuth live smoke (production — non-blocking)
+        working-directory: apps/project-sites
+        continue-on-error: true
+        run: node e2e/mcp-live-smoke.mjs https://projectsites.dev
+
   # ─── Stage 6: Post-deploy E2E on Production (3 shards) ──────
   e2e-production:
     name: 'E2E Production ${{ matrix.shard }}/3'
