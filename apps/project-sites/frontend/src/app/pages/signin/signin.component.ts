@@ -31,6 +31,17 @@ export class SigninComponent implements OnInit {
   attempted = signal(false);
 
   /**
+   * Test-login seam, shown ONLY under `?test=1`. Drives the secret-gated
+   * `POST /api/auth/test-login` worker endpoint (404 unless `E2E_TEST_PASSWORD`
+   * is provisioned) so a Playwright run can sign in through the REAL homepage→
+   * admin flow. The email is the canonical test account the worker accepts.
+   */
+  testMode = signal(false);
+  testEmail = 'brian@megabyte.space';
+  testPassword = '';
+  testSending = signal(false);
+
+  /**
    * Where to land after a successful sign-in. Sourced from the `returnUrl`
    * query param the {@link authGuard} appends when it bounces an unauthed user
    * here, falling back to the dashboard. Sanitized to same-origin app paths so
@@ -47,9 +58,47 @@ export class SigninComponent implements OnInit {
    */
   ngOnInit(): void {
     this.returnUrl = this.sanitizeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
+    this.testMode.set(this.route.snapshot.queryParamMap.get('test') === '1');
     if (this.auth.isLoggedIn()) {
       this.router.navigateByUrl(this.returnUrl);
     }
+  }
+
+  /**
+   * Submit the test-login seam: post the canonical email + password, store the
+   * real bearer, and redirect to the sanitized returnUrl. Errors surface inline
+   * + via toast (mirrors the magic-link path); a missing password no-ops with a
+   * hint. Re-entry is guarded while a request is in flight.
+   */
+  testSignIn(): void {
+    if (this.testSending()) return;
+    this.inlineError.set(null);
+    if (!this.testPassword) {
+      this.inlineError.set('Enter the test password.');
+      return;
+    }
+    this.testSending.set(true);
+    this.api.testLogin(this.testEmail.trim(), this.testPassword).subscribe({
+      next: (res) => {
+        this.testSending.set(false);
+        const token = res?.data?.token;
+        if (!token) {
+          this.inlineError.set('Test sign-in failed — no session was returned.');
+          return;
+        }
+        this.auth.setSession(token, res.data.email ?? this.testEmail);
+        this.router.navigateByUrl(this.returnUrl);
+      },
+      error: (err) => {
+        this.testSending.set(false);
+        const human =
+          err?.error?.error?.message ||
+          err?.error?.message ||
+          'Test sign-in failed — check the password and try again.';
+        this.inlineError.set(human);
+        this.toast.error(human);
+      },
+    });
   }
 
   /** Only allow same-origin, app-relative paths (`/admin`, `/create`, …). */
@@ -104,7 +153,8 @@ export class SigninComponent implements OnInit {
     let redirectUrl = window.location.origin + `/?auth_callback=${provider}`;
     if (business) {
       redirectUrl += `&biz_name=${encodeURIComponent(business.name)}&biz_address=${encodeURIComponent(business.address)}`;
-      if (business.place_id) redirectUrl += `&biz_place_id=${encodeURIComponent(business.place_id)}`;
+      if (business.place_id)
+        redirectUrl += `&biz_place_id=${encodeURIComponent(business.place_id)}`;
       redirectUrl += `&mode=${mode}`;
     }
     return redirectUrl;
@@ -125,7 +175,8 @@ export class SigninComponent implements OnInit {
     let redirectUrl = window.location.origin + '/?auth_callback=email';
     if (business) {
       redirectUrl += `&biz_name=${encodeURIComponent(business.name)}&biz_address=${encodeURIComponent(business.address)}`;
-      if (business.place_id) redirectUrl += `&biz_place_id=${encodeURIComponent(business.place_id)}`;
+      if (business.place_id)
+        redirectUrl += `&biz_place_id=${encodeURIComponent(business.place_id)}`;
       redirectUrl += `&mode=${mode}`;
     }
 
@@ -141,9 +192,10 @@ export class SigninComponent implements OnInit {
       },
       error: (err) => {
         this.sending.set(false);
-        const human = err?.error?.error?.message
-          || err?.error?.message
-          || "Couldn't send the magic link — check the address and try again.";
+        const human =
+          err?.error?.error?.message ||
+          err?.error?.message ||
+          "Couldn't send the magic link — check the address and try again.";
         // Surface inline AND via toast (api.service already toasted, but only on transport errors).
         this.inlineError.set(human);
         this.toast.error(human);

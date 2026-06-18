@@ -102,13 +102,20 @@ export class ApiService {
           // "Couldn't load — retry" card that would re-hammer a route that can't
           // succeed. Never toast (not user-actionable; the section owns its notice).
           if (error.status >= 200 && error.status < 300) {
-            this.telemetry.track('http.failure', { status: error.status, url: this.safeUrl(error.url), reason: 'spa_fallthrough' });
-            return throwError(() => new HttpErrorResponse({
-              error: error.error,
-              status: 404,
-              statusText: 'Not Found',
-              url: error.url ?? undefined,
-            }));
+            this.telemetry.track('http.failure', {
+              status: error.status,
+              url: this.safeUrl(error.url),
+              reason: 'spa_fallthrough',
+            });
+            return throwError(
+              () =>
+                new HttpErrorResponse({
+                  error: error.error,
+                  status: 404,
+                  statusText: 'Not Found',
+                  url: error.url ?? undefined,
+                }),
+            );
           }
           const message = this.getErrorMessage(error);
           // `silent` suppresses the user-facing toast for fire-and-forget /
@@ -179,8 +186,14 @@ export class ApiService {
    * Pass `{ silent: true }` to suppress the user-facing error toast (telemetry
    * + 401 handling still run) — for background/forward-compatible reads.
    */
-  get<T>(path: string, params?: Record<string, string>, opts?: { silent?: boolean }): Observable<T> {
-    return this.http.get<T>(`/api${path}`, { headers: this.headers(), params }).pipe(this.handleError(opts?.silent));
+  get<T>(
+    path: string,
+    params?: Record<string, string>,
+    opts?: { silent?: boolean },
+  ): Observable<T> {
+    return this.http
+      .get<T>(`/api${path}`, { headers: this.headers(), params })
+      .pipe(this.handleError(opts?.silent));
   }
 
   /**
@@ -206,19 +219,25 @@ export class ApiService {
    * + 401 handling still run) — for fire-and-forget syncs.
    */
   post<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
-    return this.http.post<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
+    return this.http
+      .post<T>(`/api${path}`, body, { headers: this.headers() })
+      .pipe(this.handleError(opts?.silent));
   }
 
   /** Generic PUT — JSON body, bearer header, 30s timeout. `{ silent: true }`
    *  suppresses the generic error toast (telemetry + 401-redirect still run). */
   put<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
-    return this.http.put<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
+    return this.http
+      .put<T>(`/api${path}`, body, { headers: this.headers() })
+      .pipe(this.handleError(opts?.silent));
   }
 
   /** Generic PATCH — JSON body, bearer header, 30s timeout. `{ silent: true }`
    *  suppresses the generic error toast (telemetry + 401-redirect still run). */
   patch<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
-    return this.http.patch<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
+    return this.http
+      .patch<T>(`/api${path}`, body, { headers: this.headers() })
+      .pipe(this.handleError(opts?.silent));
   }
 
   /**
@@ -227,7 +246,9 @@ export class ApiService {
    * the caller surfaces its OWN specific error message — avoids a double-toast.
    */
   delete<T>(path: string, opts?: { silent?: boolean }): Observable<T> {
-    return this.http.delete<T>(`/api${path}`, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
+    return this.http
+      .delete<T>(`/api${path}`, { headers: this.headers() })
+      .pipe(this.handleError(opts?.silent));
   }
 
   /**
@@ -243,11 +264,17 @@ export class ApiService {
     if (token) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
-    return this.http.post<T>(`/api${path}`, formData, { headers }).pipe(this.handleError(opts?.silent));
+    return this.http
+      .post<T>(`/api${path}`, formData, { headers })
+      .pipe(this.handleError(opts?.silent));
   }
 
   /** Search businesses via Google Places proxy */
-  searchBusinesses(query: string, lat?: number, lng?: number): Observable<{ data: BusinessResult[] }> {
+  searchBusinesses(
+    query: string,
+    lat?: number,
+    lng?: number,
+  ): Observable<{ data: BusinessResult[] }> {
     const params: Record<string, string> = { q: query };
     if (lat != null && lng != null) {
       params['lat'] = lat.toString();
@@ -267,8 +294,24 @@ export class ApiService {
   }
 
   /** Send magic link */
-  sendMagicLink(email: string, redirectUrl: string): Observable<{ data: { token: string; identifier: string } }> {
+  sendMagicLink(
+    email: string,
+    redirectUrl: string,
+  ): Observable<{ data: { token: string; identifier: string } }> {
     return this.post('/auth/magic-link', { email, redirect_url: redirectUrl });
+  }
+
+  /**
+   * Secret-gated E2E test-login seam. Posts the canonical test email + password
+   * to the worker's `POST /api/auth/test-login`, which 404s unless
+   * `E2E_TEST_PASSWORD` is provisioned (never a live backdoor). Silent so the
+   * signin component owns the inline + toast error UX.
+   */
+  testLogin(
+    email: string,
+    password: string,
+  ): Observable<{ data: { token: string; email: string; user_id: string; org_id: string } }> {
+    return this.post('/auth/test-login', { email, password }, { silent: true });
   }
 
   /** Get current user */
@@ -383,7 +426,11 @@ export class ApiService {
   }
 
   /** Save edits to an endpoint (files + metadata) */
-  updateAiEndpoint(siteId: string, endpointId: string, body: Partial<AiEndpointDetail>): Observable<{ data: AiEndpointDetail }> {
+  updateAiEndpoint(
+    siteId: string,
+    endpointId: string,
+    body: Partial<AiEndpointDetail>,
+  ): Observable<{ data: AiEndpointDetail }> {
     return this.put(`/sites/${siteId}/ai-endpoints/${endpointId}`, body);
   }
 
@@ -393,7 +440,10 @@ export class ApiService {
   }
 
   /** Create a new AI endpoint (slug + language + starter files) */
-  createAiEndpoint(siteId: string, body: { endpoint_slug: string; display_name?: string; language?: string }): Observable<{ data: AiEndpointRow }> {
+  createAiEndpoint(
+    siteId: string,
+    body: { endpoint_slug: string; display_name?: string; language?: string },
+  ): Observable<{ data: AiEndpointRow }> {
     return this.post(`/sites/${siteId}/ai-endpoints`, body);
   }
 
@@ -468,7 +518,10 @@ export class ApiService {
   }
 
   /** Aggregated social engagement by platform (the social-analytics surface) */
-  getSocialAnalytics(): Observable<{ window_days: number; platform_totals: SocialPlatformTotals[] }> {
+  getSocialAnalytics(): Observable<{
+    window_days: number;
+    platform_totals: SocialPlatformTotals[];
+  }> {
     return this.get(`/social/analytics/aggregate`);
   }
 
@@ -511,7 +564,9 @@ export class ApiService {
   registerDomain(
     domain: string,
     siteId: string,
-  ): Observable<{ data: { purchase_id: string; domain: string; hostname_id: string | null; ssl_status: string } }> {
+  ): Observable<{
+    data: { purchase_id: string; domain: string; hostname_id: string | null; ssl_status: string };
+  }> {
     return this.post('/domains/register', { domain, site_id: siteId });
   }
 
@@ -523,8 +578,18 @@ export class ApiService {
   }
 
   /** Billing checkout */
-  createCheckout(orgId: string, siteId: string, returnUrl: string, budgetTier?: BudgetTier): Observable<{ data: { client_secret: string } }> {
-    const payload: { org_id: string; site_id: string; return_url: string; budget_tier?: BudgetTier } = {
+  createCheckout(
+    orgId: string,
+    siteId: string,
+    returnUrl: string,
+    budgetTier?: BudgetTier,
+  ): Observable<{ data: { client_secret: string } }> {
+    const payload: {
+      org_id: string;
+      site_id: string;
+      return_url: string;
+      budget_tier?: BudgetTier;
+    } = {
       org_id: orgId,
       site_id: siteId,
       return_url: returnUrl,
@@ -562,17 +627,32 @@ export class ApiService {
   }
 
   /** Contact form */
-  submitContact(body: { name: string; email: string; phone?: string; message: string }): Observable<void> {
+  submitContact(body: {
+    name: string;
+    email: string;
+    phone?: string;
+    message: string;
+  }): Observable<void> {
     return this.post('/contact', body);
   }
 
   /** Generate an expert prompt using OpenAI research pipeline */
-  generatePrompt(body: { site_id?: string; business_name: string; business_address?: string; google_place_id?: string; additional_context?: string }): Observable<{ data: { prompt: string; research: Record<string, unknown> } }> {
+  generatePrompt(body: {
+    site_id?: string;
+    business_name: string;
+    business_address?: string;
+    google_place_id?: string;
+    additional_context?: string;
+  }): Observable<{ data: { prompt: string; research: Record<string, unknown> } }> {
     return this.post('/sites/generate-prompt', body);
   }
 
   /** Improve / restructure rough notes via Workers AI (no auth required) */
-  improvePrompt(body: { text: string; business_name?: string; business_address?: string }): Observable<{ data: { improved_text: string } }> {
+  improvePrompt(body: {
+    text: string;
+    business_name?: string;
+    business_address?: string;
+  }): Observable<{ data: { improved_text: string } }> {
     return this.post('/sites/improve-prompt', body);
   }
 
@@ -588,10 +668,12 @@ export class ApiService {
 
   /** Delete site with options */
   deleteSiteWithOptions(id: string, cancelSubscription: boolean): Observable<void> {
-    return this.http.request<void>('DELETE', `/api/sites/${id}`, {
-      headers: this.headers(),
-      body: { cancel_subscription: cancelSubscription },
-    }).pipe(this.handleError());
+    return this.http
+      .request<void>('DELETE', `/api/sites/${id}`, {
+        headers: this.headers(),
+        body: { cancel_subscription: cancelSubscription },
+      })
+      .pipe(this.handleError());
   }
 
   /** Get entitlements */
@@ -600,7 +682,11 @@ export class ApiService {
   }
 
   /** AI-powered business categorization */
-  categorize(name: string, address?: string, types?: string[]): Observable<{ data: { category: string } }> {
+  categorize(
+    name: string,
+    address?: string,
+    types?: string[],
+  ): Observable<{ data: { category: string } }> {
     return this.post('/ai/categorize', { name, address, types });
   }
 
@@ -613,37 +699,67 @@ export class ApiService {
    *
    * @see {@link AutofillResult}
    */
-  autofillSite(name: string): Observable<{ data: AutofillResult; meta?: { model: string; latency_ms: number; status: 'ok' | 'error' } }> {
+  autofillSite(
+    name: string,
+  ): Observable<{
+    data: AutofillResult;
+    meta?: { model: string; latency_ms: number; status: 'ok' | 'error' };
+  }> {
     return this.post('/sites/autofill', { name });
   }
 
   /** AI image discovery — finds logo, favicon, and images via web search */
-  discoverImages(name: string, address?: string, website?: string): Observable<{ data: DiscoveredImages }> {
+  discoverImages(
+    name: string,
+    address?: string,
+    website?: string,
+  ): Observable<{ data: DiscoveredImages }> {
     return this.post('/ai/discover-images', { name, address, website });
   }
 
   /** AI video discovery — finds relevant videos from YouTube, Pexels, Pixabay */
-  discoverVideos(name: string, address?: string, businessType?: string): Observable<{ data: DiscoveredVideos }> {
+  discoverVideos(
+    name: string,
+    address?: string,
+    businessType?: string,
+  ): Observable<{ data: DiscoveredVideos }> {
     return this.post('/ai/discover-videos', { name, address, business_type: businessType });
   }
 
   /** AI image edit — generates new image from a text prompt */
-  editImage(prompt: string, originalUrl?: string): Observable<{ data: { url: string; prompt: string } }> {
+  editImage(
+    prompt: string,
+    originalUrl?: string,
+  ): Observable<{ data: { url: string; prompt: string } }> {
     return this.post('/ai/edit-image', { prompt, originalUrl });
   }
 
   /** Upload assets (logo, favicon, images) before site creation */
-  uploadAssets(formData: FormData): Observable<{ data: { upload_id: string; assets: { key: string; name: string; size: number; type: string; url: string }[] } }> {
+  uploadAssets(
+    formData: FormData,
+  ): Observable<{
+    data: {
+      upload_id: string;
+      assets: { key: string; name: string; size: number; type: string; url: string }[];
+    };
+  }> {
     return this.postFormData('/assets/upload', formData);
   }
 
   /** Get build assets for a site (generated during workflow) */
-  getBuildAssets(siteId: string): Observable<{ data: { key: string; name: string; type: string; size: number; url: string }[] }> {
+  getBuildAssets(
+    siteId: string,
+  ): Observable<{
+    data: { key: string; name: string; type: string; size: number; url: string }[];
+  }> {
     return this.get(`/sites/${siteId}/build-assets`);
   }
 
   /** Revert a site to a previous snapshot version */
-  revertSnapshot(siteId: string, snapshotId: string): Observable<{ data: { message: string; snapshot_name: string } }> {
+  revertSnapshot(
+    siteId: string,
+    snapshotId: string,
+  ): Observable<{ data: { message: string; snapshot_name: string } }> {
     // FIXME(revert-contract): the worker reads `body.commit_id` (a git SHA) and
     // 400s on `snapshot_id`. To wire a working Revert in v2, the snapshot list
     // GET must expose the commit SHA + this must send { commit_id }. Destructive
@@ -692,12 +808,18 @@ export class ApiService {
   }
 
   /** Bind an alternate URL to a site. Returns 409 on duplicate hostname. */
-  addSiteUrl(siteId: string, hostname: string): Observable<{ data: { id: string; hostname: string; is_primary: number } }> {
+  addSiteUrl(
+    siteId: string,
+    hostname: string,
+  ): Observable<{ data: { id: string; hostname: string; is_primary: number } }> {
     return this.post(`/sites/${siteId}/urls`, { hostname });
   }
 
   /** Unbind an alternate URL. The primary URL cannot be removed via this endpoint. */
-  removeSiteUrl(siteId: string, urlId: string): Observable<{ data: { id: string; deleted: boolean } }> {
+  removeSiteUrl(
+    siteId: string,
+    urlId: string,
+  ): Observable<{ data: { id: string; deleted: boolean } }> {
     return this.delete(`/sites/${siteId}/urls/${urlId}`);
   }
 
@@ -710,12 +832,23 @@ export class ApiService {
   }
 
   /** Store the org's Cloudflare global-key credentials (validated server-side). */
-  setCloudflareCredentials(email: string, apiKey: string): Observable<{ data: CloudflareCredentialStatus }> {
+  setCloudflareCredentials(
+    email: string,
+    apiKey: string,
+  ): Observable<{ data: CloudflareCredentialStatus }> {
     return this.put('/admin/cloudflare-credentials', { email, api_key: apiKey });
   }
 
   /** Re-validate stored credentials by pinging `GET /zones?per_page=1`. */
-  validateCloudflareCredentials(): Observable<{ data: { ok: boolean; account_id?: string | null; validated_at?: string; status?: number; message?: string } }> {
+  validateCloudflareCredentials(): Observable<{
+    data: {
+      ok: boolean;
+      account_id?: string | null;
+      validated_at?: string;
+      status?: number;
+      message?: string;
+    };
+  }> {
     return this.post('/admin/cloudflare-credentials/validate', {});
   }
 
@@ -730,20 +863,33 @@ export class ApiService {
   }
 
   /** List newsletter integrations for a site */
-  listIntegrations(siteId: string, opts?: { silent?: boolean }): Observable<{ data: NewsletterIntegration[] }> {
+  listIntegrations(
+    siteId: string,
+    opts?: { silent?: boolean },
+  ): Observable<{ data: NewsletterIntegration[] }> {
     return this.get(`/sites/${siteId}/integrations`, undefined, opts);
   }
 
   /** Connect a newsletter integration to a site */
   createIntegration(
     siteId: string,
-    body: { provider: NewsletterProvider; api_key: string; list_id?: string; webhook_url?: string; config?: Record<string, unknown> },
+    body: {
+      provider: NewsletterProvider;
+      api_key: string;
+      list_id?: string;
+      webhook_url?: string;
+      config?: Record<string, unknown>;
+    },
   ): Observable<{ data: NewsletterIntegration }> {
     return this.post(`/sites/${siteId}/integrations`, body);
   }
 
   /** Update an integration (toggle active, rotate key) */
-  updateIntegration(siteId: string, id: string, body: Partial<NewsletterIntegration>): Observable<{ data: NewsletterIntegration }> {
+  updateIntegration(
+    siteId: string,
+    id: string,
+    body: Partial<NewsletterIntegration>,
+  ): Observable<{ data: NewsletterIntegration }> {
     return this.patch(`/sites/${siteId}/integrations/${id}`, body);
   }
 
@@ -763,7 +909,9 @@ export class ApiService {
   }
 
   /** Trigger immediate backup commit (HEAD of main → snapshot commit) */
-  triggerGithubBackup(siteId: string): Observable<{ data: { commit_sha: string; html_url: string } }> {
+  triggerGithubBackup(
+    siteId: string,
+  ): Observable<{ data: { commit_sha: string; html_url: string } }> {
     return this.post(`/sites/${siteId}/github/backup`, {});
   }
 
@@ -785,7 +933,13 @@ export interface GithubBackupStatus {
   github_avatar_url?: string;
 }
 
-export type NewsletterProvider = 'mailchimp' | 'webhook' | 'resend' | 'sendgrid' | 'convertkit' | 'klaviyo';
+export type NewsletterProvider =
+  | 'mailchimp'
+  | 'webhook'
+  | 'resend'
+  | 'sendgrid'
+  | 'convertkit'
+  | 'klaviyo';
 
 export interface NewsletterIntegration {
   id: string;
