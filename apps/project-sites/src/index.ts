@@ -110,6 +110,8 @@ import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js';
 import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: prod_readiness_score)
 import { deployButtons } from '../libs/features/deploy_buttons/handlers.js'; // GET /api/deploy-buttons/:siteId — deploy buttons + "Hosted on" badge (flag: deploy_buttons)
 import { visitorDsar } from '../libs/features/visitor_dsar/handlers.js'; // POST /api/sites/:siteId/dsar — GDPR data-subject export/delete (flag: visitor_dsar)
+import { onboardingCopilot } from '../libs/features/onboarding_copilot/handlers.js'; // /api/onboarding/{checklist,dismiss} — PLG activation checklist (flag: onboarding_copilot)
+import { auditTrailExport } from '../libs/features/audit_trail_export/handlers.js'; // GET /api/audit/export — filterable audit-log JSON/CSV export (flag: audit_trail_export)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
 import { storefrontEcommerce } from '../libs/features/storefront_ecommerce/handlers.js'; // native storefront (flag: storefront_ecommerce)
@@ -402,6 +404,8 @@ app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization
 app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`
 app.route('/api/deploy-buttons', deployButtons); // GET /api/deploy-buttons/:siteId (flag: deploy_buttons)
 app.route('/', visitorDsar); // POST /api/sites/:siteId/dsar (flag: visitor_dsar) — must precede `api`
+app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,dismiss} (flag: onboarding_copilot)
+app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
