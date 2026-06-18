@@ -107,6 +107,9 @@ import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Googl
 import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // abuse + takedown intake (flag: abuse_takedown)
 import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js'; // OAuth 2.1 AS for MCP one-click connect (flag: mcp_oauth_provider)
+import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: prod_readiness_score)
+import { deployButtons } from '../libs/features/deploy_buttons/handlers.js'; // GET /api/deploy-buttons/:siteId — deploy buttons + "Hosted on" badge (flag: deploy_buttons)
+import { visitorDsar } from '../libs/features/visitor_dsar/handlers.js'; // POST /api/sites/:siteId/dsar — GDPR data-subject export/delete (flag: visitor_dsar)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
 import { storefrontEcommerce } from '../libs/features/storefront_ecommerce/handlers.js'; // native storefront (flag: storefront_ecommerce)
@@ -396,6 +399,9 @@ app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt Index
 app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
+app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`
+app.route('/api/deploy-buttons', deployButtons); // GET /api/deploy-buttons/:siteId (flag: deploy_buttons)
+app.route('/', visitorDsar); // POST /api/sites/:siteId/dsar (flag: visitor_dsar) — must precede `api`
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
