@@ -388,6 +388,10 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
        nor its inner title bar/section raises on hover. .sf-page prefix wins the
        specificity battle against the global rule. */
     .sf-page .sf-card:hover, .sf-page .sf-card-head:hover, .sf-page .sf-card-title:hover { transform: none; }
+    /* The inner head/title also match [class*="-card"], so the global hover rule
+       paints a box-shadow inset ring on them → a SECOND nested outline. Kill it
+       on the inner elements (the outer .sf-card keeps its own border). */
+    .sf-page .sf-card-head:hover, .sf-page .sf-card-title:hover { box-shadow: none; }
     .sf-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 16%, transparent); }
     .sf-card[data-entitled="upgrade-required"], .sf-card[data-entitled="addon-required"] { opacity: .92; }
     .sf-card-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }

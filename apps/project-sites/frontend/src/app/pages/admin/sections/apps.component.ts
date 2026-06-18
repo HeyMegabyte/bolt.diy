@@ -445,7 +445,9 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
        both match the global [class*="-card"]:hover translateY lift (_polish.scss),
        so they raised independently on top of the card. Opt them out — only the
        card raises, as one unit. .app-card prefix wins the specificity battle. */
-    .app-card .app-card-head:hover, .app-card .app-card-foot:hover { transform: none; }
+    /* …and opt out of the global [class*="-card"]:hover box-shadow inset ring too,
+       so the inner head/foot don't render a SECOND nested outline over the card. */
+    .app-card .app-card-head:hover, .app-card .app-card-foot:hover { transform: none; box-shadow: none; }
     .app-glyph {
       flex-shrink: 0;
       width: 44px; height: 44px;
