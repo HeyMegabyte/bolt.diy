@@ -128,7 +128,7 @@ const REGULAR: Partial<Variables> = { userId: 'user-9', orgId: 'org-9', requestI
 /** Make the requireSuperAdmin middleware treat the caller as a super-admin. */
 function grantSuperAdmin() {
   mockDbQueryOne.mockImplementation(async (_db: unknown, sql: string) => {
-    if (/is_super_admin\s+FROM\s+users/i.test(sql)) return { is_super_admin: 1 };
+    if (/is_super_admin.*FROM\s+users/i.test(sql)) return { is_super_admin: 1 };
     return null;
   });
 }
@@ -207,7 +207,7 @@ describe('super-admin gate (requireSuperAdmin)', () => {
   it('rejects EVERY route with 403 when a regular authed user calls it', async () => {
     // dbQueryOne returns a user row with is_super_admin = 0.
     mockDbQueryOne.mockImplementation(async (_db: unknown, sql: string) => {
-      if (/is_super_admin\s+FROM\s+users/i.test(sql)) return { is_super_admin: 0 };
+      if (/is_super_admin.*FROM\s+users/i.test(sql)) return { is_super_admin: 0 };
       return null;
     });
     for (const [method, path, body] of ROUTES) {

@@ -25,13 +25,15 @@ import type { MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { manualAdjustment } from '../services/wallet.js';
+import { isSuperAdmin } from '../services/sysadmin.js';
 import { unauthorized, forbidden } from '@project-sites/shared';
 
 const superAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
- * Require an authenticated user with `is_super_admin = 1`. Anything else
- * 401/403s before the handler runs.
+ * Require an authenticated platform super-admin (the shared {@link isSuperAdmin}
+ * check: `users.is_super_admin = 1` OR an operator-allowlist email — fail-closed).
+ * Anything else 401/403s before the handler runs.
  */
 const requireSuperAdmin: MiddlewareHandler<{ Bindings: Env; Variables: Variables }> = async (
   c,
@@ -39,12 +41,7 @@ const requireSuperAdmin: MiddlewareHandler<{ Bindings: Env; Variables: Variables
 ) => {
   const userId = c.get('userId');
   if (!userId) throw unauthorized();
-  const row = await dbQueryOne<{ is_super_admin: number }>(
-    c.env.DB,
-    'SELECT is_super_admin FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1',
-    [userId],
-  );
-  if (!row || row.is_super_admin !== 1) throw forbidden('Super-admin access required');
+  if (!(await isSuperAdmin(c.env, userId))) throw forbidden('Super-admin access required');
   await next();
 };
 
