@@ -178,7 +178,7 @@ describe('GET /api/social/:platform/connect', () => {
     expect((env.CACHE_KV as unknown as { put: jest.Mock }).put).not.toHaveBeenCalled();
   });
 
-  it('builds the authorize URL, redirects 302, and stashes PKCE state in KV', async () => {
+  it('builds the authorize URL, returns it as JSON, and stashes PKCE state in KV', async () => {
     let captured: { state: string; codeVerifier: string; redirectUri: string } | null = null;
     mockGetPublisher.mockReturnValue({
       authorizeUrl: (
@@ -196,8 +196,10 @@ describe('GET /api/social/:platform/connect', () => {
       env,
       makeCtx(),
     );
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toMatch(/twitter\.com\/i\/oauth2\/authorize/);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { mode: string; authorize_url: string } };
+    expect(body.data.mode).toBe('oauth');
+    expect(body.data.authorize_url).toMatch(/twitter\.com\/i\/oauth2\/authorize/);
 
     const kv = env.CACHE_KV as unknown as { put: jest.Mock; _store: Map<string, string> };
     expect(kv.put).toHaveBeenCalledTimes(1);

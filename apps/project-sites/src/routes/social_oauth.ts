@@ -126,7 +126,11 @@ socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
     }),
     { expirationTtl: OAUTH_STATE_TTL },
   );
-  return Response.redirect(authorizeUrl, 302);
+  // Return the authorize URL as JSON (NOT a 302). The admin opens this endpoint
+  // via an authenticated fetch (the bearer can't ride a `window.open` browser
+  // navigation — that was the "auth required" 401 when connecting X/Twitter), so
+  // the client reads `authorize_url` and opens the popup itself.
+  return c.json({ data: { mode: 'oauth', authorize_url: authorizeUrl } });
 });
 
 // ── GET /api/social/:platform/callback ──────────────────────

@@ -1841,18 +1841,31 @@ export class AdminSocialComponent implements OnInit {
     // paste_key spec (JSON), so opening a popup at it just shows raw JSON. Open
     // the paste-key form instead. OAuth platforms keep the popup flow below.
     if (this.defOf(pid)?.pasteKey) { this.openPaste(pid); return; }
-    const url = `/api/social/${pid}/connect?site_id=${encodeURIComponent(sid)}`;
-    const popup = window.open(url, 'social-oauth', 'width=620,height=720,popup=yes');
-    if (!popup) {
-      this.toast.error('Popup blocked — allow popups and try again');
-      return;
-    }
-    const poll = window.setInterval(() => {
-      if (popup.closed) {
-        window.clearInterval(poll);
-        this.loadAccounts();
-      }
-    }, 600);
+    // The connect endpoint is bearer-auth-gated, so a `window.open` browser
+    // navigation can't authenticate (that was the "auth required" 401 on X /
+    // Twitter). Fetch it WITH the bearer (ApiService) to get the authorize URL,
+    // THEN open the popup at the provider's authorize page.
+    this.api
+      .get<{ data?: { authorize_url?: string } }>(`/social/${pid}/connect`, { site_id: sid }, { silent: true })
+      .subscribe({
+      next: (res: { data?: { authorize_url?: string } }) => {
+        const authUrl = res?.data?.authorize_url;
+        if (!authUrl) { this.toast.error(`Couldn't start ${this.defOf(pid)?.label} sign-in — try again.`); return; }
+        const popup = window.open(authUrl, 'social-oauth', 'width=620,height=720,popup=yes');
+        if (!popup) { this.toast.error('Popup blocked — allow popups and try again'); return; }
+        const poll = window.setInterval(() => {
+          if (popup.closed) { window.clearInterval(poll); this.loadAccounts(); }
+        }, 600);
+      },
+      error: (err: { status?: number; error?: { error?: { code?: string; message?: string; deeplink?: string } } }) => {
+        const e = err?.error?.error;
+        if (err?.status === 501 || e?.code === 'APP_CREDS_MISSING') {
+          this.toast.error(e?.message ?? `${this.defOf(pid)?.label} sign-in isn't configured yet.`);
+        } else {
+          this.toast.error(e?.message ?? `Couldn't start ${this.defOf(pid)?.label} sign-in — try again.`);
+        }
+      },
+    });
   }
 
   // ── Paste-key connect (Bluesky / Mastodon / Telegram / Discord) ──────────
