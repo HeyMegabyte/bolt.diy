@@ -83,7 +83,9 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
               @if (a.tags.length > 0) {
                 <div class="tag-row mt-2">
                   @for (t of a.tags; track t) {
-                    <span class="tag-pill">{{ t }}</span>
+                    <!-- Clickable → catalog filtered to every app sharing this tag. -->
+                    <a class="tag-pill tag-pill--link" routerLink="/admin/apps" [queryParams]="{ tag: t }"
+                       [attr.data-testid]="'apps-detail-tag-' + t" [attr.aria-label]="'Find apps tagged ' + t">{{ t }}</a>
                   }
                 </div>
               }
@@ -382,6 +384,10 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       border: 1px solid rgba(255,255,255,0.07);
       border-radius: 999px;
     }
+    /* Clickable tag → cross-find other apps with the same tag. */
+    a.tag-pill--link { text-decoration: none; cursor: pointer; transition: color 0.333s ease, border-color 0.333s ease, background 0.333s ease; }
+    a.tag-pill--link:hover { color: var(--ps-accent, #00E5FF); border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent); background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent); }
+    a.tag-pill--link:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
 
     .grid-2col {
       display: grid; gap: 1.25rem;

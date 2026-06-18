@@ -195,6 +195,14 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
           <app-rolling-counter [value]="filteredApps().length" />
           <span class="result-label">{{ filteredApps().length === 1 ? 'match' : 'matches' }}</span>
         </span>
+        @if (activeTag(); as t) {
+          <button type="button" class="tag-filter-chip" (click)="clearTag()" data-testid="apps-tag-filter"
+                  [attr.aria-label]="'Clear tag filter ' + t">
+            <span class="tag-filter-k">Tag</span>
+            <span class="tag-filter-v">{{ t }}</span>
+            <span class="tag-filter-x" aria-hidden="true">✕</span>
+          </button>
+        }
         <span class="sr-only" role="status" aria-live="polite" data-testid="apps-result-status">{{ resultAnnouncement() }}</span>
       </div>
 
@@ -444,7 +452,27 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
     }
 
     /* ─── Result bar (count + live region) ─── */
-    .result-bar { display: flex; align-items: center; }
+    .result-bar { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+    /* Removable "Tag: X" filter chip (cross-find). */
+    .tag-filter-chip {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      padding: 0.28rem 0.4rem 0.28rem 0.6rem;
+      border-radius: 999px; cursor: pointer;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 40%, transparent);
+      color: var(--ps-accent, #00E5FF);
+      font-size: 0.7rem; line-height: 1;
+      transition: background 0.333s ease, border-color 0.333s ease;
+    }
+    .tag-filter-chip:hover { background: color-mix(in oklch, var(--ps-accent, #00E5FF) 20%, transparent); }
+    .tag-filter-chip:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    .tag-filter-k { font-size: 0.56rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; font-weight: 700; }
+    .tag-filter-v { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 600; }
+    .tag-filter-x {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.05rem; height: 1.05rem; border-radius: 999px; font-size: 0.6rem;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent);
+    }
     .result-count {
       display: inline-flex; align-items: baseline; gap: 5px;
       font-family: 'Sora', system-ui, sans-serif;
@@ -713,6 +741,9 @@ export class AppsComponent implements AfterViewInit, OnInit {
   lifecycle = signal<LifecycleFilter>('all');
   searchQuery = signal<string>('');
   searchFocused = signal<boolean>(false);
+  /** Exact-tag filter (cross-find): clicking a tag on an app links here with
+   *  `?tag=<t>` so you can see every app sharing that tag. null = no tag filter. */
+  activeTag = signal<string | null>(null);
 
   /** Template-bound mirror so `[(ngModel)]` doesn't need a signal-aware bridge. */
   searchInputValue = '';
@@ -721,9 +752,11 @@ export class AppsComponent implements AfterViewInit, OnInit {
   filteredApps = computed<readonly CatalogApp[]>(() => {
     const cats = this.activeCategories();
     const lc = this.lifecycle();
+    const tag = this.activeTag();
     const q = this.searchQuery().trim().toLowerCase();
     return APPS_CATALOG.filter((app) => {
       if (cats.size && !cats.has(app.category)) return false;
+      if (tag && !app.tags.includes(tag)) return false;
       if (lc === 'live' && !isAppSupported(app.id)) return false;
       if (lc === 'soon' && isAppSupported(app.id)) return false;
       if (!q) return true;
@@ -763,14 +796,21 @@ export class AppsComponent implements AfterViewInit, OnInit {
    */
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      // `?category=ai` (single) or `?category=ai,vector-db` (multi) deep links.
       const raw = params.get('category');
-      if (!raw) return;
-      // Supports a single category (`?category=ai`) or a comma-separated set
-      // (`?category=ai,vector-db`) so a deep link can pre-select the multi-filter.
-      const valid = new Set(APP_CATEGORIES.map((c) => c.id) as readonly string[]);
-      const picked = raw.split(',').map((s) => s.trim()).filter((s) => valid.has(s)) as AppCategory[];
-      if (picked.length) this.activeCategories.set(new Set(picked));
+      if (raw) {
+        const valid = new Set(APP_CATEGORIES.map((c) => c.id) as readonly string[]);
+        const picked = raw.split(',').map((s) => s.trim()).filter((s) => valid.has(s)) as AppCategory[];
+        if (picked.length) this.activeCategories.set(new Set(picked));
+      }
+      // `?tag=<t>` cross-find deep link — set/clear the exact-tag filter to match.
+      this.activeTag.set(params.get('tag'));
     });
+  }
+
+  /** Clear the active tag filter (the removable "Tag: X" chip). */
+  clearTag(): void {
+    this.activeTag.set(null);
   }
 
   /** Cmd+/ (Ctrl+/) focuses the search input. Matches the global mandate. */
@@ -835,6 +875,7 @@ export class AppsComponent implements AfterViewInit, OnInit {
   resetFilters(): void {
     this.activeCategories.set(new Set<AppCategory>());
     this.categoryMenuOpen.set(false);
+    this.activeTag.set(null);
     this.clearSearch();
   }
 

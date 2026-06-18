@@ -11,8 +11,11 @@ import { APPS_CATALOG, APP_CATEGORIES, isAppSupported } from './apps-catalog.dat
  * so the constructor runs without a router/animation harness; ActivatedRoute is
  * stubbed with an empty queryParamMap so ngOnInit's subscribe is inert.
  */
-function make(category?: string): AppsComponent {
-  const queryParamMap = of(convertToParamMap(category ? { category } : {}));
+function make(category?: string, tag?: string): AppsComponent {
+  const params: Record<string, string> = {};
+  if (category) params['category'] = category;
+  if (tag) params['tag'] = tag;
+  const queryParamMap = of(convertToParamMap(params));
   TestBed.configureTestingModule({
     imports: [AppsComponent],
     providers: [{ provide: ActivatedRoute, useValue: { queryParamMap } }],
@@ -100,6 +103,30 @@ describe('AppsComponent (catalog filter + a11y)', () => {
     expect(c.categoryMenuOpen()).toBe(true);
     c.closeCategoryMenu();
     expect(c.categoryMenuOpen()).toBe(false);
+  });
+
+  it('an active tag narrows to apps that have that EXACT tag (cross-find)', () => {
+    const c = make();
+    const tag = APPS_CATALOG[0].tags[0];
+    c.activeTag.set(tag);
+    const filtered = c.filteredApps();
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.every((a) => a.tags.includes(tag))).withContext('exact tag match').toBeTrue();
+  });
+
+  it('clearTag() drops the tag filter back to the full catalog', () => {
+    const c = make();
+    c.activeTag.set(APPS_CATALOG[0].tags[0]);
+    c.clearTag();
+    expect(c.activeTag()).toBeNull();
+    expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
+  });
+
+  it('honours a ?tag= deep link (clicking a tag on an app lands here filtered)', () => {
+    const tag = APPS_CATALOG[0].tags[0];
+    const c = make(undefined, tag);
+    expect(c.activeTag()).toBe(tag);
+    expect(c.filteredApps().every((a) => a.tags.includes(tag))).toBeTrue();
   });
 
   it('search matches by name / tagline / id / tag', () => {
