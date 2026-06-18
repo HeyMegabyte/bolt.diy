@@ -845,25 +845,28 @@ export class AdminSiteDetailComponent {
   }
 
   onConnect(p: IntegrationProvider): void {
-    // Open OAuth popup; if 501 → paste-key fallback.
-    const url = `/api/mcp/${p.key}/connect?site_id=${this.siteId()}`;
-    const popup = window.open(url, `mcp_${p.key}`, 'width=600,height=720');
-    if (!popup) {
-      // Popup blocked — fall back to paste-key.
-      this.pasteKeyOpen.set(p.key);
-      return;
-    }
-    // Probe for 501 immediately so paste-key surfaces without waiting on popup.
+    // The `/connect` route is BEARER-AUTH-GATED, so opening a popup straight at
+    // it shows an "auth required" 401 (or a raw JSON authorize blob). Fetch the
+    // authorize URL WITH the bearer (ApiService) first, THEN open the popup at
+    // the provider's authorize page. 501 / no URL → inline paste-key fallback.
     this.api
-      .get<{ status?: string }>(`/mcp/${p.key}/connect`)
-      .pipe(
-        catchError((err) => of({ status: err?.status === 501 ? 'oauth_not_configured' : 'ok' })),
-        takeUntilDestroyed(this.destroyRef),
+      .get<{ data?: { mode?: string; authorize_url?: string } }>(
+        `/mcp/${p.key}/connect`,
+        { site_id: this.siteId() },
+        { silent: true },
       )
-      .subscribe((res) => {
-        if (res.status === 'oauth_not_configured') {
-          this.pasteKeyOpen.set(p.key);
-        }
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          const authUrl = res?.data?.authorize_url;
+          if (authUrl) {
+            const popup = window.open(authUrl, `mcp_${p.key}`, 'width=600,height=720');
+            if (!popup) this.pasteKeyOpen.set(p.key); // popup blocked → paste-key
+            return;
+          }
+          this.pasteKeyOpen.set(p.key); // paste_key adapter / missing URL
+        },
+        error: () => { this.pasteKeyOpen.set(p.key); }, // 501 (not configured) / failure
       });
   }
 

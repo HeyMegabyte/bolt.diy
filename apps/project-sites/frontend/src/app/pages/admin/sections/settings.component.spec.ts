@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminSettingsComponent } from './settings.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -617,5 +617,63 @@ describe('AdminSettingsComponent (brand hex validation gate)', () => {
     c.settings.brand_primary = '#00E5FF';
     c.settings.brand_accent = '';
     expect(c.brandColorsInvalid()).toBe(false);
+  });
+});
+
+/**
+ * MCP connectOauth — the MailChimp "auth required" fix on the Settings panel.
+ * The `/mcp/:id/connect` route is bearer-gated, so the old cookie-`fetch` +
+ * popup-at-the-gated-route 401'd. connectOauth now fetches the authorize URL
+ * WITH the bearer (ApiService) then opens the popup there; 501 → paste-key.
+ */
+describe('AdminSettingsComponent — MCP connectOauth (bearer fetch, MailChimp auth-required fix)', () => {
+  let selectedSite: WritableSignal<{ id: string; slug: string } | null>;
+  let win: jasmine.Spy;
+
+  function build(get: jasmine.Spy): AdminSettingsComponent {
+    selectedSite = signal<{ id: string; slug: string } | null>({ id: 's1', slug: 'demo' });
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: jasmine.createSpy('info'), warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => 0 } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
+      ],
+    });
+    return TestBed.createComponent(AdminSettingsComponent).componentInstance;
+  }
+
+  beforeEach(() => {
+    win = spyOn(window, 'open').and.returnValue({ closed: false } as Window);
+    // Stop the popup-close poller from actually scheduling in the test.
+    spyOn(window, 'setInterval').and.returnValue(0 as unknown as ReturnType<typeof setInterval>);
+  });
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('fetches the authorize URL WITH the bearer (silent) then opens the popup there', () => {
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      /\/connect$/.test(path)
+        ? of({ data: { mode: 'oauth', authorize_url: 'https://login.mailchimp.com/oauth2/authorize?x=1' } })
+        : of({ data: null }),
+    );
+    const c = build(get);
+    c.connectOauth('mailchimp');
+    expect(get).toHaveBeenCalledWith('/mcp/mailchimp/connect', { site_id: 's1', return_url: '/admin/settings#mcp' }, { silent: true });
+    expect(win).toHaveBeenCalledWith('https://login.mailchimp.com/oauth2/authorize?x=1', 'mcp_oauth', jasmine.any(String));
+  });
+
+  it('falls back to the paste-key form (no broken popup) when OAuth is not configured (501)', () => {
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      /\/connect$/.test(path)
+        ? throwError(() => ({ status: 501, error: { error: 'oauth_not_configured' } }))
+        : of({ data: null }),
+    );
+    const c = build(get);
+    c.connectOauth('mailchimp');
+    expect(win).not.toHaveBeenCalled();
+    expect(c.pasteMode()).toBe('mailchimp');
   });
 });

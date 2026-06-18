@@ -1495,63 +1495,60 @@ export class AdminSettingsComponent implements OnInit {
   }
   connect(p: { id: string; needsOauth: boolean }): void {
     const s = this.state.selectedSite(); if (!s) return;
-    if (!p.needsOauth || p.id === 'resend') { this.pasteMode.set(p.id); return; }
-    window.location.href = `/api/mcp/${p.id}/connect?site_id=${s.id}&return_url=${encodeURIComponent('/admin/settings#mcp')}`;
+    // This button is only rendered for NON-OAuth providers (paste-key). OAuth
+    // providers use connectOauth(). Always open the inline paste-key form.
+    this.pasteMode.set(p.id);
   }
   /**
    * Kick off the OAuth dance for `providerId` in a popup window.
    *
    * @remarks
-   * The worker route `/api/mcp/:provider/connect` returns either:
-   *   - a 302 redirect to the provider's authorize URL (happy path), OR
-   *   - a 501 JSON `{ error: 'oauth_not_configured', provider }` when the
-   *     worker has no `{PROVIDER}_OAUTH_CLIENT_ID` secret yet.
+   * The `/api/mcp/:provider/connect` route is BEARER-AUTH-GATED, so a cookie
+   * `fetch` or a `window.open` browser navigation can't authenticate — that was
+   * the `{"error":{"message":"auth required"}}` 401. We fetch the authorize URL
+   * WITH the bearer (ApiService injects it), then open the popup at the
+   * provider's authorize page. The route returns:
+   *   - `{ data: { mode: 'oauth', authorize_url } }` (happy path), OR
+   *   - `{ data: { mode: 'paste_key', … } }` for paste-only adapters, OR
+   *   - 501 `{ error: 'oauth_not_configured' }` when the worker has no
+   *     `{PROVIDER}_OAUTH_CLIENT_ID` secret yet.
    *
-   * For 501 we surface an info toast and drop into the paste-API-key flow
-   * so the user always has an unblocked path forward.
-   *
-   * Connection success comes back two ways: the worker callback redirects
-   * the popup to `/admin/settings?connected={provider}#mcp` (handled by
-   * {@link handleMcpReturn}), and/or the popup posts a message to its
-   * opener — both paths reload the connections list.
+   * 501 / paste_key drop into the inline paste-key flow so the user is never
+   * stuck. Connection success comes back via the popup → worker callback
+   * (handled by {@link handleMcpReturn}); a popup close reloads the list.
    */
   connectOauth(providerId: string): void {
     const s = this.state.selectedSite(); if (!s) { this.toast.error('Select a site first'); return; }
-    const returnUrl = encodeURIComponent('/admin/settings#mcp');
-    const url = `/api/mcp/${providerId}/connect?site_id=${s.id}&return_url=${returnUrl}`;
-
-    // Probe the endpoint first — a 501 means OAuth is not yet configured
-    // for this provider, in which case we fall back to the paste-key flow
-    // instead of opening a broken popup.
-    fetch(url, { method: 'GET', redirect: 'manual', credentials: 'include' })
-      .then(async (res) => {
-        if (res.status === 501) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          const provider = MCP_PROVIDERS.find((p) => p.id === providerId)?.label ?? providerId;
-          this.toast.info(`OAuth flow for ${provider} will land soon — using API key fallback for now.`);
-          // Fall back to paste-key UI so the user is never stuck.
-          this.pasteMode.set(providerId);
-          // eslint-disable-next-line no-console
-          console.warn('mcp_oauth_not_configured', { provider: providerId, code: body.error });
-          return;
-        }
-        // For 0 (opaqueredirect) or 2xx, open the popup and let the worker
-        // handle the dance. `redirect: 'manual'` makes a 302 surface as
-        // type=opaqueredirect/status=0, so we trust the URL and open it.
-        const popup = window.open(url, 'mcp_oauth', 'width=560,height=720,menubar=no,toolbar=no');
-        if (!popup) {
-          this.toast.error('Popup blocked — allow pop-ups and try again.');
-          return;
-        }
-        const interval = window.setInterval(() => {
-          if (popup.closed) {
-            window.clearInterval(interval);
-            this.loadConnections();
+    const label = MCP_PROVIDERS.find((p) => p.id === providerId)?.label ?? providerId;
+    this.api
+      .get<{ data?: { mode?: string; authorize_url?: string } }>(
+        `/mcp/${providerId}/connect`,
+        { site_id: s.id, return_url: '/admin/settings#mcp' },
+        { silent: true },
+      )
+      .subscribe({
+        next: (res) => {
+          const authUrl = res?.data?.authorize_url;
+          if (authUrl) {
+            const popup = window.open(authUrl, 'mcp_oauth', 'width=560,height=720,menubar=no,toolbar=no');
+            if (!popup) { this.toast.error('Popup blocked — allow pop-ups and try again.'); return; }
+            const interval = window.setInterval(() => {
+              if (popup.closed) { window.clearInterval(interval); this.loadConnections(); }
+            }, 600);
+            return;
           }
-        }, 600);
-      })
-      .catch(() => {
-        this.toast.error('Could not start OAuth flow — try again.');
+          // Adapter has no OAuth → inline paste-key form.
+          if (res?.data?.mode === 'paste_key') { this.pasteMode.set(providerId); return; }
+          this.toast.error(`Couldn't start ${label} sign-in — try again.`);
+        },
+        error: (err: { status?: number; error?: { error?: string } }) => {
+          if (err?.status === 501 || err?.error?.error === 'oauth_not_configured') {
+            this.toast.info(`OAuth flow for ${label} will land soon — using API key fallback for now.`);
+            this.pasteMode.set(providerId);
+            return;
+          }
+          this.toast.error(`Couldn't start ${label} sign-in — try again.`);
+        },
       });
   }
   /**
