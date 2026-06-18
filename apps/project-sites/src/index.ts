@@ -373,6 +373,7 @@ app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-
 app.route('/', inbox); // /api/inbox/* — Unified Visitor Inbox (flag: unified_inbox)
 app.route('/', copilot); // /api/sites/:slug/copilot/* + /sites/:slug/copilot.js — Multimodal Copilot (flag: multimodal_copilot)
 app.route('/', features); // Feature endpoints (every /api/* path flag-gated via isFlagOn) + public discovery surfaces (llms.txt, /accessibility, /.well-known/mcp, /api/openapi.json). Must precede mcpSite so marketing-root /.well-known/mcp wins.
+app.route('/', platformMcp); // GET+POST /api/mcp — platform MCP (flag: platform_mcp). MUST precede mcpSite: mcpSite's POST /:slug/mcp matches /api/mcp (slug='api') and would shadow the platform MCP's POST handler.
 app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
 app.route('/', siteBranchesApp); // /api/sites/:siteId/branches — branch-style site previews (#27)
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
@@ -394,7 +395,6 @@ app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webho
 app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)
 app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
-app.route('/', platformMcp); // GET+POST /api/mcp — platform MCP (flag: platform_mcp)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
