@@ -589,6 +589,9 @@ src/
 | POST | `/api/sites/generate-prompt` | AI prompt generation |
 | POST | `/api/ai/categorize` | AI business categorization |
 | POST | `/api/contact-form/:slug` | Submit contact form |
+| POST | `/api/ai-actions/payment-command` | Safety-gated AI payment command (dry-run→confirm→charge); flag `ai_payment_command` |
+| POST | `/api/ai-actions/payment-refund` | Refund a prior payment-command charge (caller-owned idempotency key); same flag |
+| GET | `/api/ai-actions/payment-status/:paymentIntentId` | Read-only PaymentIntent status (no charge, no audit); same flag |
 | GET | `/api/sites/by-slug/:slug/build-context` | Get build context |
 | GET | `/api/sites/by-slug/:slug/chat` | Get chat context |
 | GET | `/api/sites/by-slug/:slug/research.json` | Get research data |
