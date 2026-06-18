@@ -49,6 +49,7 @@ import { storefront } from './routes/storefront.js';
 import { agenticCommerce } from './routes/agentic_commerce.js';
 import { aiActions } from './routes/ai_actions.js';
 import { adminLeads } from './routes/admin_leads.js';
+import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { i18n } from './routes/i18n.js';
 import { webhooks } from './routes/webhooks.js';
@@ -523,6 +524,21 @@ app.post('/api/internal/build-status', async (c) => {
   if (!jobId || typeof jobId !== 'string') return c.json({ error: 'missing jobId' }, 400);
   const record = JSON.stringify({ ...payload, lastUpdate: Date.now() });
   await c.env.CACHE_KV.put(`build:${jobId}`, record, { expirationTtl: 3600 });
+
+  // If this is a claim-originated build that just finished/failed, flip its claim
+  // session (building → completed | failed) + email the owner. No-op for normal
+  // builds (jobId == siteId has no claim session) and for non-terminal statuses.
+  // Best-effort + backgrounded so the email send never slows the callback.
+  let ec: ExecutionContext | undefined;
+  try {
+    ec = c.executionCtx;
+  } catch {
+    ec = undefined;
+  }
+  const finalize = maybeCompleteClaimBuild(c.env, jobId, payload.status ?? '').catch(() => {});
+  if (ec) ec.waitUntil(finalize);
+  else await finalize;
+
   return c.json({ ok: true });
 });
 

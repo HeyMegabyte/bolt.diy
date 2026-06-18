@@ -47,7 +47,7 @@ interface EmailOpts {
  *   configured provider rejects). Caller-side `.catch(() => {})` policy is
  *   preserved upstream.
  */
-async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
+export async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
   const category = opts.category ?? 'transactional';
 
   if (env.RESEND_API_KEY) {
