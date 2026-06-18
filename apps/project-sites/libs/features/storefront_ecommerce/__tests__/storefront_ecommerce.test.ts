@@ -1,42 +1,37 @@
 /**
  * Unit tests for libs/features/storefront_ecommerce/service.ts
  *
- * D1 is mocked via the prepare().bind().first()/all() chain pattern.
- * KV is mocked via a simple { get, put } object.
+ * D1 uses the D1-stub pattern (NO jest.mock of db.js — @swc/jest's jest.mock
+ * hoist is unreliable here; see _LOOP_LEDGER fire-v2.40/41). A fake D1Database
+ * returns a queued `{ results }` per `.all()` call (in service query order) and
+ * the REAL dbQuery/dbQueryOne run against it. dbQuery catches internally, so a
+ * queued Error simulates a D1 outage. KV uses a simple { get, put } stub.
  */
 
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 
+import { FLAG_KEY, getCatalog, getProductById, getCart, saveCart } from '../service.js';
+
 // ---------------------------------------------------------------------------
-// D1 mock factory
+// D1 stub — queue one `{ results }` (or an Error) per `.all()` call.
 // ---------------------------------------------------------------------------
 
-type MockD1Row = Record<string, unknown>;
-
-function makeBoundStmt(rows: MockD1Row[], single: MockD1Row | null) {
-  return {
-    first: jest.fn<() => Promise<MockD1Row | null>>().mockResolvedValue(single),
-    all: jest.fn<() => Promise<{ results: MockD1Row[] }>>().mockResolvedValue({ results: rows }),
-    run: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+function makeDb(queue: Array<{ results: unknown[] } | Error> = []) {
+  let i = 0;
+  const stmt = {
+    bind: () => stmt,
+    all: async () => {
+      const entry = queue[i++];
+      if (entry instanceof Error) throw entry;
+      return entry ?? { results: [] };
+    },
+    run: async () => ({ meta: { changes: 1 } }),
   };
-}
-
-function makeDb(
-  queryMap: Record<string, { rows?: MockD1Row[]; single?: MockD1Row | null }>,
-) {
-  return {
-    prepare: (sql: string) => ({
-      bind: (..._args: unknown[]) => {
-        const key = Object.keys(queryMap).find((k) => sql.includes(k));
-        const spec = key ? queryMap[key]! : { rows: [], single: null };
-        return makeBoundStmt(spec.rows ?? [], spec.single ?? null);
-      },
-    }),
-  };
+  return { prepare: () => stmt } as unknown as D1Database;
 }
 
 // ---------------------------------------------------------------------------
-// KV mock factory
+// KV stub
 // ---------------------------------------------------------------------------
 
 function makeKv(initialStore: Record<string, string> = {}) {
@@ -48,36 +43,6 @@ function makeKv(initialStore: Record<string, string> = {}) {
     }),
   };
 }
-
-// ---------------------------------------------------------------------------
-// Module-level mock wiring
-// ---------------------------------------------------------------------------
-
-let mockDb: ReturnType<typeof makeDb>;
-let mockKv: ReturnType<typeof makeKv>;
-
-jest.mock('../../../../src/services/db.js', () => ({
-  dbQuery: jest.fn(async (db: ReturnType<typeof makeDb>, sql: string, args: unknown[]) => {
-    const stmt = db.prepare(sql).bind(...args);
-    const res = await stmt.all();
-    return res.results;
-  }),
-  dbQueryOne: jest.fn(async (db: ReturnType<typeof makeDb>, sql: string, args: unknown[]) => {
-    const stmt = db.prepare(sql).bind(...args);
-    return stmt.first();
-  }),
-}));
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { dbQuery, dbQueryOne } = await import('../../../../src/services/db.js') as any;
-
-import {
-  FLAG_KEY,
-  getCatalog,
-  getProductById,
-  getCart,
-  saveCart,
-} from '../service.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -105,8 +70,17 @@ const PRODUCT_ROW = {
   updatedAt: '2026-06-17T00:00:00.000Z',
 };
 
+// getCatalog issues: dbQueryOne (count) → dbQuery (products) → dbQuery (categories).
+function catalogQueue(
+  cnt: number,
+  products: unknown[],
+  categories: unknown[],
+): Array<{ results: unknown[] }> {
+  return [{ results: [{ cnt }] }, { results: products }, { results: categories }];
+}
+
 // ---------------------------------------------------------------------------
-// Tests — FLAG_KEY
+// FLAG_KEY
 // ---------------------------------------------------------------------------
 
 describe('storefront_ecommerce/service — FLAG_KEY', () => {
@@ -116,21 +90,12 @@ describe('storefront_ecommerce/service — FLAG_KEY', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests — getCatalog
+// getCatalog
 // ---------------------------------------------------------------------------
 
 describe('storefront_ecommerce/service — getCatalog', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockDb = makeDb({ storefront_products: { rows: [PRODUCT_ROW], single: null } });
-  });
-
   test('returns products, total count, and categories', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => [PRODUCT_ROW]);
-    dbQuery.mockImplementationOnce(async () => [{ category: 'widgets' }]);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb(catalogQueue(1, [PRODUCT_ROW], [{ category: 'widgets' }])) } as never;
     const result = await getCatalog(env, SITE_ID, { page: 0, pageSize: 24 });
 
     expect(result.total).toBe(1);
@@ -139,11 +104,7 @@ describe('storefront_ecommerce/service — getCatalog', () => {
   });
 
   test('maps product row correctly (tags parsed from JSON)', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => [PRODUCT_ROW]);
-    dbQuery.mockImplementationOnce(async () => []);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb(catalogQueue(1, [PRODUCT_ROW], [])) } as never;
     const result = await getCatalog(env, SITE_ID, { page: 0, pageSize: 24 });
 
     const p = result.products[0]!;
@@ -155,44 +116,30 @@ describe('storefront_ecommerce/service — getCatalog', () => {
 
   test('handles malformed tags JSON gracefully (returns empty array)', async () => {
     const badRow = { ...PRODUCT_ROW, tags: 'not-json' };
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => [badRow]);
-    dbQuery.mockImplementationOnce(async () => []);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb(catalogQueue(1, [badRow], [])) } as never;
     const result = await getCatalog(env, SITE_ID, { page: 0, pageSize: 24 });
 
     expect(result.products[0]!.tags).toEqual([]);
   });
 
   test('applies category filter', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 0 }));
-    dbQuery.mockImplementationOnce(async () => []);
-    dbQuery.mockImplementationOnce(async () => []);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb(catalogQueue(0, [], [])) } as never;
     const result = await getCatalog(env, SITE_ID, { page: 0, pageSize: 24, category: 'gadgets' });
 
     expect(result.products).toHaveLength(0);
   });
 
   test('applies search query filter', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => [PRODUCT_ROW]);
-    dbQuery.mockImplementationOnce(async () => [{ category: 'widgets' }]);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb(catalogQueue(1, [PRODUCT_ROW], [{ category: 'widgets' }])) } as never;
     const result = await getCatalog(env, SITE_ID, { page: 0, pageSize: 24, q: 'widget' });
 
     expect(result.total).toBe(1);
   });
 
   test('returns empty result on DB error (graceful)', async () => {
-    dbQueryOne.mockImplementationOnce(async () => { throw new Error('D1 error'); });
-    dbQuery.mockImplementationOnce(async () => { throw new Error('D1 error'); });
-    dbQuery.mockImplementationOnce(async () => { throw new Error('D1 error'); });
-
-    const env = { DB: mockDb } as never;
+    const env = {
+      DB: makeDb([new Error('D1 error'), new Error('D1 error'), new Error('D1 error')]),
+    } as never;
     const result = await getCatalog(env, SITE_ID, { page: 0, pageSize: 24 });
 
     expect(result.total).toBe(0);
@@ -202,28 +149,17 @@ describe('storefront_ecommerce/service — getCatalog', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests — getProductById
+// getProductById — single dbQueryOne
 // ---------------------------------------------------------------------------
 
 describe('storefront_ecommerce/service — getProductById', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockDb = makeDb({ storefront_products: { rows: [], single: PRODUCT_ROW } });
-  });
-
   test('returns null when product not found', async () => {
-    dbQueryOne.mockImplementationOnce(async () => null);
-
-    const env = { DB: mockDb } as never;
-    const product = await getProductById(env, 'non-existent');
-
-    expect(product).toBeNull();
+    const env = { DB: makeDb([{ results: [] }]) } as never;
+    expect(await getProductById(env, 'non-existent')).toBeNull();
   });
 
   test('returns mapped Product when found', async () => {
-    dbQueryOne.mockImplementationOnce(async () => PRODUCT_ROW);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb([{ results: [PRODUCT_ROW] }]) } as never;
     const product = await getProductById(env, 'prod-001');
 
     expect(product).not.toBeNull();
@@ -234,12 +170,8 @@ describe('storefront_ecommerce/service — getProductById', () => {
   });
 
   test('returns null on D1 error (graceful)', async () => {
-    dbQueryOne.mockImplementationOnce(async () => { throw new Error('connection lost'); });
-
-    const env = { DB: mockDb } as never;
-    const product = await getProductById(env, 'prod-001');
-
-    expect(product).toBeNull();
+    const env = { DB: makeDb([new Error('connection lost')]) } as never;
+    expect(await getProductById(env, 'prod-001')).toBeNull();
   });
 
   test('maps optional fields correctly when null in DB', async () => {
@@ -250,9 +182,7 @@ describe('storefront_ecommerce/service — getProductById', () => {
       category: null,
       inventory: null,
     };
-    dbQueryOne.mockImplementationOnce(async () => rowNoOptionals);
-
-    const env = { DB: mockDb } as never;
+    const env = { DB: makeDb([{ results: [rowNoOptionals] }]) } as never;
     const product = await getProductById(env, 'prod-001');
 
     expect(product!.description).toBeUndefined();
@@ -263,7 +193,7 @@ describe('storefront_ecommerce/service — getProductById', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests — getCart / saveCart (KV-backed)
+// getCart / saveCart (KV-backed)
 // ---------------------------------------------------------------------------
 
 describe('storefront_ecommerce/service — getCart', () => {
@@ -274,21 +204,19 @@ describe('storefront_ecommerce/service — getCart', () => {
     siteId: SITE_ID,
     lines: [{ productId: 'prod-001', quantity: 2 }],
   };
+  let mockKv: ReturnType<typeof makeKv>;
 
   beforeEach(() => {
     mockKv = makeKv({ [`cart:${CART_ID}`]: JSON.stringify(CART_DATA) });
   });
 
   test('returns null when cart key does not exist', async () => {
-    mockKv = makeKv({});
-    const env = { CACHE: mockKv } as never;
-    const cart = await getCart(env, 'missing-cart');
-
-    expect(cart).toBeNull();
+    const env = { CACHE_KV: makeKv({}) } as never;
+    expect(await getCart(env, 'missing-cart')).toBeNull();
   });
 
   test('returns parsed cart when key exists', async () => {
-    const env = { CACHE: mockKv } as never;
+    const env = { CACHE_KV: mockKv } as never;
     const cart = await getCart(env, CART_ID);
 
     expect(cart).not.toBeNull();
@@ -297,19 +225,16 @@ describe('storefront_ecommerce/service — getCart', () => {
   });
 
   test('returns null when stored value is malformed JSON', async () => {
-    mockKv = makeKv({ 'cart:bad': 'not-json{' });
-    const env = { CACHE: mockKv } as never;
-    const cart = await getCart(env, 'bad');
-
-    expect(cart).toBeNull();
+    const env = { CACHE_KV: makeKv({ 'cart:bad': 'not-json{' }) } as never;
+    expect(await getCart(env, 'bad')).toBeNull();
   });
 
   test('returns null on KV error (graceful)', async () => {
-    mockKv.get.mockImplementationOnce(async () => { throw new Error('KV down'); });
-    const env = { CACHE: mockKv } as never;
-    const cart = await getCart(env, CART_ID);
-
-    expect(cart).toBeNull();
+    mockKv.get.mockImplementationOnce(async () => {
+      throw new Error('KV down');
+    });
+    const env = { CACHE_KV: mockKv } as never;
+    expect(await getCart(env, CART_ID)).toBeNull();
   });
 });
 
@@ -317,12 +242,9 @@ describe('storefront_ecommerce/service — saveCart', () => {
   const CART_ID = 'cart-uuid-new';
   const now = new Date().toISOString();
 
-  beforeEach(() => {
-    mockKv = makeKv();
-  });
-
   test('calls KV.put with correct key and JSON value', async () => {
-    const env = { CACHE: mockKv } as never;
+    const mockKv = makeKv();
+    const env = { CACHE_KV: mockKv } as never;
 
     await saveCart(env, {
       cartId: CART_ID,
@@ -333,7 +255,11 @@ describe('storefront_ecommerce/service — saveCart', () => {
     });
 
     expect(mockKv.put).toHaveBeenCalledTimes(1);
-    const [key, value, opts] = mockKv.put.mock.calls[0]! as [string, string, { expirationTtl: number }];
+    const [key, value, opts] = mockKv.put.mock.calls[0]! as [
+      string,
+      string,
+      { expirationTtl: number },
+    ];
     expect(key).toBe(`cart:${CART_ID}`);
     const parsed = JSON.parse(value);
     expect(parsed.cartId).toBe(CART_ID);
@@ -343,20 +269,18 @@ describe('storefront_ecommerce/service — saveCart', () => {
 
   test('round-trips cart through save and read', async () => {
     const kv = makeKv();
-    const env = { CACHE: kv } as never;
+    const env = { CACHE_KV: kv } as never;
 
-    const originalCart = {
+    await saveCart(env, {
       cartId: 'cart-rt-001',
       orgId: ORG_ID,
       siteId: SITE_ID,
       lines: [{ productId: 'prod-001', quantity: 3 }],
       updatedAt: now,
-    };
-
-    await saveCart(env, originalCart);
+    });
 
     // Simulate KV returning the stored value.
-    const stored = (kv.put.mock.calls[0]![1] as string);
+    const stored = kv.put.mock.calls[0]![1] as string;
     kv.get.mockImplementationOnce(async () => stored);
 
     const retrieved = await getCart(env, 'cart-rt-001');
