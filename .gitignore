@@ -35,6 +35,10 @@ _worker.bundle
 package-lock.json
 test-results/
 playwright-report/
+blob-report/
+# Playwright MCP browser-snapshot + console-log artifacts (regenerated every
+# MCP browser session) — must never be tracked per repo-folder-hygiene.
+.playwright-mcp/
 coverage/
 apps/project-sites/sites/
 
