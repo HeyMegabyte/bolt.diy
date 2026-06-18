@@ -1,0 +1,164 @@
+# Scale-to-Zero Apps — Routing & Shared-Instance Architecture (design)
+
+> **Status:** Design / proposed. One-way-door (`one-way-two-way-doors`): it changes
+> how every app instance is served + where tenant data lives, so it gets a written
+> design before code. Nothing here is implemented yet beyond the **Hyperdrive
+> contract** (`withHyperdrive()` in `apps-catalog.data.ts`, shipped) which this doc
+> consumes. Author: loop fire, 2026-06-18.
+
+---
+
+## 1. Why
+
+The brief: *"All the Docker containers… should be the kind of apps that do not need
+to stay running — essentially scale-to-zero services. All the CNAMEs should point
+to projectsites.dev, then the projectsites.dev worker should be in charge of loading
+the appropriate Docker container based on the URL it is launched as… if I have 50
+customers running Umami, we should leverage the same instance with a worker that
+coordinates it with the appropriate Postgres settings. Ensure Hyperdrive is included
+anytime Postgres is included."*
+
+Three distinct asks, in dependency order:
+
+1. **CNAME → Worker dispatch** — every app hostname resolves to the projectsites.dev
+   Worker, which picks the right app + tenant from the hostname.
+2. **Scale-to-zero containers** — an app container idle-hibernates and cold-boots on
+   the first request, so 1000 provisioned apps cost ~0 when nobody is using them.
+3. **Shared-instance multi-tenancy** — one Umami *image* serves N tenants; the Worker
+   injects each tenant's own Postgres connection (through Hyperdrive) per request.
+
+---
+
+## 2. Current state (as built today)
+
+Source: `src/routes/apps.ts`, `services/app_provisioner.ts`,
+`services/container_dispatcher.ts`, `durable_objects/app_runtime.ts`.
+
+- **One instance = one of everything.** `POST /api/apps/instances` calls
+  `provisionInfra()` → a **dedicated Neon Postgres project** (`neon_project_id`) +
+  **dedicated Upstash database** (`upstash_database_id`) + a **dedicated container**
+  per `app_instances` row. `resolveAppEnv()` bakes those connection strings into the
+  container env.
+- **Hostname:** `{subdomain}.app.projectsites.dev`, one per instance.
+- **Container runtime:** an `app_runtime` Durable Object subclass per instance
+  (`app_runtime_subclasses.ts`). Dispatch via `container_dispatcher.ts`.
+- **Cost:** every instance carries a live Neon project + Upstash db + a container —
+  paid whether or not anyone visits. This is what the brief wants to collapse.
+
+```
+today:  50 Umami tenants  →  50 containers + 50 Neon projects + 50 Upstash dbs
+target: 50 Umami tenants  →  1 (hibernating) Umami image, N warm replicas on demand
+                              + 1 shared Postgres (50 logical DBs/schemas) via Hyperdrive
+```
+
+---
+
+## 3. Target architecture
+
+### 3.1 CNAME → Worker dispatch (`apps.projectsites.dev/*` + custom domains)
+
+- Every app hostname (`{tenant}.app.projectsites.dev` and any customer CNAME) points
+  at the Worker. The Worker's `fetch` resolves the hostname → `{app_slug, tenant_id}`
+  via a **KV host-map** (`apphost:{hostname}` → `{instanceId, appSlug, orgId}`,
+  60s TTL, mirrors the existing site host-resolution in `site_serving`).
+- Unknown host → 404 (never 403, per `feature-flags` guard convention).
+- Custom domains: same KV map; the customer CNAMEs `app.theirdomain.com →
+  apps.projectsites.dev` and we add the `apphost:` entry on domain verify.
+
+### 3.2 Scale-to-zero container runtime
+
+- The `app_runtime` DO already brokers the container. Add **idle hibernation**:
+  `sleepAfter = '30m'`, auto-restart capped 3/rolling-minute, ring-buffer logs
+  (the god-tier Container DO pattern). On a request to a hibernated app, the DO
+  cold-boots the image (~5–30s) behind a **boot-progress splash** (reuse the
+  `/waiting` build-progress UX) and streams once warm.
+- **Warm-pool** (optional, phase 3): keep the top-K most-trafficked images warm to
+  avoid cold-boot on popular apps.
+
+### 3.3 Shared-instance multi-tenancy (the big one)
+
+Two viable models — **decide per app class**:
+
+- **(A) Shared image, isolated DB per tenant (DEFAULT).** One Umami container image,
+  N warm replicas; the Worker injects the tenant's own Postgres connection
+  (through Hyperdrive) + tenant env per request via the DO. Works for apps that read
+  their DB connection from env at request scope. Tenant isolation = separate logical
+  Postgres database/schema on a **shared Neon instance** (50 logical DBs on 1 project
+  instead of 50 projects).
+- **(B) Container-per-tenant, scale-to-zero (FALLBACK).** For apps that cache DB
+  state in memory or can't re-point per request, keep one container per tenant but
+  hibernate aggressively. Cheaper than today (idle = $0) without the shared-image
+  complexity.
+
+> Reality check (`self-argue`): most self-hosted apps (Umami, Outline, n8n…) read
+> `DATABASE_URL` **once at boot**, not per request — so true "one container, many
+> tenants via per-request Postgres" (A) is NOT possible without forking the app.
+> The honest shared model is: **shared Neon *instance* (many logical DBs) + Hyperdrive
+> pooling + scale-to-zero container per tenant (B)**. That already delivers the cost
+> win the brief wants ("leverage the same instance… appropriate Postgres settings")
+> — the *database instance* is shared and pooled; the lightweight container
+> hibernates. Pure shared-container (A) is reserved for apps explicitly built
+> multi-tenant. **This is the key design decision for Brian.**
+
+### 3.4 Hyperdrive (contract already shipped)
+
+- `withHyperdrive(app.infra)` already declares Hyperdrive whenever Postgres is
+  present (frontend contract + tests, shipped). Worker side, to build:
+  - On provision of a Postgres app, create a **Hyperdrive config** (CF API:
+    `POST /accounts/{acct}/hyperdrive/configs`) pointing at the shared Neon instance's
+    tenant DB; bind it; inject the **Hyperdrive connection string** (not the raw Neon
+    one) into `resolveAppEnv`. Hyperdrive pools + caches → fewer cold Postgres
+    connections across all tenants. Free CF primitive.
+
+---
+
+## 4. Phased migration (each phase ships + verifies independently)
+
+1. **Phase 1 — CNAME router (additive, two-way).** Worker resolves `apphost:` KV →
+   instance; serve through the existing per-instance container. No data move. Ship +
+   E2E that `{tenant}.app.projectsites.dev` routes correctly.
+2. **Phase 2 — Scale-to-zero (additive, two-way).** Add `sleepAfter` + cold-boot
+   splash to `app_runtime`. Idle instances stop costing. Reversible (raise
+   `sleepAfter` to ∞).
+3. **Phase 3 — Hyperdrive provisioning (additive).** Create + bind a Hyperdrive
+   config per Postgres app; route `DATABASE_URL` through it. Backwards-compatible
+   (raw connection still works if Hyperdrive is absent).
+4. **Phase 4 — Shared Neon instance (ONE-WAY — needs Brian).** Migrate from
+   project-per-instance to logical-DB-per-tenant on a shared Neon instance. This
+   moves tenant data → requires a migration + backfill + a tested rollback (Neon
+   branch/restore). Gate behind a flag; migrate cohort-by-cohort.
+
+---
+
+## 5. Risks & classification
+
+| Decision | Door | Mitigation |
+|---|---|---|
+| CNAME router | two-way | KV map; revert = stop writing entries |
+| Scale-to-zero hibernation | two-way | `sleepAfter` is a config dial; cold-boot splash hides latency |
+| Hyperdrive provisioning | two-way | additive; raw connection is the fallback |
+| Shared Neon instance | **one-way** | per-tenant logical DB + Neon branch backups + cohort migration + flag |
+| Shared *container* (model A) | **one-way + app-specific** | only for apps built multi-tenant; default to model B |
+
+- **Confidence:** 0.8 on phases 1–3 (additive, well-understood CF primitives); 0.6 on
+  phase 4 shared-Neon (needs a data-migration plan + Brian's call on isolation model)
+  → below the 0.7 bar, so phase 4 does **not** proceed without a dedicated design +
+  Brian's direction.
+
+## 6. Open questions for Brian
+
+1. **Isolation model** — logical-DB-per-tenant on shared Neon (cost win, weaker
+   blast-radius isolation) vs project-per-tenant (today; stronger isolation, higher
+   cost)? Recommend shared-instance + per-tenant logical DB + Hyperdrive.
+2. **Shared container (A) vs hibernating per-tenant container (B)** as the default?
+   Recommend **B** — most catalog apps aren't multi-tenant-aware; B still delivers the
+   cost win.
+3. **Cold-boot SLA** — acceptable first-request latency on a hibernated app (5–30s)?
+   Drives whether we keep a warm pool (phase 3.5).
+
+## 7. See also
+
+- `apps-catalog.data.ts` `withHyperdrive()` — the shipped Hyperdrive contract this consumes
+- `services/app_provisioner.ts` · `container_dispatcher.ts` · `durable_objects/app_runtime.ts` — current impl
+- `services/site_serving` — the host-resolution KV pattern Phase 1 mirrors
+- Rules: `one-way-two-way-doors`, `state-is-the-enemy`, `cost-per-request-accountability`, `vendor-risk-tiering`
