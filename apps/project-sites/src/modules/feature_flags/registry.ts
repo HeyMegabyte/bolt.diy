@@ -461,7 +461,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   platform_mcp: {
     key: 'platform_mcp',
-    description: 'Account-level MCP server so Claude Code/Cursor/MCP clients connect with a scoped psk_ API token and manage their sites (list/inspect/build-status; deploy next)',
+    description:
+      'Account-level MCP server so Claude Code/Cursor/MCP clients connect with a scoped psk_ API token and manage their sites (list/inspect/build-status; deploy next)',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -469,7 +470,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   mcp_oauth_provider: {
     key: 'mcp_oauth_provider',
-    description: 'OAuth 2.1 authorization server so MCP clients (Claude Code) authenticate via PKCE instead of pasting psk_ tokens',
+    description:
+      'OAuth 2.1 authorization server so MCP clients (Claude Code) authenticate via PKCE instead of pasting psk_ tokens',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -477,7 +479,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   prod_readiness_score: {
     key: 'prod_readiness_score',
-    description: 'Production Readiness Score (0-100 + grade) per site: published, custom domain, performance, sitemap checks — surfaces what to fix before launch',
+    description:
+      'Production Readiness Score (0-100 + grade) per site: published, custom domain, performance, sitemap checks — surfaces what to fix before launch',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -485,7 +488,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   deploy_buttons: {
     key: 'deploy_buttons',
-    description: 'Generates one-click "Deploy to projectsites.dev" buttons + a "Hosted on projectsites.dev" badge snippet for READMEs/footers (viral growth loop)',
+    description:
+      'Generates one-click "Deploy to projectsites.dev" buttons + a "Hosted on projectsites.dev" badge snippet for READMEs/footers (viral growth loop)',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -493,7 +497,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   visitor_dsar: {
     key: 'visitor_dsar',
-    description: 'GDPR/CCPA data-subject-access endpoint: a site owner can export or soft-delete a visitor’s data by email or visitor_id, with an audit-log entry',
+    description:
+      'GDPR/CCPA data-subject-access endpoint: a site owner can export or soft-delete a visitor’s data by email or visitor_id, with an audit-log entry',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -501,7 +506,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   onboarding_copilot: {
     key: 'onboarding_copilot',
-    description: 'PLG activation checklist: computes a new org’s next-best actions (create site → publish → add custom domain) with a dismiss control',
+    description:
+      'PLG activation checklist: computes a new org’s next-best actions (create site → publish → add custom domain) with a dismiss control',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -509,7 +515,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   audit_trail_export: {
     key: 'audit_trail_export',
-    description: 'Org-scoped audit-log export: admins filter by action/date and download the audit trail as JSON or CSV for compliance reviews',
+    description:
+      'Org-scoped audit-log export: admins filter by action/date and download the audit trail as JSON or CSV for compliance reviews',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -517,7 +524,17 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   model_registry: {
     key: 'model_registry',
-    description: 'OpenAI-compatible GET /v1/models — the ProviderCapabilityRegistry + ModelAliasRegistry catalog (deepseek/anthropic/openai/gemini/grok/workers-ai aliases) with per-provider availability gating',
+    description:
+      'OpenAI-compatible GET /v1/models — the ProviderCapabilityRegistry + ModelAliasRegistry catalog (deepseek/anthropic/openai/gemini/grok/workers-ai aliases) with per-provider availability gating',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  ai_payment_command: {
+    key: 'ai_payment_command',
+    description:
+      'Safety-gated AI payment-command endpoint (POST /api/ai-actions/payment-command): NL→intent policy engine that refuses raw card / last4-only, requires an intent-bound confirmation token for live charges, and runs only saved-PM-ref charges via the constrained Stripe tool layer (create+confirm / refund / get_status)',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

@@ -139,7 +139,10 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
       'dunning_recovery',
       'stripe_meters',
       'ecommerce_engine',
-      'native_booking_engine',
+      // NOTE: native_booking_engine was trimmed 2026-06-07 but legitimately
+      // RE-ADDED as a real feature module by the platform-foundation wave
+      // (P1 feature #3 in FEATURE_CATALOG). It is intentionally in the
+      // registry now — not a trim violation.
       'membership_paywall',
       'swarm_editor',
       'public_api_v1',

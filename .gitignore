@@ -41,6 +41,9 @@ blob-report/
 .playwright-mcp/
 coverage/
 apps/project-sites/sites/
+# R2 marketing-homepage deploy artifact (staged locally for `wrangler r2 object
+# put marketing/index.html`) — generated, never source per repo-folder-hygiene.
+apps/project-sites/marketing/
 
 Modelfile
 modelfiles
