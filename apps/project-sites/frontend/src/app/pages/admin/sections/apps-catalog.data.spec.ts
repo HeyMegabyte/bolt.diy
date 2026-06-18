@@ -1,4 +1,4 @@
-import { APPS_CATALOG, APP_CATEGORIES, SUPPORTED_APP_SLUGS, isAppSupported } from './apps-catalog.data';
+import { APPS_CATALOG, APP_CATEGORIES, SUPPORTED_APP_SLUGS, isAppSupported, withHyperdrive, type InfraDep } from './apps-catalog.data';
 
 /**
  * Data-integrity guard for the self-hostable app catalog (67 hand-authored
@@ -67,5 +67,34 @@ describe('apps-catalog.data (catalog integrity)', () => {
     const unsupported = APPS_CATALOG.find((a) => !SUPPORTED_APP_SLUGS.includes(a.id));
     if (unsupported) expect(isAppSupported(unsupported.id)).withContext(`${unsupported.id} should be Soon`).toBeFalse();
     expect(isAppSupported('___not_a_real_app___')).toBeFalse();
+  });
+});
+
+/**
+ * Hyperdrive-when-Postgres rule: every Postgres connection routes through
+ * Cloudflare Hyperdrive (pooling + acceleration). Derived via withHyperdrive()
+ * so the rule lives in ONE place, not duplicated across ~30 Postgres apps.
+ */
+describe('withHyperdrive (Hyperdrive auto-included with Postgres)', () => {
+  it('appends hyperdrive when postgres is present', () => {
+    expect(withHyperdrive(['postgres'])).toContain('hyperdrive');
+    expect(withHyperdrive(['postgres', 'redis'])).toEqual(['postgres', 'redis', 'hyperdrive']);
+  });
+
+  it('does NOT add hyperdrive when there is no postgres', () => {
+    expect(withHyperdrive(['sqlite', 'volume'])).not.toContain('hyperdrive');
+    expect(withHyperdrive([])).toEqual([]);
+  });
+
+  it('is idempotent — never duplicates hyperdrive', () => {
+    expect(withHyperdrive(['postgres', 'hyperdrive'] as InfraDep[]).filter((d) => d === 'hyperdrive').length).toBe(1);
+  });
+
+  it('every catalog app that uses Postgres surfaces Hyperdrive (the invariant)', () => {
+    for (const a of APPS_CATALOG) {
+      if (a.infra.includes('postgres')) {
+        expect(withHyperdrive(a.infra)).withContext(`${a.id} (postgres) must include hyperdrive`).toContain('hyperdrive');
+      }
+    }
   });
 });

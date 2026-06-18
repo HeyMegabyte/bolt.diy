@@ -26,7 +26,21 @@
  */
 
 /** Aux-infra dependencies the deploy wizard must provision before container start. */
-export type InfraDep = 'postgres' | 'redis' | 's3' | 'sqlite' | 'volume' | 'mailrelay';
+export type InfraDep = 'postgres' | 'redis' | 's3' | 'sqlite' | 'volume' | 'mailrelay' | 'hyperdrive';
+
+/**
+ * Effective infra for an app — auto-includes **Hyperdrive whenever Postgres is
+ * present**. Every Postgres connection routes through Cloudflare Hyperdrive for
+ * connection pooling + edge acceleration (so e.g. 50 tenants on one app share a
+ * pooled Postgres rather than each opening raw connections). Derived here so the
+ * rule lives in ONE place instead of being hand-duplicated across ~30 catalog
+ * entries — append 'hyperdrive' to any app's declared `infra` at read time.
+ */
+export function withHyperdrive(infra: readonly InfraDep[]): InfraDep[] {
+  const out = [...infra];
+  if (out.includes('postgres') && !out.includes('hyperdrive')) out.push('hyperdrive');
+  return out;
+}
 
 /** Top-level taxonomy used by the catalog filter chips. */
 export type AppCategory =

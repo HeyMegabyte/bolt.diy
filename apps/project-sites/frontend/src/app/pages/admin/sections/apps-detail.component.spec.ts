@@ -314,6 +314,24 @@ describe('AppDetailComponent (customize env vars before deploy)', () => {
     expect(Object.values(body.env_overrides).every((v) => v.trim().length > 0)).toBeTrue();
   });
 
+  it('Postgres apps surface Hyperdrive in the provisioning checklist + cost lines', () => {
+    const { c } = make(undefined, 'umami'); // umami → infra ['postgres']
+    c.ngOnInit();
+    expect(c.app()!.infra).withContext('umami uses postgres').toContain('postgres');
+    expect(c.provisioning().some((p) => p.key === 'hyperdrive'))
+      .withContext('Hyperdrive auto-included with Postgres').toBeTrue();
+    expect(c.costLines().some((l) => l.key === 'hyperdrive')).toBeTrue();
+  });
+
+  it('non-Postgres apps do NOT show Hyperdrive', () => {
+    // find an app whose infra has no postgres
+    const noPg = APPS_CATALOG.find((a) => !a.infra.includes('postgres'));
+    if (!noPg) return;
+    const { c } = make(undefined, noPg.id);
+    c.ngOnInit();
+    expect(c.provisioning().some((p) => p.key === 'hyperdrive')).toBeFalse();
+  });
+
   it('deploy() is blocked while a required user-provided env is empty', () => {
     const post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'i1' }));
     const { c } = make(post, 'umami');

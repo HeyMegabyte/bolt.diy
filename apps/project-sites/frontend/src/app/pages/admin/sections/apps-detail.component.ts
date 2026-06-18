@@ -19,6 +19,7 @@ import { HlmInputDirective } from '../../../ui';
 import {
   APPS_CATALOG,
   isAppSupported,
+  withHyperdrive,
   type CatalogApp,
   type InfraDep,
 } from './apps-catalog.data';
@@ -37,6 +38,8 @@ const INFRA_PROVIDER_COST: Readonly<Record<InfraDep, InfraEstimate>> = {
   sqlite:    { key: 'sqlite',    label: 'SQLite',      provider: 'Container volume',  monthlyUsd: 0 },
   volume:    { key: 'volume',    label: 'Volume',      provider: 'Container disk',    monthlyUsd: 1 },
   mailrelay: { key: 'mailrelay', label: 'Mail relay',  provider: 'Resend',            monthlyUsd: 0 },
+  // Free Cloudflare primitive — pools + accelerates the Postgres connection.
+  hyperdrive:{ key: 'hyperdrive', label: 'Hyperdrive', provider: 'Cloudflare (Postgres pooler)', monthlyUsd: 0 },
 } as const;
 
 const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> = {
@@ -46,6 +49,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
   sqlite:    { glyph: '💾', label: 'SQLite' },
   volume:    { glyph: '📦', label: 'Volume' },
   mailrelay: { glyph: '📬', label: 'Mail relay' },
+  hyperdrive:{ glyph: '⚡', label: 'Hyperdrive' },
 } as const;
 
 /**
@@ -838,7 +842,7 @@ export class AppDetailComponent implements OnInit {
       provider: 'CFC',
       monthlyUsd: Math.max(1, a.estCostMonthly - this.sumInfra(a)),
     };
-    const infra = a.infra.map((d) => INFRA_PROVIDER_COST[d]);
+    const infra = withHyperdrive(a.infra).map((d) => INFRA_PROVIDER_COST[d]);
     return [container, ...infra];
   });
 
@@ -877,7 +881,7 @@ export class AppDetailComponent implements OnInit {
   provisioning = computed<ReadonlyArray<{ key: string; label: string; provider: string; managed: boolean }>>(() => {
     const a = this.app();
     if (!a) return [];
-    return a.infra.map((d) => ({
+    return withHyperdrive(a.infra).map((d) => ({
       key: d,
       label: INFRA_META[d].label,
       provider: INFRA_PROVIDER_COST[d].provider,

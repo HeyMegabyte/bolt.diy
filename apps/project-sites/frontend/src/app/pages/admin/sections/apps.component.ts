@@ -41,6 +41,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
   sqlite: { glyph: '💾', label: 'SQLite' },
   volume: { glyph: '📦', label: 'Volume' },
   mailrelay: { glyph: '📬', label: 'Mail relay' },
+  hyperdrive: { glyph: '⚡', label: 'Hyperdrive' },
 } as const;
 
 /**
