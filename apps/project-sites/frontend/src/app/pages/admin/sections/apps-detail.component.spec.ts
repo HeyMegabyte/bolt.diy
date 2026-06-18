@@ -1,11 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { AppDetailComponent } from './apps-detail.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { APPS_CATALOG } from './apps-catalog.data';
 
 /**
  * First coverage for the app-deploy detail (subdomain input validation — untested):
@@ -28,7 +29,7 @@ function make(
   TestBed.configureTestingModule({
     imports: [AppDetailComponent],
     providers: [
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => appId } } } },
+      { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap(appId ? { id: appId } : {})) } },
       { provide: Router, useValue: { navigate: nav } },
       { provide: ApiService, useValue: { post } },
       { provide: ToastService, useValue: toast },
@@ -143,7 +144,7 @@ describe('AppDetailComponent (cost-total a11y group)', () => {
     TestBed.configureTestingModule({
       imports: [AppDetailComponent],
       providers: [
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => appId } } } },
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: appId })) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
         { provide: ApiService, useValue: { post } },
         { provide: ToastService, useValue: { success: jasmine.createSpy('s'), error: jasmine.createSpy('e') } },
@@ -175,5 +176,74 @@ describe('AppDetailComponent (cost-total a11y group)', () => {
     const btn: HTMLElement | null = fx.nativeElement.querySelector('[data-testid="apps-deploy-cta"]');
     expect(btn).toBeTruthy();
     expect(btn!.getAttribute('aria-busy')).toBe('true');
+  });
+});
+
+/**
+ * "AI Recommends" cross-link section + the full-width prev/next pager, plus the
+ * ←/→ keyboard navigation. The detail page now re-resolves on param change
+ * (paramMap subscribe, not snapshot) so pager nav reuses the component cleanly.
+ */
+describe('AppDetailComponent (AI Recommends + prev/next pager)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('recommends exactly 2 OTHER apps (never the current one)', () => {
+    const { c } = make(undefined, 'umami');
+    c.ngOnInit();
+    const recs = c.recommendations();
+    expect(recs.length).toBe(2);
+    expect(recs.every((r) => r.id !== 'umami')).withContext('excludes self').toBeTrue();
+  });
+
+  it('recommendations are genuinely related (share a tag or the category)', () => {
+    const { c } = make(undefined, 'umami');
+    c.ngOnInit();
+    const cur = c.app()!;
+    expect(c.recommendations().every((r) =>
+      r.category === cur.category || r.tags.some((t) => cur.tags.includes(t)),
+    )).toBeTrue();
+  });
+
+  it('prevApp/nextApp resolve catalog neighbours and wrap around', () => {
+    const { c } = make(undefined, APPS_CATALOG[0].id);
+    c.ngOnInit();
+    expect(c.nextApp()?.id).toBe(APPS_CATALOG[1].id);
+    expect(c.prevApp()?.id).withContext('first wraps to last').toBe(APPS_CATALOG[APPS_CATALOG.length - 1].id);
+  });
+
+  it('ArrowRight → next app, ArrowLeft → previous app', () => {
+    const { c, nav } = make(undefined, APPS_CATALOG[0].id);
+    c.ngOnInit();
+    c.onArrowNav({ key: 'ArrowRight', preventDefault() {}, target: document.body } as unknown as KeyboardEvent);
+    expect(nav).toHaveBeenCalledWith(['/admin/apps', APPS_CATALOG[1].id]);
+    c.onArrowNav({ key: 'ArrowLeft', preventDefault() {}, target: document.body } as unknown as KeyboardEvent);
+    expect(nav).toHaveBeenCalledWith(['/admin/apps', APPS_CATALOG[APPS_CATALOG.length - 1].id]);
+  });
+
+  it('arrow keys are ignored while typing in a form control', () => {
+    const { c, nav } = make(undefined, APPS_CATALOG[0].id);
+    c.ngOnInit();
+    const input = document.createElement('input');
+    c.onArrowNav({ key: 'ArrowRight', preventDefault() {}, target: input } as unknown as KeyboardEvent);
+    expect(nav).not.toHaveBeenCalled();
+  });
+
+  it('re-resolves the app when the route param changes (pager reuse)', () => {
+    // paramMap emits 'umami' then 'matomo' — the component must reflect the last.
+    const nav = jasmine.createSpy('navigate');
+    TestBed.configureTestingModule({
+      imports: [AppDetailComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'umami' }), convertToParamMap({ id: 'matomo' })) } },
+        { provide: Router, useValue: { navigate: nav } },
+        { provide: ApiService, useValue: { post: jasmine.createSpy('post') } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AppDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AppDetailComponent).componentInstance;
+    c.ngOnInit();
+    expect(c.app()?.id).withContext('reflects the latest param emission').toBe('matomo');
   });
 });

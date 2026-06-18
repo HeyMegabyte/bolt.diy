@@ -1,10 +1,13 @@
 import {
   Component,
+  DestroyRef,
+  HostListener,
   computed,
   inject,
   signal,
   type OnInit,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
@@ -270,6 +273,53 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
             </article>
           </aside>
         </div>
+
+        <!-- AI Recommends — the 2 most-similar OTHER apps (shared tags + category). -->
+        @if (recommendations().length > 0) {
+          <section class="rec-section" appReveal aria-labelledby="rec-heading" data-testid="apps-ai-recommends">
+            <div class="rec-head">
+              <span class="rec-spark" aria-hidden="true">✦</span>
+              <div class="min-w-0">
+                <h3 id="rec-heading" class="rec-title">AI Recommends</h3>
+                <p class="rec-sub">Matched to {{ a.name }} on shared capabilities + category.</p>
+              </div>
+            </div>
+            <div class="rec-grid">
+              @for (r of recommendations(); track r.id) {
+                <a class="rec-card" [routerLink]="['/admin/apps', r.id]" [attr.data-testid]="'apps-rec-' + r.id">
+                  <span class="rec-glyph" aria-hidden="true">{{ r.glyph }}</span>
+                  <span class="rec-body min-w-0">
+                    <span class="rec-name">{{ r.name }}</span>
+                    <span class="rec-tagline">{{ r.tagline }}</span>
+                  </span>
+                  <span class="rec-arrow" aria-hidden="true">→</span>
+                </a>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- Prev / next app — full-width pager (←/→ keys also navigate). -->
+        <nav class="pager" appReveal aria-label="Browse apps" data-testid="apps-pager">
+          @if (prevApp(); as p) {
+            <a class="pager-cell pager-prev" [routerLink]="['/admin/apps', p.id]" [attr.data-testid]="'apps-prev-' + p.id">
+              <span class="pager-arrow" aria-hidden="true">←</span>
+              <span class="pager-meta min-w-0">
+                <span class="pager-dir">Previous</span>
+                <span class="pager-name"><span class="pager-glyph" aria-hidden="true">{{ p.glyph }}</span>{{ p.name }}</span>
+              </span>
+            </a>
+          }
+          @if (nextApp(); as n) {
+            <a class="pager-cell pager-next" [routerLink]="['/admin/apps', n.id]" [attr.data-testid]="'apps-next-' + n.id">
+              <span class="pager-meta min-w-0">
+                <span class="pager-dir">Next</span>
+                <span class="pager-name">{{ n.name }}<span class="pager-glyph" aria-hidden="true">{{ n.glyph }}</span></span>
+              </span>
+              <span class="pager-arrow" aria-hidden="true">→</span>
+            </a>
+          }
+        </nav>
       } @else {
         <div class="card notice notice-red" role="alert">
           <strong>App not found.</strong>
@@ -612,11 +662,121 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       color: #fecaca;
     }
     .notice-red strong { color: #fca5a5; }
+
+    /* ── AI Recommends ── */
+    .rec-section {
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 16%, transparent);
+      border-radius: var(--ps-radius-xl, 22px);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 4%, transparent);
+      padding: 1.1rem 1.2rem 1.2rem;
+    }
+    .rec-head { display: flex; align-items: flex-start; gap: 0.7rem; margin-bottom: 0.9rem; }
+    .rec-spark {
+      flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 16%, transparent);
+      color: var(--ps-accent, #00E5FF); font-size: 0.9rem;
+    }
+    .rec-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 700; font-size: 0.96rem; color: var(--ps-ink, #fff); margin: 0; }
+    .rec-sub { font-size: 0.74rem; color: var(--text-secondary, rgba(255,255,255,0.6)); margin: 0.15rem 0 0; }
+    .rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 0.7rem; }
+    .rec-card {
+      display: flex; align-items: center; gap: 0.75rem; text-decoration: none;
+      padding: 0.8rem 0.9rem; border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ps-ink, #fff);
+      transition: transform 0.333s ease, border-color 0.333s ease, background 0.333s ease;
+    }
+    .rec-card:hover { transform: translateY(-2px); border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent); background: rgba(255,255,255,0.05); }
+    .rec-card:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    .rec-glyph { flex-shrink: 0; font-size: 1.35rem; line-height: 1; }
+    .rec-body { display: flex; flex-direction: column; gap: 0.1rem; flex: 1; }
+    .rec-name { font-weight: 600; font-size: 0.84rem; }
+    .rec-tagline { font-size: 0.72rem; color: var(--text-secondary, rgba(255,255,255,0.6)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rec-arrow { flex-shrink: 0; color: var(--ps-accent, #00E5FF); font-size: 0.95rem; opacity: 0.7; transition: transform 0.333s ease; }
+    .rec-card:hover .rec-arrow { transform: translateX(3px); opacity: 1; }
+
+    /* ── Prev / next pager ── */
+    .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    @media (max-width: 560px) { .pager { grid-template-columns: 1fr; } }
+    .pager-cell {
+      display: flex; align-items: center; gap: 0.8rem; text-decoration: none;
+      padding: 0.9rem 1rem; border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ps-ink, #fff);
+      transition: transform 0.333s ease, border-color 0.333s ease, background 0.333s ease;
+    }
+    .pager-next { justify-content: flex-end; text-align: right; }
+    .pager-cell:hover { border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent); background: rgba(255,255,255,0.05); }
+    .pager-cell:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    .pager-arrow { flex-shrink: 0; font-size: 1.1rem; color: var(--ps-accent, #00E5FF); transition: transform 0.333s ease; }
+    .pager-prev:hover .pager-arrow { transform: translateX(-3px); }
+    .pager-next:hover .pager-arrow { transform: translateX(3px); }
+    .pager-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+    .pager-dir { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; color: var(--text-secondary, rgba(255,255,255,0.5)); }
+    .pager-name { font-weight: 600; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pager-next .pager-name { justify-content: flex-end; }
+    .pager-glyph { font-size: 1rem; }
   `],
 })
 export class AppDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
+
+  /** Catalog position of the current app (for prev/next nav). */
+  private readonly catalogIndex = computed<number>(() => {
+    const cur = this.app();
+    return cur ? APPS_CATALOG.findIndex((a) => a.id === cur.id) : -1;
+  });
+
+  /** Previous / next catalog app — wraps around so both arrows always resolve. */
+  readonly prevApp = computed<CatalogApp | null>(() => {
+    const i = this.catalogIndex();
+    if (i < 0) return null;
+    return APPS_CATALOG[(i - 1 + APPS_CATALOG.length) % APPS_CATALOG.length] ?? null;
+  });
+  readonly nextApp = computed<CatalogApp | null>(() => {
+    const i = this.catalogIndex();
+    if (i < 0) return null;
+    return APPS_CATALOG[(i + 1) % APPS_CATALOG.length] ?? null;
+  });
+
+  /** "AI Recommends" — the 2 most similar OTHER apps, matched on shared tags
+   *  (weighted) + same category. Deterministic, instant, offline; the same tag
+   *  signal that powers cross-find. Always returns 2 (most-similar, even if the
+   *  top score is low) so the section is never half-empty. */
+  readonly recommendations = computed<CatalogApp[]>(() => {
+    const cur = this.app();
+    if (!cur) return [];
+    return APPS_CATALOG
+      .filter((b) => b.id !== cur.id)
+      .map((b) => ({ b, score: this.scoreSimilarity(cur, b) }))
+      .sort((x, y) => y.score - x.score || x.b.name.localeCompare(y.b.name))
+      .slice(0, 2)
+      .map((x) => x.b);
+  });
+
+  /** Shared-tag-weighted similarity: each shared tag = 2, same category = 1. */
+  private scoreSimilarity(a: CatalogApp, b: CatalogApp): number {
+    const shared = b.tags.filter((t) => a.tags.includes(t)).length;
+    return shared * 2 + (a.category === b.category ? 1 : 0);
+  }
+
+  /** ←/→ navigate prev/next app — ignored while typing in a form control. */
+  @HostListener('window:keydown', ['$event'])
+  onArrowNav(e: KeyboardEvent): void {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const tag = (e.target as HTMLElement | null)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const target = e.key === 'ArrowLeft' ? this.prevApp() : this.nextApp();
+    if (target) {
+      e.preventDefault();
+      this.router.navigate(['/admin/apps', target.id]);
+    }
+  }
   private api = inject(ApiService);
   private toast = inject(ToastService);
   private state = inject(AdminStateService);
@@ -709,14 +869,18 @@ export class AppDetailComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id') ?? '';
-    this.appId.set(id);
-    const found = APPS_CATALOG.find((a) => a.id === id) ?? null;
-    this.app.set(found);
-    if (found) {
-      this.subdomain = `${found.id}-${this.shortSlug()}`;
-      this.subdomainSignal.set(this.subdomain);
-    }
+    // Subscribe (not snapshot) so prev/next nav — which re-uses THIS component
+    // with a new `:id` — re-resolves the app instead of showing the old one.
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((pm) => {
+      const id = pm.get('id') ?? '';
+      this.appId.set(id);
+      const found = APPS_CATALOG.find((a) => a.id === id) ?? null;
+      this.app.set(found);
+      if (found) {
+        this.subdomain = `${found.id}-${this.shortSlug()}`;
+        this.subdomainSignal.set(this.subdomain);
+      }
+    });
   }
 
   onSubdomainChange(value: string): void {
