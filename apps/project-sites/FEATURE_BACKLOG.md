@@ -163,3 +163,8 @@ Legend: ✅ BUILT (libs/ module + flag registered) | 🟡 PARTIAL (flag or servi
 - `social_analytics_backfill` — a cron touching the shared scheduled handler in index.ts → single-writer.
 
 **(B) big/needs-decision (unchanged):** run_code_sandbox, db_per_app, do_per_app_actor, ag_ui_streaming, x402_micropayments, agent_test_harness.
+
+## Provider-platform loop (cron 59e1dbb3) — progress
+- ✅ slice 1: DeepSeek Claude Code setup — scripts/setup-claude-deepseek.sh + verify + docs (commit 885f75f6; verify 8/8 + negative-test)
+- ✅ slice 2: `model_registry` — OpenAI-compatible GET /v1/models + ProviderCapabilityRegistry + ModelAliasRegistry (commit; deploy 8eac35ac; flag ON; LIVE: object:list, 13 aliases incl premium-quorum/deepseek-code/grok-live-business). The /v1 surface the AiRouter hangs off.
+- NEXT: the AiRouter request seam — `AiRouterService` resolving a model alias → provider via the registries, with `RouterDecisionStore` (D1) recording route+model+why+cost+latency (the trace side-effect every other provider feature asserts). Then `/v1/chat/completions` (OpenAI-compatible) routing deepseek-default through external_llm, writing a router_decisions row. Then LiteLLM container scaffold (containers/litellm).
