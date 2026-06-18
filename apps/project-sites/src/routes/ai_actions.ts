@@ -28,6 +28,11 @@
  *    {@link refundPayment} (caller-owned idempotency key; both outcomes audited).
  *  - `GET /api/ai-actions/payment-status/:paymentIntentId` — read-only status via
  *    {@link getPaymentStatus} (moves no money, writes no audit).
+ *  - `GET /api/ai-actions/payment-methods?customer=cus_…` — list a customer's
+ *    saved cards (masked) via {@link listSavedPaymentMethods}.
+ *  - `GET /api/ai-actions/customers?q=cus_…|email` — resolve a customer via
+ *    {@link lookupCustomer}, so the agent can discover the `cus_…`/`pm_…` refs a
+ *    charge/refund needs without ever handling a raw card.
  */
 
 import { Hono } from 'hono';
@@ -45,6 +50,12 @@ import {
   stripeGetPaymentStatus,
   type ExecAuditEntry,
 } from '../services/ai_payment_execute.js';
+import {
+  listSavedPaymentMethods,
+  lookupCustomer,
+  stripeListPaymentMethods,
+  stripeLookupCustomer,
+} from '../services/ai_payment_lookup.js';
 import { writeAuditLog } from '../services/audit.js';
 
 /** Feature flag gating the whole surface — dark-launched (default off). */
@@ -293,4 +304,50 @@ aiActions.get('/api/ai-actions/payment-status/:paymentIntentId', async (c) => {
       ...(outcome.amountCents !== undefined ? { amount_cents: outcome.amountCents } : {}),
     },
   });
+});
+
+/**
+ * `GET /api/ai-actions/payment-methods?customer=cus_…` — list a customer's saved
+ * cards (masked brand/last4/expiry only — never a PAN) via the read-only
+ * {@link listSavedPaymentMethods} tool. Auth + flag gated; moves no money,
+ * writes no audit. Invalid customer → 400; an upstream Stripe failure → 502.
+ */
+aiActions.get('/api/ai-actions/payment-methods', async (c) => {
+  const gate = await gateAiPaymentAction(c);
+  if (!gate.ok) return gate.res;
+  const { requestId } = gate;
+
+  const outcome = await listSavedPaymentMethods(c.req.query('customer') ?? '', {
+    list: stripeListPaymentMethods(c.env),
+  });
+  if (!outcome.ok) {
+    const status = outcome.code === 'lookup_failed' ? 502 : 400;
+    return c.json(
+      { error: { code: outcome.code, message: outcome.message, request_id: requestId } },
+      status,
+    );
+  }
+  return c.json({ data: { payment_methods: outcome.methods } });
+});
+
+/**
+ * `GET /api/ai-actions/customers?q=cus_…|email` — resolve a customer by id or
+ * email via the read-only {@link lookupCustomer} tool, so an agent can find the
+ * `cus_…` ref a charge/refund needs. Auth + flag gated; read-only, no audit.
+ * Non-id/non-email query → 400; an upstream Stripe failure → 502.
+ */
+aiActions.get('/api/ai-actions/customers', async (c) => {
+  const gate = await gateAiPaymentAction(c);
+  if (!gate.ok) return gate.res;
+  const { requestId } = gate;
+
+  const outcome = await lookupCustomer(c.req.query('q') ?? '', stripeLookupCustomer(c.env));
+  if (!outcome.ok) {
+    const status = outcome.code === 'lookup_failed' ? 502 : 400;
+    return c.json(
+      { error: { code: outcome.code, message: outcome.message, request_id: requestId } },
+      status,
+    );
+  }
+  return c.json({ data: { customers: outcome.customers } });
 });

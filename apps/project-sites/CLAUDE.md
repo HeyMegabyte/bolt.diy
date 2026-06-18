@@ -592,6 +592,8 @@ src/
 | POST | `/api/ai-actions/payment-command` | Safety-gated AI payment command (dry-run→confirm→charge); flag `ai_payment_command` |
 | POST | `/api/ai-actions/payment-refund` | Refund a prior payment-command charge (caller-owned idempotency key); same flag |
 | GET | `/api/ai-actions/payment-status/:paymentIntentId` | Read-only PaymentIntent status (no charge, no audit); same flag |
+| GET | `/api/ai-actions/payment-methods?customer=cus_…` | List a customer's saved cards (masked brand/last4/expiry, never PAN); same flag |
+| GET | `/api/ai-actions/customers?q=cus_…\|email` | Resolve a Stripe customer by id or email (read-only); same flag |
 | GET | `/api/sites/by-slug/:slug/build-context` | Get build context |
 | GET | `/api/sites/by-slug/:slug/chat` | Get chat context |
 | GET | `/api/sites/by-slug/:slug/research.json` | Get research data |
