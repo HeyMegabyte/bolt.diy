@@ -181,5 +181,59 @@ no competitor ships. These are the moat. (Build behind flags per feature-module 
 
 ---
 
+## 6. AI-ecosystem avenues — 40 ways into the AI scene (get listed · become eligible · integrate)
+
+> ⛔ **PUBLISH GATE (hard, Brian-approval-required).** Every item that submits/registers/lists
+> projectsites with an EXTERNAL party (registries, app stores, directories, roundups, badge
+> programs, npm publish, open-sourcing) is BUILD-the-artifact-only. Prepare the `server.json`,
+> the `.well-known` files, the listing copy, the PR branch — then STOP. Outward-facing
+> publication is an `approval-required` action per `autonomous-engineering`; do NOT auto-submit.
+> Internal eligibility features (transports, discovery files, schemas) ship dark-flagged as usual.
+
+### A. MCP registries & directories (get listed — artifact-ready, do not submit)
+1. **Official MCP Registry** (`registry.modelcontextprotocol.io`) — author `server.json`; canonical source clients pull.
+2. **Smithery** (`smithery.ai`) — largest hosted directory, one-click install.
+3. **Aggregators** — `glama.ai/mcp`, `mcp.so`, PulseMCP, `mcpservers.org`.
+4. **Awesome-MCP-Servers + Docker MCP Catalog/Toolkit** — curated-list PR + Docker image.
+5. **Client-native galleries** — VS Code MCP gallery, Cursor directory, Cline Marketplace, Zed, Continue, Goose.
+
+### B. Eligibility features (add to qualify + rank — ship internally, flagged)
+6. **Streamable-HTTP transport + OAuth 2.1 + Dynamic Client Registration** (have OAuth; add DCR + streamable).
+7. **Discovery files** — `server.json` + `.well-known/oauth-protected-resource` + `.well-known/mcp`.
+8. **Rich tool metadata** — JSON schemas + tool annotations (read-only/destructive) + titles/examples + clean MCP Inspector pass.
+9. **Listing assets** — logo, categories/tags, README quickstart, 60s demo, semver, public health endpoint.
+10. **Trust marks** — security.txt/disclosure, privacy policy, rate limits, changelog, namespace claim/verify.
+
+### C. AI-assistant app stores & integration directories (artifact-ready, do not submit)
+11. **Anthropic Claude connectors directory** — remote-MCP connector (closest-fit, highest-intent audience).
+12. **OpenAI Apps SDK / ChatGPT app directory** — "build me a website" in-chat.
+13. **Google Gemini Extensions** — register as a tool/extension.
+14. **Microsoft Copilot Agent Store + Copilot Studio connector**.
+15. **Perplexity / Poe / HuggingChat** tool ecosystems.
+
+### D. Agent frameworks & tool hubs (integrate-with)
+16. **Composio** — managed tool; they hold auth. 17. **Arcade** — MCP-native runtime entry. 18. **Nango** — just-in-time agent builds.
+19. **LangChain / LlamaIndex** — `langchain-projectsites` + LlamaIndex tool spec. 20. **Vercel AI SDK / CopilotKit / AG-UI** adapters.
+
+### E. Automation platforms (no-code reach)
+21. **Zapier + Zapier MCP**. 22. **n8n + Make + Pipedream** nodes/apps. 23. **Cloudflare Agents/Workflows** referenceable block.
+24. **Slack / Discord / Teams** marketplaces (chat-deploy bot). 25. **Retool / Airtable / Notion** automation actions.
+
+### F. Protocols to support (interoperate + future-proof)
+26. **MCP (platform + per-site server)** — flagship; per-site MCP is the unique hook. 27. **A2A** — other agents delegate site-building.
+28. **OpenAI function-calling / Apps SDK schema**. 29. **AG-UI** — stream build progress. 30. **Email-as-interface** (Email Routing Worker).
+
+### G. Discovery / GEO / distribution
+31. **`llms.txt` + `/api/llms`** — agent self-onboard. 32. **AEO/GEO so projectsites itself gets cited** (FAQPage + quotable blocks).
+33. **"Best MCP servers / AI website builders 2026" roundups** (Builder.io, Composio, Toloka, Fastio). 34. **OSS the MCP server + `npx create-projectsites-mcp`** (publish-gated). 35. **Partner template galleries** (CF Workers / Vercel / Replit / Bolt starters using the MCP).
+
+### H. Integrate-WITH (consume the scene; be the host agents reach for)
+36. **Deploy target in agent IDEs** — Cursor/Windsurf/Replit/Bolt/Lovable "deploy to projectsites." 37. **Consume others' MCPs inside builds** (Stripe/Resend/Notion via the OAuth layer → richer sites).
+38. **Model marketplaces** — OpenRouter / HF Spaces demo via AI Gateway. 39. **Agent-commerce rails** — agentic-checkout so an agent can buy a $50/mo site. 40. **Verification/badge programs** — "Works with Claude," OpenAI/Google partner badges, MCP "verified server."
+
+**Eligibility bundle (#6-#10) first** — ship once → ~15 listings become possible. Then prep #1/#2/#11 artifacts (do not submit). All `platform_mcp`-adjacent; track in `ROADMAP.md`.
+
+---
+
 > See `ROADMAP.md` for the priority-ordered, $-sorted build queue (these items land there as
 > flagged modules). Capital-efficiency program: `ROADMAP.md` § Capital efficiency.
