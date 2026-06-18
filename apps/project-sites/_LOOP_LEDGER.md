@@ -115,7 +115,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ## AI context-quality axis (5 ship-first — `_ULTIMATE_LOOP.prompt.md` § AI context-quality axis, 2026-06-18)
 - [x] **#3 readiness gate** — `src/services/context_readiness.ts` `computeContextReadiness` (pure, slots/retrieval/confidence → 0-100, ready≥70 + zero-missing-slot; Zod, never throws; 8 Jest tests). fire-v2.37.
-- [ ] **#2 labeled context blocks** — pure `assembleLabeledContext(sections)` → `SYSTEM / RETRIEVED_FACTS / BRAND / CONSTRAINTS / EXAMPLES` (data-not-instructions; injection defense). Pure → NEXT clean cron round.
+- [x] **#2 labeled context blocks** — `src/services/labeled_context.ts` `assembleLabeledContext(sections)` → ordered `SYSTEM / RETRIEVED_FACTS / BRAND / CONSTRAINTS / EXAMPLES` blocks (data-not-instructions injection defense; deterministic order = stable cache prefix; omits empty; never throws). 5 Jest tests. fire-v2.37 Round 2.
 - [ ] **#1 Context7 pre-step** — build agent pulls current lib docs before coding (container/workflow integration — attended).
 - [ ] **#4 rerank-before-pack** — Workers AI BGE reranker over broad retrieval (needs `env.AI` — integration, not pure).
 - [ ] **#5 context manifest in traces** — hashed assembled-context + section sizes + provenance per generation (PostHog/AI-Gateway wiring — integration).
