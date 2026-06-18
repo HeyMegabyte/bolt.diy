@@ -134,7 +134,10 @@ describe('getAvailableSlots', () => {
   test('returns slots from DB query', async () => {
     const { db, slots } = makeDb({ slots: [futureSlot] });
     const env = makeEnv(db);
-    const result = await getAvailableSlots(env as unknown as import('../../../src/types/env.js').Env, ORG);
+    const result = await getAvailableSlots(
+      env as unknown as import('../../../../src/types/env.js').Env,
+      ORG,
+    );
     expect(result).toEqual(slots);
   });
 
@@ -146,7 +149,10 @@ describe('getAvailableSlots', () => {
         }),
       }),
     } as unknown as D1Database;
-    const result = await getAvailableSlots(makeEnv(db) as unknown as import('../../../src/types/env.js').Env, ORG);
+    const result = await getAvailableSlots(
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
+      ORG,
+    );
     expect(result).toEqual([]);
   });
 });
@@ -159,7 +165,7 @@ describe('reserveSlot', () => {
   test('returns null when slot not found', async () => {
     const db = mockD1();
     const result = await reserveSlot(
-      makeEnv(db) as unknown as import('../../../src/types/env.js').Env,
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
       ORG,
       'missing-slot',
       'Bob',
@@ -180,7 +186,7 @@ describe('reserveSlot', () => {
       }),
     } as unknown as D1Database;
     const result = await reserveSlot(
-      makeEnv(db) as unknown as import('../../../src/types/env.js').Env,
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
       ORG,
       futureSlot.id,
       'Bob',
@@ -190,32 +196,31 @@ describe('reserveSlot', () => {
   });
 
   test('returns appointment row when slot has capacity', async () => {
-    let callCount = 0;
+    // dbQueryOne resolves rows via .all() + data[0] (NOT .first()), so the
+    // slot lookup and the new-row lookup must be returned through .all(),
+    // keyed by the table the SQL targets.
     const db = {
-      prepare: jest.fn().mockReturnValue({
+      prepare: jest.fn().mockImplementation((sql: string) => ({
         bind: jest.fn().mockReturnValue({
-          all: jest.fn().mockResolvedValue({ results: [] }),
-          first: jest.fn().mockImplementation(async () => {
-            callCount++;
-            if (callCount === 1) return futureSlot; // slot lookup
-            // second first() = newly inserted appointment
-            return { ...confirmedAppt };
+          all: jest.fn().mockResolvedValue({
+            results: sql.includes('booking_appointments') ? [{ ...confirmedAppt }] : [futureSlot],
           }),
           run: jest.fn().mockResolvedValue({ meta: { changes: 1 } }),
         }),
-      }),
+      })),
     } as unknown as D1Database;
 
     const result = await reserveSlot(
-      makeEnv(db) as unknown as import('../../../src/types/env.js').Env,
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
       ORG,
       futureSlot.id,
       'Alice',
       'alice@example.com',
     );
-    // The service calls prepare().bind().run() for update + insert then first() for the new row.
-    // Our mock returns the confirmedAppt on 2nd first() call.
+    // Slot lookup (booking_slots) returns capacity; the new-row lookup
+    // (booking_appointments) returns the inserted appointment.
     expect(result).not.toBeNull();
+    expect(result?.status).toBe('confirmed');
   });
 });
 
@@ -227,7 +232,7 @@ describe('cancelAppointment', () => {
   test('returns false when appointment not found', async () => {
     const db = mockD1();
     const result = await cancelAppointment(
-      makeEnv(db) as unknown as import('../../../src/types/env.js').Env,
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
       ORG,
       'missing-appt',
     );
@@ -245,7 +250,7 @@ describe('cancelAppointment', () => {
       }),
     } as unknown as D1Database;
     const result = await cancelAppointment(
-      makeEnv(db) as unknown as import('../../../src/types/env.js').Env,
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
       ORG,
       confirmedAppt.id,
     );
@@ -253,17 +258,19 @@ describe('cancelAppointment', () => {
   });
 
   test('returns true when appointment is confirmed', async () => {
+    // The appointment lookup goes through dbQueryOne → .all() + data[0].
     const db = {
-      prepare: jest.fn().mockReturnValue({
+      prepare: jest.fn().mockImplementation((sql: string) => ({
         bind: jest.fn().mockReturnValue({
-          all: jest.fn().mockResolvedValue({ results: [] }),
-          first: jest.fn().mockResolvedValue({ ...confirmedAppt }),
+          all: jest.fn().mockResolvedValue({
+            results: sql.includes('booking_appointments') ? [{ ...confirmedAppt }] : [],
+          }),
           run: jest.fn().mockResolvedValue({ meta: { changes: 1 } }),
         }),
-      }),
+      })),
     } as unknown as D1Database;
     const result = await cancelAppointment(
-      makeEnv(db) as unknown as import('../../../src/types/env.js').Env,
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
       ORG,
       confirmedAppt.id,
     );
@@ -278,7 +285,10 @@ describe('cancelAppointment', () => {
 describe('listAppointments', () => {
   test('returns appointments array from DB', async () => {
     const { db, appts } = makeDb({ appts: [confirmedAppt] });
-    const result = await listAppointments(makeEnv(db) as unknown as import('../../../src/types/env.js').Env, ORG);
+    const result = await listAppointments(
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
+      ORG,
+    );
     expect(result).toEqual(appts);
   });
 
@@ -290,7 +300,10 @@ describe('listAppointments', () => {
         }),
       }),
     } as unknown as D1Database;
-    const result = await listAppointments(makeEnv(db) as unknown as import('../../../src/types/env.js').Env, ORG);
+    const result = await listAppointments(
+      makeEnv(db) as unknown as import('../../../../src/types/env.js').Env,
+      ORG,
+    );
     expect(result).toEqual([]);
   });
 });
