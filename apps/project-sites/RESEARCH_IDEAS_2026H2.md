@@ -61,3 +61,20 @@
 ### Top 6 to ship first (highest leverage × lowest risk, all on our live stack)
 - **#1 Per-site MCP server** (the moat; reuses mcp_site.ts) · **#13 Production Readiness Score** (the category's #1 gap) · **#25 Deploy buttons + "Hosted on" badge** (viral, cheap) · **#7 `run_code` Sandbox tool** (completes the editor loop) · **#24 llms.txt** (agent-discoverable, ~1h) · **#17 Trust center + status page** (~$0, enterprise signal).
 </content>
+
+---
+
+## Market-timing addendum (edge-hosting research, 2026-06-17)
+
+The single most important number from the competitive scan — it validates the whole MCP-in-Claude-Code thesis:
+
+- **Agents now drive >50% of all commits on Vercel** — up from <3% in Jan 2026 (a 1,000%+ rise in 6 months). 30%+ of deployments are agent-initiated. ([vercel.com/blog/ai-gateway-production-index](https://vercel.com/blog/ai-gateway-production-index), May 2026)
+- **Claude Code drives 75% of those agent deployments** (Lovable/v0 6%, Cursor 1.5%). Claude is the *premium* workload (61% of AI-Gateway spend, 26% of token volume).
+- **Agent-deployed projects are 20× more likely to call AI inference** than human-deployed ones.
+- **Vercel has NO native database in 2026** — they wound down Vercel Postgres (Q4 2024) and now broker Aurora/Neon via Marketplace.
+
+**What this means for us — two sharpened bets:**
+1. **Counter-position Vercel directly: make Claude Code the primary UI, skip the dashboard.** Claude Code is already the dominant agent deployer; our MCP puts create+deploy+manage *inside its tool palette*. That's the wedge — we already shipped the surface, now own the experience.
+2. **Bundle the database (idea #8 DB-per-app) as a headline differentiator.** "Every app gets a real database, free" is a gap Vercel deliberately left open — and agent-deployed apps are 20× more inference-hungry, so bundling D1 + Workers AI + AI Gateway is exactly the agent-native stack they'll reach for.
+
+→ Net: ideas **#1 (per-site MCP)**, **#8 (DB-per-app)**, **#7 (run_code sandbox)**, and **#18 (paidTool metering)** together form an agent-native edge host that is structurally hard for Vercel/Bolt/Lovable to copy — they'd each have to rebuild a layer they exited or never owned. This is the moat; build toward it.
