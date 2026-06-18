@@ -18,6 +18,7 @@ import {
   getOrCreateStripeCustomer,
   createCheckoutSession,
   createEmbeddedCheckoutSession,
+  createPaymentIntent,
   handleCheckoutCompleted,
   handleSubscriptionUpdated,
   handleSubscriptionDeleted,
@@ -269,6 +270,129 @@ describe('createEmbeddedCheckoutSession', () => {
     const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
     const body = fetchCall[1].body as URLSearchParams;
     expect(body.get('metadata[site_id]')).toBe('site_99');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createPaymentIntent — the embedded Payment Element / saved-card money path.
+// Previously UNTESTED (P0-REV money-path coverage gap): a regression here =
+// broken payments = $0. Locks the success shape, the Stripe param contract,
+// and (critically) the two error envelopes a buyer can hit at the pay step.
+// ---------------------------------------------------------------------------
+describe('createPaymentIntent', () => {
+  const opts = {
+    orgId: 'org_1',
+    customerEmail: 'a@b.com',
+    amountCents: 5000,
+  };
+
+  function mockExistingCustomer() {
+    mockQueryOne.mockResolvedValueOnce({ id: 'sub_1', stripe_customer_id: 'cus_existing' });
+  }
+
+  it('returns client_secret and payment_intent_id on success', async () => {
+    mockExistingCustomer();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'pi_123', client_secret: 'pi_123_secret_abc' }),
+      text: async () => '',
+    });
+
+    const result = await createPaymentIntent(mockDb, mockEnv, opts);
+
+    expect(result).toEqual({
+      client_secret: 'pi_123_secret_abc',
+      payment_intent_id: 'pi_123',
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.stripe.com/v1/payment_intents',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('sends amount, customer, org_id metadata, and a no-redirect automatic PM contract', async () => {
+    mockExistingCustomer();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'pi_123', client_secret: 'pi_123_secret_abc' }),
+      text: async () => '',
+    });
+
+    await createPaymentIntent(mockDb, mockEnv, opts);
+
+    const body = (global.fetch as jest.Mock).mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('amount')).toBe('5000');
+    expect(body.get('customer')).toBe('cus_existing');
+    expect(body.get('metadata[org_id]')).toBe('org_1');
+    expect(body.get('automatic_payment_methods[enabled]')).toBe('true');
+    // allow_redirects=never keeps the embedded element on-page (no off-site bounce).
+    expect(body.get('automatic_payment_methods[allow_redirects]')).toBe('never');
+    expect(body.get('currency')).toBeTruthy();
+    // setup_future_usage defaults ON so a card is saved for off-session reuse.
+    expect(body.get('setup_future_usage')).toBe('off_session');
+  });
+
+  it('omits setup_future_usage when saveForFutureUse is explicitly false', async () => {
+    mockExistingCustomer();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'pi_123', client_secret: 'pi_123_secret_abc' }),
+      text: async () => '',
+    });
+
+    await createPaymentIntent(mockDb, mockEnv, { ...opts, saveForFutureUse: false });
+
+    const body = (global.fetch as jest.Mock).mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('setup_future_usage')).toBeNull();
+  });
+
+  it('passes site_id metadata and description through when provided', async () => {
+    mockExistingCustomer();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'pi_456', client_secret: 'pi_456_secret_xyz' }),
+      text: async () => '',
+    });
+
+    await createPaymentIntent(mockDb, mockEnv, {
+      ...opts,
+      siteId: 'site_99',
+      description: 'Annual plan',
+    });
+
+    const body = (global.fetch as jest.Mock).mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('metadata[site_id]')).toBe('site_99');
+    expect(body.get('description')).toBe('Annual plan');
+  });
+
+  it('surfaces the Stripe error code in a clean badRequest envelope (declined card)', async () => {
+    mockExistingCustomer();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({}),
+      text: async () =>
+        JSON.stringify({
+          error: { code: 'card_declined', message: 'Your card was declined.', type: 'card_error' },
+        }),
+    });
+
+    // The buyer-facing message must carry the Stripe code, never a raw 500/stack.
+    await expect(createPaymentIntent(mockDb, mockEnv, opts)).rejects.toThrow(/card_declined/);
+  });
+
+  it('maps a Stripe network failure to a retryable badRequest (never an uncaught 500)', async () => {
+    mockExistingCustomer();
+
+    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('socket hang up'));
+
+    await expect(createPaymentIntent(mockDb, mockEnv, opts)).rejects.toThrow(
+      /stripe_network_error/,
+    );
   });
 });
 
