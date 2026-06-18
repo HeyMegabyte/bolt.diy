@@ -79,6 +79,21 @@ export class DevelopersComponent implements OnInit {
   }
 }`;
 
+  /**
+   * OAuth one-click variant — NO token in the file. On first use Claude Code hits
+   * a 401 + WWW-Authenticate, auto-discovers the authorization server (RFC 9728 →
+   * RFC 8414), opens the browser to approve, and stores the issued token itself.
+   */
+  readonly oauthSnippet = `{
+  "mcpServers": {
+    "projectsites": {
+      "type": "http",
+      "url": "https://projectsites.dev/api/mcp"
+    }
+  }
+}`;
+  readonly oauthCopyState = signal<null | 'copied' | 'error'>(null);
+
   /** 3-step connect guide — text only, no fake time claims. */
   readonly steps: readonly Step[] = [
     {
@@ -157,6 +172,22 @@ export class DevelopersComponent implements OnInit {
     } catch {
       this.copyState.set('error');
       setTimeout(() => this.copyState.set(null), 2200);
+    }
+  }
+
+  /** Copy the no-token OAuth MCP JSON snippet to the system clipboard. */
+  async copyOauthSnippet(): Promise<void> {
+    if (!navigator?.clipboard) {
+      this.oauthCopyState.set('error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(this.oauthSnippet);
+      this.oauthCopyState.set('copied');
+      setTimeout(() => this.oauthCopyState.set(null), 2200);
+    } catch {
+      this.oauthCopyState.set('error');
+      setTimeout(() => this.oauthCopyState.set(null), 2200);
     }
   }
 }

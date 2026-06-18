@@ -56,6 +56,37 @@
       </a>.
       Token scopes: <code>sites:read</code> (inspect) · <code>sites:write</code> (deploy + create).
     </p>
+
+    <div class="dev-hero__eyebrow" style="margin-top:1.5rem">Or — OAuth, no token to paste</div>
+    <div class="dev-snippet" role="region" aria-label="OAuth MCP JSON configuration">
+      <div class="dev-snippet__bar">
+        <span class="dev-snippet__filename">.mcp.json — OAuth</span>
+        <button
+          class="dev-snippet__copy"
+          type="button"
+          [attr.aria-label]="oauthCopyState() === 'copied' ? 'Copied to clipboard' : 'Copy OAuth MCP config to clipboard'"
+          [class.dev-snippet__copy--done]="oauthCopyState() === 'copied'"
+          [class.dev-snippet__copy--err]="oauthCopyState() === 'error'"
+          (click)="copyOauthSnippet()"
+        >
+          @if (oauthCopyState() === 'copied') {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Copied
+          } @else if (oauthCopyState() === 'error') {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Failed
+          } @else {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          }
+        </button>
+      </div>
+      <pre class="dev-snippet__code"><code>{{ oauthSnippet }}</code></pre>
+    </div>
+    <p class="dev-hero__note">
+      <strong>No token to paste.</strong> Run <code>/mcp</code> in Claude Code — it opens your
+      browser to approve access, then connects. Uses OAuth 2.1 with PKCE; approve once per machine.
+    </p>
   </section>
 
   <!-- ═══ 3-STEP GUIDE ═══ -->
