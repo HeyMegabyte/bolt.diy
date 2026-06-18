@@ -1,5 +1,10 @@
 import { dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
-import { loadOrCreateSession, applyClaimEvent, getSession } from '../services/claim_session_store';
+import {
+  loadOrCreateSession,
+  applyClaimEvent,
+  getSession,
+  getSessionBySiteId,
+} from '../services/claim_session_store';
 
 /**
  * #1 claimyour.site — D1 persistence shell around the pure build-session reducer.
@@ -134,5 +139,39 @@ describe('getSession', () => {
     const s = await getSession(db, 'sess_1');
     expect(s?.status).toBe('completed');
     expect(s?.previewUrl).toBe('https://p');
+  });
+});
+
+describe('getSessionBySiteId', () => {
+  it('returns null for an empty siteId WITHOUT querying', async () => {
+    expect(await getSessionBySiteId(db, '')).toBeNull();
+    expect(mockQueryOne).not.toHaveBeenCalled();
+  });
+
+  it('returns null when no session is linked to the siteId', async () => {
+    mockQueryOne.mockResolvedValue(null);
+    expect(await getSessionBySiteId(db, 'site_unknown')).toBeNull();
+  });
+
+  it('resolves the claim session linked to a generated siteId (queries by site_id)', async () => {
+    mockQueryOne.mockResolvedValue({
+      session_id: 'claim_abc',
+      lead_id: 'lead_1',
+      site_id: 'site_9',
+      status: 'building',
+      preview_url: null,
+      pending_rebuild: 0,
+      pending_context: null,
+      attempts: 1,
+      error: null,
+    });
+    const s = await getSessionBySiteId(db, 'site_9');
+    expect(s?.sessionId).toBe('claim_abc');
+    expect(s?.leadId).toBe('lead_1');
+    expect(s?.siteId).toBe('site_9');
+    // The reverse lookup keys on site_id, not session_id.
+    const [, sql, params] = mockQueryOne.mock.calls[0];
+    expect(sql).toMatch(/WHERE site_id = \?/);
+    expect(params).toEqual(['site_9']);
   });
 });

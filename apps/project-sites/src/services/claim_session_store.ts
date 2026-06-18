@@ -149,3 +149,27 @@ export async function getSession(db: D1Database, sessionId: string): Promise<Bui
   ]);
   return row ? rowToSession(row) : null;
 }
+
+/**
+ * Reverse lookup — read the claim session linked to a generated `siteId`.
+ *
+ * @remarks
+ * The build-status callback knows only the `siteId` of a finished build; this
+ * resolves it back to the owning claim session (set via `START_BUILD`'s siteId)
+ * so {@link handleClaimBuildResult} can flip building→completed and email the
+ * owner. Indexed by `idx_claim_build_sessions_site` (migration 0570).
+ *
+ * @param db - D1 binding.
+ * @param siteId - The generated site id carried on the session.
+ * @returns The linked {@link BuildSession} or `null` (incl. an empty siteId).
+ */
+export async function getSessionBySiteId(
+  db: D1Database,
+  siteId: string,
+): Promise<BuildSession | null> {
+  if (!siteId) return null;
+  const row = await dbQueryOne<SessionRow>(db, `SELECT * FROM ${TABLE} WHERE site_id = ? LIMIT 1`, [
+    siteId,
+  ]);
+  return row ? rowToSession(row) : null;
+}
