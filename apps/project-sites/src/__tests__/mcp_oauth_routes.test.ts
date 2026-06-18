@@ -199,7 +199,7 @@ describe('GET /api/mcp/:provider/connect', () => {
     expect((env.DB as unknown as { _statements: BoundStatement[] })._statements).toHaveLength(0);
   });
 
-  it('302-redirects to the authorize URL and persists a one-shot PKCE state row', async () => {
+  it('returns the authorize URL as JSON and persists a one-shot PKCE state row', async () => {
     const authorizeUrl = jest.fn(() => 'https://github.com/login/oauth/authorize?x=1');
     mockGetAdapter.mockReturnValue(makeAdapter({ authorizeUrl }));
     const env = makeEnv();
@@ -207,12 +207,13 @@ describe('GET /api/mcp/:provider/connect', () => {
       makeApp(AUTH),
       '/api/mcp/github/connect?site_id=s1&return_url=/admin/mcp',
       env,
-      {
-        redirect: 'manual',
-      },
     );
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('https://github.com/login/oauth/authorize?x=1');
+    // JSON, NOT a 302 — the route is bearer-gated, so the admin fetches it with
+    // the bearer then navigates the top window itself (the "auth required" fix).
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { mode: string; authorize_url: string } };
+    expect(body.data.mode).toBe('oauth');
+    expect(body.data.authorize_url).toBe('https://github.com/login/oauth/authorize?x=1');
 
     const stmts = (env.DB as unknown as { _statements: BoundStatement[] })._statements;
     const insert = stmts.find((s) => /INSERT INTO mcp_oauth_states/i.test(s.sql));

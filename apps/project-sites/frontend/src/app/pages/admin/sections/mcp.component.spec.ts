@@ -192,13 +192,18 @@ describe('AdminMcpComponent — submitPaste in-flight guard (no double-submit)',
 describe('AdminMcpComponent — OAuth connect in-flight guard (no double-redirect)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  function make(): { c: AdminMcpComponent; nav: jasmine.Spy } {
+  function make(): { c: AdminMcpComponent; nav: jasmine.Spy; get: jasmine.Spy } {
     const nav = jasmine.createSpy('navigate');
+    // `/connect` stays in-flight (NEVER) so the guard can hold across a double
+    // click; the connections load resolves normally.
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      /\/connect$/.test(path) ? NEVER : of({ data: { connections: [] } }),
+    );
     TestBed.configureTestingModule({
       imports: [AdminMcpComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ data: { connections: [] } }), post: () => of({}), delete: () => of({}) } },
-        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
       ],
     });
@@ -206,16 +211,16 @@ describe('AdminMcpComponent — OAuth connect in-flight guard (no double-redirec
     const c = TestBed.createComponent(AdminMcpComponent).componentInstance;
     // Stub the redirect so the test runner doesn't actually navigate away.
     (c as unknown as { redirectTo: (url: string) => void }).redirectTo = nav;
-    return { c, nav };
+    return { c, nav, get };
   }
 
-  it('a second OAuth connect of the same provider does NOT fire a second redirect', () => {
-    const { c, nav } = make();
+  it('a second OAuth connect while the first is in-flight does NOT fire a second connect request', () => {
+    const { c, get } = make();
     c.connect('stripe');
     expect(c.isConnecting('stripe')).withContext('first connect marks in-flight').toBeTrue();
     c.connect('stripe'); // user double-clicks "Connect via OAuth"
-    expect(nav).withContext('the in-flight guard blocks the 2nd redirect').toHaveBeenCalledTimes(1);
-    expect(nav).toHaveBeenCalledWith('/api/mcp/stripe/connect?site_id=s1&return_url=/admin/mcp');
+    const connectCalls = get.calls.allArgs().filter((a: unknown[]) => /\/connect$/.test(String(a[0])));
+    expect(connectCalls.length).withContext('the in-flight guard blocks the 2nd request').toBe(1);
   });
 
   it('paste-flow providers do NOT mark an OAuth connecting state', () => {
@@ -287,5 +292,59 @@ describe('AdminMcpComponent — appReveal first-paint cohesion', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('header')?.hasAttribute('appReveal')).toBeTrue();
+  });
+});
+
+/**
+ * connect() — the MailChimp "auth required" fix. The `/mcp/:provider/connect`
+ * route is bearer-auth-gated, so the OLD `window.location.href` browser nav
+ * 401'd. connect() now FETCHES the authorize URL with the bearer (ApiService,
+ * which injects it) THEN navigates the top window. A 501 (OAuth not configured)
+ * falls back to the inline paste-key form instead of a broken redirect.
+ */
+describe('AdminMcpComponent — connect() OAuth via bearer fetch (MailChimp auth-required fix)', () => {
+  function build(get: jasmine.Spy, info = jasmine.createSpy('info'), error = jasmine.createSpy('error')): AdminMcpComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMcpComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0, info } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMcpComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminMcpComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('fetches the authorize URL WITH the bearer (silent) then navigates the top window', () => {
+    const authUrl = 'https://login.mailchimp.com/oauth2/authorize?x=1';
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      /\/connect$/.test(path)
+        ? of({ data: { mode: 'oauth', authorize_url: authUrl } })
+        : of({ data: { connections: [] } }),
+    );
+    const c = build(get);
+    const nav = spyOn(c as unknown as { redirectTo: (u: string) => void }, 'redirectTo');
+    c.connect('mailchimp');
+    expect(get).toHaveBeenCalledWith('/mcp/mailchimp/connect', { site_id: 's1', return_url: '/admin/mcp' }, { silent: true });
+    expect(nav).toHaveBeenCalledWith(authUrl);
+    expect(c.connectingProvider()).toBeNull(); // cleared after success
+  });
+
+  it('falls back to the paste-key form (no broken redirect) when OAuth is not configured (501)', () => {
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      /\/connect$/.test(path)
+        ? throwError(() => ({ status: 501, error: { error: 'oauth_not_configured' } }))
+        : of({ data: { connections: [] } }),
+    );
+    const info = jasmine.createSpy('info');
+    const c = build(get, info);
+    const nav = spyOn(c as unknown as { redirectTo: (u: string) => void }, 'redirectTo');
+    c.connect('mailchimp');
+    expect(nav).not.toHaveBeenCalled();
+    expect(c.pasteMode()).toBe('mailchimp');
+    expect(info).toHaveBeenCalled();
+    expect(c.connectingProvider()).toBeNull();
   });
 });

@@ -417,11 +417,40 @@ export class AdminMcpComponent implements OnInit {
     // Providers without OAuth (currently: Resend) get the inline paste flow.
     if (meta && !meta.oauth) { this.pasteMode.set(provider); this.pastedKey = ''; return; }
     // In-flight guard: a 2nd click (or a slow browser unload) must not fire a
-    // second navigation. The signal also drives the "Connecting…" + aria-busy
-    // affordance so the button never looks idle while the redirect is pending.
+    // second request. The signal also drives the "Connecting…" + aria-busy
+    // affordance so the button never looks idle while the request is pending.
     if (this.connectingProvider()) return;
     this.connectingProvider.set(provider);
-    this.redirectTo(`/api/mcp/${provider}/connect?site_id=${s.id}&return_url=/admin/mcp`);
+    // The `/connect` route is bearer-auth-gated, so a `window.location.href`
+    // browser nav can't authenticate (that was MailChimp's "auth required" 401).
+    // Fetch the authorize URL WITH the bearer, THEN navigate the top window.
+    this.api
+      .get<{ data?: { mode?: string; authorize_url?: string } }>(
+        `/mcp/${provider}/connect`,
+        { site_id: s.id, return_url: '/admin/mcp' },
+        { silent: true },
+      )
+      .subscribe({
+        next: (res) => {
+          this.connectingProvider.set(null);
+          const url = res?.data?.authorize_url;
+          if (url) { this.redirectTo(url); return; }
+          // Adapter has no OAuth → fall back to the inline paste-key form.
+          if (res?.data?.mode === 'paste_key') { this.pasteMode.set(provider); this.pastedKey = ''; return; }
+          this.toast.error(`Couldn't start ${meta?.label ?? provider} sign-in — try again.`);
+        },
+        error: (err: { status?: number; error?: { error?: string; message?: string } }) => {
+          this.connectingProvider.set(null);
+          // Not configured (missing {PROVIDER}_OAUTH_CLIENT_ID) → offer paste-key.
+          if (err?.status === 501 || err?.error?.error === 'oauth_not_configured') {
+            this.toast.info(`${meta?.label ?? provider} OAuth isn't configured — paste an API key instead.`);
+            this.pasteMode.set(provider);
+            this.pastedKey = '';
+            return;
+          }
+          this.toast.error(`Couldn't start ${meta?.label ?? provider} sign-in — try again.`);
+        },
+      });
   }
 
   /** Seam for the full-page OAuth redirect — overridable in tests so the runner

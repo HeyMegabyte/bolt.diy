@@ -178,7 +178,12 @@ mcpOauth.get('/api/mcp/:provider/connect', async (c) => {
       },
     });
   }
-  return Response.redirect(url, 302);
+  // Return the authorize URL as JSON rather than a 302. This route is
+  // bearer-auth-gated (orgId/userId required above), so a `window.location.href`
+  // browser navigation can't authenticate and 401s with "auth required" (the
+  // MailChimp / Stripe / HubSpot connect bug). The admin fetches this WITH the
+  // bearer, then navigates the top window to `authorize_url` itself.
+  return c.json({ data: { mode: 'oauth', authorize_url: url } });
 });
 
 /**
