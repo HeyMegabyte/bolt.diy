@@ -571,7 +571,10 @@ const PROVIDERS = MCP_PROVIDERS;
           </p>
           <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             @for (p of providers; track p.id) {
-              <article class="card-light p-4 flex flex-col gap-2">
+              <!-- Span the full grid row when the env-vars manager is open — it's a
+                   full-width admin component and squishes inside a 1/3-width card. -->
+              <article class="card-light p-4 flex flex-col gap-2"
+                       [class.col-span-full]="isMcpEnvVarsOpen(p.id)">
                 <div class="flex items-start gap-3">
                   <div class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-[0.9rem]"
                        [style.background]="p.color + '20'" [style.color]="p.color">{{ p.label[0] }}</div>

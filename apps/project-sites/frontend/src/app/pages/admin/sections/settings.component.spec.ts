@@ -56,6 +56,21 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelectorAll('.stat-strip app-rolling-counter').length).toBe(3);
   });
 
+  // The MCP env-vars manager is a full-width component; inside a 1/3-width
+  // provider card it squished ("all the other content was squished on one
+  // side"). Opening it makes the card span the full grid row
+  // (`[class.col-span-full]="isMcpEnvVarsOpen(p.id)"`). This locks the toggle
+  // that drives that span.
+  it('toggleMcpEnvVars opens/closes the per-provider env-vars panel (drives the full-width span)', () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    expect(c.isMcpEnvVarsOpen('mailchimp')).toBeFalse();
+    c.toggleMcpEnvVars('mailchimp');
+    expect(c.isMcpEnvVarsOpen('mailchimp')).toBeTrue();
+    c.toggleMcpEnvVars('mailchimp'); // toggles closed again
+    expect(c.isMcpEnvVarsOpen('mailchimp')).toBeFalse();
+  });
+
   it('generalEmailsInvalid flags a malformed contact/reply email (empty optional = valid); save() no-ops + toasts when invalid', () => {
     build({ id: 's', slug: 'demo' });
     const c = fixture.componentInstance;
