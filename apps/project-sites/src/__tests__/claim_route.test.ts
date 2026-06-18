@@ -6,14 +6,16 @@ import {
   getSession,
 } from '../services/claim_session_store.js';
 import { getLead } from '../services/lead_store.js';
-import { claimRoutes } from '../routes/claim';
+import { claimRoutes, PLATFORM_CLAIMS_ORG_ID } from '../routes/claim';
 import { createBuildSession } from '../services/claim_build_session';
 
 /**
  * #1 claimyour.site — the GET /api/claim/:shortlink funnel route. Stitches the
- * proven cores (resolve → click → attribution → session START → redirect to the
- * prefilled /create). claim_links + the session store are mocked (no D1); the
- * pure reducer/attribution run for real.
+ * proven cores (resolve → click → session START → provision a platform-org site
+ * → kick the workflow → redirect to the prefilled /create). claim_links + the
+ * session store + lead_store are mocked; createSite runs FOR REAL against a
+ * D1-stub (the @swc/jest module-mock of site_create doesn't intercept in this
+ * file — see _LOOP_LEDGER fire-v2.51 — so we control its input via the stub).
  */
 jest.mock('../services/claim_links.js', () => ({
   resolveLeadByShortlink: jest.fn(),
@@ -33,12 +35,28 @@ const mockApply = applyClaimEvent as jest.Mock;
 const mockGetSession = getSession as jest.Mock;
 const mockGetLead = getLead as jest.Mock;
 
+/** D1 stub — createSite's dbInsert + writeAuditLog run against it. `insertFails`
+ *  makes `.run()` throw so dbInsert surfaces an error → createSite throws. */
+function makeDb(opts: { insertFails?: boolean } = {}) {
+  const stmt = {
+    bind: () => stmt,
+    run: async () => {
+      if (opts.insertFails) throw new Error('insert failed');
+      return { meta: { changes: 1 } };
+    },
+    all: async () => ({ results: [] }),
+    first: async () => null,
+  };
+  return { prepare: () => stmt } as unknown as D1Database;
+}
+
 function app() {
   const a = new Hono();
   a.route('/', claimRoutes);
   return a;
 }
-const get = (path: string) => app().request(path, {}, { DB: {} } as never);
+const get = (path: string, db: D1Database = makeDb()) =>
+  app().request(path, {}, { DB: db } as never);
 
 beforeEach(() => {
   mockResolve.mockReset();
@@ -46,7 +64,7 @@ beforeEach(() => {
   mockLoad.mockReset();
   mockApply.mockReset().mockResolvedValue(undefined);
   mockGetSession.mockReset().mockResolvedValue(null);
-  mockGetLead.mockReset();
+  mockGetLead.mockReset().mockResolvedValue(null);
 });
 
 describe('GET /api/claim/:shortlink', () => {
@@ -71,17 +89,44 @@ describe('GET /api/claim/:shortlink', () => {
     expect(mockClicked).toHaveBeenCalledWith(expect.anything(), 'abc12345');
   });
 
-  it('starts the build on a fresh (pending) session', async () => {
+  it('provisions a platform-org site + STARTs the build with its siteId on a fresh session', async () => {
     mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
     mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9')); // pending → canStartBuild
-    mockApply.mockResolvedValue({ status: 'building' });
+    mockGetLead.mockResolvedValue({
+      leadId: 'lead_9',
+      profile: { businessName: 'Acme Roofing', phone: '555', address: '1 Main St' },
+    });
+
     await get('/api/claim/abc12345');
-    expect(mockApply).toHaveBeenCalledWith(
-      expect.anything(),
-      'claim_abc12345',
-      'lead_9',
-      expect.objectContaining({ type: 'START_BUILD' }),
-    );
+
+    // createSite ran for real (D1-stub) → START_BUILD records the new siteId (a
+    // uuid) — the link the build-status callback later resolves to complete it.
+    expect(mockApply).toHaveBeenCalledTimes(1);
+    const [, sessionId, leadId, event] = mockApply.mock.calls[0];
+    expect(sessionId).toBe('claim_abc12345');
+    expect(leadId).toBe('lead_9');
+    expect(event.type).toBe('START_BUILD');
+    expect(typeof event.siteId).toBe('string');
+    expect(event.siteId.length).toBeGreaterThan(0);
+  });
+
+  it('does NOT start the build when the lead is gone (still 302)', async () => {
+    mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
+    mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9')); // pending
+    mockGetLead.mockResolvedValue(null); // lead deleted
+    const res = await get('/api/claim/abc12345');
+    expect(res.status).toBe(302);
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it('leaves the session pending (no START) when site creation fails — re-click retries', async () => {
+    mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
+    mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9'));
+    mockGetLead.mockResolvedValue({ leadId: 'lead_9', profile: { businessName: 'Acme' } });
+    // D1 insert fails → createSite throws → caught → no START.
+    const res = await get('/api/claim/abc12345', makeDb({ insertFails: true }));
+    expect(res.status).toBe(302);
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it('a refresh on an already-building session does NOT start a second build (idempotent), still 302', async () => {
