@@ -10,12 +10,32 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 
 /**
- * Module-scoped paint counter so multiple `[appReveal]` hosts on the same
- * page get staggered by document order without needing a shared service.
- * Resets implicitly per page reload (which is what we want — every
- * first-paint should re-stagger).
+ * Module-scoped stagger batch. All `[appReveal]` hosts that initialize within
+ * the SAME synchronous render pass (i.e. one route's view) share a staggered
+ * sequence; a queued microtask resets the counter before the next pass.
+ *
+ * Why the reset matters: a plain ever-incrementing counter only resets on a full
+ * page RELOAD — but this is a SPA, so navigating between admin routes never
+ * reloads. The counter would climb unbounded (e.g. 30 after a few routes), and a
+ * freshly-mounted header at index 30 would wait `30 × 80ms = 2.4s` at opacity:0
+ * before animating in — the "header doesn't show for a few seconds when I exit
+ * My Instances" bug. The per-batch reset keeps every route's stagger starting at
+ * 0; `revealMaxDelay` is a hard safety cap on top.
  */
 let revealOrderIndex = 0;
+let revealResetScheduled = false;
+
+function nextRevealIndex(): number {
+  const index = revealOrderIndex++;
+  if (!revealResetScheduled && typeof queueMicrotask === 'function') {
+    revealResetScheduled = true;
+    queueMicrotask(() => {
+      revealOrderIndex = 0;
+      revealResetScheduled = false;
+    });
+  }
+  return index;
+}
 
 /**
  * `appReveal` — first-load fade + 16px translateY animation via Web Animations
@@ -61,6 +81,10 @@ export class RevealDirective implements OnInit, OnDestroy {
   /** IntersectionObserver threshold for below-the-fold hosts. */
   @Input() revealThreshold = 0.12;
 
+  /** Hard cap (ms) on the computed stagger delay — a safety net so a host can
+   *  never sit invisible for "seconds" even in a very large batch. */
+  @Input() revealMaxDelay = 480;
+
   private observer?: IntersectionObserver;
   private animation?: Animation;
 
@@ -74,8 +98,11 @@ export class RevealDirective implements OnInit, OnDestroy {
     }
 
     const el = this.host.nativeElement;
-    const myIndex = revealOrderIndex++;
-    const computedDelay = myIndex * this.revealStep + this.revealDelay;
+    const myIndex = nextRevealIndex();
+    const computedDelay = Math.min(
+      myIndex * this.revealStep + this.revealDelay,
+      this.revealMaxDelay,
+    );
 
     // Decide: animate on first paint (in viewport) OR wait for scroll.
     const inViewport = this.isInViewport(el);
