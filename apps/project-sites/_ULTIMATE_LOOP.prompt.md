@@ -104,6 +104,14 @@ Every surface below MUST end with a parallel-safe `*.e2e.ts` that signs in as `b
 
 **E2E coverage target = 100%.** Every clickable / route / form field / nav link / modal / keyboard shortcut / empty / loading / error state across all sections above carries ≥1 green Playwright spec; `COVERAGE.yml` shows zero gaps; the worker + shared Jest suites hold **100% coverage thresholds on every touched module** (TDD-first — the failing spec precedes the code, always).
 
+**AI context-quality axis (5 ship-first — "no generation on thin context"):** every AI surface must, before it generates, load FULL relevant context. The 5 enforced items:
+1. **Context7 pre-step** — before the build agent writes any library code (React/Vite/Tailwind/Hono/Zod), pull current docs via Context7 so it codes against today's API, not stale memory.
+2. **Labeled context blocks** — assemble context as `SYSTEM / RETRIEVED_FACTS / BRAND / CONSTRAINTS / EXAMPLES` sections (data, not instructions — also a prompt-injection defense per `ai-agent-security`).
+3. **Context-readiness gate (0-100)** — score required-slots-filled × retrieval-hits × confidence; BLOCK generation below threshold + auto-fetch the gaps first (`confidence_attributes` feeds it).
+4. **Rerank-before-pack** — retrieve broad (≈50), rerank via Workers AI BGE reranker to top-k, pack only the densest signal into the window.
+5. **Context manifest in every trace** — log the hashed assembled context + section sizes + provenance per generation (PostHog `$ai_*` / AI Gateway) so a bad output is debuggable: model fault vs missing context.
+Each is a flagged change with its own eval case (§2.6) + unit/E2E. DeepSeek economics fund the extra retrieval/rerank passes.
+
 ---
 
 ## 5 — Open-work ledger (re-scan every iteration)
