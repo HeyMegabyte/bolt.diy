@@ -232,9 +232,11 @@ interface E2eSpec {
     @media (max-width: 880px) { .fd-rail { position: static; } }
     .fd-metric { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1rem; }
     .fd-cov { text-align: center; }
-    .fd-donut { width: 132px; height: 132px; transform: rotate(-90deg); }
+    /* A global svg display:block reset left-aligns the donut despite the
+       text-align:center — margin:0 auto centers it in its panel (brief #2). */
+    .fd-donut { width: 132px; height: 132px; display: block; margin: 0 auto; transform: rotate(-90deg); }
     .fd-donut-track { fill: none; stroke: color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent); stroke-width: 10; }
-    .fd-donut-fill { fill: none; stroke: var(--ps-accent, #00e5ff); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .8s ease; }
+    .fd-donut-fill { fill: none; stroke: var(--ps-accent, #00e5ff); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .8s ease; filter: drop-shadow(0 0 5px color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent)); }
     @media (prefers-reduced-motion: reduce) { .fd-donut-fill { transition: none; } }
     .fd-donut-num { transform: rotate(90deg); transform-origin: 60px 60px; fill: var(--ps-ink, #f4f4ff); font: 700 26px 'JetBrains Mono', ui-monospace, monospace; text-anchor: middle; }
     .fd-donut-unit { transform: rotate(90deg); transform-origin: 60px 60px; fill: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); font: 600 11px 'JetBrains Mono', ui-monospace, monospace; text-anchor: middle; }
