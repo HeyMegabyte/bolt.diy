@@ -730,7 +730,7 @@ function parseChangelogMarkdown(markdown: string): ChangelogEntry[] {
  * the curated fallback. Reading happens at request time so an updated
  * changelog ships without a deploy when the file is mounted via R2.
  */
-async function loadChangelogEntries(env: Env): Promise<readonly ChangelogEntry[]> {
+export async function loadChangelogEntries(env: Env): Promise<readonly ChangelogEntry[]> {
   try {
     if (env.SITES_BUCKET) {
       const obj = await env.SITES_BUCKET.get('marketing/CHANGELOG.md');

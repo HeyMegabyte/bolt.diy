@@ -134,6 +134,7 @@ import * as auditService from '../services/audit.js';
 import { createSite } from '../services/site_create.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
+import { loadChangelogEntries } from './public.js';
 import * as posthog from '../lib/posthog.js';
 import { captureError } from '../lib/sentry.js';
 import { fetchSheetData, fetchSheetMeta } from '../services/google_sheets.js';
@@ -7946,55 +7947,17 @@ api.post('/api/notifications/read-all', async (c) => {
 api.get('/api/changelog', async (c) => {
   const requestId = c.get('requestId');
   try {
-    const entries = [
-      {
-        version: '1.5.0',
-        date: '2026-04-20',
-        type: 'feat',
-        title: 'Full skill implementation — 50 agent skills',
-        description:
-          'Error pages, command palette, easter eggs, blog, changelog, status page, feedback widget, notifications, onboarding, accessibility improvements, i18n switcher, empty states.',
-      },
-      {
-        version: '1.4.0',
-        date: '2026-04-19',
-        type: 'feat',
-        title: 'Comprehensive multimedia pipeline',
-        description:
-          '7 parallel image/video sources, DALL-E generation, WebP optimization, brand image discovery.',
-      },
-      {
-        version: '1.3.0',
-        date: '2026-04-14',
-        type: 'feat',
-        title: 'Complete admin dashboard',
-        description:
-          'All 11 sections polished: dashboard, editor, snapshots, analytics, email, social, forms, integrations, billing, audit, settings.',
-      },
-      {
-        version: '1.2.0',
-        date: '2026-04-10',
-        type: 'feat',
-        title: '41 Playwright E2E tests',
-        description: 'End-to-end tests across 3 user journeys with parallel execution.',
-      },
-      {
-        version: '1.1.0',
-        date: '2026-04-09',
-        type: 'feat',
-        title: 'Google Sheets + PostHog + Sentry',
-        description:
-          'Full observability stack with analytics, error tracking, and data integration.',
-      },
-      {
-        version: '1.0.0',
-        date: '2026-03-25',
-        type: 'feat',
-        title: 'Initial production launch',
-        description:
-          'AI-powered site generation with Claude, Stripe billing, magic link auth, custom domains.',
-      },
-    ];
+    // Single source of truth: the same curated/R2-backed list `/changelog.json`
+    // serves. Mapped into this endpoint's legacy `{version,type,description}`
+    // shape so existing consumers keep their contract — no second copy to drift.
+    const canonical = await loadChangelogEntries(c.env);
+    const entries = canonical.map((e) => ({
+      version: e.version.replace(/^v/, ''),
+      date: e.date,
+      type: e.tags[0] ?? 'feat',
+      title: e.title,
+      description: e.body,
+    }));
     return c.json({ data: entries });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err) throw err;
