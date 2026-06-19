@@ -726,6 +726,24 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           pct: meter.pct,
           message: `Budget OK: $${meter.spentUsd.toFixed(2)}/$${meter.capUsd === Infinity ? '∞' : meter.capUsd.toFixed(2)} (${meter.pct.toFixed(0)}%)`,
         });
+        // Proactive Novu warning when a capped org crosses 80% of its monthly AI
+        // budget — so they can upgrade before a build is blocked. Best-effort.
+        if (meter.capUsd !== Infinity && meter.pct >= 80) {
+          try {
+            const { notifyOwnerEvent } = await import('../services/notify.js');
+            await notifyOwnerEvent(env, env.DB, {
+              orgId: params.orgId,
+              event: {
+                event: 'quota.near_limit',
+                tenantId: params.orgId,
+                resource: 'ai_budget',
+                usedPercent: Math.min(100, Math.round(meter.pct)),
+              },
+            });
+          } catch {
+            /* bell is best-effort */
+          }
+        }
         return JSON.stringify({ allowed: true, plan, pct: meter.pct });
       },
     );
