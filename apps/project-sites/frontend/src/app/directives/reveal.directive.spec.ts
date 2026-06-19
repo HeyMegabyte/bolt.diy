@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import { RevealDirective } from './reveal.directive';
+import { RevealDirective, resetRevealOrderForTest } from './reveal.directive';
 
 /**
  * Regression guard for the app-wide first-paint reveal animation.
@@ -44,9 +44,37 @@ describe('RevealDirective (first-paint stagger + SPA batch reset)', () => {
 
   beforeEach(() => {
     delays = [];
+    // Clean stagger batch per test — the counter is module-global, so without
+    // this a dirty counter from an earlier spec (suite-order dependent) offsets
+    // the asserted indices. Makes these assertions order-independent.
+    resetRevealOrderForTest();
+    // Pin the directive's two animate-gating preconditions so this spec verifies
+    // the stagger MATH, not the Karma-headless environment: (1) motion allowed
+    // (reduce-motion would early-return → no animate), (2) host in-viewport
+    // (a detached fixture's getBoundingClientRect is all-zeros → deferred to the
+    // IntersectionObserver, never firing in-test). Both resolve inconsistently
+    // headless + sibling specs can leave matchMedia stubbed, so adding ANY spec
+    // could flip them and flake `delays` to empty. Pinning de-flakes order-wide.
+    spyOn(window, 'matchMedia').and.returnValue({
+      matches: false,
+      addEventListener() {},
+      removeEventListener() {},
+    } as unknown as MediaQueryList);
+    spyOn(Element.prototype, 'getBoundingClientRect').and.returnValue({
+      top: 10,
+      bottom: 100,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 0,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    } as DOMRect);
     // Capture the delay each host asks for; return a no-op Animation.
     spyOn(Element.prototype, 'animate').and.callFake((_kf: unknown, opts: unknown) => {
-      const d = opts && typeof opts === 'object' ? (opts as KeyframeAnimationOptions).delay : undefined;
+      const d =
+        opts && typeof opts === 'object' ? (opts as KeyframeAnimationOptions).delay : undefined;
       delays.push(typeof d === 'number' ? d : 0);
       return { cancel() {}, finish() {}, addEventListener() {} } as unknown as Animation;
     });

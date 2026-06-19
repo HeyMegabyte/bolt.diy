@@ -38,6 +38,22 @@ function nextRevealIndex(): number {
 }
 
 /**
+ * Test-only: reset the module-scoped stagger counter to a clean batch.
+ *
+ * @remarks
+ * The counter is module-global by design (one stagger sequence per synchronous
+ * render pass). In a Karma run every spec shares one module instance, so a spec
+ * asserting exact stagger indices MUST reset it in `beforeEach` — otherwise a
+ * counter left dirty by an earlier spec (whose microtask reset hadn't flushed at
+ * the boundary) offsets the indices and the assertion flakes whenever suite
+ * ordering shifts. Not used by production code.
+ */
+export function resetRevealOrderForTest(): void {
+  revealOrderIndex = 0;
+  revealResetScheduled = false;
+}
+
+/**
  * `appReveal` — first-load fade + 16px translateY animation via Web Animations
  * API, staggered by 80ms in document order. Below-the-fold hosts get
  * IntersectionObserver fallback so they animate when scrolled into view.
@@ -122,7 +138,7 @@ export class RevealDirective implements OnInit, OnDestroy {
           }
         }
       },
-      { threshold: this.revealThreshold, rootMargin: '0px 0px -6% 0px' }
+      { threshold: this.revealThreshold, rootMargin: '0px 0px -6% 0px' },
     );
     this.observer.observe(el);
   }
@@ -144,7 +160,7 @@ export class RevealDirective implements OnInit, OnDestroy {
           delay,
           easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
           fill: 'backwards',
-        }
+        },
       );
     } catch {
       // Web Animations API not available — leave host at final state.
