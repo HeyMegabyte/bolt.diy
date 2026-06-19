@@ -54,6 +54,25 @@
 - **The gated tier is part of completeness — surface it relentlessly until cleared.** Items needing a human unblock (a secret, a design call, a supervised window, a coordinated frontend+worker pass, a deploy authorization) are NOT "done" — they are BLOCKED. Every fire that hits the gated tier names the exact unblock command/decision so the human can clear it. The loop converges to completeness only as fast as the gates clear.
 - **When the autonomous vein is genuinely dry, the highest-leverage move is often a deploy or a gorgeousness pass — try those BEFORE escalating.** Escalate (fast-no-op) only when (1) no feature/correctness slice is autonomously safe, (2) no user-visible surface needs beauty, (3) nothing built-but-dark can be safely deployed, AND (4) no drift/hygiene fix surfaced.
 
+## 0.C — Whole-repo requirement scan + the SINGLE TODO ledger (every fire, before PICK)
+
+> Completeness is only measurable against a complete work-list. The loop maintains ONE canonical TODO file and re-derives the gap from the repo itself — never trusting that the ledger is current.
+
+- **`_LOOP_LEDGER.md` is the ONE canonical TODO file.** All open work lives there. `_CONVERGENCE_BACKLOG.md` folds into it; any other scratch TODO/`_ideas-*`/`AUDIT_*`/per-feature TODO collapses into `_LOOP_LEDGER.md` (a pointer line, then the scratch file is deleted per `repo-folder-hygiene`). A fire that finds a second open-work doc consolidates it that turn. Goal: a human (or a fresh Ralph) reads exactly one file to know everything left.
+- **Requirement-scan each fire (cheap, before PICK):** re-derive unimplemented requirements from the repo, don't assume the ledger is complete — grep `TODO|FIXME|XXX` in `src/`, `npm run validate:features` drift, route handlers with no flag, flags with no manifest, modules with no E2E, `_CONVERGENCE_BACKLOG` items, and the **off-edge container roster (§0.D)**. New finds append to `_LOOP_LEDGER.md` with a priority band; the loop then PICKs against the refreshed list.
+- **Count the off-edge plane into completeness.** The app is not "complete" while a declared container/service (llm/email/jobs/events/browser/analytics) is unlaunched or unwired — each is a ledger item with its edge-Worker adapter + tests + the gated launch step.
+
+## 0.D — Off-edge service roster (Coolify behind CF Tunnel + CF Access SSO) — wire the adapters, gate the launch
+
+> Per `projectsites-cloudflare-first` + `docs/INFRA_NOTES.md`. The CF edge is the hot path; these are the async/batch/data brain. **Every internal subdomain is CF-Access-SSO-protected** (service-token for the Worker, interactive for humans) — never public. Product code calls them ONLY through env-gated edge-Worker adapters (null/fallback when unconfigured), never directly.
+
+- **`llm.projectsites.dev`** — vLLM (OpenAI-compatible, 2× 2080 Ti). Adapter `self_hosted.resolveSelfHostedLlm` (shipped) → `external_llm` `selfhosted` provider, API-fallback on 5xx. The `standard`/`instant` tier; premium stays Anthropic.
+- **`img.projectsites.dev`** — ComfyUI/SDXL+Flux AI image-gen API. Adapter `self_hosted.resolveSelfHostedImage` (shipped) → `image_generation` first-try, DALL·E fallback.
+- **`email.projectsites.dev`** — listmonk (one binary, SES SMTP relay). Edge Worker: host→`site_id`→listmonk-list scoping (Model A); dedicated container for heavy tenants (Model B).
+- **`jobs.projectsites.dev`** — trigger.dev (self-hosted). · **`events.projectsites.dev`** — Inngest (self-hosted). · **`browser.projectsites.dev`** — Browserless/Playwright fallback tier. · **Tinybird** (managed OLAP, Plane H) + **Hatchet** (cloud orchestration) — secrets in get-secret.
+- **Postgres LAW:** every Postgres DB is **Neon + Hyperdrive** (shard-level bindings), a **FRESH Neon database per app type** (`neon-{app}-{env}`) — never shared, never self-hosted. D1 stays edge-hot.
+- **Launch is gated on `coolify.megabyte.space`.** Until it's live, the loop ships + tests the env-gated adapters (return null → paid fallback, zero behavior change) and surfaces the launch as a gated ledger item. Adapters land autonomously; container launch + secret-push + CF-Access wiring is the supervised step.
+
 ---
 
 ## 1 — One-time setup (skip the `[x]` items)
