@@ -1,13 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { signal } from '@angular/core';
 import { ReadinessBadgeComponent } from './readiness-badge.component';
-import { ApiService } from '../../../services/api.service';
+import { ReadinessCacheService, type ReadinessData } from '../../../services/readiness-cache.service';
 
-/**
- * Controllable IntersectionObserver double. `fire = true` invokes the callback
- * synchronously on observe() (simulating an in-viewport badge); `fire = false`
- * never fires (simulating an off-screen list row that hasn't scrolled in).
- */
+/** Controllable IntersectionObserver double — see readiness-cache for the batching. */
 let ioShouldFire = true;
 class MockIntersectionObserver {
   constructor(private readonly cb: IntersectionObserverCallback) {}
@@ -27,14 +23,17 @@ class MockIntersectionObserver {
 }
 
 describe('ReadinessBadgeComponent', () => {
-  const get = jasmine.createSpy('get');
+  const request = jasmine.createSpy('request');
+  // One shared grade signal the stub hands back for any id (tests use a single id).
+  const gradeSignal = signal<ReadinessData | null>(null);
+  const cacheStub = { request, read: (_id: string) => gradeSignal };
   const realIO = window.IntersectionObserver;
 
   function make(siteId: string | null) {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [ReadinessBadgeComponent],
-      providers: [{ provide: ApiService, useValue: { get } }],
+      providers: [{ provide: ReadinessCacheService, useValue: cacheStub }],
     });
     const f = TestBed.createComponent(ReadinessBadgeComponent);
     f.componentRef.setInput('siteId', siteId);
@@ -45,46 +44,40 @@ describe('ReadinessBadgeComponent', () => {
   beforeEach(() => {
     ioShouldFire = true;
     (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = MockIntersectionObserver;
-    get.calls.reset();
-    get.and.returnValue(of({ data: null }));
+    request.calls.reset();
+    gradeSignal.set(null);
   });
 
   afterEach(() => {
     (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = realIO;
   });
 
-  it('renders nothing when no siteId is provided', () => {
+  it('renders nothing + registers nothing when no siteId is provided', () => {
     const f = make(null);
-    expect(get).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
     expect(f.nativeElement.querySelector('[data-testid="readiness-badge"]')).toBeFalsy();
   });
 
-  it('fetches by id and renders the A grade badge + score once in view', () => {
-    get.and.returnValue(of({ data: { grade: 'A', score: 96, passing: true, summary: 'Ready to publish.' } }));
+  it('registers the id once in view + renders the grade from the cache', () => {
+    gradeSignal.set({ grade: 'A', score: 96, passing: true, summary: 'Ready to publish.' });
     const f = make('site-1');
-    expect(get).toHaveBeenCalledWith('/sites/site-1/readiness', undefined, { silent: true });
+    expect(request).toHaveBeenCalledWith('site-1');
     const badge = f.nativeElement.querySelector('[data-testid="readiness-badge"]');
     expect(badge).toBeTruthy();
     expect(badge.textContent).toContain('Readiness A');
     expect(badge.textContent).toContain('96/100');
   });
 
-  it('renders nothing when the site has no scored build (data null)', () => {
-    get.and.returnValue(of({ data: null }));
+  it('renders nothing when the cache has no grade for the site', () => {
+    gradeSignal.set(null);
     const f = make('site-1');
     expect(f.nativeElement.querySelector('[data-testid="readiness-badge"]')).toBeFalsy();
   });
 
-  it('degrades to nothing on a request error', () => {
-    get.and.returnValue(throwError(() => new Error('boom')));
-    const f = make('site-1');
-    expect(f.nativeElement.querySelector('[data-testid="readiness-badge"]')).toBeFalsy();
-  });
-
-  it('does NOT fetch until the badge scrolls into view (lazy)', () => {
+  it('does NOT register until the badge scrolls into view (lazy)', () => {
     ioShouldFire = false; // off-screen list row
     const f = make('site-1');
-    expect(get).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
     expect(f.nativeElement.querySelector('[data-testid="readiness-badge"]')).toBeFalsy();
   });
 });
