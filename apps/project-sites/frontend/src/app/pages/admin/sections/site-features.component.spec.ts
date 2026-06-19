@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminSiteFeaturesComponent } from './site-features.component';
@@ -292,5 +292,19 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.entitlementLabel(addon)).toMatch(/add-on/i);
     expect(component.badgesFor(on).some((b) => b.label === 'Enabled')).toBeTrue();
     expect(component.badgesFor(on).some((b) => b.label === 'Included')).toBeTrue();
+  });
+
+  // Brief #4: the spec sheet is a directly-navigable + shareable URL — opening
+  // writes `?spec=<key>`, closing clears it (same pattern as feature-flags).
+  it('openDossier writes ?spec= + opens; closeDossier clears + closes', async () => {
+    await build({ features: [feat({ key: 'online_booking' })], plan: 'pro' });
+    const navSpy = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const feature = component.features()[0];
+    component.openDossier(feature);
+    expect(component.dossierOpen()).toBeTrue();
+    expect(navSpy.calls.mostRecent().args[1]?.queryParams).toEqual({ spec: 'online_booking' });
+    component.closeDossier();
+    expect(component.dossierOpen()).toBeFalse();
+    expect(navSpy.calls.mostRecent().args[1]?.queryParams).toEqual({ spec: null });
   });
 });

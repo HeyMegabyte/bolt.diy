@@ -23,7 +23,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HlmInputDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -345,7 +345,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
       }
 
       <!-- Full-screen spec sheet (docs + metrics + integration guide) -->
-      <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="dossierOpen.set(false)" />
+      <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="closeDossier()" />
     </section>
   `,
   styles: [`
@@ -452,6 +452,8 @@ export class AdminSiteFeaturesComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(AdminStateService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   private static readonly MODE_KEY = 'ff.mode.features';
 
@@ -560,6 +562,13 @@ export class AdminSiteFeaturesComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.reload();
+    // Deep link: `?spec=<feature_key>` opens that feature's spec sheet directly,
+    // so the spec page is a navigable + shareable URL (brief #4).
+    const spec = this.route.snapshot.queryParamMap.get('spec');
+    if (spec) {
+      const feature = this.features().find((f) => f.key === spec);
+      if (feature) this.openDossier(feature);
+    }
   }
 
   private get siteQuery(): string {
@@ -656,6 +665,24 @@ export class AdminSiteFeaturesComponent implements OnInit {
       siteId: site?.id,
     });
     this.dossierOpen.set(true);
+    // Reflect the open spec sheet in the URL so it's shareable/bookmarkable.
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { spec: f.key },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** Close the spec sheet + drop the `?spec=` deep link from the URL. */
+  closeDossier(): void {
+    this.dossierOpen.set(false);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { spec: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   async toggle(f: SiteFeature): Promise<void> {
