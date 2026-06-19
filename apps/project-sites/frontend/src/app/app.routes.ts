@@ -164,6 +164,11 @@ export const routes: Routes = [
           import('./pages/admin/sections/analytics.component').then((m) => m.AdminAnalyticsComponent),
       },
       {
+        path: 'analytics-live',
+        loadComponent: () =>
+          import('./pages/admin/sections/analytics-live.component').then((m) => m.AdminAnalyticsLiveComponent),
+      },
+      {
         path: 'billing',
         loadComponent: () =>
           import('./pages/admin/sections/billing.component').then((m) => m.AdminBillingComponent),
