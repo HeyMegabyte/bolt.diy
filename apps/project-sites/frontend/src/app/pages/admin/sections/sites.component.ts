@@ -114,7 +114,9 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                  class="text-white font-medium hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">
                 {{ s.name || s.slug }}
               </a>
-              <span class="text-[0.75rem] text-white/50 ml-2">{{ s.slug }}.projectsites.dev</span>
+              <a [href]="'https://' + s.slug + '.projectsites.dev'" target="_blank" rel="noopener noreferrer"
+                 [attr.title]="'Open ' + s.slug + '.projectsites.dev'"
+                 class="text-[0.75rem] text-white/50 ml-2 hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">{{ s.slug }}.projectsites.dev</a>
             </li>
           }
         </ul>

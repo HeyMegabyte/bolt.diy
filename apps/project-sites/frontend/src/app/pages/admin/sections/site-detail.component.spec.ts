@@ -220,6 +220,25 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     expect(root!.classList.contains('animate-fade-in')).withContext('root must animate in (opacity-only, reduced-motion-safe) like sibling sections').toBe(true);
   });
 
+  it('the {slug}.projectsites.dev subtitle is a clickable external link to the live site', () => {
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminSiteDetailComponent);
+    f.detectChanges();
+    const link = (f.nativeElement as HTMLElement).querySelector('a.site-detail__subtitle--link') as HTMLAnchorElement | null;
+    expect(link).withContext('the site URL is an <a>, not dead text').not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('https://s.projectsites.dev');
+    expect(link!.getAttribute('target')).toBe('_blank');
+    expect(link!.getAttribute('rel')).toContain('noopener');
+  });
+
   it('stagger-reveals the header, tablist nav, and active panel via appReveal (first-paint cohesion)', () => {
     const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
     TestBed.configureTestingModule({

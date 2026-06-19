@@ -79,7 +79,9 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
       <header class="site-detail__head" appReveal>
         <h1 class="site-detail__title">{{ site()?.name || site()?.slug || siteId() || 'Site' }}</h1>
         @if (site()?.slug; as slug) {
-          <p class="site-detail__subtitle">{{ slug }}.projectsites.dev</p>
+          <a class="site-detail__subtitle site-detail__subtitle--link"
+             [href]="'https://' + slug + '.projectsites.dev'" target="_blank" rel="noopener noreferrer"
+             [attr.title]="'Open ' + slug + '.projectsites.dev'">{{ slug }}.projectsites.dev</a>
         } @else {
           <!-- Site didn't fully resolve (GET can 200 with site:null) — fall back to
                the URL slug so the host is meaningful, never a bare ".projectsites.dev". -->
@@ -353,6 +355,9 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
     .site-detail__head { margin-bottom: 1rem; }
     .site-detail__title { font-size: 1.5rem; margin: 0; }
     .site-detail__subtitle { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); margin: 0.25rem 0 0; font-size: 0.9rem; }
+    a.site-detail__subtitle--link { display: inline-block; text-decoration: none; transition: color 0.333s ease; }
+    a.site-detail__subtitle--link:hover { color: var(--ps-accent, #00E5FF); }
+    a.site-detail__subtitle--link:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; border-radius: 4px; }
     .site-detail__tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); margin-bottom: 1.25rem; }
     .site-detail__tabs button { background: transparent; border: none; color: inherit; padding: 0.6rem 1rem; font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
     .site-detail__tabs button.active { border-bottom-color: var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); }
