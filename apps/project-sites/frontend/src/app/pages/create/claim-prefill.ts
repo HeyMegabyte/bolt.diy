@@ -66,6 +66,34 @@ export function parseClaimBuildState(
   return { status, previewUrl, terminal };
 }
 
+/** Outcome of `POST /api/claim/:shortlink/adopt` as the /create page renders it. */
+export interface ClaimAdoptResult {
+  /** True when the caller's org now owns the site (transferred OR already theirs). */
+  claimed: boolean;
+  /** The claimed site's slug when known (absent on the already-yours path). */
+  slug: string | null;
+}
+
+/**
+ * Parse the `data` of a successful adopt response into the claimed outcome.
+ * Pure + total — the endpoint returns `{ siteId, slug?, claimed:true }` on a
+ * fresh transfer and `{ siteId, claimed:true }` (no slug) when it was already the
+ * caller's; any malformed payload yields `{ claimed:false, slug:null }` so the UI
+ * never falsely reports ownership. (Non-2xx never reaches here — ApiService
+ * throws, the component's error path handles 401/404/409.)
+ *
+ * @param data - The adopt response `data` object.
+ * @returns A {@link ClaimAdoptResult}.
+ * @example
+ * parseClaimAdoptResult({ siteId: 's', slug: 'acme', claimed: true })
+ * // → { claimed: true, slug: 'acme' }
+ */
+export function parseClaimAdoptResult(
+  data: Record<string, unknown> | null | undefined,
+): ClaimAdoptResult {
+  return { claimed: data?.['claimed'] === true, slug: str(data?.['slug']) ?? null };
+}
+
 /**
  * Translate a claim prefill payload into /create field values.
  *

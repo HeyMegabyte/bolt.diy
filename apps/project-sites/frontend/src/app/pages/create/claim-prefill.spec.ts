@@ -1,4 +1,8 @@
-import { mapClaimPrefillToFields, parseClaimBuildState } from './claim-prefill';
+import {
+  mapClaimPrefillToFields,
+  parseClaimBuildState,
+  parseClaimAdoptResult,
+} from './claim-prefill';
 
 /**
  * #1 claimyour.site — the /create prefill mapper. Pure: the component fetches the
@@ -84,5 +88,26 @@ describe('parseClaimBuildState', () => {
     expect(parseClaimBuildState({}).status).toBe('unknown');
     expect(parseClaimBuildState(null).terminal).toBe(false);
     expect(parseClaimBuildState(undefined).previewUrl).toBeNull();
+  });
+});
+
+describe('parseClaimAdoptResult', () => {
+  it('reports claimed + slug on a fresh transfer', () => {
+    const r = parseClaimAdoptResult({ siteId: 's1', slug: 'acme', claimed: true });
+    expect(r.claimed).toBe(true);
+    expect(r.slug).toBe('acme');
+  });
+
+  it('reports claimed with null slug on the already-yours path (no slug)', () => {
+    const r = parseClaimAdoptResult({ siteId: 's1', claimed: true });
+    expect(r.claimed).toBe(true);
+    expect(r.slug).toBeNull();
+  });
+
+  it('never falsely reports ownership for a malformed/absent payload', () => {
+    expect(parseClaimAdoptResult({}).claimed).toBe(false);
+    expect(parseClaimAdoptResult(null).claimed).toBe(false);
+    expect(parseClaimAdoptResult(undefined).slug).toBeNull();
+    expect(parseClaimAdoptResult({ claimed: 'yes' as unknown }).claimed).toBe(false);
   });
 });

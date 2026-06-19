@@ -61,18 +61,38 @@
           role="status"
           aria-live="polite"
         >
-          <span class="text-green-300 [text-wrap:pretty]"
-            >Your website is built and ready to preview.</span
-          >
-          @if (claimPreviewUrl()) {
-            <a
-              [href]="claimPreviewUrl()"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-3.5 py-1.5 font-semibold text-green-200 transition-all hover:bg-green-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-400 focus-visible:outline-offset-2"
-              >View your site →</a
-            >
-          }
+          <span class="text-green-300 [text-wrap:pretty]">{{
+            claimed()
+              ? 'This site is yours — manage it any time from your dashboard.'
+              : 'Your website is built and ready to preview.'
+          }}</span>
+          <div class="flex flex-wrap items-center gap-2">
+            @if (claimPreviewUrl()) {
+              <a
+                [href]="claimPreviewUrl()"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-3.5 py-1.5 font-semibold text-green-200 transition-all hover:bg-green-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-400 focus-visible:outline-offset-2"
+                >View your site →</a
+              >
+            }
+            @if (claimed()) {
+              <a
+                routerLink="/admin"
+                class="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3.5 py-1.5 font-semibold text-primary transition-all hover:bg-primary/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2"
+                >Go to dashboard →</a
+              >
+            } @else {
+              <button
+                type="button"
+                (click)="claimThisSite()"
+                [disabled]="claiming()"
+                class="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-3.5 py-1.5 font-semibold text-green-200 transition-all hover:bg-green-500/25 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-400 focus-visible:outline-offset-2"
+              >
+                {{ claiming() ? 'Claiming…' : isLoggedIn ? 'Claim this site' : 'Sign in to claim' }}
+              </button>
+            }
+          </div>
         </div>
       } @else if (cbs === 'failed') {
         <div

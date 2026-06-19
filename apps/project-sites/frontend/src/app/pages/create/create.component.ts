@@ -6,7 +6,7 @@ import {
   signal,
   ChangeDetectorRef,
 } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import {
   Subject,
@@ -31,6 +31,7 @@ import { TelemetryService } from '../../services/telemetry.service';
 import {
   mapClaimPrefillToFields,
   parseClaimBuildState,
+  parseClaimAdoptResult,
   type ClaimBuildStatus,
 } from './claim-prefill';
 
@@ -180,7 +181,7 @@ interface BusinessSuggestion {
 @Component({
   selector: 'app-create',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './create.component.html',
   styleUrl: './create.component.scss',
 })
@@ -380,7 +381,55 @@ export class CreateComponent implements OnInit, OnDestroy {
   claimBuildStatus = signal<ClaimBuildStatus | null>(null);
   /** The live preview URL once a claim build completes (else null). */
   claimPreviewUrl = signal<string | null>(null);
+  /** The shortlink the visitor arrived on (drives the claim/adopt CTA). */
+  private claimShortlink: string | null = null;
+  /** True once the visitor has claimed (adopted) the built site. */
+  claimed = signal(false);
+  /** Busy guard for the claim/adopt request (double-submit safe). */
+  claiming = signal(false);
   private claimPollSub?: Subscription;
+
+  /** Whether the visitor is signed in (gates the claim CTA copy/flow). */
+  get isLoggedIn(): boolean {
+    return this.auth.isLoggedIn();
+  }
+
+  /**
+   * Claim (adopt) the completed claim-built site for the signed-in visitor's org.
+   * Anonymous → route to sign-in with a returnUrl back to this funnel; signed-in
+   * → `POST /api/claim/:shortlink/adopt` (re-parents the platform-org site).
+   * Idempotent + double-submit-guarded; ApiService surfaces 401/404/409 as toasts.
+   */
+  claimThisSite(): void {
+    const shortlink = this.claimShortlink;
+    if (!shortlink || this.claiming() || this.claimed()) return;
+    if (!this.auth.isLoggedIn()) {
+      this.router.navigate(['/signin'], {
+        queryParams: { returnUrl: `/create?claim=${encodeURIComponent(shortlink)}` },
+      });
+      return;
+    }
+    this.claiming.set(true);
+    this.api
+      .post<{
+        data?: { claimed?: boolean; slug?: string };
+      }>(`/claim/${encodeURIComponent(shortlink)}/adopt`, {})
+      .subscribe({
+        next: (res) => {
+          const r = parseClaimAdoptResult(res?.data);
+          this.claiming.set(false);
+          if (r.claimed) {
+            this.claimed.set(true);
+            this.toast.success(r.slug ? `You now own ${r.slug}.` : 'This site is now yours.');
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.claiming.set(false);
+          this.cdr.detectChanges();
+        },
+      });
+  }
 
   ngOnInit(): void {
     this.telemetry.track('site.create.opened', {
@@ -1336,6 +1385,7 @@ export class CreateComponent implements OnInit, OnDestroy {
    * stays empty for the user to fill). The background build is already running.
    */
   loadClaimPrefill(shortlink: string): void {
+    this.claimShortlink = shortlink;
     this.api
       .get<{
         data?: {
