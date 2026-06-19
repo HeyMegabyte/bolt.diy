@@ -5,6 +5,16 @@
 >
 > **Template repo:** https://github.com/HeyMegabyte/template.projectsites.dev
 
+## Infrastructure doctrine (READ FIRST — Cloudflare-first, finalized 2026-06-19)
+
+**Authoritative:** [`docs/architecture/cloudflare-first.md`](docs/architecture/cloudflare-first.md) (mirror: `~/.agentskills/rules/projectsites-cloudflare-first.md`).
+
+- **Allowed default infra: Cloudflare + Neon + Upstash + Fly.io.** NO Cloud Run / AWS / GCP / Azure / Vercel / Supabase / Render / Railway by default (explicit override only).
+- **Neon** = Postgres escape hatch (only when D1 can't). **Upstash** = Redis escape hatch (NOT the default cache — KV/R2 first). **Fly.io** = stateful-VM escape hatch (only when no CF primitive can).
+- **Hot path** (public site): CF DNS / custom hostname → Worker dispatch → KV manifest → R2 asset → Analytics Engine sample → async Queue. Must NOT touch Neon/Upstash/Fly/Sentry/PostHog/Browserbase/Skyvern/external-AI unless truly dynamic.
+- **Browser automation**: `browser.projectsites.dev` (product abstraction, CF Browser Run + Playwright + Stagehand) → Browserbase fallback (managed session/replay/proxy only) → Skyvern is **internal-only** (`skyvern.megabyte.space`, behind CF Access), **never the default product layer**. Worker primitive: `src/services/browser_gateway.ts`.
+- **AI Gateway is mandatory** for every model call. **Analytics Engine** (not PostHog) is the default high-volume metrics backend.
+
 ## Mandatory Site-Generation Invariants (BUILD-BREAKING)
 
 These invariants are enforced programmatically in `src/services/build_validators.ts` and run between R2 upload and `published` status. Each maps to a gate in `~/.agentskills/15-site-generation/quality-gates.md`. A violation flips the site to `error` once we move from `report` → `strict` mode.
