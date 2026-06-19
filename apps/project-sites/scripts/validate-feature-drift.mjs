@@ -244,6 +244,10 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // per-handler flag gates for premium tiers (agency_tier, voice_editing,
     // template_marketplace).
     'voiceRoutes', 'agency', 'templatesRoutes', 'mediaRoutes',
+    // analyticsRoutes is a PUBLIC ingestion endpoint (POST /api/events etc.) that
+    // must accept beacons unconditionally + degrades gracefully; the
+    // ANALYTICS_INGEST_ENABLED var gates the tracker injection, not the endpoint.
+    'analyticsRoutes',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
