@@ -1,0 +1,105 @@
+import {
+  IncomingEventSchema,
+  sentryLevel,
+  toPostHog,
+  toSentry,
+  toGa4,
+  toGtm,
+  type IncomingEvent,
+} from '../services/analytics_events';
+
+const TS = 1_700_000_000_000; // fixed epoch ms
+
+const base: IncomingEvent = {
+  eventId: '123e4567-e89b-42d3-a456-426614174000',
+  siteId: 'site-1',
+  eventType: 'pageview',
+  timestamp: TS,
+  payload: { page: '/' },
+};
+
+describe('IncomingEventSchema', () => {
+  it('accepts a valid UUID-keyed pageview', () => {
+    expect(IncomingEventSchema.safeParse(base).success).toBe(true);
+  });
+
+  it('accepts a 40-char SHA-1 eventId', () => {
+    const sha = 'a'.repeat(40);
+    expect(IncomingEventSchema.safeParse({ ...base, eventId: sha }).success).toBe(true);
+  });
+
+  it('rejects an eventId that is neither a UUID nor 40 chars', () => {
+    expect(IncomingEventSchema.safeParse({ ...base, eventId: 'too-short' }).success).toBe(false);
+  });
+
+  it('rejects an unknown eventType', () => {
+    expect(IncomingEventSchema.safeParse({ ...base, eventType: 'teleport' }).success).toBe(false);
+  });
+
+  it('rejects a non-positive timestamp', () => {
+    expect(IncomingEventSchema.safeParse({ ...base, timestamp: 0 }).success).toBe(false);
+  });
+
+  it('rejects a sampleRate above 1', () => {
+    expect(IncomingEventSchema.safeParse({ ...base, sampleRate: 1.5 }).success).toBe(false);
+  });
+
+  it('rejects a malformed ip', () => {
+    expect(IncomingEventSchema.safeParse({ ...base, ip: '999.1.1.1' }).success).toBe(false);
+  });
+});
+
+describe('sentryLevel', () => {
+  it('maps error events to error, everything else to info', () => {
+    expect(sentryLevel({ ...base, eventType: 'error' })).toBe('error');
+    expect(sentryLevel({ ...base, eventType: 'click' })).toBe('info');
+  });
+});
+
+describe('toPostHog', () => {
+  it('uses userId as distinct_id when present and ISO-formats the timestamp', () => {
+    const out = toPostHog({ ...base, userId: 'u9' });
+    expect(out.distinct_id).toBe('u9');
+    expect(out.event).toBe('pageview');
+    expect(out.properties).toMatchObject({ page: '/', siteId: 'site-1' });
+    expect(out.timestamp).toBe(new Date(TS).toISOString());
+  });
+
+  it('falls back to sessionId then eventId for distinct_id', () => {
+    expect(toPostHog({ ...base, sessionId: 's1' }).distinct_id).toBe('s1');
+    expect(toPostHog(base).distinct_id).toBe(base.eventId);
+  });
+});
+
+describe('toSentry', () => {
+  it('prefers payload.message, tags eventId+siteId, breadcrumbs in seconds', () => {
+    const out = toSentry({ ...base, eventType: 'error', payload: { message: 'boom' } });
+    expect(out.level).toBe('error');
+    expect(out.message).toBe('boom');
+    expect(out.tags).toEqual({ eventId: base.eventId, siteId: 'site-1' });
+    expect(out.breadcrumbs[0]?.timestamp).toBe(TS / 1000);
+  });
+
+  it('falls back to the eventType when no payload.message', () => {
+    expect(toSentry(base).message).toBe('pageview');
+  });
+});
+
+describe('toGa4', () => {
+  it('uses the provided measurement id + gaClientId when set', () => {
+    const out = toGa4({ ...base, gaClientId: 'GA1.2.x' }, 'G-ABC123');
+    expect(out.measurement_id).toBe('G-ABC123');
+    expect(out.client_id).toBe('GA1.2.x');
+    expect(out.events[0]).toEqual({ name: 'pageview', params: { page: '/', site_id: 'site-1' } });
+  });
+
+  it('falls back to the distinct id for client_id when no gaClientId', () => {
+    expect(toGa4({ ...base, userId: 'u9' }, 'G-ABC123').client_id).toBe('u9');
+  });
+});
+
+describe('toGtm', () => {
+  it('produces a dataLayer object with event + site_id + flattened payload', () => {
+    expect(toGtm(base)).toEqual({ event: 'pageview', site_id: 'site-1', page: '/' });
+  });
+});
