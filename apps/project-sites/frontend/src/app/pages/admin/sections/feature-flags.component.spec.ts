@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminFeatureFlagsComponent } from './feature-flags.component';
 import { bucketFor } from './feature-flags/flag-logic';
 import { ToastService } from '../../../services/toast.service';
@@ -27,8 +27,12 @@ function flag(over: Partial<Flag> = {}): Flag {
   return { key: 'k', description: '', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', kill_switch: false, owner_email: 'brian@megabyte.space', ...over };
 }
 
-function make(get: jasmine.Spy, opts: { disabled?: string } = {}): AdminFeatureFlagsComponent {
+function make(
+  get: jasmine.Spy,
+  opts: { disabled?: string; spec?: string; navigate?: jasmine.Spy } = {},
+): AdminFeatureFlagsComponent {
   const http = { get, post: () => of({}), patch: () => of({}) };
+  const navigate = opts.navigate ?? jasmine.createSpy('navigate').and.resolveTo(true);
   TestBed.configureTestingModule({
     imports: [AdminFeatureFlagsComponent],
     providers: [
@@ -39,8 +43,16 @@ function make(get: jasmine.Spy, opts: { disabled?: string } = {}): AdminFeatureF
       { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
       {
         provide: ActivatedRoute,
-        useValue: { snapshot: { queryParamMap: { get: (k: string) => (k === 'disabled' ? opts.disabled ?? null : null) } } },
+        useValue: {
+          snapshot: {
+            queryParamMap: {
+              get: (k: string) =>
+                k === 'disabled' ? (opts.disabled ?? null) : k === 'spec' ? (opts.spec ?? null) : null,
+            },
+          },
+        },
       },
+      { provide: Router, useValue: { navigate } },
     ],
   });
   TestBed.overrideComponent(AdminFeatureFlagsComponent, { set: { template: '<div></div>', imports: [] } });
@@ -819,5 +831,53 @@ describe('AdminFeatureFlagsComponent (super-admin mutations carry the auth beare
     await flush();
     const opts = post.calls.mostRecent().args[2] as { headers?: Record<string, string> };
     expect(opts?.headers?.['Authorization']).withContext('no token → no bogus header').toBeUndefined();
+  });
+});
+
+/**
+ * Brief #4: the Features spec page must be a directly-navigable + shareable URL.
+ * `?spec=<flag_key>` opens that flag's spec sheet on load; opening writes the
+ * param; closing clears it.
+ */
+describe('AdminFeatureFlagsComponent — spec-sheet deep link (?spec=)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const FLAG = {
+    key: 'my_flag',
+    description: 'desc',
+    stage: 'beta',
+    owner_email: 'o@e.com',
+    default_enabled: 0,
+    default_rollout_percent: 0,
+    kill_switch: 0,
+  };
+  const getFor = (flags: unknown[]) =>
+    jasmine.createSpy('get').and.callFake((url: string) =>
+      /\/feature-flags$/.test(url)
+        ? of({ flags, count: flags.length })
+        : of({ definition: FLAG, resolved: null, docs: null }),
+    );
+
+  it('?spec=<key> opens that flag’s spec sheet on init', async () => {
+    const c = make(getFor([FLAG]), { spec: 'my_flag' });
+    await c.ngOnInit();
+    expect(c.dossierOpen()).toBeTrue();
+    expect(c.dossier()?.key).toBe('my_flag');
+  });
+
+  it('?spec= with an unknown key does NOT open the dossier', async () => {
+    const c = make(getFor([]), { spec: 'ghost' });
+    await c.ngOnInit();
+    expect(c.dossierOpen()).toBeFalse();
+  });
+
+  it('openDossier writes ?spec= to the URL; closeDossier clears it', async () => {
+    const navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+    const c = make(getFor([FLAG]), { navigate });
+    await c.openDossier(FLAG as never);
+    expect(navigate.calls.mostRecent().args[1].queryParams).toEqual({ spec: 'my_flag' });
+    c.closeDossier();
+    expect(c.dossierOpen()).toBeFalse();
+    expect(navigate.calls.mostRecent().args[1].queryParams).toEqual({ spec: null });
   });
 });

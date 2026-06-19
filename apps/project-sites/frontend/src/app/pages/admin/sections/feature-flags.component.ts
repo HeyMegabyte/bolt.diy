@@ -30,7 +30,7 @@ import { RouterLink } from '@angular/router';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../services/auth.service';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
@@ -444,7 +444,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
       }
 
       <!-- Full-screen spec sheet (docs + metrics + integration guide) -->
-      <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="dossierOpen.set(false)" />
+      <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="closeDossier()" />
     </section>
   `,
   styles: [`
@@ -622,6 +622,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private readonly state = inject(AdminStateService);
   private readonly flagSvc = inject(FeatureFlagService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
 
   /**
@@ -907,6 +908,13 @@ export class AdminFeatureFlagsComponent implements OnInit {
       this.search.set(blocked);
     }
     await this.reload();
+    // Deep link: `?spec=<flag_key>` opens that flag's spec sheet directly, so the
+    // Features spec page is a navigable + shareable URL (brief #4).
+    const spec = this.route.snapshot.queryParamMap.get('spec');
+    if (spec) {
+      const flag = this.flags().find((f) => f.key === spec);
+      if (flag) void this.openDossier(flag);
+    }
   }
 
   dismissBlockedBanner(): void {
@@ -1016,6 +1024,24 @@ export class AdminFeatureFlagsComponent implements OnInit {
       enabled: this.resolvedOn(flag),
     });
     this.dossierOpen.set(true);
+    // Reflect the open spec sheet in the URL so it's shareable/bookmarkable.
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { spec: flag.key },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** Close the spec sheet + drop the `?spec=` deep link from the URL. */
+  closeDossier(): void {
+    this.dossierOpen.set(false);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { spec: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /**
