@@ -1,0 +1,72 @@
+# Local dev env for `wrangler dev` — copy to `.dev.vars` (gitignored) and fill in.
+# NEVER commit `.dev.vars` (real values). This file is keys-only, no secrets.
+#
+# Fastest path (most keys already vaulted): run from apps/project-sites/ —
+#   for k in $(grep -vE '^#|^$' .dev.vars.example | cut -d= -f1); do \
+#     v=$(/Users/Apple/.local/bin/get-secret "$k" 2>/dev/null); \
+#     [ -n "$v" ] && echo "$k=$v"; done > .dev.vars
+# then mint the two internal secrets below + set POSTHOG_HOST.
+
+# ── Internal secrets — MINT locally (no vendor account) ──────────────────────
+# AES-GCM master key for ai_env_vars + mcp_connections (32 bytes, base64).
+#   openssl rand -base64 32
+# ⚠️ PROD: never rotate without re-encryption (Tier-1.5 data-at-rest).
+MCP_ENCRYPTION_KEY=
+# HMAC shared secret for the container build-status callback. openssl rand -hex 32
+INTERNAL_BUILD_SECRET=
+# Owner-only test-login seam (POST /api/auth/test-login). openssl rand -hex 20
+E2E_TEST_PASSWORD=
+
+# ── AI / LLM providers ───────────────────────────────────────────────────────
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+DEEPSEEK_API_KEY=         # mid-grade default; not yet vaulted (gated)
+
+# ── Email ────────────────────────────────────────────────────────────────────
+RESEND_API_KEY=
+SENDGRID_API_KEY=         # fallback
+
+# ── Media / image / research APIs ────────────────────────────────────────────
+GOOGLE_PLACES_API_KEY=
+UNSPLASH_ACCESS_KEY=
+PEXELS_API_KEY=
+PIXABAY_API_KEY=
+FOURSQUARE_API_KEY=
+YELP_API_KEY=
+YOUTUBE_API_KEY=
+IDEOGRAM_API_KEY=
+REPLICATE_API_TOKEN=
+BRANDFETCH_API_KEY=
+LOGODEV_TOKEN=
+PAGESPEED_API_KEY=
+TAVILY_API_KEY=
+DEEPGRAM_API_KEY=
+ELEVENLABS_API_KEY=
+
+# ── Payments (Stripe) ────────────────────────────────────────────────────────
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PUBLISHABLE_KEY=
+
+# ── Notifications (Novu — secret key is server-only; app id is public) ───────
+NOVU_SECRET_KEY=
+
+# ── Observability ────────────────────────────────────────────────────────────
+POSTHOG_API_KEY=
+POSTHOG_HOST=https://us.i.posthog.com
+SENTRY_DSN=
+GA4_MEASUREMENT_ID=
+GTM_CONTAINER_ID=
+
+# ── OAuth (canonical names; {PROVIDER}_OAUTH_CLIENT_ID aliases also honored) ──
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# ── Cloudflare + infra ───────────────────────────────────────────────────────
+CF_API_TOKEN=
+CF_ACCOUNT_ID=
+CF_ZONE_ID=
+NEON_API_KEY=
+BROWSERBASE_API_KEY=
