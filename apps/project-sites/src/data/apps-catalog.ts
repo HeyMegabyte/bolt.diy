@@ -68,6 +68,14 @@ export interface CatalogApp {
   readonly composeRef?: string;
   /** Required aux infra — provisioned during deploy wizard. */
   readonly infra: InfraDep[];
+  /**
+   * Opt in to Neon's POOLED connection for this app's Postgres URL. Default
+   * (unset/false) → the DIRECT connection (always safe). Set true ONLY for apps
+   * verified to tolerate transaction-mode pooling (no LISTEN/NOTIFY, advisory
+   * locks, or cross-tx prepared statements) — see
+   * `docs/architecture/scale-to-zero-apps-routing.md` § Phase 3.
+   */
+  readonly poolerSafe?: boolean;
   /** Default container port to proxy `fetch` to. */
   readonly port: number;
   /** Default env-var shape — `description` shown in the deploy wizard form. */

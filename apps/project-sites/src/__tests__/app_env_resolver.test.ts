@@ -18,10 +18,14 @@ import type { ProvisionedInfra } from '../services/app_provisioner.js';
 type EnvDecl = CatalogApp['env'][number];
 
 /** Build a minimal CatalogApp with only the fields resolveAppEnv reads. */
-function makeApp(env: EnvDecl[], opts: { id?: string; port?: number } = {}): CatalogApp {
+function makeApp(
+  env: EnvDecl[],
+  opts: { id?: string; port?: number; poolerSafe?: boolean } = {},
+): CatalogApp {
   return {
     id: opts.id ?? 'test-app',
     port: opts.port ?? 3000,
+    poolerSafe: opts.poolerSafe,
     env,
   } as unknown as CatalogApp;
 }
@@ -30,6 +34,7 @@ const FULL_INFRA: ProvisionedInfra = {
   needsVolume: false,
   postgres: {
     connectionString: 'postgres://u:p@db.host:5432/appdb',
+    pooledConnectionString: 'postgres://u:p@db-pooler.host:5432/appdb',
     host: 'db.host',
     user: 'pguser',
     password: 'pgpass',
@@ -296,5 +301,38 @@ describe('resolveAppEnv — integration over a mixed declaration set', () => {
       PORT: '4000',
     });
     expect(out.APP_SECRET).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+/**
+ * Phase 3 (scale-to-zero): the per-app pooled-connection seam. Default (unset
+ * poolerSafe) → DIRECT connection (always safe). A verified pooler-safe app →
+ * Neon's POOLED endpoint. Sharded HOST/USER pieces are pool-agnostic.
+ */
+describe('resolveAppEnv — pooler-safe Postgres connection', () => {
+  it('a default app gets the DIRECT connection string', () => {
+    const app = makeApp([decl({ key: 'DATABASE_URL', auto: 'postgres_url', required: true })]);
+    expect(resolveAppEnv(app, FULL_INFRA, SUB, {}).DATABASE_URL).toBe(
+      'postgres://u:p@db.host:5432/appdb',
+    );
+  });
+
+  it('a poolerSafe app gets the POOLED connection string', () => {
+    const app = makeApp([decl({ key: 'DATABASE_URL', auto: 'postgres_url', required: true })], {
+      poolerSafe: true,
+    });
+    expect(resolveAppEnv(app, FULL_INFRA, SUB, {}).DATABASE_URL).toBe(
+      'postgres://u:p@db-pooler.host:5432/appdb',
+    );
+  });
+
+  it('poolerSafe does NOT change sharded HOST/USER pieces', () => {
+    const app = makeApp(
+      [decl({ key: 'DB_HOST', auto: 'postgres_url' }), decl({ key: 'DB_USER', auto: 'postgres_url' })],
+      { poolerSafe: true },
+    );
+    const out = resolveAppEnv(app, FULL_INFRA, SUB, {});
+    expect(out.DB_HOST).toBe('db.host');
+    expect(out.DB_USER).toBe('pguser');
   });
 });

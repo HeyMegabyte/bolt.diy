@@ -38,17 +38,26 @@ function randomSecret(): string {
  * `DATABASE_URL`/`POSTGRES_URL` get the full URI; apps that ask for
  * sharded HOST/PORT/USER/PASS/NAME pieces get the parsed component.
  */
-function pickPostgresPart(key: string, infra: ProvisionedInfra): string | undefined {
+function pickPostgresPart(
+  key: string,
+  infra: ProvisionedInfra,
+  poolerSafe: boolean,
+): string | undefined {
   const pg = infra.postgres;
   if (!pg) return undefined;
   const k = key.toUpperCase();
-  if (k.includes('URL') || k.includes('URI') || k === 'DATABASE_DSN') return pg.connectionString;
+  // Full connection URI: pooler-safe apps get Neon's POOLED endpoint (shared
+  // upstream pool), everyone else the direct connection (always safe). Sharded
+  // HOST/USER/etc pieces are pool-agnostic.
+  if (k.includes('URL') || k.includes('URI') || k === 'DATABASE_DSN') {
+    return poolerSafe ? pg.pooledConnectionString : pg.connectionString;
+  }
   if (k.includes('HOST')) return pg.host;
   if (k.includes('PORT')) return '5432';
   if (k.includes('USERNAME') || k.includes('USER')) return pg.user;
   if (k.includes('PASSWORD') || k.includes('PASS')) return pg.password;
   if (k.includes('NAME') || k.includes('DBNAME') || k === 'POSTGRES_DB') return pg.database;
-  return pg.connectionString;
+  return poolerSafe ? pg.pooledConnectionString : pg.connectionString;
 }
 
 function pickRedisPart(key: string, infra: ProvisionedInfra): string | undefined {
@@ -89,7 +98,7 @@ export function resolveAppEnv(
       continue;
     }
     if (decl.auto === 'postgres_url') {
-      const v = pickPostgresPart(decl.key, infra);
+      const v = pickPostgresPart(decl.key, infra, app.poolerSafe ?? false);
       if (v) out[decl.key] = v;
     } else if (decl.auto === 'redis_url') {
       const v = pickRedisPart(decl.key, infra);
