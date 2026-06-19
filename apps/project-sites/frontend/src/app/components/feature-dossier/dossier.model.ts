@@ -36,6 +36,12 @@ export interface DossierModel {
   entitled?: string;
   /** Live URL to offer an on-demand AI vision critique (per-site features). */
   previewUrl?: string;
+  /**
+   * Plain-English "what enabling this does" reassurance, surfaced as a Preview
+   * section on the spec sheet (so the preview info lives here, not only on the
+   * feature card). Empty/omitted → no Preview section rendered.
+   */
+  previewNote?: string;
   /** Selected site id — enables the "Ask your site" concierge tester. */
   siteId?: string;
 }
@@ -122,6 +128,12 @@ export function buildDossierMarkdown(m: DossierModel): string {
     out.push('');
     out.push('## How it works');
     out.push(m.explanation);
+  }
+
+  if (m.previewNote && m.previewNote.trim()) {
+    out.push('');
+    out.push('## Preview');
+    out.push(m.previewNote.trim());
   }
 
   out.push('');

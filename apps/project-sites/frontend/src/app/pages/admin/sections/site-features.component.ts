@@ -662,6 +662,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
       category: f.category,
       enabled: f.enabled,
       previewUrl,
+      previewNote: `${f.description} You can enable it now and turn it off anytime — your live site updates instantly.`,
       siteId: site?.id,
     });
     this.dossierOpen.set(true);

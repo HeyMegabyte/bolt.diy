@@ -70,6 +70,16 @@ describe('dossier.model', () => {
     it('notes the missing-E2E gate when no specs are linked', () => {
       expect(buildDossierMarkdown(featureModel)).toContain('No E2E specs linked yet');
     });
+
+    it('renders a Preview section carrying the preview note when present', () => {
+      const md = buildDossierMarkdown({ ...featureModel, previewNote: 'Storefront goes live the moment you flip it on.' });
+      expect(md).toContain('## Preview');
+      expect(md).toContain('Storefront goes live the moment you flip it on.');
+    });
+
+    it('omits the Preview section when no preview note is set', () => {
+      expect(buildDossierMarkdown(featureModel)).not.toContain('## Preview');
+    });
   });
 
   describe('englishSmoke', () => {
