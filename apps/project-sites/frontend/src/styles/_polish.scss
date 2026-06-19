@@ -47,6 +47,13 @@
   app-root > router-outlet + *, app-root > router-outlet ~ * { view-transition-name: ps-content; }
   // Nested admin sub-route swap (e.g. /admin/billing → /admin/snapshots).
   app-admin router-outlet + *, app-admin router-outlet ~ * { view-transition-name: ps-section; }
+  // Angular renders the routed component as a SIBLING after <router-outlet>, so
+  // the outlet element itself is always empty. Left at its UA default
+  // (display:inline) it becomes an empty flex/grid item that adds a stray
+  // gap-worth of space in flex column layouts. Hide it. Safe: `+ */~ *` sibling
+  // selectors above match by DOM position (unaffected by display) and routing is
+  // sibling-based, so neither view transitions nor routing break. (§17)
+  router-outlet { display: none; }
 }
 // Crossfade the content area: old fades out, new fades in — fade-only, no slide
 // (P2). Same treatment for both page-level and admin section-level transitions.
