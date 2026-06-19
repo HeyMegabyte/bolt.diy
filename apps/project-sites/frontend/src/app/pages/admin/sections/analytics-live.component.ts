@@ -2,6 +2,7 @@ import { Component, signal, computed, inject, effect, DestroyRef } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
+import { ReadinessBadgeComponent } from './readiness-badge.component';
 
 /** One stored analytics event row (from `/api/analytics-data`). */
 interface LiveEvent {
@@ -36,6 +37,7 @@ interface DebugResponse {
 @Component({
   selector: 'app-admin-analytics-live',
   standalone: true,
+  imports: [ReadinessBadgeComponent],
   template: `
     <div class="px-6 pt-5 pb-8 max-md:px-4" data-testid="analytics-live">
       <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -45,7 +47,8 @@ interface DebugResponse {
             Raw analytics event stream + per-provider delivery health for this site.
           </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <app-readiness-badge [siteId]="siteRecordId()" />
           <span class="px-3 py-1 rounded-full text-[0.78rem] font-semibold bg-white/[0.04] text-text-secondary tabular-nums">
             {{ events().length }} event{{ events().length === 1 ? '' : 's' }}
           </span>
@@ -138,6 +141,9 @@ export class AdminAnalyticsLiveComponent {
 
   /** The selected site's slug — the key analytics events are stored under. */
   readonly siteId = computed<string | null>(() => this.state.selectedSite()?.slug ?? null);
+
+  /** Site RECORD id (sites.id) — readiness is keyed by id, analytics by slug. */
+  readonly siteRecordId = computed<string | null>(() => this.state.selectedSite()?.id ?? null);
 
   readonly circuitList = computed(() =>
     Object.entries(this.circuits()).map(([provider, state]) => ({ provider, state })),
