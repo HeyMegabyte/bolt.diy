@@ -54,6 +54,13 @@ export interface ChangelogEntry {
  */
 const FALLBACK_ENTRIES: readonly ChangelogEntry[] = [
   {
+    date: '2026-06-19',
+    version: 'v1.8.0',
+    title: 'Trust Center + installable PWA',
+    body: 'New /trust page lays out our security posture honestly — generated sites are scanned so server-only keys never reach the browser, every build earns an A–F readiness grade, and connected credentials are encrypted at rest. Project Sites is now installable to your home screen on Android, desktop Chrome, and iOS Safari.',
+    tags: ['feature', 'security', 'trust', 'pwa'],
+  },
+  {
     date: '2026-05-25',
     version: 'v1.7.0',
     title: 'Distribution flywheel — changelog, roadmap, integrations, RSS',
