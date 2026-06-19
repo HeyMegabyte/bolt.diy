@@ -23,6 +23,9 @@ apps/project-sites/frontend/src/index.html
 glob:apps/project-sites/r2-sync/**/index.html
 glob:apps/project-sites/samples/**/index.html
 
+# LLM gateway landing — served at llm.projectsites.dev/, NOT a marketing home
+apps/project-sites/src/lib/llm_landing_page.ts
+
 # Documentation references (not implementations)
 apps/project-sites/docs/marketing-image-budget.md
 apps/project-sites/e2e/marketing-sections.spec.ts

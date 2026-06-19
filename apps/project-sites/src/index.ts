@@ -33,6 +33,7 @@ import type { Env, Variables } from './types/env.js';
 import { requestIdMiddleware } from './middleware/request_id.js';
 import { requestLogger } from './lib/log.js';
 import { notFoundHtml } from './lib/not_found_page.js';
+import { llmLandingPage } from './lib/llm_landing_page.js';
 import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
@@ -582,6 +583,19 @@ function renderAppShellHtml(
   const title = titles[state];
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · ProjectSites</title><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0f;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;padding:2rem}.box{max-width:560px;text-align:center}h1{font-size:2.2rem;background:linear-gradient(135deg,#00ffc8,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#00ffc8;animation:pulse 1.4s ease-in-out infinite;margin-right:.5rem;vertical-align:middle}@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}p{color:#8892a4;font-size:1.05rem;line-height:1.5;margin-bottom:2rem}.btn{display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00ffc8,#7c3aed);color:#0a0a0f;font-weight:600;border-radius:50px;text-decoration:none}.meta{margin-top:2rem;font-family:'Fira Code',monospace;font-size:.75rem;color:#4a9;background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.1);padding:1rem;border-radius:8px;text-align:left}</style></head><body><div class="box"><h1>${state === 'booting' ? '<span class="dot"></span>' : ''}${title}</h1><p>${bodies[state]}</p>${cta}<div class="meta">app: ${safeSlug}<br>subdomain: ${safeSub}<br>state: ${state}</div></div></body></html>`;
 }
+
+// ─── LLM Gateway landing ─────────────────────────────────────
+// `llm.projectsites.dev/` exposes the OpenAI-compatible `/v1/*` API, but the
+// bare root used to fall through to the site-serving catch-all and 404. Serve a
+// "what is this + how to use it" landing for the gateway host; every other host
+// falls through unchanged to the marketing/site-serving catch-all below.
+app.get('/', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname === `llm.${DOMAINS.SITES_BASE}`) {
+    return c.html(llmLandingPage());
+  }
+  return next();
+});
 
 // ─── Site Serving (catch-all for subdomain routing) ──────────
 
