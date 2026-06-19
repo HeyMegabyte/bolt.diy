@@ -33,6 +33,7 @@ import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
 import { minifyCssCached } from './css_minify.js';
 import { parseBranchHost } from './site_branches.js';
+import { buildAnalyticsTracker } from './analytics_tracker.js';
 import { log } from '../lib/log.js';
 
 const serveLog = log.child('site_serving');
@@ -854,6 +855,12 @@ async function buildSiteResponse(
     }
     if (site.plan !== 'paid') {
       bodyInjection += generateTopBar(site.slug);
+    }
+    // Unified Analytics beacon (Plane H) — injected ONLY when the dispatcher DO
+    // is bound, so it self-activates on go-live and stays off (zero beacons)
+    // until then. Keyed by slug; the XSS guard lives in buildAnalyticsTracker.
+    if (env?.EVENT_DISPATCHER) {
+      bodyInjection += buildAnalyticsTracker(site.slug);
     }
     if (bodyInjection) {
       html = html.replace(/(<body[^>]*>)/i, `$1\n${bodyInjection}\n`);
