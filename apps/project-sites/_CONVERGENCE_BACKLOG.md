@@ -110,6 +110,15 @@ network `projectsites-automation`).
 - **▸Business / flags** — `enable_cloudflare_quick_actions`, `enable_stagehand`, `enable_skyvern`,
   `enable_browserbase`, `enable_human_review`. Per-tenant quotas (`monthly_browser_seconds`,
   `browserbase_minutes`, `skyvern_runs`, `max_parallel_browser_jobs`).
+- **▸Browserbase backup-only LAW (hard rule).** Browserbase is a PREMIUM FALLBACK, never the default.
+  The router may select it ONLY when a cheaper tier provably cannot do the job — i.e. one of: captcha
+  challenge · residential/geo proxy required · session replay / live-view debugging · advanced
+  persistent session identity. Gated behind `enable_browserbase` (default off) AND a per-tenant
+  `browserbase_minutes` quota AND (for premium escalation) `human_review_required_for_premium`. Cheap
+  default workloads (screenshot/pdf/markdown/links/extract/crawl/smoke) MUST stay on Cloudflare Browser
+  Run — routing any of those to Browserbase is a drift violation. Cost-anomaly alert fires when
+  Browserbase escalations spike (§5 #4). Creds (`BROWSERBASE_API_KEY` + `BROWSERBASE_PROJECT_ID`) live
+  in the vault; wire as Worker secrets only when the adapter ships.
 - **Evidence** — CF Browser Run limits — Paid 10 req/s + 120 concurrent browsers; `/snapshot`→{html,image}; `/crawl` async — retrieved 2026-06-18. · CF Stagehand docs — runs on Browser Run binding, **Zod v3 required (v4 incompatible)** — retrieved 2026-06-18. · Steel vs Browserbase — Steel 24h/self-host, Browserbase 6h/captcha-free/replay 7-30d — retrieved 2026-06-18. · SSRF-in-AI-agents — DNS-rebinding + dual-stack-IPv6 normalization, allowlist doctrine — retrieved 2026-06-18.
 
 ### Plane D — `jobs.projectsites.dev` + `events.projectsites.dev` (Trigger.dev + Inngest)
@@ -367,6 +376,10 @@ agent-OS refactor is its own session against the home dir.
   worker secret; frontend app id fixed. **Rotate the secret** (it traveled through chat). 
 - **Firecrawl** — wire `FIRECRAWL_API_KEY` (or self-host `G4brym/workers-firecrawl`) as a Worker secret
   before enabling the `firecrawl` browser adapter.
+- **Browserbase** — `BROWSERBASE_API_KEY` + `BROWSERBASE_PROJECT_ID` saved to the chezmoi `get-secret`
+  vault. **Backup-only** per the Plane-C hard rule (premium fallback for captcha/proxy/replay/identity
+  ONLY, `enable_browserbase` default off). Upload to the Worker secret only when the adapter ships.
+  **Rotate the key** — it traveled through chat.
 
 ---
 
