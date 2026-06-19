@@ -212,6 +212,12 @@ NOVU_WORKFLOW_ID = "ps-notify-eiz1pyxe"
 # AI Gateway named "projectsites" provisioned at:
 #   https://dash.cloudflare.com/?to=/:account/ai/ai-gateway
 AI_GATEWAY_ENABLED = "true"
+# Unified Analytics ingestion beacon (Plane H). When "true", served sites inject
+# the tracker → POST /api/events → durable analytics_events D1 store → the admin
+# Analytics tab. Dark-launched OFF; flip to "true" + redeploy to go live (a normal
+# deploy — independent of the gated EVENT_DISPATCHER DO migration, which adds
+# external Sentry/PostHog/GA4/GTM fan-out on top).
+ANALYTICS_INGEST_ENABLED = "false"
 # Sentry release tracking (item #48). Override per deploy with
 #   wrangler deploy --env production --var SENTRY_RELEASE:$(git rev-parse --short HEAD)
 # so the version matches the sourcemaps uploaded by
