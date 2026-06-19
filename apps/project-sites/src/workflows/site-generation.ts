@@ -22,6 +22,7 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { DOMAINS, AppError } from '@project-sites/shared';
 import { loadBuildFromR2, validateBuild } from '../services/build_validators.js';
+import { scoreReadiness } from '../services/production_readiness.js';
 import { postAskUser } from '../services/task_inbox.js';
 import { appendBuildEvent, type BuildEvent } from '../services/build_events.js';
 import { checkBudget, recordSpend } from '../services/build_budget.js';
@@ -1150,6 +1151,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           const prefix = `sites/${params.slug}/${version}/`;
           const files = await loadBuildFromR2(env.SITES_BUCKET, prefix);
           const report = validateBuild(files);
+          const readiness = scoreReadiness(report);
           await emitBuildEvent(env, params.siteId, {
             type: 'tests.completed',
             passed: report.ok ? 1 : 0,
@@ -1161,9 +1163,19 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             errors: report.errors.slice(0, 50),
             warnings: report.warnings.slice(0, 50),
             summary: report.summary,
-            message: `Build validation: ${report.summary}`,
+            // Production-Readiness grade (backlog #9) — queryable for the admin
+            // readiness widget without a schema change.
+            readiness_grade: readiness.grade,
+            readiness_score: readiness.score,
+            readiness_passing: readiness.passing,
+            readiness_breakdown: readiness.breakdown,
+            message: `Build validation: ${report.summary} · readiness ${readiness.grade} (${readiness.score}/100)`,
           });
-          return JSON.stringify({ ok: report.ok, summary: report.summary });
+          return JSON.stringify({
+            ok: report.ok,
+            summary: report.summary,
+            readiness: { grade: readiness.grade, score: readiness.score, passing: readiness.passing },
+          });
         } catch (err) {
           await workflowLog(
             env.DB,
