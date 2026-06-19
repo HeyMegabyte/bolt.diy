@@ -321,6 +321,16 @@ not the PR diff. Left as a tracked decision rather than a blind workflow add
    `sentry.service.ts`, `telemetry.service.ts`, `analytics.service.ts`, and
    the GTM/PostHog snippets in `index.html` are owned by parallel agents.
    Don't edit them in the same turn or you'll merge-conflict.
+9. **A Karma spec asserting exact values off a module-global is order-fragile** —
+   if a directive/service keeps state at module scope (e.g. `RevealDirective`'s
+   stagger counter) and a spec asserts exact derived values, that spec MUST reset
+   the global in `beforeEach` AND pin any environment preconditions it depends on
+   (`window.matchMedia`, `getBoundingClientRect`, IntersectionObserver). Otherwise
+   adding ANY new spec elsewhere shifts Karma's execution order and flakes it (a
+   clean tree merely orders favorably by luck). Fix the SPEC's isolation, not the
+   feature (root-cause-validator-findings). Reference: `reveal.directive.spec.ts`
+   `resetRevealOrderForTest()` + pinned `matchMedia`/`getBoundingClientRect`
+   (fire-v2.58 — 3 false failures surfaced when /create claim tests shifted order).
 
 ## E2E + Verification
 
