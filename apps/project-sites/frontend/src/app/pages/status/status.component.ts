@@ -72,6 +72,7 @@ interface ServiceEntry {
           <span>
             <a routerLink="/privacy">Privacy</a> |
             <a routerLink="/terms">Terms</a> |
+            <a routerLink="/trust">Trust</a> |
             <a routerLink="/blog">Blog</a> |
             <a routerLink="/status">Status</a>
           </span>

@@ -47,6 +47,13 @@ interface ChangelogResponse {
  */
 const FALLBACK_ENTRIES: readonly ChangelogEntry[] = [
   {
+    date: '2026-06-19',
+    version: 'v1.8.0',
+    title: 'Trust Center — see exactly how we protect your data',
+    body: 'New /trust page lays out our security posture honestly: generated sites are scanned so server-only keys never reach the browser, every build earns an A–F readiness grade, and credentials are encrypted at rest. Candid about what is still on the roadmap.',
+    tags: ['feature', 'security', 'trust'],
+  },
+  {
     date: '2026-05-25',
     version: 'v1.7.0',
     title: 'Distribution flywheel — changelog, roadmap, integrations, RSS',
@@ -180,6 +187,7 @@ const FALLBACK_ENTRIES: readonly ChangelogEntry[] = [
           <span>
             <a routerLink="/privacy">Privacy</a> |
             <a routerLink="/terms">Terms</a> |
+            <a routerLink="/trust">Trust</a> |
             <a routerLink="/blog">Blog</a> |
             <a routerLink="/changelog">Changelog</a> |
             <a routerLink="/roadmap">Roadmap</a> |

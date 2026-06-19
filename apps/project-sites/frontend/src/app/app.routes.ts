@@ -615,6 +615,13 @@ export const routes: Routes = [
       import('./pages/status/status.component').then((m) => m.StatusComponent),
   },
   {
+    // Public Trust Center (#30) — honest, verifiable security posture.
+    // Lazy-loaded so marketing traffic never pays for it until requested.
+    path: 'trust',
+    loadComponent: () =>
+      import('./pages/trust/trust.component').then((m) => m.TrustComponent),
+  },
+  {
     // Inline checkout harness — mounts <app-inline-checkout> with a fixed
     // amount so Playwright can drive the 1-click Stripe Link flow under
     // the brian@megabyte.space stub. Production traffic also lands here
