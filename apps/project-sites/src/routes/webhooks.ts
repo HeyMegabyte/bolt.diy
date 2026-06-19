@@ -128,11 +128,17 @@ webhooks.post('/webhooks/stripe', async (c) => {
           // (e.g. tests), so guard it; notification never affects the webhook.
           if (meta.org_id) {
             try {
-              const { notifySiteOwner } = await import('../services/notify.js');
-              const p = notifySiteOwner(c.env, db, {
+              const { notifyOwnerEvent } = await import('../services/notify.js');
+              const p = notifyOwnerEvent(c.env, db, {
                 orgId: meta.org_id,
-                subject: 'Plan upgraded 🎉',
-                body: 'Your subscription is active — paid features are now unlocked.',
+                event: {
+                  event: 'payment.succeeded',
+                  tenantId: meta.org_id,
+                  // Stripe amounts are minor units (cents); fall back to 0/usd so
+                  // the typed event always validates → the bell always fires.
+                  amountCents: Number((obj as { amount_total?: number }).amount_total ?? 0),
+                  currency: String((obj as { currency?: string }).currency ?? 'usd'),
+                },
               });
               try {
                 c.executionCtx.waitUntil(p);
@@ -185,11 +191,15 @@ webhooks.post('/webhooks/stripe', async (c) => {
         // Fire-and-forget Novu: alert the org owner so they can fix billing.
         if (failMeta.org_id) {
           try {
-            const { notifySiteOwner } = await import('../services/notify.js');
-            const p = notifySiteOwner(c.env, db, {
+            const { notifyOwnerEvent } = await import('../services/notify.js');
+            const p = notifyOwnerEvent(c.env, db, {
               orgId: failMeta.org_id,
-              subject: 'Payment failed ⚠️',
-              body: "We couldn't process your latest payment. Update your card to keep paid features.",
+              event: {
+                event: 'payment.failed',
+                tenantId: failMeta.org_id,
+                amountCents: Number((obj as { amount_due?: number }).amount_due ?? 0),
+                currency: String((obj as { currency?: string }).currency ?? 'usd'),
+              },
             });
             try {
               c.executionCtx.waitUntil(p);
