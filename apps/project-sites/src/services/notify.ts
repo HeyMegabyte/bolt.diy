@@ -18,6 +18,7 @@
  * );
  */
 import type { Env } from '../types/env.js';
+import { NovuEventSchema, renderNovuEvent } from './novu_triggers.js';
 
 const NOVU_TRIGGER_URL = 'https://api.novu.co/v1/events/trigger';
 const DEFAULT_WORKFLOW = 'ps-notify';
@@ -119,4 +120,51 @@ export async function notifySiteOwner(
     );
     return { ok: false, detail: 'lookup_failed' };
   }
+}
+
+/**
+ * Fire a TYPED platform event for one subscriber: validate against
+ * {@link NovuEventSchema}, render actionable bell copy via {@link renderNovuEvent},
+ * and dispatch over the live `notifyUser` transport. The one-line call any worker
+ * service uses to notify a user of a build/payment/domain/team/AI/browser/DB event
+ * without hand-writing subject/body. Never throws.
+ *
+ * @param input.event - A payload matching one variant of {@link NovuEventSchema};
+ *   an invalid shape returns `{ ok: false, detail: 'invalid_event' }` and never sends.
+ * @example
+ * c.executionCtx.waitUntil(
+ *   notifyEvent(c.env, { subscriberId: ownerEmail, event: { event: 'domain.active', tenantId, hostname } })
+ * );
+ * @throws Never.
+ */
+export async function notifyEvent(
+  env: Env,
+  input: { subscriberId: string; event: unknown; workflowId?: string },
+): Promise<NotifyResult> {
+  const parsed = NovuEventSchema.safeParse(input.event);
+  if (!parsed.success) return { ok: false, detail: 'invalid_event' };
+  const { subject, body } = renderNovuEvent(parsed.data);
+  return notifyUser(env, { subscriberId: input.subscriberId, subject, body, workflowId: input.workflowId });
+}
+
+/**
+ * Org-scoped variant of {@link notifyEvent}: resolve the org owner's email from
+ * D1, then dispatch the typed event. For webhook/workflow contexts where only
+ * `orgId` is known. Never throws.
+ *
+ * @example
+ * c.executionCtx.waitUntil(
+ *   notifyOwnerEvent(c.env, c.env.DB, { orgId, event: { event: 'payment.succeeded', tenantId: orgId, amountCents, currency } })
+ * );
+ * @throws Never.
+ */
+export async function notifyOwnerEvent(
+  env: Env,
+  db: D1Database,
+  input: { orgId: string; event: unknown; workflowId?: string },
+): Promise<NotifyResult> {
+  const parsed = NovuEventSchema.safeParse(input.event);
+  if (!parsed.success) return { ok: false, detail: 'invalid_event' };
+  const { subject, body } = renderNovuEvent(parsed.data);
+  return notifySiteOwner(env, db, { orgId: input.orgId, subject, body, workflowId: input.workflowId });
 }

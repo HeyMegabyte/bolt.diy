@@ -1,4 +1,4 @@
-import { NovuEventSchema, triggerNovu } from '../services/novu_triggers';
+import { NovuEventSchema, renderNovuEvent, triggerNovu, type NovuEvent } from '../services/novu_triggers';
 
 describe('NovuEventSchema', () => {
   it('accepts a valid build.finished payload', () => {
@@ -222,5 +222,53 @@ describe('triggerNovu', () => {
 
     expect(result.ok).toBe(true);
     expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('renderNovuEvent', () => {
+  const samples: NovuEvent[] = [
+    { event: 'build.started', tenantId: 'o1', siteId: 's1' },
+    { event: 'build.finished', tenantId: 'o1', previewUrl: 'https://x.projectsites.dev' },
+    { event: 'build.failed', tenantId: 'o1', error: 'timeout' },
+    { event: 'payment.succeeded', tenantId: 'o1', amountCents: 2900, currency: 'usd' },
+    { event: 'payment.failed', tenantId: 'o1', amountCents: 2900, currency: 'usd' },
+    { event: 'lead.scan.completed', tenantId: 'o1', leadCount: 1 },
+    { event: 'domain.verifying', tenantId: 'o1', hostname: 'www.acme.com' },
+    { event: 'domain.active', tenantId: 'o1', hostname: 'www.acme.com' },
+    { event: 'domain.failed', tenantId: 'o1', hostname: 'www.acme.com', error: 'DNS' },
+    { event: 'quota.near_limit', tenantId: 'o1', resource: 'ai_budget', usedPercent: 82 },
+    { event: 'trial.ending', tenantId: 'o1', daysRemaining: 1 },
+    { event: 'member.invited', tenantId: 'o1', email: 'a@acme.com', role: 'editor' },
+    { event: 'member.joined', tenantId: 'o1', userId: 'u1', role: 'editor' },
+    { event: 'ai.job.completed', tenantId: 'o1', jobId: 'j1' },
+    { event: 'ai.job.failed', tenantId: 'o1', jobId: 'j1', error: 'oom' },
+    { event: 'browser.job.escalated', tenantId: 'o1', runId: 'r1', fromProvider: 'cloudflare', toProvider: 'browserbase' },
+    { event: 'db.provision.queued', tenantId: 'o1', dbId: 'd1' },
+    { event: 'db.provision.ready', tenantId: 'o1', dbId: 'd1' },
+    { event: 'db.provision.failed', tenantId: 'o1', dbId: 'd1', error: 'capacity' },
+  ];
+
+  it('renders a non-empty subject + body for every event variant', () => {
+    expect(samples.length).toBe(19);
+    for (const e of samples) {
+      const { subject, body } = renderNovuEvent(e);
+      expect(subject.length).toBeGreaterThan(0);
+      expect(body.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('build.finished body carries the preview URL', () => {
+    const { body } = renderNovuEvent({ event: 'build.finished', tenantId: 'o1', previewUrl: 'https://x.projectsites.dev' });
+    expect(body).toContain('https://x.projectsites.dev');
+  });
+
+  it('payment.succeeded formats the amount as dollars + uppercase currency', () => {
+    const { body } = renderNovuEvent({ event: 'payment.succeeded', tenantId: 'o1', amountCents: 2900, currency: 'usd' });
+    expect(body).toContain('$29.00 USD');
+  });
+
+  it('trial.ending singularizes one day', () => {
+    expect(renderNovuEvent({ event: 'trial.ending', tenantId: 'o1', daysRemaining: 1 }).subject).toContain('1 day');
+    expect(renderNovuEvent({ event: 'trial.ending', tenantId: 'o1', daysRemaining: 5 }).subject).toContain('5 days');
   });
 });

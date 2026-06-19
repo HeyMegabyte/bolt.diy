@@ -309,3 +309,73 @@ export async function triggerNovu(
     return { ok: false, reason: 'send_failed' };
   }
 }
+
+// ---------------------------------------------------------------------------
+// renderNovuEvent — typed event → human, actionable bell copy
+// ---------------------------------------------------------------------------
+
+/** Format a minor-unit amount + ISO currency as e.g. `$29.00 USD`. */
+function money(amountCents: number, currency: string): string {
+  return `$${(amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+}
+
+/**
+ * Render a validated {@link NovuEvent} into the `{ subject, body }` copy the bell
+ * displays. Pure + exhaustive (a `never` fallback makes a new event a compile
+ * error until copy is added), so the typed event union and the human-facing
+ * notification stay in lockstep. Copy follows the "what happened · why it matters
+ * · what to do next" microcopy doctrine.
+ *
+ * @param e - A payload already validated against {@link NovuEventSchema}.
+ * @returns The bell subject + body for this event.
+ * @example
+ * renderNovuEvent({ event: 'build.finished', tenantId: 'o1', previewUrl: 'https://x.projectsites.dev' })
+ * // → { subject: 'Your site is live 🎉', body: 'https://x.projectsites.dev is ready to view.' }
+ */
+export function renderNovuEvent(e: NovuEvent): { subject: string; body: string } {
+  switch (e.event) {
+    case 'build.started':
+      return { subject: 'Build started', body: 'We’re generating your site — we’ll ping you the moment it’s live.' };
+    case 'build.finished':
+      return { subject: 'Your site is live 🎉', body: `${e.previewUrl} is ready to view.` };
+    case 'build.failed':
+      return { subject: 'Build hit a snag', body: `${e.error} — retry from your dashboard.` };
+    case 'payment.succeeded':
+      return { subject: 'Payment received', body: `${money(e.amountCents, e.currency)} — your subscription is active.` };
+    case 'payment.failed':
+      return { subject: 'Payment didn’t go through', body: `${money(e.amountCents, e.currency)} failed — update your card to keep your sites live.` };
+    case 'lead.scan.completed':
+      return { subject: 'Lead scan complete', body: `${e.leadCount} ${e.leadCount === 1 ? 'lead' : 'leads'} found.` };
+    case 'domain.verifying':
+      return { subject: `Verifying ${e.hostname}`, body: 'Setting up SSL — usually under a minute.' };
+    case 'domain.active':
+      return { subject: `${e.hostname} is live 🔒`, body: 'Your custom domain is serving securely over SSL.' };
+    case 'domain.failed':
+      return { subject: `${e.hostname} needs attention`, body: `${e.error} — check your DNS settings.` };
+    case 'quota.near_limit':
+      return { subject: `${e.resource} at ${e.usedPercent}%`, body: `You’re nearing your ${e.resource} limit — upgrade to avoid interruption.` };
+    case 'trial.ending':
+      return { subject: `Trial ends in ${e.daysRemaining} ${e.daysRemaining === 1 ? 'day' : 'days'}`, body: 'Upgrade now to keep your sites published.' };
+    case 'member.invited':
+      return { subject: 'Invitation sent', body: `${e.email} was invited as ${e.role}.` };
+    case 'member.joined':
+      return { subject: 'New teammate', body: `A member joined your org as ${e.role}.` };
+    case 'ai.job.completed':
+      return { subject: 'AI job complete', body: `Job ${e.jobId} finished successfully.` };
+    case 'ai.job.failed':
+      return { subject: 'AI job failed', body: `Job ${e.jobId}: ${e.error}.` };
+    case 'browser.job.escalated':
+      return { subject: 'Browser run escalated', body: `Run ${e.runId} moved from ${e.fromProvider} to ${e.toProvider}.` };
+    case 'db.provision.queued':
+      return { subject: 'Database queued', body: 'Your database is provisioning — we’ll notify you when it’s ready.' };
+    case 'db.provision.ready':
+      return { subject: 'Database ready', body: 'Your database is connected and ready to use.' };
+    case 'db.provision.failed':
+      return { subject: 'Database provisioning failed', body: `${e.error} — we’re on it.` };
+    default: {
+      // Exhaustiveness guard: a new event with no copy is a compile error here.
+      const _never: never = e;
+      return { subject: 'Notification', body: String((_never as { event?: string })?.event ?? '') };
+    }
+  }
+}
