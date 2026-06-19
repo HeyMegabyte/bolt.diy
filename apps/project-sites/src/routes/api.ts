@@ -2575,6 +2575,52 @@ api.get('/api/sites/:id/logs', async (c) => {
   return c.json({ data: result.data });
 });
 
+/**
+ * `GET /api/sites/:id/readiness` — the latest Production-Readiness grade for a
+ * site (backlog #9). Reads the most recent `workflow.build_validation` audit row
+ * and surfaces the readiness fields the build pipeline recorded. Org-scoped like
+ * the logs route; returns `{ data: null }` for sites with no scored build yet
+ * (e.g. built before #9 landed). Never throws on a malformed metadata blob.
+ */
+api.get('/api/sites/:id/readiness', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const siteId = c.req.param('id');
+
+  const site = await dbQueryOne<Record<string, unknown>>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ?',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const row = await dbQueryOne<{ metadata_json: string | null; created_at: string }>(
+    c.env.DB,
+    "SELECT metadata_json, created_at FROM audit_logs WHERE org_id = ? AND target_id = ? AND action = 'workflow.build_validation' ORDER BY created_at DESC LIMIT 1",
+    [orgId, siteId],
+  );
+  if (!row?.metadata_json) return c.json({ data: null });
+
+  let meta: Record<string, unknown> = {};
+  try {
+    meta = JSON.parse(row.metadata_json) as Record<string, unknown>;
+  } catch {
+    return c.json({ data: null });
+  }
+  if (meta['readiness_grade'] === undefined) return c.json({ data: null });
+
+  return c.json({
+    data: {
+      grade: meta['readiness_grade'],
+      score: meta['readiness_score'] ?? null,
+      passing: meta['readiness_passing'] ?? null,
+      breakdown: meta['readiness_breakdown'] ?? [],
+      summary: typeof meta['summary'] === 'string' ? meta['summary'] : null,
+      checkedAt: row.created_at,
+    },
+  });
+});
+
 // ─── AI Task Inbox Routes ───────────────────────────────────
 //
 // Companion to `services/task_inbox.ts`. Workflows post elicitation rows;
