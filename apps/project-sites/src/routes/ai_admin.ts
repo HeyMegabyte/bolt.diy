@@ -1399,6 +1399,21 @@ aiAdmin.post('/api/team/invites', async (c) => {
     }),
   );
 
+  // Typed Novu bell event for the org owner (best-effort, never blocks).
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const { notifyOwnerEvent } = await import('../services/notify.js');
+        await notifyOwnerEvent(c.env, c.env.DB, {
+          orgId,
+          event: { event: 'member.invited', tenantId: orgId, email, role },
+        });
+      } catch {
+        /* bell is best-effort */
+      }
+    })(),
+  );
+
   return c.json({ data: { id, token } }, 201);
 });
 
@@ -1702,6 +1717,21 @@ aiAdmin.post('/api/team/invites/accept', async (c) => {
       metadata_json: { invite_id: invite.id, email: invite.email, role: invite.role },
       request_id: c.get('requestId'),
     }),
+  );
+
+  // Typed Novu bell event — tell the org owner a teammate joined (best-effort).
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const { notifyOwnerEvent } = await import('../services/notify.js');
+        await notifyOwnerEvent(c.env, c.env.DB, {
+          orgId: invite.org_id,
+          event: { event: 'member.joined', tenantId: invite.org_id, userId, role: invite.role },
+        });
+      } catch {
+        /* bell is best-effort */
+      }
+    })(),
   );
 
   return c.json({ data: { joined: true, org_id: invite.org_id, role: invite.role } });
