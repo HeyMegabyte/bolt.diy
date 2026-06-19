@@ -3,9 +3,19 @@
 > The single source of truth for driving this entire project to a finished, fully-tested,
 > gorgeous, deployed state. Supersedes and absorbs every prior convergence/completion doctrine
 > (`_ULTIMATE_COMPLETION`, `_ULTIMATE_CONVERGENCE`, `_SPARTAN_CONVERGENCE`, `CONVERGENCE`,
-> the cluster/WS integration logs — all now retired). Operate under EVERY rule, skill, and
-> agent in `~/.claude` + `~/.agentskills`. **The loop is the unit of intelligence; the agent
-> is fungible.** Do not stop until the ledger is empty and every gate is green.
+> the cluster/WS integration logs — all now retired) AND the six infrastructure-architecture
+> handoff prompts (automation plane · auth/authz/SSO/SCIM/API-keys · AI control plane
+> LiteLLM+RouteLLM+AI-Gateway+Langfuse · Hyperdrive-sharded Postgres isolation · browser
+> automation gateway · Infisical secrets + Novu) — all now folded into the single backlog below.
+> Operate under EVERY rule, skill, and agent in `~/.claude` + `~/.agentskills`. **The loop is the
+> unit of intelligence; the agent is fungible.** Do not stop until the ledger is empty and every
+> gate is green.
+>
+> **`_CONVERGENCE_BACKLOG.md` is THE merged work-list** (the 5 infra planes + Novu + the MCP/AI
+> endpoint + 30 NEW features + the original 30 research ideas + the de-stub catalog), each item a
+> flagged module with E2E + DoD, expressed as ▸Technical / ▸In-spirit / ▸Philosophical /
+> ▸Business-&-flags requirement classes. This prompt is the loop *driver*; that file is the loop
+> *work-list*. The loop addresses it every fire.
 
 ---
 
@@ -115,6 +125,12 @@ Each is a flagged change with its own eval case (§2.6) + unit/E2E. DeepSeek eco
 ---
 
 ## 5 — Open-work ledger (re-scan every iteration)
+
+> **Single merged backlog: `_CONVERGENCE_BACKLOG.md`.** It is the one file that absorbs every prior
+> ideas/recs/features doc (`FEATURE_CATALOG.md`, `RESEARCH_IDEAS_2026H2.md`, `AGENT_NATIVE_POSITIONING.md`
+> §4-5, `ROADMAP.md`, `EDGE_HOSTING_STRATEGY.md`) AND the six infra-architecture prompts. Read it FIRST
+> each iteration alongside `_LOOP_LEDGER.md`; rank its items by the §5.0 lens; every plane/feature there
+> carries its own ▸Technical/▸In-spirit/▸Philosophical/▸Business-&-flags requirements + a flag key.
 
 ### 5.0 — Value-ranking lens (the prime directive: drive SaaS-subscription revenue)
 

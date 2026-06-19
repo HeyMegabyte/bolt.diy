@@ -1,5 +1,9 @@
 # Feature Catalog — de-stub source of truth
 
+> **Merged → the convergence loop's single backlog is `_CONVERGENCE_BACKLOG.md`** (which folds this
+> catalog + the research ideas + the 5 infra planes + Novu + 30 new features). This catalog stays as
+> the detailed de-stub map; the loop reads the backlog as the one entry point.
+
 > Single source of truth so concurrent sessions + the build loop de-stub **in synchrony**
 > (shared schemas, one flag key per feature, no duplicate modules, no migration-number races).
 > Generated from real `libs/features/*/feature.manifest.ts` + drift report on 2026-05-29.

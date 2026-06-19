@@ -1,5 +1,8 @@
 # 30 Research-Grounded Ideas — projectsites.dev (2026 H2)
 
+> **Merged → canonical home is `_CONVERGENCE_BACKLOG.md` §F.** This file is preserved for its
+> detail; the convergence loop addresses the single backlog, which indexes these 30 ideas.
+
 > Synthesized from heavy web research (2026): the MCP ecosystem, AI app-builders (Bolt/Lovable/v0/Replit), edge-hosting, agent commerce, and dev GTM. Each idea is specific to our live stack (CF Workers/D1/R2/DO/Workflows/Sandbox SDK + the now-live platform MCP + OAuth 2.1 provider + the generator). The MCP wedge already shipped — these are the next frontier. Tag: 🚀 wedge-extend · ⚙️ substrate · 🔒 trust · 💰 money · 📈 GTM · ✨ UX.
 
 ## A. The MCP-native moat — own builder + host + MCP (nobody else does)

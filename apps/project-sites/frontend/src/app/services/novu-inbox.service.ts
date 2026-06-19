@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
  * Public, client-safe Novu **application identifier** (NOT the secret key —
  * that lives server-side only). Safe to ship in the bundle by Novu's design.
  */
-const NOVU_APP_ID = 'Z_iGtmk4pMwF';
+const NOVU_APP_ID = 'TmBjOXewtEG8';
 
 /** Flat, framework-agnostic inbox item the admin bell merges into its feed. */
 export interface NovuInboxItem {
