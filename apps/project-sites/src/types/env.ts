@@ -136,6 +136,8 @@ export interface Env {
   TRACE_HUB?: DurableObjectNamespace;
   /** SQLite-backed Durable Object — global activity feed. */
   ACTIVITY_HUB?: DurableObjectNamespace;
+  /** Per-site Durable Object — Unified Analytics ingestion dispatcher (Plane H). */
+  EVENT_DISPATCHER?: DurableObjectNamespace;
 
   // ── Workers AI ────────────────────────────────────────────
   /** Cloudflare Workers AI binding for LLM inference. */

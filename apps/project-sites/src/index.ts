@@ -55,6 +55,7 @@ import { i18n } from './routes/i18n.js';
 import { webhooks } from './routes/webhooks.js';
 import { assets } from './routes/assets.js';
 import { forms } from './routes/forms.js';
+import { analyticsRoutes } from './routes/analytics.js';
 import { aiAdmin } from './routes/ai_admin.js';
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
@@ -357,6 +358,7 @@ app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (fl
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
+app.route('/', analyticsRoutes); // Unified Analytics ingestion: POST /api/events (202 fast-ack) + /api/analytics-debug (Plane H)
 app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
 app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizable env vars for AI + MCP dispatch
