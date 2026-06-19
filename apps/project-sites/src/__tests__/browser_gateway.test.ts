@@ -50,10 +50,25 @@ describe('chooseBrowserProvider — Browserbase-backup-only LAW', () => {
     expect(() => chooseBrowserProvider({}, NEITHER)).toThrow(BrowserGatewayError);
   });
 
-  it('honours an explicit forceProvider, but only if that provider is available', () => {
-    expect(chooseBrowserProvider({ forceProvider: 'browserbase' }, BOTH).reason).toBe('forced');
-    expect(() => chooseBrowserProvider({ forceProvider: 'browserbase' }, CF_ONLY)).toThrow(BrowserGatewayError);
-    expect(() => chooseBrowserProvider({ forceProvider: 'cf' }, BB_ONLY)).toThrow(BrowserGatewayError);
+  it('honours an explicit backendPreference, but only if that provider is available', () => {
+    expect(chooseBrowserProvider({ backendPreference: 'browserbase' }, BOTH)).toEqual({
+      provider: 'browserbase',
+      reason: 'backend-preference',
+    });
+    expect(() => chooseBrowserProvider({ backendPreference: 'browserbase' }, CF_ONLY)).toThrow(BrowserGatewayError);
+    expect(() => chooseBrowserProvider({ backendPreference: 'cf' }, BB_ONLY)).toThrow(BrowserGatewayError);
+    // forceProvider still works as a deprecated alias.
+    expect(chooseBrowserProvider({ forceProvider: 'cf' }, BOTH).provider).toBe('cf');
+  });
+
+  it('routes skyvern_internal only on explicit backendPreference (never a default/fallback)', () => {
+    expect(chooseBrowserProvider({ backendPreference: 'skyvern_internal' }, BOTH)).toEqual({
+      provider: 'skyvern_internal',
+      reason: 'backend-preference',
+    });
+    // never chosen by the default LAW.
+    expect(chooseBrowserProvider({}, BOTH).provider).toBe('cf');
+    expect(chooseBrowserProvider({ specialty: 'captcha' }, BOTH).provider).toBe('browserbase');
   });
 });
 

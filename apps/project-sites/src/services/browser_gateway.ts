@@ -34,16 +34,23 @@ export type BrowserSpecialty =
 export interface BrowserRequestOptions {
   /** A specialty that mandates Browserbase. Omit for normal automation (→ CF). */
   readonly specialty?: BrowserSpecialty;
-  /** Force a provider (testing / explicit override). Respect the LAW otherwise. */
+  /**
+   * Explicit per-job backend (the doctrine's `backendPreference`). `skyvern_internal`
+   * is internal-only — only an explicitly-routed internal/admin job ever reaches it,
+   * never a product/default path. Honoured over the default LAW when set.
+   */
+  readonly backendPreference?: BrowserProvider;
+  /** @deprecated alias for {@link backendPreference}; kept for back-compat. */
   readonly forceProvider?: BrowserProvider;
 }
 
-export type BrowserProvider = 'cf' | 'browserbase';
+/** `cf` = CF Browser Run (Playwright/Stagehand). `skyvern_internal` = internal-only. */
+export type BrowserProvider = 'cf' | 'browserbase' | 'skyvern_internal';
 
 export interface ProviderDecision {
   readonly provider: BrowserProvider;
   /** Why this provider was chosen — for traces + the cost-anomaly watchdog. */
-  readonly reason: 'specialty' | 'cf-default' | 'cf-unavailable-fallback' | 'forced';
+  readonly reason: 'specialty' | 'cf-default' | 'cf-unavailable-fallback' | 'backend-preference';
 }
 
 /** True when Browserbase creds are present (it can serve as a fallback). */
@@ -68,14 +75,17 @@ export function chooseBrowserProvider(
   const hasCf = Boolean(env.BROWSER);
   const hasBb = browserbaseConfigured(env);
 
-  if (opts.forceProvider) {
-    if (opts.forceProvider === 'browserbase' && !hasBb) {
-      throw new BrowserGatewayError('Browserbase forced but BROWSERBASE_* creds are not configured.');
+  const pref = opts.backendPreference ?? opts.forceProvider;
+  if (pref) {
+    if (pref === 'browserbase' && !hasBb) {
+      throw new BrowserGatewayError('Browserbase requested but BROWSERBASE_* creds are not configured.');
     }
-    if (opts.forceProvider === 'cf' && !hasCf) {
-      throw new BrowserGatewayError('CF forced but the BROWSER binding is not available.');
+    if (pref === 'cf' && !hasCf) {
+      throw new BrowserGatewayError('CF requested but the BROWSER binding is not available.');
     }
-    return { provider: opts.forceProvider, reason: 'forced' };
+    // skyvern_internal is internal-only — the decision returns it, but connectBrowser
+    // refuses to execute it (product code never runs Skyvern; the internal layer does).
+    return { provider: pref, reason: 'backend-preference' };
   }
 
   // Specialty cases mandate Browserbase — but only if it's actually configured.
@@ -174,6 +184,15 @@ export interface GatewayBrowser {
  */
 export async function connectBrowser(env: Env, opts: BrowserRequestOptions = {}): Promise<GatewayBrowser> {
   const decision = chooseBrowserProvider(opts, env);
+
+  // Skyvern is internal-only — the product browser gateway never executes it.
+  // Internal/admin callers route Skyvern jobs through the Megabyte internal layer.
+  if (decision.provider === 'skyvern_internal') {
+    throw new BrowserGatewayError(
+      'skyvern_internal is internal-only and is not executed by the product browser gateway. Route it through the internal Megabyte tooling layer (skyvern.megabyte.space, behind CF Access).',
+    );
+  }
+
   const { launch, connect } = await import('@cloudflare/playwright');
 
   if (decision.provider === 'cf') {
