@@ -138,6 +138,13 @@ export interface Env {
   ACTIVITY_HUB?: DurableObjectNamespace;
   /** Per-site Durable Object — Unified Analytics ingestion dispatcher (Plane H). */
   EVENT_DISPATCHER?: DurableObjectNamespace;
+  /**
+   * Global toggle for the Unified Analytics beacon (Plane H). When `'true'`,
+   * served sites inject the tracker → `/api/events` → durable D1 store → Analytics
+   * tab — works via a NORMAL deploy, independent of the gated EVENT_DISPATCHER
+   * DO migration (which adds external-provider fan-out on top).
+   */
+  ANALYTICS_INGEST_ENABLED?: string;
 
   // ── Workers AI ────────────────────────────────────────────
   /** Cloudflare Workers AI binding for LLM inference. */

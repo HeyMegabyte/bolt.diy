@@ -856,10 +856,10 @@ async function buildSiteResponse(
     if (site.plan !== 'paid') {
       bodyInjection += generateTopBar(site.slug);
     }
-    // Unified Analytics beacon (Plane H) — injected ONLY when the dispatcher DO
-    // is bound, so it self-activates on go-live and stays off (zero beacons)
-    // until then. Keyed by slug; the XSS guard lives in buildAnalyticsTracker.
-    if (env?.EVENT_DISPATCHER) {
+    // Unified Analytics beacon (Plane H) — inject when ingestion is enabled by a
+    // simple var (normal deploy → D1 store → Analytics tab) OR when the dispatcher
+    // DO is bound (adds external fan-out). Keyed by slug; XSS guard in the builder.
+    if (env?.ANALYTICS_INGEST_ENABLED === 'true' || env?.EVENT_DISPATCHER) {
       bodyInjection += buildAnalyticsTracker(site.slug);
     }
     if (bodyInjection) {
