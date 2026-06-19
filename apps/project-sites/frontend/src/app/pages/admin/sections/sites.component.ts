@@ -20,6 +20,7 @@ import {
 } from '../../../components/states';
 import { HlmCheckboxDirective } from '../../../ui';
 import { SyncedPillComponent } from '../../../components/synced-pill/synced-pill.component';
+import { ReadinessBadgeComponent } from './readiness-badge.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -53,7 +54,7 @@ type SortKey = 'name' | 'lcp' | 'cls' | 'inp' | 'lh' | 'composite';
 type Tier = 'green' | 'yellow' | 'red' | 'neutral';
 
 @Component({
-  imports: [RouterModule, RevealDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective, SyncedPillComponent],
+  imports: [RouterModule, RevealDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective, SyncedPillComponent, ReadinessBadgeComponent],
   selector: 'app-admin-sites',
   standalone: true,
   styles: [`
@@ -117,6 +118,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
               <a [href]="'https://' + s.slug + '.projectsites.dev'" target="_blank" rel="noopener noreferrer"
                  [attr.title]="'Open ' + s.slug + '.projectsites.dev'"
                  class="text-[0.75rem] text-white/50 ml-2 hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">{{ s.slug }}.projectsites.dev</a>
+              <div class="mt-1"><app-readiness-badge [siteId]="s.id" /></div>
             </li>
           }
         </ul>
@@ -211,6 +213,9 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                          class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">
                         {{ r.slug }}.projectsites.dev
                       </a>
+                      <!-- Readiness grade (#9) — self-suppresses when the site
+                           has no scored build, so most rows show nothing. -->
+                      <div class="mt-1"><app-readiness-badge [siteId]="r.site_id" /></div>
                     </div>
                   </td>
                   <td class="px-4 py-3 text-center" [innerHTML]="cellHtml(r, 'lcp')"></td>
