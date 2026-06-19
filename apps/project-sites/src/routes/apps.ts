@@ -36,6 +36,7 @@ import { MissingNeonKeyError } from '../services/neon_provisioner.js';
 import { MissingUpstashKeyError } from '../services/upstash_provisioner.js';
 import * as dispatcher from '../services/container_dispatcher.js';
 import * as auditService from '../services/audit.js';
+import { clearAppHost, defaultAppHostname, setAppHost } from '../services/app_host_resolver.js';
 import { isSupportedSlug } from '../durable_objects/app_runtime_subclasses.js';
 
 export const apps = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -317,6 +318,21 @@ apps.post('/api/apps/instances', async (c) => {
     throw badRequest(insertErr);
   }
 
+  // Phase 1 (scale-to-zero routing, docs/architecture/scale-to-zero-apps-routing.md):
+  // register the default app hostname in the KV host-map so the Worker can
+  // resolve it (and future custom CNAMEs) without a per-request D1 query. A KV
+  // failure must NOT fail instance creation — the suffix path still serves it.
+  try {
+    await setAppHost(c.env, defaultAppHostname(body.subdomain), {
+      instanceId,
+      appSlug: app.id,
+      orgId,
+      subdomain: body.subdomain,
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({ level: 'warn', event: 'apphost_set_failed', instanceId, err: String(err) }));
+  }
+
   // Fire-and-forget the container start so the API call returns fast. The
   // dispatcher writes a final `status` via the build-status callback (out of
   // scope here — sibling agent owns the DO).
@@ -545,6 +561,14 @@ apps.delete('/api/apps/instances/:id', async (c) => {
     `UPDATE app_instances SET status = 'destroyed', deleted_at = ?, updated_at = ? WHERE id = ?`,
     [new Date().toISOString(), new Date().toISOString(), row.id],
   );
+
+  // Phase 1 (scale-to-zero routing): drop the host-map entry so the hostname
+  // stops resolving. Best-effort — a KV failure must not fail the destroy.
+  try {
+    await clearAppHost(c.env, defaultAppHostname(row.subdomain));
+  } catch (err) {
+    console.warn(JSON.stringify({ level: 'warn', event: 'apphost_clear_failed', id: row.id, err: String(err) }));
+  }
 
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,

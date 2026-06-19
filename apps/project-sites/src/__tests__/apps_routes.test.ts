@@ -120,9 +120,17 @@ const mockAudit = writeAuditLog as unknown as jest.Mock;
 // ─── Env + harness ───────────────────────────────────────────────────────────
 
 function makeEnv(): Env {
+  // In-memory CACHE_KV so the Phase-1 host-map write/clear (setAppHost /
+  // clearAppHost on instance create/delete) runs instead of throwing.
+  const kv = new Map<string, string>();
   return {
     ENVIRONMENT: 'test',
     DB: {} as D1Database,
+    CACHE_KV: {
+      get: async (k: string) => { const v = kv.get(k); return v === undefined ? null : JSON.parse(v); },
+      put: async (k: string, v: string) => { kv.set(k, v); },
+      delete: async (k: string) => { kv.delete(k); },
+    } as unknown as KVNamespace,
   } as unknown as Env;
 }
 
