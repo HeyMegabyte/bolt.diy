@@ -2622,6 +2622,59 @@ api.get('/api/sites/:id/readiness', async (c) => {
   });
 });
 
+/**
+ * `GET /api/readiness?ids=a,b,c` — batch Production-Readiness grades for up to
+ * 100 sites in ONE request (backlog #9 follow-on). Replaces N per-row badge
+ * fetches in the sites list with a single call. Org-scoped by construction: the
+ * `audit_logs.org_id` filter means an id the caller does not own simply returns
+ * `null` — never another org's data. Returns `{ data: { [id]: ReadinessData | null } }`;
+ * every requested id is present in the map (unknown/unscored → null).
+ */
+api.get('/api/readiness', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const ids = (c.req.query('ids') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 100);
+
+  const out: Record<string, unknown> = {};
+  for (const id of ids) out[id] = null;
+  if (ids.length === 0) return c.json({ data: out });
+
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await dbQuery<{ target_id: string; metadata_json: string | null; created_at: string }>(
+    c.env.DB,
+    `SELECT target_id, metadata_json, MAX(created_at) AS created_at
+       FROM audit_logs
+      WHERE org_id = ? AND action = 'workflow.build_validation' AND target_id IN (${placeholders})
+      GROUP BY target_id`,
+    [orgId, ...ids],
+  );
+
+  for (const row of rows.data ?? []) {
+    if (!row.metadata_json) continue;
+    let meta: Record<string, unknown> = {};
+    try {
+      meta = JSON.parse(row.metadata_json) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    if (meta['readiness_grade'] === undefined) continue;
+    out[row.target_id] = {
+      grade: meta['readiness_grade'],
+      score: meta['readiness_score'] ?? null,
+      passing: meta['readiness_passing'] ?? null,
+      summary: typeof meta['summary'] === 'string' ? meta['summary'] : null,
+      checkedAt: row.created_at,
+    };
+  }
+
+  return c.json({ data: out });
+});
+
 // ─── AI Task Inbox Routes ───────────────────────────────────
 //
 // Companion to `services/task_inbox.ts`. Workflows post elicitation rows;
