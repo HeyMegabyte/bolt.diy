@@ -46,6 +46,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { InlineErrorComponent } from '../../../components/states';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { IntegrationHelpComponent, type IntegrationHelpRow } from '../../../components/integration-help/integration-help.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -241,7 +242,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   selector: 'app-admin-social',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, InlineErrorComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, InlineErrorComponent, IntegrationHelpComponent],
   template: `
 <div class="social-wrap" [class.is-loading]="loading()">
 
@@ -346,6 +347,7 @@ const PLATFORMS: readonly PlatformDef[] = [
             } @else {
               <button class="acct-btn primary" type="button" (click)="connect(p.id)" [attr.aria-label]="'Connect ' + p.label">+ Connect</button>
             }
+            <app-integration-help class="acct-help" [rows]="socialHelpRows(p)" [subject]="p.label" [testid]="'social-help-' + p.id" />
           </article>
         }
       </div>
@@ -1239,6 +1241,8 @@ const PLATFORMS: readonly PlatformDef[] = [
         color: var(--brand); display: grid; place-items: center;
       }
       .acct-meta { min-width: 0; grid-column: 2; }
+      /* #12 help disclosure spans the whole card as a thin second row. */
+      .acct-help { grid-column: 1 / -1; }
       .acct-label { font-size: 0.76rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .acct-handle { font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
       .acct-handle.dim { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); }
@@ -1599,6 +1603,29 @@ export class AdminSocialComponent implements OnInit {
   }
 
   readonly platforms = PLATFORMS;
+
+  /**
+   * Accurate-by-construction `?` help rows for a platform connect card (#12) —
+   * derived from the platform's own label + pasteKey flag, so it never claims a
+   * scope or retention policy we can't honour.
+   */
+  protected socialHelpRows(p: PlatformDef): readonly IntegrationHelpRow[] {
+    const oauth = !p.pasteKey;
+    return [
+      { k: 'Account', v: `A ${p.label} account.` },
+      {
+        k: 'Connect via',
+        v: oauth
+          ? `Secure OAuth — you approve access on ${p.label}; we never see your password.`
+          : `Paste an app password / access token from ${p.label}.`,
+      },
+      { k: 'Required?', v: `Optional — connect only to publish to ${p.label}.` },
+      {
+        k: 'Your data',
+        v: `Your ${oauth ? 'access token' : 'token'} is encrypted at rest (AES-GCM). Disconnect anytime to remove it.`,
+      },
+    ];
+  }
   readonly weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   /* ── Signals ── */

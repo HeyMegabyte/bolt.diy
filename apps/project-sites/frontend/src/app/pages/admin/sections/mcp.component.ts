@@ -7,6 +7,7 @@ import { ToastService } from '../../../services/toast.service';
 import { HlmInputDirective } from '../../../ui';
 import { ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { IntegrationHelpComponent } from '../../../components/integration-help/integration-help.component';
 
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
 
@@ -70,7 +71,7 @@ export function mcpHelpRows(p: { readonly label: string; readonly oauth: boolean
 @Component({
   selector: 'app-admin-mcp',
   standalone: true,
-  imports: [FormsModule, SlicePipe, HlmInputDirective, ErrorCardComponent, RevealDirective],
+  imports: [FormsModule, SlicePipe, HlmInputDirective, ErrorCardComponent, RevealDirective, IntegrationHelpComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header appReveal>
@@ -136,17 +137,7 @@ export function mcpHelpRows(p: { readonly label: string; readonly oauth: boolean
                     }
                   </div>
                   <div class="text-[0.72rem] text-text-secondary mt-1 leading-relaxed">{{ p.desc }}</div>
-                  <details class="mcp-help" [attr.data-testid]="'mcp-help-' + p.id">
-                    <summary class="mcp-help__q" [attr.aria-label]="'What connecting ' + p.label + ' means'">
-                      <span class="mcp-help__qmark" aria-hidden="true">?</span> What does connecting do?
-                    </summary>
-                    <dl class="mcp-help__dl">
-                      @for (row of helpRows(p); track row.k) {
-                        <dt>{{ row.k }}</dt>
-                        <dd>{{ row.v }}</dd>
-                      }
-                    </dl>
-                  </details>
+                  <app-integration-help [rows]="helpRows(p)" [subject]="p.label" [testid]="'mcp-help-' + p.id" />
                 </div>
               </div>
 
@@ -269,30 +260,6 @@ export function mcpHelpRows(p: { readonly label: string; readonly oauth: boolean
       font-size: 0.7rem; color: #34d399;
       font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
-
-    /* #12 — integration-tile help disclosure (the question-mark affordance) */
-    .mcp-help { margin-top: 0.5rem; }
-    .mcp-help__q {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 0.68rem; color: var(--ps-accent, #00e5ff);
-      cursor: pointer; list-style: none; user-select: none;
-      border-radius: 6px; padding: 1px 2px;
-    }
-    .mcp-help__q::-webkit-details-marker { display: none; }
-    .mcp-help__q:hover { text-decoration: underline; }
-    .mcp-help__q:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .mcp-help__qmark {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 14px; height: 14px; border-radius: 999px;
-      font-size: 0.6rem; font-weight: 700;
-      color: var(--ps-bg, #060610); background: var(--ps-accent, #00e5ff);
-    }
-    .mcp-help__dl {
-      margin: 8px 0 2px; display: grid; grid-template-columns: auto 1fr;
-      gap: 3px 10px; font-size: 0.68rem; line-height: 1.45;
-    }
-    .mcp-help__dl dt { color: #94a3b8; font-weight: 600; white-space: nowrap; }
-    .mcp-help__dl dd { color: #cbd5e1; margin: 0; }
 
     /* .input-field removed — the lone paste field now uses hlmInput (Spartan). */
 
