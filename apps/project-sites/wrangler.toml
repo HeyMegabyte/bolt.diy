@@ -410,6 +410,29 @@ class_name = "AppRuntimeContainer"
 name = "CONVERSATION_HUB"
 class_name = "ConversationHub"
 
+# EventDispatcher — per-site Unified Analytics ingestion DO (Plane H).
+# Class is built + unit-tested (`src/durable_objects/event_dispatcher.ts`, 6 tests)
+# and exported from index.ts. The /api/events handler already degrades gracefully
+# (returns 202) WITHOUT this binding, so analytics ingestion is safe-but-inert
+# until this goes live.
+#
+# ⚠️ GO-LIVE IS A WATCHED DEPLOY (one-way door). An active binding REQUIRES an
+# active migration (else `wrangler deploy` fails with error 10061), and this
+# worker's DO migration history is remote-managed + has previously errored on
+# tag reconciliation (10074/10064 — see the commented v_app_runtime note below).
+# A wrong tag blocks ALL deploys, and the migration cannot be dry-run-verified.
+# To enable: (1) uncomment BOTH blocks below, (2) confirm `v_event_dispatcher`
+# is NOT already in remote history (`wrangler deployments list`), (3) deploy with
+# eyes on it (`wrangler deploy --env production`), (4) verify
+# `POST /api/events` returns 202 + a row lands, then `GET /api/analytics-debug?siteId=…`.
+# [[env.production.durable_objects.bindings]]
+# name = "EVENT_DISPATCHER"
+# class_name = "EventDispatcher"
+#
+# [[env.production.migrations]]
+# tag = "v_event_dispatcher"
+# new_sqlite_classes = ["EventDispatcher"]
+
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
 # `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in

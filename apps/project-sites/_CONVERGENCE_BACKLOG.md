@@ -369,7 +369,19 @@ agent-OS refactor is its own session against the home dir.
 
 ---
 
-## 9 — Credentials status (this arc)
+## 9 — Status (this arc)
+
+- **Plane H (Unified Analytics) — CODE-COMPLETE.** 8 modules, 71 tests: `circuit_breaker`,
+  `event_dedup`, `event_dispatch`, `analytics_events` (4 pure primitives) + `analytics_schema`,
+  `analytics_providers`, `routes/analytics` (3 I/O modules, built via parallel agents) +
+  `event_dispatcher` (the composing DO). `/api/events` is live (202 fast-ack, degrades gracefully).
+  **Go-live is the ONE remaining step + it is a WATCHED DEPLOY (Brian-gated):** uncomment the
+  `EVENT_DISPATCHER` binding + `v_event_dispatcher` migration in `wrangler.toml` (staged + documented
+  there) and deploy with eyes on it — a DO migration can't be dry-run-verified and a wrong tag blocks
+  ALL deploys (10061/10074). That flip fixes "Analytics tab empty" end-to-end. Then: generator
+  sendBeacon tracker injection + the admin Live-Events surface.
+
+### Credentials
 
 - **Novu** — `NOVU_APPLICATION_IDENTIFIER` (`TmBjOXewtEG8`, public), `NOVU_SECRET_KEY`, `NOVU_API_URL`,
   `NOVU_SOCKET_URL` all saved to the chezmoi `get-secret` vault; `NOVU_SECRET_KEY` uploaded to the prod
