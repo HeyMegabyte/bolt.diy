@@ -33,6 +33,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { ReadinessBadgeComponent } from './readiness-badge.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, switchMap, timer } from 'rxjs';
@@ -72,7 +73,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 @Component({
   selector: 'app-admin-site-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent, ErrorCardComponent, RevealDirective],
+  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent, ErrorCardComponent, RevealDirective, ReadinessBadgeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="site-detail animate-fade-in" data-testid="site-detail">
@@ -87,6 +88,11 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
                the URL slug so the host is meaningful, never a bare ".projectsites.dev". -->
           <p class="site-detail__subtitle">{{ siteId() ? siteId() + '.projectsites.dev' : 'Site overview' }}</p>
         }
+        <!-- Production-readiness grade (#9) — renders nothing until the site has
+             a scored build, so it never adds noise to an unbuilt site. -->
+        <div class="mt-2.5">
+          <app-readiness-badge [siteId]="siteId()" />
+        </div>
       </header>
 
       <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections" appReveal>
