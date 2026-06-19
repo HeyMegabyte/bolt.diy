@@ -792,6 +792,57 @@ export const validateAssetExistenceAst = async (files: BuildFile[]): Promise<Vio
 };
 
 /**
+ * High-confidence, SERVER-ONLY secret patterns. Deliberately conservative
+ * (false-negative over false-positive per validator-precision-discipline):
+ * publishable/browser keys that are MEANT to be client-side — Stripe `pk_*`,
+ * Google Maps/browser `AIza*` (referrer-restricted) — are intentionally absent.
+ */
+const CLIENT_SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
+  { name: 'Stripe secret key', re: /sk_live_[A-Za-z0-9]{16,}/ },
+  { name: 'Stripe restricted key', re: /rk_live_[A-Za-z0-9]{16,}/ },
+  { name: 'OpenAI API key', re: /sk-(?:proj-)?[A-Za-z0-9_-]{40,}/ },
+  { name: 'AWS access key id', re: /AKIA[0-9A-Z]{16}/ },
+  { name: 'GitHub token', re: /gh[pousr]_[A-Za-z0-9]{36,}/ },
+  { name: 'SendGrid API key', re: /SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/ },
+  { name: 'Slack token', re: /xox[baprs]-[A-Za-z0-9-]{10,}/ },
+  { name: 'Anthropic API key', re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
+  { name: 'private key block', re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
+];
+
+/**
+ * Scan client-served files (HTML / JS) for embedded server-only secrets — the
+ * #1 vibe-coded-app vulnerability class (keys hardcoded in the bundle). Every
+ * hit is an `error`: secrets belong in Workers Secrets, never the client bundle.
+ * The detail is masked (first 8 + last 3 chars) so the validator never logs the
+ * full secret.
+ *
+ * @param files - The build's files.
+ * @returns One `security.client_secret_exposed` violation per offending file.
+ * @example validateNoClientSecrets([{ path: 'app.js', text: 'const k="sk_live_abc…"', size: 30 }])
+ */
+export const validateNoClientSecrets = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  for (const f of files) {
+    if (!f.text || !/\.(?:html?|m?js)$/i.test(f.path)) continue;
+    for (const { name, re } of CLIENT_SECRET_PATTERNS) {
+      const m = re.exec(f.text);
+      if (m) {
+        const hit = m[0];
+        out.push({
+          code: 'security.client_secret_exposed',
+          severity: 'error',
+          message: `Possible ${name} embedded in a client-served file — secrets must stay server-side (Workers Secrets), never in the bundle.`,
+          file: f.path,
+          detail: `${hit.slice(0, 8)}…${hit.slice(-3)}`,
+        });
+        break; // one finding per file is enough to fail the gate
+      }
+    }
+  }
+  return out;
+};
+
+/**
  * Async sibling of `validateBuild` that uses AST-aware variants where they
  * exist. Drop-in replacement for the workflow's `validate-build` step.
  */
@@ -820,6 +871,7 @@ export const validateBuildAst = async (
     ...astBanned,
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
+    ...validateNoClientSecrets(files),
     ...validateContactPath(files),
     ...validateImageWeightBudget(files),
     ...(typeof opts.sourceRouteCount === 'number'
@@ -859,6 +911,7 @@ export const validateBuild = (
     ...validateBannedWords(files),
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
+    ...validateNoClientSecrets(files),
     ...validateContactPath(files),
     ...validateImageWeightBudget(files),
     ...(typeof opts.sourceRouteCount === 'number'
