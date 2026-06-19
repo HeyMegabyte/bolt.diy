@@ -417,6 +417,12 @@ export interface Env {
   // ── AI Platform (added by migration 0013) ─────────────────
   /** AES-GCM key (base64, 32 bytes) used to encrypt MCP OAuth tokens at rest. */
   MCP_ENCRYPTION_KEY?: string;
+  /**
+   * HMAC secret for signing per-site capability manifests
+   * (services/site_capability_manifest.ts). Falls back to MCP_ENCRYPTION_KEY
+   * when unset so signing works without a separate secret in dev.
+   */
+  MANIFEST_SIGNING_SECRET?: string;
   /** MailChimp OAuth app client ID + secret (single tenant; per-site tokens). */
   MAILCHIMP_CLIENT_ID?: string;
   MAILCHIMP_CLIENT_SECRET?: string;
