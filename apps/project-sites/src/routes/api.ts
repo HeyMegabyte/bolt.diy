@@ -5633,6 +5633,21 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
             request_id: c.get('requestId'),
           })
           .catch(() => {});
+        // Typed Novu bell event (best-effort, never blocks verification).
+        try {
+          const { notifyEvent } = await import('../services/notify.js');
+          const p = notifyEvent(c.env, {
+            subscriberId: owner.email,
+            event: { event: 'domain.active', tenantId: orgId, hostname: hostname.hostname },
+          });
+          try {
+            c.executionCtx.waitUntil(p);
+          } catch {
+            void p;
+          }
+        } catch {
+          /* bell is best-effort */
+        }
       }
     } catch {
       // Email failure should not break verification
