@@ -23,6 +23,39 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
   { id: 'hubspot',   label: 'HubSpot',   desc: 'Create/update HubSpot CRM contacts on form submit.',            color: '#FF7A59', oauth: true },
 ] as const;
 
+/** One labelled fact in a connect tile's `?` help disclosure (#12). */
+export interface McpHelpRow {
+  readonly k: string;
+  readonly v: string;
+}
+
+/**
+ * Build the "what does connecting do?" help rows for a provider tile (#12 —
+ * integration-tile `?` doctrine). Every fact is accurate by construction —
+ * derived from the provider's own `label` + `oauth` flag — so it can never make
+ * a claim about scopes or retention we can't honour.
+ *
+ * @example
+ * mcpHelpRows({ label: 'Stripe', oauth: true })[1].v
+ * // → 'Secure OAuth — you approve access on Stripe; we never see your password.'
+ */
+export function mcpHelpRows(p: { readonly label: string; readonly oauth: boolean }): readonly McpHelpRow[] {
+  return [
+    { k: 'Account', v: `A ${p.label} account.` },
+    {
+      k: 'Connect via',
+      v: p.oauth
+        ? `Secure OAuth — you approve access on ${p.label}; we never see your password.`
+        : `Paste an API key from your ${p.label} dashboard.`,
+    },
+    { k: 'Required?', v: `Optional — connect only if you want ${p.label} features.` },
+    {
+      k: 'Your data',
+      v: `Your ${p.oauth ? 'access token' : 'API key'} is encrypted at rest (AES-GCM). Disconnect anytime to remove it.`,
+    },
+  ];
+}
+
 /**
  * Admin → MCP Connections section.
  *
@@ -103,6 +136,17 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
                     }
                   </div>
                   <div class="text-[0.72rem] text-text-secondary mt-1 leading-relaxed">{{ p.desc }}</div>
+                  <details class="mcp-help" [attr.data-testid]="'mcp-help-' + p.id">
+                    <summary class="mcp-help__q" [attr.aria-label]="'What connecting ' + p.label + ' means'">
+                      <span class="mcp-help__qmark" aria-hidden="true">?</span> What does connecting do?
+                    </summary>
+                    <dl class="mcp-help__dl">
+                      @for (row of helpRows(p); track row.k) {
+                        <dt>{{ row.k }}</dt>
+                        <dd>{{ row.v }}</dd>
+                      }
+                    </dl>
+                  </details>
                 </div>
               </div>
 
@@ -226,6 +270,30 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
       font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
 
+    /* #12 — integration-tile help disclosure (the question-mark affordance) */
+    .mcp-help { margin-top: 0.5rem; }
+    .mcp-help__q {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.68rem; color: var(--ps-accent, #00e5ff);
+      cursor: pointer; list-style: none; user-select: none;
+      border-radius: 6px; padding: 1px 2px;
+    }
+    .mcp-help__q::-webkit-details-marker { display: none; }
+    .mcp-help__q:hover { text-decoration: underline; }
+    .mcp-help__q:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    .mcp-help__qmark {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 999px;
+      font-size: 0.6rem; font-weight: 700;
+      color: var(--ps-bg, #060610); background: var(--ps-accent, #00e5ff);
+    }
+    .mcp-help__dl {
+      margin: 8px 0 2px; display: grid; grid-template-columns: auto 1fr;
+      gap: 3px 10px; font-size: 0.68rem; line-height: 1.45;
+    }
+    .mcp-help__dl dt { color: #94a3b8; font-weight: 600; white-space: nowrap; }
+    .mcp-help__dl dd { color: #cbd5e1; margin: 0; }
+
     /* .input-field removed — the lone paste field now uses hlmInput (Spartan). */
 
     .btn-primary {
@@ -338,6 +406,8 @@ export class AdminMcpComponent implements OnInit {
   private api = inject(ApiService);
   private toast = inject(ToastService);
   providers = PROVIDERS;
+  /** Accurate-by-construction `?` help rows for a connect tile (#12). */
+  protected readonly helpRows = mcpHelpRows;
   connections = signal<Conn[]>([]);
   /** Connection ids with an in-flight disconnect — guards the toast-armed action
    *  against a double-DELETE + drives the row's "Disconnecting…" state. */

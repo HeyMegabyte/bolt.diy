@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { of, throwError, Subject } from 'rxjs';
-import { AdminMcpComponent } from './mcp.component';
+import { AdminMcpComponent, mcpHelpRows } from './mcp.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
@@ -346,5 +346,28 @@ describe('AdminMcpComponent — connect() OAuth via bearer fetch (MailChimp auth
     expect(c.pasteMode()).toBe('mailchimp');
     expect(info).toHaveBeenCalled();
     expect(c.connectingProvider()).toBeNull();
+  });
+});
+
+describe('mcpHelpRows (#12 integration-tile help)', () => {
+  it('describes an OAuth provider without claiming unverifiable scopes', () => {
+    const rows = mcpHelpRows({ label: 'Stripe', oauth: true });
+    const byKey = (k: string) => rows.find((r) => r.k === k)?.v ?? '';
+    expect(byKey('Account')).toContain('Stripe account');
+    expect(byKey('Connect via')).toContain('Secure OAuth');
+    expect(byKey('Connect via')).toContain('never see your password');
+    expect(byKey('Required?')).toContain('Optional');
+    expect(byKey('Your data')).toContain('access token');
+    expect(byKey('Your data')).toContain('encrypted at rest (AES-GCM)');
+  });
+
+  it('describes a paste-key provider as an API key, encrypted + removable', () => {
+    const rows = mcpHelpRows({ label: 'Resend', oauth: false });
+    const byKey = (k: string) => rows.find((r) => r.k === k)?.v ?? '';
+    expect(byKey('Connect via')).toContain('Paste an API key');
+    expect(byKey('Your data')).toContain('API key');
+    expect(byKey('Your data')).toContain('Disconnect anytime');
+    // Never invents OAuth wording for a paste-key provider.
+    expect(byKey('Connect via')).not.toContain('OAuth');
   });
 });
