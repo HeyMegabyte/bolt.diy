@@ -1378,11 +1378,15 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // In a step.do so workflow replay never double-sends. Best-effort.
     await step.do('notify-owner-published', async () => {
       try {
-        const { notifySiteOwner } = await import('../services/notify.js');
-        const r = await notifySiteOwner(env, env.DB, {
+        const { notifyOwnerEvent } = await import('../services/notify.js');
+        const r = await notifyOwnerEvent(env, env.DB, {
           orgId: params.orgId,
-          subject: 'Your site is live 🎉',
-          body: `${params.businessName} is published at ${params.slug}.${DOMAINS.SITES_SUFFIX} (built in ${totalSeconds}s).`,
+          event: {
+            event: 'build.finished',
+            tenantId: params.orgId,
+            siteId: params.siteId,
+            previewUrl: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+          },
         });
         return r.ok ? 'sent' : `skipped:${r.detail ?? 'unknown'}`;
       } catch {
