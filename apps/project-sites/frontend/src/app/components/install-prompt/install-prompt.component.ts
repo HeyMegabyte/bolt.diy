@@ -18,17 +18,54 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISS_KEY = 'ps_pwa_install_dismissed';
+const VISITS_KEY = 'ps_pwa_visits';
+/** Don't surface the iOS hint until a visitor has come back — never nag a first-timer. */
+const IOS_HINT_MIN_VISITS = 2;
+
+/**
+ * iOS Safari is the ONLY iOS browser that can Add to Home Screen — Chrome,
+ * Firefox, Edge, and Opera on iOS all use WebKit but cannot A2HS, so they must
+ * be excluded.
+ *
+ * @param ua - `navigator.userAgent`.
+ * @returns true only for genuine iOS Safari.
+ * @example
+ * isIosSafari('…iPhone…Safari…')           // → true
+ * isIosSafari('…iPhone…CriOS…')             // → false (Chrome on iOS)
+ */
+export function isIosSafari(ua: string): boolean {
+  const isIosDevice = /iphone|ipad|ipod/i.test(ua);
+  const isOtherIosBrowser = /crios|fxios|edgios|opios/i.test(ua);
+  const isSafari = /safari/i.test(ua);
+  return isIosDevice && isSafari && !isOtherIosBrowser;
+}
+
+/**
+ * Whether to show the manual iOS "Add to Home Screen" hint.
+ *
+ * @returns true only on returning-visitor iOS Safari that isn't already installed.
+ * @example
+ * iosHintEligible('…iPhone…Safari…', 2, false) // → true
+ * iosHintEligible('…iPhone…Safari…', 1, false) // → false (first visit)
+ */
+export function iosHintEligible(ua: string, visits: number, standalone: boolean): boolean {
+  return isIosSafari(ua) && visits >= IOS_HINT_MIN_VISITS && !standalone;
+}
 
 /**
  * Add-to-Home-Screen (A2HS) install prompt — backlog #25.
  *
  * @remarks
- * Captures the browser's `beforeinstallprompt`, suppresses the default mini-bar,
- * and surfaces our own branded, dismissible chip ONLY when the app is genuinely
- * installable. Deferred-ask doctrine (per `always.md` § PWA): never nags — a
- * dismissal is remembered in localStorage, and the chip never shows when the app
- * is already running standalone or already installed. Pure enhancement: it has
- * no critical path, so app.component defers it off the initial bundle.
+ * Two paths, one chip:
+ * - **Chromium/Android** — captures `beforeinstallprompt`, suppresses the default
+ *   mini-bar, and offers a one-tap **Install** button.
+ * - **iOS Safari** — has no `beforeinstallprompt`, so on a *returning* visitor we
+ *   show a manual "Share → Add to Home Screen" hint (never on first visit).
+ *
+ * Deferred-ask doctrine (per `always.md` § PWA): never nags — a dismissal is
+ * remembered in localStorage, the chip never shows when already standalone /
+ * installed, and the iOS hint is visit-gated. Pure enhancement with no critical
+ * path, so app.component defers it off the initial bundle.
  *
  * @example
  * <app-install-prompt />
@@ -37,17 +74,23 @@ const DISMISS_KEY = 'ps_pwa_install_dismissed';
   selector: 'app-install-prompt',
   standalone: true,
   template: `
-    @if (visible()) {
+    @if (mode(); as m) {
       <div class="install-chip" role="dialog" aria-label="Install Project Sites" data-testid="install-prompt">
-        <span class="install-chip__icon" aria-hidden="true">⤓</span>
+        <span class="install-chip__icon" aria-hidden="true">{{ m === 'ios' ? '⎋' : '⤓' }}</span>
         <div class="install-chip__text">
           <strong>Install Project Sites</strong>
-          <span>Add it to your home screen — launches like a native app, works offline.</span>
+          @if (m === 'ios') {
+            <span data-testid="install-ios-hint">Tap the <b>Share</b> button, then <b>“Add to Home Screen”</b> — launches like a native app.</span>
+          } @else {
+            <span>Add it to your home screen — launches like a native app, works offline.</span>
+          }
         </div>
         <div class="install-chip__actions">
-          <button type="button" class="install-chip__cta" data-testid="install-accept" (click)="install()">
-            Install
-          </button>
+          @if (m === 'native') {
+            <button type="button" class="install-chip__cta" data-testid="install-accept" (click)="install()">
+              Install
+            </button>
+          }
           <button type="button" class="install-chip__dismiss" aria-label="Dismiss install prompt" data-testid="install-dismiss" (click)="dismiss()">
             ✕
           </button>
@@ -88,6 +131,7 @@ const DISMISS_KEY = 'ps_pwa_install_dismissed';
     .install-chip__text { display: flex; flex-direction: column; gap: 3px; }
     .install-chip__text strong { font-size: 0.9rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); }
     .install-chip__text span { font-size: 0.78rem; line-height: 1.45; color: #94a3b8; }
+    .install-chip__text b { color: var(--ps-ink, #f4f4ff); font-weight: 600; }
     .install-chip__actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: 2px; }
     .install-chip__cta {
       font-size: 0.8rem;
@@ -133,14 +177,26 @@ export class InstallPromptComponent {
   private readonly deferred = signal<BeforeInstallPromptEvent | null>(null);
   /** User dismissed this session, OR a prior dismissal is remembered. */
   private readonly dismissed = signal<boolean>(false);
+  /** Returning-visitor iOS Safari that can't programmatically prompt. */
+  private readonly iosEligible = signal<boolean>(false);
 
-  /** True only when installable, not already installed, and not dismissed. */
-  readonly visible = computed(() => this.deferred() !== null && !this.dismissed());
+  /** Which chip to render: a Chromium Install button, the iOS hint, or nothing. */
+  readonly mode = computed<'native' | 'ios' | null>(() => {
+    if (this.dismissed()) return null;
+    if (this.deferred() !== null) return 'native';
+    if (this.iosEligible()) return 'ios';
+    return null;
+  });
 
   constructor() {
     if (!isPlatformBrowser(this.platformId)) return;
-    // Already installed / running standalone → never offer install.
-    if (this.isStandalone() || this.wasDismissed()) this.dismissed.set(true);
+    const standalone = this.isStandalone();
+    if (standalone || this.wasDismissed()) {
+      this.dismissed.set(true);
+      return;
+    }
+    const visits = this.bumpVisits();
+    this.iosEligible.set(iosHintEligible(this.userAgent(), visits, standalone));
   }
 
   @HostListener('window:beforeinstallprompt', ['$event'])
@@ -154,6 +210,7 @@ export class InstallPromptComponent {
   @HostListener('window:appinstalled')
   onInstalled(): void {
     this.deferred.set(null);
+    this.iosEligible.set(false);
     this.dismissed.set(true);
     this.remember();
   }
@@ -177,6 +234,14 @@ export class InstallPromptComponent {
     this.remember();
   }
 
+  private userAgent(): string {
+    try {
+      return navigator.userAgent ?? '';
+    } catch {
+      return '';
+    }
+  }
+
   private isStandalone(): boolean {
     try {
       return (
@@ -194,6 +259,17 @@ export class InstallPromptComponent {
       return localStorage.getItem(DISMISS_KEY) === '1';
     } catch {
       return false;
+    }
+  }
+
+  /** Increment + persist the visit counter; returns the new count (≥1). */
+  private bumpVisits(): number {
+    try {
+      const next = (parseInt(localStorage.getItem(VISITS_KEY) ?? '0', 10) || 0) + 1;
+      localStorage.setItem(VISITS_KEY, String(next));
+      return next;
+    } catch {
+      return 1;
     }
   }
 

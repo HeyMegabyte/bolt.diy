@@ -1,7 +1,31 @@
 import { TestBed } from '@angular/core/testing';
-import { InstallPromptComponent } from './install-prompt.component';
+import { InstallPromptComponent, isIosSafari, iosHintEligible } from './install-prompt.component';
 
 const DISMISS_KEY = 'ps_pwa_install_dismissed';
+const VISITS_KEY = 'ps_pwa_visits';
+
+const IPHONE_SAFARI =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1';
+const IPHONE_CHROME =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/149.0 Mobile/15E148 Safari/604.1';
+const DESKTOP_CHROME =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
+
+describe('install-prompt platform detection', () => {
+  it('recognises genuine iOS Safari only', () => {
+    expect(isIosSafari(IPHONE_SAFARI)).toBe(true);
+    expect(isIosSafari(IPHONE_CHROME)).toBe(false); // Chrome on iOS can't A2HS
+    expect(isIosSafari(DESKTOP_CHROME)).toBe(false);
+    expect(isIosSafari('')).toBe(false);
+  });
+
+  it('gates the iOS hint behind a return visit and not-yet-installed', () => {
+    expect(iosHintEligible(IPHONE_SAFARI, 2, false)).toBe(true);
+    expect(iosHintEligible(IPHONE_SAFARI, 1, false)).toBe(false); // first visit — never nag
+    expect(iosHintEligible(IPHONE_SAFARI, 5, true)).toBe(false); // already standalone
+    expect(iosHintEligible(DESKTOP_CHROME, 9, false)).toBe(false); // not iOS Safari
+  });
+});
 
 /** Build a synthetic beforeinstallprompt event with a controllable userChoice. */
 function makeBipEvent(outcome: 'accepted' | 'dismissed' = 'accepted') {
@@ -24,7 +48,10 @@ describe('InstallPromptComponent', () => {
   }
 
   beforeEach(() => {
-    try { localStorage.removeItem(DISMISS_KEY); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(DISMISS_KEY);
+      localStorage.removeItem(VISITS_KEY);
+    } catch { /* ignore */ }
   });
 
   it('renders nothing until the browser fires beforeinstallprompt', () => {
