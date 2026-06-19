@@ -34,18 +34,15 @@ export const routes: Routes = [
   },
   {
     path: 'search',
-    loadComponent: () =>
-      import('./pages/search/search.component').then((m) => m.SearchComponent),
+    loadComponent: () => import('./pages/search/search.component').then((m) => m.SearchComponent),
   },
   {
     path: 'signin',
-    loadComponent: () =>
-      import('./pages/signin/signin.component').then((m) => m.SigninComponent),
+    loadComponent: () => import('./pages/signin/signin.component').then((m) => m.SigninComponent),
   },
   {
     path: 'create',
-    loadComponent: () =>
-      import('./pages/create/create.component').then((m) => m.CreateComponent),
+    loadComponent: () => import('./pages/create/create.component').then((m) => m.CreateComponent),
   },
   {
     path: 'details',
@@ -66,8 +63,7 @@ export const routes: Routes = [
   {
     path: 'admin',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/admin/admin.component').then((m) => m.AdminComponent),
+    loadComponent: () => import('./pages/admin/admin.component').then((m) => m.AdminComponent),
     children: [
       {
         // /admin → Getting Started hub: a purpose-grouped guide to every admin
@@ -76,7 +72,9 @@ export const routes: Routes = [
         // keeps the empty-state editor card around for onboarding links.
         path: '',
         loadComponent: () =>
-          import('./pages/admin/sections/dashboard.component').then((m) => m.AdminDashboardComponent),
+          import('./pages/admin/sections/dashboard.component').then(
+            (m) => m.AdminDashboardComponent,
+          ),
         pathMatch: 'full',
       },
       {
@@ -107,12 +105,16 @@ export const routes: Routes = [
         // Team invite acceptance landing — reads ?token=… and POSTs to backend.
         path: 'accept-invite',
         loadComponent: () =>
-          import('./pages/admin/sections/accept-invite.component').then((m) => m.AdminAcceptInviteComponent),
+          import('./pages/admin/sections/accept-invite.component').then(
+            (m) => m.AdminAcceptInviteComponent,
+          ),
       },
       {
         path: 'snapshots',
         loadComponent: () =>
-          import('./pages/admin/sections/snapshots.component').then((m) => m.AdminSnapshotsComponent),
+          import('./pages/admin/sections/snapshots.component').then(
+            (m) => m.AdminSnapshotsComponent,
+          ),
       },
       {
         // Side-by-side snapshot diff — `?from=A&to=B`. Lazy-chunked so the
@@ -129,9 +131,7 @@ export const routes: Routes = [
         // Lighthouse columns, sparklines, triage view).
         path: 'sites',
         loadComponent: () =>
-          import('./pages/admin/sections/sites.component').then(
-            (m) => m.AdminSitesComponent,
-          ),
+          import('./pages/admin/sections/sites.component').then((m) => m.AdminSitesComponent),
       },
       {
         // Per-site detail page with 4 tabs (Logs / Snapshots+Rollback / SQL /
@@ -161,12 +161,16 @@ export const routes: Routes = [
       {
         path: 'analytics',
         loadComponent: () =>
-          import('./pages/admin/sections/analytics.component').then((m) => m.AdminAnalyticsComponent),
+          import('./pages/admin/sections/analytics.component').then(
+            (m) => m.AdminAnalyticsComponent,
+          ),
       },
       {
         path: 'analytics-live',
         loadComponent: () =>
-          import('./pages/admin/sections/analytics-live.component').then((m) => m.AdminAnalyticsLiveComponent),
+          import('./pages/admin/sections/analytics-live.component').then(
+            (m) => m.AdminAnalyticsLiveComponent,
+          ),
       },
       {
         path: 'billing',
@@ -210,7 +214,9 @@ export const routes: Routes = [
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
         loadComponent: () =>
-          import('./pages/admin/sections/api-tokens.component').then((m) => m.AdminApiTokensComponent),
+          import('./pages/admin/sections/api-tokens.component').then(
+            (m) => m.AdminApiTokensComponent,
+          ),
       },
       {
         // Two-layer control plane — LAYER 1 (Feature Flags). Platform-ops
@@ -222,7 +228,18 @@ export const routes: Routes = [
         path: 'feature-flags',
         canActivate: [sysAdminGuard],
         loadComponent: () =>
-          import('./pages/admin/sections/feature-flags.component').then((m) => m.AdminFeatureFlagsComponent),
+          import('./pages/admin/sections/feature-flags.component').then(
+            (m) => m.AdminFeatureFlagsComponent,
+          ),
+      },
+      {
+        // Super-Admin lead scanner (#9) — Places no-website scan → scored leads →
+        // mint outreach claim links. Flag-dark (`lead_scanner`) + super-admin only;
+        // the worker route 404s when the flag is off and 403s non-operators.
+        path: 'leads',
+        canActivate: [sysAdminGuard],
+        loadComponent: () =>
+          import('./pages/admin/sections/leads.component').then((m) => m.AdminLeadsComponent),
       },
       {
         // Two-layer control plane — LAYER 2 (Features, owner-facing). Site/tenant
@@ -231,7 +248,9 @@ export const routes: Routes = [
         // GET/POST /api/site-features.
         path: 'site-features',
         loadComponent: () =>
-          import('./pages/admin/sections/site-features.component').then((m) => m.AdminSiteFeaturesComponent),
+          import('./pages/admin/sections/site-features.component').then(
+            (m) => m.AdminSiteFeaturesComponent,
+          ),
       },
       {
         // Content Freshness — Feature #16. AI rewrite drafts for idle sections.
@@ -316,7 +335,11 @@ export const routes: Routes = [
       // Static redirectTo can't carry a #fragment (it lands on /admin/settings General,
       // not the AI Chat tab). Settings reads the fragment to open its 'ai-chat' tab, so
       // use a functional redirect that preserves it (same fix as /admin/mcp).
-      { path: 'ai-chat', redirectTo: () => inject(Router).parseUrl('/admin/settings#ai-chat'), pathMatch: 'full' },
+      {
+        path: 'ai-chat',
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#ai-chat'),
+        pathMatch: 'full',
+      },
       {
         path: 'traces',
         loadComponent: () =>
@@ -334,7 +357,9 @@ export const routes: Routes = [
         // overlay surface — see `.agents--compact` styles in the component.
         path: 'ai-endpoints',
         loadComponent: () =>
-          import('./pages/admin/sections/ai-endpoints.component').then((m) => m.AdminAiEndpointsComponent),
+          import('./pages/admin/sections/ai-endpoints.component').then(
+            (m) => m.AdminAiEndpointsComponent,
+          ),
       },
       {
         // Voice — phone numbers, unified call+SMS conversations timeline,
@@ -362,7 +387,11 @@ export const routes: Routes = [
       // /admin/mcp → the MCP tab inside Settings. `settings` is a flat route (no
       // children), so the old `redirectTo: 'settings/mcp'` 404'd; settings reads the
       // `#mcp` fragment to open the MCP tab, so redirect there with the fragment.
-      { path: 'mcp', redirectTo: () => inject(Router).parseUrl('/admin/settings#mcp'), pathMatch: 'full' },
+      {
+        path: 'mcp',
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#mcp'),
+        pathMatch: 'full',
+      },
       { path: 'github', redirectTo: 'snapshots', pathMatch: 'full' },
       {
         path: 'settings',
@@ -374,7 +403,9 @@ export const routes: Routes = [
         // settings — switching projects must NOT touch personal preferences.
         path: 'user',
         loadComponent: () =>
-          import('./pages/admin/sections/user-settings.component').then((m) => m.AdminUserSettingsComponent),
+          import('./pages/admin/sections/user-settings.component').then(
+            (m) => m.AdminUserSettingsComponent,
+          ),
       },
       // Per-project Domain Management — backup subdomain + AI creative search
       // + connected domains table with transfer-out flow. See
@@ -389,14 +420,18 @@ export const routes: Routes = [
       {
         path: 'domains/:id/stack',
         loadComponent: () =>
-          import('./pages/admin/sections/domain-stack.component').then((m) => m.AdminDomainStackComponent),
+          import('./pages/admin/sections/domain-stack.component').then(
+            (m) => m.AdminDomainStackComponent,
+          ),
       },
       // Unified logging dashboard (2026-06-08) — Audit Trail + structured Log
       // Explorer combined into one tabbed surface (?tab=audit|explorer).
       {
         path: 'logs',
         loadComponent: () =>
-          import('./pages/admin/sections/logs-dashboard.component').then((m) => m.AdminLogsDashboardComponent),
+          import('./pages/admin/sections/logs-dashboard.component').then(
+            (m) => m.AdminLogsDashboardComponent,
+          ),
       },
       // ─── Apps store ───────────────────────────────────────────────
       // Catalog of self-hostable apps deployable to Cloudflare Workers
@@ -425,9 +460,7 @@ export const routes: Routes = [
       {
         path: 'apps/:id',
         loadComponent: () =>
-          import('./pages/admin/sections/apps-detail.component').then(
-            (m) => m.AppDetailComponent,
-          ),
+          import('./pages/admin/sections/apps-detail.component').then((m) => m.AppDetailComponent),
       },
       // ─── Pulse Social ─────────────────────────────────────────────
       // Composer + scheduler for 11 social networks. Lazy-loaded — the
@@ -436,9 +469,7 @@ export const routes: Routes = [
       {
         path: 'social',
         loadComponent: () =>
-          import('./pages/admin/sections/social.component').then(
-            (m) => m.AdminSocialComponent,
-          ),
+          import('./pages/admin/sections/social.component').then((m) => m.AdminSocialComponent),
       },
       // ─── Pulse Analytics drill-downs ──────────────────────────────
       // Full-page version of the dashboard SocialPerformance widget.
@@ -457,9 +488,7 @@ export const routes: Routes = [
       {
         path: 'inbox',
         loadComponent: () =>
-          import('./pages/admin/sections/inbox.component').then(
-            (m) => m.AdminInboxComponent,
-          ),
+          import('./pages/admin/sections/inbox.component').then((m) => m.AdminInboxComponent),
       },
       // ─── Multimodal AI Site Copilot (#25) ────────────────────────
       // Per-site copilot admin: enable toggle + intent distribution + sessions.
@@ -477,9 +506,7 @@ export const routes: Routes = [
       {
         path: 'sites/:id/dna',
         loadComponent: () =>
-          import('./pages/admin/sections/site-dna.component').then(
-            (m) => m.AdminSiteDnaComponent,
-          ),
+          import('./pages/admin/sections/site-dna.component').then((m) => m.AdminSiteDnaComponent),
       },
       // ── Swarm-stream-marketplace-DNA (Wave 2C — features #5-8) ─────────
       {
@@ -487,9 +514,7 @@ export const routes: Routes = [
         // Per-site live board; :siteId is the slug or UUID.
         path: 'swarm/:siteId',
         loadComponent: () =>
-          import('./pages/admin/sections/swarm.component').then(
-            (m) => m.AdminSwarmComponent,
-          ),
+          import('./pages/admin/sections/swarm.component').then((m) => m.AdminSwarmComponent),
       },
       // Removed from the admin (2026-06-08): Marketplace, Trust Center,
       // Enterprise, Stripe App. Components deleted; legacy paths redirect to the
@@ -518,20 +543,17 @@ export const routes: Routes = [
   },
   {
     path: 'privacy',
-    loadComponent: () =>
-      import('./pages/legal/legal.component').then((m) => m.LegalComponent),
+    loadComponent: () => import('./pages/legal/legal.component').then((m) => m.LegalComponent),
     data: { type: 'privacy' },
   },
   {
     path: 'terms',
-    loadComponent: () =>
-      import('./pages/legal/legal.component').then((m) => m.LegalComponent),
+    loadComponent: () => import('./pages/legal/legal.component').then((m) => m.LegalComponent),
     data: { type: 'terms' },
   },
   {
     path: 'content',
-    loadComponent: () =>
-      import('./pages/legal/legal.component').then((m) => m.LegalComponent),
+    loadComponent: () => import('./pages/legal/legal.component').then((m) => m.LegalComponent),
     data: { type: 'content' },
   },
   // NOTE: no Angular `/contact` route — the worker 301-redirects `/contact`
@@ -576,9 +598,7 @@ export const routes: Routes = [
     // Cursor / Cline. Hero is the .mcp.json connect snippet. No auth required.
     path: 'developers',
     loadComponent: () =>
-      import('./pages/developers/developers.component').then(
-        (m) => m.DevelopersComponent,
-      ),
+      import('./pages/developers/developers.component').then((m) => m.DevelopersComponent),
   },
   {
     // /oauth/consent — OAuth 2.1 consent screen for the MCP one-click connect
@@ -586,9 +606,7 @@ export const routes: Routes = [
     // on Allow it POSTs /api/oauth/authorize (server re-validates everything).
     path: 'oauth/consent',
     loadComponent: () =>
-      import('./pages/oauth-consent/oauth-consent.component').then(
-        (m) => m.OauthConsentComponent,
-      ),
+      import('./pages/oauth-consent/oauth-consent.component').then((m) => m.OauthConsentComponent),
   },
   {
     // Public integrations catalog — every third-party service the platform
@@ -596,9 +614,7 @@ export const routes: Routes = [
     // /api/public/integrations. Lazy-loaded.
     path: 'integrations',
     loadComponent: () =>
-      import('./pages/integrations/integrations.component').then(
-        (m) => m.IntegrationsComponent,
-      ),
+      import('./pages/integrations/integrations.component').then((m) => m.IntegrationsComponent),
   },
   {
     // Public press kit — 8-slide 1920×1080 cinematic picture walkthrough,
@@ -606,20 +622,17 @@ export const routes: Routes = [
     // Lazy-loaded so press traffic doesn't pay for the walkthrough chunk
     // until requested.
     path: 'press',
-    loadComponent: () =>
-      import('./pages/press/press.component').then((m) => m.PressComponent),
+    loadComponent: () => import('./pages/press/press.component').then((m) => m.PressComponent),
   },
   {
     path: 'status',
-    loadComponent: () =>
-      import('./pages/status/status.component').then((m) => m.StatusComponent),
+    loadComponent: () => import('./pages/status/status.component').then((m) => m.StatusComponent),
   },
   {
     // Public Trust Center (#30) — honest, verifiable security posture.
     // Lazy-loaded so marketing traffic never pays for it until requested.
     path: 'trust',
-    loadComponent: () =>
-      import('./pages/trust/trust.component').then((m) => m.TrustComponent),
+    loadComponent: () => import('./pages/trust/trust.component').then((m) => m.TrustComponent),
   },
   {
     // Inline checkout harness — mounts <app-inline-checkout> with a fixed
@@ -637,8 +650,7 @@ export const routes: Routes = [
   },
   {
     path: 'offline',
-    loadComponent: () =>
-      import('./pages/error/offline.component').then((m) => m.OfflineComponent),
+    loadComponent: () => import('./pages/error/offline.component').then((m) => m.OfflineComponent),
   },
   {
     path: '**',
