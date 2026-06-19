@@ -42,10 +42,17 @@ describe('POST /v1/browser/*', () => {
     expect((await req('/v1/browser/screenshot', { tenantId: 't', siteId: 's', rogue: 1 })).status).toBe(400);
   });
 
-  it('202s a valid job with the routed CF envelope', async () => {
-    const res = await app(CF)('/v1/browser/screenshot', job());
+  it('202s a non-executing job (qa) with the routed CF envelope', async () => {
+    // screenshot/pdf execute on CF Browser Run (integration); qa returns the
+    // routed envelope so this asserts routing without a live browser.
+    const res = await app(CF)('/v1/browser/qa', job());
     expect(res.status).toBe(202);
-    expect(await res.json()).toMatchObject({ status: 'routed', provider: 'cf', purpose: 'screenshot' });
+    expect(await res.json()).toMatchObject({ status: 'routed', provider: 'cf', purpose: 'qa' });
+  });
+
+  it('400s a screenshot job with no url/hostname target', async () => {
+    const res = await app(CF)('/v1/browser/screenshot', job());
+    expect(res.status).toBe(400);
   });
 
   it('503s when a requested backend is unavailable', async () => {

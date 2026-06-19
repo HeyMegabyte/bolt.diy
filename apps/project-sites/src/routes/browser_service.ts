@@ -23,6 +23,14 @@ import {
   type BrowserRequestOptions,
   type BrowserSpecialty,
 } from '../services/browser_gateway.js';
+import { cfBrowserRunner, runArtifactJob } from '../services/browser_execution.js';
+
+/** Resolve the target URL for an artifact job (explicit url → https://hostname). */
+function artifactTargetUrl(job: BrowserJob): string | null {
+  if (job.url) return job.url;
+  if (job.hostname) return `https://${job.hostname}`;
+  return null;
+}
 
 /** The job purposes exposed as `/v1/browser/{purpose}`. */
 export const BROWSER_PURPOSES = [
@@ -44,6 +52,8 @@ export const BrowserJobSchema = z
     tenantId: z.string().min(1),
     siteId: z.string().min(1),
     hostname: z.string().optional(),
+    /** Target URL for screenshot/pdf/extract jobs (else derived from hostname). */
+    url: z.string().url().optional(),
     backendPreference: z.enum(['cloudflare', 'browserbase', 'skyvern_internal']).optional(),
     specialty: z
       .enum(['captcha', 'residential_proxy', 'session_replay', 'live_view', 'long_session', 'stealth'])
@@ -93,7 +103,31 @@ for (const purpose of BROWSER_PURPOSES) {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.message } }, 400);
     }
     try {
-      return c.json(routeBrowserJob(purpose, parsed.data, c.env), 202);
+      const routed = routeBrowserJob(purpose, parsed.data, c.env);
+
+      // screenshot/pdf EXECUTE on CF Browser Run; other purposes return the
+      // routed envelope (execution wired in later sub-slices).
+      if ((purpose === 'screenshot' || purpose === 'pdf') && routed.provider === 'cf' && c.env.BROWSER) {
+        const target = artifactTargetUrl(parsed.data);
+        if (!target) {
+          return c.json({ error: { code: 'VALIDATION_ERROR', message: 'screenshot/pdf needs `url` or `hostname`.' } }, 400);
+        }
+        const { runner, release } = await cfBrowserRunner(c.env);
+        try {
+          const result = await runArtifactJob(
+            c.env,
+            purpose,
+            { tenantId: parsed.data.tenantId, siteId: parsed.data.siteId, url: target },
+            runner,
+            String(Date.now()),
+          );
+          return c.json({ ...routed, ...result }, 200);
+        } finally {
+          await release();
+        }
+      }
+
+      return c.json(routed, 202);
     } catch (err) {
       if (err instanceof BrowserGatewayError) {
         return c.json({ error: { code: 'BROWSER_PROVIDER_UNAVAILABLE', message: err.message } }, 503);
