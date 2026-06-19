@@ -47,6 +47,53 @@ describe('NovuEventSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it.each([
+    { event: 'domain.verifying', tenantId: 'o1', hostname: 'www.acme.com' },
+    { event: 'domain.active', tenantId: 'o1', hostname: 'www.acme.com' },
+    { event: 'domain.failed', tenantId: 'o1', hostname: 'www.acme.com', error: 'DNS not found' },
+    { event: 'quota.near_limit', tenantId: 'o1', resource: 'ai_budget', usedPercent: 82 },
+    { event: 'trial.ending', tenantId: 'o1', daysRemaining: 3 },
+    { event: 'member.invited', tenantId: 'o1', email: 'new@acme.com', role: 'editor' },
+    { event: 'member.joined', tenantId: 'o1', userId: 'u9', role: 'editor' },
+    { event: 'ai.job.completed', tenantId: 'o1', jobId: 'j1', traceId: 't1' },
+    { event: 'ai.job.failed', tenantId: 'o1', jobId: 'j1', error: 'model timeout' },
+    { event: 'browser.job.escalated', tenantId: 'o1', runId: 'r1', fromProvider: 'cloudflare', toProvider: 'browserbase' },
+    { event: 'db.provision.queued', tenantId: 'o1', dbId: 'db1' },
+    { event: 'db.provision.ready', tenantId: 'o1', dbId: 'db1' },
+    { event: 'db.provision.failed', tenantId: 'o1', dbId: 'db1', error: 'capacity exhausted' },
+  ])('accepts a valid $event payload', (payload) => {
+    expect(NovuEventSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('rejects member.invited with a non-email address', () => {
+    const result = NovuEventSchema.safeParse({
+      event: 'member.invited',
+      tenantId: 'o1',
+      email: 'not-an-email',
+      role: 'editor',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects quota.near_limit with usedPercent over 100', () => {
+    const result = NovuEventSchema.safeParse({
+      event: 'quota.near_limit',
+      tenantId: 'o1',
+      resource: 'ai_budget',
+      usedPercent: 140,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects domain.failed missing the error reason', () => {
+    const result = NovuEventSchema.safeParse({
+      event: 'domain.failed',
+      tenantId: 'o1',
+      hostname: 'www.acme.com',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a build.finished payload missing previewUrl', () => {
     const result = NovuEventSchema.safeParse({
       event: 'build.finished',

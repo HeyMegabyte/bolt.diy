@@ -83,6 +83,116 @@ const LeadScanCompletedSchema = BaseEventFields.extend({
   leadCount: z.number().int().nonnegative(),
 });
 
+// --- Domain lifecycle (custom-hostname provisioning) -----------------------
+
+const DomainVerifyingSchema = BaseEventFields.extend({
+  event: z.literal('domain.verifying'),
+  /** Custom hostname being verified (e.g. "www.acme.com"). */
+  hostname: z.string().min(1),
+});
+
+const DomainActiveSchema = BaseEventFields.extend({
+  event: z.literal('domain.active'),
+  /** Custom hostname now serving the site over SSL. */
+  hostname: z.string().min(1),
+});
+
+const DomainFailedSchema = BaseEventFields.extend({
+  event: z.literal('domain.failed'),
+  /** Custom hostname whose provisioning failed. */
+  hostname: z.string().min(1),
+  /** Human-readable reason (DNS, SSL, ownership). */
+  error: z.string().min(1),
+});
+
+// --- Quota + billing lifecycle ---------------------------------------------
+
+const QuotaNearLimitSchema = BaseEventFields.extend({
+  event: z.literal('quota.near_limit'),
+  /** Metered resource nearing its cap (e.g. "ai_budget", "browser_minutes"). */
+  resource: z.string().min(1),
+  /** Percentage of the cap consumed (0-100). */
+  usedPercent: z.number().min(0).max(100),
+});
+
+const TrialEndingSchema = BaseEventFields.extend({
+  event: z.literal('trial.ending'),
+  /** Whole days remaining before the trial converts or expires. */
+  daysRemaining: z.number().int().nonnegative(),
+});
+
+// --- Team membership lifecycle ---------------------------------------------
+
+const MemberInvitedSchema = BaseEventFields.extend({
+  event: z.literal('member.invited'),
+  /** Email the invitation was sent to. */
+  email: z.string().email(),
+  /** Role granted on acceptance (owner|admin|editor|viewer|billing_admin). */
+  role: z.string().min(1),
+});
+
+const MemberJoinedSchema = BaseEventFields.extend({
+  event: z.literal('member.joined'),
+  /** User id of the member who accepted. */
+  userId: z.string().min(1),
+  /** Role the member now holds. */
+  role: z.string().min(1),
+});
+
+// --- AI job lifecycle ------------------------------------------------------
+
+const AiJobCompletedSchema = BaseEventFields.extend({
+  event: z.literal('ai.job.completed'),
+  /** Identifier of the completed AI job/run. */
+  jobId: z.string().min(1),
+  /** Correlated trace id for the Langfuse/Trace-Lens deep link. */
+  traceId: z.string().optional(),
+});
+
+const AiJobFailedSchema = BaseEventFields.extend({
+  event: z.literal('ai.job.failed'),
+  /** Identifier of the failed AI job/run. */
+  jobId: z.string().min(1),
+  /** Human-readable failure reason. */
+  error: z.string().min(1),
+  /** Correlated trace id for debugging. */
+  traceId: z.string().optional(),
+});
+
+// --- Browser automation escalation -----------------------------------------
+
+const BrowserJobEscalatedSchema = BaseEventFields.extend({
+  event: z.literal('browser.job.escalated'),
+  /** Browser-gateway run id that escalated. */
+  runId: z.string().min(1),
+  /** Provider the run escalated from (e.g. "cloudflare"). */
+  fromProvider: z.string().min(1),
+  /** Provider the run escalated to (e.g. "browserbase"). */
+  toProvider: z.string().min(1),
+});
+
+// --- Customer-database provisioning lifecycle ------------------------------
+
+const DbProvisionQueuedSchema = BaseEventFields.extend({
+  event: z.literal('db.provision.queued'),
+  /** Customer-database registry id. */
+  dbId: z.string().min(1),
+});
+
+const DbProvisionReadySchema = BaseEventFields.extend({
+  event: z.literal('db.provision.ready'),
+  /** Customer-database registry id now reachable via Hyperdrive. */
+  dbId: z.string().min(1),
+});
+
+const DbProvisionFailedSchema = BaseEventFields.extend({
+  event: z.literal('db.provision.failed'),
+  /** Customer-database registry id whose provisioning failed. */
+  dbId: z.string().min(1),
+  /** Human-readable failure reason (capacity, connectivity, credentials). */
+  error: z.string().min(1),
+});
+
 // ---------------------------------------------------------------------------
 // Exported discriminated union + inferred type
 // ---------------------------------------------------------------------------
@@ -98,6 +208,19 @@ export const NovuEventSchema = z.discriminatedUnion('event', [
   PaymentSucceededSchema,
   PaymentFailedSchema,
   LeadScanCompletedSchema,
+  DomainVerifyingSchema,
+  DomainActiveSchema,
+  DomainFailedSchema,
+  QuotaNearLimitSchema,
+  TrialEndingSchema,
+  MemberInvitedSchema,
+  MemberJoinedSchema,
+  AiJobCompletedSchema,
+  AiJobFailedSchema,
+  BrowserJobEscalatedSchema,
+  DbProvisionQueuedSchema,
+  DbProvisionReadySchema,
+  DbProvisionFailedSchema,
 ]);
 
 /** TypeScript type inferred from `NovuEventSchema`. */
