@@ -180,8 +180,71 @@ realized via the Neon pooler.
 3. **Cold-boot SLA** — acceptable first-request latency on a hibernated app (5–30s)?
    Drives whether we keep a warm pool (phase 3.5).
 
-## 7. See also
+## 7. Sharded Hyperdrive at scale — 10k+ tenants, fast Postgres (Brian's directive)
 
+> Directive: *"the Postgres connection should be as fast as possible and capable
+> of giving 10k+ sites their own Neon instance behind sharded Hyperdrive."*
+
+**The load-bearing constraint (verified vs CF docs 2026-06-18,
+`/hyperdrive/platform/limits/`):** Cloudflare Hyperdrive allows **≤ 25 configured
+databases per account** (10 free), each config is a **wrangler-declared static
+binding**, and there is **no dynamic per-request origin**. So you literally cannot
+give 10,000 tenants their own Hyperdrive config — the ceiling is 25.
+
+### The reconciliation (what "sharded Hyperdrive" must mean here)
+
+A **fixed pool of ≤ 25 Hyperdrive shards**, each a static binding
+(`HYPERDRIVE_SHARD_0 … _24`) fronting **one Neon instance**. Tenants are **hashed**
+to a shard (`services/db_sharding.ts`, shipped: deterministic murmur3-finalized
+FNV-1a → even spread, verified across 10k ids). On a shard:
+
+- **Speed** comes from the shard's Hyperdrive binding — edge-located connection
+  pool (transaction mode) + automatic **query caching**, so reads are served near
+  the user without a round-trip to Neon.
+- **"Own Neon instance"** is honoured as **own logical database + own role/creds**
+  on the shard's Neon instance (true data isolation). At 10k scale, per-tenant
+  *physical* instances + per-tenant Hyperdrive is impossible (25 cap); per-tenant
+  *logical* DB on a sharded instance is the scalable equivalent.
+- **Scale-out:** add shards up to 25; beyond ~25×(tenants-per-Neon) add more Neon
+  instances per shard (one binding can only point at one origin, so growth past 25
+  origins means bigger Neon instances, not more bindings).
+- **Enterprise / "must be a dedicated instance"** tenants get a **Neon-pooler
+  direct** path (the `pooledConnectionString` primitive, shipped) — their own
+  physical Neon instance, pooled by Neon's PgBouncer, **not** consuming a
+  Hyperdrive shard. Unlimited of these; just no edge query-cache.
+
+### Fastest-possible connection — the levers
+
+1. **Hyperdrive on the hot shards** — pooling + query cache at the edge (the big
+   win for read-heavy tenants).
+2. **`origin_connection_limit`** tuned up per shard (paid: ~100) via the CF API /
+   `wrangler hyperdrive update` so a busy shard isn't connection-starved.
+3. **Neon's `-pooler` endpoint** as the origin (compounds: Hyperdrive pools client
+   side, Neon's PgBouncer pools at the DB) for the long-tail tenants.
+4. **Same-region placement** — pin each shard's Neon instance to the region its
+   tenants cluster in; Hyperdrive caches at the nearest colo regardless.
+
+### Shipped this fire (the routing core)
+
+- `services/db_sharding.ts` — `assignShard(tenantId, shardCount)` (deterministic,
+  capped at 25), `hyperdriveBindingName(shard)`, `hyperdriveBindingForTenant(...)`.
+  Pure + fully tested (`__tests__/db_sharding.test.ts`).
+
+### Remaining (needs ops + Brian's isolation call)
+
+- Declare the `HYPERDRIVE_SHARD_*` bindings in `wrangler.toml` (one per shard,
+  pointing at each shard's Neon instance) — a one-time ops setup, ≤ 25 entries.
+- A `db_shards` registry (which Neon instance + creds back each shard) + a Worker
+  DB-proxy or per-request connection that reads `env[hyperdriveBindingForTenant()]`
+  — this is the **Worker-mediated DB access** that makes Hyperdrive usable (the
+  container-direct apps can't use a Worker binding; this path is for site/worker
+  Postgres + any Worker-fronted app DB).
+- Per-tenant logical-DB provisioning on the shard's Neon instance (the Phase-4
+  data model) — **one-way-door**, gated on Brian's isolation decision.
+
+## 8. See also
+
+- `services/db_sharding.ts` — the sharded-Hyperdrive routing core (shipped)
 - `apps-catalog.data.ts` `withHyperdrive()` — the shipped Hyperdrive contract this consumes
 - `services/app_provisioner.ts` · `container_dispatcher.ts` · `durable_objects/app_runtime.ts` — current impl
 - `services/site_serving` — the host-resolution KV pattern Phase 1 mirrors
