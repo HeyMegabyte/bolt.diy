@@ -1,5 +1,5 @@
-import { dbQueryOne, dbInsert } from '../services/db.js';
-import { createLead, getLead } from '../services/lead_store';
+import { dbQueryOne, dbInsert, dbQuery } from '../services/db.js';
+import { createLead, getLead, listLeads } from '../services/lead_store';
 
 /**
  * #9/#1 shared dependency — the leads store. The scanner (#9) persists a
@@ -9,15 +9,18 @@ import { createLead, getLead } from '../services/lead_store';
 jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn(),
   dbInsert: jest.fn().mockResolvedValue({ error: null }),
+  dbQuery: jest.fn(),
 }));
 
 const mockQueryOne = dbQueryOne as jest.Mock;
 const mockInsert = dbInsert as jest.Mock;
+const mockQuery = dbQuery as jest.Mock;
 const db = {} as never;
 
 beforeEach(() => {
   mockQueryOne.mockReset();
   mockInsert.mockReset().mockResolvedValue({ error: null });
+  mockQuery.mockReset().mockResolvedValue({ data: [] });
 });
 
 describe('createLead', () => {
@@ -77,5 +80,66 @@ describe('getLead', () => {
       profile_json: '{not json',
     });
     expect(await getLead(db, 'lead_1')).toBeNull();
+  });
+});
+
+describe('listLeads', () => {
+  const row = {
+    id: 'lead_1',
+    business_name: 'Acme Roofing',
+    has_website: 0,
+    lead_score: 88,
+    priority: 1,
+    email: 'owner@acme.test',
+    email_status: 'enriched',
+    source: 'google_places',
+    created_at: '2026-06-19T00:00:00Z',
+  };
+
+  it('maps rows to typed summaries (0/1 → boolean) ordered by score', async () => {
+    mockQuery.mockResolvedValue({ data: [row] });
+    const out = await listLeads(db);
+    expect(out).toEqual([
+      {
+        leadId: 'lead_1',
+        businessName: 'Acme Roofing',
+        hasWebsite: false,
+        leadScore: 88,
+        priority: true,
+        email: 'owner@acme.test',
+        emailStatus: 'enriched',
+        source: 'google_places',
+        createdAt: '2026-06-19T00:00:00Z',
+      },
+    ]);
+    const [, sql] = mockQuery.mock.calls[0];
+    expect(sql).toMatch(/ORDER BY lead_score DESC/i);
+    expect(sql).not.toMatch(/deleted_at/i); // table has no soft-delete column
+  });
+
+  it('clamps limit to 1..200 and floors offset at 0', async () => {
+    await listLeads(db, { limit: 9999, offset: -5 });
+    const [, , params] = mockQuery.mock.calls[0];
+    expect(params).toEqual([200, 0]);
+    mockQuery.mockClear();
+    await listLeads(db, { limit: 0 });
+    expect(mockQuery.mock.calls[0][2]).toEqual([1, 0]);
+  });
+
+  it('filters to no-website leads when onlyNoWebsite is set', async () => {
+    await listLeads(db, { onlyNoWebsite: true });
+    const [, sql] = mockQuery.mock.calls[0];
+    expect(sql).toMatch(/has_website\s*=\s*0/i);
+  });
+
+  it('does NOT filter by website by default', async () => {
+    await listLeads(db);
+    const [, sql] = mockQuery.mock.calls[0];
+    expect(sql).not.toMatch(/has_website\s*=\s*0/i);
+  });
+
+  it('returns an empty array when there are no leads', async () => {
+    mockQuery.mockResolvedValue({ data: [] });
+    expect(await listLeads(db)).toEqual([]);
   });
 });

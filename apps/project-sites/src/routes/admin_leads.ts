@@ -19,7 +19,7 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
-import { createLead } from '../services/lead_store.js';
+import { createLead, listLeads } from '../services/lead_store.js';
 import type { PlacesResult } from '../services/google_places.js';
 import type { PlacesSearchHit } from '../services/places_search.js';
 
@@ -32,6 +32,37 @@ const ScanBodySchema = z
     onlyNoWebsite: z.boolean().optional(),
   })
   .strict();
+
+const ListQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    offset: z.coerce.number().int().min(0).optional(),
+    onlyNoWebsite: z
+      .enum(['true', 'false', '1', '0'])
+      .transform((v) => v === 'true' || v === '1')
+      .optional(),
+  })
+  .strip();
+
+/**
+ * Run the auth → flag (404, never 403) → super-admin (403) gate chain shared by
+ * every lead-scanner route. Returns a JSON error Response to short-circuit, or
+ * `null` when the caller is an authorized super-admin.
+ */
+async function gateLeadScanner(
+  c: import('hono').Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response | null> {
+  const requestId = c.get('requestId');
+  const userId = c.get('userId');
+  if (!userId) return c.json(errorBody('UNAUTHORIZED', 'Sign in required', requestId), 401);
+  if (!(await isFlagOn(c.env, LEAD_SCANNER_FLAG, { orgId: c.get('orgId'), userId }))) {
+    return c.json(errorBody('NOT_FOUND', 'Not found', requestId), 404);
+  }
+  if (!(await isSuperAdmin(c.env, userId))) {
+    return c.json(errorBody('FORBIDDEN', 'Super-admin access required', requestId), 403);
+  }
+  return null;
+}
 
 /** Build the RFC7807-ish error envelope used across the worker. */
 function errorBody(code: string, message: string, requestId: string | undefined) {
@@ -68,21 +99,8 @@ export const adminLeads = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 adminLeads.post('/api/admin/leads/scan', async (c) => {
   const requestId = c.get('requestId');
-  const userId = c.get('userId');
-  if (!userId) {
-    return c.json(errorBody('UNAUTHORIZED', 'Sign in required', requestId), 401);
-  }
-
-  // Flag gate — 404 (not 403) when off so the route's existence isn't leaked.
-  if (!(await isFlagOn(c.env, LEAD_SCANNER_FLAG, { orgId: c.get('orgId'), userId }))) {
-    return c.json(errorBody('NOT_FOUND', 'Not found', requestId), 404);
-  }
-
-  // Super-Admin only — authorization is server-resolved, never trusted from the
-  // client. The flag hides existence; this gates the operator-only action.
-  if (!(await isSuperAdmin(c.env, userId))) {
-    return c.json(errorBody('FORBIDDEN', 'Super-admin access required', requestId), 403);
-  }
+  const blocked = await gateLeadScanner(c);
+  if (blocked) return blocked;
 
   const raw = await c.req.json().catch(() => ({}));
   const parsed = ScanBodySchema.safeParse(raw);
@@ -100,4 +118,31 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
   );
 
   return c.json({ summary }, 200);
+});
+
+/**
+ * `GET /api/admin/leads` — list scanned leads (highest score first) for the
+ * Super-Admin scanner UI. Same gate chain as the scan route. Read-only; returns
+ * lightweight {@link LeadSummary} rows (no per-row profile JSON parse).
+ * Query params: `limit` (1..200, default 50), `offset` (≥0), `onlyNoWebsite`.
+ */
+adminLeads.get('/api/admin/leads', async (c) => {
+  const requestId = c.get('requestId');
+  const blocked = await gateLeadScanner(c);
+  if (blocked) return blocked;
+
+  const parsed = ListQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    return c.json(errorBody('VALIDATION_ERROR', 'Invalid list query', requestId), 400);
+  }
+
+  const leads = await listLeads(c.env.DB, {
+    ...(parsed.data.limit === undefined ? {} : { limit: parsed.data.limit }),
+    ...(parsed.data.offset === undefined ? {} : { offset: parsed.data.offset }),
+    ...(parsed.data.onlyNoWebsite === undefined
+      ? {}
+      : { onlyNoWebsite: parsed.data.onlyNoWebsite }),
+  });
+
+  return c.json({ leads, count: leads.length }, 200);
 });

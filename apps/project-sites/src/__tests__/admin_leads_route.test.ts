@@ -16,7 +16,7 @@ import { isSuperAdmin } from '../services/sysadmin.js';
 jest.mock('../modules/feature_flags/services.js', () => ({ isFlagOn: jest.fn() }));
 jest.mock('../services/sysadmin.js', () => ({ isSuperAdmin: jest.fn() }));
 jest.mock('../services/places_search.js', () => ({ searchPlacesByQuery: jest.fn() }));
-jest.mock('../services/lead_store.js', () => ({ createLead: jest.fn() }));
+jest.mock('../services/lead_store.js', () => ({ createLead: jest.fn(), listLeads: jest.fn() }));
 
 const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
 const mockIsSuperAdmin = isSuperAdmin as jest.MockedFunction<typeof isSuperAdmin>;
@@ -24,6 +24,8 @@ const mockIsSuperAdmin = isSuperAdmin as jest.MockedFunction<typeof isSuperAdmin
 const mockSearch = require('../services/places_search.js').searchPlacesByQuery as jest.Mock;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mockCreateLead = require('../services/lead_store.js').createLead as jest.Mock;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mockListLeads = require('../services/lead_store.js').listLeads as jest.Mock;
 
 /** Mount the route behind a middleware that injects the authed-session vars. */
 function makeApp(auth: { userId?: string; orgId?: string }) {
@@ -71,7 +73,12 @@ beforeEach(() => {
   mockIsSuperAdmin.mockResolvedValue(true);
   mockSearch.mockResolvedValue([]);
   mockCreateLead.mockResolvedValue({ leadId: 'lead_1' });
+  mockListLeads.mockResolvedValue([]);
 });
+
+function getLeads(app: Hono, query = '') {
+  return app.request(`/api/admin/leads${query}`, { method: 'GET' }, env);
+}
 
 describe('POST /api/admin/leads/scan', () => {
   it('401s when unauthenticated', async () => {
@@ -128,5 +135,63 @@ describe('POST /api/admin/leads/scan', () => {
     const body = (await res.json()) as { summary: { created: number; skippedDuplicate: number } };
     expect(body.summary.created).toBe(1);
     expect(body.summary.skippedDuplicate).toBe(1);
+  });
+});
+
+describe('GET /api/admin/leads', () => {
+  it('401s when unauthenticated', async () => {
+    expect((await getLeads(makeApp({}))).status).toBe(401);
+    expect(mockListLeads).not.toHaveBeenCalled();
+  });
+
+  it('404s when the lead_scanner flag is off (existence not leaked)', async () => {
+    mockIsFlagOn.mockResolvedValue(false);
+    expect((await getLeads(makeApp({ userId: 'u1', orgId: 'o1' }))).status).toBe(404);
+    expect(mockListLeads).not.toHaveBeenCalled();
+  });
+
+  it('403s when authed + flag-on but not a super-admin', async () => {
+    mockIsSuperAdmin.mockResolvedValue(false);
+    expect((await getLeads(makeApp({ userId: 'u1', orgId: 'o1' }))).status).toBe(403);
+    expect(mockListLeads).not.toHaveBeenCalled();
+  });
+
+  it('200s with the lead list + count for a super-admin', async () => {
+    mockListLeads.mockResolvedValue([
+      {
+        leadId: 'l1',
+        businessName: 'Acme',
+        hasWebsite: false,
+        leadScore: 88,
+        priority: true,
+        email: null,
+        emailStatus: null,
+        source: 'google_places',
+        createdAt: '2026-06-19T00:00:00Z',
+      },
+    ]);
+    const res = await getLeads(makeApp({ userId: 'u1', orgId: 'o1' }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { leads: unknown[]; count: number };
+    expect(body.count).toBe(1);
+    expect(body.leads).toHaveLength(1);
+  });
+
+  it('forwards parsed query params (limit/offset/onlyNoWebsite) to listLeads', async () => {
+    await getLeads(
+      makeApp({ userId: 'u1', orgId: 'o1' }),
+      '?limit=10&offset=20&onlyNoWebsite=true',
+    );
+    expect(mockListLeads).toHaveBeenCalledWith(env.DB, {
+      limit: 10,
+      offset: 20,
+      onlyNoWebsite: true,
+    });
+  });
+
+  it('400s on an invalid query param (limit over max)', async () => {
+    const res = await getLeads(makeApp({ userId: 'u1', orgId: 'o1' }), '?limit=99999');
+    expect(res.status).toBe(400);
+    expect(mockListLeads).not.toHaveBeenCalled();
   });
 });
