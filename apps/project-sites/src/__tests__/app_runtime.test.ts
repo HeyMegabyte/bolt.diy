@@ -431,6 +431,45 @@ describe('AppRuntimeContainer — proxyRequest lazy boot', () => {
     expect(res.status).toBe(502);
     expect(await res.text()).toMatch(/boot failed/i);
   });
+
+  // ── Scale-to-zero (Phase 2): cold-boot splash for hibernated containers ──
+  const htmlReq = (url = 'https://x/') =>
+    new Request(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
+
+  it('cold container + browser navigation → 202 splash + boots in the BACKGROUND (no block)', async () => {
+    const { inst, ctx } = makeDO();
+    await inst.startApp(baseOpts);
+    await inst.stopApp(); // provisioned but hibernated/cold
+    const fetchSpy = (inst as unknown as { containerFetch: jest.Mock }).containerFetch;
+    fetchSpy.mockClear();
+    (ctx.waitUntil as jest.Mock).mockClear();
+    const res = await inst.proxyRequest(htmlReq());
+    expect(res.status).toBe(202);
+    expect(await res.text()).toMatch(/waking/i);
+    expect(ctx.waitUntil).toHaveBeenCalled(); // boot kicked in the background
+    expect(fetchSpy).not.toHaveBeenCalled(); // did NOT block-proxy the request
+  });
+
+  it('a navigation while already waking returns the splash WITHOUT re-triggering the boot', async () => {
+    const { inst, ctx } = makeDO();
+    await inst.startApp(baseOpts);
+    await inst.stopApp();
+    (inst as unknown as { liveState: string }).liveState = 'booting';
+    (ctx.waitUntil as jest.Mock).mockClear();
+    const res = await inst.proxyRequest(htmlReq());
+    expect(res.status).toBe(202);
+    expect(ctx.waitUntil).not.toHaveBeenCalled(); // no second boot
+  });
+
+  it('an asset/XHR request while waking gets a 503 Retry-After (not the splash)', async () => {
+    const { inst } = makeDO();
+    await inst.startApp(baseOpts);
+    await inst.stopApp();
+    (inst as unknown as { liveState: string }).liveState = 'booting';
+    const res = await inst.proxyRequest(new Request('https://x/style.css')); // no text/html accept
+    expect(res.status).toBe(503);
+    expect(res.headers.get('retry-after')).toBe('2');
+  });
 });
 
 describe('AppRuntimeContainer — HTTP shim (fetch router)', () => {

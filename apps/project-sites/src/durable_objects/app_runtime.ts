@@ -287,7 +287,7 @@ export class AppRuntimeContainer extends Container<Env> {
    */
   async proxyRequest(req: Request): Promise<Response> {
     this.ensureSchema();
-    // Lazy boot when state is idle/stopped but config exists.
+    // Lazy / cold boot when state is idle/stopped but config exists.
     if (this.liveState !== 'running') {
       const image = this.metaGet('image');
       const port = this.metaGet('port');
@@ -295,6 +295,38 @@ export class AppRuntimeContainer extends Container<Env> {
       if (!image || !port || !envJson) {
         return new Response('App not provisioned. Run start() first.', { status: 503 });
       }
+      const wantsHtml =
+        req.method === 'GET' && (req.headers.get('accept') ?? '').includes('text/html');
+
+      // Already waking (a prior navigation kicked the boot): show the splash to a
+      // browser, tell an asset/XHR to retry — never re-trigger the boot.
+      if (this.liveState === 'booting') {
+        return wantsHtml
+          ? this.bootSplash()
+          : new Response('Container warming up — retry shortly.', {
+              status: 503,
+              headers: { 'Retry-After': '2' },
+            });
+      }
+
+      // Scale-to-zero (Phase 2): a hibernated container takes ~5-30s to wake. For
+      // a top-level browser navigation, kick the boot in the BACKGROUND and return
+      // an auto-refreshing "waking up" splash so the app feels alive instead of
+      // hanging. Assets/XHR fall through to the blocking boot below (real response).
+      if (wantsHtml) {
+        this.liveState = 'booting';
+        this.metaSet('state', 'booting');
+        this.ctx.waitUntil(
+          this.startApp({ image, port: Number(port), env: JSON.parse(envJson) }).catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.liveState = 'crashed';
+            this.metaSet('state', 'crashed');
+            this.metaSet('last_error', msg);
+          }),
+        );
+        return this.bootSplash();
+      }
+
       try {
         await this.startApp({
           image,
@@ -321,6 +353,32 @@ export class AppRuntimeContainer extends Container<Env> {
       this.maybeAutoRestart();
       return new Response(`Container error: ${msg}`, { status: 502 });
     }
+  }
+
+  /**
+   * Auto-refreshing "waking up" interstitial shown to a browser while a
+   * hibernated container cold-boots (scale-to-zero, Phase 2). 202 + `refresh`
+   * meta so the page reloads itself until the container is warm + serving.
+   */
+  private bootSplash(): Response {
+    const html =
+      '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<meta http-equiv="refresh" content="2"><title>Waking up…</title><style>' +
+      "html,body{height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;" +
+      "background:#060610;color:#f4f4ff;font-family:'Sora',system-ui,sans-serif}.box{text-align:center;padding:2rem}" +
+      '.spin{width:38px;height:38px;margin:0 auto 1.1rem;border:3px solid rgba(0,229,255,.2);' +
+      'border-top-color:#00e5ff;border-radius:50%;animation:s .8s linear infinite}' +
+      '@keyframes s{to{transform:rotate(360deg)}}h1{font-size:1.05rem;font-weight:600;margin:0 0 .4rem}' +
+      'p{font-size:.8rem;color:rgba(244,244,255,.6);margin:0;max-width:34ch}' +
+      '@media(prefers-reduced-motion:reduce){.spin{animation:none}}</style></head><body><div class="box">' +
+      '<div class="spin"></div><h1>Waking your app…</h1>' +
+      "<p>This app scales to zero when idle — it'll be ready in a few seconds.</p>" +
+      '</div></body></html>';
+    return new Response(html, {
+      status: 202,
+      headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' },
+    });
   }
 
   /** Last N log lines from the ring buffer, newest last. */
