@@ -20,19 +20,23 @@
  * building→completed + email — see _LOOP_LEDGER fire-v2.51 (remaining wire).
  */
 import { Hono } from 'hono';
+
 import type { Env, Variables } from '../types/env.js';
-import { resolveLeadByShortlink, markClaimLinkClicked } from '../services/claim_links.js';
+
+import { sendClaimBuildEmail } from '../services/claim_build_emails.js';
+import { canStartBuild } from '../services/claim_build_session.js';
+import { toCreateFormPrefill } from '../services/claim_lead_profile.js';
+import { markClaimLinkClicked, resolveLeadByShortlink } from '../services/claim_links.js';
+import { PLATFORM_CLAIMS_ORG_ID, transferClaimSite } from '../services/claim_org.js';
 import {
-  loadOrCreateSession,
   applyClaimEvent,
   getSession,
+  loadOrCreateSession,
 } from '../services/claim_session_store.js';
-import { canStartBuild } from '../services/claim_build_session.js';
-import { getLead } from '../services/lead_store.js';
-import { toCreateFormPrefill } from '../services/claim_lead_profile.js';
-import { createSite } from '../services/site_create.js';
 import { buildClaimSiteParams } from '../services/claim_site_params.js';
-import { PLATFORM_CLAIMS_ORG_ID, transferClaimSite } from '../services/claim_org.js';
+import { getLead } from '../services/lead_store.js';
+import { sendEmail } from '../services/notifications.js';
+import { createSite } from '../services/site_create.js';
 
 // Re-export so existing importers (+ tests) keep resolving it from this route.
 export { PLATFORM_CLAIMS_ORG_ID };
@@ -91,19 +95,19 @@ claimRoutes.get('/api/claim/:shortlink', async (c) => {
         const site = await createSite(
           c.env,
           {
-            orgId: PLATFORM_CLAIMS_ORG_ID,
-            slug,
+            businessAddress: lead.profile.address ?? null,
+            businessEmail: lead.profile.email ?? null,
             businessName: lead.profile.businessName,
             businessPhone: lead.profile.phone ?? null,
-            businessEmail: lead.profile.email ?? null,
-            businessAddress: lead.profile.address ?? null,
+            orgId: PLATFORM_CLAIMS_ORG_ID,
+            slug,
           },
-          { requestId: c.get('requestId'), executionCtx: execCtx },
+          { executionCtx: execCtx, requestId: c.get('requestId') },
         );
 
         await applyClaimEvent(c.env.DB, sessionId, link.leadId, {
-          type: 'START_BUILD',
           siteId: site.id,
+          type: 'START_BUILD',
         });
 
         const wf = c.env.SITE_WORKFLOW;
@@ -113,14 +117,43 @@ claimRoutes.get('/api/claim/:shortlink', async (c) => {
               .create({
                 id: site.id,
                 params: buildClaimSiteParams(lead.profile, {
+                  orgId: PLATFORM_CLAIMS_ORG_ID,
                   siteId: site.id,
                   slug,
-                  orgId: PLATFORM_CLAIMS_ORG_ID,
                 }),
               })
               .catch(() => {
                 /* session is already 'building'; the consumer can pick it up */
               }),
+          );
+        }
+
+        // Tell the owner "we're building it" — the started email completes the
+        // claim notification lifecycle (started → finished/failed via the
+        // build-status callback). Best-effort + waitUntil'd so it never delays
+        // the 302; only sends when the lead has a real recipient address.
+        const ownerEmail = lead.profile.email;
+        if (ownerEmail && execCtx) {
+          execCtx.waitUntil(
+            sendClaimBuildEmail(
+              'started',
+              ownerEmail,
+              {
+                businessName: lead.profile.businessName,
+                createUrl: `https://projectsites.dev/create?claim=${encodeURIComponent(shortlink)}`,
+              },
+              {
+                send: (m) =>
+                  sendEmail(c.env, {
+                    category: 'claim_build',
+                    html: m.html,
+                    subject: m.subject,
+                    to: m.to,
+                  }),
+              },
+            ).catch(() => {
+              /* started email is best-effort; the build proceeds regardless */
+            }),
           );
         }
       } catch {
@@ -156,10 +189,10 @@ claimRoutes.get('/api/claim/:shortlink/profile', async (c) => {
   const session = await getSession(c.env.DB, sessionId);
   return c.json({
     data: {
-      prefill: toCreateFormPrefill(lead.profile),
-      sessionId,
       buildStatus: session?.status ?? 'pending',
+      prefill: toCreateFormPrefill(lead.profile),
       previewUrl: session?.previewUrl ?? null,
+      sessionId,
     },
   });
 });
@@ -190,10 +223,10 @@ claimRoutes.post('/api/claim/:shortlink/adopt', async (c) => {
 
   const result = await transferClaimSite(c.env, session.siteId, orgId, userId);
   if (result.transferred) {
-    return c.json({ data: { siteId: session.siteId, slug: result.slug, claimed: true } }, 200);
+    return c.json({ data: { claimed: true, siteId: session.siteId, slug: result.slug } }, 200);
   }
   if (result.reason === 'already_yours') {
-    return c.json({ data: { siteId: session.siteId, claimed: true } }, 200);
+    return c.json({ data: { claimed: true, siteId: session.siteId } }, 200);
   }
   if (result.reason === 'already_claimed') {
     return c.json(

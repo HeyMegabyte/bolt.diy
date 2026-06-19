@@ -27,6 +27,11 @@ jest.mock('../services/claim_session_store.js', () => ({
   getSession: jest.fn(),
 }));
 jest.mock('../services/lead_store.js', () => ({ getLead: jest.fn() }));
+jest.mock('../services/notifications.js', () => ({
+  sendEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { sendEmail } from '../services/notifications.js';
 
 const mockResolve = resolveLeadByShortlink as jest.Mock;
 const mockClicked = markClaimLinkClicked as jest.Mock;
@@ -34,6 +39,7 @@ const mockLoad = loadOrCreateSession as jest.Mock;
 const mockApply = applyClaimEvent as jest.Mock;
 const mockGetSession = getSession as jest.Mock;
 const mockGetLead = getLead as jest.Mock;
+const mockSendEmail = sendEmail as jest.Mock;
 
 /** D1 stub — createSite's dbInsert + writeAuditLog run against it. `insertFails`
  *  makes `.run()` throw so dbInsert surfaces an error → createSite throws. */
@@ -65,7 +71,24 @@ beforeEach(() => {
   mockApply.mockReset().mockResolvedValue(undefined);
   mockGetSession.mockReset().mockResolvedValue(null);
   mockGetLead.mockReset().mockResolvedValue(null);
+  mockSendEmail.mockReset().mockResolvedValue(undefined);
 });
+
+/**
+ * Drive the funnel WITH an ExecutionContext so the background work (workflow
+ * kick + the "we're building it" started email) actually runs — collect the
+ * waitUntil promises and await them so the test can assert the side effects.
+ */
+async function getWithCtx(path: string, db: D1Database = makeDb()) {
+  const pending: Promise<unknown>[] = [];
+  const ctx = {
+    waitUntil: (p: Promise<unknown>) => pending.push(p),
+    passThroughOnException: () => {},
+  };
+  const res = await app().request(path, {}, { DB: db } as never, ctx as never);
+  await Promise.allSettled(pending);
+  return res;
+}
 
 describe('GET /api/claim/:shortlink', () => {
   it('404s an unknown shortlink (no session, no redirect)', async () => {
@@ -108,6 +131,34 @@ describe('GET /api/claim/:shortlink', () => {
     expect(event.type).toBe('START_BUILD');
     expect(typeof event.siteId).toBe('string');
     expect(event.siteId.length).toBeGreaterThan(0);
+  });
+
+  it('emails the owner "we are building it" when the lead has an email + a build starts', async () => {
+    mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
+    mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9')); // pending
+    mockGetLead.mockResolvedValue({
+      leadId: 'lead_9',
+      profile: { businessName: 'Acme Roofing', email: 'owner@acme.test' },
+    });
+
+    await getWithCtx('/api/claim/abc12345');
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const [, opts] = mockSendEmail.mock.calls[0];
+    expect(opts.to).toBe('owner@acme.test');
+    expect(opts.subject).toMatch(/building your website/i);
+    expect(opts.category).toBe('claim_build');
+    expect(opts.html).toContain('Acme Roofing');
+  });
+
+  it('does NOT email when the lead has no email (started email needs a recipient)', async () => {
+    mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
+    mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9'));
+    mockGetLead.mockResolvedValue({ leadId: 'lead_9', profile: { businessName: 'Acme' } });
+
+    await getWithCtx('/api/claim/abc12345');
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it('does NOT start the build when the lead is gone (still 302)', async () => {
