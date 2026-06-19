@@ -1,4 +1,4 @@
-import { mapClaimPrefillToFields } from './claim-prefill';
+import { mapClaimPrefillToFields, parseClaimBuildState } from './claim-prefill';
 
 /**
  * #1 claimyour.site — the /create prefill mapper. Pure: the component fetches the
@@ -31,12 +31,58 @@ describe('mapClaimPrefillToFields', () => {
   });
 
   it('falls back website→existingWebsite and context→notes', () => {
-    const f = mapClaimPrefillToFields({ businessName: 'X', website: 'https://w', notes: 'note text' });
+    const f = mapClaimPrefillToFields({
+      businessName: 'X',
+      website: 'https://w',
+      notes: 'note text',
+    });
     expect(f.businessWebsite).toBe('https://w');
     expect(f.additionalContext).toBe('note text');
   });
 
   it('returns an empty object for an empty payload', () => {
     expect(mapClaimPrefillToFields({})).toEqual({});
+  });
+});
+
+describe('parseClaimBuildState', () => {
+  it('reports a building status as non-terminal with no preview', () => {
+    const s = parseClaimBuildState({ buildStatus: 'building' });
+    expect(s.status).toBe('building');
+    expect(s.previewUrl).toBeNull();
+    expect(s.terminal).toBe(false);
+  });
+
+  it('reports pending as non-terminal (keep polling)', () => {
+    expect(parseClaimBuildState({ buildStatus: 'pending' }).terminal).toBe(false);
+  });
+
+  it('captures the preview URL + marks terminal on completed', () => {
+    const s = parseClaimBuildState({
+      buildStatus: 'completed',
+      previewUrl: 'https://acme.projectsites.dev',
+    });
+    expect(s.status).toBe('completed');
+    expect(s.previewUrl).toBe('https://acme.projectsites.dev');
+    expect(s.terminal).toBe(true);
+  });
+
+  it('marks failed terminal but never surfaces a preview', () => {
+    const s = parseClaimBuildState({ buildStatus: 'failed', previewUrl: 'https://x' });
+    expect(s.status).toBe('failed');
+    expect(s.previewUrl).toBeNull();
+    expect(s.terminal).toBe(true);
+  });
+
+  it('ignores a previewUrl that arrives before completion', () => {
+    const s = parseClaimBuildState({ buildStatus: 'building', previewUrl: 'https://early' });
+    expect(s.previewUrl).toBeNull();
+  });
+
+  it('collapses an unknown/absent/malformed status to unknown, non-terminal', () => {
+    expect(parseClaimBuildState({ buildStatus: 'weird' }).status).toBe('unknown');
+    expect(parseClaimBuildState({}).status).toBe('unknown');
+    expect(parseClaimBuildState(null).terminal).toBe(false);
+    expect(parseClaimBuildState(undefined).previewUrl).toBeNull();
   });
 });

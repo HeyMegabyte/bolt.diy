@@ -26,6 +26,46 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim().length > 0 ? v : undefined;
 }
 
+/** A claim build's lifecycle status as seen by the /create page. */
+export type ClaimBuildStatus = 'pending' | 'building' | 'completed' | 'failed' | 'unknown';
+
+/** Parsed build state for the claim funnel banner + poll loop. */
+export interface ClaimBuildState {
+  /** Normalized status; unrecognized/absent values collapse to 'unknown'. */
+  status: ClaimBuildStatus;
+  /** The live preview URL once the build completes, else null. */
+  previewUrl: string | null;
+  /** True once the build reached a terminal state → the poll loop can stop. */
+  terminal: boolean;
+}
+
+const KNOWN_STATUSES: ReadonlySet<string> = new Set(['pending', 'building', 'completed', 'failed']);
+
+/**
+ * Parse the `data` of a `GET /api/claim/:shortlink/profile` response into the
+ * build state the /create funnel renders + polls on. Pure + total — any
+ * malformed/absent payload yields `{ status: 'unknown', previewUrl: null,
+ * terminal: false }` so a bad response never wedges the poll loop OR shows a
+ * preview link that doesn't exist.
+ *
+ * @param data - The profile response `data` ({ buildStatus?, previewUrl? }).
+ * @returns A {@link ClaimBuildState}. `terminal` is true only for completed/failed.
+ * @example
+ * parseClaimBuildState({ buildStatus: 'building' })
+ * // → { status: 'building', previewUrl: null, terminal: false }
+ * parseClaimBuildState({ buildStatus: 'completed', previewUrl: 'https://x.projectsites.dev' })
+ * // → { status: 'completed', previewUrl: 'https://x.projectsites.dev', terminal: true }
+ */
+export function parseClaimBuildState(
+  data: { buildStatus?: unknown; previewUrl?: unknown } | null | undefined,
+): ClaimBuildState {
+  const raw = typeof data?.buildStatus === 'string' ? data.buildStatus : '';
+  const status: ClaimBuildStatus = KNOWN_STATUSES.has(raw) ? (raw as ClaimBuildStatus) : 'unknown';
+  const previewUrl = status === 'completed' ? (str(data?.previewUrl) ?? null) : null;
+  const terminal = status === 'completed' || status === 'failed';
+  return { status, previewUrl, terminal };
+}
+
 /**
  * Translate a claim prefill payload into /create field values.
  *
