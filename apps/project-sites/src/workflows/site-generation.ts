@@ -91,6 +91,28 @@ async function updateSiteStatus(db: D1Database, siteId: string, status: string):
   }
 }
 
+/**
+ * Notify the org owner that a build failed, via the typed Novu `build.failed`
+ * event (bell + channels). Best-effort: any failure is swallowed so it never
+ * affects the workflow's own error handling.
+ *
+ * @param env - Worker bindings (needs DB + NOVU_SECRET_KEY for delivery).
+ * @param orgId - The org whose owner is notified.
+ * @param siteId - The site that failed to build.
+ * @param reason - Human-readable failure reason.
+ */
+async function notifyBuildFailed(env: Env, orgId: string, siteId: string, reason: string): Promise<void> {
+  try {
+    const { notifyOwnerEvent } = await import('../services/notify.js');
+    await notifyOwnerEvent(env, env.DB, {
+      orgId,
+      event: { event: 'build.failed', tenantId: orgId, siteId, error: reason || 'unknown error' },
+    });
+  } catch {
+    /* bell is best-effort */
+  }
+}
+
 /** Write a workflow audit log entry (best-effort, never throws). */
 async function workflowLog(
   db: D1Database,
@@ -959,6 +981,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         reason: `Build timed out after ${MAX_POLLS} heartbeat polls`,
         code: 'timeout',
       });
+      await notifyBuildFailed(env, params.orgId, params.siteId, `Build timed out after ${MAX_POLLS * 30}s`);
       throw new Error('Build timed out after ' + MAX_POLLS + ' heartbeat polls');
     }
 
@@ -974,6 +997,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         reason: finalStatus.error || 'unknown error',
         code: finalStatus.step || 'build_failed',
       });
+      await notifyBuildFailed(env, params.orgId, params.siteId, finalStatus.error || 'unknown error');
       throw new Error('Build failed: ' + (finalStatus.error || 'unknown error'));
     }
 
@@ -1013,6 +1037,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             reason: `R2 upload produced 0 files (failed=${uploadResult?.failed ?? 'n/a'})`,
             code: 'upload_failed',
           });
+          await notifyBuildFailed(env, params.orgId, params.siteId, 'Publishing failed — the build produced no files');
           throw new Error(
             `R2 upload produced 0 files (uploadResult=${JSON.stringify(uploadResult)})`,
           );
