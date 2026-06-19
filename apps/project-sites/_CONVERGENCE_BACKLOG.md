@@ -83,7 +83,9 @@ network `projectsites-automation`).
 ### Plane C — `browser.projectsites.dev` (provider-neutral browser gateway)
 - **▸Technical** — `packages/browser-router` + provider adapters (`cloudflare-browser-run`,
   `stagehand-cloudflare`, `skyvern`, `browserbase`, `steel`, `local`) + `browser-artifacts` +
-  `browser-safety` + `browser-evals`. Typed contract (`BrowserTaskRequest`/`BrowserTaskResult`,
+  `browser-safety` + `browser-evals` + a **Firecrawl** adapter (`G4brym/workers-firecrawl`, the
+  CF-Workers Firecrawl) for managed crawl/scrape/markdown when self-driving Browser Run is overkill.
+  Typed contract (`BrowserTaskRequest`/`BrowserTaskResult`,
   discriminated `BrowserProvider`/`BrowserEngine`/`BrowserTaskMode`/`BrowserFailureCode`, exhaustive
   switches). Endpoints `POST /run|/screenshot|/pdf|/extract|/crawl|/session|/stagehand/{act,extract,
   observe}` + `GET /runs/:id|/runs/:id/events(SSE)` + `POST /runs/:id/cancel`. **Default = Cloudflare
@@ -185,6 +187,32 @@ network `projectsites-automation`).
 - **▸Philosophical** — *platform secrets ≠ customer secrets* (different ownership → different stores).
 - **▸Business / flags** — `infisical_sync`, `tenant_credential_vault`.
 - **Evidence** — Infisical CF-Workers Sync — push-on-change to Worker env, not per-request; `wrangler secret bulk` ≤100 — retrieved 2026-06-18. · Vault Transit envelope encryption — per-tenant DEK, context-scoped KEK — retrieved 2026-06-18.
+
+### Plane H — Unified Analytics ingestion (event API → PostHog/Sentry/GA4/GTM fan-out)
+- **▸Technical** — a single `POST /api/events` Worker endpoint collects events from every
+  generated customer site (the generator injects a `navigator.sendBeacon` tracker into each
+  `index.html`), Zod-validates (`IncomingEventSchema`), writes a local copy to **per-site D1**
+  (`analytics_events`), and enqueues to a per-site **Durable Object `EventDispatcher`** keyed by
+  `siteId` (single instance → lock-free dedup). The DO: dedups by `eventId` (48h window), batches
+  (10 events OR 5s), retries with exponential backoff (≤6) then a **dead-letter queue**, runs a
+  **per-provider circuit breaker** (open at 5 consecutive fails, half-open after 60s), and fans out
+  via `Promise.allSettled` to **Sentry FIRST** (error-critical path), then PostHog, GA4
+  (Measurement Protocol), GTM — each via a provider-specific payload transform (never raw to all).
+  Fast-ack `202` to the client (<500ms SLA; never blocks on provider latency). Idempotency keys on
+  forward; GeoIP from `CF-Connecting-IP`; HMAC-signed payloads; per-site quotas (`site_quotas`,
+  free 10k/mo · pro 1M · enterprise ∞ → `429` + quota-DLQ); sampling (`sample_rate`); replay/forensics
+  (`raw_headers`). Debug surfaces: `GET /api/analytics-debug` (last-50 + circuit state),
+  `POST /api/test-event?provider=` (synthetic per-provider connection test), `/api/analytics-data`
+  (the Analytics tab feed). Diagnostics-first: the existing "Analytics tab shows nothing" bug is the
+  injected-tracker + D1-schema + query-target checklist in the handoff.
+- **▸In-spirit** — a site owner sees real traffic within seconds; ops see per-provider delivery
+  status live without waiting on a vendor dashboard.
+- **▸Philosophical** — *at-least-once delivery with dedup; degrade gracefully, never drop silently*
+  (DLQ + circuit breakers); Sentry is the critical path, the rest are best-effort.
+- **▸Business / flags** — `unified_analytics_ingest`, `analytics_live_events`. Tables:
+  analytics_events, dead_letter_events, event_dedup, provider_credentials, circuit_breaker_state,
+  site_quotas. Credentials already in D1; rotate via `/api/rotate-credentials` (admin).
+- **Evidence** — CF Durable Objects — single-instance-per-key gives lock-free dedup + alarm-based retry scheduling + SQLite state across crashes — retrieved 2026-06-18. · GA4 Measurement Protocol / PostHog capture / Sentry envelope — provider-specific payload shapes (never forward raw) — retrieved 2026-06-18.
 
 ---
 
@@ -316,6 +344,29 @@ health,backup,restore,test}`. Docs: `docs/architecture/{ai-gateway,model-routing
 secrets,ollama}.md` + `docs/operations/{llm-gateway,langfuse,browser-run,infisical,trigger,inngest,
 novu}.md` + provider decision matrix + cost model + safety policy + feature-flag docs. **No real secrets
 in the repo; `.env.example` is names-only.**
+
+---
+
+## 8 — Agent-OS meta-layer (global `~/.claude` / `~/.agentskills` — distinct from this repo)
+
+Two of the source prompts are **meta**: they optimize Brian's global AI operating system
+(`~/.claude/CLAUDE.md` short durable laws · skills loaded on trigger · subagents · hooks · path-scoped
+rules · the 25-paradigm `~/.agentskills/skill-*` set · the model-routing + server-side-tool-execution +
+ProjectSites-MCP + AI-endpoint doctrines). That work lands in `~/.claude` + `~/.agentskills` (backed up
+timestamped first, audit file, evidence-cited, list-based), **not** in this repo. The convergence LOOP
+already operates under those rules; new lessons fold back into `~/.agentskills` the same turn
+(`prompt-as-training-signal`). This backlog tracks only the PRODUCT planes (§1) + features (§5); the
+agent-OS refactor is its own session against the home dir.
+
+---
+
+## 9 — Credentials status (this arc)
+
+- **Novu** — `NOVU_APPLICATION_IDENTIFIER` (`TmBjOXewtEG8`, public), `NOVU_SECRET_KEY`, `NOVU_API_URL`,
+  `NOVU_SOCKET_URL` all saved to the chezmoi `get-secret` vault; `NOVU_SECRET_KEY` uploaded to the prod
+  worker secret; frontend app id fixed. **Rotate the secret** (it traveled through chat). 
+- **Firecrawl** — wire `FIRECRAWL_API_KEY` (or self-host `G4brym/workers-firecrawl`) as a Worker secret
+  before enabling the `firecrawl` browser adapter.
 
 ---
 
