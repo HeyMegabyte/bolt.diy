@@ -19,7 +19,8 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
-import { createLead, listLeads } from '../services/lead_store.js';
+import { createLead, listLeads, getLead } from '../services/lead_store.js';
+import { createClaimLink } from '../services/claim_links.js';
 import type { PlacesResult } from '../services/google_places.js';
 import type { PlacesSearchHit } from '../services/places_search.js';
 
@@ -145,4 +146,26 @@ adminLeads.get('/api/admin/leads', async (c) => {
   });
 
   return c.json({ leads, count: leads.length }, 200);
+});
+
+/**
+ * `POST /api/admin/leads/:id/claim-link` — mint a shareable claim link for a
+ * scanned lead (the "+ claim links" half of #9: outreach embeds this URL; the
+ * recipient lands in the prefilled claim funnel). Same gate chain. Verifies the
+ * lead exists first (404 — never mint a link to a junk lead). The returned URL
+ * resolves at `GET /api/claim/:shortlink`.
+ */
+adminLeads.post('/api/admin/leads/:id/claim-link', async (c) => {
+  const requestId = c.get('requestId');
+  const blocked = await gateLeadScanner(c);
+  if (blocked) return blocked;
+
+  const leadId = c.req.param('id');
+  const lead = await getLead(c.env.DB, leadId);
+  if (!lead) {
+    return c.json(errorBody('NOT_FOUND', 'Lead not found', requestId), 404);
+  }
+
+  const { token } = await createClaimLink(c.env.DB, leadId);
+  return c.json({ token, claimUrl: `https://projectsites.dev/api/claim/${token}` }, 200);
 });

@@ -16,7 +16,12 @@ import { isSuperAdmin } from '../services/sysadmin.js';
 jest.mock('../modules/feature_flags/services.js', () => ({ isFlagOn: jest.fn() }));
 jest.mock('../services/sysadmin.js', () => ({ isSuperAdmin: jest.fn() }));
 jest.mock('../services/places_search.js', () => ({ searchPlacesByQuery: jest.fn() }));
-jest.mock('../services/lead_store.js', () => ({ createLead: jest.fn(), listLeads: jest.fn() }));
+jest.mock('../services/lead_store.js', () => ({
+  createLead: jest.fn(),
+  listLeads: jest.fn(),
+  getLead: jest.fn(),
+}));
+jest.mock('../services/claim_links.js', () => ({ createClaimLink: jest.fn() }));
 
 const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
 const mockIsSuperAdmin = isSuperAdmin as jest.MockedFunction<typeof isSuperAdmin>;
@@ -26,6 +31,10 @@ const mockSearch = require('../services/places_search.js').searchPlacesByQuery a
 const mockCreateLead = require('../services/lead_store.js').createLead as jest.Mock;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mockListLeads = require('../services/lead_store.js').listLeads as jest.Mock;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mockGetLead = require('../services/lead_store.js').getLead as jest.Mock;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mockCreateClaimLink = require('../services/claim_links.js').createClaimLink as jest.Mock;
 
 /** Mount the route behind a middleware that injects the authed-session vars. */
 function makeApp(auth: { userId?: string; orgId?: string }) {
@@ -74,10 +83,16 @@ beforeEach(() => {
   mockSearch.mockResolvedValue([]);
   mockCreateLead.mockResolvedValue({ leadId: 'lead_1' });
   mockListLeads.mockResolvedValue([]);
+  mockGetLead.mockResolvedValue({ leadId: 'lead_1', profile: { businessName: 'Acme' } });
+  mockCreateClaimLink.mockResolvedValue({ token: 'abc12345', leadId: 'lead_1' });
 });
 
 function getLeads(app: Hono, query = '') {
   return app.request(`/api/admin/leads${query}`, { method: 'GET' }, env);
+}
+
+function mintLink(app: Hono, leadId = 'lead_1') {
+  return app.request(`/api/admin/leads/${leadId}/claim-link`, { method: 'POST' }, env);
 }
 
 describe('POST /api/admin/leads/scan', () => {
@@ -193,5 +208,40 @@ describe('GET /api/admin/leads', () => {
     const res = await getLeads(makeApp({ userId: 'u1', orgId: 'o1' }), '?limit=99999');
     expect(res.status).toBe(400);
     expect(mockListLeads).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/admin/leads/:id/claim-link', () => {
+  it('401s when unauthenticated', async () => {
+    expect((await mintLink(makeApp({}))).status).toBe(401);
+    expect(mockCreateClaimLink).not.toHaveBeenCalled();
+  });
+
+  it('404s when the lead_scanner flag is off', async () => {
+    mockIsFlagOn.mockResolvedValue(false);
+    expect((await mintLink(makeApp({ userId: 'u1', orgId: 'o1' }))).status).toBe(404);
+    expect(mockCreateClaimLink).not.toHaveBeenCalled();
+  });
+
+  it('403s when authed + flag-on but not a super-admin', async () => {
+    mockIsSuperAdmin.mockResolvedValue(false);
+    expect((await mintLink(makeApp({ userId: 'u1', orgId: 'o1' }))).status).toBe(403);
+    expect(mockCreateClaimLink).not.toHaveBeenCalled();
+  });
+
+  it('404s when the lead does not exist (no junk claim link)', async () => {
+    mockGetLead.mockResolvedValue(null);
+    const res = await mintLink(makeApp({ userId: 'u1', orgId: 'o1' }), 'gone');
+    expect(res.status).toBe(404);
+    expect(mockCreateClaimLink).not.toHaveBeenCalled();
+  });
+
+  it('200s with the token + shareable claim URL for an existing lead', async () => {
+    const res = await mintLink(makeApp({ userId: 'u1', orgId: 'o1' }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string; claimUrl: string };
+    expect(body.token).toBe('abc12345');
+    expect(body.claimUrl).toBe('https://projectsites.dev/api/claim/abc12345');
+    expect(mockCreateClaimLink).toHaveBeenCalledWith(env.DB, 'lead_1');
   });
 });
