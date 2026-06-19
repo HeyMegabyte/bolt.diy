@@ -163,6 +163,7 @@ export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
 //   redeployment doesn't fail with "unknown class" for the historical DO namespace.
 //   Once all instances are drained the stub is safe to remove entirely.
 export { ConversationHub } from './durable_objects/conversation_hub.js';
+export { EventDispatcher } from './durable_objects/event_dispatcher.js';
 export {
   UmamiContainer,
   OutlineContainer,
