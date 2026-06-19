@@ -155,3 +155,28 @@ describe('GET /api/analytics-data', () => {
     expect(body.events[0]?.payload).toEqual({ path: '/' });
   });
 });
+
+describe('POST /api/test-event', () => {
+  it('returns 400 without siteId', async () => {
+    const res = await analyticsRoutes.request('/api/test-event', { method: 'POST' }, mockEnv);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for an unknown provider', async () => {
+    const res = await analyticsRoutes.request('/api/test-event?siteId=s1&provider=bogus', { method: 'POST' }, mockEnv);
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toBe('bad_provider');
+  });
+
+  it('returns 200 + ok with a fresh eventId and dispatched:false (no DO)', async () => {
+    const m = mockDb();
+    const env = { DB: m.db } as unknown as import('../types/env.js').Env;
+    const res = await analyticsRoutes.request('/api/test-event?siteId=s1&provider=sentry', { method: 'POST' }, env);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { ok: boolean; eventId: string; provider: string; dispatched: boolean };
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe('sentry');
+    expect(body.dispatched).toBe(false);
+    expect(body.eventId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});

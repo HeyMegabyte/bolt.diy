@@ -250,3 +250,69 @@ function safeParse(s: string): unknown {
     return {};
   }
 }
+
+// ---------------------------------------------------------------------------
+// POST /api/test-event — synthetic event injector (ops "Test Connection")
+// ---------------------------------------------------------------------------
+
+const TEST_PROVIDERS = ['all', 'sentry', 'posthog', 'ga4', 'gtm'] as const;
+
+/**
+ * Inject a synthetic event for a site to confirm the ingestion pipeline works
+ * end-to-end without waiting for real traffic — the admin "Test Connection"
+ * affordance. Builds a valid event, persists it to D1 (so it appears in the
+ * Analytics feed), and enqueues to the dispatcher DO when bound. Never throws.
+ *
+ * @param siteId - Required query param.
+ * @param provider - Optional `all|sentry|posthog|ga4|gtm` (default `all`); recorded in the payload.
+ * @returns 200 `{ ok, eventId, siteId, provider, dispatched }` or 400 on bad input.
+ * @example POST /api/test-event?siteId=s1&provider=sentry
+ */
+analyticsRoutes.post('/api/test-event', async (c) => {
+  const siteId = c.req.query('siteId');
+  if (!siteId) {
+    return c.json({ ok: false, error: 'missing_param', details: 'siteId query param is required.' }, 400);
+  }
+  const provider = (c.req.query('provider') ?? 'all') as (typeof TEST_PROVIDERS)[number];
+  if (!TEST_PROVIDERS.includes(provider)) {
+    return c.json({ ok: false, error: 'bad_provider', details: `provider must be one of ${TEST_PROVIDERS.join(', ')}.` }, 400);
+  }
+
+  const event: IncomingEvent = {
+    eventId: crypto.randomUUID(),
+    siteId,
+    eventType: 'custom',
+    timestamp: Date.now(),
+    payload: { test: true, provider, source: 'test-event' },
+  };
+
+  const env = c.env;
+  if (env.DB) {
+    const w = persistAnalyticsEvent(env.DB, event);
+    try {
+      c.executionCtx.waitUntil(w);
+    } catch {
+      void w;
+    }
+  }
+
+  let dispatched = false;
+  if (env.EVENT_DISPATCHER) {
+    dispatched = true;
+    const p = (async () => {
+      try {
+        const stub = env.EVENT_DISPATCHER!.get(env.EVENT_DISPATCHER!.idFromName(siteId));
+        await stub.fetch(new Request('https://do/enqueue', { method: 'POST', body: JSON.stringify(event) }));
+      } catch (err) {
+        console.warn(JSON.stringify({ level: 'warn', msg: 'analytics.test_enqueue_failed', siteId, error: String(err) }));
+      }
+    })();
+    try {
+      c.executionCtx.waitUntil(p);
+    } catch {
+      void p;
+    }
+  }
+
+  return c.json({ ok: true, eventId: event.eventId, siteId, provider, dispatched }, 200);
+});
