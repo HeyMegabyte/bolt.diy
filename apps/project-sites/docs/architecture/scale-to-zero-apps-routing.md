@@ -100,15 +100,36 @@ Two viable models — **decide per app class**:
 > hibernates. Pure shared-container (A) is reserved for apps explicitly built
 > multi-tenant. **This is the key design decision for Brian.**
 
-### 3.4 Hyperdrive (contract already shipped)
+### 3.4 Connection pooling for Postgres apps (Phase 3 — REVISED finding)
 
-- `withHyperdrive(app.infra)` already declares Hyperdrive whenever Postgres is
-  present (frontend contract + tests, shipped). Worker side, to build:
-  - On provision of a Postgres app, create a **Hyperdrive config** (CF API:
-    `POST /accounts/{acct}/hyperdrive/configs`) pointing at the shared Neon instance's
-    tenant DB; bind it; inject the **Hyperdrive connection string** (not the raw Neon
-    one) into `resolveAppEnv`. Hyperdrive pools + caches → fewer cold Postgres
-    connections across all tenants. Free CF primitive.
+`withHyperdrive(app.infra)` declares Hyperdrive whenever Postgres is present
+(frontend contract + tests, shipped). But building the worker side surfaced a
+**load-bearing constraint** (`root-cause-validator`):
+
+- **Cloudflare Hyperdrive is Worker-binding-scoped.** Its connection endpoint is
+  reachable only from inside a Worker isolate (via `env.HYPERDRIVE`). These catalog
+  apps are **containers that connect to Postgres directly** (the container's own
+  `DATABASE_URL`), with no Worker in the DB path — so a container **cannot** reach a
+  Hyperdrive config. Creating one would produce an unusable resource.
+- **The viable pooling for container apps is Neon's own pooler** (PgBouncer). Neon
+  exposes a pooled endpoint by inserting `-pooler` into the endpoint id
+  (`ep-x-1` → `ep-x-1-pooler`). Connections share a small upstream pool — exactly
+  the "50 tenants on one instance, pooled" win the brief wants, and it works for a
+  container connecting directly.
+- **Caveat (why it's opt-in, not forced):** Neon's pooler runs PgBouncer in
+  *transaction* mode → no session features (LISTEN/NOTIFY, advisory locks, cross-tx
+  prepared statements). Apps needing those keep the **direct** string. So the
+  primitive is exposed per app, not blindly swapped onto every container.
+
+**Shipped this phase:** `toPooledConnectionString()` + a `pooledConnectionString`
+field on `NeonProvisionResult` (the pooling primitive, fully tested). Wiring it onto
+specific apps' `DATABASE_URL`, and the per-app session-vs-pooled flag, is a follow-on
+once the catalog records which apps are pooler-safe.
+
+**To use CF Hyperdrive *specifically*** (Brian's call) the apps would need
+**Worker-mediated DB access** (a Worker DB proxy in front of Postgres) — a larger
+design change. Until then "Hyperdrive" in the catalog reads as "pooled Postgres",
+realized via the Neon pooler.
 
 ---
 
@@ -120,9 +141,12 @@ Two viable models — **decide per app class**:
 2. **Phase 2 — Scale-to-zero (additive, two-way).** Add `sleepAfter` + cold-boot
    splash to `app_runtime`. Idle instances stop costing. Reversible (raise
    `sleepAfter` to ∞).
-3. **Phase 3 — Hyperdrive provisioning (additive).** Create + bind a Hyperdrive
-   config per Postgres app; route `DATABASE_URL` through it. Backwards-compatible
-   (raw connection still works if Hyperdrive is absent).
+3. **Phase 3 — Postgres connection pooling (additive).** REVISED per § 3.4: CF
+   Hyperdrive is Worker-scoped → unreachable from a container, so pooling comes
+   from Neon's pooler instead. Shipped: `toPooledConnectionString()` +
+   `pooledConnectionString` on the provision result (the primitive). Follow-on:
+   flag pooler-safe apps + route their `DATABASE_URL` through the pooled string.
+   Backwards-compatible (direct connection is the default/fallback).
 4. **Phase 4 — Shared Neon instance (ONE-WAY — needs Brian).** Migrate from
    project-per-instance to logical-DB-per-tenant on a shared Neon instance. This
    moves tenant data → requires a migration + backfill + a tested rollback (Neon

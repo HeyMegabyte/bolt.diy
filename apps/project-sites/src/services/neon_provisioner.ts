@@ -29,6 +29,14 @@ const NEON_DEEPLINK = 'https://console.neon.tech/app/settings/api-keys';
 export interface NeonProvisionResult {
   readonly projectId: string;
   readonly connectionString: string;
+  /**
+   * The POOLED (PgBouncer) connection string — connections share a small
+   * upstream pool, so many tenants/containers on one Neon instance don't exhaust
+   * it. Opt-in per app: Neon's pooler is transaction-mode, so apps that need
+   * session features (LISTEN/NOTIFY, advisory locks, cross-tx prepared
+   * statements) must use {@link connectionString} (direct) instead.
+   */
+  readonly pooledConnectionString: string;
   readonly host: string;
   readonly database: string;
   readonly user: string;
@@ -79,6 +87,37 @@ function parsePostgresUri(uri: string): {
 }
 
 /**
+ * Convert a Neon connection string to its POOLED (PgBouncer) endpoint by
+ * inserting `-pooler` into the endpoint id:
+ *   ...@ep-cool-name-123.us-east-2.aws.neon.tech/db
+ *   → ...@ep-cool-name-123-pooler.us-east-2.aws.neon.tech/db
+ *
+ * Pooling is how container apps share one Neon instance without exhausting
+ * connections — the viable substitute for Cloudflare Hyperdrive, which is
+ * Worker-binding-scoped and unreachable from a container connecting to Postgres
+ * directly (see `docs/architecture/scale-to-zero-apps-routing.md` § Phase 3).
+ *
+ * Pure + idempotent: never double-inserts `-pooler`; preserves user/pass/port/
+ * db/query; returns the input unchanged when it isn't a parseable postgres URI.
+ *
+ * @example
+ * toPooledConnectionString('postgres://u:p@ep-x-1.us-east-2.aws.neon.tech/db?sslmode=require')
+ * // → 'postgres://u:p@ep-x-1-pooler.us-east-2.aws.neon.tech/db?sslmode=require'
+ */
+export function toPooledConnectionString(uri: string): string {
+  const m = uri.match(/^(postgres(?:ql)?:\/\/[^@]+@)([^/?]+)(.*)$/);
+  if (!m) return uri;
+  const [, prefix, hostPort, rest] = m;
+  const [host, port] = hostPort.split(':');
+  const dot = host.indexOf('.');
+  const firstSeg = dot === -1 ? host : host.slice(0, dot);
+  const tail = dot === -1 ? '' : host.slice(dot);
+  if (firstSeg.endsWith('-pooler')) return uri; // already pooled — idempotent
+  const pooledHost = `${firstSeg}-pooler${tail}`;
+  return `${prefix}${pooledHost}${port ? `:${port}` : ''}${rest}`;
+}
+
+/**
  * Create a new Neon project + default branch + role + database. Returns the
  * resolved connection URI plus its parsed components for env-var sharding.
  */
@@ -113,6 +152,7 @@ export async function createProject(env: Env, name: string): Promise<NeonProvisi
   return {
     projectId: json.project.id,
     connectionString: uri,
+    pooledConnectionString: toPooledConnectionString(uri),
     host: parts.host,
     database: parts.database || 'neondb',
     user: parts.user || json.roles?.[0]?.name || '',

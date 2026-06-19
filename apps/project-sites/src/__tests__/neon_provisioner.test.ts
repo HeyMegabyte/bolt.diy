@@ -22,6 +22,7 @@ import {
   createProject,
   deleteProject,
   MissingNeonKeyError,
+  toPooledConnectionString,
   type NeonProvisionResult,
 } from '../services/neon_provisioner.js';
 
@@ -122,6 +123,8 @@ describe('createProject', () => {
       projectId: 'proj-123',
       connectionString:
         'postgres://neon_user:s3cr3t@ep-cool-1.us-east-2.aws.neon.tech/neondb?sslmode=require',
+      pooledConnectionString:
+        'postgres://neon_user:s3cr3t@ep-cool-1-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require',
       host: 'ep-cool-1.us-east-2.aws.neon.tech',
       database: 'neondb',
       user: 'neon_user',
@@ -264,5 +267,34 @@ describe('deleteProject', () => {
   it('propagates a network throw from fetch', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('socket hang up'));
     await expect(deleteProject(keyEnv(), 'proj-123')).rejects.toThrow('socket hang up');
+  });
+});
+
+/**
+ * Phase 3 (scale-to-zero): the pooled-connection primitive. Container apps share
+ * one Neon instance via Neon's PgBouncer pooler — the viable stand-in for CF
+ * Hyperdrive (which is Worker-binding-scoped, unreachable from a container).
+ */
+describe('toPooledConnectionString', () => {
+  it('inserts -pooler into the Neon endpoint id, preserving creds/db/query', () => {
+    expect(
+      toPooledConnectionString('postgres://u:p@ep-cool-name-123.us-east-2.aws.neon.tech/db?sslmode=require'),
+    ).toBe('postgres://u:p@ep-cool-name-123-pooler.us-east-2.aws.neon.tech/db?sslmode=require');
+  });
+
+  it('preserves an explicit port', () => {
+    expect(
+      toPooledConnectionString('postgresql://u:p@ep-x-1.region.aws.neon.tech:5432/db'),
+    ).toBe('postgresql://u:p@ep-x-1-pooler.region.aws.neon.tech:5432/db');
+  });
+
+  it('is idempotent — never double-inserts -pooler', () => {
+    const pooled = 'postgres://u:p@ep-x-1-pooler.region.aws.neon.tech/db';
+    expect(toPooledConnectionString(pooled)).toBe(pooled);
+  });
+
+  it('returns the input unchanged when it is not a parseable postgres URI', () => {
+    expect(toPooledConnectionString('not-a-uri')).toBe('not-a-uri');
+    expect(toPooledConnectionString('')).toBe('');
   });
 });
