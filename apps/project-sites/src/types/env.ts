@@ -130,6 +130,16 @@ export interface Env {
    */
   BROWSER?: unknown;
 
+  /**
+   * Browserbase — PREMIUM FALLBACK browser provider (captcha / residential
+   * proxy / session replay / live view / long sessions). NEVER the default:
+   * CF Browser Rendering (`BROWSER`) is primary; the browser gateway routes to
+   * Browserbase only when CF is unavailable or a specialty case demands it.
+   * @see services/browser_gateway.ts
+   */
+  BROWSERBASE_API_KEY?: string;
+  BROWSERBASE_PROJECT_ID?: string;
+
   /** Claude Code build container (Durable Object). */
   SITE_BUILDER?: DurableObjectNamespace;
   /** SQLite-backed Durable Object — global trace ring buffer. */
