@@ -9,10 +9,26 @@
  * these tests. No mocking of executionCtx is needed.
  */
 
-import { analyticsRoutes } from '../routes/analytics.js';
+import { analyticsRoutes, persistAnalyticsEvent } from '../routes/analytics.js';
+import type { IncomingEvent } from '../services/analytics_events.js';
 
 /** Minimal Env stub — all optional/unknown bindings absent */
 const mockEnv = {} as unknown as import('../types/env.js').Env;
+
+const validEvent: IncomingEvent = {
+  eventId: '123e4567-e89b-42d3-a456-426614174000',
+  siteId: 's1',
+  eventType: 'pageview',
+  timestamp: 1_700_000_000_000,
+};
+
+function mockDb(opts: { rows?: unknown[]; runImpl?: jest.Mock } = {}) {
+  const run = opts.runImpl ?? jest.fn().mockResolvedValue({});
+  const all = jest.fn().mockResolvedValue({ results: opts.rows ?? [] });
+  const prepare = jest.fn(() => ({ bind: () => ({ run, all }) }));
+  const exec = jest.fn().mockResolvedValue({});
+  return { db: { prepare, exec } as unknown as D1Database, prepare, run, all, exec };
+}
 
 describe('POST /api/events', () => {
   it('returns 202 + {status:"queued"} for a valid event', async () => {
@@ -86,5 +102,56 @@ describe('GET /api/analytics-debug', () => {
     const body = await res.json() as { events: unknown[]; note: string };
     expect(body.note).toBe('dispatcher_unavailable');
     expect(Array.isArray(body.events)).toBe(true);
+  });
+});
+
+describe('persistAnalyticsEvent', () => {
+  it('INSERT OR IGNOREs the event into analytics_events', async () => {
+    const m = mockDb();
+    await persistAnalyticsEvent(m.db, validEvent);
+    expect(m.prepare).toHaveBeenCalled();
+    expect(String(m.prepare.mock.calls[0][0])).toContain('INSERT OR IGNORE INTO analytics_events');
+    expect(m.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('self-heals once (ensureAnalyticsSchema + retry) when the table is missing', async () => {
+    const run = jest.fn().mockRejectedValueOnce(new Error('no such table')).mockResolvedValue({});
+    const m = mockDb({ runImpl: run });
+    await persistAnalyticsEvent(m.db, validEvent);
+    expect(m.exec).toHaveBeenCalled(); // ensureAnalyticsSchema ran the DDL
+    expect(run).toHaveBeenCalledTimes(2); // original + retry
+  });
+
+  it('never throws even when both insert attempts fail', async () => {
+    const run = jest.fn().mockRejectedValue(new Error('hard fail'));
+    const m = mockDb({ runImpl: run });
+    await expect(persistAnalyticsEvent(m.db, validEvent)).resolves.toBeUndefined();
+  });
+});
+
+describe('GET /api/analytics-data', () => {
+  it('returns 400 without siteId', async () => {
+    const res = await analyticsRoutes.request('/api/analytics-data', { method: 'GET' }, mockEnv);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 200 + db_unavailable note when DB binding absent', async () => {
+    const res = await analyticsRoutes.request('/api/analytics-data?siteId=s1', { method: 'GET' }, mockEnv);
+    expect(res.status).toBe(200);
+    expect((await res.json() as { note: string }).note).toBe('db_unavailable');
+  });
+
+  it('returns stored events with parsed payloads', async () => {
+    const m = mockDb({ rows: [
+      { id: '1', eventId: 'a', eventType: 'pageview', timestamp: 2, payload: '{"path":"/"}', status: 'ingested' },
+      { id: '2', eventId: 'b', eventType: 'click', timestamp: 1, payload: '{"el":"btn"}', status: 'ingested' },
+    ] });
+    const env = { DB: m.db } as unknown as import('../types/env.js').Env;
+    const res = await analyticsRoutes.request('/api/analytics-data?siteId=s1&limit=50', { method: 'GET' }, env);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { events: Array<{ payload: unknown }>; count: number; has_more: boolean };
+    expect(body.count).toBe(2);
+    expect(body.has_more).toBe(false);
+    expect(body.events[0]?.payload).toEqual({ path: '/' });
   });
 });

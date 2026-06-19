@@ -18,9 +18,53 @@
 
 import { Hono } from 'hono';
 import { IncomingEventSchema, type IncomingEvent } from '../services/analytics_events.js';
+import { ensureAnalyticsSchema } from '../services/analytics_schema.js';
 import type { Env } from '../types/env.js';
 
 export const analyticsRoutes = new Hono<{ Bindings: Env }>();
+
+/**
+ * Persist a validated event to the `analytics_events` table (the durable local
+ * copy the Analytics tab reads). Best-effort + never throws: `INSERT OR IGNORE`
+ * dedups on the `eventId UNIQUE` index, and a missing table self-heals once via
+ * {@link ensureAnalyticsSchema} then retries. Independent of the dispatcher DO,
+ * so analytics are readable even before the DO binding goes live.
+ *
+ * @param db - The platform D1 database.
+ * @param event - A schema-validated incoming event.
+ */
+export async function persistAnalyticsEvent(db: D1Database, event: IncomingEvent): Promise<void> {
+  const insert = () =>
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO analytics_events
+           (id, siteId, eventId, eventType, userId, sessionId, timestamp, payload, ip, dedupId, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ingested')`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        event.siteId,
+        event.eventId,
+        event.eventType,
+        event.userId ?? null,
+        event.sessionId ?? null,
+        event.timestamp,
+        JSON.stringify(event.payload ?? {}),
+        event.ip ?? null,
+        event.eventId,
+      )
+      .run();
+  try {
+    await insert();
+  } catch {
+    try {
+      await ensureAnalyticsSchema(db);
+      await insert();
+    } catch (err) {
+      console.warn(JSON.stringify({ level: 'warn', msg: 'analytics.persist_failed', siteId: event.siteId, error: String(err) }));
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // POST /api/events — ingest a single analytics event
@@ -66,6 +110,16 @@ analyticsRoutes.post('/api/events', async (c) => {
 
   const event: IncomingEvent = parsed.data;
   const env = c.env;
+
+  // Durable local copy (the Analytics tab feed) — runs regardless of the DO.
+  if (env.DB) {
+    const dbWrite = persistAnalyticsEvent(env.DB, event);
+    try {
+      c.executionCtx.waitUntil(dbWrite);
+    } catch {
+      void dbWrite;
+    }
+  }
 
   if (env.EVENT_DISPATCHER) {
     const p = (async () => {
@@ -143,3 +197,56 @@ analyticsRoutes.get('/api/analytics-debug', async (c) => {
     return c.json({ events: [], note: 'dispatcher_unavailable' }, 200);
   }
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/analytics-data — the Analytics tab feed (durable D1 store)
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the most recent stored events for a site — what the admin Analytics
+ * tab renders. Reads the `analytics_events` D1 table directly (independent of
+ * the dispatcher DO). Never throws: a missing table / DB yields an empty feed.
+ *
+ * @param siteId - Required query param.
+ * @param limit - Optional, default 100, capped at 500.
+ * @returns 200 `{ events: [...], count, has_more }` or `{ events: [], note }`.
+ * @example GET /api/analytics-data?siteId=s1&limit=50
+ */
+analyticsRoutes.get('/api/analytics-data', async (c) => {
+  const siteId = c.req.query('siteId');
+  if (!siteId) {
+    return c.json({ error: 'missing_param', details: 'siteId query param is required.' }, 400);
+  }
+  const limit = Math.min(500, Math.max(1, Number(c.req.query('limit')) || 100));
+  const db = c.env.DB;
+  if (!db) return c.json({ events: [], count: 0, has_more: false, note: 'db_unavailable' }, 200);
+
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT id, eventId, eventType, userId, sessionId, timestamp, payload, status
+           FROM analytics_events WHERE siteId = ? ORDER BY timestamp DESC LIMIT ?`,
+      )
+      .bind(siteId, limit + 1)
+      .all();
+    const rows = (results ?? []) as Array<Record<string, unknown>>;
+    const hasMore = rows.length > limit;
+    const events = (hasMore ? rows.slice(0, limit) : rows).map((r) => ({
+      ...r,
+      payload: typeof r['payload'] === 'string' ? safeParse(r['payload'] as string) : r['payload'],
+    }));
+    return c.json({ events, count: events.length, has_more: hasMore }, 200);
+  } catch (err) {
+    console.warn(JSON.stringify({ level: 'warn', msg: 'analytics.data_failed', siteId, error: String(err) }));
+    return c.json({ events: [], count: 0, has_more: false, note: 'no_data' }, 200);
+  }
+});
+
+/** Parse a JSON string, returning `{}` on failure (never throws). */
+function safeParse(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return {};
+  }
+}
