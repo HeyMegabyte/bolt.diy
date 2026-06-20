@@ -1,0 +1,117 @@
+/**
+ * Event bus + outbox — CloudEvents envelope validity, idempotent writes,
+ * DLQ-aware failure path. Stub D1 (no real binding), per the convergence
+ * fake-provider-tested mandate.
+ */
+import {
+  buildEvent,
+  writeOutbox,
+  readPendingOutbox,
+  markDispatched,
+  markFailed,
+  ProjectSitesEventSchema,
+  type BuildEventInput,
+} from '../services/event_bus.js';
+import type { Env } from '../types/env.js';
+
+const baseInput: BuildEventInput = {
+  type: 'site.claim.completed',
+  producer: 'worker',
+  tenantId: 't1',
+  traceId: 'trace-abc',
+  siteId: 'site-1',
+  data: { siteId: 'site-1', plan: 'paid' },
+};
+
+/** Stub D1 that records every prepare/bind and returns a scripted result. */
+function stubDb(runResult: { changes?: number } = { changes: 1 }, allRows: unknown[] = []) {
+  const calls: { sql: string; binds: unknown[] }[] = [];
+  const env = {
+    DB: {
+      prepare(sql: string) {
+        const entry = { sql, binds: [] as unknown[] };
+        calls.push(entry);
+        return {
+          bind(...args: unknown[]) {
+            entry.binds = args;
+            return {
+              run: async () => ({ meta: { changes: runResult.changes ?? 0 } }),
+              all: async () => ({ results: allRows }),
+            };
+          },
+        };
+      },
+    },
+  } as unknown as Pick<Env, 'DB'>;
+  return { env, calls };
+}
+
+describe('buildEvent', () => {
+  it('produces a valid CloudEvents 1.0 envelope (deterministic id/time)', () => {
+    const ev = buildEvent(baseInput, 'evt-1', '2026-06-19T00:00:00.000Z');
+    expect(ProjectSitesEventSchema.safeParse(ev).success).toBe(true);
+    expect(ev).toMatchObject({
+      specversion: '1.0',
+      datacontenttype: 'application/json',
+      id: 'evt-1',
+      time: '2026-06-19T00:00:00.000Z',
+      type: 'site.claim.completed',
+      source: 'projectsites/worker',
+      tenantId: 't1',
+      siteId: 'site-1',
+    });
+  });
+
+  it('rejects a missing tenantId (tenant-scoped invariant)', () => {
+    expect(() => buildEvent({ ...baseInput, tenantId: '' }, 'evt-2', '2026-06-19T00:00:00.000Z')).toThrow();
+  });
+
+  it('rejects an unknown event type', () => {
+    expect(() =>
+      buildEvent({ ...baseInput, type: 'bogus.event' as never }, 'evt-3', '2026-06-19T00:00:00.000Z'),
+    ).toThrow();
+  });
+});
+
+describe('writeOutbox — idempotent', () => {
+  const ev = buildEvent(baseInput, 'evt-10', '2026-06-19T00:00:00.000Z');
+
+  it('inserts via INSERT OR IGNORE keyed on the idempotency key', async () => {
+    const { env, calls } = stubDb({ changes: 1 });
+    const res = await writeOutbox(env, ev, 'idem-1');
+    expect(res.inserted).toBe(true);
+    expect(calls[0].sql).toMatch(/INSERT OR IGNORE INTO outbox_events/);
+    expect(calls[0].binds[1]).toBe('idem-1'); // idempotency_key
+    expect(calls[0].binds[3]).toBe('t1'); // tenant_id
+  });
+
+  it('reports inserted=false when the key already existed (changes=0)', async () => {
+    const { env } = stubDb({ changes: 0 });
+    const res = await writeOutbox(env, ev, 'idem-1');
+    expect(res.inserted).toBe(false);
+  });
+});
+
+describe('outbox drain + DLQ', () => {
+  it('reads only pending rows and parses each payload back to an event', async () => {
+    const ev = buildEvent(baseInput, 'evt-20', '2026-06-19T00:00:00.000Z');
+    const { env, calls } = stubDb({ changes: 0 }, [{ payload: JSON.stringify(ev) }]);
+    const pending = await readPendingOutbox(env, 10);
+    expect(calls[0].sql).toMatch(/status = 'pending'/);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].id).toBe('evt-20');
+  });
+
+  it('markDispatched flips status to dispatched', async () => {
+    const { env, calls } = stubDb();
+    await markDispatched(env, 'evt-20', '2026-06-19T01:00:00.000Z');
+    expect(calls[0].sql).toMatch(/status = 'dispatched'/);
+  });
+
+  it('markFailed increments attempts + records last_error (DLQ signal)', async () => {
+    const { env, calls } = stubDb();
+    await markFailed(env, 'evt-20', 'queue publish timeout');
+    expect(calls[0].sql).toMatch(/status = 'failed', attempts = attempts \+ 1/);
+    expect(calls[0].binds[0]).toBe('queue publish timeout');
+  });
+});
