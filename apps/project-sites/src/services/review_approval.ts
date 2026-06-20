@@ -134,7 +134,9 @@ export async function hashReviewPassword(
     ['deriveBits'],
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    // TS 5.9 lib types Uint8Array as Uint8Array<ArrayBufferLike> (not BufferSource);
+    // salt is ArrayBuffer-backed here — cast is safe + version-robust.
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     key,
     256,
   );

@@ -207,7 +207,8 @@ const DEFAULT_MODELS: Record<'openai' | 'anthropic' | 'deepseek', string> = {
 };
 
 /** Exported for unit tests. */
-export const DEFAULT_MODELS_EXPORT: Record<'openai' | 'anthropic' | 'deepseek', string> = DEFAULT_MODELS;
+export const DEFAULT_MODELS_EXPORT: Record<'openai' | 'anthropic' | 'deepseek', string> =
+  DEFAULT_MODELS;
 
 // ─── AI Gateway Helper ──────────────────────────────────────────────────────
 
@@ -1170,7 +1171,9 @@ export async function uploadDocToOpenAI(
     throw new Error('uploadDocToOpenAI: OPENAI_API_KEY is not configured');
   }
 
-  const blob = new Blob([file.bytes], { type: file.mime });
+  // TS 5.9 lib: Uint8Array<ArrayBufferLike> isn't a BlobPart; file.bytes is a
+  // concrete ArrayBuffer/Uint8Array here — cast is safe + version-robust.
+  const blob = new Blob([file.bytes as BlobPart], { type: file.mime });
   const formData = new FormData();
   formData.append('purpose', 'assistants');
   formData.append('file', blob, file.name);

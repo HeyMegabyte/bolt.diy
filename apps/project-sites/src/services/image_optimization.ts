@@ -92,7 +92,18 @@ async function loadCodecs(): Promise<Codecs> {
       initResize(resizeWasm as unknown as WebAssembly.Module),
     ]);
 
-    return { decodePng, decodeJpeg, encodeAvif, encodeWebp, encodePng, resize };
+    // @jsquash's decoder/encoder signatures (bitDepth overloads, ImageData vs
+    // JsquashImageData, optional-vs-required opts) drift across patch versions and
+    // don't structurally match the local Codecs interface. The runtime shape is
+    // correct (these are the real codec fns) — cast once, version-robustly.
+    return {
+      decodePng,
+      decodeJpeg,
+      encodeAvif,
+      encodeWebp,
+      encodePng,
+      resize,
+    } as unknown as Codecs;
   })();
   return codecsReady;
 }
