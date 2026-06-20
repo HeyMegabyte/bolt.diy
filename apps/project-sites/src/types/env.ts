@@ -227,6 +227,14 @@ export interface Env {
   GROQ_API_KEY?: string;
   /** DeepSeek API key — used for standard/instant tiers (OpenAI-compatible, model deepseek-chat). */
   DEEPSEEK_API_KEY?: string;
+  /** AWS access key for Amazon SES (transactional email, ADR-0019). wrangler secret. */
+  AWS_ACCESS_KEY_ID?: string;
+  /** AWS secret key for Amazon SES. wrangler secret. */
+  AWS_SECRET_ACCESS_KEY?: string;
+  /** AWS region for SES (default us-east-1). var. */
+  AWS_DEFAULT_REGION?: string;
+  /** Verified SES sender, e.g. noreply@mail.projectsites.dev. var. */
+  SES_FROM_EMAIL?: string;
 
   // ── Headless Pipeline Config ────────────────────────────────
   /** A/B model split ratio (0-1). 0.5 = 50% OpenAI, 50% Anthropic. Default: 0.5. */

@@ -274,10 +274,12 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     name: 'Amazon SES — transactional email (primary)',
     category: 'email',
     runtime: 'managed-saas',
+    adapterPackage: 'apps/project-sites/src/services/ses_email_provider.ts',
     secretsNamespace: '/email',
-    status: 'planned',
+    status: 'scaffolded',
     access: 'service-only',
-    notes: 'Replaces Resend per ADR-0019.',
+    notes:
+      'AmazonSesEmailProvider built (SigV4 via platform/aws-sigv4, vector-verified); needs AWS_* secrets + wiring behind email.ses.enabled. Replaces Resend per ADR-0019.',
   },
   {
     id: 'email-listmonk',
