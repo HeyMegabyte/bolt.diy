@@ -19,6 +19,8 @@ import { getLead } from './lead_store.js';
 import { handleClaimBuildResult } from './claim_build_completion.js';
 import { sendClaimBuildEmail } from './claim_build_emails.js';
 import { sendEmail } from './notifications.js';
+import { tryEmitEvent } from './emit_event.js';
+import { PLATFORM_CLAIMS_ORG_ID } from './claim_org.js';
 
 /** Container/workflow statuses that mean the build finished successfully. */
 const TERMINAL_OK = new Set(['complete', 'completed', 'published', 'success']);
@@ -89,6 +91,26 @@ export async function maybeCompleteClaimBuild(
       ok,
       ...(previewUrl ? { previewUrl } : {}),
     },
+  );
+
+  // Emit the terminal golden-path event onto the durable bus (drained to Tinybird
+  // analytics + Hatchet orchestration). Idempotent per siteId so a callback replay
+  // never double-emits; fire-and-forget (tryEmitEvent never throws).
+  await tryEmitEvent(
+    env,
+    {
+      type: ok ? 'site.published' : 'site.publish.failed',
+      producer: 'worker',
+      tenantId: PLATFORM_CLAIMS_ORG_ID,
+      traceId: siteId,
+      siteId,
+      data: {
+        leadId: session.leadId,
+        sessionId: session.sessionId,
+        ...(previewUrl ? { previewUrl } : {}),
+      },
+    },
+    { scope: [siteId] },
   );
 
   return { handled: true, outcome: res.status };
