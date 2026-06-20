@@ -110,10 +110,39 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
   const agencyOrgId = c.get('orgId');
   const userId = c.get('userId');
   if (!agencyOrgId || !userId) throw unauthorized();
-  const id = crypto.randomUUID();
   const token = crypto.randomUUID();
   const tokenHash = await sha256(token);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // One pending invite per (agency, email): a re-invite REFRESHES the existing
+  // unclaimed row (new token + role + expiry) instead of minting a duplicate.
+  // Critical now that accept creates an org — N duplicate tokens would each
+  // redeem into their OWN child org. Claimed invites don't block a fresh one.
+  const existing = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    `SELECT id FROM agency_invitations
+       WHERE agency_org_id = ? AND client_email = ? AND claimed_at IS NULL
+       ORDER BY created_at DESC LIMIT 1`,
+    [agencyOrgId, body.email],
+  );
+  if (existing) {
+    await dbUpdate(
+      c.env.DB,
+      'agency_invitations',
+      {
+        token_hash: tokenHash,
+        role: body.role,
+        preselected_template_id: body.preselected_template_id ?? null,
+        expires_at: expiresAt,
+      },
+      'id = ?',
+      [existing.id],
+    );
+    // Email delivery (sendEmail/Novu) is the remaining enhancement.
+    return c.json({ invitation_id: existing.id, token, expires_at: expiresAt });
+  }
+
+  const id = crypto.randomUUID();
   await dbInsert(c.env.DB, 'agency_invitations', {
     id,
     agency_org_id: agencyOrgId,

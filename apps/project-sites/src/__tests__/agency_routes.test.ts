@@ -299,6 +299,37 @@ describe('POST /api/agency/clients (invite)', () => {
     expect(record.token_hash).not.toBe(json.token);
     expect(String(record.token_hash)).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it('REFRESHES an existing unclaimed invite (no duplicate) for the same agency+email', async () => {
+    mockQueryOne.mockResolvedValue({ id: 'inv-existing' }); // a pending invite already exists
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/clients', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ email: 'client@acme.test', role: 'client_editor' }),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { invitation_id: string; token: string };
+    // Same row reused → no duplicate INSERT; the existing id is returned with a fresh token.
+    expect(json.invitation_id).toBe('inv-existing');
+    expect(json.token).toBeTruthy();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const [, table, updates, where, params] = mockUpdate.mock.calls[0] as [
+      unknown,
+      string,
+      Record<string, unknown>,
+      string,
+      unknown[],
+    ];
+    expect(table).toBe('agency_invitations');
+    expect(updates.role).toBe('client_editor'); // refreshed role
+    expect(String(updates.token_hash)).toMatch(/^[0-9a-f]{64}$/);
+    expect(where).toBe('id = ?');
+    expect(params).toEqual(['inv-existing']);
+    // The pending lookup is scoped to the caller's agency org + email.
+    expect(mockQueryOne.mock.calls[0][2]).toEqual(['org-1', 'client@acme.test']);
+  });
 });
 
 describe('GET /api/agency/brand', () => {
