@@ -166,3 +166,72 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
   - **WAVE 3 (mechanical + gated):** [ ] JSON-catch sweep `ai_admin.ts` (5) + `api.ts:3893` (malformed→400/200 never 500) · [ ] **ag-grid→TanStack perf wave** (blueprint `docs/perf-wave-ag-grid-to-tanstack.md`, needs E2E_API_KEY) · [ ] wire `test:e2e:prod` CI job (needs E2E_API_KEY secret).
   - **DEFERRED-by-design (do NOT blind-parallel):** features.ts 5 `as`-cast handlers → Zod **per-flag-promotion only** (all 404 in prod, zero live risk).
   - Executor = standing convergence cron `a4f25b87` (*/30, 7d) — one bounded slice per fire, fresh context (saturation-safe). Shipped this session: `.env.example`+billing-activation test (6877e687), public /pricing route (df0986ca), arch-fitness forbidden-vendor gate (c470a4fd).
+
+## 50-improvement audit (2026-06-19) — full scan + heavy web research (CF/Hono/D1/Angular/SaaS/SEO/a11y 2026)
+> Ranked impact÷effort within tiers. S<2h · M=½-2d · L=multi-day. ✅=2026-web-research-backed. 🔒=security. Pick highest-value `[ ]`, close end-to-end, check off.
+
+### T1 — Cloudflare platform leverage (config-heavy, highest ROI)
+- [x] **#1 bump `compatibility_date` 2026-05-01→2026-06-19** ✅ S — `wrangler.toml`; stale date locks out runtime fixes + `node:` modules. **DONE (fire-1, 2026-06-19):** date bumped (top-level, inherited by `[env.production]`); RED→GREEN guard test `src/__tests__/wrangler_compat_date.test.ts` (3 cases: present / not-stale ≥2026-06-19 / nodejs_compat retained) prevents silent re-rot. ⚠️ **#2 Smart Placement deliberately NOT bundled** — this worker's hot path is edge KV→R2 static serving; Smart Placement relocates toward origin DC and could regress edge-serve p99 → needs attended before/after INP measurement per dogfood-first, NOT a blind loop slice.
+- [ ] **#2 `[placement] mode = "smart"`** ✅ S — no placement block; D1/R2/Vectorize round-trip to origin DC. ~40-60ms p99, zero code.
+- [ ] **#3 AI Gateway `cacheKey`/`cacheTtl` on every LLM call** ✅ S — `AI_GATEWAY_ENABLED=true` but no call caches; identical pSEO/feature prompts re-bill.
+- [ ] **#4 `[observability] enabled=true` + Logpush→R2** ✅ S — OTLP/Logs now billed (Mar 2026); no structured prod visibility today.
+- [ ] **#5 D1 Sessions API (`withSession`) for reads** ✅ M — read replicas free/auto but every query hits primary; wrap `src/services/db.ts` read helpers.
+- [ ] **#6 `EnvSchema` Zod validation at boot** S — 50+ bindings accessed, never validated; missing secret fails deep, not at startup. `src/index.ts` first middleware.
+- [ ] **#7 latest Workers AI model (Llama 4 Scout `@cf/meta/llama-4-scout-17b-16e-instruct`)** ✅ M — Llama 3.x deprecated May 2026; 131K ctx, multimodal, function-calling.
+- [ ] **#8 enable Cloudflare Queues for async fan-out** M — `[[queues.producers]]` commented out; image-gen/Drive-sync/snapshot run inline blocking the response chain.
+
+### T2 — Backend reliability & correctness
+- [ ] **#9 implement outbox processor** M — `migrations/0574_outbox_events.sql` exists, nothing polls/delivers it; durability spine half-wired.
+- [ ] **#10 general `Idempotency-Key` middleware on mutations** M — only Stripe webhooks dedup; site-create/AI-trigger retries can double-bill/duplicate.
+- [ ] **#11 Zod-validate ~123 POST handlers** M — `c.req.json().catch(()=>({})) as {…}` (`features.ts:646`, `media.ts`, `ai_admin.ts`); use `@hono/zod-validator`. (per-flag-promotion only for features.ts)
+- [ ] **#12 Hono `secureHeaders()` + `csrf()` globally** ✅ S — built-in tree-shakeable; CSRF validates Origin/Sec-Fetch in constant time. `src/index.ts`.
+- [ ] **#13 split `src/index.ts` (74KB god-file) into domain sub-apps** L — every route add touches it; merge-conflict magnet.
+- [ ] **#14 flatten `services/` (153) + `routes/` (56) into `libs/features/<slug>/`** L — violates ≤10/folder; blocks drift validators + knip.
+- [ ] **#15 wire `knip` into CI + first dead-code sweep** S — config exists, never run; ~44 dead fns in `features.ts`.
+- [ ] **#16 stale-while-revalidate on 60s KV hostname cache** S — hard TTL → tail-latency spike every 60s; refresh in `waitUntil`.
+- [ ] **#17 wire `ANALYTICS_INGEST_ENABLED` to real events** M — flag dark, emits nothing; instrument site-create/AI-gen before rollout.
+- [ ] **#18 delete `ai_admin_features.ts.bak` + scratch hygiene** S — stale `.bak` misleads grep/readers.
+
+### T3 — Security 🔒
+- [ ] **#19 audit every D1 query for `org_id`/tenant scoping** 🔒 M — 153 flat services; any read missing the tenant filter = cross-tenant leak. Highest-severity class.
+- [ ] **#20 re-verify test-login seam prod-inert** 🔒 S — `POST /api/auth/test-login` is `E2E_TEST_PASSWORD`-gated; assert secret unset in prod + deploy-guard test.
+- [ ] **#21 SSRF allowlist on user-URL-fetch routes** 🔒 M — og-preview/import-rss/social/image-discovery; block private IP ranges + redirects.
+- [ ] **#22 CSP strict-dynamic + nonce + Trusted Types** 🔒 M — `security_headers.ts` (gate #8/#9); homepage inline scripts force `unsafe-inline`.
+- [ ] **#23 GDPR/EU data residency `jurisdiction="eu"` on D1/R2** ✅🔒 S — no binding carries it; EU customer data defaults to US DCs.
+- [ ] **#24 confirm webhook sig verification on social + voice** 🔒 M — Stripe dedup exists; verify social/voice reject unsigned/replayed.
+- [ ] **#25 DRY the `isSuperAdmin` check** 🔒 S — `sysadmin.ts` helper + inline dup `api.ts:718`; single source prevents authz drift.
+- [ ] **#26 rate-limit auth + paid Places/AI routes** 🔒 M — expensive external-call routes need per-IP/per-org limits (DO/KV counters).
+
+### T4 — Frontend, performance & CWV
+- [ ] **#27 enable zoneless change detection** ✅ M — stable since Angular 20.2; drops zone.js polyfill (~12KB) + monkey-patch. `provideZonelessChangeDetection()`.
+- [ ] **#28 SSR/SSG shell for marketing surface** ✅ L — `@angular/ssr` absent; marketing LCP pure CSR, crawlers see blank shell. Own CLAUDE.md mandate.
+- [ ] **#29 replace ag-grid with installed TanStack Table** L — ~782KB eager in `audit.component.ts`/`ai-logs.component.ts`; `@tanstack/angular-table` already installed.
+- [ ] **#30 `OnPush` on 104 Default-CD components** M — 62% re-render every tick; prioritize `site-kit/` (marketing path).
+- [ ] **#31 `@defer (on viewport)` below-the-fold sections** ✅ M — drives free SSR incremental hydration; 20-40% less initial JS.
+- [ ] **#32 optimize INP to <150ms** ✅ M — failing CWV for SPAs (48% pass); `scheduler.yield()` in long loops, defer analytics. Pairs with #27/#30.
+- [ ] **#33 fix ~30 bare `.subscribe()` leaks** M — `app.component.ts`(5)/`editor-chat.service.ts`(6)/`domain-picker`(6) lack `takeUntilDestroyed`.
+- [ ] **#34 `AdminStateService` polling → `interval()`+DestroyRef** S — `setInterval` 30/60s not cleaned via DestroyRef; leaks on re-creation.
+- [ ] **#35 `inlineCritical: true` in prod build** S — disabled `angular.json:105`; marketing shell blocks render on full stylesheet. Free FCP.
+- [ ] **#36 scope preload (drop `PreloadAllModules`)** S — marketing visitors preload every guarded admin chunk; predicate skipping authGuard routes.
+- [ ] **#37 resolve design-token drift (hardcoded hex)** M — `dialog-shell`/`before-after-slider` hardcode `#00E5FF` vs `--ps-*`; blocks theming + contrast audits.
+- [ ] **#38 migrate `@Input()`→signal `input()` (188 sites)** M — required for full zoneless + `computed()`; start `focus-trap.directive.ts`.
+- [ ] **#39 replace `@ngx-translate`→`@angular/localize`** L — banned dep (code-style); ~25KB runtime + standards divergence.
+
+### T5 — AI-native product, growth & conversion
+- [ ] **#40 anonymous first-generation before signup** ✅ M — Lovable/v0/Bolt let users generate watermarked preview pre-account; signup on "publish". Biggest activation lever.
+- [ ] **#41 reverse trial (start signups on Pro, 14d)** ✅ M — trial→paid fell 50%→34%; AI features = stickiness hook.
+- [ ] **#42 live agentic action trail in site-gen** ✅ M — stream each Workflow step ("AI took these steps") via SSE; visibility → trust → conversion.
+- [ ] **#43 streaming skeleton-to-real UI on all AI outputs** ✅ M — spinners on AI features cause bounce; stream partials, swap on done.
+- [ ] **#44 interactive pricing calculator on `/pricing`** ✅ M — usage-based AI billing anxiety is a purchase blocker; slider showing real cost + "free for most".
+- [ ] **#45 rewrite pricing/marketing copy to grade 5-7** ✅ S — Unbounce 57M study: simple copy 12.9% vs 2.1%; Hemingway pass, aligns Flesch≥50 gate.
+
+### T6 — SEO/GEO & accessibility/compliance
+- [ ] **#46 `llms.txt` + allow AI bots (GPTBot/ClaudeBot/PerplexityBot)** ✅ S — AI-referred sessions +527% YoY; blocking = zero AI citations.
+- [ ] **#47 FAQPage JSON-LD + answer-first content** ✅ M — +40% ChatGPT citation weight; 2.3× more likely in Google AI Overviews. Accurate FAQs only (gate #12).
+- [ ] **#48 WCAG 2.2 AA — 6 new criteria (EAA enforced Jun 2025)** ✅🔒 M — EU fines to €100K/infringement; focus-not-obscured, 24×24 targets, paste-on-auth, redundant-entry.
+- [ ] **#49 publish `/accessibility` statement + axe-core in CI** ✅ S — EAA requires statement w/ complaint channel; `@axe-core/playwright` installed but unused in CI.
+- [ ] **#50 run prod E2E (`*.e2e.ts`) + Karma in CI; drop `skipTests:true`** S — prod E2E exists but no CI runs it; schematics skip spec gen → coverage can't grow. `angular.json`.
+
+> **Fastest-win batch (≈1 day):** ship the S-effort config layer first — #1 #2 #3 #4 #6 #12 #16 #35 #46 — mostly `wrangler.toml`/`index.ts`/build config, each independently deploy-verifiable.
+> **Cross-cutting themes:** (a) infra is *built-but-unwired* (outbox, queues, analytics, AI-Gateway-cache, observability all scaffolded with no consumer); (b) folder sprawl blocks own drift/dead-code tooling; (c) frontend is one zoneless+OnPush+SSR push from a major INP step-change.
+> ⚠️ T3 (#19-26) are leads from repo grounding, NOT a completed security-agent pass — verify before treating as confirmed vulns.

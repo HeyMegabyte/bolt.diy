@@ -1,7 +1,7 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "project-sites"
 main = "src/index.ts"
-compatibility_date = "2026-05-01"
+compatibility_date = "2026-06-19"
 compatibility_flags = ["nodejs_compat"]
 send_metrics = false
 
