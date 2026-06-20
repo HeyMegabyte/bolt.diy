@@ -1,0 +1,39 @@
+# activation_funnel — per-tenant revenue-funnel rollup (§9 golden path).
+#
+# Counts DISTINCT sites/tenants reaching each milestone per day, so the admin
+# activation dashboard can chart discovery → engagement → delivery → conversion
+# and compute per-stage drop-off. The funnel event set is the SSOT in
+# src/services/activation_funnel.ts (ACTIVATION_STAGES) — keep the WHERE event IN
+# list below in lockstep (the activation_funnel.test.ts asserts the TS side).
+#
+#   lead.discovered → site.claim.started → site.published → subscription.active
+#
+# `ordinal` orders the stages so the reader can draw the funnel without a join.
+# count(DISTINCT event_id) for exactly-once (ReplacingMergeTree dedup-on-merge).
+#
+# GET /v0/pipes/activation_funnel.json?tenant_id=org_123&days=30
+# Deploy: tb push pipes/activation_funnel.pipe   (or `tb deploy`)
+
+NODE activation_funnel_node
+SQL >
+    %
+    SELECT
+        tenant_id,
+        event AS stage,
+        multiIf(
+            event = 'lead.discovered', 0,
+            event = 'site.claim.started', 1,
+            event = 'site.published', 2,
+            event = 'subscription.active', 3,
+            99
+        ) AS ordinal,
+        count(DISTINCT event_id) AS events,
+        count(DISTINCT site_id) AS sites
+    FROM projectsites_events
+    WHERE event IN ('lead.discovered', 'site.claim.started', 'site.published', 'subscription.active')
+        AND timestamp >= now() - interval {{ Int32(days, 30) }} day
+        {% if defined(tenant_id) %} AND tenant_id = {{ String(tenant_id) }} {% end %}
+    GROUP BY tenant_id, stage, ordinal
+    ORDER BY tenant_id, ordinal
+
+TYPE endpoint

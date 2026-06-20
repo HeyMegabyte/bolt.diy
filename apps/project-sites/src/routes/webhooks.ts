@@ -26,7 +26,7 @@
  * | `customer.subscription.updated`  | `handleSubscriptionUpdated`    | Sync status & period        |
  * | `customer.subscription.deleted`  | `handleSubscriptionDeleted`    | Downgrade to free           |
  * | `invoice.payment_failed`         | `handlePaymentFailed`          | Mark as past_due            |
- * | `invoice.paid`                   | (no-op)                        | Backup for checkout         |
+ * | `invoice.paid`                   | emits `invoice.paid` event     | Revenue analytics + renewal |
  *
  * @packageDocumentation
  */
