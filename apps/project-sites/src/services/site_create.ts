@@ -21,6 +21,7 @@ import { dbInsert } from './db.js';
 import { writeAuditLog } from './audit.js';
 import { trackSite } from '../lib/posthog.js';
 import { tryEmitEvent } from './emit_event.js';
+import { grantSiteOwner } from './authz_bootstrap.js';
 import { badRequest } from '@project-sites/shared';
 
 /** The fields a caller provides to provision a site (slug already resolved). */
@@ -143,6 +144,28 @@ export async function createSite(
     }
   } else {
     await emit;
+  }
+
+  // Authz relationship bootstrap (§29/ADR-0005): make the creating user the OWNER
+  // of this site in the authorization graph, so the (deferred) requireAuthz
+  // ('can_publish') guard passes once OpenFGA is live. Skipped for an anonymous /
+  // workflow create (no actorId — nobody to own it). grantSiteOwner is itself
+  // fail-soft (logs, never throws), but we keep the same waitUntil/await side-
+  // effect discipline as the bus emit; it's a no-op under DenyAll until OpenFGA
+  // is configured, so wiring it now is regression-free and pre-populates the graph.
+  if (ctx.actorId) {
+    const grant = grantSiteOwner(env, ctx.actorId, site.id).catch(() => {
+      /* fail-soft — authz outage never blocks site creation */
+    });
+    if (ctx.executionCtx) {
+      try {
+        ctx.executionCtx.waitUntil(grant);
+      } catch {
+        void grant;
+      }
+    } else {
+      await grant;
+    }
   }
 
   return site;

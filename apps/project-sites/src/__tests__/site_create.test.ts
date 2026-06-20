@@ -3,21 +3,25 @@ import { dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 import { trackSite } from '../lib/posthog.js';
 import { tryEmitEvent } from '../services/emit_event.js';
+import { grantSiteOwner } from '../services/authz_bootstrap.js';
 
 /**
  * The site-creation core extracted from POST /api/sites (so the claim funnel can
- * reuse it). Mocks the side-effect deps (db insert / audit / posthog / bus emit)
- * — all src-sibling module mocks, which @swc/jest intercepts in src/__tests__.
+ * reuse it). Mocks the side-effect deps (db insert / audit / posthog / bus emit /
+ * authz owner-grant) — all src-sibling module mocks, which @swc/jest intercepts
+ * in src/__tests__.
  */
 jest.mock('../services/db.js', () => ({ dbInsert: jest.fn() }));
 jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn() }));
 jest.mock('../lib/posthog.js', () => ({ trackSite: jest.fn() }));
 jest.mock('../services/emit_event.js', () => ({ tryEmitEvent: jest.fn() }));
+jest.mock('../services/authz_bootstrap.js', () => ({ grantSiteOwner: jest.fn() }));
 
 const mockInsert = dbInsert as jest.Mock;
 const mockAudit = writeAuditLog as jest.Mock;
 const mockTrack = trackSite as jest.Mock;
 const mockEmit = tryEmitEvent as jest.Mock;
+const mockGrantOwner = grantSiteOwner as jest.Mock;
 
 const env = { DB: {} } as never;
 const execCtx = { waitUntil: () => {}, passThroughOnException: () => {} } as never;
@@ -27,6 +31,7 @@ beforeEach(() => {
   mockInsert.mockResolvedValue({ error: null });
   mockAudit.mockResolvedValue(undefined);
   mockEmit.mockResolvedValue({ inserted: true });
+  mockGrantOwner.mockResolvedValue(undefined);
 });
 
 describe('createSite', () => {
@@ -142,6 +147,45 @@ describe('createSite', () => {
       env,
       { orgId: 'o', slug: 's', businessName: 'B' },
       { executionCtx: execCtx },
+    );
+    expect(site.status).toBe('draft'); // still returned
+  });
+
+  // ── authz relationship bootstrap (§29/ADR-0005) ──
+  // A real user creating a site becomes its owner in the authz graph, so the
+  // (deferred) requireAuthz('can_publish') guard will pass once OpenFGA is live.
+  it('grants the creating user owner of the new site when actorId is present', async () => {
+    const site = await createSite(
+      env,
+      { orgId: 'org-1', slug: 'acme', businessName: 'Acme' },
+      { actorId: 'user-1', requestId: 'req-1' },
+    );
+    expect(mockGrantOwner).toHaveBeenCalledTimes(1);
+    const [grantEnv, userId, siteId] = mockGrantOwner.mock.calls[0];
+    expect(grantEnv).toBe(env);
+    expect(userId).toBe('user-1');
+    expect(siteId).toBe(site.id);
+  });
+
+  it('does NOT grant ownership for an anonymous/workflow create (no actorId)', async () => {
+    await createSite(env, { orgId: 'o', slug: 's', businessName: 'B' });
+    expect(mockGrantOwner).not.toHaveBeenCalled();
+  });
+
+  it('does NOT grant ownership when the insert fails', async () => {
+    mockInsert.mockResolvedValue({ error: 'UNIQUE constraint failed: sites.slug' });
+    await expect(
+      createSite(env, { orgId: 'o', slug: 'taken', businessName: 'B' }, { actorId: 'user-1' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(mockGrantOwner).not.toHaveBeenCalled();
+  });
+
+  it('a grantSiteOwner rejection never blocks creation (fail-soft)', async () => {
+    mockGrantOwner.mockRejectedValue(new Error('openfga down'));
+    const site = await createSite(
+      env,
+      { orgId: 'o', slug: 's', businessName: 'B' },
+      { actorId: 'user-1' },
     );
     expect(site.status).toBe('draft'); // still returned
   });
