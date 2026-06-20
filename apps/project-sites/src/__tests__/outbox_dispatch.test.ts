@@ -2,6 +2,7 @@ import {
   eventDispatchTargets,
   dispatchOutboxEvent,
   drainOutbox,
+  assessDrainHealth,
   OUTBOX_TINYBIRD_DATASOURCE,
 } from '../services/outbox_dispatch';
 import type { ProjectSitesEvent } from '../services/event_bus';
@@ -169,6 +170,48 @@ describe('drainOutbox', () => {
       },
     } as never;
     expect(await drainOutbox(env)).toEqual({ read: 0, dispatched: 0, failed: 0 });
+  });
+});
+
+describe('assessDrainHealth', () => {
+  it('is info for a clean drain (no failures, under capacity)', () => {
+    const h = assessDrainHealth({ read: 3, dispatched: 3, failed: 0 });
+    expect(h).toEqual({
+      level: 'info',
+      hasFailures: false,
+      atCapacity: false,
+      message: 'Outbox drained cleanly (3 dispatched)',
+    });
+  });
+
+  it('is info for an empty drain', () => {
+    expect(assessDrainHealth({ read: 0, dispatched: 0, failed: 0 }).level).toBe('info');
+  });
+
+  it('warns when events failed dispatch (heading to the dead-letter gate)', () => {
+    const h = assessDrainHealth({ read: 5, dispatched: 3, failed: 2 });
+    expect(h.level).toBe('warn');
+    expect(h.hasFailures).toBe(true);
+    expect(h.message).toContain('2 event(s) failed');
+  });
+
+  it('warns when the page is full (outbox may be backing up)', () => {
+    const h = assessDrainHealth({ read: 50, dispatched: 50, failed: 0 }, 50);
+    expect(h.level).toBe('warn');
+    expect(h.atCapacity).toBe(true);
+    expect(h.message).toContain('backing up');
+  });
+
+  it('honors a custom limit for the capacity check', () => {
+    expect(assessDrainHealth({ read: 10, dispatched: 10, failed: 0 }, 10).atCapacity).toBe(true);
+    expect(assessDrainHealth({ read: 9, dispatched: 9, failed: 0 }, 10).atCapacity).toBe(false);
+  });
+
+  it('reports both signals when failures AND capacity coincide', () => {
+    const h = assessDrainHealth({ read: 50, dispatched: 40, failed: 10 }, 50);
+    expect(h.level).toBe('warn');
+    expect(h.message).toContain('failed');
+    expect(h.message).toContain('backing up');
   });
 });
 

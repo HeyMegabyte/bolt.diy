@@ -1126,14 +1126,17 @@ export default {
     // former no-op */5 slot.
     if (_event.cron === '*/5 * * * *') {
       try {
-        const { drainOutbox } = await import('./services/outbox_dispatch.js');
+        const { drainOutbox, assessDrainHealth } = await import('./services/outbox_dispatch.js');
         const summary = await drainOutbox(env);
         if (summary.read > 0) {
+          // Escalate failures / backlog to warn so they surface above the info noise
+          // (events failing dispatch head toward the dead-letter gate silently otherwise).
+          const health = assessDrainHealth(summary);
           console.warn(
             JSON.stringify({
-              level: 'info',
+              level: health.level,
               service: 'cron',
-              message: 'Outbox drained',
+              message: `Outbox drained — ${health.message}`,
               read: summary.read,
               dispatched: summary.dispatched,
               failed: summary.failed,

@@ -133,6 +133,42 @@ export interface DrainSummary {
   failed: number;
 }
 
+/** Operator-facing health verdict for one drain pass. */
+export interface DrainHealth {
+  /** Log severity: `info` for a clean/empty pass, `warn` when attention is due. */
+  level: 'info' | 'warn';
+  /** A configured backend rejected ≥1 event (now retrying toward the dead-letter gate). */
+  hasFailures: boolean;
+  /** The pass read a FULL page — the outbox may be backing up faster than it drains. */
+  atCapacity: boolean;
+  /** One-line human summary for the structured log / alert. */
+  message: string;
+}
+
+/**
+ * Classify a drain pass so the cron logs at the right severity instead of burying
+ * failures + backlog at `info`. `warn` fires when events failed (heading to the
+ * dead-letter gate) OR the page came back full (`read === limit`, likely more
+ * pending than one pass clears). Pure — no I/O.
+ *
+ * @param summary - The {@link DrainSummary} from {@link drainOutbox}.
+ * @param limit - The page size the drain used (default 50).
+ * @returns A {@link DrainHealth} verdict.
+ * @example
+ * const h = assessDrainHealth(summary);
+ * console.warn(JSON.stringify({ level: h.level, message: h.message, ...summary }));
+ */
+export function assessDrainHealth(summary: DrainSummary, limit = 50): DrainHealth {
+  const hasFailures = summary.failed > 0;
+  const atCapacity = summary.read >= limit;
+  const level: 'info' | 'warn' = hasFailures || atCapacity ? 'warn' : 'info';
+  const parts: string[] = [];
+  if (hasFailures) parts.push(`${summary.failed} event(s) failed dispatch (retrying → dead-letter)`);
+  if (atCapacity) parts.push(`drain hit its ${limit}-row page — outbox may be backing up`);
+  const message = parts.length > 0 ? parts.join('; ') : `Outbox drained cleanly (${summary.dispatched} dispatched)`;
+  return { level, hasFailures, atCapacity, message };
+}
+
 /**
  * Drain pending outbox rows (FIFO): dispatch each, then `markDispatched` on
  * success or `markFailed` on a configured-backend rejection. Intended to be
