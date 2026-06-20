@@ -72,7 +72,11 @@ export function requireAuthz(
       );
       return c.json(body, status as 401);
     }
-    const allowed = await getProvider(c).check({ user: userSubject(user), relation, object: getObject(c) });
+    const allowed = await getProvider(c).check({
+      user: userSubject(user),
+      relation,
+      object: getObject(c),
+    });
     if (!allowed) {
       const { body, status } = toErrorResponse(
         new ForbiddenError(`Not permitted: ${relation}`),

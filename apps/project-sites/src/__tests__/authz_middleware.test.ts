@@ -50,7 +50,11 @@ describe('requireAuthz', () => {
 
   it('denies an editor (no publish permission) on their own site', async () => {
     const p = new FakeAuthorizationProvider();
-    await p.writeRelationship({ user: userSubject('user-1'), relation: 'editor', object: 'site:a' });
+    await p.writeRelationship({
+      user: userSubject('user-1'),
+      relation: 'editor',
+      object: 'site:a',
+    });
     expect(
       (await app(p).request('/api/sites/a/publish', { method: 'POST' }, {} as Env)).status,
     ).toBe(403);

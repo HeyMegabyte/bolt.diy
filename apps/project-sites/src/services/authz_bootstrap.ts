@@ -46,7 +46,12 @@ export async function grantSiteRole(
 }
 
 /** Convenience: make `userId` the owner of `siteId` (call on site create/claim). */
-export function grantSiteOwner(env: Env, userId: string, siteId: string, deps: AuthzDeps = {}): Promise<void> {
+export function grantSiteOwner(
+  env: Env,
+  userId: string,
+  siteId: string,
+  deps: AuthzDeps = {},
+): Promise<void> {
   return grantSiteRole(env, { userId, siteId, role: 'owner' }, deps);
 }
 
