@@ -1,5 +1,13 @@
 # ULTIMATE LOOP — Issue Ledger
 
+> **⚑ THE SINGLE CANONICAL TODO FILE (consolidated 2026-06-19).** Per `_ULTIMATE_LOOP.prompt.md`
+> §0.C, ALL open work lives here. The redundant scratch work-lists were folded + cleared to
+> redirect stubs the same day: `_CONVERGENCE_BACKLOG.md`, `FEATURE_BACKLOG.md`,
+> `RESEARCH_IDEAS_2026H2.md` → all now point here. Distinct (NOT TODO) artifacts kept separate:
+> `progress.md` (Ralph checkpoint handoff), `FEATURE_CATALOG.md` (de-stub reference catalog),
+> `ROADMAP.md` (revenue-sorted reference list), `_ULTIMATE_LOOP.prompt.md` (the driver). A fire
+> that finds a NEW open-work doc folds it here + clears it (one file to read = everything left).
+>
 > Worklist for `_ULTIMATE_LOOP.prompt.md`. Pick the highest-value `[ ]` item, close it
 > end-to-end (RED→GREEN→clean→verify→doc→deploy→self-improve), check it off, commit, next.
 > Re-scan and append on every iteration. Legend: `[ ]` open · `[~]` in progress · `[x]` done.

@@ -11,11 +11,12 @@
 > unit of intelligence; the agent is fungible.** Do not stop until the ledger is empty and every
 > gate is green.
 >
-> **`_CONVERGENCE_BACKLOG.md` is THE merged work-list** (the 5 infra planes + Novu + the MCP/AI
-> endpoint + 30 NEW features + the original 30 research ideas + the de-stub catalog), each item a
-> flagged module with E2E + DoD, expressed as ▸Technical / ▸In-spirit / ▸Philosophical /
-> ▸Business-&-flags requirement classes. This prompt is the loop *driver*; that file is the loop
-> *work-list*. The loop addresses it every fire.
+> **`_LOOP_LEDGER.md` is THE single canonical work-list** (consolidated 2026-06-19 —
+> `_CONVERGENCE_BACKLOG.md` / `FEATURE_BACKLOG.md` / `RESEARCH_IDEAS_2026H2.md` folded in + retired
+> to redirect stubs). It holds the 5 infra planes + Novu + the MCP/AI endpoint + 30 NEW features +
+> the 30 research ideas + the de-stub catalog — each a flagged module with E2E + DoD, expressed as
+> ▸Technical / ▸In-spirit / ▸Philosophical / ▸Business-&-flags requirement classes. This prompt is
+> the loop *driver*; that file is the loop *work-list*. The loop addresses it every fire.
 
 ---
 
@@ -50,7 +51,7 @@
 
 - **Every fire advances the completeness frontier OR honestly escalates.** Acceptable per-fire outcomes, in priority order: (1) close a real ledger/feature slice end-to-end (RED→GREEN→clean→verify→doc→commit); (2) a §0.A gorgeousness pass on a "merely-fine" surface; (3) **deploy built-but-dark work** (a tested, committed, undeployed slice is incomplete — shipping it IS convergence, per `brian-preferences` standing prod-auth + `no-staging-doctrine`); (4) a drift/hygiene fix surfaced by the cheap-confirm scan; (5) honest fast-no-op + escalate the gated tier. Fabricating a thin round is NEVER acceptable (§0 termination guard e).
 - **Built-but-dark is NOT done.** A feature that is coded + tested + committed but unshipped does not count toward completeness. When a coherent slice is green and deploy is the next step, DEPLOY it (worker `wrangler deploy` + frontend R2 push + prod-E2E verify per `verification-loop`), then mark complete. Never accumulate committed-but-undeployed work waiting for a human — that violates `brian-preferences` § Production deploys.
-- **Completeness is multi-dimensional — all must hold for §8 DONE:** every `_CONVERGENCE_BACKLOG.md` + `_LOOP_LEDGER.md` item closed-or-retired · every §4 surface (47 admin + 17 public + 54 route families + non-alias modules) has a green E2E + visual spec · 100% feature coverage in `FEATURES.md`/`COVERAGE.yml` · gorgeousness ≥8/10 on every user-visible surface · all gates green · prod-E2E green at 6bp · zero TODOs/stubs in shipped output · `completeness-checker` + `agent-diversity-review` both zero-recommendation.
+- **Completeness is multi-dimensional — all must hold for §8 DONE:** every `_LOOP_LEDGER.md` item closed-or-retired · every §4 surface (47 admin + 17 public + 54 route families + non-alias modules) has a green E2E + visual spec · 100% feature coverage in `FEATURES.md`/`COVERAGE.yml` · gorgeousness ≥8/10 on every user-visible surface · all gates green · prod-E2E green at 6bp · zero TODOs/stubs in shipped output · `completeness-checker` + `agent-diversity-review` both zero-recommendation.
 - **The gated tier is part of completeness — surface it relentlessly until cleared.** Items needing a human unblock (a secret, a design call, a supervised window, a coordinated frontend+worker pass, a deploy authorization) are NOT "done" — they are BLOCKED. Every fire that hits the gated tier names the exact unblock command/decision so the human can clear it. The loop converges to completeness only as fast as the gates clear.
 - **When the autonomous vein is genuinely dry, the highest-leverage move is often a deploy or a gorgeousness pass — try those BEFORE escalating.** Escalate (fast-no-op) only when (1) no feature/correctness slice is autonomously safe, (2) no user-visible surface needs beauty, (3) nothing built-but-dark can be safely deployed, AND (4) no drift/hygiene fix surfaced.
 
@@ -59,7 +60,7 @@
 > Completeness is only measurable against a complete work-list. The loop maintains ONE canonical TODO file and re-derives the gap from the repo itself — never trusting that the ledger is current.
 
 - **`_LOOP_LEDGER.md` is the ONE canonical TODO file.** All open work lives there. `_CONVERGENCE_BACKLOG.md` folds into it; any other scratch TODO/`_ideas-*`/`AUDIT_*`/per-feature TODO collapses into `_LOOP_LEDGER.md` (a pointer line, then the scratch file is deleted per `repo-folder-hygiene`). A fire that finds a second open-work doc consolidates it that turn. Goal: a human (or a fresh Ralph) reads exactly one file to know everything left.
-- **Requirement-scan each fire (cheap, before PICK):** re-derive unimplemented requirements from the repo, don't assume the ledger is complete — grep `TODO|FIXME|XXX` in `src/`, `npm run validate:features` drift, route handlers with no flag, flags with no manifest, modules with no E2E, `_CONVERGENCE_BACKLOG` items, and the **off-edge container roster (§0.D)**. New finds append to `_LOOP_LEDGER.md` with a priority band; the loop then PICKs against the refreshed list.
+- **Requirement-scan each fire (cheap, before PICK):** re-derive unimplemented requirements from the repo, don't assume the ledger is complete — grep `TODO|FIXME|XXX` in `src/`, `npm run validate:features` drift, route handlers with no flag, flags with no manifest, modules with no E2E, and the **off-edge container roster (§0.D)**. New finds append to `_LOOP_LEDGER.md` with a priority band; the loop then PICKs against the refreshed list.
 - **Count the off-edge plane into completeness.** The app is not "complete" while a declared container/service (llm/email/jobs/events/browser/analytics) is unlaunched or unwired — each is a ledger item with its edge-Worker adapter + tests + the gated launch step.
 
 ## 0.D — Off-edge service roster (Coolify behind CF Tunnel + CF Access SSO) — wire the adapters, gate the launch
@@ -168,11 +169,12 @@ Each is a flagged change with its own eval case (§2.6) + unit/E2E. DeepSeek eco
 
 ## 5 — Open-work ledger (re-scan every iteration)
 
-> **Single merged backlog: `_CONVERGENCE_BACKLOG.md`.** It is the one file that absorbs every prior
-> ideas/recs/features doc (`FEATURE_CATALOG.md`, `RESEARCH_IDEAS_2026H2.md`, `AGENT_NATIVE_POSITIONING.md`
-> §4-5, `ROADMAP.md`, `EDGE_HOSTING_STRATEGY.md`) AND the six infra-architecture prompts. Read it FIRST
-> each iteration alongside `_LOOP_LEDGER.md`; rank its items by the §5.0 lens; every plane/feature there
-> carries its own ▸Technical/▸In-spirit/▸Philosophical/▸Business-&-flags requirements + a flag key.
+> **Single merged work-list: `_LOOP_LEDGER.md`** (consolidated 2026-06-19 — the former
+> `_CONVERGENCE_BACKLOG.md`/`FEATURE_BACKLOG.md`/`RESEARCH_IDEAS_2026H2.md` are retired redirect stubs).
+> It absorbs every prior ideas/recs/features source (the de-stub `FEATURE_CATALOG.md` reference,
+> `AGENT_NATIVE_POSITIONING.md` §4-5, `ROADMAP.md`, `EDGE_HOSTING_STRATEGY.md`) AND the six
+> infra-architecture prompts. Read it FIRST each iteration; rank items by the §5.0 lens; every
+> plane/feature carries its own ▸Technical/▸In-spirit/▸Philosophical/▸Business-&-flags requirements + a flag key.
 
 ### 5.0 — Value-ranking lens (the prime directive: drive SaaS-subscription revenue)
 
@@ -222,7 +224,7 @@ Tie-breakers: prefer the item that is (a) autonomous (no Brian gate), (b) TDD-ab
 
 ## 8 — Termination (the loop is DONE only when ALL hold)
 
-1. `_LOOP_LEDGER.md` AND `_CONVERGENCE_BACKLOG.md` have zero open `[ ]` items (closed or explicitly retired in `DECISIONS`).
+1. `_LOOP_LEDGER.md` (the single canonical TODO file) has zero open `[ ]` items (closed or explicitly retired in `DECISIONS`).
 2. Every §4 surface (47 admin + 17 public + 54 route families + non-alias modules) has a green E2E + visual spec listed in `FEATURES.md`/`COVERAGE.yml`.
 3. `knip` + full lint stack + `validate:features` + resurrection-guard all clean.
 4. All CI workflows green; prod E2E green at 6bp. **Nothing built-but-dark** — every coded+tested slice is DEPLOYED + verified live (§0.B).
