@@ -10,6 +10,7 @@ import {
   FakeAuthorizationProvider,
   DenyAllAuthorizationProvider,
 } from '../platform/authorization.js';
+import { userSubject } from '../platform/authz-subjects.js';
 import type { Env, Variables } from '../types/env.js';
 
 function app(provider: FakeAuthorizationProvider, withUser: string | null = 'user-1') {
@@ -33,7 +34,7 @@ function app(provider: FakeAuthorizationProvider, withUser: string | null = 'use
 describe('requireAuthz', () => {
   it('allows when the user holds the permission (200)', async () => {
     const p = new FakeAuthorizationProvider();
-    await p.writeRelationship({ user: 'user-1', relation: 'owner', object: 'site:a' });
+    await p.writeRelationship({ user: userSubject('user-1'), relation: 'owner', object: 'site:a' });
     const res = await app(p).request('/api/sites/a/publish', { method: 'POST' }, {} as Env);
     expect(res.status).toBe(200);
     expect(((await res.json()) as { data: string }).data).toBe('published');
@@ -41,7 +42,7 @@ describe('requireAuthz', () => {
 
   it('denies a different site the user does not own (403 FORBIDDEN)', async () => {
     const p = new FakeAuthorizationProvider();
-    await p.writeRelationship({ user: 'user-1', relation: 'owner', object: 'site:a' });
+    await p.writeRelationship({ user: userSubject('user-1'), relation: 'owner', object: 'site:a' });
     const res = await app(p).request('/api/sites/b/publish', { method: 'POST' }, {} as Env);
     expect(res.status).toBe(403);
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe('FORBIDDEN');
@@ -49,7 +50,7 @@ describe('requireAuthz', () => {
 
   it('denies an editor (no publish permission) on their own site', async () => {
     const p = new FakeAuthorizationProvider();
-    await p.writeRelationship({ user: 'user-1', relation: 'editor', object: 'site:a' });
+    await p.writeRelationship({ user: userSubject('user-1'), relation: 'editor', object: 'site:a' });
     expect(
       (await app(p).request('/api/sites/a/publish', { method: 'POST' }, {} as Env)).status,
     ).toBe(403);

@@ -23,6 +23,7 @@ import {
   type AuthorizationProvider,
 } from '../platform/authorization.js';
 import { OpenFgaAuthorizationProvider } from '../services/openfga_provider.js';
+import { userSubject } from '../platform/authz-subjects.js';
 import { ForbiddenError, UnauthorizedError, toErrorResponse } from '../platform/errors.js';
 
 type Ctx = { Bindings: Env; Variables: Variables };
@@ -71,7 +72,7 @@ export function requireAuthz(
       );
       return c.json(body, status as 401);
     }
-    const allowed = await getProvider(c).check({ user, relation, object: getObject(c) });
+    const allowed = await getProvider(c).check({ user: userSubject(user), relation, object: getObject(c) });
     if (!allowed) {
       const { body, status } = toErrorResponse(
         new ForbiddenError(`Not permitted: ${relation}`),
