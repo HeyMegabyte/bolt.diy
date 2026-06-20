@@ -392,6 +392,34 @@ describe('getSession', () => {
     const result = await getSession(mockDb, token);
     expect(result).toBeNull();
   });
+
+  it('refreshes last_active_at when it is stale/absent (and returns the 3-field shape)', async () => {
+    const futureDate = new Date(Date.now() + 86_400_000).toISOString();
+    mockDbUpdate.mockClear();
+    mockDbQueryOne.mockResolvedValueOnce({
+      id: 'sess-3',
+      user_id: 'user-3',
+      expires_at: futureDate,
+      last_active_at: null, // never stamped → stale
+    });
+    const result = await getSession(mockDb, token);
+    expect(result).toEqual({ id: 'sess-3', user_id: 'user-3', expires_at: futureDate });
+    expect(mockDbUpdate).toHaveBeenCalledTimes(1); // stale → write fires
+  });
+
+  it('SKIPS the last_active_at write when it was refreshed recently (hot-path optimization)', async () => {
+    const futureDate = new Date(Date.now() + 86_400_000).toISOString();
+    mockDbUpdate.mockClear();
+    mockDbQueryOne.mockResolvedValueOnce({
+      id: 'sess-4',
+      user_id: 'user-4',
+      expires_at: futureDate,
+      last_active_at: new Date(Date.now() - 1000).toISOString(), // 1s ago → fresh
+    });
+    const result = await getSession(mockDb, token);
+    expect(result).toEqual({ id: 'sess-4', user_id: 'user-4', expires_at: futureDate });
+    expect(mockDbUpdate).not.toHaveBeenCalled(); // fresh → no write on the hot path
+  });
 });
 
 // ---------------------------------------------------------------------------

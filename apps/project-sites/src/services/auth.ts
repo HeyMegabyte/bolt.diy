@@ -833,9 +833,14 @@ export async function getSession(
 } | null> {
   const tokenHash = await sha256Hex(token);
 
-  const session = await dbQueryOne<{ id: string; user_id: string; expires_at: string }>(
+  const session = await dbQueryOne<{
+    id: string;
+    user_id: string;
+    expires_at: string;
+    last_active_at: string | null;
+  }>(
     db,
-    'SELECT id, user_id, expires_at FROM sessions WHERE token_hash = ? AND deleted_at IS NULL',
+    'SELECT id, user_id, expires_at, last_active_at FROM sessions WHERE token_hash = ? AND deleted_at IS NULL',
     [tokenHash],
   );
 
@@ -845,12 +850,19 @@ export async function getSession(
     return null;
   }
 
-  // Update last_active_at
-  await dbUpdate(db, 'sessions', { last_active_at: new Date().toISOString() }, 'id = ?', [
-    session.id,
-  ]);
+  // Throttle the last_active_at write: it ran on EVERY authenticated request,
+  // so a busy session paid a synchronous D1 write per call on the hot path.
+  // Only refresh when the stamp is stale (>5 min) — a session making 100
+  // requests in 5 min now does 1 write, not 100. Best-effort: never block auth.
+  const STALE_MS = 5 * 60 * 1000;
+  const lastActive = session.last_active_at ? new Date(session.last_active_at).getTime() : 0;
+  if (Date.now() - lastActive > STALE_MS) {
+    await dbUpdate(db, 'sessions', { last_active_at: new Date().toISOString() }, 'id = ?', [
+      session.id,
+    ]).catch(() => undefined);
+  }
 
-  return session;
+  return { id: session.id, user_id: session.user_id, expires_at: session.expires_at };
 }
 
 /**
