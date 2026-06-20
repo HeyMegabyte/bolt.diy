@@ -131,7 +131,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'scaffolded',
     access: 'service-only',
     notes:
-      'Pure routing policy + JOB_DEFINITIONS; backend adapters are a follow-on slice. ADR-0003.',
+      'Routing policy + JOB_DEFINITIONS + ProjectSitesJobProvider port + FakeJobProvider + createJobRouter; real backend adapters (CF/Inngest/Hatchet) are the follow-on slice. ADR-0003.',
   },
   {
     id: 'jobs-inngest',
