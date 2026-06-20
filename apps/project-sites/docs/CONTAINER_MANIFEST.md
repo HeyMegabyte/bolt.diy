@@ -38,7 +38,10 @@ in front of all of it per `cloudflare-first.md`.
 |---|---|---|---|---|
 | `browser.projectsites.dev` | **CF Browser Rendering** + Playwright/Stagehand — the product browser-automation abstraction | — (CF primitive) | ✅ | n/a |
 | `agent.projectsites.dev` | **Skyvern** — heavy browser-workflow agent (logged-in portals, multi-step) — behind CF Access | `public.ecr.aws/skyvern/skyvern:latest` | 🔵 | SHIP |
-| `mcp.projectsites.dev` | **Browserbase MCP bridge** — internal agent tooling — behind CF Access | custom | 🔵 | SHIP |
+
+The internal Browserbase MCP bridge stays at `mcp.megabyte.space` (behind CF Access) per
+`cloudflare-first.md` — no `mcp.projectsites.dev`. Product/agent code calls
+`browser.projectsites.dev`, never the bridge directly.
 
 ## Search
 
@@ -83,6 +86,25 @@ in front of all of it per `cloudflare-first.md`.
 - **D1 / KV / R2 / Vectorize / Queues / Workflows / Browser Rendering** → CF primitives — not containers.
 
 ---
+
+## Launch backends — provisioned 2026-06-20 (Neon + Upstash, CF-native)
+
+The three active launch targets (`traces.`, `jobs.`, `mail.`) run as **CF Containers built
+from a local `./containers/<svc>/Dockerfile`** (`FROM` upstream — the same path
+`SiteBuilderContainer` uses, which bypasses the `IMAGE_REGISTRY_NOT_CONFIGURED` blocker that
+only hits bare-registry `image =` refs). Data plane = **Neon Postgres + Upstash Redis**
+(connection strings live as `wrangler secret`s, never in git).
+
+- **`traces.` → Langfuse** — pin **v2** (Neon Postgres only). v3 needs ClickHouse → no CF
+  primitive, so v2 is the CF-compatible build. Neon project `Langfuse` (`plain-heart-31877384`).
+- **`jobs.` → Inngest** — `inngest start`, Neon project `Inngest` (`calm-sunset-61361436`) +
+  Upstash Redis `inngest` (`stirring-cricket-93162.upstash.io`).
+- **`mail.` → Listmonk** — reuses existing Neon project `Listmonk` (`jolly-pine-24431114`).
+
+Remaining to go live: thin Dockerfiles + 3 `Container` DO subclasses + `[[containers]]`/DO
+bindings/migration in `wrangler.toml` + host routing (`traces.`/`jobs.`/`mail.` → DO) in
+`index.ts` + `wrangler secret put` the conn strings + watched `wrangler deploy` (one-way DO
+migration — deploy with eyes on it).
 
 ## Reconciliation with `SUBDOMAIN_MAP.md`
 
