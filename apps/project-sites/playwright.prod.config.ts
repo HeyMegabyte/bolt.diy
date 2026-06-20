@@ -10,6 +10,7 @@ export default defineConfig({
     'health.spec.ts',
     'golden-path.spec.ts',
     'voice.spec.ts',
+    'observability_gateway.spec.ts',
     'adversarial/**/*.spec.ts',
   ],
   fullyParallel: true,
