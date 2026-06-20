@@ -38,7 +38,12 @@ describe('fetchPipeRows', () => {
     const fetchImpl = jest
       .fn()
       .mockResolvedValue({ ok: false, status: 500, json: async () => ({}) } as unknown as Response);
-    const r = await fetchPipeRows(ENV, 'site_publishes_by_source', {}, { fetchImpl: fetchImpl as never });
+    const r = await fetchPipeRows(
+      ENV,
+      'site_publishes_by_source',
+      {},
+      { fetchImpl: fetchImpl as never },
+    );
     expect(r).toEqual({ rows: [], degraded: true });
   });
 });

@@ -179,7 +179,11 @@ export async function queryTinybirdPipe<T = Record<string, unknown>>(
     if (!res.ok) return { ok: false, reason: 'http_error', status: res.status, data: [] };
     try {
       const body = (await res.json()) as { data?: unknown };
-      return { ok: true, status: res.status, data: Array.isArray(body.data) ? (body.data as T[]) : [] };
+      return {
+        ok: true,
+        status: res.status,
+        data: Array.isArray(body.data) ? (body.data as T[]) : [],
+      };
     } catch {
       return { ok: false, reason: 'parse_error', status: res.status, data: [] };
     }

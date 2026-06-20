@@ -31,7 +31,9 @@ describe('queryTinybirdPipe', () => {
     expect(r.ok).toBe(true);
     expect(r.data).toEqual([{ stage: 'x' }]);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://api.x.tinybird.co/v0/pipes/activation_funnel.json?tenant_id=org-1&days=30');
+    expect(url).toBe(
+      'https://api.x.tinybird.co/v0/pipes/activation_funnel.json?tenant_id=org-1&days=30',
+    );
     expect(init.headers.Authorization).toBe('Bearer p.tok');
   });
 

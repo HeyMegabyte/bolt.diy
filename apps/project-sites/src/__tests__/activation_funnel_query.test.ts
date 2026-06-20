@@ -32,7 +32,11 @@ describe('fetchActivationFunnel', () => {
         { stage: 'lead.discovered', events: '40', sites: '37' },
       ]),
     );
-    const r = await fetchActivationFunnel(ENV, { tenantId: 'org-1', days: 30 }, { fetchImpl: fetchImpl as never });
+    const r = await fetchActivationFunnel(
+      ENV,
+      { tenantId: 'org-1', days: 30 },
+      { fetchImpl: fetchImpl as never },
+    );
     expect(r.degraded).toBe(false);
     // order is always top→bottom regardless of pipe order
     expect(r.stages.map((s) => s.ordinal)).toEqual([0, 1, 2, 3]);
