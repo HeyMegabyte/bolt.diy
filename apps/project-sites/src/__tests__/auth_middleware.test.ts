@@ -123,6 +123,25 @@ describe('authMiddleware — API-key (psk_) path', () => {
     expect(await res.json()).toEqual({ userId: null, orgId: null });
   });
 
+  it('authenticates an API key even with NO ExecutionContext (waitUntil guarded)', async () => {
+    mockDbQueryOne.mockResolvedValue({
+      id: 'k1',
+      org_id: 'org-9',
+      created_by: 'user-7',
+      expires_at: null,
+    });
+    // Call WITHOUT the ctx arg → Hono's c.executionCtx getter throws when the
+    // middleware touches it. The best-effort last-used waitUntil must be guarded
+    // so a valid API-key request still authenticates (was a latent crash).
+    const res = await createApp().request(
+      '/probe',
+      { headers: { Authorization: 'Bearer psk_live_noctx' } },
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ userId: 'user-7', orgId: 'org-9' });
+  });
+
   it('does NOT authenticate an unknown / revoked key (no row)', async () => {
     mockDbQueryOne.mockResolvedValue(null);
     const res = await request({ Authorization: 'Bearer psk_live_revoked' });
