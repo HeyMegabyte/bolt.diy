@@ -123,6 +123,16 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     access: 'service-only',
   },
   {
+    id: 'workflow-router',
+    name: 'WorkflowRouter — CF-Workflows/Inngest/Hatchet routing brain (§20)',
+    category: 'jobs',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/workflow-router.ts',
+    status: 'scaffolded',
+    access: 'service-only',
+    notes: 'Pure routing policy + JOB_DEFINITIONS; backend adapters are a follow-on slice. ADR-0003.',
+  },
+  {
     id: 'jobs-inngest',
     name: 'Self-hosted Inngest durable-jobs server (§13 automation plane)',
     domain: 'jobs.projectsites.dev',
