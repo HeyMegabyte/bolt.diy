@@ -17,6 +17,29 @@ import { DOMAINS } from '@project-sites/shared';
 
 import type { Env } from '../types/env.js';
 import { captureMessage as sentryCaptureMessage } from './sentry.js';
+import { getEmailProvider, type EmailRouter } from '../platform/email-router.js';
+import type { EmailKind } from '../platform/email.js';
+
+/**
+ * Map a free-form notification category to an {@link EmailKind} for the SES rail
+ * (ADR-0019). Unknown categories are transactional.
+ */
+export function categoryToEmailKind(category: string): EmailKind {
+  switch (category) {
+    case 'magic_link':
+      return 'magic-link';
+    case 'claim_verification':
+      return 'claim-verification';
+    case 'receipt':
+      return 'receipt';
+    case 'billing_alert':
+      return 'billing-alert';
+    case 'domain_verified':
+      return 'domain-verification';
+    default:
+      return 'transactional';
+  }
+}
 
 interface EmailOpts {
   to: string;
@@ -47,8 +70,27 @@ interface EmailOpts {
  *   configured provider rejects). Caller-side `.catch(() => {})` policy is
  *   preserved upstream.
  */
-export async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
+export async function sendEmail(
+  env: Env,
+  opts: EmailOpts,
+  deps: { email?: EmailRouter } = {},
+): Promise<void> {
   const category = opts.category ?? 'transactional';
+
+  // ADR-0019 Resend→SES migration: Amazon SES becomes the PRIMARY transactional
+  // rail the moment it is configured (AWS creds + verified sender). Resend/
+  // SendGrid below remain the fallback until then — progressive-degradation, no
+  // feature flag needed. The Resend fallback is removed once SES is proven live.
+  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
+    const email = deps.email ?? getEmailProvider(env);
+    await email.sendTransactional({
+      kind: categoryToEmailKind(category),
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+    });
+    return;
+  }
 
   if (env.RESEND_API_KEY) {
     const res = await fetch('https://api.resend.com/emails', {
