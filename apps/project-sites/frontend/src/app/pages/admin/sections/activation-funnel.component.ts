@@ -4,8 +4,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ActivationAnalyticsService,
   aggregateClaimsBySource,
+  aggregatePublishesBySource,
   type ActivationFunnelResponse,
   type ClaimChannel,
+  type DeliveryMix,
 } from '../../../services/activation-analytics.service';
 
 /**
@@ -88,6 +90,23 @@ import {
           }
         </div>
 
+        @if (deliveryMix().length > 0) {
+          <div class="mt-8" data-testid="funnel-delivery">
+            <h2 class="text-[0.95rem] font-bold text-white m-0">Delivery mix</h2>
+            <p class="text-[0.78rem] text-text-secondary mt-0.5 mb-3">How Delivered sites went live, last 30 days.</p>
+            <div class="flex flex-col gap-1.5">
+              @for (d of deliveryMix(); track d.source) {
+                <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/[0.03]">
+                  <span class="text-[0.83rem] text-white truncate">{{ d.source }}</span>
+                  <span class="text-[0.83rem] font-semibold text-[#50aae3] tabular-nums shrink-0">
+                    {{ d.publishes }} publish{{ d.publishes === 1 ? '' : 'es' }}
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
         @if (channels().length > 0) {
           <div class="mt-8" data-testid="funnel-channels">
             <h2 class="text-[0.95rem] font-bold text-white m-0">Top acquisition channels</h2>
@@ -117,6 +136,7 @@ export class AdminActivationFunnelComponent implements OnInit {
 
   readonly funnel = signal<ActivationFunnelResponse | null>(null);
   readonly channels = signal<ClaimChannel[]>([]);
+  readonly deliveryMix = signal<DeliveryMix[]>([]);
   readonly loading = signal(true);
   readonly loadError = signal(false);
 
@@ -149,6 +169,14 @@ export class AdminActivationFunnelComponent implements OnInit {
       .subscribe({
         next: (r) => this.channels.set(aggregateClaimsBySource(r.rows)),
         error: () => this.channels.set([]),
+      });
+    // Delivery mix (editor vs claim vs workflow) — best-effort; hidden on failure.
+    this.analytics
+      .getPublishesBySource({ days: 30 })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => this.deliveryMix.set(aggregatePublishesBySource(r.rows)),
+        error: () => this.deliveryMix.set([]),
       });
   }
 }

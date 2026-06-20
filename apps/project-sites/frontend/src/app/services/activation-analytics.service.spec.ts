@@ -4,7 +4,9 @@ import { of } from 'rxjs';
 import {
   ActivationAnalyticsService,
   aggregateClaimsBySource,
+  aggregatePublishesBySource,
   type ClaimsBySourceRow,
+  type PublishesBySourceRow,
 } from './activation-analytics.service';
 import { ApiService } from './api.service';
 
@@ -106,5 +108,26 @@ describe('aggregateClaimsBySource', () => {
     }));
     expect(aggregateClaimsBySource(many).length).toBe(8);
     expect(aggregateClaimsBySource(many, 3).length).toBe(3);
+  });
+});
+
+describe('aggregatePublishesBySource', () => {
+  it('sums publishes per source across days, descending', () => {
+    const rows: PublishesBySourceRow[] = [
+      { tenant_id: 't', day: '2026-06-19', source: 'bolt-embedded', publishes: 4 },
+      { tenant_id: 't', day: '2026-06-20', source: 'bolt-embedded', publishes: 3 },
+      { tenant_id: 't', day: '2026-06-20', source: 'claim', publishes: 5 },
+    ];
+    expect(aggregatePublishesBySource(rows)).toEqual([
+      { source: 'claim', publishes: 5 },
+      { source: 'bolt-embedded', publishes: 7 },
+    ].sort((a, b) => b.publishes - a.publishes));
+  });
+
+  it('normalizes empty source to unknown and coerces non-numeric counts', () => {
+    const out = aggregatePublishesBySource([
+      { tenant_id: 't', day: 'd', source: '', publishes: '6' as unknown as number },
+    ]);
+    expect(out).toEqual([{ source: 'unknown', publishes: 6 }]);
   });
 });

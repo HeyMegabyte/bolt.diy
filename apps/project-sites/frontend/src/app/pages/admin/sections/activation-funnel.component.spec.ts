@@ -25,21 +25,27 @@ function resp(over: Partial<ActivationFunnelResponse> = {}): ActivationFunnelRes
   };
 }
 
-function setup(value = of(resp()), claimsRows: unknown[] = []) {
+function setup(value = of(resp()), claimsRows: unknown[] = [], publishesRows: unknown[] = []) {
   const getActivationFunnel = jasmine.createSpy('getActivationFunnel').and.returnValue(value);
   const getClaimsBySource = jasmine
     .createSpy('getClaimsBySource')
     .and.returnValue(of({ rows: claimsRows, degraded: false, count: claimsRows.length }));
+  const getPublishesBySource = jasmine
+    .createSpy('getPublishesBySource')
+    .and.returnValue(of({ rows: publishesRows, degraded: false, count: publishesRows.length }));
   TestBed.configureTestingModule({
     imports: [AdminActivationFunnelComponent],
     providers: [
-      { provide: ActivationAnalyticsService, useValue: { getActivationFunnel, getClaimsBySource } },
+      {
+        provide: ActivationAnalyticsService,
+        useValue: { getActivationFunnel, getClaimsBySource, getPublishesBySource },
+      },
     ],
   });
   const fixture: ComponentFixture<AdminActivationFunnelComponent> =
     TestBed.createComponent(AdminActivationFunnelComponent);
   fixture.detectChanges(); // ngOnInit → load
-  return { fixture, getActivationFunnel, getClaimsBySource };
+  return { fixture, getActivationFunnel, getClaimsBySource, getPublishesBySource };
 }
 
 function text(fixture: ComponentFixture<unknown>, sel: string): string | null {
@@ -97,5 +103,25 @@ describe('AdminActivationFunnelComponent', () => {
   it('hides the channels section when there are no claims', () => {
     const { fixture } = setup(of(resp()), []);
     expect(fixture.nativeElement.querySelector('[data-testid="funnel-channels"]')).toBeNull();
+  });
+
+  it('renders the delivery mix aggregated by source', () => {
+    const { fixture, getPublishesBySource } = setup(of(resp()), [], [
+      { tenant_id: 't1', day: '2026-06-19', source: 'bolt-embedded', publishes: 4 },
+      { tenant_id: 't1', day: '2026-06-20', source: 'bolt-embedded', publishes: 3 },
+      { tenant_id: 't1', day: '2026-06-20', source: 'claim', publishes: 2 },
+    ]);
+    expect(getPublishesBySource).toHaveBeenCalledWith({ days: 30 });
+    const section = fixture.nativeElement.querySelector('[data-testid="funnel-delivery"]');
+    expect(section).not.toBeNull();
+    const text = section.textContent;
+    expect(text).toContain('bolt-embedded');
+    expect(text).toContain('7 publishes'); // 4 + 3 aggregated
+    expect(text).toContain('claim');
+  });
+
+  it('hides the delivery-mix section when there are no publishes', () => {
+    const { fixture } = setup(of(resp()), [], []);
+    expect(fixture.nativeElement.querySelector('[data-testid="funnel-delivery"]')).toBeNull();
   });
 });
