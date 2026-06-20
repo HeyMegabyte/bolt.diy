@@ -129,3 +129,61 @@ export async function ingestTinybirdEvent(
     return { ok: false, reason: 'network_error' };
   }
 }
+
+/** Outcome of a pipe read. `data` is always an array (empty on any failure). */
+export interface TinybirdQueryResult<T> {
+  /** True when Tinybird returned a 2xx body with a `data` array. */
+  ok: boolean;
+  /** Why it didn't return data — for structured logging, never thrown. */
+  reason?: 'not_configured' | 'http_error' | 'network_error' | 'parse_error';
+  /** HTTP status when a request was made. */
+  status?: number;
+  /** The pipe's rows (empty `[]` on any non-ok outcome). */
+  data: T[];
+}
+
+/**
+ * Read a Tinybird Pipe's JSON endpoint (`GET /v0/pipes/{pipe}.json`). The read
+ * counterpart to {@link ingestTinybirdEvent} — same resolve→fetch→typed-result
+ * shape, never throws. Undefined/empty params are dropped. Returns
+ * `{ ok:false, reason:'not_configured', data:[] }` when analytics is env-gated
+ * off, so callers can fall back gracefully (e.g. render a zero-state).
+ *
+ * @param env - Worker env (reads the Tinybird config chain).
+ * @param pipe - Pipe name (without the `.json` suffix).
+ * @param params - Query params for the pipe (`tenant_id`, `days`, …).
+ * @param deps - Optional `{ fetchImpl }` for tests.
+ * @returns A {@link TinybirdQueryResult}.
+ * @example
+ * const r = await queryTinybirdPipe(env, 'activation_funnel', { tenant_id, days: 30 });
+ * if (r.ok) renderFunnel(r.data);
+ */
+export async function queryTinybirdPipe<T = Record<string, unknown>>(
+  env: Env,
+  pipe: string,
+  params: Record<string, string | number | undefined> = {},
+  deps: { fetchImpl?: typeof fetch } = {},
+): Promise<TinybirdQueryResult<T>> {
+  const cfg = resolveTinybird(env);
+  if (!cfg) return { ok: false, reason: 'not_configured', data: [] };
+
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') qs.set(k, String(v));
+  }
+  const query = qs.toString();
+  const url = `${cfg.apiHost}/v0/pipes/${encodeURIComponent(pipe)}.json${query ? `?${query}` : ''}`;
+  const doFetch = deps.fetchImpl ?? fetch;
+  try {
+    const res = await doFetch(url, { headers: { Authorization: `Bearer ${cfg.token}` } });
+    if (!res.ok) return { ok: false, reason: 'http_error', status: res.status, data: [] };
+    try {
+      const body = (await res.json()) as { data?: unknown };
+      return { ok: true, status: res.status, data: Array.isArray(body.data) ? (body.data as T[]) : [] };
+    } catch {
+      return { ok: false, reason: 'parse_error', status: res.status, data: [] };
+    }
+  } catch {
+    return { ok: false, reason: 'network_error', data: [] };
+  }
+}
