@@ -1,0 +1,29 @@
+# site_publishes_by_source — per-tenant publish counts sliced by publish source.
+#
+# Demonstrates + exercises the projectsites_events.payload column (the
+# JSON-stringified event `data`). `site.published` events carry
+# data.source ∈ {bolt-embedded, bolt, workflow, claim}; this rollup answers
+# "how are sites going live — editor vs claim funnel vs workflow?" per tenant.
+# JSONExtractString reads source straight out of the payload String — no fixed
+# sub-schema, so new payload keys never require a datasource migration.
+#
+# GET /v0/pipes/site_publishes_by_source.json?tenant_id=org_123&days=30
+# Deploy: tb push pipes/site_publishes_by_source.pipe   (or `tb deploy`)
+
+NODE site_publishes_by_source_node
+SQL >
+    %
+    SELECT
+        tenant_id,
+        toDate(timestamp) AS day,
+        JSONExtractString(payload, 'source') AS source,
+        count(DISTINCT event_id) AS publishes
+    FROM projectsites_events
+    WHERE event = 'site.published'
+        AND timestamp >= now() - interval {{ Int32(days, 30) }} day
+        {% if defined(tenant_id) %} AND tenant_id = {{ String(tenant_id) }} {% end %}
+        {% if defined(source) %} AND JSONExtractString(payload, 'source') = {{ String(source) }} {% end %}
+    GROUP BY tenant_id, day, source
+    ORDER BY day DESC, publishes DESC
+
+TYPE endpoint

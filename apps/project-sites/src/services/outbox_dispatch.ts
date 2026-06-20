@@ -98,6 +98,10 @@ export async function dispatchOutboxEvent(
 
   if (targets.includes('tinybird') && resolveTinybird(env)) {
     attempted.push('tinybird');
+    // This object is the SSOT for the projectsites_events NDJSON row — keep it in
+    // lockstep with tinybird/datasources/projectsites_events.datasource. `payload`
+    // carries the event `data` (JSON string) so pipes can slice by source/slug/
+    // plan/leadId (high-cardinality activation analytics), not just event type.
     const r = await ingest(env, OUTBOX_TINYBIRD_DATASOURCE, {
       site_id: event.siteId ?? '',
       tenant_id: event.tenantId,
@@ -106,6 +110,7 @@ export async function dispatchOutboxEvent(
       event_id: event.id,
       trace_id: event.traceId,
       producer: event.producer,
+      payload: JSON.stringify(event.data ?? {}),
     });
     if (!r.ok) failures.push({ target: 'tinybird', reason: r.reason ?? 'unknown' });
   }

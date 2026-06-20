@@ -11,6 +11,7 @@ landing table + query endpoints for that stream.
 |---|---|
 | `datasources/projectsites_events.datasource` | The landing table. Schema mirrors the NDJSON payload built in `outbox_dispatch.dispatchOutboxEvent()` (`OUTBOX_TINYBIRD_DATASOURCE`). `ReplacingMergeTree` keyed on `tenant_id, timestamp, event, event_id` (dedup on merge); partitioned by month. |
 | `pipes/events_by_tenant_daily.pipe` | Per-tenant / per-day / per-type rollup endpoint. Counts `DISTINCT event_id` (exactly-once). Optional `tenant_id`, `days` (default 30), `event` params. |
+| `pipes/site_publishes_by_source.pipe` | Per-tenant `site.published` counts sliced by `JSONExtractString(payload,'source')` (bolt-embedded / claim / workflow). Exercises the `payload` column. Optional `tenant_id`, `days`, `source`. |
 
 ## Exactly-once counting
 
@@ -29,8 +30,11 @@ The datasource column set is locked to the ingest object in
 `src/services/outbox_dispatch.ts`:
 
 ```
-site_id, tenant_id, event, timestamp, event_id, trace_id, producer
+site_id, tenant_id, event, timestamp, event_id, trace_id, producer, payload
 ```
+
+`payload` is the JSON-stringified event `data` (slug/version/source/leadId/…) —
+sliced in pipes via `JSONExtract*` so new payload keys never need a migration.
 
 Changing the ingest shape requires the same change here (drift = silent ingest
 column mismatch). The worker token chain (`TINYBIRD_TOKEN` → `TINYBIRD_PASSWORD`

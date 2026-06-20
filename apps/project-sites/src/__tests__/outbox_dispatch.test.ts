@@ -61,11 +61,29 @@ describe('dispatchOutboxEvent', () => {
     expect(r.ok).toBe(true);
     expect(r.attempted).toEqual(['tinybird']);
     expect(push).not.toHaveBeenCalled();
-    const [, ds, payload] = ingest.mock.calls[0];
+    const [, ds, row] = ingest.mock.calls[0];
     expect(ds).toBe(OUTBOX_TINYBIRD_DATASOURCE);
-    expect(payload.tenant_id).toBe('t1');
-    expect(payload.event).toBe('site.created');
-    expect(payload.event_id).toBe('evt_1');
+    expect(row.tenant_id).toBe('t1');
+    expect(row.event).toBe('site.created');
+    expect(row.event_id).toBe('evt_1');
+  });
+
+  it('carries the event data as a JSON `payload` string (high-cardinality signal)', async () => {
+    const ingest = jest.fn().mockResolvedValue({ ok: true, status: 202 });
+    const data = { slug: 'acme', version: 'v1', source: 'bolt-embedded' };
+    await dispatchOutboxEvent(ENV, ev('site.published', { data }), {
+      ingestTinybird: ingest as never,
+      pushHatchet: jest.fn().mockResolvedValue({ ok: true }) as never,
+    });
+    const row = ingest.mock.calls[0][2];
+    expect(typeof row.payload).toBe('string');
+    expect(JSON.parse(row.payload)).toEqual(data);
+  });
+
+  it('defaults payload to "{}" when the event carries no data', async () => {
+    const ingest = jest.fn().mockResolvedValue({ ok: true });
+    await dispatchOutboxEvent(ENV, ev('site.created'), { ingestTinybird: ingest as never });
+    expect(ingest.mock.calls[0][2].payload).toBe('{}');
   });
 
   it('fans an orchestration event to BOTH backends', async () => {

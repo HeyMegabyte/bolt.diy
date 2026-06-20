@@ -16,7 +16,14 @@ SCHEMA >
     `timestamp` DateTime64(3),
     `event_id` String,
     `trace_id` String,
-    `producer` LowCardinality(String)
+    `producer` LowCardinality(String),
+    `payload` String `json:$.payload` DEFAULT '{}'
+
+# `payload` is the JSON-stringified event `data` (slug, version, source, leadId,
+# previewUrl, …) — the high-cardinality activation signal. Stored as a String so
+# pipes slice it with JSONExtract* (see pipes/site_publishes_by_source.pipe)
+# without a fixed sub-schema. DEFAULT '{}' keeps rows ingested before this column
+# existed valid. Keep in lockstep with dispatchOutboxEvent()'s Tinybird object.
 
 # ReplacingMergeTree (not plain MergeTree) so a duplicate ingest of the same
 # event_id collapses on merge. The outbox dispatcher re-sends ALL targets when a
