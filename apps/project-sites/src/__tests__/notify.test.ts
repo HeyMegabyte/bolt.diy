@@ -4,7 +4,11 @@
  * never calls the real Novu API. Covers happy path, missing key, and error.
  */
 import { notifyUser, notifySiteOwner } from '../services/notify.js';
+import { tryEmitEvent } from '../services/emit_event.js';
 import type { Env } from '../types/env.js';
+
+jest.mock('../services/emit_event.js', () => ({ tryEmitEvent: jest.fn() }));
+const mockEmit = tryEmitEvent as jest.Mock;
 
 /** Minimal D1 stub: prepare().bind().first() resolves to the given owner row. */
 const makeDb = (email: string | null) =>
@@ -82,6 +86,7 @@ describe('notifyUser', () => {
 });
 
 describe('notifySiteOwner', () => {
+  beforeEach(() => mockEmit.mockReset().mockResolvedValue({ inserted: true }));
   afterEach(() => jest.restoreAllMocks());
 
   it('resolves the org owner email then triggers Novu for that subscriber', async () => {
@@ -98,6 +103,44 @@ describe('notifySiteOwner', () => {
     expect(res).toEqual({ ok: true, detail: 'txn_owner' });
     const sent = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
     expect(sent.to.subscriberId).toBe('owner@org.com');
+  });
+
+  it('emits notification.workflow.triggered (tenant-scoped, idempotent per txn) on success', async () => {
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { transactionId: 'txn_owner' } }), { status: 201 }),
+      );
+    await notifySiteOwner(baseEnv, makeDb('owner@org.com'), {
+      orgId: 'org_1',
+      subject: 'Payment received',
+      body: 'Active.',
+    });
+    expect(mockEmit).toHaveBeenCalledTimes(1);
+    const [, ev, deps] = mockEmit.mock.calls[0];
+    expect(ev).toEqual(
+      expect.objectContaining({
+        type: 'notification.workflow.triggered',
+        producer: 'novu',
+        tenantId: 'org_1',
+        traceId: 'txn_owner',
+      }),
+    );
+    expect(ev.data).toEqual(
+      expect.objectContaining({ subscriberId: 'owner@org.com', transactionId: 'txn_owner' }),
+    );
+    expect(deps).toEqual({ scope: ['txn_owner'] });
+  });
+
+  it('does NOT emit when the Novu trigger fails (non-2xx)', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('nope', { status: 400 }));
+    const res = await notifySiteOwner(baseEnv, makeDb('owner@org.com'), {
+      orgId: 'org_1',
+      subject: 's',
+      body: 'b',
+    });
+    expect(res.ok).toBe(false);
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 
   it('returns ok:false (no fetch) when the org has no resolvable owner', async () => {

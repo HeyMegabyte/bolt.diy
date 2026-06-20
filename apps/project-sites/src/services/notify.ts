@@ -19,6 +19,7 @@
  */
 import type { Env } from '../types/env.js';
 import { NovuEventSchema, renderNovuEvent } from './novu_triggers.js';
+import { tryEmitEvent } from './emit_event.js';
 
 const NOVU_TRIGGER_URL = 'https://api.novu.co/v1/events/trigger';
 const DEFAULT_WORKFLOW = 'ps-notify';
@@ -108,12 +109,36 @@ export async function notifySiteOwner(
       .bind(input.orgId)
       .first<{ email: string }>();
     if (!row?.email) return { ok: false, detail: 'no_owner' };
-    return await notifyUser(env, {
+    const result = await notifyUser(env, {
       subscriberId: row.email,
       subject: input.subject,
       body: input.body,
       workflowId: input.workflowId,
     });
+    // On a successful trigger, emit notification.workflow.triggered onto the
+    // durable bus — the org-scoped notification producer (drained to Tinybird
+    // engagement analytics + Hatchet). Only emitted here, where the tenant
+    // (orgId) is known; a subscriber-only notifyUser call has no tenant for the
+    // bus. Idempotent per Novu transactionId; tryEmitEvent never throws.
+    if (result.ok) {
+      await tryEmitEvent(
+        env,
+        {
+          type: 'notification.workflow.triggered',
+          producer: 'novu',
+          tenantId: input.orgId,
+          traceId: result.detail || input.orgId,
+          data: {
+            workflowId: input.workflowId ?? env.NOVU_WORKFLOW_ID ?? 'ps-notify',
+            subscriberId: row.email,
+            transactionId: result.detail ?? null,
+            subject: input.subject,
+          },
+        },
+        { scope: [result.detail || `${input.orgId}:notify`] },
+      );
+    }
+    return result;
   } catch (err) {
     console.warn(
       JSON.stringify({ event: 'notify.owner_lookup_failed', message: (err as Error)?.message }),
@@ -144,7 +169,12 @@ export async function notifyEvent(
   const parsed = NovuEventSchema.safeParse(input.event);
   if (!parsed.success) return { ok: false, detail: 'invalid_event' };
   const { subject, body } = renderNovuEvent(parsed.data);
-  return notifyUser(env, { subscriberId: input.subscriberId, subject, body, workflowId: input.workflowId });
+  return notifyUser(env, {
+    subscriberId: input.subscriberId,
+    subject,
+    body,
+    workflowId: input.workflowId,
+  });
 }
 
 /**
@@ -166,5 +196,10 @@ export async function notifyOwnerEvent(
   const parsed = NovuEventSchema.safeParse(input.event);
   if (!parsed.success) return { ok: false, detail: 'invalid_event' };
   const { subject, body } = renderNovuEvent(parsed.data);
-  return notifySiteOwner(env, db, { orgId: input.orgId, subject, body, workflowId: input.workflowId });
+  return notifySiteOwner(env, db, {
+    orgId: input.orgId,
+    subject,
+    body,
+    workflowId: input.workflowId,
+  });
 }
