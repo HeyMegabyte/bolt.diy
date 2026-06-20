@@ -99,12 +99,22 @@ const inviteSchema = z.object({
  * The caller (agency) currently relays the returned `token` to the client itself.
  * TODO(agency-redeem): this invitation is WRITE-ONLY — no route consumes
  * `agency_invitations` yet (cf. `team_invites` redeem in ai_admin.ts), so a client
- * cannot accept it in-app. Build `POST /api/agency/clients/accept` (resolve
- * token_hash → create child org membership → mark accepted_at) FIRST; only then
- * wire the invite email here via `sendEmail` (notifications.ts) / Novu — NOT a new
- * Resend call (sendEmail already owns the transport). Emailing a token to a
- * non-existent accept route would just deliver a dead link.
+ * cannot accept it in-app. Build `POST /api/agency/clients/accept` FIRST, then
+ * wire the invite email here via `sendEmail` (notifications.ts) / Novu (NOT a new
+ * Resend call — sendEmail already owns the transport). TWO verified schema
+ * landmines for that route:
+ *   1. Redeem columns are `claimed_at` + `claimed_by_user_id` (NOT `accepted_at`).
+ *      Match on `token_hash = ? AND claimed_at IS NULL AND expires_at > now`.
+ *   2. ROLE ENUM MISMATCH: the invite `role` is `client_owner|client_editor|
+ *      client_viewer`, but `memberships.role` has `CHECK (role IN ('owner','admin',
+ *      'member','viewer'))` — inserting a `client_*` role 500s on the CHECK. Map
+ *      first: client_owner→owner, client_editor→member, client_viewer→viewer.
+ *   Accept flow: resolve token → create child org (`orgs.parent_org_id =
+ *   invite.agency_org_id`; no createOrg helper exists — mirror the raw inserts in
+ *   auth.ts ~L990) → membership with the MAPPED role → set claimed_at/by. This is
+ *   access-control-sensitive (the role mapping governs authorization) — review-tier.
  *
+
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
