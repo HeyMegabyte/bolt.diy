@@ -32,6 +32,7 @@ import {
   escapeHtml,
   pickSafeRedirect,
   timingSafeEqual,
+  contactFormSchema,
   DOMAINS,
 } from '@project-sites/shared';
 
@@ -1155,19 +1156,25 @@ Category:`;
  */
 search.post('/api/contact-form/:slug', async (c) => {
   const slug = c.req.param('slug');
-  const body = (await c.req.json().catch(() => ({}))) as {
-    name?: string;
-    email?: string;
-    phone?: string;
-    message?: string;
-  };
 
-  if (!body.name || !body.email || !body.message) {
+  // Validate against the canonical contactFormSchema (shared) instead of a manual
+  // truthy check: enforces a real email format (raw value flows into the email
+  // reply_to), length caps (name 200 / message 5000 / phone 20 — abuse + cost),
+  // a 10-char message floor, and script/javascript: refinements (defense-in-depth
+  // atop the escapeHtml below). safeParse → 400 (fail-soft), never throws.
+  const parsed = contactFormSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
     return c.json(
-      { error: { code: 'BAD_REQUEST', message: 'Name, email, and message are required' } },
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: parsed.error.issues[0]?.message ?? 'Invalid contact form submission',
+        },
+      },
       400,
     );
   }
+  const body = parsed.data;
 
   try {
     const { dbQueryOne } = await import('../services/db.js');

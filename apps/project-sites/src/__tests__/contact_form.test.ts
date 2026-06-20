@@ -58,38 +58,71 @@ afterEach(() => {
 });
 
 describe('POST /api/contact-form/:slug — HTML-injection defense', () => {
-  it('escapes injected markup in the outgoing email body', async () => {
+  it('escapes schema-allowed-but-dangerous markup in the outgoing email body', async () => {
     const fetchMock = jest.fn().mockResolvedValue(new Response('{}', { status: 200 }));
     global.fetch = fetchMock;
 
+    // `<a href>` passes contactFormSchema (only <script>/javascript: are rejected),
+    // so it reaches the email body — escapeHtml must neutralise it.
     const res = await submit(makeEnv(), {
       name: '<a href="https://evil.com">click me</a>',
       email: 'visitor@example.com',
-      message: 'hello <script>alert(1)</script> world',
+      message: 'hello <a href="https://evil.com">link</a> world, please reply soon',
     });
     expect(res.status).toBe(200);
 
-    // The email was sent…
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
     const html: string = sentBody.html;
-
-    // …with the injected markup neutralised — no raw tags, entity-escaped instead.
     expect(html).not.toContain('<a href="https://evil.com">');
-    expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;a href=&quot;https://evil.com&quot;&gt;');
-    expect(html).toContain('&lt;script&gt;');
   });
 
   it('still requires name, email, and message (400 otherwise)', async () => {
-    const res = await submit(makeEnv(), { name: 'A', email: 'a@b.c' }); // no message
+    const res = await submit(makeEnv(), { name: 'A', email: 'a@b.c', message: 'short' }); // no message? message<10
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a malformed email (400) — the raw value flows into reply_to', async () => {
+    const res = await submit(makeEnv(), {
+      name: 'Visitor',
+      email: 'not-an-email',
+      message: 'a genuine inquiry message',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a too-short message (400) — basic empty/spam floor', async () => {
+    const res = await submit(makeEnv(), { name: 'Visitor', email: 'v@x.test', message: 'hi' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a <script> in the message at the schema boundary (400, before escaping)', async () => {
+    const res = await submit(makeEnv(), {
+      name: 'Visitor',
+      email: 'v@x.test',
+      message: 'hello <script>alert(1)</script> there friend',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an over-length message (400) — abuse / email-cost cap', async () => {
+    const res = await submit(makeEnv(), {
+      name: 'Visitor',
+      email: 'v@x.test',
+      message: 'x'.repeat(5001),
+    });
     expect(res.status).toBe(400);
   });
 
   it('preserves message line breaks as <br> (after escaping)', async () => {
     const fetchMock = jest.fn().mockResolvedValue(new Response('{}', { status: 200 }));
     global.fetch = fetchMock;
-    await submit(makeEnv(), { name: 'A', email: 'a@b.c', message: 'line1\nline2' });
+    await submit(makeEnv(), {
+      name: 'Visitor',
+      email: 'visitor@example.com',
+      message: 'line1\nline2 — a real note',
+    });
     const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
     expect(sentBody.html).toContain('line1<br>line2');
   });
