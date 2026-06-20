@@ -259,6 +259,17 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     access: 'customer-authenticated',
   },
   {
+    id: 'email-port',
+    name: 'Email ports — EmailProvider/MarketingEmailProvider + chooseEmailPath (§42)',
+    category: 'email',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/email.ts',
+    status: 'scaffolded',
+    access: 'service-only',
+    notes:
+      'Port + routing + fakes; real AmazonSesEmailProvider (SigV4) + Listmonk adapter are follow-on. The seam the Resend call sites migrate onto. ADR-0019.',
+  },
+  {
     id: 'email-ses',
     name: 'Amazon SES — transactional email (primary)',
     category: 'email',
