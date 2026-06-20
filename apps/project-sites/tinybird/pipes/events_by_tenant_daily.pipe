@@ -1,0 +1,25 @@
+# events_by_tenant_daily — per-tenant per-day per-type event rollup.
+#
+# The primary read endpoint over projectsites_events: powers per-tenant activity
+# dashboards (sites created, claims, publishes, subscriptions, invoices,
+# notifications over time). Optional params narrow the slice; all are safe-typed.
+#
+# GET /v0/pipes/events_by_tenant_daily.json?tenant_id=org_123&days=30&event=site.published
+# Deploy: tb push pipes/events_by_tenant_daily.pipe   (or `tb deploy`)
+
+NODE events_by_tenant_daily_node
+SQL >
+    %
+    SELECT
+        tenant_id,
+        toDate(timestamp) AS day,
+        event,
+        count() AS events
+    FROM projectsites_events
+    WHERE timestamp >= now() - interval {{ Int32(days, 30) }} day
+        {% if defined(tenant_id) %} AND tenant_id = {{ String(tenant_id) }} {% end %}
+        {% if defined(event) %} AND event = {{ String(event) }} {% end %}
+    GROUP BY tenant_id, day, event
+    ORDER BY day DESC, events DESC
+
+TYPE endpoint

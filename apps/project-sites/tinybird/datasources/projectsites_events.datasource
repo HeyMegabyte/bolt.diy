@@ -1,0 +1,23 @@
+# projectsites_events — the unified event-bus landing table.
+#
+# Every ProjectSitesEvent the worker emits (14 golden-path types, all tenants)
+# is drained from the durable D1 outbox to this datasource by the */5 cron via
+# services/outbox_dispatch.ts -> ingestTinybirdEvent(). The column set below is
+# the SINGLE SOURCE OF TRUTH for that NDJSON payload — keep it in lockstep with
+# the object built in outbox_dispatch.dispatchOutboxEvent() (OUTBOX_TINYBIRD_DATASOURCE).
+#
+# Ingest endpoint: POST /v0/events?name=projectsites_events   (NDJSON, one event per line)
+# Deploy:          tb push datasources/projectsites_events.datasource   (or `tb deploy`)
+
+SCHEMA >
+    `site_id` String,
+    `tenant_id` String,
+    `event` LowCardinality(String),
+    `timestamp` DateTime64(3),
+    `event_id` String,
+    `trace_id` String,
+    `producer` LowCardinality(String)
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_SORTING_KEY "tenant_id, timestamp, event"
