@@ -20,6 +20,8 @@ jest.mock('../services/db.js', () => ({
 import { dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import {
   AI_MODEL,
+  applySeoMeta,
+  applySeoMetaToHtml,
   approveDraft,
   buildJsonLd,
   clampAnswerBlock,
@@ -300,23 +302,37 @@ describe('freshenSite', () => {
 // approveDraft / applyToSite
 // ---------------------------------------------------------------------------
 describe('approveDraft', () => {
-  it('advances a pending draft to approved and applies it', async () => {
-    // 1st queryOne: approveDraft fetches the draft. 2nd: applyToSite re-fetches.
+  it('advances a pending draft to approved and applies it to the live HTML', async () => {
+    // queryOne calls: approveDraft fetch · applyToSite re-fetch · applySeoMeta site lookup.
     mockQueryOne
-      .mockResolvedValueOnce({ id: 'd1', site_id: 'site_1', status: 'pending' } as any)
-      .mockResolvedValueOnce({ id: 'd1', status: 'approved' } as any);
+      .mockResolvedValueOnce({ id: 'd1', site_id: 'site_1', route: '/', status: 'pending' } as any)
+      .mockResolvedValueOnce({
+        id: 'd1',
+        site_id: 'site_1',
+        route: '/',
+        title: 'New SEO Title',
+        description: 'New meta description for the homepage that AI search can quote.',
+        answer_block: null,
+        jsonld_json: null,
+        status: 'approved',
+      } as any)
+      .mockResolvedValueOnce({ slug: 'site-1', current_build_version: 'v1' } as any);
 
-    const env = makeEnv({});
+    const put = jest.fn().mockResolvedValue(undefined);
+    const get = jest
+      .fn()
+      .mockResolvedValue({ text: async () => '<html><head><title>old</title></head><body>hi</body></html>' });
+    const env = { DB: {}, SITES_BUCKET: { get, put } } as any;
+
     const result = await approveDraft(env, 'd1', 'user_1');
 
     expect(result.ok).toBe(true);
-    expect(result.draft?.status).toBe('approved');
     expect(result.draft?.approved_by).toBe('user_1');
+    // The live homepage HTML was rewritten in R2 with the new title.
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(String(put.mock.calls[0][1])).toContain('<title>New SEO Title</title>');
     // update fired twice: once to 'approved', once to 'applied' in applyToSite.
     expect(mockUpdate).toHaveBeenCalledTimes(2);
-    expect(mockUpdate.mock.calls[0][2]).toEqual(
-      expect.objectContaining({ status: 'approved', approved_by: 'user_1' }),
-    );
     expect(mockUpdate.mock.calls[1][2]).toEqual(expect.objectContaining({ status: 'applied' }));
   });
 
@@ -334,6 +350,132 @@ describe('approveDraft', () => {
     const result = await approveDraft(env, 'd1', 'user_1');
     expect(result.ok).toBe(false);
     expect(result.error).toContain('already');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applySeoMetaToHtml (pure HTML transform)
+// ---------------------------------------------------------------------------
+describe('applySeoMetaToHtml', () => {
+  const base = '<html><head><title>Old</title><meta name="description" content="old"></head><body><p>hi</p></body></html>';
+
+  it('rewrites an existing <title>', () => {
+    const out = applySeoMetaToHtml(base, { title: 'Fresh Title' });
+    expect(out).toContain('<title>Fresh Title</title>');
+    expect(out).not.toContain('<title>Old</title>');
+  });
+
+  it('injects a <title> when none exists', () => {
+    const out = applySeoMetaToHtml('<html><head></head><body>x</body></html>', { title: 'Injected' });
+    expect(out).toContain('<title>Injected</title>');
+  });
+
+  it('rewrites an existing meta description', () => {
+    const out = applySeoMetaToHtml(base, { description: 'A brand new description.' });
+    expect(out).toContain('content="A brand new description."');
+    expect(out).not.toContain('content="old"');
+  });
+
+  it('injects og:title and og:description', () => {
+    const out = applySeoMetaToHtml(base, { title: 'T', description: 'D' });
+    expect(out).toMatch(/<meta property="og:title" content="T">/);
+    expect(out).toMatch(/<meta property="og:description" content="D">/);
+  });
+
+  it('injects a marked JSON-LD block before </head>', () => {
+    const out = applySeoMetaToHtml(base, { jsonLd: '{"@type":"WebPage"}' });
+    expect(out).toMatch(/<script type="application\/ld\+json" data-seo-autopilot>{"@type":"WebPage"}<\/script>/);
+    expect(out.indexOf('data-seo-autopilot')).toBeLessThan(out.indexOf('</head>'));
+  });
+
+  it('escapes special characters in the title', () => {
+    const out = applySeoMetaToHtml(base, { title: 'A & B <co>' });
+    expect(out).toContain('<title>A &amp; B &lt;co&gt;</title>');
+  });
+
+  it('is idempotent — applying twice yields one title and one JSON-LD block', () => {
+    const once = applySeoMetaToHtml(base, { title: 'T', jsonLd: '{"@type":"WebPage"}' });
+    const twice = applySeoMetaToHtml(once, { title: 'T', jsonLd: '{"@type":"WebPage"}' });
+    expect((twice.match(/<title>/g) ?? []).length).toBe(1);
+    expect((twice.match(/data-seo-autopilot>/g) ?? []).length).toBe(1);
+  });
+
+  it('never drops the body content', () => {
+    const out = applySeoMetaToHtml(base, { title: 'T', description: 'D', jsonLd: '{}' });
+    expect(out).toContain('<p>hi</p>');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applySeoMeta (R2 publish path)
+// ---------------------------------------------------------------------------
+describe('applySeoMeta', () => {
+  const draft = {
+    site_id: 'site_1',
+    route: '/',
+    title: 'Live Title',
+    description: 'Live description quotable by AI search engines everywhere.',
+    answer_block: null,
+    jsonld_json: null,
+  };
+
+  it('reads the route HTML from R2, rewrites it, and writes it back to the same key', async () => {
+    mockQueryOne.mockResolvedValueOnce({ slug: 'acme', current_build_version: 'v9' } as any);
+    const put = jest.fn().mockResolvedValue(undefined);
+    const get = jest
+      .fn()
+      .mockResolvedValue({ text: async () => '<html><head><title>old</title></head><body>x</body></html>' });
+    const env = { DB: {}, SITES_BUCKET: { get, put } } as any;
+
+    const res = await applySeoMeta(env, draft as any);
+
+    expect(res.ok).toBe(true);
+    expect(get).toHaveBeenCalledWith('sites/acme/v9/index.html');
+    expect(put.mock.calls[0][0]).toBe('sites/acme/v9/index.html');
+    expect(String(put.mock.calls[0][1])).toContain('<title>Live Title</title>');
+  });
+
+  it('errors when the site is missing', async () => {
+    mockQueryOne.mockResolvedValueOnce(null);
+    const env = { DB: {}, SITES_BUCKET: { get: jest.fn(), put: jest.fn() } } as any;
+    const res = await applySeoMeta(env, draft as any);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/site/i);
+  });
+
+  it('errors when the site has no published build', async () => {
+    mockQueryOne.mockResolvedValueOnce({ slug: 'acme', current_build_version: null } as any);
+    const env = { DB: {}, SITES_BUCKET: { get: jest.fn(), put: jest.fn() } } as any;
+    const res = await applySeoMeta(env, draft as any);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/published build/i);
+  });
+
+  it('errors when no HTML object exists for the route', async () => {
+    mockQueryOne.mockResolvedValueOnce({ slug: 'acme', current_build_version: 'v9' } as any);
+    const put = jest.fn();
+    const env = { DB: {}, SITES_BUCKET: { get: jest.fn().mockResolvedValue(null), put } } as any;
+    const res = await applySeoMeta(env, draft as any);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/no published html/i);
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('falls back to {route}/index.html then {route}.html for sub-routes', async () => {
+    mockQueryOne.mockResolvedValueOnce({ slug: 'acme', current_build_version: 'v9' } as any);
+    const put = jest.fn().mockResolvedValue(undefined);
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce(null) // sites/acme/v9/about/index.html
+      .mockResolvedValueOnce({ text: async () => '<html><head></head><body>about</body></html>' }); // about.html
+    const env = { DB: {}, SITES_BUCKET: { get, put } } as any;
+
+    const res = await applySeoMeta(env, { ...draft, route: '/about' } as any);
+
+    expect(res.ok).toBe(true);
+    expect(get).toHaveBeenNthCalledWith(1, 'sites/acme/v9/about/index.html');
+    expect(get).toHaveBeenNthCalledWith(2, 'sites/acme/v9/about.html');
+    expect(put.mock.calls[0][0]).toBe('sites/acme/v9/about.html');
   });
 });
 

@@ -467,16 +467,167 @@ export async function approveDraft(
   };
 }
 
+/** Escape `&`, `<`, `>` for use as element text content. */
+function escText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Escape `&`, `"`, `<`, `>` for use inside a double-quoted attribute value. */
+function escAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** The fields of an approved draft that get written into the served HTML. */
+export interface SeoMetaApply {
+  title?: string | null;
+  description?: string | null;
+  answerBlock?: string | null;
+  /** Pre-serialized schema.org JSON-LD object (the draft's `jsonld_json`). */
+  jsonLd?: string | null;
+}
+
 /**
- * Apply an approved draft's meta to the live site.
+ * Rewrite a page's SEO/GEO surface into served HTML — idempotently.
  *
- * INTEGRATION POINT (intentional D1-only stub): the real publish path belongs
- * in `services/site_serving.ts` — rewriting `<title>` / `<meta description>` /
- * injecting the JSON-LD + answer block into the served HTML in R2, then purging
- * the host KV cache. That deploy work is owned by site_serving and is NOT faked
- * here. This method only advances the draft's D1 status to 'applied' so the
- * approval workflow has an auditable terminal state. Wire the R2/KV rewrite into
- * site_serving and call it from here when that surface lands.
+ * @remarks Pure + deterministic. Rewrites (or injects, when absent) the
+ * `<title>`, `<meta name="description">`, `og:title`, and `og:description`;
+ * injects a marked JSON-LD `<script>` and a hidden crawlable answer block.
+ * Re-applying replaces the previous values rather than duplicating them, so the
+ * publish path is safe to run repeatedly. Body content is never dropped.
+ *
+ * @param html - The page HTML to transform.
+ * @param meta - The approved draft's title/description/answerBlock/jsonLd.
+ * @returns The transformed HTML.
+ * @example
+ * applySeoMetaToHtml('<html><head><title>x</title></head><body>y</body></html>',
+ *   { title: 'New' }) // → '…<title>New</title>…<body>y</body>…'
+ */
+export function applySeoMetaToHtml(html: string, meta: SeoMetaApply): string {
+  let out = html ?? '';
+
+  const injectHead = (snippet: string): void => {
+    if (/<\/head>/i.test(out)) out = out.replace(/<\/head>/i, `${snippet}</head>`);
+    else if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, (m) => `${m}${snippet}`);
+    else out = `${snippet}${out}`;
+  };
+
+  if (meta.title) {
+    const t = escText(meta.title);
+    if (/<title[^>]*>[\s\S]*?<\/title>/i.test(out)) {
+      out = out.replace(/<title[^>]*>[\s\S]*?<\/title>/i, `<title>${t}</title>`);
+    } else {
+      injectHead(`<title>${t}</title>`);
+    }
+  }
+
+  if (meta.description) {
+    const tag = `<meta name="description" content="${escAttr(meta.description)}">`;
+    if (/<meta[^>]+name=["']description["'][^>]*>/i.test(out)) {
+      out = out.replace(/<meta[^>]+name=["']description["'][^>]*>/i, tag);
+    } else {
+      injectHead(tag);
+    }
+  }
+
+  const setOg = (prop: string, val: string): void => {
+    const tag = `<meta property="og:${prop}" content="${escAttr(val)}">`;
+    const re = new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]*>`, 'i');
+    if (re.test(out)) out = out.replace(re, tag);
+    else injectHead(tag);
+  };
+  if (meta.title) setOg('title', meta.title);
+  if (meta.description) setOg('description', meta.description);
+
+  if (meta.jsonLd && meta.jsonLd.trim()) {
+    out = out.replace(/<script[^>]*data-seo-autopilot[^>]*>[\s\S]*?<\/script>/gi, '');
+    injectHead(`<script type="application/ld+json" data-seo-autopilot>${meta.jsonLd.trim()}</script>`);
+  }
+
+  if (meta.answerBlock && meta.answerBlock.trim()) {
+    out = out.replace(/<div[^>]*data-seo-autopilot-answer[^>]*>[\s\S]*?<\/div>/gi, '');
+    const block = `<div data-seo-autopilot-answer hidden>${escText(meta.answerBlock.trim())}</div>`;
+    if (/<\/body>/i.test(out)) out = out.replace(/<\/body>/i, `${block}</body>`);
+    else out = `${out}${block}`;
+  }
+
+  return out;
+}
+
+/**
+ * Build the ordered R2 key candidates the serving layer would resolve a route
+ * to, so the publish path rewrites the SAME file the public site serves.
+ *
+ * @remarks Mirrors `site_serving.serveSiteFromR2`: `/` → `index.html`;
+ * `/about` → `about/index.html`, then `about.html`, then `about`.
+ */
+function routeR2Candidates(slug: string, version: string, route: string): string[] {
+  const base = `sites/${slug}/${version}`;
+  const r = (route || '/').trim();
+  if (r === '/' || r === '') return [`${base}/index.html`];
+  const clean = r.replace(/^\/+/, '').replace(/\/+$/, '');
+  return [`${base}/${clean}/index.html`, `${base}/${clean}.html`, `${base}/${clean}`];
+}
+
+/**
+ * Publish an approved draft's meta into the live site: read the route's HTML
+ * from R2, rewrite it with {@link applySeoMetaToHtml}, and write it back to the
+ * same key the public site serves.
+ *
+ * @remarks The served HTML carries `Cache-Control: s-maxage=3600`, so the
+ * rewrite goes live at the edge within the existing TTL (≤1h) without an
+ * explicit zone purge. Reversible via R2 object versioning. Returns a typed
+ * error (never throws) when the site is unpublished or the route HTML is absent.
+ *
+ * @returns `{ ok: true }` on success, else `{ ok: false, error }`.
+ */
+export async function applySeoMeta(
+  env: Env,
+  draft: Pick<SeoMetaDraft, 'site_id' | 'route' | 'title' | 'description' | 'answer_block' | 'jsonld_json'>,
+): Promise<{ ok: boolean; error?: string }> {
+  const site = await dbQueryOne<{ slug: string; current_build_version: string | null }>(
+    env.DB,
+    'SELECT slug, current_build_version FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [draft.site_id],
+  );
+  if (!site) return { ok: false, error: 'Site not found' };
+  if (!site.current_build_version) return { ok: false, error: 'Site has no published build to update' };
+
+  const candidates = routeR2Candidates(site.slug, site.current_build_version, draft.route);
+  let key: string | null = null;
+  let object: R2ObjectBody | null = null;
+  for (const candidate of candidates) {
+    const found = await env.SITES_BUCKET.get(candidate);
+    if (found) {
+      key = candidate;
+      object = found;
+      break;
+    }
+  }
+  if (!object || !key) return { ok: false, error: `No published HTML found for route ${draft.route}` };
+
+  const html = await object.text();
+  const next = applySeoMetaToHtml(html, {
+    title: draft.title,
+    description: draft.description,
+    answerBlock: draft.answer_block,
+    jsonLd: draft.jsonld_json,
+  });
+
+  await env.SITES_BUCKET.put(key, next, {
+    httpMetadata: { contentType: 'text/html; charset=utf-8' },
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Apply an approved draft's meta to the live site, then advance its D1 status
+ * to `applied`.
+ *
+ * @remarks Re-reads the draft, verifies it is `approved`, performs the real R2
+ * publish via {@link applySeoMeta}, and only then advances the status — so a
+ * failed publish leaves the draft `approved` (retryable), never falsely
+ * `applied`.
  */
 export async function applyToSite(
   env: Env,
@@ -484,15 +635,16 @@ export async function applyToSite(
 ): Promise<{ ok: boolean; error?: string }> {
   const draft = await dbQueryOne<SeoMetaDraft>(
     env.DB,
-    'SELECT id, status FROM seo_meta_drafts WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, site_id, route, title, description, answer_block, jsonld_json, status FROM seo_meta_drafts WHERE id = ? AND deleted_at IS NULL',
     [draftId],
   );
   if (!draft) return { ok: false, error: 'Draft not found' };
   if (draft.status !== 'approved')
     return { ok: false, error: 'Draft must be approved before apply' };
 
-  // TODO(site_serving): call site_serving.applySeoMeta(env, draft) to rewrite the
-  // served HTML in R2 + purge host KV cache. D1-only status advance for now.
+  const published = await applySeoMeta(env, draft);
+  if (!published.ok) return published;
+
   await dbUpdate(env.DB, 'seo_meta_drafts', { status: 'applied' }, 'id = ?', [draftId]);
   return { ok: true };
 }
