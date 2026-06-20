@@ -23,10 +23,7 @@ import type { Env } from '../types/env.js';
 import type { JobKind } from './workflow-router.js';
 import { createJobRouter, type ProjectSitesJobProvider } from './job-provider.js';
 import { InngestJobProvider, type InngestSender } from '../inngest/job-provider.js';
-import {
-  CloudflareWorkflowProvider,
-  type CfWorkflowBinding,
-} from '../workflows/job-provider.js';
+import { CloudflareWorkflowProvider, type CfWorkflowBinding } from '../workflows/job-provider.js';
 import { HatchetJobProvider, type HatchetPusher } from '../services/hatchet_job_provider.js';
 import { inngest } from '../inngest/client.js';
 import { pushHatchetEvent } from '../services/hatchet.js';
@@ -55,17 +52,16 @@ function defaultCfBindings(_env: Env): Partial<Record<JobKind, CfWorkflowBinding
  * await router.start('site-generation', ctx, { slug });
  */
 export function getJobRouter(env: Env, deps: JobRouterDeps = {}): ProjectSitesJobProvider {
-  const inngestSend: InngestSender =
-    deps.inngestSend ?? {
-      send: (event) => {
-        // Workers have no process.env — thread the bound keys before sending.
-        inngest.setEnvVars({
-          INNGEST_EVENT_KEY: env.INNGEST_EVENT_KEY,
-          INNGEST_BASE_URL: env.INNGEST_BASE_URL,
-        });
-        return inngest.send(event) as Promise<{ ids: string[] }>;
-      },
-    };
+  const inngestSend: InngestSender = deps.inngestSend ?? {
+    send: (event) => {
+      // Workers have no process.env — thread the bound keys before sending.
+      inngest.setEnvVars({
+        INNGEST_EVENT_KEY: env.INNGEST_EVENT_KEY,
+        INNGEST_BASE_URL: env.INNGEST_BASE_URL,
+      });
+      return inngest.send(event) as Promise<{ ids: string[] }>;
+    },
+  };
 
   const hatchetPush: HatchetPusher =
     deps.hatchetPush ?? ((key, data, opts) => pushHatchetEvent(env, key, data, opts));

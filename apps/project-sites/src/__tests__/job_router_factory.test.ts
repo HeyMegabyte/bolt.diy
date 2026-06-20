@@ -41,11 +41,21 @@ function deps() {
   const claimBinding: CfWorkflowBinding = {
     async create(opts) {
       cfCreated.push({ id: opts.id });
-      const inst: CfWorkflowInstanceLike = { id: opts.id, async status() { return { status: 'queued' }; } };
+      const inst: CfWorkflowInstanceLike = {
+        id: opts.id,
+        async status() {
+          return { status: 'queued' };
+        },
+      };
       return inst;
     },
     async get(id) {
-      return { id, async status() { return { status: 'queued' }; } };
+      return {
+        id,
+        async status() {
+          return { status: 'queued' };
+        },
+      };
     },
   };
   return {
@@ -80,6 +90,8 @@ describe('getJobRouter', () => {
   it('a CF-native kind with no bound Workflow fails loudly (not silent)', async () => {
     const d = deps();
     const router = getJobRouter(env, { ...d.seams, cfBindings: {} }); // no claim binding
-    await expect(router.start('claim-flow', ctx())).rejects.toThrow(/No Cloudflare Workflow binding/);
+    await expect(router.start('claim-flow', ctx())).rejects.toThrow(
+      /No Cloudflare Workflow binding/,
+    );
   });
 });
