@@ -159,6 +159,59 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
 });
 
 /**
+ * `GET /api/invitations/agency/:token` — Read-only preview of an agency client
+ * invitation by its raw token (the link a client clicks before signing in).
+ *
+ * @remarks
+ * Mounted OUTSIDE the `/api/agency/*` `requirePro` guard (the invitee is a client,
+ * not Pro) and needs no session — the secret token IS the auth. Returns just
+ * enough to render an accept screen (agency name, role, validity) WITHOUT
+ * mutating anything. `status` is `valid | expired | claimed`; only `valid`
+ * invitations can be redeemed at the accept route. Never echoes the token back.
+ *
+ * @throws 404 NOT_FOUND when no invitation matches the token.
+ */
+agency.get('/api/invitations/agency/:token', async (c) => {
+  const token = c.req.param('token');
+  const tokenHash = await sha256(token);
+  const invite = await dbQueryOne<{
+    agency_org_id: string;
+    role: string;
+    expires_at: string;
+    claimed_at: string | null;
+  }>(
+    c.env.DB,
+    `SELECT agency_org_id, role, expires_at, claimed_at
+       FROM agency_invitations WHERE token_hash = ?`,
+    [tokenHash],
+  );
+  if (!invite) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Invitation not found.' } }, 404);
+  }
+
+  const status = invite.claimed_at
+    ? 'claimed'
+    : invite.expires_at <= new Date().toISOString()
+      ? 'expired'
+      : 'valid';
+  const agencyOrg = await dbQueryOne<{ name: string }>(
+    c.env.DB,
+    `SELECT name FROM orgs WHERE id = ? AND deleted_at IS NULL`,
+    [invite.agency_org_id],
+  );
+
+  return c.json({
+    data: {
+      status,
+      valid: status === 'valid',
+      role: invite.role,
+      agency_name: agencyOrg?.name ?? null,
+      expires_at: invite.expires_at,
+    },
+  });
+});
+
+/**
  * Map an agency-invitation role to the constrained `memberships.role` enum.
  *
  * @remarks

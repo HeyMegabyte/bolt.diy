@@ -566,6 +566,76 @@ describe('GET /api/agency/snapshots', () => {
   });
 });
 
+describe('GET /api/invitations/agency/:token (preview)', () => {
+  const NOW = Date.now();
+  const future = new Date(NOW + 86400000).toISOString();
+  const past = new Date(NOW - 86400000).toISOString();
+
+  it('404s when no invitation matches the token (no Pro/auth required)', async () => {
+    mockQueryOne.mockResolvedValue(null);
+    const { request } = makeApp(); // no userId/orgId — preview is token-bearer only
+    const res = await request('/api/invitations/agency/tok_unknown');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns status=valid + agency name + role for a live invitation', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({
+        agency_org_id: 'agency-org',
+        role: 'client_editor',
+        expires_at: future,
+        claimed_at: null,
+      })
+      .mockResolvedValueOnce({ name: 'Acme Agency' });
+    const { request } = makeApp();
+    const res = await request('/api/invitations/agency/tok_live');
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { status: string; valid: boolean; role: string; agency_name: string };
+    };
+    expect(json.data).toEqual(
+      expect.objectContaining({
+        status: 'valid',
+        valid: true,
+        role: 'client_editor',
+        agency_name: 'Acme Agency',
+      }),
+    );
+  });
+
+  it('reports status=expired (not valid) for a past-expiry invitation', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({
+        agency_org_id: 'agency-org',
+        role: 'client_owner',
+        expires_at: past,
+        claimed_at: null,
+      })
+      .mockResolvedValueOnce({ name: 'Acme Agency' });
+    const { request } = makeApp();
+    const res = await request('/api/invitations/agency/tok_old');
+    const json = (await res.json()) as { data: { status: string; valid: boolean } };
+    expect(json.data.status).toBe('expired');
+    expect(json.data.valid).toBe(false);
+  });
+
+  it('reports status=claimed (not valid) for an already-redeemed invitation', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({
+        agency_org_id: 'agency-org',
+        role: 'client_owner',
+        expires_at: future,
+        claimed_at: past,
+      })
+      .mockResolvedValueOnce({ name: 'Acme Agency' });
+    const { request } = makeApp();
+    const res = await request('/api/invitations/agency/tok_used');
+    const json = (await res.json()) as { data: { status: string; valid: boolean } };
+    expect(json.data.status).toBe('claimed');
+    expect(json.data.valid).toBe(false);
+  });
+});
+
 describe('membershipRoleForInvite (role-enum mapping)', () => {
   it('maps invite roles to CHECK-valid membership roles', () => {
     expect(membershipRoleForInvite('client_owner')).toBe('owner');
