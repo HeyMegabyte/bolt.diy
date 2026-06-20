@@ -43,9 +43,65 @@ import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
 import * as connectService from '../services/stripe_connect.js';
 import { handleWalletStripeEvent } from '../services/wallet_webhook.js';
+import { tryEmitEvent } from '../services/emit_event.js';
+import type { EventType } from '../services/event_bus.js';
 import { sha256Hex, badRequest } from '@project-sites/shared';
 
 const webhooks = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * Map a Stripe `customer.subscription.*` status to the billing-bus event type to
+ * emit, or `null` when the status is not a lifecycle transition we put on the bus
+ * (cancellation rides the dedicated `customer.subscription.deleted` event, and
+ * `incomplete`/`paused` are pre-active states with nothing to orchestrate).
+ *
+ * Pure + total — same status always yields the same result, no I/O.
+ *
+ * @param status - The Stripe subscription `status` field.
+ * @returns `'subscription.active' | 'subscription.past_due' | null`.
+ * @example subscriptionEventType('past_due') // 'subscription.past_due'
+ */
+export function subscriptionEventType(
+  status: string,
+): 'subscription.active' | 'subscription.past_due' | null {
+  if (status === 'active' || status === 'trialing') return 'subscription.active';
+  if (status === 'past_due' || status === 'unpaid') return 'subscription.past_due';
+  return null;
+}
+
+/**
+ * Best-effort emit of a billing-lifecycle event onto the durable outbox (drained
+ * every 5 min to Tinybird analytics + Hatchet billing orchestration). Idempotent
+ * per Stripe event id — a webhook replay never double-emits. Fire-and-forget via
+ * `waitUntil` so it never blocks or fails the webhook ack (`tryEmitEvent` already
+ * never throws). Skips silently when no `orgId` is known — the bus requires a
+ * `tenantId`, and a billing event with no tenant has nothing to orchestrate.
+ */
+function emitBillingEvent(
+  c: import('hono').Context<{ Bindings: Env; Variables: Variables }>,
+  type: EventType,
+  orgId: string | undefined,
+  stripeEventId: string,
+  data: Record<string, unknown>,
+): void {
+  if (!orgId) return;
+  const p = tryEmitEvent(
+    c.env,
+    {
+      type,
+      producer: 'stripe',
+      tenantId: orgId,
+      traceId: c.get('requestId') ?? stripeEventId,
+      data,
+    },
+    { scope: [stripeEventId] },
+  );
+  try {
+    c.executionCtx.waitUntil(p);
+  } catch {
+    void p;
+  }
+}
 
 /**
  * Stripe webhook handler.
@@ -149,6 +205,14 @@ webhooks.post('/webhooks/stripe', async (c) => {
               /* notify is best-effort */
             }
           }
+          // Subscription is now active — put it on the durable bus for the
+          // billing-analytics + entitlement-orchestration plane.
+          emitBillingEvent(c, 'subscription.active', meta.org_id, event.id, {
+            customer: String(obj.customer ?? ''),
+            subscription: String(obj.subscription ?? ''),
+            amountCents: Number((obj as { amount_total?: number }).amount_total ?? 0),
+            currency: String((obj as { currency?: string }).currency ?? 'usd'),
+          });
         }
         break;
       }
@@ -164,22 +228,48 @@ webhooks.post('/webhooks/stripe', async (c) => {
         await handleWalletStripeEvent(c.env, event.type, obj);
         break;
 
-      case 'customer.subscription.updated':
+      case 'customer.subscription.updated': {
+        const subStatus = obj.status as string;
         await billingService.handleSubscriptionUpdated(db, {
           id: obj.id as string,
-          status: obj.status as string,
+          status: subStatus,
           cancel_at_period_end: obj.cancel_at_period_end as boolean,
           current_period_start: obj.current_period_start as number,
           current_period_end: obj.current_period_end as number,
           metadata: obj.metadata as { org_id?: string },
         });
+        // active/trialing → subscription.active; past_due/unpaid → subscription.past_due.
+        const updType = subscriptionEventType(subStatus);
+        if (updType) {
+          emitBillingEvent(
+            c,
+            updType,
+            (obj.metadata as { org_id?: string } | undefined)?.org_id,
+            event.id,
+            {
+              subscription: String(obj.id ?? ''),
+              status: subStatus,
+              cancelAtPeriodEnd: Boolean(obj.cancel_at_period_end),
+            },
+          );
+        }
         break;
+      }
 
       case 'customer.subscription.deleted':
         await billingService.handleSubscriptionDeleted(db, {
           id: obj.id as string,
           metadata: obj.metadata as { org_id?: string },
         });
+        emitBillingEvent(
+          c,
+          'subscription.canceled',
+          (obj.metadata as { org_id?: string } | undefined)?.org_id,
+          event.id,
+          {
+            subscription: String(obj.id ?? ''),
+          },
+        );
         break;
 
       case 'invoice.payment_failed': {
@@ -210,14 +300,34 @@ webhooks.post('/webhooks/stripe', async (c) => {
             /* notify is best-effort */
           }
         }
+        // Dunning starts — emit invoice.failed for the billing-recovery plane.
+        emitBillingEvent(c, 'invoice.failed', failMeta.org_id, event.id, {
+          subscription: String(obj.subscription ?? ''),
+          amountCents: Number((obj as { amount_due?: number }).amount_due ?? 0),
+          currency: String((obj as { currency?: string }).currency ?? 'usd'),
+        });
         break;
       }
 
-      case 'invoice.paid':
+      case 'invoice.paid': {
         // Backup for checkout.session.completed + wallet sub renewal credit.
         // Wallet handler is a no-op for non-wallet invoices.
         await handleWalletStripeEvent(c.env, event.type, obj);
+        // Successful renewal/payment — emit invoice.paid for revenue analytics.
+        emitBillingEvent(
+          c,
+          'invoice.paid',
+          (obj.metadata as { org_id?: string } | undefined)?.org_id,
+          event.id,
+          {
+            invoice: String(obj.id ?? ''),
+            subscription: String(obj.subscription ?? ''),
+            amountCents: Number((obj as { amount_paid?: number }).amount_paid ?? 0),
+            currency: String((obj as { currency?: string }).currency ?? 'usd'),
+          },
+        );
         break;
+      }
 
       case 'account.updated':
         // Stripe Connect (item #97): the customer's connected account
