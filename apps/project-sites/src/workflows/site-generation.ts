@@ -28,6 +28,7 @@ import { appendBuildEvent, type BuildEvent } from '../services/build_events.js';
 import { checkBudget, recordSpend } from '../services/build_budget.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { submitSite } from '../../libs/features/search_submit/service.js';
+import { tryEmitEvent } from '../services/emit_event.js';
 
 /**
  * Per-variant omit of the auto-injected base fields, distributed across the
@@ -102,7 +103,12 @@ async function updateSiteStatus(db: D1Database, siteId: string, status: string):
  * @param siteId - The site that failed to build.
  * @param reason - Human-readable failure reason.
  */
-async function notifyBuildFailed(env: Env, orgId: string, siteId: string, reason: string): Promise<void> {
+async function notifyBuildFailed(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  reason: string,
+): Promise<void> {
   try {
     const { notifyOwnerEvent } = await import('../services/notify.js');
     await notifyOwnerEvent(env, env.DB, {
@@ -765,7 +771,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         const container = getContainer();
 
         const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
-        const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string }).BUILD_LLM_PROVIDER;
+        const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
+          .BUILD_LLM_PROVIDER;
         const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
 
         const payload = {
@@ -1000,7 +1007,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         reason: `Build timed out after ${MAX_POLLS} heartbeat polls`,
         code: 'timeout',
       });
-      await notifyBuildFailed(env, params.orgId, params.siteId, `Build timed out after ${MAX_POLLS * 30}s`);
+      await notifyBuildFailed(
+        env,
+        params.orgId,
+        params.siteId,
+        `Build timed out after ${MAX_POLLS * 30}s`,
+      );
       throw new Error('Build timed out after ' + MAX_POLLS + ' heartbeat polls');
     }
 
@@ -1016,7 +1028,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         reason: finalStatus.error || 'unknown error',
         code: finalStatus.step || 'build_failed',
       });
-      await notifyBuildFailed(env, params.orgId, params.siteId, finalStatus.error || 'unknown error');
+      await notifyBuildFailed(
+        env,
+        params.orgId,
+        params.siteId,
+        finalStatus.error || 'unknown error',
+      );
       throw new Error('Build failed: ' + (finalStatus.error || 'unknown error'));
     }
 
@@ -1056,7 +1073,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             reason: `R2 upload produced 0 files (failed=${uploadResult?.failed ?? 'n/a'})`,
             code: 'upload_failed',
           });
-          await notifyBuildFailed(env, params.orgId, params.siteId, 'Publishing failed — the build produced no files');
+          await notifyBuildFailed(
+            env,
+            params.orgId,
+            params.siteId,
+            'Publishing failed — the build produced no files',
+          );
           throw new Error(
             `R2 upload produced 0 files (uploadResult=${JSON.stringify(uploadResult)})`,
           );
@@ -1082,6 +1104,30 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         )
           .bind(crypto.randomUUID(), params.siteId, version)
           .run();
+
+        // Emit site.generated onto the durable bus — the build produced + uploaded
+        // a published bundle. Drained to Tinybird (build-funnel analytics) + Hatchet
+        // (post-publish orchestration: QA, search-submit, promotion). Idempotent per
+        // (siteId, version) so a re-run of the SAME version is a no-op while a genuine
+        // rebuild (new version) emits afresh; tryEmitEvent never throws.
+        await tryEmitEvent(
+          env,
+          {
+            type: 'site.generated',
+            producer: 'cloudflare-workflows',
+            tenantId: params.orgId,
+            traceId: params.siteId,
+            siteId: params.siteId,
+            data: {
+              slug: params.slug,
+              version,
+              fileCount,
+              uploadCount,
+              url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+            },
+          },
+          { scope: [params.siteId, version] },
+        );
 
         await emitBuildEvent(env, params.siteId, {
           type: 'preview.updated',
@@ -1174,7 +1220,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           return JSON.stringify({
             ok: report.ok,
             summary: report.summary,
-            readiness: { grade: readiness.grade, score: readiness.score, passing: readiness.passing },
+            readiness: {
+              grade: readiness.grade,
+              score: readiness.score,
+              passing: readiness.passing,
+            },
           });
         } catch (err) {
           await workflowLog(
