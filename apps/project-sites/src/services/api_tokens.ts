@@ -144,13 +144,22 @@ export async function verifyApiToken(
     .catch(() => null);
 
   if (row) {
-    // Fire-and-forget last_used_at update
-    db.prepare(
-      `UPDATE api_tokens SET last_used_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
-    )
-      .bind(row.id)
-      .run()
-      .catch(() => {});
+    // Throttle the last_used_at touch: this validates on EVERY public-API
+    // request, so the per-call write was both hot-path load AND unreliable (the
+    // un-awaited promise can be cancelled when the request ends). Refresh only
+    // when stale (>5 min) and AWAIT the rare write so it actually lands. A busy
+    // token making many calls in 5 min now does 1 write, not one per request.
+    const STALE_MS = 5 * 60 * 1000;
+    const lastUsed = row.last_used_at ? new Date(row.last_used_at).getTime() : 0;
+    if (Date.now() - lastUsed > STALE_MS) {
+      await db
+        .prepare(
+          `UPDATE api_tokens SET last_used_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+        )
+        .bind(row.id)
+        .run()
+        .catch(() => {});
+    }
   }
 
   return row ?? null;

@@ -252,11 +252,24 @@ describe('verifyApiToken', () => {
 
     await verifyApiToken(db, `psk_${'e'.repeat(64)}`);
 
-    // 1 SELECT + 1 fire-and-forget UPDATE.
+    // 1 SELECT + 1 UPDATE (last_used_at was null → stale → refresh fires).
     expect(preparedCalls).toHaveLength(2);
     const update = preparedCalls[1];
     expect(update.sql).toContain('UPDATE api_tokens SET last_used_at');
     expect(update.args).toContain('tok-touch');
+  });
+
+  it('SKIPS the last_used_at touch when refreshed recently (hot-path throttle)', async () => {
+    const db = makeDb();
+    firstResults = [
+      validRow({ id: 'tok-fresh', last_used_at: new Date(Date.now() - 1000).toISOString() }),
+    ];
+
+    const row = await verifyApiToken(db, `psk_${'f'.repeat(64)}`);
+
+    expect(row).not.toBeNull(); // still authenticates
+    // Only the SELECT ran — no second prepared statement for the UPDATE.
+    expect(preparedCalls).toHaveLength(1);
   });
 });
 
