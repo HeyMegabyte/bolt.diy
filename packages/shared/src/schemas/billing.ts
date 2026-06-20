@@ -213,11 +213,7 @@ export type SaleWebhookPayload = z.infer<typeof saleWebhookPayloadSchema>;
  * - `rate_spike` — fires when burn-rate (credits/hour, 24h moving avg)
  *   exceeds `threshold_credits` over a 1h sliding window.
  */
-export const spendAlertTriggerSchema = z.enum([
-  'balance_below',
-  'monthly_spend_above',
-  'rate_spike',
-]);
+export const spendAlertTriggerSchema = z.enum(['balance_below', 'monthly_spend_above', 'rate_spike']);
 /** Inferred type for the spend-alert trigger enum. */
 export type SpendAlertTrigger = z.infer<typeof spendAlertTriggerSchema>;
 

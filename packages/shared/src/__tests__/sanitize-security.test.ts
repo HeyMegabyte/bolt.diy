@@ -39,9 +39,7 @@ describe('pickSafeRedirect — absolute-URL open-redirect defense', () => {
     expect(pickSafeRedirect('https://nsk.projectsites.dev/thanks', fb, allowed)).toBe(
       'https://nsk.projectsites.dev/thanks',
     );
-    expect(pickSafeRedirect('https://donate.nsk.org/done', fb, allowed)).toBe(
-      'https://donate.nsk.org/done',
-    );
+    expect(pickSafeRedirect('https://donate.nsk.org/done', fb, allowed)).toBe('https://donate.nsk.org/done');
   });
 
   it('falls back for a cross-host (phishing) URL', () => {
@@ -56,9 +54,7 @@ describe('pickSafeRedirect — absolute-URL open-redirect defense', () => {
   });
 
   it('matches host case-insensitively', () => {
-    expect(pickSafeRedirect('https://NSK.ProjectSites.dev/x', fb, allowed)).toBe(
-      'https://NSK.ProjectSites.dev/x',
-    );
+    expect(pickSafeRedirect('https://NSK.ProjectSites.dev/x', fb, allowed)).toBe('https://NSK.ProjectSites.dev/x');
   });
 });
 

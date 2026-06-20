@@ -69,9 +69,9 @@ describe('createIntegrationSchema (.refine provider rules)', () => {
   });
 
   it('accepts an api-key provider (mailchimp) with api_key', () => {
-    expect(
-      createIntegrationSchema.safeParse({ provider: 'mailchimp', api_key: 'abc', list_id: 'l1' }).success,
-    ).toBe(true);
+    expect(createIntegrationSchema.safeParse({ provider: 'mailchimp', api_key: 'abc', list_id: 'l1' }).success).toBe(
+      true,
+    );
   });
 
   it('rejects an api-key provider (mailchimp) missing api_key', () => {

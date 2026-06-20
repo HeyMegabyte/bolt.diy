@@ -75,11 +75,7 @@ export function safeRelativePath(raw: string | undefined, fallback: string): str
  * pickSafeRedirect('::::not a url', fb, own);                   // => fb
  * ```
  */
-export function pickSafeRedirect(
-  provided: string | undefined,
-  fallback: string,
-  allowedHosts: Set<string>,
-): string {
+export function pickSafeRedirect(provided: string | undefined, fallback: string, allowedHosts: Set<string>): string {
   if (!provided) return fallback;
   try {
     return allowedHosts.has(new URL(provided).host.toLowerCase()) ? provided : fallback;

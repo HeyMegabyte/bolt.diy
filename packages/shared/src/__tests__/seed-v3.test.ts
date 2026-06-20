@@ -43,15 +43,19 @@ describe('confidence-wrapped leaf schemas', () => {
   it('addressSchema accepts five conf-wrapped string parts', () => {
     expect(
       addressSchema.safeParse({
-        street: conf('1 Main St'), city: conf('SF'), state: conf('CA'),
-        zip: conf('94016'), country: conf('US'),
+        street: conf('1 Main St'),
+        city: conf('SF'),
+        state: conf('CA'),
+        zip: conf('94016'),
+        country: conf('US'),
       }).success,
     ).toBe(true);
   });
 
   it('addressSchema rejects a missing required part (zip)', () => {
     expect(
-      addressSchema.safeParse({ street: conf('1 Main St'), city: conf('SF'), state: conf('CA'), country: conf('US') }).success,
+      addressSchema.safeParse({ street: conf('1 Main St'), city: conf('SF'), state: conf('CA'), country: conf('US') })
+        .success,
     ).toBe(false);
   });
 });
@@ -72,7 +76,18 @@ describe('smallBizSeedV3Schema (root) required-keys gate', () => {
     if (!res.success) {
       const keys = new Set(res.error.issues.map((i) => i.path[0]));
       // all 10 required sections should be flagged
-      for (const k of ['identity', 'operations', 'offerings', 'trust', 'brand', 'marketing', 'media', 'seo', 'uiPolicy', 'provenance']) {
+      for (const k of [
+        'identity',
+        'operations',
+        'offerings',
+        'trust',
+        'brand',
+        'marketing',
+        'media',
+        'seo',
+        'uiPolicy',
+        'provenance',
+      ]) {
         expect(keys.has(k)).toBe(true);
       }
     }

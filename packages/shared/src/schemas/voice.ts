@@ -75,10 +75,7 @@ export const voiceCallSchema = z.object({
   video_recording_url: z.string().nullable().optional(),
   transcript_json: z.string().nullable().optional(),
   summary: z.string().nullable().optional(),
-  sentiment: z
-    .enum(['positive', 'neutral', 'negative', 'escalated_safety', 'flagged_scam'])
-    .nullable()
-    .optional(),
+  sentiment: z.enum(['positive', 'neutral', 'negative', 'escalated_safety', 'flagged_scam']).nullable().optional(),
   cost_cents: z.number().int().nullable().optional(),
   hangup_reason: z.string().nullable().optional(),
   created_at: z.string(),

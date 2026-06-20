@@ -25,7 +25,10 @@ describe('vanityWordSchema', () => {
 describe('voiceAgentSettingsSchema defaults', () => {
   it('applies provider + cap + toggle defaults', () => {
     const out = voiceAgentSettingsSchema.parse({
-      id: 'a', site_id: 's', created_at: 't', updated_at: 't',
+      id: 'a',
+      site_id: 's',
+      created_at: 't',
+      updated_at: 't',
     });
     expect(out.voice_provider).toBe('twilio-callgpt');
     expect(out.max_call_seconds).toBe(600);
@@ -54,14 +57,22 @@ describe('updateVoiceAgentSettingsSchema', () => {
     expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', max_call_seconds: 99999 }).success).toBe(false);
   });
   it('rejects a non-E.164 escalation_phone', () => {
-    expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', escalation_phone: '4155551234' }).success).toBe(false);
+    expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', escalation_phone: '4155551234' }).success).toBe(
+      false,
+    );
   });
   it('caps mcp_connection_ids + knowledge_base_urls at 20 and rejects bad URLs', () => {
-    expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', mcp_connection_ids: Array(21).fill('x') }).success).toBe(false);
-    expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', knowledge_base_urls: ['not a url'] }).success).toBe(false);
+    expect(
+      updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', mcp_connection_ids: Array(21).fill('x') }).success,
+    ).toBe(false);
+    expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', knowledge_base_urls: ['not a url'] }).success).toBe(
+      false,
+    );
   });
   it('rejects an over-long voice_system_prompt (> 8000)', () => {
-    expect(updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', voice_system_prompt: 'x'.repeat(8001) }).success).toBe(false);
+    expect(
+      updateVoiceAgentSettingsSchema.safeParse({ siteId: 's', voice_system_prompt: 'x'.repeat(8001) }).success,
+    ).toBe(false);
   });
 });
 
@@ -79,8 +90,11 @@ describe('purchaseNumberRequestSchema', () => {
 describe('numberSearchResultSchema', () => {
   it('requires a 2-char iso_country + full capabilities object', () => {
     const base = {
-      phone_number: '+14155551234', friendly_name: '(415) 555-1234',
-      locality: 'SF', region: 'CA', iso_country: 'US',
+      phone_number: '+14155551234',
+      friendly_name: '(415) 555-1234',
+      locality: 'SF',
+      region: 'CA',
+      iso_country: 'US',
       capabilities: { voice: true, sms: true, mms: false, fax: false },
     };
     expect(numberSearchResultSchema.safeParse(base).success).toBe(true);

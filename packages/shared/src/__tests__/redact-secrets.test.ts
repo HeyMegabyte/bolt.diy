@@ -23,10 +23,7 @@ describe('redact() — provider secret formats', () => {
     ['Stripe live secret', 'sk_live_AbCdEf0123456789' + 'AbCd'],
     ['Stripe webhook secret', 'whsec_AbCdEf0123456789' + 'AbCd'],
     ['Bearer token', 'Bearer AbCdEf0123456789AbCdEf01'],
-    [
-      'JWT',
-      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
-    ],
+    ['JWT', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'],
   ];
 
   for (const [name, secret] of secrets) {
