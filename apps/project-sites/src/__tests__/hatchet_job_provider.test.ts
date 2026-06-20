@@ -20,7 +20,8 @@ const ctx = (over: Partial<ProjectSitesJobContext> = {}): ProjectSitesJobContext
 });
 
 function fakePusher(result: HatchetPushResult = { ok: true }) {
-  const calls: { key: string; data: Record<string, unknown>; metadata?: Record<string, string> }[] = [];
+  const calls: { key: string; data: Record<string, unknown>; metadata?: Record<string, string> }[] =
+    [];
   const pusher: HatchetPusher = async (key, data, opts) => {
     calls.push({ key, data, metadata: opts?.metadata });
     return result;
@@ -31,15 +32,25 @@ function fakePusher(result: HatchetPushResult = { ok: true }) {
 describe('HatchetJobProvider', () => {
   it('pushes the mapped event with ctx in data + string metadata', async () => {
     const pusher = fakePusher();
-    const ref = await new HatchetJobProvider(pusher).start('site-generation', ctx(), { slug: 'acme' });
+    const ref = await new HatchetJobProvider(pusher).start('site-generation', ctx(), {
+      slug: 'acme',
+    });
 
     expect(pusher.calls).toHaveLength(1);
     expect(pusher.calls[0].key).toBe('job/site-generation.requested');
     const data = pusher.calls[0].data as { payload: unknown; _ctx: { traceId: string } };
     expect(data.payload).toEqual({ slug: 'acme' });
     expect(data._ctx.traceId).toBe('trace-1');
-    expect(pusher.calls[0].metadata).toMatchObject({ idempotencyKey: 'idem-1', tenantId: 'tenant-1' });
-    expect(ref).toMatchObject({ backend: 'hatchet', kind: 'site-generation', jobId: 'idem-1', status: 'queued' });
+    expect(pusher.calls[0].metadata).toMatchObject({
+      idempotencyKey: 'idem-1',
+      tenantId: 'tenant-1',
+    });
+    expect(ref).toMatchObject({
+      backend: 'hatchet',
+      kind: 'site-generation',
+      jobId: 'idem-1',
+      status: 'queued',
+    });
   });
 
   it('maps each heavy kind to its event', async () => {
@@ -59,18 +70,24 @@ describe('HatchetJobProvider', () => {
 
   it('throws when the Hatchet push fails', async () => {
     const pusher = fakePusher({ ok: false, reason: 'http_error', status: 500 });
-    await expect(new HatchetJobProvider(pusher).start('site-generation', ctx())).rejects.toThrow(/Hatchet push failed.*http_error.*500/);
+    await expect(new HatchetJobProvider(pusher).start('site-generation', ctx())).rejects.toThrow(
+      /Hatchet push failed.*http_error.*500/,
+    );
   });
 
   it('refuses a kind that does not route to Hatchet', async () => {
     const pusher = fakePusher();
-    await expect(new HatchetJobProvider(pusher).start('claim-flow', ctx())).rejects.toThrow(/not a Hatchet job/);
+    await expect(new HatchetJobProvider(pusher).start('claim-flow', ctx())).rejects.toThrow(
+      /not a Hatchet job/,
+    );
     expect(pusher.calls).toHaveLength(0);
   });
 
   it('validates context before pushing', async () => {
     const pusher = fakePusher();
-    await expect(new HatchetJobProvider(pusher).start('site-generation', ctx({ traceId: '' }))).rejects.toThrow();
+    await expect(
+      new HatchetJobProvider(pusher).start('site-generation', ctx({ traceId: '' })),
+    ).rejects.toThrow();
     expect(pusher.calls).toHaveLength(0);
   });
 

@@ -96,7 +96,9 @@ export class HatchetJobProvider implements ProjectSitesJobProvider {
       { metadata: buildMetadata(ctx) },
     );
     if (!result.ok) {
-      throw new Error(`Hatchet push failed for "${kind}": ${result.reason ?? 'unknown'}${result.status ? ` (${result.status})` : ''}`);
+      throw new Error(
+        `Hatchet push failed for "${kind}": ${result.reason ?? 'unknown'}${result.status ? ` (${result.status})` : ''}`,
+      );
     }
 
     return {
