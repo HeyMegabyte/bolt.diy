@@ -20,6 +20,7 @@ import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
 import { createLead, listLeads, getLead } from '../services/lead_store.js';
+import { tryEmitEvent } from '../services/emit_event.js';
 import { createClaimLink } from '../services/claim_links.js';
 import type { PlacesResult } from '../services/google_places.js';
 import type { PlacesSearchHit } from '../services/places_search.js';
@@ -118,8 +119,36 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
     parsed.data.onlyNoWebsite === undefined ? {} : { onlyNoWebsite: parsed.data.onlyNoWebsite },
   );
 
+  // Emit a lead.discovered batch event onto the durable bus when the scan added
+  // leads — feeds Tinybird analytics + Hatchet outreach orchestration. Idempotent
+  // per requestId (a retried scan request never double-emits); never throws.
+  if (summary.created > 0) {
+    await tryEmitEvent(
+      c.env,
+      {
+        type: 'lead.discovered',
+        producer: 'worker',
+        tenantId: c.get('orgId') ?? 'platform',
+        traceId: requestId ?? `scan_${parsed.data.query}`,
+        ...(userIdOf(c) ? { userId: userIdOf(c) } : {}),
+        data: {
+          query: parsed.data.query,
+          scanned: summary.scanned,
+          created: summary.created,
+          onlyNoWebsite: parsed.data.onlyNoWebsite ?? true,
+        },
+      },
+      { scope: [requestId ?? parsed.data.query] },
+    );
+  }
+
   return c.json({ summary }, 200);
 });
+
+/** The authed user id (set by gateLeadScanner upstream), or undefined. */
+function userIdOf(c: import('hono').Context<{ Bindings: Env; Variables: Variables }>) {
+  return c.get('userId') ?? undefined;
+}
 
 /**
  * `GET /api/admin/leads` — list scanned leads (highest score first) for the
