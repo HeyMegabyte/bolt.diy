@@ -16,6 +16,7 @@ import type { Env, Variables } from '../types/env.js';
 import { getSession } from '../services/auth.js';
 import { dbQueryOne } from '../services/db.js';
 import { setUser as sentrySetUser } from '../lib/sentry.js';
+import { safeWaitUntil } from '../lib/wait-until.js';
 
 /**
  * Auth middleware that optionally populates userId and orgId on the Hono context.
@@ -62,22 +63,15 @@ export const authMiddleware: MiddlewareHandler<{
           c.set('userId', key.created_by);
           c.set('orgId', key.org_id);
           // Best-effort last-used timestamp; failure must not block the request.
-          // `c.executionCtx` is a getter that THROWS when there is no
-          // ExecutionContext (internal service-binding / test invocations), so
-          // guard it — otherwise a valid API-key request crashes in those
-          // contexts before the handler runs. waitUntil missing → run inline,
-          // still swallowing errors so the update can never block auth.
-          const lastUsed = c.env.DB.prepare(
-            `UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?`,
-          )
-            .bind(key.id)
-            .run()
-            .catch(() => undefined) as Promise<unknown>;
-          try {
-            c.executionCtx.waitUntil(lastUsed);
-          } catch {
-            void lastUsed;
-          }
+          // safeWaitUntil tolerates a missing ExecutionContext (internal/test
+          // invocations) — a bare c.executionCtx.waitUntil would crash there.
+          safeWaitUntil(
+            c,
+            c.env.DB.prepare(`UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?`)
+              .bind(key.id)
+              .run()
+              .catch(() => undefined) as Promise<unknown>,
+          );
         }
       } else {
         const session = await getSession(c.env.DB, token);

@@ -44,6 +44,7 @@ import * as auditService from '../services/audit.js';
 import * as connectService from '../services/stripe_connect.js';
 import { handleWalletStripeEvent } from '../services/wallet_webhook.js';
 import { tryEmitEvent } from '../services/emit_event.js';
+import { safeWaitUntil } from '../lib/wait-until.js';
 import type { EventType } from '../services/event_bus.js';
 import { sha256Hex, badRequest } from '@project-sites/shared';
 
@@ -96,11 +97,7 @@ function emitBillingEvent(
     },
     { scope: [stripeEventId] },
   );
-  try {
-    c.executionCtx.waitUntil(p);
-  } catch {
-    void p;
-  }
+  safeWaitUntil(c, p);
 }
 
 /**
@@ -196,11 +193,7 @@ webhooks.post('/webhooks/stripe', async (c) => {
                   currency: String((obj as { currency?: string }).currency ?? 'usd'),
                 },
               });
-              try {
-                c.executionCtx.waitUntil(p);
-              } catch {
-                void p;
-              }
+              safeWaitUntil(c, p);
             } catch {
               /* notify is best-effort */
             }
@@ -311,11 +304,7 @@ webhooks.post('/webhooks/stripe', async (c) => {
                 currency: String((obj as { currency?: string }).currency ?? 'usd'),
               },
             });
-            try {
-              c.executionCtx.waitUntil(p);
-            } catch {
-              void p;
-            }
+            safeWaitUntil(c, p);
           } catch {
             /* notify is best-effort */
           }
