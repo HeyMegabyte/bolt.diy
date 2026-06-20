@@ -200,6 +200,13 @@ jobs:
   e2e-staging:
     name: 'E2E Staging ${{ matrix.shard }}/3'
     needs: [deploy-staging]
+    # Advisory, not blocking (no-staging-doctrine): sites-staging.megabyte.space is
+    # unreliable from GHA runner IPs (CF Bot Fight 403 / often unreachable), so a
+    # staging E2E failure must NOT gate the prod deploy. The REAL gate is
+    # e2e-production (post-deploy against live projectsites.dev + wrangler rollback).
+    # Without this, every prod deploy stalled here forever. continue-on-error keeps
+    # the signal visible (red ✗ on the job) while letting deploy-production proceed.
+    continue-on-error: true
     if: github.event_name != 'workflow_dispatch' || inputs.skip_e2e != true
     runs-on: ubuntu-latest
     strategy:
@@ -244,7 +251,7 @@ jobs:
     if: |
       always() &&
       needs.deploy-staging.result == 'success' &&
-      (needs.e2e-staging.result == 'success' || needs.e2e-staging.result == 'skipped') &&
+      (needs.e2e-staging.result != 'cancelled') &&
       (
         github.ref == 'refs/heads/main' ||
         (github.event_name == 'workflow_dispatch' && inputs.target == 'production')

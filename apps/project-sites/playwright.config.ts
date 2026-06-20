@@ -3,6 +3,13 @@ import { defineConfig, devices } from '@playwright/test';
 const baseURL = process.env.BASE_URL || 'http://localhost:8787';
 const isCI = !!process.env.CI;
 
+// Only boot the local e2e_server when targeting localhost. When BASE_URL points
+// at an already-running remote (staging / prod in CI), Playwright must NOT try to
+// start + poll a local webServer — doing so hangs 15s then fails the whole E2E run
+// with "Timed out waiting from config.webServer" before a single test runs. This
+// was the standing blocker on the CI E2E gate (every deploy stalled here).
+const useLocalServer = !process.env.BASE_URL || baseURL.includes('localhost');
+
 /**
  * Playwright config — fully parallelized per task #44 of the improvement list.
  *
@@ -23,8 +30,8 @@ const isCI = !!process.env.CI;
 const projects = process.env.FULL_BROWSER_MATRIX
   ? [
       { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-      { name: 'firefox',  use: { ...devices['Desktop Firefox'] } },
-      { name: 'webkit',   use: { ...devices['Desktop Safari'] } },
+      { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+      { name: 'webkit', use: { ...devices['Desktop Safari'] } },
     ]
   : [
       {
@@ -58,10 +65,12 @@ export default defineConfig({
     video: isCI ? 'retain-on-failure' : 'off',
   },
   projects,
-  webServer: {
-    command: 'node scripts/e2e_server.cjs',
-    url: baseURL,
-    reuseExistingServer: !isCI,
-    timeout: 15_000,
-  },
+  webServer: useLocalServer
+    ? {
+        command: 'node scripts/e2e_server.cjs',
+        url: baseURL,
+        reuseExistingServer: !isCI,
+        timeout: 15_000,
+      }
+    : undefined,
 });
