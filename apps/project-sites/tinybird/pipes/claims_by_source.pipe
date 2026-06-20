@@ -1,0 +1,31 @@
+# claims_by_source — per-tenant claim-start counts sliced by source + campaign.
+#
+# Realizes the claim attribution wired into site.claim.started: those events now
+# carry data.source / data.campaign (utm_* + referer, via claimStartedEventData),
+# so this rollup answers the revenue question "which campaigns/sources drive
+# claims?" — the top of the activation funnel by acquisition channel.
+# JSONExtractString reads both straight out of the payload String — no fixed
+# sub-schema, so payload shape changes never require a datasource migration.
+#
+# GET /v0/pipes/claims_by_source.json?tenant_id=org_123&days=30&source=twitter
+# Deploy: tb push pipes/claims_by_source.pipe   (or `tb deploy`)
+
+NODE claims_by_source_node
+SQL >
+    %
+    SELECT
+        tenant_id,
+        toDate(timestamp) AS day,
+        JSONExtractString(payload, 'source') AS source,
+        JSONExtractString(payload, 'campaign') AS campaign,
+        count(DISTINCT event_id) AS claims
+    FROM projectsites_events
+    WHERE event = 'site.claim.started'
+        AND timestamp >= now() - interval {{ Int32(days, 30) }} day
+        {% if defined(tenant_id) %} AND tenant_id = {{ String(tenant_id) }} {% end %}
+        {% if defined(source) %} AND JSONExtractString(payload, 'source') = {{ String(source) }} {% end %}
+        {% if defined(campaign) %} AND JSONExtractString(payload, 'campaign') = {{ String(campaign) }} {% end %}
+    GROUP BY tenant_id, day, source, campaign
+    ORDER BY day DESC, claims DESC
+
+TYPE endpoint

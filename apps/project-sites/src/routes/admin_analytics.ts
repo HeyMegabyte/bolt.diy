@@ -21,6 +21,7 @@ import {
   fetchPipeRows,
   type EventsDailyRow,
   type PublishesBySourceRow,
+  type ClaimsBySourceRow,
 } from '../services/analytics_query.js';
 
 /** RFC7807-ish error envelope used across the worker. */
@@ -36,6 +37,14 @@ const EventsDailySchema = z
   .strip();
 const PublishesSchema = z
   .object({ tenant_id: tenantParam, days: daysParam, source: z.string().min(1).max(32).optional() })
+  .strip();
+const ClaimsSchema = z
+  .object({
+    tenant_id: tenantParam,
+    days: daysParam,
+    source: z.string().min(1).max(120).optional(),
+    campaign: z.string().min(1).max(120).optional(),
+  })
   .strip();
 
 export const adminAnalytics = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -78,6 +87,21 @@ adminAnalytics.get('/api/admin/analytics/publishes-by-source', async (c) => {
   const { rows, degraded } = await fetchPipeRows<PublishesBySourceRow>(
     c.env,
     'site_publishes_by_source',
+    parsed.data,
+  );
+  return c.json({ rows, degraded, count: rows.length }, 200);
+});
+
+adminAnalytics.get('/api/admin/analytics/claims-by-source', async (c) => {
+  const denied = await guard(c);
+  if (denied) return denied;
+  const parsed = ClaimsSchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    return c.json(errorBody('VALIDATION_ERROR', 'Invalid query', c.get('requestId')), 400);
+  }
+  const { rows, degraded } = await fetchPipeRows<ClaimsBySourceRow>(
+    c.env,
+    'claims_by_source',
     parsed.data,
   );
   return c.json({ rows, degraded, count: rows.length }, 200);

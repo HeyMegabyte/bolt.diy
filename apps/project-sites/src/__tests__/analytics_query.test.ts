@@ -46,4 +46,21 @@ describe('fetchPipeRows', () => {
     );
     expect(r).toEqual({ rows: [], degraded: true });
   });
+
+  it('flows the claims-by-source source + campaign params to the pipe URL', async () => {
+    const rows = [{ tenant_id: 't1', day: '2026-06-20', source: 'twitter', campaign: 'spring', claims: 5 }];
+    const fetchImpl = jest.fn().mockResolvedValue(okRes(rows));
+    const r = await fetchPipeRows(
+      ENV,
+      'claims_by_source',
+      { tenant_id: 't1', days: 30, source: 'twitter', campaign: 'spring' },
+      { fetchImpl: fetchImpl as never },
+    );
+    expect(r.degraded).toBe(false);
+    expect(r.rows).toEqual(rows);
+    const [url] = fetchImpl.mock.calls[0];
+    expect(url).toContain('/v0/pipes/claims_by_source.json?');
+    expect(url).toContain('source=twitter');
+    expect(url).toContain('campaign=spring');
+  });
 });

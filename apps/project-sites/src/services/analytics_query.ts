@@ -34,6 +34,15 @@ export interface PublishesBySourceRow {
   publishes: number;
 }
 
+/** A row from `claims_by_source` (per-tenant/day claim-start counts by source + campaign). */
+export interface ClaimsBySourceRow {
+  tenant_id: string;
+  day: string;
+  source: string;
+  campaign: string;
+  claims: number;
+}
+
 /** Result of a rollup read — the rows, plus whether the data is the degraded zero-state. */
 export interface PipeReadResult<T> {
   rows: T[];

@@ -13,6 +13,7 @@ landing table + query endpoints for that stream.
 | `pipes/events_by_tenant_daily.pipe` | Per-tenant / per-day / per-type rollup endpoint. Counts `DISTINCT event_id` (exactly-once). Optional `tenant_id`, `days` (default 30), `event` params. |
 | `pipes/site_publishes_by_source.pipe` | Per-tenant `site.published` counts sliced by `JSONExtractString(payload,'source')` (bolt-embedded / claim / workflow). Exercises the `payload` column. Optional `tenant_id`, `days`, `source`. |
 | `pipes/activation_funnel.pipe` | Per-tenant revenue-funnel rollup: discovered → engaged → delivered → converted, with `ordinal` + `count(DISTINCT site_id)` per stage. Funnel set is the SSOT in `src/services/activation_funnel.ts`. Optional `tenant_id`, `days`. |
+| `pipes/claims_by_source.pipe` | Per-tenant `site.claim.started` counts sliced by `JSONExtractString(payload,'source')` + `'campaign'` (the wired claim attribution) — "which campaigns/sources drive claims?". Optional `tenant_id`, `days`, `source`, `campaign`. |
 
 ## Exactly-once counting
 
