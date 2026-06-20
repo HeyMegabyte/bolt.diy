@@ -1,0 +1,85 @@
+/**
+ * @module services/notify_site_built
+ *
+ * @description
+ * The golden-path "customer notified" step (§9) for the EMBEDDED-BOLT publish
+ * path. The AI-generation workflow already emails the owner on completion via
+ * {@link notifySiteBuilt}; the bolt-editor publish route did not — so a user who
+ * published their own edits got no "your site is live" email. This resolves the
+ * org owner's email and sends that same gorgeous notification.
+ *
+ * Fail-soft throughout (progressive-degradation): no owner email → skip silently;
+ * a send failure is swallowed. Wrap the call in `ctx.waitUntil` so it never
+ * blocks the publish response. Deps are injectable for unit testing without D1.
+ *
+ * @see services/notifications.ts (notifySiteBuilt — the email template)
+ */
+
+import type { Env } from '../types/env.js';
+import { dbQueryOne } from './db.js';
+import { notifySiteBuilt } from './notifications.js';
+
+/** Resolve the org OWNER's email (the `role='owner'` membership). Null if none. */
+export async function resolveOwnerEmail(env: Env, orgId: string): Promise<string | null> {
+  const row = await dbQueryOne<{ email: string }>(
+    env.DB,
+    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id
+     WHERE m.org_id = ? AND m.role = 'owner' LIMIT 1`,
+    [orgId],
+  );
+  return row?.email ?? null;
+}
+
+/** Facts a publish transition has on hand to notify the owner. */
+export interface NotifyOwnerSiteBuiltInput {
+  orgId: string;
+  slug: string;
+  version: string;
+  /** Display name for the email (falls back to the slug when absent). */
+  businessName?: string | null;
+}
+
+/** Injectable seams (default to the real resolver + email) for testability. */
+export interface NotifyOwnerDeps {
+  resolveEmail?: typeof resolveOwnerEmail;
+  notify?: typeof notifySiteBuilt;
+}
+
+/**
+ * Email the org owner that their site is live. Fail-soft — never throws.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param input - The publish facts ({@link NotifyOwnerSiteBuiltInput}).
+ * @param deps - Optional injected seams.
+ * @returns `{ notified }` — `false` when no owner email exists OR the send failed.
+ * @example ctx.waitUntil(notifyOwnerSiteBuilt(env, { orgId, slug, version, businessName }))
+ */
+export async function notifyOwnerSiteBuilt(
+  env: Env,
+  input: NotifyOwnerSiteBuiltInput,
+  deps: NotifyOwnerDeps = {},
+): Promise<{ notified: boolean }> {
+  const resolve = deps.resolveEmail ?? resolveOwnerEmail;
+  const notify = deps.notify ?? notifySiteBuilt;
+
+  let email: string | null = null;
+  try {
+    email = await resolve(env, input.orgId);
+  } catch {
+    email = null;
+  }
+  if (!email) return { notified: false };
+
+  try {
+    await notify(env, {
+      email,
+      siteName: input.businessName || input.slug,
+      slug: input.slug,
+      siteUrl: `https://${input.slug}.projectsites.dev`,
+      version: input.version,
+    });
+    return { notified: true };
+  } catch {
+    return { notified: false };
+  }
+}

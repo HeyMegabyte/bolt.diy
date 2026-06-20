@@ -135,6 +135,7 @@ import * as auditService from '../services/audit.js';
 import { createSite } from '../services/site_create.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 import { buildSitePublishedEvent, sitePublishedScope } from '../services/site_publish_event.js';
+import { notifyOwnerSiteBuilt } from '../services/notify_site_built.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
@@ -4565,9 +4566,9 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   }
 
   // Verify site belongs to org
-  const site = await dbQueryOne<{ id: string; slug: string; org_id: string }>(
+  const site = await dbQueryOne<{ id: string; slug: string; org_id: string; business_name: string | null }>(
     c.env.DB,
-    'SELECT id, slug, org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, slug, org_id, business_name FROM sites WHERE id = ? AND deleted_at IS NULL',
     [siteId],
   );
   if (!site || site.org_id !== orgId) throw notFound('Site not found');
@@ -4679,6 +4680,13 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
       }),
       { scope: sitePublishedScope(siteId, version) },
     ),
+  );
+
+  // Golden-path "customer notified" (§9): email the owner that their site is live.
+  // The AI-generation workflow already does this on build-complete; the embedded
+  // bolt-editor publish did not. Fail-soft + waitUntil'd so it never blocks publish.
+  c.executionCtx.waitUntil(
+    notifyOwnerSiteBuilt(c.env, { orgId, slug, version, businessName: site.business_name }),
   );
 
   return c.json({
