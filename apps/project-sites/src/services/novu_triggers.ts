@@ -335,27 +335,54 @@ function money(amountCents: number, currency: string): string {
 export function renderNovuEvent(e: NovuEvent): { subject: string; body: string } {
   switch (e.event) {
     case 'build.started':
-      return { subject: 'Build started', body: 'We’re generating your site — we’ll ping you the moment it’s live.' };
+      return {
+        subject: 'Build started',
+        body: 'We’re generating your site — we’ll ping you the moment it’s live.',
+      };
     case 'build.finished':
       return { subject: 'Your site is live 🎉', body: `${e.previewUrl} is ready to view.` };
     case 'build.failed':
       return { subject: 'Build hit a snag', body: `${e.error} — retry from your dashboard.` };
     case 'payment.succeeded':
-      return { subject: 'Payment received', body: `${money(e.amountCents, e.currency)} — your subscription is active.` };
+      return {
+        subject: 'Payment received',
+        body: `${money(e.amountCents, e.currency)} — your subscription is active.`,
+      };
     case 'payment.failed':
-      return { subject: 'Payment didn’t go through', body: `${money(e.amountCents, e.currency)} failed — update your card to keep your sites live.` };
+      return {
+        subject: 'Payment didn’t go through',
+        body: `${money(e.amountCents, e.currency)} failed — update your card to keep your sites live.`,
+      };
     case 'lead.scan.completed':
-      return { subject: 'Lead scan complete', body: `${e.leadCount} ${e.leadCount === 1 ? 'lead' : 'leads'} found.` };
+      return {
+        subject: 'Lead scan complete',
+        body: `${e.leadCount} ${e.leadCount === 1 ? 'lead' : 'leads'} found.`,
+      };
     case 'domain.verifying':
-      return { subject: `Verifying ${e.hostname}`, body: 'Setting up SSL — usually under a minute.' };
+      return {
+        subject: `Verifying ${e.hostname}`,
+        body: 'Setting up SSL — usually under a minute.',
+      };
     case 'domain.active':
-      return { subject: `${e.hostname} is live 🔒`, body: 'Your custom domain is serving securely over SSL.' };
+      return {
+        subject: `${e.hostname} is live 🔒`,
+        body: 'Your custom domain is serving securely over SSL.',
+      };
     case 'domain.failed':
-      return { subject: `${e.hostname} needs attention`, body: `${e.error} — check your DNS settings.` };
+      return {
+        subject: `${e.hostname} needs attention`,
+        body: `${e.error} — check your DNS settings.`,
+      };
     case 'quota.near_limit':
-      return { subject: `${e.resource} at ${e.usedPercent}%`, body: `You’re nearing your ${e.resource} limit — upgrade to avoid interruption.` };
+      return {
+        subject: `${e.resource} at ${e.usedPercent}%`,
+        body: `You’re nearing your ${e.resource} limit — upgrade to avoid interruption.`,
+      };
     case 'trial.ending':
-      return { subject: `Trial ends in ${e.daysRemaining} ${e.daysRemaining === 1 ? 'day' : 'days'}`, body: 'Upgrade now to keep your sites published.' };
+      return {
+        subject: `Trial ends in ${e.daysRemaining} ${e.daysRemaining === 1 ? 'day' : 'days'}`,
+        body: 'Upgrade now to keep your sites published.',
+      };
     case 'member.invited':
       return { subject: 'Invitation sent', body: `${e.email} was invited as ${e.role}.` };
     case 'member.joined':
@@ -365,9 +392,15 @@ export function renderNovuEvent(e: NovuEvent): { subject: string; body: string }
     case 'ai.job.failed':
       return { subject: 'AI job failed', body: `Job ${e.jobId}: ${e.error}.` };
     case 'browser.job.escalated':
-      return { subject: 'Browser run escalated', body: `Run ${e.runId} moved from ${e.fromProvider} to ${e.toProvider}.` };
+      return {
+        subject: 'Browser run escalated',
+        body: `Run ${e.runId} moved from ${e.fromProvider} to ${e.toProvider}.`,
+      };
     case 'db.provision.queued':
-      return { subject: 'Database queued', body: 'Your database is provisioning — we’ll notify you when it’s ready.' };
+      return {
+        subject: 'Database queued',
+        body: 'Your database is provisioning — we’ll notify you when it’s ready.',
+      };
     case 'db.provision.ready':
       return { subject: 'Database ready', body: 'Your database is connected and ready to use.' };
     case 'db.provision.failed':

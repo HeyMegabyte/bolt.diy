@@ -50,7 +50,7 @@ describe('POST /api/events', () => {
     );
 
     expect(res.status).toBe(202);
-    const body = await res.json() as { status: string };
+    const body = (await res.json()) as { status: string };
     expect(body.status).toBe('queued');
   });
 
@@ -73,21 +73,17 @@ describe('POST /api/events', () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toBe('invalid_event');
   });
 });
 
 describe('GET /api/analytics-debug', () => {
   it('returns 400 when siteId query param is absent', async () => {
-    const res = await analyticsRoutes.request(
-      '/api/analytics-debug',
-      { method: 'GET' },
-      mockEnv,
-    );
+    const res = await analyticsRoutes.request('/api/analytics-debug', { method: 'GET' }, mockEnv);
 
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toBe('missing_param');
   });
 
@@ -99,7 +95,7 @@ describe('GET /api/analytics-debug', () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json() as { events: unknown[]; note: string };
+    const body = (await res.json()) as { events: unknown[]; note: string };
     expect(body.note).toBe('dispatcher_unavailable');
     expect(Array.isArray(body.events)).toBe(true);
   });
@@ -136,20 +132,48 @@ describe('GET /api/analytics-data', () => {
   });
 
   it('returns 200 + db_unavailable note when DB binding absent', async () => {
-    const res = await analyticsRoutes.request('/api/analytics-data?siteId=s1', { method: 'GET' }, mockEnv);
+    const res = await analyticsRoutes.request(
+      '/api/analytics-data?siteId=s1',
+      { method: 'GET' },
+      mockEnv,
+    );
     expect(res.status).toBe(200);
-    expect((await res.json() as { note: string }).note).toBe('db_unavailable');
+    expect(((await res.json()) as { note: string }).note).toBe('db_unavailable');
   });
 
   it('returns stored events with parsed payloads', async () => {
-    const m = mockDb({ rows: [
-      { id: '1', eventId: 'a', eventType: 'pageview', timestamp: 2, payload: '{"path":"/"}', status: 'ingested' },
-      { id: '2', eventId: 'b', eventType: 'click', timestamp: 1, payload: '{"el":"btn"}', status: 'ingested' },
-    ] });
+    const m = mockDb({
+      rows: [
+        {
+          id: '1',
+          eventId: 'a',
+          eventType: 'pageview',
+          timestamp: 2,
+          payload: '{"path":"/"}',
+          status: 'ingested',
+        },
+        {
+          id: '2',
+          eventId: 'b',
+          eventType: 'click',
+          timestamp: 1,
+          payload: '{"el":"btn"}',
+          status: 'ingested',
+        },
+      ],
+    });
     const env = { DB: m.db } as unknown as import('../types/env.js').Env;
-    const res = await analyticsRoutes.request('/api/analytics-data?siteId=s1&limit=50', { method: 'GET' }, env);
+    const res = await analyticsRoutes.request(
+      '/api/analytics-data?siteId=s1&limit=50',
+      { method: 'GET' },
+      env,
+    );
     expect(res.status).toBe(200);
-    const body = await res.json() as { events: Array<{ payload: unknown }>; count: number; has_more: boolean };
+    const body = (await res.json()) as {
+      events: Array<{ payload: unknown }>;
+      count: number;
+      has_more: boolean;
+    };
     expect(body.count).toBe(2);
     expect(body.has_more).toBe(false);
     expect(body.events[0]?.payload).toEqual({ path: '/' });
@@ -163,17 +187,30 @@ describe('POST /api/test-event', () => {
   });
 
   it('returns 400 for an unknown provider', async () => {
-    const res = await analyticsRoutes.request('/api/test-event?siteId=s1&provider=bogus', { method: 'POST' }, mockEnv);
+    const res = await analyticsRoutes.request(
+      '/api/test-event?siteId=s1&provider=bogus',
+      { method: 'POST' },
+      mockEnv,
+    );
     expect(res.status).toBe(400);
-    expect((await res.json() as { error: string }).error).toBe('bad_provider');
+    expect(((await res.json()) as { error: string }).error).toBe('bad_provider');
   });
 
   it('returns 200 + ok with a fresh eventId and dispatched:false (no DO)', async () => {
     const m = mockDb();
     const env = { DB: m.db } as unknown as import('../types/env.js').Env;
-    const res = await analyticsRoutes.request('/api/test-event?siteId=s1&provider=sentry', { method: 'POST' }, env);
+    const res = await analyticsRoutes.request(
+      '/api/test-event?siteId=s1&provider=sentry',
+      { method: 'POST' },
+      env,
+    );
     expect(res.status).toBe(200);
-    const body = await res.json() as { ok: boolean; eventId: string; provider: string; dispatched: boolean };
+    const body = (await res.json()) as {
+      ok: boolean;
+      eventId: string;
+      provider: string;
+      dispatched: boolean;
+    };
     expect(body.ok).toBe(true);
     expect(body.provider).toBe('sentry');
     expect(body.dispatched).toBe(false);

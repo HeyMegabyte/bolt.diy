@@ -10,15 +10,19 @@ import {
 } from '../services/browser_gateway.js';
 import type { Env } from '../types/env.js';
 
-const CF_ONLY = { BROWSER: {} } as Pick<Env, 'BROWSER' | 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'>;
+const CF_ONLY = { BROWSER: {} } as Pick<
+  Env,
+  'BROWSER' | 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'
+>;
 const BB_ONLY = { BROWSERBASE_API_KEY: 'bb_live_x', BROWSERBASE_PROJECT_ID: 'proj-1' } as Pick<
   Env,
   'BROWSER' | 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'
 >;
-const BOTH = { BROWSER: {}, BROWSERBASE_API_KEY: 'bb_live_x', BROWSERBASE_PROJECT_ID: 'proj-1' } as Pick<
-  Env,
-  'BROWSER' | 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'
->;
+const BOTH = {
+  BROWSER: {},
+  BROWSERBASE_API_KEY: 'bb_live_x',
+  BROWSERBASE_PROJECT_ID: 'proj-1',
+} as Pick<Env, 'BROWSER' | 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'>;
 const NEITHER = {} as Pick<Env, 'BROWSER' | 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'>;
 
 describe('chooseBrowserProvider — Browserbase-backup-only LAW', () => {
@@ -32,7 +36,9 @@ describe('chooseBrowserProvider — Browserbase-backup-only LAW', () => {
       provider: 'browserbase',
       reason: 'specialty',
     });
-    expect(chooseBrowserProvider({ specialty: 'residential_proxy' }, BOTH).provider).toBe('browserbase');
+    expect(chooseBrowserProvider({ specialty: 'residential_proxy' }, BOTH).provider).toBe(
+      'browserbase',
+    );
   });
 
   it('falls back to Browserbase ONLY when CF is unavailable', () => {
@@ -43,7 +49,9 @@ describe('chooseBrowserProvider — Browserbase-backup-only LAW', () => {
   });
 
   it('throws when a specialty needs Browserbase but it is not configured', () => {
-    expect(() => chooseBrowserProvider({ specialty: 'captcha' }, CF_ONLY)).toThrow(BrowserGatewayError);
+    expect(() => chooseBrowserProvider({ specialty: 'captcha' }, CF_ONLY)).toThrow(
+      BrowserGatewayError,
+    );
   });
 
   it('throws when no provider is available at all', () => {
@@ -55,8 +63,12 @@ describe('chooseBrowserProvider — Browserbase-backup-only LAW', () => {
       provider: 'browserbase',
       reason: 'backend-preference',
     });
-    expect(() => chooseBrowserProvider({ backendPreference: 'browserbase' }, CF_ONLY)).toThrow(BrowserGatewayError);
-    expect(() => chooseBrowserProvider({ backendPreference: 'cf' }, BB_ONLY)).toThrow(BrowserGatewayError);
+    expect(() => chooseBrowserProvider({ backendPreference: 'browserbase' }, CF_ONLY)).toThrow(
+      BrowserGatewayError,
+    );
+    expect(() => chooseBrowserProvider({ backendPreference: 'cf' }, BB_ONLY)).toThrow(
+      BrowserGatewayError,
+    );
     // forceProvider still works as a deprecated alias.
     expect(chooseBrowserProvider({ forceProvider: 'cf' }, BOTH).provider).toBe('cf');
   });
@@ -96,7 +108,8 @@ describe('createBrowserbaseSession', () => {
   });
 
   it('throws on a non-2xx response', async () => {
-    const fetchStub = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
+    const fetchStub = (async () =>
+      new Response('nope', { status: 500 })) as unknown as typeof fetch;
     await expect(createBrowserbaseSession(BB_ONLY, fetchStub)).rejects.toThrow(/500/);
   });
 

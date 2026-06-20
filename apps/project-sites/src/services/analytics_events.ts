@@ -17,7 +17,14 @@ import { z } from 'zod';
 export const EventPayloadSchema = z.record(z.unknown()).optional();
 
 /** The event types a generated site emits. */
-export const EVENT_TYPES = ['pageview', 'click', 'error', 'custom', 'scroll', 'form_submit'] as const;
+export const EVENT_TYPES = [
+  'pageview',
+  'click',
+  'error',
+  'custom',
+  'scroll',
+  'form_submit',
+] as const;
 
 /**
  * The event shape accepted at the ingestion boundary. `eventId` is either a v4

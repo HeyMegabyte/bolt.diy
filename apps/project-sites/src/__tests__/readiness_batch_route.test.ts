@@ -73,7 +73,11 @@ describe('GET /api/readiness (batch readiness)', () => {
     // s3 is not in the org's audit rows at all (unowned / never built).
     const rows: AuditRow[] = [
       { target_id: 's1', metadata_json: READY_META, created_at: '2026-06-19T00:00:00Z' },
-      { target_id: 's2', metadata_json: JSON.stringify({ other: 1 }), created_at: '2026-06-18T00:00:00Z' },
+      {
+        target_id: 's2',
+        metadata_json: JSON.stringify({ other: 1 }),
+        created_at: '2026-06-18T00:00:00Z',
+      },
     ];
     const { db, calls } = makeDbStub(rows);
     const req = makeApp({ orgId: 'org-1' }, { DB: db });

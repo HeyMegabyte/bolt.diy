@@ -82,7 +82,10 @@ describe('CircuitBreaker', () => {
     cb.recordFailure(T0 + 1);
     cb.recordFailure(T0 + 2); // opens
     const snap = cb.snapshot();
-    const restored = CircuitBreaker.fromSnapshot(snap, { failureThreshold: 3, resetTimeoutMs: 60_000 });
+    const restored = CircuitBreaker.fromSnapshot(snap, {
+      failureThreshold: 3,
+      resetTimeoutMs: 60_000,
+    });
     expect(restored.state).toBe('open');
     expect(restored.snapshot()).toEqual(snap);
     expect(restored.allowRequest(T0 + 2 + 60_000)).toBe(true); // honors the persisted timer

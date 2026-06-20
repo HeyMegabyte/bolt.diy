@@ -365,7 +365,7 @@ export class AppRuntimeContainer extends Container<Env> {
       '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<meta http-equiv="refresh" content="2"><title>Waking up…</title><style>' +
-      "html,body{height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;" +
+      'html,body{height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;' +
       "background:#060610;color:#f4f4ff;font-family:'Sora',system-ui,sans-serif}.box{text-align:center;padding:2rem}" +
       '.spin{width:38px;height:38px;margin:0 auto 1.1rem;border:3px solid rgba(0,229,255,.2);' +
       'border-top-color:#00e5ff;border-radius:50%;animation:s .8s linear infinite}' +

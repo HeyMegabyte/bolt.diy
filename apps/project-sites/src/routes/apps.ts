@@ -330,7 +330,9 @@ apps.post('/api/apps/instances', async (c) => {
       subdomain: body.subdomain,
     });
   } catch (err) {
-    console.warn(JSON.stringify({ level: 'warn', event: 'apphost_set_failed', instanceId, err: String(err) }));
+    console.warn(
+      JSON.stringify({ level: 'warn', event: 'apphost_set_failed', instanceId, err: String(err) }),
+    );
   }
 
   // Fire-and-forget the container start so the API call returns fast. The
@@ -567,7 +569,14 @@ apps.delete('/api/apps/instances/:id', async (c) => {
   try {
     await clearAppHost(c.env, defaultAppHostname(row.subdomain));
   } catch (err) {
-    console.warn(JSON.stringify({ level: 'warn', event: 'apphost_clear_failed', id: row.id, err: String(err) }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        event: 'apphost_clear_failed',
+        id: row.id,
+        err: String(err),
+      }),
+    );
   }
 
   await auditService.writeAuditLog(c.env.DB, {

@@ -54,7 +54,9 @@ export interface ProviderDecision {
 }
 
 /** True when Browserbase creds are present (it can serve as a fallback). */
-function browserbaseConfigured(env: Pick<Env, 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'>): boolean {
+function browserbaseConfigured(
+  env: Pick<Env, 'BROWSERBASE_API_KEY' | 'BROWSERBASE_PROJECT_ID'>,
+): boolean {
   return Boolean(env.BROWSERBASE_API_KEY && env.BROWSERBASE_PROJECT_ID);
 }
 
@@ -78,7 +80,9 @@ export function chooseBrowserProvider(
   const pref = opts.backendPreference ?? opts.forceProvider;
   if (pref) {
     if (pref === 'browserbase' && !hasBb) {
-      throw new BrowserGatewayError('Browserbase requested but BROWSERBASE_* creds are not configured.');
+      throw new BrowserGatewayError(
+        'Browserbase requested but BROWSERBASE_* creds are not configured.',
+      );
     }
     if (pref === 'cf' && !hasCf) {
       throw new BrowserGatewayError('CF requested but the BROWSER binding is not available.');
@@ -104,7 +108,9 @@ export function chooseBrowserProvider(
   // CF unavailable → Browserbase is the legitimate fallback.
   if (hasBb) return { provider: 'browserbase', reason: 'cf-unavailable-fallback' };
 
-  throw new BrowserGatewayError('No browser provider available: neither BROWSER binding nor Browserbase creds.');
+  throw new BrowserGatewayError(
+    'No browser provider available: neither BROWSER binding nor Browserbase creds.',
+  );
 }
 
 /** Typed error for every gateway failure. */
@@ -182,7 +188,10 @@ export interface GatewayBrowser {
  *   to drive directly or to hand to Stagehand. Always `await release()` when done.
  * @throws {BrowserGatewayError} When no provider can serve the request.
  */
-export async function connectBrowser(env: Env, opts: BrowserRequestOptions = {}): Promise<GatewayBrowser> {
+export async function connectBrowser(
+  env: Env,
+  opts: BrowserRequestOptions = {},
+): Promise<GatewayBrowser> {
   const decision = chooseBrowserProvider(opts, env);
 
   // Skyvern is internal-only — the product browser gateway never executes it.

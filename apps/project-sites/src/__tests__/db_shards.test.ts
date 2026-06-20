@@ -11,7 +11,10 @@ import { assignShard } from '../services/db_sharding';
  * dbQueryOne (`.all()`) + dbExecute (`.run()`) to round-trip.
  */
 function makeDb() {
-  const rows = new Map<string, { tenant_id: string; shard_index: number; db_name: string | null }>();
+  const rows = new Map<
+    string,
+    { tenant_id: string; shard_index: number; db_name: string | null }
+  >();
   const prepare = (sql: string) => ({
     bind: (...params: unknown[]) => ({
       all: async () => {

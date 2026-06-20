@@ -27,7 +27,8 @@ function sourceFiles(dir: string): string[] {
     const full = join(dir, entry);
     const st = statSync(full);
     if (st.isDirectory()) out.push(...sourceFiles(full));
-    else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts') && !entry.endsWith('.d.ts')) out.push(full);
+    else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts') && !entry.endsWith('.d.ts'))
+      out.push(full);
   }
   return out;
 }
@@ -77,7 +78,9 @@ describe('architecture fitness — reliability invariants (idempotency + DLQ, co
 
   it('defines the event idempotency-key helper exactly once (one canonical dedupe path)', () => {
     // Duplicate idempotency-key logic = two sources of truth for at-least-once dedupe → drift.
-    expect(filesMatching(/export function eventIdempotencyKey\b/)).toEqual(['src/services/event_bus.ts']);
+    expect(filesMatching(/export function eventIdempotencyKey\b/)).toEqual([
+      'src/services/event_bus.ts',
+    ]);
   });
 
   it('keeps the outbox retry cap a bounded positive integer (never 0 = no retry, never unbounded)', () => {

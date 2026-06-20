@@ -1,4 +1,9 @@
-import { NovuEventSchema, renderNovuEvent, triggerNovu, type NovuEvent } from '../services/novu_triggers';
+import {
+  NovuEventSchema,
+  renderNovuEvent,
+  triggerNovu,
+  type NovuEvent,
+} from '../services/novu_triggers';
 
 describe('NovuEventSchema', () => {
   it('accepts a valid build.finished payload', () => {
@@ -57,7 +62,13 @@ describe('NovuEventSchema', () => {
     { event: 'member.joined', tenantId: 'o1', userId: 'u9', role: 'editor' },
     { event: 'ai.job.completed', tenantId: 'o1', jobId: 'j1', traceId: 't1' },
     { event: 'ai.job.failed', tenantId: 'o1', jobId: 'j1', error: 'model timeout' },
-    { event: 'browser.job.escalated', tenantId: 'o1', runId: 'r1', fromProvider: 'cloudflare', toProvider: 'browserbase' },
+    {
+      event: 'browser.job.escalated',
+      tenantId: 'o1',
+      runId: 'r1',
+      fromProvider: 'cloudflare',
+      toProvider: 'browserbase',
+    },
     { event: 'db.provision.queued', tenantId: 'o1', dbId: 'db1' },
     { event: 'db.provision.ready', tenantId: 'o1', dbId: 'db1' },
     { event: 'db.provision.failed', tenantId: 'o1', dbId: 'db1', error: 'capacity exhausted' },
@@ -242,7 +253,13 @@ describe('renderNovuEvent', () => {
     { event: 'member.joined', tenantId: 'o1', userId: 'u1', role: 'editor' },
     { event: 'ai.job.completed', tenantId: 'o1', jobId: 'j1' },
     { event: 'ai.job.failed', tenantId: 'o1', jobId: 'j1', error: 'oom' },
-    { event: 'browser.job.escalated', tenantId: 'o1', runId: 'r1', fromProvider: 'cloudflare', toProvider: 'browserbase' },
+    {
+      event: 'browser.job.escalated',
+      tenantId: 'o1',
+      runId: 'r1',
+      fromProvider: 'cloudflare',
+      toProvider: 'browserbase',
+    },
     { event: 'db.provision.queued', tenantId: 'o1', dbId: 'd1' },
     { event: 'db.provision.ready', tenantId: 'o1', dbId: 'd1' },
     { event: 'db.provision.failed', tenantId: 'o1', dbId: 'd1', error: 'capacity' },
@@ -258,17 +275,30 @@ describe('renderNovuEvent', () => {
   });
 
   it('build.finished body carries the preview URL', () => {
-    const { body } = renderNovuEvent({ event: 'build.finished', tenantId: 'o1', previewUrl: 'https://x.projectsites.dev' });
+    const { body } = renderNovuEvent({
+      event: 'build.finished',
+      tenantId: 'o1',
+      previewUrl: 'https://x.projectsites.dev',
+    });
     expect(body).toContain('https://x.projectsites.dev');
   });
 
   it('payment.succeeded formats the amount as dollars + uppercase currency', () => {
-    const { body } = renderNovuEvent({ event: 'payment.succeeded', tenantId: 'o1', amountCents: 2900, currency: 'usd' });
+    const { body } = renderNovuEvent({
+      event: 'payment.succeeded',
+      tenantId: 'o1',
+      amountCents: 2900,
+      currency: 'usd',
+    });
     expect(body).toContain('$29.00 USD');
   });
 
   it('trial.ending singularizes one day', () => {
-    expect(renderNovuEvent({ event: 'trial.ending', tenantId: 'o1', daysRemaining: 1 }).subject).toContain('1 day');
-    expect(renderNovuEvent({ event: 'trial.ending', tenantId: 'o1', daysRemaining: 5 }).subject).toContain('5 days');
+    expect(
+      renderNovuEvent({ event: 'trial.ending', tenantId: 'o1', daysRemaining: 1 }).subject,
+    ).toContain('1 day');
+    expect(
+      renderNovuEvent({ event: 'trial.ending', tenantId: 'o1', daysRemaining: 5 }).subject,
+    ).toContain('5 days');
   });
 });

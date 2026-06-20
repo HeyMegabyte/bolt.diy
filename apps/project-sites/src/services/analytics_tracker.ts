@@ -69,7 +69,11 @@ export function buildAnalyticsTracker(siteId: string, opts: AnalyticsTrackerOpti
  * @param opts - Optional endpoint override.
  * @returns The HTML with the tracker injected.
  */
-export function injectAnalyticsTracker(html: string, siteId: string, opts: AnalyticsTrackerOptions = {}): string {
+export function injectAnalyticsTracker(
+  html: string,
+  siteId: string,
+  opts: AnalyticsTrackerOptions = {},
+): string {
   if (html.includes('window.PS_SITE_ID')) return html;
   const tag = buildAnalyticsTracker(siteId, opts);
   const idx = html.lastIndexOf('</body>');

@@ -34,7 +34,11 @@ export interface ArtifactResult {
 }
 
 /** Tenant-scoped, time-stamped R2 key for a browser artifact. */
-export function browserArtifactKey(job: { tenantId: string; siteId: string }, purpose: 'screenshot' | 'pdf', stamp: string): string {
+export function browserArtifactKey(
+  job: { tenantId: string; siteId: string },
+  purpose: 'screenshot' | 'pdf',
+  stamp: string,
+): string {
   const ext = purpose === 'pdf' ? 'pdf' : 'png';
   const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, '_');
   return `browser-jobs/${safe(job.tenantId)}/${safe(job.siteId)}/${stamp}-${purpose}.${ext}`;
@@ -58,14 +62,22 @@ export async function runArtifactJob(
   const key = browserArtifactKey(job, purpose, stamp);
   const contentType = purpose === 'pdf' ? 'application/pdf' : 'image/png';
   await env.SITES_BUCKET.put(key, bytes, { httpMetadata: { contentType } });
-  return { status: 'completed', purpose, artifactKey: key, contentType, sizeBytes: bytes.byteLength };
+  return {
+    status: 'completed',
+    purpose,
+    artifactKey: key,
+    contentType,
+    sizeBytes: bytes.byteLength,
+  };
 }
 
 /**
  * The real CF Browser Run runner — connects via the gateway (CF primary) and
  * drives Playwright. Integration-level; not unit-tested (needs a live browser).
  */
-export async function cfBrowserRunner(env: Env): Promise<{ runner: BrowserRunner; release: () => Promise<void> }> {
+export async function cfBrowserRunner(
+  env: Env,
+): Promise<{ runner: BrowserRunner; release: () => Promise<void> }> {
   const gw = await connectBrowser(env, {}); // routes CF-first per the LAW
   // The gateway returns a `@cloudflare/playwright` Browser typed `unknown`.
   const browser = gw.browser as {

@@ -23,8 +23,12 @@ function makeKv(): { CACHE_KV: KVNamespace; store: Map<string, string> } {
       const v = store.get(key);
       return v === undefined ? null : JSON.parse(v);
     },
-    put: async (key: string, value: string) => { store.set(key, value); },
-    delete: async (key: string) => { store.delete(key); },
+    put: async (key: string, value: string) => {
+      store.set(key, value);
+    },
+    delete: async (key: string) => {
+      store.delete(key);
+    },
   } as unknown as KVNamespace;
   return { CACHE_KV, store };
 }
@@ -72,7 +76,12 @@ describe('app_host_resolver', () => {
   it('setAppHost rejects an invalid mapping (typed error, nothing written)', async () => {
     const env = makeKv();
     await expect(
-      setAppHost(env, 'x.app.projectsites.dev', { instanceId: '', appSlug: 'u', orgId: 'o', subdomain: 's' }),
+      setAppHost(env, 'x.app.projectsites.dev', {
+        instanceId: '',
+        appSlug: 'u',
+        orgId: 'o',
+        subdomain: 's',
+      }),
     ).rejects.toBeInstanceOf(AppHostError);
     expect(env.store.size).toBe(0);
   });

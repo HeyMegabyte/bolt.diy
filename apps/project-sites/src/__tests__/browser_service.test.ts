@@ -13,21 +13,40 @@ function app(env: Env) {
   const a = new Hono<{ Bindings: Env; Variables: Variables }>();
   a.route('/', browserService);
   return (path: string, body: unknown) =>
-    a.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, env);
+    a.request(
+      path,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      env,
+    );
 }
 
 const job = (over: Record<string, unknown> = {}) => ({ tenantId: 't', siteId: 's', ...over });
 
 describe('routeBrowserJob — the LAW per job', () => {
   it('defaults to CF', () => {
-    expect(routeBrowserJob('screenshot', job() as never, CF)).toMatchObject({ provider: 'cf', reason: 'cf-default', purpose: 'screenshot' });
+    expect(routeBrowserJob('screenshot', job() as never, CF)).toMatchObject({
+      provider: 'cf',
+      reason: 'cf-default',
+      purpose: 'screenshot',
+    });
   });
   it('maps backendPreference: browserbase + skyvern_internal', () => {
-    expect(routeBrowserJob('qa', job({ backendPreference: 'browserbase' }) as never, BOTH).provider).toBe('browserbase');
-    expect(routeBrowserJob('stagehand', job({ backendPreference: 'skyvern_internal' }) as never, BOTH).provider).toBe('skyvern_internal');
+    expect(
+      routeBrowserJob('qa', job({ backendPreference: 'browserbase' }) as never, BOTH).provider,
+    ).toBe('browserbase');
+    expect(
+      routeBrowserJob('stagehand', job({ backendPreference: 'skyvern_internal' }) as never, BOTH)
+        .provider,
+    ).toBe('skyvern_internal');
   });
   it('routes a specialty to Browserbase', () => {
-    expect(routeBrowserJob('extract', job({ specialty: 'captcha' }) as never, BOTH).provider).toBe('browserbase');
+    expect(routeBrowserJob('extract', job({ specialty: 'captcha' }) as never, BOTH).provider).toBe(
+      'browserbase',
+    );
   });
 });
 
@@ -39,7 +58,9 @@ describe('POST /v1/browser/*', () => {
   it('400s an invalid job (missing tenant/site, unknown field)', async () => {
     const req = app(CF);
     expect((await req('/v1/browser/screenshot', { siteId: 's' })).status).toBe(400);
-    expect((await req('/v1/browser/screenshot', { tenantId: 't', siteId: 's', rogue: 1 })).status).toBe(400);
+    expect(
+      (await req('/v1/browser/screenshot', { tenantId: 't', siteId: 's', rogue: 1 })).status,
+    ).toBe(400);
   });
 
   it('202s a non-executing job (qa) with the routed CF envelope', async () => {

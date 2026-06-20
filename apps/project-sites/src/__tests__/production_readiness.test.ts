@@ -22,7 +22,9 @@ describe('scoreReadiness', () => {
   });
 
   it('penalizes warnings lightly (still passing at A/B)', () => {
-    const r = scoreReadiness(report([], [v('meta.title_length', 'warn'), v('meta.description_length', 'warn')]));
+    const r = scoreReadiness(
+      report([], [v('meta.title_length', 'warn'), v('meta.description_length', 'warn')]),
+    );
     expect(r.score).toBe(96); // 100 - 2*2
     expect(r.passing).toBe(true);
   });
@@ -51,7 +53,10 @@ describe('scoreReadiness', () => {
 
   it('groups violations into a per-category breakdown sorted by error count', () => {
     const r = scoreReadiness(
-      report([v('security.client_secret_exposed'), v('meta.title_length'), v('meta.description_length')], [v('asset.missing', 'warn')]),
+      report(
+        [v('security.client_secret_exposed'), v('meta.title_length'), v('meta.description_length')],
+        [v('asset.missing', 'warn')],
+      ),
     );
     const cats = r.breakdown.map((b) => b.category);
     expect(cats).toContain('security');

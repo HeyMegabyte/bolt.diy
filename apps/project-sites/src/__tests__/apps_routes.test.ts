@@ -127,9 +127,16 @@ function makeEnv(): Env {
     ENVIRONMENT: 'test',
     DB: {} as D1Database,
     CACHE_KV: {
-      get: async (k: string) => { const v = kv.get(k); return v === undefined ? null : JSON.parse(v); },
-      put: async (k: string, v: string) => { kv.set(k, v); },
-      delete: async (k: string) => { kv.delete(k); },
+      get: async (k: string) => {
+        const v = kv.get(k);
+        return v === undefined ? null : JSON.parse(v);
+      },
+      put: async (k: string, v: string) => {
+        kv.set(k, v);
+      },
+      delete: async (k: string) => {
+        kv.delete(k);
+      },
     } as unknown as KVNamespace,
   } as unknown as Env;
 }

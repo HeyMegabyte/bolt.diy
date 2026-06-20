@@ -124,9 +124,7 @@ export interface EnsureAnalyticsSchemaResult {
  * const result = await ensureAnalyticsSchema(env.DB);
  * if (!result.ok) console.warn('Analytics schema setup failed');
  */
-export async function ensureAnalyticsSchema(
-  db: D1Database,
-): Promise<EnsureAnalyticsSchemaResult> {
+export async function ensureAnalyticsSchema(db: D1Database): Promise<EnsureAnalyticsSchemaResult> {
   try {
     let created = 0;
     for (const stmt of ANALYTICS_DDL) {

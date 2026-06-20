@@ -3,10 +3,7 @@
  * (`services/shard_connection.ts`) — the handoff that turns a tenant id into its
  * shard's pooled connection string, or null when the binding isn't declared yet.
  */
-import {
-  resolveShardConnectionString,
-  hasShardBinding,
-} from '../services/shard_connection';
+import { resolveShardConnectionString, hasShardBinding } from '../services/shard_connection';
 import { hyperdriveBindingForTenant } from '../services/db_sharding';
 
 const TENANT = 'org-abc';
@@ -18,7 +15,9 @@ describe('shard_connection', () => {
     const env = {
       [BINDING]: { connectionString: 'postgres://hyperdrive/pooled?x=1' },
     } as Record<string, unknown>;
-    expect(resolveShardConnectionString(env, TENANT, SHARDS)).toBe('postgres://hyperdrive/pooled?x=1');
+    expect(resolveShardConnectionString(env, TENANT, SHARDS)).toBe(
+      'postgres://hyperdrive/pooled?x=1',
+    );
     expect(hasShardBinding(env, TENANT, SHARDS)).toBe(true);
   });
 

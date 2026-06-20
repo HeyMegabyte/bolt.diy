@@ -52,6 +52,6 @@ describe('notifyOwnerEvent', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.detail).toBe('invalid_event');
-    expect((db.prepare as jest.Mock)).not.toHaveBeenCalled();
+    expect(db.prepare as jest.Mock).not.toHaveBeenCalled();
   });
 });

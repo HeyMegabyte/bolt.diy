@@ -32,15 +32,36 @@ describe('service registry integrity', () => {
 
   it('detects a duplicate id', () => {
     const dup: ServiceRegistryEntry[] = [
-      { id: 'x', name: 'A', category: 'edge', runtime: 'cloudflare-worker', status: 'production', access: 'public' },
-      { id: 'x', name: 'B', category: 'edge', runtime: 'cloudflare-worker', status: 'production', access: 'public' },
+      {
+        id: 'x',
+        name: 'A',
+        category: 'edge',
+        runtime: 'cloudflare-worker',
+        status: 'production',
+        access: 'public',
+      },
+      {
+        id: 'x',
+        name: 'B',
+        category: 'edge',
+        runtime: 'cloudflare-worker',
+        status: 'production',
+        access: 'public',
+      },
     ];
     expect(validateServiceRegistry(dup)).toEqual([{ id: 'x', problem: 'duplicate id' }]);
   });
 
   it('flags an excluded vendor that is NOT marked deprecated/removed', () => {
     const bad: ServiceRegistryEntry[] = [
-      { id: 'mail', name: 'Resend mailer', category: 'email', runtime: 'managed-saas', status: 'production', access: 'service-only' },
+      {
+        id: 'mail',
+        name: 'Resend mailer',
+        category: 'email',
+        runtime: 'managed-saas',
+        status: 'production',
+        access: 'service-only',
+      },
     ];
     const v = validateServiceRegistry(bad);
     expect(v).toHaveLength(1);
@@ -50,7 +71,14 @@ describe('service registry integrity', () => {
 
   it('allows an excluded vendor when correctly marked deprecated (migration in flight)', () => {
     const ok: ServiceRegistryEntry[] = [
-      { id: 'mail', name: 'Resend (legacy)', category: 'email', runtime: 'managed-saas', status: 'deprecated', access: 'service-only' },
+      {
+        id: 'mail',
+        name: 'Resend (legacy)',
+        category: 'email',
+        runtime: 'managed-saas',
+        status: 'deprecated',
+        access: 'service-only',
+      },
     ];
     expect(validateServiceRegistry(ok)).toEqual([]);
   });

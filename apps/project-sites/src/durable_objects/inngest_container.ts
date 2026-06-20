@@ -87,10 +87,10 @@ export class InngestContainer extends Container<Env> {
         { envVars: inngestEnvVars(this.env), enableInternet: true },
       );
     } catch (err) {
-      return new Response(
-        JSON.stringify({ error: `Inngest container start failed: ${err}` }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: `Inngest container start failed: ${err}` }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
     return super.fetch(request);
   }

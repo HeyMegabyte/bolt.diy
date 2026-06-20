@@ -34,7 +34,10 @@ interface MockState {
 function makeState(): MockState {
   const store = new Map<string, unknown>();
   let alarm: number | null = null;
-  const holder: MockState = { state: undefined as unknown as DurableObjectState, hydration: undefined };
+  const holder: MockState = {
+    state: undefined as unknown as DurableObjectState,
+    hydration: undefined,
+  };
   const storage = {
     get: async (k: string) => store.get(k),
     put: async (k: string, v: unknown) => void store.set(k, v),
@@ -82,7 +85,12 @@ describe('EventDispatcher', () => {
 
     const dbg = await (await d.fetch(new Request('https://do/debug'))).json();
     expect(dbg).toMatchObject({ siteId: 's1', queueDepth: 1 });
-    expect(dbg.circuits).toMatchObject({ sentry: 'closed', posthog: 'closed', ga4: 'closed', gtm: 'closed' });
+    expect(dbg.circuits).toMatchObject({
+      sentry: 'closed',
+      posthog: 'closed',
+      ga4: 'closed',
+      gtm: 'closed',
+    });
   });
 
   it('dedups a repeated eventId within the window → 202 duplicate, queue unchanged', async () => {
@@ -110,7 +118,9 @@ describe('EventDispatcher', () => {
     expect(dbg.queueDepth).toBe(0); // 10 enqueued → auto-flush drained
     // No creds configured → every provider outcome is not_configured (no DLQ).
     expect(Array.isArray(dbg.lastOutcomes)).toBe(true);
-    expect(dbg.lastOutcomes.every((o: { status: string }) => o.status === 'not_configured')).toBe(true);
+    expect(dbg.lastOutcomes.every((o: { status: string }) => o.status === 'not_configured')).toBe(
+      true,
+    );
     expect(dbg.lastFlushAt).toBeGreaterThan(0);
   });
 

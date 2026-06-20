@@ -12,10 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 describe('angular.json schematics (audit #50)', () => {
-  const raw = readFileSync(
-    join(__dirname, '..', '..', 'frontend', 'angular.json'),
-    'utf8',
-  );
+  const raw = readFileSync(join(__dirname, '..', '..', 'frontend', 'angular.json'), 'utf8');
 
   it('does not skip test generation on any schematic', () => {
     // RED until the eight `"skipTests": true` flags are flipped to false.

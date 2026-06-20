@@ -130,7 +130,8 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     ownerPackage: 'apps/project-sites/src/platform/workflow-router.ts',
     status: 'scaffolded',
     access: 'service-only',
-    notes: 'Pure routing policy + JOB_DEFINITIONS; backend adapters are a follow-on slice. ADR-0003.',
+    notes:
+      'Pure routing policy + JOB_DEFINITIONS; backend adapters are a follow-on slice. ADR-0003.',
   },
   {
     id: 'jobs-inngest',
@@ -286,7 +287,8 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     adapterPackage: 'apps/project-sites/src/services/notifications.ts',
     status: 'deprecated',
     access: 'service-only',
-    notes: 'Excluded by convergence §4; 34 source refs to migrate → email-ses/email-listmonk per ADR-0019.',
+    notes:
+      'Excluded by convergence §4; 34 source refs to migrate → email-ses/email-listmonk per ADR-0019.',
   },
   {
     id: 'claim-links-dub',
@@ -356,7 +358,10 @@ export function validateServiceRegistry(
     const hay = `${e.name} ${e.adapterPackage ?? ''}`.toLowerCase();
     const vendor = EXCLUDED_VENDORS.find((v) => hay.includes(v));
     if (vendor && e.status !== 'deprecated' && e.status !== 'removed') {
-      out.push({ id: e.id, problem: `references excluded vendor "${vendor}" but status is "${e.status}" (must be deprecated/removed)` });
+      out.push({
+        id: e.id,
+        problem: `references excluded vendor "${vendor}" but status is "${e.status}" (must be deprecated/removed)`,
+      });
     }
   }
   return out;

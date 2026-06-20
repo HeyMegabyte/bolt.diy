@@ -7,10 +7,16 @@
  * Run: npx jest external_llm_provider_tiers
  */
 
-import { chooseProviderForTier, DEFAULT_MODELS_EXPORT, DIRECT_BASE_URLS_EXPORT } from '../services/external_llm.js';
+import {
+  chooseProviderForTier,
+  DEFAULT_MODELS_EXPORT,
+  DIRECT_BASE_URLS_EXPORT,
+} from '../services/external_llm.js';
 
 // Minimal Env stub — only the keys relevant to tier resolution
-function makeEnv(overrides: Record<string, string | undefined> = {}): Record<string, string | undefined> {
+function makeEnv(
+  overrides: Record<string, string | undefined> = {},
+): Record<string, string | undefined> {
   return {
     OPENAI_API_KEY: undefined,
     ANTHROPIC_API_KEY: undefined,

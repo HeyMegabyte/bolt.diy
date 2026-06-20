@@ -328,7 +328,10 @@ describe('resolveAppEnv — pooler-safe Postgres connection', () => {
 
   it('poolerSafe does NOT change sharded HOST/USER pieces', () => {
     const app = makeApp(
-      [decl({ key: 'DB_HOST', auto: 'postgres_url' }), decl({ key: 'DB_USER', auto: 'postgres_url' })],
+      [
+        decl({ key: 'DB_HOST', auto: 'postgres_url' }),
+        decl({ key: 'DB_USER', auto: 'postgres_url' }),
+      ],
       { poolerSafe: true },
     );
     const out = resolveAppEnv(app, FULL_INFRA, SUB, {});

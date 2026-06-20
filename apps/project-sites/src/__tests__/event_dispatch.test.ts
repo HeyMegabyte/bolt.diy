@@ -1,10 +1,20 @@
-import { dispatchBatch, criticalSucceeded, FORWARD_ORDER, type ProviderId } from '../services/event_dispatch';
+import {
+  dispatchBatch,
+  criticalSucceeded,
+  FORWARD_ORDER,
+  type ProviderId,
+} from '../services/event_dispatch';
 import { CircuitBreaker } from '../services/circuit_breaker';
 import type { IncomingEvent } from '../services/analytics_events';
 
 const NOW = 1_700_000_000_000;
 const batch: IncomingEvent[] = [
-  { eventId: '123e4567-e89b-42d3-a456-426614174000', siteId: 's1', eventType: 'pageview', timestamp: NOW },
+  {
+    eventId: '123e4567-e89b-42d3-a456-426614174000',
+    siteId: 's1',
+    eventType: 'pageview',
+    timestamp: NOW,
+  },
 ];
 
 function deps(opts: {
@@ -56,7 +66,12 @@ describe('dispatchBatch', () => {
     const breakers = new Map<ProviderId, CircuitBreaker>();
     const cb = new CircuitBreaker({ failureThreshold: 5 });
     breakers.set('ga4', cb);
-    const d = deps({ breakers, forward: async (p) => { if (p === 'ga4') throw new Error('502'); } });
+    const d = deps({
+      breakers,
+      forward: async (p) => {
+        if (p === 'ga4') throw new Error('502');
+      },
+    });
     const out = await dispatchBatch(batch, d, NOW);
     const ga4 = out.find((o) => o.provider === 'ga4');
     expect(ga4?.status).toBe('failed');
@@ -81,7 +96,15 @@ describe('criticalSucceeded', () => {
     const ok = await dispatchBatch(batch, deps({}), NOW);
     expect(criticalSucceeded(ok)).toBe(true);
 
-    const fail = await dispatchBatch(batch, deps({ forward: async (p) => { if (p === 'sentry') throw new Error('down'); } }), NOW);
+    const fail = await dispatchBatch(
+      batch,
+      deps({
+        forward: async (p) => {
+          if (p === 'sentry') throw new Error('down');
+        },
+      }),
+      NOW,
+    );
     expect(criticalSucceeded(fail)).toBe(false);
   });
 

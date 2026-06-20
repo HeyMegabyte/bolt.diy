@@ -45,7 +45,10 @@ export class DedupWindow {
   }
 
   /** Rehydrate from a persisted snapshot (e.g. SQLite rows). */
-  static fromSnapshot(snapshot: readonly DedupEntry[], windowMs: number = DEFAULT_DEDUP_WINDOW_MS): DedupWindow {
+  static fromSnapshot(
+    snapshot: readonly DedupEntry[],
+    windowMs: number = DEFAULT_DEDUP_WINDOW_MS,
+  ): DedupWindow {
     return new DedupWindow(windowMs, snapshot);
   }
 

@@ -72,7 +72,10 @@ export class CircuitBreaker {
   }
 
   /** Rehydrate a breaker from a persisted snapshot. */
-  static fromSnapshot(snapshot: CircuitBreakerSnapshot, opts: CircuitBreakerOptions = {}): CircuitBreaker {
+  static fromSnapshot(
+    snapshot: CircuitBreakerSnapshot,
+    opts: CircuitBreakerOptions = {},
+  ): CircuitBreaker {
     return new CircuitBreaker(opts, snapshot);
   }
 
@@ -123,7 +126,11 @@ export class CircuitBreaker {
    * admin/debug surfaces (`/api/analytics-debug`).
    */
   peek(now: number): CircuitState {
-    if (this._state === 'open' && this._lastFailAt !== null && now - this._lastFailAt >= this.resetTimeoutMs) {
+    if (
+      this._state === 'open' &&
+      this._lastFailAt !== null &&
+      now - this._lastFailAt >= this.resetTimeoutMs
+    ) {
       return 'half_open';
     }
     return this._state;

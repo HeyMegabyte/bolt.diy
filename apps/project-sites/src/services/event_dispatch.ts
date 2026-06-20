@@ -83,7 +83,12 @@ export async function dispatchBatch(
       return { provider, status: 'forwarded', critical };
     } catch (err) {
       breaker?.recordFailure(now);
-      return { provider, status: 'failed', critical, error: (err as Error)?.message ?? String(err) };
+      return {
+        provider,
+        status: 'failed',
+        critical,
+        error: (err as Error)?.message ?? String(err),
+      };
     }
   });
 
@@ -98,5 +103,7 @@ export async function dispatchBatch(
 export function criticalSucceeded(outcomes: readonly ProviderOutcome[]): boolean {
   const sentry = outcomes.find((o) => o.provider === 'sentry');
   // Critical success = Sentry forwarded, OR Sentry simply isn't configured for this site.
-  return sentry === undefined || sentry.status === 'forwarded' || sentry.status === 'not_configured';
+  return (
+    sentry === undefined || sentry.status === 'forwarded' || sentry.status === 'not_configured'
+  );
 }

@@ -58,7 +58,8 @@ export class EventDispatcher extends DurableObject<Env> {
       this.siteId = (await ctx.storage.get<string>(KEY_SITE)) ?? '';
       const dedupSnap = (await ctx.storage.get<DedupEntry[]>(KEY_DEDUP)) ?? [];
       this.dedup = DedupWindow.fromSnapshot(dedupSnap);
-      const breakerSnaps = (await ctx.storage.get<Record<string, CircuitBreakerSnapshot>>(KEY_BREAKERS)) ?? {};
+      const breakerSnaps =
+        (await ctx.storage.get<Record<string, CircuitBreakerSnapshot>>(KEY_BREAKERS)) ?? {};
       for (const p of FORWARD_ORDER) {
         if (breakerSnaps[p]) this.breakers.set(p, CircuitBreaker.fromSnapshot(breakerSnaps[p]));
       }
@@ -78,7 +79,11 @@ export class EventDispatcher extends DurableObject<Env> {
       const event = parsed.data;
 
       // Optional client sampling: drop above the rate.
-      if (event.sampleRate !== undefined && event.sampleRate < 1 && hashUnit(event.eventId) > event.sampleRate) {
+      if (
+        event.sampleRate !== undefined &&
+        event.sampleRate < 1 &&
+        hashUnit(event.eventId) > event.sampleRate
+      ) {
         return Response.json({ status: 'sampled_out' }, { status: 202 });
       }
 
@@ -152,9 +157,19 @@ export class EventDispatcher extends DurableObject<Env> {
       return forwardGtm(arr, creds);
     };
     const configured = (p: ProviderId): boolean =>
-      p === 'sentry' ? Boolean(creds.sentry) : p === 'posthog' ? Boolean(creds.posthog) : p === 'ga4' ? Boolean(creds.ga4) : Boolean(creds.gtm);
+      p === 'sentry'
+        ? Boolean(creds.sentry)
+        : p === 'posthog'
+          ? Boolean(creds.posthog)
+          : p === 'ga4'
+            ? Boolean(creds.ga4)
+            : Boolean(creds.gtm);
 
-    const outcomes = await dispatchBatch(batch, { forward, breakers: this.breakers, configured }, now);
+    const outcomes = await dispatchBatch(
+      batch,
+      { forward, breakers: this.breakers, configured },
+      now,
+    );
     this.lastOutcomes = outcomes;
 
     // Persist the (possibly drained) queue + breaker snapshots.
@@ -165,7 +180,8 @@ export class EventDispatcher extends DurableObject<Env> {
 
     // Dead-letter the batch for any failed provider (best-effort; never throws).
     const failed = outcomes.filter((o) => o.status === 'failed');
-    if (failed.length > 0) await this.deadLetter(batch, failed.map((f) => f.provider).join(','), now);
+    if (failed.length > 0)
+      await this.deadLetter(batch, failed.map((f) => f.provider).join(','), now);
   }
 
   /** Load per-site provider credentials from D1 (`provider_credentials`). */
@@ -189,13 +205,19 @@ export class EventDispatcher extends DurableObject<Env> {
         }
       }
     } catch (err) {
-      console.warn(JSON.stringify({ event: 'dispatcher.loadCreds_failed', message: (err as Error)?.message }));
+      console.warn(
+        JSON.stringify({ event: 'dispatcher.loadCreds_failed', message: (err as Error)?.message }),
+      );
     }
     return creds;
   }
 
   /** Write a failed batch to the D1 dead-letter table. Never throws. */
-  private async deadLetter(batch: readonly IncomingEvent[], failedProvider: string, now: number): Promise<void> {
+  private async deadLetter(
+    batch: readonly IncomingEvent[],
+    failedProvider: string,
+    now: number,
+  ): Promise<void> {
     const db = this.env.DB;
     if (!db) return;
     try {
@@ -204,11 +226,22 @@ export class EventDispatcher extends DurableObject<Env> {
           .prepare(
             'INSERT INTO dead_letter_events (id, eventId, siteId, failedProvider, error, retryCount, nextRetryAt, payload, createdAt) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
           )
-          .bind(crypto.randomUUID(), e.eventId, e.siteId, failedProvider, 'forward_failed', now + 30_000, JSON.stringify(e), now)
+          .bind(
+            crypto.randomUUID(),
+            e.eventId,
+            e.siteId,
+            failedProvider,
+            'forward_failed',
+            now + 30_000,
+            JSON.stringify(e),
+            now,
+          )
           .run();
       }
     } catch (err) {
-      console.warn(JSON.stringify({ event: 'dispatcher.deadLetter_failed', message: (err as Error)?.message }));
+      console.warn(
+        JSON.stringify({ event: 'dispatcher.deadLetter_failed', message: (err as Error)?.message }),
+      );
     }
   }
 }

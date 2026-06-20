@@ -278,14 +278,16 @@ describe('deleteProject', () => {
 describe('toPooledConnectionString', () => {
   it('inserts -pooler into the Neon endpoint id, preserving creds/db/query', () => {
     expect(
-      toPooledConnectionString('postgres://u:p@ep-cool-name-123.us-east-2.aws.neon.tech/db?sslmode=require'),
+      toPooledConnectionString(
+        'postgres://u:p@ep-cool-name-123.us-east-2.aws.neon.tech/db?sslmode=require',
+      ),
     ).toBe('postgres://u:p@ep-cool-name-123-pooler.us-east-2.aws.neon.tech/db?sslmode=require');
   });
 
   it('preserves an explicit port', () => {
-    expect(
-      toPooledConnectionString('postgresql://u:p@ep-x-1.region.aws.neon.tech:5432/db'),
-    ).toBe('postgresql://u:p@ep-x-1-pooler.region.aws.neon.tech:5432/db');
+    expect(toPooledConnectionString('postgresql://u:p@ep-x-1.region.aws.neon.tech:5432/db')).toBe(
+      'postgresql://u:p@ep-x-1-pooler.region.aws.neon.tech:5432/db',
+    );
   });
 
   it('is idempotent — never double-inserts -pooler', () => {

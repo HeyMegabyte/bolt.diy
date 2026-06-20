@@ -45,25 +45,57 @@ describe('SiteCapabilityManifestSchema', () => {
 
 describe('buildManifest', () => {
   it('applies free-plan defaults', () => {
-    const m = buildManifest({ tenantId: 't', siteId: 's', hostname: 'h', plan: 'free', release: 'r' });
-    expect(m).toMatchObject({ db: 'none', posthog: 'none', aiGatewayBudgetMonthlyCents: 0, browserAutomation: 'cloudflare' });
+    const m = buildManifest({
+      tenantId: 't',
+      siteId: 's',
+      hostname: 'h',
+      plan: 'free',
+      release: 'r',
+    });
+    expect(m).toMatchObject({
+      db: 'none',
+      posthog: 'none',
+      aiGatewayBudgetMonthlyCents: 0,
+      browserAutomation: 'cloudflare',
+    });
   });
 
   it('applies enterprise-plan defaults + always defaults browser to cloudflare', () => {
-    const m = buildManifest({ tenantId: 't', siteId: 's', hostname: 'h', plan: 'enterprise', release: 'r' });
-    expect(m).toMatchObject({ db: 'neon_dedicated_project', sentry: 'dedicated', posthog: 'full_paid' });
+    const m = buildManifest({
+      tenantId: 't',
+      siteId: 's',
+      hostname: 'h',
+      plan: 'enterprise',
+      release: 'r',
+    });
+    expect(m).toMatchObject({
+      db: 'neon_dedicated_project',
+      sentry: 'dedicated',
+      posthog: 'full_paid',
+    });
     expect(m.browserAutomation).toBe('cloudflare');
   });
 
   it('honours overrides and re-validates the merged result', () => {
     const m = buildManifest({
-      tenantId: 't', siteId: 's', hostname: 'h', plan: 'paid', release: 'r',
+      tenantId: 't',
+      siteId: 's',
+      hostname: 'h',
+      plan: 'paid',
+      release: 'r',
       overrides: { browserAutomation: 'browserbase_fallback', db: 'neon_dedicated_project' },
     });
     expect(m.browserAutomation).toBe('browserbase_fallback');
     expect(m.db).toBe('neon_dedicated_project');
     expect(() =>
-      buildManifest({ tenantId: 't', siteId: 's', hostname: 'h', plan: 'paid', release: 'r', overrides: { plan: 'bogus' as never } }),
+      buildManifest({
+        tenantId: 't',
+        siteId: 's',
+        hostname: 'h',
+        plan: 'paid',
+        release: 'r',
+        overrides: { plan: 'bogus' as never },
+      }),
     ).toThrow();
   });
 });
@@ -71,7 +103,9 @@ describe('buildManifest', () => {
 describe('canonicalManifestJson', () => {
   it('is deterministic + key-sorted regardless of input key order', () => {
     const a = canonicalManifestJson(base());
-    const reordered = Object.fromEntries(Object.entries(base()).reverse()) as SiteCapabilityManifest;
+    const reordered = Object.fromEntries(
+      Object.entries(base()).reverse(),
+    ) as SiteCapabilityManifest;
     expect(canonicalManifestJson(reordered)).toBe(a);
     expect(a.indexOf('"aiGatewayBudgetMonthlyCents"')).toBeLessThan(a.indexOf('"tenantId"'));
   });
@@ -104,7 +138,9 @@ describe('cacheManifest + resolveManifest', () => {
       store,
       kv: {
         get: async (k: string) => store.get(k) ?? null,
-        put: async (k: string, v: string) => { store.set(k, v); },
+        put: async (k: string, v: string) => {
+          store.set(k, v);
+        },
       } as unknown as Env['CACHE_KV'],
     };
   }
@@ -112,7 +148,11 @@ describe('cacheManifest + resolveManifest', () => {
   it('caches under both KV keys + R2, then resolves a verified manifest by site or host', async () => {
     const { store, kv } = kvStub();
     const r2Puts: string[] = [];
-    const r2 = { put: async (k: string) => { r2Puts.push(k); } } as unknown as Env['SITES_BUCKET'];
+    const r2 = {
+      put: async (k: string) => {
+        r2Puts.push(k);
+      },
+    } as unknown as Env['SITES_BUCKET'];
     const signed = await signManifest(base(), SECRET);
 
     await cacheManifest({ CACHE_KV: kv, SITES_BUCKET: r2 }, signed);
@@ -120,7 +160,10 @@ describe('cacheManifest + resolveManifest', () => {
     expect(store.has('host-manifest:acme.projectsites.dev')).toBe(true);
     expect(r2Puts).toEqual(['manifests/s1.json']);
 
-    const env = { CACHE_KV: kv, MANIFEST_SIGNING_SECRET: SECRET } as Pick<Env, 'CACHE_KV' | 'MANIFEST_SIGNING_SECRET' | 'MCP_ENCRYPTION_KEY'>;
+    const env = { CACHE_KV: kv, MANIFEST_SIGNING_SECRET: SECRET } as Pick<
+      Env,
+      'CACHE_KV' | 'MANIFEST_SIGNING_SECRET' | 'MCP_ENCRYPTION_KEY'
+    >;
     expect(await resolveManifest(env, { siteId: 's1' })).toEqual(base());
     expect(await resolveManifest(env, { hostname: 'ACME.projectsites.dev' })).toEqual(base());
     expect(await resolveManifest(env, { siteId: 'missing' })).toBeNull();
@@ -131,7 +174,10 @@ describe('cacheManifest + resolveManifest', () => {
     const signed = await signManifest(base(), SECRET);
     const tampered = { ...signed, manifest: { ...signed.manifest, plan: 'enterprise' } };
     store.set('manifest:s1', JSON.stringify(tampered));
-    const env = { CACHE_KV: kv, MANIFEST_SIGNING_SECRET: SECRET } as Pick<Env, 'CACHE_KV' | 'MANIFEST_SIGNING_SECRET' | 'MCP_ENCRYPTION_KEY'>;
+    const env = { CACHE_KV: kv, MANIFEST_SIGNING_SECRET: SECRET } as Pick<
+      Env,
+      'CACHE_KV' | 'MANIFEST_SIGNING_SECRET' | 'MCP_ENCRYPTION_KEY'
+    >;
     expect(await resolveManifest(env, { siteId: 's1' })).toBeNull();
   });
 });

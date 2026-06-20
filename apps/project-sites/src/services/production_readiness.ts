@@ -90,18 +90,20 @@ export function scoreReadiness(report: ValidationReport): ReadinessScore {
   for (const e of errors) bump(e, 'errors');
   for (const w of warnings) bump(w, 'warnings');
   const breakdown = Array.from(byCat.values()).sort(
-    (a, b) => b.errors - a.errors || b.warnings - a.warnings || a.category.localeCompare(b.category),
+    (a, b) =>
+      b.errors - a.errors || b.warnings - a.warnings || a.category.localeCompare(b.category),
   );
 
   // Publishable only at A/B with NO secret/security errors — never ship a site
   // that leaks credentials regardless of how good the rest of the grade is.
   const passing = securityErrors === 0 && (grade === 'A' || grade === 'B');
 
-  const summary = securityErrors > 0
-    ? `Not ready (${grade}): ${securityErrors} security issue${securityErrors === 1 ? '' : 's'} must be fixed before publishing.`
-    : passing
-      ? `Ready to publish (${grade}, ${score}/100).`
-      : `Grade ${grade} (${score}/100): ${errors.length} error${errors.length === 1 ? '' : 's'}, ${warnings.length} warning${warnings.length === 1 ? '' : 's'} to address.`;
+  const summary =
+    securityErrors > 0
+      ? `Not ready (${grade}): ${securityErrors} security issue${securityErrors === 1 ? '' : 's'} must be fixed before publishing.`
+      : passing
+        ? `Ready to publish (${grade}, ${score}/100).`
+        : `Grade ${grade} (${score}/100): ${errors.length} error${errors.length === 1 ? '' : 's'}, ${warnings.length} warning${warnings.length === 1 ? '' : 's'} to address.`;
 
   return { score, grade, passing, summary, breakdown };
 }

@@ -68,12 +68,18 @@ describe('buildEvent', () => {
   });
 
   it('rejects a missing tenantId (tenant-scoped invariant)', () => {
-    expect(() => buildEvent({ ...baseInput, tenantId: '' }, 'evt-2', '2026-06-19T00:00:00.000Z')).toThrow();
+    expect(() =>
+      buildEvent({ ...baseInput, tenantId: '' }, 'evt-2', '2026-06-19T00:00:00.000Z'),
+    ).toThrow();
   });
 
   it('rejects an unknown event type', () => {
     expect(() =>
-      buildEvent({ ...baseInput, type: 'bogus.event' as never }, 'evt-3', '2026-06-19T00:00:00.000Z'),
+      buildEvent(
+        { ...baseInput, type: 'bogus.event' as never },
+        'evt-3',
+        '2026-06-19T00:00:00.000Z',
+      ),
     ).toThrow();
   });
 });
@@ -85,7 +91,9 @@ describe('eventIdempotencyKey', () => {
       'site.claim.completed:short-x:site-1',
     );
     // same logical transition → same key (the dedupe guarantee)
-    expect(eventIdempotencyKey('invoice.paid', 'evt_123')).toBe(eventIdempotencyKey('invoice.paid', ' evt_123 '));
+    expect(eventIdempotencyKey('invoice.paid', 'evt_123')).toBe(
+      eventIdempotencyKey('invoice.paid', ' evt_123 '),
+    );
   });
 
   it('throws when no scope is supplied (a keyless event cannot dedupe)', () => {
@@ -132,7 +140,9 @@ describe('nextOutboxAction — dispatcher dead-letter gate', () => {
   it('retries a failed row under the cap, dead-letters at/over it', () => {
     expect(nextOutboxAction({ status: 'failed', attempts: 1 })).toBe('retry');
     expect(nextOutboxAction({ status: 'failed', attempts: MAX_OUTBOX_ATTEMPTS - 1 })).toBe('retry');
-    expect(nextOutboxAction({ status: 'failed', attempts: MAX_OUTBOX_ATTEMPTS })).toBe('dead-letter');
+    expect(nextOutboxAction({ status: 'failed', attempts: MAX_OUTBOX_ATTEMPTS })).toBe(
+      'dead-letter',
+    );
     expect(nextOutboxAction({ status: 'failed', attempts: 99 })).toBe('dead-letter');
   });
 

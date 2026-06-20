@@ -50,11 +50,41 @@ export interface SignedManifest {
 }
 
 /** Per-plan capability defaults — the doctrine's tiering, in one place. */
-const PLAN_DEFAULTS: Record<Plan, Pick<SiteCapabilityManifest, 'db' | 'analytics' | 'sentry' | 'posthog' | 'aiGatewayBudgetMonthlyCents'>> = {
-  free: { db: 'none', analytics: 'included', sentry: 'virtual', posthog: 'none', aiGatewayBudgetMonthlyCents: 0 },
-  paid: { db: 'd1_tenant_db', analytics: 'included', sentry: 'virtual', posthog: 'sampled', aiGatewayBudgetMonthlyCents: 500 },
-  pro: { db: 'neon_shared_shard', analytics: 'growth', sentry: 'dedicated', posthog: 'sampled', aiGatewayBudgetMonthlyCents: 5_000 },
-  enterprise: { db: 'neon_dedicated_project', analytics: 'developer', sentry: 'dedicated', posthog: 'full_paid', aiGatewayBudgetMonthlyCents: 50_000 },
+const PLAN_DEFAULTS: Record<
+  Plan,
+  Pick<
+    SiteCapabilityManifest,
+    'db' | 'analytics' | 'sentry' | 'posthog' | 'aiGatewayBudgetMonthlyCents'
+  >
+> = {
+  free: {
+    db: 'none',
+    analytics: 'included',
+    sentry: 'virtual',
+    posthog: 'none',
+    aiGatewayBudgetMonthlyCents: 0,
+  },
+  paid: {
+    db: 'd1_tenant_db',
+    analytics: 'included',
+    sentry: 'virtual',
+    posthog: 'sampled',
+    aiGatewayBudgetMonthlyCents: 500,
+  },
+  pro: {
+    db: 'neon_shared_shard',
+    analytics: 'growth',
+    sentry: 'dedicated',
+    posthog: 'sampled',
+    aiGatewayBudgetMonthlyCents: 5_000,
+  },
+  enterprise: {
+    db: 'neon_dedicated_project',
+    analytics: 'developer',
+    sentry: 'dedicated',
+    posthog: 'full_paid',
+    aiGatewayBudgetMonthlyCents: 50_000,
+  },
 };
 
 export interface BuildManifestInput {
@@ -140,7 +170,10 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 /** Sign a manifest with HMAC-SHA256 over its canonical JSON. */
-export async function signManifest(m: SiteCapabilityManifest, secret: string): Promise<SignedManifest> {
+export async function signManifest(
+  m: SiteCapabilityManifest,
+  secret: string,
+): Promise<SignedManifest> {
   if (!secret) throw new ManifestError('A signing secret is required.');
   const sig = await hmacHex(secret, canonicalManifestJson(m));
   return { manifest: m, sig, alg: 'HMAC-SHA256' };
@@ -150,7 +183,10 @@ export async function signManifest(m: SiteCapabilityManifest, secret: string): P
  * Verify a signed manifest. Returns the manifest only if the signature matches
  * AND the shape is valid; otherwise `null` (never trust an unverified manifest).
  */
-export async function verifyManifest(signed: SignedManifest, secret: string): Promise<SiteCapabilityManifest | null> {
+export async function verifyManifest(
+  signed: SignedManifest,
+  secret: string,
+): Promise<SiteCapabilityManifest | null> {
   if (!secret || !signed?.sig) return null;
   const parsed = SiteCapabilityManifestSchema.safeParse(signed.manifest);
   if (!parsed.success) return null;
@@ -159,7 +195,9 @@ export async function verifyManifest(signed: SignedManifest, secret: string): Pr
 }
 
 /** Resolve the signing secret from env (dedicated → AES key fallback). */
-export function manifestSecret(env: Pick<Env, 'MANIFEST_SIGNING_SECRET' | 'MCP_ENCRYPTION_KEY'>): string {
+export function manifestSecret(
+  env: Pick<Env, 'MANIFEST_SIGNING_SECRET' | 'MCP_ENCRYPTION_KEY'>,
+): string {
   return env.MANIFEST_SIGNING_SECRET ?? env.MCP_ENCRYPTION_KEY ?? '';
 }
 

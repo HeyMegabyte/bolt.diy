@@ -49,7 +49,9 @@ describe('handleCheckoutCompleted', () => {
     // dbUpdate issues a prepared statement — confirm at least one bind() call
     // received the activation values.
     const prepareCalls = (db.prepare as jest.Mock).mock.calls as string[][];
-    const updateCall = prepareCalls.find(([sql]) => /UPDATE.*subscriptions/i.test(sql as unknown as string));
+    const updateCall = prepareCalls.find(([sql]) =>
+      /UPDATE.*subscriptions/i.test(sql as unknown as string),
+    );
     expect(updateCall).toBeDefined();
 
     // The bind args flowing to the UPDATE must include 'active' and 'paid'.
@@ -144,6 +146,6 @@ describe('handleSubscriptionDeleted', () => {
     ).resolves.toBeUndefined();
 
     // No DB writes should have happened
-    expect((db.prepare as jest.Mock)).not.toHaveBeenCalled();
+    expect(db.prepare as jest.Mock).not.toHaveBeenCalled();
   });
 });

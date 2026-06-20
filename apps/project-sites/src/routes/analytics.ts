@@ -61,7 +61,14 @@ export async function persistAnalyticsEvent(db: D1Database, event: IncomingEvent
       await ensureAnalyticsSchema(db);
       await insert();
     } catch (err) {
-      console.warn(JSON.stringify({ level: 'warn', msg: 'analytics.persist_failed', siteId: event.siteId, error: String(err) }));
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          msg: 'analytics.persist_failed',
+          siteId: event.siteId,
+          error: String(err),
+        }),
+      );
     }
   }
 }
@@ -102,10 +109,7 @@ analyticsRoutes.post('/api/events', async (c) => {
 
   const parsed = IncomingEventSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json(
-      { error: 'invalid_event', details: parsed.error.flatten() },
-      400,
-    );
+    return c.json({ error: 'invalid_event', details: parsed.error.flatten() }, 400);
   }
 
   const event: IncomingEvent = parsed.data;
@@ -132,13 +136,15 @@ analyticsRoutes.post('/api/events', async (c) => {
           }),
         );
       } catch (err) {
-        console.warn(JSON.stringify({
-          level: 'warn',
-          msg: 'analytics.enqueue_failed',
-          siteId: event.siteId,
-          eventId: event.eventId,
-          error: String(err),
-        }));
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            msg: 'analytics.enqueue_failed',
+            siteId: event.siteId,
+            eventId: event.eventId,
+            error: String(err),
+          }),
+        );
       }
     })();
 
@@ -188,12 +194,14 @@ analyticsRoutes.get('/api/analytics-debug', async (c) => {
     const data = await res.json();
     return c.json(data, 200);
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn',
-      msg: 'analytics.debug_failed',
-      siteId,
-      error: String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'analytics.debug_failed',
+        siteId,
+        error: String(err),
+      }),
+    );
     return c.json({ events: [], note: 'dispatcher_unavailable' }, 200);
   }
 });
@@ -237,7 +245,9 @@ analyticsRoutes.get('/api/analytics-data', async (c) => {
     }));
     return c.json({ events, count: events.length, has_more: hasMore }, 200);
   } catch (err) {
-    console.warn(JSON.stringify({ level: 'warn', msg: 'analytics.data_failed', siteId, error: String(err) }));
+    console.warn(
+      JSON.stringify({ level: 'warn', msg: 'analytics.data_failed', siteId, error: String(err) }),
+    );
     return c.json({ events: [], count: 0, has_more: false, note: 'no_data' }, 200);
   }
 });
@@ -271,11 +281,21 @@ const TEST_PROVIDERS = ['all', 'sentry', 'posthog', 'ga4', 'gtm'] as const;
 analyticsRoutes.post('/api/test-event', async (c) => {
   const siteId = c.req.query('siteId');
   if (!siteId) {
-    return c.json({ ok: false, error: 'missing_param', details: 'siteId query param is required.' }, 400);
+    return c.json(
+      { ok: false, error: 'missing_param', details: 'siteId query param is required.' },
+      400,
+    );
   }
   const provider = (c.req.query('provider') ?? 'all') as (typeof TEST_PROVIDERS)[number];
   if (!TEST_PROVIDERS.includes(provider)) {
-    return c.json({ ok: false, error: 'bad_provider', details: `provider must be one of ${TEST_PROVIDERS.join(', ')}.` }, 400);
+    return c.json(
+      {
+        ok: false,
+        error: 'bad_provider',
+        details: `provider must be one of ${TEST_PROVIDERS.join(', ')}.`,
+      },
+      400,
+    );
   }
 
   const event: IncomingEvent = {
@@ -302,9 +322,18 @@ analyticsRoutes.post('/api/test-event', async (c) => {
     const p = (async () => {
       try {
         const stub = env.EVENT_DISPATCHER!.get(env.EVENT_DISPATCHER!.idFromName(siteId));
-        await stub.fetch(new Request('https://do/enqueue', { method: 'POST', body: JSON.stringify(event) }));
+        await stub.fetch(
+          new Request('https://do/enqueue', { method: 'POST', body: JSON.stringify(event) }),
+        );
       } catch (err) {
-        console.warn(JSON.stringify({ level: 'warn', msg: 'analytics.test_enqueue_failed', siteId, error: String(err) }));
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            msg: 'analytics.test_enqueue_failed',
+            siteId,
+            error: String(err),
+          }),
+        );
       }
     })();
     try {

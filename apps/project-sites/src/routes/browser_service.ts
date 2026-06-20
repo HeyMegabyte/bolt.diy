@@ -56,7 +56,14 @@ export const BrowserJobSchema = z
     url: z.string().url().optional(),
     backendPreference: z.enum(['cloudflare', 'browserbase', 'skyvern_internal']).optional(),
     specialty: z
-      .enum(['captcha', 'residential_proxy', 'session_replay', 'live_view', 'long_session', 'stealth'])
+      .enum([
+        'captcha',
+        'residential_proxy',
+        'session_replay',
+        'live_view',
+        'long_session',
+        'stealth',
+      ])
       .optional(),
     budgetCents: z.number().int().min(0).optional(),
     timeoutMs: z.number().int().min(1).max(120_000).optional(),
@@ -107,10 +114,22 @@ for (const purpose of BROWSER_PURPOSES) {
 
       // screenshot/pdf EXECUTE on CF Browser Run; other purposes return the
       // routed envelope (execution wired in later sub-slices).
-      if ((purpose === 'screenshot' || purpose === 'pdf') && routed.provider === 'cf' && c.env.BROWSER) {
+      if (
+        (purpose === 'screenshot' || purpose === 'pdf') &&
+        routed.provider === 'cf' &&
+        c.env.BROWSER
+      ) {
         const target = artifactTargetUrl(parsed.data);
         if (!target) {
-          return c.json({ error: { code: 'VALIDATION_ERROR', message: 'screenshot/pdf needs `url` or `hostname`.' } }, 400);
+          return c.json(
+            {
+              error: {
+                code: 'VALIDATION_ERROR',
+                message: 'screenshot/pdf needs `url` or `hostname`.',
+              },
+            },
+            400,
+          );
         }
         const { runner, release } = await cfBrowserRunner(c.env);
         try {
@@ -130,7 +149,10 @@ for (const purpose of BROWSER_PURPOSES) {
       return c.json(routed, 202);
     } catch (err) {
       if (err instanceof BrowserGatewayError) {
-        return c.json({ error: { code: 'BROWSER_PROVIDER_UNAVAILABLE', message: err.message } }, 503);
+        return c.json(
+          { error: { code: 'BROWSER_PROVIDER_UNAVAILABLE', message: err.message } },
+          503,
+        );
       }
       throw err;
     }

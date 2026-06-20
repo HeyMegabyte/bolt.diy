@@ -4,9 +4,15 @@ const f = (path: string, text: string): BuildFile => ({ path, text, size: text.l
 
 describe('validateNoClientSecrets', () => {
   it('flags a Stripe secret key embedded in a JS bundle (error, masked)', () => {
-    const out = validateNoClientSecrets([f('assets/index-abc.js', 'const k="sk_live_51HxYzABCDEFGHIJKLMNOP";')]);
+    const out = validateNoClientSecrets([
+      f('assets/index-abc.js', 'const k="sk_live_51HxYzABCDEFGHIJKLMNOP";'),
+    ]);
     expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ code: 'security.client_secret_exposed', severity: 'error', file: 'assets/index-abc.js' });
+    expect(out[0]).toMatchObject({
+      code: 'security.client_secret_exposed',
+      severity: 'error',
+      file: 'assets/index-abc.js',
+    });
     // detail is masked — never the full secret
     expect(out[0]?.detail).not.toContain('51HxYzABCDEFGHIJKLMNOP');
     expect(out[0]?.detail).toContain('…');
@@ -31,13 +37,21 @@ describe('validateNoClientSecrets', () => {
   });
 
   it('only scans client-served HTML/JS — ignores other file types', () => {
-    expect(validateNoClientSecrets([f('config.json', 'sk_live_51HxYzABCDEFGHIJKLMNOP')])).toHaveLength(0);
-    expect(validateNoClientSecrets([f('styles.css', 'sk_live_51HxYzABCDEFGHIJKLMNOP')])).toHaveLength(0);
+    expect(
+      validateNoClientSecrets([f('config.json', 'sk_live_51HxYzABCDEFGHIJKLMNOP')]),
+    ).toHaveLength(0);
+    expect(
+      validateNoClientSecrets([f('styles.css', 'sk_live_51HxYzABCDEFGHIJKLMNOP')]),
+    ).toHaveLength(0);
   });
 
   it('emits at most one violation per file + nothing for a clean bundle', () => {
-    expect(validateNoClientSecrets([f('app.js', 'const greeting = "hello world";')])).toHaveLength(0);
-    const two = validateNoClientSecrets([f('app.js', 'sk_live_AAAAAAAAAAAAAAAA and AKIAIOSFODNN7EXAMPLE')]);
+    expect(validateNoClientSecrets([f('app.js', 'const greeting = "hello world";')])).toHaveLength(
+      0,
+    );
+    const two = validateNoClientSecrets([
+      f('app.js', 'sk_live_AAAAAAAAAAAAAAAA and AKIAIOSFODNN7EXAMPLE'),
+    ]);
     expect(two).toHaveLength(1);
   });
 });

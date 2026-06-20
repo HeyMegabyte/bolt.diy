@@ -16,7 +16,12 @@
 import { z } from 'zod';
 import type { Env } from '../types/env.js';
 
-export const DB_PLANS = ['none', 'd1_tenant_db', 'neon_shared_shard', 'neon_dedicated_project'] as const;
+export const DB_PLANS = [
+  'none',
+  'd1_tenant_db',
+  'neon_shared_shard',
+  'neon_dedicated_project',
+] as const;
 export type DbPlan = (typeof DB_PLANS)[number];
 
 export type Plan = 'free' | 'paid' | 'pro' | 'enterprise';
@@ -34,7 +39,13 @@ export interface DbAllocationInput {
 
 export interface DbAllocationDecision {
   readonly dbPlan: DbPlan;
-  readonly reason: 'free-plan' | 'isolation' | 'enterprise' | 'noisy-neighbor' | 'postgres-required' | 'd1-default';
+  readonly reason:
+    | 'free-plan'
+    | 'isolation'
+    | 'enterprise'
+    | 'noisy-neighbor'
+    | 'postgres-required'
+    | 'd1-default';
 }
 
 /**
@@ -53,7 +64,8 @@ export function chooseDbAllocation(input: DbAllocationInput): DbAllocationDecisi
 
   // Strongest signals first → a dedicated Neon project.
   if (input.needsIsolation) return { dbPlan: 'neon_dedicated_project', reason: 'isolation' };
-  if (input.plan === 'enterprise') return { dbPlan: 'neon_dedicated_project', reason: 'enterprise' };
+  if (input.plan === 'enterprise')
+    return { dbPlan: 'neon_dedicated_project', reason: 'enterprise' };
   if (input.noisyNeighbor) return { dbPlan: 'neon_dedicated_project', reason: 'noisy-neighbor' };
 
   // Postgres-required but not isolated → a shared Neon shard.
@@ -112,7 +124,9 @@ export function buildAllocation(input: BuildAllocationInput): SiteDatabaseAlloca
     region: input.region ?? 'auto',
     status: 'active',
     shardId:
-      dbPlan === 'neon_shared_shard' && input.shardIndex !== undefined ? String(input.shardIndex) : null,
+      dbPlan === 'neon_shared_shard' && input.shardIndex !== undefined
+        ? String(input.shardIndex)
+        : null,
     hyperdriveBindingName:
       dbPlan === 'neon_shared_shard' && input.shardIndex !== undefined
         ? hyperdriveBindingForShard(input.shardIndex)

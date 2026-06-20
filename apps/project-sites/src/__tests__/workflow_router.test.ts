@@ -17,7 +17,9 @@ import {
 
 describe('chooseWorkflowBackend (§20 selection logic)', () => {
   it('routes CF-native + light work to Cloudflare Workflows', () => {
-    expect(chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true })).toBe('cloudflare-workflows');
+    expect(chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true })).toBe(
+      'cloudflare-workflows',
+    );
     expect(
       chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true, canUseWorkflowWaits: true }),
     ).toBe('cloudflare-workflows');
@@ -35,12 +37,18 @@ describe('chooseWorkflowBackend (§20 selection logic)', () => {
   });
 
   it('CF-native but heavy/browser/stateful escalates OFF Workflows to Hatchet', () => {
-    expect(chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true, needsHeavyRuntime: true })).toBe('hatchet');
-    expect(chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true, needsBrowser: true })).toBe('hatchet');
+    expect(
+      chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true, needsHeavyRuntime: true }),
+    ).toBe('hatchet');
+    expect(chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true, needsBrowser: true })).toBe(
+      'hatchet',
+    );
   });
 
   it('event-driven but browser/heavy escalates OFF Inngest to Hatchet', () => {
-    expect(chooseWorkflowBackend({ kind: 'x', isProductEventDriven: true, needsBrowser: true })).toBe('hatchet');
+    expect(
+      chooseWorkflowBackend({ kind: 'x', isProductEventDriven: true, needsBrowser: true }),
+    ).toBe('hatchet');
   });
 
   it('defaults unknown/unflagged work to Hatchet (the heavy plane)', () => {
@@ -58,7 +66,10 @@ describe('JOB_DEFINITIONS integrity', () => {
 
   it('every defaultBackend equals the policy-derived backend (no drift)', () => {
     for (const [kind, def] of entries) {
-      expect({ kind, backend: def.defaultBackend }).toEqual({ kind, backend: chooseWorkflowBackend(def) });
+      expect({ kind, backend: def.defaultBackend }).toEqual({
+        kind,
+        backend: chooseWorkflowBackend(def),
+      });
     }
   });
 
