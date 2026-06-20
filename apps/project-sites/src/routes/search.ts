@@ -1236,6 +1236,20 @@ search.post('/api/contact-form/:slug', async (c) => {
           html: htmlBody,
         }),
       });
+    } else {
+      // No email provider configured — the owner email is NOT sent (the in-app
+      // bell below is the only delivery). Surface it in logs so the operator
+      // isn't blind to silently-undelivered contact emails ("no silent failures").
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'contact-form',
+          message:
+            'No email provider (SENDGRID/RESEND) configured — owner email NOT sent; bell only',
+          slug,
+          site_id: site.id,
+        }),
+      );
     }
 
     // In-app bell notification to the site owner (Novu backbone) — a contact

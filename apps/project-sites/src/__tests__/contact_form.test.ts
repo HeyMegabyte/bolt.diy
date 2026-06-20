@@ -115,6 +115,24 @@ describe('POST /api/contact-form/:slug — HTML-injection defense', () => {
     expect(res.status).toBe(400);
   });
 
+  it('logs a structured warning (no silent failure) when no email provider is configured', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    // Strip the default RESEND key → neither provider set.
+    const res = await submit(makeEnv({ RESEND_API_KEY: undefined }), {
+      name: 'Visitor',
+      email: 'visitor@example.com',
+      message: 'a genuine inquiry that should still be accepted',
+    });
+    expect(res.status).toBe(200); // still accepted (bell is the fallback)
+    expect(fetchMock).not.toHaveBeenCalled(); // no email attempted
+    // …but the silent drop is now observable in logs.
+    const warned = warnSpy.mock.calls.some((args) => String(args[0]).includes('No email provider'));
+    expect(warned).toBe(true);
+    warnSpy.mockRestore();
+  });
+
   it('preserves message line breaks as <br> (after escaping)', async () => {
     const fetchMock = jest.fn().mockResolvedValue(new Response('{}', { status: 200 }));
     global.fetch = fetchMock;
