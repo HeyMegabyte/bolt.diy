@@ -23,7 +23,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
-import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
+import { dbQuery, dbQueryOne, dbInsert, dbUpdate, dbExecute } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
 import { notifySiteOwner } from '../services/notify.js';
 import { unauthorized } from '@project-sites/shared';
@@ -209,6 +209,36 @@ agency.get('/api/invitations/agency/:token', async (c) => {
       expires_at: invite.expires_at,
     },
   });
+});
+
+/**
+ * `DELETE /api/agency/clients/invitations/:id` — Revoke a PENDING invitation.
+ *
+ * @remarks
+ * Pro-gated (under `/api/agency/*`) + org-scoped: an agency can revoke ONLY its
+ * own unclaimed invitations. A claimed invite already created a child org —
+ * deleting the row wouldn't undo that — so claimed/foreign/unknown ids all return
+ * 404 (the `claimed_at IS NULL` + `agency_org_id` guards are the boundary).
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 404 NOT_FOUND when there is no pending invitation with that id to revoke.
+ */
+agency.delete('/api/agency/clients/invitations/:id', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized();
+  const id = c.req.param('id');
+  const { changes } = await dbExecute(
+    c.env.DB,
+    `DELETE FROM agency_invitations WHERE id = ? AND agency_org_id = ? AND claimed_at IS NULL`,
+    [id, orgId],
+  );
+  if (changes === 0) {
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: 'No pending invitation to revoke.' } },
+      404,
+    );
+  }
+  return c.json({ data: { revoked: true, invitation_id: id } });
 });
 
 /**

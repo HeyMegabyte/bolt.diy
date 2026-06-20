@@ -22,6 +22,7 @@ jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn().mockResolvedValue(null),
   dbInsert: jest.fn().mockResolvedValue({ error: null }),
   dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
+  dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
 // Default: Pro pass-through so handler logic is reachable. Individual tests can
@@ -37,7 +38,7 @@ jest.mock('../services/notify.js', () => ({
 
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
+import { dbQuery, dbQueryOne, dbInsert, dbUpdate, dbExecute } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
 import { agency, membershipRoleForInvite } from '../routes/agency.js';
 import { notifySiteOwner } from '../services/notify.js';
@@ -50,6 +51,7 @@ const mockQuery = dbQuery as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockInsert = dbInsert as unknown as jest.Mock;
 const mockUpdate = dbUpdate as unknown as jest.Mock;
+const mockExecute = dbExecute as unknown as jest.Mock;
 const mockRequirePro = requirePro as unknown as jest.Mock;
 
 /** Pass-through implementation for `requirePro` (restored before each test). */
@@ -118,6 +120,7 @@ beforeEach(() => {
   mockQueryOne.mockResolvedValue(null);
   mockInsert.mockResolvedValue({ error: null });
   mockUpdate.mockResolvedValue({ error: null, changes: 1 });
+  mockExecute.mockResolvedValue({ error: null, changes: 1 });
 });
 
 describe('agency routes — Pro gate (402)', () => {
@@ -563,6 +566,42 @@ describe('GET /api/agency/snapshots', () => {
     // Query binds the caller orgId; global templates (author_org_id IS NULL) are unioned in SQL.
     expect(mockQuery.mock.calls[0][2]).toEqual(['org-1']);
     expect(mockQuery.mock.calls[0][1]).toContain('author_org_id');
+  });
+});
+
+describe('DELETE /api/agency/clients/invitations/:id (revoke)', () => {
+  it('402s when the caller is not Pro (gated before any DB access)', async () => {
+    proBlocks();
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/clients/invitations/inv-1', { method: 'DELETE' });
+    expect(res.status).toBe(402);
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it('401s when org context is missing', async () => {
+    const { request } = makeApp(); // Pro pass-through, no orgId
+    const res = await request('/api/agency/clients/invitations/inv-1', { method: 'DELETE' });
+    expect(res.status).toBe(401);
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it('revokes a pending invitation scoped to the caller agency + unclaimed only', async () => {
+    mockExecute.mockResolvedValue({ error: null, changes: 1 });
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/clients/invitations/inv-1', { method: 'DELETE' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { revoked: boolean; invitation_id: string } };
+    expect(json.data).toEqual({ revoked: true, invitation_id: 'inv-1' });
+    const [, sql, params] = mockExecute.mock.calls[0];
+    expect(sql).toContain('claimed_at IS NULL'); // can't revoke a claimed invite
+    expect(params).toEqual(['inv-1', 'org-1']); // org-scoped (no cross-tenant delete)
+  });
+
+  it('404s when no pending invitation matches (claimed / foreign / unknown)', async () => {
+    mockExecute.mockResolvedValue({ error: null, changes: 0 });
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/clients/invitations/inv-x', { method: 'DELETE' });
+    expect(res.status).toBe(404);
   });
 });
 
