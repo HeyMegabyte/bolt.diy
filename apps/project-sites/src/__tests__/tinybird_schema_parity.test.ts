@@ -34,7 +34,13 @@ function schemaColumns(src: string): string[] {
   const engineStart = src.indexOf('ENGINE', schemaStart);
   expect(schemaStart).toBeGreaterThan(-1);
   expect(engineStart).toBeGreaterThan(schemaStart);
-  const block = src.slice(schemaStart, engineStart);
+  // Strip comment lines (# …) so backtick-quoted words inside SCHEMA-block
+  // prose (e.g. the `payload`/`data` explanation) aren't counted as columns.
+  const block = src
+    .slice(schemaStart, engineStart)
+    .split('\n')
+    .filter((l) => !l.trimStart().startsWith('#'))
+    .join('\n');
   return [...block.matchAll(/`(\w+)`/g)].map((m) => m[1]).sort();
 }
 
@@ -48,6 +54,7 @@ describe('Tinybird projectsites_events schema ↔ ingest parity', () => {
     expect(ingest).toEqual([
       'event',
       'event_id',
+      'payload',
       'producer',
       'site_id',
       'tenant_id',

@@ -65,9 +65,7 @@ function pct1(numerator: number, denominator: number): number {
  *   { stage:'subscription.active', label:'Converted', ordinal:3, sites:12 },
  * ]).overallPct // → 12
  */
-export function computeFunnelConversion(
-  stages: readonly FunnelStageCount[],
-): FunnelConversion {
+export function computeFunnelConversion(stages: readonly FunnelStageCount[]): FunnelConversion {
   const ordered = [...stages].sort((a, b) => a.ordinal - b.ordinal);
   if (ordered.length === 0) {
     return { steps: [], topSites: 0, bottomSites: 0, overallPct: 0 };
