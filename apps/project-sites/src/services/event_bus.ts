@@ -144,6 +144,32 @@ export function eventIdempotencyKey(type: EventType, ...scope: string[]): string
   return `${type}:${parts.join(':')}`;
 }
 
+/** Max delivery attempts before an outbox row is dead-lettered. */
+export const MAX_OUTBOX_ATTEMPTS = 5;
+
+/** The minimal outbox-row shape the dispatcher reasons over. */
+export interface OutboxRowState {
+  readonly status: 'pending' | 'dispatched' | 'failed';
+  readonly attempts: number;
+}
+
+/** What the dispatcher should do with a row this pass. */
+export type OutboxAction = 'dispatch' | 'retry' | 'dead-letter' | 'skip';
+
+/**
+ * Pure dispatcher decision (the dead-letter gate). No I/O — testable in isolation.
+ * - `pending` → `dispatch`
+ * - `failed` under the attempt cap → `retry`
+ * - `failed` at/over the cap → `dead-letter` (stop retrying; surface in the admin DLQ)
+ * - `dispatched` → `skip` (already delivered)
+ * @example nextOutboxAction({ status: 'failed', attempts: 5 }) // 'dead-letter'
+ */
+export function nextOutboxAction(row: OutboxRowState, maxAttempts = MAX_OUTBOX_ATTEMPTS): OutboxAction {
+  if (row.status === 'dispatched') return 'skip';
+  if (row.status === 'pending') return 'dispatch';
+  return row.attempts >= maxAttempts ? 'dead-letter' : 'retry';
+}
+
 type OutboxDb = Pick<Env, 'DB'>;
 
 /**

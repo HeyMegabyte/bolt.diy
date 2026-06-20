@@ -10,6 +10,8 @@ import {
   markDispatched,
   markFailed,
   eventIdempotencyKey,
+  nextOutboxAction,
+  MAX_OUTBOX_ATTEMPTS,
   ProjectSitesEventSchema,
   type BuildEventInput,
 } from '../services/event_bus.js';
@@ -87,6 +89,25 @@ describe('eventIdempotencyKey', () => {
   it('throws when no scope is supplied (a keyless event cannot dedupe)', () => {
     expect(() => eventIdempotencyKey('invoice.paid')).toThrow(RangeError);
     expect(() => eventIdempotencyKey('invoice.paid', '  ')).toThrow(RangeError);
+  });
+});
+
+describe('nextOutboxAction — dispatcher dead-letter gate', () => {
+  it('dispatches pending, skips dispatched', () => {
+    expect(nextOutboxAction({ status: 'pending', attempts: 0 })).toBe('dispatch');
+    expect(nextOutboxAction({ status: 'dispatched', attempts: 2 })).toBe('skip');
+  });
+
+  it('retries a failed row under the cap, dead-letters at/over it', () => {
+    expect(nextOutboxAction({ status: 'failed', attempts: 1 })).toBe('retry');
+    expect(nextOutboxAction({ status: 'failed', attempts: MAX_OUTBOX_ATTEMPTS - 1 })).toBe('retry');
+    expect(nextOutboxAction({ status: 'failed', attempts: MAX_OUTBOX_ATTEMPTS })).toBe('dead-letter');
+    expect(nextOutboxAction({ status: 'failed', attempts: 99 })).toBe('dead-letter');
+  });
+
+  it('honors a custom attempt cap', () => {
+    expect(nextOutboxAction({ status: 'failed', attempts: 2 }, 2)).toBe('dead-letter');
+    expect(nextOutboxAction({ status: 'failed', attempts: 1 }, 2)).toBe('retry');
   });
 });
 
