@@ -14,7 +14,7 @@ SQL >
         tenant_id,
         toDate(timestamp) AS day,
         event,
-        count() AS events
+        count(DISTINCT event_id) AS events
     FROM projectsites_events
     WHERE timestamp >= now() - interval {{ Int32(days, 30) }} day
         {% if defined(tenant_id) %} AND tenant_id = {{ String(tenant_id) }} {% end %}

@@ -9,8 +9,19 @@ landing table + query endpoints for that stream.
 
 | File | What |
 |---|---|
-| `datasources/projectsites_events.datasource` | The landing table. Schema mirrors the NDJSON payload built in `outbox_dispatch.dispatchOutboxEvent()` (`OUTBOX_TINYBIRD_DATASOURCE`). Sorted by `tenant_id, timestamp, event`; partitioned by month. |
-| `pipes/events_by_tenant_daily.pipe` | Per-tenant / per-day / per-type rollup endpoint. Optional `tenant_id`, `days` (default 30), `event` params. |
+| `datasources/projectsites_events.datasource` | The landing table. Schema mirrors the NDJSON payload built in `outbox_dispatch.dispatchOutboxEvent()` (`OUTBOX_TINYBIRD_DATASOURCE`). `ReplacingMergeTree` keyed on `tenant_id, timestamp, event, event_id` (dedup on merge); partitioned by month. |
+| `pipes/events_by_tenant_daily.pipe` | Per-tenant / per-day / per-type rollup endpoint. Counts `DISTINCT event_id` (exactly-once). Optional `tenant_id`, `days` (default 30), `event` params. |
+
+## Exactly-once counting
+
+The outbox dispatcher re-sends **all** targets when a row retries after a
+**partial** failure (e.g. Tinybird accepted but Hatchet 5xx'd), so the same
+`event_id` can be ingested more than once. Two layers make counts exactly-once:
+
+- **Storage** — `ReplacingMergeTree` with `event_id` in the sorting key collapses
+  duplicate rows on the next background merge.
+- **Query** — every count uses `count(DISTINCT event_id)`, so results are correct
+  immediately, even *before* the merge runs. New pipes MUST follow this.
 
 ## Source of truth
 

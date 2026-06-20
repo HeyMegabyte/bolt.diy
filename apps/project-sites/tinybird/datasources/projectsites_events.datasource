@@ -18,6 +18,13 @@ SCHEMA >
     `trace_id` String,
     `producer` LowCardinality(String)
 
-ENGINE "MergeTree"
+# ReplacingMergeTree (not plain MergeTree) so a duplicate ingest of the same
+# event_id collapses on merge. The outbox dispatcher re-sends ALL targets when a
+# row retries after a PARTIAL failure (e.g. Tinybird ok but Hatchet failed), so
+# a previously-delivered event can be ingested twice — event_id in the sorting
+# key + Replacing makes that storage-idempotent. Queries dedup explicitly via
+# count(DISTINCT event_id) (see events_by_tenant_daily.pipe) for exactly-once
+# BEFORE the background merge runs.
+ENGINE "ReplacingMergeTree"
 ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
-ENGINE_SORTING_KEY "tenant_id, timestamp, event"
+ENGINE_SORTING_KEY "tenant_id, timestamp, event, event_id"
