@@ -167,9 +167,17 @@ export function rateLimitMiddleware(opts: RateLimitOptions): MiddlewareHandler<{
 
     const key = `${opts.prefix}:${ip}`;
 
+    // ONLY the KV ops live in the try — `next()` is called exactly once, OUTSIDE
+    // it. If next() were inside, a downstream HANDLER throw would be mistaken for
+    // a KV failure and next() would be invoked a second time → Hono throws
+    // "next() called multiple times", masking the handler's real error with a
+    // misleading 500. `count` defaults to 0 + `limited=false` so a KV outage
+    // fails OPEN (request runs, no limiting, no headers).
+    let count = 0;
+    let limited = false;
     try {
       const current = await c.env.CACHE_KV.get(key);
-      const count = current ? parseInt(current, 10) : 0;
+      count = current ? parseInt(current, 10) : 0;
 
       if (count >= opts.maxRequests) {
         return c.json(
@@ -192,15 +200,16 @@ export function rateLimitMiddleware(opts: RateLimitOptions): MiddlewareHandler<{
 
       // Increment counter with TTL
       await c.env.CACHE_KV.put(key, String(count + 1), { expirationTtl: opts.windowSeconds });
+      limited = true;
+    } catch {
+      // KV unavailable → fail open: fall through to run the handler unmetered.
+    }
 
-      // Add rate limit headers to response
-      await next();
+    await next();
 
+    if (limited) {
       c.header('X-RateLimit-Limit', String(opts.maxRequests));
       c.header('X-RateLimit-Remaining', String(Math.max(0, opts.maxRequests - count - 1)));
-    } catch {
-      // If KV fails, allow the request (fail open)
-      await next();
     }
   };
 }

@@ -13,7 +13,11 @@
  */
 
 import { Hono } from 'hono';
-import { applyRateLimits, RATE_LIMIT_RULES } from '../middleware/rate_limit.js';
+import {
+  applyRateLimits,
+  RATE_LIMIT_RULES,
+  rateLimitMiddleware,
+} from '../middleware/rate_limit.js';
 
 /**
  * Build an in-memory KV stub that honours `expirationTtl` against a virtual
@@ -181,5 +185,54 @@ describe('auth rate-limit (item #6)', () => {
     }
     const otherIp = await hit('/api/auth/magic-link', 'POST', '198.51.100.2');
     expect(otherIp.status).toBe(200);
+  });
+
+  it('propagates a downstream handler error verbatim (next() not double-invoked)', async () => {
+    // The handler throws AFTER the limiter ran. The middleware must NOT mistake
+    // that for a KV failure + call next() again ("next() called multiple times").
+    const a = new Hono<{ Bindings: { CACHE_KV: KVNamespace }; Variables: Record<string, never> }>();
+    let onErrorMsg = '';
+    a.onError((err, c) => {
+      onErrorMsg = err.message;
+      return c.json({ error: 'handled' }, 500);
+    });
+    a.use(
+      '/api/auth/magic-link',
+      rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:test-throw' }),
+    );
+    a.post('/api/auth/magic-link', () => {
+      throw new Error('handler-boom');
+    });
+    const res = await a.request(
+      '/api/auth/magic-link',
+      { method: 'POST', headers: { 'cf-connecting-ip': IP } },
+      { CACHE_KV: kv },
+    );
+    expect(res.status).toBe(500);
+    expect(onErrorMsg).toBe('handler-boom'); // the REAL error, not "next() called multiple times"
+  });
+
+  it('fails OPEN when KV errors (request still served, unmetered)', async () => {
+    const brokenKv = {
+      get: jest.fn(async () => {
+        throw new Error('kv down');
+      }),
+      put: jest.fn(),
+    } as unknown as KVNamespace;
+    const a = new Hono<{ Bindings: { CACHE_KV: KVNamespace }; Variables: Record<string, never> }>();
+    a.use(
+      '/api/auth/magic-link',
+      rateLimitMiddleware({ maxRequests: 1, windowSeconds: 60, prefix: 'rl:test-failopen' }),
+    );
+    a.all('*', (c) => c.json({ ok: true }));
+    // Two hits despite a budget of 1 — KV is down, so the limiter fails open.
+    for (let i = 0; i < 2; i++) {
+      const res = await a.request(
+        '/api/auth/magic-link',
+        { method: 'POST', headers: { 'cf-connecting-ip': IP } },
+        { CACHE_KV: brokenKv },
+      );
+      expect(res.status).toBe(200);
+    }
   });
 });
