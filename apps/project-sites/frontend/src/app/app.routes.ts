@@ -37,6 +37,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/search/search.component').then((m) => m.SearchComponent),
   },
   {
+    path: 'pricing',
+    loadComponent: () => import('./pages/pricing/pricing.component').then((m) => m.PricingComponent),
+  },
+  {
     path: 'signin',
     loadComponent: () => import('./pages/signin/signin.component').then((m) => m.SigninComponent),
   },
