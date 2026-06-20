@@ -368,3 +368,30 @@ export async function requeueFailedOutbox(
     .run();
   return { requeued: (res.meta?.changes ?? 0) > 0 };
 }
+
+/**
+ * Prune successfully-DISPATCHED outbox rows older than `olderThanDays` — table
+ * hygiene so `outbox_events` doesn't grow unbounded (every event ever emitted
+ * lands here). ONLY deletes `status = 'dispatched'` rows: `pending` (awaiting
+ * delivery) and `failed` (retry queue / DLQ) are NEVER pruned — they must
+ * survive for the drain + the admin DLQ surface. Keyed on `created_at` so it
+ * rides the existing `idx_outbox_pending (status, created_at)` index. Intended
+ * for a daily Cron Trigger. Never throws caller-side beyond the D1 call.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param olderThanDays - Retention window in days (min 1; default 30).
+ * @returns `{ deleted }` — the row count removed.
+ * @example await pruneDispatchedOutbox(env, 30) // { deleted: 4120 }
+ */
+export async function pruneDispatchedOutbox(
+  env: OutboxDb,
+  olderThanDays = 30,
+): Promise<{ deleted: number }> {
+  const days = Math.max(1, Math.trunc(olderThanDays) || 30);
+  const res = await env.DB.prepare(
+    `DELETE FROM outbox_events WHERE status = 'dispatched' AND created_at < datetime('now', ?)`,
+  )
+    .bind(`-${days} days`)
+    .run();
+  return { deleted: res.meta?.changes ?? 0 };
+}

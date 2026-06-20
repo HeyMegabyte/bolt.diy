@@ -2,6 +2,7 @@ import {
   outboxStats,
   readFailedOutbox,
   requeueFailedOutbox,
+  pruneDispatchedOutbox,
   MAX_OUTBOX_ATTEMPTS,
 } from '../services/event_bus';
 
@@ -129,5 +130,28 @@ describe('requeueFailedOutbox', () => {
 
   it('returns requeued:false when no failed row matches (0 changes)', async () => {
     expect(await requeueFailedOutbox(runDb(0), 'missing')).toEqual({ requeued: false });
+  });
+});
+
+describe('pruneDispatchedOutbox', () => {
+  it('deletes dispatched rows and returns the count, binding the day modifier', async () => {
+    const db = runDb(4120);
+    const out = await pruneDispatchedOutbox(db, 30);
+    expect(out).toEqual({ deleted: 4120 });
+    expect((db as unknown as { _captured: { id?: unknown } })._captured.id).toBe('-30 days');
+  });
+
+  it('clamps a non-positive window up to a 1-day floor', async () => {
+    const db = runDb(0);
+    await pruneDispatchedOutbox(db, 0);
+    expect((db as unknown as { _captured: { id?: unknown } })._captured.id).toBe('-30 days'); // 0 || 30 → 30
+    await pruneDispatchedOutbox(db, -5);
+    expect((db as unknown as { _captured: { id?: unknown } })._captured.id).toBe('-1 days'); // clamped to floor
+  });
+
+  it('defaults to a 30-day window', async () => {
+    const db = runDb(0);
+    await pruneDispatchedOutbox(db);
+    expect((db as unknown as { _captured: { id?: unknown } })._captured.id).toBe('-30 days');
   });
 });

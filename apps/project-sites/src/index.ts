@@ -1193,6 +1193,32 @@ export default {
           }),
         );
       }
+
+      // Table hygiene: prune delivered (dispatched) outbox rows older than 30
+      // days so event_bus.outbox_events doesn't grow unbounded. Pending + failed
+      // rows are never touched. Own try/catch so a prune failure can't block the
+      // snapshot backfill above (or vice-versa).
+      try {
+        const { pruneDispatchedOutbox } = await import('./services/event_bus.js');
+        const { deleted } = await pruneDispatchedOutbox(env, 30);
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Outbox retention prune complete',
+            deleted,
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Outbox retention prune failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
     }
 
     // Hourly: re-pull every connected Google Drive folder for AI chat context.
