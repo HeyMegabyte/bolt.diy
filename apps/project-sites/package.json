@@ -24,6 +24,8 @@
     "lint": "eslint --config eslint.config.mjs src",
     "lint:fix": "eslint --config eslint.config.mjs --fix src",
     "check:html-injection": "node scripts/check-html-injection.mjs",
+    "check:fitness": "node scripts/check-architecture-fitness.mjs",
+    "check:fitness:ci": "node scripts/check-architecture-fitness.mjs --ci",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "check": "npm run typecheck && npm run lint && npm run check:html-injection && npm run check:fabricated-people && npm run format:check && npm run test:unit",
