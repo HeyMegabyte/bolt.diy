@@ -149,6 +149,22 @@ export interface Env {
   /** Per-site Durable Object — Unified Analytics ingestion dispatcher (Plane H). */
   EVENT_DISPATCHER?: DurableObjectNamespace;
   /**
+   * Self-hosted Inngest durable-jobs server (CF Container DO) for the
+   * jobs./events.projectsites.dev plane (convergence §13). Inert until the
+   * watched deploy binds it; `src/inngest/serve.ts` degrades to 503 without it.
+   */
+  INNGEST_CONTAINER?: DurableObjectNamespace;
+  /** Inngest event key (self-gen hex32) — send-events auth. wrangler secret. */
+  INNGEST_EVENT_KEY?: string;
+  /** Inngest signing key (self-gen hex32) — serve-handler auth. wrangler secret. */
+  INNGEST_SIGNING_KEY?: string;
+  /** Inngest Postgres URI — Neon project `Inngest`. wrangler secret. */
+  INNGEST_POSTGRES_URI?: string;
+  /** Inngest Redis URI — Upstash `inngest`. wrangler secret. */
+  INNGEST_REDIS_URI?: string;
+  /** Self-hosted Inngest base URL (e.g. https://jobs.projectsites.dev). var. */
+  INNGEST_BASE_URL?: string;
+  /**
    * Global toggle for the Unified Analytics beacon (Plane H). When `'true'`,
    * served sites inject the tracker → `/api/events` → durable D1 store → Analytics
    * tab — works via a NORMAL deploy, independent of the gated EVENT_DISPATCHER

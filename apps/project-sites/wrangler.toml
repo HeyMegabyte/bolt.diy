@@ -439,6 +439,53 @@ class_name = "ConversationHub"
 # tag = "v_event_dispatcher"
 # new_sqlite_classes = ["EventDispatcher"]
 
+# ─── Automation Plane §13 · events./jobs. → self-hosted Inngest ────────────────
+# InngestContainer — CF Container DO running `inngest start` (image:
+# containers/inngest/Dockerfile, FROM inngest/inngest — local-Dockerfile path
+# bypasses IMAGE_REGISTRY_NOT_CONFIGURED). Data plane: Neon project `Inngest`
+# (calm-sunset-61361436) + Upstash `inngest` (stirring-cricket-93162). Auth keys
+# self-generated (hex32). Worker code (src/durable_objects/inngest_container.ts,
+# src/inngest/*, host routing in index.ts) is BUILT + unit-tested + ships LIVE on
+# a normal deploy: `src/inngest/serve.ts` returns 503 on jobs./events. and
+# /api/inngest until this binding exists — so the plane is safe-but-inert.
+#
+# ⚠️ GO-LIVE IS A WATCHED DEPLOY (one-way door) — SAME hazard class as
+# EVENT_DISPATCHER above: an active [[containers]]/binding REQUIRES an active
+# migration (else error 10061), this worker's DO migration history is
+# remote-managed + has previously errored on tag reconciliation (10074/10064),
+# a wrong tag blocks ALL platform deploys, and it cannot be dry-run-verified.
+# InngestContainer is a pure runner (no ctx.storage.sql) → CLASSIC backend
+# (`new_classes`, NOT `new_sqlite_classes`), mirroring SiteBuilderContainer.
+#
+# To enable (eyes-on):
+#   (0) wrangler secret put the 4 INNGEST_* conn/auth secrets (independent of
+#       this binding; already settable today). Add INNGEST_BASE_URL var below.
+#   (1) ensure Docker is running (CF builds the image from the local Dockerfile).
+#   (2) confirm `v_inngest_container` is NOT in remote history
+#       (`wrangler deployments list`).
+#   (3) uncomment the THREE blocks below.
+#   (4) `wrangler deploy --env production` — watch the migration + image build.
+#   (5) verify: `curl https://jobs.projectsites.dev/` (Inngest dashboard/API 200),
+#       then `inngest.send({name:'site/generation.completed',...})` round-trips
+#       through the self-hosted server back to /api/inngest.
+#
+# [[env.production.containers]]
+# class_name = "InngestContainer"
+# image = "./containers/inngest/Dockerfile"
+# max_instances = 1
+# instance_type = "standard-4"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "INNGEST_CONTAINER"
+# class_name = "InngestContainer"
+#
+# [[env.production.migrations]]
+# tag = "v_inngest_container"
+# new_classes = ["InngestContainer"]
+#
+# [env.production.vars]  # (merge into existing prod vars, do not duplicate the table)
+# INNGEST_BASE_URL = "https://jobs.projectsites.dev"
+
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
 # `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in

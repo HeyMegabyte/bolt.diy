@@ -45,6 +45,7 @@ import { search } from './routes/search.js';
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
+import { inngestApp } from './inngest/serve.js'; // jobs./events.projectsites.dev + /api/inngest serve (§13 automation plane; inert until watched deploy)
 import { concierge } from './routes/concierge.js';
 import { pageAudio } from './routes/page_audio.js';
 import { storefront } from './routes/storefront.js';
@@ -168,6 +169,8 @@ export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
 //   Once all instances are drained the stub is safe to remove entirely.
 export { ConversationHub } from './durable_objects/conversation_hub.js';
 export { EventDispatcher } from './durable_objects/event_dispatcher.js';
+// jobs./events.projectsites.dev — self-hosted Inngest server container (§13).
+export { InngestContainer } from './durable_objects/inngest_container.js';
 export {
   UmamiContainer,
   OutlineContainer,
@@ -421,6 +424,7 @@ app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,d
 app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all
 app.route('/', browserService); // POST /v1/browser/* — product browser-automation abstraction (browser.projectsites.dev); routes CF→Stagehand→Browserbase-fallback, never Skyvern in product paths — must precede the catch-all
+app.route('/', inngestApp); // jobs./events.projectsites.dev → InngestContainer DO + /api/inngest serve handler (§13); degrades to 503 until the watched deploy binds INNGEST_CONTAINER — must precede the catch-all
 app.route('/', observabilityGateway); // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway) — must precede the catch-all
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──

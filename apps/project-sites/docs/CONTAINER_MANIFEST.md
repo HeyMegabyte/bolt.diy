@@ -30,7 +30,7 @@ in front of all of it per `cloudflare-first.md`.
 
 | Subdomain | Container | Image | Status | Slim |
 |---|---|---|---|---|
-| `jobs.projectsites.dev` | **Inngest** — durable jobs/workflows dev server + UI | `inngest/inngest:latest` | 🔵 | SHIP |
+| `jobs.`/`events.projectsites.dev` | **Inngest** — self-hosted durable jobs server (`inngest start`, §13). Code (`InngestContainer` DO + `src/inngest/*` serve) ships LIVE-but-inert (503) on a normal deploy; secrets stored; container go-live = staged wrangler blocks + watched deploy. | `containers/inngest/Dockerfile` (FROM `inngest/inngest`) | 🟡 | SHIP |
 
 ## Browser / agents
 
