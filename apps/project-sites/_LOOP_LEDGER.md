@@ -271,3 +271,73 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [x] **Full subdomain↔Docker-project map** → `docs/SUBDOMAIN_MAP.md` (product `*.projectsites.dev` + infra `*.megabyte.space`: LiteLLM=llm., Langfuse, Inngest, n8n, Infisical=secrets., Vaultwarden=vault., NocoDB=db., PocketBase=pb., Outline=wiki., Memos=notes., Umami=analytics., Listmonk=news., Uptime-Kuma=status., Open-WebUI=chat., Skyvern/MCP internal). CF-container DOs (SITE_BUILDER/APP_RUNTIME/voice-browse) = MEASURE-slim; registry/Fly images = SHIP-slim.
 - [x] **`scripts/slim-containers.sh` extended** — custom Dockerfiles (build+slim+smoke, default) + `--registry` self-host catalog (pull→slim→smoke→push-ready, 14 images). shellcheck/shfmt/syntax clean. Ran custom build+slim (bg).
 - [ ] **Provision + SHIP-slim the self-host stack** — each needs compose/env/secrets + a Fly app or registry target, then `slim build`→push (attended; needs vendor decisions).
+
+---
+
+## ★ 50-IDEA VALUE BACKLOG (integrated 2026-06-20 — the convergence loop's standing worklist)
+
+> Source: full-platform value scan. The loop picks the **highest-ROI `[auto]` item not yet done** each fire (TDD-first → verify → commit → push; deploy when a runtime slice is green). `[operator]` = needs CF dashboard / vendor secrets / flag flip (surface, don't build). `[dedicated]` = needs a focused session (e.g. Angular perf wave), not an unattended fire. Tags: state `[built-dark|partial|new]` + autonomy `[auto|operator|dedicated]`. Append `✅ done <commit>` inline as each ships.
+
+### Tier 0 — highest value/effort (do first)
+- [ ] 1. Activate observability gateway (WAF allow-rule + SENTRY/POSTHOG ingest keys + flip flag) [built-dark][operator]
+- [ ] 2. Instrument golden-path funnel in PostHog (search→signin→build→preview→claim→pay + drop-off cohorts) [new][auto]
+- [ ] 3. Flip build_validators report→strict (enforce the 13 quality invariants) [partial][dedicated]
+- [ ] 4. Streaming live-preview during build (render-as-it-generates, not a polling spinner) [new][dedicated]
+- [ ] 5. Eval harness scoring every generated build (GPT-4o vision + Lighthouse + SEO, regression-tracked) [partial][auto]
+
+### Tier 1 — revenue & conversion
+- [ ] 6. One-click "Claim this site" → inline Stripe checkout (collapse adopt→pay) [partial][auto]
+- [ ] 7. Abandoned-build recovery email (build-started-never-claimed → nudge w/ preview link) [new][auto]
+- [ ] 8. Contextual upgrade prompts at the friction moment (custom domain / remove top-bar / more pages) [new][auto]
+- [ ] 9. Pricing-page A/B (the one sanctioned A/B surface) [new][dedicated]
+- [ ] 10. Self-serve domain purchase + connect success-path polish [partial][auto]
+- [ ] 11. Free-tier "powered by" top-bar → real upsell CTA [partial][auto]
+- [ ] 12. Activate referral loop (module dark) [built-dark][operator]
+- [ ] 13. Lead-scanner → compliant outreach pipeline (explicitly-enabled) [built-dark][operator]
+
+### Tier 2 — AI generation pipeline (core product)
+- [ ] 14. Per-section AI-vision auto-reroll (<8/10 → regenerate) [new][auto]
+- [ ] 15. Research/brand/asset caching per business (rebuild skips re-research; ~15min→~5min) [partial][auto]
+- [ ] 16. Logo/font/color extraction fidelity (the suped-up-clone lever) [partial][dedicated]
+- [ ] 17. 1:N sitemap fidelity guard (fail on collapsed page counts) [partial][auto]
+- [ ] 18. AI-native: per-page 3-min podcast [new][dedicated]
+- [ ] 19. Veo/Sora hero video per build [new][dedicated]
+- [ ] 20. Build cost accounting + per-build cap (protect margin) [new][auto]
+- [ ] 21. Container build retry/DLQ on failure (not silent error-email) [partial][auto]
+- [ ] 22. Source-site theme-polarity preservation guard [partial][auto]
+
+### Tier 3 — reliability & observability
+- [ ] 23. Finish event-bus → outbox → DLQ → retry loop (⚠ in-flight by concurrent sessions — coordinate) [partial][dedicated]
+- [ ] 24. Sentry on worker critical paths (build/deploy/payment/webhook) [partial][auto]
+- [ ] 25. traceId + tenantId correlation across the pipeline [partial][auto]
+- [ ] 26. Admin "build health" dashboard (success rate, p95 build time, failure reasons) [new][dedicated]
+- [ ] 27. Auto-rollback wired to post-deploy error-rate/LCP watcher [new][auto]
+- [ ] 28. Webhook idempotency audit + tests (Stripe + build-status callbacks) [partial][auto]
+- [ ] 29. GDPR Art.17 deletion cascade + receipt (visitor_dsar exists) [partial][auto]
+
+### Tier 4 — security & abuse (multi-tenant public platform)
+- [ ] 30. CF WAF allow-rule + per-site rate-limit on /monitoring/* [new][operator]
+- [ ] 31. SSRF hardening on the build crawler (https-only + block internal ranges) [partial][auto]
+- [ ] 32. Bot protection on the generation endpoint (Turnstile+auth+quota before kicking a $5-15 build) [new][auto]
+- [ ] 33. Generated-site CSP L3 + Trusted Types (the OUTPUT sites) [partial][auto]
+- [ ] 34. Secret-at-rest audit (MCP_ENCRYPTION_KEY + env-var AES-GCM; rotation story) [partial][auto]
+- [ ] 35. Per-tenant build/API quota enforcement + surface to owners [partial][auto]
+- [ ] 36. Abuse-takedown flow (intake→review→unpublish; module dark) [built-dark][auto]
+
+### Tier 5 — performance
+- [ ] 37. Perf wave: ag-grid→TanStack on both live admin grids [partial][dedicated]
+- [ ] 38. Generated-site TTFR ≤2.0s LCP (AVIF + fetchpriority + asset budgets) [partial][auto]
+- [ ] 39. Edge-cache public-serve hot path (KV manifest + R2 + Cache API; never touch D1 on hot path) [partial][auto]
+- [ ] 40. Speculation Rules / prerender on multi-page generated sites [new][auto]
+- [ ] 41. Cloudflare Images for auto WebP/AVIF + responsive [new][operator]
+- [ ] 42. Angular admin bundle-split + @defer heavy libs (Monaco/ECharts/Uppy lazy) [partial][dedicated]
+
+### Tier 6 — owner/admin UX & growth
+- [ ] 43. Novu server-side triggers → live notifications (build/deploy/domain/billing) [partial][auto]
+- [ ] 44. Owner-facing site-analytics dashboard (site_analytics dark) [built-dark][auto]
+- [ ] 45. Onboarding copilot activation checklist (module dark) [built-dark][auto]
+- [ ] 46. Public template/showcase gallery (social proof + pSEO surface) [new][dedicated]
+- [ ] 47. pSEO for projectsites.dev itself (comparison/template/location pages) [new][auto]
+- [ ] 48. "Built with projectsites.dev" badge (deploy_buttons → backlinks/viral) [partial][auto]
+- [ ] 49. GEO/AI-search optimization of the marketing site (FAQPage + quotable answer blocks) [new][auto]
+- [ ] 50. Case-study pages from real builds (njsk.org / whitehouse benchmark rebuilds) [new][auto]
