@@ -109,6 +109,7 @@ import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { getMemory, setMemory } from '../services/anthropic_memory.js';
+import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
 import { getTrafficSummary } from '../../libs/features/visitor_events_core/service.js';
 import {
   createSiteSchema,
@@ -182,9 +183,9 @@ const api = new Hono<{ Bindings: Env; Variables: Variables }>();
 const importFromUrlSchema = z.object({
   url: z
     .string()
-    .url('Source URL must be a fully qualified http(s) URL')
+    .url('Source URL must be a fully qualified https URL')
     .max(2048, 'Source URL must be at most 2048 characters')
-    .refine((u) => /^https?:\/\//i.test(u), 'Source URL must use http or https'),
+    .refine((u) => /^https:\/\//i.test(u), 'Source URL must use https'),
   business_name: z
     .string()
     .trim()
@@ -2645,7 +2646,11 @@ api.get('/api/readiness', async (c) => {
   if (ids.length === 0) return c.json({ data: out });
 
   const placeholders = ids.map(() => '?').join(',');
-  const rows = await dbQuery<{ target_id: string; metadata_json: string | null; created_at: string }>(
+  const rows = await dbQuery<{
+    target_id: string;
+    metadata_json: string | null;
+    created_at: string;
+  }>(
     c.env.DB,
     `SELECT target_id, metadata_json, MAX(created_at) AS created_at
        FROM audit_logs
@@ -11110,6 +11115,17 @@ api.post('/api/sites/import-from-url', async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const validated = importFromUrlSchema.parse(body);
+
+  // SSRF guard — crawlSiteForImport fetches this URL server-side, so block
+  // private/internal/non-https targets BEFORE the crawl. Same proven guard
+  // og-preview uses: requires https + rejects localhost/loopback/link-local/
+  // ULA/IPv4-mapped/RFC1918. An authed user must not be able to make the worker
+  // probe internal hosts via the importer.
+  if (!isSafeWebhookUrl(validated.url)) {
+    throw badRequest(
+      'Source URL not allowed — use a public https URL (no internal/private hosts).',
+    );
+  }
 
   // Crawl FIRST — we want the homepage_title for slug-fallback when the user
   // didn't provide a business_name. Returns within ~5-15 sec on healthy origins.
