@@ -890,6 +890,23 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the route 404s',
     ],
   },
+  observability_gateway: {
+    checklist: [
+      'POST /monitoring/:provider — customer sites forward Sentry/PostHog events',
+      'Raw vendor keys never ship to the browser (worker-side forward only)',
+      'Every event tenant-tagged + PII-redacted + sampled + quota-capped',
+      'Rollup datapoints → Analytics Engine keyed by {orgId, siteId, provider}',
+      'Fail-soft: vendor 5xx → customer site still gets 202 (event dropped, never errored)',
+    ],
+    explanation:
+      'Customer-site observability gateway. Customer sites POST their Sentry/PostHog events to POST /monitoring/:provider so raw vendor ingest keys never appear in the customer browser bundle. The worker tenant-tags, PII-redacts (best-effort regex sweep), samples, and quota-caps each event before forwarding server-side to the vendor; rollups are written to Analytics Engine keyed by org/site/provider. Disabled by default → the route 404s (never 403). Registered (fire-3) to satisfy the feature-drift + docs guards for the concurrently-built libs/features/observability_gateway module.',
+    smoke_test: [
+      'POST /monitoring/posthog {batch:[...]} → 202 (forwarded server-side)',
+      'Inspect forwarded payload → no raw vendor key in the response, PII fields redacted',
+      'Exceed the per-site quota → events past the cap are dropped (still 202)',
+      'Disable the flag → the route 404s',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

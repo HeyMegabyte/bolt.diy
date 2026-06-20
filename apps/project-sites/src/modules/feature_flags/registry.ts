@@ -549,6 +549,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  observability_gateway: {
+    key: 'observability_gateway',
+    description:
+      'Customer-site observability gateway (POST /monitoring/:provider): worker proxy customer sites POST Sentry/PostHog events to so raw vendor keys never ship to the browser. Tenant-tagged + PII-redacted + sampled + quota-capped before server-side forward; rollups to Analytics Engine. Default-off → route 404s. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/observability_gateway module.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'hey@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;
