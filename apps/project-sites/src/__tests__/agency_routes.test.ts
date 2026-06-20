@@ -31,14 +31,20 @@ jest.mock('../services/pro.js', () => ({
     await next();
   }),
 }));
+jest.mock('../services/notify.js', () => ({
+  notifySiteOwner: jest.fn().mockResolvedValue({ ok: true }),
+}));
 
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
 import { agency, membershipRoleForInvite } from '../routes/agency.js';
+import { notifySiteOwner } from '../services/notify.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import type { Env, Variables } from '../types/env.js';
+
+const mockNotify = notifySiteOwner as unknown as jest.Mock;
 
 const mockQuery = dbQuery as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
@@ -641,6 +647,18 @@ describe('POST /api/invitations/agency/accept (redeem)', () => {
         billing_admin: 0,
       }),
     );
+
+    // Feedback loop: the agency owner is notified of the acceptance.
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+    const [, , notifyArgs] = mockNotify.mock.calls[0];
+    expect(notifyArgs.orgId).toBe('agency-org');
+    expect(notifyArgs.subject).toMatch(/accepted/i);
+  });
+
+  it('does NOT notify the agency owner when the claim fails (404)', async () => {
+    const res = await acceptApp(0, { userId: 'u1' })({ token: 'tok_dead' });
+    expect(res.status).toBe(404);
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 
   it('is NOT Pro-gated — redeem works even when requirePro would 402', async () => {

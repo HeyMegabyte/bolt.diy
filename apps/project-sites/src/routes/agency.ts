@@ -25,6 +25,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
+import { notifySiteOwner } from '../services/notify.js';
 import { unauthorized } from '@project-sites/shared';
 
 const agency = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -266,6 +267,20 @@ agency.post('/api/invitations/agency/accept', zValidator('json', acceptSchema), 
     billing_admin: role === 'owner' ? 1 : 0,
     deleted_at: null,
   });
+
+  // Close the feedback loop: tell the agency owner their client accepted. Fire-
+  // and-forget — notifySiteOwner never throws; waitUntil'd so it never delays the
+  // 200. Resolves the agency org's owner email + triggers the Novu bell/channels.
+  const notify = notifySiteOwner(c.env, c.env.DB, {
+    orgId: invite.agency_org_id,
+    subject: 'A client accepted your invitation',
+    body: `${invite.client_email} joined as ${role} and now has a workspace under your agency.`,
+  });
+  try {
+    c.executionCtx.waitUntil(notify);
+  } catch {
+    void notify;
+  }
 
   return c.json(
     {
