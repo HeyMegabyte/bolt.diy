@@ -314,6 +314,17 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'production',
     access: 'public',
   },
+  {
+    id: 'authz-port',
+    name: 'AuthorizationProvider port — OpenFGA graph + in-memory model (§29)',
+    category: 'authz',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/authorization.ts',
+    status: 'scaffolded',
+    access: 'service-only',
+    notes:
+      'Port + FakeAuthorizationProvider (role→permission model) + DenyAll fail-closed default + §29 model tests. Real OpenFgaAuthorizationProvider + route wiring are follow-on. ADR-0005.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
