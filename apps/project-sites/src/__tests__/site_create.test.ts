@@ -2,19 +2,22 @@ import { createSite } from '../services/site_create';
 import { dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 import { trackSite } from '../lib/posthog.js';
+import { tryEmitEvent } from '../services/emit_event.js';
 
 /**
  * The site-creation core extracted from POST /api/sites (so the claim funnel can
- * reuse it). Mocks the three side-effect deps (db insert / audit / posthog) — all
- * src-sibling module mocks, which @swc/jest intercepts in src/__tests__.
+ * reuse it). Mocks the side-effect deps (db insert / audit / posthog / bus emit)
+ * — all src-sibling module mocks, which @swc/jest intercepts in src/__tests__.
  */
 jest.mock('../services/db.js', () => ({ dbInsert: jest.fn() }));
 jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn() }));
 jest.mock('../lib/posthog.js', () => ({ trackSite: jest.fn() }));
+jest.mock('../services/emit_event.js', () => ({ tryEmitEvent: jest.fn() }));
 
 const mockInsert = dbInsert as jest.Mock;
 const mockAudit = writeAuditLog as jest.Mock;
 const mockTrack = trackSite as jest.Mock;
+const mockEmit = tryEmitEvent as jest.Mock;
 
 const env = { DB: {} } as never;
 const execCtx = { waitUntil: () => {}, passThroughOnException: () => {} } as never;
@@ -23,6 +26,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockInsert.mockResolvedValue({ error: null });
   mockAudit.mockResolvedValue(undefined);
+  mockEmit.mockResolvedValue({ inserted: true });
 });
 
 describe('createSite', () => {
@@ -98,6 +102,36 @@ describe('createSite', () => {
     expect(mockTrack).toHaveBeenCalledTimes(1);
     const [, , action] = mockTrack.mock.calls[0];
     expect(action).toBe('created');
+  });
+
+  it('emits site.created onto the bus with the site id + tenant', async () => {
+    const site = await createSite(
+      env,
+      { orgId: 'org-1', slug: 'acme', businessName: 'Acme' },
+      { actorId: 'user-1', requestId: 'req-1' },
+    );
+    expect(mockEmit).toHaveBeenCalledTimes(1);
+    const [, input, deps] = mockEmit.mock.calls[0];
+    expect(input).toEqual(
+      expect.objectContaining({
+        type: 'site.created',
+        producer: 'worker',
+        tenantId: 'org-1',
+        siteId: site.id,
+        userId: 'user-1',
+        traceId: 'req-1',
+      }),
+    );
+    expect(input.data).toEqual({ slug: 'acme', businessName: 'Acme' });
+    expect(deps).toEqual({ scope: [site.id] });
+  });
+
+  it('does NOT emit site.created when the insert fails', async () => {
+    mockInsert.mockResolvedValue({ error: 'UNIQUE constraint failed: sites.slug' });
+    await expect(
+      createSite(env, { orgId: 'o', slug: 'taken', businessName: 'B' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 
   it('a PostHog throw never blocks creation', async () => {

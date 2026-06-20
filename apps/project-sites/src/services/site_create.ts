@@ -20,6 +20,7 @@ import type { Env } from '../types/env.js';
 import { dbInsert } from './db.js';
 import { writeAuditLog } from './audit.js';
 import { trackSite } from '../lib/posthog.js';
+import { tryEmitEvent } from './emit_event.js';
 import { badRequest } from '@project-sites/shared';
 
 /** The fields a caller provides to provision a site (slug already resolved). */
@@ -115,6 +116,33 @@ export async function createSite(
     } catch {
       /* fire-and-forget */
     }
+  }
+
+  // Emit site.created onto the durable bus (drained to Tinybird activation
+  // analytics + Hatchet orchestration). Idempotent per site id; tryEmitEvent
+  // never throws. waitUntil'd under a request so it never blocks the response;
+  // awaited inline for a non-request caller (workflow) so the row still lands.
+  const emit = tryEmitEvent(
+    env,
+    {
+      type: 'site.created',
+      producer: 'worker',
+      tenantId: input.orgId,
+      traceId: ctx.requestId ?? site.id,
+      siteId: site.id,
+      ...(ctx.actorId ? { userId: ctx.actorId } : {}),
+      data: { slug: site.slug, businessName: input.businessName },
+    },
+    { scope: [site.id] },
+  );
+  if (ctx.executionCtx) {
+    try {
+      ctx.executionCtx.waitUntil(emit);
+    } catch {
+      void emit;
+    }
+  } else {
+    await emit;
   }
 
   return site;
