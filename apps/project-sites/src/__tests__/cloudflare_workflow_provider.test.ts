@@ -80,17 +80,25 @@ describe('CloudflareWorkflowProvider', () => {
     const params = claim.created[0].params as { payload: unknown; _ctx: { traceId: string } };
     expect(params.payload).toEqual({ leadId: 'lead-9' });
     expect(params._ctx.traceId).toBe('trace-1');
-    expect(ref).toMatchObject({ backend: 'cloudflare-workflows', kind: 'claim-flow', jobId: 'idem-1' });
+    expect(ref).toMatchObject({
+      backend: 'cloudflare-workflows',
+      kind: 'claim-flow',
+      jobId: 'idem-1',
+    });
   });
 
   it('refuses a kind that does not route to CF Workflows', async () => {
     const provider = new CloudflareWorkflowProvider({});
-    await expect(provider.start('site-generation', ctx())).rejects.toThrow(/not a CF-Workflows job/);
+    await expect(provider.start('site-generation', ctx())).rejects.toThrow(
+      /not a CF-Workflows job/,
+    );
   });
 
   it('throws when no binding is registered for the kind', async () => {
     const provider = new CloudflareWorkflowProvider({});
-    await expect(provider.start('claim-flow', ctx())).rejects.toThrow(/No Cloudflare Workflow binding/);
+    await expect(provider.start('claim-flow', ctx())).rejects.toThrow(
+      /No Cloudflare Workflow binding/,
+    );
   });
 
   it('reports live status + cancels via terminate', async () => {

@@ -72,7 +72,8 @@ export class JobContextError extends Error {
  * @example validateJobContext('site-generation', ctx) // ok | throws
  */
 export function validateJobContext(kind: JobKind, ctx: ProjectSitesJobContext): void {
-  if (!ctx.idempotencyKey) throw new JobContextError('idempotencyKey is required', 'idempotencyKey');
+  if (!ctx.idempotencyKey)
+    throw new JobContextError('idempotencyKey is required', 'idempotencyKey');
   if (!ctx.traceId) throw new JobContextError('traceId is required', 'traceId');
   if (!ctx.requestId) throw new JobContextError('requestId is required', 'requestId');
   if (!ctx.source) throw new JobContextError('source is required', 'source');

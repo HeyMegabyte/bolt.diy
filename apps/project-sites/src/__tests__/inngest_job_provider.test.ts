@@ -18,7 +18,9 @@ const ctx = (over: Partial<ProjectSitesJobContext> = {}): ProjectSitesJobContext
   ...over,
 });
 
-function fakeSender(): InngestSender & { sent: { name: string; id?: string; data: Record<string, unknown> }[] } {
+function fakeSender(): InngestSender & {
+  sent: { name: string; id?: string; data: Record<string, unknown> }[];
+} {
   const sent: { name: string; id?: string; data: Record<string, unknown> }[] = [];
   return {
     sent,
@@ -33,18 +35,30 @@ describe('InngestJobProvider', () => {
   it('sends the mapped event with id = idempotencyKey (dedupe)', async () => {
     const sender = fakeSender();
     const provider = new InngestJobProvider(sender);
-    const ref = await provider.start('notification-workflow', ctx(), { template: 'site.published' });
+    const ref = await provider.start('notification-workflow', ctx(), {
+      template: 'site.published',
+    });
 
     expect(sender.sent).toHaveLength(1);
     expect(sender.sent[0].name).toBe('job/notification.requested');
     expect(sender.sent[0].id).toBe('idem-1');
-    expect(ref).toMatchObject({ backend: 'inngest', status: 'queued', jobId: 'idem-1', kind: 'notification-workflow' });
+    expect(ref).toMatchObject({
+      backend: 'inngest',
+      status: 'queued',
+      jobId: 'idem-1',
+      kind: 'notification-workflow',
+    });
   });
 
   it('threads the routed context into event data, payload included', async () => {
     const sender = fakeSender();
-    await new InngestJobProvider(sender).start('lifecycle-email', ctx({ tenantId: 't9' }), { to: 'a@b.com' });
-    const data = sender.sent[0].data as { payload: unknown; _ctx: { tenantId: string; traceId: string } };
+    await new InngestJobProvider(sender).start('lifecycle-email', ctx({ tenantId: 't9' }), {
+      to: 'a@b.com',
+    });
+    const data = sender.sent[0].data as {
+      payload: unknown;
+      _ctx: { tenantId: string; traceId: string };
+    };
     expect(data.payload).toEqual({ to: 'a@b.com' });
     expect(data._ctx.tenantId).toBe('t9');
     expect(data._ctx.traceId).toBe('trace-1');
@@ -53,13 +67,17 @@ describe('InngestJobProvider', () => {
 
   it('refuses a kind that does not route to inngest', async () => {
     const provider = new InngestJobProvider(fakeSender());
-    await expect(provider.start('site-generation', ctx())).rejects.toThrow(/not an inngest-routed job/);
+    await expect(provider.start('site-generation', ctx())).rejects.toThrow(
+      /not an inngest-routed job/,
+    );
   });
 
   it('validates context before sending (no send on bad context)', async () => {
     const sender = fakeSender();
     const provider = new InngestJobProvider(sender);
-    await expect(provider.start('notification-workflow', ctx({ idempotencyKey: '' }))).rejects.toThrow();
+    await expect(
+      provider.start('notification-workflow', ctx({ idempotencyKey: '' })),
+    ).rejects.toThrow();
     expect(sender.sent).toHaveLength(0);
   });
 

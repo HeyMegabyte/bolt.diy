@@ -18,10 +18,7 @@
  * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
  */
 
-import {
-  routeJob,
-  type JobKind,
-} from '../platform/workflow-router.js';
+import { routeJob, type JobKind } from '../platform/workflow-router.js';
 import {
   validateJobContext,
   type JobRef,

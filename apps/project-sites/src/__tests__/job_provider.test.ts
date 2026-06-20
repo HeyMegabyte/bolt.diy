@@ -29,7 +29,9 @@ describe('validateJobContext', () => {
   });
 
   it('throws on missing idempotencyKey', () => {
-    expect(() => validateJobContext('site-generation', ctx({ idempotencyKey: '' }))).toThrow(JobContextError);
+    expect(() => validateJobContext('site-generation', ctx({ idempotencyKey: '' }))).toThrow(
+      JobContextError,
+    );
   });
 
   it('requires tenantId for a tenant-scoped job', () => {
@@ -66,7 +68,9 @@ describe('FakeJobProvider idempotency', () => {
   it('records the routed backend on the ref', async () => {
     const p = new FakeJobProvider();
     expect((await p.start('site-generation', ctx())).backend).toBe('hatchet');
-    expect((await p.start('claim-flow', ctx({ idempotencyKey: 'c1' }))).backend).toBe('cloudflare-workflows');
+    expect((await p.start('claim-flow', ctx({ idempotencyKey: 'c1' }))).backend).toBe(
+      'cloudflare-workflows',
+    );
   });
 
   it('getJobStatus + cancelJob track lifecycle', async () => {
@@ -103,7 +107,9 @@ describe('createJobRouter dispatch', () => {
 
   it('throws when no provider is registered for the resolved backend', async () => {
     const router = createJobRouter({ inngest: new FakeJobProvider() });
-    await expect(router.start('site-generation', ctx())).rejects.toThrow(/No job provider registered/);
+    await expect(router.start('site-generation', ctx())).rejects.toThrow(
+      /No job provider registered/,
+    );
   });
 
   it('getJobStatus finds the job across providers', async () => {
