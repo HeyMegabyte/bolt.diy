@@ -125,6 +125,25 @@ export function buildEvent(input: BuildEventInput, id: string, time: string): Pr
   });
 }
 
+/**
+ * Derive a stable, deterministic outbox idempotency key for a transition.
+ *
+ * @remarks
+ * The same logical event MUST yield the same key so a retried handler writes the
+ * row at most once (`writeOutbox` is `INSERT OR IGNORE` on it). Compose from the
+ * event type + the natural dedupe scope: a Stripe event id, a claim shortlink, a
+ * site id — never a timestamp or random value (those defeat the dedupe).
+ * @throws {RangeError} when no scope parts are supplied.
+ * @example
+ * eventIdempotencyKey('invoice.paid', stripeEvent.id)        // 'invoice.paid:evt_123'
+ * eventIdempotencyKey('site.claim.completed', shortlink, siteId)
+ */
+export function eventIdempotencyKey(type: EventType, ...scope: string[]): string {
+  const parts = scope.map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) throw new RangeError('eventIdempotencyKey requires at least one scope part');
+  return `${type}:${parts.join(':')}`;
+}
+
 type OutboxDb = Pick<Env, 'DB'>;
 
 /**

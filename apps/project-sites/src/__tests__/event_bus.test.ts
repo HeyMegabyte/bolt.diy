@@ -9,6 +9,7 @@ import {
   readPendingOutbox,
   markDispatched,
   markFailed,
+  eventIdempotencyKey,
   ProjectSitesEventSchema,
   type BuildEventInput,
 } from '../services/event_bus.js';
@@ -70,6 +71,22 @@ describe('buildEvent', () => {
     expect(() =>
       buildEvent({ ...baseInput, type: 'bogus.event' as never }, 'evt-3', '2026-06-19T00:00:00.000Z'),
     ).toThrow();
+  });
+});
+
+describe('eventIdempotencyKey', () => {
+  it('is deterministic + namespaced by type and scope', () => {
+    expect(eventIdempotencyKey('invoice.paid', 'evt_123')).toBe('invoice.paid:evt_123');
+    expect(eventIdempotencyKey('site.claim.completed', 'short-x', 'site-1')).toBe(
+      'site.claim.completed:short-x:site-1',
+    );
+    // same logical transition → same key (the dedupe guarantee)
+    expect(eventIdempotencyKey('invoice.paid', 'evt_123')).toBe(eventIdempotencyKey('invoice.paid', ' evt_123 '));
+  });
+
+  it('throws when no scope is supplied (a keyless event cannot dedupe)', () => {
+    expect(() => eventIdempotencyKey('invoice.paid')).toThrow(RangeError);
+    expect(() => eventIdempotencyKey('invoice.paid', '  ')).toThrow(RangeError);
   });
 });
 
