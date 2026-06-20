@@ -3,7 +3,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import {
   ActivationAnalyticsService,
+  aggregateClaimsBySource,
   type ActivationFunnelResponse,
+  type ClaimChannel,
 } from '../../../services/activation-analytics.service';
 
 /**
@@ -85,6 +87,26 @@ import {
             </div>
           }
         </div>
+
+        @if (channels().length > 0) {
+          <div class="mt-8" data-testid="funnel-channels">
+            <h2 class="text-[0.95rem] font-bold text-white m-0">Top acquisition channels</h2>
+            <p class="text-[0.78rem] text-text-secondary mt-0.5 mb-3">Claims by source · campaign, last 30 days.</p>
+            <div class="flex flex-col gap-1.5">
+              @for (ch of channels(); track ch.source + ch.campaign) {
+                <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/[0.03]">
+                  <span class="text-[0.83rem] text-white truncate">
+                    {{ ch.source }}
+                    <span class="text-text-secondary">· {{ ch.campaign }}</span>
+                  </span>
+                  <span class="text-[0.83rem] font-semibold text-[#00e5ff] tabular-nums shrink-0">
+                    {{ ch.claims }} claim{{ ch.claims === 1 ? '' : 's' }}
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+        }
       }
     </div>
   `,
@@ -94,6 +116,7 @@ export class AdminActivationFunnelComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
 
   readonly funnel = signal<ActivationFunnelResponse | null>(null);
+  readonly channels = signal<ClaimChannel[]>([]);
   readonly loading = signal(true);
   readonly loadError = signal(false);
 
@@ -117,6 +140,15 @@ export class AdminActivationFunnelComponent implements OnInit {
           this.loadError.set(true);
           this.loading.set(false);
         },
+      });
+    // Acquisition channels are best-effort enrichment — a failure here never
+    // affects the funnel itself; the section simply stays hidden.
+    this.analytics
+      .getClaimsBySource({ days: 30 })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => this.channels.set(aggregateClaimsBySource(r.rows)),
+        error: () => this.channels.set([]),
       });
   }
 }

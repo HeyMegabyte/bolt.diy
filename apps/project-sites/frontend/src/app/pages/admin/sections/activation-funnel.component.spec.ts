@@ -25,16 +25,21 @@ function resp(over: Partial<ActivationFunnelResponse> = {}): ActivationFunnelRes
   };
 }
 
-function setup(value = of(resp())) {
+function setup(value = of(resp()), claimsRows: unknown[] = []) {
   const getActivationFunnel = jasmine.createSpy('getActivationFunnel').and.returnValue(value);
+  const getClaimsBySource = jasmine
+    .createSpy('getClaimsBySource')
+    .and.returnValue(of({ rows: claimsRows, degraded: false, count: claimsRows.length }));
   TestBed.configureTestingModule({
     imports: [AdminActivationFunnelComponent],
-    providers: [{ provide: ActivationAnalyticsService, useValue: { getActivationFunnel } }],
+    providers: [
+      { provide: ActivationAnalyticsService, useValue: { getActivationFunnel, getClaimsBySource } },
+    ],
   });
   const fixture: ComponentFixture<AdminActivationFunnelComponent> =
     TestBed.createComponent(AdminActivationFunnelComponent);
   fixture.detectChanges(); // ngOnInit → load
-  return { fixture, getActivationFunnel };
+  return { fixture, getActivationFunnel, getClaimsBySource };
 }
 
 function text(fixture: ComponentFixture<unknown>, sel: string): string | null {
@@ -72,5 +77,25 @@ describe('AdminActivationFunnelComponent', () => {
     const { fixture } = setup(throwError(() => new Error('boom')));
     expect(fixture.nativeElement.querySelector('[data-testid="funnel-error"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="funnel-bars"]')).toBeNull();
+  });
+
+  it('renders the top acquisition channels aggregated by source + campaign', () => {
+    const { fixture, getClaimsBySource } = setup(of(resp()), [
+      { tenant_id: 't1', day: '2026-06-19', source: 'twitter', campaign: 'spring', claims: 3 },
+      { tenant_id: 't1', day: '2026-06-20', source: 'twitter', campaign: 'spring', claims: 2 },
+      { tenant_id: 't1', day: '2026-06-20', source: 'newsletter', campaign: '(none)', claims: 1 },
+    ]);
+    expect(getClaimsBySource).toHaveBeenCalledWith({ days: 30 });
+    const section = fixture.nativeElement.querySelector('[data-testid="funnel-channels"]');
+    expect(section).not.toBeNull();
+    const text = section.textContent;
+    expect(text).toContain('twitter');
+    expect(text).toContain('5 claims'); // 3 + 2 aggregated across days
+    expect(text).toContain('newsletter');
+  });
+
+  it('hides the channels section when there are no claims', () => {
+    const { fixture } = setup(of(resp()), []);
+    expect(fixture.nativeElement.querySelector('[data-testid="funnel-channels"]')).toBeNull();
   });
 });

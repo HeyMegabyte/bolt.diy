@@ -1,7 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
-import { ActivationAnalyticsService } from './activation-analytics.service';
+import {
+  ActivationAnalyticsService,
+  aggregateClaimsBySource,
+  type ClaimsBySourceRow,
+} from './activation-analytics.service';
 import { ApiService } from './api.service';
 
 /**
@@ -67,5 +71,40 @@ describe('ActivationAnalyticsService', () => {
     const { svc, get } = setup();
     svc.getClaimsBySource({ tenant_id: '', source: undefined, campaign: 'x' }).subscribe();
     expect(get).toHaveBeenCalledWith('/admin/analytics/claims-by-source', { campaign: 'x' });
+  });
+});
+
+describe('aggregateClaimsBySource', () => {
+  const rows: ClaimsBySourceRow[] = [
+    { tenant_id: 't1', day: '2026-06-19', source: 'twitter', campaign: 'spring', claims: 3 },
+    { tenant_id: 't1', day: '2026-06-20', source: 'twitter', campaign: 'spring', claims: 2 },
+    { tenant_id: 't1', day: '2026-06-20', source: 'newsletter', campaign: '(none)', claims: 4 },
+  ];
+
+  it('sums claims per (source, campaign) across days, descending', () => {
+    const out = aggregateClaimsBySource(rows);
+    expect(out).toEqual([
+      { source: 'twitter', campaign: 'spring', claims: 5 },
+      { source: 'newsletter', campaign: '(none)', claims: 4 },
+    ]);
+  });
+
+  it('normalizes empty source/campaign and coerces non-numeric claims', () => {
+    const out = aggregateClaimsBySource([
+      { tenant_id: 't', day: 'd', source: '', campaign: '', claims: '7' as unknown as number },
+    ]);
+    expect(out).toEqual([{ source: 'direct', campaign: '(none)', claims: 7 }]);
+  });
+
+  it('caps to the limit (default 8)', () => {
+    const many: ClaimsBySourceRow[] = Array.from({ length: 12 }, (_, i) => ({
+      tenant_id: 't',
+      day: 'd',
+      source: `s${i}`,
+      campaign: 'c',
+      claims: i + 1,
+    }));
+    expect(aggregateClaimsBySource(many).length).toBe(8);
+    expect(aggregateClaimsBySource(many, 3).length).toBe(3);
   });
 });
