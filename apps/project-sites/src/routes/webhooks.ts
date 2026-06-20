@@ -213,6 +213,13 @@ webhooks.post('/webhooks/stripe', async (c) => {
             amountCents: Number((obj as { amount_total?: number }).amount_total ?? 0),
             currency: String((obj as { currency?: string }).currency ?? 'usd'),
           });
+          // Plan flipped free → paid: entitlements materially changed. Emit so the
+          // orchestration plane can provision paid capabilities (custom domains, caps).
+          emitBillingEvent(c, 'entitlement.updated', meta.org_id, event.id, {
+            plan: 'paid',
+            paid: true,
+            reason: 'checkout.completed',
+          });
         }
         break;
       }
@@ -268,6 +275,19 @@ webhooks.post('/webhooks/stripe', async (c) => {
           event.id,
           {
             subscription: String(obj.id ?? ''),
+          },
+        );
+        // Plan flipped paid → free: entitlements revoked. Emit so the
+        // orchestration plane can deprovision paid capabilities.
+        emitBillingEvent(
+          c,
+          'entitlement.updated',
+          (obj.metadata as { org_id?: string } | undefined)?.org_id,
+          event.id,
+          {
+            plan: 'free',
+            paid: false,
+            reason: 'subscription.deleted',
           },
         );
         break;
