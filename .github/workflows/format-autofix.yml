@@ -1,0 +1,79 @@
+name: Format Autofix
+
+# Heals prettier drift on `main` automatically. Concurrent sessions commit with
+# --no-verify (bypassing the local prettier hook), so unformatted src piles up and
+# the main CI "Format check" gate fails every few commits. This job runs prettier
+# --write after each push and commits the fix back with [skip ci] (so it neither
+# re-triggers the main CI nor itself). It keeps HEAD format-clean for the next
+# commit — drift can accumulate at most one commit deep instead of 5-9 files.
+#
+# Scope matches the main CI gate exactly: `prettier --check src` per package, with
+# each package's own installed prettier + .prettierrc (hence npm ci, not a bare npx).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/src/**'
+      - 'packages/shared/src/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: format-autofix-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20.19.0'
+
+jobs:
+  autofix:
+    name: Prettier auto-format + commit-back
+    runs-on: ubuntu-latest
+    # Skip the heal commits this job itself creates (belt-and-suspenders on top of
+    # the [skip ci] marker) and any other bot-authored format commit.
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install shared deps
+        working-directory: packages/shared
+        run: npm ci --legacy-peer-deps
+
+      - name: Install worker deps
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps
+
+      - name: Prettier --write (shared)
+        working-directory: packages/shared
+        run: npx prettier --write src
+
+      - name: Prettier --write (worker)
+        working-directory: apps/project-sites
+        run: npx prettier --write src
+
+      - name: Commit + push the format delta (if any)
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Already format-clean — nothing to heal."
+            exit 0
+          fi
+          git config user.name "format-autofix[bot]"
+          git config user.email "format-autofix@users.noreply.github.com"
+          git add -A
+          git commit --no-verify -m "🎨 style: prettier auto-format drift [skip ci]"
+          # Best-effort push. If a concurrent commit raced in, the next push to
+          # main re-triggers this job and heals from the new HEAD — never block.
+          if git push origin HEAD:main; then
+            echo "Healed format drift."
+          else
+            echo "::warning::format-autofix push raced a concurrent commit; will heal on the next push."
+          fi

@@ -48,7 +48,9 @@ describe('fetchPipeRows', () => {
   });
 
   it('flows the claims-by-source source + campaign params to the pipe URL', async () => {
-    const rows = [{ tenant_id: 't1', day: '2026-06-20', source: 'twitter', campaign: 'spring', claims: 5 }];
+    const rows = [
+      { tenant_id: 't1', day: '2026-06-20', source: 'twitter', campaign: 'spring', claims: 5 },
+    ];
     const fetchImpl = jest.fn().mockResolvedValue(okRes(rows));
     const r = await fetchPipeRows(
       ENV,
