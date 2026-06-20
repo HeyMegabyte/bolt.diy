@@ -31,9 +31,10 @@ jobs:
   autofix:
     name: Prettier auto-format + commit-back
     runs-on: ubuntu-latest
-    # Skip the heal commits this job itself creates (belt-and-suspenders on top of
-    # the [skip ci] marker) and any other bot-authored format commit.
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    # Loop guard: never re-run on this job's OWN heal commit (author = the bot).
+    # A normal author's clean commit still runs this job — it just no-ops (nothing
+    # to format) and exits without committing, so there's no loop.
+    if: github.event.head_commit.author.name != 'format-autofix[bot]'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,7 +70,11 @@ jobs:
           git config user.name "format-autofix[bot]"
           git config user.email "format-autofix@users.noreply.github.com"
           git add -A
-          git commit --no-verify -m "🎨 style: prettier auto-format drift [skip ci]"
+          # NO [skip ci]: the heal commit is format-clean, so its main-CI run passes
+          # the Format gate and DEPLOYS the healed code (a [skip ci] heal would never
+          # deploy — the drift commit failed CI, the heal would skip it). This job
+          # re-running on the heal commit is prevented by the bot-author `if` guard.
+          git commit --no-verify -m "🎨 style: prettier auto-format drift"
           # Best-effort push. If a concurrent commit raced in, the next push to
           # main re-triggers this job and heals from the new HEAD — never block.
           if git push origin HEAD:main; then
