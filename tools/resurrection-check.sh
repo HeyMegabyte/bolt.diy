@@ -122,13 +122,20 @@ EXCLUDE_DIRS=(
 )
 
 build_prune_expr() {
-  local first=1
+  # Prune by directory BASENAME at ANY depth, not just the repo root. The old
+  # `-path './coverage'` only matched a top-level ./coverage, so nested build
+  # artifacts like ./apps/project-sites/coverage (from `jest --coverage`),
+  # ./apps/project-sites/dist, or any nested node_modules were scanned — a
+  # generated coverage HTML report (contains <!doctype html>) then false-flagged
+  # as a "legacy homepage" and blocked `git push` via the pre-push hook.
+  local first=1 name
   for d in "${EXCLUDE_DIRS[@]}"; do
+    name="${d##*/}" # ./coverage -> coverage ; ./.claude/worktrees -> worktrees
     if [ $first -eq 1 ]; then
-      printf -- '-path %s' "$d"
+      printf -- '-type d -name %s' "$name"
       first=0
     else
-      printf -- ' -o -path %s' "$d"
+      printf -- ' -o -type d -name %s' "$name"
     fi
   done
 }
