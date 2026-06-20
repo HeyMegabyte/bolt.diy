@@ -244,6 +244,30 @@ claimRoutes.post('/api/claim/:shortlink/adopt', async (c) => {
 
   const result = await transferClaimSite(c.env, session.siteId, orgId, userId);
   if (result.transferred) {
+    // The claim funnel's conversion moment: the visitor adopted the platform-
+    // built site into THEIR org. Emit site.claim.completed onto the durable bus
+    // (Tinybird conversion analytics + Hatchet onboarding orchestration).
+    // tenantId is the NEW owner org. Idempotent per (shortlink, siteId) — a
+    // re-adopt returns transferred:false so this only fires on the real transfer;
+    // never throws. Awaited inline so the event lands before we ack the claim.
+    await tryEmitEvent(
+      c.env,
+      {
+        type: 'site.claim.completed',
+        producer: 'worker',
+        tenantId: orgId,
+        traceId: c.get('requestId') ?? session.siteId,
+        siteId: session.siteId,
+        userId,
+        data: {
+          shortlink,
+          ...(session.leadId ? { leadId: session.leadId } : {}),
+          ...(result.slug ? { slug: result.slug } : {}),
+          fromOrg: PLATFORM_CLAIMS_ORG_ID,
+        },
+      },
+      { scope: [shortlink, session.siteId] },
+    );
     return c.json({ data: { claimed: true, siteId: session.siteId, slug: result.slug } }, 200);
   }
   if (result.reason === 'already_yours') {

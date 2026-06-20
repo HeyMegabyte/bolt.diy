@@ -30,8 +30,11 @@ jest.mock('../services/lead_store.js', () => ({ getLead: jest.fn() }));
 jest.mock('../services/notifications.js', () => ({
   sendEmail: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../services/emit_event.js', () => ({ tryEmitEvent: jest.fn() }));
 
 import { sendEmail } from '../services/notifications.js';
+import { tryEmitEvent } from '../services/emit_event.js';
+const mockEmit = tryEmitEvent as jest.Mock;
 
 const mockResolve = resolveLeadByShortlink as jest.Mock;
 const mockClicked = markClaimLinkClicked as jest.Mock;
@@ -290,5 +293,45 @@ describe('POST /api/claim/:shortlink/adopt', () => {
       siteDb({ id: 'site_x', org_id: 'org-someone-else', slug: 'acme' }),
     );
     expect(res.status).toBe(409);
+  });
+
+  it('emits site.claim.completed (new-owner tenant, idempotent per shortlink+site) on transfer', async () => {
+    mockEmit.mockClear();
+    mockGetSession.mockResolvedValue({ siteId: 'site_x', leadId: 'lead_7', status: 'completed' });
+    await postAdopt(
+      'abc12345',
+      { userId: 'u1', orgId: 'org-user' },
+      siteDb({ id: 'site_x', org_id: PLATFORM_CLAIMS_ORG_ID, slug: 'acme' }),
+    );
+    expect(mockEmit).toHaveBeenCalledTimes(1);
+    const [, ev, deps] = mockEmit.mock.calls[0];
+    expect(ev).toEqual(
+      expect.objectContaining({
+        type: 'site.claim.completed',
+        producer: 'worker',
+        tenantId: 'org-user',
+        siteId: 'site_x',
+        userId: 'u1',
+      }),
+    );
+    expect(ev.data).toEqual(
+      expect.objectContaining({
+        shortlink: 'abc12345',
+        leadId: 'lead_7',
+        fromOrg: PLATFORM_CLAIMS_ORG_ID,
+      }),
+    );
+    expect(deps).toEqual({ scope: ['abc12345', 'site_x'] });
+  });
+
+  it('does NOT emit site.claim.completed when the site was already claimed by another org', async () => {
+    mockEmit.mockClear();
+    mockGetSession.mockResolvedValue({ siteId: 'site_x', status: 'completed' });
+    await postAdopt(
+      'abc12345',
+      { userId: 'u1', orgId: 'org-user' },
+      siteDb({ id: 'site_x', org_id: 'org-someone-else', slug: 'acme' }),
+    );
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 });
