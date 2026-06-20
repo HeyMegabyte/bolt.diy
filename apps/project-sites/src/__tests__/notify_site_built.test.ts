@@ -52,26 +52,42 @@ describe('notifyOwnerSiteBuilt', () => {
 
   it('still fires the bell when the org has no owner email (emailed:false, belled:true)', async () => {
     const d = deps({ resolveEmail: jest.fn().mockResolvedValue(null), notify: jest.fn() });
-    const r = await notifyOwnerSiteBuilt(env, { orgId: 'o', siteId: 's', slug: 's', version: 'v' }, d);
+    const r = await notifyOwnerSiteBuilt(
+      env,
+      { orgId: 'o', siteId: 's', slug: 's', version: 'v' },
+      d,
+    );
     expect(r).toEqual({ emailed: false, belled: true });
     expect(d.notify).not.toHaveBeenCalled();
   });
 
   it('channels are independent: a bell failure leaves the email sent', async () => {
     const d = deps({ bell: jest.fn().mockRejectedValue(new Error('novu down')) });
-    const r = await notifyOwnerSiteBuilt(env, { orgId: 'o', siteId: 's', slug: 's', version: 'v' }, d);
+    const r = await notifyOwnerSiteBuilt(
+      env,
+      { orgId: 'o', siteId: 's', slug: 's', version: 'v' },
+      d,
+    );
     expect(r).toEqual({ emailed: true, belled: false });
   });
 
   it('is fail-soft when the email resolver throws (bell still fires)', async () => {
     const d = deps({ resolveEmail: jest.fn().mockRejectedValue(new Error('d1 down')) });
-    const r = await notifyOwnerSiteBuilt(env, { orgId: 'o', siteId: 's', slug: 's', version: 'v' }, d);
+    const r = await notifyOwnerSiteBuilt(
+      env,
+      { orgId: 'o', siteId: 's', slug: 's', version: 'v' },
+      d,
+    );
     expect(r).toEqual({ emailed: false, belled: true });
   });
 
   it('treats a bell ok:false as not belled', async () => {
     const d = deps({ bell: jest.fn().mockResolvedValue({ ok: false, detail: 'invalid_event' }) });
-    const r = await notifyOwnerSiteBuilt(env, { orgId: 'o', siteId: 's', slug: 's', version: 'v' }, d);
+    const r = await notifyOwnerSiteBuilt(
+      env,
+      { orgId: 'o', siteId: 's', slug: 's', version: 'v' },
+      d,
+    );
     expect(r.belled).toBe(false);
   });
 });
