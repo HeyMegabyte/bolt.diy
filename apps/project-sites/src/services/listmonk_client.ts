@@ -176,3 +176,98 @@ export async function listmonkUpsertSubscriber(
     return { ok: false, reason };
   }
 }
+
+/** Input to {@link listmonkCreateCampaign}. */
+export interface ListmonkCampaignInput {
+  name: string;
+  subject: string;
+  /** HTML campaign body. */
+  body: string;
+  /** Listmonk list IDs to target. */
+  lists: number[];
+}
+
+/**
+ * Create a regular HTML campaign (`POST /api/campaigns`). Never throws.
+ *
+ * @returns `{ ok: true, id }` with the new campaign id, or `{ ok: false, reason }`.
+ * @example
+ * const r = await listmonkCreateCampaign(cfg, { name: 'June', subject: 'News', body: '<p>hi</p>', lists: [1] });
+ */
+export async function listmonkCreateCampaign(
+  cfg: ListmonkConfig,
+  input: ListmonkCampaignInput,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ListmonkUpsertResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const res = await fetchImpl(`${cfg.baseUrl}/api/campaigns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+      body: JSON.stringify({
+        name: input.name,
+        subject: input.subject,
+        lists: input.lists,
+        type: 'regular',
+        content_type: 'html',
+        body: input.body,
+      }),
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const data = (await res.json()) as { data?: { id?: number } };
+    return { ok: true, id: data?.data?.id ?? 0 };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Start (send) a campaign (`PUT /api/campaigns/{id}/status` → `running`). Never throws.
+ *
+ * @returns `{ ok: true, id }` echoing the campaign id, or `{ ok: false, reason }`.
+ */
+export async function listmonkStartCampaign(
+  cfg: ListmonkConfig,
+  campaignId: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ListmonkUpsertResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const res = await fetchImpl(`${cfg.baseUrl}/api/campaigns/${campaignId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+      body: JSON.stringify({ status: 'running' }),
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    return { ok: true, id: campaignId };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Blocklist (unsubscribe) every subscriber matching an email
+ * (`PUT /api/subscribers/query/blocklist`). Never throws. Single quotes in the
+ * email are escaped to avoid breaking the listmonk SQL-ish query.
+ *
+ * @returns `{ ok: true }` on success, else `{ ok: false, reason }`.
+ */
+export async function listmonkUnsubscribe(
+  cfg: ListmonkConfig,
+  email: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const safe = email.replace(/'/g, "''");
+    const res = await fetchImpl(`${cfg.baseUrl}/api/subscribers/query/blocklist`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+      body: JSON.stringify({ query: `subscribers.email = '${safe}'` }),
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}

@@ -287,10 +287,12 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     domain: 'mail.projectsites.dev',
     category: 'email',
     runtime: 'cloudflare-container',
+    adapterPackage: 'apps/project-sites/src/services/listmonk_email_provider.ts',
     secretsNamespace: '/email',
-    status: 'planned',
+    status: 'scaffolded',
     access: 'internal-access',
-    notes: 'Replaces Resend per ADR-0019.',
+    notes:
+      'ListmonkMarketingEmailProvider built (wraps listmonk_client: upsert/createCampaign/startCampaign/unsubscribe); needs LISTMONK_* config + wiring. Replaces Resend per ADR-0019.',
   },
   {
     id: 'email-resend',
