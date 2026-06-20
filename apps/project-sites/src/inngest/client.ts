@@ -27,4 +27,21 @@ export interface PlatformEvents {
   'site/generation.completed': {
     data: { siteId: string; slug: string; orgId: string; durationMs?: number };
   };
+  /**
+   * Lifecycle/transactional email request — dispatched by `InngestJobProvider`
+   * for the `lifecycle-email` job kind, drained by the `lifecycleEmail`
+   * function. `payload` carries the email; `_ctx` carries correlation +
+   * idempotency. Mirrors `EmailRequestedData` (inngest/handlers.ts).
+   */
+  'job/email.requested': {
+    data: {
+      payload?: {
+        to?: string | string[];
+        subject?: string;
+        html?: string;
+        kind?: string;
+      } | null;
+      _ctx?: Record<string, unknown>;
+    };
+  };
 }

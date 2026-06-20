@@ -2,13 +2,17 @@
  * @module services/notifications
  * @description Transactional email notifications for domain verification and site builds.
  *
- * Uses Resend (primary) or SendGrid (fallback) to deliver notifications.
+ * Rail order (ADR-0019 Resend→SES migration): Amazon SES is the PRIMARY rail the
+ * moment it is configured (AWS creds + verified `SES_FROM_EMAIL`) — routed via
+ * `getEmailProvider(env).sendTransactional`. Until then it degrades to Resend,
+ * then SendGrid. The Resend/SendGrid fallbacks are removed once SES is proven
+ * live. No feature flag — progressive degradation by env presence.
  *
- * Every Resend call (success or failure) emits a structured log with
- * `{status, body_excerpt, to, request_id}` so the operator can grep the
- * Workers tail for delivery failures without re-running the send. Failures
- * also fan out to Sentry (`captureMessage('Resend invite send failed', …)`)
- * for the high-signal alerting channel; successes drop a Sentry breadcrumb
+ * Every fallback-rail call (success or failure) emits a structured log with
+ * `{provider, status, body_excerpt, to, request_id, category}` so the operator
+ * can grep the Workers tail for delivery failures without re-running the send.
+ * Failures also fan out to Sentry (`captureMessage(... send failed, …)`) for
+ * the high-signal alerting channel; successes drop a Sentry breadcrumb
  * (`category: 'email'`) so the next captured exception in the same request
  * carries the delivery context.
  */

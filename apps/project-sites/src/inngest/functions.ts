@@ -12,6 +12,9 @@
  */
 
 import { inngest } from './client.js';
+import { getRequestEnv } from './request-env.js';
+import { handleEmailRequested, type EmailRequestedData } from './handlers.js';
+import type { EmailDeps } from '../platform/email-router.js';
 import type { Env } from '../types/env.js';
 
 /**
@@ -58,8 +61,52 @@ export const siteGenerationCompleted = inngest.createFunction(
   },
 );
 
+/**
+ * Step body for the lifecycle-email function — extracted so it is unit-testable
+ * WITHOUT the Inngest step harness. Reads the request `Env` from the ALS context
+ * ({@link getRequestEnv}, established by the serve wrapper) and delegates to the
+ * already-tested `handleEmailRequested` consumer, which routes through
+ * `getEmailProvider(env)` (SES in prod, fake locally).
+ *
+ * @param data - The `job/email.requested` event `data` ({@link EmailRequestedData}).
+ * @param deps - Injectable email provider (tests pass a fake transactional rail).
+ * @returns `{ sent, id, accepted }` from the underlying `EmailResult`.
+ * @throws {EmailEventError} when the payload lacks to/subject/html.
+ * @throws {InngestEnvError} when run outside a `runWithRequestEnv` context.
+ * @example await runLifecycleEmail(event.data);
+ */
+export async function runLifecycleEmail(
+  data: EmailRequestedData,
+  deps: EmailDeps = {},
+): Promise<{ sent: boolean; id: string; accepted: boolean }> {
+  const result = await handleEmailRequested(getRequestEnv(), data, deps);
+  return { sent: result.accepted, id: result.id, accepted: result.accepted };
+}
+
+/**
+ * Durable lifecycle-email function: drains the `job/email.requested` event the
+ * `InngestJobProvider` dispatches (golden-path "customer notified" step, §9).
+ * One retried, step-checkpointed send through the env-selected email rail.
+ *
+ * @remarks Live-inert until the §13 watched deploy binds the Inngest server +
+ * secrets — registration is harmless (the serve route 503s without a signing
+ * key). `env` reaches the step via the ALS context the serve wrapper sets.
+ */
+export const lifecycleEmail = inngest.createFunction(
+  {
+    id: 'lifecycle-email',
+    name: 'Lifecycle email',
+    triggers: [{ event: 'job/email.requested' }],
+  },
+  async ({ event, step }) => {
+    return step.run('send-transactional', () =>
+      runLifecycleEmail(event.data as EmailRequestedData),
+    );
+  },
+);
+
 /** Every function the worker serves to the self-hosted Inngest server. */
-export const inngestFunctions = [siteGenerationCompleted] as const;
+export const inngestFunctions = [siteGenerationCompleted, lifecycleEmail] as const;
 
 /** Re-exported so the serve route + tests share one source of truth. */
 export type InngestFunctions = typeof inngestFunctions;

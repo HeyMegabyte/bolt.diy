@@ -24,6 +24,7 @@ import { DOMAINS } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { inngest } from './client.js';
 import { inngestFunctions } from './functions.js';
+import { runWithRequestEnv } from './request-env.js';
 
 /** Hosts that address the self-hosted Inngest server (the container). */
 function isInngestServerHost(hostname: string): boolean {
@@ -75,5 +76,9 @@ inngestApp.on(['GET', 'POST', 'PUT'], '/api/inngest', async (c) => {
     INNGEST_SIGNING_KEY: c.env.INNGEST_SIGNING_KEY,
     INNGEST_BASE_URL: c.env.INNGEST_BASE_URL,
   });
-  return inngestServeHandler(c);
+  // Bind c.env into the ALS context so env-DEPENDENT durable functions (e.g.
+  // lifecycleEmail → getEmailProvider(env)) can read it via getRequestEnv().
+  // Each Inngest step is its own HTTP POST re-entering this handler, so the env
+  // is re-established per step invocation — concurrency-safe (no module global).
+  return runWithRequestEnv(c.env, () => inngestServeHandler(c));
 });
