@@ -1,0 +1,76 @@
+name: Prod E2E (Playwright against live projectsites.dev)
+
+# Runs the real-login-against-prod Playwright suite (playwright.prod.config.ts →
+# helpers/auth.ts Pathway C via E2E_API_KEY) so admin regressions are caught on the
+# LIVE site, not just in unit tests. Gated on the E2E_API_KEY secret being present:
+# when it's unset (forks, secret-less runs) the suite step is SKIPPED, never failed —
+# the conditional-ci-gates fail-open pattern. Closes audit #50's prod-E2E-in-CI half.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/src/**'
+      - 'apps/project-sites/e2e/**'
+      - 'apps/project-sites/playwright.prod.config.ts'
+  schedule:
+    # Daily smoke against prod at 07:13 UTC (off the :00 mark).
+    - cron: '13 7 * * *'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  prod-e2e:
+    name: Playwright @ prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Presence gate: secrets can't be used in job-level `if:`, so check here and
+      # gate the suite step on the output. Absent secret → skip, not fail.
+      - name: Check E2E_API_KEY is configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: |
+          if [ -n "$E2E_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_API_KEY secret not set — skipping prod E2E (fail-open)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.has_key == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/package-lock.json
+
+      - name: Install deps
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
+
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        run: npx playwright install --with-deps chromium
+
+      - name: Run prod E2E suite
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          PROD_URL: https://projectsites.dev
+        run: npm run test:e2e:prod
+
+      - name: Upload Playwright report
+        if: steps.gate.outputs.has_key == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-prod-report
+          path: apps/project-sites/playwright-report/
+          retention-days: 7
