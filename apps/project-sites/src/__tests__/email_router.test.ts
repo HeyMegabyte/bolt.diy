@@ -23,14 +23,23 @@ describe('getEmailProvider', () => {
   });
 
   it('selects Listmonk when its config is present', () => {
-    const r = getEmailProvider({ LISTMONK_API_URL: 'https://m', LISTMONK_USERNAME: 'u', LISTMONK_PASSWORD: 'p' } as Env);
+    const r = getEmailProvider({
+      LISTMONK_API_URL: 'https://m',
+      LISTMONK_USERNAME: 'u',
+      LISTMONK_PASSWORD: 'p',
+    } as Env);
     expect(r.marketing).toBeInstanceOf(ListmonkMarketingEmailProvider);
   });
 
   it('sendTransactional routes a transactional kind to the transactional rail', async () => {
     const fake = new FakeEmailProvider();
     const r = getEmailProvider({} as Env, { transactional: fake });
-    const res = await r.sendTransactional({ kind: 'receipt', to: 'a@b.com', subject: 'S', html: '<p>x</p>' });
+    const res = await r.sendTransactional({
+      kind: 'receipt',
+      to: 'a@b.com',
+      subject: 'S',
+      html: '<p>x</p>',
+    });
     expect(res.accepted).toBe(true);
     expect(fake.sent).toHaveLength(1);
   });
@@ -38,7 +47,9 @@ describe('getEmailProvider', () => {
   it('sendTransactional refuses a bulk kind', async () => {
     const fake = new FakeEmailProvider();
     const r = getEmailProvider({} as Env, { transactional: fake });
-    await expect(r.sendTransactional({ kind: 'newsletter', to: 'a@b.com', subject: 'S', html: 'h' })).rejects.toThrow(/bulk kind/);
+    await expect(
+      r.sendTransactional({ kind: 'newsletter', to: 'a@b.com', subject: 'S', html: 'h' }),
+    ).rejects.toThrow(/bulk kind/);
     expect(fake.sent).toHaveLength(0);
   });
 });

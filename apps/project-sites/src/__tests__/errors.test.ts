@@ -22,13 +22,25 @@ class FakeInputError extends Error {
 
 describe('AppError taxonomy', () => {
   it('carries stable code + status + retryable', () => {
-    expect(new ValidationError('x')).toMatchObject({ code: 'VALIDATION_ERROR', status: 400, retryable: false });
+    expect(new ValidationError('x')).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      retryable: false,
+    });
     expect(new UnauthorizedError('x')).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
     expect(new ForbiddenError('x')).toMatchObject({ code: 'FORBIDDEN', status: 403 });
     expect(new NotFoundError('x')).toMatchObject({ code: 'NOT_FOUND', status: 404 });
     expect(new QuotaExceededError('x')).toMatchObject({ code: 'QUOTA_EXCEEDED', status: 429 });
-    expect(new RateLimitedError('x')).toMatchObject({ code: 'RATE_LIMITED', status: 429, retryable: true });
-    expect(new JobDispatchError('x')).toMatchObject({ code: 'JOB_DISPATCH_ERROR', status: 502, retryable: true });
+    expect(new RateLimitedError('x')).toMatchObject({
+      code: 'RATE_LIMITED',
+      status: 429,
+      retryable: true,
+    });
+    expect(new JobDispatchError('x')).toMatchObject({
+      code: 'JOB_DISPATCH_ERROR',
+      status: 502,
+      retryable: true,
+    });
   });
 
   it('is an Error subclass (instanceof works)', () => {
@@ -41,7 +53,11 @@ describe('toErrorResponse', () => {
   it('serializes an AppError with its code/status + request_id', () => {
     const r = toErrorResponse(new NotFoundError('Job not found'), 'req-1');
     expect(r.status).toBe(404);
-    expect(r.body.error).toMatchObject({ code: 'NOT_FOUND', message: 'Job not found', request_id: 'req-1' });
+    expect(r.body.error).toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Job not found',
+      request_id: 'req-1',
+    });
   });
 
   it('maps port *InputError/*ContextError/*EventError to 400 VALIDATION_ERROR', () => {

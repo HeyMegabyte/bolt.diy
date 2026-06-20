@@ -35,7 +35,11 @@ describe('sendEmail SES migration (ADR-0019)', () => {
       transactional: {} as EmailRouter['transactional'],
       marketing: {} as EmailRouter['marketing'],
       async sendTransactional(input) {
-        sent.push({ kind: input.kind, to: Array.isArray(input.to) ? input.to[0] : input.to, subject: input.subject });
+        sent.push({
+          kind: input.kind,
+          to: Array.isArray(input.to) ? input.to[0] : input.to,
+          subject: input.subject,
+        });
         return { id: 'ses-1', accepted: true };
       },
     };
@@ -48,8 +52,14 @@ describe('sendEmail SES migration (ADR-0019)', () => {
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     try {
       const router = fakeRouter();
-      await sendEmail(sesEnv, { to: 'a@b.com', subject: 'Verify', html: '<p>x</p>', category: 'claim_verification' }, { email: router });
-      expect(router.sent).toEqual([{ kind: 'claim-verification', to: 'a@b.com', subject: 'Verify' }]);
+      await sendEmail(
+        sesEnv,
+        { to: 'a@b.com', subject: 'Verify', html: '<p>x</p>', category: 'claim_verification' },
+        { email: router },
+      );
+      expect(router.sent).toEqual([
+        { kind: 'claim-verification', to: 'a@b.com', subject: 'Verify' },
+      ]);
       expect(fetchSpy).not.toHaveBeenCalled(); // Resend/SendGrid NOT hit
     } finally {
       globalThis.fetch = orig;

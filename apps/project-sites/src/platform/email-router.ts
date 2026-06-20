@@ -70,7 +70,9 @@ export function getEmailProvider(env: Env, deps: EmailDeps = {}): EmailRouter {
     marketing,
     async sendTransactional(input: SendEmailInput): Promise<EmailResult> {
       if (chooseEmailPath(input.kind) !== 'ses') {
-        throw new Error(`"${input.kind}" is a bulk kind — use the marketing campaign API, not sendTransactional`);
+        throw new Error(
+          `"${input.kind}" is a bulk kind — use the marketing campaign API, not sendTransactional`,
+        );
       }
       return transactional.sendTransactional(input);
     },

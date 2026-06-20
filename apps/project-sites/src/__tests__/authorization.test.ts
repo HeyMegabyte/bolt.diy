@@ -13,7 +13,11 @@ import {
 async function grant(p: FakeAuthorizationProvider, user: string, relation: string, object: string) {
   await p.writeRelationship({ user, relation, object });
 }
-const can = (user: string, relation: string, object: string): AuthorizationCheckInput => ({ user, relation, object });
+const can = (user: string, relation: string, object: string): AuthorizationCheckInput => ({
+  user,
+  relation,
+  object,
+});
 
 describe('FakeAuthorizationProvider (§29 model)', () => {
   it('owner can publish + manage billing + manage api keys', async () => {
@@ -71,7 +75,10 @@ describe('FakeAuthorizationProvider (§29 model)', () => {
     const p = new FakeAuthorizationProvider();
     await grant(p, 'owner1', 'owner', 'site:a');
     await grant(p, 'owner1', 'owner', 'site:b');
-    expect((await p.listObjects({ user: 'owner1', relation: 'can_publish' })).sort()).toEqual(['site:a', 'site:b']);
+    expect((await p.listObjects({ user: 'owner1', relation: 'can_publish' })).sort()).toEqual([
+      'site:a',
+      'site:b',
+    ]);
     await p.deleteRelationship({ user: 'owner1', relation: 'owner', object: 'site:a' });
     expect(await p.check(can('owner1', 'can_publish', 'site:a'))).toBe(false);
     expect(await p.check(can('owner1', 'can_publish', 'site:b'))).toBe(true);
@@ -80,7 +87,12 @@ describe('FakeAuthorizationProvider (§29 model)', () => {
   it('batchCheck mirrors per-check results', async () => {
     const p = new FakeAuthorizationProvider();
     await grant(p, 'owner1', 'owner', 'site:a');
-    expect(await p.batchCheck([can('owner1', 'can_publish', 'site:a'), can('owner1', 'can_publish', 'site:z')])).toEqual([true, false]);
+    expect(
+      await p.batchCheck([
+        can('owner1', 'can_publish', 'site:a'),
+        can('owner1', 'can_publish', 'site:z'),
+      ]),
+    ).toEqual([true, false]);
   });
 });
 

@@ -319,7 +319,21 @@ jobs:
         working-directory: apps/project-sites/frontend
         run: |
           sleep 15
-          node scripts/verify-deploy.mjs https://projectsites.dev
+          # verify-deploy exits 3 when CF Bot Fight 403s the GHA runner IP but the
+          # deploy was already confirmed via CF-API + wrangler — tolerate THAT case
+          # only (the wrangler deploy step itself already succeeded). Exit 1/2 are
+          # real bundle failures and still hard-fail the deploy. Without this, every
+          # prod deploy failed here on a 403 the live site never actually returns
+          # (curl from a normal IP = 200), skipping E2E Production needlessly.
+          node scripts/verify-deploy.mjs https://projectsites.dev || {
+            code=$?
+            if [ "$code" -eq 3 ]; then
+              echo "::warning::Prod verify blocked by CF Bot Fight (403) from GHA IP — deploy confirmed via CF-API + wrangler. Tolerating (exit 3)."
+            else
+              echo "::error::Prod verify failed (exit $code) — real bundle/deploy problem."
+              exit "$code"
+            fi
+          }
 
       # Non-blocking: guards the live MCP/OAuth surface (discovery → 11 tools →
       # 401+WWW-Authenticate → DCR → token). Not a hard gate because flag state is

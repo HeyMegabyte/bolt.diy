@@ -73,7 +73,9 @@ export class JobDispatchError extends AppError {
 
 /** The serialized error envelope + the HTTP status to send. */
 export interface ErrorResponse {
-  readonly body: { error: { code: string; message: string; request_id: string; retryable?: boolean } };
+  readonly body: {
+    error: { code: string; message: string; request_id: string; retryable?: boolean };
+  };
   readonly status: number;
 }
 
@@ -87,17 +89,29 @@ export interface ErrorResponse {
 export function toErrorResponse(err: unknown, requestId: string): ErrorResponse {
   if (err instanceof AppError) {
     return {
-      body: { error: { code: err.code, message: err.message, request_id: requestId, retryable: err.retryable } },
+      body: {
+        error: {
+          code: err.code,
+          message: err.message,
+          request_id: requestId,
+          retryable: err.retryable,
+        },
+      },
       status: err.status,
     };
   }
   // Port-layer validation errors (JobContextError / EmailInputError / EmailEventError)
   // are caller mistakes → 400, not 500. Matched by name to avoid import cycles.
   if (err instanceof Error && /(InputError|ContextError|EventError)$/.test(err.name)) {
-    return { body: { error: { code: 'VALIDATION_ERROR', message: err.message, request_id: requestId } }, status: 400 };
+    return {
+      body: { error: { code: 'VALIDATION_ERROR', message: err.message, request_id: requestId } },
+      status: 400,
+    };
   }
   return {
-    body: { error: { code: 'INTERNAL_ERROR', message: 'Internal server error', request_id: requestId } },
+    body: {
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error', request_id: requestId },
+    },
     status: 500,
   };
 }
