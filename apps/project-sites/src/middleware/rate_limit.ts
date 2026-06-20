@@ -67,6 +67,10 @@ export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
   { path: '/api/search/address', maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' },
   { path: '/api/donate', maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' },
   { path: '/api/contact-form/*', maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' },
+  // Platform contact form — public, unauthenticated, sends email + writes an audit
+  // row. Same abuse/cost budget as the per-site form above (distinct path: this
+  // never matches /api/contact-form/* — `contact` vs `contact-form` segment).
+  { path: '/api/contact', maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact-platform' },
   {
     path: '/api/sites/create-from-search',
     maxRequests: 10,
