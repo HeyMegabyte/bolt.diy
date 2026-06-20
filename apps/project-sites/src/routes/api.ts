@@ -4566,7 +4566,12 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   }
 
   // Verify site belongs to org
-  const site = await dbQueryOne<{ id: string; slug: string; org_id: string; business_name: string | null }>(
+  const site = await dbQueryOne<{
+    id: string;
+    slug: string;
+    org_id: string;
+    business_name: string | null;
+  }>(
     c.env.DB,
     'SELECT id, slug, org_id, business_name FROM sites WHERE id = ? AND deleted_at IS NULL',
     [siteId],
