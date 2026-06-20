@@ -133,6 +133,11 @@ import * as billingService from '../services/billing.js';
 import * as domainService from '../services/domains.js';
 import * as auditService from '../services/audit.js';
 import { createSite } from '../services/site_create.js';
+import { tryEmitEvent } from '../services/emit_event.js';
+import {
+  buildSitePublishedEvent,
+  sitePublishedScope,
+} from '../services/site_publish_event.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
@@ -4656,6 +4661,28 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
     },
     request_id: c.get('requestId'),
   });
+
+  // Emit the golden-path `site.published` event onto the durable bus (§9). The
+  // outbox cron drains it to Tinybird activation analytics + Hatchet + the
+  // lifecycle-email Inngest plane. Idempotent per (siteId, version) so a
+  // re-publish of the same version is a no-op; waitUntil'd so a bus/DB hiccup
+  // never breaks the publish response (tryEmitEvent never throws).
+  c.executionCtx.waitUntil(
+    tryEmitEvent(
+      c.env,
+      buildSitePublishedEvent({
+        siteId,
+        orgId,
+        slug,
+        version,
+        url: `https://${slug}${SITES_SUFFIX}`,
+        userId: c.get('userId') ?? null,
+        source: 'bolt-embedded',
+        requestId: c.get('requestId'),
+      }),
+      { scope: sitePublishedScope(siteId, version) },
+    ),
+  );
 
   return c.json({
     data: {
