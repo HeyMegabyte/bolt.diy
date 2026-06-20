@@ -15,6 +15,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { eventIdempotencyKey, EVENT_TYPES, MAX_OUTBOX_ATTEMPTS } from '../services/event_bus.js';
 
 const SRC = join(__dirname, '..');
 
@@ -63,5 +64,41 @@ describe('architecture fitness — forbidden vendors (convergence LAW §2)', () 
   it('has no forbidden managed app-platform deploy targets (CF-first LAW)', () => {
     // Importing these vendor SDKs = drift off the Cloudflare + Neon/Upstash/Fly base.
     expect(violations(/from ['"]@vercel\/|from ['"]@supabase\/|from ['"]@aws-sdk\//)).toEqual([]);
+  });
+});
+
+describe('architecture fitness — reliability invariants (idempotency + DLQ, convergence spec §8)', () => {
+  /** Source files whose text matches a pattern, as `src/…` paths. */
+  function filesMatching(pattern: RegExp): string[] {
+    return sourceFiles(SRC)
+      .filter((f) => pattern.test(readFileSync(f, 'utf8')))
+      .map((f) => f.replace(SRC, 'src'));
+  }
+
+  it('defines the event idempotency-key helper exactly once (one canonical dedupe path)', () => {
+    // Duplicate idempotency-key logic = two sources of truth for at-least-once dedupe → drift.
+    expect(filesMatching(/export function eventIdempotencyKey\b/)).toEqual(['src/services/event_bus.ts']);
+  });
+
+  it('keeps the outbox retry cap a bounded positive integer (never 0 = no retry, never unbounded)', () => {
+    // 0 would never retry; an unbounded/huge cap would never dead-letter — both break delivery.
+    expect(Number.isInteger(MAX_OUTBOX_ATTEMPTS)).toBe(true);
+    expect(MAX_OUTBOX_ATTEMPTS).toBeGreaterThanOrEqual(1);
+    expect(MAX_OUTBOX_ATTEMPTS).toBeLessThanOrEqual(10);
+  });
+
+  it('wires the dead-letter escape hatch (the DLQ table is written somewhere in the tree)', () => {
+    // If no source writes dead_letter_events, exhausted events vanish silently instead of dead-lettering.
+    expect(filesMatching(/INSERT INTO dead_letter_events\b/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('eventIdempotencyKey is deterministic and scope-collision-resistant', () => {
+    const type = EVENT_TYPES[0];
+    const a = eventIdempotencyKey(type, 'site-1');
+    const b = eventIdempotencyKey(type, 'site-1');
+    const c = eventIdempotencyKey(type, 'site-2');
+    expect(a).toBe(b); // same inputs → same key (at-least-once dedupe holds)
+    expect(a).not.toBe(c); // distinct scope → distinct key (no cross-site collision)
+    expect(() => eventIdempotencyKey(type)).toThrow(RangeError); // empty scope is a programming error, not a silent collision
   });
 });
