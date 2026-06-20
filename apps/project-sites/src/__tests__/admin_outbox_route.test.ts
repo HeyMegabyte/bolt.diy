@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 
 import { adminOutbox } from '../routes/admin_outbox';
 import { isSuperAdmin } from '../services/sysadmin.js';
-import { outboxStats, readFailedOutbox } from '../services/event_bus.js';
+import { outboxStats, readFailedOutbox, requeueFailedOutbox } from '../services/event_bus.js';
 
 /**
  * Super-Admin event-bus observability route — the HTTP guards over the outbox
@@ -15,11 +15,13 @@ jest.mock('../services/sysadmin.js', () => ({ isSuperAdmin: jest.fn() }));
 jest.mock('../services/event_bus.js', () => ({
   outboxStats: jest.fn(),
   readFailedOutbox: jest.fn(),
+  requeueFailedOutbox: jest.fn(),
 }));
 
 const mockIsSuperAdmin = isSuperAdmin as jest.MockedFunction<typeof isSuperAdmin>;
 const mockStats = outboxStats as jest.Mock;
 const mockFailed = readFailedOutbox as jest.Mock;
+const mockRequeue = requeueFailedOutbox as jest.Mock;
 
 function makeApp(auth: { userId?: string }) {
   const app = new Hono();
@@ -94,5 +96,39 @@ describe('GET /api/admin/outbox', () => {
       env,
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/admin/outbox/:id/requeue', () => {
+  const post = (app: ReturnType<typeof makeApp>, id: string) =>
+    app.request(`/api/admin/outbox/${id}/requeue`, { method: 'POST' }, env);
+
+  it('401s when unauthenticated', async () => {
+    const res = await post(makeApp({}), 'evt_1');
+    expect(res.status).toBe(401);
+    expect(mockRequeue).not.toHaveBeenCalled();
+  });
+
+  it('403s when authed but not a super-admin', async () => {
+    mockIsSuperAdmin.mockResolvedValue(false);
+    const res = await post(makeApp({ userId: 'u1' }), 'evt_1');
+    expect(res.status).toBe(403);
+    expect(mockRequeue).not.toHaveBeenCalled();
+  });
+
+  it('200s + {requeued:true} when a failed row is reset', async () => {
+    mockIsSuperAdmin.mockResolvedValue(true);
+    mockRequeue.mockResolvedValue({ requeued: true });
+    const res = await post(makeApp({ userId: 'admin' }), 'evt_1');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ requeued: true, id: 'evt_1' });
+    expect(mockRequeue).toHaveBeenCalledWith(env, 'evt_1');
+  });
+
+  it('404s when no failed row matches the id', async () => {
+    mockIsSuperAdmin.mockResolvedValue(true);
+    mockRequeue.mockResolvedValue({ requeued: false });
+    const res = await post(makeApp({ userId: 'admin' }), 'missing');
+    expect(res.status).toBe(404);
   });
 });

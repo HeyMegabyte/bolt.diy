@@ -341,3 +341,30 @@ export async function markFailed(env: OutboxDb, id: string, error: string): Prom
     .bind(error.slice(0, 500), id)
     .run();
 }
+
+/**
+ * Requeue a FAILED outbox row for re-delivery — the operator action behind the
+ * admin DLQ surface. Resets the row to `pending` with a fresh attempt budget
+ * (`attempts = 0`, `last_error` cleared) so the next drain re-dispatches it. The
+ * `status = 'failed'` guard makes this safe + idempotent: a `pending` or
+ * `dispatched` row is untouched (returns `{ requeued: false }`), and a
+ * double-click only resets an already-failed row once. Use after fixing the
+ * downstream that caused the failure.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param id - The outbox row id (from {@link readFailedOutbox}).
+ * @returns `{ requeued }` — false when no FAILED row with that id exists.
+ * @example await requeueFailedOutbox(env, 'evt_123') // { requeued: true }
+ */
+export async function requeueFailedOutbox(
+  env: OutboxDb,
+  id: string,
+): Promise<{ requeued: boolean }> {
+  const res = await env.DB.prepare(
+    `UPDATE outbox_events SET status = 'pending', attempts = 0, last_error = NULL
+       WHERE id = ? AND status = 'failed'`,
+  )
+    .bind(id)
+    .run();
+  return { requeued: (res.meta?.changes ?? 0) > 0 };
+}

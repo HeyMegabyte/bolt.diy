@@ -17,7 +17,7 @@ import { z } from 'zod';
 
 import type { Env, Variables } from '../types/env.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
-import { outboxStats, readFailedOutbox } from '../services/event_bus.js';
+import { outboxStats, readFailedOutbox, requeueFailedOutbox } from '../services/event_bus.js';
 
 /** Build the RFC7807-ish error envelope used across the worker. */
 function errorBody(code: string, message: string, requestId: string | undefined) {
@@ -47,4 +47,24 @@ adminOutbox.get('/api/admin/outbox', async (c) => {
   ]);
 
   return c.json({ stats, recentFailures, count: recentFailures.length }, 200);
+});
+
+adminOutbox.post('/api/admin/outbox/:id/requeue', async (c) => {
+  const requestId = c.get('requestId');
+  const userId = c.get('userId');
+  if (!userId) return c.json(errorBody('UNAUTHORIZED', 'Sign in required', requestId), 401);
+  if (!(await isSuperAdmin(c.env, userId))) {
+    return c.json(errorBody('FORBIDDEN', 'Super-admin access required', requestId), 403);
+  }
+
+  const id = c.req.param('id');
+  const { requeued } = await requeueFailedOutbox(c.env, id);
+  if (!requeued) {
+    // No FAILED row with that id — already requeued/dispatched, or never existed.
+    return c.json(
+      errorBody('NOT_FOUND', 'No failed event with that id to requeue', requestId),
+      404,
+    );
+  }
+  return c.json({ requeued: true, id }, 200);
 });

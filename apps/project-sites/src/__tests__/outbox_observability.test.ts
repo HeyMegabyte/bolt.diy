@@ -1,4 +1,9 @@
-import { outboxStats, readFailedOutbox, MAX_OUTBOX_ATTEMPTS } from '../services/event_bus';
+import {
+  outboxStats,
+  readFailedOutbox,
+  requeueFailedOutbox,
+  MAX_OUTBOX_ATTEMPTS,
+} from '../services/event_bus';
 
 /**
  * Observability read-layer for the durable outbox: outboxStats (bucket counts,
@@ -94,5 +99,35 @@ describe('readFailedOutbox', () => {
 
   it('returns [] when there are no failed rows', async () => {
     expect(await readFailedOutbox(allDb([]))).toEqual([]);
+  });
+});
+
+/** Env stub capturing the bound id + reporting the given UPDATE row-change count. */
+function runDb(changes: number) {
+  const captured: { id?: unknown } = {};
+  const env = {
+    _captured: captured,
+    DB: {
+      prepare: () => ({
+        bind: (id: unknown) => {
+          captured.id = id;
+          return { run: async () => ({ meta: { changes } }) };
+        },
+      }),
+    },
+  } as unknown as { _captured: { id?: unknown } };
+  return env as never;
+}
+
+describe('requeueFailedOutbox', () => {
+  it('returns requeued:true and binds the id when a failed row is reset', async () => {
+    const db = runDb(1);
+    const out = await requeueFailedOutbox(db, 'evt_123');
+    expect(out).toEqual({ requeued: true });
+    expect((db as unknown as { _captured: { id?: unknown } })._captured.id).toBe('evt_123');
+  });
+
+  it('returns requeued:false when no failed row matches (0 changes)', async () => {
+    expect(await requeueFailedOutbox(runDb(0), 'missing')).toEqual({ requeued: false });
   });
 });
