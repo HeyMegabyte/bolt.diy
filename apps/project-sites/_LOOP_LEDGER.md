@@ -235,3 +235,32 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 > **Fastest-win batch (≈1 day):** ship the S-effort config layer first — #1 #2 #3 #4 #6 #12 #16 #35 #46 — mostly `wrangler.toml`/`index.ts`/build config, each independently deploy-verifiable.
 > **Cross-cutting themes:** (a) infra is *built-but-unwired* (outbox, queues, analytics, AI-Gateway-cache, observability all scaffolded with no consumer); (b) folder sprawl blocks own drift/dead-code tooling; (c) frontend is one zoneless+OnPush+SSR push from a major INP step-change.
 > ⚠️ T3 (#19-26) are leads from repo grounding, NOT a completed security-agent pass — verify before treating as confirmed vulns.
+
+## 30-brilliant-tools adoption (2026-06-19) — Brian-selected: tools #1-22, #25, #26 + React Email
+> From the "30 brilliant tools" list. Brian explicitly approved adoption (overrides package-registry "listing≠installing" — these are now sanctioned). Status: `[x]` shipped · `[~]` core-built/partial · `[ ]` open. Tags: **dep-churn** (needs npm install — deferred under heavy concurrent-session contention to avoid lockfile collisions) · **ext-key** (needs a vendor API key — attended) · **L** (large refactor — attended session) · **hot-file** (touches index.ts/registry — collision risk).
+- [x] **T#8 lychee link-check CI** — DONE (this turn): `.github/workflows/lychee-links.yml` report-only (`continue-on-error`, `fail:false`) over docs/*.md + public/*.html. Surfaces dead links per always.md "all hyperlinks valid" without blocking. actionlint OK. Detect→Surface rung. Promote to blocking once clean.
+- [x] **T#12 Jina Reader** — DONE (this turn): `src/services/jina_reader.ts` (`readerUrl` + `fetchReaderMarkdown`, DI-seam fetch, typed errors, http(s)-only guard) for clean Markdown extraction in the clone/scrape + RAG path. 8 Jest tests. **WIRE-UP follow-up:** call from the `scrape-website` workflow step (hot-file, attended).
+- [x] **React Email accepted in ~/.agentskills** — DONE (this turn): `package-preference-registry` + `notifications-email-webhooks-supervisor` (×2) + `supervisor-skills-index` flipped ❌→✅ for React surfaces + **server-side email HTML rendering** (`render()`→string in the Worker; never in the Angular admin bundle). Pairs with SES/listmonk send path.
+- [ ] **T#3 schema-dts** — type-safe Schema.org JSON-LD. **dep-churn** (devDep) — add + a typed JSON-LD builder + test.
+- [ ] **T#7 html-validate** — generated-HTML structural build gate. **dep-churn**.
+- [ ] **T#9 unlighthouse** — all-routes Lighthouse/SEO/a11y scan for generated sites. **dep-churn** + needs a live/built URL (attended).
+- [ ] **T#13 promptfoo** — eval + prompt-injection red-team for generation prompts. **ext-key** (ANTHROPIC_API_KEY in CI) — scaffold config first.
+- [ ] **T#14 @anatine/zod-mock** — fixtures from Zod schemas. **dep-churn** (devDep) — clean once lockfile-safe.
+- [ ] **T#1 Pagefind** — WASM client-side search for >12-route generated sites. **dep-churn** + pipeline wiring (M).
+- [ ] **T#2 workers-og / Satori** — dynamic branded 1200×630 OG cards at the edge. **hot-file** (new worker route) + **dep-churn** (M).
+- [ ] **T#4 unpic** — responsive `<img>` via CF Images. Frontend, **dep-churn** (M).
+- [ ] **T#5 Capsize/Fontaine** — font-metric CLS kill. Frontend, **dep-churn** (M).
+- [ ] **T#6 Partytown** — third-party JS → worker thread on generated sites (M).
+- [ ] **T#18 Scalar** (+ Hono RPC `hc<AppType>`) — interactive API docs from `/api/openapi.json` (CDN, no dep) + end-to-end worker↔Angular types. **hot-file** (route mount in index.ts) — do when index.ts is quiet.
+- [ ] **T#10 Recraft** — AI vector/SVG logo gen → replaces raster DALL-E logos. **ext-key**.
+- [ ] **T#11 fal.ai (Flux)** — faster/cheaper hero+section image gen. **ext-key**.
+- [ ] **T#16 Unkey** — edge API-key mgmt for `public_api_v1`. **ext-key**.
+- [ ] **T#17 Stripe Billing Meters** — native usage metering for the credit wallet. **ext-key** + payments surface (approval-tier — attended).
+- [ ] **T#19 Arcjet** — security-as-code (bot/rate-limit/PII) on Workers. **ext-key** (M).
+- [ ] **T#21 Liveblocks** — live presence/comments on review-links/visual-point-edit. **ext-key** (M).
+- [ ] **T#22 Tolgee** — in-context + AI i18n management. **ext-key** (M).
+- [ ] **T#15 Drizzle ORM (RQBv2) + drizzle-kit** — type-safe D1 + migrations → replaces hand-rolled SQL across 153 services. **L** (biggest correctness win; dedicated attended session; also de-risks tenant-scoping audit #19).
+- [ ] **T#20 Alchemy** — TS-native CF IaC for the binding sprawl. **L** (attended).
+- [ ] **T#25 Nx + Nx Cloud** — affected builds + remote cache + generators. **L** (monorepo adoption; attended).
+- [ ] **T#26 Vitest** (worker Jest→Vitest) — kills the `@swc/jest` module-mock anomalies. **L** (325 suites; attended).
+> **Shipped this turn:** #8, #12, React Email. **Deferred rationale:** dep-churn items held because ≥3 fires are concurrently editing the worker tree (fire-3 hit lockfile/registry collisions) — batching npm installs unattended risks corrupting package-lock; do them in a single attended session. ext-key items need vendor keys (paste-collaboration). L items are multi-day refactors, not loop slices.
