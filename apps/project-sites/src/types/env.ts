@@ -235,6 +235,12 @@ export interface Env {
   AWS_DEFAULT_REGION?: string;
   /** Verified SES sender, e.g. noreply@mail.projectsites.dev. var. */
   SES_FROM_EMAIL?: string;
+  /** Listmonk base URL, e.g. https://mail.projectsites.dev (ADR-0019). var. */
+  LISTMONK_API_URL?: string;
+  /** Listmonk admin/API username. wrangler secret. */
+  LISTMONK_USERNAME?: string;
+  /** Listmonk admin/API password/token. wrangler secret. */
+  LISTMONK_PASSWORD?: string;
 
   // ── Headless Pipeline Config ────────────────────────────────
   /** A/B model split ratio (0-1). 0.5 = 50% OpenAI, 50% Anthropic. Default: 0.5. */
