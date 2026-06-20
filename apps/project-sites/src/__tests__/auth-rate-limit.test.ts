@@ -152,6 +152,7 @@ describe('auth rate-limit (item #6)', () => {
     ['/api/donate', 10, 'POST'],
     ['/api/contact-form/nsk', 5, 'POST'],
     ['/api/contact', 5, 'POST'],
+    ['/api/feedback', 10, 'POST'],
     ['/api/search/address', 30, 'GET'],
   ])('rate-limits the public cost endpoint %s (budget=%i)', async (path, budget, method) => {
     for (let i = 0; i < budget; i++) {

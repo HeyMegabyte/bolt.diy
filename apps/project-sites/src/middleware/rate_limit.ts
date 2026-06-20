@@ -71,6 +71,10 @@ export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
   // row. Same abuse/cost budget as the per-site form above (distinct path: this
   // never matches /api/contact-form/* — `contact` vs `contact-form` segment).
   { path: '/api/contact', maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact-platform' },
+  // Feedback form — public (auth optional), inserts a `feedback` row on every
+  // POST. Without a budget an attacker floods the table; 10/min/IP is generous
+  // for a human rating a build.
+  { path: '/api/feedback', maxRequests: 10, windowSeconds: 60, prefix: 'rl:feedback' },
   {
     path: '/api/sites/create-from-search',
     maxRequests: 10,
