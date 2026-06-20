@@ -27,6 +27,7 @@ import { sendClaimBuildEmail } from '../services/claim_build_emails.js';
 import { canStartBuild } from '../services/claim_build_session.js';
 import { toCreateFormPrefill } from '../services/claim_lead_profile.js';
 import { markClaimLinkClicked, resolveLeadByShortlink } from '../services/claim_links.js';
+import { buildClaimAttribution, claimStartedEventData } from '../services/claim_attribution.js';
 import { PLATFORM_CLAIMS_ORG_ID, transferClaimSite } from '../services/claim_org.js';
 import {
   applyClaimEvent,
@@ -111,6 +112,16 @@ claimRoutes.get('/api/claim/:shortlink', async (c) => {
           type: 'START_BUILD',
         });
 
+        // Normalize click attribution (utm_* + referer) so the golden-path event
+        // carries source/medium/campaign — flows through the outbox payload column
+        // into Tinybird so the activation funnel can answer "which campaigns convert".
+        const attribution = buildClaimAttribution({
+          shortlink,
+          query: c.req.query(),
+          referer: c.req.header('referer'),
+          leadId: link.leadId,
+        });
+
         // Emit the golden-path event onto the durable bus (drained every 5 min to
         // Tinybird analytics + Hatchet orchestration). Idempotent per shortlink so
         // a re-click never double-emits; fire-and-forget so it never blocks the 302.
@@ -124,7 +135,7 @@ claimRoutes.get('/api/claim/:shortlink', async (c) => {
                 tenantId: PLATFORM_CLAIMS_ORG_ID,
                 traceId: c.get('requestId') ?? site.id,
                 siteId: site.id,
-                data: { shortlink, leadId: link.leadId, slug },
+                data: { ...claimStartedEventData(attribution, { leadId: link.leadId, slug }) },
               },
               { scope: [shortlink] },
             ),
