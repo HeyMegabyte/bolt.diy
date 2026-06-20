@@ -103,7 +103,19 @@ class HTTPError extends Error {
 aiAdmin.onError((err, c) => {
   if (err instanceof HTTPError)
     return c.json({ error: { message: err.message } }, err.status as 400);
-  return c.json({ error: { message: err.message || 'internal error' } }, 500);
+  // Unexpected error → log the detail server-side, return a GENERIC message so
+  // raw internals (stack/SQL/paths) never reach the client (HTTPError above is
+  // the typed, intentionally-surfaced path).
+  console.warn(
+    JSON.stringify({
+      level: 'error',
+      service: 'ai_admin',
+      message: 'unhandled error',
+      error: err.message,
+      request_id: c.get('requestId'),
+    }),
+  );
+  return c.json({ error: { message: 'internal error' } }, 500);
 });
 
 async function siteOwned(

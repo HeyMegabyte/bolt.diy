@@ -71,7 +71,21 @@ pseo.post('/:siteId/generate', async (c) => {
     });
     return c.json({ ok: true, workflowInstanceId: instance.id });
   } catch (err) {
-    return c.json({ error: { code: 'INTERNAL_ERROR', message: String(err) } }, 500);
+    // Don't leak raw error internals (stack/SQL/paths) to the client — log the
+    // detail server-side, return a generic message (matches the global handler).
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'pseo',
+        message: 'pSEO workflow create failed',
+        error: String(err),
+        request_id: c.get('requestId'),
+      }),
+    );
+    return c.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Failed to start the pSEO workflow.' } },
+      500,
+    );
   }
 });
 
