@@ -468,6 +468,11 @@ class_name = "ConversationHub"
 #   (5) verify: `curl https://jobs.projectsites.dev/` (Inngest dashboard/API 200),
 #       then `inngest.send({name:'site/generation.completed',...})` round-trips
 #       through the self-hosted server back to /api/inngest.
+#   (6) ⚠️ WAF: CF managed bot-protection CHALLENGES `PUT /api/inngest` (verified
+#       live 2026-06-20 — GET returns the route's 503, PUT → 403 managed-challenge).
+#       The Inngest server REGISTERS functions via PUT, so add a WAF skip/bypass
+#       rule for `http.request.uri.path eq "/api/inngest"` (zone projectsites.dev)
+#       BEFORE expecting registration to succeed, else server→worker callbacks 403.
 #
 # [[env.production.containers]]
 # class_name = "InngestContainer"
