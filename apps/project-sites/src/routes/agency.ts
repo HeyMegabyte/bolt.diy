@@ -83,6 +83,31 @@ agency.get('/api/agency/clients', async (c) => {
   return c.json({ clients: data });
 });
 
+/**
+ * `GET /api/agency/invitations` — List the caller agency's PENDING invitations
+ * (the management view behind the revoke action).
+ *
+ * @remarks
+ * Pro-gated + org-scoped. Returns only ACTIONABLE invites — unclaimed AND
+ * unexpired (a claimed one became a child org in `GET /api/agency/clients`; an
+ * expired one is dead). Never returns `token_hash` (the secret stays server-side).
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
+agency.get('/api/agency/invitations', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized();
+  const { data } = await dbQuery(
+    c.env.DB,
+    `SELECT id, client_email, role, preselected_template_id, expires_at, created_at
+       FROM agency_invitations
+       WHERE agency_org_id = ? AND claimed_at IS NULL AND expires_at > ?
+       ORDER BY created_at DESC`,
+    [orgId, new Date().toISOString()],
+  );
+  return c.json({ invitations: data });
+});
+
 const inviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(['client_owner', 'client_editor', 'client_viewer']).default('client_owner'),

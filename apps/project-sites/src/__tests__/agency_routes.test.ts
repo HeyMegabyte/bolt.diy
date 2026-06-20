@@ -127,6 +127,7 @@ describe('agency routes — Pro gate (402)', () => {
   it.each([
     ['GET', '/api/agency/whoami'],
     ['GET', '/api/agency/clients'],
+    ['GET', '/api/agency/invitations'],
     ['GET', '/api/agency/brand'],
     ['GET', '/api/agency/snapshots'],
   ])('returns 402 PRO_REQUIRED for %s %s when the caller is not Pro', async (method, path) => {
@@ -566,6 +567,32 @@ describe('GET /api/agency/snapshots', () => {
     // Query binds the caller orgId; global templates (author_org_id IS NULL) are unioned in SQL.
     expect(mockQuery.mock.calls[0][2]).toEqual(['org-1']);
     expect(mockQuery.mock.calls[0][1]).toContain('author_org_id');
+  });
+});
+
+describe('GET /api/agency/invitations (list pending)', () => {
+  it('401s when org context is missing', async () => {
+    const { request } = makeApp();
+    const res = await request('/api/agency/invitations');
+    expect(res.status).toBe(401);
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('lists pending invitations scoped to the agency, excluding claimed + expired', async () => {
+    mockQuery.mockResolvedValue({
+      data: [{ id: 'inv-1', client_email: 'a@x.test', role: 'client_owner' }],
+      error: null,
+    });
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/invitations');
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { invitations: Array<{ id: string }> };
+    expect(json.invitations).toHaveLength(1);
+    const [, sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toContain('claimed_at IS NULL'); // no claimed invites
+    expect(sql).toContain('expires_at >'); // no expired invites
+    expect(sql).not.toContain('token_hash'); // never leak the secret
+    expect(params[0]).toBe('org-1'); // org-scoped
   });
 });
 
