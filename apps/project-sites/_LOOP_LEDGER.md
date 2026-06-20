@@ -173,10 +173,10 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 ### T1 — Cloudflare platform leverage (config-heavy, highest ROI)
 - [x] **#1 bump `compatibility_date` 2026-05-01→2026-06-19** ✅ S — `wrangler.toml`; stale date locks out runtime fixes + `node:` modules. **DONE (fire-1, 2026-06-19):** date bumped (top-level, inherited by `[env.production]`); RED→GREEN guard test `src/__tests__/wrangler_compat_date.test.ts` (3 cases: present / not-stale ≥2026-06-19 / nodejs_compat retained) prevents silent re-rot. ⚠️ **#2 Smart Placement deliberately NOT bundled** — this worker's hot path is edge KV→R2 static serving; Smart Placement relocates toward origin DC and could regress edge-serve p99 → needs attended before/after INP measurement per dogfood-first, NOT a blind loop slice.
 - [ ] **#2 `[placement] mode = "smart"`** ✅ S — no placement block; D1/R2/Vectorize round-trip to origin DC. ~40-60ms p99, zero code.
-- [ ] **#3 AI Gateway `cacheKey`/`cacheTtl` on every LLM call** ✅ S — `AI_GATEWAY_ENABLED=true` but no call caches; identical pSEO/feature prompts re-bill.
-- [ ] **#4 `[observability] enabled=true` + Logpush→R2** ✅ S — OTLP/Logs now billed (Mar 2026); no structured prod visibility today.
+- [x] **#3 AI Gateway `cacheKey`/`cacheTtl` on every LLM call** ✅ S — **ALREADY DONE (verified fire-2):** `ai_gateway.ts` emits `cf-aig-cache-ttl`/`cf-aig-skip-cache`/`cf-aig-metadata` (header-merge L165, `GatewayCallOptionsSchema` Zod-validated, `DEFAULT_CACHE_TTL_SECONDS` → caching ON by default); `cacheOptionsFor(options)` wired into both LLM callers (`external_llm.ts:467` OpenAI, `:634` Anthropic) with temp≥0.5→skipCache. Audit over-stated the gap (agent saw the flag, missed the wiring in ai_gateway.ts). No work needed.
+- [x] **#4 `[observability] enabled=true` + Logpush→R2** ✅ S — **ALREADY DONE (verified fire-2):** `wrangler.toml [env.production.observability]` has `enabled=true` + `[.logs] enabled=true invocation_logs=true` + `[.traces] enabled=true` (all head_sampling 0.1). REMAINING (attended, NOT a loop slice): Logpush→R2 job is a CF-dashboard/API config, not a code change.
 - [ ] **#5 D1 Sessions API (`withSession`) for reads** ✅ M — read replicas free/auto but every query hits primary; wrap `src/services/db.ts` read helpers.
-- [ ] **#6 `EnvSchema` Zod validation at boot** S — 50+ bindings accessed, never validated; missing secret fails deep, not at startup. `src/index.ts` first middleware.
+- [x] **#6 `EnvSchema` Zod validation at boot** S — **ALREADY DONE (verified fire-2):** `src/lib/env.ts` exports `EnvSchema = z.object({…})` + `parseEnv()`; called as the FIRST `app.use('*')` middleware at `src/index.ts:192` (ZodError on missing required secret → errorHandler → 500). No work needed.
 - [ ] **#7 latest Workers AI model (Llama 4 Scout `@cf/meta/llama-4-scout-17b-16e-instruct`)** ✅ M — Llama 3.x deprecated May 2026; 131K ctx, multimodal, function-calling.
 - [ ] **#8 enable Cloudflare Queues for async fan-out** M — `[[queues.producers]]` commented out; image-gen/Drive-sync/snapshot run inline blocking the response chain.
 
@@ -187,7 +187,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] **#12 Hono `secureHeaders()` + `csrf()` globally** ✅ S — built-in tree-shakeable; CSRF validates Origin/Sec-Fetch in constant time. `src/index.ts`.
 - [ ] **#13 split `src/index.ts` (74KB god-file) into domain sub-apps** L — every route add touches it; merge-conflict magnet.
 - [ ] **#14 flatten `services/` (153) + `routes/` (56) into `libs/features/<slug>/`** L — violates ≤10/folder; blocks drift validators + knip.
-- [ ] **#15 wire `knip` into CI + first dead-code sweep** S — config exists, never run; ~44 dead fns in `features.ts`.
+- [x] **#15 wire `knip` into CI (Detect→Surface)** S — **DONE (fire-2, 2026-06-19):** added `knip` + report-only `knip:report` (`|| true`) npm scripts + `.github/workflows/knip-report.yml` (paths-gated, `continue-on-error:true` — surfaces unused exports without failing CI on the backlog). RED→GREEN guard test `src/__tests__/knip_wired.test.ts` (3 cases). knip runs clean locally → ~13 unused functions + 7 unused types surfaced. actionlint OK. **REMAINING (separate M session, NOT a blind loop slice):** the actual dead-code SWEEP (delete the ~20 unused exports, then promote the gate to blocking by dropping `continue-on-error`).
 - [ ] **#16 stale-while-revalidate on 60s KV hostname cache** S — hard TTL → tail-latency spike every 60s; refresh in `waitUntil`.
 - [ ] **#17 wire `ANALYTICS_INGEST_ENABLED` to real events** M — flag dark, emits nothing; instrument site-create/AI-gen before rollout.
 - [ ] **#18 delete `ai_admin_features.ts.bak` + scratch hygiene** S — stale `.bak` misleads grep/readers.
@@ -226,7 +226,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] **#45 rewrite pricing/marketing copy to grade 5-7** ✅ S — Unbounce 57M study: simple copy 12.9% vs 2.1%; Hemingway pass, aligns Flesch≥50 gate.
 
 ### T6 — SEO/GEO & accessibility/compliance
-- [ ] **#46 `llms.txt` + allow AI bots (GPTBot/ClaudeBot/PerplexityBot)** ✅ S — AI-referred sessions +527% YoY; blocking = zero AI citations.
+- [x] **#46 `llms.txt` + AI-crawler-split `robots.txt`** ✅ S — **ALREADY DONE (prod-verified fire-2):** `features.ts:69` serves `/llms.txt` (200 live), `:129` serves purpose-split `/robots.txt` — ALLOWs search/retrieval bots (OAI-SearchBot, Claude-SearchBot, Claude-User, PerplexityBot), DISALLOWs training-only bots (GPTBot, ClaudeBot, Google-Extended) per `always.md` doctrine. (Audit framing mislabeled GPTBot/ClaudeBot as "allow" — they're training bots, correctly disallowed.) `feature_e2e.ts` already asserts both live. No work needed.
 - [ ] **#47 FAQPage JSON-LD + answer-first content** ✅ M — +40% ChatGPT citation weight; 2.3× more likely in Google AI Overviews. Accurate FAQs only (gate #12).
 - [ ] **#48 WCAG 2.2 AA — 6 new criteria (EAA enforced Jun 2025)** ✅🔒 M — EU fines to €100K/infringement; focus-not-obscured, 24×24 targets, paste-on-auth, redundant-entry.
 - [ ] **#49 publish `/accessibility` statement + axe-core in CI** ✅ S — EAA requires statement w/ complaint channel; `@axe-core/playwright` installed but unused in CI.

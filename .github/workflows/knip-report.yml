@@ -1,0 +1,50 @@
+name: Knip Dead-Code Report (project-sites worker)
+
+# Report-only (non-blocking) surface for the worker's dead-code / unused-export
+# backlog. knip.json existed but nothing ran it, so unused exports accumulated
+# invisibly. This job runs knip and surfaces the count in the Actions log WITHOUT
+# failing the build — the Detect→Surface rung of the audit-arc maturity ladder.
+# Promote to a hard gate (drop continue-on-error) once the backlog is swept to 0.
+# Ledger: 50-improvement audit (2026-06-19) item #15.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/src/**'
+      - 'apps/project-sites/knip.json'
+      - 'apps/project-sites/package.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/src/**'
+      - 'apps/project-sites/knip.json'
+      - 'apps/project-sites/package.json'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  knip:
+    name: knip (report-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/package-lock.json
+
+      - name: Install deps
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
+
+      # Non-blocking: surfaces unused exports/files without failing CI on the
+      # known backlog. The `knip:report` script ends in `|| true` as belt+braces.
+      - name: Run knip (report-only)
+        working-directory: apps/project-sites
+        continue-on-error: true
+        run: npm run knip:report

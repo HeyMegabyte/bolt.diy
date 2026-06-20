@@ -31,7 +31,9 @@
     "validate:features": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs",
     "validate:features:quick": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs --quick",
     "check:fabricated-people": "node scripts/validate-no-fabricated-people.mjs",
-    "test:scripts": "node --test scripts/__tests__/validate_no_fabricated_people.test.mjs"
+    "test:scripts": "node --test scripts/__tests__/validate_no_fabricated_people.test.mjs",
+    "knip": "npx --yes knip --no-progress",
+    "knip:report": "npx --yes knip --no-progress --reporter compact || true"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.2",
