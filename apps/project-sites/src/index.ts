@@ -136,6 +136,7 @@ import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.j
 import { aeoPass } from '../libs/features/aeo_pass/handlers.js'; // answer-engine optimization (flag: aeo_pass)
 import { statusPageLive } from '../libs/features/status_page_live/handlers.js'; // live status feed (flag: status_page_live)
 import { siteThumbnailGrid } from '../libs/features/site_thumbnail_grid/handlers.js'; // browser-rendered thumbnails (flag: site_thumbnail_grid)
+import { observabilityGateway } from '../libs/features/observability_gateway/handlers.js'; // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveAppHost } from './services/app_host_resolver.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
@@ -418,6 +419,7 @@ app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,d
 app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all
 app.route('/', browserService); // POST /v1/browser/* — product browser-automation abstraction (browser.projectsites.dev); routes CF→Stagehand→Browserbase-fallback, never Skyvern in product paths — must precede the catch-all
+app.route('/', observabilityGateway); // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway) — must precede the catch-all
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
