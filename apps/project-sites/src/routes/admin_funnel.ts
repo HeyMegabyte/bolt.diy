@@ -19,6 +19,7 @@ import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { fetchActivationFunnel } from '../services/activation_funnel_query.js';
+import { computeFunnelConversion } from '../services/funnel_conversion.js';
 
 /** RFC7807-ish error envelope used across the worker. */
 function errorBody(code: string, message: string, requestId: string | undefined) {
@@ -51,5 +52,8 @@ adminFunnel.get('/api/admin/activation-funnel', async (c) => {
     tenantId: parsed.data.tenant_id,
     days: parsed.data.days,
   });
-  return c.json({ stages, degraded, count: stages.length }, 200);
+  // Conversion is derived from the same stages (pure, no second round-trip) — the
+  // actionable revenue signal: per-stage drop-off + overall discovered→converted.
+  const conversion = computeFunnelConversion(stages);
+  return c.json({ stages, conversion, degraded, count: stages.length }, 200);
 });
