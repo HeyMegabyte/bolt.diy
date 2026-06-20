@@ -16,6 +16,7 @@ on:
       - 'apps/project-sites/e2e/**'
       - 'apps/project-sites/frontend/e2e/**'
       - 'apps/project-sites/scripts/validate-feature-*.mjs'
+      - 'apps/project-sites/scripts/check-architecture-fitness.mjs'
       - 'apps/project-sites/scripts/validate-e2e-inventory.mjs'
       - 'apps/project-sites/frontend/scripts/validate-e2e-inventory.mjs'
       - 'apps/project-sites/package.json'
@@ -28,6 +29,7 @@ on:
       - 'apps/project-sites/e2e/**'
       - 'apps/project-sites/frontend/e2e/**'
       - 'apps/project-sites/scripts/validate-feature-*.mjs'
+      - 'apps/project-sites/scripts/check-architecture-fitness.mjs'
       - 'apps/project-sites/scripts/validate-e2e-inventory.mjs'
       - 'apps/project-sites/frontend/scripts/validate-e2e-inventory.mjs'
       - 'apps/project-sites/package.json'
@@ -97,6 +99,16 @@ jobs:
         id: frontend_e2e_inventory
         working-directory: apps/project-sites/frontend
         run: node scripts/validate-e2e-inventory.mjs
+
+      # ── Step 2c: Architecture fitness — exclude-list gate (§15, HARD GATE) ─
+      # Fails CI if a §4-excluded vendor (Polar/Trigger.dev/Postmark/Clay/
+      # Socket.dev/Chainguard) reappears in src/+libs/. Resend is tracked-
+      # migration (ADR-0019) → non-blocking until its burndown completes. Pure
+      # Node, no deps. Promotes the local `npm run check:fitness:ci` to a CI gate.
+      - name: Architecture fitness (exclude-list)
+        id: fitness
+        working-directory: apps/project-sites
+        run: node scripts/check-architecture-fitness.mjs --ci
 
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
