@@ -15,10 +15,7 @@
  * @see docs/adr/0005-openfga-authorization-graph.md
  */
 
-import type {
-  AuthorizationCheckInput,
-  AuthorizationProvider,
-} from '../platform/authorization.js';
+import type { AuthorizationCheckInput, AuthorizationProvider } from '../platform/authorization.js';
 
 export interface OpenFgaConfig {
   readonly apiUrl: string;
@@ -69,7 +66,11 @@ export class OpenFgaAuthorizationProvider implements AuthorizationProvider {
     const res = await this.fetchImpl(this.url('/write'), {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ writes: { tuple_keys: [{ user: input.user, relation: input.relation, object: input.object }] } }),
+      body: JSON.stringify({
+        writes: {
+          tuple_keys: [{ user: input.user, relation: input.relation, object: input.object }],
+        },
+      }),
     });
     if (!res.ok) throw new Error(`OpenFGA write failed: ${res.status}`);
   }
@@ -78,7 +79,11 @@ export class OpenFgaAuthorizationProvider implements AuthorizationProvider {
     const res = await this.fetchImpl(this.url('/write'), {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ deletes: { tuple_keys: [{ user: input.user, relation: input.relation, object: input.object }] } }),
+      body: JSON.stringify({
+        deletes: {
+          tuple_keys: [{ user: input.user, relation: input.relation, object: input.object }],
+        },
+      }),
     });
     if (!res.ok) throw new Error(`OpenFGA delete failed: ${res.status}`);
   }

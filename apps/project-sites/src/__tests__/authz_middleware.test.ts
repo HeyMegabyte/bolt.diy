@@ -6,7 +6,10 @@
  */
 import { Hono } from 'hono';
 import { requireAuthz, getAuthorizationProvider } from '../middleware/authz.js';
-import { FakeAuthorizationProvider, DenyAllAuthorizationProvider } from '../platform/authorization.js';
+import {
+  FakeAuthorizationProvider,
+  DenyAllAuthorizationProvider,
+} from '../platform/authorization.js';
 import type { Env, Variables } from '../types/env.js';
 
 function app(provider: FakeAuthorizationProvider, withUser: string | null = 'user-1') {
@@ -17,7 +20,11 @@ function app(provider: FakeAuthorizationProvider, withUser: string | null = 'use
   });
   a.post(
     '/api/sites/:id/publish',
-    requireAuthz('can_publish', (c) => `site:${c.req.param('id')}`, () => provider),
+    requireAuthz(
+      'can_publish',
+      (c) => `site:${c.req.param('id')}`,
+      () => provider,
+    ),
     (c) => c.json({ data: 'published' }),
   );
   return a;
@@ -29,7 +36,7 @@ describe('requireAuthz', () => {
     await p.writeRelationship({ user: 'user-1', relation: 'owner', object: 'site:a' });
     const res = await app(p).request('/api/sites/a/publish', { method: 'POST' }, {} as Env);
     expect(res.status).toBe(200);
-    expect((await res.json() as { data: string }).data).toBe('published');
+    expect(((await res.json()) as { data: string }).data).toBe('published');
   });
 
   it('denies a different site the user does not own (403 FORBIDDEN)', async () => {
@@ -37,19 +44,25 @@ describe('requireAuthz', () => {
     await p.writeRelationship({ user: 'user-1', relation: 'owner', object: 'site:a' });
     const res = await app(p).request('/api/sites/b/publish', { method: 'POST' }, {} as Env);
     expect(res.status).toBe(403);
-    expect((await res.json() as { error: { code: string } }).error.code).toBe('FORBIDDEN');
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('FORBIDDEN');
   });
 
   it('denies an editor (no publish permission) on their own site', async () => {
     const p = new FakeAuthorizationProvider();
     await p.writeRelationship({ user: 'user-1', relation: 'editor', object: 'site:a' });
-    expect((await app(p).request('/api/sites/a/publish', { method: 'POST' }, {} as Env)).status).toBe(403);
+    expect(
+      (await app(p).request('/api/sites/a/publish', { method: 'POST' }, {} as Env)).status,
+    ).toBe(403);
   });
 
   it('401 when unauthenticated', async () => {
-    const res = await app(new FakeAuthorizationProvider(), null).request('/api/sites/a/publish', { method: 'POST' }, {} as Env);
+    const res = await app(new FakeAuthorizationProvider(), null).request(
+      '/api/sites/a/publish',
+      { method: 'POST' },
+      {} as Env,
+    );
     expect(res.status).toBe(401);
-    expect((await res.json() as { error: { code: string } }).error.code).toBe('UNAUTHORIZED');
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('UNAUTHORIZED');
   });
 });
 

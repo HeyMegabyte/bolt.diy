@@ -26,7 +26,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate, dbExecute } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
 import { notifySiteOwner } from '../services/notify.js';
-import { unauthorized } from '@project-sites/shared';
+import { unauthorized, internalError } from '@project-sites/shared';
 
 const agency = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -438,7 +438,21 @@ agency.get('/api/agency/brand', async (c) => {
     'SELECT brand_overrides_json FROM orgs WHERE id = ? LIMIT 1',
     [orgId],
   );
-  const brand = row?.brand_overrides_json ? JSON.parse(row.brand_overrides_json) : {};
+  // Corrupt STORED brand JSON is server-side data corruption → 500, not 400.
+  // Parse explicitly here so it doesn't fall through to the shared error
+  // handler's malformed-request-body net (which maps JSON SyntaxError → 400,
+  // correct for client input but wrong for our own stored data).
+  let brand: unknown = {};
+  if (row?.brand_overrides_json) {
+    try {
+      brand = JSON.parse(row.brand_overrides_json);
+    } catch (err) {
+      throw internalError(
+        'Stored brand overrides are corrupt',
+        err instanceof Error ? err : undefined,
+      );
+    }
+  }
   return c.json({ brand });
 });
 
