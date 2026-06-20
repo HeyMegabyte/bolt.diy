@@ -36,7 +36,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
-import { agency } from '../routes/agency.js';
+import { agency, membershipRoleForInvite } from '../routes/agency.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import type { Env, Variables } from '../types/env.js';
 
@@ -526,5 +526,108 @@ describe('GET /api/agency/snapshots', () => {
     // Query binds the caller orgId; global templates (author_org_id IS NULL) are unioned in SQL.
     expect(mockQuery.mock.calls[0][2]).toEqual(['org-1']);
     expect(mockQuery.mock.calls[0][1]).toContain('author_org_id');
+  });
+});
+
+describe('membershipRoleForInvite (role-enum mapping)', () => {
+  it('maps invite roles to CHECK-valid membership roles', () => {
+    expect(membershipRoleForInvite('client_owner')).toBe('owner');
+    expect(membershipRoleForInvite('client_editor')).toBe('member');
+    expect(membershipRoleForInvite('client_viewer')).toBe('viewer');
+  });
+  it('falls back to least-privilege viewer for unknown roles', () => {
+    expect(membershipRoleForInvite('weird')).toBe('viewer');
+    expect(membershipRoleForInvite('')).toBe('viewer');
+  });
+});
+
+describe('POST /api/invitations/agency/accept (redeem)', () => {
+  /** App with a DB stub whose claim UPDATE reports `changes` row-changes. */
+  function acceptApp(changes: number, ids?: { userId?: string }) {
+    const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+    app.onError(errorHandler);
+    app.use('*', async (c, next) => {
+      if (ids?.userId) c.set('userId', ids.userId);
+      c.set('requestId', 'req-accept');
+      await next();
+    });
+    app.route('/', agency);
+    const db = {
+      prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes } }) }) }),
+    } as unknown as D1Database;
+    const env = { DB: db, CACHE_KV: makeKv(), ENVIRONMENT: 'test' } as unknown as Env;
+    const ctx = {
+      waitUntil: () => undefined,
+      passThroughOnException: () => undefined,
+    } as unknown as ExecutionContext;
+    return (body: unknown) =>
+      app.request(
+        '/api/invitations/agency/accept',
+        { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) },
+        env,
+        ctx,
+      );
+  }
+
+  it('401s when no user is signed in', async () => {
+    const res = await acceptApp(1)({ token: 'tok_1' });
+    expect(res.status).toBe(401);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('404s (and creates nothing) when the claim matches no unclaimed/unexpired row', async () => {
+    const res = await acceptApp(0, { userId: 'u1' })({ token: 'tok_dead' });
+    expect(res.status).toBe(404);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('creates a child org + membership with the MAPPED role on a fresh claim', async () => {
+    mockQueryOne.mockResolvedValue({
+      agency_org_id: 'agency-org',
+      role: 'client_editor',
+      client_email: 'client@acme.test',
+      preselected_template_id: 'tpl_9',
+    });
+    const res = await acceptApp(1, { userId: 'u1' })({ token: 'tok_ok' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { org_id: string; slug: string; role: string; preselected_template_id?: string };
+    };
+    expect(json.data.role).toBe('member'); // client_editor → member (CHECK-valid)
+    expect(json.data.preselected_template_id).toBe('tpl_9');
+
+    // orgs insert is parented to the agency; membership carries the mapped role.
+    const [, orgsTable, orgRow] = mockInsert.mock.calls[0];
+    expect(orgsTable).toBe('orgs');
+    expect(orgRow).toEqual(expect.objectContaining({ parent_org_id: 'agency-org' }));
+    const [, memTable, memRow] = mockInsert.mock.calls[1];
+    expect(memTable).toBe('memberships');
+    expect(memRow).toEqual(
+      expect.objectContaining({
+        org_id: json.data.org_id,
+        user_id: 'u1',
+        role: 'member',
+        billing_admin: 0,
+      }),
+    );
+  });
+
+  it('is NOT Pro-gated — redeem works even when requirePro would 402', async () => {
+    proBlocks(); // would 402 on any /api/agency/* route
+    mockQueryOne.mockResolvedValue({
+      agency_org_id: 'agency-org',
+      role: 'client_owner',
+      client_email: 'owner@acme.test',
+      preselected_template_id: null,
+    });
+    const res = await acceptApp(1, { userId: 'u1' })({ token: 'tok_ok' });
+    expect(res.status).toBe(200); // path is /api/invitations/* → outside the Pro guard
+    const json = (await res.json()) as { data: { role: string } };
+    expect(json.data.role).toBe('owner'); // client_owner → owner, billing_admin:1
+  });
+
+  it('400s on a missing token (Zod)', async () => {
+    const res = await acceptApp(1, { userId: 'u1' })({});
+    expect(res.status).toBe(400);
   });
 });

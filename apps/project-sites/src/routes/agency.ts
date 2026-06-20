@@ -96,25 +96,11 @@ const inviteSchema = z.object({
  * Body: {@link inviteSchema}. Returns `{ invitation_id, token, expires_at }`.
  *
  * @remarks
- * The caller (agency) currently relays the returned `token` to the client itself.
- * TODO(agency-redeem): this invitation is WRITE-ONLY — no route consumes
- * `agency_invitations` yet (cf. `team_invites` redeem in ai_admin.ts), so a client
- * cannot accept it in-app. Build `POST /api/agency/clients/accept` FIRST, then
- * wire the invite email here via `sendEmail` (notifications.ts) / Novu (NOT a new
- * Resend call — sendEmail already owns the transport). TWO verified schema
- * landmines for that route:
- *   1. Redeem columns are `claimed_at` + `claimed_by_user_id` (NOT `accepted_at`).
- *      Match on `token_hash = ? AND claimed_at IS NULL AND expires_at > now`.
- *   2. ROLE ENUM MISMATCH: the invite `role` is `client_owner|client_editor|
- *      client_viewer`, but `memberships.role` has `CHECK (role IN ('owner','admin',
- *      'member','viewer'))` — inserting a `client_*` role 500s on the CHECK. Map
- *      first: client_owner→owner, client_editor→member, client_viewer→viewer.
- *   Accept flow: resolve token → create child org (`orgs.parent_org_id =
- *   invite.agency_org_id`; no createOrg helper exists — mirror the raw inserts in
- *   auth.ts ~L990) → membership with the MAPPED role → set claimed_at/by. This is
- *   access-control-sensitive (the role mapping governs authorization) — review-tier.
+ * The caller (agency) relays the returned `token` to the client; the client
+ * redeems it at `POST /api/invitations/agency/accept` (see below) which creates
+ * their child org + membership. Wiring an invite EMAIL here (via `sendEmail` /
+ * Novu, never a new Resend call) is the remaining enhancement.
  *
-
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
@@ -137,10 +123,134 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
     token_hash: tokenHash,
     expires_at: expiresAt,
   });
-  // TODO(agency-redeem): no email yet — the invitation is unredeemable until a
-  // POST /api/agency/clients/accept route consumes agency_invitations (see the
-  // JSDoc above). Once that lands, send via sendEmail/Novu, not Resend directly.
+  // Email delivery (sendEmail/Novu) is the remaining enhancement — the caller
+  // relays the token meanwhile; the client redeems at the accept route below.
   return c.json({ invitation_id: id, token, expires_at: expiresAt });
+});
+
+/**
+ * Map an agency-invitation role to the constrained `memberships.role` enum.
+ *
+ * @remarks
+ * Invitation roles (`client_owner|client_editor|client_viewer`) are NOT valid
+ * `memberships.role` values — that column has `CHECK (role IN
+ * ('owner','admin','member','viewer'))`, so a `client_*` value would 500 the
+ * INSERT. This is the single mapping point: owner→owner, editor→member (standard
+ * non-admin write role), viewer→viewer. Any unknown role falls back to the
+ * least-privilege `viewer`.
+ *
+ * @param inviteRole - The `agency_invitations.role` value.
+ * @returns A membership role that satisfies the CHECK constraint.
+ * @example membershipRoleForInvite('client_editor') // 'member'
+ */
+export function membershipRoleForInvite(inviteRole: string): 'owner' | 'member' | 'viewer' {
+  if (inviteRole === 'client_owner') return 'owner';
+  if (inviteRole === 'client_editor') return 'member';
+  return 'viewer';
+}
+
+const acceptSchema = z.object({ token: z.string().min(1).max(200) });
+
+/**
+ * `POST /api/invitations/agency/accept` — Redeem an agency client invitation.
+ *
+ * @remarks
+ * Mounted OUTSIDE the `/api/agency/*` `requirePro` guard on purpose: the invitee
+ * is a CLIENT, not a Pro agency, so requiring Pro would make every invite
+ * un-acceptable. The bearer of the secret `token` (+ a signed-in user) is the
+ * auth. Flow is claim-then-create — the `claimed_at IS NULL` UPDATE is the lock,
+ * so a concurrent or replayed accept sees `changes:0` and is rejected (no
+ * duplicate child org). On success: a child org (`parent_org_id = agency_org_id`)
+ * + the caller's membership with the {@link membershipRoleForInvite} role.
+ *
+ * Body: `{ token }`. Returns `{ data: { org_id, slug, role, preselected_template_id? } }`.
+ *
+ * @throws 401 UNAUTHORIZED when no user is signed in.
+ * @throws 404 NOT_FOUND when the token is unknown, expired, or already claimed.
+ */
+agency.post('/api/invitations/agency/accept', zValidator('json', acceptSchema), async (c) => {
+  const userId = c.get('userId');
+  if (!userId) throw unauthorized();
+  const { token } = c.req.valid('json');
+  const tokenHash = await sha256(token);
+  const nowIso = new Date().toISOString();
+
+  // Claim-then-create: this UPDATE is the lock. Only the request that flips
+  // claimed_at from NULL proceeds; a race/replay sees changes:0 → 404, so the
+  // child org is created at most once per invitation.
+  const claim = await c.env.DB.prepare(
+    `UPDATE agency_invitations SET claimed_at = ?, claimed_by_user_id = ?
+       WHERE token_hash = ? AND claimed_at IS NULL AND expires_at > ?`,
+  )
+    .bind(nowIso, userId, tokenHash, nowIso)
+    .run();
+  if ((claim.meta?.changes ?? 0) === 0) {
+    // Unknown / expired / already-claimed — don't leak which.
+    return c.json(
+      {
+        error: {
+          code: 'NOT_FOUND',
+          message: 'This invitation is invalid, expired, or already claimed.',
+        },
+      },
+      404,
+    );
+  }
+
+  const invite = await dbQueryOne<{
+    agency_org_id: string;
+    role: string;
+    client_email: string;
+    preselected_template_id: string | null;
+  }>(
+    c.env.DB,
+    `SELECT agency_org_id, role, client_email, preselected_template_id
+       FROM agency_invitations WHERE token_hash = ?`,
+    [tokenHash],
+  );
+  if (!invite) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Invitation not found.' } }, 404);
+  }
+
+  const childOrgId = crypto.randomUUID();
+  const slugBase =
+    (invite.client_email.split('@')[0] ?? 'client')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 32) || 'client';
+  const slug = `${slugBase}-${crypto.randomUUID().slice(0, 6)}`;
+  const role = membershipRoleForInvite(invite.role);
+
+  await dbInsert(c.env.DB, 'orgs', {
+    id: childOrgId,
+    name: invite.client_email,
+    slug,
+    parent_org_id: invite.agency_org_id,
+    deleted_at: null,
+  });
+  await dbInsert(c.env.DB, 'memberships', {
+    id: crypto.randomUUID(),
+    org_id: childOrgId,
+    user_id: userId,
+    role,
+    billing_admin: role === 'owner' ? 1 : 0,
+    deleted_at: null,
+  });
+
+  return c.json(
+    {
+      data: {
+        org_id: childOrgId,
+        slug,
+        role,
+        ...(invite.preselected_template_id
+          ? { preselected_template_id: invite.preselected_template_id }
+          : {}),
+      },
+    },
+    200,
+  );
 });
 
 const brandSchema = z.object({
