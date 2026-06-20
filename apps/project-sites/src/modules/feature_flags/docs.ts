@@ -907,6 +907,52 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the route 404s',
     ],
   },
+  generative_ui_stream: {
+    checklist: [
+      'POST /api/copilot/ui — Workers AI returns schema-bound UI descriptors',
+      'Every LLM output Zod-validated before return (invalid → rejected, never rendered)',
+      'Off by default → the route 404s (never 403)',
+      'Sentry + structured logs on every generation; no persistent state',
+    ],
+    explanation:
+      'Generative UI Stream composes copilot-driven interfaces dynamically: POST /api/copilot/ui calls Workers AI to produce schema-bound UI descriptors, which are Zod-validated before reaching the client so a malformed LLM output can never render. Disabled by default → the route 404s. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/generative_ui_stream module.',
+    smoke_test: [
+      'POST /api/copilot/ui {prompt:"..."} → 200 with a Zod-valid UI descriptor',
+      'Force an invalid LLM output (mock) → request rejected, nothing rendered',
+      'Disable the flag → the route 404s',
+    ],
+  },
+  page_audio_summary: {
+    checklist: [
+      'POST /api/audio-summary/:siteId — generate a per-route TTS summary',
+      'GET /api/audio-summary/:siteId — fetch the stored MP3 for playback',
+      'MP3 persisted to R2 under audio-summary/{siteId}/',
+      'Fail-soft when no TTS provider is configured; off by default → 404',
+    ],
+    explanation:
+      'Page Audio Summary generates per-route text-to-speech summaries via the media service and stores the MP3s in R2 (audio-summary/{siteId}/) for visitor playback. Requires a TTS provider (ElevenLabs or OpenAI); when unconfigured it degrades gracefully rather than erroring. Disabled by default → the routes 404. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/page_audio_summary module.',
+    smoke_test: [
+      'POST /api/audio-summary/:siteId → 200, MP3 written to R2',
+      'GET /api/audio-summary/:siteId → 200 audio/mpeg stream',
+      'Unset the TTS provider → graceful failure, no 5xx',
+      'Disable the flag → the routes 404',
+    ],
+  },
+  figma_import: {
+    checklist: [
+      'POST /api/figma/import — pull design tokens + component metadata from a Figma file',
+      'Caller supplies a Figma personal-access token (no shared vault yet)',
+      'Imported tokens flow into the generated site (no manual copy-paste)',
+      'Off by default → the route 404s; Sentry + logs on import',
+    ],
+    explanation:
+      'Figma Import pulls design tokens and component metadata from a Figma file via the Figma REST API (POST /api/figma/import), letting designers push brand tokens into a generated site without manual copy-paste. The caller supplies a Figma PAT (enable per-user in dev until a token-vault UX exists). Figma rate-limits at 100 req/min, so heavy imports may hit the cap. Disabled by default → the route 404s. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/figma_import module.',
+    smoke_test: [
+      'POST /api/figma/import {fileKey, token} → 200 with extracted tokens',
+      'Invalid/expired token → 4xx with a clear message (no crash)',
+      'Disable the flag → the route 404s',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {
