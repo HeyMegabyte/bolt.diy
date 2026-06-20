@@ -72,7 +72,8 @@ export class AmazonSesEmailProvider implements EmailProvider {
     const accessKeyId = this.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = this.env.AWS_SECRET_ACCESS_KEY;
     const from = input.from ?? this.env.SES_FROM_EMAIL;
-    if (!accessKeyId || !secretAccessKey) throw new Error('SES not configured: missing AWS credentials');
+    if (!accessKeyId || !secretAccessKey)
+      throw new Error('SES not configured: missing AWS credentials');
     if (!from) throw new Error('SES not configured: missing SES_FROM_EMAIL');
 
     const region = this.env.AWS_DEFAULT_REGION || 'us-east-1';

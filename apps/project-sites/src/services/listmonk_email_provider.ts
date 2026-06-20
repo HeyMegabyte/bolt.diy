@@ -41,7 +41,11 @@ export class ListmonkMarketingEmailProvider implements MarketingEmailProvider {
   async upsertSubscriber(input: UpsertSubscriberInput): Promise<SubscriberResult> {
     if (!/.+@.+\..+/.test(input.email)) throw new EmailInputError('valid email required', 'email');
     const name = input.attribs?.name ?? input.email;
-    const r = await listmonkUpsertSubscriber(this.cfg, { email: input.email, name, lists: [] }, this.fetchImpl);
+    const r = await listmonkUpsertSubscriber(
+      this.cfg,
+      { email: input.email, name, lists: [] },
+      this.fetchImpl,
+    );
     if (!r.ok) throw new Error(`Listmonk upsertSubscriber failed: ${r.reason}`);
     return { id: String(r.id) };
   }
@@ -49,7 +53,12 @@ export class ListmonkMarketingEmailProvider implements MarketingEmailProvider {
   async createCampaign(input: CreateCampaignInput): Promise<CampaignResult> {
     const r = await listmonkCreateCampaign(
       this.cfg,
-      { name: input.name, subject: input.subject, body: input.body, lists: [...(input.listIds ?? [])] },
+      {
+        name: input.name,
+        subject: input.subject,
+        body: input.body,
+        lists: [...(input.listIds ?? [])],
+      },
       this.fetchImpl,
     );
     if (!r.ok) throw new Error(`Listmonk createCampaign failed: ${r.reason}`);
@@ -58,7 +67,8 @@ export class ListmonkMarketingEmailProvider implements MarketingEmailProvider {
 
   async sendCampaign(input: { campaignId: string }): Promise<CampaignSendResult> {
     const id = Number(input.campaignId);
-    if (!Number.isFinite(id)) throw new EmailInputError('numeric campaignId required', 'campaignId');
+    if (!Number.isFinite(id))
+      throw new EmailInputError('numeric campaignId required', 'campaignId');
     const r = await listmonkStartCampaign(this.cfg, id, this.fetchImpl);
     if (!r.ok) throw new Error(`Listmonk sendCampaign failed: ${r.reason}`);
     return { id: input.campaignId, started: true };

@@ -42,7 +42,11 @@ describe('signRequestV4 — AWS get-vanilla known-answer vector', () => {
     });
     expect(headers['x-amz-content-sha256']).toMatch(/^[0-9a-f]{64}$/);
     expect(headers['x-amz-security-token']).toBe('tok');
-    expect(headers.Authorization).toContain('SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token');
-    expect(headers.Authorization).toContain('Credential=AKIDEXAMPLE/20260620/us-east-1/ses/aws4_request');
+    expect(headers.Authorization).toContain(
+      'SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token',
+    );
+    expect(headers.Authorization).toContain(
+      'Credential=AKIDEXAMPLE/20260620/us-east-1/ses/aws4_request',
+    );
   });
 });

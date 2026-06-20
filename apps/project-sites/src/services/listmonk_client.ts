@@ -203,7 +203,10 @@ export async function listmonkCreateCampaign(
   try {
     const res = await fetchImpl(`${cfg.baseUrl}/api/campaigns`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: basicAuth(cfg.apiUser, cfg.apiToken),
+      },
       body: JSON.stringify({
         name: input.name,
         subject: input.subject,
@@ -235,7 +238,10 @@ export async function listmonkStartCampaign(
   try {
     const res = await fetchImpl(`${cfg.baseUrl}/api/campaigns/${campaignId}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: basicAuth(cfg.apiUser, cfg.apiToken),
+      },
       body: JSON.stringify({ status: 'running' }),
     });
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };
@@ -262,7 +268,10 @@ export async function listmonkUnsubscribe(
     const safe = email.replace(/'/g, "''");
     const res = await fetchImpl(`${cfg.baseUrl}/api/subscribers/query/blocklist`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: basicAuth(cfg.apiUser, cfg.apiToken),
+      },
       body: JSON.stringify({ query: `subscribers.email = '${safe}'` }),
     });
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };

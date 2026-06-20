@@ -19,7 +19,13 @@ async function sha256Hex(data: string | Uint8Array): Promise<string> {
 }
 
 async function hmac(key: Uint8Array, msg: string): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey('raw', key as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    key as BufferSource,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
   const sig = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(msg) as BufferSource);
   return new Uint8Array(sig);
 }
@@ -94,7 +100,12 @@ export async function signRequestV4(input: SigV4Input): Promise<Record<string, s
   ].join('\n');
 
   const scope = `${input.dateStamp}/${input.region}/${input.service}/aws4_request`;
-  const stringToSign = ['AWS4-HMAC-SHA256', input.amzDate, scope, await sha256Hex(canonicalRequest)].join('\n');
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    input.amzDate,
+    scope,
+    await sha256Hex(canonicalRequest),
+  ].join('\n');
 
   const kDate = await hmac(enc.encode(`AWS4${input.secretAccessKey}`), input.dateStamp);
   const kRegion = await hmac(kDate, input.region);
