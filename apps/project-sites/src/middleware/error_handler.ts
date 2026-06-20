@@ -193,6 +193,46 @@ export const errorHandler: ErrorHandler<{
     );
   }
 
+  // Malformed JSON body: a `SyntaxError` from `c.req.json()` is a CLIENT error,
+  // not a server fault. Map it to a clean 400 (logged at warn, never reported to
+  // Sentry) so every un-individually-guarded `await c.req.json()` read is safe by
+  // default. Gated on a JSON-ish message so an unrelated internal SyntaxError
+  // still surfaces as a 500.
+  if (err instanceof SyntaxError && /JSON/i.test(err.message)) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        code: 'BAD_REQUEST',
+        message: 'Malformed JSON in request body',
+        request_id: requestId,
+        url,
+        method,
+      }),
+    );
+
+    if (isHtml) {
+      return new Response(
+        brandedErrorPage({
+          status: 400,
+          code: 'BAD_REQUEST',
+          message: 'Malformed JSON in request body',
+          requestId,
+        }),
+        { status: 400, headers: { 'Content-Type': 'text/html;charset=utf-8' } },
+      );
+    }
+    return c.json(
+      {
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Malformed JSON in request body',
+          request_id: requestId,
+        },
+      },
+      400,
+    );
+  }
+
   // Unknown errors
   const errorMessage = err instanceof Error ? err.message : 'Unknown error';
   const errorStack = err instanceof Error ? err.stack : undefined;
