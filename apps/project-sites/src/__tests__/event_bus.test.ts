@@ -15,6 +15,8 @@ import {
   ProjectSitesEventSchema,
   type BuildEventInput,
 } from '../services/event_bus.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Env } from '../types/env.js';
 
 const baseInput: BuildEventInput = {
@@ -89,6 +91,35 @@ describe('eventIdempotencyKey', () => {
   it('throws when no scope is supplied (a keyless event cannot dedupe)', () => {
     expect(() => eventIdempotencyKey('invoice.paid')).toThrow(RangeError);
     expect(() => eventIdempotencyKey('invoice.paid', '  ')).toThrow(RangeError);
+  });
+});
+
+describe('schema ↔ migration drift guard (0574_outbox_events.sql)', () => {
+  const ddl = readFileSync(join(__dirname, '../../migrations/0574_outbox_events.sql'), 'utf8');
+
+  // Every column event_bus.ts reads or writes MUST exist in the migration.
+  const usedColumns = [
+    'id',
+    'idempotency_key',
+    'type',
+    'tenant_id',
+    'site_id',
+    'trace_id',
+    'producer',
+    'payload',
+    'status',
+    'attempts',
+    'last_error',
+    'created_at',
+    'dispatched_at',
+  ];
+
+  it.each(usedColumns)('migration declares column %s', (col) => {
+    expect(ddl).toMatch(new RegExp(`\\b${col}\\b`));
+  });
+
+  it('keeps the idempotency_key UNIQUE constraint (idempotent writes depend on it)', () => {
+    expect(ddl).toMatch(/idempotency_key\s+TEXT\s+NOT NULL\s+UNIQUE/i);
   });
 });
 
