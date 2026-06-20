@@ -4,11 +4,7 @@
  * the email seam; the function is registered with the correct trigger so the
  * §13 plane drains `job/email.requested`.
  */
-import {
-  runLifecycleEmail,
-  lifecycleEmail,
-  inngestFunctions,
-} from '../inngest/functions.js';
+import { runLifecycleEmail, lifecycleEmail, inngestFunctions } from '../inngest/functions.js';
 import { runWithRequestEnv, InngestEnvError } from '../inngest/request-env.js';
 import { EmailEventError } from '../inngest/handlers.js';
 import type { Env } from '../types/env.js';
@@ -49,7 +45,10 @@ describe('runLifecycleEmail', () => {
   it('throws EmailEventError when the payload is incomplete', async () => {
     await expect(
       runWithRequestEnv(env, () =>
-        runLifecycleEmail({ payload: { to: 'a@b.com' } }, { transactional: new RecordingProvider() }),
+        runLifecycleEmail(
+          { payload: { to: 'a@b.com' } },
+          { transactional: new RecordingProvider() },
+        ),
       ),
     ).rejects.toBeInstanceOf(EmailEventError);
   });

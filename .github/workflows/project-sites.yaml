@@ -236,6 +236,9 @@ jobs:
         run: npx playwright test --shard=${{ matrix.shard }}/3
         env:
           BASE_URL: ${{ env.BASE_URL }}
+          # Authed-admin E2E (e2e/helpers/auth.ts) needs the psk_ key to exercise
+          # the _fortress/admin-detail suite; without it those specs fail wholesale.
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
 
       - name: Upload test results on failure
         uses: actions/upload-artifact@v4
@@ -377,6 +380,9 @@ jobs:
         run: npx playwright test --shard=${{ matrix.shard }}/3
         env:
           BASE_URL: ${{ env.BASE_URL }}
+          # Authed-admin E2E (e2e/helpers/auth.ts) needs the psk_ key to exercise
+          # the _fortress/admin-detail suite; without it those specs fail wholesale.
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
 
       - name: Upload test results on failure
         uses: actions/upload-artifact@v4

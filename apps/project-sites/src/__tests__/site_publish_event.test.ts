@@ -3,10 +3,7 @@
  * contract the embedded-bolt publish route emits onto the durable bus, plus the
  * (siteId, version) idempotency scope so a re-publish of one version dedupes.
  */
-import {
-  buildSitePublishedEvent,
-  sitePublishedScope,
-} from '../services/site_publish_event.js';
+import { buildSitePublishedEvent, sitePublishedScope } from '../services/site_publish_event.js';
 import { EVENT_TYPES } from '../services/event_bus.js';
 
 describe('buildSitePublishedEvent', () => {

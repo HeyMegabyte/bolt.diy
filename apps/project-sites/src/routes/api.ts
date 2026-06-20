@@ -134,10 +134,7 @@ import * as domainService from '../services/domains.js';
 import * as auditService from '../services/audit.js';
 import { createSite } from '../services/site_create.js';
 import { tryEmitEvent } from '../services/emit_event.js';
-import {
-  buildSitePublishedEvent,
-  sitePublishedScope,
-} from '../services/site_publish_event.js';
+import { buildSitePublishedEvent, sitePublishedScope } from '../services/site_publish_event.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';

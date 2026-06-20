@@ -6,11 +6,7 @@
  * never bleed into each other (the `state-is-the-enemy` hazard a module-global
  * env holder would have).
  */
-import {
-  runWithRequestEnv,
-  getRequestEnv,
-  InngestEnvError,
-} from '../inngest/request-env.js';
+import { runWithRequestEnv, getRequestEnv, InngestEnvError } from '../inngest/request-env.js';
 import type { Env } from '../types/env.js';
 
 const envA = { TAG: 'A' } as unknown as Env;
