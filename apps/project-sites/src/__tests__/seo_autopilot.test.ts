@@ -319,9 +319,9 @@ describe('approveDraft', () => {
       .mockResolvedValueOnce({ slug: 'site-1', current_build_version: 'v1' } as any);
 
     const put = jest.fn().mockResolvedValue(undefined);
-    const get = jest
-      .fn()
-      .mockResolvedValue({ text: async () => '<html><head><title>old</title></head><body>hi</body></html>' });
+    const get = jest.fn().mockResolvedValue({
+      text: async () => '<html><head><title>old</title></head><body>hi</body></html>',
+    });
     const env = { DB: {}, SITES_BUCKET: { get, put } } as any;
 
     const result = await approveDraft(env, 'd1', 'user_1');
@@ -357,7 +357,8 @@ describe('approveDraft', () => {
 // applySeoMetaToHtml (pure HTML transform)
 // ---------------------------------------------------------------------------
 describe('applySeoMetaToHtml', () => {
-  const base = '<html><head><title>Old</title><meta name="description" content="old"></head><body><p>hi</p></body></html>';
+  const base =
+    '<html><head><title>Old</title><meta name="description" content="old"></head><body><p>hi</p></body></html>';
 
   it('rewrites an existing <title>', () => {
     const out = applySeoMetaToHtml(base, { title: 'Fresh Title' });
@@ -366,7 +367,9 @@ describe('applySeoMetaToHtml', () => {
   });
 
   it('injects a <title> when none exists', () => {
-    const out = applySeoMetaToHtml('<html><head></head><body>x</body></html>', { title: 'Injected' });
+    const out = applySeoMetaToHtml('<html><head></head><body>x</body></html>', {
+      title: 'Injected',
+    });
     expect(out).toContain('<title>Injected</title>');
   });
 
@@ -384,7 +387,9 @@ describe('applySeoMetaToHtml', () => {
 
   it('injects a marked JSON-LD block before </head>', () => {
     const out = applySeoMetaToHtml(base, { jsonLd: '{"@type":"WebPage"}' });
-    expect(out).toMatch(/<script type="application\/ld\+json" data-seo-autopilot>{"@type":"WebPage"}<\/script>/);
+    expect(out).toMatch(
+      /<script type="application\/ld\+json" data-seo-autopilot>{"@type":"WebPage"}<\/script>/,
+    );
     expect(out.indexOf('data-seo-autopilot')).toBeLessThan(out.indexOf('</head>'));
   });
 
@@ -422,9 +427,9 @@ describe('applySeoMeta', () => {
   it('reads the route HTML from R2, rewrites it, and writes it back to the same key', async () => {
     mockQueryOne.mockResolvedValueOnce({ slug: 'acme', current_build_version: 'v9' } as any);
     const put = jest.fn().mockResolvedValue(undefined);
-    const get = jest
-      .fn()
-      .mockResolvedValue({ text: async () => '<html><head><title>old</title></head><body>x</body></html>' });
+    const get = jest.fn().mockResolvedValue({
+      text: async () => '<html><head><title>old</title></head><body>x</body></html>',
+    });
     const env = { DB: {}, SITES_BUCKET: { get, put } } as any;
 
     const res = await applySeoMeta(env, draft as any);

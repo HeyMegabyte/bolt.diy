@@ -1,61 +1,25 @@
 /**
  * Unit tests for libs/features/payments_rail/service.ts
  *
- * D1 is mocked via the prepare().bind().first()/all()/run() chain pattern.
- * KV is not exercised by this module (cart lives in storefront_ecommerce).
+ * D1 is mocked at the dbQuery/dbQueryOne boundary level.
+ * recordPaymentIntent uses raw D1 directly; those tests spy on prepare/bind/run.
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-
 // ---------------------------------------------------------------------------
-// D1 mock factory
+// Captured mocks for per-test override
 // ---------------------------------------------------------------------------
 
-type MockD1Row = Record<string, unknown>;
-
-function makeBoundStmt(rows: MockD1Row[], single: MockD1Row | null) {
-  return {
-    first: jest.fn<() => Promise<MockD1Row | null>>().mockResolvedValue(single),
-    all: jest.fn<() => Promise<{ results: MockD1Row[] }>>().mockResolvedValue({ results: rows }),
-    run: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-  };
-}
-
-function makeDb(
-  queryMap: Record<string, { rows?: MockD1Row[]; single?: MockD1Row | null }>,
-): { prepare: (sql: string) => { bind: (...args: unknown[]) => ReturnType<typeof makeBoundStmt> } } {
-  return {
-    prepare: (sql: string) => ({
-      bind: (..._args: unknown[]) => {
-        // Find first matching key (partial match on SQL substring).
-        const key = Object.keys(queryMap).find((k) => sql.includes(k));
-        const spec = key ? queryMap[key]! : { rows: [], single: null };
-        return makeBoundStmt(spec.rows ?? [], spec.single ?? null);
-      },
-    }),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Module-level db mock wiring (dbQuery / dbQueryOne delegate to D1 prepare)
-// ---------------------------------------------------------------------------
-
-let mockDb: ReturnType<typeof makeDb>;
+const mockDbQuery = jest.fn();
+const mockDbQueryOne = jest.fn();
 
 jest.mock('../../../../src/services/db.js', () => ({
-  dbQuery: jest.fn(async (db: ReturnType<typeof makeDb>, sql: string, args: unknown[]) => {
-    const stmt = db.prepare(sql).bind(...args);
-    const res = await stmt.all();
-    return { data: res.results, error: null };
-  }),
-  dbQueryOne: jest.fn(async (db: ReturnType<typeof makeDb>, sql: string, args: unknown[]) => {
-    const stmt = db.prepare(sql).bind(...args);
-    return stmt.first();
-  }),
+  dbQuery: (...a: unknown[]) => mockDbQuery(...a),
+  dbQueryOne: (...a: unknown[]) => mockDbQueryOne(...a),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { dbQuery, dbQueryOne } = await import('../../../../src/services/db.js') as any;
+jest.mock('../../../../src/modules/feature_flags/services.js', () => ({
+  isFlagOn: jest.fn().mockResolvedValue(true),
+}));
 
 // ---------------------------------------------------------------------------
 // Import service under test AFTER mocks are registered
@@ -99,9 +63,15 @@ const EVENT_ROW = {
   updatedAt: '2026-06-17T00:00:00.000Z',
 };
 
+const MOCK_DB = {} as never;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe('payments_rail/service — FLAG_KEY', () => {
   test('equals the module slug exactly', () => {
@@ -110,16 +80,10 @@ describe('payments_rail/service — FLAG_KEY', () => {
 });
 
 describe('payments_rail/service — getPaymentMethods', () => {
-  beforeEach(() => {
-    mockDb = makeDb({
-      payments_rail_methods: { rows: [METHOD_ROW], single: null },
-    });
-  });
-
   test('returns mapped payment methods for an org', async () => {
-    dbQuery.mockImplementationOnce(async () => ({ data: [METHOD_ROW], error: null }));
+    mockDbQuery.mockResolvedValueOnce({ data: [METHOD_ROW] });
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const methods = await getPaymentMethods(env, ORG_ID);
 
     expect(methods).toHaveLength(1);
@@ -135,20 +99,18 @@ describe('payments_rail/service — getPaymentMethods', () => {
   });
 
   test('returns empty array when org has no methods', async () => {
-    dbQuery.mockImplementationOnce(async () => ({ data: [], error: null }));
+    mockDbQuery.mockResolvedValueOnce({ data: [] });
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const methods = await getPaymentMethods(env, ORG_ID);
 
     expect(methods).toHaveLength(0);
   });
 
   test('returns empty array on DB error (graceful)', async () => {
-    dbQuery.mockImplementationOnce(async () => {
-      throw new Error('D1 failure');
-    });
+    mockDbQuery.mockRejectedValueOnce(new Error('D1 failure'));
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const methods = await getPaymentMethods(env, ORG_ID);
 
     expect(methods).toHaveLength(0);
@@ -157,7 +119,7 @@ describe('payments_rail/service — getPaymentMethods', () => {
 
 describe('payments_rail/service — recordPaymentIntent', () => {
   test('calls D1 prepare + bind + run with correct columns', async () => {
-    const runSpy = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const runSpy = jest.fn().mockResolvedValue(undefined);
     const bindSpy = jest.fn(() => ({ run: runSpy }));
     const prepareSpy = jest.fn(() => ({ bind: bindSpy }));
 
@@ -179,12 +141,12 @@ describe('payments_rail/service — recordPaymentIntent', () => {
     expect(bindSpy).toHaveBeenCalledWith(
       'evt-new',
       ORG_ID,
-      null,         // siteId
+      null, // siteId
       'stripe',
       'pi_new',
       9900,
       'usd',
-      null,         // description
+      null, // description
       'requires_payment_method',
       expect.any(String), // created_at
       expect.any(String), // updated_at
@@ -193,7 +155,7 @@ describe('payments_rail/service — recordPaymentIntent', () => {
   });
 
   test('forwards siteId and description when provided', async () => {
-    const bindSpy = jest.fn(() => ({ run: jest.fn<() => Promise<void>>().mockResolvedValue(undefined) }));
+    const bindSpy = jest.fn(() => ({ run: jest.fn().mockResolvedValue(undefined) }));
     const prepareSpy = jest.fn(() => ({ bind: bindSpy }));
 
     const env = { DB: { prepare: prepareSpy } } as never;
@@ -217,15 +179,11 @@ describe('payments_rail/service — recordPaymentIntent', () => {
 });
 
 describe('payments_rail/service — getPaymentHistory', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   test('returns paginated events with total count', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => ({ data: [EVENT_ROW], error: null }));
+    mockDbQueryOne.mockResolvedValueOnce({ cnt: 1 });
+    mockDbQuery.mockResolvedValueOnce({ data: [EVENT_ROW] });
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const result = await getPaymentHistory(env, ORG_ID, { page: 0, pageSize: 20 });
 
     expect(result.total).toBe(1);
@@ -243,31 +201,39 @@ describe('payments_rail/service — getPaymentHistory', () => {
   });
 
   test('applies provider filter when provided', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 0 }));
-    dbQuery.mockImplementationOnce(async () => ({ data: [], error: null }));
+    mockDbQueryOne.mockResolvedValueOnce({ cnt: 0 });
+    mockDbQuery.mockResolvedValueOnce({ data: [] });
 
-    const env = { DB: mockDb } as never;
-    const result = await getPaymentHistory(env, ORG_ID, { page: 0, pageSize: 20, provider: 'square' });
+    const env = { DB: MOCK_DB } as never;
+    const result = await getPaymentHistory(env, ORG_ID, {
+      page: 0,
+      pageSize: 20,
+      provider: 'square',
+    });
 
     expect(result.total).toBe(0);
     expect(result.events).toHaveLength(0);
   });
 
   test('applies status filter when provided', async () => {
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => ({ data: [EVENT_ROW], error: null }));
+    mockDbQueryOne.mockResolvedValueOnce({ cnt: 1 });
+    mockDbQuery.mockResolvedValueOnce({ data: [EVENT_ROW] });
 
-    const env = { DB: mockDb } as never;
-    const result = await getPaymentHistory(env, ORG_ID, { page: 0, pageSize: 20, status: 'requires_payment_method' });
+    const env = { DB: MOCK_DB } as never;
+    const result = await getPaymentHistory(env, ORG_ID, {
+      page: 0,
+      pageSize: 20,
+      status: 'requires_payment_method',
+    });
 
     expect(result.events[0]!.status).toBe('requires_payment_method');
   });
 
   test('returns empty result on D1 error (graceful)', async () => {
-    dbQueryOne.mockImplementationOnce(async () => { throw new Error('DB down'); });
-    dbQuery.mockImplementationOnce(async () => { throw new Error('DB down'); });
+    mockDbQueryOne.mockRejectedValueOnce(new Error('DB down'));
+    mockDbQuery.mockResolvedValueOnce({ data: [] });
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const result = await getPaymentHistory(env, ORG_ID, { page: 0, pageSize: 20 });
 
     expect(result.total).toBe(0);
@@ -276,10 +242,10 @@ describe('payments_rail/service — getPaymentHistory', () => {
 
   test('omits siteId and description when null in DB row', async () => {
     const rowWithNulls = { ...EVENT_ROW, siteId: null, description: null };
-    dbQueryOne.mockImplementationOnce(async () => ({ cnt: 1 }));
-    dbQuery.mockImplementationOnce(async () => ({ data: [rowWithNulls], error: null }));
+    mockDbQueryOne.mockResolvedValueOnce({ cnt: 1 });
+    mockDbQuery.mockResolvedValueOnce({ data: [rowWithNulls] });
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const result = await getPaymentHistory(env, ORG_ID, { page: 0, pageSize: 20 });
 
     expect(result.events[0]!.siteId).toBeUndefined();
@@ -288,23 +254,19 @@ describe('payments_rail/service — getPaymentHistory', () => {
 });
 
 describe('payments_rail/service — getPaymentEventById', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   test('returns null when event not found', async () => {
-    dbQueryOne.mockImplementationOnce(async () => null);
+    mockDbQueryOne.mockResolvedValueOnce(null);
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const result = await getPaymentEventById(env, 'non-existent');
 
     expect(result).toBeNull();
   });
 
   test('returns mapped PaymentEvent when found', async () => {
-    dbQueryOne.mockImplementationOnce(async () => EVENT_ROW);
+    mockDbQueryOne.mockResolvedValueOnce(EVENT_ROW);
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const event = await getPaymentEventById(env, 'evt-001');
 
     expect(event).not.toBeNull();
@@ -314,9 +276,9 @@ describe('payments_rail/service — getPaymentEventById', () => {
   });
 
   test('returns null on D1 error (graceful)', async () => {
-    dbQueryOne.mockImplementationOnce(async () => { throw new Error('D1 connection lost'); });
+    mockDbQueryOne.mockRejectedValueOnce(new Error('D1 connection lost'));
 
-    const env = { DB: mockDb } as never;
+    const env = { DB: MOCK_DB } as never;
     const result = await getPaymentEventById(env, 'evt-001');
 
     expect(result).toBeNull();

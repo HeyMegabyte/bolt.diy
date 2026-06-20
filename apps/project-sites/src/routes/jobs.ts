@@ -95,7 +95,8 @@ export function createJobsRoutes(
 
   app.get('/api/jobs/:id/status', async (c) => {
     const requestId = c.req.header('x-request-id') ?? crypto.randomUUID();
-    if (!c.get('userId')) return c.json(envelope(requestId, 'UNAUTHORIZED', 'Authentication required'), 401);
+    if (!c.get('userId'))
+      return c.json(envelope(requestId, 'UNAUTHORIZED', 'Authentication required'), 401);
 
     const jobId = c.req.param('id');
     const status = await getRouter(c.env).getJobStatus(jobId);

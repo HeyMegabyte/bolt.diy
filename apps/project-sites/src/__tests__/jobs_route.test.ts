@@ -47,20 +47,36 @@ function authedApp(router: ProjectSitesJobProvider, withUser = true) {
     }
     await next();
   });
-  app.route('/', createJobsRoutes(() => router));
+  app.route(
+    '/',
+    createJobsRoutes(() => router),
+  );
   return app;
 }
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
-  ({ method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) }) as RequestInit;
+  ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  }) as RequestInit;
 
 describe('POST /api/jobs', () => {
   it('dispatches a valid job → 202 with the JobRef', async () => {
     const app = authedApp(fakeRouter());
-    const res = await app.request('/api/jobs', post({ kind: 'site-generation', payload: { slug: 'a' } }, { 'idempotency-key': 'idem-9' }), {} as Env);
+    const res = await app.request(
+      '/api/jobs',
+      post({ kind: 'site-generation', payload: { slug: 'a' } }, { 'idempotency-key': 'idem-9' }),
+      {} as Env,
+    );
     expect(res.status).toBe(202);
     const body = (await res.json()) as { data: JobRef };
-    expect(body.data).toMatchObject({ kind: 'site-generation', backend: 'hatchet', jobId: 'idem-9', status: 'queued' });
+    expect(body.data).toMatchObject({
+      kind: 'site-generation',
+      backend: 'hatchet',
+      jobId: 'idem-9',
+      status: 'queued',
+    });
   });
 
   it('401 without auth', async () => {
@@ -73,7 +89,7 @@ describe('POST /api/jobs', () => {
     const app = authedApp(fakeRouter());
     const res = await app.request('/api/jobs', post({ kind: 'not-a-real-job' }), {} as Env);
     expect(res.status).toBe(400);
-    expect((await res.json() as { error: { code: string } }).error.code).toBe('BAD_REQUEST');
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('BAD_REQUEST');
   });
 
   it('400 on malformed body (extra key / missing kind)', async () => {
@@ -82,20 +98,42 @@ describe('POST /api/jobs', () => {
   });
 
   it('maps JobContextError → 400, other dispatch errors → 502', async () => {
-    const ctxErr = authedApp(fakeRouter({ async start(): Promise<JobRef> { throw new JobContextError('tenantId required', 'tenantId'); } }));
-    expect((await ctxErr.request('/api/jobs', post({ kind: 'site-generation' }), {} as Env)).status).toBe(400);
+    const ctxErr = authedApp(
+      fakeRouter({
+        async start(): Promise<JobRef> {
+          throw new JobContextError('tenantId required', 'tenantId');
+        },
+      }),
+    );
+    expect(
+      (await ctxErr.request('/api/jobs', post({ kind: 'site-generation' }), {} as Env)).status,
+    ).toBe(400);
 
-    const dispatchErr = authedApp(fakeRouter({ async start(): Promise<JobRef> { throw new Error('plane down'); } }));
-    expect((await dispatchErr.request('/api/jobs', post({ kind: 'site-generation' }), {} as Env)).status).toBe(502);
+    const dispatchErr = authedApp(
+      fakeRouter({
+        async start(): Promise<JobRef> {
+          throw new Error('plane down');
+        },
+      }),
+    );
+    expect(
+      (await dispatchErr.request('/api/jobs', post({ kind: 'site-generation' }), {} as Env)).status,
+    ).toBe(502);
   });
 });
 
 describe('GET /api/jobs/:id/status', () => {
   it('returns status when found', async () => {
-    const app = authedApp(fakeRouter({ async getJobStatus() { return 'running'; } }));
+    const app = authedApp(
+      fakeRouter({
+        async getJobStatus() {
+          return 'running';
+        },
+      }),
+    );
     const res = await app.request('/api/jobs/abc/status', {}, {} as Env);
     expect(res.status).toBe(200);
-    expect((await res.json() as { data: { status: string } }).data.status).toBe('running');
+    expect(((await res.json()) as { data: { status: string } }).data.status).toBe('running');
   });
 
   it('404 when the job is unknown', async () => {

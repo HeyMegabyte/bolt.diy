@@ -474,7 +474,11 @@ function escText(s: string): string {
 
 /** Escape `&`, `"`, `<`, `>` for use inside a double-quoted attribute value. */
 function escAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 /** The fields of an approved draft that get written into the served HTML. */
@@ -540,7 +544,9 @@ export function applySeoMetaToHtml(html: string, meta: SeoMetaApply): string {
 
   if (meta.jsonLd && meta.jsonLd.trim()) {
     out = out.replace(/<script[^>]*data-seo-autopilot[^>]*>[\s\S]*?<\/script>/gi, '');
-    injectHead(`<script type="application/ld+json" data-seo-autopilot>${meta.jsonLd.trim()}</script>`);
+    injectHead(
+      `<script type="application/ld+json" data-seo-autopilot>${meta.jsonLd.trim()}</script>`,
+    );
   }
 
   if (meta.answerBlock && meta.answerBlock.trim()) {
@@ -582,7 +588,10 @@ function routeR2Candidates(slug: string, version: string, route: string): string
  */
 export async function applySeoMeta(
   env: Env,
-  draft: Pick<SeoMetaDraft, 'site_id' | 'route' | 'title' | 'description' | 'answer_block' | 'jsonld_json'>,
+  draft: Pick<
+    SeoMetaDraft,
+    'site_id' | 'route' | 'title' | 'description' | 'answer_block' | 'jsonld_json'
+  >,
 ): Promise<{ ok: boolean; error?: string }> {
   const site = await dbQueryOne<{ slug: string; current_build_version: string | null }>(
     env.DB,
@@ -590,7 +599,8 @@ export async function applySeoMeta(
     [draft.site_id],
   );
   if (!site) return { ok: false, error: 'Site not found' };
-  if (!site.current_build_version) return { ok: false, error: 'Site has no published build to update' };
+  if (!site.current_build_version)
+    return { ok: false, error: 'Site has no published build to update' };
 
   const candidates = routeR2Candidates(site.slug, site.current_build_version, draft.route);
   let key: string | null = null;
@@ -603,7 +613,8 @@ export async function applySeoMeta(
       break;
     }
   }
-  if (!object || !key) return { ok: false, error: `No published HTML found for route ${draft.route}` };
+  if (!object || !key)
+    return { ok: false, error: `No published HTML found for route ${draft.route}` };
 
   const html = await object.text();
   const next = applySeoMetaToHtml(html, {
