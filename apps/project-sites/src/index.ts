@@ -1105,6 +1105,39 @@ export default {
       );
     }
 
+    // Every 5 min — drain the event_bus outbox to its backends (Tinybird analytics
+    // + Hatchet orchestration). Env-gated adapters no-op when unconfigured, so this
+    // is safe on a fresh deploy. Off the hot path (cron only). Idempotent + FIFO
+    // with a dead-letter gate (see event_bus.nextOutboxAction). Repurposes the
+    // former no-op */5 slot.
+    if (_event.cron === '*/5 * * * *') {
+      try {
+        const { drainOutbox } = await import('./services/outbox_dispatch.js');
+        const summary = await drainOutbox(env);
+        if (summary.read > 0) {
+          console.warn(
+            JSON.stringify({
+              level: 'info',
+              service: 'cron',
+              message: 'Outbox drained',
+              read: summary.read,
+              dispatched: summary.dispatched,
+              failed: summary.failed,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Outbox drain failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
     // Monday 14:00 UTC (9 AM ET) — weekly summary digest emails (#96).
     // Idempotent per (org, ISO week) — safe to retry/replay.
     if (_event.cron === '0 14 * * 1') {
