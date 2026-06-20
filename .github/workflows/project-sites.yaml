@@ -207,7 +207,14 @@ jobs:
     # Without this, every prod deploy stalled here forever. continue-on-error keeps
     # the signal visible (red ✗ on the job) while letting deploy-production proceed.
     continue-on-error: true
-    if: github.event_name != 'workflow_dispatch' || inputs.skip_e2e != true
+    # SKIPPED (no-staging-doctrine): sites-staging.megabyte.space is decommissioned/
+    # unreachable from GHA IPs, so running 3×8min of doomed shards every push was pure
+    # waste + a permanent false-red. e2e-production (post-deploy vs live projectsites.dev
+    # + wrangler rollback) is the real gate. Kept as a skipped job (not deleted) so
+    # deploy-production's needs:[…, e2e-staging] resolves to 'skipped' (allowed by its
+    # `result != 'cancelled'` guard) without a larger rewire. Flip to re-enable if a
+    # real staging env returns.
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
