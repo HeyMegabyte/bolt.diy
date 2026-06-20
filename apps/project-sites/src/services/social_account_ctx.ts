@@ -8,6 +8,7 @@ import type { Env } from '../types/env.js';
 import { decrypt, encrypt } from './ai_crypto.js';
 import { dbQuery, dbQueryOne, dbUpdate } from './db.js';
 import type { Platform, SocialAccountCtx } from './social_publishers/index.js';
+import { safeParseJSON } from '../utils/safe-parse.js';
 
 interface SocialAccountRow {
   id: string;
@@ -62,9 +63,11 @@ async function buildCtx(env: Env, row: SocialAccountRow): Promise<SocialAccountC
   const refresh_token = row.refresh_token_encrypted
     ? await decrypt(env, row.refresh_token_encrypted)
     : null;
-  const metadata = row.metadata_json
-    ? (JSON.parse(row.metadata_json) as Record<string, unknown>)
-    : {};
+  // safeParseJSON: a corrupt metadata_json on any account must not throw and
+  // 500 the whole publish/auto-pilot context fetch — fall back to {} (identical
+  // to the null branch). The remaining stored-JSON reads in social_auto_pilot /
+  // api_tokens are already try/catch-guarded; this was the last unguarded one.
+  const metadata = safeParseJSON<Record<string, unknown>>(row.metadata_json, {});
   const accountId = row.id;
   return {
     id: row.id,

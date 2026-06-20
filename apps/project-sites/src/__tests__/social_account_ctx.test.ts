@@ -82,6 +82,13 @@ describe('loadAccount', () => {
     expect(ctx!.metadata).toEqual({});
     expect(mDecrypt).toHaveBeenCalledTimes(1); // only the access token
   });
+
+  it('coerces a corrupt metadata_json to {} instead of throwing (no 500)', async () => {
+    mQueryOne.mockResolvedValue(row({ metadata_json: '{ not valid json' }));
+    const ctx = await loadAccount(env, 'acc-1');
+    expect(ctx!.metadata).toEqual({});
+    expect(ctx!.access_token).toBe('plain(ct-access)');
+  });
 });
 
 describe('loadAccountsByIds', () => {
