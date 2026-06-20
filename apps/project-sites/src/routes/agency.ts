@@ -94,7 +94,16 @@ const inviteSchema = z.object({
  *
  * @remarks
  * Body: {@link inviteSchema}. Returns `{ invitation_id, token, expires_at }`.
- * TODO: send invite email via Resend once the template is ready.
+ *
+ * @remarks
+ * The caller (agency) currently relays the returned `token` to the client itself.
+ * TODO(agency-redeem): this invitation is WRITE-ONLY — no route consumes
+ * `agency_invitations` yet (cf. `team_invites` redeem in ai_admin.ts), so a client
+ * cannot accept it in-app. Build `POST /api/agency/clients/accept` (resolve
+ * token_hash → create child org membership → mark accepted_at) FIRST; only then
+ * wire the invite email here via `sendEmail` (notifications.ts) / Novu — NOT a new
+ * Resend call (sendEmail already owns the transport). Emailing a token to a
+ * non-existent accept route would just deliver a dead link.
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
@@ -118,7 +127,9 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
     token_hash: tokenHash,
     expires_at: expiresAt,
   });
-  // TODO: send invite email via Resend once template is ready.
+  // TODO(agency-redeem): no email yet — the invitation is unredeemable until a
+  // POST /api/agency/clients/accept route consumes agency_invitations (see the
+  // JSDoc above). Once that lands, send via sendEmail/Novu, not Resend directly.
   return c.json({ invitation_id: id, token, expires_at: expiresAt });
 });
 
