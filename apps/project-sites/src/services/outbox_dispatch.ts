@@ -163,9 +163,13 @@ export function assessDrainHealth(summary: DrainSummary, limit = 50): DrainHealt
   const atCapacity = summary.read >= limit;
   const level: 'info' | 'warn' = hasFailures || atCapacity ? 'warn' : 'info';
   const parts: string[] = [];
-  if (hasFailures) parts.push(`${summary.failed} event(s) failed dispatch (retrying → dead-letter)`);
+  if (hasFailures)
+    parts.push(`${summary.failed} event(s) failed dispatch (retrying → dead-letter)`);
   if (atCapacity) parts.push(`drain hit its ${limit}-row page — outbox may be backing up`);
-  const message = parts.length > 0 ? parts.join('; ') : `Outbox drained cleanly (${summary.dispatched} dispatched)`;
+  const message =
+    parts.length > 0
+      ? parts.join('; ')
+      : `Outbox drained cleanly (${summary.dispatched} dispatched)`;
   return { level, hasFailures, atCapacity, message };
 }
 
