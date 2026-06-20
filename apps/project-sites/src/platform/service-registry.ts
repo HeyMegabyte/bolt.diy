@@ -323,7 +323,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'scaffolded',
     access: 'service-only',
     notes:
-      'Port + FakeAuthorizationProvider (role→permission model) + DenyAll fail-closed default + §29 model tests. Real OpenFgaAuthorizationProvider + route wiring are follow-on. ADR-0005.',
+      'Port + Fake + DenyAll + OpenFgaAuthorizationProvider (REST adapter) + requireAuthz middleware + getAuthorizationProvider(env) factory. Remaining: relationship bootstrap on tenant/site create + guarding live routes. ADR-0005.',
   },
 ] as const;
 

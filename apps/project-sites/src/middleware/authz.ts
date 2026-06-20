@@ -22,6 +22,7 @@ import {
   DenyAllAuthorizationProvider,
   type AuthorizationProvider,
 } from '../platform/authorization.js';
+import { OpenFgaAuthorizationProvider } from '../services/openfga_provider.js';
 import { ForbiddenError, UnauthorizedError, toErrorResponse } from '../platform/errors.js';
 
 type Ctx = { Bindings: Env; Variables: Variables };
@@ -34,8 +35,17 @@ export interface AuthzDeps {
  * Resolve the authorization provider for this request. DenyAll until the real
  * OpenFGA adapter is wired (fail-closed). Injectable for tests.
  */
-export function getAuthorizationProvider(_env: Env, deps: AuthzDeps = {}): AuthorizationProvider {
-  return deps.provider ?? new DenyAllAuthorizationProvider();
+export function getAuthorizationProvider(env: Env, deps: AuthzDeps = {}): AuthorizationProvider {
+  if (deps.provider) return deps.provider;
+  if (env.OPENFGA_API_URL && env.OPENFGA_STORE_ID) {
+    return new OpenFgaAuthorizationProvider({
+      apiUrl: env.OPENFGA_API_URL,
+      storeId: env.OPENFGA_STORE_ID,
+      authToken: env.OPENFGA_AUTH_TOKEN,
+      modelId: env.OPENFGA_MODEL_ID,
+    });
+  }
+  return new DenyAllAuthorizationProvider();
 }
 
 /**

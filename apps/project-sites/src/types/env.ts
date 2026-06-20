@@ -241,6 +241,14 @@ export interface Env {
   LISTMONK_USERNAME?: string;
   /** Listmonk admin/API password/token. wrangler secret. */
   LISTMONK_PASSWORD?: string;
+  /** OpenFGA API URL, e.g. https://authz.projectsites.dev (§29/ADR-0005). var. */
+  OPENFGA_API_URL?: string;
+  /** OpenFGA store id. var. */
+  OPENFGA_STORE_ID?: string;
+  /** OpenFGA bearer token (if the store requires auth). wrangler secret. */
+  OPENFGA_AUTH_TOKEN?: string;
+  /** OpenFGA authorization model id (optional; latest used when absent). var. */
+  OPENFGA_MODEL_ID?: string;
 
   // ── Headless Pipeline Config ────────────────────────────────
   /** A/B model split ratio (0-1). 0.5 = 50% OpenAI, 50% Anthropic. Default: 0.5. */
