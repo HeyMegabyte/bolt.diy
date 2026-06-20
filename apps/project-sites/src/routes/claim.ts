@@ -37,6 +37,7 @@ import { buildClaimSiteParams } from '../services/claim_site_params.js';
 import { getLead } from '../services/lead_store.js';
 import { sendEmail } from '../services/notifications.js';
 import { createSite } from '../services/site_create.js';
+import { tryEmitEvent } from '../services/emit_event.js';
 
 // Re-export so existing importers (+ tests) keep resolving it from this route.
 export { PLATFORM_CLAIMS_ORG_ID };
@@ -109,6 +110,26 @@ claimRoutes.get('/api/claim/:shortlink', async (c) => {
           siteId: site.id,
           type: 'START_BUILD',
         });
+
+        // Emit the golden-path event onto the durable bus (drained every 5 min to
+        // Tinybird analytics + Hatchet orchestration). Idempotent per shortlink so
+        // a re-click never double-emits; fire-and-forget so it never blocks the 302.
+        if (execCtx) {
+          execCtx.waitUntil(
+            tryEmitEvent(
+              c.env,
+              {
+                type: 'site.claim.started',
+                producer: 'worker',
+                tenantId: PLATFORM_CLAIMS_ORG_ID,
+                traceId: c.get('requestId') ?? site.id,
+                siteId: site.id,
+                data: { shortlink, leadId: link.leadId, slug },
+              },
+              { scope: [shortlink] },
+            ),
+          );
+        }
 
         const wf = c.env.SITE_WORKFLOW;
         if (wf && typeof wf.create === 'function' && execCtx) {
