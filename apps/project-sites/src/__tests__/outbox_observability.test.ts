@@ -1,0 +1,98 @@
+import { outboxStats, readFailedOutbox, MAX_OUTBOX_ATTEMPTS } from '../services/event_bus';
+
+/**
+ * Observability read-layer for the durable outbox: outboxStats (bucket counts,
+ * splitting failed → retrying/dead-lettered at MAX_OUTBOX_ATTEMPTS) and
+ * readFailedOutbox (newest-first failed rows, triage fields only, limit clamped).
+ * D1 stubs — no network.
+ */
+
+/** D1 stub whose .first() resolves to the given row (for outboxStats). */
+function firstDb(row: unknown) {
+  return {
+    DB: { prepare: () => ({ bind: () => ({ first: async () => row }) }) },
+  } as never;
+}
+
+/** Env stub capturing the bound LIMIT and resolving .all() to the given rows. */
+function allDb(rows: unknown[]) {
+  const captured: { limit?: unknown } = {};
+  const env = {
+    _captured: captured,
+    DB: {
+      prepare: () => ({
+        bind: (limit: unknown) => {
+          captured.limit = limit;
+          return { all: async () => ({ results: rows }) };
+        },
+      }),
+    },
+  } as unknown as { _captured: { limit?: unknown } };
+  return env as never;
+}
+
+describe('outboxStats', () => {
+  it('maps the aggregate row into the four buckets', async () => {
+    const stats = await outboxStats(
+      firstDb({ pending: 3, dispatched: 1200, retrying: 1, dead_lettered: 2 }),
+    );
+    expect(stats).toEqual({ pending: 3, dispatched: 1200, retrying: 1, deadLettered: 2 });
+  });
+
+  it('coerces null counts (empty table) to zero', async () => {
+    const stats = await outboxStats(
+      firstDb({ pending: null, dispatched: null, retrying: null, dead_lettered: null }),
+    );
+    expect(stats).toEqual({ pending: 0, dispatched: 0, retrying: 0, deadLettered: 0 });
+  });
+});
+
+describe('readFailedOutbox', () => {
+  it('derives deadLettered from attempts >= MAX_OUTBOX_ATTEMPTS', async () => {
+    const rows = [
+      {
+        id: 'a',
+        type: 'invoice.paid',
+        tenant_id: 't1',
+        attempts: MAX_OUTBOX_ATTEMPTS,
+        last_error: 'tinybird:500',
+        created_at: '2026-06-20T00:00:00Z',
+      },
+      {
+        id: 'b',
+        type: 'site.created',
+        tenant_id: 't2',
+        attempts: 1,
+        last_error: 'hatchet:599',
+        created_at: '2026-06-20T00:01:00Z',
+      },
+    ];
+    const out = await readFailedOutbox(allDb(rows));
+    expect(out[0]).toEqual(
+      expect.objectContaining({
+        id: 'a',
+        tenantId: 't1',
+        lastError: 'tinybird:500',
+        deadLettered: true,
+      }),
+    );
+    expect(out[1]).toEqual(expect.objectContaining({ id: 'b', deadLettered: false }));
+  });
+
+  it('clamps the limit to 1..200 and defaults to 50', async () => {
+    const db = allDb([]);
+    const cap = (db as unknown as { _captured: { limit?: unknown } })._captured;
+    await readFailedOutbox(db);
+    expect(cap.limit).toBe(50);
+    await readFailedOutbox(db, 9999);
+    expect(cap.limit).toBe(200);
+    await readFailedOutbox(db, 0);
+    expect(cap.limit).toBe(50); // 0 || 50 → 50
+    await readFailedOutbox(db, -5);
+    expect(cap.limit).toBe(1); // clamped up to the floor
+  });
+
+  it('returns [] when there are no failed rows', async () => {
+    expect(await readFailedOutbox(allDb([]))).toEqual([]);
+  });
+});

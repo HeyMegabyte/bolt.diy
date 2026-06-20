@@ -140,7 +140,8 @@ export function buildEvent(input: BuildEventInput, id: string, time: string): Pr
  */
 export function eventIdempotencyKey(type: EventType, ...scope: string[]): string {
   const parts = scope.map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 0) throw new RangeError('eventIdempotencyKey requires at least one scope part');
+  if (parts.length === 0)
+    throw new RangeError('eventIdempotencyKey requires at least one scope part');
   return `${type}:${parts.join(':')}`;
 }
 
@@ -164,7 +165,10 @@ export type OutboxAction = 'dispatch' | 'retry' | 'dead-letter' | 'skip';
  * - `dispatched` → `skip` (already delivered)
  * @example nextOutboxAction({ status: 'failed', attempts: 5 }) // 'dead-letter'
  */
-export function nextOutboxAction(row: OutboxRowState, maxAttempts = MAX_OUTBOX_ATTEMPTS): OutboxAction {
+export function nextOutboxAction(
+  row: OutboxRowState,
+  maxAttempts = MAX_OUTBOX_ATTEMPTS,
+): OutboxAction {
   if (row.status === 'dispatched') return 'skip';
   if (row.status === 'pending') return 'dispatch';
   return row.attempts >= maxAttempts ? 'dead-letter' : 'retry';
@@ -212,8 +216,112 @@ export async function readPendingOutbox(env: OutboxDb, limit = 50): Promise<Proj
   return (res.results ?? []).map((r) => ProjectSitesEventSchema.parse(JSON.parse(r.payload)));
 }
 
+/** Aggregate outbox health for the operator observability surface. */
+export interface OutboxStats {
+  /** Rows awaiting first dispatch. */
+  pending: number;
+  /** Rows successfully delivered. */
+  dispatched: number;
+  /** Failed rows still under the retry cap (will retry next drain). */
+  retrying: number;
+  /** Failed rows at/over the retry cap — the dead-letter queue. */
+  deadLettered: number;
+}
+
+/**
+ * Count outbox rows by health bucket for the admin observability endpoint.
+ * `retrying` vs `deadLettered` splits `status='failed'` at the {@link MAX_OUTBOX_ATTEMPTS}
+ * cap — the same threshold {@link nextOutboxAction} uses to stop retrying.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param maxAttempts - Dead-letter threshold (defaults to {@link MAX_OUTBOX_ATTEMPTS}).
+ * @returns Counts per bucket; zeros on an empty table.
+ * @example await outboxStats(env) // { pending: 3, dispatched: 1200, retrying: 1, deadLettered: 2 }
+ */
+export async function outboxStats(
+  env: OutboxDb,
+  maxAttempts = MAX_OUTBOX_ATTEMPTS,
+): Promise<OutboxStats> {
+  const row = await env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+       SUM(CASE WHEN status = 'dispatched' THEN 1 ELSE 0 END) AS dispatched,
+       SUM(CASE WHEN status = 'failed' AND attempts < ? THEN 1 ELSE 0 END) AS retrying,
+       SUM(CASE WHEN status = 'failed' AND attempts >= ? THEN 1 ELSE 0 END) AS dead_lettered
+     FROM outbox_events`,
+  )
+    .bind(maxAttempts, maxAttempts)
+    .first<{
+      pending: number | null;
+      dispatched: number | null;
+      retrying: number | null;
+      dead_lettered: number | null;
+    }>();
+  return {
+    pending: row?.pending ?? 0,
+    dispatched: row?.dispatched ?? 0,
+    retrying: row?.retrying ?? 0,
+    deadLettered: row?.dead_lettered ?? 0,
+  };
+}
+
+/** A failed outbox row surfaced to the operator (no payload — just triage fields). */
+export interface FailedOutboxRow {
+  id: string;
+  type: string;
+  tenantId: string;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  /** True when `attempts >= MAX_OUTBOX_ATTEMPTS` — this row will NOT retry. */
+  deadLettered: boolean;
+}
+
+/**
+ * Read the most recent failed outbox rows (newest first) for the admin DLQ view.
+ * Triage fields only — never the full payload — so the endpoint stays light.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param limit - Max rows (1..200, clamped; default 50).
+ * @param maxAttempts - Dead-letter threshold for the `deadLettered` flag.
+ * @returns Newest-first failed rows; empty array on none.
+ */
+export async function readFailedOutbox(
+  env: OutboxDb,
+  limit = 50,
+  maxAttempts = MAX_OUTBOX_ATTEMPTS,
+): Promise<FailedOutboxRow[]> {
+  const capped = Math.max(1, Math.min(200, Math.trunc(limit) || 50));
+  const res = await env.DB.prepare(
+    `SELECT id, type, tenant_id, attempts, last_error, created_at
+       FROM outbox_events WHERE status = 'failed' ORDER BY created_at DESC LIMIT ?`,
+  )
+    .bind(capped)
+    .all<{
+      id: string;
+      type: string;
+      tenant_id: string;
+      attempts: number;
+      last_error: string | null;
+      created_at: string;
+    }>();
+  return (res.results ?? []).map((r) => ({
+    id: r.id,
+    type: r.type,
+    tenantId: r.tenant_id,
+    attempts: r.attempts,
+    lastError: r.last_error,
+    createdAt: r.created_at,
+    deadLettered: r.attempts >= maxAttempts,
+  }));
+}
+
 /** Mark an outbox row dispatched (success path). */
-export async function markDispatched(env: OutboxDb, id: string, dispatchedAt: string): Promise<void> {
+export async function markDispatched(
+  env: OutboxDb,
+  id: string,
+  dispatchedAt: string,
+): Promise<void> {
   await env.DB.prepare(
     `UPDATE outbox_events SET status = 'dispatched', dispatched_at = ? WHERE id = ?`,
   )

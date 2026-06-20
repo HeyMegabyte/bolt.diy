@@ -51,6 +51,7 @@ import { storefront } from './routes/storefront.js';
 import { agenticCommerce } from './routes/agentic_commerce.js';
 import { aiActions } from './routes/ai_actions.js';
 import { adminLeads } from './routes/admin_leads.js';
+import { adminOutbox } from './routes/admin_outbox.js';
 import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { i18n } from './routes/i18n.js';
@@ -357,6 +358,7 @@ app.route('/', storefront); // /api/sites/:id/products[/:productId] — product 
 app.route('/', agenticCommerce); // /api/sites/:id/commerce/feed — agent-readable product feed (flag: agentic_commerce)
 app.route('/', aiActions); // /api/ai-actions/payment-command — safety-gated AI payment-command (flag: ai_payment_command)
 app.route('/', adminLeads); // /api/admin/leads/scan — Super-Admin lead scanner (flag: lead_scanner)
+app.route('/', adminOutbox); // /api/admin/outbox — Super-Admin event-bus DLQ observability (read-only)
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
 app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (flag: i18n_localization)
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
