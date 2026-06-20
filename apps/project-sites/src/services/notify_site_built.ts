@@ -18,6 +18,7 @@
 import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
 import { notifySiteBuilt } from './notifications.js';
+import { notifyOwnerEvent } from './notify.js';
 
 /** Resolve the org OWNER's email (the `role='owner'` membership). Null if none. */
 export async function resolveOwnerEmail(env: Env, orgId: string): Promise<string | null> {
@@ -33,53 +34,76 @@ export async function resolveOwnerEmail(env: Env, orgId: string): Promise<string
 /** Facts a publish transition has on hand to notify the owner. */
 export interface NotifyOwnerSiteBuiltInput {
   orgId: string;
+  siteId: string;
   slug: string;
   version: string;
   /** Display name for the email (falls back to the slug when absent). */
   businessName?: string | null;
 }
 
-/** Injectable seams (default to the real resolver + email) for testability. */
+/** Injectable seams (default to the real resolver + email + bell) for testability. */
 export interface NotifyOwnerDeps {
   resolveEmail?: typeof resolveOwnerEmail;
   notify?: typeof notifySiteBuilt;
+  bell?: typeof notifyOwnerEvent;
 }
 
 /**
- * Email the org owner that their site is live. Fail-soft — never throws.
+ * Notify the org owner that their site is live across BOTH channels: the
+ * "Your Site Is Live!" email ({@link notifySiteBuilt}) and the in-app Novu bell
+ * (`build.finished` event via {@link notifyOwnerEvent}). Each channel is
+ * independent + fail-soft — one failing never blocks the other or the publish.
  *
  * @param env - Worker env (needs `DB`).
  * @param input - The publish facts ({@link NotifyOwnerSiteBuiltInput}).
  * @param deps - Optional injected seams.
- * @returns `{ notified }` — `false` when no owner email exists OR the send failed.
- * @example ctx.waitUntil(notifyOwnerSiteBuilt(env, { orgId, slug, version, businessName }))
+ * @returns `{ emailed, belled }` — per-channel success (false on no-owner/failure).
+ * @example ctx.waitUntil(notifyOwnerSiteBuilt(env, { orgId, siteId, slug, version, businessName }))
  */
 export async function notifyOwnerSiteBuilt(
   env: Env,
   input: NotifyOwnerSiteBuiltInput,
   deps: NotifyOwnerDeps = {},
-): Promise<{ notified: boolean }> {
+): Promise<{ emailed: boolean; belled: boolean }> {
   const resolve = deps.resolveEmail ?? resolveOwnerEmail;
   const notify = deps.notify ?? notifySiteBuilt;
+  const bell = deps.bell ?? notifyOwnerEvent;
+  const previewUrl = `https://${input.slug}.projectsites.dev`;
 
-  let email: string | null = null;
+  // Channel 1 — the rich email (needs the owner's address).
+  let emailed = false;
   try {
-    email = await resolve(env, input.orgId);
+    const email = await resolve(env, input.orgId);
+    if (email) {
+      await notify(env, {
+        email,
+        siteName: input.businessName || input.slug,
+        slug: input.slug,
+        siteUrl: previewUrl,
+        version: input.version,
+      });
+      emailed = true;
+    }
   } catch {
-    email = null;
+    emailed = false;
   }
-  if (!email) return { notified: false };
 
+  // Channel 2 — the in-app bell (resolves the owner subscriber internally).
+  let belled = false;
   try {
-    await notify(env, {
-      email,
-      siteName: input.businessName || input.slug,
-      slug: input.slug,
-      siteUrl: `https://${input.slug}.projectsites.dev`,
-      version: input.version,
+    const res = await bell(env, env.DB, {
+      orgId: input.orgId,
+      event: {
+        event: 'build.finished',
+        tenantId: input.orgId,
+        siteId: input.siteId,
+        previewUrl,
+      },
     });
-    return { notified: true };
+    belled = res.ok;
   } catch {
-    return { notified: false };
+    belled = false;
   }
+
+  return { emailed, belled };
 }

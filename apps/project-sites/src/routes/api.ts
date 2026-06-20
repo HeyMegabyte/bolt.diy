@@ -4691,7 +4691,7 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   // The AI-generation workflow already does this on build-complete; the embedded
   // bolt-editor publish did not. Fail-soft + waitUntil'd so it never blocks publish.
   c.executionCtx.waitUntil(
-    notifyOwnerSiteBuilt(c.env, { orgId, slug, version, businessName: site.business_name }),
+    notifyOwnerSiteBuilt(c.env, { orgId, siteId, slug, version, businessName: site.business_name }),
   );
 
   return c.json({
