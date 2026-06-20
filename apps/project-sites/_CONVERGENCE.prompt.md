@@ -152,3 +152,16 @@
 - **Context7 docs** (load per plane in a fresh session, then refine the relevant §): Cloudflare Workers/Hono/Browser-Rendering/AI-Gateway/Agents-SDK/Containers/D1/R2/KV/Queues/DO/Hyperdrive · Better Auth · Ory Polis · OpenFGA · LiteLLM · RouteLLM · Langfuse · Promptfoo · Trigger.dev · Inngest · Novu · Stagehand · Browserbase · Skyvern · Neon · Infisical · OpenAI/Anthropic/DeepSeek/xAI/Gemini APIs · Firecrawl (`G4brym/workers-firecrawl`).
 - **Heavy web research** (DORA 2024/25 · SO Dev Survey 2025 · NN/g · Baymard · WCAG 2.2) → add compact Evidence lines to each requirement section.
 - Each deepening fire: append source-backed Evidence + tighten one requirement list. Never bloat — Evidence is one line: `<source> — <takeaway> — retrieved <date>`.
+
+---
+
+## §13 — AUTOMATION PLANE: DEPLOY-READY (decisions locked 2026-06-20)
+
+**All 4 planes are credential-unblocked. Every secret loads from get-secret (chezmoi store); Upstash Redis is provisioned at deploy via `UPSTASH_API_KEY`.** Execute in a FRESH session (load Context7 docs per plane FIRST so Dockerfiles/wrangler-container configs are correct, never guessed).
+
+- **events. → Inngest SELF-HOST** (LAW-clean; no Inngest Cloud). Single container (`inngest/inngest` server) → Neon Postgres + Upstash Redis. `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY` **self-generated** (`openssl rand -hex 32`), stored to chezmoi + `wrangler secret`. Hono worker serves functions via the `inngest/cloudflare` handler (ref: inngest.com/docs/deploy/cloudflare).
+- **llm. → LiteLLM + RouteLLM** (one container). Providers routed through **Cloudflare AI Gateway** (DeepSeek key lives IN the gateway → route DeepSeek via the gateway universal endpoint; OpenAI/Anthropic/Gemini keys from get-secret). `LITELLM_MASTER_KEY` + `LITELLM_SALT_KEY` self-gen. Upstash Redis for shared state (provision via `UPSTASH_API_KEY`). OpenAI-compatible internal API + Langfuse/Tinybird trace emit. Cheap default = DeepSeek (via gateway); premium = Claude/OpenAI/Gemini.
+- **traces. → Langfuse via Tinybird-direct** (path A, LAW-clean, all creds present: `TINYBIRD_API_HOST/HOST/PORT/USERNAME/PASSWORD/WORKSPACE_ID` + Neon + `CLOUDFLARE_R2_*`). Trace store = Tinybird (no ClickHouse self-host, no Redis). If self-hosted Langfuse-server is later required, it needs a raw ClickHouse endpoint (verify Tinybird exposes one) — default stays Tinybird-direct.
+- **email. → Listmonk** container → Neon Postgres. SES via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (derive SMTP password from the secret key per the SES SMTP algorithm; region `AWS_DEFAULT_REGION`). Verified sender `mail.projectsites.dev`. Novu email adapter points here for bulk; per-user transactional stays Novu (creds present).
+
+**DNS/ingress:** Cloudflare-for-SaaS custom hostnames `jobs|events|traces|llm|email.projectsites.dev` (zone `CLOUDFLARE_ZONE_ID_PROJECTSITES_DEV`), CF Access on admin surfaces. **Integration:** Hono app calls `@projectsites/ai-gateway-client` → llm-gateway; `ctx.waitUntil` async trace emit → Tinybird; Inngest client publishes events; NotifyService → Novu (transactional) + Listmonk (bulk). **Verify live** per plane (healthcheck + one real round-trip) before marking done.
