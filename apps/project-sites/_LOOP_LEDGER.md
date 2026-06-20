@@ -264,3 +264,8 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] **T#25 Nx + Nx Cloud** — affected builds + remote cache + generators. **L** (monorepo adoption; attended).
 - [ ] **T#26 Vitest** (worker Jest→Vitest) — kills the `@swc/jest` module-mock anomalies. **L** (325 suites; attended).
 > **Shipped this turn:** #8, #12, React Email. **Deferred rationale:** dep-churn items held because ≥3 fires are concurrently editing the worker tree (fire-3 hit lockfile/registry collisions) — batching npm installs unattended risks corrupting package-lock; do them in a single attended session. ext-key items need vendor keys (paste-collaboration). L items are multi-day refactors, not loop slices.
+
+## Docker/self-host subdomain map + DockerSlim (2026-06-19)
+- [x] **Full subdomain↔Docker-project map** → `docs/SUBDOMAIN_MAP.md` (product `*.projectsites.dev` + infra `*.megabyte.space`: LiteLLM=llm., Langfuse, Inngest, n8n, Infisical=secrets., Vaultwarden=vault., NocoDB=db., PocketBase=pb., Outline=wiki., Memos=notes., Umami=analytics., Listmonk=news., Uptime-Kuma=status., Open-WebUI=chat., Skyvern/MCP internal). CF-container DOs (SITE_BUILDER/APP_RUNTIME/voice-browse) = MEASURE-slim; registry/Fly images = SHIP-slim.
+- [x] **`scripts/slim-containers.sh` extended** — custom Dockerfiles (build+slim+smoke, default) + `--registry` self-host catalog (pull→slim→smoke→push-ready, 14 images). shellcheck/shfmt/syntax clean. Ran custom build+slim (bg).
+- [ ] **Provision + SHIP-slim the self-host stack** — each needs compose/env/secrets + a Fly app or registry target, then `slim build`→push (attended; needs vendor decisions).
