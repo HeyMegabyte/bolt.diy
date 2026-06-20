@@ -177,6 +177,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'activation-funnel',
+        loadComponent: () =>
+          import('./pages/admin/sections/activation-funnel.component').then(
+            (m) => m.AdminActivationFunnelComponent,
+          ),
+      },
+      {
         path: 'billing',
         loadComponent: () =>
           import('./pages/admin/sections/billing.component').then((m) => m.AdminBillingComponent),
