@@ -6451,12 +6451,8 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
   const filePath = sanitizeFilePath(rawPath);
   if (!filePath) throw forbidden('Invalid file path');
 
-  const site = await dbQueryOne<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
   if (!fullKey.startsWith(`sites/${site.slug}/`)) {
@@ -6553,12 +6549,8 @@ api.delete('/api/sites/:id/files/:path{.+}', async (c) => {
   const filePath = sanitizeFilePath(rawPath);
   if (!filePath) throw forbidden('Invalid file path');
 
-  const site = await dbQueryOne<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
   if (!fullKey.startsWith(`sites/${site.slug}/`)) {
@@ -10265,12 +10257,8 @@ api.get('/api/sites/:id/snapshots/:snapId/download', async (c) => {
   const siteId = c.req.param('id');
   const snapId = c.req.param('snapId');
 
-  const site = await dbQueryOne<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const snap = await dbQueryOne<{
     id: string;
