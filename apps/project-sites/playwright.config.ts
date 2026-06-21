@@ -38,11 +38,16 @@ const projects = process.env.FULL_BROWSER_MATRIX
         name: 'chromium',
         use: {
           ...devices['Desktop Chrome'],
-          launchOptions: {
-            executablePath:
-              process.env.PLAYWRIGHT_CHROMIUM_PATH ||
-              '/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
-          },
+          // Only pin an explicit chromium binary when PLAYWRIGHT_CHROMIUM_PATH is
+          // set (some local/container setups). On CI, `npx playwright install`
+          // provides the browser at its own managed path — the old hardcoded
+          // `/root/.cache/ms-playwright/chromium-1194/...` fallback does NOT exist
+          // there and failed EVERY E2E test with "executable doesn't exist" (the
+          // browser never launched → the whole suite "failed" with 0 tests run,
+          // masquerading as an auth/test cascade). Omitting it = Playwright default.
+          ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+            ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
+            : {}),
         },
       },
     ];
