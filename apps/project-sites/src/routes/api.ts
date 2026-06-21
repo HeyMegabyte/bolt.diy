@@ -7275,6 +7275,42 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
 });
 
 /**
+ * Restore a site to one of its named D1 `site_snapshots` by re-pointing the
+ * live build version to the snapshot's frozen `build_version`.
+ *
+ * The clean fix for the broken revert contract: the frontend already holds the
+ * `snapshot_id`, and the D1 snapshot timeline is disjoint from the R2-git
+ * `commit_id` timeline the legacy `POST /snapshots/revert` consumes. Reversible
+ * (the prior version's R2 files remain) and org-scoped via `restoreSnapshot`.
+ *
+ * @route POST /api/sites/:siteId/snapshots/:snapshotId/restore
+ * @auth Bearer token (org-scoped)
+ * @returns 200 `{ data: { version, slug, snapshot_id } }` on success; 404 when
+ *   the snapshot/site is missing or not owned by the caller's org.
+ */
+api.post('/api/sites/:siteId/snapshots/:snapshotId/restore', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const siteId = c.req.param('siteId');
+  const snapshotId = c.req.param('snapshotId');
+
+  const { restoreSnapshot } = await import('../services/snapshot_restore.js');
+  const result = await restoreSnapshot(c.env, {
+    siteId,
+    orgId,
+    snapshotId,
+    userId: userId ?? null,
+    requestId: c.get('requestId'),
+  });
+  if (!result.ok) throw notFound(result.error ?? 'Snapshot not found');
+
+  return c.json({
+    data: { version: result.version, slug: result.slug, snapshot_id: snapshotId },
+  });
+});
+
+/**
  * List the R2-stored git commit chain for a site, walking backwards from
  * HEAD. This is the AI-generated dense timeline (one entry per build),
  * intentionally separate from the sparse user-named D1 `site_snapshots`
