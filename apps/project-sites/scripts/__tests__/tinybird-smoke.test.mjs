@@ -4,7 +4,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveConfig, buildSmokeEvent, eventsDailyHasRow } from '../tinybird-smoke.mjs';
+import {
+  resolveConfig,
+  buildSmokeEvent,
+  eventsDailyHasRow,
+  smokeDeleteCondition,
+} from '../tinybird-smoke.mjs';
 
 test('resolveConfig mirrors the worker token chain + trims host', () => {
   assert.deepEqual(resolveConfig({ TINYBIRD_API_HOST: 'https://h/', TINYBIRD_PASSWORD: 'p' }), {
@@ -31,6 +36,12 @@ test('buildSmokeEvent matches the dispatchOutboxEvent shape under the sentinel t
   ]);
   // payload is a JSON string carrying source (exercises the JSONExtract path)
   assert.equal(JSON.parse(e.payload).source, 'smoke-test');
+});
+
+test('smokeDeleteCondition scopes deletion to the sentinel tenant only', () => {
+  assert.equal(smokeDeleteCondition(), "tenant_id = '_smoke'");
+  // must never match a real tenant
+  assert.doesNotMatch(smokeDeleteCondition(), /org|tenant_id\s*!=|OR/i);
 });
 
 test('eventsDailyHasRow matches the sentinel publish row, ignores others', () => {
