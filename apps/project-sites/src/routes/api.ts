@@ -1990,15 +1990,13 @@ api.delete('/api/sites/:id', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id, slug, plan FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(
+    c.env,
+    orgId,
+    siteId,
+    'id, slug, plan',
   );
-
-  if (!site) {
-    throw notFound('Site not found');
-  }
 
   // Check if user wants to also cancel their subscription
   const body = await c.req.json().catch(() => ({}));
@@ -3947,8 +3945,9 @@ api.post('/api/sites/:id/reset', async (c) => {
 
   const siteId = c.req.param('id');
 
-  // Verify ownership + load existing fields (used as fallback when body is empty)
-  const site = await dbQueryOne<{
+  // Verify ownership + load existing fields (used as fallback when body is empty).
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{
     id: string;
     slug: string;
     org_id: string;
@@ -3957,11 +3956,11 @@ api.post('/api/sites/:id/reset', async (c) => {
     google_place_id: string | null;
     budget_tier: string | null;
   }>(
-    c.env.DB,
-    'SELECT id, slug, org_id, business_name, business_address, google_place_id, budget_tier FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+    c.env,
+    orgId,
+    siteId,
+    'id, slug, org_id, business_name, business_address, google_place_id, budget_tier',
   );
-  if (!site) throw notFound('Site not found');
 
   let body: {
     business?: { name?: string; address?: string; place_id?: string; website?: string };
