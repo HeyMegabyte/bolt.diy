@@ -1142,6 +1142,18 @@ export default {
               failed: summary.failed,
             }),
           );
+          // Dead-lettering = silent loss of golden-path events from analytics +
+          // orchestration. Page Sentry on failures (not mere backlog, which is
+          // transient under load). Fire-and-forget so Sentry never breaks the cron.
+          if (health.hasFailures) {
+            const { captureMessage } = await import('./services/sentry.js');
+            void captureMessage(
+              env,
+              'Outbox events failing dispatch (heading to dead-letter)',
+              'warning',
+              { read: summary.read, dispatched: summary.dispatched, failed: summary.failed },
+            ).catch(() => {});
+          }
         }
       } catch (err) {
         console.warn(
