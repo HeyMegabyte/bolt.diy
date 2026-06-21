@@ -89,6 +89,14 @@ jobs:
         run: npm run format:check
         continue-on-error: true
 
+      # Hard gate: a committed test importing an UNTRACKED source file passes
+      # locally (file on disk) but fails CI's fresh checkout with the cryptic
+      # "Test suite failed to run / Could not locate module ../handlers.js".
+      # This turns that into a clear, early failure. (Bit the pipeline ~4×.)
+      - name: Stranded-source guard
+        working-directory: apps/project-sites
+        run: node scripts/validate-tracked-sources.mjs
+
   # ─── Stage 2: Unit / Functional Tests (Jest) ───────────────
   test-unit:
     name: Unit Tests
