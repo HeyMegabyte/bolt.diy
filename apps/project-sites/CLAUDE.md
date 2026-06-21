@@ -853,6 +853,22 @@ Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
     set returns ZERO overlap. So every features.ts handler 404s in prod → the gap has
     no live exposure; the per-feature-on-promotion defer is correct, NOT a hidden live
     gap. Mass-retrofit remains forbidden.**
+11. **Worker test mock paths** — a `jest.mock('…/src/…')` inside
+    `libs/features/<slug>/__tests__/` needs FOUR `../` to reach `src/`
+    (`'../../../../src/…'`). Three resolves to `libs/features/` → "Could not locate
+    module" → the WHOLE suite fails to load (not one test). Handlers, one dir up, use
+    three correctly. (Fixed page_audio_summary + generative_ui_stream 2026-06-21.)
+12. **`@swc/jest` mock hoisting needs the GLOBAL `jest`** — this repo transforms tests
+    with `@swc/jest` (`jest.config.cjs`), which only hoists `jest.mock(...)` above the
+    imports when it sees the global `jest` identifier. `import { jest } from
+    '@jest/globals'` leaves the `jest.mock` call BELOW the handler import → the real
+    module loads first → the mock silently no-ops (e.g. the real `isFlagOn` runs and
+    blows up on an empty env). Drop `jest` from the `@jest/globals` import and use the
+    injected global (every passing handler+flag test does). Symptom:
+    `mockX.mockResolvedValue is not a function` OR a real-code crash inside a "mocked"
+    dep. Related pitfall: a `buildApp(userId = 'x')` default means `buildApp(undefined)`
+    re-applies the default — use `null` as the explicit "no value" sentinel. (Fixed
+    figma_import 2026-06-21.)
 
 ## Homepage SPA (public/index.html)
 
