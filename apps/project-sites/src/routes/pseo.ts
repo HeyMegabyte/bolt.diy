@@ -18,7 +18,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { getPseoMatrixStats } from '../services/pseo_matrix.js';
-import { assertSiteOwned, requireOwnedSite } from '../services/site_ownership.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 
 /** 404 (never 403/leak) when the :siteId isn't owned by the caller's org. */
 const SITE_NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Site not found' } } as const;
@@ -46,8 +46,11 @@ pseo.post('/:siteId/generate', async (c) => {
   const { siteId } = c.req.param();
   const orgId = c.get('orgId');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
-  await requireOwnedSite(c.env, orgId, siteId);
+  // 404 (never 403/leak) when the site isn't owned — consistent with the other
+  // six pseo handlers + the unit test (assertSiteOwned returns bool → handler 404s).
+  // (A concurrent refactor swapped just this one handler to the throwing
+  // requireOwnedSite, which 500'd every path since it ran unmocked / unmapped.)
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) return c.json(SITE_NOT_FOUND, 404);
 
   // Start Workflow
   const workflow = c.env.PSEO_GENERATION_WORKFLOW;
