@@ -6697,14 +6697,10 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
   if (!fromId || !toId) throw badRequest('Both `from` and `to` snapshot ids are required');
   if (fromId === toId) throw badRequest('`from` and `to` must be different snapshots');
 
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
+  const { dbQueryOne: dbq1 } = await import('../services/db.js');
   const [fromSnap, toSnap] = await Promise.all([
     dbq1<{ id: string; build_version: string; snapshot_name: string }>(
       c.env.DB,
@@ -7328,13 +7324,8 @@ api.get('/api/sites/:siteId/git/history', async (c) => {
   const siteId = c.req.param('siteId');
   const depth = parseInt(c.req.query('depth') ?? '20', 10);
 
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { getHistory } = await import('../services/git.js');
   const history = await getHistory(c.env.SITES_BUCKET, site.slug, Math.min(depth, 100));
@@ -7390,13 +7381,8 @@ api.get('/api/sites/:siteId/git/diff', async (c) => {
     throw badRequest('Both "base" and "target" query params are required');
   }
 
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { diffSnapshots } = await import('../services/git.js');
   const diff = await diffSnapshots(c.env.SITES_BUCKET, site.slug, base, target);
@@ -7447,13 +7433,8 @@ api.get('/api/sites/:siteId/git/commits/:commitId', async (c) => {
   const siteId = c.req.param('siteId');
   const commitId = c.req.param('commitId');
 
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { getCommit } = await import('../services/git.js');
   const commit = await getCommit(c.env.SITES_BUCKET, site.slug, commitId);
