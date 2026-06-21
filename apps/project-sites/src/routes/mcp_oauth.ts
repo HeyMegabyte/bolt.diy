@@ -32,26 +32,13 @@ import type { Env, Variables } from '../types/env.js';
 import { getAdapter, type Provider } from '../services/mcp_client.js';
 import { encrypt } from '../services/ai_crypto.js';
 import * as auditService from '../services/audit.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 
 /** Boundary contract for the paste-key flow — a non-empty secret string. */
 const PasteKeyBodySchema = z.object({ api_key: z.string().min(1) });
 
 /** OAuth/paste state rows older than this are rejected (replay protection). */
 const STATE_TTL = "datetime('now', '-10 minutes')";
-
-/**
- * Confirm a site belongs to the caller's org before we bind a credential to it.
- * Without this, a user could pass another org's `site_id` (IDOR / CWE-639) and
- * write MCP credentials onto a site they don't own. Returns false on missing /
- * foreign / deleted sites — callers answer 404 (never leak existence).
- */
-async function siteBelongsToOrg(db: Env['DB'], siteId: string, orgId: string): Promise<boolean> {
-  const row = await db
-    .prepare(`SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`)
-    .bind(siteId, orgId)
-    .first<{ id: string }>();
-  return !!row;
-}
 
 export const mcpOauth = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -139,7 +126,8 @@ mcpOauth.get('/api/mcp/:provider/connect', async (c) => {
     return c.json({ error: 'oauth_not_configured', provider }, 501);
   }
   // Ownership check — never bind a connection to a site the caller doesn't own.
-  if (!(await siteBelongsToOrg(c.env.DB, siteId, orgId))) {
+  // Canonical IDOR/CWE-639 guard (404 never 403 — never leak existence).
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) {
     return c.json({ error: { message: 'site not found' } }, 404);
   }
   // Sanitize to a same-origin relative path — the callback composes
@@ -324,7 +312,7 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
   if (!siteId) return c.json({ error: { message: 'site_id required' } }, 400);
   // Ownership check — the `site_id` query fallback (no state) is attacker-controlled;
   // never write a credential onto a site the caller's org doesn't own (IDOR).
-  if (!(await siteBelongsToOrg(c.env.DB, siteId, orgId))) {
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) {
     return c.json({ error: { message: 'site not found' } }, 404);
   }
   const enc = await encrypt(c.env, api_key);

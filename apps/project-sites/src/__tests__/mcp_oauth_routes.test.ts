@@ -65,24 +65,33 @@ function makeDb(
     firstRow?: Record<string, unknown> | null;
     allRows?: Array<Record<string, unknown>>;
     // Whether the caller's org owns the target site (gates the IDOR ownership
-    // check `SELECT id FROM sites WHERE id = ? AND org_id = ?`). Default true so
-    // existing happy-path tests model an owned site.
+    // check). The canonical `assertSiteOwned` runs `SELECT org_id FROM sites
+    // WHERE id = ? AND deleted_at IS NULL` and compares `row.org_id === orgId`
+    // in code — so an owned site returns a row whose `org_id` equals the
+    // caller's org (`ownerOrgId`, default 'org-1' = AUTH.orgId); not-owned
+    // returns null (missing/foreign → 404, never leak existence). Default true.
     ownsSite?: boolean;
+    ownerOrgId?: string;
   } = {},
 ) {
   const ownsSite = opts.ownsSite ?? true;
+  const ownerOrgId = opts.ownerOrgId ?? 'org-1';
   const statements: BoundStatement[] = [];
   const prepare = jest.fn((sql: string) => {
     const bind = jest.fn((...params: unknown[]) => {
       statements.push({ sql, params });
       return {
-        first: jest.fn(async () => {
-          // The site-ownership probe is SQL-distinct from the state lookup.
-          if (/FROM sites\b/i.test(sql)) return ownsSite ? { id: 's1' } : null;
-          return opts.firstRow ?? null;
-        }),
+        // `.first()` answers the raw-prepare state lookups (mcp_oauth_states).
+        first: jest.fn(async () => opts.firstRow ?? null),
         run: jest.fn(async () => ({ success: true, meta: {} })),
-        all: jest.fn(async () => ({ results: opts.allRows ?? [] })),
+        // `.all()` answers both the connections list AND the canonical
+        // `assertSiteOwned` ownership probe (it runs via dbQuery → `.all()`).
+        all: jest.fn(async () => {
+          if (/FROM sites\b/i.test(sql)) {
+            return { results: ownsSite ? [{ org_id: ownerOrgId }] : [] };
+          }
+          return { results: opts.allRows ?? [] };
+        }),
       };
     });
     return { bind };
