@@ -32,6 +32,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { badRequest, unauthorized, notFound } from '@project-sites/shared';
 import { dbQueryOne } from '../services/db.js';
+import { requireOwnedSite } from '../services/site_ownership.js';
 import * as auditService from '../services/audit.js';
 import * as domainService from '../services/domains.js';
 import { checkAvailability } from '../services/rdap_availability.js';
@@ -89,12 +90,8 @@ domainPurchase.post('/api/domains/purchase', zValidator('json', purchaseSchema),
   const siteId = body.site_id.trim();
 
   // Cross-org guard.
-  const site = await dbQueryOne<{ id: string; org_id: string }>(
-    c.env.DB,
-    'SELECT id, org_id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; org_id: string }>(c.env, orgId, siteId, 'id, org_id');
 
   // (a) Availability pre-check via RDAP.
   const avail = await checkAvailability(c.env, domain);
