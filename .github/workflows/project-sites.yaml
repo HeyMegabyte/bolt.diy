@@ -387,19 +387,19 @@ jobs:
     # and GitHub skips a downstream job (even on success) unless it ALSO uses
     # always() — so e2e-production was silently SKIPPED every run, never exercising
     # the authed-admin suite against prod. Now it runs after a successful deploy.
-    if: |
-      always() && needs.deploy-production.result == 'success' &&
-      (github.event_name != 'workflow_dispatch' || inputs.skip_e2e != true)
-    # Advisory (post-deploy, non-blocking): CF Bot Fight Mode on the projectsites.dev
-    # zone blocks the GHA-runner headless Chromium at the edge — every test fails with
-    # `page.goto: net::ERR_FAILED` before the app loads (a real Mozilla-UA curl gets
-    # 200; CF blocks by TLS/JA3 fingerprint, not UA). The deploy already succeeded
-    # upstream and verify-deploy.mjs is the real post-deploy smoke gate, so a CF-blocked
-    # browser run must NOT fail the overall pipeline. TODO(real fix): add a CF WAF
-    # skip rule keyed on a secret `X-E2E-Bypass` header (sent via Playwright
-    # extraHTTPHeaders) OR run E2E against the worker's *.workers.dev origin (no zone
-    # Bot Fight), then drop this continue-on-error to make prod E2E a true gate.
-    continue-on-error: true
+    # SKIPPED until a CF E2E bypass exists. CF Bot Fight Mode on the projectsites.dev
+    # zone blocks the GHA-runner headless Chromium at the edge — EVERY test fails with
+    # `page.goto: net::ERR_FAILED` before the app loads (a real Mozilla-UA curl gets 200;
+    # CF blocks by TLS/JA3 fingerprint, not UA). The worker's *.workers.dev origin 404s
+    # the app (hostname-gated to projectsites.dev), so that bypass is out. Running the
+    # 100%-doomed suite (3 shards × retries ≈ 25min) every push was pure waste, so skip
+    # it. Deploy already succeeds upstream + verify-deploy.mjs curl-smoke is the real
+    # post-deploy gate. RE-ENABLE (make prod E2E a true gate) once a CF WAF skip rule
+    # keyed on a secret `X-E2E-Bypass` header (sent via Playwright extraHTTPHeaders) is
+    # in place: change this `if:` back to
+    #   always() && needs.deploy-production.result == 'success' &&
+    #   (github.event_name != 'workflow_dispatch' || inputs.skip_e2e != true)
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
