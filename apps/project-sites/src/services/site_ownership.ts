@@ -54,6 +54,19 @@ export async function assertSiteOwned(
  * existence-leak protocol). `columns` is CODE-controlled (never user input) so it
  * interpolates safely; `siteId`/`orgId` are bound params.
  *
+ * @remarks
+ * This THROWS — it only renders as a 404 when the handler runs under the global
+ * `errorHandler` (`app.onError(errorHandler)`). Do NOT swap a sibling handler's
+ * boolean `if (!await assertSiteOwned(...)) return c.json(404)` guard to this just
+ * to "canonicalize": (1) it changes the observable result to a throw, and (2) a
+ * route's isolated unit test typically `jest.mock`s this module to export ONLY
+ * `assertSiteOwned` — so `requireOwnedSite` resolves to `undefined`, the call is
+ * `undefined()` → TypeError → 500 on every path. Reach for this ONLY when the
+ * handler genuinely needs the row's columns; otherwise use {@link assertSiteOwned}
+ * to match the surrounding idiom. After migrating ANY route handler's guard, run
+ * that route's own `<route>_routes.test.ts`, not just `site_ownership.test.ts`.
+ * (Reference incident: pseo `/generate` migration ee63c102 → revert ed3ded42.)
+ *
  * @param env - Worker env (needs `DB`).
  * @param orgId - The caller's resolved org. Empty/undefined → 404 (unauthorized
  *   callers must never distinguish missing from foreign).

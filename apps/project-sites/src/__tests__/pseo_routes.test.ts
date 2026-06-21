@@ -168,16 +168,22 @@ describe('POST /api/pseo/:siteId/generate', () => {
   });
 
   it('returns 404 when the site row does not belong to the org', async () => {
-    mockDbQueryOne.mockResolvedValue(null);
+    // Ownership is the boolean `assertSiteOwned` guard (same idiom as the other
+    // six pseo handlers) — NOT a raw dbQueryOne SELECT. Drive the foreign-site
+    // case through the guard, and assert the handler never falls back to a
+    // redundant ownership query (locks the assertSiteOwned idiom in place).
+    mockAssertSiteOwned.mockResolvedValue(false);
     const env = makeEnv();
     const res = await req(makeApp(AUTH), 'POST', '/api/pseo/foreign-site/generate', env);
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe('NOT_FOUND');
+    expect(mockDbQueryOne).not.toHaveBeenCalled();
   });
 
   it('returns 503 when the workflow binding is unavailable', async () => {
-    mockDbQueryOne.mockResolvedValue({ id: 'site-1' });
+    // Owned via the beforeEach assertSiteOwned→true default (generate no longer
+    // reads dbQueryOne for ownership).
     const env = makeEnv({ PSEO_GENERATION_WORKFLOW: undefined });
     const res = await req(makeApp(AUTH), 'POST', '/api/pseo/site-1/generate', env);
     expect(res.status).toBe(503);
@@ -186,7 +192,6 @@ describe('POST /api/pseo/:siteId/generate', () => {
   });
 
   it('returns 200 with the workflow instance id on success', async () => {
-    mockDbQueryOne.mockResolvedValue({ id: 'site-1' });
     const env = makeEnv();
     const res = await req(makeApp(AUTH), 'POST', '/api/pseo/site-1/generate', env);
     expect(res.status).toBe(200);
@@ -199,7 +204,6 @@ describe('POST /api/pseo/:siteId/generate', () => {
   });
 
   it('returns 500 when the workflow create() rejects', async () => {
-    mockDbQueryOne.mockResolvedValue({ id: 'site-1' });
     const env = makeEnv({ PSEO_GENERATION_WORKFLOW: makeWorkflow({ throws: true }) });
     const res = await req(makeApp(AUTH), 'POST', '/api/pseo/site-1/generate', env);
     expect(res.status).toBe(500);
