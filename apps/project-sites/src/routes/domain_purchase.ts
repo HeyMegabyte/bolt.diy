@@ -91,7 +91,12 @@ domainPurchase.post('/api/domains/purchase', zValidator('json', purchaseSchema),
 
   // Cross-org guard.
   // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
-  const site = await requireOwnedSite<{ id: string; org_id: string }>(c.env, orgId, siteId, 'id, org_id');
+  const site = await requireOwnedSite<{ id: string; org_id: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, org_id',
+  );
 
   // (a) Availability pre-check via RDAP.
   const avail = await checkAvailability(c.env, domain);
