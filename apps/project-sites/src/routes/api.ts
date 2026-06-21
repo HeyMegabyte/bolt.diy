@@ -4999,13 +4999,14 @@ api.post('/api/domains/purchase', async (c) => {
   }
   const body = parsed.data;
 
-  // Verify site ownership (also fetch the slug to build the redirect allowlist)
-  const site = await dbQueryOne<{ id: string; org_id: string; slug: string }>(
-    c.env.DB,
-    'SELECT id, org_id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [body.site_id, orgId],
+  // Verify site ownership (also fetch the slug to build the redirect allowlist).
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; org_id: string; slug: string }>(
+    c.env,
+    orgId,
+    body.site_id,
+    'id, org_id, slug',
   );
-  if (!site) throw notFound('Site not found');
 
   // Clamp the Stripe redirect URLs to the site's OWN domains + the platform
   // host. Without this an authed user could set `success_url=https://evil.com`
@@ -5124,13 +5125,13 @@ api.post('/api/domains/register', async (c) => {
   const siteId = (body.site_id || '').trim();
   if (!domain || !siteId) throw badRequest('domain and site_id are required');
 
-  // Verify site ownership.
-  const site = await dbQueryOne<{ id: string; org_id: string }>(
-    c.env.DB,
-    'SELECT id, org_id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Verify site ownership (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; org_id: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, org_id',
   );
-  if (!site) throw notFound('Site not found');
 
   // Pull contact info from the authenticated user — CF Registrar requires
   // a full WHOIS contact even with privacy on (the privacy flag swaps in
