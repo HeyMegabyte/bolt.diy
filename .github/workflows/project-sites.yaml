@@ -375,7 +375,13 @@ jobs:
   e2e-production:
     name: 'E2E Production ${{ matrix.shard }}/3'
     needs: [deploy-production]
-    if: github.event_name != 'workflow_dispatch' || inputs.skip_e2e != true
+    # Needs always()+explicit success check: deploy-production uses `if: always()`,
+    # and GitHub skips a downstream job (even on success) unless it ALSO uses
+    # always() — so e2e-production was silently SKIPPED every run, never exercising
+    # the authed-admin suite against prod. Now it runs after a successful deploy.
+    if: |
+      always() && needs.deploy-production.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || inputs.skip_e2e != true)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
