@@ -69,6 +69,27 @@ describe('service registry integrity', () => {
     expect(v[0].problem).toContain('deprecated/removed');
   });
 
+  it('detects an excluded vendor referenced only via adapterPackage (not just name)', () => {
+    // The scan covers `name` + `adapterPackage`; this locks the adapterPackage
+    // branch so a forbidden §4 vendor can't slip in behind an innocuous display
+    // name by hiding the dependency in the adapter path.
+    const hidden: ServiceRegistryEntry[] = [
+      {
+        id: 'mailer',
+        name: 'Transactional email',
+        category: 'email',
+        runtime: 'managed-saas',
+        adapterPackage: 'apps/project-sites/src/services/resend-adapter.ts',
+        status: 'production',
+        access: 'service-only',
+      },
+    ];
+    const v = validateServiceRegistry(hidden);
+    expect(v).toHaveLength(1);
+    expect(v[0].problem).toContain('resend');
+    expect(v[0].problem).toContain('deprecated/removed');
+  });
+
   it('allows an excluded vendor when correctly marked deprecated (migration in flight)', () => {
     const ok: ServiceRegistryEntry[] = [
       {
