@@ -5288,12 +5288,8 @@ api.get('/api/domains/suggest', async (c) => {
   });
 
   // Verify ownership before any AI spend.
-  const site = await dbQueryOne<{ id: string }>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [parsed.site_id, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, parsed.site_id);
 
   const count = parsed.count ?? 10;
   const cacheKey = `domain_suggest:${parsed.site_id}:${count}`;
@@ -5366,12 +5362,8 @@ api.post('/api/domains/suggest/refine', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const parsed = suggestRefineSchema.parse(body);
 
-  const site = await dbQueryOne<{ id: string }>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [parsed.site_id, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, parsed.site_id);
 
   const count = parsed.count ?? 10;
 
@@ -5427,12 +5419,8 @@ api.get('/api/admin/profile/:site_id/context', async (c) => {
     throw badRequest('site_id must be a UUID');
   }
 
-  const site = await dbQueryOne<{ id: string }>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
 
   const context = await gatherProfileContext(c.env, siteId);
   if (!context) throw notFound('Site has no resolvable profile');
@@ -9569,12 +9557,8 @@ api.get('/api/sites/:siteId/domains/availability', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('siteId');
-  const site = await dbQueryOne<{ id: string }>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
 
   const name = (c.req.query('name') ?? '').toLowerCase().trim();
   if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(name)) {
@@ -9723,12 +9707,8 @@ api.post('/api/sites/:siteId/domains/:domain/transfer-out', async (c) => {
     throw badRequest('Invalid domain in path');
   }
 
-  const site = await dbQueryOne<{ id: string }>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
 
   // Verify the domain belongs to this site (and is not already deleted).
   const hostnameRow = await dbQueryOne<{ id: string; hostname: string }>(
