@@ -73,6 +73,38 @@ export function resolveTinybird(env: Env): TinybirdConfig | null {
   return { apiHost: trimUrl(host), token };
 }
 
+/**
+ * Resolve config for the INGEST (append) path. Identical to {@link resolveTinybird}
+ * except the token precedence prefers an APPEND-capable token: a dedicated
+ * `TINYBIRD_INGEST_TOKEN`, else the admin `TINYBIRD_MCP_TOKEN`, before the
+ * read-only `TINYBIRD_PASSWORD`. The Events API rejects a read-only token with
+ * 403 "Invalid token" (verified 2026-06-20: TINYBIRD_PASSWORD has PIPES:READ but
+ * not DATASOURCES:APPEND), which silently dead-letters the outbox drain. Reads
+ * (`resolveTinybird`) stay least-privilege; only ingest reaches for append.
+ *
+ * @param env - Worker env (Tinybird host + token chain).
+ * @returns A {@link TinybirdConfig} with an append-capable token, or `null`.
+ */
+export function resolveTinybirdAppend(env: Env): TinybirdConfig | null {
+  const host = (env as { TINYBIRD_API_HOST?: string }).TINYBIRD_API_HOST;
+  if (!host || !isHttpUrl(host)) return null;
+  const e = env as {
+    TINYBIRD_INGEST_TOKEN?: string;
+    TINYBIRD_TOKEN?: string;
+    TINYBIRD_MCP_TOKEN?: string;
+    TINYBIRD_PASSWORD?: string;
+  };
+  const token = (
+    e.TINYBIRD_INGEST_TOKEN ||
+    e.TINYBIRD_TOKEN ||
+    e.TINYBIRD_MCP_TOKEN ||
+    e.TINYBIRD_PASSWORD ||
+    ''
+  ).trim();
+  if (!token) return null;
+  return { apiHost: trimUrl(host), token };
+}
+
 /** Outcome of an ingest attempt. */
 export interface TinybirdIngestResult {
   /** True when Tinybird accepted the rows (HTTP 2xx). */
@@ -101,7 +133,8 @@ export async function ingestTinybirdEvent(
   events: TinybirdEvent | TinybirdEvent[],
   deps: { fetchImpl?: typeof fetch; now?: () => string } = {},
 ): Promise<TinybirdIngestResult> {
-  const cfg = resolveTinybird(env);
+  // Ingest needs DATASOURCES:APPEND — the read-only TINYBIRD_PASSWORD 403s here.
+  const cfg = resolveTinybirdAppend(env);
   if (!cfg) return { ok: false, reason: 'not_configured' };
 
   const list = Array.isArray(events) ? events : [events];

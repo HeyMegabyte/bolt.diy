@@ -1,4 +1,4 @@
-import { resolveTinybird, ingestTinybirdEvent } from '../services/tinybird';
+import { resolveTinybird, resolveTinybirdAppend, ingestTinybirdEvent } from '../services/tinybird';
 
 /**
  * Tinybird ingest adapter — env-gated OLAP analytics. Pure resolver + DI'd-fetch
@@ -7,6 +7,42 @@ import { resolveTinybird, ingestTinybirdEvent } from '../services/tinybird';
  */
 const E = (o: Record<string, string | undefined>) => o as never;
 const HOST = 'https://api.us-east.aws.tinybird.co';
+
+describe('resolveTinybirdAppend (ingest token — append precedence)', () => {
+  it('prefers an APPEND-capable token over the read-only PASSWORD', () => {
+    // The worker has both MCP (admin/append) + PASSWORD (read-only) set; ingest
+    // must pick MCP, not PASSWORD (which 403s on the Events API).
+    expect(
+      resolveTinybirdAppend(
+        E({ TINYBIRD_API_HOST: HOST, TINYBIRD_PASSWORD: 'p.read', TINYBIRD_MCP_TOKEN: 'p.append' }),
+      )?.token,
+    ).toBe('p.append');
+  });
+
+  it('prefers a dedicated TINYBIRD_INGEST_TOKEN above all', () => {
+    expect(
+      resolveTinybirdAppend(
+        E({
+          TINYBIRD_API_HOST: HOST,
+          TINYBIRD_INGEST_TOKEN: 'p.ingest',
+          TINYBIRD_TOKEN: 'p.tok',
+          TINYBIRD_MCP_TOKEN: 'p.mcp',
+        }),
+      )?.token,
+    ).toBe('p.ingest');
+  });
+
+  it('falls back to PASSWORD only when no append token exists', () => {
+    expect(
+      resolveTinybirdAppend(E({ TINYBIRD_API_HOST: HOST, TINYBIRD_PASSWORD: 'p.pw' }))?.token,
+    ).toBe('p.pw');
+  });
+
+  it('is null when host or token is absent', () => {
+    expect(resolveTinybirdAppend(E({ TINYBIRD_MCP_TOKEN: 'x' }))).toBeNull();
+    expect(resolveTinybirdAppend(E({ TINYBIRD_API_HOST: HOST }))).toBeNull();
+  });
+});
 
 describe('resolveTinybird', () => {
   it('returns null when host is unset', () => {
