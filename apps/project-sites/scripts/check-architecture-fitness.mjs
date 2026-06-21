@@ -43,11 +43,16 @@ const ALLOWLIST = [/(^|\/)src\/platform\/service-registry\.ts$/];
 const RULES = [
   { vendor: 'resend', pattern: /\bresend\b/i, documented: 'ADR-0019' },
   { vendor: 'postmark', pattern: /\bpostmark\b/i, documented: null },
-  { vendor: 'polar.sh', pattern: /polar\.sh|@polar-sh|\bpolar\/sdk\b/i, documented: null },
+  { vendor: 'polar', pattern: /polar\.sh|@polar-sh|\bpolar\/sdk\b/i, documented: null },
   { vendor: 'trigger.dev', pattern: /trigger\.dev|@trigger\.dev/i, documented: null },
   { vendor: 'clay', pattern: /\bclay\.com\b|@clay\b/i, documented: null },
   { vendor: 'socket.dev', pattern: /socket\.dev/i, documented: null },
   { vendor: 'chainguard', pattern: /chainguard/i, documented: null },
+  // §4 also excludes these — disambiguated to the SDK/domain (NOT the English
+  // words "knock"/"speakeasy"/"brain trust") to keep false positives at zero.
+  { vendor: 'speakeasy', pattern: /@speakeasy-api\b|\bspeakeasyapi\b|speakeasy\.com/i, documented: null },
+  { vendor: 'knock', pattern: /@knocklabs\b|knock\.app/i, documented: null },
+  { vendor: 'braintrust', pattern: /@braintrust\b|braintrust\.dev|braintrustdata/i, documented: null },
 ];
 
 /**

@@ -16,6 +16,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { eventIdempotencyKey, EVENT_TYPES, MAX_OUTBOX_ATTEMPTS } from '../services/event_bus.js';
+import { EXCLUDED_VENDORS } from '../platform/service-registry.js';
 
 const SRC = join(__dirname, '..');
 
@@ -65,6 +66,20 @@ describe('architecture fitness — forbidden vendors (convergence LAW §2)', () 
   it('has no forbidden managed app-platform deploy targets (CF-first LAW)', () => {
     // Importing these vendor SDKs = drift off the Cloudflare + Neon/Upstash/Fly base.
     expect(violations(/from ['"]@vercel\/|from ['"]@supabase\/|from ['"]@aws-sdk\//)).toEqual([]);
+  });
+});
+
+describe('architecture fitness — exclude-list lockstep (single source of truth, §4)', () => {
+  it('the CI gate scans for EVERY vendor the registry declares excluded', () => {
+    // The gate script carries its OWN RULES list it scans source with; the
+    // registry's EXCLUDED_VENDORS is the SSOT. A vendor in the registry but
+    // missing a gate rule = a §4 vendor that scans clean SILENTLY (the gate
+    // never looks for it). This locks the two in lockstep so the manual sync
+    // the gate header admits to can never drift again. (Found speakeasy/knock/
+    // braintrust missing + a polar/polar.sh key mismatch when first wired.)
+    const gate = readFileSync(join(SRC, '../scripts/check-architecture-fitness.mjs'), 'utf8');
+    const missing = EXCLUDED_VENDORS.filter((v) => !gate.includes(`vendor: '${v}'`));
+    expect(missing).toEqual([]);
   });
 });
 
