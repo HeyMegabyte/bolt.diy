@@ -10,13 +10,13 @@
 # Deploy:          tb push datasources/projectsites_events.datasource   (or `tb deploy`)
 
 SCHEMA >
-    `site_id` String,
-    `tenant_id` String,
-    `event` LowCardinality(String),
-    `timestamp` DateTime64(3),
-    `event_id` String,
-    `trace_id` String,
-    `producer` LowCardinality(String),
+    `site_id` String `json:$.site_id`,
+    `tenant_id` String `json:$.tenant_id`,
+    `event` LowCardinality(String) `json:$.event`,
+    `timestamp` DateTime64(3) `json:$.timestamp`,
+    `event_id` String `json:$.event_id`,
+    `trace_id` String `json:$.trace_id`,
+    `producer` LowCardinality(String) `json:$.producer`,
     `payload` String `json:$.payload` DEFAULT '{}'
 
 # `payload` is the JSON-stringified event `data` (slug, version, source, leadId,
