@@ -6621,13 +6621,9 @@ api.get('/api/sites/:siteId/snapshots', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
   const siteId = c.req.param('siteId');
 
-  // Look up site slug for git history
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
+  // Look up site slug for git history. Canonical org-ownership guard — 404 on
+  // missing/foreign (was a latent 500: site.slug below has no null guard).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { dbQuery: dbq } = await import('../services/db.js');
   const result = await dbq<{
