@@ -1792,12 +1792,8 @@ api.get('/api/sites/:siteId/hostnames', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   const hostnames = await domainService.getSiteHostnames(c.env.DB, siteId);
   return c.json({ data: hostnames });
@@ -2082,12 +2078,8 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
   const hostnameId = c.req.param('hostnameId');
 
   // Verify ownership
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   await domainService.setPrimaryHostname(c.env.DB, siteId, hostnameId);
 
@@ -2134,12 +2126,8 @@ api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
   const siteId = c.req.param('siteId');
 
   // Verify ownership
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   // Clear is_primary on all hostnames for this site
   await c.env.DB.prepare('UPDATE hostnames SET is_primary = 0 WHERE site_id = ?')
@@ -2189,12 +2177,8 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
   const hostnameId = c.req.param('hostnameId');
 
   // Verify ownership
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   const hostname = await dbQueryOne<{ id: string; hostname: string }>(
     c.env.DB,
@@ -2259,12 +2243,8 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
   const hostnameId = c.req.param('hostnameId');
 
   // Verify ownership
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   const hostname = await dbQueryOne<{ id: string; hostname: string; type: string }>(
     c.env.DB,
