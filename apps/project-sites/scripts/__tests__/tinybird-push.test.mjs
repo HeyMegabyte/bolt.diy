@@ -28,12 +28,17 @@ test('datafileEndpoint routes by extension', () => {
   assert.equal(datafileEndpoint('https://h', 'pipes/x.pipe'), 'https://h/v0/pipes');
 });
 
-test('classifyResponse: 2xx=created, 409=exists (idempotent), else failed', () => {
+test('classifyResponse: 2xx=created, 409=exists, Forward-403 detected, else failed', () => {
   assert.equal(classifyResponse(200), 'created');
   assert.equal(classifyResponse(201), 'created');
   assert.equal(classifyResponse(409), 'exists');
-  assert.equal(classifyResponse(400), 'failed');
-  assert.equal(classifyResponse(403), 'failed');
+  assert.equal(classifyResponse(400, 'bad schema'), 'failed');
+  assert.equal(classifyResponse(403, 'token needs scope PIPES:CREATE'), 'failed'); // plain 403
+  // Forward workspace: classic API disabled
+  assert.equal(
+    classifyResponse(403, '{"error": "Adding or modifying pipes to this workspace can only be done via deployments."}'),
+    'forward-deploy-required',
+  );
 });
 
 test('pushAll posts datasources before pipes, bearer auth, idempotent on 409', async () => {
@@ -56,6 +61,19 @@ test('pushAll posts datasources before pipes, bearer auth, idempotent on 409', a
   assert.equal(calls[0].auth, 'Bearer tok');
   assert.equal(results[0].verdict, 'created');
   assert.equal(results[1].verdict, 'exists'); // 409 treated as success
+});
+
+test('pushAll flags a Forward workspace from the 403 deployments message', async () => {
+  const fetchImpl = async () => ({
+    status: 403,
+    text: async () => '{"error": "Adding or modifying pipes to this workspace can only be done via deployments."}',
+  });
+  const results = await pushAll(
+    { host: 'https://h', token: 't' },
+    { fetchImpl, readFileImpl: async () => 'x', listImpl: async () => ['pipes/funnel.pipe'] },
+  );
+  assert.equal(results[0].verdict, 'forward-deploy-required');
+  assert.match(results[0].detail, /via deployments/);
 });
 
 test('pushAll surfaces a failure verdict with the error detail', async () => {

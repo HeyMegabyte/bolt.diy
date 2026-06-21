@@ -44,15 +44,26 @@ column mismatch). The worker token chain (`TINYBIRD_TOKEN` → `TINYBIRD_PASSWOR
 
 ## Deploy
 
+⚠️ **The projectsites prod workspace is Tinybird _Forward_** (verified 2026-06-20:
+`/v1/deployments` exists; classic `POST /v0/pipes` returns 403 "can only be done
+via deployments"). On Forward, datafiles deploy via the Forward CLI's deployment
+flow — NOT the classic `tb push` / Datafiles API:
+
 ```bash
-cd apps/project-sites/tinybird
-tb auth            # uses TINYBIRD_TOKEN (get-secret) + TINYBIRD_API_HOST
-tb deploy          # or: tb push datasources/*.datasource pipes/*.pipe
+# Forward CLI (current):
+tb login                 # admin token = get-secret TINYBIRD_MCP_TOKEN (ADMIN scope)
+tb --cloud deploy        # from a project containing datasources/ + pipes/
 ```
 
-Tinybird auto-creates the datasource on first ingest if absent, but deploying
-these files gives proper column types + sorting key for query performance — and
-versions the schema alongside the producer code.
+- `scripts/tinybird-push.mjs` (Node, CLI-free) targets the CLASSIC Datafiles API
+  and is kept for any classic workspace; on this Forward workspace it now DETECTS
+  the restriction and prints the Forward guidance (exit 3) instead of failing opaquely.
+- The worker's token (`TINYBIRD_PASSWORD`) is an append/read token — enough to
+  INGEST (the `*/5` outbox drain auto-creates the datasource on first event) and
+  QUERY pipes, but NOT to create datasources/pipes (needs the admin token above).
+- Auto-create covers the datasource on first ingest; the read PIPES still need the
+  Forward deploy before the analytics endpoints return live data (until then they
+  return `degraded: true` gracefully).
 
 ## Query examples
 
