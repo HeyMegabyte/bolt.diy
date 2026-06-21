@@ -23,7 +23,7 @@ jest.mock('../services/db.js', () => ({
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
-import { assertSiteOwned } from '../services/site_ownership.js';
+import { assertSiteOwned, requireOwnedSite } from '../services/site_ownership.js';
 import { dbQueryOne } from '../services/db.js';
 import type { Env } from '../types/env.js';
 
@@ -35,6 +35,41 @@ const env = { DB: { __brand: 'd1' } } as unknown as Env;
 const OWNER_ORG = 'org_owner_123';
 const FOREIGN_ORG = 'org_intruder_999';
 const SITE_ID = 'site_abc_001';
+
+describe('requireOwnedSite — row-returning guard (404 never 403)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns the row + queries with the org filter when owned', async () => {
+    mockDbQueryOne.mockResolvedValue({ slug: 'acme' });
+    const site = await requireOwnedSite<{ slug: string }>(env, OWNER_ORG, SITE_ID, 'slug');
+    expect(site).toEqual({ slug: 'acme' });
+    const [, sql, params] = mockDbQueryOne.mock.calls[0];
+    expect(sql).toContain('SELECT slug FROM sites');
+    expect(sql).toContain('org_id = ?'); // ownership enforced in the query
+    expect(sql).toContain('deleted_at IS NULL');
+    expect(params).toEqual([SITE_ID, OWNER_ORG]);
+  });
+
+  it('throws NOT_FOUND (never 403) for a missing OR foreign-org site', async () => {
+    mockDbQueryOne.mockResolvedValue(null); // org-scoped query returns nothing
+    await expect(requireOwnedSite(env, FOREIGN_ORG, SITE_ID)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
+  it('throws NOT_FOUND for an unauthenticated caller WITHOUT hitting the DB', async () => {
+    await expect(requireOwnedSite(env, undefined, SITE_ID)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect(mockDbQueryOne).not.toHaveBeenCalled(); // short-circuits like assertSiteOwned
+  });
+
+  it('defaults to selecting `id` when no columns given', async () => {
+    mockDbQueryOne.mockResolvedValue({ id: SITE_ID });
+    await requireOwnedSite(env, OWNER_ORG, SITE_ID);
+    expect(mockDbQueryOne.mock.calls[0][1]).toContain('SELECT id FROM sites');
+  });
+});
 
 describe('assertSiteOwned — multi-tenant ownership guard', () => {
   beforeEach(() => {

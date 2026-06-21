@@ -136,6 +136,7 @@ import { createSite } from '../services/site_create.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 import { buildSitePublishedEvent, sitePublishedScope } from '../services/site_publish_event.js';
 import { notifyOwnerSiteBuilt } from '../services/notify_site_built.js';
+import { requireOwnedSite } from '../services/site_ownership.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
@@ -6413,12 +6414,8 @@ api.get('/api/sites/:id/files/:path{.+}', async (c) => {
   const filePath = sanitizeFilePath(rawPath);
   if (!filePath) throw forbidden('Invalid file path');
 
-  const site = await dbQueryOne<{ slug: string }>(
-    c.env.DB,
-    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   // Build scoped key and validate it stays within the site's R2 scope
   const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;

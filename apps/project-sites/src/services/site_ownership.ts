@@ -12,6 +12,7 @@
 
 import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
+import { notFound } from '@project-sites/shared';
 
 /**
  * Returns `true` only when `siteId` exists (not soft-deleted) AND belongs to
@@ -40,4 +41,41 @@ export async function assertSiteOwned(
     [siteId],
   );
   return !!row && row.org_id === orgId;
+}
+
+/**
+ * Load an org-owned site ROW, or throw 404. The throwing, row-returning companion
+ * to {@link assertSiteOwned} — use it when the handler needs the site's columns
+ * (slug, business_name, …), so the ownership check + the fetch are ONE query
+ * instead of an `assertSiteOwned` boolean followed by a second SELECT.
+ *
+ * Missing == soft-deleted == foreign-org → all 404 `notFound('Site not found')`
+ * (never 403 — 403 would confirm the id exists to a prober; the fires 30-36
+ * existence-leak protocol). `columns` is CODE-controlled (never user input) so it
+ * interpolates safely; `siteId`/`orgId` are bound params.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param orgId - The caller's resolved org. Empty/undefined → 404 (unauthorized
+ *   callers must never distinguish missing from foreign).
+ * @param siteId - The site id from the request.
+ * @param columns - SQL column list (default `'id'`). Code literal only.
+ * @returns The selected site row (typed by `T`).
+ * @throws {AppError} `NOT_FOUND` 'Site not found' on missing/deleted/foreign/no-org.
+ * @example
+ * const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
+ */
+export async function requireOwnedSite<T = { id: string }>(
+  env: Pick<Env, 'DB'>,
+  orgId: string | undefined,
+  siteId: string,
+  columns = 'id',
+): Promise<T> {
+  if (!orgId) throw notFound('Site not found');
+  const site = await dbQueryOne<T>(
+    env.DB,
+    `SELECT ${columns} FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+  return site;
 }
