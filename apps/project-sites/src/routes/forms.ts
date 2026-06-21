@@ -353,7 +353,12 @@ async function loadOwnedSite(
   const siteId = c.req.param('siteId');
   if (!siteId) throw badRequest('Missing siteId');
   // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
-  const site = await requireOwnedSite<{ id: string; slug: string }>(c.env, orgId, siteId, 'id, slug');
+  const site = await requireOwnedSite<{ id: string; slug: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, slug',
+  );
   return site;
 }
 
