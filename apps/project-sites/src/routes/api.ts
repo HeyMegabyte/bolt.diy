@@ -3540,12 +3540,13 @@ api.patch('/api/sites/:id', async (c) => {
   }
 
   // Verify ownership
-  const site = await dbQueryOne<{ id: string; slug: string; org_id: string }>(
-    c.env.DB,
-    'SELECT id, slug, org_id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; slug: string; org_id: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, slug, org_id',
   );
-  if (!site) throw notFound('Site not found');
 
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -4234,12 +4235,13 @@ api.post('/api/sites/:id/deploy', async (c) => {
   const siteId = c.req.param('id');
 
   // Verify ownership
-  const site = await dbQueryOne<{ id: string; slug: string; org_id: string }>(
-    c.env.DB,
-    'SELECT id, slug, org_id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; slug: string; org_id: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, slug, org_id',
   );
-  if (!site) throw notFound('Site not found');
 
   const formData = await c.req.formData();
   const zipFile = formData.get('zip') as File | null;
@@ -6218,12 +6220,13 @@ api.get('/api/sites/:id/files', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const site = await dbQueryOne<{ slug: string; current_build_version: string | null }>(
-    c.env.DB,
-    'SELECT slug, current_build_version FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string; current_build_version: string | null }>(
+    c.env,
+    orgId,
+    siteId,
+    'slug, current_build_version',
   );
-  if (!site) throw notFound('Site not found');
 
   const prefix = `sites/${site.slug}/`;
   const version = (c.req.query('version') || site.current_build_version || '').replace(
@@ -6280,12 +6283,13 @@ api.get('/api/sites/:id/files-export', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const site = await dbQueryOne<{ slug: string; current_build_version: string | null }>(
-    c.env.DB,
-    'SELECT slug, current_build_version FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string; current_build_version: string | null }>(
+    c.env,
+    orgId,
+    siteId,
+    'slug, current_build_version',
   );
-  if (!site) throw notFound('Site not found');
 
   const version = site.current_build_version || '';
   const prefix = version ? `sites/${site.slug}/${version}/` : `sites/${site.slug}/`;
