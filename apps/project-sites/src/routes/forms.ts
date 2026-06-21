@@ -30,6 +30,7 @@ import {
 } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { requireOwnedSite } from '../services/site_ownership.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
 import * as auditService from '../services/audit.js';
@@ -351,12 +352,8 @@ async function loadOwnedSite(
 ): Promise<{ id: string; slug: string }> {
   const siteId = c.req.param('siteId');
   if (!siteId) throw badRequest('Missing siteId');
-  const site = await dbQueryOne<{ id: string; slug: string }>(
-    c.env.DB,
-    'SELECT id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; slug: string }>(c.env, orgId, siteId, 'id, slug');
   return site;
 }
 
