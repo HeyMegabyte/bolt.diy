@@ -2016,13 +2016,13 @@ export class AdminSnapshotsComponent implements OnInit {
     // re-trigger can't even open a 2nd dialog; cleared on cancel + on resolve/error.
     if (this.reverting()) return;
     this.reverting.set(true);
-    // Reverting OVERWRITES the live production site — the most destructive admin
-    // action there is (more than deleting a backup). Confirm first, mirroring
-    // confirmDelete, so a single misclick can never roll the live site back —
-    // today (no-op) or the moment the backend ships.
+    // Reverting re-points the live production site to a past build — a
+    // high-impact admin action. Confirm first, mirroring confirmDelete, so a
+    // single misclick can never roll the live site back. It IS reversible (the
+    // current build is itself a restorable point), but still gate it.
     const ok = await this.confirmSvc.confirm({
       title: 'Revert live site',
-      message: `Revert this site to snapshot "${snap.snapshot_name}"? This overwrites the current live site with that past version and cannot be undone.`,
+      message: `Revert this site to snapshot "${snap.snapshot_name}"? This replaces the current live site with that past version. You can switch back by restoring another snapshot.`,
       confirmLabel: 'Revert site',
       danger: true,
     });
@@ -2039,13 +2039,12 @@ export class AdminSnapshotsComponent implements OnInit {
         this.state.loadData();
       },
       error: (err) => {
-        // Revert is backend-pending: the worker wants a commit SHA the snapshot
-        // list doesn't yet expose (see api.service revertSnapshot FIXME). Give an
-        // honest, reassuring message instead of a bare failure — and make clear
-        // the live site was NOT touched (this is a destructive op that no-op'd).
+        // Restore failed (snapshot missing / build no longer in storage / network).
+        // Surface the worker's message when present; the re-point is atomic, so a
+        // failure means the live site was NOT changed.
         this.toast.error(
           err?.error?.error?.message ||
-            'Revert isn’t available yet — it needs a backend update that hasn’t shipped. Your live site was not changed.',
+            'Couldn’t restore that snapshot — your live site was not changed. Try again shortly.',
           7000,
         );
         this.reverting.set(false);

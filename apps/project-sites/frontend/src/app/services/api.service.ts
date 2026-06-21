@@ -755,16 +755,19 @@ export class ApiService {
     return this.get(`/sites/${siteId}/build-assets`);
   }
 
-  /** Revert a site to a previous snapshot version */
+  /**
+   * Restore a site to a previous snapshot by re-pointing its live build version
+   * to that snapshot's frozen build. Reversible — the prior version's R2 files
+   * remain, so restoring again rolls forward/back freely.
+   */
   revertSnapshot(
     siteId: string,
     snapshotId: string,
-  ): Observable<{ data: { message: string; snapshot_name: string } }> {
-    // FIXME(revert-contract): the worker reads `body.commit_id` (a git SHA) and
-    // 400s on `snapshot_id`. To wire a working Revert in v2, the snapshot list
-    // GET must expose the commit SHA + this must send { commit_id }. Destructive
-    // (git revert of the live site) — gate behind confirm + verify safely.
-    return this.post(`/sites/${siteId}/snapshots/revert`, { snapshot_id: snapshotId });
+  ): Observable<{ data: { version: string; slug: string; snapshot_id: string } }> {
+    // Restore-by-version (the snapshot_id the UI already holds → its build_version),
+    // NOT the legacy git-commit_id revert path. See worker
+    // services/snapshot_restore.ts + POST /snapshots/:snapshotId/restore.
+    return this.post(`/sites/${siteId}/snapshots/${snapshotId}/restore`, {});
   }
 
   /** Publish files + chat from bolt.diy to a site */
