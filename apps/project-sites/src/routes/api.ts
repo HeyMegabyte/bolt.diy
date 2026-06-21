@@ -9571,7 +9571,12 @@ api.post('/api/sites/:siteId/domains/register', async (c) => {
 
   const siteId = c.req.param('siteId');
   // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
-  const site = await requireOwnedSite<{ id: string; slug: string }>(c.env, orgId, siteId, 'id, slug');
+  const site = await requireOwnedSite<{ id: string; slug: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, slug',
+  );
 
   const body = (await c.req.json().catch(() => ({}))) as { domain?: unknown };
   const domain = typeof body.domain === 'string' ? body.domain.toLowerCase().trim() : '';
