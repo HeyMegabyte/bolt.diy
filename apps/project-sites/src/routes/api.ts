@@ -1163,15 +1163,8 @@ api.get('/api/sites/:id', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT * FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-
-  if (!site) {
-    throw notFound('Site not found');
-  }
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId, '*');
 
   return c.json({ data: site });
 });
@@ -1210,16 +1203,8 @@ api.get('/api/sites/:id/workflow', async (c) => {
 
   const siteId = c.req.param('id');
 
-  // Verify the site belongs to this org
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id, status FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-
-  if (!site) {
-    throw notFound('Site not found');
-  }
+  // Verify the site belongs to this org (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId, 'id, status');
 
   if (!c.env.SITE_WORKFLOW) {
     return c.json({
