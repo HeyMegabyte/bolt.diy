@@ -96,6 +96,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: test
+      # Bump V8 heap so jest workers (inherited NODE_OPTIONS) don't OOM under v8
+      # coverage over 400 suites — the heavy route_malformed_json_boundary suite
+      # imports the full ../index worker and was crashing a worker on the lower-RAM
+      # CI runner ("Test suite failed to run", passes locally). workerIdleMemoryLimit
+      # recycles between idle tests; this prevents the mid-load heap blowout.
+      NODE_OPTIONS: '--max-old-space-size=4096'
     steps:
       - uses: actions/checkout@v4
 
