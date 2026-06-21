@@ -6936,13 +6936,14 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
   }
 
   // Get the site's current build version if none specified
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ current_build_version: string | null; slug: string }>(
-    c.env.DB,
-    'SELECT current_build_version, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Canonical org-ownership guard — 404 (was badRequest 400, the wrong status for a
+  // missing/foreign site; 404 never 403 per the fires 30-36 protocol).
+  const site = await requireOwnedSite<{ current_build_version: string | null; slug: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'current_build_version, slug',
   );
-  if (!site) throw badRequest('Site not found');
 
   const buildVersion = body.build_version || site.current_build_version;
   if (!buildVersion) {
@@ -9569,12 +9570,8 @@ api.post('/api/sites/:siteId/domains/register', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('siteId');
-  const site = await dbQueryOne<{ id: string; slug: string }>(
-    c.env.DB,
-    'SELECT id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ id: string; slug: string }>(c.env, orgId, siteId, 'id, slug');
 
   const body = (await c.req.json().catch(() => ({}))) as { domain?: unknown };
   const domain = typeof body.domain === 'string' ? body.domain.toLowerCase().trim() : '';
