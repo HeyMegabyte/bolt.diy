@@ -44,6 +44,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          # Cache npm deps so this heal-only job doesn't pay ~4min of npm ci on
+          # every drift push — it just needs prettier + each package's .prettierrc.
+          cache: 'npm'
+          cache-dependency-path: |
+            packages/shared/package-lock.json
+            apps/project-sites/package-lock.json
 
       - name: Install shared deps
         working-directory: packages/shared
