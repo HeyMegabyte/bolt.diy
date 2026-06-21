@@ -7186,14 +7186,13 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
     throw badRequest('commit_id is required');
   }
 
-  // Verify site ownership
-  const { dbQueryOne: dbq1 } = await import('../services/db.js');
-  const site = await dbq1<{ slug: string; current_build_version: string | null }>(
-    c.env.DB,
-    'SELECT slug, current_build_version FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
+  // Verify site ownership (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{ slug: string; current_build_version: string | null }>(
+    c.env,
+    orgId,
+    siteId,
+    'slug, current_build_version',
   );
-  if (!site) throw notFound('Site not found');
 
   // Perform the revert via git service
   const { revertToSnapshot } = await import('../services/git.js');
@@ -8600,12 +8599,8 @@ async function loadAuthorizedSite(
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
   const siteId = c.req.param('id');
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT * FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId, '*');
   return site;
 }
 
@@ -9372,17 +9367,13 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('siteId');
-  const site = await dbQueryOne<{
+  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  const site = await requireOwnedSite<{
     id: string;
     business_name: string | null;
     business_type: string | null;
     business_address: string | null;
-  }>(
-    c.env.DB,
-    'SELECT id, business_name, business_type, business_address FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
+  }>(c.env, orgId, siteId, 'id, business_name, business_type, business_address');
 
   const body = (await c.req.json().catch(() => ({}))) as { query?: unknown };
   const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
