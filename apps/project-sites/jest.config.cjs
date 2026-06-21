@@ -23,6 +23,10 @@ const config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '\\.wasm$': '<rootDir>/src/__tests__/__mocks__/wasm.js',
+    // `cloudflare:workers` is a runtime-only virtual module; stub it so any suite
+    // importing ../index (→ @cloudflare/containers → DurableObject) loads under Jest
+    // instead of "Cannot find module 'cloudflare:workers'".
+    '^cloudflare:workers$': '<rootDir>/src/__tests__/__mocks__/cloudflare-workers.js',
   },
 };
 
