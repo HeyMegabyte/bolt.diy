@@ -10,6 +10,13 @@ const config = {
   // keeps per-worker heap bounded so the heavy import always has headroom.
   workerIdleMemoryLimit: '512MB',
   transform: { '^.+\\.(t|j)sx?$': ['@swc/jest'] },
+  // Transform @cloudflare/containers (shipped as ESM in dist/index.js). Jest
+  // ignores node_modules for transforms by default, so any suite importing
+  // ../index (which imports @cloudflare/containers) hit "Jest encountered an
+  // unexpected token" on its ESM in CI — the real cause of the recurring
+  // route_malformed_json_boundary "Test suite failed to run" (NOT OOM). @swc/jest
+  // transcompiles it to CJS once it's in scope. Add other ESM-only deps here.
+  transformIgnorePatterns: ['/node_modules/(?!(@cloudflare/containers)/)'],
   testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
   collectCoverageFrom: ['**/src/**/*.{ts,tsx}', '!**/src/**/index.ts'],
   coverageProvider: 'v8',
