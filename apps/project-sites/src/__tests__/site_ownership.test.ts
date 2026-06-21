@@ -69,6 +69,26 @@ describe('requireOwnedSite — row-returning guard (404 never 403)', () => {
     await requireOwnedSite(env, OWNER_ORG, SITE_ID);
     expect(mockDbQueryOne.mock.calls[0][1]).toContain('SELECT id FROM sites');
   });
+
+  it('interpolates a multi-column list verbatim + binds [siteId, orgId] in order', async () => {
+    // api.ts + domain_purchase migrations pass 'id, org_id' / 'id, slug' — lock
+    // the exact org-filtered SELECT those handlers depend on. `columns` is
+    // code-controlled (safe interpolation); the bound params are [siteId, orgId]
+    // in that order, never reversed (a swap would compare the wrong column).
+    mockDbQueryOne.mockResolvedValue({ id: SITE_ID, org_id: OWNER_ORG });
+    const row = await requireOwnedSite<{ id: string; org_id: string }>(
+      env,
+      OWNER_ORG,
+      SITE_ID,
+      'id, org_id',
+    );
+    expect(row).toEqual({ id: SITE_ID, org_id: OWNER_ORG });
+    const [, sql, params] = mockDbQueryOne.mock.calls[0];
+    expect(sql).toContain('SELECT id, org_id FROM sites');
+    expect(sql).toContain('org_id = ?');
+    expect(sql).toContain('deleted_at IS NULL');
+    expect(params).toEqual([SITE_ID, OWNER_ORG]);
+  });
 });
 
 describe('assertSiteOwned — multi-tenant ownership guard', () => {
