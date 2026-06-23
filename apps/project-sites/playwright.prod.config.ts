@@ -12,6 +12,9 @@ export default defineConfig({
     'voice.spec.ts',
     'observability_gateway.spec.ts',
     'adversarial/**/*.spec.ts',
+    // 'perf/ttfr.spec.ts' — re-enable as a BLOCKING gate once homepage LCP is
+    // green (currently ~9.4s on 3G, tracked in _PERFECTION_BACKLOG.md Dim I).
+    // Run on demand: npx playwright test e2e/perf/ttfr.spec.ts --config playwright.prod.config.ts
   ],
   fullyParallel: true,
   reporter: 'line',
