@@ -805,6 +805,111 @@ export function asyncifyRenderBlockingFonts(html: string): string {
   });
 }
 
+/**
+ * Synthesize a static, contentful hero into a generated site's EMPTY `#root` so
+ * the largest-contentful-paint candidate (the headline) paints at FCP instead of
+ * only after the React bundle boots (~3s on throttled 3G). The headline, subline,
+ * and theme color are read from the served HTML's own `<head>` (`og:title` /
+ * `<title>` / `meta[name=description]` / `meta[name=theme-color]`) — already in
+ * the bytes we are transforming — so this adds ZERO extra reads on the hot path.
+ *
+ * React renders via `createRoot(#root).render()` (CSR, not hydration), which
+ * REPLACES `#root`'s children on boot → the swap is clean (no hydration mismatch)
+ * and the `min-height:100vh` box holds the hero in place → ~0 CLS.
+ *
+ * Perf loop #14, 2026-06-23 — the untried lever from fire 7: fires 6-7 only tried
+ * font/anti-FOUC tweaks, which cannot move FCP/LCP into an EMPTY body. Injecting
+ * real content into `#root` is what gives the paint something to render early.
+ *
+ * @param html - The generated site's full HTML.
+ * @returns HTML with a static hero in `#root`, or the input unchanged when `#root`
+ *   is absent / already populated, or no headline can be derived from the head.
+ * @example
+ * injectAppShellHero('<head><title>Acme | Best widgets</title></head><body><div id="root"></div></body>')
+ * // → '...<div id="root"><section data-app-shell="hero" ...><h1>Acme</h1>...</section></div>...'
+ */
+export function injectAppShellHero(html: string): string {
+  const emptyRoot = /<div([^>]*\bid=("|')root\2[^>]*)>\s*<\/div>/i;
+  if (!emptyRoot.test(html)) return html;
+
+  const rawHeadline = headContent(html, 'og:title', 'property') ?? firstMatch(html, /<title[^>]*>([^<]*)<\/title>/i);
+  if (!rawHeadline) return html;
+  const headline = decodeEntities(rawHeadline.split('|')[0].trim());
+  if (!headline) return html;
+
+  const rawSub = headContent(html, 'description', 'name') ?? headContent(html, 'og:description', 'property');
+  const subline = rawSub ? decodeEntities(rawSub.trim()) : '';
+
+  const bg = sanitizeHexColor(headContent(html, 'theme-color', 'name')) ?? '#0a0a0f';
+  const fg = relativeLuminance(bg) > 0.5 ? '#0b0b0f' : '#f5f5f7';
+
+  const hero = appShellHeroMarkup(headline, subline, bg, fg);
+  return html.replace(emptyRoot, (_m, attrs) => `<div${attrs}>${hero}</div>`);
+}
+
+/** Read a `<meta name|property="key" content="...">` value from the head (attribute-order-agnostic). */
+function headContent(html: string, key: string, attr: 'name' | 'property'): string | undefined {
+  const esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return (
+    firstMatch(html, new RegExp(`<meta[^>]+${attr}=("|')${esc}\\1[^>]*content=("|')([^"']*)\\2`, 'i'), 3) ??
+    firstMatch(html, new RegExp(`<meta[^>]+content=("|')([^"']*)\\1[^>]*${attr}=("|')${esc}\\3`, 'i'), 2)
+  );
+}
+
+function firstMatch(html: string, re: RegExp, group = 1): string | undefined {
+  const m = re.exec(html);
+  return m?.[group]?.trim() || undefined;
+}
+
+/** Allow only `#rgb` / `#rrggbb`; reject anything else to prevent style injection via theme-color. */
+function sanitizeHexColor(c: string | undefined): string | undefined {
+  return c && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(c.trim()) ? c.trim() : undefined;
+}
+
+/** WCAG relative luminance (0 = black … 1 = white) of a `#rgb`/`#rrggbb` hex color. */
+function relativeLuminance(hex: string): number {
+  let h = hex.replace('#', '');
+  if (h.length === 3)
+    h = h
+      .split('')
+      .map((x) => x + x)
+      .join('');
+  const channels = [0, 2, 4].map((i) => {
+    const v = parseInt(h.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+}
+
+const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c] ?? c);
+}
+
+/** Decode the handful of HTML entities that appear in title/meta text, so we can re-escape safely. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'");
+}
+
+function appShellHeroMarkup(headline: string, subline: string, bg: string, fg: string): string {
+  const h = escapeHtml(headline);
+  const sub = subline
+    ? `<p style="margin:0;max-width:42ch;font-size:clamp(1rem,2.5vw,1.35rem);line-height:1.5;opacity:.72">${escapeHtml(subline)}</p>`
+    : '';
+  return (
+    `<section data-app-shell="hero" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1.25rem;padding:6vh 5vw;box-sizing:border-box;background:${bg};color:${fg};font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">` +
+    `<h1 style="margin:0;font-weight:800;line-height:1.05;letter-spacing:-0.02em;font-size:clamp(2.5rem,7vw,5rem);max-width:18ch">${h}</h1>` +
+    sub +
+    `</section>`
+  );
+}
+
 function generateAntiFoucSnippet(): string {
   // Perf (perf loop #14, 2026-06-23): the safety-net was 1500ms. The reveal script
   // is a synchronous inline <script>, so it runs only AFTER the preceding
@@ -910,6 +1015,13 @@ async function buildSiteResponse(
     if (bodyInjection) {
       html = html.replace(/(<body[^>]*>)/i, `$1\n${bodyInjection}\n`);
     }
+
+    // Perf loop #14 (2026-06-23): generated sites are pure CSR — nothing paints
+    // until React boots (~3s on 3G). Synthesize a static hero into the empty
+    // #root from the page's own <head> so FCP/LCP land at first paint instead.
+    // Defensive no-op when #root is absent/populated or no headline is derivable;
+    // killswitch = `wrangler rollback`. Mirrors the marketing app-shell pattern.
+    html = injectAppShellHero(html);
 
     return new Response(html, { status: 200, headers });
   }

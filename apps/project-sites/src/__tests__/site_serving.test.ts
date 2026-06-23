@@ -2,6 +2,7 @@ import {
   generateTopBar,
   serveSiteFromR2,
   asyncifyRenderBlockingFonts,
+  injectAppShellHero,
 } from '../services/site_serving';
 import { DOMAINS, BRAND } from '@project-sites/shared';
 
@@ -247,5 +248,74 @@ describe('serveSiteFromR2', () => {
     const response = await serveSiteFromR2(env, baseSite, '/');
     expect(response.headers.get('Cache-Control')).toContain('public');
     expect(response.headers.get('X-Site-Slug')).toBe('my-biz');
+  });
+});
+
+describe('injectAppShellHero', () => {
+  const ROOT = '<div id="root"></div>';
+  const page = (head: string, body = ROOT) =>
+    `<!DOCTYPE html><html><head>${head}</head><body>${body}</body></html>`;
+
+  it('injects a static hero into an empty #root from og:title + description', () => {
+    const out = injectAppShellHero(
+      page(
+        '<meta property="og:title" content="Where Makers Build the Future"><meta name="description" content="We ship gorgeous software.">',
+      ),
+    );
+    expect(out).toContain('data-app-shell="hero"');
+    expect(out).toContain('<h1');
+    expect(out).toContain('Where Makers Build the Future');
+    expect(out).toContain('We ship gorgeous software.');
+    // root is no longer empty
+    expect(out).not.toContain('<div id="root"></div>');
+  });
+
+  it('falls back to <title> first segment when og:title is absent', () => {
+    const out = injectAppShellHero(page('<title>Acme Bakery | Fresh bread daily</title>'));
+    expect(out).toContain('>Acme Bakery</h1>');
+    expect(out).not.toContain('Fresh bread daily</h1>'); // brand tail stripped
+  });
+
+  it('drives background from theme-color and picks readable text (light theme → dark text)', () => {
+    const out = injectAppShellHero(
+      page('<meta name="theme-color" content="#ffffff"><title>Lone Mountain</title>'),
+    );
+    expect(out).toContain('background:#ffffff');
+    expect(out).toContain('color:#0b0b0f'); // dark text on a light theme
+  });
+
+  it('uses light text on a dark theme-color', () => {
+    const out = injectAppShellHero(page('<meta name="theme-color" content="#0a0a0f"><title>Night Co</title>'));
+    expect(out).toContain('color:#f5f5f7');
+  });
+
+  it('rejects a non-hex theme-color (style-injection guard) and uses the default bg', () => {
+    const out = injectAppShellHero(
+      page('<meta name="theme-color" content="red;}body{display:none"><title>Evil</title>'),
+    );
+    expect(out).toContain('background:#0a0a0f');
+    // The raw value never reaches the injected hero's style (only the inert head meta keeps it).
+    expect(out).not.toContain('background:red');
+  });
+
+  it('escapes HTML in the headline (XSS guard)', () => {
+    const out = injectAppShellHero(page('<title>&lt;img src=x onerror=alert(1)&gt; Co</title>'));
+    expect(out).not.toContain('<img src=x');
+    expect(out).toContain('&lt;img src=x onerror=alert(1)&gt; Co');
+  });
+
+  it('is a no-op when #root already has content', () => {
+    const populated = page('<title>Has Content</title>', '<div id="root"><nav>real app</nav></div>');
+    expect(injectAppShellHero(populated)).toBe(populated);
+  });
+
+  it('is a no-op when there is no #root', () => {
+    const noRoot = '<!DOCTYPE html><html><head><title>X</title></head><body><main>static</main></body></html>';
+    expect(injectAppShellHero(noRoot)).toBe(noRoot);
+  });
+
+  it('is a no-op when no headline can be derived', () => {
+    const out = injectAppShellHero('<html><head></head><body><div id="root"></div></body></html>');
+    expect(out).toContain('<div id="root"></div>'); // unchanged
   });
 });
