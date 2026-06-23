@@ -776,6 +776,35 @@ function generatePwaMetaSnippet(slug: string): string {
  *
  * @returns HTML `<style>` + `<script>` block to inject before `</head>`.
  */
+/**
+ * Convert render-blocking Google-Fonts stylesheet links into NON-render-blocking
+ * loads via the `media="print"` + `onload="this.media='all'"` pattern.
+ *
+ * Generated sites ship the font CSS as a blocking `<link rel="stylesheet">` in
+ * `<head>`. That (a) delays first paint by a full cross-origin RTT on slow
+ * connections, and (b) BLOCKS the subsequent inline anti-FOUC script (an inline
+ * script waits for every preceding stylesheet), so the `body{opacity:0}` gate
+ * can't lift until the (often 7-weight) fonts finish downloading. Making the font
+ * CSS async removes both stalls; `font-display:swap` (already in every Google-Fonts
+ * URL we emit) keeps text legible in the system fallback meanwhile.
+ *
+ * @remarks Impure-free — pure string transform. CSP-safe: served-site CSP allows
+ *   inline event handlers (`default-src ... 'unsafe-inline'`, no strict-dynamic).
+ * @param html - The site HTML to transform.
+ * @returns HTML with every Google-Fonts `<link rel="stylesheet">` made async.
+ * @example
+ * asyncifyRenderBlockingFonts('<link href="https://fonts.googleapis.com/css2?x" rel="stylesheet">')
+ * // → '<link href="https://fonts.googleapis.com/css2?x" rel="stylesheet" media="print" onload="this.media=\'all\'">'
+ */
+export function asyncifyRenderBlockingFonts(html: string): string {
+  return html.replace(/<link\b[^>]*>/gi, (tag) => {
+    if (!/href=("|')https:\/\/fonts\.googleapis\.com\//i.test(tag)) return tag;
+    if (!/\brel=("|')stylesheet\1/i.test(tag)) return tag;
+    if (/\bmedia=/i.test(tag) || /\bonload=/i.test(tag)) return tag; // already async
+    return tag.replace(/\/?>$/, ` media="print" onload="this.media='all'">`);
+  });
+}
+
 function generateAntiFoucSnippet(): string {
   return `<!-- Anti-FOUC: hide + freeze animations until fonts ready or 1.5s safety net -->
 <style id="ps-anti-fouc">
@@ -815,6 +844,12 @@ async function buildSiteResponse(
   // For HTML responses, inject tracking snippets and top bar
   if (contentType.startsWith('text/html')) {
     let html = await object.text();
+
+    // Perf: take render-blocking Google-Fonts CSS off the critical path so first
+    // paint (and the anti-FOUC body gate, which an inline script lifts only after
+    // preceding stylesheets load) no longer waits on a cross-origin font download.
+    // font-display:swap keeps text legible meanwhile. (perf loop #14, 2026-06-23.)
+    html = asyncifyRenderBlockingFonts(html);
 
     // Inject analytics + error tracking before </head> (for all sites, paid and free)
     if (env) {

@@ -1,5 +1,51 @@
-import { generateTopBar, serveSiteFromR2 } from '../services/site_serving';
+import {
+  generateTopBar,
+  serveSiteFromR2,
+  asyncifyRenderBlockingFonts,
+} from '../services/site_serving';
 import { DOMAINS, BRAND } from '@project-sites/shared';
+
+describe('asyncifyRenderBlockingFonts', () => {
+  const GF = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap';
+
+  it('makes a render-blocking Google-Fonts stylesheet non-blocking', () => {
+    const out = asyncifyRenderBlockingFonts(`<link href="${GF}" rel="stylesheet">`);
+    expect(out).toContain('media="print"');
+    expect(out).toContain(`onload="this.media='all'"`);
+    expect(out).toContain(GF);
+  });
+
+  it('handles rel before href ordering', () => {
+    const out = asyncifyRenderBlockingFonts(`<link rel="stylesheet" href="${GF}">`);
+    expect(out).toContain('media="print"');
+  });
+
+  it('is idempotent — does not double-apply to an already-async link', () => {
+    const once = asyncifyRenderBlockingFonts(`<link href="${GF}" rel="stylesheet">`);
+    const twice = asyncifyRenderBlockingFonts(once);
+    expect(twice).toBe(once);
+    expect((twice.match(/media="print"/g) ?? []).length).toBe(1);
+  });
+
+  it('leaves non-Google-Fonts stylesheets render-blocking', () => {
+    const link = '<link href="/assets/index-abc.css" rel="stylesheet">';
+    expect(asyncifyRenderBlockingFonts(link)).toBe(link);
+  });
+
+  it('leaves a Google-Fonts preconnect/preload link untouched', () => {
+    const pre = `<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>`;
+    expect(asyncifyRenderBlockingFonts(pre)).toBe(pre);
+  });
+
+  it('transforms every blocking font link when multiple are present', () => {
+    const a = 'https://fonts.googleapis.com/css2?family=Inter&display=swap';
+    const b = 'https://fonts.googleapis.com/css2?family=Space+Grotesk&display=swap';
+    const out = asyncifyRenderBlockingFonts(
+      `<link href="${a}" rel="stylesheet"><link href="${b}" rel="stylesheet">`,
+    );
+    expect((out.match(/media="print"/g) ?? []).length).toBe(2);
+  });
+});
 
 describe('generateTopBar', () => {
   it('generates valid HTML with CTA', () => {
