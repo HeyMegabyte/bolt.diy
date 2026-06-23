@@ -13,7 +13,7 @@ import { UserMenuComponent } from '../user-menu/user-menu.component';
   template: `
     <header class="header" role="banner">
       <div class="header-inner">
-        <a class="logo" (click)="goHome()">
+        <a routerLink="/" aria-label="ProjectSites home" class="logo" (click)="goHome()">
           <img
             src="/logo-header-icon.png"
             alt="ProjectSites"
