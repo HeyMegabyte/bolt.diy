@@ -73,4 +73,22 @@ test.describe('TTFR — Core Web Vitals budget (throttled 3G, prod)', () => {
     expect(v.cls, `CLS ${v.cls.toFixed(3)} > 0.05`).toBeLessThanOrEqual(0.05);
     expect(v.fcp, `FCP ${Math.round(v.fcp)}ms > 1200ms`).toBeLessThanOrEqual(1200);
   });
+
+  // Secondary marketing routes share the SPA shell, so the fire-8 critical-CSS
+  // inlining lands them all at ~410-497ms FCP too. Gate the representative set so a
+  // route-specific regression (or a stale-cache serve referencing deleted hashed
+  // assets) fails the suite, not just a homepage regression. (perf loop #14, fire 10.)
+  for (const route of ['/developers', '/pricing', '/blog']) {
+    test(`marketing ${route} hits LCP≤2.0s / CLS≤0.05 / FCP≤1.2s`, async ({ browser }) => {
+      const url = `${PROD.replace(/\/$/, '')}${route}`;
+      const v = await measure(url, browser);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[ttfr] ${route} 3G/6×CPU → LCP=${Math.round(v.lcp)}ms CLS=${v.cls.toFixed(3)} FCP=${Math.round(v.fcp)}ms`,
+      );
+      expect(v.lcp, `${route} LCP ${Math.round(v.lcp)}ms > 2000ms`).toBeLessThanOrEqual(2000);
+      expect(v.cls, `${route} CLS ${v.cls.toFixed(3)} > 0.05`).toBeLessThanOrEqual(0.05);
+      expect(v.fcp, `${route} FCP ${Math.round(v.fcp)}ms > 1200ms`).toBeLessThanOrEqual(1200);
+    });
+  }
 });
