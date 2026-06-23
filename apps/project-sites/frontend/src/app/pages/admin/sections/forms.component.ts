@@ -668,10 +668,30 @@ const POLL_INTERVAL_MS = 10_000;
     @media (prefers-reduced-motion: reduce) { .btn-prompt-quiet, .btn-prompt-quiet svg { transition: none; } }
     .btn-ghost { padding: 0.4rem 0.9rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
     .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
-    .btn-improve { font-size: 0.66rem; line-height: 1; padding: 0.25rem 0.625rem; border-radius: 7px; background: rgba(124,58,237,0.14); border: 1px solid rgba(124,58,237,0.4); color: #c4b5fd; font-weight: 600; cursor: pointer; transition: all 140ms ease; }
-    .btn-improve:hover:not(:disabled) { background: rgba(124,58,237,0.22); color: #ddd6fe; }
-    .btn-improve:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* AI-action pills (Load example · Improve with AI). Gradient chrome with a
+       guaranteed near-white label so the text NEVER collapses into the hover
+       background — hover only deepens the violet + lifts, color stays bright. */
+    .btn-improve {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.66rem; line-height: 1;
+      padding: 0.32rem 0.7rem; border-radius: 999px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.22), rgba(0,229,255,0.12));
+      border: 1px solid rgba(124,58,237,0.5);
+      color: #ede9fe; font-weight: 700; letter-spacing: -0.005em;
+      cursor: pointer;
+      box-shadow: 0 6px 16px -10px rgba(124,58,237,0.65);
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+    }
+    .btn-improve:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(124,58,237,0.42), rgba(0,229,255,0.22));
+      border-color: rgba(167,139,250,0.85);
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px -10px rgba(124,58,237,0.8);
+    }
+    .btn-improve:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-improve:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { .btn-improve { transition: none; } .btn-improve:hover:not(:disabled) { transform: none; } }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin: 0 0 0.4rem; }
     .filter-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
     .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; min-height: 24px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid color-mix(in oklch, currentColor 20%, transparent); color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }

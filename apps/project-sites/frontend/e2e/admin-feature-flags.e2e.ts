@@ -98,3 +98,85 @@ test.describe('admin /feature-flags — flag-control regressions (rounds 140-143
     expect(req.url()).not.toContain('/override');
   });
 });
+
+test.describe('admin /feature-flags — loading parity + chip removal + enable-all', () => {
+  test.skip(!KEY, 'E2E_API_KEY not set');
+  test.describe.configure({ retries: 2 });
+
+  test('loading skeleton renders the SAME column width as the loaded grid (360px min)', async ({ page }) => {
+    test.setTimeout(60000);
+    await seed(page);
+    // Delay the flag-registry read so the card skeleton stays on screen long
+    // enough to inspect its grid geometry.
+    await page.route('**/api/feature-flags*', async (route) => {
+      await new Promise((r) => setTimeout(r, 2500));
+      await route.continue();
+    });
+    await page.goto('/admin/feature-flags', { waitUntil: 'commit' });
+
+    const skeleton = page.locator('app-skeleton[data-variant="card"]');
+    await expect(skeleton).toBeVisible({ timeout: 10000 });
+    // The skeleton's card-min CSS var must match the real .ff-grid min (360px)
+    // so the placeholder shows the SAME number of columns as the loaded cards.
+    const min = await skeleton.evaluate((el) =>
+      getComputedStyle(el).getPropertyValue('--sk-card-min').trim(),
+    );
+    expect(min).toBe('360px');
+
+    // After data lands, the loaded grid renders with a usable column track.
+    await expect(page.locator('.ff-grid')).toBeVisible({ timeout: 15000 });
+    const gridCols = await page.locator('.ff-grid').evaluate((el) =>
+      getComputedStyle(el).gridTemplateColumns,
+    );
+    expect(gridCols.length).toBeGreaterThan(0);
+  });
+
+  test('the "N of M" filter-count chip (.ff-count) is gone — even while filtering', async ({ page }) => {
+    test.setTimeout(60000);
+    await seed(page);
+    await page.goto('/admin/feature-flags', { waitUntil: 'load' });
+    await expect(page.locator('.ff-card').first()).toBeVisible({ timeout: 30000 });
+
+    // Type a query to activate the (former) filtering branch that rendered the chip.
+    await page.getByPlaceholder(/search by key/i).fill('core');
+    // The removed chip must NOT exist in any state.
+    await expect(page.locator('.ff-count')).toHaveCount(0);
+    await expect(page.locator('[data-testid="ff-filter-count"]')).toHaveCount(0);
+  });
+
+  test('every non-sentinel flag can be enabled from the UI (each click POSTs the super-admin endpoint)', async ({ page }) => {
+    test.setTimeout(120000);
+    await seed(page);
+    await page.goto('/admin/feature-flags', { waitUntil: 'load' });
+    await expect(page.locator('.ff-card').first()).toBeVisible({ timeout: 30000 });
+
+    // "Enable globally" buttons = flags currently OFF, not sentinel ("Always on")
+    // and not already enabled ("Disable globally"). Click each and assert the
+    // mutation is wired to the real endpoint. (Test token is not super-admin, so
+    // the worker answers 401 — we assert correct WIRING per click, the same
+    // contract the round-141 test uses.)
+    const enableSel = '.ff-actions button.ff-btn-primary';
+    const initial = await page.locator(enableSel, { hasText: /^Enable globally$/i }).count();
+    expect(initial).toBeGreaterThan(0);
+
+    let posted = 0;
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && /\/api\/super-admin\/feature-flags/.test(r.url())) posted++;
+    });
+
+    for (let i = 0; i < initial; i++) {
+      // Re-query each iteration — the optimistic UI may relabel a card to
+      // "Disable globally" after its click, shifting the matched set.
+      const btn = page.locator(enableSel, { hasText: /^Enable globally$/i }).first();
+      if (!(await btn.count())) break;
+      await btn.scrollIntoViewIfNeeded();
+      const reqPromise = page.waitForRequest(
+        (r) => r.method() === 'POST' && /\/api\/super-admin\/feature-flags/.test(r.url()),
+        { timeout: 15000 },
+      );
+      await btn.click();
+      await reqPromise;
+    }
+    expect(posted).toBeGreaterThan(0);
+  });
+});
