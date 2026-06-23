@@ -55,8 +55,9 @@
 - 🔨 axe 0 violations @ 6 breakpoints across admin + generated-site templates (run authed via `E2E_API_KEY`)
 - 🔨 Manual SC sweep (2.4.11 / 2.5.7 / 2.5.8 / 3.2.6 / 3.3.7 / 3.3.8)
 
-## I. Performance — CWV
-- 🔨 LCP≤2.0s / CLS≤0.05 / INP≤200ms on marketing + generated sites; Lighthouse a11y≥95 perf≥75
+## I. Performance — CWV (idea #14 "Sub-100ms everything" — active loop 114c279e)
+- ✅ 2026-06-21 marketing homepage critical-path: removed the 2nd render-blocking Google-Fonts CSS request (Inter/Montserrat/Fira — admin-cockpit fonts never applied on marketing; CSS request blocked first paint while woff2 lazy-deferred). Homepage now makes 1 font request (Sora brand) not 2. Deployed to R2 + verified live. NEXT-worst: trim brand request to Sora-only (Space Grotesk/JetBrains Mono also unused on marketing — verify no JS-injected usage first); then full Lighthouse/CWV probe on prod (marketing + a generated site) to get LCP/INP/CLS numbers.
+- 🔨 LCP≤2.0s / CLS≤0.05 / INP≤200ms on marketing + generated sites; Lighthouse a11y≥95 perf≥75 — measure on prod, record numbers here
 - 🔨 ag-grid→TanStack perf wave (both live grids) — dedicated cluster
 
 ## J. Security / supply chain (§15, §49, §61)
