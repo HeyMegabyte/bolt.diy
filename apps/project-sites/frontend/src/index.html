@@ -296,15 +296,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
 
-  <!-- Fonts: preload + load in <head> to prevent FOUC. swap is imperceptible because CSS is fetched in parallel with HTML. -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" crossorigin="anonymous">
+  <!-- Fonts: load NON-render-blocking (perf loop #14 — FCP, 2026-06-23). The
+       preload→onload→stylesheet pattern keeps the Google-Fonts CSS off the FCP
+       critical path so first paint no longer waits on two cross-origin RTTs. The
+       metric-adjusted 'Sora Fallback' @font-face below makes the system→Sora swap
+       visually invisible (size/ascent/descent overridden) → swap is CLS-free.
+       NOTE: the inline onload handler is CSP-safe — marketing script-src carries
+       'unsafe-inline' (no strict-dynamic). -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" crossorigin="anonymous">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" crossorigin="anonymous"></noscript>
 
   <!-- Admin cockpit fonts (Inter body / Montserrat display / Fira Code code). Scoped to
        [data-cockpit="v2"] in _cockpit.scss, so the woff2 files only download on the admin
-       surface — marketing renders in Sora and never fetches these. Separate <link> keeps
-       the marketing font request's cache key unchanged. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&family=Fira+Code:wght@400;500&display=swap" crossorigin="anonymous">
+       surface — marketing renders in Sora and never fetches these. Loaded async (same
+       preload→onload pattern) so this admin-only CSS never blocks the marketing FCP. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&family=Fira+Code:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" crossorigin="anonymous">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&family=Fira+Code:wght@400;500&display=swap" crossorigin="anonymous"></noscript>
 
   <!-- Metric-adjusted fallback so the system-ui → Sora swap is visually invisible -->
   <style>
