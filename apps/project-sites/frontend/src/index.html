@@ -337,18 +337,48 @@
 <body>
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T48Z6BJJ" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <app-root></app-root>
-  <!-- SEO/a11y static fallback for no-JS clients + non-rendering crawlers/social
-       scrapers. Hidden whenever JS runs (the SPA renders the real hero heading),
-       so there is no duplicate heading in the live DOM. Guarantees a real top-level
-       heading + content + links in the static shell. Proper SSG/prerender is the
-       durable fix (progress.md P1). -->
+  <app-root>
+    <!-- ░░ App-shell static hero (perf loop #14 — fix Path A, 2026-06-23) ░░
+         The marketing homepage is a client-side-rendered Angular SPA: an EMPTY
+         <app-root> meant the LCP element didn't paint until the bundle booted
+         (~9.5s on throttled 3G). This static hero paints at FCP (~1.7s) so the
+         <h1> below IS the LCP element. Angular clears <app-root> and renders the
+         real hero on bootstrap; the markup here MIRRORS homepage.component.html's
+         hero — same Tailwind classes + copy + box height (badge → h1 → subtitle →
+         search → CTAs) — so the hydration swap is visually identical → no CLS.
+         No animate-* classes here (those force opacity:0); the global styles
+         bundle is a render-blocking <link> in <head>, so the utility classes are
+         applied at first paint. Durable fix = SSG/prerender of `/` (backlog P1). -->
+    <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-16" data-app-shell="hero">
+      <div class="relative z-10 max-w-4xl mx-auto px-4 text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-medium mb-8">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+          AI-Powered Website Builder
+        </div>
+        <h1 class="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-light leading-tight mb-6">Your Website, Handled. Finally.</h1>
+        <p class="text-text-secondary text-lg sm:text-xl max-w-2xl mx-auto mb-10">AI builds your professional website in 15 minutes. Just search for your business.</p>
+        <div class="relative max-w-xl mx-auto mb-8">
+          <div class="relative flex items-center bg-dark-card border border-white/10 rounded-2xl overflow-hidden">
+            <svg class="ml-4 text-text-secondary flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+            </svg>
+            <input type="text" class="flex-1 bg-transparent border-none outline-none text-light placeholder-text-secondary px-4 py-4 text-base" placeholder="Search for your business..." readonly aria-label="Search for your business" />
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-4">
+          <a href="/create" class="px-8 py-3.5 rounded-full bg-primary text-dark font-semibold text-base">Build My Site Free</a>
+          <a href="#how-it-works" class="px-8 py-3.5 rounded-full border border-white/10 text-light font-semibold text-base">See How It Works</a>
+        </div>
+      </div>
+    </section>
+  </app-root>
+  <!-- No-JS / non-rendering-crawler nav. The real <h1> + hero copy now live in the
+       app-shell hero above (rendered in BOTH the JS and no-JS paths until Angular
+       boots), so this block carries ONLY discovery links — no duplicate <h1>. -->
   <noscript>
-    <main style="max-width:42rem;margin:4rem auto;padding:0 1.25rem;font-family:'Sora',system-ui,sans-serif;color:#f4f4ff;background:#060610;line-height:1.6">
-      <h1 style="font-size:2rem;font-weight:700">Your Website, Handled. Finally.</h1>
-      <p>AI builds your professional website in 15 minutes — just search for your business. ProjectSites delivers hosted, SSL-secured business websites, ready to go live.</p>
-      <p><a href="/admin" style="color:#00e5ff">Sign in</a> &middot; <a href="/blog" style="color:#00e5ff">Blog</a> &middot; <a href="/changelog" style="color:#00e5ff">Changelog</a> &middot; <a href="/status" style="color:#00e5ff">Status</a> &middot; <a href="/press" style="color:#00e5ff">Press</a></p>
-    </main>
+    <nav style="max-width:42rem;margin:1.5rem auto;padding:0 1.25rem;font-family:'Sora',system-ui,sans-serif;color:#f4f4ff;line-height:1.6;text-align:center">
+      <a href="/admin" style="color:#00e5ff">Sign in</a> &middot; <a href="/blog" style="color:#00e5ff">Blog</a> &middot; <a href="/changelog" style="color:#00e5ff">Changelog</a> &middot; <a href="/status" style="color:#00e5ff">Status</a> &middot; <a href="/press" style="color:#00e5ff">Press</a>
+    </nav>
   </noscript>
 </body>
 </html>
