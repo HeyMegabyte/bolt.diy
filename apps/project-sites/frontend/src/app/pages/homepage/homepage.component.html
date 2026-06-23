@@ -6,9 +6,9 @@
 >
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
     <!-- Logo (same as shared header) -->
-    <a class="flex items-center gap-2.5 cursor-pointer group" (click)="scrollTo('hero')">
+    <a routerLink="/" aria-label="ProjectSites home" class="flex items-center gap-2.5 cursor-pointer group" (click)="scrollTo('hero')">
       <img src="/logo-header-icon.png" alt="ProjectSites" width="40" height="40" class="flex-shrink-0 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-[-3deg]" />
-      <img src="/logo-text.png" alt="projectsites.dev" height="40" class="flex-shrink-0 opacity-90 transition-opacity duration-200 group-hover:opacity-100 hidden sm:block" />
+      <img src="/logo-text.png" alt="projectsites.dev" width="142" height="40" class="flex-shrink-0 opacity-90 transition-opacity duration-200 group-hover:opacity-100 hidden sm:block" />
     </a>
 
     <!-- Desktop Nav -->
@@ -595,7 +595,7 @@
       <div>
         <div class="flex items-center gap-2 mb-4">
           <img src="/logo-header-icon.png" alt="ProjectSites" width="28" height="28" class="flex-shrink-0" />
-          <img src="/logo-text.png" alt="projectsites.dev" height="28" class="flex-shrink-0 opacity-90" />
+          <img src="/logo-text.png" alt="projectsites.dev" width="100" height="28" class="flex-shrink-0 opacity-90" />
         </div>
         <p class="text-text-secondary text-sm leading-relaxed mb-3">{{ 'hero.subtitle' | translate }}</p>
         <a
@@ -611,7 +611,7 @@
 
       <!-- Product -->
       <div>
-        <h4 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.product' | translate }}</h4>
+        <h3 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.product' | translate }}</h3>
         <ul class="space-y-2.5">
           <li><button class="text-slate-400 hover:text-primary text-sm transition-colors" (click)="scrollTo('features')">{{ 'nav.features' | translate }}</button></li>
           <li><button class="text-slate-400 hover:text-primary text-sm transition-colors" (click)="scrollTo('pricing')">{{ 'nav.pricing' | translate }}</button></li>
@@ -621,7 +621,7 @@
 
       <!-- Company -->
       <div>
-        <h4 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.company' | translate }}</h4>
+        <h3 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.company' | translate }}</h3>
         <ul class="space-y-2.5">
           <li><a routerLink="/search" class="text-slate-400 hover:text-primary text-sm transition-colors cursor-pointer">{{ 'footer.about' | translate }}</a></li>
           <li><a routerLink="/blog" class="text-slate-400 hover:text-primary text-sm transition-colors cursor-pointer">{{ 'footer.blog' | translate }}</a></li>
@@ -630,7 +630,7 @@
 
       <!-- Legal -->
       <div>
-        <h4 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.legal' | translate }}</h4>
+        <h3 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.legal' | translate }}</h3>
         <ul class="space-y-2.5">
           <li><a routerLink="/privacy" class="text-slate-400 hover:text-primary text-sm transition-colors">{{ 'footer.privacy' | translate }}</a></li>
           <li><a routerLink="/terms" class="text-slate-400 hover:text-primary text-sm transition-colors">{{ 'footer.terms' | translate }}</a></li>
