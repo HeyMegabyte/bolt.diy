@@ -12,9 +12,14 @@ export default defineConfig({
     'voice.spec.ts',
     'observability_gateway.spec.ts',
     'adversarial/**/*.spec.ts',
-    // 'perf/ttfr.spec.ts' — re-enable as a BLOCKING gate once homepage LCP is
-    // green (currently ~9.4s on 3G, tracked in _PERFECTION_BACKLOG.md Dim I).
-    // Run on demand: npx playwright test e2e/perf/ttfr.spec.ts --config playwright.prod.config.ts
+    // BLOCKING CWV gate — re-enabled 2026-06-23 (perf loop #14) after the homepage
+    // held all-green for 2 fires (fire 8 enabled critical-CSS inlining → FCP 1349→
+    // ~460ms; fire 9 confirmed the hold). Asserts LCP≤2000 / CLS≤0.05 / FCP≤1200 on
+    // the live marketing homepage under throttled 3G/6×CPU. A CWV regression now
+    // fails the prod suite instead of silently shipping. History: started at
+    // LCP=9.4s (CSR-only SPA, fire 3) → app-shell static hero (fire 5) → async
+    // fonts (fire 5b) → critical-CSS inline (fire 8). Tracked in _PERFECTION_BACKLOG.md Dim I.
+    'perf/ttfr.spec.ts',
   ],
   fullyParallel: true,
   reporter: 'line',
