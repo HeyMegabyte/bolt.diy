@@ -1,0 +1,66 @@
+name: CWV Gate (marketing Core Web Vitals vs prod)
+
+# Runs ONLY the no-auth Core-Web-Vitals spec (e2e/perf/ttfr.spec.ts) against the
+# LIVE marketing site under a throttled-3G / 6×-CPU profile, asserting
+# LCP≤2.0s / CLS≤0.05 / FCP≤1.2s on the homepage + key marketing routes.
+#
+# Why a DEDICATED workflow (not the existing prod-e2e.yml): prod-e2e runs the full
+# authed suite and SKIPS entirely when the E2E_API_KEY secret is absent (fail-open).
+# The CWV spec needs NO auth — it just measures public prod — so coupling it to that
+# secret-gate means a CWV regression could ship unnoticed. This job decouples it so
+# the gate (re-enabled in the perf loop, fire 9) is ACTUALLY enforced continuously.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    # Spec/config changes only — a frontend change doesn't update PROD at push time
+    # (the marketing SPA deploys to R2 out-of-band), so the daily cron is what catches
+    # CWV regressions on whatever is actually live.
+    paths:
+      - 'apps/project-sites/e2e/perf/ttfr.spec.ts'
+      - 'apps/project-sites/playwright.prod.config.ts'
+      - '.github/workflows/cwv-gate.yml'
+  schedule:
+    # Daily against live prod at 06:47 UTC (off the :00 mark, before the 07:13 prod-e2e).
+    - cron: '47 6 * * *'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  cwv:
+    name: Core Web Vitals @ prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/package-lock.json
+
+      - name: Install deps
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
+
+      - name: Install Playwright Chromium
+        working-directory: apps/project-sites
+        run: npx playwright install --with-deps chromium
+
+      - name: Run CWV spec (homepage + marketing routes)
+        working-directory: apps/project-sites
+        env:
+          PROD_URL: https://projectsites.dev
+        # Passing the file path intersects with the config's testMatch → runs ONLY
+        # ttfr.spec.ts (the authed specs in the same config are not matched here).
+        run: npx playwright test e2e/perf/ttfr.spec.ts --config playwright.prod.config.ts
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cwv-report
+          path: apps/project-sites/playwright-report/
+          retention-days: 7
