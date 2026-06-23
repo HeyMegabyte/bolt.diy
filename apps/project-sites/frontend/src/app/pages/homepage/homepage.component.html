@@ -95,7 +95,7 @@
     <!-- Badge -->
     <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-medium mb-8 animate-fade-in-up">
       <span class="w-1.5 h-1.5 rounded-full bg-primary animate-glow-pulse"></span>
-      AI-Powered Website Builder
+      {{ 'hero.eyebrow' | translate }}
     </div>
 
     <!-- Headline — A/B/C variant via PostHog flag `homepage_hero_v2` (see AB-TEST.md) -->
@@ -117,6 +117,11 @@
       } @else {
         {{ 'hero.subtitle' | translate }}
       }
+    </p>
+
+    <!-- Motto — the category-defining promise -->
+    <p class="font-heading text-base sm:text-lg font-semibold mb-10 animate-fade-in-up" style="animation-delay: 0.25s">
+      <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{{ 'hero.motto' | translate }}</span>
     </p>
 
     @if (showAbBadge()) {
@@ -195,6 +200,7 @@
     <div class="flex flex-wrap items-center justify-center gap-4 animate-fade-in-up" style="animation-delay: 0.4s">
       <button
         psRipple
+        data-cta="hero-claim"
         class="hero-cta-primary px-8 py-3.5 rounded-full text-base hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 animate-glow-pulse"
         (click)="goGetStarted()"
       >
@@ -203,10 +209,20 @@
       <button
         psRipple
         [psRippleColor]="'rgba(255, 255, 255, 0.18)'"
+        data-cta="hero-how-it-works"
         class="px-8 py-3.5 rounded-full border border-white/10 text-light font-semibold text-base hover:border-primary/30 hover:bg-white/5 transition-all duration-300"
         (click)="scrollTo('how-it-works')"
       >
         {{ 'hero.ctaSecondary' | translate }}
+      </button>
+      <button
+        psRipple
+        [psRippleColor]="'rgba(0, 229, 255, 0.18)'"
+        data-cta="hero-examples"
+        class="px-8 py-3.5 rounded-full text-primary font-semibold text-base hover:bg-primary/10 transition-all duration-300"
+        (click)="scrollTo('features')"
+      >
+        {{ 'hero.ctaTertiary' | translate }}
       </button>
     </div>
 

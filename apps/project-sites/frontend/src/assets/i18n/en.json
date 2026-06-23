@@ -14,11 +14,14 @@
     "signedInAs": "Signed in as"
   },
   "hero": {
-    "title": "Your Website, Handled. Finally.",
-    "subtitle": "AI builds your professional website in 15 minutes. Just search for your business.",
-    "cta": "Build My Site Free",
+    "title": "Your business website, already built and ready to claim.",
+    "subtitle": "ProjectSites.dev finds businesses, researches what they do, generates polished website previews, and gives owners a fast path to claim, customize, and grow.",
+    "cta": "Claim Your Site",
     "ctaSecondary": "See How It Works",
-    "searchPlaceholder": "Search for your business..."
+    "searchPlaceholder": "Search for your business...",
+    "eyebrow": "AI-powered website delivery for local businesses",
+    "motto": "We don't sell websites. We deliver them.",
+    "ctaTertiary": "View Example Sites"
   },
   "social": {
     "sites": "1,200+",
