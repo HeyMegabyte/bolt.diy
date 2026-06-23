@@ -56,7 +56,8 @@
 - 🔨 Manual SC sweep (2.4.11 / 2.5.7 / 2.5.8 / 3.2.6 / 3.3.7 / 3.3.8)
 
 ## I. Performance — CWV (idea #14 "Sub-100ms everything" — active loop 114c279e)
-- ✅ 2026-06-21 marketing homepage critical-path: removed the 2nd render-blocking Google-Fonts CSS request (Inter/Montserrat/Fira — admin-cockpit fonts never applied on marketing; CSS request blocked first paint while woff2 lazy-deferred). Homepage now makes 1 font request (Sora brand) not 2. Deployed to R2 + verified live. NEXT-worst: trim brand request to Sora-only (Space Grotesk/JetBrains Mono also unused on marketing — verify no JS-injected usage first); then full Lighthouse/CWV probe on prod (marketing + a generated site) to get LCP/INP/CLS numbers.
+- ✅ 2026-06-21 (fire 1) marketing homepage: removed the 2nd render-blocking Google-Fonts CSS request (Inter/Montserrat/Fira — admin-cockpit fonts never applied on marketing). 2 font requests → 1. Deployed + verified live.
+- ✅ 2026-06-21 (fire 2) marketing homepage: trimmed the brand request to Sora-only (Space Grotesk + JetBrains Mono verified unused — only in the URL, never in any font-family rule or JS). Smaller Google-Fonts CSS response (3 families → 1, fewer @font-face blocks). Deployed to R2 + verified live (prod requests `family=Sora:wght@300;400;500;600;700` only; Space Grotesk/JetBrains = 0). NEXT-worst: full Lighthouse + Playwright CWV probe on prod (marketing + a published generated site, throttled 3G/6×CPU) to capture actual LCP/INP/CLS numbers; then trim Sora weights to only those applied (verify each weight is used first).
 - 🔨 LCP≤2.0s / CLS≤0.05 / INP≤200ms on marketing + generated sites; Lighthouse a11y≥95 perf≥75 — measure on prod, record numbers here
 - 🔨 ag-grid→TanStack perf wave (both live grids) — dedicated cluster
 
