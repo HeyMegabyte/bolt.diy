@@ -602,7 +602,11 @@ describe('serveSiteFromR2 — served-site analytics policy', () => {
     expect(html).toMatch(/html:not\(\.ps-fonts-ready\)\s*body\s*\{\s*opacity\s*:\s*0/);
     expect(html).toContain('document.fonts.ready');
     expect(html).toContain("classList.add('ps-fonts-ready')");
-    expect(html).toContain('setTimeout');
-    expect(html).toContain('1500');
+    // Perf regression guard (perf loop #14): the body-reveal safety-net must stay
+    // SHORT (≤300ms) — a long net (e.g. the old 1500ms) on top of the
+    // render-blocking CSS pinned the body hidden ~2.5s on 3G, the dominant FCP
+    // blocker. Reveal still prefers document.fonts.ready; the net is only a backstop.
+    expect(html).toContain('setTimeout(r,300)');
+    expect(html).not.toContain('setTimeout(r,1500)');
   });
 });

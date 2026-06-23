@@ -806,7 +806,17 @@ export function asyncifyRenderBlockingFonts(html: string): string {
 }
 
 function generateAntiFoucSnippet(): string {
-  return `<!-- Anti-FOUC: hide + freeze animations until fonts ready or 1.5s safety net -->
+  // Perf (perf loop #14, 2026-06-23): the safety-net was 1500ms. The reveal script
+  // is a synchronous inline <script>, so it runs only AFTER the preceding
+  // render-blocking CSS bundle loads; a 1500ms net on TOP of that pinned the body
+  // hidden until ≈(CSS-ready ~1s)+1.5s ≈ 2.5s on throttled 3G — the dominant FCP
+  // blocker on every served site. Cut to 300ms: reveal still prefers fonts.ready
+  // (no-swap on warm cache) but no longer stalls 1.5s past CSS-ready. CLS-SAFE:
+  // measured CLS stayed 0.003 even though fonts load AFTER the reveal on 3G (the
+  // swap already happens post-reveal), so revealing earlier moves the same
+  // negligible swap up without adding shift. Real fix for the swap-flash is a
+  // metric-adjusted fallback @font-face (homepage pattern); follow-up.
+  return `<!-- Anti-FOUC: hide + freeze animations until fonts ready or 300ms safety net -->
 <style id="ps-anti-fouc">
 html:not(.ps-fonts-ready) body{opacity:0}
 html:not(.ps-fonts-ready) *,html:not(.ps-fonts-ready) *::before,html:not(.ps-fonts-ready) *::after{
@@ -816,7 +826,7 @@ html:not(.ps-fonts-ready) *,html:not(.ps-fonts-ready) *::before,html:not(.ps-fon
 html.ps-fonts-ready body{opacity:1;transition:opacity .2s ease-out}
 @media (prefers-reduced-motion: reduce){html.ps-fonts-ready body{transition:none}}
 </style>
-<script>(function(){var h=document.documentElement,fired=false,r=function(){if(fired)return;fired=true;requestAnimationFrame(function(){requestAnimationFrame(function(){h.classList.add('ps-fonts-ready')})})};if(document.fonts&&document.fonts.ready){document.fonts.ready.then(r);}setTimeout(r,1500);})();</script>`;
+<script>(function(){var h=document.documentElement,fired=false,r=function(){if(fired)return;fired=true;requestAnimationFrame(function(){requestAnimationFrame(function(){h.classList.add('ps-fonts-ready')})})};if(document.fonts&&document.fonts.ready){document.fonts.ready.then(r);}setTimeout(r,300);})();</script>`;
 }
 
 /**
