@@ -832,12 +832,14 @@ export function injectAppShellHero(html: string): string {
   const emptyRoot = /<div([^>]*\bid=("|')root\2[^>]*)>\s*<\/div>/i;
   if (!emptyRoot.test(html)) return html;
 
-  const rawHeadline = headContent(html, 'og:title', 'property') ?? firstMatch(html, /<title[^>]*>([^<]*)<\/title>/i);
+  const rawHeadline =
+    headContent(html, 'og:title', 'property') ?? firstMatch(html, /<title[^>]*>([^<]*)<\/title>/i);
   if (!rawHeadline) return html;
   const headline = decodeEntities(rawHeadline.split('|')[0].trim());
   if (!headline) return html;
 
-  const rawSub = headContent(html, 'description', 'name') ?? headContent(html, 'og:description', 'property');
+  const rawSub =
+    headContent(html, 'description', 'name') ?? headContent(html, 'og:description', 'property');
   const subline = rawSub ? decodeEntities(rawSub.trim()) : '';
 
   const bg = sanitizeHexColor(headContent(html, 'theme-color', 'name')) ?? '#0a0a0f';
@@ -851,8 +853,16 @@ export function injectAppShellHero(html: string): string {
 function headContent(html: string, key: string, attr: 'name' | 'property'): string | undefined {
   const esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return (
-    firstMatch(html, new RegExp(`<meta[^>]+${attr}=("|')${esc}\\1[^>]*content=("|')([^"']*)\\2`, 'i'), 3) ??
-    firstMatch(html, new RegExp(`<meta[^>]+content=("|')([^"']*)\\1[^>]*${attr}=("|')${esc}\\3`, 'i'), 2)
+    firstMatch(
+      html,
+      new RegExp(`<meta[^>]+${attr}=("|')${esc}\\1[^>]*content=("|')([^"']*)\\2`, 'i'),
+      3,
+    ) ??
+    firstMatch(
+      html,
+      new RegExp(`<meta[^>]+content=("|')([^"']*)\\1[^>]*${attr}=("|')${esc}\\3`, 'i'),
+      2,
+    )
   );
 }
 
@@ -881,7 +891,13 @@ function relativeLuminance(hex: string): number {
   return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
 }
 
-const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c] ?? c);
 }

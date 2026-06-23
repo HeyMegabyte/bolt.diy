@@ -285,7 +285,9 @@ describe('injectAppShellHero', () => {
   });
 
   it('uses light text on a dark theme-color', () => {
-    const out = injectAppShellHero(page('<meta name="theme-color" content="#0a0a0f"><title>Night Co</title>'));
+    const out = injectAppShellHero(
+      page('<meta name="theme-color" content="#0a0a0f"><title>Night Co</title>'),
+    );
     expect(out).toContain('color:#f5f5f7');
   });
 
@@ -305,12 +307,16 @@ describe('injectAppShellHero', () => {
   });
 
   it('is a no-op when #root already has content', () => {
-    const populated = page('<title>Has Content</title>', '<div id="root"><nav>real app</nav></div>');
+    const populated = page(
+      '<title>Has Content</title>',
+      '<div id="root"><nav>real app</nav></div>',
+    );
     expect(injectAppShellHero(populated)).toBe(populated);
   });
 
   it('is a no-op when there is no #root', () => {
-    const noRoot = '<!DOCTYPE html><html><head><title>X</title></head><body><main>static</main></body></html>';
+    const noRoot =
+      '<!DOCTYPE html><html><head><title>X</title></head><body><main>static</main></body></html>';
     expect(injectAppShellHero(noRoot)).toBe(noRoot);
   });
 
