@@ -179,7 +179,7 @@ export function generateConversionFlow(slug: string): string {
       </ul>
 
       <div class="ps-domain-section">
-        <label class="ps-domain-label">Choose your domain</label>
+        <label class="ps-domain-label" for="ps-dinput">Choose your domain</label>
         <div class="ps-domain-wrap">
           <input class="ps-domain-input" id="ps-dinput" type="text" placeholder="yourbusiness.com" autocomplete="off" spellcheck="false" />
           <span class="ps-domain-status" id="ps-dstatus"></span>
