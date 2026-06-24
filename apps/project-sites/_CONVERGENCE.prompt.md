@@ -38,7 +38,7 @@
 - `traces.projectsites.dev` / `langfuse.projectsites.dev` → Langfuse (LLM/browser-agent traces, prompts, evals, datasets, cost/latency). CF Access/SSO. internal alias `langfuse.internal`.
 - `llm.projectsites.dev` / `llm-gateway.projectsites.dev` → combined LiteLLM + RouteLLM-style routing (one service): OpenAI-compatible proxy, aliases, fallbacks, budgets, spend, provider health, arbitration, Langfuse emission. **Must NOT include** Langfuse server / Postgres / Redis / browser / tenant routing / billing / main app.
 - `browser.projectsites.dev` → provider-neutral browser-automation gateway. internal `stagehand`=engine/mode only, never primary public identity.
-- `mail.projectsites.dev` → Amazon SES + Listmonk (`listmonk.megabyte.space`) + Novu email adapter.
+- `mail.projectsites.dev` → Amazon SES + Listmonk (`listmonk.megabyte.space`) + `psnotify` email adapter (NEVER Novu).
 - `enterprise.projectsites.dev` → Ory Polis (SAML/OIDC/SCIM) facade.
 - `authz.projectsites.dev` → OpenFGA facade (fine-grained authz).
 - `events`/analytics ingestion stays under `projectsites.dev/api/events` (Unified Analytics API, DO-backed).
@@ -86,21 +86,22 @@
 - Per-tenant quotas: concurrent browser sessions · daily/monthly browser minutes · Browserbase minutes · Skyvern runs · LLM USD/mo · artifact storage · job concurrency · event throughput · max retries/job · premium override for paid plans.
 - Plans: free preview (shared DB, scale-to-zero, 10k events/mo, "powered-by" bar) · $50 standard (dedicated Neon/site) · growth (tuned compute) · enterprise (Neon project/customer, SSO/SCIM, no scale-to-zero).
 - Human-approval gates ONLY where risk justifies (outreach · social post · charge money · DNS change · claim listing · gov forms · legal terms · delete data · publish customer site · sensitive creds · ambiguous MFA) — not a blanket bottleneck.
-- Payments: Stripe + Stripe Link preferred; avoid PayPal; Square only BrickLabor in-field. Email: Amazon SES + Listmonk + Novu adapter (Resend removed). Cost anomaly alerts (Browserbase/model/retry spikes, quota hits, provider-failure abnormal).
+- Payments: Stripe + Stripe Link preferred; avoid PayPal; Square only BrickLabor in-field. Email: Amazon SES + Listmonk + `psnotify` adapter (Resend removed; NEVER Novu). Cost anomaly alerts (Browserbase/model/retry spikes, quota hits, provider-failure abnormal).
 
-## §7 — NOVU: integrate at EVERY level + gorgeous Angular (explicit, first-class)
+## §7 — `psnotify`: CUSTOM notification engine (NEVER Novu — Brian absolute 2026-06-24)
 
-- **Credential split:** application identifier `TmBjOXewtEG8` is PUBLIC (client-safe; in the bell component / public config). Secret key is SERVER-ONLY → `wrangler secret put NOVU_SECRET_KEY` + get-secret; NEVER in the frontend bundle. API `https://api.novu.co`, WS `wss://socket.novu.co`. **⚠ the pasted secret is chat-exposed → ROTATE at Novu, then re-save.**
-- **Backbone doctrine:** Novu is THE notification layer — full inbox + center + preferences + multi-channel (in-app/email[SES adapter]/push) — wherever a user should be informed: `build.started/failed · publish.completed · domain.verifying/active/failed · ai.job.completed/failed · payment.succeeded/failed · quota.near_limit · trial.ending · member.invited/joined · draft.published · review.requested · claim.started/completed · browser.human_review_required`.
-- **Typed + Zod payloads**, tenant-aware (`{orgId, userId, featureSlug}`), subscribers namespaced per tenant, zero cross-tenant bleed. Triggers fire server-side via `@novu/api` (secret key) in `libs/core/notifications/` (`NotifyService` adapter — backend swappable). Toasts are ephemeral; the center is the durable record.
-- **Gorgeous Angular:** headless `@novu/js ^3` → Spartan-styled bell (cyan/black `--ps-*` cockpit) in the admin topbar: unread count + grouped feed (`appReveal` entrance, rolling-counter for count) + per-channel/per-category preferences in Settings + deep-link + "what to do next" on every notification + reduced-motion + WCAG AA + `:focus-visible`. `@novu/js` pulls a CJS polyfill → non-fatal esbuild ESM warning (expected). Verify the bell by asserting the 3 `api.novu.co/v1/inbox` calls, not by expecting seeded data.
-- **First wave = server triggers** (frontend bell already wired): fire Novu from the build-status callback, domain provisioning, Stripe webhook, AI-job, claim completion. Then preferences UI. Then push channel.
+- **Hard rule:** Absolutely NO Novu anywhere in projectsites.dev. Build `psnotify` — a custom in-house notification engine with the same features (inbox/center/preferences/multi-channel), customized for this platform. No `@novu/*` deps, no `NOVU_*` secrets, no `api.novu.co`. See [[feedback_no_novu_custom_notifications]].
+- **Architecture:** DO-backed per-subscriber inbox (SQLite ring of notifications) + a Hono `/api/notifications/*` surface (list/markRead/preferences) + server-side `NotifyService` in `libs/core/notifications/` that fans an event to the channels. Multi-channel: in-app (the durable record) + email (SES + Listmonk adapters, already in the stack) + web-push. Toasts stay ephemeral; the inbox is the durable record.
+- **Backbone doctrine:** `psnotify` is THE notification layer wherever a user should be informed: `build.started/failed · publish.completed · domain.verifying/active/failed · ai.job.completed/failed · payment.succeeded/failed · quota.near_limit · trial.ending · member.invited/joined · draft.published · review.requested · claim.started/completed · browser.human_review_required` + the Apps lifecycle (`deploy.* · instance.crashed · backup.*`).
+- **Typed + Zod payloads**, tenant-aware (`{orgId, userId, featureSlug}`), subscribers namespaced per tenant, zero cross-tenant bleed. Triggers fire server-side (no vendor SDK).
+- **Gorgeous Angular:** Spartan-styled bell (cyan/black `--ps-*` cockpit) in the admin topbar: unread count (rolling-counter) + grouped feed (`appReveal` entrance) + per-channel/per-category preferences in Settings + deep-link + "what to do next" on every notification + reduced-motion + WCAG AA + `:focus-visible`. The bell reads our own `/api/notifications` endpoint (SSE/poll) — verify by asserting OUR endpoint calls, not a vendor's.
+- **First wave = server triggers** (frontend bell wired to our API): fire `psnotify` from the build-status callback, domain provisioning, Stripe webhook, AI-job, claim completion, Apps deploy/crash/backup. Then preferences UI. Then web-push channel.
 
 ## §8 — THE 30 BRILLIANT FEATURES (net-new, my synthesis — research-validate in §12)
 
 1. **Unified correlation envelope** — every job/event/trace/browser-run/LLM-call carries `{tenantId,siteId,userId,correlationId,runId,traceId,provider,engine}`; one OTel trace links app→gateway→provider→artifact.
 2. **Provider-router eval loop** — Promptfoo + Langfuse score route decisions; cheaper model promoted only when eval-parity proven.
-3. **Cost-anomaly Novu alerts** — per-tenant spend spike / retry-rate / provider-failure → Novu + admin kill-switch suggestion.
+3. **Cost-anomaly `psnotify` alerts** — per-tenant spend spike / retry-rate / provider-failure → `psnotify` + admin kill-switch suggestion (NEVER Novu).
 4. **Dead-letter REPAIR queue UI** — every failed browser/event job → repairable card (last screenshot/HTML/console/transcript + suggested fix + retry/escalate-to-Skyvern/Browserbase/human buttons).
 5. **Evidence-bundle diff viewer** — before/after screenshots + visual regression for generated-site QA, per build.
 6. **Streaming live-preview during build** — render-as-it-generates iframe (the conversion "magic moment").
@@ -117,7 +118,7 @@
 17. **Generated-site beacon auto-injection** — `psTrack` sendBeacon into every build → Unified Analytics → owner dashboard (closes the empty-analytics gap).
 18. **Owner-facing live-events tab** — real-time per-site event monitor + per-provider delivery status (separate from Analytics).
 19. **Per-build cost accounting** — estimate→actual→variance (browser-seconds/tokens/provider) attributed per tenant.
-20. **Abandoned-build recovery (Novu + SES)** — build-started-never-claimed → nudge with preview link.
+20. **Abandoned-build recovery (`psnotify` + SES)** — build-started-never-claimed → nudge with preview link.
 21. **Contextual upgrade prompts** — paywall at the friction moment (custom domain / remove top-bar / more pages).
 22. **"Built with projectsites.dev" badge + public template gallery** — backlinks + social proof + massive pSEO surface.
 23. **GEO/AI-search optimization** — FAQPage + quotable-answer blocks on marketing + generated sites so ChatGPT/Perplexity cite them.
@@ -126,7 +127,7 @@
 26. **Idempotent everything** — client UUID idempotency on all writes/jobs/events/provider-forwards (no double-charge, accurate error rates).
 27. **Golden-workflow eval suite** — restaurants/churches/contractors/nonprofits/Stripe/Square/GBP/CMS-login/invoice-portal/gov-form/claim-flow/generated-site-validation, tracked by model×provider (success/schema/seconds/cost/manual-rate/confidence).
 28. **Kill-switch console** — one admin surface for model/provider/tenant/site/route/agent/AI-global instant disable.
-29. **Synthetic provider test-buttons** — "Test Connection" per provider (Sentry/PostHog/GA/Novu/browser) routes a synthetic event without real side effects.
+29. **Synthetic provider test-buttons** — "Test Connection" per provider (Sentry/PostHog/GA/`psnotify`/browser) routes a synthetic event without real side effects.
 30. **End-of-session skill maintenance** — tiny diffs folding each fire's lesson into the durable layer (this file + `_LOOP_LEDGER.md` + rules).
 
 ## §9 — VERIFICATION requirements (gate every slice)
@@ -149,7 +150,7 @@
 
 ## §12 — FRESH-SESSION DEEPENING PASS (honest follow-up — not done here)
 
-- **Context7 docs** (load per plane in a fresh session, then refine the relevant §): Cloudflare Workers/Hono/Browser-Rendering/AI-Gateway/Agents-SDK/Containers/D1/R2/KV/Queues/DO/Hyperdrive · Better Auth · Ory Polis · OpenFGA · LiteLLM · RouteLLM · Langfuse · Promptfoo · Trigger.dev · Inngest · Novu · Stagehand · Browserbase · Skyvern · Neon · Infisical · OpenAI/Anthropic/DeepSeek/xAI/Gemini APIs · Firecrawl (`G4brym/workers-firecrawl`).
+- **Context7 docs** (load per plane in a fresh session, then refine the relevant §): Cloudflare Workers/Hono/Browser-Rendering/AI-Gateway/Agents-SDK/Containers/D1/R2/KV/Queues/DO/Hyperdrive · Better Auth · Ory Polis · OpenFGA · LiteLLM · RouteLLM · Langfuse · Promptfoo · Trigger.dev · Inngest · web-push (`psnotify` — NEVER Novu) · Stagehand · Browserbase · Skyvern · Neon · Infisical · OpenAI/Anthropic/DeepSeek/xAI/Gemini APIs · Firecrawl (`G4brym/workers-firecrawl`).
 - **Heavy web research** (DORA 2024/25 · SO Dev Survey 2025 · NN/g · Baymard · WCAG 2.2) → add compact Evidence lines to each requirement section.
 - Each deepening fire: append source-backed Evidence + tighten one requirement list. Never bloat — Evidence is one line: `<source> — <takeaway> — retrieved <date>`.
 
@@ -164,4 +165,4 @@
 - **traces. → Langfuse via Tinybird-direct** (path A, LAW-clean, all creds present: `TINYBIRD_API_HOST/HOST/PORT/USERNAME/PASSWORD/WORKSPACE_ID` + Neon + `CLOUDFLARE_R2_*`). Trace store = Tinybird (no ClickHouse self-host, no Redis). If self-hosted Langfuse-server is later required, it needs a raw ClickHouse endpoint (verify Tinybird exposes one) — default stays Tinybird-direct.
 - **email. → Listmonk** container → Neon Postgres. SES via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (derive SMTP password from the secret key per the SES SMTP algorithm; region `AWS_DEFAULT_REGION`). Verified sender `mail.projectsites.dev`. Novu email adapter points here for bulk; per-user transactional stays Novu (creds present).
 
-**DNS/ingress:** Cloudflare-for-SaaS custom hostnames `jobs|events|traces|llm|email.projectsites.dev` (zone `CLOUDFLARE_ZONE_ID_PROJECTSITES_DEV`), CF Access on admin surfaces. **Integration:** Hono app calls `@projectsites/ai-gateway-client` → llm-gateway; `ctx.waitUntil` async trace emit → Tinybird; Inngest client publishes events; NotifyService → Novu (transactional) + Listmonk (bulk). **Verify live** per plane (healthcheck + one real round-trip) before marking done.
+**DNS/ingress:** Cloudflare-for-SaaS custom hostnames `jobs|events|traces|llm|email.projectsites.dev` (zone `CLOUDFLARE_ZONE_ID_PROJECTSITES_DEV`), CF Access on admin surfaces. **Integration:** Hono app calls `@projectsites/ai-gateway-client` → llm-gateway; `ctx.waitUntil` async trace emit → Tinybird; Inngest client publishes events; NotifyService → `psnotify` (transactional, custom — NEVER Novu) + Listmonk (bulk). **Verify live** per plane (healthcheck + one real round-trip) before marking done.
