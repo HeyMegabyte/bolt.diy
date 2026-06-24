@@ -26,6 +26,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { manualAdjustment } from '../services/wallet.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
+import { invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
 import { unauthorized, forbidden } from '@project-sites/shared';
 
 const superAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -761,19 +762,57 @@ superAdmin.post(
 
 // ─── Feature flags + per-org overrides ────────────────────────────────────
 
+/** One row of value_json stored in a `flag_overrides` record. */
+interface FlagOverrideValue {
+  enabled?: boolean;
+  rollout_percent?: number;
+  kill_switch?: boolean;
+  stage?: string;
+}
+
+/** Safe-parse a `flag_overrides.value_json` blob. */
+function parseFlagValue(raw: unknown): FlagOverrideValue {
+  if (typeof raw !== 'string') return {};
+  try {
+    return JSON.parse(raw) as FlagOverrideValue;
+  } catch {
+    return {};
+  }
+}
+
 /**
- * `GET /api/super-admin/feature-flags` — List feature flags + their
- * current per-org overrides.
+ * `GET /api/super-admin/feature-flags` — List the GLOBAL operator overrides
+ * applied on top of the code registry.
+ *
+ * @remarks
+ * Reads the canonical `flag_overrides` table (`scope='global'`, `scope_id='*'`)
+ * — the SAME table `resolveFlag`/`isFlagOn` consult at runtime — so what the
+ * operator sees here is exactly what the platform evaluates. The admin UI merges
+ * these rows onto the `/api/feature-flags` registry. Returns the legacy
+ * `{ key, enabled_globally, rollout_pct, kill_switch }` shape the frontend reads.
  *
  * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
 superAdmin.get('/api/super-admin/feature-flags', async (c) => {
-  const { data } = await dbQuery(
-    c.env.DB,
-    `SELECT key, description, enabled_globally, rollout_pct, kill_switch, updated_at
-       FROM feature_flags ORDER BY key`,
-  );
-  return c.json({ flags: data });
+  const rows = await c.env.DB.prepare(
+    `SELECT flag_key, value_json, updated_at FROM flag_overrides
+       WHERE scope = 'global' AND scope_id = '*' AND deleted_at IS NULL
+         AND (expires_at IS NULL OR expires_at > datetime('now'))
+       ORDER BY flag_key`,
+  )
+    .all<{ flag_key: string; value_json: string; updated_at: string }>()
+    .catch(() => ({ results: [] as { flag_key: string; value_json: string; updated_at: string }[] }));
+  const flags = (rows.results ?? []).map((r) => {
+    const v = parseFlagValue(r.value_json);
+    return {
+      key: r.flag_key,
+      enabled_globally: v.enabled ? 1 : 0,
+      rollout_pct: Number(v.rollout_percent ?? 0),
+      kill_switch: v.kill_switch ? 1 : 0,
+      updated_at: r.updated_at,
+    };
+  });
+  return c.json({ flags });
 });
 
 const flagPatchSchema = z.object({
@@ -808,26 +847,53 @@ superAdmin.post(
   async (c) => {
     const body = c.req.valid('json');
     const userId = c.get('userId') as string;
-    await c.env.DB.prepare(
-      `INSERT INTO feature_flags (key, description, enabled_globally, rollout_pct, kill_switch, updated_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(key) DO UPDATE SET
-         description = COALESCE(excluded.description, feature_flags.description),
-         enabled_globally = COALESCE(excluded.enabled_globally, feature_flags.enabled_globally),
-         rollout_pct = COALESCE(excluded.rollout_pct, feature_flags.rollout_pct),
-         kill_switch = COALESCE(excluded.kill_switch, feature_flags.kill_switch),
-         updated_by = excluded.updated_by,
-         updated_at = CURRENT_TIMESTAMP`,
+
+    // Merge the patch onto the EXISTING global override (or the code-registry
+    // default when none exists) so a partial nudge (e.g. rollout only) never
+    // clobbers the other dimensions.
+    const existingRow = await c.env.DB.prepare(
+      `SELECT value_json FROM flag_overrides
+         WHERE scope = 'global' AND scope_id = '*' AND flag_key = ? AND deleted_at IS NULL`,
     )
-      .bind(
-        body.key,
-        body.description ?? null,
-        body.enabled_globally === undefined ? null : body.enabled_globally ? 1 : 0,
-        body.rollout_pct ?? null,
-        body.kill_switch === undefined ? null : body.kill_switch ? 1 : 0,
-        userId,
-      )
+      .bind(body.key)
+      .first<{ value_json: string }>()
+      .catch(() => null);
+    const def = FLAG_REGISTRY[body.key];
+    const base: FlagOverrideValue = existingRow
+      ? parseFlagValue(existingRow.value_json)
+      : {
+          enabled: def?.default_enabled ?? false,
+          rollout_percent: def?.default_rollout_percent ?? 0,
+          kill_switch: false,
+        };
+    const merged: FlagOverrideValue = {
+      enabled: body.enabled_globally ?? base.enabled ?? false,
+      rollout_percent: body.rollout_pct ?? base.rollout_percent ?? 0,
+      kill_switch: body.kill_switch ?? base.kill_switch ?? false,
+    };
+
+    // Upsert the canonical runtime override row. `id` is an explicit UUID so the
+    // PRIMARY KEY is never NULL; the unique index drives the ON CONFLICT merge.
+    await c.env.DB.prepare(
+      // The unique index `idx_flag_overrides_unique` is PARTIAL
+      // (WHERE deleted_at IS NULL), so the ON CONFLICT target MUST repeat that
+      // predicate or SQLite raises "ON CONFLICT does not match any … UNIQUE
+      // constraint".
+      `INSERT INTO flag_overrides (id, scope, scope_id, flag_key, value_json, set_by, reason, set_at, updated_at)
+       VALUES (?, 'global', '*', ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(scope, scope_id, flag_key) WHERE deleted_at IS NULL DO UPDATE SET
+         value_json = excluded.value_json,
+         set_by     = excluded.set_by,
+         reason     = excluded.reason,
+         updated_at = datetime('now')`,
+    )
+      .bind(crypto.randomUUID(), body.key, JSON.stringify(merged), userId, body.reason ?? null)
       .run();
+
+    // Bust the 60s KV cache `resolveFlag` keeps under `flag:<key>:*`, or the
+    // just-written global override stays invisible to `isFlagOn` until TTL.
+    await invalidateFlagCache(c.env, body.key);
+
     await audit(c, 'feature_flag_upsert', {
       target_kind: 'feature_flag',
       target_id: body.key,

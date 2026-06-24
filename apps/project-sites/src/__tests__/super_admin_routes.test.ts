@@ -71,6 +71,8 @@ function makeKv() {
     delete: jest.fn(async (k: string) => {
       store.delete(k);
     }),
+    // invalidateFlagCache() sweeps `flag:<key>:` via list-then-delete.
+    list: jest.fn(async () => ({ keys: [] as { name: string }[] })),
     _store: store,
   };
 }
@@ -618,7 +620,7 @@ describe('feature flags', () => {
     expect(res.status).toBe(200);
   });
 
-  it('POST upserts a flag and 200s', async () => {
+  it('POST writes the GLOBAL flag_overrides row the runtime resolver reads', async () => {
     const env = makeEnv();
     const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/feature-flags', env, {
       key: 'new_flag',
@@ -626,7 +628,14 @@ describe('feature flags', () => {
       rollout_pct: 25,
     });
     expect(res.status).toBe(200);
-    expect((env.DB as unknown as { prepare: jest.Mock }).prepare).toHaveBeenCalled();
+    const prepare = (env.DB as unknown as { prepare: jest.Mock }).prepare;
+    // The mutation MUST hit the canonical flag_overrides table at global scope —
+    // NOT the orphaned feature_flags table (whose prod schema 500'd the toggle).
+    const sqls = prepare.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(sqls.some((s) => /INSERT INTO flag_overrides/i.test(s) && /'global'/.test(s))).toBe(true);
+    expect(sqls.some((s) => /INSERT INTO feature_flags\b/i.test(s))).toBe(false);
+    // The cache for this key is busted so isFlagOn sees the change immediately.
+    expect((env.CACHE_KV as unknown as { list: jest.Mock }).list).toHaveBeenCalled();
   });
 
   it('POST 400s when rollout_pct exceeds 100', async () => {
