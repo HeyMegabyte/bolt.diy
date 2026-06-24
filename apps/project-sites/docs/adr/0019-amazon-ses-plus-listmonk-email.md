@@ -71,3 +71,30 @@ blocking every deploy in the interim.
   (local) and a feature-flag-gated rollout mean partial migration is safe. Resend stays
   `deprecated` (not deleted) until SES is proven in prod, so a flag flip can revert a
   given flow.
+
+## Migration progress (updated 2026-06-23)
+
+**Step 2 (transactional call-site cutover) — COMPLETE.** All 10 platform transactional
+senders route through the SES seam (`getEmailProvider`) as the PRIMARY rail when AWS
+creds + `SES_FROM_EMAIL` are set; Resend/SendGrid remain fallback until SES is proven in
+prod (progressive degradation by env, no flag needed):
+
+- `services/notifications.ts`, `services/auth.ts` (magic-link), `services/contact.ts`,
+  `routes/forms.ts` (send-reply), `services/inbox.ts` (email channel), `services/credits.ts`
+  (billing alerts), `routes/search.ts` (`/api/contact-form/:slug`), `services/form_router.ts`
+  (send_email), `routes/ai_admin.ts` (team invites), `services/weekly_digest.ts`.
+
+Port enhancements landed for the cutover: `replyTo` (contact-form lead reply-to) and
+`headers` (SES `Content.Simple.Headers` — weekly_digest one-click `List-Unsubscribe`).
+
+**EXEMPT (not platform email — do NOT migrate):** `services/mcp_client.ts` (customer-
+connected Resend MCP, uses the customer's `accessToken`) and `services/newsletter_dispatch.ts`
+`dispatchResend` (customer-connected Resend Audiences, uses `requireApiKey(row)`). §4 bans
+Resend as OUR rail, not as a customer-selectable integration.
+
+**Remaining (prod-gated, steps 3-4):**
+- Provision AWS SES prod secrets + verify `projectsites.dev` sending domain; send a real
+  magic-link and confirm delivery from `noreply@projectsites.dev`.
+- Wire SES bounce/complaint events into `email_events`/`email_suppressions`.
+- Once verified live: delete the Resend fallback branches from the 10 files, then drop the
+  Resend rule's `documented` tag (hard-block) + set `email-resend` registry status `removed`.
