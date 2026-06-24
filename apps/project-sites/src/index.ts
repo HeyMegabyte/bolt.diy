@@ -41,6 +41,7 @@ import { authMiddleware } from './middleware/auth.js';
 import { addBreadcrumb as sentryBreadcrumb, setTag as sentrySetTag } from './lib/sentry.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
+import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise) IdP, ships dark
 import { search } from './routes/search.js';
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
@@ -356,6 +357,7 @@ app.notFound((c) => c.html(notFoundHtml(), 404));
 app.route('/', health);
 app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
+app.route('/', authIdp); // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise); 404s dark when LOGTO_*/WORKOS_* unset
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)
