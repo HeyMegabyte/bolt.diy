@@ -60,6 +60,7 @@ import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { i18n } from './routes/i18n.js';
 import { webhooks } from './routes/webhooks.js';
+import { sesWebhooks } from './routes/ses_webhooks.js';
 import { assets } from './routes/assets.js';
 import { forms } from './routes/forms.js';
 import { analyticsRoutes } from './routes/analytics.js';
@@ -454,6 +455,7 @@ app.route('/', siteThumbnailGrid); // /api/thumbnails/* (flag: site_thumbnail_gr
 
 app.route('/', api);
 app.route('/', webhooks);
+app.route('/', sesWebhooks); // POST /webhooks/ses — SES bounce/complaint → suppression list (§42/ADR-0019)
 
 // ─── Public status page (item #100) ─────────────────────────
 // Self-hosted status page served on every hostname so customers can hit
