@@ -461,6 +461,19 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'Deepcrawl DEFERRED per ADR-0053 — crawl/discovery is already Worker-native: import_crawler.ts (crawlSiteForImport → typed CrawlReport/InventoryUrl, real-UA fetch per fetch-defaults, robots/sitemap/Wayback inventory, estimateRebuildMinutes) + image discovery + CF Browser Rendering (browser-gateway, production) for JS-rendered crawl/screenshots. Our crawl need is import-scoped (crawl ONE source site to rebuild), not recurring-SEO-audit-scoped. No port built — a CrawlProvider seam over a domain-specific import fn is indirection with one caller. A managed-Deepcrawl adapter slots behind a future CrawlAuditProvider port gated on DEEPCRAWL_API_KEY only if recurring technical-SEO auditing becomes a product feature. §53.',
   },
+  {
+    id: 'sdk-stainless',
+    name: 'Stainless SDK-codegen port over the OpenAPI 3.1 spec (§47/ADR-0047)',
+    category: 'docs',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/sdk-codegen.ts',
+    adapterPackage: 'apps/project-sites/src/middleware/sdk-codegen.ts',
+    secretsNamespace: '/stainless',
+    status: 'scaffolded',
+    access: 'service-only',
+    notes:
+      'SdkCodegenProvider port + NoopSdkCodegenProvider (dark default) + FakeSdkCodegenProvider + StainlessSdkCodegenProvider (fetch-based POST of the spec) + getSdkCodegenProvider(env) factory, all tested. Genuinely new (no homegrown client SDK today) — feeds the EXISTING generated OpenAPI 3.1 spec (GET /api/admin/docs/openapi.json, from routes/docs.ts) to Stainless. Ships DARK behind STAINLESS_API_KEY → unset = Noop (generate() = skipped). Fail-soft. Remaining: finalize the exact Stainless REST contract + wire a gen:sdk CI step when the key is provisioned (baseUrl/endpoint are config, not code). §47.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */

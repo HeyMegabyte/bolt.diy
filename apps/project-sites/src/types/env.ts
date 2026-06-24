@@ -292,6 +292,12 @@ export interface Env {
   OTEL_EXPORTER_OTLP_ENDPOINT?: string;
   /** Optional OTLP headers as `k=v,k2=v2` (e.g. `x-honeycomb-team=KEY`). wrangler secret. */
   OTEL_EXPORTER_OTLP_HEADERS?: string;
+  /** Stainless API key for the §47 SDK-codegen port — submits the OpenAPI spec
+   * (/api/admin/docs/openapi.json) to generate typed client SDKs. Unset →
+   * NoopSdkCodegenProvider (ships dark; no codegen runs). wrangler secret. */
+  STAINLESS_API_KEY?: string;
+  /** Stainless project slug the spec is published under. var. */
+  STAINLESS_PROJECT?: string;
   /** Listmonk base URL, e.g. https://mail.projectsites.dev (ADR-0019). var. */
   LISTMONK_API_URL?: string;
   /** Listmonk admin/API username. wrangler secret. */
