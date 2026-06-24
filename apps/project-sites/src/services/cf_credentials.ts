@@ -15,8 +15,8 @@
  */
 import type { Env } from '../types/env.js';
 
-import { decrypt, encrypt } from './ai_crypto.js';
-import { dbExecute, dbQueryOne } from './db.js';
+import { decrypt } from './ai_crypto.js';
+import { dbQueryOne } from './db.js';
 
 /** Auth strategy for a Cloudflare API call. */
 export type CfAuth =
@@ -124,78 +124,3 @@ export async function loadCfCredentials(
   }
 }
 
-/** Upsert credentials for an org (encrypts before write). */
-export async function saveCfCredentials(
-  env: Env,
-  orgId: string,
-  email: string,
-  apiKey: string,
-  accountId: string | null,
-): Promise<void> {
-  const encrypted = await encrypt(env, JSON.stringify({ api_key: apiKey, email }));
-  // SQLite UPSERT via INSERT ... ON CONFLICT — `org_id` is UNIQUE.
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await dbExecute(
-    env.DB,
-    `INSERT INTO cf_credentials
-       (id, org_id, encrypted_blob, iv, last_validated_at, last_validated_account_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(org_id) DO UPDATE SET
-       encrypted_blob = excluded.encrypted_blob,
-       iv = excluded.iv,
-       last_validated_at = excluded.last_validated_at,
-       last_validated_account_id = excluded.last_validated_account_id,
-       updated_at = excluded.updated_at,
-       deleted_at = NULL`,
-    [id, orgId, encrypted, 'inline', now, accountId, now, now],
-  );
-}
-
-/** Soft-delete the stored credentials for an org. */
-export async function deleteCfCredentials(env: Env, orgId: string): Promise<void> {
-  await dbExecute(
-    env.DB,
-    `UPDATE cf_credentials SET deleted_at = ?, updated_at = ? WHERE org_id = ?`,
-    [new Date().toISOString(), new Date().toISOString(), orgId],
-  );
-}
-
-/**
- * Hit `GET /zones?per_page=1` to confirm the credentials are valid. Returns
- * the first account_id we see (for caching) or `null` when the call fails.
- *
- * Used by both the "Validate now" button and the implicit validation on
- * credential save.
- */
-export async function validateCfCredentials(
-  email: string,
-  apiKey: string,
-): Promise<
-  { ok: true; account_id: string | null } | { ok: false; status: number; message: string }
-> {
-  try {
-    const res = await fetch('https://api.cloudflare.com/client/v4/zones?per_page=1', {
-      headers: cfAuthHeaders({ apiKey, email, kind: 'global' }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      return { message: body.slice(0, 300), ok: false, status: res.status };
-    }
-    const json = (await res.json()) as {
-      result?: Array<{ account?: { id?: string } }>;
-      success?: boolean;
-    };
-    if (!json.success) {
-      return { message: 'Cloudflare API returned success=false', ok: false, status: res.status };
-    }
-    const account_id = json.result?.[0]?.account?.id ?? null;
-    return { account_id, ok: true };
-  } catch (err) {
-    return {
-      message: err instanceof Error ? err.message : 'Network error contacting Cloudflare',
-      ok: false,
-      status: 0,
-    };
-  }
-}

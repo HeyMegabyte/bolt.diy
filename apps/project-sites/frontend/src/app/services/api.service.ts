@@ -834,32 +834,6 @@ export class ApiService {
     return this.get('/admin/cloudflare-credentials');
   }
 
-  /** Store the org's Cloudflare global-key credentials (validated server-side). */
-  setCloudflareCredentials(
-    email: string,
-    apiKey: string,
-  ): Observable<{ data: CloudflareCredentialStatus }> {
-    return this.put('/admin/cloudflare-credentials', { email, api_key: apiKey });
-  }
-
-  /** Re-validate stored credentials by pinging `GET /zones?per_page=1`. */
-  validateCloudflareCredentials(): Observable<{
-    data: {
-      ok: boolean;
-      account_id?: string | null;
-      validated_at?: string;
-      status?: number;
-      message?: string;
-    };
-  }> {
-    return this.post('/admin/cloudflare-credentials/validate', {});
-  }
-
-  /** Remove stored Cloudflare credentials. Falls back to worker-bundled defaults. */
-  deleteCloudflareCredentials(): Observable<{ data: { deleted: boolean } }> {
-    return this.delete('/admin/cloudflare-credentials');
-  }
-
   /** List form submissions for a site */
   listFormSubmissions(siteId: string, limit = 50): Observable<{ data: FormSubmission[] }> {
     return this.get(`/sites/${siteId}/forms`, { limit: limit.toString() });

@@ -453,34 +453,6 @@ describe('AdminUserSettingsComponent (session-revoke in-flight guards)', () => {
 });
 
 /**
- * disconnectCf (remove Cloudflare credentials) surfaces a specific error toast
- * on failure (was a next-only subscribe). Minimal named-method http shape.
- */
-describe('AdminUserSettingsComponent (disconnectCf error feedback)', () => {
-  afterEach(() => TestBed.resetTestingModule());
-
-  it('surfaces a toast when removing Cloudflare credentials fails', async () => {
-    const error = jasmine.createSpy('error');
-    const delCf = jasmine.createSpy('deleteCloudflareCredentials').and.returnValue(throwError(() => ({ status: 500 })));
-    const http = { get: () => of({}), post: () => of({}), put: () => of({}), delete: () => of({}), deleteCloudflareCredentials: delCf };
-    TestBed.configureTestingModule({
-      imports: [AdminUserSettingsComponent],
-      providers: [
-        { provide: ApiService, useValue: http },
-        { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0, info: () => 0 } },
-        { provide: AuthService, useValue: { email: () => 'x', user: () => ({}), signOut: () => undefined } },
-        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
-        { provide: HttpClient, useValue: http },
-      ],
-    });
-    TestBed.overrideComponent(AdminUserSettingsComponent, { set: { template: '<div></div>', imports: [] } });
-    const c = TestBed.createComponent(AdminUserSettingsComponent).componentInstance;
-    await c.disconnectCf();
-    expect(error).withContext('failure surfaced, not silent').toHaveBeenCalled();
-  });
-});
-
-/**
  * Delete-account confirm UX (the most destructive action). The confirm-by-typing
  * input needs (a) a programmatic accessible NAME — placeholder + a sibling <p> is
  * not a label for a screen reader — and (b) a VISIBLE cue the moment the exact
@@ -491,7 +463,7 @@ describe('AdminUserSettingsComponent (delete-account confirm: a11y name + visibl
   afterEach(() => TestBed.resetTestingModule());
 
   function render(): { fx: ReturnType<typeof TestBed.createComponent<AdminUserSettingsComponent>>; c: AdminUserSettingsComponent } {
-    const http = { get: () => of({}), post: () => of({}), put: () => of({}), delete: () => of({}), getCloudflareCredentialStatus: () => of({ data: null }) };
+    const http = { get: () => of({}), post: () => of({}), put: () => of({}), delete: () => of({}) };
     TestBed.configureTestingModule({
       imports: [AdminUserSettingsComponent],
       providers: [

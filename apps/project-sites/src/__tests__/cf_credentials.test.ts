@@ -1,10 +1,15 @@
 /**
- * cf_credentials — per-org Cloudflare credential storage (encryption-at-rest).
+ * cf_credentials — per-org Cloudflare credential resolution (decrypt-at-read).
  *
- * Security-critical: `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` are AES-GCM
- * encrypted in the `cf_credentials` D1 table before write, decrypted only on
- * read. This suite locks the encrypt-at-rest / decrypt round-trip, per-org
- * scoping, the decrypt-failure (tamper) path, and the auth-precedence resolver.
+ * The analytics aggregator (`multi_url_analytics.ts`) reads any per-org
+ * `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` that were stored AES-GCM encrypted
+ * in the `cf_credentials` D1 table, else falls back to worker-bundled creds.
+ * This suite locks the decrypt round-trip, per-org scoping, the decrypt-failure
+ * (tamper) path, the auth-precedence resolver, and the header shape.
+ *
+ * (The org-credential WRITE surface — store / validate / delete — was removed
+ * with the user-settings "Cloudflare credentials" card; only the read path that
+ * analytics depends on remains.)
  *
  * Mocks ONLY `services/db.js` (D1) — the AES-GCM round-trip uses real Node 22
  * WebCrypto (`crypto.subtle`), exactly like the live Workers runtime.
@@ -18,19 +23,12 @@ jest.mock('../services/db.js', () => ({
   dbUpdate: jest.fn(),
 }));
 
-import { dbQueryOne, dbExecute } from '../services/db.js';
-import {
-  saveCfCredentials,
-  loadCfCredentials,
-  resolveCfCredentials,
-  deleteCfCredentials,
-  cfAuthHeaders,
-} from '../services/cf_credentials.js';
+import { dbQueryOne } from '../services/db.js';
+import { loadCfCredentials, resolveCfCredentials, cfAuthHeaders } from '../services/cf_credentials.js';
 import { encrypt } from '../services/ai_crypto.js';
 import type { Env } from '../types/env.js';
 
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
-const mockExecute = dbExecute as unknown as jest.Mock;
 
 /** Build a minimally-typed Env stub with a real 32-byte AES key (base64). */
 function makeEnv(extra: Record<string, unknown> = {}): Env {
@@ -60,45 +58,6 @@ function storedRow(encrypted_blob: string, overrides: Record<string, unknown> = 
 
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-// ────────────────────────────────────────────────────────────
-// saveCfCredentials — encrypt-at-rest (ciphertext != plaintext)
-// ────────────────────────────────────────────────────────────
-describe('saveCfCredentials (encrypt at rest)', () => {
-  it('encrypts email+api_key before write — ciphertext never contains plaintext', async () => {
-    const env = makeEnv();
-    mockExecute.mockResolvedValueOnce({ error: null, changes: 1 });
-
-    await saveCfCredentials(env, 'org-A', 'user@example.com', 'cf-secret-key-9999', 'acct-123');
-
-    expect(mockExecute).toHaveBeenCalledTimes(1);
-    const params = mockExecute.mock.calls[0][2] as unknown[];
-    // INSERT order: id, org_id, encrypted_blob, iv, last_validated_at, account_id, created, updated
-    const orgId = params[1] as string;
-    const blob = params[2] as string;
-    expect(orgId).toBe('org-A');
-    expect(blob).not.toContain('cf-secret-key-9999');
-    expect(blob).not.toContain('user@example.com');
-    // account id is persisted for caching
-    expect(params[5]).toBe('acct-123');
-  });
-
-  it('writes via UPSERT (ON CONFLICT) so re-save overwrites the same org row', async () => {
-    const env = makeEnv();
-    mockExecute.mockResolvedValue({ error: null, changes: 1 });
-
-    await saveCfCredentials(env, 'org-A', 'a@x.com', 'key-1', null);
-    await saveCfCredentials(env, 'org-A', 'b@x.com', 'key-2', null);
-
-    expect(mockExecute).toHaveBeenCalledTimes(2);
-    const sql = mockExecute.mock.calls[0][1] as string;
-    expect(sql).toMatch(/ON CONFLICT\(org_id\) DO UPDATE/i);
-    // Two distinct ciphertexts (fresh IV per encrypt → distinct blobs)
-    const blob1 = (mockExecute.mock.calls[0][2] as unknown[])[2] as string;
-    const blob2 = (mockExecute.mock.calls[1][2] as unknown[])[2] as string;
-    expect(blob1).not.toBe(blob2);
-  });
 });
 
 // ────────────────────────────────────────────────────────────
@@ -159,46 +118,6 @@ describe('loadCfCredentials (decrypt round-trip)', () => {
     const realEnv = makeEnv(); // key i+1 — cannot decrypt the wrong-key blob
     mockQueryOne.mockResolvedValueOnce(storedRow(blob));
     expect(await loadCfCredentials(realEnv, 'org-A')).toBeNull();
-  });
-});
-
-// ────────────────────────────────────────────────────────────
-// save → load full encrypt/decrypt cycle (end-to-end through D1 shape)
-// ────────────────────────────────────────────────────────────
-describe('save → load full cycle', () => {
-  it('decrypt(stored ciphertext from save) === original credentials', async () => {
-    const env = makeEnv();
-    mockExecute.mockResolvedValueOnce({ error: null, changes: 1 });
-
-    await saveCfCredentials(env, 'org-A', 'cycle@example.com', 'cf-cycle-secret', 'acct-99');
-
-    // Reuse the ciphertext the save produced as the row a subsequent load reads.
-    const writtenBlob = (mockExecute.mock.calls[0][2] as unknown[])[2] as string;
-    mockQueryOne.mockResolvedValueOnce(
-      storedRow(writtenBlob, { last_validated_account_id: 'acct-99' }),
-    );
-
-    const rec = await loadCfCredentials(env, 'org-A');
-    expect(rec!.email).toBe('cycle@example.com');
-    expect(rec!.api_key).toBe('cf-cycle-secret');
-    expect(rec!.last_validated_account_id).toBe('acct-99');
-  });
-});
-
-// ────────────────────────────────────────────────────────────
-// deleteCfCredentials — soft delete
-// ────────────────────────────────────────────────────────────
-describe('deleteCfCredentials', () => {
-  it('soft-deletes by setting deleted_at, scoped to org_id', async () => {
-    const env = makeEnv();
-    mockExecute.mockResolvedValueOnce({ error: null, changes: 1 });
-
-    await deleteCfCredentials(env, 'org-A');
-    const [, sql, params] = mockExecute.mock.calls[0] as [unknown, string, unknown[]];
-    expect(sql).toMatch(/UPDATE cf_credentials SET deleted_at/i);
-    expect(sql).toContain('WHERE org_id = ?');
-    // last param is the org id
-    expect(params[params.length - 1]).toBe('org-A');
   });
 });
 

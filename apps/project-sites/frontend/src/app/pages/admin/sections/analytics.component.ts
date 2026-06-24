@@ -178,23 +178,6 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         </div>
       }
 
-      <!-- ─────────────────── CF CREDENTIALS CTA ─────────────────── -->
-      @if (envelope() && !envelope()!.any_real_data && credStatus() && credStatus()!.source === 'none') {
-        <div class="card notice notice-amber" role="status">
-          <div class="flex-1">
-            <strong>Connect Cloudflare to see real traffic data.</strong>
-            <span class="block text-[0.74rem] mt-0.5">
-              Add your Cloudflare global API key once. We aggregate traffic across every URL bound to this site —
-              <code class="font-mono">{{ urls().length }}</code> URL{{ urls().length === 1 ? '' : 's' }} ready when you are.
-            </span>
-          </div>
-          <button class="btn-primary"
-                  type="button"
-                  (click)="openCredentialSettings()"
-                  aria-label="Connect Cloudflare credentials">Connect Cloudflare</button>
-        </div>
-      }
-
       <!-- ─────────────────── ERROR / STATE BANNERS ─────────────────── -->
       @if (!state.selectedSite()) {
         <app-empty-state
@@ -898,10 +881,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     if (env?.any_real_data) {
       return `Cloudflare GraphQL — aggregated across ${env.urls_included.length} URL${env.urls_included.length === 1 ? '' : 's'}. No session-duration / bounce-rate at the edge.`;
     }
-    const cred = this.credStatus();
-    if (cred && cred.source === 'none') {
-      return 'Connect Cloudflare credentials in Settings to see real traffic data.';
-    }
     return 'No traffic captured yet. Once visitors arrive, page-view trends plot here.';
   });
 
@@ -958,10 +937,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
       const message = err instanceof Error ? err.message : 'Failed to add URL';
       this.toast.error(message);
     }
-  }
-
-  openCredentialSettings(): void {
-    void this.router.navigateByUrl('/admin/user?focus=cloudflare');
   }
 
   exportCsv(): void {

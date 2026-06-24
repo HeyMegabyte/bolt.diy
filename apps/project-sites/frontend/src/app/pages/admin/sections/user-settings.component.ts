@@ -2,7 +2,7 @@ import { Component, computed, inject, signal, type OnDestroy, type OnInit } from
 import { DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { ApiService, type CloudflareCredentialStatus } from '../../../services/api.service';
+import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -142,70 +142,6 @@ interface NotificationGroup {
             </button>
           }
         </div>
-      </section>
-
-      <!-- ─────────────────── CLOUDFLARE CREDENTIALS ─────────────────── -->
-      <section class="card" [attr.data-focus]="focusCf() ? 'cloudflare' : null" data-testid="cf-credentials-card">
-        <div class="flex items-start justify-between gap-3 mb-2 flex-wrap">
-          <div>
-            <div class="kicker">Analytics source</div>
-            <h3 class="section-h m-0 text-base font-semibold text-white mt-1 flex items-center gap-2">
-              Cloudflare credentials
-              <span class="status-pill"
-                    [class.is-active]="credStatus()?.has_credentials"
-                    [class.is-revoked]="!credStatus()?.has_credentials"
-                    [title]="credBadgeTitle()">
-                {{ credStatus()?.has_credentials ? 'Connected' : 'Not connected' }}
-              </span>
-            </h3>
-            <p class="text-[0.72rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
-              Power per-site analytics with your Cloudflare global API key. We aggregate edge traffic across every URL bound to each site —
-              <strong class="text-white">{{ credSourceLabel() }}</strong>.
-              @if (credStatus()?.last_validated_at) {
-                <span class="block mt-1 text-[0.66rem] text-text-secondary/70">
-                  Last validated {{ credStatus()!.last_validated_at | date:'medium' }}
-                  @if (credStatus()?.last_validated_account_id) {
-                    · account <code class="font-mono">{{ shortCfAccount() }}</code>
-                  }
-                </span>
-              }
-            </p>
-          </div>
-          <div class="flex gap-2 flex-wrap">
-            @if (credStatus()?.has_credentials && credStatus()?.source === 'org') {
-              <button class="btn-ghost"
-                      type="button"
-                      (click)="validateCf()"
-                      [disabled]="validatingCf()"
-                      data-testid="cf-validate-button"
-                      aria-label="Re-validate stored Cloudflare credentials"
-                      title="Ping Cloudflare /zones to confirm the key still works">
-                {{ validatingCf() ? 'Validating…' : 'Validate now' }}
-              </button>
-              <button class="btn-tiny-danger"
-                      type="button"
-                      (click)="disconnectCf()"
-                      data-testid="cf-disconnect-button"
-                      aria-label="Remove stored Cloudflare credentials">Disconnect</button>
-            }
-            <button class="btn-primary"
-                    type="button"
-                    (click)="openCfDialog()"
-                    data-testid="cf-update-button"
-                    aria-label="Update Cloudflare credentials"
-                    title="Open the credential editor">
-              {{ credStatus()?.source === 'org' ? 'Update credentials' : 'Connect Cloudflare' }}
-            </button>
-          </div>
-        </div>
-        <p class="text-[0.66rem] text-text-secondary/70 m-0 mt-2 max-w-prose">
-          Generate a key at
-          <a class="text-link"
-             href="https://dash.cloudflare.com/profile/api-tokens"
-             target="_blank"
-             rel="noopener noreferrer">dash.cloudflare.com/profile/api-tokens</a> →
-          "API Keys" → "Global API Key". This is the same credential pair (<code class="font-mono">CLOUDFLARE_API_KEY</code> + <code class="font-mono">CLOUDFLARE_EMAIL</code>) Wrangler uses for deploys.
-        </p>
       </section>
 
       <!-- ─────────────────── API KEYS ─────────────────── -->
@@ -648,79 +584,6 @@ interface NotificationGroup {
         </app-dialog-shell>
       }
 
-      <!-- ─────────────────── CLOUDFLARE CREDENTIALS MODAL ─────────────────── -->
-      @if (cfDialogOpen()) {
-        <app-dialog-shell (closed)="closeCfDialog()">
-          <span dialogIcon>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent">
-              <path d="M17.7 12.3a4 4 0 0 0-7.6-1.4 3 3 0 0 0-4.1 4.1A3 3 0 0 0 7.5 19h10a3.5 3.5 0 0 0 .2-7z"/>
-            </svg>
-          </span>
-          <span dialogTitle>Cloudflare credentials</span>
-
-          <div class="p-5 flex flex-col gap-4">
-            <p class="text-[0.78rem] text-text-secondary m-0 leading-relaxed">
-              Paste your Cloudflare global API key + the account email. We store the key AES-GCM encrypted in D1 — it never leaves the worker plaintext after this submit.
-            </p>
-
-            <label class="block">
-              <span class="muted-h">Email</span>
-              <input
-                type="email"
-                placeholder="you@example.com"
-                [ngModel]="cfDraft.email"
-                (ngModelChange)="cfDraft.email = $event"
-                hlmInput class="w-full mt-1"
-                autocomplete="email"
-                data-testid="cf-modal-email"
-                autofocus />
-            </label>
-
-            <label class="block">
-              <span class="muted-h flex items-center justify-between">
-                <span>Global API key</span>
-                <button class="text-[0.66rem] text-text-secondary/80 hover:text-white"
-                        type="button"
-                        (click)="cfReveal.set(!cfReveal())"
-                        [attr.aria-label]="cfReveal() ? 'Hide key' : 'Reveal key'">
-                  {{ cfReveal() ? 'Hide' : 'Reveal' }}
-                </button>
-              </span>
-              <input
-                [type]="cfReveal() ? 'text' : 'password'"
-                placeholder="d3a9…"
-                [ngModel]="cfDraft.apiKey"
-                (ngModelChange)="cfDraft.apiKey = $event"
-                hlmInput class="w-full mt-1 font-mono"
-                autocomplete="off"
-                data-testid="cf-modal-key" />
-              <span class="text-[0.62rem] text-text-secondary/70 mt-1 block">
-                Generate at
-                <a class="text-link"
-                   href="https://dash.cloudflare.com/profile/api-tokens"
-                   target="_blank"
-                   rel="noopener noreferrer">dash.cloudflare.com/profile/api-tokens</a> → API Keys → Global API Key.
-              </span>
-            </label>
-
-            @if (cfError(); as err) {
-              <p class="apikey-error" role="alert" aria-live="assertive" data-testid="cf-modal-error">{{ err }}</p>
-            }
-          </div>
-
-          <div dialogFooter class="px-5 py-4 border-t border-white/[0.06] flex items-center justify-end gap-2">
-            <button class="btn-ghost" type="button" (click)="closeCfDialog()" [disabled]="savingCf()" data-testid="cf-modal-cancel">Cancel</button>
-            <button
-              class="btn-primary"
-              type="button"
-              [disabled]="savingCf() || !cfDraftValid()"
-              data-testid="cf-modal-save"
-              (click)="saveCf()">
-              {{ savingCf() ? 'Validating…' : 'Save credentials' }}
-            </button>
-          </div>
-        </app-dialog-shell>
-      }
     </div>
   `,
   styles: [`
@@ -944,19 +807,6 @@ interface NotificationGroup {
       outline-offset: 2px;
       border-radius: 2px;
     }
-    [data-focus="cloudflare"] {
-      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 48%, transparent);
-      box-shadow:
-        inset 0 0 0 1px color-mix(in oklch, var(--ps-accent, #00E5FF) 38%, transparent),
-        0 16px 48px -16px color-mix(in oklch, var(--ps-accent, #00E5FF) 42%, transparent);
-      animation: focusPulse 1600ms ease-out 1;
-    }
-    @keyframes focusPulse {
-      0%   { transform: scale(1); }
-      50%  { transform: scale(1.005); }
-      100% { transform: scale(1); }
-    }
-
     /* ── Sessions list ── */
     .session-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
     .session-row {
@@ -1211,140 +1061,10 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   deleting = signal(false);
   deleteConfirm = '';
 
-  // ── Cloudflare credentials ──
-  credStatus = signal<CloudflareCredentialStatus | null>(null);
-  cfDialogOpen = signal(false);
-  savingCf = signal(false);
-  validatingCf = signal(false);
-  cfReveal = signal(false);
-  cfError = signal<string | null>(null);
-  focusCf = signal(false);
-  cfDraft: { email: string; apiKey: string } = { email: '', apiKey: '' };
-
-  /** Validate the in-modal draft before enabling Save. */
-  cfDraftValid = computed<boolean>(() => {
-    const { email, apiKey } = this.cfDraft;
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && apiKey.trim().length >= 20;
-  });
-
-  /** Human label for the credential source pill in the card body. */
-  credSourceLabel = computed<string>(() => {
-    const s = this.credStatus()?.source;
-    if (s === 'org') return 'using your account credentials';
-    if (s === 'worker_global_key') return 'using platform shared credentials';
-    if (s === 'worker_token') return 'using platform token (zone-scoped)';
-    return 'not connected — analytics will be empty';
-  });
-
-  credBadgeTitle = computed<string>(() => {
-    const s = this.credStatus()?.source;
-    if (s === 'org') return 'Your stored Cloudflare credentials are active.';
-    if (s === 'worker_global_key' || s === 'worker_token') return 'Falling back to platform-bundled credentials.';
-    return 'No Cloudflare credentials configured — connect to enable analytics.';
-  });
-
-  shortCfAccount = computed<string>(() => {
-    const id = this.credStatus()?.last_validated_account_id ?? '';
-    return id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : (id || '—');
-  });
-
   ngOnInit(): void {
     this.loadApiKeys();
     this.loadSessions();
-    this.loadCredStatus();
     this.hydrateNotificationPrefs();
-    // Honor `?focus=cloudflare` deep links from the analytics CTA.
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('focus') === 'cloudflare') {
-        this.focusCf.set(true);
-        // Drop the focus highlight after the keyframe finishes.
-        setTimeout(() => this.focusCf.set(false), 2200);
-        // Auto-scroll the card into view.
-        setTimeout(() => {
-          const el = document.querySelector<HTMLElement>('[data-testid="cf-credentials-card"]');
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 60);
-      }
-    } catch { /* SSR */ }
-  }
-
-  loadCredStatus(): void {
-    this.api.getCloudflareCredentialStatus().subscribe({
-      next: (r) => this.credStatus.set(r.data),
-      error: () => { /* shared handleError already toasted */ },
-    });
-  }
-
-  openCfDialog(): void {
-    this.cfDraft = { email: this.credStatus()?.email ?? this.auth.email() ?? '', apiKey: '' };
-    this.cfError.set(null);
-    this.cfReveal.set(false);
-    this.cfDialogOpen.set(true);
-  }
-
-  closeCfDialog(): void {
-    if (this.savingCf()) return;
-    this.cfDialogOpen.set(false);
-    this.cfDraft = { email: '', apiKey: '' };
-    this.cfError.set(null);
-  }
-
-  saveCf(): void {
-    if (!this.cfDraftValid() || this.savingCf()) return;
-    this.savingCf.set(true);
-    this.cfError.set(null);
-    this.api.setCloudflareCredentials(this.cfDraft.email.trim(), this.cfDraft.apiKey.trim()).subscribe({
-      next: (r) => {
-        this.savingCf.set(false);
-        this.credStatus.set(r.data);
-        this.toast.success('Cloudflare credentials saved + validated');
-        this.closeCfDialog();
-      },
-      error: (err: unknown) => {
-        this.savingCf.set(false);
-        const message = (err as { error?: { error?: { message?: string } } })?.error?.error?.message
-          ?? 'Cloudflare rejected those credentials. Double-check the email + key.';
-        this.cfError.set(message);
-      },
-    });
-  }
-
-  validateCf(): void {
-    if (this.validatingCf()) return;
-    this.validatingCf.set(true);
-    this.api.validateCloudflareCredentials().subscribe({
-      next: (r) => {
-        this.validatingCf.set(false);
-        if (r.data.ok) {
-          this.toast.success('Cloudflare credentials valid');
-          this.loadCredStatus();
-        } else {
-          this.toast.error(`Cloudflare rejected the stored key: ${r.data.message ?? 'unknown error'}`);
-        }
-      },
-      error: () => {
-        this.validatingCf.set(false);
-      },
-    });
-  }
-
-  async disconnectCf(): Promise<void> {
-    const ok = await this.confirmSvc.confirm({
-      title: 'Remove Cloudflare credentials',
-      message: 'Remove your stored Cloudflare credentials? Analytics will fall back to platform-bundled defaults.',
-      confirmLabel: 'Remove',
-    });
-    if (!ok) return;
-    this.api.deleteCloudflareCredentials().subscribe({
-      next: () => {
-        this.toast.info('Cloudflare credentials removed');
-        this.loadCredStatus();
-      },
-      // Was relying on the generic ApiService toast — surface a specific message
-      // so a failed removal isn't silent (the creds stay; the operator retries).
-      error: () => this.toast.error('Could not remove Cloudflare credentials — retry shortly.'),
-    });
   }
 
   /**
