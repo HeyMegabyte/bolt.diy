@@ -472,7 +472,13 @@ describe('email suppression list', () => {
     grantSuperAdmin();
     mockDbQuery.mockResolvedValue({
       data: [
-        { email: 'gone@x.com', reason: 'bounce', sub_type: 'Permanent', source_message_id: 'm1', created_at: '2026-06-23' },
+        {
+          email: 'gone@x.com',
+          reason: 'bounce',
+          sub_type: 'Permanent',
+          source_message_id: 'm1',
+          created_at: '2026-06-23',
+        },
       ],
     });
     const res = await req(makeApp(SUPER), 'GET', '/api/super-admin/email-suppressions', makeEnv());
@@ -484,7 +490,12 @@ describe('email suppression list', () => {
 
   it('rejects a non-super-admin (gate) on the list route', async () => {
     mockDbQueryOne.mockResolvedValue(null); // not a super-admin
-    const res = await req(makeApp(REGULAR), 'GET', '/api/super-admin/email-suppressions', makeEnv());
+    const res = await req(
+      makeApp(REGULAR),
+      'GET',
+      '/api/super-admin/email-suppressions',
+      makeEnv(),
+    );
     expect([401, 403]).toContain(res.status);
   });
 

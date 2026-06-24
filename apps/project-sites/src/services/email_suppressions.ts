@@ -107,10 +107,8 @@ export async function removeSuppression(
   db: D1Database,
   email: string,
 ): Promise<{ removed: boolean }> {
-  const { changes } = await dbExecute(
-    db,
-    `DELETE FROM email_suppressions WHERE email = ?`,
-    [email.trim().toLowerCase()],
-  );
+  const { changes } = await dbExecute(db, `DELETE FROM email_suppressions WHERE email = ?`, [
+    email.trim().toLowerCase(),
+  ]);
   return { removed: changes > 0 };
 }
