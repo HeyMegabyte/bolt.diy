@@ -16,7 +16,13 @@ const config = {
   // unexpected token" on its ESM in CI — the real cause of the recurring
   // route_malformed_json_boundary "Test suite failed to run" (NOT OOM). @swc/jest
   // transcompiles it to CJS once it's in scope. Add other ESM-only deps here.
-  transformIgnorePatterns: ['/node_modules/(?!(@cloudflare/containers)/)'],
+  // ESM-only deps that reach jest via the full-worker `../index` import chain must
+  // be transformed (they ship `import` syntax): hono-openapi + @standard-community/*
+  // arrive via the OpenAPI route. (partyserver/y-partyserver are stubbed instead —
+  // see moduleNameMapper — because they are required from a .cjs shim transform skips.)
+  transformIgnorePatterns: [
+    '/node_modules/(?!(@cloudflare/containers|hono-openapi|@standard-community/[^/]+)/)',
+  ],
   testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
   collectCoverageFrom: ['**/src/**/*.{ts,tsx}', '!**/src/**/index.ts'],
   coverageProvider: 'v8',
@@ -27,6 +33,9 @@ const config = {
     // importing ../index (→ @cloudflare/containers → DurableObject) loads under Jest
     // instead of "Cannot find module 'cloudflare:workers'".
     '^cloudflare:workers$': '<rootDir>/src/__tests__/__mocks__/cloudflare-workers.js',
+    // `y-partyserver`/`partyserver` ship untransformed ESM; stub the base class so
+    // suites importing ../index (→ CollabRoomDO extends YServer) load under Jest.
+    '^y-partyserver$': '<rootDir>/src/__tests__/__mocks__/y-partyserver.js',
   },
 };
 

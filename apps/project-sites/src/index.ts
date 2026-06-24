@@ -74,6 +74,7 @@ import { autofill } from './routes/autofill.js';
 import { bolt } from './routes/bolt_admin.js';
 import { editorChats } from './routes/editor_chats.js';
 import { collabRoutes } from './routes/collab.js';
+import { openapiRoutes } from './routes/openapi.js';
 import { apps as appsRoutes } from './routes/apps.js';
 import { snapshotQuality } from './routes/snapshot_quality.js';
 import { dashboard } from './routes/dashboard.js';
@@ -363,6 +364,7 @@ app.route('/', health);
 app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
 app.route('/', collabRoutes); // /api/sites/:id/collab WS gateway → CollabRoomDO (collab_editing flag; 503 inert until COLLAB_ROOM bound)
+app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 3.1 spec (zod-to-openapi + hono-openapi describeRoute)
 app.route('/', authIdp); // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise); 404s dark when LOGTO_*/WORKOS_* unset
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
