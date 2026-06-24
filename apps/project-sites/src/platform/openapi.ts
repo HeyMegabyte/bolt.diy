@@ -46,7 +46,9 @@ export const SearchResultSchema = z
     kind: z.string().openapi({ example: 'site_page' }),
     sourceId: z.string().openapi({ example: 'e2e-site-1' }),
     text: z.string().openapi({ example: 'Acme Bakery — fresh artisan sourdough…' }),
-    metadata: z.record(z.unknown()).openapi({ example: { orgId: 'e2e-test-org', path: 'index.html' } }),
+    metadata: z
+      .record(z.unknown())
+      .openapi({ example: { orgId: 'e2e-test-org', path: 'index.html' } }),
   })
   .openapi('SearchResult');
 

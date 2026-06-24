@@ -17,7 +17,9 @@ describe('fetchJson (Effect resilient fetch)', () => {
   it('returns the parsed JSON on a 2xx response', async () => {
     const fetchImpl = jest.fn().mockResolvedValue(jsonResponse({ ok: true, n: 42 }));
     const out = await Effect.runPromise(
-      fetchJson<{ ok: boolean; n: number }>('https://x/api', { fetchImpl: fetchImpl as typeof fetch }),
+      fetchJson<{ ok: boolean; n: number }>('https://x/api', {
+        fetchImpl: fetchImpl as typeof fetch,
+      }),
     );
     expect(out).toEqual({ ok: true, n: 42 });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -56,16 +58,18 @@ describe('fetchJson (Effect resilient fetch)', () => {
   it('retries a network throw then exhausts retries with the typed error', async () => {
     const fetchImpl = jest.fn().mockRejectedValue(new Error('ECONNRESET'));
     const exit = await runExit(
-      fetchJson('https://x/down', { retries: 2, baseDelayMs: 1, fetchImpl: fetchImpl as typeof fetch }),
+      fetchJson('https://x/down', {
+        retries: 2,
+        baseDelayMs: 1,
+        fetchImpl: fetchImpl as typeof fetch,
+      }),
     );
     expect(Exit.isFailure(exit)).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(3); // first try + 2 retries
   });
 
   it('fails with FetchParseError on an invalid JSON body (not retried)', async () => {
-    const fetchImpl = jest
-      .fn()
-      .mockResolvedValue(new Response('<<not json>>', { status: 200 }));
+    const fetchImpl = jest.fn().mockResolvedValue(new Response('<<not json>>', { status: 200 }));
     const exit = await runExit(
       fetchJson('https://x/bad', { retries: 2, fetchImpl: fetchImpl as typeof fetch }),
     );
