@@ -306,6 +306,42 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
       'Excluded by convergence §4; 34 source refs to migrate → email-ses/email-listmonk per ADR-0019.',
   },
   {
+    id: 'email-suppressions',
+    name: 'Email suppression store — bounce/complaint list + event log (§42)',
+    category: 'email',
+    runtime: 'cloudflare-worker',
+    ownerPackage: 'apps/project-sites/src/services/email_suppressions.ts',
+    datastore: ['d1:email_suppressions', 'd1:email_events'],
+    status: 'integrated',
+    access: 'service-only',
+    notes:
+      'recordSuppressions (idempotent) + isSuppressed (fail-open pre-send check in email-router) + listSuppressions/removeSuppression (super-admin). Migration 0575. Platform-level, no tenant_id (SES reputation is account-wide). ADR-0019.',
+  },
+  {
+    id: 'ses-notifications',
+    name: 'SES bounce/complaint parser (§42)',
+    category: 'email',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/services/ses_notifications.ts',
+    status: 'integrated',
+    access: 'service-only',
+    notes:
+      'parseSesNotification — pure SNS/SES envelope → SesSuppression[]. Permanent bounce + complaint suppress; transient does NOT. Never throws. ADR-0019.',
+  },
+  {
+    id: 'ses-webhook',
+    name: 'SES bounce/complaint ingest — POST /webhooks/ses (§42)',
+    domain: 'api.projectsites.dev',
+    category: 'webhooks',
+    runtime: 'cloudflare-worker',
+    ownerPackage: 'apps/project-sites/src/routes/ses_webhooks.ts',
+    secretsNamespace: '/webhooks',
+    status: 'integrated',
+    access: 'service-only',
+    notes:
+      'HMAC-verified (SES_WEBHOOK_SECRET) via Hookdeck/SNS; SubscriptionConfirmation auto-confirm (SSRF-guarded) → parseSesNotification → recordSuppressions. Needs SES_WEBHOOK_SECRET + the SNS subscription to activate; see docs/runbooks/email-deliverability-activation.md. ADR-0019.',
+  },
+  {
     id: 'claim-links-dub',
     name: 'Dub — claim/referral/campaign links',
     domain: 'claimyour.site',
