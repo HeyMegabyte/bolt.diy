@@ -643,9 +643,19 @@ bucket_name = "project-sites-production"
 
 # Workers for Platforms: user-uploaded AI endpoints (kind='worker') are
 # dispatched into this namespace. Created automatically by Part 2 setup.
-[[env.production.dispatch_namespaces]]
-binding = "USER_DISPATCH"
-namespace = "project-sites-endpoints"
+#
+# DISABLED 2026-06-24: this CF account does NOT have Workers-for-Platforms /
+# dispatch-namespace access — `wrangler deploy --env production` hard-fails with
+# `code 10121: You do not have access to dispatch namespaces`, which had been
+# blocking EVERY production deploy (staging has no WfP binding, so it deployed
+# fine). The code already treats USER_DISPATCH as optional: `isWfpConfigured()`
+# returns false and the dispatch handler returns 503 "USER_DISPATCH binding
+# missing" when the binding is absent (services/wfp_dispatch.ts), so the WfP
+# user-endpoints feature degrades cleanly. Re-enable this block once WfP is
+# purchased at dash.cloudflare.com/?to=/:account/workers-for-platforms.
+# [[env.production.dispatch_namespaces]]
+# binding = "USER_DISPATCH"
+# namespace = "project-sites-endpoints"
 
 # Cron triggers:
 #   * * * * *    — Pulse Social due-post sweep (every minute, capped 25/run)
