@@ -39,7 +39,10 @@ authIdp.get('/api/auth/:provider/login', async (c) => {
   if (!PROVIDERS.has(provider)) return c.notFound();
   const idp = getIdentityProvider(c.env, { enterprise: provider === 'workos' });
   if (!idp) {
-    return c.json({ error: { code: 'NOT_FOUND', message: `${provider} auth not configured` } }, 404);
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: `${provider} auth not configured` } },
+      404,
+    );
   }
   const state = randomHex(16);
   await c.env.CACHE_KV.put(`authstate:${state}`, provider, { expirationTtl: STATE_TTL_SEC });
@@ -82,7 +85,11 @@ authIdp.get('/api/auth/:provider/callback', async (c) => {
       message: `Signed in via ${provider} (${ext.email ?? ext.subject})`,
       target_type: 'user',
       target_id: user.user_id,
-      metadata_json: { method: provider, subject: ext.subject, organization_id: ext.organizationId ?? null },
+      metadata_json: {
+        method: provider,
+        subject: ext.subject,
+        organization_id: ext.organizationId ?? null,
+      },
       request_id: c.get('requestId'),
     });
 
