@@ -632,7 +632,9 @@ describe('feature flags', () => {
     // The mutation MUST hit the canonical flag_overrides table at global scope —
     // NOT the orphaned feature_flags table (whose prod schema 500'd the toggle).
     const sqls = prepare.mock.calls.map((c: unknown[]) => String(c[0]));
-    expect(sqls.some((s) => /INSERT INTO flag_overrides/i.test(s) && /'global'/.test(s))).toBe(true);
+    expect(sqls.some((s) => /INSERT INTO flag_overrides/i.test(s) && /'global'/.test(s))).toBe(
+      true,
+    );
     expect(sqls.some((s) => /INSERT INTO feature_flags\b/i.test(s))).toBe(false);
     // The cache for this key is busted so isFlagOn sees the change immediately.
     expect((env.CACHE_KV as unknown as { list: jest.Mock }).list).toHaveBeenCalled();

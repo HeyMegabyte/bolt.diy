@@ -801,7 +801,9 @@ superAdmin.get('/api/super-admin/feature-flags', async (c) => {
        ORDER BY flag_key`,
   )
     .all<{ flag_key: string; value_json: string; updated_at: string }>()
-    .catch(() => ({ results: [] as { flag_key: string; value_json: string; updated_at: string }[] }));
+    .catch(() => ({
+      results: [] as { flag_key: string; value_json: string; updated_at: string }[],
+    }));
   const flags = (rows.results ?? []).map((r) => {
     const v = parseFlagValue(r.value_json);
     return {
