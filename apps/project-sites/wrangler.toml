@@ -281,9 +281,15 @@ index_name = "projectsites-rag"
 
 # Workers Analytics Engine — admin dashboard visit tracker.
 # Powers the Analytics page (queried via the SQL API).
-[[env.production.analytics_engine_datasets]]
-binding = "ANALYTICS"
-dataset = "projectsites_admin_v1"
+# DISABLED 2026-06-24: Analytics Engine is turned off on the account (CF error
+# 10089) and was blocking `wrangler deploy` of the Worker. ANALYTICS_INGEST_ENABLED
+# is already "false" and the code no-ops when the ANALYTICS binding is absent
+# (cf_analytics: "is a no-op when ANALYTICS binding is absent"), so removing the
+# binding loses no functionality + unblocks the deploy. Re-enable Analytics Engine
+# at dash.cloudflare.com/.../workers/analytics-engine, then uncomment to restore.
+# [[env.production.analytics_engine_datasets]]
+# binding = "ANALYTICS"
+# dataset = "projectsites_admin_v1"
 
 # Claude Code build container — custom image with Claude Code + skills + template pre-baked
 # standard-4 = 4 vCPU, 12 GiB RAM, 8 GB disk. Larger size accelerates parallel prompt execution.
