@@ -1,7 +1,5 @@
 import {
   animate,
-  animateChild,
-  group,
   keyframes,
   query,
   stagger,
@@ -130,37 +128,9 @@ export const contentFade: AnimationTriggerMetadata = trigger('contentFade', [
   transition(':leave', [animate(`${DUR_XS} ${EASE_ACCEL}`, style({ opacity: 0 }))]),
 ]);
 
-/**
- * Router-outlet animation — wraps inbound/outbound route components in a cross-fade
- * while letting their internal animations run via `animateChild()`.
- */
-export const routeAnimations: AnimationTriggerMetadata = trigger('routeAnimations', [
-  transition('* <=> *', [
-    style({ position: 'relative' }),
-    query(':enter, :leave', [style({ position: 'absolute', top: 0, left: 0, width: '100%' })], {
-      optional: true,
-    }),
-    query(':enter', [style({ opacity: 0, transform: 'translate3d(0, 8px, 0)' })], {
-      optional: true,
-    }),
-    group([
-      query(':leave', [animate(`${DUR_XS} ${EASE_ACCEL}`, style({ opacity: 0 }))], {
-        optional: true,
-      }),
-      query(
-        ':enter',
-        [
-          animate(
-            `${DUR_MD} ${EASE_SPRING_SOFT}`,
-            style({ opacity: 1, transform: 'translate3d(0, 0, 0)' })
-          ),
-        ],
-        { optional: true }
-      ),
-      query('@*', animateChild(), { optional: true }),
-    ]),
-  ]),
-]);
+// NOTE: route/page transitions are handled by the router's native View Transitions
+// API (`withViewTransitions` in app.config.ts), not an Angular animation trigger —
+// the previous `routeAnimations` trigger was dead (0 callers) and was removed.
 
 /**
  * Pressed/loading/disabled button state machine.
