@@ -387,7 +387,12 @@ export async function sendViaChannel(
     // the fallback until SES is proven live — progressive degradation by env.
     if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
       try {
-        await getEmailProvider(env).sendTransactional({ kind: 'transactional', to: email, subject, html });
+        await getEmailProvider(env).sendTransactional({
+          kind: 'transactional',
+          to: email,
+          subject,
+          html,
+        });
         return { sent: true };
       } catch {
         return { sent: false, reason: 'ses_error' };
