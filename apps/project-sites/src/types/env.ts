@@ -176,6 +176,40 @@ export interface Env {
   /** Cloudflare Workers AI binding for LLM inference. */
   AI: Ai;
 
+  // ── Vectorize (RAG) ───────────────────────────────────────
+  /**
+   * Cloudflare Vectorize index for semantic search over published site content.
+   * 768-dim cosine metric, populated by bge-base-en-v1.5 embeddings.
+   * Optional — `vectorize_search` feature flag is always off when binding absent.
+   *
+   * Uses a local structural interface (VectorizeBinding) rather than the
+   * @cloudflare/workers-types VectorizeIndex to avoid VectorizeVectorMetadata
+   * incompatibility with services that use `metadata?: Record<string, unknown>`.
+   *
+   * @see {@link https://developers.cloudflare.com/vectorize/}
+   */
+  RAG_INDEX?: {
+    upsert(
+      vectors: Array<{
+        id: string;
+        values: number[];
+        metadata?: Record<string, unknown>;
+      }>,
+    ): Promise<unknown>;
+    query(
+      vector: number[],
+      options?: {
+        topK?: number;
+        filter?: Record<string, unknown>;
+        returnMetadata?: 'all' | 'indexed' | boolean;
+        returnValues?: boolean;
+      },
+    ): Promise<{
+      matches?: Array<{ id: string; score: number; metadata?: Record<string, unknown> }>;
+    }>;
+    deleteByIds(ids: string[]): Promise<unknown>;
+  };
+
   // ── Environment ───────────────────────────────────────────
   /** Current deployment environment (`"staging"` | `"production"`). */
   ENVIRONMENT: string;

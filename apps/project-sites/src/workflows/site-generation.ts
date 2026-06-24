@@ -28,6 +28,7 @@ import { appendBuildEvent, type BuildEvent } from '../services/build_events.js';
 import { checkBudget, recordSpend } from '../services/build_budget.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { submitSite } from '../../libs/features/search_submit/service.js';
+import { indexSiteFiles } from '../services/rag_publish.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 
 /**
@@ -1238,6 +1239,61 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             },
           );
           return JSON.stringify({ skipped: true });
+        }
+      },
+    );
+
+    // ── Step 3.6: Vectorize index (non-blocking, best-effort) ──
+    // Indexes the published site's text/HTML files into Cloudflare Vectorize so
+    // the `GET /api/sites/:id/search` endpoint can serve semantic queries.
+    // Gated behind the `vectorize_search` feature flag; silently skipped when
+    // either the flag is off or the RAG_INDEX / AI bindings are absent.
+    await step.do(
+      'vectorize-index',
+      {
+        retries: { limit: 1, delay: '5 seconds', backoff: 'exponential' },
+        timeout: '3 minutes',
+      },
+      async () => {
+        try {
+          const flagOn = await isFlagOn(env, 'vectorize_search', {
+            siteId: params.siteId,
+            orgId: params.orgId,
+          });
+          if (!flagOn) return JSON.stringify({ skipped: true, reason: 'flag_off' });
+          if (!env.AI || !env.RAG_INDEX) {
+            return JSON.stringify({ skipped: true, reason: 'missing_bindings' });
+          }
+          const prefix = `sites/${params.slug}/${version}/`;
+          const buildFiles = await loadBuildFromR2(env.SITES_BUCKET, prefix);
+          const files = buildFiles
+            .filter((f) => f.text !== undefined)
+            .map((f) => ({ path: f.path, content: f.text as string }));
+          // indexSiteFiles calls waitUntil internally; inside a Workflow step we
+          // run synchronously and await a resolved promise via a stub ctx so the
+          // step waits for the work before completing.
+          const pending: Promise<unknown>[] = [];
+          indexSiteFiles(
+            env,
+            {
+              waitUntil(p: Promise<unknown>) {
+                pending.push(p);
+              },
+            },
+            { siteId: params.siteId, orgId: params.orgId, files },
+          );
+          await Promise.all(pending);
+          return JSON.stringify({ ok: true, file_count: files.length });
+        } catch (err) {
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              msg: 'workflow.vectorize_index_error',
+              siteId: params.siteId,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+          return JSON.stringify({ skipped: true, reason: 'error' });
         }
       },
     );

@@ -585,6 +585,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  vectorize_search: {
+    key: 'vectorize_search',
+    description:
+      'Enables semantic search over published site content via Cloudflare Vectorize (GET /api/sites/:id/search?q=...). Site files are indexed asynchronously on every publish via waitUntil so the response is never blocked. Requires the RAG_INDEX Vectorize binding (768-dim cosine, bge-base-en-v1.5 embeddings). Server returns 404 (never 403) when disabled. Failure mode: missing binding → indexing silently skipped; search returns empty results rather than erroring. Acceptance: search endpoint returns ≥1 result with a score field after a site is published.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

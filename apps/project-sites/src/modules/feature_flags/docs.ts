@@ -953,6 +953,22 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the route 404s',
     ],
   },
+  vectorize_search: {
+    checklist: [
+      'GET /api/sites/:id/search?q=... — semantic search over published site content',
+      'Site files indexed asynchronously via waitUntil on every POST /api/publish/bolt',
+      'Site files also indexed in the site-generation Workflow after validate-build step',
+      'Requires RAG_INDEX (Vectorize, 768-dim cosine) + AI bindings; silently skips when absent',
+      'Server returns 404 (never 403) when flag is off',
+    ],
+    explanation:
+      'Enables semantic search over published site content via Cloudflare Vectorize (GET /api/sites/:id/search?q=...). Text and HTML files are indexed asynchronously on every publish via waitUntil so the response is never blocked, and again inside the site-generation Workflow after the validate-build step. Embeddings are computed via Workers AI bge-base-en-v1.5 (768-dim). Requires the RAG_INDEX Vectorize binding; silently skips indexing when the binding is absent. Server returns 404 (never 403) when disabled. Empty or invalid queries return {results:[]} with a 200. Failure mode: missing binding causes silent no-op; search returns empty results rather than erroring.',
+    smoke_test: [
+      'Enable flag → GET /api/sites/:id/search?q=about → 200 {results:[{score,text,...}]} (after publishing)',
+      'GET /api/sites/:id/search?q= (empty) → 200 {results:[]}',
+      'Disable the flag → GET /api/sites/:id/search?q=test → 404',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

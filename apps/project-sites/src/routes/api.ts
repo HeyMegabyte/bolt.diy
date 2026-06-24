@@ -169,6 +169,9 @@ import {
 } from '../services/cf_registrar.js';
 import { suggestDomains, type DomainSuggestion } from '../services/domain_suggester.js';
 import { gatherProfileContext } from '../services/profile_context.js';
+import { indexSiteFiles } from '../services/rag_publish.js';
+import { semanticSearch } from '../services/rag.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -1289,6 +1292,44 @@ api.get('/api/sites/:id/workflow', async (c) => {
       },
     });
   }
+});
+
+/**
+ * Semantic search over published site content via Cloudflare Vectorize.
+ *
+ * @route GET /api/sites/:id/search
+ * @query q - Search query (1-500 chars). Empty or missing → `{results:[]}`.
+ * @auth Bearer token required — `orgId` MUST resolve.
+ * @returns `200 OK` `{ results: RagSearchResult[] }` — scored results from the RAG index.
+ * @throws {AppError} `UNAUTHORIZED` when orgId unresolved.
+ * @throws {AppError} `NOT_FOUND` when site not owned by org OR flag `vectorize_search` is off.
+ */
+api.get('/api/sites/:id/search', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+  // Verify the site belongs to this org — 404 never 403.
+  await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId, 'id');
+
+  // Feature flag: vectorize_search must be on — 404 never 403 when off.
+  if (!(await isFlagOn(c.env, 'vectorize_search', { siteId, orgId }))) {
+    return c.notFound();
+  }
+
+  const rawQ = c.req.query('q') ?? '';
+  const parsed = z.string().min(1).max(500).safeParse(rawQ);
+  if (!parsed.success) {
+    return c.json({ results: [] });
+  }
+
+  // Guard: RAG_INDEX binding may be absent in older environments.
+  if (!c.env.RAG_INDEX) {
+    return c.json({ results: [] });
+  }
+
+  const results = await semanticSearch(c.env, parsed.data, { topK: 8, orgId });
+  return c.json({ results });
 });
 
 // ─── Billing Routes ──────────────────────────────────────────
@@ -2838,6 +2879,14 @@ api.post('/api/publish/bolt', async (c) => {
   );
 
   await Promise.all(uploads);
+
+  // Index site files into Vectorize for semantic search (non-blocking via waitUntil).
+  // Guard: if either binding is absent this is a silent no-op (indexSiteFiles checks internally).
+  indexSiteFiles(c.env, c.executionCtx, {
+    siteId: slug,
+    orgId: 'bolt',
+    files,
+  });
 
   // Invalidate KV cache for this slug's hostname
   const cacheKey = `host:${slug}${DOMAINS.SITES_SUFFIX}`;
