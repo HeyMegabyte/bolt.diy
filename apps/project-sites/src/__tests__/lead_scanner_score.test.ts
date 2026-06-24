@@ -65,7 +65,7 @@ describe('isPriorityRegion', () => {
 });
 
 describe('scoreLead', () => {
-  it('scores a fully-qualifying lead at >= 80 (no website + phone + reviews + US + service type)', () => {
+  it('scores a fully-qualifying lead at exactly 100 (no website + phone + reviews + US + service type)', () => {
     const result = scoreLead({
       website: undefined,
       phone: '+12015551234',
@@ -75,8 +75,10 @@ describe('scoreLead', () => {
     });
     expect(result.hasWebsite).toBe(false);
     expect(result.priority).toBe(true);
-    // +45 (no website) + 15 (phone) + 15 (reviews) + 15 (priority region) + 10 (service type) = 100
-    expect(result.leadScore).toBeGreaterThanOrEqual(80);
+    // Pin the documented additive contract exactly: +45 (no website) + 15 (phone)
+    // + 15 (reviews) + 15 (priority region) + 10 (service type) = 100. A loose
+    // `>= 80` would let a future scoring-dimension change pass silently.
+    expect(result.leadScore).toBe(100);
   });
 
   it('returns hasWebsite true and lower score when website is present', () => {
