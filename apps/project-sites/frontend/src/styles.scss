@@ -227,8 +227,15 @@ textarea.outline-none:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    // Zero delays too (app-wide). Without this, any element using animation-delay
+    // with a `both`/`forwards`-fill opacity:0 reveal (hero stagger, card reveals)
+    // stayed INVISIBLE for the delay duration under reduced-motion before snapping
+    // in — content must be immediately readable. Forcing delay:0 completes every
+    // animation at t≈0 across the whole UI (admin + marketing).
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
 }
 
