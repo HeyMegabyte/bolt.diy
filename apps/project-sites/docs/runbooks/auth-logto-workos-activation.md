@@ -33,8 +33,10 @@ npx wrangler secret put LOGTO_APP_SECRET --env production
 ```
 
 The moment `LOGTO_ENDPOINT` + `LOGTO_APP_ID` + `LOGTO_APP_SECRET` are all set,
-`getIdentityProvider(env)` returns the Logto adapter and the `/api/auth/logto`
-login route (once wired) drives the OIDC flow → `findOrCreateUser` → `createSession`.
+`getIdentityProvider(env)` returns the Logto adapter and the live
+`GET /api/auth/logto/login` route (`routes/auth_idp.ts`) drives the OIDC flow →
+`handleCallback` → `findOrCreateUser` → `createSession`. Until the secrets are
+set the route 404s (ships dark) and the custom magic-link/Google auth stays live.
 
 ## Step 3 — (Optional) WorkOS enterprise SSO
 
@@ -49,9 +51,12 @@ factory → WorkOS; everyone else stays on Logto.
 
 ## Step 4 — Verify
 
-- Hit `GET /api/auth/logto` → expect a 302 to `https://<tenant>.logto.app/oidc/auth?...`.
-- Complete a login → confirm a D1 `sessions` row is created and the user lands authed.
-- For WorkOS: trigger an org-scoped login → expect a 302 to
+- Hit `GET /api/auth/logto/login` → expect a 302 to `https://<tenant>.logto.app/oidc/auth?...`
+  (a one-time CSRF `state` is stored in KV for the callback to verify).
+- Before secrets are set, `GET /api/auth/logto/login` returns 404 `{ error: { code: 'NOT_FOUND' } }` — confirms the route is mounted + dark.
+- Complete a login → callback verifies state, exchanges the code, and `findOrCreateUser`
+  → `createSession` issues a D1 `sessions` row; the user lands on `/?token=…&auth_callback=logto`.
+- For WorkOS: `GET /api/auth/workos/login?org=<org>` → expect a 302 to
   `https://api.workos.com/sso/authorize?...&organization=<org>`.
 
 ## Step 5 — (Later) retire the custom auth path

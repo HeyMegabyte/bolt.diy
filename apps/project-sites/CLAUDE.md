@@ -566,6 +566,8 @@ src/
 | GET | `/api/sites/lookup?place_id=...&slug=...` | Check if site exists |
 | GET | `/api/auth/google` | Start Google OAuth flow |
 | GET | `/api/auth/google/callback` | Google OAuth callback |
+| GET | `/api/auth/:provider/login` | Logto (default) / WorkOS (enterprise) IdP login → 302 to authorize (404 dark when `LOGTO_*`/`WORKOS_*` unset) |
+| GET | `/api/auth/:provider/callback` | IdP callback → verify CSRF state → exchange code → D1 session → 302 home |
 | GET | `/api/auth/magic-link/verify?token=...` | Email click verification |
 | POST | `/webhooks/stripe` | Stripe webhook (signature verified) |
 
@@ -811,6 +813,11 @@ App auth runs through the `IdentityProvider` port (`platform/identity.ts`):
   WorkOS for enterprise (when `WORKOS_*` set), else Logto (when `LOGTO_*` set),
   else **null** → the existing custom auth (magic-link + Google OAuth + D1 sessions
   in `auth.ts`) stays the live path.
+- **Login routes** (`routes/auth_idp.ts`, mounted in `index.ts`): `GET /api/auth/:provider/login`
+  302s to the IdP authorize URL (storing a one-time CSRF `state` in KV); `GET /api/auth/:provider/callback`
+  verifies+consumes the state, calls `handleCallback`, then issues the D1 session and 302s to
+  `https://projectsites.dev/?token=…&auth_callback=<provider>`. `:provider` ∈ {`logto`,`workos`}; WorkOS
+  is the enterprise path. Routes 404 (dark) when the provider's secrets are unset.
 - After `handleCallback` returns a verified `AuthenticatedUser`, the EXISTING D1
   session machinery (`findOrCreateUser` → `createSession`) issues our session — the
   IdP replaces "how the user proves identity", not the session model.
