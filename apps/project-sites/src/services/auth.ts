@@ -115,7 +115,7 @@ async function sendViaResend(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Project Sites <noreply@megabyte.space>',
+      from: 'Project Sites <noreply@projectsites.dev>',
       to: [opts.to],
       subject: opts.subject,
       html: opts.html,
@@ -160,7 +160,7 @@ async function sendViaSendGrid(
     },
     body: JSON.stringify({
       personalizations: [{ to: [{ email: opts.to }] }],
-      from: { email: 'noreply@megabyte.space', name: 'Project Sites' },
+      from: { email: 'noreply@projectsites.dev', name: 'Project Sites' },
       subject: opts.subject,
       content: [{ type: 'text/html', value: opts.html }],
       tracking_settings: {

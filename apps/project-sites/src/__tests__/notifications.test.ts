@@ -121,7 +121,7 @@ describe('notifications — Resend provider (primary)', () => {
     expect(headers['Content-Type']).toBe('application/json');
 
     const body = lastFetchBody();
-    expect(body.from).toBe('Project Sites <noreply@megabyte.space>');
+    expect(body.from).toBe('Project Sites <noreply@projectsites.dev>');
     expect(body.to).toEqual(['owner@example.com']);
     expect(typeof body.subject).toBe('string');
     expect(typeof body.html).toBe('string');
@@ -199,7 +199,7 @@ describe('notifications — SendGrid fallback', () => {
 
     const body = lastFetchBody();
     expect(body.personalizations).toEqual([{ to: [{ email: 'owner@example.com' }] }]);
-    expect(body.from).toEqual({ email: 'noreply@megabyte.space', name: 'Project Sites' });
+    expect(body.from).toEqual({ email: 'noreply@projectsites.dev', name: 'Project Sites' });
     expect(Array.isArray(body.content)).toBe(true);
   });
 

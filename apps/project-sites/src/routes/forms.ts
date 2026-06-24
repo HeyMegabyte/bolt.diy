@@ -764,7 +764,7 @@ forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async
     throw badRequest('Email delivery is not configured (RESEND_API_KEY missing)');
   }
 
-  const fromAddr = `${site.slug} <noreply@megabyte.space>`;
+  const fromAddr = `${site.slug} <noreply@projectsites.dev>`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

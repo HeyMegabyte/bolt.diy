@@ -1215,7 +1215,7 @@ search.post('/api/contact-form/:slug', async (c) => {
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: toEmail }] }],
-          from: { email: 'noreply@megabyte.space', name: `${site.business_name} Website` },
+          from: { email: 'noreply@projectsites.dev', name: `${site.business_name} Website` },
           reply_to: { email: body.email, name: body.name },
           subject: `New message from ${body.name} via your website`,
           content: [{ type: 'text/html', value: htmlBody }],
@@ -1229,7 +1229,7 @@ search.post('/api/contact-form/:slug', async (c) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: `${site.business_name} <noreply@megabyte.space>`,
+          from: `${site.business_name} <noreply@projectsites.dev>`,
           to: [toEmail],
           reply_to: body.email,
           subject: `New message from ${body.name} via your website`,

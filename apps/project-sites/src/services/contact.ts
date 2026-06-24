@@ -28,7 +28,7 @@ interface EmailOpts {
 
 async function sendViaResend(apiKey: string, opts: EmailOpts): Promise<void> {
   const body: Record<string, unknown> = {
-    from: 'Project Sites <noreply@megabyte.space>',
+    from: 'Project Sites <noreply@projectsites.dev>',
     to: [opts.to],
     subject: opts.subject,
     html: opts.html,
@@ -55,7 +55,7 @@ async function sendViaResend(apiKey: string, opts: EmailOpts): Promise<void> {
 async function sendViaSendGrid(apiKey: string, opts: EmailOpts): Promise<void> {
   const body: Record<string, unknown> = {
     personalizations: [{ to: [{ email: opts.to }] }],
-    from: { email: 'noreply@megabyte.space', name: 'Project Sites' },
+    from: { email: 'noreply@projectsites.dev', name: 'Project Sites' },
     subject: opts.subject,
     content: [{ type: 'text/html', value: opts.html }],
     tracking_settings: {

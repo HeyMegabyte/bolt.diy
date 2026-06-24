@@ -374,7 +374,7 @@ export async function sendWeeklyDigestForOrg(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Project Sites <noreply@megabyte.space>',
+        from: 'Project Sites <noreply@projectsites.dev>',
         to: [owner.email],
         subject: `Weekly digest · ${org.name}`,
         html,
@@ -403,7 +403,7 @@ export async function sendWeeklyDigestForOrg(
       },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: owner.email }] }],
-        from: { email: 'noreply@megabyte.space', name: 'Project Sites' },
+        from: { email: 'noreply@projectsites.dev', name: 'Project Sites' },
         subject: `Weekly digest · ${org.name}`,
         content: [{ type: 'text/html', value: html }],
       }),
