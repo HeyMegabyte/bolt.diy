@@ -401,24 +401,8 @@
           </svg>
           <span>Analytics</span>
         </a>
-        <a
-          class="nav-item"
-          routerLink="/admin/analytics-live"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
-          <span>Live Events</span>
-        </a>
+        <!-- "Live Events" merged into Analytics as a ?tab=live tab (2026-06-23) —
+             /admin/analytics-live redirects there. No standalone nav item. -->
         <a
           class="nav-item"
           routerLink="/admin/activation-funnel"

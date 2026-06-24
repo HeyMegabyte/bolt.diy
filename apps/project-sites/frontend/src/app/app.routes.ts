@@ -163,18 +163,21 @@ export const routes: Routes = [
           ),
       },
       {
+        // Unified analytics dashboard (2026-06-23) — aggregate traffic + the raw
+        // Live Events stream combined into one tabbed surface (?tab=overview|live).
         path: 'analytics',
         loadComponent: () =>
-          import('./pages/admin/sections/analytics.component').then(
-            (m) => m.AdminAnalyticsComponent,
+          import('./pages/admin/sections/analytics-dashboard.component').then(
+            (m) => m.AdminAnalyticsDashboardComponent,
           ),
       },
       {
+        // Legacy standalone Live Events route → now a tab under Analytics.
+        // Function redirectTo so the `?tab=live` query param is carried (a static
+        // redirectTo string can't append query params). Keeps old deep links working.
         path: 'analytics-live',
-        loadComponent: () =>
-          import('./pages/admin/sections/analytics-live.component').then(
-            (m) => m.AdminAnalyticsLiveComponent,
-          ),
+        redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=live'),
+        pathMatch: 'full',
       },
       {
         path: 'activation-funnel',

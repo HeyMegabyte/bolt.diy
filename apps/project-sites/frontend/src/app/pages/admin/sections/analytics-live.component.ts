@@ -42,7 +42,7 @@ interface DebugResponse {
     <div class="px-6 pt-5 pb-8 max-md:px-4" data-testid="analytics-live">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 class="text-[1.35rem] font-extrabold text-white tracking-tight m-0">Live Events</h1>
+          <h2 class="section-h text-lg font-bold text-white m-0">Live Events</h2>
           <p class="text-[0.82rem] text-text-secondary mt-1 mb-0">
             Raw analytics event stream + per-provider delivery health for this site.
           </p>
