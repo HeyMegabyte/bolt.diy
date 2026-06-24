@@ -515,7 +515,9 @@ src/
 │   ├── ai_workflows.ts         # Multi-phase AI pipeline + prompt registration
 │   ├── analytics.ts            # PostHog server-side event capture + captureLLMCall ($ai_*)
 │   ├── audit.ts                # Append-only audit log writes
-│   ├── auth.ts                 # Magic link, Google OAuth, sessions
+│   ├── auth.ts                 # Custom auth: magic link, Google OAuth, D1 sessions (fallback rail)
+│   ├── logto_provider.ts       # LogtoIdentityProvider — DEFAULT app-auth IdP (OIDC, §27/ADR-0006)
+│   ├── workos_provider.ts      # WorkOsEnterpriseIdentityProvider — enterprise SSO/SAML (§28/ADR-0006)
 │   ├── billing.ts              # Stripe checkout, subscriptions, entitlements
 │   ├── build_context.ts        # Build context assembly for container builds
 │   ├── build_limits.ts         # Build rate limiting + concurrency
@@ -798,6 +800,22 @@ Key specs include:
 
 ### Test Business for E2E
 **Vito's Mens Salon** — 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034
+
+## Auth providers — Logto (default) + WorkOS (enterprise) (§27/§28, ADR-0006)
+
+App auth runs through the `IdentityProvider` port (`platform/identity.ts`):
+
+- **Logto** (`services/logto_provider.ts`) is the DEFAULT consumer-auth IdP (OIDC).
+- **WorkOS** (`services/workos_provider.ts`) handles ENTERPRISE org-scoped SSO/SAML.
+- `getIdentityProvider(env, { enterprise? })` (`middleware/identity.ts`) selects
+  WorkOS for enterprise (when `WORKOS_*` set), else Logto (when `LOGTO_*` set),
+  else **null** → the existing custom auth (magic-link + Google OAuth + D1 sessions
+  in `auth.ts`) stays the live path.
+- After `handleCallback` returns a verified `AuthenticatedUser`, the EXISTING D1
+  session machinery (`findOrCreateUser` → `createSession`) issues our session — the
+  IdP replaces "how the user proves identity", not the session model.
+- Ships DARK behind `LOGTO_*`/`WORKOS_*`; enabling is a config flip, reversible by
+  unsetting the secret. Activation: `docs/runbooks/auth-logto-workos-activation.md`.
 
 ## MCP OAuth Layer (`src/routes/mcp_oauth.ts`)
 

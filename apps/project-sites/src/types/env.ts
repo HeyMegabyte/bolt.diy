@@ -241,6 +241,17 @@ export interface Env {
   /** Arcjet key for the §48 app-aware abuse layer (bot/abuse decisioning on top
    * of the CF rate limiter). Unset → fail-open. wrangler secret. */
   ARCJET_KEY?: string;
+  /** Logto tenant endpoint (default app-auth IdP, §27/ADR-0006), e.g.
+   * https://xxxx.logto.app. Unset → custom magic-link/Google auth stays live. var. */
+  LOGTO_ENDPOINT?: string;
+  /** Logto application id. var. */
+  LOGTO_APP_ID?: string;
+  /** Logto application secret. wrangler secret. */
+  LOGTO_APP_SECRET?: string;
+  /** WorkOS API key (enterprise SSO/SAML, §28/ADR-0006). wrangler secret. */
+  WORKOS_API_KEY?: string;
+  /** WorkOS client id. var. */
+  WORKOS_CLIENT_ID?: string;
   /** Listmonk base URL, e.g. https://mail.projectsites.dev (ADR-0019). var. */
   LISTMONK_API_URL?: string;
   /** Listmonk admin/API username. wrangler secret. */
