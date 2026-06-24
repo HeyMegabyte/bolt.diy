@@ -123,7 +123,7 @@ describe('indexSiteFiles', () => {
       { path: 'index.html', content: '<h1>Home Page</h1><p>Welcome</p>' },
       { path: 'about.html', content: '<h1>About</h1><p>We build websites</p>' },
       { path: 'style.css', content: 'body { color: red; }' }, // should be skipped
-      { path: 'script.js', content: 'console.log("hi")' },    // should be skipped
+      { path: 'script.js', content: 'console.log("hi")' }, // should be skipped
     ];
 
     indexSiteFiles(env, executionCtx, { siteId: 'site-abc', orgId: 'org-1', files });
@@ -145,7 +145,9 @@ describe('indexSiteFiles', () => {
     indexSiteFiles(env, executionCtx, {
       siteId: 'site-xyz',
       orgId: 'org-2',
-      files: [{ path: 'index.html', content: '<p>Hello this is a real page with enough content</p>' }],
+      files: [
+        { path: 'index.html', content: '<p>Hello this is a real page with enough content</p>' },
+      ],
     });
     await flush();
 
