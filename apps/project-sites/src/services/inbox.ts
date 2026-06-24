@@ -21,6 +21,7 @@
  */
 
 import { escapeHtml } from '@project-sites/shared';
+import { getEmailProvider } from '../platform/email-router.js';
 import type { Env } from '../types/env.js';
 import type { VisitorIdentityRow } from './visitor_identity.js';
 
@@ -379,6 +380,20 @@ export async function sendViaChannel(
   if (conv.channel === 'email') {
     const email = visitor?.email;
     if (!email) return { sent: false, reason: 'no_email_on_visitor' };
+    const subject = 'Re: Your inquiry';
+    const html = `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>`;
+
+    // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured; Resend stays
+    // the fallback until SES is proven live — progressive degradation by env.
+    if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
+      try {
+        await getEmailProvider(env).sendTransactional({ kind: 'transactional', to: email, subject, html });
+        return { sent: true };
+      } catch {
+        return { sent: false, reason: 'ses_error' };
+      }
+    }
+
     if (!env.RESEND_API_KEY) return { sent: false, reason: 'resend_not_configured' };
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -386,12 +401,7 @@ export async function sendViaChannel(
         Authorization: `Bearer ${env.RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'noreply@projectsites.dev',
-        to: email,
-        subject: 'Re: Your inquiry',
-        html: `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>`,
-      }),
+      body: JSON.stringify({ from: 'noreply@projectsites.dev', to: email, subject, html }),
     }).catch(() => null);
     return { sent: res?.ok ?? false, reason: res?.ok ? undefined : 'resend_error' };
   }

@@ -50,3 +50,28 @@ describe('sendViaChannel — email HTML escaping', () => {
     expect(sent.html).toBe('<p>line1<br>line2</p>');
   });
 });
+
+describe('sendViaChannel — SES-primary cutover (ADR-0019)', () => {
+  function makeSesEnv(): Env {
+    return {
+      ENVIRONMENT: 'test',
+      RESEND_API_KEY: 're_x',
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+    } as unknown as Env;
+  }
+
+  it('routes the email reply through Amazon SES, not Resend, when SES is configured', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    global.fetch = fetchMock;
+    const result = await sendViaChannel(makeSesEnv(), emailConv, visitor, 'hello');
+    expect(result.sent).toBe(true);
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+  });
+});
