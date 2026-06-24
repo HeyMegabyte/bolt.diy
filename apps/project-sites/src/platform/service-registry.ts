@@ -413,6 +413,18 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'FeatureEvaluationProvider port (OpenFeature ResolutionDetails contract) + FakeFeatureEvaluationProvider + D1FlagEvaluationProvider + getFeatureEvaluationProvider(env) factory, all tested. Deliberately wraps the EXISTING modules/feature_flags engine (D1 flag_overrides + KV + registry + rollout hashing) rather than adopting the OpenFeature vendor SDK — zero new deps, Workers-native, our D1 store stays source of truth. No env secret (wraps our own engine → always available, no gate). Ships dark: no handler calls it yet; wiring is additive + behavior-neutral. ADR-0033.',
   },
+  {
+    id: 'keys-unkey',
+    name: 'Unkey-shaped API-key port over the D1 api_tokens keystore (§30/ADR-0030)',
+    category: 'security',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/api-keys.ts',
+    adapterPackage: 'apps/project-sites/src/middleware/api-keys.ts',
+    status: 'integrated',
+    access: 'service-only',
+    notes:
+      'ApiKeyProvider port (Unkey create/verify/revoke contract w/ structured KeyVerificationResult) + FakeApiKeyProvider + D1ApiKeyProvider + getApiKeyProvider(env) factory, all tested. Deliberately wraps the EXISTING services/api_tokens keystore (psk_<hex>, SHA-256 hash in D1, scopes, expiry, revoke) rather than hosting Unkey (its product is a DB-backed container stack; edge key-verification is already Worker-native here). Zero new deps, no env secret (wraps our own keystore → always available, no gate). Ships dark: api_tokens stays the live verification path; a managed Unkey adapter could slot behind the factory via UNKEY_ROOT_KEY later. ADR-0030.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
