@@ -15,7 +15,16 @@
  * @see migrations/0575_email_suppressions.sql
  */
 import type { SesSuppression } from './ses_notifications.js';
-import { dbExecute, dbQueryOne } from './db.js';
+import { dbExecute, dbQuery, dbQueryOne } from './db.js';
+
+/** A persisted suppression row (operator view). */
+export interface SuppressionRow {
+  email: string;
+  reason: string;
+  sub_type: string | null;
+  source_message_id: string | null;
+  created_at: string;
+}
 
 /**
  * Persist suppression records idempotently and append each to the event log.
@@ -69,4 +78,39 @@ export async function isSuppressed(db: D1Database, email: string): Promise<boole
     [email.trim().toLowerCase()],
   );
   return row !== null;
+}
+
+/**
+ * List suppressed addresses, newest first (operator view). Capped at 1000.
+ *
+ * @param db - The platform D1 binding.
+ * @param limit - Max rows (1-1000, default 200).
+ */
+export async function listSuppressions(db: D1Database, limit = 200): Promise<SuppressionRow[]> {
+  const capped = Math.max(1, Math.min(Math.floor(limit) || 200, 1000));
+  const { data } = await dbQuery<SuppressionRow>(
+    db,
+    `SELECT email, reason, sub_type, source_message_id, created_at
+       FROM email_suppressions ORDER BY created_at DESC LIMIT ?`,
+    [capped],
+  );
+  return data;
+}
+
+/**
+ * Manually un-suppress an address (operator action — a customer who fixed their
+ * mailbox). Idempotent: removing an absent address is a no-op.
+ *
+ * @returns `{ removed }` — true when a row was deleted.
+ */
+export async function removeSuppression(
+  db: D1Database,
+  email: string,
+): Promise<{ removed: boolean }> {
+  const { changes } = await dbExecute(
+    db,
+    `DELETE FROM email_suppressions WHERE email = ?`,
+    [email.trim().toLowerCase()],
+  );
+  return { removed: changes > 0 };
 }

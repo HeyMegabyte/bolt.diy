@@ -26,6 +26,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { manualAdjustment } from '../services/wallet.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
+import { listSuppressions, removeSuppression } from '../services/email_suppressions.js';
 import { invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
 import { unauthorized, forbidden } from '@project-sites/shared';
 
@@ -1291,6 +1292,29 @@ superAdmin.post('/api/super-admin/cache/purge', async (c) => {
     return c.json({ ok: true });
   }
   return c.json({ error: { code: 'BAD_REQUEST', message: 'key or all required' } }, 400);
+});
+
+// ─── Email deliverability — SES suppression list (§42/ADR-0019) ───────────
+
+/**
+ * `GET /api/super-admin/email-suppressions` — addresses suppressed by SES hard
+ * bounces / complaints, newest first (capped 1000). Read-only operator view.
+ */
+superAdmin.get('/api/super-admin/email-suppressions', async (c) => {
+  const parsed = Number(c.req.query('limit') ?? '200');
+  const rows = await listSuppressions(c.env.DB, Number.isFinite(parsed) ? parsed : 200);
+  return c.json({ data: rows, count: rows.length });
+});
+
+/**
+ * `DELETE /api/super-admin/email-suppressions/:email` — manually un-suppress an
+ * address (a customer who fixed their mailbox). Idempotent; audited.
+ */
+superAdmin.delete('/api/super-admin/email-suppressions/:email', async (c) => {
+  const email = decodeURIComponent(c.req.param('email')).trim().toLowerCase();
+  const result = await removeSuppression(c.env.DB, email);
+  await audit(c, 'email.unsuppress', { target_kind: 'email', target_id: email });
+  return c.json({ removed: result.removed, email });
 });
 
 export { superAdmin };

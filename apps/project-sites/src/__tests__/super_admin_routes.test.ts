@@ -16,6 +16,7 @@ jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn(),
   dbInsert: jest.fn(),
   dbUpdate: jest.fn(),
+  dbExecute: jest.fn(async () => ({ error: null, changes: 0 })),
 }));
 
 jest.mock('../services/wallet.js', () => ({
@@ -461,6 +462,55 @@ describe('whoami', () => {
     const json = (await res.json()) as { is_super_admin: boolean; user_id: string };
     expect(json.is_super_admin).toBe(true);
     expect(json.user_id).toBe('admin-1');
+  });
+});
+
+// ─── Email suppression list (§42/ADR-0019) ───────────────────────────────────
+
+describe('email suppression list', () => {
+  it('lists suppressions for a super-admin', async () => {
+    grantSuperAdmin();
+    mockDbQuery.mockResolvedValue({
+      data: [
+        { email: 'gone@x.com', reason: 'bounce', sub_type: 'Permanent', source_message_id: 'm1', created_at: '2026-06-23' },
+      ],
+    });
+    const res = await req(makeApp(SUPER), 'GET', '/api/super-admin/email-suppressions', makeEnv());
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: unknown[]; count: number };
+    expect(json.count).toBe(1);
+    expect(json.data).toHaveLength(1);
+  });
+
+  it('rejects a non-super-admin (gate) on the list route', async () => {
+    mockDbQueryOne.mockResolvedValue(null); // not a super-admin
+    const res = await req(makeApp(REGULAR), 'GET', '/api/super-admin/email-suppressions', makeEnv());
+    expect([401, 403]).toContain(res.status);
+  });
+
+  it('un-suppresses an address (lowercased) for a super-admin', async () => {
+    grantSuperAdmin();
+    const res = await req(
+      makeApp(SUPER),
+      'DELETE',
+      '/api/super-admin/email-suppressions/Gone%40X.com',
+      makeEnv(),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { removed: boolean; email: string };
+    expect(json.email).toBe('gone@x.com');
+    expect(typeof json.removed).toBe('boolean');
+  });
+
+  it('rejects a non-super-admin (gate) on the un-suppress route', async () => {
+    mockDbQueryOne.mockResolvedValue(null);
+    const res = await req(
+      makeApp(REGULAR),
+      'DELETE',
+      '/api/super-admin/email-suppressions/x%40y.com',
+      makeEnv(),
+    );
+    expect([401, 403]).toContain(res.status);
   });
 });
 
