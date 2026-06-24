@@ -48,6 +48,16 @@ describe('AmazonSesEmailProvider', () => {
     expect(body.FromEmailAddress).toBe('noreply@mail.projectsites.dev');
     expect(body.Destination.ToAddresses).toEqual(['a@b.com']);
     expect(body.Content.Simple.Subject.Data).toBe('Hi');
+    // No replyTo on the input → SES body omits ReplyToAddresses entirely.
+    expect(body.ReplyToAddresses).toBeUndefined();
+  });
+
+  it('threads replyTo into SES ReplyToAddresses (contact-form lead reply-to)', async () => {
+    const f = fakeFetch();
+    const p = new AmazonSesEmailProvider(goodEnv, { fetchImpl: f, now: fixedNow });
+    await p.sendTransactional({ ...send, replyTo: 'lead@business.com' });
+    const body = JSON.parse(f.calls[0].init.body as string);
+    expect(body.ReplyToAddresses).toEqual(['lead@business.com']);
   });
 
   it('throws on non-2xx with the SES error body', async () => {

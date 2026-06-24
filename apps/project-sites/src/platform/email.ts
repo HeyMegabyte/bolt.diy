@@ -35,6 +35,9 @@ export interface SendEmailInput {
   readonly subject: string;
   readonly html: string;
   readonly from?: string;
+  /** Reply-To address — e.g. a contact-form submitter so the brand can reply
+   * directly to the lead. Optional; only the SES rail honours it today. */
+  readonly replyTo?: string;
   readonly kind: EmailKind;
   readonly tenantId?: string;
   /** Dedupe key — providers/log dedupe on this (§23). */

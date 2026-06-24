@@ -81,6 +81,7 @@ export class AmazonSesEmailProvider implements EmailProvider {
     const body = JSON.stringify({
       FromEmailAddress: from,
       Destination: { ToAddresses: recipients },
+      ...(input.replyTo ? { ReplyToAddresses: [input.replyTo] } : {}),
       Content: {
         Simple: {
           Subject: { Data: input.subject, Charset: 'UTF-8' },
