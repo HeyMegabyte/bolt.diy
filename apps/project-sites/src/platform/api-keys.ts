@@ -98,7 +98,13 @@ export class FakeApiKeyProvider implements ApiKeyProvider {
   async verifyKey(plaintext: string): Promise<KeyVerificationResult> {
     const rec = this.byKey.get(plaintext);
     if (!rec || rec.revoked) return { valid: false, code: 'NOT_FOUND' };
-    return { valid: true, code: 'VALID', keyId: rec.keyId, ownerId: rec.ownerId, scopes: rec.scopes };
+    return {
+      valid: true,
+      code: 'VALID',
+      keyId: rec.keyId,
+      ownerId: rec.ownerId,
+      scopes: rec.scopes,
+    };
   }
 
   async revokeKey(keyId: string, ownerId: string): Promise<boolean> {
