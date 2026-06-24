@@ -594,6 +594,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  collab_editing: {
+    key: 'collab_editing',
+    description:
+      'Enables real-time collaborative editing of a site via a Yjs CRDT synced over a PartyServer Durable Object WebSocket (GET /api/sites/:id/collab). One CollabRoomDO instance per site (keyed site:<id>) fans Yjs document updates to every connected client; the Angular CollabService connects with a vanilla PartySocket. Server returns 404 (never 403) when the flag is off, and 503 when the COLLAB_ROOM Durable Object binding is absent (it ships INERT — the wrangler.toml binding+migration are commented because a new DO class is a watched one-way-door deploy). Failure mode disabled: the editor stays single-player; nothing else breaks. Acceptance: the WS handshake upgrades to 101 and two clients converge on shared document state.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

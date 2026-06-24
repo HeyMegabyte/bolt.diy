@@ -663,6 +663,31 @@ bucket_name = "project-sites-production"
 # binding = "USER_DISPATCH"
 # namespace = "project-sites-endpoints"
 
+# ─── Real-time collaborative editing (feature: collab_editing) — INERT ────────
+# CollabRoomDO (PartyServer + Yjs) backs `GET /api/sites/:id/collab`. The Worker
+# code ships LIVE (route + DO class + flag), but the BINDING + MIGRATION below
+# stay COMMENTED — same WATCHED ONE-WAY-DOOR hazard as EVENT_DISPATCHER /
+# INNGEST_CONTAINER above: activating a NEW Durable Object class REQUIRES an
+# active migration; a wrong tag (this worker's DO migration history has errored
+# on 10074/10064/10061) BLOCKS ALL DEPLOYS and cannot be dry-run-verified. While
+# commented, `routes/collab.ts` returns 503 ("COLLAB_ROOM binding missing") and
+# the `collab_editing` flag is OFF, so the feature is safe-but-inert.
+#
+# To enable (eyes-on watched deploy, Docker up):
+#   (1) confirm `v_collab_room` is NOT already in remote history
+#       (`wrangler deployments list`).
+#   (2) uncomment BOTH blocks below.
+#   (3) `wrangler deploy --env production` — watch the migration apply.
+#   (4) flip the `collab_editing` flag on (D1 flag_overrides global) and verify a
+#       WS handshake to `/api/sites/:id/collab` returns 101 Switching Protocols.
+# [[env.production.durable_objects.bindings]]
+# name = "COLLAB_ROOM"
+# class_name = "CollabRoomDO"
+#
+# [[env.production.migrations]]
+# tag = "v_collab_room"
+# new_sqlite_classes = ["CollabRoomDO"]
+
 # Cron triggers:
 #   * * * * *    — Pulse Social due-post sweep (every minute, capped 25/run)
 #   */5 * * * *  — drain the event_bus outbox → Tinybird + Hatchet (outbox_dispatch.drainOutbox)

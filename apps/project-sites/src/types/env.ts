@@ -574,6 +574,16 @@ export interface Env {
   CF_ACCOUNT_ID?: string;
   /** Note: CF_API_TOKEN is already declared above for the existing Cloudflare API surface; we reuse it for WFP REST calls. */
 
+  // ── Real-time collaborative editing (feature: collab_editing) ────────
+  /**
+   * `CollabRoomDO` Durable Object namespace (PartyServer + Yjs). Optional —
+   * shipped INERT: the `[[durable_objects.bindings]]` + `[[migrations]]`
+   * COLLAB_ROOM block in wrangler.toml is commented (a new DO class is a
+   * watched one-way-door deploy). `/api/sites/:id/collab` returns 503 when
+   * this binding is absent. See routes/collab.ts + durable_objects/collab_room.ts.
+   */
+  COLLAB_ROOM?: DurableObjectNamespace;
+
   /**
    * AI Gateway routing kill-switch. Gateway is the DEFAULT path whenever
    * `CF_ACCOUNT_ID` is set; set this to the string `"false"` to bypass the

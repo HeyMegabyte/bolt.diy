@@ -969,6 +969,22 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → GET /api/sites/:id/search?q=test → 404',
     ],
   },
+  collab_editing: {
+    checklist: [
+      'GET /api/sites/:id/collab — WebSocket upgrade gateway to CollabRoomDO (PartyServer + Yjs)',
+      'One DO instance per site (keyed site:<id>); Yjs CRDT syncs document updates to all clients',
+      'Angular CollabService connects with a vanilla PartySocket + Y.Doc',
+      'Requires the COLLAB_ROOM Durable Object binding — ships INERT (wrangler.toml block commented)',
+      'Server returns 404 (never 403) when flag is off; 503 when COLLAB_ROOM binding is absent; 426 on non-WS request',
+    ],
+    explanation:
+      'Enables real-time collaborative editing of a site via a Yjs CRDT synced over a PartyServer Durable Object WebSocket (GET /api/sites/:id/collab). A CollabRoomDO (extends y-partyserver YServer = PartyServer + Yjs) instance per site fans document updates to every connected client. The route guards: auth (401) → requireOwnedSite (404) → collab_editing flag (404 when off) → COLLAB_ROOM binding (503 when absent) → WebSocket upgrade (426 otherwise) → forward to the DO. Ships INERT: the wrangler.toml binding + migration are commented because activating a NEW Durable Object class is a watched one-way-door deploy (a wrong migration tag blocks ALL deploys). Disabled failure mode: the editor stays single-player, nothing else breaks.',
+    smoke_test: [
+      'Enable flag + bind COLLAB_ROOM → wscat -c wss://host/api/sites/:id/collab → 101 Switching Protocols',
+      'Two clients on the same site → a Y.Doc edit on client A appears on client B',
+      'Disable the flag → GET /api/sites/:id/collab → 404; binding absent → 503; plain HTTP GET → 426',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

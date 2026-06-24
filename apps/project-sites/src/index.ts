@@ -73,6 +73,7 @@ import { docs } from './routes/docs.js';
 import { autofill } from './routes/autofill.js';
 import { bolt } from './routes/bolt_admin.js';
 import { editorChats } from './routes/editor_chats.js';
+import { collabRoutes } from './routes/collab.js';
 import { apps as appsRoutes } from './routes/apps.js';
 import { snapshotQuality } from './routes/snapshot_quality.js';
 import { dashboard } from './routes/dashboard.js';
@@ -173,6 +174,10 @@ export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
 //   redeployment doesn't fail with "unknown class" for the historical DO namespace.
 //   Once all instances are drained the stub is safe to remove entirely.
 export { ConversationHub } from './durable_objects/conversation_hub.js';
+// CollabRoomDO (PartyServer + Yjs) — exported so CF knows the class for the
+// COLLAB_ROOM binding. INERT until the wrangler.toml block is uncommented
+// (watched one-way-door DO migration). Feature: collab_editing.
+export { CollabRoomDO } from './durable_objects/collab_room.js';
 export { EventDispatcher } from './durable_objects/event_dispatcher.js';
 // jobs./events.projectsites.dev — self-hosted Inngest server container (§13).
 export { InngestContainer } from './durable_objects/inngest_container.js';
@@ -357,6 +362,7 @@ app.notFound((c) => c.html(notFoundHtml(), 404));
 app.route('/', health);
 app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
+app.route('/', collabRoutes); // /api/sites/:id/collab WS gateway → CollabRoomDO (collab_editing flag; 503 inert until COLLAB_ROOM bound)
 app.route('/', authIdp); // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise); 404s dark when LOGTO_*/WORKOS_* unset
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
