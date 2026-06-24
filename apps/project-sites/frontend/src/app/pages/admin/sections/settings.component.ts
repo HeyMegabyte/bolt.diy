@@ -1535,9 +1535,36 @@ export class AdminSettingsComponent implements OnInit {
           if (authUrl) {
             const popup = window.open(authUrl, 'mcp_oauth', 'width=560,height=720,menubar=no,toolbar=no');
             if (!popup) { this.toast.error('Popup blocked — allow pop-ups and try again.'); return; }
-            const interval = window.setInterval(() => {
-              if (popup.closed) { window.clearInterval(interval); this.loadConnections(); }
+            // The worker callback posts `ps:mcp:connected` to this window then
+            // self-closes. React to the message for an INSTANT live reload (the
+            // provider flips to "Connected" without a manual refresh); the
+            // popup-closed poll is a belt-and-suspenders fallback.
+            let settled = false;
+            let interval = 0;
+            const finish = (announce: boolean): void => {
+              if (settled) return;
+              settled = true;
+              window.clearInterval(interval);
+              window.removeEventListener('message', onMessage);
+              this.loadConnections();
+              if (announce) this.toast.success(`${label} connected`);
+            };
+            const onMessage = (ev: MessageEvent): void => {
+              if (ev.origin !== window.location.origin) return;
+              const d = ev.data as { type?: string; provider?: string } | null;
+              if (d && d.type === 'ps:mcp:connected' && d.provider === providerId) {
+                try { popup.close(); } catch { /* cross-origin close guard */ }
+                finish(true);
+              }
+            };
+            window.addEventListener('message', onMessage);
+            interval = window.setInterval(() => {
+              if (popup.closed) finish(false);
             }, 600);
+            // Safety: never leak the listener if the flow is abandoned.
+            window.setTimeout(() => {
+              if (!settled) { settled = true; window.clearInterval(interval); window.removeEventListener('message', onMessage); }
+            }, 600000);
             return;
           }
           // Adapter has no OAuth → inline paste-key form.

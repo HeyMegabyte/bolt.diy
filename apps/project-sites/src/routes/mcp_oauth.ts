@@ -265,10 +265,17 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
     }),
   );
 
-  return Response.redirect(
-    `https://projectsites.dev${stateRow.return_url}?connected=${provider}`,
-    302,
-  );
+  // Render a tiny "connected" page that messages the opener (the admin tab that
+  // launched the popup) and closes itself — rather than 302-redirecting the
+  // POPUP to the dashboard, which loaded the full SPA inside the 560×720 window.
+  // The opener listens for `ps:mcp:connected` and reloads its connection list so
+  // the provider flips to "Connected" live; the self-close also trips the
+  // opener's `popup.closed` poll as a belt-and-suspenders fallback. If the
+  // browser blocks `window.close()` (rare for script-opened windows), we bounce
+  // back to the return URL so the user is never stranded on a blank popup.
+  const returnUrl = `https://projectsites.dev${stateRow.return_url}?connected=${provider}`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connected</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#060610;color:#f4f4ff;display:grid;place-items:center;min-height:100vh;margin:0}.c{text-align:center;max-width:24rem;padding:1.5rem}.dot{color:#00e5ff;font-size:2rem;line-height:1}p{opacity:.8;font-size:.9rem;margin:.6rem 0 0}</style></head><body><div class="c"><div class="dot">✓</div><p>${provider} connected. You can close this window.</p></div><script>(function(){var provider=${JSON.stringify(provider)};var returnUrl=${JSON.stringify(returnUrl)};try{if(window.opener){window.opener.postMessage({type:"ps:mcp:connected",provider:provider},"https://projectsites.dev");}}catch(e){}setTimeout(function(){try{window.close();}catch(e){}setTimeout(function(){try{window.location.replace(returnUrl);}catch(e){}},500);},120);})();</script></body></html>`;
+  return c.html(html);
 });
 
 /**

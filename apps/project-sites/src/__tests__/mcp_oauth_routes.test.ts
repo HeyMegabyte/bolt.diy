@@ -334,7 +334,7 @@ describe('GET /api/mcp/:provider/callback', () => {
     expect(mockEncrypt).not.toHaveBeenCalled();
   });
 
-  it('exchanges the code, encrypts tokens at rest, upserts, deletes state, audits, and redirects', async () => {
+  it('exchanges the code, encrypts tokens at rest, upserts, deletes state, audits, and returns a self-closing page', async () => {
     const exchangeCode = jest.fn(async () => ({
       access_token: 'gho_live_token',
       refresh_token: 'ghr_refresh_token',
@@ -360,8 +360,14 @@ describe('GET /api/mcp/:provider/callback', () => {
       },
     );
 
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('https://projectsites.dev/admin/mcp?connected=github');
+    // Returns an HTML page that messages the opener + self-closes — NOT a 302
+    // that would load the dashboard SPA inside the OAuth popup window.
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/text\/html/);
+    const body = await res.text();
+    expect(body).toContain('ps:mcp:connected');
+    expect(body).toContain('"github"');
+    expect(body).toContain('https://projectsites.dev/admin/mcp?connected=github');
 
     // PKCE: the persisted code_verifier was sent to the exchange.
     expect(exchangeCode).toHaveBeenCalledTimes(1);
@@ -414,7 +420,7 @@ describe('GET /api/mcp/:provider/callback', () => {
     const res = await req(makeApp(), '/api/mcp/github/callback?code=c&state=s', env, {
       redirect: 'manual',
     });
-    expect(res.status).toBe(302);
+    expect(res.status).toBe(200);
     expect(mockEncrypt).toHaveBeenCalledTimes(1);
     expect(mockEncrypt.mock.calls[0][1]).toBe('only_access');
   });
