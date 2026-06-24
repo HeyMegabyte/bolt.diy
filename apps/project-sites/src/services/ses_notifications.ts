@@ -121,7 +121,13 @@ export function parseSesNotification(input: unknown): SesSuppression[] {
     if (bounce?.['bounceType'] === 'Permanent') {
       const ts = typeof bounce['timestamp'] === 'string' ? bounce['timestamp'].slice(0, 40) : null;
       for (const email of recipientEmails(bounce['bouncedRecipients'])) {
-        records.push({ email, reason: 'bounce', subType: 'Permanent', timestamp: ts, sourceMessageId });
+        records.push({
+          email,
+          reason: 'bounce',
+          subType: 'Permanent',
+          timestamp: ts,
+          sourceMessageId,
+        });
       }
     }
   } else if (type === 'Complaint') {
