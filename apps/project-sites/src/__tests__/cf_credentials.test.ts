@@ -24,7 +24,11 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQueryOne } from '../services/db.js';
-import { loadCfCredentials, resolveCfCredentials, cfAuthHeaders } from '../services/cf_credentials.js';
+import {
+  loadCfCredentials,
+  resolveCfCredentials,
+  cfAuthHeaders,
+} from '../services/cf_credentials.js';
 import { encrypt } from '../services/ai_crypto.js';
 import type { Env } from '../types/env.js';
 
