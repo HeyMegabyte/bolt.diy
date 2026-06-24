@@ -238,6 +238,9 @@ export interface Env {
   /** HMAC secret for the inbound SES bounce/complaint webhook (Hookdeck/SNS
    * forwards SES events here, HMAC-signed). wrangler secret. */
   SES_WEBHOOK_SECRET?: string;
+  /** Arcjet key for the §48 app-aware abuse layer (bot/abuse decisioning on top
+   * of the CF rate limiter). Unset → fail-open. wrangler secret. */
+  ARCJET_KEY?: string;
   /** Listmonk base URL, e.g. https://mail.projectsites.dev (ADR-0019). var. */
   LISTMONK_API_URL?: string;
   /** Listmonk admin/API username. wrangler secret. */

@@ -365,6 +365,18 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'Port + Fake + DenyAll + OpenFgaAuthorizationProvider (REST adapter) + requireAuthz middleware + getAuthorizationProvider(env) factory, all tested. Relationship bootstrap LIVE: grantSiteOwner fires on site_create (fail-soft, tested). Remaining: extend requireAuthz to more privileged mutation routes (currently org-membership-gated). ADR-0005.',
   },
+  {
+    id: 'abuse-arcjet',
+    name: 'AbuseProvider port — app-aware abuse layer (§48, Arcjet)',
+    category: 'security',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/abuse.ts',
+    secretsNamespace: '/arcjet',
+    status: 'scaffolded',
+    access: 'service-only',
+    notes:
+      'Port + FakeAbuseProvider + AllowAllAbuseProvider + getAbuseProvider(env) factory + requireNotAbusive(kind) middleware, all tested. Sits ABOVE the CF-native rate_limit.ts (tenant/plan/kind-aware decisions). Fail-OPEN: unset ARCJET_KEY → AllowAll (CF limiter is the floor). Remaining: the Workers-compatible ArcjetAbuseProvider adapter + wiring requireNotAbusive onto claim/signup/form/ai-generate routes. §48.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
