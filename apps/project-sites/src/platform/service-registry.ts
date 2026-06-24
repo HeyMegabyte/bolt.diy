@@ -438,6 +438,18 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'Tracer/Span/TracerProvider port (OTel-shaped) + NoopTracerProvider + FakeTracerProvider + OtlpTracerProvider (fetch-based OTLP/HTTP JSON exporter, no @opentelemetry SDK) + getTracerProvider(env) factory, all tested. Deliberately a thin port over the EXISTING observability backbone (CF Workers Tracing [observability] zero-config OTLP + lib/log.ts traceId + Sentry + PostHog) rather than the heavy OTel SDK. Fail-soft export. Ships DARK behind OTEL_EXPORTER_OTLP_ENDPOINT → unset = NoopTracerProvider (zero overhead). Remaining: wire getTracerProvider + waitUntil(flush) into hot handlers (site-serving, workflow steps) to actually emit spans. §35.',
   },
+  {
+    id: 'oauth-nango',
+    name: 'OAuth connection layer — homegrown, Nango deferred (§46/ADR-0046)',
+    category: 'auth',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',
+    adapterPackage: 'apps/project-sites/src/routes/social_oauth.ts',
+    status: 'integrated',
+    access: 'customer-authenticated',
+    notes:
+      'Nango DEFERRED per ADR-0046 — the repo already owns the OAuth connection lifecycle (authorize→callback→token-exchange→AES-GCM-encrypted upsert→refresh) across many providers via routes/mcp_oauth.ts (per-site MCP, mcp_connections) + routes/social_oauth.ts (social platforms), with PKCE (mcp_pkce.ts) + paste-key fallback when a provider client_id is unset. No clean single call-site to wrap (these are full Hono route groups w/ provider adapters), so NO port built now — a premature OAuthConnectionProvider abstraction would be indirection over two route groups. A managed-Nango adapter slots behind a future port gated on NANGO_SECRET_KEY only if a real need arises. §46.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
