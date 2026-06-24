@@ -128,10 +128,10 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     category: 'jobs',
     runtime: 'library',
     ownerPackage: 'apps/project-sites/src/platform/workflow-router.ts',
-    status: 'scaffolded',
+    status: 'integrated',
     access: 'service-only',
     notes:
-      'Routing policy + JOB_DEFINITIONS + port + all 3 backend adapters (CF/Inngest/Hatchet) + getJobRouter(env) factory. Remaining: /api/jobs dispatch route + claim/billing/domain Workflow classes. ADR-0003.',
+      'Routing policy + JOB_DEFINITIONS + port + all 3 backend adapters (CF/Inngest/Hatchet) + getJobRouter(env) factory + POST /api/jobs dispatch route (mounted, tested). Remaining: migrate the claim/billing/domain flows to dispatch through it (their dedicated Workflow classes). ADR-0003.',
   },
   {
     id: 'jobs-inngest',
