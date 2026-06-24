@@ -272,6 +272,30 @@ describe('POST /webhooks/stripe - event processing', () => {
         metadata: { org_id: 'org-2' },
       }),
     );
+    // active status → subscription.active on the durable bus (funnel "Converted").
+    const active = mockEmit.mock.calls.find(
+      (call) => (call[1] as { type?: string })?.type === 'subscription.active',
+    );
+    expect(active).toBeTruthy();
+    expect((active![1] as { tenantId: string }).tenantId).toBe('org-2');
+  });
+
+  it('customer.subscription.updated with status past_due emits subscription.past_due (dunning/churn telemetry)', async () => {
+    mockSubscriptionUpdated.mockResolvedValue(undefined);
+    const app = createApp();
+    const event = makeStripeEvent('customer.subscription.updated', {
+      id: 'sub_pd',
+      status: 'past_due',
+      metadata: { org_id: 'org-5' },
+    });
+    const res = await postWebhook(app, event);
+    expect(res.status).toBe(200);
+
+    const pastDue = mockEmit.mock.calls.find(
+      (call) => (call[1] as { type?: string })?.type === 'subscription.past_due',
+    );
+    expect(pastDue).toBeTruthy();
+    expect((pastDue![1] as { tenantId: string }).tenantId).toBe('org-5');
   });
 
   it('checkout.session.completed emits subscription.active (the "Converted" funnel event) with org + amount', async () => {
