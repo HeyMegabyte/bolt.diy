@@ -78,6 +78,28 @@ describe('POST /api/contact-form/:slug — HTML-injection defense', () => {
     expect(html).toContain('&lt;a href=&quot;https://evil.com&quot;&gt;');
   });
 
+  it('routes the owner notification through Amazon SES with reply-to preserved when SES is configured (ADR-0019)', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    global.fetch = fetchMock;
+    const res = await submit(
+      makeEnv({
+        AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+        AWS_SECRET_ACCESS_KEY: 'secret-key',
+        AWS_DEFAULT_REGION: 'us-east-1',
+        SES_FROM_EMAIL: 'noreply@projectsites.dev',
+      }),
+      { name: 'Lead Person', email: 'lead@business.com', message: 'I would like a quote please, thanks.' },
+    );
+    expect(res.status).toBe(200);
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+    const sesBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(sesBody.ReplyToAddresses).toEqual(['lead@business.com']);
+  });
+
   it('still requires name, email, and message (400 otherwise)', async () => {
     const res = await submit(makeEnv(), { name: 'A', email: 'a@b.c', message: 'short' }); // no message? message<10
     expect(res.status).toBe(400);

@@ -61,6 +61,7 @@ const DonateSchema = z.object({
 
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
+import { getEmailProvider } from '../platform/email-router.js';
 
 /**
  * Authorize a build-container request against the shared secret
@@ -1206,7 +1207,20 @@ search.post('/api/contact-form/:slug', async (c) => {
     const safeBusiness = escapeHtml(site.business_name);
     const htmlBody = `<h2>New Contact Form Submission</h2><p><strong>From:</strong> ${safeName} (${safeEmail})</p>${safePhone ? `<p><strong>Phone:</strong> ${safePhone}</p>` : ''}<p><strong>Message:</strong></p><p>${safeMessage}</p><hr><p style="color:#888;font-size:12px;">Sent via ${safeBusiness} on projectsites.dev</p>`;
 
-    if (c.env.SENDGRID_API_KEY) {
+    if (c.env.AWS_ACCESS_KEY_ID && c.env.AWS_SECRET_ACCESS_KEY && c.env.SES_FROM_EMAIL) {
+      // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured. reply_to
+      // (the lead submitter) rides through so the owner can reply to the lead;
+      // the per-site friendly from-name is preserved. SendGrid/Resend stay
+      // fallback until SES is proven live.
+      await getEmailProvider(c.env).sendTransactional({
+        kind: 'transactional',
+        from: `${site.business_name} <noreply@projectsites.dev>`,
+        to: toEmail,
+        replyTo: body.email,
+        subject: `New message from ${body.name} via your website`,
+        html: htmlBody,
+      });
+    } else if (c.env.SENDGRID_API_KEY) {
       await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
