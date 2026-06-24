@@ -257,7 +257,12 @@ export const errorHandler: ErrorHandler<{
     const friendly = "We're doing a quick update — back in a moment.";
     if (isHtml) {
       return new Response(
-        brandedErrorPage({ status: 503, code: 'STORAGE_UNAVAILABLE', message: friendly, requestId }),
+        brandedErrorPage({
+          status: 503,
+          code: 'STORAGE_UNAVAILABLE',
+          message: friendly,
+          requestId,
+        }),
         {
           status: 503,
           headers: { 'Content-Type': 'text/html;charset=utf-8', 'Retry-After': '120' },
