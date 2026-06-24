@@ -322,6 +322,16 @@ describe('POST /webhooks/stripe - event processing', () => {
     expect(evt.tenantId).toBe('org-conv');
     expect(evt.producer).toBe('stripe');
     expect(evt.data).toMatchObject({ customer: 'cus_1', subscription: 'sub_1' });
+
+    // Same handler emits entitlement.updated (plan free→paid) — the golden-path
+    // "entitlement activated" signal the orchestration plane provisions against.
+    const ent = mockEmit.mock.calls.find(
+      (call) => (call[1] as { type?: string })?.type === 'entitlement.updated',
+    );
+    expect(ent).toBeTruthy();
+    const entEvt = ent![1] as { tenantId: string; data: Record<string, unknown> };
+    expect(entEvt.tenantId).toBe('org-conv');
+    expect(entEvt.data).toMatchObject({ plan: 'paid', paid: true });
   });
 
   it('customer.subscription.deleted calls handleSubscriptionDeleted', async () => {
