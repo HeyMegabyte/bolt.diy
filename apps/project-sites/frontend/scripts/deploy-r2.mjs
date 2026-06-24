@@ -102,6 +102,19 @@ async function r2Size(key) {
   }
 }
 
+// Circuit breaker. When the failure cause is account-level (rate-limit / bad
+// auth) EVERY file fails — and per-file retries make it WORSE: each retry is
+// another API call feeding the same rate-limit loop (observed 2026-06-24:
+// Uploaded 0/288, the 288×4 retry storm ran ~12 min before the job moved on).
+// Once CONSECUTIVE failures cross the threshold the cause is systemic, not a
+// transient per-file blip, so we LATCH the circuit open and stop retrying —
+// remaining files get ONE attempt each. Collapses the doomed storm from ~12 min
+// to ~1 min AND stops amplifying the rate limit. A success resets the streak;
+// the circuit only latches on sustained failure.
+const CIRCUIT_THRESHOLD = 20;
+let consecutiveFailures = 0;
+let circuitOpen = false;
+
 // Retries with EXPONENTIAL BACKOFF + jitter between attempts. Instant retries
 // (the old behaviour) all fire inside the same R2 hiccup and fail together —
 // a multi-second blip exhausted all 3 and dropped files (e.g. the 8 monaco
@@ -109,13 +122,25 @@ async function r2Size(key) {
 // over ~3.5s rides out a transient blip. The success path adds ZERO delay
 // (the first `put` returns immediately), so a healthy deploy is unaffected.
 async function putWithRetry(key, file, ct, attempts = 4) {
-  for (let a = 1; a <= attempts; a++) {
-    if (await put(key, file, ct)) return true;
-    if (a < attempts) {
+  const effective = circuitOpen ? 1 : attempts; // circuit open → no retries
+  for (let a = 1; a <= effective; a++) {
+    if (await put(key, file, ct)) {
+      consecutiveFailures = 0;
+      return true;
+    }
+    if (a < effective) {
       const delay = Math.min(2 ** (a - 1) * 500, 4000) + Math.floor(Math.random() * 250);
-      process.stderr.write(`  retry ${a}/${attempts - 1} in ${delay}ms: ${key}\n`);
+      process.stderr.write(`  retry ${a}/${effective - 1} in ${delay}ms: ${key}\n`);
       await new Promise((r) => setTimeout(r, delay));
     }
+  }
+  consecutiveFailures++;
+  if (!circuitOpen && consecutiveFailures >= CIRCUIT_THRESHOLD) {
+    circuitOpen = true;
+    console.error(
+      `⚡ circuit OPEN after ${consecutiveFailures} consecutive failures — systemic (rate-limit/auth). ` +
+        `Remaining files get 1 attempt (no retry storm). Fix: provision R2 S3 creds + batch-PUT rewrite.`,
+    );
   }
   return false;
 }
