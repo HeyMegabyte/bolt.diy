@@ -281,15 +281,13 @@ index_name = "projectsites-rag"
 
 # Workers Analytics Engine — admin dashboard visit tracker.
 # Powers the Analytics page (queried via the SQL API).
-# DISABLED 2026-06-24: Analytics Engine is turned off on the account (CF error
-# 10089) and was blocking `wrangler deploy` of the Worker. ANALYTICS_INGEST_ENABLED
-# is already "false" and the code no-ops when the ANALYTICS binding is absent
-# (cf_analytics: "is a no-op when ANALYTICS binding is absent"), so removing the
-# binding loses no functionality + unblocks the deploy. Re-enable Analytics Engine
-# at dash.cloudflare.com/.../workers/analytics-engine, then uncomment to restore.
-# [[env.production.analytics_engine_datasets]]
-# binding = "ANALYTICS"
-# dataset = "projectsites_admin_v1"
+# RE-ENABLED 2026-06-24: Analytics Engine was turned on for the account, so the
+# binding is restored (it had been commented while the account lacked the feature
+# — CF error 10089). `cf_analytics` no-ops when the binding is absent, so this is
+# purely additive. Writes are still gated by ANALYTICS_INGEST_ENABLED ("false").
+[[env.production.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "projectsites_admin_v1"
 
 # Claude Code build container — custom image with Claude Code + skills + template pre-baked
 # standard-4 = 4 vCPU, 12 GiB RAM, 8 GB disk. Larger size accelerates parallel prompt execution.
@@ -657,11 +655,14 @@ bucket_name = "project-sites-production"
 # fine). The code already treats USER_DISPATCH as optional: `isWfpConfigured()`
 # returns false and the dispatch handler returns 503 "USER_DISPATCH binding
 # missing" when the binding is absent (services/wfp_dispatch.ts), so the WfP
-# user-endpoints feature degrades cleanly. Re-enable this block once WfP is
-# purchased at dash.cloudflare.com/?to=/:account/workers-for-platforms.
-# [[env.production.dispatch_namespaces]]
-# binding = "USER_DISPATCH"
-# namespace = "project-sites-endpoints"
+# user-endpoints feature degrades cleanly.
+# RE-ENABLED 2026-06-24: Workers for Platforms is now on the account and the
+# dispatch namespace `project-sites-endpoints` exists (id 6ea19ae4-f28b-4d05-
+# a50e-4461b3126c20), so the binding is restored (it had 10121'd while WfP was
+# off). isWfpConfigured() now resolves true → user-uploaded AI endpoints dispatch.
+[[env.production.dispatch_namespaces]]
+binding = "USER_DISPATCH"
+namespace = "project-sites-endpoints"
 
 # ─── Real-time collaborative editing (feature: collab_editing) — INERT ────────
 # CollabRoomDO (PartyServer + Yjs) backs `GET /api/sites/:id/collab`. The Worker
