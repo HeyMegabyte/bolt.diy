@@ -65,6 +65,42 @@ function isIndexable(path: string): boolean {
   return INDEXABLE_EXTENSIONS.has(ext);
 }
 
+/**
+ * Resolve the owning org id for a bolt-published site so its indexed chunks are
+ * discoverable via the org-scoped `/api/sites/:id/search` endpoint
+ * (`semanticSearch` filters on `metadata.orgId`).
+ *
+ * Resolution order:
+ *   1. Authenticated session org (`c.get('orgId')`) when present and not the
+ *      `'bolt'` placeholder.
+ *   2. The site row's `org_id` looked up by slug (covers anonymous publishes to
+ *      an EXISTING owned slug — e.g. the owner's editor re-publishing).
+ *   3. `'bolt'` fallback (a brand-new slug with no owner row yet).
+ *
+ * @param env - Worker bindings (needs `DB`).
+ * @param slug - The published site slug.
+ * @param sessionOrgId - `c.get('orgId')` from the request context, if any.
+ * @returns The resolved org id; never empty.
+ *
+ * @example
+ * await resolvePublishOrgId(env, 'acme-bakery', 'org_123') // → 'org_123'
+ * await resolvePublishOrgId(env, 'acme-bakery', undefined)  // → site row org_id, else 'bolt'
+ */
+export async function resolvePublishOrgId(
+  env: Env,
+  slug: string,
+  sessionOrgId?: string,
+): Promise<string> {
+  if (sessionOrgId && sessionOrgId !== 'bolt') return sessionOrgId;
+  const owner = await env.DB.prepare(
+    'SELECT org_id FROM sites WHERE slug = ? AND deleted_at IS NULL LIMIT 1',
+  )
+    .bind(slug)
+    .first<{ org_id: string }>()
+    .catch(() => null);
+  return owner?.org_id ?? 'bolt';
+}
+
 export interface IndexSiteFilesOptions {
   /** The site ID — stored as `sourceId` on each vector chunk. */
   siteId: string;

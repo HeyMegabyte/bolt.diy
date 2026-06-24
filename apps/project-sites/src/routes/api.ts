@@ -169,7 +169,7 @@ import {
 } from '../services/cf_registrar.js';
 import { suggestDomains, type DomainSuggestion } from '../services/domain_suggester.js';
 import { gatherProfileContext } from '../services/profile_context.js';
-import { indexSiteFiles } from '../services/rag_publish.js';
+import { indexSiteFiles, resolvePublishOrgId } from '../services/rag_publish.js';
 import { semanticSearch } from '../services/rag.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 
@@ -2882,9 +2882,16 @@ api.post('/api/publish/bolt', async (c) => {
 
   // Index site files into Vectorize for semantic search (non-blocking via waitUntil).
   // Guard: if either binding is absent this is a silent no-op (indexSiteFiles checks internally).
+  //
+  // Resolve the REAL owning org so the chunks are discoverable via the org-scoped
+  // `/api/sites/:id/search` endpoint (semanticSearch filters `metadata.orgId`).
+  // Order: authenticated session org → the site row's org_id (by slug) → 'bolt'
+  // (anonymous publish to a brand-new slug). Indexing under the literal 'bolt'
+  // made every bolt-published site permanently unsearchable for its owner.
+  const indexOrgId = await resolvePublishOrgId(c.env, slug, c.get('orgId'));
   indexSiteFiles(c.env, c.executionCtx, {
     siteId: slug,
-    orgId: 'bolt',
+    orgId: indexOrgId,
     files,
   });
 
