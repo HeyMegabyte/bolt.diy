@@ -425,6 +425,19 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'ApiKeyProvider port (Unkey create/verify/revoke contract w/ structured KeyVerificationResult) + FakeApiKeyProvider + D1ApiKeyProvider + getApiKeyProvider(env) factory, all tested. Deliberately wraps the EXISTING services/api_tokens keystore (psk_<hex>, SHA-256 hash in D1, scopes, expiry, revoke) rather than hosting Unkey (its product is a DB-backed container stack; edge key-verification is already Worker-native here). Zero new deps, no env secret (wraps our own keystore → always available, no gate). Ships dark: api_tokens stays the live verification path; a managed Unkey adapter could slot behind the factory via UNKEY_ROOT_KEY later. ADR-0030.',
   },
+  {
+    id: 'traces-opentelemetry',
+    name: 'OpenTelemetry span port + OTLP/HTTP exporter (§35/ADR-0035)',
+    category: 'observability',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/tracing.ts',
+    adapterPackage: 'apps/project-sites/src/middleware/tracing.ts',
+    secretsNamespace: '/otel',
+    status: 'scaffolded',
+    access: 'service-only',
+    notes:
+      'Tracer/Span/TracerProvider port (OTel-shaped) + NoopTracerProvider + FakeTracerProvider + OtlpTracerProvider (fetch-based OTLP/HTTP JSON exporter, no @opentelemetry SDK) + getTracerProvider(env) factory, all tested. Deliberately a thin port over the EXISTING observability backbone (CF Workers Tracing [observability] zero-config OTLP + lib/log.ts traceId + Sentry + PostHog) rather than the heavy OTel SDK. Fail-soft export. Ships DARK behind OTEL_EXPORTER_OTLP_ENDPOINT → unset = NoopTracerProvider (zero overhead). Remaining: wire getTracerProvider + waitUntil(flush) into hot handlers (site-serving, workflow steps) to actually emit spans. §35.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */

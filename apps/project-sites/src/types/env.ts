@@ -252,6 +252,12 @@ export interface Env {
   WORKOS_API_KEY?: string;
   /** WorkOS client id. var. */
   WORKOS_CLIENT_ID?: string;
+  /** OTLP/HTTP traces endpoint for the §35 OpenTelemetry span port, e.g.
+   * https://api.honeycomb.io/v1/traces. Unset → NoopTracerProvider (ships dark;
+   * Workers Tracing remains the always-on backbone). var. */
+  OTEL_EXPORTER_OTLP_ENDPOINT?: string;
+  /** Optional OTLP headers as `k=v,k2=v2` (e.g. `x-honeycomb-team=KEY`). wrangler secret. */
+  OTEL_EXPORTER_OTLP_HEADERS?: string;
   /** Listmonk base URL, e.g. https://mail.projectsites.dev (ADR-0019). var. */
   LISTMONK_API_URL?: string;
   /** Listmonk admin/API username. wrangler secret. */
