@@ -450,6 +450,17 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'Nango DEFERRED per ADR-0046 — the repo already owns the OAuth connection lifecycle (authorize→callback→token-exchange→AES-GCM-encrypted upsert→refresh) across many providers via routes/mcp_oauth.ts (per-site MCP, mcp_connections) + routes/social_oauth.ts (social platforms), with PKCE (mcp_pkce.ts) + paste-key fallback when a provider client_id is unset. No clean single call-site to wrap (these are full Hono route groups w/ provider adapters), so NO port built now — a premature OAuthConnectionProvider abstraction would be indirection over two route groups. A managed-Nango adapter slots behind a future port gated on NANGO_SECRET_KEY only if a real need arises. §46.',
   },
+  {
+    id: 'crawl-deepcrawl',
+    name: 'Crawl + discovery — homegrown, Deepcrawl deferred (§53/ADR-0053)',
+    category: 'internal',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/services/import_crawler.ts',
+    status: 'integrated',
+    access: 'service-only',
+    notes:
+      'Deepcrawl DEFERRED per ADR-0053 — crawl/discovery is already Worker-native: import_crawler.ts (crawlSiteForImport → typed CrawlReport/InventoryUrl, real-UA fetch per fetch-defaults, robots/sitemap/Wayback inventory, estimateRebuildMinutes) + image discovery + CF Browser Rendering (browser-gateway, production) for JS-rendered crawl/screenshots. Our crawl need is import-scoped (crawl ONE source site to rebuild), not recurring-SEO-audit-scoped. No port built — a CrawlProvider seam over a domain-specific import fn is indirection with one caller. A managed-Deepcrawl adapter slots behind a future CrawlAuditProvider port gated on DEEPCRAWL_API_KEY only if recurring technical-SEO auditing becomes a product feature. §53.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
