@@ -24,6 +24,10 @@ jest.mock('../services/audit.js', () => ({
   writeAuditLog: jest.fn(),
 }));
 
+jest.mock('../services/emit_event.js', () => ({
+  tryEmitEvent: jest.fn(),
+}));
+
 jest.mock('@project-sites/shared', () => {
   const actual = jest.requireActual('@project-sites/shared');
   return { ...actual, sha256Hex: jest.fn().mockResolvedValue('mockhash') };
@@ -39,6 +43,9 @@ import {
 } from '../services/webhook.js';
 import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
+import { tryEmitEvent } from '../services/emit_event.js';
+
+const mockEmit = tryEmitEvent as jest.MockedFunction<typeof tryEmitEvent>;
 
 /**
  * Integration tests for the POST /webhooks/stripe route.
@@ -265,6 +272,32 @@ describe('POST /webhooks/stripe - event processing', () => {
         metadata: { org_id: 'org-2' },
       }),
     );
+  });
+
+  it('checkout.session.completed emits subscription.active (the "Converted" funnel event) with org + amount', async () => {
+    mockCheckoutCompleted.mockResolvedValue(undefined);
+    const app = createApp();
+    const event = makeStripeEvent('checkout.session.completed', {
+      id: 'cs_test_1',
+      mode: 'subscription',
+      payment_status: 'paid',
+      customer: 'cus_1',
+      subscription: 'sub_1',
+      amount_total: 5000,
+      currency: 'usd',
+      metadata: { org_id: 'org-conv' },
+    });
+    const res = await postWebhook(app, event);
+    expect(res.status).toBe(200);
+
+    const conv = mockEmit.mock.calls.find(
+      (call) => (call[1] as { type?: string })?.type === 'subscription.active',
+    );
+    expect(conv).toBeTruthy();
+    const evt = conv![1] as { tenantId: string; producer: string; data: Record<string, unknown> };
+    expect(evt.tenantId).toBe('org-conv');
+    expect(evt.producer).toBe('stripe');
+    expect(evt.data).toMatchObject({ customer: 'cus_1', subscription: 'sub_1' });
   });
 
   it('customer.subscription.deleted calls handleSubscriptionDeleted', async () => {
