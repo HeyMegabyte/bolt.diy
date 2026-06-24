@@ -44,6 +44,7 @@ import {
 } from '@project-sites/shared';
 import { z } from 'zod';
 import { dbQuery, dbInsert, dbUpdate, dbExecute, dbQueryOne } from './db.js';
+import { getEmailProvider } from '../platform/email-router.js';
 import type { Env } from '../types/env.js';
 
 /**
@@ -68,6 +69,21 @@ async function sendEmail(
   env: Env,
   opts: { to: string; subject: string; html: string },
 ): Promise<void> {
+  // ADR-0019 Resend→SES migration: Amazon SES is the PRIMARY transactional rail
+  // the moment it is configured (AWS creds + verified `SES_FROM_EMAIL`), routed
+  // through the shared seam. Resend/SendGrid below remain the fallback until SES
+  // is proven live — progressive degradation by env presence, no feature flag.
+  // Auth emails are sign-in/magic-link, so they route to SES (SES_KINDS).
+  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
+    await getEmailProvider(env).sendTransactional({
+      kind: 'magic-link',
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+    });
+    return;
+  }
+
   if (env.RESEND_API_KEY) {
     try {
       return await sendViaResend(env.RESEND_API_KEY, opts);

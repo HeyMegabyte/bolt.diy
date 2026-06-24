@@ -72,6 +72,24 @@ describe('createMagicLink', () => {
     expect(new Date(result.expires_at).getTime()).toBeGreaterThan(Date.now());
   });
 
+  it('routes the magic-link email through Amazon SES, not Resend, when SES is configured (ADR-0019)', async () => {
+    // SES becomes the PRIMARY transactional rail once AWS creds + verified sender
+    // are present (the §4 Resend→SES cutover). Resend must NOT be touched.
+    const sesEnv = {
+      ...mockEnv,
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+    } as any;
+    await createMagicLink(mockDb, sesEnv, input);
+    const urls = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls.map((c) =>
+      String(c[0]),
+    );
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+  });
+
   it('calls dbInsert on magic_links table', async () => {
     await createMagicLink(mockDb, mockEnv, input);
 
