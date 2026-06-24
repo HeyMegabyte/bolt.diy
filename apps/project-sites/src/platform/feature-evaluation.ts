@@ -30,7 +30,13 @@ import { z } from 'zod';
  * - `DEFAULT` — caller's default returned (Fake provider / unknown to a static map).
  * - `ERROR` — evaluation threw; the caller default was returned.
  */
-export type EvaluationReason = 'TARGETING_MATCH' | 'DISABLED' | 'DEFAULT' | 'STATIC' | 'CACHED' | 'ERROR';
+export type EvaluationReason =
+  | 'TARGETING_MATCH'
+  | 'DISABLED'
+  | 'DEFAULT'
+  | 'STATIC'
+  | 'CACHED'
+  | 'ERROR';
 
 /** OpenFeature error codes (subset). */
 export type EvaluationErrorCode = 'FLAG_NOT_FOUND' | 'TYPE_MISMATCH' | 'GENERAL';
