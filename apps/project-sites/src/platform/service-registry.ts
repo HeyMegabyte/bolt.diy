@@ -343,12 +343,16 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'claim-links-dub',
-    name: 'Dub — claim/referral/campaign links',
+    name: 'claimyour.site claim/referral links — internal (claim_links)',
     domain: 'claimyour.site',
     category: 'edge',
-    runtime: 'managed-saas',
+    runtime: 'cloudflare-worker',
+    ownerPackage: 'apps/project-sites/src/services/claim_links.ts',
+    datastore: ['d1:claim_links'],
     status: 'production',
     access: 'public',
+    notes:
+      'Internal short-token claim links (generateShortToken → claim_links D1 table) on claimyour.site — NOT the Dub API (no DUB_* usage anywhere in src). Click tracked at the /api/claim redirect (markClaimLinkClicked → site.claim.started attribution emit). Dub-the-SaaS could later add click/sale analytics but is not integrated. §43.',
   },
   {
     id: 'authz-port',
