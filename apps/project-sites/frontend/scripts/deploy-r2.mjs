@@ -178,9 +178,29 @@ for (const file of entries) {
     if (!(await sizeMatches(key, local))) failed.push(key);
   }
 }
-if (failed.length) {
-  console.error('Deploy incomplete — failed:', failed.join(', '));
+// Classify failures by blast radius. A failed ENTRY file (index.html / main /
+// polyfills / styles) bricks the shell → hard fail. Every other failure is a
+// content-hashed lazy chunk (e.g. monaco's hundreds of vs/*.js): the worker
+// serves last-known on a miss and the NEXT deploy re-uploads it, so a transient
+// upload miss degrades at most one lazy admin feature — never the shell,
+// marketing, or Worker. Per no-staging-doctrine, a flaky lazy-chunk upload must
+// NOT gate the (separate) Worker deploy. Before this split, a single monaco
+// chunk failing all 4 retries failed the whole job → deploy-staging red →
+// deploy-production (needs: success) skipped → NO prod deploy shipped for weeks.
+const isEntryKey = (k) => {
+  const r = k.replace(/^marketing\//, '');
+  return r === 'index.html' || /^(main|polyfills|styles)-/.test(r);
+};
+const catastrophic = failed.filter(isEntryKey);
+if (catastrophic.length) {
+  console.error('Deploy FAILED — catastrophic entry files missing:', catastrophic.join(', '));
   process.exit(1);
+}
+if (failed.length) {
+  console.warn(
+    `⚠ ${failed.length} non-entry content-hashed asset(s) failed to upload after retries — TOLERATED ` +
+      `(worker serves last-known; next deploy re-uploads). Failed: ${failed.join(', ')}`,
+  );
 }
 
 const apiKey = process.env.CLOUDFLARE_API_KEY;
