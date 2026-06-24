@@ -323,6 +323,31 @@ describe('maybeFireAlerts', () => {
     );
   });
 
+  it('routes a balance_low alert through Amazon SES, not Resend, when SES is configured (ADR-0019)', async () => {
+    const h = makeDb();
+    h.allQueue.push({ results: [alertRow({ threshold_credits: 10 })] });
+    const fetchSpy = jest
+      .fn()
+      .mockResolvedValue(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    await maybeFireAlerts(
+      makeEnv(h.db, {
+        RESEND_API_KEY: 'rk_test',
+        AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+        AWS_SECRET_ACCESS_KEY: 'secret-key',
+        AWS_DEFAULT_REGION: 'us-east-1',
+        SES_FROM_EMAIL: 'noreply@projectsites.dev',
+      }),
+      'org-a',
+      5,
+    );
+
+    const urls = fetchSpy.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+  });
+
   it('does NOT fire balance_low when balance is above threshold', async () => {
     const h = makeDb();
     h.allQueue.push({ results: [alertRow({ threshold_credits: 10 })] });
