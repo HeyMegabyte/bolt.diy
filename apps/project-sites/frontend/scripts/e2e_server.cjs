@@ -954,6 +954,19 @@ async function handleAPI(req, res, urlPath) {
     } });
   }
 
+  // ─── Live Events (Analytics → Live tab) ─────────
+  // The merged Analytics dashboard's "Live Events" tab reads these. Empty
+  // feed + empty circuits = the clean "No events yet" state for the E2E.
+  if (urlPath === '/api/analytics-data' && method === 'GET') {
+    return json(res, { events: [], count: 0, has_more: false });
+  }
+  if (urlPath === '/api/analytics-debug' && method === 'GET') {
+    return json(res, { circuits: {}, queueDepth: 0 });
+  }
+  if (urlPath === '/api/test-event' && method === 'POST') {
+    return json(res, { ok: true, eventId: 'evt-mock-1' });
+  }
+
   // ─── Notifications ──────────────────────────────
 
   if (urlPath === '/api/notifications' && method === 'GET') {
