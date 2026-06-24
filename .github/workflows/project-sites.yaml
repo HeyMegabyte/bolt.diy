@@ -185,6 +185,15 @@ jobs:
           echo "✓ Angular dist contains hashed bundle"
 
       - name: Deploy Angular bundle to R2 (staging)
+        # no-staging-doctrine: the per-file `npx wrangler r2 object put` of ~288
+        # files rate-limits the CF account into total upload failure on the runner
+        # (Uploaded 0/288), which was failing this job → deploy-production skipped →
+        # the WORKER (API code) never shipped. A flaky/rate-limited frontend ASSET
+        # upload must NOT gate the separate Worker deploy. Soft-fail here; the prod
+        # frontend stays on its last-good content-hashed bundle. Root-cause fix
+        # (R2 S3 batch PUT via the existing aws-sigv4 signer, needs R2 S3 secrets)
+        # is tracked separately.
+        continue-on-error: true
         working-directory: apps/project-sites/frontend
         run: node scripts/deploy-r2.mjs staging
         env:
@@ -324,6 +333,13 @@ jobs:
           echo "✓ Angular dist contains hashed bundle"
 
       - name: Deploy Angular bundle to R2 (production)
+        # Soft-fail (same rate-limit root cause as staging above): the prod R2
+        # asset upload must not block the prod WORKER deploy that follows. On a
+        # failed upload the prod frontend stays on its last-good content-hashed
+        # bundle; the Worker (API/auth/integration code) still ships. Deploy the
+        # frontend locally (`npm run deploy:production`, which works off-runner)
+        # until the R2 S3 batch-PUT rewrite lands.
+        continue-on-error: true
         working-directory: apps/project-sites/frontend
         run: node scripts/deploy-r2.mjs production
         env:
