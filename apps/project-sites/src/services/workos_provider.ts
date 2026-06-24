@@ -69,7 +69,8 @@ export class WorkOsEnterpriseIdentityProvider implements IdentityProvider {
       };
     };
     const p = body.profile;
-    if (!p?.id) throw new IdentityProviderError('workos token response missing profile.id', 'workos');
+    if (!p?.id)
+      throw new IdentityProviderError('workos token response missing profile.id', 'workos');
     const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || null;
     return {
       subject: p.id,

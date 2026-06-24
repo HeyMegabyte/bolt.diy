@@ -69,14 +69,26 @@ describe('WorkOsEnterpriseIdentityProvider', () => {
 
   it('builds an org-scoped SSO authorize URL', async () => {
     const p = new WorkOsEnterpriseIdentityProvider({ ...cfg, fetchImpl: fetchSeq() });
-    const url = await p.createLoginUrl({ redirectUri: 'https://x/cb', state: 's', organizationId: 'org_9' });
+    const url = await p.createLoginUrl({
+      redirectUri: 'https://x/cb',
+      state: 's',
+      organizationId: 'org_9',
+    });
     expect(url).toContain('https://api.workos.com/sso/authorize?');
     expect(url).toContain('organization=org_9');
   });
 
   it('maps the SSO profile to a user on callback', async () => {
     const fetchImpl = fetchSeq({
-      json: { profile: { id: 'wos_1', email: 'e@corp.com', first_name: 'E', last_name: 'Corp', organization_id: 'org_9' } },
+      json: {
+        profile: {
+          id: 'wos_1',
+          email: 'e@corp.com',
+          first_name: 'E',
+          last_name: 'Corp',
+          organization_id: 'org_9',
+        },
+      },
     });
     const p = new WorkOsEnterpriseIdentityProvider({ ...cfg, fetchImpl });
     const user = await p.handleCallback({ code: 'c', redirectUri: 'r' });
@@ -91,7 +103,11 @@ describe('WorkOsEnterpriseIdentityProvider', () => {
 });
 
 describe('getIdentityProvider factory (ADR-0006 selection)', () => {
-  const logtoEnv = { LOGTO_ENDPOINT: 'https://t.logto.app', LOGTO_APP_ID: 'a', LOGTO_APP_SECRET: 's' } as Env;
+  const logtoEnv = {
+    LOGTO_ENDPOINT: 'https://t.logto.app',
+    LOGTO_APP_ID: 'a',
+    LOGTO_APP_SECRET: 's',
+  } as Env;
   const workosEnv = { ...logtoEnv, WORKOS_API_KEY: 'k', WORKOS_CLIENT_ID: 'c' } as Env;
 
   it('defaults to Logto when configured', () => {
