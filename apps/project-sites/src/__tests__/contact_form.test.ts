@@ -90,7 +90,11 @@ describe('POST /api/contact-form/:slug — HTML-injection defense', () => {
         AWS_DEFAULT_REGION: 'us-east-1',
         SES_FROM_EMAIL: 'noreply@projectsites.dev',
       }),
-      { name: 'Lead Person', email: 'lead@business.com', message: 'I would like a quote please, thanks.' },
+      {
+        name: 'Lead Person',
+        email: 'lead@business.com',
+        message: 'I would like a quote please, thanks.',
+      },
     );
     expect(res.status).toBe(200);
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
