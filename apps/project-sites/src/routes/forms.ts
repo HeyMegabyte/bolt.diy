@@ -34,6 +34,7 @@ import { requireOwnedSite } from '../services/site_ownership.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
 import * as auditService from '../services/audit.js';
+import { getEmailProvider } from '../platform/email-router.js';
 
 /** Workers AI model used for reply drafting. NEVER use the bare alias. */
 const REPLY_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const;
@@ -760,43 +761,58 @@ forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async
   const to = parsed.override_to ?? submission.email ?? '';
   if (!to) throw badRequest('Submission has no email and no override_to provided');
 
-  if (!c.env.RESEND_API_KEY) {
-    throw badRequest('Email delivery is not configured (RESEND_API_KEY missing)');
-  }
-
+  // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured; the per-site
+  // friendly from-address rides through `from`. Resend stays the fallback until
+  // SES is proven live. Both yield a providerRequestId for the audit trail.
   const fromAddr = `${site.slug} <noreply@projectsites.dev>`;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  let providerRequestId: string | null = null;
+
+  if (c.env.AWS_ACCESS_KEY_ID && c.env.AWS_SECRET_ACCESS_KEY && c.env.SES_FROM_EMAIL) {
+    const sent = await getEmailProvider(c.env).sendTransactional({
+      kind: 'transactional',
       from: fromAddr,
-      to: [to],
+      to,
       subject: parsed.subject,
       html: parsed.body,
-      tags: [
-        { name: 'category', value: 'form_reply' },
-        { name: 'site_slug', value: site.slug },
-      ],
-    }),
-  });
-  const resendRequestId = res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
-  if (!res.ok) {
-    const text = await res.text();
-    console.warn(
-      JSON.stringify({
-        level: 'error',
-        service: 'forms.send_reply',
-        message: 'Resend send failed',
-        status: res.status,
-        body_excerpt: text.slice(0, 400),
-        to,
-        request_id: resendRequestId,
+    });
+    providerRequestId = sent.id;
+  } else {
+    if (!c.env.RESEND_API_KEY) {
+      throw badRequest('Email delivery is not configured (RESEND_API_KEY missing)');
+    }
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddr,
+        to: [to],
+        subject: parsed.subject,
+        html: parsed.body,
+        tags: [
+          { name: 'category', value: 'form_reply' },
+          { name: 'site_slug', value: site.slug },
+        ],
       }),
-    );
-    throw badRequest(`Resend rejected the reply (${res.status})`);
+    });
+    providerRequestId = res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'forms.send_reply',
+          message: 'Resend send failed',
+          status: res.status,
+          body_excerpt: text.slice(0, 400),
+          to,
+          request_id: providerRequestId,
+        }),
+      );
+      throw badRequest(`Resend rejected the reply (${res.status})`);
+    }
   }
   console.warn(
     JSON.stringify({
@@ -806,7 +822,7 @@ forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async
       to,
       site_slug: site.slug,
       submission_id: submission.id,
-      request_id: resendRequestId,
+      request_id: providerRequestId,
     }),
   );
 
@@ -833,7 +849,7 @@ forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async
         form_name: submission.form_name,
         to,
         subject: parsed.subject,
-        resend_request_id: resendRequestId,
+        resend_request_id: providerRequestId,
       },
       request_id: c.get('requestId'),
     }),
@@ -844,7 +860,7 @@ forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async
       sent: true,
       to,
       replied_at: nowIso,
-      resend_request_id: resendRequestId,
+      resend_request_id: providerRequestId,
     },
   });
 });

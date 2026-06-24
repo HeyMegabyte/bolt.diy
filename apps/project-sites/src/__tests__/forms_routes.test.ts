@@ -651,6 +651,29 @@ describe('POST /api/sites/:siteId/form-submissions/:submissionId/send-reply', ()
     expect(mockAudit).toHaveBeenCalledTimes(1);
   });
 
+  it('routes the reply through Amazon SES, not Resend, when SES is configured (ADR-0019)', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(OWNED_SITE).mockResolvedValueOnce(SUBMISSION_ROW);
+    fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    const env = makeEnv({
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+    });
+    const res = await request(
+      makeApp(AUTH),
+      '/api/sites/site-1/form-submissions/sub-1/send-reply',
+      { method: 'POST', body: { subject: 'Re: quote', body: '<p>Thanks!</p>' } },
+      env,
+    );
+    expect(res.status).toBe(200);
+    const urls = fetchSpy.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+  });
+
   it('returns 400 when Resend rejects the send (non-2xx)', async () => {
     mockDbQueryOne.mockResolvedValueOnce(OWNED_SITE).mockResolvedValueOnce(SUBMISSION_ROW);
     fetchSpy = jest
