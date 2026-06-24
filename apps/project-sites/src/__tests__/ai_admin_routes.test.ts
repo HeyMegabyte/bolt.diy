@@ -285,6 +285,30 @@ describe('POST /api/team/invites', () => {
     await req(makeApp(AUTH), 'POST', '/api/team/invites', env, { email: 'x@y.z', role: 'viewer' });
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('routes the invite email through Amazon SES, not Resend, when SES is configured (ADR-0019)', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    global.fetch = fetchMock;
+    const env = makeEnv(
+      makeDb([{ match: 'INSERT INTO team_invites', resp: { run: { success: true } } }]),
+      {
+        AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+        AWS_SECRET_ACCESS_KEY: 'secret-key',
+        AWS_DEFAULT_REGION: 'us-east-1',
+        SES_FROM_EMAIL: 'noreply@projectsites.dev',
+      },
+    );
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/invites', env, {
+      email: 'x@y.z',
+      role: 'viewer',
+    });
+    expect(res.status).toBe(201);
+    const urls = fetchMock.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+  });
 });
 
 describe('DELETE /api/team/invites/:id', () => {

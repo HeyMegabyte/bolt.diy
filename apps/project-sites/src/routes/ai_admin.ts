@@ -79,6 +79,8 @@ import {
 } from '../services/ai_admin_features.js';
 import { safeParseJSONOrNull } from '../utils/safe-parse.js';
 import * as auditService from '../services/audit.js';
+import { escapeHtml } from '@project-sites/shared';
+import { getEmailProvider } from '../platform/email-router.js';
 
 export const aiAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -1382,7 +1384,22 @@ aiAdmin.post('/api/team/invites', async (c) => {
   )
     .bind(id, orgId, email, role, tokenHash, userId, expires)
     .run();
-  if (c.env.RESEND_API_KEY) {
+  // ADR-0019 Resend→SES: team invites route through SES when configured; Resend
+  // stays the fallback. The seam is html-only so the plain-text invite is wrapped
+  // in an escaped <pre>. Fire-and-forget — the invite row is already persisted.
+  const inviteSubject = 'You’ve been invited to a Project Sites team';
+  const inviteText = `You were invited as ${role}. Accept here: https://projectsites.dev/admin/accept-invite?token=${token}`;
+  if (c.env.AWS_ACCESS_KEY_ID && c.env.AWS_SECRET_ACCESS_KEY && c.env.SES_FROM_EMAIL) {
+    await getEmailProvider(c.env)
+      .sendTransactional({
+        kind: 'transactional',
+        from: 'team@projectsites.dev',
+        to: email,
+        subject: inviteSubject,
+        html: `<pre>${escapeHtml(inviteText)}</pre>`,
+      })
+      .catch(() => {});
+  } else if (c.env.RESEND_API_KEY) {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -1392,8 +1409,8 @@ aiAdmin.post('/api/team/invites', async (c) => {
       body: JSON.stringify({
         from: 'team@projectsites.dev',
         to: [email],
-        subject: 'You’ve been invited to a Project Sites team',
-        text: `You were invited as ${role}. Accept here: https://projectsites.dev/admin/accept-invite?token=${token}`,
+        subject: inviteSubject,
+        text: inviteText,
       }),
     }).catch(() => {});
   }
