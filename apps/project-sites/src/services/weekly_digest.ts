@@ -20,6 +20,7 @@
 
 import { escapeHtml } from '@project-sites/shared';
 import { dbQuery, dbQueryOne, dbInsert } from './db.js';
+import { getEmailProvider } from '../platform/email-router.js';
 import type { Env } from '../types/env.js';
 
 /**
@@ -363,10 +364,42 @@ export async function sendWeeklyDigestForOrg(
     dashboardUrl,
   });
 
-  // Send via Resend (preferred) or SendGrid fallback. We inline the request
-  // here rather than reusing notifications.ts's private helper so callers
-  // can mock fetch directly.
-  if (env.RESEND_API_KEY) {
+  // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured. The digest is a
+  // single-recipient lifecycle email, so it goes through the transactional seam
+  // (Listmonk's MarketingEmailProvider only does campaigns, not single sends). The
+  // List-Unsubscribe one-click headers ride through SES Content.Simple.Headers.
+  // Resend/SendGrid stay fallback until SES is proven live; we inline those here
+  // so callers can mock fetch directly.
+  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
+    try {
+      await getEmailProvider(env).sendTransactional({
+        // A weekly digest is a SINGLE personalized per-owner send, not a bulk
+        // campaign — sendTransactional rejects bulk kinds (lifecycle/newsletter/
+        // campaign), and Listmonk's MarketingEmailProvider only does campaigns,
+        // not single sends. So it rides the transactional rail; the List-Unsubscribe
+        // headers below keep it one-click-unsubscribe compliant.
+        kind: 'transactional',
+        from: 'Project Sites <noreply@projectsites.dev>',
+        to: owner.email,
+        subject: `Weekly digest · ${org.name}`,
+        html,
+        headers: {
+          'List-Unsubscribe': `<${unsubscribeUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      });
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'weekly_digest',
+          message: 'ses failed',
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return { sent: false, reason: 'ses_error' };
+    }
+  } else if (env.RESEND_API_KEY) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {

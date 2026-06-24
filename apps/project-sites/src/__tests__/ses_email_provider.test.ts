@@ -60,6 +60,31 @@ describe('AmazonSesEmailProvider', () => {
     expect(body.ReplyToAddresses).toEqual(['lead@business.com']);
   });
 
+  it('maps custom headers into SES Content.Simple.Headers (List-Unsubscribe one-click)', async () => {
+    const f = fakeFetch();
+    const p = new AmazonSesEmailProvider(goodEnv, { fetchImpl: f, now: fixedNow });
+    await p.sendTransactional({
+      ...send,
+      headers: {
+        'List-Unsubscribe': '<https://projectsites.dev/u?t=abc>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    });
+    const body = JSON.parse(f.calls[0].init.body as string);
+    expect(body.Content.Simple.Headers).toEqual([
+      { Name: 'List-Unsubscribe', Value: '<https://projectsites.dev/u?t=abc>' },
+      { Name: 'List-Unsubscribe-Post', Value: 'List-Unsubscribe=One-Click' },
+    ]);
+  });
+
+  it('omits Content.Simple.Headers entirely when no custom headers are passed', async () => {
+    const f = fakeFetch();
+    const p = new AmazonSesEmailProvider(goodEnv, { fetchImpl: f, now: fixedNow });
+    await p.sendTransactional(send);
+    const body = JSON.parse(f.calls[0].init.body as string);
+    expect(body.Content.Simple.Headers).toBeUndefined();
+  });
+
   it('throws on non-2xx with the SES error body', async () => {
     const p = new AmazonSesEmailProvider(goodEnv, {
       fetchImpl: fakeFetch(422, { message: 'bad' }),

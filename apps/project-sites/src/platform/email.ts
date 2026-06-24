@@ -38,6 +38,10 @@ export interface SendEmailInput {
   /** Reply-To address — e.g. a contact-form submitter so the brand can reply
    * directly to the lead. Optional; only the SES rail honours it today. */
   readonly replyTo?: string;
+  /** Extra MIME headers (e.g. `List-Unsubscribe` + `List-Unsubscribe-Post` for
+   * one-click unsubscribe on lifecycle/digest mail). Optional; the SES rail maps
+   * these to `Content.Simple.Headers`. */
+  readonly headers?: Readonly<Record<string, string>>;
   readonly kind: EmailKind;
   readonly tenantId?: string;
   /** Dedupe key — providers/log dedupe on this (§23). */

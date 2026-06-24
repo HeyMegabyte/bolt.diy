@@ -395,6 +395,31 @@ describe('sendWeeklyDigestForOrg (send paths)', () => {
     );
   });
 
+  it('routes the digest through Amazon SES with one-click List-Unsubscribe headers when SES is configured (ADR-0019)', async () => {
+    primeHappyReads();
+    mockFetch.mockResolvedValueOnce(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    const out = await sendWeeklyDigestForOrg(
+      makeEnv({
+        AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+        AWS_SECRET_ACCESS_KEY: 'secret-key',
+        AWS_DEFAULT_REGION: 'us-east-1',
+        SES_FROM_EMAIL: 'noreply@projectsites.dev',
+      }),
+      mockDb,
+      { id: 'org-9', name: 'Acme', digest_opt_out: 0 },
+      new Date('2026-05-25T14:00:00Z'),
+    );
+    expect(out).toEqual({ sent: true });
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('amazonaws.com');
+    const body = JSON.parse(init.body as string);
+    const headers = body.Content.Simple.Headers as Array<{ Name: string; Value: string }>;
+    expect(headers.find((h) => h.Name === 'List-Unsubscribe')?.Value).toMatch(
+      /^<https:\/\/projectsites\.dev\/api\/email\/unsubscribe\?token=/,
+    );
+    expect(headers.some((h) => h.Name === 'List-Unsubscribe-Post')).toBe(true);
+  });
+
   it('returns resend_<status> and does NOT write the idempotency row on a non-2xx', async () => {
     primeHappyReads();
     mockFetch.mockResolvedValueOnce(res(false, { status: 429, text: 'rate limited' }));

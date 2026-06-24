@@ -78,6 +78,9 @@ export class AmazonSesEmailProvider implements EmailProvider {
 
     const region = this.env.AWS_DEFAULT_REGION || 'us-east-1';
     const url = `https://email.${region}.amazonaws.com/v2/email/outbound-emails`;
+    const extraHeaders = input.headers
+      ? Object.entries(input.headers).map(([Name, Value]) => ({ Name, Value: String(Value) }))
+      : [];
     const body = JSON.stringify({
       FromEmailAddress: from,
       Destination: { ToAddresses: recipients },
@@ -86,6 +89,7 @@ export class AmazonSesEmailProvider implements EmailProvider {
         Simple: {
           Subject: { Data: input.subject, Charset: 'UTF-8' },
           Body: { Html: { Data: input.html, Charset: 'UTF-8' } },
+          ...(extraHeaders.length ? { Headers: extraHeaders } : {}),
         },
       },
     });
