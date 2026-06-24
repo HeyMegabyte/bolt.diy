@@ -27,6 +27,13 @@ jest.mock('../services/db.js', () => ({
   dbInsert: jest.fn(),
 }));
 
+// Pin the §42 suppression check off — the digest's mocked dbQueryOne queue would
+// otherwise be consumed by isSuppressed and the send read as suppressed.
+jest.mock('../services/email_suppressions.js', () => ({
+  isSuppressed: jest.fn(async () => false),
+  recordSuppressions: jest.fn(async () => ({ suppressed: 0 })),
+}));
+
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import {
   isoWeekString,

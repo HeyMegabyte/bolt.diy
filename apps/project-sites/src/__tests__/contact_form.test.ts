@@ -6,6 +6,14 @@
  * otherwise a submitter injects markup (`<a href>`, `<script>`) into the email
  * the owner receives (phishing-the-owner via their own contact form).
  */
+// The broad D1 stub returns a row for every query; without this the §42
+// suppression check (email-router) would read it as "suppressed" and skip the
+// send. Pin isSuppressed → false so these tests exercise the SES-routing path.
+jest.mock('../services/email_suppressions.js', () => ({
+  isSuppressed: jest.fn(async () => false),
+  recordSuppressions: jest.fn(async () => ({ suppressed: 0 })),
+}));
+
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';

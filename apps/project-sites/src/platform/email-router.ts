@@ -27,6 +27,7 @@ import {
 } from './email.js';
 import { AmazonSesEmailProvider } from '../services/ses_email_provider.js';
 import { ListmonkMarketingEmailProvider } from '../services/listmonk_email_provider.js';
+import { isSuppressed } from '../services/email_suppressions.js';
 
 /** Injectable rails (each defaults to an env-bound real-or-fake provider). */
 export interface EmailDeps {
@@ -73,6 +74,28 @@ export function getEmailProvider(env: Env, deps: EmailDeps = {}): EmailRouter {
         throw new Error(
           `"${input.kind}" is a bulk kind — use the marketing campaign API, not sendTransactional`,
         );
+      }
+      // §42 suppression enforcement (ADR-0019): never re-send to a hard-bounced
+      // or complained address. FAIL-OPEN — a suppression-lookup failure (or no
+      // DB binding) must NEVER block a legitimate send, so the check is wrapped
+      // and any error proceeds to the send.
+      const to = Array.isArray(input.to) ? input.to[0] : input.to;
+      if (to && env.DB) {
+        try {
+          if (await isSuppressed(env.DB, to)) {
+            console.warn(
+              JSON.stringify({
+                level: 'info',
+                service: 'email',
+                message: 'send_skipped_suppressed',
+                kind: input.kind,
+              }),
+            );
+            return { id: `suppressed:${to}`, accepted: false };
+          }
+        } catch {
+          // fail-open: proceed to send.
+        }
       }
       return transactional.sendTransactional(input);
     },

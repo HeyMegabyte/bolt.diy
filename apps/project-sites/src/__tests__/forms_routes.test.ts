@@ -42,6 +42,13 @@ jest.mock('../modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn().mockResolvedValue(false),
 }));
 
+// Pin the §42 suppression check off so the SES-routing assertions exercise the
+// send path (the broad D1 stub would otherwise read as "suppressed").
+jest.mock('../services/email_suppressions.js', () => ({
+  isSuppressed: jest.fn(async () => false),
+  recordSuppressions: jest.fn(async () => ({ suppressed: 0 })),
+}));
+
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
