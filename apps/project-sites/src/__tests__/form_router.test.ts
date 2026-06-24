@@ -297,7 +297,9 @@ describe('executeRouterAction', () => {
       tool: 'send_email',
       args: { subject: '[contact] hello', body: 'Name: Jane', reply_to: 'jane@x.co' },
     };
-    const res = await executeRouterAction(sesEnv, 'site-1', action, { replyEmail: 'owner@acme.co' });
+    const res = await executeRouterAction(sesEnv, 'site-1', action, {
+      replyEmail: 'owner@acme.co',
+    });
 
     const urls = mockFetch.mock.calls.map((call: unknown[]) => String(call[0]));
     expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
