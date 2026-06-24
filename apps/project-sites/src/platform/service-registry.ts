@@ -264,10 +264,10 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     category: 'email',
     runtime: 'library',
     ownerPackage: 'apps/project-sites/src/platform/email.ts',
-    status: 'scaffolded',
+    status: 'integrated',
     access: 'service-only',
     notes:
-      'Port + routing + fakes; real AmazonSesEmailProvider (SigV4) + Listmonk adapter are follow-on. The seam the Resend call sites migrate onto. ADR-0019.',
+      'Port + routing + fakes + AmazonSesEmailProvider + Listmonk adapter all built. All 10 transactional senders migrated onto the seam (SES-primary, progressive degradation by env). Port gained replyTo + headers (one-click List-Unsubscribe). ADR-0019.',
   },
   {
     id: 'email-ses',
@@ -276,10 +276,10 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     runtime: 'managed-saas',
     adapterPackage: 'apps/project-sites/src/services/ses_email_provider.ts',
     secretsNamespace: '/email',
-    status: 'scaffolded',
+    status: 'integrated',
     access: 'service-only',
     notes:
-      'AmazonSesEmailProvider built (SigV4 via platform/aws-sigv4, vector-verified); needs AWS_* secrets + wiring behind email.ses.enabled. Replaces Resend per ADR-0019.',
+      'AmazonSesEmailProvider wired as the PRIMARY transactional rail across all 10 senders (progressive degradation by env, no flag) + the bounce/complaint suppression pipeline (ses_notifications + email_suppressions + /webhooks/ses). Needs AWS_* + SES_FROM_EMAIL prod secrets to go live — see docs/runbooks/email-deliverability-activation.md. Replaces Resend per ADR-0019.',
   },
   {
     id: 'email-listmonk',
