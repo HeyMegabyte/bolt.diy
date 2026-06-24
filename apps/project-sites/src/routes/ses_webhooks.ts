@@ -33,8 +33,7 @@ sesWebhooks.post('/webhooks/ses', async (c) => {
   if (!secret) return c.json({ error: 'ses_webhook_not_configured' }, 503);
 
   const raw = await c.req.text();
-  const signature =
-    c.req.header('x-hookdeck-signature') ?? c.req.header('x-signature') ?? '';
+  const signature = c.req.header('x-hookdeck-signature') ?? c.req.header('x-signature') ?? '';
   const verified = await verifyHmacSignature(raw, signature, secret);
   if (!verified.valid) return c.json({ error: 'invalid_signature' }, 401);
 

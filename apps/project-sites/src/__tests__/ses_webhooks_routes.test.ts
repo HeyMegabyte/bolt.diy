@@ -28,7 +28,11 @@ async function post(body: string, opts: { sig?: string; env?: Env } = {}) {
   const sig = opts.sig ?? (await hmacSha256(SECRET, body));
   return app.request(
     '/webhooks/ses',
-    { method: 'POST', headers: { 'x-hookdeck-signature': sig, 'content-type': 'application/json' }, body },
+    {
+      method: 'POST',
+      headers: { 'x-hookdeck-signature': sig, 'content-type': 'application/json' },
+      body,
+    },
     opts.env ?? makeEnv(),
   );
 }
@@ -97,7 +101,9 @@ describe('POST /webhooks/ses', () => {
   });
 
   it('returns 200 with zero suppressions for a delivery notification', async () => {
-    const res = await post(JSON.stringify({ notificationType: 'Delivery', mail: { messageId: 'm2' } }));
+    const res = await post(
+      JSON.stringify({ notificationType: 'Delivery', mail: { messageId: 'm2' } }),
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: 'ok', parsed: 0, suppressed: 0 });
     expect(mockRecord).not.toHaveBeenCalled();
