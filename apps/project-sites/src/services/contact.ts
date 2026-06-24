@@ -11,6 +11,7 @@
 import { BRAND, contactFormSchema, badRequest, escapeHtml } from '@project-sites/shared';
 import type { ContactForm } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
+import { getEmailProvider } from '../platform/email-router.js';
 import { log } from '../lib/log.js';
 
 const contactLog = log.child('contact');
@@ -84,6 +85,21 @@ async function sendViaSendGrid(apiKey: string, opts: EmailOpts): Promise<void> {
 }
 
 async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
+  // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured (AWS creds +
+  // verified sender). `replyTo` (the contact-form submitter) rides through so
+  // the brand can reply straight to the lead. Resend/SendGrid stay fallback
+  // until SES is proven live — progressive degradation by env, no flag.
+  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
+    await getEmailProvider(env).sendTransactional({
+      kind: 'transactional',
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+      replyTo: opts.replyTo,
+    });
+    return;
+  }
+
   if (env.RESEND_API_KEY) {
     try {
       return await sendViaResend(env.RESEND_API_KEY, opts);

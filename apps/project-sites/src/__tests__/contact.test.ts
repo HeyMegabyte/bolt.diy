@@ -55,6 +55,25 @@ describe('handleContactForm – valid submission', () => {
     expect(secondBody.subject).toContain('received your message');
   });
 
+  it('routes both emails through Amazon SES with reply-to preserved when SES is configured (ADR-0019)', async () => {
+    const sesEnv = {
+      ...mockEnv,
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+    } as any;
+    await handleContactForm(sesEnv, validInput);
+
+    const urls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(urls.every((u: string) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u: string) => u.includes('api.resend.com'))).toBe(false);
+    // The brand-notification email must preserve reply-to → the lead so the
+    // business can respond directly (SES ReplyToAddresses, not dropped).
+    const notifBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(notifBody.ReplyToAddresses).toEqual(['jane@example.com']);
+  });
+
   it('works without a phone number', async () => {
     const input = { name: 'Bob', email: 'bob@test.com', message: 'This is my test message.' };
     await handleContactForm(mockEnv, input);
