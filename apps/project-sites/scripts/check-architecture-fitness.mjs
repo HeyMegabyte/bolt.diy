@@ -60,6 +60,17 @@ const RULES = [
   { vendor: 'zerobounce', pattern: /zerobounce/i, documented: null },
   { vendor: 'lakera', pattern: /lakera\.ai|lakera-guard|@lakera\b/i, documented: null },
   { vendor: 'openfda', pattern: /\bopenfda\b|api\.fda\.gov/i, documented: null },
+  // §4 CONDITIONAL exclusions — banned only in a specific role (PayPal as the
+  // PRIMARY rail, Vercel/Cloud Run as the DEFAULT host/compute, Firecrawl as
+  // CORE infra). Intent isn't regex-detectable, so these are tracked/advisory
+  // (documented set → non-blocking): a hit surfaces for human review of whether
+  // it's the banned role, never auto-fails CI. Patterns target the deploy/SDK
+  // surface, not the English word. Firecrawl is explicitly allowed ONLY as an
+  // optional flag-gated fallback adapter — advisory confirms it stays that way.
+  { vendor: 'paypal', pattern: /@paypal\b|paypal\.com\/sdk|paypal-rest-sdk|checkout\.paypal/i, documented: 'conditional-§4' },
+  { vendor: 'vercel-host', pattern: /\bvercel\.app\b|@vercel\/(node|edge)\b/i, documented: 'conditional-§4' },
+  { vendor: 'cloud-run', pattern: /run\.googleapis\.com|\bgcr\.io\b/i, documented: 'conditional-§4' },
+  { vendor: 'firecrawl-core', pattern: /firecrawl/i, documented: 'conditional-§4' },
 ];
 
 /**
