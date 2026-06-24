@@ -184,7 +184,14 @@ export class FakeTracerProvider implements TracerProvider {
   getTracer(scope: string): Tracer {
     return {
       startSpan: (name, options = {}) =>
-        new RecordingSpan(name, scope, options, options.startTimeMs ?? 0, (s) => this.spans.push(s), 0),
+        new RecordingSpan(
+          name,
+          scope,
+          options,
+          options.startTimeMs ?? 0,
+          (s) => this.spans.push(s),
+          0,
+        ),
     };
   }
   async flush(): Promise<void> {}

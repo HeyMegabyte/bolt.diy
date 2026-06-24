@@ -68,7 +68,10 @@ describe('FakeTracerProvider', () => {
 
 describe('parseOtlpHeaders', () => {
   it('parses k=v,k2=v2 and ignores malformed', () => {
-    expect(parseOtlpHeaders('x-team=abc, x-ds=prod ,bad')).toEqual({ 'x-team': 'abc', 'x-ds': 'prod' });
+    expect(parseOtlpHeaders('x-team=abc, x-ds=prod ,bad')).toEqual({
+      'x-team': 'abc',
+      'x-ds': 'prod',
+    });
   });
   it('returns {} for undefined', () => {
     expect(parseOtlpHeaders(undefined)).toEqual({});
@@ -91,7 +94,10 @@ describe('buildOtlpPayload', () => {
       },
     ]);
     const rs = payload.resourceSpans[0];
-    expect(rs.resource.attributes[0]).toEqual({ key: 'service.name', value: { stringValue: 'project-sites' } });
+    expect(rs.resource.attributes[0]).toEqual({
+      key: 'service.name',
+      value: { stringValue: 'project-sites' },
+    });
     const span = rs.scopeSpans[0].spans[0];
     expect(span.kind).toBe(2); // server
     expect(span.status.code).toBe(1); // ok
@@ -111,7 +117,10 @@ describe('OtlpTracerProvider', () => {
       calls.push({ url, body: JSON.parse(String(init?.body)) });
       return new Response('{}', { status: 200 });
     }) as unknown as typeof fetch;
-    const tp = new OtlpTracerProvider({ endpoint: 'https://otlp.example/v1/traces', headers: { 'x-k': 'v' } }, fakeFetch);
+    const tp = new OtlpTracerProvider(
+      { endpoint: 'https://otlp.example/v1/traces', headers: { 'x-k': 'v' } },
+      fakeFetch,
+    );
     tp.getTracer('svc').startSpan('op').setStatus('ok').end();
     await tp.flush();
     expect(calls).toHaveLength(1);
@@ -134,7 +143,9 @@ describe('OtlpTracerProvider', () => {
 
 describe('getTracerProvider', () => {
   it('returns OTLP provider when a valid endpoint is set', () => {
-    const tp = getTracerProvider({ OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otlp.example/v1/traces' } as never);
+    const tp = getTracerProvider({
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otlp.example/v1/traces',
+    } as never);
     expect(tp).toBeInstanceOf(OtlpTracerProvider);
   });
   it('returns Noop (ships dark) when endpoint is unset or invalid', () => {
