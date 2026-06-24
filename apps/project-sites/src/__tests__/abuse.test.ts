@@ -5,11 +5,7 @@
  * fails OPEN (AllowAll) when ARCJET_KEY is unset.
  */
 import { Hono } from 'hono';
-import {
-  FakeAbuseProvider,
-  AllowAllAbuseProvider,
-  type AbuseProvider,
-} from '../platform/abuse.js';
+import { FakeAbuseProvider, AllowAllAbuseProvider, type AbuseProvider } from '../platform/abuse.js';
 import { getAbuseProvider, requireNotAbusive } from '../middleware/abuse.js';
 import type { Env, Variables } from '../types/env.js';
 
@@ -19,7 +15,11 @@ function appWith(provider: AbuseProvider) {
     c.set('requestId', 'req-1');
     await next();
   });
-  app.post('/api/claim/x', requireNotAbusive('claim', () => provider), (c) => c.json({ ok: true }));
+  app.post(
+    '/api/claim/x',
+    requireNotAbusive('claim', () => provider),
+    (c) => c.json({ ok: true }),
+  );
   return app;
 }
 
