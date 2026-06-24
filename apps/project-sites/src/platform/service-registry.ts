@@ -339,6 +339,15 @@ export const EXCLUDED_VENDORS: readonly string[] = [
   'speakeasy',
   'knock',
   'braintrust',
+  'aikido',
+  'dataforseo',
+  'zerobounce',
+  'lakera',
+  'openfda',
+  // NOTE: Hunter.io is on the §4 exclude list but is a LIVE env binding today
+  // (HUNTER_API_KEY in src/types/env.ts for lead-engine email discovery). It is
+  // intentionally NOT gated here — gating a working integration would be a
+  // false positive. Migrate the lead engine off it before adding a hard rule.
 ] as const;
 
 /** Look up a service by id. */

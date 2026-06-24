@@ -53,6 +53,13 @@ const RULES = [
   { vendor: 'speakeasy', pattern: /@speakeasy-api\b|\bspeakeasyapi\b|speakeasy\.com/i, documented: null },
   { vendor: 'knock', pattern: /@knocklabs\b|knock\.app/i, documented: null },
   { vendor: 'braintrust', pattern: /@braintrust\b|braintrust\.dev|braintrustdata/i, documented: null },
+  // §4 lead-engine / supply-chain exclusions — disambiguated to the SDK/domain
+  // (NOT the English words "aikido"/"hunter"/"lakera") to keep false positives at zero.
+  { vendor: 'aikido', pattern: /aikido\.dev|@aikidosec/i, documented: null },
+  { vendor: 'dataforseo', pattern: /dataforseo/i, documented: null },
+  { vendor: 'zerobounce', pattern: /zerobounce/i, documented: null },
+  { vendor: 'lakera', pattern: /lakera\.ai|lakera-guard|@lakera\b/i, documented: null },
+  { vendor: 'openfda', pattern: /\bopenfda\b|api\.fda\.gov/i, documented: null },
 ];
 
 /**
