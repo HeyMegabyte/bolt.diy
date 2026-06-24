@@ -284,6 +284,29 @@ describe('executeRouterAction', () => {
     expect(mockExecuteTool).not.toHaveBeenCalled();
   });
 
+  it('routes send_email through Amazon SES, not Resend, when SES is configured (ADR-0019)', async () => {
+    const sesEnv = {
+      RESEND_API_KEY: 'resend-test-key',
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+    } as any;
+    mockFetch.mockResolvedValue(new Response('{"MessageId":"ses-1"}', { status: 200 }));
+    const action: RouterAction = {
+      tool: 'send_email',
+      args: { subject: '[contact] hello', body: 'Name: Jane', reply_to: 'jane@x.co' },
+    };
+    const res = await executeRouterAction(sesEnv, 'site-1', action, { replyEmail: 'owner@acme.co' });
+
+    const urls = mockFetch.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
+    const sesBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(sesBody.ReplyToAddresses).toEqual(['jane@x.co']);
+    expect(res).toEqual({ tool: 'send_email', status: 'ok', detail: { to: 'owner@acme.co' } });
+  });
+
   it('defaults subject and body when send_email args are missing', async () => {
     const res = await executeRouterAction(
       baseEnv,

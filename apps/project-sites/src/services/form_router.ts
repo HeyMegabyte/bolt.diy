@@ -6,7 +6,9 @@
  * The prompt placeholder mentions it can be prompted to handle different
  * form_names differently (e.g. newsletter → mailchimp, contact → email).
  */
+import { escapeHtml } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
+import { getEmailProvider } from '../platform/email-router.js';
 import { loadAvailableTools, executeTool, type ToolDescriptor } from './mcp_client.js';
 import { resolveTemplate, type TemplateContext } from './template.js';
 
@@ -341,25 +343,55 @@ export async function executeRouterAction(
   }
   // Built-in send_email fallback: if there's no Resend MCP, send via the
   // worker's RESEND_API_KEY to the configured reply_email.
-  if (action.tool === 'send_email' && fallback.replyEmail && env.RESEND_API_KEY) {
+  if (action.tool === 'send_email' && fallback.replyEmail) {
     const args = action.args ?? {};
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'noreply@projectsites.dev',
-        to: [fallback.replyEmail],
-        reply_to: args['reply_to'] ?? undefined,
-        subject: String(args['subject'] ?? 'New form submission'),
-        text: String(args['body'] ?? JSON.stringify(args, null, 2)),
-      }),
-    });
-    return res.ok
-      ? { tool: 'send_email', status: 'ok', detail: { to: fallback.replyEmail } }
-      : { tool: 'send_email', status: 'error', detail: {}, error: `resend ${res.status}` };
+    const subject = String(args['subject'] ?? 'New form submission');
+    const text = String(args['body'] ?? JSON.stringify(args, null, 2));
+    const replyTo = typeof args['reply_to'] === 'string' ? args['reply_to'] : undefined;
+
+    // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured. The seam is
+    // html-only, so the plain-text body is wrapped in an escaped <pre>. Resend
+    // stays the fallback until SES is proven live; if neither is configured the
+    // block falls through to the MCP executeTool path below.
+    if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
+      try {
+        await getEmailProvider(env).sendTransactional({
+          kind: 'transactional',
+          to: fallback.replyEmail,
+          replyTo,
+          subject,
+          html: `<pre>${escapeHtml(text)}</pre>`,
+        });
+        return { tool: 'send_email', status: 'ok', detail: { to: fallback.replyEmail } };
+      } catch (err) {
+        return {
+          tool: 'send_email',
+          status: 'error',
+          detail: {},
+          error: `ses ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+
+    if (env.RESEND_API_KEY) {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'noreply@projectsites.dev',
+          to: [fallback.replyEmail],
+          reply_to: replyTo,
+          subject,
+          text,
+        }),
+      });
+      return res.ok
+        ? { tool: 'send_email', status: 'ok', detail: { to: fallback.replyEmail } }
+        : { tool: 'send_email', status: 'error', detail: {}, error: `resend ${res.status}` };
+    }
   }
   const result = await executeTool(env, siteId, {
     name: action.tool,
