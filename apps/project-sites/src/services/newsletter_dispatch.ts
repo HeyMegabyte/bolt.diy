@@ -241,6 +241,10 @@ async function dispatchKlaviyo(s: DispatchSubmission, row: IntegrationRow): Prom
 
 // ── Resend Audiences ─────────────────────────────────────────
 async function dispatchResend(s: DispatchSubmission, row: IntegrationRow): Promise<void> {
+  // §4/ADR-0019 EXEMPT: customer-connected Resend Audiences integration — the API
+  // key comes from the customer's integration row (`requireApiKey(row)`), syncing a
+  // subscriber into THEIR Resend audience. Not our platform email; do NOT migrate
+  // to SES/Listmonk. (§4 bans Resend as our rail, not as a customer integration.)
   const apiKey = requireApiKey(row);
   const audience = requireList(row);
   const email = requireEmail(s);

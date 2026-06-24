@@ -308,6 +308,10 @@ const resend: ProviderAdapter = {
   },
   async execute(_env, { tool, args, accessToken }) {
     if (tool !== 'send_email') return { ok: false, error: 'unknown tool' };
+    // §4/ADR-0019 EXEMPT: this is the customer-connected Resend MCP integration —
+    // it sends through the CUSTOMER's own Resend account (their `accessToken`), NOT
+    // our platform email. The §4 Resend exclusion bans Resend as OUR transactional
+    // rail, never as a customer-selectable MCP provider. Do NOT "cut this over".
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
