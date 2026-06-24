@@ -13,6 +13,7 @@ jest.mock('../middleware/identity.js', () => ({ getIdentityProvider: jest.fn() }
 jest.mock('../services/auth.js', () => ({ findOrCreateUser: jest.fn(), createSession: jest.fn() }));
 jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn() }));
 
+import { Hono } from 'hono';
 import { authIdp } from '../routes/auth_idp.js';
 import { getIdentityProvider } from '../middleware/identity.js';
 import { findOrCreateUser, createSession } from '../services/auth.js';
@@ -120,5 +121,45 @@ describe('GET /api/auth/:provider/callback', () => {
     const kv = makeKv({ 'authstate:s1': 'logto' });
     const res = await authIdp.request('/api/auth/logto/callback?code=c1&state=s1', {}, env(kv));
     expect(res.headers.get('location')).toBe('/?error=auth_failed');
+  });
+});
+
+/**
+ * Regression: the `:provider/callback` wildcard is mounted BEFORE the `api` router's
+ * dedicated `/api/auth/google/callback` in `index.ts`. It MUST fall through (not 404)
+ * for non-Logto/WorkOS providers, or every Google sign-in dies on the SPA 404 page.
+ * Reproduces the prod incident where Google OAuth callbacks returned 404.
+ */
+describe('non-IdP provider fall-through (shadow regression)', () => {
+  function composite() {
+    const app = new Hono();
+    app.route('/', authIdp); // wildcard :provider routes registered first (as in index.ts)
+    app.get('/api/auth/google/callback', (c) => c.text('google-handled', 200));
+    app.get('/api/auth/github/callback', (c) => c.text('github-handled', 200));
+    return app;
+  }
+
+  it('callback falls through to the downstream Google handler instead of 404', async () => {
+    const res = await composite().request('/api/auth/google/callback?code=c&state=s', {}, env());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('google-handled');
+  });
+
+  it('callback falls through to the downstream GitHub handler', async () => {
+    const res = await composite().request('/api/auth/github/callback?code=c&state=s', {}, env());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('github-handled');
+  });
+
+  it('still handles its own logto callback (does not fall through)', async () => {
+    const kv = makeKv({ 'authstate:s1': 'logto' });
+    const res = await composite().request('/api/auth/logto/callback?code=c1&state=s1', {}, env(kv));
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location') ?? '').toContain('token=sess_abc');
+  });
+
+  it('genuinely unknown provider with no downstream handler still 404s', async () => {
+    const res = await composite().request('/api/auth/bogus/callback?code=c&state=s', {}, env());
+    expect(res.status).toBe(404);
   });
 });

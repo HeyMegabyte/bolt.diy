@@ -34,9 +34,12 @@ function callbackUri(reqUrl: string, provider: string): string {
 }
 
 /** Start an IdP login → 302 to the provider authorize URL. */
-authIdp.get('/api/auth/:provider/login', async (c) => {
+authIdp.get('/api/auth/:provider/login', async (c, next) => {
   const provider = c.req.param('provider');
-  if (!PROVIDERS.has(provider)) return c.notFound();
+  // Only Logto/WorkOS are handled here. Any other provider (e.g. google, github)
+  // must fall through to its dedicated handler in the `api` router — this route's
+  // `:provider` wildcard would otherwise shadow them (registered first wins in Hono).
+  if (!PROVIDERS.has(provider)) return next();
   const idp = getIdentityProvider(c.env, { enterprise: provider === 'workos' });
   if (!idp) {
     return c.json(
@@ -55,9 +58,12 @@ authIdp.get('/api/auth/:provider/login', async (c) => {
 });
 
 /** IdP callback → verify state → exchange code → issue our D1 session. */
-authIdp.get('/api/auth/:provider/callback', async (c) => {
+authIdp.get('/api/auth/:provider/callback', async (c, next) => {
   const provider = c.req.param('provider');
-  if (!PROVIDERS.has(provider)) return c.notFound();
+  // Fall through (don't 404) for non-Logto/WorkOS providers so the dedicated
+  // Google/GitHub OAuth callbacks in the `api` router can handle them. This route
+  // is mounted before `api`, so returning here would shadow `/api/auth/google/callback`.
+  if (!PROVIDERS.has(provider)) return next();
   const code = c.req.query('code');
   const state = c.req.query('state');
   if (!code || !state) return c.redirect('/?error=missing_code');
