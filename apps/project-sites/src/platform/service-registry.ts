@@ -356,10 +356,10 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     category: 'authz',
     runtime: 'library',
     ownerPackage: 'apps/project-sites/src/platform/authorization.ts',
-    status: 'scaffolded',
+    status: 'integrated',
     access: 'service-only',
     notes:
-      'Port + Fake + DenyAll + OpenFgaAuthorizationProvider (REST adapter) + requireAuthz middleware + getAuthorizationProvider(env) factory. Remaining: relationship bootstrap on tenant/site create + guarding live routes. ADR-0005.',
+      'Port + Fake + DenyAll + OpenFgaAuthorizationProvider (REST adapter) + requireAuthz middleware + getAuthorizationProvider(env) factory, all tested. Relationship bootstrap LIVE: grantSiteOwner fires on site_create (fail-soft, tested). Remaining: extend requireAuthz to more privileged mutation routes (currently org-membership-gated). ADR-0005.',
   },
 ] as const;
 
