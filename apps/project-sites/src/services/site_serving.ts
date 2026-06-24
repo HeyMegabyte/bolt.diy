@@ -435,12 +435,12 @@ export async function resolveSite(
         };
 
         // Fire-and-forget: a cache write must NEVER break serving. On the KV daily
-      // put-limit (or any quota error) the bare await threw → resolveSite 500'd
-      // every generated site (2026-06-24). Swallow — a failed write just means a
-      // cache miss next request, not an outage. Per fail-fast-build-fail-soft-prod.
-      await env.CACHE_KV.put(cacheKey, JSON.stringify(resolved), { expirationTtl: 60 }).catch(
-        () => {},
-      );
+        // put-limit (or any quota error) the bare await threw → resolveSite 500'd
+        // every generated site (2026-06-24). Swallow — a failed write just means a
+        // cache miss next request, not an outage. Per fail-fast-build-fail-soft-prod.
+        await env.CACHE_KV.put(cacheKey, JSON.stringify(resolved), { expirationTtl: 60 }).catch(
+          () => {},
+        );
         return resolved;
       }
     }
@@ -543,12 +543,12 @@ export async function resolveSite(
         };
 
         // Fire-and-forget: a cache write must NEVER break serving. On the KV daily
-      // put-limit (or any quota error) the bare await threw → resolveSite 500'd
-      // every generated site (2026-06-24). Swallow — a failed write just means a
-      // cache miss next request, not an outage. Per fail-fast-build-fail-soft-prod.
-      await env.CACHE_KV.put(cacheKey, JSON.stringify(resolved), { expirationTtl: 60 }).catch(
-        () => {},
-      );
+        // put-limit (or any quota error) the bare await threw → resolveSite 500'd
+        // every generated site (2026-06-24). Swallow — a failed write just means a
+        // cache miss next request, not an outage. Per fail-fast-build-fail-soft-prod.
+        await env.CACHE_KV.put(cacheKey, JSON.stringify(resolved), { expirationTtl: 60 }).catch(
+          () => {},
+        );
         return resolved;
       } catch {
         // Malformed manifest — treat as not found
