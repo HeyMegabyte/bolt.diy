@@ -110,8 +110,14 @@
   :host *::before,
   :host *::after {
     animation-duration: 0.001ms !important;
+    // Zero the delay too: the hero's staggered animation-delay (0.1s–0.3s) combined
+    // with fadeInUp's `both` fill-mode held the 0% state (opacity:0) for up to 0.3s,
+    // so reduced-motion users briefly saw INVISIBLE content before it snapped in.
+    // Forcing delay:0 makes every reveal complete at t≈0 → content immediately readable.
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
