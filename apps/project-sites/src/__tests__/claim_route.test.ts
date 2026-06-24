@@ -101,6 +101,46 @@ describe('GET /api/claim/:shortlink', () => {
     expect(mockLoad).not.toHaveBeenCalled();
   });
 
+  it('emits site.claim.started carrying the click attribution (utm + referer) dimensions', async () => {
+    mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
+    mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9'));
+    mockGetLead.mockResolvedValue({
+      leadId: 'lead_9',
+      profile: { businessName: 'Acme Roofing', email: 'owner@acme.test' },
+    });
+    mockApply.mockResolvedValue({
+      ...createBuildSession('claim_abc12345', 'lead_9'),
+      status: 'building',
+      attempts: 1,
+    });
+
+    const pending: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => pending.push(p),
+      passThroughOnException: () => {},
+    };
+    await app().request(
+      '/api/claim/abc12345?utm_source=Twitter&utm_medium=social&utm_campaign=spring',
+      { headers: { referer: 'https://news.example.com/article' } },
+      { DB: makeDb() } as never,
+      ctx as never,
+    );
+    await Promise.allSettled(pending);
+
+    // The golden-path attribution (source/medium/campaign/referrerHost) MUST reach
+    // the event so "which campaign converts" is answerable downstream.
+    const started = mockEmit.mock.calls.find(
+      (call) => (call[1] as { type?: string })?.type === 'site.claim.started',
+    );
+    expect(started).toBeTruthy();
+    expect((started![1] as { data: Record<string, unknown> }).data).toMatchObject({
+      source: 'twitter',
+      medium: 'social',
+      campaign: 'spring',
+      referrerHost: 'news.example.com',
+    });
+  });
+
   it('a valid claim link records the click + 302-redirects to the prefilled /create', async () => {
     mockResolve.mockResolvedValue({ token: 'abc12345', leadId: 'lead_9' });
     mockLoad.mockResolvedValue(createBuildSession('claim_abc12345', 'lead_9')); // pending
