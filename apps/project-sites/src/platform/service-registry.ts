@@ -401,6 +401,18 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'WorkOsEnterpriseIdentityProvider (SSO authorization-code, org-scoped) behind the same IdentityProvider port + factory. Used ONLY for enterprise org-scoped logins (factory prefers Logto for everyone else). Ships dark behind WORKOS_*. ADR-0006.',
   },
+  {
+    id: 'flags-openfeature',
+    name: 'OpenFeature evaluation port over the D1 flag engine (§33/ADR-0033)',
+    category: 'internal',
+    runtime: 'library',
+    ownerPackage: 'apps/project-sites/src/platform/feature-evaluation.ts',
+    adapterPackage: 'apps/project-sites/src/middleware/feature-evaluation.ts',
+    status: 'integrated',
+    access: 'service-only',
+    notes:
+      'FeatureEvaluationProvider port (OpenFeature ResolutionDetails contract) + FakeFeatureEvaluationProvider + D1FlagEvaluationProvider + getFeatureEvaluationProvider(env) factory, all tested. Deliberately wraps the EXISTING modules/feature_flags engine (D1 flag_overrides + KV + registry + rollout hashing) rather than adopting the OpenFeature vendor SDK — zero new deps, Workers-native, our D1 store stays source of truth. No env secret (wraps our own engine → always available, no gate). Ships dark: no handler calls it yet; wiring is additive + behavior-neutral. ADR-0033.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
