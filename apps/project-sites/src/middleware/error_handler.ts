@@ -237,6 +237,40 @@ export const errorHandler: ErrorHandler<{
   const errorMessage = err instanceof Error ? err.message : 'Unknown error';
   const errorStack = err instanceof Error ? err.stack : undefined;
 
+  // Storage-unavailable (R2 disabled account-wide → CF error 10042) → a calm 503
+  // maintenance page instead of a scary 500. Every R2-served route (homepage,
+  // generated sites, app shell) throws this when R2 is off; degrade soft per
+  // fail-fast-build-fail-soft-prod (a missing storage backend is operational, not
+  // a code fault). See memory feedback_deploy_r2_reliability (2026-06-24 outage).
+  if (/enable R2|\(10042\)|R2 .*Dashboard/i.test(errorMessage)) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        code: 'STORAGE_UNAVAILABLE',
+        message: errorMessage,
+        request_id: requestId,
+        url,
+        method,
+      }),
+    );
+    captureError(c, err, { code: 'STORAGE_UNAVAILABLE', url, method, request_id: requestId });
+    const friendly = "We're doing a quick update — back in a moment.";
+    if (isHtml) {
+      return new Response(
+        brandedErrorPage({ status: 503, code: 'STORAGE_UNAVAILABLE', message: friendly, requestId }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Retry-After': '120' },
+        },
+      );
+    }
+    return c.json(
+      { error: { code: 'STORAGE_UNAVAILABLE', message: friendly, request_id: requestId } },
+      503,
+      { 'Retry-After': '120' },
+    );
+  }
+
   console.warn(
     JSON.stringify({
       level: 'error',

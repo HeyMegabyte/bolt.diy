@@ -287,3 +287,40 @@ describe('errorHandler - General behavior', () => {
     expect(body).toBe('ok');
   });
 });
+
+describe('errorHandler — R2 storage-unavailable degrades soft (10042)', () => {
+  const r2App = () => {
+    const app = new Hono<{ Bindings: any; Variables: any }>();
+    app.onError(errorHandler);
+    app.get('/r2-down', () => {
+      throw new Error('get: Please enable R2 through the Cloudflare Dashboard. (10042)');
+    });
+    app.get('/other-500', () => {
+      throw new Error('some other unexpected failure');
+    });
+    return app;
+  };
+
+  it('returns 503 + Retry-After + STORAGE_UNAVAILABLE JSON when R2 is disabled', async () => {
+    const res = await r2App().request('/r2-down', { headers: { accept: 'application/json' } });
+    expect(res.status).toBe(503);
+    expect(res.headers.get('retry-after')).toBe('120');
+    const body = await res.json();
+    expect(body.error.code).toBe('STORAGE_UNAVAILABLE');
+  });
+
+  it('serves a 503 HTML maintenance page to browsers', async () => {
+    const res = await r2App().request('/r2-down', { headers: { accept: 'text/html' } });
+    expect(res.status).toBe(503);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('quick update');
+  });
+
+  it('does NOT downgrade unrelated 500s to 503', async () => {
+    const res = await r2App().request('/other-500', { headers: { accept: 'application/json' } });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error.code).toBe('INTERNAL_ERROR');
+  });
+});
