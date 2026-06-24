@@ -68,12 +68,9 @@ describe('StainlessSdkCodegenProvider', () => {
   });
 
   it('fails soft when fetch throws', async () => {
-    const p = new StainlessSdkCodegenProvider(
-      cfg,
-      (async () => {
-        throw new Error('network down');
-      }) as unknown as typeof fetch,
-    );
+    const p = new StainlessSdkCodegenProvider(cfg, (async () => {
+      throw new Error('network down');
+    }) as unknown as typeof fetch);
     const r = await p.generate({});
     expect(r).toEqual({ status: 'error', project: 'project-sites', message: 'network down' });
   });

@@ -43,7 +43,11 @@ export class StainlessSdkCodegenProvider implements SdkCodegenProvider {
         body,
       });
       if (!res.ok) {
-        return { status: 'error', project: this.config.project, message: `stainless HTTP ${res.status}` };
+        return {
+          status: 'error',
+          project: this.config.project,
+          message: `stainless HTTP ${res.status}`,
+        };
       }
       return { status: 'submitted', project: this.config.project, message: 'spec submitted' };
     } catch (e) {
@@ -65,7 +69,10 @@ export class StainlessSdkCodegenProvider implements SdkCodegenProvider {
  * const gen = getSdkCodegenProvider(env);
  * const r = await gen.generate(openapiSpec); // {status:'skipped'} until STAINLESS_API_KEY set
  */
-export function getSdkCodegenProvider(env: Env, fetchImpl: typeof fetch = fetch): SdkCodegenProvider {
+export function getSdkCodegenProvider(
+  env: Env,
+  fetchImpl: typeof fetch = fetch,
+): SdkCodegenProvider {
   const parsed = SdkCodegenConfigSchema.safeParse({
     apiKey: env.STAINLESS_API_KEY,
     project: env.STAINLESS_PROJECT ?? undefined,
