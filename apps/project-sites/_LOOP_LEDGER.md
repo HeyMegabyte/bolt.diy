@@ -323,7 +323,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] 32. Bot protection on the generation endpoint (Turnstile+auth+quota before kicking a $5-15 build) [new][auto]
 - [ ] 33. Generated-site CSP L3 + Trusted Types (the OUTPUT sites) [partial][auto]
 - [ ] 34. Secret-at-rest audit (MCP_ENCRYPTION_KEY + env-var AES-GCM; rotation story) [partial][auto]
-- [ ] 35. Per-tenant build/API quota enforcement + surface to owners [partial][auto]
+- [x] 35. Per-tenant build-quota enforcement — **quota-bypass hole CLOSED (fire, 2026-06-25).** `checkBuildLimit` (free=1 site, paid=N, brian@/unlimited-orgs exempt) gated ONLY `create-from-search` (search.ts). The two OTHER `SITE_WORKFLOW.create` routes in api.ts were ungated: `/reset` rebuilds an already-owned site (site-count quota N/A — fine) but **`/import-from-url` creates a BRAND-NEW `sites` row + kicks a $5-15 build** with zero quota check — a free org (1-site cap) could import unlimited sites/builds, fully bypassing the limit. Mirrored the search.ts guard into import-from-url: subscription-plan lookup → `checkBuildLimit` → 403 `BUILD_LIMIT_REACHED` + `build_limit.exceeded` audit row, placed BEFORE the crawl so an over-quota caller triggers neither the outbound fetch nor the insert nor the build. TDD: new `import_from_url_quota.test.ts` (RED proved 201+insert+workflow.create; GREEN asserts 403, 0 inserts, 0 workflow.create, 0 fetch). 23/23 across build_limits+api_routes+new, tsc 0. Remaining sub-item (surface quota to owners in UI) is a frontend dedicated slice. [partial→done(enforcement)][auto]
 - [ ] 36. Abuse-takedown flow (intake→review→unpublish; module dark) [built-dark][auto]
 
 ### Tier 5 — performance

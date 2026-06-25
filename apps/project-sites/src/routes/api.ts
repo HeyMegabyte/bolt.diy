@@ -158,6 +158,7 @@ import {
 import { loadCfCredentials, resolveCfCredentials } from '../services/cf_credentials.js';
 import { z } from 'zod';
 import { crawlSiteForImport, estimateRebuildMinutes } from '../services/import_crawler.js';
+import { checkBuildLimit } from '../services/build_limits.js';
 import {
   checkBatch as rdapCheckBatch,
   checkAvailability as rdapCheck,
@@ -11011,6 +11012,47 @@ api.post('/api/sites/import-from-url', async (c) => {
   if (!isSafeWebhookUrl(validated.url)) {
     throw badRequest(
       'Source URL not allowed — use a public https URL (no internal/private hosts).',
+    );
+  }
+
+  // Build-quota gate (#35) — this route creates a NEW site + kicks a $5-15
+  // SITE_WORKFLOW build, exactly like create-from-search, so it MUST enforce the
+  // same per-tenant quota. Without this a free org (1-site cap) could import
+  // unlimited sites/builds here, bypassing the limit that create-from-search
+  // enforces. Check BEFORE the crawl so an over-quota caller never even triggers
+  // the outbound fetch.
+  const sub = await dbQueryOne<{ plan: string }>(
+    c.env.DB,
+    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
+    [orgId],
+  );
+  const limitCheck = await checkBuildLimit(c.env.DB, orgId, sub?.plan ?? null);
+  if (!limitCheck.allowed) {
+    c.executionCtx.waitUntil(
+      auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: userId ?? null,
+        action: 'build_limit.exceeded',
+        message: `Import build-limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${sub?.plan ?? 'free'}' plan via import-from-url)`,
+        target_type: 'org',
+        target_id: orgId,
+        metadata_json: {
+          used: limitCheck.used,
+          limit: limitCheck.limit,
+          plan: sub?.plan ?? 'free',
+          route: '/api/sites/import-from-url',
+        },
+        request_id: c.get('requestId'),
+      }),
+    );
+    return c.json(
+      {
+        error: {
+          code: 'BUILD_LIMIT_REACHED',
+          message: `You've used ${limitCheck.used} of ${limitCheck.limit} ${limitCheck.limit === 1 ? 'site' : 'sites'}. ${limitCheck.limit === 1 ? 'Free accounts include 1 site — add more for $50/month per site.' : 'Contact support to raise your site ceiling.'}`,
+        },
+      },
+      403,
     );
   }
 
