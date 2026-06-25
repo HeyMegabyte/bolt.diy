@@ -301,7 +301,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] 14. Per-section AI-vision auto-reroll (<8/10 → regenerate) [new][auto]
 - [ ] 15. Research/brand/asset caching per business (rebuild skips re-research; ~15min→~5min) [partial][auto]
 - [ ] 16. Logo/font/color extraction fidelity (the suped-up-clone lever) [partial][dedicated]
-- [ ] 17. 1:N sitemap fidelity guard (fail on collapsed page counts) [partial][auto]
+- [ ] 17. 1:N sitemap fidelity guard (fail on collapsed page counts) [partial][dedicated] — AUDIT 2026-06-25: the guard `validateRouteCount(files, sourceRouteCount)` (build_validators.ts:657) is DONE + wired into the validateBuild/validateBuildAst orchestrators (878/918) + has 5 unit tests (build_validators.test.ts:306). THE GAP: the live pipeline `site-generation.ts:1200` calls `validateBuild(files)` WITHOUT `sourceRouteCount`, so it never fires in prod. Closing = persist the source `routes.length` at scrape time (the scrape/structure step → R2 `sites/{slug}/_meta/route_count.json` or D1 research_data) and read it at the validate step to pass `{ sourceRouteCount }`. SAFE (validateBuild is report-mode, never blocks) but [dedicated]: needs the research-data plumbing + skip-on-missing (0) so it never false-flags when the count is unknown.
 - [ ] 18. AI-native: per-page 3-min podcast [new][dedicated]
 - [ ] 19. Veo/Sora hero video per build [new][dedicated]
 - [ ] 20. Build cost accounting + per-build cap (protect margin) [new][auto]
