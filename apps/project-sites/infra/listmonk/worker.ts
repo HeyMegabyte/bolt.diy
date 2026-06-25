@@ -19,8 +19,6 @@ interface Env {
   PG_USER: string;
   PG_PASSWORD: string;
   PG_DATABASE: string;
-  ADMIN_USER: string;
-  ADMIN_PASSWORD: string;
   /** Amazon SES SMTP relay (ADR-0019) — optional until set. */
   SES_SMTP_HOST?: string;
   SES_SMTP_USER?: string;
@@ -35,8 +33,12 @@ export class Listmonk extends Container<Env> {
     super(ctx, env);
     this.envVars = {
       LISTMONK_app__address: '0.0.0.0:9000',
-      LISTMONK_app__admin_username: env.ADMIN_USER,
-      LISTMONK_app__admin_password: env.ADMIN_PASSWORD,
+      // NOTE: app.admin_username/admin_password are DEPRECATED in Listmonk v4 — the
+      // env-based bootstrap super-admin is gone. Users are now DB-backed and managed
+      // in Admin → Settings → Users. The bootstrap already seeded the DB Super Admin
+      // ("professormanhattan", id=1); programmatic access uses the "projectsites_api"
+      // API user (token in the main worker's LISTMONK_API_TOKEN secret). Do NOT
+      // re-add LISTMONK_app__admin_* here — it re-triggers the deprecation notice.
       LISTMONK_app__root_url: 'https://mail.projectsites.dev',
       LISTMONK_app__from_email: 'ProjectSites <newsletter@projectsites.dev>',
       LISTMONK_app__site_name: 'ProjectSites',
