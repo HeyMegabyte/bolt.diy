@@ -7,6 +7,8 @@ import {
   validateEndpointInput,
   maskSecret,
   isSafeWebhookUrl,
+  isSafeCrawlUrl,
+  isSafePublicHost,
   planDeliveries,
   attemptDelivery,
   recordDelivery,
@@ -184,6 +186,60 @@ describe('isSafeWebhookUrl (SSRF guard)', () => {
 
   it('rejects an invalid url', () => {
     expect(isSafeWebhookUrl('not a url')).toBe(false);
+  });
+
+  it('does NOT reject a public host merely because it starts with fc/fd (not an IPv6 literal)', () => {
+    // The ULA prefix check must only fire on IPv6 literals (contain ':'), never
+    // on a dotted hostname like fcbarcelona.com — that was an over-broad reject.
+    expect(isSafeWebhookUrl('https://fcbarcelona.com/x')).toBe(true);
+    expect(isSafeWebhookUrl('https://fd-store.example.com/x')).toBe(true);
+  });
+});
+
+describe('isSafeCrawlUrl (SSRF guard for the build crawler — #31)', () => {
+  it('allows BOTH http and https public hosts (legacy source sites are often http)', () => {
+    expect(isSafeCrawlUrl('https://example.com/')).toBe(true);
+    expect(isSafeCrawlUrl('http://example.com/about')).toBe(true); // http allowed (unlike webhook guard)
+    expect(isSafeCrawlUrl('http://172.15.0.1/x')).toBe(true); // just outside private 172.16-31
+  });
+
+  it('rejects non-http(s) schemes', () => {
+    expect(isSafeCrawlUrl('file:///etc/passwd')).toBe(false);
+    expect(isSafeCrawlUrl('ftp://example.com/x')).toBe(false);
+    expect(isSafeCrawlUrl('gopher://example.com/x')).toBe(false);
+    expect(isSafeCrawlUrl('data:text/html,hi')).toBe(false);
+  });
+
+  it('rejects internal / private / metadata targets over http too', () => {
+    for (const u of [
+      'http://localhost/x',
+      'http://printer.local/x',
+      'http://127.0.0.1/x',
+      'http://10.1.2.3/x',
+      'http://192.168.1.1/x',
+      'http://169.254.169.254/latest/meta-data', // cloud metadata, the classic crawler SSRF
+      'http://[::1]/x',
+      'http://[::ffff:169.254.169.254]/x',
+      'https://169.254.169.254/latest/meta-data',
+    ]) {
+      expect(isSafeCrawlUrl(u)).toBe(false);
+    }
+  });
+
+  it('rejects an invalid url', () => {
+    expect(isSafeCrawlUrl('not a url')).toBe(false);
+    expect(isSafeCrawlUrl('')).toBe(false);
+  });
+});
+
+describe('isSafePublicHost (shared host blocklist)', () => {
+  it('passes public hosts, blocks internal ones', () => {
+    expect(isSafePublicHost('example.com')).toBe(true);
+    expect(isSafePublicHost('172.15.0.1')).toBe(true);
+    expect(isSafePublicHost('localhost')).toBe(false);
+    expect(isSafePublicHost('169.254.169.254')).toBe(false);
+    expect(isSafePublicHost('[::1]')).toBe(false); // brackets stripped
+    expect(isSafePublicHost('')).toBe(false);
   });
 });
 

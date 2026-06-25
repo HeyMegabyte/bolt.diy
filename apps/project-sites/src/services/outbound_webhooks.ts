@@ -153,18 +153,69 @@ export function isSafeWebhookUrl(url: string): boolean {
     return false;
   }
   if (u.protocol !== 'https:') return false;
+  return isSafePublicHost(u.hostname);
+}
 
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
-  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return false; // IPv6 loopback
-  if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) return false; // link-local / ULA
-  // IPv4-mapped / IPv4-compatible IPv6 (e.g. [::ffff:127.0.0.1] → host '::ffff:7f00:1')
-  // sails past the dotted-quad isPrivateIPv4 check, so [::ffff:169.254.169.254] would
-  // reach cloud metadata. No legitimate public webhook target is one of these — reject.
-  if (host.startsWith('::ffff:') || host.startsWith('::')) return false;
-  if (isPrivateIPv4(host)) return false;
-
+/**
+ * True when `host` is NOT a private/reserved/internal SSRF target — the shared
+ * blocklist behind both {@link isSafeWebhookUrl} (https-only) and
+ * {@link isSafeCrawlUrl} (http+https). Strips IPv6 brackets, then rejects
+ * localhost, `.local`/`.localhost`, IPv6 loopback/link-local/ULA, IPv4-mapped/
+ * compat IPv6, and private/reserved IPv4 (incl. cloud metadata 169.254.169.254).
+ *
+ * The IPv6 ULA/link-local prefix checks only fire on actual IPv6 literals (host
+ * contains `:`) so a dotted public hostname like `fcbarcelona.com` is NOT a
+ * false reject.
+ *
+ * @param host - URL hostname (may include `[...]` IPv6 brackets)
+ * @returns true when the host is a public, non-internal target
+ * @example isSafePublicHost('169.254.169.254') // false
+ * @example isSafePublicHost('example.com') // true
+ */
+export function isSafePublicHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  if (!h) return false;
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local')) return false;
+  // IPv6-literal-only checks (a dotted hostname can't be an IPv6 literal).
+  if (h.includes(':')) {
+    if (h === '::1' || h === '0:0:0:0:0:0:0:1') return false; // IPv6 loopback
+    if (h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return false; // link-local / ULA
+    // IPv4-mapped / IPv4-compatible IPv6 (e.g. [::ffff:127.0.0.1] → '::ffff:7f00:1')
+    // sails past the dotted-quad isPrivateIPv4 check, so [::ffff:169.254.169.254]
+    // would reach cloud metadata. No legitimate public target is one of these.
+    if (h.startsWith('::ffff:') || h.startsWith('::')) return false;
+  }
+  if (isPrivateIPv4(h)) return false;
   return true;
+}
+
+/**
+ * SSRF guard for the build crawler — call BEFORE fetching ANY discovered URL.
+ * Unlike {@link isSafeWebhookUrl} it allows `http:` as well as `https:` (legacy
+ * source sites are frequently http) but applies the SAME internal-host blocklist
+ * via {@link isSafePublicHost}, so a crawl can never reach localhost, RFC1918,
+ * link-local, or the cloud-metadata endpoint — including via a sitemap entry,
+ * a robots.txt line, or a homepage `<a href>` the BFS pass follows.
+ *
+ * @remarks Defense-in-depth at the fetch layer; the import route already guards
+ *   the SEED url. Redirect-following (`fetch redirect:'follow'`) can still hop to
+ *   an internal target after a safe first URL — connect-time IP pinning is the
+ *   deeper fix, tracked with the dispatcher's DNS-rebinding hardening.
+ *
+ * @param url - candidate URL to fetch
+ * @returns true when the URL is safe to fetch server-side
+ * @example isSafeCrawlUrl('http://example.com/about') // true
+ * @example isSafeCrawlUrl('http://169.254.169.254/latest/meta-data') // false
+ */
+export function isSafeCrawlUrl(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  return isSafePublicHost(u.hostname);
 }
 
 export interface StoredEndpoint {

@@ -938,7 +938,11 @@ function appShellHeroMarkup(headline: string, subline: string, bg: string, fg: s
     : '';
   return (
     `<section data-app-shell="hero" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1.25rem;padding:6vh 5vw;box-sizing:border-box;background:${bg};color:${fg};font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">` +
-    `<h1 style="margin:0;font-weight:800;line-height:1.05;letter-spacing:-0.02em;font-size:clamp(2.5rem,7vw,5rem);max-width:18ch">${h}</h1>` +
+    // Size to MATCH the largest generated React hero (Tailwind text-8xl = 6rem); a
+    // strictly-smaller static h1 lets the late React h1 overtake the LCP candidate
+    // (measured: run with text-8xl hero → LCP reverted to 5.5s). Equal-or-larger
+    // area keeps the early static paint as the winning LCP. (perf loop #14 fire 31.)
+    `<h1 style="margin:0;font-weight:800;line-height:1.04;letter-spacing:-0.02em;font-size:clamp(2.75rem,9vw,6rem);max-width:20ch">${h}</h1>` +
     sub +
     `</section>`
   );

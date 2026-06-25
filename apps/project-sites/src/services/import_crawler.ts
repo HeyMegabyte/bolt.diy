@@ -33,6 +33,7 @@
  */
 
 import type { Env } from '../types/env.js';
+import { isSafeCrawlUrl } from './outbound_webhooks.js';
 
 /** Real Chrome desktop UA — per fetch-defaults.md, rotate quarterly. */
 export const REAL_BROWSER_UA =
@@ -93,6 +94,11 @@ export interface CrawlReport {
  * hang the entire crawl. Never throws.
  */
 async function safeFetch(url: string, timeoutMs = 15_000): Promise<Response | null> {
+  // SSRF defense-in-depth (#31): never fetch an internal/private/metadata target,
+  // even when a sitemap entry, robots.txt line, or homepage `<a href>` the BFS
+  // follows points at one. The import route guards the SEED url; this guards every
+  // hop after it. http+https only — file:/ftp:/gopher: never reach the network.
+  if (!isSafeCrawlUrl(url)) return null;
   // `timer` + `clearTimeout` must live OUTSIDE the try so the `finally` clears
   // the abort timer on BOTH paths. Previously `clearTimeout` was only on the
   // success line, so when `fetch` threw (network error / abort) the timer
