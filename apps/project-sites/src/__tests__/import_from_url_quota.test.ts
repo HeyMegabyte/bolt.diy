@@ -27,7 +27,8 @@ function makeDbStub(siteCount: number) {
             all: async () => {
               if (/FROM subscriptions/i.test(sql)) return { results: [] }; // no active sub → free
               if (/FROM users u JOIN memberships/i.test(sql)) return { results: [] }; // not the unlimited owner
-              if (/COUNT\(\*\) as count FROM sites/i.test(sql)) return { results: [{ count: siteCount }] };
+              if (/COUNT\(\*\) as count FROM sites/i.test(sql))
+                return { results: [{ count: siteCount }] };
               return { results: [] };
             },
             run: async () => {
@@ -74,7 +75,10 @@ describe('POST /api/sites/import-from-url — build-quota enforcement (#35)', ()
     fetchCalls = 0;
     global.fetch = (async () => {
       fetchCalls += 1;
-      return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+      return new Response('<html></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
     }) as unknown as typeof fetch;
   });
   afterEach(() => {
