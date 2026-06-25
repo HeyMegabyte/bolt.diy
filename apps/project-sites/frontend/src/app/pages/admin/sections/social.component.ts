@@ -682,6 +682,13 @@ const PLATFORMS: readonly PlatformDef[] = [
       <!-- ============ DRAFTS / QUEUE / SENT lists ============ -->
       @if (tab() === 'drafts' || tab() === 'queue' || tab() === 'sent') {
         <div class="list-pane" appReveal>
+          @if (bulkSelected().size > 0) {
+            <div class="bulk-bar" role="region" aria-label="Bulk actions">
+              <span class="bulk-ct">{{ bulkSelected().size }} selected</span>
+              <button type="button" class="btn-ghost sm danger" (click)="bulkDelete()">Delete selected</button>
+              <button type="button" class="btn-ghost sm" (click)="clearBulk()">Clear</button>
+            </div>
+          }
           @if (filteredPosts().length === 0) {
             <div class="empty-state">
               <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
@@ -691,8 +698,9 @@ const PLATFORMS: readonly PlatformDef[] = [
             </div>
           } @else {
             @for (post of filteredPosts(); track post.id) {
-              <article class="post-card" appReveal [revealDelay]="$index * 60">
+              <article class="post-card" appReveal [revealDelay]="$index * 60" [class.is-bulk-selected]="isBulkSelected(post.id)">
                 <header class="post-h">
+                  <input type="checkbox" class="post-sel" [checked]="isBulkSelected(post.id)" (change)="toggleBulk(post.id)" [attr.aria-label]="'Select this post for bulk actions'" />
                   <div class="post-platforms">
                     @for (p of post.platforms; track p) {
                       @let pd = defOf(p);
@@ -1322,6 +1330,10 @@ const PLATFORMS: readonly PlatformDef[] = [
       .tmpl-del { font-size: 0.85rem; line-height: 1; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); background: none; border: 0; cursor: pointer; padding: 0 0.45rem 0 0.1rem; }
       .tmpl-del:hover { color: #ff6b8a; }
       .tmpl-save { font-size: 0.7rem; font-weight: 600; color: var(--ps-accent, #00e5ff); background: none; border: 1px dashed color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); border-radius: 999px; cursor: pointer; padding: 0.2rem 0.6rem; }
+      .bulk-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; padding: 0.5rem 0.75rem; border-radius: 0.6rem; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); background: color-mix(in oklch, var(--ps-bg, #060610) 80%, var(--ps-accent, #00e5ff) 10%); backdrop-filter: blur(6px); }
+      .bulk-ct { font-size: 0.78rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); margin-right: auto; }
+      .post-sel { width: 15px; height: 15px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; flex: none; }
+      .post-card.is-bulk-selected { outline: 1.5px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); outline-offset: 1px; }
 
       /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
 
@@ -1756,6 +1768,68 @@ export class AdminSocialComponent implements OnInit {
     const next = this.templates().filter((t) => t.id !== id);
     this.templates.set(next);
     this.persistTemplates(next);
+  }
+
+  /* ── S26 — bulk Draft/Queue actions (selection persisted to localStorage) ── */
+
+  private readonly BULK_KEY = 'ps_social_bulk_sel_v1';
+  readonly bulkSelected = signal<Set<string>>(this.loadBulkSel());
+
+  private loadBulkSel(): Set<string> {
+    try {
+      const raw = localStorage.getItem(this.BULK_KEY);
+      const arr = raw ? (JSON.parse(raw) as unknown) : [];
+      return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  private persistBulkSel(set: Set<string>): void {
+    try {
+      if (set.size === 0) localStorage.removeItem(this.BULK_KEY);
+      else localStorage.setItem(this.BULK_KEY, JSON.stringify([...set]));
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  isBulkSelected(id: string): boolean {
+    return this.bulkSelected().has(id);
+  }
+
+  /** Toggle a post in the bulk-selection set. */
+  toggleBulk(id: string): void {
+    const next = new Set(this.bulkSelected());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.bulkSelected.set(next);
+    this.persistBulkSel(next);
+  }
+
+  /** Clear the whole bulk selection. */
+  clearBulk(): void {
+    this.bulkSelected.set(new Set());
+    this.persistBulkSel(new Set());
+  }
+
+  /** Delete every selected post (one confirm for the batch). */
+  bulkDelete(): void {
+    const ids = this.bulkSelected();
+    if (ids.size === 0) return;
+    const n = ids.size;
+    this.toast.warning(`Delete ${n} selected post${n === 1 ? '' : 's'}? This can’t be undone.`, {
+      action: {
+        label: `Delete ${n}`,
+        run: () => {
+          for (const post of this.filteredPosts()) {
+            if (ids.has(post.id)) this.performDeletePost(post);
+          }
+          this.clearBulk();
+        },
+      },
+      duration: 7000,
+    });
   }
 
   readonly platforms = PLATFORMS;
