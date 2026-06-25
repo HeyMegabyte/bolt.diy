@@ -289,10 +289,10 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     runtime: 'cloudflare-container',
     adapterPackage: 'apps/project-sites/src/services/listmonk_email_provider.ts',
     secretsNamespace: '/email',
-    status: 'scaffolded',
+    status: 'integrated',
     access: 'internal-access',
     notes:
-      'ListmonkMarketingEmailProvider built (wraps listmonk_client: upsert/createCampaign/startCampaign/unsubscribe); needs LISTMONK_* config + wiring. Replaces Resend per ADR-0019.',
+      'LIVE + hosted at mail.projectsites.dev (2026-06-25) — CF Workers Container (infra/listmonk, image listmonk/listmonk:v4.1.0) backed by Neon Postgres (projectsites_listmonk DB on the "Listmonk" Neon project); serves the admin/login (200). Reached via an EXPLICIT Workers route mail.projectsites.dev/* → projectsites-listmonk (the custom_domain alone did NOT beat the main worker’s *.projectsites.dev/* wildcard). ListmonkMarketingEmailProvider wraps listmonk_client (upsert/createCampaign/startCampaign/unsubscribe). REMAINING for send: set SES_SMTP_HOST/USER/PASSWORD secrets (the SES relay, ADR-0019) — hosting is live, outbound campaigns dark until those land. Replaces Resend per ADR-0019.',
   },
   {
     id: 'email-resend',
