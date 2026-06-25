@@ -55,6 +55,14 @@ export class Skyvern extends Container<Env> {
       // Chromium-bundled image is slow to first-boot — generous port-ready window.
       cancellationOptions: { portReadyTimeoutMS: 180_000 },
     });
+    // Skyvern is a FastAPI app with NO root route (bare `/` 404s). Map the host
+    // root to the Swagger UI (/docs) so browser.projectsites.dev/ returns 200 from
+    // the real app; every other path proxies through unchanged.
+    const url = new URL(request.url);
+    if (url.pathname === '/') {
+      url.pathname = '/docs';
+      request = new Request(url, request);
+    }
     return this.containerFetch(request);
   }
 }
