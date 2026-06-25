@@ -64,7 +64,8 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 
 | Tool | Category | Status | Purpose | Companion packages | Notes |
 |------|----------|--------|---------|--------------------|-------|
-| Orama | Search | Recommended | Customer-site / admin / hybrid search | `@orama/orama` | Edge-friendly |
+| Orama | Search | Recommended | **Generated child-site search (default)** — search WITHIN a `{slug}.projectsites.dev` site | `@orama/orama` | Edge-friendly, ships in the generated bundle. **NOT for platform/admin search** — see below. |
+| Cloudflare AI Search (AutoRAG) | Search | Recommended | **Platform + admin search** (submissions, sites, leads, logs) — managed RAG/semantic search | CF binding (`AI`, `Vectorize`/AutoRAG) | Cloudflare-native; the choice for first-party admin/platform search. Orama stays the per-generated-site default. |
 | MCP TypeScript SDK | AI | Core | Foundation for the ProjectSites MCP | `@modelcontextprotocol/sdk` | `platform_mcp` is live |
 | Langfuse | Observability | Core | LLM traces: prompts, generations, tool calls, agent workflows | `langfuse` | Emit where LLM calls happen |
 | OpenTelemetry | Observability | Core | Trace propagation across APIs, jobs, AI workflows | `@opentelemetry/api` + runtime-compatible SDK | Workers Tracing OTLP |
@@ -133,7 +134,8 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - [ ] NgRx / RxJS — Angular admin surfaces only
 
 ### Phase 3 — Search & generated-site quality
-- [ ] Orama for customer-site / admin / hybrid search where appropriate
+- [ ] Orama for **generated child-site** search (default, ships in the site bundle)
+- [ ] Cloudflare AI Search (AutoRAG) for **platform/admin** search (submissions, sites, leads, logs) — NOT Orama
 - [ ] DOMPurify requirements for generated/customer HTML
 - [ ] Satori OG image generation plan
 - [ ] Shiki highlighting for docs/code snippets

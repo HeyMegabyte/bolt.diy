@@ -490,3 +490,25 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] AN54. Operator zero-state honesty — super-admin Tinybird routes silently return `degraded:true` when unconfigured; render a clear "source not configured" notice (quiet lying-UI cousin per [[lying-ui-catcherror-class]]). [partial][auto] slug `analytics_degraded_notice`
 - [ ] AN55. Live Events tab — pagination + filter + search (capped 500 rows, no paging today). [partial][auto] slug `analytics_live_paging`
 - [ ] AN56. Heatmaps — move/scroll/rage-click client capture + replay-lite overlay (Clarity/Hotjar pattern). [new][dedicated] slug `analytics_heatmaps`
+
+## ★ FORMS HARDENING CLUSTER (Brian-selected 2026-06-24 — convergence-loop pending)
+
+> From the 50-idea Forms-section scan (web-researched). Brian-picked subset to build in the loop.
+> Surface = admin Forms section (`frontend/.../sections/forms.component.ts`) + routing engine
+> (`src/services/contact.ts`, `lead_scan.ts`, template `{{var}}`, MCP actions, `task_inbox`) +
+> `/api/contact-form/:slug` + generated-site form blocks. Each ships TDD-first behind a flag,
+> `npm run validate:features` green, deploy-gated. `[auto]` = loop can close now; `[dedicated]` = its own focused fire.
+
+- [ ] F21. DOMPurify-sanitize every stored/echoed submission field before it renders in the admin detail panel or any reply email (stored-XSS via a form field). [new][auto] slug `forms_sanitize_fields`
+- [ ] F19. Submission rate-limiting on `/api/contact-form/*` — **prefer a Cloudflare WAF rate-limiting rule (via OpenTofu) as the edge-first layer**; fall back to the plan-independent **Durable Object counter** because CF managed/WAF rate-limiting is plan-gated on this account (per [[rate-limiting-plan-gated]]). Pair with honeypot+timestamp. [new][dedicated] slug `forms_rate_limit`
+- [ ] F25. "Test with this" — replay a real inbox submission's exact payload into the Prompt Designer test panel (debug the actual miss, not a synthetic one). [extend][auto] slug `forms_replay_submission`
+- [ ] F27. Routing-rule visualizer — render the form-handling prompt's decision tree as a React Flow / XYFlow graph (submission → conditions → MCP actions → fallback) for non-technical owners. [new][dedicated] slug `forms_routing_graph`
+- [ ] F28. Side-by-side A/B prompt test — run two router-prompt versions against the same payload, diff decision/MCP/cost/latency so "Improve with AI" is verified not trusted. [extend][auto] slug `forms_prompt_ab`
+- [ ] F30. Per-form router prompts — distinct routing prompt per `form_name` (newsletter vs quote vs job-application) instead of one global prompt branching on everything. [new][dedicated] slug `forms_per_form_prompt`
+- [ ] F31. Admin/platform submissions search via **Cloudflare AI Search (AutoRAG)** — NOT Orama (Orama stays the generated child-site default; notes updated in `docs/STACK.md` + `~/.agentskills/rules/projectsites-recommended-stack.md`). [new][dedicated] slug `forms_ai_search`
+- [ ] F39. Effect-typed routing pipeline — model submission→classify→validate→route→escalate as an Effect program (typed errors, retry+backoff, resource safety). [extend][dedicated] slug `forms_effect_pipeline`
+- [ ] F40. Zod contract on `/api/contact-form/:slug` — colocated schema + `safeParse` at the boundary, replacing the `as`-cast (closes the tracked contact/features drift). [extend][auto] slug `forms_zod_contract`
+- [ ] F41. CloudEvents envelope for submissions — emit typed `form.submission.received` / `…routed` events so analytics/webhooks/automations consume a stable contract. [new][auto] slug `forms_cloudevents`
+- [ ] F43. Reply-deliverability guardrails — run `email_deliverability.ts` (SPF/DKIM/from-domain) before any router auto-reply so AI replies don't land in spam. [extend][auto] slug `forms_reply_deliverability`
+- [ ] F45. Langfuse trace on every routing call — wire the existing AI-trace panel to Langfuse for prompt/version/cost/latency history across ALL submissions (not just the last test). [extend][auto] slug `forms_langfuse_trace`
+- [ ] F46. OpenTelemetry span across the submission lifecycle — one trace-id from `app.js` POST → worker → MCP action → reply, so a "lead vanished" is debuggable end-to-end. [extend][auto] slug `forms_otel_span`
