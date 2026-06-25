@@ -32,35 +32,11 @@ interface SystemService {
 
 /** The registry of status-page system subdomains, keyed by single-label subdomain. */
 export const SYSTEM_SERVICES: Readonly<Record<string, SystemService>> = {
-  api: {
-    sub: 'api',
-    name: 'API Gateway',
-    what: 'The ProjectSites HTTP API — sites, billing, auth, media, webhooks.',
-    surface: 'Live under /api/* and /webhooks/* on this host.',
-  },
   auth: {
     sub: 'auth',
     name: 'Auth / Identity',
     what: 'Identity + session issuance (magic-link, Google OAuth, Logto, WorkOS SSO).',
     surface: 'Login flows live under /api/auth/* on this host.',
-  },
-  billing: {
-    sub: 'billing',
-    name: 'Billing',
-    what: 'Stripe is the only billing rail — checkout, subscriptions, the customer portal.',
-    surface: 'Runs on Stripe; webhooks at /webhooks/stripe.',
-  },
-  analytics: {
-    sub: 'analytics',
-    name: 'Analytics',
-    what: 'Cloudflare Analytics Engine — high-volume product + site events.',
-    surface: 'A Worker binding (no browsable origin); queried via the CF API.',
-  },
-  notify: {
-    sub: 'notify',
-    name: 'Notifications',
-    what: 'The ProjectSites notification backbone (custom psnotify — DO inbox + center + prefs).',
-    surface: 'In active build; not yet a browsable surface.',
   },
   browser: {
     sub: 'browser',
