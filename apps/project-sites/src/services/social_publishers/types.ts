@@ -11,7 +11,7 @@ import type { Env } from '../../types/env.js';
 
 /** Realistic browser UA per fetch-defaults rule (rotates quarterly). */
 export const REAL_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 
 /** Default browser-like header bundle for outbound API calls. */
 export const BROWSER_HEADERS: Record<string, string> = {

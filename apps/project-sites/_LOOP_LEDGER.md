@@ -582,3 +582,32 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] V48. Conversations saved views + status workflow + j/k nav (mirror Forms inbox). [extend][auto] slug `voice_inbox_views`
 - [ ] V49. Recording playback: waveform + transcript-synced highlight + PII redaction + consent-gated download. [extend][dedicated] slug `voice_playback_hardening`
 - [ ] V50. Lead-card + CRM-MCP push + Satori summary card on the owner notification. [new][auto] slug `voice_lead_card`
+
+## ★ SOCIAL ("Pulse Social") — Brian-selected from `docs/SOCIAL_IDEAS.md` (2026-06-25, commit 58523c97)
+
+> Numbers = the SOCIAL_IDEAS.md idea #. **DIRECTIVE (Brian): every new frontend
+> persistence/state binds to `localStorage` for data binding** (templates, autosave,
+> first-comment drafts, bulk selections, platform-tier prefs) — no new backend tables
+> for these; the worker-backed swap is a later fire. One agent owns `social.component.ts`
+> per fire (2800-line hot file — never parallel-edit it). Reliability worker fixes
+> (S1/S3/S4/S6) are independent + ship first.
+- [x] S1. (#1) Fix hardcoded media domain in `services/social-publish.ts` `prepareMedia` (`projectsites.dev/assets/r2/${key}`, `accountBase` unused) → use the site's primary hostname / signed R2 URL. [fix][auto] slug `social_media_domain_fix`
+- [ ] S2. (#2) OAuth token auto-refresh lifecycle (Meta ~50d before 60d expiry; detect revocation; "Reconnect" CTA). [new][dedicated] slug `social_oauth_refresh`
+- [ ] S3. (#3) Feature flag + kill-switch per publisher + Auto-Pilot (`social_publishing`, `social_autopilot`). [new][auto] slug `social_kill_switch`
+- [x] S4. (#4) Bump stale `REAL_UA` Chrome 131→149 in `social_publishers/types.ts` (matches fetch-defaults). [fix][auto] slug `social_ua_bump`
+- [ ] S6. (#6) Per-account rate-limit budgeting + 429 logging + 80%-quota alert (per connected account). [new][auto] slug `social_rate_budget`
+- [ ] S8. (#8) Scheduled-post failure UX — surface failed/partial in the post card with one-click retry (today step 5 only toasts owner). [extend][auto] slug `social_failure_retry_ux`
+- [ ] S10. (#10) Brand-voice extraction from site copy → AI voice profile seeding AI Assist + Auto-Pilot. [new][dedicated] slug `social_brand_voice`
+- [ ] S11. (#11) Active per-platform reformatting (strip hashtags for LinkedIn, auto-thread X/Bluesky, hook+CTA IG) inline in composer. [new][dedicated] slug `social_platform_reformat`
+- [ ] S15. (#15) Live split-pane composer preview — true per-platform render (limits, link card, hashtag highlight, image crop). [new][auto] slug `social_live_preview`
+- [ ] S16. (#16) First-comment scheduling (IG/X/LinkedIn). localStorage-bound draft until worker swap. [new][auto] slug `social_first_comment`
+- [ ] S26. (#26) Bulk actions in Drafts/Queue (multi-select schedule/delete/duplicate). selection state in localStorage. [extend][auto] slug `social_bulk_actions`
+- [ ] S27. (#27) Post templates / saved snippets — **localStorage-backed** CRUD (recurring CTAs, sign-offs, link-in-bio). [new][auto] slug `social_post_templates`
+- [ ] S31. (#31) Platform tiering UX — Bluesky/Mastodon/IG/Threads first-class; X cost-toggled; LinkedIn connect-&-paste. tier prefs in localStorage. [extend][auto] slug `social_platform_tiering`
+- [ ] S33. (#33) TikTok (≤15/day) + YouTube Shorts scheduled-only publishers. [new][dedicated] slug `social_tiktok_youtube`
+- [ ] S37. (#37) Mention autocomplete backed by real per-platform handle lookup (verify current @input resolves). [extend][auto] slug `social_mention_lookup`
+- [ ] S39. (#39) Keyboard-first: Cmd+Enter to schedule + Cmd+K palette actions (compose/schedule/connect). [extend][auto] slug `social_keyboard_first`
+- [ ] S44. (#44) Composer autosave — **localStorage**-backed draft restore (never lose a half-written post). [new][auto] slug `social_composer_autosave`
+- [ ] S45. (#45) Char-counter over-limit state (red + "N over") + auto-trim suggestion per platform. [extend][auto] slug `social_char_over_limit`
+- [ ] S46. (#46) Calendar color-by-platform + overflow popover + keyboard reschedule (drag exists). [extend][auto] slug `social_calendar_polish`
+- [ ] S47. (#47) AI image/video in-composer (use media studios). [new][dedicated] slug `social_ai_media`

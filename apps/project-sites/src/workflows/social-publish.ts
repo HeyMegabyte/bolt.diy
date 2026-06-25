@@ -84,16 +84,22 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
             type?: 'image' | 'video';
           }>)
         : [];
-      const accountBase =
-        'https://pub-' + (env as unknown as Record<string, string>).CF_ACCOUNT_ID + '.r2.dev/';
-      // We expose media via /assets/r2/* route (existing assets route) — public read
+      // Media is served by the PLATFORM worker's public `/assets/r2/*` route
+      // (tenant-independent — the platform host owns it, not the customer's
+      // custom domain). Env-overridable so a CDN/public-R2 base can swap in
+      // later without a code change; defaults to the platform apex.
+      // (The former `pub-${CF_ACCOUNT_ID}.r2.dev` base was dead + wrong — r2.dev
+      //  public URLs use a per-bucket hash, not the account id — removed.)
+      const mediaBase = (
+        (env as unknown as Record<string, string | undefined>).MEDIA_PUBLIC_BASE ??
+        'https://projectsites.dev'
+      ).replace(/\/$/, '');
       return mediaKeys.map((m) => ({
-        url: `https://projectsites.dev/assets/r2/${m.r2_key}`,
+        url: `${mediaBase}/assets/r2/${m.r2_key}`,
         mime: m.mime,
         type: (m.type ?? (m.mime.startsWith('video/') ? 'video' : 'image')) as 'image' | 'video',
         alt: m.alt,
       }));
-      void accountBase;
     });
 
     const post: PostCtx = {
