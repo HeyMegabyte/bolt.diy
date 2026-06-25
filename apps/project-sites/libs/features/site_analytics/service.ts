@@ -43,6 +43,56 @@ export async function siteOrgId(env: Env, siteId: string): Promise<string | null
   return data[0]?.org_id ?? null;
 }
 
+/** One day of the analytics_daily rollup series. */
+export interface DailyPoint {
+  day: string;
+  pageviews: number;
+  uniqueSessions: number;
+  conversions: number;
+}
+
+/**
+ * AN5 follow-on — per-day traffic series straight from the `analytics_daily`
+ * rollup (O(days), not a scan of raw `visitor_events`). Trailing `days` window,
+ * ascending by day. Defensive: any D1 error (table missing on a fresh env)
+ * degrades to an empty series rather than throwing.
+ *
+ * @param env    - Worker env (uses `env.DB`).
+ * @param siteId - Site to read.
+ * @param days   - Trailing window 1–365 (default 30).
+ * @returns `{ days: DailyPoint[] }` ascending by calendar day.
+ *
+ * @example
+ * const { days } = await getDailySeries(env, 'site_123', 30);
+ */
+export async function getDailySeries(
+  env: Env,
+  siteId: string,
+  days = 30,
+): Promise<{ days: DailyPoint[] }> {
+  const n = Number.isInteger(days) && days > 0 && days <= 365 ? days : 30;
+  const { data, error } = await dbQuery<{
+    day: string;
+    pageviews: number;
+    unique_sessions: number;
+    conversions: number;
+  }>(
+    env.DB,
+    `SELECT day, pageviews, unique_sessions, conversions FROM analytics_daily
+     WHERE site_id = ? AND day >= date('now', ?) ORDER BY day ASC`,
+    [siteId, `-${n} days`],
+  );
+  if (error) return { days: [] };
+  return {
+    days: data.map((r) => ({
+      day: r.day,
+      pageviews: Number(r.pageviews),
+      uniqueSessions: Number(r.unique_sessions),
+      conversions: Number(r.conversions),
+    })),
+  };
+}
+
 /**
  * Build the owner analytics summary for a site over a trailing window.
  *

@@ -16,7 +16,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { requireOrgFlag, notFound } from '../../../src/lib/feature_guard.js';
-import { FLAG_KEY, getSiteAnalyticsSummary, siteOrgId } from './service.js';
+import { FLAG_KEY, getSiteAnalyticsSummary, getDailySeries, siteOrgId } from './service.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
@@ -36,4 +36,20 @@ siteAnalytics.get('/api/sites/:siteId/analytics', async (c) => {
 
   const summary = await getSiteAnalyticsSummary(c.env, g.orgId, siteId, windowDays);
   return c.json(summary);
+});
+
+// AN5 follow-on — per-day traffic series from the analytics_daily rollup.
+siteAnalytics.get('/api/sites/:siteId/analytics/daily', async (c) => {
+  const g = await requireOrgFlag(c, FLAG_KEY);
+  if (g instanceof Response) return g;
+
+  const siteId = c.req.param('siteId');
+  const owner = await siteOrgId(c.env, siteId);
+  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+
+  const daysParam = Number(c.req.query('days'));
+  const days = Number.isInteger(daysParam) && daysParam > 0 && daysParam <= 365 ? daysParam : 30;
+
+  const series = await getDailySeries(c.env, siteId, days);
+  return c.json(series);
 });

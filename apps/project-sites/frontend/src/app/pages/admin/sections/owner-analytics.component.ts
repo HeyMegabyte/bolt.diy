@@ -12,6 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
 import { DataPledgeComponent } from './data-pledge.component';
+import { TrafficTrendComponent } from './traffic-trend.component';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { UtmBuilderComponent } from './utm-builder.component';
 
@@ -44,7 +45,7 @@ interface SiteAnalyticsSummary {
 @Component({
   selector: 'app-owner-analytics',
   standalone: true,
-  imports: [RollingCounterComponent, UtmBuilderComponent, DataPledgeComponent],
+  imports: [RollingCounterComponent, UtmBuilderComponent, DataPledgeComponent, TrafficTrendComponent],
   template: `
     <div class="px-6 pt-4 pb-8 max-md:px-4" data-testid="owner-analytics">
       @if (siteId()) {
@@ -72,6 +73,9 @@ interface SiteAnalyticsSummary {
         </div>
       } @else if (summary(); as s) {
         <p class="oa-headline" data-testid="oa-headline">{{ outcomeSummary(s) }}</p>
+
+        <!-- AN5 follow-on — daily traffic trend from the analytics_daily rollup. -->
+        <app-traffic-trend [siteId]="s.siteId" />
         <p class="text-[0.72rem] text-text-secondary mb-3">Last {{ s.windowDays }} days.</p>
         <div class="oa-grid">
           <div class="oa-card" data-testid="oa-pageviews">
