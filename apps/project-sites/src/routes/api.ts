@@ -1680,6 +1680,42 @@ api.get('/api/billing/entitlements', async (c) => {
 });
 
 /**
+ * GET /api/billing/quota
+ *
+ * Per-tenant site-quota snapshot for the caller's org — the data layer behind
+ * the owner-facing "X of Y sites" chip (#35). Returns the SAME checkBuildLimit
+ * the create paths enforce (create-from-search, import-from-url, POST /api/sites),
+ * so the number an owner sees is exactly the number the server gates on.
+ *
+ * @route GET /api/billing/quota
+ * @returns 200 `{ data: { used, limit, remaining, allowed, plan, unlimited } }` —
+ *   `limit`/`remaining` are `null` for unlimited orgs (JSON can't carry Infinity).
+ */
+api.get('/api/billing/quota', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const sub = await dbQueryOne<{ plan: string }>(
+    c.env.DB,
+    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
+    [orgId],
+  );
+  const plan = sub?.plan ?? 'free';
+  const q = await checkBuildLimit(c.env.DB, orgId, plan);
+  const unlimited = !Number.isFinite(q.limit);
+  return c.json({
+    data: {
+      used: q.used,
+      limit: unlimited ? null : q.limit,
+      remaining: unlimited ? null : q.remaining,
+      allowed: q.allowed,
+      plan,
+      unlimited,
+    },
+  });
+});
+
+/**
  * GET /api/billing/cost-forecast?days=30
  *
  * 30-day rolling cost forecast for the org. Aggregates `usage_events` per day,

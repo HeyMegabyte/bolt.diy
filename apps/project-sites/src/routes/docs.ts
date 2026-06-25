@@ -450,6 +450,13 @@ const API_SURFACE: readonly ApiSurfaceRow[] = [
     authRequired: true,
   },
   {
+    method: 'GET',
+    path: '/api/billing/quota',
+    summary: 'Site-quota snapshot (used/limit/remaining/allowed)',
+    tag: 'billing',
+    authRequired: true,
+  },
+  {
     method: 'POST',
     path: '/api/billing/portal',
     summary: 'Stripe billing-portal session',
