@@ -8,6 +8,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { VisionRadarComponent, parseVisionScores, type VisionAxis } from './vision-radar.component';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -54,6 +55,8 @@ interface SnapshotMetrics {
   screenshot_r2_key: string | null;
   captured_at: string | null;
   error: string | null;
+  /** S3 — 6-axis Llama-4 Scout visual score blob (already on the wire via SELECT *). */
+  vision_scores_json?: string | null;
 }
 
 type MetricTier = 'green' | 'yellow' | 'red' | 'neutral';
@@ -111,7 +114,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -499,6 +502,11 @@ interface GhStatus {
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                                 <span>No screenshot</span>
                               </div>
+                            }
+
+                            <!-- S3 — 6-axis visual score radar (only when AI vision scored this capture). -->
+                            @if (visionAxes(m); as axes) {
+                              <app-vision-radar [scores]="axes" />
                             }
 
                             <div class="snap-metrics-pills">
@@ -1871,6 +1879,11 @@ export class AdminSnapshotsComponent implements OnInit {
     if (n === 0) return 'green';
     if (n <= 3) return 'yellow';
     return 'red';
+  }
+
+  /** S3 — parse a snapshot's stored 6-axis vision score into radar axes (null = none). */
+  visionAxes(m: SnapshotMetrics): VisionAxis[] | null {
+    return parseVisionScores(m.vision_scores_json);
   }
 
   // ─── Formatters ───────────────────────────────────────────────────────
