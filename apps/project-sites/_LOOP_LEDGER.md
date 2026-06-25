@@ -605,7 +605,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] S27. (#27) Post templates / saved snippets — **localStorage-backed** CRUD (recurring CTAs, sign-offs, link-in-bio). [new][auto] slug `social_post_templates`
 - [ ] S31. (#31) Platform tiering UX — Bluesky/Mastodon/IG/Threads first-class; X cost-toggled; LinkedIn connect-&-paste. tier prefs in localStorage. [extend][auto] slug `social_platform_tiering`
 - [ ] S33. (#33) TikTok (≤15/day) + YouTube Shorts scheduled-only publishers. [new][dedicated] slug `social_tiktok_youtube`
-- [ ] S37. (#37) Mention autocomplete backed by real per-platform handle lookup (verify current @input resolves). [extend][auto] slug `social_mention_lookup`
+- [x] S37. (#37) Mention autocomplete backed by real per-platform handle lookup (verify current @input resolves). [extend][auto] slug `social_mention_lookup`
 - [x] S39. (already-shipped: textarea onContentKeydown Cmd/Ctrl+Enter→publish) (#39) Keyboard-first: Cmd+Enter to schedule + Cmd+K palette actions (compose/schedule/connect). [extend][auto] slug `social_keyboard_first`
 - [x] S44. (#44) Composer autosave — **localStorage**-backed draft restore (never lose a half-written post). [new][auto] slug `social_composer_autosave`
 - [x] S45. (already-shipped: ctState over→red + canPublish blocks + publishBlockReason "N over") (#45) Char-counter over-limit state (red + "N over") + auto-trim suggestion per platform. [extend][auto] slug `social_char_over_limit`

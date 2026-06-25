@@ -96,6 +96,73 @@ socialRoutes.delete('/api/social/accounts/:id', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
+// ── Mentions autocomplete ────────────────────────────────────
+
+const MentionsQuerySchema = z.object({
+  platform: platformEnum,
+  q: z.string().max(40).optional(),
+});
+
+/**
+ * `GET /api/social/mentions?platform=&q=` — Handle autocomplete for the composer
+ * @-mention popup (S37). Resolves from the org's OWN data — no restricted
+ * platform handle-search API needed: (1) connected `social_accounts` handles for
+ * the platform, then (2) handles previously @-mentioned in this org's posts.
+ * Filtered by the `q` prefix (case-insensitive, leading `@` ignored), deduped,
+ * capped at 8.
+ *
+ * @returns `{ items: { handle: string; name?: string }[] }`
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
+socialRoutes.get('/api/social/mentions', zValidator('query', MentionsQuerySchema), async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  const { platform, q } = c.req.valid('query');
+  const needle = (q ?? '').toLowerCase().replace(/^@/, '');
+  const items = new Map<string, { handle: string; name?: string }>();
+
+  // 1. Connected accounts on this platform (the highest-signal suggestions).
+  const { data: accts } = await dbQuery<{ handle: string | null; display_name: string | null }>(
+    c.env.DB,
+    `SELECT handle, display_name FROM social_accounts
+       WHERE org_id = ? AND platform = ? AND deleted_at IS NULL AND handle IS NOT NULL`,
+    [ctx.orgId, platform],
+  );
+  for (const a of accts) {
+    if (!a.handle) continue;
+    const h = a.handle.replace(/^@/, '');
+    if (needle && !h.toLowerCase().includes(needle)) continue;
+    items.set(h.toLowerCase(), { handle: h, name: a.display_name ?? undefined });
+  }
+
+  // 2. Recently @-mentioned handles for this platform (from prior posts).
+  if (items.size < 8) {
+    const { data: posts } = await dbQuery<{ mentions: string | null }>(
+      c.env.DB,
+      `SELECT mentions FROM pulse_posts
+         WHERE org_id = ? AND mentions IS NOT NULL AND deleted_at IS NULL
+         ORDER BY created_at DESC LIMIT 200`,
+      [ctx.orgId],
+    );
+    for (const p of posts) {
+      try {
+        const arr = JSON.parse(p.mentions ?? '[]') as Array<{ platform: string; handle: string }>;
+        for (const m of arr) {
+          if (m.platform !== platform || !m.handle) continue;
+          const h = m.handle.replace(/^@/, '');
+          const key = h.toLowerCase();
+          if (needle && !key.includes(needle)) continue;
+          if (!items.has(key)) items.set(key, { handle: h });
+        }
+      } catch {
+        /* skip a corrupt mentions blob */
+      }
+    }
+  }
+
+  return c.json({ items: Array.from(items.values()).slice(0, 8) });
+});
+
 // ── Posts ───────────────────────────────────────────────────
 
 const CreatePostSchema = z.object({

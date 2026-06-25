@@ -791,6 +791,30 @@ describe('POST /api/social/og-preview', () => {
     fetchSpy.mockRestore();
   });
 
+  describe('mentions autocomplete (S37)', () => {
+    it('requires auth → 401', async () => {
+      const res = await req(makeApp(), '/api/social/mentions?platform=twitter&q=ac', 'GET', makeEnv());
+      expect(res.status).toBe(401);
+    });
+
+    it('resolves handles from connected accounts + prior mentions, deduped + filtered', async () => {
+      mDbQuery
+        .mockResolvedValueOnce({ data: [{ handle: '@acme', display_name: 'Acme' }], error: null }) // accounts
+        .mockResolvedValueOnce({
+          data: [{ mentions: JSON.stringify([{ platform: 'twitter', handle: 'acmesales' }, { platform: 'bluesky', handle: 'other' }]) }],
+          error: null,
+        }); // prior posts
+      const res = await req(makeApp(AUTH), '/api/social/mentions?platform=twitter&q=ac', 'GET', makeEnv());
+      expect(res.status).toBe(200);
+      const { items } = await jsonOf<{ items: { handle: string; name?: string }[] }>(res);
+      const handles = items.map((i) => i.handle);
+      expect(handles).toContain('acme'); // connected account (leading @ stripped)
+      expect(handles).toContain('acmesales'); // prior twitter mention matching "ac"
+      expect(handles).not.toContain('other'); // wrong platform + doesn't match "ac"
+      expect(items.find((i) => i.handle === 'acme')?.name).toBe('Acme');
+    });
+  });
+
   describe('kill-switch flags (S3)', () => {
     afterEach(() => mockIsFlagOn.mockResolvedValue(true));
 
