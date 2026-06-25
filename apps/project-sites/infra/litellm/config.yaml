@@ -1,0 +1,48 @@
+# LiteLLM proxy config for llm.projectsites.dev.
+# Model creds are read from env (set as wrangler secrets, injected by the Container DO).
+# Per rules/model-routing.md provider tiers: premium (Anthropic/OpenAI), mid (DeepSeek),
+# instant (Workers AI). RouteLLM picks strong-vs-weak per request to cut cost.
+
+model_list:
+  # ── Premium tier ──
+  - model_name: gpt-5
+    litellm_params:
+      model: openai/gpt-5
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: claude-opus
+    litellm_params:
+      model: anthropic/claude-opus-4-8
+      api_key: os.environ/ANTHROPIC_API_KEY
+  # ── Mid-grade default ──
+  - model_name: deepseek
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+  # ── RouteLLM: one model that routes strong(claude-opus) vs weak(deepseek) ──
+  # `router/mf` is RouteLLM's matrix-factorization router; threshold tunes the
+  # cost/quality split. Calls to model "smart" get routed automatically.
+  - model_name: smart
+    litellm_params:
+      model: router/mf
+      strong_model: anthropic/claude-opus-4-8
+      weak_model: deepseek/deepseek-chat
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+litellm_settings:
+  drop_params: true
+  num_retries: 2
+  request_timeout: 600
+  # RouteLLM threshold — fraction of calls sent to the strong model (0..1).
+  # Tune against your own win-rate data; 0.5 is a balanced default.
+  routellm_settings:
+    routellm_default_threshold: 0.5
+
+router_settings:
+  routing_strategy: simple-shuffle
+  # Fallback chain: if the routed model errors, degrade premium → mid.
+  fallbacks:
+    - smart: ["claude-opus", "deepseek"]
+
+general_settings:
+  # Master key gates the proxy. Set LITELLM_MASTER_KEY as a wrangler secret.
+  master_key: os.environ/LITELLM_MASTER_KEY

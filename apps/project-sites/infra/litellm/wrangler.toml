@@ -1,0 +1,38 @@
+name = "projectsites-litellm"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# llm.projectsites.dev → this container worker. NOTE: the main project-sites worker
+# currently serves llm. (landing + /v1/* via external_llm). To cut over, add an
+# EXPLICIT Workers route here (more specific than the *.projectsites.dev/* wildcard,
+# per the listmonk-mail custom-domain-vs-wildcard lesson) so LiteLLM becomes the /v1
+# gateway. Use custom_domain OR an explicit route (route wins deterministically).
+routes = [
+  { pattern = "llm.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "LiteLLM"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-litellm"
+
+[[durable_objects.bindings]]
+name = "LITELLM"
+class_name = "LiteLLM"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiteLLM"]
+
+# Secrets to set before deploy (wrangler secret put ... ):
+#   LITELLM_MASTER_KEY   (sk-... — gates the proxy; openssl rand -hex 24, prefix sk-)
+#   OPENAI_API_KEY  ANTHROPIC_API_KEY  DEEPSEEK_API_KEY   (per provider used)
+[vars]
