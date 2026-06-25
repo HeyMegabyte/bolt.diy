@@ -793,7 +793,12 @@ describe('POST /api/social/og-preview', () => {
 
   describe('mentions autocomplete (S37)', () => {
     it('requires auth → 401', async () => {
-      const res = await req(makeApp(), '/api/social/mentions?platform=twitter&q=ac', 'GET', makeEnv());
+      const res = await req(
+        makeApp(),
+        '/api/social/mentions?platform=twitter&q=ac',
+        'GET',
+        makeEnv(),
+      );
       expect(res.status).toBe(401);
     });
 
@@ -801,10 +806,22 @@ describe('POST /api/social/og-preview', () => {
       mDbQuery
         .mockResolvedValueOnce({ data: [{ handle: '@acme', display_name: 'Acme' }], error: null }) // accounts
         .mockResolvedValueOnce({
-          data: [{ mentions: JSON.stringify([{ platform: 'twitter', handle: 'acmesales' }, { platform: 'bluesky', handle: 'other' }]) }],
+          data: [
+            {
+              mentions: JSON.stringify([
+                { platform: 'twitter', handle: 'acmesales' },
+                { platform: 'bluesky', handle: 'other' },
+              ]),
+            },
+          ],
           error: null,
         }); // prior posts
-      const res = await req(makeApp(AUTH), '/api/social/mentions?platform=twitter&q=ac', 'GET', makeEnv());
+      const res = await req(
+        makeApp(AUTH),
+        '/api/social/mentions?platform=twitter&q=ac',
+        'GET',
+        makeEnv(),
+      );
       expect(res.status).toBe(200);
       const { items } = await jsonOf<{ items: { handle: string; name?: string }[] }>(res);
       const handles = items.map((i) => i.handle);
