@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { CmdGlyphComponent } from '../../../components/cmd-glyph/cmd-glyph.component';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { QuotaChipComponent } from '../quota-chip.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
 import { isSysAdminEmail } from '../sys-admin';
@@ -52,9 +53,11 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent],
   template: `
     <section class="dash" aria-label="Getting started">
+      <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
+      <div class="flex justify-end mb-1"><app-quota-chip /></div>
       <!-- ── Search ─────────────────────────────────────────────── -->
       <div class="search-wrap" appReveal role="search">
         <span class="search-ic" aria-hidden="true"><app-cmd-glyph name="search" /></span>

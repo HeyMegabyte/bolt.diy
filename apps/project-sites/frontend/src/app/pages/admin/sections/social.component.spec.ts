@@ -25,6 +25,12 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     get.calls.allArgs().filter((a) => a[0] === '/social/posts');
 
   function build(initial: { id: string } | null): void {
+    // Pin the precondition (gotcha #9 — order-fragile spec isolation): ngOnInit
+    // calls restoreDraft(), which rehydrates `perPlatform` from `ps_social_draft_v1`.
+    // A draft left in localStorage by another spec (e.g. S44 autosave) would mark a
+    // platform as "has override" → composerLimit skips it → these assertions flake
+    // depending on Karma's execution order. Start every build from a clean slate.
+    localStorage.clear();
     selectedSite = signal<{ id: string } | null>(initial);
     get = jasmine.createSpy('get').and.callFake((path: string) => {
       if (path === '/social/auto-pilot/config') return of({ data: null });
