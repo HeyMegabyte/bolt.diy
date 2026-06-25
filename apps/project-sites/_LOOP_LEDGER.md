@@ -432,9 +432,9 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] AN9. Top-pages-by-visits widget with an engagement signal (not raw hits). [new][auto] slug `analytics_top_pages`
 
 ### Tier AN2 — the metrics SMB owners actually want
-- [ ] AN10. Traffic-sources / channel breakdown widget (Google/Instagram/direct/referral) from AN1 channel. [new][auto] slug `analytics_sources`
+- [ ] AN10. Traffic-sources / channel breakdown widget (Google/Instagram/direct/referral) from AN1 channel. [new][auto] slug `analytics_sources` — **contacts-by-source breakdown shipped (b10a7436):** Your-Visitors tab renders "Where your contacts came from" (top 6 acquisition sources, empty→"Direct / unknown"). REMAINING: TRAFFIC-channel breakdown (organic/social/direct/paid) needs AN1 UA/UTM parse at ingest — still open.
 - [ ] AN11. One-click UTM builder in the dashboard (track "the Instagram ad" without knowing UTMs). [new][auto] slug `analytics_utm_builder`
-- [ ] AN12. Conversions / goals — owner names outcomes ("Menu viewed","Click-to-call"); show count + rate (`visitor_events.event_type='conversion'` exists, zero UI). [partial][auto] slug `analytics_goals`
+- [ ] AN12. Conversions / goals — owner names outcomes ("Menu viewed","Click-to-call"); show count + rate (`visitor_events.event_type='conversion'` exists, zero UI). [partial][auto] slug `analytics_goals` — **count + RATE shipped (b10a7436):** Your-Visitors tab now shows the conversion count + a conversion-rate sub (conversions/pageviews, 1dp). REMAINING: owner-named goal definitions (needs a `goals` table + naming UI) — that's the larger half, still open.
 - [ ] AN13. Device & browser split widget (from AN1 UA parse). [new][auto] slug `analytics_device_split`
 - [ ] AN14. Geo drill-down — city/region map (country-only today; from AN2). [new][auto] slug `analytics_geo_drill`
 - [ ] AN15. Period-over-period comparison — "+18% vs last week" deltas + trend arrows on every KPI (top GA4-alt request; absent). [new][auto] slug `analytics_compare_period`
