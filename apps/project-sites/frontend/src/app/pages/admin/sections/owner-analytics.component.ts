@@ -30,6 +30,8 @@ interface SiteAnalyticsSummary {
     conversions: number;
     topPaths: { path: string; count: number }[];
     byType: { type: string; count: number }[];
+    byDevice: { label: string; count: number }[];
+    byChannel: { label: string; count: number }[];
     windowDays: number;
   };
   generatedAt: string;
@@ -102,6 +104,30 @@ interface SiteAnalyticsSummary {
               <li class="oa-path">
                 <span class="oa-path-name">{{ p.path }}</span>
                 <span class="oa-path-count">{{ p.count }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (s.traffic.byChannel.length) {
+          <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">Traffic by channel</h2>
+          <ul class="oa-paths" data-testid="oa-channels">
+            @for (ch of s.traffic.byChannel.slice(0, 6); track ch.label) {
+              <li class="oa-path">
+                <span class="oa-path-name oa-cap">{{ ch.label }}</span>
+                <span class="oa-path-count">{{ ch.count }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (s.traffic.byDevice.length) {
+          <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">Devices</h2>
+          <ul class="oa-paths" data-testid="oa-devices">
+            @for (d of s.traffic.byDevice.slice(0, 6); track d.label) {
+              <li class="oa-path">
+                <span class="oa-path-name oa-cap">{{ d.label }}</span>
+                <span class="oa-path-count">{{ d.count }}</span>
               </li>
             }
           </ul>
@@ -200,6 +226,9 @@ interface SiteAnalyticsSummary {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      .oa-cap {
+        text-transform: capitalize;
       }
       .oa-path-count {
         color: var(--ps-accent, #00e5ff);

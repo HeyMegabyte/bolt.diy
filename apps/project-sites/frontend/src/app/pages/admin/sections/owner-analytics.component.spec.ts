@@ -25,6 +25,14 @@ const SUMMARY = {
     conversions: 14,
     topPaths: [{ path: '/', count: 600 }],
     byType: [],
+    byDevice: [
+      { label: 'mobile', count: 700 },
+      { label: 'desktop', count: 500 },
+    ],
+    byChannel: [
+      { label: 'organic', count: 480 },
+      { label: 'social', count: 360 },
+    ],
     windowDays: 30,
   },
   generatedAt: '2026-06-25T00:00:00Z',
@@ -69,6 +77,13 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     expect(sources).toBeTruthy();
     expect(sources?.textContent).toContain('instagram');
     expect(sources?.textContent).toContain('Direct / unknown');
+    // AN10 channel + AN13 device breakdowns (from the AN1 metadata enrichment).
+    const channels = el.querySelector('[data-testid="oa-channels"]');
+    expect(channels?.textContent).toContain('organic');
+    expect(channels?.textContent).toContain('480');
+    const devices = el.querySelector('[data-testid="oa-devices"]');
+    expect(devices?.textContent).toContain('mobile');
+    expect(devices?.textContent).toContain('700');
   });
 
   it('stays quiet with an "not enabled" note on a 404 (flag dark)', () => {

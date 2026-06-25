@@ -32,6 +32,11 @@ export const PathCountSchema = z
 export const TypeCountSchema = z
   .object({ type: z.string(), count: z.number().int().min(0) })
   .strict();
+/** One `{ label, count }` row of a generic labelled breakdown (device / channel). */
+export const LabelCountSchema = z
+  .object({ label: z.string(), count: z.number().int().min(0) })
+  .strict();
+export type LabelCount = z.infer<typeof LabelCountSchema>;
 
 /** Aggregated traffic summary for one site over a window. */
 export const TrafficSummarySchema = z
@@ -41,6 +46,11 @@ export const TrafficSummarySchema = z
     conversions: z.number().int().min(0),
     topPaths: z.array(PathCountSchema),
     byType: z.array(TypeCountSchema),
+    // AN13 device split + AN10 channel breakdown — from the AN1 metadata
+    // enrichment (`json_extract(metadata,'$.device'|'$.channel')`). Default []
+    // keeps older producers/fixtures valid.
+    byDevice: z.array(LabelCountSchema).default([]),
+    byChannel: z.array(LabelCountSchema).default([]),
     windowDays: z.number().int().positive(),
   })
   .strict();

@@ -146,7 +146,8 @@ export async function getTrafficSummary(
   const since = `-${windowDays} days`;
   const w = ['site_id = ?', "created_at >= datetime('now', ?)"].join(' AND ');
 
-  const [pageviews, uniqueSessions, conversions, topPathRows, byTypeRows] = await Promise.all([
+  const [pageviews, uniqueSessions, conversions, topPathRows, byTypeRows, byDeviceRows, byChannelRows] =
+    await Promise.all([
     scalar(env, `SELECT COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'pageview'`, [
       siteId,
       since,
@@ -171,6 +172,20 @@ export async function getTrafficSummary(
       `SELECT event_type, COUNT(*) AS n FROM visitor_events WHERE ${w} GROUP BY event_type ORDER BY n DESC`,
       [siteId, since],
     ).then((r) => (r.error ? [] : r.data)),
+    // AN13 — device split over pageviews, from the AN1 metadata enrichment.
+    dbQuery<{ label: string | null; n: number }>(
+      env.DB,
+      `SELECT json_extract(metadata, '$.device') AS label, COUNT(*) AS n FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' GROUP BY label ORDER BY n DESC`,
+      [siteId, since],
+    ).then((r) => (r.error ? [] : r.data)),
+    // AN10 — channel breakdown over pageviews (direct/organic/social/paid/email/referral).
+    dbQuery<{ label: string | null; n: number }>(
+      env.DB,
+      `SELECT json_extract(metadata, '$.channel') AS label, COUNT(*) AS n FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' GROUP BY label ORDER BY n DESC`,
+      [siteId, since],
+    ).then((r) => (r.error ? [] : r.data)),
   ]);
 
   const topPaths: Array<z.infer<typeof PathCountSchema>> = topPathRows
@@ -179,6 +194,11 @@ export async function getTrafficSummary(
   const byType = byTypeRows
     .filter((r) => typeof r.event_type === 'string' && r.event_type)
     .map((r) => ({ type: r.event_type, count: Number(r.n) }));
+  // Null label = pre-AN1 events (no enrichment) → bucket as 'unknown'.
+  const toLabelCounts = (rows: Array<{ label: string | null; n: number }>) =>
+    rows.map((r) => ({ label: r.label ?? 'unknown', count: Number(r.n) }));
+  const byDevice = toLabelCounts(byDeviceRows);
+  const byChannel = toLabelCounts(byChannelRows);
 
   return TrafficSummarySchema.parse({
     pageviews,
@@ -186,6 +206,8 @@ export async function getTrafficSummary(
     conversions,
     topPaths,
     byType,
+    byDevice,
+    byChannel,
     windowDays,
   });
 }
