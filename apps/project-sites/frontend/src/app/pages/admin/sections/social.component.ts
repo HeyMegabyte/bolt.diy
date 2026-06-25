@@ -504,6 +504,21 @@ const PLATFORMS: readonly PlatformDef[] = [
             }
           </div>
 
+          <!-- S27 — saved templates (localStorage): insert a snippet or save the current draft -->
+          @if (templates().length > 0 || content().trim().length > 0) {
+            <div class="tmpl-row">
+              @for (t of templates(); track t.id) {
+                <span class="tmpl-chip">
+                  <button type="button" class="tmpl-use" (click)="useTemplate(t)" [title]="t.content">{{ t.name }}</button>
+                  <button type="button" class="tmpl-del" (click)="deleteTemplate(t.id)" [attr.aria-label]="'Delete template ' + t.name">&times;</button>
+                </span>
+              }
+              @if (content().trim().length > 0) {
+                <button type="button" class="tmpl-save" (click)="saveTemplate()">+ Save as template</button>
+              }
+            </div>
+          }
+
           <!-- Hashtags + link + AI/mention helpers -->
           <div class="meta-grid">
 
@@ -1301,6 +1316,12 @@ const PLATFORMS: readonly PlatformDef[] = [
       .chip-ct.over { color: #ff6b8a; font-weight: 700; }
       .draft-hint { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 0.5rem; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 8%, transparent); color: var(--ps-ink, #f4f4ff); font-size: 0.74rem; }
       .draft-hint button { font-size: 0.7rem; font-weight: 600; color: var(--ps-accent, #00e5ff); background: none; border: 0; cursor: pointer; padding: 0.1rem 0.3rem; }
+      .tmpl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0.4rem 0 0.6rem; }
+      .tmpl-chip { display: inline-flex; align-items: center; gap: 2px; max-width: 220px; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 7%, transparent); }
+      .tmpl-use { font-size: 0.7rem; color: var(--ps-ink, #f4f4ff); background: none; border: 0; cursor: pointer; padding: 0.2rem 0.4rem 0.2rem 0.6rem; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tmpl-del { font-size: 0.85rem; line-height: 1; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); background: none; border: 0; cursor: pointer; padding: 0 0.45rem 0 0.1rem; }
+      .tmpl-del:hover { color: #ff6b8a; }
+      .tmpl-save { font-size: 0.7rem; font-weight: 600; color: var(--ps-accent, #00e5ff); background: none; border: 1px dashed color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); border-radius: 999px; cursor: pointer; padding: 0.2rem 0.6rem; }
 
       /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
 
@@ -1682,6 +1703,61 @@ export class AdminSocialComponent implements OnInit {
     this.draftRestored.set(false);
   }
 
+  /* ── S27 — post templates (localStorage) ── */
+
+  /** Read saved templates from localStorage (SSR/private-mode safe). */
+  private loadTemplates(): { id: string; name: string; content: string }[] {
+    try {
+      const raw = localStorage.getItem(this.TEMPLATES_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw) as unknown;
+      if (!Array.isArray(arr)) return [];
+      return arr
+        .filter(
+          (t): t is { id: string; name: string; content: string } =>
+            !!t && typeof t === 'object' && typeof (t as { content?: unknown }).content === 'string',
+        )
+        .slice(0, 30);
+    } catch {
+      return [];
+    }
+  }
+
+  private persistTemplates(list: { id: string; name: string; content: string }[]): void {
+    try {
+      localStorage.setItem(this.TEMPLATES_KEY, JSON.stringify(list));
+    } catch {
+      /* quota / private mode — best-effort */
+    }
+  }
+
+  /** Save the current composer content as a reusable template (auto-named). */
+  saveTemplate(): void {
+    const content = this.content().trim();
+    if (!content) return;
+    const name = content.length > 30 ? content.slice(0, 30).trimEnd() + '…' : content;
+    const next = [
+      { id: crypto.randomUUID(), name, content },
+      ...this.templates().filter((t) => t.content !== content),
+    ].slice(0, 30);
+    this.templates.set(next);
+    this.persistTemplates(next);
+    this.toast.success('Template saved');
+  }
+
+  /** Insert a saved template into the composer (replaces empty / appends otherwise). */
+  useTemplate(t: { content: string }): void {
+    const cur = this.content();
+    this.content.set(cur.trim() ? `${cur.replace(/\s+$/, '')}\n\n${t.content}` : t.content);
+  }
+
+  /** Delete a saved template. */
+  deleteTemplate(id: string): void {
+    const next = this.templates().filter((t) => t.id !== id);
+    this.templates.set(next);
+    this.persistTemplates(next);
+  }
+
   readonly platforms = PLATFORMS;
 
   /**
@@ -1726,6 +1802,9 @@ export class AdminSocialComponent implements OnInit {
    *  reload / accidental nav never loses a half-written post. */
   private readonly DRAFT_KEY = 'ps_social_draft_v1';
   readonly draftRestored = signal(false);
+  /** S27 — localStorage-backed reusable post templates / snippets. */
+  private readonly TEMPLATES_KEY = 'ps_social_templates_v1';
+  readonly templates = signal<{ id: string; name: string; content: string }[]>(this.loadTemplates());
   /**
    * Tightest char limit among selected platforms that use the MAIN composer copy
    * (a platform with its own override counts against that override, via the
