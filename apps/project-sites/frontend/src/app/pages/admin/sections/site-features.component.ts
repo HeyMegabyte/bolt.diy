@@ -396,7 +396,8 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     .sf-page .sf-card-head:hover, .sf-page .sf-card-title:hover { box-shadow: none; }
     .sf-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 16%, transparent); }
     .sf-card[data-entitled="upgrade-required"], .sf-card[data-entitled="addon-required"] { opacity: .92; }
-    .sf-card-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
+    .sf-card-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; border: 0 !important; }
+    .sf-card-title { border: 0 !important; }
     .sf-card-title h2 { margin: 0; font-size: 1.1rem; }
     .sf-cat { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklch, var(--ps-accent, #00e5ff) 75%, var(--ps-ink, #f4f4ff)); }
     .sf-switch { flex: none; width: 46px; height: 26px; border-radius: 999px; border: 1px solid color-mix(in oklch, currentColor 25%, transparent); background: color-mix(in oklch, currentColor 12%, transparent); position: relative; cursor: pointer; padding: 0; transition: background .15s ease, border-color .15s ease; }
