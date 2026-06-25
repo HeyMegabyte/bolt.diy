@@ -1162,6 +1162,35 @@ export default {
       );
     }
 
+    // AN5 — once daily, roll up yesterday's visitor_events into analytics_daily so
+    // owner analytics answers "last N days" in O(days) rows. Idempotent UPSERT, so a
+    // missed/replayed day self-heals on the next run. Runs only on the daily 06:00 UTC trigger.
+    if (_event.cron === '0 6 * * *') {
+      try {
+        const { rollupAnalyticsDaily } = await import('./services/analytics_rollup.js');
+        const r = await rollupAnalyticsDaily(env);
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Analytics daily rollup complete',
+            day: r.day,
+            changes: r.changes,
+            error: r.error,
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Analytics daily rollup failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
     // Every 5 min — drain the event_bus outbox to its backends (Tinybird analytics
     // + Hatchet orchestration). Env-gated adapters no-op when unconfigured, so this
     // is safe on a fresh deploy. Off the hot path (cron only). Idempotent + FIFO
