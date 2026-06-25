@@ -312,7 +312,9 @@ socialRoutes.post(
     // Kill-switch: operator can halt all social publishing without a redeploy.
     if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
       return c.json(
-        { error: { code: 'FEATURE_DISABLED', message: 'Social publishing is temporarily disabled' } },
+        {
+          error: { code: 'FEATURE_DISABLED', message: 'Social publishing is temporarily disabled' },
+        },
         503,
       );
     }
