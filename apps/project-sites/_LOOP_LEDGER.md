@@ -310,7 +310,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ### Tier 3 — reliability & observability
 - [ ] 23. Finish event-bus → outbox → DLQ → retry loop (⚠ in-flight by concurrent sessions — coordinate) [partial][dedicated]
-- [ ] 24. Sentry on worker critical paths (build/deploy/payment/webhook) [partial][auto]
+- [ ] 24. Sentry on worker critical paths — PROGRESS 2026-06-25: the payment-critical STRIPE WEBHOOK catch (webhooks.ts) now captureError(c,err,…) explicitly (it handles+audits instead of re-throwing, so the global error-handler's Sentry capture was bypassed → silent). Remaining sub-paths: build-status callback (index.ts:532 .catch swallows), billing.ts catches, site-generation workflow steps. [partial][dedicated]
 - [ ] 25. traceId + tenantId correlation across the pipeline [partial][auto]
 - [ ] 26. Admin "build health" dashboard (success rate, p95 build time, failure reasons) [new][dedicated]
 - [ ] 27. Auto-rollback wired to post-deploy error-rate/LCP watcher [new][auto]
