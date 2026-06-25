@@ -14,7 +14,9 @@ jest.mock('../services/db.js', () => ({
   dbInsert: jest.fn().mockResolvedValue({ error: null }),
   dbExecute: jest.fn().mockResolvedValue({ error: null }),
 }));
-jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../services/audit.js', () => ({
+  writeAuditLog: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn().mockResolvedValue(true), // flag ON
 }));
@@ -42,7 +44,11 @@ function authedApp() {
   return (body: unknown) =>
     app.request(
       '/api/sites/create-from-search',
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
       env,
       ctx,
     );
