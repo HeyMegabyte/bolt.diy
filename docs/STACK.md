@@ -140,8 +140,6 @@
 | Promptfoo | **Recommended** | LLM evals / regression tests (CI gate) |
 | Vercel AI SDK | **Recommended** | Typed streaming/tool-calling where consistent |
 | Stagehand + Playwright | **Recommended** | Browser automation (Stagehand AI-fallback over Playwright) |
-| Firecrawl · Crawl4AI · Crawlee | **Conditional** | Research/lead-discovery inputs; license/deploy fit |
-| LlamaIndex.TS · LangGraph.js · Ragas · Mastra | **Conditional** | Only if they clearly improve RAG/agent quality |
 | Dify | **Study / borrow** | Internal prototyping/pattern study only — not core platform |
 
 ### Auth / identity / permissions
@@ -190,18 +188,16 @@
 | Renovate | **Core** | Dependency maintenance |
 | Gitleaks | **Core** | Secret scanning |
 | Trivy · OSV-Scanner · Syft · Grype | **Recommended** | Supply-chain scan / SBOM / vuln workflow |
-| Nuclei · OWASP ZAP | **Conditional** | DAST against live surfaces |
 | Cosign / Sigstore | **Recommended** | Artifact signing/attestation |
 | OpenTelemetry Collector | **Conditional** | Only for self-hosted services |
 
 ### Infra / ops
 | Tool | Status | Notes |
 |------|--------|-------|
-| OpenTofu | **Recommended** | IaC for non-Wrangler resources |
-| Pulumi | **Conditional** | Only if TS-native IaC is strongly preferred over OpenTofu |
+| OpenTofu | **Recommended** | IaC for all non-Wrangler resources (no Pulumi — one canonical IaC) |
 | Grafana · Loki · Prometheus | **Conditional** | Self-hosted observability for services that need it |
 | VictoriaMetrics · SigNoz | **Conditional** | Alt metrics/APM where justified |
-| Infisical · SOPS · OpenBao | **Conditional** | Only if Cloudflare Secrets Store is insufficient |
+| Infisical | **Conditional** | Only if Cloudflare Secrets Store is insufficient |
 
 ### Docs / developer experience
 | Tool | Status | Notes |
@@ -256,7 +252,7 @@
 - [x] Create `docs/ai-agent-rules.md` (cleanup rules · no dup packages · preferred libs · CF-first policy · selection rubric · how to update TODOs · how to avoid bloating markdown) — ✅ landed
 - [x] Create `docs/generated-site-quality.md` (max JS budget · image policy · a11y budget · Lighthouse CI thresholds · schema-dts · DOMPurify · Pagefind/Orama selection · Satori OG) — ✅ landed
 - [x] Create `docs/ai-observability.md` (Langfuse traces · Promptfoo evals · LiteLLM/RouteLLM routing · AI Gateway · model fallback · prompt versioning · budget controls · grounding checks) — ✅ landed
-- [x] Create `docs/security-supply-chain.md` (Gitleaks · Trivy · OSV-Scanner · Syft · Grype · Semgrep · Nuclei · OWASP ZAP · Cosign/Sigstore · Renovate policy) — ✅ landed
+- [x] Create `docs/security-supply-chain.md` (Gitleaks · Trivy · OSV-Scanner · Syft · Grype · Semgrep · Cosign/Sigstore · Renovate policy) — ✅ landed
 
 ### Phase 1 — Cloudflare-first platform foundation
 - [ ] Confirm Hono + Zod foundation (✅ in use) and document boundary pattern
@@ -302,8 +298,6 @@
 - [ ] Langfuse prompt/version/trace/cost observability
 - [ ] Promptfoo LLM evals/regression in CI
 - [ ] Stagehand / Browser Rendering / Playwright automation
-- [ ] Firecrawl / Crawl4AI / Crawlee research/lead-discovery inputs (conditional)
-- [ ] LlamaIndex.TS / LangGraph.js / Ragas only if they clearly improve RAG/agent quality
 
 ### Phase 5 — Ops, security, infra, scale
 - [ ] OpenTofu for non-Wrangler IaC
@@ -311,9 +305,8 @@
 - [ ] Renovate dependency maintenance
 - [ ] Gitleaks secret scanning (CI)
 - [ ] Trivy · OSV-Scanner · Syft · Grype supply-chain/SBOM/vuln workflow
-- [ ] OWASP ZAP / Nuclei DAST on live surfaces
 - [ ] Grafana/Loki/Prometheus/OTel Collector only for self-hosted services
-- [ ] Infisical/SOPS/OpenBao only if Secrets Store is insufficient
+- [ ] Infisical only if Secrets Store is insufficient
 
 ### Phase 6 — Product services / internal control plane
 - [ ] Logto for app auth/orgs (`_LOOP_LEDGER` A20) — keep custom auth until migration is proven

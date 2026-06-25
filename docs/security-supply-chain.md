@@ -15,8 +15,6 @@
 | **OSV-Scanner** | Recommended | CI | Lockfile vuln scan (OSV database) |
 | **Syft** | Recommended | CI/release | Generate SBOM (CycloneDX/SPDX) |
 | **Grype** | Recommended | CI/release | Scan the Syft SBOM for vulns |
-| **Nuclei** | Conditional | scheduled/manual | DAST against live surfaces |
-| **OWASP ZAP** | Conditional | scheduled/manual | DAST against live surfaces |
 | **Cosign / Sigstore** | Recommended | release | Sign + attest build artifacts/images |
 
 ## Secret scanning (Gitleaks)
@@ -45,12 +43,6 @@
 - Every novel finding becomes a new rule the same turn (self-improving).
 - Checks: injection (parameterized Drizzle only), hardcoded secrets, missing auth checks, SSRF (validate fetched URLs), XSS (DOMPurify + Trusted Types), IDOR (derive `orgId` server-side, never from a client `x-org-id` header).
 
-## DAST (Nuclei / OWASP ZAP) — conditional
-
-- Run against `projectsites.dev` + a sample `{slug}.projectsites.dev` on a schedule, not every push.
-- Gate on `workflow_dispatch` / release — not on the PR critical path.
-- Findings triaged into the security backlog; criticals block the next release.
-
 ## Artifact signing (Cosign / Sigstore)
 
 - Sign every published container image + release artifact with Cosign (keyless/OIDC via Sigstore).
@@ -64,7 +56,6 @@
 - [ ] Semgrep — block on high-severity rule hit
 - [ ] Syft SBOM generated + Grype clean on release
 - [ ] Cosign signature + attestation on every release artifact
-- [ ] Nuclei/ZAP scheduled scans triaged (non-blocking on PR)
 
 ## Supply-chain hardening
 

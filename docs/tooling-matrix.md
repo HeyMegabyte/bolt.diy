@@ -89,8 +89,6 @@
 | Promptfoo | Recommended | LLM evals/regression | devDeps + CI | node | AI | eval gate |
 | Vercel AI SDK | Recommended | Typed streaming/tool-calling | sites/editor | universal | AI | stream/tool layer |
 | Stagehand + Playwright | Recommended | Browser automation | devDeps | node | AI/QA | automation |
-| Firecrawl · Crawl4AI · Crawlee | Conditional | Research/lead-discovery | adapter | node | AI | crawl inputs |
-| LlamaIndex.TS · LangGraph.js · Ragas · Mastra | Conditional | RAG/agent quality | adapter | node | AI | only if clearly better |
 | Dify | Study | Pattern study only | — | — | AI | not core platform |
 
 ## Auth / identity / permissions
@@ -131,7 +129,6 @@
 | Lighthouse CI | Recommended | Perf/a11y budgets | CI | QA | generated-site budgets |
 | Knip · Oxlint | Core | Dead-code · fast lint | devDeps | DX | hygiene |
 | Semgrep · Gitleaks · Trivy · OSV-Scanner · Syft · Grype | Recommended/Core | Security + supply-chain | CI | security | see `docs/security-supply-chain.md` |
-| Nuclei · OWASP ZAP | Conditional | DAST | CI/manual | security | live-surface scans |
 | Cosign / Sigstore | Recommended | Artifact signing | CI | security | provenance |
 | Renovate | Core | Dependency maintenance | repo | DX | dep updates |
 | Biome | Avoid | — | — | DX | ESLint+Prettier+Oxlint per Brian |
@@ -140,10 +137,9 @@
 
 | Tool | Status | Purpose | Install target | Owner | Canonical job |
 |------|--------|---------|----------------|-------|---------------|
-| OpenTofu | Recommended | IaC for non-Wrangler resources | repo | infra | IaC |
-| Pulumi | Conditional | TS-native IaC | repo | infra | only if preferred over OpenTofu |
+| OpenTofu | Recommended | IaC for all non-Wrangler resources | repo | infra | IaC — one canonical (no Pulumi) |
 | Grafana · Loki · Prometheus | Conditional | Self-hosted observability | service | infra | services that need it |
-| Infisical · SOPS · OpenBao | Conditional | Secrets beyond Secrets Store | service | security | only if Secrets Store insufficient |
+| Infisical | Conditional | Secrets beyond Secrets Store | service | security | only if Secrets Store insufficient |
 | Scalar | Recommended | OpenAPI reference UI | worker | docs | API docs |
 | Mermaid · Shiki | Recommended | Diagrams · highlight | docs | docs | doc visuals |
 | Docusaurus | Conditional | Docs site | service | docs | only if MkDocs outgrown |
