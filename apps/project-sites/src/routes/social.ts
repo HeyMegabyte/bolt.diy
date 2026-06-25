@@ -22,6 +22,7 @@ import { PLATFORMS, type Platform } from '../services/social_publishers/index.js
 import { parseRssFeed, buildRssDraftRows } from '../services/rss_import.js';
 import { parseOgTags } from '../services/og_preview.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   DEFAULT_AUTO_PILOT_PROMPT,
   generateAutoPilotPostForNetwork,
@@ -308,6 +309,13 @@ socialRoutes.post(
   async (c) => {
     const ctx = requireAuth(c);
     if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+    // Kill-switch: operator can halt all social publishing without a redeploy.
+    if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
+      return c.json(
+        { error: { code: 'FEATURE_DISABLED', message: 'Social publishing is temporarily disabled' } },
+        503,
+      );
+    }
     const { scheduled_at } = c.req.valid('json');
     const { error, changes } = await dbExecute(
       c.env.DB,
@@ -335,6 +343,13 @@ socialRoutes.post(
 socialRoutes.post('/api/social/posts/:id/publish-now', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  // Kill-switch: operator can halt all social publishing without a redeploy.
+  if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
+    return c.json(
+      { error: { code: 'FEATURE_DISABLED', message: 'Social publishing is temporarily disabled' } },
+      503,
+    );
+  }
   const when = new Date(Date.now() + 60_000).toISOString();
   const { error, changes } = await dbExecute(
     c.env.DB,
@@ -600,6 +615,13 @@ socialRoutes.post(
 socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  // Kill-switch: operator can halt autonomous AI posting without a redeploy.
+  if (!(await isFlagOn(c.env, 'social_autopilot', { orgId: ctx.orgId }))) {
+    return c.json(
+      { error: { code: 'FEATURE_DISABLED', message: 'Social Auto-Pilot is temporarily disabled' } },
+      503,
+    );
+  }
   const cfg = await loadAutoPilotConfig(c.env.DB, ctx.orgId);
   const networks = cfg.target_networks ?? [];
   if (networks.length === 0) {

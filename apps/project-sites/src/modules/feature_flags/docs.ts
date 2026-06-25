@@ -985,6 +985,36 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → GET /api/sites/:id/collab → 404; binding absent → 503; plain HTTP GET → 426',
     ],
   },
+  social_publishing: {
+    checklist: [
+      'KILL-SWITCH (defaults ENABLED) for Pulse Social publishing',
+      'Gates POST /api/social/posts/:id/schedule + /publish-now (SocialPublishWorkflow dispatch)',
+      'Off → 503 FEATURE_DISABLED; composing/drafting unaffected',
+      'Flip the global override off to halt all publishing without a redeploy',
+    ],
+    explanation:
+      'Operator kill-switch for Pulse Social post publishing. Defaults ENABLED (rollout 100, stable) so live behavior is unchanged; the flag exists so an operator can instantly DISABLE the two publish-dispatch endpoints (schedule + publish-now) — e.g. a publisher is mis-posting or a platform API is down — by flipping the global override off, with no redeploy. When off the endpoints return 503 FEATURE_DISABLED (a known feature being halted — clearer than a 404). Drafting/composing still works.',
+    smoke_test: [
+      'Flag on (default) → POST /api/social/posts/:id/publish-now → 200, workflow runs',
+      'Set global override enabled=false → same call → 503 FEATURE_DISABLED',
+      'Re-enable → 200 again (no redeploy)',
+    ],
+  },
+  social_autopilot: {
+    checklist: [
+      'KILL-SWITCH (defaults ENABLED) for Pulse Social Auto-Pilot AI cron',
+      'Gates POST /api/social/auto-pilot/run-now',
+      'Off → 503 FEATURE_DISABLED; manual compose + read-only preview unaffected',
+      'Flip the global override off to halt autonomous AI posting without a redeploy',
+    ],
+    explanation:
+      'Operator kill-switch for Pulse Social Auto-Pilot (the AI cron generating + scheduling drafts per network). Defaults ENABLED (rollout 100, stable). An operator flips the global override off to instantly halt all autonomous posting — e.g. the AI is generating off-brand content — with no redeploy. When off, run-now returns 503 FEATURE_DISABLED; manual compose/schedule and the read-only preview are unaffected.',
+    smoke_test: [
+      'Flag on (default) → POST /api/social/auto-pilot/run-now → 200 (or 409 if no networks)',
+      'Set global override enabled=false → same call → 503 FEATURE_DISABLED',
+      'Re-enable → 200 again',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

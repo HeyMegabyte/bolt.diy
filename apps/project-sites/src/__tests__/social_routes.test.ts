@@ -30,6 +30,13 @@ jest.mock('../services/rss_import.js', () => ({
   buildRssDraftRows: jest.fn(),
 }));
 
+// Kill-switch flags (social_publishing / social_autopilot) default ON in prod; the
+// publish/schedule/run-now tests assume publishing is enabled, so default the mock
+// to true. The kill-switch test below flips it to false to assert the 503 path.
+jest.mock('../modules/feature_flags/services.js', () => ({
+  isFlagOn: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock('../services/og_preview.js', () => ({
   parseOgTags: jest.fn(),
 }));
@@ -51,6 +58,9 @@ import {
 import { parseRssFeed, buildRssDraftRows } from '../services/rss_import.js';
 import { parseOgTags } from '../services/og_preview.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
+
+const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
 
 const mDbQuery = dbQuery as unknown as jest.Mock;
 const mDbQueryOne = dbQueryOne as unknown as jest.Mock;
@@ -779,5 +789,28 @@ describe('POST /api/social/og-preview', () => {
     expect(res.status).toBe(200);
     expect((await jsonOf<{ og: { title: string } }>(res)).og.title).toBe('Article');
     fetchSpy.mockRestore();
+  });
+
+  describe('kill-switch flags (S3)', () => {
+    afterEach(() => mockIsFlagOn.mockResolvedValue(true));
+
+    it('publish-now → 503 FEATURE_DISABLED when social_publishing is off', async () => {
+      mockIsFlagOn.mockResolvedValue(false);
+      const res = await req(
+        makeApp(AUTH),
+        `/api/social/posts/${UUID_A}/publish-now`,
+        'POST',
+        makeEnv(),
+      );
+      expect(res.status).toBe(503);
+      expect((await jsonOf<{ error: { code: string } }>(res)).error.code).toBe('FEATURE_DISABLED');
+    });
+
+    it('auto-pilot/run-now → 503 FEATURE_DISABLED when social_autopilot is off', async () => {
+      mockIsFlagOn.mockResolvedValue(false);
+      const res = await req(makeApp(AUTH), '/api/social/auto-pilot/run-now', 'POST', makeEnv());
+      expect(res.status).toBe(503);
+      expect((await jsonOf<{ error: { code: string } }>(res)).error.code).toBe('FEATURE_DISABLED');
+    });
   });
 });

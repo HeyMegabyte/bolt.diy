@@ -603,6 +603,24 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  social_publishing: {
+    key: 'social_publishing',
+    description:
+      'KILL-SWITCH for Pulse Social post publishing. Gates the dispatch endpoints (POST /api/social/posts/:id/schedule + /publish-now) that trigger the SocialPublishWorkflow. Defaults ENABLED (rollout 100, stable) so existing behavior is unchanged — this flag exists so an operator can instantly DISABLE all social publishing (e.g. a publisher is mis-posting or a platform API is down) WITHOUT a redeploy by flipping the global override off. When off, the dispatch endpoints return 503 FEATURE_DISABLED (the feature is known, so a clear disabled signal beats a misleading 404). Composing/drafting still works. Acceptance: flag on → schedule/publish-now 200 + workflow runs; flag off → 503.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  social_autopilot: {
+    key: 'social_autopilot',
+    description:
+      'KILL-SWITCH for Pulse Social Auto-Pilot (the AI cron that generates + schedules drafts per configured network). Gates POST /api/social/auto-pilot/run-now. Defaults ENABLED (rollout 100, stable) so existing behavior is unchanged; an operator flips the global override off to instantly halt all autonomous posting WITHOUT a redeploy (e.g. AI is generating off-brand content). When off, run-now returns 503 FEATURE_DISABLED; manual compose/schedule and the read-only preview are unaffected. Acceptance: flag on → run-now 200; flag off → 503.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

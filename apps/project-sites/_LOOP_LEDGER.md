@@ -593,7 +593,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 > (S1/S3/S4/S6) are independent + ship first.
 - [x] S1. (#1) Fix hardcoded media domain in `services/social-publish.ts` `prepareMedia` (`projectsites.dev/assets/r2/${key}`, `accountBase` unused) → use the site's primary hostname / signed R2 URL. [fix][auto] slug `social_media_domain_fix`
 - [ ] S2. (#2) OAuth token auto-refresh lifecycle (Meta ~50d before 60d expiry; detect revocation; "Reconnect" CTA). [new][dedicated] slug `social_oauth_refresh`
-- [ ] S3. (#3) Feature flag + kill-switch per publisher + Auto-Pilot (`social_publishing`, `social_autopilot`). [new][auto] slug `social_kill_switch`
+- [x] S3. (#3) Feature flag + kill-switch per publisher + Auto-Pilot (`social_publishing`, `social_autopilot`). [new][auto] slug `social_kill_switch`
 - [x] S4. (#4) Bump stale `REAL_UA` Chrome 131→149 in `social_publishers/types.ts` (matches fetch-defaults). [fix][auto] slug `social_ua_bump`
 - [ ] S6. (#6) Per-account rate-limit budgeting + 429 logging + 80%-quota alert (per connected account). [new][auto] slug `social_rate_budget`
 - [ ] S8. (#8) Scheduled-post failure UX — surface failed/partial in the post card with one-click retry (today step 5 only toasts owner). [extend][auto] slug `social_failure_retry_ux`
