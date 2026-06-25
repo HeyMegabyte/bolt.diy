@@ -32,36 +32,15 @@ interface SystemService {
 
 /** The registry of status-page system subdomains, keyed by single-label subdomain. */
 export const SYSTEM_SERVICES: Readonly<Record<string, SystemService>> = {
-  auth: {
-    sub: 'auth',
-    name: 'Auth / Identity',
-    what: 'Identity + session issuance (magic-link, Google OAuth, Logto, WorkOS SSO).',
-    surface: 'Login flows live under /api/auth/* on this host.',
-  },
-  browser: {
-    sub: 'browser',
-    name: 'Browser Gateway',
-    what: 'Cloudflare Browser Rendering + Stagehand for crawl, screenshots, automation.',
-    surface: 'A service binding consumed by the build pipeline.',
-  },
-  traces: {
-    sub: 'traces',
-    name: 'LLM Tracing',
-    what: 'Langfuse-class tracing for every model call routed through the AI Gateway.',
-    surface: 'Planned — collector endpoint, no browsable UI yet.',
-  },
-  jobs: {
-    sub: 'jobs',
-    name: 'Durable Jobs',
-    what: 'Self-hosted Inngest — durable background jobs and the automation plane.',
-    surface: 'API at /api/inngest; dashboard ships at go-live.',
-  },
-  app: {
-    sub: 'app',
-    name: 'Apps Runtime',
-    what: 'Per-tenant installed-app runtime — each app served at {slug}.app.projectsites.dev.',
-    surface: 'Launch an app from /admin/apps; instances live on their own subdomain.',
-  },
+  // EMPTIED 2026-06-25 per Brian: status-page shims are FALSE PASSES — a domain
+  // must return 200 from its REAL app, not a crafted page. Each former entry now
+  // resolves to its real backend (or an honest 404 until deployed):
+  //   jobs  → falls through to the Inngest server (serve.ts routes jobs./events.)
+  //   browser → Skyvern container (infra/skyvern, deploy pending) — 404 until live
+  //   traces  → Langfuse container (deploy pending) — 404 until live
+  //   auth/app → no standalone real app + not requested → honest 404
+  // The map stays as the typed mechanism for any FUTURE genuinely-static landing;
+  // it is intentionally empty so nothing shims a real surface.
 };
 
 /**
