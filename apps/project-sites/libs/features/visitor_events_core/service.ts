@@ -9,6 +9,7 @@
 
 import type { Env } from '../../../src/types/env.js';
 import { dbQuery, dbExecute } from '../../../src/services/db.js';
+import { enrichVisitor } from './enrich.js';
 import {
   VisitorEventInputSchema,
   TrafficSummarySchema,
@@ -116,7 +117,13 @@ export async function recordPageviewFromRequest(
       eventType: 'pageview',
       path: (path.split('?')[0] || '/').slice(0, 2048),
       referrer: referrer ? referrer.slice(0, 2048) : undefined,
-      metadata: { country: cf?.country ?? null, ua: ua.slice(0, 256) },
+      // AN1 enrichment — device/browser/os + channel (+ utm when present) folded
+      // into metadata JSON (no schema migration); powers AN10/AN13 owner widgets.
+      metadata: {
+        country: cf?.country ?? null,
+        ua: ua.slice(0, 256),
+        ...enrichVisitor(ua, referrer, path),
+      },
     });
   } catch {
     // Analytics is best-effort; never surface to the visitor.
