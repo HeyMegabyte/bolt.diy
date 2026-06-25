@@ -4,8 +4,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { AdminAnalyticsLiveComponent } from './analytics-live.component';
 import { AdminActivationFunnelComponent } from './activation-funnel.component';
+import { OwnerAnalyticsComponent } from './owner-analytics.component';
 
-type AnalyticsTab = 'overview' | 'live' | 'funnel';
+type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'visitors';
 
 /**
  * Unified analytics dashboard (2026-06-23) — combines the former standalone
@@ -21,7 +22,12 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel';
 @Component({
   selector: 'app-admin-analytics-dashboard',
   standalone: true,
-  imports: [AdminAnalyticsComponent, AdminAnalyticsLiveComponent, AdminActivationFunnelComponent],
+  imports: [
+    AdminAnalyticsComponent,
+    AdminAnalyticsLiveComponent,
+    AdminActivationFunnelComponent,
+    OwnerAnalyticsComponent,
+  ],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="analytics-dashboard">
       <h1 class="text-[1.35rem] font-extrabold text-white tracking-tight m-0">Analytics</h1>
@@ -51,8 +57,10 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel';
       <app-admin-analytics />
     } @else if (tab() === 'live') {
       <app-admin-analytics-live />
-    } @else {
+    } @else if (tab() === 'funnel') {
       <app-admin-activation-funnel />
+    } @else {
+      <app-owner-analytics />
     }
   `,
 })
@@ -65,6 +73,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     { id: 'overview', label: 'Overview' },
     { id: 'live', label: 'Live Events' },
     { id: 'funnel', label: 'Activation Funnel' },
+    { id: 'visitors', label: 'Your Visitors' },
   ];
   readonly tab = signal<AnalyticsTab>('overview');
 
@@ -73,7 +82,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     // restores it. takeUntilDestroyed: ActivatedRoute observables never complete.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
       const t = q.get('tab');
-      this.tab.set(t === 'live' || t === 'funnel' ? t : 'overview');
+      this.tab.set(t === 'live' || t === 'funnel' || t === 'visitors' ? t : 'overview');
     });
   }
 

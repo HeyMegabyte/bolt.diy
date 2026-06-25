@@ -13,6 +13,8 @@ class StubOverviewComponent {}
 class StubLiveComponent {}
 @Component({ selector: 'app-admin-activation-funnel', standalone: true, template: '<div data-testid="stub-funnel"></div>' })
 class StubFunnelComponent {}
+@Component({ selector: 'app-owner-analytics', standalone: true, template: '<div data-testid="stub-visitors"></div>' })
+class StubVisitorsComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
@@ -27,7 +29,9 @@ describe('AdminAnalyticsDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
-      set: { imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent] },
+      set: {
+        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent],
+      },
     });
     const f = TestBed.createComponent(AdminAnalyticsDashboardComponent);
     f.detectChanges();
@@ -40,12 +44,19 @@ describe('AdminAnalyticsDashboardComponent', () => {
     navigate.calls.reset();
   });
 
-  it('renders the dashboard shell with all three tabs', () => {
+  it('renders the dashboard shell with all four tabs', () => {
     const f = make();
     expect(f.nativeElement.querySelector('[data-testid="analytics-dashboard"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-overview"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-live"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-funnel"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="analytics-tab-visitors"]')).toBeTruthy();
+  });
+
+  it('lands on Your Visitors when ?tab=visitors', () => {
+    qpm.next(convertToParamMap({ tab: 'visitors' }));
+    const f = make();
+    expect(f.nativeElement.querySelector('[data-testid="stub-visitors"]')).toBeTruthy();
   });
 
   it('defaults to the Overview tab when no ?tab is present', () => {

@@ -1,0 +1,66 @@
+import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { of, throwError } from 'rxjs';
+import { OwnerAnalyticsComponent } from './owner-analytics.component';
+import { ApiService } from '../../../services/api.service';
+import { AdminStateService } from '../admin-state.service';
+
+const SUMMARY = {
+  siteId: 's1',
+  windowDays: 30,
+  contacts: { total: 12, newInWindow: 3, bySource: [] },
+  formSubmissions: { total: 8, newInWindow: 2 },
+  newsletter: { confirmed: 5, total: 7 },
+  donations: { raisedCents: 25000, count: 4 },
+  traffic: {
+    pageviews: 1200,
+    uniqueSessions: 800,
+    conversions: 14,
+    topPaths: [{ path: '/', count: 600 }],
+    byType: [],
+    windowDays: 30,
+  },
+  generatedAt: '2026-06-25T00:00:00Z',
+};
+
+function setup(siteId: string | null, opts: { error?: boolean } = {}) {
+  const get = jasmine
+    .createSpy('get')
+    .and.returnValue(opts.error ? throwError(() => new Error('404')) : of({ data: SUMMARY }));
+  const selectedSiteId = signal<string | null>(siteId);
+  TestBed.configureTestingModule({
+    imports: [OwnerAnalyticsComponent],
+    providers: [
+      { provide: ApiService, useValue: { get } },
+      { provide: AdminStateService, useValue: { selectedSiteId } },
+    ],
+  });
+  const fixture = TestBed.createComponent(OwnerAnalyticsComponent);
+  fixture.detectChanges();
+  return { fixture, get, selectedSiteId };
+}
+
+describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
+  it('prompts to select a site when none is selected, and does not call the API', () => {
+    const { fixture, get } = setup(null);
+    expect(get).not.toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Select a site');
+  });
+
+  it('fetches /sites/:id/analytics (silent) and renders the visitor stat cards', () => {
+    const { fixture, get } = setup('s1');
+    expect(get).toHaveBeenCalledWith('/sites/s1/analytics', undefined, { silent: true });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="oa-pageviews"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="oa-contacts"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="oa-donations"]')).toBeTruthy(); // count > 0 → shown
+    expect(el.textContent).toContain('Top pages');
+  });
+
+  it('stays quiet with an "not enabled" note on a 404 (flag dark)', () => {
+    const { fixture } = setup('s1', { error: true });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="oa-unavailable"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="oa-pageviews"]')).toBeNull();
+  });
+});
