@@ -19,7 +19,8 @@ function makeDbStub(siteCount: number) {
             all: async () => {
               if (/FROM subscriptions/i.test(sql)) return { results: [] }; // free
               if (/FROM users u JOIN memberships/i.test(sql)) return { results: [] };
-              if (/COUNT\(\*\) as count FROM sites/i.test(sql)) return { results: [{ count: siteCount }] };
+              if (/COUNT\(\*\) as count FROM sites/i.test(sql))
+                return { results: [{ count: siteCount }] };
               return { results: [] };
             },
             first: async () => null,
@@ -66,6 +67,12 @@ describe('GET /api/billing/quota (#35)', () => {
   it('reports an under-quota free org as allowed (0/1, 1 remaining)', async () => {
     const res = await makeApp({ DB: makeDbStub(0) })();
     const { data } = await res.json();
-    expect(data).toMatchObject({ used: 0, limit: 1, remaining: 1, allowed: true, unlimited: false });
+    expect(data).toMatchObject({
+      used: 0,
+      limit: 1,
+      remaining: 1,
+      allowed: true,
+      unlimited: false,
+    });
   });
 });
