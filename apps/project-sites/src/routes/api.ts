@@ -799,6 +799,46 @@ api.post('/api/sites', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
+  // Build-quota gate (#35) — manual create accumulates `sites` rows that can
+  // later be built via /reset, so it MUST enforce the same per-tenant site cap
+  // as create-from-search + import-from-url. Without it a free org (1-site cap)
+  // could POST /api/sites N times then /reset each → unlimited builds. Check
+  // BEFORE the AI slug call so an over-quota caller burns nothing.
+  const sub = await dbQueryOne<{ plan: string }>(
+    c.env.DB,
+    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
+    [orgId],
+  );
+  const limitCheck = await checkBuildLimit(c.env.DB, orgId, sub?.plan ?? null);
+  if (!limitCheck.allowed) {
+    c.executionCtx.waitUntil(
+      auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: c.get('userId') ?? null,
+        action: 'build_limit.exceeded',
+        message: `Site-create limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${sub?.plan ?? 'free'}' plan via POST /api/sites)`,
+        target_type: 'org',
+        target_id: orgId,
+        metadata_json: {
+          used: limitCheck.used,
+          limit: limitCheck.limit,
+          plan: sub?.plan ?? 'free',
+          route: 'POST /api/sites',
+        },
+        request_id: c.get('requestId'),
+      }),
+    );
+    return c.json(
+      {
+        error: {
+          code: 'BUILD_LIMIT_REACHED',
+          message: `You've used ${limitCheck.used} of ${limitCheck.limit} ${limitCheck.limit === 1 ? 'site' : 'sites'}. ${limitCheck.limit === 1 ? 'Free accounts include 1 site — add more for $50/month per site.' : 'Contact support to raise your site ceiling.'}`,
+        },
+      },
+      403,
+    );
+  }
+
   // AI-powered smart slug or user-provided slug
   let slug: string;
   if (validated.slug) {
