@@ -363,7 +363,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] A9. Use-case bundles / stacks (one-click "Creator stack" = Ghost + Listmonk + Umami; shared infra provisioned once) [new][auto] slug `app_bundles`
 - [ ] A10. AI "Apps for your site" contextual recs (recommend from the org's existing site type; permission-aware, tenant-scoped) [new][auto] slug `app_recommender`
 - [ ] A11. Curated collections / editorial rows ("Privacy-first analytics", "Self-hosted AI", "Replace your SaaS bill") [new][auto] slug `app_collections`
-- [ ] A12. Replace-your-SaaS savings calculator (Vaultwarden replaces 1Password / Cal.com replaces Calendly — frame the catalog as a SaaS-bill teardown) [new][auto] slug `app_saas_savings`
+- [x] A12. Replace-your-SaaS savings calculator — **DONE (78899b4b, 2026-06-25).** `SavingsCalculatorComponent` above the catalog grid: tick the tools you'd run → paid-SaaS cost vs self-hosting here + monthly/annual savings. Pure frontend — `estCostMonthly` from the catalog + a curated cheapest-tier SaaS-equivalent map (Plausible/Ghost/Calendly/1Password/Mailchimp/Zapier/Notion/Airtable/…); rows only where SaaS > self-host, preselected for an instant max-savings headline. Karma 1642 (+6), tsc 0, AOT clean, apps page 200. [DONE][auto] slug `app_saas_savings`
 - [ ] A13. Category landing pages + per-category JSON-LD (`SoftwareApplication`) + per-route SEO meta for organic discovery [new][auto] slug `app_category_pages`
 - [ ] A14. Screenshots + short loop/Veo preview per catalog card (replace the bare emoji `glyph` so the marketplace feels alive; reuse `services/media.ts`) [new][auto] slug `app_media_cards`
 
