@@ -4,13 +4,13 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# llm.projectsites.dev → this container worker. NOTE: the main project-sites worker
-# currently serves llm. (landing + /v1/* via external_llm). To cut over, add an
-# EXPLICIT Workers route here (more specific than the *.projectsites.dev/* wildcard,
-# per the listmonk-mail custom-domain-vs-wildcard lesson) so LiteLLM becomes the /v1
-# gateway. Use custom_domain OR an explicit route (route wins deterministically).
+# llm.megabyte.space → this container worker. The megabyte.space zone
+# (75a6f8d5e441cd7124552976ba894f83) is on the same Cloudflare account, so the
+# custom_domain route provisions the proxied DNS record + edge cert on deploy
+# (same mechanism as mail.projectsites.dev/listmonk). LiteLLM is the OpenAI-compatible
+# /v1 gateway here; the main project-sites worker still serves llm.projectsites.dev.
 routes = [
-  { pattern = "llm.projectsites.dev", custom_domain = true },
+  { pattern = "llm.megabyte.space", custom_domain = true },
 ]
 
 [observability]

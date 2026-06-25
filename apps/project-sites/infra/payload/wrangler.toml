@@ -1,0 +1,39 @@
+name = "projectsites-payload"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# cms.projectsites.dev → this container worker. The zone is already on Cloudflare,
+# so the custom_domain route provisions the proxied DNS record + edge cert on deploy
+# (same mechanism as mail.projectsites.dev/listmonk). The cert can take a few minutes
+# to activate; until then the main worker's *.projectsites.dev/* wildcard answers.
+routes = [
+  { pattern = "cms.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+# The Payload app lives in ./app — its Dockerfile builds a Next.js standalone image.
+# wrangler uses the Dockerfile's directory (./app) as the build context.
+[[containers]]
+class_name = "PayloadCms"
+image = "./app/Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-payload"
+
+[[durable_objects.bindings]]
+name = "PAYLOAD"
+class_name = "PayloadCms"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PayloadCms"]
+
+# Secrets to set before/after deploy (wrangler secret put ...):
+#   DATABASE_URI    (Neon "payload" database — postgresql://...sslmode=require)
+#   PAYLOAD_SECRET  (openssl rand -base64 32 — signs auth tokens)
+[vars]
