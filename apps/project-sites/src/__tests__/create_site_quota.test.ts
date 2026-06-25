@@ -22,7 +22,8 @@ function makeDbStub(siteCount: number) {
             all: async () => {
               if (/FROM subscriptions/i.test(sql)) return { results: [] };
               if (/FROM users u JOIN memberships/i.test(sql)) return { results: [] };
-              if (/COUNT\(\*\) as count FROM sites/i.test(sql)) return { results: [{ count: siteCount }] };
+              if (/COUNT\(\*\) as count FROM sites/i.test(sql))
+                return { results: [{ count: siteCount }] };
               return { results: [] };
             },
             run: async () => {
@@ -52,7 +53,11 @@ function makeApp(env: Partial<Env>) {
   return (body: unknown) =>
     app.request(
       '/api/sites',
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
       env as Env,
       ctx,
     );
