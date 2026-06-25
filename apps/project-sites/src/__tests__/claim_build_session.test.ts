@@ -92,14 +92,16 @@ describe('reduceBuildSession — completion / failure', () => {
   });
 
   it('a replayed BUILD_COMPLETED on an already-completed session is a no-op (#28 callback idempotency)', () => {
-    const built = reduceBuildSession(
-      reduceBuildSession(fresh(), { type: 'START_BUILD' }),
-      { type: 'BUILD_COMPLETED', previewUrl: 'https://x.test' },
-    );
+    const built = reduceBuildSession(reduceBuildSession(fresh(), { type: 'START_BUILD' }), {
+      type: 'BUILD_COMPLETED',
+      previewUrl: 'https://x.test',
+    });
     expect(built.status).toBe('completed');
     // A duplicate terminal build-status callback must NOT re-transition (→ no
     // second owner email). Guard: reducer ignores BUILD_COMPLETED unless building.
-    expect(reduceBuildSession(built, { type: 'BUILD_COMPLETED', previewUrl: 'https://y.test' })).toEqual(built);
+    expect(
+      reduceBuildSession(built, { type: 'BUILD_COMPLETED', previewUrl: 'https://y.test' }),
+    ).toEqual(built);
     // Same for a stray BUILD_FAILED after completion.
     expect(reduceBuildSession(built, { type: 'BUILD_FAILED', error: 'late' })).toEqual(built);
   });
