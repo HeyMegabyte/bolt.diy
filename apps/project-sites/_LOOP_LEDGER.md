@@ -512,3 +512,73 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] F43. Reply-deliverability guardrails — run `email_deliverability.ts` (SPF/DKIM/from-domain) before any router auto-reply so AI replies don't land in spam. [extend][auto] slug `forms_reply_deliverability`
 - [ ] F45. Langfuse trace on every routing call — wire the existing AI-trace panel to Langfuse for prompt/version/cost/latency history across ALL submissions (not just the last test). [extend][auto] slug `forms_langfuse_trace`
 - [ ] F46. OpenTelemetry span across the submission lifecycle — one trace-id from `app.js` POST → worker → MCP action → reply, so a "lead vanished" is debuggable end-to-end. [extend][auto] slug `forms_otel_span`
+
+## ★ VOICE ENGINE FOUNDATION + 50-IDEA CLUSTER (Brian-selected 2026-06-24)
+
+> Foundation per **ADR-0011**: fork `twilio-labs/call-gpt` → Fly.io region `iad` (us-east
+> Virginia), autoscale by concurrent calls, ONE deploy answers EVERY Twilio account number via
+> a `To`-keyed per-number settings resolver on the Worker (persona = `ai_concierge`, same as web
+> chat + Forms router). Surface = admin Voice (6 tabs) + `voice.ts` (`/api/voice/*`) + `twilio.ts`
+> + the new `apps/voice-gateway/` Fly app. Each ships TDD-first, flag-gated, deploy-gated.
+> `[auto]` = loop can close · `[dedicated]` = own focused fire · `[gated]` = needs a Brian unblock (creds/$).
+
+### V0 — Voice-engine foundation (the epic; build FIRST, in slices)
+- [ ] V0a. Fork `twilio-labs/call-gpt` → `apps/voice-gateway/` (Node/Express + Twilio Media Streams + Deepgram STT + ElevenLabs/Deepgram TTS + OpenAI/BYO-LLM + function-manifest). [new][dedicated] slug `voice_gateway_fork`
+- [ ] V0b. **Per-number settings resolver (Zod contract)** — Worker `GET /api/voice/number-config?to=+1…` → `{site, agent_prompt, voice, mcps[], hours, escalation, consent}`; signed/internal-auth; the gateway is stateless, all per-number behavior comes from here. [new][dedicated] slug `voice_number_config`
+- [ ] V0c. `/incoming` webhook → resolve `To` → load config → start Media-Streams session with that site's persona. Set the webhook on ALL account numbers (one URL). [new][dedicated] slug `voice_incoming_router`
+- [ ] V0d. Fly.io deploy: `fly.toml` region `iad`, autoscale by concurrent-call/active-WS metric (`fly-autoscaler` or machine concurrency limits), scale-down when idle; DockerSlim per `docker-slim-all-containers`. [new][gated] slug `voice_fly_deploy`
+- [ ] V0e. Secrets via `fly secrets import` (FLY_API_TOKEN, Twilio SID/auth, Deepgram, ElevenLabs, OpenAI/AI-Gateway); signed Twilio webhook verification + CF Access on any control endpoints. [new][gated] slug `voice_secrets`
+- [ ] V0f. Foundation observability: OTel span + Langfuse trace + Sentry on the gateway from call-start (ties into V39/V40). [new][auto] slug `voice_gateway_observability`
+- [ ] V0g. Prod call test: dial a real account number → persona answers per-site → recording + transcript land in Conversations. [new][gated] slug `voice_prod_call_test`
+
+### V1–V50 — Voice hardening cluster (from the web-researched 50-idea scan)
+- [ ] V1. p95 latency budget + live meter (alarm p95 >725ms). [new][auto] slug `voice_latency_meter`
+- [ ] V2. Semantic turn detection (audio+text) replacing pure-VAD. [extend][dedicated] slug `voice_semantic_turn`
+- [ ] V3. Duplex barge-in (<100ms interrupt of TTS). [extend][dedicated] slug `voice_barge_in`
+- [ ] V4. Fast-loop / slow-loop split (dialogue model + async heavy reasoning). [extend][dedicated] slug `voice_dual_loop`
+- [ ] V5. 8kHz-aware ASR+TTS tuning for G.711 telephony. [extend][auto] slug `voice_8khz_tuning`
+- [ ] V6. Streaming first-token TTS (speak first sentence while rest generates). [extend][auto] slug `voice_streaming_tts`
+- [ ] V7. Filler/acknowledgement tokens during tool calls. [extend][auto] slug `voice_filler_tokens`
+- [ ] V8. Versioned agent prompts + diff + rollback (Langfuse-tagged). [extend][auto] slug `voice_prompt_versioning`
+- [ ] V9. One persona, web+voice renderings (shared base + voice delta). [extend][auto] slug `voice_persona_parity`
+- [ ] V10. Voice picker with live preview + per-voice latency/cost. [extend][auto] slug `voice_voice_picker`
+- [ ] V11. SSML/prosody controls (pacing, pauses, pronunciation). [extend][auto] slug `voice_ssml`
+- [ ] V12. Per-site pronunciation lexicon (brand/staff/menu). [new][auto] slug `voice_lexicon`
+- [ ] V13. Immutable safety meta-prompt hardening + prompt-injection defense + refusal evals. [extend][dedicated] slug `voice_safety_hardening`
+- [ ] V14. Multilingual auto-detect + persona/voice switch (mirrors site i18n). [new][dedicated] slug `voice_multilingual`
+- [ ] V15. Conversational booking via calendar MCP (no link). [new][dedicated] slug `voice_conversational_booking`
+- [ ] V16. After-hours capture mode (answer+capture+book+SMS vs voicemail). [new][dedicated] slug `voice_after_hours`
+- [ ] V17. Context-preserving human handoff (TaskRouter warm transfer w/ summary). [new][dedicated] slug `voice_warm_handoff`
+- [ ] V18. Frustration/intent escalation → immediate transfer w/ context. [new][auto] slug `voice_escalation`
+- [ ] V19. Per-site triage routing rules (handle vs transfer vs message). [new][dedicated] slug `voice_triage_rules`
+- [ ] V20. AI voicemail: structured message + transcribe + summarize + route. [new][auto] slug `voice_ai_voicemail`
+- [ ] V21. Live call whisper/takeover from Conversations. [new][dedicated] slug `voice_live_takeover`
+- [ ] V22. Emergency/keyword guardrails → human + log (never AI-handle). [new][auto] slug `voice_emergency_guard`
+- [ ] V23. Post-call SMS auto-send (confirmation/link/next-action), consent-gated. [new][auto] slug `voice_post_call_sms`
+- [ ] V24. Multi-day follow-up sequences (CF Workflows + task_inbox). [new][dedicated] slug `voice_followup_sequence`
+- [ ] V25. Unified voice+SMS+chat thread (stitch web-chat session in). [extend][dedicated] slug `voice_unified_thread`
+- [ ] V26. Two-way SMS handled by same persona+MCPs. [new][dedicated] slug `voice_two_way_sms`
+- [ ] V27. Caller memory across channels (per-caller DO). [new][dedicated] slug `voice_caller_memory`
+- [ ] V28. STIR/SHAKEN attestation surface + branded caller ID (CNAM). [new][gated] slug `voice_stir_shaken`
+- [ ] V29. Spam-likely monitoring + remediation (Free Caller Registry / rotation). [new][dedicated] slug `voice_spam_monitor`
+- [ ] V30. Local-presence number suggestions (rank vanity search by area code). [extend][auto] slug `voice_local_presence`
+- [ ] V31. Number warm-up + health (answer/block rate, swap before degrade). [new][auto] slug `voice_number_health`
+- [ ] V32. Port-in flow for existing business numbers + status. [new][gated] slug `voice_port_in`
+- [ ] V33. In-call AI disclosure (configurable, default ON, per-state timing). [new][auto] slug `voice_ai_disclosure`
+- [ ] V34. Recording-consent by jurisdiction (two-party detect + consent line). [new][dedicated] slug `voice_recording_consent`
+- [ ] V35. Append-only consent ledger (AI-call/recording/outbound, 5yr retain). [new][auto] slug `voice_consent_ledger`
+- [ ] V36. Outbound consent gate (block AI call/SMS w/o PEWC/PEC; EBR ≠ exempt). [new][dedicated] slug `voice_outbound_consent`
+- [ ] V37. BIPA voiceprint guard (consent + retention policy; default OFF). [new][dedicated] slug `voice_bipa_guard`
+- [ ] V38. DNC scrub + caller-ID identity + human callback number. [new][auto] slug `voice_dnc_scrub`
+- [ ] V39. Langfuse trace per call (STT/LLM/TTS/tool timeline + cost + transcript). [extend][auto] slug `voice_langfuse_trace`
+- [ ] V40. OTel span across call lifecycle (webhook→relay→MCP→SMS). [extend][auto] slug `voice_otel_span`
+- [ ] V41. Voice eval suite (regression): WER/latency/barge-in/tool-success/completion/hallucination. [new][dedicated] slug `voice_eval_suite`
+- [ ] V42. Synthetic AI test-caller in Test Console (auto-run scenarios). [extend][dedicated] slug `voice_synthetic_caller`
+- [ ] V43. Hallucination/grounding guard (answers cite site RAG via CF AI Search; refuse-or-defer). [new][dedicated] slug `voice_grounding_guard`
+- [ ] V44. Per-minute wallet metering + OpenFeature budget cap + killswitch. [extend][dedicated] slug `voice_wallet_metering`
+- [ ] V45. Post-call summary + disposition + sentiment + action items (Conversation Intelligence). [new][auto] slug `voice_call_summary`
+- [ ] V46. Call QA scorecard vs rubric + weekly quality trend. [new][auto] slug `voice_qa_scorecard`
+- [ ] V47. Admin transcript search via Cloudflare AI Search (Orama stays child-site default). [new][dedicated] slug `voice_transcript_search`
+- [ ] V48. Conversations saved views + status workflow + j/k nav (mirror Forms inbox). [extend][auto] slug `voice_inbox_views`
+- [ ] V49. Recording playback: waveform + transcript-synced highlight + PII redaction + consent-gated download. [extend][dedicated] slug `voice_playback_hardening`
+- [ ] V50. Lead-card + CRM-MCP push + Satori summary card on the owner notification. [new][auto] slug `voice_lead_card`

@@ -915,3 +915,43 @@ Cut from scope to focus the loop on the money path (payments → booking → con
 **Heavy commerce:** keep the lightweight D1+Square storefront (`storefront_ecommerce`, TIER 0); descope the Medusa/`ecommerce_engine` path (Neon+Upstash+Docker) — reserve as an opt-in for a rare heavy-commerce tenant.
 
 **Kept (deprioritized, NOT cut):** AI voice receptionist (high MRR, big session), `membership_paywall` (recurring revenue).
+
+## ADR-0011 — Voice answering service: twilio-labs/call-gpt on Fly.io (us-east Virginia), autoscaled, multi-number
+
+- **Status:** Accepted
+- **Date:** 2026-06-24
+- **Deciders:** Brian Zalewski
+- **Tags:** `voice`, `infra`, `fly.io`, `twilio`, `one-way-door`
+
+### Context
+
+The Voice receptionist (kept-but-deprioritized in ADR-0010) needs a real-time telephony
+engine: a long-lived, bidirectional, sub-second audio WebSocket (Twilio Media Streams)
+bridging STT → LLM → TTS. This is the canonical case the Cloudflare-first doctrine reserves
+for **Fly.io** ("stateful/container services that don't fit Cloudflare well") — a persistent
+duplex media socket with <500ms turn latency is a poor fit for Workers/Containers and an
+ideal fit for an always-warm Node server near Twilio's US1 ingress.
+
+### Decision
+
+- **Foundation = a fork of [`twilio-labs/call-gpt`](https://github.com/twilio-labs/call-gpt)** — Node/Express + Twilio Media Streams (`/incoming` → TwiML `<Stream>` → WS), Deepgram STT, ElevenLabs/Deepgram TTS, OpenAI/BYO-LLM, `function-manifest.js` tool calls. Fork lives in the monorepo (e.g. `apps/voice-gateway/`) and is the ProjectSites voice runtime.
+- **Deploy: Fly.io**, region **`iad`** (Ashburn, N. Virginia = the "us-east Virginia / DCA" target), co-located with Twilio US1 for lowest PSTN latency.
+- **Autoscale by concurrent calls** — Fly autoscaling (`fly-autoscaler` on a concurrent-call/active-WS metric, or machines `min_machines_running` + concurrency soft/hard limits) scales machines up under call load and back down (toward 0/1) when idle.
+- **One deployment answers EVERY number in the Twilio account** — a single `/incoming` webhook is set on all account numbers; the handler reads the dialed `To` number and **resolves per-number settings from the Worker** (an internal, authenticated `GET /api/voice/number-config?to=+1…` returning that site's agent prompt, voice, MCP allow-list, hours, escalation, consent/disclosure config). The fork is stateless config-wise — all per-number behavior comes from the Worker, keyed by `To`.
+- **Persona parity** — the resolved persona is the SAME `ai_concierge` persona as web chat + the Forms router, with a voice-only delta (brevity, spell-out, no markdown).
+
+### Consequences
+
+- **Positive:** full control of the latency loop (semantic turn detection, barge-in, filler tokens); reuses the existing Deepgram/ElevenLabs/OpenAI stack; one deploy serves all tenants; Fly autoscale keeps idle cost low.
+- **Negative / locked-in:** a new load-bearing vendor (Fly.io) + a non-CF deploy surface to operate, secure (CF Access / signed Twilio webhooks), and observe (OTel/Langfuse/Sentry); Twilio Media Streams is 8kHz G.711 (ASR/TTS quality ceiling).
+- **Neutral:** keep **Twilio ConversationRelay** as a documented swap-in for the STT/TTS/orchestration layer if the hand-rolled loop underperforms — same Fly.io host, same per-number resolver.
+
+### Alternatives considered
+
+- **CF Containers / Workers WebSocket** — rejected for the audio loop: long-lived duplex sub-second media socket is the doctrine's explicit Fly.io escape-hatch; Workers' execution model fights it.
+- **Fully-managed ConversationRelay end-to-end** — viable but less control over the persona/tool loop and diverges from the existing Deepgram/ElevenLabs services; held as a fallback, not the foundation.
+- **Third-party AI-receptionist SaaS** — rejected: this is the product, not a dependency.
+
+### Build sequence
+
+Tracked as the **V0 Voice-engine foundation epic** in `apps/project-sites/_LOOP_LEDGER.md` (fork → per-number resolver contract → webhook→settings→session → autoscale config → secrets → observability → prod call test), ahead of the V1–V50 hardening cluster. Requires `FLY_API_TOKEN` + Twilio/Deepgram/ElevenLabs/OpenAI secrets (`fly secrets import`).

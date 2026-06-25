@@ -28,6 +28,7 @@ Build + slim everything: `bash scripts/slim-containers.sh` (custom) · `--regist
 | `editor.projectsites.dev` | bolt-diy editor | CF Pages | bolt.diy | n/a |
 | `preview.projectsites.dev` | Build previews | Worker + R2 | per `EDGE_HOSTING_STRATEGY.md` | n/a |
 | `storybook.projectsites.dev` | Storybook | CF Pages | `frontend` Storybook | n/a *(currently 404 — not deployed)* |
+| `voice.projectsites.dev` | Voice answering gateway (Twilio webhook + Media Streams WS, all account numbers) | **Fly.io** app `voice-gateway`, region `iad` (us-east VA), autoscale by concurrent calls | `apps/voice-gateway/` (fork of `twilio-labs/call-gpt`) — ADR-0011 | SHIP *(planned — V0 epic)* |
 | _(internal, no subdomain)_ | AI site builder | **CF Container DO** `SITE_BUILDER` | `./Dockerfile` | MEASURE |
 | _(internal, no subdomain)_ | Voice-browse agent | **CF Container DO** `VoiceBrowseAgent` | `Dockerfile.voice-browse` | MEASURE *(flag-gated, dormant)* |
 
