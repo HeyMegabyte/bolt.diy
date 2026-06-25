@@ -611,3 +611,15 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] S45. (#45) Char-counter over-limit state (red + "N over") + auto-trim suggestion per platform. [extend][auto] slug `social_char_over_limit`
 - [ ] S46. (#46) Calendar color-by-platform + overflow popover + keyboard reschedule (drag exists). [extend][auto] slug `social_calendar_polish`
 - [ ] S47. (#47) AI image/video in-composer (use media studios). [new][dedicated] slug `social_ai_media`
+
+## ★ AUTH SELF-HOST CORRECTION (Brian 2026-06-24 — "integrate 1+2", corrected)
+
+> State: `logto_provider.ts` + `workos_provider.ts` are LOGIN adapters (OIDC/SSO, ADR-0006),
+> DARK, pointed at vendor CLOUD, login-only. No 2FA UI, no SCIM. **WorkOS is NOT open-source**
+> (no self-host) → drop it; **Logto OSS** (self-hostable, PG14+) becomes the single IdP for
+> consumer auth + 2FA + enterprise SSO. Host target = CF Containers + Neon PG via Hyperdrive;
+> **Fly.io fallback** if CF Containers can't run Logto's PG-backed two-port app cleanly (voice-gateway pattern).
+- [ ] G1. Self-host **Logto OSS** (Docker, Neon PG via Hyperdrive) on CF Containers; repoint `logto_provider` from Logto Cloud → self-hosted endpoint. [new][gated] slug `auth_logto_selfhost`
+- [ ] G2. **2FA/MFA UI** via Logto OSS — TOTP + WebAuthn-2nd-factor + backup codes + step-up on destructive ops (closes ADR-0009 deferral). [new][dedicated] slug `auth_mfa_ui`
+- [ ] G3. **Enterprise SSO** (SAML/OIDC connectors) via the same Logto OSS; **deprecate `workos_provider.ts` in place** (no OSS self-host). [extend][dedicated] slug `auth_enterprise_sso`
+- [ ] G4. **SCIM provisioning** — Logto OSS SCIM unconfirmed; adopt **Authentik** (native outbound SCIM) or Casdoor for the provisioning tier, OR wait for Logto SCIM. Verify Logto docs first. [new][gated] slug `auth_scim`
