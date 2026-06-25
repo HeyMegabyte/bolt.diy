@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminSnapshotsDiffComponent } from './snapshots-diff.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -24,6 +24,7 @@ function make(get: jasmine.Spy, siteId: string | null = 's1'): {
   TestBed.configureTestingModule({
     imports: [AdminSnapshotsDiffComponent],
     providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
       { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
       { provide: ApiService, useValue: { get } },
       { provide: ToastService, useValue: toast },
@@ -117,6 +118,7 @@ describe('AdminSnapshotsDiffComponent (loading state is announced)', () => {
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsDiffComponent],
       providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
         { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -142,6 +144,7 @@ describe('AdminSnapshotsDiffComponent (diff stat counts roll — cinematic-ui)',
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsDiffComponent],
       providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
         { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -183,6 +186,7 @@ describe('AdminSnapshotsDiffComponent (diff a11y — non-color cue, WCAG 1.4.1)'
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsDiffComponent],
       providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
         { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -256,6 +260,7 @@ describe('AdminSnapshotsDiffComponent (KPI stat row groups — WCAG 1.4.1)', () 
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsDiffComponent],
       providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
         { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -298,6 +303,7 @@ describe('AdminSnapshotsDiffComponent (cinematic first-paint reveal)', () => {
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsDiffComponent],
       providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
         { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -344,6 +350,7 @@ describe('AdminSnapshotsDiffComponent (clears + reloads on site switch)', () => 
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsDiffComponent],
       providers: [
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: (k: string) => (k === 'from' ? 'A' : k === 'to' ? 'B' : null) }) } },
         { provide: ApiService, useValue: { get } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -354,7 +361,10 @@ describe('AdminSnapshotsDiffComponent (clears + reloads on site switch)', () => 
     fx.detectChanges();
     await fx.whenStable();
     const c = fx.componentInstance;
-    expect(get.calls.mostRecent().args[0]).toBe('/sites/s1/snapshots/diff');
+    // (S7 added a sibling /snapshots list fetch, so target the diff call by path.)
+    expect(get.calls.all().some((call) => call.args[0] === '/sites/s1/snapshots/diff'))
+      .withContext('s1 diff requested')
+      .toBe(true);
     expect(c.diff()).withContext('s1 diff present').not.toBeNull();
     get.calls.reset();
 
@@ -365,5 +375,52 @@ describe('AdminSnapshotsDiffComponent (clears + reloads on site switch)', () => 
     await fx.whenStable();
     expect(get).withContext('re-evaluated for the new site').toHaveBeenCalled();
     expect(get.calls.mostRecent().args[0]).toBe('/sites/s2/snapshots/diff');
+  });
+});
+
+describe('AdminSnapshotsDiffComponent — compare any two (S7)', () => {
+  it('renders from/to pickers and pick() navigates with merged query params', async () => {
+    const navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+    const get = jasmine.createSpy('get').and.callFake((path: string) => {
+      if (path.endsWith('/snapshots')) {
+        return of({
+          data: [
+            { id: 'a', snapshot_name: 'v1' },
+            { id: 'b', snapshot_name: 'v2' },
+            { id: 'c', snapshot_name: 'v3' },
+          ],
+        });
+      }
+      return of({ added: [], removed: [], modified: [], from: { id: 'a', name: 'v1' }, to: { id: 'b', name: 'v2' } });
+    });
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: Router, useValue: { navigate } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: (k: string) => (k === 'from' ? 'a' : 'b') }) } },
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    await fx.whenStable();
+    fx.detectChanges();
+
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="diff-pick-from"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="diff-pick-to"]')).toBeTruthy();
+
+    fx.componentInstance.pick('from', 'c');
+    expect(navigate).toHaveBeenCalled();
+    const args = navigate.calls.mostRecent().args[1];
+    expect(args.queryParams).toEqual({ from: 'c' });
+    expect(args.queryParamsHandling).toBe('merge');
+
+    // no-op pick (same id already set) does NOT navigate again
+    navigate.calls.reset();
+    fx.componentInstance.pick('to', 'b');
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

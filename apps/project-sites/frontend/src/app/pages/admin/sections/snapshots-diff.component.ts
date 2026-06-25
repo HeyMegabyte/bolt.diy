@@ -15,7 +15,7 @@
  */
 import { Component, DestroyRef, computed, effect, inject, signal, type OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -63,7 +63,32 @@ interface DiffResponse {
       <header appReveal class="flex items-start justify-between gap-4">
         <div>
           <h1 class="text-[1.4rem] font-semibold text-white">Snapshot diff</h1>
-          @if (diff(); as d) {
+          @if (snapshots().length > 1) {
+            <!-- S7 — compare ANY two snapshots, not just adjacent. -->
+            <div class="flex items-center gap-2 mt-2 flex-wrap" data-testid="diff-pickers">
+              <select
+                class="diff-pick"
+                data-testid="diff-pick-from"
+                aria-label="Compare from snapshot"
+                [value]="fromId()"
+                (change)="pick('from', $any($event.target).value)">
+                @for (s of snapshots(); track s.id) {
+                  <option [value]="s.id">{{ s.name }}</option>
+                }
+              </select>
+              <span class="text-white/60" aria-hidden="true">→</span>
+              <select
+                class="diff-pick"
+                data-testid="diff-pick-to"
+                aria-label="Compare to snapshot"
+                [value]="toId()"
+                (change)="pick('to', $any($event.target).value)">
+                @for (s of snapshots(); track s.id) {
+                  <option [value]="s.id">{{ s.name }}</option>
+                }
+              </select>
+            </div>
+          } @else if (diff(); as d) {
             <p class="text-[0.85rem] text-white/60 mt-1">
               <span class="text-[var(--ps-accent)]">{{ d.from.name }}</span>
               <span class="mx-2 text-white/70">→</span>
@@ -215,14 +240,28 @@ interface DiffResponse {
     :host ::ng-deep .diff-rem { background: rgba(239, 68, 68, 0.14); color: #fecaca; }
     :host ::ng-deep .diff-ctx { color: rgba(244, 244, 255, 0.7); }
     :host ::ng-deep pre { white-space: pre; }
+    .diff-pick {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 7px;
+      color: #fff;
+      font-size: 0.8rem;
+      padding: 0.3rem 0.5rem;
+      max-width: 200px;
+    }
+    .diff-pick:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
   `],
 })
 export class AdminSnapshotsDiffComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private api = inject(ApiService);
   private toast = inject(ToastService);
   state = inject(AdminStateService);
+
+  /** S7 — all snapshots for the site, so the user can compare ANY two (not just adjacent). */
+  readonly snapshots = signal<Array<{ id: string; name: string }>>([]);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -274,6 +313,39 @@ export class AdminSnapshotsDiffComponent implements OnInit {
       this.fromId.set(from);
       this.toId.set(to);
       this.load();
+    });
+    this.loadSnapshotList();
+  }
+
+  /** S7 — fetch the site's snapshots to populate the compare-any-two pickers. */
+  private loadSnapshotList(): void {
+    const siteId = this.selectedSiteId();
+    if (!siteId) return;
+    this.api
+      .get<{ data: Array<{ id: string; snapshot_name: string }> }>(
+        `/sites/${siteId}/snapshots`,
+        undefined,
+        { silent: true },
+      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) =>
+          this.snapshots.set((res?.data ?? []).map((s) => ({ id: s.id, name: s.snapshot_name }))),
+        error: () => this.snapshots.set([]),
+      });
+  }
+
+  /**
+   * S7 — re-point either side of the comparison to ANY snapshot. Updates the
+   * `?from`/`?to` query params (merge), which the ngOnInit subscriber turns into
+   * a fresh diff load. Ignores a no-op (picking the value already set).
+   */
+  pick(which: 'from' | 'to', id: string): void {
+    if (!id || id === (which === 'from' ? this.fromId() : this.toId())) return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { [which]: id },
+      queryParamsHandling: 'merge',
     });
   }
 
