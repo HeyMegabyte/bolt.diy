@@ -441,6 +441,21 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'e2e/_fortress/admin-detail/adversarial.spec.ts',
     ],
   },
+  turnstile_build_gate: {
+    checklist: [
+      'OFF by default — create-from-search behaves exactly as before',
+      'When ON + TURNSTILE_SECRET_KEY set: missing/invalid token → 403 TURNSTILE_REQUIRED before any build',
+      'When ON but secret unset: soft-allows (not_configured) so a premature flip never breaks create',
+      'Flag-check failure fails open (gate stays off) — never blocks the funnel',
+    ],
+    explanation:
+      'Dark-launched bot-gate (#32) on POST /api/sites/create-from-search: when ON, a valid Cloudflare Turnstile token is required before a $5-15 build is kicked, stopping bots/abuse. Default OFF; flip to beta only after the frontend Turnstile widget ships the token and TURNSTILE_SECRET_KEY is set. Soft-allows on not_configured + fails open on a flag-check error so it can never break the live create funnel.',
+    smoke_test: [
+      'With flag OFF: create a site from search → builds normally (no challenge)',
+      'Flip flag ON (secret set) + POST create-from-search without a token → 403 TURNSTILE_REQUIRED',
+      'Flip flag ON with secret UNSET → create still works (soft-allow)',
+    ],
+  },
   core_feature_flags: {
     checklist: [
       'Lists every registry flag with default state + stage',

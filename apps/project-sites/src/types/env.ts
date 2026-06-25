@@ -102,6 +102,8 @@ export interface Env {
   SOCIAL_PUBLISH_WORKFLOW?: Workflow;
 
   // ── Pulse Social — per-platform OAuth app credentials (optional) ────
+  /** Cloudflare Turnstile secret — server-side siteverify for the #32 build bot-gate. */
+  TURNSTILE_SECRET_KEY?: string;
   /** Twitter / X — OAuth 2.0 app creds. https://developer.x.com/en/portal/dashboard */
   TWITTER_CLIENT_ID?: string;
   TWITTER_CLIENT_SECRET?: string;

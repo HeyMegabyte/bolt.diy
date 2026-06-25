@@ -53,6 +53,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'stable',
     owner_email: 'brian@megabyte.space',
   },
+  turnstile_build_gate: {
+    key: 'turnstile_build_gate',
+    description:
+      'Dark-launch bot-gate on create-from-search: when ON, a valid Cloudflare Turnstile token is required before kicking a paid build. OFF (default) means no verification.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   core_feature_flags: {
     key: 'core_feature_flags',
     description: 'Always-on sentinel: feature-flags admin UI. isFlagOn always true.',
