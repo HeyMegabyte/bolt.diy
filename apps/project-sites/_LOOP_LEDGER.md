@@ -489,7 +489,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ### Tier AN8 — foundation/honesty fixes (from the audit)
 - [ ] AN54. Operator zero-state honesty — super-admin Tinybird routes silently return `degraded:true` when unconfigured; render a clear "source not configured" notice (quiet lying-UI cousin per [[lying-ui-catcherror-class]]). [partial][auto] slug `analytics_degraded_notice`
-- [ ] AN55. Live Events tab — pagination + filter + search (capped 500 rows, no paging today). [partial][auto] slug `analytics_live_paging`
+- [x] AN55. Live Events tab — pagination + filter + search (capped 500 rows, no paging today). [partial][auto] slug `analytics_live_paging` — DONE 2026-06-25: standalone `EventsTableComponent` (search across type/user/status + type dropdown + 25/page pager, query/type resets to page 1) mounted in `analytics-live`; 5 Karma specs; live in prod chunk-MOJ3IVCQ.js.
 - [ ] AN56. Heatmaps — move/scroll/rage-click client capture + replay-lite overlay (Clarity/Hotjar pattern). [new][dedicated] slug `analytics_heatmaps`
 
 ## ★ FORMS HARDENING CLUSTER (Brian-selected 2026-06-24 — convergence-loop pending)

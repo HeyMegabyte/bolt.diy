@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
 import { ReadinessBadgeComponent } from './readiness-badge.component';
+import { EventsTableComponent } from './events-table.component';
 
 /** One stored analytics event row (from `/api/analytics-data`). */
 interface LiveEvent {
@@ -37,7 +38,7 @@ interface DebugResponse {
 @Component({
   selector: 'app-admin-analytics-live',
   standalone: true,
-  imports: [ReadinessBadgeComponent],
+  imports: [ReadinessBadgeComponent, EventsTableComponent],
   template: `
     <div class="px-6 pt-5 pb-8 max-md:px-4" data-testid="analytics-live">
       <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -102,28 +103,7 @@ interface DebugResponse {
           No events yet. Click <strong>Send test event</strong> to confirm the pipeline, or wait for real traffic.
         </div>
       } @else {
-        <div class="mt-5 overflow-x-auto rounded-xl border border-white/[0.06]" data-testid="al-table">
-          <table class="w-full text-left text-[0.82rem]">
-            <thead>
-              <tr class="text-text-secondary border-b border-white/[0.06]">
-                <th class="px-3 py-2 font-semibold">Type</th>
-                <th class="px-3 py-2 font-semibold">When</th>
-                <th class="px-3 py-2 font-semibold">User</th>
-                <th class="px-3 py-2 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (e of events(); track e.id) {
-                <tr class="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                  <td class="px-3 py-2 text-white font-medium">{{ e.eventType }}</td>
-                  <td class="px-3 py-2 text-text-secondary tabular-nums" [attr.title]="e.timestamp">{{ fmt(e.timestamp) }}</td>
-                  <td class="px-3 py-2 text-text-secondary">{{ e.userId || '—' }}</td>
-                  <td class="px-3 py-2 text-text-secondary">{{ e.status || 'ingested' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-events-table [events]="events()" data-testid="al-table" />
       }
     </div>
   `,
