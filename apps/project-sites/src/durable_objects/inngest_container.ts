@@ -60,8 +60,9 @@ function inngestEnvVars(env: Env): Record<string, string> {
  * Self-hosted Inngest durable-jobs server, one warm instance for the platform.
  *
  * @remarks
- * Container runner (no `ctx.storage.sql`) → migrates on the CLASSIC DO backend
- * via `new_classes` (NOT `new_sqlite_classes`), mirroring `SiteBuilderContainer`.
+ * Container-backed DO → migrates on the SQLite backend via `new_sqlite_classes`
+ * (CF API error 10074 rejects `new_classes` for any container DO), mirroring
+ * `SiteBuilderContainer` + the working Listmonk container.
  *
  * @example
  * // worker host routing dispatches jobs./events. → this DO:
@@ -78,12 +79,13 @@ export class InngestContainer extends Container<Env> {
 
   override async fetch(request: Request): Promise<Response> {
     try {
-      // Inject the Neon/Upstash conn strings + self-gen auth keys at start time
-      // (per-instance startOptions; `envVars` is also a Container field but
-      // passing it here keeps the secret read inside the request lifecycle).
+      // 3-positional-arg form — the ONLY shape @cloudflare/containers 0.3.2
+      // (this worker's pinned version) supports; the object form is 0.3.3+.
+      // Mirrors the working AppRuntimeContainer. envVars (Neon/Upstash conn
+      // strings + self-gen auth keys) MUST ride in the 3rd start-config arg.
       await this.startAndWaitForPorts(
         [INNGEST_PORT],
-        { portReadyTimeoutMS: 120000 },
+        { portReadyTimeoutMS: 120_000 },
         { envVars: inngestEnvVars(this.env), enableInternet: true },
       );
     } catch (err) {

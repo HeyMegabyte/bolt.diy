@@ -478,19 +478,21 @@ class_name = "ConversationHub"
 #       rule for `http.request.uri.path eq "/api/inngest"` (zone projectsites.dev)
 #       BEFORE expecting registration to succeed, else server→worker callbacks 403.
 #
-# [[env.production.containers]]
-# class_name = "InngestContainer"
-# image = "./containers/inngest/Dockerfile"
-# max_instances = 1
-# instance_type = "standard-4"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "INNGEST_CONTAINER"
-# class_name = "InngestContainer"
-#
-# [[env.production.migrations]]
-# tag = "v_inngest_container"
-# new_classes = ["InngestContainer"]
+[[env.production.containers]]
+class_name = "InngestContainer"
+image = "./containers/inngest/Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "INNGEST_CONTAINER"
+class_name = "InngestContainer"
+
+# NOTE: CF requires container-backed DOs to be SQLite (API error 10074 on new_classes).
+# The old "classic backend" guidance above is outdated — use new_sqlite_classes.
+[[env.production.migrations]]
+tag = "v_inngest_container"
+new_sqlite_classes = ["InngestContainer"]
 #
 # [env.production.vars]  # (merge into existing prod vars, do not duplicate the table)
 # INNGEST_BASE_URL = "https://jobs.projectsites.dev"
