@@ -599,7 +599,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] S8. (#8) Scheduled-post failure UX — surface failed/partial in the post card with one-click retry (today step 5 only toasts owner). [extend][auto] slug `social_failure_retry_ux`
 - [ ] S10. (#10) Brand-voice extraction from site copy → AI voice profile seeding AI Assist + Auto-Pilot. [new][dedicated] slug `social_brand_voice`
 - [ ] S11. (#11) Active per-platform reformatting (strip hashtags for LinkedIn, auto-thread X/Bluesky, hook+CTA IG) inline in composer. [new][dedicated] slug `social_platform_reformat`
-- [ ] S15. (#15) Live split-pane composer preview — true per-platform render (limits, link card, hashtag highlight, image crop). [new][auto] slug `social_live_preview`
+- [x] S15. (#15) Live split-pane composer preview — true per-platform render (limits, link card, hashtag highlight, image crop). [new][auto] slug `social_live_preview`
 - [ ] S16. (#16) First-comment scheduling (IG/X/LinkedIn) — RE-TAGGED dedicated: frontend-only is a dead button (worker must post the follow-up comment after publish); build worker+frontend together. [new][dedicated] slug `social_first_comment`
 - [x] S26. (#26) Bulk actions in Drafts/Queue (multi-select schedule/delete/duplicate). selection state in localStorage. [extend][auto] slug `social_bulk_actions`
 - [x] S27. (#27) Post templates / saved snippets — **localStorage-backed** CRUD (recurring CTAs, sign-offs, link-in-bio). [new][auto] slug `social_post_templates`

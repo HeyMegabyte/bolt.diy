@@ -602,6 +602,37 @@ const PLATFORMS: readonly PlatformDef[] = [
             }
           </div>
 
+          <!-- S15 — live per-platform preview (the right-pane preview the layout always promised) -->
+          @if (previewCards().length > 0) {
+            <div class="preview-block" aria-label="Per-platform preview">
+              <div class="preview-h">Preview</div>
+              <div class="preview-cards">
+                @for (pc of previewCards(); track pc.id) {
+                  <div class="preview-card" [style.--brand]="pc.color">
+                    <div class="pc-head">
+                      <span class="pc-glyph"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path [attr.d]="pc.glyph"/></svg></span>
+                      <span class="pc-label">{{ pc.label }}</span>
+                      <span class="pc-ct" [class.over]="pc.over">{{ pc.chars }}/{{ pc.limit }}</span>
+                    </div>
+                    <p class="pc-body" [class.is-empty]="!pc.text">{{ pc.text || 'Nothing to post yet…' }}</p>
+                    @if (media().length > 0) {
+                      <div class="pc-media">
+                        @for (m of media().slice(0, 4); track m.id) {
+                          <img [src]="m.thumb_url || m.url" [alt]="m.alt || ''" loading="lazy" />
+                        }
+                      </div>
+                    }
+                    @if (og(); as o) {
+                      <div class="pc-og"><span class="pc-og-site">{{ o.site_name || linkHost() }}</span><span class="pc-og-title">{{ o.title }}</span></div>
+                    } @else if (link().trim()) {
+                      <div class="pc-og"><span class="pc-og-site">{{ linkHost() }}</span></div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
           <!-- Schedule + best-times -->
           <div class="sched-row">
             <label class="meta-lbl">When</label>
@@ -1345,6 +1376,22 @@ const PLATFORMS: readonly PlatformDef[] = [
       .x-cost-note { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0; padding: 0.45rem 0.7rem; border-radius: 0.5rem; border: 1px solid color-mix(in oklch, #fbbf24 40%, transparent); background: color-mix(in oklch, #fbbf24 9%, transparent); color: var(--ps-ink, #f4f4ff); font-size: 0.74rem; line-height: 1.35; }
       .x-cost-note span { flex: 1; }
       .x-cost-note button { flex: none; font-size: 0.7rem; font-weight: 600; color: #fbbf24; background: none; border: 0; cursor: pointer; padding: 0.1rem 0.3rem; }
+      .preview-block { margin: 0.2rem 0 0.4rem; }
+      .preview-h { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); margin-bottom: 0.4rem; }
+      .preview-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+      .preview-card { border: 1px solid color-mix(in oklch, var(--brand, #00e5ff) 30%, transparent); border-left: 2px solid var(--brand, #00e5ff); border-radius: 0.55rem; background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); padding: 0.5rem 0.6rem; min-width: 0; }
+      .pc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 0.35rem; }
+      .pc-glyph { color: var(--brand, #00e5ff); display: inline-flex; }
+      .pc-label { font-size: 0.72rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); }
+      .pc-ct { margin-left: auto; font-size: 0.62rem; opacity: 0.8; }
+      .pc-ct.over { color: #ff6b8a; font-weight: 700; opacity: 1; }
+      .pc-body { font-size: 0.74rem; line-height: 1.4; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 90%, transparent); white-space: pre-wrap; word-break: break-word; margin: 0; max-height: 7.5rem; overflow: hidden; }
+      .pc-body.is-empty { opacity: 0.45; font-style: italic; }
+      .pc-media { display: flex; gap: 4px; margin-top: 0.4rem; }
+      .pc-media img { width: 38px; height: 38px; object-fit: cover; border-radius: 0.3rem; }
+      .pc-og { margin-top: 0.4rem; display: flex; flex-direction: column; gap: 1px; padding: 0.3rem 0.4rem; border-radius: 0.35rem; background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent); }
+      .pc-og-site { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
+      .pc-og-title { font-size: 0.7rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
       /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
 
@@ -1874,6 +1921,30 @@ export class AdminSocialComponent implements OnInit {
       /* best-effort */
     }
   }
+
+  /* ── S15 — live per-platform preview ── */
+
+  /** One preview card per selected platform: the effective copy (per-platform
+   *  override or shared content, plus hashtags) rendered as it will post, with
+   *  the body char count vs the platform limit (matching the chip counter). */
+  readonly previewCards = computed(() => {
+    const tags = this.hashtags();
+    const tagStr = tags.length ? '\n\n' + tags.map((t) => '#' + t).join(' ') : '';
+    return this.selected().map((pid) => {
+      const def = this.defOf(pid);
+      const body = (this.perPlatform()[pid] ?? this.content()).trim();
+      return {
+        id: pid,
+        label: def?.label ?? pid,
+        color: def?.color ?? '#888888',
+        glyph: def?.glyph ?? '',
+        text: body ? body + tagStr : tagStr.trim(),
+        chars: this.charsFor(pid),
+        limit: def?.charLimit ?? 0,
+        over: !!def && this.charsFor(pid) > def.charLimit,
+      };
+    });
+  });
 
   readonly platforms = PLATFORMS;
 
