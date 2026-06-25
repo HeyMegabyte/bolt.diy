@@ -51,6 +51,16 @@ export const TrafficSummarySchema = z
     // keeps older producers/fixtures valid.
     byDevice: z.array(LabelCountSchema).default([]),
     byChannel: z.array(LabelCountSchema).default([]),
+    // AN15 — the immediately-preceding equal-length window's KPIs, for
+    // period-over-period deltas. Defaults to zeros for back-compat.
+    previous: z
+      .object({
+        pageviews: z.number().int().min(0),
+        uniqueSessions: z.number().int().min(0),
+        conversions: z.number().int().min(0),
+      })
+      .strict()
+      .default({ pageviews: 0, uniqueSessions: 0, conversions: 0 }),
     windowDays: z.number().int().positive(),
   })
   .strict();

@@ -145,9 +145,26 @@ export async function getTrafficSummary(
 ): Promise<TrafficSummary> {
   const since = `-${windowDays} days`;
   const w = ['site_id = ?', "created_at >= datetime('now', ?)"].join(' AND ');
+  // AN15 — the window immediately BEFORE the current one, for period-over-period
+  // deltas: [now-2N, now-N). Same length as the current window.
+  const prevSince = `-${windowDays * 2} days`;
+  const pw = ['site_id = ?', "created_at >= datetime('now', ?)", "created_at < datetime('now', ?)"].join(
+    ' AND ',
+  );
+  const pwParams = [siteId, prevSince, since];
 
-  const [pageviews, uniqueSessions, conversions, topPathRows, byTypeRows, byDeviceRows, byChannelRows] =
-    await Promise.all([
+  const [
+    pageviews,
+    uniqueSessions,
+    conversions,
+    topPathRows,
+    byTypeRows,
+    byDeviceRows,
+    byChannelRows,
+    prevPageviews,
+    prevSessions,
+    prevConversions,
+  ] = await Promise.all([
     scalar(env, `SELECT COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'pageview'`, [
       siteId,
       since,
@@ -186,6 +203,14 @@ export async function getTrafficSummary(
        WHERE ${w} AND event_type = 'pageview' GROUP BY label ORDER BY n DESC`,
       [siteId, since],
     ).then((r) => (r.error ? [] : r.data)),
+    // AN15 — previous-window scalars (same three KPIs) for the delta badges.
+    scalar(env, `SELECT COUNT(*) AS n FROM visitor_events WHERE ${pw} AND event_type = 'pageview'`, pwParams),
+    scalar(env, `SELECT COUNT(DISTINCT session_id) AS n FROM visitor_events WHERE ${pw}`, pwParams),
+    scalar(
+      env,
+      `SELECT COUNT(*) AS n FROM visitor_events WHERE ${pw} AND event_type = 'conversion'`,
+      pwParams,
+    ),
   ]);
 
   const topPaths: Array<z.infer<typeof PathCountSchema>> = topPathRows
@@ -208,6 +233,11 @@ export async function getTrafficSummary(
     byType,
     byDevice,
     byChannel,
+    previous: {
+      pageviews: prevPageviews,
+      uniqueSessions: prevSessions,
+      conversions: prevConversions,
+    },
     windowDays,
   });
 }

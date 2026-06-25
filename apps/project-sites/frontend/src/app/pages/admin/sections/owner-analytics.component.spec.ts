@@ -33,6 +33,7 @@ const SUMMARY = {
       { label: 'organic', count: 480 },
       { label: 'social', count: 360 },
     ],
+    previous: { pageviews: 1000, uniqueSessions: 700, conversions: 10 }, // pv +20%
     windowDays: 30,
   },
   generatedAt: '2026-06-25T00:00:00Z',
@@ -84,6 +85,17 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     const devices = el.querySelector('[data-testid="oa-devices"]');
     expect(devices?.textContent).toContain('mobile');
     expect(devices?.textContent).toContain('700');
+    // AN15 period-over-period: pageviews 1200 vs prev 1000 = +20% up.
+    const deltaPv = el.querySelector('[data-testid="oa-delta-pv"]');
+    expect(deltaPv?.textContent).toContain('20%');
+    expect(deltaPv?.getAttribute('data-dir')).toBe('up');
+  });
+
+  it('delta(): null when no baseline; up/down with arrows otherwise', () => {
+    const c = setup('s1').fixture.componentInstance;
+    expect(c.delta(50, 0)).toBeNull();
+    expect(c.delta(50, 40)).toEqual({ label: '↑ 25%', dir: 'up' });
+    expect(c.delta(30, 40)).toEqual({ label: '↓ 25%', dir: 'down' });
   });
 
   it('stays quiet with an "not enabled" note on a 404 (flag dark)', () => {

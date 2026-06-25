@@ -33,6 +33,7 @@ interface SiteAnalyticsSummary {
     byType: { type: string; count: number }[];
     byDevice: { label: string; count: number }[];
     byChannel: { label: string; count: number }[];
+    previous: { pageviews: number; uniqueSessions: number; conversions: number };
     windowDays: number;
   };
   generatedAt: string;
@@ -60,16 +61,25 @@ interface SiteAnalyticsSummary {
           <div class="oa-card" data-testid="oa-pageviews">
             <span class="oa-label">Pageviews</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.pageviews" /></span>
+            @if (delta(s.traffic.pageviews, s.traffic.previous.pageviews); as d) {
+              <span class="oa-delta" [attr.data-dir]="d.dir" data-testid="oa-delta-pv">{{ d.label }} vs last {{ s.windowDays }}d</span>
+            }
           </div>
           <div class="oa-card" data-testid="oa-sessions">
             <span class="oa-label">Unique sessions</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.uniqueSessions" /></span>
+            @if (delta(s.traffic.uniqueSessions, s.traffic.previous.uniqueSessions); as d) {
+              <span class="oa-delta" [attr.data-dir]="d.dir">{{ d.label }}</span>
+            }
           </div>
           <div class="oa-card" data-testid="oa-conversions">
             <span class="oa-label">Conversions</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.conversions" /></span>
             @if (s.traffic.pageviews > 0) {
               <span class="oa-sub" data-testid="oa-conv-rate">{{ convRate(s) }} of visits</span>
+            }
+            @if (delta(s.traffic.conversions, s.traffic.previous.conversions); as d) {
+              <span class="oa-delta" [attr.data-dir]="d.dir">{{ d.label }}</span>
             }
           </div>
           <div class="oa-card" data-testid="oa-contacts">
@@ -196,6 +206,20 @@ interface SiteAnalyticsSummary {
         color: var(--ps-accent, #00e5ff);
         font-weight: 600;
       }
+      .oa-delta {
+        font-size: 0.66rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .oa-delta[data-dir='up'] {
+        color: #4ade80;
+      }
+      .oa-delta[data-dir='down'] {
+        color: #ffb4b4;
+      }
+      .oa-delta[data-dir='flat'] {
+        color: var(--text-secondary, #9aa);
+      }
       .oa-skeleton {
         animation: oa-pulse 1.4s ease-in-out infinite;
       }
@@ -260,6 +284,19 @@ export class OwnerAnalyticsComponent {
   convRate(s: SiteAnalyticsSummary): string {
     if (s.traffic.pageviews <= 0) return '0%';
     return `${((s.traffic.conversions / s.traffic.pageviews) * 100).toFixed(1)}%`;
+  }
+
+  /**
+   * Period-over-period delta (AN15). Returns a sign-prefixed percent + direction,
+   * or `null` when there's no prior baseline (prev = 0) so we don't show a
+   * meaningless "+100%". `dir` drives the colour + arrow.
+   */
+  delta(current: number, previous: number): { label: string; dir: 'up' | 'down' | 'flat' } | null {
+    if (previous <= 0) return null;
+    const pct = ((current - previous) / previous) * 100;
+    const dir = pct > 0.5 ? 'up' : pct < -0.5 ? 'down' : 'flat';
+    const arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→';
+    return { label: `${arrow} ${Math.abs(pct).toFixed(0)}%`, dir };
   }
 
   constructor() {
