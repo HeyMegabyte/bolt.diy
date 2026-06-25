@@ -330,13 +330,13 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] 37. Perf wave: ag-grid→TanStack on both live admin grids [partial][dedicated]
 - [ ] 38. Generated-site TTFR ≤2.0s LCP (AVIF + fetchpriority + asset budgets) [partial][auto]
 - [ ] 39. Edge-cache public-serve hot path (KV manifest + R2 + Cache API; never touch D1 on hot path) [partial][auto]
-- [ ] 40. Speculation Rules / prerender on multi-page generated sites [new][auto]
+- [x] 40. Speculation Rules on generated sites — **DONE (2026-06-25).** `site_serving` now injects `<script type="speculationrules">` before `</head>` on every served generated site (`generateSpeculationRulesSnippet`): `prefetch` same-origin links on `moderate` eagerness (hover/pointerdown) → near-instant multi-page nav. Chose `prefetch` over `prerender` so it never executes the next page's JS / double-fires analytics. Browsers without support ignore the unknown script type. Worker 37/37 (new assertions in site_serving_full), tsc 0. [DONE][auto]
 - [ ] 41. Cloudflare Images for auto WebP/AVIF + responsive [new][operator]
 - [ ] 42. Angular admin bundle-split + @defer heavy libs (Monaco/ECharts/Uppy lazy) [partial][dedicated]
 
 ### Tier 6 — owner/admin UX & growth
 - [ ] 43. `psnotify` server-side triggers → live notifications (build/deploy/domain/billing) — CUSTOM engine, NEVER Novu (Brian absolute 2026-06-24); see Apps backlog A23 + [[feedback_no_novu_custom_notifications]] [partial][auto]
-- [ ] 44. Owner-facing site-analytics dashboard (site_analytics dark) [built-dark][auto]
+- [x] 44. Owner-facing site-analytics dashboard — **DONE (this arc, AN7+AN8+AN10-15).** Shipped the full owner "Your Visitors" tab on `site_analytics`: KPIs + period-over-period deltas + channel/device/country breakdowns + top pages + contact sources + conversion rate + UTM builder + plain-language outcome headline (8 features, all live behind the experimental `site_analytics` flag). Same feature as AN7 — `/admin/analytics?tab=visitors`. Promote the flag to beta to light real data. [DONE][auto]
 - [ ] 45. Onboarding copilot activation checklist (module dark) [built-dark][auto]
 - [ ] 46. Public template/showcase gallery (social proof + pSEO surface) [new][dedicated]
 - [ ] 47. pSEO for projectsites.dev itself (comparison/template/location pages) [new][auto]
@@ -396,7 +396,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [x] S7. Compare ANY two versions — **DONE (f490fd72, 2026-06-25).** The diff route already accepted `?from=&to=` but the UI only passed adjacent (`list[i+1]`). The diff viewer now fetches the site's snapshot list + shows two from/to `<select>` pickers; changing either merges the query param → re-loads the diff for any pair (no-op guard on same id). Frontend-only (zero backend change). Karma 1650 (+1), tsc 0, AOT clean, /admin 200. [DONE][auto] slug `snapshot_compare_any`
 - [ ] S8. Visual side-by-side diff — render the two snapshot screenshots in a slider/overlay with a pixel-diff heat layer, not just Added/Removed/Modified file counts. [new][auto] slug `snapshot_visual_diff`
 - [ ] S17. Undo-publish window — one-tap "revert to previous" toast for ~5 min after every publish (instant safety net; pairs with S4). [new][auto] slug `snapshot_undo_publish`
-- [ ] S49. Export ANY snapshot — ZIP download of any frozen version, not just current (download exists for current only). Archiving / compliance / migration (Webflow backup download). [partial][auto] slug `snapshot_export_any`
+- [x] S49. Export ANY snapshot — **ALREADY DONE (verified 2026-06-25, audit-before-build).** The ledger premise ("current only") was stale: `downloadSnapshot(snap)` takes ANY snapshot + there's a per-row download button on every snapshot; the route `GET /api/sites/:id/snapshots/:snapId/download` resolves the snapshot by `:snapId` → its R2 `build_version` prefix (NOT current), returns the file manifest, and the frontend JSZip-bundles it. Any frozen version is downloadable today. No work needed. [DONE][auto] slug `snapshot_export_any`
 
 ### Tier S2 — preview links (the viral growth loop)
 - [ ] S22. Immutable stable preview URLs — make `{slug}-{snapshot}.projectsites.dev` first-class + permanent + shareable; the link always shows that exact frozen state even after later publishes (Vercel/Netlify). [partial][auto] slug `snapshot_immutable_preview`

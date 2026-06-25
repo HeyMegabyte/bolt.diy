@@ -599,6 +599,10 @@ describe('serveSiteFromR2 — served-site analytics policy', () => {
     const html = await response.text();
 
     expect(html).toContain('id="ps-anti-fouc"');
+    // #40 — Speculation Rules injected before </head> for instant multi-page nav.
+    expect(html).toContain('type="speculationrules"');
+    expect(html).toContain('"prefetch"');
+    expect(html).toMatch(/"eagerness"\s*:\s*"moderate"/);
     expect(html).toMatch(/html:not\(\.ps-fonts-ready\)\s*body\s*\{\s*opacity\s*:\s*0/);
     expect(html).toContain('document.fonts.ready');
     expect(html).toContain("classList.add('ps-fonts-ready')");

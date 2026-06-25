@@ -948,6 +948,24 @@ function appShellHeroMarkup(headline: string, subline: string, bg: string, fg: s
   );
 }
 
+/**
+ * Speculation Rules snippet (#40) — prefetch same-origin links on `moderate`
+ * eagerness (hover / pointerdown) so multi-page generated sites navigate near-
+ * instantly. `prefetch` (not `prerender`) fetches + caches the next document
+ * WITHOUT executing its JS, so it never double-fires the site's analytics or
+ * wastes a full render — the safe default for small-business sites. Browsers
+ * that don't support Speculation Rules simply ignore the unknown script type.
+ *
+ * @returns a `<script type="speculationrules">` block to inject before `</head>`.
+ * @example generateSpeculationRulesSnippet().includes('speculationrules') // true
+ */
+function generateSpeculationRulesSnippet(): string {
+  return `<!-- Speculation Rules: prefetch same-origin links on hover for instant nav -->
+<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"href_matches":"/*"},"eagerness":"moderate"}]}
+</script>`;
+}
+
 function generateAntiFoucSnippet(): string {
   // Perf (perf loop #14, 2026-06-23): the safety-net was 1500ms. The reveal script
   // is a synchronous inline <script>, so it runs only AFTER the preceding
@@ -1030,6 +1048,10 @@ async function buildSiteResponse(
       // Always inject anti-FOUC snippet — gates body visibility on font load to
       // prevent the Google Fonts swap-flash that shifts hero/headline layout.
       headInjection += generateAntiFoucSnippet();
+
+      // #40 — Speculation Rules: prefetch same-origin links on hover for instant
+      // multi-page navigation (browsers without support ignore it).
+      headInjection += generateSpeculationRulesSnippet();
 
       if (headInjection) {
         html = html.replace(/<\/head>/i, `${headInjection}\n</head>`);
