@@ -34,6 +34,7 @@ import { requestIdMiddleware } from './middleware/request_id.js';
 import { requestLogger } from './lib/log.js';
 import { notFoundHtml } from './lib/not_found_page.js';
 import { llmLandingPage } from './lib/llm_landing_page.js';
+import { resolveSystemService, systemServiceLanding } from './lib/system_service_landing.js';
 import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
@@ -444,6 +445,14 @@ app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,d
 app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all
 app.route('/', browserService); // POST /v1/browser/* — product browser-automation abstraction (browser.projectsites.dev); routes CF→Stagehand→Browserbase-fallback, never Skyvern in product paths — must precede the catch-all
+// System-service status page at the bare root `/` — registered BEFORE inngestApp
+// so `jobs.projectsites.dev/` returns the branded 200 status page instead of the
+// Inngest inert 503. Only matches exact path `/`, so `/api/inngest` (and every
+// other `/api/*`, `/v1/*` path on these hosts) still routes to its real handler.
+app.get('/', async (c, next) => {
+  const svc = resolveSystemService((c.req.header('host') ?? '').toLowerCase());
+  return svc ? c.html(systemServiceLanding(svc)) : next();
+});
 app.route('/', inngestApp); // jobs./events.projectsites.dev → InngestContainer DO + /api/inngest serve handler (§13); degrades to 503 until the watched deploy binds INNGEST_CONTAINER — must precede the catch-all
 app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Inngest/Hatchet via getJobRouter(env)
 app.route('/', observabilityGateway); // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway) — must precede the catch-all
@@ -634,6 +643,15 @@ app.get('/', async (c, next) => {
   const hostname = (c.req.header('host') ?? '').toLowerCase();
   if (hostname === `llm.${DOMAINS.SITES_BASE}`) {
     return c.html(llmLandingPage());
+  }
+  // System-service subdomains (api/auth/billing/analytics/notify/browser/traces/
+  // jobs/app) are registry labels for bindings/SaaS/internal services — they have
+  // no root page and otherwise fall through to the site-serving 404. Serve an
+  // honest branded 200 status page at their root; real surfaces (/api/*, vendor
+  // dashboards, bindings) are unaffected since this only matches GET `/`.
+  const svc = resolveSystemService(hostname);
+  if (svc) {
+    return c.html(systemServiceLanding(svc));
   }
   return next();
 });
