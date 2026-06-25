@@ -33,6 +33,10 @@ const SUMMARY = {
       { label: 'organic', count: 480 },
       { label: 'social', count: 360 },
     ],
+    byCountry: [
+      { label: 'US', count: 900 },
+      { label: 'CA', count: 200 },
+    ],
     previous: { pageviews: 1000, uniqueSessions: 700, conversions: 10 }, // pv +20%
     windowDays: 30,
   },
@@ -85,6 +89,9 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     const devices = el.querySelector('[data-testid="oa-devices"]');
     expect(devices?.textContent).toContain('mobile');
     expect(devices?.textContent).toContain('700');
+    const countries = el.querySelector('[data-testid="oa-countries"]');
+    expect(countries?.textContent).toContain('US');
+    expect(countries?.textContent).toContain('900');
     // AN15 period-over-period: pageviews 1200 vs prev 1000 = +20% up.
     const deltaPv = el.querySelector('[data-testid="oa-delta-pv"]');
     expect(deltaPv?.textContent).toContain('20%');
@@ -113,6 +120,7 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
         byType: [],
         byDevice: [],
         byChannel: [],
+        byCountry: [],
         previous: { pageviews: 0, uniqueSessions: 0, conversions: 0 },
         windowDays: 30,
       },

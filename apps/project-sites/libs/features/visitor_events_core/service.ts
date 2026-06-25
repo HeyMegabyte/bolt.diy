@@ -164,6 +164,7 @@ export async function getTrafficSummary(
     prevPageviews,
     prevSessions,
     prevConversions,
+    byCountryRows,
   ] = await Promise.all([
     scalar(env, `SELECT COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'pageview'`, [
       siteId,
@@ -211,6 +212,13 @@ export async function getTrafficSummary(
       `SELECT COUNT(*) AS n FROM visitor_events WHERE ${pw} AND event_type = 'conversion'`,
       pwParams,
     ),
+    // AN14 — visitors by country over pageviews (cf.country captured in metadata).
+    dbQuery<{ label: string | null; n: number }>(
+      env.DB,
+      `SELECT json_extract(metadata, '$.country') AS label, COUNT(*) AS n FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' GROUP BY label ORDER BY n DESC`,
+      [siteId, since],
+    ).then((r) => (r.error ? [] : r.data)),
   ]);
 
   const topPaths: Array<z.infer<typeof PathCountSchema>> = topPathRows
@@ -224,6 +232,7 @@ export async function getTrafficSummary(
     rows.map((r) => ({ label: r.label ?? 'unknown', count: Number(r.n) }));
   const byDevice = toLabelCounts(byDeviceRows);
   const byChannel = toLabelCounts(byChannelRows);
+  const byCountry = toLabelCounts(byCountryRows);
 
   return TrafficSummarySchema.parse({
     pageviews,
@@ -233,6 +242,7 @@ export async function getTrafficSummary(
     byType,
     byDevice,
     byChannel,
+    byCountry,
     previous: {
       pageviews: prevPageviews,
       uniqueSessions: prevSessions,

@@ -51,6 +51,9 @@ export const TrafficSummarySchema = z
     // keeps older producers/fixtures valid.
     byDevice: z.array(LabelCountSchema).default([]),
     byChannel: z.array(LabelCountSchema).default([]),
+    // AN14 — visitors by country (CF `request.cf.country`, captured in metadata
+    // since before AN1). Default [] for back-compat.
+    byCountry: z.array(LabelCountSchema).default([]),
     // AN15 — the immediately-preceding equal-length window's KPIs, for
     // period-over-period deltas. Defaults to zeros for back-compat.
     previous: z

@@ -33,6 +33,7 @@ interface SiteAnalyticsSummary {
     byType: { type: string; count: number }[];
     byDevice: { label: string; count: number }[];
     byChannel: { label: string; count: number }[];
+    byCountry: { label: string; count: number }[];
     previous: { pageviews: number; uniqueSessions: number; conversions: number };
     windowDays: number;
   };
@@ -138,6 +139,18 @@ interface SiteAnalyticsSummary {
               <li class="oa-path">
                 <span class="oa-path-name oa-cap">{{ d.label }}</span>
                 <span class="oa-path-count">{{ d.count }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (s.traffic.byCountry.length) {
+          <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">Top countries</h2>
+          <ul class="oa-paths" data-testid="oa-countries">
+            @for (co of s.traffic.byCountry.slice(0, 8); track co.label) {
+              <li class="oa-path">
+                <span class="oa-path-name">{{ co.label }}</span>
+                <span class="oa-path-count">{{ co.count }}</span>
               </li>
             }
           </ul>
