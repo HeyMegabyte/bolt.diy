@@ -67,9 +67,20 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Select a site');
   });
 
+  it('renders a 7/30/90-day window selector and re-fetches with the chosen window', () => {
+    const { fixture, get } = setup('s1');
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="oa-window-7"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="oa-window-90"]')).toBeTruthy();
+    get.calls.reset();
+    fixture.componentInstance.setWindow(90);
+    fixture.detectChanges();
+    expect(get).toHaveBeenCalledWith('/sites/s1/analytics', { windowDays: '90' }, { silent: true });
+  });
+
   it('fetches /sites/:id/analytics (silent) and renders the visitor stat cards', () => {
     const { fixture, get } = setup('s1');
-    expect(get).toHaveBeenCalledWith('/sites/s1/analytics', undefined, { silent: true });
+    expect(get).toHaveBeenCalledWith('/sites/s1/analytics', { windowDays: '30' }, { silent: true });
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="oa-pageviews"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="oa-contacts"]')).toBeTruthy();

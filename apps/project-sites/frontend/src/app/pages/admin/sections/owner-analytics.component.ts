@@ -46,6 +46,21 @@ interface SiteAnalyticsSummary {
   imports: [RollingCounterComponent, UtmBuilderComponent],
   template: `
     <div class="px-6 pt-4 pb-8 max-md:px-4" data-testid="owner-analytics">
+      @if (siteId()) {
+        <div class="oa-window" role="group" aria-label="Time window">
+          @for (d of windowOptions; track d) {
+            <button
+              type="button"
+              class="oa-win-btn"
+              [class.oa-win-on]="windowDays() === d"
+              [attr.aria-pressed]="windowDays() === d"
+              [attr.data-testid]="'oa-window-' + d"
+              (click)="setWindow(d)">
+              {{ d }}d
+            </button>
+          }
+        </div>
+      }
       @if (!siteId()) {
         <p class="text-[0.85rem] text-text-secondary">Select a site to see who's visiting it.</p>
       } @else if (loading()) {
@@ -180,6 +195,29 @@ interface SiteAnalyticsSummary {
   `,
   styles: [
     `
+      .oa-window {
+        display: inline-flex;
+        gap: 0.25rem;
+        padding: 0.2rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+        margin-bottom: 0.9rem;
+      }
+      .oa-win-btn {
+        padding: 0.25rem 0.7rem;
+        border-radius: 7px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        cursor: pointer;
+        color: var(--text-secondary, #9aa);
+        background: transparent;
+        border: none;
+      }
+      .oa-win-on {
+        color: #03070a;
+        background: var(--ps-accent, #00e5ff);
+      }
       .oa-headline {
         font-size: 1.02rem;
         font-weight: 700;
@@ -299,6 +337,12 @@ export class OwnerAnalyticsComponent {
   readonly siteId = this.state.selectedSiteId;
   readonly summary = signal<SiteAnalyticsSummary | null>(null);
   readonly loading = signal(false);
+  /** Trailing-window selector (days). The backend route already accepts ?windowDays. */
+  readonly windowOptions = [7, 30, 90] as const;
+  readonly windowDays = signal<number>(30);
+  setWindow(d: number): void {
+    this.windowDays.set(d);
+  }
 
   /**
    * Plain-language outcome headline (AN8) — speaks to a small-business owner in
@@ -348,11 +392,12 @@ export class OwnerAnalyticsComponent {
     // imperative load so the effect only depends on selectedSiteId.
     effect(() => {
       const id = this.siteId();
-      untracked(() => this.load(id));
+      const w = this.windowDays(); // re-fetch on site OR window change
+      untracked(() => this.load(id, w));
     });
   }
 
-  private load(id: string | null): void {
+  private load(id: string | null, windowDays: number): void {
     this.summary.set(null);
     if (!id) {
       this.loading.set(false);
@@ -361,7 +406,11 @@ export class OwnerAnalyticsComponent {
     this.loading.set(true);
     // silent: a 404 here just means the `site_analytics` flag is dark — never toast it.
     this.api
-      .get<{ data: SiteAnalyticsSummary }>(`/sites/${id}/analytics`, undefined, { silent: true })
+      .get<{ data: SiteAnalyticsSummary }>(
+        `/sites/${id}/analytics`,
+        { windowDays: String(windowDays) },
+        { silent: true },
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
