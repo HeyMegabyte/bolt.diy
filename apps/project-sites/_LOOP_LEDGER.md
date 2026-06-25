@@ -381,3 +381,34 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ### Custom notifications (NO Novu — Brian absolute)
 - [ ] A23. `psnotify` — custom-built projectsites.dev notification engine (NEVER Novu): DO-backed in-app inbox + notification center + per-channel/per-category preferences + multi-channel delivery (in-app / email via SES+Listmonk / web-push), Zod-typed tenant-aware payloads (`{orgId, userId, featureSlug}`), append-only durable record (toasts stay ephemeral). First wire the Apps lifecycle events: `deploy.started/completed/failed` · `instance.crashed` · `backup.completed/failed` · `quota.near_limit`, then fan out to the platform events. **Supersedes ledger #43 + `_CONVERGENCE.prompt.md` §7.** [new][auto] slug `psnotify`
+
+## ★ SNAPSHOTS POWER BACKLOG (Brian-selected 2026-06-24 — the loop integrates these into the /admin Snapshots section)
+
+> 17 of 50 audited+researched Snapshots ideas, picked by Brian. Goal: give site owners full version-control power + turn previews into a viral growth loop. Grounded in the 2026-06-24 audit — surfaces: `frontend/src/app/pages/admin/sections/snapshots.component.ts` + `snapshots-diff.component.ts`, `src/routes/snapshot_quality.ts` + `snapshot_restore.ts` + `site_detail_tabs.ts` (rollback) + `api.ts` (list/create/diff), `src/workflows/snapshot-quality.ts`, migrations `0003_add_site_snapshots` + `0030_snapshot_metrics` + `0043_snapshot_vision_score`. Storage: `site_snapshots` + `snapshot_metrics` (D1) + R2 `sites/{slug}/{build_version}/` (rollback = re-point `current_build_version`). Each item is a feature module per [[feature-module-architecture]] + flag-gated per [[feature-flags]].
+
+### Tier S0 — stop the lying matrix + unify (trust foundation; do FIRST)
+- [ ] S1. Real performance scores — the quality matrix renders Lighthouse + all CWV cells that are PERMANENTLY NULL (CF Browser Rendering exposes no `lighthouse()`). Run Lighthouse in the build CONTAINER (already have it) and write true Perf/LCP/CLS/INP/FCP/TBT/SI, OR hide cells we can't fill. A lying UI is a P0 [[lying-ui-catcherror-class]]-adjacent regression. [partial][auto] slug `snapshot_real_perf`
+- [ ] S2. Real axe-core a11y — replace the fake `img:not([alt])` CSS-selector proxy with actual axe-core injected in the Browser Rendering step; populate `axe_critical/serious/contrast_failures/target_size_failures` (all NULL today). [partial][auto] slug `snapshot_real_axe`
+- [ ] S3. Render the vision radar — `vision_scores_json` (6-axis Llama-4 Scout visual score) is STORED every capture but no UI draws it. Render the radar/sparkline already sitting in the DB. [partial][auto] slug `snapshot_vision_radar`
+- [ ] S4. Unify rollback — collapse the two divergent paths (`rollback` in `site_detail_tabs.ts` vs `restore` in `snapshot_restore.ts` — different audit actions + different cache-purge thoroughness) into ONE (the complete `snapshot_restore`: R2-existence check + full cache purge); one audit action, one behavior. [partial][auto] slug `snapshot_unified_restore`
+
+### Tier S1 — diff, compare & restore power
+- [ ] S7. Compare ANY two versions — the diff API already accepts `?from=&to=` but the UI hardcodes adjacent-only (`list[i+1]`). Let users pick arbitrary pairs (Figma/Framer). [partial][auto] slug `snapshot_compare_any`
+- [ ] S8. Visual side-by-side diff — render the two snapshot screenshots in a slider/overlay with a pixel-diff heat layer, not just Added/Removed/Modified file counts. [new][auto] slug `snapshot_visual_diff`
+- [ ] S17. Undo-publish window — one-tap "revert to previous" toast for ~5 min after every publish (instant safety net; pairs with S4). [new][auto] slug `snapshot_undo_publish`
+- [ ] S49. Export ANY snapshot — ZIP download of any frozen version, not just current (download exists for current only). Archiving / compliance / migration (Webflow backup download). [partial][auto] slug `snapshot_export_any`
+
+### Tier S2 — preview links (the viral growth loop)
+- [ ] S22. Immutable stable preview URLs — make `{slug}-{snapshot}.projectsites.dev` first-class + permanent + shareable; the link always shows that exact frozen state even after later publishes (Vercel/Netlify). [partial][auto] slug `snapshot_immutable_preview`
+- [ ] S23. "Built with ProjectSites" footer on unauth previews — every shared preview is top-of-funnel; the link IS the ad (Carrd/Framer/Webflow). Footer renders only for logged-out viewers. [new][auto] slug `snapshot_builtwith_badge`
+- [ ] S24. "Build your own" CTA for anonymous preview viewers — a client reviewing a preview is already inside the product; convert them. Visible only to unauthenticated viewers. [new][auto] slug `snapshot_build_cta`
+- [ ] S25. Password / expiry on preview links — gated previews for sensitive client work (power + trust); token + optional expiry on the immutable URL from S22. [new][auto] slug `snapshot_preview_gate`
+
+### Tier S3 — client approval & agency (the money tier)
+- [ ] S27. Client Review Mode — preview with "Approve" / "Request changes" buttons; Approve PROMOTES the snapshot live, Request opens a thread. The agency killer feature; verb is "promote", forward-feeling. [new][auto] slug `snapshot_client_review`
+- [ ] S28. Comment-on-preview — pin annotations directly on the running preview with auto-attached viewport/browser metadata (Vercel Comments / Netlify Drawer). Feeds S27's "request changes". [new][auto] slug `snapshot_preview_comments`
+
+### Tier S4 — automation & monetization gates
+- [ ] S39. Scheduled publish — "go live Tue 9am" + "auto-revert after 48h if not confirmed" (Pro upsell; Webflow/Framer gate this). [new][auto] slug `snapshot_scheduled_publish`
+- [ ] S45. Plan-tiered retention — Free: 3 snapshots / 7-day; Pro: 30 / 90-day; Business: unlimited + named + API. Cleanest SaaS gate — users hit the wall right after a bad publish + upgrade. Also fixes the "R2 accumulates forever" gap. Pricing is a one-way door per [[one-way-two-way-doors]] → confirm tiers before wiring. [new][dedicated] slug `snapshot_retention_tiers`
+- [ ] S47. Snapshot storage billing — meter frozen-version R2 storage above plan ($0.02/GB/mo overage); low-friction usage revenue. Money flow → approval-required, depends on S45 tiers. [new][dedicated] slug `snapshot_storage_billing`
