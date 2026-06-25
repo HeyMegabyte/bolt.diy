@@ -11,6 +11,8 @@ import { AdminAnalyticsDashboardComponent } from './analytics-dashboard.componen
 class StubOverviewComponent {}
 @Component({ selector: 'app-admin-analytics-live', standalone: true, template: '<div data-testid="stub-live"></div>' })
 class StubLiveComponent {}
+@Component({ selector: 'app-admin-activation-funnel', standalone: true, template: '<div data-testid="stub-funnel"></div>' })
+class StubFunnelComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
@@ -25,7 +27,7 @@ describe('AdminAnalyticsDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
-      set: { imports: [StubOverviewComponent, StubLiveComponent] },
+      set: { imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent] },
     });
     const f = TestBed.createComponent(AdminAnalyticsDashboardComponent);
     f.detectChanges();
@@ -38,11 +40,12 @@ describe('AdminAnalyticsDashboardComponent', () => {
     navigate.calls.reset();
   });
 
-  it('renders the dashboard shell with both tabs', () => {
+  it('renders the dashboard shell with all three tabs', () => {
     const f = make();
     expect(f.nativeElement.querySelector('[data-testid="analytics-dashboard"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-overview"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-live"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="analytics-tab-funnel"]')).toBeTruthy();
   });
 
   it('defaults to the Overview tab when no ?tab is present', () => {
@@ -57,6 +60,14 @@ describe('AdminAnalyticsDashboardComponent', () => {
     const f = make();
     expect(f.componentInstance.tab()).toBe('live');
     expect(f.nativeElement.querySelector('[data-testid="stub-live"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="stub-overview"]')).toBeFalsy();
+  });
+
+  it('lands on the Activation Funnel when ?tab=funnel (legacy /admin/activation-funnel deep link)', () => {
+    qpm.next(convertToParamMap({ tab: 'funnel' }));
+    const f = make();
+    expect(f.componentInstance.tab()).toBe('funnel');
+    expect(f.nativeElement.querySelector('[data-testid="stub-funnel"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="stub-overview"]')).toBeFalsy();
   });
 

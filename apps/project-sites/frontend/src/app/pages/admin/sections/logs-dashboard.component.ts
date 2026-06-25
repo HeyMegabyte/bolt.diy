@@ -3,8 +3,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminAuditComponent } from './audit.component';
 import { AdminLogsExplorerComponent } from './logs-explorer.component';
+import { AdminAiLogsComponent } from './ai-logs.component';
 
-type LogsTab = 'audit' | 'explorer';
+type LogsTab = 'audit' | 'explorer' | 'traces';
 
 /**
  * Unified logging dashboard (2026-06-08) — combines the former standalone
@@ -18,7 +19,7 @@ type LogsTab = 'audit' | 'explorer';
 @Component({
   selector: 'app-admin-logs-dashboard',
   standalone: true,
-  imports: [AdminAuditComponent, AdminLogsExplorerComponent],
+  imports: [AdminAuditComponent, AdminLogsExplorerComponent, AdminAiLogsComponent],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="logs-dashboard">
       <h1 class="text-[1.35rem] font-extrabold text-white tracking-tight m-0">Logs</h1>
@@ -46,8 +47,10 @@ type LogsTab = 'audit' | 'explorer';
 
     @if (tab() === 'audit') {
       <app-admin-audit />
-    } @else {
+    } @else if (tab() === 'explorer') {
       <app-logs-explorer />
+    } @else {
+      <app-admin-ai-logs />
     }
   `,
 })
@@ -59,6 +62,7 @@ export class AdminLogsDashboardComponent implements OnInit {
   readonly tabs: ReadonlyArray<{ id: LogsTab; label: string }> = [
     { id: 'audit', label: 'Audit Trail' },
     { id: 'explorer', label: 'Log Explorer' },
+    { id: 'traces', label: 'Traces' },
   ];
   readonly tab = signal<LogsTab>('audit');
 
@@ -66,7 +70,8 @@ export class AdminLogsDashboardComponent implements OnInit {
     // Sync the active tab from `?tab=` so the view is deep-linkable + back/forward
     // restores it. takeUntilDestroyed: ActivatedRoute observables never complete.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
-      this.tab.set(q.get('tab') === 'explorer' ? 'explorer' : 'audit');
+      const t = q.get('tab');
+      this.tab.set(t === 'explorer' || t === 'traces' ? t : 'audit');
     });
   }
 

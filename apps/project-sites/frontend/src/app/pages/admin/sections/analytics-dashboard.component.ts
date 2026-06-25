@@ -3,8 +3,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { AdminAnalyticsLiveComponent } from './analytics-live.component';
+import { AdminActivationFunnelComponent } from './activation-funnel.component';
 
-type AnalyticsTab = 'overview' | 'live';
+type AnalyticsTab = 'overview' | 'live' | 'funnel';
 
 /**
  * Unified analytics dashboard (2026-06-23) — combines the former standalone
@@ -20,7 +21,7 @@ type AnalyticsTab = 'overview' | 'live';
 @Component({
   selector: 'app-admin-analytics-dashboard',
   standalone: true,
-  imports: [AdminAnalyticsComponent, AdminAnalyticsLiveComponent],
+  imports: [AdminAnalyticsComponent, AdminAnalyticsLiveComponent, AdminActivationFunnelComponent],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="analytics-dashboard">
       <h1 class="text-[1.35rem] font-extrabold text-white tracking-tight m-0">Analytics</h1>
@@ -48,8 +49,10 @@ type AnalyticsTab = 'overview' | 'live';
 
     @if (tab() === 'overview') {
       <app-admin-analytics />
-    } @else {
+    } @else if (tab() === 'live') {
       <app-admin-analytics-live />
+    } @else {
+      <app-admin-activation-funnel />
     }
   `,
 })
@@ -61,6 +64,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
   readonly tabs: ReadonlyArray<{ id: AnalyticsTab; label: string }> = [
     { id: 'overview', label: 'Overview' },
     { id: 'live', label: 'Live Events' },
+    { id: 'funnel', label: 'Activation Funnel' },
   ];
   readonly tab = signal<AnalyticsTab>('overview');
 
@@ -68,7 +72,8 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     // Sync the active tab from `?tab=` so the view is deep-linkable + back/forward
     // restores it. takeUntilDestroyed: ActivatedRoute observables never complete.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
-      this.tab.set(q.get('tab') === 'live' ? 'live' : 'overview');
+      const t = q.get('tab');
+      this.tab.set(t === 'live' || t === 'funnel' ? t : 'overview');
     });
   }
 

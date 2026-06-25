@@ -180,11 +180,11 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        // Activation Funnel is now a tab under Analytics (?tab=funnel). Function
+        // redirectTo carries the query param; keeps old deep links + bookmarks working.
         path: 'activation-funnel',
-        loadComponent: () =>
-          import('./pages/admin/sections/activation-funnel.component').then(
-            (m) => m.AdminActivationFunnelComponent,
-          ),
+        redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=funnel'),
+        pathMatch: 'full',
       },
       {
         path: 'billing',
@@ -355,12 +355,18 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        // Traces is now a tab under Logs (?tab=traces). Function redirectTo carries
+        // the query param; keeps old deep links + bookmarks working.
         path: 'traces',
-        loadComponent: () =>
-          import('./pages/admin/sections/ai-logs.component').then((m) => m.AdminAiLogsComponent),
+        redirectTo: () => inject(Router).parseUrl('/admin/logs?tab=traces'),
+        pathMatch: 'full',
       },
-      // Old name kept for any deep links / bookmarks.
-      { path: 'ai-logs', redirectTo: 'traces', pathMatch: 'full' },
+      // Old name kept for any deep links / bookmarks → the Traces tab under Logs.
+      {
+        path: 'ai-logs',
+        redirectTo: () => inject(Router).parseUrl('/admin/logs?tab=traces'),
+        pathMatch: 'full',
+      },
       {
         // AI Agents (née "Endpoints"). DUAL-MOUNT: the component renders here
         // as a full-page standalone (for /admin/ai-endpoints deep links +
