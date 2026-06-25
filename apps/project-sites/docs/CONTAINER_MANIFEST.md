@@ -30,7 +30,8 @@ in front of all of it per `cloudflare-first.md`.
 
 | Subdomain | Container | Image | Status | Slim |
 |---|---|---|---|---|
-| `jobs.`/`events.projectsites.dev` | **Inngest** — self-hosted durable jobs server (`inngest start`, §13). Code (`InngestContainer` DO + `src/inngest/*` serve) ships LIVE-but-inert (503) on a normal deploy; secrets stored; container go-live = staged wrangler blocks + watched deploy. | `containers/inngest/Dockerfile` (FROM `inngest/inngest`) | 🟡 | SHIP |
+| `events.projectsites.dev` | **Inngest** — event-driven durable jobs server (`inngest start`, §13). Code (`InngestContainer` DO + `src/inngest/*` serve) ships LIVE-but-inert (503) on a normal deploy; secrets stored; container go-live = staged wrangler blocks + watched deploy. | `containers/inngest/Dockerfile` (FROM `inngest/inngest`) | 🟡 | SHIP |
+| `jobs.projectsites.dev` | **Hatchet** — heavy/stateful/browser/AI execution plane (Hatchet Cloud preferred; self-host container otherwise) | `ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest` | 🔵 | SHIP |
 
 ## Browser / agents
 
@@ -128,7 +129,7 @@ namespace, own auth, own data. Same mechanism as the `apps-catalog.ts` self-host
 
 ## Launch backends — provisioned 2026-06-20 (Neon + Upstash, CF-native)
 
-The three active launch targets (`traces.`, `jobs.`, `mail.`) run as **CF Containers built
+The three active launch targets (`traces.`, `events.`, `mail.`) run as **CF Containers built
 from a local `./containers/<svc>/Dockerfile`** (`FROM` upstream — the same path
 `SiteBuilderContainer` uses, which bypasses the `IMAGE_REGISTRY_NOT_CONFIGURED` blocker that
 only hits bare-registry `image =` refs). Data plane = **Neon Postgres + Upstash Redis**
@@ -136,12 +137,12 @@ only hits bare-registry `image =` refs). Data plane = **Neon Postgres + Upstash 
 
 - **`traces.` → Langfuse** — pin **v2** (Neon Postgres only). v3 needs ClickHouse → no CF
   primitive, so v2 is the CF-compatible build. Neon project `Langfuse` (`plain-heart-31877384`).
-- **`jobs.` → Inngest** — `inngest start`, Neon project `Inngest` (`calm-sunset-61361436`) +
-  Upstash Redis `inngest` (`stirring-cricket-93162.upstash.io`).
+- **`events.` → Inngest** — `inngest start`, Neon project `Inngest` (`calm-sunset-61361436`) +
+  Upstash Redis `inngest` (`stirring-cricket-93162.upstash.io`). (`jobs.` → Hatchet, separate plane.)
 - **`mail.` → Listmonk** — reuses existing Neon project `Listmonk` (`jolly-pine-24431114`).
 
 Remaining to go live: thin Dockerfiles + 3 `Container` DO subclasses + `[[containers]]`/DO
-bindings/migration in `wrangler.toml` + host routing (`traces.`/`jobs.`/`mail.` → DO) in
+bindings/migration in `wrangler.toml` + host routing (`traces.`/`events.`/`mail.` → DO) in
 `index.ts` + `wrangler secret put` the conn strings + watched `wrangler deploy` (one-way DO
 migration — deploy with eyes on it).
 

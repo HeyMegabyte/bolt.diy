@@ -40,7 +40,8 @@ Provisioned as per-tenant `AppRuntimeContainer`s (work item `tenant_app_provisio
 |---|---|---|---|---|---|
 | `llm.projectsites.dev` | **LiteLLM + RouteLLM** — model router + OpenAI-compatible gateway | `ghcr.io/berriai/litellm` + `lm-sys/RouteLLM` | platform | 🔵 | today an env-var proxy; behind CF AI Gateway |
 | `traces.projectsites.dev` | **Langfuse** — LLM tracing / prompts / evals (v2, Neon) | `langfuse/langfuse` | platform | 🟡 | Neon provisioned |
-| `jobs.projectsites.dev` | **Inngest** — durable event-driven jobs (§13) | `inngest/inngest` | platform | 🟡 | live-but-inert; Neon + Upstash provisioned. Hatchet = Hatchet Cloud (managed) |
+| `events.projectsites.dev` | **Inngest** — event-driven durable jobs (§13) | `inngest/inngest` | platform | 🟡 | live-but-inert; Neon + Upstash provisioned |
+| `jobs.projectsites.dev` | **Hatchet** — heavy/stateful/browser/AI execution plane | `ghcr.io/hatchet-dev/hatchet/hatchet-lite` | platform | 🔵 | Hatchet Cloud preferred; self-host container otherwise |
 | `mail.projectsites.dev` | **Listmonk** — newsletters / lists (SES relay) | `listmonk/listmonk` | platform | 🟡 | Neon provisioned |
 | `support.projectsites.dev` | **Chatwoot** — support / live-chat | `chatwoot/chatwoot` | platform | 🔵 | — |
 | `social.projectsites.dev` | **Postiz** — social scheduling | `ghcr.io/gitroomhq/postiz-app` | platform | 🔵 | social add-on |
@@ -75,7 +76,7 @@ Provisioned as per-tenant `AppRuntimeContainer`s (work item `tenant_app_provisio
 Postgres → **Neon** (via Hyperdrive) · Redis → **Upstash** · D1 / KV / R2 / Vectorize / Queues /
 Workflows / Browser Rendering → **CF primitives**.
 
-> **Resolved conflict:** `jobs.projectsites.dev` is **Inngest** (durable event-driven jobs — already
-> built as `InngestContainer` DO with Neon + Upstash). **Hatchet** is the heavy/stateful/browser/AI
-> execution plane via **Hatchet Cloud** (managed — no self-host subdomain). **Dittofeed** replaces
-> Novu for lifecycle messaging. **Deepcrawl** replaces Firecrawl for website-context extraction.
+> **Job planes:** `events.projectsites.dev` = **Inngest** (event-driven durable jobs — already built as
+> `InngestContainer` DO with Neon + Upstash). `jobs.projectsites.dev` = **Hatchet**, the heavy/stateful/
+> browser/AI execution plane (Hatchet Cloud preferred). **Dittofeed** replaces Novu for lifecycle
+> messaging. **Deepcrawl** replaces Firecrawl for website-context extraction.

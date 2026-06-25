@@ -109,9 +109,9 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 > - *Internal service (subdomain)* — container/Dockerfile + DO binding + host route + secrets + live 2xx + smoke test.
 > - *Domain mapping* — row in `apps/project-sites/docs/CONTAINER_MANIFEST.md` + `SUBDOMAIN_MAP.md` + `scripts/slim-containers.sh`.
 >
-> **Conflicts resolved:** `jobs.projectsites.dev` → **Inngest** (Brian directive + live `InngestContainer` DO/Neon/Upstash),
-> NOT Hatchet. **Hatchet** = heavy/stateful/browser/AI execution plane via **Hatchet Cloud** (managed, no self-host
-> subdomain); self-hosted fallback only would take `tasks.projectsites.dev`. `secrets.` → Infisical only if Cloudflare
+> **Domains (Brian directive):** `events.projectsites.dev` → **Inngest** (event-driven product-lifecycle jobs;
+> live `InngestContainer` DO + Neon + Upstash). `jobs.projectsites.dev` → **Hatchet** (heavy/stateful/browser/AI
+> execution plane; Hatchet Cloud preferred, self-host container otherwise). `secrets.` → Infisical only if Cloudflare
 > Secrets Store is insufficient. Dittofeed (lifecycle messaging) **replaces Novu**. Deepcrawl **replaces Firecrawl**.
 
 ### Phase 0 — Stack policy, removals, repo hygiene
@@ -199,8 +199,8 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 
 ### Phase 5 — Workflows, jobs, integrations, webhooks, metering
 - [ ] [Core] Cloudflare Workflows/Queues-first rule — CF workflows/queues are the default before any external engine.
-- [ ] [Approved] Inngest — event-driven product-lifecycle workflows where CF Workflows is insufficient; `jobs.projectsites.dev`.
-- [ ] [Approved] Hatchet — heavy/stateful/browser/AI execution plane via **Hatchet Cloud** (managed; no self-host subdomain — see Conflicts).
+- [ ] [Approved] Inngest — event-driven product-lifecycle workflows where CF Workflows is insufficient; `events.projectsites.dev`.
+- [ ] [Approved] Hatchet — heavy/stateful/browser/AI execution plane; `jobs.projectsites.dev` (Hatchet Cloud preferred, self-host container otherwise).
 - [ ] [Approved] Nango — integrations/OAuth sync.
 - [ ] [Approved] Svix — outbound customer-facing webhook delivery.
 - [ ] [Approved] Hookdeck — inbound webhook management, routing, retry, debugging, observability.
@@ -242,7 +242,7 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - [ ] [Core] Domain map — preserve the service-domain mapping in docs + this loop. Canonical record: `apps/project-sites/docs/CONTAINER_MANIFEST.md`.
   - `mail.` → Listmonk · `crm.` → Twenty CRM · `cms.` → Payload CMS · `support.` → Chatwoot · `social.` → Postiz
   - `status.` → OpenStatus · `checks.`/`health.` → Healthchecks.io · `traces.` → Langfuse · `logs.` → Loki/Grafana (self-hosted only)
-  - `jobs.` → **Inngest** (Hatchet = Hatchet Cloud, managed) · `llm.` → LiteLLM + RouteLLM · `browser.` → CF Browser Run/Rendering + Playwright + Stagehand
+  - `events.` → **Inngest** · `jobs.` → **Hatchet** (Hatchet Cloud preferred) · `llm.` → LiteLLM + RouteLLM · `browser.` → CF Browser Run/Rendering + Playwright + Stagehand
   - `cms.` → Payload CMS · `keys.` → Unkey (if used) · `secrets.` → Infisical (only if CF Secrets Store insufficient)
   - `skyvern.megabyte.space` → internal-only historical/fallback note (not product-facing)
   - `mcp.megabyte.space` → Browserbase MCP bridge, internal fallback only (not product-facing)
