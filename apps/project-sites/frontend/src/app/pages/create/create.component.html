@@ -762,6 +762,12 @@
         }
       </div>
 
+      <!-- #32 — Turnstile bot-gate (inert until a site key + secret + flag are provisioned). -->
+      <app-turnstile-widget
+        class="block mt-3"
+        [siteKey]="turnstileSiteKey"
+        (verified)="turnstileToken.set($event)" />
+
       <!-- Submit -->
       <button
         class="w-full mt-2 bg-primary text-dark font-semibold rounded-xl px-6 py-4 text-[1.05rem] hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"

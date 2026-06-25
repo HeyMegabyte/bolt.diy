@@ -1,4 +1,4 @@
-# llm.projectsites.dev — LiteLLM proxy + RouteLLM routing on CF Workers Containers.
+# llm.megabyte.space — LiteLLM proxy + RouteLLM routing on CF Workers Containers.
 #
 # LiteLLM proxy is the OpenAI-compatible /v1 gateway (one base URL, every model,
 # with routing, fallbacks, budgets, caching). RouteLLM rides in the SAME image as
@@ -9,7 +9,11 @@
 FROM ghcr.io/berriai/litellm:main-stable
 
 # RouteLLM lives in the same image so a `router/*` model in config.yaml resolves.
-RUN pip install --no-cache-dir "routellm[serve]" || true
+# The LiteLLM base image is a uv-managed venv at /app/.venv with NO pip on PATH —
+# bootstrap pip via ensurepip into that venv, then install routellm so LiteLLM's
+# RouteLLM integration (`model: router/mf`) imports cleanly at runtime.
+RUN /app/.venv/bin/python -m ensurepip --upgrade \
+ && /app/.venv/bin/python -m pip install --no-cache-dir routellm
 
 COPY config.yaml /app/config.yaml
 

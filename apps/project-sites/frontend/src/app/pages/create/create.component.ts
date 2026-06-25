@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { TurnstileWidgetComponent } from '../../components/turnstile-widget/turnstile-widget.component';
 import {
   Subject,
   debounceTime,
@@ -181,7 +182,7 @@ interface BusinessSuggestion {
 @Component({
   selector: 'app-create',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TurnstileWidgetComponent],
   templateUrl: './create.component.html',
   styleUrl: './create.component.scss',
 })
@@ -202,6 +203,14 @@ export class CreateComponent implements OnInit, OnDestroy {
   businessCategory = '';
   additionalContext = '';
   submitting = signal(false);
+
+  /** #32 — Turnstile bot-gate. Site key from a runtime global (worker-injectable);
+   *  empty ⇒ the widget is inert. Token captured on solve, sent with the build. */
+  readonly turnstileSiteKey =
+    (typeof window !== 'undefined' &&
+      (window as unknown as { __PS_TURNSTILE_SITE_KEY__?: string }).__PS_TURNSTILE_SITE_KEY__) ||
+    '';
+  readonly turnstileToken = signal('');
 
   /** Conceptual sub-steps within the single-page form. Persisted in
    *  sessionStorage so a mid-flow refresh restores progress + indicator state. */
@@ -1706,9 +1715,12 @@ export class CreateComponent implements OnInit, OnDestroy {
   private createSiteWithUploadId(uploadId?: string): void {
     const biz = this.selectedBusiness();
 
-    const payload: CreateSitePayload & { upload_id?: string } = {
+    const payload: CreateSitePayload & { upload_id?: string; turnstile_token?: string } = {
       mode: biz ? 'business' : 'custom',
       additional_context: this.additionalContext || undefined,
+      // #32 — only present when the widget rendered + was solved (otherwise undefined);
+      // the worker gate is dark by default so this is harmless until activated.
+      turnstile_token: this.turnstileToken() || undefined,
       business: {
         name: this.businessName.trim(),
         address: this.businessAddress.trim(),

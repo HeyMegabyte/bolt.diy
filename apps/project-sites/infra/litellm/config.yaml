@@ -1,7 +1,8 @@
-# LiteLLM proxy config for llm.projectsites.dev.
+# LiteLLM proxy config for llm.megabyte.space.
 # Model creds are read from env (set as wrangler secrets, injected by the Container DO).
-# Per rules/model-routing.md provider tiers: premium (Anthropic/OpenAI), mid (DeepSeek),
-# instant (Workers AI). RouteLLM picks strong-vs-weak per request to cut cost.
+# Per rules/model-routing.md provider tiers: premium (Anthropic/OpenAI). RouteLLM picks
+# strong-vs-weak per request to cut cost. DeepSeek is unprovisioned here, so the weak leg
+# is an OpenAI mini model — RouteLLM works with only OPENAI_API_KEY + ANTHROPIC_API_KEY.
 
 model_list:
   # ── Premium tier ──
@@ -13,19 +14,19 @@ model_list:
     litellm_params:
       model: anthropic/claude-opus-4-8
       api_key: os.environ/ANTHROPIC_API_KEY
-  # ── Mid-grade default ──
-  - model_name: deepseek
+  # ── Cheap/fast leg (RouteLLM weak model) ──
+  - model_name: fast
     litellm_params:
-      model: deepseek/deepseek-chat
-      api_key: os.environ/DEEPSEEK_API_KEY
-  # ── RouteLLM: one model that routes strong(claude-opus) vs weak(deepseek) ──
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+  # ── RouteLLM: one model that routes strong(claude-opus) vs weak(fast) ──
   # `router/mf` is RouteLLM's matrix-factorization router; threshold tunes the
   # cost/quality split. Calls to model "smart" get routed automatically.
   - model_name: smart
     litellm_params:
       model: router/mf
       strong_model: anthropic/claude-opus-4-8
-      weak_model: deepseek/deepseek-chat
+      weak_model: openai/gpt-4o-mini
       api_key: os.environ/ANTHROPIC_API_KEY
 
 litellm_settings:
@@ -39,9 +40,9 @@ litellm_settings:
 
 router_settings:
   routing_strategy: simple-shuffle
-  # Fallback chain: if the routed model errors, degrade premium → mid.
+  # Fallback chain: if the routed model errors, degrade premium → fast.
   fallbacks:
-    - smart: ["claude-opus", "deepseek"]
+    - smart: ["claude-opus", "fast"]
 
 general_settings:
   # Master key gates the proxy. Set LITELLM_MASTER_KEY as a wrangler secret.
