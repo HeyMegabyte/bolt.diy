@@ -32,7 +32,17 @@ describe('system_service_landing', () => {
   });
 
   it('covers every label host the wildcard would otherwise 404', () => {
-    for (const sub of ['api', 'auth', 'billing', 'analytics', 'notify', 'browser', 'traces', 'jobs', 'app']) {
+    for (const sub of [
+      'api',
+      'auth',
+      'billing',
+      'analytics',
+      'notify',
+      'browser',
+      'traces',
+      'jobs',
+      'app',
+    ]) {
       expect(SYSTEM_SERVICES[sub]?.sub).toBe(sub);
     }
   });
