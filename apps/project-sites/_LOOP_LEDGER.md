@@ -314,7 +314,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] 25. traceId + tenantId correlation across the pipeline [partial][auto]
 - [ ] 26. Admin "build health" dashboard (success rate, p95 build time, failure reasons) [new][dedicated]
 - [ ] 27. Auto-rollback wired to post-deploy error-rate/LCP watcher [new][auto]
-- [ ] 28. Webhook idempotency audit + tests (Stripe + build-status callbacks) [partial][auto]
+- [x] 28. Webhook idempotency audit + tests (Stripe + build-status callbacks) [partial][auto]
 - [ ] 29. GDPR Art.17 deletion cascade + receipt (visitor_dsar exists) [partial][auto]
 
 ### Tier 4 — security & abuse (multi-tenant public platform)
