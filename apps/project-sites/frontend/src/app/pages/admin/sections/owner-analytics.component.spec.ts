@@ -8,7 +8,14 @@ import { AdminStateService } from '../admin-state.service';
 const SUMMARY = {
   siteId: 's1',
   windowDays: 30,
-  contacts: { total: 12, newInWindow: 3, bySource: [] },
+  contacts: {
+    total: 12,
+    newInWindow: 3,
+    bySource: [
+      { source: 'instagram', count: 7 },
+      { source: '', count: 5 },
+    ],
+  },
   formSubmissions: { total: 8, newInWindow: 2 },
   newsletter: { confirmed: 5, total: 7 },
   donations: { raisedCents: 25000, count: 4 },
@@ -55,6 +62,13 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     expect(el.querySelector('[data-testid="oa-contacts"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="oa-donations"]')).toBeTruthy(); // count > 0 → shown
     expect(el.textContent).toContain('Top pages');
+    // Conversion rate = 14 / 1200 = 1.2% of visits.
+    expect(el.querySelector('[data-testid="oa-conv-rate"]')?.textContent).toContain('1.2%');
+    // Contacts-by-source breakdown, with the empty source labelled.
+    const sources = el.querySelector('[data-testid="oa-contact-sources"]');
+    expect(sources).toBeTruthy();
+    expect(sources?.textContent).toContain('instagram');
+    expect(sources?.textContent).toContain('Direct / unknown');
   });
 
   it('stays quiet with an "not enabled" note on a 404 (flag dark)', () => {

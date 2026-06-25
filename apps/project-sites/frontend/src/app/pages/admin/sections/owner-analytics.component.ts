@@ -65,6 +65,9 @@ interface SiteAnalyticsSummary {
           <div class="oa-card" data-testid="oa-conversions">
             <span class="oa-label">Conversions</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.conversions" /></span>
+            @if (s.traffic.pageviews > 0) {
+              <span class="oa-sub" data-testid="oa-conv-rate">{{ convRate(s) }} of visits</span>
+            }
           </div>
           <div class="oa-card" data-testid="oa-contacts">
             <span class="oa-label">Contacts</span>
@@ -99,6 +102,18 @@ interface SiteAnalyticsSummary {
               <li class="oa-path">
                 <span class="oa-path-name">{{ p.path }}</span>
                 <span class="oa-path-count">{{ p.count }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (s.contacts.bySource.length) {
+          <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">Where your contacts came from</h2>
+          <ul class="oa-paths" data-testid="oa-contact-sources">
+            @for (src of s.contacts.bySource.slice(0, 6); track src.source) {
+              <li class="oa-path">
+                <span class="oa-path-name">{{ src.source || 'Direct / unknown' }}</span>
+                <span class="oa-path-count">{{ src.count }}</span>
               </li>
             }
           </ul>
@@ -207,6 +222,12 @@ export class OwnerAnalyticsComponent {
   readonly siteId = this.state.selectedSiteId;
   readonly summary = signal<SiteAnalyticsSummary | null>(null);
   readonly loading = signal(false);
+
+  /** Conversion rate as a 1-dp percent of pageviews (caller guards pageviews > 0). */
+  convRate(s: SiteAnalyticsSummary): string {
+    if (s.traffic.pageviews <= 0) return '0%';
+    return `${((s.traffic.conversions / s.traffic.pageviews) * 100).toFixed(1)}%`;
+  }
 
   constructor() {
     // Re-fetch whenever the operator switches sites. untracked() around the
