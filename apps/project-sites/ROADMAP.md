@@ -17,6 +17,10 @@ Legend: **NEW** new module · **EXTEND** grow existing · **STUB→** finish a s
 > **Positioning + agent-grade catalog:** `AGENT_NATIVE_POSITIONING.md` (the WHY, the pricing
 > model — $50/mo per site incl. credits, free tier no custom domain — and the 30 above-and-beyond
 > agent features). This file stays the $-sorted build queue.
+>
+> **Tooling/stack roadmap:** `docs/STACK.md` (repo root) — the categorized, status-tagged
+> open-source stack (Core/Recommended/Conditional/Study/Avoid) + phased Phase 0–6 integration
+> TODOs. This ROADMAP stays feature-priority; `docs/STACK.md` owns tool selection.
 
 ---
 
