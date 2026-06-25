@@ -123,6 +123,7 @@ import {
   badRequest,
   notFound,
   forbidden,
+  conflict,
   unauthorized,
   safeRelativePath,
   pickSafeRedirect,
@@ -3972,12 +3973,24 @@ api.post('/api/sites/:id/reset', async (c) => {
     business_address: string | null;
     google_place_id: string | null;
     budget_tier: string | null;
+    status: string | null;
   }>(
     c.env,
     orgId,
     siteId,
-    'id, slug, org_id, business_name, business_address, google_place_id, budget_tier',
+    'id, slug, org_id, business_name, business_address, google_place_id, budget_tier, status',
   );
+
+  // In-flight build guard (#35 follow-on) — `/reset` rebuilds an already-owned
+  // site so the site-count quota doesn't apply, but it unconditionally kicked a
+  // $5-15 SITE_WORKFLOW build. Hammering it spawned N concurrent builds on ONE
+  // site. Refuse to start a second build while one is in flight; the user can
+  // reset again once it reaches a terminal state (published/error/draft).
+  if (site.status === 'building' || site.status === 'generating') {
+    throw conflict(
+      'A build is already in progress for this site. Wait for it to finish before rebuilding.',
+    );
+  }
 
   let body: {
     business?: { name?: string; address?: string; place_id?: string; website?: string };
