@@ -51,6 +51,14 @@ export interface EventRow {
         <span class="text-[0.78rem] text-text-secondary tabular-nums ml-auto" data-testid="et-count">
           {{ filtered().length }} of {{ events().length }}
         </span>
+        <button
+          type="button"
+          data-testid="et-csv"
+          class="px-3 py-1.5 rounded-lg text-[0.8rem] font-semibold border border-white/[0.08] text-text-secondary hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          [disabled]="!filtered().length"
+          (click)="exportCsv()">
+          Download CSV
+        </button>
       </div>
 
       @if (!filtered().length) {
@@ -162,6 +170,31 @@ export class EventsTableComponent {
 
   prev(): void {
     this.page.update((p) => Math.max(p - 1, 0));
+  }
+
+  /** Serialize the currently-filtered rows to a CSV string (AN42). */
+  toCsv(): string {
+    const esc = (v: string | number | null | undefined): string => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = 'Type,When,User,Status,Timestamp';
+    const rows = this.filtered().map((e) =>
+      [esc(e.eventType), esc(this.fmt(e.timestamp)), esc(e.userId), esc(e.status ?? 'ingested'), esc(e.timestamp)].join(','),
+    );
+    return [header, ...rows].join('\n') + '\n';
+  }
+
+  /** Download the filtered rows as a CSV file. Impure — touches the DOM/URL. */
+  exportCsv(): void {
+    if (!this.filtered().length) return;
+    const blob = new Blob([this.toCsv()], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `events-${this.filtered().length}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   /** Human time for an epoch-ms timestamp. */

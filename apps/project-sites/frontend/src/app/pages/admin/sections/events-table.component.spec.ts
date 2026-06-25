@@ -75,6 +75,27 @@ describe('EventsTableComponent (AN55 — Live Events filter/search/paginate)', (
     expect(c.filtered().length).toBe(8);
   });
 
+  it('toCsv(): exports the FILTERED rows with a header, CSV-escaping special chars (AN42)', () => {
+    const events = [
+      { id: 'a', eventType: 'pageview', userId: 'u1', timestamp: 1_700_000_000_000, status: 'ingested' },
+      { id: 'b', eventType: 'cta_click', userId: 'has,comma', timestamp: 1_700_000_001_000, status: 'de"liver' },
+    ];
+    const c = setup(events).componentInstance;
+    const csv = c.toCsv();
+    const lines = csv.trim().split('\n');
+    expect(lines[0]).toBe('Type,When,User,Status,Timestamp');
+    expect(lines.length).toBe(3); // header + 2 rows
+    expect(lines[1]).toContain('pageview');
+    expect(lines[1]).toContain('u1');
+    // comma + quote fields are quoted/escaped
+    expect(lines[2]).toContain('"has,comma"');
+    expect(lines[2]).toContain('"de""liver"');
+    // a filter narrows the export too
+    c.setQuery('cta_click');
+    const csv2 = c.toCsv();
+    expect(csv2.trim().split('\n').length).toBe(2); // header + 1 filtered row
+  });
+
   it('renders a no-match notice when filters exclude everything', () => {
     const fixture = setup(mkEvents(10));
     const c = fixture.componentInstance;

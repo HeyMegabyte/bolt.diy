@@ -468,9 +468,9 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 ### Tier AN5 — privacy & trust (differentiator vs Wix/GA4)
 - [ ] AN38. Cookieless-by-default + visible "No cookies · GDPR" privacy badge; generated sites never need a cookie banner (Plausible/Fathom positioning). [new][auto] slug `analytics_cookieless`
 - [ ] AN39. IP anonymization + no-PII guarantee in the event store + documented retention policy surface. [new][auto] slug `analytics_pii_scrub`
-- [ ] AN40. "Your data is never sold" pledge in the analytics UI (anti-Google stance). [new][auto] slug `analytics_data_pledge`
+- [x] AN40. "Your data is never sold" pledge in the analytics UI (anti-Google stance). [new][auto] slug `analytics_data_pledge` — DONE 2026-06-25: standalone `DataPledgeComponent` (no-cookies · IP-anonymized · never-sold trust strip, role=note) mounted always-visible in owner-analytics; 2 Karma specs; live in prod chunk-4KG7LOYN.js.
 - [ ] AN41. EU data-residency option (CF D1 / Analytics Engine location hints). [new][operator] slug `analytics_eu_residency`
-- [ ] AN42. One-click full data export (CSV) + delete for the owner (export is Overview-only today). [partial][auto] slug `analytics_data_export`
+- [ ] AN42. One-click full data export (CSV) + delete for the owner (export is Overview-only today). [partial][auto] slug `analytics_data_export` — PROGRESS 2026-06-25: Live Events table now has a "Download CSV" button (CSV-escaped, exports the FILTERED rows) via `EventsTableComponent.toCsv()/exportCsv()`; 1 Karma spec; live. REMAINING (keeps it open): full-dataset export beyond the events view + owner-initiated data delete.
 
 ### Tier AN6 — local-business power (audience = local shops)
 - [ ] AN43. Google Business Profile OAuth connect — link a GBP account (connect leg). [new][operator] slug `gbp_connect`
