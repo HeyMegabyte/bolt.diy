@@ -18,9 +18,9 @@ Legend: **NEW** new module · **EXTEND** grow existing · **STUB→** finish a s
 > model — $50/mo per site incl. credits, free tier no custom domain — and the 30 above-and-beyond
 > agent features). This file stays the $-sorted build queue.
 >
-> **Tooling/stack roadmap:** `docs/STACK.md` (repo root) — the categorized, status-tagged
-> open-source stack (Core/Recommended/Conditional/Study/Avoid) + phased Phase 0–6 integration
-> TODOs. This ROADMAP stays feature-priority; `docs/STACK.md` owns tool selection.
+> **Selected tooling:** `docs/STACK.md` (repo root) — the canonical selected-tooling matrix
+> (Core/Recommended/Conditional) + companion packages + Phase 0–5 integration TODOs. This ROADMAP
+> stays feature-priority; `docs/STACK.md` owns tool selection.
 
 ---
 

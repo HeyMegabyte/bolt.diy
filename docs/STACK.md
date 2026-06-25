@@ -1,350 +1,160 @@
-# ProjectSites.dev — Recommended Open Source Stack & Tooling Roadmap
+# ProjectSites.dev — Selected Tooling
 
-> **Canonical, opinionated, Cloudflare-first.** This is the single source of truth for *which*
-> open-source tools shape ProjectSites.dev and *when* to reach for them. Pairs with the global
-> agent policy at `~/.agentskills/rules/package-preference-registry.md` § ProjectSites.dev.
+> **Canonical, opinionated, Cloudflare-first + TypeScript-first.** Single source of truth for the
+> open-source tools that shape ProjectSites.dev. Use ONLY the selected stack below plus tightly
+> coupled companion packages — no broad extra recommendations.
 >
-> **Binding infra doctrine:** `apps/project-sites/docs/architecture/cloudflare-first.md` (mirror:
-> `~/.agentskills/rules/projectsites-cloudflare-first.md`) governs allowed infra + the public hot
-> path. This file defers to it on any conflict — it adds the categorized tool roadmap, not new infra policy.
->
-> **Listing ≠ installing.** Nothing here is installed by reading this file. Each item carries a
-> status; an item is adopted only when its status gate (below) is satisfied **and** the
-> integration checklist passes.
+> **Listing ≠ installing.** A row here is a decision, not an install. Adopt a Recommended/Conditional
+> tool only when a concrete feature needs it. Agent policy mirror: `~/.agentskills/rules/projectsites-recommended-stack.md`.
+> Binding infra doctrine (allowed infra + hot path): `apps/project-sites/docs/architecture/cloudflare-first.md`.
 
----
+## Platform priority order (non-negotiable)
 
-## 0 — Platform priority order (non-negotiable)
+1. Prefer **no database** when possible.
+2. Prefer **Cloudflare-native primitives** before external infra (Workers · D1 · KV · R2 · DO · Queues · Workflows · Vectorize · AI Gateway).
+3. **D1 before Neon** unless Postgres semantics are required (Neon via Hyperdrive only).
+4. **DO / KV / Queues / Workflows before Redis** unless Redis semantics are required (Upstash only).
+5. **Fly.io** only for stateful/container services that don't fit Cloudflare.
+6. Never default to Google Cloud Run, Supabase, Firebase, or random managed services.
+7. No inferior duplicate package when a selected tool already solves the need.
 
-1. **Prefer no database.** Static/edge-rendered, KV, R2, or DO storage before any SQL.
-2. **Cloudflare-native first** — Workers · Pages · D1 · KV · R2 · Durable Objects · Queues ·
-   Workflows · Hyperdrive · Vectorize · Analytics Engine · AI Gateway · Workers AI ·
-   Browser Rendering · Turnstile · Zaraz · Cloudflare for SaaS · Workers for Platforms ·
-   Secrets Store · Access · WAF.
-3. **Neon Postgres via Hyperdrive** only when real Postgres semantics/scale/RLS isolation are needed.
-4. **Upstash Redis** only when Redis-specific semantics (sorted sets, streams, atomic counters at scale) are needed.
-5. **Fly.io** only for stateful/container services that do not fit Cloudflare Containers/Workers.
-6. **Never default** to Google Cloud Run, Supabase, Firebase, or random managed services.
-7. **No inferior duplicate tools** — one canonical choice per job (see § Selection rules).
+Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feature needs it) · **Conditional** (only with the noted justification) · **Study / optional**.
 
----
+## Selected tooling matrix
 
-## 1 — Status legend
+### Backend · contracts · validation · runtime
 
-| Tag | Meaning | Gate to advance |
-|-----|---------|-----------------|
-| **Core** | Shapes the platform now; already in-repo or adopt imminently | — |
-| **Recommended** | Adopt when a concrete feature needs it | a real feature requirement exists |
-| **Conditional** | Adopt only with an architecture note (runtime fit, duplicate check) | write the note in `DECISIONS.md` first |
-| **Study / borrow** | Read the source for patterns; do **not** install | promote to Conditional with justification |
-| **Avoid for now** | Documented anti-choice | needs an ADR to reverse |
+| Tool | Category | Status | Purpose | Companion packages | Notes |
+|------|----------|--------|---------|--------------------|-------|
+| Hono | Backend | Core | Worker API framework | `@hono/zod-validator` | In use across the worker |
+| Effect | Backend | Core | Typed services, retries, typed errors, resource safety, workflow correctness | — | Targeted services only; never replaces Zod at I/O |
+| Zod | Validation | Core | SSOT at every runtime boundary | `zod-validation-error` | `z.infer` for types — never hand-duplicate |
+| Drizzle ORM | Data | Core | D1 / Neon ORM | `drizzle-kit` | In use |
+| Drizzle Kit | Data | Core | Migration workflow | (Drizzle ORM) | Generate/apply migrations |
+| OpenFGA | Authz | Core | Relationship-based authorization model | `@openfga/sdk` | Adopt as permission graph outgrows `@casl/ability` |
+| OpenFeature | Flags | Core | Vendor-neutral feature-flag SDK | OpenFeature provider | Over the existing D1+KV flag plane |
+| CloudEvents | Events | Core | Typed event-envelope convention | `cloudevents` | Durable event contracts |
+| DOMPurify | Security | Core | Sanitize user/customer/generated HTML | `isomorphic-dompurify` | Mandatory on every untrusted-HTML path |
+| hono-openapi | API contracts | Recommended | Serve OpenAPI from Hono routes | (Hono + Zod) | Preferred for new OpenAPI work |
+| @hono/zod-openapi | API contracts | Recommended | Hono routes generate OpenAPI from Zod | (Hono + Zod) | Older route-builder; use where already wired |
+| zod-openapi | API contracts | Recommended | Shared schema → OpenAPI generation | — | Pick one OpenAPI-from-Zod path per surface |
+| zod-to-openapi | API contracts | Recommended | Derive OpenAPI 3.x from Zod (`@asteasolutions/zod-to-openapi`) | `drizzle-zod` (schema reuse, optional) | In use; never hand-maintain OpenAPI |
+| Unkey | API keys | Recommended | API keys, tenant quotas, metering | `@unkey/api` | Complements `psk_` keys |
+| jose | Auth | Conditional | JWT/JWKS signing + verify | — | Only if JWT/JWKS is already required |
 
-> **Surface reality:** the **admin SPA is Angular 21** (ADR-0002, zoneless, signals). **Generated
-> customer sites + the bolt.diy editor are React/Vite/Remix.** React-only libraries (Puck, Plate.js,
-> Radix, shadcn/ui, cmdk, React Flow, TanStack Router) are for the **React surfaces only** — they do
-> **not** enter the Angular admin bundle. Each is tagged accordingly.
+### Builder · editor · admin UX
 
----
+| Tool | Category | Status | Purpose | Companion packages | Notes |
+|------|----------|--------|---------|--------------------|-------|
+| TanStack Virtual | UI | Recommended | Virtualize very large lists (sites, leads, customers, logs, events, jobs, traces, generated pages) | `@tanstack/react-virtual` / `@tanstack/angular-virtual` | Match the surface's framework |
+| Radix UI | UI | Recommended | Accessible React primitives | (with shadcn/ui) | React surfaces only |
+| shadcn/ui | UI | Recommended | React component layer | `class-variance-authority`, `clsx`, `tailwind-merge` | React surfaces only; admin is Angular/Spartan |
+| cmdk | UI | Recommended | Command palette | — | React surface; Angular admin needs an equiv |
+| Storybook | UI | Recommended | Component/block workshop | `@storybook/test`, `@storybook/addon-a11y` | `storybook.projectsites.dev` (site-kit blocks) |
+| Plate.js | Editor | Recommended | Rich/block content editing | — | React surface |
+| React Flow / XYFlow | UI | Recommended | Workflows, site maps, deployment/resource/agent graphs | `@xyflow/react` | React surface; no Angular renderer |
+| Monaco Editor | Editor | Recommended | Code/config editing | `@monaco-editor/react` (React surface), `@shikijs/monaco` | In admin (log/config viewers) |
+| Satori | Media | Recommended | OpenGraph / social image generation | — | Edge OG cards |
+| Shiki | Docs/UI | Recommended | Docs + code highlighting | `@shikijs/monaco` (with Monaco) | Lighter than a full editor |
+| GrapesJS | Builder | Conditional | HTML / email / template-builder workflows | — | Plate/Storybook cover most builder needs; use only for HTML/email/template builders or if already depended on |
+| NgRx | State | Conditional | Angular admin shared-state store | `@ngrx/{store,effects,entity,router-store,component-store,signals}` | Angular admin surfaces ONLY — never forced into React areas; signals-first today |
+| RxJS | State | Conditional | Reactive stream foundation | — | Angular/admin reactive edge |
 
-## 2 — Recommended stack (deduplicated, categorized)
+### Search · AI · observability · LLM platform
 
-### Backend / contracts / runtime
-| Tool | Status | Notes |
-|------|--------|-------|
-| Hono | **Core** | Worker API framework (in use) |
-| Zod | **Core** | SSOT at every runtime boundary (`zod-everywhere`) |
-| Effect | **Core** | Typed errors/retry/timeout/DI on *specific* services — not a wholesale rewrite; never replaces Zod at I/O |
-| hono-openapi | **Core** | OpenAPI serving for Hono (`describeRoute`/`openAPISpecs`) — in use |
-| @hono/zod-openapi | **Conditional** | Older route-builder; prefer `hono-openapi` for new work |
-| @asteasolutions/zod-to-openapi | **Core** | Derive OpenAPI 3.x from Zod (in use) |
-| zod-to-json-schema | **Recommended** | Forms/AI-tools/docs targets (different target than OpenAPI) |
-| Drizzle ORM + Drizzle Kit | **Core** | D1/Neon ORM + migrations (in use) |
-| jose | **Core** | JWT/JWK signing + verify (Workers-native) |
-| DOMPurify | **Core** | Sanitize all user/customer/generated HTML |
-| Nano ID | **Core** | URL-safe IDs |
-| OpenFeature | **Recommended** | Vendor-neutral flag SDK over the existing D1+KV flag plane |
-| CloudEvents | **Recommended** | Canonical envelope for durable event contracts |
-| OpenFGA | **Recommended** | Relationship-based authz when typed-permission graph grows past `@casl/ability` |
-| Unkey | **Recommended** | API keys + per-tenant quotas + metering (complements `psk_` keys) |
-| unstorage | **Conditional** | Only as a KV/R2 abstraction where multi-driver portability is real |
+| Tool | Category | Status | Purpose | Companion packages | Notes |
+|------|----------|--------|---------|--------------------|-------|
+| Orama | Search | Recommended | Customer-site / admin / hybrid search | `@orama/orama` | Edge-friendly |
+| MCP TypeScript SDK | AI | Core | Foundation for the ProjectSites MCP | `@modelcontextprotocol/sdk` | `platform_mcp` is live |
+| Langfuse | Observability | Core | LLM traces: prompts, generations, tool calls, agent workflows | `langfuse` | Emit where LLM calls happen |
+| OpenTelemetry | Observability | Core | Trace propagation across APIs, jobs, AI workflows | `@opentelemetry/api` + runtime-compatible SDK | Workers Tracing OTLP |
+| Sentry | Observability | Core | Error + performance monitoring | `@sentry/*` matching runtime | Wired |
+| LiteLLM | AI | Recommended | Internal LLM gateway service | — | A service, NOT a per-app dependency |
 
-### Cloudflare / platform
-| Tool | Status |
-|------|--------|
-| Workers · Pages · D1 · KV · R2 · Durable Objects · Queues · Workflows | **Core** |
-| Hyperdrive · Vectorize · Analytics Engine · AI Gateway · Workers AI | **Core** |
-| Browser Rendering · Turnstile · WAF · Access · Secrets Store | **Core** |
-| Cloudflare for SaaS · Workers for Platforms | **Core** (multi-tenant custom domains + tenant isolation) |
-| Wrangler / Workers SDK · Miniflare · workerd | **Core** (dev/test/runtime-compat) |
-| Zaraz | **Recommended** (third-party tag loading on generated sites) |
+### Infrastructure
 
-### Data / storage / search
-| Tool | Status | Notes |
-|------|--------|-------|
-| Cloudflare D1 / KV / R2 / DO | **Core** | Default system of record + cache + assets |
-| Neon Postgres (via Hyperdrive) | **Recommended** | Adapter-only; when Postgres semantics/RLS required |
-| Upstash Redis | **Conditional** | Adapter-only; only for true Redis semantics |
-| Orama | **Recommended** | In-Worker / edge hybrid search |
-| Pagefind | **Recommended** | Static-site search for generated sites where appropriate |
-| Vectorize | **Core** | Default vector store |
-| Qdrant | **Conditional** | Fallback only if Vectorize is insufficient |
-| ElectricSQL · PGlite · DuckDB | **Conditional** | Local-first / offline / local analytics only |
-| ClickHouse / Tinybird | **Conditional** | High-volume analytics only; prefer Analytics Engine first |
+| Tool | Category | Status | Purpose | Companion packages | Notes |
+|------|----------|--------|---------|--------------------|-------|
+| OpenTofu | IaC | Recommended | Infrastructure-as-code for Cloudflare-first resources | Cloudflare provider; Neon/Upstash/GitHub providers only when used | Use only when the repo has/needs IaC; don't imply unprovisioned infra exists |
 
-### Builder / editor / UI — Angular admin
-| Tool | Status | Notes |
-|------|--------|-------|
-| Angular 21 (standalone, signals, zoneless) | **Core** | Admin SPA (ADR-0002) |
-| Spartan UI + Angular CDK | **Core** | The only admin component system (ADR-0003) |
-| Tailwind CSS | **Core** | Styling substrate |
-| TanStack Table | **Core** | Headless tables (in use) |
-| Monaco Editor | **Core** | Code/config/log viewers (in use) |
-| Apache ECharts | **Core** | Dashboard charts (in use) |
-| Uppy (`@uppy/core` + `@uppy/xhr-upload`) | **Core** | Uploads (in use) |
-| Motion | **Recommended** | `prefers-reduced-motion`-gated micro-motion |
-| RxJS | **Core** | Backend-edge streams (ADR-0006) |
-| NgRx | **Conditional** | Signals-first today; adopt only for genuinely complex shared state |
-| TanStack Query / Virtual | **Recommended** | Server-cache / large lists when complexity warrants |
-| Angular Material | **Avoid for now** | Spartan-only (ADR-0003) |
+## Conditional-tool guidance
 
-### Builder / editor / UI — React surfaces (generated sites + bolt.diy editor)
-| Tool | Status | Notes |
-|------|--------|-------|
-| Puck | **Recommended** | Primary visual block/page builder (React surface) |
-| Plate.js | **Recommended** | Rich/block content editing (React surface) |
-| Radix UI · shadcn/ui | **Recommended** | Accessible primitives (React surface only) |
-| cmdk | **Recommended** | Command palette (React surface) |
-| TanStack Router | **Conditional** | Only where React routing is used |
-| TanStack Form | **Recommended** | React forms |
-| React Flow / XYFlow | **Conditional** | Workflow/resource/site graphs — **no Angular renderer**; React surface only, or study patterns for an Angular equiv |
-| GrapesJS | **Conditional** | HTML/email/template-builder patterns; third editor view |
-| Storybook | **Recommended** | Block/component workshop (already targeted: `storybook.projectsites.dev`, site-kit only) |
-| Satori | **Recommended** | OG/social image generation at the edge |
-| Shiki | **Recommended** | Syntax highlight where a full editor is overkill |
-| Astro | **Conditional** | Only for specific static surfaces; not a default (frontend-stack: React/Vite SSG) |
-| AnalogJS | **Conditional** | Only if Angular SSR/meta-framework support is needed |
-| UnoCSS | **Conditional** | Only if Tailwind cannot meet a need |
-| Style Dictionary | **Recommended** | Design-token pipeline |
-| Lightning CSS | **Recommended** | CSS transform/minify |
-| SVGO | **Recommended** | SVG optimization |
-| Excalidraw / Mermaid | **Conditional** | Diagrams; Mermaid for docs/architecture |
+- **GrapesJS** — conditional: Plate.js/Storybook cover most builder needs. Use only for HTML/email/template-builder workflows or where already depended on.
+- **NgRx / RxJS** — Angular admin surfaces only. Do not introduce into React-only areas.
+- **LiteLLM** — an internal LLM gateway *service*, not a package every app imports.
+- **OpenTofu** — infrastructure definitions only when the repo has or needs IaC.
+- **jose** — only if JWT/JWKS signing/verification is already required.
 
-### AI / agents / LLM ops
-| Tool | Status | Notes |
-|------|--------|-------|
-| MCP TypeScript SDK | **Core** | ProjectSites platform MCP (`platform_mcp` live) |
-| Cloudflare Agents SDK + Containers | **Core** | Stateful agents on Workers/DO (per global registry) |
-| AI Gateway + Workers AI | **Core** | First-pass inference + gateway |
-| Langfuse | **Recommended** | Prompt/version/trace/cost observability |
-| LiteLLM + RouteLLM | **Recommended** | Model routing/fallback behind `llm.projectsites.dev` |
-| Promptfoo | **Recommended** | LLM evals / regression tests (CI gate) |
-| Vercel AI SDK | **Recommended** | Typed streaming/tool-calling where consistent |
-| Stagehand + Playwright | **Recommended** | Browser automation (Stagehand AI-fallback over Playwright) |
-| Dify | **Study / borrow** | Internal prototyping/pattern study only — not core platform |
+## Selection rules
 
-### Auth / identity / permissions
-| Tool | Status | Notes |
-|------|--------|-------|
-| Custom D1 auth | **Core** | Live fallback rail — magic-link + Google/GitHub OAuth + D1 sessions (`auth.ts`) |
-| Logto | **Recommended** | Default app-auth IdP per ADR-0006 — **built + dark-launched** (`logto_provider.ts`); flip via `LOGTO_*` secrets, custom auth stays the fallback. `_LOOP_LEDGER` A20 = activate |
-| WorkOS | **Conditional** | Enterprise SSO/SAML/SCIM only — built dark (`workos_provider.ts`); enable via `WORKOS_*` |
-| OpenFGA | **Recommended** | Relationship authz (currently `@casl/ability`); adopt as permission graph grows |
-| Better Auth | **Conditional** | Smaller embedded apps only |
-| Auth.js | **Conditional** | Only where it fits a small app and does not conflict with Logto/custom auth |
-
-### Product / service apps (separate self-hosted services, per subdomain)
-| Tool | Status | Notes |
-|------|--------|-------|
-| Listmonk (`mail.projectsites.dev`) | **Recommended** | Scaffolded on CF Containers; relays via SES |
-| Chatwoot (`support.projectsites.dev`) | **Conditional** | Deploy when support product is real |
-| Twenty CRM (`crm.projectsites.dev`) | **Conditional** | Deploy when CRM product is real |
-| Dittofeed | **Conditional** | Lifecycle messaging/journeys |
-| Nango | **Recommended** | Integrations/connectors hub |
-| Svix | **Recommended** | Outbound webhook delivery + sig verify |
-| Hookdeck | **Recommended** | Inbound webhook management |
-| Inngest | **Recommended** | Product lifecycle workflows where CF Workflows is not enough |
-| Hatchet Cloud | **Conditional** | Heavier/stateful/browser/AI jobs |
-| Cal.diy | **Conditional** | Booking when it fits customer sites |
-| Formbricks | **Conditional** | Surveys/feedback |
-| Documenso | **Conditional** | Proposals/signatures |
-| Medusa | **Conditional** | Customer commerce only — not default core (Square checkout is default) |
-| Novu | **Avoid for now** | Brian directive 2026-06-24: ZERO Novu — build custom `psnotify` |
-| Resend | **Avoid for now** | Removed 2026-06-19 — SES is the transactional sender (`react-email` for templating only) |
-
-### Observability / testing / quality
-| Tool | Status | Notes |
-|------|--------|-------|
-| OpenTelemetry JS | **Core** | Trace abstraction (Workers Tracing OTLP) |
-| Sentry JS SDK | **Core** | Exception tracking (wired) |
-| PostHog | **Core** | Product/admin analytics only — **not** every generated site by default |
-| Langfuse | **Recommended** | LLM traces (see AI section) |
-| Vitest · Playwright · Testing Library | **Core** | Unit + E2E |
-| MSW · fast-check | **Recommended** | Network mocks · property tests |
-| k6 | **Conditional** | Load testing when scale work warrants |
-| Lighthouse CI | **Recommended** | Perf/a11y budgets on generated sites |
-| Knip · Oxlint | **Core** | Dead-code/unused-dep · fast lint |
-| Biome | **Avoid for now** | Repo lint = ESLint + Prettier + Oxlint (per CLAUDE.md / Brian: never Biome) |
-| Semgrep | **Recommended** | Codebase security rules |
-| Renovate | **Core** | Dependency maintenance |
-| Gitleaks | **Core** | Secret scanning |
-| Trivy · OSV-Scanner · Syft · Grype | **Recommended** | Supply-chain scan / SBOM / vuln workflow |
-| Cosign / Sigstore | **Recommended** | Artifact signing/attestation |
-| OpenTelemetry Collector | **Conditional** | Only for self-hosted services |
-
-### Infra / ops
-| Tool | Status | Notes |
-|------|--------|-------|
-| OpenTofu | **Recommended** | IaC for all non-Wrangler resources (no Pulumi — one canonical IaC) |
-| Grafana · Loki · Prometheus | **Conditional** | Self-hosted observability for services that need it |
-| VictoriaMetrics · SigNoz | **Conditional** | Alt metrics/APM where justified |
-| Infisical | **Conditional** | Only if Cloudflare Secrets Store is insufficient |
-
-### Docs / developer experience
-| Tool | Status | Notes |
-|------|--------|-------|
-| Scalar | **Recommended** | OpenAPI reference UI (pairs with `hono-openapi`) |
-| Shiki | **Recommended** | Code highlighting in docs |
-| Mermaid | **Recommended** | Architecture/flow diagrams |
-| Docusaurus | **Conditional** | Only if MkDocs (current) is outgrown |
-| Apache ECharts | **Core** | (admin charts — see UI) |
-| Evidence.dev · Metabase · Cube · Perspective | **Conditional** | Analytics/BI surfaces where a real reporting need exists |
-
----
-
-## 3 — Selection rules (the gate)
-
-- **Core** — may be installed soon; already shapes the platform.
-- **Recommended** — install only when a concrete feature requires it.
-- **Conditional** — requires an architecture note in `DECISIONS.md` (runtime fit + duplicate check) before install.
-- **Study / borrow** — never install; read for patterns, then promote with justification.
-- **Avoid for now** — documented anti-choice; reverse only via ADR.
-- One canonical tool per job. **No inferior duplicate** unless it serves a clearly separate role.
+- Use only the selected families above; a new tool needs explicit approval.
+- Companion packages allowed ONLY when tightly coupled to a selected tool (see matrix).
+- No duplicate library solving the same problem as a selected tool.
 - Prefer Cloudflare primitives → D1 before Neon → DO/KV/Queues/Workflows before Redis.
-- Prefer typed contracts, OpenAPI, generated SDKs, explicit validation, event schemas.
-- Prefer small composable libs over heavy frameworks unless the heavy tool is clearly justified.
-- Never expose raw Redis/Postgres credentials to customer sites.
+- Prefer typed contracts, OpenAPI, schema validation, typed events, explicit authorization.
+- Never claim an integration complete unless working code/tests prove it.
 
----
+## Phased TODOs
 
-## 4 — Integration checklist (every adoption)
+### Phase 0 — Repo & agent instructions
+- [x] One canonical selected-tooling matrix (this doc)
+- [x] Update `~/.agentskills` with ProjectSites.dev selected-package policy (`rules/projectsites-recommended-stack.md`)
+- [ ] Remove contradictory package recommendations from docs as they surface
+- [ ] Merge duplicate markdown planning files where appropriate
+- [x] Rule: agents must not introduce unselected duplicate libraries without justification
+- [x] Rule: companion packages allowed only when tightly coupled to a selected tool
+- [x] Rule: integrations not claimed complete unless working code/tests exist
 
-- [ ] API contract exists (typed boundary)
-- [ ] Zod schema validation at the boundary
-- [ ] Unit + E2E tests (failing-first, TDD)
-- [ ] Observability (logs/traces/events carry correlation + `featureSlug`)
-- [ ] Security review done (authz, sanitization, secret handling)
-- [ ] Cost/scale impact noted (1M-site tenancy implications)
-- [ ] Cloudflare compatibility checked (Workers runtime / adapter)
-- [ ] Agent instructions updated (`~/.agentskills` + this doc)
-
----
-
-## 5 — Phased integration TODOs
-
-### Phase 0 — Repo hygiene / agent context
-- [ ] Normalize package/tool recommendations across docs + `~/.agentskills` (this doc is canonical)
-- [ ] Maintain the canonical package/tool allowlist (this doc + global registry)
-- [ ] Enforce "no inferior duplicate tools" rule in reviews
-- [ ] Add Knip-style cleanup guidance + scheduled `knip` run
-- [ ] Add AI-agent package-selection comments at each package boundary
-- [ ] CI guardrails: format · lint · tests · secret scan (Gitleaks) · dep scan (OSV/Trivy) · generated-docs validation
-- [x] Create `docs/tooling-matrix.md` (tool · category · status · purpose · install target · runtime compat · owner area · duplicate policy) — ✅ landed
-- [x] Create `docs/ai-agent-rules.md` (cleanup rules · no dup packages · preferred libs · CF-first policy · selection rubric · how to update TODOs · how to avoid bloating markdown) — ✅ landed
-- [x] Create `docs/generated-site-quality.md` (max JS budget · image policy · a11y budget · Lighthouse CI thresholds · schema-dts · DOMPurify · Pagefind/Orama selection · Satori OG) — ✅ landed
-- [x] Create `docs/ai-observability.md` (Langfuse traces · Promptfoo evals · LiteLLM/RouteLLM routing · AI Gateway · model fallback · prompt versioning · budget controls · grounding checks) — ✅ landed
-- [x] Create `docs/security-supply-chain.md` (Gitleaks · Trivy · OSV-Scanner · Syft · Grype · Semgrep · Cosign/Sigstore · Renovate policy) — ✅ landed
-
-### Phase 1 — Cloudflare-first platform foundation
-- [ ] Confirm Hono + Zod foundation (✅ in use) and document boundary pattern
-- [ ] Standardize OpenAPI via `hono-openapi` + `@asteasolutions/zod-to-openapi` (✅ landed `cdd837fa`)
-- [ ] Effect on targeted services (typed errors/retry/resource-safety) — start with build/deploy seam
-- [ ] OpenFeature SDK over existing D1+KV flag plane
-- [ ] CloudEvents envelopes for durable event contracts
-- [ ] OpenFGA for relationship authz (when permission graph grows)
-- [ ] Unkey for API keys / tenant quotas / metering
-- [ ] DOMPurify sanitize on every user/customer/generated HTML path
-- [ ] OpenTelemetry + Sentry coverage on every boundary
-- [ ] Langfuse LLM traces wired to AI Gateway
-- [ ] LiteLLM + RouteLLM behind `llm.projectsites.dev`
-- [ ] MCP TS SDK hardening (✅ `platform_mcp` live; continue per `AGENT_NATIVE_POSITIONING`)
+### Phase 1 — API foundation
+- [ ] Standardize APIs around Hono
+- [ ] Standardize validation around Zod
+- [ ] Hono + Zod OpenAPI pattern via hono-openapi / @hono/zod-openapi / zod-openapi / zod-to-openapi
+- [ ] Standardize database access around Drizzle ORM
+- [ ] Drizzle Kit migration workflow
+- [ ] Consider `drizzle-zod` only if it reduces schema duplication
+- [ ] Effect patterns: typed services, retries, typed errors, resource safety, workflow correctness
+- [ ] CloudEvents event-envelope conventions
+- [ ] OpenFeature feature-flag conventions
+- [ ] OpenFGA authorization model
+- [ ] Unkey API-key / quota / metering
+- [ ] DOMPurify sanitization on customer/generated HTML
 
 ### Phase 2 — Builder / editor / admin UX
-- [ ] Puck as primary visual block/page builder (React surface)
-- [ ] Storybook block/component workshop (site-kit blocks)
-- [ ] Plate.js rich/block content editing (React surface)
-- [ ] Monaco editor for code/config (✅ in admin; extend to editor surfaces)
-- [ ] GrapesJS conditional builder/email/template view
-- [ ] React Flow / XYFlow for workflow/resource/site graphs (React surface; note Angular gap)
-- [ ] cmdk command palette (React surface) + Angular equiv pattern for admin
-- [ ] Radix UI / shadcn/ui primitives (React surface)
-- [ ] TanStack Virtual for large lists
-- [ ] Satori OG/social image generation
-- [ ] Shiki syntax highlighting
-- [ ] Motion premium animated UI (reduced-motion-gated)
-- [ ] Angular admin: keep signals-first; NgRx only with an architecture note
+- [ ] Storybook as the component/block workshop
+- [ ] Plate.js rich/block editor — investigation or integration plan
+- [ ] Monaco Editor for code/config editing
+- [ ] React Flow / XYFlow for workflows, site maps, deployment/resource/agent graphs
+- [ ] cmdk command palette
+- [ ] Radix UI / shadcn/ui conventions (React UI surfaces)
+- [ ] TanStack Virtual for very large lists (sites, leads, customers, logs, events, jobs, traces, generated pages)
+- [ ] Satori for OpenGraph/social image generation
+- [ ] Shiki for docs/code highlighting
+- [ ] GrapesJS — conditional, only for HTML/email/template-builder workflows
+- [ ] NgRx / RxJS — Angular admin surfaces only
 
-### Phase 3 — Search, content, media, SEO
-- [ ] Orama edge/hybrid search
-- [ ] Pagefind static-site search where appropriate
-- [ ] schema-dts type-safe Schema.org JSON-LD
-- [ ] unified / MDX content transformation where needed
-- [ ] Satori OG images
-- [ ] Image pipeline: prefer Cloudflare Images/R2; Sharp only where runtime supports
-- [ ] Unpic-style responsive image helper if a lightweight need exists
+### Phase 3 — Search & generated-site quality
+- [ ] Orama for customer-site / admin / hybrid search where appropriate
+- [ ] DOMPurify requirements for generated/customer HTML
+- [ ] Satori OG image generation plan
+- [ ] Shiki highlighting for docs/code snippets
+- [ ] Large-list virtualization rules for admin/search/log/event pages
 
-### Phase 4 — AI, research, automation
-- [ ] Vercel AI SDK (typed streaming/tool-calling) where consistent
-- [ ] MCP TS SDK for all ProjectSites operations
-- [ ] Langfuse prompt/version/trace/cost observability
-- [ ] Promptfoo LLM evals/regression in CI
-- [ ] Stagehand / Browser Rendering / Playwright automation
+### Phase 4 — AI, MCP, LLM observability
+- [ ] MCP TypeScript SDK as the foundation for the ProjectSites MCP
+- [ ] Langfuse tracing for LLM calls, prompts, generations, tool calls, agent workflows
+- [ ] LiteLLM as the internal LLM gateway (documented as a service)
+- [ ] OpenTelemetry trace propagation across APIs, jobs, AI workflows
+- [ ] Sentry error/performance monitoring across frontend + backend
+- [ ] AI features carry trace IDs, prompt versions, budget metadata, fallback metadata
 
-### Phase 5 — Ops, security, infra, scale
-- [ ] OpenTofu for non-Wrangler IaC
-- [ ] Wrangler/Workers SDK + Miniflare dev/test (✅) ; workerd compat awareness
-- [ ] Renovate dependency maintenance
-- [ ] Gitleaks secret scanning (CI)
-- [ ] Trivy · OSV-Scanner · Syft · Grype supply-chain/SBOM/vuln workflow
-- [ ] Grafana/Loki/Prometheus/OTel Collector only for self-hosted services
-- [ ] Infisical only if Secrets Store is insufficient
-
-### Phase 6 — Product services / internal control plane
-- [ ] Logto for app auth/orgs (`_LOOP_LEDGER` A20) — keep custom auth until migration is proven
-- [ ] WorkOS only for enterprise SSO/SCIM
-- [ ] Chatwoot → `support.projectsites.dev`
-- [ ] Twenty CRM → `crm.projectsites.dev`
-- [ ] Listmonk → `mail.projectsites.dev` (✅ scaffolded)
-- [ ] Dittofeed lifecycle messaging
-- [ ] Nango integrations · Svix outbound webhooks · Hookdeck inbound webhooks
-- [ ] Inngest product workflows where CF Workflows is not enough
-- [ ] Hatchet Cloud for heavier/stateful/browser/AI jobs
-- [ ] Cal.diy booking · Formbricks feedback · Documenso signatures (when each fits)
-- [ ] Medusa only for customer commerce where needed (Square is default)
-
----
-
-## 6 — Generated customer-site quality bar (summary)
-
-Performance · low JS · image optimization · accessibility (WCAG 2.2 AA) · SEO · schema.org JSON-LD
-(`schema-dts`) · safe sanitization (`DOMPurify`) · search via Pagefind (static) or Orama (dynamic) ·
-OG images via Satori. Full thresholds + budgets → **`docs/generated-site-quality.md`**.
-
-## 7 — AI feature bar (summary)
-
-Every AI feature requires: evals (Promptfoo) · tracing (Langfuse) · prompt/version tracking ·
-budget controls + killswitch · fallback routing (LiteLLM/RouteLLM via AI Gateway) · grounding checks.
-Full policy → **`docs/ai-observability.md`**.
-
----
+### Phase 5 — Infrastructure
+- [ ] OpenTofu IaC for Cloudflare-first infrastructure
+- [ ] OpenTofu conventions for Cloudflare resources
+- [ ] OpenTofu conventions for Neon/Upstash only when those services are actually used
+- [ ] IaC docs must not imply unsupported infrastructure is already provisioned
 
 ## See also
-- `docs/tooling-matrix.md` — flat tool grid (status · purpose · install target · runtime · owner · canonical job)
-- `docs/ai-agent-rules.md` — agent operating rules (CF-first policy, no-dup, selection rubric, integration checklist)
-- `docs/generated-site-quality.md` — generated customer-site quality gates (budgets, a11y, SEO, sanitization)
-- `docs/ai-observability.md` — AI traces/evals/routing/budget/grounding governance
-- `docs/security-supply-chain.md` — Gitleaks/Trivy/OSV/Syft/Grype/Semgrep/Cosign + Renovate policy
-- `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine (allowed infra + hot path)
-- `~/.agentskills/rules/package-preference-registry.md` § ProjectSites.dev — global agent policy
-- `DECISIONS.md` — ADRs (the binding architecture commitments)
-- `apps/project-sites/ROADMAP.md` — the revenue-sorted build queue (feature priority, not tooling)
-- `apps/project-sites/FEATURE_CATALOG.md` — module build statuses
+- `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine
+- `~/.agentskills/rules/projectsites-recommended-stack.md` — agent-facing selected-package policy
+- `DECISIONS.md` — ADRs (binding architecture commitments)
+- `apps/project-sites/ROADMAP.md` — revenue-sorted build queue (feature priority, not tooling)
