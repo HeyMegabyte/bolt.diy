@@ -234,6 +234,14 @@ export interface Env {
   /** PostHog API host (defaults to `https://app.posthog.com`). */
   POSTHOG_HOST?: string;
 
+  // ── Langfuse (LLM Observability) ──────────────────────────
+  /** Langfuse secret key (`sk-lf-*`) for server-side trace/observation ingestion. */
+  LANGFUSE_SECRET_KEY?: string;
+  /** Langfuse public key (`pk-lf-*`) — pairs with the secret key for Basic-auth ingestion. */
+  LANGFUSE_PUBLIC_KEY?: string;
+  /** Langfuse host (cloud `https://us.cloud.langfuse.com` / `https://cloud.langfuse.com`, or self-hosted). */
+  LANGFUSE_BASE_URL?: string;
+
   // ── Stripe (Payments) ─────────────────────────────────────
   /** Stripe secret key for server-side API calls. */
   STRIPE_SECRET_KEY: string;

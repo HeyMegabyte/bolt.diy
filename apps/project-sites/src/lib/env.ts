@@ -83,6 +83,9 @@ export const EnvSchema = z.object({
   // ── Optional secrets (degrade gracefully when absent) ────────────────────────
   POSTHOG_PUBLIC_KEY: z.string().optional(),
   POSTHOG_HOST: z.string().url().optional(),
+  LANGFUSE_SECRET_KEY: z.string().optional(),
+  LANGFUSE_PUBLIC_KEY: z.string().optional(),
+  LANGFUSE_BASE_URL: z.string().url().optional(),
   GA4_MEASUREMENT_ID: z.string().optional(),
   GTM_CONTAINER_ID: z.string().optional(),
   GA4_SERVICE_ACCOUNT_JSON: z.string().optional(),
