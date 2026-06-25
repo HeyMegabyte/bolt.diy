@@ -385,6 +385,14 @@ const PLATFORMS: readonly PlatformDef[] = [
             }
           </div>
 
+          <!-- S31 — platform cost advisory (X is pay-per-use since 2026) -->
+          @if (xCostNotice(); as note) {
+            <div class="x-cost-note" role="note">
+              <span>{{ note }}</span>
+              <button type="button" (click)="dismissXNotice()" aria-label="Dismiss X pricing notice">Got it</button>
+            </div>
+          }
+
           <!-- S44 — autosaved-draft restored hint -->
           @if (draftRestored()) {
             <div class="draft-hint" role="status">
@@ -1334,6 +1342,9 @@ const PLATFORMS: readonly PlatformDef[] = [
       .bulk-ct { font-size: 0.78rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); margin-right: auto; }
       .post-sel { width: 15px; height: 15px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; flex: none; }
       .post-card.is-bulk-selected { outline: 1.5px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); outline-offset: 1px; }
+      .x-cost-note { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0; padding: 0.45rem 0.7rem; border-radius: 0.5rem; border: 1px solid color-mix(in oklch, #fbbf24 40%, transparent); background: color-mix(in oklch, #fbbf24 9%, transparent); color: var(--ps-ink, #f4f4ff); font-size: 0.74rem; line-height: 1.35; }
+      .x-cost-note span { flex: 1; }
+      .x-cost-note button { flex: none; font-size: 0.7rem; font-weight: 600; color: #fbbf24; background: none; border: 0; cursor: pointer; padding: 0.1rem 0.3rem; }
 
       /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
 
@@ -1830,6 +1841,38 @@ export class AdminSocialComponent implements OnInit {
       },
       duration: 7000,
     });
+  }
+
+  /* ── S31 — platform cost advisory (X pay-per-use) ── */
+
+  private readonly X_NOTICE_KEY = 'ps_social_x_cost_dismissed_v1';
+  private readonly xNoticeDismissed = signal<boolean>(this.loadXDismissed());
+
+  private loadXDismissed(): boolean {
+    try {
+      return localStorage.getItem(this.X_NOTICE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  /** Advisory shown when X/Twitter is a selected target — its API is pay-per-use
+   *  since 2026 (link posts are far pricier). `null` when not applicable. */
+  readonly xCostNotice = computed<string | null>(() => {
+    if (this.xNoticeDismissed() || !this.selected().includes('twitter')) return null;
+    return this.link().trim().length > 0
+      ? 'Heads up: X charges ~$0.20 for a post containing a link (2026 API pricing) — far more than a plain post (~$0.015).'
+      : 'Heads up: X (Twitter) posting is pay-per-use (~$0.015/post; ~$0.20 if it contains a link) under 2026 API pricing.';
+  });
+
+  /** Permanently dismiss the X pricing advisory (persisted to localStorage). */
+  dismissXNotice(): void {
+    this.xNoticeDismissed.set(true);
+    try {
+      localStorage.setItem(this.X_NOTICE_KEY, '1');
+    } catch {
+      /* best-effort */
+    }
   }
 
   readonly platforms = PLATFORMS;

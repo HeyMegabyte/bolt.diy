@@ -600,10 +600,10 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] S10. (#10) Brand-voice extraction from site copy → AI voice profile seeding AI Assist + Auto-Pilot. [new][dedicated] slug `social_brand_voice`
 - [ ] S11. (#11) Active per-platform reformatting (strip hashtags for LinkedIn, auto-thread X/Bluesky, hook+CTA IG) inline in composer. [new][dedicated] slug `social_platform_reformat`
 - [ ] S15. (#15) Live split-pane composer preview — true per-platform render (limits, link card, hashtag highlight, image crop). [new][auto] slug `social_live_preview`
-- [ ] S16. (#16) First-comment scheduling (IG/X/LinkedIn). localStorage-bound draft until worker swap. [new][auto] slug `social_first_comment`
+- [ ] S16. (#16) First-comment scheduling (IG/X/LinkedIn) — RE-TAGGED dedicated: frontend-only is a dead button (worker must post the follow-up comment after publish); build worker+frontend together. [new][dedicated] slug `social_first_comment`
 - [x] S26. (#26) Bulk actions in Drafts/Queue (multi-select schedule/delete/duplicate). selection state in localStorage. [extend][auto] slug `social_bulk_actions`
 - [x] S27. (#27) Post templates / saved snippets — **localStorage-backed** CRUD (recurring CTAs, sign-offs, link-in-bio). [new][auto] slug `social_post_templates`
-- [ ] S31. (#31) Platform tiering UX — Bluesky/Mastodon/IG/Threads first-class; X cost-toggled; LinkedIn connect-&-paste. tier prefs in localStorage. [extend][auto] slug `social_platform_tiering`
+- [x] S31. (#31) Platform tiering UX — Bluesky/Mastodon/IG/Threads first-class; X cost-toggled; LinkedIn connect-&-paste. tier prefs in localStorage. [extend][auto] slug `social_platform_tiering`
 - [ ] S33. (#33) TikTok (≤15/day) + YouTube Shorts scheduled-only publishers. [new][dedicated] slug `social_tiktok_youtube`
 - [x] S37. (#37) Mention autocomplete backed by real per-platform handle lookup (verify current @input resolves). [extend][auto] slug `social_mention_lookup`
 - [x] S39. (already-shipped: textarea onContentKeydown Cmd/Ctrl+Enter→publish) (#39) Keyboard-first: Cmd+Enter to schedule + Cmd+K palette actions (compose/schedule/connect). [extend][auto] slug `social_keyboard_first`
