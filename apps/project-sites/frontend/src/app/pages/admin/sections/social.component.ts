@@ -385,6 +385,14 @@ const PLATFORMS: readonly PlatformDef[] = [
             }
           </div>
 
+          <!-- S44 — autosaved-draft restored hint -->
+          @if (draftRestored()) {
+            <div class="draft-hint" role="status">
+              <span>Restored your unsaved draft.</span>
+              <button type="button" (click)="dismissDraftHint()" aria-label="Dismiss restored-draft notice">Dismiss</button>
+            </div>
+          }
+
           <!-- Main textarea -->
           <textarea
             #mainTa
@@ -1291,6 +1299,8 @@ const PLATFORMS: readonly PlatformDef[] = [
       .chip-ct { font-size: 0.62rem; opacity: 0.85; padding-left: 4px; border-left: 1px solid currentColor; margin-left: 2px; }
       .chip-ct.near { color: #fbbf24; font-weight: 700; }
       .chip-ct.over { color: #ff6b8a; font-weight: 700; }
+      .draft-hint { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 0.5rem; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 8%, transparent); color: var(--ps-ink, #f4f4ff); font-size: 0.74rem; }
+      .draft-hint button { font-size: 0.7rem; font-weight: 600; color: var(--ps-accent, #00e5ff); background: none; border: 0; cursor: pointer; padding: 0.1rem 0.3rem; }
 
       /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
 
@@ -1600,6 +1610,76 @@ export class AdminSocialComponent implements OnInit {
         this.loadPosts();
       }
     });
+    // S44 — autosave the in-progress composer draft on every change (reads the
+    // signals to register the effect's dependencies). Skips while editing an
+    // existing post (that has its own server-side row).
+    effect(() => {
+      const snapshot = {
+        content: this.content(),
+        selected: this.selected(),
+        perPlatform: this.perPlatform(),
+        scheduleAt: this.scheduleAt(),
+        hashtags: this.hashtags(),
+        link: this.link(),
+      };
+      if (this.editingId()) return;
+      this.persistDraft(snapshot);
+    });
+  }
+
+  /** Persist the composer draft to localStorage, or clear it when empty. SSR/
+   *  private-mode safe (try/catch). (Distinct from `saveDraft()`, which saves a
+   *  draft POST to the server.) */
+  private persistDraft(d: {
+    content: string;
+    selected: PlatformId[];
+    perPlatform: Partial<Record<PlatformId, string>>;
+    scheduleAt: string | null;
+    hashtags: string[];
+    link: string;
+  }): void {
+    try {
+      const isEmpty = !d.content.trim() && d.selected.length === 0 && d.hashtags.length === 0 && !d.link.trim();
+      if (isEmpty) {
+        localStorage.removeItem(this.DRAFT_KEY);
+        return;
+      }
+      localStorage.setItem(this.DRAFT_KEY, JSON.stringify(d));
+    } catch {
+      /* quota / private mode — autosave is best-effort */
+    }
+  }
+
+  /** Restore a saved draft into the composer when it is currently empty. */
+  private restoreDraft(): void {
+    try {
+      if (this.content().trim() || this.selected().length > 0) return;
+      const raw = localStorage.getItem(this.DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw) as Partial<{
+        content: string;
+        selected: PlatformId[];
+        perPlatform: Partial<Record<PlatformId, string>>;
+        scheduleAt: string | null;
+        hashtags: string[];
+        link: string;
+      }>;
+      if (!d.content?.trim() && !(d.selected?.length)) return;
+      if (d.content) this.content.set(d.content);
+      if (Array.isArray(d.selected)) this.selected.set(d.selected);
+      if (d.perPlatform) this.perPlatform.set(d.perPlatform);
+      if (d.scheduleAt) this.scheduleAt.set(d.scheduleAt);
+      if (Array.isArray(d.hashtags)) this.hashtags.set(d.hashtags);
+      if (d.link) this.link.set(d.link);
+      this.draftRestored.set(true);
+    } catch {
+      /* corrupt draft — ignore */
+    }
+  }
+
+  /** Dismiss the "draft restored" hint + clear the saved draft. */
+  dismissDraftHint(): void {
+    this.draftRestored.set(false);
   }
 
   readonly platforms = PLATFORMS;
@@ -1642,6 +1722,10 @@ export class AdminSocialComponent implements OnInit {
   readonly content = signal('');
   readonly selected = signal<PlatformId[]>([]);
   readonly perPlatform = signal<Partial<Record<PlatformId, string>>>({});
+  /** S44 — composer autosave: in-progress draft persists to localStorage so a
+   *  reload / accidental nav never loses a half-written post. */
+  private readonly DRAFT_KEY = 'ps_social_draft_v1';
+  readonly draftRestored = signal(false);
   /**
    * Tightest char limit among selected platforms that use the MAIN composer copy
    * (a platform with its own override counts against that override, via the
@@ -1804,6 +1888,8 @@ export class AdminSocialComponent implements OnInit {
 
   /* ── Lifecycle ── */
   ngOnInit(): void {
+    // S44 — restore an autosaved composer draft (no-op if the composer isn't empty).
+    this.restoreDraft();
     // Deep links: `?tab=compose|drafts|queue|sent|calendar` selects the tab so
     // every tab is a bookmarkable/shareable URL; `?action=new` focuses the
     // composer. Guard against the navigate-loop — only apply when the param
@@ -2643,6 +2729,7 @@ export class AdminSocialComponent implements OnInit {
     });
   }
   private resetComposer(): void {
+    this.draftRestored.set(false);
     this.editingId.set(null);
     this.content.set('');
     this.perPlatform.set({});
