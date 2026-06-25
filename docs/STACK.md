@@ -95,67 +95,166 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - Prefer typed contracts, OpenAPI, schema validation, typed events, explicit authorization.
 - Never claim an integration complete unless working code/tests prove it.
 
-## Phased TODOs
+## ProjectSites.dev Convergence Loop Work Items
 
-### Phase 0 — Repo & agent instructions
-- [x] One canonical selected-tooling matrix (this doc)
-- [x] Update `~/.agentskills` with ProjectSites.dev selected-package policy (`rules/projectsites-recommended-stack.md`)
-- [ ] Remove contradictory package recommendations from docs as they surface
-- [ ] Merge duplicate markdown planning files where appropriate
-- [x] Rule: agents must not introduce unselected duplicate libraries without justification
-- [x] Rule: companion packages allowed only when tightly coupled to a selected tool
-- [x] Rule: integrations not claimed complete unless working code/tests exist
+> Every approved stack item is a concrete, trackable work item below. **Listing ≠ implementing.**
+> No item is marked done unless working code/tests/docs prove it (integration-truth rule).
+> Status labels: **Core** (foundational, non-negotiable) · **Approved** (adopt when the need lands) ·
+> **Conditional** (only when the named precondition is true) · **Angular-only** · **Internal service**
+> (a hosted service behind a subdomain, not a per-app dependency) · **Non-OSS service** (commercial).
+> Checkbox `[x]` = the repo demonstrably uses it; `[ ]` = work item open.
+>
+> **Definition of done (by category):**
+> - *Library/convention* — pattern standardized in code + one reference usage + a doc/JSDoc note.
+> - *Internal service (subdomain)* — container/Dockerfile + DO binding + host route + secrets + live 2xx + smoke test.
+> - *Domain mapping* — row in `apps/project-sites/docs/CONTAINER_MANIFEST.md` + `SUBDOMAIN_MAP.md` + `scripts/slim-containers.sh`.
+>
+> **Conflicts resolved:** `jobs.projectsites.dev` → **Inngest** (Brian directive + live `InngestContainer` DO/Neon/Upstash),
+> NOT Hatchet. **Hatchet** = heavy/stateful/browser/AI execution plane via **Hatchet Cloud** (managed, no self-host
+> subdomain); self-hosted fallback only would take `tasks.projectsites.dev`. `secrets.` → Infisical only if Cloudflare
+> Secrets Store is insufficient. Dittofeed (lifecycle messaging) **replaces Novu**. Deepcrawl **replaces Firecrawl**.
 
-### Phase 1 — API foundation
-- [ ] Standardize APIs around Hono
-- [ ] Standardize validation around Zod
-- [ ] Hono + Zod OpenAPI pattern via hono-openapi / @hono/zod-openapi / zod-openapi / zod-to-openapi
-- [ ] Standardize database access around Drizzle ORM
-- [ ] Drizzle Kit migration workflow
-- [ ] Consider `drizzle-zod` only if it reduces schema duplication
-- [ ] Effect patterns: typed services, retries, typed errors, resource safety, workflow correctness
-- [ ] CloudEvents event-envelope conventions
-- [ ] OpenFeature feature-flag conventions
-- [ ] OpenFGA authorization model
-- [ ] Unkey API-key / quota / metering
-- [ ] DOMPurify sanitization on customer/generated HTML
+### Phase 0 — Stack policy, removals, repo hygiene
+- [x] [Core] Canonical approved stack matrix — every tool: category, status, purpose, domain/route, notes (this doc).
+- [x] [Core] Update `~/.agentskills` with the ProjectSites.dev stack policy (`rules/projectsites-recommended-stack.md`).
+- [ ] [Core] Remove stale tool recommendations — delete default recs for explicitly-removed tools (see Removed list).
+- [ ] [Core] Replace Firecrawl with Deepcrawl — update docs/TODOs/agent instructions so Deepcrawl is the approved website-context extractor.
+- [x] [Core] No-duplicate-tools rule — justification required before adding tools overlapping an approved choice.
+- [x] [Core] Integration-truth rule — no integration marked complete without code/tests/docs proving it.
+- [ ] [Approved] Knip — repo cleanup work item: unused deps, exports, files, AI-context bloat.
+- [ ] [Approved] Repomix — repo packing/context-generation work item for AI-agent workflows.
+- [ ] [Approved] Biome — formatter/linter standardization work item (eval vs the oxlint+ESLint+Prettier stack first).
+- [ ] [Approved] Oxlint — fast linting work item where compatible.
+- [ ] [Approved] Semgrep — focused static-analysis/security-rule work item.
+- [ ] [Approved] Lighthouse CI — generated-site perf/SEO/a11y/best-practices budget work item.
 
-### Phase 2 — Builder / editor / admin UX
-- [ ] Storybook as the component/block workshop
-- [ ] Plate.js rich/block editor — investigation or integration plan
-- [ ] Monaco Editor for code/config editing
-- [ ] React Flow / XYFlow for workflows, site maps, deployment/resource/agent graphs
-- [ ] cmdk command palette
-- [ ] Radix UI / shadcn/ui conventions (React UI surfaces)
-- [ ] TanStack Virtual for very large lists (sites, leads, customers, logs, events, jobs, traces, generated pages)
-- [ ] Satori for OpenGraph/social image generation
-- [ ] Shiki for docs/code highlighting
-- [ ] GrapesJS — conditional, only for HTML/email/template-builder workflows
-- [ ] NgRx / RxJS — Angular admin surfaces only
+### Phase 1 — API, contracts, validation, authz, events
+- [x] [Core] Hono — standardize Worker/API route conventions; document the default route/module pattern.
+- [ ] [Core] Effect — define where Effect is required (typed services, retries, typed errors, resource safety, DI, workflow correctness). Never replaces Zod at I/O.
+- [ ] [Core] Zod — standardize input/output/env/config validation around Zod (SSOT at every boundary).
+- [ ] [Approved] hono-openapi — evaluate + document where Hono routes generate OpenAPI (preferred for new work).
+- [ ] [Approved] @hono/zod-openapi — preferred Hono/Zod route-contract pattern where already wired.
+- [ ] [Approved] zod-openapi — document when shared Zod schemas emit OpenAPI.
+- [ ] [Approved] zod-to-openapi — document whether still needed beside the above two; pick one path per surface.
+- [x] [Core] Drizzle ORM — standardize typed D1/Neon access around Drizzle.
+- [x] [Core] Drizzle Kit — migration/schema workflow conventions for D1 and Neon.
+- [ ] [Core] OpenFGA — authorization model for orgs, sites, resources, roles, agents, admin actions.
+- [ ] [Approved] Unkey — API key, quota, metering, tenant usage-limit work item; `keys.projectsites.dev` if provisioned.
+- [ ] [Approved] OpenFeature — platform/per-site feature-flag convention over the D1+KV flag engine.
+- [ ] [Approved] CloudEvents — standard event envelopes for queues, workflows, webhooks, lifecycle events.
+- [ ] [Approved] DOMPurify — require sanitization for customer/generated HTML, embeds, imported content.
 
-### Phase 3 — Search & generated-site quality
-- [ ] Orama for **generated child-site** search (default, ships in the site bundle)
-- [ ] Cloudflare AI Search (AutoRAG) for **platform/admin** search (submissions, sites, leads, logs) — NOT Orama
-- [ ] DOMPurify requirements for generated/customer HTML
-- [ ] Satori OG image generation plan
-- [ ] Shiki highlighting for docs/code snippets
-- [ ] Large-list virtualization rules for admin/search/log/event pages
+### Phase 2 — Builder, editor, admin UX
+- [ ] [Core] Puck — primary visual page/block builder integration work item.
+- [x] [Core] Storybook — component/block workshop; define how Puck blocks are documented/tested (`storybook.projectsites.dev`).
+- [ ] [Approved] Plate.js — rich/block content editor for customer/admin content editing (React surface).
+- [ ] [Approved] Monaco Editor — code/config editor for advanced editing surfaces.
+- [ ] [Approved] React Flow / XYFlow — graph UI for workflows, site maps, deployment/resource/agent graphs.
+- [ ] [Conditional] GrapesJS — HTML/email/template-builder only where Puck/Plate do not fit.
+- [ ] [Approved] TanStack Query — server-state/cache for React surfaces.
+- [ ] [Conditional] TanStack Router — type-safe routing only for React surfaces that need it.
+- [ ] [Approved] TanStack Table — admin tables: sites, leads, customers, events, invoices, jobs.
+- [ ] [Approved] TanStack Form — typed React forms.
+- [ ] [Approved] TanStack Virtual — virtualize huge lists: sites, leads, customers, logs, events, jobs, traces, pages, files, search results.
+- [ ] [Approved] cmdk — command palette for admin/editor power actions.
+- [ ] [Approved] Radix UI — accessible primitive convention (React surfaces).
+- [ ] [Approved] shadcn/ui — copy-owned UI component convention (React surfaces).
+- [ ] [Approved] Motion — animation/reveal/storytelling for premium UI + homepage.
+- [ ] [Approved] Satori — OG/social image generation.
+- [ ] [Approved] Shiki — syntax highlighting for docs, snippets, editor displays.
+- [ ] [Angular-only] NgRx — Angular admin shared-state where needed.
+- [ ] [Angular-only] RxJS — Angular/admin reactive-stream convention.
+- [ ] [Angular-only] Angular Material / CDK — Angular admin primitive/component work item (CDK only; no Material kit).
 
-### Phase 4 — AI, MCP, LLM observability
-- [ ] MCP TypeScript SDK as the foundation for the ProjectSites MCP
-- [ ] Langfuse tracing for LLM calls, prompts, generations, tool calls, agent workflows
-- [ ] LiteLLM as the internal LLM gateway (documented as a service)
-- [ ] OpenTelemetry trace propagation across APIs, jobs, AI workflows
-- [ ] Sentry error/performance monitoring across frontend + backend
-- [ ] AI features carry trace IDs, prompt versions, budget metadata, fallback metadata
+### Phase 3 — CMS, content, search, media, SEO
+- [ ] [Approved] Payload CMS — CMS/content/app-backend; per-tenant provisioned at `cms.projectsites.dev` (see Phase 6 + CONTAINER_MANIFEST).
+- [ ] [Conditional] Lexical — document whether it still has a distinct role beside Plate.js.
+- [ ] [Approved] Orama — generated-site search (default, ships in the site bundle).
+- [ ] [Conditional] Pagefind — static generated-site search where better than Orama.
+- [ ] [Approved] schema-dts — type-safe Schema.org JSON-LD: local SEO, services, orgs, FAQs, breadcrumbs, reviews, products.
+- [ ] [Conditional] unified — Markdown/HTML content-transform pipeline only if needed.
+- [ ] [Conditional] MDX — component Markdown/docs/content only if needed.
+- [ ] [Approved] SVGO — SVG/logo optimization.
+- [ ] [Approved] Uppy — media upload: logos, galleries, PDFs, customer files.
+- [ ] [Conditional] Unpic — responsive image helper where helpful.
+- [ ] [Conditional] sharp — image processing only where runtime-compatible and superior to CF image/R2 pipelines.
+- [ ] [Conditional] Docusaurus — docs/developer-portal only if docs outgrow markdown.
+- [ ] [Approved] Scalar — OpenAPI docs / API reference.
 
-### Phase 5 — Infrastructure
-- [ ] OpenTofu IaC for Cloudflare-first infrastructure
-- [ ] OpenTofu conventions for Cloudflare resources
-- [ ] OpenTofu conventions for Neon/Upstash only when those services are actually used
-- [ ] IaC docs must not imply unsupported infrastructure is already provisioned
+### Phase 4 — AI, MCP, LLM routing, observability
+- [x] [Core] MCP TypeScript SDK — ProjectSites MCP server/client foundation (`platform_mcp` live).
+- [ ] [Core] Langfuse — LLM tracing, prompt versioning, generation/tool-call tracing, cost observability; `traces.projectsites.dev`.
+- [ ] [Internal service] LiteLLM — internal LLM gateway; `llm.projectsites.dev`.
+- [ ] [Internal service] RouteLLM — model routing / cost-quality routing; co-located at `llm.projectsites.dev`.
+- [ ] [Core] OpenTelemetry — trace/metric/log context propagation across APIs, jobs, browser automation, AI workflows.
+- [ ] [Conditional] OpenTelemetry Collector — telemetry-pipeline only for heavier/self-hosted observability.
+- [x] [Approved] Sentry — frontend/backend error + performance monitoring.
+- [x] [Approved] PostHog — product/admin analytics; explicitly NOT default-tracked on generated customer sites.
+- [ ] [Approved] Promptfoo — LLM eval/regression tests for generated sites, prompts, agents, routing decisions.
+- [ ] [Approved] Deepcrawl — website-context extraction for research, lead enrichment, AI-generated-site grounding (replaces Firecrawl).
+- [ ] [Approved] Vercel AI SDK — typed AI streaming/tool-calling where useful.
+- [x] [Approved] Playwright — E2E/browser automation/testing.
+- [ ] [Approved] Stagehand — AI-assisted browser automation for `browser.projectsites.dev`.
+- [ ] [Core] AI metadata standard — require trace IDs, prompt versions, model/provider, cost, fallback, grounding, customer/site IDs on AI work.
+
+### Phase 5 — Workflows, jobs, integrations, webhooks, metering
+- [ ] [Core] Cloudflare Workflows/Queues-first rule — CF workflows/queues are the default before any external engine.
+- [ ] [Approved] Inngest — event-driven product-lifecycle workflows where CF Workflows is insufficient; `jobs.projectsites.dev`.
+- [ ] [Approved] Hatchet — heavy/stateful/browser/AI execution plane via **Hatchet Cloud** (managed; no self-host subdomain — see Conflicts).
+- [ ] [Approved] Nango — integrations/OAuth sync.
+- [ ] [Approved] Svix — outbound customer-facing webhook delivery.
+- [ ] [Approved] Hookdeck — inbound webhook management, routing, retry, debugging, observability.
+- [ ] [Approved] Dub — short/referral/claim links, affiliate + QR + campaign attribution.
+- [ ] [Approved] OpenMeter — usage metering: AI credits, API calls, site visits, build minutes, browser automation, add-ons, quotas.
+- [ ] [Approved] OpenMeter — Stripe metered-billing integration work item (meter → Stripe usage records).
+- [ ] [Core] Metering event standard — CloudEvents-compatible usage events: site visits, AI calls, API calls, workflow runs, browser jobs, storage, bandwidth, form submissions, email sends, add-on usage.
+- [ ] [Core] Metering scale rule — never one physical metering resource per website; logical tenancy via site/org/plan IDs, quotas, aggregation windows.
+
+### Phase 6 — Product services + control-plane apps
+- [ ] [Approved] Logto — app auth/orgs.
+- [ ] [Non-OSS service] WorkOS — enterprise SSO/SCIM (enterprise only).
+- [ ] [Approved] Chatwoot — support/live-chat; `support.projectsites.dev`.
+- [ ] [Approved] Twenty CRM — CRM/sales-pipeline; `crm.projectsites.dev`; **per-tenant provisioned, paid opt-in add-on** (see CONTAINER_MANIFEST § Per-tenant add-ons).
+- [ ] [Approved] Payload CMS — per-tenant provisioned CMS; `cms.projectsites.dev`; nominal-fee opt-in, same provisioning model as Twenty.
+- [ ] [Approved] Listmonk — newsletter/list management; `mail.projectsites.dev`.
+- [ ] [Approved] Dittofeed — lifecycle messaging, journeys, segmentation, campaign orchestration (**replaces Novu**).
+- [ ] [Approved] Postiz — social-media scheduling/social add-on; `social.projectsites.dev`.
+- [ ] [Conditional] Infisical — secrets management only if Cloudflare Secrets Store insufficient; `secrets.projectsites.dev` if used.
+- [ ] [Conditional] Cal.diy — scheduling/booking for customer sites where needed.
+- [ ] [Conditional] Formbricks — feedback/surveys where useful.
+- [ ] [Conditional] Documenso — e-sign/proposal/signature where useful.
+- [ ] [Conditional] Medusa — commerce/storefront only for commerce-specific customer apps.
+- [ ] [Conditional] Better Auth — lightweight auth eval only for smaller embedded apps where Logto is too heavy.
+- [ ] [Conditional] Auth.js — lightweight auth eval only where it does not conflict with Logto.
+- [ ] [Conditional] Directus — CMS alternative note only; Payload CMS preferred.
+- [ ] [Conditional] Typesense — search alternative note only if Orama/Pagefind insufficient; `search.projectsites.dev` if stood up.
+- [ ] [Conditional] React Email — email-template work item only if useful beside Listmonk/Dittofeed (server-render only, never in the Angular admin bundle).
+
+### Phase 7 — Infrastructure, runtime, monitoring, service domains
+- [ ] [Approved] OpenTofu — Cloudflare-first infrastructure-as-code.
+- [x] [Approved] Wrangler / Workers SDK — Cloudflare dev/deploy tooling.
+- [ ] [Approved] workerd — Workers runtime compatibility/testing-awareness.
+- [ ] [Conditional] Loki — logs backend only if self-hosted logs needed; `logs.projectsites.dev`.
+- [ ] [Conditional] Grafana — dashboards only if Loki/Prometheus/self-hosted observability used; `logs.projectsites.dev`.
+- [ ] [Conditional] Prometheus — metrics only if self-hosted metrics needed.
+- [ ] [Approved] OpenStatus — public status page + uptime monitoring; `status.projectsites.dev`.
+- [ ] [Approved] Healthchecks.io — dead-man-switch for crons, backups, rebuilds, queues, billing syncs; `checks.projectsites.dev`.
+- [ ] [Core] Domain map — preserve the service-domain mapping in docs + this loop. Canonical record: `apps/project-sites/docs/CONTAINER_MANIFEST.md`.
+  - `mail.` → Listmonk · `crm.` → Twenty CRM · `cms.` → Payload CMS · `support.` → Chatwoot · `social.` → Postiz
+  - `status.` → OpenStatus · `checks.`/`health.` → Healthchecks.io · `traces.` → Langfuse · `logs.` → Loki/Grafana (self-hosted only)
+  - `jobs.` → **Inngest** (Hatchet = Hatchet Cloud, managed) · `llm.` → LiteLLM + RouteLLM · `browser.` → CF Browser Run/Rendering + Playwright + Stagehand
+  - `cms.` → Payload CMS · `keys.` → Unkey (if used) · `secrets.` → Infisical (only if CF Secrets Store insufficient)
+  - `skyvern.megabyte.space` → internal-only historical/fallback note (not product-facing)
+  - `mcp.megabyte.space` → Browserbase MCP bridge, internal fallback only (not product-facing)
+
+### Removed tools — do NOT re-add (removal/historical cleanup only)
+- [ ] [Core] Removed-tools cleanup — search docs/TODOs/agentskills for these and delete, mark superseded, or move to a historical note.
+- Superseded/removed: Tempo · AnalogJS · Mastra · **Firecrawl** (→ Deepcrawl) · Crawl4AI · Crawlee · LlamaIndex.TS · LangGraph.js · Ragas · Dify · Astro · UnoCSS · jose · Nano ID · oRPC · ArkType · ts-pattern · Nitro · MJML · Meilisearch · Browserless · Pulumi · SOPS · OpenBao · SigNoz · VictoriaMetrics · Perspective · Apache ECharts · Evidence.dev · Metabase · Cube · ClickHouse · DuckDB · PGlite · ElectricSQL · Qdrant · Webstudio · fast-check · Miniflare · MSW · Testing Library · k6 · Cosign · Sigstore · OWASP ZAP · Nuclei · Grype · Syft · OSV-Scanner · Trivy · Gitleaks · Renovate · Excalidraw · Mermaid · Lightning CSS · Style Dictionary · **Novu** (→ Dittofeed) · Trigger.dev · Skyvern-as-a-product-feature (internal-only OK) · Polar.sh · Supabase · Resend · Postmark · Socket.dev · Chainguard Images · Clay
 
 ## See also
+- `apps/project-sites/docs/CONTAINER_MANIFEST.md` — canonical container ↔ subdomain registry (every hosted service + per-tenant add-on)
+- `apps/project-sites/docs/SUBDOMAIN_MAP.md` — two-domain `projectsites.dev` ↔ `megabyte.space` map
+- `apps/project-sites/README.md` — at-a-glance domain catalog table
 - `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine
 - `~/.agentskills/rules/projectsites-recommended-stack.md` — agent-facing selected-package policy
 - `DECISIONS.md` — ADRs (binding architecture commitments)

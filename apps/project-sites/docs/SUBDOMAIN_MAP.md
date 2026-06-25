@@ -29,11 +29,20 @@ Build + slim everything: `bash scripts/slim-containers.sh` (custom) · `--regist
 | `preview.projectsites.dev` | Build previews | Worker + R2 | per `EDGE_HOSTING_STRATEGY.md` | n/a |
 | `storybook.projectsites.dev` | Storybook | CF Pages | `frontend` Storybook | n/a *(currently 404 — not deployed)* |
 | `voice.projectsites.dev` | Voice answering gateway (Twilio webhook + Media Streams WS, all account numbers) | **Fly.io** app `voice-gateway`, region `iad` (us-east VA), autoscale by concurrent calls | `apps/voice-gateway/` (fork of `twilio-labs/call-gpt`) — ADR-0011 | SHIP *(planned — V0 epic)* |
+| `crm.projectsites.dev` | **Twenty CRM** — per-tenant provisioned add-on (one instance per opt-in org) | **CF Container DO** `AppRuntimeContainer` | `twentycrm/twenty:latest` | SHIP *(proposed)* |
+| `cms.projectsites.dev` | **Payload CMS** — per-tenant provisioned add-on (nominal-fee opt-in) | **CF Container DO** `AppRuntimeContainer` | `payloadcms/payload:latest` | SHIP *(proposed)* |
 | _(internal, no subdomain)_ | AI site builder | **CF Container DO** `SITE_BUILDER` | `./Dockerfile` | MEASURE |
 | _(internal, no subdomain)_ | Voice-browse agent | **CF Container DO** `VoiceBrowseAgent` | `Dockerfile.voice-browse` | MEASURE *(flag-gated, dormant)* |
 
 `browser.projectsites.dev` is the **product browser-automation abstraction** — it's CF Browser
 Rendering (not a container) fronting CF Browser Run → Browserbase fallback. No Docker image.
+
+> **Canonical service-domain home = `projectsites.dev` (not `megabyte.space`).** The ops services
+> below are mirrored here for history, but the authoritative plan addresses them under the product
+> domain with semantic subdomains — see `docs/CONTAINER_MANIFEST.md`: `mail.` → Listmonk · `secrets.`
+> → Infisical (only if CF Secrets Store insufficient) · `jobs.` → **Inngest** (Hatchet = Hatchet Cloud,
+> managed) · `traces.` → Langfuse · `llm.` → LiteLLM + RouteLLM · `crm.` → Twenty · `cms.` → Payload
+> · `support.` → Chatwoot · `social.` → Postiz · `status.` → OpenStatus · `checks.` → Healthchecks.io.
 
 ---
 

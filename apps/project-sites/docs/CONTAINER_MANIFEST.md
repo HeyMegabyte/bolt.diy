@@ -59,7 +59,46 @@ The internal Browserbase MCP bridge stays at `mcp.megabyte.space` (behind CF Acc
 
 | Subdomain | Container | Image | Status | Slim |
 |---|---|---|---|---|
-| `mail.projectsites.dev` | **Listmonk** — newsletters (SES SMTP relay) | `listmonk/listmonk:latest` | 🔵 | SHIP |
+| `mail.projectsites.dev` | **Listmonk** — newsletters / lists (SES SMTP relay) | `listmonk/listmonk:latest` | 🔵 | SHIP |
+| `support.projectsites.dev` | **Chatwoot** — support / live-chat shared inbox | `chatwoot/chatwoot:latest` | 🔵 | SHIP |
+| `social.projectsites.dev` | **Postiz** — social-media scheduling / social add-on | `ghcr.io/gitroomhq/postiz-app:latest` | 🔵 | SHIP |
+
+Lifecycle messaging (journeys, segmentation, campaign orchestration) is **Dittofeed** — it
+**replaces Novu** and rides the platform plane (no dedicated public subdomain by default; product
+code calls it as a service). Listmonk stays the list/newsletter send rail.
+
+## Monitoring / status
+
+| Subdomain | Container | Image | Status | Slim |
+|---|---|---|---|---|
+| `status.projectsites.dev` | **OpenStatus** — public status page + uptime monitoring | `ghcr.io/openstatushq/openstatus:latest` | 🔵 | SHIP |
+| `checks.projectsites.dev` | **Healthchecks.io** — dead-man-switch for crons/backups/rebuilds/queues/billing syncs | `healthchecks/healthchecks:latest` | 🔵 | SHIP |
+| `logs.projectsites.dev` | **Loki + Grafana** — logs backend + dashboards (only if self-hosted logs/metrics adopted) | `grafana/loki` + `grafana/grafana` | 🔵 cond. | SHIP |
+
+`logs.` stands up ONLY if self-hosted logs/metrics are adopted; default observability is
+PostHog + Sentry + Workers Tracing (no container). Prometheus is metrics-only, same condition.
+
+## CRM / CMS — per-tenant provisioned add-ons (opt-in, paid)
+
+Unlike the singletons above (one instance per platform), these are **provisioned PER TENANT**:
+every org that opts in (and pays the add-on price) gets its **own isolated instance** — own DB
+namespace, own auth, own data. Same mechanism as the `apps-catalog.ts` self-host marketplace
+(`AppRuntimeContainer` per-tenant instances), billed through the credit wallet / Stripe add-on.
+
+| Subdomain | Container | Image | Tenancy | Status | Slim |
+|---|---|---|---|---|---|
+| `crm.projectsites.dev` | **Twenty CRM** — CRM / sales pipeline | `twentycrm/twenty:latest` | per-tenant (one instance per opt-in org) | 🔵 | SHIP |
+| `cms.projectsites.dev` | **Payload CMS** — content / app-backend | `payloadcms/payload:latest` | per-tenant (one instance per opt-in org) | 🔵 | SHIP |
+
+- **Landing/control** lives at `crm.` / `cms.` (marketing + provision/manage); **tenant instances**
+  resolve at `{tenant}.crm.projectsites.dev` / `{tenant}.cms.projectsites.dev` (or `{tenant}-crm-app.`
+  to dodge wildcard-ACM cost per `god-tier-engineering` anti-pattern) via the `app_host_resolver` KV map.
+- **Provisioning flow** (work item, NOT yet built): opt-in → wallet/Stripe add-on charge → spin a
+  per-tenant `AppRuntimeContainer` (Twenty or Payload image) → Neon Postgres namespace (via Hyperdrive)
+  → write `apphost:` KV mapping → instance live. Deprovision on cancel/refund.
+- **Pricing:** Twenty = priced CRM add-on; Payload = nominal-fee CMS add-on. Both debit the credit wallet.
+- **Build item:** `tenant_app_provisioning` feature module (manifest + flag `enabled=0,rollout=0,stage=experimental`)
+  covering Twenty + Payload + any future per-tenant app. Twenty + Payload also get `apps-catalog.ts` rows.
 
 ## Platform-internal CF Containers (Durable Objects — no public subdomain)
 
