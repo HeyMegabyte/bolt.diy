@@ -12,6 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { UtmBuilderComponent } from './utm-builder.component';
 
 interface SourceCount {
   source: string;
@@ -40,7 +41,7 @@ interface SiteAnalyticsSummary {
 @Component({
   selector: 'app-owner-analytics',
   standalone: true,
-  imports: [RollingCounterComponent],
+  imports: [RollingCounterComponent, UtmBuilderComponent],
   template: `
     <div class="px-6 pt-4 pb-8 max-md:px-4" data-testid="owner-analytics">
       @if (!siteId()) {
@@ -150,6 +151,9 @@ interface SiteAnalyticsSummary {
           Visitor analytics aren't enabled for this site yet.
         </p>
       }
+
+      <!-- AN11 — UTM builder always available; tagging links feeds the channel widget. -->
+      <app-utm-builder />
     </div>
   `,
   styles: [
