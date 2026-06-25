@@ -54,26 +54,25 @@ interface SiteAnalyticsSummary {
           }
         </div>
       } @else if (summary(); as s) {
-        <p class="text-[0.78rem] text-text-secondary mb-3">
-          Last {{ s.windowDays }} days · your site's real visitor + lead activity.
-        </p>
+        <p class="oa-headline" data-testid="oa-headline">{{ outcomeSummary(s) }}</p>
+        <p class="text-[0.72rem] text-text-secondary mb-3">Last {{ s.windowDays }} days.</p>
         <div class="oa-grid">
           <div class="oa-card" data-testid="oa-pageviews">
-            <span class="oa-label">Pageviews</span>
+            <span class="oa-label">Page views</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.pageviews" /></span>
             @if (delta(s.traffic.pageviews, s.traffic.previous.pageviews); as d) {
               <span class="oa-delta" [attr.data-dir]="d.dir" data-testid="oa-delta-pv">{{ d.label }} vs last {{ s.windowDays }}d</span>
             }
           </div>
           <div class="oa-card" data-testid="oa-sessions">
-            <span class="oa-label">Unique sessions</span>
+            <span class="oa-label">Visitors</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.uniqueSessions" /></span>
             @if (delta(s.traffic.uniqueSessions, s.traffic.previous.uniqueSessions); as d) {
               <span class="oa-delta" [attr.data-dir]="d.dir">{{ d.label }}</span>
             }
           </div>
           <div class="oa-card" data-testid="oa-conversions">
-            <span class="oa-label">Conversions</span>
+            <span class="oa-label">Goals reached</span>
             <span class="oa-value"><app-rolling-counter [value]="s.traffic.conversions" /></span>
             @if (s.traffic.pageviews > 0) {
               <span class="oa-sub" data-testid="oa-conv-rate">{{ convRate(s) }} of visits</span>
@@ -83,17 +82,17 @@ interface SiteAnalyticsSummary {
             }
           </div>
           <div class="oa-card" data-testid="oa-contacts">
-            <span class="oa-label">Contacts</span>
+            <span class="oa-label">Reached out</span>
             <span class="oa-value"><app-rolling-counter [value]="s.contacts.total" /></span>
             <span class="oa-sub">+{{ s.contacts.newInWindow }} new</span>
           </div>
           <div class="oa-card" data-testid="oa-forms">
-            <span class="oa-label">Form submissions</span>
+            <span class="oa-label">Forms filled</span>
             <span class="oa-value"><app-rolling-counter [value]="s.formSubmissions.total" /></span>
             <span class="oa-sub">+{{ s.formSubmissions.newInWindow }} new</span>
           </div>
           <div class="oa-card" data-testid="oa-newsletter">
-            <span class="oa-label">Newsletter</span>
+            <span class="oa-label">Subscribers</span>
             <span class="oa-value"><app-rolling-counter [value]="s.newsletter.confirmed" /></span>
             <span class="oa-sub">of {{ s.newsletter.total }} signed up</span>
           </div>
@@ -168,6 +167,14 @@ interface SiteAnalyticsSummary {
   `,
   styles: [
     `
+      .oa-headline {
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1.35;
+        margin: 0 0 0.15rem;
+        text-wrap: balance;
+      }
       .oa-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -279,6 +286,30 @@ export class OwnerAnalyticsComponent {
   readonly siteId = this.state.selectedSiteId;
   readonly summary = signal<SiteAnalyticsSummary | null>(null);
   readonly loading = signal(false);
+
+  /**
+   * Plain-language outcome headline (AN8) — speaks to a small-business owner in
+   * people + actions, never "sessions / events". Builds the sentence from
+   * whichever outcomes actually happened so it never reads "0 people did 0 things".
+   */
+  outcomeSummary(s: SiteAnalyticsSummary): string {
+    const ppl = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const visitors = s.traffic.uniqueSessions;
+    const lead = visitors > 0 ? `${ppl(visitors, 'person', 'people')} visited your site` : 'No visits yet';
+    const outcomes: string[] = [];
+    if (s.contacts.total > 0) outcomes.push(`${ppl(s.contacts.total, 'reached out', 'reached out')}`);
+    if (s.formSubmissions.total > 0)
+      outcomes.push(`${ppl(s.formSubmissions.total, 'filled a form', 'filled a form')}`);
+    if (s.newsletter.confirmed > 0)
+      outcomes.push(`${ppl(s.newsletter.confirmed, 'subscribed', 'subscribed')}`);
+    if (s.donations.count > 0) outcomes.push(`${ppl(s.donations.count, 'gave', 'gave')}`);
+    if (outcomes.length === 0) return `${lead}.`;
+    const tail =
+      outcomes.length === 1
+        ? outcomes[0]
+        : `${outcomes.slice(0, -1).join(', ')} and ${outcomes[outcomes.length - 1]}`;
+    return `${lead} — and ${tail}.`;
+  }
 
   /** Conversion rate as a 1-dp percent of pageviews (caller guards pageviews > 0). */
   convRate(s: SiteAnalyticsSummary): string {

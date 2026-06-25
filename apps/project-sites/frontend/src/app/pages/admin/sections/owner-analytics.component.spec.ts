@@ -89,6 +89,42 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     const deltaPv = el.querySelector('[data-testid="oa-delta-pv"]');
     expect(deltaPv?.textContent).toContain('20%');
     expect(deltaPv?.getAttribute('data-dir')).toBe('up');
+    // AN8 outcome-language headline — people + actions, never "sessions".
+    const headline = el.querySelector('[data-testid="oa-headline"]');
+    expect(headline?.textContent).toContain('800 people visited your site');
+    expect(headline?.textContent).toContain('reached out');
+    expect(headline?.textContent).not.toContain('session');
+  });
+
+  it('outcomeSummary(): no-visits + outcome-only phrasings', () => {
+    const c = setup('s1').fixture.componentInstance;
+    const base = {
+      siteId: 's1',
+      windowDays: 30,
+      contacts: { total: 0, newInWindow: 0, bySource: [] },
+      formSubmissions: { total: 0, newInWindow: 0 },
+      newsletter: { confirmed: 0, total: 0 },
+      donations: { raisedCents: 0, count: 0 },
+      traffic: {
+        pageviews: 0,
+        uniqueSessions: 0,
+        conversions: 0,
+        topPaths: [],
+        byType: [],
+        byDevice: [],
+        byChannel: [],
+        previous: { pageviews: 0, uniqueSessions: 0, conversions: 0 },
+        windowDays: 30,
+      },
+      generatedAt: '',
+    };
+    expect(c.outcomeSummary(base)).toBe('No visits yet.');
+    const oneEach = {
+      ...base,
+      contacts: { total: 1, newInWindow: 1, bySource: [] },
+      traffic: { ...base.traffic, uniqueSessions: 1 },
+    };
+    expect(c.outcomeSummary(oneEach)).toBe('1 person visited your site — and 1 reached out.');
   });
 
   it('delta(): null when no baseline; up/down with arrows otherwise', () => {
