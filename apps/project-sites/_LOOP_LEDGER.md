@@ -293,7 +293,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] 8. Contextual upgrade prompts at the friction moment (custom domain / remove top-bar / more pages) [new][auto]
 - [ ] 9. Pricing-page A/B (the one sanctioned A/B surface) [new][dedicated]
 - [ ] 10. Self-serve domain purchase + connect success-path polish [partial][auto]
-- [ ] 11. Free-tier "powered by" top-bar → real upsell CTA [partial][auto]
+- [x] 11. Free-tier top-bar → real upsell CTA — **ALREADY DONE (verified 2026-06-25).** The premise ("powered by" bar) was stale: `generateConversionFlow` (site_serving) injects a full "Wow→Own→Buy" flow on unpaid sites — animated bottom bar with brand badge + "Edit with AI" + a pulsing "Claim for $50/mo" CTA, opening an ownership modal (plan, live domain search w/ RDAP availability, Stripe checkout). Already a real upsell, not a passive badge. No work needed. [DONE][auto]
 - [ ] 12. Activate referral loop (module dark) [built-dark][operator]
 - [ ] 13. Lead-scanner → compliant outreach pipeline (explicitly-enabled) [built-dark][operator]
 
