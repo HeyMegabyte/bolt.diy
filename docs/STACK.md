@@ -252,11 +252,11 @@
 - [ ] Add Knip-style cleanup guidance + scheduled `knip` run
 - [ ] Add AI-agent package-selection comments at each package boundary
 - [ ] CI guardrails: format · lint · tests · secret scan (Gitleaks) · dep scan (OSV/Trivy) · generated-docs validation
-- [ ] Create `docs/tooling-matrix.md` (tool · category · status · purpose · install target · runtime compat · owner area · duplicate policy)
-- [ ] Create `docs/ai-agent-rules.md` (cleanup rules · no dup packages · preferred libs · CF-first policy · selection rubric · how to update TODOs · how to avoid bloating markdown)
-- [ ] Create `docs/generated-site-quality.md` (max JS budget · image policy · a11y budget · Lighthouse CI thresholds · schema-dts · DOMPurify · Pagefind/Orama selection · Satori OG)
-- [ ] Create `docs/ai-observability.md` (Langfuse traces · Promptfoo evals · LiteLLM/RouteLLM routing · AI Gateway · model fallback · prompt versioning · budget controls · grounding checks)
-- [ ] Create `docs/security-supply-chain.md` (Gitleaks · Trivy · OSV-Scanner · Syft · Grype · Semgrep · Nuclei · OWASP ZAP · Cosign/Sigstore · Renovate policy)
+- [x] Create `docs/tooling-matrix.md` (tool · category · status · purpose · install target · runtime compat · owner area · duplicate policy) — ✅ landed
+- [x] Create `docs/ai-agent-rules.md` (cleanup rules · no dup packages · preferred libs · CF-first policy · selection rubric · how to update TODOs · how to avoid bloating markdown) — ✅ landed
+- [x] Create `docs/generated-site-quality.md` (max JS budget · image policy · a11y budget · Lighthouse CI thresholds · schema-dts · DOMPurify · Pagefind/Orama selection · Satori OG) — ✅ landed
+- [x] Create `docs/ai-observability.md` (Langfuse traces · Promptfoo evals · LiteLLM/RouteLLM routing · AI Gateway · model fallback · prompt versioning · budget controls · grounding checks) — ✅ landed
+- [x] Create `docs/security-supply-chain.md` (Gitleaks · Trivy · OSV-Scanner · Syft · Grype · Semgrep · Nuclei · OWASP ZAP · Cosign/Sigstore · Renovate policy) — ✅ landed
 
 ### Phase 1 — Cloudflare-first platform foundation
 - [ ] Confirm Hono + Zod foundation (✅ in use) and document boundary pattern
@@ -330,21 +330,26 @@
 
 ---
 
-## 6 — Generated customer-site quality bar (summary; full doc TODO)
+## 6 — Generated customer-site quality bar (summary)
 
 Performance · low JS · image optimization · accessibility (WCAG 2.2 AA) · SEO · schema.org JSON-LD
 (`schema-dts`) · safe sanitization (`DOMPurify`) · search via Pagefind (static) or Orama (dynamic) ·
-OG images via Satori. Full thresholds → `docs/generated-site-quality.md` (TODO, Phase 0).
+OG images via Satori. Full thresholds + budgets → **`docs/generated-site-quality.md`**.
 
-## 7 — AI feature bar (summary; full doc TODO)
+## 7 — AI feature bar (summary)
 
 Every AI feature requires: evals (Promptfoo) · tracing (Langfuse) · prompt/version tracking ·
 budget controls + killswitch · fallback routing (LiteLLM/RouteLLM via AI Gateway) · grounding checks.
-Full policy → `docs/ai-observability.md` (TODO, Phase 0).
+Full policy → **`docs/ai-observability.md`**.
 
 ---
 
 ## See also
+- `docs/tooling-matrix.md` — flat tool grid (status · purpose · install target · runtime · owner · canonical job)
+- `docs/ai-agent-rules.md` — agent operating rules (CF-first policy, no-dup, selection rubric, integration checklist)
+- `docs/generated-site-quality.md` — generated customer-site quality gates (budgets, a11y, SEO, sanitization)
+- `docs/ai-observability.md` — AI traces/evals/routing/budget/grounding governance
+- `docs/security-supply-chain.md` — Gitleaks/Trivy/OSV/Syft/Grype/Semgrep/Cosign + Renovate policy
 - `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine (allowed infra + hot path)
 - `~/.agentskills/rules/package-preference-registry.md` § ProjectSites.dev — global agent policy
 - `DECISIONS.md` — ADRs (the binding architecture commitments)
