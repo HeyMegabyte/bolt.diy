@@ -13,6 +13,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ApiService } from '../../../services/api.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -292,6 +293,15 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                   <app-rolling-counter [value]="app.estCostMonthly" />
                   <span class="cost-unit" aria-hidden="true">/mo</span>
                 </span>
+                @if (installCount(app.id); as n) {
+                  <span
+                    class="installs-pill"
+                    [attr.data-testid]="'apps-installs-' + app.id"
+                    [title]="n + ' org' + (n === 1 ? '' : 's') + ' running ' + app.name">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    {{ n }} {{ n === 1 ? 'org' : 'orgs' }}
+                  </span>
+                }
               </footer>
             </a>
           }
@@ -702,6 +712,13 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
     }
     .cost-currency { font-size: 0.7rem; color: var(--ps-accent, #00E5FF); margin-right: 1px; }
     .cost-unit { font-size: 0.62rem; color: var(--text-secondary, rgba(255,255,255,0.5)); font-weight: 500; margin-left: 2px; }
+    .installs-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-left: auto;
+      font-size: 0.66rem; font-weight: 700;
+      color: var(--ps-accent, #00E5FF);
+    }
+    .installs-pill svg { opacity: 0.85; }
 
     /* ─── Buttons (parity with sibling sections) ─── */
     .btn-ghost {
@@ -725,6 +742,14 @@ export class AppsComponent implements AfterViewInit, OnInit {
 
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly api = inject(ApiService);
+
+  /** A5 — DISTINCT-org install counts per catalog app slug (marketplace social proof). */
+  readonly installCounts = signal<Record<string, number>>({});
+  /** Org-install count for a catalog app id (0 when unknown / none). */
+  installCount(id: string): number {
+    return this.installCounts()[id] ?? 0;
+  }
 
   readonly categories = APP_CATEGORIES;
   readonly totalCount = APPS_CATALOG.length;
@@ -796,6 +821,15 @@ export class AppsComponent implements AfterViewInit, OnInit {
    * Unknown values fall back to the default "all" view.
    */
   ngOnInit(): void {
+    // A5 — fetch install counts (silent: a failure just hides the social-proof badge).
+    this.api
+      .get<{ counts: Record<string, number> }>('/apps/install-counts', undefined, { silent: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => this.installCounts.set(res?.counts ?? {}),
+        error: () => this.installCounts.set({}),
+      });
+
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       // `?category=ai` (single) or `?category=ai,vector-db` (multi) deep links.
       const raw = params.get('category');

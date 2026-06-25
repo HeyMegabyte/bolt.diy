@@ -2,7 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { AppsComponent } from './apps.component';
+import { ApiService } from '../../../services/api.service';
 import { APPS_CATALOG, APP_CATEGORIES, isAppSupported } from './apps-catalog.data';
+
+/** Shared ApiService stub — install-counts fetch (A5) resolves to empty by default. */
+const APPS_API_PROVIDER = {
+  provide: ApiService,
+  useValue: { get: () => of({ counts: { umami: 4 } }) },
+};
 
 /**
  * First spec for the Apps catalog section (convergence r24).
@@ -18,7 +25,7 @@ function make(category?: string, tag?: string): AppsComponent {
   const queryParamMap = of(convertToParamMap(params));
   TestBed.configureTestingModule({
     imports: [AppsComponent],
-    providers: [{ provide: ActivatedRoute, useValue: { queryParamMap } }],
+    providers: [APPS_API_PROVIDER, { provide: ActivatedRoute, useValue: { queryParamMap } }],
   });
   TestBed.overrideComponent(AppsComponent, { set: { template: '<div></div>', imports: [] } });
   const fixture = TestBed.createComponent(AppsComponent);
@@ -196,6 +203,7 @@ describe('AppsComponent (decorative glyphs are SVGs, not colourful emoji)', () =
     TestBed.configureTestingModule({
       imports: [AppsComponent],
       providers: [
+        APPS_API_PROVIDER,
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       ],
@@ -232,6 +240,7 @@ describe('AppsComponent (catalog grid has semantic list markup)', () => {
     TestBed.configureTestingModule({
       imports: [AppsComponent],
       providers: [
+        APPS_API_PROVIDER,
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       ],
@@ -279,6 +288,7 @@ describe('AppsComponent (filter reveal — §17 immediate-visible-state)', () =>
     TestBed.configureTestingModule({
       imports: [AppsComponent],
       providers: [
+        APPS_API_PROVIDER,
         provideRouter([{ path: '**', children: [] }]),
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       ],

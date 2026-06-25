@@ -249,6 +249,29 @@ describe('GET /api/apps/catalog', () => {
   });
 });
 
+describe('GET /api/apps/install-counts (A5)', () => {
+  it('returns DISTINCT-org counts keyed by app slug, cached, no auth', async () => {
+    mockDbQuery.mockResolvedValue({
+      data: [
+        { app_slug: 'ghost', n: 3 },
+        { app_slug: 'listmonk', n: 1 },
+      ],
+      error: null,
+    });
+    const res = await req(makeApp(), '/api/apps/install-counts', { method: 'GET' }, makeEnv());
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toContain('max-age=60');
+    expect((await res.json()).counts).toEqual({ ghost: 3, listmonk: 1 });
+  });
+
+  it('soft-degrades to {} when the DB errors (catalog never breaks over counts)', async () => {
+    mockDbQuery.mockResolvedValue({ data: [], error: 'boom' });
+    const res = await req(makeApp(), '/api/apps/install-counts', { method: 'GET' }, makeEnv());
+    expect(res.status).toBe(200);
+    expect((await res.json()).counts).toEqual({});
+  });
+});
+
 describe('GET /api/apps/catalog/:id', () => {
   it('returns one catalog app by id', async () => {
     const res = await req(makeApp(), '/api/apps/catalog/umami', { method: 'GET' }, makeEnv());

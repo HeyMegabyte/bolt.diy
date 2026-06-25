@@ -178,6 +178,27 @@ apps.get('/api/apps/catalog/:id', (c) => {
   });
 });
 
+/**
+ * `GET /api/apps/install-counts` — install counts per catalog app (A5).
+ *
+ * `{ counts: { [appSlug]: orgCount } }` — the number of DISTINCT orgs running
+ * each app, the marketplace's #1 discovery signal ("X orgs running this").
+ * No auth (drives discovery); short-cached. Soft-degrades to `{}` on any DB
+ * error so the catalog never breaks over a missing count.
+ */
+apps.get('/api/apps/install-counts', async (c) => {
+  const { data, error } = await dbQuery<{ app_slug: string; n: number }>(
+    c.env.DB,
+    `SELECT app_slug, COUNT(DISTINCT org_id) AS n FROM app_instances
+       WHERE deleted_at IS NULL AND app_slug IS NOT NULL
+       GROUP BY app_slug`,
+    [],
+  );
+  const counts: Record<string, number> = {};
+  if (!error) for (const r of data) counts[r.app_slug] = Number(r.n);
+  return c.json({ counts }, 200, { 'Cache-Control': 'public, max-age=60, s-maxage=60' });
+});
+
 // ─── Instance list ───────────────────────────────────────────
 
 /**
