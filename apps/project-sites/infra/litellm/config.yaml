@@ -14,35 +14,29 @@ model_list:
     litellm_params:
       model: anthropic/claude-opus-4-8
       api_key: os.environ/ANTHROPIC_API_KEY
-  # ── Cheap/fast leg (RouteLLM weak model) ──
+  # ── Cheap/fast leg ──
   - model_name: fast
     litellm_params:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
-  # ── RouteLLM: one model that routes strong(claude-opus) vs weak(fast) ──
-  # `router/mf` is RouteLLM's matrix-factorization router; threshold tunes the
-  # cost/quality split. Calls to model "smart" get routed automatically.
-  - model_name: smart
-    litellm_params:
-      model: router/mf
-      strong_model: anthropic/claude-opus-4-8
-      weak_model: openai/gpt-4o-mini
-      api_key: os.environ/ANTHROPIC_API_KEY
+  # NOTE: RouteLLM is pip-installed IN this container (Dockerfile) per the
+  # "LiteLLM and RouteLLM on the same container" requirement. LiteLLM main-stable
+  # does NOT expose RouteLLM as a `model: router/mf` provider in model_list (it
+  # errors "LLM Provider NOT provided"), so a routed "smart" model is wired via
+  # RouteLLM's own OpenAI-compatible server (`python -m routellm.openai_server`)
+  # as a follow-up, then added here as `model: openai/router-mf-<threshold>` with
+  # api_base pointing at localhost. For now the proxy serves the explicit models.
 
 litellm_settings:
   drop_params: true
   num_retries: 2
   request_timeout: 600
-  # RouteLLM threshold — fraction of calls sent to the strong model (0..1).
-  # Tune against your own win-rate data; 0.5 is a balanced default.
-  routellm_settings:
-    routellm_default_threshold: 0.5
 
 router_settings:
   routing_strategy: simple-shuffle
-  # Fallback chain: if the routed model errors, degrade premium → fast.
+  # Fallback chain: premium → cheap if a model errors.
   fallbacks:
-    - smart: ["claude-opus", "fast"]
+    - claude-opus: ["gpt-5", "fast"]
 
 general_settings:
   # Master key gates the proxy. Set LITELLM_MASTER_KEY as a wrangler secret.
