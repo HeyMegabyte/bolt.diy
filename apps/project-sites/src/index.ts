@@ -38,7 +38,11 @@ import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
-import { addBreadcrumb as sentryBreadcrumb, setTag as sentrySetTag, captureError } from './lib/sentry.js';
+import {
+  addBreadcrumb as sentryBreadcrumb,
+  setTag as sentrySetTag,
+  captureError,
+} from './lib/sentry.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise) IdP, ships dark
@@ -572,7 +576,11 @@ app.post('/api/internal/build-status', async (c) => {
   // hid failures (a finished build that never flips the claim session / never emails
   // the owner). Capture to Sentry with context (no-ops without SENTRY_DSN).
   const finalize = maybeCompleteClaimBuild(c.env, jobId, payload.status ?? '').catch((e) =>
-    captureError(c, e, { path: 'build_status_finalize', job_id: jobId, status: payload.status ?? null }),
+    captureError(c, e, {
+      path: 'build_status_finalize',
+      job_id: jobId,
+      status: payload.status ?? null,
+    }),
   );
   if (ec) ec.waitUntil(finalize);
   else await finalize;
