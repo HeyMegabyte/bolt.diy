@@ -1354,9 +1354,19 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     env: [
       { key: 'DB_HOST', description: 'Postgres host', required: true, auto: 'postgres_url' },
       { key: 'DB_PORT', description: 'Postgres port', required: true, auto: 'postgres_url' },
-      { key: 'DB_NAME', description: 'Postgres database name', required: true, auto: 'postgres_url' },
+      {
+        key: 'DB_NAME',
+        description: 'Postgres database name',
+        required: true,
+        auto: 'postgres_url',
+      },
       { key: 'DB_USERNAME', description: 'Postgres user', required: true, auto: 'postgres_url' },
-      { key: 'DB_PASSWORD', description: 'Postgres password', required: true, auto: 'postgres_url' },
+      {
+        key: 'DB_PASSWORD',
+        description: 'Postgres password',
+        required: true,
+        auto: 'postgres_url',
+      },
       {
         key: 'REDIS_URL',
         description: 'Redis URL for the job queue + session cache (Upstash)',
