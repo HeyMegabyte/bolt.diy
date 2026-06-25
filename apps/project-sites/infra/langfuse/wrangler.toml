@@ -1,0 +1,42 @@
+name = "projectsites-langfuse"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# traces.projectsites.dev → this container worker. At cutover: the explicit Workers
+# route traces.projectsites.dev/* → projectsites-langfuse beats the *.projectsites.dev/*
+# wildcard (per the listmonk-mail lesson). `traces` was already removed from the main
+# worker's system_service_landing map, so no shim conflict.
+routes = [
+  { pattern = "traces.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "Langfuse"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-langfuse"
+
+[[durable_objects.bindings]]
+name = "LANGFUSE"
+class_name = "Langfuse"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Langfuse"]
+
+# Secrets to set before deploy (wrangler secret put ...):
+#   DATABASE_URL     (Neon postgresql://...?sslmode=require — standard/Prisma, NOT asyncpg;
+#                     create the DB in the shared project per neon-database-conservation)
+#   NEXTAUTH_SECRET  (openssl rand -base64 32)
+#   SALT             (openssl rand -base64 32)
+#   ENCRYPTION_KEY   (openssl rand -hex 32 → 64 hex chars)
+# NEXTAUTH_URL is a [vars] value (public origin).
+[vars]
+NEXTAUTH_URL = "https://traces.projectsites.dev"
