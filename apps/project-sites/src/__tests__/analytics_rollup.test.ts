@@ -57,7 +57,7 @@ describe('analytics_rollup (AN5 — daily visitor_events → analytics_daily)', 
     expect(res.error).toBeNull();
     // 1 scalar INSERT + 4 breakdown UPDATEs (top_paths/channel/device/country).
     expect(calls.length).toBe(1 + BREAKDOWN_UPDATES.length);
-    expect(calls.length).toBe(5);
+    expect(calls.length).toBe(6);
     expect(calls[0].sql).toContain('INSERT INTO analytics_daily');
     expect(calls[0].params).toEqual(['2026-06-24', '2026-06-24']);
     // every breakdown UPDATE is scoped to the same day with a single param
@@ -67,13 +67,14 @@ describe('analytics_rollup (AN5 — daily visitor_events → analytics_daily)', 
     }
   });
 
-  it('BREAKDOWN_UPDATES cover the four dimensions with json_group_array', () => {
+  it('BREAKDOWN_UPDATES cover the five dimensions with json_group_array', () => {
     const joined = BREAKDOWN_UPDATES.join('\n');
-    expect(BREAKDOWN_UPDATES.length).toBe(4);
+    expect(BREAKDOWN_UPDATES.length).toBe(5);
     expect(joined).toContain('top_paths_json');
     expect(joined).toContain('by_channel_json');
     expect(joined).toContain('by_device_json');
     expect(joined).toContain('by_country_json');
+    expect(joined).toContain('by_type_json');
     expect(joined).toContain('json_group_array');
     expect(joined).toContain("json_extract(ve.metadata, '$.channel')");
   });

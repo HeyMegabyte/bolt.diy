@@ -75,6 +75,16 @@ UPDATE analytics_daily SET top_paths_json = (
   metaBreakdownUpdate('by_channel_json', 'channel'),
   metaBreakdownUpdate('by_device_json', 'device'),
   metaBreakdownUpdate('by_country_json', 'country'),
+  // Event-type mix over ALL events (not just pageviews), mirroring byType.
+  `
+UPDATE analytics_daily SET by_type_json = (
+  SELECT json_group_array(json_object('type', t, 'count', c)) FROM (
+    SELECT ve.event_type AS t, COUNT(*) AS c
+    FROM visitor_events ve
+    WHERE ve.site_id = analytics_daily.site_id AND date(ve.created_at) = analytics_daily.day
+    GROUP BY ve.event_type ORDER BY c DESC
+  )
+) WHERE day = ?`.trim(),
 ];
 
 /**
