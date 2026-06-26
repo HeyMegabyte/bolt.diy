@@ -43,6 +43,17 @@ describe('TrafficTrendComponent (AN5 follow-on — daily traffic trend)', () => 
     expect(c.barPct(45)).toBe(50);
   });
 
+  it('switches the plotted metric — visitors / conversions are already on the wire', () => {
+    const c = setup('s1').fixture.componentInstance;
+    expect(c.totalPageviews()).toBe(112); // pageviews 90+4+18
+    c.metric.set('uniqueSessions');
+    expect(c.totalPageviews()).toBe(42); // visitors 28+4+10
+    expect(c.metricLabel()).toBe('visitors');
+    c.metric.set('conversions');
+    expect(c.totalPageviews()).toBe(2); // conversions 0+0+2
+    expect(c.maxPv()).toBe(2);
+  });
+
   it('shows an empty state when the rollup has no days yet', () => {
     const el = setup('s1', { empty: true }).fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="tt-empty"]')).toBeTruthy();
