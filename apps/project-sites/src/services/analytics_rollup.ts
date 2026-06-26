@@ -45,6 +45,38 @@ ON CONFLICT(site_id, day) DO UPDATE SET
   updated_at = datetime('now')
 `.trim();
 
+/** UPDATE that sets one `json_extract`-dimension breakdown column for a day. */
+function metaBreakdownUpdate(column: string, metaKey: string): string {
+  return `
+UPDATE analytics_daily SET ${column} = (
+  SELECT json_group_array(json_object('label', label, 'count', c)) FROM (
+    SELECT json_extract(ve.metadata, '$.${metaKey}') AS label, COUNT(*) AS c
+    FROM visitor_events ve
+    WHERE ve.site_id = analytics_daily.site_id AND date(ve.created_at) = analytics_daily.day
+      AND ve.event_type = 'pageview'
+    GROUP BY label ORDER BY c DESC
+  )
+) WHERE day = ?`.trim();
+}
+
+/** Per-dimension breakdown UPDATEs, run after the scalar INSERT for the same day. */
+export const BREAKDOWN_UPDATES: ReadonlyArray<string> = [
+  // Top pages by views (path, not metadata).
+  `
+UPDATE analytics_daily SET top_paths_json = (
+  SELECT json_group_array(json_object('path', path, 'count', c)) FROM (
+    SELECT ve.path AS path, COUNT(*) AS c
+    FROM visitor_events ve
+    WHERE ve.site_id = analytics_daily.site_id AND date(ve.created_at) = analytics_daily.day
+      AND ve.event_type = 'pageview' AND ve.path IS NOT NULL
+    GROUP BY ve.path ORDER BY c DESC LIMIT 10
+  )
+) WHERE day = ?`.trim(),
+  metaBreakdownUpdate('by_channel_json', 'channel'),
+  metaBreakdownUpdate('by_device_json', 'device'),
+  metaBreakdownUpdate('by_country_json', 'country'),
+];
+
 /**
  * Roll up one UTC day of `visitor_events` into `analytics_daily`.
  *
@@ -63,5 +95,10 @@ export async function rollupAnalyticsDaily(
 ): Promise<{ day: string; changes: number; error: string | null }> {
   const target = day ?? utcDayBefore(new Date());
   const res = await dbExecute(env.DB, ROLLUP_SQL, [target, target]);
+  // Fill the per-dimension breakdown JSON columns for the rows just upserted.
+  // Best-effort: a breakdown failure must not lose the scalar rollup.
+  for (const sql of BREAKDOWN_UPDATES) {
+    await dbExecute(env.DB, sql, [target]);
+  }
   return { day: target, changes: res.changes, error: res.error };
 }

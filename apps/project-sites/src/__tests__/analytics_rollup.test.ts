@@ -1,4 +1,9 @@
-import { rollupAnalyticsDaily, utcDayBefore, ROLLUP_SQL } from '../services/analytics_rollup.js';
+import {
+  rollupAnalyticsDaily,
+  utcDayBefore,
+  ROLLUP_SQL,
+  BREAKDOWN_UPDATES,
+} from '../services/analytics_rollup.js';
 import type { Env } from '../types/env.js';
 
 interface Captured {
@@ -44,15 +49,33 @@ describe('analytics_rollup (AN5 — daily visitor_events → analytics_daily)', 
     expect(ROLLUP_SQL).toContain('GROUP BY site_id, org_id');
   });
 
-  it('rolls up an explicit day, binding the day to both ? placeholders', async () => {
+  it('rolls up an explicit day: scalar INSERT + one UPDATE per breakdown dimension', async () => {
     const { env, calls } = stubEnv(5);
     const res = await rollupAnalyticsDaily(env, '2026-06-24');
     expect(res.day).toBe('2026-06-24');
     expect(res.changes).toBe(5);
     expect(res.error).toBeNull();
-    expect(calls.length).toBe(1);
-    expect(calls[0].sql).toContain('analytics_daily');
+    // 1 scalar INSERT + 4 breakdown UPDATEs (top_paths/channel/device/country).
+    expect(calls.length).toBe(1 + BREAKDOWN_UPDATES.length);
+    expect(calls.length).toBe(5);
+    expect(calls[0].sql).toContain('INSERT INTO analytics_daily');
     expect(calls[0].params).toEqual(['2026-06-24', '2026-06-24']);
+    // every breakdown UPDATE is scoped to the same day with a single param
+    for (let i = 1; i < calls.length; i++) {
+      expect(calls[i].sql).toContain('UPDATE analytics_daily SET');
+      expect(calls[i].params).toEqual(['2026-06-24']);
+    }
+  });
+
+  it('BREAKDOWN_UPDATES cover the four dimensions with json_group_array', () => {
+    const joined = BREAKDOWN_UPDATES.join('\n');
+    expect(BREAKDOWN_UPDATES.length).toBe(4);
+    expect(joined).toContain('top_paths_json');
+    expect(joined).toContain('by_channel_json');
+    expect(joined).toContain('by_device_json');
+    expect(joined).toContain('by_country_json');
+    expect(joined).toContain('json_group_array');
+    expect(joined).toContain("json_extract(ve.metadata, '$.channel')");
   });
 
   it('defaults to yesterday when no day is given', async () => {
