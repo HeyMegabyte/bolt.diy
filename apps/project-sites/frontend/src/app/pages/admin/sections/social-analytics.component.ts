@@ -20,6 +20,7 @@ import { ApiService } from '../../../services/api.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
 import { BestTimeToPostComponent } from './best-time-to-post.component';
+import { BestPostsComponent } from './best-posts.component';
 import {
   WidgetRendererComponent,
 } from './dashboard/widgets';
@@ -60,7 +61,7 @@ interface AggregateResponse {
   selector: 'app-social-analytics',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, SkeletonComponent, ErrorCardComponent, BestTimeToPostComponent],
+  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, SkeletonComponent, ErrorCardComponent, BestTimeToPostComponent, BestPostsComponent],
   template: `
     <section class="page" appReveal data-testid="social-analytics-section">
       <header class="page-hd">
@@ -122,8 +123,9 @@ interface AggregateResponse {
           </table>
         </section>
 
-        <!-- best_times was on the wire with no UI — surface it. -->
+        <!-- best_times + best_posts were on the wire with no UI — surface them. -->
         <app-best-time-to-post [bestTimes]="data()!.best_times" />
+        <app-best-posts [posts]="data()!.best_posts" />
       }
     </section>
   `,
