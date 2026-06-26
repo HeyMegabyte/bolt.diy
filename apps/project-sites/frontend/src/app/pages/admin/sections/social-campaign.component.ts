@@ -133,14 +133,37 @@ interface CampaignResult {
             <p class="lede">Created <strong>{{ r.drafts_created }}</strong> draft posts across
               <strong>{{ r.length }}</strong> days.
               <a routerLink="/admin/social">Review &amp; schedule →</a></p>
-            <table>
-              <thead><tr><th scope="col">Date</th><th scope="col">Post type</th></tr></thead>
-              <tbody>
-                @for (d of r.drafts; track d.id) {
-                  <tr><td>{{ d.date }}</td><td>{{ prettyType(d.post_type) }}</td></tr>
-                }
-              </tbody>
-            </table>
+            <div class="view-toggle" role="tablist" aria-label="Result view">
+              <button type="button" role="tab" [class.active]="view() === 'calendar'" (click)="view.set('calendar')" data-testid="campaign-view-calendar">Calendar</button>
+              <button type="button" role="tab" [class.active]="view() === 'list'" (click)="view.set('list')" data-testid="campaign-view-list">List</button>
+            </div>
+
+            @if (view() === 'calendar') {
+              <div class="cal" data-testid="campaign-calendar">
+                <div class="cal-hd">
+                  @for (w of weekdayLabels; track w) { <span>{{ w }}</span> }
+                </div>
+                <div class="cal-grid">
+                  @for (cell of calendarDays(); track cell.iso) {
+                    <div class="cal-day" [class.out]="!cell.inRange" [attr.title]="cell.iso">
+                      <span class="dnum">{{ cell.dayNum }}</span>
+                      @for (p of cell.posts; track p.id) {
+                        <span class="chip" [attr.title]="prettyType(p.post_type)">{{ shortType(p.post_type) }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            } @else {
+              <table>
+                <thead><tr><th scope="col">Date</th><th scope="col">Post type</th></tr></thead>
+                <tbody>
+                  @for (d of r.drafts; track d.id) {
+                    <tr><td>{{ d.date }}</td><td>{{ prettyType(d.post_type) }}</td></tr>
+                  }
+                </tbody>
+              </table>
+            }
             @if (scheduledCount() === null) {
               <button
                 type="button"
@@ -206,6 +229,16 @@ interface CampaignResult {
       .schedule-all { margin-top: 14px; }
       .scheduled-ok { color: var(--ps-accent, #00e5ff); font-size: 0.9rem; margin-top: 14px; }
       .sched-err { color: #ff7a8a; font-size: 0.85rem; margin-top: 8px; }
+      .view-toggle { display: flex; gap: 4px; margin: 4px 0 14px; }
+      .view-toggle button { padding: 5px 12px; background: rgba(0, 229, 255, 0.06); border: 1px solid rgba(0, 229, 255, 0.12); color: var(--ps-ink, #f4f4ff); border-radius: 8px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+      .view-toggle button.active { background: rgba(0, 229, 255, 0.2); border-color: rgba(0, 229, 255, 0.5); }
+      .cal-hd { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+      .cal-hd span { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.5; text-align: center; }
+      .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+      .cal-day { min-height: 52px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.06); background: rgba(255, 255, 255, 0.02); padding: 3px 4px; display: flex; flex-direction: column; gap: 2px; }
+      .cal-day.out { opacity: 0.3; }
+      .cal-day .dnum { font-size: 0.66rem; opacity: 0.55; font-family: 'JetBrains Mono', monospace; }
+      .cal-day .chip { font-size: 0.6rem; background: rgba(0, 229, 255, 0.16); border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 5px; padding: 1px 4px; line-height: 1.3; }
       table { width: 100%; border-collapse: collapse; }
       th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.88rem; font-weight: 400; }
       thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; }
@@ -237,6 +270,41 @@ export class AdminSocialCampaignComponent implements OnInit {
   scheduling = signal(false);
   scheduledCount = signal<number | null>(null);
   scheduleError = signal('');
+
+  view = signal<'calendar' | 'list'>('calendar');
+  readonly weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+  /** Week-aligned (Sun-start) day grid for the campaign, with posts bucketed per day. */
+  calendarDays = computed(() => {
+    const r = this.result();
+    if (!r || r.drafts.length === 0) return [];
+    const isos = r.drafts.map((d) => d.date).sort();
+    const firstIso = isos[0];
+    const lastIso = isos[isos.length - 1];
+    const byDate = new Map<string, CampaignDraft[]>();
+    for (const d of r.drafts) {
+      const arr = byDate.get(d.date) ?? [];
+      arr.push(d);
+      byDate.set(d.date, arr);
+    }
+    const DAY = 86_400_000;
+    const start = new Date(`${firstIso}T00:00:00Z`);
+    start.setUTCDate(start.getUTCDate() - start.getUTCDay()); // back to Sunday
+    const end = new Date(`${lastIso}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + (6 - end.getUTCDay())); // forward to Saturday
+    const days: { iso: string; dayNum: number; inRange: boolean; posts: CampaignDraft[] }[] = [];
+    for (let t = start.getTime(); t <= end.getTime(); t += DAY) {
+      const dt = new Date(t);
+      const iso = dt.toISOString().slice(0, 10);
+      days.push({
+        iso,
+        dayNum: dt.getUTCDate(),
+        inRange: iso >= firstIso && iso <= lastIso,
+        posts: byDate.get(iso) ?? [],
+      });
+    }
+    return days;
+  });
 
   /** Gate the submit: business name + ≥1 account + not already running (double-submit guard). */
   canGenerate = computed(
@@ -290,6 +358,12 @@ export class AdminSocialCampaignComponent implements OnInit {
       .split('_')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
+  }
+
+  /** Compact archetype label for calendar chips (first segment, capitalized). */
+  shortType(t: string): string {
+    const first = t.split('_')[0] ?? t;
+    return first.charAt(0).toUpperCase() + first.slice(1);
   }
 
   generate(): void {

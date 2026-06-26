@@ -173,4 +173,30 @@ describe('AdminSocialCampaignComponent', () => {
     c.scheduleAll();
     expect(post).not.toHaveBeenCalled();
   });
+
+  it('calendarDays buckets drafts into a week-aligned grid', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })), okPost());
+    c.result.set({
+      length: 7,
+      slot_count: 2,
+      drafts_created: 2,
+      drafts: [
+        { id: 'p1', date: '2026-07-01', post_type: 'gbp_update' },
+        { id: 'p2', date: '2026-07-03', post_type: 'faq_answer' },
+      ],
+    });
+    const days = c.calendarDays();
+    expect(days.length % 7).toBe(0); // padded to whole weeks
+    const d1 = days.find((d) => d.iso === '2026-07-01');
+    expect(d1?.posts.length).toBe(1);
+    expect(d1?.inRange).toBe(true);
+    // Only 2026-07-01..03 are in range (3 days); padding days are out.
+    expect(days.filter((d) => d.inRange).length).toBe(3);
+  });
+
+  it('shortType compacts archetype labels', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })), okPost());
+    expect(c.shortType('service_spotlight')).toBe('Service');
+    expect(c.shortType('faq_answer')).toBe('Faq');
+  });
 });
