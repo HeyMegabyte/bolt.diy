@@ -369,6 +369,32 @@ export function planCampaign(spec: CampaignSpec, signals: CampaignSignals): Camp
 // Orchestrator
 // ---------------------------------------------------------------------------
 
+/** Marketing-slop words a publish-ready social post should never contain. */
+export const SLOP_WORDS = [
+  'seamless',
+  'leverage',
+  'unlock',
+  'limitless',
+  'revolutionize',
+  'cutting-edge',
+  'world-class',
+  'elevate',
+  'unleash',
+  'game-changer',
+  'synergy',
+  'supercharge',
+] as const;
+
+/** Pure: the slop words present in `text` (case-insensitive, word-boundary, deduped). */
+export function findSlopWords(text: string): string[] {
+  const hits = new Set<string>();
+  for (const w of SLOP_WORDS) {
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`\\b${escaped}\\b`, 'i').test(text)) hits.add(w);
+  }
+  return [...hits];
+}
+
 /** A created draft row summary returned to the caller. */
 export interface CampaignDraftRef {
   id: string;
@@ -407,7 +433,7 @@ export async function generateCampaignDrafts(
   spec: CampaignSpec,
   signals: CampaignSignals,
   opts: { contentFn?: SlotContentFn } = {},
-): Promise<{ plan: CampaignPlan; drafts: CampaignDraftRef[] }> {
+): Promise<{ plan: CampaignPlan; drafts: CampaignDraftRef[]; regenerated: number }> {
   const plan = planCampaign(spec, signals);
   const network = (spec.network as Platform | undefined) ?? 'facebook';
   const contentFn: SlotContentFn =
@@ -415,12 +441,28 @@ export async function generateCampaignDrafts(
     ((net, template) => generateAutoPilotPostForNetwork(env, ownerOrgId, net, template));
 
   const drafts: CampaignDraftRef[] = [];
+  let regenerated = 0;
   for (const slot of plan.slots) {
     const template = `${DEFAULT_AUTO_PILOT_PROMPT}\n\nThis specific post is a "${slot.post_type}" post.\nAngle: ${slot.angle}`;
     let text: string;
     try {
       const out = await contentFn(network, template);
       text = out.text;
+      // Quality safeguard: if the model slipped in slop words, retry ONCE with
+      // an explicit ban so drafts stay publish-ready, not AI-flavored.
+      const slop = findSlopWords(text);
+      if (slop.length > 0) {
+        const harder = `${template}\n\nIMPORTANT: do NOT use these words: ${slop.join(', ')}. Rewrite the post naturally without them.`;
+        try {
+          const retry = await contentFn(network, harder);
+          if (findSlopWords(retry.text).length < slop.length) {
+            text = retry.text;
+            regenerated++;
+          }
+        } catch {
+          /* keep the first draft if the retry fails */
+        }
+      }
     } catch (err) {
       // One bad slot never aborts the campaign — log + skip per fail-soft-prod.
       console.warn(
@@ -456,5 +498,5 @@ export async function generateCampaignDrafts(
     if (!error) drafts.push({ id, date: slot.date, post_type: slot.post_type });
   }
 
-  return { plan, drafts };
+  return { plan, drafts, regenerated };
 }

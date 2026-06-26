@@ -301,7 +301,7 @@ socialRoutes.post('/api/social/campaign', zValidator('json', CampaignRequestSche
     );
   }
 
-  const { plan, drafts } = await generateCampaignDrafts(
+  const { plan, drafts, regenerated } = await generateCampaignDrafts(
     c.env,
     ctx.orgId,
     ctx.userId,
@@ -314,6 +314,7 @@ socialRoutes.post('/api/social/campaign', zValidator('json', CampaignRequestSche
         length: plan.length,
         slot_count: plan.slot_count,
         drafts_created: drafts.length,
+        copy_polished: regenerated,
         drafts,
       },
     },

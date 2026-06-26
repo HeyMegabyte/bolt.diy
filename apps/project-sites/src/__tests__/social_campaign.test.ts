@@ -13,6 +13,7 @@ import {
   planCampaign,
   generateCampaignDrafts,
   loadCampaignPrefill,
+  findSlopWords,
   CampaignSpecSchema,
   CAMPAIGN_POST_TYPES,
   type CampaignSpec,
@@ -332,5 +333,65 @@ describe('loadCampaignPrefill — research-derived signals', () => {
     expect(pre.services).toEqual([]);
     expect(pre.has_photos).toBe(false);
     expect(pre.business_name).toBe('NoId');
+  });
+});
+
+describe('findSlopWords', () => {
+  it('detects slop words case-insensitively on word boundaries', () => {
+    const hits = findSlopWords('We LEVERAGE seamless synergy to unlock value');
+    expect(hits).toEqual(expect.arrayContaining(['leverage', 'seamless', 'synergy', 'unlock']));
+  });
+
+  it('does not match a slop word embedded in a larger word', () => {
+    expect(findSlopWords('She unlocked the door and elevated her game')).not.toContain('unlock');
+  });
+
+  it('returns [] for clean, human copy', () => {
+    expect(findSlopWords('Fresh fades all week — walk-ins welcome.')).toEqual([]);
+  });
+});
+
+describe('generateCampaignDrafts — slop quality safeguard', () => {
+  it('retries a slop-laden draft once and saves the cleaner copy', async () => {
+    const captured: CapturedInsert[] = [];
+    const env = fakeEnv(captured);
+    // First attempt per slot returns slop; the "do NOT use these words" retry is clean.
+    const contentFn = jest.fn(async (_net: string, template: string) =>
+      /do NOT use these words/.test(template)
+        ? { text: 'Fresh fades all week.' }
+        : { text: 'We leverage seamless cuts.' },
+    );
+
+    const { drafts, regenerated, plan } = await generateCampaignDrafts(
+      env,
+      'org-1',
+      'user-1',
+      baseSpec,
+      richSignals,
+      { contentFn },
+    );
+
+    expect(regenerated).toBe(plan.slot_count); // every slot was slop-first → retried
+    expect(drafts).toHaveLength(plan.slot_count);
+    // The persisted content is the clean retry, never the sloppy first draft.
+    for (const ins of captured) {
+      const hasSlop = ins.vals.some((v) => typeof v === 'string' && /leverage|seamless/i.test(v));
+      expect(hasSlop).toBe(false);
+    }
+  });
+
+  it('does not retry when the first draft is already clean', async () => {
+    const env = fakeEnv([]);
+    const contentFn = jest.fn(async () => ({ text: 'Walk-ins welcome today.' }));
+    const { regenerated, plan } = await generateCampaignDrafts(
+      env,
+      'org-1',
+      'user-1',
+      baseSpec,
+      richSignals,
+      { contentFn },
+    );
+    expect(regenerated).toBe(0);
+    expect(contentFn).toHaveBeenCalledTimes(plan.slot_count); // one call per slot, no retries
   });
 });
