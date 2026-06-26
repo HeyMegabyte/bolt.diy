@@ -307,4 +307,37 @@ describe('GET /api/auth/me', () => {
     const body = await res.json();
     expect(body.error.code).toBe('UNAUTHORIZED');
   });
+
+  // Consistency with the server gate `isSuperAdmin()`: an operator on the email
+  // allowlist must report is_super_admin:true even when the column is unset —
+  // otherwise the route gates admit them but the super-admin UI stays hidden.
+  it('reports is_super_admin:true for an allowlist operator with column unset', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({
+      email: 'Hey@Megabyte.Space', // mixed-case → exercises trim().toLowerCase()
+      display_name: 'Brian',
+      is_super_admin: 0,
+    });
+
+    const { app, env } = createAuthenticatedApp({ userId: 'op-1', orgId: 'org-1' });
+    const res = await makeRequest(app, env, '/api/auth/me');
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.is_super_admin).toBe(true);
+  });
+
+  it('reports is_super_admin:true via the column for a non-allowlist user', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({
+      email: 'staff@example.com',
+      display_name: 'Staff',
+      is_super_admin: 1,
+    });
+
+    const { app, env } = createAuthenticatedApp({ userId: 'op-2', orgId: 'org-1' });
+    const res = await makeRequest(app, env, '/api/auth/me');
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.is_super_admin).toBe(true);
+  });
 });

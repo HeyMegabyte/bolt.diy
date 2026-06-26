@@ -110,6 +110,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { getMemory, setMemory } from '../services/anthropic_memory.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
+import { SYS_ADMIN_EMAILS } from '../services/sysadmin.js';
 import { getTrafficSummary } from '../../libs/features/visitor_events_core/service.js';
 import {
   createSiteSchema,
@@ -754,7 +755,13 @@ api.get('/api/auth/me', async (c) => {
       display_name: user.display_name,
       // Lets the client gate super-admin-only fetches (e.g. the feature-flags
       // override merge) so non-super-admins never trigger a 401 in the console.
-      is_super_admin: !!user.is_super_admin,
+      // MUST mirror the server gate `isSuperAdmin()` EXACTLY (column OR operator
+      // allowlist) — otherwise an allowlist-only operator (column unset) is
+      // admitted by every route gate yet sees `false` here, hiding the
+      // super-admin UI from a user the API already trusts.
+      is_super_admin:
+        !!user.is_super_admin ||
+        (!!user.email && SYS_ADMIN_EMAILS.includes(user.email.trim().toLowerCase())),
     },
   });
 });
