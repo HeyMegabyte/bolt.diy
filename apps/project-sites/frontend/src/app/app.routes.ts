@@ -171,42 +171,12 @@ export const routes: Routes = [
             (m) => m.AdminAnalyticsDashboardComponent,
           ),
       },
-      {
-        // Legacy standalone Live Events route → now a tab under Analytics.
-        // Function redirectTo so the `?tab=live` query param is carried (a static
-        // redirectTo string can't append query params). Keeps old deep links working.
-        path: 'analytics-live',
-        redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=live'),
-        pathMatch: 'full',
-      },
-            {
+                  {
         path: 'billing',
         loadComponent: () =>
           import('./pages/admin/sections/billing.component').then((m) => m.AdminBillingComponent),
       },
-      {
-        // Audit Log merged into the unified /admin/logs dashboard (2026-06-08).
-        // Legacy bookmark → Logs (Audit Trail tab is the default).
-        path: 'audit',
-        redirectTo: 'logs',
-        pathMatch: 'full',
-      },
-      {
-        // Bulk Ops removed from the admin (2026-06-08) → dashboard.
-        path: 'bulk-ops',
-        redirectTo: '',
-        pathMatch: 'full',
-      },
-      {
-        // Email Deliverability (#12) moved UNDER Settings (2026-06-07) — now part
-        // of the "Email" tab of /admin/settings (alongside the send allowance +
-        // bring-your-own-SMTP). The component is embedded there; this legacy path
-        // redirects to the Settings fragment so deep links + palette keep working.
-        path: 'deliverability',
-        redirectTo: () => inject(Router).parseUrl('/admin/settings#email'),
-        pathMatch: 'full',
-      },
-            {
+                              {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
@@ -249,32 +219,7 @@ export const routes: Routes = [
             (m) => m.AdminSiteFeaturesComponent,
           ),
       },
-      {
-        // Content Freshness — Feature #16. AI rewrite drafts for idle sections.
-        // Daily cron (0 6 * * *) scans stale sections; owner approves here.
-        path: 'content-freshness',
-        loadComponent: () =>
-          import('./pages/admin/sections/content-freshness.component').then(
-            (m) => m.AdminContentFreshnessComponent,
-          ),
-      },
-      {
-        // pSEO Matrix Builder — Feature #17. service×city×intent×season pages.
-        // Trigger generation per site; approve/publish via this grid.
-        path: 'pseo',
-        loadComponent: () =>
-          import('./pages/admin/sections/pseo.component').then((m) => m.AdminPseoComponent),
-      },
-      {
-        // SEO — Meta Tags, Google Search Preview, OG/Twitter cards, JSON-LD per
-        // route. Companion surface to the seo_autopilot feature module; landing
-        // page for the autopilot draft-approval flow. Component existed
-        // standalone but was orphaned (not routed) — wired 2026-05-28.
-        path: 'seo',
-        loadComponent: () =>
-          import('./pages/admin/sections/seo.component').then((m) => m.AdminSeoComponent),
-      },
-            {
+                              {
         path: 'forms',
         loadComponent: () =>
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
@@ -311,34 +256,8 @@ export const routes: Routes = [
       // Static redirectTo can't carry a #fragment (it lands on /admin/settings General,
       // not the AI Chat tab). Settings reads the fragment to open its 'ai-chat' tab, so
       // use a functional redirect that preserves it (same fix as /admin/mcp).
-            {
-        // Traces is now a tab under Logs (?tab=traces). Function redirectTo carries
-        // the query param; keeps old deep links + bookmarks working.
-        path: 'traces',
-        redirectTo: () => inject(Router).parseUrl('/admin/logs?tab=traces'),
-        pathMatch: 'full',
-      },
-      // Old name kept for any deep links / bookmarks → the Traces tab under Logs.
-      {
-        path: 'ai-logs',
-        redirectTo: () => inject(Router).parseUrl('/admin/logs?tab=traces'),
-        pathMatch: 'full',
-      },
-      {
-        // AI Agents (née "Endpoints"). DUAL-MOUNT: the component renders here
-        // as a full-page standalone (for /admin/ai-endpoints deep links +
-        // bookmarks) AND inside the in-editor tab strip overlay
-        // (admin.component.html → `<app-admin-ai-endpoints [compact]="true">`)
-        // when the user selects the Agents tab on /admin/editor. The
-        // component honors a `compact` input that shrinks chrome for the
-        // overlay surface — see `.agents--compact` styles in the component.
-        path: 'ai-endpoints',
-        loadComponent: () =>
-          import('./pages/admin/sections/ai-endpoints.component').then(
-            (m) => m.AdminAiEndpointsComponent,
-          ),
-      },
-      {
+                  // Old name kept for any deep links / bookmarks → the Traces tab under Logs.
+                  {
         // Voice — phone numbers, unified call+SMS conversations timeline,
         // browser-mic test console, agent prompt editor + immutable
         // safety meta-prompt, MCP attachments, share surface. Top-level
@@ -347,29 +266,10 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/voice.component').then((m) => m.VoiceComponent),
       },
-      {
-        // Media — Library + Stock Search + Image/Video/Podcast Studios.
-        // DUAL-MOUNT: this route renders the component standalone with full
-        // chrome (for /admin/media deep links + bookmarks + the global
-        // drag-and-drop overlay's post-upload landing). The SAME component
-        // also renders inside the in-editor tab strip overlay
-        // (admin.component.html → `<app-admin-media [compact]="true">`)
-        // when the user selects the Media tab on /admin/editor. The
-        // component honors a `compact` input that shrinks chrome for the
-        // overlay surface — see `.media--compact` styles in the component.
-        path: 'media',
-        loadComponent: () =>
-          import('./pages/admin/sections/media.component').then((m) => m.AdminMediaComponent),
-      },
-      // /admin/mcp → the MCP tab inside Settings. `settings` is a flat route (no
+            // /admin/mcp → the MCP tab inside Settings. `settings` is a flat route (no
       // children), so the old `redirectTo: 'settings/mcp'` 404'd; settings reads the
       // `#mcp` fragment to open the MCP tab, so redirect there with the fragment.
-      {
-        path: 'mcp',
-        redirectTo: () => inject(Router).parseUrl('/admin/settings#mcp'),
-        pathMatch: 'full',
-      },
-      {
+            {
         path: 'settings',
         loadComponent: () =>
           import('./pages/admin/sections/settings.component').then((m) => m.AdminSettingsComponent),
