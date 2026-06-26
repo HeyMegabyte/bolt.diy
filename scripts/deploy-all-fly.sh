@@ -61,6 +61,9 @@ if [[ "${DRY_RUN:-0}" == "true" ]]; then
 fi
 readonly DRY_RUN="${DRY_RUN:-0}"
 readonly ENVIRONMENT="${ENVIRONMENT:-production}"
+# Export so child deploy-*.sh scripts inherit them. (A `VAR=val command` prefix
+# fails on readonly vars in bash — export is the correct propagation.)
+export DRY_RUN ENVIRONMENT
 
 # Ordered service list — override with SERVICES env var for partial runs
 ALL_SERVICES="analytics-ingest telemetry-router support-chatwoot social-postiz"
@@ -135,7 +138,7 @@ for SERVICE in "${ORDERED_SERVICES[@]}"; do
   log "============================================================"
 
   EXIT_CODE=0
-  DRY_RUN="${DRY_RUN}" ENVIRONMENT="${ENVIRONMENT}" bash "${SCRIPT}" \
+  bash "${SCRIPT}" \
     || EXIT_CODE=$?
 
   if [[ "${EXIT_CODE}" -eq 0 ]]; then
