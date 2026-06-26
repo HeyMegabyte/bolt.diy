@@ -13,6 +13,8 @@ on:
       - 'apps/project-sites/src/**'
       - 'apps/project-sites/e2e/**'
       - 'apps/project-sites/playwright.prod.config.ts'
+      - 'apps/project-sites/frontend/e2e/**'
+      - 'apps/project-sites/frontend/playwright.prod.config.ts'
   schedule:
     # Daily smoke against prod at 07:13 UTC (off the :00 mark).
     - cron: '13 7 * * *'
@@ -73,4 +75,60 @@ jobs:
         with:
           name: playwright-prod-report
           path: apps/project-sites/playwright-report/
+          retention-days: 7
+
+  # Frontend admin prod suite (apps/project-sites/frontend/e2e/*.e2e.ts) — the
+  # a11y / reflow / contrast / campaign-generator gates that ran ONLY manually
+  # before. Same fail-open E2E_API_KEY gate as the worker job above. Closes the
+  # frontend CLAUDE.md "Known gap" (prod suite not wired into any CI workflow).
+  prod-e2e-frontend:
+    name: Playwright @ prod (frontend admin)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check E2E_API_KEY is configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: |
+          if [ -n "$E2E_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_API_KEY secret not set — skipping frontend prod E2E (fail-open)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.has_key == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+
+      - name: Install deps
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend prod E2E suite
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          PROD_URL: https://projectsites.dev
+        run: npm run test:e2e:prod
+
+      - name: Upload Playwright report
+        if: steps.gate.outputs.has_key == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-prod-report-frontend
+          path: apps/project-sites/frontend/playwright-report/
           retention-days: 7
