@@ -120,7 +120,11 @@ export const errorHandler: ErrorHandler<{
 
     if (err.statusCode >= 500) {
       if (ctx) {
-        createLogger(c.env, ctx, { service: 'error_handler', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId }).error('unhandled_error', { code: err.code, url, method }, err);
+        createLogger(c.env, ctx, {
+          service: 'error_handler',
+          environment: c.env.ENVIRONMENT ?? 'production',
+          request_id: requestId,
+        }).error('unhandled_error', { code: err.code, url, method }, err);
         posthog.trackError(c.env, ctx, err.code, err.message, {
           request_id: requestId,
           status: err.statusCode,
@@ -253,7 +257,11 @@ export const errorHandler: ErrorHandler<{
       }),
     );
     if (ctx) {
-      createLogger(c.env, ctx, { service: 'error_handler', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId }).error('storage_unavailable', { code: 'STORAGE_UNAVAILABLE', url, method }, err);
+      createLogger(c.env, ctx, {
+        service: 'error_handler',
+        environment: c.env.ENVIRONMENT ?? 'production',
+        request_id: requestId,
+      }).error('storage_unavailable', { code: 'STORAGE_UNAVAILABLE', url, method }, err);
     }
     const friendly = "We're doing a quick update — back in a moment.";
     if (isHtml) {
@@ -290,7 +298,11 @@ export const errorHandler: ErrorHandler<{
   );
 
   if (ctx) {
-    createLogger(c.env, ctx, { service: 'error_handler', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId }).error('unhandled_error', { url, method }, err);
+    createLogger(c.env, ctx, {
+      service: 'error_handler',
+      environment: c.env.ENVIRONMENT ?? 'production',
+      request_id: requestId,
+    }).error('unhandled_error', { url, method }, err);
     posthog.trackError(c.env, ctx, 'INTERNAL_ERROR', errorMessage, { request_id: requestId, url });
   }
 

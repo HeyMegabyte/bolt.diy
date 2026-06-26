@@ -575,7 +575,15 @@ app.post('/api/internal/build-status', async (c) => {
   // hid failures (a finished build that never flips the claim session / never emails
   // the owner).
   const finalize = maybeCompleteClaimBuild(c.env, jobId, payload.status ?? '').catch((e) => {
-    console.warn(JSON.stringify({ level: 'error', service: 'build_status_finalize', job_id: jobId, status: payload.status ?? null, message: e instanceof Error ? e.message : String(e) }));
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'build_status_finalize',
+        job_id: jobId,
+        status: payload.status ?? null,
+        message: e instanceof Error ? e.message : String(e),
+      }),
+    );
   });
   if (ec) ec.waitUntil(finalize);
   else await finalize;
@@ -1193,14 +1201,16 @@ export default {
           // orchestration. Log failures (not mere backlog, which is
           // transient under load).
           if (health.hasFailures) {
-            console.warn(JSON.stringify({
-              level: 'warn',
-              service: 'cron_outbox',
-              message: 'Outbox events failing dispatch (heading to dead-letter)',
-              read: summary.read,
-              dispatched: summary.dispatched,
-              failed: summary.failed,
-            }));
+            console.warn(
+              JSON.stringify({
+                level: 'warn',
+                service: 'cron_outbox',
+                message: 'Outbox events failing dispatch (heading to dead-letter)',
+                read: summary.read,
+                dispatched: summary.dispatched,
+                failed: summary.failed,
+              }),
+            );
           }
         }
       } catch (err) {

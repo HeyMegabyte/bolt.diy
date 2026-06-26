@@ -202,15 +202,16 @@ describe('createAnalytics', () => {
   it('calls posthog capture with the correct event and distinctId', async () => {
     const ctx = makeCtx();
     const env = makeEnv();
-    const analytics = createAnalytics(
-      env as unknown as Parameters<typeof createAnalytics>[0],
-      ctx,
-    );
+    const analytics = createAnalytics(env as unknown as Parameters<typeof createAnalytics>[0], ctx);
 
     await analytics.capture('site.published', { distinct_id: 'user_123', site_id: 's_456' });
 
     expect(captureMock).toHaveBeenCalledTimes(1);
-    const [, , event] = captureMock.mock.calls[0] as [unknown, unknown, { event: string; distinctId: string }];
+    const [, , event] = captureMock.mock.calls[0] as [
+      unknown,
+      unknown,
+      { event: string; distinctId: string },
+    ];
     expect(event.event).toBe('site.published');
     expect(event.distinctId).toBe('user_123');
   });
@@ -218,29 +219,31 @@ describe('createAnalytics', () => {
   it('falls back to "anonymous" distinctId when not provided', async () => {
     const ctx = makeCtx();
     const env = makeEnv();
-    const analytics = createAnalytics(
-      env as unknown as Parameters<typeof createAnalytics>[0],
-      ctx,
-    );
+    const analytics = createAnalytics(env as unknown as Parameters<typeof createAnalytics>[0], ctx);
 
     await analytics.capture('page.view', { path: '/' });
 
-    const [, , event] = captureMock.mock.calls[0] as [unknown, unknown, { event: string; distinctId: string }];
+    const [, , event] = captureMock.mock.calls[0] as [
+      unknown,
+      unknown,
+      { event: string; distinctId: string },
+    ];
     expect(event.distinctId).toBe('anonymous');
   });
 
   it('identify emits a $identify event', () => {
     const ctx = makeCtx();
     const env = makeEnv();
-    const analytics = createAnalytics(
-      env as unknown as Parameters<typeof createAnalytics>[0],
-      ctx,
-    );
+    const analytics = createAnalytics(env as unknown as Parameters<typeof createAnalytics>[0], ctx);
 
     analytics.identify('user_789', { plan: 'pro' });
 
     expect(captureMock).toHaveBeenCalledTimes(1);
-    const [, , event] = captureMock.mock.calls[0] as [unknown, unknown, { event: string; distinctId: string }];
+    const [, , event] = captureMock.mock.calls[0] as [
+      unknown,
+      unknown,
+      { event: string; distinctId: string },
+    ];
     expect(event.event).toBe('$identify');
     expect(event.distinctId).toBe('user_789');
   });

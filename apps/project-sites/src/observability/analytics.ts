@@ -74,9 +74,7 @@ export function createAnalytics(env: Env, ctx: ExecutionContext): ProductAnalyti
   return {
     async capture(event: string, properties: Record<string, unknown>): Promise<void> {
       const distinctId =
-        typeof properties['distinct_id'] === 'string'
-          ? properties['distinct_id']
-          : 'anonymous';
+        typeof properties['distinct_id'] === 'string' ? properties['distinct_id'] : 'anonymous';
       capture(env, ctx, { event, distinctId, properties });
     },
 

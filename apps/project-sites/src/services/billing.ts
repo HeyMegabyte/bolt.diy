@@ -272,7 +272,19 @@ export async function createCheckoutSession(
         error: msg,
       }),
     );
-    console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Stripe checkout error', stripe_error_code: stripeCode, stripe_error_type: 'api_connection_error', org_id: opts.orgId, site_id: opts.siteId ?? null, site_slug: siteSlug, raw: msg.slice(0, 500) }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing',
+        message: 'Stripe checkout error',
+        stripe_error_code: stripeCode,
+        stripe_error_type: 'api_connection_error',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        site_slug: siteSlug,
+        raw: msg.slice(0, 500),
+      }),
+    );
     await writeAuditLog(db, {
       org_id: opts.orgId,
       actor_id: null,
@@ -301,7 +313,20 @@ export async function createCheckoutSession(
         stripe_message: stripeMsg,
       }),
     );
-    console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Stripe checkout error', stripe_error_code: stripeCode, stripe_error_type: stripeType, stripe_status: response.status, org_id: opts.orgId, site_id: opts.siteId ?? null, site_slug: siteSlug, stripe_message: stripeMsg }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing',
+        message: 'Stripe checkout error',
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_status: response.status,
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        site_slug: siteSlug,
+        stripe_message: stripeMsg,
+      }),
+    );
     await writeAuditLog(db, {
       org_id: opts.orgId,
       actor_id: null,
@@ -418,7 +443,20 @@ export async function createEmbeddedCheckoutSession(
         error: msg,
       }),
     );
-    console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Stripe checkout error', stripe_error_code: stripeCode, stripe_error_type: 'api_connection_error', ui_mode: 'embedded', org_id: opts.orgId, site_id: opts.siteId ?? null, site_slug: siteSlug, raw: msg.slice(0, 500) }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing',
+        message: 'Stripe checkout error',
+        stripe_error_code: stripeCode,
+        stripe_error_type: 'api_connection_error',
+        ui_mode: 'embedded',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        site_slug: siteSlug,
+        raw: msg.slice(0, 500),
+      }),
+    );
     await writeAuditLog(db, {
       org_id: opts.orgId,
       actor_id: null,
@@ -447,7 +485,21 @@ export async function createEmbeddedCheckoutSession(
         stripe_message: stripeMsg,
       }),
     );
-    console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Stripe checkout error', stripe_error_code: stripeCode, stripe_error_type: stripeType, stripe_status: response.status, ui_mode: 'embedded', org_id: opts.orgId, site_id: opts.siteId ?? null, site_slug: siteSlug, stripe_message: stripeMsg }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing',
+        message: 'Stripe checkout error',
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_status: response.status,
+        ui_mode: 'embedded',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        site_slug: siteSlug,
+        stripe_message: stripeMsg,
+      }),
+    );
     await writeAuditLog(db, {
       org_id: opts.orgId,
       actor_id: null,
@@ -570,7 +622,19 @@ export async function createPaymentIntent(
         stripe_message: stripeMsg,
       }),
     );
-    console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Stripe PaymentIntent error', stripe_error_code: stripeCode, stripe_error_type: stripeType, stripe_status: response.status, org_id: opts.orgId, site_id: opts.siteId ?? null, amount_cents: opts.amountCents }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing',
+        message: 'Stripe PaymentIntent error',
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_status: response.status,
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        amount_cents: opts.amountCents,
+      }),
+    );
     throw badRequest(`Stripe payment failed (${stripeCode}): ${stripeMsg}`);
   }
 

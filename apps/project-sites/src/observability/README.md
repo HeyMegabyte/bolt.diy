@@ -11,11 +11,7 @@ Sentry is **not replaced** — this module adds a new layer alongside existing S
 ## Quick start
 
 ```ts
-import {
-  createLogger,
-  createAnalytics,
-  withTraceContext,
-} from './observability/index.js';
+import { createLogger, createAnalytics, withTraceContext } from './observability/index.js';
 
 // In a Hono middleware:
 app.use('*', async (c, next) => {
@@ -25,7 +21,7 @@ app.use('*', async (c, next) => {
     request_id: c.get('requestId'),
   });
 
-  const log       = createLogger(c.env, c.executionCtx, base);
+  const log = createLogger(c.env, c.executionCtx, base);
   const analytics = createAnalytics(c.env, c.executionCtx);
 
   c.set('log', log);
@@ -46,23 +42,23 @@ await analytics.capture('site.published', {
 
 ## Environment variables
 
-| Variable         | Required for Axiom | Description |
-|------------------|--------------------|-------------|
-| `AXIOM_TOKEN`    | Yes                | Axiom ingest bearer token (`xaat-*`). Set as `wrangler secret`. |
-| `AXIOM_DATASET`  | No                 | Axiom dataset name (default: `'projectsites'`). Set as `wrangler var`. |
-| `AXIOM_ENABLED`  | No                 | Set to `'true'` to enable Axiom ingest (default: off). Set as `wrangler var`. |
-| `LOGS_PUBLIC_URL`| No                 | Public URL for the log exploration UI (e.g. Axiom or Grafana). Exposed to admin. |
+| Variable          | Required for Axiom | Description                                                                      |
+| ----------------- | ------------------ | -------------------------------------------------------------------------------- |
+| `AXIOM_TOKEN`     | Yes                | Axiom ingest bearer token (`xaat-*`). Set as `wrangler secret`.                  |
+| `AXIOM_DATASET`   | No                 | Axiom dataset name (default: `'projectsites'`). Set as `wrangler var`.           |
+| `AXIOM_ENABLED`   | No                 | Set to `'true'` to enable Axiom ingest (default: off). Set as `wrangler var`.    |
+| `LOGS_PUBLIC_URL` | No                 | Public URL for the log exploration UI (e.g. Axiom or Grafana). Exposed to admin. |
 
 Axiom ingest is **off by default** — set `AXIOM_ENABLED=true` to activate.
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `context.ts` | `AppLogContext` interface + `redactSecrets()` |
-| `axiom.ts` | `sendToAxiom()` fire-and-forget ingest |
-| `logger.ts` | `AppLogger` interface + `createLogger()` |
+| File           | Purpose                                            |
+| -------------- | -------------------------------------------------- |
+| `context.ts`   | `AppLogContext` interface + `redactSecrets()`      |
+| `axiom.ts`     | `sendToAxiom()` fire-and-forget ingest             |
+| `logger.ts`    | `AppLogger` interface + `createLogger()`           |
 | `analytics.ts` | `ProductAnalytics` interface + `createAnalytics()` |
-| `otel.ts` | `withTraceContext()` + `traceparentFor()` |
-| `index.ts` | Barrel re-export |
-| `__tests__/` | Jest unit tests |
+| `otel.ts`      | `withTraceContext()` + `traceparentFor()`          |
+| `index.ts`     | Barrel re-export                                   |
+| `__tests__/`   | Jest unit tests                                    |

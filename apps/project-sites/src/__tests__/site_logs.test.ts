@@ -22,7 +22,6 @@ jest.mock('../services/audit.js', () => {
   };
 });
 
-
 jest.mock('../lib/posthog.js', () => ({
   capture: jest.fn(),
   trackAuth: jest.fn(),

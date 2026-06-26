@@ -352,7 +352,25 @@ api.get('/api/auth/magic-link/verify', async (c) => {
     );
   } catch (err) {
     if (c.executionCtx) {
-      createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('magic-link-verify-get failed', { route: 'magic-link-verify-get' }, err instanceof Error ? err : new Error(String(err)));
+      createLogger(
+        c.env,
+        ((): ExecutionContext | undefined => {
+          try {
+            return c.executionCtx;
+          } catch {
+            return undefined;
+          }
+        })(),
+        {
+          service: 'api',
+          environment: c.env.ENVIRONMENT ?? 'production',
+          request_id: c.get('requestId') ?? undefined,
+        },
+      ).error(
+        'magic-link-verify-get failed',
+        { route: 'magic-link-verify-get' },
+        err instanceof Error ? err : new Error(String(err)),
+      );
     }
     posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'failed', 'unknown');
     return c.redirect('/?error=invalid_or_expired_link');
@@ -9976,7 +9994,25 @@ api.post('/api/internal/client-error', async (c) => {
     const userId = typeof body.userId === 'string' ? body.userId.slice(0, 100) : undefined;
 
     if (c.executionCtx) {
-      createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('angular_section_error_boundary', { stack, route, userId, origin: 'angular_section_error_boundary' }, new Error(`client_error: ${message}`));
+      createLogger(
+        c.env,
+        ((): ExecutionContext | undefined => {
+          try {
+            return c.executionCtx;
+          } catch {
+            return undefined;
+          }
+        })(),
+        {
+          service: 'api',
+          environment: c.env.ENVIRONMENT ?? 'production',
+          request_id: c.get('requestId') ?? undefined,
+        },
+      ).error(
+        'angular_section_error_boundary',
+        { stack, route, userId, origin: 'angular_section_error_boundary' },
+        new Error(`client_error: ${message}`),
+      );
     }
 
     console.warn(
@@ -9993,7 +10029,25 @@ api.post('/api/internal/client-error', async (c) => {
   } catch (err) {
     // Defensive: never bubble a 500 from the error sink.
     if (c.executionCtx) {
-      createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('client-error-sink', { route: 'client-error-sink' }, err instanceof Error ? err : new Error(String(err)));
+      createLogger(
+        c.env,
+        ((): ExecutionContext | undefined => {
+          try {
+            return c.executionCtx;
+          } catch {
+            return undefined;
+          }
+        })(),
+        {
+          service: 'api',
+          environment: c.env.ENVIRONMENT ?? 'production',
+          request_id: c.get('requestId') ?? undefined,
+        },
+      ).error(
+        'client-error-sink',
+        { route: 'client-error-sink' },
+        err instanceof Error ? err : new Error(String(err)),
+      );
     }
     return c.json({ ok: false }, 200);
   }
@@ -11256,7 +11310,25 @@ api.post('/api/sites/import-from-url', async (c) => {
       // retry via the existing /admin/sites/:id/reset path.
       const msg = err instanceof Error ? err.message : String(err);
       if (c.executionCtx) {
-        createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('sites import-from-url workflow failed', { route: '/api/sites/import-from-url', siteId }, err instanceof Error ? err : new Error(msg));
+        createLogger(
+          c.env,
+          ((): ExecutionContext | undefined => {
+            try {
+              return c.executionCtx;
+            } catch {
+              return undefined;
+            }
+          })(),
+          {
+            service: 'api',
+            environment: c.env.ENVIRONMENT ?? 'production',
+            request_id: c.get('requestId') ?? undefined,
+          },
+        ).error(
+          'sites import-from-url workflow failed',
+          { route: '/api/sites/import-from-url', siteId },
+          err instanceof Error ? err : new Error(msg),
+        );
       }
       await auditService
         .writeAuditLog(c.env.DB, {

@@ -415,7 +415,20 @@ webhooks.post('/webhooks/stripe', async (c) => {
     } catch {
       webhookCtx = undefined;
     }
-    createLogger(c.env, webhookCtx, { service: 'webhooks', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId ?? undefined }).error('stripe webhook processing failed', { provider: 'stripe', event_type: event.type, webhook_event_id: webhookEventId ?? undefined, request_id: requestId ?? undefined }, err instanceof Error ? err : new Error(String(err)));
+    createLogger(c.env, webhookCtx, {
+      service: 'webhooks',
+      environment: c.env.ENVIRONMENT ?? 'production',
+      request_id: requestId ?? undefined,
+    }).error(
+      'stripe webhook processing failed',
+      {
+        provider: 'stripe',
+        event_type: event.type,
+        webhook_event_id: webhookEventId ?? undefined,
+        request_id: requestId ?? undefined,
+      },
+      err instanceof Error ? err : new Error(String(err)),
+    );
     console.error(
       JSON.stringify({
         level: 'error',

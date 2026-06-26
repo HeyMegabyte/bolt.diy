@@ -21,7 +21,6 @@ jest.mock('../services/ai_context_extract.js', () => {
   };
 });
 
-
 jest.mock('../lib/posthog.js', () => ({
   capture: jest.fn(),
   trackAuth: jest.fn(),

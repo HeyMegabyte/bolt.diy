@@ -1,4 +1,3 @@
-
 jest.mock('../lib/posthog.js', () => ({
   capture: jest.fn(),
   trackAuth: jest.fn(),

@@ -21,7 +21,6 @@ jest.mock('../services/audit.js', () => ({
   getAuditLogs: jest.fn().mockResolvedValue({ data: [], error: null }),
 }));
 
-
 jest.mock('../lib/posthog.js', () => ({
   capture: jest.fn(),
   trackAuth: jest.fn(),
