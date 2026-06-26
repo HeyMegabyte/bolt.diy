@@ -19,6 +19,13 @@ interface Env {
   DATABASE_URI: string;
   /** Signs Payload auth tokens (openssl rand -base64 32). */
   PAYLOAD_SECRET: string;
+  /** R2 (S3-compatible) media storage — uploads persist here, not on ephemeral disk. */
+  S3_ENDPOINT?: string;
+  S3_BUCKET?: string;
+  S3_ACCESS_KEY_ID?: string;
+  S3_SECRET_ACCESS_KEY?: string;
+  /** Resend — transactional email (password reset / verification / invites). */
+  RESEND_API_KEY?: string;
 }
 
 export class PayloadCms extends Container<Env> {
@@ -27,7 +34,7 @@ export class PayloadCms extends Container<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.envVars = {
+    const pairs: Record<string, string | undefined> = {
       DATABASE_URI: env.DATABASE_URI,
       PAYLOAD_SECRET: env.PAYLOAD_SECRET,
       // Public URL Payload mints admin/API links against.
@@ -37,7 +44,18 @@ export class PayloadCms extends Container<Env> {
       PORT: '3000',
       HOSTNAME: '0.0.0.0',
       TZ: 'America/New_York',
+      // R2 media storage + Resend email — must be forwarded into the container.
+      S3_ENDPOINT: env.S3_ENDPOINT,
+      S3_BUCKET: env.S3_BUCKET,
+      S3_ACCESS_KEY_ID: env.S3_ACCESS_KEY_ID,
+      S3_SECRET_ACCESS_KEY: env.S3_SECRET_ACCESS_KEY,
+      RESEND_API_KEY: env.RESEND_API_KEY,
     };
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(pairs)) {
+      if (typeof v === 'string' && v.length > 0) out[k] = v;
+    }
+    this.envVars = out;
   }
 
   override async fetch(request: Request): Promise<Response> {

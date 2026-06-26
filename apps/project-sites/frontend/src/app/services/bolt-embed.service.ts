@@ -25,7 +25,6 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { ApiService } from './api.service';
-import { SentryService } from './sentry.service';
 import { ToastService } from './toast.service';
 
 const HARD_TIMEOUT_MS = 60_000;
@@ -70,7 +69,6 @@ export class BoltEmbedService {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
-  private readonly sentry = inject(SentryService);
 
   /** Sanitized iframe URL — null until a site has been selected. */
   readonly iframeUrl = signal<SafeResourceUrl | null>(null);
@@ -174,7 +172,7 @@ export class BoltEmbedService {
       setTimeout(() => this.disposePrewarm(), 90_000);
     } catch (err) {
       // Pre-warm is a perf hint — never let it bubble up as a user-facing
-      // error. Sentry breadcrumb captures the cause if we ever care.
+      // error. Structured logs capture the cause if we ever care.
       console.warn('[bolt-embed] prewarmEditor failed', err);
       this.hasPrewarmed = false;
     }
@@ -223,15 +221,7 @@ export class BoltEmbedService {
     this.editorReady.set(false);
     this.boltReady = false;
     this.loadingStage.set('Booting bolt.diy');
-    // Surface bolt.diy boot in the Sentry timeline — when the editor hangs we
-    // want the exact slug + site id alongside the eventual error.
-    this.sentry.addBreadcrumb({
-      category: 'bolt',
-      message: 'bolt.boot',
-      level: 'info',
-      data: { slug: site.slug, site_id: site.id, business_name: site.business_name },
-    });
-
+    
     const params = new URLSearchParams({
       embedded: 'true',
       hideHeader: 'true',

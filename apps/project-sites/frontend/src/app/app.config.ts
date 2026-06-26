@@ -11,7 +11,6 @@ import {
 import {
   PreloadAllModules,
   provideRouter,
-  Router,
   withInMemoryScrolling,
   withPreloading,
   withViewTransitions,
@@ -21,20 +20,11 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideServiceWorker } from '@angular/service-worker';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
-import * as Sentry from '@sentry/angular';
 import { routes } from './app.routes';
 import { firstValueFrom } from 'rxjs';
 import { GlobalErrorHandler } from './services/error-handler.service';
-import { initSentryEarly, SentryService } from './services/sentry.service';
 import { retryInterceptor } from './interceptors/retry.interceptor';
 import { loadingInterceptor } from './interceptors/loading.interceptor';
-import { sentryBreadcrumbInterceptor } from './interceptors/sentry-breadcrumb.interceptor';
-
-/**
- * Initialize Sentry BEFORE Angular bootstrap so the SDK is ready when the
- * router + ErrorHandler integrations attach. Idempotent — safe in tests.
- */
-initSentryEarly();
 
 /** Preload translations before the app renders — prevents flash of raw keys.
  * Priority: localStorage > ?lang= query param > browser language > 'en' */
@@ -60,21 +50,17 @@ function initTranslations(translate: TranslateService) {
 }
 
 /**
- * Composite ErrorHandler: forwards to the existing GlobalErrorHandler (toasts +
- * structured logs + section-error-bus) AND to `Sentry.createErrorHandler()` so
- * every unhandled exception reaches Sentry even when the DI-injected
- * SentryService is unavailable (e.g., very early bootstrap errors).
+ * Thin ErrorHandler that forwards to the existing GlobalErrorHandler (toasts +
+ * structured logs + section-error-bus). Errors also surface through PostHog +
+ * Axiom via the structured logging path — Sentry was removed (see
+ * docs/observability/sentry-removed.md).
  *
  * Uses `Injector` to lazily resolve `GlobalErrorHandler` so Angular's full DI
- * tree (ToastService, Router, SectionErrorBus, SentryService) is available when
- * `handleError` is first called — not during construction.
+ * tree (ToastService, Router, SectionErrorBus) is available when `handleError`
+ * is first called — not during construction.
  */
 class CompositeErrorHandler implements ErrorHandler {
   private readonly injector = inject(Injector);
-  private readonly sentryHandler = Sentry.createErrorHandler({
-    showDialog: false,
-    logErrors: false,
-  });
 
   /** Lazy-resolved so we don't instantiate GlobalErrorHandler before DI is ready. */
   private get appHandler(): GlobalErrorHandler {
@@ -82,15 +68,7 @@ class CompositeErrorHandler implements ErrorHandler {
   }
 
   handleError(error: unknown): void {
-    try {
-      this.appHandler.handleError(error);
-    } finally {
-      try {
-        this.sentryHandler.handleError(error);
-      } catch {
-        // Never let Sentry forwarding crash the host.
-      }
-    }
+    this.appHandler.handleError(error);
   }
 }
 
@@ -112,38 +90,17 @@ export const appConfig: ApplicationConfig = {
     ),
     provideHttpClient(
       withFetch(),
-      withInterceptors([retryInterceptor, sentryBreadcrumbInterceptor, loadingInterceptor]),
+      withInterceptors([retryInterceptor, loadingInterceptor]),
     ),
     provideAnimations(),
     // PrimeNG fully removed from the admin — every component migrated to Spartan
     // (hlmBtn/hlmBadge/hlmInput/hlmCheckbox), DialogShell, TanStack table, and the
     // cockpit ToastService. No providePrimeNG / CockpitPreset needed anymore.
-    // CompositeErrorHandler fans out to both GlobalErrorHandler (toast +
-    // structured logs + section-error-bus) AND Sentry.createErrorHandler() so
-    // every unhandled exception reaches Sentry even when the DI-injected
-    // SentryService is unavailable (e.g., very early bootstrap errors).
-    // GlobalErrorHandler is also registered directly so CompositeErrorHandler's
+    // CompositeErrorHandler delegates to GlobalErrorHandler (toast + structured
+    // logs + section-error-bus). GlobalErrorHandler is registered directly so the
     // lazy injector.get() can resolve it with the full DI tree intact.
     GlobalErrorHandler,
     { provide: ErrorHandler, useClass: CompositeErrorHandler },
-    // Sentry TraceService — auto-instruments router navigations as transactions.
-    {
-      provide: Sentry.TraceService,
-      deps: [Router],
-    },
-    {
-      provide: APP_INITIALIZER,
-      useFactory: () => () => {
-        // Touch the trace service so DI instantiates it. Side-effect: it
-        // subscribes to the Router and produces nav transactions for free.
-        inject(Sentry.TraceService);
-        // Construct the SentryService once at boot so subsequent injectors
-        // share the singleton + so the `enabled` flag is read at the
-        // earliest possible point.
-        inject(SentryService);
-      },
-      multi: true,
-    },
     importProvidersFrom(
       TranslateModule.forRoot({
         fallbackLang: 'en',
@@ -175,8 +132,7 @@ export const appConfig: ApplicationConfig = {
   ],
 };
 
-// Re-export CompositeErrorHandler for tests/inspection.
-// CompositeErrorHandler is the active provider — it delegates to
-// GlobalErrorHandler (toast + logs + section-error-bus) AND to
-// Sentry.createErrorHandler() for belt-and-suspenders capture.
+// Re-export CompositeErrorHandler for tests/inspection. It delegates to
+// GlobalErrorHandler (toast + logs + section-error-bus); error reporting now
+// flows through PostHog + Axiom structured logs, not Sentry.
 export { CompositeErrorHandler };

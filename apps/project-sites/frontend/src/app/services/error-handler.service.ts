@@ -2,7 +2,6 @@ import { ErrorHandler, Injectable, inject, NgZone } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { ToastService } from './toast.service';
-import { SentryService } from './sentry.service';
 import { SectionErrorBus } from '../components/section-error-boundary/section-error-bus';
 
 /** Maps HTTP status codes to user-friendly messages. */
@@ -57,7 +56,6 @@ export class GlobalErrorHandler implements ErrorHandler {
   private router = inject(Router);
   private zone = inject(NgZone);
   private bus = inject(SectionErrorBus);
-  private sentry = inject(SentryService);
 
   /** Rate limiter: track toast timestamps. */
   private toastTimestamps: number[] = [];
@@ -81,14 +79,9 @@ export class GlobalErrorHandler implements ErrorHandler {
       // Never let bus failure break the handler.
     }
 
-    // Report to Sentry with full route + user-agent context. No-ops when the
-    // SDK is unconfigured (no DSN meta tag).
-    try {
-      this.sentry.captureException(error, { route, userAgent, timestamp });
-    } catch {
-      // Never let Sentry failure break the handler.
-    }
-
+    // Error reporting now flows through PostHog + Axiom structured logs (see
+    // docs/observability/sentry-removed.md) — the structured console.warn below
+    // is picked up by the Worker's log pipeline. Sentry was removed.
     this.handleGenericError(error, { timestamp, route, userAgent });
   }
 
