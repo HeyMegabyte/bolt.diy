@@ -99,19 +99,22 @@ How earlier service suggestions resolved — adopted, built-native, or deferred:
 
 ## Self-hosted service assignments (Brian directive 2026-06-26)
 
-Loop `90593cc9` drives each to a live 200 login page. All currently **404 (unbuilt)**
-unless noted; each is a dedicated Fly/container deploy (Neon DB + Upstash Redis +
-secrets + explicit `<sub>.projectsites.dev/*` CF route beating the wildcard + DNS).
+Loop `987b2ba5` drives each to a live 200 login page. HOSTING (Brian 2026-06-26):
+**CloudFlare Workers Containers** (NOT Fly) + **Neon** (Postgres) + **Upstash** (Redis) +
+**Tinybird** (managed ClickHouse, replaces self-hosted analytics). Each = a Container
+Durable Object (Dockerfile + wrangler `[[containers]]` binding) + explicit
+`<sub>.projectsites.dev/*` route beating the wildcard + DNS. All currently **404**.
 
 | Subdomain | Service | What it is | Status |
 |---|---|---|---|
-| `projects.projectsites.dev` | **Plane** | Project management (Jira/Linear alt) | scaffold (`infra/fly/plane/`) |
+| `projects.projectsites.dev` | **Plane** | Project management (Jira/Linear alt) | scaffold (Fly draft → convert to CF Container) |
 | `webhooks.projectsites.dev` | **Svix** | Webhook delivery (managed) | PLANNED — note: our own `outbound_webhooks.ts` already does signed+retried delivery; Svix adds a managed UI/dashboard |
 | `engage.projectsites.dev` | **Dittofeed** | Customer messaging / marketing automation | PLANNED |
 | `integrations.projectsites.dev` | **Nango** | Unified OAuth / integrations gateway | PLANNED |
 | `auth.projectsites.dev` | **Logto** | Default consumer auth (OIDC) | **code built** — `logto_provider.ts` (ADR-0006), dark behind `LOGTO_*`; needs subdomain + activation |
 | Enterprise SSO / SCIM | **WorkOS** | Enterprise SSO + SCIM provisioning | **code built** — `workos_provider.ts` (ADR-0006), dark behind `WORKOS_*` |
 
-Per-deploy checklist (mirror `support-chatwoot`): official image → `infra/fly/<svc>/fly.toml`
-→ Neon DB `projectsites_<svc>` → Upstash Redis → `flyctl secrets set` → first-boot migrate
-→ explicit CF route + CNAME → verify `200` at the login screen (not the wildcard 404).
+Per-deploy (CF Workers Container): official image → `Dockerfile` + `wrangler.toml` `[[containers]]`
++ a Container-DO class → Neon DB `projectsites_<svc>` → Upstash Redis → analytics → Tinybird
+→ `wrangler secret put` → first-boot migrate → explicit CF route + DNS → verify `200` login.
+NOTE: `infra/fly/plane/fly.toml` is the Fly-era draft — convert to a CF Container next fire.
