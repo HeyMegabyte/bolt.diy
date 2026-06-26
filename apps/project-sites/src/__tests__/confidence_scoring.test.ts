@@ -70,7 +70,9 @@ function asConf(v: unknown): Conf {
 
 describe('BASE_CONFIDENCE tiers (via conf kind)', () => {
   it('llm_generated fields start at 0.5', () => {
-    const v3 = transformToV3(makeRaw({ profile: { tagline: 'Hello' } }), null, { businessName: 'Biz' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { tagline: 'Hello' } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const id = v3.identity as V3;
     const tagline = asConf(id.tagline);
     expect(tagline.confidence).toBe(0.5);
@@ -125,7 +127,9 @@ describe('conf() empty/null value penalty (-0.15)', () => {
   });
 
   it('applies penalty when LLM email is null string (empty string becomes null)', () => {
-    const v3 = transformToV3(makeRaw({ profile: { email: '' } }), null, { businessName: 'Biz' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { email: '' } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const id = v3.identity as V3;
     const email = asConf(id.email);
     // str('') returns null => penalty applies
@@ -134,7 +138,9 @@ describe('conf() empty/null value penalty (-0.15)', () => {
   });
 
   it('does not apply penalty when value is present', () => {
-    const v3 = transformToV3(makeRaw({ profile: { email: 'hi@example.com' } }), null, { businessName: 'Biz' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { email: 'hi@example.com' } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const id = v3.identity as V3;
     const email = asConf(id.email);
     expect(email.confidence).toBe(0.5);
@@ -154,11 +160,9 @@ describe('conf() empty/null value penalty (-0.15)', () => {
 
 describe('llmInferred() extra -0.15 penalty', () => {
   it('payments field has confidence 0.35 (0.5 llm - 0.15 inferred) when values exist', () => {
-    const v3 = transformToV3(
-      makeRaw({ profile: { payments: ['Cash', 'Visa'] } }),
-      null,
-      { businessName: 'Biz' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { payments: ['Cash', 'Visa'] } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const ops = v3.operations as V3;
     const payments = asConf(ops.payments);
     expect(payments.confidence).toBe(0.35);
@@ -166,11 +170,9 @@ describe('llmInferred() extra -0.15 penalty', () => {
   });
 
   it('amenities field has confidence 0.35 when non-empty', () => {
-    const v3 = transformToV3(
-      makeRaw({ profile: { amenities: ['WiFi', 'Parking'] } }),
-      null,
-      { businessName: 'Biz' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { amenities: ['WiFi', 'Parking'] } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const ops = v3.operations as V3;
     const amenities = asConf(ops.amenities);
     expect(amenities.confidence).toBe(0.35);
@@ -197,7 +199,9 @@ describe('llmInferred() extra -0.15 penalty', () => {
 
   it('llmInferred with empty array: 0.5 - 0.15 = 0.35, no null penalty (array is never null)', () => {
     // payments = [] => value = [] (not null) => no null penalty => 0.5 - 0.15 = 0.35
-    const v3 = transformToV3(makeRaw({ profile: { payments: [] } }), null, { businessName: 'Biz' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { payments: [] } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const ops = v3.operations as V3;
     const payments = asConf(ops.payments);
     expect(payments.confidence).toBe(0.35);
@@ -210,7 +214,9 @@ describe('llmInferred() extra -0.15 penalty', () => {
 describe('getCorroborationBoost via mergeConf', () => {
   it('1 unique source kind => 0 boost', () => {
     // LLM phone only (no user/places) => single llm_generated kind
-    const v3 = transformToV3(makeRaw({ profile: { phone: '+10001112222' } }), null, { businessName: 'Biz' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { phone: '+10001112222' } }), null, {
+      businessName: 'Biz',
+    }) as V3;
     const id = v3.identity as V3;
     const phone = asConf(id.phone);
     // Only llm_generated kind => no corroboration boost
@@ -219,11 +225,10 @@ describe('getCorroborationBoost via mergeConf', () => {
 
   it('2 unique source kinds => +0.08 boost', () => {
     // llm_generated (from profile.phone) + user_provided (from businessPhone)
-    const v3 = transformToV3(
-      makeRaw({ profile: { phone: '+10001112222' } }),
-      null,
-      { businessName: 'Biz', businessPhone: '+10001112222' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { phone: '+10001112222' } }), null, {
+      businessName: 'Biz',
+      businessPhone: '+10001112222',
+    }) as V3;
     const id = v3.identity as V3;
     const phone = asConf(id.phone);
     // user_provided base=0.9; merged with llm=0.5; primary=user_provided(0.9); 2 kinds => +0.08 => 0.98
@@ -236,11 +241,10 @@ describe('getCorroborationBoost via mergeConf', () => {
   it('3 unique source kinds => +0.15 boost', () => {
     // llm_generated + user_provided + google_places = 3 distinct kinds
     const places = makePlaces({ phone: '+19995550001' });
-    const v3 = transformToV3(
-      makeRaw({ profile: { phone: '+10001112222' } }),
-      places,
-      { businessName: 'Biz', businessPhone: '+10001112222' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { phone: '+10001112222' } }), places, {
+      businessName: 'Biz',
+      businessPhone: '+10001112222',
+    }) as V3;
     const id = v3.identity as V3;
     const phone = asConf(id.phone);
     // google_places base=0.92 (highest); 3 kinds => +0.15 => min(0.98, 0.92+0.15=1.07) => 0.98
@@ -253,7 +257,10 @@ describe('getCorroborationBoost via mergeConf', () => {
     // Website: llm_generated + google_places = 2 kinds => 0.92 + 0.08 = 1.0 => capped at 0.98
     const places = makePlaces({ website: 'https://example.com' });
     const v3 = transformToV3(
-      makeRaw({ profile: { website_url: 'https://example.com' }, social: { website_url: 'https://example.com' } }),
+      makeRaw({
+        profile: { website_url: 'https://example.com' },
+        social: { website_url: 'https://example.com' },
+      }),
       places,
       { businessName: 'Biz' },
     ) as V3;
@@ -265,7 +272,11 @@ describe('getCorroborationBoost via mergeConf', () => {
 
   it('mergeConf deduplicates sources with same kind+id', () => {
     const v3 = transformToV3(
-      makeRaw({ profile: { address: { street: '1 Main', city: 'NYC', state: 'NY', zip: '10001', country: 'US' } } }),
+      makeRaw({
+        profile: {
+          address: { street: '1 Main', city: 'NYC', state: 'NY', zip: '10001', country: 'US' },
+        },
+      }),
       null,
       { businessName: 'Biz', businessAddress: '1 Main, NYC' },
     ) as V3;
@@ -295,7 +306,10 @@ describe('isImageRelevant() filtering via transformToV3 media section', () => {
     const heroes = asConf(media.hero_images).value as Array<{ alt_text: string; concept: string }>;
     // First image references business name => included
     expect(
-      heroes.some((h) => h.alt_text === 'Custom Business Name photo' || h.concept.includes('Custom Business Name')),
+      heroes.some(
+        (h) =>
+          h.alt_text === 'Custom Business Name photo' || h.concept.includes('Custom Business Name'),
+      ),
     ).toBe(true);
   });
 
@@ -344,7 +358,9 @@ describe('isImageRelevant() filtering via transformToV3 media section', () => {
       profile: { business_type: 'barber' },
       images: {
         // concept is "plumbing pipe leak" -- irrelevant to barber
-        hero_images: [{ concept: 'plumbing pipe leak repair', alt_text: 'plumbing pipe leak repair' }],
+        hero_images: [
+          { concept: 'plumbing pipe leak repair', alt_text: 'plumbing pipe leak repair' },
+        ],
       },
     });
     const v3 = transformToV3(raw, null, { businessName: 'The Barber' }) as V3;
@@ -377,11 +393,9 @@ describe('isImageRelevant() filtering via transformToV3 media section', () => {
       ],
     });
     // Alt text for places photos is generated as "Photo of {businessName}"
-    const v3 = transformToV3(
-      makeRaw({ profile: { business_type: 'restaurant' } }),
-      places,
-      { businessName: 'Mama Mia Restaurant' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { business_type: 'restaurant' } }), places, {
+      businessName: 'Mama Mia Restaurant',
+    }) as V3;
     const media = v3.media as V3;
     const gallery = asConf(media.gallery);
     // "Photo of Mama Mia Restaurant" contains business name => included
@@ -419,7 +433,16 @@ describe('computeSectionConfidence() via provenance.sectionConfidence', () => {
     const v3 = transformToV3(makeRaw(), null, { businessName: 'Biz' }) as V3;
     const prov = v3.provenance as V3;
     const sc = prov.sectionConfidence as Record<string, number>;
-    for (const section of ['identity', 'operations', 'offerings', 'trust', 'brand', 'marketing', 'media', 'seo']) {
+    for (const section of [
+      'identity',
+      'operations',
+      'offerings',
+      'trust',
+      'brand',
+      'marketing',
+      'media',
+      'seo',
+    ]) {
       expect(typeof sc[section]).toBe('number');
       expect(sc[section]).toBeGreaterThanOrEqual(0);
       expect(sc[section]).toBeLessThanOrEqual(1);
@@ -445,7 +468,8 @@ describe('computeSectionConfidence() via provenance.sectionConfidence', () => {
   });
 
   it('higher confidence data increases sectionConfidence', () => {
-    const sparseProv = (transformToV3(makeRaw(), null, { businessName: 'Biz' }) as V3).provenance as V3;
+    const sparseProv = (transformToV3(makeRaw(), null, { businessName: 'Biz' }) as V3)
+      .provenance as V3;
     const richRaw = makeRaw({
       profile: {
         phone: '+10001112222',
@@ -455,7 +479,8 @@ describe('computeSectionConfidence() via provenance.sectionConfidence', () => {
         description: 'A great business',
       },
     });
-    const richProv = (transformToV3(richRaw, null, { businessName: 'Rich Biz' }) as V3).provenance as V3;
+    const richProv = (transformToV3(richRaw, null, { businessName: 'Rich Biz' }) as V3)
+      .provenance as V3;
     // Identity section with real values should score higher than sparse
     expect((richProv.sectionConfidence as Record<string, number>).identity).toBeGreaterThanOrEqual(
       (sparseProv.sectionConfidence as Record<string, number>).identity,
@@ -467,14 +492,18 @@ describe('computeSectionConfidence() via provenance.sectionConfidence', () => {
 
 describe('str() helper behaviour', () => {
   it('passes through non-empty string values', () => {
-    const v3 = transformToV3(makeRaw({ profile: { tagline: 'A tagline' } }), null, { businessName: 'B' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { tagline: 'A tagline' } }), null, {
+      businessName: 'B',
+    }) as V3;
     const tagline = asConf((v3.identity as V3).tagline);
     expect(tagline.value).toBe('A tagline');
   });
 
   it('returns null for number input', () => {
     // business_name given as a number => str returns null => falls back to userInputs.businessName
-    const v3 = transformToV3(makeRaw({ profile: { business_name: 42 } }), null, { businessName: 'Fallback' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { business_name: 42 } }), null, {
+      businessName: 'Fallback',
+    }) as V3;
     const name = asConf((v3.identity as V3).business_name);
     expect(name.value).toBe('Fallback');
   });
@@ -486,7 +515,9 @@ describe('str() helper behaviour', () => {
   });
 
   it('returns null for empty string', () => {
-    const v3 = transformToV3(makeRaw({ profile: { email: '' } }), null, { businessName: 'B' }) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { email: '' } }), null, {
+      businessName: 'B',
+    }) as V3;
     const email = asConf((v3.identity as V3).email);
     expect(email.value).toBeNull();
   });
@@ -538,21 +569,17 @@ describe('arr() helper behaviour', () => {
   });
 
   it('returns empty array when given non-array', () => {
-    const v3 = transformToV3(
-      makeRaw({ profile: { services: 'not an array' } }),
-      null,
-      { businessName: 'B' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { services: 'not an array' } }), null, {
+      businessName: 'B',
+    }) as V3;
     const services = asConf((v3.offerings as V3).services).value as unknown[];
     expect(services).toEqual([]);
   });
 
   it('returns empty array when given null', () => {
-    const v3 = transformToV3(
-      makeRaw({ profile: { hours: null } }),
-      null,
-      { businessName: 'B' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { hours: null } }), null, {
+      businessName: 'B',
+    }) as V3;
     const hours = asConf((v3.operations as V3).hours).value as unknown[];
     expect(hours).toEqual([]);
   });
@@ -570,11 +597,9 @@ describe('strArr() helper behaviour', () => {
   });
 
   it('returns empty array for non-array input', () => {
-    const v3 = transformToV3(
-      makeRaw({ profile: { categories: 'single' } }),
-      null,
-      { businessName: 'B' },
-    ) as V3;
+    const v3 = transformToV3(makeRaw({ profile: { categories: 'single' } }), null, {
+      businessName: 'B',
+    }) as V3;
     const cats = asConf((v3.identity as V3).categories).value as string[];
     expect(cats).toEqual([]);
   });
@@ -595,7 +620,10 @@ describe('warning accumulation', () => {
   });
 
   it('no phone warning when phone is provided via userInputs', () => {
-    const v3 = transformToV3(makeRaw(), null, { businessName: 'Biz', businessPhone: '+10001112222' }) as V3;
+    const v3 = transformToV3(makeRaw(), null, {
+      businessName: 'Biz',
+      businessPhone: '+10001112222',
+    }) as V3;
     const warnings = (v3.provenance as V3).warnings as string[];
     expect(warnings.some((w) => w.includes('phone'))).toBe(false);
   });
@@ -609,7 +637,9 @@ describe('warning accumulation', () => {
 
   it('no review warning when reviews exist in profile', () => {
     const raw = makeRaw({
-      profile: { reviews_summary: { aggregate_rating: 4.5, review_count: 30, featured_reviews: [] } },
+      profile: {
+        reviews_summary: { aggregate_rating: 4.5, review_count: 30, featured_reviews: [] },
+      },
     });
     const v3 = transformToV3(raw, null, { businessName: 'Biz' }) as V3;
     const warnings = (v3.provenance as V3).warnings as string[];
@@ -782,7 +812,9 @@ describe('SEO section', () => {
 
   it('schema_org aggregateRating is set when reviews present', () => {
     const raw = makeRaw({
-      profile: { reviews_summary: { aggregate_rating: 4.7, review_count: 55, featured_reviews: [] } },
+      profile: {
+        reviews_summary: { aggregate_rating: 4.7, review_count: 55, featured_reviews: [] },
+      },
     });
     const v3 = transformToV3(raw, null, { businessName: 'Biz' }) as V3;
     const seo = v3.seo as V3;
@@ -802,7 +834,9 @@ describe('SEO section', () => {
 
   it('schema_org sameAs collects social link URLs', () => {
     const raw = makeRaw({
-      social: { social_links: [{ platform: 'facebook', url: 'https://fb.com/test', confidence: 0.8 }] },
+      social: {
+        social_links: [{ platform: 'facebook', url: 'https://fb.com/test', confidence: 0.8 }],
+      },
     });
     const v3 = transformToV3(raw, null, { businessName: 'Biz' }) as V3;
     const seo = v3.seo as V3;
@@ -871,7 +905,9 @@ describe('Google Places enrichment paths', () => {
     const google = asConf(id.google);
     const val = google.value as { place_id: string };
     expect(val.place_id).toBe('GPLACES-XYZ');
-    expect(google.sources.some((s) => s.kind === 'google_places' && s.id === 'GPLACES-XYZ')).toBe(true);
+    expect(google.sources.some((s) => s.kind === 'google_places' && s.id === 'GPLACES-XYZ')).toBe(
+      true,
+    );
   });
 });
 
@@ -881,7 +917,10 @@ describe('storefront_image handling', () => {
   it('is llm-wrapped when storefront_image is an object', () => {
     const raw = makeRaw({
       images: {
-        storefront_image: { url: 'https://front.example.com/shop.jpg', search_query: 'barber shop front' },
+        storefront_image: {
+          url: 'https://front.example.com/shop.jpg',
+          search_query: 'barber shop front',
+        },
       },
     });
     const v3 = transformToV3(raw, null, { businessName: 'Biz' }) as V3;

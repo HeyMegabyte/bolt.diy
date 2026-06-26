@@ -111,7 +111,9 @@ describe('stripHtmlToText', () => {
   });
 
   it('handles deeply nested tags', () => {
-    expect(stripHtmlToText('<div><section><article><p>deep</p></article></section></div>')).toBe('deep');
+    expect(stripHtmlToText('<div><section><article><p>deep</p></article></section></div>')).toBe(
+      'deep',
+    );
   });
 });
 
@@ -289,7 +291,10 @@ describe('indexSiteFiles', () => {
         { path: 'app.js', content: 'console.log("hi")' },
         { path: 'logo.png', content: '\x89PNG binary data' },
         { path: 'font.woff2', content: 'binary font data' },
-        { path: 'index.html', content: '<p>Real page content here that is long enough to index.</p>' },
+        {
+          path: 'index.html',
+          content: '<p>Real page content here that is long enough to index.</p>',
+        },
       ],
     });
     await ctx.getPromise();
@@ -344,7 +349,9 @@ describe('indexSiteFiles', () => {
     indexSiteFiles(env, ctx, {
       siteId: 'site-err',
       orgId: 'org-err',
-      files: [{ path: 'index.html', content: '<p>Content long enough to qualify for indexing</p>' }],
+      files: [
+        { path: 'index.html', content: '<p>Content long enough to qualify for indexing</p>' },
+      ],
     });
     await expect(ctx.getPromise()).resolves.not.toThrow();
   });
