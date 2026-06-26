@@ -24,7 +24,10 @@ const SUMMARY = {
     uniqueSessions: 800,
     conversions: 14,
     topPaths: [{ path: '/', count: 600, uniques: 420 }],
-    byType: [],
+    byType: [
+      { type: 'pageview', count: 1200 },
+      { type: 'cta_click', count: 40 },
+    ],
     byDevice: [
       { label: 'mobile', count: 700 },
       { label: 'desktop', count: 500 },
@@ -90,6 +93,10 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     const engagement = el.querySelector('[data-testid="oa-page-engagement"]');
     expect(engagement?.textContent).toContain('420 visitors');
     expect(engagement?.textContent).toContain('600 views');
+    // Events-by-type breakdown (byType series, previously no UI).
+    const types = el.querySelector('[data-testid="oa-event-types"]');
+    expect(types).toBeTruthy();
+    expect(types?.textContent).toContain('CTA clicks');
     // Conversion rate = 14 / 1200 = 1.2% of visits.
     expect(el.querySelector('[data-testid="oa-conv-rate"]')?.textContent).toContain('1.2%');
     // Contacts-by-source breakdown, with the empty source labelled.

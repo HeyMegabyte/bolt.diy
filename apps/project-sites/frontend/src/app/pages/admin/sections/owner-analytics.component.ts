@@ -13,6 +13,7 @@ import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
 import { DataPledgeComponent } from './data-pledge.component';
 import { TrafficTrendComponent } from './traffic-trend.component';
+import { EventTypeBreakdownComponent } from './event-type-breakdown.component';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { UtmBuilderComponent } from './utm-builder.component';
 
@@ -45,7 +46,13 @@ interface SiteAnalyticsSummary {
 @Component({
   selector: 'app-owner-analytics',
   standalone: true,
-  imports: [RollingCounterComponent, UtmBuilderComponent, DataPledgeComponent, TrafficTrendComponent],
+  imports: [
+    RollingCounterComponent,
+    UtmBuilderComponent,
+    DataPledgeComponent,
+    TrafficTrendComponent,
+    EventTypeBreakdownComponent,
+  ],
   template: `
     <div class="px-6 pt-4 pb-8 max-md:px-4" data-testid="owner-analytics">
       @if (siteId()) {
@@ -148,6 +155,9 @@ interface SiteAnalyticsSummary {
             }
           </ul>
         }
+
+        <!-- Events-by-type breakdown — the byType series had zero UI. -->
+        <app-event-type-breakdown [items]="s.traffic.byType" />
 
         @if (s.traffic.byChannel.length) {
           <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">Traffic by channel</h2>
