@@ -682,6 +682,44 @@
           </svg>
           <span>Settings</span>
         </a>
+
+        <!-- More tools — every admin section, including ones without a primary
+             nav slot (campaign generator, analytics, audit, media, integrations,
+             traces, …). Collapsed by default so nothing is orphaned yet the
+             sidebar stays scannable. -->
+        <details class="nav-more">
+          <summary class="nav-item nav-more-summary"><span>More tools</span></summary>
+          <a class="nav-item nav-sub" routerLink="/admin/social/campaign" routerLinkActive="nav-item-active"><span>Campaign generator</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/social/analytics" routerLinkActive="nav-item-active"><span>Social analytics</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/audit" routerLinkActive="nav-item-active"><span>Audit log</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/media" routerLinkActive="nav-item-active"><span>Media library</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/integrations" routerLinkActive="nav-item-active"><span>Integrations</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/inbox" routerLinkActive="nav-item-active"><span>Unified inbox</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/seo" routerLinkActive="nav-item-active"><span>SEO</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/domains" routerLinkActive="nav-item-active"><span>Domains</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/mcp" routerLinkActive="nav-item-active"><span>MCP connections</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/api-tokens" routerLinkActive="nav-item-active"><span>API tokens</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/ai-endpoints" routerLinkActive="nav-item-active"><span>AI endpoints</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/ai-logs" routerLinkActive="nav-item-active"><span>AI logs</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/analytics-live" routerLinkActive="nav-item-active"><span>Live analytics</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/traces" routerLinkActive="nav-item-active"><span>Traces</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/deliverability" routerLinkActive="nav-item-active"><span>Deliverability</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/content" routerLinkActive="nav-item-active"><span>Content</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/content-freshness" routerLinkActive="nav-item-active"><span>Content freshness</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/pseo" routerLinkActive="nav-item-active"><span>Programmatic SEO</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/bulk-ops" routerLinkActive="nav-item-active"><span>Bulk operations</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/developers" routerLinkActive="nav-item-active"><span>Developers</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/marketplace" routerLinkActive="nav-item-active"><span>Marketplace</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/roadmap" routerLinkActive="nav-item-active"><span>Roadmap</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/trust" routerLinkActive="nav-item-active"><span>Trust center</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/activation-funnel" routerLinkActive="nav-item-active"><span>Activation funnel</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/import" routerLinkActive="nav-item-active"><span>Import</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/github" routerLinkActive="nav-item-active"><span>GitHub</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/stripe-app-status" routerLinkActive="nav-item-active"><span>Stripe app status</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/enterprise" routerLinkActive="nav-item-active"><span>Enterprise</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/status" routerLinkActive="nav-item-active"><span>Status</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/super-admin" routerLinkActive="nav-item-active"><span>Super admin</span></a>
+        </details>
       </nav>
     </aside>
 
