@@ -17,7 +17,6 @@
  *   browsers never throw past this layer.
  */
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { SentryService } from './sentry.service';
 
 const SESSION_KEY = 'ps_session';
 const BUSINESS_KEY = 'ps_selected_business';
@@ -57,14 +56,9 @@ export interface SelectedBusiness {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private sentry = inject(SentryService);
   private sessionSignal = signal<Session | null>(this.loadSession());
 
   constructor() {
-    // Sync any rehydrated session into Sentry so events from the very first
-    // navigation already carry user identity.
-    const s = this.sessionSignal();
-    if (s) this.sentry.setUser({ id: s.identifier, email: s.identifier });
   }
 
   /** Read-only signal of the active session — null when signed out. */
@@ -118,11 +112,6 @@ export class AuthService {
     const session: Session = { token, identifier, createdAt: Date.now() };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     this.sessionSignal.set(session);
-    // Attach the user to Sentry so subsequent events carry their identity.
-    // `identifier` is the email (magic-link) or `google:<sub>` (OAuth) — both
-    // are stable IDs safe to put on a Sentry user.
-    this.sentry.setUser({ id: identifier, email: identifier.includes('@') ? identifier : undefined });
-    this.sentry.addBreadcrumb({ category: 'auth', message: 'session.set', level: 'info' });
   }
 
   /**
@@ -137,9 +126,6 @@ export class AuthService {
     localStorage.removeItem(PENDING_BUILD_KEY);
     localStorage.removeItem(AUTO_CREATE_KEY);
     this.sessionSignal.set(null);
-    // Detach user from Sentry so logged-out events aren't mis-attributed.
-    this.sentry.setUser(null);
-    this.sentry.addBreadcrumb({ category: 'auth', message: 'session.clear', level: 'info' });
   }
 
   /** Full logout: clear all session data. Alias for {@link clearSession}. */

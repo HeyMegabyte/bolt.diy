@@ -5,7 +5,6 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { BoltEmbedService } from './bolt-embed.service';
 import { ApiService } from './api.service';
 import { ToastService } from './toast.service';
-import { SentryService } from './sentry.service';
 
 /**
  * Security boundary for the bolt.diy iframe bridge: BoltEmbedService listens for
@@ -29,7 +28,6 @@ function setup(): { svc: Testable; fire: (origin: string, data: unknown) => void
       { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
       { provide: ApiService, useValue: { get: () => of({}), post: () => of({}) } },
       { provide: ToastService, useValue: { toasts: signal([]), error, success: jasmine.createSpy('success') } },
-      { provide: SentryService, useValue: { captureException: () => undefined, addBreadcrumb: () => undefined, captureMessage: () => undefined } },
     ],
   });
   const svc = TestBed.inject(BoltEmbedService) as unknown as Testable;
@@ -97,7 +95,6 @@ describe('BoltEmbedService — importChatFrom gating (publish-aware, no 404 cons
         { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
         { provide: ApiService, useValue: { get: () => of({}), post: () => of({}) } },
         { provide: ToastService, useValue: { toasts: signal([]), error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
-        { provide: SentryService, useValue: { captureException: () => undefined, addBreadcrumb: () => undefined, captureMessage: () => undefined } },
       ],
     });
     return TestBed.inject(BoltEmbedService) as unknown as { bootForSite: (s: unknown) => void; iframeUrl: () => unknown };

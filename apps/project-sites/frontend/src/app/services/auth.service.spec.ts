@@ -1,6 +1,5 @@
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from './auth.service';
-import { SentryService } from './sentry.service';
 
 /**
  * Coverage for AuthService — the SPA's session container. Security-critical:
@@ -8,7 +7,6 @@ import { SentryService } from './sentry.service';
  *  - a session older than the 7-day TTL is DROPPED on load (stale token never reaches the API)
  *  - a legacy session without createdAt is treated as fresh (no false expiry)
  *  - clearSession wipes credentials but preserves the location-declined UX preference
- * SentryService is stubbed (agent-owned — not edited).
  */
 const SESSION_KEY = 'ps_session';
 const DAY = 24 * 60 * 60 * 1000;
@@ -17,7 +15,6 @@ function inject_(): AuthService {
   TestBed.configureTestingModule({
     providers: [
       AuthService,
-      { provide: SentryService, useValue: { setUser: () => undefined, addBreadcrumb: () => undefined } },
     ],
   });
   return TestBed.inject(AuthService);

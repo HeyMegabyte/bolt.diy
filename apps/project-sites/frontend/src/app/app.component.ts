@@ -386,7 +386,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.api.getMe().subscribe({
       next: (res) => {
         // Attach identity to PostHog + GA4 so subsequent events are
-        // user-scoped. Sentry user is set separately by SentryService
+        // user-scoped. User identity is attached via PostHog identify().
         // — don't double-attach here.
         const user = res?.data;
         if (user?.id) {

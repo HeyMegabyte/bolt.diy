@@ -4,7 +4,7 @@
  * @description
  * Unified telemetry facade that fans every product event out to PostHog,
  * GA4 / GTM (via the `window.gtag` queue installed in `src/index.html`),
- * and Sentry breadcrumbs. One call site, three destinations — so capture
+ * and GA4. Two destinations — so capture
  * points stay consistent and the operator can swap providers without
  * touching call sites.
  *
@@ -12,7 +12,7 @@
  * `import('posthog-js')` inside `init()` so it lands in its own webpack
  * chunk instead of the initial bundle (~150KB saved on first paint).
  * Events fired before the chunk resolves are queued (capped at 100) and
- * drained the moment PostHog reports loaded. GA4 + Sentry fire
+ * drained the moment PostHog reports loaded. GA4 fires
  * synchronously regardless — telemetry destinations are decoupled so the
  * slowest one never blocks the others.
  *
@@ -36,16 +36,15 @@
  *
  * Reduced-motion / privacy-friendly: every call swallows errors silently.
  * Telemetry failure NEVER surfaces a toast, breaks navigation, or pollutes
- * the console with red noise. If PostHog/gtag/Sentry aren't loaded, calls
+ * the console with red noise. If PostHog/gtag aren't loaded, calls
  * no-op.
  *
- * @see {@link SentryService} — error-tracking surface (separate from
+ * Error tracking flows through PostHog + Axiom (separate from
  *   product analytics; we drop breadcrumbs here but never capture events).
  */
 
 import { Injectable, inject } from '@angular/core';
 import type { PostHog, PostHogConfig } from 'posthog-js';
-import { SentryService } from './sentry.service';
 
 /** Free-form property bag attached to every captured event. */
 type Props = Record<string, unknown>;
@@ -75,7 +74,7 @@ const GA4_MEASUREMENT_ID = 'G-VBBRRQLDFT';
 const MAX_QUEUE = 100;
 
 /**
- * Queued operation kinds that need PostHog. GA4 + Sentry fire
+ * Queued operation kinds that need PostHog. GA4 fires
  * synchronously so they never enter the queue.
  */
 type QueuedOp =
@@ -85,7 +84,7 @@ type QueuedOp =
 
 /**
  * Read a meta-tag's `content`, returning null when missing / sentinel.
- * Mirrors the pattern in `SentryService` so DSN-style secrets share one
+ * Mirrors the PostHog key-resolution pattern so DSN-style secrets share one
  * extraction strategy.
  */
 function readMeta(name: string): string | null {
@@ -128,7 +127,6 @@ function gtag(): GtagFn {
  */
 @Injectable({ providedIn: 'root' })
 export class TelemetryService {
-  private sentry = inject(SentryService);
   private initialized = false;
   private enabled = false;
 
@@ -161,7 +159,7 @@ export class TelemetryService {
    *
    * The PostHog SDK loads via dynamic `import('posthog-js')` so it
    * splits into its own chunk and stays out of the initial bundle.
-   * gtag config + Sentry wiring is synchronous; only the PostHog SDK is
+   * gtag config is synchronous; only the PostHog SDK is
    * deferred.
    *
    * Persistence is forced to `'memory'` so we don't need a cookie-consent
@@ -175,7 +173,7 @@ export class TelemetryService {
 
     const apiKey = readMeta('x-posthog-key');
     if (!apiKey || apiKey === 'none') {
-      // No key wired — silently disabled. Same restraint as SentryService:
+      // No key wired — silently disabled. Same restraint as the log path:
       // dev refreshes shouldn't noise the console when secrets are absent.
       return;
     }
@@ -225,7 +223,7 @@ export class TelemetryService {
       })
       .catch(() => {
         // Network failure / blocked by ad-blocker — telemetry stays a no-op
-        // for PostHog only. GA4 + Sentry continue firing synchronously.
+        // for PostHog only. GA4 continues firing synchronously.
         this.enabled = false;
         this.queue.length = 0;
         return null;
@@ -270,7 +268,7 @@ export class TelemetryService {
    * `nav` breadcrumb. Call from `Router.events` on `NavigationEnd`.
    *
    * PostHog half is queued if the SDK is still loading (typical first
-   * paint races the import). GA4 + Sentry fire synchronously regardless.
+   * paint races the import). GA4 fires synchronously regardless.
    */
   pageView(url: string, title?: string): void {
     if (typeof window === 'undefined') return;
@@ -305,24 +303,11 @@ export class TelemetryService {
       /* swallow */
     }
 
-    // Sentry breadcrumb (defensive — service no-ops when SDK not booted).
-    try {
-      this.sentry.addBreadcrumb({
-        category: 'nav',
-        message: `Pageview ${url}`,
-        level: 'info',
-        data: { url, title },
-      });
-    } catch {
-      /* swallow */
-    }
   }
 
   /**
    * Track a product event. Forwards to PostHog (dot-named), GA4 (with
-   * dots collapsed to underscores per the GA4 event-name spec), and
-   * Sentry breadcrumbs (one breadcrumb per call so error reports carry
-   * the trail of user actions).
+   * dots collapsed to underscores per the GA4 event-name spec).
    *
    * Conversion-marker mapping (also fired as GA4-reserved names):
    *  - `auth.signin.succeeded`   → also fires GA4 `signup`
@@ -381,25 +366,12 @@ export class TelemetryService {
       /* swallow */
     }
 
-    // Sentry breadcrumb — categorize by the first dot-segment so the
-    // Sentry UI groups them in the error timeline.
-    try {
-      const category = eventName.split('.', 1)[0] ?? 'event';
-      this.sentry.addBreadcrumb({
-        category,
-        message: eventName,
-        level: 'info',
-        data: props,
-      });
-    } catch {
-      /* swallow */
-    }
   }
 
   /**
    * Attach user identity. Call once after login resolves a real user id.
    * PostHog merges anonymous→identified profiles; GA4 ties events to the
-   * `user_id` dimension; Sentry is handled by `SentryService.setUser`
+   * `user_id` dimension; identity is handled by PostHog identify()
    * elsewhere in the auth flow (don't double-attach here).
    */
   identify(userId: string, traits?: Props): void {
@@ -444,9 +416,8 @@ export class TelemetryService {
   }
 
   /**
-   * Clear identity on sign-out. Wipes the PostHog distinct_id, clears the
-   * GA4 user_id, and drops a breadcrumb so the error timeline captures
-   * the transition. If PostHog is still loading, queues the reset so it
+   * Clear identity on sign-out. Wipes the PostHog distinct_id and clears the
+   * GA4 user_id. If PostHog is still loading, queues the reset so it
    * fires in order relative to any prior identify().
    */
   reset(): void {
@@ -461,15 +432,6 @@ export class TelemetryService {
     }
     try {
       gtag()('config', GA4_MEASUREMENT_ID, { user_id: undefined });
-    } catch {
-      /* swallow */
-    }
-    try {
-      this.sentry.addBreadcrumb({
-        category: 'auth',
-        message: 'telemetry.reset',
-        level: 'info',
-      });
     } catch {
       /* swallow */
     }

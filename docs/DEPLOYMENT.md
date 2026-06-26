@@ -477,37 +477,19 @@ All logs use `console.warn` (not `console.log` — blocked by ESLint).
    - CSP must include `'unsafe-inline'` in script-src
    - Check `src/middleware/security_headers.ts`
 
-## Sentry Release Tracking & Sourcemap Upload (item #48)
+## Error Tracking & Observability
 
-Every production deploy uploads sourcemaps to Sentry under a release tag
-matching the short git SHA. This lets Sentry resolve minified stack frames
-back to the exact source line of the deployed Worker.
+Sentry has been fully removed. Error tracking and observability now run on:
 
-### One-time setup
+- **PostHog Cloud** — product analytics, behavior, funnels, feature flags,
+  session replay where appropriate.
+- **Axiom** (`logs.projectsites.dev`) — structured operational logs, service
+  logs, error logs.
+- **OpenTelemetry** — trace/log/metric correlation + transport via the
+  `telemetry-router` Fly app (`infra/fly/telemetry-router`).
+- **ClickHouse on Fly.io** — high-volume warehouse + customer analytics.
 
-1. Provision an auth token at
-   https://megabyte-labs.sentry.io/settings/auth-tokens/ with scopes
-   `project:read`, `project:releases`, `org:read`.
-2. Store it as a wrangler secret AND make it available to CI:
-   ```bash
-   wrangler secret put SENTRY_AUTH_TOKEN --env production
-   gh secret set SENTRY_AUTH_TOKEN --body "sntrys_..."   # for GitHub Actions
-   ```
-
-### Per-deploy
-
-The `scripts/upload_to_r2.sh` post-deploy step now invokes
-`npm run upload-sourcemaps` automatically when `ENVIRONMENT=production`. To
-run it manually:
-
-```bash
-export SENTRY_AUTH_TOKEN=sntrys_...
-export GIT_SHA=$(git rev-parse --short HEAD)
-# Ensure the Worker advertises the same release tag:
-wrangler deploy --env production --var "SENTRY_RELEASE:project-sites@${GIT_SHA}"
-# Then upload the maps:
-npm run upload-sourcemaps
-```
-
-The script soft-fails (exit 0) if `SENTRY_AUTH_TOKEN` is unset or `dist/` is
-missing, so it never blocks a deploy.
+There is no source-map upload step anymore. See
+[`observability/sentry-removed.md`](observability/sentry-removed.md),
+[`observability/axiom.md`](observability/axiom.md), and
+[`observability/otel.md`](observability/otel.md).

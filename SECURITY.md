@@ -209,12 +209,12 @@ random nonce on every `<script>` and `strict-dynamic` to delegate trust to those
 Content-Security-Policy:
   default-src 'self';
   script-src 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com
-             https://app.posthog.com https://*.sentry.io https://clerk.projectsites.dev;
+             https://app.posthog.com https://clerk.projectsites.dev;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' data: blob: https:;
   font-src 'self' https://fonts.gstatic.com;
   connect-src 'self' https://api.stripe.com https://api.posthog.com
-              https://*.ingest.sentry.io https://clerk.projectsites.dev wss://*.cloudflare.com;
+              https://clerk.projectsites.dev wss://*.cloudflare.com;
   frame-src 'self' https://js.stripe.com https://challenges.cloudflare.com
             https://hooks.stripe.com;
   object-src 'none';

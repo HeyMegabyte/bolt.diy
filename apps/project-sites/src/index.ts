@@ -693,12 +693,8 @@ app.all('*', async (c) => {
         woff2: 'font/woff2',
       };
 
-      // For HTML, inject runtime env vars (PostHog key, Stripe publishable key,
-      // Sentry public DSN). The Sentry DSN is safe to expose in the client —
-      // by design it only authenticates inbound events to one project. The
-      // worker keeps the auth token separate (`SENTRY_AUTH_TOKEN`) for
-      // source-map uploads. The frontend reads `x-sentry-dsn` to bootstrap
-      // `@sentry/angular` before the first paint via `initSentryEarly()`.
+      // For HTML, inject runtime env vars (PostHog key, Stripe publishable
+      // key) so the SPA shell can read them from meta tags before first paint.
       if (ext === 'html') {
         let html = await marketingAsset.text();
         const phKey = c.env.POSTHOG_API_KEY ?? 'none';

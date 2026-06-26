@@ -54,7 +54,6 @@ NOVU_SECRET_KEY=
 # ── Observability ────────────────────────────────────────────────────────────
 POSTHOG_API_KEY=
 POSTHOG_HOST=https://us.i.posthog.com
-SENTRY_DSN=
 GA4_MEASUREMENT_ID=
 GTM_CONTAINER_ID=
 

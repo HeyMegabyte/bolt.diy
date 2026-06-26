@@ -59,7 +59,7 @@ const PAGES: Record<string, LegalPage> = {
   <li><strong>Stripe:</strong> Payment processing, subscription management, and fraud prevention.</li>
   <li><strong>Google Places API:</strong> Business search, verification, and data enrichment.</li>
   <li><strong>PostHog:</strong> Privacy-focused, anonymous usage analytics. No personal identifiers are sent.</li>
-  <li><strong>Sentry:</strong> Error tracking and performance monitoring. Personal data is redacted before transmission.</li>
+  <li><strong>Axiom + PostHog:</strong> Structured logging and product analytics. Personal data is redacted before transmission.</li>
   <li><strong>Resend / SendGrid:</strong> Transactional email delivery (magic links, notifications).</li>
 </ul>
 <p>We may also disclose information when required by law, to protect our rights, or to prevent harm to users or the public.</p>

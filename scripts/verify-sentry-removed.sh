@@ -79,6 +79,10 @@ EXCLUDE_FILES=(
   --exclude='pnpm-lock.yaml'
   --exclude='yarn.lock'
   --exclude='sentry-removed.md'
+  --exclude='verify-*.sh'
+  --exclude='CHANGES.md'
+  --exclude='CHANGELOG.md'
+  --exclude='changelog.md'
   --exclude="${SCRIPT_NAME}"
 )
 

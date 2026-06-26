@@ -61,12 +61,11 @@ interface EmailOpts {
  * Send an email via configured provider (Resend → SendGrid fallback).
  *
  * Wiring rules:
- *   - On `!res.ok` from Resend: structured log `{status, body_excerpt, to,
- *     request_id, category}` + `sentry.captureMessage('Resend invite send
- *     failed', { level: 'error', extra })` + throw so the caller can decide
+ *   - On `!res.ok` from Resend: `log.error('Resend invite send failed', {status,
+ *     body_excerpt, to, request_id, category})` + throw so the caller can decide
  *     whether to bubble or swallow.
- *   - On `res.ok` from Resend: structured log + Sentry breadcrumb
- *     `{ category: 'email', message: 'Resend invite sent' }`.
+ *   - On `res.ok` from Resend: `log.info('Resend invite sent', { category:
+ *     'email', request_id, ... })`.
  *   - SendGrid fallback path: mirrors the Resend instrumentation under
  *     `provider: 'sendgrid'` so the operator can see which rail delivered.
  *

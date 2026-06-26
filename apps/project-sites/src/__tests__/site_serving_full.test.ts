@@ -497,7 +497,7 @@ describe('serveSiteFromR2', () => {
 //
 // Business-portfolio sites must never expose end users to third-party
 // surveillance (PostHog) or error-tracker SDKs (Sentry). Worker-internal
-// telemetry still uses POSTHOG_API_KEY + SENTRY_DSN, but those keys must
+// telemetry still uses POSTHOG_API_KEY, but those keys must
 // never reach client HTML. PWA meta + standard favicon link tags are
 // always injected so site.webmanifest icon paths resolve cleanly.
 describe('serveSiteFromR2 — served-site analytics policy', () => {
@@ -541,8 +541,8 @@ describe('serveSiteFromR2 — served-site analytics policy', () => {
     expect(html).not.toContain('posthog');
   });
 
-  it('NEVER injects Sentry snippet — even when SENTRY_DSN is set', async () => {
-    const env = makeEnv({ SENTRY_DSN: 'https://abc123@o12345.ingest.sentry.io/67890' });
+  it('NEVER injects any third-party error-tracking snippet', async () => {
+    const env = makeEnv({});
     (env.SITES_BUCKET.get as jest.Mock).mockResolvedValue(createMockR2Object(HTML_WITH_HEAD));
 
     const response = await serveSiteFromR2(env as any, makeSite({ plan: 'paid' }), '/index.html');
