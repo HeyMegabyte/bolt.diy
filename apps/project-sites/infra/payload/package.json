@@ -5,13 +5,16 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "dev": "wrangler dev"
+    "dev": "wrangler dev",
+    "e2e": "playwright test",
+    "e2e:prod": "PROD_URL=https://cms.projectsites.dev playwright test"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260510.1",
+    "@playwright/test": "^1.53.0",
     "typescript": "^5.7.0",
     "wrangler": "^4.90.0"
   }
