@@ -26,10 +26,7 @@ import { z } from 'zod';
 import type { Env } from '../types/env.js';
 import { dbInsert } from './db.js';
 import type { Platform } from './social_publishers/index.js';
-import {
-  DEFAULT_AUTO_PILOT_PROMPT,
-  generateAutoPilotPostForNetwork,
-} from './social_auto_pilot.js';
+import { DEFAULT_AUTO_PILOT_PROMPT, generateAutoPilotPostForNetwork } from './social_auto_pilot.js';
 
 // ---------------------------------------------------------------------------
 // Schemas + types
@@ -157,12 +154,11 @@ function eligibleTypes(signals: CampaignSignals): CampaignPostType[] {
 }
 
 /** One-line angle brief for a slot (deterministic, signal-aware). */
-function angleFor(
-  type: CampaignPostType,
-  signals: CampaignSignals,
-  serviceIdx: number,
-): string {
-  const svc = signals.services.length > 0 ? signals.services[serviceIdx % signals.services.length] : 'our core service';
+function angleFor(type: CampaignPostType, signals: CampaignSignals, serviceIdx: number): string {
+  const svc =
+    signals.services.length > 0
+      ? signals.services[serviceIdx % signals.services.length]
+      : 'our core service';
   const area = signals.area_name ?? 'the local area';
   switch (type) {
     case 'service_spotlight':
@@ -223,7 +219,8 @@ function hashtagsFor(type: CampaignPostType, signals: CampaignSignals): string[]
  */
 export function planCampaign(spec: CampaignSpec, signals: CampaignSignals): CampaignPlan {
   const pool = eligibleTypes(signals);
-  if (pool.length === 0) throw new CampaignPlanError('no eligible post archetypes for these signals');
+  if (pool.length === 0)
+    throw new CampaignPlanError('no eligible post archetypes for these signals');
 
   const ppw = Math.min(7, Math.max(1, spec.posts_per_week ?? 5));
   const slotCount = Math.max(1, Math.round((spec.length / 7) * ppw));

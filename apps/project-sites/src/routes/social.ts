@@ -297,7 +297,13 @@ socialRoutes.post('/api/social/campaign', zValidator('json', CampaignRequestSche
     );
   }
 
-  const { plan, drafts } = await generateCampaignDrafts(c.env, ctx.orgId, ctx.userId, spec, signals);
+  const { plan, drafts } = await generateCampaignDrafts(
+    c.env,
+    ctx.orgId,
+    ctx.userId,
+    spec,
+    signals,
+  );
   return c.json(
     {
       data: {
