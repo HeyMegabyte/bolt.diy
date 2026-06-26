@@ -24,7 +24,9 @@ export const Users: CollectionConfig = {
     admin: ({ req: { user } }) => Boolean(user),
   },
   fields: [
-    { name: 'name', type: 'text', required: true },
+    // Optional at the column level so the add-column migration succeeds against
+    // pre-existing users (no backfill). New users are prompted for it in the admin.
+    { name: 'name', type: 'text' },
     {
       name: 'roles',
       type: 'select',

@@ -5,7 +5,7 @@ import { getClient } from '@/lib/payload'
 import { RenderBlocks } from './components/RenderBlocks'
 import './styles.css'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 const getHome = async () => {
   const { isEnabled: draft } = await draftMode()

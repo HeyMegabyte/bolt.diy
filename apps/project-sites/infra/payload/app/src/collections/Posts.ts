@@ -25,7 +25,7 @@ export const Posts: CollectionConfig = {
   },
   access: { read: publishedOrAuth, create: editors, update: editors, delete: editors },
   versions: {
-    drafts: { autosave: { interval: 800 }, schedulePublish: true },
+    drafts: { schedulePublish: true },
     maxPerDoc: 25,
   },
   hooks: {

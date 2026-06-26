@@ -2,7 +2,6 @@ import type { CollectionConfig } from 'payload'
 import { publishedOrAuth, editors } from '../access'
 import { slugField } from '../fields/slug'
 import { layoutBlocks } from '../blocks'
-import { populatePublishedAt } from '../hooks/publishedAt'
 import { revalidateAfterChange, revalidateAfterDelete } from '../hooks/revalidate'
 
 /**
@@ -28,16 +27,14 @@ export const Pages: CollectionConfig = {
     },
   },
   access: { read: publishedOrAuth, create: editors, update: editors, delete: editors },
-  versions: { drafts: { autosave: { interval: 800 }, schedulePublish: true }, maxPerDoc: 25 },
+  versions: { drafts: { schedulePublish: true }, maxPerDoc: 25 },
   hooks: {
-    beforeChange: [populatePublishedAt],
     afterChange: [revalidateAfterChange('pages')],
     afterDelete: [revalidateAfterDelete('pages')],
   },
   fields: [
     { name: 'title', type: 'text', required: true },
     slugField('title'),
-    { name: 'publishedAt', type: 'date', admin: { position: 'sidebar' } },
     { name: 'layout', type: 'blocks', blocks: layoutBlocks, minRows: 1 },
   ],
 }

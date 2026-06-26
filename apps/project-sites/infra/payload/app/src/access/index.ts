@@ -12,7 +12,7 @@ import type { Access, FieldAccess } from 'payload'
  */
 
 interface RoledUser {
-  id: string
+  id: string | number
   roles?: ('admin' | 'editor')[]
 }
 

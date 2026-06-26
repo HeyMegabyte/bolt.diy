@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { getClient } from '@/lib/payload'
 import '../styles.css'
 
-export const revalidate = 600
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Blog', description: 'Latest posts.' }
 
 export default async function PostsIndex() {

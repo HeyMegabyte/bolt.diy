@@ -1,5 +1,5 @@
 import type { CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
-import { revalidatePath, revalidateTag } from 'next/cache.js'
+import { revalidatePath } from 'next/cache.js'
 
 /**
  * On-demand ISR: when a published doc changes (or its previously-published version
@@ -30,7 +30,6 @@ export const revalidateAfterChange =
       if (previousDoc?._status === 'published' && previousDoc.slug !== doc?.slug) {
         revalidatePath(pathFor(collection, previousDoc.slug))
       }
-      revalidateTag(collection)
     } catch (err) {
       payload.logger.error({ err }, `Revalidate failed for ${collection}`)
     }
@@ -43,7 +42,6 @@ export const revalidateAfterDelete =
     if (context?.disableRevalidate) return doc
     try {
       if (doc?.slug) revalidatePath(pathFor(collection, doc.slug))
-      revalidateTag(collection)
     } catch {
       /* best-effort */
     }

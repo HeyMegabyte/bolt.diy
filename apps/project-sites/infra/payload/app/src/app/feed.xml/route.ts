@@ -1,6 +1,6 @@
 import { getClient, SERVER_URL } from '@/lib/payload'
 
-export const revalidate = 600
+export const dynamic = 'force-dynamic'
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')

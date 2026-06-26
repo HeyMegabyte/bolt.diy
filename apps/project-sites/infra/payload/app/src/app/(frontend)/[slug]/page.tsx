@@ -6,7 +6,7 @@ import { getClient } from '@/lib/payload'
 import { RenderBlocks } from '../components/RenderBlocks'
 import '../styles.css'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -21,15 +21,6 @@ const getPage = async (slug: string) => {
     overrideAccess: draft,
   })
   return res.docs[0]
-}
-
-export async function generateStaticParams() {
-  const payload = await getClient()
-  const res = await payload.find({ collection: 'pages', limit: 200, select: { slug: true } })
-  return res.docs
-    .map((d) => (d as { slug?: string }).slug)
-    .filter((s): s is string => Boolean(s) && s !== 'home')
-    .map((slug) => ({ slug }))
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {

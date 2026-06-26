@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { getClient, SERVER_URL } from '@/lib/payload'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 /** Dynamic sitemap built from every published Page + Post. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

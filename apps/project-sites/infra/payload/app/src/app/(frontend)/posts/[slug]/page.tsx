@@ -6,7 +6,7 @@ import { RichText } from '@payloadcms/richtext-lexical/react'
 import { getClient } from '@/lib/payload'
 import '../../styles.css'
 
-export const revalidate = 600
+export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -22,17 +22,6 @@ const getPost = async (slug: string) => {
     overrideAccess: draft,
   })
   return res.docs[0]
-}
-
-export async function generateStaticParams() {
-  const payload = await getClient()
-  const res = await payload.find({
-    collection: 'posts',
-    where: { _status: { equals: 'published' } },
-    limit: 500,
-    select: { slug: true },
-  })
-  return res.docs.map((d) => ({ slug: String((d as { slug?: string }).slug) }))
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
