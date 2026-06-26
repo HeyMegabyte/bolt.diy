@@ -205,7 +205,12 @@ export async function loadCampaignPrefill(env: Env, orgId: string): Promise<Camp
     hasPhotos = parseHasPhotos(images?.parsed_output ?? images?.raw_output);
   }
 
-  return { business_name: businessName, services, has_photos: hasPhotos, ...(area ? { area_name: area } : {}) };
+  return {
+    business_name: businessName,
+    services,
+    has_photos: hasPhotos,
+    ...(area ? { area_name: area } : {}),
+  };
 }
 
 /** One dated slot in a campaign plan. */
