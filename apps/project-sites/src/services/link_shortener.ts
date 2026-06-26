@@ -111,7 +111,9 @@ export async function shortenViaDub(env: Env, longUrl: string): Promise<string> 
     });
     if (!res.ok) return longUrl;
     const data = (await res.json().catch(() => null)) as { shortLink?: string } | null;
-    return typeof data?.shortLink === 'string' && data.shortLink.length > 0 ? data.shortLink : longUrl;
+    return typeof data?.shortLink === 'string' && data.shortLink.length > 0
+      ? data.shortLink
+      : longUrl;
   } catch {
     return longUrl;
   }

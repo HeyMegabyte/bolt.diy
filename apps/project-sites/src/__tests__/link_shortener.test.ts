@@ -97,7 +97,10 @@ describe('shortenViaDub — fail-soft', () => {
     const [url, init] = spy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://app.claimyour.site/api/links');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer dub_x');
-    expect(JSON.parse(init.body as string)).toMatchObject({ url: 'https://e.com/x', domain: 'linkbl.ink' });
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      url: 'https://e.com/x',
+      domain: 'linkbl.ink',
+    });
   });
 });
 
@@ -105,7 +108,11 @@ describe('processPostLinks', () => {
   it('UTM-tags + shortens every URL in content and the link field', async () => {
     // Dub echoes a deterministic short link per call.
     let n = 0;
-    fetchOnce(() => ({ ok: true, status: 200, json: async () => ({ shortLink: `https://linkbl.ink/${++n}` }) }));
+    fetchOnce(() => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ shortLink: `https://linkbl.ink/${++n}` }),
+    }));
     const env = { DUB_API_KEY: 'dub_x' } as Env;
     const res = await processPostLinks(env, {
       content: 'Check https://shop.com/sale now',
