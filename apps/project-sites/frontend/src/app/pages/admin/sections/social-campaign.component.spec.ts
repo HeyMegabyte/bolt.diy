@@ -107,18 +107,27 @@ describe('AdminSocialCampaignComponent', () => {
     expect(c.prettyType('service_spotlight')).toBe('Service Spotlight');
   });
 
-  it('pre-fills the brief from the prefill endpoint on init', () => {
+  it('pre-fills the brief (name, area, services, photos) from the prefill endpoint on init', () => {
     const get = jasmine
       .createSpy('get')
       .and.callFake((path: string) =>
         path.includes('prefill')
-          ? of({ data: { business_name: 'Acme Co', area_name: 'Newark' } })
+          ? of({
+              data: {
+                business_name: 'Acme Co',
+                area_name: 'Newark',
+                services: ['Haircut', 'Shave'],
+                has_photos: true,
+              },
+            })
           : of({ data: [] }),
       );
     const c = make(get, okPost());
     c.ngOnInit();
     expect(c.businessName()).toBe('Acme Co');
     expect(c.areaName()).toBe('Newark');
+    expect(c.servicesText()).toBe('Haircut, Shave');
+    expect(c.hasPhotos()).toBe(true);
   });
 
   it('prefill never overwrites a value the user already typed', () => {

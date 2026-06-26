@@ -98,10 +98,14 @@ export const CampaignRequestSchema = z
 
 export type CampaignRequest = z.infer<typeof CampaignRequestSchema>;
 
-/** Auto-fillable campaign brief fields derived from the org's site. */
+/** Auto-fillable campaign brief fields derived from the org's site + research. */
 export interface CampaignPrefill {
   business_name: string;
   area_name?: string;
+  /** Service names from `research_profile` (empty when none / not researched). */
+  services: string[];
+  /** True when `research_images` found hero/service/gallery photos. */
+  has_photos: boolean;
 }
 
 /** Best-effort city extraction from a free-form business address. */
@@ -115,6 +119,38 @@ function deriveArea(addr: string | null | undefined): string | undefined {
   if (parts.length >= 3) return parts[1] || undefined;
   if (parts.length === 2) return parts[0] || undefined;
   return undefined;
+}
+
+/** Defensively pull `services: string[]` from a `research_profile` JSON blob. */
+function parseServices(blob: string | null | undefined): string[] {
+  if (!blob) return [];
+  try {
+    const obj = JSON.parse(blob) as { services?: unknown };
+    if (Array.isArray(obj.services)) {
+      return obj.services
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+        .slice(0, 12);
+    }
+  } catch {
+    /* uncertain research JSON shape — degrade to no services */
+  }
+  return [];
+}
+
+/** Defensively detect any photos in a `research_images` JSON blob. */
+function parseHasPhotos(blob: string | null | undefined): boolean {
+  if (!blob) return false;
+  try {
+    const obj = JSON.parse(blob) as Record<string, unknown>;
+    for (const key of ['hero_images', 'service_images', 'gallery']) {
+      const v = obj[key];
+      if (Array.isArray(v) && v.length > 0) return true;
+    }
+  } catch {
+    /* uncertain research JSON shape — assume no photos */
+  }
+  return false;
 }
 
 /**
@@ -132,9 +168,13 @@ function deriveArea(addr: string | null | undefined): string | undefined {
  * @remarks Impure — reads D1.
  */
 export async function loadCampaignPrefill(env: Env, orgId: string): Promise<CampaignPrefill> {
-  const site = await dbQueryOne<{ business_name: string | null; business_address: string | null }>(
+  const site = await dbQueryOne<{
+    id: string;
+    business_name: string | null;
+    business_address: string | null;
+  }>(
     env.DB,
-    `SELECT business_name, business_address FROM sites
+    `SELECT id, business_name, business_address FROM sites
       WHERE org_id = ? AND deleted_at IS NULL
       ORDER BY CASE WHEN status = 'published' THEN 0 ELSE 1 END, updated_at DESC
       LIMIT 1`,
@@ -142,7 +182,30 @@ export async function loadCampaignPrefill(env: Env, orgId: string): Promise<Camp
   );
   const businessName = site?.business_name?.trim() ?? '';
   const area = deriveArea(site?.business_address);
-  return { business_name: businessName, ...(area ? { area_name: area } : {}) };
+
+  let services: string[] = [];
+  let hasPhotos = false;
+  if (site?.id) {
+    const profile = await dbQueryOne<{ parsed_output: string | null; raw_output: string | null }>(
+      env.DB,
+      `SELECT parsed_output, raw_output FROM research_data
+        WHERE site_id = ? AND task_name = 'research_profile' AND deleted_at IS NULL
+        ORDER BY created_at DESC LIMIT 1`,
+      [site.id],
+    );
+    services = parseServices(profile?.parsed_output ?? profile?.raw_output);
+
+    const images = await dbQueryOne<{ parsed_output: string | null; raw_output: string | null }>(
+      env.DB,
+      `SELECT parsed_output, raw_output FROM research_data
+        WHERE site_id = ? AND task_name = 'research_images' AND deleted_at IS NULL
+        ORDER BY created_at DESC LIMIT 1`,
+      [site.id],
+    );
+    hasPhotos = parseHasPhotos(images?.parsed_output ?? images?.raw_output);
+  }
+
+  return { business_name: businessName, services, has_photos: hasPhotos, ...(area ? { area_name: area } : {}) };
 }
 
 /** One dated slot in a campaign plan. */

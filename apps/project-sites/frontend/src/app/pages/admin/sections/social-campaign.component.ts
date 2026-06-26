@@ -233,12 +233,18 @@ export class AdminSocialCampaignComponent implements OnInit {
     // Pre-fill the required brief fields from the org's site so the user
     // doesn't retype them (never overwrites anything they've already typed).
     this.api
-      .get<{ data: { business_name?: string; area_name?: string } }>(`/social/campaign/prefill`, undefined, { silent: true })
+      .get<{
+        data: { business_name?: string; area_name?: string; services?: string[]; has_photos?: boolean };
+      }>(`/social/campaign/prefill`, undefined, { silent: true })
       .subscribe({
         next: (res) => {
           const p = res?.data;
           if (p?.business_name && !this.businessName()) this.businessName.set(p.business_name);
           if (p?.area_name && !this.areaName()) this.areaName.set(p.area_name);
+          if (Array.isArray(p?.services) && p.services.length > 0 && !this.servicesText()) {
+            this.servicesText.set(p.services.join(', '));
+          }
+          if (p?.has_photos) this.hasPhotos.set(true);
         },
         error: () => {
           /* prefill is best-effort — the form still works without it */

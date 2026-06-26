@@ -274,5 +274,63 @@ describe('loadCampaignPrefill', () => {
     const pre = await loadCampaignPrefill(env, 'org-1');
     expect(pre.business_name).toBe('');
     expect(pre.area_name).toBeUndefined();
+    expect(pre.services).toEqual([]);
+    expect(pre.has_photos).toBe(false);
+  });
+});
+
+/** SQL-aware stub: returns a distinct row per queried table. */
+function fakeEnvResearch(opts: { site?: unknown; profile?: unknown; images?: unknown }): Env {
+  const rowFor = (sql: string): unknown => {
+    if (/research_profile/.test(sql)) return opts.profile ?? null;
+    if (/research_images/.test(sql)) return opts.images ?? null;
+    if (/FROM sites/.test(sql)) return opts.site ?? null;
+    return null;
+  };
+  const db = {
+    prepare: (sql: string) => ({
+      bind: () => ({
+        first: async () => rowFor(sql),
+        run: async () => ({ success: true, meta: {} }),
+        all: async () => {
+          const r = rowFor(sql);
+          return { results: r ? [r] : [] };
+        },
+      }),
+    }),
+  };
+  return { DB: db } as unknown as Env;
+}
+
+describe('loadCampaignPrefill — research-derived signals', () => {
+  it('pulls services from research_profile + detects photos from research_images', async () => {
+    const env = fakeEnvResearch({
+      site: { id: 's1', business_name: 'Vito Salon', business_address: '1 Main St, Newark, NJ' },
+      profile: { parsed_output: JSON.stringify({ services: ['Haircut', 'Shave', '  '] }) },
+      images: { parsed_output: JSON.stringify({ hero_images: [{ url: 'x' }] }) },
+    });
+    const pre = await loadCampaignPrefill(env, 'org-1');
+    expect(pre.services).toEqual(['Haircut', 'Shave']); // blank entry filtered out
+    expect(pre.has_photos).toBe(true);
+    expect(pre.business_name).toBe('Vito Salon');
+  });
+
+  it('degrades to no services / no photos on uncertain or empty research JSON', async () => {
+    const env = fakeEnvResearch({
+      site: { id: 's1', business_name: 'X', business_address: 'Y' },
+      profile: { parsed_output: 'definitely not json' },
+      images: { parsed_output: JSON.stringify({ gallery: [] }) },
+    });
+    const pre = await loadCampaignPrefill(env, 'org-1');
+    expect(pre.services).toEqual([]);
+    expect(pre.has_photos).toBe(false);
+  });
+
+  it('skips research lookups entirely when the site row has no id', async () => {
+    const env = fakeEnvResearch({ site: { business_name: 'NoId', business_address: 'A, B, C' } });
+    const pre = await loadCampaignPrefill(env, 'org-1');
+    expect(pre.services).toEqual([]);
+    expect(pre.has_photos).toBe(false);
+    expect(pre.business_name).toBe('NoId');
   });
 });
