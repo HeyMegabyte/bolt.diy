@@ -74,3 +74,5 @@ ENV PORT 3000
 # Apply DB migrations (wakes Neon + creates/updates schema), then start the server.
 # Migrations are idempotent — "no migrations to run" when already applied.
 CMD ["sh", "-c", "node_modules/.bin/payload migrate && HOSTNAME=0.0.0.0 node server.js"]
+
+# cache-bust: force container restart to pick up S3/Resend env (rev2)
