@@ -94,3 +94,24 @@ How earlier service suggestions resolved — adopted, built-native, or deferred:
 > Pattern: prefer **building the concept on CF/own primitives** over adopting a SaaS
 > when the surface is core (webhooks, notifications, observability); adopt the vendor
 > only when it's genuinely faster AND not load-bearing (Dub for short links).
+
+---
+
+## Self-hosted service assignments (Brian directive 2026-06-26)
+
+Loop `90593cc9` drives each to a live 200 login page. All currently **404 (unbuilt)**
+unless noted; each is a dedicated Fly/container deploy (Neon DB + Upstash Redis +
+secrets + explicit `<sub>.projectsites.dev/*` CF route beating the wildcard + DNS).
+
+| Subdomain | Service | What it is | Status |
+|---|---|---|---|
+| `projects.projectsites.dev` | **Plane** | Project management (Jira/Linear alt) | scaffold (`infra/fly/plane/`) |
+| `webhooks.projectsites.dev` | **Svix** | Webhook delivery (managed) | PLANNED — note: our own `outbound_webhooks.ts` already does signed+retried delivery; Svix adds a managed UI/dashboard |
+| `engage.projectsites.dev` | **Dittofeed** | Customer messaging / marketing automation | PLANNED |
+| `integrations.projectsites.dev` | **Nango** | Unified OAuth / integrations gateway | PLANNED |
+| `auth.projectsites.dev` | **Logto** | Default consumer auth (OIDC) | **code built** — `logto_provider.ts` (ADR-0006), dark behind `LOGTO_*`; needs subdomain + activation |
+| Enterprise SSO / SCIM | **WorkOS** | Enterprise SSO + SCIM provisioning | **code built** — `workos_provider.ts` (ADR-0006), dark behind `WORKOS_*` |
+
+Per-deploy checklist (mirror `support-chatwoot`): official image → `infra/fly/<svc>/fly.toml`
+→ Neon DB `projectsites_<svc>` → Upstash Redis → `flyctl secrets set` → first-boot migrate
+→ explicit CF route + CNAME → verify `200` at the login screen (not the wildcard 404).
