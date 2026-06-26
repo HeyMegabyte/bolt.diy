@@ -8,6 +8,7 @@
  * Pure frontend, no backend. Last destination persists to localStorage.
  */
 import { Component, signal, computed } from '@angular/core';
+import { copyToClipboard } from '../../../utils/clipboard';
 import { FormsModule } from '@angular/forms';
 
 interface Preset {
@@ -255,7 +256,7 @@ export class UtmBuilderComponent {
   copy(): void {
     const url = this.built();
     if (!url) return;
-    void navigator.clipboard?.writeText(url);
+    void copyToClipboard(url);
     this.copied.set(true);
   }
 

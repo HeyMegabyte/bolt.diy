@@ -1,4 +1,5 @@
 import { Component, computed, inject, type OnInit } from '@angular/core';
+import { copyToClipboard } from '../../../../utils/clipboard';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
@@ -549,7 +550,7 @@ export class DocsOverviewComponent implements OnInit {
   /** Copy a snippet to the clipboard and flip the button into a "Copied ✓" state. */
   copySnippet(text: string, ev: Event): void {
     try {
-      void navigator.clipboard.writeText(text);
+      void copyToClipboard(text);
       const btn = ev.target as HTMLButtonElement | null;
       if (btn) {
         const original = btn.textContent ?? 'Copy';
@@ -578,7 +579,7 @@ export class DocsOverviewComponent implements OnInit {
     const text = code?.textContent ?? '';
     if (!text) return;
     try {
-      void navigator.clipboard.writeText(text);
+      void copyToClipboard(text);
       const original = btn.textContent ?? 'Copy';
       btn.textContent = 'Copied ✓';
       btn.classList.add('is-copied');

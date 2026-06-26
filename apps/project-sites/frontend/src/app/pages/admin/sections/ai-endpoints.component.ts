@@ -38,6 +38,7 @@
  * @see ../../../../src/routes/ai_admin.ts for the matching server routes
  */
 import { Component, HostListener, computed, inject, input, signal, type OnInit } from '@angular/core';
+import { copyToClipboard } from '../../../utils/clipboard';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
@@ -1477,19 +1478,19 @@ export class AdminAiEndpointsComponent implements OnInit {
 
   copyCurl(e: EndpointRow): void {
     const cmd = `curl -X ${e.method === 'BOTH' ? 'POST' : e.method} '${this.endpointUrl(e)}' \\\n  -H 'Content-Type: application/json' \\\n  -d '{}'`;
-    void navigator.clipboard.writeText(cmd);
+    void copyToClipboard(cmd);
     this.toast.success('cURL copied');
   }
 
   copyFetch(e: EndpointRow): void {
     const code = `await fetch('${this.endpointUrl(e)}', {\n  method: '${e.method === 'BOTH' ? 'POST' : e.method}',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({}),\n});`;
-    void navigator.clipboard.writeText(code);
+    void copyToClipboard(code);
     this.toast.success('fetch() snippet copied');
   }
 
   copyPython(e: EndpointRow): void {
     const code = `import requests\nrequests.${e.method === 'GET' ? 'get' : 'post'}('${this.endpointUrl(e)}', json={})`;
-    void navigator.clipboard.writeText(code);
+    void copyToClipboard(code);
     this.toast.success('Python snippet copied');
   }
 
@@ -1499,7 +1500,7 @@ export class AdminAiEndpointsComponent implements OnInit {
       info: { title: e.endpoint_slug, version: '1.0.0' },
       paths: { [`/api/ai/${this.state.selectedSite()?.slug}/${e.endpoint_slug}`]: { [e.method === 'BOTH' ? 'post' : e.method.toLowerCase()]: { summary: e.description ?? '', responses: { '200': { description: 'OK' } } } } },
     };
-    void navigator.clipboard.writeText(JSON.stringify(doc, null, 2));
+    void copyToClipboard(JSON.stringify(doc, null, 2));
     this.toast.success('OpenAPI schema copied');
   }
 
