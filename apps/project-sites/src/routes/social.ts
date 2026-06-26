@@ -29,6 +29,7 @@ import {
   loadAutoPilotConfig,
   upsertAutoPilotConfig,
 } from '../services/social_auto_pilot.js';
+import { CampaignRequestSchema, generateCampaignDrafts } from '../services/social_campaign.js';
 
 export const socialRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -255,6 +256,59 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
   });
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
   return c.json({ data: { id, status } }, 201);
+});
+
+/**
+ * `POST /api/social/campaign` — Generate an AI campaign of draft posts.
+ *
+ * @remarks
+ * Body: {@link CampaignRequestSchema} (`{ spec, signals }`). Plans a dated,
+ * archetype-rotated campaign (service spotlight / review proof / before-after /
+ * GBP update / seasonal offer / local event / …), fills each slot's copy via
+ * the auto-pilot LLM path, and inserts `status='draft'` `pulse_posts` rows for
+ * the user to review before publishing. Gated by the `social_publishing`
+ * capability flag (404 when off — never leaks existence).
+ *
+ * @throws 400 BAD_REQUEST when payload validation or account ownership fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the social capability is disabled for the org.
+ */
+socialRoutes.post('/api/social/campaign', zValidator('json', CampaignRequestSchema), async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'not found' } }, 404);
+  }
+  const { spec, signals } = c.req.valid('json');
+
+  // Validate the target accounts belong to the caller's org (same guard as the
+  // single-draft create route).
+  const placeholders = spec.account_ids.map(() => '?').join(',');
+  const { data: accounts } = await dbQuery<{ id: string }>(
+    c.env.DB,
+    `SELECT id FROM social_accounts
+       WHERE id IN (${placeholders}) AND org_id = ? AND deleted_at IS NULL AND status = 'active'`,
+    [...spec.account_ids, ctx.orgId],
+  );
+  if (accounts.length !== spec.account_ids.length) {
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: 'one or more account_ids invalid or inactive' } },
+      400,
+    );
+  }
+
+  const { plan, drafts } = await generateCampaignDrafts(c.env, ctx.orgId, ctx.userId, spec, signals);
+  return c.json(
+    {
+      data: {
+        length: plan.length,
+        slot_count: plan.slot_count,
+        drafts_created: drafts.length,
+        drafts,
+      },
+    },
+    201,
+  );
 });
 
 /**
