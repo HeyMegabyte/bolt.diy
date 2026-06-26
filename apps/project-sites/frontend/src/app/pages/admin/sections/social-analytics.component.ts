@@ -68,6 +68,7 @@ interface AggregateResponse {
         <div>
           <h1>Social analytics</h1>
           <p class="sub">Performance across every connected account, last {{ days() }} days.</p>
+          <a routerLink="/admin/social/campaign" class="camp-link" data-testid="social-campaign-link">✨ Generate a campaign →</a>
         </div>
         <nav class="windows" aria-label="Time window">
           @for (w of windows; track w) {
@@ -135,6 +136,8 @@ interface AggregateResponse {
       .page-hd { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
       h1 { font-family: 'Sora', system-ui, sans-serif; font-size: 1.6rem; margin: 0; }
       .sub { opacity: 0.7; margin: 4px 0 0; font-size: 0.92rem; }
+      .camp-link { display: inline-block; margin-top: 8px; color: var(--ps-accent, #00e5ff); font-size: 0.82rem; text-decoration: none; }
+      .camp-link:hover { text-decoration: underline; }
       .windows { display: flex; gap: 4px; }
       .windows button {
         padding: 6px 12px;
