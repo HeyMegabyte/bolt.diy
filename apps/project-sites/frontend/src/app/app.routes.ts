@@ -308,6 +308,13 @@ export const routes: Routes = [
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
       },
       {
+        // email.component (AdminEmailComponent) was fully built (forms submissions
+        // + email integrations) but never routed — restored here, not deleted.
+        path: 'email',
+        loadComponent: () =>
+          import('./pages/admin/sections/email.component').then((m) => m.AdminEmailComponent),
+      },
+      {
         // One-click site-import — paste a URL, crawler runs source-site-
         // enhancement pre-pass + spins the generation workflow. Bundle C
         // finish (2026-05-24).
