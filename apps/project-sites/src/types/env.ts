@@ -446,6 +446,12 @@ export interface Env {
   /** Override callback URL (workers.dev) to bypass zone CF managed challenge. */
   INTERNAL_CALLBACK_URL?: string;
 
+  // ── CMS content bridge (cms_content feature) ─────────────
+  /** Shared HMAC secret for the Payload CMS → worker `notify-sites` revalidation webhook. */
+  SITES_REVALIDATE_SECRET?: string;
+  /** Payload CMS origin for the blog-feed proxy (default https://cms.projectsites.dev). */
+  CMS_BASE_URL?: string;
+
   // ── Email (Resend / SendGrid) ────────────────────────────
   /** Resend API key for transactional email. Preferred provider. */
   RESEND_API_KEY?: string;

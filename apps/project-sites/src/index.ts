@@ -122,6 +122,7 @@ import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // 
 import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js'; // OAuth 2.1 AS for MCP one-click connect (flag: mcp_oauth_provider)
 import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: prod_readiness_score)
+import { cmsContent } from '../libs/features/cms_content/handlers.js'; // GET /api/cms/blog.json + POST /api/cms/revalidate — Payload CMS bridge (flag: cms_content)
 import { deployButtons } from '../libs/features/deploy_buttons/handlers.js'; // GET /api/deploy-buttons/:siteId — deploy buttons + "Hosted on" badge (flag: deploy_buttons)
 import { visitorDsar } from '../libs/features/visitor_dsar/handlers.js'; // POST /api/sites/:siteId/dsar — GDPR data-subject export/delete (flag: visitor_dsar)
 import { onboardingCopilot } from '../libs/features/onboarding_copilot/handlers.js'; // /api/onboarding/{checklist,dismiss} — PLG activation checklist (flag: onboarding_copilot)
@@ -429,6 +430,7 @@ app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profil
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
 app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`
+app.route('/', cmsContent); // GET /api/cms/blog.json + POST /api/cms/revalidate (flag: cms_content) — must precede `api`
 app.route('/api/deploy-buttons', deployButtons); // GET /api/deploy-buttons/:siteId (flag: deploy_buttons)
 app.route('/', visitorDsar); // POST /api/sites/:siteId/dsar (flag: visitor_dsar) — must precede `api`
 app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,dismiss} (flag: onboarding_copilot)

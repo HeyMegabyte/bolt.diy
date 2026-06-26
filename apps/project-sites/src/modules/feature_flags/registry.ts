@@ -504,6 +504,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  cms_content: {
+    key: 'cms_content',
+    description:
+      'CMS content bridge: edge-cached /api/cms/blog.json feed for generated sites + HMAC-verified /api/cms/revalidate receiver that purges the cache when Payload publishes content',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   deploy_buttons: {
     key: 'deploy_buttons',
     description:
