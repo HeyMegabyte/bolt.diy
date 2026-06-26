@@ -179,14 +179,7 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=live'),
         pathMatch: 'full',
       },
-      {
-        // Activation Funnel is now a tab under Analytics (?tab=funnel). Function
-        // redirectTo carries the query param; keeps old deep links + bookmarks working.
-        path: 'activation-funnel',
-        redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=funnel'),
-        pathMatch: 'full',
-      },
-      {
+            {
         path: 'billing',
         loadComponent: () =>
           import('./pages/admin/sections/billing.component').then((m) => m.AdminBillingComponent),
@@ -213,17 +206,7 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/settings#email'),
         pathMatch: 'full',
       },
-      {
-        // Outbound Webhooks (#10) moved UNDER Settings (2026-06-07) — now the
-        // "Webhooks" tab of /admin/settings. The component (AdminWebhooksComponent)
-        // is embedded there; this legacy path redirects to the Settings fragment
-        // so old deep links + the command palette keep working. (Static redirectTo
-        // can't carry a #fragment → functional redirect, same pattern as mcp/ai-chat.)
-        path: 'webhooks',
-        redirectTo: () => inject(Router).parseUrl('/admin/settings#webhooks'),
-        pathMatch: 'full',
-      },
-      {
+            {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
@@ -291,40 +274,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/seo.component').then((m) => m.AdminSeoComponent),
       },
-      {
-        // Features Hub (RETIRED 2026-06-07) — the old combined catalog is
-        // superseded by the two-layer plane: LAYER 1 Feature Flags
-        // (/admin/feature-flags, operator-only) + LAYER 2 Features
-        // (/admin/site-features, owner-facing). Redirect old deep links /
-        // command-palette entries to the owner-facing Features layer so they
-        // never 404. (AdminFeaturesHubComponent + its spec DELETED 2026-06-07.)
-        path: 'features',
-        redirectTo: 'site-features',
-        pathMatch: 'full',
-      },
-      {
+            {
         path: 'forms',
         loadComponent: () =>
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
       },
-      {
-        // email.component (AdminEmailComponent) was fully built (forms submissions
-        // + email integrations) but never routed — restored here, not deleted.
-        path: 'email',
-        loadComponent: () =>
-          import('./pages/admin/sections/email.component').then((m) => m.AdminEmailComponent),
-      },
-      {
-        // One-click site-import — paste a URL, crawler runs source-site-
-        // enhancement pre-pass + spins the generation workflow. Bundle C
-        // finish (2026-05-24).
-        path: 'import',
-        loadComponent: () =>
-          import('./pages/import-from-url/import-from-url.component').then(
-            (m) => m.ImportFromUrlComponent,
-          ),
-      },
-      {
+                  {
         // Interactive API explorer (OpenAPI 3.1). Shell hosts the left-rail
         // endpoint nav + a `<router-outlet>`; per-endpoint detail is its own
         // lazy chunk so the overview reader never pays for the Try-It UI.
@@ -356,12 +311,7 @@ export const routes: Routes = [
       // Static redirectTo can't carry a #fragment (it lands on /admin/settings General,
       // not the AI Chat tab). Settings reads the fragment to open its 'ai-chat' tab, so
       // use a functional redirect that preserves it (same fix as /admin/mcp).
-      {
-        path: 'ai-chat',
-        redirectTo: () => inject(Router).parseUrl('/admin/settings#ai-chat'),
-        pathMatch: 'full',
-      },
-      {
+            {
         // Traces is now a tab under Logs (?tab=traces). Function redirectTo carries
         // the query param; keeps old deep links + bookmarks working.
         path: 'traces',
@@ -419,7 +369,6 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/settings#mcp'),
         pathMatch: 'full',
       },
-      { path: 'github', redirectTo: 'snapshots', pathMatch: 'full' },
       {
         path: 'settings',
         loadComponent: () =>
@@ -547,9 +496,6 @@ export const routes: Routes = [
       // dashboard so old bookmarks don't 404. (Worker /api/* routes for these
       // stay dormant + flag-gated; cleaned up separately.)
       { path: 'marketplace', redirectTo: '', pathMatch: 'full' },
-      { path: 'trust', redirectTo: '', pathMatch: 'full' },
-      { path: 'enterprise', redirectTo: '', pathMatch: 'full' },
-      { path: 'stripe-app-status', redirectTo: '', pathMatch: 'full' },
       {
         // Admin-scoped 404 — MUST be last. Catches any unknown `/admin/*` path
         // (stale bookmark to a renamed route, or a param-route hit without its
@@ -654,13 +600,7 @@ export const routes: Routes = [
     path: 'status',
     loadComponent: () => import('./pages/status/status.component').then((m) => m.StatusComponent),
   },
-  {
-    // Public Trust Center (#30) — honest, verifiable security posture.
-    // Lazy-loaded so marketing traffic never pays for it until requested.
-    path: 'trust',
-    loadComponent: () => import('./pages/trust/trust.component').then((m) => m.TrustComponent),
-  },
-  {
+    {
     // Inline checkout harness — mounts <app-inline-checkout> with a fixed
     // amount so Playwright can drive the 1-click Stripe Link flow under
     // the brian@megabyte.space stub. Production traffic also lands here
