@@ -64,8 +64,8 @@ export const BREAKDOWN_UPDATES: ReadonlyArray<string> = [
   // Top pages by views (path, not metadata).
   `
 UPDATE analytics_daily SET top_paths_json = (
-  SELECT json_group_array(json_object('path', path, 'count', c)) FROM (
-    SELECT ve.path AS path, COUNT(*) AS c
+  SELECT json_group_array(json_object('path', path, 'count', c, 'uniques', u)) FROM (
+    SELECT ve.path AS path, COUNT(*) AS c, COUNT(DISTINCT ve.session_id) AS u
     FROM visitor_events ve
     WHERE ve.site_id = analytics_daily.site_id AND date(ve.created_at) = analytics_daily.day
       AND ve.event_type = 'pageview' AND ve.path IS NOT NULL
