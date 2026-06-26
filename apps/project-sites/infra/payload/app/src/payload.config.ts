@@ -1,7 +1,10 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { seoPlugin } from '@payloadcms/plugin-seo'
+import { redirectsPlugin } from '@payloadcms/plugin-redirects'
+import { searchPlugin } from '@payloadcms/plugin-search'
+import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 import { resendAdapter } from '@payloadcms/email-resend'
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -14,43 +17,60 @@ import { Tags } from './collections/Tags'
 import { Posts } from './collections/Posts'
 import { Categories } from './collections/Categories'
 import { Pages } from './collections/Pages'
+import { globals } from './globals'
+import { defaultEditor } from './lexical'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+const SERVER_URL = process.env.PAYLOAD_PUBLIC_SERVER_URL || 'https://cms.projectsites.dev'
+
+/** Origins allowed to call the API + submit forms (CORS + CSRF). */
+const allowedOrigins = [
+  SERVER_URL,
+  'https://projectsites.dev',
+  'https://www.projectsites.dev',
+  'https://editor.projectsites.dev',
+]
+
 export default buildConfig({
+  serverURL: SERVER_URL,
   admin: {
     user: Users.slug,
-    importMap: {
-      baseDir: path.resolve(dirname),
+    importMap: { baseDir: path.resolve(dirname) },
+    meta: {
+      titleSuffix: '· ProjectSites CMS',
+      description: 'Content management for projectsites.dev',
     },
+    dateFormat: 'MMM d, yyyy h:mm a',
   },
   collections: [Posts, Pages, Categories, Media, Tags, Users],
-  editor: lexicalEditor(),
+  globals,
+  editor: defaultEditor,
   secret: process.env.PAYLOAD_SECRET || '',
-  typescript: {
-    outputFile: path.resolve(dirname, 'payload-types.ts'),
-  },
-  // Schema is managed by migrations (src/migrations/*) — `payload migrate` runs on
-  // container boot (see Dockerfile). `push` is a dev-only no-op in production.
+  cors: allowedOrigins,
+  csrf: allowedOrigins,
+  typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
+  // Schema is migration-managed (`payload migrate` on boot). `push:false` in prod.
   db: postgresAdapter({
     pool: { connectionString: process.env.DATABASE_URI || '' },
     push: false,
   }),
   sharp,
-  localization: {
-    locales: ['en'],
-    fallback: true,
-    defaultLocale: 'en',
+  localization: { locales: ['en'], fallback: true, defaultLocale: 'en' },
+  // Background jobs: process the queue every minute so scheduled-publish fires
+  // inside the long-running container. autoRun is safe here (persistent Next server).
+  jobs: {
+    access: { run: ({ req }) => Boolean(req.user) },
+    autoRun: [{ cron: '* * * * *', queue: 'default', limit: 10 }],
+    shouldAutoRun: async () => true,
   },
-  // Password-reset / verification / invite emails go through Resend.
   email: resendAdapter({
     defaultFromAddress: 'noreply@projectsites.dev',
     defaultFromName: 'ProjectSites CMS',
     apiKey: process.env.RESEND_API_KEY || '',
   }),
   plugins: [
-    // Media uploads persist in R2 (S3-compatible) — container disk is ephemeral.
     s3Storage({
       collections: { media: { prefix: 'media' } },
       bucket: process.env.S3_BUCKET || 'mb-cms',
@@ -64,13 +84,46 @@ export default buildConfig({
         forcePathStyle: true,
       },
     }),
-    // SEO meta (title/description/og-image) on content collections.
     seoPlugin({
       collections: ['posts', 'pages'],
       uploadsCollection: 'media',
       tabbedUI: true,
       generateTitle: ({ doc }: { doc: { title?: string } }) => doc?.title ?? '',
       generateDescription: ({ doc }: { doc: { excerpt?: string } }) => doc?.excerpt ?? '',
+      generateURL: ({ doc, collectionSlug }: { doc: { slug?: string }; collectionSlug?: string }) =>
+        collectionSlug === 'pages'
+          ? `${SERVER_URL}/${doc?.slug === 'home' ? '' : (doc?.slug ?? '')}`
+          : `${SERVER_URL}/posts/${doc?.slug ?? ''}`,
+    }),
+    // Category taxonomy hierarchy (parent + breadcrumbs).
+    nestedDocsPlugin({
+      collections: ['categories'],
+      generateLabel: (_, doc) => String(doc?.title ?? ''),
+      generateURL: (docs) => docs.reduce((url, d) => `${url}/${d?.slug ?? ''}`, ''),
+    }),
+    // 301/302 management for migrated URLs.
+    redirectsPlugin({
+      collections: ['pages', 'posts'],
+      overrides: {
+        admin: { group: 'Settings' },
+      },
+    }),
+    // Full-text search index (published only).
+    searchPlugin({
+      collections: ['posts', 'pages'],
+      defaultPriorities: { posts: 20, pages: 10 },
+      searchOverrides: { admin: { group: 'Settings' } },
+      beforeSync: ({ originalDoc, searchDoc }) => ({
+        ...searchDoc,
+        excerpt: originalDoc?.excerpt ?? '',
+      }),
+    }),
+    // Editor-built forms + submissions + Resend confirmation emails.
+    formBuilderPlugin({
+      fields: { payment: false },
+      redirectRelationships: ['pages'],
+      formOverrides: { admin: { group: 'Settings' } },
+      formSubmissionOverrides: { admin: { group: 'Settings' } },
     }),
   ],
 })

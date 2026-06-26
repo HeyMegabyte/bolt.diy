@@ -1,62 +1,50 @@
-import { headers as getHeaders } from 'next/headers.js'
-import Image from 'next/image'
-import { getPayload } from 'payload'
 import React from 'react'
-import { fileURLToPath } from 'url'
-
-import config from '@/payload.config'
+import { draftMode } from 'next/headers.js'
+import type { Metadata } from 'next'
+import { getClient } from '@/lib/payload'
+import { RenderBlocks } from './components/RenderBlocks'
 import './styles.css'
 
+export const revalidate = 3600
+
+const getHome = async () => {
+  const { isEnabled: draft } = await draftMode()
+  const payload = await getClient()
+  const res = await payload.find({
+    collection: 'pages',
+    where: { slug: { equals: 'home' } },
+    draft,
+    limit: 1,
+    overrideAccess: draft,
+  })
+  return res.docs[0]
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const page = await getHome()
+  const meta = (page as { meta?: { title?: string; description?: string } })?.meta
+  return {
+    title: meta?.title || 'ProjectSites',
+    description: meta?.description || 'AI-built websites, delivered.',
+  }
+}
+
 export default async function HomePage() {
-  const headers = await getHeaders()
-  const payloadConfig = await config
-  const payload = await getPayload({ config: payloadConfig })
-  const { user } = await payload.auth({ headers })
-
-  const fileURL = `vscode://file/${fileURLToPath(import.meta.url)}`
-
+  const page = await getHome()
+  if (!page) {
+    return (
+      <main className="prose">
+        <h1>ProjectSites CMS</h1>
+        <p>
+          No <code>home</code> page published yet. Create a Page with slug <code>home</code> in the{' '}
+          <a href="/admin">admin panel</a>.
+        </p>
+      </main>
+    )
+  }
   return (
-    <div className="home">
-      <div className="content">
-        <picture>
-          <source srcSet="https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-favicon.svg" />
-          <Image
-            alt="Payload Logo"
-            height={65}
-            src="https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-favicon.svg"
-            width={65}
-          />
-        </picture>
-        {!user || !('email' in user) ? (
-          <h1>Welcome to your new project.</h1>
-        ) : (
-          <h1>Welcome back, {user.email}</h1>
-        )}
-        <div className="links">
-          <a
-            className="admin"
-            href={payloadConfig.routes.admin}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Go to admin panel
-          </a>
-          <a
-            className="docs"
-            href="https://payloadcms.com/docs"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Documentation
-          </a>
-        </div>
-      </div>
-      <div className="footer">
-        <p>Update this page by editing</p>
-        <a className="codeLink" href={fileURL}>
-          <code>app/(frontend)/page.tsx</code>
-        </a>
-      </div>
-    </div>
+    <main>
+      <RenderBlocks blocks={(page as { layout?: never[] }).layout} />
+    </main>
   )
 }
