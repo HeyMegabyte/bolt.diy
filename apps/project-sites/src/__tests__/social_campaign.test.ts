@@ -12,6 +12,7 @@ import type { Env } from '../types/env.js';
 import {
   planCampaign,
   generateCampaignDrafts,
+  loadCampaignPrefill,
   CampaignSpecSchema,
   CAMPAIGN_POST_TYPES,
   type CampaignSpec,
@@ -234,5 +235,44 @@ describe('generateCampaignDrafts — orchestration', () => {
 
     expect(drafts).toHaveLength(plan.slot_count - 1);
     expect(captured).toHaveLength(plan.slot_count - 1);
+  });
+});
+
+function fakeEnvWithSite(row: unknown): Env {
+  const db = {
+    prepare: () => ({
+      bind: () => ({
+        first: async () => row,
+        run: async () => ({ success: true, meta: {} }),
+        // dbQueryOne → dbQuery → .all().results[0]
+        all: async () => ({ results: row ? [row] : [] }),
+      }),
+    }),
+  };
+  return { DB: db } as unknown as Env;
+}
+
+describe('loadCampaignPrefill', () => {
+  it('derives business_name + the city segment from a full street address', async () => {
+    const env = fakeEnvWithSite({
+      business_name: "Vito's Salon",
+      business_address: '74 N Beverwyck Rd, Lake Hiawatha, NJ 07034',
+    });
+    const pre = await loadCampaignPrefill(env, 'org-1');
+    expect(pre.business_name).toBe("Vito's Salon");
+    expect(pre.area_name).toBe('Lake Hiawatha');
+  });
+
+  it('uses the first segment for a 2-part "city, state" address', async () => {
+    const env = fakeEnvWithSite({ business_name: 'X', business_address: 'Newark, NJ' });
+    const pre = await loadCampaignPrefill(env, 'org-1');
+    expect(pre.area_name).toBe('Newark');
+  });
+
+  it('returns an empty business_name + no area when the org has no site', async () => {
+    const env = fakeEnvWithSite(null);
+    const pre = await loadCampaignPrefill(env, 'org-1');
+    expect(pre.business_name).toBe('');
+    expect(pre.area_name).toBeUndefined();
   });
 });

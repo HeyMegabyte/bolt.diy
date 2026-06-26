@@ -24,7 +24,7 @@
  */
 import { z } from 'zod';
 import type { Env } from '../types/env.js';
-import { dbInsert } from './db.js';
+import { dbInsert, dbQueryOne } from './db.js';
 import type { Platform } from './social_publishers/index.js';
 import { DEFAULT_AUTO_PILOT_PROMPT, generateAutoPilotPostForNetwork } from './social_auto_pilot.js';
 
@@ -97,6 +97,53 @@ export const CampaignRequestSchema = z
   .strict();
 
 export type CampaignRequest = z.infer<typeof CampaignRequestSchema>;
+
+/** Auto-fillable campaign brief fields derived from the org's site. */
+export interface CampaignPrefill {
+  business_name: string;
+  area_name?: string;
+}
+
+/** Best-effort city extraction from a free-form business address. */
+function deriveArea(addr: string | null | undefined): string | undefined {
+  if (!addr) return undefined;
+  const parts = addr
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // "street, city, state zip" → city is parts[1]; "city, state" → parts[0].
+  if (parts.length >= 3) return parts[1] || undefined;
+  if (parts.length === 2) return parts[0] || undefined;
+  return undefined;
+}
+
+/**
+ * Derive the auto-fillable campaign brief ({@link CampaignPrefill}) from the
+ * org's most-recent (published-first) site — so the dashboard pre-populates the
+ * required business name + area instead of making the user retype them.
+ *
+ * @param env - Worker bindings (DB)
+ * @param orgId - tenant scope
+ * @returns business name (empty when the org has no site yet) + optional area
+ *
+ * @example
+ * const pre = await loadCampaignPrefill(env, orgId); // { business_name, area_name? }
+ *
+ * @remarks Impure — reads D1.
+ */
+export async function loadCampaignPrefill(env: Env, orgId: string): Promise<CampaignPrefill> {
+  const site = await dbQueryOne<{ business_name: string | null; business_address: string | null }>(
+    env.DB,
+    `SELECT business_name, business_address FROM sites
+      WHERE org_id = ? AND deleted_at IS NULL
+      ORDER BY CASE WHEN status = 'published' THEN 0 ELSE 1 END, updated_at DESC
+      LIMIT 1`,
+    [orgId],
+  );
+  const businessName = site?.business_name?.trim() ?? '';
+  const area = deriveArea(site?.business_address);
+  return { business_name: businessName, ...(area ? { area_name: area } : {}) };
+}
 
 /** One dated slot in a campaign plan. */
 export interface CampaignSlot {

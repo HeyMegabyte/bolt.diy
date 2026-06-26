@@ -29,7 +29,11 @@ import {
   loadAutoPilotConfig,
   upsertAutoPilotConfig,
 } from '../services/social_auto_pilot.js';
-import { CampaignRequestSchema, generateCampaignDrafts } from '../services/social_campaign.js';
+import {
+  CampaignRequestSchema,
+  generateCampaignDrafts,
+  loadCampaignPrefill,
+} from '../services/social_campaign.js';
 
 export const socialRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -315,6 +319,24 @@ socialRoutes.post('/api/social/campaign', zValidator('json', CampaignRequestSche
     },
     201,
   );
+});
+
+/**
+ * `GET /api/social/campaign/prefill` — Auto-fill values for the campaign brief
+ * (business name + area) derived from the org's most-recent site, so the
+ * dashboard pre-populates the required fields. Gated by `social_publishing`.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the social capability is disabled for the org.
+ */
+socialRoutes.get('/api/social/campaign/prefill', async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'not found' } }, 404);
+  }
+  const data = await loadCampaignPrefill(c.env, ctx.orgId);
+  return c.json({ data });
 });
 
 /**

@@ -106,4 +106,30 @@ describe('AdminSocialCampaignComponent', () => {
     expect(c.selected().has('a1')).toBe(false);
     expect(c.prettyType('service_spotlight')).toBe('Service Spotlight');
   });
+
+  it('pre-fills the brief from the prefill endpoint on init', () => {
+    const get = jasmine
+      .createSpy('get')
+      .and.callFake((path: string) =>
+        path.includes('prefill')
+          ? of({ data: { business_name: 'Acme Co', area_name: 'Newark' } })
+          : of({ data: [] }),
+      );
+    const c = make(get, okPost());
+    c.ngOnInit();
+    expect(c.businessName()).toBe('Acme Co');
+    expect(c.areaName()).toBe('Newark');
+  });
+
+  it('prefill never overwrites a value the user already typed', () => {
+    const get = jasmine
+      .createSpy('get')
+      .and.callFake((path: string) =>
+        path.includes('prefill') ? of({ data: { business_name: 'Acme Co' } }) : of({ data: [] }),
+      );
+    const c = make(get, okPost());
+    c.businessName.set('My Custom Name');
+    c.ngOnInit();
+    expect(c.businessName()).toBe('My Custom Name');
+  });
 });
