@@ -19,6 +19,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
+import { BestTimeToPostComponent } from './best-time-to-post.component';
 import {
   WidgetRendererComponent,
 } from './dashboard/widgets';
@@ -59,7 +60,7 @@ interface AggregateResponse {
   selector: 'app-social-analytics',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, SkeletonComponent, ErrorCardComponent],
+  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, SkeletonComponent, ErrorCardComponent, BestTimeToPostComponent],
   template: `
     <section class="page" appReveal data-testid="social-analytics-section">
       <header class="page-hd">
@@ -120,6 +121,9 @@ interface AggregateResponse {
             </tbody>
           </table>
         </section>
+
+        <!-- best_times was on the wire with no UI — surface it. -->
+        <app-best-time-to-post [bestTimes]="data()!.best_times" />
       }
     </section>
   `,
