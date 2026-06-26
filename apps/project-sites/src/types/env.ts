@@ -660,6 +660,12 @@ export interface Env {
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
   TWILIO_ACCOUNT_SID?: string;
+  /** Dub API key (self-hosted instance at app.claimyour.site) for link shortening. Optional → fail-soft. */
+  DUB_API_KEY?: string;
+  /** Dub API base override. Default https://app.claimyour.site/api. */
+  DUB_API_BASE?: string;
+  /** Short-link domain registered in Dub. Default linkbl.ink. */
+  LINKBL_DOMAIN?: string;
   /** Twilio Auth Token — signs every outbound REST call AND verifies inbound webhooks. */
   TWILIO_AUTH_TOKEN?: string;
   /** Twilio API Key SID (SK…) — for short-lived Access Tokens (Client/Voice). */

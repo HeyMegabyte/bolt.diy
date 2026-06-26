@@ -14,6 +14,7 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { dbExecute, dbInsert, dbQueryOne, dbUpdate } from '../services/db.js';
 import { loadAccountsByIds, markAccountError } from '../services/social_account_ctx.js';
+import { processPostLinks } from '../services/link_shortener.js';
 import {
   getPublisher,
   MissingAppCredsError,
@@ -113,6 +114,21 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
       mentions: ctx.row.mentions ? (JSON.parse(ctx.row.mentions) as PostCtx['mentions']) : [],
       link: ctx.row.link,
     };
+
+    // 2.5 linkify — UTM-tag + linkbl.ink-shorten every URL in the post before
+    // publishing, in the background, so clicks attribute back to the post.
+    // Fail-soft: a missing DUB_API_KEY or Dub error leaves the URLs unchanged.
+    await step.do('linkify', RETRY_30S, async () => {
+      const processed = await processPostLinks(env, {
+        content: post.content,
+        link: post.link,
+        postId: post.id,
+        platform: 'social',
+      });
+      post.content = processed.content;
+      post.link = processed.link;
+      return { shortened: processed.shortened };
+    });
 
     // 3. fanoutPublish — load accounts then run per-account publishes in parallel
     const accounts = await loadAccountsByIds(env, ctx.accountIds);
