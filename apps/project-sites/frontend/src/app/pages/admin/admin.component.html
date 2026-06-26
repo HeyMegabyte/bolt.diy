@@ -689,7 +689,7 @@
              sidebar stays scannable. -->
         <details class="nav-more">
           <summary class="nav-item nav-more-summary"><span>More tools</span></summary>
-          <a class="nav-item nav-sub" routerLink="/admin/social/analytics" routerLinkActive="nav-item-active"><span>Social analytics</span></a>
+          <a class="nav-item nav-sub" routerLink="/admin/analytics" [queryParams]="{ tab: 'social' }" routerLinkActive="nav-item-active"><span>Social analytics</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/audit" routerLinkActive="nav-item-active"><span>Audit log</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/media" routerLinkActive="nav-item-active"><span>Media library</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/integrations" routerLinkActive="nav-item-active"><span>Integrations</span></a>

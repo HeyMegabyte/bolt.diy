@@ -503,11 +503,10 @@ export const routes: Routes = [
       // Same data source (/api/social/analytics/aggregate) with deeper
       // breakdowns + window switcher.
       {
+        // Standalone Social analytics page folded into Analytics → Social tab.
         path: 'social/analytics',
-        loadComponent: () =>
-          import('./pages/admin/sections/social-analytics.component').then(
-            (m) => m.AdminSocialAnalyticsComponent,
-          ),
+        redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=social'),
+        pathMatch: 'full',
       },
       // ─── Unified Visitor Inbox (#24) ──────────────────────────────
       // 3-pane: conversation list + thread + AI-draft panel.

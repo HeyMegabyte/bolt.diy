@@ -4,20 +4,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { AdminAnalyticsLiveComponent } from './analytics-live.component';
 import { AdminActivationFunnelComponent } from './activation-funnel.component';
-import { OwnerAnalyticsComponent } from './owner-analytics.component';
+import { AdminSocialAnalyticsComponent } from './social-analytics.component';
 
-type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'visitors';
+type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'social';
 
 /**
- * Unified analytics dashboard (2026-06-23) — combines the former standalone
- * "Analytics" (`/admin/analytics`) and "Live Events" (`/admin/analytics-live`)
- * sidebar items into ONE surface with two tabs. Aggregate traffic and the raw
- * event stream are the same system, so they live together now. Mirrors the
- * `logs-dashboard` pattern (Audit Trail + Log Explorer in one tabbed surface).
+ * Unified analytics dashboard — combines aggregate traffic, the raw live event
+ * stream, the activation funnel, and SOCIAL performance into ONE tabbed surface.
+ * Social analytics lives here as a dedicated `social` tab (no standalone page),
+ * so everything a site owner measures is in one place.
  *
- * Deep-linkable + bookmarkable via `?tab=overview|live` (shared admin pattern)
- * so `/admin/analytics?tab=live` lands directly on Live Events and the legacy
- * `/admin/analytics-live` route redirects here too.
+ * Deep-linkable + bookmarkable via `?tab=overview|live|funnel|social`; the legacy
+ * `/admin/analytics-live` + `/admin/social/analytics` routes redirect here.
  */
 @Component({
   selector: 'app-admin-analytics-dashboard',
@@ -26,13 +24,13 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'visitors';
     AdminAnalyticsComponent,
     AdminAnalyticsLiveComponent,
     AdminActivationFunnelComponent,
-    OwnerAnalyticsComponent,
+    AdminSocialAnalyticsComponent,
   ],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="analytics-dashboard">
       <h1 class="text-[1.35rem] font-extrabold text-white tracking-tight m-0">Analytics</h1>
       <p class="text-[0.82rem] text-text-secondary mt-1 mb-3">
-        Aggregate traffic + the raw live event stream — one place for everything visitors do.
+        Traffic, the live event stream, the activation funnel, and social performance — all in one place.
       </p>
       <div class="inline-flex gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Analytics view">
         @for (t of tabs; track t.id) {
@@ -60,7 +58,7 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'visitors';
     } @else if (tab() === 'funnel') {
       <app-admin-activation-funnel />
     } @else {
-      <app-owner-analytics />
+      <app-social-analytics />
     }
   `,
 })
@@ -73,7 +71,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     { id: 'overview', label: 'Overview' },
     { id: 'live', label: 'Live Events' },
     { id: 'funnel', label: 'Activation Funnel' },
-    { id: 'visitors', label: 'Your Visitors' },
+    { id: 'social', label: 'Social' },
   ];
   readonly tab = signal<AnalyticsTab>('overview');
 
@@ -82,7 +80,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     // restores it. takeUntilDestroyed: ActivatedRoute observables never complete.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
       const t = q.get('tab');
-      this.tab.set(t === 'live' || t === 'funnel' || t === 'visitors' ? t : 'overview');
+      this.tab.set(t === 'live' || t === 'funnel' || t === 'social' ? t : 'overview');
     });
   }
 

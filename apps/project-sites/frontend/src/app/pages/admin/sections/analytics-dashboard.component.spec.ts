@@ -13,7 +13,7 @@ class StubOverviewComponent {}
 class StubLiveComponent {}
 @Component({ selector: 'app-admin-activation-funnel', standalone: true, template: '<div data-testid="stub-funnel"></div>' })
 class StubFunnelComponent {}
-@Component({ selector: 'app-owner-analytics', standalone: true, template: '<div data-testid="stub-visitors"></div>' })
+@Component({ selector: 'app-social-analytics', standalone: true, template: '<div data-testid="stub-social"></div>' })
 class StubVisitorsComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
@@ -50,13 +50,13 @@ describe('AdminAnalyticsDashboardComponent', () => {
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-overview"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-live"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-funnel"]')).toBeTruthy();
-    expect(f.nativeElement.querySelector('[data-testid="analytics-tab-visitors"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="analytics-tab-social"]')).toBeTruthy();
   });
 
-  it('lands on Your Visitors when ?tab=visitors', () => {
-    qpm.next(convertToParamMap({ tab: 'visitors' }));
+  it('lands on Social when ?tab=social', () => {
+    qpm.next(convertToParamMap({ tab: 'social' }));
     const f = make();
-    expect(f.nativeElement.querySelector('[data-testid="stub-visitors"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="stub-social"]')).toBeTruthy();
   });
 
   it('defaults to the Overview tab when no ?tab is present', () => {
