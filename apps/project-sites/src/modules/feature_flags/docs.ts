@@ -456,6 +456,21 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Flip flag ON with secret UNSET → create still works (soft-allow)',
     ],
   },
+  analytics_rollup_read: {
+    checklist: [
+      'OFF by default — the owner traffic summary scans visitor_events live (unchanged)',
+      'When ON: getTrafficSummary delegates to getTrafficSummaryFromRollup (reads analytics_daily O(days))',
+      'Today refreshed on demand before reading (cron only fills through yesterday)',
+      'Flag-check failure fails open → live scan; the summary never errors',
+    ],
+    explanation:
+      'AN3 read-switch. When ON, the owner Your-Visitors summary is served from the analytics_daily rollup (sum scalars + json_each-merge the 5 breakdown columns over the window, today refreshed on demand) instead of scanning every visitor_events row — O(days) not O(events). Window is calendar-day aligned (vs the live rolling now-N-days) and uniqueSessions is summed across days (approximate), so numbers may differ slightly from the live path; verify equivalence on a real site before promoting. Default OFF; fails open to the live scan on any error.',
+    smoke_test: [
+      'With flag OFF: open Your-Visitors → numbers identical to before (live scan)',
+      'Flip flag ON for a test site → summary still renders; compare totals to the live path',
+      'Confirm pageviews/conversions match within the calendar-vs-rolling boundary; uniques close',
+    ],
+  },
   core_feature_flags: {
     checklist: [
       'Lists every registry flag with default state + stage',

@@ -143,6 +143,17 @@ export async function getTrafficSummary(
   siteId: string,
   windowDays = 30,
 ): Promise<TrafficSummary> {
+  // AN3 — when the rollup-read flag is on, serve from analytics_daily (O(days)).
+  // Fail-open: any flag-check error falls through to the live scan below.
+  try {
+    const { isFlagOn } = await import('../../../src/modules/feature_flags/services.js');
+    if (await isFlagOn(env, 'analytics_rollup_read', { siteId })) {
+      return getTrafficSummaryFromRollup(env, siteId, windowDays);
+    }
+  } catch {
+    /* fall through to the live path */
+  }
+
   const since = `-${windowDays} days`;
   const w = ['site_id = ?', "created_at >= datetime('now', ?)"].join(' AND ');
   // AN15 — the window immediately BEFORE the current one, for period-over-period
@@ -250,6 +261,99 @@ export async function getTrafficSummary(
       pageviews: prevPageviews,
       uniqueSessions: prevSessions,
       conversions: prevConversions,
+    },
+    windowDays,
+  });
+}
+
+/**
+ * AN3 — the SAME shape as {@link getTrafficSummary}, read O(days) from the
+ * `analytics_daily` rollup instead of scanning O(events) of `visitor_events`.
+ *
+ * @remarks
+ * Today's (incomplete) rollup row is refreshed on demand first (the cron only
+ * fills through yesterday), then the whole window is summed from the rollup via
+ * SQL `json_each` (no JS JSON parsing). Window is CALENDAR-day aligned (last N
+ * days incl. today) — a slightly different boundary than the live rolling
+ * `now - N days`. `uniqueSessions` is summed across days (approximate: a session
+ * spanning two days counts in each). Gated behind `analytics_rollup_read`.
+ */
+export async function getTrafficSummaryFromRollup(
+  env: Env,
+  siteId: string,
+  windowDays = 30,
+): Promise<TrafficSummary> {
+  // Keep today's rollup row current — best-effort (a stale today degrades, never throws).
+  try {
+    const { rollupAnalyticsDaily } = await import('../../../src/services/analytics_rollup.js');
+    await rollupAnalyticsDaily(env, new Date().toISOString().slice(0, 10));
+  } catch {
+    /* ignore — fall back to whatever the rollup already has */
+  }
+
+  const curStart = `-${windowDays - 1} days`; // inclusive of today → N calendar days
+  const prevStart = `-${windowDays * 2 - 1} days`;
+  const prevEnd = `-${windowDays} days`;
+
+  const sumScalars = async (
+    start: string,
+    end: string | null,
+  ): Promise<{ pageviews: number; uniqueSessions: number; conversions: number }> => {
+    const where = end
+      ? `site_id = ? AND day >= date('now', ?) AND day <= date('now', ?)`
+      : `site_id = ? AND day >= date('now', ?)`;
+    const params = end ? [siteId, start, end] : [siteId, start];
+    const { data } = await dbQuery<{ pv: number; us: number; cv: number }>(
+      env.DB,
+      `SELECT COALESCE(SUM(pageviews),0) AS pv, COALESCE(SUM(unique_sessions),0) AS us,
+              COALESCE(SUM(conversions),0) AS cv FROM analytics_daily WHERE ${where}`,
+      params,
+    );
+    const r = data[0] ?? { pv: 0, us: 0, cv: 0 };
+    return { pageviews: Number(r.pv), uniqueSessions: Number(r.us), conversions: Number(r.cv) };
+  };
+
+  /** Sum a JSON-array breakdown column across the window via json_each. */
+  const merge = async (
+    col: string,
+    keyField: string,
+  ): Promise<Array<{ k: string | null; c: number; u: number }>> => {
+    const { data, error } = await dbQuery<{ k: string | null; c: number; u: number }>(
+      env.DB,
+      `SELECT json_extract(je.value, '$.${keyField}') AS k,
+              SUM(CAST(json_extract(je.value, '$.count') AS INTEGER)) AS c,
+              SUM(CAST(COALESCE(json_extract(je.value, '$.uniques'), 0) AS INTEGER)) AS u
+       FROM analytics_daily ad, json_each(ad.${col}) je
+       WHERE ad.site_id = ? AND ad.day >= date('now', ?) AND ad.${col} IS NOT NULL
+       GROUP BY k ORDER BY c DESC`,
+      [siteId, curStart],
+    );
+    return error ? [] : data;
+  };
+
+  const [cur, prev, pathRows, typeRows, channelRows, deviceRows, countryRows] = await Promise.all([
+    sumScalars(curStart, null),
+    sumScalars(prevStart, prevEnd),
+    merge('top_paths_json', 'path'),
+    merge('by_type_json', 'type'),
+    merge('by_channel_json', 'label'),
+    merge('by_device_json', 'label'),
+    merge('by_country_json', 'label'),
+  ]);
+
+  return TrafficSummarySchema.parse({
+    pageviews: cur.pageviews,
+    uniqueSessions: cur.uniqueSessions,
+    conversions: cur.conversions,
+    topPaths: pathRows.map((r) => ({ path: String(r.k ?? '/'), count: Number(r.c), uniques: Number(r.u) })),
+    byType: typeRows.map((r) => ({ type: String(r.k ?? 'unknown'), count: Number(r.c) })),
+    byDevice: deviceRows.map((r) => ({ label: String(r.k ?? 'unknown'), count: Number(r.c) })),
+    byChannel: channelRows.map((r) => ({ label: String(r.k ?? 'unknown'), count: Number(r.c) })),
+    byCountry: countryRows.map((r) => ({ label: String(r.k ?? 'unknown'), count: Number(r.c) })),
+    previous: {
+      pageviews: prev.pageviews,
+      uniqueSessions: prev.uniqueSessions,
+      conversions: prev.conversions,
     },
     windowDays,
   });

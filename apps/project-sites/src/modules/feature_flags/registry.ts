@@ -62,6 +62,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  analytics_rollup_read: {
+    key: 'analytics_rollup_read',
+    description:
+      'AN3: when ON, the owner traffic summary reads O(days) from the analytics_daily rollup (today refreshed on demand) instead of scanning O(events) of visitor_events. OFF (default) keeps the live scan. Calendar-day window; uniques summed across days (approximate).',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   core_feature_flags: {
     key: 'core_feature_flags',
     description: 'Always-on sentinel: feature-flags admin UI. isFlagOn always true.',
