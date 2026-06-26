@@ -29,12 +29,6 @@ import {
   loadAutoPilotConfig,
   upsertAutoPilotConfig,
 } from '../services/social_auto_pilot.js';
-import {
-  CampaignRequestSchema,
-  generateCampaignDrafts,
-  loadCampaignPrefill,
-  scheduleCampaignPosts,
-} from '../services/social_campaign.js';
 
 export const socialRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -262,121 +256,6 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
   return c.json({ data: { id, status } }, 201);
 });
-
-/**
- * `POST /api/social/campaign` — Generate an AI campaign of draft posts.
- *
- * @remarks
- * Body: {@link CampaignRequestSchema} (`{ spec, signals }`). Plans a dated,
- * archetype-rotated campaign (service spotlight / review proof / before-after /
- * GBP update / seasonal offer / local event / …), fills each slot's copy via
- * the auto-pilot LLM path, and inserts `status='draft'` `pulse_posts` rows for
- * the user to review before publishing. Gated by the `social_publishing`
- * capability flag (404 when off — never leaks existence).
- *
- * @throws 400 BAD_REQUEST when payload validation or account ownership fails.
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the social capability is disabled for the org.
- */
-socialRoutes.post('/api/social/campaign', zValidator('json', CampaignRequestSchema), async (c) => {
-  const ctx = requireAuth(c);
-  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-  if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'not found' } }, 404);
-  }
-  const { spec, signals } = c.req.valid('json');
-
-  // Validate the target accounts belong to the caller's org (same guard as the
-  // single-draft create route).
-  const placeholders = spec.account_ids.map(() => '?').join(',');
-  const { data: accounts } = await dbQuery<{ id: string }>(
-    c.env.DB,
-    `SELECT id FROM social_accounts
-       WHERE id IN (${placeholders}) AND org_id = ? AND deleted_at IS NULL AND status = 'active'`,
-    [...spec.account_ids, ctx.orgId],
-  );
-  if (accounts.length !== spec.account_ids.length) {
-    return c.json(
-      { error: { code: 'BAD_REQUEST', message: 'one or more account_ids invalid or inactive' } },
-      400,
-    );
-  }
-
-  const { plan, drafts, regenerated } = await generateCampaignDrafts(
-    c.env,
-    ctx.orgId,
-    ctx.userId,
-    spec,
-    signals,
-  );
-  return c.json(
-    {
-      data: {
-        length: plan.length,
-        slot_count: plan.slot_count,
-        drafts_created: drafts.length,
-        copy_polished: regenerated,
-        drafts,
-      },
-    },
-    201,
-  );
-});
-
-/**
- * `GET /api/social/campaign/prefill` — Auto-fill values for the campaign brief
- * (business name + area) derived from the org's most-recent site, so the
- * dashboard pre-populates the required fields. Gated by `social_publishing`.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the social capability is disabled for the org.
- */
-socialRoutes.get('/api/social/campaign/prefill', async (c) => {
-  const ctx = requireAuth(c);
-  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-  if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'not found' } }, 404);
-  }
-  const data = await loadCampaignPrefill(c.env, ctx.orgId);
-  return c.json({ data });
-});
-
-/** Batch-schedule a campaign's draft posts (each already carries a per-slot date). */
-const ScheduleCampaignSchema = z
-  .object({ post_ids: z.array(z.string().min(1)).min(1).max(60) })
-  .strict();
-
-/**
- * `POST /api/social/campaign/schedule` — Flip a campaign's reviewed draft posts
- * to `scheduled` in ONE action (each keeps its per-slot `scheduled_at`, set at
- * generation). The publish workflow then sends them on their dates — turning a
- * generated month of drafts into a live posting schedule. Kill-switch-gated by
- * `social_publishing` (503 when off — mirrors the single-post schedule route).
- *
- * @throws 400 BAD_REQUEST on payload validation failure.
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 503 FEATURE_DISABLED when social publishing is halted.
- */
-socialRoutes.post(
-  '/api/social/campaign/schedule',
-  zValidator('json', ScheduleCampaignSchema),
-  async (c) => {
-    const ctx = requireAuth(c);
-    if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-    if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
-      return c.json(
-        {
-          error: { code: 'FEATURE_DISABLED', message: 'Social publishing is temporarily disabled' },
-        },
-        503,
-      );
-    }
-    const { post_ids } = c.req.valid('json');
-    const { scheduled, error } = await scheduleCampaignPosts(c.env, ctx.orgId, post_ids);
-    if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
-    return c.json({ data: { scheduled } });
-  },
-);
 
 /**
  * `GET /api/social/posts?status=&limit=` — List posts for the caller's

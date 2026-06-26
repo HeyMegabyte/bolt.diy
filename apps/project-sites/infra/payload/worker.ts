@@ -26,6 +26,10 @@ interface Env {
   S3_SECRET_ACCESS_KEY?: string;
   /** Resend — transactional email (password reset / verification / invites). */
   RESEND_API_KEY?: string;
+  /** OpenAI — AI auto-excerpt on publish (inert when unset). */
+  OPENAI_API_KEY?: string;
+  /** Shared secret letting an external cron trigger POST /api/db-backup. */
+  BACKUP_SECRET?: string;
 }
 
 export class PayloadCms extends Container<Env> {
@@ -50,6 +54,8 @@ export class PayloadCms extends Container<Env> {
       S3_ACCESS_KEY_ID: env.S3_ACCESS_KEY_ID,
       S3_SECRET_ACCESS_KEY: env.S3_SECRET_ACCESS_KEY,
       RESEND_API_KEY: env.RESEND_API_KEY,
+      OPENAI_API_KEY: env.OPENAI_API_KEY,
+      BACKUP_SECRET: env.BACKUP_SECRET,
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) {

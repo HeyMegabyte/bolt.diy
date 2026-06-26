@@ -42,6 +42,9 @@ ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
+# postgresql-client provides pg_dump for the /api/db-backup endpoint.
+RUN apk add --no-cache postgresql-client
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 

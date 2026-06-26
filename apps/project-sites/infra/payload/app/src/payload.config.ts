@@ -19,6 +19,7 @@ import { Categories } from './collections/Categories'
 import { Pages } from './collections/Pages'
 import { globals } from './globals'
 import { defaultEditor } from './lexical'
+import { backupEndpoint } from './endpoints/backup'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -46,6 +47,7 @@ export default buildConfig({
   },
   collections: [Posts, Pages, Categories, Media, Tags, Users],
   globals,
+  endpoints: [backupEndpoint],
   editor: defaultEditor,
   secret: process.env.PAYLOAD_SECRET || '',
   cors: allowedOrigins,

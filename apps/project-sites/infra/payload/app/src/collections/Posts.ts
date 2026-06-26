@@ -4,6 +4,7 @@ import { slugField } from '../fields/slug'
 import { defaultEditor } from '../lexical'
 import { populatePublishedAt } from '../hooks/publishedAt'
 import { computeReadingTime } from '../hooks/readingTime'
+import { aiAutoExcerpt } from '../hooks/ai-enrich'
 import { revalidateAfterChange, revalidateAfterDelete } from '../hooks/revalidate'
 
 /**
@@ -29,7 +30,7 @@ export const Posts: CollectionConfig = {
     maxPerDoc: 25,
   },
   hooks: {
-    beforeChange: [populatePublishedAt],
+    beforeChange: [populatePublishedAt, aiAutoExcerpt],
     afterChange: [revalidateAfterChange('posts')],
     afterDelete: [revalidateAfterDelete('posts')],
   },

@@ -509,15 +509,6 @@ export const routes: Routes = [
             (m) => m.AdminSocialAnalyticsComponent,
           ),
       },
-      // AI campaign generator — plan + draft a month of varied posts.
-      // Front end for POST /api/social/campaign (Part 9 moat).
-      {
-        path: 'social/campaign',
-        loadComponent: () =>
-          import('./pages/admin/sections/social-campaign.component').then(
-            (m) => m.AdminSocialCampaignComponent,
-          ),
-      },
       // ─── Unified Visitor Inbox (#24) ──────────────────────────────
       // 3-pane: conversation list + thread + AI-draft panel.
       // Flag-gated: unified_inbox. Shows gate notice when off.
