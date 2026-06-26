@@ -9,7 +9,7 @@
  * configured+closed providers CONCURRENTLY (never block on a slow vendor), and
  * records success/failure on each breaker.
  *
- * Doctrine: **Sentry is the critical path and is listed first** ({@link FORWARD_ORDER});
+ * Doctrine: **PostHog is the primary path and is listed first** ({@link FORWARD_ORDER});
  * an open breaker fails fast (`skipped_open`) so one degraded vendor never stalls
  * the batch. Outcomes preserve provider order for the `/api/analytics-debug` view.
  *
@@ -24,17 +24,17 @@
 import type { IncomingEvent } from './analytics_events.js';
 import type { CircuitBreaker } from './circuit_breaker.js';
 
-/** The downstream sinks, in forward-priority order (Sentry first). */
-export type ProviderId = 'sentry' | 'posthog' | 'ga4' | 'gtm';
+/** The downstream sinks, in forward-priority order (PostHog first). */
+export type ProviderId = 'posthog' | 'ga4' | 'gtm';
 
-/** Canonical forward order — Sentry (error-critical) leads. */
-export const FORWARD_ORDER: readonly ProviderId[] = ['sentry', 'posthog', 'ga4', 'gtm'] as const;
+/** Canonical forward order — PostHog (primary product analytics) leads. */
+export const FORWARD_ORDER: readonly ProviderId[] = ['posthog', 'ga4', 'gtm'] as const;
 
 /** Per-provider result of one batch dispatch. */
 export interface ProviderOutcome {
   provider: ProviderId;
   status: 'forwarded' | 'skipped_open' | 'failed' | 'not_configured';
-  /** True for the critical (Sentry) path. */
+  /** True for the critical (PostHog) path. */
   critical: boolean;
   /** Failure detail when `status === 'failed'`. */
   error?: string;
@@ -65,7 +65,7 @@ export async function dispatchBatch(
   now: number,
 ): Promise<ProviderOutcome[]> {
   const tasks = FORWARD_ORDER.map(async (provider): Promise<ProviderOutcome> => {
-    const critical = provider === 'sentry';
+    const critical = provider === 'posthog';
 
     if (!deps.configured(provider)) {
       return { provider, status: 'not_configured', critical };
@@ -97,13 +97,13 @@ export async function dispatchBatch(
 }
 
 /**
- * Did the critical (Sentry) path succeed? The DO marks the batch a critical-path
- * success when Sentry forwarded even if a non-critical sink timed out.
+ * Did the critical (PostHog) path succeed? The DO marks the batch a critical-path
+ * success when PostHog forwarded even if a non-critical sink timed out.
  */
 export function criticalSucceeded(outcomes: readonly ProviderOutcome[]): boolean {
-  const sentry = outcomes.find((o) => o.provider === 'sentry');
-  // Critical success = Sentry forwarded, OR Sentry simply isn't configured for this site.
+  const posthog = outcomes.find((o) => o.provider === 'posthog');
+  // Critical success = PostHog forwarded, OR PostHog simply isn't configured for this site.
   return (
-    sentry === undefined || sentry.status === 'forwarded' || sentry.status === 'not_configured'
+    posthog === undefined || posthog.status === 'forwarded' || posthog.status === 'not_configured'
   );
 }

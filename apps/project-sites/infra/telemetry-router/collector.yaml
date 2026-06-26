@@ -1,0 +1,61 @@
+# OpenTelemetry Collector config for telemetry.projectsites.dev.
+#
+# Receives OTLP signals from CF Workers Tracing (+ any service that wants to ship
+# traces/metrics/logs), batches them, and exports to Axiom via otlphttp.
+# The debug exporter emits a one-line summary per batch to container stdout.
+#
+# Environment variables injected by the TelemetryRouter Container DO:
+#   AXIOM_API_TOKEN — Axiom personal/ingest token
+#   AXIOM_DATASET   — target dataset name (e.g. "projectsites")
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+
+exporters:
+  debug:
+    verbosity: basic
+
+  otlphttp/axiom:
+    endpoint: https://api.axiom.co
+    headers:
+      authorization: "Bearer ${env:AXIOM_API_TOKEN}"
+      x-axiom-dataset: "${env:AXIOM_DATASET}"
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/axiom, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/axiom, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/axiom, debug]

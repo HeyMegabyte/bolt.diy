@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--
+  Minimal ClickHouse server config for projectsites.dev analytics warehouse.
+  Place in /etc/clickhouse-server/config.d/projectsites.xml (override directory).
+
+  SECURITY:
+    - Listens on all interfaces so Fly internal networking (6pn) can reach it.
+    - Anonymous / passwordless access is disabled via users.xml.
+    - Never expose port 8123 or 9000 directly to the public internet —
+      always proxy through the Cloudflare Worker gateway.
+-->
+<clickhouse>
+
+  <!-- Network -->
+  <listen_host>0.0.0.0</listen_host>
+  <http_port>8123</http_port>
+  <tcp_port>9000</tcp_port>
+  <!-- Disable inter-shard replication port (single-node setup) -->
+  <interserver_http_port remove="1"/>
+
+  <!-- Logging -->
+  <logger>
+    <level>warning</level>
+    <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+    <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+    <size>100M</size>
+    <count>5</count>
+  </logger>
+
+  <!-- Data paths (backed by Fly volume) -->
+  <path>/var/lib/clickhouse/</path>
+  <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
+  <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
+  <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
+
+  <!-- Disable anonymous access — enforced additionally in users.xml -->
+  <access_control_improvements>
+    <users_without_row_level_security_can_query_others_without_it>false</users_without_row_level_security_can_query_others_without_it>
+  </access_control_improvements>
+
+  <!-- Query / resource limits (single-node; tune upward as data grows) -->
+  <max_concurrent_queries>50</max_concurrent_queries>
+  <max_connections>200</max_connections>
+  <keep_alive_timeout>10</keep_alive_timeout>
+
+  <!-- Disable default open user profiles -->
+  <default_profile>default</default_profile>
+  <default_database>analytics</default_database>
+
+</clickhouse>

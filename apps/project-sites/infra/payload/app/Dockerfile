@@ -57,12 +57,20 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Bring the full app + node_modules so the Payload CLI can run migrations on boot
+# (the standalone bundle alone can't). This also wakes Neon before the server starts.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/src ./src
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
+
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD HOSTNAME="0.0.0.0" node server.js
+# Apply DB migrations (wakes Neon + creates/updates schema), then start the server.
+# Migrations are idempotent — "no migrations to run" when already applied.
+CMD ["sh", "-c", "node_modules/.bin/payload migrate && HOSTNAME=0.0.0.0 node server.js"]

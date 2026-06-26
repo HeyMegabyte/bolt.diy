@@ -142,7 +142,7 @@ import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
 import * as posthog from '../lib/posthog.js';
-import { captureError } from '../lib/sentry.js';
+import { createLogger } from '../observability/index.js';
 import { fetchSheetData, fetchSheetMeta } from '../services/google_sheets.js';
 import { migrateExternalAssets } from '../services/asset_migration.js';
 import {
@@ -351,7 +351,9 @@ api.get('/api/auth/magic-link/verify', async (c) => {
       `${baseUrl}/?token=${encodeURIComponent(session.token)}&email=${encodeURIComponent(result.email)}&auth_callback=email`,
     );
   } catch (err) {
-    captureError(c, err, { route: 'magic-link-verify-get' });
+    if (c.executionCtx) {
+      createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('magic-link-verify-get failed', { route: 'magic-link-verify-get' }, err instanceof Error ? err : new Error(String(err)));
+    }
     posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'failed', 'unknown');
     return c.redirect('/?error=invalid_or_expired_link');
   }
@@ -9973,12 +9975,9 @@ api.post('/api/internal/client-error', async (c) => {
     const route = typeof body.route === 'string' ? body.route.slice(0, 300) : undefined;
     const userId = typeof body.userId === 'string' ? body.userId.slice(0, 100) : undefined;
 
-    captureError(c, new Error(`client_error: ${message}`), {
-      stack,
-      route,
-      userId,
-      origin: 'angular_section_error_boundary',
-    });
+    if (c.executionCtx) {
+      createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('angular_section_error_boundary', { stack, route, userId, origin: 'angular_section_error_boundary' }, new Error(`client_error: ${message}`));
+    }
 
     console.warn(
       JSON.stringify({
@@ -9993,7 +9992,9 @@ api.post('/api/internal/client-error', async (c) => {
     return c.json({ ok: true });
   } catch (err) {
     // Defensive: never bubble a 500 from the error sink.
-    captureError(c, err, { route: 'client-error-sink' });
+    if (c.executionCtx) {
+      createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('client-error-sink', { route: 'client-error-sink' }, err instanceof Error ? err : new Error(String(err)));
+    }
     return c.json({ ok: false }, 200);
   }
 });
@@ -11254,10 +11255,9 @@ api.post('/api/sites/import-from-url', async (c) => {
       // Surface as audit + Sentry but don't fail the import — the user can
       // retry via the existing /admin/sites/:id/reset path.
       const msg = err instanceof Error ? err.message : String(err);
-      captureError(c, err instanceof Error ? err : new Error(msg), {
-        route: '/api/sites/import-from-url',
-        siteId,
-      });
+      if (c.executionCtx) {
+        createLogger(c.env, (((): ExecutionContext | undefined => { try { return c.executionCtx; } catch { return undefined; } })()), { service: 'api', environment: c.env.ENVIRONMENT ?? 'production', request_id: c.get('requestId') ?? undefined }).error('sites import-from-url workflow failed', { route: '/api/sites/import-from-url', siteId }, err instanceof Error ? err : new Error(msg));
+      }
       await auditService
         .writeAuditLog(c.env.DB, {
           org_id: orgId,

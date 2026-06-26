@@ -29,9 +29,6 @@ jest.mock('../services/auth.js', () => ({
 jest.mock('../services/db.js', () => ({
   dbQueryOne: (...args: unknown[]) => mockDbQueryOne(...args),
 }));
-jest.mock('../lib/sentry.js', () => ({
-  setUser: jest.fn(),
-}));
 
 import { Hono } from 'hono';
 import { authMiddleware } from '../middleware/auth.js';

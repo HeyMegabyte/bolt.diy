@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<!--
+  ClickHouse users for projectsites.dev analytics warehouse.
+  Place in /etc/clickhouse-server/users.d/projectsites-users.xml.
+
+  USERS:
+    ingest    — write-only service account; password from env CLICKHOUSE_INGEST_PASSWORD
+    default   — admin; password from env CLICKHOUSE_ADMIN_PASSWORD; disable in prod if unused
+
+  NO anonymous or passwordless access is permitted.
+  Rotate passwords via `flyctl secrets set` — never commit plaintext values.
+-->
+<clickhouse>
+  <users>
+
+    <!-- ============================================================
+         ingest — used by the Cloudflare Worker gateway to INSERT rows
+         ============================================================ -->
+    <ingest>
+      <!-- PLACEHOLDER: set via flyctl secrets set CLICKHOUSE_INGEST_PASSWORD=<value> -->
+      <password_sha256_hex>REPLACE_WITH_SHA256_OF_CLICKHOUSE_INGEST_PASSWORD</password_sha256_hex>
+
+      <networks>
+        <!-- Allow connections from Fly private 6pn network only -->
+        <ip>::/0</ip>
+      </networks>
+
+      <profile>ingest_profile</profile>
+      <quota>default</quota>
+
+      <databases>
+        <analytics>
+          <!-- Grant INSERT + SELECT on analytics DB; no DDL, no system tables -->
+          <named_collection_control>0</named_collection_control>
+        </analytics>
+      </databases>
+    </ingest>
+
+    <!-- ============================================================
+         default — admin; disable or rotate before production cutover
+         ============================================================ -->
+    <default>
+      <!-- PLACEHOLDER: set via flyctl secrets set CLICKHOUSE_ADMIN_PASSWORD=<value> -->
+      <password_sha256_hex>REPLACE_WITH_SHA256_OF_CLICKHOUSE_ADMIN_PASSWORD</password_sha256_hex>
+
+      <networks>
+        <ip>::1</ip>    <!-- loopback + Fly 6pn; tighten to specific IP for prod -->
+        <ip>127.0.0.1</ip>
+      </networks>
+
+      <profile>default</profile>
+      <quota>default</quota>
+    </default>
+
+  </users>
+
+  <!-- ============================================================
+       Profiles
+       ============================================================ -->
+  <profiles>
+
+    <default>
+      <max_memory_usage>2000000000</max_memory_usage>  <!-- 2 GB -->
+      <use_uncompressed_cache>0</use_uncompressed_cache>
+      <load_balancing>random</load_balancing>
+    </default>
+
+    <ingest_profile>
+      <!-- INSERT-optimised; deny DDL -->
+      <max_memory_usage>1000000000</max_memory_usage>  <!-- 1 GB -->
+      <readonly>0</readonly>
+      <!-- Prevent DDL from this user -->
+      <allow_ddl>0</allow_ddl>
+    </ingest_profile>
+
+  </profiles>
+
+  <!-- ============================================================
+       Quotas — rate-limit heavy queries from ingest user
+       ============================================================ -->
+  <quotas>
+    <default>
+      <interval>
+        <duration>3600</duration>
+        <queries>1000</queries>
+        <errors>100</errors>
+        <result_rows>0</result_rows>   <!-- 0 = unlimited -->
+        <read_rows>0</read_rows>
+        <execution_time>0</execution_time>
+      </interval>
+    </default>
+  </quotas>
+
+</clickhouse>

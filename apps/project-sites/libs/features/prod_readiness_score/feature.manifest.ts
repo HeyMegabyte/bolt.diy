@@ -33,7 +33,7 @@ export default defineFeatureManifest({
 
   zodSchemas: ['schemas.ts'],
 
-  observability: { sentry: false, logs: true, analytics: false },
+  observability: { axiom: false, logs: true, analytics: false },
 
   rollout: {
     defaultEnabled: false,

@@ -7,7 +7,9 @@ export const Posts: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'status', 'publishedAt'],
   },
-  access: { read: () => true },
+  // Public sees only published; authenticated admins see drafts too.
+  access: { read: ({ req: { user } }) => (user ? true : { _status: { equals: 'published' } }) },
+  versions: { drafts: { autosave: false }, maxPerDoc: 20 },
   fields: [
     { name: 'title', type: 'text', required: true },
     {

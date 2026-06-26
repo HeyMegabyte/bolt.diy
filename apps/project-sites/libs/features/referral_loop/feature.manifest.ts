@@ -27,7 +27,7 @@ export default defineFeatureManifest({
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
   observability: {
-    sentry: true,
+    axiom: true,
     logs: true,
     analytics: false,
   },

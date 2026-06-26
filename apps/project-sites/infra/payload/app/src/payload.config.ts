@@ -1,5 +1,8 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { s3Storage } from '@payloadcms/storage-s3'
+import { seoPlugin } from '@payloadcms/plugin-seo'
+import { resendAdapter } from '@payloadcms/email-resend'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -28,13 +31,11 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  // Postgres on Neon. `push: true` auto-syncs the schema on boot so the container
-  // self-initializes its tables on first cold-start — no separate migration step.
+  // Schema is managed by migrations (src/migrations/*) — `payload migrate` runs on
+  // container boot (see Dockerfile). `push` is a dev-only no-op in production.
   db: postgresAdapter({
-    pool: {
-      connectionString: process.env.DATABASE_URI || '',
-    },
-    push: true,
+    pool: { connectionString: process.env.DATABASE_URI || '' },
+    push: false,
   }),
   sharp,
   localization: {
@@ -42,5 +43,34 @@ export default buildConfig({
     fallback: true,
     defaultLocale: 'en',
   },
-  plugins: [],
+  // Password-reset / verification / invite emails go through Resend.
+  email: resendAdapter({
+    defaultFromAddress: 'noreply@projectsites.dev',
+    defaultFromName: 'ProjectSites CMS',
+    apiKey: process.env.RESEND_API_KEY || '',
+  }),
+  plugins: [
+    // Media uploads persist in R2 (S3-compatible) — container disk is ephemeral.
+    s3Storage({
+      collections: { media: { prefix: 'media' } },
+      bucket: process.env.S3_BUCKET || 'mb-cms',
+      config: {
+        endpoint: process.env.S3_ENDPOINT || '',
+        region: 'auto',
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
+        },
+        forcePathStyle: true,
+      },
+    }),
+    // SEO meta (title/description/og-image) on content collections.
+    seoPlugin({
+      collections: ['posts', 'pages'],
+      uploadsCollection: 'media',
+      tabbedUI: true,
+      generateTitle: ({ doc }: { doc: { title?: string } }) => doc?.title ?? '',
+      generateDescription: ({ doc }: { doc: { excerpt?: string } }) => doc?.excerpt ?? '',
+    }),
+  ],
 })

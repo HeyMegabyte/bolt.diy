@@ -60,6 +60,7 @@ docs/instructions/Roadmap.md
 .qodo
 .claude/settings.local.json
 _research/
+reports/
 
 # Root cruft guard — QA screenshots belong in e2e/, never the repo root; no abandoned scaffolds
 /.v2-scaffold/

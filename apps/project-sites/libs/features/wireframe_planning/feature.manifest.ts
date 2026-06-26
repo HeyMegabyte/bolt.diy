@@ -36,7 +36,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'not-started',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: true, logs: true, analytics: false },
+  observability: { axiom: true, logs: true, analytics: false },
   rollout: {
     defaultEnabled: false,
     environments: { development: true },

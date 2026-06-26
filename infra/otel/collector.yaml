@@ -1,0 +1,137 @@
+# OpenTelemetry Collector — projectsites.dev
+# Used by: infra/fly/telemetry-router/fly.toml (telemetry-router Fly app)
+# Docs:    docs/observability/otel.md
+#
+# ⚠️  SECURITY — SAFE BY DEFAULT:
+#   Receivers bind to 0.0.0.0 but are reachable only via Fly's private WireGuard
+#   network from other apps in the same Fly organization.
+#   Do NOT expose ports 4317/4318 to the public internet without:
+#     (a) A Cloudflare Access policy (service-token required), OR
+#     (b) The `auth` extension configured with bearer-token verification below.
+#   The health-check port (13133) is also private-only.
+#
+# Environment variables injected from Fly secrets at runtime:
+#   AXIOM_TOKEN              — Axiom API token
+#   AXIOM_DATASET            — Axiom dataset name (e.g. projectsites-logs)
+#   POSTHOG_PROJECT_API_KEY  — PostHog project API key (reserved for future exporter)
+
+# ---------------------------------------------------------------------------
+# Extensions
+# ---------------------------------------------------------------------------
+extensions:
+  # Health check endpoint — used by Fly health check on port 13133
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+  # Profiling endpoint — private only, never expose publicly
+  pprof:
+    endpoint: "localhost:1777"
+
+  # ── Future: auth extension for protected public ingestion ──────────────
+  # Uncomment + configure when exposing 4317/4318 publicly.
+  # bearertokenauth:
+  #   token: "${OTLP_BEARER_TOKEN}"
+
+# ---------------------------------------------------------------------------
+# Receivers
+# ---------------------------------------------------------------------------
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+        # max_recv_msg_size_mib: 32
+        # auth:
+        #   authenticator: bearertokenauth  # enable when public
+      http:
+        endpoint: "0.0.0.0:4318"
+        # auth:
+        #   authenticator: bearertokenauth  # enable when public
+
+# ---------------------------------------------------------------------------
+# Processors
+# ---------------------------------------------------------------------------
+processors:
+  # Memory limiter — always first to prevent OOM under traffic bursts
+  memory_limiter:
+    check_interval: 1s
+    limit_mib:      200
+    spike_limit_mib: 50
+
+  # Batch — reduces export requests; tune based on observed throughput
+  batch:
+    timeout:           5s
+    send_batch_size:   512
+    send_batch_max_size: 1024
+
+  # Resource normalization — attach required correlation fields to every signal
+  resource:
+    attributes:
+      # environment: always "production" for this collector instance
+      - key:    environment
+        value:  production
+        action: upsert
+      # service.name: populated by the CF Worker SDK (OTEL_SERVICE_NAME env).
+      # Do NOT overwrite here — keep the originating service name.
+      #
+      # tenant_id and site_id are set by the Worker before export via
+      # OTEL_RESOURCE_ATTRIBUTES or SDK resource attributes.
+      # The collector passes them through unmodified.
+
+# ---------------------------------------------------------------------------
+# Exporters
+# ---------------------------------------------------------------------------
+exporters:
+  # Axiom — primary log + trace destination → logs.projectsites.dev
+  otlphttp/axiom:
+    endpoint: "https://api.axiom.co"
+    headers:
+      Authorization:  "Bearer ${AXIOM_TOKEN}"
+      X-Axiom-Dataset: "${AXIOM_DATASET}"
+    retry_on_failure:
+      enabled:          true
+      initial_interval: 5s
+      max_interval:     30s
+      max_elapsed_time: 120s
+    sending_queue:
+      enabled:     true
+      num_consumers: 4
+      queue_size:  1000
+
+  # ── Future: PostHog exporter ────────────────────────────────────────────
+  # PostHog does not natively speak OTLP.  Wire either:
+  #   (a) A custom exporter that POSTs to https://us.i.posthog.com/batch
+  #   (b) A translation sidecar (OpenTelemetry → PostHog event bridge)
+  # Placeholder kept for discoverability.
+  #
+  # otlphttp/posthog_placeholder:
+  #   endpoint: "https://us.i.posthog.com"
+  #   headers:
+  #     Authorization: "Bearer ${POSTHOG_PROJECT_API_KEY}"
+
+  # Debug — enable in staging / local by swapping pipeline exporters
+  debug:
+    verbosity: basic   # change to "detailed" for trace-level debugging
+
+# ---------------------------------------------------------------------------
+# Service pipelines
+# ---------------------------------------------------------------------------
+service:
+  extensions: [health_check, pprof]
+
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters:  [otlphttp/axiom]
+
+    logs:
+      receivers:  [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters:  [otlphttp/axiom]
+
+    metrics:
+      receivers:  [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters:  [otlphttp/axiom]
+      # metrics not yet shipped to PostHog — add when the exporter is wired

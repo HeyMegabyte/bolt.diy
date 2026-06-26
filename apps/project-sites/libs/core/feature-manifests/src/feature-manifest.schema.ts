@@ -52,11 +52,13 @@ export type FeatureTestStatus = z.infer<typeof FeatureTestStatusSchema>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const FeatureObservabilitySchema = z.object({
-  /** Sentry spans/errors captured for this feature's operations. */
-  sentry: z.boolean(),
+  /** Axiom structured logs captured for this feature's operations. */
+  axiom: z.boolean().default(false),
+  /** PostHog events emitted per operation. */
+  posthog: z.boolean().default(false),
   /** Structured logs (via `src/lib/log.ts` child logger) per operation. */
   logs: z.boolean(),
-  /** PostHog / GA4 events emitted per operation. */
+  /** PostHog / GA4 analytics events emitted per operation. */
   analytics: z.boolean(),
 });
 
@@ -172,6 +174,6 @@ export type FeatureManifest = z.infer<typeof FeatureManifestSchema>;
  *     // ...
  *   });
  */
-export function defineFeatureManifest(input: FeatureManifest): FeatureManifest {
+export function defineFeatureManifest(input: z.input<typeof FeatureManifestSchema>): FeatureManifest {
   return FeatureManifestSchema.parse(input);
 }

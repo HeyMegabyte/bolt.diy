@@ -47,7 +47,7 @@ export default defineFeatureManifest({
   zodSchemas: ['libs/features/pseo_matrix/feature.schemas.ts'],
 
   observability: {
-    sentry: true,
+    axiom: true,
     logs: true,
     analytics: true,
   },

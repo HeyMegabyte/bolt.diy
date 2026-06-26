@@ -26,7 +26,6 @@ import { DedupWindow, type DedupEntry } from '../services/event_dedup.js';
 import { CircuitBreaker, type CircuitBreakerSnapshot } from '../services/circuit_breaker.js';
 import { dispatchBatch, FORWARD_ORDER, type ProviderId } from '../services/event_dispatch.js';
 import {
-  forwardSentry,
   forwardPostHog,
   forwardGa4,
   forwardGtm,
@@ -151,19 +150,16 @@ export class EventDispatcher extends DurableObject<Env> {
 
     const forward = async (provider: ProviderId, evs: readonly IncomingEvent[]): Promise<void> => {
       const arr = evs as IncomingEvent[];
-      if (provider === 'sentry') return forwardSentry(arr, creds);
       if (provider === 'posthog') return forwardPostHog(arr, creds);
       if (provider === 'ga4') return forwardGa4(arr, creds);
       return forwardGtm(arr, creds);
     };
     const configured = (p: ProviderId): boolean =>
-      p === 'sentry'
-        ? Boolean(creds.sentry)
-        : p === 'posthog'
-          ? Boolean(creds.posthog)
-          : p === 'ga4'
-            ? Boolean(creds.ga4)
-            : Boolean(creds.gtm);
+      p === 'posthog'
+        ? Boolean(creds.posthog)
+        : p === 'ga4'
+          ? Boolean(creds.ga4)
+          : Boolean(creds.gtm);
 
     const outcomes = await dispatchBatch(
       batch,
@@ -196,7 +192,6 @@ export class EventDispatcher extends DurableObject<Env> {
         .all<{ provider: string; apiKey: string }>();
       for (const row of results ?? []) {
         if (row.provider === 'posthog') creds.posthog = { apiKey: row.apiKey };
-        else if (row.provider === 'sentry') creds.sentry = { dsn: row.apiKey };
         else if (row.provider === 'gtm') creds.gtm = { endpoint: row.apiKey };
         else if (row.provider === 'ga4') {
           // GA4 needs two values; stored as "measurementId:apiSecret".

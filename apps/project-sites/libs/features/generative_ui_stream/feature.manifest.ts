@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: true, logs: true, analytics: false },
+  observability: { axiom: true, logs: true, analytics: false },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Experimental AI feature; off by default.' },
   risks: ['LLM may generate invalid UI descriptors; Zod validation is the safety net.'],
   removalNotes: 'Drop /api/copilot/ui route. No persistent state.',

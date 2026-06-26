@@ -8,7 +8,7 @@
  */
 
 import type { IncomingEvent } from './analytics_events.js';
-import { toPostHog, toSentry, toGa4, toGtm } from './analytics_events.js';
+import { toPostHog, toGa4, toGtm } from './analytics_events.js';
 
 // ---------------------------------------------------------------------------
 // ProviderCreds
@@ -22,13 +22,6 @@ export interface ProviderCreds {
     apiKey: string;
     /** PostHog ingestion host. Defaults to 'https://us.i.posthog.com'. */
     host?: string;
-  };
-  /** Sentry project credentials. */
-  sentry?: {
-    /** Sentry Data Source Name URL (https://...@...sentry.io/...). */
-    dsn: string;
-    /** Optional Sentry auth token for the Store endpoint (rarely needed). */
-    authToken?: string;
   };
   /** Google Analytics 4 credentials (Measurement Protocol). */
   ga4?: {
@@ -86,64 +79,6 @@ export async function forwardPostHog(
 
   if (!res.ok) {
     throw new Error(`posthog_${res.status}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// forwardSentry
-// ---------------------------------------------------------------------------
-
-/**
- * Forward a batch of IncomingEvents to Sentry via the HTTP envelope endpoint.
- * No-op when `creds.sentry` is absent.
- *
- * @param events - Batch of incoming analytics events to forward.
- * @param creds - Provider credentials. Only `sentry` sub-object is used.
- * @param fetchImpl - Injectable fetch implementation (defaults to global fetch).
- * @returns Resolves when the batch is accepted (2xx) or credentials are absent.
- * @throws {Error} With message `sentry_<status>` on non-2xx HTTP response.
- *
- * @example
- * await forwardSentry(events, { sentry: { dsn: 'https://key@o0.ingest.sentry.io/0' } });
- */
-export async function forwardSentry(
-  events: IncomingEvent[],
-  creds: ProviderCreds,
-  fetchImpl: FetchFn = fetch as FetchFn,
-): Promise<void> {
-  if (!creds?.sentry) return;
-
-  // Parse DSN to construct the envelope URL
-  // https://<key>@<host>/api/<projectId>/envelope/
-  const dsnUrl = new URL(creds.sentry.dsn);
-  const projectId = dsnUrl.pathname.replace(/^\//, '');
-  const envelopeUrl = `${dsnUrl.protocol}//${dsnUrl.host}/api/${projectId}/envelope/`;
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/x-sentry-envelope',
-  };
-  if (creds.sentry.authToken) {
-    headers['Authorization'] = `Sentry ${creds.sentry.authToken}`;
-  }
-
-  // Sentry envelope: envelope header + one event item per line-pair
-  const envelopeHeader = JSON.stringify({ dsn: creds.sentry.dsn });
-  const items = events.map((e) => {
-    const payload = toSentry(e);
-    const itemHeader = JSON.stringify({ type: 'event' });
-    return `${itemHeader}\n${JSON.stringify(payload)}`;
-  });
-
-  const body = [envelopeHeader, ...items].join('\n');
-
-  const res = await fetchImpl(envelopeUrl, {
-    method: 'POST',
-    headers,
-    body,
-  });
-
-  if (!res.ok) {
-    throw new Error(`sentry_${res.status}`);
   }
 }
 

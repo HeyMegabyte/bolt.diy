@@ -302,6 +302,14 @@ export interface Env {
   OTEL_EXPORTER_OTLP_ENDPOINT?: string;
   /** Optional OTLP headers as `k=v,k2=v2` (e.g. `x-honeycomb-team=KEY`). wrangler secret. */
   OTEL_EXPORTER_OTLP_HEADERS?: string;
+  /** Axiom ingest bearer token (`xaat-*`). Required for Axiom log shipping. wrangler secret. */
+  AXIOM_TOKEN?: string;
+  /** Axiom dataset name for log ingest (default `'projectsites'`). var. */
+  AXIOM_DATASET?: string;
+  /** Set to `'true'` to enable Axiom log ingest (default off). var. */
+  AXIOM_ENABLED?: string;
+  /** Public URL for the log exploration UI (e.g. Axiom or Grafana). Exposed to admin. var. */
+  LOGS_PUBLIC_URL?: string;
   /** Stainless API key for the §47 SDK-codegen port — submits the OpenAPI spec
    * (/api/admin/docs/openapi.json) to generate typed client SDKs. Unset →
    * NoopSdkCodegenProvider (ships dark; no codegen runs). wrangler secret. */
@@ -479,16 +487,6 @@ export interface Env {
   GOOGLE_PLACES_API_KEY: string;
   /** Google Sheets API key for spreadsheet data sources. Falls back to GOOGLE_PLACES_API_KEY. */
   GOOGLE_SHEETS_API_KEY?: string;
-
-  // ── Sentry (Error Tracking) ───────────────────────────────
-  /** Sentry DSN for error reporting. */
-  SENTRY_DSN?: string;
-  /**
-   * Per-deploy release identifier (typically the short git SHA). Set in
-   * `wrangler.toml [env.production.vars]` at deploy time. Used by Toucan to
-   * group events + correlate uploaded sourcemaps (item #48).
-   */
-  SENTRY_RELEASE?: string;
 
   // ── Domain Registration (CF Registrar via global-key auth + RDAP) ──
   // Availability: RDAP (free, IETF-standard, no key — see services/rdap_availability.ts).

@@ -58,7 +58,7 @@ export default defineFeatureManifest({
 
   // ---- observability ----
   observability: {
-    sentry: true,
+    axiom: true,
     logs: true,
     analytics: true,
   },

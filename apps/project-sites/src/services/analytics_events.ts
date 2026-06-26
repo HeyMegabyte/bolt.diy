@@ -60,13 +60,8 @@ function distinctId(e: IncomingEvent): string {
   return e.userId ?? e.sessionId ?? e.eventId;
 }
 
-/** Map a generic event to the Sentry severity level. */
-export function sentryLevel(e: IncomingEvent): 'error' | 'info' {
-  return e.eventType === 'error' ? 'error' : 'info';
-}
-
 // ---------------------------------------------------------------------------
-// Provider transforms — never forward the raw event to all four.
+// Provider transforms — never forward the raw event to all providers.
 // ---------------------------------------------------------------------------
 
 /** PostHog `capture` shape. */
@@ -84,25 +79,6 @@ export function toPostHog(e: IncomingEvent): PostHogEvent {
     event: e.eventType,
     properties: { ...(e.payload ?? {}), $ip: e.ip, siteId: e.siteId },
     timestamp: new Date(e.timestamp).toISOString(),
-  };
-}
-
-/** Sentry envelope-ish shape (level/message/tags/breadcrumbs). */
-export interface SentryEvent {
-  level: 'error' | 'info';
-  message: string;
-  tags: Record<string, string>;
-  breadcrumbs: Array<{ message: string; timestamp: number }>;
-}
-
-/** Map to Sentry (the error-critical path — forwarded first). */
-export function toSentry(e: IncomingEvent): SentryEvent {
-  const msg = (e.payload?.['message'] as string | undefined) ?? e.eventType;
-  return {
-    level: sentryLevel(e),
-    message: msg,
-    tags: { eventId: e.eventId, siteId: e.siteId },
-    breadcrumbs: [{ message: e.eventType, timestamp: e.timestamp / 1000 }],
   };
 }
 

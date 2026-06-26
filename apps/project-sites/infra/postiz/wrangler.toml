@@ -1,0 +1,34 @@
+name = "projectsites-social-postiz"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+routes = [
+  { pattern = "social.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "Postiz"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-social-postiz"
+
+[[durable_objects.bindings]]
+name = "POSTIZ"
+class_name = "Postiz"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Postiz"]
+
+[vars]
+# Non-secret config lives here. Secrets go via `wrangler secret put`:
+#   wrangler secret put POSTIZ_DATABASE_URL --env production
+#   wrangler secret put POSTIZ_REDIS_URL    --env production
+#   wrangler secret put POSTIZ_JWT_SECRET   --env production

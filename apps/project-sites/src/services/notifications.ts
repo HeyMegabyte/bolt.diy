@@ -20,7 +20,7 @@
 import { DOMAINS } from '@project-sites/shared';
 
 import type { Env } from '../types/env.js';
-import { captureMessage as sentryCaptureMessage } from './sentry.js';
+import { log } from '../lib/log.js';
 import { getEmailProvider, type EmailRouter } from '../platform/email-router.js';
 import type { EmailKind } from '../platform/email.js';
 
@@ -128,7 +128,7 @@ export async function sendEmail(
           request_id: requestId,
         }),
       );
-      sentryCaptureMessage(env, 'Resend invite send failed', 'error', {
+      log.error('Resend invite send failed', {
         provider: 'resend',
         category,
         status: res.status,
@@ -136,7 +136,7 @@ export async function sendEmail(
         subject: opts.subject,
         request_id: requestId,
         body_excerpt: bodyExcerpt,
-      }).catch(() => {});
+      });
       throw new Error(`Resend error ${res.status}: ${text}`);
     }
     console.warn(
@@ -155,13 +155,13 @@ export async function sendEmail(
     );
     // Sentry breadcrumb for successful sends — surfaces in any error that
     // fires later in the same request scope.
-    sentryCaptureMessage(env, 'Resend invite sent', 'info', {
+    log.info('Resend invite sent', {
       provider: 'resend',
       category,
       to: opts.to,
       subject: opts.subject,
       request_id: requestId,
-    }).catch(() => {});
+    });
     return;
   }
 
@@ -197,7 +197,7 @@ export async function sendEmail(
           request_id: requestId,
         }),
       );
-      sentryCaptureMessage(env, 'SendGrid invite send failed', 'error', {
+      log.error('SendGrid invite send failed', {
         provider: 'sendgrid',
         category,
         status: res.status,
@@ -205,7 +205,7 @@ export async function sendEmail(
         subject: opts.subject,
         request_id: requestId,
         body_excerpt: bodyExcerpt,
-      }).catch(() => {});
+      });
       throw new Error(`SendGrid error ${res.status}: ${text}`);
     }
     console.warn(
@@ -222,13 +222,13 @@ export async function sendEmail(
         request_id: requestId,
       }),
     );
-    sentryCaptureMessage(env, 'SendGrid invite sent', 'info', {
+    log.info('SendGrid invite sent', {
       provider: 'sendgrid',
       category,
       to: opts.to,
       subject: opts.subject,
       request_id: requestId,
-    }).catch(() => {});
+    });
     return;
   }
 

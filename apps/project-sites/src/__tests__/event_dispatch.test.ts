@@ -32,20 +32,20 @@ function deps(opts: {
 }
 
 describe('dispatchBatch', () => {
-  it('forwards to every configured provider and returns outcomes in Sentry-first order', async () => {
+  it('forwards to every configured provider and returns outcomes in PostHog-first order', async () => {
     const d = deps({});
     const out = await dispatchBatch(batch, d, NOW);
     expect(out.map((o) => o.provider)).toEqual([...FORWARD_ORDER]);
     expect(out.every((o) => o.status === 'forwarded')).toBe(true);
-    expect(out[0]).toMatchObject({ provider: 'sentry', critical: true });
-    expect(d.forward).toHaveBeenCalledTimes(4);
+    expect(out[0]).toMatchObject({ provider: 'posthog', critical: true });
+    expect(d.forward).toHaveBeenCalledTimes(3);
   });
 
   it('marks a provider not_configured and does not call forward for it', async () => {
     const d = deps({ configured: (p) => p !== 'gtm' });
     const out = await dispatchBatch(batch, d, NOW);
     expect(out.find((o) => o.provider === 'gtm')?.status).toBe('not_configured');
-    expect(d.forward).toHaveBeenCalledTimes(3);
+    expect(d.forward).toHaveBeenCalledTimes(2);
     expect(d.forward).not.toHaveBeenCalledWith('gtm', batch);
   });
 
@@ -59,7 +59,7 @@ describe('dispatchBatch', () => {
     expect(out.find((o) => o.provider === 'posthog')?.status).toBe('skipped_open');
     expect(d.forward).not.toHaveBeenCalledWith('posthog', batch);
     // others still forwarded
-    expect(out.find((o) => o.provider === 'sentry')?.status).toBe('forwarded');
+    expect(out.find((o) => o.provider === 'ga4')?.status).toBe('forwarded');
   });
 
   it('records a failure on the breaker when forward rejects', async () => {
@@ -83,7 +83,7 @@ describe('dispatchBatch', () => {
     const breakers = new Map<ProviderId, CircuitBreaker>();
     const cb = new CircuitBreaker({ failureThreshold: 5 });
     cb.recordFailure(NOW); // 1 prior failure
-    breakers.set('sentry', cb);
+    breakers.set('posthog', cb);
     const d = deps({ breakers });
     await dispatchBatch(batch, d, NOW);
     expect(cb.state).toBe('closed');
@@ -92,7 +92,7 @@ describe('dispatchBatch', () => {
 });
 
 describe('criticalSucceeded', () => {
-  it('true when Sentry forwarded, false when Sentry failed', async () => {
+  it('true when PostHog forwarded, false when PostHog failed', async () => {
     const ok = await dispatchBatch(batch, deps({}), NOW);
     expect(criticalSucceeded(ok)).toBe(true);
 
@@ -100,7 +100,7 @@ describe('criticalSucceeded', () => {
       batch,
       deps({
         forward: async (p) => {
-          if (p === 'sentry') throw new Error('down');
+          if (p === 'posthog') throw new Error('down');
         },
       }),
       NOW,
@@ -108,8 +108,8 @@ describe('criticalSucceeded', () => {
     expect(criticalSucceeded(fail)).toBe(false);
   });
 
-  it('true when Sentry is not configured (no critical sink to satisfy)', async () => {
-    const out = await dispatchBatch(batch, deps({ configured: (p) => p !== 'sentry' }), NOW);
+  it('true when PostHog is not configured (no critical sink to satisfy)', async () => {
+    const out = await dispatchBatch(batch, deps({ configured: (p) => p !== 'posthog' }), NOW);
     expect(criticalSucceeded(out)).toBe(true);
   });
 });

@@ -146,8 +146,6 @@ export const EnvSchema = z.object({
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
   GOOGLE_SHEETS_API_KEY: z.string().optional(),
-  SENTRY_DSN: z.string().optional(),
-  SENTRY_RELEASE: z.string().optional(),
   OPENSRS_USERNAME: z.string().optional(),
   OPENSRS_API_KEY: z.string().optional(),
   OPENSRS_ENV: z.enum(['live', 'test']).optional(),

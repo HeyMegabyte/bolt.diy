@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: false, logs: true, analytics: true },
+  observability: { axiom: false, logs: true, analytics: true },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Privacy-safe: no PII stored in signals.' },
   risks: ['Variant rules stored in D1; empty rule set falls back to default variant.'],
   removalNotes: 'Drop /api/personalize routes, remove site_personalization_variants table rows for the site.',

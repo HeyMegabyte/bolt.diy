@@ -21,7 +21,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: false, logs: true, analytics: false },
+  observability: { axiom: false, logs: true, analytics: false },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Admin-only feature.' },
   risks: ['Rollback replaces live prompt weights; test variant before promoting.'],
   removalNotes: 'Drop /api/prompt-studio routes. Prompt registry is in-memory; no persistent state beyond KV cache.',

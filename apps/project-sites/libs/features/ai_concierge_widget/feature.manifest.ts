@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: true, logs: true, analytics: false },
+  observability: { axiom: true, logs: true, analytics: false },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Disabled by default; enable per-org via feature flag admin.' },
   risks: ['LLM responses may be inaccurate; always ground via RAG before answering.'],
   removalNotes: 'Drop /api/concierge routes and the flag row. No persistent state beyond KV config cache.',

@@ -55,11 +55,11 @@ export function findLifecycleInconsistencies(manifest: FeatureManifest): Validat
         message: `lifecycle='stable' requires testStatus='passing', got '${manifest.testStatus}'`,
       });
     }
-    if (!manifest.observability.sentry || !manifest.observability.logs) {
+    if (!manifest.observability.axiom || !manifest.observability.logs) {
       issues.push({
         slug: manifest.slug,
         field: 'observability',
-        message: `lifecycle='stable' requires sentry + logs observability`,
+        message: `lifecycle='stable' requires axiom + logs observability`,
       });
     }
   }

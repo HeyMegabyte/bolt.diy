@@ -1,0 +1,65 @@
+# Fly.io app: analytics-clickhouse
+#
+# ARCHITECTURE NOTE:
+#   analytics.projectsites.dev is NOT served directly from this machine.
+#   A protected Cloudflare Worker gateway sits in front — raw ClickHouse port 8123
+#   is never exposed to the public internet. The CF Worker validates tenant auth,
+#   translates REST → ClickHouse HTTP API, and enforces per-tenant row filters.
+#
+# SECRETS (set via `flyctl secrets set KEY=value --app analytics-clickhouse`):
+#   CLICKHOUSE_INGEST_PASSWORD   — password for the "ingest" DB user
+#   CLICKHOUSE_ADMIN_PASSWORD    — password for the "default" admin user (disable in prod)
+#
+# REGION: defaults to iad; override by exporting FLY_REGION before `flyctl deploy`.
+
+app       = "analytics-clickhouse"
+primary_region = "iad"
+
+[build]
+  image = "clickhouse/clickhouse-server:24.3-alpine"
+
+[env]
+  CLICKHOUSE_DB                = "analytics"
+  CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT = "1"
+  # Config + users XML are mounted via the volume path below;
+  # the entrypoint reads /etc/clickhouse-server/config.d/ and users.d/ automatically.
+
+[[mounts]]
+  source      = "clickhouse_data"
+  destination = "/var/lib/clickhouse"
+  # Persist both data and metadata across restarts/deploys.
+  # Create before first deploy: flyctl volumes create clickhouse_data --region iad --size 20
+
+[http_service]
+  internal_port       = 8123   # ClickHouse HTTP interface
+  force_https         = true
+  auto_stop_machines  = false  # analytics must be always-on
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+[[services]]
+  # Native TCP port for ClickHouse client / clickhouse-client CLI
+  internal_port = 9000
+  protocol      = "tcp"
+
+  [[services.ports]]
+    port = 9000
+
+[checks]
+  [checks.ping]
+    grace_period = "10s"
+    interval     = "30s"
+    method       = "get"
+    path         = "/ping"
+    port         = 8123
+    timeout      = "5s"
+    type         = "http"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "1gb"

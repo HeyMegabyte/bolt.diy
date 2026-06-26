@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: true, logs: true, analytics: false },
+  observability: { axiom: true, logs: true, analytics: false },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Disabled by default.' },
   risks: ['Vectorize index must be populated before queries return results.'],
   removalNotes: 'Drop /api/site-search routes and flush the rag_chunks table rows for the site.',

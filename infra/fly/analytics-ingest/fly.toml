@@ -1,0 +1,63 @@
+# Fly.io app: analytics-ingest
+#
+# ARCHITECTURE NOTE:
+#   Internal event-ingest worker; batches events from CF Workers → ClickHouse.
+#   NO public domain — accessed only via Fly private networking (.internal DNS).
+#   ClickHouse cluster lives in infra/fly/analytics-clickhouse/.
+#   Axiom receives a redundant copy of all log events for search + alerting.
+#
+#   Per neon-database-conservation.md: no Postgres/Neon needed here.
+#   ClickHouse handles analytical storage; no Redis/Upstash required.
+#
+# SECRETS (set via `flyctl secrets set KEY=value --app analytics-ingest`):
+#   CLICKHOUSE_URL          — ClickHouse HTTP endpoint
+#                             (e.g. http://analytics-clickhouse.internal:8123)
+#   CLICKHOUSE_USER         — ClickHouse user name
+#   CLICKHOUSE_PASSWORD     — ClickHouse password
+#   CLICKHOUSE_DATABASE     — target database (e.g. projectsites)
+#   AXIOM_TOKEN             — Axiom API token for redundant log shipping
+#   AXIOM_DATASET           — Axiom dataset name (e.g. projectsites-logs)
+#   INGEST_SHARED_SECRET    — callers must present this as Bearer token;
+#                             generated: openssl rand -hex 32
+
+app            = "analytics-ingest"
+primary_region = "iad"
+kill_signal    = "SIGTERM"
+kill_timeout   = 30
+
+[build]
+  # Replace with a custom ingest image once the ClickHouse batch-writer service
+  # is built.  qryn is a lightweight OpenTelemetry-compatible ingest proxy.
+  image = "ghcr.io/metrico/qryn:latest"
+
+[env]
+  PORT      = "8080"
+  NODE_ENV  = "production"
+  LOG_LEVEL = "warn"
+  # CLICKHOUSE_*, AXIOM_*, INGEST_SHARED_SECRET injected from Fly secrets above.
+
+[http_service]
+  internal_port        = 8080
+  force_https          = true
+  auto_stop_machines   = false   # ingest must be always-on; no cold-start delay
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "requests"
+    hard_limit = 500
+    soft_limit = 400
+
+[checks]
+  [checks.health]
+    grace_period = "15s"
+    interval     = "30s"
+    method       = "get"
+    path         = "/health"
+    port         = 8080
+    timeout      = "5s"
+    type         = "http"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "512mb"

@@ -19,7 +19,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: false, logs: true, analytics: false },
+  observability: { axiom: false, logs: true, analytics: false },
   rollout: {
     defaultEnabled: false,
     environments: { development: true },

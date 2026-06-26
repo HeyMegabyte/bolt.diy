@@ -229,16 +229,6 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     access: 'service-only',
   },
   {
-    id: 'observability-sentry',
-    name: 'Sentry — error tracking',
-    category: 'observability',
-    runtime: 'managed-saas',
-    adapterPackage: 'apps/project-sites/src/services/sentry.ts',
-    secretsNamespace: '/sentry',
-    status: 'production',
-    access: 'service-only',
-  },
-  {
     id: 'observability-posthog',
     name: 'PostHog — product/admin/claim surfaces only',
     category: 'observability',

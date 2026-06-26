@@ -39,11 +39,6 @@ import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
-import {
-  addBreadcrumb as sentryBreadcrumb,
-  setTag as sentrySetTag,
-  captureError,
-} from './lib/sentry.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise) IdP, ships dark
@@ -288,26 +283,6 @@ app.use('*', requestIdMiddleware);
 
 // Structured per-request access log (item #50)
 app.use('*', requestLogger);
-
-// Sentry per-request breadcrumb + route tag. Must run AFTER requestIdMiddleware
-// so the requestId is available to tag the Sentry scope. Best-effort — never
-// throws into the request path.
-app.use('*', async (c, next) => {
-  try {
-    const url = new URL(c.req.url);
-    sentryBreadcrumb(c, {
-      category: 'http',
-      message: `${c.req.method} ${url.pathname}`,
-      level: 'info',
-      data: { requestId: c.get('requestId'), method: c.req.method, path: url.pathname },
-    });
-    sentrySetTag(c, 'route', url.pathname);
-    sentrySetTag(c, 'method', c.req.method);
-  } catch {
-    // Sentry must never break the request path.
-  }
-  await next();
-});
 
 // Payload size limit
 app.use('*', payloadLimitMiddleware);
@@ -598,14 +573,10 @@ app.post('/api/internal/build-status', async (c) => {
   }
   // #24 — claim-build finalize is deploy/claim-critical; a silent `.catch(() => {})`
   // hid failures (a finished build that never flips the claim session / never emails
-  // the owner). Capture to Sentry with context (no-ops without SENTRY_DSN).
-  const finalize = maybeCompleteClaimBuild(c.env, jobId, payload.status ?? '').catch((e) =>
-    captureError(c, e, {
-      path: 'build_status_finalize',
-      job_id: jobId,
-      status: payload.status ?? null,
-    }),
-  );
+  // the owner).
+  const finalize = maybeCompleteClaimBuild(c.env, jobId, payload.status ?? '').catch((e) => {
+    console.warn(JSON.stringify({ level: 'error', service: 'build_status_finalize', job_id: jobId, status: payload.status ?? null, message: e instanceof Error ? e.message : String(e) }));
+  });
   if (ec) ec.waitUntil(finalize);
   else await finalize;
 
@@ -724,17 +695,6 @@ app.all('*', async (c) => {
         let html = await marketingAsset.text();
         const phKey = c.env.POSTHOG_API_KEY ?? 'none';
         const stripePk = c.env.STRIPE_PUBLISHABLE_KEY ?? '';
-        const sentryDsn = c.env.SENTRY_DSN ?? '';
-        const sentryRelease = c.env.SENTRY_RELEASE ?? 'project-sites@0.2.0';
-        html = html.replace(
-          '<meta name="x-sentry-dsn" content="">',
-          `<meta name="x-sentry-dsn" content="${sentryDsn}">`,
-        );
-        // Inject SENTRY_RELEASE so the Angular SDK groups events to the correct release.
-        html = html.replace(
-          '<meta name="x-app-release" content="@project-sites/frontend@1.0.0">',
-          `<meta name="x-app-release" content="${sentryRelease}">`,
-        );
 
         // ALL-STAR items #15 + #20 + #21 injection block.
         // #15 Speculation Rules: prerender same-origin nav, prefetch external on hover.
@@ -1230,16 +1190,17 @@ export default {
             }),
           );
           // Dead-lettering = silent loss of golden-path events from analytics +
-          // orchestration. Page Sentry on failures (not mere backlog, which is
-          // transient under load). Fire-and-forget so Sentry never breaks the cron.
+          // orchestration. Log failures (not mere backlog, which is
+          // transient under load).
           if (health.hasFailures) {
-            const { captureMessage } = await import('./services/sentry.js');
-            void captureMessage(
-              env,
-              'Outbox events failing dispatch (heading to dead-letter)',
-              'warning',
-              { read: summary.read, dispatched: summary.dispatched, failed: summary.failed },
-            ).catch(() => {});
+            console.warn(JSON.stringify({
+              level: 'warn',
+              service: 'cron_outbox',
+              message: 'Outbox events failing dispatch (heading to dead-letter)',
+              read: summary.read,
+              dispatched: summary.dispatched,
+              failed: summary.failed,
+            }));
           }
         }
       } catch (err) {

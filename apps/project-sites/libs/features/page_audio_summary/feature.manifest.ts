@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: true, logs: true, analytics: false },
+  observability: { axiom: true, logs: true, analytics: false },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Disabled by default. Requires ElevenLabs or OpenAI TTS configured.' },
   risks: ['TTS generation costs tokens. Failing gracefully when TTS provider is unconfigured is required.'],
   removalNotes: 'Drop /api/audio-summary routes and delete R2 objects under audio-summary/{siteId}/.',

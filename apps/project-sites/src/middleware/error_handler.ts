@@ -22,8 +22,8 @@ import type { ErrorHandler } from 'hono';
 import { AppError, escapeHtml } from '@project-sites/shared';
 import { ZodError } from 'zod';
 import type { Env, Variables } from '../types/env.js';
-import { captureError } from '../lib/sentry.js';
 import * as posthog from '../lib/posthog.js';
+import { createLogger } from '../observability/index.js';
 
 /**
  * Generate a branded HTML error page matching the ProjectSites design system.
@@ -118,10 +118,9 @@ export const errorHandler: ErrorHandler<{
       }),
     );
 
-    // Report 5xx to Sentry
     if (err.statusCode >= 500) {
-      captureError(c, err, { code: err.code, url, method });
       if (ctx) {
+        createLogger(c.env, ctx, { service: 'error_handler', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId }).error('unhandled_error', { code: err.code, url, method }, err);
         posthog.trackError(c.env, ctx, err.code, err.message, {
           request_id: requestId,
           status: err.statusCode,
@@ -253,7 +252,9 @@ export const errorHandler: ErrorHandler<{
         method,
       }),
     );
-    captureError(c, err, { code: 'STORAGE_UNAVAILABLE', url, method, request_id: requestId });
+    if (ctx) {
+      createLogger(c.env, ctx, { service: 'error_handler', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId }).error('storage_unavailable', { code: 'STORAGE_UNAVAILABLE', url, method }, err);
+    }
     const friendly = "We're doing a quick update — back in a moment.";
     if (isHtml) {
       return new Response(
@@ -288,8 +289,8 @@ export const errorHandler: ErrorHandler<{
     }),
   );
 
-  captureError(c, err, { url, method, request_id: requestId });
   if (ctx) {
+    createLogger(c.env, ctx, { service: 'error_handler', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId }).error('unhandled_error', { url, method }, err);
     posthog.trackError(c.env, ctx, 'INTERNAL_ERROR', errorMessage, { request_id: requestId, url });
   }
 

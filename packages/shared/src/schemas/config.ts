@@ -99,9 +99,6 @@ export const envConfigSchema = z
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_PLACES_API_KEY: z.string().min(1),
 
-    // Sentry
-    SENTRY_DSN: z.string().url(),
-
     // Sale webhook
     SALE_WEBHOOK_URL: z.string().url().optional(),
     SALE_WEBHOOK_SECRET: z.string().min(1).optional(),

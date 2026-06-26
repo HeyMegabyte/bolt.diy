@@ -47,7 +47,7 @@ import { tryEmitEvent } from '../services/emit_event.js';
 import { safeWaitUntil } from '../lib/wait-until.js';
 import type { EventType } from '../services/event_bus.js';
 import { sha256Hex, badRequest } from '@project-sites/shared';
-import { captureError } from '../lib/sentry.js';
+import { createLogger } from '../observability/index.js';
 
 const webhooks = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -405,15 +405,17 @@ webhooks.post('/webhooks/stripe', async (c) => {
 
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     // #24 — this catch handles the error (marks failed + audits) instead of
-    // re-throwing, so the global error-handler's Sentry capture is bypassed.
-    // A Stripe webhook failure is payment-critical → capture it explicitly with
-    // request context, never silent. No-ops when SENTRY_DSN is unset.
-    captureError(c, err, {
-      provider: 'stripe',
-      event_type: event.type,
-      webhook_event_id: webhookEventId ?? null,
-      request_id: requestId ?? null,
-    });
+    // re-throwing, so the global error-handler's capture is bypassed.
+    // A Stripe webhook failure is payment-critical → log explicitly, never silent.
+    // `c.executionCtx` is a getter that THROWS when no ExecutionContext exists
+    // (unit tests, some runtime paths) — access it defensively.
+    let webhookCtx: ExecutionContext | undefined;
+    try {
+      webhookCtx = c.executionCtx;
+    } catch {
+      webhookCtx = undefined;
+    }
+    createLogger(c.env, webhookCtx, { service: 'webhooks', environment: c.env.ENVIRONMENT ?? 'production', request_id: requestId ?? undefined }).error('stripe webhook processing failed', { provider: 'stripe', event_type: event.type, webhook_event_id: webhookEventId ?? undefined, request_id: requestId ?? undefined }, err instanceof Error ? err : new Error(String(err)));
     console.error(
       JSON.stringify({
         level: 'error',

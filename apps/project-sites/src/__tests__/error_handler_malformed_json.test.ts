@@ -12,15 +12,14 @@
  * is safe by default. Precision: a non-JSON `SyntaxError` still maps to 500.
  */
 
-jest.mock('../lib/sentry.js', () => ({ captureError: jest.fn() }));
 jest.mock('../lib/posthog.js', () => ({ trackError: jest.fn() }));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
-import { captureError } from '../lib/sentry.js';
+import * as posthog from '../lib/posthog.js';
 
-const mockCapture = captureError as jest.MockedFunction<typeof captureError>;
+const mockCapture = posthog.trackError as jest.MockedFunction<typeof posthog.trackError>;
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
@@ -60,7 +59,7 @@ describe('error handler — malformed JSON safety net', () => {
     expect(json.error.code).toBe('BAD_REQUEST');
   });
 
-  it('does NOT report a malformed body to Sentry (it is a client error)', async () => {
+  it('does NOT report a malformed body to PostHog (it is a client error)', async () => {
     await post('/bare', '{ broken');
     expect(mockCapture).not.toHaveBeenCalled();
   });
@@ -76,6 +75,9 @@ describe('error handler — malformed JSON safety net', () => {
   it('keeps a non-JSON SyntaxError on the 500 path (precision — no over-masking)', async () => {
     const res = await post('/other-syntax');
     expect(res.status).toBe(500);
-    expect(mockCapture).toHaveBeenCalled();
+    // The 500 path emits an unconditional structured INTERNAL_ERROR log line —
+    // proof the SyntaxError was reported, not silently masked down to a 400.
+    const warned = (console.warn as jest.Mock).mock.calls.map(String).join(' ');
+    expect(warned).toContain('INTERNAL_ERROR');
   });
 });

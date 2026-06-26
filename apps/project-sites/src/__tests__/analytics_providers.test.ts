@@ -1,6 +1,5 @@
 import {
   forwardPostHog,
-  forwardSentry,
   forwardGa4,
   forwardGtm,
   type ProviderCreds,
@@ -54,41 +53,6 @@ describe('forwardPostHog', () => {
   it('is a no-op when creds.posthog is absent', async () => {
     const fetchImpl = jest.fn();
     await forwardPostHog([EVENT], {}, fetchImpl);
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// forwardSentry
-// ---------------------------------------------------------------------------
-
-describe('forwardSentry', () => {
-  it('POSTs once for a 1-event batch', async () => {
-    const fetchImpl = jest.fn().mockResolvedValue(OK_RESPONSE);
-    const creds: ProviderCreds = {
-      sentry: { dsn: 'https://key@o0.ingest.sentry.io/123456' },
-    };
-
-    await forwardSentry([EVENT], creds, fetchImpl);
-
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/api/123456/envelope/');
-    expect(init.method).toBe('POST');
-  });
-
-  it('throws sentry_500 on non-OK response', async () => {
-    const fetchImpl = jest.fn().mockResolvedValue(ERR_RESPONSE);
-    const creds: ProviderCreds = {
-      sentry: { dsn: 'https://key@o0.ingest.sentry.io/123456' },
-    };
-
-    await expect(forwardSentry([EVENT], creds, fetchImpl)).rejects.toThrow('sentry_500');
-  });
-
-  it('is a no-op when creds.sentry is absent', async () => {
-    const fetchImpl = jest.fn();
-    await forwardSentry([EVENT], {}, fetchImpl);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

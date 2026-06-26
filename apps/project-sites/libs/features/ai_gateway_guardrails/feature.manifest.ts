@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   integrationTests: [],
   testStatus: 'partial',
   zodSchemas: ['schemas.ts'],
-  observability: { sentry: true, logs: true, analytics: true },
+  observability: { axiom: true, logs: true, analytics: true },
   rollout: { defaultEnabled: false, environments: { development: true }, notes: 'Enable globally to guard all AI surfaces.' },
   risks: ['False positives may block legitimate content. Threshold is configurable via the service.'],
   removalNotes: 'Drop /api/guardrails routes. The guard() helper can remain as a no-op shim.',

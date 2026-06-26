@@ -29,11 +29,6 @@ jest.mock('../services/audit.js', () => ({
   getSiteAuditLogs: jest.fn().mockResolvedValue({ data: [] }),
 }));
 
-jest.mock('../lib/sentry.js', () => ({
-  captureError: jest.fn(),
-  captureMessage: jest.fn(),
-  createSentry: jest.fn(),
-}));
 
 jest.mock('../lib/posthog.js', () => ({
   capture: jest.fn(),

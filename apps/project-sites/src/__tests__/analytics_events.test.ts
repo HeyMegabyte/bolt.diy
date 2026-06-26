@@ -1,8 +1,6 @@
 import {
   IncomingEventSchema,
-  sentryLevel,
   toPostHog,
-  toSentry,
   toGa4,
   toGtm,
   type IncomingEvent,
@@ -49,13 +47,6 @@ describe('IncomingEventSchema', () => {
   });
 });
 
-describe('sentryLevel', () => {
-  it('maps error events to error, everything else to info', () => {
-    expect(sentryLevel({ ...base, eventType: 'error' })).toBe('error');
-    expect(sentryLevel({ ...base, eventType: 'click' })).toBe('info');
-  });
-});
-
 describe('toPostHog', () => {
   it('uses userId as distinct_id when present and ISO-formats the timestamp', () => {
     const out = toPostHog({ ...base, userId: 'u9' });
@@ -68,20 +59,6 @@ describe('toPostHog', () => {
   it('falls back to sessionId then eventId for distinct_id', () => {
     expect(toPostHog({ ...base, sessionId: 's1' }).distinct_id).toBe('s1');
     expect(toPostHog(base).distinct_id).toBe(base.eventId);
-  });
-});
-
-describe('toSentry', () => {
-  it('prefers payload.message, tags eventId+siteId, breadcrumbs in seconds', () => {
-    const out = toSentry({ ...base, eventType: 'error', payload: { message: 'boom' } });
-    expect(out.level).toBe('error');
-    expect(out.message).toBe('boom');
-    expect(out.tags).toEqual({ eventId: base.eventId, siteId: 'site-1' });
-    expect(out.breadcrumbs[0]?.timestamp).toBe(TS / 1000);
-  });
-
-  it('falls back to the eventType when no payload.message', () => {
-    expect(toSentry(base).message).toBe('pageview');
   });
 });
 

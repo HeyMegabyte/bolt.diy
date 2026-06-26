@@ -86,7 +86,6 @@ describe('EventDispatcher', () => {
     const dbg = await (await d.fetch(new Request('https://do/debug'))).json();
     expect(dbg).toMatchObject({ siteId: 's1', queueDepth: 1 });
     expect(dbg.circuits).toMatchObject({
-      sentry: 'closed',
       posthog: 'closed',
       ga4: 'closed',
       gtm: 'closed',

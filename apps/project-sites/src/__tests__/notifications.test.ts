@@ -9,25 +9,34 @@
  *     from address, recipient array / personalizations, subject, html body
  *   - request-id header resolution (x-resend-request-id → x-request-id;
  *     x-message-id → x-request-id) with null-header fallback
- *   - Success path: structured "send ok" log + Sentry success breadcrumb
- *   - Failure path (!res.ok): structured "send failed" log + Sentry error
- *     captureMessage + body excerpt (≤400 chars) — sendEmail throws upstream
+ *   - Success path: structured `log.info('… sent', ctx)` breadcrumb
+ *   - Failure path (!res.ok): structured `log.error('… send failed', ctx)` with
+ *     body excerpt (≤400 chars) — sendEmail throws upstream
  *   - Public wrappers (notifyDomainVerified, notifySiteBuilt, sendInviteEmail):
  *     category tagging, payload → HTML embedding (hostname/site/url/version/
  *     pages, primary-vs-default domain, role default, invite accept URL),
  *     subject construction, and send-failure RESILIENCE (never throws — the
- *     `.catch` swallows and logs)
- *   - Sentry .catch swallow (captureMessage rejection never propagates)
+ *     wrapper swallows and the structured logger records context)
+ *   - Instrumentation resilience: a throwing logger never propagates out of a
+ *     fire-and-forget notification wrapper
  *
- * Mocks `global.fetch` + the `./sentry.js` module — never hits the real API.
+ * Mocks `global.fetch` + the `../lib/log.js` structured logger — never hits the
+ * real API. Sentry was removed in favour of Axiom-bound structured logs +
+ * PostHog product analytics (see docs/observability/sentry-removed.md).
  */
 
 import type { Env } from '../types/env.js';
 
-// Mock the Sentry side-channel so we can assert error/success captures
-// and avoid any real network from the breadcrumb path.
-jest.mock('../services/sentry.js', () => ({
-  captureMessage: jest.fn().mockResolvedValue(undefined),
+// Mock the structured logger so we can assert the success/failure breadcrumbs
+// without emitting real log lines during the test run.
+jest.mock('../lib/log.js', () => ({
+  log: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    child: jest.fn(),
+  },
 }));
 
 import {
@@ -35,10 +44,18 @@ import {
   notifySiteBuilt,
   sendInviteEmail,
 } from '../services/notifications.js';
-import { captureMessage as sentryCaptureMessage } from '../services/sentry.js';
+import { log } from '../lib/log.js';
 
-const sentryMock = sentryCaptureMessage as unknown as jest.Mock;
+const logInfo = log.info as unknown as jest.Mock;
+const logError = log.error as unknown as jest.Mock;
+const logWarn = log.warn as unknown as jest.Mock;
 const originalFetch = global.fetch;
+
+/** Context object of the single breadcrumb emitted (error wins over info). */
+function breadcrumbCtx(): Record<string, unknown> {
+  const call = logError.mock.calls[0] ?? logInfo.mock.calls[0];
+  return (call?.[1] ?? {}) as Record<string, unknown>;
+}
 
 interface MockResInit {
   ok?: boolean;
@@ -100,7 +117,9 @@ function lastFetchBody(): Record<string, unknown> {
 beforeEach(() => {
   global.fetch = jest.fn() as unknown as typeof fetch;
   jest.spyOn(console, 'warn').mockImplementation(() => {});
-  sentryMock.mockClear();
+  logInfo.mockReset();
+  logError.mockReset();
+  logWarn.mockReset();
 });
 
 afterEach(() => {
@@ -127,34 +146,31 @@ describe('notifications — Resend provider (primary)', () => {
     expect(typeof body.html).toBe('string');
   });
 
-  it('logs success + drops a Sentry success breadcrumb, no error capture', async () => {
+  it('logs success via log.info, no error breadcrumb', async () => {
     mockFetchOnce({ headers: { 'x-resend-request-id': 'req-ok' } });
     await notifySiteBuilt(resendEnv(), SITE_OPTS);
 
-    expect(sentryMock).toHaveBeenCalledTimes(1);
-    const [, message, level] = sentryMock.mock.calls[0];
-    expect(message).toBe('Resend invite sent');
-    expect(level).toBe('info');
+    expect(logInfo).toHaveBeenCalledTimes(1);
+    expect(logError).not.toHaveBeenCalled();
+    expect(logInfo.mock.calls[0][0]).toBe('Resend invite sent');
   });
 
   it('resolves request id from x-request-id when x-resend-request-id is absent', async () => {
     mockFetchOnce({ headers: { 'x-request-id': 'fallback-id' } });
     await sendInviteEmail(resendEnv(), INVITE_OPTS);
 
-    const [, , , extra] = sentryMock.mock.calls[0];
-    expect((extra as Record<string, unknown>).request_id).toBe('fallback-id');
+    expect(breadcrumbCtx().request_id).toBe('fallback-id');
   });
 
   it('tolerates a fully missing request-id header (null)', async () => {
     mockFetchOnce({ headers: {} });
     await sendInviteEmail(resendEnv(), INVITE_OPTS);
-    const [, , , extra] = sentryMock.mock.calls[0];
-    expect((extra as Record<string, unknown>).request_id).toBeNull();
+    expect(breadcrumbCtx().request_id).toBeNull();
   });
 });
 
 describe('notifications — Resend failure resilience', () => {
-  it('on !res.ok captures a Sentry error with a ≤400-char body excerpt and never throws', async () => {
+  it('on !res.ok logs an error with a ≤400-char body excerpt and never throws', async () => {
     const longBody = 'E'.repeat(600);
     mockFetchOnce({
       ok: false,
@@ -166,17 +182,17 @@ describe('notifications — Resend failure resilience', () => {
     // Public wrapper swallows the throw from sendEmail.
     await expect(notifyDomainVerified(resendEnv(), DOMAIN_OPTS)).resolves.toBeUndefined();
 
-    expect(sentryMock).toHaveBeenCalledTimes(1);
-    const [, message, level, extra] = sentryMock.mock.calls[0];
-    expect(message).toBe('Resend invite send failed');
-    expect(level).toBe('error');
-    const ex = extra as Record<string, unknown>;
+    expect(logError).toHaveBeenCalledTimes(1);
+    expect(logError.mock.calls[0][0]).toBe('Resend invite send failed');
+    const ex = logError.mock.calls[0][1] as Record<string, unknown>;
     expect(ex.status).toBe(422);
     expect((ex.body_excerpt as string).length).toBe(400);
   });
 
-  it('survives a Sentry captureMessage rejection (the .catch swallows it)', async () => {
-    sentryMock.mockRejectedValueOnce(new Error('sentry down'));
+  it('survives a throwing logger without propagating', async () => {
+    logInfo.mockImplementationOnce(() => {
+      throw new Error('log down');
+    });
     mockFetchOnce({ headers: { 'x-resend-request-id': 'req-2' } });
     await expect(notifySiteBuilt(resendEnv(), SITE_OPTS)).resolves.toBeUndefined();
   });
@@ -203,32 +219,31 @@ describe('notifications — SendGrid fallback', () => {
     expect(Array.isArray(body.content)).toBe(true);
   });
 
-  it('SendGrid success drops a "SendGrid invite sent" breadcrumb', async () => {
+  it('SendGrid success logs a "SendGrid invite sent" breadcrumb', async () => {
     mockFetchOnce({ headers: { 'x-message-id': 'sg-ok' } });
     await notifySiteBuilt(sendgridEnv(), SITE_OPTS);
-    expect(sentryMock.mock.calls[0][1]).toBe('SendGrid invite sent');
+    expect(logInfo.mock.calls[0][0]).toBe('SendGrid invite sent');
   });
 
-  it('SendGrid !res.ok captures "SendGrid invite send failed" and never throws', async () => {
+  it('SendGrid !res.ok logs "SendGrid invite send failed" and never throws', async () => {
     mockFetchOnce({ ok: false, status: 401, body: 'unauthorized' });
     await expect(notifyDomainVerified(sendgridEnv(), DOMAIN_OPTS)).resolves.toBeUndefined();
-    expect(sentryMock.mock.calls[0][1]).toBe('SendGrid invite send failed');
-    expect(sentryMock.mock.calls[0][2]).toBe('error');
+    expect(logError.mock.calls[0][0]).toBe('SendGrid invite send failed');
   });
 
   it('SendGrid resolves request id from x-request-id fallback', async () => {
     mockFetchOnce({ headers: { 'x-request-id': 'sg-fallback' } });
     await sendInviteEmail(sendgridEnv(), INVITE_OPTS);
-    const [, , , extra] = sentryMock.mock.calls[0];
-    expect((extra as Record<string, unknown>).request_id).toBe('sg-fallback');
+    expect(breadcrumbCtx().request_id).toBe('sg-fallback');
   });
 });
 
 describe('notifications — no provider configured', () => {
-  it('logs a warn and never calls fetch or Sentry', async () => {
+  it('logs a warn and never calls fetch or the breadcrumb loggers', async () => {
     await expect(notifyDomainVerified(noProviderEnv(), DOMAIN_OPTS)).resolves.toBeUndefined();
     expect(global.fetch as jest.Mock).not.toHaveBeenCalled();
-    expect(sentryMock).not.toHaveBeenCalled();
+    expect(logInfo).not.toHaveBeenCalled();
+    expect(logError).not.toHaveBeenCalled();
   });
 });
 
@@ -243,8 +258,7 @@ describe('notifyDomainVerified — payload embedding', () => {
     expect(body.html).toContain("Vito's Salon");
     expect(body.html).toContain('shop.projectsites.dev');
 
-    const [, , , extra] = sentryMock.mock.calls[0];
-    expect((extra as Record<string, unknown>).category).toBe('domain_verified');
+    expect(breadcrumbCtx().category).toBe('domain_verified');
   });
 
   it('falls back to hostname when primaryDomain is null', async () => {
@@ -267,8 +281,7 @@ describe('notifySiteBuilt — payload embedding', () => {
     expect(body.html).toContain('v3');
     expect(body.html).toContain('7 generated');
 
-    const [, , , extra] = sentryMock.mock.calls[0];
-    expect((extra as Record<string, unknown>).category).toBe('site_built');
+    expect(breadcrumbCtx().category).toBe('site_built');
   });
 
   it('omits the pages line when pagesGenerated is absent', async () => {
@@ -292,8 +305,7 @@ describe('sendInviteEmail — payload embedding', () => {
     expect(body.html).toContain('https://projectsites.dev/invite/abc123');
     expect(body.html).toContain('member');
 
-    const [, , , extra] = sentryMock.mock.calls[0];
-    expect((extra as Record<string, unknown>).category).toBe('invite');
+    expect(breadcrumbCtx().category).toBe('invite');
   });
 
   it('honours an explicit role override', async () => {

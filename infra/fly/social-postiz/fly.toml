@@ -1,0 +1,76 @@
+# Fly.io app: social-postiz
+#
+# ARCHITECTURE NOTE:
+#   Postiz social-media scheduling app.
+#   Domain: social.projectsites.dev → this Fly app (Postiz web process).
+#
+#   ⚠️  AGPL / ISOLATION WARNING:
+#       Postiz is licensed under AGPL-3.0 and runs as an ISOLATED REFERENCE
+#       service.  ProjectSites-native Social does NOT import, call, link against,
+#       or depend on any Postiz runtime code.  Do NOT copy Postiz AGPL source
+#       code into any proprietary ProjectSites module.  Postiz exists here as a
+#       transitional reference only; it will be sunset once the native Social
+#       feature (libs/features/social_publishing/) reaches parity.
+#
+#   Database:  Neon — database "projectsites_postiz" in the SHARED Neon project
+#              per neon-database-conservation.md: one database slot, never a
+#              new Neon project.
+#   Redis:     Upstash Redis — job queues and pub-sub (Redis primitives that
+#              Cloudflare KV cannot replicate reliably at Postiz's pattern).
+#   Storage:   Cloudflare R2 bucket "social-media-assets" via S3-compatible API.
+#
+# SECRETS (set via `flyctl secrets set KEY=value --app social-postiz`):
+#   DATABASE_URL            — Neon connection string (projectsites_postiz database)
+#   REDIS_URL               — Upstash Redis URL (rediss://...)
+#   POSTIZ_JWT_SECRET       — JWT signing secret (openssl rand -hex 64)
+#   STORAGE_BUCKET          — R2 bucket name for media uploads
+#   POSTIZ_ENCRYPTION_KEY   — AES-256 key for stored OAuth tokens (openssl rand -hex 32)
+#   CLOUDFLARE_ACCOUNT_ID   — R2 account ID for S3-compatible media storage
+#   CLOUDFLARE_ACCESS_KEY   — R2 access key ID
+#   CLOUDFLARE_SECRET_KEY   — R2 secret access key
+
+app            = "social-postiz"
+primary_region = "iad"
+kill_signal    = "SIGTERM"
+kill_timeout   = 30
+
+[build]
+  image = "ghcr.io/gitroomhq/postiz-app:latest"
+
+[env]
+  NODE_ENV               = "production"
+  PORT                   = "5000"
+  FRONTEND_URL           = "https://social.projectsites.dev"
+  BACKEND_INTERNAL_URL   = "http://localhost:5000"
+  IS_GENERAL             = "true"
+  DISABLE_REGISTRATION   = "false"   # set "true" after initial admin account created
+  LOG_LEVEL              = "warn"
+  STORAGE_PROVIDER       = "cloudflare"
+  # DATABASE_URL, REDIS_URL, POSTIZ_JWT_SECRET, STORAGE_BUCKET,
+  # POSTIZ_ENCRYPTION_KEY, CLOUDFLARE_* come from Fly secrets above.
+
+[http_service]
+  internal_port        = 5000
+  force_https          = true
+  auto_stop_machines   = false   # social scheduler must be always-on
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+[checks]
+  [checks.health]
+    grace_period = "30s"   # Postiz Next.js startup takes time
+    interval     = "30s"
+    method       = "get"
+    path         = "/api/health"
+    port         = 5000
+    timeout      = "10s"
+    type         = "http"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "1gb"   # Postiz bundles Next.js + background worker processes
