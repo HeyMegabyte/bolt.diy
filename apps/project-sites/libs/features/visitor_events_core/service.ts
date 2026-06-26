@@ -179,10 +179,11 @@ export async function getTrafficSummary(
       `SELECT COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'conversion'`,
       [siteId, since],
     ),
-    dbQuery<{ path: string | null; n: number }>(
+    dbQuery<{ path: string | null; n: number; u: number }>(
       env.DB,
-      `SELECT path, COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'pageview' AND path IS NOT NULL
-       GROUP BY path ORDER BY n DESC LIMIT 10`,
+      `SELECT path, COUNT(*) AS n, COUNT(DISTINCT session_id) AS u FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' AND path IS NOT NULL
+       GROUP BY path ORDER BY u DESC, n DESC LIMIT 10`,
       [siteId, since],
     ).then((r) => (r.error ? [] : r.data)),
     dbQuery<{ event_type: string; n: number }>(
@@ -223,7 +224,9 @@ export async function getTrafficSummary(
 
   const topPaths: Array<z.infer<typeof PathCountSchema>> = topPathRows
     .filter((r) => r.path)
-    .map((r) => ({ path: r.path as string, count: Number(r.n) }));
+    // `u` (COUNT DISTINCT session_id) is always present from the live query; fall
+    // back to count for any row lacking it so the strict schema never sees NaN.
+    .map((r) => ({ path: r.path as string, count: Number(r.n), uniques: Number(r.u ?? r.n) }));
   const byType = byTypeRows
     .filter((r) => typeof r.event_type === 'string' && r.event_type)
     .map((r) => ({ type: r.event_type, count: Number(r.n) }));

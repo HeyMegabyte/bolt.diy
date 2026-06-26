@@ -31,7 +31,7 @@ interface SiteAnalyticsSummary {
     pageviews: number;
     uniqueSessions: number;
     conversions: number;
-    topPaths: { path: string; count: number }[];
+    topPaths: { path: string; count: number; uniques?: number }[];
     byType: { type: string; count: number }[];
     byDevice: { label: string; count: number }[];
     byChannel: { label: string; count: number }[];
@@ -129,12 +129,21 @@ interface SiteAnalyticsSummary {
         </div>
 
         @if (s.traffic.topPaths.length) {
-          <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">Top pages</h2>
-          <ul class="oa-paths">
+          <h2 class="text-[0.95rem] font-bold text-white mt-6 mb-2">
+            Top pages <span class="text-text-secondary font-normal text-[0.8rem]">· by visitors</span>
+          </h2>
+          <ul class="oa-paths" data-testid="oa-top-pages">
             @for (p of s.traffic.topPaths.slice(0, 6); track p.path) {
               <li class="oa-path">
                 <span class="oa-path-name">{{ p.path }}</span>
-                <span class="oa-path-count">{{ p.count }}</span>
+                <span class="oa-path-count" data-testid="oa-page-engagement">
+                  @if (p.uniques != null) {
+                    {{ p.uniques }} visitor{{ p.uniques === 1 ? '' : 's' }}
+                    <span class="text-text-secondary">· {{ p.count }} views</span>
+                  } @else {
+                    {{ p.count }} views
+                  }
+                </span>
               </li>
             }
           </ul>

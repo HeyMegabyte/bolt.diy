@@ -130,8 +130,8 @@ describe('visitor_events_core service', () => {
     expect(s.conversions).toBe(1);
     expect(s.topPaths).toEqual(
       expect.arrayContaining([
-        { path: '/', count: 2 },
-        { path: '/pricing', count: 1 },
+        { path: '/', count: 2, uniques: 2 }, // AN9 — unique visitors per page
+        { path: '/pricing', count: 1, uniques: 1 },
       ]),
     );
     expect(s.byType).toEqual(

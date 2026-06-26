@@ -23,7 +23,7 @@ const SUMMARY = {
     pageviews: 1200,
     uniqueSessions: 800,
     conversions: 14,
-    topPaths: [{ path: '/', count: 600 }],
+    topPaths: [{ path: '/', count: 600, uniques: 420 }],
     byType: [],
     byDevice: [
       { label: 'mobile', count: 700 },
@@ -86,6 +86,10 @@ describe('OwnerAnalyticsComponent (AN7 — Your Visitors)', () => {
     expect(el.querySelector('[data-testid="oa-contacts"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="oa-donations"]')).toBeTruthy(); // count > 0 → shown
     expect(el.textContent).toContain('Top pages');
+    // AN9 — engagement signal: unique visitors per page (not raw hits), views secondary.
+    const engagement = el.querySelector('[data-testid="oa-page-engagement"]');
+    expect(engagement?.textContent).toContain('420 visitors');
+    expect(engagement?.textContent).toContain('600 views');
     // Conversion rate = 14 / 1200 = 1.2% of visits.
     expect(el.querySelector('[data-testid="oa-conv-rate"]')?.textContent).toContain('1.2%');
     // Contacts-by-source breakdown, with the empty source labelled.

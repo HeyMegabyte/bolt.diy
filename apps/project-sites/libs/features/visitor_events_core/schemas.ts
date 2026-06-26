@@ -26,7 +26,13 @@ export type VisitorEventInput = z.infer<typeof VisitorEventInputSchema>;
 
 /** One `{ path, count }` row of the top-paths breakdown. */
 export const PathCountSchema = z
-  .object({ path: z.string(), count: z.number().int().min(0) })
+  .object({
+    path: z.string(),
+    count: z.number().int().min(0),
+    // AN9 — unique visitors for this page (COUNT(DISTINCT session_id)); the
+    // engagement signal vs raw hits. Optional for back-compat with older payloads.
+    uniques: z.number().int().min(0).optional(),
+  })
   .strict();
 /** One `{ type, count }` row of the by-type breakdown. */
 export const TypeCountSchema = z
