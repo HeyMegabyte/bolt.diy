@@ -5,6 +5,7 @@ import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
+import { mcpPlugin } from '@payloadcms/plugin-mcp'
 import { resendAdapter } from '@payloadcms/email-resend'
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -126,6 +127,17 @@ export default buildConfig({
       redirectRelationships: ['pages'],
       formOverrides: { admin: { group: 'Settings' } },
       formSubmissionOverrides: { admin: { group: 'Settings' } },
+    }),
+    // Official MCP plugin — agents (Claude/Cursor) read+write content at /api/mcp,
+    // gated by admin-panel API keys; Payload access control still applies per-key.
+    mcpPlugin({
+      collections: {
+        posts: { enabled: true },
+        pages: { enabled: true },
+        categories: { enabled: true },
+        tags: { enabled: true },
+        media: { enabled: true },
+      },
     }),
   ],
 })

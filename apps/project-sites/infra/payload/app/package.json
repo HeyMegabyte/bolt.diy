@@ -25,6 +25,7 @@
     "@payloadcms/plugin-search": "3.85.1",
     "@payloadcms/plugin-form-builder": "3.85.1",
     "@payloadcms/plugin-nested-docs": "3.85.1",
+    "@payloadcms/plugin-mcp": "3.85.1",
     "@payloadcms/email-resend": "3.85.1",
     "cross-env": "10.1.0",
     "dotenv": "16.4.7",
