@@ -340,6 +340,49 @@ socialRoutes.get('/api/social/campaign/prefill', async (c) => {
   return c.json({ data });
 });
 
+/** Batch-schedule a campaign's draft posts (each already carries a per-slot date). */
+const ScheduleCampaignSchema = z
+  .object({ post_ids: z.array(z.string().min(1)).min(1).max(60) })
+  .strict();
+
+/**
+ * `POST /api/social/campaign/schedule` — Flip a campaign's reviewed draft posts
+ * to `scheduled` in ONE action (each keeps its per-slot `scheduled_at`, set at
+ * generation). The publish workflow then sends them on their dates — turning a
+ * generated month of drafts into a live posting schedule. Kill-switch-gated by
+ * `social_publishing` (503 when off — mirrors the single-post schedule route).
+ *
+ * @throws 400 BAD_REQUEST on payload validation failure.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 503 FEATURE_DISABLED when social publishing is halted.
+ */
+socialRoutes.post(
+  '/api/social/campaign/schedule',
+  zValidator('json', ScheduleCampaignSchema),
+  async (c) => {
+    const ctx = requireAuth(c);
+    if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+    if (!(await isFlagOn(c.env, 'social_publishing', { orgId: ctx.orgId }))) {
+      return c.json(
+        {
+          error: { code: 'FEATURE_DISABLED', message: 'Social publishing is temporarily disabled' },
+        },
+        503,
+      );
+    }
+    const { post_ids } = c.req.valid('json');
+    const placeholders = post_ids.map(() => '?').join(',');
+    const { error, changes } = await dbExecute(
+      c.env.DB,
+      `UPDATE pulse_posts SET status = 'scheduled', updated_at = datetime('now')
+        WHERE id IN (${placeholders}) AND org_id = ? AND deleted_at IS NULL AND status = 'draft'`,
+      [...post_ids, ctx.orgId],
+    );
+    if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
+    return c.json({ data: { scheduled: changes ?? 0 } });
+  },
+);
+
 /**
  * `GET /api/social/posts?status=&limit=` — List posts for the caller's
  * org, optionally filtered by status (`draft|scheduled|published|failed`).

@@ -141,4 +141,36 @@ describe('AdminSocialCampaignComponent', () => {
     c.ngOnInit();
     expect(c.businessName()).toBe('My Custom Name');
   });
+
+  it('scheduleAll posts the generated draft ids and records the scheduled count', () => {
+    const post = jasmine.createSpy('post').and.callFake((path: string) =>
+      path.includes('schedule')
+        ? of({ data: { scheduled: 2 } })
+        : of({
+            data: {
+              length: 30,
+              slot_count: 2,
+              drafts_created: 2,
+              drafts: [
+                { id: 'p1', date: '2026-07-01', post_type: 'gbp_update' },
+                { id: 'p2', date: '2026-07-03', post_type: 'faq_answer' },
+              ],
+            },
+          }),
+    );
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })), post);
+    c.businessName.set('X');
+    c.toggleAccount('a1');
+    c.generate(); // populates result via the non-schedule POST
+    c.scheduleAll();
+    expect(post).toHaveBeenCalledWith('/social/campaign/schedule', { post_ids: ['p1', 'p2'] });
+    expect(c.scheduledCount()).toBe(2);
+  });
+
+  it('scheduleAll is a no-op when there is no result yet', () => {
+    const post = okPost();
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })), post);
+    c.scheduleAll();
+    expect(post).not.toHaveBeenCalled();
+  });
 });

@@ -141,6 +141,24 @@ interface CampaignResult {
                 }
               </tbody>
             </table>
+            @if (scheduledCount() === null) {
+              <button
+                type="button"
+                class="primary schedule-all"
+                [disabled]="scheduling()"
+                (click)="scheduleAll()"
+                data-testid="campaign-schedule-all"
+              >
+                {{ scheduling() ? 'Scheduling…' : 'Schedule all ' + r.drafts_created + ' posts' }}
+              </button>
+            } @else {
+              <p class="scheduled-ok" data-testid="campaign-scheduled-ok">
+                ✓ Scheduled {{ scheduledCount() }} posts — they'll publish on their dates.
+              </p>
+            }
+            @if (scheduleError()) {
+              <p class="sched-err">{{ scheduleError() }}</p>
+            }
           } @else {
             <p class="hint">Fill in the brief and hit <em>Generate</em>. Every post lands as a draft you approve before it publishes — nothing goes out automatically.</p>
           }
@@ -185,6 +203,9 @@ interface CampaignResult {
       }
       button.primary:disabled { opacity: 0.45; cursor: not-allowed; }
       .lede { font-size: 0.95rem; margin: 0 0 14px; }
+      .schedule-all { margin-top: 14px; }
+      .scheduled-ok { color: var(--ps-accent, #00e5ff); font-size: 0.9rem; margin-top: 14px; }
+      .sched-err { color: #ff7a8a; font-size: 0.85rem; margin-top: 8px; }
       table { width: 100%; border-collapse: collapse; }
       th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.88rem; font-weight: 400; }
       thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; }
@@ -212,6 +233,10 @@ export class AdminSocialCampaignComponent implements OnInit {
   generating = signal(false);
   error = signal('');
   result = signal<CampaignResult | null>(null);
+
+  scheduling = signal(false);
+  scheduledCount = signal<number | null>(null);
+  scheduleError = signal('');
 
   /** Gate the submit: business name + ≥1 account + not already running (double-submit guard). */
   canGenerate = computed(
@@ -272,6 +297,8 @@ export class AdminSocialCampaignComponent implements OnInit {
     this.generating.set(true);
     this.error.set('');
     this.result.set(null);
+    this.scheduledCount.set(null);
+    this.scheduleError.set('');
 
     const services = this.servicesText()
       .split(',')
@@ -304,6 +331,26 @@ export class AdminSocialCampaignComponent implements OnInit {
       error: () => {
         this.error.set('Could not generate the campaign — please try again.');
         this.generating.set(false);
+      },
+    });
+  }
+
+  /** Flip every generated draft to `scheduled` in one action — they publish on their dates. */
+  scheduleAll(): void {
+    const r = this.result();
+    if (!r || this.scheduling()) return;
+    const post_ids = r.drafts.map((d) => d.id);
+    if (post_ids.length === 0) return;
+    this.scheduling.set(true);
+    this.scheduleError.set('');
+    this.api.post<{ data: { scheduled: number } }>(`/social/campaign/schedule`, { post_ids }).subscribe({
+      next: (res) => {
+        this.scheduledCount.set(res?.data?.scheduled ?? post_ids.length);
+        this.scheduling.set(false);
+      },
+      error: () => {
+        this.scheduleError.set('Could not schedule the campaign — please try again.');
+        this.scheduling.set(false);
       },
     });
   }
