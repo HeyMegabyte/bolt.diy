@@ -1,0 +1,41 @@
+name = "projectsites-hatchet"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# jobs.projectsites.dev → this container worker (Hatchet, replacing Inngest on jobs.).
+# At cutover: the explicit Workers route jobs.projectsites.dev/* → projectsites-hatchet
+# beats the *.projectsites.dev/* wildcard AND the main worker's Inngest jobs.-routing.
+routes = [
+  { pattern = "jobs.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "Hatchet"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-hatchet"
+
+[[durable_objects.bindings]]
+name = "HATCHET"
+class_name = "Hatchet"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hatchet"]
+
+# Secrets to set before deploy (wrangler secret put ...):
+#   DATABASE_URL                       (Neon postgresql://...?sslmode=require — create the
+#                                       DB in the shared project per neon-database-conservation)
+#   SERVER_AUTH_COOKIE_SECRETS         ("$(openssl rand -hex 16),$(openssl rand -hex 16)")
+#   SERVER_ENCRYPTION_MASTER_KEYSET    (see README — hatchet-admin keyset create-local-keys)
+#   SERVER_ENCRYPTION_JWT_PUBLIC_KEYSET
+#   SERVER_ENCRYPTION_JWT_PRIVATE_KEYSET
+#   SERVER_DEFAULT_ADMIN_EMAIL / SERVER_DEFAULT_ADMIN_PASSWORD
+[vars]
