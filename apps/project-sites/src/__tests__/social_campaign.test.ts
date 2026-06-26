@@ -13,6 +13,7 @@ import {
   planCampaign,
   generateCampaignDrafts,
   loadCampaignPrefill,
+  scheduleCampaignPosts,
   findSlopWords,
   CampaignSpecSchema,
   CAMPAIGN_POST_TYPES,
@@ -393,5 +394,44 @@ describe('generateCampaignDrafts — slop quality safeguard', () => {
     );
     expect(regenerated).toBe(0);
     expect(contentFn).toHaveBeenCalledTimes(plan.slot_count); // one call per slot, no retries
+  });
+});
+
+/** Stub whose run() reports `changes` (what dbExecute reads from result.meta). */
+function fakeEnvExec(changes: number, captured: CapturedInsert[]): Env {
+  const db = {
+    prepare: (sql: string) => ({
+      bind: (...vals: unknown[]) => ({
+        run: async () => {
+          captured.push({ sql, vals });
+          return { success: true, meta: { changes } };
+        },
+        first: async () => null,
+        all: async () => ({ results: [] }),
+      }),
+    }),
+  };
+  return { DB: db } as unknown as Env;
+}
+
+describe('scheduleCampaignPosts', () => {
+  it('flips the given draft posts to scheduled and returns the changed count', async () => {
+    const captured: CapturedInsert[] = [];
+    const env = fakeEnvExec(3, captured);
+    const res = await scheduleCampaignPosts(env, 'org-1', ['a', 'b', 'c']);
+    expect(res.scheduled).toBe(3);
+    expect(res.error).toBeUndefined();
+    expect(captured[0].sql).toMatch(/UPDATE pulse_posts SET status = 'scheduled'/);
+    // ids then orgId, and only draft rows in this org are touched.
+    expect(captured[0].sql).toMatch(/org_id = \? AND deleted_at IS NULL AND status = 'draft'/);
+    expect(captured[0].vals).toEqual(['a', 'b', 'c', 'org-1']);
+  });
+
+  it('is a no-op (no query, scheduled:0) for an empty id list', async () => {
+    const captured: CapturedInsert[] = [];
+    const env = fakeEnvExec(0, captured);
+    const res = await scheduleCampaignPosts(env, 'org-1', []);
+    expect(res.scheduled).toBe(0);
+    expect(captured).toHaveLength(0);
   });
 });

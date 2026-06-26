@@ -24,7 +24,7 @@
  */
 import { z } from 'zod';
 import type { Env } from '../types/env.js';
-import { dbInsert, dbQueryOne } from './db.js';
+import { dbExecute, dbInsert, dbQueryOne } from './db.js';
 import type { Platform } from './social_publishers/index.js';
 import { DEFAULT_AUTO_PILOT_PROMPT, generateAutoPilotPostForNetwork } from './social_auto_pilot.js';
 
@@ -499,4 +499,36 @@ export async function generateCampaignDrafts(
   }
 
   return { plan, drafts, regenerated };
+}
+
+/**
+ * Batch-schedule a campaign's reviewed draft posts — flips org-owned `draft`
+ * rows in `postIds` to `scheduled` (each keeps its per-slot `scheduled_at`). The
+ * publish workflow then sends them on their dates.
+ *
+ * @param env - Worker bindings (DB)
+ * @param orgId - tenant scope (rows not in this org are never touched)
+ * @param postIds - draft post ids to schedule (1..60; empty = no-op)
+ * @returns `{ scheduled }` = rows flipped, or `{ scheduled: 0, error }` on a D1 error
+ *
+ * @example
+ * const { scheduled } = await scheduleCampaignPosts(env, orgId, ['p1', 'p2']);
+ *
+ * @remarks Impure — writes D1. Idempotent: re-running only flips rows still in `draft`.
+ */
+export async function scheduleCampaignPosts(
+  env: Env,
+  orgId: string,
+  postIds: string[],
+): Promise<{ scheduled: number; error?: string }> {
+  if (postIds.length === 0) return { scheduled: 0 };
+  const placeholders = postIds.map(() => '?').join(',');
+  const { error, changes } = await dbExecute(
+    env.DB,
+    `UPDATE pulse_posts SET status = 'scheduled', updated_at = datetime('now')
+      WHERE id IN (${placeholders}) AND org_id = ? AND deleted_at IS NULL AND status = 'draft'`,
+    [...postIds, orgId],
+  );
+  if (error) return { scheduled: 0, error };
+  return { scheduled: changes };
 }

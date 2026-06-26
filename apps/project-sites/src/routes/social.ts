@@ -33,6 +33,7 @@ import {
   CampaignRequestSchema,
   generateCampaignDrafts,
   loadCampaignPrefill,
+  scheduleCampaignPosts,
 } from '../services/social_campaign.js';
 
 export const socialRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -371,15 +372,9 @@ socialRoutes.post(
       );
     }
     const { post_ids } = c.req.valid('json');
-    const placeholders = post_ids.map(() => '?').join(',');
-    const { error, changes } = await dbExecute(
-      c.env.DB,
-      `UPDATE pulse_posts SET status = 'scheduled', updated_at = datetime('now')
-        WHERE id IN (${placeholders}) AND org_id = ? AND deleted_at IS NULL AND status = 'draft'`,
-      [...post_ids, ctx.orgId],
-    );
+    const { scheduled, error } = await scheduleCampaignPosts(c.env, ctx.orgId, post_ids);
     if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: error } }, 500);
-    return c.json({ data: { scheduled: changes ?? 0 } });
+    return c.json({ data: { scheduled } });
   },
 );
 
