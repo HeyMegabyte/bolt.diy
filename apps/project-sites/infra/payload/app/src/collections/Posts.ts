@@ -6,6 +6,7 @@ import { populatePublishedAt } from '../hooks/publishedAt'
 import { computeReadingTime } from '../hooks/readingTime'
 import { aiAutoExcerpt } from '../hooks/ai-enrich'
 import { revalidateAfterChange, revalidateAfterDelete } from '../hooks/revalidate'
+import { notifySitesAfterChange, notifySitesAfterDelete } from '../hooks/notify-sites'
 
 /**
  * Blog posts. Publish state is the single `_status` from drafts/versions (the old
@@ -31,8 +32,8 @@ export const Posts: CollectionConfig = {
   },
   hooks: {
     beforeChange: [populatePublishedAt, aiAutoExcerpt],
-    afterChange: [revalidateAfterChange('posts')],
-    afterDelete: [revalidateAfterDelete('posts')],
+    afterChange: [revalidateAfterChange('posts'), notifySitesAfterChange('posts')],
+    afterDelete: [revalidateAfterDelete('posts'), notifySitesAfterDelete('posts')],
   },
   fields: [
     { name: 'title', type: 'text', required: true },

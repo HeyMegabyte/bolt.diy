@@ -30,6 +30,10 @@ interface Env {
   OPENAI_API_KEY?: string;
   /** Shared secret letting an external cron trigger POST /api/db-backup. */
   BACKUP_SECRET?: string;
+  /** Platform endpoint notified on publish so generated sites revalidate (#6). */
+  SITES_REVALIDATE_URL?: string;
+  /** HMAC secret signing the revalidate webhook body. */
+  SITES_REVALIDATE_SECRET?: string;
 }
 
 export class PayloadCms extends Container<Env> {
@@ -56,6 +60,8 @@ export class PayloadCms extends Container<Env> {
       RESEND_API_KEY: env.RESEND_API_KEY,
       OPENAI_API_KEY: env.OPENAI_API_KEY,
       BACKUP_SECRET: env.BACKUP_SECRET,
+      SITES_REVALIDATE_URL: env.SITES_REVALIDATE_URL,
+      SITES_REVALIDATE_SECRET: env.SITES_REVALIDATE_SECRET,
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) {

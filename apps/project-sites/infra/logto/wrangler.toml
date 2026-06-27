@@ -9,6 +9,7 @@ account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 # route beats the *.projectsites.dev wildcard that otherwise 404s.)
 routes = [
   { pattern = "auth.projectsites.dev", custom_domain = true },
+  { pattern = "auth.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]
 
 [observability]
@@ -18,7 +19,7 @@ enabled = true
 class_name = "Logto"
 image = "./Dockerfile"
 max_instances = 1
-instance_type = "standard"   # Logto core+admin need more RAM than basic
+instance_type = "standard-1"   # Logto core+admin need more RAM than basic
 name = "projectsites-logto"
 
 [[durable_objects.bindings]]

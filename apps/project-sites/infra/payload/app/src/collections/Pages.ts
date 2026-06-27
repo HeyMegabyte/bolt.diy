@@ -3,6 +3,7 @@ import { publishedOrAuth, editors } from '../access'
 import { slugField } from '../fields/slug'
 import { layoutBlocks } from '../blocks'
 import { revalidateAfterChange, revalidateAfterDelete } from '../hooks/revalidate'
+import { notifySitesAfterChange, notifySitesAfterDelete } from '../hooks/notify-sites'
 
 /**
  * Marketing/content pages built from composable layout blocks (page builder) rather
@@ -29,8 +30,8 @@ export const Pages: CollectionConfig = {
   access: { read: publishedOrAuth, create: editors, update: editors, delete: editors },
   versions: { drafts: { schedulePublish: true }, maxPerDoc: 25 },
   hooks: {
-    afterChange: [revalidateAfterChange('pages')],
-    afterDelete: [revalidateAfterDelete('pages')],
+    afterChange: [revalidateAfterChange('pages'), notifySitesAfterChange('pages')],
+    afterDelete: [revalidateAfterDelete('pages'), notifySitesAfterDelete('pages')],
   },
   fields: [
     { name: 'title', type: 'text', required: true },
