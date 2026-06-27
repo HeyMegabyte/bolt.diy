@@ -60,11 +60,17 @@ export class BetterAuthIdentityProvider implements IdentityProvider {
       }).toString(),
     });
     if (!tokenRes.ok) {
-      throw new IdentityProviderError(`better-auth token exchange ${tokenRes.status}`, 'betterauth');
+      throw new IdentityProviderError(
+        `better-auth token exchange ${tokenRes.status}`,
+        'betterauth',
+      );
     }
     const tokens = (await tokenRes.json().catch(() => ({}))) as { access_token?: string };
     if (!tokens.access_token) {
-      throw new IdentityProviderError('better-auth token response missing access_token', 'betterauth');
+      throw new IdentityProviderError(
+        'better-auth token response missing access_token',
+        'betterauth',
+      );
     }
     return this.userFromAccessToken(tokens.access_token);
   }
@@ -89,7 +95,8 @@ export class BetterAuthIdentityProvider implements IdentityProvider {
     const res = await this.fetchImpl(`${this.base}/api/auth/oauth2/userinfo`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) throw new IdentityProviderError(`better-auth userinfo ${res.status}`, 'betterauth');
+    if (!res.ok)
+      throw new IdentityProviderError(`better-auth userinfo ${res.status}`, 'betterauth');
     const me = (await res.json().catch(() => ({}))) as {
       sub?: string;
       email?: string;

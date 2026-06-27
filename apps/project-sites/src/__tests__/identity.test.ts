@@ -53,7 +53,12 @@ describe('BetterAuthIdentityProvider', () => {
     );
     const p = new BetterAuthIdentityProvider({ ...cfg, fetchImpl });
     const user = await p.handleCallback({ code: 'c', redirectUri: 'https://x/cb' });
-    expect(user).toEqual({ subject: 'betterauth-sub', email: 'u@x.com', name: 'U', provider: 'betterauth' });
+    expect(user).toEqual({
+      subject: 'betterauth-sub',
+      email: 'u@x.com',
+      name: 'U',
+      provider: 'betterauth',
+    });
   });
 
   it('throws IdentityProviderError on a non-2xx token exchange', async () => {

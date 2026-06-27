@@ -13,7 +13,12 @@
 const mockFetch = jest.fn();
 global.fetch = mockFetch as typeof fetch;
 
-import { addUtm, extractUrls, shortenViaDub, processPostLinks } from '../services/link_shortener.js';
+import {
+  addUtm,
+  extractUrls,
+  shortenViaDub,
+  processPostLinks,
+} from '../services/link_shortener.js';
 import type { UtmParams } from '../services/link_shortener.js';
 
 // ---------------------------------------------------------------------------
@@ -42,7 +47,7 @@ describe('addUtm', () => {
     const result = addUtm('https://example.com/?utm_source=newsletter', utm);
     const u = new URL(result);
     expect(u.searchParams.get('utm_source')).toBe('newsletter'); // kept
-    expect(u.searchParams.get('utm_medium')).toBe('social');   // added
+    expect(u.searchParams.get('utm_medium')).toBe('social'); // added
   });
 
   it('returns the URL unchanged for non-http/https protocols', () => {
@@ -161,9 +166,7 @@ describe('shortenViaDub', () => {
   });
 
   it('falls back to longUrl when shortLink is missing from the response', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: '123' }), { status: 200 }),
-    );
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: '123' }), { status: 200 }));
     const result = await shortenViaDub(env, longUrl);
     expect(result).toBe(longUrl);
   });

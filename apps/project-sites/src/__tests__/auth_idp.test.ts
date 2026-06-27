@@ -97,13 +97,21 @@ describe('GET /api/auth/:provider/callback', () => {
   });
 
   it('redirects to ?error=invalid_state when the state is unknown', async () => {
-    const res = await authIdp.request('/api/auth/betterauth/callback?code=c1&state=bogus', {}, env());
+    const res = await authIdp.request(
+      '/api/auth/betterauth/callback?code=c1&state=bogus',
+      {},
+      env(),
+    );
     expect(res.headers.get('location')).toBe('/?error=invalid_state');
   });
 
   it('exchanges the code, issues a D1 session, and redirects with the token', async () => {
     const kv = makeKv({ 'authstate:s1': 'betterauth' });
-    const res = await authIdp.request('/api/auth/betterauth/callback?code=c1&state=s1', {}, env(kv));
+    const res = await authIdp.request(
+      '/api/auth/betterauth/callback?code=c1&state=s1',
+      {},
+      env(kv),
+    );
     expect(fakeIdp.handleCallback).toHaveBeenCalledWith(expect.objectContaining({ code: 'c1' }));
     expect(mFindOrCreateUser).toHaveBeenCalledWith(expect.anything(), {
       email: 'owner@example.com',
@@ -119,7 +127,11 @@ describe('GET /api/auth/:provider/callback', () => {
   it('redirects to ?error=auth_failed when the exchange throws', async () => {
     fakeIdp.handleCallback.mockRejectedValueOnce(new Error('token exchange failed'));
     const kv = makeKv({ 'authstate:s1': 'betterauth' });
-    const res = await authIdp.request('/api/auth/betterauth/callback?code=c1&state=s1', {}, env(kv));
+    const res = await authIdp.request(
+      '/api/auth/betterauth/callback?code=c1&state=s1',
+      {},
+      env(kv),
+    );
     expect(res.headers.get('location')).toBe('/?error=auth_failed');
   });
 });
@@ -153,7 +165,11 @@ describe('non-IdP provider fall-through (shadow regression)', () => {
 
   it('still handles its own betterauth callback (does not fall through)', async () => {
     const kv = makeKv({ 'authstate:s1': 'betterauth' });
-    const res = await composite().request('/api/auth/betterauth/callback?code=c1&state=s1', {}, env(kv));
+    const res = await composite().request(
+      '/api/auth/betterauth/callback?code=c1&state=s1',
+      {},
+      env(kv),
+    );
     expect(res.status).toBe(302);
     expect(res.headers.get('location') ?? '').toContain('token=sess_abc');
   });
