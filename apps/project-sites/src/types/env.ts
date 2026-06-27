@@ -196,6 +196,10 @@ export interface Env {
   DOCUMENSO_CONTAINER?: DurableObjectNamespace;
   /** Documenso Postgres URL — Neon project `Documenso` (shiny-wind-41827027). wrangler secret. */
   DOCUMENSO_DATABASE_URL?: string;
+  /** Documenso DIRECT (non-pooled) Postgres URL — required by its prisma directUrl. wrangler secret. */
+  DOCUMENSO_DATABASE_DIRECT_URL?: string;
+  /** Documenso SMTP password — SES-derived SMTP password (HMAC of AWS secret). wrangler secret. */
+  DOCUMENSO_SMTP_PASSWORD?: string;
   /** Documenso NextAuth secret (openssl rand -base64 32). wrangler secret. */
   DOCUMENSO_NEXTAUTH_SECRET?: string;
   /** Documenso primary encryption key (openssl rand -base64 32, >=32 chars). wrangler secret. */

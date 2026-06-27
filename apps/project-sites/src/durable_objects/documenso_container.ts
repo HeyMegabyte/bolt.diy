@@ -45,6 +45,9 @@ const DOCUMENSO_ORIGIN = 'https://sign.projectsites.dev';
 function documensoEnvVars(env: Env): Record<string, string> {
   const pairs: Record<string, string | undefined> = {
     NEXT_PRIVATE_DATABASE_URL: env.DOCUMENSO_DATABASE_URL,
+    // Documenso's prisma schema declares directUrl=env(NEXT_PRIVATE_DIRECT_DATABASE_URL).
+    // Without it prisma fails to load (P1012) → every DB write (signup!) errors out.
+    NEXT_PRIVATE_DIRECT_DATABASE_URL: env.DOCUMENSO_DATABASE_DIRECT_URL,
     NEXTAUTH_SECRET: env.DOCUMENSO_NEXTAUTH_SECRET,
     NEXT_PRIVATE_ENCRYPTION_KEY: env.DOCUMENSO_ENCRYPTION_KEY,
     NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY: env.DOCUMENSO_ENCRYPTION_SECONDARY_KEY,
@@ -56,6 +59,17 @@ function documensoEnvVars(env: Env): Record<string, string> {
     // out against Neon (P1002 → container start AbortError). All migrations are
     // already applied, so skipping the lock is a safe no-op that lets the server boot.
     PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: 'true',
+    // SES SMTP (Brian directive: SMTP uses SES). Username = AWS access key id;
+    // password = the SES-derived SMTP password (HMAC of the AWS secret key,
+    // verified to auth against email-smtp.us-east-1). 587 + STARTTLS (secure=false).
+    NEXT_PRIVATE_SMTP_TRANSPORT: 'smtp-auth',
+    NEXT_PRIVATE_SMTP_HOST: 'email-smtp.us-east-1.amazonaws.com',
+    NEXT_PRIVATE_SMTP_PORT: '587',
+    NEXT_PRIVATE_SMTP_SECURE: 'false',
+    NEXT_PRIVATE_SMTP_USERNAME: env.AWS_ACCESS_KEY_ID,
+    NEXT_PRIVATE_SMTP_PASSWORD: env.DOCUMENSO_SMTP_PASSWORD,
+    NEXT_PRIVATE_SMTP_FROM_NAME: 'ProjectSites Sign',
+    NEXT_PRIVATE_SMTP_FROM_ADDRESS: env.SES_FROM_EMAIL ?? 'noreply@projectsites.dev',
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {
