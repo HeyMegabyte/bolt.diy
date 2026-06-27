@@ -23,6 +23,11 @@ interface Env {
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   DEEPSEEK_API_KEY?: string;
+  /** Cloudflare Workers AI (tier-1 "ollama" leg) — a Workers-AI-scoped token + account id.
+   *  When both are set, add an `ollama` model (cloudflare/@cf/...) to config.yaml's
+   *  adaptive_router available_models. Optional: empty = the router runs tiers 2-3 only. */
+  CLOUDFLARE_API_KEY?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
 }
 
 export class LiteLLM extends Container<Env> {
@@ -39,6 +44,8 @@ export class LiteLLM extends Container<Env> {
       OPENAI_API_KEY: env.OPENAI_API_KEY,
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
       DEEPSEEK_API_KEY: env.DEEPSEEK_API_KEY,
+      CLOUDFLARE_API_KEY: env.CLOUDFLARE_API_KEY,
+      CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) {

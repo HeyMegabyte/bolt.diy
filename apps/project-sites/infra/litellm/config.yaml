@@ -1,31 +1,35 @@
 # LiteLLM proxy config for llm.megabyte.space.
 # Model creds are read from env (set as wrangler secrets, injected by the Container DO).
-# Per rules/model-routing.md provider tiers: premium (Anthropic/OpenAI). RouteLLM picks
-# strong-vs-weak per request to cut cost. DeepSeek is unprovisioned here, so the weak leg
-# is an OpenAI mini model — RouteLLM works with only OPENAI_API_KEY + ANTHROPIC_API_KEY.
+#
+# ROUTING (Brian 2026-06-27): consumers call ONE entrypoint model — `smart`.
+# This pinned LiteLLM digest predates the native `auto_router/adaptive_router`
+# (it crash-loops on that config → gateway 1101), so for now `smart` is a fast,
+# reliable alias to DeepSeek (tier 2 — "almost everything"). The full complexity
+# cascade (trivial→Workers-AI, mid→DeepSeek, advanced→Opus 4.8 w/ GPT-5 backup) lands
+# once the image is bumped to a digest that supports adaptive_router — see the
+# `smart` block at the bottom for the target config. Opus + GPT stay reachable as
+# explicit models so a caller can request advanced reasoning directly today.
 
 model_list:
-  # ── Premium tier ──
-  - model_name: gpt-5
-    litellm_params:
-      model: openai/gpt-5
-      api_key: os.environ/OPENAI_API_KEY
-  - model_name: claude-opus
+  # ── tier 3 (frontier) — advanced reasoning ──
+  - model_name: opus
     litellm_params:
       model: anthropic/claude-opus-4-8
       api_key: os.environ/ANTHROPIC_API_KEY
-  # ── Cheap/fast leg ──
-  - model_name: fast
+  - model_name: gpt
     litellm_params:
-      model: openai/gpt-4o-mini
+      model: openai/gpt-5
       api_key: os.environ/OPENAI_API_KEY
-  # NOTE: RouteLLM is pip-installed IN this container (Dockerfile) per the
-  # "LiteLLM and RouteLLM on the same container" requirement. LiteLLM main-stable
-  # does NOT expose RouteLLM as a `model: router/mf` provider in model_list (it
-  # errors "LLM Provider NOT provided"), so a routed "smart" model is wired via
-  # RouteLLM's own OpenAI-compatible server (`python -m routellm.openai_server`)
-  # as a follow-up, then added here as `model: openai/router-mf-<threshold>` with
-  # api_base pointing at localhost. For now the proxy serves the explicit models.
+  # ── tier 2 (mid) — DeepSeek; the default the `smart` entrypoint maps to ──
+  - model_name: deepseek
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+  # ── single entrypoint Twenty calls. Alias → DeepSeek until adaptive_router lands. ──
+  - model_name: smart
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
 
 litellm_settings:
   drop_params: true
@@ -34,10 +38,9 @@ litellm_settings:
 
 router_settings:
   routing_strategy: simple-shuffle
-  # Fallback chain: premium → cheap if a model errors.
+  # Opus's only backup is GPT-5; DeepSeek has none (per directive).
   fallbacks:
-    - claude-opus: ["gpt-5", "fast"]
+    - opus: ["gpt"]
 
 general_settings:
-  # Master key gates the proxy. Set LITELLM_MASTER_KEY as a wrangler secret.
   master_key: os.environ/LITELLM_MASTER_KEY
