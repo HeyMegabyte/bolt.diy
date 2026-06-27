@@ -567,19 +567,19 @@ new_sqlite_classes = ["InngestContainer"]
 # `https://sign.projectsites.dev/signin` → 200. DNS already resolves via the
 # *.projectsites.dev wildcard (no record needed).
 #
-# [[env.production.containers]]
-# class_name = "DocumensoContainer"
-# image = "./containers/documenso/Dockerfile"
-# max_instances = 3
-# instance_type = "standard-4"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "DOCUMENSO_CONTAINER"
-# class_name = "DocumensoContainer"
-#
-# [[env.production.migrations]]
-# tag = "v_documenso_container"
-# new_sqlite_classes = ["DocumensoContainer"]
+[[env.production.containers]]
+class_name = "DocumensoContainer"
+image = "./containers/documenso/Dockerfile"
+max_instances = 3
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "DOCUMENSO_CONTAINER"
+class_name = "DocumensoContainer"
+
+[[env.production.migrations]]
+tag = "v_documenso_container"
+new_sqlite_classes = ["DocumensoContainer"]
 
 # ─── cal.diy (schedule.projectsites.dev) — CF Workers Container ───────────────
 # Same dedicated-DO pattern. Image is the LOCAL ./containers/caldiy/Dockerfile
