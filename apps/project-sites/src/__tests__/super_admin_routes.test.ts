@@ -622,13 +622,11 @@ describe('refunds', () => {
   });
 
   it('POST with stripe_charge_id calls the Stripe Refunds API + records the real refund', async () => {
-    const fetchSpy = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ id: 're_123', status: 'succeeded' }),
-      });
+    const fetchSpy = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 're_123', status: 'succeeded' }),
+    });
     global.fetch = fetchSpy as unknown as typeof fetch;
     const res = await req(
       makeApp(SUPER),
@@ -648,13 +646,11 @@ describe('refunds', () => {
   });
 
   it('POST 502s when Stripe rejects the refund', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: async () => ({ error: { message: 'No such charge' } }),
-      }) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { message: 'No such charge' } }),
+    }) as unknown as typeof fetch;
     const res = await req(
       makeApp(SUPER),
       'POST',
