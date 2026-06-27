@@ -84,8 +84,10 @@ litellm_settings:
     type: redis
     redis_url: os.environ/REDIS_URL
     ttl: 600
-  # Prometheus /metrics (RPS, latency, error rate, budget headroom).
-  callbacks: ["prometheus"]
+  # Prometheus /metrics + the ProjectSites meta-LLM hooks pipeline (projectsites_hooks.py).
+  # Every hook step is OFF by default (HOOK_<NAME>=1 or per-request metadata.hooks) and
+  # fail-open, so mounting it is behaviour-neutral until a flag is flipped.
+  callbacks: ["prometheus", "projectsites_hooks.hooks_instance"]
 
 router_settings:
   routing_strategy: simple-shuffle
