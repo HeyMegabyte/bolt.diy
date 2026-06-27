@@ -82,6 +82,12 @@ export class OpenWebuiContainer extends AppRuntimeContainer {
   override defaultPort = 8080;
 }
 
+/** Formbricks — `ghcr.io/formbricks/formbricks:latest` port 3000 (survey.projectsites.dev) */
+export class FormbricksContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'formbricks';
+  override defaultPort = 3000;
+}
+
 /**
  * Catalog-slug → DO class-name map. Drives the dispatcher's binding-lookup
  * table and the runtime existence check (`isSupportedSlug`).
@@ -100,6 +106,7 @@ export const SUPPORTED_APP_SLUGS = [
   'memos',
   'pocketbase',
   'open-webui',
+  'formbricks',
 ] as const;
 
 export type SupportedAppSlug = (typeof SUPPORTED_APP_SLUGS)[number];

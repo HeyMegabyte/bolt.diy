@@ -500,6 +500,50 @@ new_sqlite_classes = ["InngestContainer"]
 # [env.production.vars]  # (merge into existing prod vars, do not duplicate the table)
 # INNGEST_BASE_URL = "https://jobs.projectsites.dev"
 
+# ─── Formbricks (survey.projectsites.dev) — CF Workers Container ──────────────
+# Brian directive 2026-06-27: host Formbricks on CF Workers Containers (not Fly).
+# Mirrors the PROVEN InngestContainer go-live above: image is the LOCAL
+# `./containers/formbricks/Dockerfile` (FROM ghcr.io/formbricks/formbricks —
+# local-Dockerfile path bypasses IMAGE_REGISTRY_NOT_CONFIGURED, same as Inngest +
+# SiteBuilder). DO subclass `FormbricksContainer` + slug 'formbricks' are already
+# wired in `src/durable_objects/app_runtime_subclasses.ts`.
+# Data plane: Neon project "Formbricks" (wild-sound-20069767).
+#
+# ⚠️ GO-LIVE IS A WATCHED, EYES-ON DEPLOY (one-way door) — identical hazard class
+# to InngestContainer/EventDispatcher: the active binding REQUIRES the migration
+# (else error 10061); this worker's DO migration history is remote-managed and has
+# errored on tag reconciliation before (10074/10064); a wrong tag blocks ALL
+# platform deploys and CANNOT be dry-run-verified. Do NOT uncomment from an
+# unattended cron. Eyes-on steps:
+#   (1) Docker running (CF builds the image from the local Dockerfile).
+#   (2) Confirm `v_formbricks_container` is NOT already in remote history
+#       (`wrangler deployments list --env production`).
+#   (3) Resolve Formbricks' FULL required-env set (first boot 500'd "Invalid
+#       environment variables" even with DB+NEXTAUTH_SECRET+ENCRYPTION_KEY; note
+#       ENCRYPTION_KEY MUST be exactly 32 chars = `openssl rand -hex 16`). Then
+#       `wrangler secret put FORMBRICKS_DATABASE_URL` + the rest.
+#   (4) Wire host dispatch `survey.projectsites.dev` → FORMBRICKS_CONTAINER in
+#       `index.ts` (mirror how `jobs.projectsites.dev` routes to INNGEST_CONTAINER)
+#       + `BINDING_BY_SLUG['formbricks'] = 'FORMBRICKS_CONTAINER'` in
+#       `container_dispatcher.ts` + the binding field in `src/types/env.ts`.
+#   (5) Uncomment the THREE blocks below; `wrangler deploy --env production` (watch
+#       the migration + the ~2GB image build).
+#   (6) Verify: `curl -s -o /dev/null -w "%{http_code}" https://survey.projectsites.dev/auth/login` → 200.
+#
+# [[env.production.containers]]
+# class_name = "FormbricksContainer"
+# image = "./containers/formbricks/Dockerfile"
+# max_instances = 3
+# instance_type = "standard-4"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "FORMBRICKS_CONTAINER"
+# class_name = "FormbricksContainer"
+#
+# [[env.production.migrations]]
+# tag = "v_formbricks_container"
+# new_sqlite_classes = ["FormbricksContainer"]
+
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
 # `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in
