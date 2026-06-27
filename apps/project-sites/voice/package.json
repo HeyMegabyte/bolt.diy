@@ -1,7 +1,7 @@
 {
   "name": "projectsites-voice",
   "version": "1.0.0",
-  "description": "Twilio Media Streams ↔ STT → LLM → TTS voice bridge (call-gpt topology) for projectsites.dev",
+  "description": "Twilio Media Streams ↔ Deepgram Nova-3 STT → gpt-4o-mini → Piper TTS voice bridge for projectsites.dev",
   "type": "module",
   "private": true,
   "engines": {
