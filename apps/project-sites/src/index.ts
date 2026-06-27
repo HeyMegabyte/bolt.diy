@@ -42,6 +42,8 @@ import { authMiddleware } from './middleware/auth.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Better Auth (default) + WorkOS (enterprise) IdP, ships dark
+import { makeAuth, ensureBetterAuthSchema } from './auth/better-auth.js'; // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag
+import { isFlagOn as isFlagOnBetterAuth } from './modules/feature_flags/services.js';
 import { search } from './routes/search.js';
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
@@ -348,6 +350,16 @@ applyRateLimits(app);
 
 // Auth middleware for API routes (sets userId/orgId if valid session)
 app.use('/api/*', authMiddleware);
+
+// EMBEDDED Better Auth (full-cutover rebuild, Phase 1) — DARK behind the `better_auth`
+// flag. Registered BEFORE the legacy auth routes so it's a clean same-path cutover:
+// flag ON → Better Auth owns /api/auth/* (email+pw, magic link, Google, 2FA, sessions);
+// flag OFF → next() falls through to the legacy magic-link/Google/D1-session auth.
+app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', async (c, next) => {
+  if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) return next();
+  await ensureBetterAuthSchema(c.env);
+  return makeAuth(c.env).handler(c.req.raw);
+});
 
 // Global error handler
 app.onError(errorHandler);

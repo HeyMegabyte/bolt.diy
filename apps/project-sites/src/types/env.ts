@@ -335,6 +335,9 @@ export interface Env {
   /** Arcjet key for the §48 app-aware abuse layer (bot/abuse decisioning on top
    * of the CF rate limiter). Unset → fail-open. wrangler secret. */
   ARCJET_KEY?: string;
+  /** HS256/session secret for the EMBEDDED Better Auth instance (auth/better-auth.ts,
+   * the full-cutover rebuild). Self-generable (openssl rand -base64 32). wrangler secret. */
+  BETTER_AUTH_SECRET?: string;
   /** Better Auth base URL (default app-auth IdP, §27/ADR-0006), e.g.
    * https://auth.projectsites.dev. Unset → custom magic-link/Google auth stays live. var. */
   BETTER_AUTH_URL?: string;

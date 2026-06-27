@@ -621,6 +621,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  better_auth: {
+    key: 'better_auth',
+    description:
+      'CUTOVER FLAG for the embedded Better Auth rebuild (auth/better-auth.ts). When ON, Better Auth owns /api/auth/* (email+password, magic link, Google social, TOTP 2FA) and issues its own D1 sessions in the singular user/session/account/verification tables; when OFF (default), /api/auth/* falls through to the legacy magic-link/Google/D1-session auth. MUST stay OFF in production until the frontend sign-in UI + user-migration backfill land — flipping it early would route live sign-in at an unmigrated system. Safe disabled behavior: legacy auth unchanged. Acceptance: with the flag on in a test env, POST /api/auth/sign-up/email creates a user + session.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   collab_editing: {
     key: 'collab_editing',
     description:

@@ -36,8 +36,12 @@ async function allFlagKeys(request: import('@playwright/test').APIRequestContext
   return body.flags.map((f) => f.key);
 }
 
-test('every feature flag resolves ENABLED', async ({ request }) => {
-  const keys = await allFlagKeys(request);
+// Cutover/migration flags that MUST stay off until their rebuild lands — turning
+// them on prematurely would route live traffic at an unmigrated system.
+const CUTOVER_FLAGS = new Set(['better_auth']);
+
+test('every feature flag resolves ENABLED (except in-progress cutover flags)', async ({ request }) => {
+  const keys = (await allFlagKeys(request)).filter((k) => !CUTOVER_FLAGS.has(k));
   const off: string[] = [];
   for (const key of keys) {
     const res = await request.get(`/api/feature-flags/${encodeURIComponent(key)}`);
