@@ -28,6 +28,7 @@ const APP = new URL('../src/app', import.meta.url).pathname;
 const routesSrc = readFileSync(`${APP}/app.routes.ts`, 'utf8');
 const navSrc = readFileSync(`${APP}/pages/admin/admin.component.html`, 'utf8');
 const labelSrc = readFileSync(`${APP}/pages/admin/admin-section-labels.ts`, 'utf8');
+const paletteSrc = readFileSync(`${APP}/pages/admin/command-palette-actions.service.ts`, 'utf8');
 
 // ── 1. admin child routes — bound the AdminComponent children block ──────────
 // From the AdminComponent loadComponent line to its '**' catch-all (which MUST be
@@ -55,9 +56,23 @@ for (const m of labelSrc.matchAll(/(?:'([a-z][a-z0-9-]*)'|\b([a-z][a-z0-9-]*))\s
   labelKeys.add(m[1] ?? m[2]);
 }
 
+// ── 4. Cmd+K palette nav entries — navHref('/admin/<seg>') ───────────────────
+const paletteSegs = new Set();
+for (const m of paletteSrc.matchAll(/navHref\('\/admin\/([^']+)'\)/g)) {
+  const seg = m[1].split('/')[0].split('?')[0];
+  if (seg) paletteSegs.add(seg);
+}
+
 // ── HARD checks ──────────────────────────────────────────────────────────────
 const deadNav = [...navSegs].filter((s) => !routeSegs.has(s));
 const unlabeledNav = [...navSegs].filter((s) => !labelKeys.has(s));
+
+// Every sidebar section must also be Cmd+K-discoverable (the palette mandate),
+// except sections that share a destination already in the palette.
+const PALETTE_EXEMPT = new Set([
+  'editor-native', // same "Editor" destination as the 'editor' palette entry
+]);
+const noPalette = [...navSegs].filter((s) => !paletteSegs.has(s) && !PALETTE_EXEMPT.has(s));
 
 const errors = [];
 if (deadNav.length)
@@ -67,6 +82,10 @@ if (deadNav.length)
 if (unlabeledNav.length)
   errors.push(
     `Nav-linked section(s) with NO title label (→ 'Dashboard' fallback, WCAG 2.4.2): ${unlabeledNav.join(', ')}`,
+  );
+if (noPalette.length)
+  errors.push(
+    `Nav-linked section(s) NOT in the Cmd+K palette (add a navHref entry in command-palette-actions.service.ts): ${noPalette.join(', ')}`,
   );
 
 // ── ADVISORY: routed sections with no nav link (informational) ───────────────
@@ -89,12 +108,13 @@ if (errors.length) {
   process.exit(1);
 }
 
+const base = 'every nav link resolves + is labeled + is in the Cmd+K palette';
 if (orphanish.length) {
   console.log(
-    `✓ check-admin-coverage: nav links all resolve + are labeled. ` +
+    `✓ check-admin-coverage: ${base}. ` +
       `(advisory: ${orphanish.length} routed section(s) without a nav link — ` +
       `verify reachable contextually: ${orphanish.join(', ')})`,
   );
 } else {
-  console.log('✓ check-admin-coverage: every nav link resolves + is labeled; no orphans.');
+  console.log(`✓ check-admin-coverage: ${base}; no orphans.`);
 }
