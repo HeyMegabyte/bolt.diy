@@ -2,10 +2,12 @@
 
 > **⚑ THE SINGLE CANONICAL TODO FILE (consolidated 2026-06-19).** Per `_ULTIMATE_LOOP.prompt.md`
 > §0.C, ALL open work lives here. The redundant scratch work-lists were folded + cleared to
-> redirect stubs the same day: `_CONVERGENCE_BACKLOG.md`, `FEATURE_BACKLOG.md`,
-> `RESEARCH_IDEAS_2026H2.md` → all now point here. Distinct (NOT TODO) artifacts kept separate:
-> `progress.md` (Ralph checkpoint handoff), `FEATURE_CATALOG.md` (de-stub reference catalog),
-> `ROADMAP.md` (revenue-sorted reference list), `_ULTIMATE_LOOP.prompt.md` (the driver). A fire
+> redirect stubs: `_CONVERGENCE_BACKLOG.md`, `FEATURE_BACKLOG.md`, `RESEARCH_IDEAS_2026H2.md`,
+> and (2026-06-27) `progress.md` + `_PERFECTION_BACKLOG.md` + `_ANALYTICS_BACKLOG.prompt.md` →
+> all folded into this ledger + `_LOOP_PROGRESS.md`. Distinct (NOT TODO) artifacts kept separate:
+> `_LOOP_PROGRESS.md` (finishing-loop handoff + supervised/perfection backlogs), `FEATURE_CATALOG.md`
+> (de-stub reference catalog), `ROADMAP.md` (revenue-sorted reference list), `_CONVERGENCE.prompt.md`
+> (the driver). A fire
 > that finds a NEW open-work doc folds it here + clears it (one file to read = everything left).
 >
 > Worklist for `_ULTIMATE_LOOP.prompt.md`. Pick the highest-value `[ ]` item, close it
@@ -415,7 +417,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ## ★ ANALYTICS POWER BACKLOG (Brian-selected 2026-06-24 — the loop integrates these into the /admin Analytics section + the dark per-site owner analytics)
 
-> 56 convergence-ready tasks distilled from 50 audited+researched Analytics ideas (Plausible/Fathom/Umami/PostHog/Clarity/GA4/Shopify/Wix). Regeneratable source: `_ANALYTICS_BACKLOG.prompt.md`. Grounded in the 2026-06-24 audit — surfaces: `frontend/src/app/pages/admin/sections/analytics-dashboard.component.ts` (tab shell) + `analytics.component.ts` (CF-GraphQL Overview) + `analytics-live.component.ts` + `social-analytics.component.ts`; `src/routes/analytics.ts` (POST /api/events fast-ack) + `admin_analytics.ts` + `admin_funnel.ts` + `pulse_analytics.ts`; `src/services/analytics.ts` (PostHog) + `analytics_query.ts` (Tinybird); migrations `0532_visitor_events` (BUILT-DARK), `0022_usage_metering`, `0034_pulse_social`. **Headline gap: the paying site-owner sees NO analytics — `visitor_events` is fully built but has zero route/UI.** Six fragmented backends (CF-GraphQL · D1 analytics_events · D1 visitor_events · Tinybird · Analytics Engine · PostHog) with no unified query layer. Each task = a feature module per [[feature-module-architecture]] + flag-gated per [[feature-flags]].
+> 56 convergence-ready tasks distilled from 50 audited+researched Analytics ideas (Plausible/Fathom/Umami/PostHog/Clarity/GA4/Shopify/Wix). (The `_ANALYTICS_BACKLOG.prompt.md` seeder these came from was folded into this ledger + removed 2026-06-27 — these 56 tasks below ARE its content.) Grounded in the 2026-06-24 audit — surfaces: `frontend/src/app/pages/admin/sections/analytics-dashboard.component.ts` (tab shell) + `analytics.component.ts` (CF-GraphQL Overview) + `analytics-live.component.ts` + `social-analytics.component.ts`; `src/routes/analytics.ts` (POST /api/events fast-ack) + `admin_analytics.ts` + `admin_funnel.ts` + `pulse_analytics.ts`; `src/services/analytics.ts` (PostHog) + `analytics_query.ts` (Tinybird); migrations `0532_visitor_events` (BUILT-DARK), `0022_usage_metering`, `0034_pulse_social`. **Headline gap: the paying site-owner sees NO analytics — `visitor_events` is fully built but has zero route/UI.** Six fragmented backends (CF-GraphQL · D1 analytics_events · D1 visitor_events · Tinybird · Analytics Engine · PostHog) with no unified query layer. Each task = a feature module per [[feature-module-architecture]] + flag-gated per [[feature-flags]].
 
 ### Tier AN0 — pipeline + unified query foundation (unblocks everything; do FIRST)
 - [x] AN1. Enrich ingestion — **DONE (loop-feature fire, 2026-06-25, b45cbe0c, deployed 5698def3).** Pure dependency-free `libs/features/visitor_events_core/enrich.ts` (`parseUserAgent`→device/browser/os · `parseUtm`→source/medium/campaign · `deriveChannel`→direct/organic/social/paid/email/referral · `enrichVisitor`) folded into the pageview `metadata` JSON at `recordPageviewFromRequest`. **No migration** — rides the existing `metadata` column (queryable via `json_extract`), the lean low-risk capture that UNLOCKS AN10 (channel), AN13 (device split), AN15 (period compare). UTM wins over referrer; Edge-before-Chrome ordering; malformed-referrer/empty-UA tolerant. 15 TDD cases, 30/30 across visitor_events_core, tsc 0, health 200. (Promote to dedicated columns + backfill later only if query perf needs it.) [DONE][auto] slug `analytics_event_enrich`

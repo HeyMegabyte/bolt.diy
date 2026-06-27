@@ -61,3 +61,33 @@ The loop self-cancels the instant ALL THREE GATE boxes read `[x]` AND `loop-done
 - **Completion is guaranteed** (see § Completion guarantee): unchecked-`[auto]` count strictly decreases each fire (ship OR reclassify) → reaches 0 in finite fires → DONE reachable; it cannot stall with `[auto]` work silently stuck.
 - Self-re-arm: when within ~12h of the 7-day expiry AND not yet DONE, re-create the cron to extend.
 - Worker deploys via CI push (Docker down locally); `wrangler d1 execute` for flag overrides (D1 MCP can disconnect); authed prod E2E via `E2E_API_KEY` (get-secret).
+
+---
+
+## SUPERVISED backlog (folded from `progress.md`, 2026-06-27 — NOT safe for an unattended cron)
+
+These need a focused, attended session — surface, never auto-run mid-loop.
+
+- **R1 — Perf-wave: ag-grid → TanStack (P1).** Both live admin grids import `ag-grid-community` at module top → ~782 KB EAGER (~205 KB over budget). Files: `frontend/src/app/pages/admin/sections/audit.component.ts` + `ai-logs.component.ts`. Pattern in prod: `createAngularTable` (api-tokens + content-freshness). Blueprint + dead-ends (`@defer`/single-importer do NOT work — only removing ag-grid does): `docs/perf-wave-ag-grid-to-tanstack.md`. All-or-nothing; both grids must migrate in one go (esbuild keeps ag-grid eager while either imports it). Done = both on TanStack, ag-grid removed, budget green, re-verified live (`E2E_API_KEY`).
+- **P1b — Durable SSG/prerender of the marketing route.** `/` is still an empty CSR SPA for JS-crawler first-paint/LCP (the `<h1>` `<noscript>` stopgap is live, `7f2c63ae`). Fix = real SSG/prerender (`@angular/ssr`); none configured. Verify `curl / | grep -c '<h1'` == 1 in the prerendered shell + CWV (LCP). Architecture change — focused session + full CWV verify. (This + R1 are the two levers behind the homepage Lighthouse-66 / TBT-3010ms ceiling.)
+- **R3 — Wire the prod E2E suite into CI.** `*.e2e.ts` (marketing + admin a11y/contrast/reflow) runs only manually. Add a post-deploy CI job running `npm run test:e2e:prod` with `PROD_URL` + the `E2E_API_KEY` GitHub secret (Brian's action). Detail: `frontend/CLAUDE.md` § "Two E2E suites + a CI wiring gap".
+
+## Perfection backlog (folded from `_PERFECTION_BACKLOG.md`, 2026-06-27 — open 🔨 clusters)
+
+The A–L zero-gap inventory; full fire-by-fire history is in git. Dim-I (CWV/a11y/SEO) is the
+big one and is **CONVERGED for the in-repo marketing surface** (homepage + /developers /pricing
+/blog: LCP/FCP ~0.4–0.8s, CLS 0.002, a11y 100, SEO 100 — gated by `ttfr.spec.ts` + `cwv-gate.yml`).
+Remaining open clusters (autonomous-safe unless tagged ⚠):
+
+- **A. Revenue funnel** — opportunity-score→preview auto-gen wiring; checkout→entitlement→generation hop tests; usage→retention surfacing. (⚠ live prod-E2E of the full funnel needs `E2E_TEST_PASSWORD` prod secret — Brian.)
+- **C. Cost control** — `assertAiBudget()`/`assertModelAllowed()` middleware before every LLM/browser/Google/email call (#16, as a feature module); usage-ledger reserve→execute→reconcile path per op category; per-build cost accounting (#19).
+- **D. Reliability** — client-UUID `Idempotency-Key` on EVERY mutating public endpoint (#26, audit api.ts); every Queue consumer declares DLQ + replay + tenant context.
+- **E. Observability** — `trace_id + tenant_id + cost_category` on every handler/job/webhook (sweep + assert); Sentry breadcrumb + PostHog `featureSlug` on every feature path.
+- **F. Feature-module completeness** — `npm run validate:features` green tree-wide (7-field manifest + flag + schemas + service + handlers + __tests__ + e2e/<slug>/ + README); reconcile untracked WIP (figma_import / generative_ui_stream / page_audio_summary).
+- **G. E2E coverage** — every `e2e/FEATURES.md` feature has ≥1 homepage-start Playwright spec; golden-path funnel E2E.
+- **H. Accessibility** — axe 0 @ 6 breakpoints across admin + generated-site templates (authed via `E2E_API_KEY`); manual SC sweep (2.4.11/2.5.7/2.5.8/3.2.6/3.3.7/3.3.8).
+- **I. Performance (remaining)** — the gated levers only: R1 perf-wave + P1b SSG above (homepage interactivity TBT/TTI), and the **credit-gated generated-site template app-shell/SSG** (CSR-bound LCP ~4.6s; worker serve-transforms are structurally powerless past FCP — only a build-time bake fixes LCP). Template a11y source fixes already shipped (`role="img"` rating, h4→h3) — existing sites pick them up on rebuild.
+- **J. Security** — CSP L3 strict-dynamic + nonce on admin (no raw token/cookie logging, Semgrep rule); Turnstile/Arcjet on claim/signup/public-form/expensive endpoints.
+- **K/L. Docs + net-new features** — ADRs present + accurate (note the two-series collision, see `DECISIONS.md`); the §8 "30 brilliant features" set (#4 DLQ-repair UI, #17 site beacon→analytics, #18 owner live-events, #20 abandoned-build recovery, #28 kill-switch console, #29 synthetic provider test-buttons) — each a feature-module cluster, lower priority until A–K green.
+- **⚠ Approval-gated (surface, never auto-execute):** §13 InngestContainer DO bind + signing key (watched one-way migration); OpenFGA store provisioning; `E2E_TEST_PASSWORD` + scoped `TINYBIRD_INGEST_TOKEN` prod secrets (Brian runs `wrangler secret put`).
+- **⚠ Infra blockers found during the CWV arc:** root-monorepo CI is dead at `pnpm install --frozen-lockfile` (bolt.diy root added `jscpd`+`rollup-plugin-visualizer`, lockfile not regenerated → worker deploys are local-only until fixed via `pnpm install --lockfile-only` at root); template repo CI was fixed (`npm ci` lockfile regen, commit `b3f9b4b`) but its Cmd+K Playwright E2E (`getByRole('dialog')`) is a pre-existing functional bug for the template-maintenance session.
