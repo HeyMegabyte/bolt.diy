@@ -9,7 +9,7 @@
  * legacy custom-auth `users`/`sessions` (plural), so they coexist during migration.
  *
  * Methods (Brian directive 2026-06-27): email+password, magic link, Google social,
- * passkeys (WebAuthn), and TOTP two-factor. SSO/SAML (to replace WorkOS) lands in a
+ * passkeys (WebAuthn), and TOTP two-factor. SSO/SAML lands in a
  * later phase. Mounted DARK behind the `better_auth` flag until cutover — see
  * `index.ts` (`/api/auth/*` falls through to the legacy auth while the flag is off).
  *

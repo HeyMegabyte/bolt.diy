@@ -516,8 +516,6 @@ src/
 │   ├── analytics.ts            # PostHog server-side event capture + captureLLMCall ($ai_*)
 │   ├── audit.ts                # Append-only audit log writes
 │   ├── auth.ts                 # Custom auth: magic link, Google OAuth, D1 sessions (fallback rail)
-│   ├── logto_provider.ts       # LogtoIdentityProvider — DEFAULT app-auth IdP (OIDC, §27/ADR-0006)
-│   ├── workos_provider.ts      # WorkOsEnterpriseIdentityProvider — enterprise SSO/SAML (§28/ADR-0006)
 │   ├── billing.ts              # Stripe checkout, subscriptions, entitlements
 │   ├── build_context.ts        # Build context assembly for container builds
 │   ├── build_limits.ts         # Build rate limiting + concurrency
@@ -566,7 +564,7 @@ src/
 | GET | `/api/sites/lookup?place_id=...&slug=...` | Check if site exists |
 | GET | `/api/auth/google` | Start Google OAuth flow |
 | GET | `/api/auth/google/callback` | Google OAuth callback |
-| GET | `/api/auth/:provider/login` | Logto (default) / WorkOS (enterprise) IdP login → 302 to authorize (404 dark when `LOGTO_*`/`WORKOS_*` unset) |
+| GET | `/api/auth/:provider/login` | Better Auth (default) / Better Auth IdP login → 302 to authorize (404 dark when `BETTER_AUTH_*`/`BETTER_AUTH_*` unset) |
 | GET | `/api/auth/:provider/callback` | IdP callback → verify CSRF state → exchange code → D1 session → 302 home |
 | GET | `/api/auth/magic-link/verify?token=...` | Email click verification |
 | POST | `/webhooks/stripe` | Stripe webhook (signature verified) |
@@ -803,26 +801,26 @@ Key specs include:
 ### Test Business for E2E
 **Vito's Mens Salon** — 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034
 
-## Auth providers — Logto (default) + WorkOS (enterprise) (§27/§28, ADR-0006)
+## Auth providers — Better Auth (§27, ADR-0006)
 
 App auth runs through the `IdentityProvider` port (`platform/identity.ts`):
 
-- **Logto** (`services/logto_provider.ts`) is the DEFAULT consumer-auth IdP (OIDC).
-- **WorkOS** (`services/workos_provider.ts`) handles ENTERPRISE org-scoped SSO/SAML.
+- **Better Auth** (`auth/better-auth.ts`) is the DEFAULT consumer-auth IdP (OIDC).
+- **Better Auth** (`auth/better-auth.ts`) handles ENTERPRISE org-scoped SSO/SAML.
 - `getIdentityProvider(env, { enterprise? })` (`middleware/identity.ts`) selects
-  WorkOS for enterprise (when `WORKOS_*` set), else Logto (when `LOGTO_*` set),
+  Better Auth for enterprise (when `BETTER_AUTH_*` set), else Better Auth (when `BETTER_AUTH_*` set),
   else **null** → the existing custom auth (magic-link + Google OAuth + D1 sessions
   in `auth.ts`) stays the live path.
 - **Login routes** (`routes/auth_idp.ts`, mounted in `index.ts`): `GET /api/auth/:provider/login`
   302s to the IdP authorize URL (storing a one-time CSRF `state` in KV); `GET /api/auth/:provider/callback`
   verifies+consumes the state, calls `handleCallback`, then issues the D1 session and 302s to
-  `https://projectsites.dev/?token=…&auth_callback=<provider>`. `:provider` ∈ {`logto`,`workos`}; WorkOS
+  `https://projectsites.dev/?token=…&auth_callback=<provider>`. `:provider` ∈ {`betterauth`}; Better Auth
   is the enterprise path. Routes 404 (dark) when the provider's secrets are unset.
 - After `handleCallback` returns a verified `AuthenticatedUser`, the EXISTING D1
   session machinery (`findOrCreateUser` → `createSession`) issues our session — the
   IdP replaces "how the user proves identity", not the session model.
-- Ships DARK behind `LOGTO_*`/`WORKOS_*`; enabling is a config flip, reversible by
-  unsetting the secret. Activation: `docs/runbooks/auth-logto-workos-activation.md`.
+- Ships DARK behind `BETTER_AUTH_*`/`BETTER_AUTH_*`; enabling is a config flip, reversible by
+  unsetting the secret. Activation: `docs/runbooks/auth-better-auth.md`.
 
 ## MCP OAuth Layer (`src/routes/mcp_oauth.ts`)
 

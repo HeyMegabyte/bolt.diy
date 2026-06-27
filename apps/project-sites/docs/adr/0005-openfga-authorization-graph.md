@@ -8,7 +8,7 @@
 
 ProjectSites needs relationship-based authorization across user→org→site→app→
 resource, agency-managed client sites, scoped API keys, support delegation, and
-subscription→entitlement→feature (§29). Authentication (who you are) is Logto's job
+subscription→entitlement→feature (§29). Authentication (who you are) is Better Auth's job
 (ADR-0006); authorization (what you may do) is a separate graph problem best modeled
 as relationship tuples, not scattered `if (user.role === …)` checks.
 

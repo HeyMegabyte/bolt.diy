@@ -210,8 +210,8 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - [ ] [Core] Metering scale rule — never one physical metering resource per website; logical tenancy via site/org/plan IDs, quotas, aggregation windows.
 
 ### Phase 6 — Product services + control-plane apps
-- [ ] [Approved] Logto — app auth/orgs.
-- [ ] [Non-OSS service] WorkOS — enterprise SSO/SCIM (enterprise only).
+- [ ] [Approved] Better Auth — app auth/orgs.
+- [ ] [Non-OSS service] Better Auth — enterprise SSO/SCIM (enterprise only).
 - [ ] [Approved] Chatwoot — support/live-chat; `support.projectsites.dev`.
 - [ ] [Approved] Twenty CRM — CRM/sales-pipeline; `crm.projectsites.dev`; **per-tenant provisioned, paid opt-in add-on** (see CONTAINER_MANIFEST § Per-tenant add-ons).
 - [ ] [Approved] Payload CMS — per-tenant provisioned CMS; `cms.projectsites.dev`; nominal-fee opt-in, same provisioning model as Twenty.
@@ -223,8 +223,8 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - [ ] [Conditional] Formbricks — feedback/surveys where useful.
 - [ ] [Conditional] Documenso — e-sign/proposal/signature where useful.
 - [ ] [Conditional] Medusa — commerce/storefront only for commerce-specific customer apps.
-- [ ] [Conditional] Better Auth — lightweight auth eval only for smaller embedded apps where Logto is too heavy.
-- [ ] [Conditional] Auth.js — lightweight auth eval only where it does not conflict with Logto.
+- [ ] [Conditional] Better Auth — lightweight auth eval only for smaller embedded apps where Better Auth is too heavy.
+- [ ] [Conditional] Auth.js — lightweight auth eval only where it does not conflict with Better Auth.
 - [ ] [Conditional] Directus — CMS alternative note only; Payload CMS preferred.
 - [ ] [Conditional] Typesense — search alternative note only if Orama/Pagefind insufficient; `search.projectsites.dev` if stood up.
 - [ ] [Conditional] React Email — email-template work item only if useful beside Listmonk/Dittofeed (server-render only, never in the Angular admin bundle).

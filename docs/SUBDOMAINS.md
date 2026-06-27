@@ -53,7 +53,7 @@ not yet deployed · **PLANNED** = reserved name, referenced in code/docs, not bu
 |---|---|---|
 | `api.projectsites.dev` | Public API surface | PLANNED |
 | `app.projectsites.dev` / `apps.projectsites.dev` | App / installed-apps surfaces | PLANNED |
-| `auth.projectsites.dev` | Auth / IdP (Logto default, WorkOS enterprise) | PLANNED |
+| `auth.projectsites.dev` | Auth / IdP (Better Auth default, Better Auth enterprise) | PLANNED |
 | `browser.projectsites.dev` | Browser-automation gateway (CF Browser Rendering → Browserbase fallback) | **LIVE** |
 | `llm.projectsites.dev` / `infer.projectsites.dev` | LLM inference gateway | PLANNED |
 | `mcp.projectsites.dev` | MCP server endpoint (OAuth 2.1 AS) | PLANNED |
@@ -111,8 +111,8 @@ Durable Object (Dockerfile + wrangler `[[containers]]` binding) + explicit
 | `webhooks.projectsites.dev` | **Svix** | Webhook delivery (managed) | PLANNED — note: our own `outbound_webhooks.ts` already does signed+retried delivery; Svix adds a managed UI/dashboard |
 | `engage.projectsites.dev` | **Dittofeed** | Customer messaging / marketing automation | PLANNED |
 | `integrations.projectsites.dev` | **Nango** | Unified OAuth / integrations gateway | PLANNED |
-| `auth.projectsites.dev` | **Logto** | Default consumer auth (OIDC) | **code built** — `logto_provider.ts` (ADR-0006), dark behind `LOGTO_*`; needs subdomain + activation |
-| Enterprise SSO / SCIM | **WorkOS** | Enterprise SSO + SCIM provisioning | **code built** — `workos_provider.ts` (ADR-0006), dark behind `WORKOS_*` |
+| `auth.projectsites.dev` | **Better Auth** | Default consumer auth (OIDC) | **code built** — `auth/better-auth.ts` (ADR-0006), dark behind `BETTER_AUTH_*`; needs subdomain + activation |
+| Enterprise SSO / SCIM | **Better Auth** | Enterprise SSO + SCIM provisioning | **code built** — `auth/better-auth.ts` (ADR-0006), dark behind `BETTER_AUTH_*` |
 
 Per-deploy (CF Workers Container): official image → `Dockerfile` + `wrangler.toml` `[[containers]]`
 + a Container-DO class → Neon DB `projectsites_<svc>` → Upstash Redis → analytics → Tinybird

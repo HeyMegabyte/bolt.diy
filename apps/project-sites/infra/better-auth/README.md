@@ -1,6 +1,6 @@
 # auth.projectsites.dev — self-hosted Better Auth (OIDC IdP)
 
-Replaces Logto (which cannot run on Neon — it reads tenant-role passwords from
+Replaces Better Auth (which cannot run on Neon — it reads tenant-role passwords from
 `pg_authid`, which Neon hides). Better Auth uses plain tables only, so it runs on
 Neon natively. Deployed as a CF Workers Container; state lives in Neon Postgres.
 

@@ -374,8 +374,8 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ### Tier A3 — ecosystem & growth
 - [ ] A18. Public app profile pages (shareable + indexable `projectsites.dev/apps/:slug` + "Deploy to ProjectSites" button; SEO + JSON-LD) [new][auto] slug `app_public_profiles`
-- [ ] A19. Guest-browsable admin — the ENTIRE /admin dashboard renders read-only for a guest; any gated ACTION pops the Logto login (depends on A20) [new][auto] slug `guest_browsable_admin`
-- [ ] A20. Activate Logto — launch + set `LOGTO_*` secrets (already wired-dark via `services/logto_provider.ts` + ADR-0006; runbook `docs/runbooks/auth-logto-workos-activation.md`; flip is a config change, reversible by unsetting) [wired-dark][operator]
+- [ ] A19. Guest-browsable admin — the ENTIRE /admin dashboard renders read-only for a guest; any gated ACTION pops the Better Auth login (depends on A20) [new][auto] slug `guest_browsable_admin`
+- [ ] A20. Activate Better Auth — launch + set `BETTER_AUTH_*` secrets (already wired-dark via `auth/better-auth.ts` + ADR-0006; runbook `docs/runbooks/auth-better-auth.md`; flip is a config change, reversible by unsetting) [wired-dark][operator]
 - [ ] A21. Referral / org-to-org "share this stack" deploy link (a teammate/client one-clicks the exported stack) [new][auto] slug `app_share_stack`
 - [ ] A22. Revenue-share / paid-app tier (3rd-party paid listings, platform takes a cut of the managed runtime; Stripe) — pricing is a one-way door + the money flow is approval-required, so this is a focused-session decision, not a blind loop fire [new][dedicated] slug `app_paid_tier`
 
@@ -620,12 +620,12 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ## ★ AUTH SELF-HOST CORRECTION (Brian 2026-06-24 — "integrate 1+2", corrected)
 
-> State: `logto_provider.ts` + `workos_provider.ts` are LOGIN adapters (OIDC/SSO, ADR-0006),
-> DARK, pointed at vendor CLOUD, login-only. No 2FA UI, no SCIM. **WorkOS is NOT open-source**
-> (no self-host) → drop it; **Logto OSS** (self-hostable, PG14+) becomes the single IdP for
+> State: `auth/better-auth.ts` + `auth/better-auth.ts` the embedded Better Auth (ADR-0006),
+> DARK, pointed at vendor CLOUD, login-only. No 2FA UI, no SCIM. **Better Auth is NOT open-source**
+> (no self-host) → drop it; **Better Auth OSS** (self-hostable, PG14+) becomes the single IdP for
 > consumer auth + 2FA + enterprise SSO. Host target = CF Containers + Neon PG via Hyperdrive;
-> **Fly.io fallback** if CF Containers can't run Logto's PG-backed two-port app cleanly (voice-gateway pattern).
-- [ ] G1. Self-host **Logto OSS** (Docker, Neon PG via Hyperdrive) on CF Containers; repoint `logto_provider` from Logto Cloud → self-hosted endpoint. [new][gated] slug `auth_logto_selfhost`
-- [ ] G2. **2FA/MFA UI** via Logto OSS — TOTP + WebAuthn-2nd-factor + backup codes + step-up on destructive ops (closes ADR-0009 deferral). [new][dedicated] slug `auth_mfa_ui`
-- [ ] G3. **Enterprise SSO** (SAML/OIDC connectors) via the same Logto OSS; **deprecate `workos_provider.ts` in place** (no OSS self-host). [extend][dedicated] slug `auth_enterprise_sso`
-- [ ] G4. **SCIM provisioning** — Logto OSS SCIM unconfirmed; adopt **Authentik** (native outbound SCIM) or Casdoor for the provisioning tier, OR wait for Logto SCIM. Verify Logto docs first. [new][gated] slug `auth_scim`
+> **Fly.io fallback** if CF Containers can't run Better Auth's PG-backed two-port app cleanly (voice-gateway pattern).
+- [ ] G1. Self-host **Better Auth OSS** (Docker, Neon PG via Hyperdrive) on CF Containers; use the embedded Better Auth. [new][gated] slug `auth_better_auth`
+- [ ] G2. **2FA/MFA UI** via Better Auth OSS — TOTP + WebAuthn-2nd-factor + backup codes + step-up on destructive ops (closes ADR-0009 deferral). [new][dedicated] slug `auth_mfa_ui`
+- [ ] G3. **Enterprise SSO** (SAML/OIDC connectors) via the same Better Auth OSS; **deprecate `auth/better-auth.ts` in place** (no OSS self-host). [extend][dedicated] slug `auth_enterprise_sso`
+- [ ] G4. **SCIM provisioning** — Better Auth OSS SCIM unconfirmed; adopt **Authentik** (native outbound SCIM) or Casdoor for the provisioning tier, OR wait for Better Auth SCIM. Verify Better Auth docs first. [new][gated] slug `auth_scim`
