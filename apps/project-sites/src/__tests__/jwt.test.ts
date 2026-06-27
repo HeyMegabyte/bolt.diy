@@ -1,4 +1,4 @@
-import { signHs256 } from '../lib/jwt.js';
+import { signHs256, verifyHs256 } from '../lib/jwt.js';
 
 /** Decode a base64url segment to a UTF-8 string. */
 function decodeSegment(seg: string): string {
@@ -69,5 +69,40 @@ describe('signHs256', () => {
       new TextEncoder().encode(`${h}.${p}TAMPERED`),
     );
     expect(bad).toBe(false);
+  });
+});
+
+describe('verifyHs256', () => {
+  const secret = 'x'.repeat(40);
+
+  it('round-trips: a freshly signed token verifies + returns its claims', async () => {
+    const token = await signHs256({ sub: 'u_1', mode: 'read' }, secret, 1800);
+    const claims = await verifyHs256(token, secret);
+    expect(claims).not.toBeNull();
+    expect(claims?.sub).toBe('u_1');
+    expect(claims?.mode).toBe('read');
+  });
+
+  it('returns null for a wrong secret', async () => {
+    const token = await signHs256({ sub: 'u_1' }, secret, 1800);
+    expect(await verifyHs256(token, 'y'.repeat(40))).toBeNull();
+  });
+
+  it('returns null for a tampered payload', async () => {
+    const token = await signHs256({ sub: 'u_1' }, secret, 1800);
+    const [h, , s] = token.split('.');
+    const forged = `${h}.${Buffer.from(JSON.stringify({ sub: 'admin', exp: 9_999_999_999 })).toString('base64url')}.${s}`;
+    expect(await verifyHs256(forged, secret)).toBeNull();
+  });
+
+  it('returns null for an expired token', async () => {
+    const token = await signHs256({ sub: 'u_1' }, secret, 1800);
+    // now far in the future → exp <= now → expired
+    expect(await verifyHs256(token, secret, 99_999_999_999)).toBeNull();
+  });
+
+  it('returns null for a malformed (non-3-part) token', async () => {
+    expect(await verifyHs256('not.a.jwt.x', secret)).toBeNull();
+    expect(await verifyHs256('garbage', secret)).toBeNull();
   });
 });

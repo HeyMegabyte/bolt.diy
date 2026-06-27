@@ -56,3 +56,63 @@ export async function signHs256(
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
   return `${signingInput}.${b64urlBytes(new Uint8Array(sig))}`;
 }
+
+/** base64url-decode to bytes (ArrayBuffer-backed, for Web Crypto BufferSource). */
+function b64urlToBytes(seg: string): Uint8Array<ArrayBuffer> {
+  const b64 = seg.replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+}
+
+/** A verified token's claims (whatever was signed, plus the injected iat/exp). */
+export type VerifiedClaims = Record<string, unknown> & { iat: number; exp: number };
+
+/**
+ * Verify a compact HS256 JWT against `secret` and check expiry. Returns the claims
+ * when the signature is valid AND `exp` is in the future; returns `null` on ANY
+ * failure (bad shape, wrong alg, bad signature, expired) — never throws.
+ *
+ * @param token - the compact `header.payload.signature` string.
+ * @param secret - the HMAC secret the token was signed with.
+ * @param nowSeconds - current Unix seconds (injectable for tests); defaults to `Date.now()`.
+ * @returns the verified claims, or `null` if the token is invalid/expired.
+ *
+ * @example
+ * const claims = await verifyHs256(token, secret);
+ * if (claims) impersonate(claims.sub as string); // safe: signature + exp checked
+ *
+ * @remarks Constant-time-ish: relies on Web Crypto `verify` for the signature compare.
+ */
+export async function verifyHs256(
+  token: string,
+  secret: string,
+  nowSeconds: number = Math.floor(Date.now() / 1000),
+): Promise<VerifiedClaims | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, sigB64] = parts;
+  try {
+    const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(headerB64))) as {
+      alg?: string;
+    };
+    if (header.alg !== 'HS256') return null;
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      b64urlToBytes(sigB64),
+      new TextEncoder().encode(`${headerB64}.${payloadB64}`),
+    );
+    if (!valid) return null;
+    const claims = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadB64))) as VerifiedClaims;
+    if (typeof claims.exp !== 'number' || claims.exp <= nowSeconds) return null;
+    return claims;
+  } catch {
+    return null;
+  }
+}
