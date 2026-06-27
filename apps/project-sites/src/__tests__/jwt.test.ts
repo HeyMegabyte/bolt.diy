@@ -15,7 +15,11 @@ describe('signHs256', () => {
   });
 
   it('embeds the claims + injects iat/exp from the TTL', async () => {
-    const token = await signHs256({ sub: 'u_1', impersonator_id: 'u_op', mode: 'read' }, secret, 1800);
+    const token = await signHs256(
+      { sub: 'u_1', impersonator_id: 'u_op', mode: 'read' },
+      secret,
+      1800,
+    );
     const claims = JSON.parse(decodeSegment(token.split('.')[1])) as {
       sub: string;
       impersonator_id: string;
@@ -47,11 +51,15 @@ describe('signHs256', () => {
       false,
       ['verify'],
     );
-    const sigBytes = Uint8Array.from(
-      atob(s.replace(/-/g, '+').replace(/_/g, '/')),
-      (ch) => ch.charCodeAt(0),
+    const sigBytes = Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (ch) =>
+      ch.charCodeAt(0),
     );
-    const ok = await crypto.subtle.verify('HMAC', key, sigBytes, new TextEncoder().encode(`${h}.${p}`));
+    const ok = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      sigBytes,
+      new TextEncoder().encode(`${h}.${p}`),
+    );
     expect(ok).toBe(true);
 
     const bad = await crypto.subtle.verify(

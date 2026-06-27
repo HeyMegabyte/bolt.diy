@@ -666,10 +666,7 @@ superAdmin.post('/api/super-admin/refunds', zValidator('json', refundSchema), as
         target_id: body.org_id,
         after: { ...body, error: err instanceof Error ? err.message : 'fetch failed' },
       });
-      return c.json(
-        { error: { code: 'BAD_GATEWAY', message: 'Could not reach Stripe' } },
-        502,
-      );
+      return c.json({ error: { code: 'BAD_GATEWAY', message: 'Could not reach Stripe' } }, 502);
     }
     const data = (await res.json().catch(() => ({}))) as {
       id?: string;

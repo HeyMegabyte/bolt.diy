@@ -624,7 +624,11 @@ describe('refunds', () => {
   it('POST with stripe_charge_id calls the Stripe Refunds API + records the real refund', async () => {
     const fetchSpy = jest
       .fn()
-      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 're_123', status: 'succeeded' }) });
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 're_123', status: 'succeeded' }),
+      });
     global.fetch = fetchSpy as unknown as typeof fetch;
     const res = await req(
       makeApp(SUPER),
@@ -646,7 +650,11 @@ describe('refunds', () => {
   it('POST 502s when Stripe rejects the refund', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: { message: 'No such charge' } }) }) as unknown as typeof fetch;
+      .mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { message: 'No such charge' } }),
+      }) as unknown as typeof fetch;
     const res = await req(
       makeApp(SUPER),
       'POST',
@@ -769,7 +777,11 @@ describe('impersonation', () => {
       reason: 'support ticket #42',
     });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { session_id: string; target_org_id: string; token: string | null };
+    const json = (await res.json()) as {
+      session_id: string;
+      target_org_id: string;
+      token: string | null;
+    };
     expect(json.target_org_id).toBe('org-target');
     expect(json.token).toBeNull(); // no secret configured → token omitted (fail-soft)
     expect(mockDbInsert.mock.calls[0][1]).toBe('impersonation_sessions');
