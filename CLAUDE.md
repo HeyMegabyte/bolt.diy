@@ -498,8 +498,8 @@ Every exported symbol must include:
 
 ## 13.3 Further documentation
 - **[apps/project-sites/CLAUDE.md](apps/project-sites/CLAUDE.md)** — Worker API surface, middleware, services
-- **[apps/project-sites/PROJECT_GUIDE.md](apps/project-sites/PROJECT_GUIDE.md)** — Complete build guide (1000+ lines)
 - **[packages/shared/CLAUDE.md](packages/shared/CLAUDE.md)** — Schemas, constants, utilities
+- **[apps/project-sites/STRATEGY.md](apps/project-sites/STRATEGY.md)** — agent-native positioning + edge-hosting thesis
 
 ---
 

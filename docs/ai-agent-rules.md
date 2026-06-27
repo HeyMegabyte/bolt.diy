@@ -79,6 +79,5 @@ Run the 7-question gate for every candidate: have an equivalent? · feature trul
 ## See
 
 - `docs/STACK.md` — status-tagged stack + Phase 0–6 TODOs
-- `docs/STACK.md` — the flat grid
-- `docs/generated-site-quality.md` · `docs/ai-observability.md` · `docs/security-supply-chain.md`
+- `docs/generated-site-quality.md` · `docs/OBSERVABILITY.md` · `docs/security-supply-chain.md`
 - `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine

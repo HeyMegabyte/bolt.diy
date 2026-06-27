@@ -492,8 +492,8 @@ Sentry has been fully removed. Error tracking and observability now run on:
 - **Sentry** (`@sentry/cloudflare`) — exception tracking + release tracking via
   `SENTRY_RELEASE`; source maps uploaded by `scripts/upload-sentry-sourcemaps.mjs`.
 
-See [`observability/axiom.md`](observability/axiom.md) and
-[`observability/otel.md`](observability/otel.md).
+See [`observability/axiom.md`](./OBSERVABILITY.md) and
+[`observability/otel.md`](./OBSERVABILITY.md).
 
 
 ---
@@ -502,7 +502,7 @@ See [`observability/axiom.md`](observability/axiom.md) and
 
 # Fly.io Deployment Guide
 
-This guide covers deploying and operating ClickHouse and Chatwoot on Fly.io. For the rationale behind using Fly.io for these services, see [fly-cloudflare-split.md](../architecture/fly-cloudflare-split.md).
+This guide covers deploying and operating ClickHouse and Chatwoot on Fly.io. For the rationale behind using Fly.io for these services, see [fly-cloudflare-split.md](./ARCHITECTURE.md).
 
 ---
 
@@ -748,9 +748,9 @@ For CI deployments, set `FLY_API_TOKEN` as a repository secret. The deploy step:
 
 ## Related Docs
 
-- [Architecture: CF vs Fly split](../architecture/fly-cloudflare-split.md)
-- [ClickHouse warehouse](../analytics/clickhouse.md)
-- [Chatwoot service](../services/chatwoot.md)
+- [Architecture: CF vs Fly split](./ARCHITECTURE.md)
+- [ClickHouse warehouse](./OBSERVABILITY.md)
+- [Chatwoot service](./SERVICES-AND-SOCIAL.md)
 - [Post-deploy verification](./verification.md)
 
 
@@ -949,5 +949,5 @@ All checks passed.
 ## Related Docs
 
 - [Deployment: Fly.io guide](./fly.md)
-- [Observability overview](../observability/README.md)
-- [Architecture overview](../architecture/current.md)
+- [Observability overview](./OBSERVABILITY.md)
+- [Architecture overview](./ARCHITECTURE.md)

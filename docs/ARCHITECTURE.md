@@ -594,12 +594,12 @@ Browser
 
 ## Related Docs
 
-- [CF vs Fly split decision](./fly-cloudflare-split.md)
-- [Observability stack](../observability/README.md)
-- [ClickHouse warehouse](../analytics/clickhouse.md)
-- [Chatwoot service](../services/chatwoot.md)
-- [Postiz service](../services/postiz.md)
-- [Native social architecture](../social/native-social-architecture.md)
+- [CF vs Fly split decision](./ARCHITECTURE.md)
+- [Observability stack](./OBSERVABILITY.md)
+- [ClickHouse warehouse](./OBSERVABILITY.md)
+- [Chatwoot service](./SERVICES-AND-SOCIAL.md)
+- [Postiz service](./SERVICES-AND-SOCIAL.md)
+- [Native social architecture](./SERVICES-AND-SOCIAL.md)
 
 
 ---
@@ -669,7 +669,7 @@ Fly.io VMs have persistent processes, native volumes, and multi-process support 
 5. Verify event counts and query performance.
 6. Decommission Fly ClickHouse VM and volume.
 
-**Alternative:** If volume requirements stay moderate (<50M events/day), migrate to Tinybird managed service instead. See [ClickHouse Tinybird promotion path](../analytics/clickhouse.md#tinybird-managed-alternative-and-promotion-path).
+**Alternative:** If volume requirements stay moderate (<50M events/day), migrate to Tinybird managed service instead. See [ClickHouse Tinybird promotion path](./OBSERVABILITY.md).
 
 ### Chatwoot
 
@@ -694,6 +694,6 @@ When Fly.io services are decommissioned, their Neon databases are dropped (not t
 ## Related Docs
 
 - [Architecture overview](./current.md)
-- [ClickHouse warehouse](../analytics/clickhouse.md)
-- [Chatwoot service](../services/chatwoot.md)
-- [Deployment: Fly.io guide](../deployment/fly.md)
+- [ClickHouse warehouse](./OBSERVABILITY.md)
+- [Chatwoot service](./SERVICES-AND-SOCIAL.md)
+- [Deployment: Fly.io guide](./DEPLOYMENT.md)
