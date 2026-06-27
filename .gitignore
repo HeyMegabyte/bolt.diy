@@ -82,3 +82,6 @@ _drift-report.json
 # Vite transient config bundle (esbuild temp)
 vite.config.*.timestamp-*
 *.timestamp-*.mjs
+
+# MkDocs build output
+docs/site/

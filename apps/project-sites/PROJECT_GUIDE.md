@@ -1,5 +1,11 @@
 # Project Sites — Converged Build Guide
 
+> **⚠️ Partially stale (point-in-time).** Carries legacy `*.megabyte.space` URLs +
+> Supabase/SendGrid/staging references that contradict the current stack (projectsites.dev,
+> D1, SES/Listmonk, no-staging). Trust [`docs/architecture/current.md`](docs/architecture/current.md)
+> + [`CLAUDE.md`](CLAUDE.md) over this for any specific fact; use this only for the overall
+> rebuild narrative until it is refreshed.
+>
 > **Purpose**: This document is a single-prompt reconstruction guide for the entire
 > Project Sites product. It merges every requirement, architectural decision, and
 > technical specification from all prior sessions into one authoritative reference.

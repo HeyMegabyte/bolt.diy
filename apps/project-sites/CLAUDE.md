@@ -732,7 +732,7 @@ All tables have: `id` (UUID), `created_at`, `updated_at`, `deleted_at` (soft del
 Org-scoped tables include `org_id`.
 
 **Core**: `orgs`, `users`, `memberships`, `sites`, `hostnames`
-**Auth**: `sessions`, `magic_links`, `oauth_states` (`phone_otps` table exists but is orphaned — phone feature removed)
+**Auth**: `sessions`, `magic_links`, `oauth_states` (`phone_otps` dropped in migration `0516_drop_phone_otps.sql` — phone feature removed)
 **Billing**: `subscriptions`
 **Infra**: `webhook_events`, `audit_logs`, `workflow_jobs`
 **AI**: `research_data`, `confidence_attributes`
@@ -855,9 +855,8 @@ Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
 8. **MCP OAuth fallback** — `/api/mcp/:provider/connect` returns `501 oauth_not_configured`
    when the provider's `{PROVIDER}_OAUTH_CLIENT_ID` is missing — surface a paste-key toast,
    never open a broken popup.
-9. **`ai_admin_features.ts.bak`** in `src/services/` is a checked-in backup — DO NOT
-   reference; the live module is `ai_admin_features.ts`. Leaving the `.bak` next to its
-   sibling keeps `git blame` history clean while the rewrite settles.
+9. **(resolved)** The former `ai_admin_features.ts.bak` backup has been removed; the live
+   module is `src/services/ai_admin_features.ts`. No `.bak` files remain in `src/`.
 10. **Zod-validation drift in `src/routes/features.ts`** (tracked 2026-06-02): the ~33
     POST handlers in the "50 experimental features" grab-bag read bodies as
     `(await c.req.json().catch(() => ({}))) as { … }` — a TypeScript `as`-cast with NO

@@ -1,5 +1,8 @@
 # projectsites.dev — Rebuild Audit
 
+> **⚠️ Archival snapshot (2026-05-26).** A point-in-time pre-rebuild audit — NOT a live
+> tracker. Many findings are resolved (e.g. PrimeNG → Spartan). Kept for history; do not
+> action items here without re-verifying against current code.
 > **Pure read-only audit.** No file mutations. Pre-flight for the Angular 21 + Nx + Ionic + Capacitor + PrimeNG v2 rebuild.
 > **Goal**: identify every homepage variant, name the resurrection vector that lets dead variants keep coming back, inventory backend features
 > wired through the current admin UI, and extract a captured design-token block ready for `libs/ui/src/theme/extracted-tokens.ts`.

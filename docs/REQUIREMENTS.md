@@ -1,5 +1,9 @@
 # Project Sites — Complete Requirements Document
 
+> **⚠️ Point-in-time snapshot — some domain/DB references are stale** (predates the
+> projectsites.dev + D1 move; ignore `sites.megabyte.space`/Supabase mentions). Kept as a
+> historical requirement ledger; cross-check live facts against `docs/architecture/current.md`.
+>
 > This document captures every requirement from all prompts and sessions.
 > It serves as the authoritative reference for what has been requested,
 > what has been built, and what remains.

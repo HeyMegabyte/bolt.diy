@@ -1,8 +1,10 @@
-# Feature Catalog — de-stub source of truth
+# Feature Catalog — de-stub module-status map
 
-> **Merged → the convergence loop's single backlog is `_CONVERGENCE_BACKLOG.md`** (which folds this
-> catalog + the research ideas + the 5 infra planes + Novu + 30 new features). This catalog stays as
-> the detailed de-stub map; the loop reads the backlog as the one entry point.
+> **Role:** the detailed **module-status / de-stub map** (which modules are real vs stubbed).
+> The convergence loop's single backlog is now [`_LOOP_LEDGER.md`](_LOOP_LEDGER.md) (cron-read);
+> priority ordering lives in [`ROADMAP.md`](ROADMAP.md). This file is NOT the loop entry point —
+> it's the reference for module completeness. (`_CONVERGENCE_BACKLOG.md` no longer exists; it was
+> subsumed into the ledger.)
 
 > Single source of truth so concurrent sessions + the build loop de-stub **in synchrony**
 > (shared schemas, one flag key per feature, no duplicate modules, no migration-number races).

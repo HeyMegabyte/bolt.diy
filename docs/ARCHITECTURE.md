@@ -1,6 +1,9 @@
 # Project Sites — Architecture Document
 
 > Detailed technical architecture for the Project Sites SaaS website delivery engine.
+> **Scope:** the SHIPPED single-worker system. The authoritative as-deployed map is
+> [`architecture/current.md`](./architecture/current.md); the aspirational v2 (3-worker)
+> target lives in the root [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ## System Overview (Mermaid)
 

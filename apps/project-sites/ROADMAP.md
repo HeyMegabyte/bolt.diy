@@ -1,8 +1,10 @@
 # ROADMAP — the single revenue-sorted build list
 
-> **The convergence loop runs on THIS file.** One consolidated, deduped list of every
-> idea worth building, sorted by **bottom-line impact** (revenue → churn-protection →
-> conversion → activation → trust/ops). Merged 2026-06-17 from TODO.md (40-list),
+> **Role: the priority-sorted build QUEUE.** One consolidated, deduped list of every idea
+> worth building, sorted by **bottom-line impact** (revenue → churn-protection → conversion →
+> activation → trust/ops). The loop's actual cron-read backlog is [`_LOOP_LEDGER.md`](_LOOP_LEDGER.md);
+> module-status detail is [`FEATURE_CATALOG.md`](FEATURE_CATALOG.md). Use this file to decide
+> WHAT to pull next, the ledger to track in-flight state. Merged 2026-06-17 from TODO.md (40-list),
 > UNFINISHED_FEATURES.md (completion audit), and FEATURE_CATALOG idea backlog — those
 > files were dissolved into this one.
 >
