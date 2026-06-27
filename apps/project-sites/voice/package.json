@@ -1,0 +1,19 @@
+{
+  "name": "projectsites-voice",
+  "version": "1.0.0",
+  "description": "Twilio Media Streams ↔ STT → LLM → TTS voice bridge (call-gpt topology) for projectsites.dev",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@deepgram/sdk": "^3.9.0",
+    "dotenv": "^16.4.7",
+    "openai": "^4.77.0",
+    "ws": "^8.18.0"
+  }
+}
