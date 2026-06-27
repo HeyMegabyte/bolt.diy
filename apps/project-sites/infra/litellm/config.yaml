@@ -43,11 +43,20 @@ model_list:
       adaptive_router_preferences:
         quality_tier: 2
         strengths: ["general", "writing", "factual_lookup"]
-  # ── tier 1 (budget) — Cloudflare Workers AI / Llama: DEFERRED. The Workers-AI token
-  #    works (verified ai/run 200) + CLOUDFLARE_API_KEY/ACCOUNT_ID are set, but LiteLLM's
-  #    `cloudflare/@cf/...` provider didn't register the fp8 model (not in /v1/models). Needs
-  #    the correct LiteLLM cloudflare model string (or route Workers AI via the AI Gateway
-  #    OpenAI-compat endpoint) before adding `ollama` back to available_models below.
+  # ── tier 1 (budget) — trivial prompts → Cloudflare Workers AI (Llama 3.3, ~free) ──
+  #    The `cloudflare/` provider REQUIRES an explicit api_base = the account's ai/run/
+  #    endpoint (LiteLLM appends the @cf/... model). api_key = a Workers-AI-scoped token.
+  - model_name: ollama
+    litellm_params:
+      model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+      api_key: os.environ/CLOUDFLARE_API_KEY
+      api_base: https://api.cloudflare.com/client/v4/accounts/84fa0d1b16ff8086dd958c468ce7fd59/ai/run/
+    model_info:
+      input_cost_per_token: 0.0000001
+      output_cost_per_token: 0.0000001
+      adaptive_router_preferences:
+        quality_tier: 1
+        strengths: ["factual_lookup", "general"]
   # ── embeddings (RAG / Vectorize / future semantic cache) ──
   - model_name: embedding
     litellm_params:
@@ -59,7 +68,7 @@ model_list:
     litellm_params:
       model: auto_router/adaptive_router
       adaptive_router_config:
-        available_models: ["opus", "gpt", "deepseek"]
+        available_models: ["opus", "gpt", "deepseek", "ollama"]
         weights:
           quality: 0.45
           cost: 0.55
