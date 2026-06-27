@@ -190,6 +190,22 @@ export interface Env {
   FORMBRICKS_ENCRYPTION_KEY?: string;
   /** Formbricks cron secret (openssl rand -hex 32). wrangler secret. */
   FORMBRICKS_CRON_SECRET?: string;
+
+  // ─── Documenso (sign.projectsites.dev) — dedicated CF Workers Container ─────
+  /** Documenso container DO binding. Optional until the watched deploy binds it; the sign.* host route degrades to 503 without it. */
+  DOCUMENSO_CONTAINER?: DurableObjectNamespace;
+  /** Documenso Postgres URL — Neon project `Documenso` (shiny-wind-41827027). wrangler secret. */
+  DOCUMENSO_DATABASE_URL?: string;
+  /** Documenso NextAuth secret (openssl rand -base64 32). wrangler secret. */
+  DOCUMENSO_NEXTAUTH_SECRET?: string;
+  /** Documenso primary encryption key (openssl rand -base64 32, >=32 chars). wrangler secret. */
+  DOCUMENSO_ENCRYPTION_KEY?: string;
+  /** Documenso secondary encryption key (openssl rand -base64 32, >=32 chars). wrangler secret. */
+  DOCUMENSO_ENCRYPTION_SECONDARY_KEY?: string;
+  /** Documenso signing P12 cert, base64 (optional for boot, needed to SIGN). wrangler secret. */
+  DOCUMENSO_SIGNING_CERT_B64?: string;
+  /** Documenso signing P12 passphrase. wrangler secret. */
+  DOCUMENSO_SIGNING_PASSPHRASE?: string;
   /**
    * Global toggle for the Unified Analytics beacon (Plane H). When `'true'`,
    * served sites inject the tracker → `/api/events` → durable D1 store → Analytics

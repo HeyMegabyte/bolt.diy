@@ -550,6 +550,37 @@ new_sqlite_classes = ["InngestContainer"]
 # tag = "v_formbricks_container"
 # new_sqlite_classes = ["FormbricksContainer"]
 
+# ─── Documenso (sign.projectsites.dev) — CF Workers Container ─────────────────
+# Same dedicated-DO pattern as Formbricks/Inngest. Image is the LOCAL
+# ./containers/documenso/Dockerfile (FROM documenso/documenso). DO subclass
+# DocumensoContainer + the sign.* host route + env types are wired in code.
+# Data plane: Neon project "Documenso" (shiny-wind-41827027). Documenso is
+# Postgres-ONLY (no Redis). All 6 DOCUMENSO_* secrets are SET on the prod worker
+# (DB, NextAuth, 2× encryption keys, signing cert b64 + passphrase). The signing
+# cert is OPTIONAL for boot — login page 200s without it; only SIGNING needs it.
+#
+# ⚠️ GO-LIVE IS A WATCHED, EYES-ON DEPLOY (one-way door) — same hazard class as
+# Formbricks/Inngest (wrong migration tag blocks ALL deploys, can't dry-run).
+# Eyes-on: (1) Docker up; (2) confirm `v_documenso_container` NOT in remote
+# history; (3) uncomment the THREE blocks below; (4) `wrangler deploy --env
+# production` (watch migration + image build); (5) curl
+# `https://sign.projectsites.dev/signin` → 200. DNS already resolves via the
+# *.projectsites.dev wildcard (no record needed).
+#
+# [[env.production.containers]]
+# class_name = "DocumensoContainer"
+# image = "./containers/documenso/Dockerfile"
+# max_instances = 3
+# instance_type = "standard-4"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "DOCUMENSO_CONTAINER"
+# class_name = "DocumensoContainer"
+#
+# [[env.production.migrations]]
+# tag = "v_documenso_container"
+# new_sqlite_classes = ["DocumensoContainer"]
+
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
 # `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in
