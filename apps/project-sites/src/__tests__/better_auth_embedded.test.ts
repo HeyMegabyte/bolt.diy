@@ -139,7 +139,10 @@ describe('makeAuth (embedded Better Auth)', () => {
     // durable audit trail records the originating IP
     expect(writeAuditLog).toHaveBeenCalledWith(
       env.DB,
-      expect.objectContaining({ actor_id: 'u_42', message: expect.stringContaining('203.0.113.7') }),
+      expect.objectContaining({
+        actor_id: 'u_42',
+        message: expect.stringContaining('203.0.113.7'),
+      }),
     );
   });
 
