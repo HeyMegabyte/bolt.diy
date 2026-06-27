@@ -53,11 +53,22 @@ Postgres error is in the **container stdout** — NOT visible via `wrangler tail
 Worker only), and a local repro needs the prod `APP_SECRET` (not in get-secret).
 
 ### To finish (next session)
-- Read the container's logs in the **Cloudflare dashboard** (Workers → projectsites-twenty →
-  container logs / observability) while triggering `activateWorkspace` — the real SQL error
-  shows there instantly. OR
-- Run Twenty's **official docker-compose** (server+worker+redis, PG → this Neon `neondb`) and
-  complete onboarding there; the workspace activates with full local logs. Then the CF
-  container just serves the ACTIVE workspace.
+- **The ONLY way to read the error: Cloudflare dashboard.** Workers & Pages →
+  `projectsites-twenty` → **Logs / Observability** (real-time), then trigger `activateWorkspace`
+  (curl the `/metadata` chain in RUNBOOK or click through `/welcome`). The container's NestJS
+  stdout — including the wrapped Postgres error behind "Migration execution failed" — shows
+  there. It's almost certainly ONE more schema/type tweak (then re-run `activateWorkspace`).
+- ⚠️ **DEAD ENDS — do not re-try (all verified blocked 2026-06-27):** the container's stdout is
+  NOT in `wrangler tail` (that's the Worker JS console only), NOT in the CF Workers
+  observability **telemetry API** (`cloudflare-workers` dataset = Worker console only), and a
+  **local repro won't surface it either** — Twenty's server in this slim image writes 0 lines
+  to a piped/redirected stdout (no `stdbuf`/`script`/`python3`/pty in the image; `-t` only
+  flushes the run-and-exit *command* path, and `node dist/main` produced 0 log lines to a file
+  over 3+ min). So the dashboard UI is the only window.
+- Alternative that sidesteps logs: run Twenty's **official docker-compose** (server+worker+redis,
+  PG → this Neon `neondb`) on a host with a normal terminal — `docker compose logs` shows the
+  error there — complete onboarding, then the CF container just serves the ACTIVE workspace.
+- Before re-running `activateWorkspace`, `DROP SCHEMA "workspace_<id>" CASCADE` (the partial
+  empty schema from prior attempts) so the migration starts clean.
 
 Backup branch `backup-before-reinit-20260627` (`br-late-base-aiuqj4zd`) = pre-reset state.
