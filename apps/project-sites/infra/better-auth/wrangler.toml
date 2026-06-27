@@ -1,0 +1,39 @@
+name = "projectsites-better-auth"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# auth.projectsites.dev → this container worker. Explicit host route beats the
+# *.projectsites.dev wildcard that otherwise 404s (see listmonk-mail incident).
+routes = [
+  { pattern = "auth.projectsites.dev", custom_domain = true },
+  { pattern = "auth.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "BetterAuth"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "basic"
+name = "projectsites-better-auth"
+
+[[durable_objects.bindings]]
+name = "BETTER_AUTH"
+class_name = "BetterAuth"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BetterAuth"]
+
+# Secrets (set via `wrangler secret put` against this project, or in CI):
+#   DATABASE_URL        — postgres://<user>:<pw>@<neon-host>/projectsites_better_auth?sslmode=require
+#   BETTER_AUTH_SECRET  — openssl rand -base64 32
+#   OIDC_CLIENT_ID      — the projectsites first-party client id (also set BETTER_AUTH_CLIENT_ID on the main worker)
+#   OIDC_CLIENT_SECRET  — the projectsites first-party client secret (also BETTER_AUTH_CLIENT_SECRET on main worker)
+# Optional: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET for social sign-in.
+[vars]
+OIDC_REDIRECT_URLS = "https://projectsites.dev/api/auth/betterauth/callback"
