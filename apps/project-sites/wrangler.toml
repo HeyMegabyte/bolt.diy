@@ -518,10 +518,16 @@ new_sqlite_classes = ["InngestContainer"]
 #   (1) Docker running (CF builds the image from the local Dockerfile).
 #   (2) Confirm `v_formbricks_container` is NOT already in remote history
 #       (`wrangler deployments list --env production`).
-#   (3) Resolve Formbricks' FULL required-env set (first boot 500'd "Invalid
-#       environment variables" even with DB+NEXTAUTH_SECRET+ENCRYPTION_KEY; note
-#       ENCRYPTION_KEY MUST be exactly 32 chars = `openssl rand -hex 16`). Then
-#       `wrangler secret put FORMBRICKS_DATABASE_URL` + the rest.
+#   (3) ✅ DONE — Formbricks' full required-env is resolved + all 5 secrets are SET
+#       on the production worker (2026-06-27): FORMBRICKS_DATABASE_URL (Neon
+#       wild-sound-20069767), FORMBRICKS_REDIS_URL (Upstash "formbricks" us-east-1
+#       — Formbricks v3 REQUIRES Redis, "will not start without it"; this was the
+#       real "Invalid environment variables" cause), FORMBRICKS_NEXTAUTH_SECRET,
+#       FORMBRICKS_ENCRYPTION_KEY (openssl rand -hex 32 = 32 bytes — NOT hex 16),
+#       FORMBRICKS_CRON_SECRET. The host-dispatch wiring (step 4) must map these
+#       FORMBRICKS_* worker secrets → the container's expected names (DATABASE_URL,
+#       REDIS_URL, NEXTAUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET) + set WEBAPP_URL +
+#       NEXTAUTH_URL = https://survey.projectsites.dev.
 #   (4) Wire host dispatch `survey.projectsites.dev` → FORMBRICKS_CONTAINER in
 #       `index.ts` (mirror how `jobs.projectsites.dev` routes to INNGEST_CONTAINER)
 #       + `BINDING_BY_SLUG['formbricks'] = 'FORMBRICKS_CONTAINER'` in
