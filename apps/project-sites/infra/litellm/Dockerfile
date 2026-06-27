@@ -6,8 +6,7 @@
 #
 # Stateless container (port 4000) — model creds arrive via env at boot; optional
 # Postgres (Neon) only if key-management/spend-logs persistence is enabled.
-FROM ghcr.io/berriai/litellm:main-stable
-
+FROM ghcr.io/berriai/litellm:main-stable@sha256:a50b02a6056095da29308310bb608f0509e08ddcd1d105bae9c21007d82b0e95
 # RouteLLM lives in the same image so a `router/*` model in config.yaml resolves.
 # The LiteLLM base image is a uv-managed venv at /app/.venv with NO pip on PATH —
 # bootstrap pip via ensurepip into that venv. Install the CPU-only torch wheel FIRST

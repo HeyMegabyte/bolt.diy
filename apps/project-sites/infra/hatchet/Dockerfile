@@ -4,8 +4,7 @@
 # hatchet-lite bundles engine + API + dashboard in ONE container (port 8888) backed
 # by Postgres only — fits the CFC + Neon stack (modern Hatchet dropped the RabbitMQ
 # dependency for a Postgres-backed queue).
-FROM ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest
-
+FROM ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest@sha256:30ff826bdc65efc15a46df61e6d16dcc52f76cf2cf2693e848c6789e2b48718f
 # 8888 = dashboard + REST API (the port the Container DO proxies).
 # 7077 = engine gRPC (SDK connect; reserved).
 EXPOSE 8888 7077
