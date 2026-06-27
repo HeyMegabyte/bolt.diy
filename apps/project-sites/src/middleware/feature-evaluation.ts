@@ -65,15 +65,76 @@ export class D1FlagEvaluationProvider implements FeatureEvaluationProvider {
 }
 
 /**
- * Resolve the active feature-evaluation provider. Returns the D1-backed provider —
- * it wraps our own engine, so it is always available (no env gate, unlike the
- * abuse/email/identity ports which front external vendors). Ships DARK in the
- * sense that no handler calls it yet; wiring it in is additive + behavior-neutral.
+ * The Cloudflare Flagship Workers binding (native feature-flag service, OpenFeature
+ * provider, public beta 2026). Edge-evaluated in-isolate — no outbound HTTP. Typed
+ * structurally because the binding ships from the platform, not an npm package.
+ *
+ * @see https://developers.cloudflare.com/flagship/
+ */
+export interface FlagshipBinding {
+  getBooleanValue(
+    flagKey: string,
+    defaultValue: boolean,
+    context?: Record<string, unknown>,
+  ): Promise<boolean> | boolean;
+}
+
+/**
+ * OpenFeature provider backed by **Cloudflare Flagship** (native, edge-evaluated).
+ * Flagship is the primary source once a flag is defined there; on any miss/fault it
+ * falls back to the D1 engine, which stays the admin source-of-truth + the safety
+ * net during the migration. Fail-soft end to end — never throws into the caller.
+ */
+export class FlagshipEvaluationProvider implements FeatureEvaluationProvider {
+  readonly name = 'cloudflare-flagship';
+  constructor(
+    private readonly flagship: FlagshipBinding,
+    private readonly fallback: FeatureEvaluationProvider,
+  ) {}
+
+  async resolveBooleanEvaluation(
+    flagKey: string,
+    defaultValue: boolean,
+    context?: EvaluationContext,
+  ): Promise<ResolutionDetails<boolean>> {
+    try {
+      const ctx = context
+        ? {
+            targetingKey: context.targetingKey ?? context.userId,
+            orgId: context.orgId,
+            siteId: context.siteId,
+            anonId: context.anonId,
+          }
+        : undefined;
+      const value = await this.flagship.getBooleanValue(flagKey, defaultValue, ctx);
+      return {
+        value,
+        reason: value ? 'TARGETING_MATCH' : 'DISABLED',
+        flagMetadata: { source: 'cloudflare-flagship' },
+      };
+    } catch {
+      // Flagship miss / not-yet-defined / edge fault → defer to the D1 engine.
+      return this.fallback.resolveBooleanEvaluation(flagKey, defaultValue, context);
+    }
+  }
+}
+
+/**
+ * Resolve the active feature-evaluation provider. Prefers **Cloudflare Flagship**
+ * (native, in-isolate edge evaluation) when its Workers binding is present, with the
+ * D1 engine as the always-available fallback + admin source-of-truth. With no binding
+ * it returns the D1 provider unchanged — so this ships DARK until `FLAGSHIP` is bound
+ * (additive + behavior-neutral, per ADR-0033).
  *
  * @example
  * const ff = getFeatureEvaluationProvider(c.env);
  * const { value } = await ff.resolveBooleanEvaluation('ai_concierge_widget', false, { siteId });
  */
 export function getFeatureEvaluationProvider(env: Env): FeatureEvaluationProvider {
-  return new D1FlagEvaluationProvider(env);
+  const d1 = new D1FlagEvaluationProvider(env);
+  const flagship = env.FLAGSHIP as FlagshipBinding | undefined;
+  if (flagship && typeof flagship.getBooleanValue === 'function') {
+    return new FlagshipEvaluationProvider(flagship, d1);
+  }
+  return d1;
 }

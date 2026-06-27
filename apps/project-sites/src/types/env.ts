@@ -142,6 +142,16 @@ export interface Env {
   BROWSERBASE_API_KEY?: string;
   BROWSERBASE_PROJECT_ID?: string;
 
+  /**
+   * Cloudflare Flagship — native feature-flag service binding (OpenFeature, edge-
+   * evaluated in-isolate; public beta 2026). Optional: when bound,
+   * `getFeatureEvaluationProvider` prefers it over the D1 engine (which stays the
+   * admin source-of-truth + fallback). Typed `unknown` (platform binding, no npm
+   * package); the feature-evaluation factory narrows it to `FlagshipBinding`.
+   * @see middleware/feature-evaluation.ts · https://developers.cloudflare.com/flagship/
+   */
+  FLAGSHIP?: unknown;
+
   /** Claude Code build container (Durable Object). */
   SITE_BUILDER?: DurableObjectNamespace;
   /** SQLite-backed Durable Object — global trace ring buffer. */

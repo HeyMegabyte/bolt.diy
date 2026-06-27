@@ -14,6 +14,7 @@ import {
 } from '../platform/feature-evaluation.js';
 import {
   D1FlagEvaluationProvider,
+  FlagshipEvaluationProvider,
   getFeatureEvaluationProvider,
 } from '../middleware/feature-evaluation.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
@@ -94,9 +95,43 @@ describe('D1FlagEvaluationProvider', () => {
 });
 
 describe('getFeatureEvaluationProvider', () => {
-  it('returns the D1-backed provider (always available, no env gate)', () => {
+  it('returns the D1-backed provider when no FLAGSHIP binding is present', () => {
     const p = getFeatureEvaluationProvider(env);
     expect(p.name).toBe('projectsites-d1-flags');
     expect(p).toBeInstanceOf(D1FlagEvaluationProvider);
+  });
+
+  it('prefers Cloudflare Flagship when the binding is present', () => {
+    const flagshipEnv = { FLAGSHIP: { getBooleanValue: jest.fn() } } as never;
+    const p = getFeatureEvaluationProvider(flagshipEnv);
+    expect(p.name).toBe('cloudflare-flagship');
+    expect(p).toBeInstanceOf(FlagshipEvaluationProvider);
+  });
+});
+
+describe('FlagshipEvaluationProvider', () => {
+  it('resolves via the Flagship binding (TARGETING_MATCH when true)', async () => {
+    const flagship = { getBooleanValue: jest.fn().mockResolvedValue(true) };
+    const fallback = new D1FlagEvaluationProvider(env);
+    const p = new FlagshipEvaluationProvider(flagship, fallback);
+    const res = await p.resolveBooleanEvaluation('site_analytics', false, { siteId: 's1' });
+    expect(res.value).toBe(true);
+    expect(res.reason).toBe('TARGETING_MATCH');
+    expect(res.flagMetadata?.source).toBe('cloudflare-flagship');
+    expect(flagship.getBooleanValue).toHaveBeenCalledWith(
+      'site_analytics',
+      false,
+      expect.objectContaining({ siteId: 's1' }),
+    );
+  });
+
+  it('falls back to the D1 engine when the Flagship binding throws', async () => {
+    const flagship = { getBooleanValue: jest.fn().mockRejectedValue(new Error('flagship miss')) };
+    mIsFlagOn.mockResolvedValue(true);
+    const p = new FlagshipEvaluationProvider(flagship, new D1FlagEvaluationProvider(env));
+    const res = await p.resolveBooleanEvaluation('site_analytics', false, { orgId: 'o1' });
+    expect(res.value).toBe(true);
+    expect(res.flagMetadata?.source).toBe('d1-feature-flags'); // resolved by the fallback
+    expect(mIsFlagOn).toHaveBeenCalled();
   });
 });
