@@ -12,16 +12,24 @@ registry block only affects external `image = "ghcr.io/..."` refs; the working p
 `image = "./containers/<app>/Dockerfile"` with the Dockerfile `FROM <official-image>` — CF
 builds it into its own managed registry, no external registry needed.
 
+## Supportability gate — the 4-service rule (see root README)
+
+An app is only supportable if its ENTIRE data/service plane fits within FOUR service types:
+(1) **Custom** (its own CF Workers Container), (2) **Upstash** Redis, (3) **Neon** Postgres,
+(4) **Tinybird** analytics. Anything outside that set (bespoke ClickHouse/Cube, a second custom
+service, extra Hub services) = **NOT supportable**; do not add it.
+
 ## The apps
 
-| Brand | OSS app | Subdomain | Neon DB | Multi-tenant |
+| Brand | OSS app | Subdomain | Neon DB | Status |
 |---|---|---|---|---|
-| cal.diy | Cal.com (repo `github.com/calcom/cal.diy`, NOT calcom/cal.com) | `schedule.projectsites.dev` | `projectsites_calcom` | Teams/Orgs (Orgs was license-gated — verify) |
-| (survey) | Formbricks | `survey.projectsites.dev` | `projectsites_formbricks` | Multi-org ✅ |
-| (sign) | Documenso | `sign.projectsites.dev` | `projectsites_documenso` | Teams ✅ |
+| cal.diy | Cal.com (repo `github.com/calcom/cal.diy`, NOT calcom/cal.com) | `schedule.projectsites.dev` | `projectsites_calcom` | ✅ live |
+| (sign) | Documenso | `sign.projectsites.dev` | `projectsites_documenso` | ✅ live |
+| ~~(survey)~~ | ~~Formbricks~~ | — | — | ❌ REJECTED 2026-06-27 — v5 image needs Cube + extra Hub services (>4-service rule) |
 
-All three are Postgres-only (Neon-native); confirm each repo's current docker-compose before
-building (Redis can flip optional→required between majors).
+Live apps are Postgres-only (Neon-native); confirm each repo's current docker-compose before
+building (Redis can flip optional→required between majors — and an app crossing the 4-service
+rule must be rejected, as Formbricks was).
 
 ## Per-app wiring (AppRuntimeContainer-subclass pattern — mirror Umami/Outline)
 
@@ -41,8 +49,8 @@ chezmoi → wrangler manifest → Env+Zod → `wrangler secret put` (GLOBAL CF k
 needs no Docker, but the container BUILD on deploy does).
 
 - Cal.com: `NEXTAUTH_SECRET`, `CALENDSO_ENCRYPTION_KEY`, `DATABASE_URL`, SMTP (via Listmonk/Resend)
-- Formbricks: `ENCRYPTION_KEY` (EXACTLY 32 chars, `openssl rand -hex 16`), `NEXTAUTH_SECRET`, `DATABASE_URL` — enumerate Formbricks' full required-env zod set (it 500s "Invalid environment variables" with only DB/NEXTAUTH/ENCRYPTION)
 - Documenso: `NEXTAUTH_SECRET`, `NEXT_PRIVATE_ENCRYPTION_KEY`, `NEXT_PRIVATE_SIGNING_*` (cert), `DATABASE_URL`, SMTP
+- (Formbricks rejected — the 32-char `ENCRYPTION_KEY` / multi-env zod gotcha is moot; it failed the 4-service rule.)
 
 ## Neon DBs
 
@@ -59,7 +67,7 @@ a new project is NOT justified). Some apps already have dedicated projects (Form
 
 ## Status (as of 2026-06-27)
 
-- Documenso: GO LIVE (`sign.projectsites.dev`).
-- cal.diy: staged (`schedule.projectsites.dev`).
-- Formbricks: `FormbricksContainer` + slug done; env-set completion pending.
-- Each live app becomes an `/admin`-purchasable add-on SKU (booking / surveys / e-sign).
+- Documenso: ✅ live (`sign.projectsites.dev`, e-sign).
+- cal.diy: ✅ live (`schedule.projectsites.dev`, scheduling).
+- Formbricks: ❌ rejected (exceeds the 4-service rule — needs Cube + Hub services).
+- Each live app becomes an `/admin`-purchasable add-on SKU (booking / e-sign).
