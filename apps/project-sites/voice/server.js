@@ -1,28 +1,42 @@
 // =============================================================================
 // projectsites-voice — Twilio Media Streams ↔ STT → LLM → TTS bridge
 // -----------------------------------------------------------------------------
-// Refined stack (Brian 2026-06-27): Deepgram Nova-3 streaming STT → OpenAI
-// gpt-4o-mini streaming brain → Piper TTS (bundled, local child process) over a
-// Twilio Media Stream (μ-law 8kHz). Piper raw s16le PCM @22050 → ffmpeg → μ-law
-// 8000 → 160-byte (20ms) base64 frames. ElevenLabs removed. `openai` TTS is the
-// fallback when Piper is unavailable.
+// Refined stack (Brian 2026-06-27): Deepgram **Flux** conversational STT (raw v2
+// streaming WebSocket, integrated end-of-turn) → OpenAI gpt-4o-mini streaming
+// brain → Piper TTS (bundled, local child process) over a Twilio Media Stream
+// (μ-law 8kHz). Piper raw s16le PCM @22050 → ffmpeg → μ-law 8000 → 160-byte
+// (20ms) base64 frames. ElevenLabs removed. `openai` TTS is the fallback when
+// Piper is unavailable.
 //
+// Flux turn-taking replaces fixed-silence endpointing: the model emits TurnInfo
+// events (`StartOfTurn`/`Update`/`EagerEndOfTurn`/`TurnResumed`/`EndOfTurn`) and
+// WE drive the LLM off those — `EndOfTurn` commits a turn; `Update` events drive
+// barge-in; `EagerEndOfTurn` (opt-in via EAGER_EOT) starts the LLM speculatively
+// and `TurnResumed` aborts it.
+//
+// Docs: developers.deepgram.com/docs/flux/{quickstart,agent,voice-agent-eager-eot}
 // See: apps/project-sites/docs/decisions/voice-architecture.md
 // =============================================================================
 
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
-import { WebSocketServer } from 'ws';
-import { createClient as createDeepgram, LiveTranscriptionEvents } from '@deepgram/sdk';
+import { WebSocketServer, WebSocket } from 'ws';
 import OpenAI from 'openai';
 
 // ---------------------------------------------------------------------------
 // Config (env-driven; secrets never hard-coded)
 // ---------------------------------------------------------------------------
 const PORT = Number(process.env.PORT) || 8080;
-const STT_PROVIDER = (process.env.STT_PROVIDER || 'deepgram').toLowerCase(); // deepgram | whisper
+const STT_PROVIDER = (process.env.STT_PROVIDER || 'deepgram').toLowerCase(); // deepgram (Flux) | whisper
+const STT_MODEL = process.env.STT_MODEL || 'flux-general-en'; // Flux model (v2 streaming)
 const TTS_PROVIDER = (process.env.TTS_PROVIDER || 'piper').toLowerCase(); // piper | openai
 const LLM_MODEL = process.env.LLM_MODEL || 'gpt-4o-mini';
+
+// Flux end-of-turn tuning (passed as query params; also mid-stream tunable via a
+// Configure/Settings control message — left at connect-time defaults here).
+const EOT_THRESHOLD = process.env.EOT_THRESHOLD || '0.7'; // confidence to fire EndOfTurn (0.5–0.9)
+const EAGER_EOT = process.env.EAGER_EOT === '1'; // speculative-response path OFF by default
+const EAGER_EOT_THRESHOLD = process.env.EAGER_EOT_THRESHOLD || '0.3'; // confidence to fire EagerEndOfTurn (0.3–0.9)
 
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -55,7 +69,14 @@ function log(event, fields = {}) {
 // WebSocket server — one connection per active Twilio call
 // ---------------------------------------------------------------------------
 const wss = new WebSocketServer({ port: PORT });
-log('listening', { port: PORT, stt: STT_PROVIDER, tts: TTS_PROVIDER, model: LLM_MODEL });
+log('listening', {
+  port: PORT,
+  stt: STT_PROVIDER,
+  stt_model: STT_MODEL,
+  tts: TTS_PROVIDER,
+  model: LLM_MODEL,
+  eager_eot: EAGER_EOT,
+});
 
 wss.on('connection', (ws) => {
   // Per-call state.
@@ -65,8 +86,10 @@ wss.on('connection', (ws) => {
     persona: null,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     history: [], // [{ role, content }]
-    deepgram: null, // live STT connection
+    deepgram: null, // Flux STT WebSocket
+    dgReady: false, // Flux socket open + ready for audio
     speaking: false, // TTS currently streaming to caller?
+    eager: false, // an EagerEndOfTurn LLM/TTS is in flight (speculative)
     abort: null, // AbortController for in-flight LLM/TTS turn
     piper: null, // in-flight Piper child process
     ffmpeg: null, // in-flight ffmpeg transcode child process
@@ -139,64 +162,144 @@ function handleMedia(frame, call) {
   const payload = frame.media?.payload;
   if (!payload) return;
 
-  if (STT_PROVIDER === 'deepgram' && call.deepgram) {
-    // Deepgram wants raw bytes; Twilio sends base64 μ-law.
-    call.deepgram.send(Buffer.from(payload, 'base64'));
+  if (STT_PROVIDER === 'deepgram' && call.deepgram && call.dgReady) {
+    // Flux wants raw binary audio; Twilio sends base64 μ-law. ~80ms chunks are
+    // recommended — Twilio media frames are 20ms; the OS/TCP coalesces them.
+    if (call.deepgram.readyState === WebSocket.OPEN) {
+      call.deepgram.send(Buffer.from(payload, 'base64'));
+    }
   }
   // whisper branch: buffer audio per-utterance and POST on (VAD) silence — see startStt.
 }
 
 // ---------------------------------------------------------------------------
-// STT — provider-selectable (deepgram default | whisper stub)
+// STT — provider-selectable (deepgram Flux default | whisper stub)
 // ---------------------------------------------------------------------------
 function startStt(call, ws) {
   if (STT_PROVIDER === 'whisper') {
     // TODO(V2): self-hosted faster-whisper. Buffer μ-law frames per utterance,
     // detect end-of-speech via VAD, decode μ-law→PCM16, POST to the local
     // faster-whisper HTTP endpoint, and feed the final transcript into onTranscript().
-    // Mirrors the Deepgram final-transcript path below.
+    // Mirrors the Flux EndOfTurn path below.
     log('stt_whisper_stub', { note: 'whisper STT not implemented — set STT_PROVIDER=deepgram' });
     return;
   }
 
-  // --- Deepgram Nova-3 streaming (default) ---
+  // --- Deepgram Flux streaming (default) — raw v2 WebSocket ---
+  // Flux REQUIRES the /v2/listen endpoint (/v1 will not work). Drive turn-taking
+  // off the model's TurnInfo events, NOT fixed-silence endpointing.
   if (!DEEPGRAM_API_KEY) {
     log('stt_error', { message: 'DEEPGRAM_API_KEY missing' });
     return;
   }
-  const dg = createDeepgram(DEEPGRAM_API_KEY);
-  const connection = dg.listen.live({
-    model: 'nova-3',
-    encoding: 'mulaw',
-    sample_rate: 8000,
-    channels: 1,
-    interim_results: true, // partials drive barge-in
-    smart_format: true,
-    endpointing: 250,
+
+  const params = new URLSearchParams({
+    model: STT_MODEL, // flux-general-en
+    encoding: 'mulaw', // Twilio Media Streams μ-law
+    sample_rate: '8000', // Twilio 8kHz
+    eot_threshold: EOT_THRESHOLD, // confidence to commit a turn
   });
-  call.deepgram = connection;
+  // EagerEndOfTurn is opt-in — only request the eager signal when the speculative
+  // path is enabled, otherwise the simpler EndOfTurn-only flow runs.
+  if (EAGER_EOT) params.set('eager_eot_threshold', EAGER_EOT_THRESHOLD);
 
-  connection.on(LiveTranscriptionEvents.Open, () => log('stt_open'));
+  const url = `wss://api.deepgram.com/v2/listen?${params.toString()}`;
+  const dg = new WebSocket(url, {
+    headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` },
+  });
+  call.deepgram = dg;
 
-  connection.on(LiveTranscriptionEvents.Transcript, (data) => {
-    const alt = data.channel?.alternatives?.[0];
-    const text = alt?.transcript?.trim();
-    if (!text) return;
+  dg.on('open', () => {
+    call.dgReady = true;
+    log('stt_open', { model: STT_MODEL, eager_eot: EAGER_EOT });
+  });
 
-    // Any fresh speech (partial OR final) while we're talking = barge-in:
-    // stop Piper+ffmpeg, abort the turn, and clear Twilio's buffered audio.
-    if (call.speaking) bargeIn(call, ws);
-
-    if (data.is_final) {
-      log('stt_final', { text });
-      onTranscript(call, ws, text);
+  dg.on('message', (raw) => {
+    let msg;
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return; // ignore non-JSON (keepalive) frames
     }
+    if (msg.type !== 'TurnInfo') return;
+    handleTurnInfo(msg, call, ws);
   });
 
-  connection.on(LiveTranscriptionEvents.Error, (err) =>
-    log('stt_error', { message: err?.message || String(err) }),
-  );
-  connection.on(LiveTranscriptionEvents.Close, () => log('stt_close'));
+  dg.on('error', (err) => log('stt_error', { message: err?.message || String(err) }));
+  dg.on('close', () => {
+    call.dgReady = false;
+    log('stt_close');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Flux turn events — the heart of turn-taking. Every event is type=TurnInfo,
+// differentiated by `event`:
+//   StartOfTurn     — caller began speaking → barge-in (interrupt our TTS)
+//   Update          — interim transcript while caller is talking → barge-in
+//   EagerEndOfTurn  — medium-confidence end → (EAGER_EOT) start LLM speculatively
+//   TurnResumed     — caller kept talking after EagerEndOfTurn → abort speculative
+//   EndOfTurn       — confident end → commit: send transcript to LLM → TTS
+// ---------------------------------------------------------------------------
+function handleTurnInfo(msg, call, ws) {
+  const event = msg.event;
+  const text = (msg.transcript || '').trim();
+
+  switch (event) {
+    case 'StartOfTurn':
+      // Fresh speech start while we're talking = interrupt.
+      if (call.speaking) bargeIn(call, ws);
+      break;
+
+    case 'Update':
+      // Interim words mid-turn. Used ONLY for barge-in detection — if we're
+      // mid-response (and NOT mid-speculative-eager turn for this same speech),
+      // the caller talking over us cancels our audio.
+      if (call.speaking && !call.eager && text) bargeIn(call, ws);
+      break;
+
+    case 'EagerEndOfTurn':
+      // Speculative path (opt-in). Start the LLM+TTS now on a medium-confidence
+      // transcript; a later TurnResumed aborts it, EndOfTurn commits it.
+      if (EAGER_EOT && text) {
+        log('stt_eager_eot', { text });
+        call.eager = true;
+        onTranscript(call, ws, text);
+      }
+      break;
+
+    case 'TurnResumed':
+      // Caller kept talking after an EagerEndOfTurn → our speculative response is
+      // wrong. Abort the in-flight LLM+TTS (SIGKILL Piper/ffmpeg) and clear Twilio.
+      if (call.eager) {
+        log('stt_turn_resumed', {});
+        bargeIn(call, ws);
+        call.eager = false;
+        // Drop the speculative user turn we pushed on EagerEndOfTurn so the
+        // committed EndOfTurn transcript replaces it cleanly.
+        if (call.history.length && call.history[call.history.length - 1].role === 'user') {
+          call.history.pop();
+        }
+      }
+      break;
+
+    case 'EndOfTurn':
+      // Confident end of the caller's turn — the canonical drive signal.
+      if (!text) break;
+      log('stt_end_of_turn', { text });
+      if (EAGER_EOT && call.eager) {
+        // The speculative turn we started on EagerEndOfTurn is (assumed) correct —
+        // keep it streaming; just clear the eager flag. If the eager transcript
+        // diverged from the final, the small mismatch is acceptable vs. latency.
+        call.eager = false;
+      } else {
+        onTranscript(call, ws, text);
+      }
+      break;
+
+    default:
+      break;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -580,8 +683,9 @@ function sendMedia(ws, streamSid, payload) {
 function teardown(call) {
   try {
     if (call.deepgram) {
-      call.deepgram.finish?.();
+      if (call.deepgram.readyState === WebSocket.OPEN) call.deepgram.close();
       call.deepgram = null;
+      call.dgReady = false;
     }
   } catch {
     /* already closed */
@@ -592,6 +696,7 @@ function teardown(call) {
     call.abort = null;
   }
   call.speaking = false;
+  call.eager = false;
 }
 
 // Graceful shutdown.

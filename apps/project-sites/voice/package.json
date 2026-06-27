@@ -1,7 +1,7 @@
 {
   "name": "projectsites-voice",
   "version": "1.0.0",
-  "description": "Twilio Media Streams ↔ Deepgram Nova-3 STT → gpt-4o-mini → Piper TTS voice bridge for projectsites.dev",
+  "description": "Twilio Media Streams ↔ Deepgram Flux STT → gpt-4o-mini → Piper TTS voice bridge for projectsites.dev",
   "type": "module",
   "private": true,
   "engines": {
@@ -11,7 +11,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@deepgram/sdk": "^3.9.0",
     "dotenv": "^16.4.7",
     "openai": "^4.77.0",
     "ws": "^8.18.0"

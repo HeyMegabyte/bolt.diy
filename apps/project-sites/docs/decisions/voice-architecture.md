@@ -10,7 +10,8 @@ Per-site AI phone receptionist: caller dials a site's number → an AI persona a
 ```
 Caller → Twilio number → Twilio <Connect><Stream> (Media Streams WS, μ-law 8k)
        → Fly.io app `projectsites-voice` (Node call-gpt bridge, region iad)
-          → Deepgram Nova-3 streaming STT   (DEEPGRAM_API_KEY ✅, model: 'nova-3')
+          → Deepgram FLUX streaming STT + integrated end-of-turn (model 'flux-general-en';
+            no separate VAD/endpointing → 200-600ms faster; Nova-3 fallback) (DEEPGRAM_API_KEY ✅)
           → OpenAI gpt-4o-mini streaming brain, per-site persona (OPENAI_API_KEY ✅)
           → Piper TTS, bundled ON the Fly machine (rhasspy/piper ONNX voice)
             → Piper raw PCM (22050) → resample → μ-law 8000 → base64 → Twilio frames
@@ -19,7 +20,7 @@ Caller → Twilio number → Twilio <Connect><Stream> (Media Streams WS, μ-law 
 ```
 
 ### Provider matrix (env-switchable on the Fly app)
-- **STT** — `STT_PROVIDER=deepgram` (default, **Nova-3**). Fallback `whisper` (faster-whisper self-host / Workers AI) — stub now, wire if Deepgram cost/latency demands.
+- **STT** — `STT_PROVIDER=deepgram` (default, **Flux** `flux-general-en` — conversational STT with model-integrated end-of-turn detection; ~200-600ms faster than Nova-3+VAD, EOT <300ms). The bridge drives off Flux's `EndOfTurn` event (not fixed-silence endpointing). **`EAGER_EOT=1`** opts into EagerEndOfTurn speculative-LLM (start on `EagerEndOfTurn`, cancel on `TurnResumed`, finalize on `EndOfTurn`) for another ~100-200ms at +50-70% LLM calls — default OFF. Fallbacks: `STT_MODEL=nova-3` (model swap) or `STT_PROVIDER=whisper` (self-host cost lever).
 - **TTS** — `TTS_PROVIDER=piper` (default, self-hosted on the Fly machine — MIT, free, low-latency, no per-char vendor fee). Fallback `openai` (hosted OpenAI TTS) when Piper is unavailable. **ElevenLabs is REMOVED** (paid/proprietary — Brian directive 2026-06-27, per `package-preference-registry`).
 - **Brain** — gpt-4o-mini (streaming). Option to route via Workers AI Llama-3.3-70b-fp8-fast or DeepSeek for cost (`[[deepseek-provider-tiers]]`).
 
