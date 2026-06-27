@@ -3,17 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --experimental-strip-types src/index.ts",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "dev": "wrangler dev"
   },
   "dependencies": {
-    "@cloudflare/containers": "^0.3.3",
-    "@hono/node-server": "^1.14.0",
     "better-auth": "^1.2.8",
     "hono": "^4.7.0",
-    "pg": "^8.13.1"
+    "kysely": "^0.27.5",
+    "kysely-d1": "^0.3.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260510.1",

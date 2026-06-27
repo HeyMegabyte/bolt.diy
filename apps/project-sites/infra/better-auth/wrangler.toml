@@ -1,11 +1,12 @@
 name = "projectsites-better-auth"
-main = "worker.ts"
+main = "src/index.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# auth.projectsites.dev → this container worker. Explicit host route beats the
-# *.projectsites.dev wildcard that otherwise 404s (see listmonk-mail incident).
+# auth.projectsites.dev → this Worker. CF-native: Better Auth runs IN the Worker on D1
+# (no container, no Neon, no Docker). Explicit host route beats the *.projectsites.dev
+# wildcard that otherwise 404s (see listmonk-mail incident).
 routes = [
   { pattern = "auth.projectsites.dev", custom_domain = true },
   { pattern = "auth.projectsites.dev/*", zone_name = "projectsites.dev" },
@@ -14,26 +15,17 @@ routes = [
 [observability]
 enabled = true
 
-[[containers]]
-class_name = "BetterAuth"
-image = "./Dockerfile"
-max_instances = 1
-instance_type = "basic"
-name = "projectsites-better-auth"
+# Better Auth tables (user/session/account/verification + oidc: oauthApplication/
+# oauthAccessToken/oauthConsent). Schema applied on first request via getMigrations.
+[[d1_databases]]
+binding = "DB"
+database_name = "projectsites-auth"
+database_id = "65d93281-a431-4912-92a4-e0a128ed8b54"
 
-[[durable_objects.bindings]]
-name = "BETTER_AUTH"
-class_name = "BetterAuth"
-
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["BetterAuth"]
-
-# Secrets (set via `wrangler secret put` against this project, or in CI):
-#   DATABASE_URL        — postgres://<user>:<pw>@<neon-host>/projectsites_better_auth?sslmode=require
+# Secrets (set via `wrangler secret put` against this worker):
 #   BETTER_AUTH_SECRET  — openssl rand -base64 32
-#   OIDC_CLIENT_ID      — the projectsites first-party client id (also set BETTER_AUTH_CLIENT_ID on the main worker)
-#   OIDC_CLIENT_SECRET  — the projectsites first-party client secret (also BETTER_AUTH_CLIENT_SECRET on main worker)
+#   OIDC_CLIENT_ID      — first-party client id (also BETTER_AUTH_CLIENT_ID on main worker)
+#   OIDC_CLIENT_SECRET  — first-party client secret (also BETTER_AUTH_CLIENT_SECRET on main worker)
 # Optional: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET for social sign-in.
 [vars]
 OIDC_REDIRECT_URLS = "https://projectsites.dev/api/auth/betterauth/callback"

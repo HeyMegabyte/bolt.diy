@@ -1,75 +1,82 @@
 /**
- * auth.projectsites.dev — self-hosted Better Auth (OIDC IdP) for CF Workers Containers.
+ * auth.projectsites.dev — self-hosted Better Auth (OIDC IdP) on a Cloudflare Worker + D1.
  *
- * Better Auth is a library, so this is a tiny Hono/Node server that mounts it with the
- * `oidcProvider` plugin (making it a real OIDC IdP) backed by Neon Postgres. Unlike
- * Logto it needs no Postgres role-password control — plain tables only — so it runs on
- * Neon natively. Schema is applied programmatically on boot via `getMigrations`
- * (standard DDL, Neon-compatible), so no CLI/volume is needed. The main app's
- * IdentityProvider port (services/better_auth_provider.ts, ADR-0006) points at the
- * `/api/auth/oauth2/*` endpoints this exposes.
+ * CF-native: no container, no Neon, no Docker, no cold-boot. Better Auth runs directly in
+ * the Worker with the `oidcProvider` plugin (a real OIDC IdP), backed by D1 via the Kysely
+ * D1 dialect. The main app's IdentityProvider port (services/better_auth_provider.ts,
+ * ADR-0006) points at `/api/auth/oauth2/*`. Schema is applied to D1 once per isolate via
+ * Better Auth's getMigrations (CREATE TABLE — D1-compatible); re-runs are caught + ignored.
  *
- * Login screen: `/` 302s to `/sign-in`, which returns a 200 HTML form — that's the
- * "200 at the login page" the deploy gate checks.
+ * Login screen: `/` 302s to `/sign-in`, a 200 HTML form. `/health` → { ok: true }.
  */
 import { betterAuth } from 'better-auth';
 import { oidcProvider } from 'better-auth/plugins';
-import { getMigrations } from 'better-auth/db';
-import { Pool } from 'pg';
-import { serve } from '@hono/node-server';
+import { getMigrations } from 'better-auth/db/migration';
+import { Kysely } from 'kysely';
+import { D1Dialect } from 'kysely-d1';
 import { Hono } from 'hono';
 
-function required(key: string): string {
-  const v = process.env[key];
-  if (!v) throw new Error(`Missing required env var: ${key}`);
-  return v;
+interface Env {
+  /** D1 database holding Better Auth's tables. */
+  DB: D1Database;
+  /** 32+ byte secret for session/token signing. */
+  BETTER_AUTH_SECRET: string;
+  /** First-party OIDC client the ProjectSites worker authenticates as. */
+  OIDC_CLIENT_ID: string;
+  OIDC_CLIENT_SECRET: string;
+  OIDC_REDIRECT_URLS?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
-const BASE_URL = process.env.BETTER_AUTH_URL ?? 'https://auth.projectsites.dev';
-const REDIRECT_URLS = (
-  process.env.OIDC_REDIRECT_URLS ?? 'https://projectsites.dev/api/auth/betterauth/callback'
-).split(',');
+type Auth = ReturnType<typeof betterAuth>;
 
-const auth = betterAuth({
-  baseURL: BASE_URL,
-  secret: required('BETTER_AUTH_SECRET'),
-  database: new Pool({ connectionString: required('DATABASE_URL') }),
-  emailAndPassword: { enabled: true },
-  trustedOrigins: ['https://projectsites.dev', 'https://auth.projectsites.dev'],
-  socialProviders:
-    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? {
-          google: {
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+function buildAuth(env: Env): Auth {
+  const db = new Kysely({ dialect: new D1Dialect({ database: env.DB }) });
+  return betterAuth({
+    baseURL: 'https://auth.projectsites.dev',
+    secret: env.BETTER_AUTH_SECRET,
+    database: { db, type: 'sqlite' },
+    emailAndPassword: { enabled: true },
+    trustedOrigins: ['https://projectsites.dev', 'https://auth.projectsites.dev'],
+    socialProviders:
+      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+        ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
+        : undefined,
+    plugins: [
+      oidcProvider({
+        loginPage: '/sign-in',
+        trustedClients: [
+          {
+            clientId: env.OIDC_CLIENT_ID,
+            clientSecret: env.OIDC_CLIENT_SECRET,
+            name: 'ProjectSites',
+            type: 'web',
+            redirectURLs: (
+              env.OIDC_REDIRECT_URLS ?? 'https://projectsites.dev/api/auth/betterauth/callback'
+            ).split(','),
+            disabled: false,
+            skipConsent: true,
+            metadata: {},
           },
-        }
-      : undefined,
-  plugins: [
-    oidcProvider({
-      loginPage: '/sign-in',
-      // The ProjectSites worker is a trusted first-party OIDC client — no consent prompt.
-      trustedClients: [
-        {
-          clientId: required('OIDC_CLIENT_ID'),
-          clientSecret: required('OIDC_CLIENT_SECRET'),
-          name: 'ProjectSites',
-          type: 'web',
-          redirectURLs: REDIRECT_URLS,
-          disabled: false,
-          skipConsent: true,
-          metadata: {},
-        },
-      ],
-    }),
-  ],
-});
+        ],
+      }),
+    ],
+  });
+}
 
-/** Apply Better Auth's schema on boot — plain DDL, idempotent, Neon-compatible. */
-async function migrate(): Promise<void> {
-  const { runMigrations } = await getMigrations(auth.options);
-  await runMigrations();
-  console.log(JSON.stringify({ level: 'info', msg: 'better-auth migrations applied' }));
+let migrated = false;
+async function ensureSchema(auth: Auth): Promise<void> {
+  if (migrated) return;
+  try {
+    const { runMigrations } = await getMigrations(auth.options);
+    await runMigrations();
+    migrated = true;
+  } catch (err) {
+    // Tables already exist (re-run) or a benign race — log, don't crash the request.
+    console.warn(JSON.stringify({ level: 'warn', msg: 'better-auth migrate skipped', err: String(err) }));
+    migrated = true;
+  }
 }
 
 const SIGN_IN_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -97,20 +104,14 @@ body:JSON.stringify({email:email.value,password:password.value})});
 if(r.ok){location.href=q.get('redirect_uri')?('/api/auth/oauth2/authorize'+location.search):'/';}
 else{e.textContent='Invalid email or password.';}});</script></body></html>`;
 
-const app = new Hono();
-app.get('/health', (c) => c.json({ ok: true, service: 'better-auth' }));
+const app = new Hono<{ Bindings: Env }>();
+app.get('/health', (c) => c.json({ ok: true, service: 'better-auth', db: 'd1' }));
 app.get('/', (c) => c.redirect('/sign-in'));
 app.get('/sign-in', (c) => c.html(SIGN_IN_HTML));
-app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', async (c) => {
+  const auth = buildAuth(c.env);
+  await ensureSchema(auth);
+  return auth.handler(c.req.raw);
+});
 
-const port = Number(process.env.PORT ?? 3000);
-
-migrate()
-  .catch((err) => {
-    console.error(JSON.stringify({ level: 'error', msg: 'migration failed', err: String(err) }));
-  })
-  .finally(() => {
-    serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, () =>
-      console.log(JSON.stringify({ level: 'info', msg: `better-auth listening on :${port}` })),
-    );
-  });
+export default app;
