@@ -29,6 +29,9 @@ import {
   captcha,
 } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
+import { passkey } from '@better-auth/passkey'; // #28 WebAuthn passkeys
+import { sso } from '@better-auth/sso'; // #27 enterprise SSO/SAML+OIDC
+import { apiKey } from '@better-auth/api-key'; // #22 org-scoped API keys
 import { Kysely } from 'kysely';
 import { D1Dialect } from 'kysely-d1';
 import type { Env } from '../types/env.js';
@@ -207,6 +210,9 @@ export function makeAuth(env: Env): Auth {
         customPasswordCompromisedMessage:
           'This password has appeared in a breach — choose another.',
       }),
+      passkey({ rpID: 'projectsites.dev', rpName: 'ProjectSites', origin: APP_ORIGIN }), // #28
+      sso(), // #27 — enterprise SSO/SAML (org-scoped IdP; replaces the deleted WorkOS)
+      apiKey(), // #22 — org-scoped API keys for the MCP/public-API surface
       ...(env.TURNSTILE_SECRET_KEY
         ? [captcha({ provider: 'cloudflare-turnstile', secretKey: env.TURNSTILE_SECRET_KEY })]
         : []),

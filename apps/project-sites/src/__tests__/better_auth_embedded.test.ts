@@ -20,6 +20,9 @@ jest.mock('better-auth/plugins', () => ({
   organization: () => ({ id: 'organization' }),
   captcha: () => ({ id: 'captcha' }),
 }));
+jest.mock('@better-auth/passkey', () => ({ passkey: () => ({ id: 'passkey' }) }));
+jest.mock('@better-auth/sso', () => ({ sso: () => ({ id: 'sso' }) }));
+jest.mock('@better-auth/api-key', () => ({ apiKey: () => ({ id: 'api-key' }) }));
 jest.mock('better-auth/plugins/access', () => ({
   createAccessControl: () => ({ newRole: (s) => ({ statements: s }) }),
 }));
