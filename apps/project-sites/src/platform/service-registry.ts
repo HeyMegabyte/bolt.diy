@@ -368,16 +368,17 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
       'Port + FakeAbuseProvider + AllowAllAbuseProvider + getAbuseProvider(env) factory + requireNotAbusive(kind) middleware, all tested. Sits ABOVE the CF-native rate_limit.ts (tenant/plan/kind-aware decisions). Fail-OPEN: unset ARCJET_KEY → AllowAll (CF limiter is the floor). Remaining: the Workers-compatible ArcjetAbuseProvider adapter + wiring requireNotAbusive onto claim/signup/form/ai-generate routes. §48.',
   },
   {
-    id: 'auth-logto',
-    name: 'Logto — default app-auth IdP (§27/ADR-0006)',
+    id: 'auth-better-auth',
+    domain: 'auth.projectsites.dev',
+    name: 'Better Auth — default app-auth IdP (§27/ADR-0006)',
     category: 'auth',
-    runtime: 'managed-saas',
-    adapterPackage: 'apps/project-sites/src/services/logto_provider.ts',
-    secretsNamespace: '/logto',
+    runtime: 'cloudflare-container',
+    adapterPackage: 'apps/project-sites/src/services/better_auth_provider.ts',
+    secretsNamespace: '/better-auth',
     status: 'integrated',
     access: 'public',
     notes:
-      'IdentityProvider port + LogtoIdentityProvider (OIDC authorization-code, fetch-based) + FakeIdentityProvider + getIdentityProvider(env) factory, all tested. The DEFAULT consumer-auth IdP; after handleCallback the EXISTING D1 session machinery (findOrCreateUser→createSession) issues our session. Ships dark behind LOGTO_* — custom magic-link/Google auth stays live until configured; see docs/runbooks/auth-logto-workos-activation.md. ADR-0006.',
+      'IdentityProvider port + BetterAuthIdentityProvider (OIDC authorization-code, fetch-based) + FakeIdentityProvider + getIdentityProvider(env) factory, all tested. The DEFAULT consumer-auth IdP, self-hosted at auth.projectsites.dev on Neon (Neon-native, unlike Logto). After handleCallback the EXISTING D1 session machinery (findOrCreateUser→createSession) issues our session. Ships dark behind BETTER_AUTH_* — custom magic-link/Google auth stays live until configured; see docs/runbooks/auth-better-auth-workos-activation.md. ADR-0006.',
   },
   {
     id: 'auth-workos',
@@ -389,7 +390,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'integrated',
     access: 'public',
     notes:
-      'WorkOsEnterpriseIdentityProvider (SSO authorization-code, org-scoped) behind the same IdentityProvider port + factory. Used ONLY for enterprise org-scoped logins (factory prefers Logto for everyone else). Ships dark behind WORKOS_*. ADR-0006.',
+      'WorkOsEnterpriseIdentityProvider (SSO authorization-code, org-scoped) behind the same IdentityProvider port + factory. Used ONLY for enterprise org-scoped logins (factory prefers Better Auth for everyone else). Ships dark behind WORKOS_*. ADR-0006.',
   },
   {
     id: 'flags-openfeature',

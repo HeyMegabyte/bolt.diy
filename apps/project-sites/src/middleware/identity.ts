@@ -3,16 +3,15 @@
  *
  * @description
  * `getIdentityProvider(env, opts)` — selects the app-auth IdP per ADR-0006:
- * Logto is the DEFAULT; WorkOS handles ENTERPRISE org-scoped logins. Returns
+ * Better Auth is the DEFAULT; WorkOS handles ENTERPRISE org-scoped logins. Returns
  * `null` when neither is configured, in which case the existing custom auth
- * (magic-link + Google OAuth + D1 sessions) remains the live path — so enabling
- * Logto/WorkOS is a config flip that ships dark.
+ * (magic-link + Google OAuth + D1 sessions) remains the live path — so enabling Better Auth/WorkOS is a config flip that ships dark.
  *
- * @see platform/identity.ts · services/logto_provider.ts · services/workos_provider.ts
+ * @see platform/identity.ts · services/better_auth_provider.ts · services/workos_provider.ts
  */
 import type { Env } from '../types/env.js';
 import type { IdentityProvider } from '../platform/identity.js';
-import { LogtoIdentityProvider } from '../services/logto_provider.js';
+import { BetterAuthIdentityProvider } from '../services/better_auth_provider.js';
 import { WorkOsEnterpriseIdentityProvider } from '../services/workos_provider.js';
 
 export interface IdentityDeps {
@@ -22,7 +21,7 @@ export interface IdentityDeps {
 }
 
 /**
- * Resolve the IdP: WorkOS for enterprise (when configured), else Logto (default),
+ * Resolve the IdP: WorkOS for enterprise (when configured), else Better Auth (default),
  * else null (custom auth stays live).
  *
  * @example
@@ -40,11 +39,11 @@ export function getIdentityProvider(env: Env, deps: IdentityDeps = {}): Identity
     });
   }
 
-  if (env.LOGTO_ENDPOINT && env.LOGTO_APP_ID && env.LOGTO_APP_SECRET) {
-    return new LogtoIdentityProvider({
-      endpoint: env.LOGTO_ENDPOINT,
-      appId: env.LOGTO_APP_ID,
-      appSecret: env.LOGTO_APP_SECRET,
+  if (env.BETTER_AUTH_URL && env.BETTER_AUTH_CLIENT_ID && env.BETTER_AUTH_CLIENT_SECRET) {
+    return new BetterAuthIdentityProvider({
+      baseUrl: env.BETTER_AUTH_URL,
+      clientId: env.BETTER_AUTH_CLIENT_ID,
+      clientSecret: env.BETTER_AUTH_CLIENT_SECRET,
     });
   }
 

@@ -4,10 +4,10 @@
  * @description
  * `WorkOsEnterpriseIdentityProvider` — the ENTERPRISE {@link IdentityProvider}
  * (§28/ADR-0006): SSO/SAML for org-scoped logins. WorkOS SSO authorization-code
- * flow, fetch-based (Workers-native). Used only for enterprise orgs; Logto is the
+ * flow, fetch-based (Workers-native). Used only for enterprise orgs; Better Auth is the
  * default for everyone else. `fetchImpl` injectable for tests.
  *
- * @see platform/identity.ts · services/logto_provider.ts
+ * @see platform/identity.ts · services/better_auth_provider.ts
  */
 import {
   IdentityProviderError,

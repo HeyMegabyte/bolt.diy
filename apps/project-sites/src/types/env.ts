@@ -285,13 +285,13 @@ export interface Env {
   /** Arcjet key for the §48 app-aware abuse layer (bot/abuse decisioning on top
    * of the CF rate limiter). Unset → fail-open. wrangler secret. */
   ARCJET_KEY?: string;
-  /** Logto tenant endpoint (default app-auth IdP, §27/ADR-0006), e.g.
-   * https://xxxx.logto.app. Unset → custom magic-link/Google auth stays live. var. */
-  LOGTO_ENDPOINT?: string;
-  /** Logto application id. var. */
-  LOGTO_APP_ID?: string;
-  /** Logto application secret. wrangler secret. */
-  LOGTO_APP_SECRET?: string;
+  /** Better Auth base URL (default app-auth IdP, §27/ADR-0006), e.g.
+   * https://auth.projectsites.dev. Unset → custom magic-link/Google auth stays live. var. */
+  BETTER_AUTH_URL?: string;
+  /** Better Auth OIDC client id. var. */
+  BETTER_AUTH_CLIENT_ID?: string;
+  /** Better Auth OIDC client secret. wrangler secret. */
+  BETTER_AUTH_CLIENT_SECRET?: string;
   /** WorkOS API key (enterprise SSO/SAML, §28/ADR-0006). wrangler secret. */
   WORKOS_API_KEY?: string;
   /** WorkOS client id. var. */

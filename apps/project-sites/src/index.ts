@@ -41,7 +41,7 @@ import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
-import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise) IdP, ships dark
+import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Better Auth (default) + WorkOS (enterprise) IdP, ships dark
 import { search } from './routes/search.js';
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
@@ -361,7 +361,7 @@ app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, 
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
 app.route('/', collabRoutes); // /api/sites/:id/collab WS gateway → CollabRoomDO (collab_editing flag; 503 inert until COLLAB_ROOM bound)
 app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 3.1 spec (zod-to-openapi + hono-openapi describeRoute)
-app.route('/', authIdp); // /api/auth/:provider/login + /callback — Logto (default) + WorkOS (enterprise); 404s dark when LOGTO_*/WORKOS_* unset
+app.route('/', authIdp); // /api/auth/:provider/login + /callback — Better Auth (default) + WorkOS (enterprise); 404s dark when BETTER_AUTH_*/WORKOS_* unset
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)

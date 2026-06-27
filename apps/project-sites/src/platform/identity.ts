@@ -2,23 +2,23 @@
  * @module platform/identity
  *
  * @description
- * App-auth identity PORT (convergence §27 Logto + §28 WorkOS, ADR-0006). The
+ * App-auth identity PORT (convergence §27 Better Auth + §28 WorkOS, ADR-0006). The
  * port models EXTERNAL identity — "who is this user, proven by an upstream IdP" —
- * via OIDC/SSO. Logto is the DEFAULT consumer-auth provider; WorkOS handles
+ * via OIDC/SSO. Better Auth is the DEFAULT consumer-auth provider; WorkOS handles
  * ENTERPRISE SSO/SAML/SCIM. After {@link IdentityProvider.handleCallback}
  * returns a verified {@link AuthenticatedUser}, the EXISTING D1 session machinery
  * (auth.findOrCreateUser → auth.createSession) issues our own session — so the
  * IdP replaces "how the user proves identity" (magic-link/Google), not the
  * session model.
  *
- * Ports-and-adapters: real LogtoIdentityProvider / WorkOsEnterpriseIdentityProvider
- * sit behind the `LOGTO_*` / `WORKOS_*` env gates; with neither configured the
+ * Ports-and-adapters: real BetterAuthIdentityProvider / WorkOsEnterpriseIdentityProvider
+ * sit behind the `BETTER_AUTH_*` / `WORKOS_*` env gates; with neither configured the
  * factory returns null and the existing custom auth (magic-link + Google OAuth)
- * remains the live path. Ships dark — enabling Logto is a config flip.
+ * remains the live path. Ships dark — enabling Better Auth is a config flip.
  *
- * @see services/logto_provider.ts · services/workos_provider.ts
+ * @see services/better_auth_provider.ts · services/workos_provider.ts
  * @see middleware/identity.ts (getIdentityProvider factory)
- * @see docs/adr/0006-logto-default-auth-workos-enterprise-only.md
+ * @see docs/adr/0006-better-auth-default-workos-enterprise-only.md
  */
 
 /** A verified external identity from an IdP. */
@@ -28,7 +28,7 @@ export interface AuthenticatedUser {
   readonly email: string | null;
   readonly name: string | null;
   /** Which IdP authenticated them. */
-  readonly provider: 'logto' | 'workos';
+  readonly provider: 'betterauth' | 'workos';
   /** Enterprise org id (WorkOS), when the login was org-scoped. */
   readonly organizationId?: string | null;
 }
@@ -68,7 +68,7 @@ export interface IdentityProvider {
 export class IdentityProviderError extends Error {
   constructor(
     message: string,
-    readonly provider: 'logto' | 'workos',
+    readonly provider: 'betterauth' | 'workos',
   ) {
     super(message);
     this.name = 'IdentityProviderError';

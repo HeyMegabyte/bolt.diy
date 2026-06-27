@@ -1,13 +1,13 @@
 /**
- * §27/§28/ADR-0006 — app-auth identity layer. The port Fake, the Logto OIDC
- * adapter + WorkOS SSO adapter (mocked fetch), and the factory selection (Logto
+ * §27/§28/ADR-0006 — app-auth identity layer. The port Fake, the Better Auth OIDC
+ * adapter + WorkOS SSO adapter (mocked fetch), and the factory selection (Better Auth
  * default, WorkOS for enterprise, null → custom auth stays live).
  */
 import { FakeIdentityProvider, IdentityProviderError } from '../platform/identity.js';
-import { LogtoIdentityProvider } from '../services/logto_provider.js';
+import { BetterAuthIdentityProvider } from '../services/better_auth_provider.js';
 import { WorkOsEnterpriseIdentityProvider } from '../services/workos_provider.js';
 import { getIdentityProvider } from '../middleware/identity.js';
-import { LogtoIdentityProvider as Logto } from '../services/logto_provider.js';
+import { BetterAuthIdentityProvider as BetterAuth } from '../services/better_auth_provider.js';
 import { WorkOsEnterpriseIdentityProvider as WorkOs } from '../services/workos_provider.js';
 import type { Env } from '../types/env.js';
 
@@ -26,7 +26,7 @@ function fetchSeq(...responses: Array<{ status?: number; json?: unknown }>): typ
 
 describe('FakeIdentityProvider', () => {
   it('returns the configured user from handleCallback + validateSession', async () => {
-    const u = { subject: 's1', email: 'a@b.com', name: 'A', provider: 'logto' as const };
+    const u = { subject: 's1', email: 'a@b.com', name: 'A', provider: 'betterauth' as const };
     const p = new FakeIdentityProvider(u);
     expect(await p.handleCallback({ code: 'c', redirectUri: 'r' })).toEqual(u);
     expect(await p.validateSession('tok')).toEqual({ valid: true, user: u });
@@ -34,13 +34,13 @@ describe('FakeIdentityProvider', () => {
   });
 });
 
-describe('LogtoIdentityProvider', () => {
-  const cfg = { endpoint: 'https://t.logto.app/', appId: 'app1', appSecret: 'sec' };
+describe('BetterAuthIdentityProvider', () => {
+  const cfg = { baseUrl: 'https://auth.projectsites.dev/', clientId: 'app1', clientSecret: 'sec' };
 
   it('builds the OIDC authorize URL', async () => {
-    const p = new LogtoIdentityProvider({ ...cfg, fetchImpl: fetchSeq() });
+    const p = new BetterAuthIdentityProvider({ ...cfg, fetchImpl: fetchSeq() });
     const url = await p.createLoginUrl({ redirectUri: 'https://x/cb', state: 'st8' });
-    expect(url).toContain('https://t.logto.app/oidc/auth?');
+    expect(url).toContain('https://auth.projectsites.dev/api/auth/oauth2/authorize?');
     expect(url).toContain('client_id=app1');
     expect(url).toContain('state=st8');
     expect(url).toContain('response_type=code');
@@ -49,15 +49,15 @@ describe('LogtoIdentityProvider', () => {
   it('exchanges code → access token → userinfo on callback', async () => {
     const fetchImpl = fetchSeq(
       { json: { access_token: 'at1' } }, // token endpoint
-      { json: { sub: 'logto-sub', email: 'u@x.com', name: 'U' } }, // userinfo
+      { json: { sub: 'betterauth-sub', email: 'u@x.com', name: 'U' } }, // userinfo
     );
-    const p = new LogtoIdentityProvider({ ...cfg, fetchImpl });
+    const p = new BetterAuthIdentityProvider({ ...cfg, fetchImpl });
     const user = await p.handleCallback({ code: 'c', redirectUri: 'https://x/cb' });
-    expect(user).toEqual({ subject: 'logto-sub', email: 'u@x.com', name: 'U', provider: 'logto' });
+    expect(user).toEqual({ subject: 'betterauth-sub', email: 'u@x.com', name: 'U', provider: 'betterauth' });
   });
 
   it('throws IdentityProviderError on a non-2xx token exchange', async () => {
-    const p = new LogtoIdentityProvider({ ...cfg, fetchImpl: fetchSeq({ status: 401 }) });
+    const p = new BetterAuthIdentityProvider({ ...cfg, fetchImpl: fetchSeq({ status: 401 }) });
     await expect(p.handleCallback({ code: 'c', redirectUri: 'r' })).rejects.toBeInstanceOf(
       IdentityProviderError,
     );
@@ -103,23 +103,23 @@ describe('WorkOsEnterpriseIdentityProvider', () => {
 });
 
 describe('getIdentityProvider factory (ADR-0006 selection)', () => {
-  const logtoEnv = {
-    LOGTO_ENDPOINT: 'https://t.logto.app',
-    LOGTO_APP_ID: 'a',
-    LOGTO_APP_SECRET: 's',
+  const betterAuthEnv = {
+    BETTER_AUTH_URL: 'https://auth.projectsites.dev',
+    BETTER_AUTH_CLIENT_ID: 'a',
+    BETTER_AUTH_CLIENT_SECRET: 's',
   } as Env;
-  const workosEnv = { ...logtoEnv, WORKOS_API_KEY: 'k', WORKOS_CLIENT_ID: 'c' } as Env;
+  const workosEnv = { ...betterAuthEnv, WORKOS_API_KEY: 'k', WORKOS_CLIENT_ID: 'c' } as Env;
 
-  it('defaults to Logto when configured', () => {
-    expect(getIdentityProvider(logtoEnv)).toBeInstanceOf(Logto);
+  it('defaults to Better Auth when configured', () => {
+    expect(getIdentityProvider(betterAuthEnv)).toBeInstanceOf(BetterAuth);
   });
 
   it('uses WorkOS for an enterprise login when configured', () => {
     expect(getIdentityProvider(workosEnv, { enterprise: true })).toBeInstanceOf(WorkOs);
   });
 
-  it('still prefers Logto for a non-enterprise login even when WorkOS is configured', () => {
-    expect(getIdentityProvider(workosEnv)).toBeInstanceOf(Logto);
+  it('still prefers Better Auth for a non-enterprise login even when WorkOS is configured', () => {
+    expect(getIdentityProvider(workosEnv)).toBeInstanceOf(BetterAuth);
   });
 
   it('returns null when neither is configured (custom auth stays live)', () => {

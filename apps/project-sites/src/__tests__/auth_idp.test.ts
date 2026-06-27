@@ -1,5 +1,5 @@
 /**
- * auth_idp — Logto (default) + WorkOS (enterprise) IdP login + callback routes (ADR-0006).
+ * auth_idp — Better Auth (default) + WorkOS (enterprise) IdP login + callback routes (ADR-0006).
  *
  * Exercises the `authIdp` Hono instance directly (no full-worker import) with the
  * identity factory + auth/audit services mocked. Covers: ships-dark 404, login 302 +
@@ -44,7 +44,7 @@ const fakeIdp = {
     subject: 'sub_123',
     email: 'owner@example.com',
     name: 'Test Owner',
-    provider: 'logto' as const,
+    provider: 'betterauth' as const,
   })),
   validateSession: jest.fn(),
   logout: jest.fn(),
@@ -70,17 +70,17 @@ describe('GET /api/auth/:provider/login', () => {
 
   it('404s (ships dark) when the provider is not configured', async () => {
     mGetIdp.mockReturnValue(null);
-    const res = await authIdp.request('/api/auth/logto/login', {}, env());
+    const res = await authIdp.request('/api/auth/betterauth/login', {}, env());
     expect(res.status).toBe(404);
   });
 
   it('302s to the IdP authorize URL and stores the CSRF state', async () => {
     const kv = makeKv();
-    const res = await authIdp.request('/api/auth/logto/login', {}, env(kv));
+    const res = await authIdp.request('/api/auth/betterauth/login', {}, env(kv));
     expect(res.status).toBe(302);
     expect(res.headers.get('location') ?? '').toContain('https://idp.example/authorize');
     const stored = [...kv._store.entries()].find(([k]) => k.startsWith('authstate:'));
-    expect(stored?.[1]).toBe('logto');
+    expect(stored?.[1]).toBe('betterauth');
   });
 
   it('routes WorkOS as the enterprise provider', async () => {
@@ -91,35 +91,35 @@ describe('GET /api/auth/:provider/login', () => {
 
 describe('GET /api/auth/:provider/callback', () => {
   it('redirects to ?error=missing_code when code is absent', async () => {
-    const res = await authIdp.request('/api/auth/logto/callback?state=s1', {}, env());
+    const res = await authIdp.request('/api/auth/betterauth/callback?state=s1', {}, env());
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/?error=missing_code');
   });
 
   it('redirects to ?error=invalid_state when the state is unknown', async () => {
-    const res = await authIdp.request('/api/auth/logto/callback?code=c1&state=bogus', {}, env());
+    const res = await authIdp.request('/api/auth/betterauth/callback?code=c1&state=bogus', {}, env());
     expect(res.headers.get('location')).toBe('/?error=invalid_state');
   });
 
   it('exchanges the code, issues a D1 session, and redirects with the token', async () => {
-    const kv = makeKv({ 'authstate:s1': 'logto' });
-    const res = await authIdp.request('/api/auth/logto/callback?code=c1&state=s1', {}, env(kv));
+    const kv = makeKv({ 'authstate:s1': 'betterauth' });
+    const res = await authIdp.request('/api/auth/betterauth/callback?code=c1&state=s1', {}, env(kv));
     expect(fakeIdp.handleCallback).toHaveBeenCalledWith(expect.objectContaining({ code: 'c1' }));
     expect(mFindOrCreateUser).toHaveBeenCalledWith(expect.anything(), {
       email: 'owner@example.com',
       display_name: 'Test Owner',
     });
-    expect(mCreateSession).toHaveBeenCalledWith(expect.anything(), 'u_1', 'logto');
+    expect(mCreateSession).toHaveBeenCalledWith(expect.anything(), 'u_1', 'betterauth');
     const location = res.headers.get('location') ?? '';
     expect(location).toContain('token=sess_abc');
-    expect(location).toContain('auth_callback=logto');
+    expect(location).toContain('auth_callback=betterauth');
     expect(kv._store.has('authstate:s1')).toBe(false);
   });
 
   it('redirects to ?error=auth_failed when the exchange throws', async () => {
     fakeIdp.handleCallback.mockRejectedValueOnce(new Error('token exchange failed'));
-    const kv = makeKv({ 'authstate:s1': 'logto' });
-    const res = await authIdp.request('/api/auth/logto/callback?code=c1&state=s1', {}, env(kv));
+    const kv = makeKv({ 'authstate:s1': 'betterauth' });
+    const res = await authIdp.request('/api/auth/betterauth/callback?code=c1&state=s1', {}, env(kv));
     expect(res.headers.get('location')).toBe('/?error=auth_failed');
   });
 });
@@ -127,7 +127,7 @@ describe('GET /api/auth/:provider/callback', () => {
 /**
  * Regression: the `:provider/callback` wildcard is mounted BEFORE the `api` router's
  * dedicated `/api/auth/google/callback` in `index.ts`. It MUST fall through (not 404)
- * for non-Logto/WorkOS providers, or every Google sign-in dies on the SPA 404 page.
+ * for non-Better-Auth/WorkOS providers, or every Google sign-in dies on the SPA 404 page.
  * Reproduces the prod incident where Google OAuth callbacks returned 404.
  */
 describe('non-IdP provider fall-through (shadow regression)', () => {
@@ -151,9 +151,9 @@ describe('non-IdP provider fall-through (shadow regression)', () => {
     expect(await res.text()).toBe('github-handled');
   });
 
-  it('still handles its own logto callback (does not fall through)', async () => {
-    const kv = makeKv({ 'authstate:s1': 'logto' });
-    const res = await composite().request('/api/auth/logto/callback?code=c1&state=s1', {}, env(kv));
+  it('still handles its own betterauth callback (does not fall through)', async () => {
+    const kv = makeKv({ 'authstate:s1': 'betterauth' });
+    const res = await composite().request('/api/auth/betterauth/callback?code=c1&state=s1', {}, env(kv));
     expect(res.status).toBe(302);
     expect(res.headers.get('location') ?? '').toContain('token=sess_abc');
   });

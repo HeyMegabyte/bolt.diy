@@ -2,20 +2,20 @@
  * @module routes/auth_idp
  *
  * @description
- * Login routes for the §27/§28 IdPs (ADR-0006): `GET /api/auth/logto/login` +
- * `/api/auth/logto/callback` (default), and `GET /api/auth/workos/login` +
+ * Login routes for the §27/§28 IdPs (ADR-0006): `GET /api/auth/betterauth/login` +
+ * `/api/auth/betterauth/callback` (default), and `GET /api/auth/workos/login` +
  * `/api/auth/workos/callback` (enterprise SSO). Mirrors the magic-link/Google
  * session handoff: IdP callback → `findOrCreateUser` → `createSession` → 302 to
  * the homepage with the session token.
  *
- * Ships dark: when `getIdentityProvider(env)` returns null (no `LOGTO_*`/`WORKOS_*`)
+ * Ships dark: when `getIdentityProvider(env)` returns null (no `BETTER_AUTH_*`/`WORKOS_*`)
  * these routes 404, so the custom magic-link/Google auth stays the live path.
  *
  * Security: a random `state` is stored in KV (10-min TTL) and verified+consumed on
  * the callback (CSRF / one-time use). The post-login redirect targets only the
  * app's own apex (open-redirect guard).
  *
- * @see middleware/identity.ts · services/logto_provider.ts · services/workos_provider.ts
+ * @see middleware/identity.ts · services/better_auth_provider.ts · services/workos_provider.ts
  */
 import { Hono } from 'hono';
 import { DOMAINS, randomHex } from '@project-sites/shared';
@@ -27,7 +27,7 @@ import * as auditService from '../services/audit.js';
 export const authIdp = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 const STATE_TTL_SEC = 600;
-const PROVIDERS = new Set(['logto', 'workos']);
+const PROVIDERS = new Set(['betterauth', 'workos']);
 
 function callbackUri(reqUrl: string, provider: string): string {
   return `${new URL(reqUrl).origin}/api/auth/${provider}/callback`;
@@ -36,7 +36,7 @@ function callbackUri(reqUrl: string, provider: string): string {
 /** Start an IdP login → 302 to the provider authorize URL. */
 authIdp.get('/api/auth/:provider/login', async (c, next) => {
   const provider = c.req.param('provider');
-  // Only Logto/WorkOS are handled here. Any other provider (e.g. google, github)
+  // Only Better Auth/WorkOS are handled here. Any other provider (e.g. google, github)
   // must fall through to its dedicated handler in the `api` router — this route's
   // `:provider` wildcard would otherwise shadow them (registered first wins in Hono).
   if (!PROVIDERS.has(provider)) return next();
@@ -60,7 +60,7 @@ authIdp.get('/api/auth/:provider/login', async (c, next) => {
 /** IdP callback → verify state → exchange code → issue our D1 session. */
 authIdp.get('/api/auth/:provider/callback', async (c, next) => {
   const provider = c.req.param('provider');
-  // Fall through (don't 404) for non-Logto/WorkOS providers so the dedicated
+  // Fall through (don't 404) for non-Better-Auth/WorkOS providers so the dedicated
   // Google/GitHub OAuth callbacks in the `api` router can handle them. This route
   // is mounted before `api`, so returning here would shadow `/api/auth/google/callback`.
   if (!PROVIDERS.has(provider)) return next();
