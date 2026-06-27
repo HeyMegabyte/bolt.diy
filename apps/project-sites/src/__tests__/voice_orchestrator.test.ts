@@ -118,4 +118,3 @@ describe('handleInboundSms', () => {
     expect(out).toContain('Tom &amp; Jerry &lt;hi&gt;');
   });
 });
-
