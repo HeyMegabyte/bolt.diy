@@ -30,14 +30,16 @@
  * @packageDocumentation
  */
 
-import { Hono, type Context } from 'hono';
+import { type Context, Hono } from 'hono';
 import { z } from 'zod';
+
 import type { Env, Variables } from '../types/env.js';
+
 import { verifyHs256 } from '../lib/jwt.js';
 import {
   checkWebhookIdempotency,
-  storeWebhookEvent,
   markWebhookProcessed,
+  storeWebhookEvent,
 } from '../services/webhook.js';
 
 export const livekitWebhookRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -48,16 +50,16 @@ export const livekitWebhookRoutes = new Hono<{ Bindings: Env; Variables: Variabl
  */
 const LiveKitWebhookEventSchema = z
   .object({
-    event: z.string().min(1),
-    id: z.string().min(1),
     createdAt: z.union([z.number(), z.string()]).optional(),
-    room: z
-      .object({ name: z.string().optional(), sid: z.string().optional() })
-      .passthrough()
-      .optional(),
-    participant: z.object({ identity: z.string().optional() }).passthrough().optional(),
     egressInfo: z
       .object({ egressId: z.string().optional(), status: z.string().optional() })
+      .passthrough()
+      .optional(),
+    event: z.string().min(1),
+    id: z.string().min(1),
+    participant: z.object({ identity: z.string().optional() }).passthrough().optional(),
+    room: z
+      .object({ name: z.string().optional(), sid: z.string().optional() })
       .passthrough()
       .optional(),
   })
@@ -125,28 +127,28 @@ livekitWebhookRoutes.post('/webhooks/livekit', async (c) => {
   // Idempotent on the LiveKit event id.
   const dupe = await checkWebhookIdempotency(c.env.DB, 'livekit', event.id);
   if (dupe.isDuplicate) {
-    return c.json({ received: true, duplicate: true }, 200);
+    return c.json({ duplicate: true, received: true }, 200);
   }
 
   const { id: storedId } = await storeWebhookEvent(c.env.DB, {
-    provider: 'livekit',
     event_id: event.id,
     event_type: event.event,
     payload_hash: expectedHash,
+    provider: 'livekit',
   });
 
   // Structured log (console.warn per project no-console rule). Recording→R2 +
   // transcript→conversations wiring follows in the recording slice.
   console.warn(
     JSON.stringify({
-      level: 'info',
-      ts: Date.now(),
-      msg: 'livekit.webhook',
-      service: 'livekit_webhooks',
+      egress_status: event.egressInfo?.status,
       event: event.event,
       event_id: event.id,
+      level: 'info',
+      msg: 'livekit.webhook',
       room: event.room?.name,
-      egress_status: event.egressInfo?.status,
+      service: 'livekit_webhooks',
+      ts: Date.now(),
     }),
   );
 
