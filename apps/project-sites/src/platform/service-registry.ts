@@ -369,28 +369,16 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'auth-better-auth',
-    domain: 'auth.projectsites.dev',
-    name: 'Better Auth — default app-auth IdP (§27/ADR-0006)',
+    name: 'Better Auth — the ONLY auth system (embedded, ADR-0006)',
     category: 'auth',
-    runtime: 'cloudflare-container',
-    adapterPackage: 'apps/project-sites/src/services/better_auth_provider.ts',
+    runtime: 'cloudflare-worker',
+    adapterPackage: 'apps/project-sites/src/auth/better-auth.ts',
+    featureFlag: 'better_auth',
     secretsNamespace: '/better-auth',
-    status: 'production',
-    access: 'public',
-    notes:
-      'IdentityProvider port + BetterAuthIdentityProvider (OIDC authorization-code, fetch-based) + FakeIdentityProvider + getIdentityProvider(env) factory, all tested. The DEFAULT consumer-auth IdP, self-hosted at auth.projectsites.dev on Neon (Neon-native, unlike Logto). After handleCallback the EXISTING D1 session machinery (findOrCreateUser→createSession) issues our session. Ships dark behind BETTER_AUTH_* — custom magic-link/Google auth stays live until configured; see docs/runbooks/auth-better-auth-workos-activation.md. ADR-0006.',
-  },
-  {
-    id: 'auth-workos',
-    name: 'WorkOS — enterprise SSO/SAML IdP (§28/ADR-0006)',
-    category: 'auth',
-    runtime: 'managed-saas',
-    adapterPackage: 'apps/project-sites/src/services/workos_provider.ts',
-    secretsNamespace: '/workos',
     status: 'integrated',
     access: 'public',
     notes:
-      'WorkOsEnterpriseIdentityProvider (SSO authorization-code, org-scoped) behind the same IdentityProvider port + factory. Used ONLY for enterprise org-scoped logins (factory prefers Better Auth for everyone else). Ships dark behind WORKOS_*. ADR-0006.',
+      'Better Auth EMBEDDED in the main worker on the main D1 (Kysely D1 dialect), owns sessions. Methods: email+password, magic link (via SES/Listmonk email), Google social, TOTP 2FA (passkey + SSO/SAML in later slices). Mounted at /api/auth/* behind the better_auth cutover flag — ON = Better Auth; OFF = legacy magic-link/Google/D1-session auth until frontend + user-migration land. NO Logto, NO WorkOS — Better Auth is the only auth. ADR-0006.',
   },
   {
     id: 'flags-openfeature',
