@@ -1,0 +1,31 @@
+name = "projectsites-nango"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+routes = [
+  { pattern = "integrations.projectsites.dev", custom_domain = true },
+  # Explicit per-host route — beats the main worker's *.projectsites.dev/* wildcard.
+  { pattern = "integrations.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "Nango"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-1"
+name = "projectsites-nango"
+
+[[durable_objects.bindings]]
+name = "NANGO"
+class_name = "Nango"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Nango"]
+
+# Secrets (wrangler secret put): NANGO_DATABASE_URL, NANGO_ENCRYPTION_KEY
