@@ -1,5 +1,8 @@
 # ProjectSites.dev — Generated Customer-Site Quality Bar
 
+> **Generic budgets are global** (`~/.agentskills`: `quality-metrics`, `ttfr-north-star`,
+> `image-quality`); this file keeps the **`{slug}.projectsites.dev`-specific** gates +
+> CI wiring. Don't duplicate the universal CWV/a11y numbers here — reference them.
 > Hard quality gates for every AI-generated customer site we serve from `{slug}.projectsites.dev`.
 > Generated sites are served to the public — performance, accessibility, SEO, and safe sanitization
 > are non-negotiable. Enforced in CI via Lighthouse CI + the link/JSON-LD validators.

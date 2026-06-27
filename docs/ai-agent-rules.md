@@ -1,7 +1,10 @@
 # ProjectSites.dev — AI Agent Rules
 
-> Operating rules for any AI agent (Claude Code or otherwise) touching this repo. Keep it short;
-> it loads into agent context. Stack source of truth: `docs/STACK.md` + `docs/tooling-matrix.md`.
+> **Canonical doctrine is global** (`~/.agentskills`): `projectsites-cloudflare-first`,
+> `package-preference-registry`, `cloudflare-lock-in-is-leverage`, `drift-detection`. This file
+> is the **repo-specific delta + entry pointer** for an agent touching this repo — not a
+> restatement of universal CF-first/package rules.
+> Stack source of truth: `docs/STACK.md` + `docs/tooling-matrix.md`.
 > Infra doctrine: `apps/project-sites/docs/architecture/cloudflare-first.md`.
 
 ## Cloudflare-first policy (non-negotiable)
