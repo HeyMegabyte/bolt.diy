@@ -177,19 +177,8 @@ export interface Env {
   /** Self-hosted Inngest base URL (e.g. https://jobs.projectsites.dev). var. */
   INNGEST_BASE_URL?: string;
 
-  // ─── Formbricks (survey.projectsites.dev) — dedicated CF Workers Container ──
-  /** Formbricks container DO binding. Optional until the watched deploy binds it; the survey.* host route degrades to 503 without it. */
-  FORMBRICKS_CONTAINER?: DurableObjectNamespace;
-  /** Formbricks Postgres URL — Neon project `Formbricks` (wild-sound-20069767). wrangler secret. */
-  FORMBRICKS_DATABASE_URL?: string;
-  /** Formbricks Redis URL — Upstash `formbricks` (Formbricks v3 REQUIRES Redis). wrangler secret. */
-  FORMBRICKS_REDIS_URL?: string;
-  /** Formbricks NextAuth secret (openssl rand -hex 32). wrangler secret. */
-  FORMBRICKS_NEXTAUTH_SECRET?: string;
-  /** Formbricks encryption key (openssl rand -hex 32 = 32 bytes). wrangler secret. */
-  FORMBRICKS_ENCRYPTION_KEY?: string;
-  /** Formbricks cron secret (openssl rand -hex 32). wrangler secret. */
-  FORMBRICKS_CRON_SECRET?: string;
+  // Formbricks REMOVED (2026-06-27) — exceeds the 4-service max. Container, DO
+  // class, namespace, binding, host route, and all FORMBRICKS_* env deleted.
 
   // ─── Documenso (sign.projectsites.dev) — dedicated CF Workers Container ─────
   /** Documenso container DO binding. Optional until the watched deploy binds it; the sign.* host route degrades to 503 without it. */
