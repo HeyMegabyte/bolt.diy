@@ -19,7 +19,16 @@ FROM twentycrm/twenty:latest@sha256:62bd82f203fd9edc59bfdebf01467a967971c31e66be
 # Cache-busting label: bump this when a worker.ts envVar change (e.g. MESSAGE_QUEUE_TYPE)
 # must reach a warm container. CF only rolls the container when the built image changes;
 # a new label = new image hash = forced cold start that re-applies the DO's envVars.
-LABEL dev.projectsites.config-rev="2026-06-27-singleworkspace-sync"
+LABEL dev.projectsites.config-rev="2026-06-27-server-plus-worker"
 
 # 3000 = HTTP (server + bundled frontend) — the port the TwentyCrm Container DO proxies.
 EXPOSE 3000
+
+# Run the Twenty WORKER (queue consumer) in-process alongside the server. Twenty's
+# architecture is server + worker; async jobs (workspace activation/metadata-sync that
+# builds the workspace_<id> schema, signing-key rotation, email) enqueue to BullMQ and
+# are drained by the worker. The single CF container previously ran only `node dist/main`
+# (server) → those jobs never ran → workspace stuck PENDING_CREATION, auth tokens unsignable.
+# Co-locating the worker keeps it a single container (fine for a small CRM). The upstream
+# entrypoint runs migrations then `exec "$@"` (this CMD). (Added 2026-06-27.)
+CMD ["sh", "-c", "node dist/queue-worker/queue-worker & exec node dist/main"]

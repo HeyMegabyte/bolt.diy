@@ -42,14 +42,11 @@ export class TwentyCrm extends Container<Env> {
       // No persistent volume on CF Containers → keep uploads in Postgres-backed local
       // storage (ephemeral) rather than a disk that vanishes on hibernation.
       STORAGE_TYPE: 'local',
-      // Run the job queue INLINE (sync driver) — this CF container runs only the
-      // server process (`node dist/main`), with NO separate Twenty worker to drain
-      // BullMQ. Under 'bull-mq', workspace-creation/metadata-sync/email jobs enqueue
-      // but never run → first signup creates the user row then silently stalls (no
-      // workspace, no metadata schema). 'sync' executes jobs in-process so a
-      // single-container deployment completes them. Redis (above) is still used for
-      // cache, just not the queue. (Diagnosed 2026-06-27 — crm login/signup repair.)
-      MESSAGE_QUEUE_TYPE: 'sync',
+      // BullMQ queue over Upstash Redis. The Dockerfile CMD now runs the Twenty worker
+      // (`node dist/queue-worker/queue-worker`) in-process alongside the server, so async
+      // jobs (workspace activation/metadata-sync, signing-key rotation, email) are drained.
+      // (sync-mode was tried first but didn't run the workspace-init job; a real worker does.)
+      MESSAGE_QUEUE_TYPE: 'bull-mq',
       // SINGLE-workspace mode (multiworkspace OFF): the whole CRM lives on the base
       // host crm.projectsites.dev. Multiworkspace would redirect to per-workspace
       // subdomains (app.crm.projectsites.dev / <ws>.crm.projectsites.dev) which need
