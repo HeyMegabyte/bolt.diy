@@ -1,5 +1,5 @@
-# Logto — self-hosted auth (OIDC) for auth.projectsites.dev on CF Workers Containers.
-# State lives in Neon Postgres (CF Containers have no persistent volume). First boot
-# seeds the FULL schema (`db seed`); later boots run pending migrations, then start.
+# Logto self-hosted auth for auth.projectsites.dev on CF Workers Containers.
+# State in Neon Postgres (no persistent volume). The svhd/logto image AUTO-runs
+# DB migration + seed on boot when DB_URL is set, then starts core(:3001)+admin(:3002).
+# Do NOT override ENTRYPOINT — the image's own startup handles seed+serve correctly.
 FROM svhd/logto:1.23
-ENTRYPOINT ["sh", "-c", "npm run cli db seed 2>/dev/null || npm run cli db alteration deploy 2>/dev/null || true; exec npm start"]
