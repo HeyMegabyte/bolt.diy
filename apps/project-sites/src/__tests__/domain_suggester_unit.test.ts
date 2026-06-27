@@ -27,13 +27,14 @@ jest.mock('../services/cf_registrar.js', () => ({
   staticTldPriceUsd: jest.fn().mockReturnValue(12),
 }));
 
-import { suggestDomains, ANTI_SLOP_BANNED, type DomainSuggestion } from '../services/domain_suggester.js';
+import {
+  suggestDomains,
+  ANTI_SLOP_BANNED,
+  type DomainSuggestion,
+} from '../services/domain_suggester.js';
 import { gatherProfileContext, type ProfileContext } from '../services/profile_context.js';
 import { checkBatch, type RdapResult } from '../services/rdap_availability.js';
-import {
-  isKnownUnsupportedTld,
-  staticTldPriceUsd,
-} from '../services/cf_registrar.js';
+import { isKnownUnsupportedTld, staticTldPriceUsd } from '../services/cf_registrar.js';
 import type { Env } from '../types/env.js';
 
 const mockGather = gatherProfileContext as unknown as jest.Mock;
@@ -159,9 +160,7 @@ describe('suggestDomains — default count', () => {
     mockGather.mockResolvedValue(makeCtx());
     // Supply 12 available domains; only 10 should come back.
     const domains = Array.from({ length: 12 }, (_, i) => `testbiz${i}.com`);
-    aiRun
-      .mockResolvedValueOnce(aiJson({ domains }))
-      .mockResolvedValueOnce(aiJson({ rows: [] })); // deterministic fallback
+    aiRun.mockResolvedValueOnce(aiJson({ domains })).mockResolvedValueOnce(aiJson({ rows: [] })); // deterministic fallback
     mockCheckBatch.mockImplementation((_e: Env, list: string[]) =>
       Promise.resolve(list.map((d) => rdap(d, true))),
     );
@@ -387,7 +386,9 @@ describe('suggestDomains — homepage KV cache', () => {
 
     const env = makeEnv({
       // KV returns a cached summary immediately.
-      get: jest.fn().mockResolvedValue('Serves small businesses. Value: fast delivery. Tone: bold.'),
+      get: jest
+        .fn()
+        .mockResolvedValue('Serves small businesses. Value: fast delivery. Tone: bold.'),
     });
 
     stubHappyPath('cached.io');
@@ -451,17 +452,15 @@ describe('suggestDomains — output shape', () => {
     mockGather.mockResolvedValue(makeCtx());
 
     const orderedDomains = ['first.com', 'second.io', 'third.app'];
-    aiRun
-      .mockResolvedValueOnce(aiJson({ domains: orderedDomains }))
-      .mockResolvedValueOnce(
-        aiJson({
-          rows: orderedDomains.map((d) => ({
-            domain: d,
-            reason: `Reason for ${d}.`,
-            pitch: `Pitch for ${d}.`,
-          })),
-        }),
-      );
+    aiRun.mockResolvedValueOnce(aiJson({ domains: orderedDomains })).mockResolvedValueOnce(
+      aiJson({
+        rows: orderedDomains.map((d) => ({
+          domain: d,
+          reason: `Reason for ${d}.`,
+          pitch: `Pitch for ${d}.`,
+        })),
+      }),
+    );
     mockCheckBatch.mockResolvedValue(orderedDomains.map((d) => rdap(d, true)));
 
     const out = await suggestDomains(makeEnv(), { siteId: 'site-unit', count: 3 });

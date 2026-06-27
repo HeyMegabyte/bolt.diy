@@ -260,18 +260,16 @@ describe('LogtoIdentityProvider.handleCallback', () => {
     const mock = errFetch(401);
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'bad', redirectUri: 'r' }),
-    ).rejects.toThrow(IdentityProviderError);
+    await expect(provider.handleCallback({ code: 'bad', redirectUri: 'r' })).rejects.toThrow(
+      IdentityProviderError,
+    );
   });
 
   it('error message includes the HTTP status on token exchange failure', async () => {
     const mock = errFetch(403);
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'bad', redirectUri: 'r' }),
-    ).rejects.toMatchObject({
+    await expect(provider.handleCallback({ code: 'bad', redirectUri: 'r' })).rejects.toMatchObject({
       message: expect.stringContaining('403'),
       provider: 'logto',
     });
@@ -281,72 +279,72 @@ describe('LogtoIdentityProvider.handleCallback', () => {
     const mock = errFetch(500);
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toThrow(IdentityProviderError);
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toThrow(
+      IdentityProviderError,
+    );
   });
 
   it('throws IdentityProviderError when token response has no access_token', async () => {
     const mock = okFetch({} /* no access_token */);
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toThrow(IdentityProviderError);
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toThrow(
+      IdentityProviderError,
+    );
   });
 
   it('error message mentions missing access_token', async () => {
     const mock = okFetch({});
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toMatchObject({
-      message: expect.stringContaining('access_token'),
-      provider: 'logto',
-    });
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toMatchObject(
+      {
+        message: expect.stringContaining('access_token'),
+        provider: 'logto',
+      },
+    );
   });
 
   it('throws IdentityProviderError when userinfo returns non-ok status', async () => {
     const mock = twoStageFetch({ access_token: 'tok' }, {}, false, 401);
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toThrow(IdentityProviderError);
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toThrow(
+      IdentityProviderError,
+    );
   });
 
   it('error message includes userinfo HTTP status', async () => {
     const mock = twoStageFetch({ access_token: 'tok' }, {}, false, 403);
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toMatchObject({
-      message: expect.stringContaining('403'),
-      provider: 'logto',
-    });
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toMatchObject(
+      {
+        message: expect.stringContaining('403'),
+        provider: 'logto',
+      },
+    );
   });
 
   it('throws IdentityProviderError when userinfo sub is missing', async () => {
     const mock = twoStageFetch({ access_token: 'tok' }, { email: 'no-sub@test.com' });
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toThrow(IdentityProviderError);
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toThrow(
+      IdentityProviderError,
+    );
   });
 
   it('error message mentions missing sub', async () => {
     const mock = twoStageFetch({ access_token: 'tok' }, {});
     const provider = makeProvider(mock);
 
-    await expect(
-      provider.handleCallback({ code: 'code', redirectUri: 'r' }),
-    ).rejects.toMatchObject({
-      message: expect.stringContaining('sub'),
-      provider: 'logto',
-    });
+    await expect(provider.handleCallback({ code: 'code', redirectUri: 'r' })).rejects.toMatchObject(
+      {
+        message: expect.stringContaining('sub'),
+        provider: 'logto',
+      },
+    );
   });
 });
 

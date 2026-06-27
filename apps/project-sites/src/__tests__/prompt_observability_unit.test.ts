@@ -191,9 +191,9 @@ describe('ResearchBrandInput', () => {
   });
 
   it('rejects empty business_type', () => {
-    expect(() =>
-      ResearchBrandInput.parse({ business_name: 'Acme', business_type: '' }),
-    ).toThrow(ZodError);
+    expect(() => ResearchBrandInput.parse({ business_name: 'Acme', business_type: '' })).toThrow(
+      ZodError,
+    );
   });
 
   it('rejects missing business_name', () => {
@@ -338,9 +338,7 @@ describe('GenerateWebsiteInput', () => {
   });
 
   it('rejects missing required fields', () => {
-    expect(() =>
-      GenerateWebsiteInput.parse({ profile_json: '{}' }),
-    ).toThrow(ZodError);
+    expect(() => GenerateWebsiteInput.parse({ profile_json: '{}' })).toThrow(ZodError);
   });
 });
 
@@ -435,9 +433,9 @@ describe('ScoreWebsiteInput', () => {
   });
 
   it('rejects empty html_content', () => {
-    expect(() =>
-      ScoreWebsiteInput.parse({ html_content: '', business_name: 'Acme' }),
-    ).toThrow(ZodError);
+    expect(() => ScoreWebsiteInput.parse({ html_content: '', business_name: 'Acme' })).toThrow(
+      ZodError,
+    );
   });
 
   it('rejects empty business_name', () => {
@@ -605,9 +603,7 @@ describe('MultiPageSiteOutput', () => {
   });
 
   it('rejects a file missing content', () => {
-    expect(() =>
-      MultiPageSiteOutput.parse({ files: [{ path: 'index.html' }] }),
-    ).toThrow(ZodError);
+    expect(() => MultiPageSiteOutput.parse({ files: [{ path: 'index.html' }] })).toThrow(ZodError);
   });
 
   it('accepts metadata overrides', () => {

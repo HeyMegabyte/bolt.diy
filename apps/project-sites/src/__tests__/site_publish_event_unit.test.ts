@@ -100,7 +100,9 @@ describe('handleSiteEvent — webhook arm throws (arm isolation)', () => {
     // synchronously first.  A sync throw in the dep fires before allSettled
     // receives any promise, so it escapes handleSiteEvent as an uncaught exception.
     const deps: SiteEventDeps = {
-      dispatchWebhooks: () => { throw new Error('sync throw'); },
+      dispatchWebhooks: () => {
+        throw new Error('sync throw');
+      },
     };
 
     await expect(handleSiteEvent(deps, TEST_EVENT)).rejects.toThrow('sync throw');
