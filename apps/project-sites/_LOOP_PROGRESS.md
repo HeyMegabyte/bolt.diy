@@ -14,6 +14,12 @@ The DONE gate (`scripts/loop-done-check.sh`) goes green only when **0 unchecked 
 
 Because every fire either ships an `[auto]` item OR reclassifies a blocked one, the unchecked-`[auto]` count **strictly decreases** → it reaches 0 in finite fires → the gate becomes reachable. Approval-tier items (Stripe/refund/wallet/outreach) are **PRE-APPROVED** — they are DONE-able (safe-by-default + test-mode), NOT parked. Only genuine design/real-world decisions get parked. When `[auto]`=0, the loop self-cancels and `## ⛔ NEEDS BRIAN` is the clean handoff of everything that truly needed a human.
 
+## Scope decisions (Brian 2026-06-27) — almost nothing parks anymore
+Full: `docs/decisions/voice-architecture.md` + memory `loop-scope-decisions-2026-06-27`.
+1. **P1 revenue epics → BUILD AUTONOMOUSLY** (booking engine, growth agent, voice receptionist, AI-GEO/citation, per-visitor personalization). Loop makes its own design calls + builds end-to-end. These are now `[auto]`, NOT parked.
+2. **Plan-gate (AN52) → loop PROPOSES + WIRES** a competitor-norm free/Pro split (basic free; goals/funnels/heatmaps/digests/AI-queries → Pro) as the default + surfaces it for one-click confirm. Reversible → doesn't block.
+3. **Voice → IN SCOPE, fastest-possible.** ALL secrets present in get-secret (Twilio/Fly/OpenAI/Deepgram/ElevenLabs/CF) → fully autonomous. V1 = Twilio Media Streams → Deepgram → gpt-4o-mini → ElevenLabs Flash (working call ASAP); V2 = self-hosted faster-whisper + Piper on Fly behind flags (cost). Only Brian-touch: confirm the auto-provisioned Twilio number (~$1/mo, authorized).
+
 ## Done (this session)
 - ✅ Analytics-performance arc: AN5 daily rollup cron + all 5 breakdown columns (paths/channel/device/country/type, full parity) + AN3 read-switch (`getTrafficSummaryFromRollup`, flag `analytics_rollup_read` ENABLED global/beta, equivalence verified pageviews-exact/uniques~2.4%).
 - ✅ CI deploy-queue unblock (explicit `quansync` dep) — deploys flowing again.
