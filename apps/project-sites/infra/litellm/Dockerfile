@@ -17,6 +17,8 @@ COPY config.yaml /app/config.yaml
 # Meta-LLM hooks pipeline (refiner / injection-scan / PII / compress / brand / …),
 # mounted via config callbacks. /app is on sys.path so `projectsites_hooks` imports.
 COPY projectsites_hooks.py /app/projectsites_hooks.py
+# CF-native arbitration models (cascade / quorum) — cheap legs on Workers AI.
+COPY projectsites_arbiter.py /app/projectsites_arbiter.py
 
 EXPOSE 4000
 

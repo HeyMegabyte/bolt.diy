@@ -63,6 +63,16 @@ model_list:
       model: openai/text-embedding-3-small
       api_key: os.environ/OPENAI_API_KEY
 
+  # ── arbitration models (CF-native: cheap legs on Workers AI) — projectsites_arbiter.py ──
+  # cascade: draft on Workers AI → escalate only if low-confidence (big premium-spend cut).
+  # quorum:  fan out opus+gpt+deepseek → Workers-AI judge picks best (metadata.stakes:high).
+  - model_name: cascade
+    litellm_params:
+      model: ps-arbiter/cascade
+  - model_name: quorum
+    litellm_params:
+      model: ps-arbiter/quorum
+
   # ── the single entrypoint: native adaptive_router across all three tiers ──
   - model_name: smart
     litellm_params:
@@ -88,6 +98,10 @@ litellm_settings:
   # Every hook step is OFF by default (HOOK_<NAME>=1 or per-request metadata.hooks) and
   # fail-open, so mounting it is behaviour-neutral until a flag is flipped.
   callbacks: ["prometheus", "projectsites_hooks.hooks_instance"]
+  # CF-native arbitration models (cascade / quorum) — registered before model_list so the
+  # `ps-arbiter/*` entries resolve. Cheap legs (draft/confidence/judge) run on Workers AI.
+  custom_provider_map:
+    - {"provider": "ps-arbiter", "custom_handler": projectsites_arbiter.arbiter_instance}
 
 router_settings:
   routing_strategy: simple-shuffle
