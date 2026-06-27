@@ -31,6 +31,6 @@ Canonical documentation for projectsites.dev. The published MkDocs site builds f
 ## Decisions
 
 - [`../DECISIONS.md`](../DECISIONS.md) — root architecture ADR log (0001–0011)
-- [`../apps/project-sites/docs/adr/`](../apps/project-sites/docs/adr/) — convergence ADR series
+- [`../apps/project-sites/docs/adr/`](../DECISIONS.md) — convergence ADR series
 
 The Worker's own deep docs live in [`../apps/project-sites/docs/`](../apps/project-sites/docs/).

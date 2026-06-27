@@ -75,7 +75,7 @@ npx wrangler dev                 # local dev (port 8787)
 - **Deployment** — [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
 - **Stack + convergence work** — [`docs/STACK.md`](./docs/STACK.md)
 - **AI integration** — [`docs/AI_INTEGRATION.md`](./docs/AI_INTEGRATION.md)
-- **Decisions (ADRs)** — [`DECISIONS.md`](./DECISIONS.md) + `apps/project-sites/docs/adr/`
+- **Decisions (ADRs)** — [`DECISIONS.md`](./DECISIONS.md) (v2 architecture + convergence series, both folded in)
 - **Editor (bolt.diy) FAQ + contributing** — [`docs/docs/FAQ.md`](./docs/docs/FAQ.md) · [`docs/docs/CONTRIBUTING.md`](./docs/docs/CONTRIBUTING.md)
 
 ## License

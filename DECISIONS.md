@@ -961,3 +961,745 @@ ideal fit for an always-warm Node server near Twilio's US1 ingress.
 ### Build sequence
 
 Tracked as the **V0 Voice-engine foundation epic** in `apps/project-sites/_LOOP_LEDGER.md` (fork → per-number resolver contract → webhook→settings→session → autoscale config → secrets → observability → prod call test), ahead of the V1–V50 hardening cluster. Requires `FLY_API_TOKEN` + Twilio/Deepgram/ElevenLabs/OpenAI secrets (`fly secrets import`).
+
+
+---
+
+# Convergence ADR series (folded from apps/project-sites/docs/adr/, 2026-06-27)
+
+> One-file-per-ADR series merged here. Referenced by NUMBER in code (e.g. "ADR-0019"); those
+> refs stay valid. NOTE: these numbers are a SEPARATE series from the v2 architecture ADRs above
+> (0001-0011) — they collide by accident; resolve any "ADR-00xx" by which series/topic it names.
+
+
+---
+
+# 0003 — Workflow/job routing: Cloudflare Workflows → Inngest → Hatchet Cloud
+
+**Status:** accepted
+**Date:** 2026-06-20
+**Deciders:** Brian Zalewski
+
+## Context
+
+ProjectSites runs many classes of async work — claim flows, billing lifecycle,
+domain verification, notifications, lifecycle email, site generation, lead scans,
+screenshots, crawls, browser jobs. Three execution planes exist (§19): Cloudflare
+Workflows (CF-native durable orchestration), the self-hosted Inngest plane (§13,
+event-driven product lifecycle), and Hatchet Cloud (heavy/stateful/long/browser/AI,
+ADR-0004). Without a single routing policy, app code picks vendors ad-hoc — which
+violates the ports/adapters rule (§11/§74.12) and scatters cost/retry/idempotency
+decisions across the codebase.
+
+## Decision
+
+A pure `WorkflowRouter` (`src/platform/workflow-router.ts`) owns the choice:
+
+- `chooseWorkflowBackend(flags)` — the §20 selection logic. CF-native + light →
+  `cloudflare-workflows`; event-driven + light → `inngest`; anything
+  heavy/browser/filesystem/stateful → `hatchet`. Default (unflagged) → `hatchet`.
+- `JOB_DEFINITIONS` — every declared job kind with its routing flags + reliability
+  contract (`maxRetries`, `timeoutSeconds`, `requiresIdempotency`, `producesArtifacts`,
+  `costCategory`, …). Each definition's `defaultBackend` is **asserted by unit test**
+  to equal `chooseWorkflowBackend(def)` — declaration and policy can never diverge.
+- `routeJob(kind)` — recomputes the backend from the live policy (not blindly trusting
+  the stored `defaultBackend`).
+
+Preference order is strict (§76): Workflows first, Inngest second, Hatchet last —
+"do not overuse Hatchet for small CF-native flows; do not overuse Inngest for flows
+Workflows handles cleanly."
+
+## Consequences
+
+- Positive: one place to change routing; app code calls `routeJob(kind)`, never a
+  vendor SDK; cost/retry/idempotency declared per job; testable in isolation (no I/O).
+- Negative: backend adapters (`CloudflareWorkflowProvider`/`InngestProvider`/
+  `HatchetProvider`) implementing `ProjectSitesJobProvider` are still to build — this
+  slice is the routing brain, not yet the dispatch limbs.
+- Neutral: `JOB_DEFINITIONS` is the SSOT for the admin job catalog (§66).
+
+## Alternatives considered
+
+- **Call vendors directly per job** — rejected: violates §11 ports/adapters; scatters
+  policy; impossible to enforce the §76 preference order.
+- **One backend for everything** — rejected: CF Workflows can't run heavy/browser/
+  stateful jobs; Hatchet is wasteful for light CF-native flows.
+
+## Migration notes
+
+- Existing CF Workflows (`SiteGenerationWorkflow` et al.) keep running; they become
+  the `cloudflare-workflows` adapter's targets when the provider lands.
+- Site generation currently runs as a CF Workflow + Container; `JOB_DEFINITIONS`
+  routes `site-generation` to `hatchet` (its true heavy home) — the adapter migration
+  is gated + incremental, not a big-bang rewrite.
+
+## Operational risks
+
+- A mis-flagged job could route to the wrong plane (e.g. a browser job not flagged
+  `needsBrowser` would wrongly pick Workflows). The `defaultBackend == policy` test
+  catches divergence for declared jobs; new jobs must set flags accurately.
+
+## Rollback strategy
+
+- Pure library, no runtime wiring yet — reverting is a file delete. Once adapters
+  land, each is feature-flagged (`workflows.cloudflare.enabled` / `workflows.inngest.enabled`
+  / `workflows.hatchet.enabled`) so a plane can be disabled without code change.
+
+
+---
+
+# 0005 — OpenFGA as the authorization graph (not authentication)
+
+**Status:** accepted
+**Date:** 2026-06-20
+**Deciders:** Brian Zalewski
+
+## Context
+
+ProjectSites needs relationship-based authorization across user→org→site→app→
+resource, agency-managed client sites, scoped API keys, support delegation, and
+subscription→entitlement→feature (§29). Authentication (who you are) is Better Auth's job
+(ADR-0006); authorization (what you may do) is a separate graph problem best modeled
+as relationship tuples, not scattered `if (user.role === …)` checks.
+
+## Decision
+
+- Authorization flows through an `AuthorizationProvider` port
+  (`src/platform/authorization.ts`): `check / batchCheck / writeRelationship /
+  deleteRelationship / listObjects`. App code calls `authz.check({ user, relation,
+  object })` on dashboard/API/admin/mutation paths.
+- **Default deny.** Anything not explicitly granted is refused. Unknown permissions
+  resolve to false.
+- The role→permission model is explicit (`PERMISSION_RULES`): owner publishes +
+  manages billing/api-keys; editor edits but not billing; viewer reads; agency manages
+  assigned client sites; platform_admin performs platform actions.
+- `FakeAuthorizationProvider` (in-memory graph) is the §16 local mode + test substrate;
+  `DenyAllAuthorizationProvider` is the fail-closed default when OpenFGA is unconfigured
+  (§58). The real `OpenFgaAuthorizationProvider` is the follow-on adapter.
+- NOT on the public static hot path (§29) — only authenticated dashboard/API/admin.
+
+## Consequences
+
+- Positive: one place to reason about access; BOLA/object-level checks (§61) become
+  `authz.check` calls; testable model (the §29 cases are unit tests); fail-closed safe.
+- Negative: a real OpenFGA deployment + relationship-bootstrap (on user/org/site create)
+  is still to build; cached decisions + invalidation (§29) are a later concern.
+- Neutral: `PERMISSION_RULES` is the SSOT for what each role may do.
+
+## Alternatives considered
+
+- **Hard-coded role checks in handlers** — rejected: scatters policy, impossible to audit,
+  no agency/delegation/scoped-key modeling.
+- **Casbin / custom RBAC table** — rejected: OpenFGA's relationship-tuple model fits the
+  user→org→site→resource graph natively; the port keeps us swappable anyway.
+
+## Migration notes
+
+- Wire `authz.check` into mutation routes incrementally (start with site
+  edit/publish/billing). Bootstrap relationships in the OpenFGA store on tenant/site
+  create + Stripe entitlement changes (a follow-on).
+
+## Operational risks
+
+- OpenFGA outage → fail closed for mutations (DenyAll); safe cached reads only by explicit
+  policy (§58). A mis-modeled permission grants/denies wrongly — the §29 model tests guard
+  the role→permission table.
+
+## Rollback strategy
+
+- Pure port + in-memory providers today (no runtime wiring) — reverting is a file delete.
+  Once wired, the provider is swappable (Fake/DenyAll/OpenFGA) behind the port.
+
+
+---
+
+# 0006 — Better Auth is the only auth system (embedded)
+
+**Status:** accepted (supersedes the prior external-IdP federation design)
+**Date:** 2026-06-27
+**Deciders:** Brian Zalewski
+
+## Context
+
+The platform needs one auth system. Earlier iterations explored an OIDC `IdentityProvider`
+federation port over external IdPs. That added needless surface and a vendor that did not
+fit our Cloudflare-first / Neon-D1 model. Better Auth (Workers-native, D1-compatible) covers
+consumer auth, social, magic-link, 2FA, passkeys, and SSO/SAML in one OSS library we own.
+
+## Decision
+
+**Better Auth is the ONLY auth system, EMBEDDED in the main worker.** It runs inside
+`apps/project-sites` on the main D1 (Kysely D1 dialect) and OWNS sessions directly.
+
+- Module: `src/auth/better-auth.ts` (`makeAuth(env)`), mounted at `/api/auth/*`.
+- Methods: email+password, magic link (via the existing SES/Listmonk email path), Google
+  social, TOTP 2FA. Passkeys (WebAuthn) and SSO/SAML land in later slices.
+- Tables: singular `user`/`session`/`account`/`verification` + plugin tables — no collision
+  with the legacy plural `users`/`sessions` during migration.
+- Cutover is gated by the `better_auth` flag: ON → Better Auth owns `/api/auth/*`; OFF →
+  the legacy magic-link/Google/D1-session auth (`services/auth.ts`) stays live until the
+  frontend sign-in UI + user-migration backfill land.
+
+## Consequences
+
+- **Positive:** one OSS auth system, fully owned, CF-native (D1, no external IdP); social +
+  magic-link + 2FA + passkeys + SSO under one roof; no federation port.
+- **Negative:** a real migration (backfill users; swap the session model); one-way once cutover completes.
+- **Removed:** the OIDC federation port (`platform/identity.ts`, `middleware/identity.ts`,
+  `routes/auth_idp.ts` + its provider adapters) and (later) the standalone
+  `auth.projectsites.dev` worker.
+
+## Alternatives considered
+
+- External consumer IdP — D1-incompatible; rejected.
+- A second enterprise-SSO vendor — Better Auth's SSO plugin covers it natively; rejected.
+- Keeping the bespoke magic-link/Google/D1-session auth — no 2FA/passkeys/SSO and more custom
+  code than one OSS library; superseded.
+
+
+---
+
+# 0019 — Amazon SES + Listmonk for email (Resend excluded)
+
+**Status:** accepted
+**Date:** 2026-06-20
+**Deciders:** Brian Zalewski
+
+## Context
+
+The convergence spec §4 (Exclude List) forbids Resend, and §42 mandates **Amazon
+SES** for transactional email plus **Listmonk** (SES SMTP relay) for newsletters/
+campaigns. The repo currently references Resend in **~34 source files** (concentrated
+in `src/services/`, `src/routes/`, and `libs/features/email_marketing/`) — the single
+largest piece of excluded-vendor drift in the convergence. This ADR records the
+decision and makes the Resend references a **documented, tracked migration** rather
+than untracked drift, so the architecture-fitness gate can burn them down without
+blocking every deploy in the interim.
+
+## Decision
+
+- **Amazon SES** is the primary transactional email provider (magic links, claim
+  verification, receipts, billing/security/domain-verification emails, the Novu email
+  channel, and Listmonk's SMTP delivery). SigV4 raw-send from the Worker; no npm SDK.
+- **Listmonk** (`mail.projectsites.dev`, CF Container) owns newsletters, campaigns,
+  outreach lists, subscriber/segment management, and unsubscribe handling — sending
+  through SES SMTP.
+- Email flows sit behind an `EmailProvider` / `MarketingEmailProvider` port
+  (`AmazonSesEmailProvider`, `ListmonkMarketingEmailProvider`) with a fake provider for
+  local/no-vendor mode (§16). Routing: transactional/critical → SES; bulk → Listmonk.
+- **Resend is `deprecated`** in the service registry (`email-resend`) and **excluded**
+  in `EXCLUDED_VENDORS`. New code MUST NOT import or call Resend.
+
+## Consequences
+
+- Positive: one delivery substrate (SES) under both transactional and bulk, lower cost,
+  no Resend dependency, deliverability owned (SPF/DKIM/DMARC on `projectsites.dev`).
+- Negative: ~34 files to migrate off Resend; SES SigV4 + SMTP-password derivation is
+  more setup than the Resend SDK.
+- Neutral: `scripts/check-architecture-fitness.mjs` reports Resend refs as
+  `tracked-migration (ADR-0019)` (non-blocking) while the clean exclude-list
+  (polar/trigger.dev/postmark/clay/socket.dev/chainguard = 0) is locked as a hard
+  regression guard. When Resend refs reach 0, drop the `documented` tag so any
+  reintroduction hard-fails CI (maturity-ladder promotion).
+
+## Alternatives considered
+
+- **Keep Resend** — rejected: excluded by §4; the platform standardizes on SES+Listmonk.
+- **Postmark** — rejected: also on the §4 exclude list.
+- **SES only (no Listmonk)** — rejected: SES is not a campaign/subscriber manager;
+  Listmonk provides lists/segments/unsubscribe/campaign analytics over SES SMTP.
+
+## Migration notes
+
+1. Introduce the `EmailProvider`/`MarketingEmailProvider` ports + SES/Listmonk/fake
+   providers (a future slice).
+2. Replace Resend call sites file-by-file, transactional first (auth/claim/billing),
+   each with a test, behind a `email.ses.enabled` flag.
+3. Move `email_marketing` campaigns to Listmonk behind `email.listmonk.enabled`.
+4. When `check-architecture-fitness --json` reports `by_vendor.resend == 0`, remove the
+   `documented` tag on the Resend rule so reintroduction is a hard violation, and set
+   `email-resend` registry status to `removed`.
+
+## Operational risks
+
+- SES sandbox/production access + verified domain required before cutover.
+- Bounce/complaint/suppression handling must be wired (SES events → `email_events`/
+  `email_suppressions`) before bulk sends.
+
+## Rollback strategy
+
+- The ports keep providers swappable; if SES is blocked at cutover, the fake provider
+  (local) and a feature-flag-gated rollout mean partial migration is safe. Resend stays
+  `deprecated` (not deleted) until SES is proven in prod, so a flag flip can revert a
+  given flow.
+
+## Migration progress (updated 2026-06-23)
+
+**Step 2 (transactional call-site cutover) — COMPLETE.** All 10 platform transactional
+senders route through the SES seam (`getEmailProvider`) as the PRIMARY rail when AWS
+creds + `SES_FROM_EMAIL` are set; Resend/SendGrid remain fallback until SES is proven in
+prod (progressive degradation by env, no flag needed):
+
+- `services/notifications.ts`, `services/auth.ts` (magic-link), `services/contact.ts`,
+  `routes/forms.ts` (send-reply), `services/inbox.ts` (email channel), `services/credits.ts`
+  (billing alerts), `routes/search.ts` (`/api/contact-form/:slug`), `services/form_router.ts`
+  (send_email), `routes/ai_admin.ts` (team invites), `services/weekly_digest.ts`.
+
+Port enhancements landed for the cutover: `replyTo` (contact-form lead reply-to) and
+`headers` (SES `Content.Simple.Headers` — weekly_digest one-click `List-Unsubscribe`).
+
+**EXEMPT (not platform email — do NOT migrate):** `services/mcp_client.ts` (customer-
+connected Resend MCP, uses the customer's `accessToken`) and `services/newsletter_dispatch.ts`
+`dispatchResend` (customer-connected Resend Audiences, uses `requireApiKey(row)`). §4 bans
+Resend as OUR rail, not as a customer-selectable integration.
+
+**Remaining (prod-gated, steps 3-4):**
+- Provision AWS SES prod secrets + verify `projectsites.dev` sending domain; send a real
+  magic-link and confirm delivery from `noreply@projectsites.dev`.
+- Wire SES bounce/complaint events into `email_events`/`email_suppressions`.
+- Once verified live: delete the Resend fallback branches from the 10 files, then drop the
+  Resend rule's `documented` tag (hard-block) + set `email-resend` registry status `removed`.
+
+
+---
+
+# 0030 — Unkey contract over the D1 api_tokens keystore (don't host Unkey)
+
+**Status:** accepted
+**Date:** 2026-06-24
+**Deciders:** Brian Zalewski
+
+## Context
+
+§30 of the convergence include-list calls for Unkey (API-key management).
+ProjectSites already owns a complete API-key system in `services/api_tokens`:
+
+- `psk_<32-byte-hex>` keys; only the SHA-256 hash is stored in D1 `api_tokens`
+- scopes (`sites:read`, `media:write`, …), expiry, revoke, `last_used_at`
+  throttling, org ownership, bearer extraction, scope checks
+- already the live auth path for the public API at the edge
+
+Two ways to "add Unkey" were considered. Hosting Unkey on CF Workers is not
+viable — Unkey's product is a DB-backed container stack (API + dashboard +
+datastore/analytics), not a Worker artifact; and edge key-*verification* (the
+hot path) is exactly what `api_tokens` already does Worker-natively.
+
+## Decision
+
+Expose the existing keystore through an **Unkey-style provider contract** — a
+thin in-house port, no vendor SDK, no hosting:
+
+- `platform/api-keys.ts` — the port: `ApiKeyProvider` (`createKey` / `verifyKey`
+  / `revokeKey`) with a structured `KeyVerificationResult` (`valid` + `code` +
+  `keyId` + `ownerId` + `scopes`), plus `FakeApiKeyProvider` for tests/local.
+- `middleware/api-keys.ts` — `D1ApiKeyProvider` delegating to
+  `createApiToken`/`verifyApiToken`/`revokeApiToken`, plus `getApiKeyProvider(env)`.
+
+`api_tokens` stays the source of truth and the live verification path. Call sites
+that want the vendor-neutral key API use the provider; everything else keeps
+calling `verifyApiToken` directly.
+
+## Consequences
+
+- **Positive:** Unkey-shaped, vendor-neutral key API (portable call sites,
+  structured verification result) with zero new deps, Workers-native, no second
+  keystore, no container to host. A managed Unkey adapter can slot into the
+  factory behind `UNKEY_ROOT_KEY` later without touching call sites.
+- **Positive:** fail-soft — a thrown D1 error in `verifyKey` returns
+  `{ valid: false, code: 'NOT_FOUND' }`; the keystore already collapses
+  revoked/expired/absent into "no valid row" so existence never leaks.
+- **Negative:** not Unkey's *product* features (per-key ratelimit primitives,
+  analytics dashboards, key roles/identities). If those are ever needed, wire
+  managed Unkey as a `managed-saas` adapter behind this same port.
+- **Neutral:** no env secret (wraps our own keystore → always available, no gate).
+  Ships dark: nothing calls the port yet; wiring is additive + behavior-neutral.
+
+## Alternatives considered
+
+- **Host Unkey on CF Workers** — rejected: Unkey's self-host is a DB-backed
+  container stack, not a Worker; the hot-path verification is already Worker-native
+  in `api_tokens`. (See the hosting discussion: managed-SaaS or single-host, never
+  CF Workers, for stateful OSS apps.)
+- **Adopt managed Unkey now via API** — deferred: `api_tokens` already covers
+  create/verify/scope/revoke for the current public API; the managed product's
+  extra features aren't needed yet. The port keeps that option open.
+- **Do nothing** — rejected: leaves §30 unaddressed and call sites coupled to the
+  bare `verifyApiToken` boolean instead of a vendor-neutral contract.
+
+
+---
+
+# 0033 — OpenFeature contract over the D1 flag engine (not the vendor SDK)
+
+**Status:** accepted
+**Date:** 2026-06-24
+**Deciders:** Brian Zalewski
+
+## Context
+
+§33 of the convergence include-list calls for OpenFeature. ProjectSites already
+owns a complete, production feature-flag engine in `modules/feature_flags`:
+
+- D1 `flag_overrides` (tenant / org / global scope) + a typed `FLAG_REGISTRY`
+- KV 60s cache, stable rollout-percent hashing (SHA-1 bucket), killswitch stage
+- Admin UI (`/admin/feature-flags`), audit log, resolution engine (`isFlagOn`,
+  `resolveFlag`), and a two-layer System-Admin / owner-facing plane
+
+Adopting the OpenFeature **vendor SDK** (`@openfeature/server-sdk`) would add a
+runtime dependency and a second evaluation path over the same data — duplicated
+architecture the include-list protocol explicitly forbids.
+
+## Decision
+
+Expose the existing engine through the OpenFeature **provider contract** — the
+standard `ResolutionDetails<T>` evaluation shape (`value` + `reason` + `variant?`
++ `errorCode?` + `flagMetadata?`) — implemented as a thin in-house port, with no
+external SDK:
+
+- `platform/feature-evaluation.ts` — the port: `FeatureEvaluationProvider`
+  interface, Zod `EvaluationContextSchema` (OpenFeature `targetingKey` + scope
+  fields), and `FakeFeatureEvaluationProvider` for tests/local.
+- `middleware/feature-evaluation.ts` — `D1FlagEvaluationProvider` wrapping
+  `isFlagOn`, plus `getFeatureEvaluationProvider(env)`.
+
+The D1 store remains the single source of truth. App code that wants the
+vendor-neutral evaluation API (reason/metadata, not just a bare boolean) calls
+the provider; everything else keeps using `isFlagOn` directly.
+
+## Consequences
+
+- **Positive:** standard OpenFeature evaluation surface (portable call sites,
+  structured evaluation details) with zero new deps, Workers-native, no second
+  flag store. A future REMOTE OpenFeature provider can slot into the factory
+  behind an env var without touching call sites.
+- **Positive:** fail-soft by construction — a KV/D1 fault returns the caller
+  default with `reason: 'ERROR'`; unknown flags fail-closed to `false` (engine
+  behavior, unchanged).
+- **Negative:** not the literal OpenFeature SDK, so a drop-in OpenFeature
+  *client* (hooks, event bus, multi-provider) isn't available — if that ecosystem
+  tooling is ever needed, the port can be re-backed by the real SDK.
+- **Neutral:** no env secret (wraps our own engine → always available, no gate).
+  Ships dark in the sense that no handler calls it yet; wiring is additive.
+
+## Alternatives considered
+
+- **Adopt `@openfeature/server-sdk` + a custom provider** — rejected: adds a dep
+  and a parallel evaluation path over the same D1 data for no behavior gain on a
+  single-backend system. The contract is the value; the SDK is not.
+- **Do nothing (keep only `isFlagOn`)** — rejected: leaves §33 unaddressed and
+  forgoes the standard evaluation-details shape that makes call sites portable.
+
+
+---
+
+# 0035 — OpenTelemetry span port over Workers Tracing (not the OTel SDK)
+
+**Status:** accepted
+**Date:** 2026-06-24
+**Deciders:** Brian Zalewski
+
+## Context
+
+§35 of the convergence include-list calls for OpenTelemetry. ProjectSites already
+has a layered observability backbone:
+
+- **CF Workers Tracing** (`[observability]` in wrangler) — zero-config OTLP tracing
+  of every I/O span, the always-on backbone
+- **`lib/log.ts`** — structured logs carrying `traceId`/`requestId` correlation
+- **Sentry** — exception spans; **PostHog** — product events; **AI Gateway** — LLM
+  call logs
+
+What's missing is an app-level, vendor-neutral `Tracer.startSpan(...)` surface and
+the ability to export custom business spans (lead→claim→checkout funnel steps,
+generation pipeline phases) to an OTLP backend (Honeycomb / Grafana / Axiom).
+
+Adopting the full `@opentelemetry/*` SDK is the wrong tool here: it's heavy, not
+Workers-tuned (Node globals, async-hooks context propagation), and would duplicate
+the context Workers Tracing already provides.
+
+## Decision
+
+Ship a thin in-house **OpenTelemetry-shaped span port**, no SDK:
+
+- `platform/tracing.ts` — `Tracer` / `Span` / `TracerProvider` interfaces +
+  `RecordingSpan` + `NoopTracerProvider` (zero-overhead default) +
+  `FakeTracerProvider` (tests).
+- `middleware/tracing.ts` — `OtlpTracerProvider`: a fetch-based **OTLP/HTTP JSON**
+  exporter (`buildOtlpPayload` → `resourceSpans/scopeSpans/spans`) + Zod-validated
+  config + `getTracerProvider(env)`.
+
+Spans complement (never replace) Workers Tracing. App code emits a span and flushes
+in `ctx.waitUntil(provider.flush())`.
+
+## Consequences
+
+- **Positive:** standard span API + OTLP export to any backend, zero new deps,
+  Workers-native (pure fetch). Backend is swappable via one env var.
+- **Positive:** ships **dark** — no `OTEL_EXPORTER_OTLP_ENDPOINT` → `NoopTracerProvider`
+  (inert spans, zero overhead, no behavior change). Export is fail-soft: a failed
+  POST is swallowed, never breaks a request.
+- **Negative:** not the OTel SDK, so auto-instrumentation + W3C `traceparent`
+  context propagation aren't built in (manual `traceId`/`parentSpanId` threading).
+  Acceptable — Workers Tracing already auto-instruments I/O; this port is for
+  deliberate business spans.
+- **Neutral:** the port is `scaffolded` until `getTracerProvider` + `waitUntil(flush)`
+  are wired into hot handlers (site-serving, workflow steps).
+
+## Alternatives considered
+
+- **Adopt `@opentelemetry/*` SDK** — rejected: heavy, Node-oriented, duplicates
+  Workers Tracing's context; the OTLP wire format is the value, not the SDK.
+- **Rely only on Workers Tracing** — insufficient: it traces I/O, not custom
+  business spans, and can't target an arbitrary external OTLP backend per-deploy.
+- **Do nothing** — leaves §35 unaddressed and business-funnel spans unexportable.
+
+
+---
+
+# 0046 — Homegrown OAuth connection layer (Nango deferred)
+
+**Status:** accepted
+**Date:** 2026-06-24
+**Deciders:** Brian Zalewski
+
+## Context
+
+§46 of the convergence include-list calls for Nango (managed OAuth /
+third-party-connection infrastructure). ProjectSites already owns two working,
+Worker-native OAuth connection layers that do exactly what Nango does — the
+authorize → callback → token-exchange → encrypted-storage → refresh lifecycle
+across many third-party providers:
+
+- **`routes/mcp_oauth.ts`** — per-site MCP provider connections:
+  `GET /api/mcp/:provider/connect` (builds the authorize URL **or** a paste-key
+  spec) + `/callback` (exchanges the code, **encrypts + upserts** tokens into
+  `mcp_connections`). Falls back to a paste-key flow when a provider's
+  `{PROVIDER}_OAUTH_CLIENT_ID` secret is absent — no broken popup.
+- **`routes/social_oauth.ts`** — social-platform OAuth (`/api/social/:platform/connect`
+  + `/callback`), same exchange/encrypt/upsert shape, with paste-key fallback for
+  non-OAuth platforms (Bluesky/Mastodon/Telegram/Discord).
+- Supporting: `mcp_pkce.ts` (PKCE), `mcp_client.ts`, AES-GCM token encryption.
+
+Adopting Nango would mean either self-hosting its container+Postgres stack (wrong
+for a CF-first edge app, per the hosting doctrine) or routing every OAuth dance
+through a managed third party — replacing working, encrypted, edge-native code
+with a vendor dependency for no capability gain.
+
+## Decision
+
+**Defer Nango.** Keep the homegrown OAuth connection layer as the source of truth.
+Do NOT build a port now: unlike the flag/api-key/tracing cases, there is no single
+clean call-site contract to wrap — `mcp_oauth` and `social_oauth` are full Hono
+route groups with provider-specific adapters, encryption, and paste-key fallbacks
+already in place. A premature `OAuthConnectionProvider` abstraction over two route
+groups would add indirection without removing duplication.
+
+If a future need arises (a provider Nango supports that we don't, or OAuth-refresh
+volume that justifies offloading), introduce a managed-Nango adapter behind a new
+`OAuthConnectionProvider` port at that time, gated on `NANGO_SECRET_KEY`.
+
+## Consequences
+
+- **Positive:** zero new deps, no container to host, tokens stay AES-GCM-encrypted
+  in our own D1, edge-native, paste-key fallback preserved. §46 is addressed with
+  an honest "custom equivalent exists" rather than a duplicate.
+- **Negative:** we maintain provider adapters ourselves (new providers = new
+  adapter code, not a Nango catalog entry). Accepted — the current provider set is
+  small and stable.
+- **Neutral:** the registry entry `oauth-nango` records status `deprecated`-of-vendor
+  / homegrown-live so the architecture-fitness scan doesn't flag §46 as missing.
+
+## Alternatives considered
+
+- **Build an `OAuthConnectionProvider` port over the route groups now** — rejected:
+  no single call-site contract to wrap; would be indirection over two full route
+  groups, not a thin adapter. Revisit only if a managed-Nango adapter is needed.
+- **Self-host or adopt managed Nango** — deferred: replaces working encrypted
+  edge-native flows with a vendor/container for no capability gain today.
+
+
+---
+
+# 0047 — Stainless SDK-codegen over the OpenAPI 3.1 spec
+
+**Status:** accepted
+**Date:** 2026-06-24
+**Deciders:** Brian Zalewski
+
+## Context
+
+§47 of the convergence include-list calls for Stainless (typed client-SDK
+generation from an OpenAPI spec). This is the one targeted item with **no homegrown
+equivalent** — ProjectSites does not ship a client SDK today. It does, however,
+already produce the input Stainless needs: `routes/docs.ts` serves a generated
+**OpenAPI 3.1** document at `GET /api/admin/docs/openapi.json` (built from a
+hand-curated route table covering the API surface).
+
+Stainless is a build/CI concern (it generates code from a spec), not a runtime
+provider — but modeling it as a port keeps it consistent with the other
+integrations (env-gated, fail-soft, ships dark) and gives it unit-test coverage.
+
+## Decision
+
+Build a foundation-first **SDK-codegen port**:
+
+- `platform/sdk-codegen.ts` — `SdkCodegenProvider` (`generate(spec)` →
+  `SdkGenerationResult{status,project?,message?}`) + Zod `SdkCodegenConfigSchema`
+  + `NoopSdkCodegenProvider` (dark default) + `FakeSdkCodegenProvider`.
+- `middleware/sdk-codegen.ts` — `StainlessSdkCodegenProvider` (fetch-based POST of
+  the spec, no SDK) + `getSdkCodegenProvider(env)`.
+- `types/env.ts` — `STAINLESS_API_KEY` + `STAINLESS_PROJECT`.
+
+The spec source is the existing `/api/admin/docs/openapi.json` — no second spec to
+maintain.
+
+## Consequences
+
+- **Positive:** addresses §47 with a real, tested foundation; feeds the existing
+  OpenAPI spec; zero new deps; fetch-based (Workers-native). `baseUrl`/endpoint are
+  config, so finalizing the exact Stainless REST contract is a config change, not a
+  code change.
+- **Positive:** ships **dark** — no `STAINLESS_API_KEY` → `NoopSdkCodegenProvider`
+  (`generate()` resolves `skipped`, no network). Fail-soft: HTTP-error / thrown →
+  `status: 'error'`.
+- **Negative:** the exact Stainless API path (`/api/spec`) + auth header shape are
+  provisional until a key is provisioned and the contract is confirmed; the adapter
+  is `scaffolded`, not `production`, until then.
+- **Neutral:** SDK generation isn't wired into CI yet — it's a `gen:sdk` step to add
+  once the key exists.
+
+## Alternatives considered
+
+- **Hand-write + maintain a client SDK** — rejected: drifts from the API surface;
+  Stainless regenerates from the spec on every change.
+- **Use the OpenAPI Generator toolchain instead of Stainless** — deferred: Stainless
+  is the include-list choice and produces higher-quality idiomatic SDKs; the port
+  keeps the backend swappable if that changes.
+- **Do nothing** — leaves §47 the sole unaddressed targeted item.
+
+
+---
+
+# 0053 — Homegrown crawl + discovery (Deepcrawl deferred)
+
+**Status:** accepted
+**Date:** 2026-06-24
+**Deciders:** Brian Zalewski
+
+## Context
+
+§53 of the convergence include-list calls for Deepcrawl (managed crawl /
+technical-SEO-audit SaaS). ProjectSites already owns Worker-native crawl +
+discovery:
+
+- **`services/import_crawler.ts`** — `crawlSiteForImport()` builds a typed
+  `CrawlReport` / `InventoryUrl[]` for site-import (real browser UA + headers per
+  `fetch-defaults`, robots/sitemap/Wayback inventory, `estimateRebuildMinutes`).
+- **Image discovery** + **Cloudflare Browser Rendering** (the `browser-gateway`
+  service, already `production` in the registry) cover JS-rendered crawl,
+  screenshots, and content extraction at the edge.
+
+Deepcrawl is a heavyweight managed crawler aimed at large-scale recurring
+technical-SEO audits. Our crawl need is bounded and product-specific (crawl ONE
+source site to import/rebuild it), already implemented Worker-native, and already
+integrated into the site-generation pipeline.
+
+## Decision
+
+**Defer Deepcrawl.** Keep `import_crawler.ts` + image-discovery + CF Browser
+Rendering as the crawl/discovery layer. Do NOT build a port now: like the Nango
+case (ADR-0046), there is no single clean call-site contract to wrap — the crawler
+is a domain-specific import function, not a generic "crawl provider" seam, and
+Browser Rendering is already a registered CF-first service.
+
+If recurring large-scale technical-SEO auditing becomes a product feature, add a
+managed-Deepcrawl adapter behind a new `CrawlAuditProvider` port gated on
+`DEEPCRAWL_API_KEY` at that time.
+
+## Consequences
+
+- **Positive:** zero new deps, CF-first (Browser Rendering is the edge crawl
+  primitive), real-UA fetch crawl already battle-tested in the import pipeline.
+  §53 is addressed with an honest "custom equivalent exists" rather than a
+  duplicate or an unused vendor adapter.
+- **Negative:** no managed recurring-SEO-audit dashboard. Accepted — not a current
+  product need; our crawl is import-scoped, not audit-scoped.
+- **Neutral:** registry entry `crawl-deepcrawl` records the deliberate deviation so
+  the architecture-fitness scan doesn't flag §53 as missing.
+
+## Alternatives considered
+
+- **Build a `CrawlProvider` port over `import_crawler`** — rejected: it's a
+  domain-specific import function, not a generic crawl seam; a port would be
+  indirection with one caller.
+- **Adopt managed Deepcrawl now** — deferred: heavyweight recurring-audit SaaS for
+  a need we don't have; CF Browser Rendering + the import crawler already cover the
+  edge-native crawl surface.
+
+
+---
+
+# ADR-0054 — Search engines (Orama/Typesense) + UI libraries (Floating UI / Sonner / Embla)
+
+**Status:** Accepted · **Date:** 2026-06-25 (Brian directive) · **Deciders:** Brian Zalewski
+**Series:** convergence (see `DECISIONS.md` § two ADR series note)
+
+## Context
+
+Child sites (`{slug}.projectsites.dev`), the AI concierge, and the platform admin all need
+search; the Angular admin + React generated-site template need shared tooltip/toast/carousel
+primitives. We want a free/zero-infra default with a paid escalation, and CF-first hosting.
+
+## Decision
+
+### Search — tiered (Orama base/free, Typesense advanced/paid; Typesense on Fly.io)
+
+| Surface / tier | Engine |
+|---|---|
+| Default child-site search (`{slug}.projectsites.dev`) | **Orama** — zero infra, on-device |
+| Advanced paid search add-on (per child site) | **Typesense** (Fly.io) |
+| ProjectSites.dev internal / global search (admin + platform) | **Typesense** (Fly.io) |
+| AI concierge — base tier | **Orama + CF-native AI/RAG** (Workers AI + Vectorize/AutoRAG) |
+| AI concierge — advanced tier | **Typesense** (hybrid) OR a dedicated vector layer |
+
+- **Orama** (`@orama/orama` + `@orama/plugin-data-persistence`): build pipeline emits
+  `public/search-index.json` per generated site from `_scraped_content.json.routes[]`; the
+  React template's `<SiteSearch>` (Cmd+K) lazy-loads + restores the persisted index, searches
+  on-device. Base AI concierge feeds CF-native RAG (`src/services/rag.ts`).
+- **Typesense** (Fly.io stateful-VM escape hatch, persistent volume): worker service
+  `src/services/search_typesense.ts` indexes with the admin key server-side; mints scoped
+  search-only keys for the frontend. Collections: `sites`, `docs`, `admin_entities`, + per
+  paid-child-site collections. Admin/global UI call a `/api/search?q=` proxy, never the admin key.
+  Add-on is flag/entitlement-gated. Secrets: `TYPESENSE_HOST`, `TYPESENSE_ADMIN_API_KEY`,
+  `TYPESENSE_SEARCH_ONLY_API_KEY`.
+
+### UI libraries
+
+| Lib | Angular admin (`frontend/`) | React generated sites (template repo) |
+|---|---|---|
+| Floating UI (default tooltip, virtual element) | `@floating-ui/dom` → `appTooltip` directive (`computePosition` + virtual ref) | `@floating-ui/react` |
+| Sonner (toasts) | `ngx-sonner` / Spartan `hlm-sonner` (admin is Spartan) | `sonner` |
+| Embla (carousel) | `embla-carousel-angular` | `embla-carousel-react` |
+
+## Consequences
+
+- Most child sites pay zero search infra (Orama on-device); paid tier and platform-global
+  search escalate to one shared Typesense host.
+- Adds Fly.io as the Typesense host (one more stateful-VM escape hatch under CF-first).
+
+## Build order (fresh session, Monitor + parallel agents)
+
+1. Worker `search_typesense.ts` + `/api/search` proxy + collection-seed migration (TDD).
+2. Angular `appTooltip` (Floating UI virtual) — default tooltip.
+3. Angular Sonner (`hlm-sonner`) provider + replace existing toast calls.
+4. Angular Embla wrapper component.
+5. Template repo: Orama `<SiteSearch>` + build-step index emit + Sonner/Embla/Floating-UI.
+6. Provision Typesense (Fly.io) + secrets; deploy + prod-E2E each surface.
+
+⚠️ `npm install` uses `--legacy-peer-deps`; never symlink+install in a worktree (corrupts main).
+
+## Install homes
+
+- Angular admin `frontend/package.json`: `@floating-ui/dom`, `embla-carousel-angular`, `ngx-sonner`.
+- Worker `apps/project-sites/package.json`: `typesense`.
+- React template repo: `@orama/orama`, `@orama/plugin-data-persistence`, `sonner`, `embla-carousel-react`, `@floating-ui/react`.

@@ -443,7 +443,7 @@ Once Step 5 passes in prod for ≥48h:
 
 ## See
 
-- `docs/adr/0019-amazon-ses-plus-listmonk-email.md` — the decision + migration log.
+- `DECISIONS.md (convergence ADR series)` — the decision + migration log.
 - `~/.agentskills/rules/email-deliverability.md` — the cross-project doctrine.
 
 
