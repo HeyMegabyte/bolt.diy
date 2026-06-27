@@ -9,7 +9,7 @@
 
 > **⚙️ Runtime pivot (2026-06-27, same day):** the original amendment chose a **CF Workers Container** for the agent. LiveKit's docs confirm an agent is *"an agent server process that registers with the LiveKit server and waits for dispatch requests"* — a **persistent, always-registered** process. CF Workers Containers **hibernate when idle** and are request-driven (the opposite); at call time LiveKit dispatches the instant the room is created, so a hibernated container = no registered worker = no agent answers. Wake-on-call only works with extra orchestration + multi-second caller hold + a dispatch race. **Brian (AskUserQuestion 2026-06-27) chose LiveKit Cloud agent hosting** (`lk agent create` → runs OUR Dockerfile, always-on, autoscaled, co-located with the media servers). Everything else is unchanged — Twilio→SIP→LiveKit, Deepgram Flux + gpt-4o-mini + **Piper bundled in the Dockerfile**, the live `/webhooks/livekit` receiver, conversations wiring. The CF-container feasibility risk + slice-0 spike below are **VOID** (pivoted, not validated). Fly remains off the table.
 
-**Decision (Brian, 2026-06-27):** replace the hand-rolled `twilio-labs/call-gpt` MediaStreams bridge on Fly with **LiveKit Agents**. The call-gpt demo's naive turn-taking / barge-in / reconnection / μ-law glue is exactly what a production receptionist must get right, and LiveKit gives it out of the box (silero VAD + multilingual turn detection + interruption + noise cancellation), with a first-class Deepgram `flux-general` plugin — the STT this ADR already chose. LiveKit is Apache-2.0, so this is MORE self-host-aligned, not less.
+**Decision (Brian, 2026-06-27):** replace the previous hand-rolled Twilio Media Streams bridge on Fly with **LiveKit Agents**. That demo-grade bridge's naive turn-taking / barge-in / reconnection / μ-law glue is exactly what a production receptionist must get right, and LiveKit gives it out of the box (silero VAD + multilingual turn detection + interruption + noise cancellation), with a first-class Deepgram `flux-general` plugin — the STT this ADR already chose. LiveKit is Apache-2.0, so this is MORE self-host-aligned, not less.
 
 ### New topology
 ```
@@ -30,7 +30,7 @@ Caller → Twilio number → Twilio Elastic SIP Trunk → LiveKit Cloud SIP ingr
 - **TTS:** **Piper custom plugin now** (self-hosted, free, bundled in the image); hosted TTS only as a `TTS_PROVIDER` fallback.
 - **Availability:** **Wake-on-incoming-call** — container hibernates when idle; the inbound LiveKit SIP/room webhook wakes it, it registers + accepts dispatch. Accept the cold-start (several seconds) on the first call after idle. (Trade vs always-warm cost; revisit if ring-latency hurts.)
 - **Concurrency:** start small (1-3 concurrent), LiveKit Cloud free tier; scale via `max_instances` + tier later (two-way door).
-- **call-gpt Fly app:** **tear down** — Fly leaves the voice path entirely; the `voice/` Fly bridge + `projectsites-voice` app are decommissioned.
+- **Old Twilio-Media-Streams Fly app:** **tear down** — Fly leaves the voice path entirely; the `voice/` Fly bridge + `projectsites-voice` app are decommissioned.
 
 ### ✅ Feasibility risk — RESOLVED by the runtime pivot
 The CF-Container hibernation/registration mismatch (below) is moot: the agent now runs on **LiveKit Cloud agent hosting** (always-on, co-located), so there is no hibernation race and no UDP/TURN concern from a CF container. Slice 0 (CF-container spike) is **dropped**.
@@ -57,7 +57,7 @@ Per-site AI phone receptionist: caller dials a site's number → an AI persona a
 
 ```
 Caller → Twilio number → Twilio <Connect><Stream> (Media Streams WS, μ-law 8k)
-       → Fly.io app `projectsites-voice` (Node call-gpt bridge, region iad)
+       → Fly.io app `projectsites-voice` (Node Media-Streams bridge, region iad)
           → Deepgram FLUX streaming STT + integrated end-of-turn (model 'flux-general-en';
             no separate VAD/endpointing → 200-600ms faster; Nova-3 fallback) (DEEPGRAM_API_KEY ✅)
           → OpenAI gpt-4o-mini streaming brain, per-site persona (OPENAI_API_KEY ✅)

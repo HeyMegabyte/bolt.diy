@@ -235,7 +235,8 @@ export async function searchAvailableNumbers(
 
 export interface PurchaseOpts {
   phoneNumber: string;
-  voiceUrl: string;
+  /** Optional Twilio VoiceUrl. Omit when voice routes via a SIP trunk (LiveKit). */
+  voiceUrl?: string;
   smsUrl: string;
   friendlyName?: string;
 }
@@ -251,8 +252,10 @@ export async function purchaseNumber(env: Env, opts: PurchaseOpts): Promise<Purc
   const creds = getCreds(env);
   const body = new URLSearchParams();
   body.set('PhoneNumber', opts.phoneNumber);
-  body.set('VoiceUrl', opts.voiceUrl);
-  body.set('VoiceMethod', 'POST');
+  if (opts.voiceUrl) {
+    body.set('VoiceUrl', opts.voiceUrl);
+    body.set('VoiceMethod', 'POST');
+  }
   body.set('SmsUrl', opts.smsUrl);
   body.set('SmsMethod', 'POST');
   if (opts.friendlyName) body.set('FriendlyName', opts.friendlyName);

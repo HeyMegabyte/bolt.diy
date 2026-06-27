@@ -152,7 +152,7 @@ migration — deploy with eyes on it).
 
 | Subdomain | Backing | Image / source | Slim |
 |---|---|---|---|
-| `voice.projectsites.dev` | Voice answering gateway (Twilio webhook + Media Streams WS, all account numbers) — **Fly.io** app `voice-gateway`, region `iad` (us-east VA), autoscale by concurrent calls | `apps/voice-gateway/` (fork of `twilio-labs/call-gpt`) — ADR-0011 | SHIP *(planned — V0 epic)* |
+| _(voice receptionist)_ | AI phone receptionist (Twilio number → SIP trunk → **LiveKit Cloud** → agent). The agent runs on **LiveKit Cloud agent hosting** — NOT a CF/Fly container — so it is not a subdomain-backed container | `apps/project-sites/infra/voice-agent/` — voice-architecture.md | SHIP *(in progress)* |
 
 ## Infra / self-host — `megabyte.space` (Megabyte Labs infra; all SHIP-slim; Fly.io or registry→VM)
 

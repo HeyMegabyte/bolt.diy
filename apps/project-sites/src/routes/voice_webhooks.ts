@@ -1,16 +1,18 @@
 /**
  * @module routes/voice_webhooks
- * @description Public, Twilio-signature-verified webhook + WebSocket routes.
+ * @description Public, Twilio-signature-verified SMS + call-callback webhooks.
  *
  * | Path                              | Method | Purpose                                  |
  * | --------------------------------- | ------ | ---------------------------------------- |
- * | `/webhooks/voice/inbound`         | POST   | TwiML for inbound call                   |
- * | `/webhooks/voice/stream`          | GET    | WS upgrade → call-gpt Media Stream bridge |
  * | `/webhooks/voice/status`          | POST   | Twilio call status callback              |
  * | `/webhooks/voice/recording-ready` | POST   | Twilio recording-status callback (→ R2)  |
  * | `/webhooks/sms/inbound`           | POST   | TwiML for inbound SMS                    |
  * | `/webhooks/sms/status`            | POST   | Twilio SMS status callback               |
  * | `/internal/voice/recording-saved` | POST   | Browse-agent → worker callback (HMAC)    |
+ *
+ * The inbound VOICE call path (AI receptionist) runs on LiveKit Cloud (Twilio
+ * number → SIP trunk → LiveKit → `infra/voice-agent`) — the worker is no longer
+ * in the voice audio path. See `docs/decisions/voice-architecture.md`.
  *
  * Every Twilio webhook verifies `X-Twilio-Signature`. Missing or mismatched
  * signatures → 403. Webhooks are idempotent via UNIQUE indexes on the
@@ -23,11 +25,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { validateSignature, fetchRecording, downloadRecordingBytes } from '../services/twilio.js';
-import {
-  handleInboundCall,
-  handleInboundSms,
-  handleMediaStream,
-} from '../services/voice_orchestrator.js';
+import { handleInboundSms } from '../services/voice_orchestrator.js';
 
 export const voiceWebhookRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -60,62 +58,6 @@ async function requireTwilioSignature(
   if (!sig) return false;
   return validateSignature(env, sig, fullUrl(req), params);
 }
-
-// ─── Inbound voice call ─────────────────────────────────────────
-
-/**
- * `POST /webhooks/voice/inbound` — Inbound-call TwiML response for Twilio.
- *
- * @remarks
- * Verifies `X-Twilio-Signature` against the full request URL + form
- * params. Delegates to {@link handleInboundCall} which builds the TwiML
- * (greeting, transfer, IVR menu, or media-stream upgrade) per site
- * config.
- *
- * @throws 403 FORBIDDEN when the Twilio signature is missing or invalid.
- */
-voiceWebhookRoutes.post('/webhooks/voice/inbound', async (c) => {
-  const params = await readFormParams(c.req.raw);
-  if (!(await requireTwilioSignature(c.env, c.req.raw, params))) {
-    return new Response('Forbidden', { status: 403 });
-  }
-  const host = c.req.header('host') ?? 'projectsites.dev';
-  const twiml = await handleInboundCall(
-    c.env,
-    {
-      CallSid: params.CallSid,
-      From: params.From,
-      To: params.To,
-      AccountSid: params.AccountSid,
-      Direction: params.Direction,
-    },
-    host,
-  );
-  return new Response(twiml, { headers: TWIML_HEADERS });
-});
-
-// ─── Media Streams WS upgrade ───────────────────────────────────
-// Twilio signs the initial HTTP upgrade. We accept the connection if the
-// signature is valid (or if signature header is absent — Twilio Media
-// Streams currently only signs the websocket *URL* via a query token);
-// for defense in depth, callSid + siteId must round-trip to a known call.
-
-/**
- * `GET /webhooks/voice/stream` — WebSocket upgrade handler for Twilio
- * Media Streams (bidirectional µ-law audio between Twilio and the
- * call-gpt orchestrator).
- *
- * @remarks
- * Twilio signs the initial HTTP upgrade via a query-token rather than
- * `X-Twilio-Signature`. The CallSid + siteId carried in the URL must
- * round-trip to a known call row for defense in depth. Delegates to
- * {@link handleMediaStream}.
- *
- * @throws 403 FORBIDDEN when the call context cannot be validated.
- */
-voiceWebhookRoutes.get('/webhooks/voice/stream', async (c) => {
-  return handleMediaStream(c.env, c.req.raw);
-});
 
 // ─── Call status ────────────────────────────────────────────────
 

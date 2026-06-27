@@ -4,8 +4,6 @@
  * Exercises {@link voiceWebhookRoutes} end-to-end through a real Hono app,
  * mocking only the boundaries: Twilio signature/recording helpers, the voice
  * orchestrator, and the D1 query helpers. Covers every handler:
- *   - inbound voice call    (valid + invalid Twilio signature, TwiML shape)
- *   - media-stream upgrade   (delegation)
  *   - call-status callback   (signature gate + idempotent persistence)
  *   - recording-ready        (signature gate + missing params + unknown call)
  *   - inbound SMS            (signature gate + TwiML)
@@ -21,9 +19,7 @@ jest.mock('../services/twilio.js', () => ({
 }));
 
 jest.mock('../services/voice_orchestrator.js', () => ({
-  handleInboundCall: jest.fn(),
   handleInboundSms: jest.fn(),
-  handleMediaStream: jest.fn(),
 }));
 
 jest.mock('../services/db.js', () => ({
@@ -36,19 +32,13 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { voiceWebhookRoutes } from '../routes/voice_webhooks.js';
 import { validateSignature, fetchRecording, downloadRecordingBytes } from '../services/twilio.js';
-import {
-  handleInboundCall,
-  handleInboundSms,
-  handleMediaStream,
-} from '../services/voice_orchestrator.js';
+import { handleInboundSms } from '../services/voice_orchestrator.js';
 import { dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 
 const mockValidateSignature = validateSignature as unknown as jest.Mock;
 const mockFetchRecording = fetchRecording as unknown as jest.Mock;
 const mockDownloadRecordingBytes = downloadRecordingBytes as unknown as jest.Mock;
-const mockHandleInboundCall = handleInboundCall as unknown as jest.Mock;
 const mockHandleInboundSms = handleInboundSms as unknown as jest.Mock;
-const mockHandleMediaStream = handleMediaStream as unknown as jest.Mock;
 const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockDbInsert = dbInsert as unknown as jest.Mock;
 const mockDbUpdate = dbUpdate as unknown as jest.Mock;
@@ -120,70 +110,6 @@ const SIG = { 'x-twilio-signature': 'sig-abc' };
 
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-// ─── Inbound voice call ────────────────────────────────────────────────────────
-
-describe('POST /webhooks/voice/inbound', () => {
-  it('returns 403 when the Twilio signature is invalid', async () => {
-    mockValidateSignature.mockResolvedValue(false);
-    const res = await postForm(
-      makeApp(),
-      '/webhooks/voice/inbound',
-      { CallSid: 'CA1' },
-      makeEnv(),
-      SIG,
-    );
-    expect(res.status).toBe(403);
-    expect(mockHandleInboundCall).not.toHaveBeenCalled();
-  });
-
-  it('returns 403 when the signature header is missing', async () => {
-    // requireTwilioSignature short-circuits on missing header without calling validateSignature.
-    const res = await postForm(makeApp(), '/webhooks/voice/inbound', { CallSid: 'CA1' }, makeEnv());
-    expect(res.status).toBe(403);
-    expect(mockValidateSignature).not.toHaveBeenCalled();
-  });
-
-  it('returns the orchestrator TwiML with xml content-type on a valid signature', async () => {
-    mockValidateSignature.mockResolvedValue(true);
-    mockHandleInboundCall.mockResolvedValue('<Response><Say>Hi</Say></Response>');
-    const res = await postForm(
-      makeApp(),
-      '/webhooks/voice/inbound',
-      {
-        CallSid: 'CA1',
-        From: '+15551112222',
-        To: '+15553334444',
-        AccountSid: 'AC1',
-        Direction: 'inbound',
-      },
-      makeEnv(),
-      SIG,
-    );
-    expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toContain('text/xml');
-    expect(await res.text()).toContain('<Say>Hi</Say>');
-    // Form params + host are forwarded to the orchestrator.
-    expect(mockHandleInboundCall).toHaveBeenCalledTimes(1);
-    expect(mockHandleInboundCall.mock.calls[0][1]).toMatchObject({
-      CallSid: 'CA1',
-      From: '+15551112222',
-    });
-    expect(mockHandleInboundCall.mock.calls[0][2]).toBe('projectsites.dev');
-  });
-});
-
-// ─── Media stream upgrade ───────────────────────────────────────────────────────
-
-describe('GET /webhooks/voice/stream', () => {
-  it('delegates to handleMediaStream and returns its response', async () => {
-    mockHandleMediaStream.mockResolvedValue(new Response('upgraded', { status: 200 }));
-    const res = await makeApp().request('/webhooks/voice/stream', { method: 'GET' }, makeEnv());
-    expect(res.status).toBe(200);
-    expect(await res.text()).toBe('upgraded');
-    expect(mockHandleMediaStream).toHaveBeenCalledTimes(1);
-  });
 });
 
 // ─── Call status callback ───────────────────────────────────────────────────────

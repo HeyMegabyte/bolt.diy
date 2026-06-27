@@ -214,12 +214,12 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
   }
 
   const host = publicHost(c.env);
-  const voiceUrl = `https://${host}/webhooks/voice/inbound`;
+  // Voice routing moves to LiveKit SIP (see docs/decisions/voice-architecture.md);
+  // the number carries no Twilio VoiceUrl until the SIP trunk is wired (slice 3).
   const smsUrl = `https://${host}/webhooks/sms/inbound`;
 
   const purchased = await purchaseNumber(c.env, {
     phoneNumber: body.phoneNumber,
-    voiceUrl,
     smsUrl,
     friendlyName: body.friendlyName ?? body.phoneNumber,
   });
@@ -235,7 +235,7 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
     vanity_display: body.vanityWord ? formatVanity(purchased.phone_number, body.vanityWord) : null,
     twilio_sid: purchased.sid,
     capabilities: JSON.stringify(purchased.capabilities),
-    voice_url: voiceUrl,
+    voice_url: null,
     sms_url: smsUrl,
     monthly_cost_cents: 100,
     purchased_at: now,

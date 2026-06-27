@@ -742,8 +742,8 @@ export interface Env {
   /**
    * Per-call Browse Agent Container Durable Object. Built by a sibling agent.
    * Optional until the DO class + container image are wired in `wrangler.toml`.
-   * When absent, `triggerBrowseAgent()` returns `{ ok:false, reason:'binding_missing' }`
-   * and the voice agent degrades to plain LLM-only replies.
+   * The in-call browse trigger moved to the LiveKit agent (`infra/voice-agent`);
+   * when absent the voice agent degrades to plain LLM-only replies.
    */
   VOICE_BROWSE_AGENT?: DurableObjectNamespace;
 
