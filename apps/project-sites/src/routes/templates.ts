@@ -22,6 +22,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
+import { getWalletState, manualAdjustment } from '../services/wallet.js';
 import { unauthorized, notFound } from '@project-sites/shared';
 
 const templates = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -125,7 +126,7 @@ templates.post(
       [body.template_slug],
     );
     if (!tpl) throw notFound('Template not found');
-    // Paid templates require Pro — TODO: also debit wallet for price_cents.
+    // Paid templates require Pro AND a wallet debit of price_cents.
     if (tpl.price_cents > 0) {
       const userRow = await dbQueryOne<{ is_pro: number }>(
         c.env.DB,
@@ -144,6 +145,27 @@ templates.post(
           402,
         );
       }
+      // Debit the org wallet for the template price. Balance-checked: never let the
+      // install proceed (and never go negative) on insufficient funds → 402.
+      const wallet = await getWalletState(c.env, orgId);
+      if (wallet.balance_cents < tpl.price_cents) {
+        return c.json(
+          {
+            error: {
+              code: 'INSUFFICIENT_FUNDS',
+              message: `This template costs $${(tpl.price_cents / 100).toFixed(2)}; your wallet has $${(wallet.balance_cents / 100).toFixed(2)}.`,
+              shortfall_cents: tpl.price_cents - wallet.balance_cents,
+              topup_url: '/admin/billing?action=topup',
+            },
+          },
+          402,
+        );
+      }
+      await manualAdjustment(c.env, orgId, {
+        amount_cents: -tpl.price_cents,
+        reason: `template_purchase:${body.template_slug}`,
+        actor_id: userId,
+      });
     }
     const installId = crypto.randomUUID();
     await dbInsert(c.env.DB, 'template_installs', {

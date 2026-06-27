@@ -20,8 +20,14 @@ jest.mock('../services/pro.js', () => ({
   },
 }));
 
+jest.mock('../services/wallet.js', () => ({
+  getWalletState: jest.fn().mockResolvedValue({ balance_cents: 0 }),
+  manualAdjustment: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 import { Hono } from 'hono';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
+import { getWalletState, manualAdjustment } from '../services/wallet.js';
 import { templates } from '../routes/templates.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import type { Env, Variables } from '../types/env.js';
@@ -29,6 +35,8 @@ import type { Env, Variables } from '../types/env.js';
 const mockQuery = dbQuery as jest.MockedFunction<typeof dbQuery>;
 const mockQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
+const mockGetWallet = getWalletState as jest.MockedFunction<typeof getWalletState>;
+const mockAdjust = manualAdjustment as jest.MockedFunction<typeof manualAdjustment>;
 
 /** D1 double — install-template runs a raw `prepare(UPDATE).bind().run()` for the install_count bump. */
 function baseDb(sink?: string[]) {
@@ -168,5 +176,42 @@ describe('POST /api/sites/:siteId/install-template (404 never 403)', () => {
     expect(out.template_id).toBe('t1');
     expect(mockInsert).toHaveBeenCalledTimes(1); // template_installs row
     expect(sink.some((s) => /UPDATE templates SET install_count/.test(s))).toBe(true);
+  });
+});
+
+// ─── Paid-template wallet debit ──────────────────────────────────────────────
+describe('POST install-template — paid template wallet debit', () => {
+  const paidBody = JSON.stringify({ template_slug: 'pro-x' });
+
+  it('debits the wallet by price_cents + installs when the org has funds', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ org_id: 'o1' } as never) // site lookup
+      .mockResolvedValueOnce({ id: 't1', price_cents: 500 } as never) // paid template
+      .mockResolvedValueOnce({ is_pro: 1 } as never); // pro user
+    mockGetWallet.mockResolvedValue({ balance_cents: 100_000 } as never);
+    const { request } = app({ userId: 'u1', orgId: 'o1' });
+    const res = await request(INSTALL, { method: 'POST', headers: json, body: paidBody });
+    expect(res.status).toBe(200);
+    expect(mockAdjust).toHaveBeenCalledWith(
+      expect.anything(),
+      'o1',
+      expect.objectContaining({ amount_cents: -500, reason: 'template_purchase:pro-x' }),
+    );
+    expect(mockInsert).toHaveBeenCalledTimes(1); // template_installs row
+  });
+
+  it('402s INSUFFICIENT_FUNDS without debiting or installing when the wallet is short', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ org_id: 'o1' } as never)
+      .mockResolvedValueOnce({ id: 't1', price_cents: 5_000 } as never)
+      .mockResolvedValueOnce({ is_pro: 1 } as never);
+    mockGetWallet.mockResolvedValue({ balance_cents: 100 } as never);
+    const { request } = app({ userId: 'u1', orgId: 'o1' });
+    const res = await request(INSTALL, { method: 'POST', headers: json, body: paidBody });
+    expect(res.status).toBe(402);
+    const out = (await res.json()) as { error: { code: string } };
+    expect(out.error.code).toBe('INSUFFICIENT_FUNDS');
+    expect(mockAdjust).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 });

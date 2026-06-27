@@ -29,6 +29,7 @@ import { isSuperAdmin } from '../services/sysadmin.js';
 import { listSuppressions, removeSuppression } from '../services/email_suppressions.js';
 import { invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
 import { SERVICE_REGISTRY } from '../platform/service-registry.js';
+import { signHs256 } from '../lib/jwt.js';
 import { unauthorized, forbidden } from '@project-sites/shared';
 
 const superAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -634,20 +635,80 @@ superAdmin.post('/api/super-admin/refunds', zValidator('json', refundSchema), as
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
   const id = `ref_${crypto.randomUUID()}`;
-  // TODO: actually call Stripe refund API. For now record intent + super-admin can mark succeeded.
+
+  // Call the Stripe Refunds API when a charge id is supplied; otherwise record a
+  // pending manual refund the operator reconciles out-of-band.
+  let stripeRefundId: string | null = null;
+  let status = 'pending';
+  if (body.stripe_charge_id) {
+    const params = new URLSearchParams({
+      charge: body.stripe_charge_id,
+      amount: String(body.amount_cents),
+      'metadata[org_id]': body.org_id,
+      'metadata[initiated_by]': userId,
+    });
+    // Stripe only accepts these three reason codes; 'other' is omitted.
+    if (body.reason !== 'other') params.set('reason', body.reason);
+    let res: Response;
+    try {
+      res = await fetch('https://api.stripe.com/v1/refunds', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${c.env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': id, // safe retry — Stripe dedupes on our refund id
+        },
+        body: params.toString(),
+      });
+    } catch (err) {
+      await audit(c, 'refund_failed', {
+        target_kind: 'org',
+        target_id: body.org_id,
+        after: { ...body, error: err instanceof Error ? err.message : 'fetch failed' },
+      });
+      return c.json(
+        { error: { code: 'BAD_GATEWAY', message: 'Could not reach Stripe' } },
+        502,
+      );
+    }
+    const data = (await res.json().catch(() => ({}))) as {
+      id?: string;
+      status?: string;
+      error?: { message?: string };
+    };
+    if (!res.ok || !data.id) {
+      await audit(c, 'refund_failed', {
+        target_kind: 'org',
+        target_id: body.org_id,
+        after: { ...body, stripe_error: data.error?.message ?? `http ${res.status}` },
+      });
+      return c.json(
+        { error: { code: 'STRIPE_ERROR', message: data.error?.message ?? 'Stripe refund failed' } },
+        502,
+      );
+    }
+    stripeRefundId = data.id;
+    // Stripe returns succeeded | pending | failed | canceled — trust it, default to pending.
+    status = data.status ?? 'pending';
+  }
+
   await dbInsert(c.env.DB, 'refunds', {
     id,
     org_id: body.org_id,
     stripe_charge_id: body.stripe_charge_id ?? null,
-    stripe_refund_id: null,
+    stripe_refund_id: stripeRefundId,
     amount_cents: body.amount_cents,
     reason: body.reason,
     notes: body.notes ?? null,
     initiated_by: userId,
-    status: 'pending',
+    status,
   });
-  await audit(c, 'refund_initiate', { target_kind: 'org', target_id: body.org_id, after: body });
-  return c.json({ id, status: 'pending' }, 201);
+  await audit(c, 'refund_initiate', {
+    target_kind: 'org',
+    target_id: body.org_id,
+    after: { ...body, stripe_refund_id: stripeRefundId, status },
+  });
+  return c.json({ id, status, stripe_refund_id: stripeRefundId }, 201);
 });
 
 /**
@@ -1036,8 +1097,32 @@ superAdmin.post(
       reason: body.reason,
       after: body,
     });
-    // TODO: issue a short-lived signed JWT containing { sub: target_user_id, impersonator_id: userId, exp: +30min }.
-    return c.json({ session_id: id, mode: body.mode, target_org_id: targetOrg?.org_id ?? null });
+
+    // Issue a short-lived (30-min) signed HS256 token binding the impersonation
+    // session: { sub, impersonator_id, org_id, mode, sid }. Fail-soft — when the
+    // secret is unset the session row still exists; only the token is omitted.
+    let token: string | null = null;
+    const expiresInSec = 30 * 60;
+    if (c.env.IMPERSONATION_JWT_SECRET) {
+      token = await signHs256(
+        {
+          sub: body.target_user_id,
+          impersonator_id: userId,
+          org_id: targetOrg?.org_id ?? null,
+          mode: body.mode,
+          sid: id,
+        },
+        c.env.IMPERSONATION_JWT_SECRET,
+        expiresInSec,
+      );
+    }
+    return c.json({
+      session_id: id,
+      mode: body.mode,
+      target_org_id: targetOrg?.org_id ?? null,
+      token,
+      expires_in: token ? expiresInSec : null,
+    });
   },
 );
 

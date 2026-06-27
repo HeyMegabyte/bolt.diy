@@ -538,6 +538,10 @@ export interface Env {
    * when unset so signing works without a separate secret in dev.
    */
   MANIFEST_SIGNING_SECRET?: string;
+  /** HS256 secret for super-admin impersonation tokens (§super_admin /impersonate).
+   * Self-generable (openssl rand -base64 32). Unset → impersonation records the
+   * session but issues no token (fail-soft). wrangler secret. */
+  IMPERSONATION_JWT_SECRET?: string;
   /** MailChimp OAuth app client ID + secret (single tenant; per-site tokens). */
   MAILCHIMP_CLIENT_ID?: string;
   MAILCHIMP_CLIENT_SECRET?: string;

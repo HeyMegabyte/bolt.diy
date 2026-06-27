@@ -600,8 +600,14 @@ describe('coupons', () => {
 
 describe('refunds', () => {
   beforeEach(grantSuperAdmin);
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
 
-  it('POST 201s and inserts a pending refund row', async () => {
+  it('POST 201s and inserts a pending refund row (no charge id → no Stripe call)', async () => {
+    const fetchSpy = jest.fn();
+    global.fetch = fetchSpy as unknown as typeof fetch;
     const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/refunds', makeEnv(), {
       org_id: 'org-7',
       amount_cents: 999,
@@ -610,8 +616,45 @@ describe('refunds', () => {
     expect(res.status).toBe(201);
     const json = (await res.json()) as { id: string; status: string };
     expect(json.status).toBe('pending');
+    expect(fetchSpy).not.toHaveBeenCalled();
     expect(mockDbInsert).toHaveBeenCalledTimes(1);
     expect(mockDbInsert.mock.calls[0][1]).toBe('refunds');
+  });
+
+  it('POST with stripe_charge_id calls the Stripe Refunds API + records the real refund', async () => {
+    const fetchSpy = jest
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 're_123', status: 'succeeded' }) });
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/refunds',
+      makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
+      { org_id: 'org-7', amount_cents: 500, reason: 'duplicate', stripe_charge_id: 'ch_1' },
+    );
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { status: string; stripe_refund_id: string };
+    expect(json.status).toBe('succeeded');
+    expect(json.stripe_refund_id).toBe('re_123');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.stripe.com/v1/refunds',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('POST 502s when Stripe rejects the refund', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: { message: 'No such charge' } }) }) as unknown as typeof fetch;
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/refunds',
+      makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
+      { org_id: 'org-7', amount_cents: 500, reason: 'fraudulent', stripe_charge_id: 'ch_bad' },
+    );
+    expect(res.status).toBe(502);
   });
 
   it('POST 400s on an invalid reason', async () => {
@@ -726,9 +769,29 @@ describe('impersonation', () => {
       reason: 'support ticket #42',
     });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { session_id: string; target_org_id: string };
+    const json = (await res.json()) as { session_id: string; target_org_id: string; token: string | null };
     expect(json.target_org_id).toBe('org-target');
+    expect(json.token).toBeNull(); // no secret configured → token omitted (fail-soft)
     expect(mockDbInsert.mock.calls[0][1]).toBe('impersonation_sessions');
+  });
+
+  it('issues a 30-min signed token when IMPERSONATION_JWT_SECRET is set', async () => {
+    mockDbQueryOne.mockImplementation(async (_db: unknown, sql: string) => {
+      if (/is_super_admin/i.test(sql)) return { is_super_admin: 1 };
+      if (/FROM memberships/i.test(sql)) return { org_id: 'org-target' };
+      return null;
+    });
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/impersonate',
+      makeEnv({ IMPERSONATION_JWT_SECRET: 'x'.repeat(40) }),
+      { target_user_id: 'u1', reason: 'support ticket #42' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { token: string; expires_in: number };
+    expect(json.token.split('.')).toHaveLength(3); // header.payload.signature
+    expect(json.expires_in).toBe(1800);
   });
 
   it('POST start 400s when reason is too short', async () => {
