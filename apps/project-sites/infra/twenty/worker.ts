@@ -42,8 +42,21 @@ export class TwentyCrm extends Container<Env> {
       // No persistent volume on CF Containers → keep uploads in Postgres-backed local
       // storage (ephemeral) rather than a disk that vanishes on hibernation.
       STORAGE_TYPE: 'local',
-      // BullMQ over the Upstash Redis URL above.
-      MESSAGE_QUEUE_TYPE: 'bull-mq',
+      // Run the job queue INLINE (sync driver) — this CF container runs only the
+      // server process (`node dist/main`), with NO separate Twenty worker to drain
+      // BullMQ. Under 'bull-mq', workspace-creation/metadata-sync/email jobs enqueue
+      // but never run → first signup creates the user row then silently stalls (no
+      // workspace, no metadata schema). 'sync' executes jobs in-process so a
+      // single-container deployment completes them. Redis (above) is still used for
+      // cache, just not the queue. (Diagnosed 2026-06-27 — crm login/signup repair.)
+      MESSAGE_QUEUE_TYPE: 'sync',
+      // SINGLE-workspace mode (multiworkspace OFF): the whole CRM lives on the base
+      // host crm.projectsites.dev. Multiworkspace would redirect to per-workspace
+      // subdomains (app.crm.projectsites.dev / <ws>.crm.projectsites.dev) which need
+      // wildcard DNS + cert we don't provision → chrome-error on signup. On a clean
+      // schema + warm Neon, the FIRST signup creates the default workspace inline under
+      // the sync queue. (Diagnosed 2026-06-27 — crm single-host signup repair.)
+      IS_MULTIWORKSPACE_ENABLED: 'false',
       // Run migrations on boot (entrypoint reads this; "true" would skip them).
       DISABLE_DB_MIGRATIONS: 'false',
       DISABLE_CRON_JOBS_REGISTRATION: 'false',
