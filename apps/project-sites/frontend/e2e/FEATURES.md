@@ -183,3 +183,5 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
   `command-palette`, `ai-chat-widget`) — so "un-bury vs retire the shell" is a
   product/architecture decision, deferred (entangled with the persistent-iframe
   host; not changed unilaterally under concurrent sessions).
+
+- **All feature flags ON + working** — `e2e/feature-flags-all-on.e2e.ts` — every registry flag resolves enabled (`/api/feature-flags/:key`); homepage + admin render clean (no app console errors) with all flags on.
