@@ -55,6 +55,16 @@ function formbricksEnvVars(env: Env): Record<string, string> {
     CRON_SECRET: env.FORMBRICKS_CRON_SECRET,
     WEBAPP_URL: FORMBRICKS_ORIGIN,
     NEXTAUTH_URL: FORMBRICKS_ORIGIN,
+    // Formbricks v5 REQUIRES Hub + Cube analytics vars even when unused. Placeholders
+    // satisfy the boot env-schema; Hub/analytics stay non-functional (not needed for surveys).
+    HUB_API_URL: 'http://localhost:3000',
+    HUB_API_KEY: 'unused-placeholder-hub-key',
+    CUBEJS_API_URL: 'http://localhost:4000',
+    CUBEJS_API_SECRET: 'unused-placeholder-cube-secret',
+    // Disable Prisma's migrate advisory lock — Formbricks runs `migrate deploy` on EVERY
+    // boot and the advisory lock times out against Neon (P1002). All migrations are already
+    // applied, so skipping the lock is a safe no-op that lets the server start.
+    PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: 'true',
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {
