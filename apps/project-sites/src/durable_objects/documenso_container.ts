@@ -52,6 +52,10 @@ function documensoEnvVars(env: Env): Record<string, string> {
     NEXT_PRIVATE_SIGNING_PASSPHRASE: env.DOCUMENSO_SIGNING_PASSPHRASE,
     NEXT_PUBLIC_WEBAPP_URL: DOCUMENSO_ORIGIN,
     NEXT_PRIVATE_INTERNAL_WEBAPP_URL: 'http://localhost:3000',
+    // Documenso runs `prisma migrate deploy` on every boot; the advisory lock times
+    // out against Neon (P1002 → container start AbortError). All migrations are
+    // already applied, so skipping the lock is a safe no-op that lets the server boot.
+    PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: 'true',
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {

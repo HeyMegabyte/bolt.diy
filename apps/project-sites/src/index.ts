@@ -185,8 +185,6 @@ export { CollabRoomDO } from './durable_objects/collab_room.js';
 export { EventDispatcher } from './durable_objects/event_dispatcher.js';
 // jobs./events.projectsites.dev — self-hosted Inngest server container (§13).
 export { InngestContainer } from './durable_objects/inngest_container.js';
-// survey.projectsites.dev — self-hosted Formbricks survey container (dedicated DO).
-export { FormbricksContainer } from './durable_objects/formbricks_container.js';
 // sign.projectsites.dev — self-hosted Documenso e-signature container (dedicated DO).
 export { DocumensoContainer } from './durable_objects/documenso_container.js';
 // schedule.projectsites.dev — self-hosted cal.diy scheduling container (dedicated DO).
@@ -464,18 +462,6 @@ app.get('/', async (c, next) => {
   return svc ? c.html(systemServiceLanding(svc)) : next();
 });
 app.route('/', inngestApp); // jobs./events.projectsites.dev → InngestContainer DO + /api/inngest serve handler (§13); degrades to 503 until the watched deploy binds INNGEST_CONTAINER — must precede the catch-all
-// survey.projectsites.dev → self-hosted Formbricks container (dedicated DO).
-// Proxies the FULL host (all methods/paths) to FORMBRICKS_CONTAINER; degrades to
-// 503 until the watched deploy binds it. Must precede the site-serving catch-all.
-app.all('*', async (c, next) => {
-  const hostname = (c.req.header('host') ?? '').toLowerCase();
-  if (hostname !== `survey.${DOMAINS.SITES_BASE}`) return next();
-  const binding = c.env.FORMBRICKS_CONTAINER;
-  if (!binding) {
-    return c.json({ error: 'Formbricks is provisioning; not yet available.' }, 503);
-  }
-  return binding.get(binding.idFromName('formbricks-singleton')).fetch(c.req.raw);
-});
 // sign.projectsites.dev → self-hosted Documenso container (dedicated DO).
 // Proxies the FULL host to DOCUMENSO_CONTAINER; degrades to 503 until the watched
 // deploy binds it. Must precede the site-serving catch-all.

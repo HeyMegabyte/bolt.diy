@@ -28,6 +28,27 @@ infrastructure. Full reference: [docs/AI_INTEGRATION.md](./docs/AI_INTEGRATION.m
 | Architecture | **Mermaid system diagram** + updated request flow | `docs/ARCHITECTURE.md` |
 | Ops | **Deployment guide** — auth chain, pre-flight bindings, smoke-test matrix, rollback | `docs/DEPLOYMENT.md` |
 
+## Self-hosted app catalog — the 4-service rule
+
+ProjectSites offers self-hosted OSS apps as customer SKUs, each on its own subdomain and
+run as a Cloudflare Workers Container (dedicated Durable Object + fixed host route).
+**An app is only supportable if its ENTIRE data/service plane fits within FOUR service
+types — no more:**
+
+1. **Custom** — the app's own container (Cloudflare Workers Container).
+2. **Upstash** — Redis (caching / rate-limit / queues), when the app requires it.
+3. **Neon** — Postgres (system of record).
+4. **Tinybird** — analytics / event data, when the app requires it.
+
+If an app needs anything OUTSIDE this set (its own bespoke Cube/ClickHouse analytics
+backend, a second custom service, extra Hub services, etc.), it is **NOT supportable** and
+must not be added.
+
+- **Live:** Documenso (`sign.projectsites.dev`, e-signatures — Neon) · cal.diy
+  (`schedule.projectsites.dev`, scheduling — Neon).
+- **Rejected:** Formbricks (surveys) — its v5 image requires **Cube** *and* multiple extra
+  custom **Hub** services, exceeding the 4-service max. Removed 2026-06-27.
+
 ## Repository layout
 
 | Path | What |

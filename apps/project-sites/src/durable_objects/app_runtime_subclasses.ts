@@ -81,9 +81,6 @@ export class OpenWebuiContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'open-webui';
   override defaultPort = 8080;
 }
-// NOTE: Formbricks (survey.projectsites.dev) is NOT a catalog app — it is a
-// dedicated platform container at a fixed subdomain, defined in
-// `formbricks_container.ts` (InngestContainer-style), not an AppRuntime subclass.
 
 /**
  * Catalog-slug → DO class-name map. Drives the dispatcher's binding-lookup
