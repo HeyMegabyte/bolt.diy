@@ -59,17 +59,31 @@ function documensoEnvVars(env: Env): Record<string, string> {
     // out against Neon (P1002 → container start AbortError). All migrations are
     // already applied, so skipping the lock is a safe no-op that lets the server boot.
     PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: 'true',
-    // SES SMTP (Brian directive: SMTP uses SES). Username = AWS access key id;
-    // password = the SES-derived SMTP password (HMAC of the AWS secret key,
-    // verified to auth against email-smtp.us-east-1). 587 + STARTTLS (secure=false).
-    NEXT_PRIVATE_SMTP_TRANSPORT: 'smtp-auth',
-    NEXT_PRIVATE_SMTP_HOST: 'email-smtp.us-east-1.amazonaws.com',
-    NEXT_PRIVATE_SMTP_PORT: '587',
-    NEXT_PRIVATE_SMTP_SECURE: 'false',
-    NEXT_PRIVATE_SMTP_USERNAME: env.AWS_ACCESS_KEY_ID,
-    NEXT_PRIVATE_SMTP_PASSWORD: env.DOCUMENSO_SMTP_PASSWORD,
+    // Email via the native SES transport (reuses the AWS keys directly via the AWS
+    // SDK — no fragile HMAC-derived SMTP password). From fields are transport-agnostic.
+    NEXT_PRIVATE_SMTP_TRANSPORT: 'ses',
+    NEXT_PRIVATE_SES_ACCESS_KEY_ID: env.AWS_ACCESS_KEY_ID,
+    NEXT_PRIVATE_SES_SECRET_ACCESS_KEY: env.AWS_SECRET_ACCESS_KEY,
+    NEXT_PRIVATE_SES_REGION: env.AWS_DEFAULT_REGION ?? 'us-east-1',
     NEXT_PRIVATE_SMTP_FROM_NAME: 'ProjectSites Sign',
     NEXT_PRIVATE_SMTP_FROM_ADDRESS: env.SES_FROM_EMAIL ?? 'noreply@projectsites.dev',
+    // Document/PDF storage → Cloudflare R2 (S3-compatible) instead of the default
+    // `database` transport that stuffs file bytes into Neon Postgres. Bucket
+    // `documenso-documents`; creds are a scoped R2 API token (S3 key id + sha256 secret).
+    NEXT_PUBLIC_UPLOAD_TRANSPORT: 's3',
+    NEXT_PRIVATE_UPLOAD_ENDPOINT:
+      'https://84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com',
+    NEXT_PRIVATE_UPLOAD_BUCKET: 'documenso-documents',
+    NEXT_PRIVATE_UPLOAD_REGION: 'auto',
+    NEXT_PRIVATE_UPLOAD_FORCE_PATH_STYLE: 'true',
+    NEXT_PRIVATE_UPLOAD_ACCESS_KEY_ID: env.DOCUMENSO_R2_ACCESS_KEY_ID,
+    NEXT_PRIVATE_UPLOAD_SECRET_ACCESS_KEY: env.DOCUMENSO_R2_SECRET_ACCESS_KEY,
+    // Bot protection on signup/signin (CF-minted widget for sign.projectsites.dev).
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAADsCKASACuOGsrMY',
+    NEXT_PRIVATE_TURNSTILE_SECRET_KEY: env.DOCUMENSO_TURNSTILE_SECRET_KEY,
+    // Privacy + UX polish.
+    DOCUMENSO_DISABLE_TELEMETRY: 'true',
+    NEXT_PUBLIC_SUPPORT_EMAIL: 'support@projectsites.dev',
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {

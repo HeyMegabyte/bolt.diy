@@ -199,6 +199,12 @@ export interface Env {
   DOCUMENSO_SIGNING_CERT_B64?: string;
   /** Documenso signing P12 passphrase. wrangler secret. */
   DOCUMENSO_SIGNING_PASSPHRASE?: string;
+  /** Documenso R2 (S3) access key id — scoped token for the `documenso-documents` bucket. wrangler secret. */
+  DOCUMENSO_R2_ACCESS_KEY_ID?: string;
+  /** Documenso R2 (S3) secret access key — sha256 of the scoped R2 API token value. wrangler secret. */
+  DOCUMENSO_R2_SECRET_ACCESS_KEY?: string;
+  /** Documenso Turnstile secret key — CF-minted widget for sign.projectsites.dev. wrangler secret. */
+  DOCUMENSO_TURNSTILE_SECRET_KEY?: string;
 
   // ─── cal.diy (schedule.projectsites.dev) — dedicated CF Workers Container ───
   /** cal.diy container DO binding. Optional until the watched deploy binds it; the schedule.* host route degrades to 503 without it. */
