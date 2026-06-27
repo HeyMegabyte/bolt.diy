@@ -187,6 +187,8 @@ export { InngestContainer } from './durable_objects/inngest_container.js';
 export { FormbricksContainer } from './durable_objects/formbricks_container.js';
 // sign.projectsites.dev — self-hosted Documenso e-signature container (dedicated DO).
 export { DocumensoContainer } from './durable_objects/documenso_container.js';
+// schedule.projectsites.dev — self-hosted cal.diy scheduling container (dedicated DO).
+export { CaldiyContainer } from './durable_objects/caldiy_container.js';
 export {
   UmamiContainer,
   OutlineContainer,
@@ -473,6 +475,18 @@ app.all('*', async (c, next) => {
     return c.json({ error: 'Documenso is provisioning; not yet available.' }, 503);
   }
   return binding.get(binding.idFromName('documenso-singleton')).fetch(c.req.raw);
+});
+// schedule.projectsites.dev → self-hosted cal.diy container (dedicated DO).
+// Proxies the FULL host to CALDIY_CONTAINER; degrades to 503 until the watched
+// deploy binds it. Must precede the site-serving catch-all.
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `schedule.${DOMAINS.SITES_BASE}`) return next();
+  const binding = c.env.CALDIY_CONTAINER;
+  if (!binding) {
+    return c.json({ error: 'cal.diy is provisioning; not yet available.' }, 503);
+  }
+  return binding.get(binding.idFromName('caldiy-singleton')).fetch(c.req.raw);
 });
 app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Inngest/Hatchet via getJobRouter(env)
 app.route('/', observabilityGateway); // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway) — must precede the catch-all

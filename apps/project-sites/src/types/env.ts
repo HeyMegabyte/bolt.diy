@@ -206,6 +206,16 @@ export interface Env {
   DOCUMENSO_SIGNING_CERT_B64?: string;
   /** Documenso signing P12 passphrase. wrangler secret. */
   DOCUMENSO_SIGNING_PASSPHRASE?: string;
+
+  // ─── cal.diy (schedule.projectsites.dev) — dedicated CF Workers Container ───
+  /** cal.diy container DO binding. Optional until the watched deploy binds it; the schedule.* host route degrades to 503 without it. */
+  CALDIY_CONTAINER?: DurableObjectNamespace;
+  /** cal.diy Postgres URL — Neon project `Caldiy` (empty-surf-47784419). wrangler secret. */
+  CALDIY_DATABASE_URL?: string;
+  /** cal.diy NextAuth secret (openssl rand -base64 32). wrangler secret. */
+  CALDIY_NEXTAUTH_SECRET?: string;
+  /** cal.diy CALENDSO_ENCRYPTION_KEY (AES-256, openssl rand -base64 32). wrangler secret. */
+  CALDIY_ENCRYPTION_KEY?: string;
   /**
    * Global toggle for the Unified Analytics beacon (Plane H). When `'true'`,
    * served sites inject the tracker → `/api/events` → durable D1 store → Analytics

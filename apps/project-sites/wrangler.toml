@@ -581,6 +581,37 @@ new_sqlite_classes = ["InngestContainer"]
 # tag = "v_documenso_container"
 # new_sqlite_classes = ["DocumensoContainer"]
 
+# ─── cal.diy (schedule.projectsites.dev) — CF Workers Container ───────────────
+# Same dedicated-DO pattern. Image is the LOCAL ./containers/caldiy/Dockerfile
+# (FROM calcom/cal.diy). DO subclass CaldiyContainer + the schedule.* host route
+# + env types are wired in code. Data plane: Neon project "Caldiy"
+# (empty-surf-47784419). cal.diy is Postgres-ONLY (no Redis). All 3 CALDIY_*
+# secrets are SET on the prod worker (DB, NextAuth, CALENDSO_ENCRYPTION_KEY).
+# NOTE: cal.diy rebuilds static files on first boot for the runtime
+# NEXT_PUBLIC_WEBAPP_URL → first request is slow (240s port-ready window).
+#
+# ⚠️ GO-LIVE IS A WATCHED, EYES-ON DEPLOY (one-way door) — same hazard class as
+# Formbricks/Documenso/Inngest (wrong migration tag blocks ALL deploys, can't
+# dry-run). Eyes-on: (1) Docker up; (2) confirm `v_caldiy_container` NOT in
+# remote history; (3) uncomment the THREE blocks below; (4) `wrangler deploy
+# --env production` (watch migration + image build); (5) curl
+# `https://schedule.projectsites.dev/auth/login` → 200 (allow for the slow first
+# boot). DNS already resolves via the *.projectsites.dev wildcard.
+#
+# [[env.production.containers]]
+# class_name = "CaldiyContainer"
+# image = "./containers/caldiy/Dockerfile"
+# max_instances = 3
+# instance_type = "standard-4"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "CALDIY_CONTAINER"
+# class_name = "CaldiyContainer"
+#
+# [[env.production.migrations]]
+# tag = "v_caldiy_container"
+# new_sqlite_classes = ["CaldiyContainer"]
+
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
 # `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in
