@@ -507,6 +507,20 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes:
       'OPTIONAL / lowest priority. Self-hosted Plane (Jira/Linear alternative). Django multi-service (api/worker/web/beat) — the heaviest container deploy (genuinely NOT CF-native-able). But code-style doctrine prefers in-repo issue tracking (.claude/issues / GitHub Issues) over external PM tools, so Plane is a convenience operator tool, not load-bearing. Deploy only on explicit want; otherwise track work in-repo. If deployed: CF Container topology + Neon DB + Upstash Redis + verify 200 at projects.projectsites.dev.',
   },
+  {
+    id: 'crm-twenty',
+    name: 'Twenty — self-hosted CRM',
+    domain: 'crm.projectsites.dev',
+    category: 'internal',
+    runtime: 'cloudflare-container',
+    ownerPackage: 'apps/project-sites/infra/twenty',
+    datastore: ['Neon:Twenty', 'Upstash:twenty'],
+    secretsNamespace: '/twenty',
+    status: 'production',
+    access: 'internal-access',
+    notes:
+      'LIVE (2026-06-27) — Twenty CRM (NestJS server + React) on a single CF Workers Container running server + worker in one process; data plane = Neon project "Twenty" (db neondb, schema core) + Upstash Redis. Image PINNED by digest in infra/twenty/Dockerfile (twentycrm/twenty:latest@sha256:62bd82f2… — :latest drifted ahead of the schema; the upstream entrypoint SWALLOWS migration failures → silent 500s on auth, so the pin is load-bearing). brian@megabyte.space logs in → ACTIVE "Megabyte Labs" workspace (28 objects/448 fields). Single-workspace (IS_MULTIWORKSPACE_ENABLED=false; true needs a wildcard cert). Canonical repair = clean `database:init:prod` with LOGGER_IS_BUFFER_ENABLED=false (commands buffer, never hang) — full runbook in infra/twenty/RUNBOOK.md.',
+  },
 ] as const;
 
 /** Vendors the convergence exclude-list (§4) forbids in new architecture. */
