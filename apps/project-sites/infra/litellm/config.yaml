@@ -1,20 +1,14 @@
 # LiteLLM proxy config for llm.megabyte.space.
-# Model creds are read from env (set as wrangler secrets, injected by the Container DO).
+# Model creds + DATABASE_URL + REDIS_URL + LITELLM_SALT_KEY arrive via env (wrangler
+# secrets injected by the Container DO). Production posture per docs.litellm.ai/docs/proxy/prod.
 #
-# NATIVE ADAPTIVE ROUTER (Brian 2026-06-27): consumers call ONE entrypoint — `smart`
+# NATIVE ADAPTIVE ROUTER: consumers call ONE entrypoint — `smart`
 # (model: auto_router/adaptive_router) — and LiteLLM's native adaptive_router picks the
-# cheapest model whose quality_tier + strengths meet the prompt, biased by the
-# quality/cost weights. Tiers:
-#   tier 3 (frontier) → Opus 4.8  + GPT-5  (advanced reasoning; Opus errors fall back to GPT)
+# cheapest model whose quality_tier + strengths meet the prompt, biased by quality/cost weights:
+#   tier 3 (frontier) → Opus 4.8 + GPT-5  (advanced reasoning; Opus errors fall back to GPT)
 #   tier 2 (mid)      → DeepSeek          (almost everything; the cost-leaning default)
-# Cost-leaning weights (quality 0.45 / cost 0.55) keep the default on DeepSeek and only
-# escalate genuinely-complex prompts to the frontier tier. Twenty CRM points at `smart`.
-# A tier-1 Cloudflare Workers AI leg (trivial prompts) drops in once a Workers-AI token
-# is set as CLOUDFLARE_API_KEY (see worker.ts) — add it to available_models then.
-#
-# `strengths` MUST be one of the adaptive_router enum values:
-#   code_generation | code_understanding | technical_design | analytical_reasoning
-#   | writing | factual_lookup | general   (any other value crashes proxy startup).
+# `strengths` MUST be one of: code_generation | code_understanding | technical_design |
+#   analytical_reasoning | writing | factual_lookup | general  (else proxy startup crashes).
 
 model_list:
   # ── tier 3 (frontier) — advanced tasks ──
@@ -24,6 +18,7 @@ model_list:
       api_key: os.environ/ANTHROPIC_API_KEY
     model_info:
       input_cost_per_token: 0.000005
+      output_cost_per_token: 0.000025
       adaptive_router_preferences:
         quality_tier: 3
         strengths: ["analytical_reasoning", "technical_design", "code_generation", "code_understanding"]
@@ -33,6 +28,7 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
     model_info:
       input_cost_per_token: 0.0000025
+      output_cost_per_token: 0.00001
       adaptive_router_preferences:
         quality_tier: 3
         strengths: ["analytical_reasoning", "code_generation", "writing"]
@@ -43,9 +39,15 @@ model_list:
       api_key: os.environ/DEEPSEEK_API_KEY
     model_info:
       input_cost_per_token: 0.00000027
+      output_cost_per_token: 0.0000011
       adaptive_router_preferences:
         quality_tier: 2
         strengths: ["general", "writing", "factual_lookup"]
+  # ── embeddings (RAG / Vectorize / future semantic cache) ──
+  - model_name: embedding
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
 
   # ── the single entrypoint: native adaptive_router across the tiers above ──
   - model_name: smart
@@ -59,14 +61,32 @@ model_list:
 
 litellm_settings:
   drop_params: true
-  num_retries: 2
+  num_retries: 3
   request_timeout: 600
+  json_logs: true
+  # Redis exact-match response cache (dedupe identical prompts → cut spend + latency).
+  cache: true
+  cache_params:
+    type: redis
+    redis_url: os.environ/REDIS_URL
+    ttl: 600
+  # Prometheus /metrics (RPS, latency, error rate, budget headroom).
+  callbacks: ["prometheus"]
 
 router_settings:
   routing_strategy: simple-shuffle
+  # Shared cooldown / rate-limit state across instances (Upstash Redis).
+  redis_url: os.environ/REDIS_URL
+  allowed_fails: 3
+  cooldown_time: 30
   # Opus's only backup is GPT-5 (advanced tasks); DeepSeek has none (per directive).
   fallbacks:
     - opus: ["gpt"]
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+  # Batch spend writes every 60s; cap DB pool per worker.
+  proxy_batch_write_at: 60
+  database_connection_pool_limit: 5

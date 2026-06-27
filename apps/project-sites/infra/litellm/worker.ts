@@ -28,6 +28,15 @@ interface Env {
    *  adaptive_router available_models. Optional: empty = the router runs tiers 2-3 only. */
   CLOUDFLARE_API_KEY?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  /** Postgres (Neon projectsites_litellm) — virtual keys, spend tracking, budgets,
+   *  Admin UI, STORE_MODEL_IN_DB. First boot runs Prisma migrations against it. */
+  DATABASE_URL?: string;
+  /** Upstash Redis (rediss://) — shared rate-limit/budget state + response caching. */
+  REDIS_URL?: string;
+  /** Encrypts provider creds stored in the DB (Admin UI). Required before STORE_MODEL_IN_DB. */
+  LITELLM_SALT_KEY?: string;
+  /** Slack incoming webhook for hanging-request / slow-response / budget alerts. */
+  SLACK_WEBHOOK_URL?: string;
 }
 
 export class LiteLLM extends Container<Env> {
@@ -46,18 +55,29 @@ export class LiteLLM extends Container<Env> {
       DEEPSEEK_API_KEY: env.DEEPSEEK_API_KEY,
       CLOUDFLARE_API_KEY: env.CLOUDFLARE_API_KEY,
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
+      DATABASE_URL: env.DATABASE_URL,
+      REDIS_URL: env.REDIS_URL,
+      LITELLM_SALT_KEY: env.LITELLM_SALT_KEY,
+      SLACK_WEBHOOK_URL: env.SLACK_WEBHOOK_URL,
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) {
       if (typeof v === 'string' && v.length > 0) out[k] = v;
     }
+    // Production posture (LiteLLM prod guide): structured JSON logs, ERROR-only FastAPI
+    // logs, no load_dotenv. STORE_MODEL_IN_DB lets the Admin UI add models without a redeploy
+    // — only when a DB + salt key are present (it encrypts stored provider creds).
+    out.LITELLM_MODE = 'PRODUCTION';
+    out.LITELLM_LOG = 'ERROR';
+    if (out.DATABASE_URL && out.LITELLM_SALT_KEY) out.STORE_MODEL_IN_DB = 'True';
     this.envVars = out;
   }
 
   override async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
+      // First boot runs Prisma migrations against Neon — allow a generous window.
       ports: 4000,
-      cancellationOptions: { portReadyTimeoutMS: 120_000 },
+      cancellationOptions: { portReadyTimeoutMS: 220_000 },
     });
     return this.containerFetch(request);
   }
