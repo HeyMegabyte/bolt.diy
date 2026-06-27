@@ -84,6 +84,19 @@ function documensoEnvVars(env: Env): Record<string, string> {
     // Privacy + UX polish.
     DOCUMENSO_DISABLE_TELEMETRY: 'true',
     NEXT_PUBLIC_SUPPORT_EMAIL: 'support@projectsites.dev',
+    // Raise the in-app upload limit to match the worker's 100 MB ceiling for
+    // sign.* (Documenso defaults to 50 MB).
+    NEXT_PUBLIC_DOCUMENT_SIZE_UPLOAD_LIMIT: '100',
+    // Explicit local signing transport (we ship a self-signed P12 cert above).
+    NEXT_PRIVATE_SIGNING_TRANSPORT: 'local',
+    // Contact info embedded in the signed-PDF signature metadata.
+    NEXT_PUBLIC_SIGNING_CONTACT_INFO: 'support@projectsites.dev',
+    // Recipient for Documenso's internal/admin notifications.
+    DOCUMENSO_INTERNAL_EMAIL: 'support@projectsites.dev',
+    // Single-operator instance: lock open self-signup. Document SIGNERS never need
+    // an account (they sign via emailed links); org members come in by invite. Flip
+    // to remove this var if you want public signups.
+    NEXT_PUBLIC_DISABLE_SIGNUP: 'true',
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {
