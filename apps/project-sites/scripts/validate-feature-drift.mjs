@@ -248,6 +248,20 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // must accept beacons unconditionally + degrades gracefully; the
     // ANALYTICS_INGEST_ENABLED var gates the tracker injection, not the endpoint.
     'analyticsRoutes',
+    // Core infra + admin/auth surfaces that legitimately never feature-flag (same
+    // class as 'health'/'webhooks'/'superAdmin'/'dashboard' above):
+    //   authIdp        — env-gated (BETTER_AUTH_*/WORKOS_* → getIdentityProvider null/404), not a flag
+    //   browserService — CF Browser gateway infra (browser.projectsites.dev)
+    //   inngestApp     — self-hosted Inngest serve handler (jobs plane infra)
+    //   sesWebhooks    — SES bounce/complaint webhook receiver (like 'webhooks')
+    //   openapiRoutes  — OpenAPI 3.1 spec serving (like 'docs')
+    //   claimRoutes    — public lead-claim flow (core, not a gated feature)
+    //   adminAnalytics/adminFunnel/adminOutbox — operator admin surfaces (org-auth gated, not flag)
+    'authIdp', 'browserService', 'inngestApp', 'sesWebhooks', 'openapiRoutes',
+    'claimRoutes', 'adminAnalytics', 'adminFunnel', 'adminOutbox',
+    // featureE2e — operator per-feature E2E check runner (drives Browser Rendering
+    // to verify OTHER features); test/ops infra, not itself a flag-gated feature.
+    'featureE2e',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
@@ -297,6 +311,10 @@ async function checkFileForFlagGate(importPath) {
         //     via libs/features/<slug>/feature.routes.ts template)
         return (
           src.includes('isFlagOn') ||
+          // NB: requireOrgFlag must be matched explicitly — it is NOT a substring
+          // of 'requireFlag' (require-Org-Flag), so the org-scoped guard from
+          // src/lib/feature_guard.ts was being missed → false IMPL_WITHOUT_FLAG.
+          src.includes('requireOrgFlag') ||
           src.includes('requireFlag') ||
           src.includes('requireFeatureFlag') ||
           src.includes('FLAG_REGISTRY') ||
