@@ -28,6 +28,7 @@ import { manualAdjustment } from '../services/wallet.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { listSuppressions, removeSuppression } from '../services/email_suppressions.js';
 import { invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
+import { SERVICE_REGISTRY } from '../platform/service-registry.js';
 import { unauthorized, forbidden } from '@project-sites/shared';
 
 const superAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -411,6 +412,28 @@ superAdmin.post(
 superAdmin.get('/api/super-admin/whoami', async (c) => {
   // Already passed the requireSuperAdmin middleware, so true by construction.
   return c.json({ is_super_admin: true, user_id: c.get('userId') });
+});
+
+/**
+ * `GET /api/super-admin/services` — the platform service catalog (§66). Returns
+ * the typed {@link SERVICE_REGISTRY} (every system ProjectSites runs/depends on:
+ * edge, data, auth, jobs, billing, the self-hosted subdomain containers, …) so the
+ * operator-only `/admin/system-services` view can render status + domain + runtime.
+ * Read-only; the registry is the source of truth (kept in lockstep with reality).
+ *
+ * @throws 403 FORBIDDEN when the caller is not a super-admin.
+ */
+superAdmin.get('/api/super-admin/services', async (c) => {
+  return c.json({
+    services: SERVICE_REGISTRY,
+    counts: {
+      total: SERVICE_REGISTRY.length,
+      production: SERVICE_REGISTRY.filter((s) => s.status === 'production').length,
+      integrated: SERVICE_REGISTRY.filter((s) => s.status === 'integrated').length,
+      scaffolded: SERVICE_REGISTRY.filter((s) => s.status === 'scaffolded').length,
+      planned: SERVICE_REGISTRY.filter((s) => s.status === 'planned').length,
+    },
+  });
 });
 
 // ─── Audit helper — every super-admin write goes through here ─────────────

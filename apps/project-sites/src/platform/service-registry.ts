@@ -375,7 +375,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     runtime: 'cloudflare-container',
     adapterPackage: 'apps/project-sites/src/services/better_auth_provider.ts',
     secretsNamespace: '/better-auth',
-    status: 'integrated',
+    status: 'production',
     access: 'public',
     notes:
       'IdentityProvider port + BetterAuthIdentityProvider (OIDC authorization-code, fetch-based) + FakeIdentityProvider + getIdentityProvider(env) factory, all tested. The DEFAULT consumer-auth IdP, self-hosted at auth.projectsites.dev on Neon (Neon-native, unlike Logto). After handleCallback the EXISTING D1 session machinery (findOrCreateUser→createSession) issues our session. Ships dark behind BETTER_AUTH_* — custom magic-link/Google auth stays live until configured; see docs/runbooks/auth-better-auth-workos-activation.md. ADR-0006.',
@@ -464,6 +464,46 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     access: 'service-only',
     notes:
       'SdkCodegenProvider port + NoopSdkCodegenProvider (dark default) + FakeSdkCodegenProvider + StainlessSdkCodegenProvider (fetch-based POST of the spec) + getSdkCodegenProvider(env) factory, all tested. Genuinely new (no homegrown client SDK today) — feeds the EXISTING generated OpenAPI 3.1 spec (GET /api/admin/docs/openapi.json, from routes/docs.ts) to Stainless. Ships DARK behind STAINLESS_API_KEY → unset = Noop (generate() = skipped). Fail-soft. Remaining: finalize the exact Stainless REST contract + wire a gen:sdk CI step when the key is provisioned (baseUrl/endpoint are config, not code). §47.',
+  },
+  {
+    id: 'webhooks-svix',
+    name: 'Svix — self-hosted outbound webhook delivery',
+    domain: 'webhooks.projectsites.dev',
+    category: 'webhooks',
+    runtime: 'cloudflare-container',
+    adapterPackage: 'apps/project-sites/src/services/outbound_webhooks.ts',
+    datastore: ['Neon:svix', 'Upstash:svix'],
+    secretsNamespace: '/svix',
+    status: 'planned',
+    access: 'internal-access',
+    notes:
+      'Self-hosted Svix (Rust webhook engine) for durable outbound webhook delivery + signing + retries + replay. CF Container + Neon (Postgres, standard migrations — Neon-native) + Upstash (Redis). The native outbound_webhooks.ts seam already exists; Svix becomes the managed delivery backend when deployed. Remaining: container deploy (Dockerfile FROM svix/svix-server) + Neon DB + Upstash Redis + verify 200 at webhooks.projectsites.dev.',
+  },
+  {
+    id: 'engage-dittofeed',
+    name: 'Dittofeed — self-hosted customer messaging / engagement',
+    domain: 'engage.projectsites.dev',
+    category: 'notifications',
+    runtime: 'cloudflare-container',
+    datastore: ['Neon:dittofeed', 'Upstash:dittofeed', 'Tinybird'],
+    secretsNamespace: '/dittofeed',
+    status: 'planned',
+    access: 'internal-access',
+    notes:
+      'Self-hosted Dittofeed (open-source customer engagement / journeys / broadcasts). CF Container + Neon (Postgres) + Upstash (Redis/Temporal) + Tinybird (ClickHouse-compatible event store). Heaviest of the messaging trio. Remaining: container deploy + 3 datastores + verify 200 at engage.projectsites.dev.',
+  },
+  {
+    id: 'projects-plane',
+    name: 'Plane — self-hosted project management',
+    domain: 'projects.projectsites.dev',
+    category: 'internal',
+    runtime: 'cloudflare-container',
+    datastore: ['Neon:plane', 'Upstash:plane'],
+    secretsNamespace: '/plane',
+    status: 'planned',
+    access: 'internal-access',
+    notes:
+      'Self-hosted Plane (open-source Jira/Linear alternative) for internal project tracking. CF Container(s) + Neon (Postgres) + Upstash (Redis). Multi-service app (api/worker/web) — the heaviest container deploy. Remaining: container topology + Neon DB + Upstash Redis + verify 200 at projects.projectsites.dev login.',
   },
 ] as const;
 

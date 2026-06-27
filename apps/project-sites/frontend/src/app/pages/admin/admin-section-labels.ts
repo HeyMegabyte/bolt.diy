@@ -32,6 +32,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   deliverability: 'Deliverability', webhooks: 'Webhooks',
   'api-tokens': 'API Tokens',
   'accept-invite': 'Accept Invite',
+  'system-services': 'System Services',
 };
 
 /**

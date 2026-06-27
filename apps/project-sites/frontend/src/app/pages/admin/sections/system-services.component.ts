@@ -1,0 +1,184 @@
+import { Component, computed, signal, inject, DestroyRef, type OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ApiService } from '../../../services/api.service';
+import { ErrorCardComponent } from '../../../components/states/error-card.component';
+
+/** One platform service, mirroring the worker's SERVICE_REGISTRY entry shape (§66). */
+interface PlatformService {
+  readonly id: string;
+  readonly name: string;
+  readonly domain?: string;
+  readonly category: string;
+  readonly runtime: string;
+  readonly status: 'planned' | 'scaffolded' | 'integrated' | 'production' | 'deprecated' | 'removed';
+  readonly access: string;
+  readonly datastore?: readonly string[];
+  readonly notes?: string;
+}
+
+interface ServicesResponse {
+  readonly services: readonly PlatformService[];
+  readonly counts: Record<string, number>;
+}
+
+/** Display order: live first, planned last. */
+const STATUS_ORDER: Record<string, number> = {
+  production: 0,
+  integrated: 1,
+  scaffolded: 2,
+  planned: 3,
+  deprecated: 4,
+  removed: 5,
+};
+
+/**
+ * System Services — operator-only catalog of every platform service the worker's
+ * SERVICE_REGISTRY (§66) declares: the edge API, data stores, auth (Better Auth),
+ * billing, the AI gateway, and every self-hosted subdomain container (mail, jobs,
+ * webhooks/Svix, engage/Dittofeed, projects/Plane, integrations/Nango, …). Read-only
+ * — the registry is the source of truth. Surfaces what previously had NO admin view.
+ *
+ * Backed by `GET /api/super-admin/services` (super-admin gated; 403 to non-operators).
+ */
+@Component({
+  selector: 'app-system-services',
+  standalone: true,
+  imports: [ErrorCardComponent],
+  template: `
+    <div class="px-6 pt-5 pb-8 max-md:px-4" data-testid="system-services">
+      <h1 class="text-[1.35rem] font-extrabold text-white tracking-tight m-0">System Services</h1>
+      <p class="text-[0.82rem] text-text-secondary mt-1 mb-4">
+        Every platform service ProjectSites runs or depends on — edge, data, auth, billing, AI,
+        and the self-hosted subdomain containers. Read-only operator catalog.
+      </p>
+
+      @if (loading()) {
+        <div class="grid gap-2" aria-busy="true">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="h-[58px] rounded-xl border border-white/[0.06] bg-white/[0.02] animate-pulse"></div>
+          }
+        </div>
+      } @else if (loadError()) {
+        <app-error-card title="Service catalog unavailable" [message]="loadError()!" (retry)="load()" />
+      } @else {
+        <!-- counts strip -->
+        <div class="flex flex-wrap gap-2 mb-4" data-testid="system-services-counts">
+          @for (c of countChips(); track c.key) {
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[0.78rem] font-semibold border"
+              [class]="chipClass(c.key)">
+              <span class="tabular-nums">{{ c.value }}</span>
+              <span class="opacity-80">{{ c.key }}</span>
+            </span>
+          }
+        </div>
+
+        <div class="grid gap-2" role="list">
+          @for (s of services(); track s.id) {
+            <div role="listitem"
+              class="flex items-start gap-3 p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-primary/30 transition-colors"
+              [attr.data-testid]="'service-' + s.id">
+              <span class="mt-0.5 shrink-0 w-2 h-2 rounded-full" [class]="dotClass(s.status)" aria-hidden="true"></span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[0.92rem] font-bold text-white">{{ s.name }}</span>
+                  <span class="px-2 py-0.5 rounded-md text-[0.68rem] font-bold uppercase tracking-wide border"
+                    [class]="badgeClass(s.status)">{{ s.status }}</span>
+                </div>
+                <div class="flex items-center gap-2.5 flex-wrap mt-1 text-[0.74rem] text-text-secondary">
+                  @if (s.domain) {
+                    <a [href]="'https://' + cleanDomain(s.domain)" target="_blank" rel="noopener"
+                      class="text-primary hover:underline font-medium">{{ s.domain }}</a>
+                  }
+                  <span class="font-mono">{{ s.runtime }}</span>
+                  <span class="opacity-50">·</span>
+                  <span>{{ s.category }}</span>
+                  @if (s.datastore?.length) {
+                    <span class="opacity-50">·</span>
+                    <span class="font-mono opacity-80">{{ s.datastore!.join(', ') }}</span>
+                  }
+                </div>
+                @if (s.notes) {
+                  <p class="text-[0.72rem] text-text-secondary/70 mt-1.5 line-clamp-2" [attr.title]="s.notes">{{ s.notes }}</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  `,
+})
+export class SystemServicesComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
+  private readonly raw = signal<readonly PlatformService[]>([]);
+  private readonly counts = signal<Record<string, number>>({});
+
+  /** Sorted live-first for the operator scan. */
+  readonly services = computed(() =>
+    [...this.raw()].sort(
+      (a, b) =>
+        (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
+        a.name.localeCompare(b.name),
+    ),
+  );
+
+  readonly countChips = computed(() =>
+    (['production', 'integrated', 'scaffolded', 'planned'] as const)
+      .map((key) => ({ key, value: this.counts()[key] ?? 0 }))
+      .filter((c) => c.value > 0),
+  );
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  load(): void {
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.api
+      .get<ServicesResponse>('/super-admin/services')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.raw.set(Array.isArray(res?.services) ? res.services : []);
+          this.counts.set(res?.counts ?? {});
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loadError.set('Could not load the service catalog.');
+          this.loading.set(false);
+        },
+      });
+  }
+
+  /** Strip a wildcard prefix (`*.projectsites.dev`) for the href. */
+  cleanDomain(domain: string): string {
+    return domain.replace(/^\*\./, '');
+  }
+
+  dotClass(status: string): string {
+    if (status === 'production') return 'bg-emerald-400';
+    if (status === 'integrated') return 'bg-primary';
+    if (status === 'scaffolded') return 'bg-amber-400';
+    if (status === 'planned') return 'bg-white/30';
+    return 'bg-white/20';
+  }
+
+  badgeClass(status: string): string {
+    if (status === 'production') return 'border-emerald-400/30 text-emerald-300 bg-emerald-400/10';
+    if (status === 'integrated') return 'border-primary/30 text-primary bg-primary/10';
+    if (status === 'scaffolded') return 'border-amber-400/30 text-amber-300 bg-amber-400/10';
+    return 'border-white/15 text-text-secondary bg-white/[0.03]';
+  }
+
+  chipClass(key: string): string {
+    if (key === 'production') return 'border-emerald-400/30 text-emerald-300 bg-emerald-400/[0.06]';
+    if (key === 'integrated') return 'border-primary/30 text-primary bg-primary/[0.06]';
+    if (key === 'scaffolded') return 'border-amber-400/30 text-amber-300 bg-amber-400/[0.06]';
+    return 'border-white/12 text-text-secondary bg-white/[0.02]';
+  }
+}

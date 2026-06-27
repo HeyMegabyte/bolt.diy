@@ -377,6 +377,17 @@ export const routes: Routes = [
           import('./pages/super-admin/super-admin.component').then((m) => m.SuperAdminComponent),
       },
       {
+        // Operator-only platform service catalog (§66) — surfaces SERVICE_REGISTRY
+        // (edge/data/auth/billing/AI + self-hosted subdomain containers) which had
+        // NO admin view. Backed by GET /api/super-admin/services (super-admin gated).
+        path: 'system-services',
+        canActivate: [sysAdminGuard],
+        loadComponent: () =>
+          import('./pages/admin/sections/system-services.component').then(
+            (m) => m.SystemServicesComponent,
+          ),
+      },
+      {
         // Admin-scoped 404 — MUST be last. Catches any unknown `/admin/*` path
         // (stale bookmark to a renamed route, or a param-route hit without its
         // param like `/admin/swarm`) and renders INSIDE the cockpit shell,
