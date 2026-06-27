@@ -1,0 +1,22 @@
+app = "projectsites-langfuse-worker"
+primary_region = "iad"
+[build]
+  image = "langfuse/langfuse-worker:3"
+[env]
+  CLICKHOUSE_URL = "http://projectsites-clickhouse.fly.dev:8123"
+  CLICKHOUSE_MIGRATION_URL = "clickhouse://projectsites-clickhouse.fly.dev:9000"
+  CLICKHOUSE_USER = "langfuse"
+  CLICKHOUSE_CLUSTER_ENABLED = "false"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET = "projectsites-langfuse"
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT = "https://84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com"
+  LANGFUSE_S3_EVENT_UPLOAD_REGION = "auto"
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE = "true"
+  TELEMETRY_ENABLED = "false"
+[[services]]
+  internal_port = 3030
+  protocol = "tcp"
+  [[services.ports]]
+    port = 3030
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1024"
