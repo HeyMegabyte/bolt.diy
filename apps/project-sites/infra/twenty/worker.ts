@@ -21,6 +21,19 @@ interface Env {
   REDIS_URL: string;
   /** Signs sessions/tokens (openssl rand -base64 32). */
   APP_SECRET: string;
+  /**
+   * Twenty AI provider catalog (JSON, deep-merged onto Twenty's built-in catalog).
+   * Holds a custom `@ai-sdk/openai-compatible` provider pointing at the ProjectSites
+   * LiteLLM gateway (llm.megabyte.space) so Twenty's AI uses the platform LLM facade
+   * (RouteLLM premium/cheap, CF AI Gateway caching) instead of a raw vendor key.
+   * Value carries the LiteLLM master key → set as a wrangler secret. Optional: unset
+   * = Twenty falls back to its built-in OPENAI/ANTHROPIC/XAI key detection.
+   */
+  AI_PROVIDERS?: string;
+  /** Google OAuth client ID (Google Cloud Console) — enables Google SSO when set. */
+  AUTH_GOOGLE_CLIENT_ID?: string;
+  /** Google OAuth client secret (Google Cloud Console). */
+  AUTH_GOOGLE_CLIENT_SECRET?: string;
 }
 
 export class TwentyCrm extends Container<Env> {
@@ -58,6 +71,23 @@ export class TwentyCrm extends Container<Env> {
       DISABLE_DB_MIGRATIONS: 'false',
       DISABLE_CRON_JOBS_REGISTRATION: 'false',
       TZ: 'America/New_York',
+      // Email+password login enabled.
+      AUTH_PASSWORD_ENABLED: 'true',
+      // No public self-signup — only existing members + explicitly invited users can
+      // authenticate. (Brian 2026-06-27: "no public sign up". Note: IS_SIGN_UP_DISABLED
+      // must be 'true' to DISABLE signup — 'false' would leave it open.)
+      IS_SIGN_UP_DISABLED: 'true',
+      // Google SSO auto-activates once the OAuth secrets are set, so deploying before the
+      // creds land doesn't render a broken Google button. Register this callback URL in
+      // Google Cloud Console: https://crm.projectsites.dev/auth/google/redirect
+      AUTH_GOOGLE_ENABLED: env.AUTH_GOOGLE_CLIENT_ID ? 'true' : 'false',
+      AUTH_GOOGLE_CLIENT_ID: env.AUTH_GOOGLE_CLIENT_ID ?? '',
+      AUTH_GOOGLE_CLIENT_SECRET: env.AUTH_GOOGLE_CLIENT_SECRET ?? '',
+      AUTH_GOOGLE_CALLBACK_URL: 'https://crm.projectsites.dev/auth/google/redirect',
+      // Route Twenty's AI through the ProjectSites LiteLLM gateway (llm.megabyte.space)
+      // via a custom @ai-sdk/openai-compatible provider. Only injected when the secret
+      // is set; otherwise Twenty uses its built-in vendor-key detection.
+      ...(env.AI_PROVIDERS ? { AI_PROVIDERS: env.AI_PROVIDERS } : {}),
     };
   }
 

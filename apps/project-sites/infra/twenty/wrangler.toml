@@ -35,4 +35,6 @@ new_sqlite_classes = ["TwentyCrm"]
 #   PG_DATABASE_URL   (Neon "Twenty" project — postgresql://...sslmode=require)
 #   REDIS_URL         (Upstash — rediss://default:<password>@<host>:6379)
 #   APP_SECRET        (openssl rand -base64 32 — signs sessions/tokens)
+#   AUTH_GOOGLE_CLIENT_ID      (Google Cloud Console OAuth client — enables Google SSO when set)
+#   AUTH_GOOGLE_CLIENT_SECRET  (Google Cloud Console OAuth client secret)
 [vars]
