@@ -13,10 +13,7 @@ jest.mock('../services/webhook.js', () => ({
 import { Hono } from 'hono';
 import { signHs256 } from '../lib/jwt.js';
 import { livekitWebhookRoutes } from '../routes/livekit_webhooks.js';
-import {
-  checkWebhookIdempotency,
-  storeWebhookEvent,
-} from '../services/webhook.js';
+import { checkWebhookIdempotency, storeWebhookEvent } from '../services/webhook.js';
 import type { Env, Variables } from '../types/env.js';
 
 const mockDupe = checkWebhookIdempotency as jest.MockedFunction<typeof checkWebhookIdempotency>;
@@ -53,7 +50,14 @@ const EVENT = JSON.stringify({
 
 async function post(
   body: string,
-  opts: { token?: string; secret?: string; iss?: string; sha256?: string; noAuth?: boolean; env?: Env } = {},
+  opts: {
+    token?: string;
+    secret?: string;
+    iss?: string;
+    sha256?: string;
+    noAuth?: boolean;
+    env?: Env;
+  } = {},
 ) {
   const hash = opts.sha256 ?? (await sha256Base64(body));
   const token =
@@ -73,12 +77,18 @@ describe('POST /webhooks/livekit', () => {
     expect(await res.json()).toEqual({ received: true });
     expect(mockStore).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ provider: 'livekit', event_id: 'EV_room_finished_1', event_type: 'room_finished' }),
+      expect.objectContaining({
+        provider: 'livekit',
+        event_id: 'EV_room_finished_1',
+        event_type: 'room_finished',
+      }),
     );
   });
 
   it('returns 404 (dark) when LiveKit creds are unset', async () => {
-    const res = await post(EVENT, { env: makeEnv({ LIVEKIT_API_KEY: undefined, LIVEKIT_API_SECRET: undefined }) });
+    const res = await post(EVENT, {
+      env: makeEnv({ LIVEKIT_API_KEY: undefined, LIVEKIT_API_SECRET: undefined }),
+    });
     expect(res.status).toBe(404);
     expect(mockStore).not.toHaveBeenCalled();
   });
