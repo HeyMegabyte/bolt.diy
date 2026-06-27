@@ -84,6 +84,20 @@ export class TwentyCrm extends Container<Env> {
       AUTH_GOOGLE_CLIENT_ID: env.AUTH_GOOGLE_CLIENT_ID ?? '',
       AUTH_GOOGLE_CLIENT_SECRET: env.AUTH_GOOGLE_CLIENT_SECRET ?? '',
       AUTH_GOOGLE_CALLBACK_URL: 'https://crm.projectsites.dev/auth/google/redirect',
+      // Connected accounts (Gmail thread + Google Calendar sync into the CRM) — a SEPARATE
+      // OAuth flow from SSO login, reusing the same Google client. Surfaces the "connect
+      // account" UI only when the OAuth client exists. Requires, in Google Cloud Console:
+      // Gmail API + Calendar API enabled, the gmail/calendar scopes consented, and this
+      // APIs callback registered as an authorized redirect URI (distinct from the SSO one).
+      // Sync jobs run on the in-container worker (MESSAGE_QUEUE_TYPE=bull-mq, already set).
+      ...(env.AUTH_GOOGLE_CLIENT_ID
+        ? {
+            MESSAGING_PROVIDER_GMAIL_ENABLED: 'true',
+            CALENDAR_PROVIDER_GOOGLE_ENABLED: 'true',
+            AUTH_GOOGLE_APIS_CALLBACK_URL:
+              'https://crm.projectsites.dev/auth/google-apis/get-access-token',
+          }
+        : {}),
       // Route Twenty's AI through the ProjectSites LiteLLM gateway (llm.megabyte.space)
       // via a custom @ai-sdk/openai-compatible provider. Only injected when the secret
       // is set; otherwise Twenty uses its built-in vendor-key detection.

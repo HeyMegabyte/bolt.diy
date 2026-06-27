@@ -19,7 +19,7 @@ FROM twentycrm/twenty:latest@sha256:62bd82f203fd9edc59bfdebf01467a967971c31e66be
 # Cache-busting label: bump this when a worker.ts envVar change (e.g. MESSAGE_QUEUE_TYPE)
 # must reach a warm container. CF only rolls the container when the built image changes;
 # a new label = new image hash = forced cold start that re-applies the DO's envVars.
-LABEL dev.projectsites.config-rev="2026-06-27-auth-hardening"
+LABEL dev.projectsites.config-rev="2026-06-27-google-apis-sync"
 
 # 3000 = HTTP (server + bundled frontend) — the port the TwentyCrm Container DO proxies.
 EXPOSE 3000
