@@ -9,7 +9,7 @@
 | OpenTelemetry (OTel) | Correlation and transport layer | Workers runtime → Axiom | OTLP/HTTP to Axiom OTLP endpoint | Attaching trace IDs and span IDs to every log line and event, AI call spans, D1 query spans | Storage — OTel is transport only, not a store |
 | ClickHouse (Fly.io) | High-volume analytics warehouse | Single-node Fly.io VM | HTTP API on port 8123 | page_views, events, site_builds at scale; tenant export/delete; raw analytics queries | Transactional writes, user auth state |
 | Tinybird | Managed ClickHouse alternative (documented promotion path) | Tinybird Cloud | Tinybird Ingest API | When zero-ops, global replication, or instant REST endpoints are needed over self-managed ClickHouse | N/A — promotion path from Fly ClickHouse |
-| Sentry | **REMOVED** | N/A | N/A | See [sentry-removed.md](./sentry-removed.md) for full replacement map | Everything — fully replaced |
+| Sentry | Exception tracking | `@sentry/cloudflare` (Worker) | Sentry DSN ingest | Unhandled exceptions, error grouping, release tracking (`SENTRY_RELEASE`); focus on exceptions while Workers Tracing handles I/O spans | High-volume request logs, product funnels |
 
 ---
 
@@ -80,4 +80,3 @@ OTel Exporter (OTLP/HTTP)
 - [OTel / Workers Tracing](./otel.md)
 - [ClickHouse warehouse](../analytics/clickhouse.md)
 - [Analytics ingestion pipeline](../analytics/ingestion.md)
-- [Sentry removal record](./sentry-removed.md)

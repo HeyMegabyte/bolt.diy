@@ -5,10 +5,10 @@ guide: [`CLAUDE.md`](CLAUDE.md). Stack selection + convergence work items: [`../
 
 ## Domain Catalog
 
-Every domain we run, what's behind it, and its status. **Canonical records:**
-[`docs/CONTAINER_MANIFEST.md`](docs/CONTAINER_MANIFEST.md) (container ↔ subdomain registry) +
-[`docs/SUBDOMAIN_MAP.md`](docs/SUBDOMAIN_MAP.md). This table is the at-a-glance index — keep all
-three in sync the same turn a service is added (`drift-detection`).
+Every domain we run, what's behind it, and its status. **Canonical record:**
+[`docs/CONTAINER_MANIFEST.md`](docs/CONTAINER_MANIFEST.md) — the single container ↔ subdomain
+registry covering both the `projectsites.dev` product plane and the `megabyte.space` infra plane.
+This table is the at-a-glance index — keep both in sync the same turn a service is added (`drift-detection`).
 
 **Status:** ✅ live · 🟡 defined, not stood up · 🔵 proposed
 **Tenancy:** *platform* = one shared instance · *per-tenant* = one isolated instance per opt-in org · *per-site* = one per generated site

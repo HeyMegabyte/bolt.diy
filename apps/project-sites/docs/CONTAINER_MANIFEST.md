@@ -2,8 +2,10 @@
 
 Authoritative list of every Docker container the platform runs, each with its
 `projectsites.dev` subdomain. Semantic per-feature subdomains only — never umbrella
-prefixes (`/api/allstar/*`, category letters). Sibling: `docs/SUBDOMAIN_MAP.md` (the
-two-domain `projectsites.dev` ↔ `megabyte.space` map). Slim doctrine:
+prefixes (`/api/allstar/*`, category letters). This is the **single source of truth**
+for both the product (`projectsites.dev`) plane and the Megabyte Labs infra
+(`megabyte.space`) plane — the two-domain map lives in § Infra / self-host below
+(merged in from the former `SUBDOMAIN_MAP.md`, 2026-06-27). Slim doctrine:
 `scripts/slim-containers.sh` + `~/.agentskills/rules/docker-slim-all-containers.md`.
 
 **Status:** ✅ live · 🟡 defined-not-stood-up · 🔵 proposed (this manifest)
@@ -146,11 +148,47 @@ bindings/migration in `wrangler.toml` + host routing (`traces.`/`events.`/`mail.
 `index.ts` + `wrangler secret put` the conn strings + watched `wrangler deploy` (one-way DO
 migration — deploy with eyes on it).
 
-## Reconciliation with `SUBDOMAIN_MAP.md`
+## Voice gateway (Fly.io — not a CF container)
 
-`SUBDOMAIN_MAP.md` currently homes the ops stack on `megabyte.space` (Megabyte Labs infra).
-This manifest is the `projectsites.dev`-native plan: the same images, addressed under the
-product domain with semantic per-feature subdomains. When a service is stood up, add its row
-to BOTH files + a `CONTAINERS`/`REGISTRY_IMAGES` entry in `scripts/slim-containers.sh` the
-same turn (`drift-detection`). SHIP images are built → `slim build` → smoke-tested → push the
-`.slim`; MEASURE (CF) images fold slim deletions into the Dockerfile by hand.
+| Subdomain | Backing | Image / source | Slim |
+|---|---|---|---|
+| `voice.projectsites.dev` | Voice answering gateway (Twilio webhook + Media Streams WS, all account numbers) — **Fly.io** app `voice-gateway`, region `iad` (us-east VA), autoscale by concurrent calls | `apps/voice-gateway/` (fork of `twilio-labs/call-gpt`) — ADR-0011 | SHIP *(planned — V0 epic)* |
+
+## Infra / self-host — `megabyte.space` (Megabyte Labs infra; all SHIP-slim; Fly.io or registry→VM)
+
+> **Canonical service-domain home = `projectsites.dev`** (the tables above). The ops services
+> below are the Megabyte Labs infra mirror. When a service is stood up, add its row to the
+> correct plane HERE + a `CONTAINERS`/`REGISTRY_IMAGES` entry in `scripts/slim-containers.sh`
+> the same turn (`drift-detection`). SHIP images are built → `slim build` → smoke-tested → push
+> the `.slim`; MEASURE (CF) images fold slim deletions into the Dockerfile by hand.
+
+### AI control plane
+| Subdomain | Project | Image |
+|---|---|---|
+| `llm.megabyte.space` | **LiteLLM** — unified LLM gateway/proxy (premium↔DeepSeek↔Workers-AI routing) | `ghcr.io/berriai/litellm` |
+| `langfuse.megabyte.space` | **Langfuse** — LLM tracing / prompt mgmt / evals | `langfuse/langfuse` |
+| `chat.megabyte.space` | **Open WebUI** — internal LLM chat UI | `ghcr.io/open-webui/open-webui` |
+
+### Jobs / automation
+| `inngest.megabyte.space` | **Inngest** — durable jobs/workflows dev server + UI | `inngest/inngest` |
+| `n8n.megabyte.space` | **n8n** — visual automation | `n8nio/n8n` |
+
+### Secrets / identity
+| `secrets.megabyte.space` | **Infisical** — secrets management | `infisical/infisical` |
+| `vault.megabyte.space` | **Vaultwarden** — password manager | `vaultwarden/server` |
+
+### Data / content
+| `db.megabyte.space` | **NocoDB** — no-code DB UI | `nocodb/nocodb` |
+| `pb.megabyte.space` | **PocketBase** — BaaS (auth/db/files) | `spectado/pocketbase` |
+| `wiki.megabyte.space` | **Outline** — knowledge base | `outlinewiki/outline` |
+| `notes.megabyte.space` | **Memos** — lightweight notes | `neosmemo/memos` |
+
+### Growth / comms / observability
+| `analytics.megabyte.space` | **Umami** — privacy analytics | `ghcr.io/umami-software/umami` |
+| `news.megabyte.space` | **Listmonk** — newsletters (SES SMTP relay) | `listmonk/listmonk` |
+| `status.megabyte.space` | **Uptime Kuma** — uptime monitoring | `louislam/uptime-kuma` |
+| `grafana.megabyte.space` | **Grafana** — dashboards *(optional)* | `grafana/grafana` |
+
+### Agent / MCP (internal — behind CF Access)
+| `skyvern.megabyte.space` | **Skyvern** — heavy browser-workflow agent | `skyvern` (internal) |
+| `mcp.megabyte.space` | **Browserbase MCP bridge** — internal agent tooling | custom |

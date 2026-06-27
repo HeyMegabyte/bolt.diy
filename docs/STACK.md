@@ -107,7 +107,7 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 > **Definition of done (by category):**
 > - *Library/convention* — pattern standardized in code + one reference usage + a doc/JSDoc note.
 > - *Internal service (subdomain)* — container/Dockerfile + DO binding + host route + secrets + live 2xx + smoke test.
-> - *Domain mapping* — row in `apps/project-sites/docs/CONTAINER_MANIFEST.md` + `SUBDOMAIN_MAP.md` + `scripts/slim-containers.sh`.
+> - *Domain mapping* — row in `apps/project-sites/docs/CONTAINER_MANIFEST.md` (both planes) + `scripts/slim-containers.sh`.
 >
 > **Domains (Brian directive):** `events.projectsites.dev` → **Inngest** (event-driven product-lifecycle jobs;
 > live `InngestContainer` DO + Neon + Upstash). `jobs.projectsites.dev` → **Hatchet** (heavy/stateful/browser/AI
@@ -251,8 +251,7 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - Superseded/removed: Tempo · AnalogJS · Mastra · **Firecrawl** (→ Deepcrawl) · Crawl4AI · Crawlee · LlamaIndex.TS · LangGraph.js · Ragas · Dify · Astro · UnoCSS · jose · Nano ID · oRPC · ArkType · ts-pattern · Nitro · MJML · Meilisearch · Browserless · Pulumi · SOPS · OpenBao · SigNoz · VictoriaMetrics · Perspective · Apache ECharts · Evidence.dev · Metabase · Cube · ClickHouse · DuckDB · PGlite · ElectricSQL · Qdrant · Webstudio · fast-check · Miniflare · MSW · Testing Library · k6 · Cosign · Sigstore · OWASP ZAP · Nuclei · Grype · Syft · OSV-Scanner · Trivy · Gitleaks · Renovate · Excalidraw · Mermaid · Lightning CSS · Style Dictionary · **Novu** (→ Dittofeed) · Trigger.dev · Skyvern-as-a-product-feature (internal-only OK) · Polar.sh · Supabase · Resend · Postmark · Socket.dev · Chainguard Images · Clay
 
 ## See also
-- `apps/project-sites/docs/CONTAINER_MANIFEST.md` — canonical container ↔ subdomain registry (every hosted service + per-tenant add-on)
-- `apps/project-sites/docs/SUBDOMAIN_MAP.md` — two-domain `projectsites.dev` ↔ `megabyte.space` map
+- `apps/project-sites/docs/CONTAINER_MANIFEST.md` — canonical container ↔ subdomain registry: every hosted service + per-tenant add-on, across both the `projectsites.dev` product plane and the `megabyte.space` infra plane
 - `apps/project-sites/README.md` — at-a-glance domain catalog table
 - `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine
 - `~/.agentskills/rules/projectsites-recommended-stack.md` — agent-facing selected-package policy

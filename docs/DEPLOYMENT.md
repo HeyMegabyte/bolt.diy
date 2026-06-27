@@ -489,7 +489,8 @@ Sentry has been fully removed. Error tracking and observability now run on:
   `telemetry-router` Fly app (`infra/fly/telemetry-router`).
 - **ClickHouse on Fly.io** — high-volume warehouse + customer analytics.
 
-There is no source-map upload step anymore. See
-[`observability/sentry-removed.md`](observability/sentry-removed.md),
-[`observability/axiom.md`](observability/axiom.md), and
+- **Sentry** (`@sentry/cloudflare`) — exception tracking + release tracking via
+  `SENTRY_RELEASE`; source maps uploaded by `scripts/upload-sentry-sourcemaps.mjs`.
+
+See [`observability/axiom.md`](observability/axiom.md) and
 [`observability/otel.md`](observability/otel.md).

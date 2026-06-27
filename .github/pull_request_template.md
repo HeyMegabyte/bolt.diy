@@ -6,7 +6,7 @@
 - [ ] **Tested**: Jest unit + integration tests pass; Cypress E2E tests pass
 - [ ] **Logged**: Funnel events + audit log entries where applicable
 - [ ] **Secured**: Zod validation, RBAC, rate limits, sanitization
-- [ ] **Documented**: SETUP.md updated if keys/config changed
+- [ ] **Documented**: docs/DEPLOYMENT.md updated if keys/config changed
 
 ## Test Plan
 <!-- How to verify this change works -->

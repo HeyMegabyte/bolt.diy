@@ -209,6 +209,5 @@ Session recording is enabled on the Angular admin frontend via the PostHog JavaS
 ## Related Docs
 
 - [Observability overview](./README.md)
-- [Sentry removed](./sentry-removed.md)
 - [Axiom setup](./axiom.md)
 - [OTel / Workers Tracing](./otel.md)
