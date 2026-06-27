@@ -41,7 +41,6 @@ import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
-import { authIdp } from './routes/auth_idp.js'; // /api/auth/:provider/login + /callback — Better Auth (default) + WorkOS (enterprise) IdP, ships dark
 import { makeAuth, ensureBetterAuthSchema } from './auth/better-auth.js'; // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag
 import { isFlagOn as isFlagOnBetterAuth } from './modules/feature_flags/services.js';
 import { search } from './routes/search.js';
@@ -85,6 +84,7 @@ import { socialOauthRoutes } from './routes/social_oauth.js';
 import { pulseAnalytics, runHourlyPulseAnalyticsCron } from './routes/pulse_analytics.js';
 import { voiceRoutes } from './routes/voice.js';
 import { voiceWebhookRoutes } from './routes/voice_webhooks.js';
+import { livekitWebhookRoutes } from './routes/livekit_webhooks.js';
 import { domainPurchase } from './routes/domain_purchase.js';
 import { domainStack } from './routes/domain_stack.js';
 import { superAdmin } from './routes/super_admin.js';
@@ -379,7 +379,6 @@ app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, 
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
 app.route('/', collabRoutes); // /api/sites/:id/collab WS gateway → CollabRoomDO (collab_editing flag; 503 inert until COLLAB_ROOM bound)
 app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 3.1 spec (zod-to-openapi + hono-openapi describeRoute)
-app.route('/', authIdp); // /api/auth/:provider/login + /callback — Better Auth (default) + WorkOS (enterprise); 404s dark when BETTER_AUTH_*/WORKOS_* unset
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)
@@ -413,6 +412,7 @@ app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,pa
 app.route('/', socialRoutes); // /api/social/{accounts,posts}/* — Pulse Social CRUD; must precede `api`
 app.route('/', voiceRoutes); // /api/voice/* — AI Voice + SMS Agent (numbers, vanity, calls, messages, settings)
 app.route('/', voiceWebhookRoutes); // /webhooks/voice/* + /webhooks/sms/* + /internal/voice/* — Twilio webhook + media stream bridge
+app.route('/', livekitWebhookRoutes); // /webhooks/livekit — LiveKit Cloud room/egress lifecycle (signed) → D1
 app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/billing/checkout/{wallet,topup} + /api/billing/wallet — must precede `api` so the wallet-aware purchase route wins over the legacy hosted-checkout route
 app.route('/', domainStack); // Domain Stack Wizard: POST /api/domains/:hostname/stack + GET /api/domains/:hostname/stack-status (flag: domain_stack_wizard)
 app.route('/', superAdmin); // /api/super-admin/* — cost-factor controls + wallet ops + 100-feature ops (is_super_admin=1 guarded)

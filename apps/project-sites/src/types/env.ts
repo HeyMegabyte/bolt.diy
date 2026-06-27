@@ -340,17 +340,6 @@ export interface Env {
   /** HS256/session secret for the EMBEDDED Better Auth instance (auth/better-auth.ts,
    * the full-cutover rebuild). Self-generable (openssl rand -base64 32). wrangler secret. */
   BETTER_AUTH_SECRET?: string;
-  /** Better Auth base URL (default app-auth IdP, §27/ADR-0006), e.g.
-   * https://auth.projectsites.dev. Unset → custom magic-link/Google auth stays live. var. */
-  BETTER_AUTH_URL?: string;
-  /** Better Auth OIDC client id. var. */
-  BETTER_AUTH_CLIENT_ID?: string;
-  /** Better Auth OIDC client secret. wrangler secret. */
-  BETTER_AUTH_CLIENT_SECRET?: string;
-  /** WorkOS API key (enterprise SSO/SAML, §28/ADR-0006). wrangler secret. */
-  WORKOS_API_KEY?: string;
-  /** WorkOS client id. var. */
-  WORKOS_CLIENT_ID?: string;
   /** OTLP/HTTP traces endpoint for the §35 OpenTelemetry span port, e.g.
    * https://api.honeycomb.io/v1/traces. Unset → NoopTracerProvider (ships dark;
    * Workers Tracing remains the always-on backbone). var. */
@@ -737,6 +726,14 @@ export interface Env {
   DEEPGRAM_API_KEY?: string;
   // NOTE: ELEVENLABS_API_KEY is already declared above for image/voiceover generation —
   // the Voice Agent reuses the same secret for ElevenLabs TTS.
+  /** LiveKit Cloud project URL (wss://…livekit.cloud) — agent container connects here. */
+  LIVEKIT_URL?: string;
+  /** LiveKit API key (iss of the webhook JWT) — also authorizes SIP dispatch + agent. */
+  LIVEKIT_API_KEY?: string;
+  /** LiveKit API secret — HS256 key that signs/verifies the /webhooks/livekit JWT. */
+  LIVEKIT_API_SECRET?: string;
+  /** LiveKit SIP ingress URI (sip:<project>.sip.livekit.cloud) — Twilio SIP trunk target. */
+  LIVEKIT_SIP_URI?: string;
 
   /**
    * Per-call Browse Agent Container Durable Object. Built by a sibling agent.
