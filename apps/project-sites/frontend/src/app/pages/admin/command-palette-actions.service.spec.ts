@@ -88,9 +88,7 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     '/admin/feature-flags',
     // Unified logging dashboard (audit + log explorer merged 2026-06-08).
     '/admin/logs',
-    // Core high-traffic sections — this guard list itself omitted them, so the
-    // palette could (and did) ship without Cmd+K nav to Sites/Inbox/Media/etc.
-    '/admin/sites', '/admin/inbox', '/admin/media', '/admin/pseo',
+    '/admin/media', '/admin/pseo',
     '/admin/content-freshness', '/admin/site-features',
   ];
 

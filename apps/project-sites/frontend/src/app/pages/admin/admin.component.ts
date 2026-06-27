@@ -2,10 +2,9 @@ import { Component, type OnInit, type OnDestroy, inject, signal, computed, effec
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
-import { Subscription, filter, interval } from 'rxjs';
-import { startWith, switchMap } from 'rxjs/operators';
+import { Subscription, filter } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
-import { ApiService, type Site, type HealthStatus } from '../../services/api.service';
+import { ApiService, type Site } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { NovuInboxService } from '../../services/novu-inbox.service';
@@ -119,27 +118,6 @@ export class AdminComponent implements OnInit, OnDestroy {
   currentSection = signal('Editor');
   /** Full current admin URL — feeds the real-name title/announcer (P2). */
   readonly currentUrl = signal('');
-
-  /**
-   * Live system-health probe (worker `GET /health` — KV + R2). Drives the topbar
-   * status pill (green=ok / amber=degraded / grey=unknown) + the environment
-   * badge. `null` until the first probe resolves (or if a probe fails). Polled
-   * every 60s in {@link ngOnInit}; real data only — never a fabricated "ok".
-   */
-  readonly health = signal<HealthStatus | null>(null);
-  private healthSub?: Subscription;
-  /** Tooltip text for the status pill — lists each failing check by name. */
-  readonly healthTooltip = computed(() => {
-    const h = this.health();
-    if (!h) return 'System health: checking…';
-    const checks = Object.entries(h.checks ?? {});
-    const failing = checks.filter(([, c]) => c.status === 'error').map(([k]) => k);
-    if (h.status === 'degraded') {
-      return `Degraded — ${failing.length ? failing.join(', ') + ' failing' : 'a check is failing'}`;
-    }
-    const names = checks.map(([k]) => k).join(' · ') || 'all systems';
-    return `Operational — ${names} ok`;
-  });
 
   /**
    * Document title with REAL site name on site-detail routes (P2 — breadcrumbs
@@ -278,12 +256,6 @@ export class AdminComponent implements OnInit, OnDestroy {
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => this.updateRouteState(e.urlAfterRedirects));
 
-    // System-health pill: probe /health now + every 60s. Fail-safe (api.health()
-    // resolves null on error), so a flaky probe never throws or toasts.
-    this.healthSub = interval(60_000)
-      .pipe(startWith(0), switchMap(() => this.api.health()))
-      .subscribe((h) => this.health.set(h));
-
     if (!this.auth.isLoggedIn()) {
       this.state.loading.set(false);
       return;
@@ -323,7 +295,6 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
-    this.healthSub?.unsubscribe();
     this.shareLinkSub?.unsubscribe();
     this.state.stopPolling();
     this.bolt.teardown();

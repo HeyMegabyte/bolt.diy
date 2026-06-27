@@ -689,17 +689,9 @@
              sidebar stays scannable. -->
         <details class="nav-more">
           <summary class="nav-item nav-more-summary"><span>More tools</span></summary>
-          <a class="nav-item nav-sub" routerLink="/admin/integrations" routerLinkActive="nav-item-active"><span>Integrations</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/inbox" routerLinkActive="nav-item-active"><span>Unified inbox</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/domains" routerLinkActive="nav-item-active"><span>Domains</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/api-tokens" routerLinkActive="nav-item-active"><span>API tokens</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/content" routerLinkActive="nav-item-active"><span>Content</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/developers" routerLinkActive="nav-item-active"><span>Developers</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/marketplace" routerLinkActive="nav-item-active"><span>Marketplace</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/roadmap" routerLinkActive="nav-item-active"><span>Roadmap</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/status" routerLinkActive="nav-item-active"><span>Status</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/super-admin" routerLinkActive="nav-item-active"><span>Super admin</span></a>
-          <a class="nav-item nav-sub" routerLink="/admin/sites" routerLinkActive="nav-item-active"><span>All sites</span></a>
           <a class="nav-item nav-sub" routerLink="/admin/editor-native" routerLinkActive="nav-item-active"><span>Editor (native)</span></a>
         </details>
       </nav>
@@ -756,19 +748,6 @@
           <span class="text-white font-semibold max-md:hidden">{{ currentSection() }}</span>
         </div>
         <div class="flex items-center gap-2">
-          <!-- System-health pill (P2) — live /health probe (KV + R2) + environment
-             badge. Green=ok, amber=degraded, grey=unknown. Real data only. -->
-          <div
-            class="sys-status max-md:hidden"
-            [class.is-degraded]="health()?.status === 'degraded'"
-            [class.is-unknown]="!health()"
-            role="status"
-            [attr.aria-label]="healthTooltip()"
-            [brnTooltip]="healthTooltip()"
-          >
-            <span class="sys-dot" aria-hidden="true"></span>
-            <span class="sys-env">{{ health()?.environment ?? 'system' }}</span>
-          </div>
           <!-- Cmd-K palette opener -->
           <button
             class="top-btn cmdk-btn"

@@ -105,7 +105,6 @@ const FALLBACK_ENTRIES: readonly ChangelogEntry[] = [
             >
               Open feed
             </a>
-            <a class="action-btn" routerLink="/roadmap">View roadmap</a>
           </div>
         </header>
 
@@ -190,9 +189,7 @@ const FALLBACK_ENTRIES: readonly ChangelogEntry[] = [
             <a routerLink="/trust">Trust</a> |
             <a routerLink="/blog">Blog</a> |
             <a routerLink="/changelog">Changelog</a> |
-            <a routerLink="/roadmap">Roadmap</a> |
-            <a routerLink="/integrations">Integrations</a> |
-            <a routerLink="/status">Status</a>
+            <a routerLink="/integrations">Integrations</a>
           </span>
         </div>
       </div>

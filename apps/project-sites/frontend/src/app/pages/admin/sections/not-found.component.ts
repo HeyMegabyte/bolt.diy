@@ -11,7 +11,6 @@ export interface AdminRouteHint {
 
 /** Top-level admin routes a stale/typo'd URL might be aiming for. */
 export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
-  { path: 'sites', label: 'Sites' },
   { path: 'analytics', label: 'Analytics' },
   { path: 'billing', label: 'Billing' },
   { path: 'audit', label: 'Audit Log' },
@@ -24,7 +23,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'social', label: 'Social' },
   { path: 'voice', label: 'Voice' },
   { path: 'media', label: 'Media' },
-  { path: 'inbox', label: 'Inbox' },
   { path: 'forms', label: 'Forms' },
   { path: 'webhooks', label: 'Webhooks' },
   { path: 'api-tokens', label: 'API Tokens' },
@@ -138,7 +136,6 @@ export function suggestRoute(segment: string): AdminRouteHint | null {
           <a routerLink="/admin" class="btn-gradient" data-testid="admin-not-found-home">Back to dashboard</a>
         </div>
         <nav class="anf-links" aria-label="Jump to an admin section">
-          <a routerLink="/admin/sites" class="anf-link">Sites</a>
           <a routerLink="/admin/analytics" class="anf-link">Analytics</a>
           <a routerLink="/admin/feature-flags" class="anf-link">Feature Flags</a>
           <a routerLink="/admin/snapshots" class="anf-link">Snapshots</a>

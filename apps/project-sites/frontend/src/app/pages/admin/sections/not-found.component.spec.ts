@@ -39,7 +39,7 @@ describe('AdminNotFoundComponent', () => {
   it('exposes keyboard-reachable section quick-links (all real admin routes)', () => {
     const el = render().nativeElement as HTMLElement;
     const hrefs = Array.from(el.querySelectorAll('.anf-link')).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/admin/sites', '/admin/analytics', '/admin/feature-flags', '/admin/snapshots']);
+    expect(hrefs).toEqual(['/admin/analytics', '/admin/feature-flags', '/admin/snapshots']);
   });
 
   it('reveals the 404 card on first paint via appReveal (cockpit cohesion)', () => {
@@ -56,7 +56,7 @@ describe('AdminNotFoundComponent', () => {
   describe('suggestRoute()', () => {
     it('suggests the closest route for a mistyped segment', () => {
       expect(suggestRoute('analitics')?.path).toBe('analytics');
-      expect(suggestRoute('sitez')?.path).toBe('sites');
+      expect(suggestRoute('sitez')).toBeNull();
       expect(suggestRoute('feature-flag')?.path).toBe('feature-flags'); // missing trailing s
     });
 

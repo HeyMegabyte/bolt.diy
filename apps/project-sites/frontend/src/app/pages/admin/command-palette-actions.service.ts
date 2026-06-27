@@ -166,12 +166,6 @@ export class CommandPaletteActionsService {
       { id: 'nav-webhooks',     title: 'Go to Webhooks',      section: 'Navigation', icon: ICONS.zap,      keywords: ['events', 'callbacks', 'endpoints', 'deliveries'], href: navHref('/admin/webhooks'), run: () => go('/admin/webhooks') },
       { id: 'cmd-share-link',   title: 'Share link…',         section: 'Actions',    icon: ICONS.ext,      keywords: ['approval', 'client', 'preview', 'share', 'stakeholder', 'review', 'password', 'link'], run: () => this.shareLinkSvc.open() },
       { id: 'nav-flags',        title: 'Go to Feature Flags', section: 'Navigation', icon: ICONS.cog,      keywords: ['flags', 'rollout', 'toggle', 'experimental', 'killswitch'], href: navHref('/admin/feature-flags'), run: () => go('/admin/feature-flags') },
-      // Core high-traffic sections — were missing from the palette ("everything
-      // is searchable") so Cmd+K → "sites"/"inbox"/"media" found nothing. No
-      // `shortcut` hints: these have no g-chord, and advertising a dead chord is
-      // the exact bug fixed in 7e1abc6d.
-      { id: 'nav-sites',         title: 'Go to Sites',             section: 'Navigation', icon: ICONS.globe,  keywords: ['websites', 'web vitals', 'lighthouse', 'cwv', 'heatmap', 'list'], href: navHref('/admin/sites'), run: () => go('/admin/sites') },
-      { id: 'nav-inbox',         title: 'Go to Inbox',             section: 'Navigation', icon: ICONS.bell,   keywords: ['conversations', 'messages', 'chat', 'visitor', 'unread', 'support'], href: navHref('/admin/inbox'), run: () => go('/admin/inbox') },
       { id: 'nav-media',         title: 'Go to Media',             section: 'Navigation', icon: ICONS.layers, keywords: ['assets', 'images', 'upload', 'library', 'video', 'stock', 'podcast'], href: navHref('/admin/media'), run: () => go('/admin/media') },
       { id: 'nav-pseo',          title: 'Go to pSEO',              section: 'Navigation', icon: ICONS.chart,  keywords: ['programmatic seo', 'pages', 'city', 'landing', 'generate'], href: navHref('/admin/pseo'), run: () => go('/admin/pseo') },
       { id: 'nav-freshness',     title: 'Go to Content Freshness', section: 'Navigation', icon: ICONS.book,   keywords: ['stale', 'drafts', 'update', 'age', 'review', 'content'], href: navHref('/admin/content-freshness'), run: () => go('/admin/content-freshness') },
@@ -231,7 +225,6 @@ export class CommandPaletteActionsService {
       { id: 'help-shortcuts', title: 'Keyboard shortcuts',     section: 'Help', shortcut: '?', icon: ICONS.help, keywords: ['cheat sheet', 'hotkeys'], run: () => ctx.openShortcuts() },
       { id: 'help-docs',      title: "Open CLAUDE.md docs",    section: 'Help', icon: ICONS.book, keywords: ['readme', 'guide'], run: () => go('/admin/docs#overview') },
       { id: 'help-support',   title: 'Chat with support',      section: 'Help', icon: ICONS.help, keywords: ['contact', 'email'], run: () => ctx.openAiChat('I need help with…') },
-      { id: 'help-status',    title: 'System status',          section: 'Help', icon: ICONS.bell, keywords: ['uptime', 'incidents'], run: () => go('/status') },
       { id: 'help-email',     title: 'Email support',          section: 'Help', icon: ICONS.help, keywords: ['contact'], run: () => openExt('mailto:hey@megabyte.space?subject=Project%20Sites%20admin') },
 
       // ── Integrations (external dashboards) ───────────────────────

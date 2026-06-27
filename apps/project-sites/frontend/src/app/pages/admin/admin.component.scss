@@ -55,44 +55,6 @@ aside::before {
   color: rgba(255,255,255,0.7);
 }
 
-// System-health pill (P2) — live /health probe + environment badge.
-.sys-status {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 9px; border-radius: 999px;
-  border: 1px solid color-mix(in oklch, var(--ps-success, #4dffb5) 28%, transparent);
-  background: color-mix(in oklch, var(--ps-success, #4dffb5) 8%, transparent);
-  font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
-  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-  color: color-mix(in oklch, var(--ps-success, #4dffb5) 70%, #e8fbff);
-  transition: border-color 200ms ease, background 200ms ease, color 200ms ease;
-  cursor: default; user-select: none;
-}
-.sys-dot {
-  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-  background: var(--ps-success, #4dffb5);
-  box-shadow: 0 0 0 0 color-mix(in oklch, var(--ps-success, #4dffb5) 60%, transparent);
-  animation: sysPulse 2.4s ease-in-out infinite;
-}
-.sys-status.is-degraded {
-  border-color: color-mix(in oklch, #ffd166 36%, transparent);
-  background: color-mix(in oklch, #ffd166 10%, transparent);
-  color: color-mix(in oklch, #ffd166 72%, #e8fbff);
-  .sys-dot { background: #ffd166; box-shadow: 0 0 0 0 color-mix(in oklch, #ffd166 60%, transparent); }
-}
-.sys-status.is-unknown {
-  border-color: rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.5);
-  .sys-dot { background: rgba(255,255,255,0.35); animation: none; }
-}
-@keyframes sysPulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 50%, transparent); }
-  50% { box-shadow: 0 0 0 4px transparent; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sys-dot { animation: none; }
-}
-
 // Notification dot
 .notif-dot {
   position: absolute; top: -4px; right: -4px;

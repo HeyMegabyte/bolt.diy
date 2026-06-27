@@ -7,7 +7,7 @@
  * page now opens straight on a search bar over the "Build your site" content.
  *
  */
-import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal, viewChild, type ElementRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, computed, effect, inject, signal, viewChild, type ElementRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -19,6 +19,8 @@ import { QuotaChipComponent } from '../quota-chip.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
 import { isSysAdminEmail } from '../sys-admin';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ApiService } from '../../../services/api.service';
 
 interface SectionCard {
   label: string;
@@ -44,6 +46,26 @@ interface HlParts {
   pre: string;
   hit: string;
   post: string;
+}
+
+interface SnapshotMetrics {
+  lh_performance: number | null;
+  lcp_ms: number | null;
+  tbt_ms: number | null;
+  cls: number | null;
+  inp_ms: number | null;
+}
+
+type MetricTier = 'green' | 'yellow' | 'red' | 'neutral';
+
+interface CwvPill {
+  key: string;
+  label: string;
+  rawValue: number | null;
+  formatted: string;
+  tier: MetricTier;
+  tooltip: string;
+  budget: number;
 }
 
 const FAV_KEY = 'ps_dash_favs';
@@ -116,17 +138,40 @@ const RECENT_KEY = 'ps_dash_recents';
             <ul class="status-strip" aria-label="Site status summary">
               @for (b of siteStatusSummary(); track b.key) {
                 <li>
-                  <a class="status-tile" [class]="'tone-' + b.tone"
-                     routerLink="/admin/sites"
-                     (click)="recordOpen('/admin/sites')"
-                     [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp + '. View your sites.'">
+                  <span class="status-tile" [class]="'tone-' + b.tone"
+                     [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp">
                     <span class="status-dot" aria-hidden="true"></span>
                     <app-rolling-counter class="status-count" [value]="b.count" />
                     <span class="status-label">{{ b.label }}</span>
                     <span class="status-interp">{{ b.interp }}</span>
-                  </a>
+                  </span>
                 </li>
               }
+            </ul>
+          </section>
+        }
+
+        @if (hasSites() && latestMetrics()) {
+          <section class="group cwv-group" appReveal aria-labelledby="grp-cwv">
+            <h2 class="group-title" id="grp-cwv"><app-cmd-glyph name="activity" /> Core Web Vitals</h2>
+            <p class="status-source">From your latest snapshot · real Lighthouse data</p>
+            <ul class="cwv-strip" aria-label="Core Web Vitals">
+              @for (pill of cwvPills(latestMetrics()!); track pill.key) {
+                <li>
+                  <span class="cwv-chip" [attr.data-tier]="pill.tier" [attr.title]="pill.tooltip">
+                    <span class="cwv-label">{{ pill.label }}</span>
+                    <span class="cwv-value">{{ pill.formatted }}</span>
+                  </span>
+                </li>
+              }
+              <li>
+                <span class="cwv-chip"
+                      [attr.data-tier]="tierForLh(latestMetrics()!.lh_performance)"
+                      title="Lighthouse Performance score (0-100). Target ≥90.">
+                  <span class="cwv-label">Perf</span>
+                  <span class="cwv-value">{{ latestMetrics()!.lh_performance !== null ? latestMetrics()!.lh_performance : '—' }}</span>
+                </span>
+              </li>
             </ul>
           </section>
         }
@@ -191,7 +236,6 @@ const RECENT_KEY = 'ps_dash_recents';
           <h2 class="group-title" id="grp-links">Need a hand?</h2>
           <nav class="links" aria-label="Helpful links">
             <a routerLink="/admin/docs"><app-cmd-glyph name="book" /> Read the API docs</a>
-            <a routerLink="/admin/sites"><app-cmd-glyph name="grid" /> Browse all your sites</a>
             <a routerLink="/admin/user"><app-cmd-glyph name="gear" /> Account &amp; preferences</a>
             <a routerLink="/contact"><app-cmd-glyph name="life-buoy" /> Contact support</a>
           </nav>
@@ -666,6 +710,56 @@ const RECENT_KEY = 'ps_dash_recents';
         outline-offset: 2px;
       }
 
+      /* CWV strip */
+      .cwv-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0;
+      }
+      .cwv-chip {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        min-width: 64px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(8, 8, 32, 0.45);
+        cursor: default;
+        transition: border-color 0.2s ease;
+      }
+      .cwv-label {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
+      }
+      .cwv-value {
+        font-size: 0.88rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .cwv-chip[data-tier='green'] {
+        border-color: rgba(34, 197, 94, 0.4);
+        background: rgba(34, 197, 94, 0.07);
+      }
+      .cwv-chip[data-tier='green'] .cwv-value { color: #4ade80; }
+      .cwv-chip[data-tier='yellow'] {
+        border-color: rgba(234, 179, 8, 0.4);
+        background: rgba(234, 179, 8, 0.07);
+      }
+      .cwv-chip[data-tier='yellow'] .cwv-value { color: #facc15; }
+      .cwv-chip[data-tier='red'] {
+        border-color: rgba(239, 68, 68, 0.4);
+        background: rgba(239, 68, 68, 0.07);
+      }
+      .cwv-chip[data-tier='red'] .cwv-value { color: #f87171; }
+
       @media (max-width: 720px) {
         .dash {
           padding: 18px 14px 72px;
@@ -690,6 +784,8 @@ const RECENT_KEY = 'ps_dash_recents';
 export class AdminDashboardComponent {
   private state = inject(AdminStateService);
   private auth = inject(AuthService);
+  private readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
@@ -697,6 +793,23 @@ export class AdminDashboardComponent {
   readonly isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   readonly siteCount = computed(() => this.state.sites().length);
   readonly hasSites = computed(() => this.siteCount() > 0);
+  readonly latestMetrics = signal<SnapshotMetrics | null>(null);
+  readonly metricsLoading = signal(false);
+  readonly activeSiteDomain = computed(() => {
+    const site = this.state.selectedSite() ?? this.state.sites()[0];
+    return (site as { domain?: string })?.domain ?? null;
+  });
+
+  constructor() {
+    effect(() => {
+      const site = this.state.selectedSite() ?? this.state.sites()[0];
+      if (site) {
+        this.loadLatestMetrics(site.id);
+      } else {
+        this.latestMetrics.set(null);
+      }
+    });
+  }
 
   /**
    * Command-center site-status summary (P4) — derived from the ALREADY-loaded
@@ -874,5 +987,57 @@ export class AdminDashboardComponent {
     } catch {
       /* private mode / quota — non-fatal */
     }
+  }
+
+  private loadLatestMetrics(siteId: string): void {
+    this.metricsLoading.set(true);
+    this.api
+      .get<{ data: Record<string, SnapshotMetrics | null> }>(`/sites/${siteId}/snapshots/metrics`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          const entries = Object.values(res.data ?? {});
+          this.latestMetrics.set(entries.length > 0 ? (entries[0] as SnapshotMetrics) : null);
+          this.metricsLoading.set(false);
+        },
+        error: () => {
+          this.latestMetrics.set(null);
+          this.metricsLoading.set(false);
+        },
+      });
+  }
+
+  tierForLh(value: number | null): MetricTier {
+    if (value === null || value === undefined) return 'neutral';
+    if (value >= 90) return 'green';
+    if (value >= 50) return 'yellow';
+    return 'red';
+  }
+
+  private cwvTier(value: number | null, good: number, poor: number): MetricTier {
+    if (value === null || value === undefined) return 'neutral';
+    if (value <= good) return 'green';
+    if (value <= poor) return 'yellow';
+    return 'red';
+  }
+
+  formatMs(n: number | null): string {
+    if (n === null || n === undefined) return '—';
+    if (n < 1000) return `${Math.round(n)}ms`;
+    return `${(n / 1000).toFixed(2)}s`;
+  }
+
+  formatCls(n: number | null): string {
+    if (n === null || n === undefined) return '—';
+    return n.toFixed(3);
+  }
+
+  cwvPills(m: SnapshotMetrics): CwvPill[] {
+    return [
+      { key: 'lcp', label: 'LCP', rawValue: m.lcp_ms, formatted: this.formatMs(m.lcp_ms), tier: this.cwvTier(m.lcp_ms, 2500, 4000), budget: 4000, tooltip: 'Largest Contentful Paint. Good ≤2.5s · poor >4.0s.' },
+      { key: 'cls', label: 'CLS', rawValue: m.cls,    formatted: this.formatCls(m.cls),   tier: this.cwvTier(m.cls,    0.1,  0.25), budget: 0.25, tooltip: 'Cumulative Layout Shift. Good ≤0.1 · poor >0.25.' },
+      { key: 'inp', label: 'INP', rawValue: m.inp_ms, formatted: this.formatMs(m.inp_ms), tier: this.cwvTier(m.inp_ms, 200,  500),  budget: 500,  tooltip: 'Interaction to Next Paint. Good ≤200ms · poor >500ms.' },
+      { key: 'tbt', label: 'TBT', rawValue: m.tbt_ms, formatted: this.formatMs(m.tbt_ms), tier: this.cwvTier(m.tbt_ms, 200,  600),  budget: 600,  tooltip: 'Total Blocking Time. Good ≤200ms · poor >600ms.' },
+    ];
   }
 }

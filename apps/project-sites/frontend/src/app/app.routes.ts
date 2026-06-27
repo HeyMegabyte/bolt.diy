@@ -22,17 +22,6 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
-    // Super-admin — gated server-side on `users.is_super_admin = 1` (the
-    // worker routes return 403 to non-super-admins; the component shows a
-    // "Restricted" page). Operator console for cost × markup_factor tuning
-    // + wallet drill-down + manual adjustments. Sibling to customer-facing
-    // /admin/billing — different audience, different surface.
-    path: 'super-admin',
-    canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/super-admin/super-admin.component').then((m) => m.SuperAdminComponent),
-  },
-  {
     path: 'search',
     loadComponent: () => import('./pages/search/search.component').then((m) => m.SearchComponent),
   },
@@ -129,13 +118,6 @@ export const routes: Routes = [
           import('./pages/admin/sections/snapshots-diff.component').then(
             (m) => m.AdminSnapshotsDiffComponent,
           ),
-      },
-      {
-        // Per-site Web Vitals heatmap (item #3 — sortable LCP/CLS/INP/
-        // Lighthouse columns, sparklines, triage view).
-        path: 'sites',
-        loadComponent: () =>
-          import('./pages/admin/sections/sites.component').then((m) => m.AdminSitesComponent),
       },
       {
         // Per-site detail page with 4 tabs (Logs / Snapshots+Rollback / SQL /
@@ -357,14 +339,6 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=social'),
         pathMatch: 'full',
       },
-      // ─── Unified Visitor Inbox (#24) ──────────────────────────────
-      // 3-pane: conversation list + thread + AI-draft panel.
-      // Flag-gated: unified_inbox. Shows gate notice when off.
-      {
-        path: 'inbox',
-        loadComponent: () =>
-          import('./pages/admin/sections/inbox.component').then((m) => m.AdminInboxComponent),
-      },
       // ─── Multimodal AI Site Copilot (#25) ────────────────────────
       // Per-site copilot admin: enable toggle + intent distribution + sessions.
       // Flag-gated: multimodal_copilot. Shows gate notice when off.
@@ -391,11 +365,17 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/swarm.component').then((m) => m.AdminSwarmComponent),
       },
-      // Removed from the admin (2026-06-08): Marketplace, Trust Center,
-      // Enterprise, Stripe App. Components deleted; legacy paths redirect to the
-      // dashboard so old bookmarks don't 404. (Worker /api/* routes for these
-      // stay dormant + flag-gated; cleaned up separately.)
-      { path: 'marketplace', redirectTo: '', pathMatch: 'full' },
+      {
+        // Super-admin — gated server-side on `users.is_super_admin = 1` (the
+        // worker routes return 403 to non-super-admins; the component shows a
+        // "Restricted" page). Operator console for cost × markup_factor tuning
+        // + wallet drill-down + manual adjustments. Moved from top-level to
+        // /admin/super-admin so it lives inside the admin shell.
+        path: 'super-admin',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./pages/super-admin/super-admin.component').then((m) => m.SuperAdminComponent),
+      },
       {
         // Admin-scoped 404 — MUST be last. Catches any unknown `/admin/*` path
         // (stale bookmark to a renamed route, or a param-route hit without its
@@ -458,14 +438,6 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/review/review.component').then((m) => m.ReviewComponent),
   },
   {
-    // Public roadmap page — Trello-style 4-column board backed by
-    // /api/public/roadmap. Lazy-loaded so the marketing surfaces never pay
-    // for the board CSS until the user clicks through.
-    path: 'roadmap',
-    loadComponent: () =>
-      import('./pages/roadmap/roadmap.component').then((m) => m.RoadmapComponent),
-  },
-  {
     // /developers — MCP acquisition page for developers living in Claude Code /
     // Cursor / Cline. Hero is the .mcp.json connect snippet. No auth required.
     path: 'developers',
@@ -497,10 +469,6 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/press/press.component').then((m) => m.PressComponent),
   },
   {
-    path: 'status',
-    loadComponent: () => import('./pages/status/status.component').then((m) => m.StatusComponent),
-  },
-    {
     // Inline checkout harness — mounts <app-inline-checkout> with a fixed
     // amount so Playwright can drive the 1-click Stripe Link flow under
     // the brian@megabyte.space stub. Production traffic also lands here

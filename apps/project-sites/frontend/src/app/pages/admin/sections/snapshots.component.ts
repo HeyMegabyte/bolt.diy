@@ -349,6 +349,28 @@ interface GhStatus {
                       <span class="snap-desc-inline snap-desc-inline--empty" aria-hidden="true"></span>
                     }
 
+                    <!-- Inline CWV chips — visible without expanding the quality panel.
+                         Shows "—" when individual metric data is not yet available. -->
+                    @if (metricsBySnapshotId().has(snap.id) && metricsBySnapshotId().get(snap.id)) {
+                      @let _m = metricsBySnapshotId().get(snap.id)!;
+                      <span class="snap-cwv-chips" aria-label="Core Web Vitals at a glance">
+                        @for (chip of cwvPills(_m).slice(0, 3); track chip.key) {
+                          <span class="snap-cwv-chip"
+                                [attr.data-tier]="chip.rawValue !== null ? chip.tier : null"
+                                [brnTooltip]="chip.label + ': ' + (chip.rawValue !== null ? chip.formatted : 'no data')">
+                            <span class="snap-cwv-label">{{ chip.label }}</span>
+                            <span class="snap-cwv-val">{{ chip.rawValue !== null ? chip.formatted : '—' }}</span>
+                          </span>
+                        }
+                        <span class="snap-cwv-chip"
+                              [attr.data-tier]="_m.lh_performance !== null ? tierForLh(_m.lh_performance) : null"
+                              [brnTooltip]="'Lighthouse Performance: ' + (_m.lh_performance !== null ? _m.lh_performance : 'no data')">
+                          <span class="snap-cwv-label">LH</span>
+                          <span class="snap-cwv-val">{{ _m.lh_performance !== null ? _m.lh_performance : '—' }}</span>
+                        </span>
+                      </span>
+                    }
+
                     <!-- Quality chip — toggles the metrics matrix below the row.
                          Shows the overall Lighthouse perf score inline when metrics
                          are present so the chip itself communicates the headline. -->
@@ -974,6 +996,25 @@ interface GhStatus {
     .snap-quality-chip-score[data-tier='yellow'] { color: oklch(0.86 0.16 80);  background: color-mix(in oklch, oklch(0.86 0.16 80)  14%, transparent); }
     .snap-quality-chip-score[data-tier='red']    { color: oklch(0.78 0.18 25);  background: color-mix(in oklch, oklch(0.78 0.18 25)  14%, transparent); }
     .snap-quality-chip-score[data-tier='neutral']{ color: rgba(255,255,255,0.65); }
+
+    /* Inline CWV chips — shown in each snapshot row without expanding the panel. */
+    .snap-cwv-chips {
+      display: inline-flex; align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    .snap-cwv-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 5px; border-radius: 4px;
+      font-size: 10px; font-weight: 600; letter-spacing: .02em;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.55);
+    }
+    .snap-cwv-chip[data-tier='green']  { color: oklch(0.82 0.18 150); border-color: color-mix(in oklch, oklch(0.82 0.18 150) 30%, transparent); background: color-mix(in oklch, oklch(0.82 0.18 150) 10%, transparent); }
+    .snap-cwv-chip[data-tier='yellow'] { color: oklch(0.86 0.16 80);  border-color: color-mix(in oklch, oklch(0.86 0.16 80)  30%, transparent); background: color-mix(in oklch, oklch(0.86 0.16 80)  10%, transparent); }
+    .snap-cwv-chip[data-tier='red']    { color: oklch(0.78 0.18 25);  border-color: color-mix(in oklch, oklch(0.78 0.18 25)  30%, transparent); background: color-mix(in oklch, oklch(0.78 0.18 25)  10%, transparent); }
+    .snap-cwv-label { opacity: .7; font-weight: 500; }
+    .snap-cwv-val   { font-weight: 700; }
 
     /* Metrics expansion under the row.
        snap-metrics-grid: thumbnail left (fixed 320px), pills right (flex:1).
