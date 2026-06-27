@@ -11,8 +11,12 @@
  * cookieCache DISABLED (#4203), KV secondaryStorage with a >=60s TTL floor (#7124),
  * KV-backed rate limiting, email-verification (enumeration protection), HaveIBeenPwned
  * breach check, organizations + access-control, admin/impersonation, anonymous,
- * username, email-OTP, Google One-Tap, multi-session. Passkeys + SSO/SAML + org API
- * keys land in a follow-up slice (separate plugin installs).
+ * username, email-OTP, Google One-Tap, multi-session, WebAuthn passkeys (#28),
+ * enterprise SSO/SAML (#27), and org-scoped API keys (#22).
+ *
+ * Session-creation is observed across three best-effort sinks — D1 audit,
+ * Analytics Engine, and PostHog (#42) — each carrying the session IP + user-agent
+ * as the data foundation for new-device / impossible-travel detection (#44).
  */
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import {
@@ -144,15 +148,30 @@ export function makeAuth(env: Env): Auth {
       },
     },
 
-    // #12/#40 — audit every session creation to D1 (durable) + Analytics Engine (volume).
+    // #12/#40/#42/#44 — observe every session creation across three sinks, all
+    // best-effort (a telemetry failure must NEVER block sign-in):
+    //   • D1 audit log (durable, queryable per-user trail)
+    //   • Analytics Engine (high-volume sampling; cheap funnel counts)
+    //   • PostHog (#42 — the auth funnel + session-replay correlation)
+    // The session row carries `ipAddress` + `userAgent` (Better Auth defaults);
+    // threading them through every sink is the data foundation for #44
+    // impossible-travel / new-device detection (a downstream query compares a
+    // user's session IP/UA history — no per-request geo lookup needed here).
     databaseHooks: {
       session: {
         create: {
           after: async (session) => {
-            const userId = (session as { userId?: string }).userId ?? 'unknown';
+            const s = session as {
+              userId?: string;
+              ipAddress?: string;
+              userAgent?: string;
+            };
+            const userId = s.userId ?? 'unknown';
+            const ipAddress = s.ipAddress ?? '';
+            const userAgent = s.userAgent ?? '';
             try {
               env.ANALYTICS?.writeDataPoint({
-                blobs: ['auth.session.created', userId],
+                blobs: ['auth.session.created', userId, ipAddress, userAgent],
                 indexes: ['auth'],
                 doubles: [1],
               });
@@ -160,12 +179,23 @@ export function makeAuth(env: Env): Auth {
               /* analytics is best-effort */
             }
             try {
+              const { captureEvent } = await import('../services/analytics.js');
+              await captureEvent(env, 'auth.session.created', userId, {
+                $ip: ipAddress || undefined,
+                ip_address: ipAddress || undefined,
+                user_agent: userAgent || undefined,
+                auth_provider: 'better_auth',
+              });
+            } catch {
+              /* PostHog is best-effort (#42) */
+            }
+            try {
               const { writeAuditLog } = await import('../services/audit.js');
               await writeAuditLog(env.DB, {
                 org_id: 'system',
                 actor_id: userId,
                 action: 'auth.session.created',
-                message: 'Better Auth session created',
+                message: `Better Auth session created${ipAddress ? ` from ${ipAddress}` : ''}`,
                 target_type: 'user',
                 target_id: userId,
               });

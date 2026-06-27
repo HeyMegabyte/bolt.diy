@@ -31,8 +31,12 @@ jest.mock('kysely-d1', () => ({ D1Dialect: class {} }));
 jest.mock('../platform/email-router.js', () => ({
   getEmailProvider: () => ({ sendTransactional: jest.fn() }),
 }));
+jest.mock('../services/analytics.js', () => ({ captureEvent: jest.fn() }));
+jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn() }));
 
 import { makeAuth, _resetAuthCache } from '../auth/better-auth.js';
+import { captureEvent } from '../services/analytics.js';
+import { writeAuditLog } from '../services/audit.js';
 
 function envOf(extra = {}) {
   return {
@@ -104,5 +108,52 @@ describe('makeAuth (embedded Better Auth)', () => {
       opts(envOf({ GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's' })).socialProviders.google
         .clientId,
     ).toBe('g');
+  });
+
+  it('observes session creation across PostHog + Analytics Engine + audit with IP/UA (#42/#44)', async () => {
+    captureEvent.mockClear();
+    writeAuditLog.mockClear();
+    const writeDataPoint = jest.fn();
+    const env = envOf({ ANALYTICS: { writeDataPoint } });
+    const after = opts(env).databaseHooks.session.create.after;
+
+    await after({ userId: 'u_42', ipAddress: '203.0.113.7', userAgent: 'UA/1.0' });
+
+    // #42 — PostHog auth-funnel event carrying IP + UA + provider
+    expect(captureEvent).toHaveBeenCalledWith(
+      env,
+      'auth.session.created',
+      'u_42',
+      expect.objectContaining({
+        ip_address: '203.0.113.7',
+        user_agent: 'UA/1.0',
+        auth_provider: 'better_auth',
+      }),
+    );
+    // #44 foundation — Analytics Engine blobs thread IP + UA for new-device queries
+    expect(writeDataPoint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blobs: ['auth.session.created', 'u_42', '203.0.113.7', 'UA/1.0'],
+      }),
+    );
+    // durable audit trail records the originating IP
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      env.DB,
+      expect.objectContaining({ actor_id: 'u_42', message: expect.stringContaining('203.0.113.7') }),
+    );
+  });
+
+  it('never throws when telemetry sinks fail (sign-in must not block)', async () => {
+    captureEvent.mockRejectedValueOnce(new Error('posthog down'));
+    writeAuditLog.mockRejectedValueOnce(new Error('d1 down'));
+    const env = envOf({
+      ANALYTICS: {
+        writeDataPoint: () => {
+          throw new Error('ae down');
+        },
+      },
+    });
+    const after = opts(env).databaseHooks.session.create.after;
+    await expect(after({ userId: 'u_x' })).resolves.toBeUndefined();
   });
 });
