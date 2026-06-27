@@ -208,6 +208,13 @@ export const EnvSchema = z.object({
   TWILIO_API_SECRET: z.string().optional(),
   TWILIO_TWIML_APP_SID: z.string().optional(),
   DEEPGRAM_API_KEY: z.string().optional(),
+  // LiveKit Cloud — voice receptionist transport (ADR voice-architecture.md amendment).
+  // API_KEY/API_SECRET verify the signed /webhooks/livekit events; URL/SIP_URI feed the
+  // agent container + SIP dispatch. Feature stays dark (route 404s) until KEY+SECRET set.
+  LIVEKIT_URL: z.string().optional(),
+  LIVEKIT_API_KEY: z.string().optional(),
+  LIVEKIT_API_SECRET: z.string().optional(),
+  LIVEKIT_SIP_URI: z.string().optional(),
 });
 
 /** Type of the validated (string-only) env keys. */
