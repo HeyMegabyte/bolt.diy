@@ -913,9 +913,9 @@ After the initial Worker foundation is complete, every meaningful new product ca
 - Playwright E2E specs under `apps/project-sites/e2e/<slug>/`
 - Sentry breadcrumbs on every critical path — all events carry `{ featureSlug }` tag
 - Structured log lines carry `feature_slug` field so Axiom/Workers Tracing can filter per feature
-- `README.md` with: what it does, flag key, rollout defaults, safe disabled behavior
+- A **section in `libs/features/CATALOG.md`** (NOT a per-folder `README.md`) with: what it does, flag key, rollout defaults, safe disabled behavior. Project override of the global per-module-README doctrine — one catalog file keeps the tree minimal; `validate:features` gates `manifest.ts`, not READMEs.
 
-**Canonical example:** `libs/features/donations_engine/`
+**Canonical example:** `libs/features/donations_engine/` (docs in `libs/features/CATALOG.md`)
 
 **Reference docs:** `docs/architecture/feature-modules.md` · `docs/architecture/feature-flags.md`
 
