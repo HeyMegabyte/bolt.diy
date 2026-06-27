@@ -598,19 +598,19 @@ new_sqlite_classes = ["DocumensoContainer"]
 # `https://schedule.projectsites.dev/auth/login` → 200 (allow for the slow first
 # boot). DNS already resolves via the *.projectsites.dev wildcard.
 #
-# [[env.production.containers]]
-# class_name = "CaldiyContainer"
-# image = "./containers/caldiy/Dockerfile"
-# max_instances = 3
-# instance_type = "standard-4"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "CALDIY_CONTAINER"
-# class_name = "CaldiyContainer"
-#
-# [[env.production.migrations]]
-# tag = "v_caldiy_container"
-# new_sqlite_classes = ["CaldiyContainer"]
+[[env.production.containers]]
+class_name = "CaldiyContainer"
+image = "./containers/caldiy/Dockerfile"
+max_instances = 3
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "CALDIY_CONTAINER"
+class_name = "CaldiyContainer"
+
+[[env.production.migrations]]
+tag = "v_caldiy_container"
+new_sqlite_classes = ["CaldiyContainer"]
 
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
