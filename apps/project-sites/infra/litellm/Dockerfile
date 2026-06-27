@@ -1,12 +1,17 @@
 # llm.megabyte.space — LiteLLM proxy on CF Workers Containers.
 #
 # LiteLLM proxy is the OpenAI-compatible /v1 gateway (one base URL, every model,
-# with routing, fallbacks, budgets, caching). Model routing is done natively in
-# config.yaml (model_list + router_settings + fallbacks) — no external router.
+# with routing, fallbacks, budgets, caching). Model routing is LiteLLM-NATIVE:
+# config.yaml defines an `auto_router/adaptive_router` "smart" entrypoint that
+# adaptively picks the cheapest model meeting the prompt's quality bar.
 #
-# Stateless container (port 4000) — model creds arrive via env at boot; optional
-# Postgres (Neon) only if key-management/spend-logs persistence is enabled.
-FROM ghcr.io/berriai/litellm:main-stable@sha256:a50b02a6056095da29308310bb608f0509e08ddcd1d105bae9c21007d82b0e95
+# Pinned to main-LATEST (not -stable): the native adaptive_router (+ its bundled
+# semantic_router dep) landed after the -stable digest — verified present + booting
+# WITHOUT a DATABASE_URL in this digest (2026-06-27). No pip install needed; the
+# image already ships adaptive_router + semantic_router 0.1.2.
+#
+# Stateless container (port 4000) — model creds arrive via env at boot.
+FROM ghcr.io/berriai/litellm:main-latest@sha256:76a461132b9abdc032bab4d31d8ba77410ec06e99a14d05971fdfc2d82e6e785
 
 COPY config.yaml /app/config.yaml
 

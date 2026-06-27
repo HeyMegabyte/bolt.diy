@@ -1,35 +1,61 @@
 # LiteLLM proxy config for llm.megabyte.space.
 # Model creds are read from env (set as wrangler secrets, injected by the Container DO).
 #
-# ROUTING (Brian 2026-06-27): consumers call ONE entrypoint model — `smart`.
-# This pinned LiteLLM digest predates the native `auto_router/adaptive_router`
-# (it crash-loops on that config → gateway 1101), so for now `smart` is a fast,
-# reliable alias to DeepSeek (tier 2 — "almost everything"). The full complexity
-# cascade (trivial→Workers-AI, mid→DeepSeek, advanced→Opus 4.8 w/ GPT-5 backup) lands
-# once the image is bumped to a digest that supports adaptive_router — see the
-# `smart` block at the bottom for the target config. Opus + GPT stay reachable as
-# explicit models so a caller can request advanced reasoning directly today.
+# NATIVE ADAPTIVE ROUTER (Brian 2026-06-27): consumers call ONE entrypoint — `smart`
+# (model: auto_router/adaptive_router) — and LiteLLM's native adaptive_router picks the
+# cheapest model whose quality_tier + strengths meet the prompt, biased by the
+# quality/cost weights. Tiers:
+#   tier 3 (frontier) → Opus 4.8  + GPT-5  (advanced reasoning; Opus errors fall back to GPT)
+#   tier 2 (mid)      → DeepSeek          (almost everything; the cost-leaning default)
+# Cost-leaning weights (quality 0.45 / cost 0.55) keep the default on DeepSeek and only
+# escalate genuinely-complex prompts to the frontier tier. Twenty CRM points at `smart`.
+# A tier-1 Cloudflare Workers AI leg (trivial prompts) drops in once a Workers-AI token
+# is set as CLOUDFLARE_API_KEY (see worker.ts) — add it to available_models then.
+#
+# `strengths` MUST be one of the adaptive_router enum values:
+#   code_generation | code_understanding | technical_design | analytical_reasoning
+#   | writing | factual_lookup | general   (any other value crashes proxy startup).
 
 model_list:
-  # ── tier 3 (frontier) — advanced reasoning ──
+  # ── tier 3 (frontier) — advanced tasks ──
   - model_name: opus
     litellm_params:
       model: anthropic/claude-opus-4-8
       api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      input_cost_per_token: 0.000005
+      adaptive_router_preferences:
+        quality_tier: 3
+        strengths: ["analytical_reasoning", "technical_design", "code_generation", "code_understanding"]
   - model_name: gpt
     litellm_params:
       model: openai/gpt-5
       api_key: os.environ/OPENAI_API_KEY
-  # ── tier 2 (mid) — DeepSeek; the default the `smart` entrypoint maps to ──
+    model_info:
+      input_cost_per_token: 0.0000025
+      adaptive_router_preferences:
+        quality_tier: 3
+        strengths: ["analytical_reasoning", "code_generation", "writing"]
+  # ── tier 2 (mid) — almost everything (cost-leaning default) ──
   - model_name: deepseek
     litellm_params:
       model: deepseek/deepseek-chat
       api_key: os.environ/DEEPSEEK_API_KEY
-  # ── single entrypoint Twenty calls. Alias → DeepSeek until adaptive_router lands. ──
+    model_info:
+      input_cost_per_token: 0.00000027
+      adaptive_router_preferences:
+        quality_tier: 2
+        strengths: ["general", "writing", "factual_lookup"]
+
+  # ── the single entrypoint: native adaptive_router across the tiers above ──
   - model_name: smart
     litellm_params:
-      model: deepseek/deepseek-chat
-      api_key: os.environ/DEEPSEEK_API_KEY
+      model: auto_router/adaptive_router
+      adaptive_router_config:
+        available_models: ["opus", "gpt", "deepseek"]
+        weights:
+          quality: 0.45
+          cost: 0.55
 
 litellm_settings:
   drop_params: true
@@ -38,7 +64,7 @@ litellm_settings:
 
 router_settings:
   routing_strategy: simple-shuffle
-  # Opus's only backup is GPT-5; DeepSeek has none (per directive).
+  # Opus's only backup is GPT-5 (advanced tasks); DeepSeek has none (per directive).
   fallbacks:
     - opus: ["gpt"]
 
