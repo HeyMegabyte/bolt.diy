@@ -22,6 +22,21 @@ const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 const UPLOAD_PATHS = ['/api/publish/bolt', '/api/sites/'];
 
 /**
+ * Self-hosted-app subdomains proxied wholesale to CF Workers Containers
+ * (Documenso/cal.diy/Inngest). These apps enforce their own request-body
+ * limits and routinely accept multi-MB payloads (avatar images, signed PDFs,
+ * documents), so the worker grants them the 100 MB ceiling instead of the
+ * default 256 KB API cap — otherwise an avatar upload 413s before reaching the
+ * container (`profile.setProfileImage` on sign.* was rejected at 1.3 MB).
+ */
+const CONTAINER_APP_HOSTS = new Set([
+  'sign.projectsites.dev', // Documenso — e-signatures, avatar + PDF uploads
+  'schedule.projectsites.dev', // cal.diy — scheduling
+  'jobs.projectsites.dev', // Inngest — durable jobs
+  'events.projectsites.dev', // Inngest — event ingest
+]);
+
+/**
  * Enforce max request payload size.
  *
  * @remarks
@@ -62,7 +77,10 @@ export const payloadLimitMiddleware: MiddlewareHandler<{
       url.pathname === '/api/assets/upload' ||
       url.pathname === '/api/media/upload' ||
       url.pathname.endsWith('/publish-bolt');
-    const maxBytes = isUpload ? UPLOAD_MAX_BYTES : DEFAULT_CAPS.MAX_REQUEST_BODY_BYTES;
+    const maxBytes =
+      isUpload || CONTAINER_APP_HOSTS.has(hostname)
+        ? UPLOAD_MAX_BYTES
+        : DEFAULT_CAPS.MAX_REQUEST_BODY_BYTES;
 
     if (!Number.isNaN(size) && size > maxBytes) {
       throw payloadTooLarge(`Request body exceeds maximum size of ${maxBytes} bytes`);
