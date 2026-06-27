@@ -51,9 +51,7 @@ describe('buildIncomingCallTwiML', () => {
   it('XML-escapes every predefined entity in the greeting', () => {
     const greeting = `Tom & Jerry's "5 < 10 > 3" diner`;
     const twiml = buildIncomingCallTwiML({ wsUrl: WS, greeting });
-    expect(twiml).toContain(
-      '<Say>Tom &amp; Jerry&apos;s &quot;5 &lt; 10 &gt; 3&quot; diner</Say>',
-    );
+    expect(twiml).toContain('<Say>Tom &amp; Jerry&apos;s &quot;5 &lt; 10 &gt; 3&quot; diner</Say>');
     // No raw special characters should remain inside the Say body.
     const sayBody = twiml.slice(twiml.indexOf('<Say>') + 5, twiml.indexOf('</Say>'));
     expect(sayBody).not.toMatch(/[<>"']/);
@@ -61,9 +59,7 @@ describe('buildIncomingCallTwiML', () => {
   });
 
   it('throws VoiceTwimlError for a non-wss URL', () => {
-    expect(() => buildIncomingCallTwiML({ wsUrl: 'https://example.com' })).toThrow(
-      VoiceTwimlError,
-    );
+    expect(() => buildIncomingCallTwiML({ wsUrl: 'https://example.com' })).toThrow(VoiceTwimlError);
     expect(() => buildIncomingCallTwiML({ wsUrl: 'ws://insecure.example.com' })).toThrow(
       VoiceTwimlError,
     );

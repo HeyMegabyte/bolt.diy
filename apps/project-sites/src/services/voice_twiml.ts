@@ -138,9 +138,10 @@ export function resolveVoicePersona(site: {
       ? site.business_name.trim()
       : 'the front desk';
 
-  const name = typeof override.name === 'string' && override.name.trim().length > 0
-    ? override.name.trim()
-    : business;
+  const name =
+    typeof override.name === 'string' && override.name.trim().length > 0
+      ? override.name.trim()
+      : business;
 
   const greeting =
     typeof override.greeting === 'string' && override.greeting.trim().length > 0
