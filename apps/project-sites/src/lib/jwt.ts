@@ -109,7 +109,9 @@ export async function verifyHs256(
       new TextEncoder().encode(`${headerB64}.${payloadB64}`),
     );
     if (!valid) return null;
-    const claims = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadB64))) as VerifiedClaims;
+    const claims = JSON.parse(
+      new TextDecoder().decode(b64urlToBytes(payloadB64)),
+    ) as VerifiedClaims;
     if (typeof claims.exp !== 'number' || claims.exp <= nowSeconds) return null;
     return claims;
   } catch {
