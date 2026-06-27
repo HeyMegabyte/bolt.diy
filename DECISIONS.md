@@ -4,12 +4,12 @@
 > **Cadence:** One ADR per material architectural commitment. Append-only. Status transitions
 > recorded inline. Never edit the "Decision" of an accepted ADR — supersede with a new ADR.
 > **Numbering:** Zero-padded, monotonic. `ADR-0001` … `ADR-NNNN`. Never reused.
-> **⚠️ Two ADR series exist — do not conflate.** THIS file is the v2 *architecture* series
-> (ADR-0001…0011). A SEPARATE *convergence* series lives as one-file-per-ADR under
-> [`apps/project-sites/docs/adr/`](apps/project-sites/docs/adr/) (0003, 0005, 0006, 0019, 0030,
-> 0033, 0035, 0046, 0047, 0053) and **its numbers are the ones app code + `service-registry.md`
-> reference** (e.g. "ADR-0006" = Logto, not RxJS). The low numbers collide by accident; resolve
-> any "ADR-00xx" reference by FILE PATH, never by number alone.
+> **⚠️ Two ADR series live in THIS file — do not conflate.** The v2 *architecture* series
+> (ADR-0001…0011) is above; a SEPARATE *convergence* series (0003, 0005, 0006, 0019, 0030,
+> 0033, 0035, 0046, 0047, 0053) is folded in under "Convergence ADR series" below — **its
+> numbers are the ones app code + `service-registry.md` reference** (e.g. "ADR-0006" = Logto,
+> not RxJS). The low numbers collide by accident; resolve any "ADR-00xx" by which series/topic
+> it names, not the number alone.
 > **Owner:** Architect role. Co-signed by Brian Zalewski for any change to `Status: Accepted`.
 
 ## Index
