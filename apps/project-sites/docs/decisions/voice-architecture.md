@@ -1,18 +1,20 @@
 # Voice Receptionist — Architecture & Build Plan (ADR, 2026-06-27)
 
-**Status:** ⚠️ SUPERSEDED for the transport/runtime by the **Amendment (2026-06-27 — LiveKit)** block directly below. The persona/STT/LLM/TTS *choices* (Deepgram Flux, gpt-4o-mini, Piper) carry forward; the Twilio-MediaStreams-→-Fly-bridge transport is replaced by LiveKit Cloud + a CF Workers Container agent. Read the amendment first; the original plan below is retained for history.
+**Status:** ⚠️ SUPERSEDED for the transport/runtime by the **Amendment (2026-06-27 — LiveKit)** block directly below. The persona/STT/LLM/TTS *choices* (Deepgram Flux, gpt-4o-mini, Piper) carry forward; the Twilio-MediaStreams-→-Fly-bridge transport is replaced by LiveKit Cloud (SIP + agent hosting). Read the amendment first (incl. the runtime pivot to LiveKit Cloud agent hosting); the original plan below is retained for history.
 **Owner:** projectsites.dev finishing loop (cron `1878e26d`).
 
 ---
 
-## Amendment (2026-06-27, later) — LiveKit Cloud + CF Workers Container agent
+## Amendment (2026-06-27, later) — LiveKit Cloud + LiveKit Cloud agent hosting
+
+> **⚙️ Runtime pivot (2026-06-27, same day):** the original amendment chose a **CF Workers Container** for the agent. LiveKit's docs confirm an agent is *"an agent server process that registers with the LiveKit server and waits for dispatch requests"* — a **persistent, always-registered** process. CF Workers Containers **hibernate when idle** and are request-driven (the opposite); at call time LiveKit dispatches the instant the room is created, so a hibernated container = no registered worker = no agent answers. Wake-on-call only works with extra orchestration + multi-second caller hold + a dispatch race. **Brian (AskUserQuestion 2026-06-27) chose LiveKit Cloud agent hosting** (`lk agent create` → runs OUR Dockerfile, always-on, autoscaled, co-located with the media servers). Everything else is unchanged — Twilio→SIP→LiveKit, Deepgram Flux + gpt-4o-mini + **Piper bundled in the Dockerfile**, the live `/webhooks/livekit` receiver, conversations wiring. The CF-container feasibility risk + slice-0 spike below are **VOID** (pivoted, not validated). Fly remains off the table.
 
 **Decision (Brian, 2026-06-27):** replace the hand-rolled `twilio-labs/call-gpt` MediaStreams bridge on Fly with **LiveKit Agents**. The call-gpt demo's naive turn-taking / barge-in / reconnection / μ-law glue is exactly what a production receptionist must get right, and LiveKit gives it out of the box (silero VAD + multilingual turn detection + interruption + noise cancellation), with a first-class Deepgram `flux-general` plugin — the STT this ADR already chose. LiveKit is Apache-2.0, so this is MORE self-host-aligned, not less.
 
 ### New topology
 ```
 Caller → Twilio number → Twilio Elastic SIP Trunk → LiveKit Cloud SIP ingress → room
-       → LiveKit Agent (Node @livekit/agents) running in a CF WORKERS CONTAINER (NOT Fly)
+       → LiveKit Agent (Node @livekit/agents) on LIVEKIT CLOUD AGENT HOSTING (runs our Dockerfile; NOT Fly, NOT CF Container)
           → Deepgram flux-general STT  (LiveKit inference plugin; DEEPGRAM_API_KEY)
           → gpt-4o-mini streaming brain, per-site persona  (OPENAI_API_KEY)
           → Piper TTS — CUSTOM @livekit/agents TTS plugin, Piper binary + ONNX voice
@@ -23,25 +25,27 @@ Caller → Twilio number → Twilio Elastic SIP Trunk → LiveKit Cloud SIP ingr
 
 ### Chosen options (Brian, AskUserQuestion 2026-06-27)
 - **LiveKit hosting:** LiveKit **Cloud** (project `p_5i7qjsfbhz7`, `wss://projectsites-dev-1ydfdbtm.livekit.cloud`, SIP `sip:5i7qjsfbhz7.sip.livekit.cloud`). Creds in `get-secret`: `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` / `LIVEKIT_SIP_URI` / `LIVEKIT_PROJECT_ID`.
-- **Agent runtime:** **CF Workers Container** (`@cloudflare/containers` + DO, same pattern as Twenty/Listmonk/Inngest) — NOT Fly. Cloudflare-first per `[[projectsites-cloudflare-first]]`.
+- **Agent runtime:** ~~CF Workers Container~~ → **LiveKit Cloud agent hosting** (pivot above). `lk agent create` generates `Dockerfile` + `livekit.toml`; LiveKit Cloud runs our image always-on + autoscaled. Agent project lives at `infra/voice-agent/`. NOT Fly, NOT CF Container.
 - **Agent SDK:** **Node / TypeScript** (`@livekit/agents` + `agent-starter-node`), keeps the one-language stack.
 - **TTS:** **Piper custom plugin now** (self-hosted, free, bundled in the image); hosted TTS only as a `TTS_PROVIDER` fallback.
 - **Availability:** **Wake-on-incoming-call** — container hibernates when idle; the inbound LiveKit SIP/room webhook wakes it, it registers + accepts dispatch. Accept the cold-start (several seconds) on the first call after idle. (Trade vs always-warm cost; revisit if ring-latency hurts.)
 - **Concurrency:** start small (1-3 concurrent), LiveKit Cloud free tier; scale via `max_instances` + tier later (two-way door).
 - **call-gpt Fly app:** **tear down** — Fly leaves the voice path entirely; the `voice/` Fly bridge + `projectsites-voice` app are decommissioned.
 
-### ⚠️ Feasibility risk to validate FIRST (before deep build)
-Running a LiveKit agent inside a CF Workers Container is **non-standard**: (1) the agent holds a persistent worker-registration WS to LiveKit + WebRTC media; CF Containers **hibernate** — wake-on-call must re-register fast enough that LiveKit dispatch finds a worker before the caller hangs up; (2) WebRTC media from inside a CF Container may have restricted UDP — rely on LiveKit's **TURN-over-TCP/TLS-443** fallback. **Slice 0 = a spike proving a CF-Container-hosted `@livekit/agents` worker can register with LiveKit Cloud, accept a dispatched job, and exchange audio over TCP/443.** If it can't, fall back to LiveKit Cloud's own agent hosting (still keeps the rest of the design) and revisit.
+### ✅ Feasibility risk — RESOLVED by the runtime pivot
+The CF-Container hibernation/registration mismatch (below) is moot: the agent now runs on **LiveKit Cloud agent hosting** (always-on, co-located), so there is no hibernation race and no UDP/TURN concern from a CF container. Slice 0 (CF-container spike) is **dropped**.
+
+~~Running a LiveKit agent inside a CF Workers Container is non-standard: the agent holds a persistent worker-registration WS + WebRTC media; CF Containers hibernate; wake-on-call must re-register before dispatch; UDP may be restricted (TURN-over-TCP/443 fallback). Spike dropped — pivoted to LiveKit Cloud hosting.~~
 
 ### Webhook
 - LiveKit webhook URL (register in LiveKit Cloud project settings): **`https://projectsites.dev/webhooks/livekit`** — lifecycle/egress events only (NOT call audio). Verify the `Authorization` JWT with `WebhookReceiver(LIVEKIT_API_KEY, LIVEKIT_API_SECRET)`; idempotent on `event.id`; `room_finished`/egress-ended → persist recording (R2) + transcript → D1 Conversations.
 
 ### Build slices (this arc, TDD-first, flag `voice_receptionist` dark)
-0. **Spike** — CF-Container `@livekit/agents` worker registers + accepts a dispatched job over TCP/443 (de-risk the runtime).
-1. **`/webhooks/livekit` receiver** — signed (WebhookReceiver), Zod-validated, idempotent, → D1 Conversations. (Decision-independent; build first alongside the spike.)
-2. **CF Container agent** — `infra/voice-agent/` (Dockerfile bundling Piper + ONNX voice + Node agent; `worker.ts` DO wake-on-call; `wrangler.toml`); Deepgram flux + gpt-4o-mini + **Piper custom TTS plugin**; per-site persona by dialed number.
+0. ~~CF-Container spike~~ — **DROPPED** (pivoted to LiveKit Cloud agent hosting).
+1. ✅ **`/webhooks/livekit` receiver** — signed (HS256 verify + body-sha256), Zod-validated, idempotent on `event.id`, dark-by-default; `webhook_events` CHECK widened (migration `0579`). **SHIPPED + prod-verified** (`6578310a`, `168e9559`).
+2. **LiveKit Cloud agent** — `infra/voice-agent/` (Node `@livekit/agents` + `livekit.toml` + Dockerfile bundling Piper + ONNX voice + the **Piper custom TTS plugin**); Deepgram flux + gpt-4o-mini; per-site persona by dialed number. First-light may use a hosted TTS, then swap Piper. Deploy via `lk agent create`/`deploy`.
 3. **Twilio Elastic SIP Trunk → LiveKit SIP inbound trunk + dispatch rule** (API-configured with the stored creds; keep the existing Twilio number).
-4. **Recording + transcript → D1 → /admin Conversations.**
+4. **Recording (LiveKit egress → R2) + transcript → D1 → /admin Conversations.**
 5. **Tear down** `voice/` Fly bridge + `projectsites-voice` Fly app; drop the Twilio `<Connect><Stream>` TwiML path.
 6. **Live call test** (V0g): dial the number → persona answers → transcript lands.
 

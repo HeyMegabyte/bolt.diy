@@ -185,6 +185,8 @@ export { CollabRoomDO } from './durable_objects/collab_room.js';
 export { EventDispatcher } from './durable_objects/event_dispatcher.js';
 // jobs./events.projectsites.dev — self-hosted Inngest server container (§13).
 export { InngestContainer } from './durable_objects/inngest_container.js';
+// survey.projectsites.dev — self-hosted Formbricks survey container (dedicated DO).
+export { FormbricksContainer } from './durable_objects/formbricks_container.js';
 // sign.projectsites.dev — self-hosted Documenso e-signature container (dedicated DO).
 export { DocumensoContainer } from './durable_objects/documenso_container.js';
 // schedule.projectsites.dev — self-hosted cal.diy scheduling container (dedicated DO).
@@ -462,6 +464,11 @@ app.get('/', async (c, next) => {
   return svc ? c.html(systemServiceLanding(svc)) : next();
 });
 app.route('/', inngestApp); // jobs./events.projectsites.dev → InngestContainer DO + /api/inngest serve handler (§13); degrades to 503 until the watched deploy binds INNGEST_CONTAINER — must precede the catch-all
+// Formbricks REMOVED (2026-06-27): survey.* host route deleted (exceeds the
+// 4-service max — needs Cube + extra custom Hub services). The FORMBRICKS_CONTAINER
+// DO binding lingers INERT in wrangler.toml only because CF's migration registry has
+// a corrupted entry for the class (deleted_classes→"non-existent", new_sqlite→"already
+// depended on") that blocks a clean delete. No route reaches it; data plane removed.
 // sign.projectsites.dev → self-hosted Documenso container (dedicated DO).
 // Proxies the FULL host to DOCUMENSO_CONTAINER; degrades to 503 until the watched
 // deploy binds it. Must precede the site-serving catch-all.

@@ -1,0 +1,27 @@
+{
+  "name": "projectsites-voice-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ProjectSites AI phone receptionist — LiveKit Cloud agent (Deepgram Flux STT + gpt-4o-mini + Piper/OpenAI TTS). Deployed to LiveKit Cloud agent hosting via `lk agent deploy`.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "node --import tsx src/agent.ts dev",
+    "start": "node dist/agent.js start"
+  },
+  "dependencies": {
+    "@livekit/agents": "^1.4.9",
+    "@livekit/agents-plugin-deepgram": "^1.4.9",
+    "@livekit/agents-plugin-openai": "^1.4.9",
+    "@livekit/agents-plugin-silero": "^1.4.9",
+    "@livekit/agents-plugin-livekit": "^1.4.9",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2",
+    "@types/node": "^22"
+  }
+}
