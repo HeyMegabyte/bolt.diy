@@ -59,7 +59,8 @@ export default defineAgent({
 
     const session = new voice.AgentSession({
       vad: (await ctx.proc.userData.vad) as silero.VAD,
-      stt: new deepgram.STT({ model: 'flux-general-en' }),
+      // Deepgram Flux (STTv2) — conversational STT with model-integrated end-of-turn.
+      stt: new deepgram.STTv2({ model: 'flux-general-en' }),
       llm: new openai.LLM({ model: 'gpt-4o-mini' }),
       // FIRST-LIGHT TTS — OpenAI (our key). TODO(slice-2): swap to the Piper custom
       // TTS plugin (free, self-hosted, bundled in the Dockerfile) per the voice ADR.
