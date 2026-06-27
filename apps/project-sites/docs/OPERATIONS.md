@@ -295,3 +295,230 @@ Everything else in `public/` is under 100 KB. `optimize-images.mjs` re-encodes d
 
 - Convert homepage hero (when added) directly as AVIF/WebP/JPEG triplet rather than from PNG.
 - Move icon generation into `optimize-images.mjs` so the favicon pipeline is one script.
+
+
+---
+
+# Runbooks (folded 2026-06-27)
+
+
+## auth-better-auth
+
+# Runbook — Better Auth (embedded) activation + cutover
+
+Better Auth is embedded in the main worker (`src/auth/better-auth.ts`), mounted at
+`/api/auth/*` behind the `better_auth` flag. See ADR-0006.
+
+## Secrets (main worker)
+- `BETTER_AUTH_SECRET` — session/token secret. Self-generable: `openssl rand -base64 32`.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — for Google social (already set for legacy Google).
+
+## Cutover sequence (do NOT skip)
+1. **Phase 2** — ship the frontend sign-in UI (email+pw, magic link, Google, 2FA) against `/api/auth/*`.
+2. **Phase 3** — backfill existing D1 `users` → Better Auth `user`/`account` tables (no re-register).
+3. **Phase 4** — flip the `better_auth` flag ON. Better Auth now owns `/api/auth/*` + issues sessions;
+   legacy auth becomes fallback. Verify sign-in/up/magic-link/Google/2FA end-to-end against prod.
+4. **Phase 5** — enable the SSO/SAML plugin for enterprise.
+5. **Phase 6** — remove `services/auth.ts` (legacy) + the standalone `auth.projectsites.dev` worker.
+
+## Rollback
+Flip `better_auth` OFF → `/api/auth/*` falls through to the legacy auth (still present until Phase 6).
+Instant, no redeploy.
+
+## Verify (prod smoke, flag on)
+- `POST /api/auth/sign-up/email` → creates a user + session.
+- `POST /api/auth/sign-in/email` → session cookie set.
+- `POST /api/auth/sign-in/magic-link` → email sent (SES/Listmonk).
+- Google + 2FA flows complete without console errors.
+
+
+## email-deliverability-activation
+
+# Runbook — Activate the SES Email + Deliverability Pipeline (§4/§42, ADR-0019)
+
+This loop built the full Resend→SES transactional migration **and** the SES
+bounce/complaint suppression pipeline behind progressive-degradation env gates.
+The code ships dark: with no AWS creds it falls back to Resend, and with no
+`SES_WEBHOOK_SECRET` the webhook 503s. These are the operator steps to turn it
+on. Each step is independent and reversible.
+
+## What is already built (no code work remaining)
+
+- **10 transactional senders** route SES-primary when configured (notifications,
+  auth magic-link, contact, forms send-reply, inbox, credits alerts, public
+  contact-form, form_router, ai_admin invites, weekly_digest). Resend/SendGrid
+  remain the fallback. (`src/platform/email-router.ts`, `services/ses_email_provider.ts`.)
+- **Suppression pipeline**: parse (`services/ses_notifications.ts`) → store
+  (`services/email_suppressions.ts`, migration `0575`) → webhook
+  (`routes/ses_webhooks.ts`, `POST /webhooks/ses`) → enforce (fail-open
+  `isSuppressed` check in the email-router) → manage (super-admin
+  `GET`/`DELETE /api/super-admin/email-suppressions`).
+
+## Step 1 — Apply the D1 migration (creates the suppression tables)
+
+`wrangler deploy` does NOT run D1 migrations (repo's standing pattern). Run:
+
+```bash
+cd apps/project-sites
+npx wrangler d1 migrations apply project-sites-db-production --env production --remote
+# verify:
+npx wrangler d1 execute project-sites-db-production --env production --remote \
+  --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('email_suppressions','email_events');"
+```
+
+Expect both `email_suppressions` and `email_events` listed.
+
+## Step 2 — Verify the SES sending domain + set the SES env
+
+Requires `noreply@projectsites.dev` verified in SES (DKIM/SPF) + production SES
+access (out of sandbox) before real sends.
+
+```bash
+npx wrangler secret put AWS_ACCESS_KEY_ID --env production
+npx wrangler secret put AWS_SECRET_ACCESS_KEY --env production
+# vars (wrangler.toml [env.production.vars] or secret):
+#   AWS_DEFAULT_REGION = us-east-1   (or your SES region)
+#   SES_FROM_EMAIL     = noreply@projectsites.dev
+```
+
+The moment all three of `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` +
+`SES_FROM_EMAIL` are set, every transactional send flips to SES-primary.
+
+## Step 3 — Generate + set the webhook HMAC secret
+
+Self-generable (we control both signer + verifier). NOT a vendor cred.
+
+```bash
+SES_WEBHOOK_SECRET=$(openssl rand -base64 32)
+echo "$SES_WEBHOOK_SECRET" | npx wrangler secret put SES_WEBHOOK_SECRET --env production
+# keep $SES_WEBHOOK_SECRET — Step 4 configures Hookdeck/SNS to sign with it.
+```
+
+## Step 4 — Wire SES → SNS → /webhooks/ses (HMAC-signed)
+
+1. In SES, set the configuration set / identity to publish **Bounce** +
+   **Complaint** events to an SNS topic.
+2. Point an HTTPS subscription at `https://api.projectsites.dev/webhooks/ses`,
+   forwarded through Hookdeck (preferred) so Hookdeck verifies the raw SNS
+   signature and re-signs with HMAC using `$SES_WEBHOOK_SECRET` in the
+   `x-hookdeck-signature` header. (Direct SNS also works if it can HMAC-sign.)
+3. The first delivery is a `SubscriptionConfirmation` — the handler auto-confirms
+   it (SSRF-guarded to `sns.*.amazonaws.com` only).
+
+## Step 5 — End-to-end verify
+
+```bash
+# Trigger a hard bounce via the SES simulator (sends FROM your verified domain):
+#   send any transactional email to: bounce@simulator.amazonses.com
+# Then confirm the address was suppressed:
+npx wrangler d1 execute project-sites-db-production --env production --remote \
+  --command "SELECT email, reason FROM email_suppressions ORDER BY created_at DESC LIMIT 5;"
+```
+
+Expect `bounce@simulator.amazonses.com` with `reason='bounce'`. A subsequent send
+to it is skipped by the fail-open `isSuppressed` check (structured log
+`send_skipped_suppressed`).
+
+Operators view/manage the list at `GET /api/super-admin/email-suppressions` and
+un-suppress via `DELETE /api/super-admin/email-suppressions/:email` (audited).
+
+## Step 6 — Decommission Resend (only after SES is proven live)
+
+Once Step 5 passes in prod for ≥48h:
+
+1. Delete the Resend fallback branches from the 10 senders (each keeps SES + the
+   structured logs).
+2. In `scripts/check-architecture-fitness.mjs`, drop `documented: 'ADR-0019'`
+   from the `resend` rule so any reintroduction is a HARD violation, and set the
+   `email-resend` registry status to `removed`.
+3. Verify `node scripts/check-architecture-fitness.mjs` reports
+   `by_vendor.resend == 0` and the gate is green.
+
+## Rollback
+
+- Unset `AWS_*`/`SES_FROM_EMAIL` → senders fall back to Resend instantly (no
+  redeploy needed — progressive degradation by env).
+- Unset `SES_WEBHOOK_SECRET` → the webhook 503s (stops ingesting suppressions).
+- D1 Time Travel restores `email_suppressions` if a bad bulk-suppress lands.
+
+## See
+
+- `docs/adr/0019-amazon-ses-plus-listmonk-email.md` — the decision + migration log.
+- `~/.agentskills/rules/email-deliverability.md` — the cross-project doctrine.
+
+
+## selfhost-apps
+
+# Runbook — Self-host customer-facing apps on CF Workers Containers
+
+Stand up Cal.com / Formbricks / Documenso (and future SKUs) as per-app CF Workers
+Containers, each on its own subdomain + dedicated Neon DB. Pattern mirrors the live
+`llm.megabyte.space` / `crm` / `cms` containers. Cross-refs: `neon-database-conservation`,
+`worker-deploy-needs-docker`, `listmonk-mail-subdomain-live`, `cf-access-on-workers-gotchas`.
+
+## Architecture decision (2026-06-27) — CF Workers Containers, NOT Fly.io
+
+Host on **CF Workers Containers** (`cloudflare-lock-in-is-leverage`), not Fly.io. The CF
+registry block only affects external `image = "ghcr.io/..."` refs; the working path is
+`image = "./containers/<app>/Dockerfile"` with the Dockerfile `FROM <official-image>` — CF
+builds it into its own managed registry, no external registry needed.
+
+## Supportability gate — the 4-service rule (see root README)
+
+An app is only supportable if its ENTIRE data/service plane fits within FOUR service types:
+(1) **Custom** (its own CF Workers Container), (2) **Upstash** Redis, (3) **Neon** Postgres,
+(4) **Tinybird** analytics. Anything outside that set (bespoke ClickHouse/Cube, a second custom
+service, extra Hub services) = **NOT supportable**; do not add it.
+
+## The apps
+
+| Brand | OSS app | Subdomain | Neon DB | Status |
+|---|---|---|---|---|
+| cal.diy | Cal.com (repo `github.com/calcom/cal.diy`, NOT calcom/cal.com) | `schedule.projectsites.dev` | `projectsites_calcom` | ✅ live |
+| (sign) | Documenso | `sign.projectsites.dev` | `projectsites_documenso` | ✅ live |
+| ~~(survey)~~ | ~~Formbricks~~ | — | — | ❌ REJECTED 2026-06-27 — v5 image needs Cube + extra Hub services (>4-service rule) |
+
+Live apps are Postgres-only (Neon-native); confirm each repo's current docker-compose before
+building (Redis can flip optional→required between majors — and an app crossing the 4-service
+rule must be rejected, as Formbricks was).
+
+## Per-app wiring (AppRuntimeContainer-subclass pattern — mirror Umami/Outline)
+
+1. `containers/<app>/Dockerfile` = `FROM <official-image>` + `EXPOSE <port>`.
+2. `[[env.production.containers]]` in `wrangler.toml`: `class_name = "<App>Container"` + `image = "./containers/<app>/Dockerfile"`.
+3. `[[env.production.durable_objects.bindings]]` for the class + migration entry with `new_sqlite_classes = ["<App>Container"]`.
+4. DO subclass in `src/durable_objects/app_runtime_subclasses.ts` + add slug to `SUPPORTED_APP_SLUGS`.
+5. `BINDING_BY_SLUG['<slug>'] = '<APP>_CONTAINER'` in `src/services/container_dispatcher.ts` + add binding to `Env` (`src/types/env.ts`).
+6. Host dispatch: route `survey|schedule|sign`.projectsites.dev → its container (hostname→slug map in the worker dispatch path). **An explicit per-host route is MANDATORY** — the `*.projectsites.dev/*` wildcard otherwise wins and swallows the subdomain (Listmonk incident).
+7. Inject app env (DATABASE_URL → the app's dedicated Neon DB, NEXTAUTH_SECRET, etc.) via the AppRuntime env-resolution path.
+8. `wrangler deploy --env production` — **Docker daemon MUST be up** (builds all container images).
+9. Verify by BODY: `curl -sI https://<sub>.projectsites.dev` → 200 AND body = the app's login/landing HTML (wildcard fallback also returns 200 — assert content, not just status). Real-browser smoke: app shell renders, not blank/SPA-HTML.
+
+## Secrets (per `secret-provisioning-recipe`)
+
+chezmoi → wrangler manifest → Env+Zod → `wrangler secret put` (GLOBAL CF key; `secret put`
+needs no Docker, but the container BUILD on deploy does).
+
+- Cal.com: `NEXTAUTH_SECRET`, `CALENDSO_ENCRYPTION_KEY`, `DATABASE_URL`, SMTP (via Listmonk/Resend)
+- Documenso: `NEXTAUTH_SECRET`, `NEXT_PRIVATE_ENCRYPTION_KEY`, `NEXT_PRIVATE_SIGNING_*` (cert), `DATABASE_URL`, SMTP
+- (Formbricks rejected — the 32-char `ENCRYPTION_KEY` / multi-env zod gotcha is moot; it failed the 4-service rule.)
+
+## Neon DBs
+
+Per `neon-database-conservation`: one DATABASE per app inside a shared project (~100 DBs/project;
+a new project is NOT justified). Some apps already have dedicated projects (Formbricks
+`wild-sound-20069767`, + Twenty/Listmonk/n8n/Strapi/NocoDB/Windmill). Use the neon MCP
+(`run_sql`, `get_connection_string`).
+
+## Preconditions + gotchas
+
+- **Docker daemon MUST be running** before any container deploy: `docker info >/dev/null 2>&1 || open -a Docker`, poll until ready. This (not just context thrash) is why early rounds never reached 200.
+- **macOS Docker cred fix**: PATH + strip `credsStore` from `~/.docker/config.json` + keychain unlock.
+- **Do NOT clone/read upstream source** — bind the official published image; reading repos/lockfiles thrashes context (`subagent_tokens: 0`). Run ONE app per FRESH session (`/clear` first), or sequential — spawning deploy agents from a thrashing parent reproduces the failure regardless of brief leanness.
+
+## Status (as of 2026-06-27)
+
+- Documenso: ✅ live (`sign.projectsites.dev`, e-sign).
+- cal.diy: ✅ live (`schedule.projectsites.dev`, scheduling).
+- Formbricks: ❌ rejected (exceeds the 4-service rule — needs Cube + Hub services).
+- Each live app becomes an `/admin`-purchasable add-on SKU (booking / e-sign).

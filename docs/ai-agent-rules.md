@@ -4,7 +4,7 @@
 > `package-preference-registry`, `cloudflare-lock-in-is-leverage`, `drift-detection`. This file
 > is the **repo-specific delta + entry pointer** for an agent touching this repo — not a
 > restatement of universal CF-first/package rules.
-> Stack source of truth: `docs/STACK.md` + `docs/tooling-matrix.md`.
+> Stack source of truth: `docs/STACK.md`.
 > Infra doctrine: `apps/project-sites/docs/architecture/cloudflare-first.md`.
 
 ## Cloudflare-first policy (non-negotiable)
@@ -18,8 +18,8 @@
 
 ## No duplicate packages
 
-- One canonical tool per job (see the "Canonical job" column in `docs/tooling-matrix.md`).
-- Before adding any dep: grep `package.json` + `docs/tooling-matrix.md` for an existing solver. If one exists, use it.
+- One canonical tool per job (see the "Canonical job" column in `docs/STACK.md`).
+- Before adding any dep: grep `package.json` for an existing solver. If one exists, use it.
 - An "inferior duplicate" (second router, second ORM, second validation lib) is a build-fail unless it serves a clearly separate role documented in `DECISIONS.md`.
 
 ## Preferred libraries (the short list)
@@ -52,7 +52,7 @@ Run the 7-question gate for every candidate: have an equivalent? · feature trul
 - [ ] Security review done (authz, sanitization, secret handling)
 - [ ] Cost/scale impact noted (1M-site tenancy)
 - [ ] Cloudflare compatibility checked (Workers runtime / adapter)
-- [ ] Agent instructions updated (this file + `docs/STACK.md` + `docs/tooling-matrix.md`)
+- [ ] Agent instructions updated (this file + `docs/STACK.md`)
 
 ## Repo cleanup rules
 
@@ -79,6 +79,6 @@ Run the 7-question gate for every candidate: have an equivalent? · feature trul
 ## See
 
 - `docs/STACK.md` — status-tagged stack + Phase 0–6 TODOs
-- `docs/tooling-matrix.md` — the flat grid
+- `docs/STACK.md` — the flat grid
 - `docs/generated-site-quality.md` · `docs/ai-observability.md` · `docs/security-supply-chain.md`
 - `apps/project-sites/docs/architecture/cloudflare-first.md` — binding infra doctrine

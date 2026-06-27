@@ -3,9 +3,9 @@
 > **Owner:** Architect. Co-signed by Brian Zalewski.
 > **⚠️ Scope — TARGET / v2 vision (aspirational), NOT as-deployed.** This is the intended
 > v2 topology (3-worker split, per-tenant D1, etc.). For what is ACTUALLY running today read
-> [`docs/architecture/current.md`](./docs/architecture/current.md) (authoritative as-deployed)
-> and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) (shipped single-worker detail). Where
-> this file disagrees with those, those win for "now"; this file wins for "target".
+> [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) (shipped single-worker detail + as-deployed
+> map + Fly/Cloudflare split). Where this file disagrees with that, it wins for "now"; this
+> file wins for "target".
 > **Status:** Authoritative TARGET topology for v2. Reflects all eight accepted ADRs in
 > [DECISIONS.md](./DECISIONS.md). Last reviewed: 2026-05-26.
 > **Audience:** Engineers wiring service bindings, ops reading runbooks, sub-agents
