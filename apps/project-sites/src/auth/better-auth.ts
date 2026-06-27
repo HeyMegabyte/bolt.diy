@@ -69,7 +69,9 @@ export function makeAuth(env: Env): Auth {
     try {
       await getEmailProvider(env).sendTransactional({ to, subject, html, kind: 'security' });
     } catch (err) {
-      console.warn(JSON.stringify({ level: 'warn', msg: 'better-auth email send failed', err: String(err) }));
+      console.warn(
+        JSON.stringify({ level: 'warn', msg: 'better-auth email send failed', err: String(err) }),
+      );
     }
   };
 
@@ -174,7 +176,9 @@ export async function ensureBetterAuthSchema(env: Env): Promise<void> {
     await runMigrations();
     migrated = true;
   } catch (err) {
-    console.warn(JSON.stringify({ level: 'warn', msg: 'better-auth migrate skipped', err: String(err) }));
+    console.warn(
+      JSON.stringify({ level: 'warn', msg: 'better-auth migrate skipped', err: String(err) }),
+    );
     migrated = true;
   }
 }

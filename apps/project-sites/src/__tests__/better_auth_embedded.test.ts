@@ -32,7 +32,12 @@ jest.mock('../platform/email-router.js', () => ({
 import { makeAuth, _resetAuthCache } from '../auth/better-auth.js';
 
 function envOf(extra = {}) {
-  return { DB: {}, CACHE_KV: { get: jest.fn(), put: jest.fn(), delete: jest.fn() }, BETTER_AUTH_SECRET: 'x'.repeat(40), ...extra };
+  return {
+    DB: {},
+    CACHE_KV: { get: jest.fn(), put: jest.fn(), delete: jest.fn() },
+    BETTER_AUTH_SECRET: 'x'.repeat(40),
+    ...extra,
+  };
 }
 const opts = (env) => makeAuth(env).options;
 
@@ -67,7 +72,19 @@ describe('makeAuth (embedded Better Auth)', () => {
 
   it('registers the full plugin set', () => {
     const ids = opts(envOf({ TURNSTILE_SECRET_KEY: 't' })).plugins.map((p) => p.id);
-    for (const id of ['magic-link', 'two-factor', 'organization', 'admin', 'anonymous', 'username', 'multi-session', 'one-tap', 'email-otp', 'haveibeenpwned', 'captcha']) {
+    for (const id of [
+      'magic-link',
+      'two-factor',
+      'organization',
+      'admin',
+      'anonymous',
+      'username',
+      'multi-session',
+      'one-tap',
+      'email-otp',
+      'haveibeenpwned',
+      'captcha',
+    ]) {
       expect(ids).toContain(id);
     }
   });
@@ -80,6 +97,9 @@ describe('makeAuth (embedded Better Auth)', () => {
   it('adds Google social only when GOOGLE_CLIENT_ID + SECRET set', () => {
     expect(opts(envOf()).socialProviders).toBeUndefined();
     _resetAuthCache();
-    expect(opts(envOf({ GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's' })).socialProviders.google.clientId).toBe('g');
+    expect(
+      opts(envOf({ GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's' })).socialProviders.google
+        .clientId,
+    ).toBe('g');
   });
 });
