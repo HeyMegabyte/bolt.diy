@@ -5,31 +5,28 @@ Canonical documentation for projectsites.dev. The published MkDocs site builds f
 
 ## Start here
 
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — shipped Worker topology, data flow, D1 schema
-- [`STACK.md`](./STACK.md) — tooling matrix + convergence work items (most current)
-- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — auth chain, bindings, smoke-test matrix, rollback
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — shipped Worker topology, data flow, D1 schema, Fly/Cloudflare split, as-deployed map
+- [`STACK.md`](./STACK.md) — tooling matrix + convergence work items
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — auth chain, bindings, smoke-test matrix, rollback, Fly runbook, post-deploy verification
 - [`REQUIREMENTS.md`](./REQUIREMENTS.md) — requirement checklist (built / deferred)
 - [`SUBDOMAINS.md`](./SUBDOMAINS.md) — public subdomain/service map
+- [`TESTING.md`](./TESTING.md) — Jest + Playwright guide
 
 ## AI + prompts
 
 - [`AI_INTEGRATION.md`](./AI_INTEGRATION.md) — AI Gateway, Vectorize/RAG, PostHog LLM-obs
-- [`ai-observability.md`](./ai-observability.md) — AI governance: trace, eval, budget, fallback
-- [`ai-agent-rules.md`](./ai-agent-rules.md) — Cloudflare-first package + integration policy
 - [`PROMPTS.md`](./PROMPTS.md) — prompt infrastructure (`.prompt.md`, registry, A/B)
-- [`generated-site-quality.md`](./generated-site-quality.md) — quality gates for generated sites
+- [`generated-site-quality.md`](./generated-site-quality.md) — `{slug}.projectsites.dev` quality gates (repo-delta; generic budgets in global rules)
 
-## Subsystem docs
+## Subsystems (consolidated)
 
-- [`observability/`](./observability/) — logging, OTel, PostHog, Axiom
-- [`analytics/`](./analytics/) — ClickHouse warehouse, ingestion pipeline
-- [`social/`](./social/) — native social-publishing architecture + Postiz reference
-- [`services/`](./services/) — Chatwoot, Postiz deploy/integration
-- [`deployment/`](./deployment/) — Fly.io runbook, post-deploy verification
-- [`architecture/`](./architecture/) — as-deployed map, Fly/Cloudflare split
-- [`maintenance/`](./maintenance/) — dead-code + Zod-validation audit records
-- [`cx-improvements/`](./cx-improvements/) + [`page-improvements/`](./page-improvements/) — feature backlogs
-- [`security-supply-chain.md`](./security-supply-chain.md) · [`tooling-matrix.md`](./tooling-matrix.md) · [`TESTING.md`](./TESTING.md)
+- [`OBSERVABILITY.md`](./OBSERVABILITY.md) — logging, OTel, PostHog, Sentry, Axiom, ClickHouse/Tinybird, AI-observability
+- [`SERVICES-AND-SOCIAL.md`](./SERVICES-AND-SOCIAL.md) — native social + Postiz, Chatwoot support
+- [`FEATURE-IDEAS.md`](./FEATURE-IDEAS.md) — consolidated feature backlog (IDE / payments / KB chat / benchmarks / editor)
+
+## Policy (repo-delta; canonical doctrine in `~/.agentskills`)
+
+- [`ai-agent-rules.md`](./ai-agent-rules.md) · [`security-supply-chain.md`](./security-supply-chain.md)
 
 ## Decisions
 
