@@ -43,13 +43,18 @@ model_list:
       adaptive_router_preferences:
         quality_tier: 2
         strengths: ["general", "writing", "factual_lookup"]
+  # ── tier 1 (budget) — Cloudflare Workers AI / Llama: DEFERRED. The Workers-AI token
+  #    works (verified ai/run 200) + CLOUDFLARE_API_KEY/ACCOUNT_ID are set, but LiteLLM's
+  #    `cloudflare/@cf/...` provider didn't register the fp8 model (not in /v1/models). Needs
+  #    the correct LiteLLM cloudflare model string (or route Workers AI via the AI Gateway
+  #    OpenAI-compat endpoint) before adding `ollama` back to available_models below.
   # ── embeddings (RAG / Vectorize / future semantic cache) ──
   - model_name: embedding
     litellm_params:
       model: openai/text-embedding-3-small
       api_key: os.environ/OPENAI_API_KEY
 
-  # ── the single entrypoint: native adaptive_router across the tiers above ──
+  # ── the single entrypoint: native adaptive_router across all three tiers ──
   - model_name: smart
     litellm_params:
       model: auto_router/adaptive_router
@@ -90,3 +95,6 @@ general_settings:
   # Batch spend writes every 60s; cap DB pool per worker.
   proxy_batch_write_at: 60
   database_connection_pool_limit: 5
+  # Slack alerts: hanging requests, slow responses, budget thresholds (SLACK_WEBHOOK_URL env).
+  alerting: ["slack"]
+  alerting_threshold: 300
