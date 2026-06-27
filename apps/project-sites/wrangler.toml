@@ -612,6 +612,27 @@ class_name = "CaldiyContainer"
 tag = "v_caldiy_container"
 new_sqlite_classes = ["CaldiyContainer"]
 
+# ─── Formbricks (survey.projectsites.dev) — CF Workers Container ──────────────
+# Appended AFTER caldiy (clean append — clean appends work, reordering applied
+# migrations 10074s). A prior FAILED deploy half-registered FormbricksContainer
+# in the remote migration registry → re-adding via new_sqlite_classes alone
+# 10074s. RESET it (deleted_classes — the class has ZERO data, never served a
+# request) then re-add under a fresh tag. All 5 FORMBRICKS_* secrets + Upstash
+# Redis already set; image ghcr.io/formbricks/formbricks.
+[[env.production.containers]]
+class_name = "FormbricksContainer"
+image = "./containers/formbricks/Dockerfile"
+max_instances = 3
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "FORMBRICKS_CONTAINER"
+class_name = "FormbricksContainer"
+# LAST-RESORT: FormbricksContainer is registered remotely (10064 "existing DOs
+# depend on it") but every migration verb errors contradictorily. Try binding it
+# with NO new migration block — if it's already migrated, CF should accept the
+# binding against the existing class.
+
 # Per-image AppRuntime subclass bindings — one per supported catalog app.
 # Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
 # `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in
