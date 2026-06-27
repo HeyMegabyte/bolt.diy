@@ -121,10 +121,58 @@ export function makeAuth(env: Env): Auth {
         );
       },
     },
-    socialProviders:
-      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+    socialProviders: {
+      // #30 — Google + GitHub social (added when creds present).
+      ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
         ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
-        : undefined,
+        : {}),
+      ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+        ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
+        : {}),
+    },
+
+    // #10 — account-linking safety: link only same-email accounts (no different-email
+    // takeover); social providers are trusted only for matching, verified emails.
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ['google', 'github'],
+        allowDifferentEmails: false,
+      },
+    },
+
+    // #12/#40 — audit every session creation to D1 (durable) + Analytics Engine (volume).
+    databaseHooks: {
+      session: {
+        create: {
+          after: async (session) => {
+            const userId = (session as { userId?: string }).userId ?? 'unknown';
+            try {
+              env.ANALYTICS?.writeDataPoint({
+                blobs: ['auth.session.created', userId],
+                indexes: ['auth'],
+                doubles: [1],
+              });
+            } catch {
+              /* analytics is best-effort */
+            }
+            try {
+              const { writeAuditLog } = await import('../services/audit.js');
+              await writeAuditLog(env.DB, {
+                org_id: 'system',
+                actor_id: userId,
+                action: 'auth.session.created',
+                message: 'Better Auth session created',
+                target_type: 'user',
+                target_id: userId,
+              });
+            } catch {
+              /* audit is best-effort — never block sign-in */
+            }
+          },
+        },
+      },
+    },
 
     plugins: [
       magicLink({
@@ -145,7 +193,10 @@ export function makeAuth(env: Env): Auth {
       organization({
         ac,
         roles: { owner: ownerRole, admin: adminRole, member: memberRole },
-        allowUserToCreateOrganization: async () => true,
+        // #19 — gate org creation: require a verified email (Stripe-entitlement check
+        // layers on once BA users link to billing post-migration).
+        allowUserToCreateOrganization: async (user) =>
+          Boolean((user as { emailVerified?: boolean }).emailVerified),
       }),
       admin(),
       anonymous(),

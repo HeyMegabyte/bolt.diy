@@ -95,7 +95,7 @@ describe('makeAuth (embedded Better Auth)', () => {
   });
 
   it('adds Google social only when GOOGLE_CLIENT_ID + SECRET set', () => {
-    expect(opts(envOf()).socialProviders).toBeUndefined();
+    expect(opts(envOf()).socialProviders.google).toBeUndefined();
     _resetAuthCache();
     expect(
       opts(envOf({ GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's' })).socialProviders.google
