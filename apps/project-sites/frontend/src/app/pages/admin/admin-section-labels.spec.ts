@@ -15,6 +15,15 @@ describe('adminSectionLabel (per-route title map)', () => {
     expect(adminSectionLabel('logs')).toBe('Logs');
   });
 
+  it('labels operator sections that are nav-linked (no "Dashboard" fallback)', () => {
+    // These are reachable from the operator sidebar but were missing labels, so
+    // their document title fell back to 'Dashboard' (WCAG 2.4.2). Caught by the
+    // route↔nav↔label coverage diff.
+    expect(adminSectionLabel('system-services')).toBe('System Services');
+    expect(adminSectionLabel('leads')).toBe('Lead Scanner');
+    expect(adminSectionLabel('super-admin')).toBe('Super Admin');
+  });
+
   it('retired sections (removed from the sidebar 2026-06-08) fall back to Dashboard', () => {
     // bulk-ops/enterprise/trust/stripe-app-status/marketplace deleted; audit
     // redirects to /admin/logs so its bare segment is no longer mapped.

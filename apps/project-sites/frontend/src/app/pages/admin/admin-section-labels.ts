@@ -33,6 +33,10 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   'api-tokens': 'API Tokens',
   'accept-invite': 'Accept Invite',
   'system-services': 'System Services',
+  // Operator sections — nav-linked but were missing labels → title fell back to
+  // 'Dashboard' (WCAG 2.4.2 Page Titled). Found via the route↔nav↔label coverage diff.
+  leads: 'Lead Scanner',
+  'super-admin': 'Super Admin',
 };
 
 /**
