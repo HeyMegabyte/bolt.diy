@@ -483,7 +483,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'engage-dittofeed',
-    name: 'Dittofeed — self-hosted customer messaging / engagement',
+    name: 'Dittofeed — customer engagement (DEFERRED — overlaps Novu+Listmonk)',
     domain: 'engage.projectsites.dev',
     category: 'notifications',
     runtime: 'cloudflare-container',
@@ -492,11 +492,11 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'planned',
     access: 'internal-access',
     notes:
-      'Self-hosted Dittofeed (open-source customer engagement / journeys / broadcasts). CF Container + Neon (Postgres) + Upstash (Redis/Temporal) + Tinybird (ClickHouse-compatible event store). Heaviest of the messaging trio. Remaining: container deploy + 3 datastores + verify 200 at engage.projectsites.dev.',
+      'DEFERRED pending a genuine gap — its core (journeys/broadcasts/segmentation/multi-channel) overlaps the EXISTING CF-native stack: Novu (notify.projectsites.dev, multi-channel triggers + inbox) + Listmonk (mail.projectsites.dev, LIVE — campaigns/segments) + native segment/audience/sequence code (14+15+3 files) + Inngest/Workflows for orchestration. Heaviest container of the brief (3 datastores incl. Tinybird/ClickHouse). Per cloudflare-lock-in-is-leverage (same call as Svix→native + Nango deferred), do NOT deploy redundant infra; a managed-Dittofeed container is justified only if visual journey-builder UX those tools lack becomes a real product need.',
   },
   {
     id: 'projects-plane',
-    name: 'Plane — self-hosted project management',
+    name: 'Plane — self-hosted project management (OPTIONAL — doctrine prefers in-repo)',
     domain: 'projects.projectsites.dev',
     category: 'internal',
     runtime: 'cloudflare-container',
@@ -505,7 +505,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'planned',
     access: 'internal-access',
     notes:
-      'Self-hosted Plane (open-source Jira/Linear alternative) for internal project tracking. CF Container(s) + Neon (Postgres) + Upstash (Redis). Multi-service app (api/worker/web) — the heaviest container deploy. Remaining: container topology + Neon DB + Upstash Redis + verify 200 at projects.projectsites.dev login.',
+      'OPTIONAL / lowest priority. Self-hosted Plane (Jira/Linear alternative). Django multi-service (api/worker/web/beat) — the heaviest container deploy (genuinely NOT CF-native-able). But code-style doctrine prefers in-repo issue tracking (.claude/issues / GitHub Issues) over external PM tools, so Plane is a convenience operator tool, not load-bearing. Deploy only on explicit want; otherwise track work in-repo. If deployed: CF Container topology + Neon DB + Upstash Redis + verify 200 at projects.projectsites.dev.',
   },
 ] as const;
 
