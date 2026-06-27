@@ -43,6 +43,9 @@ const CALDIY_ORIGIN = 'https://schedule.projectsites.dev';
 function caldiyEnvVars(env: Env): Record<string, string> {
   const pairs: Record<string, string | undefined> = {
     DATABASE_URL: env.CALDIY_DATABASE_URL,
+    // cal.com's prisma schema requires BOTH url + directUrl; without
+    // DATABASE_DIRECT_URL prisma fails to load → the app 500s on every request.
+    DATABASE_DIRECT_URL: env.CALDIY_DATABASE_DIRECT_URL,
     NEXTAUTH_SECRET: env.CALDIY_NEXTAUTH_SECRET,
     CALENDSO_ENCRYPTION_KEY: env.CALDIY_ENCRYPTION_KEY,
     NEXT_PUBLIC_WEBAPP_URL: CALDIY_ORIGIN,

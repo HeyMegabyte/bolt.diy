@@ -210,8 +210,10 @@ export interface Env {
   // ─── cal.diy (schedule.projectsites.dev) — dedicated CF Workers Container ───
   /** cal.diy container DO binding. Optional until the watched deploy binds it; the schedule.* host route degrades to 503 without it. */
   CALDIY_CONTAINER?: DurableObjectNamespace;
-  /** cal.diy Postgres URL — Neon project `Caldiy` (empty-surf-47784419). wrangler secret. */
+  /** cal.diy Postgres URL (POOLED, runtime) — Neon project `Caldiy` (empty-surf-47784419). wrangler secret. */
   CALDIY_DATABASE_URL?: string;
+  /** cal.diy Postgres DIRECT URL (non-pooled) — required by cal.com's prisma schema (directUrl). wrangler secret. */
+  CALDIY_DATABASE_DIRECT_URL?: string;
   /** cal.diy NextAuth secret (openssl rand -base64 32). wrangler secret. */
   CALDIY_NEXTAUTH_SECRET?: string;
   /** cal.diy CALENDSO_ENCRYPTION_KEY (AES-256, openssl rand -base64 32). wrangler secret. */
