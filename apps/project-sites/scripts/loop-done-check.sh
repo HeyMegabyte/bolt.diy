@@ -44,12 +44,20 @@ if [ "${SMOKE:-0}" = "1" ]; then
   ( cd "$APP_DIR/frontend" && npm run verify:production ) || notDone "prod smoke suite RED"
 fi
 
-# All gates green — write the sentinel and report DONE.
+# All gates green. Count what's PARKED for Brian (genuinely human-gated items the
+# loop reclassified out of [auto]) so the sentinel is a clean handoff, not a silent
+# "everything done" when human decisions remain.
+PARKED=0
+if [ -f "$LEDGER" ]; then
+  PARKED="$(/usr/bin/grep -cE '^\s*-\s*\[ \].*(⛔|NEEDS BRIAN|gated)' "$LEDGER" 2>/dev/null || printf 0)"
+fi
+
 {
   printf 'DONE %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unknown')"
-  printf 'ledger empty + flags-green + smoke-green\n'
+  printf 'autonomous work complete: 0 unchecked [auto] + flags-green + smoke-green\n'
+  printf 'parked for Brian (human decision required, did NOT block completion): %s item(s)\n' "$PARKED"
 } > "$SENTINEL"
 
-logLine "DONE: all gates green — sentinel written to $SENTINEL"
+logLine "DONE: autonomous work complete — sentinel written. $PARKED item(s) parked for Brian (see ## ⛔ NEEDS BRIAN in _LOOP_LEDGER.md)."
 printf 'DONE\n'
 exit 0
