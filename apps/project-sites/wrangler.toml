@@ -646,6 +646,16 @@ binding = "DB"
 database_name = "project-sites-db-production"
 database_id = "ea3e839a-c641-4861-ae30-dfc63bff8032"
 
+# Cloudflare Flagship — native feature-flag service (OpenFeature, edge-evaluated).
+# STANDARD per the feature-flags rule. Uncomment + set app_id once the Flagship app is
+# created at dash.cloudflare.com (Feature Flags — public beta; app creation is dashboard-
+# only, no API). Then `node scripts/sync-flags-to-flagship.mjs --push` loads all 66 flags.
+# Code is ready: getFeatureEvaluationProvider prefers env.FLAGSHIP, falls back to D1 (dark
+# until bound). See middleware/feature-evaluation.ts. https://developers.cloudflare.com/flagship/
+# [[env.production.flagship]]
+# binding = "FLAGSHIP"
+# app_id = "<FLAGSHIP_APP_ID>"
+
 [[env.production.r2_buckets]]
 binding = "SITES_BUCKET"
 bucket_name = "project-sites-production"
