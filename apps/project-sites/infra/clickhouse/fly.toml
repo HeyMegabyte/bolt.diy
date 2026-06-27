@@ -1,0 +1,34 @@
+app = "projectsites-clickhouse"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  CLICKHOUSE_DB = "langfuse"
+  CLICKHOUSE_USER = "langfuse"
+  CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT = "1"
+
+[mounts]
+  source = "clickhouse_data"
+  destination = "/var/lib/clickhouse"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8123
+  [[services.ports]]
+    port = 8123
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 9000
+  [[services.ports]]
+    port = 9000
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2048"
