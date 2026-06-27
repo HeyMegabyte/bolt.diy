@@ -17,12 +17,12 @@ n/a (Worker/Pages/R2/managed — no container)
 
 | Subdomain | Container | Image | Status | Slim |
 |---|---|---|---|---|
-| `llm.projectsites.dev` | **RouteLLM + LiteLLM** — model router (cost/quality routing) in front of a unified OpenAI-compatible gateway | `ghcr.io/berriai/litellm:main-latest` + `lm-sys/RouteLLM` routing layer | 🔵 | SHIP |
+| `llm.projectsites.dev` | **LiteLLM** — model router (cost/quality routing) in front of a unified OpenAI-compatible gateway | `ghcr.io/berriai/litellm:main-latest` | 🔵 | SHIP |
 | `infer.projectsites.dev` | **vLLM** — raw OpenAI-compatible GPU inference (the model `llm.` routes to) | `vllm/vllm-openai:latest` | 🟡 | GPU |
 | `img.projectsites.dev` | **ComfyUI** — image generation (`flux.1-dev`) | `yanwk/comfyui-boot:cu128-megapak` | 🟡 | GPU |
 | `traces.projectsites.dev` | **Langfuse** — LLM tracing / prompt mgmt / evals | `langfuse/langfuse:latest` | 🔵 | SHIP |
 
-`llm.` today is an env-var proxy (`SELFHOST_LLM_URL` → vLLM); the target is RouteLLM+LiteLLM
+`llm.` today is an env-var proxy (`SELFHOST_LLM_URL` → vLLM); the target is LiteLLM
 in front so every model call gets routing + logging + fallback. AI Gateway stays mandatory
 in front of all of it per `cloudflare-first.md`.
 

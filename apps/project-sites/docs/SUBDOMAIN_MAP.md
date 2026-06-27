@@ -41,7 +41,7 @@ Rendering (not a container) fronting CF Browser Run → Browserbase fallback. No
 > below are mirrored here for history, but the authoritative plan addresses them under the product
 > domain with semantic subdomains — see `docs/CONTAINER_MANIFEST.md`: `mail.` → Listmonk · `secrets.`
 > → Infisical (only if CF Secrets Store insufficient) · `events.` → **Inngest** · `jobs.` → **Hatchet**
-> (Hatchet Cloud preferred) · `traces.` → Langfuse · `llm.` → LiteLLM + RouteLLM · `crm.` → Twenty · `cms.` → Payload
+> (Hatchet Cloud preferred) · `traces.` → Langfuse · `llm.` → LiteLLM · `crm.` → Twenty · `cms.` → Payload
 > · `support.` → Chatwoot · `social.` → Postiz · `status.` → OpenStatus · `checks.` → Healthchecks.io.
 
 ---

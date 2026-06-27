@@ -185,7 +185,6 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - [x] [Core] MCP TypeScript SDK — ProjectSites MCP server/client foundation (`platform_mcp` live).
 - [ ] [Core] Langfuse — LLM tracing, prompt versioning, generation/tool-call tracing, cost observability; `traces.projectsites.dev`.
 - [ ] [Internal service] LiteLLM — internal LLM gateway; `llm.projectsites.dev`.
-- [ ] [Internal service] RouteLLM — model routing / cost-quality routing; co-located at `llm.projectsites.dev`.
 - [ ] [Core] OpenTelemetry — trace/metric/log context propagation across APIs, jobs, browser automation, AI workflows.
 - [ ] [Conditional] OpenTelemetry Collector — telemetry-pipeline only for heavier/self-hosted observability.
 - [x] [Approved] Sentry — frontend/backend error + performance monitoring.
@@ -242,7 +241,7 @@ Status: **Core** (shapes the platform now) · **Recommended** (adopt when a feat
 - [ ] [Core] Domain map — preserve the service-domain mapping in docs + this loop. Canonical record: `apps/project-sites/docs/CONTAINER_MANIFEST.md`.
   - `mail.` → Listmonk · `crm.` → Twenty CRM · `cms.` → Payload CMS · `support.` → Chatwoot · `social.` → Postiz
   - `status.` → OpenStatus · `checks.`/`health.` → Healthchecks.io · `traces.` → Langfuse · `logs.` → Loki/Grafana (self-hosted only)
-  - `events.` → **Inngest** · `jobs.` → **Hatchet** (Hatchet Cloud preferred) · `llm.` → LiteLLM + RouteLLM · `browser.` → CF Browser Run/Rendering + Playwright + Stagehand
+  - `events.` → **Inngest** · `jobs.` → **Hatchet** (Hatchet Cloud preferred) · `llm.` → LiteLLM · `browser.` → CF Browser Run/Rendering + Playwright + Stagehand
   - `cms.` → Payload CMS · `keys.` → Unkey (if used) · `secrets.` → Infisical (only if CF Secrets Store insufficient)
   - `skyvern.megabyte.space` → internal-only historical/fallback note (not product-facing)
   - `mcp.megabyte.space` → Browserbase MCP bridge, internal fallback only (not product-facing)

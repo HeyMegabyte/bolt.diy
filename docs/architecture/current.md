@@ -15,7 +15,7 @@ This document describes the projectsites.dev platform architecture as deployed. 
 | Chatwoot | Rails + Sidekiq | Fly.io (iad) | support.projectsites.dev | Customer support |
 | Postiz | Next.js (AGPL) | CF Container | social.projectsites.dev | Social scheduling (transition service) |
 | Inngest | Inngest CE | CF Container | events.projectsites.dev | Background event bus |
-| LiteLLM + RouteLLM | Python | CF Container | llm.megabyte.space | LLM proxy / routing |
+| LiteLLM | Python | CF Container | llm.megabyte.space | LLM proxy / routing |
 | Twenty CRM | Node.js | CF Container | crm.projectsites.dev | Internal CRM |
 | Payload CMS | Node.js | CF Container | cms.projectsites.dev | Content management |
 | Listmonk | Go | CF Container | mail.projectsites.dev | Mailing list / transactional email |

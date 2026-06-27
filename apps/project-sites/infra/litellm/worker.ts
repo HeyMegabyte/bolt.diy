@@ -1,12 +1,12 @@
 import { Container, getContainer } from '@cloudflare/containers';
 
 /**
- * llm.projectsites.dev — LiteLLM proxy + RouteLLM on CF Workers Containers.
+ * llm.projectsites.dev — LiteLLM proxy on CF Workers Containers.
  *
  * @remarks
  * LiteLLM proxy runs as a CF Container (port 4000) — the OpenAI-compatible `/v1`
- * gateway with routing, fallbacks, and budgets. RouteLLM ships in the same image
- * (a `router/*` model in config.yaml) so the "smart" model auto-routes strong-vs-weak.
+ * gateway with routing, fallbacks, and budgets. Model routing is native to
+ * config.yaml (model_list + fallbacks); the `smart` model is the single entrypoint.
  * Stateless; model creds + master key arrive via env (wrangler secrets).
  *
  * Container pattern mirrors the working infra/listmonk worker (@cloudflare/containers

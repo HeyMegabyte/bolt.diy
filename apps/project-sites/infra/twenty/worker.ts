@@ -25,7 +25,7 @@ interface Env {
    * Twenty AI provider catalog (JSON, deep-merged onto Twenty's built-in catalog).
    * Holds a custom `@ai-sdk/openai-compatible` provider pointing at the ProjectSites
    * LiteLLM gateway (llm.megabyte.space) so Twenty's AI uses the platform LLM facade
-   * (RouteLLM premium/cheap, CF AI Gateway caching) instead of a raw vendor key.
+   * (cost/quality model routing + CF AI Gateway caching) instead of a raw vendor key.
    * Value carries the LiteLLM master key → set as a wrangler secret. Optional: unset
    * = Twenty falls back to its built-in OPENAI/ANTHROPIC/XAI key detection.
    */

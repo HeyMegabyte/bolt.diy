@@ -201,7 +201,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'ai-gateway',
-    name: 'Cloudflare AI Gateway + LiteLLM/RouteLLM facade',
+    name: 'Cloudflare AI Gateway + LiteLLM facade',
     domain: 'llm.projectsites.dev',
     category: 'ai',
     runtime: 'cloudflare-managed',

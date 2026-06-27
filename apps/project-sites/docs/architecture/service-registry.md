@@ -40,7 +40,7 @@ companion + the rules that keep it honest.
 | storage-r2 | R2 bundles/assets/artifacts | cloudflare-managed | production |
 | analytics-engine | High-volume events | cloudflare-managed | production |
 | billing-stripe | Stripe (only billing rail) | managed-saas | production |
-| ai-gateway | AI Gateway + LiteLLM/RouteLLM | cloudflare-managed | integrated |
+| ai-gateway | AI Gateway + LiteLLM | cloudflare-managed | integrated |
 | traces-langfuse | Langfuse (Tinybird-direct, v2) | cloudflare-container | planned |
 | browser-gateway | Browser Run + Stagehand | cloudflare-managed | production |
 | observability-sentry | Sentry | managed-saas | production |

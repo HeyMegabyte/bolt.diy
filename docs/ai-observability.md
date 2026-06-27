@@ -2,7 +2,7 @@
 
 > Every AI feature on ProjectSites.dev is traced, evaluated, version-tracked, budget-capped, and
 > fallback-routed. No AI surface ships without these. Routing layer: `llm.projectsites.dev`
-> (LiteLLM + RouteLLM) behind Cloudflare AI Gateway. Stack source: `docs/STACK.md` §AI / §7.
+> (LiteLLM) behind Cloudflare AI Gateway. Stack source: `docs/STACK.md` §AI / §7.
 
 ## Required for every AI feature
 
@@ -10,7 +10,7 @@
 - [ ] **Eval** suite with a rubric (Promptfoo) wired into CI
 - [ ] **Prompt + version tracking** (registry, not inline strings)
 - [ ] **Budget cap + killswitch** (per-org spend ceiling that hard-stops)
-- [ ] **Fallback routing** (LiteLLM/RouteLLM via AI Gateway)
+- [ ] **Fallback routing** (LiteLLM via AI Gateway)
 - [ ] **Grounding / hallucination checks** on outputs that feed customer sites
 - [ ] **Zod-validated output contract** — never consume raw model output
 
@@ -27,7 +27,7 @@
 - A regression in eval pass-rate blocks the merge. New AI capability with no eval = build-fail.
 - Track pass-rate + cost per eval run; alert on regression vs last run.
 
-## Model routing (LiteLLM + RouteLLM + AI Gateway)
+## Model routing (LiteLLM + AI Gateway)
 
 Provider cost tiers (the application-call axis):
 
@@ -38,7 +38,7 @@ Provider cost tiers (the application-call axis):
 | **Instant** | Cloudflare Workers AI (`@cf/meta/llama-*` FP8) | Pre-routing, classification, moderation, embeddings |
 
 - Route every call through **Cloudflare AI Gateway** for caching + rate-limit + observability (per-request `cacheKey` + `cacheTtl`; 30–70% hit rate on repeated surfaces).
-- LiteLLM normalizes providers; RouteLLM picks the cheapest model that clears the quality bar per request.
+- LiteLLM normalizes providers and routes by cost/quality, picking the cheapest model that clears the quality bar per request.
 - `DEEPSEEK_API_KEY` is always a `wrangler secret` / get-secret entry — never committed.
 
 ## Fallback policy

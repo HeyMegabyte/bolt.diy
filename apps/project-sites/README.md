@@ -38,7 +38,7 @@ Provisioned as per-tenant `AppRuntimeContainer`s (work item `tenant_app_provisio
 
 | Domain | Service | Image | Tenancy | Status | Notes |
 |---|---|---|---|---|---|
-| `llm.projectsites.dev` | **LiteLLM + RouteLLM** — model router + OpenAI-compatible gateway | `ghcr.io/berriai/litellm` + `lm-sys/RouteLLM` | platform | 🔵 | today an env-var proxy; behind CF AI Gateway |
+| `llm.projectsites.dev` | **LiteLLM** — model router + OpenAI-compatible gateway | `ghcr.io/berriai/litellm` | platform | 🔵 | today an env-var proxy; behind CF AI Gateway |
 | `traces.projectsites.dev` | **Langfuse** — LLM tracing / prompts / evals (v2, Neon) | `langfuse/langfuse` | platform | 🟡 | Neon provisioned |
 | `events.projectsites.dev` | **Inngest** — event-driven durable jobs (§13) | `inngest/inngest` | platform | 🟡 | live-but-inert; Neon + Upstash provisioned |
 | `jobs.projectsites.dev` | **Hatchet** — heavy/stateful/browser/AI execution plane | `ghcr.io/hatchet-dev/hatchet/hatchet-lite` | platform | 🔵 | Hatchet Cloud preferred; self-host container otherwise |

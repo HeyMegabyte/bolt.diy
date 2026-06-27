@@ -73,7 +73,7 @@ not yet deployed · **PLANNED** = reserved name, referenced in code/docs, not bu
 |---|---|---|
 | `linkbl.ink` | Link shortener (Dub on `app.claimyour.site`) for social UTM links | **CONFIG** (DNS + key pending) |
 | `app.claimyour.site` | Dub instance + claimyour.site product line | **LIVE** |
-| `llm.megabyte.space` | LiteLLM + RouteLLM gateway | **LIVE** |
+| `llm.megabyte.space` | LiteLLM gateway | **LIVE** |
 | `*.megabyte.space` | Internal infra: Grafana, Langfuse, Coolify, Skyvern, n8n, vault, Inngest, secrets, etc. | **LIVE** (internal) |
 
 ---
