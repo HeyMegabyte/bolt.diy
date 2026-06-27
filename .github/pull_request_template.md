@@ -3,7 +3,7 @@
 
 ## Definition of Done
 - [ ] **Shipped**: Merged + deployed
-- [ ] **Tested**: Jest unit + integration tests pass; Cypress E2E tests pass
+- [ ] **Tested**: Jest unit + integration tests pass; Playwright E2E tests pass
 - [ ] **Logged**: Funnel events + audit log entries where applicable
 - [ ] **Secured**: Zod validation, RBAC, rate limits, sanitization
 - [ ] **Documented**: docs/DEPLOYMENT.md updated if keys/config changed
