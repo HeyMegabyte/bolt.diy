@@ -32,10 +32,7 @@ import {
   resolveVoiceAgentConfig,
 } from '../services/voice_agent_config.js';
 import { handleInboundSms } from '../services/voice_orchestrator.js';
-import {
-  recordVoiceTranscript,
-  TranscriptRequestSchema,
-} from '../services/voice_transcript.js';
+import { recordVoiceTranscript, TranscriptRequestSchema } from '../services/voice_transcript.js';
 
 export const voiceWebhookRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
