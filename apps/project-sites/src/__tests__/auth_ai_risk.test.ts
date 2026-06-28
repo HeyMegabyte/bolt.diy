@@ -10,7 +10,8 @@ const ctx = { reasons: ['new_ip', 'new_device'], ip: '203.0.113.4', userAgent: '
 describe('assessLoginRisk', () => {
   it('returns the validated verdict from a clean JSON response', async () => {
     const env = envWith(async () => ({
-      response: '{"risk":0.8,"recommendation":"block","reason":"New IP and device from unknown ASN."}',
+      response:
+        '{"risk":0.8,"recommendation":"block","reason":"New IP and device from unknown ASN."}',
     }));
     const v = await assessLoginRisk(env, ctx);
     expect(v.recommendation).toBe('block');
@@ -20,7 +21,8 @@ describe('assessLoginRisk', () => {
 
   it('extracts JSON even when the model wraps it in prose', async () => {
     const env = envWith(async () => ({
-      response: 'Sure! Here is my assessment: {"risk":0.4,"recommendation":"challenge","reason":"Moderate."} Hope that helps.',
+      response:
+        'Sure! Here is my assessment: {"risk":0.4,"recommendation":"challenge","reason":"Moderate."} Hope that helps.',
     }));
     const v = await assessLoginRisk(env, ctx);
     expect(v.recommendation).toBe('challenge');
