@@ -22,6 +22,7 @@ import {
   AI_MODEL,
   applySeoMeta,
   applySeoMetaToHtml,
+  applyToSite,
   approveDraft,
   buildJsonLd,
   clampAnswerBlock,
@@ -383,6 +384,33 @@ describe('approveDraft', () => {
     expect(result.error).toBe('Draft not found');
     expect(mockUpdate).not.toHaveBeenCalled(); // no status flip
     expect(put).not.toHaveBeenCalled(); // applyToSite never published
+  });
+});
+
+describe('applyToSite (defense-in-depth tenant guard)', () => {
+  it('SECURITY: refuses to publish another org’s draft even when called directly', async () => {
+    // Draft belongs to org_A; an apply call scoped to org_B must be "not found" with NO
+    // R2 publish + NO status flip — so applyToSite is org-safe regardless of its caller.
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'd1',
+      site_id: 'site_A',
+      org_id: 'org_A',
+      route: '/',
+      title: 'x',
+      description: 'y',
+      answer_block: null,
+      jsonld_json: null,
+      status: 'approved',
+    } as any);
+    const put = jest.fn();
+    const env = { DB: {}, SITES_BUCKET: { get: jest.fn(), put } } as any;
+
+    const result = await applyToSite(env, 'd1', 'org_B');
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('Draft not found');
+    expect(put).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 

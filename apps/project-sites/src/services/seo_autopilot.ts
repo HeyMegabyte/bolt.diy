@@ -464,7 +464,7 @@ export async function approveDraft(
     [draftId],
   );
 
-  await applyToSite(env, draftId);
+  await applyToSite(env, draftId, expectedOrgId);
 
   return {
     ok: true,
@@ -648,13 +648,18 @@ export async function applySeoMeta(
 export async function applyToSite(
   env: Env,
   draftId: string,
+  expectedOrgId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const draft = await dbQueryOne<SeoMetaDraft>(
     env.DB,
-    'SELECT id, site_id, route, title, description, answer_block, jsonld_json, status FROM seo_meta_drafts WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, site_id, route, title, description, answer_block, jsonld_json, status, org_id FROM seo_meta_drafts WHERE id = ? AND deleted_at IS NULL',
     [draftId],
   );
   if (!draft) return { ok: false, error: 'Draft not found' };
+  // Tenant guard (defense-in-depth — org-safe regardless of caller): a draft owned by
+  // another org (or an unscoped null-org draft) is "not found" so org B can never publish
+  // org A's draft into A's live site, even if applyToSite is ever called outside approveDraft.
+  if (draft.org_id !== expectedOrgId) return { ok: false, error: 'Draft not found' };
   if (draft.status !== 'approved')
     return { ok: false, error: 'Draft must be approved before apply' };
 
