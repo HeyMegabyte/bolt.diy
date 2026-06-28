@@ -14,6 +14,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
+import { assertSiteOwned } from '../../../src/services/site_ownership.js';
 import { FLAG_KEY, runAeoAudit, getLatestAeoAudit } from './service.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
@@ -51,6 +52,7 @@ aeoPass.post('/api/aeo/audit/:siteId', async (c) => {
 
   const siteId = c.req.param('siteId');
   if (!siteId || siteId.trim() === '') return badRequest(c, 'siteId is required');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
 
   const audit = await runAeoAudit(c.env, siteId);
   return c.json({ ok: true, audit }, 200);
@@ -71,6 +73,7 @@ aeoPass.get('/api/aeo/:siteId', async (c) => {
 
   const siteId = c.req.param('siteId');
   if (!siteId || siteId.trim() === '') return badRequest(c, 'siteId is required');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
 
   const audit = await getLatestAeoAudit(c.env, siteId);
   return c.json({ ok: true, audit }, 200);

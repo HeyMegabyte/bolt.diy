@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
+import { assertSiteOwned } from '../../../src/services/site_ownership.js';
 import { FLAG_KEY, upsertVariants, resolveVariant } from './service.js';
 import {
   UpsertVariantsRequestSchema,
@@ -30,6 +31,7 @@ edgePersonalization.post('/api/personalize/:siteId/variants', zValidator('json',
   const blocked = await guard(c);
   if (blocked) return blocked;
   const { siteId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
   const { variants } = c.req.valid('json');
   const count = await upsertVariants(c.env, siteId, variants);
   return c.json(UpsertVariantsResponseSchema.parse({ siteId, count }));
@@ -39,6 +41,7 @@ edgePersonalization.get('/api/personalize/:siteId/resolve', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
   const { siteId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
   const rawSignals = {
     geo: c.req.query('geo'),
     device: c.req.query('device') as 'mobile' | 'tablet' | 'desktop' | undefined,

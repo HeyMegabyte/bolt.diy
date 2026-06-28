@@ -37,7 +37,10 @@ const env = { DB: {} } as never;
 function appWith(userId?: string): Hono {
   const app = new Hono();
   app.use('*', async (c, next) => {
-    if (userId) c.set('userId' as never, userId as never);
+    if (userId) {
+      c.set('userId' as never, userId as never);
+      c.set('orgId' as never, 'org_1' as never);
+    }
     await next();
   });
   app.route('/', wireframePlanning);
@@ -146,6 +149,7 @@ describe('POST /api/wireframe/plan', () => {
   });
 
   it('201s and returns the plan on a valid request', async () => {
+    mockDbQueryOne.mockResolvedValue({ org_id: 'org_1' }); // assertSiteOwned → owned
     const res = await appWith('user_1').request(
       '/api/wireframe/plan',
       body({ siteId: 'site_1', prompt: 'A great plumbing website please' }),
@@ -175,7 +179,7 @@ describe('GET /api/wireframe/:siteId', () => {
   });
 
   it('returns null plan when no wireframe exists', async () => {
-    mockDbQueryOne.mockResolvedValue(null);
+    mockDbQueryOne.mockResolvedValueOnce({ org_id: 'org_1' }).mockResolvedValueOnce(null);
     const res = await appWith('user_1').request('/api/wireframe/site_no_plan', {}, env);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; plan: null };
@@ -184,13 +188,15 @@ describe('GET /api/wireframe/:siteId', () => {
   });
 
   it('returns the plan after a POST', async () => {
-    mockDbQueryOne.mockResolvedValue({
-      id: 'plan_42',
-      site_id: 'site_1',
-      prompt: 'A great plumbing website please',
-      sections: JSON.stringify(['Hero', 'About', 'Services', 'Contact']),
-      created_at: '2026-06-17T00:00:00.000Z',
-    });
+    mockDbQueryOne
+      .mockResolvedValueOnce({ org_id: 'org_1' }) // assertSiteOwned → owned
+      .mockResolvedValueOnce({
+        id: 'plan_42',
+        site_id: 'site_1',
+        prompt: 'A great plumbing website please',
+        sections: JSON.stringify(['Hero', 'About', 'Services', 'Contact']),
+        created_at: '2026-06-17T00:00:00.000Z',
+      });
     const res = await appWith('user_1').request('/api/wireframe/site_1', {}, env);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; plan: { id: string; sections: string[] } };

@@ -57,7 +57,10 @@ const BARE_HTML = `<!DOCTYPE html><html><head></head><body><div>welcome</div></b
 function appWith(userId?: string): Hono {
   const app = new Hono();
   app.use('*', async (c, next) => {
-    if (userId) c.set('userId' as never, userId as never);
+    if (userId) {
+      c.set('userId' as never, userId as never);
+      c.set('orgId' as never, 'org_1' as never);
+    }
     await next();
   });
   app.route('/', aeoPass);
@@ -234,7 +237,7 @@ describe('GET /api/aeo/:siteId', () => {
   });
 
   it('returns { ok: true, audit: null } when no audit exists', async () => {
-    mockDbQueryOne.mockResolvedValue(null);
+    mockDbQueryOne.mockResolvedValueOnce({ org_id: 'org_1' }).mockResolvedValueOnce(null); // owned, then no audit
     const res = await appWith('user_1').request('/api/aeo/site_abc', {}, env);
     expect(res.status).toBe(200);
 
@@ -244,14 +247,16 @@ describe('GET /api/aeo/:siteId', () => {
   });
 
   it('returns the latest audit when one exists', async () => {
-    mockDbQueryOne.mockResolvedValue({
-      id: 'audit_1',
-      site_id: 'site_abc',
-      org_id: null,
-      score: 84,
-      issues: JSON.stringify(['Missing FAQ schema']),
-      created_at: '2026-06-17T00:00:00.000Z',
-    });
+    mockDbQueryOne
+      .mockResolvedValueOnce({ org_id: 'org_1' }) // assertSiteOwned → owned
+      .mockResolvedValueOnce({
+        id: 'audit_1',
+        site_id: 'site_abc',
+        org_id: null,
+        score: 84,
+        issues: JSON.stringify(['Missing FAQ schema']),
+        created_at: '2026-06-17T00:00:00.000Z',
+      });
 
     const res = await appWith('user_1').request('/api/aeo/site_abc', {}, env);
     expect(res.status).toBe(200);

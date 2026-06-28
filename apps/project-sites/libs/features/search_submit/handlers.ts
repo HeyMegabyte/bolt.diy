@@ -72,6 +72,8 @@ searchSubmit.post('/api/sites/:id/search-submit', async (c) => {
     [siteId],
   ).catch(() => null);
   if (!site?.slug) return notFound(c);
+  // Tenant guard — never submit/expose a site the caller's org doesn't own.
+  if (site.org_id !== c.get('orgId')) return notFound(c);
 
   const { keyPath } = await deriveIndexNowKey(site.id);
   const results = await submitSite(c.env, site.id);

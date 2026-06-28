@@ -17,6 +17,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
+import { assertSiteOwned } from '../../../src/services/site_ownership.js';
 import { WireframePlanCreateSchema } from './schemas.js';
 import { FLAG_KEY, buildWireframePlan, getWireframePlan } from './service.js';
 
@@ -51,6 +52,7 @@ wireframePlanning.post('/api/wireframe/plan', async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = WireframePlanCreateSchema.safeParse(body);
   if (!parsed.success) return badRequest(c, parsed.error.flatten());
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), parsed.data.siteId))) return notFound(c);
 
   const plan = await buildWireframePlan(c.env, parsed.data.siteId, parsed.data.prompt);
   return c.json({ ok: true, plan }, 201);
@@ -67,6 +69,7 @@ wireframePlanning.get('/api/wireframe/:siteId', async (c) => {
   if (!c.get('userId')) return unauthorized(c);
 
   const { siteId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
   const plan = await getWireframePlan(c.env, siteId);
   return c.json({ ok: true, plan });
 });
