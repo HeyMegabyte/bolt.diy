@@ -39,7 +39,7 @@
 - [ ] [auto] A11y autofixer + AI alt-text — axe findings fixed pre-publish (ADA legal-risk reducer).
 - [ ] [auto] 1:N sitemap fidelity guard wired into the live pipeline (fail on collapsed page counts).
 - [ ] [auto] Flip `build_validators` report→strict (enforce the 13 quality invariants).
-- [ ] [auto] Source-site theme-polarity preservation guard (don't flip a polished light site to dark).
+- [ ] [auto] Source-site theme-polarity preservation guard (don't flip a polished light site to dark). — decision logic SHIPPED 2026-06-28 (`services/theme_polarity.ts`: `resolveThemePolarity`/`relativeLuminance`/`contrastRatio` + 13 unit tests green, CI-deployed); remaining = stamp `theme`/`preserveSourceDesign` onto the container-produced `_brand.json` (skill-15 brand step) + post-build `validateThemePolarity` guard — both build-gated.
 - [ ] [auto] Logo/font/color extraction fidelity (the suped-up-clone lever).
 
 ## 3. Reliability & correctness (trust + don't double-bill)
