@@ -16,7 +16,7 @@ on:
       - '.github/workflows/plane-deploy.yaml'
 
 env:
-  NODE_VERSION: '20.19.0'
+  NODE_VERSION: '22'   # wrangler 4.x requires Node >= 22
 
 jobs:
   deploy:
