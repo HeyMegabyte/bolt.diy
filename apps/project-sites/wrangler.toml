@@ -493,9 +493,18 @@ class_name = "InngestContainer"
 
 # NOTE: CF requires container-backed DOs to be SQLite (API error 10074 on new_classes).
 # The old "classic backend" guidance above is outdated — use new_sqlite_classes.
-[[env.production.migrations]]
-tag = "v_inngest_container"
-new_sqlite_classes = ["InngestContainer"]
+#
+# COMMENTED OUT 2026-06-28 (unblocks ALL deploys). InngestContainer DOs are already
+# registered remotely (events.projectsites.dev is live), but the `v_inngest_container`
+# tag is NOT in the remote migration history, so re-sending it returns CF error 10074
+# ("class already depended on by existing Durable Objects") and FAILED every deploy.
+# Same documented case as `v_app_runtime` / `v_formbricks_container` / `v_conversation_hub`
+# below: the class stays exported (src/index.ts) + bound (above), so existing DOs keep
+# resolving and the running container is unchanged — only the redundant re-registration
+# is skipped. Reversible: uncomment if the class ever needs a fresh registration.
+# [[env.production.migrations]]
+# tag = "v_inngest_container"
+# new_sqlite_classes = ["InngestContainer"]
 #
 # [env.production.vars]  # (merge into existing prod vars, do not duplicate the table)
 # INNGEST_BASE_URL = "https://jobs.projectsites.dev"
