@@ -32,6 +32,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          # repo root has pnpm-workspace.yaml; we only need npx wrangler here, so don't let
+          # setup-node auto-enable the pnpm cache (pnpm isn't installed on the runner).
+          package-manager-cache: false
 
       - name: Verify Docker available on runner
         run: docker version
