@@ -97,11 +97,12 @@ function documensoEnvVars(env: Env): Record<string, string> {
     // an account (they sign via emailed links); org members come in by invite. Flip
     // to remove this var if you want public signups.
     NEXT_PUBLIC_DISABLE_SIGNUP: 'true',
-    // Google sign-in (reuses the platform OAuth client). REQUIRES the redirect URI
-    // https://sign.projectsites.dev/api/auth/callback/google to be registered on the
-    // Google Cloud OAuth client, or the callback 400s.
-    NEXT_PRIVATE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
-    NEXT_PRIVATE_GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+    // Google sign-in — DEDICATED Documenso OAuth client (383658000977-…), NOT the
+    // shared worker GOOGLE_CLIENT_ID (796940060066-…, used by the main site). The
+    // redirect URI https://sign.projectsites.dev/api/auth/callback/google is registered
+    // on this client. Kept separate so the main site's Google OAuth is untouched.
+    NEXT_PRIVATE_GOOGLE_CLIENT_ID: env.DOCUMENSO_GOOGLE_CLIENT_ID,
+    NEXT_PRIVATE_GOOGLE_CLIENT_SECRET: env.DOCUMENSO_GOOGLE_CLIENT_SECRET,
     // Office→PDF conversion via the self-hosted Gotenberg container
     // (convert.projectsites.dev, basic-auth-gated). Lets users upload
     // .docx/.xlsx/.pptx and have Documenso convert them to PDF for signing.

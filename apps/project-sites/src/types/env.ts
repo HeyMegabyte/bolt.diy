@@ -205,6 +205,10 @@ export interface Env {
   DOCUMENSO_R2_SECRET_ACCESS_KEY?: string;
   /** Documenso Turnstile secret key — CF-minted widget for sign.projectsites.dev. wrangler secret. */
   DOCUMENSO_TURNSTILE_SECRET_KEY?: string;
+  /** Documenso's DEDICATED Google OAuth client id (383658000977-…) — separate from the shared GOOGLE_CLIENT_ID. wrangler secret. */
+  DOCUMENSO_GOOGLE_CLIENT_ID?: string;
+  /** Documenso's DEDICATED Google OAuth client secret. wrangler secret. */
+  DOCUMENSO_GOOGLE_CLIENT_SECRET?: string;
 
   // ─── Gotenberg (convert.projectsites.dev) — Office→PDF CF Workers Container ──
   /** Gotenberg container DO binding. Documenso's doc-conversion path proxies here; 503 until bound. */

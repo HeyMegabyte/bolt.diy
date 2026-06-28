@@ -20,4 +20,4 @@ EXPOSE 3000
 
 # Real-instruction cache-bust (ENV creates a layer → new image digest → CF cold-boots
 # Documenso so it picks up the stable NEXT_PRIVATE_DOCUMENT_CONVERSION_* creds).
-ENV CONTAINER_REV="rev2-2026-06-27"
+ENV CONTAINER_REV="rev3-2026-06-27-google"
