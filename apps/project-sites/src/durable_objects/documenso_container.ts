@@ -97,6 +97,17 @@ function documensoEnvVars(env: Env): Record<string, string> {
     // an account (they sign via emailed links); org members come in by invite. Flip
     // to remove this var if you want public signups.
     NEXT_PUBLIC_DISABLE_SIGNUP: 'true',
+    // Google sign-in (reuses the platform OAuth client). REQUIRES the redirect URI
+    // https://sign.projectsites.dev/api/auth/callback/google to be registered on the
+    // Google Cloud OAuth client, or the callback 400s.
+    NEXT_PRIVATE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    NEXT_PRIVATE_GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+    // Stripe billing (subscription/seat features). Uses the live platform Stripe key
+    // + a Documenso-specific webhook (sign.*/api/stripe/webhook). Disable by removing
+    // NEXT_PUBLIC_FEATURE_BILLING_ENABLED if the billing UI isn't wanted.
+    NEXT_PUBLIC_FEATURE_BILLING_ENABLED: 'true',
+    NEXT_PRIVATE_STRIPE_API_KEY: env.STRIPE_SECRET_KEY,
+    NEXT_PRIVATE_STRIPE_WEBHOOK_SECRET: env.DOCUMENSO_STRIPE_WEBHOOK_SECRET,
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {

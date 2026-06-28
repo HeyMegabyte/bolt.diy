@@ -205,6 +205,8 @@ export interface Env {
   DOCUMENSO_R2_SECRET_ACCESS_KEY?: string;
   /** Documenso Turnstile secret key — CF-minted widget for sign.projectsites.dev. wrangler secret. */
   DOCUMENSO_TURNSTILE_SECRET_KEY?: string;
+  /** Documenso-specific Stripe webhook signing secret (the sign-host stripe webhook). wrangler secret. */
+  DOCUMENSO_STRIPE_WEBHOOK_SECRET?: string;
 
   // ─── cal.diy (schedule.projectsites.dev) — dedicated CF Workers Container ───
   /** cal.diy container DO binding. Optional until the watched deploy binds it; the schedule.* host route degrades to 503 without it. */
