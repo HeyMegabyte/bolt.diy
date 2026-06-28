@@ -61,12 +61,7 @@ export const idempotencyMiddleware: MiddlewareHandler<{
   }
 
   const scope = c.get('orgId') ?? 'anon';
-  const kvKey = idempotencyCacheKey(
-    scope,
-    c.req.method,
-    new URL(c.req.url).pathname,
-    clientKey,
-  );
+  const kvKey = idempotencyCacheKey(scope, c.req.method, new URL(c.req.url).pathname, clientKey);
 
   const cached = (await c.env.CACHE_KV.get(kvKey, 'json').catch(() => null)) as {
     status: number;

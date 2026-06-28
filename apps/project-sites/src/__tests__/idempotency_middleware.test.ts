@@ -98,7 +98,10 @@ describe('idempotencyMiddleware', () => {
     const a = makeApp(kv, 'org_1', () => ({ n: ++calls, who: 'org_1' }));
     const b = makeApp(kv, 'org_2', () => ({ n: ++calls, who: 'org_2' }));
     await a.request('/api/thing', { method: 'POST', headers: { 'idempotency-key': 'shared' } });
-    const r = await b.request('/api/thing', { method: 'POST', headers: { 'idempotency-key': 'shared' } });
+    const r = await b.request('/api/thing', {
+      method: 'POST',
+      headers: { 'idempotency-key': 'shared' },
+    });
     // org_2 gets its OWN fresh response, not org_1's replay
     expect((await r.json()).who).toBe('org_2');
     expect(calls).toBe(2);
