@@ -23,7 +23,9 @@ describe('researchCacheKey (stable per-business identity)', () => {
     expect(researchCacheKey({ placeId: 'ChIJ1', website: 'a.com', name: 'A' })).toBe(
       'research:v1:place:ChIJ1',
     );
-    expect(researchCacheKey({ website: 'https://a.com', name: 'A' })).toBe('research:v1:domain:a.com');
+    expect(researchCacheKey({ website: 'https://a.com', name: 'A' })).toBe(
+      'research:v1:domain:a.com',
+    );
     expect(researchCacheKey({ name: 'Joe Salon', address: '1 Main St' })).toBe(
       'research:v1:name:joe%20salon%7C1%20main%20st',
     );
@@ -39,7 +41,9 @@ describe('researchCacheKey (stable per-business identity)', () => {
     expect(a).not.toBe(b);
   });
   it('normalizes whitespace + case for the name fallback', () => {
-    expect(researchCacheKey({ name: '  Joe   Salon ' })).toBe(researchCacheKey({ name: 'joe salon' }));
+    expect(researchCacheKey({ name: '  Joe   Salon ' })).toBe(
+      researchCacheKey({ name: 'joe salon' }),
+    );
   });
 });
 

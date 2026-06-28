@@ -69,10 +69,7 @@ export function researchCacheKey(input: BusinessIdentity): string {
  * Read cached research for a business. Returns `null` on miss or any KV error
  * (a cache miss must never break a build).
  */
-export async function getCachedResearch<T = unknown>(
-  env: Env,
-  key: string,
-): Promise<T | null> {
+export async function getCachedResearch<T = unknown>(env: Env, key: string): Promise<T | null> {
   try {
     return (await env.CACHE_KV.get(key, 'json')) as T | null;
   } catch {
