@@ -34,6 +34,21 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/signin/signin.component').then((m) => m.SigninComponent),
   },
   {
+    path: 'auth/sign-in',
+    loadComponent: () =>
+      import('./pages/auth/sign-in.component').then((m) => m.SignInComponent),
+  },
+  {
+    path: 'auth/sign-up',
+    loadComponent: () =>
+      import('./pages/auth/sign-up.component').then((m) => m.SignUpComponent),
+  },
+  {
+    path: 'auth/sessions',
+    loadComponent: () =>
+      import('./pages/auth/session-management.component').then((m) => m.SessionManagementComponent),
+  },
+  {
     path: 'create',
     loadComponent: () => import('./pages/create/create.component').then((m) => m.CreateComponent),
   },
