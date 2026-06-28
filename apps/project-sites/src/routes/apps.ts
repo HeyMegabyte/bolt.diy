@@ -110,9 +110,7 @@ async function loadInstance(env: Env, orgId: string, id: string): Promise<AppIns
   );
 }
 
-function sanitizeInstance(
-  row: AppInstanceRow,
-): Omit<AppInstanceRow, 'env_encrypted' | 'env_iv'> & {
+function sanitizeInstance(row: AppInstanceRow): Omit<AppInstanceRow, 'env_encrypted' | 'env_iv'> & {
   env: null;
   costEstimate: InstanceCostEstimate;
 } {

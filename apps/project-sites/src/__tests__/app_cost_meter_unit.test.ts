@@ -51,7 +51,8 @@ describe('estimateInstanceCost', () => {
       upstash_database_id: 'y',
       r2_bucket_name: 'z',
     });
-    const sum = est.breakdown.compute + est.breakdown.neon + est.breakdown.upstash + est.breakdown.r2;
+    const sum =
+      est.breakdown.compute + est.breakdown.neon + est.breakdown.upstash + est.breakdown.r2;
     expect(sum).toBeCloseTo(est.monthlyUsd, 5);
   });
 });
