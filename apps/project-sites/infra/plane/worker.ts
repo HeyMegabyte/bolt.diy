@@ -69,10 +69,15 @@ export class Plane extends Container<Env> {
     }
     this.envVars = out;
   }
+  /** Log container-boot failures to observability (caller still gets the lib's retry page). */
+  override async onError(error: unknown): Promise<Response> {
+    console.error('[plane onError]', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
   override async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
       ports: 8080,
-      // First boot runs DB migrations + boots all processes — generous window.
+      // First boot runs DB migrations + boots all 7 processes — generous window.
       cancellationOptions: { portReadyTimeoutMS: 220_000 },
     });
     return this.containerFetch(request);
