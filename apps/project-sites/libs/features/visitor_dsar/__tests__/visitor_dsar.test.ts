@@ -273,4 +273,40 @@ describe('delete mode', () => {
       }),
     );
   });
+
+  it('cascades — purges correlated visitor_events + reports combined receipt (Art.17)', async () => {
+    // Subject resolves to identities carrying client ids → events are erased too.
+    mockDbQuery.mockResolvedValue({
+      data: [{ visitor_id: 'vid-1', anon_id: 'anon-1' }],
+      error: null,
+    });
+    mockDbExecute
+      .mockResolvedValueOnce({ error: null, changes: 3 }) // DELETE visitor_events
+      .mockResolvedValueOnce({ error: null, changes: 2 }); // UPDATE visitor_identities
+
+    const res = await buildApp({ orgId: 'org-1' }).request(
+      '/api/sites/site-001/dsar',
+      makeRequest({ subject: 'user@example.com', mode: 'delete' }),
+      {} as never,
+      execCtx,
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json<{ deleted: number; events_deleted: number }>();
+    expect(json.deleted).toBe(2);
+    expect(json.events_deleted).toBe(3);
+
+    // First dbExecute call is the events hard-delete, scoped by session_id.
+    const [, eventsSql, eventsParams] = mockDbExecute.mock.calls[0] as [unknown, string, unknown[]];
+    expect(eventsSql).toContain('DELETE FROM visitor_events');
+    expect(eventsSql).toContain('session_id IN');
+    expect(eventsParams).toEqual(expect.arrayContaining(['vid-1', 'anon-1']));
+
+    // Audit receipt records the combined count (identities + events).
+    expect(mockDbInsert).toHaveBeenCalledWith(
+      undefined,
+      'audit_logs',
+      expect.objectContaining({ action: 'dsar.delete', metadata_json: expect.stringContaining('5') }),
+    );
+  });
 });

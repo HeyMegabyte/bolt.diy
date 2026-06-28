@@ -77,8 +77,8 @@ visitorDsar.post('/api/sites/:siteId/dsar', async (c) => {
     return c.json({ mode: 'export', records, count: records.length }, 200);
   }
 
-  // mode === 'delete'
-  const deleted = await deleteVisitorData(c.env.DB, siteId, subject);
+  // mode === 'delete' — cascade: identity rows soft-deleted + correlated events purged
+  const { identities, events } = await deleteVisitorData(c.env.DB, siteId, subject);
   const actorId = (c.get('userId') as string | undefined) ?? orgId;
   c.executionCtx.waitUntil(
     writeDsarAuditLog(c.env.DB, {
@@ -87,8 +87,8 @@ visitorDsar.post('/api/sites/:siteId/dsar', async (c) => {
       actorId,
       mode: 'delete',
       subject,
-      count: deleted,
+      count: identities + events,
     }).catch(() => undefined),
   );
-  return c.json({ mode: 'delete', deleted }, 200);
+  return c.json({ mode: 'delete', deleted: identities, events_deleted: events }, 200);
 });
