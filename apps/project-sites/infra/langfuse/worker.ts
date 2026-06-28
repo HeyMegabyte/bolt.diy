@@ -28,6 +28,9 @@ interface Env {
   SALT: string;
   /** AES-256 key (64 hex) for at-rest encryption of integration creds. */
   ENCRYPTION_KEY: string;
+  /** SES SMTP connection URL (smtp://user:pass@email-smtp...:587) — enables Langfuse
+   *  email: invites, password reset, batch-export-ready + eval-alert notifications. */
+  SMTP_CONNECTION_URL?: string;
 }
 
 const ACCOUNT_ID = '84fa0d1b16ff8086dd958c468ce7fd59';
@@ -49,6 +52,7 @@ export class Langfuse extends Container<Env> {
       NEXTAUTH_SECRET: env.NEXTAUTH_SECRET,
       SALT: env.SALT,
       ENCRYPTION_KEY: env.ENCRYPTION_KEY,
+      SMTP_CONNECTION_URL: env.SMTP_CONNECTION_URL,
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) {
@@ -95,6 +99,17 @@ export class Langfuse extends Container<Env> {
     out.NEXTAUTH_URL = 'https://traces.projectsites.dev';
     out.TELEMETRY_ENABLED = 'false';
     out.HOSTNAME = '0.0.0.0';
+    // ── hardening / product config ──
+    // Private instance: no public self-signup (you + invited members only). The UI is
+    // ALSO behind CF Access, so this is defense-in-depth.
+    out.AUTH_DISABLE_SIGNUP = 'true';
+    // Enforce HTTPS in the Content-Security-Policy (served behind the CF edge anyway).
+    out.LANGFUSE_CSP_ENFORCE_HTTPS = 'true';
+    // Quieter logs (default is info — noisy for a single-tenant instance).
+    out.LANGFUSE_LOG_LEVEL = 'warn';
+    // SES email "from" (projectsites.dev is a verified SES identity). Only takes effect
+    // when SMTP_CONNECTION_URL is set above.
+    if (out.SMTP_CONNECTION_URL) out.EMAIL_FROM_ADDRESS = 'noreply@projectsites.dev';
     this.envVars = out;
   }
 
