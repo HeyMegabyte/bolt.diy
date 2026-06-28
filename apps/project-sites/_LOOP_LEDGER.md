@@ -73,7 +73,7 @@
 - [ ] [auto] CSP L3 strict-dynamic + nonce + Trusted Types on the worker AND generated output sites.
 - [ ] [auto] SSRF allowlist on remaining user-URL-fetch routes (og-preview/import-rss/social).
 - [ ] [auto] Secret-at-rest audit (MCP_ENCRYPTION_KEY + env-var AES-GCM) + rotation story.
-- [ ] [auto] Social (Pulse) LIVE DEFECTS — fix hardcoded media domain in `social-publish.ts prepareMedia` (breaks custom-domain tenants; use primary hostname / signed R2 URL) · bump stale `REAL_UA` 131→149 in `social_publishers/types.ts` · add `social_*` flags · OAuth token-refresh.
+- [ ] [auto] Social (Pulse) LIVE DEFECTS — REMAINDER ONLY: add `social_*` flags · OAuth token-refresh. (verified 2026-06-28: `REAL_UA` already `149` in `social_publishers/types.ts`; `prepareMedia` already uses tenant-independent env-overridable `MEDIA_PUBLIC_BASE` → `/assets/r2/*` platform host, NOT a tenant-breaking hardcoded domain — both original sub-defects already fixed.)
 
 ### Viral growth surfaces
 - [ ] [auto] S22 — immutable stable preview URLs (`{slug}-{snapshot}.projectsites.dev` permanent + shareable).
