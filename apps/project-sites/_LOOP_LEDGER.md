@@ -30,7 +30,7 @@
 - [ ] [auto] Live agentic action trail during site-gen (stream each Workflow step, for trust).
 
 ### Money-trust & correctness (don't double-bill / don't lose builds)
-- [ ] [auto] General `Idempotency-Key` middleware on all mutations (only Stripe webhooks dedupe today).
+- [x] General `Idempotency-Key` middleware — DONE 2026-06-28. `middleware/idempotency.ts` mounted `app.use('/api/*', idempotencyMiddleware)` after auth → dedupes ALL mutating (`POST/PUT/PATCH/DELETE`) `/api/*` requests carrying an `Idempotency-Key` header: first 2xx JSON cached in `CACHE_KV` (24h TTL, org-scoped key), replayed verbatim (`idempotency-replayed: true`) so the handler runs exactly once. Safe-by-default (no-op without the header → existing traffic unchanged; non-2xx never cached → errors retryable; cross-tenant replay impossible). TDD: 5 unit tests (replay / no-op / no-cache-on-error / cross-tenant isolation / key-scoping) green; existing API route suite still 40/40; tsc 0; worker → CI push. [DONE]
 - [ ] [auto] Finish event-bus → outbox → DLQ → retry loop for durable money/build events.
 - [ ] [auto] Container build retry/DLQ on failure (capture/replay, not a silent error-email).
 - [ ] [auto] Sentry on remaining worker critical paths (build-status callback, billing, workflow steps).

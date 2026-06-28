@@ -39,6 +39,7 @@ import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
+import { idempotencyMiddleware } from './middleware/idempotency.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { makeAuth, ensureBetterAuthSchema } from './auth/better-auth.js'; // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag
@@ -352,6 +353,11 @@ applyRateLimits(app);
 
 // Auth middleware for API routes (sets userId/orgId if valid session)
 app.use('/api/*', authMiddleware);
+
+// Idempotency-Key dedupe for mutating API requests (after auth so orgId scopes the
+// cache). Safe no-op when the header is absent — generalizes the dedupe that until
+// now only Stripe webhooks had, so retried POST/PUT/PATCH/DELETE run exactly once.
+app.use('/api/*', idempotencyMiddleware);
 
 // EMBEDDED Better Auth (full-cutover rebuild, Phase 1) — DARK behind the `better_auth`
 // flag. Registered BEFORE the legacy auth routes so it's a clean same-path cutover:
