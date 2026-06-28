@@ -16,6 +16,8 @@ import type { Env, Variables } from '../types/env.js';
 import { getSession } from '../services/auth.js';
 import { dbQueryOne } from '../services/db.js';
 import { safeWaitUntil } from '../lib/wait-until.js';
+import { makeAuth } from '../auth/better-auth.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
 
 /**
  * Auth middleware that optionally populates userId and orgId on the Hono context.
@@ -90,6 +92,35 @@ export const authMiddleware: MiddlewareHandler<{
           }
         }
       }
+    }
+  }
+
+  // Better Auth session bridge (cutover) — when the `better_auth` flag is on and
+  // no token-based auth matched, resolve the Better Auth COOKIE session so authed
+  // API calls work for users signed in via Better Auth. Backfilled BA users reuse
+  // the legacy user id, so org resolution reuses the same `memberships` lookup.
+  // Best-effort: only runs when no bearer token authenticated the request.
+  if (!c.get('userId')) {
+    try {
+      if (await isFlagOn(c.env, 'better_auth')) {
+        const ba = (await makeAuth(c.env).api.getSession({ headers: c.req.raw.headers })) as {
+          user?: { id?: string };
+        } | null;
+        const uid = ba?.user?.id;
+        if (uid) {
+          c.set('userId', uid);
+          const membership = await dbQueryOne<{ org_id: string }>(
+            c.env.DB,
+            'SELECT m.org_id FROM memberships m WHERE m.user_id = ? AND m.deleted_at IS NULL LIMIT 1',
+            [uid],
+          );
+          if (membership) {
+            c.set('orgId', membership.org_id);
+          }
+        }
+      }
+    } catch {
+      /* Better Auth session resolution is best-effort — never block the request */
     }
   }
 
