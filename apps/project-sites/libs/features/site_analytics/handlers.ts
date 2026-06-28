@@ -16,7 +16,13 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { requireOrgFlag, notFound } from '../../../src/lib/feature_guard.js';
-import { FLAG_KEY, getSiteAnalyticsSummary, getDailySeries, siteOrgId } from './service.js';
+import {
+  FLAG_KEY,
+  getSiteAnalyticsSummary,
+  getDailySeries,
+  getConversionsBySection,
+  siteOrgId,
+} from './service.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
@@ -52,4 +58,21 @@ siteAnalytics.get('/api/sites/:siteId/analytics/daily', async (c) => {
 
   const series = await getDailySeries(c.env, siteId, days);
   return c.json(series);
+});
+
+// AN27 — section-level conversion attribution ("Services drives 40% of calls").
+siteAnalytics.get('/api/sites/:siteId/analytics/sections', async (c) => {
+  const g = await requireOrgFlag(c, FLAG_KEY);
+  if (g instanceof Response) return g;
+
+  const siteId = c.req.param('siteId');
+  const owner = await siteOrgId(c.env, siteId);
+  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+
+  const windowParam = Number(c.req.query('windowDays'));
+  const windowDays =
+    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
+
+  const breakdown = await getConversionsBySection(c.env, siteId, windowDays);
+  return c.json(breakdown);
 });

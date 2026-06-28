@@ -44,3 +44,33 @@ export const SiteAnalyticsSummarySchema = z
   })
   .strict();
 export type SiteAnalyticsSummary = z.infer<typeof SiteAnalyticsSummarySchema>;
+
+/** One section's conversion attribution row (AN27). */
+export const SectionConversionSchema = z
+  .object({
+    section: z.string(),
+    count: z.number().int().min(0),
+    /** Share of all attributed conversions, 0–100, one decimal. */
+    percent: z.number().min(0).max(100),
+    calls: z.number().int().min(0),
+    directions: z.number().int().min(0),
+    emails: z.number().int().min(0),
+  })
+  .strict();
+export type SectionConversion = z.infer<typeof SectionConversionSchema>;
+
+/**
+ * AN27 — section-level conversion attribution ("Services drives 40% of calls").
+ * Built on AN18 click-to-call/directions events tagged with the AN26
+ * `data-ps-section` and persisted to `analytics_events`.
+ */
+export const SectionConversionsSchema = z
+  .object({
+    siteId: z.string().min(1),
+    windowDays: z.number().int().positive(),
+    totalConversions: z.number().int().min(0),
+    sections: z.array(SectionConversionSchema),
+    generatedAt: z.string(),
+  })
+  .strict();
+export type SectionConversions = z.infer<typeof SectionConversionsSchema>;

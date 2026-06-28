@@ -16,7 +16,9 @@ import { dbQuery } from '../../../src/services/db.js';
 import { getTrafficSummary } from '../visitor_events_core/service.js';
 import {
   SiteAnalyticsSummarySchema,
+  SectionConversionsSchema,
   type SiteAnalyticsSummary,
+  type SectionConversions,
   type SourceCount,
 } from './schemas.js';
 
@@ -91,6 +93,79 @@ export async function getDailySeries(
       conversions: Number(r.conversions),
     })),
   };
+}
+
+/**
+ * AN27 — section-level conversion attribution. Aggregates the AN18 click-to-call/
+ * directions/email `conversion` events (each tagged with the AN26
+ * `data-ps-section`) from `analytics_events`, grouped by section + kind, ranked
+ * by total desc with each section's share of all attributed conversions. Powers
+ * the owner moat widget "Services drives 40% of calls".
+ *
+ * Defensive: any D1 error (table missing on a fresh env) degrades to an empty
+ * breakdown rather than throwing. A null/absent section coalesces to
+ * `(unattributed)` so conversions are never silently lost.
+ *
+ * @param env        - Worker env (uses `env.DB`).
+ * @param siteId     - Site to attribute.
+ * @param windowDays - Trailing window 1–365 (default 30).
+ * @returns A validated {@link SectionConversions}, sections ranked by count desc.
+ *
+ * @example
+ * const { sections } = await getConversionsBySection(env, 'site_123', 30);
+ */
+export async function getConversionsBySection(
+  env: Env,
+  siteId: string,
+  windowDays = 30,
+): Promise<SectionConversions> {
+  const n = Number.isInteger(windowDays) && windowDays > 0 && windowDays <= 365 ? windowDays : 30;
+  const { data, error } = await dbQuery<{ section: string | null; kind: string | null; n: number }>(
+    env.DB,
+    `SELECT COALESCE(json_extract(payload, '$.section'), '(unattributed)') AS section,
+            json_extract(payload, '$.kind') AS kind,
+            COUNT(*) AS n
+       FROM analytics_events
+      WHERE siteId = ? AND eventType = 'conversion'
+        AND timestamp >= (unixepoch() - ?) * 1000
+      GROUP BY section, kind`,
+    [siteId, n * 86_400],
+  );
+
+  const bySection = new Map<string, { count: number; calls: number; directions: number; emails: number }>();
+  let totalConversions = 0;
+  if (!error) {
+    for (const r of data) {
+      const section = r.section ?? '(unattributed)';
+      const c = Number(r.n) || 0;
+      totalConversions += c;
+      const agg = bySection.get(section) ?? { count: 0, calls: 0, directions: 0, emails: 0 };
+      agg.count += c;
+      if (r.kind === 'call') agg.calls += c;
+      else if (r.kind === 'directions') agg.directions += c;
+      else if (r.kind === 'email') agg.emails += c;
+      bySection.set(section, agg);
+    }
+  }
+
+  const sections = [...bySection.entries()]
+    .map(([section, a]) => ({
+      section,
+      count: a.count,
+      percent: totalConversions > 0 ? Math.round((a.count / totalConversions) * 1000) / 10 : 0,
+      calls: a.calls,
+      directions: a.directions,
+      emails: a.emails,
+    }))
+    .sort((x, y) => y.count - x.count);
+
+  return SectionConversionsSchema.parse({
+    siteId,
+    windowDays: n,
+    totalConversions,
+    sections,
+    generatedAt: new Date().toISOString(),
+  });
 }
 
 /**

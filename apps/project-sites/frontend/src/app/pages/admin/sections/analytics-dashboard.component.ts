@@ -5,8 +5,9 @@ import { AdminAnalyticsComponent } from './analytics.component';
 import { AdminAnalyticsLiveComponent } from './analytics-live.component';
 import { AdminActivationFunnelComponent } from './activation-funnel.component';
 import { AdminSocialAnalyticsComponent } from './social-analytics.component';
+import { SectionAttributionComponent } from './section-attribution.component';
 
-type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'social';
+type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'social';
 
 /**
  * Unified analytics dashboard — combines aggregate traffic, the raw live event
@@ -25,6 +26,7 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'social';
     AdminAnalyticsLiveComponent,
     AdminActivationFunnelComponent,
     AdminSocialAnalyticsComponent,
+    SectionAttributionComponent,
   ],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="analytics-dashboard">
@@ -57,6 +59,8 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'social';
       <app-admin-analytics-live />
     } @else if (tab() === 'funnel') {
       <app-admin-activation-funnel />
+    } @else if (tab() === 'sections') {
+      <app-section-attribution />
     } @else {
       <app-social-analytics />
     }
@@ -71,6 +75,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     { id: 'overview', label: 'Overview' },
     { id: 'live', label: 'Live Events' },
     { id: 'funnel', label: 'Activation Funnel' },
+    { id: 'sections', label: 'By Section' },
     { id: 'social', label: 'Social' },
   ];
   readonly tab = signal<AnalyticsTab>('overview');
@@ -80,7 +85,9 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     // restores it. takeUntilDestroyed: ActivatedRoute observables never complete.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
       const t = q.get('tab');
-      this.tab.set(t === 'live' || t === 'funnel' || t === 'social' ? t : 'overview');
+      this.tab.set(
+        t === 'live' || t === 'funnel' || t === 'sections' || t === 'social' ? t : 'overview',
+      );
     });
   }
 

@@ -15,6 +15,8 @@ class StubLiveComponent {}
 class StubFunnelComponent {}
 @Component({ selector: 'app-social-analytics', standalone: true, template: '<div data-testid="stub-social"></div>' })
 class StubVisitorsComponent {}
+@Component({ selector: 'app-section-attribution', standalone: true, template: '<div data-testid="stub-sections"></div>' })
+class StubSectionsComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
@@ -30,7 +32,7 @@ describe('AdminAnalyticsDashboardComponent', () => {
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
       set: {
-        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent],
+        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent],
       },
     });
     const f = TestBed.createComponent(AdminAnalyticsDashboardComponent);
@@ -51,6 +53,14 @@ describe('AdminAnalyticsDashboardComponent', () => {
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-live"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-funnel"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-social"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="analytics-tab-sections"]')).toBeTruthy();
+  });
+
+  it('lands on By Section when ?tab=sections (AN27)', () => {
+    qpm.next(convertToParamMap({ tab: 'sections' }));
+    const f = make();
+    expect(f.componentInstance.tab()).toBe('sections');
+    expect(f.nativeElement.querySelector('[data-testid="stub-sections"]')).toBeTruthy();
   });
 
   it('lands on Social when ?tab=social', () => {
