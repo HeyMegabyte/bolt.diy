@@ -24,7 +24,7 @@
 - [ ] [auto] Anonymous first-generation before signup — let visitors generate a build before the wall (biggest activation lever).
 - [ ] [auto] One-click "Claim this site" → inline Stripe checkout (collapse adopt→pay).
 - [ ] [auto] Contextual upgrade prompts at the friction moment (custom domain / remove top-bar / more pages).
-- [ ] [auto] Abandoned-build recovery email — build-started-never-claimed → nudge w/ preview link.
+- [ ] [auto] Abandoned-build recovery email — build-finished-never-claimed → nudge w/ preview link. PROGRESS 2026-06-28: shipped the pure eligibility core `services/abandoned_builds.ts` `selectAbandonedBuilds(rows, nowMs, opts)` (finished + unclaimed + age∈[24h,14d] window + 7d re-nudge throttle) + 8 unit tests green, tsc 0. REMAINING (I/O wrapper): (1) D1 scan projecting finished-unclaimed sites + a `nudged_at` column for idempotency; (2) `'recovery'` kind in `claim_build_emails.ts buildClaimEmail`; (3) wire the scan→select→sendClaimBuildEmail→stamp-nudged into the `scheduled()` cron in `index.ts` (TEST-mode email). Email send is approval-tier-PRE-APPROVED (safe-by-default).
 - [ ] [auto] Instrument golden-path funnel in PostHog (search→signin→build→preview→claim→pay + drop-off cohorts).
 - [ ] [auto] Streaming live-preview during build (render-as-it-generates, not a polling spinner).
 - [ ] [auto] Live agentic action trail during site-gen (stream each Workflow step, for trust).
