@@ -99,6 +99,57 @@ async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
   }
 }
 
+/** The caller's number (FROM) from the SIP participant attributes, best-effort. */
+function resolveCallerNumber(ctx: JobContext): string {
+  for (const p of ctx.room.remoteParticipants.values()) {
+    const a = (p.attributes ?? {}) as Record<string, string>;
+    const from = a['sip.phoneNumber'] ?? a['sip.from'] ?? '';
+    if (from) return from;
+  }
+  return '';
+}
+
+/** Flatten the session history into transcript turns for the Conversations store. */
+function collectTranscript(
+  session: voice.AgentSession,
+): Array<{ role: 'user' | 'assistant' | 'system'; text: string }> {
+  const out: Array<{ role: 'user' | 'assistant' | 'system'; text: string }> = [];
+  for (const item of session.history.items) {
+    if (item.type !== 'message') continue;
+    const role = item.role;
+    if (role !== 'user' && role !== 'assistant' && role !== 'system') continue;
+    const text = item.textContent?.trim();
+    if (text) out.push({ role, text });
+  }
+  return out;
+}
+
+/** POST the finished call transcript to the worker (HMAC-signed; best-effort). */
+async function postTranscript(payload: {
+  callId: string;
+  dialedNumber: string;
+  callerNumber?: string;
+  transcript: Array<{ role: 'user' | 'assistant' | 'system'; text: string }>;
+  startedAtMs: number;
+  endedAtMs: number;
+}): Promise<void> {
+  const workerUrl = (process.env.VOICE_WORKER_URL ?? 'https://projectsites.dev').replace(/\/$/, '');
+  const secret = process.env.INTERNAL_BUILD_SECRET ?? '';
+  if (!secret || payload.transcript.length === 0) return;
+  try {
+    const body = JSON.stringify(payload);
+    const sig = createHmac('sha256', secret).update(body).digest('hex');
+    await fetch(`${workerUrl}/internal/voice/transcript`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-sig': sig },
+      body,
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    /* best-effort — never block call teardown on transcript persistence */
+  }
+}
+
 class Receptionist extends voice.Agent {
   constructor(instructions: string) {
     super({ instructions });
@@ -115,6 +166,7 @@ export default defineAgent({
     // Per-site LiteLLM routing: dialed DID → site → LiteLLM endpoint + virtual key.
     const dialedNumber = resolveDialedNumber(ctx);
     const config = await fetchAgentConfig(dialedNumber);
+    const startedAtMs = Date.now();
 
     const session = new voice.AgentSession({
       vad: (await ctx.proc.userData.vad) as silero.VAD,
@@ -142,6 +194,18 @@ export default defineAgent({
       console.log(
         JSON.stringify({ level: 'info', msg: 'voice.metrics', ts: Date.now(), metrics: ev.metrics }),
       );
+    });
+
+    // On call end: persist the transcript → admin Conversations (best-effort, HMAC).
+    session.on(voice.AgentSessionEventTypes.Close, () => {
+      void postTranscript({
+        callId: ctx.room.name || `room-${startedAtMs}`,
+        dialedNumber,
+        callerNumber: resolveCallerNumber(ctx) || undefined,
+        transcript: collectTranscript(session),
+        startedAtMs,
+        endedAtMs: Date.now(),
+      });
     });
 
     await session.start({ agent: new Receptionist(config.persona), room: ctx.room });

@@ -32,6 +32,10 @@ import {
   resolveVoiceAgentConfig,
 } from '../services/voice_agent_config.js';
 import { handleInboundSms } from '../services/voice_orchestrator.js';
+import {
+  recordVoiceTranscript,
+  TranscriptRequestSchema,
+} from '../services/voice_transcript.js';
 
 export const voiceWebhookRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -348,4 +352,45 @@ voiceWebhookRoutes.post('/internal/voice/agent-config', async (c) => {
 
   const config = await resolveVoiceAgentConfig(c.env, parsed.data.dialedNumber);
   return c.json(config);
+});
+
+// ─── Internal: persist a completed call transcript → Conversations ──
+
+/**
+ * `POST /internal/voice/transcript` — HMAC-signed call-transcript persistence from
+ * the LiveKit agent at call end. Stores the transcript + metadata into `voice_calls`
+ * (idempotent on the LiveKit room id) so the call appears in admin Conversations.
+ *
+ * @throws 401 invalid signature · 400 bad body · 500 unconfigured.
+ */
+voiceWebhookRoutes.post('/internal/voice/transcript', async (c) => {
+  const secret = (c.env.INTERNAL_BUILD_SECRET ?? '').trim();
+  if (!secret) return c.json({ error: 'callback not configured' }, 500);
+  const sig = c.req.header('x-internal-sig') ?? '';
+  const rawBody = await c.req.text();
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { hash: 'SHA-256', name: 'HMAC' },
+    false,
+    ['sign'],
+  );
+  const expectedBytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(rawBody)));
+  const expected = Array.from(expectedBytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  if (sig !== expected) return c.json({ error: 'invalid signature' }, 401);
+
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return c.json({ error: 'bad json' }, 400);
+  }
+  const parsed = TranscriptRequestSchema.safeParse(parsedBody);
+  if (!parsed.success) return c.json({ error: 'missing fields' }, 400);
+
+  const result = await recordVoiceTranscript(c.env, parsed.data);
+  return c.json(result);
 });
