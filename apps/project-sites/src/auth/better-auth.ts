@@ -224,6 +224,27 @@ export function makeAuth(env: Env): Auth {
                   target_type: 'user',
                   target_id: userId,
                 });
+                // New-50 #1 — alert the USER of a suspicious sign-in (reuses the
+                // #31 branded email + #44 detection). Best-effort: a lookup/send
+                // failure never blocks sign-in.
+                try {
+                  const row = await env.DB.prepare('SELECT email FROM user WHERE id = ?')
+                    .bind(userId)
+                    .first<{ email?: string }>();
+                  if (row?.email) {
+                    await sendMail(
+                      row.email,
+                      'New sign-in to your ProjectSites account',
+                      brandedEmail({
+                        heading: 'New sign-in detected',
+                        body: `We noticed a sign-in to your account${ipAddress ? ` from ${ipAddress}` : ''}. If this was you, you can ignore this email.`,
+                        footnote: `Signals: ${verdict.reasons.join(', ')}. If this wasn't you, reset your password and review your active sessions at projectsites.dev/auth/sessions immediately.`,
+                      }),
+                    );
+                  }
+                } catch {
+                  /* user alert is best-effort */
+                }
               }
             } catch {
               /* anomaly detection is best-effort (#44) — never block sign-in */

@@ -33,6 +33,14 @@ jest.mock('../platform/email-router.js', () => ({
 }));
 jest.mock('../services/analytics.js', () => ({ captureEvent: jest.fn() }));
 jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn() }));
+jest.mock('../services/auth_anomaly.js', () => ({
+  recordAndAssess: jest.fn(async () => ({
+    anomalous: true,
+    reasons: ['new_ip'],
+    newIp: true,
+    newDevice: false,
+  })),
+}));
 
 import { makeAuth, _resetAuthCache } from '../auth/better-auth.js';
 import { captureEvent } from '../services/analytics.js';
@@ -144,6 +152,26 @@ describe('makeAuth (embedded Better Auth)', () => {
         message: expect.stringContaining('203.0.113.7'),
       }),
     );
+  });
+
+  it('on an anomalous login, audits + emails the user a sign-in alert (#44 + new-50 #1)', async () => {
+    captureEvent.mockClear();
+    const first = jest.fn(async () => ({ email: 'user@example.com' }));
+    const prepare = jest.fn(() => ({ bind: () => ({ first }) }));
+    const env = envOf({ DB: { prepare }, ANALYTICS: { writeDataPoint: jest.fn() } });
+    const after = opts(env).databaseHooks.session.create.after;
+
+    await after({ userId: 'u_1', ipAddress: '9.9.9.9', userAgent: 'UA' });
+
+    // anomaly event fired + the user-email lookup ran (the alert path)
+    expect(captureEvent).toHaveBeenCalledWith(
+      env,
+      'auth.anomaly.detected',
+      'u_1',
+      expect.objectContaining({ reasons: 'new_ip' }),
+    );
+    expect(prepare).toHaveBeenCalledWith('SELECT email FROM user WHERE id = ?');
+    expect(first).toHaveBeenCalled();
   });
 
   it('never throws when telemetry sinks fail (sign-in must not block)', async () => {
