@@ -62,6 +62,50 @@ async function txtRecords(fetchFn: Fetcher, name: string): Promise<string[]> {
 }
 
 /**
+ * Whether a domain can RECEIVE mail — i.e. publishes at least one MX record (or,
+ * per RFC 5321 §5.1, a usable A/AAAA fallback). Used as a reply-deliverability
+ * guardrail before sending an auto-receipt: skip the send to a fake/typo domain
+ * so a hard bounce never dents our sender reputation.
+ *
+ * Fail-OPEN: any DoH error / malformed response returns `true` (assume
+ * deliverable) so a transient lookup failure never drops a legit receipt.
+ *
+ * @param fetchFn - a `fetch` implementation (inject the global `fetch`; tests pass a mock).
+ * @param domain - the recipient domain (any form — normalized internally).
+ * @returns `true` when the domain has an MX (or A/AAAA fallback) or the lookup failed open.
+ *
+ * @example
+ * ```ts
+ * if (await hasDeliverableMx(fetch, 'gmail.com')) { await sendReceipt(...); }
+ * ```
+ */
+export async function hasDeliverableMx(fetchFn: Fetcher, domain: string): Promise<boolean> {
+  const clean = normalizeDomain(domain);
+  if (!clean || !clean.includes('.')) return false;
+  try {
+    const query = async (type: 'MX' | 'A'): Promise<number> => {
+      const res = await fetchFn(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(clean)}&type=${type}`,
+        { headers: { accept: 'application/dns-json' } },
+      );
+      if (!res.ok) throw new Error(`doh ${res.status}`);
+      const json = (await res.json()) as { Status?: number; Answer?: unknown[] };
+      // NXDOMAIN (Status 3) → the domain does not exist → undeliverable.
+      if (json.Status === 3) return -1;
+      return (json.Answer ?? []).length;
+    };
+    const mx = await query('MX');
+    if (mx === -1) return false; // NXDOMAIN
+    if (mx > 0) return true;
+    // No MX → RFC-5321 A/AAAA fallback (implicit MX). One more probe.
+    const a = await query('A');
+    return a > 0;
+  } catch {
+    return true; // fail open — never drop a legit receipt on a transient DoH error
+  }
+}
+
+/**
  * Run the SPF/DMARC/DKIM checks for a domain and compute the score + fixes.
  *
  * @param fetchFn - a `fetch` implementation (inject the global `fetch`; tests pass a mock).

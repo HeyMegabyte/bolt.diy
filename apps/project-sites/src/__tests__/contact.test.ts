@@ -1,6 +1,15 @@
 import { handleContactForm } from '../services/contact.js';
 import { AppError } from '@project-sites/shared';
 
+// #121 reply-deliverability guard: stub the MX lookup so the happy paths always
+// send the receipt (the real DoH logic is covered in email_deliverability.test.ts).
+// Uses the GLOBAL `jest` so @swc/jest hoists this above the contact import.
+jest.mock('../services/email_deliverability.js', () => ({
+  hasDeliverableMx: jest.fn(async () => true),
+}));
+import { hasDeliverableMx } from '../services/email_deliverability.js';
+const mockHasDeliverableMx = hasDeliverableMx as unknown as jest.Mock;
+
 const mockEnv = {
   ENVIRONMENT: 'staging',
   RESEND_API_KEY: 'test-resend-key',
@@ -78,6 +87,16 @@ describe('handleContactForm – valid submission', () => {
     const input = { name: 'Bob', email: 'bob@test.com', message: 'This is my test message.' };
     await handleContactForm(mockEnv, input);
     expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips the auto-receipt when the submitter domain is undeliverable (#121)', async () => {
+    mockHasDeliverableMx.mockResolvedValueOnce(false); // fake/typo/NXDOMAIN domain
+    await handleContactForm(mockEnv, validInput);
+    // Team notification still sent (Email 1); the receipt (Email 2) is suppressed
+    // so a hard bounce never dents our sender reputation.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toBe('https://api.resend.com/emails');
+    expect(mockHasDeliverableMx).toHaveBeenCalledWith(expect.anything(), 'example.com');
   });
 
   it('HTML-escapes user input in email body', async () => {

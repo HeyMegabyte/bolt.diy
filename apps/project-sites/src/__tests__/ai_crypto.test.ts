@@ -20,6 +20,8 @@ import type { Env } from '../types/env.js';
 const KEY_A = btoa('0123456789abcdef0123456789abcdef');
 const KEY_B = btoa('FEDCBA9876543210FEDCBA9876543210');
 const envWith = (k: string): Env => ({ MCP_ENCRYPTION_KEY: k }) as unknown as Env;
+const envRotating = (primary: string, old: string): Env =>
+  ({ MCP_ENCRYPTION_KEY: primary, MCP_ENCRYPTION_KEY_OLD: old }) as unknown as Env;
 
 describe('ai_crypto AES-GCM', () => {
   it('round-trips plaintext exactly', async () => {
@@ -65,5 +67,27 @@ describe('ai_crypto AES-GCM', () => {
   it('throws when the key is missing or not 32 bytes', async () => {
     await expect(encrypt(envWith(''), 'x')).rejects.toThrow(/not configured/i);
     await expect(encrypt(envWith(btoa('too-short')), 'x')).rejects.toThrow(/32 bytes/i);
+  });
+
+  // ── Zero-downtime key rotation (MCP_ENCRYPTION_KEY_OLD fallback) ──
+  it('decrypts a blob written under the OLD key when rotating (primary fails → old succeeds)', async () => {
+    // Value was encrypted under KEY_B (the soon-to-be-old key).
+    const blob = await encrypt(envWith(KEY_B), 'rotate-me');
+    // Now KEY_A is primary, KEY_B is the configured fallback.
+    const env = envRotating(KEY_A, KEY_B);
+    expect(await decrypt(env, blob)).toBe('rotate-me');
+  });
+
+  it('still decrypts NEW-key blobs while a rotation fallback is configured', async () => {
+    const env = envRotating(KEY_A, KEY_B);
+    const blob = await encrypt(env, 'new-key-value'); // encrypts under primary KEY_A
+    expect(await decrypt(env, blob)).toBe('new-key-value');
+  });
+
+  it('throws when NEITHER the primary nor the old key can decrypt', async () => {
+    const blob = await encrypt(envWith(KEY_A), 'orphan');
+    // Primary KEY_B, old also wrong → both fail → surfaces the error.
+    const env = envRotating(KEY_B, btoa('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'));
+    await expect(decrypt(env, blob)).rejects.toThrow();
   });
 });

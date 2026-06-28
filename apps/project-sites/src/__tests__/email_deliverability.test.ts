@@ -1,4 +1,27 @@
-import { checkDeliverability, normalizeDomain } from '../services/email_deliverability.js';
+import {
+  checkDeliverability,
+  hasDeliverableMx,
+  normalizeDomain,
+} from '../services/email_deliverability.js';
+
+/** Build a fake `fetch` that answers MX/A DoH queries by record type + status. */
+function mockDnsFetch(
+  cfg: { mx?: number; a?: number; status?: number; throw?: boolean } = {},
+): typeof fetch {
+  return (async (url: string | URL | Request) => {
+    if (cfg.throw) throw new Error('network down');
+    const u = typeof url === 'string' ? url : (url as URL | Request).toString();
+    const type = new URL(u).searchParams.get('type') ?? '';
+    const count = type === 'MX' ? (cfg.mx ?? 0) : (cfg.a ?? 0);
+    return {
+      ok: true,
+      json: async () => ({
+        Status: cfg.status ?? 0,
+        Answer: Array.from({ length: count }, (_, i) => ({ data: `rec-${i}` })),
+      }),
+    } as Response;
+  }) as unknown as typeof fetch;
+}
 
 /** Build a fake `fetch` that returns DoH-shaped TXT answers keyed by query `name`. */
 function mockFetch(
@@ -85,6 +108,32 @@ describe('email_deliverability', () => {
       expect(r.score).toBe(0);
       expect(r.spf.present).toBe(false);
       expect(r.recommendations.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('hasDeliverableMx (reply-deliverability guardrail, #121)', () => {
+    it('true when the domain publishes an MX record', async () => {
+      expect(await hasDeliverableMx(mockDnsFetch({ mx: 2 }), 'gmail.com')).toBe(true);
+    });
+
+    it('true via the A/AAAA implicit-MX fallback when no MX but an A exists', async () => {
+      expect(await hasDeliverableMx(mockDnsFetch({ mx: 0, a: 1 }), 'apex-only.test')).toBe(true);
+    });
+
+    it('false when the domain has neither MX nor A (undeliverable)', async () => {
+      expect(await hasDeliverableMx(mockDnsFetch({ mx: 0, a: 0 }), 'nomail.test')).toBe(false);
+    });
+
+    it('false on NXDOMAIN (Status 3 — domain does not exist)', async () => {
+      expect(await hasDeliverableMx(mockDnsFetch({ status: 3 }), 'typo-domian.test')).toBe(false);
+    });
+
+    it('false for a malformed / domainless input', async () => {
+      expect(await hasDeliverableMx(mockDnsFetch({ mx: 5 }), 'notadomain')).toBe(false);
+    });
+
+    it('fails OPEN (true) on a DoH network error — never drops a legit receipt', async () => {
+      expect(await hasDeliverableMx(mockDnsFetch({ throw: true }), 'gmail.com')).toBe(true);
     });
   });
 });

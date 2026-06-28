@@ -12,6 +12,7 @@ import { BRAND, contactFormSchema, badRequest, escapeHtml } from '@project-sites
 import type { ContactForm } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { getEmailProvider } from '../platform/email-router.js';
+import { hasDeliverableMx } from './email_deliverability.js';
 import { log } from '../lib/log.js';
 
 const contactLog = log.child('contact');
@@ -199,7 +200,17 @@ export async function handleContactForm(env: Env, input: unknown): Promise<void>
     replyTo: validated.email,
   });
 
-  // Email 2: Confirmation to the user
+  // Email 2: Confirmation to the user — guarded by a reply-deliverability check
+  // (#121). Skip the auto-receipt when the submitter's domain can't receive mail
+  // (fake/typo domain, NXDOMAIN, no MX) so a hard bounce never dents our sender
+  // reputation. The team still got Email 1 with the reply-to. Fail-open on DoH
+  // errors so a transient lookup hiccup never drops a legit receipt.
+  const recipientDomain = validated.email.split('@')[1] ?? '';
+  const deliverable = await hasDeliverableMx(fetch, recipientDomain);
+  if (!deliverable) {
+    contactLog.warn('receipt_skipped_undeliverable', { domain: recipientDomain });
+    return;
+  }
   await sendEmail(env, {
     to: validated.email,
     subject: 'We received your message — Project Sites',

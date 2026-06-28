@@ -15,6 +15,13 @@ jest.mock('../services/audit.js', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }));
 
+// #121: the contact handler MX-pre-checks the submitter domain before sending the
+// receipt. Stub deliverable=true so these integration tests exercise both emails
+// (the real DoH lookup is covered in email_deliverability.test.ts).
+jest.mock('../services/email_deliverability.js', () => ({
+  hasDeliverableMx: jest.fn(async () => true),
+}));
+
 jest.mock('../lib/posthog.js', () => ({
   capture: jest.fn(),
   trackAuth: jest.fn(),

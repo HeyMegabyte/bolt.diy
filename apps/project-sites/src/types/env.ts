@@ -588,6 +588,14 @@ export interface Env {
   /** AES-GCM key (base64, 32 bytes) used to encrypt MCP OAuth tokens at rest. */
   MCP_ENCRYPTION_KEY?: string;
   /**
+   * PREVIOUS AES-GCM key (base64, 32 bytes) — set ONLY during a key rotation.
+   * `decrypt` tries the primary `MCP_ENCRYPTION_KEY` first and falls back to this
+   * old key when the primary fails, so rotation is zero-downtime: deploy with the
+   * new key as primary + the old key here, lazily re-encrypt rows on next write,
+   * then drop this secret. See `docs/security/secret-at-rest-audit.md`.
+   */
+  MCP_ENCRYPTION_KEY_OLD?: string;
+  /**
    * HMAC secret for signing per-site capability manifests
    * (services/site_capability_manifest.ts). Falls back to MCP_ENCRYPTION_KEY
    * when unset so signing works without a separate secret in dev.

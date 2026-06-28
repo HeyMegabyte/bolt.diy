@@ -5,12 +5,30 @@
  */
 import type { Env } from '../types/env.js';
 
-async function getKey(env: Env): Promise<CryptoKey> {
-  const raw = env.MCP_ENCRYPTION_KEY;
-  if (!raw) throw new Error('MCP_ENCRYPTION_KEY not configured');
+async function importRawKey(raw: string): Promise<CryptoKey> {
   const buf = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
   if (buf.length !== 32) throw new Error('MCP_ENCRYPTION_KEY must decode to 32 bytes');
   return crypto.subtle.importKey('raw', buf, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+async function getKey(env: Env): Promise<CryptoKey> {
+  const raw = env.MCP_ENCRYPTION_KEY;
+  if (!raw) throw new Error('MCP_ENCRYPTION_KEY not configured');
+  return importRawKey(raw);
+}
+
+/**
+ * Low-level AES-GCM decrypt of a `base64(iv ‖ ciphertext)` blob under one key.
+ *
+ * @remarks Internal — {@link decrypt} wraps this with the primary→old key
+ *   rotation fallback. Throws on a wrong key (GCM auth-tag failure).
+ */
+async function decryptWithKey(key: CryptoKey, blob: string): Promise<string> {
+  const combined = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ct = combined.slice(12);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return new TextDecoder().decode(pt);
 }
 
 /**
@@ -46,21 +64,33 @@ export async function encrypt(env: Env, plaintext: string): Promise<string> {
  * AES-GCM decrypt a base64 `iv ‖ ciphertext` blob written by {@link encrypt}.
  *
  * @remarks
- * Symmetric counterpart of {@link encrypt}; uses the worker's MCP key.
+ * Symmetric counterpart of {@link encrypt}; uses the worker's primary MCP key.
+ *
+ * Zero-downtime key rotation: when `MCP_ENCRYPTION_KEY_OLD` is set and the
+ * primary key fails to decrypt a blob (a value still encrypted under the old
+ * key), this retries once with the old key. Rotation procedure: deploy the new
+ * key as `MCP_ENCRYPTION_KEY` + the old key as `MCP_ENCRYPTION_KEY_OLD` → reads
+ * keep working → next write re-encrypts the row under the new key → once all
+ * rows are re-encrypted, drop `MCP_ENCRYPTION_KEY_OLD`. See
+ * `docs/security/secret-at-rest-audit.md`.
  *
  * @example
  * ```ts
  * const token = await decrypt(env, row.token_ct);
  * ```
  *
- * @throws {Error} when the IV/ciphertext split fails or the key cannot decrypt.
+ * @throws {Error} when the IV/ciphertext split fails or NEITHER key can decrypt.
  * @see {@link encrypt}
  */
 export async function decrypt(env: Env, blob: string): Promise<string> {
   const key = await getKey(env);
-  const combined = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
-  const iv = combined.slice(0, 12);
-  const ct = combined.slice(12);
-  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-  return new TextDecoder().decode(pt);
+  try {
+    return await decryptWithKey(key, blob);
+  } catch (primaryErr) {
+    const old = env.MCP_ENCRYPTION_KEY_OLD;
+    if (!old) throw primaryErr;
+    // Rotation fallback: the blob may still be under the previous key.
+    const oldKey = await importRawKey(old);
+    return decryptWithKey(oldKey, blob);
+  }
 }
