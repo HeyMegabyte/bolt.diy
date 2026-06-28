@@ -339,7 +339,8 @@ const hubspot: ProviderAdapter = {
     const params = new URLSearchParams({
       client_id: env.HUBSPOT_OAUTH_CLIENT_ID || env.HUBSPOT_CLIENT_ID || '',
       redirect_uri: `${new URL(returnUrl).origin}/api/mcp/hubspot/callback`,
-      scope: 'crm.objects.contacts.write crm.objects.contacts.read',
+      scope:
+        'crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write crm.objects.line_items.read crm.objects.line_items.write crm.schemas.contacts.read crm.schemas.companies.read crm.schemas.deals.read crm.objects.owners.read tickets forms',
       state,
     });
     // HubSpot supports PKCE for public clients; include challenge if provided.
@@ -741,7 +742,7 @@ const airtable: ProviderAdapter = {
       redirect_uri: `${new URL(returnUrl).origin}/api/mcp/airtable/callback`,
       response_type: 'code',
       scope:
-        'data.records:read data.records:write schema.bases:read user.email:read webhook:manage',
+        'data.records:read data.records:write schema.bases:read schema.bases:write user.email:read webhook:manage',
       state,
       // We append the challenge below by re-building the URL after async hash.
       // Since authorizeUrl is sync, callers must pre-derive the challenge.
@@ -840,7 +841,8 @@ const pagerduty: ProviderAdapter = {
       response_type: 'code',
       client_id: env.PAGERDUTY_OAUTH_CLIENT_ID ?? '',
       redirect_uri: `${new URL(returnUrl).origin}/api/mcp/pagerduty/callback`,
-      scope: 'incidents.read incidents.write services.read users.read schedules.read',
+      scope:
+        'incidents.read incidents.write services.read services.write users.read teams.read schedules.read escalation_policies.read oncalls.read',
       state,
     });
     return `https://identity.pagerduty.com/oauth/authorize?${params}`;
