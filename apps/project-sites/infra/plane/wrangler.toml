@@ -26,6 +26,11 @@ WEB_URL = "https://pm.megabyte.space"
 class_name = "Plane"
 image = "./Dockerfile"
 max_instances = 1
+# Plane AIO idles at ~1.6GiB across its 7 processes (measured locally) — memory is never the
+# constraint. The KILLER is vCPU: on standard-2 (1 vCPU) the 7-process boot is so CPU-starved
+# that Caddy can't bind :8080 inside the lib's port-ready window → the instance churns →
+# "Container crashed while checking for ports". standard-4 (4 vCPU, 12GiB, 20GB) gives the
+# boot enough cores to come up — same tier the working langfuse container uses.
 instance_type = "standard-4"
 name = "projectsites-plane"
 

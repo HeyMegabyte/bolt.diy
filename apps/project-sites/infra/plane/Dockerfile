@@ -4,19 +4,28 @@ FROM --platform=$BUILDPLATFORM tonistiigi/binfmt AS binfmt
 # **************************************************
 #  STAGE 0: Image Loading
 # **************************************************
-FROM node:22-alpine AS node
+# --platform=linux/amd64 pinned on EVERY runtime-contributing stage: CF Containers run
+# native amd64 (firecracker). A QEMU-cross-build on an arm64 host produces musl/Alpine
+# binaries that "work" under emulation locally but exit on native amd64 → the container
+# never binds :8080 → "Container crashed while checking for ports". Pin amd64 everywhere so
+# local + CI + CF all produce/run the identical native-amd64 image. Build on amd64 CI.
+FROM --platform=linux/amd64 node:22-alpine AS node
 
-FROM makeplane/plane-frontend:${PLANE_VERSION} AS web-img
-FROM makeplane/plane-backend:${PLANE_VERSION} AS backend-img
-FROM makeplane/plane-space:${PLANE_VERSION} AS space-img
-FROM makeplane/plane-admin:${PLANE_VERSION} AS admin-img
-FROM makeplane/plane-live:${PLANE_VERSION} AS live-img
-FROM makeplane/plane-proxy:${PLANE_VERSION} AS proxy-img
+FROM --platform=linux/amd64 makeplane/plane-frontend:${PLANE_VERSION} AS web-img
+FROM --platform=linux/amd64 makeplane/plane-backend:${PLANE_VERSION} AS backend-img
+FROM --platform=linux/amd64 makeplane/plane-space:${PLANE_VERSION} AS space-img
+FROM --platform=linux/amd64 makeplane/plane-admin:${PLANE_VERSION} AS admin-img
+FROM --platform=linux/amd64 makeplane/plane-live:${PLANE_VERSION} AS live-img
+FROM --platform=linux/amd64 makeplane/plane-proxy:${PLANE_VERSION} AS proxy-img
 
 # **************************************************
 #  STAGE 1: Runner
 # **************************************************
-FROM python:3.12.10-alpine AS runner
+FROM --platform=linux/amd64 python:3.12.10-alpine AS runner
+
+# Cache-bust so wrangler computes a NEW image tag and forces a fresh native build on the
+# amd64 CI runner instead of reusing the prior QEMU-cross-built image ("skipping push").
+ARG CACHEBUST=2026-06-28-native-amd64
 
 WORKDIR /app
 
@@ -61,6 +70,6 @@ RUN mkdir -p /app/logs/access && \
 
 VOLUME ["/app/data", "/app/logs"]
 
-EXPOSE 80 443
+EXPOSE 8080
 
 CMD ["/app/start.sh"] 

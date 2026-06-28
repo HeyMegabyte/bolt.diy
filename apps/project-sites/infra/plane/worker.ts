@@ -32,7 +32,10 @@ const ACCOUNT_ID = '84fa0d1b16ff8086dd958c468ce7fd59';
 const WEB_URL = 'https://pm.megabyte.space';
 
 export class Plane extends Container<Env> {
-  override defaultPort = 80;
+  // Caddy listens on :8080 (NOT privileged :80) — CF Containers health-check this port and
+  // every other working infra container uses a high port; binding privileged :80 is the one
+  // thing that differs from the proven pattern. SITE_ADDRESS=:8080 (below) drives Caddy.
+  override defaultPort = 8080;
   override sleepAfter = '20m'; // re-poked by the keep-warm cron so celery never stops
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -47,7 +50,7 @@ export class Plane extends Container<Env> {
     // public origin + CORS. The AIO start.sh REQUIRES DOMAIN_NAME; Caddy binds SITE_ADDRESS.
     out.DOMAIN_NAME = 'pm.megabyte.space';
     out.APP_PROTOCOL = 'https';
-    out.SITE_ADDRESS = ':80'; // Caddy listens :80 inside the container; the Worker fronts TLS
+    out.SITE_ADDRESS = ':8080'; // Caddy binds non-privileged :8080 (matches defaultPort above)
     out.WEB_URL = WEB_URL;
     out.CORS_ALLOWED_ORIGINS = WEB_URL;
     out.NEXT_PUBLIC_API_BASE_URL = WEB_URL;
@@ -68,7 +71,7 @@ export class Plane extends Container<Env> {
   }
   override async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
-      ports: 80,
+      ports: 8080,
       // First boot runs DB migrations + boots all processes — generous window.
       cancellationOptions: { portReadyTimeoutMS: 220_000 },
     });
