@@ -55,6 +55,16 @@ export function buildAnalyticsTracker(siteId: string, opts: AnalyticsTrackerOpti
     `if(navigator.sendBeacon){navigator.sendBeacon(U,b)}else{fetch(U,{method:'POST',body:b,keepalive:true}).catch(function(){})}` +
     `}catch(_){}};` +
     `try{window.psTrack('pageview',{path:location.pathname,referrer:document.referrer})}catch(_){}` +
+    // AN18 (#60): click-to-call & directions are THE service-business conversions.
+    // Capture-phase delegated click listener classifies tel:/mailto:/maps links and
+    // fires a `conversion` event tagged with the nearest data-ps-section (AN26 → AN27).
+    `try{function near(el){while(el&&el!==document){if(el.getAttribute){var v=el.getAttribute('data-ps-section');if(v!=null)return v}el=el.parentNode}return null}` +
+    `document.addEventListener('click',function(ev){try{var el=ev.target;` +
+    `while(el&&el!==document&&!(el.tagName==='A'&&el.href)){el=el.parentNode}` +
+    `if(!el||el===document)return;var h=el.href||'';var k='';` +
+    `if(/^tel:/i.test(h))k='call';else if(/^mailto:/i.test(h))k='email';` +
+    `else if(/maps\\.(google|apple)\\.|google\\.[^\\/]+\\/maps|\\/maps\\/dir/i.test(h))k='directions';` +
+    `if(!k)return;window.psTrack('conversion',{kind:k,section:near(el),href:h.slice(0,200)})}catch(_){}},true)}catch(_){}` +
     `})();`;
   return `<script>${body}</script>`;
 }

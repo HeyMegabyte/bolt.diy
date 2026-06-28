@@ -34,6 +34,17 @@ describe('IncomingEventSchema', () => {
     expect(IncomingEventSchema.safeParse({ ...base, eventType: 'teleport' }).success).toBe(false);
   });
 
+  it('accepts a click-to-call/directions conversion event with kind+section payload (AN18 #60)', () => {
+    const conv = {
+      ...base,
+      eventType: 'conversion' as const,
+      payload: { kind: 'call', section: 'services', href: 'tel:+15551234567' },
+    };
+    const r = IncomingEventSchema.safeParse(conv);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.payload).toMatchObject({ kind: 'call', section: 'services' });
+  });
+
   it('rejects a non-positive timestamp', () => {
     expect(IncomingEventSchema.safeParse({ ...base, timestamp: 0 }).success).toBe(false);
   });

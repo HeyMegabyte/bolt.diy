@@ -24,6 +24,9 @@ export const EVENT_TYPES = [
   'custom',
   'scroll',
   'form_submit',
+  // AN18 (#60): click-to-call / directions / mailto conversions emitted by the
+  // analytics tracker's delegated click listener; payload carries {kind,section,href}.
+  'conversion',
 ] as const;
 
 /**

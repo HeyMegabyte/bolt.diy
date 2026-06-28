@@ -57,7 +57,7 @@
 - [ ] [auto] A7 — resource sizing tiers at deploy + live upsizing (the core paid lever).
 
 ### Owner analytics that drive action (the phone/form IS the conversion)
-- [ ] [auto] AN18 — click-to-call & directions tracking (phone IS the service-biz conversion).
+- [x] AN18 — click-to-call & directions tracking — DONE (2026-06-28). Full chain: (1) the served-site analytics tracker (`buildAnalyticsTracker`) now binds a capture-phase delegated click listener that classifies `tel:`→call, `mailto:`→email, Google/Apple-maps + `/maps/dir`→directions and fires a `conversion` event tagged with `{kind, section, href}` — `section` read from the nearest `data-ps-section` ancestor (AN26 hook), feeding AN27. Fully try/catch-wrapped (never throws into the host page). (2) Added `'conversion'` to `EVENT_TYPES` so the ingest Zod boundary accepts it (was rejected → silently dropped). (3) Persists to `analytics_events` via the existing `/api/events` → `persistAnalyticsEvent` path (payload carries kind/section/href). TDD: +2 tracker tests + 1 ingest-accepts-conversion test (34/34 analytics suites), tsc 0, 0 net-new suite fails. Worker → CI push. [DONE]
 - [ ] [auto] AN17 — form analytics: completion rate + abandonment per form (bridges pageview→lead).
 - [ ] [auto] AN3 — unified owner-analytics query service (one API over the six backends; unblocks every widget).
 - [ ] [auto] AN27 — section-level attribution query + UI ("Services section drives 40% of calls") — the moat.

@@ -27,6 +27,28 @@ describe('buildAnalyticsTracker', () => {
     // Exactly one real closing tag (the script's own).
     expect(t.match(/<\/script>/g)?.length).toBe(1);
   });
+
+  it('binds a capture-phase click listener that fires conversions for tel/mailto/directions (AN18 #60)', () => {
+    const t = buildAnalyticsTracker('s1');
+    // Capture-phase delegated listener.
+    expect(t).toContain("addEventListener('click'");
+    expect(t).toContain(',true)'); // capture phase
+    // Classifies the three conversion kinds.
+    expect(t).toContain("k='call'");
+    expect(t).toContain("k='email'");
+    expect(t).toContain("k='directions'");
+    // Fires a conversion event tagged with the nearest section (AN26 → AN27).
+    expect(t).toContain("window.psTrack('conversion'");
+    expect(t).toContain("data-ps-section");
+    expect(t).toContain('section:near(el)');
+  });
+
+  it('keeps the conversion binding fully wrapped in try/catch (never throws into the host page)', () => {
+    const t = buildAnalyticsTracker('s1');
+    // The whole binding block is guarded: `try{function near...}catch(_){}`.
+    expect(t).toContain('function near(el)');
+    expect(t).toContain('}catch(_){}})();');
+  });
 });
 
 describe('injectAnalyticsTracker', () => {
