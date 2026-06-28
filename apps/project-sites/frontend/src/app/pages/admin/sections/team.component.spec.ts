@@ -1,0 +1,128 @@
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { TeamComponent } from './team.component';
+import {
+  OrgApiService,
+  type FullOrganization,
+  type OrgInvitation,
+  type OrgRole,
+} from '../../auth/org-api.service';
+import type { AuthResult } from '../../auth/auth-api.service';
+
+function ok<T>(data: T): AuthResult<T> {
+  return { ok: true, data };
+}
+
+const FULL_ORG: FullOrganization = {
+  id: 'org_1',
+  name: 'Acme',
+  members: [
+    { id: 'mem_1', role: 'owner', user: { email: 'owner@acme.test' } },
+    { id: 'mem_2', role: 'member', email: 'dev@acme.test' },
+  ],
+  invitations: [{ id: 'inv_1', email: 'pending@acme.test', role: 'member', status: 'pending' }],
+};
+
+function makeOrgApiMock(): jasmine.SpyObj<OrgApiService> {
+  const spy = jasmine.createSpyObj<OrgApiService>('OrgApiService', [
+    'getFullOrganization',
+    'inviteMember',
+    'cancelInvitation',
+    'removeMember',
+  ]);
+  spy.getFullOrganization.and.resolveTo(ok(FULL_ORG));
+  spy.inviteMember.and.resolveTo(ok({ id: 'inv_2', email: 'new@acme.test', role: 'member' } as OrgInvitation));
+  spy.cancelInvitation.and.resolveTo(ok({ status: true }));
+  spy.removeMember.and.resolveTo(ok({ status: true }));
+  return spy;
+}
+
+async function setup(api?: jasmine.SpyObj<OrgApiService>) {
+  const orgApi = api ?? makeOrgApiMock();
+  TestBed.configureTestingModule({
+    imports: [TeamComponent],
+    // provideRouter([]) — routerLink/router pipeline needs a router or NG0201.
+    providers: [provideRouter([]), { provide: OrgApiService, useValue: orgApi }],
+  });
+  const fixture = TestBed.createComponent(TeamComponent);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+  return { fixture, orgApi };
+}
+
+describe('TeamComponent (org members + invites — idea #24)', () => {
+  it('renders members + pending invitations + seat usage from the org payload', async () => {
+    const { fixture } = await setup();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('[data-testid="team-page"]')).toBeTruthy();
+    expect(el.querySelectorAll('[data-testid="team-member-row"]').length).toBe(2);
+    expect(el.querySelectorAll('[data-testid="team-invitation-row"]').length).toBe(1);
+
+    const text = el.textContent ?? '';
+    expect(text).toContain('owner@acme.test');
+    expect(text).toContain('dev@acme.test');
+    expect(text).toContain('pending@acme.test');
+
+    // 2 members + 1 invitation = 3 seats used.
+    const seats = el.querySelector('[data-testid="team-seats"]')?.textContent ?? '';
+    expect(seats).toContain('3');
+    expect(seats).toContain('10');
+  });
+
+  it('blocks invite submit until the email is valid (busy/validity guard)', async () => {
+    const { fixture, orgApi } = await setup();
+    const c = fixture.componentInstance;
+
+    // Invalid email → guarded.
+    c.inviteEmail.set('not-an-email');
+    expect(c.emailValid()).toBeFalse();
+    await c.invite();
+    expect(orgApi.inviteMember).not.toHaveBeenCalled();
+    expect(c.showEmailError()).toBeTrue();
+
+    // Valid email → goes through.
+    c.inviteEmail.set('valid@acme.test');
+    expect(c.emailValid()).toBeTrue();
+    await c.invite();
+    expect(orgApi.inviteMember).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the selected role through to inviteMember', async () => {
+    const { fixture, orgApi } = await setup();
+    const c = fixture.componentInstance;
+
+    c.inviteEmail.set('admin@acme.test');
+    c.inviteRole.set('admin' as OrgRole);
+    await c.invite();
+
+    expect(orgApi.inviteMember).toHaveBeenCalledWith({ email: 'admin@acme.test', role: 'admin' });
+  });
+
+  it('surfaces a load error and renders an empty team', async () => {
+    const api = makeOrgApiMock();
+    api.getFullOrganization.and.resolveTo({ ok: false, error: 'No active organization found.' });
+    const { fixture } = await setup(api);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('[data-testid="team-error"]')?.textContent).toContain(
+      'No active organization found.',
+    );
+    expect(el.querySelector('[data-testid="team-members-empty"]')).toBeTruthy();
+  });
+
+  it('cancels an invitation when confirmed', async () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    const { fixture, orgApi } = await setup();
+    await fixture.componentInstance.cancelInvitation(FULL_ORG.invitations[0]);
+    expect(orgApi.cancelInvitation).toHaveBeenCalledWith({ invitationId: 'inv_1' });
+  });
+
+  it('does not remove a member when the confirm is declined', async () => {
+    spyOn(window, 'confirm').and.returnValue(false);
+    const { fixture, orgApi } = await setup();
+    await fixture.componentInstance.removeMember(FULL_ORG.members[1]);
+    expect(orgApi.removeMember).not.toHaveBeenCalled();
+  });
+});

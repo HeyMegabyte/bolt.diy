@@ -128,6 +128,14 @@ export const routes: Routes = [
           ),
       },
       {
+        // Team members + invites (idea #24) — Better Auth org plugin
+        // (/api/auth/organization/*). Lists members + pending invitations,
+        // invite form, per-row remove/cancel, seat usage.
+        path: 'team',
+        loadComponent: () =>
+          import('./pages/admin/sections/team.component').then((m) => m.TeamComponent),
+      },
+      {
         path: 'snapshots',
         loadComponent: () =>
           import('./pages/admin/sections/snapshots.component').then(
