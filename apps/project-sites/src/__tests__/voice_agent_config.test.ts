@@ -23,7 +23,10 @@ import { voiceWebhookRoutes } from '../routes/voice_webhooks.js';
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockResolveVars = resolveEnvVarsForAI as unknown as jest.Mock;
 
-const PLATFORM = { LITELLM_BASE_URL: 'https://llm.megabyte.space/v1', LITELLM_API_KEY: 'sk-platform' };
+const PLATFORM = {
+  LITELLM_BASE_URL: 'https://llm.megabyte.space/v1',
+  LITELLM_API_KEY: 'sk-platform',
+};
 
 function makeEnv(over: Record<string, unknown> = {}): Env {
   return { DB: {} as unknown, ...PLATFORM, ...over } as unknown as Env;
@@ -108,7 +111,11 @@ describe('POST /internal/voice/agent-config', () => {
   it('returns 401 on a bad HMAC signature', async () => {
     const res = await app.request(
       PATH,
-      { method: 'POST', headers: { 'x-internal-sig': 'deadbeef' }, body: '{"dialedNumber":"+1555"}' },
+      {
+        method: 'POST',
+        headers: { 'x-internal-sig': 'deadbeef' },
+        body: '{"dialedNumber":"+1555"}',
+      },
       makeEnv({ INTERNAL_BUILD_SECRET: SECRET }),
     );
     expect(res.status).toBe(401);
