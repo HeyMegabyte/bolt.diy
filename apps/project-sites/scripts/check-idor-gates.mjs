@@ -28,10 +28,28 @@ import { dirname, join } from 'node:path';
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const FEATURES_DIR = join(APP_DIR, 'libs', 'features');
 
-/** Modules whose site-id routes are intentionally public (no auth/ownership by design). */
+/** Feature modules whose site-id routes are intentionally public (no auth/ownership by design). */
 const PUBLIC_EXEMPT = new Set([
   'agentic_commerce', // ACP storefront feed — public by design
   'visitor_events_core', // public beacon ingest
+]);
+
+/**
+ * Legacy `src/routes/*.ts` files whose `/api/sites/:id/…` routes are intentionally
+ * PUBLIC (visitor-facing on the published site — anonymous, no caller org to own-check)
+ * or super-admin/HMAC-gated. Manually audited 2026-06-28. Super-admin (`isSuperAdmin`)
+ * and org-scoped (`org_id`) route files auto-pass via OWNERSHIP_IDIOMS — they're not listed.
+ */
+const ROUTE_PUBLIC_EXEMPT = new Set([
+  'concierge', // public visitor concierge Q&A on the published site
+  'i18n', // public visitor translate/locale switch
+  'page_audio', // public visitor page-audio generation
+  'public', // public marketing/site-serve routes
+  'claim', // public claim funnel
+  'search', // public business/site search
+  'webhooks', // HMAC-verified, no user session
+  'docs', // OpenAPI docs
+  'agentic_commerce', // public ACP storefront product feed (no auth by design)
 ]);
 
 /** Ownership-gate idioms — presence of ANY means the file guards its site-id routes. */
@@ -71,8 +89,26 @@ function scan() {
   return flagged;
 }
 
+/** Scan the legacy `src/routes/*.ts` surface too (older handlers predate the module pattern). */
+function scanRoutes() {
+  const flagged = [];
+  const routesDir = join(APP_DIR, 'src', 'routes');
+  if (!existsSync(routesDir)) return flagged;
+  for (const ent of readdirSync(routesDir, { withFileTypes: true })) {
+    if (!ent.isFile() || !ent.name.endsWith('.ts') || ent.name.endsWith('.d.ts')) continue;
+    const base = ent.name.replace(/\.ts$/, '');
+    if (ROUTE_PUBLIC_EXEMPT.has(base)) continue;
+    const text = readFileSync(join(routesDir, ent.name), 'utf8');
+    if (!SITE_ID_ROUTE.test(text)) continue;
+    if (!OWNERSHIP_IDIOMS.some((re) => re.test(text))) {
+      flagged.push({ module: base, file: `src/routes/${ent.name}` });
+    }
+  }
+  return flagged;
+}
+
 const ci = process.argv.includes('--ci');
-const flagged = scan();
+const flagged = [...scan(), ...scanRoutes()];
 
 if (flagged.length === 0) {
   console.log('✅ check-idor-gates: clean — every site-id feature handler carries an ownership gate.');
