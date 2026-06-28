@@ -136,6 +136,17 @@ export const routes: Routes = [
           import('./pages/admin/sections/team.component').then((m) => m.TeamComponent),
       },
       {
+        // Auth security & health (idea #3) — frontend-only view over the
+        // existing GET /api/audit-logs. Filters to auth.* rows, derives
+        // sign-in/anomaly metrics + a recent-suspicious table. Data is dark
+        // until the Better Auth cutover → calm empty state, never an error.
+        path: 'auth-security',
+        loadComponent: () =>
+          import('./pages/admin/sections/auth-security.component').then(
+            (m) => m.AuthSecurityComponent,
+          ),
+      },
+      {
         path: 'snapshots',
         loadComponent: () =>
           import('./pages/admin/sections/snapshots.component').then(
