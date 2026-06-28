@@ -58,17 +58,54 @@ const mode = process.argv.includes('--apply')
   ? 'apply'
   : process.argv.includes('--verify')
     ? 'verify'
-    : 'dry-run';
+    : process.argv.includes('--readiness')
+      ? 'readiness'
+      : 'dry-run';
 
 if (mode === 'dry-run') {
   console.log('— Better Auth user backfill (DRY RUN) —\n');
   console.log('BACKFILL SQL (run with --apply):\n' + BACKFILL_SQL + '\n');
   console.log('VERIFY SQL (run with --verify):\n' + VERIFY_SQL + '\n');
+  console.log('Cutover canary: run with --readiness for a full pre-cutover gauge.\n');
   console.log(
     'Note: run AFTER the Better Auth schema exists. Passwords are not migrated — ' +
       'users sign in via magic link / Google once and are auto-linked.',
   );
   process.exit(0);
+}
+
+if (mode === 'readiness') {
+  // #9 migration canary — pre-cutover readiness gauge. Catches the #1 cutover
+  // gotcha: the Better Auth `user` table must exist (ensureBetterAuthSchema /
+  // `better-auth migrate`) BEFORE the backfill, else --apply/--verify error.
+  const schemaOut = d1(`SELECT name FROM sqlite_master WHERE type='table' AND name='user';`);
+  const schemaReady = (JSON.parse(schemaOut)?.[0]?.results ?? []).length > 0;
+  if (!schemaReady) {
+    console.log('Better Auth migration readiness: SCHEMA NOT CREATED.');
+    console.log('  The `user` table does not exist yet — hit the worker once with the');
+    console.log('  better_auth flag on (ensureBetterAuthSchema) or run `better-auth migrate`.');
+    console.log('  Readiness: 0% — backfill would fail. Do NOT cut over yet.');
+    process.exit(1);
+  }
+  const totalOut = d1(
+    `SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL AND email IS NOT NULL AND email <> '';`,
+  );
+  const total = JSON.parse(totalOut)?.[0]?.results?.[0]?.total ?? 0;
+  const missing = JSON.parse(d1(VERIFY_SQL))?.[0]?.results?.[0]?.missing ?? 0;
+  const migrated = Math.max(0, total - missing);
+  const pct = total === 0 ? 100 : Math.floor((migrated / total) * 100);
+  console.log('Better Auth migration readiness:');
+  console.log('  schema:   ready (`user` table exists)');
+  console.log(`  legacy:   ${total} active user(s)`);
+  console.log(`  migrated: ${migrated}`);
+  console.log(`  pending:  ${missing}`);
+  console.log(`  ready:    ${pct}%`);
+  console.log(
+    missing === 0
+      ? '  → Safe to cut over: flip the better_auth flag.'
+      : `  → Run --apply to backfill the remaining ${missing} before cutover.`,
+  );
+  process.exit(missing === 0 ? 0 : 1);
 }
 
 if (mode === 'verify') {
