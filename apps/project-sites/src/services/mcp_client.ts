@@ -1029,15 +1029,24 @@ const vercel: ProviderAdapter = {
       const res = await fetch(`https://api.vercel.com/v9/projects?limit=${limit}${team}`, {
         headers: auth,
       });
-      return res.ok ? { ok: true, data: await res.json() } : { ok: false, error: `vercel ${res.status}` };
+      return res.ok
+        ? { ok: true, data: await res.json() }
+        : { ok: false, error: `vercel ${res.status}` };
     }
     if (tool === 'list_vercel_deployments') {
       const limit = Number(args['limit'] ?? 20);
-      const proj = args['projectId'] ? `&projectId=${encodeURIComponent(String(args['projectId']))}` : '';
-      const res = await fetch(`https://api.vercel.com/v6/deployments?limit=${limit}${proj}${team}`, {
-        headers: auth,
-      });
-      return res.ok ? { ok: true, data: await res.json() } : { ok: false, error: `vercel ${res.status}` };
+      const proj = args['projectId']
+        ? `&projectId=${encodeURIComponent(String(args['projectId']))}`
+        : '';
+      const res = await fetch(
+        `https://api.vercel.com/v6/deployments?limit=${limit}${proj}${team}`,
+        {
+          headers: auth,
+        },
+      );
+      return res.ok
+        ? { ok: true, data: await res.json() }
+        : { ok: false, error: `vercel ${res.status}` };
     }
     return { ok: false, error: 'unknown tool' };
   },
