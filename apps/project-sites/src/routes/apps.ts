@@ -28,6 +28,7 @@ import { z } from 'zod';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { APPS_CATALOG, type CatalogApp } from '../data/apps-catalog.js';
+import { estimateInstanceCost, type InstanceCostEstimate } from '../services/app_cost_meter.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { decrypt, encrypt } from '../services/ai_crypto.js';
 import { deprovisionInfra, provisionInfra } from '../services/app_provisioner.js';
@@ -111,11 +112,16 @@ async function loadInstance(env: Env, orgId: string, id: string): Promise<AppIns
 
 function sanitizeInstance(
   row: AppInstanceRow,
-): Omit<AppInstanceRow, 'env_encrypted' | 'env_iv'> & { env: null } {
+): Omit<AppInstanceRow, 'env_encrypted' | 'env_iv'> & {
+  env: null;
+  costEstimate: InstanceCostEstimate;
+} {
   // Default list/get does NOT include the decrypted env — separate detail
-  // route requires admin role.
+  // route requires admin role. A2: every instance carries a metered monthly-cost
+  // ESTIMATE (running-state compute + provisioned-infra), replacing the static
+  // catalog `estCostMonthly` on the list + detail surfaces.
   const { env_encrypted: _ee, env_iv: _ev, ...rest } = row;
-  return { ...rest, env: null };
+  return { ...rest, env: null, costEstimate: estimateInstanceCost(row) };
 }
 
 async function decryptEnv(env: Env, row: AppInstanceRow): Promise<Record<string, string>> {

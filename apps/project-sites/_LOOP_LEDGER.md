@@ -51,7 +51,7 @@
 ### Apps marketplace — paid managed-hosting (Tier A0 trust = why anyone pays vs a VPS)
 - [ ] [auto] A1 — per-instance automated backups + 1-click restore (Neon branch-snapshot + R2 versioning).
 - [ ] [auto] A4 — pre-provision dry-run + cost preview + confirm gate (never silently provision billable infra).
-- [ ] [auto] A2 — true live cost meter per instance (DO compute + Neon + Upstash + R2 egress; replace static estCostMonthly).
+- [x] A2 — live metered cost per instance — DONE (2026-06-28, end-to-end). **Backend:** new pure `services/app_cost_meter.ts` `estimateInstanceCost(instance)` derives a monthly USD estimate from the instance's ACTUAL state — running-vs-hibernated compute + a line per provisioned aux infra (Neon/Upstash/R2) — `basis:'estimate'` (exact vendor-billing spend = the separate [operator] follow-on). Wired into `sanitizeInstance` so EVERY org-scoped instance API response (list + detail) carries `costEstimate`. 5 unit tests + apps_routes 26 green, tsc 0. **Frontend:** threaded `costEstimate` through `AppInstance` + `adaptInstance` mapper + a live `~$N/mo` chip on each instance row (replaces the static catalog `estCostMonthly` for provisioned instances); ng build clean, 1561 Karma green. Worker → CI push, frontend → CI R2 deploy. [DONE]
 - [ ] [auto] A3 — health-driven auto-heal + real status timeline (up/restarting/crashed/hibernated + last-error).
 - [ ] [auto] A6 — per-instance custom domain + auto-TLS (CF-for-SaaS custom hostname; the paid lever).
 - [ ] [auto] A7 — resource sizing tiers at deploy + live upsizing (the core paid lever).

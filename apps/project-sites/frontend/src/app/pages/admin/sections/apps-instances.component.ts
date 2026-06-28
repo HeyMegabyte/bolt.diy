@@ -34,6 +34,8 @@ interface AppInstance {
   readonly created_at: string;
   readonly last_activity_at: string | null;
   readonly env_keys?: ReadonlyArray<string>;
+  /** A2 — live metered monthly-cost estimate from the worker (running-state + provisioned infra). */
+  readonly costEstimate?: { readonly monthlyUsd: number; readonly running: boolean };
 }
 
 interface LogLine {
@@ -60,7 +62,18 @@ function adaptInstance(row: Record<string, unknown>): AppInstance {
     created_at: String(row['created_at'] ?? ''),
     last_activity_at: (row['last_started_at'] ?? row['last_activity_at'] ?? null) as string | null,
     env_keys: env && typeof env === 'object' ? Object.keys(env as object) : undefined,
+    costEstimate: adaptCostEstimate(row['costEstimate']),
   };
+}
+
+/** Narrow the worker's `costEstimate` JSON into the typed shape (A2). */
+function adaptCostEstimate(
+  raw: unknown,
+): { readonly monthlyUsd: number; readonly running: boolean } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o['monthlyUsd'] !== 'number') return undefined;
+  return { monthlyUsd: o['monthlyUsd'], running: o['running'] === true };
 }
 
 const STATUS_META: Readonly<Record<InstanceStatus, { label: string; color: string }>> = {
@@ -187,6 +200,13 @@ export class AppsInstancesCache {
                   Created {{ inst.created_at | date:'short' }}
                 }
               </span>
+              @if (inst.costEstimate; as ce) {
+                <span class="inst-cost"
+                      [attr.aria-label]="'Estimated cost ' + ce.monthlyUsd + ' dollars per month'"
+                      title="Live estimate from this instance's running state + provisioned infra (not exact billing)">
+                  {{ '~$' + ce.monthlyUsd }}<span class="cost-unit" aria-hidden="true">/mo</span>
+                </span>
+              }
               <span class="row-menu-wrap" (click)="$event.preventDefault(); $event.stopPropagation()">
                 <button class="row-menu"
                         type="button"
