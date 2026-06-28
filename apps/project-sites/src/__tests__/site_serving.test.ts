@@ -3,8 +3,37 @@ import {
   serveSiteFromR2,
   asyncifyRenderBlockingFonts,
   injectAppShellHero,
+  isServedSiteCookieless,
+  generateNoCookiesBadge,
 } from '../services/site_serving';
+import type { Env } from '../types/env';
 import { DOMAINS, BRAND } from '@project-sites/shared';
+
+describe('cookieless privacy badge (AN38 #129)', () => {
+  const envWith = (o: Partial<Env>): Env => o as unknown as Env;
+
+  it('isServedSiteCookieless is true when neither GA4 nor GTM is configured', () => {
+    expect(isServedSiteCookieless(envWith({}))).toBe(true);
+    expect(isServedSiteCookieless(undefined)).toBe(true);
+  });
+
+  it('isServedSiteCookieless is false when GA4 or GTM IS configured (those set cookies)', () => {
+    expect(isServedSiteCookieless(envWith({ GA4_MEASUREMENT_ID: 'G-XXXX' }))).toBe(false);
+    expect(isServedSiteCookieless(envWith({ GTM_CONTAINER_ID: 'GTM-XXXX' }))).toBe(false);
+  });
+
+  it('the badge is accessible, links to ProjectSites, and prints nothing (print + dark)', () => {
+    const b = generateNoCookiesBadge();
+    expect(b).toContain('No cookies · GDPR');
+    expect(b).toContain('aria-label=');
+    expect(b).toContain(`href="https://${DOMAINS.SITES_BASE}"`);
+    expect(b).toContain('rel="noopener"');
+    expect(b).toContain('@media print');
+    expect(b).toContain('prefers-color-scheme:dark');
+    // Sits below the free-tier conversion bar (z 99998), never above it.
+    expect(b).toContain('z-index:99990');
+  });
+});
 
 describe('asyncifyRenderBlockingFonts', () => {
   const GF = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap';

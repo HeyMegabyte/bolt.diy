@@ -58,6 +58,55 @@ export function generateTopBar(slug: string): string {
 }
 
 /**
+ * Whether a generated site is served cookie-free — i.e. neither GA4 nor GTM
+ * (the only cookie-setting trackers we inject) is configured. The platform's own
+ * visitor beacon (`buildAnalyticsTracker`) is cookieless by design (per-pageview
+ * in-memory id, no cookie/localStorage), and PostHog/Sentry are never injected
+ * into served sites — so absent GA4/GTM the site sets ZERO cookies. AN38 (#129).
+ *
+ * @param env - Worker env (reads `GA4_MEASUREMENT_ID` + `GTM_CONTAINER_ID`).
+ * @returns `true` when no cookie-setting tracker is injected.
+ */
+export function isServedSiteCookieless(env: Env | undefined): boolean {
+  return !env?.GA4_MEASUREMENT_ID && !env?.GTM_CONTAINER_ID;
+}
+
+/**
+ * A small, accessible "No cookies · GDPR" privacy badge injected into served
+ * sites that set zero cookies (AN38 #129) — a genuine differentiator + trust
+ * signal. Fixed bottom-left, low-emphasis, never obscures content; sits below
+ * the free-tier conversion bar (`z-index` 99990 < the bar's 99998) so on free
+ * previews the bar takes precedence and on live (paid) sites it is visible.
+ *
+ * @returns HTML string to inject after the `<body>` tag, or `''` when not cookieless.
+ *
+ * @example
+ * ```ts
+ * if (isServedSiteCookieless(env)) bodyInjection += generateNoCookiesBadge();
+ * ```
+ */
+export function generateNoCookiesBadge(): string {
+  return (
+    `<a id="ps-nocookie" href="https://${DOMAINS.SITES_BASE}" target="_blank" rel="noopener"` +
+    ` aria-label="This site uses no cookies and is GDPR-friendly. Built on ProjectSites."` +
+    ` title="No cookies · GDPR-friendly">` +
+    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"` +
+    ` stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
+    `<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5h.01M15.5 9.5h.01M9.5 15.5h.01M14.5 14.5h.01"/>` +
+    `<path d="M4 4l16 16"/></svg>` +
+    `<span>No cookies · GDPR</span></a>` +
+    `<style>#ps-nocookie{position:fixed;bottom:12px;left:12px;z-index:99990;display:inline-flex;` +
+    `align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font:600 11px/1 ` +
+    `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:.01em;` +
+    `color:#0f172a;background:rgba(255,255,255,.82);border:1px solid rgba(15,23,42,.12);` +
+    `box-shadow:0 2px 10px rgba(0,0,0,.12);backdrop-filter:blur(8px);text-decoration:none;` +
+    `opacity:.78;transition:opacity .2s}#ps-nocookie:hover{opacity:1}#ps-nocookie svg{opacity:.7}` +
+    `@media(prefers-color-scheme:dark){#ps-nocookie{color:#e2e8f0;background:rgba(15,23,42,.72);` +
+    `border-color:rgba(255,255,255,.14)}}@media print{#ps-nocookie{display:none}}</style>`
+  );
+}
+
+/**
  * Generate the "Wow → Own → Buy" conversion flow for unpaid sites.
  *
  * Two components injected:
@@ -1071,6 +1120,11 @@ async function buildSiteResponse(
     // DO is bound (adds external fan-out). Keyed by slug; XSS guard in the builder.
     if (env?.ANALYTICS_INGEST_ENABLED === 'true' || env?.EVENT_DISPATCHER) {
       bodyInjection += buildAnalyticsTracker(site.slug);
+    }
+    // AN38 (#129): zero-cookie sites get a "No cookies · GDPR" trust badge.
+    // Gated on actual cookielessness (no GA4/GTM) so the claim is never a lie.
+    if (isServedSiteCookieless(env)) {
+      bodyInjection += generateNoCookiesBadge();
     }
     if (bodyInjection) {
       html = html.replace(/(<body[^>]*>)/i, `$1\n${bodyInjection}\n`);

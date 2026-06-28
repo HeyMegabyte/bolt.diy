@@ -77,7 +77,7 @@
 
 ### Viral growth surfaces
 - [ ] [auto] S22 — immutable stable preview URLs (`{slug}-{snapshot}.projectsites.dev` permanent + shareable).
-- [ ] [auto] S23 — "Built with ProjectSites" footer on unauth previews (the link IS the ad).
+- [x] S23 — "Built with ProjectSites" footer on unauth previews — DONE (verified 2026-06-28). The fixed bottom conversion bar (`generateConversionFlow`) carries the `ps-bar-brand` backlink to ProjectSites and is injected on every FREE-plan served surface: branch previews (`{branch}--{slug}`, always `plan:'free'` → `site_serving.ts:369`) AND snapshot previews (`{slug}-{snapshot}`, plan inherited from the base site's subscription → free sites get the bar). So an anonymous viewer of any unauth/free preview sees the "Built with" footer + backlink. The link IS the ad. (S24 remains distinct — the bar's CTA is owner-claim "$50/mo", not build-your-own.) [DONE]
 - [ ] [auto] S24 — "Build your own" CTA for anonymous preview viewers.
 - [ ] [auto] S27 — Client Review Mode (Approve promotes the snapshot live; agency-tier feature).
 - [ ] [auto] A21 — referral / org-to-org "share this stack" deploy link (viral loop).
@@ -126,7 +126,7 @@
 
 - [ ] [auto] FAQPage JSON-LD + answer-first content blocks on generated sites (+AI-citation weight).
 - [x] AN2 — geo enrichment at ingest — DONE (2026-06-28). `recordPageviewFromRequest` (`visitor_events_core/service.ts`) now reads `cf.country` + `cf.city` + `cf.region` from the CF edge and persists all three into the event `metadata` JSON (was country-only) — capped to 80 chars, graceful `null` when the edge omits them, no schema migration (matches the existing AN1 metadata pattern). TDD: +2 tests (geo-persisted + null-graceful); 34/34 jest green, tsc 0; worker → CI push. [DONE]
-- [ ] [auto] AN38 — cookieless-by-default + visible "No cookies · GDPR" privacy badge (differentiator).
+- [x] AN38 — cookieless-by-default + "No cookies · GDPR" privacy badge — DONE (2026-06-28). **Cookieless-by-default verified:** the platform visitor beacon (`buildAnalyticsTracker`) uses a per-pageview in-memory `crypto.randomUUID()` (no cookie/localStorage); PostHog/Sentry are explicitly NOT injected into served sites; only GA4/GTM (opt-in operator env) set cookies. **Built:** `generateNoCookiesBadge()` — a subtle, a11y-labeled, print-hidden, dark-mode-aware fixed bottom-left pill that backlinks to ProjectSites — injected into served HTML **gated on `isServedSiteCookieless(env)` (`!GA4 && !GTM`)** so the claim is never a lie. +3 unit tests (39/39 site_serving green, site_serving_full 37/37), tsc 0. Worker → CI push. [DONE]
 - [ ] [auto] AN42 — one-click full data export (CSV) + delete for the owner.
 - [ ] [auto] GDPR/EU data-residency `jurisdiction="eu"` binding option on D1/R2.
 - [ ] [auto] pSEO for projectsites.dev itself (comparison / template / location pages).
