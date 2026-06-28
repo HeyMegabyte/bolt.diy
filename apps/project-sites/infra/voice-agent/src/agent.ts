@@ -42,10 +42,34 @@ const DEFAULT_PERSONA =
   'what you can, and offer to take a message, schedule a follow-up, or transfer to a human. ' +
   'If unsure, say so and offer to take a message — never invent details you were not given.';
 
+interface TurnDetectionConfig {
+  profile: string;
+  minEndpointingDelayMs: number;
+  maxEndpointingDelayMs: number;
+  interruptionMode: 'adaptive' | 'fixed';
+}
+
 interface AgentConfig {
   persona: string;
+  /** Opening line (AI disclosure + recording notice) the agent speaks first. */
+  disclosure: string;
+  /** Per-vertical turn-taking tuning applied to `turnHandling`. */
+  turnDetection: TurnDetectionConfig;
   llm: { baseUrl: string; apiKey: string; model: string };
 }
+
+/** The balanced default disclosure + turn-taking when the worker config is
+ * unreachable — mirrors the worker's `conversational` preset so a fallback call
+ * still discloses + behaves naturally. */
+const DEFAULT_DISCLOSURE =
+  "Hi, thanks for calling. I'm an AI assistant, and this call may be recorded for " +
+  'quality. How can I help you today?';
+const DEFAULT_TURN_DETECTION: TurnDetectionConfig = {
+  profile: 'conversational',
+  minEndpointingDelayMs: 480,
+  maxEndpointingDelayMs: 2500,
+  interruptionMode: 'adaptive',
+};
 
 /**
  * Read the dialed DID (our number, which maps to a site) from the inbound SIP
@@ -72,6 +96,8 @@ function resolveDialedNumber(ctx: JobContext): string {
 async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
   const fallback: AgentConfig = {
     persona: DEFAULT_PERSONA,
+    disclosure: DEFAULT_DISCLOSURE,
+    turnDetection: DEFAULT_TURN_DETECTION,
     llm: {
       baseUrl: process.env.LITELLM_BASE_URL ?? 'https://llm.megabyte.space/v1',
       apiKey: process.env.LITELLM_API_KEY ?? process.env.OPENAI_API_KEY ?? '',
@@ -91,9 +117,19 @@ async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return fallback;
-    const cfg = (await res.json()) as { persona?: string; llm?: AgentConfig['llm'] };
+    const cfg = (await res.json()) as {
+      persona?: string;
+      disclosure?: string;
+      turnDetection?: Partial<TurnDetectionConfig>;
+      llm?: AgentConfig['llm'];
+    };
     if (!cfg.llm?.baseUrl || !cfg.llm.apiKey) return fallback;
-    return { persona: cfg.persona || DEFAULT_PERSONA, llm: cfg.llm };
+    return {
+      persona: cfg.persona || DEFAULT_PERSONA,
+      disclosure: cfg.disclosure || DEFAULT_DISCLOSURE,
+      turnDetection: { ...DEFAULT_TURN_DETECTION, ...cfg.turnDetection },
+      llm: cfg.llm,
+    };
   } catch {
     return fallback;
   }
@@ -181,11 +217,17 @@ export default defineAgent({
       // FIRST-LIGHT TTS — OpenAI (our key). TODO: swap to the bundled Piper plugin.
       tts: new openai.TTS({ model: 'gpt-4o-mini-tts', voice: 'alloy' }),
       turnDetection: new livekit.turnDetector.MultilingualModel(),
-      // Latency + barge-in tuning (LiveKit 1.4 `turnHandling`):
+      // Latency + barge-in tuning (LiveKit 1.4 `turnHandling`) — per-vertical
+      // endpointing from the resolved site config (precise/conversational/
+      // transactional). Spelled names/numbers get a longer pause; quick booking
+      // calls stay snappy. Profile: ${config.turnDetection.profile}.
       turnHandling: {
         preemptiveGeneration: { enabled: true }, // run the LLM before EOU is final → lower TTFT
-        interruption: { mode: 'adaptive' }, // ML rejects cough/backchannel false barge-ins
-        endpointing: { maxDelay: 2500 }, // cap the wait so callers aren't left hanging
+        interruption: { mode: config.turnDetection.interruptionMode }, // ML rejects cough/backchannel
+        endpointing: {
+          minDelay: config.turnDetection.minEndpointingDelayMs,
+          maxDelay: config.turnDetection.maxEndpointingDelayMs,
+        },
       },
     });
 
@@ -210,11 +252,12 @@ export default defineAgent({
 
     await session.start({ agent: new Receptionist(config.persona), room: ctx.room });
 
-    // Spoken recording disclosure (2-party-consent safe) + open the conversation.
+    // Spoken AI disclosure + recording notice (FCC TCPA / CA SB 1001 / EU AI Act
+    // Art. 50) — the exact line is resolved per-site (compliance-as-config), so a
+    // business can tune wording/jurisdiction without a code change.
     await session.generateReply({
       instructions:
-        'In one short, warm spoken sentence, greet the caller, briefly note the call may ' +
-        'be recorded for quality, and ask how you can help.',
+        `Say this opening line naturally, warmly, as one spoken sentence: "${config.disclosure}"`,
     });
   },
 });

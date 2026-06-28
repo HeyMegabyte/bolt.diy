@@ -29,6 +29,75 @@ export const DEFAULT_VOICE_PERSONA =
   'follow-up, or transfer to a human. If you are unsure, say so and offer to take a ' +
   'message — never invent business details, prices, or availability you were not given.';
 
+/** Opening line spoken at call start. Carries the AI-disclosure required by the
+ * FCC TCPA ruling (FCC-24-17) + CA SB 1001 + EU AI Act Art. 50, plus a 2-party
+ * recording notice. `{business}` is substituted; per-site override via the
+ * `VOICE_DISCLOSURE` env var (compliance-as-config; roadmap #31/#35). */
+export const DEFAULT_VOICE_DISCLOSURE =
+  "Hi, you've reached {business}. I'm an AI assistant, and this call may be recorded " +
+  'for quality. How can I help you today?';
+
+/**
+ * Per-vertical turn-taking presets (roadmap #8). Endpointing delays are the
+ * single biggest perceived-naturalness lever after end-of-turn detection: callers
+ * who spell names / numbers / addresses need a longer pause before the agent
+ * speaks, while quick transactional calls (hours, a booking) want it snappy.
+ * `interruptionMode` stays `adaptive` everywhere (the ML turn-detector already
+ * rejects coughs/backchannels) — only the endpointing window varies by profile.
+ */
+export type TurnProfile = 'precise' | 'conversational' | 'transactional';
+export interface TurnDetectionConfig {
+  profile: TurnProfile;
+  minEndpointingDelayMs: number;
+  maxEndpointingDelayMs: number;
+  interruptionMode: 'adaptive' | 'fixed';
+}
+export const TURN_PRESETS: Record<TurnProfile, Omit<TurnDetectionConfig, 'profile'>> = {
+  // Default balanced profile.
+  conversational: {
+    interruptionMode: 'adaptive',
+    maxEndpointingDelayMs: 2500,
+    minEndpointingDelayMs: 480,
+  },
+  // Medical/legal/finance: callers spell account numbers, names, dates — wait longer.
+  precise: { interruptionMode: 'adaptive', maxEndpointingDelayMs: 3000, minEndpointingDelayMs: 640 },
+  // Restaurant/retail/booking: short yes/no turns — keep it snappy.
+  transactional: {
+    interruptionMode: 'adaptive',
+    maxEndpointingDelayMs: 2000,
+    minEndpointingDelayMs: 320,
+  },
+};
+
+const PRECISE_RE =
+  /medic|health|clinic|dental|hospital|legal|\blaw\b|attorney|financ|account|insur|\btax\b/i;
+const TRANSACTIONAL_RE =
+  /restaurant|cafe|coffee|salon|barber|spa|retail|\bshop\b|store|booking|reservation|food|bakery|pizza/i;
+
+/**
+ * Resolve a turn-taking profile from a free-text hint (the `VOICE_TURN_PROFILE`
+ * env var, which may be an explicit profile name OR a business-type phrase).
+ * Falls back to `conversational` for anything unrecognized.
+ *
+ * @example resolveTurnProfile('precise')        // → 'precise'
+ * @example resolveTurnProfile('dental clinic')  // → 'precise'
+ * @example resolveTurnProfile('pizza shop')     // → 'transactional'
+ * @example resolveTurnProfile(undefined)        // → 'conversational'
+ */
+export function resolveTurnProfile(hint: string | undefined): TurnProfile {
+  const h = (hint ?? '').trim().toLowerCase();
+  if (h === 'precise' || h === 'conversational' || h === 'transactional') return h;
+  if (PRECISE_RE.test(h)) return 'precise';
+  if (TRANSACTIONAL_RE.test(h)) return 'transactional';
+  return 'conversational';
+}
+
+/** Build the full {@link TurnDetectionConfig} for a hint. */
+function buildTurnDetection(hint: string | undefined): TurnDetectionConfig {
+  const profile = resolveTurnProfile(hint);
+  return { profile, ...TURN_PRESETS[profile] };
+}
+
 /**
  * Resolved agent config returned to the LiveKit agent. `llm.apiKey` is a secret
  * (a per-site LiteLLM virtual key) — only ever returned over the HMAC-signed
@@ -40,6 +109,10 @@ export interface VoiceAgentConfig {
   orgId: string | null;
   businessName: string;
   persona: string;
+  /** Opening line (AI disclosure + recording notice) the agent speaks first. */
+  disclosure: string;
+  /** Per-vertical turn-taking tuning the agent applies to `turnHandling`. */
+  turnDetection: TurnDetectionConfig;
   llm: {
     /** OpenAI-compatible base URL (LiteLLM). e.g. https://llm.megabyte.space/v1 */
     baseUrl: string;
@@ -84,11 +157,13 @@ export async function resolveVoiceAgentConfig(
   if (!num) {
     return {
       businessName: 'this business',
+      disclosure: DEFAULT_VOICE_DISCLOSURE.replace('{business}', 'this business'),
       found: false,
       llm: { apiKey: platformKey, baseUrl: platformBaseUrl, model: 'gpt-4o-mini' },
       orgId: null,
       persona: DEFAULT_VOICE_PERSONA.replace('{business}', 'this business'),
       siteId: null,
+      turnDetection: buildTurnDetection(undefined),
     };
   }
 
@@ -113,6 +188,10 @@ export async function resolveVoiceAgentConfig(
   const persona =
     settings?.voice_system_prompt?.trim() ||
     DEFAULT_VOICE_PERSONA.replace('{business}', businessName);
+  const disclosure =
+    (vars.VOICE_DISCLOSURE ?? '').trim().replace('{business}', businessName) ||
+    DEFAULT_VOICE_DISCLOSURE.replace('{business}', businessName);
+  const turnDetection = buildTurnDetection(vars.VOICE_TURN_PROFILE);
 
   const baseUrl =
     (vars.LITELLM_BASE_URL ?? vars.OPENAI_BASE_URL ?? vars.OPENAI_API_BASE ?? '').trim() ||
@@ -123,10 +202,12 @@ export async function resolveVoiceAgentConfig(
 
   return {
     businessName,
+    disclosure,
     found: true,
     llm: { apiKey, baseUrl, model },
     orgId: num.org_id,
     persona,
     siteId: num.site_id,
+    turnDetection,
   };
 }

@@ -17,7 +17,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQueryOne } from '../services/db.js';
 import { resolveEnvVarsForAI } from '../services/ai_env_vars.js';
-import { resolveVoiceAgentConfig } from '../services/voice_agent_config.js';
+import { resolveTurnProfile, resolveVoiceAgentConfig } from '../services/voice_agent_config.js';
 import { voiceWebhookRoutes } from '../routes/voice_webhooks.js';
 
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
@@ -48,6 +48,15 @@ describe('resolveVoiceAgentConfig', () => {
       model: 'gpt-4o-mini',
     });
     expect(cfg.persona).toContain('receptionist');
+    // Unmapped calls still get a disclosure + the balanced turn preset.
+    expect(cfg.disclosure).toContain('AI assistant');
+    expect(cfg.disclosure).toContain('this business');
+    expect(cfg.turnDetection).toEqual({
+      profile: 'conversational',
+      minEndpointingDelayMs: 480,
+      maxEndpointingDelayMs: 2500,
+      interruptionMode: 'adaptive',
+    });
   });
 
   it('routes the LLM through the SITE LiteLLM endpoint when per-site vars exist', async () => {
@@ -81,6 +90,65 @@ describe('resolveVoiceAgentConfig', () => {
     expect(cfg.llm.apiKey).toBe('sk-platform');
     expect(cfg.llm.model).toBe('gpt-4.1-mini'); // from voice_agent_settings
     expect(cfg.persona).toContain('Acme');
+  });
+});
+
+describe('resolveTurnProfile (roadmap #8)', () => {
+  it('passes through explicit profile names', () => {
+    expect(resolveTurnProfile('precise')).toBe('precise');
+    expect(resolveTurnProfile('transactional')).toBe('transactional');
+    expect(resolveTurnProfile('conversational')).toBe('conversational');
+  });
+  it('classifies precise verticals (callers spell names/numbers)', () => {
+    expect(resolveTurnProfile('dental clinic')).toBe('precise');
+    expect(resolveTurnProfile('Law Office of Smith')).toBe('precise');
+    expect(resolveTurnProfile('tax & accounting')).toBe('precise');
+  });
+  it('classifies transactional verticals (quick yes/no turns)', () => {
+    expect(resolveTurnProfile('pizza shop')).toBe('transactional');
+    expect(resolveTurnProfile('hair salon')).toBe('transactional');
+    expect(resolveTurnProfile('table reservation')).toBe('transactional');
+  });
+  it('falls back to conversational for unknown or empty hints', () => {
+    expect(resolveTurnProfile(undefined)).toBe('conversational');
+    expect(resolveTurnProfile('')).toBe('conversational');
+    expect(resolveTurnProfile('consulting agency')).toBe('conversational');
+  });
+});
+
+describe('resolveVoiceAgentConfig — turn presets + disclosure (roadmap #8/#31)', () => {
+  it('applies the precise preset + a custom disclosure from per-site env vars', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ site_id: 'site-3', org_id: 'org-1' })
+      .mockResolvedValueOnce({ voice_system_prompt: null, voice_model: null })
+      .mockResolvedValueOnce({ business_name: 'Smile Dental' });
+    mockResolveVars.mockResolvedValueOnce({
+      VOICE_TURN_PROFILE: 'precise',
+      VOICE_DISCLOSURE: 'You have reached {business}, an AI-assisted line.',
+    });
+    const cfg = await resolveVoiceAgentConfig(makeEnv(), '+15551112222');
+    expect(cfg.turnDetection).toEqual({
+      profile: 'precise',
+      minEndpointingDelayMs: 640,
+      maxEndpointingDelayMs: 3000,
+      interruptionMode: 'adaptive',
+    });
+    // {business} is substituted in the per-site disclosure override.
+    expect(cfg.disclosure).toBe('You have reached Smile Dental, an AI-assisted line.');
+  });
+
+  it('classifies a transactional profile from a business-type hint + default disclosure', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ site_id: 'site-4', org_id: 'org-1' })
+      .mockResolvedValueOnce({ voice_system_prompt: null, voice_model: null })
+      .mockResolvedValueOnce({ business_name: "Tony's Pizzeria" });
+    mockResolveVars.mockResolvedValueOnce({ VOICE_TURN_PROFILE: 'pizza shop' });
+    const cfg = await resolveVoiceAgentConfig(makeEnv(), '+15553334444');
+    expect(cfg.turnDetection.profile).toBe('transactional');
+    expect(cfg.turnDetection.minEndpointingDelayMs).toBe(320);
+    // No override → default disclosure with the business name substituted.
+    expect(cfg.disclosure).toContain("Tony's Pizzeria");
+    expect(cfg.disclosure).toContain('may be recorded');
   });
 });
 
