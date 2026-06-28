@@ -130,10 +130,14 @@ describe('researchAndFormulatePrompt — happy path', () => {
 
     const fetchMock = global.fetch as jest.Mock;
     const [url, init] = fetchMock.mock.calls[0];
+    // Routed through gatewayFetch: URL resolves to the direct vendor URL when the
+    // gateway is inactive (no CF_ACCOUNT_ID in test env), and headers flow through
+    // gatewayFetch's `Headers` normalization — read via `.get()`, not property access.
     expect(url).toBe(OPENAI_URL);
     expect(init.method).toBe('POST');
-    expect(init.headers.Authorization).toBe('Bearer sk-test-abc');
-    expect(init.headers['Content-Type']).toBe('application/json');
+    const h = new Headers(init.headers);
+    expect(h.get('Authorization')).toBe('Bearer sk-test-abc');
+    expect(h.get('Content-Type')).toBe('application/json');
 
     const body = JSON.parse(init.body);
     expect(body.model).toBe('o3-mini'); // DEFAULT_MODEL

@@ -23,6 +23,7 @@
 import type { Env } from '../types/env.js';
 import { captureLLMCall } from './analytics.js';
 import type { TraceContext } from './external_llm.js';
+import { gatewayFetch } from './ai_gateway.js';
 
 const DEFAULT_MODEL = 'o3-mini';
 
@@ -145,7 +146,9 @@ async function callOpenAI(
 
   let res: Response;
   try {
-    res = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Route through AI Gateway (caching + observability + margin); gatewayFetch
+    // falls back to the direct vendor URL automatically on a gateway 5xx.
+    const gw = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,
@@ -153,6 +156,7 @@ async function callOpenAI(
       },
       body: JSON.stringify(body),
     });
+    res = gw.response;
   } catch (err) {
     const latency = Date.now() - start;
     void safeCaptureLLM(env, {
