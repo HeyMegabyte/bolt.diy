@@ -493,7 +493,7 @@ Every exported symbol must include:
 ## 13.2 Docs required in `/docs`
 - `docs/ARCHITECTURE.md` (include Mermaid diagrams)
 - `docs/DEPLOYMENT.md` (dev/test/deploy)
-- `docs/REQUIREMENTS.md` (full requirements)
+- `apps/project-sites/_LOOP_LEDGER.md` (THE single consolidated TODO / requirements list — all backlog/requirement/ideas files were folded here 2026-06-28)
 - `docs/PROMPTS.md` (prompt infrastructure guide)
 
 ## 13.3 Further documentation
