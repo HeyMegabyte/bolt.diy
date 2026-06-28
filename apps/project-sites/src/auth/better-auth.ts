@@ -40,6 +40,7 @@ import { Kysely } from 'kysely';
 import { D1Dialect } from 'kysely-d1';
 import type { Env } from '../types/env.js';
 import { getEmailProvider } from '../platform/email-router.js';
+import { brandedEmail } from './email-templates.js'; // #31 branded transactional emails
 
 const APP_ORIGIN = 'https://projectsites.dev';
 
@@ -115,7 +116,11 @@ export function makeAuth(env: Env): Auth {
         await sendMail(
           user.email,
           'Reset your ProjectSites password',
-          `<p>Reset your password:</p><p><a href="${url}">${url}</a></p>`,
+          brandedEmail({
+            heading: 'Reset your password',
+            body: 'We received a request to reset your ProjectSites password. Tap below to choose a new one.',
+            cta: { label: 'Reset password', url },
+          }),
         );
       },
     },
@@ -124,7 +129,11 @@ export function makeAuth(env: Env): Auth {
         await sendMail(
           user.email,
           'Verify your ProjectSites email',
-          `<p>Confirm your email:</p><p><a href="${url}">${url}</a></p>`,
+          brandedEmail({
+            heading: 'Confirm your email',
+            body: 'Confirm this address to finish setting up your ProjectSites account.',
+            cta: { label: 'Verify email', url },
+          }),
         );
       },
     },
@@ -243,13 +252,26 @@ export function makeAuth(env: Env): Auth {
           await sendMail(
             email,
             'Your ProjectSites sign-in link',
-            `<p>Sign in:</p><p><a href="${url}">${url}</a></p><p>Expires in 5 minutes.</p>`,
+            brandedEmail({
+              heading: 'Sign in to ProjectSites',
+              body: 'Tap below to sign in. This link works once and expires in 5 minutes.',
+              cta: { label: 'Sign in', url },
+              footnote: 'This link expires in 5 minutes. If you didn’t request it, ignore this email.',
+            }),
           );
         },
       }),
       emailOTP({
         sendVerificationOTP: async ({ email, otp }) => {
-          await sendMail(email, 'Your ProjectSites code', `<p>Your code: <b>${otp}</b></p>`);
+          await sendMail(
+            email,
+            'Your ProjectSites code',
+            brandedEmail({
+              heading: 'Your verification code',
+              body: 'Enter this code to continue. It expires shortly.',
+              code: otp,
+            }),
+          );
         },
       }),
       twoFactor({ issuer: 'ProjectSites' }),
