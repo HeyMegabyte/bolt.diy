@@ -1,18 +1,21 @@
 /**
- * projectsites-messenger — Listmonk Postback messenger → SMS (Twilio) + Telegram.
+ * projectsites-messenger — Listmonk Postback messenger → SMS (Twilio) + Telegram,
+ * plus per-subscriber channel opt-in capture (#5) and Telegram linking (#3).
  *
- * Listmonk POSTs a campaign message (one or more recipients) to /sms or /telegram.
- * For EACH recipient we honor their per-subscriber channel preference (#5): a
- * recipient is messaged on a channel ONLY if they have explicitly opted into it
- * (subscriber attrib `channels` includes the channel, or a channel-specific opt-in)
- * AND they have the contact handle for it (phone / telegram chat id). Otherwise we
- * silently skip them (still 200, so Listmonk records the send without error/retry).
+ * Endpoints:
+ *   POST /sms, /telegram      — Listmonk Postback delivery (HTTP Basic, MESSENGER_SECRET).
+ *                               Sends to a recipient ONLY if they opted into the channel
+ *                               (attribs.channels) AND have the handle (phone / chat id).
+ *   POST /link                — self-service opt-in: { uuid, phone?, channels[] } → writes
+ *                               the subscriber's phone + channels via the Listmonk API.
+ *   POST /telegram-webhook     — Telegram bot updates. On `/start <subscriber-uuid>` it
+ *                               captures the chat id → subscriber attribs + adds the
+ *                               telegram channel, then replies. Secured by Telegram's
+ *                               secret-token header (= MESSENGER_SECRET).
  *
- * Channels are deliberately OPT-IN (not opt-out) for SMS/Telegram — these cost money
- * and carry consent obligations (TCPA etc.), so no attrib = no send.
- *
- * Auth: Listmonk sends HTTP Basic (messenger username+password); we check the password
- * against MESSENGER_SECRET. Read-path only reaches providers with our own creds.
+ * Hosted on workers.dev (Listmonk + Telegram + the preference page all reach it without
+ * the zone Bot Fight Mode in the path; the Worker's subrequest to Listmonk's API bypasses
+ * BFM as a same-account worker subrequest).
  */
 export interface Env {
   TWILIO_ACCOUNT_SID: string;
@@ -20,24 +23,32 @@ export interface Env {
   TWILIO_FROM: string;
   TELEGRAM_BOT_TOKEN: string;
   MESSENGER_SECRET: string;
+  LISTMONK_API_TOKEN: string;
 }
+
+const LISTMONK = 'https://mail.projectsites.dev';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'content-type',
+};
 
 interface Recipient {
   uuid?: string;
-  email?: string;
-  name?: string;
   attribs?: Record<string, unknown>;
-  status?: string;
 }
 interface Payload {
   subject?: string;
   body?: string;
-  content_type?: string;
   recipients?: Recipient[];
   subscriber?: Recipient;
 }
 
-/** Strip HTML to readable plain text for SMS/Telegram. */
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+const json = (o: unknown, status = 200): Response =>
+  new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', ...CORS } });
+
 function htmlToText(input: string): string {
   return (input || '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -56,38 +67,29 @@ function htmlToText(input: string): string {
     .trim();
 }
 
-const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
-
-/** Has the subscriber opted into `channel`? Opt-in only. */
 function optedIn(attribs: Record<string, unknown>, channel: string): boolean {
   const ch = attribs.channels;
   if (Array.isArray(ch)) return ch.map((x) => str(x).toLowerCase()).includes(channel);
   const single = str(attribs.channel).toLowerCase();
   if (single) return single === channel || single === 'all';
-  // explicit per-channel opt-in flag fallback (e.g. sms_optin: true)
   return attribs[`${channel}_optin`] === true;
 }
-
-/** Pull the contact handle for a channel from subscriber attribs. */
 function handleFor(attribs: Record<string, unknown>, channel: string): string {
-  if (channel === 'sms') {
-    return str(attribs.phone) || str(attribs.sms) || str(attribs.mobile) || str(attribs.phone_number);
-  }
-  return str(attribs.telegram_chat_id) || str(attribs.telegram_id) || str(attribs.telegram);
+  return channel === 'sms'
+    ? str(attribs.phone) || str(attribs.sms) || str(attribs.mobile) || str(attribs.phone_number)
+    : str(attribs.telegram_chat_id) || str(attribs.telegram_id) || str(attribs.telegram);
 }
 
 async function sendSms(env: Env, to: string, body: string): Promise<Response> {
-  const form = new URLSearchParams({ To: to, From: env.TWILIO_FROM, Body: body });
   return fetch(`https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`, {
     method: 'POST',
     headers: {
       Authorization: 'Basic ' + btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: form.toString(),
+    body: new URLSearchParams({ To: to, From: env.TWILIO_FROM, Body: body }).toString(),
   });
 }
-
 async function sendTelegram(env: Env, chatId: string, text: string): Promise<Response> {
   return fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -96,69 +98,137 @@ async function sendTelegram(env: Env, chatId: string, text: string): Promise<Res
   });
 }
 
-function authOk(request: Request, env: Env): boolean {
+function basicAuthOk(request: Request, env: Env): boolean {
   const h = request.headers.get('authorization') || '';
   if (!h.toLowerCase().startsWith('basic ')) return false;
   try {
-    const pass = atob(h.slice(6)).split(':').slice(1).join(':');
-    return !!env.MESSENGER_SECRET && pass === env.MESSENGER_SECRET;
+    return env.MESSENGER_SECRET !== '' && atob(h.slice(6)).split(':').slice(1).join(':') === env.MESSENGER_SECRET;
   } catch {
     return false;
   }
 }
 
+/** GET subscriber by uuid → merge attribs (+ optional channel) → PUT. */
+async function listmonkSetSubscriber(
+  env: Env,
+  uuid: string,
+  patch: { phone?: string; channels?: string[]; chatId?: string; addChannel?: string },
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+  if (!UUID_RE.test(uuid)) return { ok: false, error: 'bad uuid' };
+  const auth = `token projectsites_api:${env.LISTMONK_API_TOKEN}`;
+  const q = encodeURIComponent(`subscribers.uuid = '${uuid}'`);
+  const gr = await fetch(`${LISTMONK}/api/subscribers?query=${q}&per_page=1`, { headers: { Authorization: auth } });
+  if (!gr.ok) return { ok: false, status: gr.status, error: 'lookup failed' };
+  const sub = ((await gr.json()) as { data?: { results?: Array<Record<string, unknown>> } }).data?.results?.[0];
+  if (!sub) return { ok: false, error: 'subscriber not found' };
+
+  const attribs: Record<string, unknown> = { ...((sub.attribs as Record<string, unknown>) || {}) };
+  if (patch.phone) attribs.phone = patch.phone;
+  if (patch.chatId) attribs.telegram_chat_id = patch.chatId;
+  const channelSet = new Set<string>(Array.isArray(attribs.channels) ? (attribs.channels as string[]) : []);
+  for (const c of patch.channels ?? []) channelSet.add(c);
+  if (patch.addChannel) channelSet.add(patch.addChannel);
+  if (channelSet.size) attribs.channels = [...channelSet];
+
+  const body = {
+    email: sub.email,
+    name: sub.name,
+    attribs,
+    lists: Array.isArray(sub.lists) ? (sub.lists as Array<{ id: number }>).map((l) => l.id) : [],
+    preconfirm_subscriptions: true,
+  };
+  const pr = await fetch(`${LISTMONK}/api/subscribers/${sub.id}`, {
+    method: 'PUT',
+    headers: { Authorization: auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return { ok: pr.ok, status: pr.status };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    const channel = url.pathname.replace(/^\/+/, '').toLowerCase(); // "sms" | "telegram"
-
+    const path = new URL(request.url).pathname.replace(/^\/+/, '').toLowerCase();
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (request.method === 'GET') return new Response('projectsites-messenger ok', { status: 200 });
     if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-    if (channel !== 'sms' && channel !== 'telegram') return new Response('unknown channel', { status: 404 });
-    if (!authOk(request, env)) return new Response('unauthorized', { status: 401 });
+
+    // --- Telegram bot webhook: capture chat id on /start <uuid> ---
+    if (path === 'telegram-webhook') {
+      if (request.headers.get('x-telegram-bot-api-secret-token') !== env.MESSENGER_SECRET)
+        return new Response('unauthorized', { status: 401 });
+      const upd = (await request.json().catch(() => ({}))) as {
+        message?: { text?: string; chat?: { id?: number } };
+      };
+      const text = str(upd.message?.text);
+      const chatId = upd.message?.chat?.id;
+      if (chatId && text.startsWith('/start')) {
+        const token = text.split(/\s+/)[1] ?? '';
+        if (UUID_RE.test(token)) {
+          const r = await listmonkSetSubscriber(env, token, { chatId: String(chatId), addChannel: 'telegram' });
+          await sendTelegram(
+            env,
+            String(chatId),
+            r.ok
+              ? '✅ Linked! You will now receive ProjectSites updates here on Telegram.'
+              : '⚠️ Could not link this account — open the link from your email preferences again.',
+          );
+        } else {
+          await sendTelegram(env, String(chatId), 'Open the Telegram link from your ProjectSites email preferences to subscribe.');
+        }
+      }
+      return json({ ok: true }); // always 200 to Telegram
+    }
+
+    // --- self-service opt-in: phone + channels for a subscriber (uuid is the credential) ---
+    if (path === 'link') {
+      const b = (await request.json().catch(() => ({}))) as { uuid?: string; phone?: string; channels?: string[] };
+      const uuid = str(b.uuid);
+      if (!UUID_RE.test(uuid)) return json({ ok: false, error: 'bad uuid' }, 400);
+      const phone = str(b.phone);
+      if (phone && !/^\+[1-9]\d{6,15}$/.test(phone)) return json({ ok: false, error: 'phone must be E.164 (+15551234567)' }, 400);
+      const channels = (b.channels ?? []).map((c) => str(c).toLowerCase()).filter((c) => ['email', 'sms', 'telegram'].includes(c));
+      const r = await listmonkSetSubscriber(env, uuid, { phone: phone || undefined, channels });
+      return json(r, r.ok ? 200 : 400);
+    }
+
+    // --- Listmonk Postback delivery: sms | telegram ---
+    if (path !== 'sms' && path !== 'telegram') return new Response('unknown route', { status: 404 });
+    if (!basicAuthOk(request, env)) return new Response('unauthorized', { status: 401 });
 
     let p: Payload;
     try {
       p = (await request.json()) as Payload;
     } catch {
-      return new Response('invalid json', { status: 400 });
+      return json({ error: 'invalid json' }, 400);
     }
-
     const recipients = p.recipients ?? (p.subscriber ? [p.subscriber] : []);
     const text = htmlToText(p.body ?? '');
     const subject = str(p.subject);
-    // Lead with the subject for SMS/Telegram if the body doesn't already include it.
     const message = subject && !text.startsWith(subject) ? `${subject}\n\n${text}` : text;
 
     let sent = 0,
       skipped = 0;
     const errors: string[] = [];
-
     for (const r of recipients) {
       const attribs = (r.attribs ?? {}) as Record<string, unknown>;
-      const handle = handleFor(attribs, channel);
-      if (!handle || !optedIn(attribs, channel)) {
-        skipped++; // #5: not opted in / no handle for this channel
+      const handle = handleFor(attribs, path);
+      if (!handle || !optedIn(attribs, path)) {
+        skipped++;
         continue;
       }
       try {
-        const res = channel === 'sms' ? await sendSms(env, handle, message) : await sendTelegram(env, handle, message);
+        const res = path === 'sms' ? await sendSms(env, handle, message) : await sendTelegram(env, handle, message);
         if (res.ok) sent++;
         else {
           skipped++;
-          errors.push(`${r.uuid ?? handle}: ${res.status} ${(await res.text()).slice(0, 140)}`);
+          errors.push(`${r.uuid ?? handle}: ${res.status} ${(await res.text()).slice(0, 120)}`);
         }
       } catch (e) {
         skipped++;
         errors.push(`${r.uuid ?? handle}: ${(e as Error).message}`);
       }
     }
-
-    // Always 200 to Listmonk unless EVERY attempted send hard-failed.
     const status = errors.length > 0 && sent === 0 && skipped === errors.length ? 502 : 200;
-    return new Response(JSON.stringify({ channel, sent, skipped, errors }), {
-      status,
-      headers: { 'content-type': 'application/json' },
-    });
+    return json({ channel: path, sent, skipped, errors }, status);
   },
 };
