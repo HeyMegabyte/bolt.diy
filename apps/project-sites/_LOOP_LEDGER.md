@@ -89,7 +89,7 @@
 ### ⛔gated — biggest $-levers, need a Brian unblock (surfaced every fire until cleared)
 - [ ] ⛔gated **Provision `E2E_TEST_PASSWORD`** (Trust×5) — `wrangler secret put E2E_TEST_PASSWORD` (prod) + `.dev.vars` + `playwright.prod.config.ts`. ~1h of Brian's time. Unlocks authed prod-E2E on the WHOLE funnel (sign-in→admin→billing→publish) — turns "tested in mocks" into "verified live on the money path". Smallest unblock, highest leverage.
 - [ ] ⛔gated **Perf wave: ag-grid → TanStack** (Activation×4, Trust×4, Quality×5) — both admin log grids ship 782KB eager ag-grid (205KB over budget) → slow admin = churn signal. Per `docs/perf-wave-ag-grid-to-tanstack.md`. All-or-nothing, ~30h, needs a supervised window (don't start unattended).
-- [ ] [auto] **P1 revenue features — BUILD AUTONOMOUSLY (Brian 2026-06-27)** — loop makes its own design calls + builds end-to-end (no longer parked): native booking engine (#3) · post-publish growth agent (#2) · bundled voice receptionist at publish (#1) · AI-native GEO + citation tracking (#4) · edge per-visitor personalization (#8) · visitor analytics beacon + admin surface (#7) · concierge widget injection (#6). Voice plan = `docs/decisions/voice-architecture.md` (all secrets present; V1 Deepgram/gpt-4o-mini/ElevenLabs → V2 Piper/Whisper-on-Fly). Build each as its own feature module + flag; tick when shipped+verified.
+- [ ] [auto] **P1 revenue features — BUILD AUTONOMOUSLY (Brian 2026-06-27)** — loop makes its own design calls + builds end-to-end (no longer parked): native booking engine (#3) · post-publish growth agent (#2) · bundled voice receptionist at publish (#1) · AI-native GEO + citation tracking (#4) · edge per-visitor personalization (#8) · visitor analytics beacon + admin surface (#7) · concierge widget injection (#6). Voice plan = `docs/decisions/voice-architecture.md` + roadmap `docs/voice-leadership-roadmap.md` (LiveKit Cloud pivot: Deepgram Flux → per-site LiteLLM/gpt-4o-mini → Piper TTS; call-gpt/Fly/ElevenLabs REMOVED). Build each as its own feature module + flag; tick when shipped+verified.
 - [ ] ⛔gated **LLM eval/regression harness in CI (#11) + pre-publish content guardrails (#12)** — protect the GENERATED-SITE quality that justifies the subscription; needs the CI-wiring decision (item 53).
 - [ ] ⛔gated **Box-styled tap-target ≥24px (WCAG 2.2 2.5.8) — NEW rule fire-78** (`code-style.md`: the 2.5.8 inline-text exemption is NARROW — chips/pills/tags/badges styled as a discrete box, NOT inline prose links, must clear the 24px floor; axe NEVER flags it → runtime/manual review). Applies to the Angular admin (`synced-pill` + all `gorgeous-by-default` pills) AND generated-site chips. **NOT autonomously closeable:** a static worker build-validator can't compute rendered height (no layout engine — the rule says so), and proper verification = authed-E2E + axe at 6 breakpoints → gated on `E2E_TEST_PASSWORD`. When unblocked: extend the authed `*.e2e.ts` axe pass + add `inline-flex min-h-[24px] items-center` to box-styled chips (visual box ~unchanged, only the clickable region grows — the brickcitylabor remedy). NOT a blind min-h sweep (inline prose links are correctly exempt).
 
@@ -520,21 +520,31 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ## ★ VOICE ENGINE FOUNDATION + 50-IDEA CLUSTER (Brian-selected 2026-06-24)
 
-> Foundation per **ADR-0011**: fork `twilio-labs/call-gpt` → Fly.io region `iad` (us-east
-> Virginia), autoscale by concurrent calls, ONE deploy answers EVERY Twilio account number via
-> a `To`-keyed per-number settings resolver on the Worker (persona = `ai_concierge`, same as web
-> chat + Forms router). Surface = admin Voice (6 tabs) + `voice.ts` (`/api/voice/*`) + `twilio.ts`
-> + the new `apps/voice-gateway/` Fly app. Each ships TDD-first, flag-gated, deploy-gated.
+> **⚠️ ARCHITECTURE PIVOT (2026-06-27): call-gpt/Fly SUPERSEDED → LiveKit Cloud.**
+> ADR-0011's `twilio-labs/call-gpt` → Fly.io fork is ABANDONED. Voice now runs on
+> **LiveKit Cloud agent hosting** (always-on, autoscaled, co-located with media servers):
+> Twilio **Elastic SIP trunk → LiveKit SIP** inbound → room → `@livekit/agents` Node agent
+> (`apps/project-sites/infra/voice-agent/`). Stack: **Deepgram Flux STT → per-site LiteLLM
+> (gpt-4o-mini) → Piper/OpenAI TTS** (ElevenLabs REMOVED). Per-site behavior resolved over an
+> HMAC-signed Worker endpoint by dialed DID. Full plan: `docs/decisions/voice-architecture.md`;
+> the leadership roadmap (50 ideas, research-grounded) is `docs/voice-leadership-roadmap.md`.
+> Surface = admin Voice tabs + `voice.ts` (SMS) + `routes/voice_webhooks.ts` (internal/LiveKit)
+> + `services/voice_agent_config.ts` + `services/voice_transcript.ts` + `infra/voice-agent/`.
 > `[auto]` = loop can close · `[dedicated]` = own focused fire · `[gated]` = needs a Brian unblock (creds/$).
 
-### V0 — Voice-engine foundation (the epic; build FIRST, in slices)
-- [ ] V0a. Fork `twilio-labs/call-gpt` → `apps/voice-gateway/` (Node/Express + Twilio Media Streams + Deepgram STT + ElevenLabs/Deepgram TTS + OpenAI/BYO-LLM + function-manifest). [new][dedicated] slug `voice_gateway_fork`
-- [ ] V0b. **Per-number settings resolver (Zod contract)** — Worker `GET /api/voice/number-config?to=+1…` → `{site, agent_prompt, voice, mcps[], hours, escalation, consent}`; signed/internal-auth; the gateway is stateless, all per-number behavior comes from here. [new][dedicated] slug `voice_number_config`
-- [ ] V0c. `/incoming` webhook → resolve `To` → load config → start Media-Streams session with that site's persona. Set the webhook on ALL account numbers (one URL). [new][dedicated] slug `voice_incoming_router`
-- [ ] V0d. Fly.io deploy: `fly.toml` region `iad`, autoscale by concurrent-call/active-WS metric (`fly-autoscaler` or machine concurrency limits), scale-down when idle; DockerSlim per `docker-slim-all-containers`. [new][gated] slug `voice_fly_deploy`
-- [ ] V0e. Secrets via `fly secrets import` (FLY_API_TOKEN, Twilio SID/auth, Deepgram, ElevenLabs, OpenAI/AI-Gateway); signed Twilio webhook verification + CF Access on any control endpoints. [new][gated] slug `voice_secrets`
-- [ ] V0f. Foundation observability: OTel span + Langfuse trace + Sentry on the gateway from call-start (ties into V39/V40). [new][auto] slug `voice_gateway_observability`
-- [ ] V0g. Prod call test: dial a real account number → persona answers per-site → recording + transcript land in Conversations. [new][gated] slug `voice_prod_call_test`
+### V0 — Voice-engine foundation (the epic) — LiveKit pivot, build in slices
+- [x] V0a. ~~Fork `twilio-labs/call-gpt` → Fly~~ **SUPERSEDED → LiveKit Cloud agent** `infra/voice-agent/` (`@livekit/agents` Node project: `agent.ts` + `livekit.toml` + Dockerfile bundling Piper). call-gpt fully removed (zero `call-gpt`/`twilio-labs` refs in src+docs). [done-by-supersession] slug `voice_gateway_fork`
+- [x] V0b. **Per-number settings resolver (Zod contract)** — DONE: `services/voice_agent_config.ts` `resolveVoiceAgentConfig(env, dialedNumber, callerNumber?)` + HMAC-signed `POST /internal/voice/agent-config` → `{persona, disclosure, turnDetection, returningCaller, llm{baseUrl,apiKey,model}}`, per-site LiteLLM by dialed DID. Built + unit-tested (14/14). slug `voice_number_config`
+- [x] V0c. ~~TwiML `/incoming` Media-Streams router~~ **SUPERSEDED → LiveKit SIP dispatch** + signed `POST /webhooks/livekit` receiver (HS256 verify + body-sha256, idempotent, dark-default; migration `0579`). SHIPPED `6578310a`/`168e9559`. slug `voice_incoming_router`
+- [x] V0d. ~~Fly.io deploy~~ **SUPERSEDED → LiveKit Cloud agent hosting** (`lk agent create`/`deploy`; always-on, no Fly app). [done-by-supersession] slug `voice_fly_deploy`
+- [x] V0e. ~~`fly secrets import` (… ElevenLabs …)~~ **SUPERSEDED** — secrets are LiveKit Cloud agent env (`LIVEKIT_*`, `DEEPGRAM_API_KEY`, `OPENAI_API_KEY`, `VOICE_WORKER_URL`, `INTERNAL_BUILD_SECRET`, `LITELLM_*`); ElevenLabs removed (Piper). LIVEKIT_* saved to get-secret. [done-by-supersession] slug `voice_secrets`
+- [ ] V0f. Foundation observability — PARTIAL: per-call `voice_call_completed` PostHog event SHIPPED (`lib/posthog` from the transcript route, `e13ef42`-era). Remaining: LiveKit Agent Observability flag (V0f API-verify) + Langfuse/OTel on the agent (V39/V40). [extend][auto] slug `voice_gateway_observability`
+- [ ] V0g. **⛔ GO-LIVE (Brian-gated)** — set Worker secret `INTERNAL_BUILD_SECRET` (+ `LITELLM_BASE_URL`/`_API_KEY`), `lk agent deploy` (needs LiveKit Cloud browser auth), wire Twilio Elastic SIP → LiveKit SIP trunk + dispatch, dial → persona answers → transcript+metrics land. This ONE action lights every built-but-dark voice slice (V0b, V33, metrics, turn-presets, caller-memory). See `## ⛔ NEEDS BRIAN` in `_LOOP_PROGRESS.md`. [gated] slug `voice_prod_call_test`
+
+**Shipped LiveKit slices (built + unit-tested on `main`, dark in prod until V0g go-live)** — detail in `docs/voice-leadership-roadmap.md`:
+- [x] LK-metrics — per-call `voice_call_completed` PostHog event (site/org/duration/turns) folded into transcript persistence. Roadmap #42.
+- [x] LK-turn — per-vertical turn-taking presets (precise/conversational/transactional endpointing) classified from `VOICE_TURN_PROFILE`. Roadmap #8. `7e320c0e`.
+- [x] LK-caller-memory — caller recognition + per-caller memory (`returningCaller` from prior site-scoped `voice_calls`); agent greets returning callers by last topic. Roadmap #14/#15. `e13ef422`.
 
 ### V1–V50 — Voice hardening cluster (from the web-researched 50-idea scan)
 - [ ] V1. p95 latency budget + live meter (alarm p95 >725ms). [new][auto] slug `voice_latency_meter`
@@ -569,7 +579,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] V30. Local-presence number suggestions (rank vanity search by area code). [extend][auto] slug `voice_local_presence`
 - [ ] V31. Number warm-up + health (answer/block rate, swap before degrade). [new][auto] slug `voice_number_health`
 - [ ] V32. Port-in flow for existing business numbers + status. [new][gated] slug `voice_port_in`
-- [ ] V33. In-call AI disclosure (configurable, default ON, per-state timing). [new][auto] slug `voice_ai_disclosure`
+- [x] V33. In-call AI disclosure — DONE (disclosure-as-config, roadmap #31/#35): `voice_agent_config` returns a default-ON disclosure line (FCC-24-17 + CA SB 1001 + EU AI Act Art. 50 + 2-party recording notice), per-site/jurisdiction override via `VOICE_DISCLOSURE`; agent speaks it as the opening line. Built + unit-tested (live-verify rides V0g go-live). slug `voice_ai_disclosure`
 - [ ] V34. Recording-consent by jurisdiction (two-party detect + consent line). [new][dedicated] slug `voice_recording_consent`
 - [ ] V35. Append-only consent ledger (AI-call/recording/outbound, 5yr retain). [new][auto] slug `voice_consent_ledger`
 - [ ] V36. Outbound consent gate (block AI call/SMS w/o PEWC/PEC; EBR ≠ exempt). [new][dedicated] slug `voice_outbound_consent`
