@@ -41,7 +41,9 @@ describe('selectAbandonedBuilds', () => {
 
   it('throttles: skips a build nudged within reNudgeMs, allows one nudged longer ago', () => {
     expect(selectAbandonedBuilds([row({ nudgedAtMs: NOW - 2 * DAY })], NOW)).toEqual([]); // 2d < 7d
-    expect(selectAbandonedBuilds([row({ nudgedAtMs: NOW - 8 * DAY })], NOW).map((r) => r.siteId)).toEqual(['s1']);
+    expect(
+      selectAbandonedBuilds([row({ nudgedAtMs: NOW - 8 * DAY })], NOW).map((r) => r.siteId),
+    ).toEqual(['s1']);
   });
 
   it('honours custom window + throttle options', () => {

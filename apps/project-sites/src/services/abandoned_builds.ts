@@ -47,7 +47,11 @@ const DAY = 24 * HOUR;
 const DEFAULTS = { minAgeMs: 24 * HOUR, maxAgeMs: 14 * DAY, reNudgeMs: 7 * DAY } as const;
 
 /** Statuses that count as a finished build eligible for a recovery nudge. */
-export const FINISHED_STATUSES: ReadonlySet<string> = new Set(['published', 'finished', 'complete']);
+export const FINISHED_STATUSES: ReadonlySet<string> = new Set([
+  'published',
+  'finished',
+  'complete',
+]);
 
 /**
  * Select the builds eligible for an abandoned-build recovery nudge right now.
