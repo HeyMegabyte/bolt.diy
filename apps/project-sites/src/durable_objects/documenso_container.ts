@@ -102,12 +102,13 @@ function documensoEnvVars(env: Env): Record<string, string> {
     // Google Cloud OAuth client, or the callback 400s.
     NEXT_PRIVATE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
     NEXT_PRIVATE_GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
-    // Stripe billing (subscription/seat features). Uses the live platform Stripe key
-    // + a Documenso-specific webhook (sign.*/api/stripe/webhook). Disable by removing
-    // NEXT_PUBLIC_FEATURE_BILLING_ENABLED if the billing UI isn't wanted.
-    NEXT_PUBLIC_FEATURE_BILLING_ENABLED: 'true',
-    NEXT_PRIVATE_STRIPE_API_KEY: env.STRIPE_SECRET_KEY,
-    NEXT_PRIVATE_STRIPE_WEBHOOK_SECRET: env.DOCUMENSO_STRIPE_WEBHOOK_SECRET,
+    // Office→PDF conversion via the self-hosted Gotenberg container
+    // (convert.projectsites.dev, basic-auth-gated). Lets users upload
+    // .docx/.xlsx/.pptx and have Documenso convert them to PDF for signing.
+    NEXT_PUBLIC_DOCUMENT_CONVERSION_ENABLED: 'true',
+    NEXT_PRIVATE_DOCUMENT_CONVERSION_URL: 'https://convert.projectsites.dev',
+    NEXT_PRIVATE_DOCUMENT_CONVERSION_USERNAME: env.GOTENBERG_AUTH_USERNAME,
+    NEXT_PRIVATE_DOCUMENT_CONVERSION_PASSWORD: env.GOTENBERG_AUTH_PASSWORD,
   };
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(pairs)) {

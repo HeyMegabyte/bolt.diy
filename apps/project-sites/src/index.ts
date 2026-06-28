@@ -191,6 +191,8 @@ export { InngestContainer } from './durable_objects/inngest_container.js';
 export { DocumensoContainer } from './durable_objects/documenso_container.js';
 // schedule.projectsites.dev — self-hosted cal.diy scheduling container (dedicated DO).
 export { CaldiyContainer } from './durable_objects/caldiy_container.js';
+// convert.projectsites.dev — self-hosted Gotenberg Office→PDF container (dedicated DO).
+export { GotenbergContainer } from './durable_objects/gotenberg_container.js';
 export {
   UmamiContainer,
   OutlineContainer,
@@ -492,6 +494,18 @@ app.all('*', async (c, next) => {
     return c.json({ error: 'cal.diy is provisioning; not yet available.' }, 503);
   }
   return binding.get(binding.idFromName('caldiy-singleton')).fetch(c.req.raw);
+});
+// convert.projectsites.dev → self-hosted Gotenberg Office→PDF container (dedicated DO).
+// Proxies the FULL host to GOTENBERG_CONTAINER; basic-auth-gated. Documenso reaches it
+// here for .docx/.xlsx/.pptx → PDF. Degrades to 503 until the watched deploy binds it.
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `convert.${DOMAINS.SITES_BASE}`) return next();
+  const binding = c.env.GOTENBERG_CONTAINER;
+  if (!binding) {
+    return c.json({ error: 'Gotenberg is provisioning; not yet available.' }, 503);
+  }
+  return binding.get(binding.idFromName('gotenberg-singleton')).fetch(c.req.raw);
 });
 app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Inngest/Hatchet via getJobRouter(env)
 app.route('/', observabilityGateway); // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway) — must precede the catch-all

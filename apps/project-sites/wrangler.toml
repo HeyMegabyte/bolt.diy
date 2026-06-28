@@ -562,6 +562,26 @@ class_name = "CaldiyContainer"
 tag = "v_caldiy_container"
 new_sqlite_classes = ["CaldiyContainer"]
 
+# ─── Gotenberg (convert.projectsites.dev) — Office→PDF CF Workers Container ───
+# Powers Documenso's .docx/.xlsx/.pptx → PDF conversion (LibreOffice). Image is
+# the LOCAL ./containers/gotenberg/Dockerfile (FROM gotenberg/gotenberg:8). DO
+# subclass GotenbergContainer + the convert.* host dispatch + env types are wired
+# in code. Stateless (no DB) — basic-auth-gated via GOTENBERG_AUTH_* secrets.
+# Clean append after v_caldiy_container (clean appends work; reordering 10074s).
+[[env.production.containers]]
+class_name = "GotenbergContainer"
+image = "./containers/gotenberg/Dockerfile"
+max_instances = 2
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "GOTENBERG_CONTAINER"
+class_name = "GotenbergContainer"
+
+[[env.production.migrations]]
+tag = "v_gotenberg_container"
+new_sqlite_classes = ["GotenbergContainer"]
+
 # ─── Formbricks REMOVED (2026-06-27) ─────────────────────────────────────────
 # Exceeds the 4-service max. The FormbricksContainer DO class, container block,
 # host route, and all FORMBRICKS_* env are deleted. NO delete-class migration is

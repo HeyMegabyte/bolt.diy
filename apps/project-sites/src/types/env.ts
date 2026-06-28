@@ -205,8 +205,14 @@ export interface Env {
   DOCUMENSO_R2_SECRET_ACCESS_KEY?: string;
   /** Documenso Turnstile secret key — CF-minted widget for sign.projectsites.dev. wrangler secret. */
   DOCUMENSO_TURNSTILE_SECRET_KEY?: string;
-  /** Documenso-specific Stripe webhook signing secret (the sign-host stripe webhook). wrangler secret. */
-  DOCUMENSO_STRIPE_WEBHOOK_SECRET?: string;
+
+  // ─── Gotenberg (convert.projectsites.dev) — Office→PDF CF Workers Container ──
+  /** Gotenberg container DO binding. Documenso's doc-conversion path proxies here; 503 until bound. */
+  GOTENBERG_CONTAINER?: DurableObjectNamespace;
+  /** Gotenberg basic-auth username (the endpoint is public-edge reachable). wrangler secret. */
+  GOTENBERG_AUTH_USERNAME?: string;
+  /** Gotenberg basic-auth password (openssl rand -hex 24). wrangler secret. */
+  GOTENBERG_AUTH_PASSWORD?: string;
 
   // ─── cal.diy (schedule.projectsites.dev) — dedicated CF Workers Container ───
   /** cal.diy container DO binding. Optional until the watched deploy binds it; the schedule.* host route degrades to 503 without it. */
