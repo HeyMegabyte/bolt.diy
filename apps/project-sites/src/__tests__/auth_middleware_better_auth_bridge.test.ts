@@ -12,7 +12,9 @@ let membership: { org_id: string } | null = { org_id: 'org_1' };
 jest.mock('../services/auth.js', () => ({ getSession: jest.fn(async () => null) }));
 jest.mock('../lib/wait-until.js', () => ({ safeWaitUntil: jest.fn() }));
 jest.mock('../services/db.js', () => ({ dbQueryOne: jest.fn(async () => membership) }));
-jest.mock('../modules/feature_flags/services.js', () => ({ isFlagOn: jest.fn(async () => flagOn) }));
+jest.mock('../modules/feature_flags/services.js', () => ({
+  isFlagOn: jest.fn(async () => flagOn),
+}));
 jest.mock('../auth/better-auth.js', () => ({
   makeAuth: () => ({
     api: {
