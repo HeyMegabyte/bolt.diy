@@ -49,6 +49,16 @@ describe('buildAnalyticsTracker', () => {
     expect(t).toContain('function near(el)');
     expect(t).toContain('}catch(_){}})();');
   });
+
+  it('binds form_start (focusin, once per form) + form_submit listeners (AN17 #61)', () => {
+    const t = buildAnalyticsTracker('s1');
+    expect(t).toContain("addEventListener('focusin'");
+    expect(t).toContain("addEventListener('submit'");
+    expect(t).toContain("window.psTrack('form_start'");
+    expect(t).toContain("window.psTrack('form_submit'");
+    expect(t).toContain('psFs'); // per-form dedup map (fire form_start once)
+    expect(t).toContain('function psFk(f)'); // form key = id || name || section
+  });
 });
 
 describe('injectAnalyticsTracker', () => {

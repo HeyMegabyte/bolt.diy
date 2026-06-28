@@ -65,6 +65,11 @@ export function buildAnalyticsTracker(siteId: string, opts: AnalyticsTrackerOpti
     `if(/^tel:/i.test(h))k='call';else if(/^mailto:/i.test(h))k='email';` +
     `else if(/maps\\.(google|apple)\\.|google\\.[^\\/]+\\/maps|\\/maps\\/dir/i.test(h))k='directions';` +
     `if(!k)return;window.psTrack('conversion',{kind:k,section:near(el),href:h.slice(0,200)})}catch(_){}},true)}catch(_){}` +
+    // AN17 (#61): form completion-rate + abandonment. Emit `form_start` once per
+    // form (first focus) + `form_submit` on submit, keyed by form id/name/section.
+    `try{var psFs={};function psFk(f){try{return f.id||f.getAttribute('name')||(function(el){while(el&&el!==document){if(el.getAttribute){var v=el.getAttribute('data-ps-section');if(v!=null)return v}el=el.parentNode}return null})(f)||'form'}catch(_){return 'form'}}` +
+    `document.addEventListener('focusin',function(ev){try{var f=ev.target&&ev.target.form;if(!f)return;var k=psFk(f);if(psFs[k])return;psFs[k]=1;window.psTrack('form_start',{form:k})}catch(_){}},true);` +
+    `document.addEventListener('submit',function(ev){try{var f=ev.target;if(!f||f.tagName!=='FORM')return;window.psTrack('form_submit',{form:psFk(f)})}catch(_){}},true)}catch(_){}` +
     `})();`;
   return `<script>${body}</script>`;
 }

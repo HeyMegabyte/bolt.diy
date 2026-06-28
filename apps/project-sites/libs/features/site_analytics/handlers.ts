@@ -21,6 +21,7 @@ import {
   getSiteAnalyticsSummary,
   getDailySeries,
   getConversionsBySection,
+  getFormAnalytics,
   siteOrgId,
 } from './service.js';
 
@@ -75,4 +76,21 @@ siteAnalytics.get('/api/sites/:siteId/analytics/sections', async (c) => {
 
   const breakdown = await getConversionsBySection(c.env, siteId, windowDays);
   return c.json(breakdown);
+});
+
+// AN17 — per-form completion rate + abandonment.
+siteAnalytics.get('/api/sites/:siteId/analytics/forms', async (c) => {
+  const g = await requireOrgFlag(c, FLAG_KEY);
+  if (g instanceof Response) return g;
+
+  const siteId = c.req.param('siteId');
+  const owner = await siteOrgId(c.env, siteId);
+  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+
+  const windowParam = Number(c.req.query('windowDays'));
+  const windowDays =
+    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
+
+  const forms = await getFormAnalytics(c.env, siteId, windowDays);
+  return c.json(forms);
 });

@@ -74,3 +74,31 @@ export const SectionConversionsSchema = z
   })
   .strict();
 export type SectionConversions = z.infer<typeof SectionConversionsSchema>;
+
+/** One form's completion-rate row (AN17). */
+export const FormAnalyticsRowSchema = z
+  .object({
+    form: z.string(),
+    starts: z.number().int().min(0),
+    submits: z.number().int().min(0),
+    /** submits / starts as 0–100, one decimal (0 when no starts). */
+    completionRate: z.number().min(0).max(100),
+    /** starts that never submitted (max 0, never negative). */
+    abandoned: z.number().int().min(0),
+  })
+  .strict();
+export type FormAnalyticsRow = z.infer<typeof FormAnalyticsRowSchema>;
+
+/**
+ * AN17 — per-form completion rate + abandonment. Built on the tracker's
+ * `form_start` (first focus) + `form_submit` events keyed by form id/name/section.
+ */
+export const FormAnalyticsSchema = z
+  .object({
+    siteId: z.string().min(1),
+    windowDays: z.number().int().positive(),
+    forms: z.array(FormAnalyticsRowSchema),
+    generatedAt: z.string(),
+  })
+  .strict();
+export type FormAnalytics = z.infer<typeof FormAnalyticsSchema>;

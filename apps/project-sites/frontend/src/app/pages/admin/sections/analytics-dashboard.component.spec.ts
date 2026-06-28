@@ -17,6 +17,8 @@ class StubFunnelComponent {}
 class StubVisitorsComponent {}
 @Component({ selector: 'app-section-attribution', standalone: true, template: '<div data-testid="stub-sections"></div>' })
 class StubSectionsComponent {}
+@Component({ selector: 'app-form-analytics', standalone: true, template: '<div data-testid="stub-forms"></div>' })
+class StubFormsComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
@@ -32,7 +34,7 @@ describe('AdminAnalyticsDashboardComponent', () => {
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
       set: {
-        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent],
+        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent, StubFormsComponent],
       },
     });
     const f = TestBed.createComponent(AdminAnalyticsDashboardComponent);
@@ -54,6 +56,7 @@ describe('AdminAnalyticsDashboardComponent', () => {
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-funnel"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-social"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="analytics-tab-sections"]')).toBeTruthy();
+    expect(f.nativeElement.querySelector('[data-testid="analytics-tab-forms"]')).toBeTruthy();
   });
 
   it('lands on By Section when ?tab=sections (AN27)', () => {
@@ -61,6 +64,13 @@ describe('AdminAnalyticsDashboardComponent', () => {
     const f = make();
     expect(f.componentInstance.tab()).toBe('sections');
     expect(f.nativeElement.querySelector('[data-testid="stub-sections"]')).toBeTruthy();
+  });
+
+  it('lands on Forms when ?tab=forms (AN17)', () => {
+    qpm.next(convertToParamMap({ tab: 'forms' }));
+    const f = make();
+    expect(f.componentInstance.tab()).toBe('forms');
+    expect(f.nativeElement.querySelector('[data-testid="stub-forms"]')).toBeTruthy();
   });
 
   it('lands on Social when ?tab=social', () => {

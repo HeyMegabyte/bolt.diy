@@ -17,8 +17,10 @@ import { getTrafficSummary } from '../visitor_events_core/service.js';
 import {
   SiteAnalyticsSummarySchema,
   SectionConversionsSchema,
+  FormAnalyticsSchema,
   type SiteAnalyticsSummary,
   type SectionConversions,
+  type FormAnalytics,
   type SourceCount,
 } from './schemas.js';
 
@@ -164,6 +166,73 @@ export async function getConversionsBySection(
     windowDays: n,
     totalConversions,
     sections,
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * AN17 — per-form completion rate + abandonment. Counts the tracker's
+ * `form_start` (first focus) vs `form_submit` events from `analytics_events`,
+ * grouped by the form key (`payload.form`), and derives completion rate +
+ * abandonment per form. Bridges the pageview→lead gap: shows which forms get
+ * started but not finished. Ranked by starts desc.
+ *
+ * Defensive: any D1 error degrades to an empty list. completionRate is capped at
+ * 100 (a form can record more submits than starts if a visitor submits without
+ * the focus firing — e.g. autofill); abandoned floors at 0 for the same reason.
+ *
+ * @param env        - Worker env (uses `env.DB`).
+ * @param siteId     - Site to analyze.
+ * @param windowDays - Trailing window 1–365 (default 30).
+ * @returns A validated {@link FormAnalytics}.
+ *
+ * @example
+ * const { forms } = await getFormAnalytics(env, 'site_123', 30);
+ */
+export async function getFormAnalytics(
+  env: Env,
+  siteId: string,
+  windowDays = 30,
+): Promise<FormAnalytics> {
+  const n = Number.isInteger(windowDays) && windowDays > 0 && windowDays <= 365 ? windowDays : 30;
+  const { data, error } = await dbQuery<{ form: string | null; eventType: string; n: number }>(
+    env.DB,
+    `SELECT COALESCE(json_extract(payload, '$.form'), '(unnamed)') AS form,
+            eventType,
+            COUNT(*) AS n
+       FROM analytics_events
+      WHERE siteId = ? AND eventType IN ('form_start', 'form_submit')
+        AND timestamp >= (unixepoch() - ?) * 1000
+      GROUP BY form, eventType`,
+    [siteId, n * 86_400],
+  );
+
+  const byForm = new Map<string, { starts: number; submits: number }>();
+  if (!error) {
+    for (const r of data) {
+      const form = r.form ?? '(unnamed)';
+      const agg = byForm.get(form) ?? { starts: 0, submits: 0 };
+      if (r.eventType === 'form_start') agg.starts += Number(r.n) || 0;
+      else if (r.eventType === 'form_submit') agg.submits += Number(r.n) || 0;
+      byForm.set(form, agg);
+    }
+  }
+
+  const forms = [...byForm.entries()]
+    .map(([form, a]) => ({
+      form,
+      starts: a.starts,
+      submits: a.submits,
+      completionRate:
+        a.starts > 0 ? Math.min(100, Math.round((a.submits / a.starts) * 1000) / 10) : 0,
+      abandoned: Math.max(0, a.starts - a.submits),
+    }))
+    .sort((x, y) => y.starts - x.starts);
+
+  return FormAnalyticsSchema.parse({
+    siteId,
+    windowDays: n,
+    forms,
     generatedAt: new Date().toISOString(),
   });
 }

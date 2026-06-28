@@ -24,6 +24,9 @@ export const EVENT_TYPES = [
   'custom',
   'scroll',
   'form_submit',
+  // AN17 (#61): emitted on first focus into a form; with form_submit yields the
+  // per-form completion rate + abandonment. Payload carries {form}.
+  'form_start',
   // AN18 (#60): click-to-call / directions / mailto conversions emitted by the
   // analytics tracker's delegated click listener; payload carries {kind,section,href}.
   'conversion',
