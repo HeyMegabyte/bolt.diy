@@ -13,10 +13,7 @@ import { DOMAINS } from '@project-sites/shared';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { sendEmail } from './notifications.js';
 import { sendClaimBuildEmail } from './claim_build_emails.js';
-import {
-  runAbandonedBuildNudges,
-  type NudgeCandidate,
-} from './abandoned_builds.js';
+import { runAbandonedBuildNudges, type NudgeCandidate } from './abandoned_builds.js';
 
 /** D1 projection row for the candidate scan. */
 interface ScanRow {
@@ -82,9 +79,7 @@ export async function runAbandonedNudgesForEnv(
     sendRecovery: (to, ctx) =>
       sendClaimBuildEmail('recovery', to, ctx, { send: (m) => sendEmail(env, m) }),
     markNudged: async (siteId, atMs) => {
-      await env.DB.prepare('UPDATE sites SET nudged_at = ? WHERE id = ?')
-        .bind(atMs, siteId)
-        .run();
+      await env.DB.prepare('UPDATE sites SET nudged_at = ? WHERE id = ?').bind(atMs, siteId).run();
     },
   });
 }
