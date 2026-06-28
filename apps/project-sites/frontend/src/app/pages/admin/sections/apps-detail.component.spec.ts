@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { AppDetailComponent } from './apps-detail.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { APPS_CATALOG } from './apps-catalog.data';
 
@@ -18,14 +19,20 @@ import { APPS_CATALOG } from './apps-catalog.data';
 function make(
   post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'inst-1' })),
   appId = '',
+  confirmResult = true,
 ): {
   c: AppDetailComponent;
   nav: jasmine.Spy;
   post: jasmine.Spy;
   toast: { success: jasmine.Spy; error: jasmine.Spy };
+  confirm: { confirm: jasmine.Spy };
 } {
   const nav = jasmine.createSpy('navigate');
   const toast = { success: jasmine.createSpy('success'), error: jasmine.createSpy('error') };
+  // A4 — deploy() awaits this confirm gate before provisioning billable infra.
+  const confirm = {
+    confirm: jasmine.createSpy('confirm').and.returnValue(Promise.resolve(confirmResult)),
+  };
   TestBed.configureTestingModule({
     imports: [AppDetailComponent],
     providers: [
@@ -33,11 +40,12 @@ function make(
       { provide: Router, useValue: { navigate: nav } },
       { provide: ApiService, useValue: { post } },
       { provide: ToastService, useValue: toast },
+      { provide: ConfirmService, useValue: confirm },
       { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }) } },
     ],
   });
   TestBed.overrideComponent(AppDetailComponent, { set: { template: '<div></div>', imports: [] } });
-  return { c: TestBed.createComponent(AppDetailComponent).componentInstance, nav, post, toast };
+  return { c: TestBed.createComponent(AppDetailComponent).componentInstance, nav, post, toast, confirm };
 }
 
 describe('AppDetailComponent (subdomain validation + deploy guard)', () => {
@@ -77,22 +85,37 @@ describe('AppDetailComponent (subdomain validation + deploy guard)', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('deploy() posts and routes to the new instance on success', () => {
-    const { c, post, nav, toast } = make();
+  it('deploy() posts and routes to the new instance on success (after confirm)', async () => {
+    const { c, post, nav, toast, confirm } = make();
     c.onSubdomainChange('my-cool-app');
     c.subdomain = 'my-cool-app';
-    c.deploy({ id: 'umami', name: 'Umami' } as never); // supported (Live) app
+    await c.deploy({ id: 'umami', name: 'Umami' } as never); // supported (Live) app
+    expect(confirm.confirm).toHaveBeenCalled();
     expect(post).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalled();
     expect(nav).toHaveBeenCalledWith(['/admin/apps/instances', 'inst-1']);
     expect(c.deploying()).toBe(false);
   });
 
-  it('deploy() clears the deploying flag on error', () => {
+  it('A4: deploy() does NOT provision when the confirm gate is declined', async () => {
+    const { c, post, confirm } = make(
+      jasmine.createSpy('post').and.returnValue(of({ instance_id: 'inst-1' })),
+      '',
+      false, // user cancels the confirm dialog
+    );
+    c.onSubdomainChange('my-cool-app');
+    c.subdomain = 'my-cool-app';
+    await c.deploy({ id: 'umami', name: 'Umami' } as never);
+    expect(confirm.confirm).toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.deploying()).toBe(false);
+  });
+
+  it('deploy() clears the deploying flag on error', async () => {
     const { c } = make(jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 }))));
     c.onSubdomainChange('my-cool-app');
     c.subdomain = 'my-cool-app';
-    c.deploy({ id: 'umami', name: 'Umami' } as never);
+    await c.deploy({ id: 'umami', name: 'Umami' } as never);
     expect(c.deploying()).toBe(false);
   });
 
@@ -301,7 +324,7 @@ describe('AppDetailComponent (customize env vars before deploy)', () => {
     }
   });
 
-  it('deploy() POSTs the customized env_overrides (non-empty values only)', () => {
+  it('deploy() POSTs the customized env_overrides (non-empty values only)', async () => {
     const post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'i1' }));
     const { c } = make(post, 'umami');
     c.ngOnInit();
@@ -314,7 +337,7 @@ describe('AppDetailComponent (customize env vars before deploy)', () => {
     }
     const userVar = a.env.find((e) => !e.auto);
     if (userVar) c.setEnvOverride(userVar.key, 'custom-value');
-    c.deploy(a);
+    await c.deploy(a);
     expect(post).toHaveBeenCalled();
     const body = post.calls.mostRecent().args[1] as { env_overrides: Record<string, string> };
     if (userVar) expect(body.env_overrides[userVar.key]).toBe('custom-value');

@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -845,6 +846,7 @@ export class AppDetailComponent implements OnInit {
   }
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirm = inject(ConfirmService);
   private state = inject(AdminStateService);
 
   appId = signal<string>('');
@@ -1019,10 +1021,26 @@ export class AppDetailComponent implements OnInit {
    * The worker-side handler is wired by the backend agent — failures
    * surface via the standard toast pipeline.
    */
-  deploy(a: CatalogApp): void {
+  async deploy(a: CatalogApp): Promise<void> {
     // Soon apps have no runtime container yet — never POST a doomed deploy.
     // readyToDeploy also blocks until every REQUIRED user-provided var has a value.
     if (!isAppSupported(a.id) || !this.readyToDeploy() || this.deploying()) return;
+
+    // A4 — never SILENTLY provision billable infra. Show exactly which managed
+    // resources will be created + the monthly estimate, and require an explicit
+    // confirm before the POST. `danger:false` → cyan (creating, not destroying).
+    const managed = this.provisioning().filter((p) => p.managed);
+    const infraSummary = managed.length
+      ? managed.map((p) => p.provider).join(', ')
+      : 'a managed container';
+    const ok = await this.confirm.confirm({
+      title: `Deploy ${a.name}?`,
+      message: `This provisions ${infraSummary} on your account at an estimated ~$${this.totalCost()}/mo (estimate, not exact billing). You can destroy it anytime.`,
+      confirmLabel: 'Deploy',
+      danger: false,
+    });
+    if (!ok) return;
+
     this.deploying.set(true);
     // Only non-empty values ride along; the worker fills auto vars + defaults.
     const env_overrides: Record<string, string> = {};
