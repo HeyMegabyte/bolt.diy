@@ -60,6 +60,7 @@ const DonateSchema = z.object({
 });
 
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { gatewayFetch } from '../services/ai_gateway.js';
 import { writeAuditLog } from '../services/audit.js';
 import { getEmailProvider } from '../platform/email-router.js';
 
@@ -1672,9 +1673,10 @@ async function inspectImageWithVision(
   imageUrl: string,
   context: { businessName: string; imageRole: 'logo' | 'favicon' | 'hero' | 'photo' | 'banner' },
   openaiKey: string,
+  env: Env,
 ): Promise<ImageQualityResult | null> {
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const { response: res } = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2359,6 +2361,7 @@ search.post('/api/ai/discover-images', async (c) => {
           logoRef.originalUrl || logoRef.url,
           { businessName: bizName, imageRole: 'logo' },
           openaiKey,
+          c.env,
         ).then((result) => {
           logoRef.quality = result;
         }),
@@ -2372,6 +2375,7 @@ search.post('/api/ai/discover-images', async (c) => {
           favRef.originalUrl || favRef.url,
           { businessName: bizName, imageRole: 'favicon' },
           openaiKey,
+          c.env,
         ).then((result) => {
           favRef.quality = result;
         }),
@@ -2386,6 +2390,7 @@ search.post('/api/ai/discover-images', async (c) => {
           img.originalUrl || img.url,
           { businessName: bizName, imageRole: 'photo' },
           openaiKey,
+          c.env,
         ).then((result) => {
           img.quality = result;
         }),
@@ -2772,7 +2777,7 @@ search.post('/api/ai/edit-image', async (c) => {
     let editPrompt = body.prompt;
     if (body.originalUrl) {
       try {
-        const descRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        const { response: descRes } = await gatewayFetch(c.env, 'openai', '/v1/chat/completions', {
           method: 'POST',
           headers: { Authorization: `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2806,7 +2811,7 @@ search.post('/api/ai/edit-image', async (c) => {
       }
     }
 
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
+    const { response: res } = await gatewayFetch(c.env, 'openai', '/v1/images/generations', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${openaiKey}`,

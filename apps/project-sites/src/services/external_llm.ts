@@ -1178,7 +1178,7 @@ export async function uploadDocToOpenAI(
   formData.append('purpose', 'assistants');
   formData.append('file', blob, file.name);
 
-  const res = await fetch('https://api.openai.com/v1/files', {
+  const { response: res } = await gatewayFetch(env, 'openai', '/v1/files', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
     body: formData,

@@ -28,6 +28,7 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
+import { gatewayFetch } from '../services/ai_gateway.js';
 
 /**
  * Allowed DALL-E output sizes (also accepted by the Stability adapter).
@@ -123,7 +124,7 @@ export class ImageGenerationWorkflow extends WorkflowEntrypoint<Env, ImageGenera
       const apiKey = env.OPENAI_API_KEY;
       if (!apiKey) return null;
       try {
-        const res = await fetch('https://api.openai.com/v1/images/generations', {
+        const { response: res } = await gatewayFetch(env, 'openai', '/v1/images/generations', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${apiKey}`,

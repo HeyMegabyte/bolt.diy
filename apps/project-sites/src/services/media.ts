@@ -24,6 +24,7 @@
  */
 
 import type { Env } from '../types/env.js';
+import { gatewayFetch } from './ai_gateway.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from './db.js';
 import { callDallE3 } from './image_generation.js';
 
@@ -1009,7 +1010,7 @@ async function ttsElevenLabs(env: Env, voiceId: string, text: string): Promise<A
 async function ttsOpenAI(env: Env, voice: string, text: string): Promise<ArrayBuffer | null> {
   if (!env.OPENAI_API_KEY) return null;
   try {
-    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    const { response: res } = await gatewayFetch(env, 'openai', '/v1/audio/speech', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,

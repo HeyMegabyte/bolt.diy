@@ -120,9 +120,9 @@ describe('image_generation service', () => {
       expect(body.model).toBe('dall-e-3');
       expect(body.size).toBe('1792x1024');
       expect(body.prompt).toBe('hero prompt');
-      expect((init as RequestInit).headers).toMatchObject({
-        Authorization: 'Bearer sk-test-key',
-      });
+      // Routed through gatewayFetch → headers arrive as a Headers instance.
+      const sentHeaders = new Headers((init as RequestInit).headers);
+      expect(sentHeaders.get('Authorization')).toBe('Bearer sk-test-key');
     });
 
     it('defaults size to 1024x1024 when omitted', async () => {

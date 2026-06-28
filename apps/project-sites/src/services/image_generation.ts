@@ -7,6 +7,7 @@
  */
 
 import type { Env } from '../types/env.js';
+import { gatewayFetch } from './ai_gateway.js';
 import { optimizeAndStoreToR2 } from './image_optimization.js';
 
 interface GeneratedImage {
@@ -37,7 +38,7 @@ export async function callDallE3(
   }
 
   try {
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
+    const { response: res } = await gatewayFetch(env, 'openai', '/v1/images/generations', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,

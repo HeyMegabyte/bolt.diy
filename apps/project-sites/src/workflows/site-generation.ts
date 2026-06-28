@@ -21,6 +21,7 @@ import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { DOMAINS, AppError } from '@project-sites/shared';
+import { gatewayFetch } from '../services/ai_gateway.js';
 import { loadBuildFromR2, validateBuild } from '../services/build_validators.js';
 import { scoreReadiness } from '../services/production_readiness.js';
 import { postAskUser } from '../services/task_inbox.js';
@@ -1331,7 +1332,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           const imageUrl = ssData?.data?.screenshot?.url;
           if (!imageUrl) return JSON.stringify({ skipped: true, reason: 'no_screenshot_url' });
 
-          const critiqueRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          const { response: critiqueRes } = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${env.OPENAI_API_KEY}`,

@@ -586,12 +586,7 @@ describe('aiGatewayUrl', () => {
 // ─── uploadDocToOpenAI ─────────────────────────────────────────────────────────
 
 describe('uploadDocToOpenAI', () => {
-  // This helper hits the OpenAI Files API directly via global.fetch (not the gateway).
-  const realFetch = global.fetch;
-  afterEach(() => {
-    global.fetch = realFetch;
-  });
-
+  // This helper routes the OpenAI Files API call through gatewayFetch (mocked).
   it('throws when OPENAI_API_KEY is missing', async () => {
     const env = makeEnv({ OPENAI_API_KEY: undefined });
     await expect(
@@ -604,25 +599,27 @@ describe('uploadDocToOpenAI', () => {
   });
 
   it('posts multipart form data with Bearer auth and returns the file id', async () => {
-    const fetchMock = jest.fn(
-      async () => new Response(JSON.stringify({ id: 'file_abc123' }), { status: 200 }),
-    );
-    global.fetch = fetchMock as unknown as typeof fetch;
+    mockGatewayFetch.mockResolvedValueOnce(gwOk({ id: 'file_abc123' }));
     const id = await uploadDocToOpenAI(makeEnv(), {
       name: 'report.pdf',
       bytes: new Uint8Array([1, 2, 3]),
       mime: 'application/pdf',
     });
     expect(id).toBe('file_abc123');
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('https://api.openai.com/v1/files');
+    const [, provider, path, init] = mockGatewayFetch.mock.calls[0] as unknown as [
+      unknown,
+      string,
+      string,
+      RequestInit,
+    ];
+    expect(provider).toBe('openai');
+    expect(path).toBe('/v1/files');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sk-openai-test');
     expect(init.body).toBeInstanceOf(FormData);
   });
 
   it('throws the API error text on a non-2xx upload', async () => {
-    const fetchMock = jest.fn(async () => new Response('bad file', { status: 400 }));
-    global.fetch = fetchMock as unknown as typeof fetch;
+    mockGatewayFetch.mockResolvedValueOnce(gwErr(400, 'bad file'));
     await expect(
       uploadDocToOpenAI(makeEnv(), {
         name: 'a.pdf',
