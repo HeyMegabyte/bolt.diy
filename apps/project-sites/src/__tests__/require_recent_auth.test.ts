@@ -44,9 +44,7 @@ describe('sessionAgeSeconds', () => {
     expect(await sessionAgeSeconds(authWith(undefined) as never, new Headers(), NOW)).toBeNull();
   });
   it('returns null (never throws) when getSession throws', async () => {
-    expect(
-      await sessionAgeSeconds(authWith(0, true) as never, new Headers(), NOW),
-    ).toBeNull();
+    expect(await sessionAgeSeconds(authWith(0, true) as never, new Headers(), NOW)).toBeNull();
   });
   it('clamps negative ages (clock skew) to 0', async () => {
     expect(await sessionAgeSeconds(authWith(NOW + 5_000) as never, new Headers(), NOW)).toBe(0);
