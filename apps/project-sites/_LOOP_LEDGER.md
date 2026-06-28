@@ -125,7 +125,7 @@
 ## ⬇ Tier 4 — Lower value (SEO polish, secondary analytics, tooling, coverage)
 
 - [ ] [auto] FAQPage JSON-LD + answer-first content blocks on generated sites (+AI-citation weight).
-- [ ] [auto] AN2 — geo enrichment at ingest (persist CF country/city/region per event).
+- [x] AN2 — geo enrichment at ingest — DONE (2026-06-28). `recordPageviewFromRequest` (`visitor_events_core/service.ts`) now reads `cf.country` + `cf.city` + `cf.region` from the CF edge and persists all three into the event `metadata` JSON (was country-only) — capped to 80 chars, graceful `null` when the edge omits them, no schema migration (matches the existing AN1 metadata pattern). TDD: +2 tests (geo-persisted + null-graceful); 34/34 jest green, tsc 0; worker → CI push. [DONE]
 - [ ] [auto] AN38 — cookieless-by-default + visible "No cookies · GDPR" privacy badge (differentiator).
 - [ ] [auto] AN42 — one-click full data export (CSV) + delete for the owner.
 - [ ] [auto] GDPR/EU data-residency `jurisdiction="eu"` binding option on D1/R2.

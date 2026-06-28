@@ -110,7 +110,8 @@ export async function recordPageviewFromRequest(
     if (BOT_UA_RE.test(ua)) return;
     const ip = request.headers.get('cf-connecting-ip') ?? '';
     const referrer = request.headers.get('referer') ?? undefined;
-    const cf = (request as unknown as { cf?: { country?: string } }).cf;
+    const cf = (request as unknown as { cf?: { country?: string; city?: string; region?: string } })
+      .cf;
     const sessionId = await anonSessionId(ip, ua);
     await recordVisitorEvent(env, ctx, {
       sessionId,
@@ -119,8 +120,12 @@ export async function recordPageviewFromRequest(
       referrer: referrer ? referrer.slice(0, 2048) : undefined,
       // AN1 enrichment — device/browser/os + channel (+ utm when present) folded
       // into metadata JSON (no schema migration); powers AN10/AN13 owner widgets.
+      // AN2 — geo enrichment: country + city + region from the CF edge (city/region
+      // are coarse, non-PII; capped to keep the metadata row small).
       metadata: {
         country: cf?.country ?? null,
+        city: cf?.city ? cf.city.slice(0, 80) : null,
+        region: cf?.region ? cf.region.slice(0, 80) : null,
         ua: ua.slice(0, 256),
         ...enrichVisitor(ua, referrer, path),
       },

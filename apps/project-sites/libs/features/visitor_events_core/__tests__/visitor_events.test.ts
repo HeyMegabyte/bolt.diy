@@ -194,6 +194,31 @@ describe('edge pageview recording', () => {
     expect(events[0].session_id.length).toBeGreaterThanOrEqual(8);
   });
 
+  it('persists CF geo (country + city + region) into metadata — AN2', async () => {
+    const { env, events } = makeEnv();
+    const r = Object.assign(req(HUMAN_UA), {
+      cf: { country: 'US', city: 'Newark', region: 'New Jersey' },
+    }) as unknown as Request;
+    await recordPageviewFromRequest(env, { orgId: 'org1', siteId: 'site1' }, r, '/about');
+    expect(events).toHaveLength(1);
+    const meta = JSON.parse(events[0].metadata) as {
+      country: string;
+      city: string;
+      region: string;
+    };
+    expect(meta.country).toBe('US');
+    expect(meta.city).toBe('Newark');
+    expect(meta.region).toBe('New Jersey');
+  });
+
+  it('geo is null when the CF edge omits it (graceful)', async () => {
+    const { env, events } = makeEnv();
+    await recordPageviewFromRequest(env, { orgId: 'org1', siteId: 'site1' }, req(HUMAN_UA), '/');
+    const meta = JSON.parse(events[0].metadata) as { city: string | null; region: string | null };
+    expect(meta.city).toBeNull();
+    expect(meta.region).toBeNull();
+  });
+
   it('skips static assets', async () => {
     const { env, events } = makeEnv();
     await recordPageviewFromRequest(env, { orgId: 'org1', siteId: 'site1' }, req(HUMAN_UA), '/main.css');
