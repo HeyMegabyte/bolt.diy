@@ -121,9 +121,19 @@ export function resolveThemePolarity(input: ThemePolarityInput): ThemePolarityDe
 
   // No usable logo → dark default.
   const h = (logoHex ?? '').trim().replace(/^#/, '').toLowerCase();
-  const normalized = h.length === 3 ? h.split('').map((x) => x + x).join('') : h;
+  const normalized =
+    h.length === 3
+      ? h
+          .split('')
+          .map((x) => x + x)
+          .join('')
+      : h;
   if (!/^[0-9a-f]{6}$/.test(normalized)) {
-    return { theme: 'dark', preserveSourceDesign: false, reason: 'no logo color — default dark theme' };
+    return {
+      theme: 'dark',
+      preserveSourceDesign: false,
+      reason: 'no logo color — default dark theme',
+    };
   }
 
   const lum = relativeLuminance(logoHex!);

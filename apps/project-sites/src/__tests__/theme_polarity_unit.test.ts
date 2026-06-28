@@ -1,8 +1,4 @@
-import {
-  relativeLuminance,
-  contrastRatio,
-  resolveThemePolarity,
-} from '../services/theme_polarity';
+import { relativeLuminance, contrastRatio, resolveThemePolarity } from '../services/theme_polarity';
 
 describe('relativeLuminance', () => {
   it('black is ~0, white is ~1', () => {
