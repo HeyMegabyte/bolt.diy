@@ -251,23 +251,11 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] **T#7 html-validate** — generated-HTML structural build gate. **dep-churn**.
 - [ ] **T#9 unlighthouse** — all-routes Lighthouse/SEO/a11y scan for generated sites. **dep-churn** + needs a live/built URL (attended).
 - [ ] **T#13 promptfoo** — eval + prompt-injection red-team for generation prompts. **ext-key** (ANTHROPIC_API_KEY in CI) — scaffold config first.
-- [ ] **T#14 @anatine/zod-mock** — fixtures from Zod schemas. **dep-churn** (devDep) — clean once lockfile-safe.
 - [ ] **T#1 Pagefind** — WASM client-side search for >12-route generated sites. **dep-churn** + pipeline wiring (M).
 - [ ] **T#2 workers-og / Satori** — dynamic branded 1200×630 OG cards at the edge. **hot-file** (new worker route) + **dep-churn** (M).
-- [ ] **T#4 unpic** — responsive `<img>` via CF Images. Frontend, **dep-churn** (M).
-- [ ] **T#5 Capsize/Fontaine** — font-metric CLS kill. Frontend, **dep-churn** (M).
-- [ ] **T#6 Partytown** — third-party JS → worker thread on generated sites (M).
-- [ ] **T#18 Scalar** (+ Hono RPC `hc<AppType>`) — interactive API docs from `/api/openapi.json` (CDN, no dep) + end-to-end worker↔Angular types. **hot-file** (route mount in index.ts) — do when index.ts is quiet.
-- [ ] **T#10 Recraft** — AI vector/SVG logo gen → replaces raster DALL-E logos. **ext-key**.
-- [ ] **T#11 fal.ai (Flux)** — faster/cheaper hero+section image gen. **ext-key**.
-- [ ] **T#16 Unkey** — edge API-key mgmt for `public_api_v1`. **ext-key**.
 - [ ] **T#17 Stripe Billing Meters** — native usage metering for the credit wallet. **ext-key** + payments surface (approval-tier — attended).
 - [ ] **T#19 Arcjet** — security-as-code (bot/rate-limit/PII) on Workers. **ext-key** (M).
-- [ ] **T#21 Liveblocks** — live presence/comments on review-links/visual-point-edit. **ext-key** (M).
-- [ ] **T#22 Tolgee** — in-context + AI i18n management. **ext-key** (M).
 - [ ] **T#15 Drizzle ORM (RQBv2) + drizzle-kit** — type-safe D1 + migrations → replaces hand-rolled SQL across 153 services. **L** (biggest correctness win; dedicated attended session; also de-risks tenant-scoping audit #19).
-- [ ] **T#20 Alchemy** — TS-native CF IaC for the binding sprawl. **L** (attended).
-- [ ] **T#25 Nx + Nx Cloud** — affected builds + remote cache + generators. **L** (monorepo adoption; attended).
 - [ ] **T#26 Vitest** (worker Jest→Vitest) — kills the `@swc/jest` module-mock anomalies. **L** (325 suites; attended).
 > **Shipped this turn:** #8, #12, React Email. **Deferred rationale:** dep-churn items held because ≥3 fires are concurrently editing the worker tree (fire-3 hit lockfile/registry collisions) — batching npm installs unattended risks corrupting package-lock; do them in a single attended session. ext-key items need vendor keys (paste-collaboration). L items are multi-day refactors, not loop slices.
 
@@ -304,8 +292,6 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] 15. Research/brand/asset caching per business (rebuild skips re-research; ~15min→~5min) [partial][auto]
 - [ ] 16. Logo/font/color extraction fidelity (the suped-up-clone lever) [partial][dedicated]
 - [ ] 17. 1:N sitemap fidelity guard (fail on collapsed page counts) [partial][dedicated] — AUDIT 2026-06-25: the guard `validateRouteCount(files, sourceRouteCount)` (build_validators.ts:657) is DONE + wired into the validateBuild/validateBuildAst orchestrators (878/918) + has 5 unit tests (build_validators.test.ts:306). THE GAP: the live pipeline `site-generation.ts:1200` calls `validateBuild(files)` WITHOUT `sourceRouteCount`, so it never fires in prod. Closing = persist the source `routes.length` at scrape time (the scrape/structure step → R2 `sites/{slug}/_meta/route_count.json` or D1 research_data) and read it at the validate step to pass `{ sourceRouteCount }`. SAFE (validateBuild is report-mode, never blocks) but [dedicated]: needs the research-data plumbing + skip-on-missing (0) so it never false-flags when the count is unknown.
-- [ ] 18. AI-native: per-page 3-min podcast [new][dedicated]
-- [ ] 19. Veo/Sora hero video per build [new][dedicated]
 - [x] 20. Build cost accounting + per-build cap (protect margin) — **DONE (verified live 2026-06-28).** Per-build cap LIVE: `checkBuildLimit(env.DB, orgId, plan)` gates every site-creating path (`api.ts:839`/`:11180` create+import, `search.ts:587` create-from-search) with FREE_LIMIT (1 site) + PAID_LIMIT ($50/mo runaway ceiling) + unlimited-org exemption. Cost-accounting half = `token_burn_meter` module, flag ENABLED global/prod. Margin protected end-to-end. [DONE][auto]
 - [ ] 21. Container build retry/DLQ on failure (not silent error-email) [partial][auto]
 - [ ] 22. Source-site theme-polarity preservation guard [partial][auto]
@@ -361,13 +347,10 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] A7. Resource sizing tiers at deploy + live upsizing (expose `memoryMB` as a chooser; bump a struggling app without a redeploy — PikaPods/Elestio's core paid lever) [new][auto] slug `app_sizing_tiers`
 
 ### Tier A1 — discovery & conversion (marketplace UX)
-- [ ] A8. AI semantic search over the catalog (Vectorize embeddings of tagline/features → "I need to email customers" finds Listmonk+Mautic) [new][auto] slug `app_semantic_search`
 - [ ] A9. Use-case bundles / stacks (one-click "Creator stack" = Ghost + Listmonk + Umami; shared infra provisioned once) [new][auto] slug `app_bundles`
-- [ ] A10. AI "Apps for your site" contextual recs (recommend from the org's existing site type; permission-aware, tenant-scoped) [new][auto] slug `app_recommender`
 - [x] A11. Curated collections — **DONE (abe9113f, 2026-06-25).** `AppCollectionsComponent` above the catalog grid: 6 hand-picked editorial rows (Privacy-first analytics / Self-hosted AI / Replace your SaaS bill / Knowledge & docs / Creator stack / Developer toolbox) — magazine front-page over the flat grid. Pure frontend; each collection resolves catalog ids against APPS_CATALOG (unknown ids dropped, empty rows omitted); horizontal scroll-snap cards link to app detail. Karma 1645 (+3), tsc 0, AOT clean, apps page 200. [DONE][auto] slug `app_collections`
 - [x] A12. Replace-your-SaaS savings calculator — **DONE (78899b4b, 2026-06-25).** `SavingsCalculatorComponent` above the catalog grid: tick the tools you'd run → paid-SaaS cost vs self-hosting here + monthly/annual savings. Pure frontend — `estCostMonthly` from the catalog + a curated cheapest-tier SaaS-equivalent map (Plausible/Ghost/Calendly/1Password/Mailchimp/Zapier/Notion/Airtable/…); rows only where SaaS > self-host, preselected for an instant max-savings headline. Karma 1642 (+6), tsc 0, AOT clean, apps page 200. [DONE][auto] slug `app_saas_savings`
 - [ ] A13. Category landing pages + per-category JSON-LD (`SoftwareApplication`) + per-route SEO meta for organic discovery [new][auto] slug `app_category_pages`
-- [ ] A14. Screenshots + short loop/Veo preview per catalog card (replace the bare emoji `glyph` so the marketplace feels alive; reuse `services/media.ts`) [new][auto] slug `app_media_cards`
 
 ### Tier A2 — operational depth & lifecycle
 - [ ] A15. Bulk actions across instances (restart / stop / upgrade all; double-submit-guarded per [[double-submit-mutation-guards]]) [new][auto] slug `app_bulk_actions`
@@ -448,26 +431,14 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 - [ ] AN19. Per-site funnel (landing → key page → conversion) — funnel service is super-admin-only; expose owner-scoped. [partial][auto] slug `analytics_owner_funnel`
 
 ### Tier AN3 — real-time, alerts, digests (the engagement loop)
-- [ ] AN20. Real-time live visitor counter — DO-pushed "N people on your site now" (Event Dispatcher DO already exists). [new][auto] slug `analytics_realtime_count`
-- [ ] AN21. Live visitor feed — anonymized stream (page/source/location) via the DO. [new][auto] slug `analytics_live_feed`
 - [ ] AN22. Spike/drop alerts — threshold + rolling-baseline anomaly → psnotify/email. [new][auto] slug `analytics_alerts`
 - [ ] AN23. Weekly email digest — Monday auto-summary (visits/top page/top source/one goal/one AI sentence) via SES+Listmonk + psnotify; NEVER Novu per [[feedback_no_novu_custom_notifications]]. [new][auto] slug `analytics_weekly_digest`
 - [ ] AN24. Timeline annotations — pin "ran FB ad"/"posted on Nextdoor" to a date (context survives handoffs). [new][auto] slug `analytics_annotations`
-- [ ] AN25. Goal-completion real-time ping via psnotify ("someone just submitted your form"). [new][auto] slug `analytics_goal_ping`
 
 ### Tier AN4 — AI-native (the MOAT — only a builder that generated the site can do this)
 - [ ] AN26. Section-level instrumentation — auto-inject stable `data-ps-section`/`data-ps-cta` attrs into generated sites so events map to the exact AI-generated block (prereq for AN27). [new][auto] slug `analytics_section_tags`
 - [ ] AN27. Section-level attribution query + UI — "the Services section drives 40% of contact clicks." The competitive moat (depends AN26). [new][auto] slug `analytics_section_attr`
-- [ ] AN28. AI auto-suggest content edits from analytics — low scroll → "shorten this section?"; low CTA → "rewrite this button?"; one-click apply via bolt editor (depends AN16/AN27). [new][auto] slug `analytics_ai_suggest`
 - [ ] AN29. Natural-language analytics query — "visitors from Instagram last week?" over the narrow owned dataset. [new][auto] slug `analytics_nl_query`
-- [ ] AN30. AI weekly brief as prose (feeds AN23) — assistant paragraph w/ site name + business type, not a table. [new][auto] slug `analytics_ai_brief`
-- [ ] AN31. Site-aware anomaly diagnosis — "traffic dropped 60%; found a broken homepage link — fix it?" (joins analytics + site health). [new][auto] slug `analytics_ai_diagnose`
-- [ ] AN32. Auto-A/B on generated content — two AI hero variants, 50/50 split, auto-promote winner after N visits (ties Snapshots variants + visitor_events). [new][dedicated] slug `analytics_auto_ab`
-- [ ] AN33. AI insight cards ranked by business impact; auto-dismiss on action. [new][auto] slug `analytics_insight_cards`
-- [ ] AN34. Content-gap detection from search-referral keywords → "add an FAQ for X?". [new][auto] slug `analytics_content_gap`
-- [ ] AN35. LLM-as-analyst on demand — "why fewer calls this month?" → 3-bullet reasoned answer over traffic + GBP + change history. [new][auto] slug `analytics_llm_analyst`
-- [ ] AN36. Fleet-benchmark seasonality alerts — cross-tenant category patterns ("florists spike before Mother's Day → add a promo section?"). [new][auto] slug `analytics_seasonality`
-- [ ] AN37. Auto-annotate timeline from AI edits — every bolt/AI edit pins a change marker so owners see change→impact (ties AN24). [new][auto] slug `analytics_edit_markers`
 
 ### Tier AN5 — privacy & trust (differentiator vs Wix/GA4)
 - [ ] AN38. Cookieless-by-default + visible "No cookies · GDPR" privacy badge; generated sites never need a cookie banner (Plausible/Fathom positioning). [new][auto] slug `analytics_cookieless`
@@ -494,7 +465,6 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 ### Tier AN8 — foundation/honesty fixes (from the audit)
 - [ ] AN54. Operator zero-state honesty — super-admin Tinybird routes silently return `degraded:true` when unconfigured; render a clear "source not configured" notice (quiet lying-UI cousin per [[lying-ui-catcherror-class]]). [partial][auto] slug `analytics_degraded_notice`
 - [x] AN55. Live Events tab — pagination + filter + search (capped 500 rows, no paging today). [partial][auto] slug `analytics_live_paging` — DONE 2026-06-25: standalone `EventsTableComponent` (search across type/user/status + type dropdown + 25/page pager, query/type resets to page 1) mounted in `analytics-live`; 5 Karma specs; live in prod chunk-MOJ3IVCQ.js.
-- [ ] AN56. Heatmaps — move/scroll/rage-click client capture + replay-lite overlay (Clarity/Hotjar pattern). [new][dedicated] slug `analytics_heatmaps`
 
 ## ★ FORMS HARDENING CLUSTER (Brian-selected 2026-06-24 — convergence-loop pending)
 
@@ -506,17 +476,11 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 - [ ] F21. DOMPurify-sanitize every stored/echoed submission field before it renders in the admin detail panel or any reply email (stored-XSS via a form field). [new][auto] slug `forms_sanitize_fields`
 - [ ] F19. Submission rate-limiting on `/api/contact-form/*` — **prefer a Cloudflare WAF rate-limiting rule (via OpenTofu) as the edge-first layer**; fall back to the plan-independent **Durable Object counter** because CF managed/WAF rate-limiting is plan-gated on this account (per [[rate-limiting-plan-gated]]). Pair with honeypot+timestamp. [new][dedicated] slug `forms_rate_limit`
-- [ ] F25. "Test with this" — replay a real inbox submission's exact payload into the Prompt Designer test panel (debug the actual miss, not a synthetic one). [extend][auto] slug `forms_replay_submission`
-- [ ] F27. Routing-rule visualizer — render the form-handling prompt's decision tree as a React Flow / XYFlow graph (submission → conditions → MCP actions → fallback) for non-technical owners. [new][dedicated] slug `forms_routing_graph`
-- [ ] F28. Side-by-side A/B prompt test — run two router-prompt versions against the same payload, diff decision/MCP/cost/latency so "Improve with AI" is verified not trusted. [extend][auto] slug `forms_prompt_ab`
 - [ ] F30. Per-form router prompts — distinct routing prompt per `form_name` (newsletter vs quote vs job-application) instead of one global prompt branching on everything. [new][dedicated] slug `forms_per_form_prompt`
 - [ ] F31. Admin/platform submissions search via **Cloudflare AI Search (AutoRAG)** — NOT Orama (Orama stays the generated child-site default; notes updated in `docs/STACK.md` + `~/.agentskills/rules/projectsites-recommended-stack.md`). [new][dedicated] slug `forms_ai_search`
-- [ ] F39. Effect-typed routing pipeline — model submission→classify→validate→route→escalate as an Effect program (typed errors, retry+backoff, resource safety). [extend][dedicated] slug `forms_effect_pipeline`
 - [ ] F40. Zod contract on `/api/contact-form/:slug` — colocated schema + `safeParse` at the boundary, replacing the `as`-cast (closes the tracked contact/features drift). [extend][auto] slug `forms_zod_contract`
 - [ ] F41. CloudEvents envelope for submissions — emit typed `form.submission.received` / `…routed` events so analytics/webhooks/automations consume a stable contract. [new][auto] slug `forms_cloudevents`
 - [ ] F43. Reply-deliverability guardrails — run `email_deliverability.ts` (SPF/DKIM/from-domain) before any router auto-reply so AI replies don't land in spam. [extend][auto] slug `forms_reply_deliverability`
-- [ ] F45. Langfuse trace on every routing call — wire the existing AI-trace panel to Langfuse for prompt/version/cost/latency history across ALL submissions (not just the last test). [extend][auto] slug `forms_langfuse_trace`
-- [ ] F46. OpenTelemetry span across the submission lifecycle — one trace-id from `app.js` POST → worker → MCP action → reply, so a "lead vanished" is debuggable end-to-end. [extend][auto] slug `forms_otel_span`
 
 ## ★ VOICE ENGINE FOUNDATION + 50-IDEA CLUSTER (Brian-selected 2026-06-24)
 
@@ -548,12 +512,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 
 ### V1–V50 — Voice hardening cluster (from the web-researched 50-idea scan)
 - [ ] V1. p95 latency budget + live meter (alarm p95 >725ms). [new][auto] slug `voice_latency_meter`
-- [ ] V2. Semantic turn detection (audio+text) replacing pure-VAD. [extend][dedicated] slug `voice_semantic_turn`
-- [ ] V3. Duplex barge-in (<100ms interrupt of TTS). [extend][dedicated] slug `voice_barge_in`
-- [ ] V4. Fast-loop / slow-loop split (dialogue model + async heavy reasoning). [extend][dedicated] slug `voice_dual_loop`
 - [ ] V5. 8kHz-aware ASR+TTS tuning for G.711 telephony. [extend][auto] slug `voice_8khz_tuning`
-- [ ] V6. Streaming first-token TTS (speak first sentence while rest generates). [extend][auto] slug `voice_streaming_tts`
-- [ ] V7. Filler/acknowledgement tokens during tool calls. [extend][auto] slug `voice_filler_tokens`
 - [ ] V8. Versioned agent prompts + diff + rollback (Langfuse-tagged). [extend][auto] slug `voice_prompt_versioning`
 - [ ] V9. One persona, web+voice renderings (shared base + voice delta). [extend][auto] slug `voice_persona_parity`
 - [ ] V10. Voice picker with live preview + per-voice latency/cost. [extend][auto] slug `voice_voice_picker`

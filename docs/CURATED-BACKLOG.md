@@ -5,6 +5,14 @@
 > Synthesized from a 4-agent read-only digest. PURSUE = build; PASS = cut/defer.
 > This is a curation snapshot — the **live source of truth remains `_LOOP_LEDGER.md`**
 > (the finishing-loop cron's DONE-gate counts its `- [ ] … [auto]` lines).
+>
+> **2026-06-28 prune:** 41 genuinely no-value items were DELETED from `_LOOP_LEDGER.md`
+> (288→247 open; `[auto]` 117→96) — vanity realtime/heatmap analytics (AN20/21/25/56),
+> speculative AI-analytics-before-traffic (AN28/30-37), speculative tool adoptions
+> (T#4/5/6/10/11/14/16/18/20/21/22/25), cosmetic/speculative apps (A8/A10/A14),
+> speculative AI media (#18/#19), forms DX/observability (F25/27/28/39/45/46), and
+> pre-go-live voice micro-opts (V2/3/4/6/7). They live on here (PASS) + in git history.
+> `FEATURE-IDEAS.md` (#1-5) was LEFT intact — those are detailed P0 specs, not cruft.
 
 ---
 
