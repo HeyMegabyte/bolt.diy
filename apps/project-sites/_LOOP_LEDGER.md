@@ -71,7 +71,7 @@
 
 ### Security hardening
 - [ ] [auto] CSP L3 strict-dynamic + nonce + Trusted Types on the worker AND generated output sites.
-- [ ] [auto] SSRF allowlist on remaining user-URL-fetch routes (og-preview/import-rss/social).
+- [x] SSRF allowlist on user-URL-fetch routes — DONE (audit 2026-06-28). Guard library `outbound_webhooks.ts` (`isSafeWebhookUrl`/`isSafeCrawlUrl`/`isSafePublicHost` — rejects private/loopback/link-local/IPv4-mapped-IPv6 + cloud-metadata 169.254.169.254) + `search.ts isProxyableImageUrl`. Audited EVERY user-URL fetch sink: import-rss (`isSafeWebhookUrl`), og-preview (`isSafeWebhookUrl`), image-proxy (`isProxyableImageUrl`), SES SNS confirm (`SNS_SUBSCRIBE_HOST` allowlist) — ALL guarded. Added defense-in-depth `isProxyableImageUrl` guard on the image-candidate HEAD-reachability fetch (provider-derived URLs). tsc 0; worker → CI push. [DONE]
 - [ ] [auto] Secret-at-rest audit (MCP_ENCRYPTION_KEY + env-var AES-GCM) + rotation story.
 - [ ] [auto] Social (Pulse) LIVE DEFECTS — REMAINDER ONLY: add `social_*` flags · OAuth token-refresh. (verified 2026-06-28: `REAL_UA` already `149` in `social_publishers/types.ts`; `prepareMedia` already uses tenant-independent env-overridable `MEDIA_PUBLIC_BASE` → `/assets/r2/*` platform host, NOT a tenant-breaking hardcoded domain — both original sub-defects already fixed.)
 

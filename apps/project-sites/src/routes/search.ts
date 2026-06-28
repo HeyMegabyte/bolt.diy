@@ -2185,6 +2185,10 @@ search.post('/api/ai/discover-images', async (c) => {
       const validated: typeof unique = [];
       await Promise.all(
         unique.slice(0, 20).map(async (item) => {
+          // SSRF defense-in-depth: these candidate URLs come from image-search
+          // providers, not the user — but guard anyway so a compromised/poisoned
+          // provider response can't make us HEAD a private/loopback/metadata host.
+          if (!isProxyableImageUrl(item.url)) return;
           try {
             const r = await fetch(item.url, {
               method: 'HEAD',
