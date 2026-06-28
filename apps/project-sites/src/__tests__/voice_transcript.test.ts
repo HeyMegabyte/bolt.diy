@@ -7,15 +7,18 @@ jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn(),
   dbInsert: jest.fn(async () => undefined),
 }));
+jest.mock('../lib/posthog.js', () => ({ capture: jest.fn() }));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
+import { capture } from '../lib/posthog.js';
 import { dbInsert, dbQueryOne } from '../services/db.js';
 import { recordVoiceTranscript } from '../services/voice_transcript.js';
 import { voiceWebhookRoutes } from '../routes/voice_webhooks.js';
 
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockInsert = dbInsert as unknown as jest.Mock;
+const mockCapture = capture as unknown as jest.Mock;
 
 function makeEnv(over: Record<string, unknown> = {}): Env {
   return { DB: {} as unknown, ...over } as unknown as Env;
@@ -30,6 +33,7 @@ const TRANSCRIPT = [
 beforeEach(() => {
   mockQueryOne.mockReset();
   mockInsert.mockReset().mockResolvedValue(undefined);
+  mockCapture.mockReset();
 });
 
 describe('recordVoiceTranscript', () => {
@@ -43,7 +47,14 @@ describe('recordVoiceTranscript', () => {
       startedAtMs: 1000,
       endedAtMs: 61000,
     });
-    expect(res).toEqual({ stored: true, callId: 'room_abc' });
+    expect(res).toEqual({
+      stored: true,
+      callId: 'room_abc',
+      siteId: 'site-1',
+      orgId: 'org-1',
+      durationSeconds: 60,
+      turnCount: 3,
+    });
     expect(mockInsert).toHaveBeenCalledTimes(1);
     const [, table, row] = mockInsert.mock.calls[0];
     expect(table).toBe('voice_calls');
@@ -120,7 +131,62 @@ describe('POST /internal/voice/transcript', () => {
       makeEnv({ INTERNAL_BUILD_SECRET: SECRET }),
     );
     expect(res.status).toBe(200);
-    expect((await res.json()) as { stored: boolean }).toEqual({ stored: true, callId: 'room_ok' });
+    expect((await res.json()) as { stored: boolean }).toEqual({
+      stored: true,
+      callId: 'room_ok',
+      siteId: 'site-1',
+      orgId: 'org-1',
+      turnCount: 3,
+    });
     expect(mockInsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('emits a voice_call_completed PostHog event (rec #42) when an ExecutionContext is present', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'vn-1', site_id: 'site-9', org_id: 'org-9' });
+    const body = JSON.stringify({
+      callId: 'room_metrics',
+      dialedNumber: '+15551234567',
+      transcript: TRANSCRIPT,
+      startedAtMs: 1000,
+      endedAtMs: 61000,
+    });
+    const ctx = { waitUntil: jest.fn(), passThroughOnException: jest.fn() } as unknown as ExecutionContext;
+    const res = await app.request(
+      PATH,
+      { method: 'POST', headers: { 'x-internal-sig': await hmacHex(body) }, body },
+      makeEnv({ INTERNAL_BUILD_SECRET: SECRET }),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    expect(mockCapture).toHaveBeenCalledTimes(1);
+    const [, ctxArg, event] = mockCapture.mock.calls[0];
+    expect(ctxArg).toBe(ctx);
+    expect(event).toMatchObject({
+      event: 'voice_call_completed',
+      distinctId: 'org-9',
+      properties: {
+        channel: 'voice',
+        site_id: 'site-9',
+        org_id: 'org-9',
+        duration_seconds: 60,
+        turn_count: 3,
+      },
+    });
+  });
+
+  it('does not emit a PostHog event when there is no ExecutionContext (test/edge)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'vn-1', site_id: 'site-1', org_id: 'org-1' });
+    const body = JSON.stringify({
+      callId: 'room_noctx',
+      dialedNumber: '+15551234567',
+      transcript: TRANSCRIPT,
+    });
+    const res = await app.request(
+      PATH,
+      { method: 'POST', headers: { 'x-internal-sig': await hmacHex(body) }, body },
+      makeEnv({ INTERNAL_BUILD_SECRET: SECRET }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockCapture).not.toHaveBeenCalled();
   });
 });

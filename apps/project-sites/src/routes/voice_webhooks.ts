@@ -25,6 +25,7 @@ import { Hono } from 'hono';
 
 import type { Env, Variables } from '../types/env.js';
 
+import { capture } from '../lib/posthog.js';
 import { dbInsert, dbQueryOne, dbUpdate } from '../services/db.js';
 import { downloadRecordingBytes, fetchRecording, validateSignature } from '../services/twilio.js';
 import {
@@ -389,5 +390,27 @@ voiceWebhookRoutes.post('/internal/voice/transcript', async (c) => {
   if (!parsed.success) return c.json({ error: 'missing fields' }, 400);
 
   const result = await recordVoiceTranscript(c.env, parsed.data);
+
+  // rec #42 — per-call metrics → PostHog (fire-and-forget; no-ops without a key).
+  // Guarded: c.executionCtx throws when unavailable (e.g. under test) — skip then.
+  if (result.stored && result.orgId) {
+    try {
+      capture(c.env, c.executionCtx, {
+        distinctId: result.orgId,
+        event: 'voice_call_completed',
+        properties: {
+          channel: 'voice',
+          dialed_number: parsed.data.dialedNumber,
+          duration_seconds: result.durationSeconds ?? 0,
+          org_id: result.orgId,
+          site_id: result.siteId,
+          turn_count: result.turnCount ?? 0,
+        },
+      });
+    } catch {
+      /* no ExecutionContext (test/edge) — metrics are best-effort */
+    }
+  }
+
   return c.json(result);
 });

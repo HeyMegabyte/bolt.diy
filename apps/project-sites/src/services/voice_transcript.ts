@@ -37,15 +37,29 @@ export const TranscriptRequestSchema = z.object({
 });
 export type TranscriptRequest = z.infer<typeof TranscriptRequestSchema>;
 
+/** Result of a transcript-persistence attempt — carries the attribution + sizing a
+ * caller needs to emit a per-call analytics event without re-querying. */
+export interface RecordVoiceTranscriptResult {
+  stored: boolean;
+  callId: string;
+  /** Present only when `stored` — the call's owning site/org + sizing for metrics. */
+  siteId?: string;
+  orgId?: string;
+  durationSeconds?: number;
+  turnCount?: number;
+}
+
 /**
  * Store a completed call. Idempotent on `callId` (voice_calls.twilio_call_sid is
  * UNIQUE) — a retried POST is a no-op. Returns `{ stored:false }` when the dialed
- * number isn't mapped to an active site (nothing to attach the call to).
+ * number isn't mapped to an active site (nothing to attach the call to). When
+ * stored, also returns the owning `siteId`/`orgId` + `durationSeconds`/`turnCount`
+ * so the route can emit a `voice_call_completed` PostHog event (rec #42).
  */
 export async function recordVoiceTranscript(
   env: Env,
   req: TranscriptRequest,
-): Promise<{ stored: boolean; callId: string }> {
+): Promise<RecordVoiceTranscriptResult> {
   const num = await dbQueryOne<{ id: string; site_id: string; org_id: string }>(
     env.DB,
     `SELECT id, site_id, org_id FROM voice_numbers
@@ -89,5 +103,12 @@ export async function recordVoiceTranscript(
     /* duplicate callId (retry) — idempotent, fine */
   });
 
-  return { callId: req.callId, stored: true };
+  return {
+    callId: req.callId,
+    durationSeconds: duration ?? undefined,
+    orgId: num.org_id,
+    siteId: num.site_id,
+    stored: true,
+    turnCount: req.transcript.length,
+  };
 }
