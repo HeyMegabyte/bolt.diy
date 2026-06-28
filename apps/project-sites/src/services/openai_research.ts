@@ -25,11 +25,7 @@ import { captureLLMCall } from './analytics.js';
 import type { TraceContext } from './external_llm.js';
 import { gatewayFetch } from './ai_gateway.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import {
-  researchCacheKey,
-  getCachedResearch,
-  putCachedResearch,
-} from './research_cache.js';
+import { researchCacheKey, getCachedResearch, putCachedResearch } from './research_cache.js';
 
 const DEFAULT_MODEL = 'o3-mini';
 
