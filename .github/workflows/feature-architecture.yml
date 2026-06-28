@@ -110,6 +110,13 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-architecture-fitness.mjs --ci
 
+      # IDOR ownership-gate detector — every `:siteId`/`:id` feature handler must
+      # carry an ownership check (caps the 2026-06-28 cross-tenant audit arc; 9 gaps
+      # fixed). 0-finding-stable → graduated straight to a blocking gate.
+      - name: IDOR ownership gate
+        working-directory: apps/project-sites
+        run: node scripts/check-idor-gates.mjs --ci
+
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
         if: always()
