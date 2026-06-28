@@ -132,6 +132,8 @@ export function generateConversionFlow(slug: string): string {
 #ps-bar-brand{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:11px;color:rgba(255,255,255,0.5);transition:all 0.25s;text-decoration:none}
 #ps-bar-brand:hover{background:rgba(255,255,255,0.08);border-color:rgba(124,58,237,0.3);color:rgba(255,255,255,0.8)}
 #ps-bar-brand svg{opacity:0.5}
+#ps-bar-build{font-weight:600;letter-spacing:0.01em;white-space:nowrap}
+@media(max-width:600px){#ps-bar-build{display:none}}
 #ps-bar-edit{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:20px;background:rgba(100,255,218,0.06);border:1px solid rgba(100,255,218,0.15);color:#64ffda;font-size:11px;font-weight:600;text-decoration:none;letter-spacing:0.02em;transition:all 0.25s}
 #ps-bar-edit:hover{background:rgba(100,255,218,0.12);border-color:rgba(100,255,218,0.35);transform:translateY(-1px)}
 #ps-bar-edit:active{transform:translateY(0)}
@@ -188,8 +190,9 @@ export function generateConversionFlow(slug: string): string {
 <div id="ps-bar">
   <div id="ps-bar-inner">
     <div id="ps-bar-left">
-      <a id="ps-bar-brand" href="https://${DOMAINS.SITES_BASE}" target="_blank" rel="noopener" title="Built by ProjectSites">
+      <a id="ps-bar-brand" href="https://${DOMAINS.SITES_BASE}/?ref=preview" target="_blank" rel="noopener" aria-label="Build your own free site on ProjectSites" title="Build your own free site on ProjectSites">
         <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><defs><linearGradient id="psg" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#psg)"/><path d="M8 12l8-4 8 4M8 16l8 4 8-4M8 20l8 4 8-4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/><circle cx="16" cy="12" r="2" fill="#fff" opacity="0.7"/></svg>
+        <span id="ps-bar-build">Build your own</span>
       </a>
       <a id="ps-bar-edit" href="${editUrl}">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
@@ -873,6 +876,43 @@ export function asyncifyRenderBlockingFonts(html: string): string {
 }
 
 /**
+ * Auto-inject a STABLE `data-ps-section` attribute onto every top-level
+ * `<section>` of a served page (AN26 #112) — the stable hook that section-level
+ * conversion attribution (AN27 #63) reads. Each id is derived from the section's
+ * existing `id` (slug-sanitized → semantic + stable, e.g. "services", "pricing")
+ * and falls back to a deterministic 1-based index when no id is present, so the
+ * same structure always yields the same attribution keys across rebuilds.
+ *
+ * Purely additive: only injects when the attribute is absent, never rewrites
+ * other markup, and sanitizes the key to `[a-z0-9_-]` so it can't break the tag.
+ *
+ * @param html - The served HTML.
+ * @returns HTML with `data-ps-section` on each `<section>` that lacked one.
+ *
+ * @example
+ * ```ts
+ * injectSectionInstrumentation('<section id="Services">…</section>');
+ * // → '<section data-ps-section="services" id="Services">…</section>'
+ * ```
+ */
+export function injectSectionInstrumentation(html: string): string {
+  let i = 0;
+  return html.replace(/<section\b([^>]*)>/gi, (tag, attrs: string) => {
+    i += 1;
+    if (/\bdata-ps-section=/i.test(attrs)) return tag; // already instrumented
+    const idMatch = /\bid=("|')([^"']+)\1/i.exec(attrs);
+    const fromId = idMatch
+      ? idMatch[2]
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+      : '';
+    const key = fromId || `section-${i}`;
+    return `<section data-ps-section="${key}"${attrs}>`;
+  });
+}
+
+/**
  * Synthesize a static, contentful hero into a generated site's EMPTY `#root` so
  * the largest-contentful-paint candidate (the headline) paints at FCP instead of
  * only after the React bundle boots (~3s on throttled 3G). The headline, subline,
@@ -1128,6 +1168,13 @@ async function buildSiteResponse(
     }
     if (bodyInjection) {
       html = html.replace(/(<body[^>]*>)/i, `$1\n${bodyInjection}\n`);
+    }
+
+    // AN26 (#112): stamp a stable `data-ps-section` on every <section> so
+    // section-level conversion attribution (AN27) has a deterministic hook.
+    // Gated to the analytics-enabled path (the attribute only feeds analytics).
+    if (env?.ANALYTICS_INGEST_ENABLED === 'true' || env?.EVENT_DISPATCHER) {
+      html = injectSectionInstrumentation(html);
     }
 
     // Perf loop #14 (2026-06-23): generated sites are pure CSR — nothing paints

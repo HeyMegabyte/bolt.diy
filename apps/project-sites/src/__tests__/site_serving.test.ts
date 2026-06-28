@@ -5,9 +5,40 @@ import {
   injectAppShellHero,
   isServedSiteCookieless,
   generateNoCookiesBadge,
+  injectSectionInstrumentation,
 } from '../services/site_serving';
 import type { Env } from '../types/env';
 import { DOMAINS, BRAND } from '@project-sites/shared';
+
+describe('injectSectionInstrumentation (AN26 #112)', () => {
+  it('derives data-ps-section from an existing section id (semantic + sanitized)', () => {
+    const out = injectSectionInstrumentation('<section id="Services">x</section>');
+    expect(out).toBe('<section data-ps-section="services" id="Services">x</section>');
+  });
+
+  it('falls back to a deterministic 1-based index when no id is present', () => {
+    const out = injectSectionInstrumentation('<section>a</section><section>b</section>');
+    expect(out).toContain('data-ps-section="section-1"');
+    expect(out).toContain('data-ps-section="section-2"');
+  });
+
+  it('is idempotent — never double-stamps an already-instrumented section', () => {
+    const once = injectSectionInstrumentation('<section id="hero">h</section>');
+    expect(injectSectionInstrumentation(once)).toBe(once);
+  });
+
+  it('preserves other attributes + classes on the tag', () => {
+    const out = injectSectionInstrumentation('<section class="cta" id="pricing-plans">p</section>');
+    expect(out).toContain('data-ps-section="pricing-plans"');
+    expect(out).toContain('class="cta"');
+    expect(out).toContain('id="pricing-plans"');
+  });
+
+  it('leaves non-section markup untouched', () => {
+    const html = '<div id="services">x</div><p>y</p>';
+    expect(injectSectionInstrumentation(html)).toBe(html);
+  });
+});
 
 describe('cookieless privacy badge (AN38 #129)', () => {
   const envWith = (o: Partial<Env>): Env => o as unknown as Env;
@@ -104,6 +135,15 @@ describe('generateTopBar', () => {
   it('links to the main domain', () => {
     const html = generateTopBar('test');
     expect(html).toContain(`https://${DOMAINS.SITES_BASE}`);
+  });
+
+  it('shows a viewer "Build your own" CTA with preview attribution (S24)', () => {
+    const html = generateTopBar('test');
+    // The brand backlink doubles as an anonymous-viewer "build your own" CTA.
+    expect(html).toContain('Build your own');
+    expect(html).toContain(`https://${DOMAINS.SITES_BASE}/?ref=preview`);
+    expect(html).toContain('aria-label="Build your own free site on ProjectSites"');
+    expect(html).toContain('id="ps-bar-build"');
   });
 
   it('encodes slug in URL parameters to prevent XSS', () => {

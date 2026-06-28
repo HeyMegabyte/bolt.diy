@@ -78,7 +78,7 @@
 ### Viral growth surfaces
 - [ ] [auto] S22 — immutable stable preview URLs (`{slug}-{snapshot}.projectsites.dev` permanent + shareable).
 - [x] S23 — "Built with ProjectSites" footer on unauth previews — DONE (verified 2026-06-28). The fixed bottom conversion bar (`generateConversionFlow`) carries the `ps-bar-brand` backlink to ProjectSites and is injected on every FREE-plan served surface: branch previews (`{branch}--{slug}`, always `plan:'free'` → `site_serving.ts:369`) AND snapshot previews (`{slug}-{snapshot}`, plan inherited from the base site's subscription → free sites get the bar). So an anonymous viewer of any unauth/free preview sees the "Built with" footer + backlink. The link IS the ad. (S24 remains distinct — the bar's CTA is owner-claim "$50/mo", not build-your-own.) [DONE]
-- [ ] [auto] S24 — "Build your own" CTA for anonymous preview viewers.
+- [x] S24 — "Build your own" CTA for anonymous preview viewers — DONE (2026-06-28). The free-tier conversion bar's brand backlink (`ps-bar-brand`, shown on every free/preview surface) now carries a visible **"Build your own"** label + `aria-label`, links to `https://{SITES_BASE}/?ref=preview` (attribution), so an anon viewer who likes the preview has a one-click path to start their own build — distinct from the owner-facing "Claim $50/mo"/"Edit with AI" CTAs. Label hides <600px to avoid mobile crowding; keeps the #80/#134 backlink. +1 unit test (82/82 site_serving), tsc 0. Worker → CI push. [DONE]
 - [ ] [auto] S27 — Client Review Mode (Approve promotes the snapshot live; agency-tier feature).
 - [ ] [auto] A21 — referral / org-to-org "share this stack" deploy link (viral loop).
 
@@ -109,7 +109,7 @@
 - [ ] [auto] AN19 — per-site funnel (landing → key page → conversion), owner-scoped.
 - [ ] [auto] AN23 — weekly email digest (Monday auto-summary via SES+Listmonk).
 - [ ] [auto] AN48 — public shareable read-only dashboard URL (token + optional expiry).
-- [ ] [auto] AN26 — section-level instrumentation (auto-inject stable `data-ps-section`).
+- [x] AN26 — section-level instrumentation (auto-inject stable `data-ps-section`) — DONE (2026-06-28). `injectSectionInstrumentation(html)` stamps a stable `data-ps-section` onto every served-page `<section>`: derived from the section's existing `id` (slug-sanitized to `[a-z0-9_-]` → semantic, e.g. `services`/`pricing`) with a deterministic 1-based `section-N` fallback. Purely additive (idempotent, never rewrites other markup, key sanitized so it can't break the tag). Wired into the serve path gated on analytics-enabled (`ANALYTICS_INGEST_ENABLED`/`EVENT_DISPATCHER`). This is the stable hook AN27 (#63 section attribution) reads. +5 unit tests (82/82), tsc 0. Worker → CI push. [DONE]
 - [ ] [auto] AN49 — year-in-review auto report (retention loop).
 - [ ] [auto] AN50 — benchmark vs fleet median ("your form converts 1.2% vs 3.4% category avg").
 
