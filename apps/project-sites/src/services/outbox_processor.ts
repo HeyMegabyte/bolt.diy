@@ -194,7 +194,9 @@ export async function processOutbox(
       // attempts ≥ cap — the SELECT above stops re-picking it). Record attempts +
       // last_error so the admin DLQ + retry tooling can reason over it.
       await db
-        .prepare(`UPDATE outbox_events SET status = 'failed', attempts = ?, last_error = ? WHERE id = ?`)
+        .prepare(
+          `UPDATE outbox_events SET status = 'failed', attempts = ?, last_error = ? WHERE id = ?`,
+        )
         .bind(attemptsAfter, lastError.slice(0, 1000), row.id)
         .run();
       if (nextStatusAfterFailure(attemptsAfter, maxAttempts) === 'dead') dead++;

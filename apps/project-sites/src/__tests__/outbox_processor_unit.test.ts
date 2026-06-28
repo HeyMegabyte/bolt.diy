@@ -62,8 +62,7 @@ function makeDb(store: StubRow[]): OutboxProcessorDb {
               const eligible = store
                 .filter(
                   (r) =>
-                    r.status === 'pending' ||
-                    (r.status === 'failed' && r.attempts < maxAttempts),
+                    r.status === 'pending' || (r.status === 'failed' && r.attempts < maxAttempts),
                 )
                 .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
                 .slice(0, limit)
@@ -136,7 +135,10 @@ describe('processOutbox', () => {
   });
 
   it('delivers pending rows and marks them dispatched', async () => {
-    const store = [row({ id: 'a', created_at: '2026-06-20T00:00:01Z' }), row({ id: 'b', created_at: '2026-06-20T00:00:02Z' })];
+    const store = [
+      row({ id: 'a', created_at: '2026-06-20T00:00:01Z' }),
+      row({ id: 'b', created_at: '2026-06-20T00:00:02Z' }),
+    ];
     const db = makeDb(store);
     const deliver = jest.fn().mockResolvedValue(undefined);
 
