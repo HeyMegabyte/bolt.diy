@@ -25,6 +25,9 @@ interface Env {
   OIDC_CLIENT_ID: string;
   OIDC_CLIENT_SECRET: string;
   OIDC_REDIRECT_URLS?: string;
+  /** Second trusted OIDC client: Listmonk (mail.projectsites.dev) SSO. */
+  LISTMONK_OIDC_CLIENT_ID?: string;
+  LISTMONK_OIDC_CLIENT_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
 }
@@ -33,6 +36,31 @@ type Auth = ReturnType<typeof betterAuth>;
 
 function buildAuth(env: Env): Auth {
   const db = new Kysely({ dialect: new D1Dialect({ database: env.DB }) });
+  const trustedClients = [
+    {
+      clientId: env.OIDC_CLIENT_ID,
+      clientSecret: env.OIDC_CLIENT_SECRET,
+      name: 'ProjectSites',
+      type: 'web' as const,
+      redirectURLs: (env.OIDC_REDIRECT_URLS ?? 'https://projectsites.dev/api/auth/betterauth/callback').split(','),
+      disabled: false,
+      skipConsent: true,
+      metadata: {},
+    },
+  ];
+  // Listmonk (mail.projectsites.dev) SSO — added when its client creds are provisioned.
+  if (env.LISTMONK_OIDC_CLIENT_ID && env.LISTMONK_OIDC_CLIENT_SECRET) {
+    trustedClients.push({
+      clientId: env.LISTMONK_OIDC_CLIENT_ID,
+      clientSecret: env.LISTMONK_OIDC_CLIENT_SECRET,
+      name: 'Listmonk',
+      type: 'web' as const,
+      redirectURLs: ['https://mail.projectsites.dev/auth/oidc'],
+      disabled: false,
+      skipConsent: true,
+      metadata: {},
+    });
+  }
   return betterAuth({
     baseURL: 'https://auth.projectsites.dev',
     secret: env.BETTER_AUTH_SECRET,
@@ -46,20 +74,7 @@ function buildAuth(env: Env): Auth {
     plugins: [
       oidcProvider({
         loginPage: '/sign-in',
-        trustedClients: [
-          {
-            clientId: env.OIDC_CLIENT_ID,
-            clientSecret: env.OIDC_CLIENT_SECRET,
-            name: 'ProjectSites',
-            type: 'web',
-            redirectURLs: (
-              env.OIDC_REDIRECT_URLS ?? 'https://projectsites.dev/api/auth/betterauth/callback'
-            ).split(','),
-            disabled: false,
-            skipConsent: true,
-            metadata: {},
-          },
-        ],
+        trustedClients,
       }),
     ],
   });
@@ -108,6 +123,22 @@ const app = new Hono<{ Bindings: Env }>();
 app.get('/health', (c) => c.json({ ok: true, service: 'better-auth', db: 'd1' }));
 app.get('/', (c) => c.redirect('/sign-in'));
 app.get('/sign-in', (c) => c.html(SIGN_IN_HTML));
+// Issuer-root OIDC discovery. Better Auth serves discovery at /api/auth/.well-known/...,
+// but its `issuer` is the bare host, so strict RP clients (e.g. Listmonk/go-oidc) expect
+// discovery at {issuer}/.well-known/openid-configuration. Mirror it here so issuer matches.
+app.get('/.well-known/openid-configuration', async (c) => {
+  const auth = buildAuth(c.env);
+  await ensureSchema(auth);
+  return auth.handler(
+    new Request('https://auth.projectsites.dev/api/auth/.well-known/openid-configuration', {
+      headers: c.req.raw.headers,
+    }),
+  );
+});
+app.get('/.well-known/jwks.json', async (c) => {
+  const auth = buildAuth(c.env);
+  return auth.handler(new Request('https://auth.projectsites.dev/api/auth/jwks'));
+});
 app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', async (c) => {
   const auth = buildAuth(c.env);
   await ensureSchema(auth);
