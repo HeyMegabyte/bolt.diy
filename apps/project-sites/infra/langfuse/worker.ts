@@ -59,10 +59,39 @@ export class Langfuse extends Container<Env> {
     out.CLICKHOUSE_MIGRATION_URL = `clickhouse://${CH_HOST}:9000`;
     out.CLICKHOUSE_USER = 'langfuse';
     out.CLICKHOUSE_CLUSTER_ENABLED = 'false';
-    out.LANGFUSE_S3_EVENT_UPLOAD_BUCKET = 'projectsites-langfuse';
-    out.LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    // ── R2 (S3-compatible) blob storage — all three Langfuse v3 blob purposes on ONE
+    // R2 bucket (`projectsites-langfuse`), namespaced by prefix, sharing the same R2 S3
+    // API token (S3_ACCESS_KEY_ID/SECRET). R2 needs region=auto + force-path-style=true.
+    const R2_ENDPOINT = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    const R2_BUCKET = 'projectsites-langfuse';
+    // 1) Event uploads (raw ingestion events — REQUIRED in v3).
+    out.LANGFUSE_S3_EVENT_UPLOAD_BUCKET = R2_BUCKET;
+    out.LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT = R2_ENDPOINT;
     out.LANGFUSE_S3_EVENT_UPLOAD_REGION = 'auto';
     out.LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE = 'true';
+    out.LANGFUSE_S3_EVENT_UPLOAD_PREFIX = 'events/';
+    // 2) Media uploads (multimodal trace attachments) + 3) Batch exports (CSV/JSON → R2).
+    // Both reuse the same R2 bucket + the event-upload R2 credentials. Only wired when the
+    // R2 S3 creds are present (v3 requires them for event uploads anyway), so we never ship
+    // an enabled batch-export with empty creds.
+    if (env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY) {
+      out.LANGFUSE_S3_MEDIA_UPLOAD_BUCKET = R2_BUCKET;
+      out.LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT = R2_ENDPOINT;
+      out.LANGFUSE_S3_MEDIA_UPLOAD_REGION = 'auto';
+      out.LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE = 'true';
+      out.LANGFUSE_S3_MEDIA_UPLOAD_PREFIX = 'media/';
+      out.LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID = env.S3_ACCESS_KEY_ID;
+      out.LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY = env.S3_SECRET_ACCESS_KEY;
+
+      out.LANGFUSE_S3_BATCH_EXPORT_ENABLED = 'true';
+      out.LANGFUSE_S3_BATCH_EXPORT_BUCKET = R2_BUCKET;
+      out.LANGFUSE_S3_BATCH_EXPORT_ENDPOINT = R2_ENDPOINT;
+      out.LANGFUSE_S3_BATCH_EXPORT_REGION = 'auto';
+      out.LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE = 'true';
+      out.LANGFUSE_S3_BATCH_EXPORT_PREFIX = 'exports/';
+      out.LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID = env.S3_ACCESS_KEY_ID;
+      out.LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY = env.S3_SECRET_ACCESS_KEY;
+    }
     out.NEXTAUTH_URL = 'https://traces.projectsites.dev';
     out.TELEMETRY_ENABLED = 'false';
     out.HOSTNAME = '0.0.0.0';
