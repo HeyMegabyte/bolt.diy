@@ -256,7 +256,8 @@ export function makeAuth(env: Env): Auth {
               heading: 'Sign in to ProjectSites',
               body: 'Tap below to sign in. This link works once and expires in 5 minutes.',
               cta: { label: 'Sign in', url },
-              footnote: 'This link expires in 5 minutes. If you didn’t request it, ignore this email.',
+              footnote:
+                'This link expires in 5 minutes. If you didn’t request it, ignore this email.',
             }),
           );
         },
