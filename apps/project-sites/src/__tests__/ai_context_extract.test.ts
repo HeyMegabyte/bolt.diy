@@ -96,9 +96,9 @@ describe('visionExtract', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.openai.com/v1/chat/completions');
     expect((init as RequestInit).method).toBe('POST');
-    const headers = (init as RequestInit).headers as Record<string, string>;
-    expect(headers.authorization).toBe('Bearer sk-secret');
-    expect(headers['content-type']).toBe('application/json');
+    const headers = new Headers((init as RequestInit).headers); // routed via gatewayFetch (Headers)
+    expect(headers.get('authorization')).toBe('Bearer sk-secret');
+    expect(headers.get('content-type')).toBe('application/json');
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.model).toBe('gpt-4o-mini');
     expect(body.messages[0].content[0].text).toBe('transcribe');

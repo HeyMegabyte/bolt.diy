@@ -12,6 +12,7 @@
  * (one per page) to keep cost predictable.
  */
 import type { Env } from '../types/env.js';
+import { gatewayFetch } from './ai_gateway.js';
 
 /** Hard cap on Vision calls per file, regardless of page count. */
 export const MAX_VISION_CALLS_PER_FILE = 4;
@@ -59,7 +60,7 @@ export function toDataUrl(bytes: Uint8Array, mime: string): string {
 export async function visionExtract(env: Env, dataUrl: string, prompt: string): Promise<string> {
   if (!env.OPENAI_API_KEY) return '';
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const { response: res } = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

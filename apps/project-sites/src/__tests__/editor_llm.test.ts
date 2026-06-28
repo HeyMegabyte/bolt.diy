@@ -200,7 +200,7 @@ describe('streamChatResponse — openai', () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('https://api.openai.com/v1/chat/completions');
     expect(init.method).toBe('POST');
-    expect(init.headers.Authorization).toBe('Bearer sk-openai-test');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer sk-openai-test');
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe('gpt-4o-mini');
     expect(body.stream).toBe(true);
@@ -267,8 +267,8 @@ describe('streamChatResponse — anthropic', () => {
     await streamChatResponse(makeEnv(), args);
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('https://api.anthropic.com/v1/messages');
-    expect(init.headers['x-api-key']).toBe('sk-ant-test');
-    expect(init.headers['anthropic-version']).toBe('2023-06-01');
+    expect(new Headers(init.headers).get('x-api-key')).toBe('sk-ant-test');
+    expect(new Headers(init.headers).get('anthropic-version')).toBe('2023-06-01');
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe('claude-sonnet-4-6');
     expect(body.max_tokens).toBe(4096);

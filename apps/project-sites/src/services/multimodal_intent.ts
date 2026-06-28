@@ -25,6 +25,7 @@
  */
 
 import type { Env } from '../types/env.js';
+import { gatewayFetch } from './ai_gateway.js';
 
 export type CopilotIntent = 'book' | 'quote' | 'support' | 'browse' | 'unknown';
 
@@ -87,7 +88,7 @@ async function describeImage(
   const ext = detectMimeType(image);
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const { response: res } = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,

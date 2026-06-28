@@ -26,6 +26,7 @@
  */
 
 import type { Env } from '../types/env.js';
+import { gatewayFetch } from './ai_gateway.js';
 
 export type LlmProvider = 'workers-ai' | 'openai' | 'anthropic' | 'ollama';
 
@@ -95,7 +96,7 @@ async function streamOpenAi(env: Env, args: StreamArgs): Promise<void> {
   const key = env.OPENAI_API_KEY;
   if (!key) throw new Error('openai_api_key_missing');
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const { response: res } = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -145,7 +146,7 @@ async function streamAnthropic(env: Env, args: StreamArgs): Promise<void> {
   const systemMsg = args.messages.find((m) => m.role === 'system')?.content;
   const userMessages = args.messages.filter((m) => m.role !== 'system');
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const { response: res } = await gatewayFetch(env, 'anthropic', '/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
