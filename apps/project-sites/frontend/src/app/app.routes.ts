@@ -49,6 +49,16 @@ export const routes: Routes = [
       import('./pages/auth/session-management.component').then((m) => m.SessionManagementComponent),
   },
   {
+    path: 'auth/2fa/enroll',
+    loadComponent: () =>
+      import('./pages/auth/two-factor-enroll.component').then((m) => m.TwoFactorEnrollComponent),
+  },
+  {
+    path: 'auth/2fa/verify',
+    loadComponent: () =>
+      import('./pages/auth/two-factor-verify.component').then((m) => m.TwoFactorVerifyComponent),
+  },
+  {
     path: 'create',
     loadComponent: () => import('./pages/create/create.component').then((m) => m.CreateComponent),
   },

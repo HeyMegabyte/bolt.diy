@@ -46,6 +46,21 @@ export interface AuthSignInResult {
   url?: string;
 }
 
+/** Result of enabling two-factor — the TOTP URI + one-time backup codes. */
+export interface TwoFactorEnableResult {
+  /** `otpauth://totp/...?secret=...` URI for authenticator apps / manual entry. */
+  totpURI: string;
+  /** One-time recovery codes shown ONCE — user must store them safely. */
+  backupCodes: string[];
+}
+
+/** Result of verifying a TOTP code at enrollment or login. */
+export interface TwoFactorVerifyResult {
+  token?: string;
+  user?: AuthUser;
+  status?: boolean;
+}
+
 /** Discriminated result for every method — never throws on HTTP failure. */
 export type AuthResult<T> =
   | { ok: true; data: T }
@@ -150,5 +165,39 @@ export class AuthApiService {
   /** Revoke every session except (optionally) the current one — sign out everywhere. */
   revokeOtherSessions(): Promise<AuthResult<{ status?: boolean }>> {
     return this.post<{ status?: boolean }>('/revoke-other-sessions', {});
+  }
+
+  /**
+   * Enable two-factor auth — confirm the password, get back the TOTP URI + backup codes.
+   *
+   * @remarks The returned `backupCodes` are shown ONCE; surface them to the user immediately.
+   */
+  enableTwoFactor(input: { password: string }): Promise<AuthResult<TwoFactorEnableResult>> {
+    return this.post<TwoFactorEnableResult>('/two-factor/enable', input);
+  }
+
+  /**
+   * Verify a 6-digit TOTP code — at enrollment to confirm, or at login to clear the challenge.
+   *
+   * @param input.code - 6-digit code from the authenticator app.
+   * @param input.trustDevice - when true, skip 2FA on this device for 30 days (idea #34).
+   */
+  verifyTotp(input: {
+    code: string;
+    trustDevice?: boolean;
+  }): Promise<AuthResult<TwoFactorVerifyResult>> {
+    return this.post<TwoFactorVerifyResult>('/two-factor/verify-totp', input);
+  }
+
+  /** Disable two-factor auth — requires the account password. */
+  disableTwoFactor(input: { password: string }): Promise<AuthResult<{ status?: boolean }>> {
+    return this.post<{ status?: boolean }>('/two-factor/disable', input);
+  }
+
+  /** Regenerate the one-time backup codes — requires the account password. */
+  generateBackupCodes(input: {
+    password: string;
+  }): Promise<AuthResult<{ backupCodes: string[] }>> {
+    return this.post<{ backupCodes: string[] }>('/two-factor/generate-backup-codes', input);
   }
 }
