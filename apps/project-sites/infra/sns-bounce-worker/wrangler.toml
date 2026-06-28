@@ -1,0 +1,24 @@
+# projectsites-sns-bounce — SNS↔Listmonk bounce bridge for mail.projectsites.dev.
+#
+# WHY: Listmonk's SES webhook (/webhooks/service/ses) processes bounce/complaint
+# Notifications but does NOT auto-confirm the SNS HTTPS SubscriptionConfirmation
+# handshake (returns 400), so the subscription never activates. This tiny Worker
+# sits in front: it completes the SNS handshake (visits SubscribeURL) and forwards
+# real Notifications (the raw, still-signed SNS body) on to Listmonk's webhook.
+#
+# Route is a more-specific path under mail.projectsites.dev (beats the mail.*→
+# listmonk-container route) and lives under /webhooks/ which is NOT behind CF Access.
+name = "projectsites-sns-bounce"
+main = "index.ts"
+compatibility_date = "2026-06-01"
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+# workers.dev URL is intentionally ENABLED: Amazon SNS delivers the bounce webhook
+# here. The projectsites.dev zone runs Bot Fight Mode (no per-path exception on the
+# free tier), which challenges SNS's datacenter requests; the workers.dev hostname is
+# not subject to the zone WAF/BFM, so SNS reaches the worker directly. The worker then
+# forwards the (signature-bearing) notification on to Listmonk.
+workers_dev = true
+
+[[routes]]
+pattern = "mail.projectsites.dev/webhooks/sns-ses"
+zone_id = "9ceaa211750dd31899fd5d1bf8d1ec46"
