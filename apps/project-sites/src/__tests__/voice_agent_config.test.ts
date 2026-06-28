@@ -57,6 +57,12 @@ describe('resolveVoiceAgentConfig', () => {
       maxEndpointingDelayMs: 2500,
       interruptionMode: 'adaptive',
     });
+    expect(cfg.returningCaller).toEqual({
+      known: false,
+      priorCalls: 0,
+      lastSummary: null,
+      lastCalledAt: null,
+    });
   });
 
   it('routes the LLM through the SITE LiteLLM endpoint when per-site vars exist', async () => {
@@ -149,6 +155,50 @@ describe('resolveVoiceAgentConfig — turn presets + disclosure (roadmap #8/#31)
     // No override → default disclosure with the business name substituted.
     expect(cfg.disclosure).toContain("Tony's Pizzeria");
     expect(cfg.disclosure).toContain('may be recorded');
+  });
+});
+
+describe('resolveVoiceAgentConfig — per-caller memory (roadmap #14/#15)', () => {
+  it('recognizes a returning caller from prior completed calls to this site', async () => {
+    // dbQueryOne call order: voice_numbers → settings → site → prior-call
+    mockQueryOne
+      .mockResolvedValueOnce({ site_id: 'site-7', org_id: 'org-1' })
+      .mockResolvedValueOnce({ voice_system_prompt: null, voice_model: null })
+      .mockResolvedValueOnce({ business_name: 'Acme Dental' })
+      .mockResolvedValueOnce({
+        summary: 'Asked about a cleaning appointment',
+        created_at: '2026-06-20 14:00:00',
+        prior_calls: 3,
+      });
+    const cfg = await resolveVoiceAgentConfig(makeEnv(), '+15551234567', '+15559998888');
+    expect(cfg.returningCaller).toEqual({
+      known: true,
+      priorCalls: 3,
+      lastSummary: 'Asked about a cleaning appointment',
+      lastCalledAt: '2026-06-20 14:00:00',
+    });
+  });
+
+  it('returns an unknown caller when no prior call matches', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ site_id: 'site-8', org_id: 'org-1' })
+      .mockResolvedValueOnce({ voice_system_prompt: null, voice_model: null })
+      .mockResolvedValueOnce({ business_name: 'Acme' })
+      .mockResolvedValueOnce(null); // no prior completed call
+    const cfg = await resolveVoiceAgentConfig(makeEnv(), '+15551234567', '+15550001111');
+    expect(cfg.returningCaller.known).toBe(false);
+    expect(cfg.returningCaller.priorCalls).toBe(0);
+  });
+
+  it('skips the memory lookup entirely when no caller number is provided', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ site_id: 'site-9', org_id: 'org-1' })
+      .mockResolvedValueOnce({ voice_system_prompt: null, voice_model: null })
+      .mockResolvedValueOnce({ business_name: 'Acme' });
+    const cfg = await resolveVoiceAgentConfig(makeEnv(), '+15551234567');
+    expect(cfg.returningCaller.known).toBe(false);
+    // 3 queries only (voice_numbers + settings + site) — the prior-call query never ran.
+    expect(mockQueryOne).toHaveBeenCalledTimes(3);
   });
 });
 

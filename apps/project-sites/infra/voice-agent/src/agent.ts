@@ -49,14 +49,30 @@ interface TurnDetectionConfig {
   interruptionMode: 'adaptive' | 'fixed';
 }
 
+interface ReturningCallerInfo {
+  known: boolean;
+  priorCalls: number;
+  lastSummary: string | null;
+  lastCalledAt: string | null;
+}
+
 interface AgentConfig {
   persona: string;
   /** Opening line (AI disclosure + recording notice) the agent speaks first. */
   disclosure: string;
   /** Per-vertical turn-taking tuning applied to `turnHandling`. */
   turnDetection: TurnDetectionConfig;
+  /** Memory of this caller's prior calls to this site. */
+  returningCaller: ReturningCallerInfo;
   llm: { baseUrl: string; apiKey: string; model: string };
 }
+
+const UNKNOWN_CALLER: ReturningCallerInfo = {
+  known: false,
+  priorCalls: 0,
+  lastSummary: null,
+  lastCalledAt: null,
+};
 
 /** The balanced default disclosure + turn-taking when the worker config is
  * unreachable — mirrors the worker's `conversational` preset so a fallback call
@@ -93,11 +109,12 @@ function resolveDialedNumber(ctx: JobContext): string {
  * Falls back to env-configured platform LiteLLM/OpenAI on any failure so a call
  * is never dropped because the config service is unreachable.
  */
-async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
+async function fetchAgentConfig(dialedNumber: string, callerNumber: string): Promise<AgentConfig> {
   const fallback: AgentConfig = {
     persona: DEFAULT_PERSONA,
     disclosure: DEFAULT_DISCLOSURE,
     turnDetection: DEFAULT_TURN_DETECTION,
+    returningCaller: UNKNOWN_CALLER,
     llm: {
       baseUrl: process.env.LITELLM_BASE_URL ?? 'https://llm.megabyte.space/v1',
       apiKey: process.env.LITELLM_API_KEY ?? process.env.OPENAI_API_KEY ?? '',
@@ -108,7 +125,9 @@ async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
   const secret = process.env.INTERNAL_BUILD_SECRET ?? '';
   if (!secret || !dialedNumber) return fallback;
   try {
-    const body = JSON.stringify({ dialedNumber });
+    const body = JSON.stringify(
+      callerNumber ? { dialedNumber, callerNumber } : { dialedNumber },
+    );
     const sig = createHmac('sha256', secret).update(body).digest('hex');
     const res = await fetch(`${workerUrl}/internal/voice/agent-config`, {
       method: 'POST',
@@ -121,6 +140,7 @@ async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
       persona?: string;
       disclosure?: string;
       turnDetection?: Partial<TurnDetectionConfig>;
+      returningCaller?: Partial<ReturningCallerInfo>;
       llm?: AgentConfig['llm'];
     };
     if (!cfg.llm?.baseUrl || !cfg.llm.apiKey) return fallback;
@@ -128,6 +148,7 @@ async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
       persona: cfg.persona || DEFAULT_PERSONA,
       disclosure: cfg.disclosure || DEFAULT_DISCLOSURE,
       turnDetection: { ...DEFAULT_TURN_DETECTION, ...cfg.turnDetection },
+      returningCaller: { ...UNKNOWN_CALLER, ...cfg.returningCaller },
       llm: cfg.llm,
     };
   } catch {
@@ -200,9 +221,23 @@ export default defineAgent({
     await ctx.connect();
 
     // Per-site LiteLLM routing: dialed DID → site → LiteLLM endpoint + virtual key.
+    // Caller number (FROM) enables per-caller memory (returning-caller recognition).
     const dialedNumber = resolveDialedNumber(ctx);
-    const config = await fetchAgentConfig(dialedNumber);
+    const callerNumber = resolveCallerNumber(ctx);
+    const config = await fetchAgentConfig(dialedNumber, callerNumber);
     const startedAtMs = Date.now();
+
+    // Per-caller memory (roadmap #14/#15): when this caller has called before,
+    // tell the LLM so it greets them as a returning caller by their last topic.
+    const personaWithMemory = config.returningCaller.known
+      ? `${config.persona}\n\nNOTE: This caller has contacted ${
+          config.returningCaller.priorCalls
+        } time(s) before.${
+          config.returningCaller.lastSummary
+            ? ` Their last call was about: "${config.returningCaller.lastSummary}".`
+            : ''
+        } Greet them warmly as a returning caller and, if relevant, reference their prior topic — but never assume details you were not given.`
+      : config.persona;
 
     const session = new voice.AgentSession({
       vad: (await ctx.proc.userData.vad) as silero.VAD,
@@ -243,14 +278,14 @@ export default defineAgent({
       void postTranscript({
         callId: ctx.room.name || `room-${startedAtMs}`,
         dialedNumber,
-        callerNumber: resolveCallerNumber(ctx) || undefined,
+        callerNumber: callerNumber || undefined,
         transcript: collectTranscript(session),
         startedAtMs,
         endedAtMs: Date.now(),
       });
     });
 
-    await session.start({ agent: new Receptionist(config.persona), room: ctx.room });
+    await session.start({ agent: new Receptionist(personaWithMemory), room: ctx.room });
 
     // Spoken AI disclosure + recording notice (FCC TCPA / CA SB 1001 / EU AI Act
     // Art. 50) — the exact line is resolved per-site (compliance-as-config), so a

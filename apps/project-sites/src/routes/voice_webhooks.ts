@@ -348,7 +348,11 @@ voiceWebhookRoutes.post('/internal/voice/agent-config', async (c) => {
   const parsed = AgentConfigRequestSchema.safeParse(parsedBody);
   if (!parsed.success) return c.json({ error: 'missing fields' }, 400);
 
-  const config = await resolveVoiceAgentConfig(c.env, parsed.data.dialedNumber);
+  const config = await resolveVoiceAgentConfig(
+    c.env,
+    parsed.data.dialedNumber,
+    parsed.data.callerNumber,
+  );
   return c.json(config);
 });
 

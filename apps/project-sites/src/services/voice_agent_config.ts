@@ -103,6 +103,23 @@ function buildTurnDetection(hint: string | undefined): TurnDetectionConfig {
 }
 
 /**
+ * What we remember about a caller from their prior calls to THIS site (roadmap
+ * #14/#15 — caller recognition + per-caller memory). Scoped to the dialed site's
+ * own `voice_calls`, so the agent can greet a returning caller by their last
+ * topic — a continuity moat standalone receptionists don't have. `known:false`
+ * when no caller number was provided or no prior completed call exists.
+ */
+export interface ReturningCallerInfo {
+  known: boolean;
+  /** Count of prior completed calls from this caller to this site. */
+  priorCalls: number;
+  /** Summary of the most recent prior call (for "calling back about …?"). */
+  lastSummary: string | null;
+  /** When the most recent prior call happened (stored datetime string). */
+  lastCalledAt: string | null;
+}
+
+/**
  * Resolved agent config returned to the LiveKit agent. `llm.apiKey` is a secret
  * (a per-site LiteLLM virtual key) — only ever returned over the HMAC-signed
  * internal endpoint, never logged.
@@ -117,6 +134,8 @@ export interface VoiceAgentConfig {
   disclosure: string;
   /** Per-vertical turn-taking tuning the agent applies to `turnHandling`. */
   turnDetection: TurnDetectionConfig;
+  /** Memory of this caller's prior calls to this site (recognition/personalization). */
+  returningCaller: ReturningCallerInfo;
   llm: {
     /** OpenAI-compatible base URL (LiteLLM). e.g. https://llm.megabyte.space/v1 */
     baseUrl: string;
@@ -127,8 +146,19 @@ export interface VoiceAgentConfig {
   };
 }
 
+/** "We don't know this caller" — used when no caller number or no prior call. */
+const UNKNOWN_CALLER: ReturningCallerInfo = {
+  known: false,
+  lastCalledAt: null,
+  lastSummary: null,
+  priorCalls: 0,
+};
+
 /** Request body schema for `/internal/voice/agent-config`. */
 export const AgentConfigRequestSchema = z.object({
+  /** The caller's number (FROM), when the SIP participant exposes it — enables
+   * per-caller memory. Optional: the agent may not always have it. */
+  callerNumber: z.string().min(3).max(32).optional(),
   dialedNumber: z.string().min(3).max(32),
 });
 export type AgentConfigRequest = z.infer<typeof AgentConfigRequestSchema>;
@@ -147,6 +177,7 @@ export type AgentConfigRequest = z.infer<typeof AgentConfigRequestSchema>;
 export async function resolveVoiceAgentConfig(
   env: Env,
   dialedNumber: string,
+  callerNumber?: string,
 ): Promise<VoiceAgentConfig> {
   const platformBaseUrl = (env.LITELLM_BASE_URL ?? '').trim() || 'https://llm.megabyte.space/v1';
   const platformKey = (env.LITELLM_API_KEY ?? env.OPENAI_API_KEY ?? '').trim();
@@ -166,12 +197,19 @@ export async function resolveVoiceAgentConfig(
       llm: { apiKey: platformKey, baseUrl: platformBaseUrl, model: 'gpt-4o-mini' },
       orgId: null,
       persona: DEFAULT_VOICE_PERSONA.replace('{business}', 'this business'),
+      returningCaller: UNKNOWN_CALLER,
       siteId: null,
       turnDetection: buildTurnDetection(undefined),
     };
   }
 
-  const [vars, settings, site] = await Promise.all([
+  // Per-caller memory: look up prior completed calls from this caller to THIS
+  // site (only when we have a caller number — keeps the query off the hot path
+  // for anonymous callers). Scoped to the site so memory never leaks across orgs.
+  // Inlined as the LAST Promise.all element so the dbQueryOne call order is
+  // deterministic: voice_numbers → settings → site → prior.
+  const caller = (callerNumber ?? '').trim();
+  const [vars, settings, site, prior] = await Promise.all([
     resolveEnvVarsForAI(env, { orgId: num.org_id, siteId: num.site_id }).catch(
       () => ({}) as Record<string, string>,
     ),
@@ -186,7 +224,29 @@ export async function resolveVoiceAgentConfig(
       `SELECT business_name FROM sites WHERE id = ? LIMIT 1`,
       [num.site_id],
     ),
+    caller
+      ? dbQueryOne<{ summary: string | null; created_at: string | null; prior_calls: number }>(
+          env.DB,
+          `SELECT summary, created_at,
+                  (SELECT COUNT(*) FROM voice_calls
+                     WHERE site_id = ? AND from_number = ? AND status = 'completed'
+                       AND deleted_at IS NULL) AS prior_calls
+             FROM voice_calls
+            WHERE site_id = ? AND from_number = ? AND status = 'completed' AND deleted_at IS NULL
+            ORDER BY created_at DESC LIMIT 1`,
+          [num.site_id, caller, num.site_id, caller],
+        ).catch(() => null)
+      : Promise.resolve(null),
   ]);
+
+  const returningCaller: ReturningCallerInfo = prior
+    ? {
+        known: true,
+        lastCalledAt: prior.created_at,
+        lastSummary: prior.summary?.trim() || null,
+        priorCalls: Number(prior.prior_calls) || 1,
+      }
+    : UNKNOWN_CALLER;
 
   const businessName = site?.business_name?.trim() || 'this business';
   const persona =
@@ -211,6 +271,7 @@ export async function resolveVoiceAgentConfig(
     llm: { apiKey, baseUrl, model },
     orgId: num.org_id,
     persona,
+    returningCaller,
     siteId: num.site_id,
     turnDetection,
   };
