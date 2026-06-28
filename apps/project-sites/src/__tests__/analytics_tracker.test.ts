@@ -39,7 +39,7 @@ describe('buildAnalyticsTracker', () => {
     expect(t).toContain("k='directions'");
     // Fires a conversion event tagged with the nearest section (AN26 → AN27).
     expect(t).toContain("window.psTrack('conversion'");
-    expect(t).toContain("data-ps-section");
+    expect(t).toContain('data-ps-section');
     expect(t).toContain('section:near(el)');
   });
 
