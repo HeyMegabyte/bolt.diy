@@ -1,3 +1,0 @@
-# Plane admin (Next.js) — pinned tag; pointed at the public API by the Worker env.
-FROM makeplane/plane-admin:stable
-EXPOSE 3000

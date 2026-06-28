@@ -14,28 +14,25 @@ and the **celery daemons are kept warm by a cron**. Data plane is fully provisio
 | Object storage | Cloudflare R2 | bucket `plane-media` | `PLANE_R2_ACCESS_KEY_ID` / `PLANE_R2_SECRET_ACCESS_KEY` ⚠ mint (below) |
 | Django secret | self-gen | `openssl rand -hex 32` | `PLANE_SECRET_KEY` |
 
-## Architecture (one Worker, 4 Container DOs)
+## Architecture (one Worker, ONE Container DO — Plane AIO)
 
 ```
-pm.megabyte.space ─▶ Worker projectsites-plane (worker.ts)  ── path router ──┐
-  /api · /auth · /plane-media  ─▶ PlaneApi   (Dockerfile.backend)            │  each container →
-  /spaces                      ─▶ PlaneSpace (Dockerfile.space)              │  Neon · Upstash ·
-  /god-mode                    ─▶ PlaneAdmin (Dockerfile.admin)             │  CloudAMQP · R2
-  (else)                       ─▶ PlaneWeb   (Dockerfile.web)               │  (external, direct)
-                                                                            ┘
-cron */2 ─▶ scheduled() re-pokes PlaneApi → keeps gunicorn + celery worker + beat warm
+pm.megabyte.space ─▶ Worker projectsites-plane (worker.ts) ─▶ Plane AIO container (:80)
+                                                               │  internal supervisor + proxy runs
+                                                               │  web + space + admin + api +
+                                                               │  celery worker + beat
+                     cron */2 ─▶ scheduled() re-pokes it ──────┘  talks to Neon · Upstash ·
+                     (keeps celery worker/beat warm)              CloudAMQP · R2 (external, direct)
 ```
 
-- **PlaneApi** runs **api (gunicorn :8000) + celery worker + celery beat** together via
-  supervisord (`supervisord.conf`), with a migrate-on-boot entrypoint (`start.sh`, idempotent).
-  One container covers all three backend roles — CF Containers can't run docker-compose, so we
-  consolidate the same-image processes and keep them alive with the keep-warm cron.
-- **PlaneWeb / PlaneSpace / PlaneAdmin** are the three Next.js images, each :3000, pointed at the
-  public API (`NEXT_PUBLIC_API_BASE_URL=https://pm.megabyte.space`) which the Worker routes back to
-  PlaneApi. No container↔container private network needed.
-- Files: `worker.ts` (router + classes + keep-warm), `wrangler.toml` (4 `[[containers]]` + DO
-  bindings + migration + cron + custom_domain), `Dockerfile.{backend,web,space,admin}`,
-  `supervisord.conf`, `start.sh`. Env reference: `.env.plane.example`.
+- **ONE container** — Plane's **all-in-one (AIO) image** runs every Plane process behind its own
+  internal supervisor + proxy on a single port (80). The Worker just forwards every request to it
+  (no path-routing, no per-service containers). AIO runs DB migrations itself on boot.
+- The container talks to the EXTERNAL data plane directly (Neon/Upstash/CloudAMQP/R2). Celery has
+  no HTTP port, so the `*/2` cron re-pokes the container to keep worker/beat draining the queue.
+- Files: `worker.ts` (one `Plane` class + forward + keep-warm), `wrangler.toml` (one
+  `[[containers]]` + DO binding + migration + cron + custom_domain), `Dockerfile`
+  (`FROM makeplane/plane-aio:stable`). Env reference: `.env.plane.example`.
 
 ## Remaining blockers (2)
 
@@ -47,17 +44,16 @@ cron */2 ─▶ scheduled() re-pokes PlaneApi → keeps gunicorn + celery worker
    printf '%s' '<ACCESS_KEY_ID>'     | chezmoi encrypt --output "$SD/PLANE_R2_ACCESS_KEY_ID"
    printf '%s' '<SECRET_ACCESS_KEY>' | chezmoi encrypt --output "$SD/PLANE_R2_SECRET_ACCESS_KEY"
    ```
-2. **Deploy** — builds 4 container images → needs **Docker** (or push to CF Workers Builds, which
-   has Docker). The `wrangler deploy` of a container worker rebuilds `FROM makeplane/*` images.
+2. **Deploy** — builds the single AIO image → needs **Docker** (or push to CF Workers Builds,
+   which has Docker). `wrangler deploy` rebuilds `FROM makeplane/plane-aio:stable`.
 
 ## Deploy (Docker up — or via Workers Builds)
 
 ```bash
 cd apps/project-sites/infra/plane
 export CLOUDFLARE_API_KEY="$(get-secret CLOUDFLARE_API_KEY)" CLOUDFLARE_EMAIL=blzalewski@gmail.com
-W="--name projectsites-plane --env production"   # (omit --env if single-env)
 
-# secrets → the Worker (injected into each Container DO's envVars by worker.ts)
+# secrets → the Worker (injected into the Plane container's envVars by worker.ts)
 for kv in \
   "SECRET_KEY:PLANE_SECRET_KEY" "DATABASE_URL:PLANE_DATABASE_URL" "REDIS_URL:PLANE_REDIS_URL" \
   "AMQP_URL:PLANE_AMQP_URL" "S3_ACCESS_KEY_ID:PLANE_R2_ACCESS_KEY_ID" \
@@ -67,7 +63,7 @@ for kv in \
 done
 
 open -a Docker && until docker info >/dev/null 2>&1; do sleep 3; done   # builder
-npx wrangler deploy        # builds the 4 images + provisions the 4 Container DOs + the route
+npx wrangler deploy        # builds the AIO image + provisions the Plane Container DO + the route
 ```
 
 DNS/TLS: `wrangler.toml` declares `routes = [{ pattern = "pm.megabyte.space", custom_domain = true }]`
