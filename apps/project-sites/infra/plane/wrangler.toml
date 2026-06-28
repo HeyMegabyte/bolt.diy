@@ -1,0 +1,81 @@
+name = "projectsites-plane"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# pm.megabyte.space → this Worker, which path-routes to the per-service Plane containers.
+# Explicit custom_domain (megabyte.space zone) — Plane is the ONLY thing on this host.
+routes = [
+  { pattern = "pm.megabyte.space", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+# Keep the API container (which also runs celery worker + beat via supervisord) warm so the
+# Celery broker keeps draining — CF hibernates idle containers; this re-pokes it every 2 min.
+[triggers]
+crons = ["*/2 * * * *"]
+
+[vars]
+WEB_URL = "https://pm.megabyte.space"
+
+# ── Per-service Plane containers (each = one official image via a thin Dockerfile) ──
+# backend image runs api (gunicorn :8000) + celery worker + celery beat under supervisord.
+[[containers]]
+class_name = "PlaneApi"
+image = "./Dockerfile.backend"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-plane-api"
+
+[[containers]]
+class_name = "PlaneWeb"
+image = "./Dockerfile.web"
+max_instances = 1
+instance_type = "standard-2"
+name = "projectsites-plane-web"
+
+[[containers]]
+class_name = "PlaneSpace"
+image = "./Dockerfile.space"
+max_instances = 1
+instance_type = "standard-2"
+name = "projectsites-plane-space"
+
+[[containers]]
+class_name = "PlaneAdmin"
+image = "./Dockerfile.admin"
+max_instances = 1
+instance_type = "standard-2"
+name = "projectsites-plane-admin"
+
+[[durable_objects.bindings]]
+name = "PLANE_API"
+class_name = "PlaneApi"
+
+[[durable_objects.bindings]]
+name = "PLANE_WEB"
+class_name = "PlaneWeb"
+
+[[durable_objects.bindings]]
+name = "PLANE_SPACE"
+class_name = "PlaneSpace"
+
+[[durable_objects.bindings]]
+name = "PLANE_ADMIN"
+class_name = "PlaneAdmin"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PlaneApi", "PlaneWeb", "PlaneSpace", "PlaneAdmin"]
+
+# Secrets to set before deploy (wrangler secret put ... --name projectsites-plane):
+#   SECRET_KEY              get-secret PLANE_SECRET_KEY
+#   DATABASE_URL           get-secret PLANE_DATABASE_URL   (Neon direct, DB `plane`)
+#   REDIS_URL              get-secret PLANE_REDIS_URL       (Upstash, TLS)
+#   AMQP_URL               get-secret PLANE_AMQP_URL        (CloudAMQP RabbitMQ)
+#   S3_ACCESS_KEY_ID       get-secret PLANE_R2_ACCESS_KEY_ID      (mint in R2 dashboard)
+#   S3_SECRET_ACCESS_KEY   get-secret PLANE_R2_SECRET_ACCESS_KEY  (mint in R2 dashboard)

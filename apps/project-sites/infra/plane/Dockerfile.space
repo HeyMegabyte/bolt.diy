@@ -1,0 +1,3 @@
+# Plane space (Next.js) — pinned tag; pointed at the public API by the Worker env.
+FROM makeplane/plane-space:stable
+EXPOSE 3000

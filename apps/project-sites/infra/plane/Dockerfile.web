@@ -1,0 +1,3 @@
+# Plane web (Next.js) — pinned tag; pointed at the public API by the Worker env.
+FROM makeplane/plane-frontend:stable
+EXPOSE 3000
