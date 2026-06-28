@@ -18,6 +18,13 @@
         reverse_proxy localhost:3004
     }
 
+	# TEMPORARY DIAGNOSTIC — obscure path exposes /app/logs so the api boot crash is
+	# readable via `curl /_diag_a7x9k2/error/api.err.log`. REMOVE in the next push.
+	handle_path /_diag_a7x9k2/* {
+		root * /app/logs
+		file_server browse
+	}
+
 	handle_path /god-mode* {
         root * /app/admin
         try_files {path} {path}/ /index.html
