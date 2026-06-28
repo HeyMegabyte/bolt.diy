@@ -108,7 +108,9 @@
 ## 8. Hardening — forms / social / infra / security
 
 - [ ] [auto] Form reply-deliverability guardrails (run SPF/DKIM check before reply). *(rate-limit, field-escape, Zod contract on the contact form = already DONE.)*
-- [ ] [auto] Social (Pulse): OAuth token-refresh lifecycle, rate-limit + quota alert, failed-post retry UX, brand-voice profile, per-platform reformat.
+- [ ] [auto] Social (Pulse) LIVE DEFECTS — fix hardcoded media domain in `social-publish.ts prepareMedia` (breaks media for custom-domain tenants; use primary hostname / signed R2 URL) · bump stale `REAL_UA` Chrome 131→149 in `social_publishers/types.ts` · add `social_*` feature flags · OAuth token-refresh lifecycle.
+- [ ] [auto] Social (Pulse) hardening — rate-limit + quota alert, failed-post retry UX, brand-voice profile, per-platform reformat.
+- [ ] [auto] Pulse Inbox AI — wire `summarizeConversation` + `suggestNextActions` into the inbox UI; `repurpose` + `translateContent` (per-account locale) entry-points; expose auto-reply confidence threshold in settings; backfill `social_analytics_snapshots` at deploy.
 - [ ] [auto] R2 Standard→Infrequent-Access lifecycle after 30d (margin).
 - [ ] [auto] Enable Cloudflare Queues for async fan-out off the request path (p99).
 - [ ] [auto] SSRF allowlist on remaining user-URL-fetch routes (og-preview/import-rss/social).
