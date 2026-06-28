@@ -150,7 +150,10 @@ describe('POST /internal/voice/transcript', () => {
       startedAtMs: 1000,
       endedAtMs: 61000,
     });
-    const ctx = { waitUntil: jest.fn(), passThroughOnException: jest.fn() } as unknown as ExecutionContext;
+    const ctx = {
+      waitUntil: jest.fn(),
+      passThroughOnException: jest.fn(),
+    } as unknown as ExecutionContext;
     const res = await app.request(
       PATH,
       { method: 'POST', headers: { 'x-internal-sig': await hmacHex(body) }, body },
