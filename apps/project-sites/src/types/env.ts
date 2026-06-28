@@ -627,6 +627,9 @@ export interface Env {
   PAGERDUTY_OAUTH_CLIENT_ID?: string;
   PAGERDUTY_OAUTH_CLIENT_SECRET?: string;
   PAGERDUTY_ACCOUNT_SUBDOMAIN?: string;
+  /** Vercel Marketplace Integration OAuth credentials (oac_… client id + secret). */
+  VERCEL_OAUTH_CLIENT_ID?: string;
+  VERCEL_OAUTH_CLIENT_SECRET?: string;
   /** Stripe Price IDs for AI credit topups (one-time purchases). */
   STRIPE_PRICE_CREDITS_100?: string;
   STRIPE_PRICE_CREDITS_500?: string;

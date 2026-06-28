@@ -957,6 +957,92 @@ const zapier: ProviderAdapter = pasteKeyAdapter({
   }),
 });
 
+/* ─────────────────────────── Vercel (Marketplace Integration) ─────────────────────────── */
+// Vercel installs are MARKETPLACE-FLOW, not the standard connect flow: Vercel redirects to
+// our callback with `code` + `configurationId` + `teamId` + `next` (no `state`). The token
+// exchange hits api.vercel.com/v2/oauth/access_token. The callback handler has a vercel
+// branch for this (see routes/mcp_oauth.ts). authorizeUrl is the fallback connect path.
+const vercel: ProviderAdapter = {
+  provider: 'vercel',
+  authorizeUrl(env, { state, returnUrl }) {
+    const params = new URLSearchParams({
+      client_id: env.VERCEL_OAUTH_CLIENT_ID ?? '',
+      redirect_uri: `${new URL(returnUrl).origin}/api/mcp/vercel/callback`,
+      state,
+    });
+    return `https://vercel.com/oauth/authorize?${params}`;
+  },
+  async exchangeCode(env, { code, redirectUri }) {
+    const res = await fetch('https://api.vercel.com/v2/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: env.VERCEL_OAUTH_CLIENT_ID ?? '',
+        client_secret: env.VERCEL_OAUTH_CLIENT_SECRET ?? '',
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+    if (!res.ok) throw new Error(`vercel oauth ${res.status}: ${await res.text().catch(() => '')}`);
+    const json = (await res.json()) as {
+      access_token: string;
+      token_type: string;
+      installation_id?: string;
+      user_id?: string;
+      team_id?: string | null;
+    };
+    return {
+      access_token: json.access_token,
+      metadata: {
+        installation_id: json.installation_id,
+        team_id: json.team_id ?? null,
+        user_id: json.user_id,
+      },
+    };
+  },
+  tools() {
+    return [
+      {
+        name: 'list_vercel_projects',
+        description: 'List the connected Vercel account/team projects.',
+        parameters: { type: 'object', properties: { limit: { type: 'number', default: 20 } } },
+      },
+      {
+        name: 'list_vercel_deployments',
+        description: 'List recent Vercel deployments (optionally for one project).',
+        parameters: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string', description: 'Optional Vercel project id/name.' },
+            limit: { type: 'number', default: 20 },
+          },
+        },
+      },
+    ];
+  },
+  async execute(_env, { tool, args, accessToken, metadata }) {
+    const teamId = metadata?.['team_id'] as string | undefined;
+    const team = teamId ? `&teamId=${teamId}` : '';
+    const auth = { Authorization: `Bearer ${accessToken}` };
+    if (tool === 'list_vercel_projects') {
+      const limit = Number(args['limit'] ?? 20);
+      const res = await fetch(`https://api.vercel.com/v9/projects?limit=${limit}${team}`, {
+        headers: auth,
+      });
+      return res.ok ? { ok: true, data: await res.json() } : { ok: false, error: `vercel ${res.status}` };
+    }
+    if (tool === 'list_vercel_deployments') {
+      const limit = Number(args['limit'] ?? 20);
+      const proj = args['projectId'] ? `&projectId=${encodeURIComponent(String(args['projectId']))}` : '';
+      const res = await fetch(`https://api.vercel.com/v6/deployments?limit=${limit}${proj}${team}`, {
+        headers: auth,
+      });
+      return res.ok ? { ok: true, data: await res.json() } : { ok: false, error: `vercel ${res.status}` };
+    }
+    return { ok: false, error: 'unknown tool' };
+  },
+};
+
 /**
  * Per-provider adapter map. Partial because the Provider union also includes
  * OAuth-only entries that don't (yet) have a worker-side tool surface
@@ -980,6 +1066,7 @@ const ADAPTERS: Partial<Record<Provider, ProviderAdapter>> = {
   airtable,
   zapier,
   pagerduty,
+  vercel,
 };
 
 /**

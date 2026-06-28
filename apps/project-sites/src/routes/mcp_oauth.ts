@@ -195,6 +195,51 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
   const adapter = getAdapter(provider);
   if (!adapter) return c.json({ error: { message: 'unknown provider' } }, 404);
   const code = c.req.query('code');
+
+  // ── Vercel Marketplace install flow ──
+  // Vercel-initiated installs hit this callback with `code` + `configurationId` + `teamId`
+  // + `next` but NO `state` (there's no prior /connect state row). Exchange the code,
+  // store the token account-level (keyed by configurationId — no site context), then
+  // redirect the user back to Vercel's `next` ("installed") page.
+  if (provider === 'vercel' && c.req.query('configurationId') && !c.req.query('state')) {
+    if (!code) return c.json({ error: { message: 'code required' } }, 400);
+    const configurationId = c.req.query('configurationId') as string;
+    const teamId = c.req.query('teamId') ?? null;
+    const next = c.req.query('next');
+    let vx;
+    try {
+      vx = await adapter.exchangeCode(c.env, {
+        code,
+        redirectUri: 'https://projectsites.dev/api/mcp/vercel/callback',
+      });
+    } catch (err) {
+      return c.json(
+        { error: { message: err instanceof Error ? err.message : 'exchange failed' } },
+        502,
+      );
+    }
+    const encTok = await encrypt(c.env, vx.access_token);
+    await c.env.DB.prepare(
+      `INSERT INTO mcp_connections (id, org_id, site_id, provider, display_name,
+         access_token_encrypted, refresh_token_encrypted, token_expires_at, account_metadata_json, status)
+       VALUES (?, 'vercel-marketplace', ?, 'vercel', 'Vercel (marketplace)', ?, NULL, NULL, ?, 'active')
+       ON CONFLICT(site_id, provider) DO UPDATE SET
+         access_token_encrypted = excluded.access_token_encrypted,
+         account_metadata_json = excluded.account_metadata_json,
+         status = 'active', updated_at = datetime('now')`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        `vercel:${configurationId}`,
+        encTok,
+        JSON.stringify({ ...vx.metadata, configurationId, teamId }),
+      )
+      .run();
+    // Open-redirect defense: only bounce back to Vercel's own host.
+    if (next && /^https:\/\/vercel\.com\//.test(next)) return c.redirect(next, 302);
+    return c.json({ ok: true, connected: 'vercel' });
+  }
+
   const state = c.req.query('state');
   if (!code || !state) return c.json({ error: { message: 'code + state required' } }, 400);
 
