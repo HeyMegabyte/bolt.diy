@@ -81,3 +81,57 @@ export function selectAbandonedBuilds(
     return true;
   });
 }
+
+/** A candidate row enriched with what the recovery email needs. */
+export interface NudgeCandidate extends BuildRow {
+  readonly email: string;
+  readonly businessName?: string;
+  readonly previewUrl?: string;
+}
+
+/** Injected I/O for the nudge run — all side-effects, so the orchestration stays testable. */
+export interface AbandonedNudgeDeps {
+  /** Finished-build candidates joined to owner email (the D1 scan). */
+  listCandidates: () => Promise<readonly NudgeCandidate[]>;
+  /** Send the `'recovery'` email. Returns `{ok}` — only `ok` builds get stamped. */
+  sendRecovery: (
+    to: string,
+    ctx: { businessName?: string; previewUrl?: string },
+  ) => Promise<{ ok: boolean }>;
+  /** Persist `nudged_at` so the throttle holds across runs (idempotency). */
+  markNudged: (siteId: string, atMs: number) => Promise<void>;
+  /** Injected clock (keeps the run testable). */
+  now: () => number;
+}
+
+/**
+ * Run one abandoned-build recovery sweep: scan → select eligible → email → stamp.
+ *
+ * @remarks Stamps `nudged_at` ONLY after a successful send, so a transient mail
+ * failure leaves the build eligible next run (at-least-once, throttle-guarded).
+ * @returns `{ scanned, nudged }` for cron observability.
+ * @example
+ * await runAbandonedBuildNudges(deps); // → { scanned: 12, nudged: 3 }
+ */
+export async function runAbandonedBuildNudges(
+  deps: AbandonedNudgeDeps,
+  opts: AbandonedOptions = {},
+): Promise<{ scanned: number; nudged: number }> {
+  const rows = await deps.listCandidates();
+  const now = deps.now();
+  const eligible = selectAbandonedBuilds(rows, now, opts);
+  let nudged = 0;
+  for (const r of eligible) {
+    const cand = r as NudgeCandidate;
+    if (!cand.email) continue;
+    const res = await deps.sendRecovery(cand.email, {
+      businessName: cand.businessName,
+      previewUrl: cand.previewUrl,
+    });
+    if (res.ok) {
+      await deps.markNudged(cand.siteId, now);
+      nudged++;
+    }
+  }
+  return { scanned: rows.length, nudged };
+}

@@ -1,7 +1,9 @@
 import {
   selectAbandonedBuilds,
+  runAbandonedBuildNudges,
   FINISHED_STATUSES,
   type BuildRow,
+  type NudgeCandidate,
 } from '../services/abandoned_builds.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -67,5 +69,70 @@ describe('selectAbandonedBuilds', () => {
     expect(FINISHED_STATUSES.has('finished')).toBe(true);
     expect(FINISHED_STATUSES.has('complete')).toBe(true);
     expect(FINISHED_STATUSES.has('draft')).toBe(false);
+  });
+});
+
+function cand(over: Partial<NudgeCandidate> = {}): NudgeCandidate {
+  return {
+    siteId: 's1',
+    orgId: 'o1',
+    status: 'published',
+    finishedAtMs: NOW - 3 * DAY,
+    claimed: false,
+    nudgedAtMs: null,
+    email: 'owner@example.com',
+    businessName: 'Acme',
+    previewUrl: 'https://acme.projectsites.dev',
+    ...over,
+  };
+}
+
+describe('runAbandonedBuildNudges', () => {
+  it('emails eligible builds and stamps nudged_at only on a successful send', async () => {
+    const sent: string[] = [];
+    const stamped: string[] = [];
+    const res = await runAbandonedBuildNudges({
+      listCandidates: async () => [cand({ siteId: 'a' }), cand({ siteId: 'b', claimed: true })],
+      sendRecovery: async (to) => {
+        sent.push(to);
+        return { ok: true };
+      },
+      markNudged: async (id) => {
+        stamped.push(id);
+      },
+      now: () => NOW,
+    });
+    expect(res).toEqual({ scanned: 2, nudged: 1 }); // 'b' is claimed → excluded
+    expect(sent).toEqual(['owner@example.com']);
+    expect(stamped).toEqual(['a']);
+  });
+
+  it('does NOT stamp when the send fails (stays eligible next run)', async () => {
+    const stamped: string[] = [];
+    const res = await runAbandonedBuildNudges({
+      listCandidates: async () => [cand({ siteId: 'a' })],
+      sendRecovery: async () => ({ ok: false }),
+      markNudged: async (id) => {
+        stamped.push(id);
+      },
+      now: () => NOW,
+    });
+    expect(res).toEqual({ scanned: 1, nudged: 0 });
+    expect(stamped).toEqual([]);
+  });
+
+  it('skips candidates with no email', async () => {
+    const sent: string[] = [];
+    const res = await runAbandonedBuildNudges({
+      listCandidates: async () => [cand({ email: '' })],
+      sendRecovery: async (to) => {
+        sent.push(to);
+        return { ok: true };
+      },
+      markNudged: async () => {},
+      now: () => NOW,
+    });
+    expect(res.nudged).toBe(0);
+    expect(sent).toEqual([]);
   });
 });

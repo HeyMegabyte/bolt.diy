@@ -16,7 +16,7 @@
  */
 
 /** Which lifecycle email to render. */
-export type ClaimEmailKind = 'started' | 'finished' | 'failed';
+export type ClaimEmailKind = 'started' | 'finished' | 'failed' | 'recovery';
 
 /** Context for rendering — only the fields a given kind needs are used. */
 export interface ClaimEmailContext {
@@ -77,6 +77,17 @@ export function buildClaimEmail(kind: ClaimEmailKind, ctx: ClaimEmailContext): C
       subject,
       html,
       text: `${line1}${ctx.previewUrl ? `\n\nPreview: ${ctx.previewUrl}` : ''}`,
+    };
+  }
+
+  if (kind === 'recovery') {
+    const subject = `${name}'s website is still waiting for you`;
+    const line1 = `${name}'s website is built and ready — but you haven't claimed it yet. It's still live to preview; pick up where you left off before it expires.`;
+    const html = `<p>${esc(line1).replace(esc(name), safeName)}</p>${ctx.previewUrl ? button(ctx.previewUrl, 'Claim your site') : ''}`;
+    return {
+      subject,
+      html,
+      text: `${line1}${ctx.previewUrl ? `\n\nClaim it: ${ctx.previewUrl}` : ''}`,
     };
   }
 
