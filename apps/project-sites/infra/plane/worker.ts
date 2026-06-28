@@ -44,7 +44,10 @@ export class Plane extends Container<Env> {
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) if (typeof v === 'string' && v.length > 0) out[k] = v;
-    // public origin + CORS
+    // public origin + CORS. The AIO start.sh REQUIRES DOMAIN_NAME; Caddy binds SITE_ADDRESS.
+    out.DOMAIN_NAME = 'pm.megabyte.space';
+    out.APP_PROTOCOL = 'https';
+    out.SITE_ADDRESS = ':80'; // Caddy listens :80 inside the container; the Worker fronts TLS
     out.WEB_URL = WEB_URL;
     out.CORS_ALLOWED_ORIGINS = WEB_URL;
     out.NEXT_PUBLIC_API_BASE_URL = WEB_URL;
