@@ -365,6 +365,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  upgrade_moments: {
+    key: 'upgrade_moments',
+    description:
+      'Contextual friction-point upgrade prompts: maps free-plan friction (custom domain, branding removal, page cap, AI credits, build priority, analytics depth) to honest, value-led, trigger-attributed upsells. Paid plans never nagged; dismissals persist in KV. The generous-free + paid-power-ups monetization seam.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 
   // Visitor-facing AI + platform AI UX
   ai_concierge_widget: {
