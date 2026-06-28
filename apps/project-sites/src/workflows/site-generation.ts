@@ -1332,30 +1332,35 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           const imageUrl = ssData?.data?.screenshot?.url;
           if (!imageUrl) return JSON.stringify({ skipped: true, reason: 'no_screenshot_url' });
 
-          const { response: critiqueRes } = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
+          const { response: critiqueRes } = await gatewayFetch(
+            env,
+            'openai',
+            '/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o',
+                messages: [
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Score this website screenshot 1-10 on visual quality. List top 5 issues. Return JSON: { score: number, issues: string[], logo_visible: boolean, brand_colors_correct: boolean }',
+                      },
+                      { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } },
+                    ],
+                  },
+                ],
+                max_tokens: 500,
+                temperature: 0.2,
+              }),
             },
-            body: JSON.stringify({
-              model: 'gpt-4o',
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'text',
-                      text: 'Score this website screenshot 1-10 on visual quality. List top 5 issues. Return JSON: { score: number, issues: string[], logo_visible: boolean, brand_colors_correct: boolean }',
-                    },
-                    { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } },
-                  ],
-                },
-              ],
-              max_tokens: 500,
-              temperature: 0.2,
-            }),
-          });
+          );
           if (!critiqueRes.ok) return JSON.stringify({ skipped: true, reason: 'gpt4o_failed' });
           const critiqueData = (await critiqueRes.json()) as {
             choices: { message: { content: string } }[];
