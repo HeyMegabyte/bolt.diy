@@ -36,6 +36,8 @@ interface AppInstance {
   readonly env_keys?: ReadonlyArray<string>;
   /** A2 — live metered monthly-cost estimate from the worker (running-state + provisioned infra). */
   readonly costEstimate?: { readonly monthlyUsd: number; readonly running: boolean };
+  /** A3 — last container error, surfaced so a crash isn't a silent white screen. */
+  readonly last_error?: string | null;
 }
 
 interface LogLine {
@@ -63,6 +65,7 @@ function adaptInstance(row: Record<string, unknown>): AppInstance {
     last_activity_at: (row['last_started_at'] ?? row['last_activity_at'] ?? null) as string | null,
     env_keys: env && typeof env === 'object' ? Object.keys(env as object) : undefined,
     costEstimate: adaptCostEstimate(row['costEstimate']),
+    last_error: typeof row['last_error'] === 'string' ? (row['last_error'] as string) : null,
   };
 }
 
@@ -193,6 +196,12 @@ export class AppsInstancesCache {
                 <span class="status-dot" aria-hidden="true"></span>
                 {{ statusLabel(inst.status) }}
               </span>
+              @if (inst.status === 'error' && inst.last_error) {
+                <span class="inst-error" role="status" [title]="inst.last_error"
+                      aria-label="Last error: {{ inst.last_error }}">
+                  ⚠ {{ inst.last_error }}
+                </span>
+              }
               <span class="inst-activity">
                 @if (inst.last_activity_at) {
                   Last activity {{ inst.last_activity_at | date:'short' }}
