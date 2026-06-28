@@ -45,7 +45,7 @@ describe('resolveVoiceAgentConfig', () => {
     expect(cfg.llm).toEqual({
       baseUrl: 'https://llm.megabyte.space/v1',
       apiKey: 'sk-platform',
-      model: 'gpt-4o-mini',
+      model: 'gpt',
     });
     expect(cfg.persona).toContain('receptionist');
     // Unmapped calls still get a disclosure + the balanced turn preset.

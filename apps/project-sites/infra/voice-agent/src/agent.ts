@@ -118,7 +118,7 @@ async function fetchAgentConfig(dialedNumber: string, callerNumber: string): Pro
     llm: {
       baseUrl: process.env.LITELLM_BASE_URL ?? 'https://llm.megabyte.space/v1',
       apiKey: process.env.LITELLM_API_KEY ?? process.env.OPENAI_API_KEY ?? '',
-      model: 'gpt-4o-mini',
+      model: 'gpt',
     },
   };
   const workerUrl = (process.env.VOICE_WORKER_URL ?? 'https://projectsites.dev').replace(/\/$/, '');
@@ -298,5 +298,5 @@ export default defineAgent({
 });
 
 cli.runApp(
-  new WorkerOptions({ agent: fileURLToPath(import.meta.url), agentName: 'projectsites-receptionist' }),
+  new WorkerOptions({ agent: fileURLToPath(import.meta.url) }),
 );

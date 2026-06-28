@@ -194,7 +194,7 @@ export async function resolveVoiceAgentConfig(
       businessName: 'this business',
       disclosure: DEFAULT_VOICE_DISCLOSURE.replace('{business}', 'this business'),
       found: false,
-      llm: { apiKey: platformKey, baseUrl: platformBaseUrl, model: 'gpt-4o-mini' },
+      llm: { apiKey: platformKey, baseUrl: platformBaseUrl, model: 'gpt' },
       orgId: null,
       persona: DEFAULT_VOICE_PERSONA.replace('{business}', 'this business'),
       returningCaller: UNKNOWN_CALLER,
@@ -262,7 +262,7 @@ export async function resolveVoiceAgentConfig(
     platformBaseUrl;
   const apiKey = (vars.LITELLM_API_KEY ?? vars.OPENAI_API_KEY ?? '').trim() || platformKey;
   const model =
-    (vars.LITELLM_MODEL ?? vars.VOICE_MODEL ?? settings?.voice_model ?? '').trim() || 'gpt-4o-mini';
+    (vars.LITELLM_MODEL ?? vars.VOICE_MODEL ?? settings?.voice_model ?? '').trim() || 'gpt';
 
   return {
     businessName,

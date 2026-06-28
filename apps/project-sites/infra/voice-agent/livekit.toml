@@ -6,4 +6,5 @@ subdomain = "projectsites-dev-1ydfdbtm"
 
 [agent]
 # Must match WorkerOptions.agentName in src/agent.ts and the LiveKit SIP dispatch rule.
+id = "CA_dSUDxEC3EiP6"
 name = "projectsites-receptionist"
