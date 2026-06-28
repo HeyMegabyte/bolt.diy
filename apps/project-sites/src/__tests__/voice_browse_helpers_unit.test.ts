@@ -42,12 +42,29 @@ describe('chunkNarration', () => {
 
 describe('dispatchAction', () => {
   it('normalises each valid action type', () => {
-    expect(dispatchAction({ type: 'goto', url: 'https://x.com' })).toEqual({ type: 'goto', url: 'https://x.com' });
-    expect(dispatchAction({ type: 'click', selector: '#b' })).toEqual({ type: 'click', selector: '#b' });
-    expect(dispatchAction({ type: 'type', selector: '#i', text: 'hi' })).toEqual({ type: 'type', selector: '#i', text: 'hi' });
-    expect(dispatchAction({ type: 'extract', selector: '.p' })).toEqual({ type: 'extract', selector: '.p' });
+    expect(dispatchAction({ type: 'goto', url: 'https://x.com' })).toEqual({
+      type: 'goto',
+      url: 'https://x.com',
+    });
+    expect(dispatchAction({ type: 'click', selector: '#b' })).toEqual({
+      type: 'click',
+      selector: '#b',
+    });
+    expect(dispatchAction({ type: 'type', selector: '#i', text: 'hi' })).toEqual({
+      type: 'type',
+      selector: '#i',
+      text: 'hi',
+    });
+    expect(dispatchAction({ type: 'extract', selector: '.p' })).toEqual({
+      type: 'extract',
+      selector: '.p',
+    });
     expect(dispatchAction({ type: 'screenshot' })).toEqual({ type: 'screenshot' });
-    expect(dispatchAction({ type: 'wait', ms: 500 })).toEqual({ type: 'wait', selector: undefined, ms: 500 });
+    expect(dispatchAction({ type: 'wait', ms: 500 })).toEqual({
+      type: 'wait',
+      selector: undefined,
+      ms: 500,
+    });
   });
   it('rejects bad input', () => {
     expect(() => dispatchAction(null)).toThrow(/must be an object/);
@@ -75,7 +92,9 @@ describe('shouldRestart', () => {
 
 describe('narrateAction', () => {
   it('produces human-readable narration per type', () => {
-    expect(narrateAction({ type: 'goto', url: 'https://x.com' })).toMatch(/Opening https:\/\/x\.com/);
+    expect(narrateAction({ type: 'goto', url: 'https://x.com' })).toMatch(
+      /Opening https:\/\/x\.com/,
+    );
     expect(narrateAction({ type: 'screenshot' })).toMatch(/screenshot/i);
     expect(narrateAction({ type: 'wait', ms: 300 })).toMatch(/300ms/);
     expect(narrateAction({ type: 'wait', selector: '#x' })).toMatch(/Waiting for #x/);
