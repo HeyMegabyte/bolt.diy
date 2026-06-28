@@ -1197,7 +1197,23 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           });
           const prefix = `sites/${params.slug}/${version}/`;
           const files = await loadBuildFromR2(env.SITES_BUCKET, prefix);
-          const report = validateBuild(files);
+          // 1:N sitemap fidelity guard: activate validateRouteCount in the LIVE pipeline by
+          // sourcing the source route count from `_scraped_content.json` (container context)
+          // when present. No-op when absent — never fails a build lacking the context file.
+          let sourceRouteCount: number | undefined;
+          try {
+            const scraped = files.find((f) => f.path.endsWith('_scraped_content.json'))?.text;
+            if (scraped) {
+              const parsed = JSON.parse(scraped) as { routes?: unknown[] };
+              if (Array.isArray(parsed.routes)) sourceRouteCount = parsed.routes.length;
+            }
+          } catch {
+            // malformed context JSON → skip the guard, never break the build on it
+          }
+          const report = validateBuild(
+            files,
+            sourceRouteCount !== undefined ? { sourceRouteCount } : {},
+          );
           const readiness = scoreReadiness(report);
           await emitBuildEvent(env, params.siteId, {
             type: 'tests.completed',

@@ -46,7 +46,7 @@
 ### Stop the lying UI (honesty bugs — P0-adjacent)
 - [ ] [auto] S1 — real Lighthouse/CWV scores (run in the build container; matrix cells are permanently NULL today).
 - [ ] [auto] S2 — real axe-core a11y (replace the fake `img:not([alt])` proxy).
-- [ ] [auto] AN54 — operator zero-state honesty (super-admin Tinybird routes silently return empty — surface "no data yet").
+- [x] AN54 — operator zero-state honesty — DONE (verified 2026-06-28): `admin_analytics` (events-daily/publishes-by-source/claims-by-source) + `admin_funnel` all return `{rows/stages, degraded, count}` via `fetchPipeRows`/`fetchActivationFunnel` — `degraded:true` flags the Tinybird-unconfigured/down zero-state so the dashboard renders "no data yet" instead of erroring/silent-empty. Not a silent empty return. [DONE]
 
 ### Apps marketplace — paid managed-hosting (Tier A0 trust = why anyone pays vs a VPS)
 - [ ] [auto] A1 — per-instance automated backups + 1-click restore (Neon branch-snapshot + R2 versioning).
@@ -64,7 +64,7 @@
 - [ ] [auto] AN29 — natural-language analytics query ("visitors from Instagram last week?") — builder-only moat.
 
 ### Generated-site quality (remaining)
-- [ ] [auto] 1:N sitemap fidelity guard wired into the live pipeline (fail on collapsed page counts).
+- [ ] [auto] 1:N sitemap fidelity guard — validator `validateRouteCount` exists + is in the `validateBuild`/`validateBuildAst` chain; WIRED into the live `validate-build` step 2026-06-28 (site-generation.ts now sources `sourceRouteCount` from `_scraped_content.json` in the build output and passes it to `validateBuild`). REMAINDER: the guard only fires when the container includes `_scraped_content.json` in the upload prefix — confirm/ensure that on the next real build (or source the count from D1 research_data), then flip `validate-build` report→strict so a collapsed page count actually FAILS.
 - [ ] [auto] Flip `build_validators` report→strict (enforce the 13 quality invariants).
 - [ ] [auto] Logo/font/color extraction fidelity (the suped-up-clone lever).
 - [ ] [auto] Source-site theme-polarity preservation guard — decision logic SHIPPED (`services/theme_polarity.ts`, 13 tests); remaining = stamp `theme`/`preserveSourceDesign` onto container `_brand.json` + post-build `validateThemePolarity` guard.
