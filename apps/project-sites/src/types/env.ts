@@ -745,6 +745,10 @@ export interface Env {
   LIVEKIT_API_SECRET?: string;
   /** LiveKit SIP ingress URI (sip:<project>.sip.livekit.cloud) — Twilio SIP trunk target. */
   LIVEKIT_SIP_URI?: string;
+  /** Platform LiteLLM facade base URL (OpenAI-compatible) — voice-agent LLM fallback. */
+  LITELLM_BASE_URL?: string;
+  /** Platform LiteLLM master/virtual key — voice-agent LLM fallback when no per-site key. */
+  LITELLM_API_KEY?: string;
 
   /**
    * Per-call Browse Agent Container Durable Object. Built by a sibling agent.

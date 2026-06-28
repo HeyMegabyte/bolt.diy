@@ -22,9 +22,15 @@
  */
 
 import { Hono } from 'hono';
+
 import type { Env, Variables } from '../types/env.js';
-import { dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
-import { validateSignature, fetchRecording, downloadRecordingBytes } from '../services/twilio.js';
+
+import { dbInsert, dbQueryOne, dbUpdate } from '../services/db.js';
+import { downloadRecordingBytes, fetchRecording, validateSignature } from '../services/twilio.js';
+import {
+  AgentConfigRequestSchema,
+  resolveVoiceAgentConfig,
+} from '../services/voice_agent_config.js';
 import { handleInboundSms } from '../services/voice_orchestrator.js';
 
 export const voiceWebhookRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -84,8 +90,8 @@ voiceWebhookRoutes.post('/webhooks/voice/status', async (c) => {
       c.env.DB,
       'voice_calls',
       {
-        status,
         duration_seconds: duration,
+        status,
         ...(status === 'completed' ? { ended_at: new Date().toISOString() } : {}),
       },
       'twilio_call_sid = ?',
@@ -135,20 +141,20 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
         httpMetadata: { contentType: dl.mime },
       });
       await dbInsert(c.env.DB, 'voice_recordings', {
-        id: crypto.randomUUID(),
         call_id: call.id,
-        kind: 'audio',
-        r2_key: r2Key,
-        mime: dl.mime,
-        size_bytes: dl.bytes.byteLength,
         duration_seconds: meta.duration,
+        id: crypto.randomUUID(),
+        kind: 'audio',
+        mime: dl.mime,
+        r2_key: r2Key,
+        size_bytes: dl.bytes.byteLength,
       });
       await dbUpdate(
         c.env.DB,
         'voice_calls',
         {
-          recording_url: `/api/voice/recordings/proxy/${recordingSid}`,
           recording_sid: recordingSid,
+          recording_url: `/api/voice/recordings/proxy/${recordingSid}`,
         },
         'id = ?',
         [call.id],
@@ -156,11 +162,11 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
     } catch (err) {
       console.warn(
         JSON.stringify({
-          level: 'warn',
-          service: 'voice_webhooks',
-          message: 'recording_persist_failed',
           error: err instanceof Error ? err.message : String(err),
+          level: 'warn',
+          message: 'recording_persist_failed',
           recording_sid: recordingSid,
+          service: 'voice_webhooks',
         }),
       );
     }
@@ -186,12 +192,12 @@ voiceWebhookRoutes.post('/webhooks/sms/inbound', async (c) => {
     return new Response('Forbidden', { status: 403 });
   }
   const twiml = await handleInboundSms(c.env, {
-    MessageSid: params.MessageSid,
-    From: params.From,
-    To: params.To,
-    Body: params.Body,
     AccountSid: params.AccountSid,
+    Body: params.Body,
+    From: params.From,
+    MessageSid: params.MessageSid,
     NumMedia: params.NumMedia,
+    To: params.To,
   });
   return new Response(twiml, { headers: TWIML_HEADERS });
 });
@@ -250,7 +256,7 @@ voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
   const key = await crypto.subtle.importKey(
     'raw',
     enc.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
+    { hash: 'SHA-256', name: 'HMAC' },
     false,
     ['sign'],
   );
@@ -277,13 +283,13 @@ voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
     return c.json({ error: 'missing fields' }, 400);
   }
   await dbInsert(c.env.DB, 'voice_recordings', {
-    id: crypto.randomUUID(),
     call_id: payload.callId,
-    kind: payload.kind,
-    r2_key: payload.r2Key,
-    mime: payload.mime ?? null,
-    size_bytes: payload.sizeBytes ?? null,
     duration_seconds: payload.durationSeconds ?? null,
+    id: crypto.randomUUID(),
+    kind: payload.kind,
+    mime: payload.mime ?? null,
+    r2_key: payload.r2Key,
+    size_bytes: payload.sizeBytes ?? null,
   });
   if (payload.kind === 'video') {
     await dbUpdate(
@@ -295,4 +301,51 @@ voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
     ).catch(() => undefined);
   }
   return c.json({ ok: true });
+});
+
+// ─── Internal: per-site voice agent config (LiteLLM routing) ────
+
+/**
+ * `POST /internal/voice/agent-config` — HMAC-signed config fetch for the LiveKit
+ * voice agent. Given a dialed number (DID), returns the site's persona + its
+ * **LiteLLM** (OpenAI-compatible) LLM endpoint so the agent's ChatGPT brain is
+ * routed through that site's LiteLLM facade (per-site key/budget/observability).
+ *
+ * @remarks
+ * Same HMAC scheme as `/internal/voice/recording-saved` (`x-internal-sig` =
+ * HMAC-SHA256 of the raw body with `INTERNAL_BUILD_SECRET`). The response carries
+ * a per-site LiteLLM key — only over this signed channel; never logged.
+ *
+ * @throws 401 when the signature is invalid · 400 on bad body · 500 when unconfigured.
+ */
+voiceWebhookRoutes.post('/internal/voice/agent-config', async (c) => {
+  const secret = (c.env.INTERNAL_BUILD_SECRET ?? '').trim();
+  if (!secret) return c.json({ error: 'callback not configured' }, 500);
+  const sig = c.req.header('x-internal-sig') ?? '';
+  const rawBody = await c.req.text();
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { hash: 'SHA-256', name: 'HMAC' },
+    false,
+    ['sign'],
+  );
+  const expectedBytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(rawBody)));
+  const expected = Array.from(expectedBytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  if (sig !== expected) return c.json({ error: 'invalid signature' }, 401);
+
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return c.json({ error: 'bad json' }, 400);
+  }
+  const parsed = AgentConfigRequestSchema.safeParse(parsedBody);
+  if (!parsed.success) return c.json({ error: 'missing fields' }, 400);
+
+  const config = await resolveVoiceAgentConfig(c.env, parsed.data.dialedNumber);
+  return c.json(config);
 });

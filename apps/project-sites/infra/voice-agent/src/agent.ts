@@ -2,46 +2,101 @@
  * ProjectSites AI phone receptionist — LiveKit Cloud agent.
  *
  * Runtime: LiveKit Cloud agent hosting (always-on, autoscaled, co-located with the
- * media servers) — see `apps/project-sites/docs/decisions/voice-architecture.md`
- * (LiveKit amendment + runtime pivot). A caller dials a per-site number → Twilio
- * Elastic SIP trunk → LiveKit Cloud SIP ingress → room → this agent joins as the
- * receptionist participant.
+ * media servers) — see `apps/project-sites/docs/decisions/voice-architecture.md`.
+ * Caller dials a per-site number → Twilio Elastic SIP trunk → LiveKit Cloud SIP →
+ * room → this agent joins.
  *
- * Pipeline (our own keys, not LiveKit inference billing — cost control):
- *   - STT  : Deepgram `flux-general` (conversational STT w/ integrated end-of-turn)
- *   - LLM  : OpenAI gpt-4o-mini (streaming)
- *   - TTS  : OpenAI gpt-4o-mini-tts (FIRST-LIGHT, our key, the documented Piper
- *            fallback) → swap to the bundled Piper custom TTS plugin (slice 2 TODO)
- *   - VAD/turn: silero VAD + LiveKit multilingual turn detection + barge-in
+ * Pipeline:
+ *   - STT  : Deepgram Flux (STTv2 `flux-general-en`) — conversational, integrated EOU
+ *   - LLM  : ChatGPT routed through the **dialed site's LiteLLM** endpoint
+ *            (OpenAI-compatible baseURL + per-site virtual key + model), fetched at
+ *            call start from the worker; platform LiteLLM fallback. (Brian 2026-06-27)
+ *   - TTS  : OpenAI gpt-4o-mini-tts (first-light) → swap to bundled Piper plugin
+ *   - turn : silero VAD + LiveKit multilingual turn detection + barge-in tuning
  *
- * Deploy: `lk agent create` (first time, generates livekit.toml) then `lk agent deploy`.
- * Env: DEEPGRAM_API_KEY, OPENAI_API_KEY, LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET.
+ * Deploy: `lk agent create` then `lk agent deploy`.
+ * Env: LIVEKIT_URL/API_KEY/API_SECRET, DEEPGRAM_API_KEY, OPENAI_API_KEY (TTS),
+ *      VOICE_WORKER_URL (default https://projectsites.dev), INTERNAL_BUILD_SECRET
+ *      (HMAC to the config endpoint), LITELLM_BASE_URL/LITELLM_API_KEY (LLM fallback).
  */
+import { createHmac } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { cli, defineAgent, voice, WorkerOptions, type JobContext, type JobProcess } from '@livekit/agents';
+import {
+  cli,
+  defineAgent,
+  voice,
+  WorkerOptions,
+  type JobContext,
+  type JobProcess,
+} from '@livekit/agents';
 import * as deepgram from '@livekit/agents-plugin-deepgram';
 import * as openai from '@livekit/agents-plugin-openai';
 import * as silero from '@livekit/agents-plugin-silero';
 import * as livekit from '@livekit/agents-plugin-livekit';
 import 'dotenv/config';
 
-/** Fallback persona used until the per-site lookup is wired (slice 2 TODO). */
 const DEFAULT_PERSONA =
-  'You are a warm, concise, professional phone receptionist for a small business. ' +
-  'Greet the caller, find out why they are calling, answer what you can, and offer to ' +
-  'take a message or schedule a follow-up. Keep replies short and natural for speech. ' +
-  'Never invent business details you were not given.';
+  'You are a warm, concise, professional phone receptionist for this business. ' +
+  'Speak in short, natural spoken sentences — never markdown or lists. Say numbers and ' +
+  'times the way a person would. Greet the caller, find out why they are calling, answer ' +
+  'what you can, and offer to take a message, schedule a follow-up, or transfer to a human. ' +
+  'If unsure, say so and offer to take a message — never invent details you were not given.';
+
+interface AgentConfig {
+  persona: string;
+  llm: { baseUrl: string; apiKey: string; model: string };
+}
 
 /**
- * Resolve the per-site persona for this call.
- *
- * TODO(slice-2): the SIP participant carries the dialed DID in its attributes
- * (e.g. `sip.trunkPhoneNumber` / `sip.phoneNumber`). Look the number up against the
- * platform (site → persona) and fall back to {@link DEFAULT_PERSONA}. Stubbed to the
- * default until the number↔site mapping endpoint lands.
+ * Read the dialed DID (our number, which maps to a site) from the inbound SIP
+ * participant's attributes. LiveKit SIP exposes the called number under one of a
+ * few attribute keys depending on trunk config — try the known ones.
+ * @remarks Confirm the exact key on the first live call; falls back to '' (→ the
+ * worker returns a platform-LLM config so the call still answers).
  */
-async function resolvePersona(_ctx: JobContext): Promise<string> {
-  return DEFAULT_PERSONA;
+function resolveDialedNumber(ctx: JobContext): string {
+  for (const p of ctx.room.remoteParticipants.values()) {
+    const a = (p.attributes ?? {}) as Record<string, string>;
+    const did =
+      a['sip.trunkPhoneNumber'] ?? a['sip.phoneNumber'] ?? a['sip.dnis'] ?? a['sip.to'] ?? '';
+    if (did) return did;
+  }
+  return '';
+}
+
+/**
+ * Fetch the per-site persona + LiteLLM LLM config from the worker, HMAC-signed.
+ * Falls back to env-configured platform LiteLLM/OpenAI on any failure so a call
+ * is never dropped because the config service is unreachable.
+ */
+async function fetchAgentConfig(dialedNumber: string): Promise<AgentConfig> {
+  const fallback: AgentConfig = {
+    persona: DEFAULT_PERSONA,
+    llm: {
+      baseUrl: process.env.LITELLM_BASE_URL ?? 'https://llm.megabyte.space/v1',
+      apiKey: process.env.LITELLM_API_KEY ?? process.env.OPENAI_API_KEY ?? '',
+      model: 'gpt-4o-mini',
+    },
+  };
+  const workerUrl = (process.env.VOICE_WORKER_URL ?? 'https://projectsites.dev').replace(/\/$/, '');
+  const secret = process.env.INTERNAL_BUILD_SECRET ?? '';
+  if (!secret || !dialedNumber) return fallback;
+  try {
+    const body = JSON.stringify({ dialedNumber });
+    const sig = createHmac('sha256', secret).update(body).digest('hex');
+    const res = await fetch(`${workerUrl}/internal/voice/agent-config`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-sig': sig },
+      body,
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return fallback;
+    const cfg = (await res.json()) as { persona?: string; llm?: AgentConfig['llm'] };
+    if (!cfg.llm?.baseUrl || !cfg.llm.apiKey) return fallback;
+    return { persona: cfg.persona || DEFAULT_PERSONA, llm: cfg.llm };
+  } catch {
+    return fallback;
+  }
 }
 
 class Receptionist extends voice.Agent {
@@ -55,23 +110,47 @@ export default defineAgent({
     proc.userData.vad = silero.VAD.load();
   },
   entry: async (ctx: JobContext) => {
-    const instructions = await resolvePersona(ctx);
+    await ctx.connect();
+
+    // Per-site LiteLLM routing: dialed DID → site → LiteLLM endpoint + virtual key.
+    const dialedNumber = resolveDialedNumber(ctx);
+    const config = await fetchAgentConfig(dialedNumber);
 
     const session = new voice.AgentSession({
       vad: (await ctx.proc.userData.vad) as silero.VAD,
       // Deepgram Flux (STTv2) — conversational STT with model-integrated end-of-turn.
       stt: new deepgram.STTv2({ model: 'flux-general-en' }),
-      llm: new openai.LLM({ model: 'gpt-4o-mini' }),
-      // FIRST-LIGHT TTS — OpenAI (our key). TODO(slice-2): swap to the Piper custom
-      // TTS plugin (free, self-hosted, bundled in the Dockerfile) per the voice ADR.
+      // ChatGPT via the SITE's LiteLLM (OpenAI-compatible) endpoint — per-site key/budget.
+      llm: new openai.LLM({
+        model: config.llm.model,
+        baseURL: config.llm.baseUrl,
+        apiKey: config.llm.apiKey,
+      }),
+      // FIRST-LIGHT TTS — OpenAI (our key). TODO: swap to the bundled Piper plugin.
       tts: new openai.TTS({ model: 'gpt-4o-mini-tts', voice: 'alloy' }),
       turnDetection: new livekit.turnDetector.MultilingualModel(),
+      // Latency + barge-in tuning (LiveKit 1.4 `turnHandling`):
+      turnHandling: {
+        preemptiveGeneration: { enabled: true }, // run the LLM before EOU is final → lower TTFT
+        interruption: { mode: 'adaptive' }, // ML rejects cough/backchannel false barge-ins
+        endpointing: { maxDelay: 2500 }, // cap the wait so callers aren't left hanging
+      },
     });
 
-    await session.start({ agent: new Receptionist(instructions), room: ctx.room });
-    await ctx.connect();
+    // Per-turn metrics → structured log (LiveKit Cloud collects; mirror to our logs).
+    session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
+      console.log(
+        JSON.stringify({ level: 'info', msg: 'voice.metrics', ts: Date.now(), metrics: ev.metrics }),
+      );
+    });
+
+    await session.start({ agent: new Receptionist(config.persona), room: ctx.room });
+
+    // Spoken recording disclosure (2-party-consent safe) + open the conversation.
     await session.generateReply({
-      instructions: 'Greet the caller warmly in one short sentence and ask how you can help.',
+      instructions:
+        'In one short, warm spoken sentence, greet the caller, briefly note the call may ' +
+        'be recorded for quality, and ask how you can help.',
     });
   },
 });

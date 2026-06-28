@@ -215,6 +215,10 @@ export const EnvSchema = z.object({
   LIVEKIT_API_KEY: z.string().optional(),
   LIVEKIT_API_SECRET: z.string().optional(),
   LIVEKIT_SIP_URI: z.string().optional(),
+  // Platform LiteLLM facade (OpenAI-compatible) — fallback LLM endpoint for the
+  // voice agent when a site has no per-site LiteLLM config in ai_env_vars.
+  LITELLM_BASE_URL: z.string().optional(),
+  LITELLM_API_KEY: z.string().optional(),
 });
 
 /** Type of the validated (string-only) env keys. */
