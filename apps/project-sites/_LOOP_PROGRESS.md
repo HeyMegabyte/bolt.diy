@@ -27,6 +27,9 @@ Full: `docs/decisions/voice-architecture.md` + memory `loop-scope-decisions-2026
 - ✅ #32 Turnstile activation (widget+secret provisioned, gate flipped).
 - ✅ ~14 lean frontend slices (AN55/40/42/9/10c/5d, S5b/5c, …).
 - ✅ Ops: killed the runaway concurrent session (pid 2813); Stripe key confirmed on the worker.
+- ✅ **Stale-ledger audit-and-tick (fire 2026-06-28):** verified-live + ticked 5 unchecked `[auto]` items already built+flag-enabled+deployed (ledger was lagging reality) — **#20** build cost+cap (`checkBuildLimit` gates all create paths + token_burn_meter), **#36** abuse_takedown (`/api/abuse/reports`→403 admin-gated, flag on), **#45** onboarding_copilot (`/api/onboarding/checklist`→200), **#48** "Built with" badge (served-site `ps-bar-brand` backlink LIVE on megabytespace.* + deploy_buttons API), **#49** marketing GEO (live homepage has FAQPage×2 + `data-quotable`). 125→120.
+
+> **HIGH-YIELD LANE for coming fires — AUDIT-AND-TICK (verify-before-build pays):** prod has **~60 globally-enabled flags** (`flag_overrides` scope=`global`,scope_id=`*`), and MANY unchecked `[auto]` items map to modules that are already built + mounted + flag-on + deployed but were never ticked (the ledger lags the code). Per fire, cross-reference unchecked items against the enabled-flag set + `libs/features/*` mounts, **probe each candidate's REAL mounted route with `E2E_API_KEY`** (200/403/handler-domain-error = live; SPA soft-200 on a wrong path ≠ proof — check `src/index.ts` `app.route()` for the true prefix), and tick the genuinely-live ones with a one-line prod proof. Do NOT blanket-tick on "flag is on" alone (avoids [[feedback_convergence_overclaim]]) — one concrete prod probe per tick. This is the fastest path to GATE ledger-empty.
 
 ## In progress — the two campaigns the loop drives to convergence
 
