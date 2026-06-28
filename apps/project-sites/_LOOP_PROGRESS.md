@@ -42,6 +42,7 @@ Per fire: pick an in-scope not-yet-enabled flag whose code is live → enable it
 - [x] `analytics_rollup_read` — enabled (AN3). E2E pending.
 - [x] `turnstile_build_gate` — enabled (#32) + funnel-verified.
 - [x] `site_analytics` + `visitor_events_core` — confirmed enabled live (owner-analytics suite).
+- [x] `better_auth` — **ENABLED + CUTOVER LIVE (2026-06-28)** (global override). magic-link `{"status":true}` 200, `get-session` JSON, authed API via the new middleware BA-session bridge, `/signin` serves the BA UI (CF Browser Rendering DOM proof). Schema `migrations/0580` (11 tables) on prod D1, 3 users backfilled. Closes ledger A20 + G2.
 - [ ] remaining in-scope dark flags — enable + E2E each (see `src/modules/feature_flags/registry.ts`); skip the features.ts grab-bag.
 
 ### B. Remaining `[auto]` ledger items (`_LOOP_LEDGER.md`)
