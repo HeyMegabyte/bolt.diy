@@ -16,6 +16,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
+import { assertSiteOwned } from '../../../src/services/site_ownership.js';
 import { FLAG_KEY, captureThumbnail } from './service.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
@@ -38,6 +39,7 @@ siteThumbnailGrid.get('/api/sites/:siteId/thumbnail', async (c) => {
   if (!c.get('userId')) return unauthorized(c);
 
   const siteId = c.req.param('siteId');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
   const { thumbnailUrl, generated } = await captureThumbnail(c.env, siteId);
   return c.json({ ok: true, thumbnailUrl, generated });
 });

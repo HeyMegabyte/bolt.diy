@@ -42,6 +42,7 @@ import { GBP_DESCRIPTION_MAX } from '../schemas.js';
 
 const SITE = {
   id: 'site_1',
+  org_id: 'org_1', // assertSiteOwned tenant guard expects the caller's org
   business_name: "Vito's Mens Salon",
   business_address: '74 N Beverwyck Rd, Lake Hiawatha, NJ 07034',
   business_phone: '+19735551234',
@@ -242,7 +243,7 @@ describe('handlers flag gating', () => {
   });
 
   test('GET checklist returns 200 + steps when flag on', async () => {
-    mockDbQueryOne.mockResolvedValue(null);
+    mockDbQueryOne.mockResolvedValueOnce({ org_id: 'org_1' }).mockResolvedValueOnce(null); // owned, then no checklist_state
     const app = appWith(true);
     const res = await app.request('/api/sites/site_1/gbp/checklist', {}, { DB: {} });
     expect(res.status).toBe(200);

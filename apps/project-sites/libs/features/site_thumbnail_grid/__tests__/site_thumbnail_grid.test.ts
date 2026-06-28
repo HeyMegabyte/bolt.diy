@@ -24,7 +24,10 @@ function makeMockR2(headResult: unknown = null) {
 
 function makeEnv(overrides: Record<string, unknown> = {}) {
   return {
-    DB: {},
+    // assertSiteOwned tenant guard reads `SELECT org_id FROM sites …` — return an owned site.
+    DB: {
+      prepare: () => ({ bind: () => ({ all: async () => ({ results: [{ org_id: 'org-1' }] }) }) }),
+    },
     SITES_BUCKET: makeMockR2(),
     ...overrides,
   } as never;
@@ -39,7 +42,10 @@ async function request(
   const env = makeEnv(opts.env ?? {});
   const app = new Hono();
   app.use('*', async (c, next) => {
-    if (opts.userId) c.set('userId', opts.userId);
+    if (opts.userId) {
+      c.set('userId', opts.userId);
+      c.set('orgId', 'org-1');
+    }
     c.env = env as never;
     await next();
   });

@@ -18,6 +18,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
+import { assertSiteOwned } from '../../../src/services/site_ownership.js';
 import {
   FLAG_KEY,
   checkGbpStatus,
@@ -49,6 +50,8 @@ async function guard(c: Context<AppContext>): Promise<Response | null> {
     orgId: c.get('orgId'),
   });
   if (!on) return notFound(c);
+  // Tenant guard — caller's org must own the site (covers all 3 gbp routes).
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('id')))) return notFound(c);
   return null;
 }
 
