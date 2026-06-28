@@ -1210,6 +1210,34 @@ export default {
       );
     }
 
+    // #27 — abandoned-build recovery nudge. No-op while the `abandoned_build_nudge`
+    // flag is off (dark-launch); when enabled, emails owners whose finished build
+    // is unclaimed (eligibility + throttle in services/abandoned_builds.ts).
+    try {
+      const { runAbandonedNudgesForEnv } = await import('./services/abandoned_builds_cron.js');
+      const r = await runAbandonedNudgesForEnv(env);
+      if (!r.skipped) {
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Abandoned-build nudge sweep complete',
+            scanned: r.scanned,
+            nudged: r.nudged,
+          }),
+        );
+      }
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'cron',
+          message: 'Abandoned-build nudge sweep failed',
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+
     // AN5 — once daily, roll up yesterday's visitor_events into analytics_daily so
     // owner analytics answers "last N days" in O(days) rows. Idempotent UPSERT, so a
     // missed/replayed day self-heals on the next run. Runs only on the daily 06:00 UTC trigger.
