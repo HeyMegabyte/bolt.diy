@@ -98,6 +98,11 @@ litellm_settings:
   # Every hook step is OFF by default (HOOK_<NAME>=1 or per-request metadata.hooks) and
   # fail-open, so mounting it is behaviour-neutral until a flag is flipped.
   callbacks: ["prometheus", "projectsites_hooks.hooks_instance"]
+  # Langfuse tracing — every gateway call traces to traces.projectsites.dev (self-hosted v3).
+  # Keys via env (LANGFUSE_PUBLIC_KEY/SECRET_KEY/HOST). Ingestion path /api/public/* is
+  # Access-bypassed (pk/sk-gated). Failures are non-fatal (the call still returns).
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
   # CF-native arbitration models (cascade / quorum) — registered before model_list so the
   # `ps-arbiter/*` entries resolve. Cheap legs (draft/confidence/judge) run on Workers AI.
   custom_provider_map:

@@ -13,6 +13,9 @@
 # Stateless container (port 4000) — model creds arrive via env at boot.
 FROM ghcr.io/berriai/litellm:main-latest@sha256:76a461132b9abdc032bab4d31d8ba77410ec06e99a14d05971fdfc2d82e6e785
 
+# Cache-bust LABEL: bump to force a new image hash → CF cold-starts the container so
+# worker.ts envVar changes (e.g. LANGFUSE_* forwarding) actually reach the running proxy.
+LABEL dev.projectsites.config-rev="2026-06-27-langfuse-flush1"
 COPY config.yaml /app/config.yaml
 # Meta-LLM hooks pipeline (refiner / injection-scan / PII / compress / brand / …),
 # mounted via config callbacks. /app is on sys.path so `projectsites_hooks` imports.

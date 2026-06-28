@@ -37,6 +37,11 @@ interface Env {
   LITELLM_SALT_KEY?: string;
   /** Slack incoming webhook for hanging-request / slow-response / budget alerts. */
   SLACK_WEBHOOK_URL?: string;
+  /** Langfuse tracing (self-hosted v3 at traces.projectsites.dev). When set + config's
+   *  success_callback includes "langfuse", every gateway call traces there. */
+  LANGFUSE_PUBLIC_KEY?: string;
+  LANGFUSE_SECRET_KEY?: string;
+  LANGFUSE_HOST?: string;
 }
 
 export class LiteLLM extends Container<Env> {
@@ -59,6 +64,9 @@ export class LiteLLM extends Container<Env> {
       REDIS_URL: env.REDIS_URL,
       LITELLM_SALT_KEY: env.LITELLM_SALT_KEY,
       SLACK_WEBHOOK_URL: env.SLACK_WEBHOOK_URL,
+      LANGFUSE_PUBLIC_KEY: env.LANGFUSE_PUBLIC_KEY,
+      LANGFUSE_SECRET_KEY: env.LANGFUSE_SECRET_KEY,
+      LANGFUSE_HOST: env.LANGFUSE_HOST,
     };
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) {
@@ -69,6 +77,9 @@ export class LiteLLM extends Container<Env> {
     // — only when a DB + salt key are present (it encrypts stored provider creds).
     out.LITELLM_MODE = 'PRODUCTION';
     out.LITELLM_LOG = 'ERROR';
+    // CF Containers pause the process between requests, so Langfuse's async background
+    // flush can stall — flush every 1s so a trace lands while the container is still active.
+    if (out.LANGFUSE_PUBLIC_KEY) out.LANGFUSE_FLUSH_INTERVAL = '1';
     if (out.DATABASE_URL && out.LITELLM_SALT_KEY) out.STORE_MODEL_IN_DB = 'True';
     this.envVars = out;
   }
