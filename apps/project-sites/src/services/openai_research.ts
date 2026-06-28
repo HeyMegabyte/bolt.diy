@@ -24,6 +24,12 @@ import type { Env } from '../types/env.js';
 import { captureLLMCall } from './analytics.js';
 import type { TraceContext } from './external_llm.js';
 import { gatewayFetch } from './ai_gateway.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
+import {
+  researchCacheKey,
+  getCachedResearch,
+  putCachedResearch,
+} from './research_cache.js';
 
 const DEFAULT_MODEL = 'o3-mini';
 
@@ -376,6 +382,21 @@ export async function researchAndFormulatePrompt(
   env: Env,
   info: BusinessInfo,
 ): Promise<ResearchResult> {
+  // #19c margin lever — per-business research cache (dark behind `research_cache`).
+  // A rebuild of the same business skips all 5 research LLM calls (~15→5 min). Keyed
+  // by stable identity (placeId→name+address); 30-day TTL bounds staleness; `v1` key
+  // namespace means a prompt-quality change can invalidate by bumping the version.
+  const cacheEnabled = await isFlagOn(env, 'research_cache');
+  const cacheKey = researchCacheKey({
+    placeId: info.googlePlaceId,
+    name: info.businessName,
+    address: info.businessAddress,
+  });
+  if (cacheEnabled) {
+    const cached = await getCachedResearch<ResearchResult>(env, cacheKey);
+    if (cached) return cached;
+  }
+
   // Step 1: Profile research (sequential — others depend on it)
   const profile = await researchProfile(env, info);
 
@@ -397,7 +418,9 @@ export async function researchAndFormulatePrompt(
     traceContext: info.traceContext,
   });
 
-  return { profile, brand, sellingPoints, social, expertPrompt };
+  const result: ResearchResult = { profile, brand, sellingPoints, social, expertPrompt };
+  if (cacheEnabled) await putCachedResearch(env, cacheKey, result);
+  return result;
 }
 
 /**
