@@ -62,7 +62,7 @@
 - [ ] [auto] A7 — resource sizing tiers at deploy + live upsizing (the core paid lever).
 - [ ] [auto] A13 — category landing pages + per-category `SoftwareApplication` JSON-LD (organic discovery).
 - [ ] [auto] A18 — public app profile pages (indexable `/apps/:slug` + "Deploy to ProjectSites" button).
-- [ ] [auto] A19 — guest-browsable admin (read-only /admin for guests; gated actions pop login).
+- [ ] A19 — guest-browsable admin (read-only /admin for guests; gated actions pop login). ⛔ PARKED → NEEDS BRIAN: exposing the whole tenant `/admin` read-only to ANONYMOUS visitors is a data-exposure/privacy posture call — which sections/fields are safe unauthenticated vs must stay gated. (de-tagged from the auto-gate)
 - [ ] [auto] A21 — referral / org-to-org "share this stack" deploy link (viral loop).
 
 ## 5. Snapshots — viral previews + stop the lying UI
@@ -152,7 +152,7 @@
 > gate ignores these; they're the clean handoff of everything that genuinely needs a human.
 
 - [ ] [gated] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars`. ~1h, unlocks authed prod-E2E across the whole money path (sign-in→admin→billing→publish). Smallest unblock, highest leverage.
-- [ ] [gated] **Voice go-live (V0g)** — `lk agent deploy` (LiveKit Cloud browser auth, can't run headless) + set `INTERNAL_BUILD_SECRET`/`LITELLM_BASE_URL`/`_API_KEY` + wire Twilio Elastic SIP → LiveKit SIP trunk + dial-test. Lights every built-but-dark voice slice at once. Plus carrier work: STIR/SHAKEN (V28), port-in (V32).
+- [x] **Voice go-live (V0g) — DONE / LIVE 2026-06-28** (executed HEADLESS, NOT browser-gated — [[voice-go-live-is-autonomous]]): agent `CA_dSUDxEC3EiP6` v`fo8t4SrN3djS` **Running** + worker `CAW_sEtM6J6svCqz` registered (LiveKit Cloud US-East-B); Twilio Elastic SIP `TK8a9bd5b4` → LiveKit SIP `ST_KtiKpXJdP96E` + dispatch `SDR_VJa7PFhoztW6`; worker LiteLLM secrets + WAF skip `/internal/voice/*` (signed config 200, Megabyte Labs, model `gpt`); +12626864783 → answers. First build stuck on a stub package-lock (npm-ci fail); clean redeploy fixed it. Remaining carrier polish: STIR/SHAKEN (V28), port-in (V32).
 - [ ] [gated] **Case-study pages** — featuring a real named org (njsk.org) needs THEIR consent + approved logo/copy use. Decision: which consenting builds may be published.
 - [ ] [gated] **Pricing one-way doors** — free/Pro split (AN52), snapshot retention tiers (S45), AI-insight credits metering (AN53), 3rd-party paid app tier (A22), Lago usage metering. Loop proposes + wires; Brian sets prices.
 - [ ] [gated] **Notification vendor** — confirm `psnotify` (the ZERO-Novu rule) so the Novu/Dittofeed drift is deleted and it's built.
