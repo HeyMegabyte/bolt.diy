@@ -1,7 +1,19 @@
 import { Component, signal, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthApiService } from './auth-api.service';
+
+/**
+ * Open-redirect-safe post-sign-in destination. Only a same-origin absolute path
+ * (a single leading `/`, never `//` protocol-relative or a `scheme:` URL) is
+ * honored; anything else (external, empty, `javascript:`) falls back to `/admin`.
+ *
+ * @example sanitizeReturnUrl('/admin/billing') // '/admin/billing'
+ * @example sanitizeReturnUrl('//evil.com')     // '/admin'
+ */
+export function sanitizeReturnUrl(raw: string | null | undefined): string {
+  return raw && /^\/(?!\/)/.test(raw) ? raw : '/admin';
+}
 
 /**
  * Better Auth sign-in surface — email + password, plus a one-tap "email me a
@@ -150,6 +162,15 @@ import { AuthApiService } from './auth-api.service';
 export class SignInComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * Post-sign-in destination from `?returnUrl=` (the app bounces protected 401s
+   * to `/signin?returnUrl=…`), open-redirect-sanitized.
+   */
+  private safeReturnUrl(): string {
+    return sanitizeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
+  }
 
   readonly email = signal('');
   readonly password = signal('');
@@ -181,7 +202,7 @@ export class SignInComponent {
     this.busy.set(false);
 
     if (res.ok) {
-      this.router.navigateByUrl('/admin');
+      this.router.navigateByUrl(this.safeReturnUrl());
     } else {
       this.error.set(res.error);
     }
@@ -195,7 +216,10 @@ export class SignInComponent {
     if (this.magicBusy() || !this.emailValid()) return;
 
     this.magicBusy.set(true);
-    const res = await this.authApi.sendMagicLink({ email: this.email().trim() });
+    const res = await this.authApi.sendMagicLink({
+      email: this.email().trim(),
+      callbackURL: this.safeReturnUrl(),
+    });
     this.magicBusy.set(false);
 
     if (res.ok) {

@@ -142,8 +142,11 @@ export class AuthApiService {
     return this.post<AuthSignInResult>('/sign-up/email', input);
   }
 
-  /** Request a passwordless magic link by email. */
-  sendMagicLink(input: { email: string }): Promise<AuthResult<{ status?: boolean }>> {
+  /** Request a passwordless magic link by email. `callbackURL` is where the link returns. */
+  sendMagicLink(input: {
+    email: string;
+    callbackURL?: string;
+  }): Promise<AuthResult<{ status?: boolean }>> {
     return this.post<{ status?: boolean }>('/sign-in/magic-link', input);
   }
 

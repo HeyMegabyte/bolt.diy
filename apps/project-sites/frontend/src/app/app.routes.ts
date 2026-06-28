@@ -30,13 +30,18 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/pricing/pricing.component').then((m) => m.PricingComponent),
   },
   {
+    // Better Auth takes over the canonical /signin — the app's 401-redirect target
+    // (ApiService bounces protected 401s to /signin?returnUrl=…). Post-cutover the
+    // legacy magic-link/Google page is dead (BA owns /api/auth/*), so /signin now
+    // serves the Better Auth sign-in UI directly.
     path: 'signin',
-    loadComponent: () => import('./pages/signin/signin.component').then((m) => m.SigninComponent),
+    loadComponent: () => import('./pages/auth/sign-in.component').then((m) => m.SignInComponent),
   },
   {
+    // Back-compat alias for the Better Auth UI's internal links + bookmarks.
     path: 'auth/sign-in',
-    loadComponent: () =>
-      import('./pages/auth/sign-in.component').then((m) => m.SignInComponent),
+    redirectTo: 'signin',
+    pathMatch: 'full',
   },
   {
     path: 'auth/sign-up',

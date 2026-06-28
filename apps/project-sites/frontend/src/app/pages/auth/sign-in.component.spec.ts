@@ -1,7 +1,19 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { SignInComponent } from './sign-in.component';
+import { SignInComponent, sanitizeReturnUrl } from './sign-in.component';
 import { AuthApiService } from './auth-api.service';
+
+describe('sanitizeReturnUrl (open-redirect safety)', () => {
+  it('honors a same-origin absolute path', () => {
+    expect(sanitizeReturnUrl('/admin/billing')).toBe('/admin/billing');
+    expect(sanitizeReturnUrl('/sites/abc?tab=logs')).toBe('/sites/abc?tab=logs');
+  });
+  it('rejects protocol-relative, external, scheme, and empty → /admin', () => {
+    for (const bad of ['//evil.com', 'https://evil.com', 'javascript:alert(1)', '', null, undefined, 'admin']) {
+      expect(sanitizeReturnUrl(bad)).toBe('/admin');
+    }
+  });
+});
 
 describe('SignInComponent', () => {
   const signInEmail = jasmine.createSpy('signInEmail');
@@ -82,7 +94,9 @@ describe('SignInComponent', () => {
     const f = make();
     f.componentInstance.email.set('user@example.com');
     await f.componentInstance.emailMagicLink();
-    expect(sendMagicLink).toHaveBeenCalledWith({ email: 'user@example.com' });
+    expect(sendMagicLink).toHaveBeenCalledWith(
+      jasmine.objectContaining({ email: 'user@example.com', callbackURL: '/admin' }),
+    );
     expect(f.componentInstance.magicSent()).toBe(true);
   });
 });
