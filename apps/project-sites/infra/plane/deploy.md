@@ -74,10 +74,18 @@ open -a Docker && until docker info >/dev/null 2>&1; do sleep 3; done   # builde
 npx wrangler deploy        # builds the AIO image + provisions the Plane Container DO + the route
 ```
 
-DNS/TLS: `wrangler.toml` declares `routes = [{ pattern = "pm.megabyte.space", custom_domain = true }]`
-on the megabyte.space zone (`75a6f8d5e441cd7124552976ba894f83`) — CF provisions the proxied
-hostname + cert automatically on deploy (account-owned zone). Migrations run on PlaneApi boot
-(`start.sh`).
+DNS/TLS: `wrangler.toml` declares `routes = [{ pattern = "pm.megabyte.space", custom_domain = true }]`.
+⚠️ In practice the `custom_domain=true` route did NOT auto-provision on the CI deploy (no DNS
+record / no worker-domain binding appeared). Attach it explicitly via the CF API (idempotent):
+```
+curl -s -H "X-Auth-Email: $EMAIL" -H "X-Auth-Key: $CLOUDFLARE_API_KEY" -H 'Content-Type: application/json' \
+  -X PUT https://api.cloudflare.com/client/v4/accounts/84fa0d1b16ff8086dd958c468ce7fd59/workers/domains \
+  -d '{"environment":"production","hostname":"pm.megabyte.space","service":"projectsites-plane","zone_id":"75a6f8d5e441cd7124552976ba894f83"}'
+```
+This creates the proxied DNS (AAAA `100::` placeholder) + orders the edge cert. After attach,
+allow several minutes for the cert + edge routing to propagate before pm.megabyte.space serves
+(a fresh Workers custom domain returns connection-refused/`000` until the edge picks it up).
+Migrations run on the AIO container's boot (`supervisor` `migrator` program).
 
 ## Verify (per verification-loop)
 - `curl -sI https://pm.megabyte.space` → 200, body = Plane login (NOT a CF placeholder).
