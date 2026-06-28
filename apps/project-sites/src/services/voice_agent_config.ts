@@ -60,7 +60,11 @@ export const TURN_PRESETS: Record<TurnProfile, Omit<TurnDetectionConfig, 'profil
     minEndpointingDelayMs: 480,
   },
   // Medical/legal/finance: callers spell account numbers, names, dates — wait longer.
-  precise: { interruptionMode: 'adaptive', maxEndpointingDelayMs: 3000, minEndpointingDelayMs: 640 },
+  precise: {
+    interruptionMode: 'adaptive',
+    maxEndpointingDelayMs: 3000,
+    minEndpointingDelayMs: 640,
+  },
   // Restaurant/retail/booking: short yes/no turns — keep it snappy.
   transactional: {
     interruptionMode: 'adaptive',
