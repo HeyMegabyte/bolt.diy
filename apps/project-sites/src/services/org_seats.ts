@@ -57,9 +57,10 @@ export interface SeatVerdict {
  */
 export function canInviteMember(state: SeatState): SeatVerdict {
   const used = Math.max(0, state.activeMembers) + Math.max(0, state.pendingInvites);
-  const remaining = state.seatLimit === Number.POSITIVE_INFINITY
-    ? Number.POSITIVE_INFINITY
-    : Math.max(0, state.seatLimit - used);
+  const remaining =
+    state.seatLimit === Number.POSITIVE_INFINITY
+      ? Number.POSITIVE_INFINITY
+      : Math.max(0, state.seatLimit - used);
   const allowed = used < state.seatLimit;
   return allowed
     ? { allowed, used, remaining }

@@ -2,7 +2,12 @@
  * org_seats — seat-enforcement logic (#25). Locks the pending-invites-reserve-a-seat
  * rule, the plan→limit mapping, and the unlimited (enterprise) path.
  */
-import { canInviteMember, canInviteForPlan, seatLimitFor, SEAT_LIMITS } from '../services/org_seats.js';
+import {
+  canInviteMember,
+  canInviteForPlan,
+  seatLimitFor,
+  SEAT_LIMITS,
+} from '../services/org_seats.js';
 
 describe('canInviteMember', () => {
   it('allows an invite with seats to spare', () => {

@@ -15,7 +15,11 @@ jest.mock('../auth/better-auth.js', () => ({
   }),
 }));
 
-import { resolveActiveRole, roleSatisfies, requireOrgRole } from '../middleware/require_org_role.js';
+import {
+  resolveActiveRole,
+  roleSatisfies,
+  requireOrgRole,
+} from '../middleware/require_org_role.js';
 
 describe('roleSatisfies (hierarchy owner ≥ admin ≥ member)', () => {
   it('exact match passes', () => {
