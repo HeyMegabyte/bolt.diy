@@ -14,7 +14,7 @@
 
 ## 🚨 P0 — Critical (security / risk / margin — before any feature)
 
-- [ ] [auto] **Cross-tenant publish vuln** — `content.ts` `approve`/`publishRewriteDraft` doesn't thread `expectedOrgId`; one org can publish into another. Regression test + fix.
+- [x] **Cross-tenant publish vuln — FIXED (loop fire 2026-06-28).** The real surface was `seo_autopilot.approveDraft(env, draftId, approvedBy)` — it fetched+approved+`applyToSite`-published a draft by id with NO org scoping. The route layer already guarded (`owner.org_id !== c.get('orgId')` → 404), but the SERVICE was org-unsafe for any other caller. Added a required `expectedOrgId` param + `if (draft.org_id !== expectedOrgId) return 'Draft not found'` (defense-in-depth, never leaks existence); route now passes `c.get('orgId')`. TDD: new SECURITY test asserts org_B can't approve org_A's draft (no status flip, no R2 publish) + 2 existing tests updated. 39/39 jest green, tsc 0 (worker → CI push). [DONE]
 - [ ] [auto] **Tenant `org_id` scoping audit** — sweep the 153 flat services' D1 queries for missing org scoping (cross-tenant read/write surface).
 - [ ] [auto] **Margin leak** — force AI-Gateway upstream of LiteLLM on every model call + swap GPT-4o vision→Workers-AI where adequate + cache research/brand/assets per business (~15→5 min rebuilds).
 

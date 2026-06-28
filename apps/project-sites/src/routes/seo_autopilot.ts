@@ -175,7 +175,7 @@ seoAutopilot.post('/drafts/:draftId/approve', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Draft not found' } }, 404);
   }
 
-  const result = await approveDraft(c.env, draftId, userId);
+  const result = await approveDraft(c.env, draftId, userId, c.get('orgId') ?? '');
   if (!result.ok) {
     const code = result.error === 'Draft not found' ? 'NOT_FOUND' : 'BAD_REQUEST';
     const httpStatus = code === 'NOT_FOUND' ? 404 : 400;

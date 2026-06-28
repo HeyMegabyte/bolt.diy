@@ -305,10 +305,17 @@ describe('approveDraft', () => {
   it('advances a pending draft to approved and applies it to the live HTML', async () => {
     // queryOne calls: approveDraft fetch · applyToSite re-fetch · applySeoMeta site lookup.
     mockQueryOne
-      .mockResolvedValueOnce({ id: 'd1', site_id: 'site_1', route: '/', status: 'pending' } as any)
       .mockResolvedValueOnce({
         id: 'd1',
         site_id: 'site_1',
+        org_id: 'org_1',
+        route: '/',
+        status: 'pending',
+      } as any)
+      .mockResolvedValueOnce({
+        id: 'd1',
+        site_id: 'site_1',
+        org_id: 'org_1',
         route: '/',
         title: 'New SEO Title',
         description: 'New meta description for the homepage that AI search can quote.',
@@ -324,7 +331,7 @@ describe('approveDraft', () => {
     });
     const env = { DB: {}, SITES_BUCKET: { get, put } } as any;
 
-    const result = await approveDraft(env, 'd1', 'user_1');
+    const result = await approveDraft(env, 'd1', 'user_1', 'org_1');
 
     expect(result.ok).toBe(true);
     expect(result.draft?.approved_by).toBe('user_1');
@@ -339,17 +346,43 @@ describe('approveDraft', () => {
   it('rejects approval for a missing draft', async () => {
     mockQueryOne.mockResolvedValue(null);
     const env = makeEnv({});
-    const result = await approveDraft(env, 'nope', 'user_1');
+    const result = await approveDraft(env, 'nope', 'user_1', 'org_1');
     expect(result.ok).toBe(false);
     expect(result.error).toBe('Draft not found');
   });
 
   it('rejects approval for a non-pending draft', async () => {
-    mockQueryOne.mockResolvedValueOnce({ id: 'd1', site_id: 'site_1', status: 'approved' } as any);
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'd1',
+      site_id: 'site_1',
+      org_id: 'org_1',
+      status: 'approved',
+    } as any);
     const env = makeEnv({});
-    const result = await approveDraft(env, 'd1', 'user_1');
+    const result = await approveDraft(env, 'd1', 'user_1', 'org_1');
     expect(result.ok).toBe(false);
     expect(result.error).toContain('already');
+  });
+
+  it('SECURITY: refuses to approve another org’s draft (cross-tenant publish guard)', async () => {
+    // Draft belongs to org_A; caller is org_B → must be "not found", with NO status
+    // mutation and NO applyToSite (which would publish into org_A's live site).
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'd1',
+      site_id: 'site_A',
+      org_id: 'org_A',
+      route: '/',
+      status: 'pending',
+    } as any);
+    const put = jest.fn();
+    const env = { DB: {}, SITES_BUCKET: { get: jest.fn(), put } } as any;
+
+    const result = await approveDraft(env, 'd1', 'attacker_in_org_B', 'org_B');
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('Draft not found');
+    expect(mockUpdate).not.toHaveBeenCalled(); // no status flip
+    expect(put).not.toHaveBeenCalled(); // applyToSite never published
   });
 });
 

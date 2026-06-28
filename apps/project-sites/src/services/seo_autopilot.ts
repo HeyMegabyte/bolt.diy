@@ -441,6 +441,7 @@ export async function approveDraft(
   env: Env,
   draftId: string,
   approvedBy: string,
+  expectedOrgId: string,
 ): Promise<{ ok: boolean; error?: string; draft?: SeoMetaDraft }> {
   const draft = await dbQueryOne<SeoMetaDraft>(
     env.DB,
@@ -448,6 +449,10 @@ export async function approveDraft(
     [draftId],
   );
   if (!draft) return { ok: false, error: 'Draft not found' };
+  // Tenant guard (defense-in-depth — the service is org-safe regardless of caller):
+  // a draft belonging to another org (or an unscoped null-org draft) is "not found"
+  // so org B can never approve/publish org A's draft. Never leak existence.
+  if (draft.org_id !== expectedOrgId) return { ok: false, error: 'Draft not found' };
   if (draft.status !== 'pending') return { ok: false, error: `Draft already ${draft.status}` };
 
   const approvedAt = new Date().toISOString();
