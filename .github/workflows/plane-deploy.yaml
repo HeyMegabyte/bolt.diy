@@ -39,11 +39,17 @@ jobs:
       - name: Verify Docker available on runner
         run: docker version
 
+      - name: Install deps (resolves @cloudflare/containers for bundling)
+        run: npm install --no-audit --no-fund
+
       - name: Deploy Worker + build AIO image
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-        run: npx --yes wrangler@4 deploy 2>&1 | tee deploy.log
+        # pipefail so a failed wrangler deploy fails the step (a bare `| tee` masks the exit code).
+        run: |
+          set -o pipefail
+          npx --yes wrangler@4 deploy 2>&1 | tee deploy.log
 
       - name: Set Worker secrets (injected into the Plane container at runtime)
         env:
