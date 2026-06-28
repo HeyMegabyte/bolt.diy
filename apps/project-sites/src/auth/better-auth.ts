@@ -189,6 +189,36 @@ export function makeAuth(env: Env): Auth {
             } catch {
               /* PostHog is best-effort (#42) */
             }
+            // #44 — new-IP / new-device anomaly: compare this login to the user's
+            // KV-retained history. A deviation gets its own audit + PostHog alert
+            // so a downstream rule (or the admin) can react. Fail-soft throughout.
+            try {
+              const { recordAndAssess } = await import('../services/auth_anomaly.js');
+              const verdict = await recordAndAssess(env, userId, {
+                ip: ipAddress,
+                ua: userAgent,
+                ts: Date.now(),
+              });
+              if (verdict.anomalous) {
+                const { captureEvent } = await import('../services/analytics.js');
+                await captureEvent(env, 'auth.anomaly.detected', userId, {
+                  reasons: verdict.reasons.join(','),
+                  ip_address: ipAddress || undefined,
+                  user_agent: userAgent || undefined,
+                });
+                const { writeAuditLog } = await import('../services/audit.js');
+                await writeAuditLog(env.DB, {
+                  org_id: 'system',
+                  actor_id: userId,
+                  action: 'auth.anomaly.detected',
+                  message: `Login anomaly: ${verdict.reasons.join(', ')}${ipAddress ? ` (${ipAddress})` : ''}`,
+                  target_type: 'user',
+                  target_id: userId,
+                });
+              }
+            } catch {
+              /* anomaly detection is best-effort (#44) — never block sign-in */
+            }
             try {
               const { writeAuditLog } = await import('../services/audit.js');
               await writeAuditLog(env.DB, {
