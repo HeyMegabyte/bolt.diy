@@ -189,6 +189,16 @@ main(){
     # load plane.env as exported variables
     export $(grep -v '^#' plane.env | xargs)
 
+    # CF Containers (firecracker) do NOT mount the /dev/shm or /dev/mqueue tmpfs that a
+    # normal Docker runtime provides. gunicorn's per-worker heartbeat file lives in
+    # --worker-tmp-dir (default /dev/shm); when it's absent the api + celery worker boot,
+    # print "Starting processes ..." then die with no Python traceback (only
+    # "df: /dev/shm: No such file or directory" on stderr) → supervisor crash-loops them →
+    # /api/* 502/500. Create both as plain dirs (functional, just not RAM-backed) with the
+    # 1777 sticky/world-writable perms real shm uses, so gunicorn + celery come up.
+    mkdir -p /dev/shm /dev/mqueue 2>/dev/null || true
+    chmod 1777 /dev/shm /dev/mqueue 2>/dev/null || true
+
     /usr/local/bin/supervisord -c /etc/supervisor/conf.d/supervisor.conf
 }
 
