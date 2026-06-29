@@ -183,9 +183,9 @@ export function mergeProfiles(profiles: MappedProfile[]): MappedProfile | null {
   }
 
   return {
+    avatar,
     email,
     name,
-    avatar,
     providerId: first.providerId,
   };
 }
