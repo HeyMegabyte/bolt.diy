@@ -1,8 +1,4 @@
-import {
-  benchmarkMetric,
-  formatRate,
-  type FleetStats,
-} from '../services/fleet_benchmark.js';
+import { benchmarkMetric, formatRate, type FleetStats } from '../services/fleet_benchmark.js';
 
 const fleet: FleetStats = { median: 3.4, p25: 2.0, p75: 5.0, sampleSize: 120 };
 

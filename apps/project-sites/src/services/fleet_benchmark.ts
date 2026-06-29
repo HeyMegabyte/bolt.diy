@@ -103,17 +103,8 @@ export function benchmarkMetric(
   const doingWell = verdict === 'at' ? null : (verdict === 'above') === higherIsBetter;
   const comparator = verdict === 'at' ? 'in line with' : verdict === 'above' ? 'above' : 'below';
   const bandPhrase =
-    band === 'top'
-      ? ' — top quartile'
-      : band === 'bottom'
-        ? ' — bottom quartile'
-        : '';
-  const tone =
-    doingWell === null
-      ? ''
-      : doingWell
-        ? ' Nice work.'
-        : ' Room to improve.';
+    band === 'top' ? ' — top quartile' : band === 'bottom' ? ' — bottom quartile' : '';
+  const tone = doingWell === null ? '' : doingWell ? ' Nice work.' : ' Room to improve.';
   const confidenceNote = lowConfidence
     ? ` (based on only ${fleet.sampleSize} comparable sites — treat as directional)`
     : '';
