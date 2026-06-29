@@ -49,7 +49,7 @@ kill_timeout   = 30
   BACKEND_INTERNAL_URL    = "http://localhost:3000"
   IS_GENERAL              = "true"
   RUN_CRON                = "true"
-  DISABLE_REGISTRATION    = "false"   # set "true" after the first admin account is created
+  DISABLE_REGISTRATION    = "true"    # admin account provisioned 2026-06-29 (hey@megabyte.space); public self-registration locked
   # --- Temporal Cloud (managed orchestrator) ---
   TEMPORAL_ADDRESS        = "social-projectsites.g3erb.tmprl.cloud:7233"
   TEMPORAL_NAMESPACE      = "social-projectsites.g3erb"
@@ -79,11 +79,17 @@ kill_timeout   = 30
 # [[services]] block would spin a phantom default-port service.
 [[http_service.checks]]
   grace_period = "150s"   # Postiz runs Prisma db push + compiles a workflow bundle per platform queue on first boot
-  interval     = "30s"
-  timeout      = "10s"
+  interval     = "20s"
+  timeout      = "15s"    # generous: one all-in-one machine under load; avoid flapping the LB on a transient slow response
   method       = "get"
   path         = "/auth"
 
+# DEDICATED CPU is required, not shared. Postiz runs ~15 Temporal platform
+# workers (one per social queue) + Next.js + NestJS in one image. On shared
+# cores the workers saturate CPU -> health check flaps -> Fly drops the machine
+# from the LB (503) AND Temporal heartbeats time out -> gRPC reconnect storm.
+# Dedicated cores break that feedback loop.
 [[vm]]
-  size   = "shared-cpu-2x"
-  memory = "2gb"   # Next.js + NestJS + Temporal worker + cron in one image
+  cpu_kind  = "performance"
+  cpus      = 2
+  memory_mb = 4096
