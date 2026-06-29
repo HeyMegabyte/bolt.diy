@@ -108,7 +108,7 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
     const json = (await res.json()) as { flags: Array<{ key: string }>; count: number };
     expect(json.count).toBe(json.flags.length);
     expect(json.count).toBeGreaterThan(20);
-    expect(json.count).toBeLessThan(70); // trimmed registry, not the old 155
+    expect(json.count).toBeLessThan(80); // trimmed registry, not the old 155
   });
 
   it('KEEPS the core + surviving flags', async () => {

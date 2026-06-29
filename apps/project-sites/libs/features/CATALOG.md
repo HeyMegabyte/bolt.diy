@@ -1330,3 +1330,41 @@ entry in `src/modules/feature_flags/registry.ts`. No tables owned.
 
 Unit tests: `__tests__/site_doctor.test.ts` (12 — scoring/grades/severity/free-lock/schema/flag)
 E2E tests: `e2e/site_doctor/` (pending — needs the owner dashboard surface)
+
+---
+
+# preview_share_card — Instant Preview Share Card (#55)
+
+Owner-driven viral loop. After a build, the owner gets honest pre-written share
+messages (SMS / WhatsApp / email / copy), one-tap platform deep-links (SMS,
+WhatsApp, mailto, X, Facebook), and OG-card params for a branded 1200×630 card —
+so they share their new site to real customers in seconds. The shared link is the ad.
+
+## Flag
+
+`preview_share_card` — default `enabled=0, rollout=0, stage=experimental`. Owner: brian@megabyte.space.
+
+## Route
+
+`GET /api/sites/:siteId/share-card` — owner-auth; 404 when the flag is off or the
+site is not owned by the caller org (no existence leak). Returns `{ messages, links, og }`.
+
+## Core
+
+`src/services/preview_share_card.ts` — `buildPreviewShareCard` (messages + deep-links
++ OG params), pure, slop-free, XSS-safe. The module `service.ts` derives the canonical
+preview URL (`{slug}.projectsites.dev`) via `buildShareCardForSite`.
+
+## Safe disabled behavior
+
+Server returns 404 (never 403). No tables owned.
+
+## Remaining wiring (beta gate)
+
+Build-complete "Share my preview" button (frontend) + the workers-og `/og` render
+endpoint + custom-hostname preview URL.
+
+## Tests
+
+Unit: `__tests__/preview_share_card.test.ts` (6 — URL derivation/tagline/empty-slug/flag/schema)
+plus the core's `src/__tests__/preview_share_card.test.ts` (11). E2E: pending the share button.

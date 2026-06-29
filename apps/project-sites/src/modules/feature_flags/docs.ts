@@ -66,6 +66,22 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'UI: "Site Health" tab (?tab=health) renders the grade + fixes + Unlock-with-Pro on locked rows',
     ],
   },
+  preview_share_card: {
+    checklist: [
+      'Honest, slop-free share messages (SMS / WhatsApp / email / copy)',
+      'One-tap platform deep-links (SMS, WhatsApp, mailto, X, Facebook), URL-encoded',
+      'OG-card params (title / subtitle / host / theme) for the edge renderer',
+      'Free-tier owner viral loop — the shared link is the ad',
+    ],
+    explanation:
+      'Owner-driven viral loop. After a build the owner gets pre-written share copy, one-tap platform deep-links, and OG-card params for a branded 1200x630 card, so they share their new site to real customers in seconds. Pure builder over the site slug + business name; XSS-safe substitution; degrades gracefully when a field is missing.',
+    smoke_test: [
+      'GET /api/sites/:siteId/share-card → {messages, links:{sms,whatsapp,email,x,facebook,copy}, og}',
+      'links.copy === https://<slug>.projectsites.dev',
+      'Unauth → 401; flag off → 404; not-owned siteId → 404',
+      'UI (follow-on): build-complete "Share my preview" button renders the deep-links + OG card',
+    ],
+  },
   cms_content: {
     checklist: [
       'Edge-cached /api/cms/blog.json feed for generated sites',
