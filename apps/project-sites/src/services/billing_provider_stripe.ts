@@ -216,11 +216,7 @@ export class StripeMetersProvider implements BillingMeteringProvider {
   }
 
   /** Update delivery status on a persisted event. */
-  async #markDelivered(
-    eventId: string,
-    status: 'sent' | 'failed',
-    error?: string,
-  ): Promise<void> {
+  async #markDelivered(eventId: string, status: 'sent' | 'failed', error?: string): Promise<void> {
     try {
       await this.#env.DB.prepare(
         `UPDATE usage_events
@@ -304,10 +300,7 @@ export async function getUsageSummaryFromLedger(
     metric: r.metric as UsageSummaryRow['metric'],
     quantity: r.quantity,
     unit: r.unit as UsageSummaryRow['unit'],
-    estimatedCostCents: estimateCostCents(
-      r.metric as UsageSummaryRow['metric'],
-      r.quantity,
-    ),
+    estimatedCostCents: estimateCostCents(r.metric as UsageSummaryRow['metric'], r.quantity),
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
   }));
@@ -355,23 +348,23 @@ export async function getUsageSummaryFromLedger(
  * | App installs      | premium_app_installs       | event    | 1000.0      | $10.00 / premium app install |
  */
 export const METRIC_RATE_CENTS: Record<string, number> = {
-  ai_input_tokens: 0.000015,            // $0.15 / 1M tokens
-  ai_output_tokens: 0.00006,            // $0.60 / 1M tokens
-  ai_embedding_tokens: 0.000002,        // $0.02 / 1M tokens
-  ai_image_generations: 5,              // $0.05 / image
-  ai_voice_minutes: 1,                  // $0.01 / minute
-  browser_automation_minutes: 3,        // $0.03 / minute
-  build_compute_minutes: 2,             // $0.02 / minute
-  site_visits: 0.001,                   // $0.00001 / visit
-  bandwidth_egress_gb: 5,               // $0.05 / GB
-  storage_gb_hours: 0.007,              // ~$5.00 / GB-month
-  email_sends: 0.01,                    // $0.0001 / email
-  sms_sends: 1,                         // $0.01 / SMS
-  form_submissions: 0,                  // free
-  social_posts: 1,                      // $0.01 / post
-  booking_events: 0,                    // free
-  crm_seats: 500,                       // $5.00 / seat / month
-  premium_app_installs: 1000,           // $10.00 / install
+  ai_input_tokens: 0.000015, // $0.15 / 1M tokens
+  ai_output_tokens: 0.00006, // $0.60 / 1M tokens
+  ai_embedding_tokens: 0.000002, // $0.02 / 1M tokens
+  ai_image_generations: 5, // $0.05 / image
+  ai_voice_minutes: 1, // $0.01 / minute
+  browser_automation_minutes: 3, // $0.03 / minute
+  build_compute_minutes: 2, // $0.02 / minute
+  site_visits: 0.001, // $0.00001 / visit
+  bandwidth_egress_gb: 5, // $0.05 / GB
+  storage_gb_hours: 0.007, // ~$5.00 / GB-month
+  email_sends: 0.01, // $0.0001 / email
+  sms_sends: 1, // $0.01 / SMS
+  form_submissions: 0, // free
+  social_posts: 1, // $0.01 / post
+  booking_events: 0, // free
+  crm_seats: 500, // $5.00 / seat / month
+  premium_app_installs: 1000, // $10.00 / install
 };
 
 /**

@@ -111,9 +111,7 @@ describe('resolveBillingProviderId', () => {
   });
 
   it('rejects openmeter provider', () => {
-    expect(() => resolveBillingProviderId(stubEnv('openmeter'))).toThrow(
-      'no longer supported',
-    );
+    expect(() => resolveBillingProviderId(stubEnv('openmeter'))).toThrow('no longer supported');
   });
 
   it('rejects unknown providers', () => {
@@ -153,9 +151,7 @@ describe('METRIC_UNIT', () => {
     expect(metrics.length).toBe(17);
     const validUnits = ['token', 'minute', 'event', 'gb', 'gb_hour', 'seat'];
     for (const m of metrics) {
-      expect(validUnits).toContain(
-        METRIC_UNIT[m as keyof typeof METRIC_UNIT],
-      );
+      expect(validUnits).toContain(METRIC_UNIT[m as keyof typeof METRIC_UNIT]);
     }
   });
 });
@@ -209,8 +205,8 @@ describe('Per-unit cost accuracy', () => {
 
     // $0.15/1M input → 5000 × 0.000015 = 0.075 cents (fractional)
     // $0.60/1M output → 2000 × 0.00006 = 0.12 cents
-    expect(inputCost).toBe(0);   // rounds to 0 (sub-cent)
-    expect(outputCost).toBe(0);  // rounds to 0 (sub-cent)
+    expect(inputCost).toBe(0); // rounds to 0 (sub-cent)
+    expect(outputCost).toBe(0); // rounds to 0 (sub-cent)
 
     // At scale: 1M input tokens
     expect(estimateCostCents('ai_input_tokens', 1_000_000)).toBe(15); // $0.15
@@ -219,7 +215,7 @@ describe('Per-unit cost accuracy', () => {
 
   it('charges per GB for bandwidth egress', () => {
     // $0.05 / GB
-    expect(estimateCostCents('bandwidth_egress_gb', 1)).toBe(5);   // $0.05
+    expect(estimateCostCents('bandwidth_egress_gb', 1)).toBe(5); // $0.05
     expect(estimateCostCents('bandwidth_egress_gb', 100)).toBe(500); // $5.00
     expect(estimateCostCents('bandwidth_egress_gb', 0)).toBe(0);
   });
@@ -232,12 +228,12 @@ describe('Per-unit cost accuracy', () => {
 
   it('charges per MINUTE for compute (browser + build)', () => {
     expect(estimateCostCents('browser_automation_minutes', 10)).toBe(30); // $0.30
-    expect(estimateCostCents('build_compute_minutes', 60)).toBe(120);    // $1.20
+    expect(estimateCostCents('build_compute_minutes', 60)).toBe(120); // $1.20
   });
 
   it('charges per SEND for email + SMS', () => {
-    expect(estimateCostCents('email_sends', 1000)).toBe(10);  // $0.10
-    expect(estimateCostCents('sms_sends', 100)).toBe(100);     // $1.00
+    expect(estimateCostCents('email_sends', 1000)).toBe(10); // $0.10
+    expect(estimateCostCents('sms_sends', 100)).toBe(100); // $1.00
   });
 
   it('METRIC_RATE_CENTS covers all metrics in STRIPE_METER_MAP', () => {

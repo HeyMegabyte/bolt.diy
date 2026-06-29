@@ -397,10 +397,14 @@ export async function meterAiTokens(
     }
     await provider.recordUsageBatch(events);
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn', service: 'usage_metering',
-      message: 'meterAiTokens failed', error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'meterAiTokens failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 
@@ -430,10 +434,14 @@ export async function meterBrowserMinutes(
       metadata: opts.purpose ? { purpose: opts.purpose } : undefined,
     });
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn', service: 'usage_metering',
-      message: 'meterBrowserMinutes failed', error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'meterBrowserMinutes failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 
@@ -463,10 +471,14 @@ export async function meterEmailSend(
       metadata: opts.campaignId ? { campaign_id: opts.campaignId } : undefined,
     });
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn', service: 'usage_metering',
-      message: 'meterEmailSend failed', error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'meterEmailSend failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 

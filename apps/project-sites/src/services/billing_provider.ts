@@ -126,12 +126,7 @@ export interface UsageEvent {
 }
 
 /** Delivery status to the external billing provider. */
-export type ExternalDeliveryStatus =
-  | 'pending'
-  | 'sent'
-  | 'failed'
-  | 'retrying'
-  | 'dead_lettered';
+export type ExternalDeliveryStatus = 'pending' | 'sent' | 'failed' | 'retrying' | 'dead_lettered';
 
 /** A usage event after it's been persisted + delivery attempted. */
 export interface PersistedUsageEvent extends UsageEvent {
@@ -166,7 +161,7 @@ export interface UsageSummaryInput {
   appId?: string;
   metric?: UsageMetric;
   periodStart: string; // ISO-8601
-  periodEnd: string;   // ISO-8601
+  periodEnd: string; // ISO-8601
   granularity?: 'hour' | 'day' | 'month';
 }
 

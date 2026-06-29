@@ -242,9 +242,9 @@ billingAddons.get('/api/billing/usage/summary', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
 
-  const periodStart = c.req.query('period_start') ?? new Date(Date.UTC(
-    new Date().getUTCFullYear(), new Date().getUTCMonth(), 1,
-  )).toISOString();
+  const periodStart =
+    c.req.query('period_start') ??
+    new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString();
   const periodEnd = c.req.query('period_end') ?? new Date().toISOString();
 
   const provider = await createBillingProvider(c.env);
