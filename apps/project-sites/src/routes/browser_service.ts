@@ -145,9 +145,7 @@ for (const purpose of BROWSER_PURPOSES) {
         } finally {
           await release();
           // Meter browser usage through StripeMetersProvider (Metronome-compatible).
-          const { meterCompletedBrowserJob } = await import(
-            '../services/browser_gateway.js'
-          );
+          const { meterCompletedBrowserJob } = await import('../services/browser_gateway.js');
           void meterCompletedBrowserJob(c.env, {
             orgId: parsed.data.tenantId,
             siteId: parsed.data.siteId,
