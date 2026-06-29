@@ -58,16 +58,16 @@ export function snapshot(
  * ```
  */
 export function fromSnapshot(snap: RateLimitSnapshot): {
-  tokens: number;
   lastRefillMs: number;
-  windowMs: number;
   maxTokens: number;
+  tokens: number;
+  windowMs: number;
 } {
   return {
-    tokens: snap.tokens,
     lastRefillMs: snap.lastRefillMs,
-    windowMs: snap.windowMs,
     maxTokens: snap.maxTokens,
+    tokens: snap.tokens,
+    windowMs: snap.windowMs,
   };
 }
 

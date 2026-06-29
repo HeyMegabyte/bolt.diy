@@ -45,9 +45,11 @@ export interface MigrationResult {
  * @returns Full days remaining in the current cycle (floor at 0).
  */
 function calculateDaysRemaining(nowMs: number, cycleStart: number, cycleEnd: number): number {
+  // Clamp to cycle boundaries so a value past the end yields 0, not negative.
+  const clamped = Math.max(cycleStart, Math.min(nowMs, cycleEnd));
   const total = cycleEnd - cycleStart;
   if (total <= 0) return 0;
-  const elapsed = nowMs - cycleStart;
+  const elapsed = clamped - cycleStart;
   const remaining = total - elapsed;
   return Math.max(0, Math.floor(remaining / 86_400_000));
 }
