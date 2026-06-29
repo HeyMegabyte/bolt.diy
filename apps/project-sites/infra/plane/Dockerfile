@@ -25,7 +25,7 @@ FROM --platform=linux/amd64 python:3.12.10-alpine AS runner
 
 # Cache-bust so wrangler computes a NEW image tag and forces a fresh native build on the
 # amd64 CI runner instead of reusing the prior QEMU-cross-built image ("skipping push").
-ARG CACHEBUST=2026-06-28-native-amd64
+ARG CACHEBUST=2026-06-29-godmode-redir
 
 WORKDIR /app
 
