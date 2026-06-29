@@ -25,7 +25,13 @@ const created = (id: string) => ({
 describe('crm_leads — leadToCrmCompany (pure mapper)', () => {
   it('maps a discovered business + signals into the Twenty company shape', () => {
     const p = leadToCrmCompany(
-      { businessName: "Joe's Plumbing", phone: '+12015551234', address: '12 Main St', category: 'plumber', externalId: 'osm:node/1' },
+      {
+        businessName: "Joe's Plumbing",
+        phone: '+12015551234',
+        address: '12 Main St',
+        category: 'plumber',
+        externalId: 'osm:node/1',
+      },
       { hasWebsite: false, emailSource: 'listing', addressSource: 'places', category: 'plumber' },
       'google_places',
     );
@@ -52,7 +58,11 @@ describe('crm_leads — leadToCrmCompany (pure mapper)', () => {
   });
 
   it('maps a listing email to workEmail', () => {
-    const p = leadToCrmCompany({ businessName: 'A', email: 'a@a.com' }, { hasWebsite: false }, 'osm');
+    const p = leadToCrmCompany(
+      { businessName: 'A', email: 'a@a.com' },
+      { hasWebsite: false },
+      'osm',
+    );
     expect(p.workEmail).toBe('a@a.com');
   });
 
@@ -125,7 +135,11 @@ describe('crm_leads — upsertLeadToCrm', () => {
   it('creates when externalId has no match (GET empty → POST)', async () => {
     const fetchStub = jest
       .fn()
-      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ data: { companies: [] } }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: { companies: [] } }),
+      })
       .mockResolvedValueOnce(created('co_new'));
     const r = await upsertLeadToCrm(
       cfgEnv,
@@ -137,7 +151,9 @@ describe('crm_leads — upsertLeadToCrm', () => {
   });
 
   it('returns ok:false on an HTTP error (never throws)', async () => {
-    const fetchStub = jest.fn().mockResolvedValue({ ok: false, status: 422, json: () => Promise.resolve({}) });
+    const fetchStub = jest
+      .fn()
+      .mockResolvedValue({ ok: false, status: 422, json: () => Promise.resolve({}) });
     const r = await upsertLeadToCrm(cfgEnv, samplePayload, fetchStub as unknown as typeof fetch);
     expect(r.ok).toBe(false);
     expect(r.status).toBe(422);
@@ -157,6 +173,8 @@ describe('crm_leads — upsertLeadToCrm', () => {
       samplePayload,
       fetchStub as unknown as typeof fetch,
     );
-    expect((fetchStub.mock.calls[0] as [string])[0]).toBe('https://crm.projectsites.dev/rest/companies');
+    expect((fetchStub.mock.calls[0] as [string])[0]).toBe(
+      'https://crm.projectsites.dev/rest/companies',
+    );
   });
 });

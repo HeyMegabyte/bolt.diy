@@ -181,7 +181,10 @@ adminLeads.post('/api/admin/leads/scan-osm', async (c) => {
   const raw = await c.req.json().catch(() => ({}));
   const parsed = OsmScanBodySchema.safeParse(raw);
   if (!parsed.success) {
-    return c.json(errorBody('VALIDATION_ERROR', 'Invalid OSM scan request (need bbox)', requestId), 400);
+    return c.json(
+      errorBody('VALIDATION_ERROR', 'Invalid OSM scan request (need bbox)', requestId),
+      400,
+    );
   }
 
   const summary = await runScan(
