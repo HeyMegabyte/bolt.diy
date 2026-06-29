@@ -769,11 +769,21 @@ app.all('*', async (c, next) => {
     if (obj) {
       const ext = r2Key.split('.').pop()?.toLowerCase() ?? 'html';
       const mimeTypes: Record<string, string> = {
-        html: 'text/html', css: 'text/css', js: 'application/javascript',
-        json: 'application/json', png: 'image/png', jpg: 'image/jpeg',
-        jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon',
-        webp: 'image/webp', woff: 'font/woff', woff2: 'font/woff2',
-        ttf: 'font/ttf', xml: 'application/xml', txt: 'text/plain',
+        html: 'text/html',
+        css: 'text/css',
+        js: 'application/javascript',
+        json: 'application/json',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        svg: 'image/svg+xml',
+        ico: 'image/x-icon',
+        webp: 'image/webp',
+        woff: 'font/woff',
+        woff2: 'font/woff2',
+        ttf: 'font/ttf',
+        xml: 'application/xml',
+        txt: 'text/plain',
         webmanifest: 'application/manifest+json',
       };
       const mime = mimeTypes[ext] ?? 'application/octet-stream';
@@ -782,10 +792,7 @@ app.all('*', async (c, next) => {
       if (r2Key === 'admin/index.html') {
         let html = await obj.text();
         const phKey = c.env.POSTHOG_API_KEY ?? '';
-        html = html.replace(
-          '</head>',
-          `<meta name="x-posthog-key" content="${phKey}">\n</head>`,
-        );
+        html = html.replace('</head>', `<meta name="x-posthog-key" content="${phKey}">\n</head>`);
         return new Response(html, {
           headers: {
             'Content-Type': 'text/html',
@@ -837,8 +844,12 @@ app.all('*', async (c, next) => {
     if (obj) {
       const ext = r2Key.split('.').pop()?.toLowerCase() ?? 'html';
       const mimeTypes: Record<string, string> = {
-        html: 'text/html', css: 'text/css', js: 'application/javascript',
-        png: 'image/png', svg: 'image/svg+xml', ico: 'image/x-icon',
+        html: 'text/html',
+        css: 'text/css',
+        js: 'application/javascript',
+        png: 'image/png',
+        svg: 'image/svg+xml',
+        ico: 'image/x-icon',
       };
       if (r2Key === 'support/index.html') {
         return new Response(await obj.text(), {
