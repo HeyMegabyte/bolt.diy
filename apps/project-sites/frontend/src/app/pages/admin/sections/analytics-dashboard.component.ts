@@ -8,12 +8,21 @@ import { AdminSocialAnalyticsComponent } from './social-analytics.component';
 import { SectionAttributionComponent } from './section-attribution.component';
 import { FormAnalyticsComponent } from './form-analytics.component';
 import { VisitorFunnelComponent } from './visitor-funnel.component';
+import { SiteDoctorComponent } from './site-doctor.component';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 import { copyToClipboard } from '../../../utils/clipboard';
 
-type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'visitor' | 'social';
+type AnalyticsTab =
+  | 'overview'
+  | 'live'
+  | 'funnel'
+  | 'sections'
+  | 'forms'
+  | 'visitor'
+  | 'health'
+  | 'social';
 
 /**
  * Unified analytics dashboard — combines aggregate traffic, the raw live event
@@ -35,6 +44,7 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'vis
     SectionAttributionComponent,
     FormAnalyticsComponent,
     VisitorFunnelComponent,
+    SiteDoctorComponent,
   ],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="analytics-dashboard">
@@ -91,6 +101,8 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'vis
       <app-form-analytics />
     } @else if (tab() === 'visitor') {
       <app-visitor-funnel />
+    } @else if (tab() === 'health') {
+      <app-site-doctor />
     } @else {
       <app-social-analytics />
     }
@@ -116,6 +128,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     { id: 'sections', label: 'By Section' },
     { id: 'forms', label: 'Forms' },
     { id: 'visitor', label: 'Visitor Funnel' },
+    { id: 'health', label: 'Site Health' },
     { id: 'social', label: 'Social' },
   ];
   readonly tab = signal<AnalyticsTab>('overview');
@@ -131,6 +144,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
         t === 'sections' ||
         t === 'forms' ||
         t === 'visitor' ||
+        t === 'health' ||
         t === 'social'
           ? t
           : 'overview',

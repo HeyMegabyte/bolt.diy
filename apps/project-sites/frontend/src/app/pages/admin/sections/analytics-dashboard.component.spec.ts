@@ -25,6 +25,8 @@ class StubSectionsComponent {}
 class StubFormsComponent {}
 @Component({ selector: 'app-visitor-funnel', standalone: true, template: '<div data-testid="stub-visitor"></div>' })
 class StubVisitorFunnelComponent {}
+@Component({ selector: 'app-site-doctor', standalone: true, template: '<div data-testid="stub-health"></div>' })
+class StubSiteDoctorComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
@@ -53,7 +55,7 @@ describe('AdminAnalyticsDashboardComponent', () => {
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
       set: {
-        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent, StubFormsComponent, StubVisitorFunnelComponent],
+        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent, StubFormsComponent, StubVisitorFunnelComponent, StubSiteDoctorComponent],
       },
     });
     const f = TestBed.createComponent(AdminAnalyticsDashboardComponent);
@@ -110,6 +112,13 @@ describe('AdminAnalyticsDashboardComponent', () => {
     const f = make();
     expect(f.componentInstance.tab()).toBe('visitor');
     expect(f.nativeElement.querySelector('[data-testid="stub-visitor"]')).toBeTruthy();
+  });
+
+  it('lands on Site Health when ?tab=health (#59 Site Doctor)', () => {
+    qpm.next(convertToParamMap({ tab: 'health' }));
+    const f = make();
+    expect(f.componentInstance.tab()).toBe('health');
+    expect(f.nativeElement.querySelector('[data-testid="stub-health"]')).toBeTruthy();
   });
 
   it('lands on Social when ?tab=social', () => {
