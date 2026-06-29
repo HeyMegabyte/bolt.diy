@@ -27,7 +27,9 @@ describe('displayHost (#55 preview_share_card)', () => {
 describe('buildShareMessages (#55)', () => {
   it('writes honest copy with the URL appended', () => {
     const m = buildShareMessages(base);
-    expect(m.generic).toBe("Check out the new Vito's Mens Salon website: https://vitos.projectsites.dev/");
+    expect(m.generic).toBe(
+      "Check out the new Vito's Mens Salon website: https://vitos.projectsites.dev/",
+    );
     expect(m.sms).toContain('https://vitos.projectsites.dev/');
     expect(m.email.subject).toBe("Vito's Mens Salon has a new website");
     expect(m.email.body).toContain('— Vito');
@@ -40,7 +42,8 @@ describe('buildShareMessages (#55)', () => {
 
   it('contains no marketing slop words', () => {
     const m = buildShareMessages(base);
-    const all = `${m.sms} ${m.whatsapp} ${m.generic} ${m.email.subject} ${m.email.body}`.toLowerCase();
+    const all =
+      `${m.sms} ${m.whatsapp} ${m.generic} ${m.email.subject} ${m.email.body}`.toLowerCase();
     for (const slop of ['revolutionize', 'cutting-edge', 'world-class', 'limitless', 'leverage']) {
       expect(all).not.toContain(slop);
     }
@@ -84,7 +87,11 @@ describe('buildOgCardParams (#55)', () => {
   });
 
   it('defaults subtitle to "Now online" and honors light theme', () => {
-    const og = buildOgCardParams({ businessName: 'Acme', previewUrl: 'https://a.example', theme: 'light' });
+    const og = buildOgCardParams({
+      businessName: 'Acme',
+      previewUrl: 'https://a.example',
+      theme: 'light',
+    });
     expect(og.subtitle).toBe('Now online');
     expect(og.theme).toBe('light');
   });
