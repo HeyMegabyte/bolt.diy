@@ -15,7 +15,10 @@
  * @see libs/features/status_page_live/service.ts — getStatusFeed (the data source)
  */
 
-import type { OverallStatus, StatusIncident } from '../../libs/features/status_page_live/schemas.js';
+import type {
+  OverallStatus,
+  StatusIncident,
+} from '../../libs/features/status_page_live/schemas.js';
 
 /** A customer-facing service plane shown in the component grid. */
 interface Component {
@@ -84,7 +87,10 @@ function fmtDate(iso: string): string {
  * return c.html(renderStatusPage(status, incidents));
  * ```
  */
-export function renderStatusPage(overall: OverallStatus, incidents: readonly StatusIncident[]): string {
+export function renderStatusPage(
+  overall: OverallStatus,
+  incidents: readonly StatusIncident[],
+): string {
   const meta = STATUS_META[overall] ?? STATUS_META.operational;
   // A component reads "operational" unless the platform overall is impacted; v1
   // has no per-component incident mapping, so degraded/outage colours the grid.
