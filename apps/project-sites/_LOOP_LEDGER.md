@@ -140,7 +140,7 @@
 - [ ] [auto] A21 — referral / org-to-org "share this stack" deploy link (viral loop).
 
 ### Reliability (remaining) + dev velocity unblocker
-- [ ] [auto] traceId + tenantId correlation across the pipeline.
+- [x] [auto] traceId + tenantId correlation across the pipeline. **DONE 2026-06-28:** request-side already auto-fills `requestId`(trace)+`orgId`(tenant) on every log line (`src/lib/log.ts`); the build pipeline's `workflowLog` carried `org_id`(tenant)+`site_id`(entity) per step but no spanning trace. Added per-run `traceId = crypto.randomUUID()` at `site-generation.ts run()` start + a bound `wfLog(action, meta)` routing all 26 build-step audit writes through it, stamping `trace_id` into `audit_logs.metadata_json` — every step of one build now correlates by trace_id, org_id ties it to the tenant. tsc 0 (mine), worker→CI push.
 - [ ] [auto] Auto-rollback wired to a post-deploy error-rate/LCP watcher.
 - [ ] [auto] Migrate worker Jest → **Vitest** (kills the `@swc/jest` module-mock anomalies that flake every test fire).
 

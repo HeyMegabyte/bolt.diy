@@ -324,7 +324,18 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const env = this.env;
     const startTime = Date.now();
 
-    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.started', {
+    // #143 — one trace id per workflow run, stamped onto every build-step audit
+    // row. Combined with org_id (tenant) + site_id (entity) already carried by
+    // workflowLog, this gives traceId + tenantId correlation across the whole
+    // build pipeline (audit_logs.metadata_json.trace_id ties the steps together).
+    const traceId = crypto.randomUUID();
+    const wfLog = (
+      action: string,
+      meta: Record<string, unknown> = {},
+    ): Promise<void> =>
+      wfLog(action, { ...meta, trace_id: traceId });
+
+    await wfLog('workflow.started', {
       slug: params.slug,
       business_name: params.businessName,
       business_address: params.businessAddress ?? null,
@@ -385,7 +396,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         stdoutTail?: string;
         elapsedMs?: number;
       };
-      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.minimal_done', {
+      await wfLog('workflow.minimal_done', {
         ok: parsed.ok,
         uploaded: parsed.uploadResult?.uploaded ?? 0,
         elapsedMs: parsed.elapsedMs,
@@ -444,7 +455,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         );
         const parsed = JSON.parse(status) as KvBuildRecord & { _missing?: boolean };
         if (parsed._missing) continue;
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.stub_heartbeat', {
+        await wfLog('workflow.stub_heartbeat', {
           poll: i,
           status: parsed.status,
           step: parsed.step,
@@ -458,7 +469,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       if (!stubFinal || stubFinal.status !== 'complete') {
         throw new Error(`stub mode failed: ${JSON.stringify(stubFinal)}`);
       }
-      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.stub_done', {
+      await wfLog('workflow.stub_done', {
         jobId: stubJobId,
         uploadResult: stubFinal.uploadResult,
         message: 'KV-callback persistence proof: complete',
@@ -623,7 +634,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             timeoutMs: 30 * 60 * 1000,
             createdBy: params.orgId,
           });
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.logo_approval_posted', {
+          await wfLog('workflow.logo_approval_posted', {
             task_id: id,
             message: 'Logo approval requested — workflow paused waiting for user',
           });
@@ -659,7 +670,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         );
       }
 
-      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.logo_approval_resolved', {
+      await wfLog('workflow.logo_approval_resolved', {
         task_id: elicitationTaskId,
         choice: approvalChoice,
         message: `Logo approval resolved: ${approvalChoice}`,
@@ -671,7 +682,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       // halt cleanly; admin UI re-creates the workflow once asset uploaded.
       if (approvalChoice === 'Use my own') {
         await updateSiteStatus(env.DB, params.siteId, 'collecting');
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.halted_for_upload', {
+        await wfLog('workflow.halted_for_upload', {
           message: 'Build halted — awaiting custom-logo upload from user',
         });
         return {
@@ -714,7 +725,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             `$${meter.capUsd === Infinity ? '∞' : meter.capUsd.toFixed(2)} used. ` +
             'Upgrade your plan or wait for the monthly reset to build again.';
           await updateSiteStatus(env.DB, params.siteId, 'error');
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.budget_blocked', {
+          await wfLog('workflow.budget_blocked', {
             spent_usd: meter.spentUsd,
             cap_usd: meter.capUsd,
             pct: meter.pct,
@@ -728,7 +739,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           throw new AppError({ code: 'FORBIDDEN', message: friendly, statusCode: 403 });
         }
 
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.budget_ok', {
+        await wfLog('workflow.budget_ok', {
           spent_usd: meter.spentUsd,
           cap_usd: meter.capUsd,
           remaining_usd: meter.remainingUsd,
@@ -808,7 +819,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         if (result.error) throw new Error(`Container start error: ${result.error}`);
         if (!result.jobId) throw new Error('Container did not return jobId');
 
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.build_started', {
+        await wfLog('workflow.build_started', {
           jobId: result.jobId,
           prompt_length: prompt.length,
           env_vars_count: Object.keys(envVars).length,
@@ -876,7 +887,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
       if (wrap._missing) {
         if (i >= 4) {
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.kv_no_status', {
+          await wfLog('workflow.kv_no_status', {
             poll: i,
             message: 'No build status in KV after 2min — container failed to start',
           });
@@ -917,7 +928,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             break;
           }
         }
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.container_unknown_job', {
+        await wfLog('workflow.container_unknown_job', {
           poll: i,
           message: 'Container DO lost job and KV has no terminal record — abandoning build',
         });
@@ -946,7 +957,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       lastSeenStep = parsed.step || lastSeenStep;
 
       if (i % 5 === 0 || stateChanged) {
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.heartbeat', {
+        await wfLog('workflow.heartbeat', {
           poll: i,
           src: wrap._src,
           status: parsed.status,
@@ -983,7 +994,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       }
 
       if (ageMs > STALE_THRESHOLD_MS) {
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.container_stale', {
+        await wfLog('workflow.container_stale', {
           poll: i,
           age_ms: ageMs,
           message: `Status stale ${(ageMs / 1000) | 0}s — container died without reporting completion`,
@@ -1001,7 +1012,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
     if (!finalStatus) {
       await updateSiteStatus(env.DB, params.siteId, 'error');
-      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.timeout', {
+      await wfLog('workflow.timeout', {
         message: `Build timed out after ${MAX_POLLS} polls (${MAX_POLLS * 30}s)`,
       });
       await emitBuildEvent(env, params.siteId, {
@@ -1020,7 +1031,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
     if (finalStatus.status === 'error') {
       await updateSiteStatus(env.DB, params.siteId, 'error');
-      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.build_error', {
+      await wfLog('workflow.build_error', {
         error: finalStatus.error,
         elapsed_seconds: finalStatus.elapsed,
         message: `Build failed after ${finalStatus.elapsed}s: ${finalStatus.error}`,
@@ -1065,7 +1076,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
         if (uploadCount === 0) {
           await updateSiteStatus(env.DB, params.siteId, 'error');
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.upload_failed', {
+          await wfLog('workflow.upload_failed', {
             file_count: fileCount,
             upload_result: uploadResult,
             message: `R2 upload failed — refusing to mark published. uploaded=${uploadCount} failed=${uploadResult?.failed ?? 'n/a'}`,
@@ -1086,7 +1097,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           );
         }
 
-        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.build_complete', {
+        await wfLog('workflow.build_complete', {
           file_count: fileCount,
           upload_count: uploadCount,
           upload_failed: uploadResult?.failed || 0,
@@ -1221,7 +1232,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             passed: report.ok ? 1 : 0,
             failed: report.errors.length,
           });
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.build_validation', {
+          await wfLog('workflow.build_validation', {
             ok: report.ok,
             file_count: files.length,
             errors: report.errors.slice(0, 50),
@@ -1245,10 +1256,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             },
           });
         } catch (err) {
-          await workflowLog(
-            env.DB,
-            params.orgId,
-            params.siteId,
+          await wfLog(
             'workflow.build_validation_error',
             {
               error: err instanceof Error ? err.message : String(err),
@@ -1372,7 +1380,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             .trim();
           const parsed = JSON.parse(cleaned) as { score?: number; issues?: string[] };
 
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.visual_inspection', {
+          await wfLog('workflow.visual_inspection', {
             score: parsed.score,
             issues: parsed.issues,
             screenshot_url: imageUrl,
@@ -1416,7 +1424,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             previousMeanScore: prevRow?.mean_score ?? null,
           });
 
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.benchmark', {
+          await wfLog('workflow.benchmark', {
             mean_score: result.meanScore,
             programmatic_score: result.programmatic.score,
             psi_perf: result.psi?.performance ?? null,
@@ -1427,10 +1435,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
           const retro = await buildRetrospective({ env, current: result });
           if (!retro.generated) {
-            await workflowLog(
-              env.DB,
-              params.orgId,
-              params.siteId,
+            await wfLog(
               'workflow.retrospective_skipped',
               {
                 reason: retro.skipReason,
@@ -1452,10 +1457,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
           if (retroRow) await recordRetrospectivePath(env, retroRow.id, retroPath);
 
-          await workflowLog(
-            env.DB,
-            params.orgId,
-            params.siteId,
+          await wfLog(
             'workflow.retrospective_generated',
             {
               path: retroPath,
@@ -1466,7 +1468,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
           return JSON.stringify({ benchmark: result.meanScore, retrospective: retroPath });
         } catch (err) {
-          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.benchmark_error', {
+          await wfLog('workflow.benchmark_error', {
             error: err instanceof Error ? err.message : String(err),
             message: 'Benchmark/retrospective skipped due to error',
           });
@@ -1517,7 +1519,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const totalSeconds = Math.round((Date.now() - startTime) / 1000);
     const result = JSON.parse(filesJson) as { fileCount: number; version: string };
 
-    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.complete', {
+    await wfLog('workflow.complete', {
       slug: params.slug,
       url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
       total_seconds: totalSeconds,
