@@ -574,8 +574,14 @@ export interface Env {
   /** HMAC secret for signing sale webhook payloads. */
   SALE_WEBHOOK_SECRET?: string;
 
-  // ── Metering ──────────────────────────────────────────────
-  /** Metering provider identifier (e.g. `"lago"`, `"stripe"`). */
+  // ── Billing / Metering ──────────────────────────────────────
+  /**
+   * Billing provider identifier.
+   * `stripe_meters` (default, active) | `metronome` (future) | `noop` (dev/test).
+   * `openmeter` is NOT a valid value — removed, must not be reintroduced.
+   */
+  BILLING_PROVIDER?: string;
+  /** Legacy metering provider identifier — superseded by BILLING_PROVIDER. */
   METERING_PROVIDER?: string;
   /**
    * Stripe Price IDs for usage-based metering (one per metric).
@@ -583,6 +589,29 @@ export interface Env {
    * When unset the usage middleware records to D1 only and skips Stripe usage records.
    */
   STRIPE_USAGE_PRICE_IDS?: string;
+  /** Stripe Meter Event names (one per UsageMetric). See STRIPE_METER_MAP in billing_provider.ts. */
+  STRIPE_METER_AI_INPUT_TOKENS?: string;
+  STRIPE_METER_AI_OUTPUT_TOKENS?: string;
+  STRIPE_METER_AI_EMBEDDING_TOKENS?: string;
+  STRIPE_METER_AI_IMAGE_GENERATIONS?: string;
+  STRIPE_METER_BROWSER_AUTOMATION_MINUTES?: string;
+  STRIPE_METER_BUILD_MINUTES?: string;
+  STRIPE_METER_SITE_VISITS?: string;
+  STRIPE_METER_FORM_SUBMISSIONS?: string;
+  STRIPE_METER_EMAIL_SENDS?: string;
+  STRIPE_METER_STORAGE_GB?: string;
+  STRIPE_METER_SOCIAL_POSTS?: string;
+  /** Stripe Price IDs for base subscriptions. */
+  STRIPE_PRICE_BASE_SITE_MONTHLY?: string;
+  STRIPE_PRICE_BASE_SITE_YEARLY?: string;
+
+  // ── Metronome (future billing provider) ─────────────────────
+  /** Metronome API key — inactive unless BILLING_PROVIDER=metronome. */
+  METRONOME_API_KEY?: string;
+  /** Metronome API base URL (default: https://api.metronome.com/v1). */
+  METRONOME_API_URL?: string;
+  /** Metronome webhook signing secret for invoice/commit events. */
+  METRONOME_WEBHOOK_SECRET?: string;
   /** HMAC secret used to sign one-click weekly-digest unsubscribe tokens. */
   WEEKLY_DIGEST_SECRET?: string;
 

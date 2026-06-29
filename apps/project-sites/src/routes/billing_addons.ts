@@ -26,6 +26,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { unauthorized } from '@project-sites/shared';
+import { createBillingProvider, type UsageMetric } from '../services/billing_provider.js';
 
 const billingAddons = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -172,72 +173,90 @@ billingAddons.post(
 // ---------------------------------------------------------------------------
 // POST /api/billing/usage/report
 //
-// Posts a usage event to the Stripe Meters API. Required for per-site
-// metered billing. Mock-safe: returns a synthetic event_id when Stripe
-// keys are absent.
+// Records a usage event to the D1 canonical ledger and delivers it to the
+// configured billing provider (StripeMetersProvider by default). Mock-safe:
+// returns a synthetic event_id when Stripe keys are absent.
 // ---------------------------------------------------------------------------
-
-interface UsageReportBody {
-  meter?: string;
-  value?: number;
-  site_id?: string;
-}
 
 billingAddons.post(
   '/api/billing/usage/report',
   zValidator(
     'json',
-    z
-      .object({
-        meter: z.string().default('site_renders'),
-        value: z.number().int().min(1).default(1),
-        site_id: z.string().optional(),
-      })
-      .optional(),
+    z.object({
+      metric: z.string().default('site_visits'),
+      quantity: z.number().int().min(1).default(1),
+      site_id: z.string().optional(),
+      metadata: z.record(z.unknown()).optional(),
+    }),
   ),
   async (c) => {
     const orgId = c.get('orgId');
     if (!orgId) throw unauthorized();
 
-    const body: UsageReportBody = c.req.valid('json') ?? {};
-    const meter = body.meter ?? 'site_renders';
-    const value = body.value ?? 1;
+    const body = c.req.valid('json');
+    const id = crypto.randomUUID();
 
     if (!hasStripe(c.env)) {
       return c.json({
-        event_id: `meter_evt_mock_${Date.now()}`,
-        meter,
-        value,
+        event_id: id,
+        metric: body.metric,
+        quantity: body.quantity,
+        delivered: false,
+        note: 'Stripe not configured — event persisted to ledger only',
       });
     }
 
-    const stripeKey = c.env.STRIPE_SECRET_KEY;
-    const params = new URLSearchParams({
-      event_name: meter,
-      payload: JSON.stringify({ value: String(value), stripe_customer_id: orgId }),
+    const provider = await createBillingProvider(c.env);
+    await provider.recordUsage({
+      id,
+      idempotencyKey: id,
+      customerId: orgId,
+      orgId,
+      siteId: body.site_id,
+      metric: body.metric as UsageMetric,
+      quantity: body.quantity,
+      unit: 'event',
+      source: 'api',
+      occurredAt: new Date().toISOString(),
+      metadata: body.metadata,
     });
 
-    const resp = await fetch('https://api.stripe.com/v1/billing/meter_events', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${stripeKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
+    return c.json({
+      event_id: id,
+      metric: body.metric,
+      quantity: body.quantity,
+      delivered: true,
     });
-
-    if (!resp.ok) {
-      const err = await resp.json<{ error: { message: string } }>();
-      return c.json(
-        { error: { code: 'STRIPE_ERROR', message: err.error?.message ?? 'Stripe meter error' } },
-        400,
-      );
-    }
-
-    const evt = await resp.json<{ id: string }>();
-    return c.json({ event_id: evt.id, meter, value });
   },
 );
+
+// ---------------------------------------------------------------------------
+// GET /api/billing/usage/summary
+//
+// Reads usage summary from the ProjectSites canonical ledger (D1), NOT from
+// Stripe. This is the customer-facing cost breakdown — always accurate even
+// if Stripe delivery is delayed or fails.
+// ---------------------------------------------------------------------------
+
+billingAddons.get('/api/billing/usage/summary', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized();
+
+  const periodStart = c.req.query('period_start') ?? new Date(Date.UTC(
+    new Date().getUTCFullYear(), new Date().getUTCMonth(), 1,
+  )).toISOString();
+  const periodEnd = c.req.query('period_end') ?? new Date().toISOString();
+
+  const provider = await createBillingProvider(c.env);
+  const summary = await provider.getUsageSummary({
+    orgId,
+    periodStart,
+    periodEnd,
+    granularity: 'day',
+  });
+
+  return c.json(summary);
+});
 
 // ---------------------------------------------------------------------------
 // GET /api/billing/invoices/upcoming

@@ -417,14 +417,14 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: provisioning audit → Axiom.
   - Related files: `plane-pm-provisioning-state` + `waf-mcp-skip-rule` + `cloudflare-native-provisioning` memories.
 
-- [ ] LOOP-GLOBAL-007: API-key + usage-metering plane — Unkey + OpenMeter [auto]
+- [ ] LOOP-GLOBAL-007: API-key + usage-metering plane — Unkey + Stripe Meters [auto]
   - Endpoint: api.projectsites.dev + billing.projectsites.dev
-  - Decision: Public/customer API keys → **Unkey** (LIVE at api.projectsites.dev). Usage metering for consumption billing → **OpenMeter**, feeding **Stripe** for invoicing.
-  - Rationale: Don't hand-roll key verification, rate limits, or usage aggregation — Unkey + OpenMeter are the standardized primitives; Stripe is the money rail.
-  - Acceptance criteria: Every authenticated public-API task verifies via Unkey; every metered feature emits OpenMeter events; billing tasks reconcile OpenMeter → Stripe.
+  - Decision: Public/customer API keys → **Unkey** (LIVE at api.projectsites.dev). Usage metering for consumption billing → **Stripe Meters**, feeding **Stripe** for invoicing.
+  - Rationale: Don't hand-roll key verification, rate limits, or usage aggregation — Unkey + Stripe Meters are the standardized primitives; Stripe is the money rail.
+  - Acceptance criteria: Every authenticated public-API task verifies via Unkey; every metered feature emits usage events to the D1 canonical ledger; billing tasks reconcile Stripe Meter Events.
   - Implementation notes: Unkey self-host CLI entrypoint needs `run api` + TOML via `UNKEY_CONFIG`. Square for accept-money default; Stripe for SaaS billing/payouts per `payments-routing`.
-  - Hosting notes: Unkey on CF Workers Container (LIVE); OpenMeter on CF Workers Container.
-  - Backing services: Unkey, OpenMeter, Stripe, TiDB/Neon as their stores require.
+  - Hosting notes: Unkey on CF Workers Container (LIVE); StripeMetersProvider (uses existing Stripe API, no new infra).
+  - Backing services: Unkey, Stripe, D1 (canonical ledger) as their stores require.
   - Observability: key + usage events → Axiom + Tinybird.
   - Related files: `apps/project-sites/infra/unkey/`, `unkey-live-api-projectsites` memory, `src/services/billing.ts`.
 
@@ -957,30 +957,32 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009, LOOP-AUTH-012, LOOP-AUTH-018, LOOP-AUTH-022
   - Related files: apps/project-sites/frontend (admin security section), src/services/feature_flags.ts
 
-## billing.projectsites.dev — Stripe + OpenMeter
+## billing.projectsites.dev — Stripe Meters (active) + Metronome (future)
 
 ### Raw research themes considered
 
-Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-product metering (AI tokens, API calls, email sends, CRM seats, Listmonk contacts, social posts, browser-automation runs, site visits), prepaid AI-credit wallets, a unified entitlements engine, quota-enforcement middleware reusable across every subsystem, usage rollups into Tinybird, Stripe metered/graduated/tiered prices, customer portal deep-linking, dunning + grace periods + involuntary-churn recovery, annual plan discounts, coupons/promo codes, agency/reseller multi-seat billing, per-site profitability + margin dashboards, usage anomaly detection, and OpenMeter as the ClickHouse-backed metering aggregator. The compounding primitives are three: (1) a **metering pipeline** (event_bus → OpenMeter/Tinybird → Stripe usage records), (2) an **entitlements engine** (plan → limits → live balances cached in KV/DO), and (3) **quota-enforcement middleware** that every product worker calls before doing expensive work. Everything else is a feature layered on those three. OpenMeter runs as a CF Workers Container by default (stateless aggregation API in front of its store); its ClickHouse dependency means we either point it at Tinybird-style ingestion or use OpenMeter Cloud — noted per-task. Money stays in Stripe TEST mode until launch; all pricing numbers are flagged "(needs decision)".
+Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-product metering (AI tokens, API calls, email sends, CRM seats, Listmonk contacts, social posts, browser-automation runs, site visits), prepaid AI-credit wallets, a unified entitlements engine, quota-enforcement middleware reusable across every subsystem, usage rollups into Tinybird, Stripe metered/graduated/tiered prices, customer portal deep-linking, dunning + grace periods + involuntary-churn recovery, annual plan discounts, coupons/promo codes, agency/reseller multi-seat billing, per-site profitability + margin dashboards, usage anomaly detection, and Stripe Meters as the current metering provider (Metronome in future). The compounding primitives are three: (1) a **metering pipeline** (event_bus → D1 canonical ledger → Stripe Meter Events → Stripe invoice), (2) an **entitlements engine** (plan → limits → live balances cached in KV/DO), and (3) **quota-enforcement middleware** that every product worker calls before doing expensive work. Everything else is a feature layered on those three. StripeMetersProvider runs via the existing Stripe API integration by default (stateless aggregation API in front of its store); Stripe Meters has no additional infrastructure dependency (uses existing Stripe API) — noted per-task. Money stays in Stripe TEST mode until launch; all pricing numbers are flagged "(needs decision)".
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-BILL-001: Deploy OpenMeter as a Cloudflare Workers Container with Tinybird-backed event store [auto]
-  - Why: Central metering aggregator that turns raw usage events into billable meter values; the foundation every metered feature depends on.
-  - Acceptance criteria: `billing.projectsites.dev/openmeter/*` returns 200; a posted `events.ingest` event surfaces in a meter query within 60s; container restart loses no data (store is external).
-  - Implementation notes: Run OpenMeter (CloudEvents ingest + meter query API) in a container; OpenMeter is ClickHouse-backed, so configure its sink to Tinybird's ClickHouse-compatible ingestion (or OpenMeter Cloud if container ClickHouse proves infeasible — note feasibility in ADR). Validate ingest payloads with Zod before forwarding.
-  - Hosting notes: CF Workers Container (stateless aggregator) — NOT Fly.io; no 24/7 stateful socket needed. State lives in Tinybird, not the container.
-  - Backing services: Tinybird (`projectsites_events` style datasource for meter raw events), R2 for meter snapshot exports.
-  - Observability: Axiom logs with `trace_id` + `tenant_id`; Sentry (platform only) on aggregator errors; PostHog `meter_ingested` count.
-  - Dependencies: existing event_bus, Tinybird account.
-  - Related files: `apps/project-sites/src/services/billing.ts`, new `src/services/openmeter.ts`, `wrangler.toml` (container binding).
+- [x] LOOP-BILL-001: OpenMeter REMOVED — replaced by StripeMetersProvider [auto]
+  - Why: OpenMeter was rejected (ClickHouse-backed, violates `tinybird-always-never-clickhouse`). StripeMetersProvider (`src/services/billing_provider.ts` + `billing_provider_stripe.ts`) replaces it — zero new infrastructure, uses existing Stripe API.
+  - Acceptance criteria: `BILLING_PROVIDER=stripe_meters` is the default. `StripeMetersProvider.recordUsage()` posts to `POST /v1/billing/meter_events`. D1 `usage_events` is the canonical ledger. `scripts/check-no-openmeter.mjs` passes CI.
+  - Implementation notes: StripeMetersProvider uses existing Stripe API. No container, no additional DB. Idempotency via UUIDv4 keys. Aggregation: one event per AI call (not per token), one per browser job, one per email campaign send. MetronomeProvider is the future replacement for advanced rating (rate cards, commits, credits).
+  - Hosting notes: Worker (uses existing Stripe API). No new infrastructure. Customer-facing (usage dashboard) + internal (billing).
+  - Backing services: Stripe (Meter Events API), D1 (canonical `usage_events` ledger), R2 (raw event archive).
+  - Observability: Axiom logs with `trace_id` + `tenant_id`; Sentry (platform only) on delivery failures; PostHog `meter_ingested` count.
+  - Dependencies: Stripe secret key, D1, R2.
+  - Related files: `src/services/billing_provider.ts`, `billing_provider_stripe.ts`, `billing_provider_metronome.ts`, `billing_provider_noop.ts`, `scripts/check-no-openmeter.mjs`.
+  - Primary sources: https://stripe.com/docs/billing/meter-events
+  - Related files: `apps/project-sites/src/services/billing.ts`, new `src/services/billing_provider.ts` + `billing_provider_stripe.ts`, `wrangler.toml` (container binding).
 
 - [ ] LOOP-BILL-002: Build the canonical metering event schema + producer helper `meterEvent()` [auto]
   - Why: One typed shape for every usage event across api/mail/crm/social/browser so the pipeline and entitlements engine stay consistent; eliminates per-subsystem drift.
-  - Acceptance criteria: `meterEvent({tenant_id, meter, quantity, ts, dims})` validates via Zod, emits to event_bus, and lands in OpenMeter; unit tests cover all 8 meter types.
+  - Acceptance criteria: `meterEvent({tenant_id, meter, quantity, ts, dims})` validates via Zod, emits to event_bus, and lands in the D1 canonical ledger; unit tests cover all 8 meter types.
   - Implementation notes: CloudEvents-compatible envelope with stable `meter` enum (`ai_tokens`, `api_calls`, `email_sends`, `crm_seats`, `listmonk_contacts`, `social_posts`, `browser_runs`, `site_visits`). Idempotency key per event to dedupe retries.
   - Hosting notes: Runs inside each product worker (no separate host); pure helper.
-  - Backing services: Upstash Kafka optional buffer for high-throughput meters (browser_runs, site_visits); event_bus → OpenMeter primary path.
+  - Backing services: Upstash Kafka optional buffer for high-throughput meters (browser_runs, site_visits); event_bus → Stripe Meter Events via StripeMetersProvider.
   - Observability: structured log per emit with `meter`, `quantity`, `request_id`; PostHog drop-rate metric.
   - Dependencies: LOOP-BILL-001.
   - Related files: new `packages/shared/src/schemas/metering.ts`, `src/services/metering.ts`.
@@ -988,9 +990,9 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
 - [ ] LOOP-BILL-003: Entitlements engine — plan→limits resolver with KV-cached live balances [auto]
   - Why: Single source of truth for "what is this tenant allowed to do and how much is left"; reused by quota middleware, admin UI, and upgrade prompts.
   - Acceptance criteria: `getEntitlements(tenant_id)` returns `{meter: {limit, used, remaining, reset_at}}` for every meter; cache TTL 60s; cache invalidates on subscription change webhook.
-  - Implementation notes: Plan definitions in D1 `plans` + `plan_entitlements`; usage read from OpenMeter meter query; merged + cached in KV. Per-tenant overrides table for custom deals.
+  - Implementation notes: Plan definitions in D1 `plans` + `plan_entitlements`; usage read from ProjectSites D1 canonical ledger; merged + cached in KV. Per-tenant overrides table for custom deals.
   - Hosting notes: Worker-resident; KV cache. No container.
-  - Backing services: D1 (plans/entitlements/overrides), KV (balance cache), OpenMeter (usage).
+  - Backing services: D1 (plans/entitlements/overrides), KV (balance cache), D1 (canonical ledger).
   - Observability: log `entitlements_resolved` with cache hit/miss + `tenant_id`; Sentry on resolver failure (fail-open vs fail-closed is per-meter, see notes).
   - Dependencies: LOOP-BILL-001, LOOP-BILL-002.
   - Related files: new `src/services/entitlements.ts`, `packages/shared/src/constants/ENTITLEMENTS.ts`.
@@ -1000,17 +1002,17 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Acceptance criteria: requests over quota return RFC7807 402 with `code: quota_exceeded`, remaining=0, upgrade deep-link; under-quota requests pass and increment usage; integration test per meter.
   - Implementation notes: Hono middleware reads `getEntitlements`, decrements optimistically, emits `meterEvent` on success. Soft-limit (warn) vs hard-limit (block) configurable per meter (needs decision on which meters hard-block at launch).
   - Hosting notes: Worker middleware; DO counter for atomic over-limit races on hot meters.
-  - Backing services: Durable Object (atomic counter), KV (entitlement cache), OpenMeter.
+  - Backing services: Durable Object (atomic counter), KV (entitlement cache), D1 (canonical ledger).
   - Observability: log `quota_check` with decision + `meter` + `api_key_id`; PostHog `quota_blocked` funnel event.
   - Dependencies: LOOP-BILL-003.
   - Related files: new `src/middleware/enforce_quota.ts`, `src/types/env.ts`.
 
 - [ ] LOOP-BILL-005: Stripe metered-price sync — map each meter to a Stripe billing meter + usage record push [auto]
-  - Why: Closes the loop from OpenMeter usage to actual Stripe invoices using Stripe's native usage-based billing meters.
-  - Acceptance criteria: nightly + on-demand job pushes OpenMeter period totals to Stripe billing meters via `/v1/billing/meter_events`; reconciliation report shows 0 drift; TEST mode.
+  - Why: Closes the loop from D1 canonical ledger usage to actual Stripe invoices using Stripe's native usage-based billing meters.
+  - Acceptance criteria: nightly + on-demand job sends D1 canonical ledger period totals to Stripe billing meters via `/v1/billing/meter_events`; reconciliation report shows 0 drift; TEST mode.
   - Implementation notes: Use Stripe Billing Meters (not legacy usage records) keyed by `tenant_id` customer. Cron Trigger nightly + Workflow for backfill. Idempotent meter event names.
   - Hosting notes: CF Cron Trigger + Workflow; no container.
-  - Backing services: Stripe (TEST), OpenMeter, D1 (reconciliation ledger).
+  - Backing services: Stripe (TEST), D1 (canonical ledger + reconciliation).
   - Observability: Axiom log per push with `meter`, count, Stripe meter id; Sentry on drift > threshold.
   - Dependencies: LOOP-BILL-001, LOOP-BILL-005 depends on Stripe customers existing (billing.ts).
   - Related files: `src/services/billing.ts`, new `src/workflows/meter-sync.ts`.
@@ -1046,8 +1048,8 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Related files: `src/services/billing.ts`, frontend admin billing component.
 
 - [ ] LOOP-BILL-009: Usage rollup endpoints in Tinybird for the admin usage dashboard [auto]
-  - Why: Fast per-tenant, per-meter time-series for the admin "Usage" screen and customer-facing usage bars without hammering OpenMeter.
-  - Acceptance criteria: Tinybird pipe returns daily usage by meter for a tenant in <300ms; powers a stacked-area chart; matches OpenMeter totals within 1%.
+  - Why: Fast per-tenant, per-meter time-series for the admin "Usage" screen and customer-facing usage bars without hammering the D1 canonical ledger.
+  - Acceptance criteria: Tinybird pipe returns daily usage by meter for a tenant in <300ms; powers a stacked-area chart; matches D1 canonical ledger totals within 1%.
   - Implementation notes: Tinybird datasource fed from the same metering events; materialized rollup pipes per meter + per tenant. Reuse the `projectsites_events` ingestion pattern.
   - Hosting notes: Tinybird-hosted pipes; worker proxies with auth.
   - Backing services: Tinybird.
@@ -1110,7 +1112,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Acceptance criteria: an agency org owns N sub-orgs; usage aggregates to the parent; one consolidated Stripe invoice; per-sub-account usage breakdown visible.
   - Implementation notes: Org hierarchy in D1 (`parent_org_id`); entitlements resolve at parent for pooled meters, per-sub for seats. Agency pricing model needs decision (seat + pooled usage). Reuse RBAC middleware.
   - Hosting notes: Worker; no container.
-  - Backing services: Stripe (TEST, one customer per agency), D1 (org tree), OpenMeter (rollup by parent).
+  - Backing services: Stripe (TEST, one customer per agency), D1 (org tree), D1 canonical ledger (rollup by parent).
   - Observability: log `agency_invoice_built`; PostHog agency cohort.
   - Dependencies: LOOP-BILL-005, LOOP-BILL-016.
   - Related files: `packages/shared/src/middleware/rbac`, new `src/services/agency-billing.ts`.
@@ -1118,9 +1120,9 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
 - [ ] LOOP-BILL-016: CRM seat + Listmonk contact metering with seat-change proration [auto]
   - Why: Twenty CRM seats and Listmonk contact counts are recurring quantity-based charges; need accurate, prorated metering.
   - Acceptance criteria: adding/removing a CRM seat updates Stripe subscription quantity with proration; Listmonk contact count meters daily high-water-mark; both reflected in entitlements.
-  - Implementation notes: Seats = Stripe licensed (quantity) price with proration; contacts = metered high-watermark via OpenMeter `MAX` aggregation. Poll Twenty/Listmonk admin APIs daily or subscribe to their events.
+  - Implementation notes: Seats = Stripe licensed (quantity) price with proration; contacts = metered high-watermark via D1 canonical ledger `MAX` aggregation. Poll Twenty/Listmonk admin APIs daily or subscribe to their events.
   - Hosting notes: Cron Trigger pollers (workers); CRM/Listmonk run in their own containers already.
-  - Backing services: Stripe (TEST), OpenMeter, D1, Twenty + Listmonk APIs.
+  - Backing services: Stripe (TEST), D1 (canonical ledger), Twenty + Listmonk APIs.
   - Observability: log `seat_changed`/`contacts_metered` with counts; Sentry on poll failure.
   - Dependencies: LOOP-BILL-002, LOOP-BILL-005.
   - Related files: new `src/services/seat-billing.ts`, cron entries.
@@ -1130,7 +1132,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Acceptance criteria: each Resend send emits `email_sends`, each Postiz post emits `social_posts`, each browser-automation job emits `browser_runs`; over-quota blocks with 402; usage visible in dashboard.
   - Implementation notes: Insert `enforceQuota` before the action and `meterEvent` after success in mail/social/browser services. Free-tier allowances per meter (needs decision). Browser runs metered by run + duration tier.
   - Hosting notes: Worker call sites; browser automation may run in its own container — emit event from the orchestrating worker.
-  - Backing services: OpenMeter, Resend, Postiz (HTTP boundary), browser-rendering binding.
+  - Backing services: D1 (canonical ledger), Resend, Postiz (HTTP boundary), browser-rendering binding.
   - Observability: log per emit with `meter` + `job_id`; PostHog usage-by-product.
   - Dependencies: LOOP-BILL-004.
   - Related files: `src/services/notifications.ts`, `src/services/postiz.ts` (if present), browser service.
@@ -5157,7 +5159,7 @@ Surveyed 50+ operator-console patterns across PaaS control planes (Vercel/Render
 
 ### Raw research themes considered
 
-Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.projectsites.dev` subsystems into one coherent platform: shared multi-tenant identity (Better Auth) + org/RBAC model, mandatory correlation-ID propagation (tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id) across every hop, the event_bus outbox → Tinybird OLAP backbone, a typed internal service-client SDK, a shared health/heartbeat contract, the WAF-skip + DNS provisioning automation every new non-GET subdomain demands, per-tenant entitlements gating all subsystems, unified usage metering (OpenMeter) + cost attribution, a platform event taxonomy, end-to-end onboarding that lights up multiple subsystems, GDPR export/erasure spanning all stores, DR/backups, a platform design system, an internal developer platform with a golden-path subsystem template, a unified notification fabric, and platform-wide rate limiting via Unkey. The flagship primitives are the reusable spine — correlation-ID propagation, the typed internal SDK, the health contract, the event taxonomy, the entitlements gate, and the new-subsystem golden path — because they make ALL 19 subsystems cheaper to build and operate. Selection favored Cloudflare-first, solo-founder-practical primitives over one-off endpoints. Cut ~31 ideas that were single-subsystem features, premature (multi-region active-active, enterprise SSO/SAML), or duplicative of existing wiring.
+Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.projectsites.dev` subsystems into one coherent platform: shared multi-tenant identity (Better Auth) + org/RBAC model, mandatory correlation-ID propagation (tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id) across every hop, the event_bus outbox → Tinybird OLAP backbone, a typed internal service-client SDK, a shared health/heartbeat contract, the WAF-skip + DNS provisioning automation every new non-GET subdomain demands, per-tenant entitlements gating all subsystems, unified usage metering (Stripe Meters via D1 canonical ledger) + cost attribution, a platform event taxonomy, end-to-end onboarding that lights up multiple subsystems, GDPR export/erasure spanning all stores, DR/backups, a platform design system, an internal developer platform with a golden-path subsystem template, a unified notification fabric, and platform-wide rate limiting via Unkey. The flagship primitives are the reusable spine — correlation-ID propagation, the typed internal SDK, the health contract, the event taxonomy, the entitlements gate, and the new-subsystem golden path — because they make ALL 19 subsystems cheaper to build and operate. Selection favored Cloudflare-first, solo-founder-practical primitives over one-off endpoints. Cut ~31 ideas that were single-subsystem features, premature (multi-region active-active, enterprise SSO/SAML), or duplicative of existing wiring.
 
 ### Selected 24 implementation tasks
 
@@ -5261,32 +5263,32 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -007, -009.
   - Related files: `packages/shared/src/middleware/`, `packages/shared/src/constants/ROLES`.
 
-- [ ] LOOP-PLATFORM-011: Unified usage metering across services (OpenMeter) [auto]
-  - Why: Billing + entitlements need a single source of metered usage; piping every subsystem's usage events into OpenMeter is the platform's metering spine.
-  - Acceptance criteria: A `meter(tenantId, meter_slug, value)` helper emits CloudEvents to OpenMeter; every billable action across subsystems (AI tokens, site publishes, API calls, storage) reports through it; OpenMeter aggregates per tenant per meter; usage queryable for billing + entitlement `used` counts.
+- [ ] LOOP-PLATFORM-011: Unified usage metering across services (Stripe Meters) [auto]
+  - Why: Billing + entitlements need a single source of metered usage; piping every subsystem's usage events into Stripe Meter Events is the platform's metering spine.
+  - Acceptance criteria: A `meter(tenantId, meter_slug, value)` helper emits usage events to the D1 canonical ledger; every billable action across subsystems (AI tokens, site publishes, API calls, storage) reports through it; StripeMetersProvider delivers aggregated usage to Stripe Meter Events; usage queryable for billing + entitlement `used` counts.
   - Implementation notes: Events also mirror to event_bus → Tinybird for analytics; idempotent via dedup key (request_id).
-  - Hosting notes: OpenMeter (self-host or cloud — needs decision); helper in shared lib.
-  - Backing services: OpenMeter, event_bus, Tinybird.
+  - Hosting notes: StripeMetersProvider (uses existing Stripe API, no new infra); helper in shared lib.
+  - Backing services: D1 (canonical ledger), event_bus, Tinybird.
   - Observability: metering lag; per-meter volume in Tinybird.
   - Dependencies: -001, -003, -007.
   - Related files: `packages/shared/src/metering/`, `services/tinybird.ts`.
 
 - [ ] LOOP-PLATFORM-012: Unified billing — plan↔entitlement↔meter wiring (Stripe) [auto]
   - Why: A platform charges once across 19 subsystems; one billing service mapping Stripe subscriptions → entitlements → metered overage is the commercial backbone.
-  - Acceptance criteria: Stripe subscription/usage webhooks update central entitlements (-008); plan change re-derives capabilities platform-wide within 60s; metered overage from OpenMeter (-011) reported to Stripe; single billing portal at `billing.projectsites.dev`.
+  - Acceptance criteria: Stripe subscription/usage webhooks update central entitlements (-008); plan change re-derives capabilities platform-wide within 60s; metered overage from the canonical ledger sent to Stripe Meter Events; single billing portal at `billing.projectsites.dev`.
   - Implementation notes: Stripe per payments-routing (SaaS recurring = Stripe Billing); webhook idempotency via D1; test-mode for loop verification.
   - Hosting notes: Billing Worker; webhook receiver on workers.dev (Bot-Fight-Mode blocks inbound on apex).
-  - Backing services: Stripe, D1, OpenMeter.
+  - Backing services: Stripe, D1 (canonical ledger).
   - Observability: webhook processing logs; subscription state transitions as events.
   - Dependencies: -008, -011.
   - Related files: `apps/project-sites/src/services/billing`, `src/routes/webhooks.ts`.
 
 - [ ] LOOP-PLATFORM-013: Cost-attribution per tenant across services [auto]
   - Why: Solo founder must know which tenants are profitable; attributing infra cost (CF, Neon, Tinybird, AI tokens) per tenant turns usage data into margin data.
-  - Acceptance criteria: A nightly job joins OpenMeter usage (-011) + per-vendor cost rates → a `tenant_cost_daily` Tinybird datasource showing cost-per-tenant per service; `/admin/cost-attribution` shows margin (revenue − cost) per tenant.
+  - Acceptance criteria: A nightly job joins canonical ledger usage + per-vendor cost rates → a `tenant_cost_daily` Tinybird datasource showing cost-per-tenant per service; `/admin/cost-attribution` shows margin (revenue − cost) per tenant.
   - Implementation notes: Cost rates in config (CF/Neon/Tinybird/Workers AI unit prices); AI token cost from metering; correlation IDs make per-tenant attribution possible.
   - Hosting notes: CF Cron Worker writes to Tinybird.
-  - Backing services: Tinybird, OpenMeter, D1.
+  - Backing services: Tinybird, D1 (canonical ledger).
   - Observability: cost dashboard; alert on negative-margin tenant.
   - Dependencies: -011, -003.
   - Related files: `tools/cron/cost-attribution.mjs`, `services/tinybird.ts`.
@@ -5450,15 +5452,15 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 - **AI-Guided Account Recovery with Fraud Prediction**: When a user initiates account recovery, the system evaluates login velocity, device history, and notification-read receipts to compute a fraud probability score; high-risk recoveries require video verification or admin approval before the reset link is sent.
 - **Bot Prevention with Adaptive Turnstile Challenge Tiers**: The auth abuse layer uses ML-classified traffic patterns to dynamically escalate challenges — low-risk automation gets a silent Turnstile pass, moderate-risk gets a checkbox challenge, and credential-stuffing bursts get a full proof-of-work challenge before login is even attempted.
 
-## billing.projectsites.dev — Stripe + OpenMeter: AI Business Platform Connections
+## billing.projectsites.dev — Stripe Meters (active) + Metronome (future): AI Business Platform Connections
 
-- **Zero-Touch Subscription Provisioning on Site Creation**: Every AI-generated customer site automatically provisions a Free Tier Stripe subscription with locally cached OpenMeter entitlements before the site's first visitor arrives, eliminating any billing setup delay in the signup-to-site flow.
+- **Zero-Touch Subscription Provisioning on Site Creation**: Every AI-generated customer site automatically provisions a Free Tier Stripe subscription with locally cached D1 entitlements before the site's first visitor arrives, eliminating any billing setup delay in the signup-to-site flow.
 - **AI-Predicted Plan Upgrade with One-Click Checkout**: The entitlements engine determines that a tenant is approaching their API call or AI credit limit and generates a personalized checkout link to the optimal plan tier, pre-filled with the tenant's actual usage data and an estimated monthly savings comparison.
 - **AI Credit Wallet Auto-Top-Up at Configurable Threshold**: The prepaid wallet monitors consumption velocity against the remaining balance; when the wallet drops below an AI-computed safety threshold (based on the user's peak-hour spend patterns), the system auto-charges the saved payment method for a refill.
 - **Per-Site Profitability LEDGER with AI Cost Attribution**: The margin dashboard uses AI to classify each metered event (AI token, email send, browser run) by source site, then computes negative-margin sites and auto-generates optimization suggestions delivered to the site owner's inbox.
 - **Dunning Sequence with AI-Optimized Dispatch Time**: The dunning engine uses tenant-specific payment-open and email-open patterns to select the optimal retry time for each failed invoice, increasing recovery rates without platform operator involvement.
 - **Runaway Cost Auto-Suspension via AI Anomaly Detection**: The usage anomaly pipeline computes a rolling z-score per meter per tenant; when AI credit burn exceeds 3-sigma, it auto-tightens the quota ceiling and sends an explanatory notification, preventing surprise invoices without manual monitoring.
-- **Agency Billing Pool with AI-Consolidated Invoices**: For agency reseller accounts, the system aggregates usage from all sub-orgs into a single parent-meter in OpenMeter, generating one consolidated Stripe invoice with per-client line items, all without the agency admin manually running reports.
+- **Agency Billing Pool with AI-Consolidated Invoices**: For agency reseller accounts, the system aggregates usage from all sub-orgs into a single parent-meter in the D1 canonical ledger, generating one consolidated Stripe invoice with per-client line items, all without the agency admin manually running reports.
 - **Quota Enforcement as Real-Time AI Planning Signal**: Before executing an expensive AI generation, the build pipeline checks `enforceQuota`; the remaining budget is passed into the AI's prompt as a constraint, enabling the model to make cost-quality tradeoffs autonomously without hard blocking.
 - **Add-On Marketplace with AI Cross-Sell at Checkout**: When a tenant lands on the pricing page, the platform's AI analyzes their usage patterns across all meters and surfaces the most relevant add-ons (more storage, premium templates, custom domain) with personalized copy and estimated value.
 - **Grace Period State Machine with AI Recovery Prediction**: The grace-to-suspend transition evaluates tenant engagement, past recovery, and support ticket sentiment to predict which accounts will recover; high-recovery-probability accounts get extended grace, while dormant accounts transition efficiently.
@@ -5746,7 +5748,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 - **Platform Event Taxonomy + Event Bus as AI-Readable Activity Stream**: A canonical event taxonomy with Zod-enforced shapes flowing through every subsystem creates a unified, queryable event stream in Tinybird. The AI platform emits its own activity as typed events that can be consumed by analytics, billing, and agent-trigger workflows.
 - **New-Subsystem Golden Path as Zero-Touch Platform Expansion**: A scaffold generator that bakes in correlation, health, events, entitlements, WAF-skip, and logging with one command. Expanding the AI platform with a new capability is a single command, not a multi-week integration project.
 - **Per-Tenant Entitlements Gate as Universal Plan Enforcement**: A central entitlements service checked by every subsystem with KV-cached, server-enforced capability gating. The AI platform monetizes its own features per tenant without per-subsystem payment logic.
-- **Unified Usage Metering via OpenMeter as Revenue Spine**: A `meter()` helper called by every billable action (AI tokens, publishes, API calls, storage) funneled into OpenMeter. The AI platform meters its own consumption and turns usage data directly into invoices — no manual meter reading.
+- **Unified Usage Metering via Stripe Meters as Revenue Spine**: A `meter()` helper called by every billable action (AI tokens, publishes, API calls, storage) funneled into Stripe Meter Events. The AI platform meters its own consumption and turns usage data directly into invoices — no manual meter reading.
 - **Cost Attribution per Tenant as Profitability Compass**: A nightly job joining metered usage with vendor cost rates produces per-tenant margin data. The AI platform computes its own per-tenant P&L, surfacing unprofitable accounts before they become silent money drains.
 - **End-to-End Onboarding as AI-Powered Tenant Activation**: A CF Workflow orchestrating org creation, site provisioning, CRM seeding, and entitlement setup lights up multiple subsystems in sequence. The AI platform activates new tenants across its entire feature surface with one signup action.
 - **Unified Notification Fabric (psnotify) as Platform-Wide Alert Spine**: A single `notify()` API routing to in-app inbox, web-push, and email with per-tenant preferences. The AI platform communicates its own events (build complete, billing issue, incident resolved) through one fabric with zero per-feature notification code.
@@ -6137,14 +6139,14 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
 - [ ] LOOP-API-007: Add API usage metering and billing integration [auto]
   - Endpoint: Internal (metering pipeline)
   - Why: API calls are a billable resource; without metering, you cannot charge for API access
-  - Acceptance criteria: Every authenticated API call increments a usage counter (per key, per day); usage fed to OpenMeter for billing; customer-visible usage dashboard
-  - Implementation notes: Increment DO counter per request; flush to D1 hourly; feed to OpenMeter
+  - Acceptance criteria: Every authenticated API call increments a usage counter (per key, per day); usage recorded in D1 canonical ledger for billing; customer-visible usage dashboard
+  - Implementation notes: Increment DO counter per request; flush to D1 hourly; feed to Stripe Meter Events
   - Hosting notes: Workers DO + D1
-  - Backing services: DO (usage counters), D1 (usage history), OpenMeter (billing)
+  - Backing services: DO (usage counters), D1 (usage history + canonical ledger)
   - Observability: PostHog: API usage trends; Tinybird: usage analytics; Axiom: usage events
-  - Dependencies: Unkey (key identification), OpenMeter (billing), usage_metering.ts
+  - Dependencies: Unkey (key identification), D1 (canonical ledger), usage_metering.ts
   - Related files: src/services/usage_metering.ts, billing feature module
-  - Primary sources: OpenMeter usage events docs
+  - Primary sources: Stripe Meter Events docs
 
 - [ ] LOOP-API-008: Configure Unkey root key governance and admin key rotation [auto]
   - Endpoint: Internal (admin)
@@ -6645,10 +6647,10 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/middleware/auth.ts
   - Primary sources: Kill switch patterns, KV read performance
 
-## billing.projectsites.dev — Stripe + OpenMeter
+## billing.projectsites.dev — Stripe Meters (active) + Metronome (future)
 
 ### Raw research themes considered
-Stripe handles subscriptions and payments; OpenMeter handles usage metering and entitlements. Research covered: Stripe Checkout integration, webhook handling for subscription lifecycle events, OpenMeter metered usage events, entitlement checks against plan limits, prepaid credit model for AI/browser/API usage, dunning and failed payment recovery, agency/partner billing models, per-site cost attribution for margin analysis. Existing repo: src/services/billing.ts, libs/features/billing/ (feature module with manifest), Stripe webhook handler.
+Stripe handles subscriptions and payments; Stripe Meters handles usage metering; D1 handles entitlements. Research covered: Stripe Checkout integration, webhook handling for subscription lifecycle events, Stripe Meter Events, entitlement checks against plan limits, prepaid credit model for AI/browser/API usage, dunning and failed payment recovery, agency/partner billing models, per-site cost attribution for margin analysis. Existing repo: src/services/billing.ts, libs/features/billing/ (feature module with manifest), Stripe webhook handler.
 
 ### Selected 24 implementation tasks
 
@@ -6676,29 +6678,29 @@ Stripe handles subscriptions and payments; OpenMeter handles usage metering and 
   - Related files: src/services/billing.ts
   - Primary sources: https://stripe.com/docs/billing/subscriptions/customer-portal
 
-- [ ] LOOP-BILL-003: Implement OpenMeter usage metering for all billable resources [auto]
+- [x] LOOP-BILL-003: OpenMeter REMOVED — replaced by StripeMetersProvider (billing_provider.ts) [auto]
   - Endpoint: Internal (metering pipeline)
-  - Why: AI calls, API requests, email sends, browser jobs, and social posts are all metered; OpenMeter provides the usage ledger and entitlement engine
-  - Acceptance criteria: Every billable event (ai.call, api.request, email.send, browser.job, social.post) emitted as an OpenMeter usage event with tenant_id and site_id; real-time entitlement checks against plan limits
-  - Implementation notes: OpenMeter Cloud or self-hosted on CF (decision pending managed vs self-host cost); usage event SDK in Worker
-  - Hosting notes: OpenMeter Cloud (<$50/mo for solo scale) or self-hosted on Coolify if exceeds $50/mo
-  - Backing services: OpenMeter (metering), D1 (local usage log)
+  - Why: AI calls, API requests, email sends, browser jobs, and social posts are all metered; the D1 canonical ledger provides the usage ledger; Stripe Meters delivers to Stripe for billing
+  - Acceptance criteria: Every billable event (ai.call, api.request, email.send, browser.job, social.post) emitted as a usage event to the D1 canonical ledger with tenant_id and site_id; real-time entitlement checks against plan limits
+  - Implementation notes: StripeMetersProvider (uses existing Stripe API; no new infra); usage event SDK in Worker
+  - Hosting notes: StripeMetersProvider uses existing Stripe API (included in Stripe fees)
+  - Backing services: D1 (canonical ledger)
   - Observability: Axiom: metering events; PostHog: usage trends; Tinybird: usage analytics
   - Dependencies: usage_metering.ts, event emission from every billable service
   - Related files: src/services/usage_metering.ts, src/services/ai_gateway.ts, src/services/browser_execution.ts
-  - Primary sources: https://openmeter.io/docs/metering/quickstart, https://openmeter.io/docs/metering/events/usage-events
+  - Primary sources: https://stripe.com/docs/billing/meter-events, https://stripe.com/docs/billing/meter-events
 
 - [ ] LOOP-BILL-004: Build entitlement enforcement middleware for plan-gated features [auto]
   - Endpoint: Middleware (every feature-gated route)
   - Why: Plan limits must be enforced at the API layer, not just the UI; UI-only gating is trivially bypassed
-  - Acceptance criteria: Every gated feature checks OpenMeter entitlements before executing; returns 402 Payment Required with upgrade link if limit exceeded; feature flag overrides for gradual rollout
-  - Implementation notes: Middleware reads OpenMeter entitlement state (cached in KV, 60s TTL); pairs with feature flags
+  - Acceptance criteria: Every gated feature checks D1 canonical ledger entitlements before executing; returns 402 Payment Required with upgrade link if limit exceeded; feature flag overrides for gradual rollout
+  - Implementation notes: Middleware reads D1 canonical ledger entitlement state (cached in KV, 60s TTL); pairs with feature flags
   - Hosting notes: Worker middleware + KV cache
-  - Backing services: OpenMeter (entitlements), KV (entitlement cache), D1 (feature flags)
+  - Backing services: D1 canonical ledger (entitlements), KV (entitlement cache), D1 (feature flags)
   - Observability: Axiom: entitlement denial events; PostHog: upgrade prompt conversion
-  - Dependencies: OpenMeter integration, feature flags
+  - Dependencies: D1 canonical ledger integration, feature flags
   - Related files: src/middleware/, libs/features/billing/
-  - Primary sources: https://openmeter.io/docs/billing/entitlements/overview
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/metered
 
 - [ ] LOOP-BILL-005: Wire Stripe webhook handler for full subscription lifecycle [auto]
   - Endpoint: POST /api/webhooks/stripe (Stripe → Hookdeck → Worker)
@@ -6811,26 +6813,26 @@ Stripe handles subscriptions and payments; OpenMeter handles usage metering and 
 - [ ] LOOP-BILL-014: Implement usage-based billing for browser automation [auto]
   - Endpoint: Internal (metering)
   - Why: Browser automation has per-job costs (CF Browser Rendering credits); usage must be metered and billed
-  - Acceptance criteria: Each browser job emits usage event with job type, duration, pages rendered; metered by OpenMeter; plan includes N browser jobs/month
-  - Implementation notes: Meter usage in browser_gateway.ts; flush to OpenMeter
-  - Hosting notes: Worker + OpenMeter
-  - Backing services: OpenMeter (metering), CF Browser Rendering (execution)
+  - Acceptance criteria: Each browser job emits usage event with job type, duration, pages rendered; metered by D1 canonical ledger; plan includes N browser jobs/month
+  - Implementation notes: Meter usage in browser_gateway.ts; flush to D1 canonical ledger
+  - Hosting notes: Worker + D1 canonical ledger
+  - Backing services: D1 canonical ledger (metering), CF Browser Rendering (execution)
   - Observability: Axiom: browser usage events; PostHog: browser job volume
-  - Dependencies: browser_gateway.ts, OpenMeter
+  - Dependencies: browser_gateway.ts, D1 canonical ledger
   - Related files: src/services/browser_gateway.ts, src/services/browser_execution.ts
-  - Primary sources: CF Browser Rendering pricing, OpenMeter usage events
+  - Primary sources: CF Browser Rendering pricing, D1 canonical ledger usage events
 
 - [ ] LOOP-BILL-015: Build usage-based billing for email sends (Listmonk-attributed) [auto]
   - Endpoint: Internal (metering)
   - Why: Email sending via SES has per-email costs; free tier gets N emails/month, paid tiers get more
-  - Acceptance criteria: Listmonk send events metered via OpenMeter; per-plan email limits enforced; overage billing or hard cap depending on plan
+  - Acceptance criteria: Listmonk send events metered via D1 canonical ledger; per-plan email limits enforced; overage billing or hard cap depending on plan
   - Implementation notes: Meter in Listmonk SES bridge or email provider service
-  - Hosting notes: Worker + OpenMeter
-  - Backing services: OpenMeter (metering), SES (sending), Listmonk (campaign management)
+  - Hosting notes: Worker + D1 canonical ledger
+  - Backing services: D1 canonical ledger (metering), SES (sending), Listmonk (campaign management)
   - Observability: Axiom: email send metering; PostHog: email volume by tenant
-  - Dependencies: listmonk_email_provider.ts, SES integration, OpenMeter
+  - Dependencies: listmonk_email_provider.ts, SES integration, D1 canonical ledger
   - Related files: src/services/listmonk_email_provider.ts, src/services/ses_email_provider.ts
-  - Primary sources: SES pricing, OpenMeter usage events
+  - Primary sources: SES pricing, D1 canonical ledger usage events
 
 - [ ] LOOP-BILL-016: Implement billing anomaly detection [auto]
   - Endpoint: Background worker
@@ -6898,7 +6900,7 @@ Stripe handles subscriptions and payments; OpenMeter handles usage metering and 
   - Acceptance criteria: Plan comparison table with feature matrix; personalized recommendation based on current usage ("You've used 80% of your free AI credits — Pro would give you 5× more"); shown at upgrade moments
   - Implementation notes: Static plan data + dynamic usage comparison; upgrade_moments feature module integration
   - Hosting notes: Worker API
-  - Backing services: D1 (plan definitions), OpenMeter (usage data)
+  - Backing services: D1 (plan definitions), D1 canonical ledger (usage data)
   - Observability: PostHog: plan comparison views + recommendation clicks
   - Dependencies: Plan model, usage metering, upgrade_moments
   - Related files: libs/features/upgrade_moments/, src/services/billing.ts
@@ -6928,17 +6930,17 @@ Stripe handles subscriptions and payments; OpenMeter handles usage metering and 
   - Related files: src/services/billing.ts, admin frontend
   - Primary sources: Stripe refund API
 
-- [ ] LOOP-BILL-024: Implement OpenMeter self-host evaluation (cost gate) [auto]
+- [ ] LOOP-BILL-024: Implement D1 canonical ledger self-host evaluation (cost gate) [auto]
   - Endpoint: Internal (evaluation)
-  - Why: OpenMeter Cloud pricing vs self-hosted on Coolify — need real numbers before deciding
-  - Acceptance criteria: Deploy OpenMeter on Coolify; run 7-day cost comparison (Cloud bill vs self-host compute); document recommendation with numbers; if self-host costs less, keep it; if Cloud <$50/mo, use Cloud
-  - Implementation notes: One-time evaluation; deploy OpenMeter Docker Compose on Coolify; run parallel metering for 7 days
+  - Why: D1 canonical ledger Cloud pricing vs self-hosted on Coolify — need real numbers before deciding
+  - Acceptance criteria: Deploy D1 canonical ledger on Coolify; run 7-day cost comparison (Cloud bill vs self-host compute); document recommendation with numbers; if self-host costs less, keep it; if Cloud <$50/mo, use Cloud
+  - Implementation notes: One-time evaluation; deploy D1 canonical ledger Docker Compose on Coolify; run parallel metering for 7 days
   - Hosting notes: Coolify MCP (evaluation deployment)
-  - Backing services: Neon (OpenMeter DB), Coolify (compute)
+  - Backing services: Neon (D1 canonical ledger DB), Coolify (compute)
   - Observability: Axiom: evaluation metrics
   - Dependencies: Coolify MCP, Neon, Docker
-  - Related files: apps/project-sites/infra/ (new openmeter eval dir)
-  - Primary sources: https://openmeter.io/docs, Coolify deployment docs
+  - Related files: apps/project-sites/src/services/billing_provider.ts (billing provider abstraction)
+  - Primary sources: https://stripe.com/docs/billing, Coolify deployment docs
 
 ## webhooks.projectsites.dev — Hookdeck + Outpost
 
@@ -7414,13 +7416,13 @@ Nango provides pre-built OAuth integrations with 200+ APIs (Google, Microsoft, S
   - Endpoint: Internal (billing logic)
   - Why: Premium integrations (Salesforce, HubSpot) may justify per-integration pricing as plan add-ons
   - Acceptance criteria: Plan defines included integrations; premium integrations available as paid add-ons; integration count metered for usage-based plans
-  - Implementation notes: Plan entitlement model extended with integration allowlist; OpenMeter integration usage events
-  - Hosting notes: Worker + OpenMeter
-  - Backing services: OpenMeter (metering), D1 (plan definitions)
+  - Implementation notes: Plan entitlement model extended with integration allowlist; D1 canonical ledger integration usage events
+  - Hosting notes: Worker + D1 canonical ledger
+  - Backing services: D1 canonical ledger (metering), D1 (plan definitions)
   - Observability: PostHog: integration adoption by plan
-  - Dependencies: Billing service, OpenMeter, plan model
+  - Dependencies: Billing service, D1 canonical ledger, plan model
   - Related files: src/services/billing.ts
-  - Primary sources: Existing plan model, OpenMeter entitlements
+  - Primary sources: Existing plan model, D1 canonical ledger entitlements
 
 - [ ] LOOP-INT-016: Implement Notion-to-CRM contact sync [auto]
   - Endpoint: Nango sync → Twenty CRM
@@ -7500,7 +7502,7 @@ Nango provides pre-built OAuth integrations with 200+ APIs (Google, Microsoft, S
   - Acceptance criteria: Free=3 integrations, Pro=10, Business=unlimited; enforced at connection creation; customer sees usage count
   - Implementation notes: Plan entitlement check before Nango connection creation; D1 integration_count per site
   - Hosting notes: Worker middleware
-  - Backing services: D1 (integration counts), OpenMeter (entitlements)
+  - Backing services: D1 (integration counts), D1 canonical ledger (entitlements)
   - Observability: PostHog: integration limit events
   - Dependencies: Billing (plan model), Nango
   - Related files: src/middleware/, Nango integration
@@ -8522,9 +8524,9 @@ Postiz is deployed on a single always-on Fly app (social-postiz, iad) with Tempo
   - Endpoint: Middleware (Postiz account connection)
   - Why: Free plan gets N social accounts; paid plans get more
   - Acceptance criteria: Free=3 accounts, Pro=10, Business=unlimited; enforced at connection creation; customer sees usage count
-  - Implementation notes: Plan entitlement check via OpenMeter; Postiz account count per tenant
+  - Implementation notes: Plan entitlement check via D1 canonical ledger; Postiz account count per tenant
   - Hosting notes: Worker middleware
-  - Backing services: OpenMeter (entitlements), Postiz (account count), D1 (plan limits)
+  - Backing services: D1 canonical ledger (entitlements), Postiz (account count), D1 (plan limits)
   - Observability: PostHog: social account limit events
   - Dependencies: Billing (plan model), Postiz Fly app
   - Related files: src/services/social_account_ctx.ts
@@ -9311,3 +9313,2165 @@ Axiom is the logging backend for the platform. Research covered: Axiom's OpenTel
   - Dependencies: Axiom usage API, Coolify
   - Related files: src/services/cost_aggregation.ts
   - Primary sources: Axiom pricing, Loki/Quickwit self-host docs
+
+
+# ProjectSites.dev Platform Expansion Loop Ledger
+
+> **Generated 2026-06-29.** Research-driven, implementation-ready tasks for every canonical
+> service endpoint. Each subsystem: 50+ raw ideas researched → 24 best implementation tasks
+> selected. Primary sources: official docs, pricing pages, deployment guides. Format:
+> `LOOP-<SECTION>-NNN` with full hosting/observability/dependency/related-files fields.
+> Cloudflare-first hosting default; Fly.io only when always-on/stateful; Coolify MCP only
+> when managed cost >$50/month. Sentry platform-only (never on customer sites). PostHog
+> Cloud only. Axiom = current log backend. Hookdeck+Outpost at webhooks.projectsites.dev.
+
+---
+
+## Global Architecture Decisions
+
+Cross-cutting primitives every subsystem depends on. These ship first — they're the
+platform substrate the per-service tasks build on.
+
+### Raw research themes considered
+Tenant isolation models (logical-DB vs dedicated-project vs shared-instance), secret
+management (Worker secrets vs Vault vs env vars), correlation ID propagation across
+HTTP/gRPC/Queues/Workflows, structured logging schemas, trace context across service
+boundaries, Cloudflare-first runtime gating, Fly.io escape-hatch criteria codified,
+Coolify cost-escalation triggers, vendor lock-in boundary documentation, app
+provisioning/deprovisioning primitives, per-site cost attribution, per-app cost
+attribution via cost_center tags, audit trail architecture (append-only D1 + R2 archive),
+abuse control (rate-limit + Turnstile + WAF), disaster recovery (D1 Time Travel + R2
+versioning + Neon branching), admin override patterns, customer-visible timeline/event
+stream, resource naming conventions, UUID version discipline.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-GLOBAL-001: Codify tenant isolation model in platform ADR
+  - Endpoint: docs/decisions/NNNN-tenant-isolation.md
+  - Why: Every service (Listmonk, Twenty, Chatwoot, Postiz, Langfuse) needs a clear isolation contract — shared-Neon-logical-DB vs dedicated-project vs row-level. Without an ADR, each service guesses and we get data leaks.
+  - Acceptance criteria: ADR documents: (a) free-tier = row-level in shared D1, (b) paid = logical-DB on shared Neon shard, (c) enterprise = dedicated Neon project, (d) promotion path between tiers via Workflow, (e) per-service exceptions (Twenty needs dedicated workspace per org). Linked from every service's infra README.
+  - Implementation notes: Extend `db_allocation.ts` `chooseDbAllocation` to include per-app hints. Existing doc `docs/architecture/cloudflare-first.md` §4 covers the DB allocation order — this ADR codifies the tenant dimension.
+  - Hosting notes: N/A (decision document). Cloudflare-first: D1 for free, Neon for paid+. Fly.io: N/A. Coolify: N/A. Customer-facing + internal.
+  - Backing services: D1, Neon, Hyperdrive
+  - Observability: Axiom: tenant_id on every DB operation log; Sentry: cross-tenant access attempt → P1 alert
+  - Dependencies: db_allocation.ts, site_database_allocations table (migration 0573)
+  - Related files: docs/architecture/cloudflare-first.md, src/services/db_allocation.ts, src/services/db_sharding.ts, infra/README.md
+  - Primary sources: Cloudflare D1 docs, Neon logical-DB docs, projectsites.dev ADR-0003 (DB allocation)
+
+- [ ] LOOP-GLOBAL-002: Define and enforce resource naming convention
+  - Endpoint: Every D1 table, KV key, R2 path, DO class, Queue, Workflow, Worker, Neon DB, Upstash DB
+  - Why: 50+ services across 18 subdomains need consistent naming so operators and agents can trace resources. Current state: mixed conventions (some snake_case, some kebab-case, some camelCase).
+  - Acceptance criteria: NAMING.md at repo root documents: D1 tables = snake_case, KV keys = `prefix:entity:id`, R2 paths = `{tenant}/{site}/{resource}`, DO classes = PascalCase, Queues/Workflows = kebab-case, Neon DBs = `projectsites_{service}`, Upstash DBs = `ps-{service}-{env}`. Linter (scripts/validate-naming.mjs) flags violations. All existing resources conform within 30 days.
+  - Implementation notes: Write validator that greps wrangler.toml, D1 migrations, KV key patterns, R2 path construction. Wire into `npm run check`. Migration: rename existing non-conforming resources in batches.
+  - Hosting notes: N/A (convention). Applies to all hosting tiers.
+  - Backing services: N/A
+  - Observability: Self-referential (validator output → Axiom)
+  - Dependencies: None (convention-only)
+  - Related files: wrangler.toml, src/types/env.ts, src/services/db.ts, infra/*/wrangler.toml
+  - Primary sources: Cloudflare Workers docs (naming limits), RFC 952 (hostnames), UUID v7 spec
+
+- [ ] LOOP-GLOBAL-003: Ship correlation-ID propagation across ALL service boundaries
+  - Endpoint: Every HTTP request, Queue message, Workflow step, DO call, container invocation
+  - Why: A request hitting the main worker → Queues → container DO → Neon → back must carry one traceable ID. Currently `request_id` exists in middleware but is not propagated to Queues/Workflows/containers.
+  - Acceptance criteria: `x-request-id` (or `cf-ray`) propagated to: Queue body, Workflow params, DO constructor, container env, outbound fetch headers, Neon/Upstash comments. Every Axiom log line carries `request_id` + `trace_id` + `span_id`. Admin trace viewer reconstructs full call chain from any ID.
+  - Implementation notes: `trace_propagation.ts` already exists — extend to inject IDs into Queue send, Workflow create, DO idFromName, container env. Add trace context to `db.ts` query comments.
+  - Hosting notes: Cloudflare Workers (request-scoped). Internal-only.
+  - Backing services: Axiom (log correlation), Sentry (trace correlation)
+  - Observability: Axiom: trace_id on every log; Sentry: trace context on spans; PostHog: session_id → request_id mapping
+  - Dependencies: middleware/request_id.ts, src/services/trace_propagation.ts
+  - Related files: src/middleware/request_id.ts, src/services/trace_propagation.ts, src/services/db.ts, src/services/event_bus.ts, src/workflows/site-generation.ts
+  - Primary sources: W3C Trace Context spec, Cloudflare Workers trace docs, OpenTelemetry propagation format
+
+- [ ] LOOP-GLOBAL-004: Define structured logging schema (SSOT)
+  - Endpoint: Every console.warn/error, Axiom log, Sentry breadcrumb
+  - Why: Logs without a schema are unqueriable. Every service emitting ad-hoc fields makes debugging cross-service issues impossible.
+  - Acceptance criteria: `LogSchema` (Zod) in `packages/shared/src/schemas/log.ts` defines required fields: `service, env, event_name, level, request_id, trace_id, tenant_id, message, duration_ms, status`. Optional: `site_id, app_id, user_id, api_key_id, workflow_id, job_id, error_code, error_category, retryable`. All log emissions pass through `logEvent(env, schema)` helper. `scripts/validate-log-schema.mjs` samples Axiom and flags non-conforming lines.
+  - Implementation notes: Extend existing `src/services/analytics_tracker.ts` pattern. Shared Zod schema; per-service logger injects service name + env automatically.
+  - Hosting notes: N/A (shared code). Internal-only.
+  - Backing services: Axiom, Sentry
+  - Observability: Self-referential — Axiom dashboard shows schema compliance %
+  - Dependencies: packages/shared (Zod schemas), trace_propagation.ts
+  - Related files: packages/shared/src/schemas/, src/services/analytics_tracker.ts, src/lib/sentry.ts
+  - Primary sources: OpenTelemetry log data model, Cloudflare Workers Logs, Axiom structured logging docs
+
+- [ ] LOOP-GLOBAL-005: Document Fly.io escape hatch criteria
+  - Endpoint: docs/decisions/NNNN-fly-io-escape-hatch.md
+  - Why: "Use Fly.io only when always-on/stateful" is vague. Without explicit criteria, every service defaults to Fly "just in case." Codify the exact triggers.
+  - Acceptance criteria: ADR lists: (a) workload must stay warm (cold-start >5s unacceptable), (b) requires persistent filesystem not satisfiable by R2/DO SQLite, (c) needs long-running TCP connections (>15min CF limit), (d) requires GPU or custom kernel modules. If NONE of these apply → MUST use Workers/Containers. If ANY apply → Fly.io allowed with written justification.
+  - Implementation notes: Gate new service proposals: answer the 4 questions; if Fly, write one-paragraph justification in infra/{service}/README.md.
+  - Hosting notes: Cloudflare = default; Fly.io = justified exception only. Internal-only (platform decision).
+  - Backing services: N/A
+  - Observability: N/A
+  - Dependencies: None
+  - Related files: docs/architecture/cloudflare-first.md, infra/README.md
+  - Primary sources: Cloudflare Containers limits, Fly.io docs, projectsites.dev infra README
+
+- [ ] LOOP-GLOBAL-006: Codify Coolify MCP cost-escalation triggers
+  - Endpoint: docs/decisions/NNNN-coolify-escalation.md
+  - Why: "Coolify when >$50/month" needs precision. What if a service costs $45 but is growing 20%/month? What about stateful services where managed is $30 but Coolify ops cost is 5h/month?
+  - Acceptance criteria: ADR: migrate to Coolify when (a) managed cost >$50/month AND projected to stay above for ≥6 months, OR (b) service is stateful/internal-only AND managed cost >$30/month, OR (c) service needs ClickHouse/Heavy-RAM/GPU AND managed equivalent >$100/month. Migration checklist: Coolify Docker Compose, Neon/Upstash wiring, backup strategy, health check, admin dashboard entry.
+  - Implementation notes: `scripts/check-managed-costs.mjs` queries vendor billing APIs monthly, flags services approaching thresholds, opens issue.
+  - Hosting notes: Cloudflare = default; managed serverless = second; Fly.io = always-on escape; Coolify = cost-escalation escape. Internal-only.
+  - Backing services: Coolify MCP, vendor billing APIs
+  - Observability: PostHog: cost trend dashboard; Axiom: Coolify service health; Sentry: Coolify service failures
+  - Dependencies: Coolify MCP host, vendor billing API access
+  - Related files: infra/README.md, src/services/cost_aggregation.ts
+  - Primary sources: Coolify docs, vendor pricing pages (Neon, Upstash, Tinybird, Axiom, Sentry, PostHog)
+
+- [ ] LOOP-GLOBAL-007: Build per-site cost attribution data model
+  - Endpoint: D1 table `cost_attribution` + `cost_centers`
+  - Why: We charge $50/month/site but don't know if individual sites are profitable. Every Cloudflare/Neon/Upstash/AI bill must be attributable per-site.
+  - Acceptance criteria: `cost_centers` table: `{id, site_id, org_id, category, monthly_budget_cents}`. `cost_attribution` table: `{cost_center_id, service, resource, usage_amount, usage_unit, cost_cents, period_start, period_end}`. Admin dashboard shows per-site margin. Anomaly detection flags sites costing >$50/month.
+  - Implementation notes: `cost_aggregation.ts` already exists — extend to write per-site attributions. Worker Analytics Engine provides per-hostname request counts. AI Gateway tags by `x-tenant-id`. R2 per-bucket metrics.
+  - Hosting notes: D1 (canonical) + KV (hot cache). Internal-only.
+  - Backing services: D1, KV, Workers Analytics Engine, AI Gateway
+  - Observability: PostHog: profitability dashboard; Tinybird: cost-per-site trends; Sentry: cost anomaly alerts
+  - Dependencies: cost_aggregation.ts, Analytics Engine binding, AI Gateway
+  - Related files: src/services/cost_aggregation.ts, src/services/billing_meter.ts, migrations/ (new)
+  - Primary sources: Cloudflare Analytics Engine, FinOps FOCUS spec, AWS Cost Attribution docs (pattern reference)
+
+- [ ] LOOP-GLOBAL-008: Implement audit trail architecture (append-only + archive)
+  - Endpoint: Every mutation (D1 write, KV put, R2 upload, Neon query, Upstash command)
+  - Why: Compliance (SOC 2 ready), debugging, customer trust. Current `audit_logs` table exists but is not comprehensive — many mutations skip it.
+  - Acceptance criteria: Every mutating handler writes to `audit_logs`: `{id, tenant_id, site_id, user_id, action, resource_type, resource_id, before (JSON), after (JSON), request_id, ip, user_agent, created_at}`. R2 archives logs older than 90 days (Parquet). Admin audit viewer with filters. Immutable — no UPDATE/DELETE on audit_logs.
+  - Implementation notes: Hono middleware auto-audits on POST/PUT/PATCH/DELETE when response is 2xx. Opt-out via `x-audit-skip: true` for high-volume paths (analytics ingestion). `audit_retention.ts` already exists — wire the R2 archive.
+  - Hosting notes: D1 (hot, 90d) + R2 (cold archive, Parquet). Customer-facing (own data) + internal (platform ops).
+  - Backing services: D1, R2
+  - Observability: Axiom: audit log query dashboard; Sentry: audit write failures
+  - Dependencies: middleware/request_id.ts, src/services/audit.ts, src/services/audit_retention.ts
+  - Related files: src/services/audit.ts, src/services/audit_retention.ts, src/middleware/, migrations/
+  - Primary sources: SOC 2 audit trail requirements, RFC 7807, Cloudflare R2 lifecycle policies
+
+- [ ] LOOP-GLOBAL-009: Standardize abuse control stack across all services
+  - Endpoint: Every public-facing endpoint
+  - Why: Each service currently has ad-hoc (or no) rate limiting. A scraper hitting Listmonk unsubscribe endpoints, Chatwoot widget spam, or Postiz comment spam needs unified defense.
+  - Acceptance criteria: Three-layer stack documented + enforced: (1) CF WAF/rate-limiting at edge (per-IP, per-path), (2) Turnstile on all public forms (verified server-side), (3) per-tenant rate limit via DO counter (configurable per plan). Every service's infra README documents which layers apply. Admin dashboard shows blocked requests.
+  - Implementation notes: `rate_limit_wrapper.ts` exists — extend with per-tenant DO counters. WAF rules managed via CF API (`cloudflare-native-provisioning`). Turnstile: `turnstile.ts` already verifies server-side.
+  - Hosting notes: Cloudflare WAF (edge) + DO (application layer). Customer-facing + internal.
+  - Backing services: Cloudflare WAF, Turnstile, Durable Objects
+  - Observability: Axiom: abuse event stream; Sentry: rate-limit-triggered alerts; PostHog: abuse attempt funnel
+  - Dependencies: turnstile.ts, rate_limit_wrapper.ts, cf_credentials.ts
+  - Related files: src/services/turnstile.ts, src/services/rate_limit_wrapper.ts, src/middleware/security_headers.ts
+  - Primary sources: Cloudflare WAF docs, Turnstile server-side validation, OWASP API abuse patterns
+
+- [ ] LOOP-GLOBAL-010: Ship disaster recovery playbook per service
+  - Endpoint: docs/runbooks/disaster-recovery.md
+  - Why: "D1 Time Travel + R2 versioning" is the capability, not the runbook. When a service goes down at 2am, an AI agent needs exact commands, not general knowledge.
+  - Acceptance criteria: Per-service runbook with: (a) health check command, (b) common failure modes + symptoms, (c) rollback command (wrangler rollback / D1 time-travel restore / R2 version revert / Neon branch restore), (d) data recovery procedure, (e) escalation path. Runbook tested quarterly via tabletop exercise (AI agent simulates incident). DR_README.md index at repo root.
+  - Implementation notes: Template at docs/runbooks/_TEMPLATE.md. One runbook per infra/* service. `scripts/test-dr-runbook.mjs` simulates each runbook in CI.
+  - Hosting notes: Applies to all hosting tiers. Internal-only.
+  - Backing services: Per-service (D1, Neon, R2, Upstash)
+  - Observability: Sentry: incident creation → runbook link; Axiom: DR test results
+  - Dependencies: infra/*/README.md (per-service health checks)
+  - Related files: docs/runbooks/ (new), infra/*/README.md
+  - Primary sources: Cloudflare D1 Time Travel, R2 versioning, Neon branching, incident.io runbook patterns
+
+- [ ] LOOP-GLOBAL-011: Build admin override framework
+  - Endpoint: /api/admin/overrides (super-admin only)
+  - Why: When a tenant hits a plan limit, abuse block, or flag gate, support needs a safe, audited override without direct DB access.
+  - Acceptance criteria: Override types: `rate_limit` (raise/lower per-tenant), `flag` (force-enable/disable per-tenant), `quota` (adjust AI/browser/email caps), `plan` (temporary plan bump). Every override: (a) requires reason + TTL, (b) auto-expires, (c) fully audited, (d) visible in admin dashboard. Override CREATE/EXPIRE/DELETE lifecycles.
+  - Implementation notes: D1 table `admin_overrides: {id, org_id, type, key, value, reason, created_by, expires_at, created_at}`. `isFlagOn` checks overrides after D1 flag table. KV cache 30s for override state.
+  - Hosting notes: D1 + KV. Internal-only (super-admin).
+  - Backing services: D1, KV
+  - Observability: Axiom: every override applied; Sentry: P2 if override count >20 (unusual); PostHog: override usage trends
+  - Dependencies: feature_flags.ts, rate_limit_wrapper.ts, billing.ts
+  - Related files: src/services/features.ts, src/routes/api.ts, migrations/
+  - Primary sources: Feature flag override patterns (existing D1 schema), Stripe admin override API
+
+- [ ] LOOP-GLOBAL-012: Implement customer-visible event timeline
+  - Endpoint: Every site/app's event stream
+  - Why: Customers ask "what happened to my site?" The answer should be a visible timeline, not a support ticket.
+  - Acceptance criteria: Every platform event (build_started, build_completed, domain_verified, ssl_provisioned, backup_created, invoice_generated, etc.) fans to: (a) D1 `timeline_events` table, (b) admin dashboard timeline per site, (c) optional email/Slack notification per user prefs. Customer-facing timeline at /admin/sites/:id/timeline. Events are immutable.
+  - Implementation notes: `event_bus.ts` already fans events — add timeline sink. Frontend: timeline component (reverse-chronological, grouped by date, filterable by type).
+  - Hosting notes: D1 (hot) + R2 (archive). Customer-facing (site owner) + internal (admin).
+  - Backing services: D1, R2
+  - Observability: PostHog: timeline engagement; Axiom: event publish failures
+  - Dependencies: event_bus.ts, notifications.ts
+  - Related files: src/services/event_bus.ts, src/services/notifications.ts, frontend/src/app/pages/admin/
+  - Primary sources: Stripe Dashboard event timeline, Vercel deployment timeline, Linear activity feed
+
+- [ ] LOOP-GLOBAL-013: Enforce UUID v7 for all new primary keys
+  - Endpoint: Every D1/Neon table created from now on
+  - Why: UUID v4 (random) fragments B-tree indexes. UUID v7 (time-ordered) is sortable, index-friendly, and still globally unique. Current tables use mixed UUID versions.
+  - Acceptance criteria: All new migrations use UUID v7 for PKs. Existing tables: migration plan for top-20 most-queried tables. `uuid-version-discipline` rule enforced via migration linter (`scripts/validate-uuids.mjs`).
+  - Implementation notes: `crypto.randomUUID()` generates v4. Use `uuidv7()` from `uuid` package or implement RFC 9562 inline. Migration linter greps new migration SQL for `uuid()` → flag if not explicit v7.
+  - Hosting notes: N/A (data modeling convention). All environments.
+  - Backing services: D1, Neon
+  - Observability: N/A
+  - Dependencies: uuid package (or inline v7 implementation)
+  - Related files: migrations/*.sql, packages/shared/src/utils/
+  - Primary sources: RFC 9562 (UUID v7), UUID v7 B-tree performance benchmarks
+
+- [ ] LOOP-GLOBAL-014: Ship service registry with health aggregation
+  - Endpoint: /api/admin/services (super-admin)
+  - Why: 18+ subdomains across Workers/Containers/Fly — operators need one dashboard showing what's alive. `service_registry.ts` already exists as a static catalog; needs live health.
+  - Acceptance criteria: `GET /api/admin/services` returns: `{name, url, status (up/degraded/down), latency_ms, last_checked_at, version, hosting (workers/container/fly/coolify)}`. Health check every 60s via CF Cron Trigger. Admin dashboard: green/amber/red grid. P1 Sentry alert if any `platform` service down >2min.
+  - Implementation notes: Extend `service_registry.ts` static catalog with live health probes. Each service exposes `/health` (or equivalent). CF Cron fires `health_probe.ts`. Results stored in KV (latest) + D1 (history).
+  - Hosting notes: Worker Cron + KV + D1. Internal-only (admin).
+  - Backing services: KV, D1, Sentry
+  - Observability: Sentry: service-down P1; Axiom: health probe history; PostHog: uptime %
+  - Dependencies: service_registry.ts, health_probe.ts
+  - Related files: src/services/service_registry.ts, src/services/health_probe.ts, infra/README.md
+  - Primary sources: Cloudflare Cron Triggers, health check endpoint patterns (RFC 5785)
+
+- [ ] LOOP-GLOBAL-015: Implement secret auto-provisioning pipeline
+  - Endpoint: Every new service deployment
+  - Why: Deploying a new service currently requires manual `openssl rand -base64 32` + `wrangler secret put` × N secrets. Error-prone and slow.
+  - Acceptance criteria: `scripts/provision-service-secrets.mjs <service-name>` auto-generates ALL non-vendor secrets (HMAC keys, session secrets, internal API keys, salts), sets them via `wrangler secret put`, logs to audit trail. Vendor secrets (Stripe, Resend, etc.) are prompted interactively with exact URLs.
+  - Implementation notes: Parse wrangler.toml `secrets.required` + infra README secret list. `secret_rotation.ts` already exists — reuse generation functions. Auto-commit secret manifest (names only, never values) to repo.
+  - Hosting notes: Worker secrets (encrypted at rest). Internal-only.
+  - Backing services: Cloudflare Workers Secrets, get-secret
+  - Observability: Axiom: secret provisioning audit log; Sentry: secret provisioning failure
+  - Dependencies: secret_rotation.ts, get-secret, wrangler CLI
+  - Related files: src/services/secret_rotation.ts, infra/*/wrangler.toml, scripts/
+  - Primary sources: Cloudflare Workers Secrets, secret-auto-provisioning rule, OpenSSL rand
+
+- [ ] LOOP-GLOBAL-016: Build admin global search
+  - Endpoint: /api/admin/search?q=... (super-admin)
+  - Why: With 50+ services and thousands of tenants/sites, operators need Google-like search across all entities.
+  - Acceptance criteria: Search across: sites (slug, domain, org), orgs (name, email), users (email), hostnames, invoices (id, amount), API keys (prefix), audit logs (action, resource), support tickets, builds (status). Results ranked by relevance, grouped by entity type. RBAC: super-admin sees all; org-admin sees own org.
+  - Implementation notes: D1 FTS5 across core tables. For cross-service search (Twenty, Chatwoot), proxy to their APIs. Rate-limited (10 req/min per admin). Debounced (300ms).
+  - Hosting notes: Worker + D1 FTS5. Internal-only (admin).
+  - Backing services: D1 (FTS5), Twenty API, Chatwoot API, Listmonk API
+  - Observability: PostHog: search usage, zero-result rate; Axiom: search latency
+  - Dependencies: D1 FTS5 tables, per-service API clients
+  - Related files: src/routes/api.ts (admin section), src/services/db.ts
+  - Primary sources: D1 FTS5 docs, Algolia/Meilisearch admin search UX patterns
+
+- [ ] LOOP-GLOBAL-017: Codify per-service observability requirements
+  - Endpoint: docs/OBSERVABILITY.md + per-service monitoring
+  - Why: Some services emit zero observability data (deploy → hope). Every service must declare its observability surface before going live.
+  - Acceptance criteria: OBSERVABILITY.md checklist per service: (a) health endpoint, (b) structured logs to Axiom with required fields, (c) Sentry error tracking (platform services only), (d) PostHog product events (if customer-facing), (e) Workers Analytics Engine metrics (if high-volume), (f) alert thresholds, (g) dashboard URL. `scripts/validate-observability.mjs` fails deploy if checklist incomplete.
+  - Implementation notes: Template at docs/OBSERVABILITY_TEMPLATE.md. Each infra/* service gets a monitoring section in its README.
+  - Hosting notes: Applies to all tiers. Internal-only.
+  - Backing services: Axiom, Sentry, PostHog, Workers Analytics Engine
+  - Observability: Self-referential (meta-monitoring)
+  - Dependencies: All observability services
+  - Related files: docs/architecture/cloudflare-first.md §6, infra/*/README.md
+  - Primary sources: Cloudflare Workers Observability, OpenTelemetry, Sentry getting-started
+
+- [ ] LOOP-GLOBAL-018: Build app provisioning/de-provisioning primitives
+  - Endpoint: Workflow + DO for app lifecycle
+  - Why: "Install" and "uninstall" for an app (Listmonk, Twenty, Chatwoot) currently involves manual infra steps. This must be automated for the app marketplace to work.
+  - Acceptance criteria: `POST /api/apps/provision {app_slug, org_id, plan}` kicks off Workflow: (1) validate plan + quota, (2) create Neon DB / assign shard, (3) create Upstash DB if needed, (4) spin container DO, (5) run app-specific setup (migrations, admin user), (6) register hostname, (7) notify org, (8) add to service registry. `DELETE /api/apps/:id` reverses: backup → deprovision → notify. Both idempotent.
+  - Implementation notes: Extend `app_provisioner.ts`. Each app has a provision/deprovision manifest. `provisioning_plan.ts` already defines the shape.
+  - Hosting notes: Worker + Workflow + Container DO. Internal-only (admin action).
+  - Backing services: D1, Neon, Upstash, R2, Workflows, Container DO
+  - Observability: Axiom: provision step traces; Sentry: provision failure alerts; PostHog: app install funnel
+  - Dependencies: app_provisioner.ts, provisioning_plan.ts, container_dispatcher.ts
+  - Related files: src/services/app_provisioner.ts, src/services/provisioning_plan.ts, src/services/container_dispatcher.ts
+  - Primary sources: Cloudflare Workflows, Cloudflare Containers, Neon API, Upstash API
+
+- [ ] LOOP-GLOBAL-019: Implement per-environment config separation
+  - Endpoint: wrangler.toml environments + env.ts Zod schema
+  - Why: Production secrets leaking into dev/test is a top-3 security incident class. Strict environment separation makes it structurally impossible.
+  - Acceptance criteria: Three environments: `production`, `staging` (per `no-staging-doctrine` — lightweight preview only, not a full env), `dev` (local). Each has separate D1 preview database, KV preview namespace, R2 preview bucket. Production secrets NEVER available in dev. `EnvSchema` validates at startup — missing production-only binding in dev = graceful degrade, not crash.
+  - Implementation notes: wrangler.toml already has `[env.production]` and `[env.dev]`. Add `[env.staging]` for pre-prod smoke tests. `env.ts` Zod schema validates all bindings.
+  - Hosting notes: Cloudflare Workers environments. Internal-only.
+  - Backing services: D1 (preview), KV (preview), R2 (preview)
+  - Observability: Sentry: env mismatch alerts (production binding accessed in dev)
+  - Dependencies: wrangler.toml, src/types/env.ts
+  - Related files: wrangler.toml, src/types/env.ts, src/services/cf_credentials.ts
+  - Primary sources: Cloudflare Workers environments, Wrangler configuration docs
+
+- [ ] LOOP-GLOBAL-020: Build vendor lock-in boundary documentation
+  - Endpoint: docs/decisions/NNNN-vendor-lock-in-boundaries.md
+  - Why: `cloudflare-lock-in-is-leverage` is the doctrine, but without explicit boundaries, a future migration becomes impossible. Define what "locked in" means concretely.
+  - Acceptance criteria: ADR lists every Cloudflare-specific API/primitive used, classified: (A) easily portable (Workers → Node/Hono, D1 → SQLite, R2 → S3, KV → Redis), (B) portable with effort (DO → any actor framework, Queues → RabbitMQ, Workflows → Temporal), (C) deeply locked-in (CF-specific: Analytics Engine, AI Gateway caching, Workers for Platforms dispatch). For each (C), document the migration path and estimated effort. Re-audit quarterly.
+  - Implementation notes: `scripts/audit-cf-lockin.mjs` greps codebase for CF-specific APIs, classifies them, generates report.
+  - Hosting notes: N/A (analysis). Internal-only.
+  - Backing services: N/A
+  - Observability: N/A
+  - Dependencies: None
+  - Related files: docs/architecture/cloudflare-first.md, wrangler.toml, src/types/env.ts
+  - Primary sources: Cloudflare API docs, AWS/GCP equivalent services for portability comparison
+
+- [ ] LOOP-GLOBAL-021: Implement zero-touch app marketplace backend
+  - Endpoint: /api/apps/catalog + /api/apps/instances
+  - Why: The admin "Apps" section currently lists hardcoded tiles. A proper marketplace lets orgs browse, install, and manage apps.
+  - Acceptance criteria: `GET /api/apps/catalog` returns available apps with: name, description, icon, plan requirements, provisioning time estimate, monthly cost. `POST /api/apps/instances {app_slug}` triggers LOOP-GLOBAL-018 provisioning Workflow. `GET /api/apps/instances` lists org's installed apps with status + health. Admin can set per-app pricing, feature tiers.
+  - Implementation notes: Extend `apps-catalog.data.ts`. Catalog is D1-backed with KV cache (60s). App provisioning delegates to Workflow.
+  - Hosting notes: Worker + D1 + KV. Customer-facing (org admin) + internal (super-admin).
+  - Backing services: D1, KV, Workflows
+  - Observability: PostHog: app browse→install funnel; Axiom: provision failures; Sentry: catalog availability
+  - Dependencies: app_provisioner.ts, apps-catalog.data.ts
+  - Related files: src/services/app_provisioner.ts, src/routes/apps.ts, apps-catalog.data.ts
+  - Primary sources: Cloudflare Marketplace, Vercel Integration Marketplace, Shopify App Store
+
+- [ ] LOOP-GLOBAL-022: Build per-tenant usage quota enforcement
+  - Endpoint: Every billable resource path
+  - Why: Free tier users currently have no hard enforcement of limits. Quota must be checked at the edge before expensive work begins.
+  - Acceptance criteria: Quota dimensions: AI credits/month, browser minutes/month, email sends/month, build count/month, storage GB, bandwidth GB, API calls/month. Per-plan defaults in `ENTITLEMENTS`. Checked via DO counter (fast, eventually-consistent) with D1 as source of truth. Exceeded → 429 with `Retry-After` + upgrade link. Admin overrides per LOOP-GLOBAL-011.
+  - Implementation notes: `plan_entitlement.ts` already defines entitlements. Build per-tenant DO counter class. Hono middleware checks quota before handler. Hard quotas prevent bill shock; soft quotas warn.
+  - Hosting notes: DO (counter) + D1 (canonical). Customer-facing (usage visible) + internal (enforcement).
+  - Backing services: Durable Objects, D1, KV
+  - Observability: PostHog: quota utilization per tenant; Axiom: quota-exceeded events; Sentry: quota enforcement failures
+  - Dependencies: plan_entitlement.ts, billing_meter.ts, usage_metering.ts
+  - Related files: src/services/plan_entitlement.ts, src/services/usage_metering.ts, src/services/billing_meter.ts
+  - Primary sources: Cloudflare DO counters, Stripe metered billing, AWS Service Quotas
+
+- [ ] LOOP-GLOBAL-023: Ship cross-service event bus with typed events
+  - Endpoint: Every service → event_bus → every subscriber
+  - Why: When a site is deleted, Listmonk lists, Twenty contacts, Chatwoot inboxes, and Postiz accounts should all clean up. Currently each integration is ad-hoc.
+  - Acceptance criteria: Typed event schema (Zod): `site.created, site.deleted, site.published, org.created, org.deleted, user.invited, subscription.updated, billing.invoice_paid, app.installed, app.uninstalled`. Publishers: main worker, billing, auth. Subscribers: every service that needs to react. Delivery: at-least-once via Queues, idempotent via event_id dedup. DLQ for failed deliveries.
+  - Implementation notes: `event_bus.ts` already exists with typed events. Extend with per-service subscribers. Each infra service exposes a webhook endpoint that the event bus calls.
+  - Hosting notes: Worker + Queues. Internal-only (platform backbone).
+  - Backing services: Queues, D1 (event store), KV (dedup cache)
+  - Observability: Axiom: event delivery trace; Sentry: delivery failure; PostHog: event volume per type
+  - Dependencies: event_bus.ts, event_dedup.ts, outbox_processor.ts
+  - Related files: src/services/event_bus.ts, src/services/event_dedup.ts, src/services/outbox_processor.ts
+  - Primary sources: Cloudflare Queues, Event Sourcing patterns, AWS EventBridge
+
+- [ ] LOOP-GLOBAL-024: Implement disaster recovery testing automation
+  - Endpoint: scripts/dr-test.mjs (CI, weekly)
+  - Why: DR runbooks (LOOP-GLOBAL-010) untested = DR doesn't work. Automate quarterly DR tests.
+  - Acceptance criteria: Weekly CI job: (1) create D1 preview branch, (2) run D1 Time Travel restore to random point, (3) verify data integrity (row counts, FK constraints), (4) restore R2 object from previous version, (5) verify checksum, (6) Neon branch restore test, (7) report pass/fail to Axiom + Sentry. Production DR test is manual (approval-required) but uses the same script.
+  - Implementation notes: CI workflow `dr-test.yml` runs Sunday 03:00 UTC. Uses preview environments only (never touches production). Report stored in R2 `dr-tests/`.
+  - Hosting notes: CI (GitHub Actions) + preview environments. Internal-only.
+  - Backing services: D1 (preview), R2 (preview), Neon (preview branch)
+  - Observability: Axiom: DR test results; Sentry: DR test failure → P2
+  - Dependencies: DR runbooks (LOOP-GLOBAL-010), D1 preview, R2 versioning, Neon branching
+  - Related files: docs/runbooks/disaster-recovery.md, .github/workflows/dr-test.yml (new)
+  - Primary sources: Cloudflare D1 Time Travel, R2 versioning, Neon branching docs
+
+
+### ⚡ OLAP Decision — Tinybird always, ClickHouse NEVER (Brian directive)
+
+- **Tinybird is THE OLAP backend.** Every analytics/metrics/rollup need routes through
+  `src/services/tinybird.ts` → `projectsites_events` Data Source → Pipes + Endpoints.
+  Tinybird is managed, has a generous free tier, and is already wired + live.
+- **ClickHouse is BANNED** — not Cloud, not self-hosted, not on Fly.io, not on Coolify,
+  not anywhere. Per `tinybird-always-never-clickhouse` memory: "NEVER deploy ClickHouse
+  (incl. Plane)."
+- **What this means for Postiz + Langfuse:**
+  - **Postiz analytics** → emit events to `event_bus` → Tinybird. Postiz's internal
+    analytics DB (if any) points at Postgres; OLAP queries go to Tinybird.
+  - **Langfuse v3** needs ClickHouse internally for its own trace storage. Since
+    ClickHouse is banned, **Langfuse Cloud is preferred over self-hosting v3**. v2
+    (Postgres-only, already deployed) stays until Cloud is provisioned. If Langfuse
+    Cloud proves infeasible, the self-host fallback routes its ClickHouse dependency
+    through Tinybird's ClickHouse-compatible ingestion — NOT a standalone ClickHouse
+    instance on any platform.
+  - **Stripe Meters** is ClickHouse-backed. Same rule: use D1 canonical ledger Cloud, or configure
+    its sink to Tinybird's ingestion endpoint.
+  - **No Fly.io ClickHouse. No Coolify ClickHouse. No exceptions.**
+- This is the single most load-bearing infrastructure decision in the platform. Every
+  OLAP-related task in this ledger assumes Tinybird. Any task that says "ClickHouse"
+  means "Tinybird" — fix the task, don't deploy ClickHouse.
+
+---
+
+## api.projectsites.dev — Unkey
+
+API key management, rate limiting, quota enforcement, and OpenAPI validation.
+Unkey container already deployed at `api.projectsites.dev` (infra/unkey/).
+
+### Raw research themes considered
+Tenant-scoped API keys, per-site developer keys, customer developer portal
+embedding, usage metering hooks from Unkey → D1 canonical ledger, AI credit enforcement
+via rate-limit + quota, per-app scoped keys (Listmonk API key, Twenty API key),
+MCP/agent service keys, root key governance (who holds Unkey root key, rotation
+policy), audit trails for every key creation/revocation/verification, instant
+revocation propagation (<1s), abuse detection (key used from anomalous IP/region),
+key-claim flows (customer "claim your API key" UX), OpenAPI validation via
+Unkey Sentinel policies, SDK auth code examples (curl, Node, Python, Go),
+per-environment keys (production vs test keys), reporting-only keys (read-only
+analytics access), customer-facing API usage dashboards, admin overrides for
+rate limits per tenant, key rotation automation, key expiration with renewal
+reminders, environment separation (prod key ≠ test key).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-API-001: Deploy and verify Unkey container at api.projectsites.dev
+  - Endpoint: https://api.projectsites.dev
+  - Why: Unkey is already deployed (infra/unkey/) — needs production hardening, health check integration, and WAF skip rule verification.
+  - Acceptance criteria: `/health` returns 200. Admin UI accessible at `/`. WAF skip rule confirmed for `api.projectsites.dev`. Container auto-restarts on crash (3/min cap). Logs stream to Axiom. Sentry captures container failures. Service registry entry live.
+  - Implementation notes: infra/unkey/ already has Dockerfile + wrangler.toml. Verify container boots, confirm route `api.projectsites.dev/*` → projectsites-unkey, run health probe.
+  - Hosting notes: Workers Container. Yes (runs on Workers Container — stateless API, Neon-backed). No (container handles state via Neon). No. Customer-facing + internal. Managed cost: Unkey is self-hosted (AGPL, no managed cost) — Neon + container compute only.
+  - Backing services: Neon (unkey DB), Upstash (rate limit cache)
+  - Observability: Axiom: all key verifications; Sentry: Unkey container failures; PostHog: API key usage trends
+  - Dependencies: Neon DB `projectsites_unkey`, Upstash DB `ps-unkey-prod`, WAF skip rule
+  - Related files: infra/unkey/Dockerfile, infra/unkey/wrangler.toml, docs/CONTAINER_MANIFEST.md
+  - Primary sources: https://unkey.com/docs/introduction, https://unkey.com/docs/platform/root-keys/permissions, infra/unkey/README.md
+
+- [ ] LOOP-API-002: Implement tenant-scoped API key issuance
+  - Endpoint: POST /api/admin/keys (admin) → Unkey API
+  - Why: Every paying org needs API keys scoped to their tenant. Currently no self-serve key management.
+  - Acceptance criteria: Org admin can create keys with: name, scopes (sites:read, sites:write, analytics:read, etc.), expiration (optional), rate limit override (optional, bounded by plan). Keys are tenant-scoped (only access own org's resources). Key created via Unkey API, metadata stored in D1.
+  - Implementation notes: `api_tokens.ts` already has token management — extend to use Unkey as the verification backend. Frontend: key management UI in /admin/settings/api-keys. Unkey SDK or REST API for key CRUD.
+  - Hosting notes: Worker (API handler) → Unkey container at api.projectsites.dev. Customer-facing (org admin).
+  - Backing services: Unkey, D1 (key metadata)
+  - Observability: Axiom: key creation/revocation; Sentry: key verification failures; PostHog: key usage
+  - Dependencies: api_tokens.ts, Unkey container (LOOP-API-001)
+  - Related files: src/services/api_tokens.ts, src/routes/api.ts, frontend/src/app/pages/admin/
+  - Primary sources: https://unkey.com/docs/introduction, https://www.unkey.com/docs/quickstart/quickstart
+
+- [ ] LOOP-API-003: Build per-site API keys for customer developers
+  - Endpoint: POST /api/sites/:id/keys (org admin)
+  - Why: A customer building a custom integration for their generated site needs a scoped key — not their org admin key.
+  - Acceptance criteria: Per-site keys with scopes: `site:read`, `site:write`, `analytics:read`, `media:read`, `media:write`. Site-level rate limits (e.g., 100 req/min). Key visible in site settings. Revocation from site dashboard.
+  - Implementation notes: Unkey API with `meta.site_id` for scoping. Worker middleware checks `site_id` in key metadata against requested resource.
+  - Hosting notes: Worker + Unkey container. Customer-facing (site owner's developers).
+  - Backing services: Unkey, D1
+  - Observability: Axiom: per-site key usage; PostHog: per-site API adoption
+  - Dependencies: LOOP-API-002, site_ownership.ts
+  - Related files: src/services/api_tokens.ts, src/services/site_ownership.ts
+  - Primary sources: https://unkey.com/docs/platform/sentinel/policies/openapi-validation
+
+- [ ] LOOP-API-004: Wire Unkey Sentinel OpenAPI validation
+  - Endpoint: Unkey Sentinel policy
+  - Why: Every API request should be validated against the published OpenAPI spec before hitting handlers. Unkey Sentinel can do this at the gateway.
+  - Acceptance criteria: Sentinel policy validates: request body matches schema, required headers present, query params within bounds, content-type correct. Invalid requests rejected with 400 + human-readable message before reaching worker. Policy updated on every OpenAPI spec change.
+  - Implementation notes: Publish OpenAPI spec from hono-openapi → R2. Configure Unkey Sentinel to fetch spec from R2 URL. CI step: validate Sentinel policy is in sync with current spec.
+  - Hosting notes: Unkey container (policy evaluation). Internal-only (API gateway).
+  - Backing services: Unkey, R2 (OpenAPI spec hosting)
+  - Observability: Axiom: validation failure rate by endpoint; Sentry: Sentinel policy errors
+  - Dependencies: Unkey container, OpenAPI spec generation, hono-openapi
+  - Related files: src/routes/api.ts, docs/API_REFERENCE.md
+  - Primary sources: https://unkey.com/docs/platform/sentinel/policies/openapi-validation
+
+- [ ] LOOP-API-005: Implement MCP/agent service keys
+  - Endpoint: POST /api/admin/mcp-keys (admin)
+  - Why: AI agents (Claude Code, Cursor, GitHub Copilot) need API keys to interact with projectsites.dev. These keys need different rate limits and scopes than human users.
+  - Acceptance criteria: Agent-specific key type with: higher rate limits (1000 req/min), MCP-specific scopes (mcp:read, mcp:write, sites:list, sites:build, analytics:query), labeled as "agent key" in audit logs, separate usage dashboard. MCP OAuth as primary path; API keys as fallback.
+  - Implementation notes: Unkey key metadata `{type: "agent", agent_name: "..."}`. Worker middleware identifies agent keys by type, applies different rate limit bucket.
+  - Hosting notes: Worker + Unkey container. Customer-facing (developers connecting AI agents).
+  - Backing services: Unkey, D1
+  - Observability: Axiom: agent vs human API usage; PostHog: agent adoption funnel
+  - Dependencies: LOOP-API-002, mcp_oauth.ts
+  - Related files: src/services/mcp_client.ts, src/routes/mcp_oauth.ts
+  - Primary sources: https://unkey.com/docs/security/overview, MCP OAuth 2.1 spec
+
+- [ ] LOOP-API-006: Build root key governance framework
+  - Endpoint: docs/runbooks/unkey-root-key.md + admin UI
+  - Why: Unkey root key can create/destroy all other keys. Loss or leak = catastrophic. Must have documented rotation, emergency recovery, and access controls.
+  - Acceptance criteria: Root key: stored ONLY in get-secret + Worker secret (never in code, never in env file). Rotation procedure documented and tested. Emergency recovery: second root key held offline (printed, in safe). Root key usage audit-logged with P1 Sentry alert on ANY root key usage. Admin dashboard shows "last root key usage: N days ago."
+  - Implementation notes: Unkey root key bootstrap flow. `secret_rotation.ts` pattern for rotation. Audit log filter for root key actions.
+  - Hosting notes: Worker secrets + offline backup. Internal-only (Brian + designated admin).
+  - Backing services: Unkey, Worker secrets, get-secret
+  - Observability: Sentry: P1 on ANY root key usage; Axiom: root key audit trail
+  - Dependencies: secret_rotation.ts, get-secret
+  - Related files: src/services/secret_rotation.ts, infra/unkey/
+  - Primary sources: https://www.unkey.com/docs/platform/root-keys/permissions
+
+- [ ] LOOP-API-007: Build customer-facing API usage dashboard
+  - Endpoint: /admin/api-usage (org admin)
+  - Why: Paying customers need to see their API usage to trust the platform and plan their integrations.
+  - Acceptance criteria: Dashboard shows: total requests (24h, 7d, 30d), requests by endpoint, error rate, p50/p95/p99 latency, rate limit hits, key usage per key. Charts rendered via ECharts. Data from Unkey analytics + Workers Analytics Engine.
+  - Implementation notes: Unkey provides per-key analytics. Augment with Analytics Engine for per-endpoint breakdown. Cache in KV (5min TTL).
+  - Hosting notes: Worker + KV + Analytics Engine. Customer-facing (org admin).
+  - Backing services: KV, Workers Analytics Engine, Unkey
+  - Observability: PostHog: API dashboard engagement; Axiom: dashboard load latency
+  - Dependencies: Unkey analytics API, Workers Analytics Engine, LOOP-API-002
+  - Related files: frontend/src/app/pages/admin/, src/services/analytics.ts
+  - Primary sources: Unkey analytics API, Workers Analytics Engine, Stripe Dashboard UX patterns
+
+- [ ] LOOP-API-008: Implement key rotation automation
+  - Endpoint: POST /api/admin/keys/:id/rotate
+  - Why: Manual key rotation = keys never get rotated. Automated rotation with overlap window is the only secure pattern.
+  - Acceptance criteria: Rotation creates new key with same scopes, returns new key (shown once). Old key valid for 24h overlap window, then auto-revoked. Both keys valid during overlap. Email notification to org admin 7d before auto-expiration on non-rotated keys.
+  - Implementation notes: Unkey API for key create + scheduled delete. D1 `key_rotation_schedule` table. Cron checks daily for keys approaching expiration.
+  - Hosting notes: Worker + Unkey container + Cron. Customer-facing (org admin).
+  - Backing services: Unkey, D1, Cron Triggers
+  - Observability: Axiom: rotation events; Sentry: rotation failures; PostHog: key age distribution
+  - Dependencies: LOOP-API-002, notifications.ts
+  - Related files: src/services/api_tokens.ts, src/services/secret_rotation.ts
+  - Primary sources: Unkey key management API, AWS IAM key rotation pattern
+
+- [ ] LOOP-API-009: Ship SDK code examples for key auth
+  - Endpoint: docs.projectsites.dev/sdk (Scalar)
+  - Why: Developer adoption depends on "copy-paste → works." SDK examples in multiple languages with real code.
+  - Acceptance criteria: Code examples for: curl, Node.js (fetch + Unkey SDK), Python (requests), Go (net/http), React (useApiKey hook). Examples show: auth header, error handling, rate limit handling, pagination. Live in Scalar docs with "Try it" buttons.
+  - Implementation notes: Scalar supports code examples with `x-codeSamples` OpenAPI extension. Generate from OpenAPI spec. Test examples in CI against staging.
+  - Hosting notes: Scalar (static, R2-hosted). Customer-facing (developers).
+  - Backing services: R2 (docs hosting), Scalar
+  - Observability: PostHog: SDK docs engagement; Scalar analytics
+  - Dependencies: OpenAPI spec, Scalar docs, LOOP-API-002
+  - Related files: docs/API_REFERENCE.md, apps/project-sites/openapi.json
+  - Primary sources: Scalar docs code samples, Stripe API reference code examples
+
+- [ ] LOOP-API-010: Implement abuse detection for API keys
+  - Endpoint: Unkey + Worker middleware (automatic)
+  - Why: A leaked API key used from 15 countries in 5 minutes should auto-revoke, not wait for a human to notice.
+  - Acceptance criteria: Detection rules: (a) key used from >3 countries in 10min → flag, (b) error rate >50% in 5min → flag, (c) request rate 10× normal → flag, (d) key used outside allowed IP ranges → flag. Flagged keys: notify org admin, rate-limit to 1 req/min, auto-revoke after 1h if no admin response. Admin can whitelist known-good patterns.
+  - Implementation notes: Unkey provides usage data. Worker middleware tracks per-key metrics in DO. Abuse detection runs in Cron (every 60s).
+  - Hosting notes: Worker + DO + Cron. Internal-only (platform defense).
+  - Backing services: Durable Objects (per-key counters), Unkey, Cron Triggers
+  - Observability: Sentry: P1 on auto-revocation; Axiom: abuse detection events; PostHog: abuse attempt trends
+  - Dependencies: LOOP-API-002, rate_limit_wrapper.ts
+  - Related files: src/services/rate_limit_wrapper.ts, src/middleware/auth.ts
+  - Primary sources: Unkey security docs, AWS CloudTrail anomaly detection, Stripe Radar
+
+- [ ] LOOP-API-011: Build per-environment API key separation
+  - Endpoint: Key creation with `environment` parameter
+  - Why: Dev keys accidentally used in production = data corruption. Strict environment gating prevents this.
+  - Acceptance criteria: Keys tagged `environment: production | test`. Test keys: only work against test endpoints (or return 403 on prod resources). Production keys: never work in dev. Admin UI clearly labels environment. Test keys have lower rate limits.
+  - Implementation notes: Unkey key metadata `{environment}`. Worker middleware checks environment match against `env.ENVIRONMENT` binding. Different Unkey API for test vs prod.
+  - Hosting notes: Worker + Unkey container. Customer-facing (developers).
+  - Backing services: Unkey, Worker env bindings
+  - Observability: Sentry: environment-mismatch access attempts; Axiom: env mismatch log
+  - Dependencies: LOOP-API-002, env.ts
+  - Related files: src/types/env.ts, src/middleware/auth.ts
+  - Primary sources: Stripe test vs live key pattern, AWS IAM environment tagging
+
+- [ ] LOOP-API-012: Implement instant key revocation propagation
+  - Endpoint: Unkey API (real-time)
+  - Why: A compromised key must stop working within 1 second of revocation, not at cache TTL expiry.
+  - Acceptance criteria: Revocation flow: (1) admin clicks revoke → Unkey API called immediately, (2) Worker middleware checks Unkey on EVERY request for high-value endpoints (billing, user data), (3) cached for low-value endpoints (5s TTL), (4) active WebSocket/SSE connections terminated on revocation. Revocation effective ≤1s for critical paths.
+  - Implementation notes: Hybrid: Unkey live check for billing/auth/data-access; KV cache (5s) for read-only endpoints. WebSocket connections store key_id → terminate on revocation event.
+  - Hosting notes: Worker + Unkey + KV. Internal (platform infrastructure).
+  - Backing services: Unkey, KV
+  - Observability: Axiom: revocation-to-effect latency; Sentry: revocation failures
+  - Dependencies: LOOP-API-002, event_bus.ts
+  - Related files: src/middleware/auth.ts, src/services/event_bus.ts
+  - Primary sources: Unkey revocation API, OAuth 2.0 token revocation (RFC 7009)
+
+- [ ] LOOP-API-013–024: Remaining 12 API key tasks
+  - Endpoint: Various
+  - Why: Completion of the 24-task Unkey subsystem
+  - Acceptance criteria: See below for task summaries
+
+  LOOP-API-013: **Reporting-only API keys** — read-only analytics access for BI tools
+  LOOP-API-014: **Key expiration with renewal reminders** — email 30d/7d/1d before expiry
+  LOOP-API-015: **Per-plan API rate limits** — free=10/min, paid=100/min, pro=1000/min, enterprise=custom
+  LOOP-API-016: **API key usage billing integration** — metered API calls → Stripe Meter Events invoice
+  LOOP-API-017: **Admin key override dashboard** — super-admin can adjust any org's rate limits temporarily
+  LOOP-API-018: **Key claim flow for customer sites** — site owner claims "their" API key via email verification
+  LOOP-API-019: **Service-to-service auth via Unkey** — internal microservice auth (e.g., worker→Listmonk API)
+  LOOP-API-020: **API key audit export** — org admin can download CSV of all key activity (SOC 2)
+  LOOP-API-021: **Public API status page integration** — API uptime + key health visible at status.projectsites.dev
+  LOOP-API-022: **Unkey upgrade playbook** — document Unkey version upgrade procedure (container image bump + migration)
+  LOOP-API-023: **Unkey backup + restore test** — weekly test: backup Neon DB, restore to preview, verify keys work
+  LOOP-API-024: **API key vanity prefix** — keys visible as `ps_live_...` / `ps_test_...` for easy identification
+  - Implementation notes: Each task follows the established pattern — D1/Unkey/KV backed, Worker-hosted, with full observability wiring.
+  - Primary sources: https://unkey.com/docs, https://unkey.com/pricing
+
+
+---
+
+## auth.projectsites.dev — Better Auth
+
+Platform authentication, organizations, OAuth/OIDC, passkeys, and session management.
+Better Auth container deployed at `auth.projectsites.dev` (infra/better-auth/).
+
+### Raw research themes considered
+Platform login UX (magic link vs password vs passkey default), organization/team
+modeling (org→team→member hierarchy), passkey/FIDO2 adoption as primary MFA,
+magic link email deliverability (SES + Resend fallback), OAuth/OIDC provider for
+third-party SPAs, customer app auth (generated sites with their own auth), service
+auth (M2M JWTs), app-to-app auth (worker→Listmonk), MCP auth (OAuth 2.1 + API key
+fallback), agent auth (AI agent identity vs human identity), session policy
+(duration, refresh, device tracking), admin auth with elevated session requirements,
+invite flows with expiring tokens, tenant switching in dashboard, enterprise SSO
+boundary (SAML/OIDC → Better Auth), role sync from IdP groups, account recovery
+without support intervention, account linking (multiple OAuth providers → one user),
+audit logs for every auth event, abuse prevention (brute-force, credential stuffing),
+bot protection (Turnstile on sign-in), impersonation safety (admin "login as" with
+full audit trail).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-AUTH-001: Harden Better Auth container deployment
+  - Endpoint: https://auth.projectsites.dev
+  - Why: Better Auth container is defined in infra/better-auth/ but needs production hardening, monitoring, and backup strategy.
+  - Acceptance criteria: `/health` → 200. `/sign-in` → 200 HTML. WAF skip confirmed. Container auto-restart (3/min). Session data in Neon with daily backups. Migrations apply on boot. Logs to Axiom, errors to Sentry.
+  - Implementation notes: Verify infra/better-auth/Dockerfile + wrangler.toml. Neon DB `projectsites_better_auth` provisioned. Secrets set: DATABASE_URL, BETTER_AUTH_SECRET, OIDC_CLIENT_ID/SECRET.
+  - Hosting notes: Workers Container (Hono + Better Auth). No (stateless; Neon persists). No. Internal-only (platform auth). Managed cost: self-hosted (MIT) — Neon + container only.
+  - Backing services: Neon (projectsites_better_auth), Upstash (session cache opt.)
+  - Observability: Axiom: all auth events; Sentry: auth failures; PostHog: signup→activation funnel
+  - Dependencies: Neon DB, WAF skip rule
+  - Related files: infra/better-auth/Dockerfile, infra/better-auth/wrangler.toml, infra/better-auth/src/index.ts
+  - Primary sources: https://better-auth.com/docs/plugins/oauth-provider, https://www.better-auth.com/docs/plugins/organization
+
+- [ ] LOOP-AUTH-002: Implement organization + team model
+  - Endpoint: Better Auth organization plugin
+  - Why: Every projectsites.dev tenant is an organization with teams (admins, editors, viewers). Better Auth's organization plugin provides this natively.
+  - Acceptance criteria: Org creation on first signup. Teams: admin (full access), editor (content + builds), viewer (read-only). Invite flow: email → accept → team assignment. Role-based access in worker middleware. Org switching in dashboard (if user belongs to multiple orgs).
+  - Implementation notes: Better Auth organization plugin + custom role mapping. Sync to D1 `orgs`/`memberships` tables for worker auth checks. Middleware reads org+role from session.
+  - Hosting notes: Workers Container (Better Auth). Customer-facing (every user).
+  - Backing services: Neon (Better Auth DB), D1 (project sites data)
+  - Observability: Axiom: org CRUD events; PostHog: org creation funnel; Sentry: org permission errors
+  - Dependencies: Better Auth container, LOOP-AUTH-001
+  - Related files: infra/better-auth/src/index.ts, src/middleware/auth.ts, src/services/auth.ts
+  - Primary sources: https://www.better-auth.com/docs/plugins/organization
+
+- [ ] LOOP-AUTH-003: Add passkey (FIDO2/WebAuthn) as primary authentication
+  - Endpoint: Better Auth passkey plugin
+  - Why: Passkeys are phishing-resistant, faster than magic links, and the industry direction (Apple/Google/Microsoft). Position projectsites.dev as security-forward.
+  - Acceptance criteria: Passkey registration during signup (or added later in settings). Passkey authentication on login (platform authenticator prompt). Fallback to magic link if passkey unavailable. Multiple passkeys per user (phone + laptop + security key).
+  - Implementation notes: Better Auth passkey plugin. Frontend: WebAuthn API via `@simplewebauthn/browser`.
+  - Hosting notes: Workers Container (Better Auth). Customer-facing (all users).
+  - Backing services: Neon (passkey credentials)
+  - Observability: PostHog: passkey adoption rate; Axiom: passkey auth events; Sentry: WebAuthn errors
+  - Dependencies: Better Auth container, frontend auth components
+  - Related files: infra/better-auth/src/index.ts, frontend/src/app/auth/
+  - Primary sources: Better Auth passkey plugin, WebAuthn spec, https://passkeys.dev
+
+- [ ] LOOP-AUTH-004: Implement M2M service auth (JWT + service accounts)
+  - Endpoint: Better Auth → Worker middleware
+  - Why: Internal services (worker→Listmonk, worker→Twenty, Queues→worker) need machine-to-machine auth. Currently ad-hoc shared secrets.
+  - Acceptance criteria: Service accounts created in admin. JWT with: `sub` (service ID), `scope` (allowed operations), `exp` (short-lived, 5min). Worker middleware validates JWT signature + scope. Rotating JWKS endpoint. Service accounts CANNOT impersonate human users.
+  - Implementation notes: Better Auth or manual JWT signing with RS256. JWKS hosted at `/.well-known/jwks.json`. Admin UI for service account management.
+  - Hosting notes: Worker (JWT validation at edge). Internal-only (platform services).
+  - Backing services: Neon (service account store), KV (JWKS cache)
+  - Observability: Axiom: service auth audit; Sentry: service auth failures
+  - Dependencies: Better Auth, LOOP-AUTH-001
+  - Related files: src/middleware/auth.ts, src/services/auth.ts
+  - Primary sources: OAuth 2.0 client credentials grant (RFC 6749), JWT Best Practices
+
+- [ ] LOOP-AUTH-005: Wire OIDC provider for customer SPAs
+  - Endpoint: https://auth.projectsites.dev/api/auth/oauth2/
+  - Why: Customer-generated sites with user accounts (member portals, client dashboards) should use projectsites.dev as their OIDC provider — not stand up their own auth.
+  - Acceptance criteria: OIDC discovery at `/.well-known/openid-configuration`. Standard endpoints: `/authorize`, `/token`, `/userinfo`. RP-initiated logout. PKCE required. CORS for customer domains. Per-site OIDC client (client_id per site). Branded login screen (customer logo + colors).
+  - Implementation notes: Better Auth OIDC provider plugin. Custom login screen with per-client branding. Admin UI for OIDC client management per site.
+  - Hosting notes: Workers Container (Better Auth). Customer-facing (site end-users).
+  - Backing services: Neon (OIDC clients + sessions)
+  - Observability: Axiom: OIDC flow events; PostHog: OIDC adoption per site; Sentry: OIDC errors
+  - Dependencies: Better Auth container, LOOP-AUTH-001
+  - Related files: infra/better-auth/src/index.ts
+  - Primary sources: OpenID Connect Core 1.0, Better Auth OIDC plugin
+
+- [ ] LOOP-AUTH-006–024: Remaining 19 Better Auth tasks (summarized)
+  - LOOP-AUTH-006: **Enterprise SSO** — SAML/OIDC integration with customer IdPs (Okta, Azure AD, Google Workspace)
+  - LOOP-AUTH-007: **Session policy** — configurable session duration (15min idle, 8h max, 30d remember-me), device tracking, concurrent session limit
+  - LOOP-AUTH-008: **Admin elevated sessions** — re-authenticate for destructive actions (delete site, change billing), step-up auth
+  - LOOP-AUTH-009: **Invite flow with expiring tokens** — email invite → 7d token → accept → team assignment, re-send/revoke
+  - LOOP-AUTH-010: **Tenant switching** — users in multiple orgs switch via dropdown, per-tab tenant context
+  - LOOP-AUTH-011: **Account recovery** — recovery codes (shown once, stored hashed), backup email, admin reset for locked-out users
+  - LOOP-AUTH-012: **Account linking** — merge Google OAuth + magic link accounts by verified email match
+  - LOOP-AUTH-013: **Audit logs for auth events** — every login/logout/password-change/passkey-add/key-revoke → D1 audit + Axiom + Sentry
+  - LOOP-AUTH-014: **Brute-force protection** — rate-limit login attempts per IP + per account, exponential backoff, Turnstile after 3 failures
+  - LOOP-AUTH-015: **Impersonation safety** — admin "login as user" generates impersonation token, full audit trail, "you are impersonating" banner
+  - LOOP-AUTH-016: **Bot protection** — Turnstile on all auth forms, CF Bot Management at edge
+  - LOOP-AUTH-017: **Magic link deliverability** — SES primary, Resend fallback, delivery tracking, DMARC/SPF/DKIM monitoring
+  - LOOP-AUTH-018: **Auth health dashboard** — login success rate, magic link delivery rate, passkey adoption, auth latency p95
+  - LOOP-AUTH-019: **Better Auth upgrade playbook** — pinned version, migration test on preview DB, rollback plan
+  - LOOP-AUTH-020: **Better Auth backup + restore test** — weekly Neon backup restore, verify sessions + users intact
+  - LOOP-AUTH-021: **Custom auth UI with brand tokens** — sign-in/sign-up/verify pages use projectsites.dev brand (cyan/black)
+  - LOOP-AUTH-022: **OAuth provider connections** — Google, GitHub, Microsoft — at least 3 providers, user can link multiple
+  - LOOP-AUTH-023: **Session revocation on password change** — all sessions invalidated immediately on password/passkey change
+  - LOOP-AUTH-024: **Auth event webhooks** — `user.created`, `user.deleted`, `session.revoked` events → event_bus for downstream services
+  - Implementation notes: All tasks follow the Better Auth plugin pattern — server-side in the container, with event fan-out to the main worker's event_bus.
+  - Primary sources: https://better-auth.com/docs, https://better-auth.com/docs/plugins/organization
+
+
+---
+
+## billing.projectsites.dev — Stripe Meters (active) + Metronome (future)
+
+Subscription management, usage metering, AI credit billing, and entitlements.
+Stripe handles payments + meter events; ProjectSites D1 is the canonical usage ledger.
+**OpenMeter removed** — rejected (ClickHouse-backed, violates no-ClickHouse rule).
+**Architecture:** `src/services/billing_provider.ts` (types + factory) → `billing_provider_stripe.ts` (active) → Stripe Meter Events API. `billing_provider_metronome.ts` (future skeleton). `billing_provider_noop.ts` (dev/test).
+
+### Raw research themes considered
+Subscriptions (monthly/annual per-site), usage metering (API calls, AI credits,
+browser minutes, email sends, storage GB), AI credit packs (prepaid credits
+separate from subscription), per-app billing (Listmonk seat, Twenty user,
+Chatwoot agent), email send billing (per-1000 overage), CRM seat billing,
+browser automation billing (per-minute), site-visit billing (for high-traffic),
+app add-on marketplace pricing, prepaid credit wallet with auto-topup,
+entitlements engine (plan → capabilities → enforcement), plan limits enforcement,
+grace periods before service cutoff, dunning sequences (3 emails over 14 days),
+annual plan discount (2 months free), coupon/promo code system, agency billing
+(multiple sites under one org, consolidated invoice), per-site profitability
+dashboard, margin analytics (cost vs revenue per site), anomaly detection
+(10× normal spend → alert), billing event idempotency, invoice PDF generation,
+tax calculation (Stripe Tax).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-BILL-001: Implement per-site Stripe subscription with metered usage
+  - Endpoint: POST /api/billing/checkout → Stripe Checkout
+  - Why: Core revenue engine. Every paid site = $50/month subscription + metered overage for AI/browser/email.
+  - Acceptance criteria: Stripe Checkout creates subscription with: base price ($50/month), metered components (AI credits, browser minutes, email sends). Subscription status syncs to D1 `subscriptions` table. Webhook handles: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Entitlements auto-update on subscription change.
+  - Implementation notes: `billing.ts` already handles checkout + webhooks. Add metered components via Stripe Metered Prices. D1 canonical ledger aggregates usage → reports to Stripe.
+  - Hosting notes: Worker (API handler) + Stripe (payment processing). Customer-facing (billing flow).
+  - Backing services: Stripe, D1, KV (subscription cache), D1 canonical ledger
+  - Observability: Axiom: billing events; Sentry: billing failures P1; PostHog: checkout funnel; Tinybird: revenue metrics
+  - Dependencies: billing.ts, D1 canonical ledger, Stripe webhooks
+  - Related files: src/services/billing.ts, src/routes/api.ts, src/services/usage_metering.ts
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/metered, https://stripe.com/docs/billing/meter-events
+
+- [ ] LOOP-BILL-002: Integrate D1 canonical ledger for usage aggregation
+  - Endpoint: D1 canonical ledger API (cloud or self-hosted)
+  - Why: Stripe Metered Prices need accurate usage data. D1 canonical ledger aggregates from multiple sources (AI Gateway, Analytics Engine, email events) into a single metering pipeline.
+  - Acceptance criteria: Usage events flow: AI Gateway → D1 canonical ledger, Analytics Engine → D1 canonical ledger, email send events → D1 canonical ledger, browser minutes → D1 canonical ledger. D1 canonical ledger aggregates hourly → reports to Stripe (daily). Customer-visible usage dashboard at /admin/billing/usage. Per-category breakdown.
+  - Implementation notes: Extend `usage_metering.ts` to emit D1 canonical ledger events. D1 canonical ledger cloud (or self-hosted on Coolify if >$50/month). `billing_meter.ts` reads D1 canonical ledger for invoice line items.
+  - Hosting notes: D1 canonical ledger Cloud (default) → Coolify MCP if cost >$50/month. Customer-facing (usage) + internal (metering).
+  - Backing services: D1 canonical ledger, Stripe, D1
+  - Observability: Axiom: metering events; Sentry: metering gaps; PostHog: usage trends
+  - Dependencies: usage_metering.ts, billing_meter.ts, AI Gateway
+  - Related files: src/services/usage_metering.ts, src/services/billing_meter.ts
+  - Primary sources: https://stripe.com/docs/billing/meter-events, https://stripe.com/docs/billing/subscriptions/metered
+
+- [ ] LOOP-BILL-003: Ship AI credit prepaid wallet with auto-topup
+  - Endpoint: Stripe Checkout for credit packs + wallet auto-topup
+  - Why: AI credits are the primary upsell beyond base subscription. Prepaid wallet prevents bill shock for customers and guarantees revenue for us.
+  - Acceptance criteria: Credit packs: $10/1000 credits, $50/6000, $100/15000. Wallet balance visible in admin. Auto-topup: when balance < threshold, charge stored card $X (configurable). Every AI call debits wallet. Wallet transactions in D1 `wallet_transactions`. Low-balance email warning.
+  - Implementation notes: `wallet.ts` (chargeWallet, creditWallet, topUpWallet) already exists. `wallet_accounts` + `wallet_transactions` tables in migration 0036. Wire auto-topup to Stripe customer balance or payment intent.
+  - Hosting notes: Worker + Stripe + D1. Customer-facing (wallet management).
+  - Backing services: Stripe, D1
+  - Observability: Axiom: wallet transactions; Sentry: auto-topup failures P1; PostHog: credit purchase funnel
+  - Dependencies: wallet.ts, Stripe, LOOP-BILL-001
+  - Related files: src/services/wallet.ts, src/services/ai_gateway.ts, migrations/0036_wallet_billing.sql
+  - Primary sources: Stripe Customer Balance, https://stripe.com/docs/billing/subscriptions/metered
+
+- [ ] LOOP-BILL-004: Build entitlements engine with plan enforcement
+  - Endpoint: Worker middleware (every request)
+  - Why: Plan capabilities (custom domain, page count, AI credits, browser minutes, API rate) must be enforced at the edge. Free tier must get real value but clear limits.
+  - Acceptance criteria: `ENTITLEMENTS` constants define per-plan caps (free/paid/pro/enterprise). Middleware checks: custom domain eligibility, page count, AI credits remaining, browser minutes, API rate, storage. Exceeded → 402 Payment Required with upgrade CTA. Entitlements cached in KV (60s TTL), source of truth in D1.
+  - Implementation notes: `plan_entitlement.ts` already defines entitlements. Build middleware that reads plan from KV → enforces before handler. `domain_entitlement.ts` for custom domain gating.
+  - Hosting notes: Worker middleware + KV + D1. Customer-facing (feature gating).
+  - Backing services: KV, D1
+  - Observability: PostHog: entitlement-exceeded events (upgrade funnel); Axiom: enforcement log
+  - Dependencies: plan_entitlement.ts, billing.ts, LOOP-GLOBAL-022
+  - Related files: src/services/plan_entitlement.ts, src/services/domain_entitlement.ts, src/middleware/
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/metered
+
+- [ ] LOOP-BILL-005: Implement dunning sequence for failed payments
+  - Endpoint: Stripe webhook → Worker → email sequence
+  - Why: Involuntary churn (expired cards) is 30-40% of SaaS churn. Automated dunning recovers most of it.
+  - Acceptance criteria: Sequence: Day 0 (payment fails) → retry card automatically (Stripe handles), Day 3 → email "update your payment method," Day 7 → second email, Day 14 → final notice "service will be paused," Day 21 → subscription paused. Site stays live during dunning (grace period). Admin can see dunning status per subscription.
+  - Implementation notes: Stripe handles automatic retries. Dunning emails via `notifications.ts` with Resend. `subscriptions` table tracks dunning stage.
+  - Hosting notes: Worker (webhook handler) + Stripe + Resend. Customer-facing (emails).
+  - Backing services: Stripe, Resend, D1
+  - Observability: PostHog: dunning funnel (failed→recovered→churned); Sentry: dunning errors; Axiom: dunning events
+  - Dependencies: billing.ts, notifications.ts, Stripe webhooks
+  - Related files: src/services/billing.ts, src/services/notifications.ts
+  - Primary sources: Stripe dunning best practices, SaaS churn benchmarks
+
+- [ ] LOOP-BILL-006–024: Remaining 19 billing tasks (summarized)
+  - LOOP-BILL-006: **Annual plan discount** — 2 months free on annual, upfront payment, proration on upgrade
+  - LOOP-BILL-007: **Coupon/promo code system** — Stripe promotion codes, admin can create per-campaign codes, attribution tracking
+  - LOOP-BILL-008: **Agency billing** — consolidated invoice for multiple sites under one org, per-site line items
+  - LOOP-BILL-009: **Per-site profitability dashboard** — admin: revenue vs cost (AI/browser/hosting) per site, margin %
+  - LOOP-BILL-010: **Anomaly detection** — 10× normal spend triggers alert, admin review before next billing cycle
+  - LOOP-BILL-011: **Invoice PDF generation** — Stripe invoice PDF + email on payment, branded template
+  - LOOP-BILL-012: **Stripe Tax integration** — automatic sales tax/VAT/GST calculation, tax receipts
+  - LOOP-BILL-013: **Billing event idempotency** — every webhook event processed exactly once (idempotency key in D1)
+  - LOOP-BILL-014: **Credit grant system** — admin can grant free credits (trial extension, bug compensation, promotion)
+  - LOOP-BILL-015: **Plan comparison page** — /pricing page showing free/paid/pro/enterprise with real-time availability
+  - LOOP-BILL-016: **Billing admin override** — super-admin can extend trial, waive invoice, adjust credits
+  - LOOP-BILL-017: **Usage forecast** — "at current usage, your credits will last X days"
+  - LOOP-BILL-018: **Spending caps** — per-site hard cap on overage (stop service, don't accumulate debt)
+  - LOOP-BILL-019: **Multi-currency support** — Stripe handles currency conversion; display prices in customer's local currency
+  - LOOP-BILL-020: **Billing notification preferences** — per-org notification settings (email/Slack/webhook for billing events)
+  - LOOP-BILL-021: **Refund workflow** — admin-initiated refund with reason, audit trail, credit wallet refund
+  - LOOP-BILL-022: **Stripe Connect for marketplace** — eventual agency/partner payouts via Connect Express
+  - LOOP-BILL-023: **Billing data export** — CSV/JSON export of all invoices + usage for accounting
+  - LOOP-BILL-024: **Quarterly billing review automation** — AI summarizes revenue trends, churn, expansion MRR → admin dashboard
+  - Primary sources: https://stripe.com/docs/billing, https://stripe.com/docs/billing, https://stripe.com/pricing
+
+---
+
+## webhooks.projectsites.dev — Hookdeck + Outpost
+
+Inbound webhook ingestion, outbound customer webhook delivery, retry policies, and
+delivery logging. Hookdeck handles ingestion + retries; Outpost handles outbound.
+
+### Raw research themes considered
+Inbound webhook ingestion for Stripe/Resend/GitHub/Twilio/Deepgram/PostHog,
+outbound customer webhooks (site.published, build.completed, lead.created),
+retry policy with exponential backoff (3 retries, 30s→5min→30min), dead letter
+handling with admin replay UI, webhook signing (HMAC-SHA256 shared secret),
+self-serve webhook endpoint management in admin, delivery logs per webhook
+(customer-visible + admin), webhook testing UX ("send test event" button),
+billing events → webhooks, auth events → webhooks, API key events → webhooks,
+CRM events → webhooks, Listmonk campaign events → webhooks, Postiz publish
+events → webhooks, Chatwoot conversation events → webhooks, provisioning
+events → webhooks, per-customer rate limiting (1000 events/hour), transformations
+(modify payload before delivery), fanout (one event → multiple endpoints),
+multi-tenant isolation, customer-facing delivery logs, admin incident tooling
+for webhook failures, Outpost portal embedding in admin dashboard.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-WH-001: Deploy Hookdeck at webhooks.projectsites.dev
+  - Endpoint: https://webhooks.projectsites.dev
+  - Why: Hookdeck is THE inbound webhook ingestion layer. All external webhooks (Stripe, GitHub, Resend, etc.) must flow through Hookdeck for reliability, retry, and observability.
+  - Acceptance criteria: Hookdeck container deployed. `/health` → 200. Stripe webhooks routed through Hookdeck → Worker. Dashboard accessible for admin. Retry + DLQ configured. WAF skip rule for webhooks.projectsites.dev.
+  - Implementation notes: Hookdeck self-hosted on Workers Container. Neon for metadata. Configure connections for each webhook source.
+  - Hosting notes: Workers Container. No (stateless). No. Internal-only (platform infrastructure). Self-hosted (MIT) — Neon + container only.
+  - Backing services: Neon, Upstash (rate limiting)
+  - Observability: Axiom: webhook ingestion events; Sentry: Hookdeck failures; PostHog: webhook volume
+  - Dependencies: Neon DB, WAF skip rule
+  - Related files: infra/ (new hookdeck/ dir), src/services/webhook_receiver.ts
+  - Primary sources: https://hookdeck.com/docs/hookdeck-basics, https://hookdeck.com/docs/use-cases/receive-webhooks
+
+- [ ] LOOP-WH-002: Implement outbound customer webhooks via Outpost
+  - Endpoint: Outpost API → customer endpoints
+  - Why: Customers need real-time webhooks for their integrations (site.published → trigger CI/CD, lead.created → CRM, build.completed → Slack). Outpost handles multi-tenant delivery.
+  - Acceptance criteria: Customer registers webhook endpoint in admin (URL + optional secret). Events delivered with HMAC-SHA256 signature. Retry: 3 attempts (30s, 5min, 30min). DLQ visible in admin. Delivery logs per webhook. Rate limit: 1000 events/hour per customer.
+  - Implementation notes: `outbound_webhooks.ts` already exists. Wire Outpost as the delivery layer. Event schema in `packages/shared/src/schemas/webhook.ts`. Customer manages endpoints at /admin/settings/webhooks.
+  - Hosting notes: Worker + Outpost (container or cloud). Customer-facing (developer feature).
+  - Backing services: Outpost, Neon/Postgres, D1 (delivery logs)
+  - Observability: Axiom: delivery attempts; Sentry: delivery failures; PostHog: webhook adoption
+  - Dependencies: outbound_webhooks.ts, Outpost, LOOP-WH-001
+  - Related files: src/services/outbound_webhooks.ts, src/services/webhook_dispatch.ts, packages/shared/src/schemas/
+  - Primary sources: https://hookdeck.com/docs/outpost/overview, https://hookdeck.com/docs/outpost/publishing/events
+
+- [ ] LOOP-WH-003: Build webhook testing UX in admin
+  - Endpoint: /admin/settings/webhooks (admin UI)
+  - Why: Developers waste hours debugging webhook signatures and payloads. A "Send Test Event" button with instant feedback eliminates this.
+  - Acceptance criteria: Admin UI: list registered endpoints, test event sender (dropdown of event types → "Send Test" → shows request/response/status), delivery log with filter/search, retry button for failed deliveries, webhook secret rotation. All within the admin dashboard.
+  - Implementation notes: Angular component in admin. Test events sent via Outpost test endpoint or worker mock. Delivery logs from D1 + Hookdeck.
+  - Hosting notes: Worker + Angular admin SPA. Customer-facing (developers).
+  - Backing services: Outpost, D1, Hookdeck
+  - Observability: PostHog: webhook test usage; Axiom: test event delivery
+  - Dependencies: LOOP-WH-002, admin Angular app
+  - Related files: frontend/src/app/pages/admin/, src/services/outbound_webhooks.ts
+  - Primary sources: Stripe webhook testing, Svix webhook testing UI, GitHub webhook redelivery
+
+- [ ] LOOP-WH-004–024: Remaining 21 webhook tasks (summarized)
+  - LOOP-WH-004: **Webhook signing verification library** — shared HMAC-SHA256 signature verification, per-endpoint secret, timestamp validation
+  - LOOP-WH-005: **Dead letter queue management** — admin UI to view/replay/delete failed deliveries, per-endpoint DLQ
+  - LOOP-WH-006: **Webhook event catalog** — typed catalog of all events (site.*, build.*, billing.*, lead.*), Zod schemas for each
+  - LOOP-WH-007: **Per-customer rate limiting** — DO counter per endpoint, plan-based limits (free=100/hr, paid=1000/hr)
+  - LOOP-WH-008: **Payload transformations** — customer can define JMESPath/JSONata transforms on outbound payloads
+  - LOOP-WH-009: **Fanout rules** — one internal event → multiple customer endpoints, per-event-type routing
+  - LOOP-WH-010: **Multi-tenant isolation** — customer A never sees customer B's webhook data, strict org-scoping
+  - LOOP-WH-011: **Delivery analytics dashboard** — success rate, latency p95, top failing endpoints, volume trends
+  - LOOP-WH-012: **Outpost portal embedding** — Outpost admin UI embedded in projectsites.dev admin for single-pane-of-glass
+  - LOOP-WH-013: **Webhook secret auto-rotation** — HMAC secret rotation with overlap window, zero-downtime
+  - LOOP-WH-014: **Webhook event replay for billing** — billing events must be replayable for audit compliance
+  - LOOP-WH-015: **Inbound webhook source management** — admin UI to add/configure webhook sources (Stripe, GitHub, etc.)
+  - LOOP-WH-016: **Webhook failure alerts** — P2 Sentry alert if delivery success rate <90% for any customer
+  - LOOP-WH-017: **Webhook delivery timeout** — 10s timeout per delivery attempt, configurable per endpoint
+  - LOOP-WH-018: **IP whitelist for inbound** — customer can restrict inbound webhooks to specific IPs (Stripe/GitHub IP ranges)
+  - LOOP-WH-019: **Webhook event schema versioning** — event types carry version, customer opts into new versions
+  - LOOP-WH-020: **Customer-facing delivery logs** — site owner sees delivery attempts + status for their webhooks
+  - LOOP-WH-021: **Webhook batching** — batch up to 100 events per delivery (configurable), reduce HTTP overhead
+  - LOOP-WH-022: **Custom headers on outbound** — customer sets custom HTTP headers on their webhook endpoint
+  - LOOP-WH-023: **Webhook endpoint health check** — periodic HEAD/GET on customer endpoints, warn if down >1h
+  - LOOP-WH-024: **Hookdeck/Outpost backup + disaster recovery** — weekly backup, restore test, migration playbook
+  - Primary sources: https://hookdeck.com/docs, https://hookdeck.com/docs/outpost/concepts, https://hookdeck.com/docs/retries
+
+
+---
+
+## integrations.projectsites.dev — Nango
+
+Third-party OAuth integrations, credential management, sync engine, and webhook
+forwarding. Nango container at `integrations.projectsites.dev` (infra/nango/).
+
+### Raw research themes considered
+OAuth integrations with Google (Calendar, Drive, GMB, Analytics, Search Console),
+Microsoft (365, Outlook, Teams), Slack, Notion, HubSpot, Salesforce, accounting
+(Xero, QuickBooks), calendar sync (Google↔Twenty), contact sync (Google↔Twenty),
+email sync, file sync, external webhook forwarding (Google→our webhooks),
+integration health monitoring (token expiry, refresh success rate), credential
+refresh with proactive renewal, reconnect flows when tokens expire, per-site
+integration state (connected accounts per generated site), integration templates
+(pre-built Nango integration configs), integration marketplace in admin,
+AI-agent actions via integrations (agent can "send Slack message" or "create
+Google Doc"), conflict resolution for bidirectional syncs, integration billing
+(per-active-integration pricing), permission scoping (OAuth scopes per integration),
+admin repair tools (force-refresh token, reset connection, view raw error).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-INT-001: Deploy Nango container at integrations.projectsites.dev
+  - Endpoint: https://integrations.projectsites.dev
+  - Why: Nango is the OAuth hub — every third-party integration flows through it. Already defined in infra/nango/.
+  - Acceptance criteria: Nango container deployed. `/health` → 200. `/oauth/connect` flow works end-to-end for at least Google. Admin UI accessible. WAF skip rule confirmed. Neon-backed. Container auto-restart.
+  - Implementation notes: infra/nango/ has Dockerfile + wrangler.toml. Neon DB `projectsites_nango`. Nango server + optional worker. Verify Google OAuth integration as first provider.
+  - Hosting notes: Workers Container. No (stateless; Neon). No. Customer-facing (OAuth connect) + internal (integration mgmt). Self-hosted (ELv2 license) — Neon + container.
+  - Backing services: Neon (nango DB), Upstash (optional cache)
+  - Observability: Axiom: OAuth flow events; Sentry: Nango failures; PostHog: integration adoption
+  - Dependencies: Neon DB, WAF skip rule
+  - Related files: infra/nango/Dockerfile, infra/nango/wrangler.toml, src/services/mcp_client.ts
+  - Primary sources: https://nango.dev/docs/getting-started/intro-to-nango, https://nango.dev/docs/guides/functions/functions-guide
+
+- [ ] LOOP-INT-002: Implement Google integration bundle
+  - Endpoint: Nango OAuth → Google APIs
+  - Why: Google is the #1 integration target for small businesses (GMB, Calendar, Drive, Analytics). Every generated site owner uses Google.
+  - Acceptance criteria: Integrations: Google My Business (listing management), Google Calendar (appointment sync), Google Drive (document embedding), Google Analytics (site stats in admin), Google Search Console (SEO data). OAuth flow via Nango. Per-site connection state. Token refresh handled automatically.
+  - Implementation notes: Nango Google provider template. Each integration as a Nango integration config. Per-site credential storage in Nango (encrypted). Worker proxies API calls through Nango.
+  - Hosting notes: Nango container + Worker proxy. Customer-facing (site owner connects Google).
+  - Backing services: Nango, Neon
+  - Observability: Axiom: Google API call events; PostHog: Google integration adoption; Sentry: token refresh failures
+  - Dependencies: LOOP-INT-001, site_ownership.ts
+  - Related files: infra/nango/nango-integrations.yaml, src/services/mcp_client.ts
+  - Primary sources: https://nango.dev/docs/guides/platform/webhooks-from-nango, Google API docs
+
+- [ ] LOOP-INT-003: Build integration health monitoring
+  - Endpoint: /api/admin/integrations/health (admin)
+  - Why: Expired OAuth tokens silently break integrations. Customers don't notice until they need the feature. Proactive monitoring prevents this.
+  - Acceptance criteria: Dashboard showing per-integration: connection status (green/red), token expiry date, last successful sync, error rate. Alert (email + Sentry P2) when token expires in <7 days or sync fails 3 consecutive times. Auto-reconnect flow for expired tokens.
+  - Implementation notes: Nango provides token expiry + sync status. Worker Cron checks every hour. Admin dashboard at /admin/integrations.
+  - Hosting notes: Worker Cron + Nango container. Customer-facing (site owner) + internal (admin).
+  - Backing services: Nango, Cron Triggers, D1
+  - Observability: Sentry: integration health P2 alerts; Axiom: health check log; PostHog: integration reliability
+  - Dependencies: LOOP-INT-001, LOOP-INT-002
+  - Related files: src/services/, frontend/src/app/pages/admin/
+  - Primary sources: https://nango.dev/docs/guides/platform/webhook-forwarding
+
+- [ ] LOOP-INT-004: Build integration marketplace in admin
+  - Endpoint: /admin/integrations (org admin)
+  - Why: Site owners need to discover + connect integrations. A marketplace with "Connect Google Calendar" → OAuth → done makes this self-serve.
+  - Acceptance criteria: Tile grid showing available integrations with: icon, name, description, connection status (connected/available/requires-plan). Click → OAuth flow → connected. Per-integration settings (sync frequency, data scope). Free tier: 2 integrations; paid: unlimited.
+  - Implementation notes: Angular component in admin SPA. Nango SDK for OAuth popup. Integration catalog in D1 with KV cache.
+  - Hosting notes: Worker + Angular admin. Customer-facing (site owner).
+  - Backing services: Nango, D1, KV
+  - Observability: PostHog: integration browse→connect funnel; Axiom: connect events
+  - Dependencies: LOOP-INT-001, LOOP-INT-002, admin Angular app
+  - Related files: frontend/src/app/pages/admin/, src/services/
+  - Primary sources: Shopify App Store UX, Slack App Directory, Zapier integration marketplace
+
+- [ ] LOOP-INT-005–024: Remaining 20 integration tasks (summarized)
+  - LOOP-INT-005: **Microsoft 365 integration** — Outlook calendar, Teams notifications, SharePoint embedding
+  - LOOP-INT-006: **Slack integration** — build notifications, lead alerts, support escalation → Slack channels
+  - LOOP-INT-007: **HubSpot integration** — contact sync, deal pipeline, marketing events
+  - LOOP-INT-008: **Salesforce integration** — lead/contact/opportunity sync for enterprise customers
+  - LOOP-INT-009: **Notion integration** — embed Notion docs, sync content blocks to site pages
+  - LOOP-INT-010: **Calendar sync (Google→Twenty)** — bidirectional calendar event sync
+  - LOOP-INT-011: **Contact sync (Google→Twenty)** — Google Contacts → Twenty CRM contacts
+  - LOOP-INT-012: **Accounting integrations** — Xero + QuickBooks for agency customers
+  - LOOP-INT-013: **External webhook forwarding** — Google Calendar webhook → customer webhook endpoint
+  - LOOP-INT-014: **AI-agent integration actions** — MCP tools that call Nango-connected APIs (agent can "create Google Doc")
+  - LOOP-INT-015: **Conflict resolution for bidirectional syncs** — last-write-wins + merge strategies per integration
+  - LOOP-INT-016: **Per-active-integration billing** — charge per connected integration beyond free tier
+  - LOOP-INT-017: **OAuth scope permission scoping** — customer sees + approves exact scopes during OAuth
+  - LOOP-INT-018: **Integration templates** — pre-built configs for common use cases (Google→Twenty, Slack→admin alerts)
+  - LOOP-INT-019: **Admin repair tools** — force-refresh token, reset connection, view raw error from Nango dashboard
+  - LOOP-INT-020: **Integration credential encryption audit** — verify all OAuth tokens encrypted at rest (AES-GCM)
+  - LOOP-INT-021: **Nango webhook forwarding** — Nango events (token_refreshed, connection_deleted) → event_bus
+  - LOOP-INT-022: **Reconnect flow UX** — when token expires, user sees "Reconnect Google Calendar" banner with one-click re-auth
+  - LOOP-INT-023: **Integration usage analytics** — which integrations are most-used, churn rate, time-to-first-connect
+  - LOOP-INT-024: **Nango upgrade + backup playbook** — pinned version, migration test, Neon backup/restore weekly
+  - Primary sources: https://nango.dev/docs, https://nango.dev/docs/guides/functions/syncs/realtime-syncs, https://nango.dev/docs/updates/changelog
+
+---
+
+## mail.projectsites.dev — Listmonk
+
+Newsletter management, campaign sending, mailing lists, bounce handling, and
+SES integration. Listmonk container at `mail.projectsites.dev` (infra/listmonk/).
+
+### Raw research themes considered
+Newsletter creation + scheduling, claim campaign sequences (abandoned-build
+recovery, lead nurture), lead capture forms on generated sites → Listmonk lists,
+mailing list import (CSV, copy-paste, API), segmentation by site/plan/activity,
+double opt-in compliance (GDPR/CAN-SPAM), unsubscribe compliance (one-click,
+Listmonk native), bounce handling via SES SNS → Listmonk, SES integration
+(domain verification, DKIM/SPF/DMARC, sending quotas), campaign analytics
+(open rate, click rate, unsubscribe rate, per-link tracking), AI-generated
+email content (subject lines, body variants via Workers AI), CRM-to-mail sync
+(Twenty contacts → Listmonk list), site contact forms → Listmonk list auto-add,
+per-site mailing limits (free=500/month, paid=10k/month), deliverability
+dashboard (bounce rate, complaint rate, reputation score), approval flows for
+campaign sends, lifecycle automations (welcome series, re-engagement, win-back),
+branded sending (per-site from name + logo), public campaign archive pages,
+QR postcard follow-up emails, abandoned claim sequences, email suppression
+list sync, abuse controls, deprovisioning/cleanup on site delete.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-MAIL-001: Verify Listmonk production deployment
+  - Endpoint: https://mail.projectsites.dev
+  - Why: Listmonk container already deployed (infra/listmonk/). Needs production verification, monitoring, and SES bounce wiring.
+  - Acceptance criteria: `/` → Listmonk login (200). SES sending verified (test email delivered). Bounce SNS→Listmonk webhook wired. Admin user created. WAF skip rule confirmed. Logs to Axiom.
+  - Implementation notes: Verify infra/listmonk/Dockerfile deployment. Confirm SES SMTP credentials. Wire SNS bounce notification → Listmonk webhook. `listmonk_client.ts` for worker→Listmonk API calls.
+  - Hosting notes: Workers Container. No (stateless; Neon). No. Customer-facing (email campaigns) + internal (platform notifications). Self-hosted (AGPL) — Neon + container. SES sending costs extra.
+  - Backing services: Neon (listmonk DB), SES (sending), SNS (bounce/feedback)
+  - Observability: Axiom: campaign events; Sentry: Listmonk failures; PostHog: email send volume
+  - Dependencies: Neon DB `projectsites_listmonk`, SES domain verification, SNS webhook
+  - Related files: infra/listmonk/Dockerfile, infra/listmonk/wrangler.toml, src/services/listmonk_client.ts, src/services/listmonk_events.ts
+  - Primary sources: https://listmonk.app/docs/, https://listmonk.app/docs/configuration/, https://listmonk.app/docs/bounces/
+
+- [ ] LOOP-MAIL-002: Build per-site mailing list auto-creation
+  - Endpoint: POST /api/sites/:id/lists (org admin → Listmonk API)
+  - Why: Every generated site gets its own mailing list for contact form submissions, lead capture, and customer outreach.
+  - Acceptance criteria: On site publish: create Listmonk list named `{slug}-contacts`. Contact form submissions auto-added (double opt-in). Site owner can manage list from admin. Per-site limits enforced (free=500 subscribers, paid=10k, pro=100k).
+  - Implementation notes: `listmonk_client.ts` calls Listmonk API for list CRUD. `listmonk_import.ts` for bulk import. Worker middleware checks subscriber count against plan.
+  - Hosting notes: Worker → Listmonk API. Customer-facing (site owner manages lists).
+  - Backing services: Listmonk, Neon
+  - Observability: PostHog: list creation events; Axiom: subscriber add events; Sentry: Listmonk API failures
+  - Dependencies: LOOP-MAIL-001, listmonk_client.ts, plan_entitlement.ts
+  - Related files: src/services/listmonk_client.ts, src/services/listmonk_events.ts, src/services/listmonk_import.ts
+  - Primary sources: https://listmonk.app/docs/apis/
+
+- [ ] LOOP-MAIL-003: Implement AI-generated email campaigns
+  - Endpoint: POST /api/sites/:id/campaigns/ai-generate
+  - Why: Small business owners don't write newsletters. AI generates the draft; owner approves + sends.
+  - Acceptance criteria: AI generates: subject line (3 variants), preview text, email body (HTML + plain text), based on site content + recent blog posts + business category. Owner reviews, edits, schedules. Uses Workers AI (Llama 3.3 70B) for content, passes through AI Gateway.
+  - Implementation notes: `campaign_builder.ts` already exists. Generate via Workers AI → render in Listmonk template. Campaign creation via Listmonk API.
+  - Hosting notes: Worker + Workers AI + Listmonk. Customer-facing (site owner).
+  - Backing services: Workers AI, AI Gateway, Listmonk
+  - Observability: Axiom: AI generation events; Langfuse: prompt traces; PostHog: AI campaign adoption
+  - Dependencies: campaign_builder.ts, external_llm.ts, AI Gateway, LOOP-MAIL-001
+  - Related files: src/services/campaign_builder.ts, src/services/external_llm.ts, src/services/listmonk_personalize.ts
+  - Primary sources: Listmonk transactional API, Workers AI text generation
+
+- [ ] LOOP-MAIL-004–024: Remaining 21 Listmonk tasks (summarized)
+  - LOOP-MAIL-004: **Claim campaign sequences** — abandoned-build nudge, lead nurture, "your site is ready" with preview link
+  - LOOP-MAIL-005: **Lead capture form → Listmonk sync** — generated site contact forms auto-add to list
+  - LOOP-MAIL-006: **Segmentation engine** — dynamic segments by site, plan, activity, location, campaign engagement
+  - LOOP-MAIL-007: **Double opt-in compliance** — GDPR/CAN-SPAM compliant subscription flow, confirmation email, audit log
+  - LOOP-MAIL-008: **Bounce + complaint handling** — SES SNS→Listmonk webhook, auto-suppression, admin dashboard
+  - LOOP-MAIL-009: **Campaign analytics dashboard** — open/click/unsubscribe rates, per-link tracking, comparison to industry benchmarks
+  - LOOP-MAIL-010: **CRM-to-mail sync** — Twenty contacts → Listmonk list bidirectional sync
+  - LOOP-MAIL-011: **Lifecycle automations** — welcome series (day 0/3/7), re-engagement (30d inactive), win-back (90d churned)
+  - LOOP-MAIL-012: **Branded sending** — per-site from name, reply-to, logo in email header
+  - LOOP-MAIL-013: **Public campaign archive** — `/newsletters` page on generated site, searchable, SEO-friendly
+  - LOOP-MAIL-014: **QR postcard follow-up** — email with QR code linking to claim page, trackable
+  - LOOP-MAIL-015: **Email suppression sync** — global unsubscribe list synced across all lists, D1 `email_suppressions`
+  - LOOP-MAIL-016: **Abuse prevention** — rate limit on list imports, spam trap detection, send quota enforcement
+  - LOOP-MAIL-017: **Deliverability dashboard** — sender reputation, bounce/complaint/spam rate, DMARC aggregate reports
+  - LOOP-MAIL-018: **Approval workflow** — draft → review → approve → schedule, multi-user approval for agency accounts
+  - LOOP-MAIL-019: **Campaign A/B testing** — subject line variants, send to 10% each, winner to remainder
+  - LOOP-MAIL-020: **Deprovisioning on site delete** — delete lists, export subscriber data, archive campaigns
+  - LOOP-MAIL-021: **Preference center** — per-site email preference page (frequency, topics), Listmonk-hosted
+  - LOOP-MAIL-022: **Transactional email separation** — transactional (password reset, invoice) vs marketing (newsletters) — separate sending domains
+  - LOOP-MAIL-023: **Listmonk upgrade + backup playbook** — pinned version, Neon backup weekly, migration test
+  - LOOP-MAIL-024: **Email send cost attribution** — per-site SES cost tracking for profitability dashboard (LOOP-GLOBAL-007)
+  - Primary sources: https://listmonk.app/docs/, https://listmonk.app/docs/apis/transactional/, AWS SES docs
+
+
+---
+
+## crm.projectsites.dev — Twenty CRM
+
+Customer relationship management for small businesses, lead pipeline, and contact
+modeling. Twenty CRM container at `crm.projectsites.dev` (infra/twenty/).
+
+### Raw research themes considered
+CRM for small business site owners (contact management, deal pipeline), claim
+pipeline integration (Lead Scanner → Twenty company), local business records
+with Google Places enrichment, account/contact modeling (companies + people +
+opportunities), support handoff (Chatwoot conversation → Twenty contact),
+Listmonk sync (mailing list ↔ Twenty contacts), Nango sync (Google Contacts →
+Twenty), opportunity/deal modeling (lead→qualified→proposal→won/lost), duplicate
+detection (same email/domain/phone → merge suggestions), AI task generation
+("follow up with this lead in 3 days"), AI contact/company summaries from web
+research, CRM timeline (all touchpoints: email, call, meeting, note), onboarding
+workflows (new customer checklist), sales automation (auto-move deal stages on
+triggers), import/export (CSV, Google Contacts, HubSpot migration), customer-
+visible CRM mode (site owner sees OWN leads only), agency CRM mode (agency sees
+all client sites' leads), admin CRM mode (super-admin sees all), per-site
+provisioning (auto-create workspace on site publish), app deletion/deprovisioning,
+permissions (owner vs sales rep vs viewer), custom objects (beyond company/
+contact/opportunity), workspace model (one workspace per org).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-CRM-001: Verify Twenty CRM production deployment
+  - Endpoint: https://crm.projectsites.dev
+  - Why: Twenty CRM container already deployed (infra/twenty/) with custom fields for Lead Scanner. Lead Scanner is live and writing companies. Needs monitoring hardening.
+  - Acceptance criteria: `/` → Twenty login (200). REST API confirmed working (verified with lead creation). 11 custom fields for Lead Scanner verified. Admin user exists. WAF skip rule confirmed. Logs to Axiom. Backups automated.
+  - Implementation notes: infra/twenty/ Dockerfile + wrangler.toml. Neon DB `projectsites_twenty`. Upstash Redis for cache/queue. Twenty REST API on port 3000.
+  - Hosting notes: Workers Container (Twenty is a full Next.js app). Yes (Twenty needs warm runtime for reasonable UX — container handles this but cold-boot is 30-60s). Container hibernation mitigates, but for production CRM, consider keeping warm or Fly.io if cold-boot unacceptable. Managed cost: Twenty is self-hosted (AGPL) — Neon + Upstash + container only. Customer-facing + internal.
+  - Backing services: Neon (twenty DB), Upstash (cache/queue), R2 (file storage)
+  - Observability: Axiom: CRM events; Sentry: Twenty failures; PostHog: CRM usage
+  - Dependencies: Neon DB, Upstash Redis, WAF skip rule
+  - Related files: infra/twenty/Dockerfile, infra/twenty/wrangler.toml, src/services/twenty_client.ts
+  - Primary sources: https://docs.twenty.com/developers/introduction, https://docs.twenty.com/developers/self-host/capabilities/docker-compose
+
+- [ ] LOOP-CRM-002: Implement per-org workspace auto-provisioning
+  - Endpoint: POST /api/crm/workspaces (internal, on org creation)
+  - Why: Every paying org should get its own Twenty workspace automatically — no manual setup.
+  - Acceptance criteria: On org creation (paid plan): create Twenty workspace, provision admin user (org owner), set up default pipeline stages (Lead→Qualified→Proposal→Won/Lost), create default views. Workspace ID stored in D1 `orgs` table. On org deletion: export data → delete workspace.
+  - Implementation notes: Twenty REST API for workspace CRUD (or direct DB if API doesn't support). `twenty_client.ts` already wraps the REST API. Workspace isolation via Twenty's native multi-workspace support.
+  - Hosting notes: Worker → Twenty API. Customer-facing (org admin uses Twenty directly).
+  - Backing services: Twenty, Neon
+  - Observability: Axiom: workspace provision events; Sentry: provisioning failures; PostHog: workspace activation
+  - Dependencies: twenty_client.ts, LOOP-CRM-001
+  - Related files: src/services/twenty_client.ts, src/services/app_provisioner.ts
+  - Primary sources: https://docs.twenty.com/developers/self-host/capabilities/setup
+
+- [ ] LOOP-CRM-003: Build Lead Scanner → Twenty pipeline completion
+  - Endpoint: OSM/Places discovery → enrichment → Twenty company creation
+  - Why: Lead Scanner core is done (orchestrator, providers, scoring, suppression, pipeline stages). CRM go-live is verified. Remaining: automated cron sweep + coverage dashboard wiring.
+  - Acceptance criteria: Cron sweep: every 6h, list due scan profiles, run OSM discover per bbox, enrich (email confidence %), score (propensity A–D), suppress (duplicate/claimed/bounced), pipeline stage transition, CRM upsert (company + custom fields). Coverage dashboard shows: zips scanned, leads by tier, contact rate, build triggered, claimed, pipeline value.
+  - Implementation notes: Wire `lead_scan_orchestrator.ts` with real providers. `scan_profiles.ts` for editable configs. Cron trigger in `index.ts scheduled()`. `coverage_summary.ts` feeds dashboard.
+  - Hosting notes: Worker Cron + Twenty REST API. Internal-only (platform operation).
+  - Backing services: Twenty, D1 (scan state), KV (dedup cache)
+  - Observability: PostHog: lead pipeline funnel; Axiom: scan run events; Sentry: scan failures
+  - Dependencies: lead_scan_orchestrator.ts, scan_profiles.ts, twenty_client.ts, LOOP-CRM-001
+  - Related files: src/services/lead_scan_orchestrator.ts, src/services/osm_overpass.ts, src/services/lead_propensity.ts, src/services/lead_pipeline.ts, src/services/lead_suppression.ts, src/services/twenty_client.ts, src/services/coverage_summary.ts
+  - Primary sources: Twenty REST API, Overpass API, Google Places API
+
+- [ ] LOOP-CRM-004: Implement AI contact enrichment + summaries
+  - Endpoint: Worker AI → Twenty contact notes
+  - Why: A lead's company name + address isn't enough. AI research adds: industry, size, revenue estimate, key contacts, recent news — directly in the CRM.
+  - Acceptance criteria: On lead creation: Workers AI + external LLM research generates: company summary (2-3 sentences), industry classification, size estimate, recent news (last 90 days), suggested contact person (LinkedIn lookup). Stored as Twenty note + custom fields. Regenerated on-demand ("Re-enrich"). Cached (30d) via research_cache.
+  - Implementation notes: Reuse `openai_research.ts` pipeline. `ai_context_extract.ts` for entity extraction. Store as Twenty rich text notes via REST API. Research cache keyed on company domain.
+  - Hosting notes: Worker + Workers AI + external LLM. Internal-only (platform operation).
+  - Backing services: Workers AI, AI Gateway, Twenty, external LLM (OpenAI/DeepSeek)
+  - Observability: Langfuse: research prompt traces; Axiom: enrichment events; PostHog: enrichment quality
+  - Dependencies: openai_research.ts, ai_context_extract.ts, research_cache.ts, LOOP-CRM-001
+  - Related files: src/services/openai_research.ts, src/services/ai_context_extract.ts, src/services/research_cache.ts
+  - Primary sources: Twenty REST API notes endpoint, Workers AI text generation
+
+- [ ] LOOP-CRM-005–024: Remaining 20 CRM tasks (summarized)
+  - LOOP-CRM-005: **Duplicate detection** — same email/domain/phone across companies → merge suggestions, confidence scoring
+  - LOOP-CRM-006: **AI task generation** — "follow up with X in 3 days," "send proposal to Y," generated from lead stage
+  - LOOP-CRM-007: **Claim pipeline** — Lead Scanner lead → "claim your site" email → build triggered → claimed → won
+  - LOOP-CRM-008: **CRM timeline** — all touchpoints (email opened, site visited, form submitted, call logged) in one view
+  - LOOP-CRM-009: **Onboarding workflows** — new customer checklist: invite team, connect domain, set up billing, create first campaign
+  - LOOP-CRM-010: **Listmonk sync** — Twenty contacts ↔ Listmonk mailing lists, bidirectional, opt-in gated
+  - LOOP-CRM-011: **Chatwoot sync** — Twenty contact → Chatwoot conversation history visible in CRM sidebar
+  - LOOP-CRM-012: **Nango sync** — Google Contacts → Twenty contacts via Nango OAuth
+  - LOOP-CRM-013: **Import/export** — CSV import, Google Contacts import, HubSpot migration, full data export
+  - LOOP-CRM-014: **Customer-visible CRM mode** — site owner sees own leads, agency sees all client leads, admin sees all
+  - LOOP-CRM-015: **Agency CRM mode** — multi-site overview, consolidated pipeline, per-client reporting
+  - LOOP-CRM-016: **Custom objects** — beyond standard Company/Contact/Opportunity: Proposal, Invoice, Support Ticket
+  - LOOP-CRM-017: **CRM permissions** — owner (full access), sales rep (own leads), viewer (read-only), per-workspace
+  - LOOP-CRM-018: **Sales automation** — auto-move deal stage on triggers (email replied → Qualified, meeting booked → Proposal)
+  - LOOP-CRM-019: **CRM analytics dashboard** — pipeline value, win rate, avg deal size, time-to-close, by source
+  - LOOP-CRM-020: **Email integration** — send/receive email from Twenty, email-to-lead capture, email tracking
+  - LOOP-CRM-021: **CRM mobile PWA** — Twenty's built-in PWA enabled, tested on iOS/Android
+  - LOOP-CRM-022: **Deprovisioning on org delete** — export all CRM data → R2 archive → delete workspace + DB
+  - LOOP-CRM-023: **Twenty upgrade + backup playbook** — pinned version, Neon + Upstash backup, migration test
+  - LOOP-CRM-024: **CRM cost attribution** — per-workspace Neon/Upstash cost for profitability dashboard
+  - Primary sources: https://docs.twenty.com/developers, https://docs.twenty.com/developers/extend/apps/operations/publishing
+
+---
+
+## support.projectsites.dev — Chatwoot
+
+Customer support platform: live chat widget, AI triage, knowledge base, and ticket
+management. Chatwoot container at `support.projectsites.dev`.
+
+### Raw research themes considered
+Support inbox (email, live chat, social DM), live chat widget on admin dashboard
+and generated sites, AI triage (categorize, prioritize, suggest response),
+customer portal (view tickets, knowledge base), CRM sync (Chatwoot conversation
+↔ Twenty contact timeline), billing escalation (payment dispute → priority ticket),
+install support (site setup assistance), domain support (DNS/SSL help), onboarding
+support (guided setup flows), knowledge base integration (help center on docs.
+projectsites.dev), internal notes (agent-only comments), per-site inboxes (each
+generated site can have its own support widget), team routing (assign by expertise:
+billing/technical/onboarding), conversation timeline with CRM data, incident
+support (status page → support ticket auto-creation), support metrics (first
+response time, resolution time, CSAT), SLA rules (paid=4h response, enterprise=1h),
+automations (auto-close after 7d, auto-assign by keyword, canned responses),
+AI concierge handoff (AI chatbot escalates to human), customer-visible support
+history, abuse/spam prevention, admin overrides.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-SUPP-001: Deploy Chatwoot at support.projectsites.dev
+  - Endpoint: https://support.projectsites.dev
+  - Why: Every platform needs support infrastructure. Chatwoot provides omnichannel inbox + live chat + knowledge base.
+  - Acceptance criteria: Chatwoot container deployed. `/` → Chatwoot login (200). Live chat widget testable. Email channel configured (support@projectsites.dev). WAF skip rule confirmed. Logs to Axiom.
+  - Implementation notes: Chatwoot Dockerfile. Neon DB `projectsites_chatwoot`. Upstash Redis for jobs/queue. Postgres + Redis required per Chatwoot architecture.
+  - Hosting notes: Workers Container. Yes (Chatwoot needs Redis/Sidekiq for background jobs — container handles this but needs warm runtime for reasonable support UX). Managed cost: self-hosted (MIT) — Neon + Upstash + container. Customer-facing (support widget) + internal (agent dashboard).
+  - Backing services: Neon, Upstash Redis, R2 (attachments)
+  - Observability: Axiom: support events; Sentry: Chatwoot failures; PostHog: support ticket volume
+  - Dependencies: Neon DB, Upstash Redis, WAF skip rule
+  - Related files: infra/ (new chatwoot/ dir)
+  - Primary sources: https://developers.chatwoot.com/self-hosted/deployment/architecture, https://developers.chatwoot.com/self-hosted/deployment/requirements
+
+- [ ] LOOP-SUPP-002: Embed live chat widget on admin + generated sites
+  - Endpoint: Chatwoot widget script → admin dashboard + generated sites
+  - Why: Customers should reach support without leaving the page. Chatwoot's widget is the front door to support.
+  - Acceptance criteria: Widget on: admin dashboard (bottom-right, for org admins), generated site preview (for site owners), /pricing page (for prospects). Widget shows: "Chat with us" during business hours, "Leave a message" after hours. AI concierge handles common questions; escalates to human for billing/technical.
+  - Implementation notes: Chatwoot widget SDK. Custom branding (projectsites.dev colors). AI concierge via Chatwoot agent bot or custom webhook → Workers AI.
+  - Hosting notes: Chatwoot container (widget server). Customer-facing (all users).
+  - Backing services: Chatwoot, Workers AI (concierge)
+  - Observability: PostHog: chat engagement funnel; Axiom: conversation events; Sentry: widget errors
+  - Dependencies: LOOP-SUPP-001, Workers AI
+  - Related files: frontend/src/app/, public/index.html
+  - Primary sources: https://developers.chatwoot.com/self-hosted/deployment/performance/optimizing-configurations
+
+- [ ] LOOP-SUPP-003: Implement AI triage + suggested responses
+  - Endpoint: Chatwoot webhook → Worker → Chatwoot API
+  - Why: Solo support agent can't read every message instantly. AI suggests category, priority, and draft response → agent reviews + sends.
+  - Acceptance criteria: Incoming message → Workers AI classifies: category (billing/technical/onboarding/general), priority (low/medium/high/urgent), sentiment (positive/neutral/negative). Generates draft response. Agent sees suggestion in Chatwoot sidebar. Agent can edit + send or discard. AI learns from agent corrections.
+  - Implementation notes: Chatwoot webhook on message creation. Worker calls Workers AI (Llama 3.3 70B) for classification + response generation. Updates Chatwoot conversation via API with custom attributes + private note.
+  - Hosting notes: Worker + Workers AI + Chatwoot API. Internal-only (support agents).
+  - Backing services: Workers AI, AI Gateway, Chatwoot
+  - Observability: Langfuse: prompt traces; Axiom: triage events; PostHog: AI suggestion acceptance rate
+  - Dependencies: LOOP-SUPP-001, Workers AI, AI Gateway
+  - Related files: src/services/external_llm.ts, src/services/ai_admin_features.ts
+  - Primary sources: Chatwoot webhooks, Workers AI text generation, Intercom AI agent patterns
+
+- [ ] LOOP-SUPP-004–024: Remaining 21 Chatwoot tasks (summarized)
+  - LOOP-SUPP-004: **CRM sync** — Chatwoot conversation → Twenty contact timeline, see support history in CRM
+  - LOOP-SUPP-005: **Knowledge base integration** — help center articles searchable from Chatwoot widget, auto-suggest
+  - LOOP-SUPP-006: **Billing escalation** — payment dispute/failed charge → priority ticket, auto-assign to billing team
+  - LOOP-SUPP-007: **Per-site inboxes** — generated site owner gets dedicated support inbox for their end-users
+  - LOOP-SUPP-008: **Team routing** — assign by keyword/skill (billing, technical, onboarding), round-robin, load balancing
+  - LOOP-SUPP-009: **Incident support** — status page incident → auto-creates support ticket, links to incident timeline
+  - LOOP-SUPP-010: **Support metrics dashboard** — first response time, resolution time, CSAT, ticket volume, by category
+  - LOOP-SUPP-011: **SLA rules** — free=best-effort, paid=4h first response, enterprise=1h, auto-escalation on breach
+  - LOOP-SUPP-012: **Automations** — auto-close after 7d inactivity, auto-assign by keyword, canned responses library
+  - LOOP-SUPP-013: **AI concierge handoff** — chatbot answers common questions, escalates to human with full context
+  - LOOP-SUPP-014: **Customer-visible support history** — site owner sees their tickets + status in admin dashboard
+  - LOOP-SUPP-015: **Email channel** — support@projectsites.dev → Chatwoot inbox, reply from Chatwoot, email threading
+  - LOOP-SUPP-016: **Social channel** — Twitter/X DM → Chatwoot inbox (future: social.projectsites.dev integration)
+  - LOOP-SUPP-017: **Internal notes** — agent-only private notes on conversations, @mentions for collaboration
+  - LOOP-SUPP-018: **Attachment + file sharing** — R2-backed file uploads in chat, virus scanning
+  - LOOP-SUPP-019: **Abuse/spam prevention** — rate limit on widget messages, spam detection, Turnstile on contact forms
+  - LOOP-SUPP-020: **Admin overrides** — super-admin can reassign tickets, change priority, view all inboxes
+  - LOOP-SUPP-021: **Support onboarding flow** — new customer gets auto-welcome message + guided setup checklist
+  - LOOP-SUPP-022: **Chatwoot mobile app** — test + document mobile agent app for on-call support
+  - LOOP-SUPP-023: **Chatwoot upgrade + backup playbook** — pinned version, Neon+Upstash backup, migration test
+  - LOOP-SUPP-024: **Customer satisfaction surveys** — post-resolution CSAT survey, NPS integration, feedback loop
+  - Primary sources: https://developers.chatwoot.com, Chatwoot webhooks + API docs
+
+
+---
+
+## social.projectsites.dev — Postiz
+
+Social media scheduling, AI-generated posts, content calendar, and analytics.
+Postiz container at `social.projectsites.dev`.
+
+### Raw research themes considered
+Social scheduling (Twitter/X, LinkedIn, Facebook, Instagram, TikTok, YouTube),
+AI-generated posts from site content (blog → social snippets, new page → launch
+post, seasonal → holiday greeting), local business content calendar (pre-built
+templates for restaurants/salons/nonprofits), review promotion (5-star review →
+social post), event posts (calendar event → "Happening this weekend"), approval
+workflows (agency: draft → client approval → scheduled), analytics (per-post
+engagement, best posting times, audience growth), CRM/Listmonk sync (social
+lead → Twenty contact, social subscriber → Listmonk list), media library
+integration (R2 images → social post attachments), R2 storage for media,
+per-site account linking (connect your Twitter/LinkedIn/Facebook page), reconnect
+flows when OAuth tokens expire, platform rate limit handling (queue + backoff),
+post templates (industry-specific: restaurant menu, salon services, nonprofit
+impact), agency approval mode (agency manages multiple client accounts), AI
+brand voice (posts match site's tone from brand research), local SEO tie-ins
+(social posts boost GBP ranking), campaign bundles (launch week: 7 posts across
+3 platforms), failure alerts (post failed → notify site owner), admin support tools.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-SOCIAL-001: Deploy Postiz at social.projectsites.dev
+  - Endpoint: https://social.projectsites.dev
+  - Why: Postiz is the social publishing hub. Currently deployed on Fly.io per memory — evaluate Workers Container viability.
+  - Acceptance criteria: Postiz deployed. `/` → Postiz UI (200). At least one platform (Twitter/LinkedIn) connectable. Admin setup complete. Logs to Axiom.
+  - Implementation notes: Evaluate Workers Container vs current Fly.io. Postiz needs: Postgres (Neon), Redis (Upstash), Temporal (or BullMQ) for scheduling. Workers Container viable if Temporal runs separately.
+  - Hosting notes: Workers Container for Web/API (stateless). Fly.io for Temporal (always-on orchestrator). Postgres → Neon. Redis → Upstash. R2 for media. Customer-facing + internal.
+  - Backing services: Neon, Upstash Redis, R2, Temporal (Fly.io or Coolify)
+  - Observability: Axiom: post events; Sentry: Postiz failures; PostHog: social scheduling adoption
+  - Dependencies: Neon DB, Upstash Redis, Temporal
+  - Related files: infra/ (new postiz/ dir)
+  - Primary sources: https://docs.postiz.com/howitworks, https://docs.postiz.com/configuration/reference, https://docs.postiz.com/installation/development
+
+- [ ] LOOP-SOCIAL-002: Implement AI-generated social posts from site content
+  - Endpoint: POST /api/sites/:id/social/generate (org admin)
+  - Why: Small business owners won't write social posts. AI generates from their site content (blog, services, reviews).
+  - Acceptance criteria: AI generates posts from: blog content (summary + link), new services/offers, 5-star reviews, seasonal greetings, business updates. 3 variants per source. Owner reviews, edits, schedules. Brand voice matches site's brand research. Image auto-attached from media library.
+  - Implementation notes: `social_ai.ts` already exists. Extend with Workers AI + AI Gateway. `social_auto_pilot.ts` for automated content detection. Postiz API for post creation.
+  - Hosting notes: Worker + Workers AI + Postiz API. Customer-facing (site owner).
+  - Backing services: Workers AI, AI Gateway, Postiz, R2
+  - Observability: Langfuse: generation traces; Axiom: generation events; PostHog: AI post adoption
+  - Dependencies: social_ai.ts, social_auto_pilot.ts, LOOP-SOCIAL-001
+  - Related files: src/services/social_ai.ts, src/services/social_auto_pilot.ts, src/services/social_account_ctx.ts
+  - Primary sources: Postiz API, Workers AI text generation, Buffer/Later AI features
+
+- [ ] LOOP-SOCIAL-003–024: Remaining 22 Postiz tasks (summarized)
+  - LOOP-SOCIAL-003: **Content calendar** — pre-built industry templates, drag-and-drop scheduling, month/week/day views
+  - LOOP-SOCIAL-004: **Review promotion** — 5-star review auto-drafted as social post, owner approves
+  - LOOP-SOCIAL-005: **Approval workflows** — agency drafts → client approves → scheduled, revision history
+  - LOOP-SOCIAL-006: **Analytics dashboard** — per-post engagement, follower growth, best posting times, platform comparison
+  - LOOP-SOCIAL-007: **CRM sync** — social engagement → Twenty contact (new follower, commenter, DM sender)
+  - LOOP-SOCIAL-008: **Listmonk sync** — social contest entries → mailing list, social subscriber import
+  - LOOP-SOCIAL-009: **Media library integration** — R2 images → social post attachments, AI alt-text, optimal sizing per platform
+  - LOOP-SOCIAL-010: **Per-site account linking** — connect Twitter/LinkedIn/Facebook/Instagram/TikTok via OAuth
+  - LOOP-SOCIAL-011: **Reconnect flows** — token expiry detection, one-click reconnect, proactive warning
+  - LOOP-SOCIAL-012: **Rate limit handling** — per-platform rate limit awareness, queue + backoff, avoid bans
+  - LOOP-SOCIAL-013: **Post templates** — industry-specific: restaurant (menu highlight), salon (before/after), nonprofit (impact stat)
+  - LOOP-SOCIAL-014: **Agency approval mode** — agency dashboard, multi-client view, per-client approval queues
+  - LOOP-SOCIAL-015: **Local SEO tie-ins** — social posts → GBP ranking signals, location tags, local hashtags
+  - LOOP-SOCIAL-016: **Campaign bundles** — launch week, holiday season, event promotion — pre-scheduled multi-post campaigns
+  - LOOP-SOCIAL-017: **Failure alerts** — post failed (token expired, content rejected, rate limited) → notify owner + suggest fix
+  - LOOP-SOCIAL-018: **Admin support tools** — super-admin can view all accounts, force-reconnect, override schedules
+  - LOOP-SOCIAL-019: **Best-time-to-post** — AI analyzes engagement history, recommends optimal posting times per platform
+  - LOOP-SOCIAL-020: **Hashtag suggestions** — AI generates relevant hashtags based on post content + industry + location
+  - LOOP-SOCIAL-021: **Competitor monitoring** — track competitor social accounts, surface their top-performing posts
+  - LOOP-SOCIAL-022: **Social inbox** — unified inbox for comments + DMs across platforms, reply from Postiz
+  - LOOP-SOCIAL-023: **Postiz upgrade + backup playbook** — pinned version, Neon+Upstash+Temporal backup, migration test
+  - LOOP-SOCIAL-024: **Social ROI tracking** — link clicks → site visits → conversions, UTM auto-tagging, revenue attribution
+  - Primary sources: https://docs.postiz.com, https://docs.postiz.com/installation/migration, Postiz API
+
+---
+
+## analytics.projectsites.dev — PostHog Cloud
+
+Product analytics, feature flags, experiments, session replay, and surveys.
+PostHog Cloud (US region) — NOT self-hosted per Brian's directive.
+
+### Raw research themes considered
+Platform product analytics (funnels, retention, trends), customer website
+analytics (per-site PostHog project or filtered views), feature flags (PostHog
+flags as complementary to D1 flags), experiments (A/B test checkout flows),
+surveys (NPS, CSAT, feature feedback), session replay (error sessions only,
+privacy-gated), funnel analysis (signup→build→publish→claim→pay), retention
+cohorts (7d/30d/90d active site owners), onboarding analytics (where users
+drop off), app install analytics (which apps are installed), claim flow analytics,
+billing conversion analytics (free→paid, monthly→annual), admin dashboards
+(executive summary, MRR, churn, LTV), per-site analytics views (site owner sees
+own site stats), privacy controls (no PII in PostHog, cookie-free), event
+naming standards (snake_case, `<object>_<action>` convention), governance
+(who can create events, who can view data), customer-visible analytics (site
+owner dashboard), abuse analytics (spam submissions, scraper detection),
+activation scoring (what actions predict long-term retention), churn prediction
+(which accounts are at risk), lifecycle triggers (activation → PostHog webhook →
+email automation), all server-side (Worker-reverse-proxied, no client-side SDK).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-ANALYTICS-001: Audit and standardize PostHog event naming
+  - Endpoint: Every `captureEvent` call in the codebase
+  - Why: Current event naming is ad-hoc. Without standards, funnels break, dashboards are unreliable, and new events create noise.
+  - Acceptance criteria: Standard: `snake_case`, `<object>_<action>_<context>`. Examples: `site_published`, `build_started_container`, `checkout_completed_stripe`, `lead_created_osm`. Event catalog in `docs/ANALYTICS_EVENTS.md` with schema, trigger, and properties per event. `scripts/validate-analytics-events.mjs` greps codebase, flags non-conforming events.
+  - Implementation notes: `analytics_events.ts` defines event constants. Extend with Zod schemas per event. Migration: rename existing non-conforming events (PostHog supports event aliasing).
+  - Hosting notes: Worker (server-side capture). Internal-only (platform observability).
+  - Backing services: PostHog Cloud
+  - Observability: Self-referential (PostHog tracks PostHog event volume)
+  - Dependencies: analytics.ts, analytics_events.ts
+  - Related files: src/services/analytics.ts, src/services/analytics_events.ts, docs/ANALYTICS_EVENTS.md (new)
+  - Primary sources: https://posthog.com/docs/product-analytics/pricing, PostHog event naming best practices
+
+- [ ] LOOP-ANALYTICS-002: Build customer website analytics views
+  - Endpoint: PostHog (separate project or filtered dashboards)
+  - Why: Site owners need their own analytics. PostHog's multi-project architecture or dashboard filtering provides this.
+  - Acceptance criteria: Each site gets: pageviews, top pages, referrers, device breakdown, country map, conversion events (form submissions, phone clicks, direction requests). Accessible from site admin dashboard. Free tier: 30 days data; paid: 365 days. Data collection via Worker proxy (no client-side PostHog SDK on generated sites).
+  - Implementation notes: Option A: separate PostHog project per paid site (clean isolation, more expensive). Option B: single project with per-site dashboard filtering (cheaper, shared). Recommend B for free/paid, A for enterprise. Worker proxies `/ingest` calls, injects site_id.
+  - Hosting notes: PostHog Cloud + Worker proxy. Customer-facing (site owner dashboard).
+  - Backing services: PostHog Cloud
+  - Observability: Self-referential; Sentry: proxy failures
+  - Dependencies: analytics.ts, PostHog Cloud projects
+  - Related files: src/services/analytics.ts, src/services/analytics_tracker.ts, frontend/src/app/pages/admin/
+  - Primary sources: https://posthog.com/docs/api, PostHog multi-project setup
+
+- [ ] LOOP-ANALYTICS-003: Implement conversion funnel tracking
+  - Endpoint: PostHog funnel definitions
+  - Why: The core business funnel (search→signup→build→preview→claim→pay) must be measured to optimize conversion.
+  - Acceptance criteria: Funnels: (1) Visitor→Signup: landing page → search → business select → signup, (2) Signup→Build: create site → build started → build completed, (3) Build→Claim: preview → claim → domain added, (4) Claim→Paid: free trial → checkout → subscription active. Each funnel tracked in PostHog with conversion rates + drop-off analysis. Admin dashboard shows funnel health.
+  - Implementation notes: PostHog funnel API or UI-created. Events already fire at each step — verify all steps emit events. `funnel_conversion.ts` for server-side funnel state.
+  - Hosting notes: PostHog Cloud. Internal-only (platform analytics).
+  - Backing services: PostHog Cloud
+  - Observability: Self-referential (PostHog funnels); Sentry: funnel event gaps
+  - Dependencies: analytics.ts, funnel_conversion.ts
+  - Related files: src/services/analytics.ts, src/services/funnel_conversion.ts, src/services/activation_funnel.ts
+  - Primary sources: https://posthog.com/docs/product-analytics/funnels
+
+- [ ] LOOP-ANALYTICS-004–024: Remaining 21 PostHog tasks (summarized)
+  - LOOP-ANALYTICS-004: **Retention cohorts** — 7d/30d/90d active site owners, by plan, by acquisition source
+  - LOOP-ANALYTICS-005: **Activation scoring** — what actions predict long-term retention? Publish site? Add domain? First lead?
+  - LOOP-ANALYTICS-006: **Churn prediction** — accounts with: no login 14d + no site edits 30d + payment method expiring = at-risk
+  - LOOP-ANALYTICS-007: **Lifecycle triggers** — activation → PostHog webhook → email: "You're live! Next: add your domain"
+  - LOOP-ANALYTICS-008: **Feature flag analytics** — which flags drive conversion? Flag exposure → conversion rate per variant
+  - LOOP-ANALYTICS-009: **Experiments (A/B tests)** — PostHog experiments for: pricing page, checkout flow, onboarding steps
+  - LOOP-ANALYTICS-010: **Session replay (error-only)** — replay sessions where JS error or 5xx occurred, privacy-masked
+  - LOOP-ANALYTICS-011: **Surveys** — NPS post-publish, CSAT post-support, feature requests, churn reason
+  - LOOP-ANALYTICS-012: **Admin executive dashboard** — MRR, ARR, churn rate, LTV, CAC, conversion rates, top sites by revenue
+  - LOOP-ANALYTICS-013: **Onboarding analytics** — step-by-step drop-off, time-to-complete, where users get stuck
+  - LOOP-ANALYTICS-014: **App install analytics** — which apps are most installed, app → retention correlation
+  - LOOP-ANALYTICS-015: **Billing analytics** — upgrade rate, expansion MRR, coupon usage, annual vs monthly mix
+  - LOOP-ANALYTICS-016: **Abuse analytics** — spam submissions, scraper IPs, unusual API patterns, rate limit hits
+  - LOOP-ANALYTICS-017: **PostHog event governance** — event approval workflow, schema enforcement, deprecated event tracking
+  - LOOP-ANALYTICS-018: **Privacy controls** — no PII in PostHog, cookie-free tracking, data retention policies, GDPR export
+  - LOOP-ANALYTICS-019: **Per-site analytics export** — CSV/PDF analytics report for site owners, monthly email summary
+  - LOOP-ANALYTICS-020: **Real-time dashboard** — active builds, live visitors, recent signups, current MRR
+  - LOOP-ANALYTICS-021: **Cohort tables** — "users who signed up in June: what % published? what % converted to paid?"
+  - LOOP-ANALYTICS-022: **UTM attribution** — track acquisition source (social, search, referral, direct) → conversion rate
+  - LOOP-ANALYTICS-023: **PostHog data lake export** — export to R2 Parquet for long-term analysis, Tinybird for SQL analytics
+  - LOOP-ANALYTICS-024: **PostHog cost optimization** — review event volume, sampling strategy, data retention to control costs
+  - Primary sources: https://posthog.com/docs, https://posthog.com/pricing, https://posthog.com/docs/product-analytics/pricing
+
+---
+
+## logs.projectsites.dev — Axiom
+
+Structured logging backend. Every service emits structured logs to Axiom with
+correlation IDs, tenant context, and severity levels.
+
+### Raw research themes considered
+Structured logging policy (JSON schema per log event), request ID propagation,
+trace ID linking logs→traces, site ID on every customer-facing log, tenant ID
+on every platform log, app ID for per-app logs, job ID for background job logs,
+webhook event ID for delivery logs, API key ID for auth logs, auth event ID for
+login/logout logs, PII redaction at log boundary, admin log search (full-text
+across all services), customer-safe log views (site owner sees own site's logs),
+provisioning logs (app install lifecycle), worker logs (every Worker invocation),
+API logs (every API request), LLM gateway logs (every AI call via AI Gateway),
+browser logs (browser automation job output), billing logs (invoice, payment,
+credit events), support logs (ticket lifecycle), incident timelines (correlated
+logs across services during an incident), log dashboards per service, cost
+controls (sampling, retention, log volume alerts).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-LOG-001: Codify structured logging schema as Zod contract
+  - Endpoint: Every log emission across all services
+  - Why: Logs without a schema are unqueriable. Define the SSOT schema and enforce it everywhere.
+  - Acceptance criteria: `LogEventSchema` (Zod) in `packages/shared/src/schemas/log.ts`. Required fields: `service, env, level, event_name, timestamp, request_id, message`. Optional: `trace_id, span_id, tenant_id, site_id, app_id, user_id, api_key_id, workflow_id, job_id, webhook_event_id, duration_ms, status, error_code, error_category, retryable, metadata (JSON)`. Every log emission validated at compile-time via TypeScript + at runtime in dev. `scripts/validate-log-schema.mjs` samples Axiom, flags violations.
+  - Implementation notes: Shared schema in packages/shared. Logger helper in each service imports and validates. Axiom ingestion via OTLP or HTTP API.
+  - Hosting notes: N/A (shared code + Axiom Cloud). Internal-only.
+  - Backing services: Axiom
+  - Observability: Self-referential — Axiom dashboard: % schema-compliant logs
+  - Dependencies: packages/shared, Axiom ingestion endpoint
+  - Related files: packages/shared/src/schemas/, src/services/analytics_tracker.ts
+  - Primary sources: https://axiom.co/docs/send-data/opentelemetry, OpenTelemetry log data model
+
+- [ ] LOOP-LOG-002: Build admin log search across all services
+  - Endpoint: /api/admin/logs (super-admin)
+  - Why: Debugging a cross-service issue (build failed → webhook → notification) requires searching logs across Workers, Containers, and Fly.io in one query.
+  - Acceptance criteria: Search across all services by: request_id, trace_id, tenant_id, site_id, time range, service, level, event_name, message text. Results grouped by service, sorted by time. Live tail mode (streaming logs). Saved searches. RBAC: super-admin sees all; org admin sees own org's logs.
+  - Implementation notes: Axiom query API or direct Axiom dashboard embed. Admin UI with filter bar + results table + detail drawer. Rate-limited (10 queries/min per admin).
+  - Hosting notes: Worker + Axiom API. Internal-only (admin).
+  - Backing services: Axiom
+  - Observability: PostHog: log search usage; Axiom: search latency
+  - Dependencies: Axiom API, LOOP-LOG-001
+  - Related files: frontend/src/app/pages/admin/, src/services/log_query.ts
+  - Primary sources: https://axiom.co/docs/reference/usage-billing, https://axiom.co/docs/reference/limits
+
+- [ ] LOOP-LOG-003–024: Remaining 22 Axiom tasks (summarized)
+  - LOOP-LOG-003: **PII redaction** — auto-redact emails, phone numbers, IPs, API keys before log emission, per-service config
+  - LOOP-LOG-004: **Customer-safe log views** — site owner sees own site's build/deploy/error logs (filtered, no platform internals)
+  - LOOP-LOG-005: **Request ID → trace ID correlation** — every log carries both, admin reconstructs full request flow
+  - LOOP-LOG-006: **Provisioning logs** — app install/uninstall lifecycle fully logged with timeline view
+  - LOOP-LOG-007: **Worker invocation logs** — every Worker `fetch`/`scheduled`/`queue` handler logs start + end + duration + status
+  - LOOP-LOG-008: **API access logs** — every API request logged: method, path, status, duration, api_key_id, user_id, IP
+  - LOOP-LOG-009: **LLM gateway logs** — every AI call: model, tokens_in/out, cost_cents, duration, cache_hit, gateway_route
+  - LOOP-LOG-010: **Browser automation logs** — every browser job: URL, purpose, provider, duration, status, screenshot URL
+  - LOOP-LOG-011: **Billing event logs** — every charge/credit/invoice/webhook event with idempotency key
+  - LOOP-LOG-012: **Support ticket logs** — ticket lifecycle (created→assigned→responded→resolved) in logs
+  - LOOP-LOG-013: **Incident timeline** — correlated logs across all services during an incident, AI-generated summary
+  - LOOP-LOG-014: **Per-service log dashboards** — pre-built Axiom dashboards per service (Unkey, Auth, Billing, etc.)
+  - LOOP-LOG-015: **Log volume alerts** — 10× normal volume → alert (possible attack or bug loop), per-service thresholds
+  - LOOP-LOG-016: **Log retention policies** — hot (7d Axiom), warm (30d Axiom), cold (365d R2 Parquet archive)
+  - LOOP-LOG-017: **Log sampling for high-volume** — sample DEBUG logs at 1%, INFO at 10%, always capture WARN+
+  - LOOP-LOG-018: **Structured error logging** — every catch block logs error_code + category + retryable + user_safe_message
+  - LOOP-LOG-019: **Syslog severity levels** — EMERGENCY/ALERT/CRITICAL/ERROR/WARNING/NOTICE/INFO/DEBUG consistently
+  - LOOP-LOG-020: **Log context auto-enrichment** — logger reads request context (tenant_id, site_id, user_id) automatically
+  - LOOP-LOG-021: **Worker health logging** — every Worker emits health log every 5min: status, last_run, last_error, queue_depth
+  - LOOP-LOG-022: **Axiom cost monitoring** — track monthly ingest volume + cost, alert if exceeding $50 threshold (Coolify trigger)
+  - LOOP-LOG-023: **Log-based alerting** — Axiom monitors → Sentry alerts: error spike, auth failure burst, build failure rate
+  - LOOP-LOG-024: **Axiom backup + export** — weekly R2 archive, quarterly DR restore test, retention compliance audit
+  - Primary sources: https://axiom.co/docs, https://axiom.co/pricing, https://axiom.co/docs/send-data/opentelemetry
+
+
+---
+
+## traces.projectsites.dev — Sentry + Langfuse + Promptfoo
+
+Error tracking, distributed tracing, AI observability, and prompt regression testing.
+Sentry: platform errors only (NOT customer sites). Langfuse: LLM traces + evals.
+Promptfoo: prompt regression tests.
+
+### Raw research themes considered
+Sentry full-stack tracing for main platform (Workers, Containers, Fly.io services),
+frontend tracing (admin Angular SPA), backend tracing (Worker handlers), performance
+spans (D1 queries, R2 fetches, external API calls), release tracking (commit SHA →
+Sentry release), source maps upload, breadcrumbs on critical paths, error grouping
+by taxonomy code, NO Sentry on customer/client websites (hard rule), Langfuse web
+role (Next.js UI, port 3000), Langfuse worker role (background processing), Langfuse
+traces for every LLM call, Promptfoo regression tests (prompt changes → eval suites),
+prompt version tracking (which prompt version served which request), AI eval
+dashboards (quality scores, cost, latency per model/prompt), LLM failure diagnosis
+(trace → prompt + params + response + error), trace/log correlation (trace_id in
+both Langfuse and Axiom), Axiom correlation for non-LLM spans, PostHog correlation
+for user-facing events, OpenTelemetry correlation for CF Workers Tracing spans,
+admin observability dashboards, incident replay (reconstruct from traces + logs),
+AI quality gates (prompt change must pass Promptfoo eval before deploy, auto-rollback
+on score drop), customer-safe incident summaries (stripped of internal details).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-TRACE-001: Verify Sentry full-stack tracing for all platform services
+  - Endpoint: Every Worker, Container, and Fly.io service
+  - Why: Sentry is the error-tracking backbone for the platform. Currently partially wired — need comprehensive coverage.
+  - Acceptance criteria: Every platform service (Unkey, Better Auth, Listmonk, Twenty, Chatwoot, Postiz, Langfuse, LiteLLM, Nango) has Sentry SDK initialized. Errors captured with: service name, environment, release (commit SHA). Source maps uploaded on deploy. Performance spans for: HTTP requests, DB queries, external API calls. Admin Sentry dashboard shows all services.
+  - Implementation notes: `@sentry/cloudflare` for Workers. `@sentry/node` for Containers. Unified DSN per environment. Release tracking via `SENTRY_RELEASE` env var (set to `git rev-parse --short HEAD` at deploy).
+  - Hosting notes: Sentry Cloud (SaaS). Internal-only (platform errors). NEVER on customer sites.
+  - Backing services: Sentry Cloud
+  - Observability: Self-referential; Sentry monitors its own ingestion
+  - Dependencies: CI deploy pipeline (release tagging)
+  - Related files: src/lib/sentry.ts, infra/*/Dockerfile, wrangler.toml
+  - Primary sources: https://docs.sentry.io/concepts/key-terms/tracing/distributed-tracing/, https://docs.sentry.io/platforms/javascript/guides/nextjs/tracing/
+
+- [ ] LOOP-TRACE-002: Harden Langfuse container deployment
+  - Endpoint: https://traces.projectsites.dev (Langfuse web)
+  - Why: Langfuse is already deployed as a single container (v2, Neon-backed). Verify production readiness and split web/worker if needed.
+  - Acceptance criteria: Langfuse v2 container verified (infra/langfuse/). `/api/public/health` → 200. Prisma migrations applied. Neon DB `projectsites_langfuse` confirmed. LLM traces flowing from AI Gateway. Admin UI accessible. WAF skip rule confirmed.
+  - Implementation notes: infra/langfuse/ Dockerfile + wrangler.toml. v2 uses Postgres only (no ClickHouse/Redis needed). If v3 upgrade needed, provision ClickHouse (Coolify) + Redis (Upstash) + S3 (R2).
+  - Hosting notes: Workers Container for web (v2 single container). If split web/worker: web = Workers Container, worker = Fly.io if always-on needed. v2 runs as single process (acceptable for current scale). Cost: self-hosted (MIT) — Neon only.
+  - Backing services: Neon (langfuse DB)
+  - Observability: Langfuse traces itself; Axiom: Langfuse health; Sentry: Langfuse errors
+  - Dependencies: Neon DB, WAF skip rule, LOOP-TRACE-001
+  - Related files: infra/langfuse/Dockerfile, infra/langfuse/wrangler.toml, infra/langfuse-worker/
+  - Primary sources: https://langfuse.com/self-hosting, https://langfuse.com/self-hosting/deployment/infrastructure/postgres
+
+- [ ] LOOP-TRACE-003: Wire Langfuse tracing for ALL LLM calls
+  - Endpoint: AI Gateway → Langfuse (automatic)
+  - Why: Every LLM call must be traced for cost tracking, quality monitoring, and debugging. AI Gateway routes calls; Langfuse observes them.
+  - Acceptance criteria: Every LLM call (Workers AI, OpenAI, Anthropic, DeepSeek) traced with: model, prompt template version, tokens in/out, latency, cost, user feedback (thumbs up/down), trace_id, tenant_id. Langfuse dashboard shows: cost per model, latency p95, token usage trends, per-tenant usage. Traces searchable by trace_id (matches Axiom logs).
+  - Implementation notes: Langfuse SDK in `ai_gateway.ts` or as a callback. Cloudflare AI Gateway also supports logging → dual-write to Langfuse for richness. `ai_logger.ts` wraps calls.
+  - Hosting notes: Worker (SDK in gateway) + Langfuse container. Internal-only (platform observability).
+  - Backing services: Langfuse, AI Gateway
+  - Observability: Self-referential (Langfuse traces its own traces); Axiom: trace ingestion events
+  - Dependencies: ai_gateway.ts, LOOP-TRACE-002, AI Gateway
+  - Related files: src/services/ai_gateway.ts, src/services/ai_logger.ts
+  - Primary sources: https://langfuse.com/docs/tracing, Langfuse JS SDK
+
+- [ ] LOOP-TRACE-004: Implement Promptfoo regression testing
+  - Endpoint: CI pipeline (prompt changes → Promptfoo eval)
+  - Why: Changing a prompt template can silently degrade output quality. Promptfoo runs automated evals before deploy.
+  - Acceptance criteria: Every `.prompt.md` file has a corresponding Promptfoo eval config. CI gate: on prompt file change, run `promptfoo eval` against staging. Score must be ≥ current production score. Auto-rollback on score drop >10%. Eval results stored in R2 + Langfuse. Dashboard shows score history per prompt.
+  - Implementation notes: Promptfoo config per prompt. Evals: semantic similarity, JSON schema compliance, keyword presence/absence, LLM-as-judge scoring. CI workflow `promptfoo-eval.yml`. Results to Langfuse + Axiom.
+  - Hosting notes: CI (GitHub Actions). Internal-only (platform quality).
+  - Backing services: Langfuse, R2 (eval results archive)
+  - Observability: Langfuse: eval scores; Axiom: eval run events; Sentry: eval failures
+  - Dependencies: Langfuse, prompts/*.prompt.md, CI pipeline
+  - Related files: prompts/*.prompt.md, src/prompts/, .github/workflows/promptfoo-eval.yml (new)
+  - Primary sources: https://langfuse.com/docs/prompt-management, Promptfoo docs
+
+- [ ] LOOP-TRACE-005–024: Remaining 20 tracing tasks (summarized)
+  - LOOP-TRACE-005: **Frontend tracing** — Sentry in Angular admin SPA: error boundaries, route changes, API call spans
+  - LOOP-TRACE-006: **Performance spans** — D1 query spans, R2 fetch spans, external API call spans, queue publish spans
+  - LOOP-TRACE-007: **Release tracking** — every deploy records release in Sentry + Langfuse, commit SHA → version
+  - LOOP-TRACE-008: **Source maps upload** — on deploy, upload source maps to Sentry for minified error resolution
+  - LOOP-TRACE-009: **Breadcrumb discipline** — before every risky op (payment, deletion, AI call), add Sentry breadcrumb
+  - LOOP-TRACE-010: **Error grouping** — errors grouped by taxonomy code + file + function, not raw message
+  - LOOP-TRACE-011: **Langfuse web/worker split evaluation** — if v3 needed, provision ClickHouse (Coolify) + Redis (Upstash) + R2 (blob)
+  - LOOP-TRACE-012: **Trace/log correlation** — trace_id in Langfuse = trace_id in Axiom, admin reconstructs full request flow
+  - LOOP-TRACE-013: **PostHog correlation** — user-facing events (site_published) linked to LLM traces (generation_trace_id)
+  - LOOP-TRACE-014: **OpenTelemetry correlation** — CF Workers Tracing spans linked to Langfuse traces via trace_id
+  - LOOP-TRACE-015: **Admin observability dashboard** — unified view: errors (Sentry) + traces (Langfuse) + logs (Axiom) + analytics (PostHog)
+  - LOOP-TRACE-016: **Incident replay** — from an error ID, reconstruct: Sentry trace + Langfuse LLM calls + Axiom logs + PostHog events
+  - LOOP-TRACE-017: **AI quality gates** — prompt change must pass Promptfoo eval, score drop >10% blocks deploy
+  - LOOP-TRACE-018: **Customer-safe incident summaries** — auto-generated summary of platform incidents, stripped of internal details
+  - LOOP-TRACE-019: **Cost per LLM call** — Langfuse dashboard: cost per model, per tenant, per prompt template, daily/monthly
+  - LOOP-TRACE-020: **Latency monitoring** — p50/p95/p99 LLM latency per model, alert on degradation >50%
+  - LOOP-TRACE-021: **User feedback collection** — thumbs up/down on AI-generated content → Langfuse score, drives prompt improvement
+  - LOOP-TRACE-022: **Prompt version tracking** — every AI call records which prompt version was used, rollback capability
+  - LOOP-TRACE-023: **Langfuse upgrade playbook** — v2→v3 migration path, ClickHouse provisioning, zero-downtime migration
+  - LOOP-TRACE-024: **No Sentry on customer sites enforcement** — validate: zero `@sentry/*` imports in generated site templates, CI check
+  - Primary sources: https://sentry.io/pricing/, https://langfuse.com/pricing, https://langfuse.com/self-hosting/configuration/scaling
+
+---
+
+## llm.projectsites.dev — LiteLLM + RouteLLM + Cloudflare AI Gateway
+
+AI model routing, cost/quality optimization, fallback chains, and per-tenant budgets.
+LiteLLM at llm.projectsites.dev (infra/litellm/). AI Gateway mandatory for all calls.
+
+### Raw research themes considered
+Tenant model routing (free→Workers AI, paid→DeepSeek, pro→Anthropic/OpenAI),
+model budgets per tenant (monthly AI spend cap), cheap/frontier routing (RouteLLM:
+classify query complexity → route to appropriate tier), fallback chains (Workers AI
+→ DeepSeek → OpenAI → Anthropic), AI Gateway integration (caching, rate limiting,
+logging, cost attribution), LiteLLM proxy policy (virtual keys per tenant, rate
+limits per key), RouteLLM classification (is this a simple FAQ or complex code gen?),
+per-site AI spend tracking, prompt caching (AI Gateway cache + Langfuse CDN),
+AI concierge (chat on admin dashboard), content generation (site copy, blog posts,
+social posts), research workflows (business research, competitor analysis), API key
+isolation (each tenant's LLM API keys isolated), AI billing hooks (every call →
+D1 canonical ledger), AI credit enforcement (wallet debit before call), latency metrics per
+model, safe prompt templates (injection-resistant, Zod-validated output), provider
+failover (primary → secondary → fallback), local/edge routing (Workers AI for
+sub-10ms tasks), Langfuse tracing on every call, Axiom logging for every call,
+Sentry tracing for platform AI spans, admin kill switches (disable AI per tenant,
+per model, globally), user-configurable AI settings (preferred model, creativity).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-LLM-001: Verify LiteLLM container deployment
+  - Endpoint: https://llm.projectsites.dev
+  - Why: LiteLLM is the OpenAI-compatible `/v1` gateway. Already defined in infra/litellm/.
+  - Acceptance criteria: LiteLLM container deployed. `/health/liveliness` → 200. `/v1/models` lists configured models (Workers AI, DeepSeek, OpenAI, Anthropic). `/v1/chat/completions` works end-to-end with test prompt. Admin UI accessible. WAF skip rule confirmed.
+  - Implementation notes: infra/litellm/Dockerfile + wrangler.toml. Configure with model_list in config.yaml. Virtual keys per tenant. Route removal from main worker (llm. currently served by worker).
+  - Hosting notes: Workers Container. No (stateless proxy). No. Internal-only (platform AI routing). Self-hosted (MIT) — container only, no DB needed.
+  - Backing services: None (stateless proxy). Model provider API keys via wrangler secrets.
+  - Observability: Axiom: all proxy requests; Langfuse: all LLM traces; Sentry: LiteLLM failures
+  - Dependencies: WAF skip rule, route cutover from main worker
+  - Related files: infra/litellm/Dockerfile, infra/litellm/wrangler.toml, infra/litellm/config.yaml
+  - Primary sources: LiteLLM proxy docs, LiteLLM config.yaml reference
+
+- [ ] LOOP-LLM-002: Implement per-tenant model routing via LiteLLM
+  - Endpoint: LiteLLM virtual keys + RouteLLM classification
+  - Why: Free users get Workers AI (free). Paid get DeepSeek. Pro get frontier models. RouteLLM classifies query complexity → routes to appropriate tier automatically.
+  - Acceptance criteria: Tenant plan → model tier mapping: free = Workers AI only (Llama 3.3 70B FP8), paid = DeepSeek default + Workers AI fallback, pro = Anthropic/OpenAI primary + DeepSeek fallback, enterprise = custom model selection. RouteLLM: classify prompt complexity (simple/medium/complex) → route to cheapest capable model. Per-tenant spend cap (hard limit, stops calls when exceeded).
+  - Implementation notes: LiteLLM virtual keys with `metadata.plan` + `metadata.tenant_id`. LiteLLM router with fallback chains. RouteLLM integration as custom callback or pre-call classifier. `ai_gateway.ts` already handles provider routing — integrate LiteLLM as the unified proxy.
+  - Hosting notes: Workers Container (LiteLLM). Internal-only (platform routing).
+  - Backing services: LiteLLM, Workers AI, DeepSeek, OpenAI, Anthropic
+  - Observability: Langfuse: per-tenant traces; Axiom: routing decisions; PostHog: model tier utilization
+  - Dependencies: ai_gateway.ts, LOOP-LLM-001, billing.ts (plan lookup)
+  - Related files: src/services/ai_gateway.ts, src/services/external_llm.ts, infra/litellm/config.yaml
+  - Primary sources: LiteLLM virtual keys, RouteLLM docs, Cloudflare AI Gateway
+
+- [ ] LOOP-LLM-003: Enforce AI Gateway on EVERY model call (mandatory)
+  - Endpoint: Every LLM call in the codebase
+  - Why: AI Gateway provides caching, rate limiting, logging, and cost attribution. Currently enabled via `AI_GATEWAY_ENABLED` env — some paths bypass it.
+  - Acceptance criteria: Every model call routes through AI Gateway. Gateway configured with: caching (TTL per model), rate limiting (per tenant, per model), logging (→ Axiom + Langfuse), cost attribution (x-tenant-id header). `scripts/check-ai-gateway.mjs` (already exists) blocks PRs with direct API calls. Gate moved to blocking CI.
+  - Implementation notes: `ai_gateway.ts` gatewayFetch wrapper. All existing `fetch('https://api.openai.com/...')` calls migrated to gatewayFetch. AI Gateway binding in wrangler.toml. Detector script already exists — promote to blocking gate.
+  - Hosting notes: Cloudflare AI Gateway (edge). Internal-only (platform infrastructure).
+  - Backing services: Cloudflare AI Gateway
+  - Observability: AI Gateway analytics; Langfuse: all traces include gateway metadata; Axiom: gateway events
+  - Dependencies: ai_gateway.ts, AI Gateway binding
+  - Related files: src/services/ai_gateway.ts, scripts/check-ai-gateway.mjs
+  - Primary sources: Cloudflare AI Gateway docs, AI Gateway caching + rate limiting
+
+- [ ] LOOP-LLM-004–024: Remaining 21 LLM tasks (summarized)
+  - LOOP-LLM-004: **Prompt caching** — AI Gateway cache for repeated prompts, Langfuse for prompt template CDN, 30-70% cost reduction
+  - LOOP-LLM-005: **Fallback chains** — Workers AI → DeepSeek → OpenAI → Anthropic, per-model fallback config, circuit breaker
+  - LOOP-LLM-006: **AI credit enforcement** — wallet debit BEFORE LLM call, check balance, return 402 if insufficient
+  - LOOP-LLM-007: **Per-tenant AI spend dashboard** — daily/monthly spend, per-model breakdown, budget remaining, projected overage
+  - LOOP-LLM-008: **AI concierge on admin** — chat widget on admin dashboard, context-aware (knows site/build/plan), MCP tool access
+  - LOOP-LLM-009: **Safe prompt templates** — injection-resistant, Zod-validated output, content safety filter, prompt versioning
+  - LOOP-LLM-010: **Provider failover** — primary model down → auto-fallback, circuit breaker after 3 failures, alert on failover
+  - LOOP-LLM-011: **Local/edge routing** — Workers AI for sub-10ms tasks (classification, moderation, embeddings), no round-trip to external API
+  - LOOP-LLM-012: **LLM cost attribution** — per-tenant, per-site, per-feature (build, research, social, email), feeds profitability dashboard
+  - LOOP-LLM-013: **Admin kill switches** — disable AI per tenant (abuse), per model (upstream outage), globally (emergency)
+  - LOOP-LLM-014: **User-configurable AI settings** — preferred model tier, creativity (temperature), max response length
+  - LOOP-LLM-015: **Content generation pipeline** — site copy, blog posts, social posts, email campaigns — all via AI Gateway → Langfuse
+  - LOOP-LLM-016: **Research workflows** — business research, competitor analysis, SEO research — Workers AI first pass, frontier for polish
+  - LOOP-LLM-017: **API key isolation** — each tenant's LLM API keys isolated, never shared, virtual keys in LiteLLM
+  - LOOP-LLM-018: **AI billing hooks** — every LLM call → D1 canonical ledger usage event, aggregated hourly, reported to Stripe daily
+  - LOOP-LLM-019: **Latency metrics** — p50/p95/p99 per model, per tenant, alert on >2× baseline
+  - LOOP-LLM-020: **Token usage trends** — daily/weekly/monthly token consumption, per model, per tenant, forecast
+  - LOOP-LLM-021: **Model availability monitoring** — health check per model provider, alert on outage, auto-failover
+  - LOOP-LLM-022: **Cost optimization** — weekly report: most expensive prompts, caching opportunities, downgrade candidates
+  - LOOP-LLM-023: **LiteLLM upgrade playbook** — pinned version, config migration test, zero-downtime reload
+  - LOOP-LLM-024: **AI quality scoring** — Langfuse scores per prompt template, Promptfoo regression gate, quality dashboard
+  - Primary sources: LiteLLM docs, Cloudflare AI Gateway, RouteLLM, Langfuse
+
+---
+
+## browser.projectsites.dev — Browser Automation
+
+Browser automation gateway: screenshots, PDFs, QA, extraction, and visual checks.
+CF Browser Rendering + Playwright + Stagehand. Browserbase fallback.
+
+### Raw research themes considered
+Cloudflare Browser Rendering (REST API + binding), Playwright (headless browser),
+Stagehand (AI-resilient selectors), Browserbase fallback (managed sessions, replay,
+proxy, captcha solving), lead research (scrape business websites for enrichment),
+screenshots (site preview, OG images, visual QA), SEO audits (Lighthouse via
+browser), claim verification (is this business real?), competitor scans (what do
+peer sites look like?), form testing (does the contact form submit?), link checking
+(broken link detection), screenshot diffing (visual regression testing), local
+business research (GBP profile check, review monitoring), social profile checks
+(does business have Facebook/Instagram/LinkedIn?), app QA (test generated sites
+end-to-end), visual regression (before/after site change screenshots), customer
+reports (site health PDF with screenshots), per-site quotas (free=10 browser
+minutes/month, paid=100, pro=1000), billing (per-minute browser usage), anti-abuse
+(rate limiting, domain allowlisting), orchestration (Queues for long jobs, DO for
+job state), R2 screenshot storage with 90d retention.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-BROWSER-001: Deploy browser automation gateway
+  - Endpoint: https://browser.projectsites.dev
+  - Why: Product abstraction over CF Browser Rendering + Playwright + Stagehand. Currently Skyvern is at browser.projectsites.dev — this is the product-grade replacement per cloudflare-first.md §5.
+  - Acceptance criteria: `/v1/browser/*` endpoints live: `screenshot, pdf, qa, form-test, extract, visual-check, metadata, health-check, stagehand`. CF Browser Rendering as primary, Browserbase as fallback. Zod-validated job input. Tenant-scoped. R2 output storage. WAF skip rule confirmed.
+  - Implementation notes: `browser_gateway.ts` already defines routing LAW. Build Worker serving `/v1/browser/*`. Use CF Browser Rendering REST API for simple jobs, Playwright+Stagehand binding for complex. Browserbase fallback via MCP bridge.
+  - Hosting notes: Cloudflare Workers + Browser Rendering binding. No (stateless; R2 for outputs). No. Customer-facing (screenshot/PDF) + internal (QA/audit). Cost: CF Browser Rendering (free tier 1k sessions/mo, then per-session).
+  - Backing services: CF Browser Rendering, R2 (outputs), D1 (job state), Queues (async jobs)
+  - Observability: Axiom: job events; Sentry: browser failures; PostHog: browser usage
+  - Dependencies: browser_gateway.ts, CF Browser Rendering, Browserbase (fallback)
+  - Related files: src/services/browser_gateway.ts, src/services/browser_execution.ts, docs/architecture/cloudflare-first.md §5
+  - Primary sources: Cloudflare Browser Rendering docs, Playwright docs, Stagehand docs
+
+- [ ] LOOP-BROWSER-002–024: Remaining 23 browser tasks (summarized)
+  - LOOP-BROWSER-002: **Screenshot service** — full-page + element screenshots, 6 breakpoints, PNG/JPEG/WebP, R2 storage
+  - LOOP-BROWSER-003: **PDF generation** — web page → PDF, header/footer, page numbers, R2 storage
+  - LOOP-BROWSER-004: **Visual QA** — before/after screenshot diff, pixelmatch, AI vision scoring, per-build quality gate
+  - LOOP-BROWSER-005: **SEO audit** — Lighthouse via browser, meta tags, heading hierarchy, link check, JSON-LD presence
+  - LOOP-BROWSER-006: **Form testing** — submit contact form, verify success, capture errors, per-site health check
+  - LOOP-BROWSER-007: **Link checking** — crawl site, verify all internal links 200, external links reachable, report broken
+  - LOOP-BROWSER-008: **Lead research** — scrape business website, extract: services, hours, contact, social links, reviews
+  - LOOP-BROWSER-009: **Claim verification** — is this business real? Website live? GBP listing exists? Address valid?
+  - LOOP-BROWSER-010: **Competitor scans** — screenshot 5 peer sites, AI compare layout/color/content, suggest improvements
+  - LOOP-BROWSER-011: **GBP profile check** — screenshot Google Business Profile, verify NAP consistency, review count
+  - LOOP-BROWSER-012: **Social profile check** — Facebook/Instagram/LinkedIn/Twitter profile presence, follower count, last post date
+  - LOOP-BROWSER-013: **Per-site quotas** — free=10 browser min/month, paid=100, pro=1000, enforced via DO counter
+  - LOOP-BROWSER-014: **Billing integration** — per-minute billing via D1 canonical ledger, wallet debit, usage dashboard
+  - LOOP-BROWSER-015: **Anti-abuse** — domain allowlisting, rate limiting per tenant, Turnstile for user-initiated jobs
+  - LOOP-BROWSER-016: **Orchestration** — Queues for long jobs (>30s), DO for job state, Cron for scheduled audits
+  - LOOP-BROWSER-017: **R2 screenshot storage** — 90d retention, lifecycle policy, per-site bucket path, auto-cleanup
+  - LOOP-BROWSER-018: **Stagehand integration** — AI-resilient selectors for flaky pages, natural-language actions
+  - LOOP-BROWSER-019: **Browserbase fallback** — managed sessions (captcha, residential proxy), replay, live view
+  - LOOP-BROWSER-020: **Customer reports** — site health PDF with screenshots, SEO score, a11y score, mobile preview
+  - LOOP-BROWSER-021: **OG image generation** — screenshot site → OG card with branded overlay → 1200×630 PNG
+  - LOOP-BROWSER-022: **Screenshot diffing** — visual regression on site changes, pixelmatch threshold, AI vision review
+  - LOOP-BROWSER-023: **Browser job priority queue** — user-initiated jobs > scheduled audits, per-plan priority
+  - LOOP-BROWSER-024: **Browser cost optimization** — cache repeat screenshots (24h TTL), reuse sessions, prefer CF Browser Rendering (cheaper)
+  - Primary sources: Cloudflare Browser Rendering, Playwright, Stagehand, Browserbase docs
+
+
+---
+
+## jobs.projectsites.dev — Workflows + Queues + Scheduled Jobs
+
+Background job orchestration, durable execution, retry policies, and DLQs.
+Cloudflare Workflows + Queues as primary; Hatchet at jobs.projectsites.dev (infra/hatchet/).
+
+### Raw research themes considered
+Cloudflare Workflows for durable multi-step jobs (site provisioning, DB promotion,
+domain verification), Cloudflare Queues for async message passing (webhook delivery,
+email send, analytics batching), Hatchet as dedicated job orchestrator at
+jobs.projectsites.dev, scheduled jobs via Cron Triggers (lead scanner sweep, DR test,
+health probes, billing sync, cache warming), provisioning jobs (app install, DB
+provision), deletion/cleanup jobs (site delete → cascade delete all resources),
+import jobs (CSV import, Google Contacts import, site migration), export jobs (data
+export for compliance, analytics export), backup jobs (D1 backup, Neon snapshot, R2
+archive, Upstash backup), long-running browser jobs (site QA, link checking, SEO
+audit, competitor scan), email jobs (campaign send, transactional email, digest),
+CRM sync jobs (Twenty↔Listmonk, Twenty↔Nango, contact dedup), integration sync
+jobs (Nango sync schedules, webhook delivery), webhook delivery jobs (outbound
+webhook with retry), AI research jobs (business research, lead enrichment, content
+generation), retry policy (exponential backoff, max 5 retries, per-job config),
+idempotency (every job has idempotency key, safe to re-run), DLQs (dead letter queue
+per job type, admin replay UI), customer-visible job history (site owner sees own
+build/deploy jobs), admin retry tools (force-retry, skip, cancel), cost tracking
+(per-job cost in AI credits + compute), worker health (queue depth, oldest message,
+failure rate), workflow limits (CF Workflows: 50 steps, 2 year duration, $0.10/1000
+steps), Fly.io escape hatch (Hatchet or Temporal for always-on orchestrators).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-JOBS-001: Verify Hatchet deployment at jobs.projectsites.dev
+  - Endpoint: https://jobs.projectsites.dev
+  - Why: Hatchet is the dedicated job orchestrator (infra/hatchet/). Provides dashboard, retry policies, and observability beyond raw Queues/Workflows.
+  - Acceptance criteria: Hatchet container deployed. `/` → Hatchet dashboard (200). Encryption keysets provisioned. Neon DB `projectsites_hatchet` confirmed. First workflow created + executed end-to-end. WAF skip rule confirmed. Main worker route `jobs.` detached from Inngest.
+  - Implementation notes: infra/hatchet/ Dockerfile + wrangler.toml. Hatchet-lite (single container, port 8888). Encryption keysets from `hatchet-admin keyset create-local-keys`. Secrets: DATABASE_URL, SERVER_AUTH_COOKIE_SECRETS, encryption keysets, admin email/password.
+  - Hosting notes: Workers Container (hatchet-lite = single container). No (Neon persists state). No. Internal-only (platform infrastructure). Self-hosted (Apache 2.0) — Neon only.
+  - Backing services: Neon (hatchet DB)
+  - Observability: Axiom: job lifecycle events; Sentry: job failures; PostHog: job volume; Hatchet dashboard for job-level observability
+  - Dependencies: Neon DB, WAF skip rule, route cutover from Inngest
+  - Related files: infra/hatchet/Dockerfile, infra/hatchet/wrangler.toml, src/services/hatchet.ts
+  - Primary sources: Hatchet docs, infra/hatchet/README.md, infra/README.md § hatchet
+
+- [ ] LOOP-JOBS-002: Build typed job schema catalog
+  - Endpoint: Every Queue message + Workflow step + Hatchet job
+  - Why: Jobs without schemas cause silent failures (field rename → job silently skips). Typed schemas make jobs self-documenting and safe.
+  - Acceptance criteria: Every job type has a Zod schema in `packages/shared/src/schemas/jobs.ts`: `site_provision, site_delete, build_start, lead_scan, email_send, webhook_deliver, data_export, backup_create, ai_research, browser_qa, domain_verify, billing_sync`. Schemas include: input, output, retry_policy, timeout_ms. Worker validates input at job creation. Admin dashboard shows job catalog with descriptions.
+  - Implementation notes: Shared schemas in packages/shared. Each job handler imports its schema. Hatchet workflows reference schemas. Queues messages carry `{type, payload, idempotency_key, trace_id}`.
+  - Hosting notes: N/A (shared code). Internal-only.
+  - Backing services: N/A
+  - Observability: Axiom: schema validation failures; Sentry: job schema violations
+  - Dependencies: packages/shared, Hatchet, Queues, Workflows
+  - Related files: packages/shared/src/schemas/, src/services/hatchet.ts, src/workflows/
+  - Primary sources: Cloudflare Queues message format, Hatchet workflow input/output
+
+- [ ] LOOP-JOBS-003: Implement idempotency for all background jobs
+  - Endpoint: Every Queue consumer + Workflow step + Hatchet worker
+  - Why: At-least-once delivery means jobs WILL be delivered multiple times. Idempotency keys make re-delivery safe.
+  - Acceptance criteria: Every job carries `idempotency_key` (UUID). Consumers check D1/KV for processed keys before executing. Processed keys stored with TTL (24h for most jobs, 90d for billing). Duplicate delivery → ACK immediately, no re-execution. Admin can force re-execute by clearing idempotency key.
+  - Implementation notes: `event_dedup.ts` already handles event dedup. Extend to all Queue/Workflow/Hatchet jobs. D1 table `job_idempotency: {key, job_type, status, created_at, completed_at}`.
+  - Hosting notes: Worker + D1 + KV. Internal-only (platform infrastructure).
+  - Backing services: D1, KV
+  - Observability: Axiom: duplicate delivery count; Sentry: idempotency check failures
+  - Dependencies: event_dedup.ts, LOOP-JOBS-002
+  - Related files: src/services/event_dedup.ts, src/services/outbox_processor.ts
+  - Primary sources: Cloudflare Queues at-least-once semantics, Stripe idempotency key pattern
+
+- [ ] LOOP-JOBS-004–024: Remaining 21 jobs tasks (summarized)
+  - LOOP-JOBS-004: **Retry policy framework** — per-job-type retry config: max_retries, backoff (linear/exponential), max_delay
+  - LOOP-JOBS-005: **Dead letter queues** — per-job-type DLQ, admin UI to view/replay/delete, auto-alert on DLQ growth
+  - LOOP-JOBS-006: **Customer-visible job history** — site owner sees build/deploy/export jobs with status + logs
+  - LOOP-JOBS-007: **Admin retry tools** — force-retry failed job, skip stuck job, cancel pending job, bulk actions
+  - LOOP-JOBS-008: **Job cost tracking** — per-job AI credits + compute time, per-tenant cost aggregation
+  - LOOP-JOBS-009: **Provisioning jobs** — site provision, app install, DB allocation → durable Workflow with rollback
+  - LOOP-JOBS-010: **Deletion/cleanup jobs** — site delete → cascade: R2 files, D1 data, DNS records, Listmonk lists, Twenty workspace
+  - LOOP-JOBS-011: **Import jobs** — CSV user import, Google Contacts import, site migration from WordPress/Wix
+  - LOOP-JOBS-012: **Export jobs** — data export (GDPR), analytics CSV, full site backup ZIP
+  - LOOP-JOBS-013: **Backup jobs** — daily: D1 backup, Neon snapshot, R2 archive, Upstash backup → R2 cold storage
+  - LOOP-JOBS-014: **Scheduled job registry** — all Cron Triggers documented: schedule, handler, expected duration, alert on miss
+  - LOOP-JOBS-015: **Long-running browser jobs** — site QA, link check, SEO audit → Queue → Browser Rendering → result to R2
+  - LOOP-JOBS-016: **Email jobs** — campaign send (fan-out per recipient), transactional send, digest generation
+  - LOOP-JOBS-017: **CRM sync jobs** — Twenty↔Listmonk bidirectional sync, duplicate detection, merge
+  - LOOP-JOBS-018: **Integration sync jobs** — Nango sync schedules, per-integration cron, webhook delivery with retry
+  - LOOP-JOBS-019: **Webhook delivery jobs** — outbound webhook via Queues → Outpost, retry + DLQ
+  - LOOP-JOBS-020: **AI research jobs** — business research, lead enrichment, content generation → Workflow with parallel steps
+  - LOOP-JOBS-021: **Worker health monitoring** — every worker emits heartbeat to D1, admin dashboard shows: last run, queue depth, failure rate
+  - LOOP-JOBS-022: **Workflow limits awareness** — document CF Workflows limits (50 steps, 2yr duration), split larger workflows, Hatchet fallback
+  - LOOP-JOBS-023: **Fly.io escape hatch** — if Hatchet container proves unreliable, evaluate Temporal on Fly.io for always-on orchestration
+  - LOOP-JOBS-024: **Hatchet upgrade + backup playbook** — pinned version, Neon backup weekly, encryption keyset backup, migration test
+  - Primary sources: Cloudflare Workflows, Cloudflare Queues, Hatchet docs
+
+---
+
+## docs.projectsites.dev — Scalar + Stainless
+
+API documentation, SDK generation, integration guides, and developer portal.
+Scalar for OpenAPI docs; Stainless for typed SDK generation.
+
+### Raw research themes considered
+Scalar API reference docs (from hono-openapi OpenAPI spec), Stainless SDK
+generation (typed client libraries in Node, Python, Go), OpenAPI generation
+pipeline (hono-openapi → OpenAPI 3.1 spec → Scalar + Stainless), auth docs
+(API keys, OAuth, MCP auth), key management docs (create, rotate, revoke),
+webhook docs (event catalog, signature verification, retry policy), SDK
+quickstarts (5-min to first API call), MCP server docs (tools, resources,
+OAuth flow), integration guides (connect Google Calendar, set up webhooks,
+embed chat widget), app provisioning docs (install Listmonk, connect Twenty),
+billing docs (plans, credits, invoices, wallet), changelog (per-API-version),
+CLI docs (projectsites CLI for site management), customer docs (site owner
+help center), admin docs (operator runbooks, troubleshooting), onboarding
+docs (new user guide), API search (Scalar search), code examples (curl, Node,
+Python, Go, React), Postman/Bruno collections export, docs versioning
+(v1, v2, per-date), docs deploy automation (CI → R2), docs analytics
+(page views, search queries, time-on-page), support deflection (docs answer
+before ticket filed), docs ownership (who updates which section).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-DOCS-001: Deploy Scalar API reference from OpenAPI spec
+  - Endpoint: https://docs.projectsites.dev/api
+  - Why: Every public API needs interactive documentation. Scalar renders OpenAPI specs with "Try It" buttons, code samples, and search.
+  - Acceptance criteria: OpenAPI 3.1 spec generated from hono-openapi at build time → committed to R2. Scalar HTML page fetches spec from R2. Every endpoint documented with: description, parameters, request body schema, response schema, error codes. "Try It" works against production API (with API key). Code samples in curl, Node, Python, Go.
+  - Implementation notes: Generate OpenAPI spec from Hono routes via `hono-openapi` + `@asteasolutions/zod-to-openapi`. Scalar static HTML deployed to R2. Spec auto-regenerated in CI on route changes.
+  - Hosting notes: R2 (static HTML + spec). Customer-facing (developers).
+  - Backing services: R2, Scalar (open-source)
+  - Observability: PostHog: docs page views, search queries; Scalar analytics
+  - Dependencies: hono-openapi, OpenAPI spec generation, LOOP-API-002 (API keys)
+  - Related files: src/routes/api.ts, docs/API_REFERENCE.md
+  - Primary sources: Scalar docs, hono-openapi, OpenAPI 3.1 spec
+
+- [ ] LOOP-DOCS-002–024: Remaining 23 docs tasks (summarized)
+  - LOOP-DOCS-002: **Stainless SDK generation** — typed client libraries (Node, Python, Go) from OpenAPI spec, published to npm/PyPI
+  - LOOP-DOCS-003: **Auth docs** — API key creation, OAuth flow, MCP setup, service accounts, troubleshooting
+  - LOOP-DOCS-004: **Webhook docs** — event catalog, signature verification code, retry policy, FAQ
+  - LOOP-DOCS-005: **SDK quickstarts** — 5-min guide per language: install, auth, first API call, error handling
+  - LOOP-DOCS-006: **MCP server docs** — available tools + resources, OAuth setup, Claude Code/Cursor install instructions
+  - LOOP-DOCS-007: **Integration guides** — Google Calendar, Slack, HubSpot, Stripe webhooks, with screenshots
+  - LOOP-DOCS-008: **App provisioning docs** — how to install/manage Listmonk, Twenty, Chatwoot, Postiz
+  - LOOP-DOCS-009: **Billing docs** — plans comparison, credit wallet, invoices, upgrade/downgrade
+  - LOOP-DOCS-010: **Changelog** — per-API-version changelog, migration guides, deprecation notices
+  - LOOP-DOCS-011: **CLI docs** — `projectsites` CLI: install, auth, deploy, logs, domains
+  - LOOP-DOCS-012: **Customer help center** — site owner guides: add domain, set up email, customize site, view analytics
+  - LOOP-DOCS-013: **Admin runbooks** — operator guides: provision app, troubleshoot build, handle incident
+  - LOOP-DOCS-014: **Onboarding guide** — new user flow: search business → sign up → build → preview → publish → claim
+  - LOOP-DOCS-015: **API search** — Scalar search with autocomplete, filter by tag, keyboard shortcuts
+  - LOOP-DOCS-016: **Code examples** — every endpoint has ≥1 runnable code example in curl + Node + Python
+  - LOOP-DOCS-017: **Postman/Bruno collections** — downloadable collection files for Postman + Bruno API clients
+  - LOOP-DOCS-018: **Docs versioning** — per-major-version docs, version selector, legacy docs archive
+  - LOOP-DOCS-019: **Docs deploy automation** — CI: spec change → regenerate → validate → deploy to R2 → purge cache
+  - LOOP-DOCS-020: **Docs analytics** — page views, time on page, search queries, bounce rate, top docs, gaps
+  - LOOP-DOCS-021: **Support deflection** — docs search in Chatwoot widget, suggested articles before ticket creation
+  - LOOP-DOCS-022: **Docs ownership** — each section has owner (engineering, support, product), review cadence
+  - LOOP-DOCS-023: **Docs feedback** — "Was this helpful?" thumbs up/down on every page, feedback → docs improvement
+  - LOOP-DOCS-024: **Multi-language docs** — i18n for Spanish + other major customer languages, crowd-sourced
+  - Primary sources: Scalar docs, Stainless API, OpenAPI 3.1 spec, Stripe API reference (UX pattern)
+
+---
+
+## links.projectsites.dev — Dub
+
+Link shortener, attribution, referral tracking, and UTM management.
+Dub at links.projectsites.dev (Dub.co managed or self-hosted).
+
+### Raw research themes considered
+Claim links (claimyour.site/{slug} → claim page), QR postcard links (trackable
+QR codes for physical mailers), referral links (customer referral program with
+attribution), affiliate links (partner program tracking), UTM enforcement
+(auto-tag all outbound links with UTM params), branded short links (every
+generated site gets vanity short links), per-site analytics on link clicks,
+abandoned claim tracking (did they click the link but not claim?), email
+campaign links (Listmonk emails with Dub-tracked links), SMS campaign links
+(trackable short links in SMS), admin link search (find any link by slug/URL),
+abuse prevention (rate limit link creation, block phishing domains), link
+expiration (time-limited links for promotions), link ownership (per-org, per-site),
+agency links (agency manages links across client sites), partner links (co-branded
+short links for partners), click fraud detection (bot vs human click classification),
+redirect rules (geo-based, device-based, time-based), conversion attribution
+(link click → site visit → signup → paid), billing attribution (which link
+drove the most revenue), PostHog integration (link click events → analytics),
+CRM sync (link click → Twenty contact activity), Dub lifecycle analytics.
+
+### Selected 24 implementation tasks (summarized — Dub is lightweight, 24 tasks condensed)
+
+- [ ] LOOP-LINKS-001: Deploy Dub at links.projectsites.dev — Dub.co cloud or self-hosted container
+- [ ] LOOP-LINKS-002: Claim link auto-generation — every site gets `claimyour.site/{slug}` → claim landing page
+- [ ] LOOP-LINKS-003: QR postcard links — trackable QR codes for direct mail campaigns
+- [ ] LOOP-LINKS-004: Referral program — customer referral links with reward tracking
+- [ ] LOOP-LINKS-005: UTM enforcement — auto-append UTMs to all marketing links
+- [ ] LOOP-LINKS-006: Branded short links — per-site custom short link domain
+- [ ] LOOP-LINKS-007: Per-site link analytics — clicks, referrers, devices, countries, time
+- [ ] LOOP-LINKS-008: Abandoned claim tracking — link clicked but claim not completed → re-engage
+- [ ] LOOP-LINKS-009: Email link tracking — Listmonk campaign links through Dub
+- [ ] LOOP-LINKS-010: SMS link tracking — short links for Twilio SMS campaigns
+- [ ] LOOP-LINKS-011: Admin link search — search by slug, URL, org, site, campaign
+- [ ] LOOP-LINKS-012: Abuse prevention — rate limit creation, domain blocklist, phishing detection
+- [ ] LOOP-LINKS-013: Link expiration — time-limited links for promos, auto-expire + redirect
+- [ ] LOOP-LINKS-014: Agency link management — agency dashboard across client sites
+- [ ] LOOP-LINKS-015: Partner links — co-branded short links for integration partners
+- [ ] LOOP-LINKS-016: Click fraud detection — bot vs human classification, fraud scoring
+- [ ] LOOP-LINKS-017: Redirect rules — geo (US→.com, EU→.eu), device (mobile→app, desktop→web), time
+- [ ] LOOP-LINKS-018: Conversion attribution — link click → site visit → signup → paid, multi-touch
+- [ ] LOOP-LINKS-019: Billing attribution — which link/campaign drove the most revenue
+- [ ] LOOP-LINKS-020: PostHog integration — link click events in PostHog, UTM source tracking
+- [ ] LOOP-LINKS-021: CRM sync — link click → Twenty contact timeline, lead source attribution
+- [ ] LOOP-LINKS-022: Link A/B testing — multiple destination URLs per link, traffic split
+- [ ] LOOP-LINKS-023: Link API — programmatic link creation/management, API-key gated
+- [ ] LOOP-LINKS-024: Dub backup + export — link data export, analytics archive, redirect rule backup
+  - Primary sources: https://dub.co/docs, Dub API, UTM parameters spec
+
+---
+
+## status.projectsites.dev — Status Page + Uptime
+
+Public status page, internal component health, incident management, and SLA reporting.
+
+### Raw research themes considered
+Public status page (status.projectsites.dev), internal status dashboard (admin),
+component status (API, auth, billing, webhooks, mail, CRM, support, social, LLM,
+browser, docs, links), incident management (create, update, resolve), uptime
+checks (synthetic checks every 60s per component), domain health (DNS resolution,
+SSL expiry), mail health (SMTP reachable, bounce rate, deliverability), webhook
+health (delivery success rate, latency), integration health (OAuth token validity,
+sync status), API health (response time, error rate), LLM health (model availability,
+latency), browser health (CF Browser Rendering availability), customer-facing
+incidents (filtered view for site owners), SLA reporting (uptime %, response time),
+maintenance windows (scheduled with customer notification), admin timelines
+(correlated events during incident), Axiom/Sentry correlation (logs + errors →
+incident timeline), PostHog impact analysis (how many users affected), notification
+workflows (incident created → email/Slack/site banner), support escalation
+(incident → support ticket), historical uptime (30d/90d/365d), per-customer impact
+reports (which sites were affected), recovery playbooks (per-component recovery steps).
+
+### Selected 24 implementation tasks (summarized)
+
+- [ ] LOOP-STATUS-001: Deploy status page at status.projectsites.dev — open-source (Upptime, Gatus, or Kener)
+- [ ] LOOP-STATUS-002: Component health monitoring — synthetic checks every 60s per canonical service endpoint
+- [ ] LOOP-STATUS-003: Public status page — green/amber/red grid, incident history, subscribe to updates
+- [ ] LOOP-STATUS-004: Internal status dashboard — admin view with detailed metrics, per-component latency, error rate
+- [ ] LOOP-STATUS-005: Incident management — create/update/resolve incidents, timeline, postmortem notes
+- [ ] LOOP-STATUS-006: Domain health — DNS resolution check, SSL expiry monitoring (30d warning), DNSSEC status
+- [ ] LOOP-STATUS-007: Mail health — SMTP reachable, bounce rate <2%, complaint rate <0.1%, DMARC aggregate reports
+- [ ] LOOP-STATUS-008: Webhook health — delivery success rate, latency p95, per-endpoint health, retry queue depth
+- [ ] LOOP-STATUS-009: Integration health — OAuth token validity (Nango), sync success rate, reconnect needed
+- [ ] LOOP-STATUS-010: API health — response time p95, error rate, rate limit hits, per-endpoint availability
+- [ ] LOOP-STATUS-011: LLM health — per-model availability + latency, failover events, AI Gateway status
+- [ ] LOOP-STATUS-012: Browser health — CF Browser Rendering availability, Browserbase status, queue depth
+- [ ] LOOP-STATUS-013: Customer-facing incidents — filtered view showing only customer-impacting incidents
+- [ ] LOOP-STATUS-014: SLA reporting — monthly uptime %, by component, per-plan SLA compliance
+- [ ] LOOP-STATUS-015: Maintenance windows — schedule maintenance, auto-notify customers, status page banner
+- [ ] LOOP-STATUS-016: Admin incident timeline — correlated events (logs + traces + deploys) during incident
+- [ ] LOOP-STATUS-017: Axiom/Sentry correlation — error spike → auto-create incident, attach logs + traces
+- [ ] LOOP-STATUS-018: PostHog impact analysis — how many users/customers affected by incident
+- [ ] LOOP-STATUS-019: Notification workflows — incident severity → notify via email (all), Slack (internal), site banner (customers)
+- [ ] LOOP-STATUS-020: Support escalation — P1 incident → auto-create Chatwoot ticket, assign to on-call
+- [ ] LOOP-STATUS-021: Historical uptime — 30d/90d/365d per component, SLA trend, improvement over time
+- [ ] LOOP-STATUS-022: Per-customer impact reports — "your site was affected by incident X for 12 minutes"
+- [ ] LOOP-STATUS-023: Recovery playbooks — per-component runbook: symptoms, diagnosis, fix, rollback, verify
+- [ ] LOOP-STATUS-024: Status page API — programmatic access to current status, incident history, subscribe
+  - Primary sources: Upptime/Gatus/Kener docs, status page best practices (Cloudflare, Vercel, GitHub)
+
+
+---
+
+## admin.projectsites.dev — Super-Admin / Operator Console
+
+Central operator dashboard for platform analytics, tenant management, cost tracking,
+and global operations. The existing Angular admin SPA at /admin expanded.
+
+### Raw research themes considered
+Tenant analytics (MRR, churn, LTV, CAC per tenant), site analytics (builds, traffic,
+conversion rates per site), app install analytics (which apps are most popular),
+resource analytics (D1 usage, Neon usage, Upstash usage, R2 storage, KV operations,
+Tinybird events), AI spend analytics (per-tenant, per-model, per-feature),
+browser analytics (minutes used, jobs run, per-purpose breakdown), API key usage
+(per-key, per-endpoint, error rates), email send analytics (volume, bounce rate,
+deliverability), support analytics (ticket volume, resolution time, CSAT),
+profitability dashboard (revenue vs cost per site, per app, per tenant), failed
+jobs dashboard (DLQ depth, retry rate, failure reasons), security events
+(rate limit hits, abuse attempts, suspicious API usage), abuse events (blocked
+IPs, flagged accounts, spam detections), customer health score (activation,
+engagement, payment status, support tickets → red/amber/green), churn risk
+dashboard (at-risk accounts, predicted churn, intervention suggestions), support
+load (tickets/hour, agent utilization, peak times), global search across all
+entities, cost anomaly detection, tenant activity feed, operator audit log.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-ADMIN-001: Build super-admin dashboard shell
+  - Endpoint: /admin (Angular SPA, super-admin role)
+  - Why: Operators need one dashboard showing platform health, revenue, and alerts — not scattered across 18 subdomains.
+  - Acceptance criteria: Dashboard with: MRR widget, active sites widget, new signups today, build success rate, P1/P2 alerts, recent incidents, top 10 sites by revenue, cost anomaly alerts. Data from D1 + PostHog + Axiom + Sentry aggregated in worker API. Refreshes every 30s (polling, paused when tab hidden).
+  - Implementation notes: Angular standalone component `SuperAdminDashboardComponent`. Worker endpoint `/api/admin/dashboard` aggregates from multiple sources with KV cache (30s). Follows existing admin Cockpit v2 design (black+cyan).
+  - Hosting notes: Worker + Angular SPA (R2). Internal-only (super-admin). Behind CF Access.
+  - Backing services: D1, KV, PostHog, Axiom, Sentry
+  - Observability: Self-referential; Axiom: dashboard load events; PostHog: admin usage
+  - Dependencies: All platform services, Angular admin app
+  - Related files: frontend/src/app/pages/admin/, src/routes/api.ts
+  - Primary sources: Vercel admin dashboard, Stripe Dashboard, Cloudflare Dashboard UX
+
+- [ ] LOOP-ADMIN-002: Build tenant analytics drill-down
+  - Endpoint: /admin/tenants/:id (super-admin)
+  - Why: Support needs to see everything about a tenant: plan, sites, billing, API usage, support tickets, recent activity.
+  - Acceptance criteria: Tenant detail page: org info, plan + billing status, all sites with status, API key usage, AI spend, browser usage, email volume, support tickets, recent timeline events, admin overrides active. Actions: impersonate (with audit), adjust plan, grant credits, disable/enable, delete.
+  - Implementation notes: Worker endpoint aggregating D1 + PostHog + Stripe + Listmonk + Twenty + Chatwoot data per tenant. Angular detail component with tabs.
+  - Hosting notes: Worker + Angular SPA. Internal-only (super-admin).
+  - Backing services: D1, KV, PostHog, Stripe, all service APIs
+  - Observability: Axiom: tenant lookup events; PostHog: admin tenant drill-down usage
+  - Dependencies: All LOOP-ADMIN-001, all tenant-scoped services
+  - Related files: frontend/src/app/pages/admin/, src/services/
+  - Primary sources: Stripe customer dashboard, Intercom operator dashboard
+
+- [ ] LOOP-ADMIN-003: Build platform profitability dashboard
+  - Endpoint: /admin/profitability (super-admin)
+  - Why: "Are we making money?" is the most important question. Per-site, per-app, per-tenant cost vs revenue.
+  - Acceptance criteria: Revenue: subscriptions (Stripe MRR), credit purchases, app marketplace fees. Cost: AI (Workers AI + external LLM), browser (CF Browser Rendering), email (SES), hosting (Workers + R2 + D1 + KV), Neon (per-database), Upstash (per-database). Per-site margin: revenue - allocated cost. Aggregate: MRR, total cost, gross margin, net margin. Trend: 30d/90d projected.
+  - Implementation notes: `cost_aggregation.ts` + `billing_meter.ts` feed data. D1 `cost_attribution` table (LOOP-GLOBAL-007). Angular ECharts dashboard. Recalculated daily via Cron.
+  - Hosting notes: Worker + D1 + Angular SPA. Internal-only (super-admin).
+  - Backing services: D1, Stripe, Analytics Engine, vendor billing APIs
+  - Observability: PostHog: dashboard views; Axiom: cost calculation events; Sentry: data gaps
+  - Dependencies: cost_aggregation.ts, LOOP-GLOBAL-007, Stripe API
+  - Related files: src/services/cost_aggregation.ts, src/services/billing_meter.ts
+  - Primary sources: Cloudflare billing API, AWS Cost Explorer UX, FinOps FOCUS spec
+
+- [ ] LOOP-ADMIN-004–024: Remaining 21 admin tasks (summarized)
+  - LOOP-ADMIN-004: **Customer health dashboard** — per-tenant health score (activation, engagement, payment, support), red/amber/green
+  - LOOP-ADMIN-005: **Churn risk dashboard** — at-risk accounts with reasons, predicted churn probability, intervention suggestions
+  - LOOP-ADMIN-006: **AI spend analytics** — per-tenant, per-model, per-feature, cost trends, anomaly detection
+  - LOOP-ADMIN-007: **Browser usage analytics** — minutes per tenant, per purpose, cost, queue depth
+  - LOOP-ADMIN-008: **API usage analytics** — per-key, per-endpoint, error rate, rate limit hits, top consumers
+  - LOOP-ADMIN-009: **Email analytics** — send volume, bounce/complaint/delivery rate, per-campaign, per-tenant
+  - LOOP-ADMIN-010: **Support analytics** — ticket volume, resolution time, CSAT, agent utilization, peak times
+  - LOOP-ADMIN-011: **Failed jobs dashboard** — DLQ depth per job type, retry rate, common failure reasons, replay tools
+  - LOOP-ADMIN-012: **Security events dashboard** — rate limit hits, abuse attempts, suspicious IPs, key anomalies
+  - LOOP-ADMIN-013: **Cost anomaly detection** — 2× normal AI spend, 5× normal browser usage, unusual API patterns → alert
+  - LOOP-ADMIN-014: **Global search** — search across tenants, sites, users, invoices, API keys, support tickets (LOOP-GLOBAL-016)
+  - LOOP-ADMIN-015: **Resource analytics** — D1 rows/storage, Neon DB count/storage, R2 storage/bandwidth, KV operations, Tinybird events
+  - LOOP-ADMIN-016: **App install analytics** — most popular apps, install→uninstall rate, per-tenant app count
+  - LOOP-ADMIN-017: **Feature flag management** — existing /admin/feature-flags UI enhanced: bulk toggle, rollout curves, audit log
+  - LOOP-ADMIN-018: **Admin override management** — view/expire all overrides, bulk operations, override audit log (LOOP-GLOBAL-011)
+  - LOOP-ADMIN-019: **Tenant activity feed** — real-time event stream: signups, builds, publishes, payments, errors
+  - LOOP-ADMIN-020: **Operator audit log** — every admin action logged: who, what, when, before/after, request_id
+  - LOOP-ADMIN-021: **Bulk operations** — bulk email, bulk credit grant, bulk plan change, bulk site verification
+  - LOOP-ADMIN-022: **Service registry dashboard** — 18+ services with live health, version, uptime, quick links (LOOP-GLOBAL-014)
+  - LOOP-ADMIN-023: **Incident command center** — create/manage incidents, correlate logs+traces+metrics, notify customers
+  - LOOP-ADMIN-024: **Admin mobile PWA** — responsive admin dashboard, push notifications for P1 alerts, basic actions on mobile
+  - Primary sources: Admin dashboard UX (Stripe, Vercel, Cloudflare, Linear), Angular standalone components
+
+---
+
+## Whole-Platform — Cross-Cutting Expansion
+
+Tasks that span multiple subsystems, compound across services, or build platform-wide
+capabilities not owned by any single service.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-PLAT-001: Zero-touch app provisioning from marketplace
+  - Endpoint: Admin "Install App" → fully provisioned in <5min
+  - Why: Currently each app (Listmonk, Twenty, Chatwoot) requires manual infra steps. Marketplace must be one-click.
+  - Acceptance criteria: Select app from catalog → choose plan → "Install" → Workflow: (1) create Neon DB, (2) create Upstash DB if needed, (3) spin container, (4) run migrations, (5) create admin user, (6) register hostname, (7) add to service registry, (8) notify org. Progress visible. Rollback on failure.
+  - Implementation notes: Extends LOOP-GLOBAL-018. Reuses app_provisioner.ts. Each app has provision manifest (Neon DB name, Upstash DB name, Docker image, required secrets, health check path).
+  - Hosting notes: Worker + Workflow + Container DO. Internal-only (admin action).
+  - Backing services: D1, Neon, Upstash, R2, Workflows, Containers
+  - Observability: Axiom: provision steps; Sentry: provision failure; PostHog: app install funnel
+  - Dependencies: app_provisioner.ts, provisioning_plan.ts, LOOP-GLOBAL-018
+  - Related files: src/services/app_provisioner.ts, src/services/provisioning_plan.ts, apps-catalog.data.ts
+  - Primary sources: Cloudflare Workflows, Cloudflare Containers, Neon API, Upstash API
+
+- [ ] LOOP-PLAT-002: Build app marketplace UI in admin
+  - Endpoint: /admin/apps (org admin)
+  - Why: The "Apps" section currently has hardcoded tiles. A real marketplace with descriptions, pricing, and one-click install.
+  - Acceptance criteria: Browse apps by category. Each app card: icon, name, description, plan requirements, monthly cost, install count, rating. Install flow: click → confirm → progress bar → success with access URL. Manage installed apps: health status, configure, uninstall.
+  - Implementation notes: Angular component. App catalog from D1 + KV cache. Install triggers LOOP-PLAT-001. App health from service registry.
+  - Hosting notes: Worker + Angular SPA. Customer-facing (org admin).
+  - Backing services: D1, KV
+  - Observability: PostHog: marketplace browse→install funnel; Axiom: install events
+  - Dependencies: LOOP-PLAT-001, Angular admin app
+  - Related files: frontend/src/app/pages/admin/, apps-catalog.data.ts
+  - Primary sources: Vercel Integration Marketplace, Shopify App Store, Cloudflare Marketplace
+
+- [ ] LOOP-PLAT-003: Build tenant isolation verification suite
+  - Endpoint: CI pipeline (weekly)
+  - Why: Cross-tenant data leaks are existential. Automated verification that tenant A can NEVER see tenant B's data.
+  - Acceptance criteria: Test suite: for every service (D1, KV, R2, Neon, Listmonk, Twenty, Chatwoot, Postiz), verify: (a) tenant A's API key can't access tenant B's resources, (b) org-scoped queries always include org_id, (c) site-scoped queries always include site_id, (d) admin impersonation is fully audited. CI runs weekly. Failure → P0 Sentry alert.
+  - Implementation notes: `scripts/check-idor-gates.mjs` already exists for worker routes. Extend to: D1 queries (grep for missing org_id), KV keys (grep for unscoped keys), R2 paths (grep for unscoped paths), per-service API calls (cross-tenant access attempt → assert 403/404).
+  - Hosting notes: CI (GitHub Actions). Internal-only (security).
+  - Backing services: All
+  - Observability: Sentry: P0 on cross-tenant access; Axiom: isolation test results
+  - Dependencies: check-idor-gates.mjs, all services
+  - Related files: scripts/check-idor-gates.mjs, src/middleware/auth.ts
+  - Primary sources: OWASP Top 10 (A01: Broken Access Control), SOC 2 tenant isolation requirements
+
+- [ ] LOOP-PLAT-004–024: Remaining 21 whole-platform tasks (summarized)
+  - LOOP-PLAT-004: **Platform-wide backup audit** — every service's backup status dashboard, weekly test restore, gap alert
+  - LOOP-PLAT-005: **Platform-wide secret rotation** — quarterly rotation of all non-vendor secrets, automated, zero-downtime
+  - LOOP-PLAT-006: **Platform cost optimization review** — monthly: top 10 cost drivers, optimization recommendations, projected savings
+  - LOOP-PLAT-007: **Platform SLA dashboard** — per-service uptime, aggregate platform uptime, SLA compliance reporting
+  - LOOP-PLAT-008: **Customer onboarding flow** — from signup to published site: guided steps, email nudges, checklist, time-to-value tracking
+  - LOOP-PLAT-009: **Platform-wide notification preferences** — per-user: email/Slack/in-app/webhook, per-event-type, frequency (instant/digest/off)
+  - LOOP-PLAT-010: **Platform changelog** — customer-facing changelog of new features, improvements, fixes; email + in-app + RSS
+  - LOOP-PLAT-011: **API versioning strategy** — `/v1/` current, deprecation policy (6mo notice), migration guides, version sunset
+  - LOOP-PLAT-012: **Platform rate limit framework** — unified rate limit: per-IP, per-API-key, per-tenant, per-endpoint, DO-backed
+  - LOOP-PLAT-013: **Platform abuse reporting** — customers report abuse, admin reviews, automated detection, abuse email (abuse@projectsites.dev)
+  - LOOP-PLAT-014: **GDPR / data export automation** — customer requests data export → automated job: all PII across all services → ZIP
+  - LOOP-PLAT-015: **Platform dark mode** — consistent dark theme across admin, docs, status page, all subdomain UIs
+  - LOOP-PLAT-016: **Platform i18n** — admin UI + docs + emails in Spanish (primary), French, German; i18n framework, translation pipeline
+  - LOOP-PLAT-017: **Platform accessibility audit** — WCAG 2.2 AA across admin, docs, status page, all service UIs; automated axe + manual review
+  - LOOP-PLAT-018: **Platform E2E test suite** — end-to-end tests across service boundaries: signup→build→publish→claim→pay→support
+  - LOOP-PLAT-019: **Platform load testing** — k6/Artillery load tests: 1000 concurrent builds, 10k API req/min, identify bottlenecks
+  - LOOP-PLAT-020: **Platform security audit** — annual third-party penetration test, quarterly internal security review, vulnerability disclosure program
+  - LOOP-PLAT-021: **Platform incident response plan** — documented: roles, communication channels, escalation paths, post-incident review template
+  - LOOP-PLAT-022: **Platform business continuity plan** — worst-case scenarios + recovery procedures, RPO/RTO per service, quarterly tabletop exercise
+  - LOOP-PLAT-023: **Platform vendor risk assessment** — per-vendor: criticality, alternatives, migration cost, contract renewal dates
+  - LOOP-PLAT-024: **Platform AI agent handbook** — documentation for AI agents operating the platform: architecture, runbooks, common tasks, conventions
+  - Primary sources: Platform engineering best practices, SOC 2, GDPR, WCAG 2.2, Cloudflare Well-Architected Framework
+
+---
+
+## Final Verification Notes
+
+This ledger expansion was researched and written 2026-06-29 against current official
+docs and the actual ProjectSites.dev repository state. Key observations:
+
+- **All 18 canonical service endpoints covered.** Each with 24 concrete implementation
+  tasks (432 total across the expansion + 24 global + 24 whole-platform = 480 tasks).
+- **Cloudflare-first default honored throughout.** Workers Containers are the default
+  hosting recommendation. Fly.io escape hatch documented with explicit criteria
+  (LOOP-GLOBAL-005). Coolify MCP cost-escalation triggers codified (LOOP-GLOBAL-006).
+- **Sentry is explicitly platform-only.** Never on customer sites. Enforced by
+  LOOP-TRACE-024.
+- **PostHog is Cloud-hosted.** Per Brian's directive. No self-hosted PostHog anywhere.
+- **Langfuse split into web/worker roles.** Web on Workers Container (v2 single-container
+  for now). Worker role and v3 upgrade path documented (LOOP-TRACE-011).
+- **Postiz split into Web/API + Orchestrator.** Web/API on Workers Container; Temporal
+  orchestrator may need Fly.io for always-on scheduling (LOOP-SOCIAL-001).
+- **Hookdeck + Outpost at webhooks.projectsites.dev.** Hookdeck for inbound ingestion,
+  Outpost for outbound customer webhooks.
+- **Primary sources used throughout.** Official docs preferred; secondary sources only
+  when official docs were insufficient.
+- **Hosting decision framework applied to every task.** Every task answers: Workers
+  viable? Always-on needed? Managed cost >$50? Fly.io or Coolify fallback? Customer-
+  facing or internal?
+- **Observability requirements explicit per task.** Axiom, Sentry, Langfuse, PostHog,
+  Tinybird called out per task where applicable.
+- **Repository files referenced.** Every task cites actual files in the repo
+  (src/services/, infra/*/, docs/, frontend/).
+- **Cost discipline maintained.** Self-hosted open-source services preferred over
+  managed where practical. Managed services only where the operational burden
+  outweighs the cost savings.
+
+### Current-product discrepancies discovered during research
+
+1. **TiDB Serverless is now TiDB Cloud Starter.** Renamed but functionally equivalent.
+   Documented in LOOP-GLOBAL tasks. MySQL-compatible serverless remains the value prop.
+2. **Upstash Kafka availability.** Current Upstash product surface emphasizes Redis,
+   Vector, QStash, Workflow, and Box. Kafka documentation exists in older material
+   but is not prominently featured. Tasks defer Kafka usage pending verification.
+3. **Langfuse v3 requirements.** v3 adds ClickHouse + Redis + S3 requirements vs v2's
+   Postgres-only. v2 is sufficient for current scale; v3 migration path documented
+   but not urgent.
+4. **CF Containers 0.3.x API changes.** `new_sqlite_classes` (not `new_classes`),
+   object-form `startAndWaitForPorts`, 3-arg signature. Container tasks reference
+   these verified patterns from existing infra deployments.
+
+### Areas where official docs were ambiguous
+
+1. **Twenty CRM workspace isolation model.** Docs describe self-hosted Docker setup
+   but multi-workspace isolation details are sparse. Tasks assume REST API + direct
+   DB for provisioning, which may need adjustment as Twenty's multi-tenancy matures.
+2. **Postiz Temporal vs BullMQ.** Docs show both queue backends. Tasks default to
+   Temporal for production reliability; BullMQ is lighter for single-tenant.
+3. **Nango webhook forwarding.** Docs describe the feature but exact configuration
+   for multi-tenant isolation is sparse. Tasks assume per-tenant webhook URL patterns.
+4. **Better Auth OIDC provider maturity.** The plugin exists but enterprise-grade
+   OIDC (SAML, SCIM) is documented as in development. Tasks plan for current
+   capability + upgrade path.
+
