@@ -102,3 +102,14 @@ export const FormAnalyticsSchema = z
   })
   .strict();
 export type FormAnalytics = z.infer<typeof FormAnalyticsSchema>;
+
+/** AN48 — response when an owner mints a public read-only analytics share link. */
+export const ShareLinkSchema = z
+  .object({
+    token: z.string().min(1),
+    url: z.string().url(),
+    /** Absolute expiry (Unix ms). */
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
+export type ShareLink = z.infer<typeof ShareLinkSchema>;

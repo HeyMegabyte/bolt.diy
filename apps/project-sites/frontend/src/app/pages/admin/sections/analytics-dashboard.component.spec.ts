@@ -1,8 +1,12 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, type ParamMap } from '@angular/router';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
+import { signal } from '@angular/core';
 import { AdminAnalyticsDashboardComponent } from './analytics-dashboard.component';
+import { ApiService } from '../../../services/api.service';
+import { AdminStateService } from '../admin-state.service';
+import { ToastService } from '../../../services/toast.service';
 
 // Lightweight stubs so the wrapper test never instantiates the heavy real
 // Analytics / Live Events children (which fan out API calls on construction).
@@ -23,13 +27,22 @@ class StubFormsComponent {}
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
   const navigate = jasmine.createSpy('navigate');
+  let apiPost: jasmine.Spy;
+  let toastSuccess: jasmine.Spy;
 
   function make() {
+    apiPost = jasmine
+      .createSpy('post')
+      .and.returnValue(of({ url: 'https://projectsites.dev/shared/analytics/tok', expiresAt: 1 }));
+    toastSuccess = jasmine.createSpy('success');
     TestBed.configureTestingModule({
       imports: [AdminAnalyticsDashboardComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: qpm.asObservable() } },
         { provide: Router, useValue: { navigate } },
+        { provide: ApiService, useValue: { post: apiPost } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 'site_1' }) } },
+        { provide: ToastService, useValue: { success: toastSuccess, error: jasmine.createSpy('error') } },
       ],
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
@@ -71,6 +84,12 @@ describe('AdminAnalyticsDashboardComponent', () => {
     const f = make();
     expect(f.componentInstance.tab()).toBe('forms');
     expect(f.nativeElement.querySelector('[data-testid="stub-forms"]')).toBeTruthy();
+  });
+
+  it('mints a read-only share link for the selected site when the Share button is clicked (AN48)', () => {
+    const f = make();
+    f.nativeElement.querySelector('[data-testid="share-readonly-btn"]').click();
+    expect(apiPost).toHaveBeenCalledWith('/sites/site_1/analytics/share', {});
   });
 
   it('lands on Social when ?tab=social', () => {

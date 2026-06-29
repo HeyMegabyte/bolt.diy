@@ -30,6 +30,13 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/pricing/pricing.component').then((m) => m.PricingComponent),
   },
   {
+    // AN48 — public, no-auth read-only analytics view. The HMAC token in the URL
+    // is the capability; an invalid/expired token shows a friendly message.
+    path: 'shared/analytics/:token',
+    loadComponent: () =>
+      import('./pages/public-analytics.component').then((m) => m.PublicAnalyticsComponent),
+  },
+  {
     // Better Auth takes over the canonical /signin — the app's 401-redirect target
     // (ApiService bounces protected 401s to /signin?returnUrl=…). Post-cutover the
     // legacy magic-link/Google page is dead (BA owns /api/auth/*), so /signin now

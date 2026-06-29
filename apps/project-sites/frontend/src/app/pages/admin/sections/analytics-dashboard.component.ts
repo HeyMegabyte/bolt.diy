@@ -7,6 +7,10 @@ import { AdminActivationFunnelComponent } from './activation-funnel.component';
 import { AdminSocialAnalyticsComponent } from './social-analytics.component';
 import { SectionAttributionComponent } from './section-attribution.component';
 import { FormAnalyticsComponent } from './form-analytics.component';
+import { ApiService } from '../../../services/api.service';
+import { AdminStateService } from '../admin-state.service';
+import { ToastService } from '../../../services/toast.service';
+import { copyToClipboard } from '../../../utils/clipboard';
 
 type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'social';
 
@@ -36,7 +40,8 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'soc
       <p class="text-[0.82rem] text-text-secondary mt-1 mb-3">
         Traffic, the live event stream, the activation funnel, and social performance — all in one place.
       </p>
-      <div class="inline-flex gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Analytics view">
+      <div class="flex items-center gap-2 flex-wrap mb-3">
+        <div class="inline-flex gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Analytics view">
         @for (t of tabs; track t.id) {
           <button
             type="button"
@@ -52,6 +57,15 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'soc
             {{ t.label }}
           </button>
         }
+        </div>
+        <button
+          type="button"
+          data-testid="share-readonly-btn"
+          class="px-3 py-1.5 rounded-lg text-[0.8rem] font-semibold border border-white/[0.1] bg-white/[0.02] text-text-secondary hover:text-white transition-all cursor-pointer disabled:opacity-50"
+          [disabled]="sharing()"
+          (click)="shareReadOnly()">
+          {{ sharing() ? 'Generating…' : '🔗 Share read-only link' }}
+        </button>
       </div>
     </div>
 
@@ -74,6 +88,12 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly api = inject(ApiService);
+  private readonly state = inject(AdminStateService);
+  private readonly toast = inject(ToastService);
+
+  /** AN48 — busy guard while minting a read-only share link. */
+  readonly sharing = signal(false);
 
   readonly tabs: ReadonlyArray<{ id: AnalyticsTab; label: string }> = [
     { id: 'overview', label: 'Overview' },
@@ -104,5 +124,33 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
       queryParams: { tab },
       queryParamsHandling: 'merge',
     });
+  }
+
+  /**
+   * AN48 — mint a public read-only share link for the selected site and copy it
+   * to the clipboard. Busy-guarded against double-submit; surfaces the outcome.
+   */
+  shareReadOnly(): void {
+    if (this.sharing()) return;
+    const site = this.state.selectedSite();
+    if (!site) {
+      this.toast.error('Select a site first.');
+      return;
+    }
+    this.sharing.set(true);
+    this.api
+      .post<{ url: string; expiresAt: number }>(`/sites/${site.id}/analytics/share`, {})
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: async (r) => {
+          const copied = await copyToClipboard(r.url);
+          this.toast.success(copied ? 'Read-only link copied to clipboard' : r.url);
+          this.sharing.set(false);
+        },
+        error: () => {
+          this.toast.error('Couldn’t create a share link.');
+          this.sharing.set(false);
+        },
+      });
   }
 }
