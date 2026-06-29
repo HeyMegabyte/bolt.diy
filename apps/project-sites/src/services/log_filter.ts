@@ -10,7 +10,7 @@
  * const filtered = filterByTrace(filterByLevel(logs, 'warn'), 'tid-1');
  */
 
-import { shouldLog, type LogEntry, type LogLevel } from './debug_log.js';
+import { type LogEntry, type LogLevel, shouldLog } from './debug_log.js';
 
 // ---------------------------------------------------------------------------
 // filterByLevel

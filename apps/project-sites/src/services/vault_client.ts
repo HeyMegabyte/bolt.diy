@@ -171,7 +171,7 @@ export async function decryptSecret(
   const iv = new Uint8Array(encrypted.iv.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) ?? []);
 
   try {
-    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ct);
+    const pt = await crypto.subtle.decrypt({ iv, name: 'AES-GCM' }, aesKey, ct);
     return new TextDecoder().decode(pt);
   } catch (err) {
     throw new VaultDecryptError(err);

@@ -25,9 +25,9 @@ export type CheckStatus = 'ok' | 'warn' | 'error';
  * health disposition assigned by the caller or probing function.
  */
 export interface AlarmResult {
+  latencyMs: number;
   service: string;
   status: CheckStatus;
-  latencyMs: number;
 }
 
 /**
@@ -41,8 +41,8 @@ export type AlarmState = 'healthy' | 'degraded' | 'down';
 
 /** Escalation plan returned by {@link escalateAlarm}. */
 export interface EscalationPlan {
-  shouldNotify: boolean;
   severity: 'none' | 'info' | 'warning' | 'critical';
+  shouldNotify: boolean;
   summary: string;
 }
 
@@ -80,7 +80,7 @@ export function checkAlarm(service: string, status: CheckStatus, latencyMs: numb
   const effectiveStatus: CheckStatus =
     status === 'ok' && clamped > LATENCY_WARN_MS ? 'warn' : status;
 
-  return { service, latencyMs: clamped, status: effectiveStatus };
+  return { latencyMs: clamped, service, status: effectiveStatus };
 }
 
 /**

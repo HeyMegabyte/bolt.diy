@@ -20,9 +20,9 @@ import { z } from 'zod';
 
 /** Zod schema for a single URL to purge. */
 export const UrlPurgeItemSchema = z.object({
-  url: z.string().url({ message: 'Each purge URL must be a valid absolute URL' }),
   /** Optional list of asset headers to include (Cloudflare Enterprise only). */
   headers: z.record(z.string()).optional(),
+  url: z.string().url({ message: 'Each purge URL must be a valid absolute URL' }),
 });
 
 /** Input schema for {@link buildPurgeRequest}. */

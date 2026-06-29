@@ -47,9 +47,9 @@ describe('checkAlarm', () => {
 });
 
 describe('alarmState', () => {
-  const ok = (service = 'a'): AlarmResult => ({ service, status: 'ok', latencyMs: 10 });
-  const warn = (service = 'b'): AlarmResult => ({ service, status: 'warn', latencyMs: 1500 });
-  const err = (service = 'c'): AlarmResult => ({ service, status: 'error', latencyMs: 0 });
+  const ok = (service = 'a'): AlarmResult => ({ service, latencyMs: 10, status: 'ok' });
+  const warn = (service = 'b'): AlarmResult => ({ service, latencyMs: 1500, status: 'warn' });
+  const err = (service = 'c'): AlarmResult => ({ service, latencyMs: 0, status: 'error' });
 
   it('returns healthy when all checks are ok', () => {
     expect(alarmState([ok(), ok('other')])).toBe('healthy');
@@ -84,8 +84,8 @@ describe('escalateAlarm', () => {
   it('returns non-notifying healthy plan', () => {
     const plan = escalateAlarm('healthy');
     expect(plan).toEqual({
-      shouldNotify: false,
       severity: 'none',
+      shouldNotify: false,
       summary: 'All services healthy',
     });
   });
@@ -93,8 +93,8 @@ describe('escalateAlarm', () => {
   it('returns warning plan for degraded', () => {
     const plan = escalateAlarm('degraded');
     expect(plan).toEqual({
-      shouldNotify: true,
       severity: 'warning',
+      shouldNotify: true,
       summary: 'One or more services are degraded',
     });
   });
@@ -102,8 +102,8 @@ describe('escalateAlarm', () => {
   it('returns critical plan for down', () => {
     const plan = escalateAlarm('down');
     expect(plan).toEqual({
-      shouldNotify: true,
       severity: 'critical',
+      shouldNotify: true,
       summary: 'One or more services are down',
     });
   });
