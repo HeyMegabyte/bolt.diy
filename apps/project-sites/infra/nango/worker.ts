@@ -14,7 +14,7 @@ interface Env {
 
 export class Nango extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = '4h'; // Keep warm through a workday; cold start takes ~15s (DB+Redis)
+  sleepAfter = '15m'; // Scale to zero; retry loop handles the ~15s wake-up
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
