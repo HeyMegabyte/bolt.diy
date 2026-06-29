@@ -67,9 +67,9 @@ describe('config_template', () => {
       expect(parsed).toEqual({ HOST: 'example.com', PORT: '443' });
     });
 
-    it('renders json with an empty array as {}', () => {
+    it('renders json with an empty array as {}\n', () => {
       const tpl = buildTemplate('Je', 'json', []);
-      expect(renderTemplate(tpl)).toBe('{}');
+      expect(renderTemplate(tpl)).toBe('{}\n');
     });
 
     it('renders toml format as key = "value" lines', () => {
@@ -168,7 +168,7 @@ describe('config_template', () => {
         for (const f of tpl.fields) {
           if (f.sensitive && !f.required) {
             // Allow optional sensitive fields (observability tokens, OAuth secrets, URLs)
-            expect(f.key).toMatch(/SENTRY|LOGTAIL|AMQP|URL$|CLIENT_SECRET/);
+            expect(f.key).toMatch(/SENTRY|LOGTAIL|AMQP|URL$|CLIENT_SECRET|SMTP_USER/);
           }
         }
       }

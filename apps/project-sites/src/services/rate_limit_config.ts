@@ -53,7 +53,7 @@ export function buildRule(
   windowMs: number = 60_000,
   scope: 'global' | 'ip' | 'user' | 'org' = 'ip',
 ): RateLimitRule {
-  return { path, methods, maxRequests, windowMs, scope };
+  return { maxRequests, methods, path, scope, windowMs };
 }
 
 /**
@@ -121,7 +121,7 @@ export function configSummary(rules: readonly RateLimitRule[]): {
     }
   }
 
-  return { total: rules.length, byMethod, strictest };
+  return { byMethod, strictest, total: rules.length };
 }
 
 /**
