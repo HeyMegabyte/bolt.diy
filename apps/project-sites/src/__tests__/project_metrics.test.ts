@@ -117,11 +117,11 @@ describe('rollupMetrics', () => {
   it('returns zero-state for an empty array', () => {
     const r = rollupMetrics([]);
     expect(r).toEqual({
-      totalSites: 0,
-      totalVisitors: 0,
-      totalConversions: 0,
       avgConversionRate: 0,
       topSite: null,
+      totalConversions: 0,
+      totalSites: 0,
+      totalVisitors: 0,
     });
   });
 

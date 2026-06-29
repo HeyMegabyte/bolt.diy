@@ -127,8 +127,8 @@ export function filterSummary(filters: readonly WebhookFilter[]): {
   }
 
   return {
-    total: filters.length,
     active: filters.filter((f) => f.active).length,
     bySource,
+    total: filters.length,
   };
 }
