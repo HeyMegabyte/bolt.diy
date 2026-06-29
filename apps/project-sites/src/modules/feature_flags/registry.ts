@@ -374,6 +374,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  site_doctor: {
+    key: 'site_doctor',
+    description:
+      'Owner-facing A-F site health report with prioritized, plain-English one-tap fixes. Translates production-readiness signals (published, custom domain, performance, sitemap) into owner language; free plan sees the top issue, the rest locked behind a paid power-up. Sharp professional voice; reuses prod_readiness_score scoring.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 
   // Visitor-facing AI + platform AI UX
   ai_concierge_widget: {
