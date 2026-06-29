@@ -287,7 +287,7 @@
 - [ ] [auto] **LM7 transactional via Listmonk** — route projectsites magic-links/receipts/build-done through the transactional API.
 - [ ] [auto] **LM8 signups → lists** — auto-subscribe (double-opt-in) projectsites users.
 - [ ] [auto] **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler.
-- [ ] [auto] **LM10 D1 segments → queries** — sync active/trial/churned cohorts for targeted campaigns.
+- [x] [auto] **LM10 D1 segments → queries** — **CORE DONE 2026-06-29:** `services/listmonk_segments.ts` — pure `classifyCohort(sub, now)` → new(≤7d)|trial(trialing/trial-plan)|active(seen≤30d)|dormant(≤90d)|churned(canceled/past_due OR >90d idle) with explicit-churn precedence + createdAt fallback for lastActive + ms-or-ISO; `bucketByCohort(subs, now)` → ids per cohort (all keys present so emptied segments can be cleared) + counts + total. No `Date.now()` inside (deterministic). Zero-I/O, never-throws on junk, 10/10 unit, tsc 0. Remaining wiring = D1 cohort query + Listmonk segment-sync push. 146→145. worker→CI (gate GREEN).
 - [ ] [auto] **LM11 archive + signup embed** — public newsletter archive + signup on projectsites marketing.
 - [ ] [auto] **LM12 open/click → analytics** — tracking into Tinybird/PostHog funnels.
 - [ ] [auto] **LM13 AI campaign drafts** — LLM → Listmonk templates (newsletter/changelog), review-gated.
