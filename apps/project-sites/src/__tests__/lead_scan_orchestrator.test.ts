@@ -54,7 +54,18 @@ describe('lead_scan_orchestrator — candidateToSignals', () => {
 describe('lead_scan_orchestrator — runScan', () => {
   it('discovers, scores, ranks, and sinks; tallies by tier', async () => {
     const candidates: ScanCandidate[] = [
-      { businessName: 'Dream', address: '1 St', email: 'd@d.com', category: 'dentist', signalHints: { reviewCount: 30, rating: 4.8, incorporationAgeMonths: 3, claimedListing: true } },
+      {
+        businessName: 'Dream',
+        address: '1 St',
+        email: 'd@d.com',
+        category: 'dentist',
+        signalHints: {
+          reviewCount: 30,
+          rating: 4.8,
+          incorporationAgeMonths: 3,
+          claimedListing: true,
+        },
+      },
       { businessName: 'Bare' }, // unreachable
     ];
     const sink = jest.fn(async () => ({ ok: true, skipped: false, id: 'x' }));
@@ -85,7 +96,10 @@ describe('lead_scan_orchestrator — runScan', () => {
   });
 
   it('tallies skipped (CRM dark) and errors separately', async () => {
-    const candidates: ScanCandidate[] = [{ businessName: 'A', email: 'a@a.com' }, { businessName: 'B', email: 'b@b.com' }];
+    const candidates: ScanCandidate[] = [
+      { businessName: 'A', email: 'a@a.com' },
+      { businessName: 'B', email: 'b@b.com' },
+    ];
     let call = 0;
     const sink = jest.fn(async () => {
       call++;
@@ -114,12 +128,18 @@ describe('lead_scan_orchestrator — runScan', () => {
 
   it('runs enrichment and carries the resolved email into the sink', async () => {
     const candidates: ScanCandidate[] = [{ businessName: 'NeedsEmail' }];
-    const enrich = jest.fn(async () => ({ email: 'info@needsemail.com', emailSource: 'guessed_mx' as const }));
+    const enrich = jest.fn(async () => ({
+      email: 'info@needsemail.com',
+      emailSource: 'guessed_mx' as const,
+    }));
     const sink = jest.fn(async (c: ScanCandidate) => {
       expect(c.email).toBe('info@needsemail.com');
       return { ok: true, skipped: false, id: 'x' };
     });
-    const summary = await runScan({ discover: async () => candidates, enrich, sink }, { source: 'osm' });
+    const summary = await runScan(
+      { discover: async () => candidates, enrich, sink },
+      { source: 'osm' },
+    );
     expect(enrich).toHaveBeenCalledTimes(1);
     expect(summary.upserted).toBe(1);
   });
