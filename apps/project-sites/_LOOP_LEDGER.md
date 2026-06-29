@@ -227,7 +227,7 @@
 ### Plane (pm.projectsites.dev)
 - [ ] [dedicated] **PL1 backups + tested restore** — nightly TiDB export/branch-snapshot + R2 versioning + Upstash backup; concrete RPO/RTO; quarterly restore drill. (We have ZERO Plane backups today.)
 - [ ] [auto] **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`.
-- [ ] [dedicated] **PL3 ClickHouse → unlock analytics** — run a ClickHouse CF Container (or Tinybird) so Plane dashboards/charts/Plane-AI-charts work (omitted in our v1).
+- [ ] [auto] **PL3 Plane analytics via Tinybird (NO ClickHouse — Brian directive [[tinybird-always-never-clickhouse]])** — Plane can't use Tinybird as its internal ClickHouse, and ClickHouse is BANNED, so Plane's built-in dashboards stay dark (Plane PM still fully works). Deliver the value our way: Plane webhook receiver (PL21) emits `producer='plane'` events into the EXISTING `event_bus` outbox → already drains to the EXISTING Tinybird `projectsites_events` Data Source (every 5 min) → build admin pipes/dashboard filtered to `producer='plane'`. Foundation (`services/tinybird.ts` + outbox + DS) already live; only the receiver + producer-tag emit + dashboard remain. (ClickHouse Cloud keys kept in get-secret, UNUSED.)
 - [ ] [auto] **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged).
 - [ ] [gated] **PL5 SSO** — OIDC via Better Auth for pm.projectsites.dev (auth-provider + rollout decision).
 - [ ] [auto] **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule).
