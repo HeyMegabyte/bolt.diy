@@ -15,8 +15,8 @@
  */
 export const PLAN_TIER: Record<string, number> = {
   free: 0,
-  starter: 1,
   pro: 2,
+  starter: 1,
 } as const;
 
 // ── Types ───────────────────────────────────────────────────
@@ -121,12 +121,12 @@ export function computeMigration(
   const newCharge = prorate(toPrice, daysRemaining, cycleStart, cycleEnd);
 
   return {
-    fromPlan,
-    toPlan,
-    proratedRefund,
-    newCharge,
-    effectiveDate,
     daysRemaining,
+    effectiveDate,
+    fromPlan,
+    newCharge,
+    proratedRefund,
+    toPlan,
   };
 }
 
