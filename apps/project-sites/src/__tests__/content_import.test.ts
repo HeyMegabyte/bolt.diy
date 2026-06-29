@@ -365,7 +365,7 @@ describe('parseContent — RSS / Atom', () => {
     expect(items[0].slug).toBe('post-1');
     expect(items[0].author).toBe('Carol');
     expect(items[0].tags).toEqual(['tech', 'news']);
-    expect(items[0].publishedAt).toBe('2026-06-01T00:00:00.000Z');
+    expect(items[0].publishedAt).toBe('2026-06-01T00:00:00Z');
   });
 
   it('falls back to WordPress parser for RSS 2.0 items', () => {

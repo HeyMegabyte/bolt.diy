@@ -215,12 +215,12 @@ function parseSquarespace(raw: string): ContentItem[] {
 function parseWixCsv(raw: string): ContentItem[] {
   // Wix column order (first row is header): title, body, slug, publishedAt, author, tags
   return parseGenericCsv(raw, {
-    title: 'title',
-    body: 'body',
-    slug: 'slug',
-    publishedAt: 'publishdate',
     author: 'author',
+    body: 'body',
+    publishedAt: 'publishdate',
+    slug: 'slug',
     tags: 'tags',
+    title: 'title',
   });
 }
 
@@ -338,9 +338,25 @@ function parseRss(raw: string): ContentItem[] {
     const id = extractXmlValue(block, 'id');
     const published = extractXmlValue(block, 'published') || extractXmlValue(block, 'updated');
     const authorName = extractXmlChildValue(block, 'author', 'name');
+<<<<<<< HEAD
     const tags = extractXmlValues(block, 'category').map((c) =>
       c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'),
     );
+||||||| parent of aeca48af (chore: fan-out #15 content_import late (48 tests))
+    const tags = extractXmlValues(block, 'category').map((c) => c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'));
+=======
+    const parsedTags = extractXmlValues(block, 'category').map((c) =>
+      c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'),
+    );
+    // Atom entries may use self-closing `<category term="x" />` (attribute-only); also catch those.
+    const atomCatRe = /\bcategory\s+(?:[^>]*?\s)?term="([^"]+)"/gi;
+    const allTags: string[] = [...parsedTags];
+    let acm: RegExpExecArray | null;
+    while ((acm = atomCatRe.exec(block)) !== null) {
+      if (acm[1] && !allTags.includes(acm[1])) allTags.push(acm[1]);
+    }
+    const tags = allTags.length > 0 ? allTags : undefined;
+>>>>>>> aeca48af (chore: fan-out #15 content_import late (48 tests))
 
     const slug = id ? slugify(slugFromEntryId(id) || title) : slugify(title);
 
@@ -349,7 +365,7 @@ function parseRss(raw: string): ContentItem[] {
       body: (content || '').trim(),
       publishedAt: isoDate(published),
       slug,
-      tags: tags.length > 0 ? tags : undefined,
+      tags: (tags?.length ?? 0) > 0 ? tags : undefined,
       title: title || slug,
     });
   }
