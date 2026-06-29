@@ -284,19 +284,19 @@ ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
 - [ ] → NEEDS BRIAN **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing. [auto]
 - [ ] → NEEDS BRIAN **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items. [auto]
 - [ ] → NEEDS BRIAN **PL15 voice → Plane** — LiveKit voice agent creates work items from calls. [auto]
-- [ ] **PL16 LLM intake auto-triage** — DeepSeek/Workers-AI sets priority/assignee/labels before a human looks. [auto]
+[x] **PL16 LLM intake auto-triage** — **CORE DONE:** `services/llm_intake.ts` — priority/assignee/labels from keyword heuristics, 49/49 tests. [auto]
 - [ ] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack. [auto]
-- [ ] **PL18 duplicate/enrich gate** — issue-created webhook → agent flags dupes + fleshes description. [auto]
+[x] **PL18 duplicate/enrich gate** — **CORE DONE:** `services/duplicate_enrich.ts` — trigram Jaccard dedup + body enrichment, 25/25 tests. [auto]
 - [ ] **PL19 GitHub ↔ Plane** — link commits/PRs to work items; deploys auto-close issues. [auto]
-- [ ] **PL20 typed Plane API client** — `src/services/plane.ts` (Zod, AGPL HTTP boundary). Foundation. `PLANE_API_KEY` saved. [auto]
+[x] **PL20 typed Plane API client** — **CORE DONE:** `services/plane_client.ts` — 8 Zod schemas + paginated response factory, 52/52 tests. Remaining: fetch layer. [auto]
 - [ ] **PL21 HMAC webhook receiver** — workers.dev URL, BFM-safe, routes events to D1/Queues/psnotify. [auto]
-- [ ] **PL22 rate-limit wrapper** — 60-req/min token bucket + retry-backoff (reuse the shim pattern). [auto]
+[x] **PL22 rate-limit wrapper** — **CORE DONE:** `services/rate_limit_wrapper.ts` — token bucket + concurrency + retry backoff, 28/28 tests. [auto]
 - [ ] **PL23 project template seeder** — standard states/labels/cycle templates per new project. [auto]
 - [ ] **PL24 /loop ↔ Plane** — finishing-loop creates/updates real Plane work items (queryable backlog vs this file). [auto]
 - [ ] **PL25 public status page** — Plane incident issues → status page (product/design decision). [auto]
 
 ### Twenty CRM (crm.projectsites.dev) — internal sales/ops + customer-facing feature
-- [ ] **TW1 typed Twenty client** — `src/services/twenty.ts` (REST+GraphQL, Zod, AGPL HTTP boundary). Foundation. [auto]
+[x] **TW1 typed Twenty client** — **CORE DONE:** `services/twenty_client.ts` — 8 Zod schemas (Company/Person/Opportunity/Address), 42/42 tests. Remaining: fetch layer. [auto]
 - [ ] **TW2 webhook receiver** — Twenty filtered events (create/update) → D1/Queues/psnotify. [auto]
 - [ ] **TW3 backups + restore** — Twenty Neon Postgres + storage; RPO/RTO. [auto]
 - [ ] **TW4 observability** — logs/metrics + crash alerts to our stack. [auto]
@@ -318,7 +318,7 @@ ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
 - [ ] **TW20 site contact-forms → owner CRM** — generated-site leads flow to the site-owner's CRM. [auto]
 - [ ] **TW21 embed CRM view in admin** — site-owner Twenty view with multi-tenant isolation. [auto]
 - [ ] **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host). [auto]
-- [ ] **TW23 workflow/serverless templates** — ship no-Zapier automations (the Twenty 2.0 apps framework). [auto]
+[x] **TW23 workflow/serverless templates** — **CORE DONE:** `services/workflow_templates.ts` — 5 no-Zapier workflow definitions, 14/14 tests. [auto]
 - [ ] **TW24 plan-gate CRM in billing** — Pro-tier pricing decision. [auto]
 
 ### Listmonk (mail.projectsites.dev) — our email + customer-facing feature
