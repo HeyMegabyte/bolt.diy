@@ -121,6 +121,26 @@ function s3Error(code: string, message: string, status: number, origin: string |
   );
 }
 
+/**
+ * Retry a transient R2 op with exponential backoff + jitter (error-recovery: max attempts,
+ * backoff). R2 binding calls are the "API" here — a transient blip auto-retries instead of
+ * failing the user's upload. The fn must be re-runnable (we buffer upload bodies first).
+ */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i === attempts - 1) break;
+      const backoff = Math.min(2000, 100 * 2 ** i) + Math.floor(Math.random() * 120);
+      await new Promise((r) => setTimeout(r, backoff));
+    }
+  }
+  throw lastErr;
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -129,7 +149,8 @@ export default {
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
 
-    const key = keyFromPath(url.pathname);
+    try {
+      const key = keyFromPath(url.pathname);
 
     // ── POST Object (browser presigned-POST upload) — the operation R2 lacks ──
     if (req.method === 'POST' && !url.searchParams.has('delete')) {
@@ -149,7 +170,9 @@ export default {
       const objKey = fields.get('key');
       if (!objKey || !file) return s3Error('InvalidArgument', 'missing key or file', 400, origin);
       const contentType = fields.get('Content-Type') ?? fields.get('content-type') ?? file.type ?? 'application/octet-stream';
-      const obj = await env.PLANE_MEDIA.put(objKey, file.stream(), { httpMetadata: { contentType } });
+      // Buffer the body so a retried put can re-send it (a consumed stream can't replay).
+      const bytes = await file.arrayBuffer();
+      const obj = await withRetry(() => env.PLANE_MEDIA.put(objKey, bytes, { httpMetadata: { contentType } }));
       const successStatus = fields.get('success_action_status');
       const headers = { ...corsHeaders(origin), ETag: obj?.httpEtag ?? '""', Location: `${url.origin}/${BUCKET}/${objKey}` };
       if (successStatus === '201') {
@@ -168,7 +191,7 @@ export default {
       const keys = [...body.matchAll(/<Key>([^<]+)<\/Key>/g)].map((mm) => mm[1]);
       const deleted = await Promise.all(
         keys.map(async (k) => {
-          await env.PLANE_MEDIA.delete(k).catch(() => undefined);
+          await withRetry(() => env.PLANE_MEDIA.delete(k)).catch(() => undefined);
           return `<Deleted><Key>${k}</Key></Deleted>`;
         }),
       );
@@ -181,7 +204,7 @@ export default {
     // ── GET / HEAD (download / metadata) — capability by key ──
     if (req.method === 'GET' || req.method === 'HEAD') {
       if (!key) return s3Error('NoSuchKey', 'object key required', 404, origin);
-      const obj = req.method === 'HEAD' ? await env.PLANE_MEDIA.head(key) : await env.PLANE_MEDIA.get(key);
+      const obj = await withRetry(() => (req.method === 'HEAD' ? env.PLANE_MEDIA.head(key) : env.PLANE_MEDIA.get(key)));
       if (!obj) return s3Error('NoSuchKey', 'not found', 404, origin);
       const headers = new Headers(corsHeaders(origin));
       headers.set('ETag', obj.httpEtag);
@@ -198,26 +221,37 @@ export default {
       const copySource = req.headers.get('x-amz-copy-source');
       if (copySource) {
         const srcKey = keyFromPath(new URL('https://x/' + copySource.replace(/^\//, '')).pathname);
-        const src = await env.PLANE_MEDIA.get(srcKey);
+        const src = await withRetry(() => env.PLANE_MEDIA.get(srcKey));
         if (!src) return s3Error('NoSuchKey', 'copy source not found', 404, origin);
-        const obj = await env.PLANE_MEDIA.put(key, src.body, { httpMetadata: src.httpMetadata });
+        const srcBytes = await src.arrayBuffer();
+        const obj = await withRetry(() => env.PLANE_MEDIA.put(key, srcBytes, { httpMetadata: src.httpMetadata }));
         return new Response(
           `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><ETag>${obj?.httpEtag ?? '""'}</ETag></CopyObjectResult>`,
           { status: 200, headers: { 'Content-Type': 'application/xml', ...corsHeaders(origin) } },
         );
       }
       const ct = req.headers.get('content-type') ?? undefined;
-      const obj = await env.PLANE_MEDIA.put(key, req.body, ct ? { httpMetadata: { contentType: ct } } : undefined);
+      const putBytes = await req.arrayBuffer();
+      const obj = await withRetry(() => env.PLANE_MEDIA.put(key, putBytes, ct ? { httpMetadata: { contentType: ct } } : undefined));
       return new Response(null, { status: 200, headers: { ...corsHeaders(origin), ETag: obj?.httpEtag ?? '""' } });
     }
 
     // ── DELETE ──
     if (req.method === 'DELETE') {
       if (!(await validateSigV4Header(req, secret))) return s3Error('AccessDenied', 'invalid signature', 403, origin);
-      if (key) await env.PLANE_MEDIA.delete(key);
+      if (key) await withRetry(() => env.PLANE_MEDIA.delete(key));
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    return s3Error('MethodNotAllowed', `${req.method} not supported`, 405, origin);
+      return s3Error('MethodNotAllowed', `${req.method} not supported`, 405, origin);
+    } catch (err) {
+      // Retries above exhausted, or an unexpected fault → return a RETRYABLE 503 so the
+      // client (boto / browser) retries later, instead of a hard failure ("retry later").
+      console.error('[plane-s3]', err instanceof Error ? `${err.name}: ${err.message}` : String(err));
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?><Error><Code>SlowDown</Code><Message>temporary storage error — retry</Message></Error>`,
+        { status: 503, headers: { 'Content-Type': 'application/xml', 'Retry-After': '3', ...corsHeaders(origin) } },
+      );
+    }
   },
 };
