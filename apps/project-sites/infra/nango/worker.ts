@@ -10,6 +10,10 @@ interface Env {
   NANGO_DATABASE_URL: string;
   NANGO_ENCRYPTION_KEY: string;
   NANGO_REDIS_URL: string;
+  NANGO_DB_SSL?: string;
+  FLAG_SERVE_CONNECT_UI?: string;
+  NANGO_PUBLIC_CONNECT_URL?: string;
+  NANGO_DASHBOARD_PASSWORD?: string;
 }
 
 export class Nango extends Container<Env> {
@@ -23,9 +27,12 @@ export class Nango extends Container<Env> {
       NANGO_REDIS_URL: env.NANGO_REDIS_URL,
       NANGO_SERVER_URL: 'https://integrations.projectsites.dev',
       SERVER_PORT: '8080',
+      NANGO_DB_SSL: env.NANGO_DB_SSL ?? 'true',
       NODE_ENV: 'production',
       TELEMETRY: 'false',
       FLAG_AUTH_ENABLED: 'false',
+      FLAG_SERVE_CONNECT_UI: env.FLAG_SERVE_CONNECT_UI ?? 'true',
+      NANGO_PUBLIC_CONNECT_URL: env.NANGO_PUBLIC_CONNECT_URL ?? 'https://integrations.projectsites.dev',
       NANGO_DASHBOARD_USERNAME: 'admin',
       NANGO_DASHBOARD_PASSWORD: this._resolveDashPass(env),
     };
