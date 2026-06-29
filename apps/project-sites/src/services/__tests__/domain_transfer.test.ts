@@ -18,11 +18,8 @@ describe('PROVIDERS', () => {
     );
   });
 
-  it('is a readonly tuple (const assertion)', () => {
-    // `as const` is a TypeScript-level constraint, not runtime Object.freeze;
-    // verify the type-level contract by checking the exported value is a
-    // non-empty array that matches the expected providers.
-    expect(PROVIDERS.length).toBeGreaterThan(0);
+  it('is immutable (Object.freeze)', () => {
+    expect(Object.isFrozen(PROVIDERS)).toBe(true);
   });
 
   it('each provider is a non-empty string', () => {

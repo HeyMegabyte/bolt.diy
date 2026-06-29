@@ -3,11 +3,7 @@
  * @description Unit tests for plan migration log (logMigration, migrationHistory, migrationStats).
  */
 
-import {
-  logMigration,
-  migrationHistory,
-  migrationStats,
-} from '../services/plan_migration_log.js';
+import { logMigration, migrationHistory, migrationStats } from '../services/plan_migration_log.js';
 
 describe('plan_migration_log', () => {
   // -----------------------------------------------------------------------
@@ -79,9 +75,7 @@ describe('plan_migration_log', () => {
     });
 
     it('returns a new array reference (never the original)', () => {
-      const items = [
-        logMigration('org_1', 'free', 'starter', 0, '2026-01-01T00:00:00Z'),
-      ];
+      const items = [logMigration('org_1', 'free', 'starter', 0, '2026-01-01T00:00:00Z')];
       const result = migrationHistory(items, 'org_1');
       expect(result).not.toBe(items);
       expect(result).toEqual(items);

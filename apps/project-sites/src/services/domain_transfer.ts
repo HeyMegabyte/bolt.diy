@@ -18,7 +18,12 @@
  */
 
 /** Supported registrars for domain transfer operations. */
-export const PROVIDERS = ['cloudflare', 'namecheap', 'godaddy', 'route53'] as const;
+export const PROVIDERS: readonly ['cloudflare', 'namecheap', 'godaddy', 'route53'] = Object.freeze([
+  'cloudflare',
+  'namecheap',
+  'godaddy',
+  'route53',
+]);
 
 /** Single registrar provider key. */
 export type Provider = (typeof PROVIDERS)[number];

@@ -41,35 +41,40 @@ export interface MappedProfile {
 }
 
 /**
- * Provider-specific claim field keys, indexed by provider name.
+ * Field mapping for one provider: arrays of claim keys to try for `[email,
+ * name, avatar, providerId]` in fallback priority order.
  *
- * Each entry is a 4-tuple `[emailKey, nameKey, avatarKey, providerIdKey]`,
- * specifying which claim keys {@link mapOidcClaims} reads for the given
- * provider. The first non-null string value found wins, so order matters.
+ * Each inner array lists claim keys to try in sequence — the first non-null
+ * string value wins, so `login` after `name` means "full name preferred,
+ * username fallback". A single-element array works the same as a bare key.
  *
  * @example
+ * // Google stores all fields under standard OIDC keys
  * PROVIDER_FIELDS.google
- * // → ['email', 'name', 'picture', 'sub']
+ * // → [['email'], ['name'], ['picture'], ['sub']]
  *
+ * // GitHub may use `login` when `name` is absent
  * PROVIDER_FIELDS.github
- * // → ['email', 'name', 'avatar_url', 'id']
+ * // → [['email'], ['name', 'login'], ['avatar_url'], ['id', 'node_id']]
  *
  * @remarks Providers not listed in this record are unknown — {@link mapOidcClaims}
  * still attempts to extract from standard OIDC claims (`sub`, `email`, `name`,
  * `picture`) but logs nothing and returns what it can.
  */
-export const PROVIDER_FIELDS: Readonly<Record<string, readonly [string, string, string, string]>> = {
-  custom_oidc: ['email', 'name', 'picture', 'sub'],
-  github: ['email', 'name', 'avatar_url', 'id'],
-  google: ['email', 'name', 'picture', 'sub'],
-  microsoft: ['email', 'name', 'picture', 'sub'],
-  okta: ['email', 'name', 'picture', 'sub'],
+export const PROVIDER_FIELDS: Readonly<
+  Record<string, readonly [readonly string[], readonly string[], readonly string[], readonly string[]]>
+> = {
+  custom_oidc: [['email'], ['name'], ['picture'], ['sub']],
+  github: [['email'], ['name', 'login'], ['avatar_url'], ['id', 'node_id']],
+  google: [['email'], ['name'], ['picture'], ['sub']],
+  microsoft: [['email'], ['name'], ['picture'], ['sub']],
+  okta: [['email'], ['name'], ['picture'], ['sub']],
 } as const;
 
 /**
  * Extract a string value from a profile by trying keys in order.
  *
- * Returns the first string found (non-null, non-empty string) from the
+ * Returns the first string found (non-null, non-whitespace string) from the
  * given keys. If a key holds a number (e.g. GitHub's `id`), it is
  * coerced to a string. Returns `null` when no key yields a usable value.
  *
@@ -88,7 +93,7 @@ export const PROVIDER_FIELDS: Readonly<Record<string, readonly [string, string, 
 function stringValue(profile: OidcProfile, keys: readonly string[]): string | null {
   for (const key of keys) {
     const val = profile[key];
-    if (typeof val === 'string' && val.length > 0) return val;
+    if (typeof val === 'string' && val.trim().length > 0) return val;
     if (typeof val === 'number' && !Number.isNaN(val)) return String(val);
     if (typeof val === 'bigint') return String(val);
   }

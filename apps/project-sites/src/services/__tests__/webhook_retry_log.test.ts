@@ -1,9 +1,4 @@
-import {
-  logAttempt,
-  retryStats,
-  type RetryLogEntry,
-  type RetryStats,
-} from '../webhook_retry_log';
+import { logAttempt, retryStats, type RetryLogEntry, type RetryStats } from '../webhook_retry_log';
 
 const NOW = '2026-06-29T12:00:00.000Z';
 const LATER = '2026-06-29T12:05:00.000Z';
@@ -113,10 +108,7 @@ describe('retryStats', () => {
   });
 
   it('returns 0% for all failed entries', () => {
-    const stats = retryStats([
-      STUB_FAILED,
-      { ...STUB_FAILED, attempt: 2 },
-    ]);
+    const stats = retryStats([STUB_FAILED, { ...STUB_FAILED, attempt: 2 }]);
 
     expect(stats.total).toBe(2);
     expect(stats.delivered).toBe(0);
@@ -149,11 +141,7 @@ describe('retryStats', () => {
 
   it('rounds pctSuccess to one decimal', () => {
     // 1 delivered / 3 total = 33.33... → 33.3
-    const stats = retryStats([
-      STUB_DELIVERED,
-      STUB_FAILED,
-      { ...STUB_FAILED, attempt: 2 },
-    ]);
+    const stats = retryStats([STUB_DELIVERED, STUB_FAILED, { ...STUB_FAILED, attempt: 2 }]);
 
     expect(stats.total).toBe(3);
     expect(stats.delivered).toBe(1);
@@ -170,10 +158,7 @@ describe('retryStats', () => {
   });
 
   it('accepts a frozen readonly array', () => {
-    const entries: readonly RetryLogEntry[] = Object.freeze([
-      STUB_DELIVERED,
-      STUB_FAILED,
-    ]);
+    const entries: readonly RetryLogEntry[] = Object.freeze([STUB_DELIVERED, STUB_FAILED]);
     const stats = retryStats(entries);
 
     expect(stats.total).toBe(2);
@@ -221,9 +206,7 @@ describe('TypeScript contract', () => {
   });
 
   it('retryStats accepts readonly RetryLogEntry[]', () => {
-    const result: RetryStats = retryStats(
-      Object.freeze([STUB_DELIVERED]),
-    );
+    const result: RetryStats = retryStats(Object.freeze([STUB_DELIVERED]));
     expect(result.total).toBe(1);
   });
 });

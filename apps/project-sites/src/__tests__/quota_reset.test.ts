@@ -220,8 +220,8 @@ describe('quotaResetSummary', () => {
       makeQuota('emails', 100, 20, [2026, 4, 1]),
     ];
     const summary = quotaResetSummary(quotas);
-    // Earliest periodEnd is from the 2026-04-01 quota (already passed) or 2026-04-15
-    expect(summary.nextReset).toBe(utcMs(2026, 3, 1) + 30 * 24 * 60 * 60 * 1000);
+    // Earliest periodStartMs is May 1 → periodEnd = May 31
+    expect(summary.nextReset).toBe(utcMs(2026, 4, 1) + 30 * 24 * 60 * 60 * 1000);
     expect(summary.resetCount).toBe(1);
   });
 });

@@ -52,8 +52,8 @@ export interface MigrationStats {
  */
 const PLAN_ORDER: Record<string, number> = {
   free: 0,
-  starter: 1,
   pro: 2,
+  starter: 1,
 } as const;
 
 /**
@@ -101,12 +101,12 @@ export function logMigration(
   date?: string,
 ): MigrationLog {
   return {
+    date: date ?? new Date().toISOString(),
+    from,
     id: crypto.randomUUID(),
     orgId,
-    from,
-    to,
     proration,
-    date: date ?? new Date().toISOString(),
+    to,
   };
 }
 
@@ -170,8 +170,8 @@ export function migrationStats(logs: readonly MigrationLog[]): MigrationStats {
   }
 
   return {
+    downgrades,
     total: logs.length,
     upgrades,
-    downgrades,
   };
 }

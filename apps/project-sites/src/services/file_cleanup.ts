@@ -22,38 +22,53 @@
  */
 
 /**
- * Convert a simple glob pattern to a RegExp.
+ * Convert a simple glob pattern to a RegExp for matching file names.
  *
  * - `*` matches zero or more non-slash characters.
  * - `?` matches exactly one non-slash character.
  * - All other characters are literal (dots, slashes, hyphens, etc.).
  *
- * @param pattern - Glob pattern such as `*.tmp` or `exports/*`.
- * @returns A RegExp that matches the full string against the pattern.
+ * **Basename convention:** when the pattern contains no `/`, it matches the
+ * last path segment (basename) of a file at any directory depth. When the
+ * pattern contains a `/`, it matches the full path. This makes `*.tmp` match
+ * both `build.tmp` and `exports/notes.tmp`, while `exports/*` only matches
+ * direct children of the `exports/` directory.
  *
+ * @param pattern - Glob pattern such as `*.tmp` or `exports/*`.
+ * @returns A RegExp that matches the target string against the pattern.
  * @example
  * ```ts
- * globToRegExp('*.tmp').test('build.tmp')     // → true
- * globToRegExp('*.tmp').test('build.txt')     // → false
- * globToRegExp('exports/*').test('exports/a') // → true
- * globToRegExp('exports/*').test('src/a')     // → false
+ * globToRegExp('*.tmp').test('build.tmp')          // → true
+ * globToRegExp('*.tmp').test('exports/notes.tmp')  // → true  (basename match)
+ * globToRegExp('*.tmp').test('build.txt')          // → false
+ * globToRegExp('exports/*').test('exports/a')      // → true
+ * globToRegExp('exports/*').test('src/a')          // → false
  * ```
  */
 function globToRegExp(pattern: string): RegExp {
   let source = '';
   for (const ch of pattern) {
     if (ch === '*') {
+      // `*` never crosses a `/` boundary — one directory level only.
       source += '[^/]*';
     } else if (ch === '?') {
       source += '[^/]';
     } else if (/[.+^${}()|[\]\\]/.test(ch)) {
-      // Escape special regex metacharacters (except * and ? already handled).
       source += '\\' + ch;
     } else {
       source += ch;
     }
   }
-  return new RegExp(`^${source}$`);
+  const anchored = `^${source}$`;
+
+  // Basename convention: patterns without `/` match the last path segment
+  // at any directory depth.
+  if (!pattern.includes('/')) {
+    // Equivalent to: (?:.*/)? matches an optional directory prefix.
+    return new RegExp(`^(?:.*/)?${source}$`);
+  }
+
+  return new RegExp(anchored);
 }
 
 /** A file candidate for cleanup, identified by name and last-modified time. */
