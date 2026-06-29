@@ -17,6 +17,27 @@ describe('preview_share_card/service — buildShareCardForSite', () => {
     expect(card.messages.generic).toContain("Vito's Mens Salon");
   });
 
+  it('prefers the primary custom hostname over the slug subdomain', async () => {
+    const { buildShareCardForSite } = await import('../service.js');
+    const card = buildShareCardForSite({
+      slug: 'vitos',
+      businessName: "Vito's Mens Salon",
+      primaryHostname: 'vitosmenssalon.com',
+    });
+    expect(card.links.copy).toBe('https://vitosmenssalon.com');
+    expect(card.og.url).toBe('vitosmenssalon.com');
+  });
+
+  it('falls back to the slug subdomain when primaryHostname is blank/null', async () => {
+    const { buildShareCardForSite } = await import('../service.js');
+    const card = buildShareCardForSite({
+      slug: 'vitos',
+      businessName: "Vito's",
+      primaryHostname: '   ',
+    });
+    expect(card.links.copy).toBe('https://vitos.projectsites.dev');
+  });
+
   it('honors a custom base domain', async () => {
     const { buildShareCardForSite } = await import('../service.js');
     const card = buildShareCardForSite({ slug: 'acme', businessName: 'Acme' }, 'example.com');

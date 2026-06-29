@@ -54,9 +54,20 @@ previewShareCard.get('/api/sites/:siteId/share-card', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
 
+  // Canonical public URL: prefer the active primary/custom hostname over the
+  // slug subdomain so the shared link is the owner's real branded domain.
+  const hostRow = await dbQueryOne<{ hostname: string }>(
+    c.env.DB,
+    `SELECT hostname FROM hostnames
+      WHERE site_id = ? AND status = 'active' AND deleted_at IS NULL
+      ORDER BY is_primary DESC, type ASC, created_at ASC LIMIT 1`,
+    [siteId],
+  );
+
   const card = buildShareCardForSite({
     slug: site.slug,
     businessName: site.business_name ?? site.slug,
+    primaryHostname: hostRow?.hostname ?? null,
   });
   return c.json(card, 200);
 });

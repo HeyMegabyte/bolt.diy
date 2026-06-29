@@ -1362,7 +1362,8 @@ Server returns 404 (never 403). No tables owned.
 ## Remaining wiring (beta gate)
 
 Build-complete "Share my preview" button (frontend) + the workers-og `/og` render
-endpoint + custom-hostname preview URL.
+endpoint. (Custom-hostname preview URL — DONE 2026-06-29: the endpoint resolves the
+active primary/custom hostname and shares that branded URL over the slug subdomain.)
 
 ## Tests
 
