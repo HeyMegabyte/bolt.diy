@@ -53,8 +53,9 @@ jobs:
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           NANGO_DATABASE_URL: ${{ secrets.NANGO_DATABASE_URL }}
           NANGO_ENCRYPTION_KEY: ${{ secrets.NANGO_ENCRYPTION_KEY }}
+          NANGO_REDIS_URL: ${{ secrets.NANGO_REDIS_URL }}
         run: |
-          for n in NANGO_DATABASE_URL NANGO_ENCRYPTION_KEY; do
+          for n in NANGO_DATABASE_URL NANGO_ENCRYPTION_KEY NANGO_REDIS_URL; do
             eval "v=\$$n"
             printf '%s' "$v" | npx --yes wrangler@4 secret put "$n"
           done
