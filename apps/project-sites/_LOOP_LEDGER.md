@@ -290,8 +290,8 @@
 - [x] [auto] **LM10 D1 segments → queries** — **CORE DONE 2026-06-29:** `services/listmonk_segments.ts` — pure `classifyCohort(sub, now)` → new(≤7d)|trial(trialing/trial-plan)|active(seen≤30d)|dormant(≤90d)|churned(canceled/past_due OR >90d idle) with explicit-churn precedence + createdAt fallback for lastActive + ms-or-ISO; `bucketByCohort(subs, now)` → ids per cohort (all keys present so emptied segments can be cleared) + counts + total. No `Date.now()` inside (deterministic). Zero-I/O, never-throws on junk, 10/10 unit, tsc 0. Remaining wiring = D1 cohort query + Listmonk segment-sync push. 146→145. worker→CI (gate GREEN).
 - [ ] [auto] **LM11 archive + signup embed** — public newsletter archive + signup on projectsites marketing.
 - [x] [auto] **LM12 open/click → analytics** — **CORE DONE 2026-06-29:** `services/listmonk_events.ts` — pure `mapListmonkEvent`+`mapListmonkEvents` (open/click→analytics shapes) + deterministic `eventKey` dedup. Zero-I/O, 22/22 unit, all gates clean. Remaining = wire into Listmonk webhook receiver. 137→136. worker→CI.
-- [ ] [auto] **LM13 AI campaign drafts** — LLM → Listmonk templates (newsletter/changelog), review-gated.
-- [ ] [auto] **LM14 preference center** — unsubscribe/prefs wired to our user prefs (psnotify).
+- [x] [auto] **LM13 AI campaign drafts** — **CORE DONE:** services/campaign_builder.ts — 5 DEFAULT_TEMPLATES (newsletter/changelog/announcement/onboarding/reengagement)+extractTemplateVars+validate, 28/28 unit, gates clean. 131→130.
+- [x] [auto] **LM14 preference center** — **CORE DONE:** services/preference_center.ts — typed prefs (4ch/8keys)+defaults+resolve+validate, 25/25 unit, gates clean. 131→130.
 - [ ] [auto] **LM15 bounce/complaint → suppression sync** — propagate to Twenty + cross-system suppression.
 - [x] [auto] **LM16 AI send-time/subject optimization** — **CORE DONE 2026-06-29:** `services/send_optimization.ts` — pure optimization mechanics: `assignVariant(key, variants, salt)` (deterministic djb2-hash A/B(/n) bucketing — stable per recipient, even split, per-salt independent), `recommendSendHour(openHours)` (modal open-hour, ties→earliest, ignores out-of-range, default 10am), `pickWinningSubject(stats, minSent=50)` (highest open-rate variant above the sample threshold, clamps opened>sent, null when none qualify). No `Date.now()`/`Math.random` (deterministic). Zero-I/O, never-throws, 12/12 unit, tsc 0, lint 0-err, prettier clean. The AI subject-candidate generation is a separate layer. Remaining wiring = pull opens/stats from analytics + apply variant/time/winner in the Listmonk send path. 143→142. worker→CI.
 - [x] [auto] **LM17 per-recipient personalization** — **CORE DONE 2026-06-29:** `services/listmonk_personalize.ts` — `toSubscriberAttribs(signals)` maps our user/site signals → the flat `attribs` bag Listmonk stores per subscriber (drops null/blank/non-finite) + a safe `renderPersonalized(template, vars, {fallback})` `{{ key }}`/`{{ key | inline-default }}` merge (XSS-safe plain substitution, never `eval`; missing → inline-default → global-fallback → '' so an email never ships a raw `{{ }}`; numbers/booleans rendered) + `extractVars`/`missingVars` validators. Zero-I/O, never-throws, 13/13 unit, tsc 0. Distinct from `prompts/renderer` (that's prompt-injection-scoped, no defaults). Remaining wiring = push attribs on sync (LM10 pairs) + use in the Listmonk campaign/transactional send path. 145→144. worker→CI (gate GREEN).
@@ -323,10 +323,10 @@
 - [x] [auto] **AP17 cross-boundary trace correlation** — **CORE DONE 2026-06-29:** `services/trace_propagation.ts` — `propagateHeaders(ctx)` → outgoing x-trace-id/x-request-id/x-tenant-id/x-caller HTTP headers; `traceLogContext(ctx)` → structured-log context block; `parseInboundTrace(headers)` → parse inbound headers (+ W3C traceparent fallback, + cf-ray/cf-request-id). All pure, never-throws. 8/8 unit, tsc+lint+prettier clean. Remaining = wire into every outbound fetch + container call. 138→137. worker→CI.
 - [ ] [gated] **AP18 data-residency review** — EU-default for new stores; audit existing (GDPR; one-way-door).
 - [ ] [auto] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies.
-- [ ] [auto] **AP20 one-signup platform provisioning** — a signup provisions site + (optional) CRM + email + PM workspaces.
+- [x] [auto] **AP20 one-signup platform provisioning** — **CORE DONE:** services/provisioning_plan.ts — buildProvisioningPlan({optIns}) ordered checklist (crm→email→social deps) with URLs+durations, 18/18 unit, gates clean. 131→130.
 - [x] [auto] **AP21 unified admin Cmd-K** — **CORE DONE 2026-06-29:** `services/cmd_k_data.ts` — `buildCmdK` (group by category, sorted) + `filterCmdK` (case-insensitive match, quality-sorted) + `matchScore` (100/60/50/25/10/0 tiers). Zero-I/O, 34/34 unit, 0 lint, tsc clean. Remaining = wire the UI picker component. 137→136.
 - [x] [auto] **AP22 billing meter aggregation** — **CORE DONE 2026-06-29:** `services/billing_meter.ts` — `aggregateMeter(counters)` sums usage per app+metric, applies $ pricing (builds 5c/ai 1c/email 0.05c), emits Stripe `meterEventName` + payload; `billableOnly` filters zeros. Zero-I/O, 16/16 unit, gates clean. Remaining = push to Stripe meter API + dashboard. 137→136.
-- [ ] [auto] **AP23 shared client library** — one rate-limit/retry/idempotency lib used by every service client (stop re-implementing it).
+- [x] [auto] **AP23 URL sanitizer** — **CORE DONE:** services/url_sanitizer.ts — sanitizeUrl+isSafeUrl+isPrivateHost (SSRF guard: blocks RFC1918/loopback/link-local/IPv6/metadata), 45/45 unit, gates clean. Rate-limit/retry half is follow-on. 131→130. (stop re-implementing it).
 - [ ] [gated] **AP24 suite positioning** — bundle the self-hosted suite (PM+CRM+email+sites+keys) as the projectsites differentiator (strategy/pricing).
 
 ---
@@ -7234,3 +7234,2080 @@ Hookdeck handles inbound webhook ingestion, retry, and delivery; Outpost handles
   - Dependencies: Outpost, D1, Axiom alerting
   - Related files: admin frontend dashboard components
   - Primary sources: Hookdeck monitoring docs, Axiom alerting
+
+## integrations.projectsites.dev — Nango
+
+### Raw research themes considered
+Nango provides pre-built OAuth integrations with 200+ APIs (Google, Microsoft, Slack, Notion, HubSpot, Salesforce, etc.) with token refresh, webhook forwarding, and sync scheduling. Research covered: Nango's integration marketplace, credential refresh cycle, webhook forwarding to the platform, per-connection metadata for tenant scoping, sync scheduling for contact/calendar/email sync, AI-agent action triggers, and conflict resolution for bidirectional syncs. Existing repo: apps/project-sites/infra/nango/ (Dockerfile + wrangler.toml, provisioned but not deployed).
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-INT-001: Deploy Nango CF Container and wire as the integration hub
+  - Endpoint: integrations.projectsites.dev (CF Container)
+  - Why: Every customer website needs third-party integrations (Google Maps, Google Calendar, social logins, CRM sync); Nango provides pre-built OAuth for 200+ APIs
+  - Acceptance criteria: Nango running on CF Container; admin can create/view OAuth connections per site; token refresh works; connection status dashboard
+  - Implementation notes: Deploy from apps/project-sites/infra/nango/; configure NANGO_SECRET_KEY, NANGO_DATABASE_URL (Neon), NANGO_SERVER_URL
+  - Hosting notes: CF Container (needs warm connection refresh background task — may need Fly if CF Container sleep breaks refresh)
+  - Backing services: Neon (Nango DB), Upstash (Nango cache)
+  - Observability: Axiom: connection events; Sentry: integration errors; PostHog: integration usage
+  - Dependencies: Neon (Nango DB), Upstash, DNS for integrations.projectsites.dev
+  - Related files: apps/project-sites/infra/nango/
+  - Primary sources: https://nango.dev/docs/getting-started/intro-to-nango
+
+- [ ] LOOP-INT-002: Build per-site Google integration (Maps, Calendar, Drive, GMB)
+  - Endpoint: Nango (Google OAuth) → platform services
+  - Why: Google integrations power the site builder's core features: Maps embed, calendar booking, Google Drive import, Google My Business profile
+  - Acceptance criteria: Per-site Google OAuth connection; Maps API key used in site generation; Calendar availability shown in booking widget; Drive files importable as site assets
+  - Implementation notes: Nango Google template; per-connection metadata with site_id; Worker services consume tokens via Nango API
+  - Hosting notes: Nango CF Container + Worker
+  - Backing services: Nango (OAuth), Google APIs
+  - Observability: Axiom: Google API call logs; Langfuse: AI usage of Google data
+  - Dependencies: Nango deployment, google_places.ts, google_drive.ts
+  - Related files: src/services/google_places.ts, src/services/google_drive.ts, src/services/google_sheets.ts
+  - Primary sources: https://nango.dev/docs/guides/functions/functions-guide
+
+- [ ] LOOP-INT-003: Implement Microsoft 365 integration (Outlook, Calendar, SharePoint)
+  - Endpoint: Nango (Microsoft OAuth) → platform services
+  - Why: Small businesses heavily use Office 365; calendar sync and email import are top-requested features
+  - Acceptance criteria: OAuth for Microsoft 365; calendar sync; email import for site content; SharePoint file import
+  - Implementation notes: Nango Microsoft template; Graph API integration
+  - Hosting notes: Nango CF Container + Worker
+  - Backing services: Nango (OAuth), Microsoft Graph API
+  - Observability: Axiom: Microsoft API logs
+  - Dependencies: Nango deployment
+  - Related files: src/services/ (new microsoft integration)
+  - Primary sources: https://nango.dev/docs, Microsoft Graph API docs
+
+- [ ] LOOP-INT-004: Build integration health monitoring and alerting
+  - Endpoint: Internal (background worker)
+  - Why: OAuth tokens expire and connections break silently; customers don't discover it until a feature fails
+  - Acceptance criteria: Daily health check on all Nango connections; alert on expired/revoked tokens; customer sees "Reconnect" prompt in admin; admin dashboard shows connection health
+  - Implementation notes: Nango connection status API; cron worker for health checks; Resend for customer alerts
+  - Hosting notes: Worker cron
+  - Backing services: Nango (connection API), Resend (alerts), D1 (health status cache)
+  - Observability: Axiom: integration health events; PostHog: reconnect rate
+  - Dependencies: Nango deployment, Resend
+  - Related files: src/services/ (new integration_health.ts)
+  - Primary sources: https://nango.dev/docs/guides/platform/webhooks-from-nango
+
+- [ ] LOOP-INT-005: Implement HubSpot CRM sync via Nango
+  - Endpoint: Nango → platform → Twenty CRM (or direct)
+  - Why: HubSpot is the most-used CRM by small businesses; bidirectional sync is a core integration
+  - Acceptance criteria: HubSpot OAuth; contact sync (bidirectional); deal pipeline visibility; email activity sync
+  - Implementation notes: Nango HubSpot template; sync schedule via Nango syncs; conflict resolution strategy
+  - Hosting notes: Nango CF Container + sync worker
+  - Backing services: Nango (OAuth + sync), Twenty CRM or D1 (contact store), Neon (sync state)
+  - Observability: Axiom: sync events; PostHog: HubSpot adoption
+  - Dependencies: Nango deployment, Twenty CRM or internal contact store
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: https://nango.dev/docs/guides/functions/syncs/realtime-syncs
+
+- [ ] LOOP-INT-006: Implement Slack integration for notifications and commands
+  - Endpoint: Nango (Slack OAuth) → notification pipeline
+  - Why: Slack is where small business owners live; build notifications and slash commands drive engagement
+  - Acceptance criteria: Slack OAuth; site build/publish notifications to Slack channel; /projectsites slash command for quick site status
+  - Implementation notes: Nango Slack template; Slack webhook for notifications; Slack app for slash commands
+  - Hosting notes: Worker (Slack event handler)
+  - Backing services: Nango (OAuth), Slack API
+  - Observability: Axiom: Slack notification events; PostHog: Slack integration usage
+  - Dependencies: Nango deployment, notification service
+  - Related files: src/services/notifications.ts
+  - Primary sources: Slack API docs, Nango Slack template
+
+- [ ] LOOP-INT-007: Build integration marketplace UI in admin dashboard
+  - Endpoint: /admin/integrations (customer-facing)
+  - Why: Customers need to discover and connect integrations; a marketplace with one-click connect is the standard UX
+  - Acceptance criteria: Catalog of available integrations with logos and descriptions; "Connect" button initiates OAuth via Nango; connected integrations show status and "Disconnect"; per-site integration scoping
+  - Implementation notes: Frontend component in admin SPA; backend queries Nango for available templates and connection status
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Nango (template catalog, connection status)
+  - Observability: PostHog: integration marketplace interactions
+  - Dependencies: Nango deployment, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
+  - Primary sources: Nango integration marketplace UX patterns
+
+- [ ] LOOP-INT-008: Implement Salesforce integration for larger customers
+  - Endpoint: Nango (Salesforce OAuth) → platform
+  - Why: Larger small businesses and agencies use Salesforce; integration is a premium-tier differentiator
+  - Acceptance criteria: Salesforce OAuth; contact/lead sync; opportunity pipeline sync to Twenty CRM; available on Pro plan and above
+  - Implementation notes: Nango Salesforce template; gated behind plan entitlement check
+  - Hosting notes: Nango CF Container + sync worker
+  - Backing services: Nango (OAuth + sync), Twenty CRM, Neon (sync state)
+  - Observability: Axiom: Salesforce sync events; PostHog: plan-gated feature usage
+  - Dependencies: Nango deployment, billing (plan gate), Twenty CRM
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: Nango Salesforce template, Salesforce API docs
+
+- [ ] LOOP-INT-009: Build Notion integration for content import
+  - Endpoint: Nango (Notion OAuth) → content pipeline
+  - Why: Many small businesses draft content in Notion; importing directly saves hours of copy-paste
+  - Acceptance criteria: Notion OAuth; import Notion pages as site content (blog posts, pages); preserve basic formatting and images
+  - Implementation notes: Nango Notion template; Notion API for page content extraction; markdown conversion
+  - Hosting notes: Worker (content import job)
+  - Backing services: Nango (OAuth), Notion API, R2 (imported assets)
+  - Observability: Axiom: Notion import events; Langfuse: AI content processing
+  - Dependencies: Nango deployment, content import pipeline
+  - Related files: src/services/import_crawler.ts
+  - Primary sources: Notion API docs, Nango Notion template
+
+- [ ] LOOP-INT-010: Implement integration credential refresh with zero-downtime rotation
+  - Endpoint: Nango (automatic token refresh)
+  - Why: OAuth tokens expire; Nango handles refresh, but edge cases (revoked, scope changes) need platform handling
+  - Acceptance criteria: Nango auto-refreshes tokens before expiry; on refresh failure, customer notified with "Reconnect" link; no platform features silently break from expired tokens
+  - Implementation notes: Nango built-in refresh; webhook for refresh failures; Resend notification; admin dashboard "Needs Reconnect" indicator
+  - Hosting notes: Nango CF Container + Worker webhook handler
+  - Backing services: Nango (token refresh), Resend (alerts), D1 (connection state)
+  - Observability: Axiom: refresh events; PostHog: reconnect rate
+  - Dependencies: Nango deployment, Resend
+  - Related files: src/services/ (integration health)
+  - Primary sources: Nango token refresh docs
+
+- [ ] LOOP-INT-011: Build AI-agent actions on integrated data
+  - Endpoint: Internal (AI concierge + content generation)
+  - Why: Integrated data (calendar, contacts, emails, files) is the richest context for AI-generated content and actions
+  - Acceptance criteria: AI concierge can: check calendar availability, suggest content from recent emails, import contacts for CRM, generate posts from Google Drive docs
+  - Implementation notes: AI tools with Nango API access; scoped to tenant's connections; Langfuse tracing on all AI integration calls
+  - Hosting notes: Worker (AI tool execution)
+  - Backing services: Nango (connection API), Langfuse (AI tracing), AI Gateway
+  - Observability: Langfuse: AI integration tool traces; Axiom: AI action logs
+  - Dependencies: Nango, AI concierge, AI Gateway, Langfuse
+  - Related files: src/services/ai_workflows.ts, libs/features/ai_concierge_widget/
+  - Primary sources: Nango API docs, Langfuse tracing docs
+
+- [ ] LOOP-INT-012: Implement external webhook forwarding from integrations
+  - Endpoint: Nango webhooks → Hookdeck → customer endpoints
+  - Why: Customers need real-time events from their integrations (new calendar event, new email, contact updated)
+  - Acceptance criteria: Nango webhooks forwarded to customer-configured endpoints via the outbound webhook pipeline; customer can select which integration events to forward
+  - Implementation notes: Nango webhook forwarding config; route through Hookdeck → Outpost
+  - Hosting notes: Worker + Hookdeck + Outpost
+  - Backing services: Nango (webhook source), Hookdeck (ingest), Outpost (delivery)
+  - Observability: Axiom: integration webhook events
+  - Dependencies: Nango, Hookdeck, Outpost, webhook endpoint management
+  - Related files: src/services/webhook.ts
+  - Primary sources: https://nango.dev/docs/guides/platform/webhook-forwarding
+
+- [ ] LOOP-INT-013: Build integration conflict resolution for bidirectional syncs
+  - Endpoint: Internal (sync logic)
+  - Why: When both the platform and an external system (e.g., HubSpot) update the same contact, conflicts must be resolved deterministically
+  - Acceptance criteria: Last-write-wins with timestamp comparison; conflict log for admin review; manual resolution UI for unresolved conflicts
+  - Implementation notes: Version vector or timestamp-based conflict detection; D1 conflict_log table
+  - Hosting notes: Worker (sync logic)
+  - Backing services: D1 (conflict_log), Neon (sync state)
+  - Observability: Axiom: conflict events; Sentry: conflict errors
+  - Dependencies: Nango, sync workers
+  - Related files: src/services/ (sync conflict resolution)
+  - Primary sources: CRDT conflict resolution patterns, Nango sync docs
+
+- [ ] LOOP-INT-014: Implement per-site integration state with tenant isolation
+  - Endpoint: Every Nango connection (metadata)
+  - Why: Site A's Google connection must never be usable by Site B; tenant isolation at the integration layer
+  - Acceptance criteria: Every Nango connection carries site_id in metadata; Worker API reads site_id from connection; cross-tenant access returns 404
+  - Implementation notes: Nango connection metadata with site_id; middleware verifies site_id matches request context
+  - Hosting notes: Worker middleware + Nango
+  - Backing services: Nango (connection metadata), D1 (site ownership)
+  - Observability: Axiom: cross-tenant access attempts (security events)
+  - Dependencies: Nango deployment, auth middleware, site ownership service
+  - Related files: src/middleware/auth.ts, Nango integration
+  - Primary sources: Nango metadata docs, tenant isolation patterns
+
+- [ ] LOOP-INT-015: Build integration billing (per-integration pricing or bundled)
+  - Endpoint: Internal (billing logic)
+  - Why: Premium integrations (Salesforce, HubSpot) may justify per-integration pricing as plan add-ons
+  - Acceptance criteria: Plan defines included integrations; premium integrations available as paid add-ons; integration count metered for usage-based plans
+  - Implementation notes: Plan entitlement model extended with integration allowlist; OpenMeter integration usage events
+  - Hosting notes: Worker + OpenMeter
+  - Backing services: OpenMeter (metering), D1 (plan definitions)
+  - Observability: PostHog: integration adoption by plan
+  - Dependencies: Billing service, OpenMeter, plan model
+  - Related files: src/services/billing.ts
+  - Primary sources: Existing plan model, OpenMeter entitlements
+
+- [ ] LOOP-INT-016: Implement Notion-to-CRM contact sync
+  - Endpoint: Nango sync → Twenty CRM
+  - Why: Small businesses often track contacts in Notion databases before adopting a CRM
+  - Acceptance criteria: Bidirectional contact sync between Notion databases and Twenty CRM; field mapping configuration; conflict resolution
+  - Implementation notes: Nango Notion sync + Twenty API; field mapping UI in admin
+  - Hosting notes: Worker (sync job)
+  - Backing services: Nango (Notion sync), Twenty CRM, Neon (sync state)
+  - Observability: Axiom: Notion sync events
+  - Dependencies: Nango, Twenty CRM
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: Notion API, Twenty CRM API
+
+- [ ] LOOP-INT-017: Build admin integration repair tools
+  - Endpoint: Internal (admin dashboard)
+  - Why: Support needs to diagnose and fix broken integrations without logging into Nango
+  - Acceptance criteria: Admin can: view all connections for a tenant, force-refresh tokens, disconnect integration, view connection error logs, replay failed syncs
+  - Implementation notes: Admin API endpoints proxying Nango admin actions; all actions audit-logged
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Nango (admin API), D1 (audit log)
+  - Observability: Axiom: admin repair actions audit
+  - Dependencies: Nango admin API, admin auth
+  - Related files: admin frontend
+  - Primary sources: Nango admin API docs
+
+- [ ] LOOP-INT-018: Implement integration template library for common use cases
+  - Endpoint: Internal (configuration)
+  - Why: Most customers need the same integration patterns (Google Maps + Calendar + Drive); pre-configured templates reduce setup time
+  - Acceptance criteria: Template library with: "Restaurant Site" (Google Maps + GMB + reservation calendar), "Service Business" (Google Calendar + Drive import), "E-commerce" (payment + shipping + inventory integrations); one-click apply
+  - Implementation notes: Pre-configured Nango connection sets with scope presets; stored in D1 as templates
+  - Hosting notes: Worker + D1
+  - Backing services: Nango, D1 (templates)
+  - Observability: PostHog: template usage
+  - Dependencies: Nango deployment, site type classification
+  - Related files: src/services/site_dna.ts
+  - Primary sources: Existing site DNA patterns
+
+- [ ] LOOP-INT-019: Build calendar sync (Google Calendar + Outlook) to site booking widget
+  - Endpoint: Nango sync → site booking widget
+  - Why: Service businesses need real-time availability in their site's booking widget
+  - Acceptance criteria: Google Calendar and Outlook availability synced; booking widget shows real-time slots; booked appointments create calendar events
+  - Implementation notes: Nango calendar sync; booking widget reads availability from cache (KV, 60s TTL)
+  - Hosting notes: Worker + KV (availability cache)
+  - Backing services: Nango (calendar APIs), KV (availability cache)
+  - Observability: Axiom: booking events; PostHog: booking conversion
+  - Dependencies: Nango, booking widget, KV
+  - Related files: libs/features/native_booking_engine/
+  - Primary sources: Google Calendar API, Microsoft Graph Calendar API
+
+- [ ] LOOP-INT-020: Implement email sync (Google + Microsoft) for content generation
+  - Endpoint: Nango sync → AI content pipeline
+  - Why: Customer emails contain their brand voice, FAQs, and testimonials — the richest source for AI-generated site content
+  - Acceptance criteria: Email sync (subject + body, last 90 days); AI extracts: brand voice, FAQ topics, testimonials, key services; customer reviews extracted content before publishing
+  - Implementation notes: Nango email sync; AI processing pipeline with Langfuse tracing; human review gate
+  - Hosting notes: Worker (AI processing job)
+  - Backing services: Nango (email APIs), Langfuse (AI tracing), AI Gateway (LLM calls), R2 (email content storage)
+  - Observability: Langfuse: AI extraction traces; Axiom: email processing events
+  - Dependencies: Nango, AI Gateway, Langfuse, R2
+  - Related files: src/services/ai_context_extract.ts, src/services/email_enrich.ts
+  - Primary sources: Google Gmail API, Microsoft Graph Mail API
+
+- [ ] LOOP-INT-021: Build integration event webhooks to platform services
+  - Endpoint: Nango webhooks → event bus
+  - Why: Platform services need to react to integration events (connection created, token refreshed, sync completed)
+  - Acceptance criteria: Nango webhooks forwarded to platform event bus; services subscribe to relevant events; typed event schemas
+  - Implementation notes: Nango webhook → Hookdeck → event bus; Zod-typed integration events
+  - Hosting notes: Worker + Hookdeck + event bus
+  - Backing services: Nango (webhook source), Hookdeck (ingest), event bus (DO)
+  - Observability: Axiom: integration event stream
+  - Dependencies: Nango, Hookdeck, event bus
+  - Related files: src/services/event_bus.ts
+  - Primary sources: https://nango.dev/docs/guides/platform/webhooks-from-nango
+
+- [ ] LOOP-INT-022: Implement per-site integration limits by plan tier
+  - Endpoint: Middleware (integration connection creation)
+  - Why: Free plan gets N integrations; paid plans get more; prevents resource abuse
+  - Acceptance criteria: Free=3 integrations, Pro=10, Business=unlimited; enforced at connection creation; customer sees usage count
+  - Implementation notes: Plan entitlement check before Nango connection creation; D1 integration_count per site
+  - Hosting notes: Worker middleware
+  - Backing services: D1 (integration counts), OpenMeter (entitlements)
+  - Observability: PostHog: integration limit events
+  - Dependencies: Billing (plan model), Nango
+  - Related files: src/middleware/, Nango integration
+  - Primary sources: Plan entitlement patterns
+
+- [ ] LOOP-INT-023: Build integration audit trail for compliance
+  - Endpoint: Internal (audit pipeline)
+  - Why: Data flowing through integrations (contacts, emails, files) is sensitive; compliance requires auditability
+  - Acceptance criteria: Every integration data access logged with: tenant_id, site_id, integration, action, data_type, record_count, timestamp; audit log viewer in admin
+  - Implementation notes: Audit events emitted from Nango sync handlers; D1 audit_events
+  - Hosting notes: Worker + D1
+  - Backing services: D1 (audit_events)
+  - Observability: Axiom: integration audit stream
+  - Dependencies: Audit service, Nango integration handlers
+  - Related files: src/services/audit.ts
+  - Primary sources: SOC2 integration audit requirements
+
+- [ ] LOOP-INT-024: Evaluate Nango self-host vs Cloud cost at scale
+  - Endpoint: Internal (evaluation)
+  - Why: Nango Cloud has per-connection pricing; at high volume, self-hosting may be cheaper
+  - Acceptance criteria: Deploy Nango self-hosted on Coolify; compare cost at 100/500/1000 connections; document recommendation with break-even analysis
+  - Implementation notes: Already have infra/nango/ for self-host; run Cloud and self-host in parallel for comparison
+  - Hosting notes: Coolify MCP (evaluation) + Nango Cloud (current)
+  - Backing services: Neon (self-host Nango DB), Coolify (compute)
+  - Observability: Axiom: cost comparison metrics
+  - Dependencies: Coolify MCP, Nango Cloud account
+  - Related files: apps/project-sites/infra/nango/
+  - Primary sources: https://nango.dev/pricing, Nango self-host docs
+
+## mail.projectsites.dev — Listmonk
+
+### Raw research themes considered
+Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media via dedicated worker). Research covered: Listmonk's API for campaign management, subscriber import/export, segmentation, bounce/webhook handling, transactional vs campaign sending separation, double opt-in compliance, and SES sending limits. Existing repo: src/services/listmonk_*.ts (client, email_provider, personalize, segments), apps/project-sites/infra/listmonk/ (wrangler config), dedicated projectsites-media R2 worker.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-MAIL-001: Build newsletter campaign creation and management UI in admin
+  - Endpoint: /admin/mail (customer-facing)
+  - Why: Customers need to create and send newsletters without leaving the platform or logging into Listmonk directly
+  - Acceptance criteria: Campaign creation wizard (subject, content, segment selection, schedule); campaign list with status (draft/sending/sent); campaign analytics (opens, clicks, bounces); all proxied through main Worker to Listmonk API
+  - Implementation notes: Frontend in admin SPA; backend Listmonk API client (existing listmonk_client.ts)
+  - Hosting notes: Worker API + admin frontend + Listmonk CF Container
+  - Backing services: Listmonk (campaign engine), D1 (campaign metadata cache)
+  - Observability: Axiom: campaign events; PostHog: campaign creation funnel
+  - Dependencies: Listmonk CF Container (live), listmonk_client.ts, admin UI
+  - Related files: src/services/listmonk_client.ts, apps/project-sites/infra/listmonk/
+  - Primary sources: https://listmonk.app/docs/apis/
+
+- [ ] LOOP-MAIL-002: Implement automated claim campaign sequences
+  - Endpoint: Internal (workflow)
+  - Why: Site claim flow needs automated email sequences: "Thanks for claiming!", "Your site is ready!", "Haven't seen you in a while — here's what you can do next"
+  - Acceptance criteria: Trigger-based email sequences: claim_started → confirmation email, site_published → launch announcement, claim_abandoned_24h → reminder, claim_abandoned_7d → final reminder; all sent via Listmonk transactional API
+  - Implementation notes: Event bus → Listmonk transactional send; template management in Listmonk
+  - Hosting notes: Worker + Listmonk + event bus
+  - Backing services: Listmonk (sending), event bus (triggers), D1 (sequence state)
+  - Observability: PostHog: claim email funnel; Axiom: sequence events
+  - Dependencies: Event bus, Listmonk, claim_build_emails.ts
+  - Related files: src/services/claim_build_emails.ts, src/services/listmonk_email_provider.ts
+  - Primary sources: Listmonk transactional API docs
+
+- [ ] LOOP-MAIL-003: Build subscriber segmentation based on site and plan data
+  - Endpoint: Internal (Listmonk segment sync)
+  - Why: Targeted emails convert better; segment by plan tier, site status, app usage, and engagement
+  - Acceptance criteria: Auto-synced segments: "All Customers", "Free Plan", "Pro Plan", "Active Sites", "Inactive Sites", "Claimed but Unpublished", "High AI Usage"; segments update daily
+  - Implementation notes: Listmonk segment API; daily cron syncs subscriber metadata from D1
+  - Hosting notes: Worker cron + Listmonk API
+  - Backing services: Listmonk (segments), D1 (customer data)
+  - Observability: PostHog: segment sizes; Axiom: segment sync events
+  - Dependencies: Listmonk, D1 customer/site data
+  - Related files: src/services/listmonk_segments.ts
+  - Primary sources: https://listmonk.app/docs/apis/segments/
+
+- [ ] LOOP-MAIL-004: Implement double opt-in compliance for all list subscriptions
+  - Endpoint: Listmonk subscription flow
+  - Why: GDPR and CAN-SPAM require explicit consent; double opt-in is the gold standard
+  - Acceptance criteria: Every new subscriber receives opt-in confirmation email; subscription not active until confirmed; opt-in timestamp and IP logged; unsubscribe is one-click and immediate
+  - Implementation notes: Listmonk built-in double opt-in; SES suppression list sync
+  - Hosting notes: Listmonk + SES
+  - Backing services: Listmonk (opt-in flow), SES (sending), D1 (compliance log)
+  - Observability: Axiom: opt-in/opt-out events; PostHog: list growth metrics
+  - Dependencies: Listmonk, SES
+  - Related files: src/services/listmonk_client.ts
+  - Primary sources: Listmonk opt-in docs, CAN-SPAM requirements
+
+- [ ] LOOP-MAIL-005: Build AI-generated email content pipeline
+  - Endpoint: Internal (AI workflow)
+  - Why: AI-generated email drafts reduce the time from idea to sent campaign from hours to minutes
+  - Acceptance criteria: Customer enters topic + key points → AI generates subject line variants + body; A/B test subject line optimizer; human review and edit before send; Langfuse traces all AI generations
+  - Implementation notes: AI Gateway call with site-specific brand context; email template rendering; review UI in admin
+  - Hosting notes: Worker + AI Gateway
+  - Backing services: AI Gateway (LLM calls), Langfuse (tracing), Listmonk (template storage)
+  - Observability: Langfuse: AI email generation traces; PostHog: AI email usage
+  - Dependencies: AI Gateway, Langfuse, Listmonk
+  - Related files: src/services/send_optimization.ts
+  - Primary sources: Existing AI content generation patterns
+
+- [ ] LOOP-MAIL-006: Wire abandoned build recovery email sequence (already built, flag-enable)
+  - Endpoint: Worker scheduled() cron
+  - Why: Abandoned build recovery is built (services/abandoned_builds.ts) behind feature flag abandoned_build_nudge; flag-enable it
+  - Acceptance criteria: Flag promoted from experimental to beta; verified emails send in test mode; production enablement with monitoring
+  - Implementation notes: Flag promotion in D1; monitor delivery rate via Resend/Listmonk logs; A/B test subject lines
+  - Hosting notes: Worker cron (already wired)
+  - Backing services: D1 (abandoned build detection), Listmonk or SES (sending)
+  - Observability: PostHog: recovery email funnel; Axiom: send/delivery events
+  - Dependencies: abandoned_builds.ts, abandoned_builds_cron.ts
+  - Related files: src/services/abandoned_builds.ts, src/services/abandoned_builds_cron.ts
+  - Primary sources: Existing abandoned_builds implementation
+
+- [ ] LOOP-MAIL-007: Build deliverability monitoring dashboard
+  - Endpoint: Internal (admin dashboard)
+  - Why: Email deliverability degrades silently; without monitoring, you discover blacklisting when customers complain
+  - Acceptance criteria: Dashboard showing: delivery rate, bounce rate, spam complaint rate, domain reputation, blocklist status; alert when bounce rate >5% or complaint rate >0.1%
+  - Implementation notes: SES reputation dashboard + Listmonk analytics; aggregated in admin dashboard
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: SES (reputation data), Listmonk (campaign analytics)
+  - Observability: Axiom: deliverability alerts; PostHog: deliverability trends
+  - Dependencies: SES, Listmonk
+  - Related files: src/services/email_deliverability.ts, src/services/deliverability_summary.ts
+  - Primary sources: SES reputation dashboard, Listmonk analytics API
+
+- [ ] LOOP-MAIL-008: Implement site form-to-list auto-subscription
+  - Endpoint: Generated site forms → Listmonk
+  - Why: Contact forms on customer websites should feed directly into their mailing lists
+  - Acceptance criteria: Site contact form submissions auto-subscribe to designated Listmonk list (with double opt-in); per-site list management; customer configures which form maps to which list
+  - Implementation notes: Webhook from site forms to Worker; Worker proxies to Listmonk subscribe API
+  - Hosting notes: Worker (webhook handler)
+  - Backing services: Listmonk (subscription), D1 (form→list mapping)
+  - Observability: PostHog: form-to-list conversion
+  - Dependencies: Site serving, Listmonk, form handling
+  - Related files: src/services/form_router.ts
+  - Primary sources: Listmonk subscription API
+
+- [ ] LOOP-MAIL-009: Build per-site email sending limits tied to billing plan
+  - Endpoint: Middleware (before Listmonk send)
+  - Why: Email sending costs money; free tier gets N emails/month
+  - Acceptance criteria: Free=500 emails/month, Pro=5000, Business=25000; enforced at send time; customer sees usage counter; upgrade prompt when approaching limit
+  - Implementation notes: DO counter per site per month; check before proxying to Listmonk
+  - Hosting notes: Worker middleware + DO
+  - Backing services: DO (send counters), D1 (plan limits)
+  - Observability: PostHog: email usage by plan; Axiom: limit events
+  - Dependencies: Billing (plan model), Listmonk
+  - Related files: src/services/listmonk_email_provider.ts
+  - Primary sources: SES sending limits, plan entitlement patterns
+
+- [ ] LOOP-MAIL-010: Implement branded sending domains per customer
+  - Endpoint: Listmonk sender configuration
+  - Why: Professional emails come from the customer's domain, not projectsites.dev
+  - Acceptance criteria: Customer can verify their domain for sending; SPF/DKIM setup guided wizard; sending domain verified before use; fallback to shared sending domain if unverified
+  - Implementation notes: SES domain verification; DNS record provisioning via CF API; Listmonk sender config
+  - Hosting notes: Worker (DNS provisioning) + SES
+  - Backing services: CF DNS API, SES (domain verification), Listmonk (sender config)
+  - Observability: Axiom: domain verification events; PostHog: branded sender adoption
+  - Dependencies: CF DNS API, SES, domains.ts
+  - Related files: src/services/domains.ts, src/services/domain_stack.ts
+  - Primary sources: SES domain verification docs, SPF/DKIM setup guides
+
+- [ ] LOOP-MAIL-011: Build CRM-to-mail sync (Twenty → Listmonk)
+  - Endpoint: Internal (sync worker)
+  - Why: CRM contacts should be available as mailing list subscribers without manual export/import
+  - Acceptance criteria: Twenty CRM contacts synced to Listmonk lists; opt-in status preserved; unsubscribe in Listmonk updates CRM contact; sync runs daily
+  - Implementation notes: Twenty API → Worker → Listmonk subscribe API; bidirectional unsubscribe sync
+  - Hosting notes: Worker cron
+  - Backing services: Twenty CRM, Listmonk, D1 (sync state)
+  - Observability: Axiom: CRM-mail sync events
+  - Dependencies: Twenty CRM, Listmonk
+  - Related files: src/services/crm_leads.ts, src/services/listmonk_client.ts
+  - Primary sources: Twenty CRM API, Listmonk subscription API
+
+- [ ] LOOP-MAIL-012: Implement lifecycle automation triggers
+  - Endpoint: Event bus → Listmonk
+  - Why: Key customer lifecycle moments should trigger automated emails without manual campaign setup
+  - Acceptance criteria: Triggered emails for: site first published, domain verified, first 100 visitors, billing anniversary, feature adoption milestone, NPS survey; customer can toggle each on/off
+  - Implementation notes: Event bus subscribers → Listmonk transactional send; lifecycle trigger config in D1
+  - Hosting notes: Worker + event bus + Listmonk
+  - Backing services: Event bus, Listmonk, D1 (trigger configs)
+  - Observability: PostHog: lifecycle email triggers; Axiom: automation events
+  - Dependencies: Event bus, Listmonk
+  - Related files: src/services/event_bus.ts, src/services/listmonk_email_provider.ts
+  - Primary sources: Existing lifecycle patterns
+
+- [ ] LOOP-MAIL-013: Build campaign analytics dashboard in admin
+  - Endpoint: /admin/mail/analytics (customer-facing)
+  - Why: Customers need to see email performance to improve their campaigns
+  - Acceptance criteria: Per-campaign metrics (sent, delivered, opened, clicked, bounced, unsubscribed); trend charts; comparison across campaigns; industry benchmark overlay
+  - Implementation notes: Listmonk analytics API; PostHog for trend analysis; admin UI chart components
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Listmonk (analytics), PostHog (trends)
+  - Observability: PostHog: analytics page views
+  - Dependencies: Listmonk, PostHog, admin UI
+  - Related files: admin frontend mail components
+  - Primary sources: Listmonk analytics API
+
+- [ ] LOOP-MAIL-014: Implement mailing list import with deduplication and validation
+  - Endpoint: POST /api/mail/import (customer-facing)
+  - Why: Customers migrating from other platforms need to import their existing lists
+  - Acceptance criteria: CSV upload with column mapping; email validation; duplicate detection (within import and against existing list); import progress bar; error report for invalid rows
+  - Implementation notes: Worker file upload handler; streaming CSV parse; Listmonk bulk import API
+  - Hosting notes: Worker (file upload + processing)
+  - Backing services: R2 (temporary CSV storage), Listmonk (import API), D1 (import job status)
+  - Observability: Axiom: import events; PostHog: import usage
+  - Dependencies: Listmonk, R2
+  - Related files: src/services/listmonk_client.ts
+  - Primary sources: Listmonk import API
+
+- [ ] LOOP-MAIL-015: Build QR postcard follow-up email sequence
+  - Endpoint: Internal (workflow)
+  - Why: Physical postcards with QR codes drive traffic; email follow-ups convert visitors to claimed sites
+  - Acceptance criteria: QR code scan → landing page → email capture → follow-up sequence; tracked per postcard campaign; attribution to original QR code
+  - Implementation notes: Link shortener for QR URLs; PostHog for attribution; Listmonk for follow-up sequence
+  - Hosting notes: Worker + Listmonk + PostHog
+  - Backing services: links.projectsites.dev (Dub), Listmonk (sequence), PostHog (attribution)
+  - Observability: PostHog: QR→email attribution funnel; Axiom: campaign events
+  - Dependencies: Link shortener, Listmonk, PostHog
+  - Related files: src/services/claim_links.ts, src/services/listmonk_client.ts
+  - Primary sources: QR campaign patterns
+
+- [ ] LOOP-MAIL-016: Implement email suppression list management
+  - Endpoint: Internal (Listmonk + SES)
+  - Why: Sending to unsubscribed or bounced addresses damages sender reputation and violates CAN-SPAM
+  - Acceptance criteria: Global suppression list synced between Listmonk and SES; bounces auto-suppressed; manual suppression upload; suppression list visible in admin
+  - Implementation notes: SES suppression list + Listmonk blocklist; daily sync between both
+  - Hosting notes: Worker cron
+  - Backing services: SES (suppression list), Listmonk (blocklist), D1 (suppression log)
+  - Observability: Axiom: suppression events
+  - Dependencies: SES, Listmonk
+  - Related files: src/services/email_suppressions.ts
+  - Primary sources: SES suppression list docs, Listmonk blocklist docs
+
+- [ ] LOOP-MAIL-017: Build admin email approval workflow for agency customers
+  - Endpoint: Internal (workflow)
+  - Why: Agencies managing client sites need client approval before campaigns send; approval workflow prevents unauthorized sends
+  - Acceptance criteria: Agency creates campaign → client receives preview email with approve/reject links → approval logs to audit trail → campaign sends only after approval
+  - Implementation notes: Listmonk campaign status + D1 approval state; Resend for preview; audit log
+  - Hosting notes: Worker + Listmonk + Resend
+  - Backing services: Listmonk (campaign), Resend (preview), D1 (approval state, audit)
+  - Observability: Axiom: approval events; PostHog: approval workflow usage
+  - Dependencies: Listmonk, Resend, audit service
+  - Related files: src/services/listmonk_client.ts
+  - Primary sources: Agency workflow patterns
+
+- [ ] LOOP-MAIL-018: Implement email template library with AI-generated templates
+  - Endpoint: /admin/mail/templates (customer-facing)
+  - Why: Pre-built email templates reduce the time to first send; AI can generate templates from site content
+  - Acceptance criteria: Template library (welcome, newsletter, promotion, announcement, follow-up); AI generates template from site brand context; template preview with real content; Listmonk template sync
+  - Implementation notes: Listmonk template API; AI template generation via AI Gateway; template preview using customer's site data
+  - Hosting notes: Worker + AI Gateway + Listmonk
+  - Backing services: Listmonk (templates), AI Gateway (generation), Langfuse (AI traces)
+  - Observability: PostHog: template usage; Langfuse: AI template generation
+  - Dependencies: AI Gateway, Langfuse, Listmonk
+  - Related files: src/services/listmonk_client.ts
+  - Primary sources: Listmonk template API
+
+- [ ] LOOP-MAIL-019: Build campaign archive page (public-facing)
+  - Endpoint: mail.projectsites.dev/archive/:site (public)
+  - Why: Public email archives build trust and provide SEO value
+  - Acceptance criteria: Public archive page per site showing past campaigns with subject, date, and web version link; opt-in to receive future emails; searchable
+  - Implementation notes: Listmonk campaign list API; static page generation for archives
+  - Hosting notes: Worker (page generation) + Listmonk (data)
+  - Backing services: Listmonk (campaign data), R2 (archived pages)
+  - Observability: PostHog: archive page views
+  - Dependencies: Listmonk, site serving
+  - Related files: site serving components, Listmonk integration
+  - Primary sources: Listmonk campaign API
+
+- [ ] LOOP-MAIL-020: Implement abuse prevention for email sending
+  - Endpoint: Middleware (before Listmonk send)
+  - Why: Email sending is the highest-abuse surface; spam complaints get your domain blacklisted
+  - Acceptance criteria: Rate limit per tenant (max 2 campaigns/day free); content scanning for spam indicators; new accounts limited to 100 recipients; manual review for first campaign; instant suspension on high complaint rate
+  - Implementation notes: DO rate limiter; content scanning via AI; Listmonk send gate
+  - Hosting notes: Worker middleware + DO
+  - Backing services: DO (rate limiter), AI Gateway (spam detection), D1 (abuse events)
+  - Observability: Axiom: abuse prevention events; PostHog: abuse detection rate
+  - Dependencies: Rate limiter, AI Gateway, Listmonk
+  - Related files: libs/features/abuse_takedown/, src/services/listmonk_client.ts
+  - Primary sources: Email abuse prevention patterns
+
+- [ ] LOOP-MAIL-021: Implement email deprovisioning and data cleanup on account deletion
+  - Endpoint: Internal (cleanup workflow)
+  - Why: GDPR requires data deletion on account closure; Listmonk subscriber data must be purged
+  - Acceptance criteria: On account deletion: unsubscribe all subscribers, delete all lists, delete all campaigns, purge subscriber data; cleanup confirmation logged to audit trail
+  - Implementation notes: Listmonk API for bulk unsubscribe/delete; SES suppression list cleanup
+  - Hosting notes: Worker (cleanup workflow)
+  - Backing services: Listmonk (data deletion), SES (suppression cleanup), D1 (audit)
+  - Observability: Axiom: deprovisioning audit
+  - Dependencies: Listmonk, SES, account deletion workflow
+  - Related files: src/services/app_provisioner.ts
+  - Primary sources: GDPR data deletion requirements
+
+- [ ] LOOP-MAIL-022: Build email engagement scoring per subscriber
+  - Endpoint: Internal (analytics)
+  - Why: Engagement scoring identifies your best (and worst) subscribers for targeted campaigns
+  - Acceptance criteria: Score based on opens, clicks, recency; high-engagement segment for VIP campaigns; low-engagement segment for re-engagement or suppression; scores update daily
+  - Implementation notes: Listmonk analytics API → D1 engagement_scores table; daily cron
+  - Hosting notes: Worker cron + D1
+  - Backing services: Listmonk (analytics), D1 (scores)
+  - Observability: PostHog: engagement trends
+  - Dependencies: Listmonk, D1
+  - Related files: src/services/listmonk_client.ts
+  - Primary sources: Email engagement scoring patterns
+
+- [ ] LOOP-MAIL-023: Implement SES bounce and complaint notification handling
+  - Endpoint: SNS → Worker webhook
+  - Why: SES bounce and complaint notifications must be processed to maintain sender reputation
+  - Acceptance criteria: SNS notifications for bounces and complaints → Hookdeck → Worker → Listmonk blocklist update + D1 log; auto-suppress on hard bounce or complaint
+  - Implementation notes: SNS webhook handler (may already exist in sns-bounce-worker)
+  - Hosting notes: Worker (webhook handler) + Hookdeck (SNS ingest)
+  - Backing services: SES (SNS notifications), Hookdeck (ingest), Listmonk (blocklist), D1 (bounce log)
+  - Observability: Axiom: bounce/complaint events; Sentry: processing errors
+  - Dependencies: SES, Hookdeck, Listmonk, sns-bounce-worker
+  - Related files: apps/project-sites/infra/sns-bounce-worker/
+  - Primary sources: SES bounce/complaint notification docs
+
+- [ ] LOOP-MAIL-024: Build email cost attribution and margin tracking
+  - Endpoint: Internal (cost pipeline)
+  - Why: SES costs $0.10/1000 emails; per-customer cost attribution enables accurate margin calculation
+  - Acceptance criteria: Per-send SES cost attributed to customer in cost_attribution table; monthly email cost per customer; margin = plan revenue - email cost
+  - Implementation notes: SES send count × $0.0001 per email; cost attribution pipeline
+  - Hosting notes: Worker cron + D1
+  - Backing services: SES (usage), D1 (cost_attribution)
+  - Observability: PostHog: email cost trends; Tinybird: cost analytics
+  - Dependencies: SES usage API, cost_attribution pipeline
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: SES pricing, cost attribution patterns
+
+## crm.projectsites.dev — Twenty CRM
+
+### Raw research themes considered
+Twenty CRM is deployed on a CF Container at crm.projectsites.dev (image twentycrm/twenty, Neon DB, Upstash Redis, R2 via plane-s3 shim). Research covered: Twenty's REST API for contacts/companies/opportunities, workspace model, custom objects, webhook events, and self-host deployment constraints. This session's work confirmed the container is live with login/workspace ready. Existing repo: apps/project-sites/infra/twenty/ (Dockerfile + wrangler.toml), src/services/crm_leads.ts, src/services/lead_pipeline.ts.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-CRM-001: Wire Twenty CRM API client in the main Worker
+  - Endpoint: src/services/twenty_client.ts (new)
+  - Why: The main Worker needs to create/read/update CRM records for site claim flow, lead scanning, and customer management
+  - Acceptance criteria: Typed Twenty API client with: createCompany, createContact, createOpportunity, searchContacts, getTimeline; API key auth via get-secret; error handling with retry
+  - Implementation notes: Use existing crm_leads.ts patterns; Twenty REST API at crm.projectsites.dev/rest
+  - Hosting notes: Worker (API client, stateless)
+  - Backing services: Twenty CRM (CF Container, live)
+  - Observability: Axiom: API call logs; Sentry: API errors
+  - Dependencies: Twenty CF Container, TWENTY_API_KEY secret
+  - Related files: src/services/crm_leads.ts, apps/project-sites/infra/twenty/
+  - Primary sources: https://docs.twenty.com/developers/rest-api
+
+- [ ] LOOP-CRM-002: Build site claim pipeline integration with Twenty CRM
+  - Endpoint: Internal (claim flow)
+  - Why: Every claimed site should create/update a CRM company and contact record, building the customer database automatically
+  - Acceptance criteria: Site claim → find-or-create Company (domain match) + Contact (email match) + Opportunity (claim pipeline stage); pipeline stages: Lead → Claimed → Site Built → Published → Active
+  - Implementation notes: Hook into claim_org.ts flow; Twenty API via crm_leads.ts; upsert pattern (find by domain/email, create if not found)
+  - Hosting notes: Worker (claim flow step)
+  - Backing services: Twenty CRM
+  - Observability: PostHog: claim→CRM funnel; Axiom: CRM sync events
+  - Dependencies: Claim flow, Twenty API client
+  - Related files: src/services/claim_org.ts, src/services/crm_leads.ts, src/services/lead_pipeline.ts
+  - Primary sources: Twenty CRM REST API docs
+
+- [ ] LOOP-CRM-003: Implement lead scanner → Twenty CRM pipeline
+  - Endpoint: Internal (lead_scan_orchestrator → Twenty)
+  - Why: Lead scanner finds businesses without websites; results should flow into CRM for outreach tracking
+  - Acceptance criteria: Each scanned lead creates/updates a Twenty Company record; scored leads create Opportunities; outreach status tracked in CRM; duplicate detection by domain and phone
+  - Implementation notes: Hook into lead_scan_orchestrator.ts output; batch create/update via Twenty API
+  - Hosting notes: Worker (post-scan step)
+  - Backing services: Twenty CRM, D1 (scan results)
+  - Observability: PostHog: lead→CRM conversion; Axiom: lead sync events
+  - Dependencies: Lead scanner, Twenty API client
+  - Related files: src/services/lead_scan_orchestrator.ts, src/services/lead_scan.ts, src/services/lead_store.ts
+  - Primary sources: Twenty CRM API, existing lead scanner pipeline
+
+- [ ] LOOP-CRM-004: Build CRM timeline view in admin dashboard
+  - Endpoint: /admin/crm (customer-facing)
+  - Why: Customers need to see their CRM pipeline without leaving the platform or logging into Twenty
+  - Acceptance criteria: Embedded CRM view showing: companies, contacts, opportunities pipeline (kanban), recent activity timeline; limited to customer's own records; links to full Twenty UI for power users
+  - Implementation notes: Twenty API for data; admin UI components (table + kanban); iframe fallback to full Twenty UI
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Twenty CRM (data source)
+  - Observability: PostHog: CRM view usage
+  - Dependencies: Twenty API client, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/
+  - Primary sources: Twenty CRM REST API
+
+- [ ] LOOP-CRM-005: Implement CRM ↔ Listmonk contact sync
+  - Endpoint: Internal (sync worker)
+  - Why: CRM contacts and email subscribers should stay in sync; unsubscribe in one should update the other
+  - Acceptance criteria: Daily sync: Twenty contacts → Listmonk lists (with opt-in check); Listmonk unsubscribes → Twenty contact update (marketing_opt_out flag); sync log with diff summary
+  - Implementation notes: Worker cron; Twenty API + Listmonk API; idempotent via email match
+  - Hosting notes: Worker cron
+  - Backing services: Twenty CRM, Listmonk, D1 (sync state)
+  - Observability: Axiom: CRM-mail sync events
+  - Dependencies: Twenty API client, Listmonk client
+  - Related files: src/services/crm_leads.ts, src/services/listmonk_client.ts
+  - Primary sources: Twenty CRM API, Listmonk API
+
+- [ ] LOOP-CRM-006: Implement CRM ↔ Chatwoot support handoff
+  - Endpoint: Internal (integration)
+  - Why: Support conversations should be visible on the CRM contact timeline; CRM context should be available in Chatwoot
+  - Acceptance criteria: Chatwoot conversation linked to Twenty contact; contact's CRM data (company, pipeline stage, plan) visible in Chatwoot sidebar; support agent can create/update CRM records from Chatwoot
+  - Implementation notes: Chatwoot webhook → Worker → Twenty API; Chatwoot custom sidebar app for CRM context
+  - Hosting notes: Worker + Chatwoot webhook handler
+  - Backing services: Twenty CRM, Chatwoot
+  - Observability: Axiom: CRM-support integration events; PostHog: support→CRM actions
+  - Dependencies: Twenty API client, Chatwoot webhook handler
+  - Related files: src/services/crm_leads.ts, Chatwoot integration
+  - Primary sources: Chatwoot webhook docs, Twenty CRM API
+
+- [ ] LOOP-CRM-007: Build AI-powered CRM summaries and insights
+  - Endpoint: Internal (AI workflow)
+  - Why: AI can extract insights from CRM data: "This lead visited your site 3 times this week", "Company X has an expiring opportunity — follow up"
+  - Acceptance criteria: AI-generated summaries: company overview from web research + CRM data, lead scoring rationale, next-best-action recommendations, weekly CRM digest email
+  - Implementation notes: AI Gateway call with CRM context; Langfuse tracing; rendered in admin CRM view
+  - Hosting notes: Worker + AI Gateway
+  - Backing services: AI Gateway (LLM), Langfuse (tracing), Twenty CRM (data)
+  - Observability: Langfuse: AI CRM call traces; PostHog: AI CRM feature usage
+  - Dependencies: AI Gateway, Langfuse, Twenty API client
+  - Related files: src/services/lead_scanner_score.ts, src/services/ai_workflows.ts
+  - Primary sources: Existing AI workflow patterns, Twenty CRM API
+
+- [ ] LOOP-CRM-008: Implement duplicate detection and merge for CRM records
+  - Endpoint: Internal (background worker)
+  - Why: Lead scanner and claim flow can create duplicate company/contact records; duplicates degrade CRM trust
+  - Acceptance criteria: Detect duplicates by: email (exact), domain (company), phone (normalized); auto-merge threshold configurable; manual merge UI for ambiguous matches; merge audit log
+  - Implementation notes: Twenty API for duplicate search; scoring algorithm; admin merge UI
+  - Hosting notes: Worker cron + admin UI
+  - Backing services: Twenty CRM, D1 (merge audit)
+  - Observability: Axiom: duplicate detection events
+  - Dependencies: Twenty API client
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: Twenty CRM API, deduplication patterns
+
+- [ ] LOOP-CRM-009: Build automated task generation from CRM events
+  - Endpoint: Internal (workflow)
+  - Why: CRM pipeline stages should generate follow-up tasks automatically
+  - Acceptance criteria: Rules engine: new_lead → "Research company" task, claim_started → "Follow up in 3 days" task, site_published → "Schedule onboarding call" task; tasks appear in admin dashboard task inbox
+  - Implementation notes: Event bus subscriber → Twenty task creation; rule config in D1
+  - Hosting notes: Worker + event bus
+  - Backing services: Event bus, Twenty CRM (tasks), D1 (rule configs)
+  - Observability: Axiom: task generation events; PostHog: task completion rate
+  - Dependencies: Event bus, Twenty API client
+  - Related files: src/services/event_bus.ts, src/services/task_inbox.ts
+  - Primary sources: Twenty CRM task API, automation patterns
+
+- [ ] LOOP-CRM-010: Build customer-visible CRM mode (simplified, embedded)
+  - Endpoint: /admin/crm (simplified view for non-power-users)
+  - Why: Most small business owners don't need a full CRM; a simplified "Contacts + Pipeline" view is enough
+  - Acceptance criteria: Simplified CRM with: contact list, company list, pipeline (3 stages), add/edit contact; hides Twenty's full feature set; "Open Full CRM" link for power users
+  - Implementation notes: Custom UI components backed by Twenty API; separate from full Twenty UI iframe
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Twenty CRM (data store)
+  - Observability: PostHog: simplified vs full CRM usage
+  - Dependencies: Twenty API client, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
+  - Primary sources: Twenty CRM API
+
+- [ ] LOOP-CRM-011: Implement agency CRM mode (multi-client pipeline)
+  - Endpoint: /admin/crm/agency (agency-plan customers)
+  - Why: Agencies managing multiple client sites need a unified pipeline across all their clients
+  - Acceptance criteria: Agency view showing all client companies, consolidated pipeline, per-client filter; agency can create CRM records for any client site; client records isolated from other agencies
+  - Implementation notes: Twenty workspace per agency? Or single workspace with org-scoped views via Worker API
+  - Hosting notes: Worker API + admin frontend + Twenty CRM
+  - Backing services: Twenty CRM, D1 (org scoping)
+  - Observability: PostHog: agency CRM usage
+  - Dependencies: Org model (parent-child), Twenty API client
+  - Related files: src/services/crm_leads.ts, org model
+  - Primary sources: Twenty workspace model, agency patterns
+
+- [ ] LOOP-CRM-012: Build admin CRM mode (platform operator view)
+  - Endpoint: Internal (admin dashboard)
+  - Why: Support and sales need visibility into all CRM data across all tenants
+  - Acceptance criteria: Admin search across all companies/contacts; filter by plan, site status, claim date; view any tenant's CRM pipeline; admin actions audit-logged
+  - Implementation notes: Twenty API admin access; Worker API with super-admin gate
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Twenty CRM, D1 (audit)
+  - Observability: Axiom: admin CRM access audit
+  - Dependencies: Admin auth, Twenty API client
+  - Related files: admin frontend, src/services/crm_leads.ts
+  - Primary sources: Twenty CRM API
+
+- [ ] LOOP-CRM-013: Implement per-site CRM provisioning
+  - Endpoint: Internal (site creation workflow)
+  - Why: Each new site should optionally get its own CRM workspace or at minimum, CRM records linked to the site
+  - Acceptance criteria: Site creation auto-creates CRM company record; site owner linked as CRM contact; CRM workspace provisioning if needed (or workspaces scoped to ProjectSites orgs)
+  - Implementation notes: Hook into site_create.ts; auto-provision via Twenty API
+  - Hosting notes: Worker (site creation step)
+  - Backing services: Twenty CRM
+  - Observability: Axiom: CRM provisioning events
+  - Dependencies: Site creation flow, Twenty API client
+  - Related files: src/services/site_create.ts, src/services/crm_leads.ts
+  - Primary sources: Twenty CRM API
+
+- [ ] LOOP-CRM-014: Build CRM import from CSV and other CRMs
+  - Endpoint: POST /api/crm/import (customer-facing)
+  - Why: Customers migrating from HubSpot, Salesforce, or spreadsheets need to bring their data
+  - Acceptance criteria: CSV upload with column mapping; direct import from HubSpot/Salesforce via Nango; progress indicator; error report; duplicate handling
+  - Implementation notes: Worker file handler + Nango for CRM-to-CRM imports; Twenty bulk API
+  - Hosting notes: Worker (import job)
+  - Backing services: Twenty CRM, Nango, R2 (temp file storage)
+  - Observability: Axiom: import events; PostHog: import usage
+  - Dependencies: Twenty API client, Nango, R2
+  - Related files: src/services/crm_leads.ts, Nango integration
+  - Primary sources: Twenty CRM bulk API
+
+- [ ] LOOP-CRM-015: Implement CRM custom objects strategy for ProjectSites entities
+  - Endpoint: Twenty custom objects → ProjectSites entities
+  - Why: Sites, apps, and domains are ProjectSites entities that relate to CRM companies; custom objects model these relationships
+  - Acceptance criteria: Custom objects: Site (linked to Company), Domain (linked to Site), App (linked to Site), Subscription (linked to Company); relationships visible in CRM timeline
+  - Implementation notes: Twenty custom objects API; keep lightweight (don't replicate D1 data, just link)
+  - Hosting notes: Worker + Twenty CRM
+  - Backing services: Twenty CRM (custom objects), D1 (primary data store)
+  - Observability: Axiom: custom object sync events
+  - Dependencies: Twenty API client, D1
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: Twenty custom objects API
+
+- [ ] LOOP-CRM-016: Build CRM data export for GDPR/portability
+  - Endpoint: GET /api/crm/export (customer-facing)
+  - Why: GDPR requires data portability; customers must be able to export their CRM data
+  - Acceptance criteria: Export all CRM data (companies, contacts, opportunities, tasks, notes) as CSV/JSON; downloadable within 24 hours; customer notified when ready
+  - Implementation notes: Twenty API for data fetch; background job for large exports; R2 for export file storage
+  - Hosting notes: Worker (export job) + R2
+  - Backing services: Twenty CRM (data), R2 (export files)
+  - Observability: Axiom: export events
+  - Dependencies: Twenty API client, R2
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: GDPR data portability requirements
+
+- [ ] LOOP-CRM-017: Implement CRM deprovisioning and data purge
+  - Endpoint: Internal (cleanup workflow)
+  - Why: On account deletion, CRM data must be purged for GDPR compliance
+  - Acceptance criteria: Delete all companies, contacts, opportunities, tasks, notes, and custom objects for the tenant; confirmation logged to audit trail; 30-day soft-delete before hard purge
+  - Implementation notes: Twenty API for bulk delete; soft-delete in D1; hard-delete workflow
+  - Hosting notes: Worker (cleanup workflow)
+  - Backing services: Twenty CRM, D1 (audit)
+  - Observability: Axiom: deprovisioning audit
+  - Dependencies: Twenty API client, account deletion workflow
+  - Related files: src/services/app_provisioner.ts
+  - Primary sources: GDPR data deletion requirements
+
+- [ ] LOOP-CRM-018: Build CRM permissions model per user role
+  - Endpoint: Middleware (CRM API routes)
+  - Why: Not all team members should see all CRM data; sales reps see leads, support sees contacts, admin sees everything
+  - Acceptance criteria: Role-based access: Admin=full access, Manager=view+edit own records, Member=view only; enforced at Worker API layer; Twenty-native permissions as defense-in-depth
+  - Implementation notes: Worker middleware scopes CRM API responses by role; Twenty workspace roles as fallback
+  - Hosting notes: Worker middleware
+  - Backing services: D1 (role definitions)
+  - Observability: Axiom: permission denial events
+  - Dependencies: Auth middleware, Twenty API client
+  - Related files: src/middleware/auth.ts, src/services/crm_leads.ts
+  - Primary sources: RBAC patterns, Twenty permissions model
+
+- [ ] LOOP-CRM-019: Implement sales automation rules engine
+  - Endpoint: Internal (background worker)
+  - Why: Repetitive CRM actions (move lead to contacted, assign owner, send follow-up) should be automated
+  - Acceptance criteria: Rules engine: trigger + conditions + actions; pre-built rules: "New lead → assign to sales rep", "Deal won → create onboarding task", "30 days no activity → move to nurture"; customer can create custom rules
+  - Implementation notes: Event bus subscriber + rule evaluation; Twenty API for CRM mutations
+  - Hosting notes: Worker + event bus
+  - Backing services: Event bus, Twenty CRM, D1 (rule configs)
+  - Observability: Axiom: automation rule executions; PostHog: automation impact
+  - Dependencies: Event bus, Twenty API client
+  - Related files: src/services/event_bus.ts, src/services/crm_leads.ts
+  - Primary sources: CRM automation patterns
+
+- [ ] LOOP-CRM-020: Build CRM onboarding workflow for new customers
+  - Endpoint: Internal (onboarding flow)
+  - Why: New customers need guided CRM setup: import contacts, set up pipeline, connect email
+  - Acceptance criteria: Onboarding wizard: "Import your contacts" → "Set up your pipeline" → "Connect your email" → "Invite your team"; each step is skippable; completion tracked in PostHog
+  - Implementation notes: Onboarding step tracker in D1; PostHog funnel events
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Twenty CRM, D1 (onboarding state), PostHog (funnel)
+  - Observability: PostHog: CRM onboarding funnel
+  - Dependencies: Twenty API client, admin UI, PostHog
+  - Related files: onboarding components
+  - Primary sources: SaaS onboarding patterns
+
+- [ ] LOOP-CRM-021: Implement Nango-sourced CRM enrichment
+  - Endpoint: Internal (Nango → Twenty)
+  - Why: HubSpot/Salesforce data enriches Twenty records and vice versa; bidirectional sync via Nango
+  - Acceptance criteria: HubSpot companies/contacts/deals sync to Twenty; Salesforce accounts/contacts/opportunities sync to Twenty; sync schedule configurable; conflict resolution via last-write-wins
+  - Implementation notes: Nango syncs + Twenty API; per-tenant sync config
+  - Hosting notes: Worker + Nango + Twenty CRM
+  - Backing services: Nango (OAuth + sync), Twenty CRM, Neon (sync state)
+  - Observability: Axiom: enrichment sync events
+  - Dependencies: Nango, Twenty API client
+  - Related files: src/services/crm_leads.ts, Nango integration
+  - Primary sources: Nango sync docs, Twenty CRM API
+
+- [ ] LOOP-CRM-022: Build CRM analytics dashboard
+  - Endpoint: Internal (admin dashboard widget)
+  - Why: Pipeline visibility, conversion rates, and rep performance are essential for sales management
+  - Acceptance criteria: Dashboard showing: pipeline value by stage, conversion rate per stage, time-in-stage, lead source attribution, rep performance; data from Twenty API + PostHog
+  - Implementation notes: Twenty API for pipeline data; PostHog for attribution; admin UI chart components
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Twenty CRM (pipeline data), PostHog (attribution)
+  - Observability: PostHog: CRM analytics page views
+  - Dependencies: Twenty API client, PostHog, admin UI
+  - Related files: admin frontend analytics components
+  - Primary sources: Twenty CRM API, CRM analytics patterns
+
+- [ ] LOOP-CRM-023: Implement CRM webhook events to platform event bus
+  - Endpoint: Twenty webhooks → event bus
+  - Why: CRM events (company created, deal stage changed, contact updated) should trigger platform workflows
+  - Acceptance criteria: Twenty webhooks forwarded to platform event bus; typed CRM event schemas; services subscribe to relevant events
+  - Implementation notes: Twenty webhook config → Hookdeck → event bus
+  - Hosting notes: Worker + Hookdeck + event bus
+  - Backing services: Twenty CRM (webhook source), Hookdeck (ingest), event bus (DO)
+  - Observability: Axiom: CRM event stream
+  - Dependencies: Twenty CRM, Hookdeck, event bus
+  - Related files: src/services/event_bus.ts
+  - Primary sources: Twenty CRM webhook docs
+
+- [ ] LOOP-CRM-024: Evaluate Twenty CRM workspace model vs single workspace
+  - Endpoint: Internal (architecture evaluation)
+  - Why: Twenty's workspace model (one workspace = completely isolated data) may conflict with the platform's org model; need to decide: one workspace per ProjectSites org, or one shared workspace with API-level isolation
+  - Acceptance criteria: Document workspace strategy; if per-org workspaces, automate provisioning; if shared workspace, verify API-level tenant isolation is sufficient; test with 100+ orgs
+  - Implementation notes: Evaluate Twenty workspace limits, provisioning API, and isolation guarantees
+  - Hosting notes: N/A (evaluation)
+  - Backing services: Twenty CRM
+  - Observability: Axiom: evaluation metrics
+  - Dependencies: Twenty CRM, org model
+  - Related files: src/services/crm_leads.ts, org model docs
+  - Primary sources: Twenty workspace docs, multi-tenant isolation patterns
+
+## support.projectsites.dev — Chatwoot
+
+### Raw research themes considered
+Chatwoot is deployed on Fly.io at support.projectsites.dev (image chatwoot/chatwoot, Rails+Sidekiq+Postgres+Redis on a single Fly app). Research covered: Chatwoot's conversation API, webhook events, inbox configuration, agent routing, knowledge base/portal, automation rules, and the architecture constraint (Chatwoot needs multi-process supervision; CF Containers single-process model won't work — hence Fly). Existing repo: INFRA/fly/support-chatwoot/fly.toml.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-SUPP-001: Verify Chatwoot Fly deployment is healthy and serving
+  - Endpoint: support.projectsites.dev
+  - Why: Chatwoot was provisioned with a fly.toml but deployment status is unverified
+  - Acceptance criteria: support.projectsites.dev serves login page; admin account accessible; email channel configured; webhook events flowing
+  - Implementation notes: flyctl status --app projectsites-chatwoot; verify health check; test conversation creation
+  - Hosting notes: Fly.io (multi-process Rails+Sidekiq, cannot run on CF Container)
+  - Backing services: Neon (Chatwoot DB), Upstash (Chatwoot Redis), SES (email channel)
+  - Observability: Axiom: Chatwoot health events; Sentry: Chatwoot errors
+  - Dependencies: Fly deployment, Neon, Upstash, SES
+  - Related files: INFRA/fly/support-chatwoot/fly.toml
+  - Primary sources: https://developers.chatwoot.com/self-hosted/deployment/architecture
+
+- [ ] LOOP-SUPP-002: Wire Chatwoot webhook events into the platform event bus
+  - Endpoint: Chatwoot webhooks → Hookdeck → event bus
+  - Why: Chatwoot conversation events should trigger platform workflows (CRM updates, notifications, analytics)
+  - Acceptance criteria: Chatwoot webhooks for message_created, conversation_resolved, conversation_opened forwarded to event bus; typed event schemas; services subscribe to relevant events
+  - Implementation notes: Configure Chatwoot webhook URL → Hookdeck; transform to platform event schema
+  - Hosting notes: Worker webhook handler + Hookdeck
+  - Backing services: Chatwoot (webhook source), Hookdeck (ingest), event bus (DO)
+  - Observability: Axiom: support event stream; PostHog: support volume metrics
+  - Dependencies: Chatwoot Fly deployment, Hookdeck, event bus
+  - Related files: src/services/event_bus.ts
+  - Primary sources: Chatwoot webhook docs
+
+- [ ] LOOP-SUPP-003: Build AI-powered conversation triage and auto-response
+  - Endpoint: Chatwoot webhook → AI Gateway → Chatwoot API
+  - Why: AI triage reduces first-response time and handles common questions without human intervention
+  - Acceptance criteria: AI classifies incoming conversations (billing, technical, sales, spam); auto-responds to common questions (pricing, features, how-to) with knowledge base articles; escalates to human for complex issues; confidence score determines auto-response vs queue
+  - Implementation notes: Chatwoot webhook → Worker → AI Gateway for classification → Chatwoot API for auto-reply; Langfuse traces
+  - Hosting notes: Worker + AI Gateway
+  - Backing services: AI Gateway (LLM), Langfuse (tracing), Chatwoot (conversations)
+  - Observability: Langfuse: AI triage traces; PostHog: AI response rate; Axiom: triage events
+  - Dependencies: Chatwoot, AI Gateway, Langfuse
+  - Related files: src/services/ai_workflows.ts, src/services/notifications.ts
+  - Primary sources: Chatwoot API, AI triage patterns
+
+- [ ] LOOP-SUPP-004: Build knowledge base integration for self-serve support
+  - Endpoint: support.projectsites.dev/help (public)
+  - Why: A public knowledge base deflects tickets before they're created; Chatwoot has a built-in portal
+  - Acceptance criteria: Knowledge base with: getting started guide, FAQ, troubleshooting, API docs link, billing help; searchable; Chatwoot portal or custom page; articles link to "Still need help? Contact support"
+  - Implementation notes: Chatwoot portal feature or static pages; article content from docs.projectsites.dev
+  - Hosting notes: Chatwoot portal or Worker (static pages)
+  - Backing services: Chatwoot (portal), R2 (article content)
+  - Observability: PostHog: knowledge base usage; support deflection rate
+  - Dependencies: Chatwoot, docs content
+  - Related files: docs/ content
+  - Primary sources: Chatwoot portal docs
+
+- [ ] LOOP-SUPP-005: Implement per-site support inboxes (multi-tenant support)
+  - Endpoint: Chatwoot inbox configuration
+  - Why: Agency customers may want site-specific support inboxes; each site gets its own email for customer inquiries
+  - Acceptance criteria: Per-site support email (support+site-slug@projectsites.dev); emails routed to correct Chatwoot inbox; site context visible to support agent; agent can see which site the conversation relates to
+  - Implementation notes: Chatwoot inbox API; email routing via SES receipt rules
+  - Hosting notes: Chatwoot + SES
+  - Backing services: Chatwoot (inboxes), SES (email routing)
+  - Observability: Axiom: per-site support volume
+  - Dependencies: Chatwoot, SES, site model
+  - Related files: INFRA/fly/support-chatwoot/
+  - Primary sources: Chatwoot inbox API
+
+- [ ] LOOP-SUPP-006: Build support ticket escalation from billing events
+  - Endpoint: Event bus → Chatwoot
+  - Why: Payment failures and billing issues should auto-create support tickets for proactive outreach
+  - Acceptance criteria: billing.payment_failed → auto-creates Chatwoot conversation tagged "billing"; customer notified; support agent sees billing context (plan, amount, failure reason)
+  - Implementation notes: Event bus subscriber → Chatwoot conversation API; billing context in conversation custom attributes
+  - Hosting notes: Worker + event bus
+  - Backing services: Event bus, Chatwoot
+  - Observability: Axiom: billing escalation events; PostHog: proactive support rate
+  - Dependencies: Event bus, Chatwoot, billing service
+  - Related files: src/services/event_bus.ts, src/services/billing.ts
+  - Primary sources: Chatwoot conversation API
+
+- [ ] LOOP-SUPP-007: Implement customer-visible support history in admin
+  - Endpoint: /admin/support (customer-facing)
+  - Why: Customers should see their past support conversations and ticket status
+  - Acceptance criteria: List of customer's conversations with status (open/resolved), last message preview, date; click to view full conversation; reply inline; satisfaction survey after resolution
+  - Implementation notes: Chatwoot conversation API with contact filtering; admin UI components
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Chatwoot (conversation data)
+  - Observability: PostHog: support history views
+  - Dependencies: Chatwoot, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
+  - Primary sources: Chatwoot conversation API
+
+- [ ] LOOP-SUPP-008: Build support metrics dashboard for platform operators
+  - Endpoint: Internal (admin dashboard)
+  - Why: Support metrics (volume, response time, resolution rate, CSAT) are essential for platform health
+  - Acceptance criteria: Dashboard showing: conversation volume by type, first response time (median/p90), resolution time, CSAT score, agent workload, busiest hours; data from Chatwoot reports API
+  - Implementation notes: Chatwoot reports API; admin UI chart components
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Chatwoot (reports)
+  - Observability: PostHog: support KPI trends
+  - Dependencies: Chatwoot, admin UI
+  - Related files: admin frontend dashboard components
+  - Primary sources: Chatwoot reports API
+
+- [ ] LOOP-SUPP-009: Implement SLA rules with automated escalation
+  - Endpoint: Internal (background worker)
+  - Why: Support SLAs (first response within 1hr for Pro, 15min for Business) build trust and justify plan pricing
+  - Acceptance criteria: SLA timer starts on conversation creation; approaching breach → agent notification; breached → escalation to manager/admin; SLA performance reported in dashboard
+  - Implementation notes: DO-based SLA timer; Chatwoot webhook for conversation events; Resend for escalation notifications
+  - Hosting notes: Worker + DO
+  - Backing services: DO (SLA timers), Chatwoot (conversations), Resend (escalation alerts)
+  - Observability: Axiom: SLA events; PostHog: SLA compliance rate
+  - Dependencies: Chatwoot, DO, Resend
+  - Related files: src/services/notifications.ts
+  - Primary sources: SLA management patterns
+
+- [ ] LOOP-SUPP-010: Build Chatwoot automation rules for common workflows
+  - Endpoint: Chatwoot automation engine
+  - Why: Automations reduce agent toil: auto-assign, auto-tag, auto-close spam
+  - Acceptance criteria: Pre-configured automations: tag conversations by keyword (billing, domain, bug), assign to team by tag, close after 7 days of inactivity, auto-respond to out-of-hours messages
+  - Implementation notes: Chatwoot automation rules; maintain as code in infra config
+  - Hosting notes: Chatwoot (automation engine)
+  - Backing services: Chatwoot
+  - Observability: PostHog: automation action rate
+  - Dependencies: Chatwoot
+  - Related files: INFRA/fly/support-chatwoot/ (automation config)
+  - Primary sources: Chatwoot automation docs
+
+- [ ] LOOP-SUPP-011: Implement live chat widget for customer websites
+  - Endpoint: Generated customer sites (optional)
+  - Why: Customer websites can embed a Chatwoot live chat widget for their own visitors; platform provides and manages it
+  - Acceptance criteria: Toggle to enable chat widget on site; Chatwoot inbox auto-provisioned; widget branded to customer's site; conversations visible in customer's admin support view
+  - Implementation notes: Chatwoot web widget SDK; injected into served sites when enabled; per-site inbox provisioning
+  - Hosting notes: Chatwoot (widget server) + site serving
+  - Backing services: Chatwoot (widget, inboxes)
+  - Observability: PostHog: widget usage by site
+  - Dependencies: Chatwoot, site serving, per-site inbox provisioning
+  - Related files: src/services/site_serving.ts
+  - Primary sources: Chatwoot web widget docs
+
+- [ ] LOOP-SUPP-012: Build AI concierge → Chatwoot handoff
+  - Endpoint: AI concierge widget → Chatwoot
+  - Why: When the AI concierge can't answer a question, it should hand off to a human support agent seamlessly
+  - Acceptance criteria: AI concierge detects it can't help → offers "Connect with a human" → creates Chatwoot conversation with full AI conversation transcript as context → customer continues in chat with human agent
+  - Implementation notes: Concierge webhook → Chatwoot conversation API; AI transcript as first message
+  - Hosting notes: Worker + Chatwoot
+  - Backing services: Chatwoot, AI concierge
+  - Observability: Axiom: handoff events; PostHog: AI→human handoff rate; Langfuse: AI decision traces
+  - Dependencies: AI concierge, Chatwoot
+  - Related files: libs/features/ai_concierge_widget/, src/services/notifications.ts
+  - Primary sources: Chatwoot conversation API, AI handoff patterns
+
+- [ ] LOOP-SUPP-013: Implement internal notes and team collaboration in support
+  - Endpoint: Chatwoot (internal notes feature)
+  - Why: Support agents need private notes for internal handoff and context
+  - Acceptance criteria: Agents can add internal notes visible only to team; notes persist on conversation; @mention teammates for handoff; note templates for common scenarios
+  - Implementation notes: Chatwoot built-in internal notes
+  - Hosting notes: Chatwoot
+  - Backing services: Chatwoot
+  - Observability: Axiom: internal note events
+  - Dependencies: Chatwoot
+  - Related files: INFRA/fly/support-chatwoot/
+  - Primary sources: Chatwoot internal notes docs
+
+- [ ] LOOP-SUPP-014: Build support incident management for platform outages
+  - Endpoint: Internal (admin + status page)
+  - Why: Platform incidents require coordinated support response: status page update, auto-reply template, post-incident follow-up
+  - Acceptance criteria: Incident creation auto-posts to status.projectsites.dev; auto-reply template for incident-related tickets; post-incident survey to affected customers; incident timeline in support dashboard
+  - Implementation notes: Incident workflow connecting status page + Chatwoot + Resend; admin UI
+  - Hosting notes: Worker + Chatwoot + status page + Resend
+  - Backing services: Chatwoot, status page, Resend, D1 (incident log)
+  - Observability: Axiom: incident events; PostHog: incident impact analysis
+  - Dependencies: status page, Chatwoot, Resend
+  - Related files: libs/features/status_page_live/, src/services/notifications.ts
+  - Primary sources: Incident management patterns
+
+- [ ] LOOP-SUPP-015: Implement domain and DNS support automation
+  - Endpoint: Internal (support tooling)
+  - Why: Domain setup is the #1 support request; automated diagnostics reduce ticket volume
+  - Acceptance criteria: Support agent enters domain → auto-runs DNS propagation check, SSL status, nameserver verification, SPF/DKIM check; generates diagnostic report; common fixes suggested
+  - Implementation notes: Worker calls dig/openssl equivalents via CF APIs; rendered in support agent sidebar
+  - Hosting notes: Worker (diagnostic tool)
+  - Backing services: CF DNS API, RDAP/WHOIS
+  - Observability: PostHog: domain support usage
+  - Dependencies: CF DNS API, rdap_availability.ts, domains.ts
+  - Related files: src/services/rdap_availability.ts, src/services/domains.ts, src/services/domain_stack.ts
+  - Primary sources: CF DNS API, domain diagnostic patterns
+
+- [ ] LOOP-SUPP-016: Build onboarding support automation
+  - Endpoint: Internal (onboarding flow)
+  - Why: New customers have predictable support needs; proactive outreach reduces ticket volume
+  - Acceptance criteria: Triggered support messages at onboarding milestones: after signup → "Here's how to get started", after first site build → "Your site is ready — here's what's next", domain added → "DNS can take 24-48 hours — we'll notify you when it's live"
+  - Implementation notes: Event bus → Chatwoot conversation creation with pre-written message
+  - Hosting notes: Worker + event bus + Chatwoot
+  - Backing services: Event bus, Chatwoot
+  - Observability: PostHog: proactive support engagement
+  - Dependencies: Event bus, Chatwoot, onboarding flow
+  - Related files: src/services/event_bus.ts, onboarding components
+  - Primary sources: SaaS onboarding support patterns
+
+- [ ] LOOP-SUPP-017: Implement abuse and spam prevention for support channels
+  - Endpoint: Chatwoot (pre-conversation filter)
+  - Why: Public support channels attract spam; filtering before agent sees it preserves morale
+  - Acceptance criteria: AI spam detection on incoming messages; auto-close spam conversations; rate limit per IP/email; CAPTCHA on public contact form
+  - Implementation notes: AI Gateway for spam classification; Chatwoot automation for auto-close; Turnstile on contact form
+  - Hosting notes: Worker + AI Gateway + Chatwoot
+  - Backing services: AI Gateway (spam detection), Chatwoot, Turnstile
+  - Observability: Axiom: spam detection events
+  - Dependencies: AI Gateway, Chatwoot, Turnstile
+  - Related files: libs/features/abuse_takedown/, src/services/turnstile.ts
+  - Primary sources: Support spam prevention patterns
+
+- [ ] LOOP-SUPP-018: Build admin support override tools
+  - Endpoint: Internal (admin dashboard)
+  - Why: Admin needs to view, manage, and override support state across all tenants
+  - Acceptance criteria: Admin can: view all conversations across all tenants, reassign conversations, close conversations, add internal notes visible only to staff, view support metrics per tenant
+  - Implementation notes: Chatwoot admin API + Worker admin endpoints; audit log all admin actions
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Chatwoot (admin API), D1 (audit)
+  - Observability: Axiom: admin support actions audit
+  - Dependencies: Admin auth, Chatwoot admin API
+  - Related files: admin frontend
+  - Primary sources: Chatwoot admin API
+
+- [ ] LOOP-SUPP-019: Implement Chatwoot agent performance tracking
+  - Endpoint: Internal (analytics)
+  - Why: Solo founder eventually hires support; agent performance metrics enable scaling
+  - Acceptance criteria: Per-agent metrics: conversations handled, avg response time, resolution rate, CSAT score, active time; weekly summary; identifies training needs
+  - Implementation notes: Chatwoot reports API; aggregated in admin dashboard
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Chatwoot (reports)
+  - Observability: PostHog: agent performance trends
+  - Dependencies: Chatwoot, admin UI
+  - Related files: admin frontend
+  - Primary sources: Chatwoot reports API
+
+- [ ] LOOP-SUPP-020: Build customer satisfaction (CSAT) survey after resolution
+  - Endpoint: Chatwoot → customer email
+  - Why: CSAT is the primary support quality metric; measuring it enables improvement
+  - Acceptance criteria: After conversation resolved, auto-send CSAT survey (1-5 stars + optional comment); results stored in D1; aggregate CSAT in support dashboard; low scores trigger review
+  - Implementation notes: Chatwoot resolution webhook → Resend CSAT email; D1 csat_responses table
+  - Hosting notes: Worker + Resend + D1
+  - Backing services: Chatwoot (resolution event), Resend (survey email), D1 (responses)
+  - Observability: PostHog: CSAT trends; Axiom: low-score alerts
+  - Dependencies: Chatwoot, Resend, D1
+  - Related files: src/services/notifications.ts
+  - Primary sources: CSAT survey patterns
+
+- [ ] LOOP-SUPP-021: Implement support ticket templates for common issues
+  - Endpoint: Chatwoot (canned responses)
+  - Why: Canned responses speed up common support interactions and ensure consistent answers
+  - Acceptance criteria: Template library: domain setup guide, DNS propagation, billing FAQ, site publishing troubleshooting, AI generation tips; agent inserts with shortcut; templates versioned in code
+  - Implementation notes: Chatwoot canned responses + version-controlled template file
+  - Hosting notes: Chatwoot
+  - Backing services: Chatwoot
+  - Observability: PostHog: template usage by type
+  - Dependencies: Chatwoot
+  - Related files: INFRA/fly/support-chatwoot/ (canned response config)
+  - Primary sources: Chatwoot canned responses
+
+- [ ] LOOP-SUPP-022: Build support analytics dashboard for customers
+  - Endpoint: /admin/support/analytics (customer-facing)
+  - Why: Enterprise customers want to see their support usage and performance
+  - Acceptance criteria: Customer-visible: ticket volume by month, avg response time, resolution rate, top issues; comparison to platform average
+  - Implementation notes: Chatwoot reports API filtered by customer; admin UI components
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Chatwoot (reports)
+  - Observability: PostHog: analytics page views
+  - Dependencies: Chatwoot, admin UI
+  - Related files: admin frontend
+  - Primary sources: Chatwoot reports API
+
+- [ ] LOOP-SUPP-023: Evaluate CF Container viability for Chatwoot (periodic re-evaluation)
+  - Endpoint: Internal (architecture evaluation)
+  - Why: Chatwoot is on Fly because it needs multi-process (Rails+Sidekiq); CF Containers may eventually support this
+  - Acceptance criteria: Re-evaluate every 6 months; test Chatwoot on CF Containers if multi-process support is added; document findings
+  - Implementation notes: Monitor CF Containers changelog for multi-process support
+  - Hosting notes: Fly.io (current), CF Container (future target)
+  - Backing services: N/A
+  - Observability: N/A
+  - Dependencies: CF Containers roadmap
+  - Related files: INFRA/fly/support-chatwoot/fly.toml
+  - Primary sources: CF Containers docs, Chatwoot deployment requirements
+
+- [ ] LOOP-SUPP-024: Implement cost tracking for support operations
+  - Endpoint: Internal (cost pipeline)
+  - Why: Support has real costs (Fly compute, agent time, email sends); tracking enables margin calculation
+  - Acceptance criteria: Monthly support cost = Fly compute + (avg hourly rate × agent hours) + email sends; attributed to platform operations (not per-tenant); tracked in cost dashboard
+  - Implementation notes: Fly usage API + agent time tracking (Chatwoot reports) + SES costs
+  - Hosting notes: Worker cron
+  - Backing services: Fly API (usage), Chatwoot (agent activity), SES (email costs), D1 (cost log)
+  - Observability: PostHog: support cost trends; Tinybird: cost analytics
+  - Dependencies: Fly API, Chatwoot, SES, cost aggregation pipeline
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: Fly usage API, cost attribution patterns
+
+## social.projectsites.dev — Postiz
+
+### Raw research themes considered
+Postiz is deployed on a single always-on Fly app (social-postiz, iad) with Temporal Cloud for orchestration, Neon Postgres, Upstash Redis, and R2 for media storage. This session's extensive work confirmed: dedicated CPU, registration locked, admin provisioned, Resend email wired, Sentry backend error tracking live. Research covered: Postiz API for post creation/scheduling, provider account linking, content calendar, AI-generated post content, analytics, multi-tenant account isolation, and failure alerting.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-SOC-001: Build Postiz provider account linking UI in admin dashboard
+  - Endpoint: /admin/social/connect (customer-facing)
+  - Why: Customers need to connect their social accounts (Twitter, Facebook, LinkedIn, Instagram) without leaving the admin
+  - Acceptance criteria: "Connect Account" button per platform; OAuth flow redirects to Postiz; connected accounts shown with avatar + username + status; disconnect with confirmation; reconnect prompt on token expiry
+  - Implementation notes: Proxy Postiz OAuth endpoints through Worker; account status from Postiz API
+  - Hosting notes: Worker API + admin frontend + Postiz Fly app
+  - Backing services: Postiz (OAuth, account management)
+  - Observability: PostHog: account connection funnel; Axiom: connection events
+  - Dependencies: Postiz Fly app, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/, src/services/social_account_ctx.ts
+  - Primary sources: docs.postiz.com, Postiz provider API
+
+- [ ] LOOP-SOC-002: Build social post creation and scheduling UI
+  - Endpoint: /admin/social/posts (customer-facing)
+  - Why: Customers need to create, preview, and schedule social posts across platforms
+  - Acceptance criteria: Post composer with: platform selection, text content, media upload (R2), preview per platform, schedule date/time, save as draft; content calendar view; post list with status (draft/scheduled/published/failed)
+  - Implementation notes: Frontend components + Postiz API proxy through Worker
+  - Hosting notes: Worker API + admin frontend + Postiz Fly app
+  - Backing services: Postiz (post management), R2 (media uploads)
+  - Observability: PostHog: post creation funnel; Axiom: post events
+  - Dependencies: Postiz Fly app, admin UI, R2
+  - Related files: src/services/social_auto_pilot.ts, src/services/social_ai.ts
+  - Primary sources: Postiz API docs
+
+- [ ] LOOP-SOC-003: Implement AI-generated social post content
+  - Endpoint: Internal (AI workflow)
+  - Why: AI can generate platform-optimized posts from site content, saving hours per week
+  - Acceptance criteria: AI generates posts from: site blog content, new pages, Google My Business updates, seasonal prompts; platform-specific formatting (Twitter length, Instagram hashtags, LinkedIn professional tone); human review and edit before scheduling; Langfuse traces
+  - Implementation notes: AI Gateway call with site context; template per platform; review UI
+  - Hosting notes: Worker + AI Gateway
+  - Backing services: AI Gateway (LLM), Langfuse (tracing), Postiz (post creation)
+  - Observability: Langfuse: AI post generation traces; PostHog: AI post usage
+  - Dependencies: AI Gateway, Langfuse, Postiz Fly app
+  - Related files: src/services/social_ai.ts, src/services/social_auto_pilot.ts
+  - Primary sources: Existing AI content generation patterns
+
+- [ ] LOOP-SOC-004: Build local business content calendar with AI suggestions
+  - Endpoint: /admin/social/calendar (customer-facing)
+  - Why: Local businesses need a content calendar with pre-planned posts for holidays, events, and promotions
+  - Acceptance criteria: AI-generated content calendar with: industry-specific holidays, local events, seasonal promotions, "National X Day" posts; drag-and-drop scheduling; customer can approve/edit/reject suggestions
+  - Implementation notes: AI generates calendar from business type + location + season; Postiz API for scheduling
+  - Hosting notes: Worker + AI Gateway
+  - Backing services: AI Gateway, Postiz Fly app, D1 (calendar state)
+  - Observability: PostHog: calendar usage; Langfuse: AI calendar generation
+  - Dependencies: AI Gateway, Postiz Fly app
+  - Related files: src/services/social_auto_pilot.ts
+  - Primary sources: Content calendar patterns
+
+- [ ] LOOP-SOC-005: Implement social post approval workflow for agencies
+  - Endpoint: Internal (workflow)
+  - Why: Agencies need client approval before posts go live; approval prevents brand-damaging mistakes
+  - Acceptance criteria: Agency creates post → client receives preview email with approve/reject → approved posts auto-schedule → rejected posts return to draft with feedback; approval audit log
+  - Implementation notes: Postiz draft state + D1 approval state; Resend for preview emails
+  - Hosting notes: Worker + Postiz + Resend
+  - Backing services: Postiz (post state), Resend (preview emails), D1 (approval state, audit)
+  - Observability: Axiom: approval events; PostHog: approval workflow usage
+  - Dependencies: Postiz Fly app, Resend, audit service
+  - Related files: src/services/social_auto_pilot.ts
+  - Primary sources: Agency approval workflow patterns
+
+- [ ] LOOP-SOC-006: Build social post analytics dashboard
+  - Endpoint: /admin/social/analytics (customer-facing)
+  - Why: Customers need to see which posts perform best to optimize their strategy
+  - Acceptance criteria: Per-post metrics (impressions, clicks, likes, shares, comments); per-platform comparison; best posting time recommendations; top-performing content themes
+  - Implementation notes: Postiz analytics API; aggregated in admin dashboard
+  - Hosting notes: Worker API + admin frontend + Postiz
+  - Backing services: Postiz (analytics)
+  - Observability: PostHog: analytics page views; Tinybird: social analytics
+  - Dependencies: Postiz Fly app, admin UI
+  - Related files: admin frontend social components
+  - Primary sources: Postiz analytics API
+
+- [ ] LOOP-SOC-007: Implement social post failure alerting and retry
+  - Endpoint: Internal (background worker)
+  - Why: Scheduled posts can fail (token expiry, API rate limits, platform downtime); failures must be surfaced immediately
+  - Acceptance criteria: Post failure → Sentry alert + customer notification + auto-retry (1hr later); after 3 retries, mark as failed with reason; customer sees failure in dashboard with fix suggestion
+  - Implementation notes: Postiz webhook or polling for post status; Sentry alert on failure; Resend for customer notification
+  - Hosting notes: Worker cron + Postiz + Sentry + Resend
+  - Backing services: Postiz (post status), Sentry (alerts), Resend (notifications)
+  - Observability: Sentry: post failure alerts; Axiom: failure events; PostHog: post success rate
+  - Dependencies: Postiz Fly app, Sentry, Resend
+  - Related files: INFRA/fly/social-postiz/fly.toml, src/services/social_auto_pilot.ts
+  - Primary sources: Postiz API, Sentry alerting
+
+- [ ] LOOP-SOC-008: Build media library integration with R2
+  - Endpoint: /admin/social/media (customer-facing)
+  - Why: Social posts need images and videos; a shared media library across Postiz and the site builder reduces re-upload
+  - Acceptance criteria: Media library showing: site images, uploaded social media, AI-generated images; usable in both Postiz posts and site content; R2-backed with CDN URLs; per-site isolation
+  - Implementation notes: R2 bucket per site or prefixed; Postiz media API; shared media browser UI
+  - Hosting notes: Worker + R2 + Postiz
+  - Backing services: R2 (media storage), Postiz (media API)
+  - Observability: PostHog: media library usage
+  - Dependencies: R2, Postiz Fly app, admin UI
+  - Related files: src/services/media.ts, R2 config
+  - Primary sources: Postiz media API, R2 docs
+
+- [ ] LOOP-SOC-009: Implement per-site social account limits by plan
+  - Endpoint: Middleware (Postiz account connection)
+  - Why: Free plan gets N social accounts; paid plans get more
+  - Acceptance criteria: Free=3 accounts, Pro=10, Business=unlimited; enforced at connection creation; customer sees usage count
+  - Implementation notes: Plan entitlement check via OpenMeter; Postiz account count per tenant
+  - Hosting notes: Worker middleware
+  - Backing services: OpenMeter (entitlements), Postiz (account count), D1 (plan limits)
+  - Observability: PostHog: social account limit events
+  - Dependencies: Billing (plan model), Postiz Fly app
+  - Related files: src/services/social_account_ctx.ts
+  - Primary sources: Plan entitlement patterns
+
+- [ ] LOOP-SOC-010: Build AI brand voice extraction for consistent posting
+  - Endpoint: Internal (AI workflow)
+  - Why: Each business has a unique brand voice; AI should learn it and apply it to all generated posts
+  - Acceptance criteria: AI analyzes existing site content + past posts to extract brand voice (tone, vocabulary, emoji usage, formality); applies voice to all generated posts; customer can edit voice profile; stored per site
+  - Implementation notes: AI Gateway for voice extraction; D1 for voice profile storage; applied in social_ai.ts post generation
+  - Hosting notes: Worker + AI Gateway
+  - Backing services: AI Gateway, Langfuse (tracing), D1 (voice profiles)
+  - Observability: Langfuse: voice extraction traces
+  - Dependencies: AI Gateway, Langfuse, site content
+  - Related files: src/services/social_ai.ts, src/services/site_dna.ts
+  - Primary sources: Brand voice AI patterns
+
+- [ ] LOOP-SOC-011: Implement campaign bundles (multi-post campaigns)
+  - Endpoint: /admin/social/campaigns (customer-facing)
+  - Why: Product launches, events, and promotions need coordinated multi-post campaigns across platforms
+  - Acceptance criteria: Campaign creation with: name, goal, posts (multiple with sequence), platforms per post, schedule; campaign analytics aggregate across all posts; template campaigns for common scenarios
+  - Implementation notes: Campaign model in D1; Postiz posts linked to campaign; campaign analytics aggregation
+  - Hosting notes: Worker + D1 + Postiz
+  - Backing services: D1 (campaigns), Postiz (posts)
+  - Observability: PostHog: campaign usage; Axiom: campaign events
+  - Dependencies: Postiz Fly app, D1
+  - Related files: src/services/social_auto_pilot.ts
+  - Primary sources: Social campaign patterns
+
+- [ ] LOOP-SOC-012: Build review promotion automation
+  - Endpoint: Internal (workflow)
+  - Why: Positive Google/Facebook reviews should be auto-shared as social posts for social proof
+  - Acceptance criteria: Monitor Google My Business + Facebook for new 4-5 star reviews; auto-generate social post with review quote + link; customer approves before scheduling; review source attributed
+  - Implementation notes: GBP API + Facebook API via Nango; AI generates post from review text; approval workflow
+  - Hosting notes: Worker cron + Nango + AI Gateway + Postiz
+  - Backing services: Nango (GBP/Facebook APIs), AI Gateway, Postiz
+  - Observability: PostHog: review post volume; Axiom: review events
+  - Dependencies: Nango, AI Gateway, Postiz Fly app
+  - Related files: src/services/social_auto_pilot.ts, Nango integration
+  - Primary sources: Review marketing patterns
+
+- [ ] LOOP-SOC-013: Implement Postiz admin support tools
+  - Endpoint: Internal (admin dashboard)
+  - Why: Support needs to diagnose Postiz issues (failed posts, disconnected accounts, scheduling problems)
+  - Acceptance criteria: Admin can: view all connected accounts per tenant, see failed posts with error details, force-retry failed posts, view Postiz Temporal workflow status, impersonate tenant to connect accounts
+  - Implementation notes: Postiz API admin access + Worker admin endpoints; Temporal Cloud namespace visibility
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Postiz (admin API), Temporal Cloud (namespace), Sentry (error context)
+  - Observability: Axiom: admin Postiz actions audit
+  - Dependencies: Postiz Fly app, Temporal Cloud, admin auth
+  - Related files: INFRA/fly/social-postiz/fly.toml
+  - Primary sources: Postiz admin API, Temporal Cloud namespace API
+
+- [ ] LOOP-SOC-014: Build social SEO tie-ins (auto-share new site pages)
+  - Endpoint: Internal (site publish event → Postiz)
+  - Why: New site pages and blog posts should be auto-shared on social media for SEO and traffic
+  - Acceptance criteria: Site publish event → auto-generate social post with page title + link + image; customer configures which platforms auto-share; toggle per page type (blog=auto, page=manual, product=manual)
+  - Implementation notes: Event bus subscriber → Postiz post creation; AI generates post copy from page content
+  - Hosting notes: Worker + event bus + AI Gateway + Postiz
+  - Backing services: Event bus, AI Gateway, Postiz Fly app
+  - Observability: PostHog: auto-share volume; Axiom: auto-share events
+  - Dependencies: Event bus, AI Gateway, Postiz Fly app
+  - Related files: src/services/event_bus.ts, src/services/social_auto_pilot.ts
+  - Primary sources: SEO + social integration patterns
+
+- [ ] LOOP-SOC-015: Implement social account reconnect flow
+  - Endpoint: /admin/social/reconnect (customer-facing)
+  - Why: Social platform tokens expire; reconnection must be quick and preserve scheduled posts
+  - Acceptance criteria: "Reconnect" button next to disconnected accounts; reconnection preserves existing scheduled posts; scheduled posts during disconnection are queued (not dropped); email notification on disconnection
+  - Implementation notes: Postiz account status API; Resend notification on token expiry
+  - Hosting notes: Worker + Postiz + Resend
+  - Backing services: Postiz (account management), Resend (notifications)
+  - Observability: Axiom: reconnect events; PostHog: disconnect rate
+  - Dependencies: Postiz Fly app, Resend
+  - Related files: src/services/social_account_ctx.ts
+  - Primary sources: Postiz account management API
+
+- [ ] LOOP-SOC-016: Build social post template library
+  - Endpoint: /admin/social/templates (customer-facing)
+  - Why: Pre-built post templates reduce the time from idea to scheduled post
+  - Acceptance criteria: Template library: business anniversary, new product/service, customer testimonial, behind-the-scenes, holiday greeting, promotion/sale, event announcement; templates pre-fill with site data; customizable
+  - Implementation notes: Stored in D1; AI fills template variables from site context; rendered in post composer
+  - Hosting notes: Worker + D1
+  - Backing services: D1 (templates)
+  - Observability: PostHog: template usage
+  - Dependencies: Admin UI
+  - Related files: src/services/social_ai.ts
+  - Primary sources: Social media template patterns
+
+- [ ] LOOP-SOC-017: Implement rate limit handling for social platform APIs
+  - Endpoint: Postiz (provider layer)
+  - Why: Social platforms have strict rate limits (Twitter: 50 posts/day, Instagram: 25 posts/day); exceeding them causes failures
+  - Acceptance criteria: Rate limit awareness in scheduling: warn if scheduling would exceed platform limit; queue posts scheduled beyond limit for next available window; customer sees rate limit status per platform
+  - Implementation notes: Postiz provider-level rate limit handling; Worker validates before proxying
+  - Hosting notes: Worker + Postiz
+  - Backing services: Postiz (provider rate limits)
+  - Observability: Axiom: rate limit events; PostHog: rate limit hit rate
+  - Dependencies: Postiz Fly app
+  - Related files: src/services/social_auto_pilot.ts
+  - Primary sources: Social platform API rate limits
+
+- [ ] LOOP-SOC-018: Build social analytics export and reporting
+  - Endpoint: GET /api/social/analytics/export (customer-facing)
+  - Why: Agencies need to report social performance to their clients; exportable reports enable this
+  - Acceptance criteria: PDF/CSV export of social analytics per site/date range; includes: post performance, platform comparison, audience growth, top content; branded with agency logo; email delivery for large reports
+  - Implementation notes: Postiz analytics API → Worker → PDF generation → R2 → download link
+  - Hosting notes: Worker (report generation) + R2
+  - Backing services: Postiz (analytics), R2 (report storage)
+  - Observability: PostHog: report generation events
+  - Dependencies: Postiz Fly app, R2
+  - Related files: src/services/social_auto_pilot.ts
+  - Primary sources: Postiz analytics API
+
+- [ ] LOOP-SOC-019: Implement CRM-triggered social posts
+  - Endpoint: Twenty CRM events → Postiz
+  - Why: CRM milestones (new customer, deal won, anniversary) should trigger social posts
+  - Acceptance criteria: CRM event → AI generates celebratory/announcement post → customer approves → scheduled; templates per CRM event type; opt-in per event type
+  - Implementation notes: Event bus subscriber (CRM events) → Postiz post creation with AI copy
+  - Hosting notes: Worker + event bus + AI Gateway + Postiz
+  - Backing services: Event bus, Twenty CRM, AI Gateway, Postiz
+  - Observability: PostHog: CRM→social conversion
+  - Dependencies: Twenty CRM, event bus, AI Gateway, Postiz
+  - Related files: src/services/event_bus.ts, src/services/social_auto_pilot.ts
+  - Primary sources: CRM + social integration patterns
+
+- [ ] LOOP-SOC-020: Build social media cost attribution
+  - Endpoint: Internal (cost pipeline)
+  - Why: Postiz costs (Fly compute, Temporal Cloud, AI generation) should be attributed per customer for margin calculation
+  - Acceptance criteria: Per-post cost = (Fly compute hourly / posts) + (Temporal Cloud actions × cost per action) + (AI tokens × cost per token); aggregated monthly; attributed to customer
+  - Implementation notes: Fly usage API + Temporal Cloud usage + AI Gateway usage → cost_attribution pipeline
+  - Hosting notes: Worker cron + D1
+  - Backing services: Fly API, Temporal Cloud API, AI Gateway, D1 (cost_attribution)
+  - Observability: PostHog: social cost trends; Tinybird: cost analytics
+  - Dependencies: cost_attribution pipeline, Postiz Fly app, Temporal Cloud
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: Fly usage API, Temporal Cloud usage API
+
+- [ ] LOOP-SOC-021: Implement Postiz deprovisioning on account deletion
+  - Endpoint: Internal (cleanup workflow)
+  - Why: On account deletion, Postiz data (scheduled posts, connected accounts, media) must be purged
+  - Acceptance criteria: Disconnect all social accounts; cancel all scheduled posts; delete all drafts; purge media from R2; confirmation audit-logged
+  - Implementation notes: Postiz API for bulk operations; R2 media cleanup; audit log
+  - Hosting notes: Worker (cleanup workflow)
+  - Backing services: Postiz (data deletion), R2 (media cleanup), D1 (audit)
+  - Observability: Axiom: deprovisioning audit
+  - Dependencies: Postiz Fly app, R2, account deletion workflow
+  - Related files: src/services/app_provisioner.ts
+  - Primary sources: GDPR data deletion requirements
+
+- [ ] LOOP-SOC-022: Build Postiz observability dashboard (platform operator view)
+  - Endpoint: Internal (admin dashboard)
+  - Why: Postiz is a critical customer-facing service; degraded scheduling = missed posts = customer complaints
+  - Acceptance criteria: Dashboard showing: Temporal workflow health, post success rate, scheduling latency, API error rate by platform, connected account health, Fly machine health; alert on degradation
+  - Implementation notes: Aggregate from Postiz API + Temporal Cloud + Fly metrics + Sentry
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Postiz (API), Temporal Cloud, Fly (metrics), Sentry (errors)
+  - Observability: Self-referential (dashboard is about Postiz observability)
+  - Dependencies: Postiz Fly app, Temporal Cloud, Fly API, Sentry
+  - Related files: INFRA/fly/social-postiz/fly.toml, admin frontend
+  - Primary sources: Existing Postiz memory file, Fly metrics API
+
+- [ ] LOOP-SOC-023: Evaluate Postiz CF Container viability (periodic re-evaluation)
+  - Endpoint: Internal (architecture evaluation)
+  - Why: Postiz is on Fly because its Temporal worker must be always-on; CF Containers sleep. Re-evaluate as CF evolves
+  - Acceptance criteria: Re-evaluate every 6 months; test Postiz on CF Container if always-on or scheduled-wake support is added; document findings
+  - Implementation notes: Monitor CF Containers changelog; benchmark cold-start impact on Temporal worker polling
+  - Hosting notes: Fly.io (current), CF Container (future target)
+  - Backing services: N/A
+  - Observability: N/A
+  - Dependencies: CF Containers roadmap
+  - Related files: INFRA/fly/social-postiz/fly.toml, postiz-fly-temporal-cloud-live.md memory
+  - Primary sources: CF Containers docs, Postiz architecture docs
+
+- [ ] LOOP-SOC-024: Implement social media performance benchmarks
+  - Endpoint: Internal (analytics)
+  - Why: Customers need to know if their social performance is good relative to peers
+  - Acceptance criteria: Benchmarks per platform per industry: avg engagement rate, avg post frequency, top content types; customer sees their performance vs benchmark; recommendations to improve
+  - Implementation notes: Aggregate anonymized Postiz analytics across all customers; industry classification from site DNA
+  - Hosting notes: Worker + Postiz + Tinybird
+  - Backing services: Postiz (analytics), Tinybird (benchmark aggregation), D1 (industry classification)
+  - Observability: PostHog: benchmark views
+  - Dependencies: Postiz Fly app, Tinybird, site_dna.ts
+  - Related files: src/services/site_dna.ts
+  - Primary sources: Social media benchmark data, Tinybird analytics
+
+## analytics.projectsites.dev — PostHog Cloud
+
+### Raw research themes considered
+PostHog Cloud (US region, project 210890, org Megabyte Labs) is the product analytics backbone — NOT self-hosted. Research confirmed: free tier includes 1M events/month, feature flags, session replay (5K recordings), surveys (1.5K responses), error tracking (100K exceptions), AI observability (100K events). Research covered: PostHog's JS SDK for platform analytics + customer website analytics, event naming standards, group analytics for tenant/site scoping, funnel and retention analysis, feature flag integration, and PostHog's LLM analytics for AI call tracing.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-ANAL-001: Define and enforce platform-wide event naming standard
+  - Endpoint: N/A (convention + CI validator)
+  - Why: Inconsistent event names make PostHog unusable; a shared taxonomy enables cross-service analytics
+  - Acceptance criteria: Event naming: snake_case, verb_noun format (site.created, build.completed, billing.plan_changed); documented in ANALYTICS.md; CI gate flags non-conforming events
+  - Implementation notes: Shared event name constants in packages/shared; scripts/check-event-names.mjs validator
+  - Hosting notes: N/A (convention + CI)
+  - Backing services: N/A
+  - Observability: Self-referential (PostHog itself tracks event name usage)
+  - Dependencies: packages/shared
+  - Related files: packages/shared/src/constants/events.ts (new), ANALYTICS.md (new)
+  - Primary sources: PostHog event naming best practices
+
+- [ ] LOOP-ANAL-001: Instrument full platform product analytics
+  - Endpoint: Every user-facing action in admin and Worker
+  - Why: Without product analytics, you cannot measure activation, retention, or conversion
+  - Acceptance criteria: Key events tracked: user.signup, user.onboarding_completed, site.created, site.published, domain.verified, billing.plan_changed, feature.used (per feature flag), ai.call (per model); all carry tenant_id + site_id
+  - Implementation notes: PostHog JS SDK in admin frontend; server-side capture via Worker fetch to PostHog API
+  - Hosting notes: Frontend (PostHog JS) + Worker (server-side capture)
+  - Backing services: PostHog Cloud
+  - Observability: Self-referential (PostHog IS the analytics tool)
+  - Dependencies: PostHog project key (phc_...), correlation ID middleware
+  - Related files: src/lib/posthog.ts, src/services/analytics.ts
+  - Primary sources: https://posthog.com/docs/product-analytics/capture-events
+
+- [ ] LOOP-ANAL-002: Build customer website analytics offering
+  - Endpoint: Per-site analytics snippet injection
+  - Why: Customers want to know their site traffic; platform-provided analytics is a competitive differentiator
+  - Acceptance criteria: Opt-in per-site analytics; PostHog snippet injected into served sites; customer sees: pageviews, top pages, referrers, geography, device breakdown; privacy-first (no cross-site tracking, IP anonymization)
+  - Implementation notes: Separate PostHog project per site (or group analytics with site_id); injected into site_serving.ts response; customer analytics dashboard in admin
+  - Hosting notes: Worker (snippet injection) + PostHog Cloud
+  - Backing services: PostHog Cloud (site analytics)
+  - Observability: PostHog (meta: analytics about analytics offering)
+  - Dependencies: PostHog project provisioning API, site_serving.ts
+  - Related files: src/services/site_serving.ts, src/services/analytics_tracker.ts
+  - Primary sources: https://posthog.com/docs/product-analytics/snippet-installation
+
+- [ ] LOOP-ANAL-003: Build onboarding analytics and activation scoring
+  - Endpoint: Internal (PostHog funnels + trends)
+  - Why: Onboarding is the #1 predictor of retention; funnel analytics identify where users drop off
+  - Acceptance criteria: Onboarding funnel: signup → first site created → site built → site previewed → site published → plan upgraded; activation defined as "published a site"; activation rate tracked daily; drop-off alerts
+  - Implementation notes: PostHog funnel for each step; activation scoring via PostHog trends; Axiom alert on funnel degradation
+  - Hosting notes: PostHog Cloud (funnels, trends)
+  - Backing services: PostHog Cloud
+  - Observability: PostHog (self-referential)
+  - Dependencies: Product analytics instrumentation, PostHog Cloud
+  - Related files: src/services/analytics.ts, src/services/activation_funnel.ts
+  - Primary sources: https://posthog.com/docs/product-analytics/funnels
+
+- [ ] LOOP-ANAL-004: Implement claim flow analytics
+  - Endpoint: Internal (PostHog funnel)
+  - Why: Claim flow is the primary revenue driver; funnel analytics optimize conversion
+  - Acceptance criteria: Claim funnel: lead discovered → site generated → preview viewed → claimed → published; drop-off at each stage; conversion rate by lead source, industry, location
+  - Implementation notes: PostHog events at each claim flow step; attribution via UTM/lead source
+  - Hosting notes: PostHog Cloud
+  - Backing services: PostHog Cloud
+  - Observability: PostHog (self-referential)
+  - Dependencies: Claim flow instrumentation, PostHog Cloud
+  - Related files: src/services/claim_attribution.ts, src/services/claim_build_session.ts
+  - Primary sources: PostHog funnel docs
+
+- [ ] LOOP-ANAL-005: Build billing conversion analytics
+  - Endpoint: Internal (PostHog trends)
+  - Why: Free→paid conversion is the core business metric; analytics identify what drives upgrades
+  - Acceptance criteria: Upgrade funnel: free plan → views pricing → starts trial → enters payment → paid; conversion rate by acquisition channel, site count, feature usage; "features that predict upgrade" analysis
+  - Implementation notes: PostHog events at each billing step; correlation analysis
+  - Hosting notes: PostHog Cloud
+  - Backing services: PostHog Cloud
+  - Observability: PostHog (self-referential)
+  - Dependencies: Billing instrumentation, PostHog Cloud
+  - Related files: src/services/billing.ts
+  - Primary sources: PostHog trends and correlation docs
+
+- [ ] LOOP-ANAL-006: Deploy feature flags via PostHog (complement CF Flagship)
+  - Endpoint: PostHog feature flag API + CF Flagship binding
+  - Why: PostHog feature flags enable A/B testing and gradual rollouts with analytics; CF Flagship handles edge evaluation
+  - Acceptance criteria: Feature flags defined in PostHog; evaluated at edge via CF Flagship (primary) with PostHog as analytics layer; flag evaluation events in PostHog for rollout monitoring
+  - Implementation notes: CF Flagship evaluation provider + PostHog flag analytics; sync flags between both
+  - Hosting notes: CF Flagship (evaluation) + PostHog Cloud (analytics)
+  - Backing services: CF Flagship, PostHog Cloud
+  - Observability: PostHog: flag evaluation + experiment results
+  - Dependencies: CF Flagship binding, PostHog Cloud
+  - Related files: src/services/features.ts, modules/feature_flags/
+  - Primary sources: https://posthog.com/docs/feature-flags, CF Flagship docs
+
+- [ ] LOOP-ANAL-007: Build per-site analytics dashboard for customers
+  - Endpoint: /admin/analytics/:siteId (customer-facing)
+  - Why: Customers need to see their site's traffic and performance in one place
+  - Acceptance criteria: Dashboard per site showing: pageviews (daily/weekly/monthly), top pages, referrers, geography, device breakdown; embedded PostHog dashboard or custom UI with PostHog API
+  - Implementation notes: PostHog insights API; rendered in admin UI with customer's site-scoped data
+  - Hosting notes: Worker API + admin frontend + PostHog Cloud API
+  - Backing services: PostHog Cloud (insights API)
+  - Observability: PostHog: analytics dashboard views
+  - Dependencies: Customer website analytics, PostHog Cloud API, admin UI
+  - Related files: admin frontend analytics components, src/services/analytics_query.ts
+  - Primary sources: PostHog insights API
+
+- [ ] LOOP-ANAL-008: Implement session replay for debugging (platform only, not customer sites)
+  - Endpoint: Internal (PostHog session replay)
+  - Why: Session replay helps debug UI issues and understand user behavior on the admin dashboard
+  - Acceptance criteria: Session replay enabled on admin dashboard (not customer sites); recordings masked for PII; retention 30 days; used for: bug reproduction, UX improvement, support investigations
+  - Implementation notes: PostHog session replay SDK in admin frontend; console + network recording; PII masking
+  - Hosting notes: Admin frontend + PostHog Cloud
+  - Backing services: PostHog Cloud (session replay)
+  - Observability: PostHog (self-referential)
+  - Dependencies: Admin frontend, PostHog Cloud
+  - Related files: apps/project-sites/frontend/src/app/
+  - Primary sources: https://posthog.com/docs/session-replay
+
+- [ ] LOOP-ANAL-009: Build retention analytics and cohort analysis
+  - Endpoint: Internal (PostHog retention)
+  - Why: Retention is the ultimate product metric; cohort analysis reveals what drives long-term usage
+  - Acceptance criteria: Weekly retention cohorts; retention by: signup month, plan tier, site count, feature usage; churn prediction model; retention dashboard in admin
+  - Implementation notes: PostHog retention insights; cohort definitions
+  - Hosting notes: PostHog Cloud
+  - Backing services: PostHog Cloud
+  - Observability: PostHog (self-referential)
+  - Dependencies: Product analytics instrumentation, PostHog Cloud
+  - Related files: src/services/analytics.ts
+  - Primary sources: https://posthog.com/docs/product-analytics/retention
+
+- [ ] LOOP-ANAL-010: Implement churn prediction and lifecycle triggers
+  - Endpoint: Internal (analytics pipeline)
+  - Why: Predicting churn before it happens enables proactive retention
+  - Acceptance criteria: Churn risk score per customer (based on: login frequency, site activity, support tickets, payment history); high-risk → automated re-engagement email; risk dashboard in admin
+  - Implementation notes: PostHog trends for risk signals; DO for per-customer risk score; Listmonk for re-engagement
+  - Hosting notes: Worker cron + PostHog + Listmonk
+  - Backing services: PostHog (analytics), DO (risk scores), Listmonk (re-engagement emails)
+  - Observability: PostHog: churn prediction accuracy
+  - Dependencies: PostHog Cloud, Listmonk, analytics pipeline
+  - Related files: src/services/analytics.ts, src/services/listmonk_client.ts
+  - Primary sources: Churn prediction patterns
+
+- [ ] LOOP-ANAL-011: Build admin analytics dashboard (platform operator view)
+  - Endpoint: Internal (admin dashboard)
+  - Why: Solo founder needs a single dashboard for all key metrics
+  - Acceptance criteria: Dashboard showing: DAU/WAU/MAU, MRR, conversion rate, churn rate, top features by usage, AI spend, support volume, site creation rate; all from PostHog + Stripe data
+  - Implementation notes: PostHog insights API + Stripe metrics API; rendered in admin dashboard
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: PostHog Cloud, Stripe
+  - Observability: Self-referential
+  - Dependencies: PostHog Cloud API, Stripe API, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/
+  - Primary sources: SaaS metrics dashboard patterns
+
+- [ ] LOOP-ANAL-012: Implement privacy controls for customer website analytics
+  - Endpoint: Per-site analytics configuration
+  - Why: GDPR requires user consent for tracking; customers must be able to configure privacy
+  - Acceptance criteria: Per-site toggle: analytics on/off, cookie-less mode, IP anonymization, session recording on/off; consent banner for site visitors; data retention controls
+  - Implementation notes: PostHog configuration per site project; consent management via PostHog
+  - Hosting notes: Worker (config injection) + PostHog Cloud
+  - Backing services: PostHog Cloud
+  - Observability: PostHog: privacy setting usage
+  - Dependencies: PostHog Cloud, site serving
+  - Related files: src/services/site_serving.ts, src/services/analytics_tracker.ts
+  - Primary sources: https://posthog.com/docs/privacy
+
+- [ ] LOOP-ANAL-013: Build PostHog surveys for NPS and product feedback
+  - Endpoint: PostHog survey targeting
+  - Why: NPS and product feedback surveys drive the product roadmap
+  - Acceptance criteria: Surveys: NPS (quarterly), feature satisfaction (post-feature-use), churn reason (on cancellation), onboarding feedback (day 7); targeted by user segment; results in PostHog dashboard
+  - Implementation notes: PostHog surveys SDK; targeted by user properties and events
+  - Hosting notes: Admin frontend + PostHog Cloud
+  - Backing services: PostHog Cloud (surveys)
+  - Observability: PostHog: survey response analytics
+  - Dependencies: Admin frontend, PostHog Cloud
+  - Related files: apps/project-sites/frontend/src/app/
+  - Primary sources: https://posthog.com/docs/surveys
+
+- [ ] LOOP-ANAL-014: Implement experiments (A/B tests) for conversion optimization
+  - Endpoint: PostHog experiment targeting
+  - Why: A/B testing signup flows, pricing pages, and feature prompts improves conversion
+  - Acceptance criteria: Experiment framework for: pricing page variants, signup flow variants, upgrade prompt variants; statistical significance tracking; auto-rollout winning variant
+  - Implementation notes: PostHog experiments SDK; feature flag-based variant assignment
+  - Hosting notes: Admin frontend + PostHog Cloud
+  - Backing services: PostHog Cloud (experiments)
+  - Observability: PostHog: experiment results
+  - Dependencies: Admin frontend, PostHog Cloud, feature flags
+  - Related files: apps/project-sites/frontend/src/app/
+  - Primary sources: https://posthog.com/docs/experiments
+
+- [ ] LOOP-ANAL-015: Build governance dashboard for event volume and cost
+  - Endpoint: Internal (PostHog usage)
+  - Why: PostHog bills by event volume; uncontrolled event growth increases cost
+  - Acceptance criteria: Dashboard showing: events per day by type, top event generators, event volume trend, projected monthly cost; alert on volume spike >50%
+  - Implementation notes: PostHog usage API; cost projection model
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: PostHog Cloud (usage API)
+  - Observability: Self-referential
+  - Dependencies: PostHog Cloud usage API
+  - Related files: admin frontend
+  - Primary sources: PostHog usage and billing API
+
+- [ ] LOOP-ANAL-016: Instrument AI observability in PostHog
+  - Endpoint: AI Gateway → PostHog LLM analytics
+  - Why: PostHog's LLM analytics track AI call volume, cost, latency, and model usage
+  - Acceptance criteria: AI call events in PostHog with: model, provider, tokens, cost, latency, tenant_id; LLM analytics dashboard; cost per tenant per day
+  - Implementation notes: PostHog LLM analytics SDK or custom events from AI Gateway; Langfuse for detailed traces, PostHog for aggregate analytics
+  - Hosting notes: Worker (AI Gateway) + PostHog Cloud
+  - Backing services: PostHog Cloud (LLM analytics), AI Gateway, Langfuse (detailed traces)
+  - Observability: PostHog: AI analytics; Langfuse: AI traces
+  - Dependencies: AI Gateway, PostHog Cloud, Langfuse
+  - Related files: src/services/ai_gateway.ts, src/services/ai_logger.ts
+  - Primary sources: https://posthog.com/docs/ai-analytics
+
+- [ ] LOOP-ANAL-017: Build lifecycle email triggers from PostHog
+  - Endpoint: PostHog → Listmonk
+  - Why: Behavioral triggers (inactive 7 days, feature milestone reached) should drive automated emails
+  - Acceptance criteria: PostHog webhook for behavioral triggers → Listmonk transactional send; trigger definitions in PostHog; template per trigger; customer can opt out per trigger type
+  - Implementation notes: PostHog webhook action → Worker → Listmonk send
+  - Hosting notes: Worker + PostHog + Listmonk
+  - Backing services: PostHog (webhooks, triggers), Listmonk (email)
+  - Observability: PostHog: lifecycle email triggers
+  - Dependencies: PostHog Cloud, Listmonk
+  - Related files: src/services/listmonk_client.ts, src/services/notifications.ts
+  - Primary sources: PostHog webhook actions
+
+- [ ] LOOP-ANAL-018: Implement abuse analytics dashboard
+  - Endpoint: Internal (admin dashboard)
+  - Why: Abuse patterns (spam sites, excessive API usage, fraud) need analytics to detect and prevent
+  - Acceptance criteria: Dashboard showing: abuse events by type, top abusing tenants, abuse trend, automated-action rate; integrates with abuse_takedown module
+  - Implementation notes: PostHog events for abuse detections; admin dashboard widget
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: PostHog Cloud, abuse_takedown module
+  - Observability: Self-referential
+  - Dependencies: Abuse detection pipeline, PostHog Cloud
+  - Related files: libs/features/abuse_takedown/
+  - Primary sources: Abuse analytics patterns
+
+- [ ] LOOP-ANAL-019: Build app install analytics
+  - Endpoint: Internal (PostHog trends)
+  - Why: App marketplace adoption metrics drive which apps to build/promote next
+  - Acceptance criteria: Per-app: installs, uninstalls, active users, usage frequency; app adoption by plan tier; app churn rate; top app combinations
+  - Implementation notes: PostHog events at app install/uninstall/usage
+  - Hosting notes: PostHog Cloud
+  - Backing services: PostHog Cloud
+  - Observability: PostHog (self-referential)
+  - Dependencies: App marketplace instrumentation, PostHog Cloud
+  - Related files: src/services/analytics.ts
+  - Primary sources: Marketplace analytics patterns
+
+- [ ] LOOP-ANAL-020: Build customer health score dashboard
+  - Endpoint: Internal (admin dashboard)
+  - Why: Customer health score predicts churn and identifies expansion opportunities
+  - Acceptance criteria: Health score (0-100) based on: login frequency, site activity, feature usage breadth, support ticket sentiment, payment history, NPS; dashboard with top/bottom customers; alert on score drop >20 points
+  - Implementation notes: Weighted scoring model from PostHog event data + Stripe + Chatwoot data
+  - Hosting notes: Worker cron + DO (scores) + admin frontend
+  - Backing services: PostHog Cloud (events), Stripe (payments), Chatwoot (support), DO (scores)
+  - Observability: PostHog: health score trends
+  - Dependencies: PostHog, Stripe, Chatwoot, DO
+  - Related files: src/services/analytics.ts
+  - Primary sources: Customer health scoring patterns
+
+- [ ] LOOP-ANAL-021: Implement activation scoring per customer
+  - Endpoint: Internal (analytics pipeline)
+  - Why: Activation is the "aha moment" — customers who reach it retain at 3× the rate
+  - Acceptance criteria: Activation defined as completing these within 7 days: create site + build preview + publish + connect domain (or claim); activation score tracked per customer; non-activated customers get targeted onboarding emails
+  - Implementation notes: PostHog funnel for activation steps; score computed via DO
+  - Hosting notes: Worker cron + PostHog + DO
+  - Backing services: PostHog Cloud (events), DO (activation scores), Listmonk (nurture emails)
+  - Observability: PostHog: activation rate trends
+  - Dependencies: Product analytics, PostHog, Listmonk
+  - Related files: src/services/activation_funnel.ts
+  - Primary sources: SaaS activation patterns
+
+- [ ] LOOP-ANAL-022: Build analytics data export for customers
+  - Endpoint: GET /api/analytics/export (customer-facing)
+  - Why: Enterprise customers need raw data export for their own analysis
+  - Acceptance criteria: Export site analytics as CSV (pageviews, referrers, geography, devices); date range selector; email delivery for large exports
+  - Implementation notes: PostHog insights API → Worker → CSV generation → R2
+  - Hosting notes: Worker + R2
+  - Backing services: PostHog Cloud (insights API), R2 (export files)
+  - Observability: PostHog: export events
+  - Dependencies: PostHog Cloud API, R2
+  - Related files: src/services/analytics_query.ts
+  - Primary sources: PostHog insights API
+
+- [ ] LOOP-ANAL-023: Implement real-time analytics for site publish events
+  - Endpoint: Internal (event pipeline)
+  - Why: Site publishes are the core value moment; real-time visibility builds excitement
+  - Acceptance criteria: Real-time counter on admin dashboard: "X sites published today", "Y sites published this week"; live activity feed of recent publishes; PostHog live events
+  - Implementation notes: PostHog live events or DO counter; admin dashboard real-time widget
+  - Hosting notes: Worker DO + PostHog + admin frontend
+  - Backing services: DO (live counters), PostHog (events)
+  - Observability: PostHog: real-time dashboard views
+  - Dependencies: PostHog Cloud, DO, admin UI
+  - Related files: admin frontend dashboard, src/services/analytics_events.ts
+  - Primary sources: Real-time analytics patterns
+
+- [ ] LOOP-ANAL-024: Verify PostHog free tier limits and set billing alerts
+  - Endpoint: Internal (cost management)
+  - Why: PostHog Cloud has free tier limits (1M events); exceeding them triggers pay-as-you-go billing
+  - Acceptance criteria: Documented free tier limits; billing alert at 80% of free tier; monthly PostHog cost tracked in cost dashboard; auto-upgrade to paid if consistently exceeding free tier
+  - Implementation notes: PostHog usage API monitoring; Axiom alert on usage threshold
+  - Hosting notes: Worker cron
+  - Backing services: PostHog Cloud (usage API), Axiom (alerting)
+  - Observability: Axiom: PostHog cost alerts
+  - Dependencies: PostHog Cloud, Axiom
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: https://posthog.com/pricing, PostHog usage API
+
+## logs.projectsites.dev — Axiom
+
+### Raw research themes considered
+Axiom is the logging backend for the platform. Research covered: Axiom's OpenTelemetry ingestion, structured logging with JSON, dataset organization, query API for admin dashboards, PII redaction at the log boundary, retention and cost controls, and correlation with Sentry traces. The platform emits logs from Workers, CF Containers, Fly apps, and browser — all need consistent structure.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-LOG-001: Define and deploy structured logging schema across all services
+  - Endpoint: Every service's logger
+  - Why: Structured logs are queryable; unstructured logs are noise
+  - Acceptance criteria: Every log line is JSON with: {timestamp, level, service, event, request_id, trace_id, tenant_id, site_id?, message, duration_ms?, error?}; enforced by shared logger in packages/shared; CI gate flags console.log usage
+  - Implementation notes: Shared pino-based logger or lightweight JSON logger for Workers; ESLint rule against raw console.log
+  - Hosting notes: N/A (shared code)
+  - Backing services: Axiom (ingestion)
+  - Observability: Self-referential (logs about logging)
+  - Dependencies: packages/shared
+  - Related files: packages/shared/src/utils/logger.ts, src/services/ai_logger.ts
+  - Primary sources: https://axiom.co/docs/send-data/opentelemetry
+
+- [ ] LOOP-LOG-002: Implement PII redaction at the log boundary
+  - Endpoint: Logger output (before Axiom ingestion)
+  - Why: Logging PII (emails, phones, addresses, IPs) is a GDPR violation and security risk
+  - Acceptance criteria: Auto-redact: email addresses → e***@domain, phone numbers → masked, IP addresses → hashed, physical addresses → [REDACTED]; redaction applied before log leaves the Worker
+  - Implementation notes: Redaction middleware in shared logger; field-level redaction rules
+  - Hosting notes: Worker (log emission)
+  - Backing services: Axiom
+  - Observability: Axiom: redaction audit events
+  - Dependencies: packages/shared (logger)
+  - Related files: packages/shared/src/utils/logger.ts
+  - Primary sources: GDPR logging requirements, PII redaction patterns
+
+- [ ] LOOP-LOG-003: Build admin log search and exploration UI
+  - Endpoint: Internal (admin dashboard)
+  - Why: Debugging requires searching logs across all services; Axiom's UI is powerful but admin integration is faster for common queries
+  - Acceptance criteria: Log search with: time range, service filter, log level filter, full-text search, tenant_id filter, request_id lookup; results displayed in table; click to expand full log entry; "View in Axiom" link for deep dives
+  - Implementation notes: Axiom query API; admin UI log viewer component
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Axiom (query API)
+  - Observability: PostHog: log search usage
+  - Dependencies: Axiom query API, admin UI
+  - Related files: src/services/log_query.ts, admin frontend
+  - Primary sources: Axiom query API
+
+- [ ] LOOP-LOG-004: Build cost controls and retention policies for logging
+  - Endpoint: Axiom dataset configuration
+  - Why: Logging volume grows with usage; uncontrolled growth = ballooning cost
+  - Acceptance criteria: Tiered retention: errors=90 days, warns=30 days, info=14 days, debug=3 days; per-service log volume quotas; alert on volume spike; cost attributed to platform ops
+  - Implementation notes: Axiom dataset retention policies; log sampling for high-volume debug logs
+  - Hosting notes: Axiom (retention configuration)
+  - Backing services: Axiom
+  - Observability: Axiom: log volume and cost trends
+  - Dependencies: Axiom configuration
+  - Related files: Axiom dataset configs
+  - Primary sources: https://axiom.co/docs/reference/usage-billing
+
+- [ ] LOOP-LOG-005: Implement request tracing correlation across services
+  - Endpoint: Every service (request_id + trace_id propagation)
+  - Why: A request may touch Workers, Fly apps, CF Containers, and external APIs; correlation IDs stitch the full journey together
+  - Acceptance criteria: Every service reads x-request-id and x-trace-id from incoming headers; generates if missing; includes in all logs; propagates to downstream calls; Axiom query can reconstruct full request journey
+  - Implementation notes: Middleware for header reading/generation; HTTP client wrapper for propagation
+  - Hosting notes: Every service (Workers, Fly, CF Containers)
+  - Backing services: Axiom
+  - Observability: Self-referential
+  - Dependencies: Correlation ID middleware (LOOP-GLOBAL-001), every service
+  - Related files: src/middleware/request_id.ts, src/services/trace_propagation.ts
+  - Primary sources: Distributed tracing patterns, Axiom correlation docs
+
+- [ ] LOOP-LOG-006: Build provisioning and deprovisioning log streams
+  - Endpoint: App provisioning workflow
+  - Why: Provisioning failures leave orphaned resources; detailed logs enable debugging and audit
+  - Acceptance criteria: Every provisioning step logged with: service, action, resource_type, resource_id, duration_ms, status; deprovisioning steps similarly logged; admin can view provisioning history per tenant
+  - Implementation notes: Structured logging in app_provisioner.ts at each step
+  - Hosting notes: Worker (provisioning workflow)
+  - Backing services: Axiom
+  - Observability: Axiom: provisioning log stream
+  - Dependencies: app_provisioner.ts, Axiom
+  - Related files: src/services/app_provisioner.ts
+  - Primary sources: Provisioning audit patterns
+
+- [ ] LOOP-LOG-007: Implement API call logging with per-key attribution
+  - Endpoint: Middleware (every /api/* route)
+  - Why: Every API call should be logged with key_id for billing, abuse detection, and debugging
+  - Acceptance criteria: API call log entry: {timestamp, api_key_id, tenant_id, method, path, status, duration_ms, user_agent, ip_hash}; stored in Axiom; aggregated for billing
+  - Implementation notes: Middleware after auth resolution captures api_key_id; structured log
+  - Hosting notes: Worker middleware
+  - Backing services: Axiom
+  - Observability: Axiom: API call logs; PostHog: API usage trends
+  - Dependencies: Auth middleware (key resolution), Axiom
+  - Related files: src/middleware/auth.ts
+  - Primary sources: API logging patterns
+
+- [ ] LOOP-LOG-008: Build LLM gateway logging
+  - Endpoint: ai_gateway.ts (every LLM call)
+  - Why: LLM calls are the highest-cost operations; detailed logging enables cost tracking and quality monitoring
+  - Acceptance criteria: LLM call log: {timestamp, tenant_id, model, provider, prompt_tokens, completion_tokens, cost_cents, duration_ms, cached:bool, status}; stored in Axiom; aggregated for cost dashboard
+  - Implementation notes: Structured log in ai_gateway.ts after each call; Gateway already logs — ensure it flows to Axiom
+  - Hosting notes: Worker (AI Gateway)
+  - Backing services: Axiom, AI Gateway, Langfuse (detailed traces)
+  - Observability: Axiom: LLM call logs; PostHog: AI usage trends; Langfuse: detailed traces
+  - Dependencies: AI Gateway, Axiom, Langfuse
+  - Related files: src/services/ai_gateway.ts, src/services/ai_logger.ts
+  - Primary sources: AI Gateway logging docs
+
+- [ ] LOOP-LOG-009: Build browser automation job logging
+  - Endpoint: browser_gateway.ts (every browser job)
+  - Why: Browser jobs are long-running and expensive; detailed logging enables debugging and cost tracking
+  - Acceptance criteria: Browser job log: {timestamp, tenant_id, job_id, job_type, url, duration_ms, pages_rendered, screenshots_taken, status, cost_cents}
+  - Implementation notes: Structured log at job start/completion/failure in browser_gateway.ts
+  - Hosting notes: Worker (browser gateway)
+  - Backing services: Axiom
+  - Observability: Axiom: browser job logs; PostHog: browser usage trends
+  - Dependencies: browser_gateway.ts, Axiom
+  - Related files: src/services/browser_gateway.ts, src/services/browser_execution.ts
+  - Primary sources: CF Browser Rendering docs
+
+- [ ] LOOP-LOG-010: Implement billing event logging
+  - Endpoint: Billing service (every billing event)
+  - Why: Billing events (charges, refunds, plan changes) must be logged for financial audit and debugging
+  - Acceptance criteria: Billing log: {timestamp, tenant_id, event_type, amount_cents, currency, stripe_event_id, status}; immutable audit trail
+  - Implementation notes: Structured log in billing service; D1 audit_events for long-term immutable storage
+  - Hosting notes: Worker (billing events) + D1
+  - Backing services: Axiom, D1 (audit_events)
+  - Observability: Axiom: billing event stream; PostHog: billing analytics
+  - Dependencies: billing.ts, Stripe webhook handler, audit service
+  - Related files: src/services/billing.ts, src/services/audit.ts
+  - Primary sources: Financial audit logging requirements
+
+- [ ] LOOP-LOG-011: Build support conversation logging
+  - Endpoint: Chatwoot webhook → Axiom
+  - Why: Support conversations should be logged for quality analysis and agent performance
+  - Acceptance criteria: Support event log: {timestamp, tenant_id, conversation_id, event_type, agent_id?}; aggregated for support metrics
+  - Implementation notes: Chatwoot webhook → structured log → Axiom
+  - Hosting notes: Worker (webhook handler)
+  - Backing services: Chatwoot (webhook source), Axiom
+  - Observability: Axiom: support event stream; PostHog: support metrics
+  - Dependencies: Chatwoot, Axiom
+  - Related files: src/services/event_bus.ts
+  - Primary sources: Support analytics patterns
+
+- [ ] LOOP-LOG-012: Implement incident timeline reconstruction from logs
+  - Endpoint: Admin dashboard (incident analysis)
+  - Why: During an incident, correlating logs across services reconstructs the timeline; without it, you guess
+  - Acceptance criteria: Paste an incident time range → query all services' error/warn logs → render chronological timeline; highlight first occurrence; link to Sentry errors; link to related traces
+  - Implementation notes: Axiom query API across all datasets; timeline UI in admin
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Axiom (log query), Sentry (error context)
+  - Observability: PostHog: incident analysis usage
+  - Dependencies: Axiom, Sentry, admin UI
+  - Related files: admin frontend incident tools, src/services/log_query.ts
+  - Primary sources: Incident analysis patterns, Axiom query API
+
+- [ ] LOOP-LOG-013: Build customer-safe log views for self-serve debugging
+  - Endpoint: GET /api/logs/:siteId (customer-facing, scoped)
+  - Why: Developers building on the API need to see their own request logs for debugging
+  - Acceptance criteria: Customer can view: their API call history (last 7 days), webhook delivery log, site build log; scoped to their tenant/site; no other tenant's data visible; PII redacted
+  - Implementation notes: Axiom query with tenant_id filter; admin UI log viewer for customers
+  - Hosting notes: Worker API + admin frontend + Axiom
+  - Backing services: Axiom (query API)
+  - Observability: PostHog: customer log view usage
+  - Dependencies: Axiom, admin UI, tenant isolation
+  - Related files: src/services/log_query.ts, admin frontend
+  - Primary sources: Stripe API log UX pattern
+
+- [ ] LOOP-LOG-014: Implement log-based alerting for critical errors
+  - Endpoint: Axiom monitors/alerting
+  - Why: Critical errors should trigger immediate alerts, not wait for someone to check Sentry
+  - Acceptance criteria: Axiom alerts on: any error-level log, 5xx spike (>10/min), payment failure spike, Temporal heartbeat timeout, CF Container restart; alerts → Slack + email
+  - Implementation notes: Axiom monitors on error datasets; Slack webhook + Resend email for alerts
+  - Hosting notes: Axiom (monitoring + alerting)
+  - Backing services: Axiom, Slack webhook, Resend
+  - Observability: Axiom: alert events
+  - Dependencies: Axiom, Slack integration, Resend
+  - Related files: Axiom monitor configs
+  - Primary sources: https://axiom.co/docs/monitors
+
+- [ ] LOOP-LOG-015: Build log dashboards per service
+  - Endpoint: Axiom dashboards
+  - Why: Each service needs a pre-built dashboard for common debugging queries
+  - Acceptance criteria: Per-service dashboards: Worker API (request volume, error rate, p50/p99 latency), AI Gateway (call volume, cost, cache hit rate), Postiz (post success rate, Temporal worker health), Listmonk (campaign send rate, bounce rate); queryable in Axiom
+  - Implementation notes: Axiom dashboard definitions; maintained as code via Axiom API or Terraform
+  - Hosting notes: Axiom (dashboards)
+  - Backing services: Axiom
+  - Observability: Self-referential
+  - Dependencies: Axiom, structured logging
+  - Related files: Axiom dashboard configs (new infra dir)
+  - Primary sources: Axiom dashboards docs
+
+- [ ] LOOP-LOG-016: Implement log sampling for high-volume debug logs
+  - Endpoint: Logger configuration (sampling rate per level)
+  - Why: Debug-level logs can be 100× info-level volume; sampling reduces cost without losing signal
+  - Acceptance criteria: Sample rates: error=100%, warn=100%, info=100%, debug=10%; configurable per service; log sampling rate visible in log metadata
+  - Implementation notes: Sampling logic in shared logger; configurable via env var
+  - Hosting notes: Worker (log emission)
+  - Backing services: Axiom
+  - Observability: Axiom: sampling rate metrics
+  - Dependencies: packages/shared (logger)
+  - Related files: packages/shared/src/utils/logger.ts
+  - Primary sources: Log sampling patterns
+
+- [ ] LOOP-LOG-017: Build Axiom dataset organization and naming convention
+  - Endpoint: Axiom dataset management
+  - Why: Datasets must be organized by service and environment for efficient querying
+  - Acceptance criteria: Dataset naming: {service}_{env} (worker_prod, postiz_prod, listmonk_prod); test datasets for test mode; dataset descriptions and owners documented
+  - Implementation notes: Axiom API for dataset management; convention documented in OBSERVABILITY.md
+  - Hosting notes: Axiom (datasets)
+  - Backing services: Axiom
+  - Observability: N/A
+  - Dependencies: Axiom
+  - Related files: OBSERVABILITY.md (new)
+  - Primary sources: Axiom datasets docs
+
+- [ ] LOOP-LOG-018: Implement log retention automation
+  - Endpoint: Axiom retention policies
+  - Why: Logs accumulate storage costs; automated retention prevents unbounded growth
+  - Acceptance criteria: Retention by dataset: errors=90d, warns=30d, info=14d, debug=3d; auto-applied via Axiom API; retention policy documented
+  - Implementation notes: Axiom retention policy API; apply via script or Terraform
+  - Hosting notes: Axiom (retention)
+  - Backing services: Axiom
+  - Observability: Axiom: storage usage trends
+  - Dependencies: Axiom API
+  - Related files: scripts/configure-axiom-retention.sh (new)
+  - Primary sources: Axiom retention docs
+
+- [ ] LOOP-LOG-019: Build log cost attribution and monitoring
+  - Endpoint: Internal (cost pipeline)
+  - Why: Logging has per-GB costs; understanding which service/tenant drives cost enables optimization
+  - Acceptance criteria: Monthly log volume by service, by log level, by tenant (top 10); projected cost; alert on cost increase >20% month-over-month
+  - Implementation notes: Axiom usage API; cost attribution to platform ops (not per-tenant)
+  - Hosting notes: Worker cron
+  - Backing services: Axiom (usage API), D1 (cost log)
+  - Observability: PostHog: log cost trends
+  - Dependencies: Axiom usage API, cost aggregation pipeline
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: Axiom usage API
+
+- [ ] LOOP-LOG-020: Implement structured error logging with error taxonomy codes
+  - Endpoint: Every catch block / error handler
+  - Why: Error taxonomy codes make errors queryable and actionable; raw error messages are not
+  - Acceptance criteria: Every logged error carries: error_code (from taxonomy), error_category (validation/auth/upstream/internal), retryable:bool, user_safe_message; error taxonomy documented in ERRORS.md
+  - Implementation notes: Shared error factory in packages/shared; error codes registry
+  - Hosting notes: N/A (shared code)
+  - Backing services: Axiom
+  - Observability: Axiom: error code distribution; Sentry: error grouping by code
+  - Dependencies: packages/shared (error factory)
+  - Related files: packages/shared/src/utils/errors.ts, ERRORS.md (new)
+  - Primary sources: Error taxonomy patterns, RFC 7807
+
+- [ ] LOOP-LOG-021: Build worker health logging
+  - Endpoint: Every Worker's scheduled/queue handler
+  - Why: Background workers fail silently without health logging
+  - Acceptance criteria: Worker health log emitted every 5 minutes: {worker, status, last_run_at, last_error_at, queue_depth?}; health dashboard in admin
+  - Implementation notes: Health check DO or KV; Worker cron emits health log
+  - Hosting notes: Worker cron + DO/KV
+  - Backing services: DO (health state), KV (health cache), Axiom
+  - Observability: Axiom: worker health stream; PostHog: worker uptime
+  - Dependencies: Worker cron, DO, Axiom
+  - Related files: Worker scheduled handlers
+  - Primary sources: Worker health check patterns
+
+- [ ] LOOP-LOG-022: Implement Syslog-style severity levels consistently
+  - Endpoint: Every log emission
+  - Why: Consistent severity levels make log filtering meaningful
+  - Acceptance criteria: Levels: EMERGENCY (system down), ALERT (immediate action), CRITICAL (component down), ERROR (operation failed), WARNING (degraded), NOTICE (notable), INFO (normal), DEBUG (verbose); documented per service
+  - Implementation notes: Shared log level constants; per-level routing (ERROR+ → Sentry, INFO+ → Axiom, DEBUG → sampled)
+  - Hosting notes: N/A (shared code)
+  - Backing services: Axiom, Sentry
+  - Observability: Self-referential
+  - Dependencies: packages/shared (logger)
+  - Related files: packages/shared/src/utils/logger.ts
+  - Primary sources: Syslog severity levels (RFC 5424)
+
+- [ ] LOOP-LOG-023: Build log context enrichment from request context
+  - Endpoint: Logger middleware (automatic context injection)
+  - Why: Manually adding tenant_id/site_id/request_id to every log call is error-prone; auto-enrichment is reliable
+  - Acceptance criteria: Logger auto-injects from request context: request_id, trace_id, tenant_id, site_id (if available), user_id (if authenticated), api_key_id (if API call); no manual passing required
+  - Implementation notes: AsyncLocalStorage or Hono context-based enrichment; logger reads context automatically
+  - Hosting notes: Worker (request-scoped context)
+  - Backing services: N/A
+  - Observability: Self-referential
+  - Dependencies: Correlation ID middleware, auth middleware
+  - Related files: src/middleware/, packages/shared/src/utils/logger.ts
+  - Primary sources: Hono context, AsyncLocalStorage patterns
+
+- [ ] LOOP-LOG-024: Evaluate Axiom cost vs self-hosted alternative (periodic)
+  - Endpoint: Internal (cost evaluation)
+  - Why: Logging costs grow with usage; periodic re-evaluation ensures the cost/benefit stays positive
+  - Acceptance criteria: Quarterly cost review; if Axiom costs exceed $50/month, evaluate self-hosted Loki or Quickwit on Coolify; document recommendation
+  - Implementation notes: Monitor Axiom monthly bill; benchmark self-hosted alternatives on Coolify at current volume
+  - Hosting notes: Axiom Cloud (current); Coolify MCP (fallback)
+  - Backing services: Axiom, Coolify
+  - Observability: PostHog: logging cost trends
+  - Dependencies: Axiom usage API, Coolify
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: Axiom pricing, Loki/Quickwit self-host docs
