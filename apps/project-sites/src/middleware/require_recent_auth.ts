@@ -14,7 +14,8 @@
  */
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import type { Env } from '../types/env.js';
-import { makeAuth } from '../auth/better-auth.js';
+// makeAuth is lazy-imported at the callsite — better-auth's ESM dep tree breaks
+// jest module-eval; dynamic import keeps it out of the graph until invoked.
 
 /** Default freshness window: a session authenticated within 15 minutes is "recent". */
 export const DEFAULT_FRESH_WINDOW_SECONDS = 15 * 60;
@@ -79,6 +80,7 @@ export function requireRecentAuth(
   maxAgeSeconds: number = DEFAULT_FRESH_WINDOW_SECONDS,
 ): MiddlewareHandler<{ Bindings: Env }> {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
+    const { makeAuth } = await import('../auth/better-auth.js');
     const auth = makeAuth(c.env) as unknown as SessionAuthLike;
     const age = await sessionAgeSeconds(auth, c.req.raw.headers, Date.now());
     if (!isRecentEnough(age, maxAgeSeconds)) {

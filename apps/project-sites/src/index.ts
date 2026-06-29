@@ -42,7 +42,11 @@ import { authMiddleware } from './middleware/auth.js';
 import { idempotencyMiddleware } from './middleware/idempotency.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
-import { makeAuth, ensureBetterAuthSchema } from './auth/better-auth.js'; // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag
+// EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag.
+// Lazy-imported at the /api/auth/* handler below: the better-auth npm pkg pulls a
+// deep ESM-only dep tree that @swc/jest can't load, so a top-level import here
+// crashed every test that imports the worker (`../index`). Dynamic import keeps it
+// out of the module graph until the flag is on at runtime.
 import { isFlagOn as isFlagOnBetterAuth } from './modules/feature_flags/services.js';
 import { search } from './routes/search.js';
 import { featureE2e } from './routes/feature_e2e.js';
@@ -367,6 +371,7 @@ app.use('/api/*', idempotencyMiddleware);
 // flag OFF → next() falls through to the legacy magic-link/Google/D1-session auth.
 app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', async (c, next) => {
   if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) return next();
+  const { makeAuth, ensureBetterAuthSchema } = await import('./auth/better-auth.js');
   await ensureBetterAuthSchema(c.env);
   return makeAuth(c.env).handler(c.req.raw);
 });

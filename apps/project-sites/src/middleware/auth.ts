@@ -16,7 +16,11 @@ import type { Env, Variables } from '../types/env.js';
 import { getSession } from '../services/auth.js';
 import { dbQueryOne } from '../services/db.js';
 import { safeWaitUntil } from '../lib/wait-until.js';
-import { makeAuth } from '../auth/better-auth.js';
+// NOTE: `makeAuth` is lazy-imported at its single callsite below (inside the
+// `better_auth` flag gate) — the better-auth npm pkg pulls a deep ESM-only dep
+// tree, and eagerly importing it here made it load at module-eval, crashing every
+// jest suite that imports this middleware (@swc/jest can't transcompile the tree).
+// Dynamic import keeps it out of the module graph until the flag is actually on.
 import { isFlagOn } from '../modules/feature_flags/services.js';
 
 /**
@@ -103,6 +107,7 @@ export const authMiddleware: MiddlewareHandler<{
   if (!c.get('userId')) {
     try {
       if (await isFlagOn(c.env, 'better_auth')) {
+        const { makeAuth } = await import('../auth/better-auth.js');
         const ba = (await makeAuth(c.env).api.getSession({ headers: c.req.raw.headers })) as {
           user?: { id?: string };
         } | null;

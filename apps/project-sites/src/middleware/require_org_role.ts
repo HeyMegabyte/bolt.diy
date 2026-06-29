@@ -12,7 +12,8 @@
  */
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import type { Env } from '../types/env.js';
-import { makeAuth } from '../auth/better-auth.js';
+// makeAuth is lazy-imported at the callsite — better-auth's ESM dep tree breaks
+// jest module-eval; dynamic import keeps it out of the graph until invoked.
 
 /** The org roles defined by the access-control config in `auth/better-auth.ts`. */
 export type OrgRole = 'owner' | 'admin' | 'member';
@@ -77,6 +78,7 @@ export function roleSatisfies(role: string | null, allowed: readonly OrgRole[]):
  */
 export function requireOrgRole(...allowed: OrgRole[]): MiddlewareHandler<{ Bindings: Env }> {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
+    const { makeAuth } = await import('../auth/better-auth.js');
     const auth = makeAuth(c.env) as unknown as AuthApiLike;
     const role = await resolveActiveRole(auth, c.req.raw.headers);
     if (!roleSatisfies(role, allowed)) {
