@@ -34,6 +34,70 @@ export interface FlagDocs {
 }
 
 export const FLAG_DOCS: Record<string, FlagDocs> = {
+  upgrade_moments: {
+    checklist: [
+      'Contextual upgrade prompts at each free-plan friction point',
+      'Six triggers: custom_domain / remove_branding / more_pages / ai_credits / priority_build / analytics_pro',
+      'Trigger-attributed CTA (/admin/billing?upsell=<trigger>) for funnel tracking',
+      'Paid plans never nagged (eligible:false); dismissals persist 90d in KV',
+    ],
+    explanation:
+      'Contextual upsell engine — maps a free-plan friction point to an honest, value-led, trigger-attributed upgrade prompt. The generous-free + paid-power-ups monetization seam for solo owners. Paid plans resolve eligible:false (never nag payers); dismissals persist in CACHE_KV (90-day TTL). Pure catalog + eligibility core.',
+    smoke_test: [
+      'GET /api/upgrade-moments/custom_domain?plan=free → eligible:true + headline/benefits/cta_url',
+      'GET /api/upgrade-moments/custom_domain?plan=pro → eligible:false (payer not nagged)',
+      'GET /api/upgrade-moments?plan=free → list of eligible, non-dismissed moments',
+      'POST /api/upgrade-moments/custom_domain/dismiss → {dismissed:true}; re-GET list excludes it',
+    ],
+  },
+  site_doctor: {
+    checklist: [
+      'Owner-facing A–F site health report with a 0-100 score',
+      'Prioritized, plain-English one-tap fixes (severity-ranked)',
+      'Generous-free lock: free sees the top issue, rest locked behind Pro',
+      'Reuses production-readiness signals — no duplicate scoring',
+    ],
+    explanation:
+      'Owner-facing health report card — translates the production-readiness signals (published / custom domain / performance / sitemap) into an A–F grade plus prioritized, plain-English fixes. Free plan unlocks the top issue; the rest carry locked:true (the analytics_pro/paid upsell). Sharp, professional voice; pure scoring + lock core.',
+    smoke_test: [
+      'GET /api/sites/:siteId/doctor?plan=free → {grade, score, issues:[{locked:false},{locked:true}…], locked_count}',
+      'GET …?plan=pro → every issue locked:false, locked_count:0',
+      'Unauth → 401; flag off → 404; not-owned siteId → 404',
+      'UI: "Site Health" tab (?tab=health) renders the grade + fixes + Unlock-with-Pro on locked rows',
+    ],
+  },
+  cms_content: {
+    checklist: [
+      'Edge-cached /api/cms/blog.json feed for generated sites',
+      'HMAC-verified /api/cms/revalidate receiver',
+      'Cache purges when Payload publishes content',
+      'Safe disabled behavior: routes 404 when the flag is off',
+    ],
+    explanation:
+      'CMS content bridge — serves an edge-cached /api/cms/blog.json feed to generated sites and exposes an HMAC-verified /api/cms/revalidate receiver that purges the cache when Payload publishes new content. Decouples generated-site blog content from rebuilds.',
+    smoke_test: [
+      'GET /api/cms/blog.json → 200 cached JSON feed (cache-control set)',
+      'POST /api/cms/revalidate with a valid HMAC signature → 200 + cache purged',
+      'POST /api/cms/revalidate with a bad signature → 401',
+      'Re-GET /api/cms/blog.json after publish → reflects the new content',
+    ],
+  },
+  better_auth: {
+    checklist: [
+      'CUTOVER flag for the embedded Better Auth rebuild (auth/better-auth.ts)',
+      'ON → Better Auth owns /api/auth/* (email+password, magic link, Google, TOTP)',
+      'OFF (default) → legacy magic-link/Google/D1-session auth unchanged',
+      'MUST stay OFF in prod until the sign-in UI + user-migration backfill land',
+    ],
+    explanation:
+      'Cutover flag for the embedded Better Auth rebuild. When ON, Better Auth owns /api/auth/* and issues its own D1 sessions; when OFF (default) /api/auth/* falls through to the legacy auth. Flipping early would route live sign-in at an unmigrated system — keep OFF in production until the frontend sign-in UI + user-migration backfill ship.',
+    smoke_test: [
+      'Flag OFF (prod default): existing magic-link + Google sign-in unchanged',
+      'Flag ON in a test env: POST /api/auth/sign-up/email creates a user + session',
+      'Flag ON: POST /api/auth/sign-in/email returns a Better Auth D1 session',
+      'Flip OFF again: legacy auth resumes with no migration needed',
+    ],
+  },
   token_burn_meter: {
     checklist: [
       'Live monthly AI-token spend chip in the editor header',
