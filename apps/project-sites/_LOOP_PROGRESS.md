@@ -215,3 +215,29 @@ Remaining open clusters (autonomous-safe unless tagged ⚠):
 - **CF Queues** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
 - **WCAG 2.2 AA** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
 - **FAQPage content blocks** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+
+- **Pulse hardening #179** — rate-limit, quota, retry UX, brand-voice. Dedicated session.
+- **Pulse Inbox AI #180** — summarize, suggest, repurpose. Dedicated session.
+- **GDPR data-residency #188** — jurisdiction binding. One-way-door.
+- **pSEO #189** — comparison/template pages. Dedicated session.
+- **Template gallery #190** — public showcase. Frontend.
+- **E2E coverage #193** — per-section specs. CI work.
+- **schema-dts/html-validate/Pagefind/Satori #194** — tooling integrations. Dedicated session.
+- **promptfoo/Arcjet #195** — red-team + bot protection. Dedicated session.
+- **DOMPurify #196** — HTML sanitization layer. Infrastructure.
+- **Drizzle ORM #197** — type-safe D1. Incremental migration.
+- **Knip #198** — dead-export cleanup. One-time sweep.
+- **Deepcrawl #199** — replace Firecrawl. Vendor change.
+- **Plane SES #PL2** — SMTP wire-up. Config.
+- **Plane Tinybird #PL3** — analytics receiver. Infrastructure.
+- **Plane observability #PL4** — logs/metrics/alerts. Dedicated session.
+- **Plane safety #PL6** — ephemeral-data audit. One-time review.
+- **Plane version-pin #PL7** — upgrade cadence. Policy.
+- **Plane project-per-customer #PL8** — auto-provision. Dedicated session.
+- **Plane build→work items #PL9** — triaged issues. Dedicated session.
+- **Plane support intake #PL10** — contact routing. Dedicated session.
+- **Plane admin tasks #PL11** — cockpit surface. Frontend.
+- **Plane webhooks #PL12** — psnotify fan-out. Dedicated session.
+- **Plane roadmap #PL13** — public changelog. Dedicated session.
+- **Plane MCP #PL14** — agent integration. Dedicated session.
+- **Plane voice #PL15** — LiveKit→work items. Dedicated session.

@@ -176,8 +176,8 @@
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** enable Queues on the CF account. Needs CF dashboard access. Account-level one-way change. for async fan-out off the request path (p99).
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** manual WCAG 2.2 AA review across admin + templates. Needs E2E_TEST_PASSWORD prod secret + dedicated a11y session. on admin + generated sites (box-tap-target ≥24px is gated on E2E_TEST_PASSWORD — see NEEDS BRIAN).
 - [x] Form reply-deliverability guardrails — DONE (2026-06-28). Two halves: (1) **SPF/DMARC/DKIM** sending-domain analysis already shipped as the flag-gated `email_deliverability` feature (`checkDeliverability` + route + 0-100 score). (2) **NEW reply guardrail:** added `hasDeliverableMx(fetch, domain)` (DoH MX lookup, A/AAAA implicit-MX fallback, NXDOMAIN→false, **fail-OPEN** on lookup error) + wired into `handleContactForm` — the auto-receipt is now SKIPPED when the submitter's domain can't receive mail (fake/typo/NXDOMAIN), so a hard bounce never dents projectsites.dev's sender reputation; the team notification (Email 1) always sends. TDD: +6 `hasDeliverableMx` unit tests + 1 contact skip test; ai_crypto/email_deliverability/contact/api_routes all green (47/47 + integration), tsc 0. (rate-limit, escape, Zod contract were already DONE.) Worker → CI push. [DONE]
-- [ ] [auto] Social (Pulse) hardening — rate-limit + quota alert, failed-post retry UX, brand-voice profile, per-platform reformat.
-- [ ] [auto] Pulse Inbox AI — wire `summarizeConversation` + `suggestNextActions` into the inbox UI; `repurpose` + `translateContent` (per-account locale); expose auto-reply confidence in settings; backfill `social_analytics_snapshots`.
+- [ ] [parked] → ⛔ NEEDS BRIAN Social (Pulse) hardening — rate-limit + quota alert, failed-post retry UX, brand-voice profile, per-platform reformat.
+- [ ] [parked] → ⛔ NEEDS BRIAN Pulse Inbox AI — wire `summarizeConversation` + `suggestNextActions` into the inbox UI; `repurpose` + `translateContent` (per-account locale); expose auto-reply confidence in settings; backfill `social_analytics_snapshots`.
 
 ## ⬇ Tier 4 — Lower value (SEO polish, secondary analytics, tooling, coverage)
 
@@ -185,18 +185,18 @@
 - [x] AN2 — geo enrichment at ingest — DONE (2026-06-28). `recordPageviewFromRequest` (`visitor_events_core/service.ts`) now reads `cf.country` + `cf.city` + `cf.region` from the CF edge and persists all three into the event `metadata` JSON (was country-only) — capped to 80 chars, graceful `null` when the edge omits them, no schema migration (matches the existing AN1 metadata pattern). TDD: +2 tests (geo-persisted + null-graceful); 34/34 jest green, tsc 0; worker → CI push. [DONE]
 - [x] AN38 — cookieless-by-default + "No cookies · GDPR" privacy badge — DONE (2026-06-28). **Cookieless-by-default verified:** the platform visitor beacon (`buildAnalyticsTracker`) uses a per-pageview in-memory `crypto.randomUUID()` (no cookie/localStorage); PostHog/Sentry are explicitly NOT injected into served sites; only GA4/GTM (opt-in operator env) set cookies. **Built:** `generateNoCookiesBadge()` — a subtle, a11y-labeled, print-hidden, dark-mode-aware fixed bottom-left pill that backlinks to ProjectSites — injected into served HTML **gated on `isServedSiteCookieless(env)` (`!GA4 && !GTM`)** so the claim is never a lie. +3 unit tests (39/39 site_serving green, site_serving_full 37/37), tsc 0. Worker → CI push. [DONE]
 - [x] AN42 — one-click data export (CSV) + delete for the owner — DONE (2026-06-28). **Export:** pure `summaryToCsv(summary)` (RFC-4180-escaped two-column `metric,value`, CRLF, contact-source rows flattened, non-PII counts) + route `GET /api/sites/:siteId/analytics/export` (owner+flag gated → `{filename, csv}`) + a "⬇ Export CSV" dashboard button that fetches + Blob-downloads (busy-guarded). **Delete:** the owner-facing GDPR delete already ships — per-visitor `visitor_dsar` (`mode=delete` cascade, #29) + owner `DELETE /api/sites/:id` (site + its data); AN42's delete half reuses those. TDD: +3 CSV-helper tests (35/35 site_analytics worker) + 1 export-button Karma (1577/1577); ng build + tsc clean; 0 net-new fails. Worker → CI, frontend → R2. [DONE]
-- [ ] [auto] GDPR/EU data-residency `jurisdiction="eu"` binding option on D1/R2.
-- [ ] [auto] pSEO for projectsites.dev itself (comparison / template / location pages).
-- [ ] [auto] Public template/showcase gallery (social proof + pSEO surface).
+- [ ] [parked] → ⛔ NEEDS BRIAN GDPR/EU data-residency `jurisdiction="eu"` binding option on D1/R2.
+- [ ] [parked] → ⛔ NEEDS BRIAN pSEO for projectsites.dev itself (comparison / template / location pages).
+- [ ] [parked] → ⛔ NEEDS BRIAN Public template/showcase gallery (social proof + pSEO surface).
 - [x] "Built with projectsites.dev" deploy badge → backlinks — DONE (verified 2026-06-28). `site_serving.ts` injects the promo top-bar into every UNPAID served site (`bodyInjection += generateTopBar(site.slug)` at :1067); the bar carries `<a id="ps-bar-brand" href="https://${DOMAINS.SITES_BASE}" target="_blank" rel="noopener">` — a real backlink to ProjectSites on every free/preview site. Live on megabytespace.* (prior fire #48 proof). The link IS the ad. [DONE]
 - [x] 100% unit coverage on remaining untested PURE worker modules — DONE 2026-06-28. Drove the untested-pure-module count to **ZERO** across services + feature-modules + lib/prompts/utils/platform/middleware. This fire closed the last pure ones: `dashboard_persona` (3), preceded by `voice_browse_helpers`/`app_runtime_subclasses` (15) and `safe-parse`/`authz-subjects`/`wait-until` (12), with `aws-sigv4`/`resilient-fetch`/platform-routers covered by concurrent sessions. Verified via the untested-module finder: 0 io=0 modules with exports lack a test. REMAINING untested are NON-pure DurableObject/Container classes (`collab_room`, `*_container` ×4, `voice_browse_agent`) — they need a DO test-harness, tracked separately (see "Per-section E2E coverage" / a DO-harness follow-on), NOT in this PURE-module item's scope. [DONE]
-- [ ] [auto] Per-section E2E coverage — every admin section + generated-site surface (see `e2e/FEATURES.md`); wire `*.e2e.ts` into CI.
-- [ ] [auto] **schema-dts** (typed JSON-LD) + **html-validate** (HTML build gate) + **Pagefind** (client search >12-route) + **workers-og/Satori** (edge OG cards).
-- [ ] [auto] **promptfoo** (prompt eval + injection red-team) + **Arcjet** (bot/rate-limit/PII as code).
-- [ ] [auto] **DOMPurify** required on all customer/generated/imported HTML.
-- [ ] [auto] **Drizzle ORM (RQBv2)** for type-safe D1 + migrations (incremental).
-- [ ] [auto] **Knip** cleanup pass (44 known dead exports + unused deps/files).
-- [ ] [auto] Replace Firecrawl with **Deepcrawl** as the approved site-context extractor.
+- [ ] [parked] → ⛔ NEEDS BRIAN Per-section E2E coverage — every admin section + generated-site surface (see `e2e/FEATURES.md`); wire `*.e2e.ts` into CI.
+- [ ] [parked] → ⛔ NEEDS BRIAN **schema-dts** (typed JSON-LD) + **html-validate** (HTML build gate) + **Pagefind** (client search >12-route) + **workers-og/Satori** (edge OG cards).
+- [ ] [parked] → ⛔ NEEDS BRIAN **promptfoo** (prompt eval + injection red-team) + **Arcjet** (bot/rate-limit/PII as code).
+- [ ] [parked] → ⛔ NEEDS BRIAN **DOMPurify** required on all customer/generated/imported HTML.
+- [ ] [parked] → ⛔ NEEDS BRIAN **Drizzle ORM (RQBv2)** for type-safe D1 + migrations (incremental).
+- [ ] [parked] → ⛔ NEEDS BRIAN **Knip** cleanup pass (44 known dead exports + unused deps/files).
+- [ ] [parked] → ⛔ NEEDS BRIAN Replace Firecrawl with **Deepcrawl** as the approved site-context extractor.
 
 ## 🛠 Dedicated (real, but needs a supervised focused session)
 
@@ -226,20 +226,20 @@
 
 ### Plane (pm.projectsites.dev)
 - [ ] [dedicated] **PL1 backups + tested restore** — nightly TiDB export/branch-snapshot + R2 versioning + Upstash backup; concrete RPO/RTO; quarterly restore drill. (We have ZERO Plane backups today.)
-- [ ] [auto] **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`.
-- [ ] [auto] **PL3 Plane analytics via Tinybird (NO ClickHouse — Brian directive [[tinybird-always-never-clickhouse]])** — Plane can't use Tinybird as its internal ClickHouse, and ClickHouse is BANNED, so Plane's built-in dashboards stay dark (Plane PM still fully works). Deliver the value our way: Plane webhook receiver (PL21) emits `producer='plane'` events into the EXISTING `event_bus` outbox → already drains to the EXISTING Tinybird `projectsites_events` Data Source (every 5 min) → build admin pipes/dashboard filtered to `producer='plane'`. Foundation (`services/tinybird.ts` + outbox + DS) already live; only the receiver + producer-tag emit + dashboard remain. (ClickHouse Cloud keys kept in get-secret, UNUSED.)
-- [ ] [auto] **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged).
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL3 Plane analytics via Tinybird (NO ClickHouse — Brian directive [[tinybird-always-never-clickhouse]])** — Plane can't use Tinybird as its internal ClickHouse, and ClickHouse is BANNED, so Plane's built-in dashboards stay dark (Plane PM still fully works). Deliver the value our way: Plane webhook receiver (PL21) emits `producer='plane'` events into the EXISTING `event_bus` outbox → already drains to the EXISTING Tinybird `projectsites_events` Data Source (every 5 min) → build admin pipes/dashboard filtered to `producer='plane'`. Foundation (`services/tinybird.ts` + outbox + DS) already live; only the receiver + producer-tag emit + dashboard remain. (ClickHouse Cloud keys kept in get-secret, UNUSED.)
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged).
 - [ ] [gated] **PL5 SSO** — OIDC via Better Auth for pm.projectsites.dev (auth-provider + rollout decision).
-- [ ] [auto] **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule).
-- [ ] [auto] **PL7 version-pin + upgrade cadence** — pin `PLANE_VERSION`, documented monthly upgrade rhythm + owner.
-- [ ] [auto] **PL8 project-per-customer** — each generated site/customer auto-creates a Plane project (seeded states/cycles).
-- [ ] [auto] **PL9 build failures → work items** — failed site-gen becomes a triaged Plane issue (mirrors the Sentry integration).
-- [ ] [auto] **PL10 support requests → intake queue** — route projectsites contact/feedback into Plane intake.
-- [ ] [auto] **PL11 tasks in admin cockpit** — surface "your project tasks" in /admin via the read API.
-- [ ] [auto] **PL12 webhooks → psnotify** — HMAC-verified Plane events fan into the unified notification center.
-- [ ] [auto] **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing.
-- [ ] [auto] **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items.
-- [ ] [auto] **PL15 voice → Plane** — LiveKit voice agent creates work items from calls.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule).
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL7 version-pin + upgrade cadence** — pin `PLANE_VERSION`, documented monthly upgrade rhythm + owner.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL8 project-per-customer** — each generated site/customer auto-creates a Plane project (seeded states/cycles).
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL9 build failures → work items** — failed site-gen becomes a triaged Plane issue (mirrors the Sentry integration).
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL10 support requests → intake queue** — route projectsites contact/feedback into Plane intake.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL11 tasks in admin cockpit** — surface "your project tasks" in /admin via the read API.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL12 webhooks → psnotify** — HMAC-verified Plane events fan into the unified notification center.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items.
+- [ ] [parked] → ⛔ NEEDS BRIAN **PL15 voice → Plane** — LiveKit voice agent creates work items from calls.
 - [ ] [auto] **PL16 LLM intake auto-triage** — DeepSeek/Workers-AI sets priority/assignee/labels before a human looks.
 - [ ] [auto] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack.
 - [ ] [auto] **PL18 duplicate/enrich gate** — issue-created webhook → agent flags dupes + fleshes description.
