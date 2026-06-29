@@ -26,11 +26,11 @@ function freezePolicy(p: RetentionPolicy): RetentionPolicy {
 }
 
 export const DEFAULT_RETENTION: Record<LogType, RetentionPolicy> = Object.freeze({
-  access:    freezePolicy({ archiveAfterDays: null, logType: 'access',    retainDays: 30  }),
-  analytics: freezePolicy({ archiveAfterDays: null, logType: 'analytics', retainDays: 90  }),
-  audit:     freezePolicy({ archiveAfterDays: 730,  logType: 'audit',     retainDays: 365 }),
-  error:     freezePolicy({ archiveAfterDays: 365,  logType: 'error',     retainDays: 90  }),
-  webhook:   freezePolicy({ archiveAfterDays: 365,  logType: 'webhook',   retainDays: 30  }),
+  access: freezePolicy({ archiveAfterDays: null, logType: 'access', retainDays: 30 }),
+  analytics: freezePolicy({ archiveAfterDays: null, logType: 'analytics', retainDays: 90 }),
+  audit: freezePolicy({ archiveAfterDays: 730, logType: 'audit', retainDays: 365 }),
+  error: freezePolicy({ archiveAfterDays: 365, logType: 'error', retainDays: 90 }),
+  webhook: freezePolicy({ archiveAfterDays: 365, logType: 'webhook', retainDays: 30 }),
 });
 
 /**

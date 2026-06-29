@@ -355,8 +355,8 @@ function parseRss(raw: string): ContentItem[] {
  */
 function slugFromEntryId(id: string): string {
   // tag:domain,date:slug → extract the part after the last colon before
-  // any slash or at the end.
-  const tagMatch = /^tag:.*,(?:\d{4}-\d{2}-\d{2}):(.+)$/.exec(id);
+  // any slash or at the end. Handles both YYYY-MM-DD and YYYY suffices.
+  const tagMatch = /^tag:.*,(?:\d{4}(?:-\d{2}-\d{2})?):(.+)$/.exec(id);
   if (tagMatch) return tagMatch[1];
 
   // Plain URL: extract the last path segment
