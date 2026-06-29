@@ -329,10 +329,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // workflowLog, this gives traceId + tenantId correlation across the whole
     // build pipeline (audit_logs.metadata_json.trace_id ties the steps together).
     const traceId = crypto.randomUUID();
-    const wfLog = (
-      action: string,
-      meta: Record<string, unknown> = {},
-    ): Promise<void> =>
+    const wfLog = (action: string, meta: Record<string, unknown> = {}): Promise<void> =>
       wfLog(action, { ...meta, trace_id: traceId });
 
     await wfLog('workflow.started', {
@@ -1256,13 +1253,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             },
           });
         } catch (err) {
-          await wfLog(
-            'workflow.build_validation_error',
-            {
-              error: err instanceof Error ? err.message : String(err),
-              message: 'Build validation skipped due to error',
-            },
-          );
+          await wfLog('workflow.build_validation_error', {
+            error: err instanceof Error ? err.message : String(err),
+            message: 'Build validation skipped due to error',
+          });
           return JSON.stringify({ skipped: true });
         }
       },
@@ -1435,12 +1429,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
           const retro = await buildRetrospective({ env, current: result });
           if (!retro.generated) {
-            await wfLog(
-              'workflow.retrospective_skipped',
-              {
-                reason: retro.skipReason,
-              },
-            );
+            await wfLog('workflow.retrospective_skipped', {
+              reason: retro.skipReason,
+            });
             return JSON.stringify({ benchmark: result.meanScore, retrospective: 'skipped' });
           }
 
@@ -1457,14 +1448,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
           if (retroRow) await recordRetrospectivePath(env, retroRow.id, retroPath);
 
-          await wfLog(
-            'workflow.retrospective_generated',
-            {
-              path: retroPath,
-              filename: retro.filename,
-              message: `Retrospective written to ${retroPath}`,
-            },
-          );
+          await wfLog('workflow.retrospective_generated', {
+            path: retroPath,
+            filename: retro.filename,
+            message: `Retrospective written to ${retroPath}`,
+          });
 
           return JSON.stringify({ benchmark: result.meanScore, retrospective: retroPath });
         } catch (err) {
