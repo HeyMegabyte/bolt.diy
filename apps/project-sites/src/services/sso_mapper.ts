@@ -62,7 +62,10 @@ export interface MappedProfile {
  * `picture`) but logs nothing and returns what it can.
  */
 export const PROVIDER_FIELDS: Readonly<
-  Record<string, readonly [readonly string[], readonly string[], readonly string[], readonly string[]]>
+  Record<
+    string,
+    readonly [readonly string[], readonly string[], readonly string[], readonly string[]]
+  >
 > = {
   custom_oidc: [['email'], ['name'], ['picture'], ['sub']],
   github: [['email'], ['name', 'login'], ['avatar_url'], ['id', 'node_id']],
@@ -128,23 +131,18 @@ function stringValue(profile: OidcProfile, keys: readonly string[]): string | nu
  * mapOidcClaims({ id: 42, login: 'alice', avatar_url: 'https://...' }, 'github');
  * // → { email: null, name: 'alice', avatar: 'https://...', providerId: '42' }
  */
-export function mapOidcClaims(
-  profile: OidcProfile,
-  provider: string,
-): MappedProfile {
+export function mapOidcClaims(profile: OidcProfile, provider: string): MappedProfile {
   const fields =
-    PROVIDER_FIELDS[provider] ??
-    ([['email'], ['name'], ['picture'], ['sub']] as const);
+    PROVIDER_FIELDS[provider] ?? ([['email'], ['name'], ['picture'], ['sub']] as const);
 
   const email = stringValue(profile, fields[0]);
   const name = stringValue(profile, fields[1]);
   const avatar = stringValue(profile, fields[2]);
 
   // providerId: primary key, then fallback to "sub" for unknown providers
-  const providerId =
-    stringValue(profile, fields[3]) ?? stringValue(profile, ['sub']) ?? '';
+  const providerId = stringValue(profile, fields[3]) ?? stringValue(profile, ['sub']) ?? '';
 
-  return { email, name, avatar, providerId };
+  return { avatar, email, name, providerId };
 }
 
 /**

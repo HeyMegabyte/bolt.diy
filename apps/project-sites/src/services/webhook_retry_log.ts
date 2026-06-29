@@ -130,5 +130,5 @@ export function retryStats(entries: readonly RetryLogEntry[]): RetryStats {
   const total = delivered + failed;
   const pctSuccess = total === 0 ? 100.0 : Math.round((delivered / total) * 1000) / 10;
 
-  return { delivered, failed, total, pctSuccess };
+  return { delivered, failed, pctSuccess, total };
 }

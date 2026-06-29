@@ -79,7 +79,7 @@ export function resetQuotas(quotas: QuotaWithPeriod[], nowMs: number): QuotaWith
     if (nowMs >= q.periodStartMs + MS_IN_30_DAYS) {
       const d = new Date(nowMs);
       const newPeriodStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).getTime();
-      return { ...q, used: 0, periodStartMs: newPeriodStart };
+      return { ...q, periodStartMs: newPeriodStart, used: 0 };
     }
     return q;
   });

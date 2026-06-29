@@ -76,23 +76,28 @@ describe('PROVIDER_FIELDS', () => {
     ]);
   });
 
-  it('each provider entry has exactly 4 field keys', () => {
+  it('each provider entry has exactly 4 field arrays', () => {
     for (const entry of Object.values(PROVIDER_FIELDS)) {
       expect(entry).toHaveLength(4);
     }
   });
 
-  it('google maps to email, name, picture, sub', () => {
-    expect(PROVIDER_FIELDS.google).toEqual(['email', 'name', 'picture', 'sub']);
+  it('google maps to [email], [name], [picture], [sub]', () => {
+    expect(PROVIDER_FIELDS.google).toEqual([['email'], ['name'], ['picture'], ['sub']]);
   });
 
-  it('github maps to email, name, avatar_url, id', () => {
-    expect(PROVIDER_FIELDS.github).toEqual(['email', 'name', 'avatar_url', 'id']);
+  it('github maps to [email], [name, login], [avatar_url], [id, node_id]', () => {
+    expect(PROVIDER_FIELDS.github).toEqual([
+      ['email'],
+      ['name', 'login'],
+      ['avatar_url'],
+      ['id', 'node_id'],
+    ]);
   });
 
   it('microsoft, okta, custom_oidc all use the standard OIDC keys', () => {
     for (const p of ['microsoft', 'okta', 'custom_oidc'] as const) {
-      expect(PROVIDER_FIELDS[p]).toEqual(['email', 'name', 'picture', 'sub']);
+      expect(PROVIDER_FIELDS[p]).toEqual([['email'], ['name'], ['picture'], ['sub']]);
     }
   });
 });
@@ -211,10 +216,7 @@ describe('mapOidcClaims', () => {
     });
 
     it('handles null values in claims', () => {
-      const result = mapOidcClaims(
-        { sub: 's1', email: null, name: null, picture: null },
-        'google',
-      );
+      const result = mapOidcClaims({ sub: 's1', email: null, name: null, picture: null }, 'google');
       expect(result.email).toBeNull();
       expect(result.name).toBeNull();
       expect(result.avatar).toBeNull();

@@ -84,20 +84,6 @@ const FROM_STEPS: Record<Provider, ReadonlyArray<{ action: string; detail: strin
         'The EPP code appears in the response. It is valid for a limited window; copy it immediately.',
     },
   ],
-  namecheap: [
-    {
-      action: 'Unlock domain',
-      detail:
-        'Log into the Namecheap Dashboard, go to Domain List → select the domain → ' +
-        'toggle "REGISTRAR LOCK" to OFF under the Nameservers tab.',
-    },
-    {
-      action: 'Retrieve EPP auth code',
-      detail:
-        'In the same domain detail view, click "Get EPP Code" or navigate to the ' +
-        'Transfer tab. The code is emailed to the registrant email on file.',
-    },
-  ],
   godaddy: [
     {
       action: 'Unlock domain',
@@ -110,6 +96,20 @@ const FROM_STEPS: Record<Provider, ReadonlyArray<{ action: string; detail: strin
       detail:
         'After unlocking, return to Settings → "Get Authorization Code". ' +
         'The code is emailed to the registrant contact email.',
+    },
+  ],
+  namecheap: [
+    {
+      action: 'Unlock domain',
+      detail:
+        'Log into the Namecheap Dashboard, go to Domain List → select the domain → ' +
+        'toggle "REGISTRAR LOCK" to OFF under the Nameservers tab.',
+    },
+    {
+      action: 'Retrieve EPP auth code',
+      detail:
+        'In the same domain detail view, click "Get EPP Code" or navigate to the ' +
+        'Transfer tab. The code is emailed to the registrant email on file.',
     },
   ],
   route53: [
@@ -135,13 +135,13 @@ const FROM_STEPS: Record<Provider, ReadonlyArray<{ action: string; detail: strin
  */
 const TARGET_NS: Record<Provider, readonly string[]> = {
   cloudflare: ['melissa.ns.cloudflare.com', 'roan.ns.cloudflare.com'],
-  namecheap: ['dns1.registrar-servers.com', 'dns2.registrar-servers.com'],
   godaddy: [
     'ns1.domaincontrol.com',
     'ns2.domaincontrol.com',
     'ns3.domaincontrol.com',
     'ns4.domaincontrol.com',
   ],
+  namecheap: ['dns1.registrar-servers.com', 'dns2.registrar-servers.com'],
   route53: ['ns-1.awsdns-1.org', 'ns-2.awsdns-2.co.uk', 'ns-3.awsdns-3.com', 'ns-4.awsdns-4.net'],
 };
 
@@ -174,21 +174,21 @@ export function transferDomain(
 
   const steps: TransferStep[] = [
     ...unlockSteps.map((s, i) => ({
-      step: i + 1,
       action: s.action,
       detail: s.detail,
+      step: i + 1,
     })),
     {
-      step: unlockSteps.length + 1,
       action: 'Initiate transfer at target registrar',
       detail:
         `At ${toProvider}, begin the domain transfer process by providing the domain name ` +
         `and the EPP/auth code obtained above. Approve the transfer via email when prompted. ` +
         `Transfer typically completes in 5–7 days.`,
+      step: unlockSteps.length + 1,
     },
   ];
 
-  return { steps, nameservers };
+  return { nameservers, steps };
 }
 
 /**
@@ -219,7 +219,7 @@ export function validateTransfer(domain: string): ValidationResult {
       message: 'Domain name is empty.',
       severity: 'error',
     });
-    return { valid: false, issues };
+    return { issues, valid: false };
   }
 
   const trimmed = domain.trim().toLowerCase();
@@ -328,7 +328,7 @@ export function validateTransfer(domain: string): ValidationResult {
   }
 
   return {
-    valid: issues.every((i) => i.severity !== 'error'),
     issues,
+    valid: issues.every((i) => i.severity !== 'error'),
   };
 }
