@@ -101,7 +101,6 @@ a{color:#00e5ff;text-decoration:none}a:hover{text-decoration:underline}
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      if (!env.UNKEY) return landingPage();
       return await getContainer(env.UNKEY, 'singleton').fetch(request);
     } catch {
       return landingPage();
