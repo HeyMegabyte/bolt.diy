@@ -155,16 +155,11 @@ class_name = "PseoGenerationWorkflow"
 [ai]
 binding = "AI"
 
-# Browser Rendering (Playwright on Workers, no Docker) — powers the
-# per-feature E2E check runner + screenshot/AI-vision QA.
+# Browser Rendering (Playwright on Workers, no Docker) powers the per-feature E2E check runner + screenshot/AI-vision QA.
 [browser]
 binding = "BROWSER"
 
-# ─── Vectorize index for RAG (semantic search across research, voice
-#     transcripts, audit logs, forms, AI traces). 768-dim cosine, pre-create
-#     with: `npx wrangler vectorize create projectsites-rag --dimensions=768
-#     --metric=cosine` + `npx wrangler vectorize create-metadata-index
-#     projectsites-rag --property-name=kind --type=string` (repeat for orgId).
+# Vectorize index for RAG (semantic search). 768-dim cosine. Create with: `npx wrangler vectorize create projectsites-rag --dimensions=768 --metric=cosine` + metadata indexes for kind + orgId.
 [[vectorize]]
 binding = "RAG_INDEX"
 index_name = "projectsites-rag"

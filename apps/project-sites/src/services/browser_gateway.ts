@@ -21,6 +21,7 @@
  */
 import { z } from 'zod';
 import type { Env } from '../types/env.js';
+import { meterBrowserMinutes } from './usage_metering.js';
 
 /** Specialty cases CF Browser Rendering can't serve — these force Browserbase. */
 export type BrowserSpecialty =
@@ -228,4 +229,33 @@ export async function connectBrowser(
       await browser.close();
     },
   };
+}
+
+/**
+ * Meter a completed browser job through StripeMetersProvider.
+ *
+ * Call AFTER `release()` — pass the wall-clock start time (Date.now() at
+ * `connectBrowser` call) and the org context. Never throws.
+ *
+ * Compatible with Metronome: same `meterBrowserMinutes` bridge works
+ * regardless of which BillingMeteringProvider is active.
+ */
+export async function meterCompletedBrowserJob(
+  env: Env,
+  opts: {
+    orgId: string;
+    siteId?: string | null;
+    startMs: number;
+    purpose?: string;
+  },
+): Promise<void> {
+  const elapsedMs = Date.now() - opts.startMs;
+  const minutes = Math.ceil(elapsedMs / 60000);
+  if (minutes <= 0) return;
+  void meterBrowserMinutes(env, {
+    orgId: opts.orgId,
+    siteId: opts.siteId,
+    minutes,
+    purpose: opts.purpose,
+  });
 }

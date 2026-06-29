@@ -97,7 +97,18 @@ export function getEmailProvider(env: Env, deps: EmailDeps = {}): EmailRouter {
           // fail-open: proceed to send.
         }
       }
-      return transactional.sendTransactional(input);
+      const result = await transactional.sendTransactional(input);
+
+      // Meter successful sends through StripeMetersProvider (Metronome-compatible).
+      if (result.accepted && input.tenantId) {
+        const { meterEmailSend } = await import('../services/usage_metering.js');
+        void meterEmailSend(env as import('../types/env.js').Env, {
+          orgId: input.tenantId,
+          count: Array.isArray(input.to) ? input.to.length : 1,
+        });
+      }
+
+      return result;
     },
   };
 }

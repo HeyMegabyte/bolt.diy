@@ -16,8 +16,11 @@ import {
   METRIC_UNIT,
   STRIPE_METER_MAP,
   resolveBillingProviderId,
+  type BillingMeteringProvider,
+  type UsageEvent as UsageEventType,
 } from '../services/billing_provider.js';
 import { NoopBillingProvider } from '../services/billing_provider_noop.js';
+import { MetronomeProvider } from '../services/billing_provider_metronome.js';
 import { estimateCostCents, METRIC_RATE_CENTS } from '../services/billing_provider_stripe.js';
 import type { BillingProviderId, UsageEvent } from '../services/billing_provider.js';
 
@@ -247,5 +250,100 @@ describe('Per-unit cost accuracy', () => {
     expect(estimateCostCents('form_submissions', 1000)).toBe(0);
     expect(estimateCostCents('booking_events', 1000)).toBe(0);
     expect(estimateCostCents('site_visits', 10_000)).toBe(10); // ~$0.10 for 10k visits
+  });
+});
+
+// ─── Metronome swap compatibility ─────────────────────────────────────────
+
+describe('MetronomeProvider swap compatibility', () => {
+  function stubMetronomeEnv(active = false) {
+    return {
+      BILLING_PROVIDER: active ? 'metronome' : 'stripe_meters',
+      METRONOME_API_KEY: undefined,
+      DB: { prepare: () => ({ bind: () => ({ run: () => Promise.resolve() }) }) },
+    } as unknown as import('../types/env.js').Env;
+  }
+
+  it('implements BillingMeteringProvider interface', () => {
+    const provider = new MetronomeProvider(stubMetronomeEnv());
+    // TypeScript structural check: if this compiles, the interface is satisfied
+    const _check: BillingMeteringProvider = provider;
+    expect(_check).toBe(provider);
+  });
+
+  it('recordUsage is a no-op when inactive (no API key)', async () => {
+    const provider = new MetronomeProvider(stubMetronomeEnv(false));
+    await expect(
+      provider.recordUsage({
+        id: crypto.randomUUID(),
+        idempotencyKey: crypto.randomUUID(),
+        customerId: 'cus_x',
+        metric: 'ai_input_tokens',
+        quantity: 1000,
+        unit: 'token',
+        source: 'test',
+        occurredAt: new Date().toISOString(),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('recordUsageBatch is a no-op when inactive', async () => {
+    const provider = new MetronomeProvider(stubMetronomeEnv(false));
+    await expect(
+      provider.recordUsageBatch([
+        {
+          id: crypto.randomUUID(),
+          idempotencyKey: crypto.randomUUID(),
+          customerId: 'cus_x',
+          metric: 'email_sends',
+          quantity: 5,
+          unit: 'event',
+          source: 'test',
+          occurredAt: new Date().toISOString(),
+        },
+      ]),
+    ).resolves.toBeUndefined();
+  });
+
+  it('syncCustomer is a no-op when inactive', async () => {
+    const provider = new MetronomeProvider(stubMetronomeEnv(false));
+    await expect(
+      provider.syncCustomer({
+        customerId: 'cus_x',
+        email: 'test@test.com',
+        orgId: 'org_x',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('NoopBillingProvider and MetronomeProvider are both valid BillingMeteringProvider', () => {
+    // Both providers satisfy the interface — a provider swap is a config flip.
+    const noop: BillingMeteringProvider = new NoopBillingProvider(stubMetronomeEnv());
+    const metronome: BillingMeteringProvider = new MetronomeProvider(stubMetronomeEnv());
+    expect(noop).toBeTruthy();
+    expect(metronome).toBeTruthy();
+  });
+
+  it('all 3 providers accept the same UsageEvent shape', () => {
+    // Ensures StripeMeters → Metronome migration is a provider swap, not a data migration.
+    const event: UsageEvent = {
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: 'cus_x',
+      orgId: 'org_x',
+      siteId: 'site_x',
+      appId: 'app_x',
+      metric: 'ai_output_tokens',
+      quantity: 500,
+      unit: 'token',
+      source: 'ai_gateway',
+      occurredAt: new Date().toISOString(),
+      pricingVersion: '2026-Q3',
+      metadata: { model: 'gpt-4o' },
+    };
+    // TypeScript structural check: all required fields present + correct types.
+    const _check: UsageEventType = event;
+    expect(_check.metric).toBe('ai_output_tokens');
+    expect(_check.unit).toBe('token');
   });
 });
