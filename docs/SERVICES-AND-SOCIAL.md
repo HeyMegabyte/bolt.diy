@@ -6,7 +6,7 @@ Two components: **Postiz** (transition only) and **Native Social** (long-term pr
 
 | Component | Status | URL | Tech |
 |---|---|---|---|
-| Postiz (reference) | transition only | social.projectsites.dev | AGPL CF Container |
+| Postiz (reference) | transition only | social.projectsites.dev | AGPL all-in-one on Fly.io + Temporal Cloud |
 | Native Social | in development | /admin/social | Hono + CF Queues + Durable Objects + CF Workflows + R2 |
 
 All new social work goes into Native Social; Postiz gets no new features. Native Social is NOT dependent on Postiz runtime, NOT built on Temporal/any external workflow engine, NOT a wrapper around Postiz.
@@ -57,10 +57,15 @@ Customer support at **support.projectsites.dev**, on **Fly.io** (needs multi-pro
 
 ## Postiz service (AGPL-isolation via HTTP boundary)
 
-Runs as a **CF Container at social.projectsites.dev**, image `ghcr.io/gitroomhq/postiz-app:latest`, port 3000. wrangler `[[containers]] name="postiz"` + binding `durable_object_namespace POSTIZ_DO` class `PostizContainerDO`. Transition service — decommission when native social reaches beta.
+Runs as ONE always-on **Fly.io app `social-postiz`** (`primary_region=iad`), the whole all-in-one image `ghcr.io/gitroomhq/postiz-app:latest` (Next.js frontend + NestJS backend on internal port 5000 + Temporal worker/orchestrator + cron, self-supervised by PM2 — no docker-compose). Cloudflare fronts it DNS-only: `social.projectsites.dev` A/AAAA → Fly IPs (grey cloud), Fly terminates TLS via its own LetsEncrypt cert. Config: `infra/fly/social-postiz/fly.toml`. NOT a CF Container — a Temporal worker must poll continuously, and CF Containers scale-to-zero/sleep when idle, which would stall scheduled posts. Transition service — decommission when native social reaches beta.
 
-**Container secrets:** `POSTIZ_DATABASE_URL` (Neon), `POSTIZ_REDIS_URL` (Upstash), `POSTIZ_JWT_SECRET`, `POSTIZ_BACKEND_INTERNAL_URL`, `POSTIZ_NEXT_PUBLIC_BACKEND_URL`.
-**Main-Worker env (HTTP only):** `POSTIZ_URL` (`https://social.projectsites.dev`), `POSTIZ_API_KEY`, `POSTIZ_SECRET`.
+**Orchestrator — Temporal Cloud (managed).** Postiz migrated off BullMQ to Temporal; it REQUIRES a Temporal server. We use Temporal **Cloud** (namespace `social-projectsites.g3erb`, region aws us-east-1, API-key auth + TLS) so nothing Temporal is self-hosted. `TEMPORAL_ADDRESS=social-projectsites.g3erb.tmprl.cloud:7233` + `TEMPORAL_NAMESPACE` + `TEMPORAL_TLS=true` (env) + `TEMPORAL_API_KEY` (secret). ⚠️ Postiz skips registering its Temporal search attributes (`organizationId`, `postId`) when `TEMPORAL_TLS=true` — they are pre-created on the namespace at `tcld namespace create` time (both type `Text`).
+
+**Data:** Neon database `projectsites_postiz` (shared Listmonk Neon project) · Upstash Redis `projectsites-postiz` (us-east-1, cache/pubsub — Postiz warns "REDIS_URL must start with redis://" on the `rediss://` URL but ioredis connects fine) · R2 bucket `social-media-assets` (S3-compatible, public URL `pub-4157dd570f0641458b9d4fabad0749d4.r2.dev`).
+**Fly secrets:** `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `TEMPORAL_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ACCESS_KEY`, `CLOUDFLARE_SECRET_ACCESS_KEY`. Env (non-secret) in `fly.toml`: `MAIN_URL`/`FRONTEND_URL`/`NEXT_PUBLIC_BACKEND_URL`/`BACKEND_INTERNAL_URL`, `IS_GENERAL`, `RUN_CRON`, `STORAGE_PROVIDER=cloudflare`, `CLOUDFLARE_BUCKETNAME`/`_BUCKET_URL`/`_REGION`, `TEMPORAL_*`.
+**Main-Worker env (HTTP only):** `POSTIZ_URL` (`https://social.projectsites.dev`), `POSTIZ_API_KEY` (mint after first admin account), `POSTIZ_SECRET`.
 **Integration** (`src/services/postiz.ts`, no Postiz types imported — all shapes locally defined): `createPost`/`listPosts`/`deletePost` via `${POSTIZ_URL}/api/posts` with `Authorization: Bearer {POSTIZ_API_KEY}`.
 
-**Sunset plan:** (1) ship TwitterProvider → stop routing Twitter; (2) LinkedInProvider; (3) Facebook + Instagram; (4) migrate remaining scheduled posts (export → native queue); (5) flip `postiz_container` flag to `killswitch`; (6) decommission container (remove from `wrangler.toml`, delete container).
+**Ops:** deploy `cd infra/fly/social-postiz && flyctl deploy --ha=false` (FLY_API_TOKEN from get-secret). After first signup, set `DISABLE_REGISTRATION=true` in `fly.toml` env + redeploy to lock registration.
+
+**Sunset plan:** (1) ship TwitterProvider → stop routing Twitter; (2) LinkedInProvider; (3) Facebook + Instagram; (4) migrate remaining scheduled posts (export → native queue); (5) flip `postiz_container` flag to `killswitch`; (6) decommission (`flyctl apps destroy social-postiz`, delete the Temporal Cloud namespace + Neon DB + Upstash DB).

@@ -1,33 +1,37 @@
 # Fly.io app: social-postiz
 #
 # ARCHITECTURE NOTE:
-#   Postiz social-media scheduling app.
-#   Domain: social.projectsites.dev → this Fly app (Postiz web process).
+#   Postiz social-media scheduling app — the WHOLE all-in-one image
+#   (Next.js frontend + NestJS backend + Temporal worker + cron) runs as ONE
+#   always-on Fly machine. Domain: social.projectsites.dev → this Fly app.
+#   No docker-compose — the official postiz-app image self-supervises its
+#   processes from a single entrypoint.
 #
 #   ⚠️  AGPL / ISOLATION WARNING:
-#       Postiz is licensed under AGPL-3.0 and runs as an ISOLATED REFERENCE
-#       service.  ProjectSites-native Social does NOT import, call, link against,
-#       or depend on any Postiz runtime code.  Do NOT copy Postiz AGPL source
-#       code into any proprietary ProjectSites module.  Postiz exists here as a
-#       transitional reference only; it will be sunset once the native Social
-#       feature (libs/features/social_publishing/) reaches parity.
+#       Postiz is AGPL-3.0 and runs as an ISOLATED REFERENCE service. The main
+#       Worker talks to it over HTTP ONLY (src/services/postiz.ts) — never
+#       imports Postiz code, types, or schema. Sunset once native Social
+#       (libs/features/social_publishing/) reaches parity.
 #
-#   Database:  Neon — database "projectsites_postiz" in the SHARED Neon project
-#              per neon-database-conservation.md: one database slot, never a
-#              new Neon project.
-#   Redis:     Upstash Redis — job queues and pub-sub (Redis primitives that
-#              Cloudflare KV cannot replicate reliably at Postiz's pattern).
-#   Storage:   Cloudflare R2 bucket "social-media-assets" via S3-compatible API.
+#   Orchestrator:  Temporal Cloud (managed) — namespace social-projectsites.g3erb,
+#                  API-key auth + TLS. Postiz REQUIRES Temporal (migrated off
+#                  BullMQ); Temporal Cloud is the managed orchestrator, so nothing
+#                  Temporal is self-hosted. Search attributes organizationId + postId
+#                  are pre-created on the namespace (Postiz skips registering them
+#                  when TEMPORAL_TLS=true).
+#   Database:      Neon — database "projectsites_postiz" in the SHARED Neon
+#                  project (Listmonk pool) per neon-database-conservation.md.
+#   Redis:         Upstash Redis (projectsites-postiz, us-east-1) — Postiz cache/pubsub.
+#   Storage:       Cloudflare R2 bucket "social-media-assets" via S3-compatible API.
 #
 # SECRETS (set via `flyctl secrets set KEY=value --app social-postiz`):
-#   DATABASE_URL            — Neon connection string (projectsites_postiz database)
-#   REDIS_URL               — Upstash Redis URL (rediss://...)
-#   POSTIZ_JWT_SECRET       — JWT signing secret (openssl rand -hex 64)
-#   STORAGE_BUCKET          — R2 bucket name for media uploads
-#   POSTIZ_ENCRYPTION_KEY   — AES-256 key for stored OAuth tokens (openssl rand -hex 32)
-#   CLOUDFLARE_ACCOUNT_ID   — R2 account ID for S3-compatible media storage
-#   CLOUDFLARE_ACCESS_KEY   — R2 access key ID
-#   CLOUDFLARE_SECRET_KEY   — R2 secret access key
+#   DATABASE_URL              — Neon connection string (projectsites_postiz)
+#   REDIS_URL                 — Upstash Redis URL (rediss://...)
+#   JWT_SECRET                — Postiz session signing secret
+#   TEMPORAL_API_KEY          — Temporal Cloud API key
+#   CLOUDFLARE_ACCOUNT_ID     — R2 account id
+#   CLOUDFLARE_ACCESS_KEY     — R2 S3 access key id
+#   CLOUDFLARE_SECRET_ACCESS_KEY — R2 S3 secret access key
 
 app            = "social-postiz"
 primary_region = "iad"
@@ -38,21 +42,30 @@ kill_timeout   = 30
   image = "ghcr.io/gitroomhq/postiz-app:latest"
 
 [env]
-  NODE_ENV               = "production"
-  PORT                   = "5000"
-  FRONTEND_URL           = "https://social.projectsites.dev"
-  BACKEND_INTERNAL_URL   = "http://localhost:5000"
-  IS_GENERAL             = "true"
-  DISABLE_REGISTRATION   = "false"   # set "true" after initial admin account created
-  LOG_LEVEL              = "warn"
-  STORAGE_PROVIDER       = "cloudflare"
-  # DATABASE_URL, REDIS_URL, POSTIZ_JWT_SECRET, STORAGE_BUCKET,
-  # POSTIZ_ENCRYPTION_KEY, CLOUDFLARE_* come from Fly secrets above.
+  NODE_ENV                = "production"
+  MAIN_URL                = "https://social.projectsites.dev"
+  FRONTEND_URL            = "https://social.projectsites.dev"
+  NEXT_PUBLIC_BACKEND_URL = "https://social.projectsites.dev/api"
+  BACKEND_INTERNAL_URL    = "http://localhost:3000"
+  IS_GENERAL              = "true"
+  RUN_CRON                = "true"
+  DISABLE_REGISTRATION    = "false"   # set "true" after the first admin account is created
+  # --- Temporal Cloud (managed orchestrator) ---
+  TEMPORAL_ADDRESS        = "social-projectsites.g3erb.tmprl.cloud:7233"
+  TEMPORAL_NAMESPACE      = "social-projectsites.g3erb"
+  TEMPORAL_TLS            = "true"
+  # --- Cloudflare R2 storage ---
+  STORAGE_PROVIDER        = "cloudflare"
+  CLOUDFLARE_BUCKETNAME   = "social-media-assets"
+  CLOUDFLARE_BUCKET_URL   = "https://pub-4157dd570f0641458b9d4fabad0749d4.r2.dev"
+  CLOUDFLARE_REGION       = "auto"
+  # DATABASE_URL, REDIS_URL, JWT_SECRET, TEMPORAL_API_KEY, CLOUDFLARE_ACCOUNT_ID,
+  # CLOUDFLARE_ACCESS_KEY, CLOUDFLARE_SECRET_ACCESS_KEY come from Fly secrets.
 
 [http_service]
-  internal_port        = 5000
+  internal_port        = 5000   # Postiz all-in-one Caddy listens on 5000 (backend 3000 internal)
   force_https          = true
-  auto_stop_machines   = false   # social scheduler must be always-on
+  auto_stop_machines   = false  # social scheduler + Temporal worker must be always-on
   auto_start_machines  = true
   min_machines_running = 1
 
@@ -61,16 +74,16 @@ kill_timeout   = 30
     hard_limit = 200
     soft_limit = 150
 
-[checks]
-  [checks.health]
-    grace_period = "30s"   # Postiz Next.js startup takes time
-    interval     = "30s"
-    method       = "get"
-    path         = "/api/health"
-    port         = 5000
-    timeout      = "10s"
-    type         = "http"
+# HTTP check on /auth: "/" 307-redirects to /auth, so check the login page itself
+# (returns 200). Lives INSIDE http_service so it binds the 5000 port — a bare
+# [[services]] block would spin a phantom default-port service.
+[[http_service.checks]]
+  grace_period = "150s"   # Postiz runs Prisma db push + compiles a workflow bundle per platform queue on first boot
+  interval     = "30s"
+  timeout      = "10s"
+  method       = "get"
+  path         = "/auth"
 
 [[vm]]
-  size   = "shared-cpu-1x"
-  memory = "1gb"   # Postiz bundles Next.js + background worker processes
+  size   = "shared-cpu-2x"
+  memory = "2gb"   # Next.js + NestJS + Temporal worker + cron in one image
