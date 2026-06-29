@@ -26,11 +26,11 @@ function freezePolicy(p: RetentionPolicy): RetentionPolicy {
 }
 
 export const DEFAULT_RETENTION: Record<LogType, RetentionPolicy> = Object.freeze({
-  audit:     freezePolicy({ logType: 'audit',     retainDays: 365, archiveAfterDays: 730 }),
-  analytics: freezePolicy({ logType: 'analytics', retainDays:  90, archiveAfterDays: null }),
-  webhook:   freezePolicy({ logType: 'webhook',   retainDays:  30, archiveAfterDays: 365 }),
-  error:     freezePolicy({ logType: 'error',     retainDays:  90, archiveAfterDays: 365 }),
-  access:    freezePolicy({ logType: 'access',    retainDays:  30, archiveAfterDays: null }),
+  audit: freezePolicy({ logType: 'audit', retainDays: 365, archiveAfterDays: 730 }),
+  analytics: freezePolicy({ logType: 'analytics', retainDays: 90, archiveAfterDays: null }),
+  webhook: freezePolicy({ logType: 'webhook', retainDays: 30, archiveAfterDays: 365 }),
+  error: freezePolicy({ logType: 'error', retainDays: 90, archiveAfterDays: 365 }),
+  access: freezePolicy({ logType: 'access', retainDays: 30, archiveAfterDays: null }),
 });
 
 /**
@@ -99,11 +99,7 @@ const MS_PER_DAY = 86_400_000;
  * )
  * // => true (59 days > 30-day window)
  */
-export function isExpired(
-  policy: RetentionPolicy,
-  logDate: string,
-  nowMs?: number,
-): boolean {
+export function isExpired(policy: RetentionPolicy, logDate: string, nowMs?: number): boolean {
   const ref = nowMs ?? Date.now();
   const dateMs = new Date(logDate).getTime();
 

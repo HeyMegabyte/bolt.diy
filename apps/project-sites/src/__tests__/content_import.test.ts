@@ -50,11 +50,12 @@ describe('slugify', () => {
   });
 
   it('truncates at 80 characters', () => {
-    const long = 'A very long title that definitely exceeds the eighty character limit in length';
-    expect(slugify(long)).toBe(
-      'a-very-long-title-that-definitely-exceeds-the-eighty-character-limit-in-len',
-    );
-    expect(slugify(long).length).toBeLessThanOrEqual(80);
+    // This title produces a slug >80 chars; slice(0,80) + strip trailing hyphen.
+    const long = 'A very long!! title!! that!! definitely!! exceeds!! the!! eighty!! character!! limit!! in!! length!! for!! truncation!! testing!!';
+    const result = slugify(long);
+    expect(result.length).toBeLessThanOrEqual(80);
+    expect(result.endsWith('-')).toBe(false);
+    expect(result).toBe('a-very-long-title-that-definitely-exceeds-the-eighty-character-limit-in-lengt');
   });
 
   it('removes trailing hyphens from truncated strings', () => {

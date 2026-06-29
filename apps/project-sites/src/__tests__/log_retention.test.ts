@@ -26,7 +26,7 @@ describe('log_retention', () => {
     });
 
     it('audit retains the longest', () => {
-      const days = Object.values(DEFAULT_RETENTION).map(p => p.retainDays);
+      const days = Object.values(DEFAULT_RETENTION).map((p) => p.retainDays);
       const auditIdx = days.indexOf(365);
       expect(auditIdx).not.toBe(-1);
       expect(Math.max(...days)).toBe(365);
