@@ -38,13 +38,13 @@ export interface FeatureGate {
  * - pro:      all 7 features
  */
 export const FEATURE_GATES: readonly FeatureGate[] = Object.freeze([
-  { feature: 'analytics_export', free: false, starter: true, pro: true },
-  { feature: 'custom_domain', free: false, starter: true, pro: true },
-  { feature: 'remove_branding', free: false, starter: false, pro: true },
-  { feature: 'priority_support', free: false, starter: false, pro: true },
-  { feature: 'api_access', free: false, starter: false, pro: true },
-  { feature: 'team_seats', free: false, starter: false, pro: true },
-  { feature: 'white_label', free: false, starter: false, pro: true },
+  { feature: 'analytics_export', free: false, pro: true, starter: true },
+  { feature: 'custom_domain', free: false, pro: true, starter: true },
+  { feature: 'remove_branding', free: false, pro: true, starter: false },
+  { feature: 'priority_support', free: false, pro: true, starter: false },
+  { feature: 'api_access', free: false, pro: true, starter: false },
+  { feature: 'team_seats', free: false, pro: true, starter: false },
+  { feature: 'white_label', free: false, pro: true, starter: false },
 ]);
 
 /** Helper to find a FeatureGate by key. Never throws — returns undefined for unknown keys. */

@@ -102,13 +102,13 @@ export function createAlert(
   actorId: string,
 ): AuditAlert {
   return {
-    id: uuidv7(),
-    severity,
-    action,
-    message,
-    actorId,
-    timestamp: new Date().toISOString(),
     acknowledged: false,
+    action,
+    actorId,
+    id: uuidv7(),
+    message,
+    severity,
+    timestamp: new Date().toISOString(),
   };
 }
 
@@ -177,7 +177,7 @@ export function filterAlerts(
  */
 export const ALERT_THRESHOLDS: Record<string, AlertSeverity> = {
   'billing.*': 'critical',
-  'site.delete': 'critical',
   'domain.*': 'warning',
   'flag.*': 'info',
+  'site.delete': 'critical',
 };

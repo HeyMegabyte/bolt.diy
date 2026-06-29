@@ -157,8 +157,9 @@ export async function verifySignature(
   timestamp: string,
   toleranceMs?: number,
 ): Promise<boolean> {
-  // Recompute the expected HMAC.
-  const expected = await signPayload(payload, secret);
+  // Infer algorithm from signature hex length: SHA-256 → 64 chars, SHA-512 → 128.
+  const algorithm: HmacAlgorithm = signature.length >= 128 ? 'sha512' : 'sha256';
+  const expected = await signPayload(payload, secret, algorithm);
 
   // Constant-time comparison to prevent timing attacks.
   if (expected.length !== signature.length) return false;

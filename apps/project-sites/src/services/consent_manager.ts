@@ -45,9 +45,9 @@ export const CONSENT_VERSION = '1.0';
  * default to `false` (denied until the user affirmatively opts in).
  */
 export const DEFAULT_CONSENT: Record<ConsentCategory, boolean> = Object.freeze({
-  necessary: true,
   analytics: false,
   marketing: false,
+  necessary: true,
   preferences: false,
 });
 
@@ -83,9 +83,9 @@ export function createConsent(
   }
 
   return Object.freeze({
-    userId,
     categories: Object.freeze(categories),
     consentedAt: nowMs ?? Date.now(),
+    userId,
     version: version ?? CONSENT_VERSION,
   });
 }
