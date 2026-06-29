@@ -63,12 +63,14 @@ function resolveMetronomeConfig(env: Env): MetronomeConfig | null {
     webhookSecret: env.METRONOME_WEBHOOK_SECRET,
   });
   if (!parsed.success) {
-    console.warn(JSON.stringify({
-      level: 'warn',
-      service: 'billing_provider_metronome',
-      message: 'Metronome config invalid — provider will remain inactive',
-      errors: parsed.error.flatten(),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing_provider_metronome',
+        message: 'Metronome config invalid — provider will remain inactive',
+        errors: parsed.error.flatten(),
+      }),
+    );
     return null;
   }
   return parsed.data;
