@@ -154,8 +154,8 @@ describe('lead_scan_orchestrator — crmSink', () => {
       candidateToSignals({ businessName: 'Z', category: 'salon' }, profile),
     );
     expect(res.ok).toBe(true);
-    const payload = upsert.mock.calls[0][0] as { name: string; source: string };
+    const payload = upsert.mock.calls[0][0] as { name: string; leadSource: string };
     expect(payload.name).toBe('Z');
-    expect(payload.source).toBe('osm');
+    expect(payload.leadSource).toBe('osm');
   });
 });

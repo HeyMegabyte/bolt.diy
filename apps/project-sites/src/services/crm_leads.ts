@@ -9,10 +9,15 @@
  * HTTP coordinates (`TWENTY_API_URL`, `TWENTY_API_KEY`). See rule
  * `agpl-isolation-via-http-boundary`.
  *
- * The {@link leadToCrmCompany} mapper is PURE (testable, no I/O). The
- * {@link upsertLeadToCrm} client is a thin, never-throw `fetch` wrapper that
- * no-ops (skipped) when the CRM is not configured — so the scanner runs dark
- * until `TWENTY_API_URL` + `TWENTY_API_KEY` are set.
+ * Mapped to Twenty's real Company REST shape (verified live 2026-06-28):
+ * standard `name` + composite `address` ({addressStreet1,…}) + 11 custom fields
+ * provisioned via the metadata API (leadScore/payTier/outreachChannel/leadSource/
+ * externalId/workEmail/leadPhone/leadCategory/emailConfidence/addressConfidence/
+ * hasWebsite). Create response is `{data:{createCompany:{id}}}`.
+ *
+ * {@link leadToCrmCompany} is PURE. {@link upsertLeadToCrm} is a thin, never-throw
+ * client that dedupes on `externalId` (idempotent re-scans) and no-ops (skipped)
+ * when the CRM is not configured.
  *
  * @packageDocumentation
  */
@@ -29,31 +34,28 @@ export interface DiscoveredBusiness {
   email?: string | null;
   category?: string | null;
   mapsUrl?: string | null;
-  /** Stable external id (e.g. google place_id) for dedupe on the CRM side. */
+  /** Stable external id (e.g. google place_id / osm:node/ID) for dedupe. */
   externalId?: string | null;
 }
 
 /** The local payload we POST to Twenty's REST `companies` resource. */
 export interface CrmLeadPayload {
-  /** Twenty Company.name */
+  /** Twenty Company.name (standard). */
   name: string;
-  /** Free-text address line (Twenty `address` or a custom field). */
-  address?: string;
-  /** Phone (Twenty `phone`). */
-  phone?: string;
-  /** Work email (custom field). */
-  email?: string;
-  /** Custom scanner fields — all flat scalars Twenty accepts on a custom object. */
+  /** Twenty composite address (standard) — full line in addressStreet1. */
+  address?: { addressStreet1: string };
+  /** Custom scanner fields (provisioned on Company via the metadata API). */
   leadScore: number;
   payTier: PropensityTier;
+  outreachChannel: OutreachChannel;
+  leadSource: string;
+  hasWebsite: boolean;
   emailConfidence: number;
   addressConfidence: number;
-  outreachChannel: OutreachChannel;
-  hasWebsite: boolean;
-  category?: string;
-  mapsUrl?: string;
-  source: string;
   externalId?: string;
+  workEmail?: string;
+  leadPhone?: string;
+  leadCategory?: string;
 }
 
 /** Result of an upsert attempt — never throws. */
@@ -61,6 +63,8 @@ export interface CrmUpsertResult {
   ok: boolean;
   /** True when the CRM is not configured (dark) — not an error. */
   skipped: boolean;
+  /** True when an existing company matched on externalId (no duplicate created). */
+  deduped?: boolean;
   id?: string;
   status?: number;
   error?: string;
@@ -72,9 +76,9 @@ export function isCrmConfigured(env: Env): boolean {
 }
 
 /**
- * Map a discovered business + its scored signals into the local CRM payload.
+ * Map a discovered business + its scored signals into the Twenty Company payload.
  *
- * Pure: no env, no I/O. Optional fields are omitted (not sent as empty strings)
+ * Pure: no env, no I/O. Optional fields are omitted (not sent as empty values)
  * so the CRM keeps clean records. Scoring is recomputed from `signals` so the
  * payload always carries a consistent score/tier/confidence triple.
  *
@@ -82,16 +86,6 @@ export function isCrmConfigured(env: Env): boolean {
  * @param signals - The scoring signals for {@link payPropensity}.
  * @param source  - Provenance label (e.g. 'google_places', 'osm', 'sos_oh').
  * @returns A {@link CrmLeadPayload} ready for {@link upsertLeadToCrm}.
- *
- * @example
- * ```ts
- * const payload = leadToCrmCompany(
- *   { businessName: "Joe's Plumbing", phone: '+12015551234' },
- *   { hasWebsite: false, emailSource: 'listing', category: 'plumber' },
- *   'google_places',
- * );
- * // { name: "Joe's Plumbing", phone: '...', leadScore: 62, payTier: 'B', ... }
- * ```
  */
 export function leadToCrmCompany(
   biz: DiscoveredBusiness,
@@ -105,19 +99,49 @@ export function leadToCrmCompany(
     name: biz.businessName,
     leadScore: prop.score,
     payTier: prop.tier,
+    outreachChannel: contact.channel,
+    leadSource: source,
+    hasWebsite: signals.hasWebsite,
     emailConfidence: contact.emailConfidence,
     addressConfidence: contact.addressConfidence,
-    outreachChannel: contact.channel,
-    hasWebsite: signals.hasWebsite,
-    source,
   };
-  if (biz.address) payload.address = biz.address;
-  if (biz.phone) payload.phone = biz.phone;
-  if (biz.email) payload.email = biz.email;
-  if (biz.category) payload.category = biz.category;
-  if (biz.mapsUrl) payload.mapsUrl = biz.mapsUrl;
+  if (biz.address) payload.address = { addressStreet1: biz.address };
+  if (biz.email) payload.workEmail = biz.email;
+  if (biz.phone) payload.leadPhone = biz.phone;
+  if (biz.category) payload.leadCategory = biz.category;
   if (biz.externalId) payload.externalId = biz.externalId;
   return payload;
+}
+
+/** Build the auth headers for a Twenty REST call. */
+function crmHeaders(env: Env): Record<string, string> {
+  return {
+    Authorization: `Bearer ${env.TWENTY_API_KEY}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+/**
+ * Look up an existing company id by externalId (idempotent re-scans). Returns the
+ * id when found, null when absent or on any error (fail-open → create proceeds).
+ */
+async function findByExternalId(
+  base: string,
+  env: Env,
+  externalId: string,
+  fetchImpl: typeof fetch,
+): Promise<string | null> {
+  try {
+    const url = `${base}/rest/companies?filter=externalId[eq]:${encodeURIComponent(externalId)}&limit=1`;
+    const res = await fetchImpl(url, { headers: crmHeaders(env) });
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => ({}))) as {
+      data?: { companies?: Array<{ id?: string }> };
+    };
+    return body?.data?.companies?.[0]?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -125,9 +149,9 @@ export function leadToCrmCompany(
  *
  * @remarks
  * Never throws. Returns `{ skipped: true }` when the CRM is unconfigured (dark
- * launch). On a network/HTTP error returns `{ ok: false, error }`. The exact
- * Twenty endpoint is a thin POST to `${TWENTY_API_URL}/rest/companies`; if the
- * workspace models leads as a custom object, only this one function changes.
+ * launch). Dedupes on `externalId` first — an existing match returns
+ * `{ ok: true, deduped: true, id }` without creating a duplicate. Otherwise POSTs
+ * to `/rest/companies` and reads `data.createCompany.id`.
  *
  * @param env     - Worker env (HTTP coordinates only).
  * @param payload - The local {@link CrmLeadPayload}.
@@ -143,20 +167,25 @@ export async function upsertLeadToCrm(
     return { ok: false, skipped: true };
   }
   const base = env.TWENTY_API_URL!.replace(/\/+$/, '');
+
+  if (payload.externalId) {
+    const existing = await findByExternalId(base, env, payload.externalId, fetchImpl);
+    if (existing) return { ok: true, skipped: false, deduped: true, id: existing };
+  }
+
   try {
     const res = await fetchImpl(`${base}/rest/companies`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.TWENTY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: crmHeaders(env),
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
       return { ok: false, skipped: false, status: res.status, error: `HTTP ${res.status}` };
     }
-    const body = (await res.json().catch(() => ({}))) as { data?: { id?: string }; id?: string };
-    const id = body?.data?.id ?? body?.id;
+    const body = (await res.json().catch(() => ({}))) as {
+      data?: { createCompany?: { id?: string } };
+    };
+    const id = body?.data?.createCompany?.id;
     return id ? { ok: true, skipped: false, id } : { ok: true, skipped: false };
   } catch (err) {
     return {
