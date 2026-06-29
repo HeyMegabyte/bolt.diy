@@ -85,14 +85,14 @@
 > — 9/9 tests, commit `f528cca0`. Both storage-agnostic; survived the D1→CRM pivot.
 
 - [ ] [auto] **Automatic geo×category orchestrator** — sweep zip/state × category via Queue/Workflow + cron; per-profile `daily_cap` cost guard; writes scored leads to Twenty CRM via `crm_leads`. Top-14 #3.
-- [ ] [auto] **OSM-first, Places-confirm provider chain** — free Overpass discovery (no-`website` POIs) → Places confirm only to spend budget wisely; pluggable provider interface. Top-14 #4.
+- [x] **OSM-first provider** — DONE 2026-06-28 (commit `aa029b07`). `services/osm_overpass.ts`: `buildOverpassQuery` (bbox×category, `[!"website"]` filter), `osmElementToBusiness` (→ `DiscoveredBusiness`, skips sited/nameless), `discoverSitelessFromOsm` (thin never-throw fetch + dedupe). Free Overpass = zero-cost discovery; Places confirm is the orchestrator's job (#87). 10 unit tests, tsc 0, worker→CI. Top-14 #4. [DONE]
 - [ ] [auto] **Editable scan profiles + /admin controller** — `scan_profiles` (name/geo/categories/providers/filters/query_template/schedule/daily_cap); operator changes the hunt verbiage (e.g. "incorporated <6 months") with NO redeploy. The "control the scanner prompts" widget. Top-14 #5.
-- [ ] [auto] **Email enrichment** — pattern-guess + DoH MX verify → `emailConfidence`; feeds channel router. Top-14 #6.
+- [x] **Email enrichment** — DONE 2026-06-28 (commit `aa029b07`). `services/email_enrich.ts`: `emailCandidatesForDomain` (ranked info@/contact@/…), strict fail-CLOSED `domainAcceptsMail` DoH MX check (a DNS error never over-credits), `classifyEmailSource` → `EmailSource` (listing/guessed_mx/guessed) feeding `contactConfidence`. 11 unit tests, tsc 0, worker→CI. Top-14 #6. [DONE]
 - [ ] [auto] **USPS address verification** — verify deliverability BEFORE any Lob spend → `addressConfidence` gate. Top-14 #7.
 - [ ] [auto] **claimyour.site/<slug> claim funnel** — landing triggers the build + "we'll email you when ready"; explore /admin meanwhile; prominent "Cancel build → /create (2 min)" escape. Wire to existing `claim_*` services. Top-14 #8.
 - [ ] [auto] **Pre-built preview teaser in outreach** — thumbnail/Veo teaser of their FUTURE site embedded in the invite email (biggest CTR lever). Top-14 #9.
 - [ ] [auto] **CRM pipeline stages + claim webhook** — Discovered→Enriched→Contacted→Build-triggered→Preview-sent→Claimed/Lost; claimyour.site fire auto-advances the stage. Top-14 #10.
-- [ ] [auto] **SoS new-filings provider** — daily pull of <6-month incorporations (OH free bulk; aggregator NY/FL/CO/CT) = highest-intent leads; enrich for contacts. Top-14 #11.
+- [x] **SoS new-filings provider** — DONE 2026-06-28 (commit `aa029b07`). `services/sos_filings.ts`: calendar-accurate `monthsSince` (a filing N years ago = N×12mo), `isRecentlyIncorporated` (≤6mo window), `parseSosRow`/`selectRecentSosLeads` (→ `DiscoveredBusiness` + age + `sos_<st>:<id>` dedupe key). Pure parser; the bulk-feed fetch + per-state column map are the orchestrator's (#87). 9 unit tests, tsc 0, worker→CI. Top-14 #11. [DONE]
 - [ ] [auto] **Channel router + drip sequence** — email/postcard/both per confidence; email→nudge→postcard→final, stop-on-claim; CAN-SPAM unsubscribe. Top-14 #12.
 - [ ] [auto] **Coverage + funnel dashboard** — ZIPs scanned + when, leads/tier, contact-rate, build-triggered, claimed, $ pipeline. Top-14 #13.
 - [ ] [auto] **Auto-suppression + compliance + dedupe** — never re-contact claimed/opted-out/bounced; dedupe on external_id (place_id / SoS filing id); per-state DNC/ToS. Top-14 #14.
