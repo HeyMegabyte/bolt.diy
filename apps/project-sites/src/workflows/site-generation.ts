@@ -330,7 +330,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // build pipeline (audit_logs.metadata_json.trace_id ties the steps together).
     const traceId = crypto.randomUUID();
     const wfLog = (action: string, meta: Record<string, unknown> = {}): Promise<void> =>
-      wfLog(action, { ...meta, trace_id: traceId });
+      workflowLog(env.DB, params.orgId, params.siteId, action, { ...meta, trace_id: traceId });
 
     await wfLog('workflow.started', {
       slug: params.slug,
