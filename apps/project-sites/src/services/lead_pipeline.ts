@@ -32,13 +32,7 @@ const FORWARD: readonly LeadStage[] = [
 ];
 
 /** Events that drive transitions. `lose` is allowed from any non-terminal. */
-export type LeadEvent =
-  | 'enrich'
-  | 'contact'
-  | 'trigger_build'
-  | 'send_preview'
-  | 'claim'
-  | 'lose';
+export type LeadEvent = 'enrich' | 'contact' | 'trigger_build' | 'send_preview' | 'claim' | 'lose';
 
 /** The stage each event advances TO. */
 const EVENT_TARGET: Record<LeadEvent, LeadStage> = {
