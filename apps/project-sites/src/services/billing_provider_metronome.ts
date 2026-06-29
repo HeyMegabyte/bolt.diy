@@ -34,6 +34,7 @@
  * @packageDocumentation
  */
 
+import { z } from 'zod';
 import type { Env } from '../types/env.js';
 import type {
   BillingCustomer,
@@ -46,19 +47,31 @@ import { getUsageSummaryFromLedger } from './billing_provider_stripe.js';
 
 // ─── Metronome config schema (Zod-validated at provider init) ────────────
 
-export interface MetronomeConfig {
-  apiKey: string;
-  apiUrl: string;
-  webhookSecret?: string;
-}
+export const MetronomeConfigSchema = z.object({
+  apiKey: z.string().min(1, 'METRONOME_API_KEY is required when BILLING_PROVIDER=metronome'),
+  apiUrl: z.string().url().default('https://api.metronome.com/v1'),
+  webhookSecret: z.string().optional(),
+});
+
+export type MetronomeConfig = z.infer<typeof MetronomeConfigSchema>;
 
 function resolveMetronomeConfig(env: Env): MetronomeConfig | null {
   if (!env.METRONOME_API_KEY) return null;
-  return {
+  const parsed = MetronomeConfigSchema.safeParse({
     apiKey: env.METRONOME_API_KEY,
-    apiUrl: env.METRONOME_API_URL ?? 'https://api.metronome.com/v1',
+    apiUrl: env.METRONOME_API_URL,
     webhookSecret: env.METRONOME_WEBHOOK_SECRET,
-  };
+  });
+  if (!parsed.success) {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      service: 'billing_provider_metronome',
+      message: 'Metronome config invalid — provider will remain inactive',
+      errors: parsed.error.flatten(),
+    }));
+    return null;
+  }
+  return parsed.data;
 }
 
 // ─── Provider ───────────────────────────────────────────────────────────
