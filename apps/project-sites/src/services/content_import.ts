@@ -138,7 +138,8 @@ function parseWordPress(raw: string): ContentItem[] {
     const block = itemMatch[0];
 
     const title = extractXmlValue(block, 'title');
-    const contentEncoded = extractXmlCdataValue(block, 'content:encoded') || extractXmlValue(block, 'description');
+    const contentEncoded =
+      extractXmlCdataValue(block, 'content:encoded') || extractXmlValue(block, 'description');
     const wpSlug = extractXmlValue(block, 'wp:post_name');
     const pubDate = extractXmlValue(block, 'pubDate');
     const author = extractXmlValue(block, 'dc:creator');
@@ -151,7 +152,14 @@ function parseWordPress(raw: string): ContentItem[] {
     const publishedAt = parseRssDate(pubDate);
     const tags = categoryTags.length > 0 ? categoryTags : undefined;
 
-    items.push({ author: author || undefined, body, publishedAt, slug, tags, title: title || slug });
+    items.push({
+      author: author || undefined,
+      body,
+      publishedAt,
+      slug,
+      tags,
+      title: title || slug,
+    });
   }
 
   return items;
@@ -175,13 +183,19 @@ function parseSquarespace(raw: string): ContentItem[] {
   let pages: SquarespacePage[];
   try {
     pages = JSON.parse(raw) as SquarespacePage[];
-    if (!Array.isArray(pages)) throw new ContentImportError('Squarespace export must be a JSON array');
+    if (!Array.isArray(pages))
+      throw new ContentImportError('Squarespace export must be a JSON array');
   } catch (cause) {
-    throw new ContentImportError('Invalid Squarespace JSON export – expected a JSON array', { cause });
+    throw new ContentImportError('Invalid Squarespace JSON export – expected a JSON array', {
+      cause,
+    });
   }
 
   return pages
-    .filter((p): p is SquarespacePage & { title: string } => typeof p.title === 'string' && p.title.length > 0)
+    .filter(
+      (p): p is SquarespacePage & { title: string } =>
+        typeof p.title === 'string' && p.title.length > 0,
+    )
     .map((p) => {
       const publishedAt = isoDate(p.publishOn ?? p.publishDate ?? '');
       const tags = p.tags ?? p.categories;
@@ -277,7 +291,9 @@ function parseGenericCsv(raw: string, mapping?: CsvColumnMapping): ContentItem[]
   const tCol = mapping ? col(mapping.title) : col('title');
   const bCol = mapping ? col(mapping.body) : col('body');
   const sCol = mapping ? col(mapping.slug) : col('slug');
-  const pCol = mapping ? col(mapping.publishedAt) : col('publishedat') ?? col('published_at') ?? col('publishdate');
+  const pCol = mapping
+    ? col(mapping.publishedAt)
+    : (col('publishedat') ?? col('published_at') ?? col('publishdate'));
   const aCol = mapping?.author ? col(mapping.author) : col('author');
   const tgCol = mapping?.tags ? col(mapping.tags) : col('tags');
 
@@ -287,7 +303,7 @@ function parseGenericCsv(raw: string, mapping?: CsvColumnMapping): ContentItem[]
     const values = parseCsvLine(lines[i]);
     const title = tCol !== null ? (values[tCol] ?? '').trim() : '';
     const body = bCol !== null ? (values[bCol] ?? '').trim() : '';
-    const slug = sCol !== null ? (values[sCol] ?? '').trim() : (title ? slugify(title) : '');
+    const slug = sCol !== null ? (values[sCol] ?? '').trim() : title ? slugify(title) : '';
     const rawDate = pCol !== null ? (values[pCol] ?? '').trim() : '';
     const author = aCol !== null ? (values[aCol] ?? '').trim() || undefined : undefined;
     const rawTags = tgCol !== null ? (values[tgCol] ?? '').trim() : '';
@@ -322,7 +338,9 @@ function parseRss(raw: string): ContentItem[] {
     const id = extractXmlValue(block, 'id');
     const published = extractXmlValue(block, 'published') || extractXmlValue(block, 'updated');
     const authorName = extractXmlChildValue(block, 'author', 'name');
-    const tags = extractXmlValues(block, 'category').map((c) => c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'));
+    const tags = extractXmlValues(block, 'category').map((c) =>
+      c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'),
+    );
 
     const slug = id ? slugify(slugFromEntryId(id) || title) : slugify(title);
 

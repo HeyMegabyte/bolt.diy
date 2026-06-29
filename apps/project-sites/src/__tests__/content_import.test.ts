@@ -13,14 +13,7 @@ import {
 
 describe('CONTENT_SOURCES', () => {
   it('lists all six source platforms in a constant order', () => {
-    expect(CONTENT_SOURCES).toEqual([
-      'wordpress',
-      'squarespace',
-      'wix',
-      'webflow',
-      'csv',
-      'rss',
-    ]);
+    expect(CONTENT_SOURCES).toEqual(['wordpress', 'squarespace', 'wix', 'webflow', 'csv', 'rss']);
   });
 
   it('is a frozen readonly tuple', () => {
@@ -51,11 +44,14 @@ describe('slugify', () => {
 
   it('truncates at 80 characters', () => {
     // This title produces a slug >80 chars; slice(0,80) + strip trailing hyphen.
-    const long = 'A very long!! title!! that!! definitely!! exceeds!! the!! eighty!! character!! limit!! in!! length!! for!! truncation!! testing!!';
+    const long =
+      'A very long!! title!! that!! definitely!! exceeds!! the!! eighty!! character!! limit!! in!! length!! for!! truncation!! testing!!';
     const result = slugify(long);
     expect(result.length).toBeLessThanOrEqual(80);
     expect(result.endsWith('-')).toBe(false);
-    expect(result).toBe('a-very-long-title-that-definitely-exceeds-the-eighty-character-limit-in-length-f');
+    expect(result).toBe(
+      'a-very-long-title-that-definitely-exceeds-the-eighty-character-limit-in-length-f',
+    );
   });
 
   it('removes trailing hyphens from truncated strings', () => {
@@ -309,7 +305,8 @@ describe('parseContent — Webflow (JSON export)', () => {
 
 describe('parseContent — Generic CSV', () => {
   it('parses standard CSV with header row', () => {
-    const csv = 'title,body,slug,published_at,author,tags\nHome,<p>Home page</p>,home,2026-05-01,,\nAbout,<p>About page</p>,about,2026-05-10,Team,about;company';
+    const csv =
+      'title,body,slug,published_at,author,tags\nHome,<p>Home page</p>,home,2026-05-01,,\nAbout,<p>About page</p>,about,2026-05-10,Team,about;company';
     const items = parseContent('csv', csv);
     expect(items).toHaveLength(2);
     expect(items[0].title).toBe('Home');
@@ -318,8 +315,7 @@ describe('parseContent — Generic CSV', () => {
   });
 
   it('handles quoted CSV fields (RFC-4180)', () => {
-    const csv =
-      'title,body,slug\n"Hello, World!","<p>Body with, commas</p>","hello-world"\n';
+    const csv = 'title,body,slug\n"Hello, World!","<p>Body with, commas</p>","hello-world"\n';
     const items = parseContent('csv', csv);
     expect(items).toHaveLength(1);
     expect(items[0].title).toBe('Hello, World!');
@@ -327,8 +323,7 @@ describe('parseContent — Generic CSV', () => {
   });
 
   it('handles escaped quotes in CSV fields', () => {
-    const csv =
-      'title,body,slug\n"Say ""Hello""","<p>Content</p>","say-hello"\n';
+    const csv = 'title,body,slug\n"Say ""Hello""","<p>Content</p>","say-hello"\n';
     const items = parseContent('csv', csv);
     expect(items[0].title).toBe('Say "Hello"');
   });
@@ -407,9 +402,7 @@ describe('parseContent — RSS / Atom', () => {
 
 describe('parseContent — edge cases and error handling', () => {
   it('rejects an unknown source type via TypeScript exhaustiveness', () => {
-    expect(() => parseContent('unknown' as ContentSource, '')).toThrow(
-      ContentImportError,
-    );
+    expect(() => parseContent('unknown' as ContentSource, '')).toThrow(ContentImportError);
   });
 
   it('handles empty string input for all source types', () => {
