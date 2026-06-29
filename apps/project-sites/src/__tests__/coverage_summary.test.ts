@@ -1,4 +1,8 @@
-import { summarizeCoverage, type ScanRunRow, type CoverageLeadRow } from '../services/coverage_summary.js';
+import {
+  summarizeCoverage,
+  type ScanRunRow,
+  type CoverageLeadRow,
+} from '../services/coverage_summary.js';
 
 const runs: ScanRunRow[] = [
   { zip: '07034', scannedAt: 1000 },

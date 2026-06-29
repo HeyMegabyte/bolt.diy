@@ -92,8 +92,7 @@ export function summarizeCoverage(
   }
 
   const totalLeads = leads.length;
-  const contactRate =
-    totalLeads > 0 ? Math.round((contacted / totalLeads) * 1000) / 10 : 0;
+  const contactRate = totalLeads > 0 ? Math.round((contacted / totalLeads) * 1000) / 10 : 0;
 
   return {
     zipsScanned: zips.size,
