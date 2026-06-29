@@ -59,8 +59,14 @@ kill_timeout   = 30
   CLOUDFLARE_BUCKETNAME   = "social-media-assets"
   CLOUDFLARE_BUCKET_URL   = "https://pub-4157dd570f0641458b9d4fabad0749d4.r2.dev"
   CLOUDFLARE_REGION       = "auto"
-  # DATABASE_URL, REDIS_URL, JWT_SECRET, TEMPORAL_API_KEY, CLOUDFLARE_ACCOUNT_ID,
-  # CLOUDFLARE_ACCESS_KEY, CLOUDFLARE_SECRET_ACCESS_KEY come from Fly secrets.
+  # --- Email (Resend) — enables password reset, team invites, notifications.
+  #     Postiz sends each email via a Temporal workflow, so it needs the worker healthy.
+  EMAIL_PROVIDER          = "resend"
+  EMAIL_FROM_ADDRESS      = "noreply@projectsites.dev"
+  EMAIL_FROM_NAME         = "ProjectSites Social"
+  # DATABASE_URL, REDIS_URL, JWT_SECRET, TEMPORAL_API_KEY, RESEND_API_KEY,
+  # CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_ACCESS_KEY, CLOUDFLARE_SECRET_ACCESS_KEY
+  # come from Fly secrets.
 
 [http_service]
   internal_port        = 5000   # Postiz all-in-one Caddy listens on 5000 (backend 3000 internal)
