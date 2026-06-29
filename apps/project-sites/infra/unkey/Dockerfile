@@ -5,7 +5,8 @@
 # ENTRYPOINT ["/unkey"] runs the API server; it reads UNKEY_* env and binds
 # UNKEY_HTTP_PORT (default 7070) on 0.0.0.0. Deps: MySQL (TiDB) + Redis (Upstash); ClickHouse
 # + Vault are optional and omitted (analytics/encryption-at-rest disabled for v1).
-FROM --platform=linux/amd64 unkeyed/unkey:v2.0.49
+# Published to GHCR (NOT Docker Hub — docker.io/unkeyed/unkey 401s). Public, anon-pullable.
+FROM --platform=linux/amd64 ghcr.io/unkeyed/unkey:v2.0.49
 
 # Bump to force wrangler to compute a new image tag + rebuild on CI (cf-containers-native-amd64-only).
 LABEL com.projectsites.cachebust="2026-06-29-1"
