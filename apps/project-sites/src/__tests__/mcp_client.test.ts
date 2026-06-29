@@ -57,7 +57,8 @@ describe('registry — allProviders / getAdapter', () => {
 
   it('excludes OAuth-only providers that have no tool surface yet', () => {
     const ps = allProviders();
-    for (const oauthOnly of ['cal_com', 'sentry', 'posthog', 'vercel', 'netlify']) {
+    // (vercel was promoted to a full provider with a tool surface — list_vercel_projects/deployments)
+    for (const oauthOnly of ['cal_com', 'sentry', 'posthog', 'netlify']) {
       expect(ps).not.toContain(oauthOnly as Provider);
     }
   });
@@ -73,7 +74,7 @@ describe('registry — allProviders / getAdapter', () => {
   });
 
   it('getAdapter returns undefined for an OAuth-only provider', () => {
-    expect(getAdapter('vercel')).toBeUndefined();
+    expect(getAdapter('sentry')).toBeUndefined();
   });
 });
 

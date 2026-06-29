@@ -27,6 +27,12 @@ const config = {
   collectCoverageFrom: ['**/src/**/*.{ts,tsx}', '!**/src/**/index.ts'],
   coverageProvider: 'v8',
   moduleNameMapper: {
+    // Stub the Better Auth seam — its real module pulls an ESM-only dep tree
+    // (kysely→better-call→rou3→@noble/hashes) that @swc/jest can't load, crashing
+    // every suite importing middleware/auth.ts. Must precede the generic `.js`
+    // stripper below (first match wins). Behavior-faithful: the better_auth flag
+    // is off by default so makeAuth is never called on the tested path.
+    '/auth/better-auth\\.js$': '<rootDir>/src/__tests__/__mocks__/better-auth-stub.js',
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '\\.wasm$': '<rootDir>/src/__tests__/__mocks__/wasm.js',
     // `cloudflare:workers` is a runtime-only virtual module; stub it so any suite
