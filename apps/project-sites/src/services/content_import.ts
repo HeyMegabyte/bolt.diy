@@ -338,13 +338,6 @@ function parseRss(raw: string): ContentItem[] {
     const id = extractXmlValue(block, 'id');
     const published = extractXmlValue(block, 'published') || extractXmlValue(block, 'updated');
     const authorName = extractXmlChildValue(block, 'author', 'name');
-<<<<<<< HEAD
-    const tags = extractXmlValues(block, 'category').map((c) =>
-      c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'),
-    );
-||||||| parent of aeca48af (chore: fan-out #15 content_import late (48 tests))
-    const tags = extractXmlValues(block, 'category').map((c) => c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'));
-=======
     const parsedTags = extractXmlValues(block, 'category').map((c) =>
       c.replace(/^.*?label="([^"]+)".*$|^.*?term="([^"]+)".*$/s, '$1$2'),
     );
@@ -356,7 +349,6 @@ function parseRss(raw: string): ContentItem[] {
       if (acm[1] && !allTags.includes(acm[1])) allTags.push(acm[1]);
     }
     const tags = allTags.length > 0 ? allTags : undefined;
->>>>>>> aeca48af (chore: fan-out #15 content_import late (48 tests))
 
     const slug = id ? slugify(slugFromEntryId(id) || title) : slugify(title);
 
