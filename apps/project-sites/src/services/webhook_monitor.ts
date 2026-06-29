@@ -194,7 +194,10 @@ export function deliveryStats(events: readonly DeliveryEvent[]): DeliveryStats {
         total: existing.total + 1,
         delivered: existing.delivered + (isDelivered ? 1 : 0),
         failed: existing.failed + (isDelivered ? 0 : 1),
-        failureRate: computeFailureRate(existing.failed + (isDelivered ? 0 : 1), existing.total + 1),
+        failureRate: computeFailureRate(
+          existing.failed + (isDelivered ? 0 : 1),
+          existing.total + 1,
+        ),
       });
     } else {
       const failed = isDelivered ? 0 : 1;

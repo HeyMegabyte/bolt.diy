@@ -133,22 +133,43 @@ describe('deliveryStats', () => {
 
   it('returns per-endpoint breakdown', () => {
     const events: DeliveryEvent[] = [
-      { webhookId: 'wh_x', url: 'https://x.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
-      { webhookId: 'wh_x', url: 'https://x.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_y', url: 'https://y.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
+      {
+        webhookId: 'wh_x',
+        url: 'https://x.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_x',
+        url: 'https://x.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_y',
+        url: 'https://y.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
     ];
     const stats = deliveryStats(events);
 
     expect(stats.byEndpoint).toHaveLength(2);
 
-    const xStats = stats.byEndpoint.find(e => e.webhookId === 'wh_x');
+    const xStats = stats.byEndpoint.find((e) => e.webhookId === 'wh_x');
     expect(xStats).toBeDefined();
     expect(xStats!.total).toBe(2);
     expect(xStats!.delivered).toBe(1);
     expect(xStats!.failed).toBe(1);
     expect(xStats!.failureRate).toBe(0.5);
 
-    const yStats = stats.byEndpoint.find(e => e.webhookId === 'wh_y');
+    const yStats = stats.byEndpoint.find((e) => e.webhookId === 'wh_y');
     expect(yStats).toBeDefined();
     expect(yStats!.total).toBe(1);
     expect(yStats!.delivered).toBe(1);
@@ -159,20 +180,62 @@ describe('deliveryStats', () => {
   it('handles multiple endpoints with different failure rates', () => {
     const events: DeliveryEvent[] = [
       // wh_a: 4 delivered, 0 failed → 0%
-      { webhookId: 'wh_a', url: 'https://a.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
-      { webhookId: 'wh_a', url: 'https://a.com/hook', status: 'delivered', statusCode: 200, error: null, ts: LATER },
+      {
+        webhookId: 'wh_a',
+        url: 'https://a.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_a',
+        url: 'https://a.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: LATER,
+      },
       // wh_b: 2 delivered, 2 failed → 0.5
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'delivered', statusCode: 200, error: null, ts: LATER },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'failed', statusCode: 503, error: 'timeout', ts: LATER },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: LATER,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'failed',
+        statusCode: 503,
+        error: 'timeout',
+        ts: LATER,
+      },
     ];
     const stats = deliveryStats(events);
 
-    const aStats = stats.byEndpoint.find(e => e.webhookId === 'wh_a');
+    const aStats = stats.byEndpoint.find((e) => e.webhookId === 'wh_a');
     expect(aStats!.failureRate).toBe(0);
 
-    const bStats = stats.byEndpoint.find(e => e.webhookId === 'wh_b');
+    const bStats = stats.byEndpoint.find((e) => e.webhookId === 'wh_b');
     expect(bStats!.failureRate).toBe(0.5);
   });
 
@@ -214,9 +277,30 @@ describe('failingEndpoints', () => {
 
   it('returns no entries when all endpoints are below threshold', () => {
     const events: DeliveryEvent[] = [
-      { webhookId: 'wh_a', url: 'https://a.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
+      {
+        webhookId: 'wh_a',
+        url: 'https://a.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
     ];
     // wh_b has 1/2 = 0.5 failure rate — not greater than 0.5
     const result = failingEndpoints(events, 0.5);
@@ -226,9 +310,30 @@ describe('failingEndpoints', () => {
 
   it('returns endpoints whose failure rate exceeds threshold', () => {
     const events: DeliveryEvent[] = [
-      { webhookId: 'wh_a', url: 'https://a.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'failed', statusCode: 503, error: 'timeout', ts: NOW },
-      { webhookId: 'wh_b', url: 'https://b.com/hook', status: 'failed', statusCode: 503, error: 'timeout', ts: LATER },
+      {
+        webhookId: 'wh_a',
+        url: 'https://a.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'failed',
+        statusCode: 503,
+        error: 'timeout',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_b',
+        url: 'https://b.com/hook',
+        status: 'failed',
+        statusCode: 503,
+        error: 'timeout',
+        ts: LATER,
+      },
     ];
 
     const result = failingEndpoints(events, 0.5);
@@ -243,17 +348,80 @@ describe('failingEndpoints', () => {
   it('returns multiple failing endpoints sorted by failure rate descending', () => {
     const events: DeliveryEvent[] = [
       // wh_x: 2/2 failed = 1.0
-      { webhookId: 'wh_x', url: 'https://x.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_x', url: 'https://x.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
+      {
+        webhookId: 'wh_x',
+        url: 'https://x.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_x',
+        url: 'https://x.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
       // wh_y: 3/4 failed = 0.75
-      { webhookId: 'wh_y', url: 'https://y.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_y', url: 'https://y.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_y', url: 'https://y.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_y', url: 'https://y.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
+      {
+        webhookId: 'wh_y',
+        url: 'https://y.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_y',
+        url: 'https://y.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_y',
+        url: 'https://y.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_y',
+        url: 'https://y.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
       // wh_z: 2/3 failed = 0.667
-      { webhookId: 'wh_z', url: 'https://z.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_z', url: 'https://z.com/hook', status: 'failed', statusCode: 500, error: 'err', ts: NOW },
-      { webhookId: 'wh_z', url: 'https://z.com/hook', status: 'delivered', statusCode: 200, error: null, ts: NOW },
+      {
+        webhookId: 'wh_z',
+        url: 'https://z.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_z',
+        url: 'https://z.com/hook',
+        status: 'failed',
+        statusCode: 500,
+        error: 'err',
+        ts: NOW,
+      },
+      {
+        webhookId: 'wh_z',
+        url: 'https://z.com/hook',
+        status: 'delivered',
+        statusCode: 200,
+        error: null,
+        ts: NOW,
+      },
     ];
 
     const result = failingEndpoints(events, 0.6);
@@ -347,7 +515,14 @@ describe('TypeScript contract', () => {
   });
 
   it('trackDelivery returns DeliveryEvent', () => {
-    const result: DeliveryEvent = trackDelivery('wh_a', 'https://a.com/hook', 'delivered', 200, null, NOW);
+    const result: DeliveryEvent = trackDelivery(
+      'wh_a',
+      'https://a.com/hook',
+      'delivered',
+      200,
+      null,
+      NOW,
+    );
     expect(result.webhookId).toBe('wh_a');
   });
 

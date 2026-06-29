@@ -2,7 +2,12 @@
  * api_version — pure version helpers. All functions are order-independent,
  * zero-safe, and produce stable outputs.
  */
-import { parseVersion, isDeprecated, versionHeader, API_VERSIONS } from '../services/api_version.js';
+import {
+  parseVersion,
+  isDeprecated,
+  versionHeader,
+  API_VERSIONS,
+} from '../services/api_version.js';
 
 describe('API_VERSIONS', () => {
   it('contains "v1" and "v2"', () => {

@@ -96,7 +96,7 @@ export function dequeueTask(queue: readonly Task[]): [Task[], Task | null] {
  */
 export function taskQueueStats(queue: readonly Task[]): QueueStats {
   if (queue.length === 0) {
-    return { total: 0, highestPriority: null, lowestPriority: null, priorityTiers: {} };
+    return { highestPriority: null, lowestPriority: null, priorityTiers: {}, total: 0 };
   }
 
   const highestPriority = queue[0].priority;

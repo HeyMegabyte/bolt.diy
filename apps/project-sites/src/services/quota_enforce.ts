@@ -95,8 +95,8 @@ export interface QuotaBlockEnvelope {
  * checkQuota(-5, 10)   // → { isExceeded: false, used: 0,  limit: 10, remaining: 10, utilizationPercent: 0 }
  */
 export function checkQuota(used: number, limit: number): CheckQuotaResult {
-  const safeUsed = Math.max(0, Number.isFinite(used) ? used : 0);
-  const safeLimit = Math.max(0, Number.isFinite(limit) ? limit : 0);
+  const safeUsed = typeof used === 'number' && !Number.isNaN(used) ? Math.max(0, used) : 0;
+  const safeLimit = typeof limit === 'number' && !Number.isNaN(limit) ? Math.max(0, limit) : 0;
 
   if (safeLimit <= 0) {
     return { isExceeded: false, used: safeUsed, limit: safeLimit, remaining: 0, utilizationPercent: 0 };

@@ -108,6 +108,9 @@ describe('team_invite HMAC-signed tokens', () => {
 
   it('generates distinct tokens for the same inputs (unique nonce via timestamp)', async () => {
     const a = await generateInvite('org_1', 'frank@example.com', 'member', KEY_A);
+    // Ensure at least 1ms gap — Date.now() has ms precision and both calls
+    // may fire within the same millisecond.
+    await new Promise((r) => setTimeout(r, 2));
     const b = await generateInvite('org_1', 'frank@example.com', 'member', KEY_A);
     expect(a.token).not.toBe(b.token);
     // Both are separately valid
