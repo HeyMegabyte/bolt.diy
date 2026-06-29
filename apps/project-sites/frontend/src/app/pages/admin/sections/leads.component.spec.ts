@@ -109,4 +109,29 @@ describe('AdminLeadsComponent', () => {
     c.copyClaimLink(lead);
     expect(c.isCopying('l1')).toBe(false);
   });
+
+  it('scanOsm posts the selected metro bbox + clamped maxLeads and records the summary', () => {
+    api.post.and.returnValue(
+      of({ summary: { discovered: 12, considered: 9, upserted: 7, skipped: 2, errors: 0 } }),
+    );
+    const c = make();
+    c.metroIdx.set(0);
+    c.osmMaxLeads = 9999; // over the 500 cap
+    c.scanOsm();
+    const [path, body] = api.post.calls.mostRecent().args;
+    expect(path).toBe('/admin/leads/scan-osm');
+    expect((body as { bbox: number[] }).bbox.length).toBe(4);
+    expect((body as { maxLeads: number }).maxLeads).toBe(500); // clamped
+    expect(c.osmSummary()?.upserted).toBe(7);
+    expect(c.osmScanning()).toBe(false);
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('scanOsm guards double-submit and clears the busy flag on error', () => {
+    api.post.and.returnValue(throwError(() => new Error('boom')));
+    const c = make();
+    c.scanOsm();
+    expect(c.osmScanning()).toBe(false);
+    expect(api.post).toHaveBeenCalledWith('/admin/leads/scan-osm', jasmine.any(Object));
+  });
 });

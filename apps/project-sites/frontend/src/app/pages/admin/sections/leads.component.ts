@@ -19,6 +19,34 @@ interface LeadSummary {
   createdAt: string;
 }
 
+/** The OSM auto-scan run summary (mirrors the worker's `ScanRunSummary`). */
+interface OsmScanSummary {
+  discovered: number;
+  considered: number;
+  upserted: number;
+  skipped: number;
+  errors: number;
+}
+
+/** A preset US-metro bounding box `[south, west, north, east]` for the OSM scan. */
+interface MetroPreset {
+  readonly label: string;
+  readonly bbox: readonly [number, number, number, number];
+}
+
+/**
+ * Curated metro bounding boxes so the operator picks a place, not raw coordinates.
+ * Boxes are deliberately tight (~city core) to keep an OSM Overpass run bounded.
+ */
+const METROS: readonly MetroPreset[] = [
+  { label: 'Newark, NJ', bbox: [40.69, -74.25, 40.79, -74.1] },
+  { label: 'New York, NY', bbox: [40.7, -74.02, 40.82, -73.91] },
+  { label: 'Los Angeles, CA', bbox: [33.99, -118.41, 34.15, -118.18] },
+  { label: 'Chicago, IL', bbox: [41.82, -87.74, 41.98, -87.58] },
+  { label: 'Houston, TX', bbox: [29.68, -95.51, 29.83, -95.27] },
+  { label: 'Miami, FL', bbox: [25.71, -80.27, 25.86, -80.13] },
+];
+
 /**
  * Super-Admin lead scanner (#9). Runs a Google-Places no-website scan
  * (`POST /api/admin/leads/scan`), lists scanned leads (`GET /api/admin/leads`),
@@ -86,6 +114,74 @@ interface LeadSummary {
         @if (lastScan(); as s) {
           <span class="pb-2 text-xs text-text-secondary" role="status" aria-live="polite"
             >Scanned {{ s.scanned }} · added {{ s.created }}</span
+          >
+        }
+      </form>
+
+      <!-- Auto-scan (OSM, US-wide siteless engine → crm.projectsites.dev) -->
+      <form
+        appReveal
+        class="mb-8 flex flex-wrap items-end gap-3 rounded-2xl border border-secondary/25 bg-secondary/[0.05] p-4"
+        (ngSubmit)="scanOsm()"
+        data-testid="leads-osm-form"
+      >
+        <div class="w-full -mb-1">
+          <span class="text-xs font-semibold uppercase tracking-wider text-secondary"
+            >Automatic scan</span
+          >
+          <p class="mt-0.5 text-xs text-text-secondary [text-wrap:pretty]">
+            Free OSM discovery of businesses with no website → ranked → synced to
+            <a
+              href="https://crm.projectsites.dev"
+              target="_blank"
+              rel="noopener"
+              class="text-primary underline">crm.projectsites.dev</a
+            >. No outreach is sent.
+          </p>
+        </div>
+        <label class="min-w-[200px]">
+          <span
+            class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-secondary"
+            >Metro area</span
+          >
+          <select
+            class="w-full rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-sm text-white outline-none transition-colors focus-visible:border-secondary/60 focus-visible:ring-1 focus-visible:ring-secondary/40"
+            [value]="metroIdx()"
+            (change)="metroIdx.set(+$any($event.target).value)"
+            data-testid="leads-osm-metro"
+          >
+            @for (m of metros; track m.label; let i = $index) {
+              <option [value]="i">{{ m.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="w-[120px]">
+          <span
+            class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-secondary"
+            >Max leads</span
+          >
+          <input
+            type="number"
+            min="1"
+            max="500"
+            class="w-full rounded-lg border border-white/[0.1] bg-black/30 px-3 py-2 text-sm text-white outline-none transition-colors focus-visible:border-secondary/60 focus-visible:ring-1 focus-visible:ring-secondary/40"
+            [(ngModel)]="osmMaxLeads"
+            name="osmMaxLeads"
+            data-testid="leads-osm-max"
+          />
+        </label>
+        <button
+          type="submit"
+          [disabled]="osmScanning()"
+          class="rounded-full bg-secondary px-5 py-2 text-sm font-semibold text-black transition-all hover:bg-secondary/85 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7C3AED] focus-visible:outline-offset-2"
+          data-testid="leads-osm-submit"
+        >
+          {{ osmScanning() ? 'Scanning…' : 'Run auto-scan' }}
+        </button>
+        @if (osmSummary(); as s) {
+          <span class="pb-2 text-xs text-text-secondary" role="status" aria-live="polite"
+            >Discovered {{ s.discovered }} · added {{ s.upserted }} to CRM · skipped
+            {{ s.skipped }}</span
           >
         }
       </form>
@@ -194,6 +290,14 @@ export class AdminLeadsComponent implements OnInit {
   query = '';
   readonly onlyNoWebsite = signal(true);
   readonly scanning = signal(false);
+
+  /** Metro presets for the OSM auto-scan + the operator's current selection. */
+  readonly metros = METROS;
+  readonly metroIdx = signal(0);
+  osmMaxLeads = 50;
+  readonly osmScanning = signal(false);
+  readonly osmSummary = signal<OsmScanSummary | null>(null);
+
   readonly loading = signal(false);
   readonly loadError = signal(false);
   readonly leads = signal<LeadSummary[]>([]);
@@ -246,6 +350,34 @@ export class AdminLeadsComponent implements OnInit {
           this.loadLeads();
         },
         error: () => this.scanning.set(false),
+      });
+  }
+
+  /**
+   * Run the automatic OSM siteless scan for the selected metro. Discovered,
+   * ranked leads sink to crm.projectsites.dev (not the D1 list), so the result is
+   * the summary, not a table refresh. Double-submit guarded; never throws.
+   */
+  scanOsm(): void {
+    if (this.osmScanning()) return;
+    const metro = this.metros[this.metroIdx()];
+    if (!metro) return;
+    const maxLeads = Math.min(500, Math.max(1, Math.floor(this.osmMaxLeads) || 50));
+    this.osmScanning.set(true);
+    this.api
+      .post<{ summary: OsmScanSummary }>('/admin/leads/scan-osm', {
+        bbox: metro.bbox,
+        maxLeads,
+      })
+      .subscribe({
+        next: (res) => {
+          this.osmScanning.set(false);
+          this.osmSummary.set(res?.summary ?? null);
+          this.toast.success(
+            `Auto-scan: discovered ${res?.summary?.discovered ?? 0} · added ${res?.summary?.upserted ?? 0} to CRM.`,
+          );
+        },
+        error: () => this.osmScanning.set(false),
       });
   }
 
