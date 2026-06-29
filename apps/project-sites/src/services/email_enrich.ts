@@ -43,7 +43,12 @@ export function extractEmailDomain(email: string | null | undefined): string | n
   if (!email) return null;
   const at = email.lastIndexOf('@');
   if (at <= 0 || at === email.length - 1) return null;
-  return email.slice(at + 1).toLowerCase().trim() || null;
+  return (
+    email
+      .slice(at + 1)
+      .toLowerCase()
+      .trim() || null
+  );
 }
 
 /**
@@ -58,7 +63,11 @@ export function extractEmailDomain(email: string | null | undefined): string | n
  * ```
  */
 export function emailCandidatesForDomain(domain: string | null | undefined): string[] {
-  const d = domain?.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  const d = domain
+    ?.trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '');
   if (!d || !d.includes('.')) return [];
   return LOCAL_PARTS.map((lp) => `${lp}@${d}`);
 }

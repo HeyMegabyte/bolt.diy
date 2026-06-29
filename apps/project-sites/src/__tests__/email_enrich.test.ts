@@ -52,10 +52,7 @@ describe('email_enrich — classifyEmailSource', () => {
 describe('email_enrich — enrichEmail', () => {
   it('returns a listing email as source=listing without any fetch', async () => {
     const stub = jest.fn();
-    const r = await enrichEmail(
-      { listingEmail: 'hi@joe.com' },
-      stub as unknown as typeof fetch,
-    );
+    const r = await enrichEmail({ listingEmail: 'hi@joe.com' }, stub as unknown as typeof fetch);
     expect(r).toEqual({ email: 'hi@joe.com', source: 'listing' });
     expect(stub).not.toHaveBeenCalled();
   });
@@ -80,7 +77,7 @@ describe('email_enrich — enrichEmail', () => {
   });
 
   it('returns null/null when no listing email and no domain', async () => {
-    const r = await enrichEmail({}, (jest.fn() as unknown) as typeof fetch);
+    const r = await enrichEmail({}, jest.fn() as unknown as typeof fetch);
     expect(r).toEqual({ email: null, source: null });
   });
 });

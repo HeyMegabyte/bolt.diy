@@ -73,7 +73,9 @@ describe('osm_overpass — osmElementToBusiness', () => {
 
 describe('osm_overpass — fetch + discover', () => {
   it('fetchOverpassElements returns [] on HTTP error (never throws)', async () => {
-    const stub = jest.fn().mockResolvedValue({ ok: false, status: 504, json: () => Promise.resolve({}) });
+    const stub = jest
+      .fn()
+      .mockResolvedValue({ ok: false, status: 504, json: () => Promise.resolve({}) });
     expect(await fetchOverpassElements('q', stub as unknown as typeof fetch)).toEqual([]);
   });
   it('fetchOverpassElements returns [] on network throw', async () => {

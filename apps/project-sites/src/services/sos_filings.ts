@@ -52,17 +52,13 @@ export function monthsSince(filingDate: string | null | undefined, nowMs: number
   const from = new Date(t);
   const now = new Date(nowMs);
   let months =
-    (now.getUTCFullYear() - from.getUTCFullYear()) * 12 +
-    (now.getUTCMonth() - from.getUTCMonth());
+    (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + (now.getUTCMonth() - from.getUTCMonth());
   if (now.getUTCDate() < from.getUTCDate()) months -= 1; // day-of-month not yet reached
   return Math.max(0, months);
 }
 
 /** True when incorporated within `maxMonths` (default 6). */
-export function isRecentlyIncorporated(
-  ageMonths: number | null,
-  maxMonths = 6,
-): boolean {
+export function isRecentlyIncorporated(ageMonths: number | null, maxMonths = 6): boolean {
   return ageMonths != null && ageMonths >= 0 && ageMonths <= maxMonths;
 }
 

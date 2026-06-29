@@ -60,7 +60,8 @@ export function tagsHaveWebsite(tags: Record<string, string> | undefined): boole
  */
 export function buildOverpassQuery(opts: OverpassQueryOpts): string {
   const timeout = opts.timeoutSec ?? 60;
-  const cats = opts.categories && opts.categories.length > 0 ? opts.categories : DEFAULT_CATEGORY_KEYS;
+  const cats =
+    opts.categories && opts.categories.length > 0 ? opts.categories : DEFAULT_CATEGORY_KEYS;
   const [s, w, n, e] = opts.bbox;
   const bbox = `${s},${w},${n},${e}`;
   // For each category key: nodes with that key + a name, lacking any website tag.
