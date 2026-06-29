@@ -42,10 +42,20 @@ has Docker) builds the image + deploys + sets secrets from GitHub repo secrets +
 - `curl https://api.projectsites.dev/v2/liveness` → 200.
 - Create a key via the root key: `POST /v2/keys.createKey` with `Authorization: Bearer $UNKEY_ROOT_KEY`.
 
-## Notes / risks (first deploy)
+## Status — ✅ LIVE (2026-06-29)
 
-- Distroless image = no shell/Caddy, so container stdout isn't curl-inspectable (unlike Plane). If
-  the container never binds 7070, debug via `wrangler tail` + reasoning (most likely: Redis `rediss://`
-  TLS parse, or Vault/ClickHouse turning out to be required → add the env).
-- If the Go redis client rejects `rediss://`, switch `UNKEY_REDIS_URL` to `redis://…?tls=true` form.
+`GET https://api.projectsites.dev/v2/liveness` → 200 `{"data":{"message":"we're cooking"}}` (8/8).
+Backed by TiDB MySQL + Upstash Redis. WAF skip for `api.projectsites.dev` added to the zone skip rule.
+
+### Resolved gotchas (the 7-iteration arc)
+- **Image is on GHCR, not Docker Hub** (`docker.io/unkeyed/unkey` 401s) → `ghcr.io/unkeyed/unkey:v2.0.49`.
+- **Entrypoint is the unkey CLI** — bare run prints help + exits → no :7070 → Worker 1101. Fix: `CMD ["run","api"]`.
+- **No baked config** — needs `unkey.toml` (`UNKEY_CONFIG`, `os.ExpandEnv` fills `${UNKEY_*}`). Provided + COPY'd.
+- **Distroless = blind on CF** — decisive debug was a LOCAL `docker run … run api` (Docker was up locally), which revealed the CLI-help behavior. Always try local `docker run` for a distroless boot error.
+- **WAF** — programmatic POSTs hit the managed challenge; added `api.projectsites.dev` to the zone skip rule.
+
+### Remaining setup (NOT a launch blocker)
+- **Root-key bootstrap**: `UNKEY_ROOT_KEY` is not auto-seeded. `POST /v2/apis.createApi` with it → 500
+  "could not load the requested key" (schema migrated, no workspace/root-key rows). To ISSUE keys,
+  bootstrap a workspace + root key (Unkey dashboard, or a DB seed). The API itself is fully up.
 - New virtual MySQL per app comes from TiDB Serverless (tidb-serverless-default-mysql memory).
