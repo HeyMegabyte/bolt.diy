@@ -158,7 +158,7 @@
 - [ ] [auto] S4 — unify rollback (collapse the two divergent restore paths into the complete one).
 - [x] [auto] S17 — undo-publish window. **CORE DONE 2026-06-29:** `services/undo_publish.ts` — pure `computeUndoWindow(publishedAt, now, windowMs=5min)` → `{withinWindow, secondsRemaining, expiresAtMs, expired}` (accepts ms-number OR ISO string, clock-skew-safe → full window when now<publish, non-positive window → expired, unparseable → expired never throws) + `formatUndoCountdown(s)` → `m:ss`. No `Date.now()` inside (caller passes `now` → deterministic). Zero-I/O, 9/9 unit, tsc 0. Remaining wiring = post-publish toast + revert action (reuses existing snapshot-restore path S4). 147→146. worker→CI.
 - [ ] [auto] S39 — scheduled publish + auto-revert-after-48h (Pro upsell).
-- [ ] [auto] A13 — category landing pages + per-category `SoftwareApplication` JSON-LD (organic discovery).
+- [x] [auto] A13 — category landing pages + per-category `SoftwareApplication` JSON-LD. **CORE DONE 2026-06-29:** `services/category_jsonld.ts` — pure `buildCategoryJsonLd(input)` → `[SoftwareApplication (ProjectSites {Category} builder, free Offer), BreadcrumbList (Home→Templates→Category), CollectionPage]`, each schema.org-valid (@context+@type). Accuracy-first: NEVER fabricates `aggregateRating` (attached only when real `ratingValue`+`ratingCount` passed) per quality-metrics; slug-sanitized, base-normalized, `categoryTitle` fallback. Zero-I/O, never-throws, 9/9 unit, tsc 0, lint 0-err, prettier clean. Remaining wiring = the `/templates/:category` route + page content + inject these blocks (frontend/route slice). 142→141. worker→CI.
 - [ ] [auto] A18 — public app profile pages (indexable `/apps/:slug` + "Deploy to ProjectSites" button).
 
 ### Analytics (remaining)
