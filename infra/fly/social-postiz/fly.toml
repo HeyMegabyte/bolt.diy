@@ -62,7 +62,7 @@ kill_timeout   = 30
   # --- Email (Resend) — enables password reset, team invites, notifications.
   #     Postiz sends each email via a Temporal workflow, so it needs the worker healthy.
   EMAIL_PROVIDER          = "resend"
-  EMAIL_FROM_ADDRESS      = "noreply@projectsites.dev"
+  EMAIL_FROM_ADDRESS      = "social@megabyte.space"   # megabyte.space is the verified Resend domain; projectsites.dev is NOT verified there
   EMAIL_FROM_NAME         = "ProjectSites Social"
   # DATABASE_URL, REDIS_URL, JWT_SECRET, TEMPORAL_API_KEY, RESEND_API_KEY,
   # CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_ACCESS_KEY, CLOUDFLARE_SECRET_ACCESS_KEY
