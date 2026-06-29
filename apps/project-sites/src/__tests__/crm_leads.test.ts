@@ -34,11 +34,7 @@ describe('crm_leads — leadToCrmCompany (pure mapper)', () => {
   });
 
   it('omits absent optional fields (no empty strings)', () => {
-    const p = leadToCrmCompany(
-      { businessName: 'Bare Co' },
-      { hasWebsite: false },
-      'osm',
-    );
+    const p = leadToCrmCompany({ businessName: 'Bare Co' }, { hasWebsite: false }, 'osm');
     expect(p).not.toHaveProperty('phone');
     expect(p).not.toHaveProperty('email');
     expect(p).not.toHaveProperty('address');

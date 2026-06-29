@@ -159,6 +159,10 @@ export async function upsertLeadToCrm(
     const id = body?.data?.id ?? body?.id;
     return id ? { ok: true, skipped: false, id } : { ok: true, skipped: false };
   } catch (err) {
-    return { ok: false, skipped: false, error: err instanceof Error ? err.message : 'fetch failed' };
+    return {
+      ok: false,
+      skipped: false,
+      error: err instanceof Error ? err.message : 'fetch failed',
+    };
   }
 }

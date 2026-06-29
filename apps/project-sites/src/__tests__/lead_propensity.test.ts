@@ -24,7 +24,11 @@ describe('lead_propensity — contactConfidence', () => {
   });
 
   it('returns "email" when only email clears the threshold', () => {
-    const r = contactConfidence({ hasWebsite: false, emailSource: 'verified', addressSource: null });
+    const r = contactConfidence({
+      hasWebsite: false,
+      emailSource: 'verified',
+      addressSource: null,
+    });
     expect(r.channel).toBe('email');
   });
 
