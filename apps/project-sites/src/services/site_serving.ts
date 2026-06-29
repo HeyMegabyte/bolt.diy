@@ -107,6 +107,54 @@ export function generateNoCookiesBadge(): string {
 }
 
 /**
+ * "Open now" live badge (#60). A self-contained client-side script that reads the
+ * page's OWN `LocalBusiness` JSON-LD `openingHours`, computes open/closed for the
+ * visitor's local time, and renders a small fixed bottom-right pill ("● Open now"
+ * / "Closed · opens 9 AM"). Live (client-side) so it's never stale behind the CDN.
+ *
+ * FAIL-SAFE: if no JSON-LD `openingHours` is found, or NOTHING parses, the badge
+ * is NOT rendered — a wrong "Open now" would mislead customers, so silence beats
+ * a guess. Parses the standard schema.org string form `"Mo-Fr 09:00-17:00"`
+ * (single or array), including day-range wrap; unparseable entries are skipped.
+ *
+ * @returns HTML `<script>`+`<style>` to inject after `<body>`.
+ */
+export function generateOpenNowBadge(): string {
+  const js =
+    `(function(){try{` +
+    `var DAY={su:0,mo:1,tu:2,we:3,th:4,fr:5,sa:6};` +
+    `function mins(t){var m=/^(\\d{1,2}):(\\d{2})/.exec(t);return m?(+m[1])*60+(+m[2]):null}` +
+    `function fmt(x){var hh=(x/60)|0,mm=x%60,ap=hh>=12?'PM':'AM',h12=((hh+11)%12)+1;return h12+(mm?':'+(mm<10?'0':'')+mm:'')+' '+ap}` +
+    `var hours=[];var blocks=document.querySelectorAll('script[type="application/ld+json"]');` +
+    `for(var i=0;i<blocks.length;i++){try{var j=JSON.parse(blocks[i].textContent||'null');var arr=Array.isArray(j)?j:[j];` +
+    `for(var k=0;k<arr.length;k++){var oh=arr[k]&&arr[k].openingHours;if(oh)hours=hours.concat(Array.isArray(oh)?oh:[oh])}}catch(e){}}` +
+    `if(!hours.length)return;` + // no hours → no badge
+    `var now=new Date(),dow=now.getDay(),cur=now.getHours()*60+now.getMinutes();` +
+    `var parsed=false,open=false,nextOpen=null;` +
+    `for(var h=0;h<hours.length;h++){var m=/^([A-Za-z]{2})(?:\\s*-\\s*([A-Za-z]{2}))?\\s+(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})/.exec(String(hours[h]).trim());` +
+    `if(!m)continue;var d1=DAY[m[1].toLowerCase()],d2=m[2]?DAY[m[2].toLowerCase()]:d1;if(d1==null||d2==null)continue;` +
+    `var o=mins(m[3]),c=mins(m[4]);if(o==null||c==null)continue;parsed=true;` +
+    `var inDay=(d1<=d2)?(dow>=d1&&dow<=d2):(dow>=d1||dow<=d2);` +
+    `if(inDay){if(cur>=o&&cur<c)open=true;if(cur<o&&(nextOpen==null||o<nextOpen))nextOpen=o}}` +
+    `if(!parsed)return;` + // nothing parsed → fail-safe hide
+    `var label=open?'Open now':(nextOpen!=null?'Closed · opens '+fmt(nextOpen):'Closed');` +
+    `var el=document.createElement('div');el.id='ps-opennow';el.setAttribute('role','status');` +
+    `el.setAttribute('aria-label',label);el.className=open?'ps-on-open':'ps-on-closed';` +
+    `el.innerHTML='<span class="ps-on-dot"></span>'+label;document.body.appendChild(el)` +
+    `}catch(_){}})();`;
+  const css =
+    `#ps-opennow{position:fixed;bottom:12px;right:12px;z-index:99990;display:inline-flex;align-items:center;` +
+    `gap:6px;padding:5px 12px;border-radius:999px;font:600 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;` +
+    `background:rgba(255,255,255,.9);color:#0f172a;border:1px solid rgba(15,23,42,.12);box-shadow:0 2px 10px rgba(0,0,0,.12);backdrop-filter:blur(8px)}` +
+    `#ps-opennow .ps-on-dot{width:7px;height:7px;border-radius:50%}` +
+    `#ps-opennow.ps-on-open .ps-on-dot{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.18)}` +
+    `#ps-opennow.ps-on-closed .ps-on-dot{background:#ef4444}` +
+    `@media(prefers-color-scheme:dark){#ps-opennow{background:rgba(15,23,42,.82);color:#e2e8f0;border-color:rgba(255,255,255,.14)}}` +
+    `@media print{#ps-opennow{display:none}}`;
+  return `<script>${js}</script><style>${css}</style>`;
+}
+
+/**
  * Generate the "Wow → Own → Buy" conversion flow for unpaid sites.
  *
  * Two components injected:
@@ -1166,6 +1214,9 @@ async function buildSiteResponse(
     if (isServedSiteCookieless(env)) {
       bodyInjection += generateNoCookiesBadge();
     }
+    // #60: live "Open now" badge — self-gates client-side on the page's own
+    // LocalBusiness JSON-LD openingHours (renders nothing when absent/unparseable).
+    bodyInjection += generateOpenNowBadge();
     if (bodyInjection) {
       html = html.replace(/(<body[^>]*>)/i, `$1\n${bodyInjection}\n`);
     }

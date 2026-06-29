@@ -5,6 +5,7 @@ import {
   injectAppShellHero,
   isServedSiteCookieless,
   generateNoCookiesBadge,
+  generateOpenNowBadge,
   injectSectionInstrumentation,
 } from '../services/site_serving';
 import type { Env } from '../types/env';
@@ -37,6 +38,33 @@ describe('injectSectionInstrumentation (AN26 #112)', () => {
   it('leaves non-section markup untouched', () => {
     const html = '<div id="services">x</div><p>y</p>';
     expect(injectSectionInstrumentation(html)).toBe(html);
+  });
+});
+
+describe('open-now badge (#60)', () => {
+  const b = generateOpenNowBadge();
+
+  it('reads the page’s own LocalBusiness JSON-LD openingHours client-side', () => {
+    expect(b).toContain("script[type=\"application/ld+json\"]");
+    expect(b).toContain('.openingHours');
+  });
+
+  it('is fail-safe — renders nothing when there are no hours OR nothing parses', () => {
+    expect(b).toContain('if(!hours.length)return');
+    expect(b).toContain('if(!parsed)return');
+  });
+
+  it('computes open/closed with a day-range + time-range parse and a next-open label', () => {
+    expect(b).toContain('Open now');
+    expect(b).toContain("'Closed · opens '");
+    expect(b).toContain('var inDay='); // day-range (with wrap) check
+    expect(b).toContain("el.id='ps-opennow'");
+  });
+
+  it('is print-hidden + dark-mode aware + fully try/catch-guarded', () => {
+    expect(b).toContain('@media print');
+    expect(b).toContain('prefers-color-scheme:dark');
+    expect(b).toContain('}catch(_){}})();');
   });
 });
 
