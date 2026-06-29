@@ -6,11 +6,23 @@
 >
 > **The finishing-loop cron drains this file.**
 >
-> **📦 Last ship: 2026-06-29 — OpenMeter removed, StripeMetersProvider shipped, per-unit billing (token/GB/min).** See § Ship Log below.
+> **📦 Last ship: 2026-06-29 — Monumental Platform Initiatives spec'd (5 multi-month builds) + OpenMeter removed, StripeMetersProvider shipped, per-unit billing (token/GB/min).** See § Ship Log below.
 
 ---
 
 ## 📦 Ship Log — 2026-06-29
+
+### Monumental Platform Initiatives spec'd (2026-06-29)
+
+| Initiative | Est. Dev-Months | Already-in-Place |
+|------------|:-:|---|
+| 1. Workers for Platforms — CF-Native Full-Stack Hosting | 2–3 | site_serving, app_provisioner, DO runtime, db_allocation, domain_stack, apps routes |
+| 2. Public Developer API Platform | 2–3 | Unkey LIVE, StripeMeters LIVE, 24 specced LOOP-API tasks, api-key middleware |
+| 3. AI-Powered Visual Site Builder | 2 | ide_sandbox, bolt editor, visual_point_edit, generative_ui_stream |
+| 4. Site Analytics Suite (CF Analytics Engine → expand) | 1–2 | cf_analytics, analytics pipeline, analytics dashboard (58K), site_analytics module |
+| 5. Instant Preview Environments | 1–2 | site_branches, snapshot_restore, preview_share_card (LIVE), R2 versioning |
+
+Full specs with implementation spines in new `## 🏗 Monumental Platform Initiatives` section (inserted after Lead Scanner, before Tier 2).
 
 ### OpenMeter → Stripe Meters migration (COMPLETE)
 
@@ -141,6 +153,182 @@ ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
 - [x] **Coverage + funnel dashboard** — AGGREGATION CORE DONE (2026-06-29). `services/coverage_summary.ts` — pure `summarizeCoverage(scanRuns, leads)` → `{zipsScanned (distinct, deduped), lastScanAt, totalLeads, byTier (A–D), contactRate (contacted-or-beyond ÷ total), buildTriggered, claimed, pipelineValueCents (non-lost only)}`. Zero-I/O, all-zero on empty, never throws; keyed to the `PropensityTier`/`LeadStage` types so it composes the rest of the Lead Scanner. 6 unit tests, tsc 0, worker→CI. The dashboard UI renders this summary — consistent with the arc's other core ticks (#87/#94/#96/#98); the admin coverage panel is the thin wiring follow-on. [DONE core]
 - [x] **Auto-suppression + compliance + dedupe** — CORE DONE (2026-06-29). `services/lead_suppression.ts` — pure `dedupeKey(b)` (externalId → name|address fallback) + `filterContactable(candidates, {claimedExternalIds, optedOutEmails, bouncedEmails})` → contactable, deduped, order-preserving list + per-reason drop counts (`duplicate`/`claimed`/`opted_out`/`bounced` — feeds the coverage dashboard #97). Case-insensitive; keeps no-identity candidates; composes the existing `email_suppressions` (bounced) source. NEVER re-contacts a claimed/opted-out/bounced business. 9 unit tests, tsc 0, worker→CI. (Zero-I/O core; orchestrator #87 resolves the suppression sets from D1 + runs this gate before outreach spend.) [DONE core]
 - [x] **CRM go-live + scan-route wiring** — DONE 2026-06-28 (Brian provided the Twenty API key). ✅ `TWENTY_API_URL`=https://crm.projectsites.dev + `TWENTY_API_KEY` set as prod worker secrets. ✅ Twenty REST confirmed LIVE; it **400s unknown fields** → provisioned **11 Company custom fields** via the metadata API (leadScore/payTier/outreachChannel/leadSource/externalId/workEmail/leadPhone/leadCategory/emailConfidence/addressConfidence/hasWebsite; objectMetadataId `ff35f144…`). ✅ `crm_leads` rewritten to the real shape (composite `address`, custom fields, `data.createCompany.id`, externalId dedupe) + **live create+delete verified** (HTTP 201). ✅ Live OSM→CRM route `POST /api/admin/leads/scan-osm` (super-admin + `lead_scanner` flag) wired (commits `d10b8d82`+`791f8f88`, worker→CI). ✅ `lead_scanner` flag enabled global/100%. **REMAINING (verification, not gated):** authed prod route-smoke after CI worker-deploy (direct curl is BFM-403'd → browser/E2E super-admin session); optional cron geo-sweep for unattended automation. Pipeline LIVE end-to-end. [DONE]
+
+## 🏗 Monumental Platform Initiatives — Multi-Month Builds (Brian directive 2026-06-29)
+
+> Five consolidated platform-scale initiatives from a codebase-wide architecture scan. Each
+> represents a genuinely novel platform capability — not a feature, not a polish pass — that
+> would take a skilled developer **1–3 months** of dedicated work. These are the "next chapter"
+> items that sit ABOVE the finishing-loop cadence: each needs its own dedicated arc with
+> phased workstreams, not incremental loop-fire draining.
+>
+> **Consolidation note:** The original 10 ideas collapsed to 5 per Brian's direction:
+> Workers for Platforms + Container App Runtime merged (one CF-native hosting substrate,
+> Workers-only), Analytics starts with CF Analytics Engine piping into the existing dashboard,
+> and the rest ship as specced.
+
+### 1. Workers for Platforms — CF-Native Full-Stack Hosting Substrate [2–3 dev-months]
+
+**What:** Every customer site/app graduates from static R2 assets to a dispatch-namespace
+Worker with scoped D1/KV/R2/DO bindings, per-tenant CPU/subrequest caps, and true code
+isolation. Merges the old #1 (WfP) + #9 (Container App Runtime) — one substrate, CF-only.
+
+**Already in place:**
+- `src/services/site_serving.ts` (62K) — the current static-serving path
+- `src/services/app_provisioner.ts` + `app_runtime` DO — early app-provisioning skeleton
+- `src/services/db_allocation.ts` / `db_sharding.ts` / `db_shards.ts` — DB-per-tenant primitives
+- `src/services/domain_stack.ts` / `src/services/domains.ts` — per-app routing infra
+- `src/routes/apps.ts` (26K) — app CRUD surface
+- `apps/project-sites/infra/` — per-subsystem wrangler configs
+
+**Implementation spine:**
+1. Workers for Platforms dispatch namespace — per-customer Worker isolate with CPU/subrequest caps
+2. Binding scoping — D1 DB-per-app, KV namespace-per-app, R2 prefix-per-app, DO class-per-app
+3. `wrangler deploy` from the platform — customer code → build → WASM-harden → live in <60s
+4. Per-app environment variables (AES-GCM encrypted, reusing `ai_env_vars.ts` patterns)
+5. Usage metering per app (CPU ms, requests, bandwidth, D1 rows) feeding Stripe Meters
+6. App health monitoring with auto-restart (DO alarm pattern)
+7. Build logs, deploy history, instant rollback (`wrangler rollback` per-app)
+8. Migration of `site_serving` to multi-tenant dispatch — every `{slug}.projectsites.dev` is a Worker
+9. Admin UI — app detail page with deploy history, env vars, logs, health, usage charts
+10. Free-tier guardrails — CPU cap, bandwidth cap, request cap, cold-start budget
+
+**Why it's the keystone:** Every other monumental initiative (#2–#5) runs ON this substrate.
+Without it, projectsites is a static-site host with a generator bolted on. With it, projectsites
+is the edge application platform the STRATEGY.md thesis demands.
+
+### 2. Public Developer API Platform [2–3 dev-months]
+
+**What:** A production-grade public API at `api.projectsites.dev` with typed SDKs (TS/Python),
+OpenAPI 3.1 + Scalar docs, per-key metered billing, and a self-serve developer portal.
+The LOOP_LEDGER § api.projectsites.dev — Unkey has 24 specced tasks; this is the
+revenue-facing product layer ON TOP of that key-management spine.
+
+**Already in place:**
+- `src/services/unkey.ts` — Unkey client (LIVE at api.projectsites.dev)
+- `src/services/billing_provider_stripe.ts` — Stripe Meters billing pipeline (LIVE)
+- `src/middleware/api-keys.ts` + `src/middleware/rate_limit.ts` — auth/rate-limit middleware
+- `src/services/usage_metering.ts` (17K) — usage event pipeline
+- `src/routes/openapi.ts` — OpenAPI serving stub
+- `LOOP-API-001` through `LOOP-API-024` — 24 specced Unkey API tasks (unimplemented)
+- `libs/features/platform_mcp/` — MCP server already exposes platform tools
+
+**Implementation spine:**
+1. Ship the 24 LOOP-API tasks (key mgmt, scoping, rotation, revocation, rate limits, quotas)
+2. OpenAPI 3.1 spec for all `/api/v1/*` routes — Zod-derived via `@asteasolutions/zod-to-openapi`
+3. Scalar API reference at `docs.projectsites.dev/api` — served from R2
+4. Typed SDKs — `@projectsites/sdk` (TS), `projectsites` (PyPI) — generated from OpenAPI
+5. Stripe Meters billing enforcement — per-key usage → Tinybird → Stripe meter → invoice
+6. AI credit metering — separate credit pool for AI-backed routes, model-priced
+7. Self-serve developer portal — `/admin/api-keys` with create/rotate/revoke, usage charts
+8. SDK quickstart snippets (curl, TS, Python) with retry-on-429 + rotation guidance
+9. Abuse/anomaly detection — per-key spike/geo/error-rate monitoring → auto-throttle
+10. MCP/agent keys — scoped `psk_` keys for AI agents with per-tool permissions
+
+**Revenue model:** Usage-based billing (requests + AI credits + bandwidth) on paid plans.
+Free tier gets a generous monthly quota. The API IS the paid-tier differentiator — any
+integration, any agent, any automation runs through it.
+
+### 3. AI-Powered Visual Site Builder [2 dev-months]
+
+**What:** A drag-and-drop visual page builder (GrapesJS) where AI generates sections and the
+site owner visually rearranges, tweaks, and publishes. This is the third editor view alongside
+code (Monaco) and preview (iframe) — the one non-technical owners actually use.
+
+**Already in place:**
+- `src/services/ide_sandbox.ts` (19K) — sandboxed code execution
+- `src/services/bolt_*.ts` + `editor_chats.ts` — bolt.diy editor integration
+- `src/services/visual_point_edit.ts` feature module — visual editing primitives
+- `src/services/build_validators.ts` (33K) — 13 quality gates that would validate builder output
+- `src/services/site_serving.ts` — the serve path a builder-published site takes
+- `libs/features/generative_ui_stream/` — streaming UI generation
+- `libs/features/edge_personalization/` — per-visitor content adaptation
+
+**Implementation spine:**
+1. GrapesJS integration with custom block types matching generated-site components
+2. Block catalog — heroes, stats, testimonials, pricing tables, FAQ, contact forms, galleries
+3. AI section generation — "add a testimonial section with 3 quotes from my Yelp reviews"
+4. Drag-to-rearrange → updates the Vite+React source (AST-aware, not regex)
+5. Visual-to-code round-trip — edit visually or in code, never out of sync
+6. Real-time preview as-you-edit (iframe hot-reload via Vite HMR)
+7. Undo/redo with version snapshots (reusing `site_branches.ts` + R2 versioning)
+8. Publish-from-builder — one button, same deploy pipeline as AI-generated sites
+9. Component marketplace — community-contributed blocks, installable per site
+10. Mobile-responsive editing — resize the canvas, see breakpoints live
+
+### 4. Site Analytics Suite — CF Analytics Engine First [1–2 dev-months]
+
+**What:** Every generated site gets a lightweight analytics dashboard showing visitor counts,
+page views, top referrers, and conversion events — powered by Cloudflare Analytics Engine
+(already sampling every `{slug}.projectsites.dev` request at the edge). Start by surfacing
+CF's existing data in the admin dashboard; expand toward session recording, heatmaps, and
+funnel analysis over time.
+
+**Already in place:**
+- `src/services/cf_analytics.ts` + `src/services/cloudflare_analytics.ts` (15K) — CF Analytics bindings
+- `src/services/analytics.ts` + `src/services/analytics_events.ts` — event capture pipeline
+- `src/services/analytics_tracker.ts` + `src/services/analytics_schema.ts` — tracking infra
+- `src/services/analytics_rollup.ts` + `src/services/analytics_query.ts` — aggregation layer
+- `src/services/analytics_exporter.ts` — data export
+- `src/services/funnel_conversion.ts` + `src/services/activation_funnel.ts` — funnel tracking
+- `libs/features/site_analytics/` — per-site analytics feature module
+- `libs/features/visitor_events_core/` — visitor event primitives
+- Admin: `analytics.component.ts` (58K), `analytics-dashboard`, `analytics-live` — dashboard surfaces
+- `POST /api/sites/:siteId/analytics/*` — per-site analytics API routes
+
+**Implementation spine (Phase 1 — CF-native, ship in weeks):**
+1. Pipe CF Analytics Engine data (requests, bandwidth, status codes, countries) into Tinybird
+2. Per-site dashboard widget — "Last 30 days" traffic summary card on site detail
+3. Top pages, top referrers, device breakdown — all from CF Analytics Engine (no client script)
+4. Conversion events (phone taps, direction requests, form submissions) from existing `data-ps-section` attribution
+
+**Phase 2 (expand over months):**
+5. Lightweight client beacon for click/scroll heatmaps (self-hosted, privacy-compliant)
+6. Session recording and replay (optional, gated behind consent)
+7. Conversion funnel builder — drag steps, see drop-off
+8. Automated insights — "Your /services page has a 90% bounce rate from mobile"
+9. Competitor traffic benchmarking — "Sites like yours average X visits/month"
+10. Export-to-Google-Sheets / CSV / scheduled email reports
+
+**Privacy posture:** CF Analytics Engine is server-side, no client script needed for core
+metrics. Heatmaps/recordings are opt-in, cookie-optional, GDPR-compliant. This is a
+differentiator vs GA4/Fathom/Plausible — analytics without the surveillance.
+
+### 5. Instant Preview Environments [1–2 dev-months]
+
+**What:** Every edit, every branch, every AI experiment gets its own live URL
+(`<hash>.preview.projectsites.dev`) instantly. Built on D1 database branching
+(copy-on-write) + R2 version pinning. The AI build pipeline gets preview-before-publish;
+owners get shareable review links; agents get sandbox URLs.
+
+**Already in place:**
+- `src/services/site_branches.ts` (11K) — site branching primitives
+- `src/services/snapshot_restore.ts` — snapshot/restore infra
+- `src/routes/site_branches.ts` — branch API routes
+- `src/services/preview_share_card.ts` — share-card generation (backend LIVE)
+- `libs/features/preview_share_card/` — share-card feature module (LIVE, flag-dark)
+- R2 versioning — already enabled on `SITES_BUCKET`
+- D1 Time Travel — 30-day PITR available
+- `src/workflows/site-generation.ts` (62K) — the build pipeline that would publish to preview first
+
+**Implementation spine:**
+1. Per-change URL generation — `<hash>.preview.projectsites.dev` resolves instantly
+2. R2 copy-on-write — each preview pins the site's R2 objects at publish time
+3. D1 preview branch per environment (D1 database branching, not full DB-per-preview)
+4. Preview environment comparison — side-by-side visual diff tool
+5. Comment/review overlay on preview URLs (for team/agency plans)
+6. Automatic cleanup — stale previews expire after N days with retention policies
+7. GitHub/Git integration — PR-preview auto-generation via GitHub Actions
+8. Access control — public, team-only, password-protected previews
+9. "Promote to live" — one click from preview → production (the existing deploy path)
+10. AI agent integration — the MCP `deploy_site` tool returns a preview URL first
+
+**Why it's transformative:** The AI build pipeline currently goes straight to production.
+Preview-first means every build is safe, every edit is reviewable, and the "vibe-code →
+production" pipeline gets a safety net. For agency/team plans, preview-with-comments is the
+collaboration surface that sells upgrades.
+
+---
 
 ## ⬆ Tier 2 — High value (paid levers, honesty bugs, conversion analytics, security)
 
