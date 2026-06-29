@@ -256,3 +256,5 @@ Remaining open clusters (autonomous-safe unless tagged ⚠):
 ## LOOP RESET — 2026-06-29 (full [auto] scope)
 
 **Brian: "Yes, do full auto"** — 779 previously untagged unchecked items now carry [auto]. The DONE gate covers the FULL backlog, not just the original ~76. The finishing loop re-arms at the same cadence (8,23,38,53).
+
+**Brian: "What about all the other ones?"** — stripped [parked]/[gated]/[dedicated] from all unchecked items, unified under [auto]. 876 total now gate the DONE script. Full scope: every Plane/Twenty/Listmonk/AP/global/seo/social item.
