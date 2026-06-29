@@ -2,8 +2,8 @@ import { Container, getContainer } from '@cloudflare/containers';
 
 /**
  * integrations.projectsites.dev — Nango (unified OAuth/integrations) on CF
- * Workers Containers. Stateless container; data in Neon Postgres. Mirrors
- * infra/listmonk. Server (dashboard + API) on :3003.
+ * Workers Containers. Stateless container; data in Neon Postgres + Upstash Redis.
+ * Self-hosted OSS image (nangohq/nango:managed-*). Server on :8080.
  */
 interface Env {
   NANGO_CONTAINER: DurableObjectNamespace<Nango>;
@@ -13,7 +13,7 @@ interface Env {
 }
 
 export class Nango extends Container<Env> {
-  defaultPort = 3003;
+  defaultPort = 8080;
   sleepAfter = '15m';
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -22,7 +22,7 @@ export class Nango extends Container<Env> {
       NANGO_ENCRYPTION_KEY: env.NANGO_ENCRYPTION_KEY,
       NANGO_REDIS_URL: env.NANGO_REDIS_URL,
       NANGO_SERVER_URL: 'https://integrations.projectsites.dev',
-      SERVER_PORT: '3003',
+      SERVER_PORT: '8080',
       NODE_ENV: 'production',
       TELEMETRY: 'false',
       FLAG_AUTH_ENABLED: 'false',
@@ -31,20 +31,13 @@ export class Nango extends Container<Env> {
     };
   }
 
-  /** Read the dashboard password from a Worker secret, or generate a random default. */
   private _resolveDashPass(env: Env & {NANGO_DASHBOARD_PASSWORD?: string}): string {
     if (env.NANGO_DASHBOARD_PASSWORD) return env.NANGO_DASHBOARD_PASSWORD;
-    // No secret set — generate a random password automatically (session-only).
-    // Set NANGO_DASHBOARD_PASSWORD via wrangler secret to make it persistent.
     const rand = crypto.getRandomValues(new Uint8Array(16));
     return Array.from(rand, b => b.toString(16).padStart(2, '0')).join('');
   }
 }
 
-/**
- * Branded 200 landing page shown when the Nango container is not yet running.
- * Matches the ProjectSites brand: dark-first, cyan accent, Space Grotesk font.
- */
 function landingPage(): Response {
   return new Response(
     `<!DOCTYPE html><html lang="en"><head>
@@ -61,26 +54,11 @@ body{min-height:100vh;background:#060610;color:#f4f4ff;font-family:'Space Grotes
 .status{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.7rem;
   letter-spacing:.18em;text-transform:uppercase;color:#f59e0b;margin-bottom:18px}
 .dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px #f59e0b;animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:#00e5ff;margin-bottom:12px}
-h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-bottom:14px;
-  background:linear-gradient(135deg,#fff,rgba(0,229,255,.85));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.sub{color:#94a3b8;font-size:1.05rem;margin-bottom:26px}
-.card{background:linear-gradient(145deg,rgba(13,13,40,.55),rgba(8,8,32,.7));border:1px solid rgba(0,229,255,.12);
-  border-radius:16px;padding:18px 20px;margin-bottom:14px}
-.card h2{font-size:.7rem;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px}
-.card p{color:#cbd5e1;font-size:.95rem}.card code{color:#00e5ff;font-family:'JetBrains Mono',monospace;font-size:.82rem}
-.host{font-family:'JetBrains Mono',monospace;color:#00e5ff;font-size:.82rem}
-a{color:#00e5ff;text-decoration:none}a:hover{text-decoration:underline}
-.foot{margin-top:24px;font-size:.82rem;color:#6b7785;text-align:center}
+a{color:#00e5ff;text-decoration:none}
 </style></head><body><div class="wrap">
 <div class="status"><span class="dot"></span>Provisioning</div>
-<div class="eyebrow">ProjectSites · OAuth Integrations Hub</div>
 <h1>Integrations</h1>
-<p class="sub">Third-party OAuth connections for your ProjectSites accounts, sites, and tools. Uses Nango for unified provider management.</p>
-<div class="card"><h2>Powered by</h2><p>Nango (<code class="host">nangohq/nango-server</code>) — open-source unified OAuth gateway. Wraps 200+ provider APIs into a single refresh-token surface.</p></div>
-<div class="card"><h2>What Lives Here</h2><p>The Nango container handles OAuth token exchange, refresh, and provider-API proxy for connected services: Mailchimp, HubSpot, GitHub, Slack, Notion, Linear, Discord, Google Calendar, and Calendly.</p></div>
-<div class="card"><h2>Status</h2><p>The container is provisioning. This page will automatically serve the Nango dashboard once the container is built and running.</p></div>
-<p class="foot">&larr; <a href="https://projectsites.dev/">projectsites.dev</a> · <a href="https://nango.dev">nango.dev</a></p>
+<p>The Nango container is starting. Dashboard will load automatically once ready.</p>
 </div></body></html>`,
     { status: 200, headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' } },
   );
