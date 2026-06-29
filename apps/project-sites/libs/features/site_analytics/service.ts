@@ -170,6 +170,48 @@ export async function getConversionsBySection(
   });
 }
 
+/** RFC-4180 escape: quote a field when it contains a comma, quote, or newline. */
+function csvField(value: unknown): string {
+  const s = value == null ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * AN42 — flatten an owner analytics summary to a portable two-column
+ * (`metric,value`) CSV for one-click export/download. Pure + deterministic;
+ * non-PII (counts only). The contact-source breakdown is emitted as
+ * `contacts.bySource.<source>` rows so nothing is lost.
+ *
+ * @param summary - A {@link SiteAnalyticsSummary}.
+ * @returns A CSV string with a header row + one row per metric.
+ *
+ * @example
+ * const csv = summaryToCsv(await getSiteAnalyticsSummary(env, org, site));
+ */
+export function summaryToCsv(summary: SiteAnalyticsSummary): string {
+  const rows: Array<[string, string | number]> = [
+    ['site_id', summary.siteId],
+    ['window_days', summary.windowDays],
+    ['generated_at', summary.generatedAt],
+    ['contacts.total', summary.contacts.total],
+    ['contacts.new_in_window', summary.contacts.newInWindow],
+    ['form_submissions.total', summary.formSubmissions.total],
+    ['form_submissions.new_in_window', summary.formSubmissions.newInWindow],
+    ['newsletter.confirmed', summary.newsletter.confirmed],
+    ['newsletter.total', summary.newsletter.total],
+    ['donations.raised_cents', summary.donations.raisedCents],
+    ['donations.count', summary.donations.count],
+    ['traffic.pageviews', summary.traffic.pageviews],
+    ['traffic.unique_sessions', summary.traffic.uniqueSessions],
+    ['traffic.conversions', summary.traffic.conversions],
+  ];
+  for (const s of summary.contacts.bySource) {
+    rows.push([`contacts.bySource.${s.source}`, s.count]);
+  }
+  const lines = ['metric,value', ...rows.map(([k, v]) => `${csvField(k)},${csvField(v)}`)];
+  return lines.join('\r\n');
+}
+
 /**
  * AN17 — per-form completion rate + abandonment. Counts the tracker's
  * `form_start` (first focus) vs `form_submit` events from `analytics_events`,

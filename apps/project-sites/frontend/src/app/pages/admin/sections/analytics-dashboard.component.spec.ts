@@ -28,19 +28,23 @@ describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
   const navigate = jasmine.createSpy('navigate');
   let apiPost: jasmine.Spy;
+  let apiGet: jasmine.Spy;
   let toastSuccess: jasmine.Spy;
 
   function make() {
     apiPost = jasmine
       .createSpy('post')
       .and.returnValue(of({ url: 'https://projectsites.dev/shared/analytics/tok', expiresAt: 1 }));
+    apiGet = jasmine
+      .createSpy('get')
+      .and.returnValue(of({ filename: 'analytics-site_1.csv', csv: 'metric,value\r\nx,1' }));
     toastSuccess = jasmine.createSpy('success');
     TestBed.configureTestingModule({
       imports: [AdminAnalyticsDashboardComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: qpm.asObservable() } },
         { provide: Router, useValue: { navigate } },
-        { provide: ApiService, useValue: { post: apiPost } },
+        { provide: ApiService, useValue: { post: apiPost, get: apiGet } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 'site_1' }) } },
         { provide: ToastService, useValue: { success: toastSuccess, error: jasmine.createSpy('error') } },
       ],
@@ -90,6 +94,13 @@ describe('AdminAnalyticsDashboardComponent', () => {
     const f = make();
     f.nativeElement.querySelector('[data-testid="share-readonly-btn"]').click();
     expect(apiPost).toHaveBeenCalledWith('/sites/site_1/analytics/share', {});
+  });
+
+  it('exports the selected site’s analytics CSV when the Export button is clicked (AN42)', () => {
+    const f = make();
+    f.nativeElement.querySelector('[data-testid="export-csv-btn"]').click();
+    expect(apiGet).toHaveBeenCalledWith('/sites/site_1/analytics/export');
+    expect(toastSuccess).toHaveBeenCalled();
   });
 
   it('lands on Social when ?tab=social', () => {

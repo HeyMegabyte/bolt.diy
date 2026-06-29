@@ -66,6 +66,14 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'soc
           (click)="shareReadOnly()">
           {{ sharing() ? 'Generating…' : '🔗 Share read-only link' }}
         </button>
+        <button
+          type="button"
+          data-testid="export-csv-btn"
+          class="px-3 py-1.5 rounded-lg text-[0.8rem] font-semibold border border-white/[0.1] bg-white/[0.02] text-text-secondary hover:text-white transition-all cursor-pointer disabled:opacity-50"
+          [disabled]="exporting()"
+          (click)="exportCsv()">
+          {{ exporting() ? 'Exporting…' : '⬇ Export CSV' }}
+        </button>
       </div>
     </div>
 
@@ -94,6 +102,8 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
 
   /** AN48 — busy guard while minting a read-only share link. */
   readonly sharing = signal(false);
+  /** AN42 — busy guard while exporting the analytics CSV. */
+  readonly exporting = signal(false);
 
   readonly tabs: ReadonlyArray<{ id: AnalyticsTab; label: string }> = [
     { id: 'overview', label: 'Overview' },
@@ -152,5 +162,45 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
           this.sharing.set(false);
         },
       });
+  }
+
+  /**
+   * AN42 — fetch the analytics summary as CSV and trigger a browser download.
+   * Busy-guarded; the data is non-PII aggregate counts.
+   */
+  exportCsv(): void {
+    if (this.exporting()) return;
+    const site = this.state.selectedSite();
+    if (!site) {
+      this.toast.error('Select a site first.');
+      return;
+    }
+    this.exporting.set(true);
+    this.api
+      .get<{ filename: string; csv: string }>(`/sites/${site.id}/analytics/export`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => {
+          this.downloadCsv(r.filename || 'analytics.csv', r.csv);
+          this.toast.success('Analytics CSV downloaded');
+          this.exporting.set(false);
+        },
+        error: () => {
+          this.toast.error('Couldn’t export analytics.');
+          this.exporting.set(false);
+        },
+      });
+  }
+
+  /** Trigger a client-side download of CSV text. Guarded for non-browser test envs. */
+  private downloadCsv(filename: string, csv: string): void {
+    if (typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') return;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

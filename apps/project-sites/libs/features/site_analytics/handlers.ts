@@ -24,6 +24,7 @@ import {
   getDailySeries,
   getConversionsBySection,
   getFormAnalytics,
+  summaryToCsv,
   siteOrgId,
 } from './service.js';
 import { mintShareToken, verifyShareToken } from './share.js';
@@ -99,6 +100,22 @@ siteAnalytics.get('/api/sites/:siteId/analytics/forms', async (c) => {
 
   const forms = await getFormAnalytics(c.env, siteId, windowDays);
   return c.json(forms);
+});
+
+// AN42 — one-click owner data export. Returns the analytics summary as a
+// portable CSV (non-PII counts) for download. Owner+flag gated. The delete half
+// of GDPR portability is the existing owner site-delete + per-visitor dsar.
+siteAnalytics.get('/api/sites/:siteId/analytics/export', async (c) => {
+  const g = await requireOrgFlag(c, FLAG_KEY);
+  if (g instanceof Response) return g;
+
+  const siteId = c.req.param('siteId');
+  const owner = await siteOrgId(c.env, siteId);
+  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+
+  const summary = await getSiteAnalyticsSummary(c.env, g.orgId, siteId, 30);
+  const csv = summaryToCsv(summary);
+  return c.json({ filename: `analytics-${siteId}.csv`, csv });
 });
 
 // AN48 — mint a public, read-only, time-boxed share link for this site's
