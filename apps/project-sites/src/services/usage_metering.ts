@@ -511,11 +511,14 @@ export async function meterBandwidthEgress(
       occurredAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn', service: 'usage_metering',
-      message: 'meterBandwidthEgress failed',
-      error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'meterBandwidthEgress failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 
