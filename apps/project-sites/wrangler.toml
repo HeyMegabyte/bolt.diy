@@ -155,7 +155,7 @@ class_name = "PseoGenerationWorkflow"
 [ai]
 binding = "AI"
 
-# Browser Rendering (Playwright on Workers, no Docker) powers the per-feature E2E check runner + screenshot/AI-vision QA.
+# Browser Rendering (Playwright on Workers, no Docker). Powers E2E checks and screenshot QA.
 [browser]
 binding = "BROWSER"
 

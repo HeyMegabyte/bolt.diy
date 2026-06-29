@@ -131,6 +131,7 @@ for (const purpose of BROWSER_PURPOSES) {
             400,
           );
         }
+        const startMs = Date.now();
         const { runner, release } = await cfBrowserRunner(c.env);
         try {
           const result = await runArtifactJob(
@@ -143,6 +144,16 @@ for (const purpose of BROWSER_PURPOSES) {
           return c.json({ ...routed, ...result }, 200);
         } finally {
           await release();
+          // Meter browser usage through StripeMetersProvider (Metronome-compatible).
+          const { meterCompletedBrowserJob } = await import(
+            '../services/browser_gateway.js'
+          );
+          void meterCompletedBrowserJob(c.env, {
+            orgId: parsed.data.tenantId,
+            siteId: parsed.data.siteId,
+            startMs,
+            purpose,
+          });
         }
       }
 
