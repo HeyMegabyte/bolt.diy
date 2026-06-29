@@ -1,0 +1,76 @@
+name: Nango Deploy (integrations.projectsites.dev)
+
+# Builds + deploys the Nango AGPL container Worker (apps/project-sites/infra/nango).
+# The GitHub runner provides Docker (amd64), so wrangler builds the nangohq/nango-server
+# image + pushes it to Cloudflare's container registry as part of deploy. No local Docker needed.
+#
+# Triggers: manual (workflow_dispatch) or push touching the nango infra dir.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/infra/nango/**'
+      - '.github/workflows/nango-deploy.yaml'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  deploy:
+    name: Build Nango container + deploy Worker
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: apps/project-sites/infra/nango
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Verify Docker available on runner
+        run: docker version
+
+      - name: Install deps (resolves @cloudflare/containers for bundling)
+        run: npm install --no-audit --no-fund
+
+      - name: Deploy Worker + build Nango image
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: |
+          set -o pipefail
+          npx --yes wrangler@4 deploy 2>&1 | tee deploy.log
+
+      - name: Set Worker secrets (injected into the Nango container at runtime)
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          NANGO_DATABASE_URL: ${{ secrets.NANGO_DATABASE_URL }}
+          NANGO_ENCRYPTION_KEY: ${{ secrets.NANGO_ENCRYPTION_KEY }}
+        run: |
+          for n in NANGO_DATABASE_URL NANGO_ENCRYPTION_KEY; do
+            eval "v=\$$n"
+            printf '%s' "$v" | npx --yes wrangler@4 secret put "$n"
+          done
+
+      - name: Wake container (re-deploy for secrets) + verify liveness
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: |
+          echo "Re-deploying so the container picks up the secrets..."
+          npx --yes wrangler@4 deploy >/dev/null 2>&1 || true
+          # Nango runs DB migrations on first boot against Neon Postgres — give it time.
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://integrations.projectsites.dev/ || echo 000)
+            echo "attempt $i: integrations.projectsites.dev -> $code"
+            [ "$code" = "200" ] && { echo "✓ Nango is serving"; exit 0; }
+            sleep 20
+          done
+          echo "::warning::integrations.projectsites.dev not 200 yet — container may still be running first-boot migrations; check container state."
