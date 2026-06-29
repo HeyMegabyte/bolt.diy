@@ -220,6 +220,117 @@
 
 ---
 
+## 🔌 Integrations roadmap — Plane · Twenty CRM · Listmonk · Whole-app (added 2026-06-29)
+
+> Web-researched + classified. `[auto]` = loop builds; `[gated]` = needs a Brian decision; `[dedicated]` = real but needs a supervised session. Foundation rule: each app gets a typed, Zod-validated, AGPL-isolated HTTP client (`src/services/<app>.ts`) + an HMAC webhook receiver on a workers.dev URL (Bot-Fight-safe) + a rate-limit/retry/idempotency wrapper — those unblock everything below.
+
+### Plane (pm.projectsites.dev)
+- [ ] [dedicated] **PL1 backups + tested restore** — nightly TiDB export/branch-snapshot + R2 versioning + Upstash backup; concrete RPO/RTO; quarterly restore drill. (We have ZERO Plane backups today.)
+- [ ] [auto] **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`.
+- [ ] [dedicated] **PL3 ClickHouse → unlock analytics** — run a ClickHouse CF Container (or Tinybird) so Plane dashboards/charts/Plane-AI-charts work (omitted in our v1).
+- [ ] [auto] **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged).
+- [ ] [gated] **PL5 SSO** — OIDC via Better Auth for pm.projectsites.dev (auth-provider + rollout decision).
+- [ ] [auto] **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule).
+- [ ] [auto] **PL7 version-pin + upgrade cadence** — pin `PLANE_VERSION`, documented monthly upgrade rhythm + owner.
+- [ ] [auto] **PL8 project-per-customer** — each generated site/customer auto-creates a Plane project (seeded states/cycles).
+- [ ] [auto] **PL9 build failures → work items** — failed site-gen becomes a triaged Plane issue (mirrors the Sentry integration).
+- [ ] [auto] **PL10 support requests → intake queue** — route projectsites contact/feedback into Plane intake.
+- [ ] [auto] **PL11 tasks in admin cockpit** — surface "your project tasks" in /admin via the read API.
+- [ ] [auto] **PL12 webhooks → psnotify** — HMAC-verified Plane events fan into the unified notification center.
+- [ ] [auto] **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing.
+- [ ] [auto] **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items.
+- [ ] [auto] **PL15 voice → Plane** — LiveKit voice agent creates work items from calls.
+- [ ] [auto] **PL16 LLM intake auto-triage** — DeepSeek/Workers-AI sets priority/assignee/labels before a human looks.
+- [ ] [auto] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack.
+- [ ] [auto] **PL18 duplicate/enrich gate** — issue-created webhook → agent flags dupes + fleshes description.
+- [ ] [auto] **PL19 GitHub ↔ Plane** — link commits/PRs to work items; deploys auto-close issues.
+- [ ] [auto] **PL20 typed Plane API client** — `src/services/plane.ts` (Zod, AGPL HTTP boundary). Foundation. `PLANE_API_KEY` saved.
+- [ ] [auto] **PL21 HMAC webhook receiver** — workers.dev URL, BFM-safe, routes events to D1/Queues/psnotify.
+- [ ] [auto] **PL22 rate-limit wrapper** — 60-req/min token bucket + retry-backoff (reuse the shim pattern).
+- [ ] [auto] **PL23 project template seeder** — standard states/labels/cycle templates per new project.
+- [ ] [auto] **PL24 /loop ↔ Plane** — finishing-loop creates/updates real Plane work items (queryable backlog vs this file).
+- [ ] [gated] **PL25 public status page** — Plane incident issues → status page (product/design decision).
+
+### Twenty CRM (crm.projectsites.dev) — internal sales/ops + customer-facing feature
+- [ ] [auto] **TW1 typed Twenty client** — `src/services/twenty.ts` (REST+GraphQL, Zod, AGPL HTTP boundary). Foundation.
+- [ ] [auto] **TW2 webhook receiver** — Twenty filtered events (create/update) → D1/Queues/psnotify.
+- [ ] [dedicated] **TW3 backups + restore** — Twenty Neon Postgres + storage; RPO/RTO.
+- [ ] [auto] **TW4 observability** — logs/metrics + crash alerts to our stack.
+- [ ] [gated] **TW5 SSO** — OIDC via Better Auth for crm.projectsites.dev.
+- [ ] [auto] **TW6 signups → People/Companies** — projectsites signups auto-captured as Twenty leads.
+- [ ] [auto] **TW7 payments → deals** — Stripe/Square events → Twenty opportunities (revenue pipeline).
+- [ ] [auto] **TW8 build → Company+Person+Opportunity** — every new projectsites build seeds CRM records.
+- [ ] [auto] **TW9 lifecycle automation** — free→trial→paid stage moves via Twenty workflows + our webhooks.
+- [ ] [auto] **TW10 lead enrichment** — Google-Places/research we already gather → Twenty custom fields.
+- [ ] [auto] **TW11 churn/at-risk → task** — our analytics trigger a Twenty follow-up task.
+- [ ] [auto] **TW12 AI sales digest** — pipeline summary via API → SES/Slack.
+- [ ] [auto] **TW13 voice → Twenty** — receptionist logs calls/notes + creates contacts.
+- [ ] [auto] **TW14 email ↔ Twenty timeline** — Listmonk/SES sends+opens logged to the contact activity.
+- [ ] [auto] **TW15 MCP → our agents** — connect Twenty's MCP server (create deals, update pipeline).
+- [ ] [auto] **TW16 LLM lead scoring** — score on enrichment data → Twenty custom field.
+- [ ] [auto] **TW17 AI outreach drafts** — LLM drafts attached to opportunities (review-gated send).
+- [ ] [auto] **TW18 dedupe + merge suggestions** — duplicate contact/company detection.
+- [ ] [gated] **TW19 CRM-as-a-feature** — provision a scoped Twenty workspace per customer (product/pricing).
+- [ ] [gated] **TW20 site contact-forms → owner CRM** — generated-site leads flow to the site-owner's CRM.
+- [ ] [dedicated] **TW21 embed CRM view in admin** — site-owner Twenty view with multi-tenant isolation.
+- [ ] [auto] **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host).
+- [ ] [auto] **TW23 workflow/serverless templates** — ship no-Zapier automations (the Twenty 2.0 apps framework).
+- [ ] [gated] **TW24 plan-gate CRM in billing** — Pro-tier pricing decision.
+
+### Listmonk (mail.projectsites.dev) — our email + customer-facing feature
+- [ ] [auto] **LM1 typed Listmonk client** — `src/services/listmonk.ts` (Zod, AGPL HTTP boundary). Foundation.
+- [ ] [auto] **LM2 SES SNS bounce processing** — wire the built-in SNS endpoint; hard=block@1, soft=block@3 (deliverability gap; reputation-critical).
+- [ ] [auto] **LM3 split marketing vs transactional** — multi-SMTP load-balance so reputations don't cross-contaminate.
+- [ ] [dedicated] **LM4 backups + restore** — Listmonk Postgres + R2 media; RPO/RTO.
+- [ ] [auto] **LM5 observability** — logs/metrics + queue-depth alerts.
+- [ ] [gated] **LM6 API-token/role governance** — least-privilege tokens for mail.projectsites.dev.
+- [ ] [auto] **LM7 transactional via Listmonk** — route projectsites magic-links/receipts/build-done through the transactional API.
+- [ ] [auto] **LM8 signups → lists** — auto-subscribe (double-opt-in) projectsites users.
+- [ ] [auto] **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler.
+- [ ] [auto] **LM10 D1 segments → queries** — sync active/trial/churned cohorts for targeted campaigns.
+- [ ] [auto] **LM11 archive + signup embed** — public newsletter archive + signup on projectsites marketing.
+- [ ] [auto] **LM12 open/click → analytics** — tracking into Tinybird/PostHog funnels.
+- [ ] [auto] **LM13 AI campaign drafts** — LLM → Listmonk templates (newsletter/changelog), review-gated.
+- [ ] [auto] **LM14 preference center** — unsubscribe/prefs wired to our user prefs (psnotify).
+- [ ] [auto] **LM15 bounce/complaint → suppression sync** — propagate to Twenty + cross-system suppression.
+- [ ] [auto] **LM16 AI send-time/subject optimization** — A/B via Listmonk + our model.
+- [ ] [auto] **LM17 per-recipient personalization** — Go-template + our custom subscriber attributes.
+- [ ] [gated] **LM18 email-as-a-feature** — provision scoped lists per customer (site-owners send to their audiences).
+- [ ] [gated] **LM19 site contact-form → owner list** — opt-in capture on generated sites.
+- [ ] [dedicated] **LM20 multi-tenant isolation + per-customer SES identities/domains** — sending-domain separation.
+- [ ] [gated] **LM21 plan-gate sending quotas** — Pro-tier pricing decision.
+- [ ] [auto] **LM22 branded transactional templates** — per-site logo/colors from `_brand.json`.
+- [ ] [auto] **LM23 deliverability dashboard** — bounce/complaint rates surfaced in /admin.
+- [ ] [auto] **LM24 rate-limit/retry wrapper** — idempotent Listmonk client (reuse the shim retry pattern).
+
+### Whole-app — platform-wide (the self-hosted suite: sites · PM · CRM · email · keys · CMS · voice)
+- [ ] [dedicated] **AP1 platform backup/restore runbook** — ALL stateful stores (D1, R2, TiDB, every Neon DB, every Upstash, container DBs); per-store RPO/RTO; one drill. (No backups exist platform-wide — biggest risk.)
+- [ ] [auto] **AP2 unified service-health dashboard** — live status of every container/worker in /admin + the crash-loop alert class.
+- [ ] [auto] **AP3 CF-Container hardening baseline** — shared template baking every hard-won lesson (`mkdir /dev/shm`, amd64 pin + CACHEBUST, keep-warm cron, health route, observability).
+- [ ] [auto] **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Unkey/Twenty pattern.
+- [ ] [auto] **AP5 WAF-skip automation** — any new app subdomain serving POST auto-added to the zone skip rule (we hit this 3× pm/api/r2s3) + a gate.
+- [ ] [auto] **AP6 reusable R2 POST-Object shim** — generalize `plane-s3` for any S3-POST app on R2.
+- [ ] [gated] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS/Unkey dashboards via Better Auth/OIDC.
+- [ ] [auto] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs.
+- [ ] [auto] **AP9 secret-rotation calendar + automation** — ≤90d for all load-bearing vendor secrets.
+- [ ] [auto] **AP10 cost-per-service dashboard** — CF+Neon+Upstash+CloudAMQP+SES+TiDB spend per app.
+- [ ] [auto] **AP11 typed service registry** — one SERVICE_REGISTRY (url/health/secrets) for every self-hosted app, driving admin + clients.
+- [ ] [auto] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents.
+- [ ] [auto] **AP13 cross-app identity graph** — link a projectsites user → Plane member, Twenty person, Listmonk subscriber, Unkey keys (one customer view).
+- [ ] [dedicated] **AP14 DR game day** — simulate a store/region outage; verify wrangler rollback + D1 Time Travel + restores.
+- [ ] [auto] **AP15 aggregate uptime + status page** — external probe of all subdomains → public status.
+- [ ] [auto] **AP16 post-deploy smoke matrix** — automate verification-loop across every live subdomain.
+- [ ] [auto] **AP17 cross-boundary trace correlation** — propagate request/trace ids across worker↔container.
+- [ ] [gated] **AP18 data-residency review** — EU-default for new stores; audit existing (GDPR; one-way-door).
+- [ ] [auto] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies.
+- [ ] [auto] **AP20 one-signup platform provisioning** — a signup provisions site + (optional) CRM + email + PM workspaces.
+- [ ] [auto] **AP21 unified admin Cmd-K** — command palette + cross-app deep links across all admin surfaces.
+- [ ] [auto] **AP22 billing meter aggregation** — usage across apps → Stripe/Square (paid-tier foundation).
+- [ ] [auto] **AP23 shared client library** — one rate-limit/retry/idempotency lib used by every service client (stop re-implementing it).
+- [ ] [gated] **AP24 suite positioning** — bundle the self-hosted suite (PM+CRM+email+sites+keys) as the projectsites differentiator (strategy/pricing).
+
+---
+
 ## History
 
 Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Voice go-live (V0g) LIVE 2026-06-28** (agent `CA_dSUDxEC3EiP6` Running on LiveKit Cloud + Twilio Elastic SIP→LiveKit SIP trunk + dispatch; +12626864783 answers); #20 build-cap, #29 GDPR Art.17 cascade, #36 abuse-takedown, #45 onboarding-copilot, #48 built-with badge, #49 marketing GEO, AN6 owner-analytics route, V0b voice number-resolver, V33 AI disclosure, theme-polarity decision logic, SSRF + bot-gate hardening, speculation-rules, #44 owner-analytics dashboard.
