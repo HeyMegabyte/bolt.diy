@@ -15,7 +15,7 @@ describe('buildAnalyticsTracker', () => {
 
   it('attaches a stable per-tab sessionId from sessionStorage to every event (AN19)', () => {
     const t = buildAnalyticsTracker('s1');
-    expect(t).toContain("sessionStorage.getItem(k)");
+    expect(t).toContain('sessionStorage.getItem(k)');
     expect(t).toContain("'__ps_sid'");
     expect(t).toContain('var SID=sid()');
     expect(t).toContain('sessionId:SID');
