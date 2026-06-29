@@ -482,6 +482,43 @@ export async function meterEmailSend(
   }
 }
 
+/**
+ * Record bandwidth egress through StripeMetersProvider.
+ *
+ * Converts bytes → GB and emits `bandwidth_egress_gb` events.
+ * Call from site_serving after serving a response body.
+ * Metronome-compatible: same bridge works regardless of active provider.
+ */
+export async function meterBandwidthEgress(
+  env: Env,
+  opts: { orgId: string; siteId?: string | null; bytes: number },
+): Promise<void> {
+  if (opts.bytes <= 0) return;
+  const gb = opts.bytes / (1024 * 1024 * 1024);
+  if (gb < 0.001) return; // don't meter sub-MB transfers
+  try {
+    const provider = await createBillingProvider(env);
+    await provider.recordUsage({
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.orgId,
+      orgId: opts.orgId,
+      siteId: opts.siteId ?? undefined,
+      metric: 'bandwidth_egress_gb',
+      quantity: Math.round(gb * 1000) / 1000, // 3 decimal places
+      unit: 'gb',
+      source: 'site_serving',
+      occurredAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn', service: 'usage_metering',
+      message: 'meterBandwidthEgress failed',
+      error: err instanceof Error ? err.message : String(err),
+    }));
+  }
+}
+
 /** Re-export the static price table so route code uses one source of truth. */
 export { USAGE_TIERS } from '../constants/pricing.js';
 
