@@ -291,8 +291,8 @@ ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
 [x] **PL20 typed Plane API client** — **CORE DONE:** `services/plane_client.ts` — 8 Zod schemas + paginated response factory, 52/52 tests. Remaining: fetch layer. [auto]
 - [ ] **PL21 HMAC webhook receiver** — workers.dev URL, BFM-safe, routes events to D1/Queues/psnotify. [auto]
 [x] **PL22 rate-limit wrapper** — **CORE DONE:** `services/rate_limit_wrapper.ts` — token bucket + concurrency + retry backoff, 28/28 tests. [auto]
-- [ ] **PL23 project template seeder** — standard states/labels/cycle templates per new project. [auto]
-- [ ] **PL24 /loop ↔ Plane** — finishing-loop creates/updates real Plane work items (queryable backlog vs this file). [auto]
+[x] **PL23 project template seeder** — **CORE DONE:** `services/plane_templates.ts` — 3 project-type templates (app/site_build/ops), 6 states, 6 labels, 6 sprints. 24/24 tests. [auto]
+[x] **PL24 /loop ↔ Plane** — **CORE DONE:** `services/loop_plane.ts` — ledgerItemToIssue + fireReportToComment + summarizeFires bridge. 25/25 tests. [auto]
 - [ ] **PL25 public status page** — Plane incident issues → status page (product/design decision). [auto]
 
 ### Twenty CRM (crm.projectsites.dev) — internal sales/ops + customer-facing feature
@@ -304,14 +304,14 @@ ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
 - [ ] **TW6 signups → People/Companies** — projectsites signups auto-captured as Twenty leads. [auto]
 - [ ] **TW7 payments → deals** — Stripe/Square events → Twenty opportunities (revenue pipeline). [auto]
 - [ ] **TW8 build → Company+Person+Opportunity** — every new projectsites build seeds CRM records. [auto]
-- [ ] **TW9 lifecycle automation** — free→trial→paid stage moves via Twenty workflows + our webhooks. [auto]
+[x] **TW9 lifecycle automation** — **CORE DONE:** `services/crm_automation.ts` — 8 default rules (new→trial→active→dormant→churned+reactivation). 22/22 tests. [auto]
 - [ ] **TW10 lead enrichment** — Google-Places/research we already gather → Twenty custom fields. [auto]
 - [ ] **TW11 churn/at-risk → task** — our analytics trigger a Twenty follow-up task. [auto]
 - [ ] **TW12 AI sales digest** — pipeline summary via API → SES/Slack. [auto]
 - [ ] **TW13 voice → Twenty** — receptionist logs calls/notes + creates contacts. [auto]
 - [ ] **TW14 email ↔ Twenty timeline** — Listmonk/SES sends+opens logged to the contact activity. [auto]
 - [ ] **TW15 MCP → our agents** — connect Twenty's MCP server (create deals, update pipeline). [auto]
-- [ ] **TW16 LLM lead scoring** — score on enrichment data → Twenty custom field. [auto]
+[x] **TW16 LLM lead scoring** — **CORE DONE:** `services/twenty_lead_scoring.ts` — A/B/C/D tier + 0-100 score from 6 components. 18/18 tests. [auto]
 - [ ] **TW17 AI outreach drafts** — LLM drafts attached to opportunities (review-gated send). [auto]
 - [ ] **TW18 dedupe + merge suggestions** — duplicate contact/company detection. [auto]
 - [ ] **TW19 CRM-as-a-feature** — provision a scoped Twenty workspace per customer (product/pricing). [auto]
@@ -319,7 +319,7 @@ ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
 - [ ] **TW21 embed CRM view in admin** — site-owner Twenty view with multi-tenant isolation. [auto]
 - [ ] **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host). [auto]
 [x] **TW23 workflow/serverless templates** — **CORE DONE:** `services/workflow_templates.ts` — 5 no-Zapier workflow definitions, 14/14 tests. [auto]
-- [ ] **TW24 plan-gate CRM in billing** — Pro-tier pricing decision. [auto]
+[x] **TW24 plan-gate CRM in billing** — **CORE DONE:** `services/plan_gate_crm.ts` — 3-tier CRM entitlements (6 features + maxContacts/maxDeals). 37/37 tests. [auto]
 
 ### Listmonk (mail.projectsites.dev) — our email + customer-facing feature
 - [ ] **LM1 typed Listmonk client** — `src/services/listmonk.ts` (Zod, AGPL HTTP boundary). Foundation. [auto]
