@@ -54,12 +54,12 @@ export async function generateInvite(
   if (!hmacKey) throw new InviteTokenError('HMAC key must not be empty');
 
   const exp = Date.now() + EXPIRY_MS;
-  const payload: InvitePayload = { orgId, email, role, exp };
+  const payload: InvitePayload = { email, exp, orgId, role };
   const payloadB64 = encodeBase64Url(JSON.stringify(payload));
   const sig = await hmacSign(payloadB64, hmacKey);
   return {
-    token: `${payloadB64}.${sig}`,
     expiresAt: new Date(exp).toISOString(),
+    token: `${payloadB64}.${sig}`,
   };
 }
 
@@ -160,7 +160,7 @@ async function hmacSign(message: string, hmacKey: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
     rawKey,
-    { name: 'HMAC', hash: 'SHA-256' },
+    { hash: 'SHA-256', name: 'HMAC' },
     false,
     ['sign'],
   );

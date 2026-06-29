@@ -35,15 +35,15 @@ export type PlanTier = 'free' | 'starter' | 'pro' | 'enterprise';
 
 /** Human-readable label for each quota type, used in messages. */
 const QUOTA_LABELS: Record<QuotaType, string> = {
-  sites: 'sites',
-  pages: 'pages',
-  images: 'images',
-  storage_mb: 'storage',
-  custom_domains: 'custom domains',
-  team_members: 'team members',
-  builds_per_day: 'daily builds',
-  emails_per_day: 'daily emails',
   api_tokens: 'API tokens',
+  builds_per_day: 'daily builds',
+  custom_domains: 'custom domains',
+  emails_per_day: 'daily emails',
+  images: 'images',
+  pages: 'pages',
+  sites: 'sites',
+  storage_mb: 'storage',
+  team_members: 'team members',
 } as const;
 
 /** The result of a quota check. */
@@ -101,9 +101,9 @@ export function checkQuota(used: number, limit: number): CheckQuotaResult {
   if (safeLimit <= 0) {
     return {
       isExceeded: false,
-      used: safeUsed,
       limit: safeLimit,
       remaining: 0,
+      used: safeUsed,
       utilizationPercent: 0,
     };
   }
@@ -116,9 +116,9 @@ export function checkQuota(used: number, limit: number): CheckQuotaResult {
 
   return {
     isExceeded: safeUsed >= safeLimit,
-    used: safeUsed,
     limit: safeLimit,
     remaining,
+    used: safeUsed,
     utilizationPercent: pct,
   };
 }
@@ -185,12 +185,12 @@ export function quotaBlock(type: QuotaType, plan: PlanTier): QuotaBlockEnvelope 
   return {
     error: {
       code: 'QUOTA_EXCEEDED',
-      message: `You've reached your ${label} limit.`,
-      type,
-      used: 0,
       limit: 0,
+      message: `You've reached your ${label} limit.`,
       plan,
       suggestion,
+      type,
+      used: 0,
     },
   };
 }

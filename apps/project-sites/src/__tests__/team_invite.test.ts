@@ -55,12 +55,10 @@ describe('team_invite HMAC-signed tokens', () => {
 
   it('REJECTS a tampered signature (HMAC auth tag mismatch)', async () => {
     const { token } = await generateInvite('org_1', 'bob@example.com', 'member', KEY_A);
-    const [payloadB64, _sig] = token.split('.') as [string, string];
-    // Flip bits in the signature portion
-    const sigBytes = Uint8Array.from(
-      atob(_sig.replace(/-/g, '+').replace(/_/g, '').padEnd(_sig.length, '=')),
-      (c) => c.charCodeAt(0),
-    );
+    const [payloadB64, sigPart] = token.split('.') as [string, string];
+    // Decode base64url → base64 → raw bytes
+    const sigRaw = atob(sigPart.replace(/-/g, '+').replace(/_/g, '/'));
+    const sigBytes = Uint8Array.from(sigRaw, (c) => c.charCodeAt(0));
     const mid = Math.floor(sigBytes.length / 2);
     sigBytes[mid] = (sigBytes[mid] ?? 0) ^ 0xff;
     const tamperedSig = btoa(String.fromCharCode(...sigBytes))
