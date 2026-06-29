@@ -28,8 +28,8 @@ interface SectionCard {
   desc: string;
   link: string;
   glyph: string;
-  /** Extra search tokens + rendered as pills (gorgeous-by-default Half 1). */
   keywords?: readonly string[];
+  external?: boolean;
 }
 
 interface SectionGroup {
@@ -254,7 +254,22 @@ const RECENT_KEY = 'ps_dash_recents';
 
     <!-- ── Reusable section-card (anchor + pin button sibling) ──── -->
     <ng-template #cardTpl let-card="card">
-      <a class="sec-card" [routerLink]="card.link" (click)="recordOpen(card.link)" [attr.data-testid]="'dash-sec-' + card.glyph">
+      @if (card.external) {
+        <a class="sec-card" [href]="card.link" target="_blank" rel="noopener" [attr.data-testid]="'dash-sec-' + card.glyph">
+          <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
+          <span class="sec-body">
+            <strong class="sec-label">@for (p of parts(card.label); track $index) {<span>{{ p.pre }}</span>@if (p.hit) {<mark>{{ p.hit }}</mark>}<span>{{ p.post }}</span>}</strong>
+            <span class="sec-desc">{{ card.desc }}</span>
+            @if (card.keywords?.length) {
+              <span class="sec-tags" aria-hidden="true">
+                @for (kw of card.keywords; track kw) {<span class="tag">{{ kw }}</span>}
+              </span>
+            }
+          </span>
+          <span class="sec-cta" aria-hidden="true">↗</span>
+        </a>
+      } @else {
+        <a class="sec-card" [routerLink]="card.link" (click)="recordOpen(card.link)" [attr.data-testid]="'dash-sec-' + card.glyph">
         <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
         <span class="sec-body">
           <strong class="sec-label">@for (p of parts(card.label); track $index) {<span>{{ p.pre }}</span>@if (p.hit) {<mark>{{ p.hit }}</mark>}<span>{{ p.post }}</span>}</strong>
@@ -278,6 +293,7 @@ const RECENT_KEY = 'ps_dash_recents';
       >
         <app-cmd-glyph name="star" />
       </button>
+      }
     </ng-template>
   `,
   styles: [
@@ -878,6 +894,19 @@ export class AdminDashboardComponent {
     },
   ];
 
+  private readonly sysAdminTools: SectionGroup = {
+    title: 'More tools',
+    cards: [
+      { label: 'Mail', desc: 'Self-hosted Listmonk — newsletters, campaigns, and transactional email.', link: 'https://mail.projectsites.dev', glyph: 'mail', keywords: ['email', 'listmonk', 'newsletter', 'campaigns'], external: true },
+      { label: 'Plane', desc: 'Open-source project management — issues, cycles, and modules.', link: 'https://pm.projectsites.dev', glyph: 'briefcase', keywords: ['pm', 'plane', 'issues', 'cycles', 'projects'], external: true },
+      { label: 'CRM', desc: 'Twenty CRM — contacts, companies, deals, and workflows.', link: 'https://crm.projectsites.dev', glyph: 'users', keywords: ['twenty', 'crm', 'contacts', 'deals', 'sales'], external: true },
+      { label: 'Unkey', desc: 'API key management, rate limiting, and usage metering.', link: 'https://api.projectsites.dev', glyph: 'key', keywords: ['api', 'keys', 'rate-limit', 'metering'], external: true },
+      { label: 'Social', desc: 'Postiz social scheduler — compose, schedule, measure across networks.', link: 'https://social.projectsites.dev', glyph: 'send', keywords: ['postiz', 'posts', 'schedule', 'social-media'], external: true },
+      { label: 'Events', desc: 'Inngest durable workflows — event-driven background jobs.', link: 'https://events.projectsites.dev', glyph: 'zap', keywords: ['inngest', 'workflows', 'jobs', 'queues'], external: true },
+      { label: 'CMS', desc: 'Payload CMS — headless content management for teams.', link: 'https://cms.projectsites.dev', glyph: 'file-text', keywords: ['payload', 'content', 'headless', 'cms'], external: true },
+    ],
+  };
+
   /** Operator-only discovery card (Feature Flags) appended when the user is a sysadmin. */
   private readonly operatorCard: SectionCard = {
     label: 'Feature Flags',
@@ -889,7 +918,9 @@ export class AdminDashboardComponent {
 
   /** Groups shown in the default view — appends an operator-only "Operator" group when applicable. */
   readonly displayGroups = computed<readonly SectionGroup[]>(() =>
-    this.isSysAdmin() ? [...this.groups, { title: 'Operator', cards: [this.operatorCard] }] : this.groups,
+    this.isSysAdmin()
+      ? [...this.groups, { title: 'Operator', cards: [this.operatorCard] }, this.sysAdminTools]
+      : this.groups,
   );
 
   /** Flat list of every visible card (operator card included only for sysadmins). */
