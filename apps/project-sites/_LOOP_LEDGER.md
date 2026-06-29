@@ -69,6 +69,35 @@
 - [ ] [auto] **AI photo cleanup on upload** (`photo_cleanup`) — owner uploads a phone photo; AI removes background / upscales / color-corrects to hero quality (Replicate/Remove.bg already wired in media). Free-tier value that makes a small business look enterprise.
 - [ ] [auto] **One-tap seasonal hero restyle** (`seasonal_hero`) — AI re-skins the hero for the season/holiday on one tap (and can auto-revert), keeping a static SMB site feeling alive year-round. Pairs edge_personalization; a delightful retention loop.
 
+## 🛰 Lead Scanner — Automatic US "businesses-without-websites" engine (Brian directive 2026-06-28)
+
+> Rebuild the broken (always-0) Lead Scanner into an AUTOMATIC, US-wide database of businesses
+> without a real website, scored most-likely-to-pay → least, with email + mailing-address
+> confidence %, an editable scan-prompt controller, and a claim funnel. **Lead store = Twenty CRM
+> at `crm.projectsites.dev`** (NOT a bespoke D1 table — CRM owns the management table + pipeline).
+> Full design + 50 ideas + top-14: `docs/lead-scanner/automatic-engine.md`. Diagnosis of the 0-leads
+> bug: manual single-Places-query behind a default-off flag, no geo loop, no contact enrichment.
+>
+> SHIPPED 2026-06-28: pure scoring core `services/lead_propensity.ts` (`contactConfidence` email/address %
+> + channel email/postcard/both/none; `payPropensity` 0-100 + A–D tier; `rankLeads`) — 14/14 tests, commit
+> `c51ce988`. CRM sink `services/crm_leads.ts` (AGPL HTTP boundary, local types, `TWENTY_API_URL`/`TWENTY_API_KEY`;
+> pure `leadToCrmCompany` + never-throw `upsertLeadToCrm` POST /rest/companies, dark-skips when unconfigured)
+> — 9/9 tests, commit `f528cca0`. Both storage-agnostic; survived the D1→CRM pivot.
+
+- [ ] [auto] **Automatic geo×category orchestrator** — sweep zip/state × category via Queue/Workflow + cron; per-profile `daily_cap` cost guard; writes scored leads to Twenty CRM via `crm_leads`. Top-14 #3.
+- [ ] [auto] **OSM-first, Places-confirm provider chain** — free Overpass discovery (no-`website` POIs) → Places confirm only to spend budget wisely; pluggable provider interface. Top-14 #4.
+- [ ] [auto] **Editable scan profiles + /admin controller** — `scan_profiles` (name/geo/categories/providers/filters/query_template/schedule/daily_cap); operator changes the hunt verbiage (e.g. "incorporated <6 months") with NO redeploy. The "control the scanner prompts" widget. Top-14 #5.
+- [ ] [auto] **Email enrichment** — pattern-guess + DoH MX verify → `emailConfidence`; feeds channel router. Top-14 #6.
+- [ ] [auto] **USPS address verification** — verify deliverability BEFORE any Lob spend → `addressConfidence` gate. Top-14 #7.
+- [ ] [auto] **claimyour.site/<slug> claim funnel** — landing triggers the build + "we'll email you when ready"; explore /admin meanwhile; prominent "Cancel build → /create (2 min)" escape. Wire to existing `claim_*` services. Top-14 #8.
+- [ ] [auto] **Pre-built preview teaser in outreach** — thumbnail/Veo teaser of their FUTURE site embedded in the invite email (biggest CTR lever). Top-14 #9.
+- [ ] [auto] **CRM pipeline stages + claim webhook** — Discovered→Enriched→Contacted→Build-triggered→Preview-sent→Claimed/Lost; claimyour.site fire auto-advances the stage. Top-14 #10.
+- [ ] [auto] **SoS new-filings provider** — daily pull of <6-month incorporations (OH free bulk; aggregator NY/FL/CO/CT) = highest-intent leads; enrich for contacts. Top-14 #11.
+- [ ] [auto] **Channel router + drip sequence** — email/postcard/both per confidence; email→nudge→postcard→final, stop-on-claim; CAN-SPAM unsubscribe. Top-14 #12.
+- [ ] [auto] **Coverage + funnel dashboard** — ZIPs scanned + when, leads/tier, contact-rate, build-triggered, claimed, $ pipeline. Top-14 #13.
+- [ ] [auto] **Auto-suppression + compliance + dedupe** — never re-contact claimed/opted-out/bounced; dedupe on external_id (place_id / SoS filing id); per-state DNC/ToS. Top-14 #14.
+- [ ] [gated] **CRM go-live** — set `TWENTY_API_URL=https://crm.projectsites.dev` + `TWENTY_API_KEY` (workspace API key) as wrangler secrets; confirm Twenty's companies REST shape + custom fields (leadScore/payTier/confidences/channel/source); then flip `lead_scanner`. Brian-gated (workspace key + custom-field schema decision).
+
 ## ⬆ Tier 2 — High value (paid levers, honesty bugs, conversion analytics, security)
 
 ### Stop the lying UI (honesty bugs — P0-adjacent)
