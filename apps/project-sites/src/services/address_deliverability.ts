@@ -35,9 +35,62 @@ export interface AddressDeliverability {
 
 /** Two-letter USPS state/territory codes (incl. DC + common territories). */
 const STATE_CODES = new Set([
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
-  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
-  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC','PR','VI','GU','AS','MP',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC',
+  'PR',
+  'VI',
+  'GU',
+  'AS',
+  'MP',
 ]);
 
 const ZIP_RE = /\b\d{5}(?:-\d{4})?\b/;
@@ -75,7 +128,10 @@ export function assessAddressDeliverability(
   // State = a standalone 2-letter token (commonly just before the ZIP).
   const state = tokens.some((t) => STATE_CODES.has(t.toUpperCase().replace(/[^A-Z]/gi, '')));
   // City heuristic: a comma-separated segment that's alphabetic + isn't the state.
-  const segments = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const segments = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const city = segments.length >= 2 && /[a-z]{2,}/i.test(segments[1] ?? '');
 
   const parts = { streetNumber, street, city, state, zip: hasZip };

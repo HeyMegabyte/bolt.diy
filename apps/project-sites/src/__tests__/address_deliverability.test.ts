@@ -8,7 +8,13 @@ describe('assessAddressDeliverability (Lead Scanner #91 — Lob-spend gate)', ()
     const r = assessAddressDeliverability('74 N Beverwyck Rd, Lake Hiawatha, NJ 07034');
     expect(r.confidence).toBe(100);
     expect(r.deliverable).toBe(true);
-    expect(r.parts).toEqual({ streetNumber: true, street: true, city: true, state: true, zip: true });
+    expect(r.parts).toEqual({
+      streetNumber: true,
+      street: true,
+      city: true,
+      state: true,
+      zip: true,
+    });
     expect(r.reasons).toEqual([]);
   });
 
