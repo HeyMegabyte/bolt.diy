@@ -29,7 +29,11 @@ interface Env {
 }
 
 const ACCOUNT_ID = '84fa0d1b16ff8086dd958c468ce7fd59';
-const WEB_URL = 'https://pm.megabyte.space';
+// Canonical host = pm.projectsites.dev (Brian's project zone). Drives DOMAIN_NAME →
+// Django CSRF/CORS + Caddy. pm.megabyte.space stays a working alias (both routes forward
+// to the same container; Caddy binds :8080 for any Host).
+const WEB_URL = 'https://pm.projectsites.dev';
+const DOMAIN_NAME = 'pm.projectsites.dev';
 
 export class Plane extends Container<Env> {
   // Caddy listens on :8080 (NOT privileged :80) — CF Containers health-check this port and
@@ -48,7 +52,7 @@ export class Plane extends Container<Env> {
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(pairs)) if (typeof v === 'string' && v.length > 0) out[k] = v;
     // public origin + CORS. The AIO start.sh REQUIRES DOMAIN_NAME; Caddy binds SITE_ADDRESS.
-    out.DOMAIN_NAME = 'pm.megabyte.space';
+    out.DOMAIN_NAME = DOMAIN_NAME;
     out.APP_PROTOCOL = 'https';
     out.SITE_ADDRESS = ':8080'; // Caddy binds non-privileged :8080 (matches defaultPort above)
     out.WEB_URL = WEB_URL;
@@ -92,7 +96,7 @@ export default {
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       getContainer(env.PLANE, 'singleton')
-        .fetch(new Request('https://pm.megabyte.space/'))
+        .fetch(new Request('https://pm.projectsites.dev/'))
         .then(() => undefined)
         .catch(() => undefined),
     );

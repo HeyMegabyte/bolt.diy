@@ -4,9 +4,13 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# pm.megabyte.space → this Worker → the single Plane AIO container. Explicit custom_domain
-# (megabyte.space zone) — Plane is the only thing on this host.
+# pm.projectsites.dev (canonical) + pm.megabyte.space (alias) → this Worker → Plane AIO.
+# pm.projectsites.dev uses an EXPLICIT host route (not custom_domain): the main `project-sites`
+# worker owns `*.projectsites.dev/*`, and a custom_domain LOSES to that wildcard — a more-specific
+# `pm.projectsites.dev/*` route WINS (validated mail.projectsites.dev pattern). DNS already
+# resolves via the proxied `*.projectsites.dev` AAAA + wildcard edge cert, so no record needed.
 routes = [
+  { pattern = "pm.projectsites.dev/*", zone_name = "projectsites.dev" },
   { pattern = "pm.megabyte.space", custom_domain = true },
 ]
 

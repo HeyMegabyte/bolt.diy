@@ -18,6 +18,13 @@
         reverse_proxy localhost:3004
     }
 
+	# The god-mode admin SPA is built with React Router basename="/god-mode/" (trailing
+	# slash). Visiting bare "/god-mode" doesn't start with that basename → router renders
+	# nothing ("not able to match the URL ... does not start with the basename"). Redirect
+	# the slash-less path to the canonical trailing-slash URL so the router matches.
+	handle /god-mode {
+		redir /god-mode/ 308
+	}
 	handle_path /god-mode* {
         root * /app/admin
         try_files {path} {path}/ /index.html
