@@ -22,7 +22,10 @@ describe('faq_from_reviews — extractReviewFaqs', () => {
   });
 
   it('drops topics below the minMentions floor (quality over quota)', () => {
-    const reviews = [r('Friendly staff.'), r('Great quality work and excellent results, top notch.')];
+    const reviews = [
+      r('Friendly staff.'),
+      r('Great quality work and excellent results, top notch.'),
+    ];
     // staff=1, quality=1 — both below default floor of 3 → empty
     expect(extractReviewFaqs(reviews)).toEqual([]);
   });
@@ -32,9 +35,9 @@ describe('faq_from_reviews — extractReviewFaqs', () => {
       r('The place was very clean and tidy throughout our whole visit.'),
       r('Spotless and clean — they really keep it immaculate in here.'),
     ];
-    expect(extractReviewFaqs(reviews, { minMentions: 2 }).some((f) => f.question.includes('clean'))).toBe(
-      true,
-    );
+    expect(
+      extractReviewFaqs(reviews, { minMentions: 2 }).some((f) => f.question.includes('clean')),
+    ).toBe(true);
   });
 
   it('ranks by corroboration and caps at maxItems', () => {

@@ -38,7 +38,15 @@ interface Topic {
 const TOPICS: readonly Topic[] = [
   {
     key: 'quality',
-    keywords: ['quality', 'great work', 'excellent', 'best', 'amazing', 'top notch', 'professional'],
+    keywords: [
+      'quality',
+      'great work',
+      'excellent',
+      'best',
+      'amazing',
+      'top notch',
+      'professional',
+    ],
     question: 'What do customers say about the quality of the work?',
   },
   {
