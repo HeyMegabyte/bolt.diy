@@ -1292,3 +1292,41 @@ entry in `src/modules/feature_flags/registry.ts`. KV dismissal keys (`upgmoment:
 
 Unit tests: `__tests__/upgrade_moments.test.ts` (14 — catalog/eligibility/personalization/schema/flag)
 E2E tests: `e2e/upgrade_moments/` (pending — needs a friction-point surface)
+
+---
+
+# site_doctor — Owner Health Report
+
+Owner-facing A–F health report with prioritized, plain-English fixes. Translates
+the production-readiness signals into language a non-technical owner acts on.
+
+## Feature flag
+
+`site_doctor` — default `enabled=0, rollout=0, stage=experimental`. Owner: brian@megabyte.space.
+Depends on `prod_readiness_score` (reuses its ownership check + signal computation).
+
+## Generous-free lock
+
+Failing signals → issues sorted by severity. FREE plan unlocks only the top issue;
+the rest carry `locked:true` (`locked_count` drives the upsell). PAID (`starter`/`pro`)
+unlock everything. Voice: sharp & professional.
+
+## API route
+
+- `GET /api/sites/:siteId/doctor?plan=free|starter|pro` — A–F report + prioritized fixes
+  (401 unauth · 404 flag-off · 404 not-owned).
+
+## Safe disabled behavior
+
+Route returns `404` when the flag is off. The scoring + lock core (`service.ts`) is pure
+(no env/IO); unknown signal names fall back to a low-severity issue (forward-compatible).
+
+## Removal
+
+Remove this module, the `app.route()` mount in `src/index.ts`, and the `site_doctor`
+entry in `src/modules/feature_flags/registry.ts`. No tables owned.
+
+## Tests
+
+Unit tests: `__tests__/site_doctor.test.ts` (12 — scoring/grades/severity/free-lock/schema/flag)
+E2E tests: `e2e/site_doctor/` (pending — needs the owner dashboard surface)

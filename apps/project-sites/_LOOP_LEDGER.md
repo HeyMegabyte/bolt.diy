@@ -47,6 +47,8 @@
 > pricing = generous-free + paid power-ups, execution = full autonomous wave). Quality over quota —
 > each is genuinely novel vs the existing ledger, build-ready, and dark-launched behind its own flag.
 > Free tier always sees real value; the upsell is the *power-up*, never a paywall on the basics.
+>
+> **Round-2 decisions (2026-06-28):** gated-behind-paid = **custom domain · remove branding bar · AI edit credits/month** (page count NOT gated → pages stay free; so `more_pages`/`priority_build` upgrade_moments triggers are de-emphasized until/unless gated). **Pricing = decide-later** → keep neutral `price_hint` ("Paid plan"); Brian sets numbers before any flag-flip (one-way-door). **Owner-facing AI voice = sharp & professional** (concise, confident, results-focused — applies to upgrade_moments, Site Doctor, first-lead celebration, emails). **Next deep flagship = Site Doctor (DONE backend).**
 
 ### Conversion & activation
 - [ ] [auto] **Places autofill before the wall** (`prefill_from_places`) — on business-search select, pre-fill hours/category/photos/address from Google Places so the build form is ~80% done BEFORE signup. Pure mapper `placesToDraft(place)` + cached per place_id. Collapses the #1 friction for non-technical owners.
@@ -54,7 +56,7 @@
 - [ ] [auto] **One-tap "Looks great — publish"** (`fast_publish_cta`) — on build-complete, a single primary CTA promotes the preview live (collapses review→publish). Pairs the existing streaming-preview item; removes the dead air after a build finishes.
 
 ### Generated-site quality moat (owner-facing, distinct from the internal eval harness)
-- [ ] [auto] **Site Doctor report card** (`site_doctor`) — owner-facing A–F grade + 3 plain-English, one-tap fixes ("Your phone isn't clickable on mobile", "Add business hours — visitors look for them first"). FREE shows the top issue; the full prioritized list is the `analytics_pro`/paid power-up. Rolls up existing readiness/seo/a11y signals into ONE friendly card.
+- [ ] [auto] **Site Doctor report card** (`site_doctor`) — owner-facing A–F grade + prioritized one-tap fixes. **BACKEND DONE 2026-06-28** (dark behind `site_doctor`, default-off, commit `93d8bf7a`): new module `libs/features/site_doctor/` — pure `buildSiteDoctorReport(signals, plan)` translates `prod_readiness_score` signals into an owner-facing A–F report; generous-free LOCK (free unlocks top issue, rest `locked:true`, `locked_count` = upsell hook; paid unlocks all); reuses `fetchOwnedSite`+`computeReadiness` (no duplicate scoring); sharp/professional voice. Route `GET /api/sites/:siteId/doctor?plan=` (401/404-owned/404-flag-off). 12/12 unit, tsc 0. **REMAINING: (1)** FRONTEND — render the report card on the owner dashboard with the free-lock + an upgrade_moments(`analytics_pro`) upsell on the locked issues + Karma spec; **(2)** broaden signals beyond the 4 readiness checks (mobile phone-clickable, business-hours present, FAQ, alt-text) so fixes match the example copy; **(3)** flip flag once a surface renders end-to-end.
 - [ ] [auto] **"Open now" live badge** (`open_now_badge`) — inject a real Open/Closed · "opens 9am" badge into served sites from Places business hours (pure time-zone logic, highly testable). Solo-SMB gold: visitors constantly ask "are they open?"
 - [ ] [auto] **Auto-FAQ from real reviews** (`faq_from_reviews`) — mine Google/Yelp reviews → generate an honest FAQ block + accurate `FAQPage` JSON-LD (only real Q&A, never padded). Adds AI-citation weight + answers the questions owners forget to.
 
