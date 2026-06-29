@@ -1,0 +1,50 @@
+name: Plane S3 Shim Deploy (r2s3.projectsites.dev)
+
+# Deploys the S3 POST-Object compatibility shim Worker (apps/project-sites/infra/plane-s3).
+# Plain Worker (R2 binding, no container) → no Docker needed.
+# Triggers: manual or push touching the shim dir.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/infra/plane-s3/**'
+      - '.github/workflows/plane-s3-deploy.yaml'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  deploy:
+    name: Deploy S3 shim Worker
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: apps/project-sites/infra/plane-s3
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Install deps
+        run: npm install --no-audit --no-fund
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: |
+          set -o pipefail
+          npx --yes wrangler@4 deploy 2>&1 | tee deploy.log
+      - name: Set validation secret
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.PLANE_R2_SECRET_ACCESS_KEY }}
+        run: printf '%s' "$R2_SECRET_ACCESS_KEY" | npx --yes wrangler@4 secret put R2_SECRET_ACCESS_KEY
+      - name: Verify
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X OPTIONS https://r2s3.projectsites.dev/plane-media -H 'Origin: https://pm.projectsites.dev' -H 'Access-Control-Request-Method: POST')
+          echo "preflight: $code"; [ "$code" = "204" ] && echo "✓ shim up" || echo "::warning::shim preflight not 204"

@@ -64,7 +64,12 @@ export class Plane extends Container<Env> {
     // R2 (S3) object storage
     out.USE_MINIO = '0';
     out.AWS_REGION = 'auto';
-    out.AWS_S3_ENDPOINT_URL = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    // S3 endpoint = the POST-Object shim (r2s3.projectsites.dev), NOT R2 direct: R2 doesn't
+    // implement S3 POST Object, which Plane uses for browser avatar/attachment uploads (→ 501).
+    // The shim presents an S3 facade over the plane-media R2 binding (validates Plane's SigV4
+    // sigs). See infra/plane-s3/. Server boto ops (HEAD/PUT/Copy/Delete) + presigned GET also
+    // route through it. Reverting to R2 direct re-breaks uploads.
+    out.AWS_S3_ENDPOINT_URL = 'https://r2s3.projectsites.dev';
     out.AWS_S3_BUCKET_NAME = 'plane-media';
     out.FILE_SIZE_LIMIT = '5242880';
     if (env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY) {

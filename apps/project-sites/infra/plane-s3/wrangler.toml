@@ -1,0 +1,23 @@
+name = "projectsites-plane-s3"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# r2s3.projectsites.dev → this Worker (S3 POST-Object shim) → plane-media R2 binding.
+# EXPLICIT host route beats the main worker's *.projectsites.dev/* wildcard; DNS resolves via
+# the proxied *.projectsites.dev AAAA + wildcard cert (no record needed). NO container → plain
+# Worker, deploys without Docker.
+routes = [
+  { pattern = "r2s3.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+# The plane-media bucket, accessed via binding (the shim IS the storage facade — no S3 round-trip).
+[[r2_buckets]]
+binding = "PLANE_MEDIA"
+bucket_name = "plane-media"
+
+# Secret to set before/after deploy:
+#   R2_SECRET_ACCESS_KEY   get-secret PLANE_R2_SECRET_ACCESS_KEY  (validates Plane's SigV4 sigs)
