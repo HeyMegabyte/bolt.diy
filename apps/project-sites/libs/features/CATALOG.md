@@ -1252,3 +1252,43 @@ When the flag is off:
 
 Unit tests: `__tests__/wireframe_planning.test.ts`
 E2E tests: `e2e/wireframe_planning/wireframe_planning.spec.ts` (pending)
+
+---
+
+# upgrade_moments — Contextual Upsell Engine
+
+Maps free-plan friction points to honest, value-led upgrade prompts. The
+generous-free + paid-power-ups monetization seam for solo business owners.
+
+## Feature flag
+
+`upgrade_moments` — default `enabled=0, rollout=0, stage=experimental`. Owner: brian@megabyte.space.
+
+## Triggers
+
+`custom_domain` · `remove_branding` · `more_pages` · `ai_credits` · `priority_build` · `analytics_pro`
+
+Each resolves to `{ headline, body, benefits[], cta_label, cta_url, price_hint, value_metric, dismiss_key }`.
+`cta_url` = `/admin/billing?upsell=<trigger>` (funnel attribution). Paid plans (`starter`/`pro`)
+resolve `eligible:false` — payers are never nagged.
+
+## API routes
+
+- `GET /api/upgrade-moments` — list eligible, non-dismissed moments
+- `GET /api/upgrade-moments/:trigger` — one moment for a friction point
+- `POST /api/upgrade-moments/:trigger/dismiss` — remember a dismissal (CACHE_KV, 90d TTL)
+
+## Safe disabled behavior
+
+All routes return `404` when the flag is off (never leak existence). The pure catalog +
+eligibility core lives in `service.ts` (no env/IO); dismissals are KV-backed (no D1 migration).
+
+## Removal
+
+Remove this module, the `app.route()` mount in `src/index.ts`, and the `upgrade_moments`
+entry in `src/modules/feature_flags/registry.ts`. KV dismissal keys (`upgmoment:dismiss:*`) self-expire.
+
+## Tests
+
+Unit tests: `__tests__/upgrade_moments.test.ts` (14 — catalog/eligibility/personalization/schema/flag)
+E2E tests: `e2e/upgrade_moments/` (pending — needs a friction-point surface)
