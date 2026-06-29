@@ -5755,3 +5755,597 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 - **Platform-Wide GDPR Export/Erasure as Automated Privacy Compliance**: A fan-out orchestrator calling per-subsystem data handlers to assemble or erase a tenant's data across all stores. The AI platform executes its own privacy obligations across every subsystem with a single request.
 - **Feature-Architecture Validator + Drift CI Gate as Self-Enforcing Standards**: A validator checking every subsystem against the platform spine (flags, manifests, health, correlation, events, E2E) with CI blocking on violations. The AI platform enforces its own architectural standards without manual code reviews.
 - **Service Mesh Registry as Platform Topology SSOT**: A typed SERVICE_REGISTRY driving health polling, WAF-skip validation, subdomain provisioning, console navigation, and drift detection. The AI platform knows and verifies its own topology — what runs where, how to reach it, and whether it's live — in one configuration file.
+
+# ProjectSites.dev Platform Expansion Loop Ledger
+
+> Generated 2026-06-29. Cloudflare-first, multi-service, AI-agent-ready. Tasks are implementation-ready for future coding loops. Langfuse Cloud (not self-hosted).
+
+## Global Architecture Decisions
+
+### Raw research themes considered
+Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming conventions for site/app resources across D1/KV/R2/Neon; secret management via get-secret + wrangler secret put + chezmoi; request correlation IDs (request_id, trace_id, span_id, tenant_id, site_id) propagated through every service boundary; structured logging schema with PII redaction; Cloudflare-first runtime with explicit Fly.io escape-hatch criteria; Coolify MCP cost-escalation thresholds (>$50/mo managed → self-host); vendor lock-in boundaries documented per service; app provisioning/deprovisioning primitives as reusable modules; per-site and per-app cost attribution; append-only audit trails; abuse controls per ingress point; disaster recovery via D1 Time Travel + R2 versioning + wrangler rollback; customer-visible timeline patterns for site build/preview/publish lifecycle.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-GLOBAL-001: Deploy tenant-aware correlation ID middleware across all service boundaries
+  - Endpoint: Every Worker fetch handler and container entrypoint
+  - Why: Every log line, trace span, and error must carry tenant context for debugging, billing, and security
+  - Acceptance criteria: All Axiom log lines carry request_id + tenant_id + site_id; Sentry spans link via trace_id; PostHog events tagged with org context
+  - Implementation notes: Extend existing middleware/request_id.ts to inject tenant_id from auth context; propagate via cf-aig-metadata header on AI Gateway calls
+  - Hosting notes: Workers middleware (stateless edge), no Fly/Coolify needed
+  - Backing services: Axiom (logs), Sentry (traces), PostHog (events)
+  - Observability: Axiom: correlation_id index; Sentry: trace context; Langfuse: N/A (not for infra); PostHog: org-scoped events; Tinybird: N/A
+  - Dependencies: Auth middleware (tenant resolution), Env type extensions
+  - Related files: src/middleware/request_id.ts, src/middleware/auth.ts, src/types/env.ts
+  - Primary sources: Cloudflare Workers middleware patterns, Axiom structured logging docs
+
+- [ ] LOOP-GLOBAL-002: Define and enforce resource naming convention across all backing stores
+  - Endpoint: N/A (convention document + CI validator)
+  - Why: Consistent naming (projectsites_{service}_{resource}) prevents collision and makes cost attribution trivial across Neon/Upstash/R2/D1
+  - Acceptance criteria: All D1 tables, Neon databases, Upstash keys, R2 buckets follow the convention; CI gate flags violations
+  - Implementation notes: Write CONVENTIONS.md entry; build scripts/check-naming-convention.mjs grep-based validator
+  - Hosting notes: N/A (convention + CI)
+  - Backing services: All
+  - Observability: N/A (convention enforcement)
+  - Dependencies: None
+  - Related files: CONVENTIONS.md, scripts/check-naming-convention.mjs (new)
+  - Primary sources: Repo naming conventions from existing services (Listmonk, Twenty, Postiz)
+
+- [ ] LOOP-GLOBAL-003: Build secret auto-provisioning pipeline for new service onboarding
+  - Endpoint: Internal (admin tooling)
+  - Why: Every new service needs 3-8 secrets; manual provisioning is the #1 source of deploy friction for solo founder
+  - Acceptance criteria: One script that generates (openssl rand), encrypts (chezmoi), and uploads (wrangler secret put / flyctl secrets set) all required secrets for a named service
+  - Implementation notes: Extend populate-secrets pattern; read service manifest for required secret names
+  - Hosting notes: Local CLI tool, no hosting needed
+  - Backing services: chezmoi, wrangler, flyctl
+  - Observability: Axiom: audit log of secret rotation events
+  - Dependencies: get-secret, chezmoi, wrangler, flyctl CLI
+  - Related files: scripts/populate-secrets, ~/.local/bin/get-secret
+  - Primary sources: secret-auto-provisioning.md rule, secret-provisioning.md rule
+
+- [ ] LOOP-GLOBAL-004: Implement structured logging schema with PII redaction
+  - Endpoint: Every service emitting logs
+  - Why: Unstructured logs are unqueryable; unredacted logs are a compliance liability
+  - Acceptance criteria: Every log line is JSON with at minimum {service, env, eventName, request_id, tenant_id, timestamp}; PII fields (email, phone, address) auto-redacted at the log boundary
+  - Implementation notes: Ship shared pino config in packages/shared; enforce via eslint rule against raw console.log
+  - Hosting notes: Workers-compatible structured logger (pino or lightweight JSON stringify)
+  - Backing services: Axiom (ingestion)
+  - Observability: Axiom: structured log index; Sentry: N/A (logs, not exceptions); Langfuse: N/A
+  - Dependencies: packages/shared (shared logger)
+  - Related files: packages/shared/src/utils/logger.ts (new), src/services/ai_logger.ts
+  - Primary sources: Axiom structured logging docs, PII redaction patterns
+
+- [ ] LOOP-GLOBAL-005: Document Cloudflare-first runtime policy with Fly.io escape hatch criteria
+  - Endpoint: N/A (policy document)
+  - Why: Every new service needs a clear decision tree: Workers → Workers Containers → Fly.io → Coolify. Without it, every service becomes a Fly app by default.
+  - Acceptance criteria: One-page decision tree in docs/ARCHITECTURE.md; every new service PR references it
+  - Implementation notes: Codify the rules from this ledger: stateless→Workers, container-needs→CF Containers, always-on→Fly, >$50/mo managed→Coolify
+  - Hosting notes: N/A (policy)
+  - Backing services: N/A
+  - Observability: N/A
+  - Dependencies: None
+  - Related files: docs/ARCHITECTURE.md, docs/SERVICES-AND-SOCIAL.md
+  - Primary sources: CF Containers docs, Fly.io docs, Coolify docs
+
+- [ ] LOOP-GLOBAL-006: Build per-site cost attribution pipeline
+  - Endpoint: Internal (admin dashboard)
+  - Why: Without per-site cost visibility, you cannot price profitably or identify abuse
+  - Acceptance criteria: D1 table cost_attribution with site_id, service, resource_type, estimated_cost_cents, period; admin dashboard showing top-10 sites by cost
+  - Implementation notes: Aggregate from AI Gateway usage logs + D1 row counts + R2 byte counts + Neon compute time
+  - Hosting notes: Worker + D1 (stateless aggregation)
+  - Backing services: D1 (cost_attribution table), AI Gateway (usage), R2 (byte counts)
+  - Observability: Axiom: cost attribution events; PostHog: cost dashboard; Tinybird: cost analytics
+  - Dependencies: AI Gateway logging, app_cost_meter.ts
+  - Related files: src/services/app_cost_meter.ts, src/services/cost_aggregation.ts
+  - Primary sources: CF AI Gateway usage API, R2 usage API, D1 database size queries
+
+- [ ] LOOP-GLOBAL-007: Implement append-only audit trail across all admin mutations
+  - Endpoint: Every admin/privileged API route
+  - Why: SOC2, GDPR, and debugging all require knowing who changed what and when
+  - Acceptance criteria: audit_events D1 table with immutable rows (no UPDATE/DELETE permissions via D1 token); every admin route writes {actor_id, action, resource_type, resource_id, before_snapshot, after_snapshot, timestamp}
+  - Implementation notes: Middleware or service wrapper; hash-chain rows for tamper evidence
+  - Hosting notes: Worker + D1 (stateless middleware, DB write)
+  - Backing services: D1 (audit_events)
+  - Observability: Axiom: audit log stream; Sentry: N/A; PostHog: admin action events
+  - Dependencies: Auth middleware (actor resolution)
+  - Related files: src/services/audit.ts, libs/features/audit_trail_export/
+  - Primary sources: SOC2 audit trail requirements, D1 immutable row patterns
+
+- [ ] LOOP-GLOBAL-008: Deploy abuse detection pipeline at every public ingress point
+  - Endpoint: Signup, site create, API key create, webhook ingest, contact form
+  - Why: A SaaS builder platform is a high-value abuse target (free hosting, domain provisioning, email sending)
+  - Acceptance criteria: Rate limiting (DO-based), Turnstile on all public forms, content scanning on generated sites, email verification required before sending
+  - Implementation notes: Shared abuse detection DO class; CF Turnstile on signup + site create; automated site-content scanning on publish
+  - Hosting notes: Workers + DO (rate limiting requires state)
+  - Backing services: Durable Objects (rate limiter), Turnstile, D1 (abuse_events)
+  - Observability: Axiom: abuse event log; PostHog: abuse detection funnel; Sentry: abuse-related errors
+  - Dependencies: Auth, Turnstile service
+  - Related files: src/services/turnstile.ts, libs/features/abuse_takedown/
+  - Primary sources: CF Turnstile docs, DO rate limiting patterns
+
+- [ ] LOOP-GLOBAL-009: Establish disaster recovery playbook with automated verification
+  - Endpoint: Internal (admin tooling)
+  - Why: You have 7+ services in production; a single fat-finger deploy or D1 migration can take out everything
+  - Acceptance criteria: Documented recovery procedures for D1 (Time Travel), R2 (versioning), Workers (wrangler rollback), Neon (point-in-time recovery), Fly (flyctl restart/immediate rollback); automated weekly backup verification
+  - Implementation notes: Weekly cron that restores a D1 backup to a temp database and verifies schema integrity
+  - Hosting notes: Worker cron + D1 Time Travel
+  - Backing services: D1, R2, Neon, Fly
+  - Observability: Axiom: backup verification logs; PostHog: DR test events
+  - Dependencies: Weekly cron, D1 admin token
+  - Related files: docs/DEPLOYMENT.md, scripts/verify-backups.mjs (new)
+  - Primary sources: D1 Time Travel docs, R2 versioning docs, wrangler rollback docs
+
+- [ ] LOOP-GLOBAL-010: Build customer-visible timeline/event feed per site
+  - Endpoint: GET /api/sites/:id/timeline (customer-facing)
+  - Why: Customers need to see build progress, publish events, domain changes, billing events — the site lifecycle
+  - Acceptance criteria: Chronological feed of typed events (build.started, build.completed, site.published, domain.verified, billing.plan_changed) with timestamps and status
+  - Implementation notes: Shared event schema; D1 site_events table; event emitters in build/publish/domain/billing services
+  - Hosting notes: Worker + D1 (stateless API)
+  - Backing services: D1 (site_events)
+  - Observability: PostHog: timeline view events; Axiom: event emission logs
+  - Dependencies: Event bus (event_bus.ts), build events, domain service, billing service
+  - Related files: src/services/build_events.ts, src/services/site_publish_event.ts, src/services/emit_event.ts
+  - Primary sources: Existing repo event patterns, Stripe webhook events model
+
+- [ ] LOOP-GLOBAL-011: Implement tenant isolation audit across all data stores
+  - Endpoint: Internal (CI gate)
+  - Why: A cross-tenant data leak is existential for a multi-tenant SaaS
+  - Acceptance criteria: Every D1 query, R2 path, KV key, and Neon query includes org_id scoping; CI gate flags unscoped queries
+  - Implementation notes: Build scripts/check-tenant-isolation.mjs (extends existing check-idor-gates.mjs pattern)
+  - Hosting notes: N/A (CI gate)
+  - Backing services: N/A
+  - Observability: Axiom: isolation violation alerts
+  - Dependencies: check-idor-gates.mjs (existing)
+  - Related files: scripts/check-idor-gates.mjs, libs/features/*/handlers.ts
+  - Primary sources: OWASP tenant isolation patterns, existing repo IDOR audit
+
+- [ ] LOOP-GLOBAL-012: Define and enforce per-service health-check contract
+  - Endpoint: GET /health on every service
+  - Why: Without standardized health checks, the admin dashboard cannot show an accurate service topology
+  - Acceptance criteria: Every service (Workers, Fly apps, CF Containers) exposes GET /health returning {status, service, version, uptime_seconds, checks: {db, redis, temporal?...}}; admin dashboard polls all
+  - Implementation notes: Shared Hono health route in packages/shared; Fly TCP/HTTP checks in fly.toml
+  - Hosting notes: Every hosting target (Workers, Fly, CF Containers)
+  - Backing services: N/A (each service checks its own)
+  - Observability: Axiom: health check logs; PostHog: uptime tracking; status.projectsites.dev: component status
+  - Dependencies: packages/shared, every service
+  - Related files: packages/shared/src/routes/health.ts (new), each service's fly.toml/wrangler.toml
+  - Primary sources: Hono health check patterns, Fly health check docs
+
+- [ ] LOOP-GLOBAL-013: Build platform-wide feature flag evaluation service
+  - Endpoint: GET /api/feature-flags/evaluate (internal, cached)
+  - Why: Every service needs feature flags; a centralized evaluator with KV cache avoids N D1 queries per request
+  - Acceptance criteria: KV-cached (60s TTL) flag state; admin mutations invalidate cache; SDK for Worker/React/Angular
+  - Implementation notes: Extend existing features.ts service; add CF Flagship evaluation provider as primary with D1 fallback
+  - Hosting notes: Worker + KV + D1
+  - Backing services: KV (flag cache), D1 (feature_flags), CF Flagship (primary evaluator)
+  - Observability: PostHog: flag evaluation events; Axiom: cache hit/miss logs
+  - Dependencies: features.ts, feature-flags D1 tables
+  - Related files: src/services/features.ts, libs/core/feature-flags/, modules/feature_flags/
+  - Primary sources: CF Flagship docs, existing feature-flags.md rule
+
+- [ ] LOOP-GLOBAL-014: Build zero-touch app provisioning primitive
+  - Endpoint: Internal (workflow)
+  - Why: Every new app (Listmonk, Twenty, Postiz, Nango, Chatwoot) requires 5-10 provisioning steps; manual provisioning doesn't scale past ~3 services
+  - Acceptance criteria: app_provisioner.provision(slug, config) creates Neon DB, Upstash DB, R2 bucket, D1 config row, Fly/CF container deployment, DNS record, admin catalog entry — all idempotent
+  - Implementation notes: Extend existing app_provisioner.ts + neon_provisioner.ts + upstash_provisioner.ts
+  - Hosting notes: CF Workflow (orchestrates multi-step provisioning)
+  - Backing services: D1 (app catalog), Neon API, Upstash API, R2 API, CF DNS API, Fly API
+  - Observability: Axiom: provisioning step logs; PostHog: app provisioning funnel
+  - Dependencies: neon_provisioner, upstash_provisioner, cf_registrar, container_dispatcher
+  - Related files: src/services/app_provisioner.ts, src/services/neon_provisioner.ts, src/services/upstash_provisioner.ts
+  - Primary sources: Neon API docs, Upstash API docs, CF API docs, Fly Machines API docs
+
+- [ ] LOOP-GLOBAL-015: Build app deprovisioning/destruction primitive (mirror of provisioning)
+  - Endpoint: Internal (workflow with confirmation gate)
+  - Why: Deleting an app must cleanly remove all resources — orphaned Neon DBs, R2 buckets, and DNS records accumulate cost and confusion
+  - Acceptance criteria: app_provisioner.deprovision(slug) deletes or archives: Neon DB, Upstash DB, R2 bucket, D1 config row, Fly app, DNS record, admin catalog entry; confirmation gate prevents accidental deletion
+  - Implementation notes: Two-phase: soft-delete (archive) then hard-delete after 30-day grace; mirror of provision()
+  - Hosting notes: CF Workflow + admin UI
+  - Backing services: Same as provisioning
+  - Observability: Axiom: deprovisioning audit trail; PostHog: deprovisioning events
+  - Dependencies: app_provisioner (provision path)
+  - Related files: src/services/app_provisioner.ts
+  - Primary sources: Same as provisioning
+
+- [ ] LOOP-GLOBAL-016: Build admin override/shadow mode for every tenant-facing service
+  - Endpoint: Admin-only API endpoints
+  - Why: Support and abuse handling require impersonating or overriding tenant state (view their CRM, see their Listmonk lists, read their Postiz drafts)
+  - Acceptance criteria: Super-admin auth middleware that sets impersonation context; every tenant-facing service accepts x-admin-impersonate-org-id header (admin-only); all impersonation events logged to audit trail
+  - Implementation notes: Admin auth middleware checks isSuperAdmin before allowing impersonation header
+  - Hosting notes: Workers middleware (all services behind the main Worker)
+  - Backing services: D1 (audit_events)
+  - Observability: Axiom: impersonation audit log; Sentry: impersonation context in traces
+  - Dependencies: Auth middleware (super-admin check), audit service
+  - Related files: src/middleware/auth.ts, src/services/auth.ts, src/services/sysadmin.ts
+  - Primary sources: Existing repo admin auth patterns
+
+- [ ] LOOP-GLOBAL-017: Define vendor lock-in boundary for every external service
+  - Endpoint: N/A (architecture document)
+  - Why: Each vendor choice is a one-way door; explicit boundaries make future migration cost knowable
+  - Acceptance criteria: docs/decisions/VENDOR-BOUNDARIES.md listing each vendor + migration path + estimated migration cost (hours) + what data would be lost
+  - Implementation notes: Cover: Unkey (key migration), Better Auth (user/password export), Stripe (subscription export), Resend (email log export), PostHog (event export), Axiom (log export), Langfuse (trace export), Neon (pg_dump), Upstash (RDB dump), TiDB (mysqldump)
+  - Hosting notes: N/A (document)
+  - Backing services: N/A
+  - Observability: N/A
+  - Dependencies: None
+  - Related files: docs/decisions/
+  - Primary sources: Each vendor's export/data-portability docs
+
+- [ ] LOOP-GLOBAL-018: Build platform-wide event bus with typed event schemas
+  - Endpoint: Internal (service-to-service)
+  - Why: Services need to react to events across boundaries (site published → notify Listmonk, CRM lead created → notify Chatwoot); point-to-point HTTP creates an N×M coupling mess
+  - Acceptance criteria: Zod-typed events published to a Durable Object event bus; subscribers register per event type; at-least-once delivery with idempotency keys
+  - Implementation notes: DO-based event bus with per-event-type subscriber registry; each subscriber is an HTTP endpoint
+  - Hosting notes: Durable Object (stateful, persistent)
+  - Backing services: DO (event bus state), D1 (event schemas)
+  - Observability: Axiom: event publish/delivery logs; PostHog: event volume analytics; Tinybird: event analytics
+  - Dependencies: emit_event.ts, event_dispatch.ts, event_dedup.ts
+  - Related files: src/services/event_bus.ts, src/services/event_dispatch.ts, src/services/event_dedup.ts
+  - Primary sources: Existing repo event patterns, DO pub/sub patterns
+
+- [ ] LOOP-GLOBAL-019: Implement per-environment (test/live) configuration separation
+  - Endpoint: Internal (env management)
+  - Why: Running test campaigns against real customer data is a data-leak risk; test mode must be explicit and isolated
+  - Acceptance criteria: Every service accepts TEST_MODE env var; test mode uses separate D1 databases/Neon databases/Upstash DBs or prefixes keys with test_; admin UI shows test/live indicator
+  - Implementation notes: Shared isTestMode(env) helper; D1 session token for test DB
+  - Hosting notes: Workers env binding
+  - Backing services: D1 (separate test DB), Upstash (test key prefix), Neon (test database)
+  - Observability: Axiom: test_mode tag on all events; PostHog: test vs live event filter
+  - Dependencies: Env schema, db.ts
+  - Related files: src/types/env.ts, src/services/db.ts
+  - Primary sources: Existing repo test patterns
+
+- [ ] LOOP-GLOBAL-020: Build cost escalation dashboard with automated alerts
+  - Endpoint: Internal (admin dashboard widget)
+  - Why: Managed services silently accumulate cost; without automated monitoring, you discover overages on the credit card statement
+  - Acceptance criteria: Hourly cost aggregation from CF Analytics Engine + Neon usage API + Upstash usage API; Slack/email alert when any service exceeds 80% of monthly budget
+  - Implementation notes: CF Workers Analytics Engine for cost events; cron-triggered aggregation worker
+  - Hosting notes: Worker cron + D1
+  - Backing services: CF Analytics Engine, D1 (cost history), Axiom (alert rules)
+  - Observability: Axiom: cost alert events; PostHog: cost dashboard
+  - Dependencies: cost_aggregation.ts, cf_analytics.ts
+  - Related files: src/services/cost_aggregation.ts, src/services/cf_analytics.ts
+  - Primary sources: CF Analytics Engine docs, Neon usage API, Upstash metrics API
+
+- [ ] LOOP-GLOBAL-021: Build admin global search across all tenant data
+  - Endpoint: GET /api/admin/search?q= (internal, super-admin only)
+  - Why: Support and abuse handling require finding a tenant/site/email across all data stores
+  - Acceptance criteria: Single search endpoint that queries D1 (sites, orgs, users), Neon (CRM contacts, Listmonk subscribers), and returns unified results with tenant context
+  - Implementation notes: Parallel fetch to each service's search endpoint; aggregate and rank results
+  - Hosting notes: Worker (orchestrates parallel searches)
+  - Backing services: D1, Neon, Upstash
+  - Observability: Axiom: admin search logs; Sentry: search errors
+  - Dependencies: Auth (super-admin gate), every tenant-facing service
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/
+  - Primary sources: Existing admin patterns, cross-service query patterns
+
+- [ ] LOOP-GLOBAL-022: Standardize error taxonomy across all services
+  - Endpoint: Every error response
+  - Why: Inconsistent error shapes make debugging across 7+ services a nightmare
+  - Acceptance criteria: Every API error returns {error: {code, message, correlation_id, retryable: bool}}; error codes are stable and documented; CI gate flags new error shapes
+  - Implementation notes: Shared error factory in packages/shared; per-service error code registry
+  - Hosting notes: N/A (shared code)
+  - Backing services: N/A
+  - Observability: Sentry: error grouping by code; Axiom: error code index
+  - Dependencies: packages/shared
+  - Related files: packages/shared/src/utils/errors.ts
+  - Primary sources: RFC 7807 Problem Details, existing repo error patterns
+
+- [ ] LOOP-GLOBAL-023: Build disaster recovery runbook automation (semi-automated)
+  - Endpoint: Internal (CLI + admin UI)
+  - Why: Recovery procedures that exist only in docs are untested and unreliable under pressure
+  - Acceptance criteria: CLI tool for: D1 time-travel restore, R2 bucket version rollback, wrangler rollback, Neon PITR, Fly rollback; admin UI exposes these as guarded buttons
+  - Implementation notes: Wrap each vendor's recovery API in a typed function; admin UI gates behind super-admin + confirmation dialog
+  - Hosting notes: Worker (admin API) + CLI (local)
+  - Backing services: D1, R2, Neon, Fly APIs
+  - Observability: Axiom: recovery action audit log; PostHog: recovery events
+  - Dependencies: Admin auth, vendor APIs
+  - Related files: scripts/ (new recovery scripts)
+  - Primary sources: D1 Time Travel API, R2 versioning API, wrangler rollback docs
+
+- [ ] LOOP-GLOBAL-024: Implement service mesh registry as platform topology SSOT
+  - Endpoint: Internal (admin dashboard + CI)
+  - Why: Without a single source of truth for what runs where, health monitoring, WAF rules, and DNS provisioning all drift independently
+  - Acceptance criteria: Typed SERVICE_REGISTRY array with {slug, name, hostname, hosting, healthUrl, wafSkip, observability}; admin dashboard renders live topology; CI gate validates health endpoints match registry; DNS provisioning reads from registry
+  - Implementation notes: TypeScript const array in packages/shared; CI validator that curl-checks each healthUrl; WAF skip rules generated from registry
+  - Hosting notes: N/A (data structure + CI)
+  - Backing services: N/A
+  - Observability: Axiom: service health events; status.projectsites.dev: topology view
+  - Dependencies: packages/shared
+  - Related files: packages/shared/src/constants/service-registry.ts (new), apps/project-sites/src/data/apps-catalog.ts
+  - Primary sources: Existing apps-catalog.ts pattern, service mesh patterns
+
+## api.projectsites.dev — Unkey
+
+### Raw research themes considered
+Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a CF Container). Research covered: Unkey's API key lifecycle (create/verify/revoke/rotate), root key permissions model, rate limiting integration, OpenAPI validation via Sentinel policies, per-key metadata for tenant attribution, RBAC via roles and permissions, audit log retention, self-hosted vs cloud tradeoffs. Existing repo infra at apps/project-sites/infra/unkey/ (Dockerfile + unkey.toml + wrangler.toml). Key gap: Unkey is provisioned but not yet wired into the main Worker's auth/API-key flow.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-API-001: Wire Unkey API key verification into the main Worker auth middleware
+  - Endpoint: Every /api/* route (auth middleware)
+  - Why: Unkey is deployed but not integrated; API keys currently have no verification path
+  - Acceptance criteria: x-api-key header on any /api/* request → Unkey verify → populate org context; invalid/revoked keys → 401
+  - Implementation notes: Add Unkey client to auth middleware; cache verification result in KV (60s TTL); respect key metadata for tenant/site scoping
+  - Hosting notes: Workers middleware (stateless), Unkey container on CF Container (already deployed)
+  - Backing services: Unkey (key verification), KV (verification cache), TiDB (Unkey's own DB)
+  - Observability: Axiom: key verification logs with key_id; Sentry: verification failures; PostHog: API key usage events
+  - Dependencies: Unkey CF Container (live at api.projectsites.dev), auth middleware, KV namespace
+  - Related files: src/middleware/auth.ts, apps/project-sites/infra/unkey/
+  - Primary sources: https://unkey.com/docs/introduction, https://unkey.com/docs/api-reference/keys/verify
+
+- [ ] LOOP-API-002: Build customer-facing API key management dashboard
+  - Endpoint: GET/POST/DELETE /api/keys (customer-facing, org-scoped)
+  - Why: Customers need to create/revoke/view their own API keys for developer access
+  - Acceptance criteria: UI shows key list (masked), create button with name + scope + expiration, revoke with confirmation, copy-on-create
+  - Implementation notes: Frontend component in admin UI; backend proxies to Unkey API with org_id scoping
+  - Hosting notes: Worker API + admin frontend (Angular)
+  - Backing services: Unkey (key management API), D1 (key metadata cache)
+  - Observability: PostHog: key create/revoke events; Axiom: key management audit log
+  - Dependencies: Unkey integration (LOOP-API-001), admin UI framework
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/, src/services/api_tokens.ts
+  - Primary sources: https://unkey.com/docs/api-reference/apis/create, https://unkey.com/docs/api-reference/keys
+
+- [ ] LOOP-API-003: Implement per-site scoped API keys with resource-level permissions
+  - Endpoint: POST /api/keys (extend with site_id + permissions param)
+  - Why: Agency customers need to give their clients API access scoped to a single site
+  - Acceptance criteria: API key metadata carries {site_id, permissions: ['read','write']}; verification middleware enforces site-scoping
+  - Implementation notes: Extend key creation to accept site_id in metadata; verification middleware reads metadata and scopes access
+  - Hosting notes: Workers middleware
+  - Backing services: Unkey (key metadata), D1 (site ownership validation)
+  - Observability: Axiom: scoped key access logs; PostHog: per-site key usage
+  - Dependencies: Unkey integration, site ownership service
+  - Related files: src/middleware/auth.ts, src/services/api_tokens.ts
+  - Primary sources: https://unkey.com/docs/api-reference/keys/create (metadata field)
+
+- [ ] LOOP-API-004: Enforce rate limits via Unkey on all public API endpoints
+  - Endpoint: Every /api/* route
+  - Why: No rate limiting means one aggressive client can degrade the platform
+  - Acceptance criteria: Per-key rate limits (100 req/min free, 1000 req/min paid) enforced at the middleware layer; 429 response with Retry-After header
+  - Implementation notes: DO-based rate limiter reading Unkey key limits; or Unkey's built-in rate limiting if available
+  - Hosting notes: Workers DO (stateful counter)
+  - Backing services: DO (rate limiter), Unkey (limit config), D1 (plan→limit mapping)
+  - Observability: Axiom: rate limit events; PostHog: rate limit hit rate
+  - Dependencies: Unkey integration, billing (plan→limit resolution)
+  - Related files: src/middleware/ (new rate_limit.ts), libs/features/
+  - Primary sources: https://unkey.com/docs/ratelimiting/overview, CF DO rate limiting patterns
+
+- [ ] LOOP-API-005: Build developer portal at api.projectsites.dev/docs
+  - Endpoint: api.projectsites.dev/docs (public)
+  - Why: Developer API adoption requires self-serve documentation with try-it-now
+  - Acceptance criteria: Scalar-rendered OpenAPI docs; API key auth built into the try-it flow; quickstart guide with curl examples
+  - Implementation notes: Serve Scalar HTML from the main Worker when hostname == api.projectsites.dev; point at /api/openapi.json
+  - Hosting notes: Worker (static HTML serve)
+  - Backing services: N/A (renders existing OpenAPI spec)
+  - Observability: PostHog: docs page views; Axiom: N/A
+  - Dependencies: OpenAPI spec (already at /api/openapi.json), Scalar CDN
+  - Related files: src/routes/openapi.ts, src/lib/docs_reference_page.ts
+  - Primary sources: Scalar docs, existing openapi.ts
+
+- [ ] LOOP-API-006: Implement API key rotation with zero-downtime overlap
+  - Endpoint: POST /api/keys/:id/rotate
+  - Why: Key rotation is a security best practice; without overlap, rotation causes downtime
+  - Acceptance criteria: Rotation creates new key, keeps old key active for 24h overlap, then auto-revokes; both keys work during overlap
+  - Implementation notes: Unkey API supports key rotation with expiry; set old key expiration to now+24h
+  - Hosting notes: Worker API
+  - Backing services: Unkey (key rotation API)
+  - Observability: Axiom: key rotation audit log; PostHog: rotation events
+  - Dependencies: Unkey integration
+  - Related files: src/services/api_tokens.ts
+  - Primary sources: https://unkey.com/docs/api-reference/keys/update
+
+- [ ] LOOP-API-007: Add API usage metering and billing integration
+  - Endpoint: Internal (metering pipeline)
+  - Why: API calls are a billable resource; without metering, you cannot charge for API access
+  - Acceptance criteria: Every authenticated API call increments a usage counter (per key, per day); usage fed to OpenMeter for billing; customer-visible usage dashboard
+  - Implementation notes: Increment DO counter per request; flush to D1 hourly; feed to OpenMeter
+  - Hosting notes: Workers DO + D1
+  - Backing services: DO (usage counters), D1 (usage history), OpenMeter (billing)
+  - Observability: PostHog: API usage trends; Tinybird: usage analytics; Axiom: usage events
+  - Dependencies: Unkey (key identification), OpenMeter (billing), usage_metering.ts
+  - Related files: src/services/usage_metering.ts, billing feature module
+  - Primary sources: OpenMeter usage events docs
+
+- [ ] LOOP-API-008: Configure Unkey root key governance and admin key rotation
+  - Endpoint: Internal (admin)
+  - Why: Unkey root keys have unlimited power; they must be rotated and audited
+  - Acceptance criteria: Root key rotation script; root key usage logged to audit trail; root key never hardcoded (always from get-secret)
+  - Implementation notes: Quarterly rotation via openssl rand + Unkey API; audit log of all root key usage
+  - Hosting notes: N/A (operational procedure + script)
+  - Backing services: Unkey (root key management)
+  - Observability: Axiom: root key usage audit
+  - Dependencies: get-secret, Unkey admin API
+  - Related files: scripts/rotate-unkey-root-key.sh (new), src/services/api_tokens.ts
+  - Primary sources: https://unkey.com/docs/platform/root-keys/permissions
+
+- [ ] LOOP-API-009: Build MCP/agent-specific API key type with tool-level permissions
+  - Endpoint: POST /api/keys (with type: 'mcp' parameter)
+  - Why: AI agents and MCP servers need API access but should be scoped to specific tools
+  - Acceptance criteria: MCP keys carry metadata {type: 'mcp', allowed_tools: ['site.read','site.list']}; verification middleware enforces tool-level scoping
+  - Implementation notes: Extend key creation with tool permission list; verification checks tool against allowlist
+  - Hosting notes: Workers middleware
+  - Backing services: Unkey (key metadata)
+  - Observability: Axiom: MCP key usage logs; Langfuse: MCP tool call traces
+  - Dependencies: Unkey integration, MCP platform (libs/features/platform_mcp/)
+  - Related files: libs/features/platform_mcp/, src/services/mcp_client.ts
+  - Primary sources: Unkey key metadata docs, MCP auth patterns
+
+- [ ] LOOP-API-010: Implement service-to-service auth using Unkey permanent keys
+  - Endpoint: Internal (service mesh)
+  - Why: Internal services (Listmonk, Twenty, Postiz) need to call the main Worker API; shared secrets are a security risk
+  - Acceptance criteria: Each internal service gets a permanent Unkey API key with service-level permissions; main Worker verifies these at the middleware layer
+  - Implementation notes: Provision one key per internal service; store in Fly secrets + main Worker env; verify with x-service-auth header
+  - Hosting notes: Workers middleware + Fly/CF Container env vars
+  - Backing services: Unkey (key management), Fly secrets, wrangler secrets
+  - Observability: Axiom: service-to-service auth logs; Sentry: auth failures
+  - Dependencies: Unkey integration, each internal service
+  - Related files: src/middleware/auth.ts, each service's config
+  - Primary sources: Unkey permanent keys, service-to-service auth patterns
+
+- [ ] LOOP-API-011: Build OpenAPI validation gateway using Unkey Sentinel
+  - Endpoint: Every /api/* route (middleware)
+  - Why: Malformed requests waste compute and hide bugs; validate at the edge
+  - Acceptance criteria: Unkey Sentinel policy that validates request bodies against OpenAPI spec; reject invalid requests with 400 + field-level errors
+  - Implementation notes: Define Sentinel policy from existing OpenAPI spec; apply at middleware layer
+  - Hosting notes: Workers middleware (calls Unkey Sentinel)
+  - Backing services: Unkey (Sentinel), OpenAPI spec
+  - Observability: Axiom: validation failure logs; PostHog: validation failure rate
+  - Dependencies: Unkey Sentinel, OpenAPI spec
+  - Related files: src/routes/openapi.ts
+  - Primary sources: https://unkey.com/docs/platform/sentinel/policies/openapi-validation
+
+- [ ] LOOP-API-012: Build API key abuse detection and auto-revocation
+  - Endpoint: Internal (background worker)
+  - Why: Leaked keys cause damage fast; automated detection is the only scalable defense
+  - Acceptance criteria: Monitor key usage patterns; auto-revoke keys with anomalous patterns (spike >10× baseline, calls from unexpected geographies, calls to unusual endpoints)
+  - Implementation notes: CF Analytics Engine for usage pattern detection; webhook to auto-revoke via Unkey API
+  - Hosting notes: Worker cron + CF Analytics Engine
+  - Backing services: CF Analytics Engine, Unkey (revocation API), D1 (abuse events)
+  - Observability: Axiom: abuse detection alerts; PostHog: abuse events
+  - Dependencies: Unkey integration, CF Analytics Engine
+  - Related files: src/services/abuse detection (new), libs/features/abuse_takedown/
+  - Primary sources: CF Analytics Engine docs, Unkey revocation API
+
+- [ ] LOOP-API-013: Build customer-facing API usage dashboard
+  - Endpoint: GET /api/usage (customer-facing, org-scoped)
+  - Why: Customers need to see their API call volume, rate limit status, and quota consumption
+  - Acceptance criteria: Dashboard showing daily/weekly/monthly API call count, top endpoints, error rate, rate limit hits; plan limit progress bar
+  - Implementation notes: Frontend widget in admin UI; backend queries DO usage counters + D1 history
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: DO (live counters), D1 (usage history)
+  - Observability: PostHog: dashboard view events
+  - Dependencies: Usage metering (LOOP-API-007), admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/, src/services/usage_metering.ts
+  - Primary sources: Existing admin dashboard patterns
+
+- [ ] LOOP-API-014: Implement key expiration with renewal flow
+  - Endpoint: POST /api/keys/:id/renew
+  - Why: Expiring keys reduce the blast radius of leaked credentials
+  - Acceptance criteria: Keys can be created with expiration date; renewal requires re-authentication; expired keys return 401 with x-key-expired header
+  - Implementation notes: Unkey native key expiration; renewal endpoint checks user auth before extending
+  - Hosting notes: Worker API
+  - Backing services: Unkey (key expiration)
+  - Observability: Axiom: key expiration/renewal events; PostHog: key lifecycle events
+  - Dependencies: Unkey integration, auth middleware
+  - Related files: src/services/api_tokens.ts
+  - Primary sources: Unkey key expiration docs
+
+- [ ] LOOP-API-015: Build SDK auth helper with copy-paste code snippets
+  - Endpoint: api.projectsites.dev/docs/sdks
+  - Why: Developer adoption is gated by integration friction; copy-paste snippets reduce time-to-first-call
+  - Acceptance criteria: Snippets for curl, Node.js, Python, and Go showing API key auth; each snippet is a working example
+  - Implementation notes: Part of the developer docs (LOOP-API-005); Stainless SDK generation for typed clients
+  - Hosting notes: Worker (static docs)
+  - Backing services: N/A
+  - Observability: PostHog: SDK docs page views
+  - Dependencies: Developer docs, OpenAPI spec
+  - Related files: docs/ (SDK docs)
+  - Primary sources: Stripe SDK patterns, Stainless SDK generation
+
+- [ ] LOOP-API-016: Implement per-environment API keys (production vs sandbox)
+  - Endpoint: POST /api/keys (with environment parameter)
+  - Why: Customers need separate keys for testing vs production; mixing them causes accidental production mutations
+  - Acceptance criteria: Key metadata carries {environment: 'production'|'sandbox'}; sandbox keys are rate-limited to 10 req/min and cannot mutate production data
+  - Implementation notes: Extend key creation with environment field; middleware enforces sandbox restrictions
+  - Hosting notes: Workers middleware
+  - Backing services: Unkey (key metadata)
+  - Observability: Axiom: environment-tagged API logs
+  - Dependencies: Unkey integration
+  - Related files: src/middleware/auth.ts, src/services/api_tokens.ts
+  - Primary sources: Stripe test/live key model
+
+- [ ] LOOP-API-017: Build API key claim/provision flow for new customer onboarding
+  - Endpoint: POST /api/onboarding/claim-api-key
+  - Why: First API key creation should be part of onboarding, not a separate step
+  - Acceptance criteria: New customer signup auto-creates a default API key; onboarding wizard shows the key with copy button
+  - Implementation notes: Hook into org creation flow; auto-provision default key via Unkey API
+  - Hosting notes: Worker (onboarding flow)
+  - Backing services: Unkey (key creation)
+  - Observability: PostHog: onboarding key creation funnel
+  - Dependencies: Auth (org creation), onboarding flow
+  - Related files: src/services/auth.ts, onboarding components
+  - Primary sources: Stripe onboarding key pattern
+
+- [ ] LOOP-API-018: Wire Unkey audit logs into the platform audit trail
+  - Endpoint: Internal (audit pipeline)
+  - Why: Every API key action (create, revoke, rotate, verify) must be auditable across the platform
+  - Acceptance criteria: Unkey audit events flow into the platform audit trail (D1 audit_events); admin dashboard shows API key audit timeline
+  - Implementation notes: Unkey webhooks → Hookdeck → Worker → D1 audit_events
+  - Hosting notes: Worker + webhook ingestion
+  - Backing services: Hookdeck (webhook ingest), D1 (audit_events), Unkey (audit events)
+  - Observability: Axiom: audit event stream; PostHog: audit events
+  - Dependencies: Hookdeck integration, audit service
+  - Related files: src/services/audit.ts, webhook handling
+  - Primary sources: Unkey webhook docs
+
+- [ ] LOOP-API-019: Build admin API key management dashboard (platform operator view)
+  - Endpoint: GET /api/admin/keys (super-admin only)
+  - Why: Support and abuse handling require viewing/managing all API keys across all tenants
+  - Acceptance criteria: Admin view showing all keys (searchable by tenant, site, key ID); force-revoke button; usage history per key
+  - Implementation notes: Admin-only API endpoints proxying to Unkey admin API
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Unkey (admin API), D1 (key metadata cache)
+  - Observability: Axiom: admin key actions audit log
+  - Dependencies: Admin auth (super-admin gate), Unkey admin API
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
+  - Primary sources: Unkey admin API docs
+
+- [ ] LOOP-API-020: Implement API key reporting/analytics keys (read-only)
+  - Endpoint: POST /api/keys (with permissions: ['read'])
+  - Why: Customers want to pull their own analytics without risk of mutation
+  - Acceptance criteria: Read-only keys can access GET endpoints but are rejected on POST/PUT/DELETE with 403
+  - Implementation notes: Permission-based middleware check on mutation endpoints
+  - Hosting notes: Workers middleware
+  - Backing services: Unkey (key permissions metadata)
+  - Observability: Axiom: read-only key usage
+  - Dependencies: Unkey integration, API middleware
+  - Related files: src/middleware/auth.ts
+  - Primary sources: Unkey key permissions docs
+
+- [ ] LOOP-API-021: Implement instant key revocation with propagation under 60 seconds
+  - Endpoint: DELETE /api/keys/:id
+  - Why: Compromised keys must be dead within a minute, not eventually consistent
+  - Acceptance criteria: Revocation propagates to all edge verification points within 60s; KV cache invalidation on revocation
+  - Implementation notes: Unkey revocation API + KV cache purge; DO-based verification cache busted on revocation
+  - Hosting notes: Workers DO + KV
+  - Backing services: Unkey (revocation), KV (cache invalidation)
+  - Observability: Axiom: revocation propagation latency; Sentry: verification failures during propagation
+  - Dependencies: Unkey integration, KV cache
+  - Related files: src/middleware/auth.ts, src/services/api_tokens.ts
+  - Primary sources: Unkey revocation API, KV cache invalidation patterns
+
+- [ ] LOOP-API-022: Build API key quota enforcement tied to billing plan
+  - Endpoint: Middleware (every API call)
+  - Why: Free-tier API access must be capped; paid tiers get higher limits
+  - Acceptance criteria: Per-plan API call quotas (free=1000/day, pro=10000/day, business=unlimited); middleware rejects over-quota calls with 429
+  - Implementation notes: DO counter per org per day; plan→quota mapping in D1 feature_flags
+  - Hosting notes: Workers DO + D1
+  - Backing services: DO (quota counter), D1 (plan limits), Unkey (key→org resolution)
+  - Observability: PostHog: quota exhaustion events; Axiom: quota events
+  - Dependencies: Billing (plan resolution), Unkey integration
+  - Related files: src/services/usage_metering.ts, billing module
+  - Primary sources: Stripe metered billing patterns, DO counter patterns
+
+- [ ] LOOP-API-023: Deploy API key event webhooks (create, revoke, expire, rotate)
+  - Endpoint: Outbound webhook (customer-configured)
+  - Why: Customers integrating via API need programmatic notification of key lifecycle events
+  - Acceptance criteria: Customers can configure a webhook URL for key events; events delivered via Hookdeck with retry
+  - Implementation notes: Unkey webhook events → Hookdeck → customer's URL
+  - Hosting notes: Hookdeck (webhook delivery)
+  - Backing services: Hookdeck, Unkey (event source)
+  - Observability: Axiom: webhook delivery logs; PostHog: key event volume
+  - Dependencies: Hookdeck integration, Unkey webhooks
+  - Related files: src/services/webhook.ts, libs/features/outbound_webhooks/
+  - Primary sources: Unkey webhook docs, Hookdeck outbound delivery
+
+- [ ] LOOP-API-024: Performance-test Unkey verification under load and document latency budget
+  - Endpoint: Internal (benchmark)
+  - Why: API key verification is on the hot path of every authenticated request; latency matters
+  - Acceptance criteria: p50 <5ms, p99 <20ms for cached verification; p50 <50ms, p99 <200ms for uncached; documented in ARCHITECTURE.md
+  - Implementation notes: Use benchmark.ts for load testing; KV cache hit rate tracked in Axiom
+  - Hosting notes: Worker benchmark
+  - Backing services: KV (cache), Unkey (verification)
+  - Observability: Axiom: verification latency histogram; Sentry: slow verification traces
+  - Dependencies: benchmark.ts, KV metrics
+  - Related files: src/services/benchmark.ts
+  - Primary sources: CF Workers performance docs, Unkey latency SLAs
