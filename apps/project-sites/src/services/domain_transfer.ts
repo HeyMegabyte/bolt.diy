@@ -134,26 +134,15 @@ const FROM_STEPS: Record<Provider, ReadonlyArray<{ action: string; detail: strin
  * populate the nameservers field of the returned plan.
  */
 const TARGET_NS: Record<Provider, readonly string[]> = {
-  cloudflare: [
-    'melissa.ns.cloudflare.com',
-    'roan.ns.cloudflare.com',
-  ],
-  namecheap: [
-    'dns1.registrar-servers.com',
-    'dns2.registrar-servers.com',
-  ],
+  cloudflare: ['melissa.ns.cloudflare.com', 'roan.ns.cloudflare.com'],
+  namecheap: ['dns1.registrar-servers.com', 'dns2.registrar-servers.com'],
   godaddy: [
     'ns1.domaincontrol.com',
     'ns2.domaincontrol.com',
     'ns3.domaincontrol.com',
     'ns4.domaincontrol.com',
   ],
-  route53: [
-    'ns-1.awsdns-1.org',
-    'ns-2.awsdns-2.co.uk',
-    'ns-3.awsdns-3.com',
-    'ns-4.awsdns-4.net',
-  ],
+  route53: ['ns-1.awsdns-1.org', 'ns-2.awsdns-2.co.uk', 'ns-3.awsdns-3.com', 'ns-4.awsdns-4.net'],
 };
 
 /**
@@ -298,9 +287,33 @@ export function validateTransfer(domain: string): ValidationResult {
 
   // Common TLD check (warn, not error)
   const knownTlds = [
-    'com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'ai', 'app',
-    'dev', 'me', 'info', 'biz', 'xyz', 'online', 'site', 'tech', 'store',
-    'cloud', 'digital', 'design', 'media', 'pro', 'name', 'one', 'uk',
+    'com',
+    'org',
+    'net',
+    'edu',
+    'gov',
+    'mil',
+    'io',
+    'co',
+    'ai',
+    'app',
+    'dev',
+    'me',
+    'info',
+    'biz',
+    'xyz',
+    'online',
+    'site',
+    'tech',
+    'store',
+    'cloud',
+    'digital',
+    'design',
+    'media',
+    'pro',
+    'name',
+    'one',
+    'uk',
   ];
 
   if (dotIndex > 0 && dotIndex < trimmed.length - 1) {

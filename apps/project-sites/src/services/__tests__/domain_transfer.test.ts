@@ -78,18 +78,12 @@ describe('transferDomain', () => {
 
   it('sets target nameservers to the toProvider', () => {
     const plan = transferDomain(domain, 'godaddy', 'cloudflare');
-    expect(plan.nameservers).toEqual([
-      'melissa.ns.cloudflare.com',
-      'roan.ns.cloudflare.com',
-    ]);
+    expect(plan.nameservers).toEqual(['melissa.ns.cloudflare.com', 'roan.ns.cloudflare.com']);
   });
 
   it('sets namecheap nameservers when target is namecheap', () => {
     const plan = transferDomain(domain, 'cloudflare', 'namecheap');
-    expect(plan.nameservers).toEqual([
-      'dns1.registrar-servers.com',
-      'dns2.registrar-servers.com',
-    ]);
+    expect(plan.nameservers).toEqual(['dns1.registrar-servers.com', 'dns2.registrar-servers.com']);
   });
 
   it('sets godaddy nameservers when target is godaddy', () => {

@@ -137,7 +137,7 @@ describe('resetQuotas', () => {
 
   it('resets all quotas whose period has lapsed', () => {
     const quotas = [
-      makeQuota('builds', 5, 3, [2026, 3, 1]),   // April 1
+      makeQuota('builds', 5, 3, [2026, 3, 1]), // April 1
       makeQuota('ai_calls', 10, 8, [2026, 4, 1]), // May 1
       makeQuota('emails', 100, 50, [2026, 5, 1]), // June 1
     ];
