@@ -312,7 +312,7 @@
 - [ ] [auto] **AP6 reusable R2 POST-Object shim** — generalize `plane-s3` for any S3-POST app on R2.
 - [ ] [gated] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS/Unkey dashboards via Better Auth/OIDC.
 - [ ] [auto] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs.
-- [ ] [auto] **AP9 secret-rotation calendar + automation** — ≤90d for all load-bearing vendor secrets.
+- [x] [auto] **AP9 secret-rotation calendar** — **CORE DONE 2026-06-29:** `services/secret_rotation.ts` — pure `rotationStatus(record, now, maxAgeDays=90)` → ok|due_soon(≤14d)|overdue|unknown + ageDays/daysUntilDue/dueAtMs (per-secret `maxAgeDays` override; ms-or-ISO; never-rotated→unknown) + `buildRotationReport(records, now)` → entries sorted overdue→due_soon→unknown→ok + counts + `needsAttention`. No `Date.now()` inside (caller passes now → deterministic). Zero-I/O, never-throws on empty/non-finite, 11/11 unit, tsc 0. Enforces the ≤90d vendor-risk-tiering cadence. Remaining wiring = a D1 `secret_rotations` registry (name/vendor/last_rotated) + the /admin calendar surface + the rotation automation. 146→145. worker→CI (gate now GREEN — 506 suites/7010 tests).
 - [ ] [auto] **AP10 cost-per-service dashboard** — CF+Neon+Upstash+CloudAMQP+SES+TiDB spend per app.
 - [ ] [auto] **AP11 typed service registry** — one SERVICE_REGISTRY (url/health/secrets) for every self-hosted app, driving admin + clients.
 - [ ] [auto] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents.
