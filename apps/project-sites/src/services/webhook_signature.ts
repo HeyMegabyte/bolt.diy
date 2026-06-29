@@ -83,7 +83,7 @@ export async function signPayload(
   const key = await crypto.subtle.importKey(
     'raw',
     keyData,
-    { name: 'HMAC', hash: HMAC_ALGO[algorithm] },
+    { hash: HMAC_ALGO[algorithm], name: 'HMAC' },
     false,
     ['sign'],
   );

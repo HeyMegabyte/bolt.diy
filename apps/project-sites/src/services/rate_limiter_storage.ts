@@ -18,14 +18,14 @@
 export interface RateLimitSnapshot {
   /** Unique key for the rate-limited resource (e.g. `user:<id>`, `ip:<addr>`). */
   key: string;
-  /** Current token count in the bucket (may be fractional). */
-  tokens: number;
   /** Epoch ms of the last refill (used to compute elapsed window time). */
   lastRefillMs: number;
-  /** Refill window in milliseconds (e.g. 60_000 for a 1-minute window). */
-  windowMs: number;
   /** Maximum token capacity (the refill upper bound). */
   maxTokens: number;
+  /** Current token count in the bucket (may be fractional). */
+  tokens: number;
+  /** Refill window in milliseconds (e.g. 60_000 for a 1-minute window). */
+  windowMs: number;
 }
 
 /**
@@ -44,7 +44,7 @@ export function snapshot(
   windowMs: number,
   maxTokens: number,
 ): RateLimitSnapshot {
-  return { key, tokens, lastRefillMs, windowMs, maxTokens };
+  return { key, lastRefillMs, maxTokens, tokens, windowMs };
 }
 
 /**
@@ -57,9 +57,12 @@ export function snapshot(
  * const { tokens, lastRefillMs, windowMs, maxTokens } = fromSnapshot(snap);
  * ```
  */
-export function fromSnapshot(
-  snap: RateLimitSnapshot,
-): { tokens: number; lastRefillMs: number; windowMs: number; maxTokens: number } {
+export function fromSnapshot(snap: RateLimitSnapshot): {
+  tokens: number;
+  lastRefillMs: number;
+  windowMs: number;
+  maxTokens: number;
+} {
   return {
     tokens: snap.tokens,
     lastRefillMs: snap.lastRefillMs,

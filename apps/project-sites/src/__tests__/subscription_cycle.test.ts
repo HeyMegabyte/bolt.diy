@@ -4,11 +4,7 @@
  * Covers computeCycleEvent and prorateAmount with all plan-change types
  * and edge cases.
  */
-import {
-  PLAN_PRICES,
-  computeCycleEvent,
-  prorateAmount,
-} from '../services/subscription_cycle.js';
+import { PLAN_PRICES, computeCycleEvent, prorateAmount } from '../services/subscription_cycle.js';
 import type { PlanChange, BillingCycle } from '../services/subscription_cycle.js';
 
 // ─── PLAN_PRICES ──────────────────────────────────────────────────
