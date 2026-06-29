@@ -1,0 +1,50 @@
+name = "projectsites-unkey"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# api.projectsites.dev → this Worker → the single Unkey AGPL container. EXPLICIT host route
+# (not custom_domain): the main `project-sites` worker owns `*.projectsites.dev/*`, and a
+# custom_domain LOSES to that wildcard — a more-specific `api.projectsites.dev/*` route WINS
+# (validated mail.*/pm.* pattern). DNS resolves via the proxied `*.projectsites.dev` AAAA +
+# wildcard edge cert, so no DNS record is needed.
+routes = [
+  { pattern = "api.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+# Keep the API container warm so key-verification stays low-latency (no cold-start on first
+# verify). Unkey targets <40ms; a cold container would blow that. Re-poke every 3 min.
+[triggers]
+crons = ["*/3 * * * *"]
+
+[vars]
+UNKEY_BASE_URL = "https://api.projectsites.dev"
+
+# ── Single Unkey AGPL container ──
+[[containers]]
+class_name = "Unkey"
+image = "./Dockerfile"
+max_instances = 1
+# Go binary + distroless is light (no JVM/Python); standard-2 (1 vCPU/4GiB) is ample for the
+# API server. Bump if verify p99 climbs under load.
+instance_type = "standard-2"
+name = "projectsites-unkey"
+
+[[durable_objects.bindings]]
+name = "UNKEY"
+class_name = "Unkey"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Unkey"]
+
+# Secrets to set before deploy (wrangler secret put ... --name projectsites-unkey), injected
+# into the Unkey container by worker.ts:
+#   UNKEY_DATABASE_PRIMARY   get-secret UNKEY_DATABASE_PRIMARY  (Go MySQL DSN → TiDB `unkey`, tls=true)
+#   UNKEY_REDIS_URL          get-secret UNKEY_REDIS_URL          (Upstash, rediss:// TLS)
+#   UNKEY_ROOT_KEY           get-secret UNKEY_ROOT_KEY           (bootstrap admin key)
