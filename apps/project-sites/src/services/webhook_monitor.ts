@@ -191,23 +191,23 @@ export function deliveryStats(events: readonly DeliveryEvent[]): DeliveryStats {
     if (existing) {
       endpointMap.set(event.webhookId, {
         ...existing,
-        total: existing.total + 1,
         delivered: existing.delivered + (isDelivered ? 1 : 0),
         failed: existing.failed + (isDelivered ? 0 : 1),
         failureRate: computeFailureRate(
           existing.failed + (isDelivered ? 0 : 1),
           existing.total + 1,
         ),
+        total: existing.total + 1,
       });
     } else {
       const failed = isDelivered ? 0 : 1;
       endpointMap.set(event.webhookId, {
-        webhookId: event.webhookId,
-        url: event.url,
-        total: 1,
         delivered: isDelivered ? 1 : 0,
         failed,
         failureRate: computeFailureRate(failed, 1),
+        total: 1,
+        url: event.url,
+        webhookId: event.webhookId,
       });
     }
   }

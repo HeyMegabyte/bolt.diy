@@ -78,10 +78,7 @@ export async function generateInvite(
  *
  * @throws {InviteTokenError} if the token is malformed, tampered, or expired
  */
-export async function validateInvite(
-  token: string,
-  hmacKey: string,
-): Promise<InvitePayload> {
+export async function validateInvite(token: string, hmacKey: string): Promise<InvitePayload> {
   const parts = token.split('.');
   if (parts.length !== 2) throw new InviteTokenError('Malformed invite token');
 
@@ -167,11 +164,7 @@ async function hmacSign(message: string, hmacKey: string): Promise<string> {
     false,
     ['sign'],
   );
-  const sig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(message),
-  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
   return encodeBase64Url(new Uint8Array(sig));
 }
 
@@ -193,9 +186,7 @@ function decodeBase64Url(input: string): string {
   const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
   const pad = (4 - (base64.length % 4)) % 4;
   const padded = base64.padEnd(base64.length + pad, '=');
-  return new TextDecoder().decode(
-    Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)),
-  );
+  return new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
 }
 
 /**

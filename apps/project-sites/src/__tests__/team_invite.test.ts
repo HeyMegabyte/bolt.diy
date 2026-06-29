@@ -57,13 +57,16 @@ describe('team_invite HMAC-signed tokens', () => {
     const { token } = await generateInvite('org_1', 'bob@example.com', 'member', KEY_A);
     const [payloadB64, _sig] = token.split('.') as [string, string];
     // Flip bits in the signature portion
-    const sigBytes = Uint8Array.from(atob(
-      _sig.replace(/-/g, '+').replace(/_/g, '').padEnd(_sig.length, '='),
-    ), (c) => c.charCodeAt(0));
+    const sigBytes = Uint8Array.from(
+      atob(_sig.replace(/-/g, '+').replace(/_/g, '').padEnd(_sig.length, '=')),
+      (c) => c.charCodeAt(0),
+    );
     const mid = Math.floor(sigBytes.length / 2);
     sigBytes[mid] = (sigBytes[mid] ?? 0) ^ 0xff;
     const tamperedSig = btoa(String.fromCharCode(...sigBytes))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
     const tamperedToken = `${payloadB64}.${tamperedSig}`;
     await expect(validateInvite(tamperedToken, KEY_A)).rejects.toThrow(InviteTokenError);
     await expect(validateInvite(tamperedToken, KEY_A)).rejects.toThrow(/signature/i);
@@ -77,7 +80,9 @@ describe('team_invite HMAC-signed tokens', () => {
     const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
     bytes[0] = (bytes[0] ?? 0) ^ 0x01; // flip one bit
     const tamperedB64 = btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
     const tamperedToken = `${tamperedB64}.${sig}`;
     await expect(validateInvite(tamperedToken, KEY_A)).rejects.toThrow(InviteTokenError);
   });
@@ -99,7 +104,9 @@ describe('team_invite HMAC-signed tokens', () => {
     };
     // Sign it manually to set a past expiry
     const payloadB64 = btoa(JSON.stringify(pastPayload))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
     const sig = await hmacSign(payloadB64, KEY_A);
     const expiredToken = `${payloadB64}.${sig}`;
     await expect(validateInvite(expiredToken, KEY_A)).rejects.toThrow(InviteTokenError);
@@ -119,7 +126,9 @@ describe('team_invite HMAC-signed tokens', () => {
   });
 
   it('throws InviteTokenError on empty HMAC key', async () => {
-    await expect(generateInvite('org_1', 'x@x.com', 'member', '')).rejects.toThrow(InviteTokenError);
+    await expect(generateInvite('org_1', 'x@x.com', 'member', '')).rejects.toThrow(
+      InviteTokenError,
+    );
   });
 
   it('rejects a token with invalid base64 payload', async () => {
@@ -131,7 +140,9 @@ describe('team_invite HMAC-signed tokens', () => {
   it('rejects a token with missing payload fields', async () => {
     const invalidPayload = JSON.stringify({ orgId: 'org_1' }); // missing email, role, exp
     const payloadB64 = btoa(invalidPayload)
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
     const sig = await hmacSign(payloadB64, KEY_A);
     const token = `${payloadB64}.${sig}`;
     await expect(validateInvite(token, KEY_A)).rejects.toThrow(InviteTokenError);
@@ -156,9 +167,16 @@ describe('team_invite HMAC-signed tokens', () => {
   });
 
   it('acceptInvite rejects expired tokens', async () => {
-    const pastPayload = { orgId: 'org_11', email: 'iris@example.com', role: 'viewer', exp: Date.now() - 1 };
+    const pastPayload = {
+      orgId: 'org_11',
+      email: 'iris@example.com',
+      role: 'viewer',
+      exp: Date.now() - 1,
+    };
     const payloadB64 = btoa(JSON.stringify(pastPayload))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
     const sig = await hmacSign(payloadB64, KEY_A);
     const expiredToken = `${payloadB64}.${sig}`;
     await expect(acceptInvite(expiredToken, 'user_iris', KEY_A)).rejects.toThrow(InviteTokenError);

@@ -38,9 +38,7 @@ describe('EXPORT_FORMATS', () => {
 describe('formatLogAsCsv', () => {
   it('formats a basic entry as a single CSV row', () => {
     const row = formatLogAsCsv(makeEntry());
-    expect(row).toBe(
-      '"info","test","{}","2026-06-01T12:00:00Z","trace-1"',
-    );
+    expect(row).toBe('"info","test","{}","2026-06-01T12:00:00Z","trace-1"');
   });
 
   it('escapes double quotes in the message', () => {
@@ -49,9 +47,7 @@ describe('formatLogAsCsv', () => {
   });
 
   it('escapes double quotes in context JSON so CSV is still 5 columns', () => {
-    const row = formatLogAsCsv(
-      makeEntry({ context: { note: 'said "hi"' } }),
-    );
+    const row = formatLogAsCsv(makeEntry({ context: { note: 'said "hi"' } }));
     // Even with nested JSON quotes, the CSV must produce exactly 5 columns
     // where each column is balanced (matching open/close quotes).
     const columns = row.match(/"(?:[^"]|"")*"/g);
@@ -95,10 +91,7 @@ describe('formatLogAsJson', () => {
   });
 
   it('formats multiple entries', () => {
-    const json = formatLogAsJson([
-      makeEntry({ level: 'info' }),
-      makeEntry({ level: 'warn' }),
-    ]);
+    const json = formatLogAsJson([makeEntry({ level: 'info' }), makeEntry({ level: 'warn' })]);
     const parsed = JSON.parse(json);
     expect(parsed).toHaveLength(2);
     expect(parsed[0].level).toBe('info');
@@ -137,10 +130,7 @@ describe('formatLogAsNdjson', () => {
   });
 
   it('joins multiple entries with newlines', () => {
-    const nd = formatLogAsNdjson([
-      makeEntry({ level: 'info' }),
-      makeEntry({ level: 'warn' }),
-    ]);
+    const nd = formatLogAsNdjson([makeEntry({ level: 'info' }), makeEntry({ level: 'warn' })]);
     const lines = nd.split('\n');
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0]).level).toBe('info');

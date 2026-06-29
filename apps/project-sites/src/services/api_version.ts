@@ -13,7 +13,7 @@
  * import { parseVersion, isDeprecated, versionHeader, API_VERSIONS } from './api_version.js';
  *
  * const v = parseVersion('v2');
- * // v → { major: 2, label: 'v2' }
+ * // v → { label: 'v2', major: 2 }
  *
  * isDeprecated('v1', 'v2');
  * // → true  (v1 is deprecated when current is v2)
@@ -25,10 +25,10 @@
 
 /** A parsed API version. */
 export interface ParsedVersion {
-  /** Numeric major version (e.g. `2` from `'v2'`). */
-  readonly major: number;
   /** Canonical label (e.g. `'v2'`). */
   readonly label: string;
+  /** Numeric major version (e.g. `2` from `'v2'`). */
+  readonly major: number;
 }
 
 /**
@@ -66,7 +66,7 @@ export function parseVersion(v: string): ParsedVersion {
   if (!Number.isInteger(major) || major < 1) {
     throw new RangeError(`Invalid API version: "${v}". Major must be a positive integer.`);
   }
-  return { major, label: v };
+  return { label: v, major };
 }
 
 /**

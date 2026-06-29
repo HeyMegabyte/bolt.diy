@@ -134,8 +134,8 @@ export function checkQuota(used: number, limit: number): CheckQuotaResult {
  */
 export function exceededMessage(type: QuotaType, used: number, limit: number): string {
   const label = QUOTA_LABELS[type] ?? type;
-  const safeUsed = Math.max(0, Number.isFinite(used) ? used : 0);
-  const safeLimit = Math.max(0, Number.isFinite(limit) ? limit : 0);
+  const safeUsed = typeof used === 'number' && !Number.isNaN(used) ? Math.max(0, used) : 0;
+  const safeLimit = typeof limit === 'number' && !Number.isNaN(limit) ? Math.max(0, limit) : 0;
 
   if (safeLimit <= 0) {
     return `${capitalize(label)} is unlimited on your plan.`;
