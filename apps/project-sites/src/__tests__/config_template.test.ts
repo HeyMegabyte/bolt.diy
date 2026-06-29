@@ -1,9 +1,9 @@
 import {
-  buildTemplate,
-  renderTemplate,
-  extractSecrets,
   APP_TEMPLATES,
+  buildTemplate,
   type ConfigField,
+  extractSecrets,
+  renderTemplate,
 } from '../services/config_template.js';
 
 describe('config_template', () => {
@@ -12,7 +12,7 @@ describe('config_template', () => {
   describe('buildTemplate', () => {
     it('creates a frozen ConfigTemplate with name, format, and fields', () => {
       const fields: ConfigField[] = [
-        { key: 'PORT', value: '8080', description: 'HTTP port', required: true, sensitive: false },
+        { description: 'HTTP port', key: 'PORT', required: true, sensitive: false, value: '8080' },
       ];
       const tpl = buildTemplate('MyApp', 'env', fields);
       expect(tpl.name).toBe('MyApp');
@@ -23,7 +23,7 @@ describe('config_template', () => {
 
     it('freezes the returned template and fields array', () => {
       const tpl = buildTemplate('X', 'json', [
-        { key: 'A', value: '1', description: '', required: false, sensitive: false },
+        { description: '', key: 'A', required: false, sensitive: false, value: '1' },
       ]);
       expect(Object.isFrozen(tpl)).toBe(true);
       expect(Object.isFrozen(tpl.fields)).toBe(true);
@@ -31,10 +31,10 @@ describe('config_template', () => {
 
     it('copies the fields array (does not share reference)', () => {
       const fields: ConfigField[] = [
-        { key: 'K', value: 'v', description: '', required: false, sensitive: false },
+        { description: '', key: 'K', required: false, sensitive: false, value: 'v' },
       ];
       const tpl = buildTemplate('T', 'toml', fields);
-      fields.push({ key: 'K2', value: 'v2', description: '', required: false, sensitive: false });
+      fields.push({ description: '', key: 'K2', required: false, sensitive: false, value: 'v2' });
       expect(tpl.fields).toHaveLength(1);
     });
 
@@ -51,16 +51,16 @@ describe('config_template', () => {
   describe('renderTemplate', () => {
     it('renders env format as KEY=VALUE lines', () => {
       const tpl = buildTemplate('E', 'env', [
-        { key: 'HOST', value: 'example.com', description: '', required: true, sensitive: false },
-        { key: 'PORT', value: '443', description: '', required: true, sensitive: false },
+        { description: '', key: 'HOST', required: true, sensitive: false, value: 'example.com' },
+        { description: '', key: 'PORT', required: true, sensitive: false, value: '443' },
       ]);
       expect(renderTemplate(tpl)).toBe('HOST=example.com\nPORT=443\n');
     });
 
     it('renders json format as a JSON object', () => {
       const tpl = buildTemplate('J', 'json', [
-        { key: 'HOST', value: 'example.com', description: '', required: true, sensitive: false },
-        { key: 'PORT', value: '443', description: '', required: true, sensitive: false },
+        { description: '', key: 'HOST', required: true, sensitive: false, value: 'example.com' },
+        { description: '', key: 'PORT', required: true, sensitive: false, value: '443' },
       ]);
       const out = renderTemplate(tpl);
       const parsed = JSON.parse(out);
@@ -74,21 +74,21 @@ describe('config_template', () => {
 
     it('renders toml format as key = "value" lines', () => {
       const tpl = buildTemplate('T', 'toml', [
-        { key: 'HOST', value: 'example.com', description: '', required: true, sensitive: false },
+        { description: '', key: 'HOST', required: true, sensitive: false, value: 'example.com' },
       ]);
       expect(renderTemplate(tpl)).toBe('HOST = "example.com"\n');
     });
 
     it('renders yaml format as key: "value" lines', () => {
       const tpl = buildTemplate('Y', 'yaml', [
-        { key: 'HOST', value: 'example.com', description: '', required: true, sensitive: false },
+        { description: '', key: 'HOST', required: true, sensitive: false, value: 'example.com' },
       ]);
       expect(renderTemplate(tpl)).toBe('HOST: "example.com"\n');
     });
 
     it('escapes double quotes in json values', () => {
       const tpl = buildTemplate('Q', 'json', [
-        { key: 'LABEL', value: 'say "hello"', description: '', required: false, sensitive: false },
+        { description: '', key: 'LABEL', required: false, sensitive: false, value: 'say "hello"' },
       ]);
       const out = renderTemplate(tpl);
       expect(out).toContain('say \\"hello\\"');
@@ -97,14 +97,14 @@ describe('config_template', () => {
 
     it('escapes double quotes in toml values', () => {
       const tpl = buildTemplate('Qt', 'toml', [
-        { key: 'LABEL', value: 'say "hello"', description: '', required: false, sensitive: false },
+        { description: '', key: 'LABEL', required: false, sensitive: false, value: 'say "hello"' },
       ]);
       expect(renderTemplate(tpl)).toContain('\\"hello\\"');
     });
 
     it('escapes backslashes in json values', () => {
       const tpl = buildTemplate('Bs', 'json', [
-        { key: 'PATH', value: 'C:\\apps\\app', description: '', required: false, sensitive: false },
+        { description: '', key: 'PATH', required: false, sensitive: false, value: 'C:\\apps\\app' },
       ]);
       const out = renderTemplate(tpl);
       expect(() => JSON.parse(out)).not.toThrow();
@@ -116,10 +116,10 @@ describe('config_template', () => {
   describe('extractSecrets', () => {
     it('returns keys where sensitive is true', () => {
       const fields: ConfigField[] = [
-        { key: 'PUBLIC', value: 'x', description: '', required: true, sensitive: false },
-        { key: 'SECRET_1', value: 's1', description: '', required: true, sensitive: true },
-        { key: 'SECRET_2', value: 's2', description: '', required: false, sensitive: true },
-        { key: 'OTHER', value: 'y', description: '', required: false, sensitive: false },
+        { description: '', key: 'PUBLIC', required: true, sensitive: false, value: 'x' },
+        { description: '', key: 'SECRET_1', required: true, sensitive: true, value: 's1' },
+        { description: '', key: 'SECRET_2', required: false, sensitive: true, value: 's2' },
+        { description: '', key: 'OTHER', required: false, sensitive: false, value: 'y' },
       ];
       expect(extractSecrets(fields)).toEqual(['SECRET_1', 'SECRET_2']);
     });
@@ -128,7 +128,7 @@ describe('config_template', () => {
       expect(extractSecrets([])).toEqual([]);
       expect(
         extractSecrets([
-          { key: 'A', value: '1', description: '', required: true, sensitive: false },
+          { description: '', key: 'A', required: true, sensitive: false, value: '1' },
         ]),
       ).toEqual([]);
     });
@@ -148,7 +148,7 @@ describe('config_template', () => {
     });
 
     it('every template has a non-empty name', () => {
-      for (const [slug, tpl] of Object.entries(APP_TEMPLATES)) {
+      for (const tpl of Object.values(APP_TEMPLATES)) {
         expect(tpl.name).toBeTruthy();
         expect(tpl.format).toMatch(/^(env|json|toml|yaml)$/);
         expect(tpl.fields.length).toBeGreaterThan(0);
