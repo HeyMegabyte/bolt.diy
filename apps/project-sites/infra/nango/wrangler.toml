@@ -21,7 +21,7 @@ instance_type = "standard-1"
 name = "projectsites-nango"
 
 [[durable_objects.bindings]]
-name = "NANGO"
+name = "NANGO_CONTAINER"
 class_name = "Nango"
 
 [[migrations]]
