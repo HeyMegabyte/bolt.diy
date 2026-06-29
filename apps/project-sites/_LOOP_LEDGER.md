@@ -4,7 +4,51 @@
 > (git history holds the rest). **Sorted strictly by importance — top = do first.** Value-tiered
 > (P0 → Tier 1 → Tier 4 → Dedicated → Needs-Brian); within each tier, most important first.
 >
-> **The finishing-loop cron drains this file.** `scripts/loop-done-check.sh` counts unchecked
+> **The finishing-loop cron drains this file.**
+>
+> **📦 Last ship: 2026-06-29 — OpenMeter removed, StripeMetersProvider shipped, per-unit billing (token/GB/min).** See § Ship Log below.
+
+---
+
+## 📦 Ship Log — 2026-06-29
+
+### OpenMeter → Stripe Meters migration (COMPLETE)
+
+| What | Status | Files |
+|------|--------|-------|
+| Billing provider abstraction | ✅ | `src/services/billing_provider.ts` — 17 metrics, 6 units, vendor-neutral interface |
+| StripeMetersProvider (active) | ✅ | `src/services/billing_provider_stripe.ts` — D1 ledger → Stripe Meter Events |
+| MetronomeProvider (future) | ✅ | `src/services/billing_provider_metronome.ts` — skeleton, METRONOME_LATER |
+| NoopBillingProvider (dev/test) | ✅ | `src/services/billing_provider_noop.ts` — exposes recordedEvents[] |
+| CI gate: no OpenMeter | ✅ | `scripts/check-no-openmeter.mjs` — fails build on reintroduction |
+| Per-unit cost accuracy | ✅ | `METRIC_RATE_CENTS` — per token, per GB, per GB-hour, per minute |
+| Wired into API routes | ✅ | `POST /api/billing/usage/report` + `GET /api/billing/usage/summary` |
+| Env vars | ✅ | `BILLING_PROVIDER`, `STRIPE_METER_*`×11, `METRONOME_*`×3 in types/env.ts |
+| Ledger purge | ✅ | `_LOOP_LEDGER.md` — 109 OpenMeter refs → Stripe Meters + Metronome |
+| Tests | ✅ | 22 tests — NoopProvider, config validation, per-unit cost accuracy |
+| OLAP decision codified | ✅ | Tinybird always, ClickHouse NEVER (per `tinybird-always-never-clickhouse`) |
+
+**Architecture (final):**
+```
+ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
+                                                  → Metronome (future, skeleton ready)
+                                                  → Stripe payment collection (always)
+```
+
+### Remaining Stripe manual setup
+
+- Create 17 `ps_*` Meter Event definitions in Stripe Dashboard
+- Set `STRIPE_PRICE_BASE_SITE_MONTHLY` + `_YEARLY` price IDs
+- Set `BILLING_PROVIDER=stripe_meters` (or leave unset — it's the default)
+
+### Immediate recommendations (do next loop fire)
+
+1. **Wire `StripeMetersProvider` into AI Gateway path** — every LLM call should emit `ai_input_tokens` + `ai_output_tokens` events through the provider (currently `meterAiCall` uses old path in `usage_metering.ts`)
+2. **Wire browser jobs** — `browser_gateway.ts` should emit `browser_automation_minutes` through the provider
+3. **Wire email sends** — `listmonk_events.ts` should emit `email_sends` through the provider
+4. **Backfill `usage_events` D1 migration** — add `idempotency_key`, `unit`, `source`, `delivery_status`, `last_delivery_attempt_at`, `last_delivery_error` columns if not present (the old schema has `value`/`billed` columns)
+5. **Stripe Dashboard** — create the 17 meter event definitions matching `STRIPE_METER_MAP`
+6. **Metronome eval** — when advanced rating is needed (rate cards, commits, credits), activate the skeleton `scripts/loop-done-check.sh` counts unchecked
 > `- [ ] … [auto]` lines = autonomous work left. `[auto]` = loop builds it; `[gated]` = needs Brian
 > (in `## ⛔ NEEDS BRIAN`, never blocks DONE); `[dedicated]` = real but needs a supervised session.
 > Legend: `[ ]` open · `[x]` done. Close one, tick it, commit, next. Shipped proof = `git log`.
