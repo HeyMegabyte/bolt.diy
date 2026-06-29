@@ -63,7 +63,12 @@ function calculateDaysRemaining(nowMs: number, cycleStart: number, cycleEnd: num
  * @param cycleEnd - Billing cycle end in Unix ms.
  * @returns Prorated amount, rounded to the nearest integer.
  */
-function prorate(price: number, daysRemaining: number, cycleStart: number, cycleEnd: number): number {
+function prorate(
+  price: number,
+  daysRemaining: number,
+  cycleStart: number,
+  cycleEnd: number,
+): number {
   const totalDays = (cycleEnd - cycleStart) / 86_400_000;
   if (totalDays <= 0 || daysRemaining <= 0) return 0;
   const fraction = daysRemaining / totalDays;

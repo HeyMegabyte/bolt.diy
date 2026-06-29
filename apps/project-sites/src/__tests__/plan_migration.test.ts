@@ -6,14 +6,14 @@
 import { computeMigration, isUpgrade, PLAN_TIER } from '../services/plan_migration.js';
 
 // 30-day billing cycle: June 2025 (month indexes are 0-based in Date.UTC)
-const CYCLE_START = Date.UTC(2025, 5, 1);  // 2025-06-01 00:00 UTC
-const CYCLE_END   = Date.UTC(2025, 6, 1);  // 2025-07-01 00:00 UTC
+const CYCLE_START = Date.UTC(2025, 5, 1); // 2025-06-01 00:00 UTC
+const CYCLE_END = Date.UTC(2025, 6, 1); // 2025-07-01 00:00 UTC
 
-const MID_CYCLE  = Date.UTC(2025, 5, 16);  // 2025-06-16 00:00 UTC → 15 days remaining
-const DAY1_7AM   = Date.UTC(2025, 5, 1, 7); // 2025-06-01 07:00 UTC → 29 remaining (floor)
-const CYCLE_LAST = Date.UTC(2025, 5, 30);  // 2025-06-30 00:00 UTC → 1 day remaining
-const PAST_END   = Date.UTC(2025, 6, 1, 19); // 2025-07-01 19:00 UTC → past end → 0 remaining
-const DAY_20     = CYCLE_START + 20 * 86_400_000; // 20 days elapsed → 10 days remaining
+const MID_CYCLE = Date.UTC(2025, 5, 16); // 2025-06-16 00:00 UTC → 15 days remaining
+const DAY1_7AM = Date.UTC(2025, 5, 1, 7); // 2025-06-01 07:00 UTC → 29 remaining (floor)
+const CYCLE_LAST = Date.UTC(2025, 5, 30); // 2025-06-30 00:00 UTC → 1 day remaining
+const PAST_END = Date.UTC(2025, 6, 1, 19); // 2025-07-01 19:00 UTC → past end → 0 remaining
+const DAY_20 = CYCLE_START + 20 * 86_400_000; // 20 days elapsed → 10 days remaining
 
 describe('PLAN_TIER', () => {
   it('maps free < starter < pro', () => {
@@ -62,22 +62,22 @@ describe('computeMigration', () => {
     expect(r.fromPlan).toBe('starter');
     expect(r.toPlan).toBe('pro');
     expect(r.daysRemaining).toBe(15);
-    expect(r.proratedRefund).toBe(750);   // 1500 * 15/30
-    expect(r.newCharge).toBe(1450);        // 2900 * 15/30
+    expect(r.proratedRefund).toBe(750); // 1500 * 15/30
+    expect(r.newCharge).toBe(1450); // 2900 * 15/30
     expect(r.effectiveDate).toBe(MID_CYCLE);
   });
 
   it('returns correct proration on day 1 with 29 days remaining (floor)', () => {
     const r = computeMigration('starter', 'pro', 1500, 2900, CYCLE_START, CYCLE_END, DAY1_7AM);
     expect(r.daysRemaining).toBe(29);
-    expect(r.proratedRefund).toBe(1450);   // 1500 * 29/30 = 1450 (exact)
-    expect(r.newCharge).toBe(2803);        // 2900 * 29/30 ≈ 2803.33 → 2803
+    expect(r.proratedRefund).toBe(1450); // 1500 * 29/30 = 1450 (exact)
+    expect(r.newCharge).toBe(2803); // 2900 * 29/30 ≈ 2803.33 → 2803
   });
 
   it('returns 0 refund/charge when now is at cycle end (0 days remaining)', () => {
     const r = computeMigration('pro', 'free', 2900, 0, CYCLE_START, CYCLE_END, CYCLE_LAST);
-    expect(r.daysRemaining).toBe(1);       // last day still counts
-    expect(r.proratedRefund).toBe(97);     // 2900 * 1/30 ≈ 96.67 → 97
+    expect(r.daysRemaining).toBe(1); // last day still counts
+    expect(r.proratedRefund).toBe(97); // 2900 * 1/30 ≈ 96.67 → 97
     expect(r.newCharge).toBe(0);
   });
 
@@ -92,7 +92,7 @@ describe('computeMigration', () => {
   it('handles free tier (zero price) correctly', () => {
     const r = computeMigration('free', 'starter', 0, 1500, CYCLE_START, CYCLE_END, MID_CYCLE);
     expect(r.proratedRefund).toBe(0);
-    expect(r.newCharge).toBe(750);          // 1500 * 15/30 = 750
+    expect(r.newCharge).toBe(750); // 1500 * 15/30 = 750
     expect(r.daysRemaining).toBe(15);
   });
 
