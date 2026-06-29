@@ -289,7 +289,7 @@
 - [ ] [auto] **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler.
 - [x] [auto] **LM10 D1 segments → queries** — **CORE DONE 2026-06-29:** `services/listmonk_segments.ts` — pure `classifyCohort(sub, now)` → new(≤7d)|trial(trialing/trial-plan)|active(seen≤30d)|dormant(≤90d)|churned(canceled/past_due OR >90d idle) with explicit-churn precedence + createdAt fallback for lastActive + ms-or-ISO; `bucketByCohort(subs, now)` → ids per cohort (all keys present so emptied segments can be cleared) + counts + total. No `Date.now()` inside (deterministic). Zero-I/O, never-throws on junk, 10/10 unit, tsc 0. Remaining wiring = D1 cohort query + Listmonk segment-sync push. 146→145. worker→CI (gate GREEN).
 - [ ] [auto] **LM11 archive + signup embed** — public newsletter archive + signup on projectsites marketing.
-- [ ] [auto] **LM12 open/click → analytics** — tracking into Tinybird/PostHog funnels.
+- [x] [auto] **LM12 open/click → analytics** — **CORE DONE 2026-06-29:** `services/listmonk_events.ts` — pure `mapListmonkEvent`+`mapListmonkEvents` (open/click→analytics shapes) + deterministic `eventKey` dedup. Zero-I/O, 22/22 unit, all gates clean. Remaining = wire into Listmonk webhook receiver. 137→136. worker→CI.
 - [ ] [auto] **LM13 AI campaign drafts** — LLM → Listmonk templates (newsletter/changelog), review-gated.
 - [ ] [auto] **LM14 preference center** — unsubscribe/prefs wired to our user prefs (psnotify).
 - [ ] [auto] **LM15 bounce/complaint → suppression sync** — propagate to Twenty + cross-system suppression.
@@ -299,7 +299,7 @@
 - [ ] [gated] **LM19 site contact-form → owner list** — opt-in capture on generated sites.
 - [ ] [dedicated] **LM20 multi-tenant isolation + per-customer SES identities/domains** — sending-domain separation.
 - [ ] [gated] **LM21 plan-gate sending quotas** — Pro-tier pricing decision.
-- [ ] [auto] **LM22 branded transactional templates** — per-site logo/colors from `_brand.json`.
+- [x] [auto] **LM22 branded transactional templates** — **CORE DONE 2026-06-29:** `services/template_branding.ts` — `buildTemplateVars(input)` → BrandTemplateVars (logo/colors/CSS block/CTA-style/logo-img) + `brandCss` + `logoImg`. Projectsites default palette fallback, contrast-aware CTA (light primary→dark text). Zero-I/O, never-throws, 19/19 unit, gates clean. Remaining = wire into SES/Listmonk template send path. 137→136.
 - [x] [auto] **LM23 deliverability dashboard** — **CORE DONE 2026-06-29:** `services/deliverability_summary.ts` — pure `aggregateDeliverability(rows, totalSent)` → bounce/complaint counts+rates(+breakdown by subtype) + `dailyTrend` (30d bucketed, windowed w/ opts.nowMs). Zero-I/O, 5/5 unit, tsc+lint clean. Remaining = query suppressions from D1 + /admin panel. 139→138. worker→CI.
 - [ ] [auto] **LM24 rate-limit/retry wrapper** — idempotent Listmonk client (reuse the shim retry pattern).
 
@@ -314,7 +314,7 @@
 - [ ] [auto] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs.
 - [x] [auto] **AP9 secret-rotation calendar** — **CORE DONE 2026-06-29:** `services/secret_rotation.ts` — pure `rotationStatus(record, now, maxAgeDays=90)` → ok|due_soon(≤14d)|overdue|unknown + ageDays/daysUntilDue/dueAtMs (per-secret `maxAgeDays` override; ms-or-ISO; never-rotated→unknown) + `buildRotationReport(records, now)` → entries sorted overdue→due_soon→unknown→ok + counts + `needsAttention`. No `Date.now()` inside (caller passes now → deterministic). Zero-I/O, never-throws on empty/non-finite, 11/11 unit, tsc 0. Enforces the ≤90d vendor-risk-tiering cadence. Remaining wiring = a D1 `secret_rotations` registry (name/vendor/last_rotated) + the /admin calendar surface + the rotation automation. 146→145. worker→CI (gate now GREEN — 506 suites/7010 tests).
 - [x] [auto] **AP10 cost-per-service dashboard** — **CORE DONE 2026-06-29:** `services/cost_aggregation.ts` — pure `aggregateCosts(lineItems)` → grand total (+`$x.xx` display) + per-vendor breakdown (sorted highest-first, % share) + per-app breakdown (`unattributed` bucket pinned last) + `formatCents`. Clamps negative/non-finite to 0, skips vendor-less items, all-zero on empty — never throws. Zero-I/O, 7/7 unit, tsc 0, lint 0-err, format clean. Remaining wiring = pull line items from each provider billing API (CF/Neon/Upstash/CloudAMQP/SES/TiDB) + /admin dashboard surface. 144→143. worker→CI.
-- [ ] [auto] **AP11 typed service registry** — one SERVICE_REGISTRY (url/health/secrets) for every self-hosted app, driving admin + clients.
+- [x] [auto] **AP11 typed service registry** — **CORE DONE 2026-06-29:** `services/service_registry.ts` — `createRegistry(entries)` factory (validate/dedup/freeze) + `DEFAULT_SERVICES` (9 live entries: Plane/Twenty/Listmonk/Unkey/Postiz/Inngest/CMS/LLM/CRM). Zero-I/O, 22/22 unit, gates clean. Remaining = wire admin health-dashboard + secret-rotation calendar. 137→136. driving admin + clients.
 - [ ] [auto] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents.
 - [x] [auto] **AP13 cross-app identity graph** — **CORE DONE 2026-06-29:** `services/identity_graph.ts` — pure `buildIdentityGraph(flatRows)` → `{nodes: IdentityNode[] (userId/email/apps/appCount/isCrossApp), totalUsers, crossAppUsers, appCounts}`. Merges + dedupes per (app, externalId); sorts most-connected-first; missing email→"unknown"; skips empty rows, never throws. Zero-I/O, 6/6 unit, tsc 0, lint+prettier clean. The unification layer psnotify/billing/AI-ops consume to resolve one customer view. Remaining wiring = pull rows from each app DB/API. 141→140. worker→CI.
 - [ ] [dedicated] **AP14 DR game day** — simulate a store/region outage; verify wrangler rollback + D1 Time Travel + restores.
@@ -324,8 +324,8 @@
 - [ ] [gated] **AP18 data-residency review** — EU-default for new stores; audit existing (GDPR; one-way-door).
 - [ ] [auto] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies.
 - [ ] [auto] **AP20 one-signup platform provisioning** — a signup provisions site + (optional) CRM + email + PM workspaces.
-- [ ] [auto] **AP21 unified admin Cmd-K** — command palette + cross-app deep links across all admin surfaces.
-- [ ] [auto] **AP22 billing meter aggregation** — usage across apps → Stripe/Square (paid-tier foundation).
+- [x] [auto] **AP21 unified admin Cmd-K** — **CORE DONE 2026-06-29:** `services/cmd_k_data.ts` — `buildCmdK` (group by category, sorted) + `filterCmdK` (case-insensitive match, quality-sorted) + `matchScore` (100/60/50/25/10/0 tiers). Zero-I/O, 34/34 unit, 0 lint, tsc clean. Remaining = wire the UI picker component. 137→136.
+- [x] [auto] **AP22 billing meter aggregation** — **CORE DONE 2026-06-29:** `services/billing_meter.ts` — `aggregateMeter(counters)` sums usage per app+metric, applies $ pricing (builds 5c/ai 1c/email 0.05c), emits Stripe `meterEventName` + payload; `billableOnly` filters zeros. Zero-I/O, 16/16 unit, gates clean. Remaining = push to Stripe meter API + dashboard. 137→136.
 - [ ] [auto] **AP23 shared client library** — one rate-limit/retry/idempotency lib used by every service client (stop re-implementing it).
 - [ ] [gated] **AP24 suite positioning** — bundle the self-hosted suite (PM+CRM+email+sites+keys) as the projectsites differentiator (strategy/pricing).
 
@@ -6349,3 +6349,888 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Dependencies: benchmark.ts, KV metrics
   - Related files: src/services/benchmark.ts
   - Primary sources: CF Workers performance docs, Unkey latency SLAs
+
+## auth.projectsites.dev — Better Auth
+
+### Raw research themes considered
+Better Auth is the platform auth provider (already provisioned at apps/project-sites/infra/better-auth/ with wrangler.toml + package.json). Research covered: Better Auth plugin system (organizations, OAuth/OIDC, passkeys, magic links, admin impersonation, SSO), CF Workers compatibility (D1 adapter, KV session store), multi-tenant org model (org switching, invitation flows), role/permission system, account linking, session management, enterprise SSO boundaries, and CF-specific deployment gotchas from the existing memory file [[better-auth-cf-gotchas]].
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-AUTH-001: Deploy Better Auth CF Worker and wire as the platform auth provider
+  - Endpoint: auth.projectsites.dev (CF Worker)
+  - Why: Better Auth is provisioned but not yet deployed as the primary auth endpoint
+  - Acceptance criteria: auth.projectsites.dev serves login/signup/oauth flows; D1 users/organizations tables populated on signup; session cookies work across projectsites.dev subdomains
+  - Implementation notes: Deploy from apps/project-sites/infra/better-auth/; configure FRONTEND_URL, D1 binding, KV session store; test magic link + OAuth flows
+  - Hosting notes: CF Worker (stateless edge), D1 (users/orgs), KV (sessions)
+  - Backing services: D1 (auth DB), KV (session store), Resend (magic link emails)
+  - Observability: Axiom: auth event logs (login, signup, oauth); Sentry: auth errors; PostHog: auth funnel
+  - Dependencies: D1 migration (Better Auth schema), KV namespace, Resend API key
+  - Related files: apps/project-sites/infra/better-auth/wrangler.toml, apps/project-sites/infra/better-auth/package.json
+  - Primary sources: https://better-auth.com/docs, [[better-auth-cf-gotchas]]
+
+- [ ] LOOP-AUTH-002: Implement organization/team creation on first signup with workspace model
+  - Endpoint: POST /api/auth/signup (auto-creates org)
+  - Why: Every new user gets an organization; multi-tenant isolation starts at signup
+  - Acceptance criteria: Signup creates user + default organization + admin membership; org_id available in session context for all subsequent requests
+  - Implementation notes: Better Auth organization plugin; default org name = user email domain or "Personal"
+  - Hosting notes: Worker + D1 (org creation)
+  - Backing services: D1 (organizations, memberships tables)
+  - Observability: Axiom: org creation events; PostHog: signup→org funnel
+  - Dependencies: Better Auth Worker deployment
+  - Related files: apps/project-sites/infra/better-auth/, src/services/auth.ts
+  - Primary sources: https://better-auth.com/docs/plugins/organization
+
+- [ ] LOOP-AUTH-003: Wire passkey (WebAuthn) authentication for passwordless login
+  - Endpoint: /api/auth/passkey (Better Auth passkey plugin)
+  - Why: Passkeys are more secure than passwords and faster for returning users
+  - Acceptance criteria: Users can register a passkey and login with biometric/PIN; passkey registration available in account settings
+  - Implementation notes: Better Auth passkey plugin; requires HTTPS (already enforced)
+  - Hosting notes: Worker (stateless, passkey challenge via KV)
+  - Backing services: KV (passkey challenges), D1 (credential storage)
+  - Observability: Axiom: passkey auth events; PostHog: passkey adoption rate
+  - Dependencies: Better Auth Worker
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: https://better-auth.com/docs/plugins/passkey
+
+- [ ] LOOP-AUTH-004: Implement OAuth/OIDC provider login (Google, GitHub, Microsoft)
+  - Endpoint: /api/auth/oauth/:provider
+  - Why: Social login reduces signup friction; Google is the most-used identity provider
+  - Acceptance criteria: Users can sign up/login via Google, GitHub, Microsoft OAuth; OAuth accounts can be linked to existing accounts
+  - Implementation notes: Better Auth OAuth plugin; OAuth client IDs/secrets in wrangler secrets
+  - Hosting notes: Worker (OAuth redirect flow)
+  - Backing services: D1 (account linking), wrangler secrets (OAuth creds)
+  - Observability: Axiom: OAuth flow events; PostHog: OAuth provider usage
+  - Dependencies: Better Auth Worker, OAuth provider app registrations
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: https://better-auth.com/docs/plugins/oauth-provider
+
+- [ ] LOOP-AUTH-005: Build magic link email authentication flow
+  - Endpoint: POST /api/auth/magic-link
+  - Why: Passwordless email login is the lowest-friction auth method
+  - Acceptance criteria: User enters email → receives magic link → click logs them in; link expires after 15 minutes; rate limited to 5/minute per email
+  - Implementation notes: Better Auth magic link plugin + Resend for email delivery
+  - Hosting notes: Worker + Resend (email)
+  - Backing services: Resend (email), KV (magic link tokens), D1 (user lookup)
+  - Observability: Axiom: magic link events; PostHog: magic link conversion rate
+  - Dependencies: Better Auth Worker, Resend
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: https://better-auth.com/docs/plugins/magic-link
+
+- [ ] LOOP-AUTH-006: Implement organization switching for multi-tenant users
+  - Endpoint: POST /api/auth/switch-org
+  - Why: Agency users belong to multiple orgs; seamless switching is a core UX requirement
+  - Acceptance criteria: User sees list of their orgs; switching updates session context to new org; admin UI reflects switched org
+  - Implementation notes: Better Auth organization plugin's switch-org; update session cookie with new active org
+  - Hosting notes: Worker (session update)
+  - Backing services: KV (session), D1 (memberships)
+  - Observability: Axiom: org switch events; PostHog: multi-org user segmentation
+  - Dependencies: Better Auth Worker, organization model
+  - Related files: src/services/auth.ts
+  - Primary sources: https://better-auth.com/docs/plugins/organization
+
+- [ ] LOOP-AUTH-007: Build team invitation and role assignment flow
+  - Endpoint: POST /api/auth/invite
+  - Why: Organizations need to invite team members with specific roles
+  - Acceptance criteria: Admin can invite by email with role selection; invitee receives email; accepting creates membership with assigned role; invite expires after 7 days
+  - Implementation notes: Better Auth invitation plugin; Resend for invite emails
+  - Hosting notes: Worker + Resend
+  - Backing services: Resend (invite emails), D1 (invitations, memberships)
+  - Observability: Axiom: invitation events; PostHog: invitation acceptance rate
+  - Dependencies: Better Auth Worker, Resend
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: https://better-auth.com/docs/plugins/organization (invitation section)
+
+- [ ] LOOP-AUTH-008: Implement admin impersonation safety controls
+  - Endpoint: POST /api/admin/impersonate (super-admin only)
+  - Why: Support requires seeing the product as the customer sees it; impersonation must be auditable and safe
+  - Acceptance criteria: Super-admin can impersonate any org; ALL impersonation sessions logged to audit trail; impersonation banner visible in UI; cannot make billing changes while impersonating
+  - Implementation notes: Better Auth admin plugin or custom middleware; audit every impersonation start/end
+  - Hosting notes: Worker middleware
+  - Backing services: D1 (audit_events), KV (impersonation session marker)
+  - Observability: Axiom: impersonation audit; Sentry: impersonation context in traces
+  - Dependencies: Better Auth Worker, audit service, admin auth middleware
+  - Related files: src/middleware/auth.ts, src/services/auth.ts, src/services/sysadmin.ts
+  - Primary sources: Better Auth admin docs, [[admin-override-patterns]]
+
+- [ ] LOOP-AUTH-009: Implement session policy (timeout, device tracking, force-logout)
+  - Endpoint: Middleware (every request) + GET /api/auth/sessions
+  - Why: Security requires session lifecycle management; users need visibility into active sessions
+  - Acceptance criteria: Sessions expire after 7 days of inactivity; users can view and revoke active sessions; admin can force-logout any user; session list shows device/IP/last active
+  - Implementation notes: Better Auth session management; KV session store with TTL
+  - Hosting notes: Worker + KV
+  - Backing services: KV (session store with TTL)
+  - Observability: Axiom: session lifecycle events; Sentry: session errors
+  - Dependencies: Better Auth Worker
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: https://better-auth.com/docs/plugins/session
+
+- [ ] LOOP-AUTH-010: Wire account recovery flows (forgot password, account linking, email change)
+  - Endpoint: POST /api/auth/recover + POST /api/auth/verify-email-change
+  - Why: Account recovery is the #1 support request type; self-serve reduces support load
+  - Acceptance criteria: Forgot password flow sends reset link; email change requires current email confirmation + new email verification; account linking merges identities with explicit confirmation
+  - Implementation notes: Better Auth plugins for each flow; Resend for all email verification
+  - Hosting notes: Worker + Resend
+  - Backing services: Resend (verification emails), D1 (user records), KV (recovery tokens)
+  - Observability: Axiom: recovery flow events; PostHog: recovery completion rate
+  - Dependencies: Better Auth Worker, Resend
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: Better Auth account recovery docs
+
+- [ ] LOOP-AUTH-011: Implement enterprise SSO boundary (SAML/OIDC for customer orgs)
+  - Endpoint: /api/auth/sso/:orgSlug (tenant-specific SSO)
+  - Why: Enterprise customers require their own IdP; SSO is table stakes for B2B SaaS
+  - Acceptance criteria: Org admins can configure their own OIDC/SAML provider; SSO login redirects to customer's IdP; just-in-time provisioning for new SSO users
+  - Implementation notes: Better Auth SSO plugin; per-org SSO config stored in D1
+  - Hosting notes: Worker (SSO redirect flow)
+  - Backing services: D1 (SSO configs), KV (SSO state tokens)
+  - Observability: Axiom: SSO auth events; PostHog: SSO adoption by org
+  - Dependencies: Better Auth Worker, organization model
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: https://better-auth.com/docs/plugins/sso
+
+- [ ] LOOP-AUTH-012: Implement bot protection on all auth endpoints
+  - Endpoint: Every /api/auth/* endpoint
+  - Why: Auth endpoints are the highest-value target for automated attacks
+  - Acceptance criteria: Turnstile on signup and login; rate limiting (5 attempts/minute per IP); account lockout after 10 failed attempts; notification email on suspicious activity
+  - Implementation notes: CF Turnstile widget on frontend; DO rate limiter on auth routes; D1 failed_attempts tracking
+  - Hosting notes: Worker middleware + DO rate limiter
+  - Backing services: Turnstile, DO (rate limiter), D1 (attempt tracking)
+  - Observability: Axiom: auth abuse events; Sentry: auth attack patterns
+  - Dependencies: Turnstile service, Better Auth Worker
+  - Related files: src/services/turnstile.ts, src/middleware/
+  - Primary sources: CF Turnstile docs, OWASP auth security patterns
+
+- [ ] LOOP-AUTH-013: Build MCP/agent authentication with scoped API tokens
+  - Endpoint: POST /api/auth/agent-token
+  - Why: AI agents and MCP servers need authenticated access without full user sessions
+  - Acceptance criteria: Users can create agent tokens with scoped permissions; tokens authenticate as the user with reduced scope; token usage audited separately
+  - Implementation notes: Better Auth API key plugin or custom token type; scoped to specific resources
+  - Hosting notes: Worker middleware
+  - Backing services: D1 (agent tokens), KV (token verification cache), Unkey (optional, for API-key style)
+  - Observability: Axiom: agent token usage; Langfuse: agent tool call traces
+  - Dependencies: Better Auth Worker, Unkey (alternative auth path)
+  - Related files: src/services/auth.ts, libs/features/platform_mcp/
+  - Primary sources: Better Auth API key docs, MCP auth patterns
+
+- [ ] LOOP-AUTH-014: Implement customer website auth boundary (generated sites)
+  - Endpoint: Customer site auth (separate from platform auth)
+  - Why: Generated customer websites may need their own auth (member portals, client areas); this must be separate from platform auth
+  - Acceptance criteria: Customer sites can optionally enable built-in auth with Better Auth's client SDK; site users are scoped to that site only; zero platform data exposure
+  - Implementation notes: Separate Better Auth instance or tenant-scoped auth; D1 database per customer site or table with site_id scoping
+  - Hosting notes: Worker (site-specific auth routes)
+  - Backing services: D1 (site-specific user tables), KV (site sessions)
+  - Observability: N/A (customer site observability is the customer's responsibility)
+  - Dependencies: Better Auth SDK, site serving infrastructure
+  - Related files: src/services/site_serving.ts
+  - Primary sources: Better Auth client SDK docs
+
+- [ ] LOOP-AUTH-015: Build auth audit log viewer in admin dashboard
+  - Endpoint: GET /api/admin/auth-audit (super-admin only)
+  - Why: Security incidents require tracing auth events; compliance requires auth audit trails
+  - Acceptance criteria: Filterable log of all auth events (login, logout, signup, password change, OAuth link, impersonation, session revoke) with user/org/timestamp/IP
+  - Implementation notes: Auth events written to D1 audit_events; admin UI with filters
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: D1 (audit_events)
+  - Observability: Axiom: auth audit queries
+  - Dependencies: Audit service, admin auth
+  - Related files: src/services/audit.ts, admin frontend
+  - Primary sources: Existing audit patterns, SOC2 auth audit requirements
+
+- [ ] LOOP-AUTH-016: Implement role synchronization across platform services
+  - Endpoint: Internal (role sync webhook)
+  - Why: Better Auth role changes must propagate to Unkey (API permissions), Stripe (billing admin), and app-level permissions
+  - Acceptance criteria: Role change in Better Auth triggers webhook to sync permissions across integrated services; admin can view effective permissions per user
+  - Implementation notes: Event-driven; Better Auth webhook → platform event bus → per-service sync handlers
+  - Hosting notes: Worker + event bus
+  - Backing services: Event bus (DO), D1 (role mappings)
+  - Observability: Axiom: role sync events
+  - Dependencies: Event bus, Unkey, Stripe, per-service permission models
+  - Related files: src/services/event_bus.ts, auth services
+  - Primary sources: Better Auth webhook docs
+
+- [ ] LOOP-AUTH-017: Build customer-visible team management UI
+  - Endpoint: /admin/team (customer-facing)
+  - Why: Customers need to manage their own team without contacting support
+  - Acceptance criteria: Org admin can view team members, change roles, remove members, resend invitations; member list with roles and last active
+  - Implementation notes: Frontend component in admin SPA; backend API proxies to Better Auth
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Better Auth (user/org management), D1 (local cache)
+  - Observability: PostHog: team management actions
+  - Dependencies: Better Auth Worker, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
+  - Primary sources: Better Auth organization API
+
+- [ ] LOOP-AUTH-018: Implement progressive profiling during onboarding
+  - Endpoint: POST /api/auth/profile (extended profile fields)
+  - Why: Collecting profile data at signup kills conversion; progressive collection after first value delivery is higher-ROI
+  - Acceptance criteria: Signup requires only email; after first site build, prompt for name + company; after first publish, prompt for billing info; each step is skippable
+  - Implementation notes: Profile completion tracker in D1; PostHog triggers for each step
+  - Hosting notes: Worker + D1
+  - Backing services: D1 (profile state), PostHog (triggers)
+  - Observability: PostHog: progressive profiling funnel
+  - Dependencies: Better Auth Worker, onboarding flow
+  - Related files: src/services/auth.ts, onboarding components
+  - Primary sources: PostHog progressive profiling patterns
+
+- [ ] LOOP-AUTH-019: Implement auth anomaly detection
+  - Endpoint: Background worker
+  - Why: Credential stuffing, impossible travel, and unusual-device logins are the most common account takeover vectors
+  - Acceptance criteria: Alert on: login from new device+geo, impossible travel (login from US then EU within 1 hour), rapid failed attempts, unusual-hour login
+  - Implementation notes: CF Analytics Engine for auth event analysis; DO for per-user behavior baseline
+  - Hosting notes: Worker cron + CF Analytics Engine
+  - Backing services: CF Analytics Engine, DO (user profiles), D1 (auth events)
+  - Observability: Axiom: anomaly alerts; Sentry: anomaly events
+  - Dependencies: Auth event logging, CF Analytics Engine
+  - Related files: src/services/auth_anomaly.ts, src/services/auth_ai_risk.ts
+  - Primary sources: CF Analytics Engine docs, OWASP credential stuffing detection
+
+- [ ] LOOP-AUTH-020: Build platform-wide auth health dashboard
+  - Endpoint: Internal (admin dashboard widget)
+  - Why: Auth is the most critical platform service; degraded auth = business down
+  - Acceptance criteria: Dashboard showing: auth success rate, signup rate, login latency (p50/p99), active sessions, OAuth provider health, magic link delivery rate, auth error rate by type
+  - Implementation notes: Aggregate from Axiom auth logs + PostHog auth events
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Axiom (log query), PostHog (event analytics)
+  - Observability: Self-referential (dashboard is about observability)
+  - Dependencies: Axiom query API, PostHog trends API
+  - Related files: admin frontend dashboard components
+  - Primary sources: Axiom query API, PostHog trends API
+
+- [ ] LOOP-AUTH-021: Implement automatic cleanup of expired sessions and invitations
+  - Endpoint: Worker cron (daily)
+  - Why: Expired sessions and stale invitations accumulate in KV/D1, wasting storage and cluttering admin views
+  - Acceptance criteria: Daily cron deletes expired sessions, 30-day-old unused invitations, and 90-day-old auth tokens; cleanup events logged
+  - Implementation notes: KV TTL handles session expiry automatically; D1 cleanup via cron DELETE queries
+  - Hosting notes: Worker cron
+  - Backing services: KV (auto-TTL), D1 (manual cleanup)
+  - Observability: Axiom: cleanup events
+  - Dependencies: Worker cron binding
+  - Related files: apps/project-sites/infra/better-auth/
+  - Primary sources: D1 TTL patterns, KV TTL docs
+
+- [ ] LOOP-AUTH-022: Build admin force-password-reset and force-logout tools
+  - Endpoint: POST /api/admin/users/:id/force-reset (super-admin only)
+  - Why: Support needs tools to respond to compromised accounts
+  - Acceptance criteria: Admin can force password reset (sends email) or force logout (revokes all sessions) for any user; both actions logged to audit trail
+  - Implementation notes: Better Auth admin API calls; KV session invalidation
+  - Hosting notes: Worker API
+  - Backing services: Better Auth, KV (session revocation), Resend (reset email)
+  - Observability: Axiom: admin security actions audit
+  - Dependencies: Admin auth, Better Auth admin API
+  - Related files: src/services/sysadmin.ts, admin frontend
+  - Primary sources: Better Auth admin API docs
+
+- [ ] LOOP-AUTH-023: Verify and document Better Auth CF Worker cold-start impact
+  - Endpoint: Internal (benchmark)
+  - Why: Auth is on the critical path for every authenticated request; cold starts add latency
+  - Acceptance criteria: Document cold start latency (p50, p99); if >200ms p99, recommend always-on or pre-warming strategy
+  - Implementation notes: Use benchmark.ts for load testing from multiple regions
+  - Hosting notes: Worker (benchmark target)
+  - Backing services: N/A
+  - Observability: Axiom: auth latency histogram; Sentry: slow auth traces
+  - Dependencies: benchmark.ts
+  - Related files: src/services/benchmark.ts
+  - Primary sources: CF Workers performance docs
+
+- [ ] LOOP-AUTH-024: Implement auth kill switch for emergency platform-wide lockout
+  - Endpoint: Internal (admin toggle + KV flag)
+  - Why: In a security incident, you need to lock all non-admin access within seconds
+  - Acceptance criteria: KV flag AUTH_KILLSWITCH=true immediately returns 503 on all non-admin auth endpoints; admin access preserved; toggle in admin dashboard with confirmation; audit logged
+  - Implementation notes: KV read on every auth request; admin UI toggle; auto-expire after 1 hour
+  - Hosting notes: Worker middleware (KV read on hot path)
+  - Backing services: KV (kill switch flag)
+  - Observability: Axiom: kill switch activation audit; PostHog: N/A (auth is down)
+  - Dependencies: Auth middleware, KV namespace
+  - Related files: src/middleware/auth.ts
+  - Primary sources: Kill switch patterns, KV read performance
+
+## billing.projectsites.dev — Stripe + OpenMeter
+
+### Raw research themes considered
+Stripe handles subscriptions and payments; OpenMeter handles usage metering and entitlements. Research covered: Stripe Checkout integration, webhook handling for subscription lifecycle events, OpenMeter metered usage events, entitlement checks against plan limits, prepaid credit model for AI/browser/API usage, dunning and failed payment recovery, agency/partner billing models, per-site cost attribution for margin analysis. Existing repo: src/services/billing.ts, libs/features/billing/ (feature module with manifest), Stripe webhook handler.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-BILL-001: Deploy Stripe Checkout flow for subscription signup
+  - Endpoint: POST /api/billing/create-checkout-session
+  - Why: Stripe Checkout is the lowest-friction payment UX; hosted page handles PCI compliance
+  - Acceptance criteria: Customer clicks "Upgrade" → Stripe Checkout → successful payment → subscription active in D1 + Stripe; webhook confirms and provisions entitlements
+  - Implementation notes: Stripe Checkout Session API; success_url + cancel_url; webhook handler for checkout.session.completed
+  - Hosting notes: Worker API + Stripe hosted page
+  - Backing services: Stripe (Checkout, webhooks), D1 (subscription state)
+  - Observability: Axiom: checkout events; PostHog: checkout funnel; Sentry: webhook errors
+  - Dependencies: Stripe secret key, billing feature module
+  - Related files: src/services/billing.ts, libs/features/billing/
+  - Primary sources: https://stripe.com/docs/payments/checkout, Stripe webhook docs
+
+- [ ] LOOP-BILL-002: Build Stripe Customer Portal for self-serve subscription management
+  - Endpoint: POST /api/billing/create-portal-session
+  - Why: Customers need to upgrade/downgrade/cancel without contacting support
+  - Acceptance criteria: "Manage Billing" button opens Stripe Customer Portal; customer can change plan, update payment method, view invoices, cancel subscription
+  - Implementation notes: Stripe Customer Portal configuration; return_url back to admin dashboard
+  - Hosting notes: Worker API + Stripe hosted portal
+  - Backing services: Stripe (Customer Portal)
+  - Observability: PostHog: portal access events; Axiom: subscription change events
+  - Dependencies: Stripe integration, customer record
+  - Related files: src/services/billing.ts
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/customer-portal
+
+- [ ] LOOP-BILL-003: Implement OpenMeter usage metering for all billable resources
+  - Endpoint: Internal (metering pipeline)
+  - Why: AI calls, API requests, email sends, browser jobs, and social posts are all metered; OpenMeter provides the usage ledger and entitlement engine
+  - Acceptance criteria: Every billable event (ai.call, api.request, email.send, browser.job, social.post) emitted as an OpenMeter usage event with tenant_id and site_id; real-time entitlement checks against plan limits
+  - Implementation notes: OpenMeter Cloud or self-hosted on CF (decision pending managed vs self-host cost); usage event SDK in Worker
+  - Hosting notes: OpenMeter Cloud (<$50/mo for solo scale) or self-hosted on Coolify if exceeds $50/mo
+  - Backing services: OpenMeter (metering), D1 (local usage log)
+  - Observability: Axiom: metering events; PostHog: usage trends; Tinybird: usage analytics
+  - Dependencies: usage_metering.ts, event emission from every billable service
+  - Related files: src/services/usage_metering.ts, src/services/ai_gateway.ts, src/services/browser_execution.ts
+  - Primary sources: https://openmeter.io/docs/metering/quickstart, https://openmeter.io/docs/metering/events/usage-events
+
+- [ ] LOOP-BILL-004: Build entitlement enforcement middleware for plan-gated features
+  - Endpoint: Middleware (every feature-gated route)
+  - Why: Plan limits must be enforced at the API layer, not just the UI; UI-only gating is trivially bypassed
+  - Acceptance criteria: Every gated feature checks OpenMeter entitlements before executing; returns 402 Payment Required with upgrade link if limit exceeded; feature flag overrides for gradual rollout
+  - Implementation notes: Middleware reads OpenMeter entitlement state (cached in KV, 60s TTL); pairs with feature flags
+  - Hosting notes: Worker middleware + KV cache
+  - Backing services: OpenMeter (entitlements), KV (entitlement cache), D1 (feature flags)
+  - Observability: Axiom: entitlement denial events; PostHog: upgrade prompt conversion
+  - Dependencies: OpenMeter integration, feature flags
+  - Related files: src/middleware/, libs/features/billing/
+  - Primary sources: https://openmeter.io/docs/billing/entitlements/overview
+
+- [ ] LOOP-BILL-005: Wire Stripe webhook handler for full subscription lifecycle
+  - Endpoint: POST /api/webhooks/stripe (Stripe → Hookdeck → Worker)
+  - Why: Subscription state must stay in sync; missing a webhook means a paying customer gets locked out
+  - Acceptance criteria: Handle all relevant Stripe events: checkout.session.completed, customer.subscription.updated/deleted, invoice.paid/payment_failed, customer.subscription.trial_will_end; idempotent processing; DLQ for failed events
+  - Implementation notes: Stripe webhook signature verification; Hookdeck for retry/DLQ; D1 idempotency keys
+  - Hosting notes: Worker (webhook handler) + Hookdeck (ingest + retry)
+  - Backing services: Hookdeck (webhook ingest), D1 (subscription state), Stripe (event source)
+  - Observability: Axiom: webhook event log; Sentry: webhook processing errors; PostHog: subscription lifecycle events
+  - Dependencies: Hookdeck integration, Stripe webhook secret
+  - Related files: src/services/billing.ts, webhook routes
+  - Primary sources: Stripe webhook docs, Hookdeck ingest docs
+
+- [ ] LOOP-BILL-006: Implement prepaid AI credit system
+  - Endpoint: Internal (credit wallet)
+  - Why: AI usage is bursty and hard to predict; prepaid credits decouple usage from fixed monthly limits
+  - Acceptance criteria: Customers can purchase credit packs ($10/1000 credits); credits consumed per AI call based on model tier; low-balance email notification; auto-top-up option
+  - Implementation notes: D1 credit_balances table; credit consumption in ai_gateway.ts; Stripe payment for credit purchases
+  - Hosting notes: Worker + D1
+  - Backing services: D1 (credit_balances, credit_transactions), Stripe (payment), Resend (low-balance email)
+  - Observability: Axiom: credit transaction log; PostHog: credit purchase/consumption funnel
+  - Dependencies: AI Gateway, Stripe, Resend
+  - Related files: src/services/credits.ts, src/services/ai_gateway.ts, libs/features/credit_wallet_rollover/
+  - Primary sources: Existing credit wallet feature module, Stripe payment docs
+
+- [ ] LOOP-BILL-007: Build per-site cost attribution and margin dashboard
+  - Endpoint: Internal (admin dashboard)
+  - Why: Per-site profitability determines whether the business model works; without it, you're flying blind
+  - Acceptance criteria: Each site's costs (AI, storage, bandwidth, email) attributed monthly; margin = (site revenue from plan) - costs; admin dashboard shows top/bottom sites by margin
+  - Implementation notes: Aggregate from D1 cost_attribution table (populated by each billable service); display in admin
+  - Hosting notes: Worker API + D1 + admin frontend
+  - Backing services: D1 (cost_attribution)
+  - Observability: PostHog: margin trends; Tinybird: cost analytics
+  - Dependencies: cost_attribution pipeline (LOOP-GLOBAL-006), billing data
+  - Related files: src/services/app_cost_meter.ts, src/services/cost_aggregation.ts
+  - Primary sources: Existing cost attribution patterns
+
+- [ ] LOOP-BILL-008: Implement dunning management for failed payments
+  - Endpoint: Internal (Stripe-driven)
+  - Why: Involuntary churn from expired cards is the #1 revenue leak in SaaS
+  - Acceptance criteria: Stripe's smart retries + dunning emails enabled; after 3 failed attempts, feature access restricted (not full lockout); customer sees payment-failed banner with update link
+  - Implementation notes: Stripe subscription past_due handling; webhook-driven access restriction; Resend dunning emails
+  - Hosting notes: Worker (webhook handler) + Stripe (retry logic) + Resend (dunning emails)
+  - Backing services: Stripe (subscription lifecycle), Resend (dunning emails), D1 (access state)
+  - Observability: Axiom: dunning events; PostHog: payment failure→recovery funnel
+  - Dependencies: Stripe webhooks, Resend
+  - Related files: src/services/billing.ts
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/overview#payment-failures
+
+- [ ] LOOP-BILL-009: Build annual plan support with prorated upgrades
+  - Endpoint: Stripe Checkout (annual price ID)
+  - Why: Annual plans improve cash flow and reduce churn; they're standard SaaS practice
+  - Acceptance criteria: Annual billing option at 20% discount; mid-cycle upgrades prorate correctly; annual→monthly downgrade scheduled at period end
+  - Implementation notes: Stripe subscription schedule for proration; annual price IDs in Stripe dashboard
+  - Hosting notes: Worker API + Stripe
+  - Backing services: Stripe (subscription schedules, proration)
+  - Observability: PostHog: annual vs monthly conversion
+  - Dependencies: Stripe integration
+  - Related files: src/services/billing.ts
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/prorations
+
+- [ ] LOOP-BILL-010: Implement coupon and promotion code system
+  - Endpoint: Stripe Checkout (promotion code input)
+  - Why: Coupons drive acquisition (first month free, launch discount) and retention (win-back offers)
+  - Acceptance criteria: Stripe promotion codes enabled on Checkout; admin can create/view coupon usage; coupon attribution tracked in PostHog
+  - Implementation notes: Stripe promotion codes; PostHog property for coupon attribution
+  - Hosting notes: Worker API + Stripe
+  - Backing services: Stripe (promotion codes)
+  - Observability: PostHog: coupon usage + conversion; Axiom: coupon events
+  - Dependencies: Stripe integration
+  - Related files: src/services/billing.ts
+  - Primary sources: https://stripe.com/docs/billing/subscriptions/coupons
+
+- [ ] LOOP-BILL-011: Build agency/partner billing model
+  - Endpoint: Internal (billing logic)
+  - Why: Agencies managing multiple client sites need consolidated billing, not per-site subscriptions
+  - Acceptance criteria: Agency plan with per-site add-on pricing; consolidated invoice; sub-accounts visible in agency billing dashboard; client sites billed to agency, not individually
+  - Implementation notes: Stripe Connect for platform-model billing or subscription items per site
+  - Hosting notes: Worker API + Stripe
+  - Backing services: Stripe (Connect or subscription items), D1 (agency relationships)
+  - Observability: PostHog: agency segment analytics; Axiom: agency billing events
+  - Dependencies: Org model (parent-child orgs), Stripe integration
+  - Related files: src/services/billing.ts, org model
+  - Primary sources: Stripe Connect docs, multi-tenant billing patterns
+
+- [ ] LOOP-BILL-012: Implement AI credit enforcement at the AI Gateway layer
+  - Endpoint: ai_gateway.ts (every LLM call)
+  - Why: AI is the single largest variable cost; enforcement must be real-time, not post-hoc
+  - Acceptance criteria: Before each LLM call, check credit balance; if insufficient, reject with 402 and upgrade prompt; credit cost displayed pre-call; per-model pricing tier
+  - Implementation notes: Pre-call credit check in gatewayFetch(); model→credit mapping in D1
+  - Hosting notes: Worker (pre-call gate)
+  - Backing services: D1 (credit_balances), KV (credit cost cache)
+  - Observability: Axiom: credit denial events; PostHog: credit exhaustion funnel
+  - Dependencies: AI Gateway, credit wallet
+  - Related files: src/services/ai_gateway.ts, src/services/credits.ts
+  - Primary sources: Existing ai_gateway.ts patterns
+
+- [ ] LOOP-BILL-013: Build billing event stream for cross-service consumption
+  - Endpoint: Event bus (internal)
+  - Why: Every service needs to know about billing events (plan changed, payment failed, trial ending) without tight coupling to Stripe
+  - Acceptance criteria: Typed billing events published to event bus: billing.plan_changed, billing.payment_failed, billing.trial_ending, billing.credit_low; services subscribe as needed
+  - Implementation notes: Event bus publish from Stripe webhook handler; subscribers: email service (dunning), feature flags (entitlement change), admin (notification)
+  - Hosting notes: Worker + DO event bus
+  - Backing services: DO event bus, Stripe (event source)
+  - Observability: Axiom: billing event stream; PostHog: billing event analytics
+  - Dependencies: Event bus, Stripe webhook handler
+  - Related files: src/services/event_bus.ts, src/services/billing.ts
+  - Primary sources: Existing event_bus.ts patterns
+
+- [ ] LOOP-BILL-014: Implement usage-based billing for browser automation
+  - Endpoint: Internal (metering)
+  - Why: Browser automation has per-job costs (CF Browser Rendering credits); usage must be metered and billed
+  - Acceptance criteria: Each browser job emits usage event with job type, duration, pages rendered; metered by OpenMeter; plan includes N browser jobs/month
+  - Implementation notes: Meter usage in browser_gateway.ts; flush to OpenMeter
+  - Hosting notes: Worker + OpenMeter
+  - Backing services: OpenMeter (metering), CF Browser Rendering (execution)
+  - Observability: Axiom: browser usage events; PostHog: browser job volume
+  - Dependencies: browser_gateway.ts, OpenMeter
+  - Related files: src/services/browser_gateway.ts, src/services/browser_execution.ts
+  - Primary sources: CF Browser Rendering pricing, OpenMeter usage events
+
+- [ ] LOOP-BILL-015: Build usage-based billing for email sends (Listmonk-attributed)
+  - Endpoint: Internal (metering)
+  - Why: Email sending via SES has per-email costs; free tier gets N emails/month, paid tiers get more
+  - Acceptance criteria: Listmonk send events metered via OpenMeter; per-plan email limits enforced; overage billing or hard cap depending on plan
+  - Implementation notes: Meter in Listmonk SES bridge or email provider service
+  - Hosting notes: Worker + OpenMeter
+  - Backing services: OpenMeter (metering), SES (sending), Listmonk (campaign management)
+  - Observability: Axiom: email send metering; PostHog: email volume by tenant
+  - Dependencies: listmonk_email_provider.ts, SES integration, OpenMeter
+  - Related files: src/services/listmonk_email_provider.ts, src/services/ses_email_provider.ts
+  - Primary sources: SES pricing, OpenMeter usage events
+
+- [ ] LOOP-BILL-016: Implement billing anomaly detection
+  - Endpoint: Background worker
+  - Why: A bug causing runaway AI calls or a compromised API key can generate thousands of dollars in costs before anyone notices
+  - Acceptance criteria: Alert when: daily spend >3× 7-day average, single tenant spend spike >10× baseline, unusual service mix (e.g., sudden browser automation spike); auto-quarantine on extreme anomalies
+  - Implementation notes: CF Analytics Engine for anomaly detection; Slack/email alerts via Axiom
+  - Hosting notes: Worker cron + CF Analytics Engine
+  - Backing services: CF Analytics Engine, Axiom (alerting), Slack webhook
+  - Observability: Axiom: anomaly alerts; PostHog: anomaly events
+  - Dependencies: cost aggregation pipeline, CF Analytics Engine
+  - Related files: src/services/cost_aggregation.ts
+  - Primary sources: CF Analytics Engine anomaly detection, cost anomaly patterns
+
+- [ ] LOOP-BILL-017: Build customer-facing billing history and invoice viewer
+  - Endpoint: GET /api/billing/invoices (customer-facing)
+  - Why: Customers need to see their billing history for their own accounting
+  - Acceptance criteria: Invoice list with date, amount, status, PDF download link; payment method summary; next billing date
+  - Implementation notes: Stripe API for invoice list; render in admin UI billing section
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Stripe (invoice API)
+  - Observability: PostHog: invoice view events
+  - Dependencies: Stripe integration, admin UI
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/, src/services/billing.ts
+  - Primary sources: Stripe invoice API
+
+- [ ] LOOP-BILL-018: Implement plan downgrade grace period with data preservation
+  - Endpoint: Internal (scheduled job)
+  - Why: Downgrading from a paid plan shouldn't immediately delete data; customers need time to export
+  - Acceptance criteria: On downgrade, features disabled but data retained for 30 days; customer sees "data will be deleted" countdown; upgrade within grace period restores instantly
+  - Implementation notes: Soft-delete pattern; scheduled job for actual data cleanup after grace period
+  - Hosting notes: Worker cron (cleanup job)
+  - Backing services: D1 (grace period state), R2 (data archive)
+  - Observability: Axiom: downgrade events; PostHog: win-back conversion
+  - Dependencies: Plan model, data cleanup jobs
+  - Related files: src/services/billing.ts, data cleanup cron
+  - Primary sources: Stripe subscription cancellation flows
+
+- [ ] LOOP-BILL-019: Build admin billing operations dashboard
+  - Endpoint: Internal (admin dashboard)
+  - Why: Support and finance need visibility into all billing state across all tenants
+  - Acceptance criteria: Searchable list of all subscriptions (by tenant, email, plan, status); MRR trend chart; churn rate; top customers by revenue; failed payment list; credit balance summary
+  - Implementation notes: Aggregate from Stripe API + D1 billing data; admin-only dashboard
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Stripe (subscription data), D1 (local billing state), PostHog (analytics)
+  - Observability: PostHog: admin billing page views
+  - Dependencies: Stripe admin API, admin auth
+  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
+  - Primary sources: Stripe dashboard API
+
+- [ ] LOOP-BILL-020: Implement free trial with cardless signup
+  - Endpoint: Signup flow
+  - Why: Requiring a credit card before the first value delivery kills conversion; let customers build a site first
+  - Acceptance criteria: 14-day free trial on signup with no card required; full feature access during trial; trial-ending notification at 7 days and 1 day; card required to continue after trial
+  - Implementation notes: Stripe trial period on subscription; PostHog trial funnel tracking
+  - Hosting notes: Worker + Stripe + Resend
+  - Backing services: Stripe (trial management), Resend (trial-ending emails), D1 (trial state)
+  - Observability: PostHog: trial funnel (signup→build→publish→convert); Axiom: trial events
+  - Dependencies: Auth, Stripe, Resend
+  - Related files: src/services/auth.ts (signup flow), src/services/billing.ts
+  - Primary sources: Stripe trial docs, SaaS trial best practices
+
+- [ ] LOOP-BILL-021: Build plan comparison and upgrade recommendation engine
+  - Endpoint: GET /api/billing/plans (public) + GET /api/billing/recommended-plan (customer-facing)
+  - Why: Customers need to understand plan differences; AI-recommended plan based on actual usage increases conversion
+  - Acceptance criteria: Plan comparison table with feature matrix; personalized recommendation based on current usage ("You've used 80% of your free AI credits — Pro would give you 5× more"); shown at upgrade moments
+  - Implementation notes: Static plan data + dynamic usage comparison; upgrade_moments feature module integration
+  - Hosting notes: Worker API
+  - Backing services: D1 (plan definitions), OpenMeter (usage data)
+  - Observability: PostHog: plan comparison views + recommendation clicks
+  - Dependencies: Plan model, usage metering, upgrade_moments
+  - Related files: libs/features/upgrade_moments/, src/services/billing.ts
+  - Primary sources: Existing upgrade_moments module, plan comparison UX patterns
+
+- [ ] LOOP-BILL-022: Implement Stripe tax (VAT/GST/sales tax) collection
+  - Endpoint: Stripe Checkout (automatic tax)
+  - Why: Tax compliance is legally required for B2C SaaS in most jurisdictions
+  - Acceptance criteria: Stripe Tax enabled on Checkout; customer location determines tax rate; tax displayed on invoices; tax reporting export
+  - Implementation notes: Stripe Tax activation in dashboard; automatic tax calculation on Checkout
+  - Hosting notes: Stripe (tax calculation)
+  - Backing services: Stripe (Tax)
+  - Observability: PostHog: tax events (for revenue reporting)
+  - Dependencies: Stripe integration
+  - Related files: src/services/billing.ts
+  - Primary sources: https://stripe.com/tax
+
+- [ ] LOOP-BILL-023: Build refund and credit issuance admin tool
+  - Endpoint: POST /api/admin/billing/refund (super-admin only)
+  - Why: Support needs to issue refunds and credits without logging into Stripe
+  - Acceptance criteria: Admin can issue full or partial refund from the admin dashboard; reason required; auto-logged to audit trail; customer notified via email
+  - Implementation notes: Stripe refund API; Resend notification email; audit event
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Stripe (refund API), Resend (notification), D1 (audit)
+  - Observability: Axiom: refund audit; PostHog: refund events
+  - Dependencies: Admin auth, Stripe admin API
+  - Related files: src/services/billing.ts, admin frontend
+  - Primary sources: Stripe refund API
+
+- [ ] LOOP-BILL-024: Implement OpenMeter self-host evaluation (cost gate)
+  - Endpoint: Internal (evaluation)
+  - Why: OpenMeter Cloud pricing vs self-hosted on Coolify — need real numbers before deciding
+  - Acceptance criteria: Deploy OpenMeter on Coolify; run 7-day cost comparison (Cloud bill vs self-host compute); document recommendation with numbers; if self-host costs less, keep it; if Cloud <$50/mo, use Cloud
+  - Implementation notes: One-time evaluation; deploy OpenMeter Docker Compose on Coolify; run parallel metering for 7 days
+  - Hosting notes: Coolify MCP (evaluation deployment)
+  - Backing services: Neon (OpenMeter DB), Coolify (compute)
+  - Observability: Axiom: evaluation metrics
+  - Dependencies: Coolify MCP, Neon, Docker
+  - Related files: apps/project-sites/infra/ (new openmeter eval dir)
+  - Primary sources: https://openmeter.io/docs, Coolify deployment docs
+
+## webhooks.projectsites.dev — Hookdeck + Outpost
+
+### Raw research themes considered
+Hookdeck handles inbound webhook ingestion, retry, and delivery; Outpost handles outbound webhook publishing to customer endpoints. Research covered: Hookdeck connection management, transformation rules, rate limiting, dead letter queues, event replay, webhook signing; Outpost event publishing, customer-facing delivery logs, self-hosting viability. Existing repo: src/services/outbound_webhooks.ts, libs/features/outbound_webhooks/ (feature module), src/services/webhook.ts, webhook_dispatch.ts.
+
+### Selected 24 implementation tasks
+
+- [ ] LOOP-WEBH-001: Deploy Hookdeck as the inbound webhook gateway
+  - Endpoint: webhooks.projectsites.dev (Hookdeck-hosted or self-hosted)
+  - Why: Inbound webhooks from Stripe, Unkey, Listmonk, Twenty, Chatwoot, and Nango need centralized ingestion with retry, logging, and replay
+  - Acceptance criteria: All external webhooks route through Hookdeck; connections configured per source; retry with exponential backoff; DLQ for failed deliveries; admin can search and replay events
+  - Implementation notes: Hookdeck Cloud (free tier: 50K events/mo) or Outpost self-hosted on Fly if volume exceeds free tier
+  - Hosting notes: Hookdeck Cloud (<$50/mo for solo scale); escalate to Outpost self-hosted on Coolify if volume exceeds free tier
+  - Backing services: Hookdeck (ingestion), D1 (event log cache)
+  - Observability: Axiom: webhook ingestion log; PostHog: webhook volume; Sentry: ingestion errors
+  - Dependencies: Hookdeck account, DNS for webhooks.projectsites.dev
+  - Related files: src/services/webhook.ts, webhook routes
+  - Primary sources: https://hookdeck.com/docs/hookdeck-basics
+
+- [ ] LOOP-WEBH-002: Build customer-facing outbound webhook management UI
+  - Endpoint: GET/POST/DELETE /api/webhooks/endpoints (customer-facing)
+  - Why: Customers need to configure their own webhook endpoints for site events (build.completed, site.published, domain.verified)
+  - Acceptance criteria: Customer can add/remove webhook endpoints; test event button; delivery log with status and retry count; secret rotation for webhook signing
+  - Implementation notes: Frontend in admin UI; backend stores endpoints in D1; Outpost handles delivery
+  - Hosting notes: Worker API + admin frontend + Outpost (delivery)
+  - Backing services: D1 (webhook endpoints), Outpost (delivery), Hookdeck (event source)
+  - Observability: Axiom: webhook management audit; PostHog: webhook endpoint usage
+  - Dependencies: Outpost deployment, admin UI
+  - Related files: libs/features/outbound_webhooks/, src/services/outbound_webhooks.ts
+  - Primary sources: https://hookdeck.com/docs/outpost/overview
+
+- [ ] LOOP-WEBH-003: Implement webhook signing and verification (HMAC-SHA256)
+  - Endpoint: Every outbound webhook delivery
+  - Why: Customers must be able to verify webhooks came from ProjectSites, not an attacker
+  - Acceptance criteria: Every outbound webhook includes x-projectsites-signature header (HMAC-SHA256 of body with customer's webhook secret); verification code snippet in docs
+  - Implementation notes: Generate per-endpoint signing secret; sign in Outpost delivery layer; docs with verification code
+  - Hosting notes: Worker (signing) + Outpost (delivery)
+  - Backing services: D1 (signing secrets), Outpost
+  - Observability: Axiom: signing events; Sentry: verification failures
+  - Dependencies: Outpost, webhook endpoint management
+  - Related files: src/services/outbound_webhooks.ts, src/services/webhook_dispatch.ts
+  - Primary sources: Stripe webhook signing pattern, Hookdeck Outpost docs
+
+- [ ] LOOP-WEBH-004: Build webhook event catalog with typed schemas
+  - Endpoint: GET /api/webhooks/event-types (public, documented)
+  - Why: Customers integrating webhooks need to know exactly what events exist and their payload shapes
+  - Acceptance criteria: Documented event types: site.built, site.published, site.unpublished, domain.verified, domain.failed, billing.plan_changed, billing.payment_failed, build.started, build.completed, build.failed; each with JSON Schema
+  - Implementation notes: Zod schemas for each event type in packages/shared; auto-generate docs from schemas
+  - Hosting notes: N/A (documentation + schemas)
+  - Backing services: packages/shared (schemas)
+  - Observability: PostHog: event type documentation views
+  - Dependencies: packages/shared, docs generation
+  - Related files: packages/shared/src/schemas/webhook-events.ts (new)
+  - Primary sources: Stripe event catalog, GitHub webhook event docs
+
+- [ ] LOOP-WEBH-005: Implement webhook retry policy with exponential backoff
+  - Endpoint: Outpost delivery layer
+  - Why: Customer endpoints are occasionally down; retries prevent data loss
+  - Acceptance criteria: Failed deliveries retry at 1min, 5min, 15min, 1hr, 6hr, 24hr; after final retry, move to DLQ; customer sees delivery status in dashboard
+  - Implementation notes: Hookdeck/Outpost native retry configuration
+  - Hosting notes: Hookdeck/Outpost (managed retry)
+  - Backing services: Hookdeck (retry engine), D1 (delivery status)
+  - Observability: Axiom: retry events; PostHog: delivery success rate
+  - Dependencies: Outpost deployment
+  - Related files: src/services/webhook_dispatch.ts
+  - Primary sources: https://hookdeck.com/docs/retries
+
+- [ ] LOOP-WEBH-006: Build dead letter queue management and replay UI
+  - Endpoint: GET/POST /api/admin/webhooks/dlq (admin) + GET /api/webhooks/dlq (customer)
+  - Why: Failed webhooks after all retries need human review and replay capability
+  - Acceptance criteria: Customer can view their failed deliveries with error details; admin can replay individual or batch events; replay audit logged
+  - Implementation notes: Hookdeck DLQ UI or custom UI backed by D1 dead_letter_events table
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: D1 (dead_letter_events), Hookdeck (DLQ)
+  - Observability: Axiom: DLQ events; PostHog: replay events
+  - Dependencies: Outpost, webhook endpoint management
+  - Related files: src/services/webhook_dispatch.ts
+  - Primary sources: Hookdeck DLQ docs
+
+- [ ] LOOP-WEBH-007: Wire billing events into the outbound webhook pipeline
+  - Endpoint: Event bus → Outpost
+  - Why: Customers need programmatic notification of billing events (invoice ready, payment failed, plan changed)
+  - Acceptance criteria: billing.invoice_ready, billing.payment_failed, billing.plan_changed, billing.trial_ending events published and deliverable as webhooks
+  - Implementation notes: Event bus → webhook dispatch; new billing event types
+  - Hosting notes: Worker + event bus + Outpost
+  - Backing services: Event bus (DO), Outpost (delivery)
+  - Observability: Axiom: billing webhook events
+  - Dependencies: Event bus, billing service, Outpost
+  - Related files: src/services/event_bus.ts, src/services/billing.ts
+  - Primary sources: Stripe webhook event model
+
+- [ ] LOOP-WEBH-008: Wire auth events into the outbound webhook pipeline
+  - Endpoint: Event bus → Outpost
+  - Why: Enterprise customers need user provisioning/deprovisioning events for their own systems
+  - Acceptance criteria: auth.user.created, auth.user.deleted, auth.user.role_changed, auth.org.created events published and deliverable
+  - Implementation notes: Auth service emits events to event bus; webhook dispatch picks them up
+  - Hosting notes: Worker + event bus + Outpost
+  - Backing services: Event bus (DO), Outpost (delivery)
+  - Observability: Axiom: auth webhook events
+  - Dependencies: Auth service, event bus, Outpost
+  - Related files: src/services/auth.ts, src/services/event_bus.ts
+  - Primary sources: Auth0 webhook event model
+
+- [ ] LOOP-WEBH-009: Implement webhook rate limiting per customer endpoint
+  - Endpoint: Outpost delivery layer
+  - Why: A noisy event stream can overwhelm a customer's endpoint; rate limiting is a courtesy and stability measure
+  - Acceptance criteria: Max 60 events/minute per customer endpoint; events above limit are queued (not dropped); customer sees rate limit status in dashboard
+  - Implementation notes: Outpost rate limiting or DO-based rate limiter in delivery path
+  - Hosting notes: Outpost + DO (rate limiter)
+  - Backing services: Outpost (delivery), DO (rate limiter)
+  - Observability: Axiom: rate limit events; PostHog: rate limit hit rate
+  - Dependencies: Outpost deployment
+  - Related files: src/services/webhook_dispatch.ts
+  - Primary sources: Hookdeck rate limiting docs
+
+- [ ] LOOP-WEBH-010: Build webhook delivery dashboard for customers
+  - Endpoint: GET /api/webhooks/deliveries (customer-facing)
+  - Why: Customers need visibility into webhook delivery status for debugging their integrations
+  - Acceptance criteria: List of recent deliveries with status, timestamp, HTTP response code, retry count; filterable by event type and status; click to see full request/response
+  - Implementation notes: Delivery events stored in D1; rendered in admin UI webhook section
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: D1 (delivery events), Outpost (delivery status)
+  - Observability: PostHog: webhook dashboard views
+  - Dependencies: Outpost, webhook endpoint management
+  - Related files: libs/features/outbound_webhooks/, admin frontend
+  - Primary sources: Stripe webhook dashboard UX, Hookdeck delivery logs
+
+- [ ] LOOP-WEBH-011: Implement multi-tenant webhook isolation
+  - Endpoint: Every webhook flow
+  - Why: Tenant A must never see Tenant B's webhook events or delivery logs
+  - Acceptance criteria: Every webhook event carries tenant_id; API queries scoped to org; Outpost routes scoped per tenant
+  - Implementation notes: org_id in event payload; DB queries filtered by org; Outpost per-tenant destination sets
+  - Hosting notes: Worker middleware + Outpost
+  - Backing services: D1 (org-scoped queries), Outpost (tenant routing)
+  - Observability: Axiom: tenant-scoped webhook logs
+  - Dependencies: Auth middleware (org context), Outpost
+  - Related files: src/services/outbound_webhooks.ts, src/middleware/auth.ts
+  - Primary sources: Multi-tenant isolation patterns, Hookdeck tenant routing
+
+- [ ] LOOP-WEBH-012: Build webhook testing UX (send test event)
+  - Endpoint: POST /api/webhooks/endpoints/:id/test
+  - Why: Customers need to verify their webhook endpoint works before relying on it in production
+  - Acceptance criteria: "Send Test Event" button in webhook settings; sends a webhook.test event with sample payload; shows delivery result immediately
+  - Implementation notes: Synthetic event generation; deliver via Outpost; show response in UI
+  - Hosting notes: Worker API + Outpost
+  - Backing services: Outpost (delivery), D1 (test event log)
+  - Observability: PostHog: test event usage
+  - Dependencies: Outpost, webhook endpoint management
+  - Related files: libs/features/outbound_webhooks/
+  - Primary sources: Stripe test webhook UX
+
+- [ ] LOOP-WEBH-013: Deploy CRM event webhooks (Twenty → platform)
+  - Endpoint: Event bus → Outpost
+  - Why: CRM events (lead created, deal won, contact updated) should be available as webhooks for customer integrations
+  - Acceptance criteria: crm.lead.created, crm.lead.converted, crm.contact.updated, crm.deal.won events published from Twenty webhooks
+  - Implementation notes: Twenty webhook → Hookdeck → event bus → Outpost → customer endpoints
+  - Hosting notes: Worker + Hookdeck + event bus + Outpost
+  - Backing services: Twenty CRM (event source), Hookdeck (ingest), event bus, Outpost (delivery)
+  - Observability: Axiom: CRM webhook events
+  - Dependencies: Twenty CRM, Hookdeck, event bus, Outpost
+  - Related files: src/services/crm_leads.ts
+  - Primary sources: Twenty CRM webhook docs
+
+- [ ] LOOP-WEBH-014: Deploy Listmonk event webhooks
+  - Endpoint: Event bus → Outpost
+  - Why: Email campaign events (sent, opened, clicked, bounced, unsubscribed) are valuable for customer CRM sync
+  - Acceptance criteria: mail.campaign.sent, mail.campaign.opened, mail.subscriber.unsubscribed, mail.bounce.recorded events published
+  - Implementation notes: Listmonk webhooks → Hookdeck → event bus → Outpost
+  - Hosting notes: Worker + Hookdeck + event bus + Outpost
+  - Backing services: Listmonk (event source), Hookdeck (ingest), event bus, Outpost (delivery)
+  - Observability: Axiom: Listmonk webhook events; PostHog: email engagement metrics
+  - Dependencies: Listmonk, Hookdeck, event bus, Outpost
+  - Related files: src/services/listmonk_client.ts
+  - Primary sources: Listmonk webhook docs
+
+- [ ] LOOP-WEBH-015: Deploy Postiz event webhooks
+  - Endpoint: Event bus → Outpost
+  - Why: Social post events (scheduled, published, failed) are critical for customer visibility
+  - Acceptance criteria: social.post.scheduled, social.post.published, social.post.failed, social.account.reconnected events published
+  - Implementation notes: Postiz webhooks or polling → event bus → Outpost
+  - Hosting notes: Worker + Hookdeck + event bus + Outpost
+  - Backing services: Postiz (event source), Hookdeck (ingest), event bus, Outpost (delivery)
+  - Observability: Axiom: Postiz webhook events; Sentry: publish failures
+  - Dependencies: Postiz, Hookdeck, event bus, Outpost
+  - Related files: src/services/social_auto_pilot.ts
+  - Primary sources: Postiz webhook/event docs
+
+- [ ] LOOP-WEBH-016: Deploy Chatwoot event webhooks
+  - Endpoint: Event bus → Outpost
+  - Why: Support events (conversation created, resolved, customer replied) enable customer-facing support history
+  - Acceptance criteria: support.conversation.created, support.conversation.resolved, support.message.received events published
+  - Implementation notes: Chatwoot webhooks → Hookdeck → event bus → Outpost
+  - Hosting notes: Worker + Hookdeck + event bus + Outpost
+  - Backing services: Chatwoot (event source), Hookdeck (ingest), event bus, Outpost (delivery)
+  - Observability: Axiom: Chatwoot webhook events; PostHog: support metrics
+  - Dependencies: Chatwoot, Hookdeck, event bus, Outpost
+  - Related files: INFRA/fly/support-chatwoot/fly.toml (at repo root)
+  - Primary sources: Chatwoot webhook docs
+
+- [ ] LOOP-WEBH-017: Implement webhook transformation rules
+  - Endpoint: Hookdeck transformation layer
+  - Why: Different services emit different payload shapes; transformations normalize them to the platform event schema
+  - Acceptance criteria: Transform rules for Stripe (Stripe event → billing.*), Unkey (key event → api.*), Listmonk (campaign event → mail.*); adding a new source requires only a transformation rule, not code changes
+  - Implementation notes: Hookdeck transformation rules (JavaScript); test with replay
+  - Hosting notes: Hookdeck (transform execution)
+  - Backing services: Hookdeck
+  - Observability: Axiom: transformation errors; Sentry: transformation failures
+  - Dependencies: Hookdeck
+  - Related files: webhook transform configs (new)
+  - Primary sources: Hookdeck transformation docs
+
+- [ ] LOOP-WEBH-018: Build admin webhook incident tooling
+  - Endpoint: Internal (admin dashboard)
+  - Why: When webhooks are failing at scale, support needs bulk replay, pause/resume, and incident communication tools
+  - Acceptance criteria: Admin can: pause/resume delivery per customer, bulk replay failed events, search all events across all tenants, see delivery volume and error rate dashboard
+  - Implementation notes: Admin-only API endpoints; Outpost/Hookdeck admin API
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Outpost/Hookdeck (admin API), D1 (event log)
+  - Observability: Axiom: admin webhook actions audit
+  - Dependencies: Admin auth, Outpost/Hookdeck admin API
+  - Related files: admin frontend, src/services/webhook_dispatch.ts
+  - Primary sources: Hookdeck admin API
+
+- [ ] LOOP-WEBH-019: Implement Outpost self-hosting evaluation
+  - Endpoint: Internal (evaluation)
+  - Why: Hookdeck Cloud free tier is 50K events/month; if volume exceeds that, self-host Outpost on Coolify
+  - Acceptance criteria: Deploy Outpost on Coolify; verify it works with the existing webhook pipeline; document cost comparison (Cloud vs self-host compute); recommendation based on projected volume
+  - Implementation notes: Outpost Docker image on Coolify; point existing pipeline at self-hosted Outpost for testing
+  - Hosting notes: Coolify MCP (evaluation deployment); switch to self-host if Cloud >$50/mo
+  - Backing services: Coolify (compute), Neon (Outpost state), D1 (event log)
+  - Observability: Axiom: Outpost self-host metrics
+  - Dependencies: Coolify MCP, Docker, Neon
+  - Related files: INFRA/ (new outpost dir)
+  - Primary sources: https://hookdeck.com/docs/outpost/self-hosting/configuration
+
+- [ ] LOOP-WEBH-020: Build webhook event fanout for multi-subscriber scenarios
+  - Endpoint: Outpost delivery layer
+  - Why: A single platform event may need delivery to multiple customer endpoints (e.g., site.published → customer's CMS + customer's analytics)
+  - Acceptance criteria: Customer can configure multiple endpoints per event type; each endpoint receives the event independently; delivery status tracked per endpoint
+  - Implementation notes: Outpost fanout configuration; per-endpoint delivery tracking
+  - Hosting notes: Outpost (fanout)
+  - Backing services: Outpost (fanout delivery), D1 (endpoint configs)
+  - Observability: Axiom: fanout delivery events
+  - Dependencies: Outpost, webhook endpoint management
+  - Related files: libs/features/outbound_webhooks/
+  - Primary sources: Hookdeck Outpost fanout docs
+
+- [ ] LOOP-WEBH-021: Implement customer-facing webhook logs with self-serve debugging
+  - Endpoint: GET /api/webhooks/deliveries/:id (customer-facing)
+  - Why: Customers debugging their webhook integration need full request/response visibility
+  - Acceptance criteria: Customer can view: request headers, request body, response status, response body, timing breakdown; sensitive headers (Authorization) redacted; data retained for 30 days
+  - Implementation notes: Store delivery details in D1 (with TTL); redact sensitive fields before display
+  - Hosting notes: Worker API + D1
+  - Backing services: D1 (delivery details with TTL)
+  - Observability: PostHog: delivery detail views
+  - Dependencies: Outpost (delivery data), D1
+  - Related files: libs/features/outbound_webhooks/
+  - Primary sources: Stripe webhook delivery log UX
+
+- [ ] LOOP-WEBH-022: Build webhook provisioning event types
+  - Endpoint: Event bus → Outpost
+  - Why: App provisioning/deprovisioning events are critical for customer automation
+  - Acceptance criteria: provisioning.app.created, provisioning.app.deleted, provisioning.site.created, provisioning.domain.added events published
+  - Implementation notes: Provisioning services emit events to event bus
+  - Hosting notes: Worker + event bus + Outpost
+  - Backing services: Event bus, Outpost
+  - Observability: Axiom: provisioning webhook events
+  - Dependencies: app_provisioner.ts, event bus, Outpost
+  - Related files: src/services/app_provisioner.ts, src/services/event_bus.ts
+  - Primary sources: Existing provisioning patterns
+
+- [ ] LOOP-WEBH-023: Implement webhook payload size limits and chunking
+  - Endpoint: Outpost delivery layer
+  - Why: Some event payloads (e.g., full site content) can be very large; customer endpoints may reject oversized payloads
+  - Acceptance criteria: Max payload size 1MB; events exceeding limit are stored in R2 with a download URL in the webhook payload; customer docs explain the pattern
+  - Implementation notes: Size check before delivery; R2 upload for oversized; signed URL with 1hr expiry
+  - Hosting notes: Worker + R2
+  - Backing services: R2 (oversized payload storage), Outpost (delivery)
+  - Observability: Axiom: oversized payload events
+  - Dependencies: R2, Outpost
+  - Related files: src/services/webhook_dispatch.ts
+  - Primary sources: Stripe webhook payload limits, R2 presigned URLs
+
+- [ ] LOOP-WEBH-024: Build webhook observability dashboard for platform operators
+  - Endpoint: Internal (admin dashboard)
+  - Why: Webhooks are a critical integration surface; degraded delivery is a platform incident
+  - Acceptance criteria: Dashboard showing: delivery volume by event type, success rate, p50/p99 delivery latency, top failing endpoints, DLQ size; alert when success rate drops below 95%
+  - Implementation notes: Aggregate from Outpost metrics + D1 delivery events; admin dashboard widget
+  - Hosting notes: Worker API + admin frontend
+  - Backing services: Outpost (metrics), D1 (delivery events), Axiom (alerting)
+  - Observability: Self-referential (dashboard is about webhook observability)
+  - Dependencies: Outpost, D1, Axiom alerting
+  - Related files: admin frontend dashboard components
+  - Primary sources: Hookdeck monitoring docs, Axiom alerting
