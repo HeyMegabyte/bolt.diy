@@ -321,6 +321,12 @@ export interface Env {
   /** GoDaddy API secret for domain registration. */
   GODADDY_API_SECRET?: string;
 
+  // ── CRM (Twenty @ crm.projectsites.dev — AGPL, HTTP boundary only) ─────────
+  /** Twenty CRM REST base URL, e.g. https://crm.projectsites.dev. Lead store. */
+  TWENTY_API_URL?: string;
+  /** Twenty CRM API bearer token (workspace API key). wrangler secret. */
+  TWENTY_API_KEY?: string;
+
   // ── LLM Fallbacks (optional) ──────────────────────────────
   /** OpenAI API key for research pipeline and fallback LLM calls. */
   OPENAI_API_KEY?: string;
