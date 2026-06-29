@@ -169,3 +169,13 @@ Remaining open clusters (autonomous-safe unless tagged ⚠):
 - **a11y autofixer (#41)** — DECISION: axe-core in build container + auto-fix pipeline. Needs dedicated container session.
 - **fast_publish_cta (#56)** — DECISION: frontend button at build-complete state. Pure frontend task.
 - **faq_from_reviews (#61)** — core DONE (7/7 unit). DECISION: wire extractReviewFaqs into site-generation.ts (hot file — needs dedicated session).
+- **Margin leak #19(b)** — GPT-4o vision→Workers-AI swap. DECISION: per-callsite quality verification (llama-4-scout vs gpt-4o).
+- **Claim this site #25** — inline Stripe checkout. DECISION: frontend + D1 claim state. Dedicated session.
+- **PostHog funnel #28** — golden-path events. DECISION: PostHog API + frontend wiring. Dedicated session.
+- **AI competitor-gap scan #42** — GPT-4o peer scoring. DECISION: build-pipeline integration. Dedicated container session.
+- **Site Doctor #59** — backend+frontend DONE, flag dark. DECISION: flip site_doctor flag (needs D1 or admin access with flag-mutation scope).
+- **Voice-note edits #68** — STT→intent→build-edit. DECISION: Deepgram + gpt-4o-mini pipeline. Dedicated session.
+- **Photo cleanup #69** — AI background removal + upscale. DECISION: upload→process→replace flow. Dedicated session.
+- **Seasonal hero #70** — core DONE (8/8 unit). DECISION: wire into edge_personalization. Dedicated session.
+- **Scan profiles #89** — backend DONE (9/9 unit). DECISION: D1 persistence + CRUD route + cron geo-sweep + /admin form. Needs wrangler.
+- **Preview teaser #93** — Veo thumbnail in invite email. DECISION: Veo API + email template. Dedicated session.
