@@ -90,7 +90,14 @@ export function rotationStatus(
         : DEFAULT_MAX_AGE_DAYS;
 
   if (now === null || last === null) {
-    return { name: record.name, vendor, status: 'unknown', ageDays: null, daysUntilDue: null, dueAtMs: null };
+    return {
+      name: record.name,
+      vendor,
+      status: 'unknown',
+      ageDays: null,
+      daysUntilDue: null,
+      dueAtMs: null,
+    };
   }
 
   const ageDays = Math.floor((now - last) / DAY_MS);

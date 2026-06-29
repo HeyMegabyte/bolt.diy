@@ -15,7 +15,10 @@ function daysAgo(n: number): number {
 
 describe('rotationStatus (AP9 secret-rotation)', () => {
   it('classifies a freshly-rotated secret as ok', () => {
-    const e = rotationStatus({ name: 'STRIPE_SECRET_KEY', vendor: 'stripe', lastRotatedAt: daysAgo(10) }, NOW);
+    const e = rotationStatus(
+      { name: 'STRIPE_SECRET_KEY', vendor: 'stripe', lastRotatedAt: daysAgo(10) },
+      NOW,
+    );
     expect(e.status).toBe('ok');
     expect(e.ageDays).toBe(10);
     expect(e.daysUntilDue).toBe(DEFAULT_MAX_AGE_DAYS - 10);
@@ -23,7 +26,10 @@ describe('rotationStatus (AP9 secret-rotation)', () => {
   });
 
   it('flags due_soon within the lead window', () => {
-    const e = rotationStatus({ name: 'X', lastRotatedAt: daysAgo(DEFAULT_MAX_AGE_DAYS - DUE_SOON_DAYS + 1) }, NOW);
+    const e = rotationStatus(
+      { name: 'X', lastRotatedAt: daysAgo(DEFAULT_MAX_AGE_DAYS - DUE_SOON_DAYS + 1) },
+      NOW,
+    );
     expect(e.status).toBe('due_soon');
     expect(e.daysUntilDue).toBeLessThanOrEqual(DUE_SOON_DAYS);
     expect(e.daysUntilDue).toBeGreaterThanOrEqual(0);
@@ -48,7 +54,10 @@ describe('rotationStatus (AP9 secret-rotation)', () => {
   });
 
   it('accepts ISO-string timestamps', () => {
-    const e = rotationStatus({ name: 'X', lastRotatedAt: '2026-01-01T00:00:00.000Z' }, '2026-02-01T00:00:00.000Z');
+    const e = rotationStatus(
+      { name: 'X', lastRotatedAt: '2026-01-01T00:00:00.000Z' },
+      '2026-02-01T00:00:00.000Z',
+    );
     expect(e.ageDays).toBe(31);
   });
 
