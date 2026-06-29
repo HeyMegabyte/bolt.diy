@@ -54,7 +54,12 @@ describe('seasonal_hero — occasion windows', () => {
   it('every occasion entry exposes a non-empty accent + headline', () => {
     // sample one date per occasion window
     const dates = [
-      '2026-02-12', '2026-03-20', '2026-07-04', '2026-08-25', '2026-11-25', '2026-12-20',
+      '2026-02-12',
+      '2026-03-20',
+      '2026-07-04',
+      '2026-08-25',
+      '2026-11-25',
+      '2026-12-20',
     ];
     for (const d of dates) {
       const h = seasonalHero(at(`${d}T12:00:00Z`));

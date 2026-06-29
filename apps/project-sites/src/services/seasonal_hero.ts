@@ -39,13 +39,26 @@ export interface SeasonalHero {
 /** Northern-hemisphere season by month (0-indexed). South flips by 6 months. */
 function seasonForMonth(month0: number, hemisphere: Hemisphere): Season {
   const north: Season[] = [
-    'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
-    'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter',
+    'winter',
+    'winter',
+    'spring',
+    'spring',
+    'spring',
+    'summer',
+    'summer',
+    'summer',
+    'autumn',
+    'autumn',
+    'autumn',
+    'winter',
   ];
   const base = north[month0];
   if (hemisphere === 'north') return base;
   const flip: Record<Season, Season> = {
-    winter: 'summer', summer: 'winter', spring: 'autumn', autumn: 'spring',
+    winter: 'summer',
+    summer: 'winter',
+    spring: 'autumn',
+    autumn: 'spring',
   };
   return flip[base];
 }
@@ -68,15 +81,69 @@ interface OccWindow {
 
 /** Curated occasion windows (US calendar). Ordered; first match wins. */
 const OCCASIONS: readonly OccWindow[] = [
-  { occasion: 'new_year', from: [11, 29], to: [11, 31], accent: 'accent-gold', headlinePrefix: 'New year, new look —' },
-  { occasion: 'new_year', from: [0, 1], to: [0, 3], accent: 'accent-gold', headlinePrefix: 'New year, new look —' },
-  { occasion: 'valentines', from: [1, 10], to: [1, 15], accent: 'accent-rose', headlinePrefix: 'With love —' },
-  { occasion: 'spring_renewal', from: [2, 19], to: [2, 25], accent: 'accent-bloom', headlinePrefix: 'Fresh for spring —' },
-  { occasion: 'independence_day', from: [6, 1], to: [6, 5], accent: 'accent-flag', headlinePrefix: 'Celebrating the 4th —' },
-  { occasion: 'back_to_school', from: [7, 20], to: [8, 5], accent: 'accent-amber', headlinePrefix: 'Back-to-school season —' },
-  { occasion: 'halloween', from: [9, 25], to: [9, 31], accent: 'accent-pumpkin', headlinePrefix: 'This Halloween —' },
-  { occasion: 'thanksgiving', from: [10, 20], to: [10, 28], accent: 'accent-amber', headlinePrefix: 'Grateful this season —' },
-  { occasion: 'holidays', from: [11, 10], to: [11, 28], accent: 'accent-evergreen', headlinePrefix: 'Happy holidays —' },
+  {
+    occasion: 'new_year',
+    from: [11, 29],
+    to: [11, 31],
+    accent: 'accent-gold',
+    headlinePrefix: 'New year, new look —',
+  },
+  {
+    occasion: 'new_year',
+    from: [0, 1],
+    to: [0, 3],
+    accent: 'accent-gold',
+    headlinePrefix: 'New year, new look —',
+  },
+  {
+    occasion: 'valentines',
+    from: [1, 10],
+    to: [1, 15],
+    accent: 'accent-rose',
+    headlinePrefix: 'With love —',
+  },
+  {
+    occasion: 'spring_renewal',
+    from: [2, 19],
+    to: [2, 25],
+    accent: 'accent-bloom',
+    headlinePrefix: 'Fresh for spring —',
+  },
+  {
+    occasion: 'independence_day',
+    from: [6, 1],
+    to: [6, 5],
+    accent: 'accent-flag',
+    headlinePrefix: 'Celebrating the 4th —',
+  },
+  {
+    occasion: 'back_to_school',
+    from: [7, 20],
+    to: [8, 5],
+    accent: 'accent-amber',
+    headlinePrefix: 'Back-to-school season —',
+  },
+  {
+    occasion: 'halloween',
+    from: [9, 25],
+    to: [9, 31],
+    accent: 'accent-pumpkin',
+    headlinePrefix: 'This Halloween —',
+  },
+  {
+    occasion: 'thanksgiving',
+    from: [10, 20],
+    to: [10, 28],
+    accent: 'accent-amber',
+    headlinePrefix: 'Grateful this season —',
+  },
+  {
+    occasion: 'holidays',
+    from: [11, 10],
+    to: [11, 28],
+    accent: 'accent-evergreen',
+    headlinePrefix: 'Happy holidays —',
+  },
 ];
 
 /** Is (month0, day) within [from..to] inclusive (same-year window)? */
@@ -113,7 +180,12 @@ export function seasonalHero(
   if (allowOccasions && hemisphere === 'north') {
     const win = OCCASIONS.find((w) => inWindow(month0, day, w));
     if (win) {
-      return { season, occasion: win.occasion, accent: win.accent, headlinePrefix: win.headlinePrefix };
+      return {
+        season,
+        occasion: win.occasion,
+        accent: win.accent,
+        headlinePrefix: win.headlinePrefix,
+      };
     }
   }
   return { season, occasion: null, accent: ACCENT_BY_SEASON[season], headlinePrefix: null };
