@@ -194,7 +194,13 @@ name = "project-sites"
 workers_dev = true
 routes = [
   { pattern = "projectsites.dev", custom_domain = true },
-  { pattern = "*.projectsites.dev/*", zone_name = "projectsites.dev" }
+  { pattern = "*.projectsites.dev/*", zone_name = "projectsites.dev" },
+  # ── Cloud-hosted SaaS subdomain landing pages (returns 200 landing, not 404) ──
+  { pattern = "analytics.projectsites.dev", zone_name = "projectsites.dev" },
+  { pattern = "logs.projectsites.dev", zone_name = "projectsites.dev" },
+  { pattern = "billing.projectsites.dev", zone_name = "projectsites.dev" },
+  { pattern = "webhooks.projectsites.dev", zone_name = "projectsites.dev" },
+  { pattern = "links.projectsites.dev", zone_name = "projectsites.dev" }
 ]
 
 [env.production.vars]

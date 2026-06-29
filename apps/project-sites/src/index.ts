@@ -34,6 +34,9 @@ import { requestIdMiddleware } from './middleware/request_id.js';
 import { requestLogger } from './lib/log.js';
 import { notFoundHtml } from './lib/not_found_page.js';
 import { llmLandingPage } from './lib/llm_landing_page.js';
+import { renderDocsReferencePage } from './lib/docs_reference_page.js';
+import { renderStatusPage } from './lib/status_page.js';
+import { getStatusFeed } from '../libs/features/status_page_live/service.js';
 import { resolveSystemService, systemServiceLanding } from './lib/system_service_landing.js';
 import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
@@ -41,6 +44,7 @@ import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
 import { idempotencyMiddleware } from './middleware/idempotency.js';
 import { health } from './routes/health.js';
+import { platformServiceLanding, resolvePlatformService } from './routes/platform_services.js';
 import { api } from './routes/api.js';
 // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag.
 // Lazy-imported at the /api/auth/* handler below: the better-auth npm pkg pulls a
@@ -727,7 +731,175 @@ app.get('/', async (c, next) => {
   if (svc) {
     return c.html(systemServiceLanding(svc));
   }
+  // Platform-service subdomains (analytics/logs/billing/webhooks/links.projectsites.dev)
+  // are cloud-hosted SaaS destinations (PostHog Cloud, Axiom, Stripe Dashboard,
+  // Hookdeck, Dub). The bare root used to 404. Serve a branded landing page with a
+  // CTA linking to the SaaS login; other paths still fall through to the site-serving
+  // catch-all below. Only matches GET `/`.
+  const ps = resolvePlatformService(hostname);
+  if (ps) {
+    return c.html(platformServiceLanding(ps));
+  }
   return next();
+});
+
+// ─── docs.projectsites.dev — Scalar API Reference ──────────
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `docs.${DOMAINS.SITES_BASE}`) return next();
+  return c.html(renderDocsReferencePage());
+});
+
+// ─── admin.projectsites.dev — Angular Admin Dashboard SPA ──
+// Serves the built Angular admin frontend from R2 at the admin/ prefix.
+// Non-file paths (SPA routes) fall back to admin/index.html.
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `admin.${DOMAINS.SITES_BASE}`) return next();
+
+  const url = new URL(c.req.url);
+  const path = url.pathname;
+
+  // Determine if this path looks like a file request (has extension)
+  const hasExtension = path.includes('.') && !path.endsWith('/');
+  const r2Key = hasExtension ? `admin${path}` : 'admin/index.html';
+
+  try {
+    const obj = await c.env.SITES_BUCKET.get(r2Key);
+    if (obj) {
+      const ext = r2Key.split('.').pop()?.toLowerCase() ?? 'html';
+      const mimeTypes: Record<string, string> = {
+        html: 'text/html', css: 'text/css', js: 'application/javascript',
+        json: 'application/json', png: 'image/png', jpg: 'image/jpeg',
+        jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon',
+        webp: 'image/webp', woff: 'font/woff', woff2: 'font/woff2',
+        ttf: 'font/ttf', xml: 'application/xml', txt: 'text/plain',
+        webmanifest: 'application/manifest+json',
+      };
+      const mime = mimeTypes[ext] ?? 'application/octet-stream';
+
+      // For index.html, inject runtime env vars. For static assets, cache longer.
+      if (r2Key === 'admin/index.html') {
+        let html = await obj.text();
+        const phKey = c.env.POSTHOG_API_KEY ?? '';
+        html = html.replace(
+          '</head>',
+          `<meta name="x-posthog-key" content="${phKey}">\n</head>`,
+        );
+        return new Response(html, {
+          headers: {
+            'Content-Type': 'text/html',
+            'Cache-Control': 'no-cache',
+            'Cross-Origin-Opener-Policy': 'same-origin',
+          },
+        });
+      }
+
+      return new Response(obj.body, {
+        headers: {
+          'Content-Type': mime,
+          'Cache-Control': 'public, max-age=3600',
+          'Access-Control-Allow-Origin': `https://${hostname}`,
+        },
+      });
+    }
+  } catch {
+    // Fall through to 404
+  }
+
+  // SPA fallback — if file not found, try index.html for client-side routing
+  if (hasExtension) {
+    const fallbackObj = await c.env.SITES_BUCKET.get('admin/index.html').catch(() => null);
+    if (fallbackObj) {
+      const text = await fallbackObj.text();
+      return new Response(text, {
+        headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' },
+      });
+    }
+  }
+
+  return c.notFound();
+});
+
+// ─── support.projectsites.dev — Support Landing Page ─────────
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `support.${DOMAINS.SITES_BASE}`) return next();
+
+  const url = new URL(c.req.url);
+  const path = url.pathname;
+
+  try {
+    // Try to serve a support page from R2 first
+    const hasExtension = path.includes('.') && !path.endsWith('/');
+    const r2Key = hasExtension ? `support${path}` : 'support/index.html';
+    const obj = await c.env.SITES_BUCKET.get(r2Key);
+    if (obj) {
+      const ext = r2Key.split('.').pop()?.toLowerCase() ?? 'html';
+      const mimeTypes: Record<string, string> = {
+        html: 'text/html', css: 'text/css', js: 'application/javascript',
+        png: 'image/png', svg: 'image/svg+xml', ico: 'image/x-icon',
+      };
+      if (r2Key === 'support/index.html') {
+        return new Response(await obj.text(), {
+          headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' },
+        });
+      }
+      return new Response(obj.body, {
+        headers: {
+          'Content-Type': mimeTypes[ext] ?? 'application/octet-stream',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
+  } catch {
+    // Fall through to inline page
+  }
+
+  // Inline branded support landing page
+  return c.html(`<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support · ProjectSites</title>
+<meta name="description" content="Get help with ProjectSites — AI-generated websites for small business.">
+<meta name="color-scheme" content="dark">
+<link rel="canonical" href="https://support.projectsites.dev/">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#060610;color:#f4f4ff;font-family:'Space Grotesk',sans-serif;line-height:1.6;padding:40px 20px;
+  background-image:radial-gradient(60% 50% at 50% 0%,rgba(0,229,255,.10),transparent 70%)}
+.wrap{max-width:640px;width:100%}
+.status{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#7ee787;margin-bottom:18px}
+.dot{width:8px;height:8px;border-radius:50%;background:#7ee787;box-shadow:0 0 10px #7ee787}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:#00e5ff;margin-bottom:12px}
+h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-bottom:14px;
+  background:linear-gradient(135deg,#fff,rgba(0,229,255,.85));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:#94a3b8;font-size:1.05rem;margin-bottom:26px}
+.card{background:linear-gradient(145deg,rgba(13,13,40,.55),rgba(8,8,32,.7));border:1px solid rgba(0,229,255,.12);border-radius:16px;padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:.72rem;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px}
+.card p{color:#cbd5e1;font-size:.95rem}
+a{color:#00e5ff;text-decoration:none}a:hover{text-decoration:underline}
+.foot{margin-top:24px;font-size:.82rem;color:#6b7785;text-align:center}
+.btn{display:inline-block;margin-top:12px;padding:12px 28px;background:#00e5ff;color:#060610;font-weight:600;border-radius:50px;text-decoration:none;transition:.2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,229,255,.3)}
+</style></head><body><div class="wrap">
+<div class="status"><span class="dot"></span>Available</div>
+<div class="eyebrow">ProjectSites</div>
+<h1>Support</h1>
+<p class="sub">We are here to help. Reach out and we will get back to you promptly.</p>
+<div class="card"><h2>Email</h2><p><a href="mailto:hey@megabyte.space">hey@megabyte.space</a></p></div>
+<div class="card"><h2>Knowledge base</h2><p>Documentation and guides for building and managing your site.</p><a class="btn" href="https://docs.projectsites.dev/">Visit docs</a></div>
+<div class="card"><h2>Status</h2><p>Check real-time system health for all ProjectSites services.</p><a href="https://projectsites.dev/status" style="color:#00e5ff">System status →</a></div>
+<p class="foot">&larr; <a href="https://projectsites.dev/">projectsites.dev</a></p>
+</div></body></html>`);
+});
+
+// ─── status.projectsites.dev — Public Platform Status ──────
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `status.${DOMAINS.SITES_BASE}`) return next();
+  const feed = await getStatusFeed(c.env);
+  return c.html(renderStatusPage(feed.status, feed.incidents));
 });
 
 // ─── Site Serving (catch-all for subdomain routing) ──────────
