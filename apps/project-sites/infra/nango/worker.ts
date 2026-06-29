@@ -49,6 +49,8 @@ export class Nango extends Container<Env> {
   async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
       ports: 8080,
+      // First boot runs DB migrations against Neon — Nango takes ~20s.
+      // Cold start (scale-to-zero wake) takes ~15s. Give it 90s to be safe.
       cancellationOptions: { portReadyTimeoutMS: 90_000 },
     });
     return this.containerFetch(request);
@@ -61,6 +63,7 @@ export class Nango extends Container<Env> {
   }
 }
 
+/** Branded 200 page shown when the DO binding is unavailable (pre-deploy). */
 function landingPage(): Response {
   return new Response(
     `<!DOCTYPE html><html lang="en"><head>
@@ -68,11 +71,13 @@ function landingPage(): Response {
 <title>Integrations · ProjectSites</title>
 <meta name="description" content="OAuth connection hub for ProjectSites — third-party integrations powered by Nango.">
 <meta name="color-scheme" content="dark">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{min-height:100vh;background:#060610;color:#f4f4ff;font-family:system-ui,sans-serif;line-height:1.6;display:flex;align-items:center;justify-content:center;padding:40px 20px;
+body{min-height:100vh;background:#060610;color:#f4f4ff;font-family:'Space Grotesk',system-ui,sans-serif;line-height:1.6;display:flex;align-items:center;justify-content:center;padding:40px 20px;
   background-image:radial-gradient(60% 50% at 50% 0%,rgba(0,229,255,.10),transparent 70%)}
-.status{display:inline-flex;align-items:center;gap:8px;font-family:monospace;font-size:.7rem;
+.wrap{max-width:640px;width:100%}
+.status{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.7rem;
   letter-spacing:.18em;text-transform:uppercase;color:#f59e0b;margin-bottom:18px}
 .dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px #f59e0b;animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 a{color:#00e5ff;text-decoration:none}
