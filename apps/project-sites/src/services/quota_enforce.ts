@@ -99,11 +99,20 @@ export function checkQuota(used: number, limit: number): CheckQuotaResult {
   const safeLimit = typeof limit === 'number' && !Number.isNaN(limit) ? Math.max(0, limit) : 0;
 
   if (safeLimit <= 0) {
-    return { isExceeded: false, used: safeUsed, limit: safeLimit, remaining: 0, utilizationPercent: 0 };
+    return {
+      isExceeded: false,
+      used: safeUsed,
+      limit: safeLimit,
+      remaining: 0,
+      utilizationPercent: 0,
+    };
   }
 
   const remaining = Math.max(0, safeLimit - safeUsed);
-  const pct = Math.min(100, Math.round(((safeUsed / safeLimit) * 100 + Number.EPSILON) * 100) / 100);
+  const pct = Math.min(
+    100,
+    Math.round(((safeUsed / safeLimit) * 100 + Number.EPSILON) * 100) / 100,
+  );
 
   return {
     isExceeded: safeUsed >= safeLimit,
@@ -168,9 +177,10 @@ export function exceededMessage(type: QuotaType, used: number, limit: number): s
  */
 export function quotaBlock(type: QuotaType, plan: PlanTier): QuotaBlockEnvelope {
   const label = QUOTA_LABELS[type] ?? type;
-  const suggestion = plan === 'enterprise'
-    ? `Contact support to increase your ${label} limit.`
-    : `Upgrade your plan to unlock more ${label}.`;
+  const suggestion =
+    plan === 'enterprise'
+      ? `Contact support to increase your ${label} limit.`
+      : `Upgrade your plan to unlock more ${label}.`;
 
   return {
     error: {

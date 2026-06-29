@@ -101,8 +101,15 @@ describe('exceededMessage', () => {
 
   it('handles all QuotaType labels gracefully', () => {
     const types: QuotaType[] = [
-      'sites', 'pages', 'images', 'storage_mb', 'custom_domains',
-      'team_members', 'builds_per_day', 'emails_per_day', 'api_tokens',
+      'sites',
+      'pages',
+      'images',
+      'storage_mb',
+      'custom_domains',
+      'team_members',
+      'builds_per_day',
+      'emails_per_day',
+      'api_tokens',
     ];
     for (const t of types) {
       const msg = exceededMessage(t, 1, 5);
@@ -172,8 +179,15 @@ describe('quotaBlock', () => {
 
   it('handles every QuotaType without throwing', () => {
     const types: QuotaType[] = [
-      'sites', 'pages', 'images', 'storage_mb', 'custom_domains',
-      'team_members', 'builds_per_day', 'emails_per_day', 'api_tokens',
+      'sites',
+      'pages',
+      'images',
+      'storage_mb',
+      'custom_domains',
+      'team_members',
+      'builds_per_day',
+      'emails_per_day',
+      'api_tokens',
     ];
     for (const t of types) {
       expect(() => quotaBlock(t, 'free')).not.toThrow();

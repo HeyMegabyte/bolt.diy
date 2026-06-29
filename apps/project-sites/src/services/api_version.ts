@@ -54,7 +54,7 @@ const VERSION_REGEX = /^v(\d+)$/;
  * // → { major: 2, label: 'v2' }
  *
  * parseVersion('v10');
- * // → { major: 10, label: 'v10' }
+ * // → { label: 'v10', major: 10 }
  * ```
  */
 export function parseVersion(v: string): ParsedVersion {
