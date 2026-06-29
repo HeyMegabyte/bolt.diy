@@ -103,6 +103,32 @@ export const FormAnalyticsSchema = z
   .strict();
 export type FormAnalytics = z.infer<typeof FormAnalyticsSchema>;
 
+/** One stage of the per-site visitor funnel (AN19). */
+export const FunnelStageSchema = z
+  .object({
+    key: z.enum(['landing', 'engaged', 'converted']),
+    label: z.string(),
+    sessions: z.number().int().min(0),
+    /** Share of the landing (top-of-funnel) sessions, 0–100, one decimal. */
+    percentOfLanding: z.number().min(0).max(100),
+  })
+  .strict();
+export type FunnelStage = z.infer<typeof FunnelStageSchema>;
+
+/**
+ * AN19 — per-site visitor funnel: landing (≥1 pageview) → engaged (≥2 pageviews)
+ * → converted (a conversion event), counted by distinct session.
+ */
+export const VisitorFunnelSchema = z
+  .object({
+    siteId: z.string().min(1),
+    windowDays: z.number().int().positive(),
+    stages: z.array(FunnelStageSchema),
+    generatedAt: z.string(),
+  })
+  .strict();
+export type VisitorFunnel = z.infer<typeof VisitorFunnelSchema>;
+
 /** AN48 — response when an owner mints a public read-only analytics share link. */
 export const ShareLinkSchema = z
   .object({

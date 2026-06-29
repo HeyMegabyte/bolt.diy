@@ -50,8 +50,11 @@ export function buildAnalyticsTracker(siteId: string, opts: AnalyticsTrackerOpti
   const body =
     `(function(){var S=${s},U=${u};window.PS_SITE_ID=S;` +
     `function uid(){try{return crypto.randomUUID()}catch(e){var x='';for(var i=0;i<40;i++)x+=(Math.random()*16|0).toString(16);return x}}` +
+    // AN19: one stable session id per browser tab (sessionStorage) so a visitor's
+    // pageviews + conversions share an id → session-based funnels are possible.
+    `function sid(){try{var k='__ps_sid',v=sessionStorage.getItem(k);if(!v){v=uid();sessionStorage.setItem(k,v)}return v}catch(e){return uid()}}var SID=sid();` +
     `window.psTrack=function(t,p){try{` +
-    `var e={eventId:uid(),siteId:S,eventType:t||'custom',timestamp:Date.now(),payload:p||{}};var b=JSON.stringify(e);` +
+    `var e={eventId:uid(),siteId:S,sessionId:SID,eventType:t||'custom',timestamp:Date.now(),payload:p||{}};var b=JSON.stringify(e);` +
     `if(navigator.sendBeacon){navigator.sendBeacon(U,b)}else{fetch(U,{method:'POST',body:b,keepalive:true}).catch(function(){})}` +
     `}catch(_){}};` +
     `try{window.psTrack('pageview',{path:location.pathname,referrer:document.referrer})}catch(_){}` +

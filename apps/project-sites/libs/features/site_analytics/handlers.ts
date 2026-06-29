@@ -24,6 +24,7 @@ import {
   getDailySeries,
   getConversionsBySection,
   getFormAnalytics,
+  getVisitorFunnel,
   summaryToCsv,
   siteOrgId,
 } from './service.js';
@@ -100,6 +101,23 @@ siteAnalytics.get('/api/sites/:siteId/analytics/forms', async (c) => {
 
   const forms = await getFormAnalytics(c.env, siteId, windowDays);
   return c.json(forms);
+});
+
+// AN19 — per-site visitor funnel (landing → engaged → converted), owner-scoped.
+siteAnalytics.get('/api/sites/:siteId/analytics/funnel', async (c) => {
+  const g = await requireOrgFlag(c, FLAG_KEY);
+  if (g instanceof Response) return g;
+
+  const siteId = c.req.param('siteId');
+  const owner = await siteOrgId(c.env, siteId);
+  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+
+  const windowParam = Number(c.req.query('windowDays'));
+  const windowDays =
+    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
+
+  const funnel = await getVisitorFunnel(c.env, siteId, windowDays);
+  return c.json(funnel);
 });
 
 // AN42 — one-click owner data export. Returns the analytics summary as a

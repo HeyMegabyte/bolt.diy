@@ -23,6 +23,8 @@ class StubVisitorsComponent {}
 class StubSectionsComponent {}
 @Component({ selector: 'app-form-analytics', standalone: true, template: '<div data-testid="stub-forms"></div>' })
 class StubFormsComponent {}
+@Component({ selector: 'app-visitor-funnel', standalone: true, template: '<div data-testid="stub-visitor"></div>' })
+class StubVisitorFunnelComponent {}
 
 describe('AdminAnalyticsDashboardComponent', () => {
   const qpm = new BehaviorSubject<ParamMap>(convertToParamMap({}));
@@ -51,7 +53,7 @@ describe('AdminAnalyticsDashboardComponent', () => {
     });
     TestBed.overrideComponent(AdminAnalyticsDashboardComponent, {
       set: {
-        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent, StubFormsComponent],
+        imports: [StubOverviewComponent, StubLiveComponent, StubFunnelComponent, StubVisitorsComponent, StubSectionsComponent, StubFormsComponent, StubVisitorFunnelComponent],
       },
     });
     const f = TestBed.createComponent(AdminAnalyticsDashboardComponent);
@@ -101,6 +103,13 @@ describe('AdminAnalyticsDashboardComponent', () => {
     f.nativeElement.querySelector('[data-testid="export-csv-btn"]').click();
     expect(apiGet).toHaveBeenCalledWith('/sites/site_1/analytics/export');
     expect(toastSuccess).toHaveBeenCalled();
+  });
+
+  it('lands on Visitor Funnel when ?tab=visitor (AN19)', () => {
+    qpm.next(convertToParamMap({ tab: 'visitor' }));
+    const f = make();
+    expect(f.componentInstance.tab()).toBe('visitor');
+    expect(f.nativeElement.querySelector('[data-testid="stub-visitor"]')).toBeTruthy();
   });
 
   it('lands on Social when ?tab=social', () => {

@@ -7,12 +7,13 @@ import { AdminActivationFunnelComponent } from './activation-funnel.component';
 import { AdminSocialAnalyticsComponent } from './social-analytics.component';
 import { SectionAttributionComponent } from './section-attribution.component';
 import { FormAnalyticsComponent } from './form-analytics.component';
+import { VisitorFunnelComponent } from './visitor-funnel.component';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 import { copyToClipboard } from '../../../utils/clipboard';
 
-type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'social';
+type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'visitor' | 'social';
 
 /**
  * Unified analytics dashboard — combines aggregate traffic, the raw live event
@@ -33,6 +34,7 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'soc
     AdminSocialAnalyticsComponent,
     SectionAttributionComponent,
     FormAnalyticsComponent,
+    VisitorFunnelComponent,
   ],
   template: `
     <div class="px-6 pt-5 pb-2 max-md:px-4" data-testid="analytics-dashboard">
@@ -87,6 +89,8 @@ type AnalyticsTab = 'overview' | 'live' | 'funnel' | 'sections' | 'forms' | 'soc
       <app-section-attribution />
     } @else if (tab() === 'forms') {
       <app-form-analytics />
+    } @else if (tab() === 'visitor') {
+      <app-visitor-funnel />
     } @else {
       <app-social-analytics />
     }
@@ -111,6 +115,7 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     { id: 'funnel', label: 'Activation Funnel' },
     { id: 'sections', label: 'By Section' },
     { id: 'forms', label: 'Forms' },
+    { id: 'visitor', label: 'Visitor Funnel' },
     { id: 'social', label: 'Social' },
   ];
   readonly tab = signal<AnalyticsTab>('overview');
@@ -121,7 +126,12 @@ export class AdminAnalyticsDashboardComponent implements OnInit {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
       const t = q.get('tab');
       this.tab.set(
-        t === 'live' || t === 'funnel' || t === 'sections' || t === 'forms' || t === 'social'
+        t === 'live' ||
+        t === 'funnel' ||
+        t === 'sections' ||
+        t === 'forms' ||
+        t === 'visitor' ||
+        t === 'social'
           ? t
           : 'overview',
       );

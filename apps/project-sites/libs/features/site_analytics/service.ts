@@ -18,9 +18,11 @@ import {
   SiteAnalyticsSummarySchema,
   SectionConversionsSchema,
   FormAnalyticsSchema,
+  VisitorFunnelSchema,
   type SiteAnalyticsSummary,
   type SectionConversions,
   type FormAnalytics,
+  type VisitorFunnel,
   type SourceCount,
 } from './schemas.js';
 
@@ -166,6 +168,63 @@ export async function getConversionsBySection(
     windowDays: n,
     totalConversions,
     sections,
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * AN19 — per-site visitor funnel by distinct session: landing (≥1 pageview) →
+ * engaged (≥2 pageviews) → converted (≥1 conversion event). Reads
+ * `analytics_events` (sessionId set by the tracker), one GROUP BY pass per
+ * session. Each stage carries its share of the landing (top) sessions, so the
+ * owner sees the drop-off. Defensive → all-zero on D1 error.
+ *
+ * @param env        - Worker env (uses `env.DB`).
+ * @param siteId     - Site to analyze.
+ * @param windowDays - Trailing window 1–365 (default 30).
+ * @returns A validated {@link VisitorFunnel}.
+ *
+ * @example
+ * const { stages } = await getVisitorFunnel(env, 'site_1', 30);
+ */
+export async function getVisitorFunnel(
+  env: Env,
+  siteId: string,
+  windowDays = 30,
+): Promise<VisitorFunnel> {
+  const n = Number.isInteger(windowDays) && windowDays > 0 && windowDays <= 365 ? windowDays : 30;
+  const { data, error } = await dbQuery<{ pv: number; conv: number }>(
+    env.DB,
+    `SELECT SUM(CASE WHEN eventType = 'pageview' THEN 1 ELSE 0 END) AS pv,
+            MAX(CASE WHEN eventType = 'conversion' THEN 1 ELSE 0 END) AS conv
+       FROM analytics_events
+      WHERE siteId = ? AND sessionId IS NOT NULL
+        AND timestamp >= (unixepoch() - ?) * 1000
+      GROUP BY sessionId`,
+    [siteId, n * 86_400],
+  );
+
+  let landing = 0;
+  let engaged = 0;
+  let converted = 0;
+  if (!error) {
+    for (const r of data) {
+      const pv = Number(r.pv) || 0;
+      if (pv >= 1) landing += 1;
+      if (pv >= 2) engaged += 1;
+      if (Number(r.conv) > 0) converted += 1;
+    }
+  }
+  const pct = (v: number) => (landing > 0 ? Math.round((v / landing) * 1000) / 10 : 0);
+
+  return VisitorFunnelSchema.parse({
+    siteId,
+    windowDays: n,
+    stages: [
+      { key: 'landing', label: 'Landed', sessions: landing, percentOfLanding: landing > 0 ? 100 : 0 },
+      { key: 'engaged', label: 'Engaged (2+ pages)', sessions: engaged, percentOfLanding: pct(engaged) },
+      { key: 'converted', label: 'Converted', sessions: converted, percentOfLanding: pct(converted) },
+    ],
     generatedAt: new Date().toISOString(),
   });
 }
