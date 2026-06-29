@@ -326,29 +326,64 @@ export async function getUsageSummaryFromLedger(
 // ─── Cost estimation (for display, not billing) ─────────────────────────
 
 /**
+ * Per-unit cost in CENTS for each metric.
+ *
+ * These are display-only estimates for the customer-facing dashboard.
+ * Actual billing uses Stripe Meter Event prices or Metronome rate cards.
+ *
+ * Pricing philosophy (per Brian): charge per TOKEN, per GB, per MINUTE —
+ * never lump. Every unit is independently measurable and auditable.
+ *
+ * | Category          | Metric                     | Unit     | Rate (cents) | Notes                        |
+ * |-------------------|----------------------------|----------|-------------|------------------------------|
+ * | AI input          | ai_input_tokens            | token    | 0.000015    | $0.15 / 1M input tokens      |
+ * | AI output         | ai_output_tokens           | token    | 0.000060    | $0.60 / 1M output tokens     |
+ * | AI embeddings     | ai_embedding_tokens        | token    | 0.000002    | $0.02 / 1M embedding tokens  |
+ * | AI images         | ai_image_generations       | event    | 5.0         | $0.05 / image (DALL·E 3)     |
+ * | AI voice          | ai_voice_minutes           | minute   | 1.0         | $0.01 / minute (OpenAI TTS)  |
+ * | Browser           | browser_automation_minutes | minute   | 3.0         | $0.03 / minute               |
+ * | Build             | build_compute_minutes      | minute   | 2.0         | $0.02 / minute               |
+ * | Visits            | site_visits                | event    | 0.001       | $0.00001 / visit (free tier) |
+ * | Bandwidth egress  | bandwidth_egress_gb        | gb       | 5.0         | $0.05 / GB egress            |
+ * | Storage           | storage_gb_hours           | gb_hour  | 0.007       | ~$5.00 / GB-month (~730h)    |
+ * | Email             | email_sends                | event    | 0.01        | $0.0001 / email (SES cost)   |
+ * | SMS               | sms_sends                  | event    | 1.0         | $0.01 / SMS                  |
+ * | Forms             | form_submissions           | event    | 0           | free                         |
+ * | Social            | social_posts               | event    | 1.0         | $0.01 / post                 |
+ * | Bookings          | booking_events             | event    | 0           | free                         |
+ * | CRM seats         | crm_seats                  | seat     | 500.0       | $5.00 / seat / month         |
+ * | App installs      | premium_app_installs       | event    | 1000.0      | $10.00 / premium app install |
+ */
+export const METRIC_RATE_CENTS: Record<string, number> = {
+  ai_input_tokens: 0.000015,            // $0.15 / 1M tokens
+  ai_output_tokens: 0.00006,            // $0.60 / 1M tokens
+  ai_embedding_tokens: 0.000002,        // $0.02 / 1M tokens
+  ai_image_generations: 5,              // $0.05 / image
+  ai_voice_minutes: 1,                  // $0.01 / minute
+  browser_automation_minutes: 3,        // $0.03 / minute
+  build_compute_minutes: 2,             // $0.02 / minute
+  site_visits: 0.001,                   // $0.00001 / visit
+  bandwidth_egress_gb: 5,               // $0.05 / GB
+  storage_gb_hours: 0.007,              // ~$5.00 / GB-month
+  email_sends: 0.01,                    // $0.0001 / email
+  sms_sends: 1,                         // $0.01 / SMS
+  form_submissions: 0,                  // free
+  social_posts: 1,                      // $0.01 / post
+  booking_events: 0,                    // free
+  crm_seats: 500,                       // $5.00 / seat / month
+  premium_app_installs: 1000,           // $10.00 / install
+};
+
+/**
  * Estimate cost in cents for a given metric+quantity.
  *
  * These are display-only estimates. Actual billing is determined by
  * Stripe meter prices / Metronome rate cards.
+ *
+ * @param metric — UsageMetric string
+ * @param quantity — number of units (tokens, GB, minutes, events, seats)
+ * @returns estimated cost in cents (integer)
  */
-function estimateCostCents(metric: string, quantity: number): number {
-  const rates: Record<string, number> = {
-    ai_input_tokens: 0.0001,       // $0.10 / 1k tokens
-    ai_output_tokens: 0.0003,      // $0.30 / 1k tokens
-    ai_embedding_tokens: 0.00001,  // $0.01 / 1k tokens
-    ai_image_generations: 5,       // $0.05 / image
-    ai_voice_minutes: 1,           // $0.01 / minute
-    browser_automation_minutes: 3, // $0.03 / minute
-    build_minutes: 2,              // $0.02 / minute
-    site_visits: 0.01,             // $0.0001 / visit
-    form_submissions: 0,           // free
-    email_sends: 0.01,             // $0.0001 / email
-    sms_sends: 1,                  // $0.01 / SMS
-    storage_gb: 5,                 // $0.05 / GB
-    crm_seats: 500,                // $5.00 / seat
-    social_posts: 1,               // $0.01 / post
-    booking_events: 0,             // free
-    premium_app_installs: 1000,    // $10.00 / install
-  };
-  return Math.round(quantity * (rates[metric] ?? 0));
+export function estimateCostCents(metric: string, quantity: number): number {
+  return Math.round(quantity * (METRIC_RATE_CENTS[metric] ?? 0));
 }

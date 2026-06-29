@@ -18,6 +18,7 @@ import {
   resolveBillingProviderId,
 } from '../services/billing_provider.js';
 import { NoopBillingProvider } from '../services/billing_provider_noop.js';
+import { estimateCostCents, METRIC_RATE_CENTS } from '../services/billing_provider_stripe.js';
 import type { BillingProviderId, UsageEvent } from '../services/billing_provider.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -148,11 +149,11 @@ describe('STRIPE_METER_MAP', () => {
 
 describe('METRIC_UNIT', () => {
   it('covers every UsageMetric', () => {
-    // Every key in METRIC_UNIT should be a valid UsageMetric
     const metrics = Object.keys(METRIC_UNIT);
-    expect(metrics.length).toBeGreaterThanOrEqual(16);
+    expect(metrics.length).toBe(17);
+    const validUnits = ['token', 'minute', 'event', 'gb', 'gb_hour', 'seat'];
     for (const m of metrics) {
-      expect(['token', 'minute', 'event', 'gb', 'seat']).toContain(
+      expect(validUnits).toContain(
         METRIC_UNIT[m as keyof typeof METRIC_UNIT],
       );
     }
@@ -194,5 +195,61 @@ describe('UsageEvent', () => {
     expect(event.appId).toBe('app_listmonk');
     expect(event.pricingVersion).toBe('2026-Q3');
     expect(event.metadata).toEqual({ model: 'llama-3.3-70b', feature: 'ai_concierge' });
+  });
+});
+
+// ─── Per-unit cost breakdown ─────────────────────────────────────────────
+
+describe('Per-unit cost accuracy', () => {
+  it('charges per TOKEN, not per AI call', () => {
+    // 1 AI call with 5000 input + 2000 output tokens = 7000 tokens total
+    // NOT 1 "ai call" event
+    const inputCost = estimateCostCents('ai_input_tokens', 5000);
+    const outputCost = estimateCostCents('ai_output_tokens', 2000);
+
+    // $0.15/1M input → 5000 × 0.000015 = 0.075 cents (fractional)
+    // $0.60/1M output → 2000 × 0.00006 = 0.12 cents
+    expect(inputCost).toBe(0);   // rounds to 0 (sub-cent)
+    expect(outputCost).toBe(0);  // rounds to 0 (sub-cent)
+
+    // At scale: 1M input tokens
+    expect(estimateCostCents('ai_input_tokens', 1_000_000)).toBe(15); // $0.15
+    expect(estimateCostCents('ai_output_tokens', 1_000_000)).toBe(60); // $0.60
+  });
+
+  it('charges per GB for bandwidth egress', () => {
+    // $0.05 / GB
+    expect(estimateCostCents('bandwidth_egress_gb', 1)).toBe(5);   // $0.05
+    expect(estimateCostCents('bandwidth_egress_gb', 100)).toBe(500); // $5.00
+    expect(estimateCostCents('bandwidth_egress_gb', 0)).toBe(0);
+  });
+
+  it('charges per GB-hour for storage', () => {
+    // ~$5/GB-month = $5 / 730 hours ≈ 0.007 cents/hour
+    // 1 GB stored for 730 hours (≈1 month)
+    expect(estimateCostCents('storage_gb_hours', 730)).toBe(5); // ~$0.05
+  });
+
+  it('charges per MINUTE for compute (browser + build)', () => {
+    expect(estimateCostCents('browser_automation_minutes', 10)).toBe(30); // $0.30
+    expect(estimateCostCents('build_compute_minutes', 60)).toBe(120);    // $1.20
+  });
+
+  it('charges per SEND for email + SMS', () => {
+    expect(estimateCostCents('email_sends', 1000)).toBe(10);  // $0.10
+    expect(estimateCostCents('sms_sends', 100)).toBe(100);     // $1.00
+  });
+
+  it('METRIC_RATE_CENTS covers all metrics in STRIPE_METER_MAP', () => {
+    for (const metric of Object.keys(STRIPE_METER_MAP)) {
+      expect(METRIC_RATE_CENTS).toHaveProperty(metric);
+      expect(typeof METRIC_RATE_CENTS[metric]).toBe('number');
+    }
+  });
+
+  it('free-tier metrics are zero-cost', () => {
+    expect(estimateCostCents('form_submissions', 1000)).toBe(0);
+    expect(estimateCostCents('booking_events', 1000)).toBe(0);
+    expect(estimateCostCents('site_visits', 10_000)).toBe(10); // ~$0.10 for 10k visits
   });
 });

@@ -29,45 +29,67 @@ import type { Env } from '../types/env.js';
 
 // ─── Usage metric taxonomy ──────────────────────────────────────────────
 
-/** Every billable usage dimension in the platform. */
+/**
+ * Every billable usage dimension in the platform.
+ *
+ * Pricing philosophy: charge per TOKEN (not per AI call), per GB (not per
+ * file), per MINUTE (not per job). Every metric maps to an actual measurable
+ * unit — no lumped "credits" that hide cost.
+ */
 export type UsageMetric =
+  // AI — per token, per image, per minute
   | 'ai_input_tokens'
   | 'ai_output_tokens'
   | 'ai_embedding_tokens'
   | 'ai_image_generations'
   | 'ai_voice_minutes'
+  // Compute — per minute
   | 'browser_automation_minutes'
-  | 'build_minutes'
+  | 'build_compute_minutes'
+  // Traffic — per visit, per GB
   | 'site_visits'
-  | 'form_submissions'
+  | 'bandwidth_egress_gb'
+  // Storage — per GB-month
+  | 'storage_gb_hours'
+  // Messaging — per send
   | 'email_sends'
   | 'sms_sends'
-  | 'storage_gb'
-  | 'crm_seats'
+  // Engagement — per event
+  | 'form_submissions'
   | 'social_posts'
   | 'booking_events'
+  // Platform — per seat, per install
+  | 'crm_seats'
   | 'premium_app_installs';
 
 /** Unit associated with each metric. */
-export type UsageUnit = 'token' | 'minute' | 'event' | 'gb' | 'seat';
+export type UsageUnit = 'token' | 'minute' | 'event' | 'gb' | 'gb_hour' | 'seat';
 
 /** Mapping from metric to its natural unit. */
 export const METRIC_UNIT: Record<UsageMetric, UsageUnit> = {
+  // AI — per token (NOT per call)
   ai_input_tokens: 'token',
   ai_output_tokens: 'token',
   ai_embedding_tokens: 'token',
   ai_image_generations: 'event',
   ai_voice_minutes: 'minute',
+  // Compute
   browser_automation_minutes: 'minute',
-  build_minutes: 'minute',
+  build_compute_minutes: 'minute',
+  // Traffic
   site_visits: 'event',
-  form_submissions: 'event',
+  bandwidth_egress_gb: 'gb',
+  // Storage — GB-hours (1 GB stored for 1 hour)
+  storage_gb_hours: 'gb_hour',
+  // Messaging — per send
   email_sends: 'event',
   sms_sends: 'event',
-  storage_gb: 'gb',
-  crm_seats: 'seat',
+  // Engagement
+  form_submissions: 'event',
   social_posts: 'event',
   booking_events: 'event',
+  // Platform
+  crm_seats: 'seat',
   premium_app_installs: 'event',
 };
 
@@ -218,6 +240,13 @@ export function resolveBillingProviderId(env: Env): BillingProviderId {
  * Stripe meter names use the `ps_` prefix and match the meter slugs created
  * in the Stripe Dashboard. These are the canonical mapping — no other file
  * should hardcode a Stripe meter name.
+ *
+ * Charging model (per Brian):
+ * - AI: per TOKEN (input/output/embedding), per IMAGE, per MINUTE (voice)
+ * - Compute: per MINUTE (browser, build)
+ * - Traffic: per VISIT, per GB (bandwidth egress)
+ * - Storage: per GB-HOUR (1 GB stored for 1 hour → ~730 GB-hours = 1 GB-month)
+ * - Messaging: per SEND (email, SMS)
  */
 export const STRIPE_METER_MAP: Record<UsageMetric, string> = {
   ai_input_tokens: 'ps_ai_input_tokens',
@@ -226,15 +255,16 @@ export const STRIPE_METER_MAP: Record<UsageMetric, string> = {
   ai_image_generations: 'ps_ai_image_generations',
   ai_voice_minutes: 'ps_ai_voice_minutes',
   browser_automation_minutes: 'ps_browser_automation_minutes',
-  build_minutes: 'ps_build_minutes',
+  build_compute_minutes: 'ps_build_compute_minutes',
   site_visits: 'ps_site_visits',
-  form_submissions: 'ps_form_submissions',
+  bandwidth_egress_gb: 'ps_bandwidth_egress_gb',
+  storage_gb_hours: 'ps_storage_gb_hours',
   email_sends: 'ps_email_sends',
   sms_sends: 'ps_sms_sends',
-  storage_gb: 'ps_storage_gb',
-  crm_seats: 'ps_crm_seats',
+  form_submissions: 'ps_form_submissions',
   social_posts: 'ps_social_posts',
   booking_events: 'ps_booking_events',
+  crm_seats: 'ps_crm_seats',
   premium_app_installs: 'ps_premium_app_installs',
 };
 
