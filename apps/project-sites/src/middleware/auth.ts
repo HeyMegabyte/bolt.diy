@@ -67,6 +67,7 @@ export const authMiddleware: MiddlewareHandler<{
         if (key && (!key.expires_at || new Date(key.expires_at).getTime() > Date.now())) {
           c.set('userId', key.created_by);
           c.set('orgId', key.org_id);
+          c.set('apiKeyId', key.id);
           // Best-effort last-used timestamp; failure must not block the request.
           // safeWaitUntil tolerates a missing ExecutionContext (internal/test
           // invocations) — a bare c.executionCtx.waitUntil would crash there.

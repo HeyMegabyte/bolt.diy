@@ -119,6 +119,8 @@ const SAFE_FIELD_ALLOWLIST: ReadonlySet<string> = new Set([
   'user_id',
   'orgId',
   'org_id',
+  'apiKeyId',
+  'api_key_id',
   'siteId',
   'site_id',
   'slug',
@@ -182,6 +184,14 @@ const SAFE_FIELD_ALLOWLIST: ReadonlySet<string> = new Set([
  */
 const SENSITIVE_KEY_RE = /(authorization|cookie|token|secret|password|key|stripe-signature)/i;
 
+/**
+ * Identifier fields whose NAME matches {@link SENSITIVE_KEY_RE} (they contain
+ * "key") but whose VALUE is a safe opaque id, NOT a secret. These are correlation
+ * IDs we explicitly want in logs (an API key's row id ≠ the `psk_…` secret).
+ * They skip the key-name redactor; the allowlist + value-pattern gates still apply.
+ */
+const SAFE_ID_KEY_EXEMPT: ReadonlySet<string> = new Set(['apiKeyId', 'api_key_id']);
+
 // ── Redaction: secret-value patterns ─────────────────────────────────────────
 
 const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
@@ -207,8 +217,9 @@ const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
 function redact(fields: LogFields): LogFields {
   const out: LogFields = {};
   for (const [key, value] of Object.entries(fields)) {
-    // Key-pattern gate: always redact sensitive-named fields
-    if (SENSITIVE_KEY_RE.test(key)) {
+    // Key-pattern gate: always redact sensitive-named fields,
+    // except known-safe identifier fields (e.g. apiKeyId — an id, not a secret).
+    if (!SAFE_ID_KEY_EXEMPT.has(key) && SENSITIVE_KEY_RE.test(key)) {
       out[key] = '[REDACTED]';
       continue;
     }
@@ -236,6 +247,8 @@ function extractContext(c: LogContext | undefined): LogFields {
     if (uid) out.userId = uid;
     const oid = c.get('orgId');
     if (oid) out.orgId = oid;
+    const kid = c.get('apiKeyId');
+    if (kid) out.apiKeyId = kid;
     const env = c.env?.ENVIRONMENT;
     if (env) out.env = env;
   } catch {

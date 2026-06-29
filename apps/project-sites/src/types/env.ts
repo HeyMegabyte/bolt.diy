@@ -822,4 +822,6 @@ export interface Variables {
   userRole?: string;
   /** Whether the user is a billing admin for their org. */
   billingAdmin?: boolean;
+  /** ID of the org-scoped API key (psk_…) that authenticated the request, if any. */
+  apiKeyId?: string;
 }

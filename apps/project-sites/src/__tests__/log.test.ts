@@ -147,6 +147,33 @@ describe('log.* — structured logger', () => {
     }
   });
 
+  it('auto-extracts apiKeyId from context and passes the allowlist', () => {
+    const { calls, restore } = captureWarn();
+    try {
+      // Fake Hono context exposing the correlation vars set by auth middleware.
+      const vars: Record<string, unknown> = {
+        requestId: 'req_abc',
+        orgId: 'org_1',
+        apiKeyId: 'key_xyz',
+      };
+      const fakeCtx = {
+        env: { ENVIRONMENT: 'test' },
+        get: (k: string) => vars[k],
+      } as unknown as Parameters<typeof log.info>[2];
+
+      log.info('api_call', { status: 200 }, fakeCtx);
+      const entry = calls[0]!;
+      expect(entry.apiKeyId).toBe('key_xyz');
+      expect(entry.requestId).toBe('req_abc');
+      expect(entry.orgId).toBe('org_1');
+      // Explicitly-passed snake_case variant also survives the allowlist.
+      log.info('api_call2', { api_key_id: 'key_snake' });
+      expect(calls[1]!.api_key_id).toBe('key_snake');
+    } finally {
+      restore();
+    }
+  });
+
   it('child(scope) adds scope field to every entry', () => {
     const { calls, restore } = captureWarn();
     try {
