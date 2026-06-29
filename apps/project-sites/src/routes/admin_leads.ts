@@ -24,6 +24,10 @@ import { tryEmitEvent } from '../services/emit_event.js';
 import { createClaimLink } from '../services/claim_links.js';
 import type { PlacesResult } from '../services/google_places.js';
 import type { PlacesSearchHit } from '../services/places_search.js';
+import { discoverSitelessFromOsm } from '../services/osm_overpass.js';
+import { runScan, crmSink } from '../services/lead_scan_orchestrator.js';
+import { upsertLeadToCrm } from '../services/crm_leads.js';
+import { enrichEmail } from '../services/email_enrich.js';
 
 /** Feature flag key gating this route. */
 export const LEAD_SCANNER_FLAG = 'lead_scanner';
@@ -149,6 +153,71 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
 function userIdOf(c: import('hono').Context<{ Bindings: Env; Variables: Variables }>) {
   return c.get('userId') ?? undefined;
 }
+
+const OsmScanBodySchema = z
+  .object({
+    /** Bounding box [south, west, north, east]. */
+    bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    /** OSM category keys (default shop/craft/office/amenity). */
+    categories: z.array(z.string().min(1)).max(12).optional(),
+    /** Cap leads sunk to the CRM this run (budget guard). */
+    maxLeads: z.number().int().min(1).max(500).optional(),
+  })
+  .strict();
+
+/**
+ * `POST /api/admin/leads/scan-osm` — the AUTOMATIC engine's keystone route: free
+ * OSM Overpass discovery of siteless businesses → email enrich → propensity score
+ * + rank → Twenty CRM sink ({@link crmSink}). Same super-admin + `lead_scanner`
+ * flag gate as the legacy Places scan. Reads OSM (free) + writes the CRM; sends
+ * no outreach. Returns the {@link ScanRunSummary}. Leads land in
+ * crm.projectsites.dev (deduped on externalId).
+ */
+adminLeads.post('/api/admin/leads/scan-osm', async (c) => {
+  const requestId = c.get('requestId');
+  const blocked = await gateLeadScanner(c);
+  if (blocked) return blocked;
+
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = OsmScanBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return c.json(errorBody('VALIDATION_ERROR', 'Invalid OSM scan request (need bbox)', requestId), 400);
+  }
+
+  const summary = await runScan(
+    {
+      discover: (profile) =>
+        discoverSitelessFromOsm({
+          bbox: parsed.data.bbox,
+          ...(parsed.data.categories ? { categories: parsed.data.categories } : {}),
+        }).then((list) => list.map((b) => ({ ...b, signalHints: { sourceCount: 1 } }))),
+      enrich: (cand) => enrichEmail({ listingEmail: cand.email ?? null }),
+      sink: crmSink('osm', (payload) => upsertLeadToCrm(c.env, payload)),
+    },
+    {
+      source: 'osm',
+      addressSource: 'listing',
+      ...(parsed.data.maxLeads ? { maxLeads: parsed.data.maxLeads } : {}),
+    },
+  );
+
+  if (summary.upserted > 0) {
+    await tryEmitEvent(
+      c.env,
+      {
+        type: 'lead.discovered',
+        producer: 'worker',
+        tenantId: c.get('orgId') ?? 'platform',
+        traceId: requestId ?? `osm_scan`,
+        ...(userIdOf(c) ? { userId: userIdOf(c) } : {}),
+        data: { source: 'osm', discovered: summary.discovered, upserted: summary.upserted },
+      },
+      { scope: [requestId ?? `osm_${parsed.data.bbox.join(',')}`] },
+    );
+  }
+
+  return c.json({ summary }, 200);
+});
 
 /**
  * `GET /api/admin/leads` — list scanned leads (highest score first) for the
