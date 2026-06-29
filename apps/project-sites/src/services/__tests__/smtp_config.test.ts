@@ -48,17 +48,13 @@ describe('validateSmtp', () => {
   it('flags empty host', () => {
     const cfg = buildSmtpConfig('', 587, 'user', 'pass');
     const findings = validateSmtp(cfg);
-    expect(findings).toContainEqual(
-      expect.objectContaining({ code: 'host_empty', field: 'host' }),
-    );
+    expect(findings).toContainEqual(expect.objectContaining({ code: 'host_empty', field: 'host' }));
   });
 
   it('flags whitespace-only host', () => {
     const cfg = buildSmtpConfig('   ', 587, 'user', 'pass');
     const findings = validateSmtp(cfg);
-    expect(findings).toContainEqual(
-      expect.objectContaining({ code: 'host_empty', field: 'host' }),
-    );
+    expect(findings).toContainEqual(expect.objectContaining({ code: 'host_empty', field: 'host' }));
   });
 
   it('flags host without a dot (non-FQDN)', () => {
@@ -111,25 +107,19 @@ describe('validateSmtp', () => {
   it('flags empty user', () => {
     const cfg = buildSmtpConfig('smtp.example.com', 587, '', 'pass');
     const findings = validateSmtp(cfg);
-    expect(findings).toContainEqual(
-      expect.objectContaining({ code: 'user_empty', field: 'user' }),
-    );
+    expect(findings).toContainEqual(expect.objectContaining({ code: 'user_empty', field: 'user' }));
   });
 
   it('flags whitespace-only user', () => {
     const cfg = buildSmtpConfig('smtp.example.com', 587, '   ', 'pass');
     const findings = validateSmtp(cfg);
-    expect(findings).toContainEqual(
-      expect.objectContaining({ code: 'user_empty', field: 'user' }),
-    );
+    expect(findings).toContainEqual(expect.objectContaining({ code: 'user_empty', field: 'user' }));
   });
 
   it('flags empty password', () => {
     const cfg = buildSmtpConfig('smtp.example.com', 587, 'user', '');
     const findings = validateSmtp(cfg);
-    expect(findings).toContainEqual(
-      expect.objectContaining({ code: 'pass_empty', field: 'pass' }),
-    );
+    expect(findings).toContainEqual(expect.objectContaining({ code: 'pass_empty', field: 'pass' }));
   });
 
   it('collects multiple errors simultaneously', () => {
@@ -153,9 +143,7 @@ describe('smtpConnectionString', () => {
 
   it('produces correct URI for port 465', () => {
     const cfg = buildSmtpConfig('smtp.gmail.com', 465, 'user', 'pass');
-    expect(smtpConnectionString(cfg)).toBe(
-      'smtp://user:pass@smtp.gmail.com:465?secure=true',
-    );
+    expect(smtpConnectionString(cfg)).toBe('smtp://user:pass@smtp.gmail.com:465?secure=true');
   });
 
   it('URI-encodes special characters in user', () => {

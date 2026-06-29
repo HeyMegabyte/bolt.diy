@@ -78,9 +78,7 @@ describe('registerPlugin', () => {
   });
 
   it('rejects an invalid plugin type', () => {
-    const r = registerPlugin(
-      meta({ slug: 'register-bad-type', type: 'not-a-type' as never }),
-    );
+    const r = registerPlugin(meta({ slug: 'register-bad-type', type: 'not-a-type' as never }));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe('invalid_type');
   });

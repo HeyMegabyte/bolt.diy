@@ -124,9 +124,7 @@ export function generateBypassToken(
   };
 
   const encodedPayload = base64UrlEncode(Buffer.from(JSON.stringify(payload)));
-  const signature = base64UrlEncode(
-    createHmac('sha256', secret).update(encodedPayload).digest(),
-  );
+  const signature = base64UrlEncode(createHmac('sha256', secret).update(encodedPayload).digest());
 
   return `${encodedPayload}.${signature}`;
 }
@@ -160,10 +158,7 @@ export function generateBypassToken(
  * // badSecret === null
  * ```
  */
-export function validateBypass(
-  token: string,
-  secret: string,
-): BypassTokenPayload | null {
+export function validateBypass(token: string, secret: string): BypassTokenPayload | null {
   try {
     const dotIdx = token.lastIndexOf('.');
     if (dotIdx <= 0 || dotIdx >= token.length - 1) return null;
@@ -172,19 +167,14 @@ export function validateBypass(
     const sigReceived = token.slice(dotIdx + 1);
 
     // Re-compute the expected HMAC and compare in constant time
-    const sigExpected = base64UrlEncode(
-      createHmac('sha256', secret).update(payloadStr).digest(),
-    );
+    const sigExpected = base64UrlEncode(createHmac('sha256', secret).update(payloadStr).digest());
 
     if (!constantTimeEqual(sigReceived, sigExpected)) return null;
 
     const raw = Buffer.from(payloadStr, 'base64url').toString('utf8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
 
-    if (
-      typeof parsed.adminId !== 'string' ||
-      parsed.adminId.length === 0
-    ) {
+    if (typeof parsed.adminId !== 'string' || parsed.adminId.length === 0) {
       return null;
     }
 

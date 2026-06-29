@@ -173,9 +173,9 @@ describe('validateBypass', () => {
     // Manually craft a payload with an expired timestamp — we don't control
     // generateBypassToken's expiresAt except by using a past reference.
     const past = Date.now() - 10_000;
-    const raw = Buffer.from(
-      JSON.stringify({ adminId: 'admin-1', expiresAt: past }),
-    ).toString('base64url');
+    const raw = Buffer.from(JSON.stringify({ adminId: 'admin-1', expiresAt: past })).toString(
+      'base64url',
+    );
     const sig = signPayload(raw, TEST_SECRET);
     const expired = `${raw}.${sig}`;
 

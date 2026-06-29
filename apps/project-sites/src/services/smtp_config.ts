@@ -97,7 +97,8 @@ export function buildSmtpConfig(
   pass: string,
 ): SmtpConfig {
   const secure = port === PORT_SMTPS;
-  const security: SmtpSecurity = port === PORT_SMTPS ? 'tls' : port === PORT_PLAIN ? 'none' : 'starttls';
+  const security: SmtpSecurity =
+    port === PORT_SMTPS ? 'tls' : port === PORT_PLAIN ? 'none' : 'starttls';
 
   return {
     host,

@@ -46,16 +46,12 @@ export interface PluginEntry extends PluginMeta {
 /**
  * Result of a registerPlugin call.
  */
-export type RegisterResult =
-  | { ok: true }
-  | { ok: false; reason: 'slug_taken' | 'invalid_type' };
+export type RegisterResult = { ok: true } | { ok: false; reason: 'slug_taken' | 'invalid_type' };
 
 /**
  * Result of a resolvePlugin call.
  */
-export type ResolveResult =
-  | { ok: true; plugin: PluginEntry }
-  | { ok: false; reason: 'not_found' };
+export type ResolveResult = { ok: true; plugin: PluginEntry } | { ok: false; reason: 'not_found' };
 
 // ── Registry state ────────────────────────────────────────────────────
 
