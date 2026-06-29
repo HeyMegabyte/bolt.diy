@@ -9,6 +9,7 @@ interface Env {
   NANGO_CONTAINER: DurableObjectNamespace<Nango>;
   NANGO_DATABASE_URL: string;
   NANGO_ENCRYPTION_KEY: string;
+  NANGO_REDIS_URL: string;
 }
 
 export class Nango extends Container<Env> {
@@ -19,11 +20,24 @@ export class Nango extends Container<Env> {
     this.envVars = {
       NANGO_DATABASE_URL: env.NANGO_DATABASE_URL,
       NANGO_ENCRYPTION_KEY: env.NANGO_ENCRYPTION_KEY,
+      NANGO_REDIS_URL: env.NANGO_REDIS_URL,
       NANGO_SERVER_URL: 'https://integrations.projectsites.dev',
       SERVER_PORT: '3003',
       NODE_ENV: 'production',
       TELEMETRY: 'false',
+      FLAG_AUTH_ENABLED: 'false',
+      NANGO_DASHBOARD_USERNAME: 'admin',
+      NANGO_DASHBOARD_PASSWORD: this._resolveDashPass(env),
     };
+  }
+
+  /** Read the dashboard password from a Worker secret, or generate a random default. */
+  private _resolveDashPass(env: Env & {NANGO_DASHBOARD_PASSWORD?: string}): string {
+    if (env.NANGO_DASHBOARD_PASSWORD) return env.NANGO_DASHBOARD_PASSWORD;
+    // No secret set — generate a random password automatically (session-only).
+    // Set NANGO_DASHBOARD_PASSWORD via wrangler secret to make it persistent.
+    const rand = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(rand, b => b.toString(16).padStart(2, '0')).join('');
   }
 }
 
