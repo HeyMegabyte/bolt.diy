@@ -43,7 +43,12 @@ export const ACTIVE_WINDOW_DAYS = 30;
 /** Dormant (not yet churned) up to this window. */
 export const DORMANT_WINDOW_DAYS = 90;
 
-const CHURN_STATUSES: ReadonlySet<string> = new Set(['canceled', 'cancelled', 'past_due', 'unpaid']);
+const CHURN_STATUSES: ReadonlySet<string> = new Set([
+  'canceled',
+  'cancelled',
+  'past_due',
+  'unpaid',
+]);
 const TRIAL_STATUSES: ReadonlySet<string> = new Set(['trialing', 'trial']);
 
 /** Coerce a timestamp to finite ms, else null. */
