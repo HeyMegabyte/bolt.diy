@@ -223,9 +223,9 @@ describe('parseContent — Wix (CSV export)', () => {
   const csv = `title,body,slug,publishdate,author,tags
 Welcome,<p>Welcome text</p>,welcome,2026-03-01,Alice,news
 Our Team,<p>Team page</p>,our-team,2026-03-10,,team;about`;
+  const items = parseContent('wix', csv);
 
   it('parses Wix CSV into ContentItems', () => {
-    const items = parseContent('wix', csv);
     expect(items).toHaveLength(2);
     expect(items[0].title).toBe('Welcome');
     expect(items[1].slug).toBe('our-team');

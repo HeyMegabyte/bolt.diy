@@ -1,13 +1,9 @@
-import {
-  aggregatePlanMetrics,
-  planDistribution,
-  type PlanMetric,
-} from '../plan_metrics';
+import { aggregatePlanMetrics, planDistribution, type PlanMetric } from '../plan_metrics';
 
 const STUB_METRICS: readonly PlanMetric[] = [
-  { plan: 'starter',    siteCount: 10, totalVisitors: 1_000, totalConversions: 50,  avgScore: 72 },
-  { plan: 'pro',        siteCount: 25, totalVisitors: 5_000, totalConversions: 200, avgScore: 85 },
-  { plan: 'enterprise', siteCount: 5,  totalVisitors: 500,   totalConversions: 30,  avgScore: 91 },
+  { plan: 'starter', siteCount: 10, totalVisitors: 1_000, totalConversions: 50, avgScore: 72 },
+  { plan: 'pro', siteCount: 25, totalVisitors: 5_000, totalConversions: 200, avgScore: 85 },
+  { plan: 'enterprise', siteCount: 5, totalVisitors: 500, totalConversions: 30, avgScore: 91 },
 ];
 
 describe('aggregatePlanMetrics', () => {
@@ -50,7 +46,7 @@ describe('aggregatePlanMetrics', () => {
   it('aggregates duplicate plan keys by summing counters and re-averaging avgScore', () => {
     const result = aggregatePlanMetrics([
       { plan: 'pro', siteCount: 10, totalVisitors: 2_000, totalConversions: 100, avgScore: 80 },
-      { plan: 'pro', siteCount: 5,  totalVisitors: 500,   totalConversions: 30,  avgScore: 90 },
+      { plan: 'pro', siteCount: 5, totalVisitors: 500, totalConversions: 30, avgScore: 90 },
     ]);
 
     expect(result.totalSites).toBe(15);
@@ -136,7 +132,7 @@ describe('planDistribution', () => {
   it('returns empty array when all siteCounts are zero', () => {
     const result = planDistribution([
       { plan: 'free', siteCount: 0, totalVisitors: 0, totalConversions: 0, avgScore: 0 },
-      { plan: 'pro',  siteCount: 0, totalVisitors: 0, totalConversions: 0, avgScore: 0 },
+      { plan: 'pro', siteCount: 0, totalVisitors: 0, totalConversions: 0, avgScore: 0 },
     ]);
     expect(result).toEqual([]);
   });
@@ -144,7 +140,7 @@ describe('planDistribution', () => {
   it('returns one entry per plan even when siteCount is zero among non-zero entries', () => {
     const result = planDistribution([
       { plan: 'free', siteCount: 0, totalVisitors: 0, totalConversions: 0, avgScore: 0 },
-      { plan: 'pro',  siteCount: 10, totalVisitors: 100, totalConversions: 5, avgScore: 80 },
+      { plan: 'pro', siteCount: 10, totalVisitors: 100, totalConversions: 5, avgScore: 80 },
     ]);
 
     expect(result).toHaveLength(2);

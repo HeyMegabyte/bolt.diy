@@ -72,9 +72,7 @@ export interface AggregateResult {
  * aggregatePlanMetrics([]);
  * // { byPlan: {}, totalSites: 0, mostPopular: '' }
  */
-export function aggregatePlanMetrics(
-  metrics: readonly PlanMetric[],
-): AggregateResult {
+export function aggregatePlanMetrics(metrics: readonly PlanMetric[]): AggregateResult {
   if (metrics.length === 0) {
     return { byPlan: {}, totalSites: 0, mostPopular: '' };
   }
@@ -93,8 +91,7 @@ export function aggregatePlanMetrics(
       const newSiteCount = existing.siteCount + m.siteCount;
       const newVisitors = existing.totalVisitors + m.totalVisitors;
       const newConversions = existing.totalConversions + m.totalConversions;
-      const weightedAvg =
-        existing.siteCount * existing.avgScore + m.siteCount * m.avgScore;
+      const weightedAvg = existing.siteCount * existing.avgScore + m.siteCount * m.avgScore;
       byPlan[m.plan] = {
         plan: m.plan,
         siteCount: newSiteCount,
@@ -138,9 +135,7 @@ export function aggregatePlanMetrics(
  * planDistribution([]);
  * // []
  */
-export function planDistribution(
-  metrics: readonly PlanMetric[],
-): { plan: string; pct: number }[] {
+export function planDistribution(metrics: readonly PlanMetric[]): { plan: string; pct: number }[] {
   const totalSites = metrics.reduce((sum, m) => sum + m.siteCount, 0);
 
   if (totalSites === 0) {
