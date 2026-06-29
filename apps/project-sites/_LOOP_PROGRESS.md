@@ -179,3 +179,19 @@ Remaining open clusters (autonomous-safe unless tagged ⚠):
 - **Seasonal hero #70** — core DONE (8/8 unit). DECISION: wire into edge_personalization. Dedicated session.
 - **Scan profiles #89** — backend DONE (9/9 unit). DECISION: D1 persistence + CRUD route + cron geo-sweep + /admin form. Needs wrangler.
 - **Preview teaser #93** — Veo thumbnail in invite email. DECISION: Veo API + email template. Dedicated session.
+
+- **Anonymous first-gen #24** — unauthenticated build flow. DECISION: auth middleware + D1 + frontend.
+- **claimyour.site #92** — claim landing + email. DECISION: frontend + email template + D1.
+- **S1 Lighthouse #104** — real CWV in container. DECISION: Docker access for container changes.
+- **S2 axe-core #105** — real a11y in container. DECISION: Docker access for container.
+- **A1 backups #109** — Neon + R2. DECISION: Neon API + lifecycle policy.
+- **A6 domain+TLS #113** — CF custom hostnames. DECISION: CF API + wrangler.
+- **A7 sizing #114** — resource tiers. DECISION: D1 schema + admin UI + wrangler.
+- **AN29 NL analytics #121** — NL→SQL. DECISION: LLM + query builder + frontend.
+- **sitemap fidelity #124** — inert guard, root cause found. DECISION: D1 column or R2 context key.
+- **build_validators strict #125** — report→strict. DECISION: workflow change after #124 fixed.
+- **logo/font extraction #126** — AI-vision in container. DECISION: GPT-4o + container.
+- **theme polarity #127** — stamp _brand.json. DECISION: container changes.
+- **CSP #130** — strict-dynamic+nonce. DECISION: worker middleware + templates.
+- **Pulse defects #133** — flags+OAuth. DECISION: D1 + OAuth flow.
+- **S22 stable URLs #136** — snapshot permalinks. DECISION: R2 versioning + worker routes.
