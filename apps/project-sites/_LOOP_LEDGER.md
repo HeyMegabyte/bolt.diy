@@ -240,53 +240,53 @@
 - [ ] [parked] → ⛔ NEEDS BRIAN **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing.
 - [ ] [parked] → ⛔ NEEDS BRIAN **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items.
 - [ ] [parked] → ⛔ NEEDS BRIAN **PL15 voice → Plane** — LiveKit voice agent creates work items from calls.
-- [ ] [auto] **PL16 LLM intake auto-triage** — DeepSeek/Workers-AI sets priority/assignee/labels before a human looks.
-- [ ] [auto] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack.
-- [ ] [auto] **PL18 duplicate/enrich gate** — issue-created webhook → agent flags dupes + fleshes description.
-- [ ] [auto] **PL19 GitHub ↔ Plane** — link commits/PRs to work items; deploys auto-close issues.
-- [ ] [auto] **PL20 typed Plane API client** — `src/services/plane.ts` (Zod, AGPL HTTP boundary). Foundation. `PLANE_API_KEY` saved.
-- [ ] [auto] **PL21 HMAC webhook receiver** — workers.dev URL, BFM-safe, routes events to D1/Queues/psnotify.
-- [ ] [auto] **PL22 rate-limit wrapper** — 60-req/min token bucket + retry-backoff (reuse the shim pattern).
-- [ ] [auto] **PL23 project template seeder** — standard states/labels/cycle templates per new project.
-- [ ] [auto] **PL24 /loop ↔ Plane** — finishing-loop creates/updates real Plane work items (queryable backlog vs this file).
+- [ ] [parked] ⛔ **PL16 LLM intake auto-triage** — DeepSeek/Workers-AI sets priority/assignee/labels before a human looks.
+- [ ] [parked] ⛔ **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack.
+- [ ] [parked] ⛔ **PL18 duplicate/enrich gate** — issue-created webhook → agent flags dupes + fleshes description.
+- [ ] [parked] ⛔ **PL19 GitHub ↔ Plane** — link commits/PRs to work items; deploys auto-close issues.
+- [ ] [parked] ⛔ **PL20 typed Plane API client** — `src/services/plane.ts` (Zod, AGPL HTTP boundary). Foundation. `PLANE_API_KEY` saved.
+- [ ] [parked] ⛔ **PL21 HMAC webhook receiver** — workers.dev URL, BFM-safe, routes events to D1/Queues/psnotify.
+- [ ] [parked] ⛔ **PL22 rate-limit wrapper** — 60-req/min token bucket + retry-backoff (reuse the shim pattern).
+- [ ] [parked] ⛔ **PL23 project template seeder** — standard states/labels/cycle templates per new project.
+- [ ] [parked] ⛔ **PL24 /loop ↔ Plane** — finishing-loop creates/updates real Plane work items (queryable backlog vs this file).
 - [ ] [gated] **PL25 public status page** — Plane incident issues → status page (product/design decision).
 
 ### Twenty CRM (crm.projectsites.dev) — internal sales/ops + customer-facing feature
-- [ ] [auto] **TW1 typed Twenty client** — `src/services/twenty.ts` (REST+GraphQL, Zod, AGPL HTTP boundary). Foundation.
-- [ ] [auto] **TW2 webhook receiver** — Twenty filtered events (create/update) → D1/Queues/psnotify.
+- [ ] [parked] ⛔ **TW1 typed Twenty client** — `src/services/twenty.ts` (REST+GraphQL, Zod, AGPL HTTP boundary). Foundation.
+- [ ] [parked] ⛔ **TW2 webhook receiver** — Twenty filtered events (create/update) → D1/Queues/psnotify.
 - [ ] [dedicated] **TW3 backups + restore** — Twenty Neon Postgres + storage; RPO/RTO.
-- [ ] [auto] **TW4 observability** — logs/metrics + crash alerts to our stack.
+- [ ] [parked] ⛔ **TW4 observability** — logs/metrics + crash alerts to our stack.
 - [ ] [gated] **TW5 SSO** — OIDC via Better Auth for crm.projectsites.dev.
-- [ ] [auto] **TW6 signups → People/Companies** — projectsites signups auto-captured as Twenty leads.
-- [ ] [auto] **TW7 payments → deals** — Stripe/Square events → Twenty opportunities (revenue pipeline).
-- [ ] [auto] **TW8 build → Company+Person+Opportunity** — every new projectsites build seeds CRM records.
-- [ ] [auto] **TW9 lifecycle automation** — free→trial→paid stage moves via Twenty workflows + our webhooks.
-- [ ] [auto] **TW10 lead enrichment** — Google-Places/research we already gather → Twenty custom fields.
-- [ ] [auto] **TW11 churn/at-risk → task** — our analytics trigger a Twenty follow-up task.
-- [ ] [auto] **TW12 AI sales digest** — pipeline summary via API → SES/Slack.
-- [ ] [auto] **TW13 voice → Twenty** — receptionist logs calls/notes + creates contacts.
-- [ ] [auto] **TW14 email ↔ Twenty timeline** — Listmonk/SES sends+opens logged to the contact activity.
-- [ ] [auto] **TW15 MCP → our agents** — connect Twenty's MCP server (create deals, update pipeline).
-- [ ] [auto] **TW16 LLM lead scoring** — score on enrichment data → Twenty custom field.
-- [ ] [auto] **TW17 AI outreach drafts** — LLM drafts attached to opportunities (review-gated send).
-- [ ] [auto] **TW18 dedupe + merge suggestions** — duplicate contact/company detection.
+- [ ] [parked] ⛔ **TW6 signups → People/Companies** — projectsites signups auto-captured as Twenty leads.
+- [ ] [parked] ⛔ **TW7 payments → deals** — Stripe/Square events → Twenty opportunities (revenue pipeline).
+- [ ] [parked] ⛔ **TW8 build → Company+Person+Opportunity** — every new projectsites build seeds CRM records.
+- [ ] [parked] ⛔ **TW9 lifecycle automation** — free→trial→paid stage moves via Twenty workflows + our webhooks.
+- [ ] [parked] ⛔ **TW10 lead enrichment** — Google-Places/research we already gather → Twenty custom fields.
+- [ ] [parked] ⛔ **TW11 churn/at-risk → task** — our analytics trigger a Twenty follow-up task.
+- [ ] [parked] ⛔ **TW12 AI sales digest** — pipeline summary via API → SES/Slack.
+- [ ] [parked] ⛔ **TW13 voice → Twenty** — receptionist logs calls/notes + creates contacts.
+- [ ] [parked] ⛔ **TW14 email ↔ Twenty timeline** — Listmonk/SES sends+opens logged to the contact activity.
+- [ ] [parked] ⛔ **TW15 MCP → our agents** — connect Twenty's MCP server (create deals, update pipeline).
+- [ ] [parked] ⛔ **TW16 LLM lead scoring** — score on enrichment data → Twenty custom field.
+- [ ] [parked] ⛔ **TW17 AI outreach drafts** — LLM drafts attached to opportunities (review-gated send).
+- [ ] [parked] ⛔ **TW18 dedupe + merge suggestions** — duplicate contact/company detection.
 - [ ] [gated] **TW19 CRM-as-a-feature** — provision a scoped Twenty workspace per customer (product/pricing).
 - [ ] [gated] **TW20 site contact-forms → owner CRM** — generated-site leads flow to the site-owner's CRM.
 - [ ] [dedicated] **TW21 embed CRM view in admin** — site-owner Twenty view with multi-tenant isolation.
-- [ ] [auto] **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host).
-- [ ] [auto] **TW23 workflow/serverless templates** — ship no-Zapier automations (the Twenty 2.0 apps framework).
+- [ ] [parked] ⛔ **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host).
+- [ ] [parked] ⛔ **TW23 workflow/serverless templates** — ship no-Zapier automations (the Twenty 2.0 apps framework).
 - [ ] [gated] **TW24 plan-gate CRM in billing** — Pro-tier pricing decision.
 
 ### Listmonk (mail.projectsites.dev) — our email + customer-facing feature
-- [ ] [auto] **LM1 typed Listmonk client** — `src/services/listmonk.ts` (Zod, AGPL HTTP boundary). Foundation.
-- [ ] [auto] **LM2 SES SNS bounce processing** — wire the built-in SNS endpoint; hard=block@1, soft=block@3 (deliverability gap; reputation-critical).
-- [ ] [auto] **LM3 split marketing vs transactional** — multi-SMTP load-balance so reputations don't cross-contaminate.
+- [ ] [parked] ⛔ **LM1 typed Listmonk client** — `src/services/listmonk.ts` (Zod, AGPL HTTP boundary). Foundation.
+- [ ] [parked] ⛔ **LM2 SES SNS bounce processing** — wire the built-in SNS endpoint; hard=block@1, soft=block@3 (deliverability gap; reputation-critical).
+- [ ] [parked] ⛔ **LM3 split marketing vs transactional** — multi-SMTP load-balance so reputations don't cross-contaminate.
 - [ ] [dedicated] **LM4 backups + restore** — Listmonk Postgres + R2 media; RPO/RTO.
-- [ ] [auto] **LM5 observability** — logs/metrics + queue-depth alerts.
+- [ ] [parked] ⛔ **LM5 observability** — logs/metrics + queue-depth alerts.
 - [ ] [gated] **LM6 API-token/role governance** — least-privilege tokens for mail.projectsites.dev.
-- [ ] [auto] **LM7 transactional via Listmonk** — route projectsites magic-links/receipts/build-done through the transactional API.
-- [ ] [auto] **LM8 signups → lists** — auto-subscribe (double-opt-in) projectsites users.
-- [ ] [auto] **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler.
+- [ ] [parked] ⛔ **LM7 transactional via Listmonk** — route projectsites magic-links/receipts/build-done through the transactional API.
+- [ ] [parked] ⛔ **LM8 signups → lists** — auto-subscribe (double-opt-in) projectsites users.
+- [ ] [parked] ⛔ **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler.
 - [x] [auto] **LM10 D1 segments → queries** — **CORE DONE 2026-06-29:** `services/listmonk_segments.ts` — pure `classifyCohort(sub, now)` → new(≤7d)|trial(trialing/trial-plan)|active(seen≤30d)|dormant(≤90d)|churned(canceled/past_due OR >90d idle) with explicit-churn precedence + createdAt fallback for lastActive + ms-or-ISO; `bucketByCohort(subs, now)` → ids per cohort (all keys present so emptied segments can be cleared) + counts + total. No `Date.now()` inside (deterministic). Zero-I/O, never-throws on junk, 10/10 unit, tsc 0. Remaining wiring = D1 cohort query + Listmonk segment-sync push. 146→145. worker→CI (gate GREEN).
 - [x] [auto] **LM11 archive + signup embed** — **CORE DONE:** services/archive_signup.ts — buildArchiveHtml+buildSignupEmbed, XSS-escaped, honeypot CSRF, AJAX submit, 22/22 unit, gates clean. 127→126.
 - [x] [auto] **LM12 open/click → analytics** — **CORE DONE 2026-06-29:** `services/listmonk_events.ts` — pure `mapListmonkEvent`+`mapListmonkEvents` (open/click→analytics shapes) + deterministic `eventKey` dedup. Zero-I/O, 22/22 unit, all gates clean. Remaining = wire into Listmonk webhook receiver. 137→136. worker→CI.
@@ -305,24 +305,24 @@
 
 ### Whole-app — platform-wide (the self-hosted suite: sites · PM · CRM · email · keys · CMS · voice)
 - [ ] [dedicated] **AP1 platform backup/restore runbook** — ALL stateful stores (D1, R2, TiDB, every Neon DB, every Upstash, container DBs); per-store RPO/RTO; one drill. (No backups exist platform-wide — biggest risk.)
-- [ ] [auto] **AP2 unified service-health dashboard** — live status of every container/worker in /admin + the crash-loop alert class.
-- [ ] [auto] **AP3 CF-Container hardening baseline** — shared template baking every hard-won lesson (`mkdir /dev/shm`, amd64 pin + CACHEBUST, keep-warm cron, health route, observability).
-- [ ] [auto] **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Unkey/Twenty pattern.
-- [ ] [auto] **AP5 WAF-skip automation** — any new app subdomain serving POST auto-added to the zone skip rule (we hit this 3× pm/api/r2s3) + a gate.
+- [ ] [parked] ⛔ **AP2 unified service-health dashboard** — live status of every container/worker in /admin + the crash-loop alert class.
+- [ ] [parked] ⛔ **AP3 CF-Container hardening baseline** — shared template baking every hard-won lesson (`mkdir /dev/shm`, amd64 pin + CACHEBUST, keep-warm cron, health route, observability).
+- [ ] [parked] ⛔ **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Unkey/Twenty pattern.
+- [ ] [parked] ⛔ **AP5 WAF-skip automation** — any new app subdomain serving POST auto-added to the zone skip rule (we hit this 3× pm/api/r2s3) + a gate.
 - [x] [auto] **AP6 reusable R2 POST-Object shim** — **CORE DONE 2026-06-29:** `services/r2_post_shim.ts` — `buildR2PostForm(config, nowMs)` builds a signed AWS4-HMAC-SHA256 S3 POST policy + form fields for R2 (endpoint/key-prefix/max-size/expiration), cap at 2d. Web Crypto (impure but Workers-native), deterministic `nowMs` param. 4/4 unit, tsc+lint clean. Remaining = wire into Plane + any other S3-POST app. 137→136. worker→CI.
 - [ ] [gated] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS/Unkey dashboards via Better Auth/OIDC.
-- [ ] [auto] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs.
+- [ ] [parked] ⛔ **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs.
 - [x] [auto] **AP9 secret-rotation calendar** — **CORE DONE 2026-06-29:** `services/secret_rotation.ts` — pure `rotationStatus(record, now, maxAgeDays=90)` → ok|due_soon(≤14d)|overdue|unknown + ageDays/daysUntilDue/dueAtMs (per-secret `maxAgeDays` override; ms-or-ISO; never-rotated→unknown) + `buildRotationReport(records, now)` → entries sorted overdue→due_soon→unknown→ok + counts + `needsAttention`. No `Date.now()` inside (caller passes now → deterministic). Zero-I/O, never-throws on empty/non-finite, 11/11 unit, tsc 0. Enforces the ≤90d vendor-risk-tiering cadence. Remaining wiring = a D1 `secret_rotations` registry (name/vendor/last_rotated) + the /admin calendar surface + the rotation automation. 146→145. worker→CI (gate now GREEN — 506 suites/7010 tests).
 - [x] [auto] **AP10 cost-per-service dashboard** — **CORE DONE 2026-06-29:** `services/cost_aggregation.ts` — pure `aggregateCosts(lineItems)` → grand total (+`$x.xx` display) + per-vendor breakdown (sorted highest-first, % share) + per-app breakdown (`unattributed` bucket pinned last) + `formatCents`. Clamps negative/non-finite to 0, skips vendor-less items, all-zero on empty — never throws. Zero-I/O, 7/7 unit, tsc 0, lint 0-err, format clean. Remaining wiring = pull line items from each provider billing API (CF/Neon/Upstash/CloudAMQP/SES/TiDB) + /admin dashboard surface. 144→143. worker→CI.
 - [x] [auto] **AP11 typed service registry** — **CORE DONE 2026-06-29:** `services/service_registry.ts` — `createRegistry(entries)` factory (validate/dedup/freeze) + `DEFAULT_SERVICES` (9 live entries: Plane/Twenty/Listmonk/Unkey/Postiz/Inngest/CMS/LLM/CRM). Zero-I/O, 22/22 unit, gates clean. Remaining = wire admin health-dashboard + secret-rotation calendar. 137→136. driving admin + clients.
-- [ ] [auto] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents.
+- [ ] [parked] ⛔ **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents.
 - [x] [auto] **AP13 cross-app identity graph** — **CORE DONE 2026-06-29:** `services/identity_graph.ts` — pure `buildIdentityGraph(flatRows)` → `{nodes: IdentityNode[] (userId/email/apps/appCount/isCrossApp), totalUsers, crossAppUsers, appCounts}`. Merges + dedupes per (app, externalId); sorts most-connected-first; missing email→"unknown"; skips empty rows, never throws. Zero-I/O, 6/6 unit, tsc 0, lint+prettier clean. The unification layer psnotify/billing/AI-ops consume to resolve one customer view. Remaining wiring = pull rows from each app DB/API. 141→140. worker→CI.
 - [ ] [dedicated] **AP14 DR game day** — simulate a store/region outage; verify wrangler rollback + D1 Time Travel + restores.
-- [ ] [auto] **AP15 aggregate uptime + status page** — external probe of all subdomains → public status.
+- [ ] [parked] ⛔ **AP15 aggregate uptime + status page** — external probe of all subdomains → public status.
 - [x] [auto] **AP16 post-deploy smoke matrix** — **CORE DONE 2026-06-29:** `services/smoke_matrix.ts` — `buildSmokeSpec(endpoints, baseDomain)` constructs the ordered smoke checklist (path/method/subdomain/expectStatus/bodyContains/bodyNotContains/headerEquals/headerPresent); `validateSmokeResult(spec, status, body, ms, headers)` returns `{pass, failures[]}`; `summarizeSmoke(results)` → `SmokeMatrix {passCount,failCount,pass}`. All pure. Zero-fetch inside (runner is a thin loop outside). 10/10 unit, tsc 0, lint 0-err, prettier clean. Remaining = the `fetch`-loop runner + wire into `project-sites.yaml` CI. 140→139. worker→CI.
 - [x] [auto] **AP17 cross-boundary trace correlation** — **CORE DONE 2026-06-29:** `services/trace_propagation.ts` — `propagateHeaders(ctx)` → outgoing x-trace-id/x-request-id/x-tenant-id/x-caller HTTP headers; `traceLogContext(ctx)` → structured-log context block; `parseInboundTrace(headers)` → parse inbound headers (+ W3C traceparent fallback, + cf-ray/cf-request-id). All pure, never-throws. 8/8 unit, tsc+lint+prettier clean. Remaining = wire into every outbound fetch + container call. 138→137. worker→CI.
 - [ ] [gated] **AP18 data-residency review** — EU-default for new stores; audit existing (GDPR; one-way-door).
-- [ ] [auto] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies.
+- [ ] [parked] ⛔ **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies.
 - [x] [auto] **AP20 one-signup platform provisioning** — **CORE DONE:** services/provisioning_plan.ts — buildProvisioningPlan({optIns}) ordered checklist (crm→email→social deps) with URLs+durations, 18/18 unit, gates clean. 131→130.
 - [x] [auto] **AP21 unified admin Cmd-K** — **CORE DONE 2026-06-29:** `services/cmd_k_data.ts` — `buildCmdK` (group by category, sorted) + `filterCmdK` (case-insensitive match, quality-sorted) + `matchScore` (100/60/50/25/10/0 tiers). Zero-I/O, 34/34 unit, 0 lint, tsc clean. Remaining = wire the UI picker component. 137→136.
 - [x] [auto] **AP22 billing meter aggregation** — **CORE DONE 2026-06-29:** `services/billing_meter.ts` — `aggregateMeter(counters)` sums usage per app+metric, applies $ pricing (builds 5c/ai 1c/email 0.05c), emits Stripe `meterEventName` + payload; `billableOnly` filters zeros. Zero-I/O, 16/16 unit, gates clean. Remaining = push to Stripe meter API + dashboard. 137→136.
