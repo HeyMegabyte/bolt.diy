@@ -25,7 +25,7 @@ function validConfig(overrides: Partial<SsoConfig> = {}): SsoConfig {
 
 describe('SSO_PROVIDERS', () => {
   it('contains all five provider strings', () => {
-    expect(SSO_PROVIDERS).toEqual(['google', 'github', 'microsoft', 'okta', 'custom_oidc']);
+    expect(SSO_PROVIDERS).toEqual(['custom_oidc', 'github', 'google', 'microsoft', 'okta']);
   });
 
   it('is readonly and frozen', () => {
