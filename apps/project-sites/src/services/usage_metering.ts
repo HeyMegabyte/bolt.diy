@@ -335,6 +335,141 @@ export async function meterEgressBytes(
   await recordUsage(env, db, { orgId, metric: 'bytes_egress', value: bytes, siteId });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// StripeMetersProvider bridge (post-OpenMeter removal, 2026-06-29)
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { createBillingProvider, type UsageMetric as BillingMetric } from './billing_provider.js';
+
+/**
+ * Record AI token usage through the new billing provider.
+ *
+ * Call AFTER an LLM response with actual token counts (NOT estimated).
+ * One event per AI call, with separate input + output token quantities.
+ *
+ * Never throws — metering failures log and continue.
+ */
+export async function meterAiTokens(
+  env: Env,
+  opts: {
+    orgId: string;
+    siteId?: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    model?: string;
+    feature?: string;
+  },
+): Promise<void> {
+  if (opts.inputTokens <= 0 && opts.outputTokens <= 0) return;
+  try {
+    const provider = await createBillingProvider(env);
+    const now = new Date().toISOString();
+    const base = {
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.orgId,
+      orgId: opts.orgId,
+      siteId: opts.siteId ?? undefined,
+      unit: 'token' as const,
+      source: 'ai_gateway',
+      occurredAt: now,
+      metadata: {
+        model: opts.model,
+        feature: opts.feature,
+      },
+    };
+
+    const events: Parameters<typeof provider.recordUsageBatch>[0] = [];
+    if (opts.inputTokens > 0) {
+      events.push({
+        ...base,
+        id: crypto.randomUUID(),
+        metric: 'ai_input_tokens' as BillingMetric,
+        quantity: opts.inputTokens,
+      });
+    }
+    if (opts.outputTokens > 0) {
+      events.push({
+        ...base,
+        id: crypto.randomUUID(),
+        metric: 'ai_output_tokens' as BillingMetric,
+        quantity: opts.outputTokens,
+      });
+    }
+    await provider.recordUsageBatch(events);
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn', service: 'usage_metering',
+      message: 'meterAiTokens failed', error: err instanceof Error ? err.message : String(err),
+    }));
+  }
+}
+
+/**
+ * Record browser automation minutes.
+ *
+ * Call AFTER a browser job completes with the actual duration in minutes.
+ */
+export async function meterBrowserMinutes(
+  env: Env,
+  opts: { orgId: string; siteId?: string | null; minutes: number; purpose?: string },
+): Promise<void> {
+  if (opts.minutes <= 0) return;
+  try {
+    const provider = await createBillingProvider(env);
+    await provider.recordUsage({
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.orgId,
+      orgId: opts.orgId,
+      siteId: opts.siteId ?? undefined,
+      metric: 'browser_automation_minutes',
+      quantity: Math.ceil(opts.minutes),
+      unit: 'minute',
+      source: 'browser_gateway',
+      occurredAt: new Date().toISOString(),
+      metadata: opts.purpose ? { purpose: opts.purpose } : undefined,
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn', service: 'usage_metering',
+      message: 'meterBrowserMinutes failed', error: err instanceof Error ? err.message : String(err),
+    }));
+  }
+}
+
+/**
+ * Record email send usage.
+ *
+ * Call AFTER a successful email send (SES/Listmonk).
+ */
+export async function meterEmailSend(
+  env: Env,
+  opts: { orgId: string; count?: number; campaignId?: string },
+): Promise<void> {
+  const count = opts.count ?? 1;
+  if (count <= 0) return;
+  try {
+    const provider = await createBillingProvider(env);
+    await provider.recordUsage({
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.orgId,
+      orgId: opts.orgId,
+      metric: 'email_sends',
+      quantity: count,
+      unit: 'event',
+      source: 'listmonk',
+      occurredAt: new Date().toISOString(),
+      metadata: opts.campaignId ? { campaign_id: opts.campaignId } : undefined,
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn', service: 'usage_metering',
+      message: 'meterEmailSend failed', error: err instanceof Error ? err.message : String(err),
+    }));
+  }
+}
+
 /** Re-export the static price table so route code uses one source of truth. */
 export { USAGE_TIERS } from '../constants/pricing.js';
 

@@ -20,6 +20,7 @@ import type { Env } from '../types/env.js';
 import { withRetry, classifyError } from './retry.js';
 import { captureLLMCall } from './analytics.js';
 import { log } from '../lib/log.js';
+import { meterAiTokens } from './usage_metering.js';
 import {
   gatewayBaseUrl,
   gatewayFetch,
@@ -756,6 +757,31 @@ async function safeCaptureLLM(
  * });
  * ```
  */
+
+/**
+ * Thin bridge: meter AI token usage through StripeMetersProvider.
+ *
+ * Call AFTER a successful LLM response with actual token counts.
+ * Never throws — metering failures log and continue (fail-soft-prod).
+ */
+async function meterAiTokensForCall(
+  env: Env,
+  options: ExternalLLMOptions,
+  inputTokens: number,
+  outputTokens: number,
+  model: string,
+): Promise<void> {
+  const orgId = options.traceContext?.orgId;
+  if (!orgId || (inputTokens <= 0 && outputTokens <= 0)) return;
+  void meterAiTokens(env, {
+    orgId,
+    inputTokens,
+    outputTokens,
+    model,
+    feature: options.traceContext?.promptId,
+  });
+}
+
 export async function callExternalLLM(
   env: Env,
   options: ExternalLLMOptions,
@@ -849,6 +875,9 @@ export async function callExternalLLM(
         cacheHit,
         gatewayUsed,
       });
+
+      // Meter token usage through StripeMetersProvider (per-token billing).
+      void meterAiTokensForCall(env, options, inputTokens, outputTokens, model);
 
       return {
         output: result.text,
