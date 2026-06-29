@@ -294,7 +294,7 @@
 - [ ] [auto] **LM14 preference center** — unsubscribe/prefs wired to our user prefs (psnotify).
 - [ ] [auto] **LM15 bounce/complaint → suppression sync** — propagate to Twenty + cross-system suppression.
 - [ ] [auto] **LM16 AI send-time/subject optimization** — A/B via Listmonk + our model.
-- [ ] [auto] **LM17 per-recipient personalization** — Go-template + our custom subscriber attributes.
+- [x] [auto] **LM17 per-recipient personalization** — **CORE DONE 2026-06-29:** `services/listmonk_personalize.ts` — `toSubscriberAttribs(signals)` maps our user/site signals → the flat `attribs` bag Listmonk stores per subscriber (drops null/blank/non-finite) + a safe `renderPersonalized(template, vars, {fallback})` `{{ key }}`/`{{ key | inline-default }}` merge (XSS-safe plain substitution, never `eval`; missing → inline-default → global-fallback → '' so an email never ships a raw `{{ }}`; numbers/booleans rendered) + `extractVars`/`missingVars` validators. Zero-I/O, never-throws, 13/13 unit, tsc 0. Distinct from `prompts/renderer` (that's prompt-injection-scoped, no defaults). Remaining wiring = push attribs on sync (LM10 pairs) + use in the Listmonk campaign/transactional send path. 145→144. worker→CI (gate GREEN).
 - [ ] [gated] **LM18 email-as-a-feature** — provision scoped lists per customer (site-owners send to their audiences).
 - [ ] [gated] **LM19 site contact-form → owner list** — opt-in capture on generated sites.
 - [ ] [dedicated] **LM20 multi-tenant isolation + per-customer SES identities/domains** — sending-domain separation.
