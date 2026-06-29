@@ -23,7 +23,7 @@
 ### Conversion & activation (no revenue without these)
 - [ ] [auto] Anonymous first-generation before signup — let visitors generate a build before the wall (biggest activation lever).
 - [ ] [auto] One-click "Claim this site" → inline Stripe checkout (collapse adopt→pay).
-- [ ] [auto] Contextual upgrade prompts at the friction moment (custom domain / remove top-bar / more pages).
+- [ ] [auto] Contextual upgrade prompts at the friction moment (custom domain / remove top-bar / more pages). **BACKEND DONE 2026-06-28** (dark behind `upgrade_moments`, default-off): new feature module `libs/features/upgrade_moments/` — pure catalog+eligibility core maps 6 friction triggers (`custom_domain`,`remove_branding`,`more_pages`,`ai_credits`,`priority_build`,`analytics_pro`) → honest, value-led, trigger-attributed upsells (`cta_url=/admin/billing?upsell=<trigger>` for funnel attribution); paid plans resolve `eligible:false` (never nag payers); dismissals persist in `CACHE_KV` (90d TTL, no D1 migration). Routes `GET /api/upgrade-moments`, `GET /api/upgrade-moments/:trigger`, `POST …/:trigger/dismiss` (404-when-off). 14/14 unit, tsc 0, validate:features PASS, worker→CI push (commit `2a93e167`). **REMAINING: (1)** FRONTEND — render the moment as a tasteful inline card at each free-plan friction point (slug-cap reached → `more_pages`; custom-domain modal → `custom_domain`; top-bar "remove" hover → `remove_branding`; low AI credits → `ai_credits`); wire dismiss + a Karma spec; **(2)** flip `upgrade_moments` flag beta/100% once a surface renders end-to-end + cta_url billing attribution verified.
 - [x] Abandoned-build recovery email — DONE 2026-06-28 (dark-launched behind `abandoned_build_nudge`, default-off). Full chain shipped: migration `0581` `sites.nudged_at`+index (APPLIED prod+dev D1) · `'recovery'` email kind (preview CTA) · pure `selectAbandonedBuilds` (finished+unclaimed+age∈[24h,14d]+7d throttle) · `runAbandonedBuildNudges` orchestration (stamp-only-on-ok) · env runner `runAbandonedNudgesForEnv` (D1 scan: finished sites + owner-email join + unclaimed-via-subscriptions + previewUrl) wired into `index.ts scheduled()`. 13 unit tests incl dark-launch-no-op + flag-on scan; tsc 0; worker→CI push. Flag-enablement = separate flags-green gate (enable → cron emails owners of finished-but-unclaimed builds in test/live mode). [DONE] · (history) PROGRESS 2026-06-28: shipped the pure eligibility core `services/abandoned_builds.ts` `selectAbandonedBuilds(rows, nowMs, opts)` (finished + unclaimed + age∈[24h,14d] window + 7d re-nudge throttle) + 8 unit tests green, tsc 0. UPDATE 2026-06-28b: (1) ✅ `nudged_at INTEGER` column + `idx_sites_nudge_scan` shipped (migration `0581`, APPLIED to prod + dev D1); (2) ✅ `'recovery'` kind added to `claim_build_emails.ts buildClaimEmail` (preview-link CTA); (3) ✅ I/O orchestration `runAbandonedBuildNudges(deps, opts)` built — scan→select→send→stamp-only-on-ok (at-least-once, throttle-guarded) + 3 wrapper unit tests (17 total green, tsc 0). ONLY REMAINING = the env-backed cron call in `index.ts scheduled()`: a `runAbandonedNudgesForEnv(env)` providing the confirmed deps — `listCandidates` = finished sites LEFT JOIN active `subscriptions` (unclaimed) JOIN owner email (`SELECT u.email FROM users u JOIN memberships m ON u.id=m.user_id WHERE m.org_id=? ORDER BY u.created_at ASC LIMIT 1`, per notify.ts) + previewUrl `https://{slug}.{SITES_SUFFIX}`; `markNudged` = `UPDATE sites SET nudged_at=?`; `sendRecovery` = `sendClaimBuildEmail('recovery', …)`; gate the cron call behind `isFlagOn(env,'abandoned_build_nudge')` (default-off → dark-launch). Mechanical — all deps/queries confirmed.
 - [ ] [auto] Instrument golden-path funnel in PostHog (search→signin→build→preview→claim→pay + drop-off cohorts).
 - [ ] [auto] Streaming live-preview during build (render-as-it-generates, not a polling spinner).
@@ -40,6 +40,32 @@
 - [ ] [auto] Per-section AI-vision auto-reroll (<8/10 → regenerate).
 - [ ] [auto] A11y autofixer + AI alt-text — axe findings fixed pre-publish (ADA legal-risk reducer).
 - [ ] [auto] AI competitor-gap scan at build — score 5 peer sites, propose missing sections.
+
+## 🌟 Brilliant Features Wave — 2026-06-28 (solo-SMB · generous-free + paid power-ups)
+
+> Curated from a brainstorm pass (Brian directive: all 4 axes, primary customer = solo SMB owner,
+> pricing = generous-free + paid power-ups, execution = full autonomous wave). Quality over quota —
+> each is genuinely novel vs the existing ledger, build-ready, and dark-launched behind its own flag.
+> Free tier always sees real value; the upsell is the *power-up*, never a paywall on the basics.
+
+### Conversion & activation
+- [ ] [auto] **Places autofill before the wall** (`prefill_from_places`) — on business-search select, pre-fill hours/category/photos/address from Google Places so the build form is ~80% done BEFORE signup. Pure mapper `placesToDraft(place)` + cached per place_id. Collapses the #1 friction for non-technical owners.
+- [ ] [auto] **Instant preview share card** (`preview_share_card`) — owner-driven viral loop: one tap generates a branded OG card (edge workers-og/Satori) + a pre-written SMS/WhatsApp/email message ("Check out my new site!") so an owner shares their preview to real customers in seconds. Free-tier; the link IS the ad (pairs S22/S23/S24).
+- [ ] [auto] **One-tap "Looks great — publish"** (`fast_publish_cta`) — on build-complete, a single primary CTA promotes the preview live (collapses review→publish). Pairs the existing streaming-preview item; removes the dead air after a build finishes.
+
+### Generated-site quality moat (owner-facing, distinct from the internal eval harness)
+- [ ] [auto] **Site Doctor report card** (`site_doctor`) — owner-facing A–F grade + 3 plain-English, one-tap fixes ("Your phone isn't clickable on mobile", "Add business hours — visitors look for them first"). FREE shows the top issue; the full prioritized list is the `analytics_pro`/paid power-up. Rolls up existing readiness/seo/a11y signals into ONE friendly card.
+- [ ] [auto] **"Open now" live badge** (`open_now_badge`) — inject a real Open/Closed · "opens 9am" badge into served sites from Places business hours (pure time-zone logic, highly testable). Solo-SMB gold: visitors constantly ask "are they open?"
+- [ ] [auto] **Auto-FAQ from real reviews** (`faq_from_reviews`) — mine Google/Yelp reviews → generate an honest FAQ block + accurate `FAQPage` JSON-LD (only real Q&A, never padded). Adds AI-citation weight + answers the questions owners forget to.
+
+### Owner analytics & retention
+- [ ] [auto] **First-lead celebration** (`first_lead_celebration`) — when the FIRST conversion (call/form/directions, off AN18 events) lands for a site, email the owner "🎉 You just got your first lead from your site!" with the section + source. The single highest-retention moment in the lifecycle; reuses the section-attribution data already shipped.
+- [ ] [auto] **After-hours demand alert** (`after_hours_demand`) — detect click-to-call attempts outside business hours → owner nudge "12 people tried to call after you closed — add a contact form / online booking?" Turns lost calls into an upsell to native_booking_engine. Pure windowing over conversion events + Places hours.
+
+### AI-native spiral (because AI is the developer)
+- [ ] [auto] **Voice-note site edits** (`voice_note_edit`) — owner leaves a voice note ("add my Sunday hours, swap the hero to the patio photo"); STT → intent → applied as a build edit. Reuses the live Deepgram/voice infra; the most natural editing surface a non-technical owner could ask for.
+- [ ] [auto] **AI photo cleanup on upload** (`photo_cleanup`) — owner uploads a phone photo; AI removes background / upscales / color-corrects to hero quality (Replicate/Remove.bg already wired in media). Free-tier value that makes a small business look enterprise.
+- [ ] [auto] **One-tap seasonal hero restyle** (`seasonal_hero`) — AI re-skins the hero for the season/holiday on one tap (and can auto-revert), keeping a static SMB site feeling alive year-round. Pairs edge_personalization; a delightful retention loop.
 
 ## ⬆ Tier 2 — High value (paid levers, honesty bugs, conversion analytics, security)
 
