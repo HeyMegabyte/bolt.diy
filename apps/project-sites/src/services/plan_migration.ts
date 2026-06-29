@@ -110,7 +110,7 @@ export function computeMigration(
   cycleEnd: number,
   nowMs: number = Date.now(),
 ): MigrationResult {
-  const effectiveDate = cycleStart <= nowMs && nowMs <= cycleEnd ? nowMs : cycleStart;
+  const effectiveDate = nowMs < cycleStart ? cycleStart : nowMs > cycleEnd ? cycleEnd : nowMs;
   const daysRemaining = calculateDaysRemaining(effectiveDate, cycleStart, cycleEnd);
   const proratedRefund = prorate(fromPrice, daysRemaining, cycleStart, cycleEnd);
   const newCharge = prorate(toPrice, daysRemaining, cycleStart, cycleEnd);
