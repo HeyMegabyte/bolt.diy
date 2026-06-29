@@ -1,0 +1,16 @@
+# Self-host config for the Unkey API server (api.projectsites.dev).
+# config.Load reads this TOML then os.ExpandEnv's it, so ${VARS} are filled from the
+# container env injected by worker.ts (UNKEY_DATABASE_PRIMARY / UNKEY_REDIS_URL). The Unkey
+# binary has NO baked config (distroless image = just /unkey), so this file is REQUIRED — a
+# missing config makes the server exit before binding :7070 (→ Worker 1101).
+# Minimal v1: MySQL (TiDB) + Redis (Upstash) + root_key auth. ClickHouse (analytics),
+# Vault (encryption-at-rest) and Control (deploy mgmt) are optional feature sections, omitted.
+http_port = 7070
+region = "eu-central-1"
+redis_url = "${UNKEY_REDIS_URL}"
+
+[[auth]]
+type = "root_key"
+
+[database]
+primary = "${UNKEY_DATABASE_PRIMARY}"

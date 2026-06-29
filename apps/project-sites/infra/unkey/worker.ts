@@ -30,7 +30,9 @@ export class Unkey extends Container<Env> {
   override sleepAfter = '30m'; // re-poked by the keep-warm cron so verifies stay warm
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    const out: Record<string, string> = { UNKEY_HTTP_PORT: '7070' };
+    // UNKEY_CONFIG points the server at the TOML baked into the image (COPY unkey.toml
+    // /unkey.toml); its ${UNKEY_*} placeholders are env-expanded from the vars below.
+    const out: Record<string, string> = { UNKEY_HTTP_PORT: '7070', UNKEY_CONFIG: '/unkey.toml' };
     if (env.UNKEY_DATABASE_PRIMARY) out.UNKEY_DATABASE_PRIMARY = env.UNKEY_DATABASE_PRIMARY;
     if (env.UNKEY_REDIS_URL) out.UNKEY_REDIS_URL = env.UNKEY_REDIS_URL;
     if (env.UNKEY_ROOT_KEY) out.UNKEY_ROOT_KEY = env.UNKEY_ROOT_KEY;

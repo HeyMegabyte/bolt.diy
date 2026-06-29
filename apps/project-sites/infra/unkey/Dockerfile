@@ -8,7 +8,11 @@
 # Published to GHCR (NOT Docker Hub — docker.io/unkeyed/unkey 401s). Public, anon-pullable.
 FROM --platform=linux/amd64 ghcr.io/unkeyed/unkey:v2.0.49
 
+# The distroless unkey image ships NO config; config.Load needs a TOML at the cwd default
+# (./unkey.toml) or UNKEY_CONFIG. Provide one (${UNKEY_*} placeholders, env-expanded at boot).
+COPY unkey.toml /unkey.toml
+
 # Bump to force wrangler to compute a new image tag + rebuild on CI (cf-containers-native-amd64-only).
-LABEL com.projectsites.cachebust="2026-06-29-1"
+LABEL com.projectsites.cachebust="2026-06-29-2"
 
 EXPOSE 7070
