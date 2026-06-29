@@ -41,7 +41,9 @@ const ADDRESS_MIN = 0.6;
  * @example
  * chooseChannel({ emailConfidence: 0.9, addressConfidence: 0.2 }); // 'email'
  */
-export function chooseChannel(state: Pick<OutreachState, 'emailConfidence' | 'addressConfidence'>): OutreachChannel {
+export function chooseChannel(
+  state: Pick<OutreachState, 'emailConfidence' | 'addressConfidence'>,
+): OutreachChannel {
   const email = state.emailConfidence >= EMAIL_MIN;
   const post = state.addressConfidence >= ADDRESS_MIN;
   if (email && post) return 'both';

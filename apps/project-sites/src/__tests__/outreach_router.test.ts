@@ -21,7 +21,9 @@ describe('nextDripStep (Lead Scanner #96 — drip ladder)', () => {
     expect(nextDripStep({ ...both, sentSteps: ['email'] })).toBe('nudge');
     expect(nextDripStep({ ...both, sentSteps: ['email', 'nudge'] })).toBe('postcard');
     expect(nextDripStep({ ...both, sentSteps: ['email', 'nudge', 'postcard'] })).toBe('final');
-    expect(nextDripStep({ ...both, sentSteps: ['email', 'nudge', 'postcard', 'final'] })).toBe('done');
+    expect(nextDripStep({ ...both, sentSteps: ['email', 'nudge', 'postcard', 'final'] })).toBe(
+      'done',
+    );
   });
 
   it('STOPS on reply regardless of ladder position', () => {
