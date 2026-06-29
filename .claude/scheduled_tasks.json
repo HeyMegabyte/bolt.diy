@@ -1,3 +1,11 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "id": "1cff03b2",
+      "cron": "8,23,38,53 * * * *",
+      "prompt": "Finishing loop for projectsites.dev. Worktree-isolated; commit only disjoint files; push HEAD:main with the cron-safe stash dance...",
+      "recurring": true,
+      "durable": true
+    }
+  ]
 }

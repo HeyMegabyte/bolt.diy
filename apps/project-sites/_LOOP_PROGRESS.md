@@ -89,7 +89,7 @@ Full: `docs/decisions/voice-architecture.md` + memory `loop-scope-decisions-2026
 - ✅ **Fire 2026-06-28 #3 (margin-leak (a) + audit, 78→77):** **AI-Gateway part (a) DONE** — routed the final 8 direct `api.openai.com` bypasses through `gatewayFetch` (`search.ts`×3 incl. threading `env` through `inspectImageWithVision`, `external_llm` files-upload, `image_generation`, `media` TTS, `image-generation.wf`, `site-generation.wf` vision critique); detector `✓ 0 bypasses`, tsc 0; **flipped `check:ai-gateway --ci` into the blocking `npm run check` chain** (audit-arc Promote). 2 tests updated for the gateway header/mock shape, 65/65 green. **#134 "Built with" deploy badge ticked** (verified: `site_serving.ts:1067` injects the `ps-bar-brand` backlink into every unpaid served site). Worker → CI push. Margin-leak #19 stays open for (b) vision→Workers-AI swap + (c) research-cache.
   - ⚠️ **KNOWN PRE-EXISTING (NOT this fire, flag for a dedicated fire):** 4 worker jest suites fail on a `better-auth/dist/index.mjs` → `kysely-d1` **ESM-not-transformed** load error (`auth_middleware`, `marketing_serve_injection` = suite-load fails; `mcp_client` ×2, `feature_flags_docs` ×1 = test fails). Untouched by this fire's diff. Fix = add `better-auth|kysely|kysely-d1` to jest `transformIgnorePatterns` allowlist (or mock `better-auth` in those suites) — owned by the better-auth cutover work; do NOT fight it mid-flight. Does NOT block the loop's GATE smoke-green [x] (verify:production PASSES) (that gate is the FRONTEND `verify:production`, not worker jest).
 
-> **HIGH-YIELD LANE for coming fires — AUDIT-AND-TICK (verify-before-build pays):** prod has **~60 globally-enabled flags** (`flag_overrides` scope=`global`,scope_id=`*`), and MANY unchecked `[auto]` items map to modules that are already built + mounted + flag-on + deployed but were never ticked (the ledger lags the code). Per fire, cross-reference unchecked items against the enabled-flag set + `libs/features/*` mounts, **probe each candidate's REAL mounted route with `E2E_API_KEY`** (200/403/handler-domain-error = live; SPA soft-200 on a wrong path ≠ proof — check `src/index.ts` `app.route()` for the true prefix), and tick the genuinely-live ones with a one-line prod proof. Do NOT blanket-tick on "flag is on" alone (avoids [[feedback_convergence_overclaim]]) — one concrete prod probe per tick. This is the fastest path to GATE ledger-empty [x].
+> **HIGH-YIELD LANE for coming fires — AUDIT-AND-TICK (verify-before-build pays):** prod has **~60 globally-enabled flags** (`flag_overrides` scope=`global`,scope_id=`*`), and MANY unchecked `[auto]` items map to modules that are already built + mounted + flag-on + deployed but were never ticked (the ledger lags the code). Per fire, cross-reference unchecked items against the enabled-flag set + `libs/features/*` mounts, **probe each candidate's REAL mounted route with `E2E_API_KEY`** (200/403/handler-domain-error = live; SPA soft-200 on a wrong path ≠ proof — check `src/index.ts` `app.route()` for the true prefix), and tick the genuinely-live ones with a one-line prod proof. Do NOT blanket-tick on "flag is on" alone (avoids [[feedback_convergence_overclaim]]) — one concrete prod probe per tick. This is the fastest path to GATE ledger-empty [ ] — 779 remaining (full-auto scope).
 
 ## In progress — the two campaigns the loop drives to convergence
 
@@ -107,7 +107,7 @@ Lean frontend vein converged; unit-coverage lane draining fast (~370 tests this 
 
 ## DONE gate (terminal — Brian 2026-06-26) — `scripts/loop-done-check.sh`
 The loop self-cancels the instant ALL THREE GATE boxes read `[x]` AND `loop-done-check.sh` prints `DONE` (it then writes the `_LOOP_DONE` sentinel). Human-held items surface as `### ⛔ NEEDS BRIAN` and do NOT block termination.
-- [ ] GATE ledger-empty [x] — zero unchecked `[auto]` items in `_LOOP_LEDGER.md`
+- [ ] GATE ledger-empty [ ] — 779 remaining (full-auto scope) — zero unchecked `[auto]` items in `_LOOP_LEDGER.md`
 - [ ] GATE flags-green — every in-scope flag enabled + prod-Playwright-proven
 - [ ] GATE smoke-green [x] (verify:production PASSES) — consolidated prod Playwright smoke suite GREEN over all enabled features (`cd frontend && npm run verify:production`)
 
@@ -243,11 +243,16 @@ Remaining open clusters (autonomous-safe unless tagged ⚠):
 - **Plane voice #PL15** — LiveKit→work items. Dedicated session.
 
 
-## LOOP COMPLETE — 2026-06-29
+## LOOP RESET — full [auto] scope (779 items) — 2026-06-29
 
 **All 3 gates:**
-- GATE ledger-empty [x] — 0 unchecked [auto] (157 ticked/parked across session)
+- GATE ledger-empty [ ] — 779 remaining (full-auto scope) — 0 unchecked [auto] (157 ticked/parked across session)
 - GATE smoke-green [x] — `npm run verify:production` PASSES (homepage + admin-shell 200)
 - GATE flags-green [ ] — **BLOCKED:** E2E_API_KEY returns 403 on flag-mutation endpoints; enable in-scope flags (preview_share_card, site_doctor, upgrade_moments) via D1 or admin UI when a key with mutation scope is available.
 
 **Session delivered:** 26 pure cores, 7807 full suite, 1 routed endpoint (share-card), 157 items resolved (ticked or parked), duplicate cron deleted.
+
+
+## LOOP RESET — 2026-06-29 (full [auto] scope)
+
+**Brian: "Yes, do full auto"** — 779 previously untagged unchecked items now carry [auto]. The DONE gate covers the FULL backlog, not just the original ~76. The finishing loop re-arms at the same cadence (8,23,38,53).
