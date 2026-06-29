@@ -31,7 +31,9 @@ describe('renderPersonalized (LM17)', () => {
   });
 
   it('uses the global fallback when no inline default + missing', () => {
-    expect(renderPersonalized('Hi {{ first_name }}!', {}, { fallback: 'friend' })).toBe('Hi friend!');
+    expect(renderPersonalized('Hi {{ first_name }}!', {}, { fallback: 'friend' })).toBe(
+      'Hi friend!',
+    );
   });
 
   it('never leaves a raw token (empty string when no fallback)', () => {
