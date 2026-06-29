@@ -1,9 +1,4 @@
-import {
-  type CleanupFile,
-  type CleanupRule,
-  DEFAULT_RULES,
-  matchCleanup,
-} from '../file_cleanup';
+import { type CleanupFile, type CleanupRule, DEFAULT_RULES, matchCleanup } from '../file_cleanup';
 
 /** 1 day in milliseconds. */
 const ONE_DAY = 86_400_000;
@@ -15,7 +10,10 @@ const FRESH: CleanupFile = { name: 'src/index.ts', mtimeMs: Date.now() };
 /** File older than 1 day, younger than 7. */
 const OLD_1D: CleanupFile = { name: 'build.tmp', mtimeMs: Date.now() - ONE_DAY - 60_000 };
 /** File older than 7 days. */
-const OLD_7D: CleanupFile = { name: 'exports/report.csv', mtimeMs: Date.now() - SEVEN_DAYS - 60_000 };
+const OLD_7D: CleanupFile = {
+  name: 'exports/report.csv',
+  mtimeMs: Date.now() - SEVEN_DAYS - 60_000,
+};
 /** File that matches no default rule. */
 const UNMATCHED: CleanupFile = { name: 'assets/logo.png', mtimeMs: Date.now() - ONE_DAY * 30 };
 
@@ -27,8 +25,12 @@ describe('DEFAULT_RULES', () => {
   });
 
   it('is deeply frozen (Object.freeze)', () => {
-    expect(() => { (DEFAULT_RULES as typeof DEFAULT_RULES & { push: unknown }).push = () => {}; }).toThrow();
-    expect(() => { (DEFAULT_RULES[0] as { pattern: string }).pattern = ''; }).toThrow();
+    expect(() => {
+      (DEFAULT_RULES as typeof DEFAULT_RULES & { push: unknown }).push = () => {};
+    }).toThrow();
+    expect(() => {
+      (DEFAULT_RULES[0] as { pattern: string }).pattern = '';
+    }).toThrow();
   });
 });
 
@@ -54,9 +56,7 @@ describe('matchCleanup', () => {
     });
 
     it('returns empty keep when all files are deleted', () => {
-      const files: CleanupFile[] = [
-        { name: 'a.tmp', mtimeMs: Date.now() - ONE_DAY * 2 },
-      ];
+      const files: CleanupFile[] = [{ name: 'a.tmp', mtimeMs: Date.now() - ONE_DAY * 2 }];
       const result = matchCleanup(files, [{ pattern: '*.tmp', maxAgeDays: 1 }]);
       expect(result.keep).toHaveLength(0);
       expect(result.delete).toHaveLength(1);
@@ -76,8 +76,14 @@ describe('matchCleanup', () => {
     });
 
     it('deletes exports/* files older than 7 days, keeps younger ones', () => {
-      const recentExport: CleanupFile = { name: 'exports/report.csv', mtimeMs: Date.now() - ONE_DAY * 3 };
-      const staleExport: CleanupFile = { name: 'exports/old.csv', mtimeMs: Date.now() - SEVEN_DAYS * 2 };
+      const recentExport: CleanupFile = {
+        name: 'exports/report.csv',
+        mtimeMs: Date.now() - ONE_DAY * 3,
+      };
+      const staleExport: CleanupFile = {
+        name: 'exports/old.csv',
+        mtimeMs: Date.now() - SEVEN_DAYS * 2,
+      };
 
       const { keep, delete: del } = matchCleanup([recentExport, staleExport]);
       expect(keep).toHaveLength(1);
