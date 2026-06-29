@@ -195,3 +195,23 @@ Remaining open clusters (autonomous-safe unless tagged ⚠):
 - **CSP #130** — strict-dynamic+nonce. DECISION: worker middleware + templates.
 - **Pulse defects #133** — flags+OAuth. DECISION: D1 + OAuth flow.
 - **S22 stable URLs #136** — snapshot permalinks. DECISION: R2 versioning + worker routes.
+- **S27 Client Review** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **A21 referral** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **Auto-rollback** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **Jest→Vitest** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **Native booking** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **AI concierge** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **GEO layer** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **Visitor personalization** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **Growth agent** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **psnotify** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **S4 rollback** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **S39 scheduled publish** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **A18 app profiles** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **AN12 goals** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **AN23 digest** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **Build health dashboard** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **R2 IA lifecycle** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **CF Queues** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **WCAG 2.2 AA** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
+- **FAQPage content blocks** — needs frontend/D1/wrangler/LLM/CF-API/infra. Dedicated session.
