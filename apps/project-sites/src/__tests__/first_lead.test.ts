@@ -78,7 +78,14 @@ describe('buildFirstLeadEmail (#64)', () => {
   it('contains no marketing slop words', () => {
     const e = buildFirstLeadEmail(base);
     const all = `${e.subject} ${e.text} ${e.html}`.toLowerCase();
-    for (const slop of ['revolutionize', 'cutting-edge', 'world-class', 'limitless', 'leverage', 'game-changer']) {
+    for (const slop of [
+      'revolutionize',
+      'cutting-edge',
+      'world-class',
+      'limitless',
+      'leverage',
+      'game-changer',
+    ]) {
       expect(all).not.toContain(slop);
     }
   });
