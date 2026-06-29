@@ -14,7 +14,7 @@ interface Env {
 
 export class Nango extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = '15m';
+  sleepAfter = '4h'; // Keep warm through a workday; cold start takes ~15s (DB+Redis)
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
@@ -64,11 +64,36 @@ a{color:#00e5ff;text-decoration:none}
   );
 }
 
+/**
+ * Proxy every request to the Nango container. On cold start (container
+ * hibernated via `sleepAfter`), Nango needs ~15s to boot — during that
+ * window the container rejects connections. Retry up to 5 times with
+ * 3-second delays so the first visitor during a cold start eventually
+ * gets a real page instead of a 500 or the provisioning fallback.
+ */
+async function proxyWithRetry(
+  env: Env,
+  request: Request,
+  maxRetries = 5,
+  delayMs = 3000,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await getContainer(env.NANGO_CONTAINER, 'singleton').fetch(request);
+    } catch (e) {
+      if (attempt === maxRetries) throw e;
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  // Unreachable — the last attempt either returns or throws.
+  return landingPage();
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (!env.NANGO_CONTAINER) return landingPage();
     try {
-      if (!env.NANGO_CONTAINER) return landingPage();
-      return await getContainer(env.NANGO_CONTAINER, 'singleton').fetch(request);
+      return await proxyWithRetry(env, request);
     } catch {
       return landingPage();
     }
