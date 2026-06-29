@@ -67,7 +67,7 @@
 ### AI-native spiral (because AI is the developer)
 - [ ] [auto] **Voice-note site edits** (`voice_note_edit`) — owner leaves a voice note ("add my Sunday hours, swap the hero to the patio photo"); STT → intent → applied as a build edit. Reuses the live Deepgram/voice infra; the most natural editing surface a non-technical owner could ask for.
 - [ ] [auto] **AI photo cleanup on upload** (`photo_cleanup`) — owner uploads a phone photo; AI removes background / upscales / color-corrects to hero quality (Replicate/Remove.bg already wired in media). Free-tier value that makes a small business look enterprise.
-- [ ] [auto] **One-tap seasonal hero restyle** (`seasonal_hero`) — AI re-skins the hero for the season/holiday on one tap (and can auto-revert), keeping a static SMB site feeling alive year-round. Pairs edge_personalization; a delightful retention loop.
+- [ ] [auto] **One-tap seasonal hero restyle** (`seasonal_hero`) — **CORE DONE 2026-06-29** (commit `31ff02de`): `services/seasonal_hero.ts` pure `seasonalHero(nowMs, opts)` → season + optional in-window occasion (new-year/valentines/spring/July-4/back-to-school/halloween/thanksgiving/holidays) + accent hint + tasteful headline prefix; quality-gated (null off-window, no forced gimmick), hemisphere-aware, deterministic. 8/8 unit, tsc 0. **REMAINING:** wire into edge_personalization (apply accent/prefix to the served hero when in-window) + a one-tap admin toggle; auto-revert = stop applying off-window (already implicit).
 
 ## 🛰 Lead Scanner — Automatic US "businesses-without-websites" engine (Brian directive 2026-06-28)
 
