@@ -14,6 +14,7 @@ interface Env {
   FLAG_SERVE_CONNECT_UI?: string;
   NANGO_PUBLIC_CONNECT_URL?: string;
   NANGO_DASHBOARD_PASSWORD?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
 }
 
 export class Nango extends Container<Env> {
@@ -33,6 +34,7 @@ export class Nango extends Container<Env> {
       FLAG_AUTH_ENABLED: 'false',
       FLAG_SERVE_CONNECT_UI: env.FLAG_SERVE_CONNECT_UI ?? 'true',
       NANGO_PUBLIC_CONNECT_URL: env.NANGO_PUBLIC_CONNECT_URL ?? 'https://integrations.projectsites.dev',
+      STRIPE_PUBLISHABLE_KEY: env.STRIPE_PUBLISHABLE_KEY ?? '',
       NANGO_DASHBOARD_USERNAME: 'admin',
       NANGO_DASHBOARD_PASSWORD: this._resolveDashPass(env),
     };
