@@ -63,9 +63,7 @@ export type ScanProfileConfig = z.infer<typeof ScanProfileConfigSchema>;
  */
 export function validateScanProfile(
   raw: unknown,
-):
-  | { ok: true; profile: ScanProfileConfig }
-  | { ok: false; errors: Record<string, string[]> } {
+): { ok: true; profile: ScanProfileConfig } | { ok: false; errors: Record<string, string[]> } {
   const parsed = ScanProfileConfigSchema.safeParse(raw);
   if (parsed.success) return { ok: true, profile: parsed.data };
   return { ok: false, errors: parsed.error.flatten().fieldErrors as Record<string, string[]> };

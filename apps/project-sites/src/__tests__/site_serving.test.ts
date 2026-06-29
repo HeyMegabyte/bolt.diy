@@ -45,7 +45,7 @@ describe('open-now badge (#60)', () => {
   const b = generateOpenNowBadge();
 
   it('reads the page’s own LocalBusiness JSON-LD openingHours client-side', () => {
-    expect(b).toContain("script[type=\"application/ld+json\"]");
+    expect(b).toContain('script[type="application/ld+json"]');
     expect(b).toContain('.openingHours');
   });
 

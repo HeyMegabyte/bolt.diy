@@ -59,9 +59,9 @@ describe('scan_profiles — isProfileDue', () => {
   });
 
   it('due when enabled + interval set + never run', () => {
-    expect(isProfileDue(profile({ enabled: true, intervalMinutes: 60, lastRunAt: null }), NOW)).toBe(
-      true,
-    );
+    expect(
+      isProfileDue(profile({ enabled: true, intervalMinutes: 60, lastRunAt: null }), NOW),
+    ).toBe(true);
   });
 
   it('due only after the interval elapses', () => {
