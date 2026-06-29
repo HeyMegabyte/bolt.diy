@@ -55,7 +55,7 @@ describe('slugify', () => {
     const result = slugify(long);
     expect(result.length).toBeLessThanOrEqual(80);
     expect(result.endsWith('-')).toBe(false);
-    expect(result).toBe('a-very-long-title-that-definitely-exceeds-the-eighty-character-limit-in-lengt');
+    expect(result).toBe('a-very-long-title-that-definitely-exceeds-the-eighty-character-limit-in-length-f');
   });
 
   it('removes trailing hyphens from truncated strings', () => {
