@@ -259,7 +259,12 @@ describe('POST /api/billing/usage/report', () => {
   it('returns event_id when Stripe is not configured (mock path)', async () => {
     const res = await jsonReq(makeApp(AUTH), '/api/billing/usage/report', {}, makeEnv());
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { event_id: string; metric: string; quantity: number; delivered: boolean };
+    const json = (await res.json()) as {
+      event_id: string;
+      metric: string;
+      quantity: number;
+      delivered: boolean;
+    };
     expect(json.event_id).toBeTruthy();
     expect(typeof json.event_id).toBe('string');
     expect(json.metric).toBe('site_visits');
