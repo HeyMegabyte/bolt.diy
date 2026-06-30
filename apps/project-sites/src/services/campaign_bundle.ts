@@ -11,7 +11,14 @@ import { z } from 'zod';
 
 // ── Campaign status ────────────────────────────────────────────────────────
 
-export const CampaignStatus = z.enum(['draft', 'scheduled', 'active', 'paused', 'completed', 'failed']);
+export const CampaignStatus = z.enum([
+  'draft',
+  'scheduled',
+  'active',
+  'paused',
+  'completed',
+  'failed',
+]);
 export type CampaignStatus = z.infer<typeof CampaignStatus>;
 
 // ── Post within a campaign ─────────────────────────────────────────────────
@@ -91,7 +98,9 @@ export function postPublishTime(campaign: CampaignBundle, post: CampaignPost): n
 /**
  * Returns all posts in a campaign sorted by their scheduled publish time.
  */
-export function scheduledTimeline(campaign: CampaignBundle): Array<{ post: CampaignPost; atMs: number }> {
+export function scheduledTimeline(
+  campaign: CampaignBundle,
+): Array<{ post: CampaignPost; atMs: number }> {
   return campaign.posts.map((p) => ({ post: p, atMs: postPublishTime(campaign, p) }));
 }
 
@@ -132,7 +141,9 @@ export function validateCampaign(campaign: CampaignBundle): string[] {
     offsets.sort((a, b) => a - b);
     for (let i = 1; i < offsets.length; i++) {
       if (offsets[i] - offsets[i - 1] < 5) {
-        warnings.push(`Posts on "${platform}" at ${offsets[i - 1]}m and ${offsets[i]}m are <5 min apart`);
+        warnings.push(
+          `Posts on "${platform}" at ${offsets[i - 1]}m and ${offsets[i]}m are <5 min apart`,
+        );
       }
     }
   }

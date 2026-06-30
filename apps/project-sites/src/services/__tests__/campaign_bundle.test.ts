@@ -1,4 +1,10 @@
-import { campaignDurationMinutes, createCampaign, postPublishTime, scheduledTimeline, validateCampaign } from '../campaign_bundle';
+import {
+  campaignDurationMinutes,
+  createCampaign,
+  postPublishTime,
+  scheduledTimeline,
+  validateCampaign,
+} from '../campaign_bundle';
 
 const START_MS = 1719705600000;
 
@@ -46,7 +52,9 @@ describe('scheduledTimeline', () => {
 
 describe('campaignDurationMinutes', () => {
   it('returns 0 for single-post campaign', () => {
-    const c = createCampaign('c1', 'Test', START_MS, [{ postId: 'p1', platform: 'twitter', content: 'Hi', offsetMinutes: 0 }]);
+    const c = createCampaign('c1', 'Test', START_MS, [
+      { postId: 'p1', platform: 'twitter', content: 'Hi', offsetMinutes: 0 },
+    ]);
     expect(campaignDurationMinutes(c)).toBe(0);
   });
 
