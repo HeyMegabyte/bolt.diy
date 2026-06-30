@@ -297,6 +297,10 @@ export interface Env {
   /** PostHog API host (defaults to `https://app.posthog.com`). */
   POSTHOG_HOST?: string;
 
+  // ── Sentry (Error Tracking) ────────────────────────────────
+  /** Sentry DSN for error tracking (worker + admin frontend). Never injected into child sites. */
+  SENTRY_DSN?: string;
+
   // ── Langfuse (LLM Observability) ──────────────────────────
   /** Langfuse secret key (`sk-lf-*`) for server-side trace/observation ingestion. */
   LANGFUSE_SECRET_KEY?: string;

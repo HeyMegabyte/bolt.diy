@@ -23,6 +23,7 @@ import { AppError, escapeHtml } from '@project-sites/shared';
 import { ZodError } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import * as posthog from '../lib/posthog.js';
+import { captureException } from '../lib/sentry.js';
 import { createLogger } from '../observability/index.js';
 
 /**
@@ -304,6 +305,7 @@ export const errorHandler: ErrorHandler<{
       request_id: requestId,
     }).error('unhandled_error', { url, method }, err);
     posthog.trackError(c.env, ctx, 'INTERNAL_ERROR', errorMessage, { request_id: requestId, url });
+    captureException(c.env, err, { path: url, method, traceId: requestId });
   }
 
   if (isHtml) {

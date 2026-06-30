@@ -792,7 +792,14 @@ app.all('*', async (c, next) => {
       if (r2Key === 'admin/index.html') {
         let html = await obj.text();
         const phKey = c.env.POSTHOG_API_KEY ?? '';
-        html = html.replace('</head>', `<meta name="x-posthog-key" content="${phKey}">\n</head>`);
+        const sentryDsn = c.env.SENTRY_DSN ?? '';
+        const sentryInject = sentryDsn
+          ? `<meta name="sentry-dsn" content="${sentryDsn.replace(/"/g, '&quot;')}">\n<script>window.__SENTRY_DSN__="${sentryDsn.replace(/"/g, '\\"')}";</script>`
+          : '';
+        html = html.replace(
+          '</head>',
+          `${sentryInject}<meta name="x-posthog-key" content="${phKey}">\n</head>`,
+        );
         return new Response(html, {
           headers: {
             'Content-Type': 'text/html',
