@@ -61,9 +61,7 @@ describe('buildLogEntry', () => {
   });
 
   it('rejects invalid log levels', () => {
-    expect(() =>
-      buildLogEntry({ ...BASE, level: 'critical' as any }),
-    ).toThrow();
+    expect(() => buildLogEntry({ ...BASE, level: 'critical' as any })).toThrow();
   });
 
   it('rejects empty message', () => {
