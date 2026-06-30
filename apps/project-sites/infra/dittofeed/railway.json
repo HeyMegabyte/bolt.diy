@@ -1,0 +1,10 @@
+{
+  "build": {
+    "dockerfilePath": "Dockerfile.fly"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "node --max-old-space-size=824 ./packages/lite/dist/scripts/startLite.js --workspace-name=ProjectSites",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}

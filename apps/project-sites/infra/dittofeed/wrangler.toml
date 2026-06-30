@@ -15,7 +15,7 @@ enabled = true
 class_name = "Dittofeed"
 image = "./Dockerfile"
 max_instances = 1
-instance_type = "standard-2"
+instance_type = "standard-4"
 name = "projectsites-dittofeed"
 
 [[durable_objects.bindings]]
@@ -36,5 +36,5 @@ NODE_ENV = "production"
 BOOTSTRAP = "true"
 CLICKHOUSE_HOST = "http://ch.projectsites.dev:8123"
 CLICKHOUSE_USER = "dittofeed"
-TEMPORAL_ADDRESS = "localhost:7233"
+TEMPORAL_ADDRESS = "168.220.90.239:7233"
 DASHBOARD_API_BASE = "https://engage.projectsites.dev"

@@ -1,0 +1,44 @@
+name = "projectsites-nocodb"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+routes = [
+  { pattern = "db.projectsites.dev", custom_domain = true },
+  { pattern = "db.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "Nocodb"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-nocodb"
+
+[[durable_objects.bindings]]
+name = "NOCODB"
+class_name = "Nocodb"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Nocodb"]
+
+# Neon Postgres (project royal-shape-97525164, branch br-old-leaf-ai01uq85, db neondb)
+# Host: c-4.us-east-1.aws.neon.tech
+[vars]
+NC_DB_HOST = "c-4.us-east-1.aws.neon.tech"
+NC_DB_PORT = "5432"
+NC_DB_USER = "neondb_owner"
+NC_DB_NAME = "neondb"
+# NC_DB_PASSWORD — set via: wrangler secret put NC_DB_PASSWORD
+# NC_AUTH_JWT_SECRET — set via: wrangler secret put NC_AUTH_JWT_SECRET
+# NC_CACHE_REDIS_URL — set via: wrangler secret put NC_CACHE_REDIS_URL (Upstash Redis URL)
+# R2 S3-compatible attachment storage — set via wrangler secret put:
+#   NC_S3_ACCESS_KEY, NC_S3_ACCESS_SECRET
+NC_S3_BUCKET_NAME = "projectsites-nocodb-attachments"
+NC_S3_REGION = "auto"
+NC_S3_ENDPOINT = "https://84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com"

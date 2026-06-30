@@ -1,8 +1,8 @@
-app = 'projectsites-nango'
+app = 'projectsites-nocodb'
 primary_region = 'ewr'
 
 [build]
-  image = 'nangohq/nango-server:hosted-0.70.9'
+  image = 'nocodb/nocodb:latest'
 
 [http_service]
   internal_port = 8080
@@ -15,12 +15,19 @@ primary_region = 'ewr'
 [[http_service.checks]]
   interval = '30s'
   timeout = '10s'
-  grace_period = '180s'
+  grace_period = '120s'
   method = 'get'
-  path = '/'
+  path = '/api/v1/health'
 
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 1024
+
+[env]
+  NC_SITE_URL = 'https://db.projectsites.dev'
+  NC_DISABLE_TELE = 'true'
+  NC_DISABLE_ERR_REPORTS = 'true'
+  NC_INVITE_ONLY_SIGNUP = 'true'
+  NC_DASHBOARD_URL = '/dashboard'

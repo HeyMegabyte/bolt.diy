@@ -1,0 +1,41 @@
+app = "projectsites-dittofeed"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+[env]
+  NODE_ENV = "production"
+  DATABASE_HOST = "ep-round-wildflower-aigybxdk.c-4.us-east-1.aws.neon.tech"
+  DATABASE_PORT = "5432"
+  DATABASE_USER = "neondb_owner"
+  DATABASE_NAME = "projectsites_dittofeed"
+  CLICKHOUSE_HOST = "http://ch.projectsites.dev:8123"
+  CLICKHOUSE_USER = "dittofeed"
+  TEMPORAL_ADDRESS = "168.220.90.239:7233"
+  PASSWORD = "dittofeed123!"
+  AUTH_MODE = "single-tenant"
+  WORKSPACE_NAME = "ProjectSites"
+  BOOTSTRAP = "true"
+  DASHBOARD_API_BASE = "https://engage.projectsites.dev"
+
+[experimental]
+  auto_rollback = true
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4096mb"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 3000
+    handlers = ["http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "15s"
+    method = "GET"
+    path = "/"

@@ -37,7 +37,7 @@ export class Dittofeed extends Container<Env> {
       CLICKHOUSE_HOST: env.CLICKHOUSE_HOST,
       CLICKHOUSE_USER: env.CLICKHOUSE_USER,
       CLICKHOUSE_PASSWORD: env.CLICKHOUSE_PASSWORD,
-      TEMPORAL_ADDRESS: 'localhost:7233',
+      TEMPORAL_ADDRESS: "168.220.90.239:7233",
       SECRET_KEY: env.SECRET_KEY,
       PASSWORD: env.PASSWORD,
       AUTH_MODE: 'single-tenant',
