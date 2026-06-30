@@ -58,13 +58,7 @@ const TOTAL_WEIGHT = Object.values(MILESTONE_WEIGHTS).reduce((a, b) => a + b, 0)
 
 // ── Activation level ───────────────────────────────────────────────────────
 
-export const ActivationLevel = z.enum([
-  'cold',
-  'warming',
-  'engaged',
-  'activated',
-  'power',
-]);
+export const ActivationLevel = z.enum(['cold', 'warming', 'engaged', 'activated', 'power']);
 export type ActivationLevel = z.infer<typeof ActivationLevel>;
 
 // ── Output ─────────────────────────────────────────────────────────────────
@@ -106,21 +100,15 @@ export type ActivationScoreResult = z.infer<typeof ActivationScoreResultSchema>;
  * // { score: 25, level: 'warming', completed: [...], remaining: [...], nextBestAction: 'published_first_site' }
  * ```
  */
-export function computeActivationScore(
-  completed: readonly string[],
-): ActivationScoreResult {
+export function computeActivationScore(completed: readonly string[]): ActivationScoreResult {
   // Dedupe + validate
-  const unique = [...new Set(completed)]
-    .filter((m): m is ActivationMilestone => {
-      const result = ActivationMilestone.safeParse(m);
-      return result.success;
-    });
+  const unique = [...new Set(completed)].filter((m): m is ActivationMilestone => {
+    const result = ActivationMilestone.safeParse(m);
+    return result.success;
+  });
 
   // Sum completed weights
-  const completedWeight = unique.reduce(
-    (sum, m) => sum + MILESTONE_WEIGHTS[m],
-    0,
-  );
+  const completedWeight = unique.reduce((sum, m) => sum + MILESTONE_WEIGHTS[m], 0);
 
   // Score as percentage of total
   const raw = (completedWeight / TOTAL_WEIGHT) * 100;

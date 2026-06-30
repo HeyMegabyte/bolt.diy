@@ -3,7 +3,11 @@
  * @description Tests for LOOP-ANALYTICS-009 activation scoring primitive.
  */
 
-import { type ActivationMilestone, classifyActivationLevel, computeActivationScore } from '../activation_scoring';
+import {
+  type ActivationMilestone,
+  classifyActivationLevel,
+  computeActivationScore,
+} from '../activation_scoring';
 
 // ── classifyActivationLevel ───────────────────────────────────────────────
 
@@ -47,11 +51,7 @@ describe('computeActivationScore', () => {
   });
 
   it('returns 25 for signed_up + verified_email + created_first_site', () => {
-    const result = computeActivationScore([
-      'signed_up',
-      'verified_email',
-      'created_first_site',
-    ]);
+    const result = computeActivationScore(['signed_up', 'verified_email', 'created_first_site']);
     expect(result.score).toBe(25);
     expect(result.level).toBe('warming');
     expect(result.nextBestAction).toBe('published_first_site');
@@ -141,7 +141,13 @@ describe('computeActivationScore', () => {
   it('sorts remaining by weight descending', () => {
     const result = computeActivationScore(['signed_up']);
     const weights = result.remaining.map((m) => {
-      const w: Record<string, number> = { published_first_site: 20, created_first_site: 15, claimed_custom_domain: 15, invited_teammate: 10, completed_checkout: 10 };
+      const w: Record<string, number> = {
+        published_first_site: 20,
+        created_first_site: 15,
+        claimed_custom_domain: 15,
+        invited_teammate: 10,
+        completed_checkout: 10,
+      };
       return w[m] ?? 0;
     });
     // First remaining should be highest weight (20 = published_first_site)
@@ -153,14 +159,8 @@ describe('computeActivationScore', () => {
   });
 
   it('nextBestAction is the highest-weight remaining', () => {
-    const result = computeActivationScore([
-      'signed_up',
-      'verified_email',
-      'published_first_site',
-    ]);
+    const result = computeActivationScore(['signed_up', 'verified_email', 'published_first_site']);
     // Remaining highest: created_first_site (15) or claimed_custom_domain (15)
-    expect(['created_first_site', 'claimed_custom_domain']).toContain(
-      result.nextBestAction,
-    );
+    expect(['created_first_site', 'claimed_custom_domain']).toContain(result.nextBestAction);
   });
 });
