@@ -278,3 +278,37 @@ export async function createBillingProvider(env: Env): Promise<BillingMeteringPr
     }
   }
 }
+
+// ─── Cost estimation (vendor-neutral, display-only) ─────────────────────
+
+/**
+ * Per-unit cost in CENTS for each metric. Display-only estimates.
+ * Actual billing: Lago rate cards.
+ */
+export const METRIC_RATE_CENTS: Record<string, number> = {
+  ai_input_tokens: 0.000015,
+  ai_output_tokens: 0.00006,
+  ai_embedding_tokens: 0.000002,
+  ai_image_generations: 5,
+  ai_voice_minutes: 1,
+  browser_automation_minutes: 3,
+  build_compute_minutes: 2,
+  site_visits: 0.001,
+  bandwidth_egress_gb: 5,
+  storage_gb_hours: 0.007,
+  email_sends: 0.01,
+  sms_sends: 1,
+  form_submissions: 0,
+  social_posts: 1,
+  booking_events: 0,
+  crm_seats: 500,
+  premium_app_installs: 1000,
+};
+
+/**
+ * Estimate cost in cents for a given metric+quantity.
+ * Display-only — actual billing uses Lago rate cards.
+ */
+export function estimateCostCents(metric: string, quantity: number): number {
+  return Math.round(quantity * (METRIC_RATE_CENTS[metric] ?? 0));
+}

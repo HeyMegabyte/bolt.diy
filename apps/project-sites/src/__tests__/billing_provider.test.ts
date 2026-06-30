@@ -19,7 +19,7 @@ import {
 } from '../services/billing_provider.js';
 import { NoopBillingProvider } from '../services/billing_provider_noop.js';
 import { LagoProvider } from '../services/billing_provider_lago.js';
-import { estimateCostCents, METRIC_RATE_CENTS } from '../services/billing_provider_stripe.js';
+import { estimateCostCents, METRIC_RATE_CENTS } from '../services/billing_provider.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
