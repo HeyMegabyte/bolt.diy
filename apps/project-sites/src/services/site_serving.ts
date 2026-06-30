@@ -800,6 +800,16 @@ export async function serveSiteFromR2(
   const contentType = filePath.includes('.')
     ? getContentType(filePath)
     : 'text/html; charset=utf-8';
+  // Meter site visit (page view) — no org lookup needed, fire-and-forget.
+  if (env) {
+    void (async () => {
+      try {
+        const { meterSiteVisit } = await import('./usage_metering.js');
+        await meterSiteVisit(env, { siteId: site.site_id, slug: site.slug });
+      } catch { /* hot path — never block serving */ }
+    })();
+  }
+
   return buildSiteResponse(object, site, contentType, env);
 }
 

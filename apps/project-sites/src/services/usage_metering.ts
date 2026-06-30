@@ -605,6 +605,34 @@ export async function getUsagePanelPayload(
 }
 
 /**
+ * Record a site visit (page view) through LagoProvider.
+ * Cost: ~$0.00001/visit (effectively free). Call from site_serving on every page serve.
+ * No org lookup needed — just counts the visit for analytics.
+ */
+export async function meterSiteVisit(
+  env: Env,
+  opts: { siteId: string; slug: string; count?: number },
+): Promise<void> {
+  try {
+    const provider = await createBillingProvider(env);
+    await provider.recordUsage({
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.siteId, // site-level, no org context needed on hot path
+      siteId: opts.siteId,
+      metric: 'site_visits',
+      quantity: opts.count ?? 1,
+      unit: 'event',
+      source: 'site_serving',
+      occurredAt: new Date().toISOString(),
+      metadata: { slug: opts.slug },
+    });
+  } catch (err) {
+    // Silently ignore — hot path must never block on metering
+  }
+}
+
+/**
  * Record a form submission through LagoProvider. Free tier — metered for analytics.
  * Cost: $0 (free metric). Call from form handlers after successful submission.
  */
