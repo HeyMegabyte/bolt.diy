@@ -1,0 +1,50 @@
+# Fallback 1: Fly.io deploy for SearXNG
+# Use if CF Workers Containers blocks the deploy.
+#
+# Deploy:
+#   fly launch --name projectsites-searxng --region ewr --no-deploy
+#   fly secrets set SEARXNG_SECRET=<value>
+#   fly secrets set SEARXNG_VALKEY_URL=<value>
+#   fly deploy
+#   fly certs create search.projectsites.dev
+#
+# Then point the CF DNS CNAME at <app>.fly.dev and enable CF Access.
+
+app = "projectsites-searxng"
+primary_region = "ewr"
+
+[build]
+  image = "searxng/searxng:latest"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "get"
+    path = "/healthz"
+    protocol = "http"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[env]
+  SEARXNG_BASE_URL = "https://search.projectsites.dev/"
+  SEARXNG_LIMITER = "true"
+  SEARXNG_PUBLIC_INSTANCE = "false"
+
+[mounts]
+  source = "searxng_config"
+  destination = "/etc/searxng"
+
+# When using Fly.io, the CF DNS CNAME points here.
+# CF Access is still the auth gate — configure the same Access policy
+# on search.projectsites.dev after pointing the CNAME.

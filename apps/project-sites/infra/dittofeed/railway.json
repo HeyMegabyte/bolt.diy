@@ -1,10 +1,10 @@
 {
   "build": {
-    "dockerfilePath": "Dockerfile.fly"
+    "dockerfilePath": "Dockerfile.railway"
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "node --max-old-space-size=824 ./packages/lite/dist/scripts/startLite.js --workspace-name=ProjectSites",
-    "restartPolicyType": "ON_FAILURE"
+    "restartPolicyType": "ON_FAILURE",
+    "startCommand": "node --max-old-space-size=824 ./packages/lite/dist/scripts/startLite.js --workspace-name=ProjectSites"
   }
 }

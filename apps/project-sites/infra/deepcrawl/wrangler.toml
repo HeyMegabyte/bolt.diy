@@ -1,0 +1,43 @@
+name = "projectsites-deepcrawl"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+routes = [
+  { pattern = "deepcrawl.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "DeepcrawlDashboard"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-deepcrawl"
+
+[[durable_objects.bindings]]
+name = "DEEPCRAWL_DASHBOARD"
+class_name = "DeepcrawlDashboard"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DeepcrawlDashboard"]
+
+# Neon Postgres for Better Auth sessions (shared project, database: projectsites_deepcrawl)
+# Dashboard serves Better Auth routes at /api/auth/[...all]
+[vars]
+AUTH_MODE = "better-auth"
+AUTH_COOKIE_DOMAIN = "projectsites.dev"
+NEXT_PUBLIC_BRAND_NAME = "Deepcrawl"
+NEXT_PUBLIC_APP_URL = "https://deepcrawl.projectsites.dev"
+NEXT_PUBLIC_DEEPCRAWL_API_URL = "https://api.deepcrawl.projectsites.dev"
+NEXT_PUBLIC_USE_AUTH_WORKER = "false"
+BETTER_AUTH_URL = "https://deepcrawl.projectsites.dev"
+PORT = "3000"
+
+# Secrets (set via wrangler secret put):
+#   BETTER_AUTH_SECRET — openssl rand -base64 32
+#   DATABASE_URL — Neon Postgres connection string

@@ -1,0 +1,16 @@
+# Grafana dashboard provisioning — all dashboards are version-controlled under
+# infra/grafana/dashboards/ and baked into the container image.
+
+apiVersion: 1
+
+providers:
+  - name: 'ProjectSites'
+    orgId: 1
+    folder: 'ProjectSites'
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 0  # Never re-scan — dashboards are baked into the image
+    allowUiUpdates: true      # Allow manual edits; export back to repo periodically
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

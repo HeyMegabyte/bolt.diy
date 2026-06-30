@@ -1,0 +1,92 @@
+# SearXNG settings — ProjectSites.dev private search infrastructure
+# https://docs.searxng.org/admin/settings/settings.yml.html
+#
+# Secrets (SEARXNG_SECRET, SEARXNG_VALKEY_URL) are injected as env vars
+# by the CF Workers Container runtime — they override these defaults.
+
+use_default_settings: true
+
+general:
+  instance_name: "ProjectSites Search"
+  debug: false
+  enable_metrics: false
+
+server:
+  base_url: "https://search.projectsites.dev/"
+  secret_key: "CHANGEME-128-bits-of-entropy"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: true
+  public_instance: false
+  image_proxy: false
+  method: "POST"
+  default_http_headers:
+    X-Content-Type-Options: nosniff
+    X-Download-Options: noopen
+    X-Robots-Tag: noindex, nofollow
+    Referrer-Policy: no-referrer
+
+# ── Valkey/Redis for limiter + bot-detection ─────────────────────────
+# SEARXNG_VALKEY_URL set via container envVars; overrides this placeholder.
+valkey:
+  url: "valkey://localhost:6379/0"
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json
+  # Conservative engine set — reliable, low-abuse-risk engines only.
+  # Disabled by default: engines that frequently CAPTCHA, break, or
+  # are risky for an internal research tool.
+  # Enable specific engines via the SearXNG admin UI or by adding them here.
+  engines:
+    # General web search
+    - name: duckduckgo
+      disabled: false
+    - name: brave
+      disabled: false
+    - name: google
+      disabled: false
+    - name: bing
+      disabled: false
+    # Images
+    - name: google images
+      disabled: false
+    - name: bing images
+      disabled: false
+    # Videos
+    - name: google videos
+      disabled: false
+    # News
+    - name: google news
+      disabled: false
+    # Science / academic
+    - name: google scholar
+      disabled: false
+    - name: arxiv
+      disabled: false
+    # Code / development
+    - name: github
+      disabled: false
+    - name: stackoverflow
+      disabled: false
+    # Maps
+    - name: openstreetmap
+      disabled: false
+    # Wikipedia
+    - name: wikipedia
+      disabled: false
+
+ui:
+  static_use_hash: true
+  infinite_scroll: false
+  theme: simple
+  default_theme: simple
+
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 20.0
+  # No proxy needed — container egress is direct

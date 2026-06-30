@@ -1,0 +1,37 @@
+{
+  "name": "projectsites-medusa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "medusa build",
+    "dev": "medusa develop",
+    "predeploy": "medusa db:migrate",
+    "start": "medusa start",
+    "start:server": "MEDUSA_WORKER_MODE=server DISABLE_MEDUSA_ADMIN=false medusa start",
+    "start:worker": "MEDUSA_WORKER_MODE=worker DISABLE_MEDUSA_ADMIN=true medusa start",
+    "seed": "medusa exec ./src/scripts/seed.ts",
+    "user:create": "medusa user -e $MEDUSA_ADMIN_EMAIL -p $MEDUSA_ADMIN_PASSWORD",
+    "smoke": "node ../../scripts/smoke-medusa.mjs"
+  },
+  "dependencies": {
+    "@medusajs/admin-sdk": "^2.7.0",
+    "@medusajs/cache-redis": "^2.7.0",
+    "@medusajs/cli": "^2.7.0",
+    "@medusajs/core-flows": "^2.7.0",
+    "@medusajs/event-bus-redis": "^2.7.0",
+    "@medusajs/framework": "^2.7.0",
+    "@medusajs/locking-redis": "^2.7.0",
+    "@medusajs/medusa": "^2.7.0",
+    "@medusajs/payment-stripe": "^2.7.0",
+    "@medusajs/workflow-engine-redis": "^2.7.0",
+    "@medusajs/file-s3": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

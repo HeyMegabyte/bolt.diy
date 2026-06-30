@@ -2,24 +2,11 @@
  * @file Unified bottom-panel tab router for the bolt.diy editor.
  *
  * @remarks
- * Replaces the legacy `TerminalTabs` component that only hosted xterm
- * terminals. This component renders a horizontal tab strip with the
- * original `Terminal` tab plus 10 new extension tabs (Build Output,
- * Deploy History, Logs, Env Vars, CI/CD, SQL, Storage, KV, API Explorer,
- * Snapshots). Each non-terminal tab is lazy-imported so the editor LCP
- * stays unaffected — the chunk only ships when the user clicks the tab.
+ * Icon-only tab strip with hover/focus tooltips. Tab order:
+ * Terminal | Problems | Logs | SQLite | Postgres | Redis | KV | Search.
  *
- * Wiring:
- * - The whole component is rendered inside a single `<Panel>` from
- *   `react-resizable-panels` (with `id="bottom-panel"` + `order={2}`,
- *   following the 2026-05-25 fix that retired the `:rq:` panel-id race).
- * - The `Terminal` tab content shows the existing `TerminalTabs` body
- *   (re-implemented here to keep the Panel boundary clean — see below).
- *
- * Adding a tab:
- * 1. Implement the body in `extensions/tabs/{Name}Tab.tsx` (no props,
- *    consume stores directly).
- * 2. Add an entry to `EXTENSION_TABS` below with `id/label/icon`.
+ * Each non-terminal tab is lazy-imported so the editor LCP stays
+ * unaffected — the chunk only ships when the user clicks the tab.
  *
  * @example
  * <BottomPanelTabs />
@@ -27,7 +14,6 @@
 import { useStore } from '@nanostores/react';
 import React, { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Panel, type ImperativePanelHandle } from 'react-resizable-panels';
-import { IconButton } from '~/components/ui/IconButton';
 import { shortcutEventEmitter } from '~/lib/hooks';
 import { themeStore } from '~/lib/stores/theme';
 import { workbenchStore } from '~/lib/stores/workbench';
@@ -36,38 +22,33 @@ import { createScopedLogger } from '~/utils/logger';
 import { Terminal, type TerminalRef } from '../terminal/Terminal';
 import { TerminalManager } from '../terminal/TerminalManager';
 import type { ExtensionTabDescriptor } from './types';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 const logger = createScopedLogger('BottomPanelTabs');
 
 const MAX_TERMINALS = 3;
 export const DEFAULT_BOTTOM_PANEL_SIZE = 30;
 
-const BuildOutputTab = lazy(() => import('./tabs/BuildOutputTab'));
-const DeployHistoryTab = lazy(() => import('./tabs/DeployHistoryTab'));
+const ProblemsTab = lazy(() => import('./tabs/ProblemsTab'));
 const LogsTab = lazy(() => import('./tabs/LogsTab'));
-const EnvVarsTab = lazy(() => import('./tabs/EnvVarsTab'));
-const CICDTab = lazy(() => import('./tabs/CICDTab'));
 const SqlTab = lazy(() => import('./tabs/SqlTab'));
-const StorageTab = lazy(() => import('./tabs/StorageTab'));
+const PostgresTab = lazy(() => import('./tabs/PostgresTab'));
+const RedisTab = lazy(() => import('./tabs/RedisTab'));
 const KvTab = lazy(() => import('./tabs/KvTab'));
-const ApiExplorerTab = lazy(() => import('./tabs/ApiExplorerTab'));
-const SnapshotsTab = lazy(() => import('./tabs/SnapshotsTab'));
+const SearchTab = lazy(() => import('./tabs/SearchTab'));
 
 /**
- * Catalogue of non-terminal extension tabs. Order is significant — it's the
- * order shown in the tab strip after the Terminal slot(s).
+ * Icon-only extension tabs. Order = tab-strip order after Terminal slot.
+ * Each tab is icon-only in the strip; the label field drives the tooltip + ARIA label.
  */
 const EXTENSION_TABS: readonly ExtensionTabDescriptor[] = [
-  { id: 'build', label: 'Build', icon: 'i-ph:hammer-duotone', component: BuildOutputTab, hint: 'Run + watch npm scripts' },
-  { id: 'logs', label: 'Logs', icon: 'i-ph:list-bullets-duotone', component: LogsTab, hint: 'Live wrangler tail / vercel logs' },
-  { id: 'env', label: 'Env Vars', icon: 'i-ph:key-duotone', component: EnvVarsTab, hint: 'Manage .env files' },
-  { id: 'deploy', label: 'Deploys', icon: 'i-ph:rocket-launch-duotone', component: DeployHistoryTab, hint: 'Cloudflare Pages deployments + rollback' },
-  { id: 'cicd', label: 'CI/CD', icon: 'i-ph:git-pull-request-duotone', component: CICDTab, hint: 'GitHub Actions runs' },
-  { id: 'sql', label: 'SQL', icon: 'i-ph:database-duotone', component: SqlTab, hint: 'D1 query console' },
-  { id: 'storage', label: 'Storage', icon: 'i-ph:cloud-arrow-up-duotone', component: StorageTab, hint: 'R2 bucket browser' },
-  { id: 'kv', label: 'KV', icon: 'i-ph:cube-duotone', component: KvTab, hint: 'Cloudflare KV namespaces' },
-  { id: 'api', label: 'API', icon: 'i-ph:plugs-connected-duotone', component: ApiExplorerTab, hint: 'Test discovered routes' },
-  { id: 'snapshots', label: 'Snapshots', icon: 'i-ph:clock-counter-clockwise-duotone', component: SnapshotsTab, hint: 'Point-in-time file-system snapshots' },
+  { id: 'problems', label: 'Problems', icon: 'i-ph:warning-duotone', component: ProblemsTab, hint: 'TypeScript, lint, build, manifest errors' },
+  { id: 'logs', label: 'Logs', icon: 'i-ph:list-bullets-duotone', component: LogsTab, hint: 'Worker, preview, build, and deploy logs' },
+  { id: 'sqlite', label: 'SQLite', icon: 'i-ph:database-duotone', component: SqlTab, hint: 'SQLite / D1 schema browser + query console' },
+  { id: 'postgres', label: 'Postgres', icon: 'i-ph:cylinder-duotone', component: PostgresTab, hint: 'Postgres connection profiles + query tool' },
+  { id: 'redis', label: 'Redis', icon: 'i-ph:stack-duotone', component: RedisTab, hint: 'Redis key browser + type-aware editors' },
+  { id: 'kv', label: 'KV', icon: 'i-ph:cube-duotone', component: KvTab, hint: 'Cloudflare KV namespace manager' },
+  { id: 'search', label: 'Search', icon: 'i-ph:magnifying-glass-duotone', component: SearchTab, hint: 'Search code, routes, bindings, schemas' },
 ];
 
 type ActiveTab = { kind: 'terminal'; index: number } | { kind: 'extension'; id: string };
@@ -182,77 +163,145 @@ export const BottomPanelTabs = memo(() => {
       }}
     >
       <div className="h-full bg-bolt-elements-terminals-background flex flex-col">
-        {/* Tab strip */}
-        <div className="flex items-center bg-bolt-elements-background-depth-2 border-y border-bolt-elements-borderColor gap-1 min-h-[34px] px-2 overflow-x-auto">
-          {/* Terminal tabs (Bolt + user-added) */}
+        {/* Tab strip — icon-only with hover/focus tooltips */}
+        <div className="flex items-center bg-bolt-elements-background-depth-2 border-y border-bolt-elements-borderColor gap-0.5 min-h-[34px] px-2 overflow-x-auto">
+          {/* Terminal tabs — icon + count badge */}
           {Array.from({ length: terminalCount + 1 }, (_, index) => {
             const active = isTerminalTab && (activeTab as { index: number }).index === index;
+            const label = index === 0 ? 'Terminal' : `Terminal ${index}`;
             return (
-              <button
-                key={`term-${index}`}
-                type="button"
-                onClick={() => setActiveTab({ kind: 'terminal', index })}
-                className={classNames(
-                  'flex items-center text-sm cursor-pointer gap-1.5 px-3 py-1.5 h-7 whitespace-nowrap rounded-full transition-colors',
-                  active
-                    ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
-                    : 'bg-transparent text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
-                )}
-              >
-                <div className="i-ph:terminal-window-duotone text-base" />
-                {index === 0 ? 'Bolt Terminal' : terminalCount > 1 ? `Terminal ${index}` : 'Terminal'}
-                {index > 0 ? (
+              <Tooltip.Root key={`term-${index}`} delayDuration={400}>
+                <Tooltip.Trigger asChild>
                   <button
                     type="button"
-                    className="ml-1 text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeTerminal(index);
-                    }}
+                    onClick={() => setActiveTab({ kind: 'terminal', index })}
+                    aria-label={label}
+                    className={classNames(
+                      'flex items-center cursor-pointer gap-1 px-2 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                      active
+                        ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                        : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                    )}
                   >
-                    <div className="i-ph:x text-xs" />
+                    <div className="i-ph:terminal-window-duotone text-base" />
+                    {index > 0 ? (
+                      <button
+                        type="button"
+                        className="text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary"
+                        aria-label={`Close ${label}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeTerminal(index);
+                        }}
+                      >
+                        <div className="i-ph:x text-xs" />
+                      </button>
+                    ) : null}
                   </button>
-                ) : null}
-              </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    align="center"
+                    className="z-50 px-2 py-1 text-xs rounded bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary border border-bolt-elements-borderColor shadow-lg"
+                    sideOffset={4}
+                  >
+                    {label}
+                    <Tooltip.Arrow className="fill-bolt-elements-borderColor" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
             );
           })}
 
           {terminalCount < MAX_TERMINALS ? (
-            <IconButton icon="i-ph:plus" size="sm" onClick={addTerminal} title="New terminal" />
+            <Tooltip.Root delayDuration={400}>
+              <Tooltip.Trigger asChild>
+                <button
+                  type="button"
+                  onClick={addTerminal}
+                  aria-label="New terminal"
+                  className="flex items-center justify-center w-6 h-6 rounded-md bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
+                >
+                  <div className="i-ph:plus text-sm" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  side="top"
+                  align="center"
+                  className="z-50 px-2 py-1 text-xs rounded bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary border border-bolt-elements-borderColor shadow-lg"
+                  sideOffset={4}
+                >
+                  New terminal
+                  <Tooltip.Arrow className="fill-bolt-elements-borderColor" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
           ) : null}
 
           {/* Separator */}
           <div className="w-px h-5 bg-bolt-elements-borderColor mx-1" />
 
-          {/* Extension tabs */}
+          {/* Extension tabs — icon-only with tooltips */}
           {EXTENSION_TABS.map((tab) => {
             const active = activeTab.kind === 'extension' && activeTab.id === tab.id;
             return (
-              <button
-                key={tab.id}
-                type="button"
-                title={tab.hint}
-                onClick={() => setActiveTab({ kind: 'extension', id: tab.id })}
-                className={classNames(
-                  'flex items-center text-sm cursor-pointer gap-1.5 px-3 py-1.5 h-7 whitespace-nowrap rounded-full transition-colors',
-                  active
-                    ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
-                    : 'bg-transparent text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
-                )}
-              >
-                <div className={classNames(tab.icon, 'text-base')} />
-                {tab.label}
-              </button>
+              <Tooltip.Root key={tab.id} delayDuration={400}>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab({ kind: 'extension', id: tab.id })}
+                    aria-label={tab.label}
+                    className={classNames(
+                      'flex items-center justify-center cursor-pointer w-7 h-7 rounded-md transition-colors',
+                      active
+                        ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                        : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                    )}
+                  >
+                    <div className={classNames(tab.icon, 'text-base')} />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    align="center"
+                    className="z-50 px-2 py-1 text-xs rounded bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary border border-bolt-elements-borderColor shadow-lg"
+                    sideOffset={4}
+                  >
+                    {tab.label}
+                    <Tooltip.Arrow className="fill-bolt-elements-borderColor" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
             );
           })}
 
-          <IconButton
-            className="ml-auto"
-            icon="i-ph:caret-down"
-            title="Close panel"
-            size="md"
-            onClick={() => workbenchStore.toggleTerminal(false)}
-          />
+          {/* Close panel button */}
+          <Tooltip.Root delayDuration={400}>
+            <Tooltip.Trigger asChild>
+              <button
+                type="button"
+                className="ml-auto flex items-center justify-center w-6 h-6 rounded-md bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
+                aria-label="Close panel"
+                onClick={() => workbenchStore.toggleTerminal(false)}
+              >
+                <div className="i-ph:caret-down text-sm" />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Portal>
+              <Tooltip.Content
+                side="top"
+                align="center"
+                className="z-50 px-2 py-1 text-xs rounded bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary border border-bolt-elements-borderColor shadow-lg"
+                sideOffset={4}
+              >
+                Close panel
+                <Tooltip.Arrow className="fill-bolt-elements-borderColor" />
+              </Tooltip.Content>
+            </Tooltip.Portal>
+          </Tooltip.Root>
         </div>
 
         {/* Tab bodies */}

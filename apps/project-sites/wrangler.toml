@@ -193,7 +193,6 @@ routes = [
   # ── Cloud-hosted SaaS subdomain landing pages (returns 200 landing, not 404) ──
   { pattern = "analytics.projectsites.dev", zone_name = "projectsites.dev" },
   { pattern = "logs.projectsites.dev", zone_name = "projectsites.dev" },
-  { pattern = "billing.projectsites.dev", zone_name = "projectsites.dev" },
   { pattern = "webhooks.projectsites.dev", zone_name = "projectsites.dev" },
   { pattern = "links.projectsites.dev", zone_name = "projectsites.dev" }
 ]

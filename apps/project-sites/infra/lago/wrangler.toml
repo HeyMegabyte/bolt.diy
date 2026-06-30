@@ -33,7 +33,8 @@ RACK_ENV = "production"
 RAILS_ENV = "production"
 PORT = "3000"
 LAGO_FRONT_URL = "https://billing.projectsites.dev"
-LAGO_API_URL = "https://billing.projectsites.dev/api"
+LAGO_API_URL = "https://billing.projectsites.dev"
+API_URL = "" # Empty = SPA calls same-origin; nginx proxies /api → Rails :3000
 
 # ── Secrets (all set via wrangler secret put) ────────────────────────────
 # DATABASE_URL, REDIS_URL, REDIS_CACHE_URL

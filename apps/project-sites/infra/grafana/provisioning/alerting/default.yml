@@ -1,0 +1,22 @@
+# Grafana alerting provisioning — starter contact point and alert rules.
+# All alerts are version-controlled.
+
+apiVersion: 1
+
+# TODO: Configure a real contact point once email/webhook credentials exist.
+# contactPoints:
+#   - orgId: 1
+#     name: project-sites-oncall
+#     receivers:
+#       - uid: email-1
+#         type: email
+#         settings:
+#           addresses: brian@megabyte.space
+
+# TODO: Provision alert rules after contact point exists:
+#   - grafana.projectsites.dev login page not returning 200
+#   - /api/health failure
+#   - database not OK
+#   - high container restart count
+#   - repeated 5xx from Worker/container
+#   - Neon connection exhaustion

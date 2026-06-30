@@ -1,0 +1,9 @@
+node_modules/
+.medusa/
+dist/
+.env
+.env.local
+.env.production
+.git/
+*.md
+.DS_Store

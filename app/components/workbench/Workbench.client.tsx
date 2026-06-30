@@ -25,7 +25,6 @@ import {
   type OnScrollCallback as OnEditorScroll,
 } from '~/components/editor/codemirror/CodeMirrorEditor';
 import { IconButton } from '~/components/ui/IconButton';
-import { Slider, type SliderOptions } from '~/components/ui/Slider';
 import { workbenchStore, type WorkbenchViewType } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
@@ -55,18 +54,18 @@ interface WorkspaceProps {
 
 const viewTransition = { ease: cubicEasingFn };
 
-const sliderOptions: SliderOptions<WorkbenchViewType> = {
-  left: {
-    value: 'code',
-    text: 'Code',
-  },
-  right: {
-    value: 'preview',
-    text: 'Preview',
-  },
-};
+/** Top editor tabs — order drives the tab strip left-to-right. */
+const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
+  { value: 'code', text: 'Code', icon: 'i-ph:code-duotone' },
+  { value: 'visual', text: 'Visual', icon: 'i-ph:paint-brush-duotone' },
+  { value: 'preview', text: 'Preview', icon: 'i-ph:eye-duotone' },
+  { value: 'media', text: 'Media', icon: 'i-ph:image-duotone' },
+  { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
+  { value: 'data', text: 'Data', icon: 'i-ph:chart-bar-duotone' },
+  { value: 'settings', text: 'Settings', icon: 'i-ph:gear-duotone' },
+];
 
-const VIEW_ORDER: WorkbenchViewType[] = ['code', 'preview'];
+const VIEW_ORDER: WorkbenchViewType[] = TOP_TABS.map((t) => t.value);
 
 function getViewX(view: WorkbenchViewType, selectedView: WorkbenchViewType): string {
   const viewIndex = VIEW_ORDER.indexOf(view);
@@ -219,7 +218,7 @@ export const Workbench = memo(
           >
             <div className="absolute inset-0 px-2 lg:px-4">
               <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
-                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1.5">
+                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1">
                   <button
                     className={`${showChat ? 'i-ph:sidebar-simple-fill' : 'i-ph:sidebar-simple'} text-lg text-bolt-elements-textSecondary mr-1`}
                     disabled={!canHideChat || isSmallViewport}
@@ -229,8 +228,30 @@ export const Workbench = memo(
                       }
                     }}
                   />
-                  <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
-                  <div className="ml-auto" />
+                  {/* Top tab strip — Code | Visual | Preview | Media | Functions | Data | Settings */}
+                  <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
+                    {TOP_TABS.map((tab) => {
+                      const active = selectedView === tab.value;
+                      return (
+                        <button
+                          key={tab.value}
+                          type="button"
+                          onClick={() => setSelectedView(tab.value)}
+                          aria-pressed={active}
+                          className={classNames(
+                            'flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                            active
+                              ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                              : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                          )}
+                        >
+                          <div className={classNames(tab.icon, 'text-base')} />
+                          {tab.text}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="ml-auto flex items-center gap-1">
                   {selectedView === 'code' && (
                     <>
                       <IconButton
@@ -317,7 +338,7 @@ export const Workbench = memo(
                       </DropdownMenu.Root>
                     </div>
                   )}
-
+                  </div>
                   <IconButton
                     icon="i-ph:x-circle"
                     className="-mr-1"
@@ -328,6 +349,7 @@ export const Workbench = memo(
                   />
                 </div>
                 <div className="relative flex-1 overflow-hidden">
+                  {/* Code view — full editor panel */}
                   <View initial={{ x: '0%' }} animate={{ x: getViewX('code', selectedView) }}>
                     <EditorPanel
                       editorDocument={currentDocument}
@@ -343,8 +365,59 @@ export const Workbench = memo(
                       onFileReset={onFileReset}
                     />
                   </View>
+                  {/* Visual — GrapesJS-powered drag-and-drop editor (lazy) */}
+                  <View initial={{ x: '100%' }} animate={{ x: getViewX('visual', selectedView) }}>
+                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="i-ph:paint-brush-duotone text-4xl" />
+                        <span className="text-sm">Visual editor — GrapesJS integration ready</span>
+                        <span className="text-xs">Mounts when Visual tab is active</span>
+                      </div>
+                    </div>
+                  </View>
+                  {/* Preview — read-only rendered output */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
                     <Preview setSelectedElement={setSelectedElement} />
+                  </View>
+                  {/* Media — site-scoped media manager */}
+                  <View initial={{ x: '100%' }} animate={{ x: getViewX('media', selectedView) }}>
+                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="i-ph:image-duotone text-4xl" />
+                        <span className="text-sm">Media — site-scoped asset manager</span>
+                        <span className="text-xs">Uploaded, AI-generated, and external media</span>
+                      </div>
+                    </div>
+                  </View>
+                  {/* Functions — Workers/functions manager */}
+                  <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>
+                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="i-ph:lightning-duotone text-4xl" />
+                        <span className="text-sm">Functions — Workers for Platforms manager</span>
+                        <span className="text-xs">Routes, handlers, bindings, deploy readiness</span>
+                      </div>
+                    </div>
+                  </View>
+                  {/* Data — resource overview */}
+                  <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
+                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="i-ph:chart-bar-duotone text-4xl" />
+                        <span className="text-sm">Data — resource health overview</span>
+                        <span className="text-xs">SQLite, Postgres, Redis, KV, R2 status</span>
+                      </div>
+                    </div>
+                  </View>
+                  {/* Settings — site configuration */}
+                  <View initial={{ x: '100%' }} animate={{ x: getViewX('settings', selectedView) }}>
+                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="i-ph:gear-duotone text-4xl" />
+                        <span className="text-sm">Settings — site configuration</span>
+                        <span className="text-xs">Domains, SEO, export, deployment, resource plans</span>
+                      </div>
+                    </div>
                   </View>
                 </div>
                 {/* Item 36 — StatusBar pinned to the bottom of the workbench */}

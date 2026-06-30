@@ -1,0 +1,166 @@
+{
+  "dashboard": {
+    "title": "Grafana Deployment Health",
+    "uid": "grafana-deployment-health",
+    "tags": ["grafana", "deployment", "infra"],
+    "timezone": "browser",
+    "schemaVersion": 40,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "/ (login page) 200",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "csv_content",
+            "csvContent": "time,status\n1,200"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+            "mappings": [],
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"textMode": "name", "colorMode": "background", "graphMode": "none"},
+        "description": "TODO: Wire to a real HTTP health check datasource. Currently placeholder."
+      },
+      {
+        "id": 2,
+        "title": "/api/health",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "csv_content",
+            "csvContent": "time,status\n1,200"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+            "mappings": [],
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"textMode": "name", "colorMode": "background", "graphMode": "none"},
+        "description": "TODO: Wire to /api/health endpoint. Currently placeholder."
+      },
+      {
+        "id": 3,
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "title": "DB Status",
+        "type": "stat",
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "csv_content",
+            "csvContent": "time,status\n1,1"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+            "mappings": [{"type": "value", "value": "1", "text": "OK"}],
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"textMode": "value", "colorMode": "background", "graphMode": "none"},
+        "description": "TODO: Wire to /api/health database field. Currently placeholder."
+      },
+      {
+        "id": 4,
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "title": "Container Restarts",
+        "type": "stat",
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "csv_content",
+            "csvContent": "time,restarts\n1,0"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 5}, {"color": "red", "value": 10}]},
+            "mappings": [],
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {"textMode": "value", "colorMode": "background", "graphMode": "none"},
+        "description": "TODO: Wire to Cloudflare Workers Observability. Currently placeholder."
+      },
+      {
+        "id": 10,
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+        "title": "Login Page Response Time (ms)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "random_walk",
+            "seriesCount": 1,
+            "min": 50,
+            "max": 300
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        },
+        "description": "TODO: Wire to a real HTTP probe. Currently placeholder random data."
+      },
+      {
+        "id": 11,
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+        "title": "API Health Response Time (ms)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "random_walk",
+            "seriesCount": 1,
+            "min": 10,
+            "max": 100
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        },
+        "description": "TODO: Wire to a real HTTP probe. Currently placeholder random data."
+      },
+      {
+        "id": 20,
+        "gridPos": {"x": 0, "y": 12, "w": 24, "h": 8},
+        "title": "Deploy History",
+        "type": "table",
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "grafana-testdata-datasource", "uid": "testdata"},
+            "scenarioId": "csv_content",
+            "csvContent": "deploy_time,version,image_tag,status\n2026-06-30,1,12.2.10,deployed"
+          }
+        ],
+        "description": "TODO: Populate from Cloudflare deploy events. Currently placeholder."
+      }
+    ]
+  }
+}

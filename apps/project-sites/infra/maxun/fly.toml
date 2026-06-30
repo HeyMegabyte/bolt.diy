@@ -1,0 +1,37 @@
+app = "projectsites-maxun"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BACKEND_PORT = "8080"
+  NODE_ENV = "production"
+  MINIO_ENDPOINT = "localhost"
+  MINIO_PORT = "9000"
+  MAXUN_TELEMETRY = "false"
+
+[mounts]
+  source = "minio_data"
+  destination = "/data/minio"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 80
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  memory = "4gb"
+  cpu_kind = "shared"
+  cpus = 2

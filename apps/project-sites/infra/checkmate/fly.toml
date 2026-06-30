@@ -1,0 +1,70 @@
+# Fly.io app: projectsites-checkmate
+#
+# Checkmate — open-source monitoring control plane for ProjectSites.dev.
+# Single-machine deployment: MongoDB 7.0 + Node.js backend + nginx frontend
+# all managed by supervisord inside one container.
+#
+# Domain: monitor.projectsites.dev → this Fly app (Cloudflare DNS + proxy)
+#
+# ARCHITECTURE:
+#   MongoDB  — 127.0.0.1:27017 (persistent volume /data/db)
+#   Backend  — 127.0.0.1:52345 (Node.js Express, Mongoose → MongoDB)
+#   nginx    — :80 (SPA + /api/* reverse proxy)
+#   Queue    — in-process ("primary" mode, no external Redis needed)
+#   Capture  — optional, not deployed (metrics from Fly.io dashboard)
+#
+# SECRETS (set via `flyctl secrets set KEY=VALUE --app projectsites-checkmate`):
+#   JWT_SECRET         — session signing secret (openssl rand -hex 64)
+#   CLIENT_HOST        — https://monitor.projectsites.dev
+#   ORIGIN             — monitor.projectsites.dev
+#   DB_CONNECTION_STRING — mongodb://127.0.0.1:27017/uptime_db (default, may override)
+#
+# PERSISTENCE:
+#   Fly volume "checkmate_mongo_data" mounted at /data/db
+#   Backups: manual mongodump → R2 via scripts/backup-mongo.sh
+
+app            = "projectsites-checkmate"
+primary_region = "iad"
+kill_signal    = "SIGTERM"
+kill_timeout   = 30
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV                = "production"
+  LOG_LEVEL               = "info"
+  CLIENT_HOST             = "https://monitor.projectsites.dev"
+  ORIGIN                  = "monitor.projectsites.dev"
+  DB_CONNECTION_STRING    = "mongodb://127.0.0.1:27017/uptime_db"
+  QUEUE_MODE              = "primary"
+  QUEUE_PRIMARY_PROCESSES = "true"
+  TOKEN_TTL               = "30d"
+  STATUS_PAGE_THEMES_ENABLED = "true"
+  # JWT_SECRET set via flyctl secrets (never in env)
+
+[mounts]
+  source      = "checkmate_mongo_data"
+  destination = "/data/db"
+
+[http_service]
+  internal_port        = 80
+  force_https          = true
+  auto_stop_machines   = false  # monitoring must be always-on
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+  [[http_service.checks]]
+    grace_period = "60s"    # MongoDB init + Mongoose connect + nginx start
+    interval     = "15s"
+    timeout      = "5s"
+    method       = "get"
+    path         = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"   # 1 CPU, 1 GB RAM — sufficient for ≤100 monitors

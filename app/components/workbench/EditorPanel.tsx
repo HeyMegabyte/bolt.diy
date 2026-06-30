@@ -271,39 +271,43 @@ export const EditorPanel = memo(
                     <div className="flex gap-1 ml-auto -mr-1.5">
                       <button
                         type="button"
-                        className="px-1.5 py-0.5 rounded-md hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-item-contentDefault hover:text-bolt-elements-item-contentActive"
+                        className="px-1.5 py-0.5 rounded-md bg-transparent text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive transition-colors"
                         onClick={() => setStickyEnabled((v) => !v)}
                         title="Toggle sticky function/class header"
+                        aria-label="Toggle sticky function/class header"
                         aria-pressed={stickyEnabled}
                       >
-                        <div className={classNames('i-ph:push-pin', { 'opacity-50': !stickyEnabled })} />
+                        <div className={classNames('i-ph:push-pin text-base', { 'opacity-50': !stickyEnabled })} />
                       </button>
                       <button
                         type="button"
-                        className="px-1.5 py-0.5 rounded-md hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-item-contentDefault hover:text-bolt-elements-item-contentActive"
+                        className="px-1.5 py-0.5 rounded-md bg-transparent text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive transition-colors"
                         onClick={() => setMinimapEnabled((v) => !v)}
                         title="Toggle scroll-position minimap"
+                        aria-label="Toggle scroll-position minimap"
                         aria-pressed={minimapEnabled}
                       >
-                        <div className={classNames('i-ph:map-trifold', { 'opacity-50': !minimapEnabled })} />
+                        <div className={classNames('i-ph:map-trifold text-base', { 'opacity-50': !minimapEnabled })} />
                       </button>
                       <button
                         type="button"
-                        className="px-1.5 py-0.5 rounded-md hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-item-contentDefault hover:text-bolt-elements-item-contentActive"
+                        className="px-1.5 py-0.5 rounded-md bg-transparent text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive transition-colors"
                         onClick={() => setDiffEnabled((v) => !v)}
                         title="Toggle inline diff against AI original"
+                        aria-label="Toggle inline diff against AI original"
                         aria-pressed={diffEnabled}
                       >
-                        <div className={classNames('i-ph:git-diff', { 'opacity-50': !diffEnabled })} />
+                        <div className={classNames('i-ph:git-diff text-base', { 'opacity-50': !diffEnabled })} />
                       </button>
                       <button
                         type="button"
-                        className="px-1.5 py-0.5 rounded-md hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-item-contentDefault hover:text-bolt-elements-item-contentActive"
+                        className="px-1.5 py-0.5 rounded-md bg-transparent text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive transition-colors"
                         onClick={() => setSplitEnabled((v) => !v)}
                         title="Toggle split-pane (side-by-side editor)"
+                        aria-label="Toggle split-pane (side-by-side editor)"
                         aria-pressed={splitEnabled}
                       >
-                        <div className={classNames('i-ph:columns', { 'opacity-50': !splitEnabled })} />
+                        <div className={classNames('i-ph:columns text-base', { 'opacity-50': !splitEnabled })} />
                       </button>
                       {activeFileUnsaved && (
                         <>

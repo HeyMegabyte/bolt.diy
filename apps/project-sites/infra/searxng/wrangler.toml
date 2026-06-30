@@ -1,0 +1,40 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "projectsites-searxng"
+main = "worker.ts"
+compatibility_date = "2026-06-19"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# search.projectsites.dev → this container worker
+routes = [
+  { pattern = "search.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+[[containers]]
+class_name = "SearXNGContainer"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "basic"
+name = "projectsites-searxng"
+
+[[durable_objects.bindings]]
+name = "SEARXNG"
+class_name = "SearXNGContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SearXNGContainer"]
+
+# ── Public vars (safe to commit) ───────────────────────────────────────
+[vars]
+SEARXNG_BASE_URL = "https://search.projectsites.dev/"
+SEARXNG_LIMITER = "true"
+SEARXNG_PUBLIC_INSTANCE = "false"
+FORCE_OWNERSHIP = "1"
+
+# ── Secrets (set via `wrangler secret put`) ────────────────────────────
+# SEARXNG_SECRET       — openssl rand -base64 32
+# SEARXNG_VALKEY_URL   — Upstash Redis URL (redis://...)

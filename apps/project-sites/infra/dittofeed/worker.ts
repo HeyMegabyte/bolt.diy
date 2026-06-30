@@ -22,7 +22,7 @@ interface Env {
 }
 
 export class Dittofeed extends Container<Env> {
-  override defaultPort = 3000;
+  override defaultPort = 3001;
   override sleepAfter = '15m';
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -34,6 +34,7 @@ export class Dittofeed extends Container<Env> {
       DATABASE_USER: env.DATABASE_USER,
       DATABASE_PASSWORD: env.DATABASE_PASSWORD,
       DATABASE_NAME: env.DATABASE_NAME,
+      PGSSLMODE: 'require',
       CLICKHOUSE_HOST: env.CLICKHOUSE_HOST,
       CLICKHOUSE_USER: env.CLICKHOUSE_USER,
       CLICKHOUSE_PASSWORD: env.CLICKHOUSE_PASSWORD,
@@ -49,7 +50,7 @@ export class Dittofeed extends Container<Env> {
 
   async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
-      ports: 3000,
+      ports: 3001,
       cancellationOptions: { portReadyTimeoutMS: 240_000, instanceGetTimeoutMS: 30_000 },
     });
     return this.containerFetch(request);
