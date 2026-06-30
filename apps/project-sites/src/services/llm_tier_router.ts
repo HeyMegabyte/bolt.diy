@@ -129,12 +129,20 @@ export function routeLlmTier(input: TierRoutingInput): TierRoutingResult {
 
   // Latency-sensitive user-facing → instant (edge inference)
   if (parsed.latencySensitive && parsed.userFacing) {
-    return result('instant', `Latency-sensitive user-facing ${parsed.task} → instant (Workers AI edge)`, true);
+    return result(
+      'instant',
+      `Latency-sensitive user-facing ${parsed.task} → instant (Workers AI edge)`,
+      true,
+    );
   }
 
   // Open-source required → instant (Workers AI Llama models)
   if (parsed.requireOpenSource) {
-    return result('instant', `Open-source requirement for ${parsed.task} → instant (Workers AI Llama)`, true);
+    return result(
+      'instant',
+      `Open-source requirement for ${parsed.task} → instant (Workers AI Llama)`,
+      true,
+    );
   }
 
   // Default: task-category routing table
@@ -145,11 +153,7 @@ export function routeLlmTier(input: TierRoutingInput): TierRoutingResult {
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-function result(
-  tier: LlmTier,
-  reason: string,
-  downgradable: boolean,
-): TierRoutingResult {
+function result(tier: LlmTier, reason: string, downgradable: boolean): TierRoutingResult {
   const fallback: LlmTier =
     tier === 'premium' ? 'standard' : tier === 'standard' ? 'instant' : 'instant';
 
