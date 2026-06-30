@@ -552,11 +552,14 @@ export async function meterBuildComputeMinutes(
       metadata: opts.buildVersion ? { build_version: opts.buildVersion } : undefined,
     });
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn', service: 'usage_metering',
-      message: 'meterBuildComputeMinutes failed',
-      error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'meterBuildComputeMinutes failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 
