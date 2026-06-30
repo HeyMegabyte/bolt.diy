@@ -292,7 +292,7 @@ describe('LagoProvider swap compatibility', () => {
   });
 
   it('all providers accept the same UsageEvent shape', () => {
-    const event ={
+    const event = {
       id: crypto.randomUUID(),
       idempotencyKey: crypto.randomUUID(),
       customerId: 'cus_x',

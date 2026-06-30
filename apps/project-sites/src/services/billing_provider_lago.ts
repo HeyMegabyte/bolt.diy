@@ -89,12 +89,15 @@ export class LagoProvider implements BillingMeteringProvider {
         }),
       });
     } catch (err) {
-      console.warn(JSON.stringify({
-        level: 'warn', service: 'billing_provider_lago',
-        message: 'customer sync failed',
-        customerId: customer.customerId,
-        error: err instanceof Error ? err.message : String(err),
-      }));
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'billing_provider_lago',
+          message: 'customer sync failed',
+          customerId: customer.customerId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
     }
   }
 
@@ -131,10 +134,15 @@ export class LagoProvider implements BillingMeteringProvider {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.includes('UNIQUE') && !msg.includes('duplicate')) {
-        console.warn(JSON.stringify({
-          level: 'warn', service: 'billing_provider_lago',
-          message: 'failed to persist usage event', eventId: event.id, error: msg,
-        }));
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'billing_provider_lago',
+            message: 'failed to persist usage event',
+            eventId: event.id,
+            error: msg,
+          }),
+        );
       }
     }
   }
@@ -144,10 +152,14 @@ export class LagoProvider implements BillingMeteringProvider {
 
     const code = LAGO_BILLABLE_CODE[event.metric];
     if (!code) {
-      console.warn(JSON.stringify({
-        level: 'warn', service: 'billing_provider_lago',
-        message: 'no Lago billable code for metric', metric: event.metric,
-      }));
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'billing_provider_lago',
+          message: 'no Lago billable code for metric',
+          metric: event.metric,
+        }),
+      );
       return;
     }
 
@@ -180,14 +192,24 @@ export class LagoProvider implements BillingMeteringProvider {
       } else {
         const body = await res.text();
         await this.#markDelivered(event.id, 'failed', body);
-        console.warn(JSON.stringify({
-          level: 'warn', service: 'billing_provider_lago',
-          message: 'Lago event failed', eventId: event.id, metric: event.metric,
-          status: res.status, body,
-        }));
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'billing_provider_lago',
+            message: 'Lago event failed',
+            eventId: event.id,
+            metric: event.metric,
+            status: res.status,
+            body,
+          }),
+        );
       }
     } catch (err) {
-      await this.#markDelivered(event.id, 'failed', err instanceof Error ? err.message : String(err));
+      await this.#markDelivered(
+        event.id,
+        'failed',
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 
@@ -195,8 +217,12 @@ export class LagoProvider implements BillingMeteringProvider {
     try {
       await this.#env.DB.prepare(
         `UPDATE usage_events SET delivery_status = ?, last_delivery_attempt_at = ?, last_delivery_error = ? WHERE id = ?`,
-      ).bind(status, new Date().toISOString(), error ?? null, eventId).run();
-    } catch { /* best-effort */ }
+      )
+        .bind(status, new Date().toISOString(), error ?? null, eventId)
+        .run();
+    } catch {
+      /* best-effort */
+    }
   }
 }
 
@@ -209,13 +235,30 @@ export async function getUsageSummaryFromLedger(
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  if (input.orgId) { conditions.push('org_id = ?'); params.push(input.orgId); }
-  if (input.customerId) { conditions.push('customer_id = ?'); params.push(input.customerId); }
-  if (input.siteId) { conditions.push('site_id = ?'); params.push(input.siteId); }
-  if (input.appId) { conditions.push('app_id = ?'); params.push(input.appId); }
-  if (input.metric) { conditions.push('metric = ?'); params.push(input.metric); }
-  conditions.push('occurred_at >= ?'); params.push(input.periodStart);
-  conditions.push('occurred_at < ?'); params.push(input.periodEnd);
+  if (input.orgId) {
+    conditions.push('org_id = ?');
+    params.push(input.orgId);
+  }
+  if (input.customerId) {
+    conditions.push('customer_id = ?');
+    params.push(input.customerId);
+  }
+  if (input.siteId) {
+    conditions.push('site_id = ?');
+    params.push(input.siteId);
+  }
+  if (input.appId) {
+    conditions.push('app_id = ?');
+    params.push(input.appId);
+  }
+  if (input.metric) {
+    conditions.push('metric = ?');
+    params.push(input.metric);
+  }
+  conditions.push('occurred_at >= ?');
+  params.push(input.periodStart);
+  conditions.push('occurred_at < ?');
+  params.push(input.periodEnd);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 

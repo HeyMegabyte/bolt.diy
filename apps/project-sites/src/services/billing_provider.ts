@@ -218,9 +218,7 @@ export function resolveBillingProviderId(env: Env): BillingProviderId {
   const raw = env.BILLING_PROVIDER ?? 'lago';
   if (raw === 'lago' || raw === 'noop') return raw;
   if (raw === 'stripe_meters' || raw === 'openmeter' || raw === 'metronome') {
-    throw new Error(
-      `BILLING_PROVIDER=${raw} is no longer supported. Use lago.`,
-    );
+    throw new Error(`BILLING_PROVIDER=${raw} is no longer supported. Use lago.`);
   }
   throw new Error(`Unknown BILLING_PROVIDER: ${raw}. Expected lago | noop.`);
 }
