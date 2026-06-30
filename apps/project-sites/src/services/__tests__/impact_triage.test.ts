@@ -1,4 +1,9 @@
-import { type ErrorSignals, classifyImpactLevel, priorityForScore, triageError } from '../impact_triage';
+import {
+  type ErrorSignals,
+  classifyImpactLevel,
+  priorityForScore,
+  triageError,
+} from '../impact_triage';
 
 describe('classifyImpactLevel', () => {
   it('0 → none', () => expect(classifyImpactLevel(0)).toBe('none'));
@@ -32,7 +37,12 @@ describe('triageError', () => {
   });
 
   it('scores revenue surface as high', () => {
-    const r = triageError({ affectedUsers: 1, occurrenceCount: 1, isRevenueSurface: true, errorRate: 0 });
+    const r = triageError({
+      affectedUsers: 1,
+      occurrenceCount: 1,
+      isRevenueSurface: true,
+      errorRate: 0,
+    });
     expect(r.score).toBeGreaterThanOrEqual(25);
     expect(r.factors).toContain('Revenue surface affected');
   });

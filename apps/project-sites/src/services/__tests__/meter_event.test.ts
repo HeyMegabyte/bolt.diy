@@ -3,7 +3,12 @@
  * @description Tests for LOOP-BILL-002 metering event schema + producer helper.
  */
 
-import { isKnownMeterEvent, listMeterEventNames, meterEvent, meterEventBatch } from '../meter_event';
+import {
+  isKnownMeterEvent,
+  listMeterEventNames,
+  meterEvent,
+  meterEventBatch,
+} from '../meter_event';
 
 const TS = 1719705600;
 const IDEMPOTENCY_KEY = 'site_build:1719705600:abc123';
@@ -46,26 +51,19 @@ describe('meterEvent', () => {
   });
 
   it('rejects negative values', () => {
-    expect(() =>
-      meterEvent('site_build', IDEMPOTENCY_KEY, TS, { value: -1 }),
-    ).toThrow();
+    expect(() => meterEvent('site_build', IDEMPOTENCY_KEY, TS, { value: -1 })).toThrow();
   });
 
   it('rejects zero values', () => {
-    expect(() =>
-      meterEvent('site_build', IDEMPOTENCY_KEY, TS, { value: 0 }),
-    ).toThrow();
+    expect(() => meterEvent('site_build', IDEMPOTENCY_KEY, TS, { value: 0 })).toThrow();
   });
 });
 
 describe('meterEventBatch', () => {
   it('constructs a batch of events', () => {
-    const events = meterEventBatch(
-      ['site_build', 'site_publish', 'site_visit'],
-      'batch_001',
-      TS,
-      { customerId: 'cus_xyz' },
-    );
+    const events = meterEventBatch(['site_build', 'site_publish', 'site_visit'], 'batch_001', TS, {
+      customerId: 'cus_xyz',
+    });
     expect(events).toHaveLength(3);
     expect(events[0].event_name).toBe('site_build');
     expect(events[0].idempotency_key).toBe('batch_001:site_build');
