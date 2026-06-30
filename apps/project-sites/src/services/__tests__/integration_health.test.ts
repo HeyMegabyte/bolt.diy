@@ -1,18 +1,31 @@
 import { aggregateConnectionHealth, scoreConnectionHealth } from '../integration_health';
 
-const HEALTHY = { provider: 'stripe', lastStatus: 200, tokenValid: true, lastCallOk: true, daysSinceLastUse: 1, isConfigured: true };
+const HEALTHY = {
+  provider: 'stripe',
+  lastStatus: 200,
+  tokenValid: true,
+  lastCallOk: true,
+  daysSinceLastUse: 1,
+  isConfigured: true,
+};
 const UNCONFIGURED = { ...HEALTHY, isConfigured: false };
 const TOKEN_BAD = { ...HEALTHY, tokenValid: false };
 const FAILING_CALL = { ...HEALTHY, lastCallOk: false, lastStatus: 500 };
 const STALE = { ...HEALTHY, daysSinceLastUse: 60 };
 
 describe('scoreConnectionHealth', () => {
-  it('healthy when all signals green', () => expect(scoreConnectionHealth(HEALTHY)).toBe('healthy'));
-  it('unknown when not configured', () => expect(scoreConnectionHealth(UNCONFIGURED)).toBe('unknown'));
-  it('failing when token is invalid', () => expect(scoreConnectionHealth(TOKEN_BAD)).toBe('failing'));
-  it('failing when last call failed with 5xx', () => expect(scoreConnectionHealth(FAILING_CALL)).toBe('failing'));
-  it('degraded for 4xx status', () => expect(scoreConnectionHealth({ ...HEALTHY, lastStatus: 403 })).toBe('degraded'));
-  it('degraded for 5xx status with successful call', () => expect(scoreConnectionHealth({ ...HEALTHY, lastStatus: 503 })).toBe('degraded'));
+  it('healthy when all signals green', () =>
+    expect(scoreConnectionHealth(HEALTHY)).toBe('healthy'));
+  it('unknown when not configured', () =>
+    expect(scoreConnectionHealth(UNCONFIGURED)).toBe('unknown'));
+  it('failing when token is invalid', () =>
+    expect(scoreConnectionHealth(TOKEN_BAD)).toBe('failing'));
+  it('failing when last call failed with 5xx', () =>
+    expect(scoreConnectionHealth(FAILING_CALL)).toBe('failing'));
+  it('degraded for 4xx status', () =>
+    expect(scoreConnectionHealth({ ...HEALTHY, lastStatus: 403 })).toBe('degraded'));
+  it('degraded for 5xx status with successful call', () =>
+    expect(scoreConnectionHealth({ ...HEALTHY, lastStatus: 503 })).toBe('degraded'));
   it('degraded when stale (>30 days)', () => expect(scoreConnectionHealth(STALE)).toBe('degraded'));
 });
 

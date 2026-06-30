@@ -11,7 +11,13 @@ import { z } from 'zod';
 
 // ── Connection status ──────────────────────────────────────────────────────
 
-export const ConnectionHealth = z.enum(['healthy', 'degraded', 'failing', 'disconnected', 'unknown']);
+export const ConnectionHealth = z.enum([
+  'healthy',
+  'degraded',
+  'failing',
+  'disconnected',
+  'unknown',
+]);
 export type ConnectionHealth = z.infer<typeof ConnectionHealth>;
 
 // ── Connection signal ──────────────────────────────────────────────────────
@@ -59,11 +65,17 @@ export function scoreConnectionHealth(signal: ConnectionSignal): ConnectionHealt
  * Aggregates health across all connections. Returns counts per status
  * and an overall platform health level.
  */
-export function aggregateConnectionHealth(
-  connections: ConnectionSignal[],
-): { counts: Record<ConnectionHealth, number>; overall: ConnectionHealth; total: number } {
+export function aggregateConnectionHealth(connections: ConnectionSignal[]): {
+  counts: Record<ConnectionHealth, number>;
+  overall: ConnectionHealth;
+  total: number;
+} {
   const counts: Record<ConnectionHealth, number> = {
-    healthy: 0, degraded: 0, failing: 0, disconnected: 0, unknown: 0,
+    healthy: 0,
+    degraded: 0,
+    failing: 0,
+    disconnected: 0,
+    unknown: 0,
   };
 
   for (const c of connections) {
