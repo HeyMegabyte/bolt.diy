@@ -3,32 +3,31 @@
 Self-hosted [Unkey](https://github.com/unkeyed/unkey) (API key management, AGPL) for projectsites
 at **api.projectsites.dev**, on **Cloudflare Workers Containers** (cloudflare-lock-in-is-leverage).
 AGPL stays isolated behind the HTTP boundary — own container/subdomain, zero code import
-(agpl-isolation-via-http-boundary). One published Go-binary image; MySQL + Redis only.
+(agpl-isolation-via-http-boundary). One published Go-binary image; Postgres + Redis only.
 
 ## Data plane (provisioned 2026-06-29)
 
 | Service | Provider | Resource | Secret (get-secret) |
 |---|---|---|---|
-| MySQL | TiDB Serverless | cluster `unkey` `10078693785967806120` (eu-central-1), db `unkey` | `UNKEY_DATABASE_PRIMARY` (Go DSN, `…?parseTime=true&tls=true`) |
+| Postgres | Neon | Listmonk project `jolly-pine-24431114` (us-east-1), db `projectsites_unkey` | `UNKEY_DATABASE_PRIMARY` (Postgres connection string, `?sslmode=require`) |
 | Redis | Upstash | `unkey` (eu-central-1, TLS) | `UNKEY_REDIS_URL` (rediss://) |
 | Root key | self-gen | `openssl rand -hex 32` | `UNKEY_ROOT_KEY` |
 
-ClickHouse (analytics) + Vault (encryption-at-rest) are **optional** and omitted for v1 — the
-Railway template + `svc/api/config.go` confirm MySQL+Redis are the only required deps.
+ClickHouse (analytics) + Vault (encryption-at-rest) are **optional** and omitted for v1 — Postgres+Redis are the only required deps.
 
 ## Architecture (one Worker, ONE Container DO)
 
 ```
 api.projectsites.dev ─▶ Worker projectsites-unkey (worker.ts) ─▶ Unkey container (:7070)
                                                                   │ ENTRYPOINT /unkey runs the
-                        cron */3 ─▶ scheduled() /v2/liveness ─────┘ Go API; talks to TiDB + Upstash
+                        cron */3 ─▶ scheduled() /v2/liveness ─────┘ Go API; talks to Neon + Upstash
 ```
 
 - `image = unkeyed/unkey:v2.0.49` (Dockerfile pins `--platform=linux/amd64` per cf-containers-native-amd64-only).
 - Server binds `UNKEY_HTTP_PORT` (default 7070) on 0.0.0.0; CF health-checks 7070.
 - **Routing:** explicit `api.projectsites.dev/*` route BEATS the main worker's `*.projectsites.dev/*`
   wildcard (custom_domain would lose — validated mail.*/pm.* pattern). DNS via proxied `*` AAAA + wildcard cert.
-- Migrations run on the container's first boot against the TiDB `unkey` db (db created 2026-06-29).
+- Migrations run on the container's first boot against the Neon `projectsites_unkey` db (db created 2026-06-30).
 
 ## Deploy
 
@@ -45,7 +44,7 @@ has Docker) builds the image + deploys + sets secrets from GitHub repo secrets +
 ## Status — ✅ LIVE (2026-06-29)
 
 `GET https://api.projectsites.dev/v2/liveness` → 200 `{"data":{"message":"we're cooking"}}` (8/8).
-Backed by TiDB MySQL + Upstash Redis. WAF skip for `api.projectsites.dev` added to the zone skip rule.
+Backed by Neon Postgres + Upstash Redis. WAF skip for `api.projectsites.dev` added to the zone skip rule.
 
 ### Resolved gotchas (the 7-iteration arc)
 - **Image is on GHCR, not Docker Hub** (`docker.io/unkeyed/unkey` 401s) → `ghcr.io/unkeyed/unkey:v2.0.49`.
@@ -58,4 +57,4 @@ Backed by TiDB MySQL + Upstash Redis. WAF skip for `api.projectsites.dev` added 
 - **Root-key bootstrap**: `UNKEY_ROOT_KEY` is not auto-seeded. `POST /v2/apis.createApi` with it → 500
   "could not load the requested key" (schema migrated, no workspace/root-key rows). To ISSUE keys,
   bootstrap a workspace + root key (Unkey dashboard, or a DB seed). The API itself is fully up.
-- New virtual MySQL per app comes from TiDB Serverless (tidb-serverless-default-mysql memory).
+- New Postgres database per app comes from the shared Neon project (neon-database-conservation memory).

@@ -7,14 +7,14 @@ import { Container, getContainer } from '@cloudflare/containers';
  * ONE published Unkey Go-binary container (`unkeyed/unkey`) runs the API server behind this
  * Worker (cloudflare-lock-in-is-leverage — CF Containers, not Fly). AGPL stays isolated behind
  * the HTTP boundary (own container/subdomain, zero code import — agpl-isolation-via-http-boundary).
- * The container talks to the EXTERNAL data plane: TiDB Serverless (MySQL `unkey`) + Upstash
+ * The container talks to the EXTERNAL data plane: Neon Postgres (`projectsites_unkey`) + Upstash
  * (Redis). ClickHouse (analytics) + Vault (encryption-at-rest) are optional and omitted for v1.
  * The API has no idle daemon to keep alive, but a `scheduled` cron re-pokes it so the FIRST
  * key-verification after idle doesn't pay a container cold-start (Unkey targets <40ms).
  */
 interface Env {
   UNKEY: DurableObjectNamespace<Unkey>;
-  /** Go MySQL DSN → TiDB `unkey` db (`user:pw@tcp(host:4000)/unkey?parseTime=true&tls=true`). */
+  /** Postgres connection string → Neon `projectsites_unkey` db (`postgresql://user:pw@host/projectsites_unkey?sslmode=require`). */
   UNKEY_DATABASE_PRIMARY: string;
   /** Upstash Redis (rediss://default:<pw>@<host>:6379) — rate-limit counters + usage. */
   UNKEY_REDIS_URL: string;
@@ -46,7 +46,7 @@ export class Unkey extends Container<Env> {
   override async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
       ports: 7070,
-      // First boot runs DB migrations against TiDB — give it a generous window.
+      // First boot runs DB migrations against Neon — give it a generous window.
       cancellationOptions: { portReadyTimeoutMS: 180_000 },
     });
     return this.containerFetch(request);
@@ -89,7 +89,7 @@ a{color:#00e5ff;text-decoration:none}a:hover{text-decoration:underline}
 <div class="eyebrow">ProjectSites · API Gateway</div>
 <h1>API Gateway</h1>
 <p class="sub">API key management, rate limiting, and usage tracking for the ProjectSites platform and its generated sites. Powered by Unkey.</p>
-<div class="card"><h2>Powered by</h2><p>Unkey (<code class="host">unkeyed/unkey</code>) — open-source API key management. Verifies keys in <40ms against TiDB Serverless + Upstash Redis.</p></div>
+<div class="card"><h2>Powered by</h2><p>Unkey (<code class="host">unkeyed/unkey</code>) — open-source API key management. Verifies keys in <40ms against Neon Postgres + Upstash Redis.</p></div>
 <div class="card"><h2>Endpoints</h2><p><code class="host">POST /v2/keys.create</code> · <code class="host">GET /v2/keys.verify</code> · <code class="host">PUT /v2/keys.update</code> · <code class="host">DELETE /v2/keys.delete</code> · <code class="host">GET /v2/liveness</code></p></div>
 <div class="card"><h2>Status</h2><p>The Unkey container is provisioning. This page will automatically serve the Unkey API once the container is built and running.</p></div>
 <p class="foot">&larr; <a href="https://projectsites.dev/">projectsites.dev</a> · <a href="https://unkey.dev">unkey.dev</a></p>
