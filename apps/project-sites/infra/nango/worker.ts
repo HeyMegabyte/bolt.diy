@@ -1,14 +1,5 @@
 import { Container, getContainer } from '@cloudflare/containers';
 
-/**
- * integrations.projectsites.dev — Nango (unified OAuth/integrations) on CF
- * Workers Containers. Stateless container; data in Neon Postgres + Upstash Redis.
- * Self-hosted OSS image (nangohq/nango-server:hosted). Server on :8080.
- *
- * Pattern mirrors infra/listmonk: extend Container, override fetch() to call
- * startAndWaitForPorts() before containerFetch(), and export a thin default
- * handler that delegates to the DO.
- */
 interface Env {
   NANGO_CONTAINER: DurableObjectNamespace<Nango>;
   NANGO_DATABASE_URL: string;
@@ -45,13 +36,10 @@ export class Nango extends Container<Env> {
     };
   }
 
-  /** Start the container + wait for port 8080, then proxy the request. */
   async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
       ports: 8080,
-      // First boot runs DB migrations against Neon — Nango takes ~20s.
-      // Cold start (scale-to-zero wake) takes ~15s. Give it 90s to be safe.
-      cancellationOptions: { portReadyTimeoutMS: 90_000 },
+      cancellationOptions: { portReadyTimeoutMS: 120_000 },
     });
     return this.containerFetch(request);
   }
@@ -63,36 +51,16 @@ export class Nango extends Container<Env> {
   }
 }
 
-/** Branded 200 page shown when the DO binding is unavailable (pre-deploy). */
-function landingPage(): Response {
-  return new Response(
-    `<!DOCTYPE html><html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Integrations · ProjectSites</title>
-<meta name="description" content="OAuth connection hub for ProjectSites — third-party integrations powered by Nango.">
-<meta name="color-scheme" content="dark">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{min-height:100vh;background:#060610;color:#f4f4ff;font-family:'Space Grotesk',system-ui,sans-serif;line-height:1.6;display:flex;align-items:center;justify-content:center;padding:40px 20px;
-  background-image:radial-gradient(60% 50% at 50% 0%,rgba(0,229,255,.10),transparent 70%)}
-.wrap{max-width:640px;width:100%}
-.status{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.7rem;
-  letter-spacing:.18em;text-transform:uppercase;color:#f59e0b;margin-bottom:18px}
-.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px #f59e0b;animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-a{color:#00e5ff;text-decoration:none}
-</style></head><body><div class="wrap">
-<div class="status"><span class="dot"></span>Provisioning</div>
-<h1>Integrations</h1>
-<p>The Nango container is starting. Dashboard will load automatically once ready.</p>
-</div></body></html>`,
-    { status: 200, headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' } },
-  );
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (!env.NANGO_CONTAINER) return landingPage();
+    if (!env.NANGO_CONTAINER) {
+      return new Response(
+        `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="color-scheme" content="dark"><title>Integrations · ProjectSites</title>
+<style>body{min-height:100vh;background:#060610;color:#f4f4ff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center}div{text-align:center}h1{font-size:2rem;margin-bottom:.5rem}p{color:#94a3b8}a{color:#00e5ff}
+</style></head><body><div><h1>Integrations</h1><p>Nango container is provisioning.</p></div></body></html>`,
+        { status: 200, headers: { 'Content-Type': 'text/html;charset=utf-8' } },
+      );
+    }
     const container = getContainer(env.NANGO_CONTAINER, 'singleton');
     return container.fetch(request);
   },

@@ -419,15 +419,16 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'oauth-nango',
-    name: 'OAuth connection layer — homegrown, Nango deferred (§46/ADR-0046)',
+    name: 'OAuth connection layer — Nango (PERMANENT per Brian directive 2026-06-29)',
     category: 'auth',
-    runtime: 'library',
-    ownerPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',
-    adapterPackage: 'apps/project-sites/src/routes/social_oauth.ts',
-    status: 'integrated',
+    runtime: 'cloudflare-workers-container',
+    domain: 'integrations.projectsites.dev',
+    ownerPackage: 'apps/project-sites/infra/nango/',
+    adapterPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',
+    status: 'provisioned',
     access: 'customer-authenticated',
     notes:
-      'Nango DEFERRED per ADR-0046 — the repo already owns the OAuth connection lifecycle (authorize→callback→token-exchange→AES-GCM-encrypted upsert→refresh) across many providers via routes/mcp_oauth.ts (per-site MCP, mcp_connections) + routes/social_oauth.ts (social platforms), with PKCE (mcp_pkce.ts) + paste-key fallback when a provider client_id is unset. No clean single call-site to wrap (these are full Hono route groups w/ provider adapters), so NO port built now — a premature OAuthConnectionProvider abstraction would be indirection over two route groups. A managed-Nango adapter slots behind a future port gated on NANGO_SECRET_KEY only if a real need arises. §46.',
+      'Nango is the PERMANENT OAuth/auth/proxy layer for ALL ProjectSites-owned customer OAuth connections at integrations.projectsites.dev on CF Workers Containers. It is the canonical token vault, refresh layer, and authenticated proxy. OAuth flows: authorize→callback→token-exchange→AES-GCM-encrypted upsert→refresh via Nango. PKCE + paste-key fallback when a provider client_id is unset. Capability Router priority: Native adapter → Composio (execution only) → Pipedream Connect (execution/workflow/long-tail fallback). Composio/Pipedream are NEVER the canonical OAuth owner. 10 non-negotiable auth rules codified in LOOP_LEDGER § integrations.projectsites.dev.',
   },
   {
     id: 'crawl-deepcrawl',

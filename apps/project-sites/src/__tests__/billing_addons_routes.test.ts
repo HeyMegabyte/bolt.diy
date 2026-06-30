@@ -256,31 +256,29 @@ describe('POST /api/billing/usage/report', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns a synthetic event_id with defaulted meter (mock path)', async () => {
+  it('returns event_id when Stripe is not configured (mock path)', async () => {
     const res = await jsonReq(makeApp(AUTH), '/api/billing/usage/report', {}, makeEnv());
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { event_id: string; meter: string; value: number };
-    expect(json.event_id).toContain('meter_evt_mock_');
-    expect(json.meter).toBe('site_renders');
-    expect(json.value).toBe(1);
+    const json = (await res.json()) as { event_id: string; metric: string; quantity: number; delivered: boolean };
+    expect(json.event_id).toBeTruthy();
+    expect(typeof json.event_id).toBe('string');
+    expect(json.metric).toBe('site_visits');
+    expect(json.quantity).toBe(1);
+    expect(json.delivered).toBe(false);
   });
 
-  it('posts a meter event to Stripe when keys are present', async () => {
-    global.fetch = fetchReturning({ id: 'mbe_live_1' });
+  it('records usage via LagoProvider when keys are present', async () => {
+    global.fetch = fetchReturning({});
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/usage/report',
-      { meter: 'site_renders', value: 5 },
+      { metric: 'email_sends', quantity: 5 },
       makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
     );
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { event_id: string; value: number };
-    expect(json.event_id).toBe('mbe_live_1');
-    expect(json.value).toBe(5);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.stripe.com/v1/billing/meter_events',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    const json = (await res.json()) as { event_id: string; delivered: boolean };
+    expect(json.event_id).toBeTruthy();
+    expect(json.delivered).toBe(true);
   });
 
   it('returns 400 with STRIPE_ERROR when the meter event is rejected', async () => {

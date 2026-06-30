@@ -1,34 +1,24 @@
 app = "projectsites-clickhouse"
-primary_region = "iad"
 
 [build]
-  dockerfile = "Dockerfile"
+  image = "clickhouse/clickhouse-server:24.12.6.70-alpine"
 
-[env]
-  CLICKHOUSE_DB = "langfuse"
-  CLICKHOUSE_USER = "langfuse"
-  CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT = "1"
-
-[mounts]
+[[mounts]]
   source = "clickhouse_data"
   destination = "/var/lib/clickhouse"
+  size_gb = 50
 
-[[services]]
-  protocol = "tcp"
+[env]
+  CLICKHOUSE_USER = "dittofeed"
+  CLICKHOUSE_PASSWORD = "54e3be7cd78da23d49b90b8c3ca30f61"
+  CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT = "1"
+
+[http_service]
   internal_port = 8123
-  [[services.ports]]
-    port = 8123
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 200
-    soft_limit = 150
+  force_https = false
 
-[[services]]
-  protocol = "tcp"
-  internal_port = 9000
-  [[services.ports]]
-    port = 9000
-
-[[vm]]
-  size = "shared-cpu-2x"
-  memory = "2048"
+[[http_service.checks]]
+  interval = "15s"
+  timeout = "5s"
+  method = "GET"
+  path = "/ping"
