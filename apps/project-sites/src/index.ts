@@ -743,6 +743,37 @@ app.get('/', async (c, next) => {
   return next();
 });
 
+// ─── appsmith.projectsites.dev — proxy to Railway ────────────
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `appsmith.${DOMAINS.SITES_BASE}`) return next();
+
+  const url = new URL(c.req.url);
+  const target = `https://projectsitesdev-production.up.railway.app${url.pathname}${url.search}`;
+
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('X-Forwarded-Host', 'appsmith.projectsites.dev');
+  headers.set('X-Forwarded-Proto', 'https');
+  headers.delete('host');
+  headers.set('Host', 'projectsitesdev-production.up.railway.app');
+
+  // Disable CF cache for Appsmith HTML/API/WebSocket paths
+  const resp = await fetch(target, {
+    method: c.req.method,
+    headers,
+    body: c.req.method !== 'GET' && c.req.method !== 'HEAD'
+      ? await c.req.raw.clone().arrayBuffer()
+      : undefined,
+    redirect: 'manual',
+    cf: { cacheTtl: 0 },
+  });
+
+  const out = new Response(resp.body, resp);
+  out.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  out.headers.set('X-Appsmith-Proxy', 'cf-worker');
+  return out;
+});
+
 // ─── docs.projectsites.dev — Scalar API Reference ──────────
 app.all('*', async (c, next) => {
   const hostname = (c.req.header('host') ?? '').toLowerCase();
