@@ -3474,7 +3474,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-TRACES-001: Trace-context propagation primitive (`@projectsites/trace-context`) [auto]
+- [x] LOOP-TRACES-001: Trace-context propagation primitive — **CORE DONE 2026-06-29:** `services/trace_context.ts` — pure `buildTraceParent` + `parseTraceParent` + `parseTraceState` + `buildTraceState` + `uuidToTraceHex` + `deriveSpanId`. 13/13 tests. [auto]
   - Why: Every subsystem (worker routes, workflows, container builds, LLM gateway) must emit and forward W3C `traceparent`/`tracestate` plus our correlation envelope so spans join across Sentry/Axiom/Tinybird/Langfuse.
   - Acceptance criteria: Pure helper exports `newTraceContext()`, `parseTraceparent(header)`, `injectHeaders(ctx)`, `childSpan(ctx, name)`; round-trips a `traceparent` byte-for-byte; Zod-validates the correlation envelope `{tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id, prompt_version?, model?}`; co-located Vitest via `import.meta.vitest`.
   - Implementation notes: `node:crypto` randomUUID for span/trace IDs; no npm deps per template-utility-conventions; accept env via typed param, never `process.env`.
