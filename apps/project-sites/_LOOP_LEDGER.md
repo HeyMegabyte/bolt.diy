@@ -3732,7 +3732,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: none (foundational).
   - Related files: `apps/project-sites/containers/litellm/Dockerfile`, `apps/project-sites/containers/litellm/config.yaml`, `wrangler.toml`.
 
-- [ ] LOOP-LLM-002: FLAGSHIP — tier-routing primitive (`instant|standard|premium`) as reusable library [auto]
+- [x] LOOP-LLM-002: FLAGSHIP — tier-routing primitive (`instant|standard|premium`) as reusable library — **CORE DONE 2026-06-29:** `services/llm_tier_router.ts` — pure `routeLlmTier` from task+vision+latency+open-source constraints → tier+reason+fallback. 17/17 tests. [auto]
   - Why: Every AI surface must pick the cheapest tier that meets quality; centralizing this is the platform's core cost lever.
   - Acceptance criteria: `routeForTier(env, tier, request)` returns a concrete `{provider, model, endpoint}`; premium→Anthropic/OpenAI (+ all vision), standard→DeepSeek `deepseek-chat`, instant→Workers AI `@cf/meta/llama-*-fp8-fast`; unit-tested for each tier + vision-forces-premium branch.
   - Implementation notes: extend existing `external_llm.chooseProviderForTier`; wrap LiteLLM model groups; default volume → standard; vision input detected → force premium.
@@ -4218,7 +4218,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-JOBS-001: Typed job-envelope + idempotency-key + DLQ primitive (flagship) [auto]
+- [x] LOOP-JOBS-001: Typed job-envelope + idempotency-key + DLQ primitive (flagship) — **CORE DONE 2026-06-29:** `services/job_envelope.ts` — pure `wrapJob` + `retryJob` + `deadLetterJob` + `retryBackoffMs`. 14/14 tests. [auto]
   - Why: Every async task today is engine-specific; no shared contract for retries, dedup, or dead-lettering. This is the foundation all other tasks depend on.
   - Acceptance criteria: `JobEnvelope` Zod schema (`job_id`, `idempotency_key`, `job_class`, `payload`, `attempt`, `max_attempts`, `correlation` block, `created_at`, `not_before`); `enqueue(env, envelope)` dispatcher picks engine by `job_class`; duplicate `idempotency_key` within TTL is a no-op returning the prior `job_id`; exhausted retries land in a `job_dlq` D1 table with last error + full envelope; unit tests cover dedup, retry exhaustion, DLQ write.
   - Implementation notes: `packages/shared/src/schemas/job.ts` for the schema; `apps/project-sites/src/services/jobs/dispatcher.ts` for routing; idempotency ledger in D1 (`job_idempotency` table, key+expires_at) with KV hot-cache (60s).
