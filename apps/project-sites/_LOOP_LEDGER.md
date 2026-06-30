@@ -1219,7 +1219,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-001.
   - Related files: new `packages/shared/src/schemas/metering.ts`, `src/services/metering.ts`.
 
-- [ ] LOOP-BILL-003: Entitlements engine — plan→limits resolver with KV-cached live balances [auto]
+- [ ] LOOP-BILL-003: Entitlements engine — plan→limits resolver with KV-cached live balances [parked]
   - Why: Single source of truth for "what is this tenant allowed to do and how much is left"; reused by quota middleware, admin UI, and upgrade prompts.
   - Acceptance criteria: `getEntitlements(tenant_id)` returns `{meter: {limit, used, remaining, reset_at}}` for every meter; cache TTL 60s; cache invalidates on subscription change webhook.
   - Implementation notes: Plan definitions in D1 `plans` + `plan_entitlements`; usage read from ProjectSites D1 canonical ledger; merged + cached in KV. Per-tenant overrides table for custom deals.
@@ -1229,7 +1229,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-001, LOOP-BILL-002.
   - Related files: new `src/services/entitlements.ts`, `packages/shared/src/constants/ENTITLEMENTS.ts`.
 
-- [ ] LOOP-BILL-004: Quota-enforcement middleware `enforceQuota(meter, cost)` reusable across all workers [auto]
+- [ ] LOOP-BILL-004: Quota-enforcement middleware `enforceQuota(meter, cost)` reusable across all workers [parked]
   - Why: The compounding primitive — every expensive operation (AI gen, API call, email blast, browser run) gates through one Hono middleware that checks entitlements and 402s when over.
   - Acceptance criteria: requests over quota return RFC7807 402 with `code: quota_exceeded`, remaining=0, upgrade deep-link; under-quota requests pass and increment usage; integration test per meter.
   - Implementation notes: Hono middleware reads `getEntitlements`, decrements optimistically, emits `meterEvent` on success. Soft-limit (warn) vs hard-limit (block) configurable per meter (needs decision on which meters hard-block at launch).
@@ -1239,7 +1239,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-003.
   - Related files: new `src/middleware/enforce_quota.ts`, `src/types/env.ts`.
 
-- [ ] LOOP-BILL-005: Lago plan + billable metric sync — map each meter to a Stripe billing meter + usage record push [auto]
+- [ ] LOOP-BILL-005: Lago plan + billable metric sync — map each meter to a Stripe billing meter + usage record push [parked]
   - Why: Closes the loop from D1 canonical ledger usage to actual Stripe invoices using Stripe's native usage-based billing meters.
   - Acceptance criteria: nightly + on-demand job sends D1 canonical ledger period totals to Stripe billing meters via `/v1/billing/meter_events`; reconciliation report shows 0 drift; TEST mode.
   - Implementation notes: Use Stripe Billing Meters (not legacy usage records) keyed by `tenant_id` customer. Cron Trigger nightly + Workflow for backfill. Idempotent meter event names.
@@ -1249,7 +1249,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-001, LOOP-BILL-005 depends on Stripe customers existing (billing.ts).
   - Related files: `src/services/billing.ts`, new `src/workflows/meter-sync.ts`.
 
-- [ ] LOOP-BILL-006: Prepaid AI-credit wallet — purchase, debit, balance, expiry [auto]
+- [ ] LOOP-BILL-006: Prepaid AI-credit wallet — purchase, debit, balance, expiry [parked]
   - Why: Lets solo/SMB tenants buy credits up front (lower friction than metered post-pay) and is the prepay model for AI generation.
   - Acceptance criteria: tenant buys credits via Stripe Checkout (TEST), balance shows in admin, AI generation debits credits atomically, balance never goes negative, expired credits sweep on cron.
   - Implementation notes: Wallet ledger in D1 (append-only entries: `credit`, `debit`, `expire`); balance = sum, cached in DO for atomic debit. Credit packs priced (needs decision). Debit hooks into `enforceQuota` for `ai_tokens`.
@@ -1259,7 +1259,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-004.
   - Related files: new `src/services/wallet.ts`, `packages/shared/src/schemas/wallet.ts`.
 
-- [ ] LOOP-BILL-007: Plan catalog + checkout — monthly/annual tiers with entitlement bundles [auto]
+- [ ] LOOP-BILL-007: Plan catalog + checkout — monthly/annual tiers with entitlement bundles [parked]
   - Why: The core subscription surface; annual plans capture commitment and reduce churn.
   - Acceptance criteria: pricing page lists tiers; checkout creates Stripe subscription (TEST); annual toggle applies discount; on success entitlements provision within 5s of webhook.
   - Implementation notes: Tiers (Free/Starter/Pro/Agency — names+prices needs decision) defined in D1 `plans` with monthly+annual Stripe price ids. Annual discount % needs decision. Wire `checkout.session.completed` to entitlements provisioning.
@@ -1269,7 +1269,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-003, existing billing.ts checkout.
   - Related files: `src/services/billing.ts`, `src/routes/api.ts`, `packages/shared/src/constants/PRICING.ts`.
 
-- [ ] LOOP-BILL-008: Stripe Customer Portal deep-linking with feature-scoped return URLs [auto]
+- [ ] LOOP-BILL-008: Stripe Customer Portal deep-linking with feature-scoped return URLs [parked]
   - Why: Self-serve plan changes, payment-method updates, invoice history without building UI; reduces founder support load.
   - Acceptance criteria: `/admin/billing` "Manage" button opens portal session; portal config exposes plan switching + cancel + invoices; return URL lands back on the originating admin tab.
   - Implementation notes: Create portal configuration via Stripe API (allowed products, proration behavior). Pass `return_url` per entry point. Cancel flow triggers grace-period (LOOP-BILL-013).
@@ -1279,7 +1279,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-007.
   - Related files: `src/services/billing.ts`, frontend admin billing component.
 
-- [ ] LOOP-BILL-009: Usage rollup endpoints in Tinybird for the admin usage dashboard [auto]
+- [ ] LOOP-BILL-009: Usage rollup endpoints in Tinybird for the admin usage dashboard [parked]
   - Why: Fast per-tenant, per-meter time-series for the admin "Usage" screen and customer-facing usage bars without hammering the D1 canonical ledger.
   - Acceptance criteria: Tinybird pipe returns daily usage by meter for a tenant in <300ms; powers a stacked-area chart; matches D1 canonical ledger totals within 1%.
   - Implementation notes: Tinybird datasource fed from the same metering events; materialized rollup pipes per meter + per tenant. Reuse the `projectsites_events` ingestion pattern.
@@ -1289,7 +1289,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-002.
   - Related files: new `tinybird/usage_by_meter.pipe`, `src/routes/api.ts` usage proxy.
 
-- [ ] LOOP-BILL-010: Per-site profitability ledger — revenue vs cost-of-goods per site [auto]
+- [ ] LOOP-BILL-010: Per-site profitability ledger — revenue vs cost-of-goods per site [parked]
   - Why: Solo founder needs to know which generated sites make money vs burn it (AI, bandwidth, container minutes); drives pricing decisions.
   - Acceptance criteria: per-site row shows MRR allocation, metered usage cost, infra cost estimate, margin %; refreshes nightly; sortable in admin.
   - Implementation notes: Cost model in D1 (unit costs: per AI token, per email, per browser run, per GB R2/egress — needs decision on cost constants). Join usage (Tinybird) with revenue (Stripe) keyed by `site_id`. Margin = revenue − COGS.
@@ -1299,7 +1299,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-005, LOOP-BILL-009.
   - Related files: new `src/services/profitability.ts`, `src/workflows/margin-rollup.ts`.
 
-- [ ] LOOP-BILL-011: Admin margin dashboard — platform-wide P&L, gross margin, top cost drivers [auto]
+- [ ] LOOP-BILL-011: Admin margin dashboard — platform-wide P&L, gross margin, top cost drivers [parked]
   - Why: Single-screen financial health for the founder; surfaces blended margin and the meters eating profit.
   - Acceptance criteria: dashboard shows MRR, COGS, gross margin %, margin trend, top-5 cost-driving tenants/meters; date-range selectable; matches Stripe MRR.
   - Implementation notes: Aggregate LOOP-BILL-010 ledger; Tinybird endpoint for trend. Cyan/black admin styling per repo doctrine, `<app-rolling-counter>` for headline stats.
@@ -1309,7 +1309,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-010.
   - Related files: new admin `sections/margin-dashboard` component, `src/routes/api.ts`.
 
-- [ ] LOOP-BILL-012: Dunning engine — failed-payment retry schedule + email sequence [auto]
+- [ ] LOOP-BILL-012: Dunning engine — failed-payment retry schedule + email sequence [parked]
   - Why: Recover involuntary churn (expired cards) automatically; the highest-ROI billing feature for recurring revenue.
   - Acceptance criteria: on `invoice.payment_failed`, schedule retries (e.g. day 1/3/5/7 — needs decision), send escalating emails via Resend, downgrade to grace on final failure; idempotent.
   - Implementation notes: Use Stripe Smart Retries as primary; layer custom email sequence via Resend + Hookdeck-delivered webhook. State machine in D1 `dunning_runs`.
@@ -1319,7 +1319,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-007, LOOP-BILL-013.
   - Related files: `src/routes/webhooks.ts`, new `src/services/dunning.ts`.
 
-- [ ] LOOP-BILL-013: Grace period + soft-suspend state machine [auto]
+- [ ] LOOP-BILL-013: Grace period + soft-suspend state machine [parked]
   - Why: Don't hard-cut paying-then-lapsed customers; degrade gracefully and give a recovery window.
   - Acceptance criteria: lapsed subscription enters `grace` (full access, banner) → `suspended` (read-only, 402 on writes) → `cancelled`; transitions timed + reversible on payment; entitlements reflect each state.
   - Implementation notes: Subscription status column in D1 with `grace_until`; entitlements engine returns degraded limits per state. Grace length needs decision (e.g. 7 days).
@@ -1329,7 +1329,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-003.
   - Related files: new `src/services/subscription-state.ts`, `packages/shared/src/schemas/billing.ts`.
 
-- [ ] LOOP-BILL-014: Coupons + promo codes with Stripe Promotion Codes [auto]
+- [ ] LOOP-BILL-014: Coupons + promo codes with Stripe Promotion Codes [parked]
   - Why: Launch promos, founder-friend discounts, win-back offers without code changes.
   - Acceptance criteria: admin creates a coupon (percent/amount/duration), generates promo codes, applies at checkout; usage limits + expiry enforced by Stripe; admin sees redemption count.
   - Implementation notes: Thin wrapper over Stripe Coupons + Promotion Codes APIs; mirror redemption metadata to D1 for reporting. Restrict stacking (needs decision).
@@ -1339,7 +1339,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-007.
   - Related files: new `src/services/coupons.ts`, admin coupons section.
 
-- [ ] LOOP-BILL-015: Agency / reseller billing — parent account, sub-accounts, rolled-up invoice [auto]
+- [ ] LOOP-BILL-015: Agency / reseller billing — parent account, sub-accounts, rolled-up invoice [parked]
   - Why: Agencies managing many client sites want one invoice + seat-based pricing; unlocks the highest-value tier.
   - Acceptance criteria: an agency org owns N sub-orgs; usage aggregates to the parent; one consolidated Stripe invoice; per-sub-account usage breakdown visible.
   - Implementation notes: Org hierarchy in D1 (`parent_org_id`); entitlements resolve at parent for pooled meters, per-sub for seats. Agency pricing model needs decision (seat + pooled usage). Reuse RBAC middleware.
@@ -1349,7 +1349,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-005, LOOP-BILL-016.
   - Related files: `packages/shared/src/middleware/rbac`, new `src/services/agency-billing.ts`.
 
-- [ ] LOOP-BILL-016: CRM seat + Listmonk contact metering with seat-change proration [auto]
+- [ ] LOOP-BILL-016: CRM seat + Listmonk contact metering with seat-change proration [parked]
   - Why: Twenty CRM seats and Listmonk contact counts are recurring quantity-based charges; need accurate, prorated metering.
   - Acceptance criteria: adding/removing a CRM seat updates Stripe subscription quantity with proration; Listmonk contact count meters daily high-water-mark; both reflected in entitlements.
   - Implementation notes: Seats = Stripe licensed (quantity) price with proration; contacts = metered high-watermark via D1 canonical ledger `MAX` aggregation. Poll Twenty/Listmonk admin APIs daily or subscribe to their events.
@@ -1359,7 +1359,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-002, LOOP-BILL-005.
   - Related files: new `src/services/seat-billing.ts`, cron entries.
 
-- [ ] LOOP-BILL-017: Email-send + social-post + browser-run metering wired into product workers [auto]
+- [ ] LOOP-BILL-017: Email-send + social-post + browser-run metering wired into product workers [parked]
   - Why: Operationalizes metering for the three usage-heavy products by calling `meterEvent` + `enforceQuota` at the real call sites.
   - Acceptance criteria: each Resend send emits `email_sends`, each Postiz post emits `social_posts`, each browser-automation job emits `browser_runs`; over-quota blocks with 402; usage visible in dashboard.
   - Implementation notes: Insert `enforceQuota` before the action and `meterEvent` after success in mail/social/browser services. Free-tier allowances per meter (needs decision). Browser runs metered by run + duration tier.
@@ -1369,7 +1369,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-004.
   - Related files: `src/services/notifications.ts`, `src/services/postiz.ts` (if present), browser service.
 
-- [ ] LOOP-BILL-018: Usage anomaly detection — spike + cost-runaway alerts [auto]
+- [ ] LOOP-BILL-018: Usage anomaly detection — spike + cost-runaway alerts [parked]
   - Why: Catch a runaway AI loop, abuse, or a buggy site burning credits before it bankrupts margin; protects both tenant and platform.
   - Acceptance criteria: per-tenant per-meter baseline computed; a >Nx spike (needs decision on multiplier) triggers an Axiom alert + optional auto-throttle + tenant email; false-positive rate tracked.
   - Implementation notes: Tinybird pipe computes rolling baseline + z-score; cron evaluates; breach → notification + optional `enforceQuota` tighten. Auto-throttle behind a flag (default off).
@@ -1379,7 +1379,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-009.
   - Related files: new `tinybird/usage_anomaly.pipe`, `src/services/anomaly.ts`.
 
-- [ ] LOOP-BILL-019: App add-ons marketplace billing — one-time + recurring per-site add-ons [auto]
+- [ ] LOOP-BILL-019: App add-ons marketplace billing — one-time + recurring per-site add-ons [parked]
   - Why: Monetize optional capabilities (extra storage, premium templates, voice, custom domain) as à-la-carte add-ons on top of base plans.
   - Acceptance criteria: add-on catalog in admin; tenant purchases per-site add-on via Checkout (TEST); add-on grants an entitlement override; removable with proration.
   - Implementation notes: Add-ons = Stripe prices attached as subscription items or one-time; each maps to an entitlement key in the overrides table. Add-on pricing needs decision.
@@ -1389,7 +1389,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-003, LOOP-BILL-007.
   - Related files: new `src/services/addons.ts`, admin add-ons section.
 
-- [ ] LOOP-BILL-020: Plan-limit + quota live UI — usage bars, "X of Y used", upgrade nudges [auto]
+- [ ] LOOP-BILL-020: Plan-limit + quota live UI — usage bars, "X of Y used", upgrade nudges [parked]
   - Why: Turns invisible quotas into a conversion surface; users see they're near a limit and self-serve upgrade (Extra-Mile: empty space → upgrade CTA).
   - Acceptance criteria: admin shows per-meter progress bars from entitlements; ≥80% shows amber + upgrade link; 100% shows blocking state with deep-link to checkout; bars update on action.
   - Implementation notes: Read `getEntitlements`; reusable `<usage-meter>` component (cyan/black). Upgrade CTA deep-links to the cheapest plan that lifts the hit limit (computed).
@@ -1399,7 +1399,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-003, LOOP-BILL-007.
   - Related files: new admin `usage-meter` component, `src/routes/api.ts` entitlements endpoint.
 
-- [ ] LOOP-BILL-021: Idempotent billing webhook handler hardening via Hookdeck + Outpost [auto]
+- [ ] LOOP-BILL-021: Idempotent billing webhook handler hardening via Hookdeck + Outpost [parked]
   - Why: Stripe webhooks must never double-process (double-grant credits, double-dun); Hookdeck gives reliable inbound delivery + retries past Bot Fight Mode.
   - Acceptance criteria: every Stripe event processed exactly once (D1 idempotency key on `event.id`); replays no-op; signature verified; dead-letter to R2 on handler failure; receiver hosted to bypass Bot Fight Mode.
   - Implementation notes: Route Stripe → Hookdeck → worker (workers.dev receiver per BFM memory). D1 `processed_webhooks` table; Outpost for any outbound billing webhooks to tenants. Verify Stripe signature before Hookdeck-trust.
@@ -1409,7 +1409,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: existing webhooks.ts.
   - Related files: `src/routes/webhooks.ts`, new `src/services/webhook-idempotency.ts`.
 
-- [ ] LOOP-BILL-022: Invoice + receipt branding + tax/VAT handling (Stripe Tax) [auto]
+- [ ] LOOP-BILL-022: Invoice + receipt branding + tax/VAT handling (Stripe Tax) [parked]
   - Why: Professional invoices with correct tax are table-stakes for SMB/agency customers and reduce compliance risk.
   - Acceptance criteria: invoices carry ProjectSites branding; Stripe Tax computes VAT/sales tax by customer location; tax-exempt agencies supported; PDF accessible in portal.
   - Implementation notes: Enable Stripe Tax (TEST); collect customer tax location at checkout; configure invoice branding via Stripe settings + custom fields. Tax registration scope needs decision (which jurisdictions at launch).
@@ -1419,7 +1419,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-007.
   - Related files: `src/services/billing.ts`.
 
-- [ ] LOOP-BILL-023: Billing audit ledger — every money/entitlement mutation as an append-only event [auto]
+- [ ] LOOP-BILL-023: Billing audit ledger — every money/entitlement mutation as an append-only event [parked]
   - Why: Distinguished-engineer requirement; reconstruct any tenant's billing state and debug disputes; feeds reconciliation.
   - Acceptance criteria: every charge, refund, credit grant/debit, entitlement change, plan switch writes an immutable ledger row with `correlation_id`; admin can replay a tenant's full billing timeline.
   - Implementation notes: Append-only D1 `billing_audit` table; reuse existing audit service pattern (`src/services/audit.ts`). Mirror to Tinybird for long-range queries. Never UPDATE/DELETE rows.
@@ -1429,7 +1429,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-006, LOOP-BILL-007, LOOP-BILL-013.
   - Related files: `src/services/audit.ts`, new `packages/shared/src/schemas/billing-audit.ts`.
 
-- [ ] LOOP-BILL-024: Billing feature-flag + kill-switch gating for the whole metered-billing rollout [auto]
+- [ ] LOOP-BILL-024: Billing feature-flag + kill-switch gating for the whole metered-billing rollout [parked]
   - Why: Money features must dark-launch and be instantly disable-able; per repo doctrine every feature ships behind a typed flag at `enabled=0, rollout=0, stage=experimental`.
   - Acceptance criteria: flags `metered_billing`, `ai_credit_wallet`, `dunning`, `usage_anomaly`, `agency_billing` exist in D1 + `/admin/feature-flags`; disabled → endpoints 404 + UI null; killswitch instantly halts metering writes without redeploy.
   - Implementation criteria/notes: Each billing module reads `isFlagOn(env, key, ...)`; metering producers no-op when killswitched (usage still logged to Axiom for backfill). Reuse `feature_flags`/`flag_overrides` tables.
@@ -2007,7 +2007,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-MAIL-001: Typed Listmonk REST client primitive (`src/services/listmonk.ts`) [auto]
+- [ ] LOOP-MAIL-001: Typed Listmonk REST client primitive (`src/services/listmonk.ts`) [parked]
   - Why: Every downstream mail feature needs one hardened HTTP client; without it each task re-implements auth, retries, and error mapping.
   - Acceptance criteria: Exports `listmonkFetch()` wrapping all calls with basic-auth from secret, Zod-validated request/response shapes for `lists`, `subscribers`, `campaigns`, `tx`; 4xx/5xx mapped to taxonomy error envelope; retry w/ backoff+jitter on 5xx/network; correlation IDs (tenant_id, site_id, request_id) injected into every log line; unit tests mock fetch (happy + 422 + network-fail).
   - Implementation notes: Base URL `https://mail.projectsites.dev/api`; admin user/token from `get-secret LISTMONK_API_USER` / `LISTMONK_API_TOKEN`; never bare `fetch`; size-guard request bodies.
@@ -2017,7 +2017,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: none (foundation).
   - Related files: `apps/project-sites/src/services/listmonk.ts`, `apps/project-sites/src/types/env.ts`.
 
-- [ ] LOOP-MAIL-002: Per-tenant list namespacing + provisioning service [auto]
+- [ ] LOOP-MAIL-002: Per-tenant list namespacing + provisioning service [parked]
   - Why: Multi-tenant lists must never collide; each site-owner needs isolated lists provisioned on demand.
   - Acceptance criteria: `provisionTenantLists(siteId)` creates Listmonk lists named `site_{siteId}_{purpose}` (newsletter, leads, transactional-optin); records mapping in D1 `mail_lists` table (id, site_id, listmonk_list_id, purpose, created_at); idempotent (re-call returns existing); RBAC-gated to site owner.
   - Acceptance criteria (cont.): Zod schema for list purposes; returns 404 (not 403) when flag off.
@@ -2028,7 +2028,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001.
   - Related files: `src/services/mail_lists.ts`, D1 migration `mail_lists`.
 
-- [ ] LOOP-MAIL-003: Site-form → mailing-list autosync [auto]
+- [ ] LOOP-MAIL-003: Site-form → mailing-list autosync [parked]
   - Why: Lead/contact forms on generated sites should drop subscribers straight into the owner's list with zero manual export.
   - Acceptance criteria: On a generated-site contact/newsletter form submit, enqueue a subscribe job → adds subscriber to `site_{siteId}_newsletter` (pending double opt-in) or `_leads` (no optin, internal); dedupes by email; respects suppression list; honors a `consent` checkbox flag in payload.
   - Implementation notes: Map form field names → subscriber attributes JSON; Turnstile-verify before subscribe to block bot signups.
@@ -2038,7 +2038,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-002, LOOP-MAIL-009 (suppression).
   - Related files: `src/routes/api.ts` (form handler), `src/services/mail_sync.ts`.
 
-- [ ] LOOP-MAIL-004: Double opt-in flow with branded confirmation page [auto]
+- [ ] LOOP-MAIL-004: Double opt-in flow with branded confirmation page [parked]
   - Why: CAN-SPAM/GDPR compliance and deliverability require verified consent for newsletter lists.
   - Acceptance criteria: New newsletter subscribers get a confirmation email (Listmonk double-optin); confirm link lands on a branded `mail.projectsites.dev`-served (or site-domain-proxied) confirmation page; D1 records `confirmed_at`; unconfirmed subscribers auto-expire after 7 days (cron purge job).
   - Implementation notes: Use Listmonk's built-in optin campaign but override template branding per-tenant (LOOP-MAIL-019); confirmation page served by Worker.
@@ -2048,7 +2048,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-002, LOOP-MAIL-019.
   - Related files: `src/routes/mail.ts` (confirm), cron in `wrangler.toml`.
 
-- [ ] LOOP-MAIL-005: SES-SNS bounce + complaint ingestion → suppression [auto]
+- [ ] LOOP-MAIL-005: SES-SNS bounce + complaint ingestion → suppression [parked]
   - Why: Unprocessed bounces/complaints destroy sender reputation; hard bounces and complaints must auto-suppress.
   - Acceptance criteria: SNS topic delivers SES notifications to a workers.dev receiver (bypass Bot Fight Mode); verify SNS signature; on hard bounce or complaint → add to global suppression (LOOP-MAIL-009) + mark Listmonk subscriber `blocklisted`; soft bounces increment a counter, suppress after 3; idempotent by SES messageId stored in D1.
   - Implementation notes: Host receiver on a dedicated `*.workers.dev` worker per the Bot-Fight-Mode memory; confirm SNS subscription handshake.
@@ -2058,7 +2058,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-009.
   - Related files: `src/routes/webhooks.ts` (ses-sns), `workers/ses-receiver/`.
 
-- [ ] LOOP-MAIL-006: AI-generated campaign drafts (subject + body) [auto]
+- [ ] LOOP-MAIL-006: AI-generated campaign drafts (subject + body) [parked]
   - Why: Solo site-owners won't write good newsletters; AI drafting is the core "AI-native" value-add.
   - Acceptance criteria: `POST /api/mail/draft {site_id, goal, tone, products?}` returns a structured draft (subject, preheader, HTML body, plain-text) Zod-validated; grounded in the site's brand + content; renders to a Listmonk campaign in draft state; never auto-sends.
   - Implementation notes: Use platform LLM (DeepSeek build-tier for body, premium for subject A/B candidates); Langfuse trace; output contract-bound, refuse if missing brand context.
@@ -2068,7 +2068,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001.
   - Related files: `src/services/mail_ai.ts`, `prompts/mail-campaign.prompt.md`.
 
-- [ ] LOOP-MAIL-007: Local-business campaign template library [auto]
+- [ ] LOOP-MAIL-007: Local-business campaign template library [parked]
   - Why: Reusable industry templates (restaurant specials, HVAC seasonal, salon promo) let owners ship in one click.
   - Acceptance criteria: Versioned catalog of ≥8 responsive MJML/HTML templates by org-type with merge-tag placeholders; `getTemplates(orgType)` returns filtered set; each renders in Listmonk + passes an email-client lint (dark-mode, table layout, <102KB); stored in R2.
   - Implementation notes: Compile MJML at build; store rendered HTML in R2 `mail-templates/{org}/{slug}.html`; merge tags map to subscriber attributes.
@@ -2078,7 +2078,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001.
   - Related files: `src/services/mail_templates.ts`, `mail-templates/` (MJML sources).
 
-- [ ] LOOP-MAIL-008: Mailing-list CSV import with validation + mapping [auto]
+- [ ] LOOP-MAIL-008: Mailing-list CSV import with validation + mapping [parked]
   - Why: Owners migrating from Mailchimp need to bulk-import existing subscribers safely.
   - Acceptance criteria: Upload CSV → preview column→attribute mapping → validate emails (RFC + MX-cache check) → de-dupe vs existing + suppression → import as Listmonk subscribers with chosen optin status; rejects rows reported back with reasons; progress streamed via DO; import capped per plan (needs decision: free import limit).
   - Implementation notes: Parse in Worker (stream), batch to Listmonk bulk endpoint; store import job state in Durable Object.
@@ -2088,7 +2088,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-009.
   - Related files: `src/services/mail_import.ts`, `src/do/import_job.ts`.
 
-- [ ] LOOP-MAIL-009: Global + per-tenant suppression list service [auto]
+- [ ] LOOP-MAIL-009: Global + per-tenant suppression list service [parked]
   - Why: A single source of truth for "never email this address" protects reputation and honors unsubscribes/complaints across all lists.
   - Acceptance criteria: D1 `mail_suppressions` (email_hash, scope:'global'|site_id, reason, created_at); `isSuppressed(email, siteId)` checked before EVERY send/subscribe; add/remove API; complaint/hard-bounce/manual unsubscribe all funnel here; global scope blocks across all tenants.
   - Implementation notes: Store SHA-256 of lowercased email for PII minimization; KV cache hot lookups (60s).
@@ -2098,7 +2098,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001.
   - Related files: `src/services/mail_suppression.ts`, D1 migration.
 
-- [ ] LOOP-MAIL-010: Per-site send quotas + plan gating [auto]
+- [ ] LOOP-MAIL-010: Per-site send quotas + plan gating [parked]
   - Why: Prevent a single tenant from exhausting SES limits or spamming; tie volume to plan tier.
   - Acceptance criteria: D1-tracked monthly send counters per site_id; `assertSendQuota(siteId, count)` blocks + returns friendly over-quota envelope when exceeded; counters reset monthly via cron; quota by plan from ENTITLEMENTS constant (needs decision: free/pro/business send caps); admin override.
   - Implementation notes: Atomic increment via Upstash Redis counter (high-throughput) with D1 reconciliation; check at campaign-send and tx-send boundaries.
@@ -2108,7 +2108,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, ENTITLEMENTS constants.
   - Related files: `src/services/mail_quota.ts`, `packages/shared/src/constants`.
 
-- [ ] LOOP-MAIL-011: Transactional template registry + send API [auto]
+- [ ] LOOP-MAIL-011: Transactional template registry + send API [parked]
   - Why: Generated sites need branded transactional emails (order confirm, booking, magic link) with versioned templates.
   - Acceptance criteria: Registry maps `tx_template_key` → Listmonk tx template id + Zod payload schema; `sendTransactional(siteId, key, data)` validates data against schema, checks suppression+quota, sends via Listmonk tx API; idempotency key prevents dupes; per-template enable flag.
   - Implementation notes: Seed core keys (magic_link, claim_invite, contact_receipt, booking_confirm); render via Listmonk's tx endpoint.
@@ -2118,7 +2118,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-009, LOOP-MAIL-010.
   - Related files: `src/services/mail_tx.ts`, `src/prompts`/registry.
 
-- [ ] LOOP-MAIL-012: Claim-invite campaign automation [auto]
+- [ ] LOOP-MAIL-012: Claim-invite campaign automation [parked]
   - Why: Core growth loop — invite unclaimed business owners to claim their auto-generated site via email.
   - Acceptance criteria: Given a discovered business + email, send a sequence (invite → reminder day 3 → final day 7) via tx templates; stop sequence on claim event; track open/click → claim conversion; respect suppression; one active sequence per business.
   - Implementation notes: Sequence state machine in Durable Object or D1 + cron; claim webhook cancels remaining steps.
@@ -2128,7 +2128,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-011, LOOP-MAIL-009.
   - Related files: `src/services/claim_invites.ts`, `src/do/invite_sequence.ts`.
 
-- [ ] LOOP-MAIL-013: Abandoned-claim recovery sequence [auto]
+- [ ] LOOP-MAIL-013: Abandoned-claim recovery sequence [parked]
   - Why: Owners who start claiming but don't finish are warm leads worth re-engaging.
   - Acceptance criteria: When a claim starts but `claimed_at` is null after 24h, enqueue a recovery email with a deep link back to the in-progress claim; max 2 recovery touches; cancel on completion or unsubscribe.
   - Implementation notes: Reuse sequence stepper from LOOP-MAIL-012; query D1 for stale in-progress claims hourly.
@@ -2138,7 +2138,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-012.
   - Related files: `src/services/claim_recovery.ts`.
 
-- [ ] LOOP-MAIL-014: QR-postcard follow-up tracking + email trigger [auto]
+- [ ] LOOP-MAIL-014: QR-postcard follow-up tracking + email trigger [parked]
   - Why: Physical QR postcards drive scans; capturing the scan + following up by email closes the offline→online loop.
   - Acceptance criteria: Unique QR URL `/q/{token}` logs a scan event (token→business mapping in D1), redirects to claim/site, and if an email is known triggers a follow-up tx email; dashboard shows scan→email→claim funnel per postcard batch.
   - Implementation notes: Token = short signed id; dedupe scans by IP+UA within 1h; emit Tinybird scan event.
@@ -2148,7 +2148,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-011.
   - Related files: `src/routes/qr.ts`, `src/services/qr_followup.ts`.
 
-- [ ] LOOP-MAIL-015: Behavioral subscriber segmentation engine [auto]
+- [ ] LOOP-MAIL-015: Behavioral subscriber segmentation engine [parked]
   - Why: Targeted sends outperform blasts; owners need segments like "opened last 30d", "clicked but no purchase".
   - Acceptance criteria: Define segments as Zod-typed rule sets (attribute + engagement predicates); `materializeSegment(siteId, rules)` produces a Listmonk query/list; engagement signals (open/click) synced from webhooks into subscriber attributes; preview count before send.
   - Implementation notes: Map to Listmonk's SQL query expressions; cache materialized counts; store segment definitions in D1.
@@ -2158,7 +2158,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-016 (engagement webhooks).
   - Related files: `src/services/mail_segments.ts`.
 
-- [ ] LOOP-MAIL-016: Listmonk engagement webhook → event_bus/Tinybird pipeline [auto]
+- [ ] LOOP-MAIL-016: Listmonk engagement webhook → event_bus/Tinybird pipeline [parked]
   - Why: Open/click/bounce/unsub events must flow into the existing analytics pipeline for dashboards and segmentation.
   - Acceptance criteria: Listmonk (or SES open/click tracking) events received, signature-verified, normalized to a typed event schema, fanned out via Hookdeck/Outpost, and landed in Tinybird `mail_events` datasource with correlation IDs (site_id, campaign_id, subscriber_hash); idempotent by event id.
   - Implementation notes: Reuse existing event_bus→Tinybird + Hookdeck infra; define `mail_events` Tinybird datasource schema.
@@ -2168,7 +2168,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001.
   - Related files: `src/routes/webhooks.ts`, Tinybird `mail_events.datasource`.
 
-- [ ] LOOP-MAIL-017: Campaign analytics dashboard (per-site + platform) [auto]
+- [ ] LOOP-MAIL-017: Campaign analytics dashboard (per-site + platform) [parked]
   - Why: Owners need open/click/bounce/unsub/revenue-per-campaign; platform needs deliverability aggregates.
   - Acceptance criteria: Admin UI section reads Tinybird endpoints for sends, opens, clicks, bounces, unsubs, complaint rate per campaign + rolling 30d trend; rolling-counter stat tiles; per-site scoped via auth; platform view aggregates across tenants.
   - Implementation notes: Add Tinybird pipes (`mail_campaign_stats`, `mail_deliverability_daily`); Angular admin section, cyan/black, `<app-rolling-counter>`.
@@ -2178,7 +2178,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-016.
   - Related files: `apps/project-sites` admin `sections/mail-analytics/`, Tinybird pipes.
 
-- [ ] LOOP-MAIL-018: Deliverability health dashboard (DKIM/SPF/DMARC + reputation) [auto]
+- [ ] LOOP-MAIL-018: Deliverability health dashboard (DKIM/SPF/DMARC + reputation) [parked]
   - Why: Custom sending domains must pass auth; surfacing status + complaint/bounce rate prevents silent reputation collapse.
   - Acceptance criteria: For each tenant sending domain, check DKIM/SPF/DMARC DNS records (live lookup) + show SES verification status; surface 30d bounce-rate + complaint-rate with red thresholds (>5% bounce, >0.1% complaint); actionable "fix" copy per failing record.
   - Implementation notes: SES domain identity records live on the SENDING domain's zone (per memory) — surface mismatch when site domain ≠ sending domain; cache DNS checks 1h in KV.
@@ -2188,7 +2188,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-016, LOOP-MAIL-005.
   - Related files: `src/services/mail_deliverability.ts`, admin section.
 
-- [ ] LOOP-MAIL-019: Per-tenant email branding (logo, colors, footer, from-name) [auto]
+- [ ] LOOP-MAIL-019: Per-tenant email branding (logo, colors, footer, from-name) [parked]
   - Why: Owner emails must look like the owner's brand, not ProjectSites'.
   - Acceptance criteria: D1 `mail_branding` per site_id (logo R2 url, primary color, from_name, reply_to, physical_address for CAN-SPAM footer); applied to all template renders + optin emails; validates from-domain is verified before allowing custom from; default to platform branding when unset.
   - Implementation notes: Inject branding into MJML render context; enforce physical address presence (legal requirement) before send.
@@ -2198,7 +2198,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-002, LOOP-MAIL-007.
   - Related files: `src/services/mail_branding.ts`.
 
-- [ ] LOOP-MAIL-020: Hosted newsletter archive pages [auto]
+- [ ] LOOP-MAIL-020: Hosted newsletter archive pages [parked]
   - Why: Public archives boost SEO, give a "view in browser" link, and provide a permanent campaign URL.
   - Acceptance criteria: Each sent campaign gets a public URL `/{site}/newsletter/{slug}` rendering the campaign HTML with canonical + OG tags + JSON-LD; index page lists all archived issues per site; respects unpublished/draft (404); served from cache.
   - Implementation notes: On campaign send, snapshot rendered HTML to R2 `mail-archive/{site}/{slug}.html`; Worker serves with SWR cache.
@@ -2208,7 +2208,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001.
   - Related files: `src/routes/newsletter.ts`, `src/services/mail_archive.ts`.
 
-- [ ] LOOP-MAIL-021: Compliant unsubscribe + one-click List-Unsubscribe headers [auto]
+- [ ] LOOP-MAIL-021: Compliant unsubscribe + one-click List-Unsubscribe headers [parked]
   - Why: Gmail/Yahoo bulk-sender rules mandate one-click unsubscribe (RFC 8058); non-compliance = spam folder.
   - Acceptance criteria: Every send includes `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers; the POST endpoint suppresses instantly (no confirmation page required); branded unsubscribe landing page with preference downgrade option; unsub funnels to suppression (LOOP-MAIL-009).
   - Implementation notes: Add headers via Listmonk tx/campaign config; implement `POST /u/{token}` one-click handler; signed token.
@@ -2218,7 +2218,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-009.
   - Related files: `src/routes/mail.ts` (unsubscribe), `src/services/mail_headers.ts`.
 
-- [ ] LOOP-MAIL-022: Twenty CRM ↔ Listmonk bidirectional contact sync [auto]
+- [ ] LOOP-MAIL-022: Twenty CRM ↔ Listmonk bidirectional contact sync [parked]
   - Why: Contacts captured in CRM should land in mailing lists and vice versa, keeping one source of truth.
   - Acceptance criteria: On CRM contact create/update (webhook), upsert Listmonk subscriber with mapped attributes + tags→lists; on Listmonk subscribe, create/update CRM contact; conflict resolution last-write-wins by updated_at; sync respects suppression + consent flags; idempotent.
   - Implementation notes: Twenty CRM is live (`crm-twenty`); use its GraphQL/webhook + Listmonk REST; map a `lists`↔`tags` table in D1.
@@ -2228,7 +2228,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-009.
   - Related files: `src/services/crm_mail_sync.ts`.
 
-- [ ] LOOP-MAIL-023: Campaign approval / moderation flow + anti-abuse controls [auto]
+- [ ] LOOP-MAIL-023: Campaign approval / moderation flow + anti-abuse controls [parked]
   - Why: A multi-tenant sender must screen new tenants' first campaigns to protect shared IP reputation from spam.
   - Acceptance criteria: New/low-trust tenants' campaigns enter `pending_review` instead of sending; admin approves/rejects in admin UI; content scanned (spam-trigger heuristics + LLM classifier) producing a risk score; auto-approve trusted tenants (≥N clean sends, low complaint rate); reject reasons emailed to owner.
   - Implementation notes: Trust score in D1 per site; LLM classifier via Langfuse-traced call; gate send pipeline on review status.
@@ -2238,7 +2238,7 @@ Brainstormed 50+ raw ideas across both our own email program and email-as-a-feat
   - Dependencies: LOOP-MAIL-001, LOOP-MAIL-010, LOOP-MAIL-018.
   - Related files: `src/services/mail_moderation.ts`, admin section.
 
-- [ ] LOOP-MAIL-024: Sending-domain warmup ramp scheduler [auto]
+- [ ] LOOP-MAIL-024: Sending-domain warmup ramp scheduler [parked]
   - Why: New sending domains/IPs must ramp volume gradually or mailbox providers throttle/block them.
   - Acceptance criteria: Per sending domain, track age + a warmup schedule (e.g. 50→100→500→… daily caps); `assertWarmupCap(domain, todayCount)` blocks sends over the day's ceiling and queues overflow to next day; auto-graduate to full volume after schedule completes with healthy metrics; surfaces ramp progress in deliverability dashboard.
   - Implementation notes: Warmup curve config (needs decision: exact daily steps); reconcile against actual SES send counts; overflow queued via QStash with scheduled delivery.
@@ -2730,7 +2730,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-SOCIAL-001: Typed AGPL-isolated Postiz HTTP client (`src/services/postiz.ts`) [auto]
+- [ ] LOOP-SOCIAL-001: Typed AGPL-isolated Postiz HTTP client (`src/services/postiz.ts`) [parked]
   - Why: AGPL Postiz must never be imported as code; one thin client keeps the license firewall and gives every other task a single call surface.
   - Acceptance criteria: Worker module exposes `createPost`, `schedulePost`, `listAccounts`, `connectAccount`, `getAnalytics`, `deletePost`; all request/response shapes declared locally with Zod; zero `@gitroom/*` deps in package.json; bearer auth via `POSTIZ_API_KEY`; 5xx/4xx mapped to typed `PostizError` taxonomy.
   - Implementation notes: `fetch` to `https://social.projectsites.dev/public/v1/*`; retry-with-jitter on 429/5xx; never log raw token.
@@ -2740,7 +2740,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: none (foundation).
   - Related files: `src/services/postiz.ts`, `packages/shared/src/schemas/social.ts`, `src/types/env.ts`.
 
-- [ ] LOOP-SOCIAL-002: D1 social schema + Drizzle migration (`social_accounts`, `social_posts`, `social_post_targets`) [auto]
+- [ ] LOOP-SOCIAL-002: D1 social schema + Drizzle migration (`social_accounts`, `social_posts`, `social_post_targets`) [parked]
   - Why: Platform needs a system-of-record on D1 for per-site accounts, scheduled posts, and per-channel targets independent of Postiz internals.
   - Acceptance criteria: Migration creates 3 tables keyed by `org_id` + `site_id`; `social_accounts` stores `postiz_integration_id`, provider, handle, status, `token_expires_at`; FK-style indexes on `(site_id, status)`; Zod schemas mirror columns; rollback path documented.
   - Implementation notes: Map Postiz integration ids to our rows; never store provider OAuth secrets in D1 (Postiz holds them).
@@ -2750,7 +2750,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-001.
   - Related files: `apps/project-sites/migrations/*_social.sql`, `packages/shared/src/schemas/social.ts`.
 
-- [ ] LOOP-SOCIAL-003: `social_publishing` feature flag + manifest module (`libs/features/social_publishing/`) [auto]
+- [ ] LOOP-SOCIAL-003: `social_publishing` feature flag + manifest module (`libs/features/social_publishing/`) [parked]
   - Why: Repo law — every post-launch capability ships behind a typed flag with manifest, schemas, tests, observability.
   - Acceptance criteria: `manifest.ts` with all 7 required fields; D1 seed row `enabled=0, rollout_percent=0, stage='experimental'`; server returns 404 (not 403) when off; UI returns null; `npm run validate:features` passes.
   - Implementation notes: `linked_e2e=e2e/social_publishing/`; `risk_notes` covers "posts silently un-publishable when disabled".
@@ -2760,7 +2760,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-002.
   - Related files: `libs/features/social_publishing/manifest.ts`, `apps/project-sites/src/services/feature_flags.ts`.
 
-- [ ] LOOP-SOCIAL-004: Per-site social-account connect endpoint with OAuth-first + paste-key fallback [auto]
+- [ ] LOOP-SOCIAL-004: Per-site social-account connect endpoint with OAuth-first + paste-key fallback [parked]
   - Why: Site owners must link X/Facebook/Instagram/LinkedIn accounts; follows the repo's MCP OAuth-first-with-paste-fallback pattern.
   - Acceptance criteria: `POST /api/social/:siteId/accounts/connect` returns Postiz hosted-auth URL when provider OAuth configured, else a paste-key form contract; on callback, persists `social_accounts` row; toast (never broken popup) on missing client id.
   - Implementation notes: Proxy Postiz `/integrations` connect; store returned integration id; scope account to `site_id`.
@@ -2770,7 +2770,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-001, LOOP-SOCIAL-002.
   - Related files: `src/routes/social.ts`, `src/services/postiz.ts`.
 
-- [ ] LOOP-SOCIAL-005: Social-account reconnect + token-expiry watcher (Cron + alert) [auto]
+- [ ] LOOP-SOCIAL-005: Social-account reconnect + token-expiry watcher (Cron + alert) [parked]
   - Why: Provider tokens expire silently and kill scheduled posts; owners need proactive reconnect prompts.
   - Acceptance criteria: Cron Trigger scans `social_accounts` for `status='expired'` or `token_expires_at < now+72h`; marks `needs_reconnect`; emits psnotify + email; admin sees a reconnect CTA; reconnect reuses LOOP-SOCIAL-004 flow.
   - Implementation notes: Poll Postiz integration health; throttle alerts (one per account per 24h).
@@ -2780,7 +2780,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-004.
   - Related files: `src/routes/cron.ts`, `src/services/notifications.ts`.
 
-- [ ] LOOP-SOCIAL-006: AI brand-voice profile per site (`site_brand_voice` schema + generator) [auto]
+- [ ] LOOP-SOCIAL-006: AI brand-voice profile per site (`site_brand_voice` schema + generator) [parked]
   - Why: AI-generated posts must sound like each business; a reusable brand-voice profile is the primitive every AI task consumes.
   - Acceptance criteria: D1 row per site holds tone, audience, banned-words, sample posts, emoji policy; `POST /api/social/:siteId/brand-voice/generate` derives a draft profile from the generated website content; editable + versioned.
   - Implementation notes: Call llm.projectsites.dev with site copy as context; Zod-validate structured output (contract-first).
@@ -2790,7 +2790,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-002.
   - Related files: `src/services/social_ai.ts`, `packages/shared/src/schemas/social.ts`.
 
-- [ ] LOOP-SOCIAL-007: AI post generator endpoint (brand-voice-aware, multi-platform variants) [auto]
+- [ ] LOOP-SOCIAL-007: AI post generator endpoint (brand-voice-aware, multi-platform variants) [parked]
   - Why: Core value — turn a topic/prompt into platform-tailored posts (char limits, hashtags, CTA) using the site's brand voice.
   - Acceptance criteria: `POST /api/social/:siteId/posts/generate` returns N variants per requested platform, each within platform char limits, Zod-validated; honors banned-words; supports image-prompt suggestions; eval cases cover tone adherence.
   - Implementation notes: One prompt template per platform; reuse brand-voice profile; never auto-publish (returns drafts).
@@ -2800,7 +2800,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-006.
   - Related files: `src/services/social_ai.ts`, `tools/evals/cases/social_brand_voice.json`.
 
-- [ ] LOOP-SOCIAL-008: Schedule-post API → Postiz with D1 mirror + idempotency [auto]
+- [ ] LOOP-SOCIAL-008: Schedule-post API → Postiz with D1 mirror + idempotency [parked]
   - Why: Owners schedule a generated draft to one or more accounts; durable scheduling is Postiz/Temporal's job, but we mirror state for UI + auditing.
   - Acceptance criteria: `POST /api/social/:siteId/posts/schedule` accepts content + targets + ISO datetime; idempotency key prevents double-submit; creates Postiz scheduled post; writes `social_posts` + `social_post_targets` rows with `postiz_post_id`; returns scheduled status.
   - Implementation notes: Validate each target is a connected, non-expired account; reject past datetimes.
@@ -2810,7 +2810,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-002, LOOP-SOCIAL-004.
   - Related files: `src/routes/social.ts`, `src/services/postiz.ts`.
 
-- [ ] LOOP-SOCIAL-009: Postiz outbound webhook ingest worker (publish success/failure) [auto]
+- [ ] LOOP-SOCIAL-009: Postiz outbound webhook ingest worker (publish success/failure) [parked]
   - Why: We need real publish outcomes to update D1, alert on failures, and feed analytics — must arrive via webhook, not polling.
   - Acceptance criteria: `POST /api/webhooks/postiz` verifies HMAC signature; D1 idempotency on event id; updates `social_post_targets` status (`published|failed`) + permalink; dead-letters to R2 on parse failure; 200 fast-ack.
   - Implementation notes: Host on workers.dev path to bypass Bot Fight Mode for inbound M2M; route via Hookdeck+Outpost for retries.
@@ -2820,7 +2820,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-008.
   - Related files: `src/routes/webhooks.ts`, `src/services/webhook.ts`.
 
-- [ ] LOOP-SOCIAL-010: Local-business content calendar engine (recurring + seasonal cadence) [auto]
+- [ ] LOOP-SOCIAL-010: Local-business content calendar engine (recurring + seasonal cadence) [parked]
   - Why: Local SMBs want a "set it and forget it" calendar; a reusable cadence engine generates a month of draft posts from brand voice + site facts.
   - Acceptance criteria: `POST /api/social/:siteId/calendar/plan` produces a 30-day plan (frequency configurable) of AI drafts with suggested datetimes spaced by best-time heuristics; persists as `draft` posts; owner approves to schedule.
   - Implementation notes: Pull site services/hours/specials from site data; avoid clustering same topic.
@@ -2830,7 +2830,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-007, LOOP-SOCIAL-008.
   - Related files: `src/services/social_calendar.ts`.
 
-- [ ] LOOP-SOCIAL-011: Calendar-event post engine — holiday + event + observance seed packs [auto]
+- [ ] LOOP-SOCIAL-011: Calendar-event post engine — holiday + event + observance seed packs [parked]
   - Why: Merge holiday/event/seasonal post ideas into one date-driven generator with curated seed packs (US holidays, industry observances).
   - Acceptance criteria: Static seed pack JSON of dated occasions per industry; engine matches site industry + upcoming dates; generates on-brand draft posts N days ahead; owner opt-in per occasion.
   - Implementation notes: Seed packs versioned in repo; locale-aware (needs decision on intl holiday packs beyond US).
@@ -2840,7 +2840,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-010.
   - Related files: `src/services/social_calendar.ts`, `assets/social/occasion-packs/*.json`.
 
-- [ ] LOOP-SOCIAL-012: New-website-launch announcement bundle (auto-trigger on site go-live) [auto]
+- [ ] LOOP-SOCIAL-012: New-website-launch announcement bundle (auto-trigger on site go-live) [parked]
   - Why: When a site publishes, owners should get ready-to-post launch announcements across all connected channels — high-conversion moment.
   - Acceptance criteria: On `site.published` event, generate a launch post set (X/FB/IG/LinkedIn) with site URL + key value props; staged as drafts pending approval; flag-gated.
   - Implementation notes: Subscribe to existing site-publish event; reuse multi-variant generator.
@@ -2850,7 +2850,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-007.
   - Related files: `src/services/social_campaigns.ts`, `src/workflows/site-generation.ts`.
 
-- [ ] LOOP-SOCIAL-013: Review-promotion posts (Google Places review → social shareable) [auto]
+- [ ] LOOP-SOCIAL-013: Review-promotion posts (Google Places review → social shareable) [parked]
   - Why: Turning fresh 5-star reviews into branded social proof drives local trust; ties social to local-SEO.
   - Acceptance criteria: Pull recent high-rated reviews via existing Google Places service; generate a quote-card post (text + suggested image template) with attribution; owner approves before schedule.
   - Implementation notes: Dedupe already-promoted reviews; never fabricate review text; respect platform UGC rules.
@@ -2860,7 +2860,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-007, LOOP-SOCIAL-014.
   - Related files: `src/services/social_campaigns.ts`, `src/services/google_places.ts`.
 
-- [ ] LOOP-SOCIAL-014: R2 media-library integration for social assets [auto]
+- [ ] LOOP-SOCIAL-014: R2 media-library integration for social assets [parked]
   - Why: Posts need images/video; a per-site R2-backed media library is the shared asset primitive Postiz uploads pull from.
   - Acceptance criteria: `POST /api/social/:siteId/media` uploads to R2 path `social/{site_id}/{asset_id}`; returns signed URL; Postiz schedule attaches media by URL; supports image + short video; size/type validated.
   - Implementation notes: Reuse generated site imagery; Postiz fetches the public/signed URL (no double storage).
@@ -2870,7 +2870,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-008.
   - Related files: `src/routes/social.ts`, `src/services/site_serving.ts`.
 
-- [ ] LOOP-SOCIAL-015: AI image generation for posts (Replicate/Workers AI → R2) [auto]
+- [ ] LOOP-SOCIAL-015: AI image generation for posts (Replicate/Workers AI → R2) [parked]
   - Why: Many SMBs lack imagery; on-demand branded image generation completes the AI-native post flow.
   - Acceptance criteria: `POST /api/social/:siteId/media/generate` takes a prompt (or auto-prompt from post text), generates an image, stores to R2, returns asset id; brand-color hinting; flag-gated + budget-capped.
   - Implementation notes: Route via image_generation service; cap per-site monthly quota (needs decision on quota tiers).
@@ -2890,7 +2890,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-010, LOOP-SOCIAL-011.
   - Related files: `src/services/social_campaigns.ts`, `packages/shared/src/schemas/social.ts`.
 
-- [ ] LOOP-SOCIAL-017: Customer templates library (reusable post + campaign templates) [auto]
+- [ ] LOOP-SOCIAL-017: Customer templates library (reusable post + campaign templates) [parked]
   - Why: Owners reuse winning post structures; a template library (system + per-site) speeds creation and standardizes brand.
   - Acceptance criteria: CRUD for templates with placeholders (`{{service}}`, `{{offer}}`); system templates seeded per industry; "apply template" fills via brand voice; templates versioned.
   - Implementation notes: Placeholder resolver validates required vars before generate.
@@ -2900,7 +2900,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-007.
   - Related files: `src/services/social_templates.ts`.
 
-- [ ] LOOP-SOCIAL-018: Approval workflow (draft → pending → approved → scheduled) [auto]
+- [ ] LOOP-SOCIAL-018: Approval workflow (draft → pending → approved → scheduled) [parked]
   - Why: Posts must not auto-publish without owner sign-off; an explicit approval state machine prevents brand mishaps.
   - Acceptance criteria: Status transitions enforced server-side; approver identity recorded; rejected posts return to draft with reason; only `approved` posts can schedule; audit-logged.
   - Implementation notes: Reuse confirm/audit services; transitions idempotent.
@@ -2910,7 +2910,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-008.
   - Related files: `src/services/social_campaigns.ts`, `src/services/audit.ts`.
 
-- [ ] LOOP-SOCIAL-019: Agency approval mode (multi-tenant reviewer role + queue) [auto]
+- [ ] LOOP-SOCIAL-019: Agency approval mode (multi-tenant reviewer role + queue) [parked]
   - Why: Agencies managing many sites need a cross-site approval queue with a reviewer role distinct from site owner.
   - Acceptance criteria: RBAC `social_reviewer` role; `/admin/social/approvals` queue lists pending posts across an org's sites; bulk approve/reject; per-site scoping enforced; flag-gated separately from base publishing.
   - Implementation notes: Extend RBAC middleware in shared package; queue paginated + filterable by site.
@@ -2920,7 +2920,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-018.
   - Related files: `packages/shared/src/middleware/rbac.ts`, `apps/project-sites/frontend admin social approvals`.
 
-- [ ] LOOP-SOCIAL-020: Social analytics rollup → Tinybird (per-post + per-account metrics) [auto]
+- [ ] LOOP-SOCIAL-020: Social analytics rollup → Tinybird (per-post + per-account metrics) [parked]
   - Why: Owners need reach/engagement insight; Postiz metrics fanned into Tinybird power fast dashboards and AEO/local-SEO tie-ins.
   - Acceptance criteria: Scheduled job pulls Postiz analytics, normalizes to a `social_metrics` Tinybird datasource (impressions, likes, clicks, shares per post/account/day); idempotent upsert; Worker endpoint serves chart data.
   - Implementation notes: Ingest via Tinybird Events API; key by `(site_id, social_account_id, postiz_post_id, day)`.
@@ -2930,7 +2930,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-009.
   - Related files: `src/services/analytics.ts`, `src/routes/cron.ts`.
 
-- [ ] LOOP-SOCIAL-021: CRM + Listmonk audience sync (post engagers → contacts/segments) [auto]
+- [ ] LOOP-SOCIAL-021: CRM + Listmonk audience sync (post engagers → contacts/segments) [parked]
   - Why: Engaged social audiences are leads; syncing them into the CRM (Twenty) and Listmonk segments closes the loop to email.
   - Acceptance criteria: Where provider APIs allow, map post-level engagement signals to CRM contacts/tags + a Listmonk segment per site; respects consent; dedupes against existing contacts.
   - Implementation notes: Provider data is limited (no PII for likers on most platforms) — sync at aggregate/segment level (needs decision on what engager data is permissible).
@@ -2940,7 +2940,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-020.
   - Related files: `src/services/social_crm_sync.ts`.
 
-- [ ] LOOP-SOCIAL-022: Rate-limit + provider-throttle handling (queue + backoff) [auto]
+- [ ] LOOP-SOCIAL-022: Rate-limit + provider-throttle handling (queue + backoff) [parked]
   - Why: Platforms throttle posting; bulk campaigns must respect per-account rate limits without losing posts.
   - Acceptance criteria: Per-`social_account_id` token-bucket in Upstash; schedule requests exceeding budget are deferred (re-queued) not failed; 429s from Postiz/providers trigger backoff + retry; surfaced as "delayed" not "error".
   - Implementation notes: Reuse DO/Upstash counter pattern; jittered backoff; cap retries then alert.
@@ -2950,7 +2950,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-008.
   - Related files: `src/services/social_ratelimit.ts`.
 
-- [ ] LOOP-SOCIAL-023: Failure-alerting pipeline (publish-failed → owner + admin) [auto]
+- [ ] LOOP-SOCIAL-023: Failure-alerting pipeline (publish-failed → owner + admin) [parked]
   - Why: A silently-failed post erodes trust; failures must alert the owner with a clear reconnect/retry action.
   - Acceptance criteria: On webhook `failed` event, classify cause (auth/expired/rate/content-rejected); send psnotify + email with cause-specific next step + deep link; admin sees aggregated failure feed; throttled to avoid spam.
   - Implementation notes: Map provider error codes to human messages; one alert per post per cause.
@@ -2960,7 +2960,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-009.
   - Related files: `src/services/notifications.ts`, `src/services/webhook.ts`.
 
-- [ ] LOOP-SOCIAL-024: Admin support tools — Postiz health, account inspector, force-resync [auto]
+- [ ] LOOP-SOCIAL-024: Admin support tools — Postiz health, account inspector, force-resync [parked]
   - Why: Solo founder needs operator tooling to debug a site's social state without SSHing into Fly.
   - Acceptance criteria: `/admin/system-services` adds a Postiz panel showing Fly app reachability, per-site account statuses, last N publish events, and buttons to force token re-check / re-sync analytics / replay a failed webhook; all actions audit-logged + RBAC-gated.
   - Implementation notes: Reuse SERVICE_REGISTRY + DialogShell; replay reads dead-letter from R2.
@@ -2978,7 +2978,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-ANALYTICS-001: Governed event taxonomy registry (`event_taxonomy.ts` + Zod) [auto]
+- [ ] LOOP-ANALYTICS-001: Governed event taxonomy registry (`event_taxonomy.ts` + Zod) [parked]
   - Why: Ungoverned event names ("Clicked button", "click_btn", "ButtonClick") destroy every funnel and make trends unusable; a single typed registry is the foundation every other task imports.
   - Acceptance criteria: A frozen `EVENT_TAXONOMY` const enumerates every emitted event as `domain.object_action` snake_case (e.g. `claim.flow_started`, `billing.checkout_completed`); a Zod enum derives from it; `captureEvent()` rejects any name not in the registry at compile time AND runtime; a markdown table of all events auto-generates from the const.
   - Implementation notes: Single source in `apps/project-sites/src/lib/event_taxonomy.ts`; `export const EVENT_TAXONOMY = {...} as const` → `z.enum(Object.values(...))`; property schemas keyed per event so payload shape is validated too.
@@ -2988,7 +2988,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: none (foundational).
   - Related files: `apps/project-sites/src/lib/event_taxonomy.ts`, `apps/project-sites/src/lib/posthog.ts`.
 
-- [ ] LOOP-ANALYTICS-002: Hardened server-side capture helper in `lib/posthog.ts` [auto]
+- [ ] LOOP-ANALYTICS-002: Hardened server-side capture helper in `lib/posthog.ts` [parked]
   - Why: Server capture is the only reliable signal (client posthog-js is ad-blocked and bot-filtered); every backend event must flow through one helper with `ctx.waitUntil` so capture never blocks the response.
   - Acceptance criteria: `captureServer(env, ctx, {distinctId, event, properties, groups})` validates `event` against the taxonomy, attaches correlation IDs (tenant_id, site_id, request_id, trace_id), POSTs to `https://us.i.posthog.com/i/v0/e/` via `ctx.waitUntil(fetch(...))`, swallows network errors without throwing, and is unit-tested with a mocked fetch.
   - Implementation notes: Read `VITE`-free server key from `POSTHOG_PROJECT_API_KEY` secret; never import posthog-node SDK (Workers compat) — raw fetch to the batch endpoint.
@@ -2998,7 +2998,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-001.
   - Related files: `apps/project-sites/src/lib/posthog.ts`, `apps/project-sites/src/types/env.ts`.
 
-- [ ] LOOP-ANALYTICS-003: Correlated-identity + group-analytics conventions [auto]
+- [ ] LOOP-ANALYTICS-003: Correlated-identity + group-analytics conventions [parked]
   - Why: Without a consistent `distinct_id` and PostHog group keys (org, site, app), per-tenant and per-site funnels can't be cut; identity drift fragments one user into many.
   - Acceptance criteria: A documented + enforced mapping — authed users `distinct_id = user_id`, anonymous = stable anon cookie, server events set `groups: {organization: org_id, site: site_id}`; `$groupidentify` calls fire on org/site creation; a unit test asserts every `captureServer` call in routes passes a non-empty distinctId.
   - Implementation notes: Reuse existing `orgId` from `c.get('orgId')` (never client `x-org-id` per IDOR rule); group identify in org/site create handlers.
@@ -3008,7 +3008,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002.
   - Related files: `apps/project-sites/src/lib/posthog.ts`, `apps/project-sites/src/services/auth`.
 
-- [ ] LOOP-ANALYTICS-004: Backend ingestion-verification harness (PostHog MCP / trends) [auto]
+- [ ] LOOP-ANALYTICS-004: Backend ingestion-verification harness (PostHog MCP / trends) [parked]
   - Why: The #1 footgun — verifying analytics via a headless browser yields false-zero because posthog-js bot-filters automation; verification MUST query the backend.
   - Acceptance criteria: A `verify-ingestion.mjs` script (and an E2E helper) that, after emitting a known test event, polls the PostHog query API (or MCP `exec`) for that event within N seconds and asserts count ≥1; documentation explicitly forbids headless-browser verification; CI smoke uses this script post-deploy.
   - Implementation notes: Use PostHog MCP `mcp__posthog__exec` / HogQL `SELECT count() FROM events WHERE event = '...' AND timestamp > now() - interval 5 minute`; tag test events with a `ci_run_id` property to isolate.
@@ -3018,7 +3018,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002.
   - Related files: `apps/project-sites/scripts/verify-ingestion.mjs`, `apps/project-sites/e2e/`.
 
-- [ ] LOOP-ANALYTICS-005: Build-env-gated client posthog-js bootstrap + CSP allowlist [auto]
+- [ ] LOOP-ANALYTICS-005: Build-env-gated client posthog-js bootstrap + CSP allowlist [parked]
   - Why: Frontend autocapture (pageviews, rage clicks, web vitals) needs posthog-js, but only when the `VITE_POSTHOG_KEY` is present, and CSP must permit the PostHog hosts or every event silently fails.
   - Acceptance criteria: posthog-js initializes only when `import.meta.env.VITE_POSTHOG_KEY` is set (no-op otherwise); CSP `connect-src` + `script-src` include `us.i.posthog.com` and `us-assets.i.posthog.com`; `person_profiles: 'identified_only'` to control MAU cost; an E2E asserts the CSP header contains both hosts (header assertion, not event assertion).
   - Implementation notes: Init in admin frontend bootstrap; set `api_host` to `us.i.posthog.com`; disable `autocapture` of sensitive form fields via `mask_all_text` exemptions.
@@ -3028,7 +3028,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-004; `security_headers` middleware.
   - Related files: `apps/project-sites/src/middleware/security_headers`, admin frontend bootstrap.
 
-- [ ] LOOP-ANALYTICS-006: Reusable per-site analytics view primitive (owner-facing) [auto]
+- [ ] LOOP-ANALYTICS-006: Reusable per-site analytics view primitive (owner-facing) [parked]
   - Why: Every generated customer site needs an in-dashboard analytics view (visitors, top pages, sources, conversions) scoped to ONLY that `site_id` — this is a core product deliverable and must be one reusable component, not bespoke per page.
   - Acceptance criteria: A `<app-site-analytics>` Angular component takes a `siteId`, fetches `/api/sites/:id/analytics?range=` (server-side HogQL scoped to `site_id`), renders visitors/pageviews/top-pages/sources/conversions with cyan/black tokens, loading skeletons, empty state, and error-card with request_id; data is tenant-isolated server-side (never client-filterable).
   - Implementation notes: Server route runs HogQL filtered by the group key `site_id`; cache 60s in KV; reuse `<app-rolling-counter>` for headline stats.
@@ -3038,7 +3038,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002, LOOP-ANALYTICS-003.
   - Related files: `apps/project-sites/src/routes/api.ts`, admin `sites/:id/analytics` component.
 
-- [ ] LOOP-ANALYTICS-007: Claim-flow funnel instrumentation + insight [auto]
+- [ ] LOOP-ANALYTICS-007: Claim-flow funnel instrumentation + insight [parked]
   - Why: The claim flow (a prospect claiming their generated site) is a top conversion path; without granular events the drop-off between steps is invisible.
   - Acceptance criteria: Events `claim.flow_started`, `claim.identity_verified`, `claim.payment_started`, `claim.completed`, `claim.abandoned` fire server-side with site_id + source; a saved PostHog funnel insight (created via API/MCP) shows step conversion; backend-verified counts match emitted events.
   - Implementation notes: Emit at each claim handler boundary; abandoned = synthesized by a scheduled query, not a client event.
@@ -3048,7 +3048,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002, LOOP-ANALYTICS-001.
   - Related files: claim-flow service/routes, `apps/project-sites/src/lib/posthog.ts`.
 
-- [ ] LOOP-ANALYTICS-008: Billing-conversion funnel (checkout → subscription active) [auto]
+- [ ] LOOP-ANALYTICS-008: Billing-conversion funnel (checkout → subscription active) [parked]
   - Why: Revenue depends on understanding where users fall out between plan-select, Stripe checkout, and active subscription; this is the money funnel.
   - Acceptance criteria: Events `billing.plan_selected`, `billing.checkout_started`, `billing.checkout_completed`, `billing.subscription_active`, `billing.checkout_failed` fire from routes + Stripe webhooks (idempotent, dedup on event id); a saved funnel + a $ value property; backend-verified.
   - Implementation notes: Webhook-sourced events use the Stripe event id as PostHog `$insert_id` for dedup; attach plan, amount, currency.
@@ -3068,7 +3068,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-003, LOOP-ANALYTICS-001.
   - Related files: `apps/project-sites/src/services/analytics`, D1 migration for `activation_scores`.
 
-- [ ] LOOP-ANALYTICS-010: Onboarding/activation funnel insight + admin widget [auto]
+- [ ] LOOP-ANALYTICS-010: Onboarding/activation funnel insight + admin widget [parked]
   - Why: The activation milestones need a visible funnel so the solo founder sees exactly which onboarding step leaks the most users.
   - Acceptance criteria: A saved PostHog funnel over the onboarding milestone events; an admin dashboard widget renders current step conversions + WoW delta; data backend-verified; empty/loading/error states present.
   - Implementation notes: Reuse the per-site analytics fetch pattern but org-scoped; cache 5min KV.
@@ -3078,7 +3078,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-009, LOOP-ANALYTICS-007.
   - Related files: admin dashboard widgets, `apps/project-sites/src/services/analytics`.
 
-- [ ] LOOP-ANALYTICS-011: Feature-flag → PostHog bridge (read PostHog flags server-side) [auto]
+- [ ] LOOP-ANALYTICS-011: Feature-flag → PostHog bridge (read PostHog flags server-side) [parked]
   - Why: The platform already has a D1 feature_flags plane; PostHog flags can complement it for percentage rollouts tied to person/group cohorts — but they must be evaluated server-side and reconciled, not duplicated. (needs decision: PostHog flags as source vs. D1-canonical with PostHog mirror — default D1-canonical.)
   - Acceptance criteria: A `getPostHogFlag(env, key, distinctId, groups)` server helper calls PostHog `/decide` (or local eval), caches in KV 60s; documented precedence: D1 killswitch overrides PostHog rollout; unit-tested with mocked decide response.
   - Implementation notes: Local evaluation payload preferred to avoid per-request `/decide` latency; never let a PostHog flag silently re-enable a D1 killswitch.
@@ -3088,7 +3088,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-003; existing `feature_flags.ts`.
   - Related files: `apps/project-sites/src/services/feature_flags.ts`.
 
-- [ ] LOOP-ANALYTICS-012: Experiment (A/B) harness for marketing homepage + claim CTA [auto]
+- [ ] LOOP-ANALYTICS-012: Experiment (A/B) harness for marketing homepage + claim CTA [parked]
   - Why: Conversion lift needs real experiments (hero copy, CTA wording, pricing layout) measured against a primary metric, not taste-based guessing.
   - Acceptance criteria: A `runExperiment(key, distinctId)` returns a variant from a PostHog experiment; exposure event `$feature_flag_called` fires; a saved experiment ties variant → `billing.checkout_completed` as the goal metric; results readable via backend query.
   - Implementation notes: Server-assigns variant for SSR/marketing to avoid flicker; store variant in a signed cookie for consistency.
@@ -3098,7 +3098,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-011, LOOP-ANALYTICS-008.
   - Related files: marketing route handlers, `apps/project-sites/src/lib/posthog.ts`.
 
-- [ ] LOOP-ANALYTICS-013: Session replay enabled ONLY on platform admin/onboarding (privacy-gated) [auto]
+- [ ] LOOP-ANALYTICS-013: Session replay enabled ONLY on platform admin/onboarding (privacy-gated) [parked]
   - Why: Replay is gold for debugging onboarding friction but is privacy-sensitive and bandwidth-heavy; it must be scoped to platform surfaces with strict masking — NEVER auto-enabled on customer client sites.
   - Acceptance criteria: Replay enabled on admin + onboarding routes only, behind flag `session_replay_admin`; `maskAllInputs: true`, block payment/PII selectors; sampled (e.g. 20%); a documented note that customer sites get lightweight analytics only (no replay); verify replay sessions appear via backend list.
   - Implementation notes: Configure posthog-js `session_recording` with `maskTextSelector` + blocklist; disable on any route under `sites/:id` customer preview.
@@ -3108,7 +3108,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-005.
   - Related files: admin frontend posthog config, route guards.
 
-- [ ] LOOP-ANALYTICS-014: In-product surveys primitive (NPS + targeted micro-surveys) [auto]
+- [ ] LOOP-ANALYTICS-014: In-product surveys primitive (NPS + targeted micro-surveys) [parked]
   - Why: Qualitative signal (NPS, "why are you cancelling?", feature-request) complements quant funnels and is cheap with PostHog surveys.
   - Acceptance criteria: PostHog surveys gated by feature flag + cohort (e.g. NPS after activation, cancel-reason on billing.cancel intent); responses queryable via backend; a `<app-survey-host>` respects display rules + suppresses on customer client sites.
   - Implementation notes: Use PostHog survey targeting via flags so display logic stays server-governed; throttle to one survey per user per 30d.
@@ -3118,7 +3118,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-011, LOOP-ANALYTICS-009.
   - Related files: admin survey host component, PostHog survey definitions.
 
-- [ ] LOOP-ANALYTICS-015: Retention + lifecycle (new/returning/resurrected/dormant) insight [auto]
+- [ ] LOOP-ANALYTICS-015: Retention + lifecycle (new/returning/resurrected/dormant) insight [parked]
   - Why: Retention curves and lifecycle breakdown tell the solo founder whether the product has real stickiness — the single most important growth signal.
   - Acceptance criteria: Saved PostHog retention insight on a core action (e.g. `site.edited`) + a lifecycle insight; an admin widget renders the retention grid; backend-verified counts; range selector.
   - Implementation notes: Pick the activation-correlated "aha" action as the retention anchor; document the choice.
@@ -3138,7 +3138,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-009, LOOP-ANALYTICS-018.
   - Related files: `apps/project-sites/src/services/analytics`, D1 migration `churn_scores`.
 
-- [ ] LOOP-ANALYTICS-017: Lifecycle trigger engine (analytics events → actions) [auto]
+- [ ] LOOP-ANALYTICS-017: Lifecycle trigger engine (analytics events → actions) [parked]
   - Why: Analytics is only valuable when it drives action — dormant user → re-engagement email, high churn risk → save offer, activation milestone → celebration; this engine wires signals to outcomes.
   - Acceptance criteria: A rules table maps (cohort/risk/milestone) → action (Resend email via existing email plane, in-app notification via psnotify, or Hookdeck/Outpost webhook); triggers are idempotent (one fire per user per rule per window); dry-run mode; unit-tested with fixture cohorts.
   - Implementation notes: Consume PostHog cohorts via webhook (PostHog action → Hookdeck → Worker) OR nightly cron over D1 scores; dedup in D1 `lifecycle_fires`.
@@ -3148,7 +3148,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-016, LOOP-ANALYTICS-009.
   - Related files: `apps/project-sites/src/services/analytics`, `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-ANALYTICS-018: Tinybird high-volume rollup for customer-site pageviews [auto]
+- [ ] LOOP-ANALYTICS-018: Tinybird high-volume rollup for customer-site pageviews [parked]
   - Why: Querying PostHog per-pageview for high-traffic customer sites is slow + costly; OLAP rollups belong in Tinybird (decision: Tinybird, not ClickHouse), feeding the per-site view's heavy queries.
   - Acceptance criteria: A Tinybird datasource ingests site pageview events (via the existing capture path or a Pipe from PostHog export), endpoints `events_by_tenant_daily` / per-site top-pages; the per-site analytics view (LOOP-ANALYTICS-006) routes high-traffic sites to Tinybird, low-traffic to PostHog; results reconcile within tolerance.
   - Implementation notes: Reuse existing Tinybird endpoints (`mcp__tinybird__events_by_tenant_daily`, `site_publishes_by_source`); dual-write or batch-export ingest (needs decision: dual-write vs. PostHog batch-export → Tinybird — default dual-write for freshness).
@@ -3158,7 +3158,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-006, LOOP-ANALYTICS-002.
   - Related files: Tinybird datasources/pipes, per-site analytics route.
 
-- [ ] LOOP-ANALYTICS-019: App-install + app-usage analytics (marketplace apps per site) [auto]
+- [ ] LOOP-ANALYTICS-019: App-install + app-usage analytics (marketplace apps per site) [parked]
   - Why: The platform offers installable apps/integrations per site; install funnel + usage tells which apps drive retention and which are dead weight.
   - Acceptance criteria: Events `app.viewed`, `app.install_started`, `app.installed`, `app.uninstalled`, `app.used` fire with app_id + site_id; a saved insight ranks apps by install→active conversion; backend-verified.
   - Implementation notes: app_id added to correlation context; usage event throttled (last_used_at debounce per memory pattern).
@@ -3168,7 +3168,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002, LOOP-ANALYTICS-001.
   - Related files: app/marketplace service + routes.
 
-- [ ] LOOP-ANALYTICS-020: Abuse + bot analytics signal (spam claims, fraud, scrapers) [auto]
+- [ ] LOOP-ANALYTICS-020: Abuse + bot analytics signal (spam claims, fraud, scrapers) [parked]
   - Why: Generous-free + public claim flow invites abuse; analytics must distinguish real activation from bot/fraud so funnels aren't poisoned and abuse is actionable.
   - Acceptance criteria: Events tag suspected abuse (`abuse.suspected_signup`, `abuse.rate_limited`, `abuse.turnstile_failed`) with reason; a dashboard surfaces abuse rate by source; real-user funnels exclude flagged distinct_ids via a cohort; verified via backend.
   - Implementation notes: Source signals from Turnstile failures, DO rate-limiter (per memory: DO counter is the enforcement), and velocity heuristics; exclude bot cohort from activation/billing funnels.
@@ -3178,7 +3178,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-007, LOOP-ANALYTICS-003.
   - Related files: rate-limit DO, claim-flow handlers, `apps/project-sites/src/lib/posthog.ts`.
 
-- [ ] LOOP-ANALYTICS-021: Privacy controls + per-site consent + opt-out + DNT [auto]
+- [ ] LOOP-ANALYTICS-021: Privacy controls + per-site consent + opt-out + DNT [parked]
   - Why: Customer-visible site analytics must respect end-visitor privacy (consent banner config, Do-Not-Track, opt-out, IP anonymization) or the platform exposes its customers to GDPR/CCPA risk.
   - Acceptance criteria: Per-site analytics config (in site settings) toggles tracking, honors DNT, anonymizes IP, and a consent-mode that holds events until consent; a documented data-retention default; opt-out persists; unit-tested gating logic.
   - Implementation notes: Server-side capture checks the site's consent config before emitting visitor events; PostHog `opt_out_capturing` on client; configurable per site_id.
@@ -3188,7 +3188,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-006, LOOP-ANALYTICS-002.
   - Related files: site settings component, capture helper, `apps/project-sites/src/services/site_serving`.
 
-- [ ] LOOP-ANALYTICS-022: Data-governance — PII scrubbing, redaction, retention policy [auto]
+- [ ] LOOP-ANALYTICS-022: Data-governance — PII scrubbing, redaction, retention policy [parked]
   - Why: Events must never carry secrets/PII (emails, tokens, card data); a governance layer enforces redaction at the boundary, matching the structured-logging redaction discipline.
   - Acceptance criteria: A `scrubProperties()` runs inside `captureServer` removing/hashing known-PII keys (email, phone, token, address) per an allowlist of safe properties; a CI test feeds a PII-laden payload and asserts it's scrubbed; documented retention windows per event class.
   - Implementation criteria/notes: Reuse `packages/shared/src/utils/redact`; allowlist over denylist for property keys; hash distinct_id-adjacent PII.
@@ -3198,7 +3198,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002.
   - Related files: `packages/shared/src/utils/redact`, `apps/project-sites/src/lib/posthog.ts`.
 
-- [ ] LOOP-ANALYTICS-023: Platform admin analytics cockpit (cross-cutting dashboard) [auto]
+- [ ] LOOP-ANALYTICS-023: Platform admin analytics cockpit (cross-cutting dashboard) [parked]
   - Why: The solo founder needs one black/cyan cockpit page aggregating the key insights (activation funnel, MRR funnel, retention, churn risk, abuse rate, top sites) instead of clicking through PostHog.
   - Acceptance criteria: An `/admin/analytics` route composes existing widgets (LOOP-ANALYTICS-010/015/016/020) + headline rolling-counters; range + tenant filter; visibility-aware polling (pauses on `document.hidden` per memory); loading/empty/error states; authed E2E via E2E_API_KEY.
   - Implementation notes: Reuse `AdminStateService` polling pattern; cyan/black `_polish.scss` tokens; no hard-coded brand colors.
@@ -3208,7 +3208,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-010, 015, 016, 020.
   - Related files: admin `analytics` section component, dashboard widgets.
 
-- [ ] LOOP-ANALYTICS-024: Analytics drift + dead-event detector (CI gate) [auto]
+- [ ] LOOP-ANALYTICS-024: Analytics drift + dead-event detector (CI gate) [parked]
   - Why: Over time events get renamed, orphaned, or fired without correlation tags; a CI detector keeps the taxonomy honest and prevents the funnel-rot that creeps into every analytics system.
   - Acceptance criteria: A `detect-analytics-drift.mjs` greps the codebase for: (a) capture calls bypassing `captureServer`/taxonomy, (b) taxonomy events with zero call sites (dead), (c) capture calls missing required correlation tags, (d) any client capture missing the env gate; fails CI on HIGH-confidence findings only (false-negative bias per validator-precision rule).
   - Implementation notes: Use `/usr/bin/grep` (not flaky ugrep per memory); confidence tiers; `// analytics-ignore: <kind>` escape hatch.
@@ -3236,7 +3236,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: none (foundation).
   - Related files: `src/services/logging/logger.ts`, `schemas.ts`, `__tests__/logger.test.ts`.
 
-- [ ] LOOP-LOGS-002: Axiom ingest transport with batching, retry + dead-letter to R2 [auto]
+- [ ] LOOP-LOGS-002: Axiom ingest transport with batching, retry + dead-letter to R2 [parked]
   - Why: Per-line HTTP to Axiom is cost- and latency-prohibitive; batched ingest with backpressure is mandatory.
   - Acceptance criteria: Buffers up to N lines / T ms then POSTs to Axiom `/v1/datasets/{ds}/ingest`; retries 5xx with jitter; on terminal failure writes NDJSON batch to R2 `log-dead-letter/{ds}/{ts}.ndjson`; never blocks the request path; respects `AXIOM_TOKEN` + `AXIOM_ORG_ID` secrets.
   - Implementation notes: `src/services/logging/axiom_transport.ts`; gzip body; idempotent batch ids; circuit-breaker opens after K consecutive failures.
@@ -3246,7 +3246,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001.
   - Related files: `src/services/logging/axiom_transport.ts`.
 
-- [ ] LOOP-LOGS-003: Workers Tracing → OTLP → Axiom exporter wiring [auto]
+- [ ] LOOP-LOGS-003: Workers Tracing → OTLP → Axiom exporter wiring [parked]
   - Why: Brian directive — CF Workers Tracing emits OTLP; route spans to Axiom for trace correlation.
   - Acceptance criteria: `@opentelemetry/exporter-trace-otlp-http` configured to Axiom OTLP endpoint with dataset header; root span per request carries `trace_id` that matches log-line `trace_id`; sampled per LOOP-LOGS-018; verified by a live trace appearing in Axiom with linked logs.
   - Implementation notes: `src/services/logging/otel.ts`; init in `index.ts` middleware; resource attrs `service.name=project-sites`, `deployment.environment`.
@@ -3256,7 +3256,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001, LOOP-LOGS-002.
   - Related files: `src/services/logging/otel.ts`, `index.ts`.
 
-- [ ] LOOP-LOGS-004: Request-scoped log context middleware (correlation propagation) [auto]
+- [ ] LOOP-LOGS-004: Request-scoped log context middleware (correlation propagation) [parked]
   - Why: Correlation ids must be populated once per request and propagated to every downstream log/trace automatically.
   - Acceptance criteria: Hono middleware seeds `LogContext` from `request_id` (existing request_id middleware), resolved `tenant_id`/`site_id` from host + auth, `trace_id` from OTEL, stores logger on `c.set('logger', ...)`; all route handlers use `c.get('logger')`; missing context defaults are explicit not silent.
   - Implementation notes: `src/middleware/log_context.ts`; integrate with existing `request_id` + `auth` middleware ordering.
@@ -3266,7 +3266,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001.
   - Related files: `src/middleware/log_context.ts`, `src/middleware/request_id.ts`.
 
-- [ ] LOOP-LOGS-005: PII redaction at ingest [auto]
+- [ ] LOOP-LOGS-005: PII redaction at ingest [parked]
   - Why: Logs must never persist secrets/PII to Axiom; redaction at the boundary is mandatory and cheaper than post-hoc scrubbing.
   - Acceptance criteria: Pre-ingest pass redacts emails, bearer tokens, API keys (`psk_*`,`sk_*`), Authorization headers, cookies, credit-card-shaped strings; key-name denylist (`password`,`secret`,`token`,`authorization`); redacts to `«redacted:type»`; unit-tested against fixture corpus; reuses `packages/shared/utils/redact`.
   - Implementation notes: `src/services/logging/redact.ts` wrapping shared redact; applied inside transport before batching.
@@ -3276,7 +3276,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-002.
   - Related files: `src/services/logging/redact.ts`, `packages/shared/src/utils/redact.ts`.
 
-- [ ] LOOP-LOGS-006: Axiom dataset taxonomy + provisioning script [auto]
+- [ ] LOOP-LOGS-006: Axiom dataset taxonomy + provisioning script [parked]
   - Why: Cost + query speed depend on a deliberate dataset split (app, traces, build, container, webhook, llm, audit, security, customer).
   - Acceptance criteria: `scripts/provision-axiom-datasets.mjs` idempotently creates datasets with documented retention per LOOP-LOGS-014; dataset names + retention in `docs/LOGGING.md` table; script uses `AXIOM_TOKEN`; re-run is no-op.
   - Implementation notes: One canonical `DATASETS` const reused by logger routing; (needs decision) exact dataset count vs. single dataset + `kind` field for cost — default to ~9 datasets.
@@ -3286,7 +3286,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001.
   - Related files: `scripts/provision-axiom-datasets.mjs`, `docs/LOGGING.md`.
 
-- [ ] LOOP-LOGS-007: Build-pipeline (site-generation Workflow) structured logs [auto]
+- [ ] LOOP-LOGS-007: Build-pipeline (site-generation Workflow) structured logs [parked]
   - Why: AI site generation is the core product flow; its steps must be fully traceable with `site_id`/`job_id`.
   - Acceptance criteria: Each `workflows/site-generation.ts` step emits start/finish/error lines with `job_id`, `site_id`, step name, `durationMs`, model + token counts where relevant; failures carry taxonomy code; logs queryable by `job_id` end-to-end.
   - Implementation notes: Inject logger child into workflow step wrapper; reuse LOOP-LOGS-001.
@@ -3296,7 +3296,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001, LOOP-LOGS-004.
   - Related files: `src/workflows/site-generation.ts`, `src/services/logging/logger.ts`.
 
-- [ ] LOOP-LOGS-008: Container log shipping (CF Containers → Axiom) [auto]
+- [ ] LOOP-LOGS-008: Container log shipping (CF Containers → Axiom) [parked]
   - Why: Platform runs many CF Container DOs (Twenty, Plane, Listmonk, Unkey, voice, etc.) whose stdout/stderr must reach Axiom, not vanish.
   - Acceptance criteria: A lightweight log-forwarder reads container stdout/stderr (Containers logs API or sidecar tail) and POSTs structured lines to Axiom `container` dataset tagged with `app_id`, container name, region; verified for ≥2 live containers.
   - Implementation notes: Prefer a CF Worker pull of Containers logs over a per-container agent; (needs decision) Containers log API coverage vs. sidecar tail — sidecar on CF Container only if pull API insufficient; Fly only if a 24-7 stateful collector is unavoidable (state why in PR).
@@ -3306,7 +3306,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-002, LOOP-LOGS-006.
   - Related files: `src/services/logging/container_forwarder.ts`.
 
-- [ ] LOOP-LOGS-009: Webhook delivery logs (inbound + outbound, Hookdeck/Outpost correlated) [auto]
+- [ ] LOOP-LOGS-009: Webhook delivery logs (inbound + outbound, Hookdeck/Outpost correlated) [parked]
   - Why: Webhook failures are a top support class; every delivery attempt needs visibility with idempotency + status.
   - Acceptance criteria: Every inbound webhook (Stripe, SNS, etc.) and outbound delivery logs attempt with `request_id`, provider, event type, signature-valid bool, status, attempt#, Hookdeck/Outpost delivery id; dead-letters visible (LOOP-LOGS-021); queryable by event id.
   - Implementation notes: Hook into `routes/webhooks.ts` + outbound webhook service; reuse correlation middleware.
@@ -3316,7 +3316,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001, LOOP-LOGS-004.
   - Related files: `src/routes/webhooks.ts`, `src/services/webhook.ts`.
 
-- [ ] LOOP-LOGS-010: LLM call logs (Axiom mirror) + Langfuse trace linkage [auto]
+- [ ] LOOP-LOGS-010: LLM call logs (Axiom mirror) + Langfuse trace linkage [parked]
   - Why: LLM spend + quality must be observable; Axiom holds operational call logs while Langfuse holds AI traces — they must share ids.
   - Acceptance criteria: Every external/Workers-AI LLM call logs model, provider, prompt-template version, token in/out, cost estimate, latency, `trace_id`, and Langfuse trace id; no prompt/response bodies in Axiom (PII) — only metadata + Langfuse pointer.
   - Implementation notes: Wrap `services/external_llm.ts` + `ai_workflows.ts`; reuse prompt registry version field.
@@ -3326,7 +3326,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001.
   - Related files: `src/services/external_llm.ts`, `src/services/ai_workflows.ts`, `src/prompts/registry.ts`.
 
-- [ ] LOOP-LOGS-011: Audit-log mirror to Axiom [auto]
+- [ ] LOOP-LOGS-011: Audit-log mirror to Axiom [parked]
   - Why: D1 audit log is system-of-record but needs a queryable, long-window mirror for investigations without taxing D1.
   - Acceptance criteria: Every `services/audit.ts` write also emits an immutable structured line to Axiom `audit` dataset with actor, action, resource, `tenant_id`, before/after diff hash; mirror failure never blocks the D1 write; reconciliation test confirms parity.
   - Implementation notes: Tee inside audit service; append-only; no redaction bypass.
@@ -3336,7 +3336,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001, LOOP-LOGS-005.
   - Related files: `src/services/audit.ts`.
 
-- [ ] LOOP-LOGS-012: Security-event logs [auto]
+- [ ] LOOP-LOGS-012: Security-event logs [parked]
   - Why: Auth failures, RBAC denials, rate-limit trips, WAF/Turnstile rejections, IDOR attempts need a dedicated security stream.
   - Acceptance criteria: Dedicated `security` dataset receives lines for failed logins, RBAC 403→404 events, rate-limit blocks, suspicious `x-org-id` mismatches, Turnstile failures; each tagged `tenant_id`, ip-hash, `api_key_id`; feeds anomaly detection (LOOP-LOGS-020).
   - Implementation notes: Emit from auth/RBAC/rate-limit middleware; ip stored hashed (PII).
@@ -3346,7 +3346,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001, LOOP-LOGS-005.
   - Related files: `src/middleware/auth.ts`, `packages/shared/src/middleware/`.
 
-- [ ] LOOP-LOGS-013: Axiom query service (typed APL client) for /admin [auto]
+- [ ] LOOP-LOGS-013: Axiom query service (typed APL client) for /admin [parked]
   - Why: The admin log UI and dashboards need one typed, cached, server-side query path — never client-direct to Axiom.
   - Acceptance criteria: `services/logging/axiom_query.ts` runs APL queries via Axiom API with Zod-validated params + results; enforces tenant scoping (operator can see all, tenant-scoped callers filtered by `tenant_id`); 30-60s KV cache for dashboard queries; rate-limited.
   - Implementation notes: Server-side `AXIOM_QUERY_TOKEN`; reject unbounded time ranges; parametrized APL templates.
@@ -3356,7 +3356,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-006.
   - Related files: `src/services/logging/axiom_query.ts`.
 
-- [ ] LOOP-LOGS-014: Retention tiers + cost-control policy [auto]
+- [ ] LOOP-LOGS-014: Retention tiers + cost-control policy [parked]
   - Why: Solo-founder budget — logs must auto-expire by tier; high-volume noise must not balloon Axiom cost.
   - Acceptance criteria: Datasets assigned tiers (security/audit long, build/llm medium, app/container short, debug shortest) documented + applied via provisioning script; ingest-side debug-line dropping when `LOG_LEVEL` raised; monthly cost estimate surfaced in /admin.
   - Implementation notes: Tier table in `docs/LOGGING.md`; (needs decision) exact day counts pending Axiom plan limits.
@@ -3366,7 +3366,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-006.
   - Related files: `scripts/provision-axiom-datasets.mjs`, `docs/LOGGING.md`.
 
-- [ ] LOOP-LOGS-015: /admin log search UI (operator + per-tenant/site/app filters) [auto]
+- [ ] LOOP-LOGS-015: /admin log search UI (operator + per-tenant/site/app filters) [parked]
   - Why: A first-class search surface is the daily driver for debugging; must support correlation pivots.
   - Acceptance criteria: `/admin/logs` Angular section (cyan/black, DialogShell where modal) with dataset selector, time range, full-text + structured filters, and one-click pivot by `trace_id`/`request_id`/`site_id`/`tenant_id`; results paginated; behind feature flag `logs_search`; Karma + authed Playwright E2E.
   - Implementation notes: Frontend calls LOOP-LOGS-013 only; reuse admin section-add recipe; no raw HttpClient (use ApiService).
@@ -3376,7 +3376,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-013.
   - Related files: `frontend .../admin/sections/logs/`, `src/routes/api.ts`.
 
-- [ ] LOOP-LOGS-016: Error-rate dashboards (per-tenant / per-site / per-app) [auto]
+- [ ] LOOP-LOGS-016: Error-rate dashboards (per-tenant / per-site / per-app) [parked]
   - Why: Operators need at-a-glance error trends segmented by the correlation dimensions.
   - Acceptance criteria: `/admin/logs/dashboards` renders error-rate, p50/p95 latency, and throughput sparklines grouped by `tenant_id`/`site_id`/`app_id` over selectable windows; sourced from cached Axiom aggregates; flag-gated.
   - Implementation notes: Reuse `<app-rolling-counter>` + cinematic reveal; aggregates via APL templates.
@@ -3386,7 +3386,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-013, LOOP-LOGS-015.
   - Related files: `frontend .../admin/sections/logs/dashboards/`.
 
-- [ ] LOOP-LOGS-017: SLO tracking + error-budget burn [auto]
+- [ ] LOOP-LOGS-017: SLO tracking + error-budget burn [parked]
   - Why: Turn raw logs into SLO signal (availability + latency) with budget burn-rate alerts.
   - Acceptance criteria: Define SLOs (e.g. site-serving availability 99.9%, p95 < X ms) in a typed `slo.config.ts`; a scheduled job computes burn rate from Axiom and stores results; fast/slow burn thresholds trigger LOOP-LOGS-019 alerts; /admin shows budget remaining.
   - Implementation notes: Cron Trigger → APL aggregate → D1/KV snapshot; multi-window multi-burn-rate algorithm.
@@ -3396,7 +3396,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-013.
   - Related files: `src/services/logging/slo.ts`, `slo.config.ts`.
 
-- [ ] LOOP-LOGS-018: Log + trace sampling controls [auto]
+- [ ] LOOP-LOGS-018: Log + trace sampling controls [parked]
   - Why: Full-fidelity logging at scale is unaffordable; sampling must be tunable without redeploy and consistent across logs+traces.
   - Acceptance criteria: KV-backed sampling config (`{dataset: rate}`, tail-sample errors at 100%) read by logger + OTEL exporter; head-sampling for high-volume info, always-keep for warn/error; config editable in /admin; head-sample decision shared via `trace_id` so logs+spans stay coherent.
   - Implementation notes: 60s KV cache + invalidation on admin write (mind the flag-cache stale bug pattern).
@@ -3406,7 +3406,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-001, LOOP-LOGS-003.
   - Related files: `src/services/logging/sampling.ts`.
 
-- [ ] LOOP-LOGS-019: Log-based alerting (Axiom monitors → psnotify + Resend) [auto]
+- [ ] LOOP-LOGS-019: Log-based alerting (Axiom monitors → psnotify + Resend) [parked]
   - Why: Logs are useless without proactive alerts; alerts must flow to the platform's own notification plane.
   - Acceptance criteria: APL-based alert rules (error spike, build-failure burst, webhook delivery drop, SLO burn) defined as code and provisioned to Axiom monitors; alert webhooks land on a WAF-skipped workers.dev receiver that fans out to `psnotify` inbox + Resend email; each alert carries AI summary + runbook link + correlation pivot.
   - Implementation notes: Receiver verifies Axiom signature; dedupe via D1 idempotency; reuse psnotify (NO Novu).
@@ -3416,7 +3416,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-013, LOOP-LOGS-006.
   - Related files: `src/routes/webhooks.ts` (axiom receiver), `scripts/provision-axiom-monitors.mjs`.
 
-- [ ] LOOP-LOGS-020: Anomaly detection on log streams [auto]
+- [ ] LOOP-LOGS-020: Anomaly detection on log streams [parked]
   - Why: Threshold alerts miss novel failures; baseline-deviation detection catches the unknown-unknowns cheaply.
   - Acceptance criteria: Scheduled job computes per-dataset baselines (rolling mean/stddev of error rate, new-error-fingerprint appearance, latency drift) and flags z-score outliers; surfaces "new anomaly" cards in /admin and feeds LOOP-LOGS-019; tuned to keep false-positive rate low (validator-precision discipline).
   - Implementation notes: APL summarize over windows; (needs decision) statistical job vs. Axiom-native anomaly features — default to in-Worker stats.
@@ -3426,7 +3426,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-012, LOOP-LOGS-013.
   - Related files: `src/services/logging/anomaly.ts`.
 
-- [ ] LOOP-LOGS-021: Dead-letter visibility surface [auto]
+- [ ] LOOP-LOGS-021: Dead-letter visibility surface [parked]
   - Why: Dropped log batches (LOOP-LOGS-002) and webhook dead-letters must be visible and replayable, not silently lost.
   - Acceptance criteria: `/admin/logs/dead-letter` lists R2 dead-letter batches + webhook DLQ with size, reason, age; one-click replay re-ingests to Axiom / re-delivers webhook; replay is idempotent; empty state is reassuring not alarming.
   - Implementation notes: Reads R2 `log-dead-letter/*` + Outpost/Upstash DLQ; replay guarded by operator role.
@@ -3436,7 +3436,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-002, LOOP-LOGS-009.
   - Related files: `frontend .../admin/sections/logs/dead-letter/`, `src/services/logging/dead_letter.ts`.
 
-- [ ] LOOP-LOGS-022: High-volume log rollups → Tinybird (never ClickHouse) [auto]
+- [ ] LOOP-LOGS-022: High-volume log rollups → Tinybird (never ClickHouse) [parked]
   - Why: Long-term aggregate analytics (volume by tenant, cost by feature, error trends) belong in Tinybird OLAP, not repeated full Axiom scans.
   - Acceptance criteria: A periodic exporter pushes pre-aggregated log metrics to a `projectsites_logs` Tinybird datasource via the existing event_bus pattern; Tinybird endpoints power monthly cost + volume reports; raw lines stay in Axiom, rollups in Tinybird.
   - Implementation notes: Reuse `services/tinybird.ts`; aggregate in Worker before send; explicitly NOT ClickHouse.
@@ -3446,7 +3446,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-013.
   - Related files: `src/services/tinybird.ts`, `src/services/logging/rollups.ts`.
 
-- [ ] LOOP-LOGS-023: Customer-visible lightweight logs (per-site activity feed) [auto]
+- [ ] LOOP-LOGS-023: Customer-visible lightweight logs (per-site activity feed) [parked]
   - Why: Site owners want a simple "what happened to my site" feed without Sentry-grade detail and never any platform PII.
   - Acceptance criteria: A reduced, scoped view exposes per-site events (published, deploy ok/fail, form submission, webhook received) filtered to the caller's `site_id`/`tenant_id`; no stack traces, no other tenants, no secrets; behind flag `customer_site_logs`; explicitly no Sentry on customer client sites.
   - Implementation criteria/notes: Curated event allowlist; served via LOOP-LOGS-013 with mandatory tenant filter; friendly human copy (Flesch ≥ 50).
@@ -3456,7 +3456,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
   - Dependencies: LOOP-LOGS-013, LOOP-LOGS-004.
   - Related files: `frontend .../owner/site-activity/`, `src/services/logging/customer_feed.ts`.
 
-- [ ] LOOP-LOGS-024: Logging conformance gate (CI drift detector) [auto]
+- [ ] LOOP-LOGS-024: Logging conformance gate (CI drift detector) [parked]
   - Why: Logging standards rot without enforcement — bare `console.log`, missing correlation, raw `fetch` to Axiom, un-redacted bodies must fail CI.
   - Acceptance criteria: `bin/validate-logging.mjs` greps for `console.log`, direct Axiom URLs outside the transport, log calls missing `c.get('logger')` in route handlers, and PII-shaped literals in log args; emits findings with HIGH/MEDIUM/LOW confidence; wired into lefthook + a GitHub Action; exit 1 on HIGH.
   - Implementation notes: Portable-audit + validator-precision discipline (scope regex, accept quote variants, suppression comment escape hatch); fixtures under `bin/__fixtures__/logging/`.
@@ -3484,7 +3484,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: none (foundation task).
   - Related files: `apps/project-sites/src/observability/trace-context.ts`, `packages/shared/src/schemas/correlation.ts`.
 
-- [ ] LOOP-TRACES-002: Sentry platform-only middleware with hard client-site guard [auto]
+- [ ] LOOP-TRACES-002: Sentry platform-only middleware with hard client-site guard [parked]
   - Why: Sentry must capture full-stack platform/admin errors but NEVER fire on generated customer sites; the guard makes the rule enforceable in code, not just convention.
   - Acceptance criteria: Hono middleware initializes `@sentry/cloudflare` only when `c.get('surface') === 'platform'`; a unit test asserts that requests with `surface === 'customer-site'` (any `{slug}.projectsites.dev` host) produce ZERO Sentry calls; correlation envelope attached as Sentry tags.
   - Implementation notes: derive `surface` from host resolution (marketing/admin/api = platform; resolved tenant slug = customer-site); fail closed (default customer-site → no Sentry).
@@ -3494,7 +3494,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001.
   - Related files: `apps/project-sites/src/middleware/sentry.ts`, `apps/project-sites/src/lib/sentry.ts`.
 
-- [ ] LOOP-TRACES-003: ESLint/semgrep rule banning Sentry imports in customer-site code paths [auto]
+- [ ] LOOP-TRACES-003: ESLint/semgrep rule banning Sentry imports in customer-site code paths [parked]
   - Why: Defense-in-depth for the Sentry-never-on-client-sites rule — catch a stray `@sentry/*` import in any site-templating/serving module at lint time.
   - Acceptance criteria: A semgrep rule flags `@sentry/*` imports under site-serving/template/site-kit dirs; CI fails on hit; rule has a fixture proving positive + false-positive (admin import allowed).
   - Implementation notes: scope regex to `src/services/site_serving*`, `site-kit/**`, generated-site templates; allow under `middleware/`, `lib/sentry`, `routes/api`.
@@ -3504,7 +3504,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-002.
   - Related files: `.semgrep/sentry-platform-only.yml`, `apps/project-sites/eslint.config.mjs`.
 
-- [ ] LOOP-TRACES-004: Source-map upload on platform releases (Sentry releases + dist) [auto]
+- [ ] LOOP-TRACES-004: Source-map upload on platform releases (Sentry releases + dist) [parked]
   - Why: Stack traces from the minified worker bundle are useless without source maps; release health needs versioned uploads.
   - Acceptance criteria: Deploy pipeline uploads source maps for each `wrangler deploy` tagged with the git SHA as the Sentry release; a thrown test error resolves to original TS file:line in Sentry.
   - Implementation notes: use Sentry CLI in CI after build; set `release` = git SHA; only for platform worker, never customer artifacts.
@@ -3514,7 +3514,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-002.
   - Related files: `.github/workflows/deploy.yml`, `apps/project-sites/scripts/sentry-release.mjs`.
 
-- [ ] LOOP-TRACES-005: Langfuse LLM-trace client wired to llm.projectsites.dev gateway [auto]
+- [ ] LOOP-TRACES-005: Langfuse LLM-trace client wired to llm.projectsites.dev gateway [parked]
   - Why: Every LLM call through the gateway must produce a Langfuse trace with prompt_version + model + cost so we have full LLM observability.
   - Acceptance criteria: Thin HTTP client `traceLlmCall({input, output, model, prompt_version, usage, ...envelope})` posts a Langfuse trace+generation; trace_id matches the platform trace_id; unit test mocks the ingest endpoint.
   - Implementation notes: prefer Langfuse Cloud ingest (`cloud.langfuse.com`); keys via `get-secret LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`; batch + `waitUntil` flush.
@@ -3524,7 +3524,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001.
   - Related files: `apps/project-sites/src/services/langfuse.ts`, `apps/project-sites/src/services/external_llm.ts`.
 
-- [ ] LOOP-TRACES-006: Langfuse prompt registry as source of truth for prompt versions [auto]
+- [ ] LOOP-TRACES-006: Langfuse prompt registry as source of truth for prompt versions [parked]
   - Why: `.prompt.md` files + the prompt registry must sync to Langfuse so prompt_version in traces is authoritative and rollback is possible.
   - Acceptance criteria: A sync script upserts each prompt template to Langfuse (text/chat prompt) with a label per git SHA; the worker's prompt renderer reads the active version label; drift between local `.prompt.md` and Langfuse fails a check.
   - Implementation notes: use Langfuse MCP `createTextPrompt`/`updatePromptLabels`; map registry IDs to Langfuse prompt names.
@@ -3534,7 +3534,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-005.
   - Related files: `apps/project-sites/src/prompts/registry.ts`, `apps/project-sites/scripts/sync-langfuse-prompts.mjs`.
 
-- [ ] LOOP-TRACES-007: Promptfoo prompt-eval CI gate (golden-prompt regression) [auto]
+- [ ] LOOP-TRACES-007: Promptfoo prompt-eval CI gate (golden-prompt regression) [parked]
   - Why: Prompt or model changes must not silently regress output quality; a reusable CI gate blocks merges that fail the golden set.
   - Acceptance criteria: `promptfooconfig.yaml` runs golden cases against the gateway; CI job fails if pass rate drops below threshold or any P0 assertion fails; results uploaded as artifact; reusable across all prompts.
   - Implementation notes: assertions mix deterministic (regex/JSON-schema) + LLM-rubric; cases sourced from Langfuse datasets (LOOP-TRACES-008); mock-mode for keyless CI per eval-mock-mode-discipline.
@@ -3544,7 +3544,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-006, LOOP-TRACES-008.
   - Related files: `apps/project-sites/evals/promptfooconfig.yaml`, `.github/workflows/prompt-evals.yml`.
 
-- [ ] LOOP-TRACES-008: Langfuse eval datasets seeded from real production traces [auto]
+- [ ] LOOP-TRACES-008: Langfuse eval datasets seeded from real production traces [parked]
   - Why: Golden/eval datasets must reflect real customer-generation inputs, not synthetic guesses, to catch true regressions.
   - Acceptance criteria: A script samples N representative production LLM traces (PII-scrubbed) into a versioned Langfuse dataset; each item carries expected-output + rubric metadata; dataset is referenced by Promptfoo + Langfuse dataset runs.
   - Implementation notes: use Langfuse MCP `upsertDataset`/`upsertDatasetItem`/`listObservations`; scrub via shared `redact` util before upload.
@@ -3554,7 +3554,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-005.
   - Related files: `apps/project-sites/scripts/seed-eval-dataset.mjs`, `packages/shared/src/utils/redact.ts`.
 
-- [ ] LOOP-TRACES-009: Build-pipeline (site-generation Workflow) distributed tracing [auto]
+- [ ] LOOP-TRACES-009: Build-pipeline (site-generation Workflow) distributed tracing [parked]
   - Why: The AI site-generation Cloudflare Workflow is multi-step; without per-step spans, slow/failing generations are opaque.
   - Acceptance criteria: Each Workflow step emits a child span (start/end/status/durationMs) under the request's trace_id; spans visible in Sentry performance with `featureSlug=site_generation`; failed steps carry taxonomy code.
   - Implementation notes: wrap step bodies with `childSpan(ctx,...)`; propagate trace context through Workflow event payload (Workflows lose async-local context).
@@ -3564,7 +3564,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001, LOOP-TRACES-002.
   - Related files: `apps/project-sites/src/workflows/site-generation.ts`.
 
-- [ ] LOOP-TRACES-010: Container-build tracing for CF Workers Containers [auto]
+- [ ] LOOP-TRACES-010: Container-build tracing for CF Workers Containers [parked]
   - Why: Container builds/deploys (Twenty, Plane, Unkey, etc.) fail opaquely; build spans + status give incident-responder a starting point.
   - Acceptance criteria: A build wrapper emits a span per container build (image, platform, duration, exit status) tagged with app_id; failures captured to Sentry with the build log tail attached; CI surfaces the trace link.
   - Implementation notes: parse `wrangler deploy`/docker build output; record amd64-native build constraint as span attribute (cross-build can exit on CF).
@@ -3574,7 +3574,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001, LOOP-TRACES-013.
   - Related files: `apps/project-sites/scripts/trace-container-build.mjs`, `.github/workflows/*-deploy.yml`.
 
-- [ ] LOOP-TRACES-011: AI cost tracing — per-call cost attributed to tenant/site/app [auto]
+- [ ] LOOP-TRACES-011: AI cost tracing — per-call cost attributed to tenant/site/app [parked]
   - Why: Solo-founder economics require knowing LLM spend per tenant/feature; cost must be a first-class traced metric, not a monthly surprise.
   - Acceptance criteria: Every gateway LLM call records `usage` → computed USD cost via a model price table; cost emitted as a Langfuse score + a Tinybird event; an admin endpoint aggregates cost by tenant_id/model/prompt_version.
   - Implementation notes: price table versioned in repo (model → input/output $/1k); Langfuse `createModel` for native cost too; cross-check.
@@ -3584,7 +3584,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-005, LOOP-TRACES-014.
   - Related files: `apps/project-sites/src/services/llm_cost.ts`, `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-TRACES-012: Trace ↔ Axiom log correlation (shared trace_id, deep links) [auto]
+- [ ] LOOP-TRACES-012: Trace ↔ Axiom log correlation (shared trace_id, deep links) [parked]
   - Why: Operators need to jump from a Sentry error/trace to the exact structured logs; correlation only works if both carry trace_id.
   - Acceptance criteria: Structured logger injects `trace_id`/`request_id` on every line shipped to Axiom; Sentry events include a deep link to the Axiom query filtered by trace_id; a test asserts the link resolves the correct dataset query.
   - Implementation notes: reuse existing structured-logging schema; build Axiom APL query URL from envelope; never log secrets/PII (redact).
@@ -3594,7 +3594,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001, LOOP-TRACES-002.
   - Related files: `apps/project-sites/src/observability/logger.ts`, `apps/project-sites/src/lib/sentry.ts`.
 
-- [ ] LOOP-TRACES-013: Unified correlation-ID envelope enforced at every boundary [auto]
+- [ ] LOOP-TRACES-013: Unified correlation-ID envelope enforced at every boundary [parked]
   - Why: Trace/log/analytics/eval joins break if any boundary drops an ID; one Zod-validated envelope, validated everywhere, prevents silent drops.
   - Acceptance criteria: Zod schema covers all IDs; middleware populates `c.var` envelope on ingress; outbound subrequests (LLM gateway, webhooks, containers) inject it as headers; a drift test fails if any new outbound `fetch` omits injection.
   - Implementation notes: detector grep for bare `fetch(` not wrapped by the envelope-injecting client (audit-arc detector pattern).
@@ -3604,7 +3604,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001.
   - Related files: `packages/shared/src/schemas/correlation.ts`, `apps/project-sites/src/middleware/request_id.ts`.
 
-- [ ] LOOP-TRACES-014: Trace → Tinybird OLAP pipe for trace/eval/cost analytics [auto]
+- [ ] LOOP-TRACES-014: Trace → Tinybird OLAP pipe for trace/eval/cost analytics [parked]
   - Why: High-cardinality trace + eval + cost analytics need OLAP; doctrine mandates Tinybird and explicitly forbids ClickHouse.
   - Acceptance criteria: A `projectsites_traces` Tinybird datasource ingests trace summary events (trace_id, durations, status, model, cost, scores); endpoints expose p50/p95 latency + error rate by feature/tenant; NO ClickHouse anywhere.
   - Implementation notes: route through existing `event_bus` → Tinybird pattern; schema mirrors correlation envelope + metrics.
@@ -3614,7 +3614,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-001, LOOP-TRACES-013.
   - Related files: `apps/project-sites/src/services/tinybird.ts`, `tinybird/datasources/projectsites_traces.datasource`.
 
-- [ ] LOOP-TRACES-015: Release health + deploy markers (platform only) [auto]
+- [ ] LOOP-TRACES-015: Release health + deploy markers (platform only) [parked]
   - Why: Correlate error-rate spikes to deploys; release health (crash-free sessions/requests) tells us if a deploy is healthy before wide rollout.
   - Acceptance criteria: Each platform deploy creates a Sentry release + deploy marker (env=production, SHA); release health tracks adopted/healthy requests; an alert fires if a new release's error rate exceeds the prior baseline.
   - Implementation notes: tie to LOOP-TRACES-004 release; deploy marker via Sentry API in CI.
@@ -3624,7 +3624,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-004.
   - Related files: `.github/workflows/deploy.yml`, `apps/project-sites/scripts/sentry-release.mjs`.
 
-- [ ] LOOP-TRACES-016: incident-responder agent ← Sentry MCP → auto-PR loop [auto]
+- [ ] LOOP-TRACES-016: incident-responder agent ← Sentry MCP → auto-PR loop [parked]
   - Why: Solo founder can't watch Sentry 24/7; the incident-responder agent should read top issues via Sentry MCP and open fix PRs with the failing trace + suspected file:line.
   - Acceptance criteria: A scheduled task surfaces new high-severity Sentry issues; incident-responder agent produces a PR (or draft) containing root-cause hypothesis, trace link, Axiom log link, and a failing-test-first repro; never auto-merges security/payment fixes.
   - Implementation notes: agent reads Sentry MCP + Langfuse MCP; PR body links trace_id across sinks; gated behind approval tier for risky areas.
@@ -3634,7 +3634,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-002, LOOP-TRACES-012.
   - Related files: `.claude/agents/incident-responder.md`, `.claude/scheduled_tasks.json`.
 
-- [ ] LOOP-TRACES-017: Alerting + on-call runbook links in every alert [auto]
+- [ ] LOOP-TRACES-017: Alerting + on-call runbook links in every alert [parked]
   - Why: An alert without "what to do next" wastes the first minutes of an incident; every alert must carry remediation + runbook deep links per CLAUDE.md notification rules.
   - Acceptance criteria: Sentry alert rules (error spike, release-health drop, perf regression) include an AI summary + runbook URL + correlation IDs; runbooks live in `docs/runbooks/`; a test validates each alert template renders required fields.
   - Implementation notes: alert payloads templated; route to notification system (psnotify, NOT Novu) + email (SES).
@@ -3644,7 +3644,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-015, LOOP-TRACES-016.
   - Related files: `docs/runbooks/`, `apps/project-sites/src/services/notifications.ts`.
 
-- [ ] LOOP-TRACES-018: AI output quality / hallucination scoring → Langfuse scores [auto]
+- [ ] LOOP-TRACES-018: AI output quality / hallucination scoring → Langfuse scores [parked]
   - Why: Generated-site content quality must be measured continuously; low scores should gate publish and feed regression tracking.
   - Acceptance criteria: An LLM-judge evaluator scores each generation on factuality/coherence/brand-fit (0-1); scores written to Langfuse via `createScore`; generations below threshold flag for review (server returns review state, never silently ships).
   - Implementation notes: evaluator config via Langfuse `upsertEvaluator`/`createEvaluationRule`; rubric versioned; judge model pinned + recorded as model tag.
@@ -3654,7 +3654,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-005, LOOP-TRACES-009.
   - Related files: `apps/project-sites/src/services/ai_quality.ts`, `apps/project-sites/src/workflows/site-generation.ts`.
 
-- [ ] LOOP-TRACES-019: Model-comparison eval harness (challenger vs incumbent) [auto]
+- [ ] LOOP-TRACES-019: Model-comparison eval harness (challenger vs incumbent) [parked]
   - Why: Before switching a generation model (e.g., DeepSeek vs Workers AI vs Anthropic), we need head-to-head quality/cost/latency evidence.
   - Acceptance criteria: A Promptfoo + Langfuse-dataset run executes the same golden set across N models; report ranks by quality score, cost, p95 latency; result archived as a Langfuse dataset run + Markdown report; no model swap merges without this report.
   - Implementation notes: reuse LOOP-TRACES-008 dataset; emit Tinybird rows for the comparison; respect provider tiers (DeepSeek=build, Anthropic/OpenAI=premium).
@@ -3664,7 +3664,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-007, LOOP-TRACES-008, LOOP-TRACES-011.
   - Related files: `apps/project-sites/evals/model-comparison.yaml`, `apps/project-sites/scripts/model-compare-report.mjs`.
 
-- [ ] LOOP-TRACES-020: Breadcrumbs with featureSlug across platform spans + errors [auto]
+- [ ] LOOP-TRACES-020: Breadcrumbs with featureSlug across platform spans + errors [parked]
   - Why: Per CLAUDE.md feature-module drift rule, Sentry/PostHog events without `featureSlug` are drift; breadcrumbs make traces navigable by feature.
   - Acceptance criteria: A breadcrumb helper attaches `featureSlug` + correlation envelope to Sentry breadcrumbs at policy decisions, state transitions, and external calls; a drift check fails if a feature module fires events without featureSlug.
   - Implementation notes: thin wrapper over `Sentry.addBreadcrumb`; featureSlug sourced from feature manifest; platform-only (guarded).
@@ -3684,7 +3684,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-013, LOOP-TRACES-014.
   - Related files: `apps/project-sites/src/services/triage.ts`, `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-TRACES-022: traces.projectsites.dev admin console (platform observability hub) [auto]
+- [ ] LOOP-TRACES-022: traces.projectsites.dev admin console (platform observability hub) [parked]
   - Why: Operators need one black/cyan admin surface to see traces, errors, LLM costs, eval scores, and release health — joined by correlation IDs, all platform-internal.
   - Acceptance criteria: `/admin/traces` Angular section renders: recent platform errors (Sentry), top LLM traces + cost (Langfuse/Tinybird), latest eval/quality scores, release health; every row deep-links to Sentry/Langfuse/Axiom by trace_id; flag-gated `traces_console` (experimental); NO customer-site error data displayed (platform only).
   - Implementation criteria/notes: reads via worker proxy endpoints (no client-side secrets); cyan/black cockpit tokens; visibility-aware polling.
@@ -3694,7 +3694,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-005, LOOP-TRACES-011, LOOP-TRACES-014, LOOP-TRACES-015.
   - Related files: `apps/project-sites/frontend/.../admin/sections/traces/`, `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-TRACES-023: Promptfoo golden-prompt regression gate wired into pre-merge CI [auto]
+- [ ] LOOP-TRACES-023: Promptfoo golden-prompt regression gate wired into pre-merge CI [parked]
   - Why: The prompt-eval gate (LOOP-TRACES-007) must be a required status check so no prompt/model change lands without passing — making it reusable across every prompt-owning feature.
   - Acceptance criteria: A reusable GitHub composite action runs Promptfoo mock-mode on every PR touching `prompts/**` or model config; required status check; live-mode runs on `release/**`; results posted as a PR comment with pass/fail per case + score delta vs baseline.
   - Implementation notes: composite action so other repos/features reuse it; baseline stored as a committed JSON; skip cleanly when no prompt files changed (portable-audit-discipline).
@@ -3704,7 +3704,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-007.
   - Related files: `.github/actions/prompt-eval-gate/action.yml`, `apps/project-sites/evals/baseline.json`.
 
-- [ ] LOOP-TRACES-024: Self-host-vs-Cloud Langfuse decision record + CF-Container fallback skeleton [auto]
+- [ ] LOOP-TRACES-024: Self-host-vs-Cloud Langfuse decision record + CF-Container fallback skeleton [parked]
   - Why: Lock the Langfuse hosting decision in writing — Cloud is preferred precisely because self-host needs ClickHouse, which doctrine forbids — and stage a guarded fallback if data-residency ever forces self-host.
   - Acceptance criteria: An ADR documents: Cloud chosen; the ClickHouse-in-self-host conflict with the no-ClickHouse rule; the trigger conditions that would force self-host; **(needs decision)** markers on residency/cost thresholds; a non-deployed CF Workers Containers skeleton + wrangler stub exists but is flag-dark, with the ClickHouse dependency explicitly flagged as unresolved.
   - Implementation notes: ADR in `docs/decisions/`; skeleton mirrors other CF-container deploys (amd64-native, no /dev/shm caveats noted); do NOT stand up ClickHouse — block on decision.
@@ -4228,7 +4228,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: none (foundation).
   - Related files: `packages/shared/src/schemas/job.ts`, `apps/project-sites/src/services/jobs/dispatcher.ts`, `apps/project-sites/src/services/db.ts`.
 
-- [ ] LOOP-JOBS-002: Engine-selection router with transparent Queues→Workflows fallback [auto]
+- [ ] LOOP-JOBS-002: Engine-selection router with transparent Queues→Workflows fallback [parked]
   - Why: Queues binding is optional/not-enabled; code must run identically whether Queues exist, and pick Workflows/Inngest/Hatchet by job class without callers knowing.
   - Acceptance criteria: `selectEngine(jobClass, env)` returns `'queue'|'workflow'|'inngest'|'hatchet'`; when `env.QUEUE` is undefined, queue-class jobs route to a single-step Workflow; matrix table documents class→engine; tests assert fallback path when binding absent.
   - Implementation notes: keep the mapping in one typed const (`JOB_CLASS_ENGINE`); never branch on engine in business code.
@@ -4238,7 +4238,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/services/jobs/engine-select.ts`, `apps/project-sites/wrangler.toml`.
 
-- [ ] LOOP-JOBS-003: Universal retry+backoff+jitter policy with circuit breaker [auto]
+- [ ] LOOP-JOBS-003: Universal retry+backoff+jitter policy with circuit breaker [parked]
   - Why: Retries are ad-hoc across existing workflows; need one tested policy (exponential + full jitter) plus per-target circuit breaking to stop hammering a down upstream.
   - Acceptance criteria: `nextDelay(attempt, policy)` returns exponential-with-jitter capped at policy max; per-target breaker (open/half-open/closed) in DO state; breaker-open returns fast-fail without consuming an attempt; unit tests on delay distribution + breaker transitions.
   - Implementation notes: breaker state in a `CircuitBreakerDO` keyed by upstream id; share with media/webhook tasks.
@@ -4248,7 +4248,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/services/jobs/retry.ts`, `apps/project-sites/src/durable/circuit-breaker.ts`.
 
-- [ ] LOOP-JOBS-004: Migrate site-generation to envelope-wrapped durable Workflow [auto]
+- [ ] LOOP-JOBS-004: Migrate site-generation to envelope-wrapped durable Workflow [parked]
   - Why: `SITE_WORKFLOW` predates the envelope; wrap it so it carries correlation IDs, idempotency, and DLQ on failure like every other job.
   - Acceptance criteria: workflow entry accepts a `JobEnvelope`; each `step.do` is named + idempotent; failure after max attempts writes DLQ + notifies; existing E2E for generation still green; correlation IDs threaded into every step log.
   - Implementation notes: minimal refactor — adapter at the workflow boundary, no rewrite of generation logic.
@@ -4258,7 +4258,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/workflows/site-generation.ts`.
 
-- [ ] LOOP-JOBS-005: Email send queue with provider failover (Resend→SendGrid) [auto]
+- [ ] LOOP-JOBS-005: Email send queue with provider failover (Resend→SendGrid) [parked]
   - Why: Magic-link/transactional sends are synchronous and fragile; a queue gives retry, rate-limit smoothing, and automatic provider failover.
   - Acceptance criteria: `email.send` job class; consumer tries Resend then SendGrid on 5xx/timeout; idempotency_key = message hash prevents double-send; bounce/complaint feedback recorded; DLQ on dual-provider failure; tests mock both providers incl. failover.
   - Implementation notes: Queues when enabled, else Workflow fallback (LOOP-JOBS-002); reuse `notifications` service sender.
@@ -4268,7 +4268,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-003.
   - Related files: `apps/project-sites/src/services/notifications.ts`, `apps/project-sites/src/services/jobs/consumers/email.ts`.
 
-- [ ] LOOP-JOBS-006: Outbound webhook delivery with retry + HMAC + Hookdeck/Outpost [auto]
+- [ ] LOOP-JOBS-006: Outbound webhook delivery with retry + HMAC + Hookdeck/Outpost [parked]
   - Why: Tenant-facing outbound webhooks need signed payloads, retry ladders, and per-endpoint backoff; Outpost is the durable outbound delivery layer.
   - Acceptance criteria: `webhook.deliver` job; HMAC-SHA256 signature + timestamp header; retry ladder (1m,5m,30m,2h,12h) then DLQ; per-endpoint circuit breaker; redelivery endpoint from DLQ; tests cover signature + retry exhaustion.
   - Implementation notes: route through Outpost where configured (needs decision: Outpost self-host vs SaaS); native fallback consumer otherwise.
@@ -4278,7 +4278,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-003.
   - Related files: `apps/project-sites/src/services/jobs/consumers/webhook-out.ts`, `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-JOBS-007: Inbound webhook ingest hardening (Stripe/SES/SNS) via Hookdeck [auto]
+- [ ] LOOP-JOBS-007: Inbound webhook ingest hardening (Stripe/SES/SNS) via Hookdeck [parked]
   - Why: Bot Fight Mode challenges inbound M2M webhooks; need a workers.dev/Hookdeck receiver that verifies signatures, dedups, and enqueues an envelope instead of processing inline.
   - Acceptance criteria: receiver verifies provider signature, dedups by event id (idempotency ledger), enqueues `webhook.process` envelope, returns 2xx fast; replay-safe; tests cover Stripe + SES signature paths + duplicate suppression.
   - Implementation notes: host receiver on workers.dev to bypass BFM (per memory); Hookdeck in front for retry visibility.
@@ -4288,7 +4288,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, `apps/project-sites/src/services/webhook.ts`.
 
-- [ ] LOOP-JOBS-008: Async media generation fan-out workflow (images/video/audio) [auto]
+- [ ] LOOP-JOBS-008: Async media generation fan-out workflow (images/video/audio) [parked]
   - Why: Image/video/audio generation per site is slow and rate-limited; needs fan-out with bounded concurrency and per-asset retry, separate from page generation.
   - Acceptance criteria: parent workflow fans out N `media.generate` child jobs; bounded concurrency (cost-aware, see LOOP-JOBS-009); each asset idempotent on (site_id, asset_key); partial failure does not fail the whole batch; results written to R2 + indexed in D1; tests cover partial-failure + resume.
   - Implementation notes: extend `IMAGE_GENERATION_WORKFLOW`; Replicate/Workers-AI providers behind a typed media client.
@@ -4298,7 +4298,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-009.
   - Related files: `apps/project-sites/src/workflows/image-generation` (existing), `apps/project-sites/src/services/image_generation.ts`.
 
-- [ ] LOOP-JOBS-009: Cost-aware concurrency limiter (per-tenant + per-upstream) [auto]
+- [ ] LOOP-JOBS-009: Cost-aware concurrency limiter (per-tenant + per-upstream) [parked]
   - Why: Unbounded fan-out blows AI/media budgets and trips upstream rate limits; need a DO-backed token/credit limiter scoped per tenant and per upstream.
   - Acceptance criteria: `acquire(scope, cost)`/`release` against a DO sliding window + monthly budget; over-budget jobs are deferred (`not_before`) not dropped; per-tenant fairness so one tenant can't starve others; tests cover budget exhaustion + fairness.
   - Implementation notes: `ConcurrencyDO` keyed by scope; budgets from entitlements/plan caps.
@@ -4308,7 +4308,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/durable/concurrency.ts`, `packages/shared/src/constants` (CAPS).
 
-- [ ] LOOP-JOBS-010: Billing reconciliation job (Stripe ↔ D1 entitlements) [auto]
+- [ ] LOOP-JOBS-010: Billing reconciliation job (Stripe ↔ D1 entitlements) [parked]
   - Why: Webhooks can be missed; a periodic durable recon catches drift between Stripe subscription state and D1 entitlements/plan caps.
   - Acceptance criteria: thin cron triggers a `billing.reconcile` workflow (cron = trigger only, logic in workflow); pulls Stripe subscriptions, diffs vs D1, emits a report of corrections, applies idempotent fixes behind a dry-run flag; tests cover added/removed/changed subscription cases.
   - Implementation notes: cron stays monitoring-only — it merely kicks the workflow; all logic in the durable step.
@@ -4318,7 +4318,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/services/billing.ts`, `apps/project-sites/src/workflows/billing-reconcile.ts`.
 
-- [ ] LOOP-JOBS-011: Drip / lifecycle campaign engine (Inngest step functions) [auto]
+- [ ] LOOP-JOBS-011: Drip / lifecycle campaign engine (Inngest step functions) [parked]
   - Why: Onboarding drips and re-engagement need durable wait-for-duration + wait-for-event semantics — Inngest's native strength, already LIVE.
   - Acceptance criteria: define drip flows as Inngest functions with `step.sleep` + `step.waitForEvent` (cancel on conversion); per-user idempotent enrollment; unsubscribe halts flow; tests via Inngest dev-server cover sleep, wait, and cancel-on-event.
   - Implementation notes: Inngest at events.projectsites.dev; `inngest start` key MUST be pure hex (per memory).
@@ -4328,7 +4328,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-005.
   - Related files: `apps/project-sites/src/inngest/drip.ts`.
 
-- [ ] LOOP-JOBS-012: Social-post scheduling jobs (Postiz publish via SOCIAL_PUBLISH_WORKFLOW) [auto]
+- [ ] LOOP-JOBS-012: Social-post scheduling jobs (Postiz publish via SOCIAL_PUBLISH_WORKFLOW) [parked]
   - Why: Scheduled social posts need durable at-time execution with per-platform retry; existing workflow needs envelope + schedule store.
   - Acceptance criteria: schedule a post at `not_before`; durable wait then publish via Postiz HTTP client; per-platform retry + partial success (one platform fails, others succeed); cancel/edit before send; tests cover schedule, partial failure, cancel.
   - Implementation notes: AGPL Postiz stays behind HTTP boundary (no shared types) per isolation rule.
@@ -4338,7 +4338,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-003.
   - Related files: `apps/project-sites/src/workflows/social-publish` (existing), `apps/project-sites/src/services/postiz.ts`.
 
-- [ ] LOOP-JOBS-013: Scheduled site re-crawl + freshness workflow [auto]
+- [ ] LOOP-JOBS-013: Scheduled site re-crawl + freshness workflow [parked]
   - Why: Generated sites drift from source; a scheduled re-crawl detects changed source content and queues regeneration of affected sections.
   - Acceptance criteria: thin cron kicks `site.recrawl` workflow per site on a freshness cadence; diff vs last snapshot; only changed sections enqueue regeneration; throttled per tenant; tests cover no-change (no-op) vs changed (enqueues).
   - Implementation notes: reuse CF Browser Rendering for crawl (no Docker) per memory.
@@ -4348,7 +4348,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-009.
   - Related files: `apps/project-sites/src/workflows/site-recrawl.ts`, `apps/project-sites/src/services/site_serving.ts`.
 
-- [ ] LOOP-JOBS-014: Snapshot + quality-gate workflow hardening [auto]
+- [ ] LOOP-JOBS-014: Snapshot + quality-gate workflow hardening [parked]
   - Why: `SNAPSHOT_QUALITY_WORKFLOW` exists but needs envelope wrapping, idempotency, and DLQ so failed snapshots are recoverable, not silently lost.
   - Acceptance criteria: snapshot job idempotent on (site_id, version); quality gate (Lighthouse/axe via Browser Rendering) runs as a step; failing gate blocks publish + notifies; DLQ on capture failure; tests cover gate pass/fail.
   - Implementation notes: store snapshot artifacts in R2 with version path `sites/{slug}/{version}/`.
@@ -4358,7 +4358,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/workflows/snapshot-quality` (existing).
 
-- [ ] LOOP-JOBS-015: Snapshot-revert / rollback job (D1 Time Travel + R2 versioning) [auto]
+- [ ] LOOP-JOBS-015: Snapshot-revert / rollback job (D1 Time Travel + R2 versioning) [parked]
   - Why: Rollback must be a durable, audited operation — restore a prior site version atomically across R2 + D1 pointers.
   - Acceptance criteria: `site.revert` workflow takes (site_id, target_version); flips R2 + D1 current-version pointer atomically; idempotent (re-running to same version is a no-op); audit row written; tests cover revert + double-revert no-op.
   - Implementation notes: no destructive deletes — old versions retained for re-revert.
@@ -4368,7 +4368,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-014.
   - Related files: `apps/project-sites/src/workflows/site-revert.ts`, `apps/project-sites/src/services/audit.ts`.
 
-- [ ] LOOP-JOBS-016: Human-in-the-loop task inbox (approval gates in workflows) [auto]
+- [ ] LOOP-JOBS-016: Human-in-the-loop task inbox (approval gates in workflows) [parked]
   - Why: Some flows (publish approval, refund approval, flagged content) must pause for a human decision before continuing — needs a durable wait-for-approval primitive + inbox UI.
   - Acceptance criteria: workflow `step.waitForEvent('task.approved'|'task.rejected')`; pending tasks surface in an /admin inbox with deep-link + correlation context; timeout auto-escalates or auto-rejects; tests cover approve, reject, timeout.
   - Implementation notes: pairs with psnotify inbox (custom notifications, NO Novu per memory) for the surface.
@@ -4378,7 +4378,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-011.
   - Related files: `apps/project-sites/src/inngest/approval.ts`, `apps/project-sites/src/routes/api.ts` (task inbox).
 
-- [ ] LOOP-JOBS-017: Report generation jobs (long-running, Hatchet on Fly) [auto]
+- [ ] LOOP-JOBS-017: Report generation jobs (long-running, Hatchet on Fly) [parked]
   - Why: Tenant analytics/PDF reports can run minutes and need priority lanes + DAG steps — beyond Workflows' edge wall-clock comfort; Hatchet's Postgres-backed queue with concurrency lanes fits.
   - Acceptance criteria: `report.generate` submitted to Hatchet; multi-step DAG (gather→render→store→notify); priority lane so interactive reports preempt batch; result PDF to R2 + signed link emailed; tests via Hatchet local against fixtures.
   - Implementation notes: Hatchet needs Postgres=Neon and 24/7 warmth → Fly.io is the justified host (CF Containers can't guarantee always-warm for a queue engine). (needs decision: confirm Hatchet adoption vs deferring to Inngest steps for v1.)
@@ -4388,7 +4388,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001.
   - Related files: `apps/project-sites/src/services/jobs/hatchet-client.ts`, infra Hatchet deploy.
 
-- [ ] LOOP-JOBS-018: Long-running container build orchestration (Hatchet) [auto]
+- [ ] LOOP-JOBS-018: Long-running container build orchestration (Hatchet) [parked]
   - Why: Container/site builds that exceed Worker limits need an external durable orchestrator with cancellation + log streaming — Hatchet's task-queue + worker model.
   - Acceptance criteria: `build.run` Hatchet task spawns/monitors a build, streams logs to R2/Axiom, supports cancel, retries transient failures only (not deterministic compile errors); DLQ on terminal failure; tests cover success, cancel, transient-retry.
   - Implementation notes: distinguish retryable (network/OOM) vs non-retryable (compile) errors in the envelope policy.
@@ -4398,7 +4398,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-017, LOOP-JOBS-003.
   - Related files: `apps/project-sites/src/services/jobs/builds.ts`.
 
-- [ ] LOOP-JOBS-019: Data export jobs (GDPR/account export, R2 + signed URL) [auto]
+- [ ] LOOP-JOBS-019: Data export jobs (GDPR/account export, R2 + signed URL) [parked]
   - Why: Users/tenants need full-data exports; these are large, async, and must be idempotent + expiring-link delivered.
   - Acceptance criteria: `data.export` workflow gathers tenant data across D1/R2, packages to a zip in R2, emits an expiring signed URL via email; idempotent per (tenant_id, request_id); export auto-expires + is purged by cleanup job; tests cover package + expiry.
   - Implementation notes: stream to R2 to avoid memory blowups; redact secrets per shared `redact` util.
@@ -4408,7 +4408,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-005.
   - Related files: `apps/project-sites/src/workflows/data-export.ts`, `packages/shared/src/utils/redact.ts`.
 
-- [ ] LOOP-JOBS-020: Cleanup / GC jobs (expired exports, orphaned R2, stale idempotency) [auto]
+- [ ] LOOP-JOBS-020: Cleanup / GC jobs (expired exports, orphaned R2, stale idempotency) [parked]
   - Why: DLQ rows, expired exports, orphaned R2 objects, and stale idempotency ledger entries accumulate; periodic GC keeps storage + tables bounded.
   - Acceptance criteria: thin cron kicks `system.cleanup` workflow; deletes expired exports, R2 objects with no D1 referent (after grace window), idempotency rows past TTL, resolved DLQ rows past retention; dry-run flag; tests cover each sweep with a fixture that must NOT be deleted (referenced) and one that must.
   - Implementation notes: cleanup is reversible-safe (grace window + soft-delete first) to avoid nuking live assets.
@@ -4418,7 +4418,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-019.
   - Related files: `apps/project-sites/src/workflows/system-cleanup.ts`.
 
-- [ ] LOOP-JOBS-021: DLQ management API + admin replay/redrive UI [auto]
+- [ ] LOOP-JOBS-021: DLQ management API + admin replay/redrive UI [parked]
   - Why: Dead-lettered jobs are useless without inspection + one-click redrive; operators need to see payload, error, attempts, and replay or discard.
   - Acceptance criteria: API to list/filter DLQ by job_class/tenant/date; view full envelope + last error; redrive (re-enqueue with reset attempts) and discard with audit; replayed jobs keep original correlation IDs; tests cover list, redrive (idempotent), discard.
   - Implementation notes: redrive routes back through the LOOP-JOBS-001 dispatcher so dedup still applies.
@@ -4428,7 +4428,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-022.
   - Related files: `apps/project-sites/src/routes/api.ts` (jobs admin), `apps/project-sites/frontend` admin section.
 
-- [ ] LOOP-JOBS-022: Job-observability cockpit in /admin (Tinybird + Axiom backed) [auto]
+- [ ] LOOP-JOBS-022: Job-observability cockpit in /admin (Tinybird + Axiom backed) [parked]
   - Why: No single pane shows job throughput, failure rate, DLQ depth, retry storms, or per-tenant cost; operators fly blind across four engines.
   - Acceptance criteria: /admin/jobs cockpit (cyan/black) shows per-class throughput, success/fail/retry rates, DLQ depth, p50/p95 latency, in-flight count, cost; data from Tinybird endpoints; auto-refresh pauses when tab hidden (visibility-aware polling per project pattern); E2E from homepage → admin → jobs asserts widgets render.
   - Implementation notes: feed off the `job.*` event stream into Tinybird datasources + endpoints.
@@ -4438,7 +4438,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-024.
   - Related files: `apps/project-sites/frontend` admin jobs section, `apps/project-sites/src/services/tinybird.ts`.
 
-- [ ] LOOP-JOBS-023: Scheduled HTTP callbacks via Upstash QStash (timer offload) [auto]
+- [ ] LOOP-JOBS-023: Scheduled HTTP callbacks via Upstash QStash (timer offload) [parked]
   - Why: Some delayed actions are simple HTTP callbacks that don't need a full workflow; QStash gives durable scheduled/delayed HTTP delivery with retries, offloading timer state.
   - Acceptance criteria: `scheduleCallback(url, payload, runAt)` publishes to QStash; receiver verifies QStash signature + dedups via idempotency ledger; QStash DLQ surfaced in admin; tests cover schedule + signature verification + duplicate suppression.
   - Implementation notes: use QStash only for fire-at-time HTTP nudges; multi-step logic stays in Workflows/Inngest. (needs decision: QStash vs Workflow `step.sleep` per cost.)
@@ -4448,7 +4448,7 @@ Surveyed ~50 raw themes across four engine classes and folded them to the 24 hig
   - Dependencies: LOOP-JOBS-001, LOOP-JOBS-007.
   - Related files: `apps/project-sites/src/services/jobs/qstash.ts`, `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-JOBS-024: Correlation-ID propagation + structured job tracing across engines [auto]
+- [ ] LOOP-JOBS-024: Correlation-ID propagation + structured job tracing across engines [parked]
   - Why: A job that hops Worker→Workflow→Inngest→Hatchet must carry one trace; mandatory IDs (tenant_id, site_id, app_id, trace_id, job_id, request_id) must survive every boundary or observability is useless.
   - Acceptance criteria: `correlation` block is required in `JobEnvelope` and injected into every log line, Tinybird event, Sentry breadcrumb, and Langfuse trace; cross-engine handoff preserves trace_id (new span, same trace); a lint/test gate fails if a job emits a log/event without the block; tests assert propagation Worker→Workflow→Inngest.
   - Implementation notes: thin tracing helper wraps all engine entry points; feed_bus enrichment adds the block automatically.
@@ -6937,7 +6937,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-BILL-001: Deploy Stripe Checkout flow for subscription signup [auto]
+- [ ] LOOP-BILL-001: Deploy Stripe Checkout flow for subscription signup [parked]
   - Endpoint: POST /api/billing/create-checkout-session
   - Why: Stripe Checkout is the lowest-friction payment UX; hosted page handles PCI compliance
   - Acceptance criteria: Customer clicks "Upgrade" → Stripe Checkout → successful payment → subscription active in D1 + Stripe; webhook confirms and provisions entitlements
@@ -6949,7 +6949,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts, libs/features/billing/
   - Primary sources: https://stripe.com/docs/payments/checkout, Stripe webhook docs
 
-- [ ] LOOP-BILL-002: Build Stripe Customer Portal for self-serve subscription management [auto]
+- [ ] LOOP-BILL-002: Build Stripe Customer Portal for self-serve subscription management [parked]
   - Endpoint: POST /api/billing/create-portal-session
   - Why: Customers need to upgrade/downgrade/cancel without contacting support
   - Acceptance criteria: "Manage Billing" button opens Stripe Customer Portal; customer can change plan, update payment method, view invoices, cancel subscription
@@ -6973,7 +6973,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/usage_metering.ts, src/services/ai_gateway.ts, src/services/browser_execution.ts
   - Primary sources: https://stripe.com/docs/billing/meter-events, https://stripe.com/docs/billing/meter-events
 
-- [ ] LOOP-BILL-004: Build entitlement enforcement middleware for plan-gated features [auto]
+- [ ] LOOP-BILL-004: Build entitlement enforcement middleware for plan-gated features [parked]
   - Endpoint: Middleware (every feature-gated route)
   - Why: Plan limits must be enforced at the API layer, not just the UI; UI-only gating is trivially bypassed
   - Acceptance criteria: Every gated feature checks D1 canonical ledger entitlements before executing; returns 402 Payment Required with upgrade link if limit exceeded; feature flag overrides for gradual rollout
@@ -6985,7 +6985,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/middleware/, libs/features/billing/
   - Primary sources: https://stripe.com/docs/billing/subscriptions/metered
 
-- [ ] LOOP-BILL-005: Wire Stripe webhook handler for full subscription lifecycle [auto]
+- [ ] LOOP-BILL-005: Wire Stripe webhook handler for full subscription lifecycle [parked]
   - Endpoint: POST /api/webhooks/stripe (Stripe → Hookdeck → Worker)
   - Why: Subscription state must stay in sync; missing a webhook means a paying customer gets locked out
   - Acceptance criteria: Handle all relevant Stripe events: checkout.session.completed, customer.subscription.updated/deleted, invoice.paid/payment_failed, customer.subscription.trial_will_end; idempotent processing; DLQ for failed events
@@ -6997,7 +6997,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts, webhook routes
   - Primary sources: Stripe webhook docs, Hookdeck ingest docs
 
-- [ ] LOOP-BILL-006: Implement prepaid AI credit system [auto]
+- [ ] LOOP-BILL-006: Implement prepaid AI credit system [parked]
   - Endpoint: Internal (credit wallet)
   - Why: AI usage is bursty and hard to predict; prepaid credits decouple usage from fixed monthly limits
   - Acceptance criteria: Customers can purchase credit packs ($10/1000 credits); credits consumed per AI call based on model tier; low-balance email notification; auto-top-up option
@@ -7009,7 +7009,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/credits.ts, src/services/ai_gateway.ts, libs/features/credit_wallet_rollover/
   - Primary sources: Existing credit wallet feature module, Stripe payment docs
 
-- [ ] LOOP-BILL-007: Build per-site cost attribution and margin dashboard [auto]
+- [ ] LOOP-BILL-007: Build per-site cost attribution and margin dashboard [parked]
   - Endpoint: Internal (admin dashboard)
   - Why: Per-site profitability determines whether the business model works; without it, you're flying blind
   - Acceptance criteria: Each site's costs (AI, storage, bandwidth, email) attributed monthly; margin = (site revenue from plan) - costs; admin dashboard shows top/bottom sites by margin
@@ -7021,7 +7021,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/app_cost_meter.ts, src/services/cost_aggregation.ts
   - Primary sources: Existing cost attribution patterns
 
-- [ ] LOOP-BILL-008: Implement dunning management for failed payments [auto]
+- [ ] LOOP-BILL-008: Implement dunning management for failed payments [parked]
   - Endpoint: Internal (Stripe-driven)
   - Why: Involuntary churn from expired cards is the #1 revenue leak in SaaS
   - Acceptance criteria: Stripe's smart retries + dunning emails enabled; after 3 failed attempts, feature access restricted (not full lockout); customer sees payment-failed banner with update link
@@ -7033,7 +7033,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts
   - Primary sources: https://stripe.com/docs/billing/subscriptions/overview#payment-failures
 
-- [ ] LOOP-BILL-009: Build annual plan support with prorated upgrades [auto]
+- [ ] LOOP-BILL-009: Build annual plan support with prorated upgrades [parked]
   - Endpoint: Stripe Checkout (annual price ID)
   - Why: Annual plans improve cash flow and reduce churn; they're standard SaaS practice
   - Acceptance criteria: Annual billing option at 20% discount; mid-cycle upgrades prorate correctly; annual→monthly downgrade scheduled at period end
@@ -7045,7 +7045,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts
   - Primary sources: https://stripe.com/docs/billing/subscriptions/prorations
 
-- [ ] LOOP-BILL-010: Implement coupon and promotion code system [auto]
+- [ ] LOOP-BILL-010: Implement coupon and promotion code system [parked]
   - Endpoint: Stripe Checkout (promotion code input)
   - Why: Coupons drive acquisition (first month free, launch discount) and retention (win-back offers)
   - Acceptance criteria: Stripe promotion codes enabled on Checkout; admin can create/view coupon usage; coupon attribution tracked in PostHog
@@ -7057,7 +7057,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts
   - Primary sources: https://stripe.com/docs/billing/subscriptions/coupons
 
-- [ ] LOOP-BILL-011: Build agency/partner billing model [auto]
+- [ ] LOOP-BILL-011: Build agency/partner billing model [parked]
   - Endpoint: Internal (billing logic)
   - Why: Agencies managing multiple client sites need consolidated billing, not per-site subscriptions
   - Acceptance criteria: Agency plan with per-site add-on pricing; consolidated invoice; sub-accounts visible in agency billing dashboard; client sites billed to agency, not individually
@@ -7069,7 +7069,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts, org model
   - Primary sources: Stripe Connect docs, multi-tenant billing patterns
 
-- [ ] LOOP-BILL-012: Implement AI credit enforcement at the AI Gateway layer [auto]
+- [ ] LOOP-BILL-012: Implement AI credit enforcement at the AI Gateway layer [parked]
   - Endpoint: ai_gateway.ts (every LLM call)
   - Why: AI is the single largest variable cost; enforcement must be real-time, not post-hoc
   - Acceptance criteria: Before each LLM call, check credit balance; if insufficient, reject with 402 and upgrade prompt; credit cost displayed pre-call; per-model pricing tier
@@ -7081,7 +7081,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/ai_gateway.ts, src/services/credits.ts
   - Primary sources: Existing ai_gateway.ts patterns
 
-- [ ] LOOP-BILL-013: Build billing event stream for cross-service consumption [auto]
+- [ ] LOOP-BILL-013: Build billing event stream for cross-service consumption [parked]
   - Endpoint: Event bus (internal)
   - Why: Every service needs to know about billing events (plan changed, payment failed, trial ending) without tight coupling to Stripe
   - Acceptance criteria: Typed billing events published to event bus: billing.plan_changed, billing.payment_failed, billing.trial_ending, billing.credit_low; services subscribe as needed
@@ -7093,7 +7093,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/event_bus.ts, src/services/billing.ts
   - Primary sources: Existing event_bus.ts patterns
 
-- [ ] LOOP-BILL-014: Implement usage-based billing for browser automation [auto]
+- [ ] LOOP-BILL-014: Implement usage-based billing for browser automation [parked]
   - Endpoint: Internal (metering)
   - Why: Browser automation has per-job costs (CF Browser Rendering credits); usage must be metered and billed
   - Acceptance criteria: Each browser job emits usage event with job type, duration, pages rendered; metered by D1 canonical ledger; plan includes N browser jobs/month
@@ -7105,7 +7105,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/browser_gateway.ts, src/services/browser_execution.ts
   - Primary sources: CF Browser Rendering pricing, D1 canonical ledger usage events
 
-- [ ] LOOP-BILL-015: Build usage-based billing for email sends (Listmonk-attributed) [auto]
+- [ ] LOOP-BILL-015: Build usage-based billing for email sends (Listmonk-attributed) [parked]
   - Endpoint: Internal (metering)
   - Why: Email sending via SES has per-email costs; free tier gets N emails/month, paid tiers get more
   - Acceptance criteria: Listmonk send events metered via D1 canonical ledger; per-plan email limits enforced; overage billing or hard cap depending on plan
@@ -7117,7 +7117,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/listmonk_email_provider.ts, src/services/ses_email_provider.ts
   - Primary sources: SES pricing, D1 canonical ledger usage events
 
-- [ ] LOOP-BILL-016: Implement billing anomaly detection [auto]
+- [ ] LOOP-BILL-016: Implement billing anomaly detection [parked]
   - Endpoint: Background worker
   - Why: A bug causing runaway AI calls or a compromised API key can generate thousands of dollars in costs before anyone notices
   - Acceptance criteria: Alert when: daily spend >3× 7-day average, single tenant spend spike >10× baseline, unusual service mix (e.g., sudden browser automation spike); auto-quarantine on extreme anomalies
@@ -7129,7 +7129,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/cost_aggregation.ts
   - Primary sources: CF Analytics Engine anomaly detection, cost anomaly patterns
 
-- [ ] LOOP-BILL-017: Build customer-facing billing history and invoice viewer [auto]
+- [ ] LOOP-BILL-017: Build customer-facing billing history and invoice viewer [parked]
   - Endpoint: GET /api/billing/invoices (customer-facing)
   - Why: Customers need to see their billing history for their own accounting
   - Acceptance criteria: Invoice list with date, amount, status, PDF download link; payment method summary; next billing date
@@ -7141,7 +7141,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/, src/services/billing.ts
   - Primary sources: Stripe invoice API
 
-- [ ] LOOP-BILL-018: Implement plan downgrade grace period with data preservation [auto]
+- [ ] LOOP-BILL-018: Implement plan downgrade grace period with data preservation [parked]
   - Endpoint: Internal (scheduled job)
   - Why: Downgrading from a paid plan shouldn't immediately delete data; customers need time to export
   - Acceptance criteria: On downgrade, features disabled but data retained for 30 days; customer sees "data will be deleted" countdown; upgrade within grace period restores instantly
@@ -7153,7 +7153,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts, data cleanup cron
   - Primary sources: Stripe subscription cancellation flows
 
-- [ ] LOOP-BILL-019: Build admin billing operations dashboard [auto]
+- [ ] LOOP-BILL-019: Build admin billing operations dashboard [parked]
   - Endpoint: Internal (admin dashboard)
   - Why: Support and finance need visibility into all billing state across all tenants
   - Acceptance criteria: Searchable list of all subscriptions (by tenant, email, plan, status); MRR trend chart; churn rate; top customers by revenue; failed payment list; credit balance summary
@@ -7165,7 +7165,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
   - Primary sources: Stripe dashboard API
 
-- [ ] LOOP-BILL-020: Implement free trial with cardless signup [auto]
+- [ ] LOOP-BILL-020: Implement free trial with cardless signup [parked]
   - Endpoint: Signup flow
   - Why: Requiring a credit card before the first value delivery kills conversion; let customers build a site first
   - Acceptance criteria: 14-day free trial on signup with no card required; full feature access during trial; trial-ending notification at 7 days and 1 day; card required to continue after trial
@@ -7177,7 +7177,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/auth.ts (signup flow), src/services/billing.ts
   - Primary sources: Stripe trial docs, SaaS trial best practices
 
-- [ ] LOOP-BILL-021: Build plan comparison and upgrade recommendation engine [auto]
+- [ ] LOOP-BILL-021: Build plan comparison and upgrade recommendation engine [parked]
   - Endpoint: GET /api/billing/plans (public) + GET /api/billing/recommended-plan (customer-facing)
   - Why: Customers need to understand plan differences; AI-recommended plan based on actual usage increases conversion
   - Acceptance criteria: Plan comparison table with feature matrix; personalized recommendation based on current usage ("You've used 80% of your free AI credits — Pro would give you 5× more"); shown at upgrade moments
@@ -7189,7 +7189,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: libs/features/upgrade_moments/, src/services/billing.ts
   - Primary sources: Existing upgrade_moments module, plan comparison UX patterns
 
-- [ ] LOOP-BILL-022: Implement Stripe tax (VAT/GST/sales tax) collection [auto]
+- [ ] LOOP-BILL-022: Implement Stripe tax (VAT/GST/sales tax) collection [parked]
   - Endpoint: Stripe Checkout (automatic tax)
   - Why: Tax compliance is legally required for B2C SaaS in most jurisdictions
   - Acceptance criteria: Stripe Tax enabled on Checkout; customer location determines tax rate; tax displayed on invoices; tax reporting export
@@ -7201,7 +7201,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts
   - Primary sources: https://stripe.com/tax
 
-- [ ] LOOP-BILL-023: Build refund and credit issuance admin tool [auto]
+- [ ] LOOP-BILL-023: Build refund and credit issuance admin tool [parked]
   - Endpoint: POST /api/admin/billing/refund (super-admin only)
   - Why: Support needs to issue refunds and credits without logging into Stripe
   - Acceptance criteria: Admin can issue full or partial refund from the admin dashboard; reason required; auto-logged to audit trail; customer notified via email
@@ -7213,7 +7213,7 @@ Stripe handles subscriptions and payments; Lago handles usage metering + rating;
   - Related files: src/services/billing.ts, admin frontend
   - Primary sources: Stripe refund API
 
-- [ ] LOOP-BILL-024: Implement D1 canonical ledger self-host evaluation (cost gate) [auto]
+- [ ] LOOP-BILL-024: Implement D1 canonical ledger self-host evaluation (cost gate) [parked]
   - Endpoint: Internal (evaluation)
   - Why: D1 canonical ledger Cloud pricing vs self-hosted on Coolify — need real numbers before deciding
   - Acceptance criteria: Deploy D1 canonical ledger on Coolify; run 7-day cost comparison (Cloud bill vs self-host compute); document recommendation with numbers; if self-host costs less, keep it; if Cloud <$50/mo, use Cloud
@@ -7534,7 +7534,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-MAIL-001: Build newsletter campaign creation and management UI in admin [auto]
+- [ ] LOOP-MAIL-001: Build newsletter campaign creation and management UI in admin [parked]
   - Endpoint: /admin/mail (customer-facing)
   - Why: Customers need to create and send newsletters without leaving the platform or logging into Listmonk directly
   - Acceptance criteria: Campaign creation wizard (subject, content, segment selection, schedule); campaign list with status (draft/sending/sent); campaign analytics (opens, clicks, bounces); all proxied through main Worker to Listmonk API
@@ -7546,7 +7546,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_client.ts, apps/project-sites/infra/listmonk/
   - Primary sources: https://listmonk.app/docs/apis/
 
-- [ ] LOOP-MAIL-002: Implement automated claim campaign sequences [auto]
+- [ ] LOOP-MAIL-002: Implement automated claim campaign sequences [parked]
   - Endpoint: Internal (workflow)
   - Why: Site claim flow needs automated email sequences: "Thanks for claiming!", "Your site is ready!", "Haven't seen you in a while — here's what you can do next"
   - Acceptance criteria: Trigger-based email sequences: claim_started → confirmation email, site_published → launch announcement, claim_abandoned_24h → reminder, claim_abandoned_7d → final reminder; all sent via Listmonk transactional API
@@ -7558,7 +7558,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/claim_build_emails.ts, src/services/listmonk_email_provider.ts
   - Primary sources: Listmonk transactional API docs
 
-- [ ] LOOP-MAIL-003: Build subscriber segmentation based on site and plan data [auto]
+- [ ] LOOP-MAIL-003: Build subscriber segmentation based on site and plan data [parked]
   - Endpoint: Internal (Listmonk segment sync)
   - Why: Targeted emails convert better; segment by plan tier, site status, app usage, and engagement
   - Acceptance criteria: Auto-synced segments: "All Customers", "Free Plan", "Pro Plan", "Active Sites", "Inactive Sites", "Claimed but Unpublished", "High AI Usage"; segments update daily
@@ -7570,7 +7570,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_segments.ts
   - Primary sources: https://listmonk.app/docs/apis/segments/
 
-- [ ] LOOP-MAIL-004: Implement double opt-in compliance for all list subscriptions [auto]
+- [ ] LOOP-MAIL-004: Implement double opt-in compliance for all list subscriptions [parked]
   - Endpoint: Listmonk subscription flow
   - Why: GDPR and CAN-SPAM require explicit consent; double opt-in is the gold standard
   - Acceptance criteria: Every new subscriber receives opt-in confirmation email; subscription not active until confirmed; opt-in timestamp and IP logged; unsubscribe is one-click and immediate
@@ -7582,7 +7582,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_client.ts
   - Primary sources: Listmonk opt-in docs, CAN-SPAM requirements
 
-- [ ] LOOP-MAIL-005: Build AI-generated email content pipeline [auto]
+- [ ] LOOP-MAIL-005: Build AI-generated email content pipeline [parked]
   - Endpoint: Internal (AI workflow)
   - Why: AI-generated email drafts reduce the time from idea to sent campaign from hours to minutes
   - Acceptance criteria: Customer enters topic + key points → AI generates subject line variants + body; A/B test subject line optimizer; human review and edit before send; Langfuse traces all AI generations
@@ -7594,7 +7594,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/send_optimization.ts
   - Primary sources: Existing AI content generation patterns
 
-- [ ] LOOP-MAIL-006: Wire abandoned build recovery email sequence (already built, flag-enable) [auto]
+- [ ] LOOP-MAIL-006: Wire abandoned build recovery email sequence (already built, flag-enable) [parked]
   - Endpoint: Worker scheduled() cron
   - Why: Abandoned build recovery is built (services/abandoned_builds.ts) behind feature flag abandoned_build_nudge; flag-enable it
   - Acceptance criteria: Flag promoted from experimental to beta; verified emails send in test mode; production enablement with monitoring
@@ -7606,7 +7606,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/abandoned_builds.ts, src/services/abandoned_builds_cron.ts
   - Primary sources: Existing abandoned_builds implementation
 
-- [ ] LOOP-MAIL-007: Build deliverability monitoring dashboard [auto]
+- [ ] LOOP-MAIL-007: Build deliverability monitoring dashboard [parked]
   - Endpoint: Internal (admin dashboard)
   - Why: Email deliverability degrades silently; without monitoring, you discover blacklisting when customers complain
   - Acceptance criteria: Dashboard showing: delivery rate, bounce rate, spam complaint rate, domain reputation, blocklist status; alert when bounce rate >5% or complaint rate >0.1%
@@ -7618,7 +7618,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/email_deliverability.ts, src/services/deliverability_summary.ts
   - Primary sources: SES reputation dashboard, Listmonk analytics API
 
-- [ ] LOOP-MAIL-008: Implement site form-to-list auto-subscription [auto]
+- [ ] LOOP-MAIL-008: Implement site form-to-list auto-subscription [parked]
   - Endpoint: Generated site forms → Listmonk
   - Why: Contact forms on customer websites should feed directly into their mailing lists
   - Acceptance criteria: Site contact form submissions auto-subscribe to designated Listmonk list (with double opt-in); per-site list management; customer configures which form maps to which list
@@ -7630,7 +7630,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/form_router.ts
   - Primary sources: Listmonk subscription API
 
-- [ ] LOOP-MAIL-009: Build per-site email sending limits tied to billing plan [auto]
+- [ ] LOOP-MAIL-009: Build per-site email sending limits tied to billing plan [parked]
   - Endpoint: Middleware (before Listmonk send)
   - Why: Email sending costs money; free tier gets N emails/month
   - Acceptance criteria: Free=500 emails/month, Pro=5000, Business=25000; enforced at send time; customer sees usage counter; upgrade prompt when approaching limit
@@ -7642,7 +7642,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_email_provider.ts
   - Primary sources: SES sending limits, plan entitlement patterns
 
-- [ ] LOOP-MAIL-010: Implement branded sending domains per customer [auto]
+- [ ] LOOP-MAIL-010: Implement branded sending domains per customer [parked]
   - Endpoint: Listmonk sender configuration
   - Why: Professional emails come from the customer's domain, not projectsites.dev
   - Acceptance criteria: Customer can verify their domain for sending; SPF/DKIM setup guided wizard; sending domain verified before use; fallback to shared sending domain if unverified
@@ -7654,7 +7654,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/domains.ts, src/services/domain_stack.ts
   - Primary sources: SES domain verification docs, SPF/DKIM setup guides
 
-- [ ] LOOP-MAIL-011: Build CRM-to-mail sync (Twenty → Listmonk) [auto]
+- [ ] LOOP-MAIL-011: Build CRM-to-mail sync (Twenty → Listmonk) [parked]
   - Endpoint: Internal (sync worker)
   - Why: CRM contacts should be available as mailing list subscribers without manual export/import
   - Acceptance criteria: Twenty CRM contacts synced to Listmonk lists; opt-in status preserved; unsubscribe in Listmonk updates CRM contact; sync runs daily
@@ -7666,7 +7666,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/crm_leads.ts, src/services/listmonk_client.ts
   - Primary sources: Twenty CRM API, Listmonk subscription API
 
-- [ ] LOOP-MAIL-012: Implement lifecycle automation triggers [auto]
+- [ ] LOOP-MAIL-012: Implement lifecycle automation triggers [parked]
   - Endpoint: Event bus → Listmonk
   - Why: Key customer lifecycle moments should trigger automated emails without manual campaign setup
   - Acceptance criteria: Triggered emails for: site first published, domain verified, first 100 visitors, billing anniversary, feature adoption milestone, NPS survey; customer can toggle each on/off
@@ -7678,7 +7678,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/event_bus.ts, src/services/listmonk_email_provider.ts
   - Primary sources: Existing lifecycle patterns
 
-- [ ] LOOP-MAIL-013: Build campaign analytics dashboard in admin [auto]
+- [ ] LOOP-MAIL-013: Build campaign analytics dashboard in admin [parked]
   - Endpoint: /admin/mail/analytics (customer-facing)
   - Why: Customers need to see email performance to improve their campaigns
   - Acceptance criteria: Per-campaign metrics (sent, delivered, opened, clicked, bounced, unsubscribed); trend charts; comparison across campaigns; industry benchmark overlay
@@ -7690,7 +7690,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: admin frontend mail components
   - Primary sources: Listmonk analytics API
 
-- [ ] LOOP-MAIL-014: Implement mailing list import with deduplication and validation [auto]
+- [ ] LOOP-MAIL-014: Implement mailing list import with deduplication and validation [parked]
   - Endpoint: POST /api/mail/import (customer-facing)
   - Why: Customers migrating from other platforms need to import their existing lists
   - Acceptance criteria: CSV upload with column mapping; email validation; duplicate detection (within import and against existing list); import progress bar; error report for invalid rows
@@ -7702,7 +7702,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_client.ts
   - Primary sources: Listmonk import API
 
-- [ ] LOOP-MAIL-015: Build QR postcard follow-up email sequence [auto]
+- [ ] LOOP-MAIL-015: Build QR postcard follow-up email sequence [parked]
   - Endpoint: Internal (workflow)
   - Why: Physical postcards with QR codes drive traffic; email follow-ups convert visitors to claimed sites
   - Acceptance criteria: QR code scan → landing page → email capture → follow-up sequence; tracked per postcard campaign; attribution to original QR code
@@ -7714,7 +7714,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/claim_links.ts, src/services/listmonk_client.ts
   - Primary sources: QR campaign patterns
 
-- [ ] LOOP-MAIL-016: Implement email suppression list management [auto]
+- [ ] LOOP-MAIL-016: Implement email suppression list management [parked]
   - Endpoint: Internal (Listmonk + SES)
   - Why: Sending to unsubscribed or bounced addresses damages sender reputation and violates CAN-SPAM
   - Acceptance criteria: Global suppression list synced between Listmonk and SES; bounces auto-suppressed; manual suppression upload; suppression list visible in admin
@@ -7726,7 +7726,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/email_suppressions.ts
   - Primary sources: SES suppression list docs, Listmonk blocklist docs
 
-- [ ] LOOP-MAIL-017: Build admin email approval workflow for agency customers [auto]
+- [ ] LOOP-MAIL-017: Build admin email approval workflow for agency customers [parked]
   - Endpoint: Internal (workflow)
   - Why: Agencies managing client sites need client approval before campaigns send; approval workflow prevents unauthorized sends
   - Acceptance criteria: Agency creates campaign → client receives preview email with approve/reject links → approval logs to audit trail → campaign sends only after approval
@@ -7738,7 +7738,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_client.ts
   - Primary sources: Agency workflow patterns
 
-- [ ] LOOP-MAIL-018: Implement email template library with AI-generated templates [auto]
+- [ ] LOOP-MAIL-018: Implement email template library with AI-generated templates [parked]
   - Endpoint: /admin/mail/templates (customer-facing)
   - Why: Pre-built email templates reduce the time to first send; AI can generate templates from site content
   - Acceptance criteria: Template library (welcome, newsletter, promotion, announcement, follow-up); AI generates template from site brand context; template preview with real content; Listmonk template sync
@@ -7750,7 +7750,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_client.ts
   - Primary sources: Listmonk template API
 
-- [ ] LOOP-MAIL-019: Build campaign archive page (public-facing) [auto]
+- [ ] LOOP-MAIL-019: Build campaign archive page (public-facing) [parked]
   - Endpoint: mail.projectsites.dev/archive/:site (public)
   - Why: Public email archives build trust and provide SEO value
   - Acceptance criteria: Public archive page per site showing past campaigns with subject, date, and web version link; opt-in to receive future emails; searchable
@@ -7762,7 +7762,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: site serving components, Listmonk integration
   - Primary sources: Listmonk campaign API
 
-- [ ] LOOP-MAIL-020: Implement abuse prevention for email sending [auto]
+- [ ] LOOP-MAIL-020: Implement abuse prevention for email sending [parked]
   - Endpoint: Middleware (before Listmonk send)
   - Why: Email sending is the highest-abuse surface; spam complaints get your domain blacklisted
   - Acceptance criteria: Rate limit per tenant (max 2 campaigns/day free); content scanning for spam indicators; new accounts limited to 100 recipients; manual review for first campaign; instant suspension on high complaint rate
@@ -7774,7 +7774,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: libs/features/abuse_takedown/, src/services/listmonk_client.ts
   - Primary sources: Email abuse prevention patterns
 
-- [ ] LOOP-MAIL-021: Implement email deprovisioning and data cleanup on account deletion [auto]
+- [ ] LOOP-MAIL-021: Implement email deprovisioning and data cleanup on account deletion [parked]
   - Endpoint: Internal (cleanup workflow)
   - Why: GDPR requires data deletion on account closure; Listmonk subscriber data must be purged
   - Acceptance criteria: On account deletion: unsubscribe all subscribers, delete all lists, delete all campaigns, purge subscriber data; cleanup confirmation logged to audit trail
@@ -7786,7 +7786,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/app_provisioner.ts
   - Primary sources: GDPR data deletion requirements
 
-- [ ] LOOP-MAIL-022: Build email engagement scoring per subscriber [auto]
+- [ ] LOOP-MAIL-022: Build email engagement scoring per subscriber [parked]
   - Endpoint: Internal (analytics)
   - Why: Engagement scoring identifies your best (and worst) subscribers for targeted campaigns
   - Acceptance criteria: Score based on opens, clicks, recency; high-engagement segment for VIP campaigns; low-engagement segment for re-engagement or suppression; scores update daily
@@ -7798,7 +7798,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: src/services/listmonk_client.ts
   - Primary sources: Email engagement scoring patterns
 
-- [ ] LOOP-MAIL-023: Implement SES bounce and complaint notification handling [auto]
+- [ ] LOOP-MAIL-023: Implement SES bounce and complaint notification handling [parked]
   - Endpoint: SNS → Worker webhook
   - Why: SES bounce and complaint notifications must be processed to maintain sender reputation
   - Acceptance criteria: SNS notifications for bounces and complaints → Hookdeck → Worker → Listmonk blocklist update + D1 log; auto-suppress on hard bounce or complaint
@@ -7810,7 +7810,7 @@ Listmonk is already live at mail.projectsites.dev (Neon DB, SES SMTP, R2 media v
   - Related files: apps/project-sites/infra/sns-bounce-worker/
   - Primary sources: SES bounce/complaint notification docs
 
-- [ ] LOOP-MAIL-024: Build email cost attribution and margin tracking [auto]
+- [ ] LOOP-MAIL-024: Build email cost attribution and margin tracking [parked]
   - Endpoint: Internal (cost pipeline)
   - Why: SES costs $0.10/1000 emails; per-customer cost attribution enables accurate margin calculation
   - Acceptance criteria: Per-send SES cost attributed to customer in cost_attribution table; monthly email cost per customer; margin = plan revenue - email cost
