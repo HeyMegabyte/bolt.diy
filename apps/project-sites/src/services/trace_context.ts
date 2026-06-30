@@ -12,10 +12,9 @@ import { z } from 'zod';
 // ── W3C traceparent ────────────────────────────────────────────────────────
 
 /** W3C traceparent header value. */
-export const TraceParentSchema = z.string().regex(
-  /^00-[0-9a-f]{32}-[0-9a-f]{16}-0[0-9a-f]$/,
-  'Invalid W3C traceparent format',
-);
+export const TraceParentSchema = z
+  .string()
+  .regex(/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[0-9a-f]$/, 'Invalid W3C traceparent format');
 export type TraceParent = z.infer<typeof TraceParentSchema>;
 
 /** Extracted trace + span IDs from a traceparent. */
@@ -36,11 +35,7 @@ export interface TraceIds {
  * @param sampled - Whether this trace is sampled (default true).
  * @returns A valid traceparent string.
  */
-export function buildTraceParent(
-  traceIdHex: string,
-  spanIdHex: string,
-  sampled = true,
-): string {
+export function buildTraceParent(traceIdHex: string, spanIdHex: string, sampled = true): string {
   const flag = sampled ? '01' : '00';
   const tp = `00-${traceIdHex}-${spanIdHex}-${flag}`;
   return TraceParentSchema.parse(tp);
