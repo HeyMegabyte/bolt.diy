@@ -485,27 +485,27 @@ collaboration surface that sells upgrades.
 
 ### Twenty CRM (crm.projectsites.dev) — internal sales/ops + customer-facing feature
 [x] **TW1 typed Twenty client** — **CORE DONE:** `services/twenty_client.ts` — 8 Zod schemas (Company/Person/Opportunity/Address), 42/42 tests. Remaining: fetch layer. [auto]
-- [ ] **TW2 webhook receiver** — Twenty filtered events (create/update) → D1/Queues/psnotify. [auto]
-- [ ] **TW3 backups + restore** — Twenty Neon Postgres + storage; RPO/RTO. [auto]
-- [ ] **TW4 observability** — logs/metrics + crash alerts to our stack. [auto]
-- [ ] **TW5 SSO** — OIDC via Better Auth for crm.projectsites.dev. [auto]
-- [ ] **TW6 signups → People/Companies** — projectsites signups auto-captured as Twenty leads. [auto]
-- [ ] **TW7 payments → deals** — Stripe/Square events → Twenty opportunities (revenue pipeline). [auto]
-- [ ] **TW8 build → Company+Person+Opportunity** — every new projectsites build seeds CRM records. [auto]
+- [ ] **TW2 webhook receiver** — Twenty filtered events (create/update) → D1/Queues/psnotify. [parked]
+- [ ] **TW3 backups + restore** — Twenty Neon Postgres + storage; RPO/RTO. [parked]
+- [ ] **TW4 observability** — logs/metrics + crash alerts to our stack. [parked]
+- [ ] **TW5 SSO** — OIDC via Better Auth for crm.projectsites.dev. [parked]
+- [ ] **TW6 signups → People/Companies** — projectsites signups auto-captured as Twenty leads. [parked]
+- [ ] **TW7 payments → deals** — Stripe/Square events → Twenty opportunities (revenue pipeline). [parked]
+- [ ] **TW8 build → Company+Person+Opportunity** — every new projectsites build seeds CRM records. [parked]
 [x] **TW9 lifecycle automation** — **CORE DONE:** `services/crm_automation.ts` — 8 default rules (new→trial→active→dormant→churned+reactivation). 22/22 tests. [auto]
-- [ ] **TW10 lead enrichment** — Google-Places/research we already gather → Twenty custom fields. [auto]
-- [ ] **TW11 churn/at-risk → task** — our analytics trigger a Twenty follow-up task. [auto]
-- [ ] **TW12 AI sales digest** — pipeline summary via API → SES/Slack. [auto]
-- [ ] **TW13 voice → Twenty** — receptionist logs calls/notes + creates contacts. [auto]
-- [ ] **TW14 email ↔ Twenty timeline** — Listmonk/SES sends+opens logged to the contact activity. [auto]
-- [ ] **TW15 MCP → our agents** — connect Twenty's MCP server (create deals, update pipeline). [auto]
+- [ ] **TW10 lead enrichment** — Google-Places/research we already gather → Twenty custom fields. [parked]
+- [ ] **TW11 churn/at-risk → task** — our analytics trigger a Twenty follow-up task. [parked]
+- [ ] **TW12 AI sales digest** — pipeline summary via API → SES/Slack. [parked]
+- [ ] **TW13 voice → Twenty** — receptionist logs calls/notes + creates contacts. [parked]
+- [ ] **TW14 email ↔ Twenty timeline** — Listmonk/SES sends+opens logged to the contact activity. [parked]
+- [ ] **TW15 MCP → our agents** — connect Twenty's MCP server (create deals, update pipeline). [parked]
 [x] **TW16 LLM lead scoring** — **CORE DONE:** `services/twenty_lead_scoring.ts` — A/B/C/D tier + 0-100 score from 6 components. 18/18 tests. [auto]
-- [ ] **TW17 AI outreach drafts** — LLM drafts attached to opportunities (review-gated send). [auto]
-- [ ] **TW18 dedupe + merge suggestions** — duplicate contact/company detection. [auto]
-- [ ] **TW19 CRM-as-a-feature** — provision a scoped Twenty workspace per customer (product/pricing). [auto]
-- [ ] **TW20 site contact-forms → owner CRM** — generated-site leads flow to the site-owner's CRM. [auto]
-- [ ] **TW21 embed CRM view in admin** — site-owner Twenty view with multi-tenant isolation. [auto]
-- [ ] **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host). [auto]
+- [ ] **TW17 AI outreach drafts** — LLM drafts attached to opportunities (review-gated send). [parked]
+- [ ] **TW18 dedupe + merge suggestions** — duplicate contact/company detection. [parked]
+- [ ] **TW19 CRM-as-a-feature** — provision a scoped Twenty workspace per customer (product/pricing). [parked]
+- [ ] **TW20 site contact-forms → owner CRM** — generated-site leads flow to the site-owner's CRM. [parked]
+- [ ] **TW21 embed CRM view in admin** — site-owner Twenty view with multi-tenant isolation. [parked]
+- [ ] **TW22 domain custom-objects seeder** — ship "Site"/"Build"/"Lead" objects + templates (free in self-host). [parked]
 [x] **TW23 workflow/serverless templates** — **CORE DONE:** `services/workflow_templates.ts` — 5 no-Zapier workflow definitions, 14/14 tests. [auto]
 [x] **TW24 plan-gate CRM in billing** — **CORE DONE:** `services/plan_gate_crm.ts` — 3-tier CRM entitlements (6 features + maxContacts/maxDeals). 37/37 tests. [auto]
 
@@ -1819,7 +1819,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-005.
   - Related files: `tinybird/datasources/integration_sync_runs.datasource`, `tinybird/pipes/sync_runs_by_connection.pipe`, `apps/project-sites/src/services/sync_observability.ts`.
 
-- [ ] LOOP-NANGO-007: Integration health scoring + per-connection status engine [auto]
+- [x] LOOP-NANGO-007: Integration health scoring + per-connection status engine — **CORE DONE 2026-06-29:** `services/integration_health.ts` — pure `scoreConnectionHealth` + `aggregateConnectionHealth`. 12/12 tests. [auto]
   - Why: A normalized health score (healthy/degraded/broken/expired) turns raw signals into one field the UI, AI agents, and alerts all consume.
   - Acceptance criteria: `computeHealth(connection)` derives status from token expiry, last-refresh result, last-sync result, and error rate; status persisted + recomputed on relevant events; unit tests cover each transition; status exposed via API.
   - Implementation notes: Pure function over signals from refresh engine + sync observability; event-driven recompute (no polling) plus a periodic safety sweep.
