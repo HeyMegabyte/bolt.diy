@@ -7,7 +7,11 @@ describe('notifyEvent', () => {
   it('validates + renders a valid psnotify event', async () => {
     const result = await notifyEvent(baseEnv, {
       subscriberId: 'u@x.com',
-      event: { name: 'site_published', subscriberId: 'u@x.com', payload: { subject: 'Live', body: 'Your site is live' } },
+      event: {
+        name: 'site_published',
+        subscriberId: 'u@x.com',
+        payload: { subject: 'Live', body: 'Your site is live' },
+      },
     });
     expect(result.ok).toBe(true);
   });
@@ -28,7 +32,9 @@ describe('notifyEvent', () => {
 
 describe('notifyOwnerEvent', () => {
   const makeDb = (email: string | null) =>
-    ({ prepare: () => ({ bind: () => ({ first: async () => (email ? { email } : null) }) }) }) as unknown as D1Database;
+    ({
+      prepare: () => ({ bind: () => ({ first: async () => (email ? { email } : null) }) }),
+    }) as unknown as D1Database;
 
   it('returns ok:false on an invalid event shape (before D1 lookup)', async () => {
     const result = await notifyOwnerEvent(baseEnv, makeDb('o@org.com'), {

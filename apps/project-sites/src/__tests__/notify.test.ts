@@ -17,7 +17,9 @@ const makeDb = (email: string | null) =>
 
 const throwingDb = () =>
   ({
-    prepare: () => { throw new Error('d1 down'); },
+    prepare: () => {
+      throw new Error('d1 down');
+    },
   }) as unknown as D1Database;
 
 const baseEnv = {} as unknown as Env;
@@ -70,28 +72,32 @@ describe('notifySiteOwner', () => {
         tenantId: 'org_1',
       }),
     );
-    expect(ev.data).toEqual(
-      expect.objectContaining({ subscriberId: 'owner@org.com' }),
-    );
+    expect(ev.data).toEqual(expect.objectContaining({ subscriberId: 'owner@org.com' }));
   });
 
   it('returns ok:false when the org has no resolvable owner', async () => {
     const res = await notifySiteOwner(baseEnv, makeDb(null), {
-      orgId: 'org_1', subject: 's', body: 'b',
+      orgId: 'org_1',
+      subject: 's',
+      body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'no_owner' });
   });
 
   it('returns ok:false when orgId is empty', async () => {
     const res = await notifySiteOwner(baseEnv, makeDb('x@y.com'), {
-      orgId: '', subject: 's', body: 'b',
+      orgId: '',
+      subject: 's',
+      body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'no_org' });
   });
 
   it('returns ok:false on a D1 lookup failure (never throws)', async () => {
     const res = await notifySiteOwner(baseEnv, throwingDb(), {
-      orgId: 'org_1', subject: 's', body: 'b',
+      orgId: 'org_1',
+      subject: 's',
+      body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'lookup_failed' });
   });
