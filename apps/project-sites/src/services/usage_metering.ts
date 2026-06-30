@@ -627,11 +627,14 @@ export async function meterFormSubmission(
       occurredAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn', service: 'usage_metering',
-      message: 'meterFormSubmission failed',
-      error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'meterFormSubmission failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 

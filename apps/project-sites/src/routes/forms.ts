@@ -339,7 +339,9 @@ forms.post('/api/v1/forms/submit', async (c) => {
     try {
       const { meterFormSubmission } = await import('../services/usage_metering.js');
       await meterFormSubmission(c.env, { orgId: site.org_id, siteId: site.id });
-    } catch { /* fail-soft */ }
+    } catch {
+      /* fail-soft */
+    }
   })();
 
   return c.json({
