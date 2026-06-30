@@ -342,12 +342,14 @@ export async function meterEgressBytes(
 import { createBillingProvider, type UsageMetric as BillingMetric } from './billing_provider.js';
 
 /**
- * Record AI token usage through the new billing provider.
+ * Record AI token usage through LagoProvider.
  *
  * Call AFTER an LLM response with actual token counts (NOT estimated).
  * One event per AI call, with separate input + output token quantities.
  *
  * Never throws — metering failures log and continue.
+ * Cost: ~$0.000015/input-token + $0.00006/output-token. At 1M tokens/day → ~$75/day.
+ * Latency: <1ms (async, fire-and-forget via `void`).
  */
 export async function meterAiTokens(
   env: Env,
@@ -519,6 +521,42 @@ export async function meterBandwidthEgress(
         error: err instanceof Error ? err.message : String(err),
       }),
     );
+  }
+}
+
+/**
+ * Record build compute minutes through LagoProvider.
+ *
+ * Call from site-generation workflow after build completion with elapsed wall-clock minutes.
+ * ~$0.02/min estimate. Cost: <1ms (async, fire-and-forget via `void`).
+ * Metronome-compatible: same bridge works regardless of active provider.
+ */
+export async function meterBuildComputeMinutes(
+  env: Env,
+  opts: { orgId: string; siteId?: string | null; minutes: number; buildVersion?: string },
+): Promise<void> {
+  if (opts.minutes <= 0) return;
+  try {
+    const provider = await createBillingProvider(env);
+    await provider.recordUsage({
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.orgId,
+      orgId: opts.orgId,
+      siteId: opts.siteId ?? undefined,
+      metric: 'build_compute_minutes',
+      quantity: Math.ceil(opts.minutes),
+      unit: 'minute',
+      source: 'site_generation',
+      occurredAt: new Date().toISOString(),
+      metadata: opts.buildVersion ? { build_version: opts.buildVersion } : undefined,
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn', service: 'usage_metering',
+      message: 'meterBuildComputeMinutes failed',
+      error: err instanceof Error ? err.message : String(err),
+    }));
   }
 }
 
