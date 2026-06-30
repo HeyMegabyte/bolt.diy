@@ -577,41 +577,27 @@ export interface Env {
   // ── Billing / Metering ──────────────────────────────────────
   /**
    * Billing provider identifier.
-   * `stripe_meters` (default, active) | `metronome` (future) | `noop` (dev/test).
-   * `openmeter` is NOT a valid value — removed, must not be reintroduced.
+   * `lago` (default) | `noop` (dev/test).
+   * `stripe_meters`, `openmeter`, and `metronome` are NOT valid values — removed.
    */
   BILLING_PROVIDER?: string;
   /** Legacy metering provider identifier — superseded by BILLING_PROVIDER. */
   METERING_PROVIDER?: string;
   /**
-   * Stripe Price IDs for usage-based metering (one per metric).
-   * JSON object: `{"ai_calls":"price_xxx","bytes_egress":"price_yyy","image_generations":"price_zzz"}`.
-   * When unset the usage middleware records to D1 only and skips Stripe usage records.
+   * Stripe Price IDs for usage-based metering (one per metric). Legacy — kept for existing D1-only mode.
    */
   STRIPE_USAGE_PRICE_IDS?: string;
-  /** Stripe Meter Event names (one per UsageMetric). See STRIPE_METER_MAP in billing_provider.ts. */
-  STRIPE_METER_AI_INPUT_TOKENS?: string;
-  STRIPE_METER_AI_OUTPUT_TOKENS?: string;
-  STRIPE_METER_AI_EMBEDDING_TOKENS?: string;
-  STRIPE_METER_AI_IMAGE_GENERATIONS?: string;
-  STRIPE_METER_BROWSER_AUTOMATION_MINUTES?: string;
-  STRIPE_METER_BUILD_MINUTES?: string;
-  STRIPE_METER_SITE_VISITS?: string;
-  STRIPE_METER_FORM_SUBMISSIONS?: string;
-  STRIPE_METER_EMAIL_SENDS?: string;
-  STRIPE_METER_STORAGE_GB?: string;
-  STRIPE_METER_SOCIAL_POSTS?: string;
   /** Stripe Price IDs for base subscriptions. */
   STRIPE_PRICE_BASE_SITE_MONTHLY?: string;
   STRIPE_PRICE_BASE_SITE_YEARLY?: string;
 
-  // ── Metronome (future billing provider) ─────────────────────
-  /** Metronome API key — inactive unless BILLING_PROVIDER=metronome. */
-  METRONOME_API_KEY?: string;
-  /** Metronome API base URL (default: https://api.metronome.com/v1). */
-  METRONOME_API_URL?: string;
-  /** Metronome webhook signing secret for invoice/commit events. */
-  METRONOME_WEBHOOK_SECRET?: string;
+  // ── Lago (billing provider) ─────────────────────────────────
+  /** Lago API key — required when BILLING_PROVIDER=lago (default). */
+  LAGO_API_KEY?: string;
+  /** Lago API base URL (default: https://api.getlago.com/api/v1). */
+  LAGO_API_URL?: string;
+  /** Lago webhook signing secret for invoice/event callbacks. */
+  LAGO_WEBHOOK_SECRET?: string;
   /** HMAC secret used to sign one-click weekly-digest unsubscribe tokens. */
   WEEKLY_DIGEST_SECRET?: string;
 

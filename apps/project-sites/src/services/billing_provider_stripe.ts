@@ -30,7 +30,7 @@ import type {
   UsageSummaryInput,
   UsageSummaryRow,
 } from './billing_provider.js';
-import { METRIC_UNIT, STRIPE_METER_MAP } from './billing_provider.js';
+import { LAGO_BILLABLE_CODE } from './billing_provider.js';
 import { dbInsert, dbQuery, dbQueryOne } from './db.js';
 
 // ─── Provider ───────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ export class StripeMetersProvider implements BillingMeteringProvider {
   async #deliverToStripe(event: UsageEvent): Promise<void> {
     if (!this.#env.STRIPE_SECRET_KEY) return;
 
-    const meterName = STRIPE_METER_MAP[event.metric];
+    const meterName = LAGO_BILLABLE_CODE[event.metric];
     if (!meterName) {
       console.warn(
         JSON.stringify({

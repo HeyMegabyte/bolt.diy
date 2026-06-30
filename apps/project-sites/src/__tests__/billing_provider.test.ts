@@ -3,38 +3,35 @@
  *
  * Covers:
  * - NoopBillingProvider works in local/test
- * - BILLING_PROVIDER config rejects "openmeter"
- * - Stripe meter mapping is complete
+ * - BILLING_PROVIDER config rejects removed providers
+ * - Lago billable code mapping is complete
  * - Idempotency keys are stable
  * - Usage events carry all required fields
  * - METRIC_UNIT covers every UsageMetric
- * - STRIPE_METER_MAP covers every UsageMetric
+ * - LAGO_BILLABLE_CODE covers every UsageMetric
  */
 
 import { describe, expect, it } from '@jest/globals';
 import {
+  LAGO_BILLABLE_CODE,
   METRIC_UNIT,
-  STRIPE_METER_MAP,
   resolveBillingProviderId,
-  type BillingMeteringProvider,
-  type UsageEvent as UsageEventType,
 } from '../services/billing_provider.js';
 import { NoopBillingProvider } from '../services/billing_provider_noop.js';
-import { MetronomeProvider } from '../services/billing_provider_metronome.js';
+import { LagoProvider } from '../services/billing_provider_lago.js';
 import { estimateCostCents, METRIC_RATE_CENTS } from '../services/billing_provider_stripe.js';
-import type { BillingProviderId, UsageEvent } from '../services/billing_provider.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
 /** Minimal Env stub for tests. */
-function stubEnv(billingProvider?: string) {
+function stubEnv(billingProvider) {
   return {
     BILLING_PROVIDER: billingProvider,
   } as unknown as import('../types/env.js').Env;
 }
 
 /** Build a minimal valid UsageEvent. */
-function makeEvent(overrides?: Partial<UsageEvent>): UsageEvent {
+function makeEvent(overrides) {
   return {
     id: crypto.randomUUID(),
     idempotencyKey: crypto.randomUUID(),
@@ -103,18 +100,19 @@ describe('NoopBillingProvider', () => {
 // ─── Provider config ────────────────────────────────────────────────────
 
 describe('resolveBillingProviderId', () => {
-  it('defaults to stripe_meters when unset', () => {
-    expect(resolveBillingProviderId(stubEnv(undefined))).toBe('stripe_meters');
+  it('defaults to lago when unset', () => {
+    expect(resolveBillingProviderId(stubEnv(undefined))).toBe('lago');
   });
 
   it('resolves valid providers', () => {
-    expect(resolveBillingProviderId(stubEnv('stripe_meters'))).toBe('stripe_meters');
-    expect(resolveBillingProviderId(stubEnv('metronome'))).toBe('metronome');
+    expect(resolveBillingProviderId(stubEnv('lago'))).toBe('lago');
     expect(resolveBillingProviderId(stubEnv('noop'))).toBe('noop');
   });
 
-  it('rejects openmeter provider', () => {
+  it('rejects removed providers (stripe_meters, openmeter, metronome)', () => {
+    expect(() => resolveBillingProviderId(stubEnv('stripe_meters'))).toThrow('no longer supported');
     expect(() => resolveBillingProviderId(stubEnv('openmeter'))).toThrow('no longer supported');
+    expect(() => resolveBillingProviderId(stubEnv('metronome'))).toThrow('no longer supported');
   });
 
   it('rejects unknown providers', () => {
@@ -126,22 +124,22 @@ describe('resolveBillingProviderId', () => {
 
 // ─── Stripe meter mapping ───────────────────────────────────────────────
 
-describe('STRIPE_METER_MAP', () => {
+describe('LAGO_BILLABLE_CODE', () => {
   it('covers every UsageMetric', () => {
     for (const metric of Object.keys(METRIC_UNIT)) {
-      expect(STRIPE_METER_MAP).toHaveProperty(metric);
-      expect(typeof STRIPE_METER_MAP[metric as keyof typeof STRIPE_METER_MAP]).toBe('string');
+      expect(LAGO_BILLABLE_CODE).toHaveProperty(metric);
+      expect(typeof LAGO_BILLABLE_CODE[metric as keyof typeof LAGO_BILLABLE_CODE]).toBe('string');
     }
   });
 
-  it('all meter names use ps_ prefix', () => {
-    for (const name of Object.values(STRIPE_METER_MAP)) {
+  it('all codes use ps_ prefix', () => {
+    for (const name of Object.values(LAGO_BILLABLE_CODE)) {
       expect(name).toMatch(/^ps_/);
     }
   });
 
   it('has no duplicate meter names', () => {
-    const names = Object.values(STRIPE_METER_MAP);
+    const names = Object.values(LAGO_BILLABLE_CODE);
     expect(new Set(names).size).toBe(names.length);
   });
 });
@@ -239,8 +237,8 @@ describe('Per-unit cost accuracy', () => {
     expect(estimateCostCents('sms_sends', 100)).toBe(100); // $1.00
   });
 
-  it('METRIC_RATE_CENTS covers all metrics in STRIPE_METER_MAP', () => {
-    for (const metric of Object.keys(STRIPE_METER_MAP)) {
+  it('METRIC_RATE_CENTS covers all metrics in LAGO_BILLABLE_CODE', () => {
+    for (const metric of Object.keys(LAGO_BILLABLE_CODE)) {
       expect(METRIC_RATE_CENTS).toHaveProperty(metric);
       expect(typeof METRIC_RATE_CENTS[metric]).toBe('number');
     }
@@ -253,26 +251,25 @@ describe('Per-unit cost accuracy', () => {
   });
 });
 
-// ─── Metronome swap compatibility ─────────────────────────────────────────
+// ─── LagoProvider swap compatibility ──────────────────────────────────────
 
-describe('MetronomeProvider swap compatibility', () => {
-  function stubMetronomeEnv(active = false) {
+describe('LagoProvider swap compatibility', () => {
+  function stubLagoEnv() {
     return {
-      BILLING_PROVIDER: active ? 'metronome' : 'stripe_meters',
-      METRONOME_API_KEY: undefined,
+      BILLING_PROVIDER: 'lago',
+      LAGO_API_KEY: undefined,
       DB: { prepare: () => ({ bind: () => ({ run: () => Promise.resolve() }) }) },
     } as unknown as import('../types/env.js').Env;
   }
 
   it('implements BillingMeteringProvider interface', () => {
-    const provider = new MetronomeProvider(stubMetronomeEnv());
-    // TypeScript structural check: if this compiles, the interface is satisfied
-    const _check: BillingMeteringProvider = provider;
+    const provider = new LagoProvider(stubLagoEnv());
+    const _check = provider;
     expect(_check).toBe(provider);
   });
 
-  it('recordUsage is a no-op when inactive (no API key)', async () => {
-    const provider = new MetronomeProvider(stubMetronomeEnv(false));
+  it('recordUsage is a no-op when no API key configured', async () => {
+    const provider = new LagoProvider(stubLagoEnv());
     await expect(
       provider.recordUsage({
         id: crypto.randomUUID(),
@@ -287,46 +284,15 @@ describe('MetronomeProvider swap compatibility', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('recordUsageBatch is a no-op when inactive', async () => {
-    const provider = new MetronomeProvider(stubMetronomeEnv(false));
-    await expect(
-      provider.recordUsageBatch([
-        {
-          id: crypto.randomUUID(),
-          idempotencyKey: crypto.randomUUID(),
-          customerId: 'cus_x',
-          metric: 'email_sends',
-          quantity: 5,
-          unit: 'event',
-          source: 'test',
-          occurredAt: new Date().toISOString(),
-        },
-      ]),
-    ).resolves.toBeUndefined();
-  });
-
-  it('syncCustomer is a no-op when inactive', async () => {
-    const provider = new MetronomeProvider(stubMetronomeEnv(false));
-    await expect(
-      provider.syncCustomer({
-        customerId: 'cus_x',
-        email: 'test@test.com',
-        orgId: 'org_x',
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it('NoopBillingProvider and MetronomeProvider are both valid BillingMeteringProvider', () => {
-    // Both providers satisfy the interface — a provider swap is a config flip.
-    const noop: BillingMeteringProvider = new NoopBillingProvider(stubMetronomeEnv());
-    const metronome: BillingMeteringProvider = new MetronomeProvider(stubMetronomeEnv());
+  it('NoopBillingProvider and LagoProvider are both valid providers', () => {
+    const noop = new NoopBillingProvider(stubLagoEnv());
+    const lago = new LagoProvider(stubLagoEnv());
     expect(noop).toBeTruthy();
-    expect(metronome).toBeTruthy();
+    expect(lago).toBeTruthy();
   });
 
-  it('all 3 providers accept the same UsageEvent shape', () => {
-    // Ensures StripeMeters → Metronome migration is a provider swap, not a data migration.
-    const event: UsageEvent = {
+  it('all providers accept the same UsageEvent shape', () => {
+    const event ={
       id: crypto.randomUUID(),
       idempotencyKey: crypto.randomUUID(),
       customerId: 'cus_x',
@@ -341,8 +307,7 @@ describe('MetronomeProvider swap compatibility', () => {
       pricingVersion: '2026-Q3',
       metadata: { model: 'gpt-4o' },
     };
-    // TypeScript structural check: all required fields present + correct types.
-    const _check: UsageEventType = event;
+    const _check = event;
     expect(_check.metric).toBe('ai_output_tokens');
     expect(_check.unit).toBe('token');
   });

@@ -210,40 +210,37 @@ export interface BillingMeteringProvider {
 
 // ─── Provider configuration ─────────────────────────────────────────────
 
-/** Valid billing provider identifiers. `openmeter` deliberately excluded. */
-export type BillingProviderId = 'stripe_meters' | 'metronome' | 'noop';
+/** Valid billing provider identifiers. */
+export type BillingProviderId = 'lago' | 'noop';
 
 /** Resolve the configured billing provider from the environment. */
 export function resolveBillingProviderId(env: Env): BillingProviderId {
-  const raw = env.BILLING_PROVIDER ?? 'stripe_meters';
-  if (raw === 'stripe_meters' || raw === 'metronome' || raw === 'noop') {
-    return raw;
-  }
-  if (raw === 'openmeter') {
+  const raw = env.BILLING_PROVIDER ?? 'lago';
+  if (raw === 'lago' || raw === 'noop') return raw;
+  if (raw === 'stripe_meters' || raw === 'openmeter' || raw === 'metronome') {
     throw new Error(
-      'BILLING_PROVIDER=openmeter is no longer supported. Use stripe_meters or metronome.',
+      `BILLING_PROVIDER=${raw} is no longer supported. Use lago.`,
     );
   }
-  throw new Error(`Unknown BILLING_PROVIDER: ${raw}. Expected stripe_meters | metronome | noop.`);
+  throw new Error(`Unknown BILLING_PROVIDER: ${raw}. Expected lago | noop.`);
 }
 
-// ─── Stripe meter name mapping (one place, never scatter) ────────────────
+// ─── Lago billable metric code mapping (one place, never scatter) ────────
 
 /**
- * Maps internal UsageMetric → Stripe Meter Event name.
+ * Maps internal UsageMetric → Lago billable metric code.
  *
- * Stripe meter names use the `ps_` prefix and match the meter slugs created
- * in the Stripe Dashboard. These are the canonical mapping — no other file
- * should hardcode a Stripe meter name.
+ * Lago billable codes are defined in the Lago UI/API. These are the canonical
+ * mapping — no other file should hardcode a Lago code.
  *
  * Charging model (per Brian):
  * - AI: per TOKEN (input/output/embedding), per IMAGE, per MINUTE (voice)
  * - Compute: per MINUTE (browser, build)
  * - Traffic: per VISIT, per GB (bandwidth egress)
- * - Storage: per GB-HOUR (1 GB stored for 1 hour → ~730 GB-hours = 1 GB-month)
+ * - Storage: per GB-HOUR
  * - Messaging: per SEND (email, SMS)
  */
-export const STRIPE_METER_MAP: Record<UsageMetric, string> = {
+export const LAGO_BILLABLE_CODE: Record<UsageMetric, string> = {
   ai_input_tokens: 'ps_ai_input_tokens',
   ai_output_tokens: 'ps_ai_output_tokens',
   ai_embedding_tokens: 'ps_ai_embedding_tokens',
@@ -268,18 +265,14 @@ export const STRIPE_METER_MAP: Record<UsageMetric, string> = {
 /**
  * Build the configured billing provider.
  *
- * @throws If BILLING_PROVIDER is set to an unknown or removed value (e.g. openmeter).
+ * @throws If BILLING_PROVIDER is set to an unknown or removed value.
  */
 export async function createBillingProvider(env: Env): Promise<BillingMeteringProvider> {
   const id = resolveBillingProviderId(env);
   switch (id) {
-    case 'stripe_meters': {
-      const { StripeMetersProvider } = await import('./billing_provider_stripe.js');
-      return new StripeMetersProvider(env);
-    }
-    case 'metronome': {
-      const { MetronomeProvider } = await import('./billing_provider_metronome.js');
-      return new MetronomeProvider(env);
+    case 'lago': {
+      const { LagoProvider } = await import('./billing_provider_lago.js');
+      return new LagoProvider(env);
     }
     case 'noop': {
       const { NoopBillingProvider } = await import('./billing_provider_noop.js');
