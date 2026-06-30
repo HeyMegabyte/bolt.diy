@@ -949,7 +949,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-AUTH-001: D1 static schema migration + drift-check for Better Auth [auto]
+- [ ] LOOP-AUTH-001: D1 static schema migration + drift-check for Better Auth [parked]
   - Why: Better Auth cannot runtime auto-migrate on D1; schema drift silently breaks login.
   - Acceptance criteria: `better-auth` CLI-generated schema committed as a numbered migration; CI step diffs live D1 schema vs generated and fails on drift.
   - Implementation notes: `npx @better-auth/cli generate` → write `migrations/00XX_better_auth.sql`; add `bin/check-auth-schema.mjs` comparing `wrangler d1 execute` introspection.
@@ -959,7 +959,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: none
   - Related files: apps/project-sites/src/auth/better-auth.ts, apps/project-sites/migrations/
 
-- [ ] LOOP-AUTH-002: Passkey (WebAuthn) registration + conditional-UI autofill login [auto]
+- [ ] LOOP-AUTH-002: Passkey (WebAuthn) registration + conditional-UI autofill login [parked]
   - Why: Phishing-resistant primary factor; removes magic-link latency for repeat users.
   - Acceptance criteria: User can register a passkey, log in via autofill ("passkeys" conditional UI), and see it listed; works on iOS/Android/desktop.
   - Implementation notes: Enable Better Auth `passkey` plugin; rpId=`projectsites.dev`; store credentials in D1; expose `/api/auth/passkey/*`.
@@ -969,7 +969,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001
   - Related files: apps/project-sites/src/auth/better-auth.ts, middleware/identity.ts
 
-- [ ] LOOP-AUTH-003: Multi-passkey + recovery-codes fallback flow [auto]
+- [ ] LOOP-AUTH-003: Multi-passkey + recovery-codes fallback flow [parked]
   - Why: A single passkey is a lockout risk; need recoverable account access.
   - Acceptance criteria: User can add ≥1 additional passkey and generate 10 one-time recovery codes; using a code logs in and marks it consumed.
   - Implementation notes: Hash recovery codes (Argon2/scrypt via Web Crypto) in D1; rate-limit code attempts; force re-issue on full consumption.
@@ -979,7 +979,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-002
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-004: Unified session/device console with per-session revocation [auto]
+- [ ] LOOP-AUTH-004: Unified session/device console with per-session revocation [parked]
   - Why: Users + support need to see and kill active sessions across devices.
   - Acceptance criteria: `/admin/security/sessions` lists active sessions (device, IP-geo, last-seen); revoking one invalidates that session within 60s.
   - Implementation notes: Read Better Auth session table; store device fingerprint + UA-parsed device; revoke writes tombstone + invalidates KV cookie-cache key.
@@ -989,7 +989,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001
   - Related files: apps/project-sites/src/middleware/identity.ts
 
-- [ ] LOOP-AUTH-005: Session policy engine (idle timeout, absolute TTL, rotation, step-up) [auto]
+- [ ] LOOP-AUTH-005: Session policy engine (idle timeout, absolute TTL, rotation, step-up) [parked]
   - Why: One configurable place to enforce session lifetime + re-auth for sensitive actions.
   - Acceptance criteria: Config-driven idle (default 7d) + absolute (default 30d) expiry; sensitive routes require step-up (recent re-auth <15m) or return 401 with `step_up_required`.
   - Implementation notes: Zod `SessionPolicy` schema; middleware checks `auth_time`; rotate session id on privilege change. (needs decision: default idle/absolute values.)
@@ -999,7 +999,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001, LOOP-AUTH-004
   - Related files: apps/project-sites/src/middleware/identity.ts
 
-- [ ] LOOP-AUTH-006: Organizations + teams + roles model (Better Auth organization plugin) [auto]
+- [ ] LOOP-AUTH-006: Organizations + teams + roles model (Better Auth organization plugin) [parked]
   - Why: Multi-tenant platform needs org → team → member hierarchy as the auth substrate.
   - Acceptance criteria: Create org, create teams within org, assign roles (owner/admin/member/viewer); membership enforced in `c.get('orgId')` resolution.
   - Implementation notes: Enable `organization` plugin; never trust client `x-org-id` (IDOR class); resolve active org server-side from session.
@@ -1009,7 +1009,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001
   - Related files: apps/project-sites/src/auth/better-auth.ts, middleware/identity.ts
 
-- [ ] LOOP-AUTH-007: Tenant switcher with server-validated active-org cookie [auto]
+- [ ] LOOP-AUTH-007: Tenant switcher with server-validated active-org cookie [parked]
   - Why: Users in multiple orgs need fast, safe context switching without IDOR.
   - Acceptance criteria: Switcher lists only orgs the user belongs to; selecting one sets active org server-side; all subsequent API calls scope to it.
   - Implementation notes: `POST /api/auth/active-org` validates membership then signs active_org into session; UI reads from session, not localStorage.
@@ -1019,7 +1019,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006
   - Related files: apps/project-sites/src/middleware/identity.ts
 
-- [ ] LOOP-AUTH-008: Invite flow (email invite, token, accept, role pre-assignment, expiry) [auto]
+- [ ] LOOP-AUTH-008: Invite flow (email invite, token, accept, role pre-assignment, expiry) [parked]
   - Why: Orgs grow by inviting teammates; needs secure, auditable, expiring invites.
   - Acceptance criteria: Owner sends invite with role; invitee receives email link; accepting (signed-in or after signup) joins org with pre-set role; tokens expire in 7d and are single-use.
   - Implementation notes: Signed invite tokens in D1; magic-link-style email via Resend; revoke pending invites; idempotent accept.
@@ -1029,7 +1029,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-009: ProjectSites as OIDC/OAuth2 provider for customer apps ("Sign in with ProjectSites") [auto]
+- [ ] LOOP-AUTH-009: ProjectSites as OIDC/OAuth2 provider for customer apps ("Sign in with ProjectSites") [parked]
   - Why: Foundational platform primitive — generated sites/apps authenticate users against the platform IdP.
   - Acceptance criteria: Discovery doc at `/.well-known/openid-configuration`, `/authorize`, `/token`, `/userinfo` work; a registered client completes auth-code + PKCE and gets a valid ID token.
   - Implementation notes: Enable Better Auth `oidcProvider` plugin; per-client redirect-URI allowlist; consent screen (LOOP-AUTH-010).
@@ -1039,7 +1039,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001, LOOP-AUTH-006
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-010: OAuth consent screen + scope catalog + per-client grant management [auto]
+- [ ] LOOP-AUTH-010: OAuth consent screen + scope catalog + per-client grant management [parked]
   - Why: OIDC provider needs explicit user consent and revocable grants per scope.
   - Acceptance criteria: First authorize shows scopes + client name; user grants/denies; user can later revoke a client at `/admin/security/connected-apps`.
   - Implementation notes: Zod `Scope` catalog (`openid profile email org:read sites:read`); store grants in D1; skip consent on re-auth if scopes unchanged.
@@ -1049,7 +1049,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-011: JWKS endpoint + rotating asymmetric signing keys for issued tokens [auto]
+- [ ] LOOP-AUTH-011: JWKS endpoint + rotating asymmetric signing keys for issued tokens [parked]
   - Why: Customer apps and services must verify platform-issued JWTs against published, rotatable keys.
   - Acceptance criteria: `/.well-known/jwks.json` serves current+next public keys; ID/access tokens signed RS256/EdDSA; key rotation keeps old kid valid until token TTL elapses.
   - Implementation notes: Generate keys via Web Crypto; store private keys as Worker secrets / encrypted in D1; `kid` in JWT header; rotation job via Cron.
@@ -1059,7 +1059,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-012: API key issuer for service/M2M auth (scoped, hashed, revocable) [auto]
+- [ ] LOOP-AUTH-012: API key issuer for service/M2M auth (scoped, hashed, revocable) [parked]
   - Why: Programmatic clients (CI, integrations, agents) need non-cookie credentials with least privilege.
   - Acceptance criteria: User mints an API key scoped to org + permissions; key shown once; requests with key resolve to a scoped principal; revoking blocks within 60s.
   - Implementation notes: Store only key hash (SHA-256) + prefix in D1; `psk_*` format; middleware resolves `api_key_id` into principal; per-key rate limits.
@@ -1069,7 +1069,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006
   - Related files: apps/project-sites/src/middleware/identity.ts
 
-- [ ] LOOP-AUTH-013: OAuth2 client-credentials grant for app-to-app auth [auto]
+- [ ] LOOP-AUTH-013: OAuth2 client-credentials grant for app-to-app auth [parked]
   - Why: Platform services and customer backends need standard M2M token exchange, not just static keys.
   - Acceptance criteria: Registered confidential client exchanges client_id+secret at `/token` for a scoped access token; token verifies via JWKS; expired/over-scope requests rejected.
   - Implementation notes: Extend OIDC provider with `grant_type=client_credentials`; scope clamping to client's allowed scopes; short token TTL (15m).
@@ -1079,7 +1079,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009, LOOP-AUTH-011
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-014: Agent identity + delegated (on-behalf-of) tokens [auto]
+- [ ] LOOP-AUTH-014: Agent identity + delegated (on-behalf-of) tokens [parked]
   - Why: AI agents acting for a user/org need scoped, attributable, time-boxed credentials distinct from the user's session.
   - Acceptance criteria: Issue an agent token bound to {actor_user, org, scopes, expiry}; downstream logs show both agent_id and on-behalf-of user; tokens are independently revocable.
   - Implementation notes: JWT with `act` (actor) claim per RFC 8693 token-exchange shape; max-TTL clamp; deny privilege escalation beyond delegating user. (needs decision: max agent-token lifetime + allowed scope ceiling.)
@@ -1089,7 +1089,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-011, LOOP-AUTH-013
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-015: MCP OAuth resource-server validation aligned to platform IdP [auto]
+- [ ] LOOP-AUTH-015: MCP OAuth resource-server validation aligned to platform IdP [parked]
   - Why: `/api/mcp/*` must accept platform-issued tokens so MCP clients use one auth surface (ties to existing mcp_oauth_provider work).
   - Acceptance criteria: MCP endpoints validate bearer tokens against JWKS, enforce `mcp:*` scopes, and return RFC9728 `WWW-Authenticate` with resource metadata on 401.
   - Implementation notes: Reuse JWKS verifier; publish `/.well-known/oauth-protected-resource`; map MCP tool perms to scopes.
@@ -1099,7 +1099,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009, LOOP-AUTH-011
   - Related files: apps/project-sites/src/routes/, src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-016: Safe admin impersonation ("login as") with consent + banner + auto-expiry [auto]
+- [ ] LOOP-AUTH-016: Safe admin impersonation ("login as") with consent + banner + auto-expiry [parked]
   - Why: Support needs to reproduce user issues without password sharing, but impersonation is high-risk.
   - Acceptance criteria: Platform admin starts a time-boxed (≤30m) impersonation; UI shows a persistent "Impersonating X" banner; session auto-ends; every action tagged impersonated. (needs decision: require target-user consent vs admin-only policy.)
   - Implementation notes: Mint impersonation session with `impersonator_id` claim; block sensitive ops (password/billing change) while impersonating; force audit log.
@@ -1109,7 +1109,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006, LOOP-AUTH-022
   - Related files: apps/project-sites/src/middleware/identity.ts
 
-- [ ] LOOP-AUTH-017: Account linking (multiple OAuth providers + email to one identity) [auto]
+- [ ] LOOP-AUTH-017: Account linking (multiple OAuth providers + email to one identity) [parked]
   - Why: Users who sign up with Google then later with email shouldn't fork into two accounts.
   - Acceptance criteria: Linking a second provider with a verified-matching email merges into the existing account; mismatched/unverified emails require explicit confirmation; unlinking leaves ≥1 credential.
   - Implementation notes: Better Auth account-linking config with `trustedProviders`; require email verification before auto-link; guard last-credential removal.
@@ -1119,7 +1119,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-018: Enterprise SSO via SAML/OIDC with WorkOS boundary [auto]
+- [ ] LOOP-AUTH-018: Enterprise SSO via SAML/OIDC with WorkOS boundary [parked]
   - Why: Enterprise customers demand IdP-initiated SSO; WorkOS abstracts SAML connectors without us hosting SAML infra.
   - Acceptance criteria: An org admin configures an SSO connection (WorkOS) ; users on that org's domain are routed to their IdP and provisioned into the org on first login.
   - Implementation notes: Keep WorkOS strictly at the connection boundary — exchange WorkOS profile → platform session via Better Auth generic OAuth; domain→org mapping table. WorkOS only for enterprise SSO connectors (not core auth).
@@ -1129,7 +1129,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006, LOOP-AUTH-017
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-019: SCIM 2.0 provisioning + role synchronization from enterprise IdP [auto]
+- [ ] LOOP-AUTH-019: SCIM 2.0 provisioning + role synchronization from enterprise IdP [parked]
   - Why: Enterprises expect user/group lifecycle (deprovision on offboard) and role mapping driven by their IdP.
   - Acceptance criteria: SCIM `/scim/v2/Users` + `/Groups` support create/update/deactivate; IdP group → platform role mapping applies on sync; deprovision revokes sessions within 60s.
   - Implementation notes: Bearer-token-secured SCIM endpoints per connection; idempotent upserts keyed on externalId; group-to-role map config (needs decision: precedence when IdP role conflicts with manual role).
@@ -1139,7 +1139,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006, LOOP-AUTH-018
   - Related files: apps/project-sites/src/routes/, src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-020: Customer-website auth boundary SDK (lightweight drop-in for generated sites) [auto]
+- [ ] LOOP-AUTH-020: Customer-website auth boundary SDK (lightweight drop-in for generated sites) [parked]
   - Why: Generated customer sites need simple, lightweight end-user auth without inheriting platform-admin complexity or Sentry.
   - Acceptance criteria: A `<script>`/JS SDK lets a generated site add email/passkey login backed by the platform OIDC provider in <10 lines; sessions scoped to that site_id only.
   - Implementation notes: Thin client wrapping LOOP-AUTH-009 endpoints; per-site OAuth client auto-provisioned at site publish; no cross-site session bleed.
@@ -1149,7 +1149,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009, LOOP-AUTH-010
   - Related files: apps/project-sites/src/routes/, public/
 
-- [ ] LOOP-AUTH-021: Bot protection + abuse prevention on all auth entry points (Turnstile + rate limits) [auto]
+- [ ] LOOP-AUTH-021: Bot protection + abuse prevention on all auth entry points (Turnstile + rate limits) [parked]
   - Why: Login/signup/magic-link/OTP are credential-stuffing and email-bomb targets.
   - Acceptance criteria: Turnstile gates signup + magic-link request; per-IP + per-account rate limits on login/OTP; lockout with exponential backoff after N failures; abusive patterns blocked without harming legit users.
   - Implementation notes: CF Turnstile (CF-minted keys via API); Upstash sliding-window counters keyed by IP+email_hash; CF managed rate-limiting unreliable on plan → DO/Upstash counter is source of truth.
@@ -1159,7 +1159,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001
   - Related files: apps/project-sites/src/middleware/, src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-022: Tamper-evident auth audit log (append-only, queryable, exportable) [auto]
+- [ ] LOOP-AUTH-022: Tamper-evident auth audit log (append-only, queryable, exportable) [parked]
   - Why: Security + compliance need a complete, immutable record of every auth-relevant event.
   - Acceptance criteria: Every login, logout, role change, invite, token issue/revoke, impersonation, SSO event is recorded with actor, target, IP, result; log is append-only and exportable per org as CSV/JSON.
   - Implementation notes: Write events to D1 append-only table + mirror to Tinybird for analytics queries; hash-chain rows (prev_hash) for tamper evidence.
@@ -1169,7 +1169,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-006
   - Related files: apps/project-sites/src/services/audit, src/middleware/identity.ts
 
-- [ ] LOOP-AUTH-023: Account recovery + secure email/password change with re-verification [auto]
+- [ ] LOOP-AUTH-023: Account recovery + secure email/password change with re-verification [parked]
   - Why: Lost-access and credential-change flows are prime takeover vectors and must be hardened end-to-end.
   - Acceptance criteria: Password/email reset uses single-use, short-TTL signed tokens; changing email requires verifying both old+new addresses; recovery notifies the account and offers "this wasn't me" revoke-all.
   - Implementation notes: Token TTL ≤30m, invalidated on use + on password change; rotate all sessions on credential change; throttle reset requests per account.
@@ -1179,7 +1179,7 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-001, LOOP-AUTH-004
   - Related files: apps/project-sites/src/auth/better-auth.ts
 
-- [ ] LOOP-AUTH-024: Auth admin console (`/admin/security`) unifying flags, sessions, clients, keys, SSO, audit [auto]
+- [ ] LOOP-AUTH-024: Auth admin console (`/admin/security`) unifying flags, sessions, clients, keys, SSO, audit [parked]
   - Why: Solo founder needs one operator surface to run the whole auth platform without spelunking D1.
   - Acceptance criteria: Single console shows + manages: OAuth clients, API keys, SSO connections, active sessions, audit log search, and per-flag rollout of every auth feature; all actions audited.
   - Implementation notes: Angular admin section reusing DialogShellComponent + ApiService (bearer, never raw HttpClient); every new auth feature behind a typed feature flag in D1 `flag_overrides`.
@@ -3970,7 +3970,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-BROWSER-001: Unified browser primitive over `browser_gateway.ts` (`screenshot` / `content` / `snapshot` / `scrape` / `pdf`) [auto]
+- [ ] LOOP-BROWSER-001: Unified browser primitive over `browser_gateway.ts` (`screenshot` / `content` / `snapshot` / `scrape` / `pdf`) [parked]
   - Why: Every downstream consumer (snapshots, monitoring, QA, site-gen) needs one typed entrypoint instead of ad-hoc Playwright calls; flagship of this plane.
   - Acceptance criteria: Single `BrowserGateway` service exposes `capture()` accepting a discriminated-union `BrowserJob` Zod schema; routes screenshot/content/snapshot/scrape to CF Browser Rendering REST first, binding second; returns `{ artifactKey, contentType, bytes, timingMs }`; unit tests cover each mode + fallback path.
   - Implementation notes: Wrap CF REST endpoints `/screenshot`, `/content`, `/snapshot`, `/scrape`; binding (`@cloudflare/playwright` + BROWSER) only for steps REST cannot do (multi-step interaction).
@@ -3980,7 +3980,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: none (foundation).
   - Related files: `src/services/browser_gateway.ts`, `src/types/env.ts`, `packages/shared/src/schemas/`.
 
-- [ ] LOOP-BROWSER-002: `BrowserJob` Zod contract + tiering policy resolver [auto]
+- [ ] LOOP-BROWSER-002: `BrowserJob` Zod contract + tiering policy resolver [parked]
   - Why: Codifies CF-first → Browserbase → Skyvern selection so callers never hard-pick a provider.
   - Acceptance criteria: `resolveProvider(job)` returns `cf | browserbase | skyvern` from job needs (session-replay/proxy → Browserbase; internal authed agentic → Skyvern; else CF); Zod schema validates every job at boundary; exhaustive unit tests for tier decisions.
   - Implementation notes: Default always CF; Browserbase requires explicit `needsManagedSession` flag; Skyvern requires `internalOnly: true` + CF Access context.
@@ -3990,7 +3990,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001.
   - Related files: `packages/shared/src/schemas/browser.ts`, `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-003: R2 artifact store with content-addressed keys + retention [auto]
+- [ ] LOOP-BROWSER-003: R2 artifact store with content-addressed keys + retention [parked]
   - Why: Screenshots/PDFs/HTML need durable, dedup'd, expiring storage keyed by correlation IDs.
   - Acceptance criteria: `putArtifact()` writes `browser/{tenant}/{site}/{job}/{sha256}.{ext}`; returns signed/public URL; TTL-based lifecycle for ephemeral QA shots vs permanent snapshots; idempotent on identical bytes.
   - Implementation notes: SHA-256 over bytes for dedup; metadata holds target_url + trace_id; tag artifacts `ephemeral|durable`.
@@ -4000,7 +4000,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001.
   - Related files: `src/services/browser_gateway.ts`, `wrangler.toml` (R2 binding).
 
-- [ ] LOOP-BROWSER-004: Responsive screenshot set across 6 breakpoints [auto]
+- [ ] LOOP-BROWSER-004: Responsive screenshot set across 6 breakpoints [parked]
   - Why: Visual QA + marketing need 375/390/768/1024/1280/1920 captures in one call.
   - Acceptance criteria: `screenshotResponsive(url)` returns 6 R2 artifacts with breakpoint metadata; full-page + above-fold variants; deterministic (disabled animations, fixed clock).
   - Implementation notes: CF REST `/screenshot` per viewport; inject `prefers-reduced-motion` + freeze `Date.now`; batch via Workers concurrency.
@@ -4010,7 +4010,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 003.
   - Related files: `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-005: Source-site crawler for rebuilds (sitemap + BFS + robots) [auto]
+- [ ] LOOP-BROWSER-005: Source-site crawler for rebuilds (sitemap + BFS + robots) [parked]
   - Why: Site enhancement pipeline needs a full URL inventory of a source domain to classify keep/merge/301/drop.
   - Acceptance criteria: `crawlSite(domain, {maxPages, maxDepth})` parses `sitemap.xml` + robots, BFS-follows same-origin links, returns `_url_inventory.json` shape with status/title/depth/canonical; honors `Disallow` + crawl-delay; rate-limited.
   - Implementation notes: CF REST `/content` per page; dedup via normalized URL set; realistic UA + concurrency cap; Wayback fallback for dead pages (needs decision on Wayback budget).
@@ -4020,7 +4020,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 006.
   - Related files: `src/services/browser_gateway.ts`, `src/workflows/`.
 
-- [ ] LOOP-BROWSER-006: robots.txt + sitemap discovery & compliance gate [auto]
+- [ ] LOOP-BROWSER-006: robots.txt + sitemap discovery & compliance gate [parked]
   - Why: All crawling must be polite by default; centralize parsing once.
   - Acceptance criteria: `loadRobots(origin)` returns parsed rules + crawl-delay + sitemap URLs; `isAllowed(url, ua)` enforced inside crawler/scraper before any fetch; cached in KV 1h.
   - Implementation notes: Standard robots parser; sitemap index recursion; KV cache keyed by origin.
@@ -4030,7 +4030,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: none.
   - Related files: `src/services/browser_gateway.ts`, `src/services/`.
 
-- [ ] LOOP-BROWSER-007: Structured content scraper (CF `/scrape` + selector schema) [auto]
+- [ ] LOOP-BROWSER-007: Structured content scraper (CF `/scrape` + selector schema) [parked]
   - Why: Extract typed fields (headings, contacts, hours, services) from competitor/source pages.
   - Acceptance criteria: `scrape(url, selectors)` maps CSS/AI selectors → typed object validated by caller-supplied Zod schema; returns partial + confidence per field; graceful on missing nodes.
   - Implementation notes: Prefer CF REST `/scrape` with element selectors; escalate to Stagehand extract for semantic fields (LOOP-BROWSER-014).
@@ -4040,7 +4040,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001.
   - Related files: `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-008: Snapshot screenshot capture for site versions [auto]
+- [ ] LOOP-BROWSER-008: Snapshot screenshot capture for site versions [parked]
   - Why: Site snapshots feature needs proof-of-state thumbnails per published version.
   - Acceptance criteria: On `site.publish`, capture full-page screenshot of `{slug}.projectsites.dev`, store at `browser/{tenant}/{site}/snapshots/{version}.png`, link in snapshot record; viewable in admin.
   - Implementation notes: Triggered by publish event; reuse LOOP-BROWSER-004 (1280 + mobile); attach to existing snapshot D1 row.
@@ -4050,7 +4050,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 003, 004.
   - Related files: `src/services/site_serving.ts`, `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-009: OG-image renderer (per-route social cards 1200×630) [auto]
+- [ ] LOOP-BROWSER-009: OG-image renderer (per-route social cards 1200×630) [parked]
   - Why: Every generated site route needs an accurate OG image; render from live DOM or template.
   - Acceptance criteria: `renderOgImage(url|template)` returns 1200×630 PNG/WebP in R2; deterministic fonts; cache-keyed by route+content hash; served via `/og/{slug}/{route}`.
   - Implementation notes: CF REST `/screenshot` with clip 1200×630 over a dedicated OG template route; fallback to template HTML when live route unsuitable.
@@ -4060,7 +4060,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 003.
   - Related files: `src/routes/`, `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-010: PDF generation (proposals, invoices, site exports) [auto]
+- [ ] LOOP-BROWSER-010: PDF generation (proposals, invoices, site exports) [parked]
   - Why: Customers want printable site/section exports and the platform needs PDF receipts.
   - Acceptance criteria: `renderPdf(url|html, {format, margins})` returns PDF in R2; supports header/footer + page numbers; A4/Letter; deterministic output.
   - Implementation notes: CF REST `/pdf` (or binding `page.pdf`); inject print CSS; sign output URL.
@@ -4070,7 +4070,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 003.
   - Related files: `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-011: Lighthouse / Core Web Vitals audit runner [auto]
+- [ ] LOOP-BROWSER-011: Lighthouse / Core Web Vitals audit runner [parked]
   - Why: Post-deploy quality gate (LCP/CLS/INP, Perf/A11y/SEO scores) for generated sites.
   - Acceptance criteria: `auditCwv(url)` returns structured scores + opportunities; fails gate when Perf<75 or A11y<95; results stored + trended.
   - Implementation notes: Run Lighthouse via CF Browser Rendering binding (programmatic) — if not feasible on CF, route to Fly persistent pool with stated reason (needs decision); store JSON in R2, metrics in Tinybird.
@@ -4080,7 +4080,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001.
   - Related files: `src/services/browser_gateway.ts`, `src/workflows/`.
 
-- [ ] LOOP-BROWSER-012: Accessibility audit (axe-core injection) per route + 6bp [auto]
+- [ ] LOOP-BROWSER-012: Accessibility audit (axe-core injection) per route + 6bp [parked]
   - Why: WCAG 2.2 AA / ADA Title II gate; zero violations across breakpoints.
   - Acceptance criteria: `auditAxe(url, breakpoint)` injects axe-core, returns violations with nodes/impact; aggregates across 6 breakpoints; fails on any serious/critical.
   - Implementation notes: Binding-based (need DOM script injection); inject `axe.min.js`, run `axe.run()`, serialize results.
@@ -4090,7 +4090,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 004.
   - Related files: `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-013: Broken-link & status checker for live customer sites [auto]
+- [ ] LOOP-BROWSER-013: Broken-link & status checker for live customer sites [parked]
   - Why: Detect 4xx/5xx/dead outbound links before customers notice.
   - Acceptance criteria: `checkLinks(url)` crawls internal links + HEAD-checks outbound, returns broken list with source page + anchor; respects robots; rate-limited.
   - Implementation notes: Reuse crawler (005); HEAD with GET fallback; dedup external hosts + per-host throttle.
@@ -4100,7 +4100,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-005, 006.
   - Related files: `src/services/browser_gateway.ts`, `src/services/notifications.ts`.
 
-- [ ] LOOP-BROWSER-014: Stagehand AI-driven step layer (act / extract / observe) [auto]
+- [ ] LOOP-BROWSER-014: Stagehand AI-driven step layer (act / extract / observe) [parked]
   - Why: Semantic actions ("click pricing", "extract hours") that brittle selectors can't express.
   - Acceptance criteria: `agentic(url, instructions[])` runs Stagehand `act/extract/observe` over CF Browser Rendering session; returns typed results; every step traced; bounded step budget + timeout.
   - Implementation notes: Stagehand on CF Browser Rendering binding; model routing via existing LLM tiering; cap steps; idempotent re-runs.
@@ -4110,7 +4110,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001.
   - Related files: `src/services/browser_gateway.ts`, `src/lib/`.
 
-- [ ] LOOP-BROWSER-015: Form-fill & login-flow automation for E2E auth journeys [auto]
+- [ ] LOOP-BROWSER-015: Form-fill & login-flow automation for E2E auth journeys [parked]
   - Why: Prod E2E and customer-site checks must exercise authed flows (magic link, OAuth, forms).
   - Acceptance criteria: `runFlow(steps)` fills forms + submits + asserts post-state via Stagehand/Playwright; mocked accounts only (`MOCK_USER_*`); screenshots each step to R2.
   - Implementation notes: Combine binding Playwright for deterministic steps + Stagehand for semantic steps; never use real credentials.
@@ -4120,7 +4120,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 014.
   - Related files: `src/services/browser_gateway.ts`, `e2e/`.
 
-- [ ] LOOP-BROWSER-016: Post-deploy prod E2E harness against real URLs [auto]
+- [ ] LOOP-BROWSER-016: Post-deploy prod E2E harness against real URLs [parked]
   - Why: Verification-loop mandate — every deploy fetches changed routes and asserts live content.
   - Acceptance criteria: `verifyDeploy(routes[])` loads each prod route, asserts H1/status/JSON-LD/headers, captures screenshot, console-error-free; emits pass/fail report.
   - Implementation notes: CF Browser Rendering binding for navigation + console capture; assert `crossOriginIsolated`/headers where relevant; integrate into deploy gate.
@@ -4130,7 +4130,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 004.
   - Related files: `src/services/browser_gateway.ts`, `.github/workflows/`.
 
-- [ ] LOOP-BROWSER-017: Scheduled visual regression (pixel-diff vs baselines) [auto]
+- [ ] LOOP-BROWSER-017: Scheduled visual regression (pixel-diff vs baselines) [parked]
   - Why: Catch unintended visual drift on generated/customer sites between deploys.
   - Acceptance criteria: Cron captures current screenshots, diffs vs R2 baselines (pixelmatch 0.1%/0.5% area), flags regressions, stores diff image; baseline-approve path in admin.
   - Implementation notes: Reuse responsive capture (004); store baselines durable, candidates ephemeral; pixelmatch in Worker (WASM) or compute step.
@@ -4140,7 +4140,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-004, 003, 020.
   - Related files: `src/services/browser_gateway.ts`, `wrangler.toml` (triggers).
 
-- [ ] LOOP-BROWSER-018: Long-running crawl/audit as a CF Workflow [auto]
+- [ ] LOOP-BROWSER-018: Long-running crawl/audit as a CF Workflow [parked]
   - Why: Full-site crawls + audits exceed a single Worker invocation; need durable, resumable orchestration.
   - Acceptance criteria: `BrowserWorkflow` chunks pages into steps, persists progress, retries with backoff, emits `browser.job.*` events; resumable after failure; bounded total budget.
   - Implementation notes: CF Workflows v2; each step = one page capture/scrape; checkpoint inventory to R2 between steps.
@@ -4150,7 +4150,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-005, 011.
   - Related files: `src/workflows/`, `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-019: Browserbase managed-fallback adapter (session/replay/proxy) [auto]
+- [ ] LOOP-BROWSER-019: Browserbase managed-fallback adapter (session/replay/proxy) [parked]
   - Why: Some jobs (geo-proxy, captcha-prone, session replay for debugging) need a managed cloud browser; CF can't always cover.
   - Acceptance criteria: `BrowserbaseAdapter` opens session, runs job, returns replay URL + artifacts; used ONLY when `resolveProvider` picks `browserbase`; never the default path.
   - Implementation notes: HTTP boundary to Browserbase API; declare request/response shapes locally; key via get-secret.
@@ -4160,7 +4160,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-002.
   - Related files: `src/services/browser_gateway.ts`, `src/services/`.
 
-- [ ] LOOP-BROWSER-020: Customer-site uptime + screenshot-proof monitor [auto]
+- [ ] LOOP-BROWSER-020: Customer-site uptime + screenshot-proof monitor [parked]
   - Why: Prove customer sites are up with a timestamped visual, not just a 200.
   - Acceptance criteria: Cron polls each active site, records status + load time + screenshot; on downtime fires notification with last-good vs current shot; SLA dashboard data.
   - Implementation notes: Visibility-aware scheduling; throttle per site; store latest screenshot durable, history ephemeral.
@@ -4170,7 +4170,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-004, 003.
   - Related files: `src/services/browser_gateway.ts`, `src/services/notifications.ts`.
 
-- [ ] LOOP-BROWSER-021: Brand asset extraction — favicon + logo from source site [auto]
+- [ ] LOOP-BROWSER-021: Brand asset extraction — favicon + logo from source site [parked]
   - Why: Rebuild pipeline needs the source brand's favicon and logo to seed the new site.
   - Acceptance criteria: `extractBrandAssets(url)` finds favicon (link rels + `/favicon.ico`), largest header `<img>`/SVG logo, downloads to R2, returns dimensions + format; handles missing gracefully.
   - Implementation notes: Parse DOM via CF `/content`; rank logo candidates by header position + size; SVG preferred.
@@ -4180,7 +4180,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-001, 007.
   - Related files: `src/services/image_discovery.ts`, `src/services/browser_gateway.ts`.
 
-- [ ] LOOP-BROWSER-022: Brand-color extraction via vision over a rendered screenshot [auto]
+- [ ] LOOP-BROWSER-022: Brand-color extraction via vision over a rendered screenshot [parked]
   - Why: Seed `_brand.json` palette from the actual rendered source site, not guessed CSS.
   - Acceptance criteria: Capture full-page screenshot → vision model returns dominant palette (primary/accent/bg/ink) as OKLCH + hex with confidence; validated by Zod; stored on site brand record.
   - Implementation notes: Reuse screenshot (004); vision via existing LLM tiering; cross-check against extracted CSS custom properties.
@@ -4190,7 +4190,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-004.
   - Related files: `src/services/image_discovery.ts`, `src/services/build_context.ts`.
 
-- [ ] LOOP-BROWSER-023: Competitor crawl + 100-pt rubric capture for build floor [auto]
+- [ ] LOOP-BROWSER-023: Competitor crawl + 100-pt rubric capture for build floor [parked]
   - Why: Competitor-research gate needs screenshots + structured signals from peer sites to set the scoring floor.
   - Acceptance criteria: `crawlCompetitor(url)` captures homepage + key routes screenshots, scrapes copy/IA signals, runs CWV + axe, emits `_competitors/{host}/_score.json` inputs; respects robots + realistic UA.
   - Implementation notes: Compose crawler (005) + screenshot (004) + audits (011/012); aggregate to MAX-per-dim floor.
@@ -4200,7 +4200,7 @@ Surveyed 50+ raw ideas across the browser plane: a unified screenshot/crawl/scra
   - Dependencies: LOOP-BROWSER-005, 011, 012.
   - Related files: `src/services/browser_gateway.ts`, `src/services/openai_research.ts`.
 
-- [ ] LOOP-BROWSER-024: Skyvern internal-only escalation behind CF Access [auto]
+- [ ] LOOP-BROWSER-024: Skyvern internal-only escalation behind CF Access [parked]
   - Why: Hardest agentic jobs (complex multi-page auth, anti-bot) may need Skyvern — but it must never be the product default.
   - Acceptance criteria: `SkyvernAdapter` reachable only when `resolveProvider` returns `skyvern` AND request carries valid CF Access JWT for `skyvern.megabyte.space`; rejects external/tenant-facing callers; returns artifacts to R2.
   - Implementation criteria notes: HTTP boundary to internal Skyvern; service-token (non_identity) auth; verify CF Access assertion; gated by internal feature flag.
@@ -6642,7 +6642,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-AUTH-001: Deploy Better Auth CF Worker and wire as the platform auth provider [auto]
+- [ ] LOOP-AUTH-001: Deploy Better Auth CF Worker and wire as the platform auth provider [parked]
   - Endpoint: auth.projectsites.dev (CF Worker)
   - Why: Better Auth is provisioned but not yet deployed as the primary auth endpoint
   - Acceptance criteria: auth.projectsites.dev serves login/signup/oauth flows; D1 users/organizations tables populated on signup; session cookies work across projectsites.dev subdomains
@@ -6654,7 +6654,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/wrangler.toml, apps/project-sites/infra/better-auth/package.json
   - Primary sources: https://better-auth.com/docs, [[better-auth-cf-gotchas]]
 
-- [ ] LOOP-AUTH-002: Implement organization/team creation on first signup with workspace model [auto]
+- [ ] LOOP-AUTH-002: Implement organization/team creation on first signup with workspace model [parked]
   - Endpoint: POST /api/auth/signup (auto-creates org)
   - Why: Every new user gets an organization; multi-tenant isolation starts at signup
   - Acceptance criteria: Signup creates user + default organization + admin membership; org_id available in session context for all subsequent requests
@@ -6666,7 +6666,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/, src/services/auth.ts
   - Primary sources: https://better-auth.com/docs/plugins/organization
 
-- [ ] LOOP-AUTH-003: Wire passkey (WebAuthn) authentication for passwordless login [auto]
+- [ ] LOOP-AUTH-003: Wire passkey (WebAuthn) authentication for passwordless login [parked]
   - Endpoint: /api/auth/passkey (Better Auth passkey plugin)
   - Why: Passkeys are more secure than passwords and faster for returning users
   - Acceptance criteria: Users can register a passkey and login with biometric/PIN; passkey registration available in account settings
@@ -6678,7 +6678,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: https://better-auth.com/docs/plugins/passkey
 
-- [ ] LOOP-AUTH-004: Implement OAuth/OIDC provider login (Google, GitHub, Microsoft) [auto]
+- [ ] LOOP-AUTH-004: Implement OAuth/OIDC provider login (Google, GitHub, Microsoft) [parked]
   - Endpoint: /api/auth/oauth/:provider
   - Why: Social login reduces signup friction; Google is the most-used identity provider
   - Acceptance criteria: Users can sign up/login via Google, GitHub, Microsoft OAuth; OAuth accounts can be linked to existing accounts
@@ -6690,7 +6690,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: https://better-auth.com/docs/plugins/oauth-provider
 
-- [ ] LOOP-AUTH-005: Build magic link email authentication flow [auto]
+- [ ] LOOP-AUTH-005: Build magic link email authentication flow [parked]
   - Endpoint: POST /api/auth/magic-link
   - Why: Passwordless email login is the lowest-friction auth method
   - Acceptance criteria: User enters email → receives magic link → click logs them in; link expires after 15 minutes; rate limited to 5/minute per email
@@ -6702,7 +6702,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: https://better-auth.com/docs/plugins/magic-link
 
-- [ ] LOOP-AUTH-006: Implement organization switching for multi-tenant users [auto]
+- [ ] LOOP-AUTH-006: Implement organization switching for multi-tenant users [parked]
   - Endpoint: POST /api/auth/switch-org
   - Why: Agency users belong to multiple orgs; seamless switching is a core UX requirement
   - Acceptance criteria: User sees list of their orgs; switching updates session context to new org; admin UI reflects switched org
@@ -6714,7 +6714,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/auth.ts
   - Primary sources: https://better-auth.com/docs/plugins/organization
 
-- [ ] LOOP-AUTH-007: Build team invitation and role assignment flow [auto]
+- [ ] LOOP-AUTH-007: Build team invitation and role assignment flow [parked]
   - Endpoint: POST /api/auth/invite
   - Why: Organizations need to invite team members with specific roles
   - Acceptance criteria: Admin can invite by email with role selection; invitee receives email; accepting creates membership with assigned role; invite expires after 7 days
@@ -6726,7 +6726,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: https://better-auth.com/docs/plugins/organization (invitation section)
 
-- [ ] LOOP-AUTH-008: Implement admin impersonation safety controls [auto]
+- [ ] LOOP-AUTH-008: Implement admin impersonation safety controls [parked]
   - Endpoint: POST /api/admin/impersonate (super-admin only)
   - Why: Support requires seeing the product as the customer sees it; impersonation must be auditable and safe
   - Acceptance criteria: Super-admin can impersonate any org; ALL impersonation sessions logged to audit trail; impersonation banner visible in UI; cannot make billing changes while impersonating
@@ -6738,7 +6738,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/middleware/auth.ts, src/services/auth.ts, src/services/sysadmin.ts
   - Primary sources: Better Auth admin docs, [[admin-override-patterns]]
 
-- [ ] LOOP-AUTH-009: Implement session policy (timeout, device tracking, force-logout) [auto]
+- [ ] LOOP-AUTH-009: Implement session policy (timeout, device tracking, force-logout) [parked]
   - Endpoint: Middleware (every request) + GET /api/auth/sessions
   - Why: Security requires session lifecycle management; users need visibility into active sessions
   - Acceptance criteria: Sessions expire after 7 days of inactivity; users can view and revoke active sessions; admin can force-logout any user; session list shows device/IP/last active
@@ -6750,7 +6750,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: https://better-auth.com/docs/plugins/session
 
-- [ ] LOOP-AUTH-010: Wire account recovery flows (forgot password, account linking, email change) [auto]
+- [ ] LOOP-AUTH-010: Wire account recovery flows (forgot password, account linking, email change) [parked]
   - Endpoint: POST /api/auth/recover + POST /api/auth/verify-email-change
   - Why: Account recovery is the #1 support request type; self-serve reduces support load
   - Acceptance criteria: Forgot password flow sends reset link; email change requires current email confirmation + new email verification; account linking merges identities with explicit confirmation
@@ -6762,7 +6762,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: Better Auth account recovery docs
 
-- [ ] LOOP-AUTH-011: Implement enterprise SSO boundary (SAML/OIDC for customer orgs) [auto]
+- [ ] LOOP-AUTH-011: Implement enterprise SSO boundary (SAML/OIDC for customer orgs) [parked]
   - Endpoint: /api/auth/sso/:orgSlug (tenant-specific SSO)
   - Why: Enterprise customers require their own IdP; SSO is table stakes for B2B SaaS
   - Acceptance criteria: Org admins can configure their own OIDC/SAML provider; SSO login redirects to customer's IdP; just-in-time provisioning for new SSO users
@@ -6774,7 +6774,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: https://better-auth.com/docs/plugins/sso
 
-- [ ] LOOP-AUTH-012: Implement bot protection on all auth endpoints [auto]
+- [ ] LOOP-AUTH-012: Implement bot protection on all auth endpoints [parked]
   - Endpoint: Every /api/auth/* endpoint
   - Why: Auth endpoints are the highest-value target for automated attacks
   - Acceptance criteria: Turnstile on signup and login; rate limiting (5 attempts/minute per IP); account lockout after 10 failed attempts; notification email on suspicious activity
@@ -6786,7 +6786,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/turnstile.ts, src/middleware/
   - Primary sources: CF Turnstile docs, OWASP auth security patterns
 
-- [ ] LOOP-AUTH-013: Build MCP/agent authentication with scoped API tokens [auto]
+- [ ] LOOP-AUTH-013: Build MCP/agent authentication with scoped API tokens [parked]
   - Endpoint: POST /api/auth/agent-token
   - Why: AI agents and MCP servers need authenticated access without full user sessions
   - Acceptance criteria: Users can create agent tokens with scoped permissions; tokens authenticate as the user with reduced scope; token usage audited separately
@@ -6798,7 +6798,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/auth.ts, libs/features/platform_mcp/
   - Primary sources: Better Auth API key docs, MCP auth patterns
 
-- [ ] LOOP-AUTH-014: Implement customer website auth boundary (generated sites) [auto]
+- [ ] LOOP-AUTH-014: Implement customer website auth boundary (generated sites) [parked]
   - Endpoint: Customer site auth (separate from platform auth)
   - Why: Generated customer websites may need their own auth (member portals, client areas); this must be separate from platform auth
   - Acceptance criteria: Customer sites can optionally enable built-in auth with Better Auth's client SDK; site users are scoped to that site only; zero platform data exposure
@@ -6810,7 +6810,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/site_serving.ts
   - Primary sources: Better Auth client SDK docs
 
-- [ ] LOOP-AUTH-015: Build auth audit log viewer in admin dashboard [auto]
+- [ ] LOOP-AUTH-015: Build auth audit log viewer in admin dashboard [parked]
   - Endpoint: GET /api/admin/auth-audit (super-admin only)
   - Why: Security incidents require tracing auth events; compliance requires auth audit trails
   - Acceptance criteria: Filterable log of all auth events (login, logout, signup, password change, OAuth link, impersonation, session revoke) with user/org/timestamp/IP
@@ -6822,7 +6822,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/audit.ts, admin frontend
   - Primary sources: Existing audit patterns, SOC2 auth audit requirements
 
-- [ ] LOOP-AUTH-016: Implement role synchronization across platform services [auto]
+- [ ] LOOP-AUTH-016: Implement role synchronization across platform services [parked]
   - Endpoint: Internal (role sync webhook)
   - Why: Better Auth role changes must propagate to Unkey (API permissions), Stripe (billing admin), and app-level permissions
   - Acceptance criteria: Role change in Better Auth triggers webhook to sync permissions across integrated services; admin can view effective permissions per user
@@ -6834,7 +6834,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/event_bus.ts, auth services
   - Primary sources: Better Auth webhook docs
 
-- [ ] LOOP-AUTH-017: Build customer-visible team management UI [auto]
+- [ ] LOOP-AUTH-017: Build customer-visible team management UI [parked]
   - Endpoint: /admin/team (customer-facing)
   - Why: Customers need to manage their own team without contacting support
   - Acceptance criteria: Org admin can view team members, change roles, remove members, resend invitations; member list with roles and last active
@@ -6846,7 +6846,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
   - Primary sources: Better Auth organization API
 
-- [ ] LOOP-AUTH-018: Implement progressive profiling during onboarding [auto]
+- [ ] LOOP-AUTH-018: Implement progressive profiling during onboarding [parked]
   - Endpoint: POST /api/auth/profile (extended profile fields)
   - Why: Collecting profile data at signup kills conversion; progressive collection after first value delivery is higher-ROI
   - Acceptance criteria: Signup requires only email; after first site build, prompt for name + company; after first publish, prompt for billing info; each step is skippable
@@ -6858,7 +6858,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/auth.ts, onboarding components
   - Primary sources: PostHog progressive profiling patterns
 
-- [ ] LOOP-AUTH-019: Implement auth anomaly detection [auto]
+- [ ] LOOP-AUTH-019: Implement auth anomaly detection [parked]
   - Endpoint: Background worker
   - Why: Credential stuffing, impossible travel, and unusual-device logins are the most common account takeover vectors
   - Acceptance criteria: Alert on: login from new device+geo, impossible travel (login from US then EU within 1 hour), rapid failed attempts, unusual-hour login
@@ -6870,7 +6870,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/auth_anomaly.ts, src/services/auth_ai_risk.ts
   - Primary sources: CF Analytics Engine docs, OWASP credential stuffing detection
 
-- [ ] LOOP-AUTH-020: Build platform-wide auth health dashboard [auto]
+- [ ] LOOP-AUTH-020: Build platform-wide auth health dashboard [parked]
   - Endpoint: Internal (admin dashboard widget)
   - Why: Auth is the most critical platform service; degraded auth = business down
   - Acceptance criteria: Dashboard showing: auth success rate, signup rate, login latency (p50/p99), active sessions, OAuth provider health, magic link delivery rate, auth error rate by type
@@ -6882,7 +6882,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: admin frontend dashboard components
   - Primary sources: Axiom query API, PostHog trends API
 
-- [ ] LOOP-AUTH-021: Implement automatic cleanup of expired sessions and invitations [auto]
+- [ ] LOOP-AUTH-021: Implement automatic cleanup of expired sessions and invitations [parked]
   - Endpoint: Worker cron (daily)
   - Why: Expired sessions and stale invitations accumulate in KV/D1, wasting storage and cluttering admin views
   - Acceptance criteria: Daily cron deletes expired sessions, 30-day-old unused invitations, and 90-day-old auth tokens; cleanup events logged
@@ -6894,7 +6894,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: apps/project-sites/infra/better-auth/
   - Primary sources: D1 TTL patterns, KV TTL docs
 
-- [ ] LOOP-AUTH-022: Build admin force-password-reset and force-logout tools [auto]
+- [ ] LOOP-AUTH-022: Build admin force-password-reset and force-logout tools [parked]
   - Endpoint: POST /api/admin/users/:id/force-reset (super-admin only)
   - Why: Support needs tools to respond to compromised accounts
   - Acceptance criteria: Admin can force password reset (sends email) or force logout (revokes all sessions) for any user; both actions logged to audit trail
@@ -6906,7 +6906,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/sysadmin.ts, admin frontend
   - Primary sources: Better Auth admin API docs
 
-- [ ] LOOP-AUTH-023: Verify and document Better Auth CF Worker cold-start impact [auto]
+- [ ] LOOP-AUTH-023: Verify and document Better Auth CF Worker cold-start impact [parked]
   - Endpoint: Internal (benchmark)
   - Why: Auth is on the critical path for every authenticated request; cold starts add latency
   - Acceptance criteria: Document cold start latency (p50, p99); if >200ms p99, recommend always-on or pre-warming strategy
@@ -6918,7 +6918,7 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/services/benchmark.ts
   - Primary sources: CF Workers performance docs
 
-- [ ] LOOP-AUTH-024: Implement auth kill switch for emergency platform-wide lockout [auto]
+- [ ] LOOP-AUTH-024: Implement auth kill switch for emergency platform-wide lockout [parked]
   - Endpoint: Internal (admin toggle + KV flag)
   - Why: In a security incident, you need to lock all non-admin access within seconds
   - Acceptance criteria: KV flag AUTH_KILLSWITCH=true immediately returns 503 on all non-admin auth endpoints; admin access preserved; toggle in admin dashboard with confirmation; audit logged
