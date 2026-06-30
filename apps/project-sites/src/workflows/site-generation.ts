@@ -1101,6 +1101,25 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           message: `Build complete: ${fileCount} source files, ${uploadCount} files uploaded to R2`,
         });
 
+        // Meter build compute minutes through LagoProvider.
+        // Cost: ~$0.02/min. At ~25 min/build, ~$0.50/build.
+        const buildMinutes = Math.ceil((Date.now() - startTime) / 60000);
+        void (async () => {
+          try {
+            const { meterBuildComputeMinutes } = await import(
+              '../services/usage_metering.js'
+            );
+            await meterBuildComputeMinutes(env, {
+              orgId: params.orgId,
+              siteId: params.siteId,
+              minutes: buildMinutes,
+              buildVersion: version,
+            });
+          } catch {
+            // fail-soft — metering must never break the build
+          }
+        })();
+
         // Update D1 status to published
         await env.DB.prepare(
           "UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?",
