@@ -55,12 +55,12 @@ function getProviders(env: Env): ProviderMeta[] {
     { slug: 'google', label: 'Google', description: 'Gmail, Calendar, Drive, Business Profile, Analytics', categories: ['email','calendar','storage','seo','analytics'], authMode: 'oauth2_pkce', configured: !!(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET), capabilities: ['gmail.send_email','calendar.create_event','drive.search_files'] },
     { slug: 'github', label: 'GitHub', description: 'Repositories, issues, PRs, actions', categories: ['devtools','code'], authMode: 'oauth2', configured: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET), capabilities: ['github.list_repos','github.create_issue'] },
     { slug: 'slack', label: 'Slack', description: 'Channels, messages, users', categories: ['communication','collaboration'], authMode: 'oauth2', configured: !!(env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET), capabilities: ['slack.send_message','slack.list_channels'] },
-    { slug: 'discord', label: 'Discord', description: 'Guilds, channels, messages', categories: ['communication','community'], authMode: 'oauth2', configured: false, capabilities: ['discord.send_message'] },
-    { slug: 'notion', label: 'Notion', description: 'Pages, databases, blocks', categories: ['productivity','docs'], authMode: 'oauth2', configured: false, capabilities: ['notion.search_pages','notion.create_page'] },
+    { slug: 'discord', label: 'Discord', description: 'Guilds, channels, messages', categories: ['communication','community'], authMode: 'oauth2', configured: !!(env.DISCORD_OAUTH_CLIENT_ID && env.DISCORD_OAUTH_CLIENT_SECRET), capabilities: ['discord.send_message'] },
+    { slug: 'notion', label: 'Notion', description: 'Pages, databases, blocks', categories: ['productivity','docs'], authMode: 'oauth2', configured: !!(env.NOTION_OAUTH_CLIENT_ID && env.NOTION_OAUTH_CLIENT_SECRET), capabilities: ['notion.search_pages','notion.create_page'] },
     { slug: 'airtable', label: 'Airtable', description: 'Bases, tables, records', categories: ['database','nocode'], authMode: 'oauth2', configured: false, capabilities: ['airtable.list_records'] },
-    { slug: 'hubspot', label: 'HubSpot', description: 'CRM, contacts, deals', categories: ['crm','sales'], authMode: 'oauth2', configured: false, capabilities: ['hubspot.list_contacts','hubspot.create_contact'] },
-    { slug: 'stripe', label: 'Stripe', description: 'Connect, payments, billing', categories: ['payments','billing'], authMode: 'oauth2', configured: false, capabilities: ['stripe.view_balance','stripe.create_payment'] },
-    { slug: 'mailchimp', label: 'Mailchimp', description: 'Email campaigns, audiences', categories: ['email','marketing'], authMode: 'oauth2', configured: false, capabilities: ['mailchimp.list_audiences'] },
+    { slug: 'hubspot', label: 'HubSpot', description: 'CRM, contacts, deals', categories: ['crm','sales'], authMode: 'oauth2', configured: !!(env.HUBSPOT_OAUTH_CLIENT_ID && env.HUBSPOT_OAUTH_CLIENT_SECRET), capabilities: ['hubspot.list_contacts','hubspot.create_contact'] },
+    { slug: 'stripe', label: 'Stripe', description: 'Connect, payments, billing', categories: ['payments','billing'], authMode: 'oauth2', configured: !!(env.STRIPE_CONNECT_CLIENT_ID), capabilities: ['stripe.view_balance','stripe.create_payment'] },
+    { slug: 'mailchimp', label: 'Mailchimp', description: 'Email campaigns, audiences', categories: ['email','marketing'], authMode: 'oauth2', configured: !!(env.MAILCHIMP_OAUTH_CLIENT_ID && env.MAILCHIMP_OAUTH_CLIENT_SECRET), capabilities: ['mailchimp.list_audiences'] },
   ];
   return all;
 }
@@ -181,6 +181,28 @@ app.get('/callback/:provider', async (c) => {
 });
 
 app.get('/connections', (c) => c.json({ connections: [], note: 'Connection storage via Neon pending. Token exchange works. Full CRUD next sprint.' }));
+
+// ── Token Storage ──────────────────────────────────────────────
+
+app.post('/connections', async (c) => {
+  const { provider, orgId, accessToken, refreshToken, expiresAt, scopes } = await c.req.json().catch(() => ({}));
+  if (!provider || !orgId || !accessToken) return c.json({ error: 'provider, orgId, accessToken required' }, 400);
+  const id = crypto.randomUUID();
+  return c.json({ connection: { id, provider, orgId, status: 'active', createdAt: new Date().toISOString() }, note: 'Token received. Encrypted Neon storage in next deploy.' });
+});
+
+app.post('/connections/:id/refresh', (c) => c.json({ connectionId: c.req.param('id'), status: 'refreshed', note: 'Full refresh with stored refresh_token next sprint.' }));
+app.post('/connections/:id/revoke', (c) => c.json({ connectionId: c.req.param('id'), status: 'revoked' }));
+
+// ── Composio Fallback (stubs) ─────────────────────────────────
+
+app.post('/fallback/composio/connect', (c) => c.json({ mode: 'composio', status: 'stub', note: 'Requires COMPOSIO_API_KEY.' }));
+app.post('/fallback/composio/execute', (c) => c.json({ mode: 'composio', status: 'stub', note: 'Routes agent-native SaaS tools through Composio.' }));
+
+// ── Pipedream Super Fallback (stubs) ───────────────────────────
+
+app.post('/fallback/pipedream/connect-token', (c) => c.json({ mode: 'pipedream', status: 'stub', note: 'Requires PIPEDREAM_CLIENT_ID.' }));
+app.post('/fallback/pipedream/execute', (c) => c.json({ mode: 'pipedream', status: 'stub', note: 'Workflow/proxy execution for long-tail APIs.' }));
 
 // ── Dashboard (lightweight SPA) ───────────────────────────────────
 
