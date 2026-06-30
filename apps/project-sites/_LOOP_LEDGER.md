@@ -408,8 +408,8 @@ collaboration surface that sells upgrades.
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** enable Queues on the CF account. Needs CF dashboard access. Account-level one-way change. for async fan-out off the request path (p99).
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** manual WCAG 2.2 AA review across admin + templates. Needs E2E_TEST_PASSWORD prod secret + dedicated a11y session. on admin + generated sites (box-tap-target ≥24px is gated on E2E_TEST_PASSWORD — see NEEDS BRIAN).
 - [x] Form reply-deliverability guardrails — DONE (2026-06-28). Two halves: (1) **SPF/DMARC/DKIM** sending-domain analysis already shipped as the flag-gated `email_deliverability` feature (`checkDeliverability` + route + 0-100 score). (2) **NEW reply guardrail:** added `hasDeliverableMx(fetch, domain)` (DoH MX lookup, A/AAAA implicit-MX fallback, NXDOMAIN→false, **fail-OPEN** on lookup error) + wired into `handleContactForm` — the auto-receipt is now SKIPPED when the submitter's domain can't receive mail (fake/typo/NXDOMAIN), so a hard bounce never dents projectsites.dev's sender reputation; the team notification (Email 1) always sends. TDD: +6 `hasDeliverableMx` unit tests + 1 contact skip test; ai_crypto/email_deliverability/contact/api_routes all green (47/47 + integration), tsc 0. (rate-limit, escape, Zod contract were already DONE.) Worker → CI push. [DONE]
-- [ ] → NEEDS BRIAN Social (Pulse) hardening — rate-limit + quota alert, failed-post retry UX, brand-voice profile, per-platform reformat. [auto]
-- [ ] → NEEDS BRIAN Pulse Inbox AI — wire `summarizeConversation` + `suggestNextActions` into the inbox UI; `repurpose` + `translateContent` (per-account locale); expose auto-reply confidence in settings; backfill `social_analytics_snapshots`. [auto]
+- [ ] → NEEDS BRIAN Social (Pulse) hardening — rate-limit + quota alert, failed-post retry UX, brand-voice profile, per-platform reformat. [parked]
+- [ ] → NEEDS BRIAN Pulse Inbox AI — wire `summarizeConversation` + `suggestNextActions` into the inbox UI; `repurpose` + `translateContent` (per-account locale); expose auto-reply confidence in settings; backfill `social_analytics_snapshots`. [parked]
 
 ## ⬇ Tier 4 — Lower value (SEO polish, secondary analytics, tooling, coverage)
 
@@ -417,18 +417,18 @@ collaboration surface that sells upgrades.
 - [x] AN2 — geo enrichment at ingest — DONE (2026-06-28). `recordPageviewFromRequest` (`visitor_events_core/service.ts`) now reads `cf.country` + `cf.city` + `cf.region` from the CF edge and persists all three into the event `metadata` JSON (was country-only) — capped to 80 chars, graceful `null` when the edge omits them, no schema migration (matches the existing AN1 metadata pattern). TDD: +2 tests (geo-persisted + null-graceful); 34/34 jest green, tsc 0; worker → CI push. [DONE]
 - [x] AN38 — cookieless-by-default + "No cookies · GDPR" privacy badge — DONE (2026-06-28). **Cookieless-by-default verified:** the platform visitor beacon (`buildAnalyticsTracker`) uses a per-pageview in-memory `crypto.randomUUID()` (no cookie/localStorage); PostHog/Sentry are explicitly NOT injected into served sites; only GA4/GTM (opt-in operator env) set cookies. **Built:** `generateNoCookiesBadge()` — a subtle, a11y-labeled, print-hidden, dark-mode-aware fixed bottom-left pill that backlinks to ProjectSites — injected into served HTML **gated on `isServedSiteCookieless(env)` (`!GA4 && !GTM`)** so the claim is never a lie. +3 unit tests (39/39 site_serving green, site_serving_full 37/37), tsc 0. Worker → CI push. [DONE]
 - [x] AN42 — one-click data export (CSV) + delete for the owner — DONE (2026-06-28). **Export:** pure `summaryToCsv(summary)` (RFC-4180-escaped two-column `metric,value`, CRLF, contact-source rows flattened, non-PII counts) + route `GET /api/sites/:siteId/analytics/export` (owner+flag gated → `{filename, csv}`) + a "⬇ Export CSV" dashboard button that fetches + Blob-downloads (busy-guarded). **Delete:** the owner-facing GDPR delete already ships — per-visitor `visitor_dsar` (`mode=delete` cascade, #29) + owner `DELETE /api/sites/:id` (site + its data); AN42's delete half reuses those. TDD: +3 CSV-helper tests (35/35 site_analytics worker) + 1 export-button Karma (1577/1577); ng build + tsc clean; 0 net-new fails. Worker → CI, frontend → R2. [DONE]
-- [ ] → NEEDS BRIAN GDPR/EU data-residency `jurisdiction="eu"` binding option on D1/R2. [auto]
-- [ ] → NEEDS BRIAN pSEO for projectsites.dev itself (comparison / template / location pages). [auto]
-- [ ] → NEEDS BRIAN Public template/showcase gallery (social proof + pSEO surface). [auto]
+- [ ] → NEEDS BRIAN GDPR/EU data-residency `jurisdiction="eu"` binding option on D1/R2. [parked]
+- [ ] → NEEDS BRIAN pSEO for projectsites.dev itself (comparison / template / location pages). [parked]
+- [ ] → NEEDS BRIAN Public template/showcase gallery (social proof + pSEO surface). [parked]
 - [x] "Built with projectsites.dev" deploy badge → backlinks — DONE (verified 2026-06-28). `site_serving.ts` injects the promo top-bar into every UNPAID served site (`bodyInjection += generateTopBar(site.slug)` at :1067); the bar carries `<a id="ps-bar-brand" href="https://${DOMAINS.SITES_BASE}" target="_blank" rel="noopener">` — a real backlink to ProjectSites on every free/preview site. Live on megabytespace.* (prior fire #48 proof). The link IS the ad. [DONE]
 - [x] 100% unit coverage on remaining untested PURE worker modules — DONE 2026-06-28. Drove the untested-pure-module count to **ZERO** across services + feature-modules + lib/prompts/utils/platform/middleware. This fire closed the last pure ones: `dashboard_persona` (3), preceded by `voice_browse_helpers`/`app_runtime_subclasses` (15) and `safe-parse`/`authz-subjects`/`wait-until` (12), with `aws-sigv4`/`resilient-fetch`/platform-routers covered by concurrent sessions. Verified via the untested-module finder: 0 io=0 modules with exports lack a test. REMAINING untested are NON-pure DurableObject/Container classes (`collab_room`, `*_container` ×4, `voice_browse_agent`) — they need a DO test-harness, tracked separately (see "Per-section E2E coverage" / a DO-harness follow-on), NOT in this PURE-module item's scope. [DONE]
-- [ ] → NEEDS BRIAN Per-section E2E coverage — every admin section + generated-site surface (see `e2e/FEATURES.md`); wire `*.e2e.ts` into CI. [auto]
-- [ ] → NEEDS BRIAN **schema-dts** (typed JSON-LD) + **html-validate** (HTML build gate) + **Pagefind** (client search >12-route) + **workers-og/Satori** (edge OG cards). [auto]
-- [ ] → NEEDS BRIAN **promptfoo** (prompt eval + injection red-team) + **Arcjet** (bot/rate-limit/PII as code). [auto]
-- [ ] → NEEDS BRIAN **DOMPurify** required on all customer/generated/imported HTML. [auto]
-- [ ] → NEEDS BRIAN **Drizzle ORM (RQBv2)** for type-safe D1 + migrations (incremental). [auto]
-- [ ] → NEEDS BRIAN **Knip** cleanup pass (44 known dead exports + unused deps/files). [auto]
-- [ ] → NEEDS BRIAN Replace Firecrawl with **Deepcrawl** as the approved site-context extractor. [auto]
+- [ ] → NEEDS BRIAN Per-section E2E coverage — every admin section + generated-site surface (see `e2e/FEATURES.md`); wire `*.e2e.ts` into CI. [parked]
+- [ ] → NEEDS BRIAN **schema-dts** (typed JSON-LD) + **html-validate** (HTML build gate) + **Pagefind** (client search >12-route) + **workers-og/Satori** (edge OG cards). [parked]
+- [ ] → NEEDS BRIAN **promptfoo** (prompt eval + injection red-team) + **Arcjet** (bot/rate-limit/PII as code). [parked]
+- [ ] → NEEDS BRIAN **DOMPurify** required on all customer/generated/imported HTML. [parked]
+- [ ] → NEEDS BRIAN **Drizzle ORM (RQBv2)** for type-safe D1 + migrations (incremental). [parked]
+- [ ] → NEEDS BRIAN **Knip** cleanup pass (44 known dead exports + unused deps/files). [parked]
+- [ ] → NEEDS BRIAN Replace Firecrawl with **Deepcrawl** as the approved site-context extractor. [parked]
 
 ## 🛠 Dedicated (real, but needs a supervised focused session)
 
@@ -441,14 +441,14 @@ collaboration surface that sells upgrades.
 
 > The loop cannot finish these alone. Each names the ONE decision/action required.
 
-- [ ] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars`. ~1h, unlocks authed prod-E2E across the whole money path. Smallest unblock, highest leverage. [auto]
-- [ ] **Pricing one-way doors** — free/Pro split (AN52), snapshot retention tiers (S45), AI-insight credits metering (AN53), 3rd-party paid app tier (A22), Lago usage metering. Loop proposes + wires; Brian sets prices. [auto]
-- [ ] **A19 guest-browsable admin** — exposing the whole tenant `/admin` read-only to ANONYMOUS visitors is a data-exposure/privacy call: which sections/fields are safe unauthenticated vs must stay gated. [auto]
-- [ ] **Notification vendor** — confirm `psnotify` (the ZERO-Novu rule) so the Novu/Dittofeed drift is deleted and it's built. [auto]
-- [ ] **Case-study pages** — featuring a real named org (njsk.org) needs THEIR consent + approved logo/copy use. Decision: which consenting builds may be published. [auto]
-- [ ] **Operator-key activations** — flip built-dark modules once keys/WAF set: observability gateway (Sentry/PostHog ingest + WAF), referral loop, lead-scanner outreach, CF WAF + rate-limit on /monitoring/*, Cloudflare Images, GBP OAuth connect, local-rank/review monitoring, EU data-residency. [auto]
-- [ ] **Voice carrier polish** — STIR/SHAKEN attestation (V28) + port-in for existing business numbers (V32). *(Voice go-live itself is DONE/LIVE — see History.)* [auto]
-- [ ] **Enterprise auth** — self-host Better Auth OSS on CF Containers + SCIM provisioning (verify Better Auth SCIM vs Authentik first). [auto]
+- [ ] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars`. ~1h, unlocks authed prod-E2E across the whole money path. Smallest unblock, highest leverage. [parked]
+- [ ] **Pricing one-way doors** — free/Pro split (AN52), snapshot retention tiers (S45), AI-insight credits metering (AN53), 3rd-party paid app tier (A22), Lago usage metering. Loop proposes + wires; Brian sets prices. [parked]
+- [ ] **A19 guest-browsable admin** — exposing the whole tenant `/admin` read-only to ANONYMOUS visitors is a data-exposure/privacy call: which sections/fields are safe unauthenticated vs must stay gated. [parked]
+- [ ] **Notification vendor** — confirm `psnotify` (the ZERO-Novu rule) so the Novu/Dittofeed drift is deleted and it's built. [parked]
+- [ ] **Case-study pages** — featuring a real named org (njsk.org) needs THEIR consent + approved logo/copy use. Decision: which consenting builds may be published. [parked]
+- [ ] **Operator-key activations** — flip built-dark modules once keys/WAF set: observability gateway (Sentry/PostHog ingest + WAF), referral loop, lead-scanner outreach, CF WAF + rate-limit on /monitoring/*, Cloudflare Images, GBP OAuth connect, local-rank/review monitoring, EU data-residency. [parked]
+- [ ] **Voice carrier polish** — STIR/SHAKEN attestation (V28) + port-in for existing business numbers (V32). *(Voice go-live itself is DONE/LIVE — see History.)* [parked]
+- [ ] **Enterprise auth** — self-host Better Auth OSS on CF Containers + SCIM provisioning (verify Better Auth SCIM vs Authentik first). [parked]
 
 ---
 
@@ -458,19 +458,19 @@ collaboration surface that sells upgrades.
 
 ### Plane (pm.projectsites.dev)
 - [ ] **PL1 backups + tested restore** — nightly TiDB export/branch-snapshot + R2 versioning + Upstash backup; concrete RPO/RTO; quarterly restore drill. (We have ZERO Plane backups today.) [auto]
-- [ ] → NEEDS BRIAN **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`. [auto]
-- [ ] → NEEDS BRIAN **PL3 Plane analytics via Tinybird (NO ClickHouse — Brian directive [[tinybird-always-never-clickhouse]])** — Plane can't use Tinybird as its internal ClickHouse, and ClickHouse is BANNED, so Plane's built-in dashboards stay dark (Plane PM still fully works). Deliver the value our way: Plane webhook receiver (PL21) emits `producer='plane'` events into the EXISTING `event_bus` outbox → already drains to the EXISTING Tinybird `projectsites_events` Data Source (every 5 min) → build admin pipes/dashboard filtered to `producer='plane'`. Foundation (`services/tinybird.ts` + outbox + DS) already live; only the receiver + producer-tag emit + dashboard remain. (ClickHouse Cloud keys kept in get-secret, UNUSED.) [auto]
-- [ ] → NEEDS BRIAN **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged). [auto]
+- [ ] → NEEDS BRIAN **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`. [parked]
+- [ ] → NEEDS BRIAN **PL3 Plane analytics via Tinybird (NO ClickHouse — Brian directive [[tinybird-always-never-clickhouse]])** — Plane can't use Tinybird as its internal ClickHouse, and ClickHouse is BANNED, so Plane's built-in dashboards stay dark (Plane PM still fully works). Deliver the value our way: Plane webhook receiver (PL21) emits `producer='plane'` events into the EXISTING `event_bus` outbox → already drains to the EXISTING Tinybird `projectsites_events` Data Source (every 5 min) → build admin pipes/dashboard filtered to `producer='plane'`. Foundation (`services/tinybird.ts` + outbox + DS) already live; only the receiver + producer-tag emit + dashboard remain. (ClickHouse Cloud keys kept in get-secret, UNUSED.) [parked]
+- [ ] → NEEDS BRIAN **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged). [parked]
 - [ ] **PL5 SSO** — OIDC via Better Auth for pm.projectsites.dev (auth-provider + rollout decision). [auto]
-- [ ] → NEEDS BRIAN **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule). [auto]
-- [ ] → NEEDS BRIAN **PL7 version-pin + upgrade cadence** — pin `PLANE_VERSION`, documented monthly upgrade rhythm + owner. [auto]
-- [ ] → NEEDS BRIAN **PL8 project-per-customer** — each generated site/customer auto-creates a Plane project (seeded states/cycles). [auto]
-- [ ] → NEEDS BRIAN **PL9 build failures → work items** — failed site-gen becomes a triaged Plane issue (mirrors the Sentry integration). [auto]
-- [ ] → NEEDS BRIAN **PL10 support requests → intake queue** — route projectsites contact/feedback into Plane intake. [auto]
-- [ ] → NEEDS BRIAN **PL11 tasks in admin cockpit** — surface "your project tasks" in /admin via the read API. [auto]
-- [ ] → NEEDS BRIAN **PL12 webhooks → psnotify** — HMAC-verified Plane events fan into the unified notification center. [auto]
-- [ ] → NEEDS BRIAN **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing. [auto]
-- [ ] → NEEDS BRIAN **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items. [auto]
+- [ ] → NEEDS BRIAN **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule). [parked]
+- [ ] → NEEDS BRIAN **PL7 version-pin + upgrade cadence** — pin `PLANE_VERSION`, documented monthly upgrade rhythm + owner. [parked]
+- [ ] → NEEDS BRIAN **PL8 project-per-customer** — each generated site/customer auto-creates a Plane project (seeded states/cycles). [parked]
+- [ ] → NEEDS BRIAN **PL9 build failures → work items** — failed site-gen becomes a triaged Plane issue (mirrors the Sentry integration). [parked]
+- [ ] → NEEDS BRIAN **PL10 support requests → intake queue** — route projectsites contact/feedback into Plane intake. [parked]
+- [ ] → NEEDS BRIAN **PL11 tasks in admin cockpit** — surface "your project tasks" in /admin via the read API. [parked]
+- [ ] → NEEDS BRIAN **PL12 webhooks → psnotify** — HMAC-verified Plane events fan into the unified notification center. [parked]
+- [ ] → NEEDS BRIAN **PL13 cycles/milestones → public roadmap/changelog** — auto-publish shipped items customer-facing. [parked]
+- [ ] → NEEDS BRIAN **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items. [parked]
 [x] **PL15 voice → Plane** — **CORE DONE:** `services/voice_plane.ts` — classifyIntent+voiceCallToIssue+extractCaller. 29/29 tests. [auto]
 [x] **PL16 LLM intake auto-triage** — **CORE DONE:** `services/llm_intake.ts` — priority/assignee/labels from keyword heuristics, 49/49 tests. [auto]
 - [ ] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack. [auto]
@@ -1687,11 +1687,75 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-006.
   - Related files: `apps/project-sites/scripts/gen-asyncapi.mjs`, `docs/webhooks/`, customer docs route.
 
-## integrations.projectsites.dev — Nango
+## integrations.projectsites.dev — Nango (PERMANENT — Brian directive 2026-06-29)
+
+> **Nango is the permanent, non-negotiable OAuth/auth/proxy layer for ALL ProjectSites-owned customer OAuth connections.** It is not temporary, optional, deferred, or a fallback. It is the canonical token vault, refresh layer, and authenticated proxy for every integration. Hosted on Cloudflare Workers Containers at `integrations.projectsites.dev`.
+
+### Domain mapping (canonical)
+
+```
+oauth.projectsites.dev              → ProjectSites OAuth UX/API
+mcp.projectsites.dev                → ProjectSites MCP server
+api.projectsites.dev                → ProjectSites app/capability API
+integrations.projectsites.dev       → self-hosted Nango Auth/Proxy on CF Workers Containers
+```
+
+Do not use `nango.projectsites.dev` — prefer `integrations.projectsites.dev` everywhere.
+
+### Capability Router architecture
+
+```
+ProjectSites MCP
+        ↓
+ProjectSites Capability Router
+        ↓
+Nango Auth/Proxy at integrations.projectsites.dev
+        ↓
+Execution runtime selected by router (strict priority order):
+  1. Native ProjectSites provider adapter (core capabilities we deeply own)
+  2. Composio (agent-native SaaS tools when no native adapter exists)
+  3. Pipedream Connect (missing/long-tail APIs, workflows, triggers, custom requests)
+  4. Unsupported capability error
+```
+
+Composio and Pipedream are **execution providers only** — they are NEVER the canonical OAuth owner.
+All OAuth-backed provider access goes through Nango at `integrations.projectsites.dev`.
+
+### 10 Non-negotiable auth rules
+
+1. ProjectSites.dev owns customer OAuth.
+2. Nango is the permanent token vault, refresh layer, and authenticated proxy layer.
+3. Customers authorize ProjectSites.dev-managed provider apps through Nango.
+4. Agents call ProjectSites MCP.
+5. ProjectSites MCP calls the Capability Router.
+6. The Capability Router uses Nango-backed ProjectSites OAuth connections.
+7. Native adapters, Composio, and Pipedream must never become the canonical OAuth owners.
+8. Composio is only an execution layer.
+9. Pipedream Connect is only an execution/workflow/long-tail fallback layer.
+10. No agent, browser client, MCP response, Composio runtime, or Pipedream runtime should receive raw refresh tokens.
+
+### External auth exception policy
+
+If Composio or Pipedream cannot execute a route using the ProjectSites/Nango-owned OAuth connection:
+
+```ts
+{ requiresExternalAuth: true, blockedByDefault: true, reason: "..." }
+```
+
+Do not enable that route without explicit product/security approval.
+
+### Implementation state
+
+- Infra WRANGLER + WORKER already use `integrations.projectsites.dev` (correct — no migration needed)
+- Nango Container DO provisioned (infra/nango/wrangler.toml, worker.ts, Dockerfile)
+- `NANGO_SERVER_URL` and `NANGO_PUBLIC_CONNECT_URL` already hardcoded to `https://integrations.projectsites.dev`
+- 24 LOOP-NANGO tasks specced (below) — unimplemented, now unambiguous permanent architecture
+- No `nango.projectsites.dev` references found in codebase (clean)
+- No Composio/Pipedream references found (not yet integrated — execution layer only, add per architecture above)
 
 ### Raw research themes considered
 
-Mined ~55 raw ideas across the integrations surface: the Nango control plane (proxy + OAuth broker + sync engine), per-site/per-tenant connection records, credential lifecycle (refresh, rotation, revocation, expiry alerting), provider families (Google, Microsoft 365, Slack, Notion, HubSpot/Salesforce, QuickBooks/Xero, calendar/contact/email/file sync), sync orchestration and observability, conflict resolution, integration health scoring, self-serve reconnect UX, integration templates + marketplace, AI-agent integration actions through llm.projectsites.dev, billing/quota for sync volume, scoped permissions, and admin repair tooling. The hardest architectural fork is sync orchestration: Nango cloud uses Temporal for long-running incremental syncs, which is a poor fit for Workers' CPU/wall-clock limits — so the ledger separates the OAuth/proxy/control plane (clean Workers Container fit) from the sync runtime (CF Workflows/Queues first, Fly.io+Temporal only as a flagged escape hatch). Reusable primitives chosen to compound: a single encrypted `connections` store, a unified credential-refresh engine, a sync-run observability spine on Tinybird, and a provider-agnostic reconnect UX. Everything rides the existing event_bus → Hookdeck/Outpost for outbound and emits correlation-tagged logs to Axiom.
+Mined ~55 raw ideas across the integrations surface: the Nango control plane (proxy + OAuth broker + sync engine), per-site/per-tenant connection records, credential lifecycle (refresh, rotation, revocation, expiry alerting), provider families (Google, Microsoft 365, Slack, Notion, HubSpot/Salesforce, QuickBooks/Xero, calendar/contact/email/file sync), sync orchestration and observability, conflict resolution, integration health scoring, self-serve reconnect UX, integration templates + marketplace, AI-agent integration actions through llm.projectsites.dev, billing/quota for sync volume, scoped permissions, and admin repair tooling. Reusable primitives chosen to compound: a single encrypted `connections` store, a unified credential-refresh engine, a sync-run observability spine on Tinybird, and a provider-agnostic reconnect UX. Everything rides the existing event_bus → Hookdeck/Outpost for outbound and emits correlation-tagged logs to Axiom.
 
 ### Selected 24 implementation tasks
 
@@ -5720,20 +5784,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 
 ## integrations.projectsites.dev — Nango: AI Business Platform Connections
 
-- **AI-Triggered Reconnect Funnel**: When integration health drops to "broken," the AI concierge auto-generates an email via mail.projectsites.dev with a one-click reconnect link, then creates a Chatwoot ticket if the token can't be refreshed automatically — closing the detection-to-resolution loop without human intervention.
-- **Zero-Touch OAuth Provisioning for New Sites**: When a new site is generated, the platform auto-provisions default integrations (Google My Business, Google Analytics, Search Console) using the site owner's existing Google session, so every site launches with analytics and local-SEO wiring already connected.
-- **AI Action Cross-Subsystem Compounding**: The AI concierge can create a HubSpot contact (via Nango CRM pack), sync it to Twenty CRM, and enroll it in a Listmonk drip campaign — all from a single natural-language request, turning integrations into an agent-execution fabric.
-- **CRM-Triggered Integration Sync Activation**: When Twenty CRM detects a new deal at "Closed Won" stage, Nango auto-connects the customer's QuickBooks or Xero account for invoicing and syncs billing contacts into the platform's email lists without any setup.
-- **Sync Health Dashboard with AI Remediation**: The Tinybird sync-observability spine powers an admin dashboard that shows sync lag per provider; the AI agent analyzes failure patterns (e.g., recurring rate limits) and auto-suggests staggered schedules or batch-size adjustments.
-- **Integration Marketplace with AI Recommendations**: The marketplace catalog is surfaced inside the AI concierge chat — a site owner says "I need email marketing" and the concierge recommends Mailchimp, checks if OAuth creds exist, and walks the owner through the one-click connect flow.
-- **Automated Compliance Sync for Regulated Industries**: For medical/legal site owners, the AI detects the industry from site content and auto-provisions HIPAA-compliant integrations (secure document sync via Google Drive with restricted sharing, encrypted CRM sync) without the owner knowing the compliance rules.
-- **Cross-Platform Social Posting via Integrations Edge**: When social.projectsites.dev schedules a post, the Nango action layer simultaneously pushes the same content to Google Business Profile posts and WordPress via the integration fabric, creating true cross-channel publishing.
-- **Integration Billing Metering as a Growth Lever**: The sync-volume metering engine (Tinybird + Stripe) drives a freemium integration tier (3 connections free) with an AI-generated upgrade email when the owner hits their cap, containing a personalized ROI summary of what they'd gain from paid sync.
-- **AI-Powered Credential Rotation for Security Compliance**: For sensitive providers (QuickBooks, Stripe), the credential-refresh engine proactively rotates API keys quarterly; the AI concierge notifies the owner via Mail with a one-click re-consent link, turning a security requirement into an automated trust signal.
-- **Event-Driven Campaign Attribution via Integration Webhooks**: The Hookdeck webhook gateway fans integration sync events into Dub's attribution pipeline — when a new subscriber syncs from HubSpot, Dub attributes the source UTM campaign, and the analytics dashboard shows which marketing channel produced which integration activation.
-- **Conflict Resolution as a Zero-Touch Service**: The sync conflict engine auto-resolves 90% of bidirectional sync conflicts using last-write-wins with field-level diffs; the AI concierge presents the remaining 10% as a digest in Twenty CRM with suggested merge decisions the owner approves in one click.
-- **Deferred Sync for Unpaid Sites as an Upgrade Funnel**: Unpaid sites get delayed sync (4-hour lag) while paid sites get sub-5-minute sync; the AI analyzes which site would benefit most from real-time sync and sends a targeted upgrade offer with examples of what they're missing.
-- **Nango as the Platform's Integration Fabric for Customer Apps**: The same Nango control plane that powers ProjectSites' own integrations is packaged as a resold capability — site owners building custom apps on the platform get a self-serve integration marketplace with the same OAuth connect flow, credential management, and health scoring.
+> See authoritative `## integrations.projectsites.dev — Nango (PERMANENT)` section above for full architecture, 10 non-negotiable rules, Capability Router priority order, domain mapping, and 24 LOOP-NANGO implementation tasks. This section: AI-triggered cross-subsystem compounding ideas.
 
 ## mail.projectsites.dev — Listmonk: AI Business Platform Connections
 
@@ -7469,300 +7520,12 @@ Hookdeck handles inbound webhook ingestion, retry, and delivery; Outpost handles
   - Related files: admin frontend dashboard components
   - Primary sources: Hookdeck monitoring docs, Axiom alerting
 
-## integrations.projectsites.dev — Nango
+## integrations.projectsites.dev — Nango (duplicate collapsed 2026-06-29)
 
-### Raw research themes considered
-Nango provides pre-built OAuth integrations with 200+ APIs (Google, Microsoft, Slack, Notion, HubSpot, Salesforce, etc.) with token refresh, webhook forwarding, and sync scheduling. Research covered: Nango's integration marketplace, credential refresh cycle, webhook forwarding to the platform, per-connection metadata for tenant scoping, sync scheduling for contact/calendar/email sync, AI-agent action triggers, and conflict resolution for bidirectional syncs. Existing repo: apps/project-sites/infra/nango/ (Dockerfile + wrangler.toml, provisioned but not deployed).
+> ⚠️ MERGED into authoritative `## integrations.projectsites.dev — Nango (PERMANENT — Brian directive 2026-06-29)` at ~line 1690. That section has the full permanent architecture decision, 10 non-negotiable auth rules, domain mapping, Capability Router priority order, and 24 LOOP-NANGO tasks. This duplicate is kept as a stub to prevent stale links; see the authoritative section.
 
-### Selected 24 implementation tasks
+---
 
-- [ ] LOOP-INT-001: Deploy Nango CF Container and wire as the integration hub [auto]
-  - Endpoint: integrations.projectsites.dev (CF Container)
-  - Why: Every customer website needs third-party integrations (Google Maps, Google Calendar, social logins, CRM sync); Nango provides pre-built OAuth for 200+ APIs
-  - Acceptance criteria: Nango running on CF Container; admin can create/view OAuth connections per site; token refresh works; connection status dashboard
-  - Implementation notes: Deploy from apps/project-sites/infra/nango/; configure NANGO_SECRET_KEY, NANGO_DATABASE_URL (Neon), NANGO_SERVER_URL
-  - Hosting notes: CF Container (needs warm connection refresh background task — may need Fly if CF Container sleep breaks refresh)
-  - Backing services: Neon (Nango DB), Upstash (Nango cache)
-  - Observability: Axiom: connection events; Sentry: integration errors; PostHog: integration usage
-  - Dependencies: Neon (Nango DB), Upstash, DNS for integrations.projectsites.dev
-  - Related files: apps/project-sites/infra/nango/
-  - Primary sources: https://nango.dev/docs/getting-started/intro-to-nango
-
-- [ ] LOOP-INT-002: Build per-site Google integration (Maps, Calendar, Drive, GMB) [auto]
-  - Endpoint: Nango (Google OAuth) → platform services
-  - Why: Google integrations power the site builder's core features: Maps embed, calendar booking, Google Drive import, Google My Business profile
-  - Acceptance criteria: Per-site Google OAuth connection; Maps API key used in site generation; Calendar availability shown in booking widget; Drive files importable as site assets
-  - Implementation notes: Nango Google template; per-connection metadata with site_id; Worker services consume tokens via Nango API
-  - Hosting notes: Nango CF Container + Worker
-  - Backing services: Nango (OAuth), Google APIs
-  - Observability: Axiom: Google API call logs; Langfuse: AI usage of Google data
-  - Dependencies: Nango deployment, google_places.ts, google_drive.ts
-  - Related files: src/services/google_places.ts, src/services/google_drive.ts, src/services/google_sheets.ts
-  - Primary sources: https://nango.dev/docs/guides/functions/functions-guide
-
-- [ ] LOOP-INT-003: Implement Microsoft 365 integration (Outlook, Calendar, SharePoint) [auto]
-  - Endpoint: Nango (Microsoft OAuth) → platform services
-  - Why: Small businesses heavily use Office 365; calendar sync and email import are top-requested features
-  - Acceptance criteria: OAuth for Microsoft 365; calendar sync; email import for site content; SharePoint file import
-  - Implementation notes: Nango Microsoft template; Graph API integration
-  - Hosting notes: Nango CF Container + Worker
-  - Backing services: Nango (OAuth), Microsoft Graph API
-  - Observability: Axiom: Microsoft API logs
-  - Dependencies: Nango deployment
-  - Related files: src/services/ (new microsoft integration)
-  - Primary sources: https://nango.dev/docs, Microsoft Graph API docs
-
-- [ ] LOOP-INT-004: Build integration health monitoring and alerting [auto]
-  - Endpoint: Internal (background worker)
-  - Why: OAuth tokens expire and connections break silently; customers don't discover it until a feature fails
-  - Acceptance criteria: Daily health check on all Nango connections; alert on expired/revoked tokens; customer sees "Reconnect" prompt in admin; admin dashboard shows connection health
-  - Implementation notes: Nango connection status API; cron worker for health checks; Resend for customer alerts
-  - Hosting notes: Worker cron
-  - Backing services: Nango (connection API), Resend (alerts), D1 (health status cache)
-  - Observability: Axiom: integration health events; PostHog: reconnect rate
-  - Dependencies: Nango deployment, Resend
-  - Related files: src/services/ (new integration_health.ts)
-  - Primary sources: https://nango.dev/docs/guides/platform/webhooks-from-nango
-
-- [ ] LOOP-INT-005: Implement HubSpot CRM sync via Nango [auto]
-  - Endpoint: Nango → platform → Twenty CRM (or direct)
-  - Why: HubSpot is the most-used CRM by small businesses; bidirectional sync is a core integration
-  - Acceptance criteria: HubSpot OAuth; contact sync (bidirectional); deal pipeline visibility; email activity sync
-  - Implementation notes: Nango HubSpot template; sync schedule via Nango syncs; conflict resolution strategy
-  - Hosting notes: Nango CF Container + sync worker
-  - Backing services: Nango (OAuth + sync), Twenty CRM or D1 (contact store), Neon (sync state)
-  - Observability: Axiom: sync events; PostHog: HubSpot adoption
-  - Dependencies: Nango deployment, Twenty CRM or internal contact store
-  - Related files: src/services/crm_leads.ts
-  - Primary sources: https://nango.dev/docs/guides/functions/syncs/realtime-syncs
-
-- [ ] LOOP-INT-006: Implement Slack integration for notifications and commands [auto]
-  - Endpoint: Nango (Slack OAuth) → notification pipeline
-  - Why: Slack is where small business owners live; build notifications and slash commands drive engagement
-  - Acceptance criteria: Slack OAuth; site build/publish notifications to Slack channel; /projectsites slash command for quick site status
-  - Implementation notes: Nango Slack template; Slack webhook for notifications; Slack app for slash commands
-  - Hosting notes: Worker (Slack event handler)
-  - Backing services: Nango (OAuth), Slack API
-  - Observability: Axiom: Slack notification events; PostHog: Slack integration usage
-  - Dependencies: Nango deployment, notification service
-  - Related files: src/services/notifications.ts
-  - Primary sources: Slack API docs, Nango Slack template
-
-- [ ] LOOP-INT-007: Build integration marketplace UI in admin dashboard [auto]
-  - Endpoint: /admin/integrations (customer-facing)
-  - Why: Customers need to discover and connect integrations; a marketplace with one-click connect is the standard UX
-  - Acceptance criteria: Catalog of available integrations with logos and descriptions; "Connect" button initiates OAuth via Nango; connected integrations show status and "Disconnect"; per-site integration scoping
-  - Implementation notes: Frontend component in admin SPA; backend queries Nango for available templates and connection status
-  - Hosting notes: Worker API + admin frontend
-  - Backing services: Nango (template catalog, connection status)
-  - Observability: PostHog: integration marketplace interactions
-  - Dependencies: Nango deployment, admin UI
-  - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
-  - Primary sources: Nango integration marketplace UX patterns
-
-- [ ] LOOP-INT-008: Implement Salesforce integration for larger customers [auto]
-  - Endpoint: Nango (Salesforce OAuth) → platform
-  - Why: Larger small businesses and agencies use Salesforce; integration is a premium-tier differentiator
-  - Acceptance criteria: Salesforce OAuth; contact/lead sync; opportunity pipeline sync to Twenty CRM; available on Pro plan and above
-  - Implementation notes: Nango Salesforce template; gated behind plan entitlement check
-  - Hosting notes: Nango CF Container + sync worker
-  - Backing services: Nango (OAuth + sync), Twenty CRM, Neon (sync state)
-  - Observability: Axiom: Salesforce sync events; PostHog: plan-gated feature usage
-  - Dependencies: Nango deployment, billing (plan gate), Twenty CRM
-  - Related files: src/services/crm_leads.ts
-  - Primary sources: Nango Salesforce template, Salesforce API docs
-
-- [ ] LOOP-INT-009: Build Notion integration for content import [auto]
-  - Endpoint: Nango (Notion OAuth) → content pipeline
-  - Why: Many small businesses draft content in Notion; importing directly saves hours of copy-paste
-  - Acceptance criteria: Notion OAuth; import Notion pages as site content (blog posts, pages); preserve basic formatting and images
-  - Implementation notes: Nango Notion template; Notion API for page content extraction; markdown conversion
-  - Hosting notes: Worker (content import job)
-  - Backing services: Nango (OAuth), Notion API, R2 (imported assets)
-  - Observability: Axiom: Notion import events; Langfuse: AI content processing
-  - Dependencies: Nango deployment, content import pipeline
-  - Related files: src/services/import_crawler.ts
-  - Primary sources: Notion API docs, Nango Notion template
-
-- [ ] LOOP-INT-010: Implement integration credential refresh with zero-downtime rotation [auto]
-  - Endpoint: Nango (automatic token refresh)
-  - Why: OAuth tokens expire; Nango handles refresh, but edge cases (revoked, scope changes) need platform handling
-  - Acceptance criteria: Nango auto-refreshes tokens before expiry; on refresh failure, customer notified with "Reconnect" link; no platform features silently break from expired tokens
-  - Implementation notes: Nango built-in refresh; webhook for refresh failures; Resend notification; admin dashboard "Needs Reconnect" indicator
-  - Hosting notes: Nango CF Container + Worker webhook handler
-  - Backing services: Nango (token refresh), Resend (alerts), D1 (connection state)
-  - Observability: Axiom: refresh events; PostHog: reconnect rate
-  - Dependencies: Nango deployment, Resend
-  - Related files: src/services/ (integration health)
-  - Primary sources: Nango token refresh docs
-
-- [ ] LOOP-INT-011: Build AI-agent actions on integrated data [auto]
-  - Endpoint: Internal (AI concierge + content generation)
-  - Why: Integrated data (calendar, contacts, emails, files) is the richest context for AI-generated content and actions
-  - Acceptance criteria: AI concierge can: check calendar availability, suggest content from recent emails, import contacts for CRM, generate posts from Google Drive docs
-  - Implementation notes: AI tools with Nango API access; scoped to tenant's connections; Langfuse tracing on all AI integration calls
-  - Hosting notes: Worker (AI tool execution)
-  - Backing services: Nango (connection API), Langfuse (AI tracing), AI Gateway
-  - Observability: Langfuse: AI integration tool traces; Axiom: AI action logs
-  - Dependencies: Nango, AI concierge, AI Gateway, Langfuse
-  - Related files: src/services/ai_workflows.ts, libs/features/ai_concierge_widget/
-  - Primary sources: Nango API docs, Langfuse tracing docs
-
-- [ ] LOOP-INT-012: Implement external webhook forwarding from integrations [auto]
-  - Endpoint: Nango webhooks → Hookdeck → customer endpoints
-  - Why: Customers need real-time events from their integrations (new calendar event, new email, contact updated)
-  - Acceptance criteria: Nango webhooks forwarded to customer-configured endpoints via the outbound webhook pipeline; customer can select which integration events to forward
-  - Implementation notes: Nango webhook forwarding config; route through Hookdeck → Outpost
-  - Hosting notes: Worker + Hookdeck + Outpost
-  - Backing services: Nango (webhook source), Hookdeck (ingest), Outpost (delivery)
-  - Observability: Axiom: integration webhook events
-  - Dependencies: Nango, Hookdeck, Outpost, webhook endpoint management
-  - Related files: src/services/webhook.ts
-  - Primary sources: https://nango.dev/docs/guides/platform/webhook-forwarding
-
-- [ ] LOOP-INT-013: Build integration conflict resolution for bidirectional syncs [auto]
-  - Endpoint: Internal (sync logic)
-  - Why: When both the platform and an external system (e.g., HubSpot) update the same contact, conflicts must be resolved deterministically
-  - Acceptance criteria: Last-write-wins with timestamp comparison; conflict log for admin review; manual resolution UI for unresolved conflicts
-  - Implementation notes: Version vector or timestamp-based conflict detection; D1 conflict_log table
-  - Hosting notes: Worker (sync logic)
-  - Backing services: D1 (conflict_log), Neon (sync state)
-  - Observability: Axiom: conflict events; Sentry: conflict errors
-  - Dependencies: Nango, sync workers
-  - Related files: src/services/ (sync conflict resolution)
-  - Primary sources: CRDT conflict resolution patterns, Nango sync docs
-
-- [ ] LOOP-INT-014: Implement per-site integration state with tenant isolation [auto]
-  - Endpoint: Every Nango connection (metadata)
-  - Why: Site A's Google connection must never be usable by Site B; tenant isolation at the integration layer
-  - Acceptance criteria: Every Nango connection carries site_id in metadata; Worker API reads site_id from connection; cross-tenant access returns 404
-  - Implementation notes: Nango connection metadata with site_id; middleware verifies site_id matches request context
-  - Hosting notes: Worker middleware + Nango
-  - Backing services: Nango (connection metadata), D1 (site ownership)
-  - Observability: Axiom: cross-tenant access attempts (security events)
-  - Dependencies: Nango deployment, auth middleware, site ownership service
-  - Related files: src/middleware/auth.ts, Nango integration
-  - Primary sources: Nango metadata docs, tenant isolation patterns
-
-- [ ] LOOP-INT-015: Build integration billing (per-integration pricing or bundled) [auto]
-  - Endpoint: Internal (billing logic)
-  - Why: Premium integrations (Salesforce, HubSpot) may justify per-integration pricing as plan add-ons
-  - Acceptance criteria: Plan defines included integrations; premium integrations available as paid add-ons; integration count metered for usage-based plans
-  - Implementation notes: Plan entitlement model extended with integration allowlist; D1 canonical ledger integration usage events
-  - Hosting notes: Worker + D1 canonical ledger
-  - Backing services: D1 canonical ledger (metering), D1 (plan definitions)
-  - Observability: PostHog: integration adoption by plan
-  - Dependencies: Billing service, D1 canonical ledger, plan model
-  - Related files: src/services/billing.ts
-  - Primary sources: Existing plan model, D1 canonical ledger entitlements
-
-- [ ] LOOP-INT-016: Implement Notion-to-CRM contact sync [auto]
-  - Endpoint: Nango sync → Twenty CRM
-  - Why: Small businesses often track contacts in Notion databases before adopting a CRM
-  - Acceptance criteria: Bidirectional contact sync between Notion databases and Twenty CRM; field mapping configuration; conflict resolution
-  - Implementation notes: Nango Notion sync + Twenty API; field mapping UI in admin
-  - Hosting notes: Worker (sync job)
-  - Backing services: Nango (Notion sync), Twenty CRM, Neon (sync state)
-  - Observability: Axiom: Notion sync events
-  - Dependencies: Nango, Twenty CRM
-  - Related files: src/services/crm_leads.ts
-  - Primary sources: Notion API, Twenty CRM API
-
-- [ ] LOOP-INT-017: Build admin integration repair tools [auto]
-  - Endpoint: Internal (admin dashboard)
-  - Why: Support needs to diagnose and fix broken integrations without logging into Nango
-  - Acceptance criteria: Admin can: view all connections for a tenant, force-refresh tokens, disconnect integration, view connection error logs, replay failed syncs
-  - Implementation notes: Admin API endpoints proxying Nango admin actions; all actions audit-logged
-  - Hosting notes: Worker API + admin frontend
-  - Backing services: Nango (admin API), D1 (audit log)
-  - Observability: Axiom: admin repair actions audit
-  - Dependencies: Nango admin API, admin auth
-  - Related files: admin frontend
-  - Primary sources: Nango admin API docs
-
-- [ ] LOOP-INT-018: Implement integration template library for common use cases [auto]
-  - Endpoint: Internal (configuration)
-  - Why: Most customers need the same integration patterns (Google Maps + Calendar + Drive); pre-configured templates reduce setup time
-  - Acceptance criteria: Template library with: "Restaurant Site" (Google Maps + GMB + reservation calendar), "Service Business" (Google Calendar + Drive import), "E-commerce" (payment + shipping + inventory integrations); one-click apply
-  - Implementation notes: Pre-configured Nango connection sets with scope presets; stored in D1 as templates
-  - Hosting notes: Worker + D1
-  - Backing services: Nango, D1 (templates)
-  - Observability: PostHog: template usage
-  - Dependencies: Nango deployment, site type classification
-  - Related files: src/services/site_dna.ts
-  - Primary sources: Existing site DNA patterns
-
-- [ ] LOOP-INT-019: Build calendar sync (Google Calendar + Outlook) to site booking widget [auto]
-  - Endpoint: Nango sync → site booking widget
-  - Why: Service businesses need real-time availability in their site's booking widget
-  - Acceptance criteria: Google Calendar and Outlook availability synced; booking widget shows real-time slots; booked appointments create calendar events
-  - Implementation notes: Nango calendar sync; booking widget reads availability from cache (KV, 60s TTL)
-  - Hosting notes: Worker + KV (availability cache)
-  - Backing services: Nango (calendar APIs), KV (availability cache)
-  - Observability: Axiom: booking events; PostHog: booking conversion
-  - Dependencies: Nango, booking widget, KV
-  - Related files: libs/features/native_booking_engine/
-  - Primary sources: Google Calendar API, Microsoft Graph Calendar API
-
-- [ ] LOOP-INT-020: Implement email sync (Google + Microsoft) for content generation [auto]
-  - Endpoint: Nango sync → AI content pipeline
-  - Why: Customer emails contain their brand voice, FAQs, and testimonials — the richest source for AI-generated site content
-  - Acceptance criteria: Email sync (subject + body, last 90 days); AI extracts: brand voice, FAQ topics, testimonials, key services; customer reviews extracted content before publishing
-  - Implementation notes: Nango email sync; AI processing pipeline with Langfuse tracing; human review gate
-  - Hosting notes: Worker (AI processing job)
-  - Backing services: Nango (email APIs), Langfuse (AI tracing), AI Gateway (LLM calls), R2 (email content storage)
-  - Observability: Langfuse: AI extraction traces; Axiom: email processing events
-  - Dependencies: Nango, AI Gateway, Langfuse, R2
-  - Related files: src/services/ai_context_extract.ts, src/services/email_enrich.ts
-  - Primary sources: Google Gmail API, Microsoft Graph Mail API
-
-- [ ] LOOP-INT-021: Build integration event webhooks to platform services [auto]
-  - Endpoint: Nango webhooks → event bus
-  - Why: Platform services need to react to integration events (connection created, token refreshed, sync completed)
-  - Acceptance criteria: Nango webhooks forwarded to platform event bus; services subscribe to relevant events; typed event schemas
-  - Implementation notes: Nango webhook → Hookdeck → event bus; Zod-typed integration events
-  - Hosting notes: Worker + Hookdeck + event bus
-  - Backing services: Nango (webhook source), Hookdeck (ingest), event bus (DO)
-  - Observability: Axiom: integration event stream
-  - Dependencies: Nango, Hookdeck, event bus
-  - Related files: src/services/event_bus.ts
-  - Primary sources: https://nango.dev/docs/guides/platform/webhooks-from-nango
-
-- [ ] LOOP-INT-022: Implement per-site integration limits by plan tier [auto]
-  - Endpoint: Middleware (integration connection creation)
-  - Why: Free plan gets N integrations; paid plans get more; prevents resource abuse
-  - Acceptance criteria: Free=3 integrations, Pro=10, Business=unlimited; enforced at connection creation; customer sees usage count
-  - Implementation notes: Plan entitlement check before Nango connection creation; D1 integration_count per site
-  - Hosting notes: Worker middleware
-  - Backing services: D1 (integration counts), D1 canonical ledger (entitlements)
-  - Observability: PostHog: integration limit events
-  - Dependencies: Billing (plan model), Nango
-  - Related files: src/middleware/, Nango integration
-  - Primary sources: Plan entitlement patterns
-
-- [ ] LOOP-INT-023: Build integration audit trail for compliance [auto]
-  - Endpoint: Internal (audit pipeline)
-  - Why: Data flowing through integrations (contacts, emails, files) is sensitive; compliance requires auditability
-  - Acceptance criteria: Every integration data access logged with: tenant_id, site_id, integration, action, data_type, record_count, timestamp; audit log viewer in admin
-  - Implementation notes: Audit events emitted from Nango sync handlers; D1 audit_events
-  - Hosting notes: Worker + D1
-  - Backing services: D1 (audit_events)
-  - Observability: Axiom: integration audit stream
-  - Dependencies: Audit service, Nango integration handlers
-  - Related files: src/services/audit.ts
-  - Primary sources: SOC2 integration audit requirements
-
-- [ ] LOOP-INT-024: Evaluate Nango self-host vs Cloud cost at scale [auto]
-  - Endpoint: Internal (evaluation)
-  - Why: Nango Cloud has per-connection pricing; at high volume, self-hosting may be cheaper
-  - Acceptance criteria: Deploy Nango self-hosted on Coolify; compare cost at 100/500/1000 connections; document recommendation with break-even analysis
-  - Implementation notes: Already have infra/nango/ for self-host; run Cloud and self-host in parallel for comparison
-  - Hosting notes: Coolify MCP (evaluation) + Nango Cloud (current)
-  - Backing services: Neon (self-host Nango DB), Coolify (compute)
-  - Observability: Axiom: cost comparison metrics
-  - Dependencies: Coolify MCP, Nango Cloud account
-  - Related files: apps/project-sites/infra/nango/
-  - Primary sources: https://nango.dev/pricing, Nango self-host docs
 
 ## mail.projectsites.dev — Listmonk
 
@@ -10382,97 +10145,9 @@ for webhook failures, Outpost portal embedding in admin dashboard.
 
 ---
 
-## integrations.projectsites.dev — Nango
+## integrations.projectsites.dev — Nango (duplicate collapsed 2026-06-29)
 
-Third-party OAuth integrations, credential management, sync engine, and webhook
-forwarding. Nango container at `integrations.projectsites.dev` (infra/nango/).
-
-### Raw research themes considered
-OAuth integrations with Google (Calendar, Drive, GMB, Analytics, Search Console),
-Microsoft (365, Outlook, Teams), Slack, Notion, HubSpot, Salesforce, accounting
-(Xero, QuickBooks), calendar sync (Google↔Twenty), contact sync (Google↔Twenty),
-email sync, file sync, external webhook forwarding (Google→our webhooks),
-integration health monitoring (token expiry, refresh success rate), credential
-refresh with proactive renewal, reconnect flows when tokens expire, per-site
-integration state (connected accounts per generated site), integration templates
-(pre-built Nango integration configs), integration marketplace in admin,
-AI-agent actions via integrations (agent can "send Slack message" or "create
-Google Doc"), conflict resolution for bidirectional syncs, integration billing
-(per-active-integration pricing), permission scoping (OAuth scopes per integration),
-admin repair tools (force-refresh token, reset connection, view raw error).
-
-### Selected 24 implementation tasks
-
-- [ ] LOOP-INT-001: Deploy Nango container at integrations.projectsites.dev
-  - Endpoint: https://integrations.projectsites.dev
-  - Why: Nango is the OAuth hub — every third-party integration flows through it. Already defined in infra/nango/.
-  - Acceptance criteria: Nango container deployed. `/health` → 200. `/oauth/connect` flow works end-to-end for at least Google. Admin UI accessible. WAF skip rule confirmed. Neon-backed. Container auto-restart.
-  - Implementation notes: infra/nango/ has Dockerfile + wrangler.toml. Neon DB `projectsites_nango`. Nango server + optional worker. Verify Google OAuth integration as first provider.
-  - Hosting notes: Workers Container. No (stateless; Neon). No. Customer-facing (OAuth connect) + internal (integration mgmt). Self-hosted (ELv2 license) — Neon + container.
-  - Backing services: Neon (nango DB), Upstash (optional cache)
-  - Observability: Axiom: OAuth flow events; Sentry: Nango failures; PostHog: integration adoption
-  - Dependencies: Neon DB, WAF skip rule
-  - Related files: infra/nango/Dockerfile, infra/nango/wrangler.toml, src/services/mcp_client.ts
-  - Primary sources: https://nango.dev/docs/getting-started/intro-to-nango, https://nango.dev/docs/guides/functions/functions-guide
-
-- [ ] LOOP-INT-002: Implement Google integration bundle
-  - Endpoint: Nango OAuth → Google APIs
-  - Why: Google is the #1 integration target for small businesses (GMB, Calendar, Drive, Analytics). Every generated site owner uses Google.
-  - Acceptance criteria: Integrations: Google My Business (listing management), Google Calendar (appointment sync), Google Drive (document embedding), Google Analytics (site stats in admin), Google Search Console (SEO data). OAuth flow via Nango. Per-site connection state. Token refresh handled automatically.
-  - Implementation notes: Nango Google provider template. Each integration as a Nango integration config. Per-site credential storage in Nango (encrypted). Worker proxies API calls through Nango.
-  - Hosting notes: Nango container + Worker proxy. Customer-facing (site owner connects Google).
-  - Backing services: Nango, Neon
-  - Observability: Axiom: Google API call events; PostHog: Google integration adoption; Sentry: token refresh failures
-  - Dependencies: LOOP-INT-001, site_ownership.ts
-  - Related files: infra/nango/nango-integrations.yaml, src/services/mcp_client.ts
-  - Primary sources: https://nango.dev/docs/guides/platform/webhooks-from-nango, Google API docs
-
-- [ ] LOOP-INT-003: Build integration health monitoring
-  - Endpoint: /api/admin/integrations/health (admin)
-  - Why: Expired OAuth tokens silently break integrations. Customers don't notice until they need the feature. Proactive monitoring prevents this.
-  - Acceptance criteria: Dashboard showing per-integration: connection status (green/red), token expiry date, last successful sync, error rate. Alert (email + Sentry P2) when token expires in <7 days or sync fails 3 consecutive times. Auto-reconnect flow for expired tokens.
-  - Implementation notes: Nango provides token expiry + sync status. Worker Cron checks every hour. Admin dashboard at /admin/integrations.
-  - Hosting notes: Worker Cron + Nango container. Customer-facing (site owner) + internal (admin).
-  - Backing services: Nango, Cron Triggers, D1
-  - Observability: Sentry: integration health P2 alerts; Axiom: health check log; PostHog: integration reliability
-  - Dependencies: LOOP-INT-001, LOOP-INT-002
-  - Related files: src/services/, frontend/src/app/pages/admin/
-  - Primary sources: https://nango.dev/docs/guides/platform/webhook-forwarding
-
-- [ ] LOOP-INT-004: Build integration marketplace in admin
-  - Endpoint: /admin/integrations (org admin)
-  - Why: Site owners need to discover + connect integrations. A marketplace with "Connect Google Calendar" → OAuth → done makes this self-serve.
-  - Acceptance criteria: Tile grid showing available integrations with: icon, name, description, connection status (connected/available/requires-plan). Click → OAuth flow → connected. Per-integration settings (sync frequency, data scope). Free tier: 2 integrations; paid: unlimited.
-  - Implementation notes: Angular component in admin SPA. Nango SDK for OAuth popup. Integration catalog in D1 with KV cache.
-  - Hosting notes: Worker + Angular admin. Customer-facing (site owner).
-  - Backing services: Nango, D1, KV
-  - Observability: PostHog: integration browse→connect funnel; Axiom: connect events
-  - Dependencies: LOOP-INT-001, LOOP-INT-002, admin Angular app
-  - Related files: frontend/src/app/pages/admin/, src/services/
-  - Primary sources: Shopify App Store UX, Slack App Directory, Zapier integration marketplace
-
-- [ ] LOOP-INT-005–024: Remaining 20 integration tasks (summarized)
-  - LOOP-INT-005: **Microsoft 365 integration** — Outlook calendar, Teams notifications, SharePoint embedding
-  - LOOP-INT-006: **Slack integration** — build notifications, lead alerts, support escalation → Slack channels
-  - LOOP-INT-007: **HubSpot integration** — contact sync, deal pipeline, marketing events
-  - LOOP-INT-008: **Salesforce integration** — lead/contact/opportunity sync for enterprise customers
-  - LOOP-INT-009: **Notion integration** — embed Notion docs, sync content blocks to site pages
-  - LOOP-INT-010: **Calendar sync (Google→Twenty)** — bidirectional calendar event sync
-  - LOOP-INT-011: **Contact sync (Google→Twenty)** — Google Contacts → Twenty CRM contacts
-  - LOOP-INT-012: **Accounting integrations** — Xero + QuickBooks for agency customers
-  - LOOP-INT-013: **External webhook forwarding** — Google Calendar webhook → customer webhook endpoint
-  - LOOP-INT-014: **AI-agent integration actions** — MCP tools that call Nango-connected APIs (agent can "create Google Doc")
-  - LOOP-INT-015: **Conflict resolution for bidirectional syncs** — last-write-wins + merge strategies per integration
-  - LOOP-INT-016: **Per-active-integration billing** — charge per connected integration beyond free tier
-  - LOOP-INT-017: **OAuth scope permission scoping** — customer sees + approves exact scopes during OAuth
-  - LOOP-INT-018: **Integration templates** — pre-built configs for common use cases (Google→Twenty, Slack→admin alerts)
-  - LOOP-INT-019: **Admin repair tools** — force-refresh token, reset connection, view raw error from Nango dashboard
-  - LOOP-INT-020: **Integration credential encryption audit** — verify all OAuth tokens encrypted at rest (AES-GCM)
-  - LOOP-INT-021: **Nango webhook forwarding** — Nango events (token_refreshed, connection_deleted) → event_bus
-  - LOOP-INT-022: **Reconnect flow UX** — when token expires, user sees "Reconnect Google Calendar" banner with one-click re-auth
-  - LOOP-INT-023: **Integration usage analytics** — which integrations are most-used, churn rate, time-to-first-connect
-  - LOOP-INT-024: **Nango upgrade + backup playbook** — pinned version, migration test, Neon backup/restore weekly
-  - Primary sources: https://nango.dev/docs, https://nango.dev/docs/guides/functions/syncs/realtime-syncs, https://nango.dev/docs/updates/changelog
+> ⚠️ MERGED into authoritative `## integrations.projectsites.dev — Nango (PERMANENT — Brian directive 2026-06-29)` at ~line 1690. That section has the full permanent architecture decision, 10 non-negotiable auth rules, domain mapping, Capability Router priority order, and 24 LOOP-NANGO tasks. This duplicate is kept as a stub to prevent stale links; see the authoritative section.
 
 ---
 
