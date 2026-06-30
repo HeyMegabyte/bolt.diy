@@ -604,6 +604,37 @@ export async function getUsagePanelPayload(
   };
 }
 
+/**
+ * Record a form submission through LagoProvider. Free tier — metered for analytics.
+ * Cost: $0 (free metric). Call from form handlers after successful submission.
+ */
+export async function meterFormSubmission(
+  env: Env,
+  opts: { orgId: string; siteId?: string | null; count?: number },
+): Promise<void> {
+  try {
+    const provider = await createBillingProvider(env);
+    await provider.recordUsage({
+      id: crypto.randomUUID(),
+      idempotencyKey: crypto.randomUUID(),
+      customerId: opts.orgId,
+      orgId: opts.orgId,
+      siteId: opts.siteId ?? undefined,
+      metric: 'form_submissions',
+      quantity: opts.count ?? 1,
+      unit: 'event',
+      source: 'form_router',
+      occurredAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn', service: 'usage_metering',
+      message: 'meterFormSubmission failed',
+      error: err instanceof Error ? err.message : String(err),
+    }));
+  }
+}
+
 /** Aggregate usage daily for cron — used to populate billing rollups. */
 export async function aggregateNightly(db: D1Database): Promise<{ rows: number }> {
   // The views (v_usage_daily_*) make read queries cheap. This function is a
