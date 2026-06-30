@@ -35,3 +35,4 @@ apps/project-sites/docs/marketing-image-budget.md
 apps/project-sites/e2e/marketing-sections.spec.ts
 
 # After Phase 8 cleanup, prune the apps/project-sites/frontend/ entries above.
+apps/project-sites/fixtures/bricklabor.com/functions/site-worker/src/routes/home.ts
