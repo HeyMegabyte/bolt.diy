@@ -60,11 +60,11 @@ kill_timeout   = 30
     soft_limit = 80
 
   [[http_service.checks]]
-    grace_period = "60s"    # MongoDB init + Mongoose connect + nginx start
+    grace_period = "120s"   # MongoDB init + Mongoose connect + nginx start (extended for 1st boot)
     interval     = "15s"
     timeout      = "5s"
     method       = "get"
     path         = "/health"
 
 [[vm]]
-  size = "shared-cpu-1x"   # 1 CPU, 1 GB RAM — sufficient for ≤100 monitors
+  size = "shared-cpu-2x"   # 2 CPU, 2 GB RAM — MongoDB + Node + nginx need ≥2GB
