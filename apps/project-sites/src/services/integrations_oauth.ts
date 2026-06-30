@@ -12,9 +12,21 @@ import { encrypt, decrypt } from './ai_crypto.js';
 // ── Types ──────────────────────────────────────────────────────────
 
 export type OAuthProvider =
-  | 'google' | 'microsoft' | 'slack' | 'github' | 'hubspot'
-  | 'notion' | 'salesforce' | 'stripe' | 'airtable' | 'linear'
-  | 'asana' | 'trello' | 'mailchimp' | 'discord' | 'calendly'
+  | 'google'
+  | 'microsoft'
+  | 'slack'
+  | 'github'
+  | 'hubspot'
+  | 'notion'
+  | 'salesforce'
+  | 'stripe'
+  | 'airtable'
+  | 'linear'
+  | 'asana'
+  | 'trello'
+  | 'mailchimp'
+  | 'discord'
+  | 'calendly'
   | 'other';
 
 export interface OAuthToken {
@@ -44,7 +56,13 @@ const PROVIDER_CONFIGS: Record<string, (env: Env) => ProviderConfig | null> = {
       tokenUrl: 'https://oauth2.googleapis.com/token',
       clientId: env.GOOGLE_OAUTH_CLIENT_ID,
       clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
-      scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar.events'],
+      scopes: [
+        'openid',
+        'profile',
+        'email',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/calendar.events',
+      ],
     };
   },
   github: (env) => {
@@ -136,11 +154,15 @@ const PROVIDER_CONFIGS: Record<string, (env: Env) => ProviderConfig | null> = {
 export function generatePkce(): { verifier: string; challenge: string } {
   const rand = crypto.getRandomValues(new Uint8Array(32));
   const verifier = btoa(String.fromCharCode(...rand))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
   const digest = new Uint8Array(32); // placeholder — in real impl use SHA-256
   crypto.getRandomValues(digest);
   const challenge = btoa(String.fromCharCode(...digest))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
   return { verifier, challenge };
 }
 
@@ -196,10 +218,10 @@ export async function exchangeCode(
   try {
     const resp = await fetch(config.tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams(body).toString(),
     });
-    const data = await resp.json() as Record<string, unknown>;
+    const data = (await resp.json()) as Record<string, unknown>;
     if (!resp.ok) return { error: `Token exchange failed: ${JSON.stringify(data)}` };
 
     return {
@@ -230,7 +252,7 @@ export async function refreshToken(
   try {
     const resp = await fetch(config.tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
@@ -238,7 +260,7 @@ export async function refreshToken(
         ...(config.clientSecret ? { client_secret: config.clientSecret } : {}),
       }).toString(),
     });
-    const data = await resp.json() as Record<string, unknown>;
+    const data = (await resp.json()) as Record<string, unknown>;
     if (!resp.ok) return { error: `Token refresh failed: ${JSON.stringify(data)}` };
 
     return {
@@ -272,8 +294,17 @@ export async function storeTokens(
       `INSERT INTO mcp_connections (id, org_id, provider, encrypted_tokens, metadata, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
        ON CONFLICT(org_id, provider) DO UPDATE SET encrypted_tokens=?, metadata=?, updated_at=datetime('now')`,
-    ).bind(id, orgId, provider, encrypted, JSON.stringify(metadata ?? {}), encrypted, JSON.stringify(metadata ?? {}))
-     .run();
+    )
+      .bind(
+        id,
+        orgId,
+        provider,
+        encrypted,
+        JSON.stringify(metadata ?? {}),
+        encrypted,
+        JSON.stringify(metadata ?? {}),
+      )
+      .run();
     return { id };
   } catch (e) {
     return { error: `Token storage error: ${(e as Error).message}` };
@@ -289,7 +320,9 @@ export async function getTokens(
   try {
     const row = await env.DB.prepare(
       'SELECT encrypted_tokens, metadata FROM mcp_connections WHERE org_id=? AND provider=? AND deleted_at IS NULL',
-    ).bind(orgId, provider).first<{ encrypted_tokens: string; metadata: string }>();
+    )
+      .bind(orgId, provider)
+      .first<{ encrypted_tokens: string; metadata: string }>();
 
     if (!row) return { error: 'No stored tokens' };
     const decrypted = await decrypt(env, row.encrypted_tokens);
@@ -315,7 +348,8 @@ export async function proxyRequest(
   body?: string,
 ): Promise<Response> {
   const result = await getTokens(env, orgId, provider);
-  if ('error' in result) return new Response(JSON.stringify({ error: result.error }), { status: 401 });
+  if ('error' in result)
+    return new Response(JSON.stringify({ error: result.error }), { status: 401 });
 
   let { tokens } = result;
 
@@ -333,13 +367,15 @@ export async function proxyRequest(
       method,
       headers: {
         ...headers,
-        'Authorization': `Bearer ${tokens.accessToken}`,
+        Authorization: `Bearer ${tokens.accessToken}`,
       },
       body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
     });
     return resp;
   } catch (e) {
-    return new Response(JSON.stringify({ error: `Proxy error: ${(e as Error).message}` }), { status: 502 });
+    return new Response(JSON.stringify({ error: `Proxy error: ${(e as Error).message}` }), {
+      status: 502,
+    });
   }
 }
 
