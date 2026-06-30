@@ -127,9 +127,7 @@ describe('routeCapabilityRequest', () => {
   it('chooses Composio when no native adapter exists', async () => {
     const deps = makeDeps({
       composio: makeComposio(true),
-      getConnection: vi.fn().mockResolvedValue(
-        makeConnection({ provider: 'notion', scopes: [] }),
-      ),
+      getConnection: vi.fn().mockResolvedValue(makeConnection({ provider: 'notion', scopes: [] })),
     });
 
     const { decision } = await routeCapabilityRequest(
@@ -144,9 +142,9 @@ describe('routeCapabilityRequest', () => {
     const deps = makeDeps({
       composio: makeComposio(false), // Composio doesn't support
       pipedream: makePipedream(true),
-      getConnection: vi.fn().mockResolvedValue(
-        makeConnection({ provider: 'airtable', scopes: [] }),
-      ),
+      getConnection: vi
+        .fn()
+        .mockResolvedValue(makeConnection({ provider: 'airtable', scopes: [] })),
     });
 
     const { decision } = await routeCapabilityRequest(
@@ -182,9 +180,9 @@ describe('routeCapabilityRequest', () => {
 
   it('fails closed with missing scopes', async () => {
     const deps = makeDeps({
-      getConnection: vi.fn().mockResolvedValue(
-        makeConnection({ provider: 'slack', scopes: ['chat:write'] }),
-      ),
+      getConnection: vi
+        .fn()
+        .mockResolvedValue(makeConnection({ provider: 'slack', scopes: ['chat:write'] })),
     });
     // slack.send_message needs chat:write — connection has it, should route
     const { decision } = await routeCapabilityRequest(
@@ -224,10 +222,7 @@ describe('executeCapability', () => {
 
   it('returns error for unsupported action', async () => {
     const deps = makeDeps();
-    const result = await executeCapability(
-      makeRequest({ action: 'nonexistent.action' }),
-      deps,
-    );
+    const result = await executeCapability(makeRequest({ action: 'nonexistent.action' }), deps);
     expect(result.success).toBe(false);
     expect(result.error!.code).toBe('UNSUPPORTED_CAPABILITY');
   });
@@ -248,9 +243,7 @@ describe('executeCapability', () => {
       getConnection: vi.fn().mockResolvedValue(null),
     });
     await executeCapability(makeRequest(), deps);
-    expect(emitAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false }),
-    );
+    expect(emitAudit).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
   });
 
   it('emits metering event', async () => {

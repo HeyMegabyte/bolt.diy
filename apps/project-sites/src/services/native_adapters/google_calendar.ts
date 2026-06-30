@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import type { CapabilityExecutionResult, CapabilityRequest, OAuthConnection } from '../oauth_connections.js';
+import type {
+  CapabilityExecutionResult,
+  CapabilityRequest,
+  OAuthConnection,
+} from '../oauth_connections.js';
 import type { ProjectSitesNangoClient } from '../nango_client.js';
 
 const CreateEventInput = z.object({
@@ -22,7 +26,8 @@ export const googleCalendarAdapter = {
   },
 
   requiredScopes(action: string): string[] {
-    if (action === 'calendar.create_event') return ['https://www.googleapis.com/auth/calendar.events'];
+    if (action === 'calendar.create_event')
+      return ['https://www.googleapis.com/auth/calendar.events'];
     return ['https://www.googleapis.com/auth/calendar.freebusy'];
   },
 
@@ -35,33 +40,89 @@ export const googleCalendarAdapter = {
 
       if (request.action === 'calendar.create_event') {
         const parsed = CreateEventInput.safeParse(request.input);
-        if (!parsed.success) return { runtime: 'native', provider: 'google', action: request.action, success: false, error: { code: 'INVALID_INPUT', message: parsed.error.message } };
+        if (!parsed.success)
+          return {
+            runtime: 'native',
+            provider: 'google',
+            action: request.action,
+            success: false,
+            error: { code: 'INVALID_INPUT', message: parsed.error.message },
+          };
 
         const result = await context.nango.proxyRequest<{ id: string }>({
-          providerConfigKey, nangoConnectionId, method: 'POST',
+          providerConfigKey,
+          nangoConnectionId,
+          method: 'POST',
           endpoint: '/calendar/v3/calendars/primary/events',
-          body: { summary: parsed.data.summary, start: { dateTime: parsed.data.start }, end: { dateTime: parsed.data.end }, attendees: parsed.data.attendees?.map(e => ({ email: e })) },
+          body: {
+            summary: parsed.data.summary,
+            start: { dateTime: parsed.data.start },
+            end: { dateTime: parsed.data.end },
+            attendees: parsed.data.attendees?.map((e) => ({ email: e })),
+          },
         });
-        return { runtime: 'native', provider: 'google', action: request.action, success: true, data: result as unknown as T };
+        return {
+          runtime: 'native',
+          provider: 'google',
+          action: request.action,
+          success: true,
+          data: result as unknown as T,
+        };
       }
 
       if (request.action === 'calendar.check_availability') {
         const parsed = CheckAvailabilityInput.safeParse(request.input);
-        if (!parsed.success) return { runtime: 'native', provider: 'google', action: request.action, success: false, error: { code: 'INVALID_INPUT', message: parsed.error.message } };
+        if (!parsed.success)
+          return {
+            runtime: 'native',
+            provider: 'google',
+            action: request.action,
+            success: false,
+            error: { code: 'INVALID_INPUT', message: parsed.error.message },
+          };
 
         const result = await context.nango.proxyRequest<{ calendars: Record<string, unknown> }>({
-          providerConfigKey, nangoConnectionId, method: 'POST',
+          providerConfigKey,
+          nangoConnectionId,
+          method: 'POST',
           endpoint: '/calendar/v3/freeBusy',
-          body: { timeMin: parsed.data.timeMin, timeMax: parsed.data.timeMax, items: [{ id: 'primary' }] },
+          body: {
+            timeMin: parsed.data.timeMin,
+            timeMax: parsed.data.timeMax,
+            items: [{ id: 'primary' }],
+          },
         });
-        return { runtime: 'native', provider: 'google', action: request.action, success: true, data: result as unknown as T };
+        return {
+          runtime: 'native',
+          provider: 'google',
+          action: request.action,
+          success: true,
+          data: result as unknown as T,
+        };
       }
 
-      return { runtime: 'native', provider: 'google', action: request.action, success: false, error: { code: 'UNSUPPORTED_ACTION', message: `Unknown: ${request.action}` } };
+      return {
+        runtime: 'native',
+        provider: 'google',
+        action: request.action,
+        success: false,
+        error: { code: 'UNSUPPORTED_ACTION', message: `Unknown: ${request.action}` },
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      const reauth = msg.includes('401') || msg.includes('auth') || msg.includes('NANGO_PROXY_AUTH_FAILURE');
-      return { runtime: 'native', provider: 'google', action: request.action, success: false, error: { code: reauth ? 'REAUTH_REQUIRED' : 'EXECUTION_FAILED', message: msg.slice(0, 500), reauthRequired: reauth } };
+      const reauth =
+        msg.includes('401') || msg.includes('auth') || msg.includes('NANGO_PROXY_AUTH_FAILURE');
+      return {
+        runtime: 'native',
+        provider: 'google',
+        action: request.action,
+        success: false,
+        error: {
+          code: reauth ? 'REAUTH_REQUIRED' : 'EXECUTION_FAILED',
+          message: msg.slice(0, 500),
+          reauthRequired: reauth,
+        },
+      };
     }
   },
 };

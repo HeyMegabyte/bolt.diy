@@ -112,8 +112,13 @@ export function listProviderCapabilities(provider: OAuthProvider): string[] {
 /**
  * All known provider→capability pairs, flattened.
  */
-export function listAllCapabilities(): Array<{ provider: OAuthProvider; action: string; entry: CapabilityRegistryEntry }> {
-  const result: Array<{ provider: OAuthProvider; action: string; entry: CapabilityRegistryEntry }> = [];
+export function listAllCapabilities(): Array<{
+  provider: OAuthProvider;
+  action: string;
+  entry: CapabilityRegistryEntry;
+}> {
+  const result: Array<{ provider: OAuthProvider; action: string; entry: CapabilityRegistryEntry }> =
+    [];
   for (const [provider, actions] of Object.entries(TOOL_CAPABILITY_REGISTRY)) {
     for (const [action, entry] of Object.entries(actions)) {
       result.push({ provider: provider as OAuthProvider, action, entry });

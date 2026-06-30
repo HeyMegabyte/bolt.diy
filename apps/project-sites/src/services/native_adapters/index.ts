@@ -9,7 +9,12 @@
  * @packageDocumentation
  */
 
-import type { OAuthProvider, CapabilityExecutionResult, CapabilityRequest, OAuthConnection } from '../oauth_connections.js';
+import type {
+  OAuthProvider,
+  CapabilityExecutionResult,
+  CapabilityRequest,
+  OAuthConnection,
+} from '../oauth_connections.js';
 import type { ProjectSitesNangoClient } from '../nango_client.js';
 import { googleGmailAdapter } from './google_gmail.js';
 import { googleCalendarAdapter } from './google_calendar.js';
@@ -52,7 +57,16 @@ export function listNativeAdapters(): Array<{ provider: OAuthProvider; actions: 
   for (const [provider, adapters] of Object.entries(NATIVE_ADAPTERS)) {
     const actions = adapters.flatMap((a) => {
       // Probe common actions
-      const all = ['gmail.send_email', 'gmail.search_threads', 'calendar.create_event', 'calendar.check_availability', 'drive.find_file', 'slack.send_message', 'github.create_issue', 'hubspot.create_contact'];
+      const all = [
+        'gmail.send_email',
+        'gmail.search_threads',
+        'calendar.create_event',
+        'calendar.check_availability',
+        'drive.find_file',
+        'slack.send_message',
+        'github.create_issue',
+        'hubspot.create_contact',
+      ];
       return all.filter((act) => a.supports(act));
     });
     result.push({ provider: provider as OAuthProvider, actions });

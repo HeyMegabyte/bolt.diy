@@ -44,7 +44,8 @@ export const googleGmailAdapter = {
 
   requiredScopes(action: string): string[] {
     if (action === 'gmail.send_email') return ['https://www.googleapis.com/auth/gmail.send'];
-    if (action === 'gmail.search_threads') return ['https://www.googleapis.com/auth/gmail.readonly'];
+    if (action === 'gmail.search_threads')
+      return ['https://www.googleapis.com/auth/gmail.readonly'];
     return [];
   },
 

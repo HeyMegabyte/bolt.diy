@@ -130,6 +130,6 @@ export const OAUTH_SCOPE_LABELS: Record<string, string> = {
   'https://www.googleapis.com/auth/calendar.freebusy': 'Check Calendar availability',
   'https://www.googleapis.com/auth/drive.metadata.readonly': 'Search Drive files',
   'chat:write': 'Send Slack messages',
-  'repo': 'Access GitHub repositories',
+  repo: 'Access GitHub repositories',
   'crm.objects.contacts.write': 'Create HubSpot contacts',
 };

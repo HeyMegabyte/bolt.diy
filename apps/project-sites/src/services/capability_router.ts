@@ -40,10 +40,7 @@ export interface CapabilityRouterDeps {
   composio: ComposioRuntimeAdapter;
   pipedream: PipedreamConnectRuntimeAdapter;
   /** Fetch an active OAuth connection from D1. */
-  getConnection: (
-    orgId: string,
-    provider: OAuthProvider,
-  ) => Promise<OAuthConnection | null>;
+  getConnection: (orgId: string, provider: OAuthProvider) => Promise<OAuthConnection | null>;
   /** Emit an audit event. Fired via ctx.waitUntil(). */
   emitAudit: (event: Record<string, unknown>) => void;
   /** Emit a metering event. Fired via ctx.waitUntil(). */
@@ -80,9 +77,7 @@ export async function routeCapabilityRequest(
   // 2. Check required scopes from registry
   const entry = getCapabilityEntry(request.provider, request.action);
   if (entry && entry.requiredScopes.length > 0) {
-    const hasAllScopes = entry.requiredScopes.every((s) =>
-      connection.scopes.includes(s),
-    );
+    const hasAllScopes = entry.requiredScopes.every((s) => connection.scopes.includes(s));
     if (!hasAllScopes) {
       return { decision: null, connection };
     }
@@ -154,7 +149,10 @@ export async function executeCapability<T = unknown>(
       provider: request.provider,
       action: request.action,
       success: false,
-      error: { code: 'NO_CONNECTION', message: `No active OAuth connection for ${request.provider}` },
+      error: {
+        code: 'NO_CONNECTION',
+        message: `No active OAuth connection for ${request.provider}`,
+      },
     };
     deps.emitAudit({ ...request, decision: null, success: false, durationMs: Date.now() - start });
     return result;
@@ -166,9 +164,19 @@ export async function executeCapability<T = unknown>(
       provider: request.provider,
       action: request.action,
       success: false,
-      error: { code: 'CONNECTION_INACTIVE', message: `Connection is ${connection.status}`, reauthRequired: connection.status === 'expired' || connection.status === 'revoked' },
+      error: {
+        code: 'CONNECTION_INACTIVE',
+        message: `Connection is ${connection.status}`,
+        reauthRequired: connection.status === 'expired' || connection.status === 'revoked',
+      },
     };
-    deps.emitAudit({ ...request, decision: null, status: connection.status, success: false, durationMs: Date.now() - start });
+    deps.emitAudit({
+      ...request,
+      decision: null,
+      status: connection.status,
+      success: false,
+      durationMs: Date.now() - start,
+    });
     return result;
   }
 
@@ -183,9 +191,19 @@ export async function executeCapability<T = unknown>(
           provider: request.provider,
           action: request.action,
           success: false,
-          error: { code: 'MISSING_SCOPES', message: `Missing scopes: ${missing.join(', ')}`, missingScopes: missing },
+          error: {
+            code: 'MISSING_SCOPES',
+            message: `Missing scopes: ${missing.join(', ')}`,
+            missingScopes: missing,
+          },
         };
-        deps.emitAudit({ ...request, decision: null, missingScopes: missing, success: false, durationMs: Date.now() - start });
+        deps.emitAudit({
+          ...request,
+          decision: null,
+          missingScopes: missing,
+          success: false,
+          durationMs: Date.now() - start,
+        });
         return result;
       }
     }
@@ -195,7 +213,10 @@ export async function executeCapability<T = unknown>(
       provider: request.provider,
       action: request.action,
       success: false,
-      error: { code: 'UNSUPPORTED_CAPABILITY', message: `No runtime supports ${request.provider}/${request.action}` },
+      error: {
+        code: 'UNSUPPORTED_CAPABILITY',
+        message: `No runtime supports ${request.provider}/${request.action}`,
+      },
     };
     deps.emitAudit({ ...request, decision: null, success: false, durationMs: Date.now() - start });
     return result;
@@ -207,7 +228,13 @@ export async function executeCapability<T = unknown>(
   if (decision.runtime === 'native') {
     const adapter = findNativeAdapter(request.provider, request.action);
     if (!adapter) {
-      result = { runtime: 'native', provider: request.provider, action: request.action, success: false, error: { code: 'ADAPTER_NOT_FOUND', message: 'Native adapter resolved but not found' } };
+      result = {
+        runtime: 'native',
+        provider: request.provider,
+        action: request.action,
+        success: false,
+        error: { code: 'ADAPTER_NOT_FOUND', message: 'Native adapter resolved but not found' },
+      };
     } else {
       result = await adapter.execute<T>(request, { connection, nango: deps.nango });
     }
@@ -247,7 +274,8 @@ export async function executeCapability<T = unknown>(
     errorCode: result.error?.code,
     durationMs,
     usageUnits: 1,
-    meteringUnit: getCapabilityEntry(request.provider, request.action)?.meteringUnit ?? 'capability_execution',
+    meteringUnit:
+      getCapabilityEntry(request.provider, request.action)?.meteringUnit ?? 'capability_execution',
     createdAt: new Date().toISOString(),
   });
 
@@ -257,16 +285,17 @@ export async function executeCapability<T = unknown>(
 /**
  * Factory: build a CapabilityRouter wired to the Worker env.
  */
-export function createCapabilityRouter(env: Env, nangoClient: ProjectSitesNangoClient): {
+export function createCapabilityRouter(
+  env: Env,
+  nangoClient: ProjectSitesNangoClient,
+): {
   routeCapabilityRequest: typeof routeCapabilityRequest;
   executeCapability: typeof executeCapability;
 } {
   const composio = env.COMPOSIO_API_KEY
     ? createComposioAdapter(env as { COMPOSIO_API_KEY?: string })
     : noopComposioAdapter;
-  const pipedream = env.PIPEDREAM_CLIENT_ID
-    ? createPipedreamAdapter()
-    : noopPipedreamAdapter;
+  const pipedream = env.PIPEDREAM_CLIENT_ID ? createPipedreamAdapter() : noopPipedreamAdapter;
 
   const deps: CapabilityRouterDeps = {
     nango: nangoClient,
@@ -282,9 +311,15 @@ export function createCapabilityRouter(env: Env, nangoClient: ProjectSitesNangoC
       )
         .bind(orgId, provider)
         .first<{
-          id: string; org_id: string; site_id: string | null; provider: string;
-          display_name: string; status: string; scopes_json: string | null;
-          connected_at: string; updated_at: string;
+          id: string;
+          org_id: string;
+          site_id: string | null;
+          provider: string;
+          display_name: string;
+          status: string;
+          scopes_json: string | null;
+          connected_at: string;
+          updated_at: string;
         }>();
       if (!row) return null;
       return {

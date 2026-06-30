@@ -35,10 +35,7 @@ export interface ProjectSitesNangoClient {
     providerConfigKey: string;
   }>;
 
-  getConnection(input: {
-    providerConfigKey: string;
-    nangoConnectionId: string;
-  }): Promise<{
+  getConnection(input: { providerConfigKey: string; nangoConnectionId: string }): Promise<{
     providerAccountId?: string;
     providerAccountEmail?: string;
     scopes: string[];
@@ -55,10 +52,7 @@ export interface ProjectSitesNangoClient {
     headers?: Record<string, string>;
   }): Promise<TResponse>;
 
-  revokeConnection(input: {
-    providerConfigKey: string;
-    nangoConnectionId: string;
-  }): Promise<void>;
+  revokeConnection(input: { providerConfigKey: string; nangoConnectionId: string }): Promise<void>;
 }
 
 /**
@@ -101,7 +95,7 @@ function buildNangoConnectPayload(input: {
  */
 export function createNangoClient(nangoSecretKey: string): ProjectSitesNangoClient {
   const authHeaders = {
-    'Authorization': `Bearer ${nangoSecretKey}`,
+    Authorization: `Bearer ${nangoSecretKey}`,
     'Content-Type': 'application/json',
   };
 

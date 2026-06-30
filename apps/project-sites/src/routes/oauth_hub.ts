@@ -37,10 +37,31 @@ interface ProviderMeta {
 
 /** Static provider catalog. */
 const PROVIDER_CATALOG: ProviderMeta[] = [
-  { provider: 'google', label: 'Google', capabilities: ['gmail.send_email', 'gmail.search_threads', 'calendar.create_event', 'calendar.check_availability', 'drive.find_file'], scopes: [] },
-  { provider: 'slack', label: 'Slack', capabilities: ['slack.send_message'], scopes: ['chat:write'] },
+  {
+    provider: 'google',
+    label: 'Google',
+    capabilities: [
+      'gmail.send_email',
+      'gmail.search_threads',
+      'calendar.create_event',
+      'calendar.check_availability',
+      'drive.find_file',
+    ],
+    scopes: [],
+  },
+  {
+    provider: 'slack',
+    label: 'Slack',
+    capabilities: ['slack.send_message'],
+    scopes: ['chat:write'],
+  },
   { provider: 'github', label: 'GitHub', capabilities: ['github.create_issue'], scopes: ['repo'] },
-  { provider: 'hubspot', label: 'HubSpot', capabilities: ['hubspot.create_contact'], scopes: ['crm.objects.contacts.write'] },
+  {
+    provider: 'hubspot',
+    label: 'HubSpot',
+    capabilities: ['hubspot.create_contact'],
+    scopes: ['crm.objects.contacts.write'],
+  },
   { provider: 'notion', label: 'Notion', capabilities: ['notion.create_page'], scopes: [] },
   { provider: 'airtable', label: 'Airtable', capabilities: ['airtable.create_record'], scopes: [] },
 ];
@@ -183,9 +204,7 @@ oauthHub.post('/api/oauth/reauth/:connectionId', async (c) => {
 
   if (!row) return c.json({ error: { message: 'connection not found' } }, 404);
 
-  await c.env.DB.prepare(
-    `UPDATE mcp_connections SET status = 'reauth_required' WHERE id = ?`,
-  )
+  await c.env.DB.prepare(`UPDATE mcp_connections SET status = 'reauth_required' WHERE id = ?`)
     .bind(connectionId)
     .run();
 

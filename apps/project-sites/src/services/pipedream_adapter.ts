@@ -65,15 +65,22 @@ export function createPipedreamAdapter(): PipedreamConnectRuntimeAdapter {
 
       if (!check.supported) {
         return {
-          runtime: 'pipedream', provider: request.provider, action: request.action,
+          runtime: 'pipedream',
+          provider: request.provider,
+          action: request.action,
           success: false,
-          error: { code: 'UNSUPPORTED_ACTION', message: `Pipedream does not support ${request.provider}/${request.action}` },
+          error: {
+            code: 'UNSUPPORTED_ACTION',
+            message: `Pipedream does not support ${request.provider}/${request.action}`,
+          },
         };
       }
 
       if (check.requiresExternalAuth) {
         return {
-          runtime: 'pipedream', provider: request.provider, action: request.action,
+          runtime: 'pipedream',
+          provider: request.provider,
+          action: request.action,
           success: false,
           error: {
             code: 'EXTERNAL_AUTH_REQUIRED',
@@ -93,16 +100,25 @@ export function createPipedreamAdapter(): PipedreamConnectRuntimeAdapter {
         });
 
         return {
-          runtime: 'pipedream', provider: request.provider, action: request.action,
-          success: true, data: result as T,
+          runtime: 'pipedream',
+          provider: request.provider,
+          action: request.action,
+          success: true,
+          data: result as T,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         const reauth = msg.includes('401') || msg.includes('auth');
         return {
-          runtime: 'pipedream', provider: request.provider, action: request.action,
+          runtime: 'pipedream',
+          provider: request.provider,
+          action: request.action,
           success: false,
-          error: { code: reauth ? 'REAUTH_REQUIRED' : 'EXECUTION_FAILED', message: msg.slice(0, 500), reauthRequired: reauth },
+          error: {
+            code: reauth ? 'REAUTH_REQUIRED' : 'EXECUTION_FAILED',
+            message: msg.slice(0, 500),
+            reauthRequired: reauth,
+          },
         };
       }
     },
@@ -112,7 +128,9 @@ export function createPipedreamAdapter(): PipedreamConnectRuntimeAdapter {
 export const noopPipedreamAdapter: PipedreamConnectRuntimeAdapter = {
   supports: async () => false,
   execute: async (request) => ({
-    runtime: 'pipedream', provider: request.provider, action: request.action,
+    runtime: 'pipedream',
+    provider: request.provider,
+    action: request.action,
     success: false,
     error: { code: 'UNSUPPORTED_ACTION', message: 'Pipedream not configured' },
   }),

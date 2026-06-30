@@ -77,15 +77,22 @@ export function createComposioAdapter(env?: { COMPOSIO_API_KEY?: string }): Comp
 
       if (!check.supported) {
         return {
-          runtime: 'composio', provider: request.provider, action: request.action,
+          runtime: 'composio',
+          provider: request.provider,
+          action: request.action,
           success: false,
-          error: { code: 'UNSUPPORTED_ACTION', message: `Composio does not support ${request.provider}/${request.action}` },
+          error: {
+            code: 'UNSUPPORTED_ACTION',
+            message: `Composio does not support ${request.provider}/${request.action}`,
+          },
         };
       }
 
       if (check.requiresExternalAuth) {
         return {
-          runtime: 'composio', provider: request.provider, action: request.action,
+          runtime: 'composio',
+          provider: request.provider,
+          action: request.action,
           success: false,
           error: {
             code: 'EXTERNAL_AUTH_REQUIRED',
@@ -108,16 +115,25 @@ export function createComposioAdapter(env?: { COMPOSIO_API_KEY?: string }): Comp
         });
 
         return {
-          runtime: 'composio', provider: request.provider, action: request.action,
-          success: true, data: result as T,
+          runtime: 'composio',
+          provider: request.provider,
+          action: request.action,
+          success: true,
+          data: result as T,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         const reauth = msg.includes('401') || msg.includes('auth');
         return {
-          runtime: 'composio', provider: request.provider, action: request.action,
+          runtime: 'composio',
+          provider: request.provider,
+          action: request.action,
           success: false,
-          error: { code: reauth ? 'REAUTH_REQUIRED' : 'EXECUTION_FAILED', message: msg.slice(0, 500), reauthRequired: reauth },
+          error: {
+            code: reauth ? 'REAUTH_REQUIRED' : 'EXECUTION_FAILED',
+            message: msg.slice(0, 500),
+            reauthRequired: reauth,
+          },
         };
       }
     },
@@ -128,7 +144,9 @@ export function createComposioAdapter(env?: { COMPOSIO_API_KEY?: string }): Comp
 export const noopComposioAdapter: ComposioRuntimeAdapter = {
   supports: async () => false,
   execute: async (request) => ({
-    runtime: 'composio', provider: request.provider, action: request.action,
+    runtime: 'composio',
+    provider: request.provider,
+    action: request.action,
     success: false,
     error: { code: 'UNSUPPORTED_ACTION', message: 'Composio not configured' },
   }),
