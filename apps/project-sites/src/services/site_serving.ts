@@ -806,7 +806,9 @@ export async function serveSiteFromR2(
       try {
         const { meterSiteVisit } = await import('./usage_metering.js');
         await meterSiteVisit(env, { siteId: site.site_id, slug: site.slug });
-      } catch { /* hot path — never block serving */ }
+      } catch {
+        /* hot path — never block serving */
+      }
     })();
   }
 
