@@ -432,8 +432,8 @@ collaboration surface that sells upgrades.
 
 ## 🛠 Dedicated (real, but needs a supervised focused session)
 
-- [ ] Frontend perf wave (~30h, all-or-nothing): ag-grid→TanStack on both admin grids · zoneless CD · SSR/SSG marketing shell · OnPush on 104 components · `@defer` below-fold · INP <150ms · fix ~30 `.subscribe()` leaks · `@Input()`→signal · `@ngx-translate`→`@angular/localize` · design-token drift · bundle-split Monaco/ECharts/Uppy. [auto]
-- [ ] **Puck** visual page/block builder + **OpenFGA** authz model (orgs/sites/roles/agents) — each a focused session. [auto]
+- [ ] Frontend perf wave (~30h, all-or-nothing): ag-grid→TanStack on both admin grids · zoneless CD · SSR/SSG marketing shell · OnPush on 104 components · `@defer` below-fold · INP <150ms · fix ~30 `.subscribe()` leaks · `@Input()`→signal · `@ngx-translate`→`@angular/localize` · design-token drift · bundle-split Monaco/ECharts/Uppy. [parked]
+- [ ] **Puck** visual page/block builder + **OpenFGA** authz model (orgs/sites/roles/agents) — each a focused session. [parked]
 
 ---
 
@@ -457,11 +457,11 @@ collaboration surface that sells upgrades.
 > Web-researched + classified. `[auto]` = loop builds; `[gated]` = needs a Brian decision; `[dedicated]` = real but needs a supervised session. Foundation rule: each app gets a typed, Zod-validated, AGPL-isolated HTTP client (`src/services/<app>.ts`) + an HMAC webhook receiver on a workers.dev URL (Bot-Fight-safe) + a rate-limit/retry/idempotency wrapper — those unblock everything below.
 
 ### Plane (pm.projectsites.dev)
-- [ ] **PL1 backups + tested restore** — nightly TiDB export/branch-snapshot + R2 versioning + Upstash backup; concrete RPO/RTO; quarterly restore drill. (We have ZERO Plane backups today.) [auto]
+- [ ] **PL1 backups + tested restore** — nightly TiDB export/branch-snapshot + R2 versioning + Upstash backup; concrete RPO/RTO; quarterly restore drill. (We have ZERO Plane backups today.) [parked]
 - [ ] → NEEDS BRIAN **PL2 SES SMTP into Plane** — wire SES so invites/magic-links/notifications actually send (currently dark). Set in `/god-mode`. [parked]
 - [ ] → NEEDS BRIAN **PL3 Plane analytics via Tinybird (NO ClickHouse — Brian directive [[tinybird-always-never-clickhouse]])** — Plane can't use Tinybird as its internal ClickHouse, and ClickHouse is BANNED, so Plane's built-in dashboards stay dark (Plane PM still fully works). Deliver the value our way: Plane webhook receiver (PL21) emits `producer='plane'` events into the EXISTING `event_bus` outbox → already drains to the EXISTING Tinybird `projectsites_events` Data Source (every 5 min) → build admin pipes/dashboard filtered to `producer='plane'`. Foundation (`services/tinybird.ts` + outbox + DS) already live; only the receiver + producer-tag emit + dashboard remain. (ClickHouse Cloud keys kept in get-secret, UNUSED.) [parked]
 - [ ] → NEEDS BRIAN **PL4 observability** — ship Plane logs/metrics to our stack + alert on the container crash-loop class (the `/dev/shm` incident would've paged). [parked]
-- [ ] **PL5 SSO** — OIDC via Better Auth for pm.projectsites.dev (auth-provider + rollout decision). [auto]
+- [ ] **PL5 SSO** — OIDC via Better Auth for pm.projectsites.dev (auth-provider + rollout decision). [parked]
 - [ ] → NEEDS BRIAN **PL6 ephemeral-safety audit** — confirm nothing critical lives in container-local `/app/data` (uploads now R2; check exports/beat schedule). [parked]
 - [ ] → NEEDS BRIAN **PL7 version-pin + upgrade cadence** — pin `PLANE_VERSION`, documented monthly upgrade rhythm + owner. [parked]
 - [ ] → NEEDS BRIAN **PL8 project-per-customer** — each generated site/customer auto-creates a Plane project (seeded states/cycles). [parked]
@@ -473,7 +473,7 @@ collaboration surface that sells upgrades.
 - [ ] → NEEDS BRIAN **PL14 MCP → our agents** — connect Plane's native MCP server so build agents create/manage work items. [parked]
 [x] **PL15 voice → Plane** — **CORE DONE:** `services/voice_plane.ts` — classifyIntent+voiceCallToIssue+extractCaller. 29/29 tests. [auto]
 [x] **PL16 LLM intake auto-triage** — **CORE DONE:** `services/llm_intake.ts` — priority/assignee/labels from keyword heuristics, 49/49 tests. [auto]
-- [ ] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack. [auto]
+- [ ] **PL17 weekly AI digest** — cron pulls Plane activity → LLM summary → SES + Slack. [parked]
 [x] **PL18 duplicate/enrich gate** — **CORE DONE:** `services/duplicate_enrich.ts` — trigram Jaccard dedup + body enrichment, 25/25 tests. [auto]
 [x] **PL19 GitHub ↔ Plane** — **CORE DONE:** `services/github_plane.ts` — extractPlaneRefs+buildCommitNote+extractGithubRefs. 26/26 tests. [auto]
 [x] **PL20 typed Plane API client** — **CORE DONE:** `services/plane_client.ts` — 8 Zod schemas + paginated response factory, 52/52 tests. Remaining: fetch layer. [auto]
@@ -481,7 +481,7 @@ collaboration surface that sells upgrades.
 [x] **PL22 rate-limit wrapper** — **CORE DONE:** `services/rate_limit_wrapper.ts` — token bucket + concurrency + retry backoff, 28/28 tests. [auto]
 [x] **PL23 project template seeder** — **CORE DONE:** `services/plane_templates.ts` — 3 project-type templates (app/site_build/ops), 6 states, 6 labels, 6 sprints. 24/24 tests. [auto]
 [x] **PL24 /loop ↔ Plane** — **CORE DONE:** `services/loop_plane.ts` — ledgerItemToIssue + fireReportToComment + summarizeFires bridge. 25/25 tests. [auto]
-- [ ] **PL25 public status page** — Plane incident issues → status page (product/design decision). [auto]
+- [ ] **PL25 public status page** — Plane incident issues → status page (product/design decision). [parked]
 
 ### Twenty CRM (crm.projectsites.dev) — internal sales/ops + customer-facing feature
 [x] **TW1 typed Twenty client** — **CORE DONE:** `services/twenty_client.ts` — 8 Zod schemas (Company/Person/Opportunity/Address), 42/42 tests. Remaining: fetch layer. [auto]
@@ -536,30 +536,30 @@ collaboration surface that sells upgrades.
 - [x] [auto] **LM24 rate-limit/retry wrapper** — **CORE DONE:** services/listmonk_retry.ts — retryDelay (exp backoff + deterministic jitter)+idempotencyKey+TokenBucket (consume/refill/cap), 29/29 unit, gates clean. 127→126.
 
 ### Whole-app — platform-wide (the self-hosted suite: sites · PM · CRM · email · keys · CMS · voice)
-- [ ] **AP1 platform backup/restore runbook** — ALL stateful stores (D1, R2, TiDB, every Neon DB, every Upstash, container DBs); per-store RPO/RTO; one drill. (No backups exist platform-wide — biggest risk.) [auto]
-- [ ] **AP2 unified service-health dashboard** — live status of every container/worker in /admin + the crash-loop alert class. [auto]
-- [ ] **AP3 CF-Container hardening baseline** — shared template baking every hard-won lesson (`mkdir /dev/shm`, amd64 pin + CACHEBUST, keep-warm cron, health route, observability). [auto]
-- [ ] **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Unkey/Twenty pattern. [auto]
-- [ ] **AP5 WAF-skip automation** — any new app subdomain serving POST auto-added to the zone skip rule (we hit this 3× pm/api/r2s3) + a gate. [auto]
+- [ ] **AP1 platform backup/restore runbook** — ALL stateful stores (D1, R2, TiDB, every Neon DB, every Upstash, container DBs); per-store RPO/RTO; one drill. (No backups exist platform-wide — biggest risk.) [parked]
+- [ ] **AP2 unified service-health dashboard** — live status of every container/worker in /admin + the crash-loop alert class. [parked]
+- [ ] **AP3 CF-Container hardening baseline** — shared template baking every hard-won lesson (`mkdir /dev/shm`, amd64 pin + CACHEBUST, keep-warm cron, health route, observability). [parked]
+- [ ] **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Unkey/Twenty pattern. [parked]
+- [ ] **AP5 WAF-skip automation** — any new app subdomain serving POST auto-added to the zone skip rule (we hit this 3× pm/api/r2s3) + a gate. [parked]
 - [x] [auto] **AP6 reusable R2 POST-Object shim** — **CORE DONE 2026-06-29:** `services/r2_post_shim.ts` — `buildR2PostForm(config, nowMs)` builds a signed AWS4-HMAC-SHA256 S3 POST policy + form fields for R2 (endpoint/key-prefix/max-size/expiration), cap at 2d. Web Crypto (impure but Workers-native), deterministic `nowMs` param. 4/4 unit, tsc+lint clean. Remaining = wire into Plane + any other S3-POST app. 137→136. worker→CI.
-- [ ] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS/Unkey dashboards via Better Auth/OIDC. [auto]
-- [ ] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs. [auto]
+- [ ] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS/Unkey dashboards via Better Auth/OIDC. [parked]
+- [ ] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs. [parked]
 - [x] [auto] **AP9 secret-rotation calendar** — **CORE DONE 2026-06-29:** `services/secret_rotation.ts` — pure `rotationStatus(record, now, maxAgeDays=90)` → ok|due_soon(≤14d)|overdue|unknown + ageDays/daysUntilDue/dueAtMs (per-secret `maxAgeDays` override; ms-or-ISO; never-rotated→unknown) + `buildRotationReport(records, now)` → entries sorted overdue→due_soon→unknown→ok + counts + `needsAttention`. No `Date.now()` inside (caller passes now → deterministic). Zero-I/O, never-throws on empty/non-finite, 11/11 unit, tsc 0. Enforces the ≤90d vendor-risk-tiering cadence. Remaining wiring = a D1 `secret_rotations` registry (name/vendor/last_rotated) + the /admin calendar surface + the rotation automation. 146→145. worker→CI (gate now GREEN — 506 suites/7010 tests).
 - [x] [auto] **AP10 cost-per-service dashboard** — **CORE DONE 2026-06-29:** `services/cost_aggregation.ts` — pure `aggregateCosts(lineItems)` → grand total (+`$x.xx` display) + per-vendor breakdown (sorted highest-first, % share) + per-app breakdown (`unattributed` bucket pinned last) + `formatCents`. Clamps negative/non-finite to 0, skips vendor-less items, all-zero on empty — never throws. Zero-I/O, 7/7 unit, tsc 0, lint 0-err, format clean. Remaining wiring = pull line items from each provider billing API (CF/Neon/Upstash/CloudAMQP/SES/TiDB) + /admin dashboard surface. 144→143. worker→CI.
 - [x] [auto] **AP11 typed service registry** — **CORE DONE 2026-06-29:** `services/service_registry.ts` — `createRegistry(entries)` factory (validate/dedup/freeze) + `DEFAULT_SERVICES` (9 live entries: Plane/Twenty/Listmonk/Unkey/Postiz/Inngest/CMS/LLM/CRM). Zero-I/O, 22/22 unit, gates clean. Remaining = wire admin health-dashboard + secret-rotation calendar. 137→136. driving admin + clients.
-- [ ] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents. [auto]
+- [ ] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents. [parked]
 - [x] [auto] **AP13 cross-app identity graph** — **CORE DONE 2026-06-29:** `services/identity_graph.ts` — pure `buildIdentityGraph(flatRows)` → `{nodes: IdentityNode[] (userId/email/apps/appCount/isCrossApp), totalUsers, crossAppUsers, appCounts}`. Merges + dedupes per (app, externalId); sorts most-connected-first; missing email→"unknown"; skips empty rows, never throws. Zero-I/O, 6/6 unit, tsc 0, lint+prettier clean. The unification layer psnotify/billing/AI-ops consume to resolve one customer view. Remaining wiring = pull rows from each app DB/API. 141→140. worker→CI.
-- [ ] **AP14 DR game day** — simulate a store/region outage; verify wrangler rollback + D1 Time Travel + restores. [auto]
-- [ ] **AP15 aggregate uptime + status page** — external probe of all subdomains → public status. [auto]
+- [ ] **AP14 DR game day** — simulate a store/region outage; verify wrangler rollback + D1 Time Travel + restores. [parked]
+- [ ] **AP15 aggregate uptime + status page** — external probe of all subdomains → public status. [parked]
 - [x] [auto] **AP16 post-deploy smoke matrix** — **CORE DONE 2026-06-29:** `services/smoke_matrix.ts` — `buildSmokeSpec(endpoints, baseDomain)` constructs the ordered smoke checklist (path/method/subdomain/expectStatus/bodyContains/bodyNotContains/headerEquals/headerPresent); `validateSmokeResult(spec, status, body, ms, headers)` returns `{pass, failures[]}`; `summarizeSmoke(results)` → `SmokeMatrix {passCount,failCount,pass}`. All pure. Zero-fetch inside (runner is a thin loop outside). 10/10 unit, tsc 0, lint 0-err, prettier clean. Remaining = the `fetch`-loop runner + wire into `project-sites.yaml` CI. 140→139. worker→CI.
 - [x] [auto] **AP17 cross-boundary trace correlation** — **CORE DONE 2026-06-29:** `services/trace_propagation.ts` — `propagateHeaders(ctx)` → outgoing x-trace-id/x-request-id/x-tenant-id/x-caller HTTP headers; `traceLogContext(ctx)` → structured-log context block; `parseInboundTrace(headers)` → parse inbound headers (+ W3C traceparent fallback, + cf-ray/cf-request-id). All pure, never-throws. 8/8 unit, tsc+lint+prettier clean. Remaining = wire into every outbound fetch + container call. 138→137. worker→CI.
-- [ ] **AP18 data-residency review** — EU-default for new stores; audit existing (GDPR; one-way-door). [auto]
-- [ ] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies. [auto]
+- [ ] **AP18 data-residency review** — EU-default for new stores; audit existing (GDPR; one-way-door). [parked]
+- [ ] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies. [parked]
 - [x] [auto] **AP20 one-signup platform provisioning** — **CORE DONE:** services/provisioning_plan.ts — buildProvisioningPlan({optIns}) ordered checklist (crm→email→social deps) with URLs+durations, 18/18 unit, gates clean. 131→130.
 - [x] [auto] **AP21 unified admin Cmd-K** — **CORE DONE 2026-06-29:** `services/cmd_k_data.ts` — `buildCmdK` (group by category, sorted) + `filterCmdK` (case-insensitive match, quality-sorted) + `matchScore` (100/60/50/25/10/0 tiers). Zero-I/O, 34/34 unit, 0 lint, tsc clean. Remaining = wire the UI picker component. 137→136.
 - [x] [auto] **AP22 billing meter aggregation** — **CORE DONE 2026-06-29:** `services/billing_meter.ts` — `aggregateMeter(counters)` sums usage per app+metric, applies $ pricing (builds 5c/ai 1c/email 0.05c), emits Lago billable code + payload; `billableOnly` filters zeros. Zero-I/O, 16/16 unit, gates clean. Remaining = push to Lago events API + dashboard. 137→136.
 - [x] [auto] **AP23 URL sanitizer** — **CORE DONE:** services/url_sanitizer.ts — sanitizeUrl+isSafeUrl+isPrivateHost (SSRF guard: blocks RFC1918/loopback/link-local/IPv6/metadata), 45/45 unit, gates clean. Rate-limit/retry half is follow-on. 131→130. (stop re-implementing it).
-- [ ] **AP24 suite positioning** — bundle the self-hosted suite (PM+CRM+email+sites+keys) as the projectsites differentiator (strategy/pricing). [auto]
+- [ ] **AP24 suite positioning** — bundle the self-hosted suite (PM+CRM+email+sites+keys) as the projectsites differentiator (strategy/pricing). [parked]
 
 ---
 
@@ -649,7 +649,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: provisioning audit → Axiom.
   - Related files: `plane-pm-provisioning-state` + `waf-mcp-skip-rule` + `cloudflare-native-provisioning` memories.
 
-- [ ] LOOP-GLOBAL-007: API-key + usage-metering plane — Unkey + Lago [auto]
+- [ ] LOOP-GLOBAL-007: API-key + usage-metering plane — Unkey + Lago [parked]
   - Endpoint: api.projectsites.dev + billing.projectsites.dev
   - Decision: Public/customer API keys → **Unkey** (LIVE at api.projectsites.dev). Usage metering for consumption billing → **Lago**, feeding **Stripe** for invoicing.
   - Rationale: Don't hand-roll key verification, rate limits, or usage aggregation — Unkey + Lago are the standardized primitives; Stripe is the money rail.
@@ -701,7 +701,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-API-001: Harden the typed `unkey.ts` gateway client (createKey/verifyKey/updateKey/revokeKey/listKeys) [auto]
+- [ ] LOOP-API-001: Harden the typed `unkey.ts` gateway client (createKey/verifyKey/updateKey/revokeKey/listKeys) [parked]
   - Why: Every other LOOP-API task imports this one client; it must be the single chokepoint to Unkey.
   - Acceptance criteria: Zod-validated request/response for all 5 ops; verifyKey returns `{valid, keyId, ownerId, meta, ratelimit, remaining}`; unit tests mock fetch and assert error envelopes on 4xx/5xx.
   - Implementation notes: Wrap `https://api.projectsites.dev/v1/keys.*`; root key from `UNKEY_ROOT_KEY` secret; expose `apiId` per namespace; reuse existing fetch-defaults retry/backoff.
@@ -711,7 +711,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: none
   - Related files: src/services/unkey.ts, src/services/api_tokens.ts (migrate callers)
 
-- [ ] LOOP-API-002: Define the canonical API-key data model + D1 mirror table `api_keys` [auto]
+- [ ] LOOP-API-002: Define the canonical API-key data model + D1 mirror table `api_keys` [parked]
   - Why: We need a local index of issued keys (Unkey holds the secret; we hold ownership/scoping metadata) for fast list/filter without hammering Unkey.
   - Acceptance criteria: D1 migration creates `api_keys(id, unkey_key_id, tenant_id, site_id, app_id, scope_namespace, name, role, environment, status, created_at, revoked_at, expires_at, last_used_at)`; Zod schema in shared; every create/revoke writes both Unkey + this mirror in one idempotent path.
   - Implementation notes: `scope_namespace ∈ {tenant, site, app, mcp, s2s}`; idempotency via `unkey_key_id` UNIQUE; soft-delete via `status`.
@@ -721,7 +721,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-001
   - Related files: packages/shared/src/schemas/api.ts, supabase/migrations/, src/services/unkey.ts
 
-- [ ] LOOP-API-003: Worker `apiKeyAuth` middleware that verifies every inbound `/api/*` external request [auto]
+- [ ] LOOP-API-003: Worker `apiKeyAuth` middleware that verifies every inbound `/api/*` external request [parked]
   - Why: One middleware turns Unkey into the platform's actual gatekeeper instead of ad-hoc checks.
   - Acceptance criteria: Reads `Authorization: Bearer <key>`; calls `verifyKey`; on invalid returns RFC7807 401 with `correlationId`; on valid sets `c.set('apiKey', {...})` incl. tenant/site/app scope; covered by unit tests for valid/expired/revoked/ratelimited.
   - Implementation notes: Mount only on externally-exposed `/api/v1/*` routes (not admin session routes); short-circuit cache via Unkey's own edge cache.
@@ -731,7 +731,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-001
   - Related files: src/middleware/, src/index.ts
 
-- [ ] LOOP-API-004: Tenant root-key issuance + governance flow [auto]
+- [ ] LOOP-API-004: Tenant root-key issuance + governance flow [parked]
   - Why: Each tenant needs a top-level key to mint child keys; governs who can create/revoke.
   - Acceptance criteria: `POST /api/v1/keys/root` (admin/owner role only) creates a tenant root key with `scope_namespace=tenant`; only root keys can call key-management endpoints; RBAC enforced via shared middleware; E2E proves a non-root key is 403→404-safe.
   - Implementation notes: Store `role` in Unkey key meta; gate management endpoints on `meta.role==='root'`; one active root per tenant (rotate, don't duplicate).
@@ -741,7 +741,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002, LOOP-API-003
   - Related files: packages/shared/src/middleware/, src/routes/api.ts
 
-- [ ] LOOP-API-005: Scoped key namespaces — per-site and per-app keys [auto]
+- [ ] LOOP-API-005: Scoped key namespaces — per-site and per-app keys [parked]
   - Why: A tenant with many generated sites/apps needs keys scoped to one site/app, not blanket access.
   - Acceptance criteria: `POST /api/v1/keys` accepts `{scope: 'site'|'app', site_id|app_id, permissions[]}`; verifyKey result exposes scope; middleware rejects cross-scope access (key for site A cannot hit site B routes); E2E covers cross-scope denial.
   - Implementation notes: Encode scope in Unkey key meta + `permissions` array (e.g. `site:read`, `app:deploy`); enforce in `apiKeyAuth`.
@@ -751,7 +751,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002, LOOP-API-003
   - Related files: src/services/unkey.ts, src/routes/api.ts
 
-- [ ] LOOP-API-006: Per-environment keys (live vs test) with `psk_live_` / `psk_test_` prefixes [auto]
+- [ ] LOOP-API-006: Per-environment keys (live vs test) with `psk_live_` / `psk_test_` prefixes [parked]
   - Why: Customers must separate test traffic from production billing/quotas.
   - Acceptance criteria: Key create takes `environment ∈ {live,test}`; prefix encodes it; test keys never increment billable usage or trigger real side-effects; verifyKey surfaces environment; unit test asserts test key is non-billable.
   - Implementation notes: Use Unkey `prefix` + `environment` field; billing-enforcement (LOOP-API-013) skips `test`; align prefix with existing `psk_test_` convention from E2E_API_KEY.
@@ -761,7 +761,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-005
   - Related files: src/services/unkey.ts, packages/shared/src/schemas/api.ts
 
-- [ ] LOOP-API-007: Key rotation flow (overlap window, zero-downtime) [auto]
+- [ ] LOOP-API-007: Key rotation flow (overlap window, zero-downtime) [parked]
   - Why: Customers must rotate a leaked/aging key without an outage.
   - Acceptance criteria: `POST /api/v1/keys/:id/rotate` issues a new key, keeps old valid for a configurable grace (default 24h), then auto-expires old via Unkey expiration; returns new secret once; E2E proves both keys work during overlap then old dies.
   - Implementation notes: Set `expires` on old key = now+grace; link `rotated_from` in meta; Cron Trigger sweeps expired mirror rows.
@@ -771,7 +771,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002
   - Related files: src/services/unkey.ts, src/routes/api.ts
 
-- [ ] LOOP-API-008: Key expiration + scheduled auto-revoke [auto]
+- [ ] LOOP-API-008: Key expiration + scheduled auto-revoke [parked]
   - Why: Short-lived keys (CI tokens, demos) should expire automatically.
   - Acceptance criteria: Create accepts `expires_at`; Unkey enforces; a Cron Trigger reconciles mirror `status` for expired keys; verifyKey on expired returns invalid; unit test on boundary.
   - Implementation notes: Pass `expires` (ms epoch) to Unkey; daily cron marks mirror rows `status='expired'`.
@@ -781,7 +781,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002
   - Related files: src/services/unkey.ts, src/workflows/ or cron service
 
-- [ ] LOOP-API-009: Instant revocation + revoked-key denylist propagation [auto]
+- [ ] LOOP-API-009: Instant revocation + revoked-key denylist propagation [parked]
   - Why: A leaked key must die immediately, everywhere.
   - Acceptance criteria: `DELETE /api/v1/keys/:id` revokes in Unkey + mirror in one idempotent call; verifyKey returns invalid within Unkey's cache TTL; E2E: revoke then immediate request is 401.
   - Implementation notes: Unkey delete is authoritative; mirror `revoked_at`; surface in audit feed (LOOP-API-016).
@@ -791,7 +791,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002, LOOP-API-003
   - Related files: src/services/unkey.ts, src/routes/api.ts
 
-- [ ] LOOP-API-010: Per-key rate limits (fixed + identity-based) via Unkey ratelimits [auto]
+- [ ] LOOP-API-010: Per-key rate limits (fixed + identity-based) via Unkey ratelimits [parked]
   - Why: Protect the platform and let customers tier request throughput per key.
   - Acceptance criteria: Create accepts `ratelimit{limit, duration, type:'fast'|'consistent'}`; verifyKey enforces; 429 returns RFC7807 with `Retry-After` + remaining; unit test simulates limit exhaustion.
   - Implementation notes: Use Unkey ratelimit on key meta; identity-based limits keyed by `ownerId` to share a budget across a tenant's keys.
@@ -801,7 +801,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-003
   - Related files: src/services/unkey.ts, src/middleware/
 
-- [ ] LOOP-API-011: API quotas (monthly request/credit caps) with Unkey `remaining` [auto]
+- [ ] LOOP-API-011: API quotas (monthly request/credit caps) with Unkey `remaining` [parked]
   - Why: Enforce plan-based monthly ceilings, not just per-second rate.
   - Acceptance criteria: Create accepts `remaining{limit, refill:{interval, amount}}`; verifyKey decrements; at zero returns 402/429 with upgrade CTA; quota resets monthly; E2E drains a small quota and asserts block.
   - Implementation notes: Unkey `remaining` + `refill`; map plan→quota in shared `ENTITLEMENTS`; surface remaining in usage dashboard (LOOP-API-018).
@@ -811,7 +811,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-010
   - Related files: packages/shared/src/constants/, src/services/unkey.ts
 
-- [ ] LOOP-API-012: Usage metering pipeline → Tinybird (per-key request analytics) [auto]
+- [ ] LOOP-API-012: Usage metering pipeline → Tinybird (per-key request analytics) [parked]
   - Why: Need queryable usage for dashboards, billing, and abuse detection beyond Unkey's own analytics.
   - Acceptance criteria: Every verified request emits a metering event `{api_key_id, tenant_id, site_id, app_id, route, status, ts, billable, units}` to Tinybird; a Tinybird endpoint aggregates per-key daily; backfill-safe (idempotent event id).
   - Implementation notes: `ctx.waitUntil` POST to Tinybird events datasource; reuse existing Tinybird datasources pattern; dedupe on `request_id`.
@@ -821,7 +821,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-003
   - Related files: src/services/unkey.ts, src/services/analytics_events.ts
 
-- [ ] LOOP-API-013: Usage-based billing enforcement bridge (Unkey usage → Lago events) [auto]
+- [ ] LOOP-API-013: Usage-based billing enforcement bridge (Unkey usage → Lago events) [parked]
   - Why: Turn metered API usage into revenue with hard/soft caps. (needs decision on overage pricing tiers)
   - Acceptance criteria: A scheduled job reads Tinybird per-tenant billable units and reports to Lago for rating + Stripe for invoicing; soft cap warns, hard cap auto-throttles via Unkey quota; idempotent per billing period; test-mode keys excluded.
   - Implementation notes: Cron Trigger nightly; Stripe `billing.meter_events`; throttle by lowering Unkey `remaining` when over hard cap.
@@ -831,7 +831,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-012, LOOP-API-011
   - Related files: src/services/billing.ts, src/services/unkey.ts
 
-- [ ] LOOP-API-014: AI credit enforcement on AI-backed API routes [auto]
+- [ ] LOOP-API-014: AI credit enforcement on AI-backed API routes [parked]
   - Why: AI calls cost real money; per-key AI credits must deplete independently of request quota.
   - Acceptance criteria: AI routes check a separate Unkey credit pool (or D1 credit ledger) keyed by `api_key_id`; insufficient credits returns 402 with top-up link; credits decremented by model-priced units; unit test on depletion.
   - Implementation notes: Reuse `app_cost_meter.ts`/`ai_gateway.ts`; price per model tier; gate before LLM call at llm.projectsites.dev.
@@ -841,7 +841,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-011, LOOP-API-012
   - Related files: src/services/app_cost_meter.ts, src/services/ai_gateway.ts, src/services/unkey.ts
 
-- [ ] LOOP-API-015: MCP/agent keys — scoped keys for AI agents calling the platform API [auto]
+- [ ] LOOP-API-015: MCP/agent keys — scoped keys for AI agents calling the platform API [parked]
   - Why: Agents (and our own MCP servers) need narrow, revocable, auditable credentials distinct from human keys.
   - Acceptance criteria: `scope_namespace=mcp` keys with `permissions[]` restricted to specific tools/routes; verifyKey tags requests as agent traffic; integrates with existing MCP OAuth provider as the issued credential; E2E: an MCP key cannot call non-granted routes.
   - Implementation notes: Issue MCP keys from the OAuth consent flow (`mcp_oauth_provider` flag); meta `actor_type='agent'`.
@@ -851,7 +851,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-005, LOOP-API-003
   - Related files: src/routes/ (mcp/oauth), src/services/unkey.ts
 
-- [ ] LOOP-API-016: Immutable audit trail for all key lifecycle events [auto]
+- [ ] LOOP-API-016: Immutable audit trail for all key lifecycle events [parked]
   - Why: Governance + incident forensics require a tamper-evident record of who created/rotated/revoked keys.
   - Acceptance criteria: Every create/rotate/revoke/scope-change appends to `api_key_audit(id, api_key_id, tenant_id, actor, action, before, after, ts)`; append-only (no UPDATE/DELETE); admin endpoint to read; covered by tests.
   - Implementation criteria: D1 append-only table + hash-chain `prev_hash` for tamper evidence; mirror to Axiom for retention.
@@ -861,7 +861,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002
   - Related files: src/services/audit.ts, supabase/migrations/
 
-- [ ] LOOP-API-017: Customer developer portal (self-serve key management UI) [auto]
+- [ ] LOOP-API-017: Customer developer portal (self-serve key management UI) [parked]
   - Why: Customers must create/rotate/revoke their own keys without contacting support.
   - Acceptance criteria: `/admin/api-keys` (tenant-scoped) lists keys, create dialog with scope/env/quota, rotate + revoke with confirm; secret shown once with copy; respects RBAC; E2E from homepage → create → see masked key.
   - Implementation notes: Angular standalone component reusing `DialogShellComponent`; cyan/black tokens; ConfirmService danger on revoke.
@@ -871,7 +871,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-002, LOOP-API-004
   - Related files: frontend admin section, src/routes/api.ts
 
-- [ ] LOOP-API-018: Customer-facing API usage dashboard (per-key analytics) [auto]
+- [ ] LOOP-API-018: Customer-facing API usage dashboard (per-key analytics) [parked]
   - Why: Customers need to see request volume, error rate, quota remaining, top routes.
   - Acceptance criteria: Dashboard charts pull from Tinybird endpoints (requests/day, error %, remaining quota, p95 latency) filtered by key; empty + load states; deep-linkable `?key=&range=`; E2E asserts charts render.
   - Implementation notes: Reuse rolling-counter + admin chart patterns; Tinybird endpoint per metric; visibility-aware polling.
@@ -881,7 +881,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-012, LOOP-API-017
   - Related files: frontend admin section, src/services/analytics_query.ts
 
-- [ ] LOOP-API-019: OpenAPI 3.1 spec + Scalar reference at docs.projectsites.dev/api [auto]
+- [ ] LOOP-API-019: OpenAPI 3.1 spec + Scalar reference at docs.projectsites.dev/api [parked]
   - Why: A public, accurate API reference is table stakes for developer adoption + drives SDK generation.
   - Acceptance criteria: Hand-maintained-but-validated OpenAPI for all `/api/v1/*` routes lints clean via Redocly; Scalar UI served; auth scheme documents Bearer key + scopes; CI fails on spec drift vs routes.
   - Implementation notes: Generate route inventory, diff against spec in CI; serve Scalar static from R2; link from developer portal.
@@ -891,7 +891,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-003
   - Related files: openapi spec file, docs site, .github/workflows/
 
-- [ ] LOOP-API-020: SDK auth quickstarts + copy-paste snippets (curl/TS/Python) [auto]
+- [ ] LOOP-API-020: SDK auth quickstarts + copy-paste snippets (curl/TS/Python) [parked]
   - Why: Reduce time-to-first-call; show exactly how to send the Bearer key + handle 401/429.
   - Acceptance criteria: Snippet blocks rendered in portal + docs for curl, fetch/TS, Python; include retry-on-429 and rotation guidance; snippets are tested against a live test key in CI smoke.
   - Implementation notes: Generate from OpenAPI examples; embed in Scalar; pull `psk_test_` example key.
@@ -901,7 +901,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-019
   - Related files: docs site, frontend portal
 
-- [ ] LOOP-API-021: Read-only / reporting keys (scope = analytics read) [auto]
+- [ ] LOOP-API-021: Read-only / reporting keys (scope = analytics read) [parked]
   - Why: Dashboards, BI tools, and partners often need read-only access without mutation power.
   - Acceptance criteria: `permissions=['read:*']` keys rejected on any write route by middleware; verifyKey surfaces read-only flag; create UI offers a "read-only" toggle; E2E: read-only key 403→404-safe on a POST.
   - Implementation notes: Enforce in `apiKeyAuth` by method+permission match; default deny.
@@ -911,7 +911,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-005, LOOP-API-003
   - Related files: src/middleware/, src/services/unkey.ts
 
-- [ ] LOOP-API-022: Service-to-service keys for internal platform calls (crm/mail/jobs/social) [auto]
+- [ ] LOOP-API-022: Service-to-service keys for internal platform calls (crm/mail/jobs/social) [parked]
   - Why: Internal subsystems calling each other should use scoped S2S keys, not the global root key.
   - Acceptance criteria: `scope_namespace=s2s` keys per internal service with least-privilege permissions; rotation automated via secret-provisioning; verifyKey tags `actor_type='service'`; no S2S key grants customer-data write outside its service.
   - Implementation notes: Issue one S2S key per subsystem; store in Worker secrets; rotate on the vendor-rotation calendar.
@@ -921,7 +921,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-005
   - Related files: src/services/unkey.ts, secret-provisioning manifest
 
-- [ ] LOOP-API-023: Abuse + anomaly detection on key usage (spike/geo/error-rate) [auto]
+- [ ] LOOP-API-023: Abuse + anomaly detection on key usage (spike/geo/error-rate) [parked]
   - Why: Catch leaked or abused keys before they rack up cost or damage.
   - Acceptance criteria: Scheduled job queries Tinybird for per-key anomalies (sudden 10x spike, error-rate >50%, new-geo burst); flags + optionally auto-throttles via Unkey quota; emits actionable notification with remediation; test on synthetic spike.
   - Implementation notes: Reuse `auth_anomaly.ts` patterns; Tinybird anomaly query; notify via psnotify + Hookdeck outbound webhook to customer.
@@ -931,7 +931,7 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-012, LOOP-API-011
   - Related files: src/services/auth_anomaly.ts, src/services/unkey.ts
 
-- [ ] LOOP-API-024: Admin override + impersonation-safe key inspection (platform operator) [auto]
+- [ ] LOOP-API-024: Admin override + impersonation-safe key inspection (platform operator) [parked]
   - Why: As operator I must inspect, suspend, or emergency-revoke any tenant's keys during incidents, with a full audit trail.
   - Acceptance criteria: `/admin/system/api-keys` (platform-operator only) lists ALL keys across tenants, suspend/revoke with mandatory reason; never reveals raw secret; every action audited as operator action; E2E proves operator-only gating.
   - Implementation notes: Separate operator RBAC tier (not tenant owner); writes to audit with `actor='operator:<email>'`; suspend = Unkey disable, not delete.
@@ -1447,7 +1447,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-HOOK-001: Canonical platform event envelope + Zod registry (`PlatformEvent` SSOT) [auto]
+- [ ] LOOP-HOOK-001: Canonical platform event envelope + Zod registry (`PlatformEvent` SSOT) [parked]
   - Why: Every subsystem currently emits ad-hoc shapes into `event_bus`; a single typed envelope makes signing, replay, fanout, and customer delivery uniform and is the primitive all other HOOK tasks build on.
   - Acceptance criteria: `PlatformEvent` Zod schema with `id` (UUIDv7), `type` (dot.namespaced enum e.g. `site.published`), `version` (semver), `tenant_id`, `occurred_at`, `idempotency_key`, `correlation` block (trace_id/site_id/app_id/api_key_id/request_id), `data` (per-type discriminated union); a frozen `EVENT_TYPE_REGISTRY` listing every emitted type with its data schema; `parsePlatformEvent()` round-trips and rejects unknown types; published from `packages/shared/src/schemas/events.ts`.
   - Implementation notes: Discriminated union keyed on `type`; version every payload so transformations/replay can target old shapes; export `EventType` literal union for exhaustive switch checks.
@@ -1457,7 +1457,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: None — foundational.
   - Related files: `packages/shared/src/schemas/events.ts`, `apps/project-sites/src/services/db.ts` (event_bus writer).
 
-- [ ] LOOP-HOOK-002: `emitEvent()` outbox writer wired to existing D1 `event_bus` [auto]
+- [ ] LOOP-HOOK-002: `emitEvent()` outbox writer wired to existing D1 `event_bus` [parked]
   - Why: Subsystems need one safe, idempotent call to publish a `PlatformEvent`; centralizing it guarantees envelope validation, idempotency, and correlation capture at the single write point.
   - Acceptance criteria: `emitEvent(c, type, data, opts?)` validates via LOOP-HOOK-001, computes `idempotency_key` (default `hash(type+tenant_id+stableData)`), inserts into `event_bus` with `status='pending'`, dedupes on `(tenant_id, idempotency_key)` via `INSERT … ON CONFLICT DO NOTHING WHERE deleted_at IS NULL`; returns the stored row; unit tests cover dedupe + validation failure.
   - Implementation notes: Pull `correlation` from Hono context vars (request_id/trace_id/tenant_id) automatically; never throw into the request path — failures logged + counted, not surfaced to caller.
@@ -1467,7 +1467,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001.
   - Related files: `apps/project-sites/src/services/events.ts`, `apps/project-sites/src/services/db.ts`.
 
-- [ ] LOOP-HOOK-003: Outpost outbound-delivery service on Cloudflare Workers Containers [auto]
+- [ ] LOOP-HOOK-003: Outpost outbound-delivery service on Cloudflare Workers Containers [parked]
   - Why: Outpost (open-source, Go) is the chosen outbound delivery engine; standing it up gives customers real webhook delivery with retries/DLQ without building from scratch and without Svix.
   - Acceptance criteria: Outpost runs as a Container-DO reachable at `webhooks.projectsites.dev` (internal admin API on private route); config points at Neon Postgres + Upstash Redis; `/healthz` 200; a smoke publish results in one delivered test event to a mock endpoint; image built on amd64 CI per CF native-arch rule.
   - Implementation notes: Outpost needs Postgres + Redis + a log/stream — use Upstash Kafka for its event log (needs decision: Kafka vs Redis-streams mode). Container default chosen; revisit Fly ONLY if sustained 24-7 delivery load or long-lived consumer connections exceed Container request/duration limits — state that in the ADR.
@@ -1477,7 +1477,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001.
   - Related files: `apps/project-sites/containers/outpost/Dockerfile`, `apps/project-sites/wrangler.toml`, `docs/decisions/outpost-hosting.md`.
 
-- [ ] LOOP-HOOK-004: Bot-Fight-Mode-safe inbound receiver host [auto]
+- [ ] LOOP-HOOK-004: Bot-Fight-Mode-safe inbound receiver host [parked]
   - Why: Repo memory — CF Bot Fight Mode challenges inbound M2M webhooks; without a safe host every external provider webhook (Stripe/SNS/etc.) silently fails the challenge.
   - Acceptance criteria: Inbound receiver served on a dedicated host that bypasses BFM — either a `*.workers.dev` URL OR a zone WAF skip rule scoped to the receiver host/paths; an automated test posts an unsigned request and asserts 200 (no challenge HTML); decision + rule documented.
   - Implementation notes: Prefer the WAF skip on `webhooks.projectsites.dev/in/*` (mirrors the existing `/api/mcp` + `/oauth/*` skip rule) so the customer-facing host stays branded; fall back to workers.dev if WAF skip can't be scoped tightly (needs decision).
@@ -1487,7 +1487,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: None (infra), unblocks LOOP-HOOK-005+.
   - Related files: `apps/project-sites/src/routes/webhooks_in.ts`, `apps/project-sites/wrangler.toml` (routes), WAF rule (CF API).
 
-- [ ] LOOP-HOOK-005: Hookdeck inbound gateway integration + connection registry [auto]
+- [ ] LOOP-HOOK-005: Hookdeck inbound gateway integration + connection registry [parked]
   - Why: Hookdeck fronts inbound webhooks (ingestion, retries, fan-in) so the Worker only handles verified, deduped events; a registry maps each Hookdeck source to its handler.
   - Acceptance criteria: Hookdeck source → destination connection points at the LOOP-HOOK-004 receiver; a typed `INBOUND_SOURCE_REGISTRY` maps `source_name → {verifier, normalizer→PlatformEvent}`; Hookdeck signature verified on every inbound; one real provider (Stripe) end-to-end produces a normalized `PlatformEvent`.
   - Implementation notes: Verify Hookdeck's own signature first, then the original provider signature (double-verify); normalize into LOOP-HOOK-001 envelope before anything else touches it.
@@ -1497,7 +1497,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-004.
   - Related files: `apps/project-sites/src/services/inbound_registry.ts`, `apps/project-sites/src/routes/webhooks_in.ts`.
 
-- [ ] LOOP-HOOK-006: Shared HMAC signing + verification library (`webhook-sig`) [auto]
+- [ ] LOOP-HOOK-006: Shared HMAC signing + verification library (`webhook-sig`) [parked]
   - Why: Both inbound verification and outbound customer signing need one constant-time, versioned signature primitive; duplicating crypto per call site is the classic footgun.
   - Acceptance criteria: `signPayload(secret, body, {ts})` → `t=<unix>,v1=<hex>` header; `verifySignature(secret, body, header, {toleranceSec})` constant-time compare with replay-window guard; supports key rotation (accepts multiple active secrets); Web Crypto only (Workers-compatible); 100% branch test coverage incl. tampered body, stale timestamp, rotated key.
   - Implementation notes: Stripe-style `t=,v1=` scheme so customers reuse existing libs; export both Worker (Web Crypto) and a documented parity for Outpost's signer (needs decision: let Outpost sign natively vs Worker pre-signs).
@@ -1507,7 +1507,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: None.
   - Related files: `packages/shared/src/utils/webhook-sig.ts`.
 
-- [ ] LOOP-HOOK-007: Customer endpoint management (CRUD + per-event-type subscription) [auto]
+- [ ] LOOP-HOOK-007: Customer endpoint management (CRUD + per-event-type subscription) [parked]
   - Why: Customers must register, edit, and disable their outbound webhook endpoints and choose which event types they receive — core product surface for outbound webhooks.
   - Acceptance criteria: D1 `webhook_endpoints` (tenant_id, url, description, status, subscribed_types[], created_at); REST `POST/GET/PATCH/DELETE /api/webhooks/endpoints`; Zod-validated `url` (https-only, no private IPs — SSRF guard); subscription stored as type globs (`billing.*`); admin UI list + form via `DialogShellComponent`; every mutation tenant-scoped via `c.get('orgId')` (never client header).
   - Implementation notes: Reuse Outpost's destination model where possible — Worker CRUD is the system-of-record, syncs to Outpost via its admin API; SSRF allowlist/denylist per `server-fetched-url-validation` memory.
@@ -1517,7 +1517,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-003.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, `libs/features/customer_webhooks/`, admin component.
 
-- [ ] LOOP-HOOK-008: Per-endpoint signing secret generation + rotation [auto]
+- [ ] LOOP-HOOK-008: Per-endpoint signing secret generation + rotation [parked]
   - Why: Each customer endpoint needs its own secret so they can verify our deliveries; rotation must be zero-downtime (overlap window) to avoid breaking live receivers.
   - Acceptance criteria: On endpoint create, generate `whsec_<random>`; `POST /api/webhooks/endpoints/:id/rotate-secret` issues a new secret while keeping the old valid for a configurable grace window (default 24h, both signed during overlap); secret shown once, stored hashed-at-rest reference + encrypted material; UI surfaces "rotate" with grace-window copy.
   - Implementation notes: During overlap, sign with BOTH secrets (two `v1=` values) per LOOP-HOOK-006 multi-key support so customers cut over seamlessly.
@@ -1527,7 +1527,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-006, LOOP-HOOK-007.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, `packages/shared/src/utils/webhook-sig.ts`.
 
-- [ ] LOOP-HOOK-009: Retry policy engine (exponential backoff + jitter, per-endpoint override) [auto]
+- [ ] LOOP-HOOK-009: Retry policy engine (exponential backoff + jitter, per-endpoint override) [parked]
   - Why: Customer endpoints fail transiently; a deterministic, bounded retry schedule with jitter is the difference between resilient delivery and thundering-herd self-DDoS.
   - Acceptance criteria: Default schedule (e.g. 0s,30s,2m,10m,1h,6h,24h then DLQ) configurable per endpoint; jitter ±20%; retries triggered on 5xx/timeout/connection-error, NOT on 4xx (except 429 honoring Retry-After); attempt count + next_attempt_at persisted; unit tests assert schedule + jitter bounds + 4xx-no-retry.
   - Implementation notes: Lean on Outpost's native retry engine where it covers this; expose per-endpoint overrides through Worker config that syncs to Outpost. For Worker-side internal fanout retries, use Upstash QStash schedules as the timer.
@@ -1537,7 +1537,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-003, LOOP-HOOK-010.
   - Related files: `apps/project-sites/src/services/delivery_policy.ts`, Outpost config.
 
-- [ ] LOOP-HOOK-010: Tenant-isolated delivery-log store + customer-facing log API [auto]
+- [ ] LOOP-HOOK-010: Tenant-isolated delivery-log store + customer-facing log API [parked]
   - Why: Customers need to see every attempt for their endpoints (status, response code, latency, body snippet) to self-debug — and it MUST be strictly tenant-isolated.
   - Acceptance criteria: Delivery attempts persisted (event_id, endpoint_id, tenant_id, attempt_no, http_status, duration_ms, request/response headers+truncated body, error_code, timestamp); `GET /api/webhooks/deliveries?endpoint_id=&status=&since=` returns ONLY the caller's tenant rows (orgId from context); cursor pagination; redaction of secrets/PII in stored bodies; E2E proves tenant A cannot read tenant B's logs.
   - Implementation notes: Write attempts to Tinybird (high-volume, analytics-friendly) as system-of-record for logs, with a hot recent slice in D1/Upstash for fast UI; truncate bodies to a cap, offload full payloads to R2 keyed `deliveries/{tenant_id}/{event_id}/{attempt}.json`.
@@ -1547,7 +1547,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-003, LOOP-HOOK-001.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, Tinybird datasource `webhook_deliveries`, `apps/project-sites/src/services/delivery_logs.ts`.
 
-- [ ] LOOP-HOOK-011: Event replay engine (single + bulk, by filter) [auto]
+- [ ] LOOP-HOOK-011: Event replay engine (single + bulk, by filter) [parked]
   - Why: When an endpoint was down or buggy, customers and admins must replay missed events without duplicating side effects elsewhere — a core reliability primitive.
   - Acceptance criteria: `POST /api/webhooks/deliveries/:id/replay` re-delivers one event; `POST /api/webhooks/replay` with filter (endpoint_id, type, time range, status=failed) bulk-replays; replays carry original `event_id` + a new `delivery_id` + `replayed_from` header so receivers can dedupe; replays respect current endpoint config; bulk replay is rate-capped + previewed (count before confirm).
   - Implementation notes: Replay reads from `event_bus`/Tinybird, re-enqueues through the same delivery path; idempotency_key preserved so well-behaved receivers no-op duplicates.
@@ -1557,7 +1557,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-010, LOOP-HOOK-003.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, `apps/project-sites/src/services/replay.ts`.
 
-- [ ] LOOP-HOOK-012: Dead-letter queue + automatic disable of dead endpoints [auto]
+- [ ] LOOP-HOOK-012: Dead-letter queue + automatic disable of dead endpoints [parked]
   - Why: Endpoints that exhaust retries must land in a DLQ (not vanish) and chronically-failing endpoints must auto-disable to stop wasting delivery budget and to alert the customer.
   - Acceptance criteria: After final retry, event lands in DLQ table (tenant-scoped) with last error; endpoint auto-disables after configurable consecutive-failure threshold (default 50 over 24h) → status `disabled_unhealthy` + customer notification; DLQ items are replayable (reuses LOOP-HOOK-011); admin + customer DLQ views.
   - Implementation notes: Mirror Upstash QStash DLQ semantics; store DLQ in R2 (full payload) + index in D1/Tinybird; auto-disable decision evaluated on each terminal failure.
@@ -1567,7 +1567,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-009, LOOP-HOOK-011.
   - Related files: `apps/project-sites/src/services/dlq.ts`, admin + customer DLQ components.
 
-- [ ] LOOP-HOOK-013: Webhook testing UI — send test event + live inspector [auto]
+- [ ] LOOP-HOOK-013: Webhook testing UI — send test event + live inspector [parked]
   - Why: Customers can't trust a webhook they can't test; a "Send test event" button + live request inspector dramatically cuts setup friction and support load.
   - Acceptance criteria: Admin/customer UI to pick an event type, edit a sample payload (pre-filled from registry example), fire to a chosen endpoint, and see the live attempt result (status, latency, response body) inline; a unique inspector URL (ephemeral, like RequestBin) lets customers point a source at us and watch raw requests arrive in real time; gorgeous cyan/black per brand.
   - Implementation notes: Inspector backed by a Durable Object holding the last N captured requests per ephemeral token (TTL'd); SSE/WebSocket stream to the UI; sample payloads sourced from EVENT_TYPE_REGISTRY examples.
@@ -1577,7 +1577,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-007, LOOP-HOOK-010.
   - Related files: `libs/features/customer_webhooks/inspector/`, `apps/project-sites/src/routes/webhooks.ts`, inspector DO.
 
-- [ ] LOOP-HOOK-014: App lifecycle event source (site/app create, deploy, publish, delete) [auto]
+- [ ] LOOP-HOOK-014: App lifecycle event source (site/app create, deploy, publish, delete) [parked]
   - Why: The most-wanted customer webhooks are "my site published / deploy finished"; wiring lifecycle into the envelope makes the platform's core actions observable and automatable.
   - Acceptance criteria: Emit `site.created`, `site.published`, `site.deploy.succeeded/failed`, `site.deleted`, `app.provisioned/deprovisioned` via `emitEvent()` at the real state-transition points; each has a registered Zod data schema + example; an E2E publishing a site asserts `site.published` reaches a subscribed test endpoint.
   - Implementation notes: Hook into existing site-generation workflow + deploy paths; emit AFTER the durable state change commits (outbox pattern) so events never lie.
@@ -1587,7 +1587,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-002.
   - Related files: `apps/project-sites/src/workflows/site-generation.ts`, `apps/project-sites/src/services/site_serving.ts`, `events.ts`.
 
-- [ ] LOOP-HOOK-015: Billing event source (Stripe-derived → normalized platform events) [auto]
+- [ ] LOOP-HOOK-015: Billing event source (Stripe-derived → normalized platform events) [parked]
   - Why: Customers want `invoice.paid`, `subscription.updated`, `payment.failed` on THEIR endpoints without integrating Stripe directly; we re-emit normalized, tenant-scoped billing events.
   - Acceptance criteria: Existing Stripe webhook handler maps relevant Stripe events → `billing.*` PlatformEvents scoped to the owning tenant; sensitive fields stripped (no raw card/PII); subscribed customers receive normalized events; E2E with a Stripe test event asserts a `billing.invoice.paid` delivery.
   - Implementation notes: Reuse the existing Stripe webhook receiver; map → envelope → emitEvent; resolve tenant_id from Stripe customer metadata.
@@ -1597,7 +1597,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-002, LOOP-HOOK-004.
   - Related files: `apps/project-sites/src/routes/webhooks.ts` (stripe), `events.ts`.
 
-- [ ] LOOP-HOOK-016: API key lifecycle event source (created, rotated, revoked, used-first-time) [auto]
+- [ ] LOOP-HOOK-016: API key lifecycle event source (created, rotated, revoked, used-first-time) [parked]
   - Why: Security-conscious customers want notifications on key events; these also feed audit + anomaly detection across the platform.
   - Acceptance criteria: Emit `apikey.created`, `apikey.rotated`, `apikey.revoked`, `apikey.first_use`, `apikey.suspicious_use` at the real key-management code paths; payloads carry `api_key_id` (never the secret); subscribed endpoints receive them; unit test asserts secret never appears in payload.
   - Implementation notes: Hook into the existing API-key service; `first_use`/`suspicious_use` derived from request telemetry (new IP/ASN).
@@ -1607,7 +1607,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-002.
   - Related files: `apps/project-sites/src/services/auth.ts`, `events.ts`.
 
-- [ ] LOOP-HOOK-017: Provisioning + domain event source (custom domain, DNS, TLS, service provisioning) [auto]
+- [ ] LOOP-HOOK-017: Provisioning + domain event source (custom domain, DNS, TLS, service provisioning) [parked]
   - Why: Long-running provisioning (custom domains, TLS issuance, container app provisioning) is exactly where customers want async notifications instead of polling.
   - Acceptance criteria: Emit `domain.added`, `domain.verified`, `domain.tls.issued`, `domain.failed`, `provisioning.started/succeeded/failed` from the domains + provisioning services; payloads carry domain + status + failure_reason; E2E adding a domain asserts `domain.added` delivery.
   - Implementation notes: Wire into existing `services/domains.ts`; TLS/verification transitions emit on the actual CF API callback/poll resolution.
@@ -1617,7 +1617,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-002.
   - Related files: `apps/project-sites/src/services/domains.ts`, `events.ts`.
 
-- [ ] LOOP-HOOK-018: Integrated-service event ingestion (Listmonk, Postiz, Chatwoot, CRM) [auto]
+- [ ] LOOP-HOOK-018: Integrated-service event ingestion (Listmonk, Postiz, Chatwoot, CRM) [parked]
   - Why: The platform's bundled services emit their own webhooks; normalizing them into the envelope lets customers subscribe to `email.*`, `social.*`, `chat.*`, `crm.*` through ONE unified webhook system instead of N vendor integrations.
   - Acceptance criteria: Inbound receivers + normalizers for Listmonk (campaign/bounce/subscriber), Postiz (post published/failed), Chatwoot (conversation/message), and CRM (contact/deal) events; each verifies the source signature, maps to a registered `PlatformEvent` type, resolves tenant_id, and emits; one E2E per source proves normalization.
   - Implementation notes: Register each in `INBOUND_SOURCE_REGISTRY` (LOOP-HOOK-005); Listmonk/Chatwoot/Postiz are self-hosted so signature schemes are ours to set — use HMAC shared secret per LOOP-HOOK-006; CRM is Twenty.
@@ -1637,7 +1637,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-007, LOOP-HOOK-003.
   - Related files: `apps/project-sites/src/services/transform.ts`, customer_webhooks UI.
 
-- [ ] LOOP-HOOK-020: Per-endpoint + per-tenant delivery rate limiting [auto]
+- [ ] LOOP-HOOK-020: Per-endpoint + per-tenant delivery rate limiting [parked]
   - Why: A customer's fragile endpoint or a noisy event spike must not be hammered; rate limiting protects both their infra and our delivery budget.
   - Acceptance criteria: Configurable max deliveries/sec + concurrency per endpoint (default e.g. 50/s, 10 concurrent); excess queued (not dropped) and paced; per-tenant global ceiling; 429 from a customer endpoint with Retry-After is honored; tests assert pacing under burst.
   - Implementation notes: Use Upstash Redis sliding-window counters (per `rate-limiting-plan-gated` memory — CF managed RL doesn't enforce on this plan, so DO/Redis counter is the fix); Outpost concurrency caps where supported.
@@ -1647,7 +1647,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-003, LOOP-HOOK-007.
   - Related files: `apps/project-sites/src/services/delivery_policy.ts`, `apps/project-sites/src/middleware/`.
 
-- [ ] LOOP-HOOK-021: Webhook fanout + ordering guarantees [auto]
+- [ ] LOOP-HOOK-021: Webhook fanout + ordering guarantees [parked]
   - Why: One platform event often targets many subscribed endpoints; fanout must be efficient, isolated (one slow endpoint can't block others), and offer per-endpoint ordering where it matters.
   - Acceptance criteria: A single `PlatformEvent` fans out to all matching endpoints (type-glob match) as independent delivery jobs; per-endpoint FIFO ordering option (default best-effort, optional strict-ordered via partition key = endpoint_id); slow/failing endpoint does not delay siblings; test asserts isolation + ordered mode preserves sequence.
   - Implementation notes: Use Upstash Kafka partitioned by endpoint_id for strict ordering; default path is independent QStash/Outpost jobs. Matching uses subscribed_types globs from LOOP-HOOK-007.
@@ -1657,7 +1657,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-001, LOOP-HOOK-007, LOOP-HOOK-003.
   - Related files: `apps/project-sites/src/services/fanout.ts`, Outpost config.
 
-- [ ] LOOP-HOOK-022: Strict multi-tenant isolation guardrails + tests across the whole webhook plane [auto]
+- [ ] LOOP-HOOK-022: Strict multi-tenant isolation guardrails + tests across the whole webhook plane [parked]
   - Why: Customer-facing delivery logs, endpoints, secrets, and replays are prime IDOR targets; isolation must be enforced and continuously proven, not assumed.
   - Acceptance criteria: Every webhook read/write derives tenant_id from `c.get('orgId')` (NEVER a client `x-org-id` header) per x-org-id-IDOR memory; a shared `assertTenantOwns(resource, orgId)` guard wraps endpoint/delivery/DLQ/replay access; a dedicated E2E suite attempts cross-tenant access on every webhook route and asserts 404; storage keys (R2/Tinybird) are tenant-prefixed.
   - Implementation notes: Add a detector grep (per audit-arc memory) for any webhook handler reading orgId from headers/body; run tree-wide in CI.
@@ -1667,7 +1667,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-007, LOOP-HOOK-010, LOOP-HOOK-011, LOOP-HOOK-012.
   - Related files: `apps/project-sites/src/middleware/`, `apps/project-sites/src/routes/webhooks.ts`, `e2e/webhooks/`.
 
-- [ ] LOOP-HOOK-023: Admin incident console (fleet health, stuck queues, force-disable/replay) [auto]
+- [ ] LOOP-HOOK-023: Admin incident console (fleet health, stuck queues, force-disable/replay) [parked]
   - Why: As solo operator you need one screen to see delivery health across all tenants and intervene fast during an incident (provider outage, mass failures, a tenant flooding the bus).
   - Acceptance criteria: `/admin/webhooks` cockpit (cyan/black) showing: global delivery success/failure rates, top failing endpoints, DLQ depth, queue backlog/age, per-source inbound volume; admin actions to force-disable an endpoint, bulk-replay a tenant's failed deliveries, pause a noisy source, and drain/requeue the DLQ; all actions audit-logged + confirm-guarded (danger-default).
   - Implementation notes: Metrics from Tinybird endpoints (`mcp__tinybird` style queries); visibility-aware polling (pause on `document.hidden`); reuse ConfirmService danger-default + error-card patterns.
@@ -1677,7 +1677,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-010, LOOP-HOOK-011, LOOP-HOOK-012, LOOP-HOOK-005.
   - Related files: `apps/project-sites/src/app/.../admin/sections/webhooks/`, `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-HOOK-024: Outbound webhook docs portal + verification snippets + OpenAPI/AsyncAPI spec [auto]
+- [ ] LOOP-HOOK-024: Outbound webhook docs portal + verification snippets + OpenAPI/AsyncAPI spec [parked]
   - Why: A webhook product is only usable if customers can self-serve: signed-request verification code, event-type catalog, and a machine-readable spec so they can codegen receivers — this is the distribution lever.
   - Acceptance criteria: Auto-generated event catalog from EVENT_TYPE_REGISTRY (type, version, schema, example) rendered in customer docs; copy-paste signature-verification snippets in Node/Python/Go/PHP using the LOOP-HOOK-006 scheme; an AsyncAPI spec published + downloadable; docs stay in sync via a generator (registry change → docs rebuild) so drift is impossible.
   - Implementation notes: Generate AsyncAPI from the Zod registry (zod→json-schema); host docs under the customer dashboard; pairs with `forge-webhook-skill` for customers who want a scaffolded receiver.
@@ -1759,7 +1759,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-NANGO-001: Stand up Nango control-plane (OAuth broker + proxy) on Cloudflare Workers Containers [auto]
+- [ ] LOOP-NANGO-001: Stand up Nango control-plane (OAuth broker + proxy) on Cloudflare Workers Containers [parked]
   - Why: Nango's API/proxy/OAuth-broker is the foundation every other integration task depends on; without it there is no place to store connections or run flows.
   - Acceptance criteria: Nango server container reachable at `integrations.projectsites.dev`, `/health` returns 200, admin API key minted, a single test OAuth provider (Google) completes the connect→callback→token-store round trip end to end.
   - Implementation notes: Run the Nango Node server image as a CF Workers Container DO; front it with the platform Worker (Hono) which proxies `/api/integrations/*`. Pin image digest, multi-stage Dockerfile, non-root, Hadolint-clean per docker-slim doctrine. Do NOT mount /dev/shm assumptions — mkdir in entrypoint.
@@ -1769,7 +1769,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: none (root task).
   - Related files: `apps/project-sites/containers/nango/Dockerfile`, `apps/project-sites/wrangler.toml`, `apps/project-sites/src/services/nango.ts`, `docs/decisions/nango-architecture.md`.
 
-- [ ] LOOP-NANGO-002: Encrypted per-tenant connection store + Zod connection record schema [auto]
+- [ ] LOOP-NANGO-002: Encrypted per-tenant connection store + Zod connection record schema [parked]
   - Why: A single canonical, encrypted connection record (tenant→site→provider→credentials+metadata) is the compounding primitive every health/refresh/reconnect/AI-action feature reads from.
   - Acceptance criteria: D1 `integration_connections` table + Zod `ConnectionRecord` schema; secrets encrypted at rest (envelope encryption); CRUD service with tenant-scoped reads; no plaintext token ever leaves the worker; unit tests cover encrypt/decrypt round trip + tenant isolation.
   - Implementation notes: Store Nango's `connectionId` + provider config key + scopes + status; mirror minimal metadata in D1 for fast per-site status queries while Nango/Neon holds the authoritative credential blob. Envelope key from `wrangler secret` + Web Crypto AES-GCM. orgId from `c.get('orgId')` NEVER client header (IDOR per x-org-id rule).
@@ -1779,7 +1779,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-001.
   - Related files: `apps/project-sites/migrations/00xx_integration_connections.sql`, `packages/shared/src/schemas/integration.ts`, `apps/project-sites/src/services/connection_store.ts`.
 
-- [ ] LOOP-NANGO-003: Generic OAuth connect/callback route pair with paste-key fallback [auto]
+- [ ] LOOP-NANGO-003: Generic OAuth connect/callback route pair with paste-key fallback [parked]
   - Why: Every provider needs a uniform connect flow; reusing one route pair (vs per-provider handlers) prevents the Hono wildcard-shadow bug class and compounds across all integrations.
   - Acceptance criteria: `GET /api/integrations/:provider/connect` initiates Nango OAuth (PKCE where supported); `GET /api/integrations/:provider/callback` finalizes; missing `{PROVIDER}_OAUTH_CLIENT_ID` falls back to a paste-key form + toast (per MCP OAuth-first pattern); specific provider routes registered BEFORE the `:provider` wildcard with `next()` fall-through.
   - Implementation notes: Reuse forge-oauth-callback scaffold shape; state param carries signed tenant_id+site_id; KV (60s) caches in-flight state. Honor Nango's hosted-auth where it simplifies.
@@ -1789,7 +1789,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-001, LOOP-NANGO-002.
   - Related files: `apps/project-sites/src/routes/integrations.ts`, `apps/project-sites/src/services/nango.ts`.
 
-- [ ] LOOP-NANGO-004: Credential-refresh engine (unified token refresh + expiry scheduler) [auto]
+- [ ] LOOP-NANGO-004: Credential-refresh engine (unified token refresh + expiry scheduler) [parked]
   - Why: Expired tokens are the #1 cause of silent integration failure; one refresh engine serving all providers is a core reusable primitive.
   - Acceptance criteria: Cron-triggered scan refreshes tokens nearing expiry; refresh failures mark connection `degraded` and enqueue a reconnect notification; idempotent + retry-with-backoff; throttled `last_refresh_at` write to avoid hot-row churn; unit tests for near-expiry selection + failure path.
   - Implementation notes: Prefer Nango's built-in refresh where available; engine wraps it and owns scheduling + status transitions. CF Cron Trigger every 5–10 min; per-connection lock via Upstash to avoid double refresh.
@@ -1799,7 +1799,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-002.
   - Related files: `apps/project-sites/src/services/credential_refresh.ts`, `apps/project-sites/wrangler.toml` (cron), `apps/project-sites/src/__tests__/credential_refresh.test.ts`.
 
-- [ ] LOOP-NANGO-005: Sync runtime decision + orchestration spine (CF Workflows/Queues first; Fly+Temporal escape hatch) [auto]
+- [ ] LOOP-NANGO-005: Sync runtime decision + orchestration spine (CF Workflows/Queues first; Fly+Temporal escape hatch) [parked]
   - Why: Nango cloud relies on Temporal for long-running incremental syncs; Workers cannot host Temporal — this task chooses and builds the orchestration spine the sync providers plug into.
   - Acceptance criteria: A documented decision (needs decision) selecting CF Workflows + Queues as the default sync orchestrator; a `SyncJob` Zod contract + dispatcher that runs a provider sync as a Workflow with checkpointing; explicit written criteria for when a sync MUST move to the Fly.io+Temporal escape hatch (e.g., >30s continuous runtime, stateful cursors requiring durable timers beyond Workflow limits, or high-frequency CDC).
   - Implementation notes: Default path: each sync = one CF Workflow instance, paginated pulls checkpointed between steps, Queue for fan-out. Escape hatch (Fly.io + Temporal) ONLY for providers whose incremental sync genuinely exceeds Workflow step/time limits — justified per neon/Temporal note, never default. Prefer chunked cursor-based pulls to stay inside CF limits.
@@ -1809,7 +1809,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-001, LOOP-NANGO-002.
   - Related files: `apps/project-sites/src/workflows/integration-sync.ts`, `apps/project-sites/src/services/sync_dispatch.ts`, `docs/decisions/nango-sync-runtime.md`.
 
-- [ ] LOOP-NANGO-006: Sync-run observability spine on Tinybird [auto]
+- [ ] LOOP-NANGO-006: Sync-run observability spine on Tinybird [parked]
   - Why: Sync visibility (records pulled, duration, errors, lag) is required UX and ops; a single observability spine compounds across every provider sync.
   - Acceptance criteria: Tinybird datasource `integration_sync_runs` ingesting one row per run (connection_id, provider, started_at, records, status, error_code, duration_ms, cursor); endpoint `sync_runs_by_connection` powers admin charts; pipe for failure-rate by provider.
   - Implementation notes: Sync dispatcher writes to Tinybird via events API at run start/end; also mirror last-run summary into D1 for instant per-site status without a Tinybird round trip.
@@ -1829,7 +1829,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-004, LOOP-NANGO-006.
   - Related files: `apps/project-sites/src/services/integration_health.ts`, `apps/project-sites/src/__tests__/integration_health.test.ts`.
 
-- [ ] LOOP-NANGO-008: Per-site integration status panel (admin UI, Angular) [auto]
+- [ ] LOOP-NANGO-008: Per-site integration status panel (admin UI, Angular) [parked]
   - Why: The solo founder and site owners need a single glanceable view of every connection's health per site; this is the primary integrations UX surface.
   - Acceptance criteria: `/admin/sites/:id/integrations` lists connections with health badge, last sync, scopes, and reconnect CTA; loading skeleton + error-card (Retry + request_id); empty state with cyan-halo; behind feature flag `integrations_panel`.
   - Implementation notes: Reads health + last-run from D1 mirror (fast); cyan/black tokens from `_polish.scss`; rolling-counter for connection/synced-record counts; Karma spec with provideRouter.
@@ -1839,7 +1839,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-007.
   - Related files: `apps/project-sites/frontend/.../sites/integrations/`, `libs/features/integrations_panel/manifest.ts`, `e2e/integrations_panel/`.
 
-- [ ] LOOP-NANGO-009: Customer self-serve reconnect flow [auto]
+- [ ] LOOP-NANGO-009: Customer self-serve reconnect flow [parked]
   - Why: When a connection breaks, the owner must fix it without founder intervention; self-serve reconnect is the highest-leverage solo-founder UX.
   - Acceptance criteria: A degraded/expired connection shows a one-click "Reconnect" that re-runs OAuth, preserves the existing connection_id + sync config, and clears degraded status on success; emails the owner a reconnect link when a refresh fails (deep link to the exact connection); E2E covers expired→reconnect→healthy.
   - Implementation notes: Reuse LOOP-NANGO-003 connect flow with `reconnect=true` to rebind tokens onto the existing record; tokenized magic deep-link via Resend.
@@ -1849,7 +1849,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-003, LOOP-NANGO-004, LOOP-NANGO-007.
   - Related files: `apps/project-sites/src/routes/integrations.ts`, `apps/project-sites/src/services/notifications.ts`, `e2e/integrations_panel/reconnect.spec.ts`.
 
-- [ ] LOOP-NANGO-010: Google Workspace integration pack (Gmail + Calendar + Contacts + Drive) [auto]
+- [ ] LOOP-NANGO-010: Google Workspace integration pack (Gmail + Calendar + Contacts + Drive) [parked]
   - Why: Google is the highest-demand provider family for SMB sites; one pack delivers email/calendar/contact/file sync that several downstream features reuse.
   - Acceptance criteria: Provider configs for Gmail, Google Calendar, Google Contacts, Google Drive registered in Nango with correct scopes; connect works for each; one read sync (calendar events) proven end to end through the sync spine.
   - Implementation notes: Use Nango provider templates; scope minimization (read-only by default, write opt-in). Google client creds via wrangler secrets.
@@ -1859,7 +1859,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-003, LOOP-NANGO-005.
   - Related files: `apps/project-sites/src/integrations/google.ts`, `nango.yaml` (provider configs).
 
-- [ ] LOOP-NANGO-011: Microsoft 365 integration pack (Outlook mail + Calendar + OneDrive + Contacts) [auto]
+- [ ] LOOP-NANGO-011: Microsoft 365 integration pack (Outlook mail + Calendar + OneDrive + Contacts) [parked]
   - Why: Microsoft 365 covers the enterprise/SMB segment Google misses and reuses the same calendar/contact/email/file sync abstractions.
   - Acceptance criteria: Nango configs for Microsoft Graph (mail, calendar, contacts, OneDrive) with delegated scopes; connect + token refresh proven; one read sync (calendar) end to end.
   - Implementation notes: Microsoft Graph delta queries map cleanly to cursor-based incremental sync — use delta tokens as the Workflow cursor.
@@ -1869,7 +1869,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-003, LOOP-NANGO-005.
   - Related files: `apps/project-sites/src/integrations/microsoft.ts`, `nango.yaml`.
 
-- [ ] LOOP-NANGO-012: Slack integration (notifications + inbound events + actions) [auto]
+- [ ] LOOP-NANGO-012: Slack integration (notifications + inbound events + actions) [parked]
   - Why: Slack is the canonical ops/notification channel; connecting it lets sites push alerts and lets AI agents post/act.
   - Acceptance criteria: Slack OAuth (bot + user scopes) connects; outbound message action works through the AI action layer; inbound Slack events ingested via Hookdeck; reconnect handles scope changes.
   - Implementation notes: Outbound posts via Nango proxy; inbound via webhook gateway (LOOP-NANGO-019) not a direct worker route (Bot Fight Mode blocks inbound webhooks → host receiver on workers.dev or route via Hookdeck).
@@ -1879,7 +1879,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-003, LOOP-NANGO-016, LOOP-NANGO-019.
   - Related files: `apps/project-sites/src/integrations/slack.ts`.
 
-- [ ] LOOP-NANGO-013: Notion integration (pages/databases read + write sync) [auto]
+- [ ] LOOP-NANGO-013: Notion integration (pages/databases read + write sync) [parked]
   - Why: Notion is a common SMB knowledge/content source; syncing it feeds site content and AI context.
   - Acceptance criteria: Notion OAuth connects; read sync of selected databases into a normalized store; write-back action (create page) available to AI agents; pagination + rate-limit handling.
   - Implementation notes: Notion's cursor pagination fits Workflow checkpointing; respect Notion 3 req/s rate limit via Upstash token bucket.
@@ -1889,7 +1889,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-005.
   - Related files: `apps/project-sites/src/integrations/notion.ts`.
 
-- [ ] LOOP-NANGO-014: CRM integration pack (HubSpot + Salesforce — contacts/companies/deals) [auto]
+- [ ] LOOP-NANGO-014: CRM integration pack (HubSpot + Salesforce — contacts/companies/deals) [parked]
   - Why: CRM sync is the marquee B2B integration; a shared CRM abstraction (contact/company/deal) lets one UI + one sync model serve both vendors.
   - Acceptance criteria: HubSpot + Salesforce connect; bidirectional contact sync with a unified `CrmContact` Zod model; incremental sync via each vendor's modified-since cursor; conflict handling delegated to LOOP-NANGO-018.
   - Implementation notes: Map both vendors to a common normalized model so downstream features are vendor-agnostic. Salesforce bulk/large orgs may push runtime — flag for the Fly+Temporal escape hatch (needs decision) only if a full initial sync exceeds Workflow limits; default to chunked incremental.
@@ -1899,7 +1899,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-005, LOOP-NANGO-018.
   - Related files: `apps/project-sites/src/integrations/crm.ts`, `packages/shared/src/schemas/crm.ts`.
 
-- [ ] LOOP-NANGO-015: Accounting integration pack (QuickBooks Online + Xero) [auto]
+- [ ] LOOP-NANGO-015: Accounting integration pack (QuickBooks Online + Xero) [parked]
   - Why: Accounting sync (invoices, customers, payments) is high-value for SMB sites doing commerce/invoicing and reuses the sync + conflict primitives.
   - Acceptance criteria: QuickBooks + Xero connect with refresh-token rotation handled (QBO rotates refresh tokens — engine must persist new token each refresh); read sync of invoices + customers; sandbox creds for tests.
   - Implementation notes: QBO refresh-token rotation is a known footgun — the refresh engine MUST atomically store the rotated refresh token or the connection bricks. Add a regression test for rotation persistence.
@@ -1909,7 +1909,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-004, LOOP-NANGO-005.
   - Related files: `apps/project-sites/src/integrations/accounting.ts`.
 
-- [ ] LOOP-NANGO-016: AI-agent integration action layer (tool contracts for llm.projectsites.dev) [auto]
+- [ ] LOOP-NANGO-016: AI-agent integration action layer (tool contracts for llm.projectsites.dev) [parked]
   - Why: The platform's differentiator is AI agents that DO things in connected apps; a typed, permission-checked action layer exposes integrations as LLM tools.
   - Acceptance criteria: Each integration registers actions as Zod-contracted tools (in+out schemas); the LLM gateway can invoke `integration.action(connection_id, action, args)` with tenant + scope enforcement; actions are idempotent + audited; refusal/empty-result handled cleanly.
   - Implementation notes: Tool-design-as-API — narrow, typed, idempotent, no mega-tool. Every action checks the connection's granted scopes (LOOP-NANGO-021) before calling Nango proxy. AI traces to Langfuse.
@@ -1919,7 +1919,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-002, LOOP-NANGO-021.
   - Related files: `apps/project-sites/src/services/integration_actions.ts`, `packages/shared/src/schemas/integration_actions.ts`.
 
-- [ ] LOOP-NANGO-017: Outbound integration events → event_bus → Hookdeck/Outpost + Tinybird [auto]
+- [ ] LOOP-NANGO-017: Outbound integration events → event_bus → Hookdeck/Outpost + Tinybird [parked]
   - Why: Integration lifecycle + sync events must flow to the existing outbound webhook + analytics pipeline so customers and internal consumers react to them.
   - Acceptance criteria: `connection.*`, `sync.*`, `health.*` events published to event_bus; Hookdeck/Outpost delivers customer-subscribed webhooks; Tinybird records all events; delivery retries + DLQ; signature on outbound payloads.
   - Implementation notes: Reuse existing event_bus contract; do NOT introduce Svix. Outpost handles per-tenant destination management.
@@ -1929,7 +1929,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-002, LOOP-NANGO-006.
   - Related files: `apps/project-sites/src/services/event_bus.ts`, `apps/project-sites/src/integrations/events.ts`.
 
-- [ ] LOOP-NANGO-018: Sync conflict resolution engine [auto]
+- [ ] LOOP-NANGO-018: Sync conflict resolution engine [parked]
   - Why: Bidirectional syncs (CRM, contacts, calendar) inevitably conflict; a deterministic, auditable resolution engine prevents data corruption and surfaces unresolved conflicts.
   - Acceptance criteria: Configurable strategy per sync (last-write-wins / source-of-truth / manual-queue); conflicts that can't auto-resolve land in a `sync_conflicts` queue with both versions; admin UI to resolve; unit tests for each strategy.
   - Implementation notes: Field-level diff with vector-clock-ish updated_at comparison; manual queue is the safe default for ambiguous fields (needs decision per provider on default strategy).
@@ -1939,7 +1939,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-005.
   - Related files: `apps/project-sites/src/services/sync_conflicts.ts`, `apps/project-sites/migrations/00xx_sync_conflicts.sql`.
 
-- [ ] LOOP-NANGO-019: Inbound external webhook gateway (provider → platform) [auto]
+- [ ] LOOP-NANGO-019: Inbound external webhook gateway (provider → platform) [parked]
   - Why: Real-time integrations (Slack events, Stripe-like provider webhooks, HubSpot subscriptions) need a hardened inbound receiver that bypasses Bot Fight Mode and verifies signatures.
   - Acceptance criteria: A workers.dev-hosted (BFM-bypassing) receiver verifies each provider's signature, dedups via D1 idempotency, dead-letters to R2, and republishes to the internal event_bus; per-provider signature verifiers; replay-safe.
   - Implementation notes: Per Bot-Fight-Mode memory — inbound M2M webhooks must be hosted on workers.dev or routed via Hookdeck inbound, never behind the WAF-challenged custom domain. Reuse forge-webhook-handler scaffold.
@@ -1949,7 +1949,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-002, LOOP-NANGO-017.
   - Related files: `apps/project-sites/src/routes/integration_webhooks.ts`, `apps/project-sites/src/services/webhook.ts`.
 
-- [ ] LOOP-NANGO-020: Integration templates + marketplace catalog [auto]
+- [ ] LOOP-NANGO-020: Integration templates + marketplace catalog [parked]
   - Why: A browsable catalog of available integrations (with per-site enable) turns the engine into a self-serve product surface and a growth lever.
   - Acceptance criteria: `integration_catalog` (provider, category, scopes, description, status) seeded from registered Nango configs; `/admin/integrations` marketplace UI with category filter + search + connect CTA; "coming soon" entries for unbuilt providers; behind flag `integration_marketplace`.
   - Implementation notes: Catalog generated from the same Nango provider registry that powers connect — single source of truth, no drift. Filtered-list empty/no-match states per filtered-list rule.
@@ -1959,7 +1959,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-003, LOOP-NANGO-008.
   - Related files: `apps/project-sites/migrations/00xx_integration_catalog.sql`, `apps/project-sites/frontend/.../integrations/marketplace/`, `libs/features/integration_marketplace/manifest.ts`.
 
-- [ ] LOOP-NANGO-021: Granular integration permissions + scope governance [auto]
+- [ ] LOOP-NANGO-021: Granular integration permissions + scope governance [parked]
   - Why: AI agents and syncs must operate under least privilege; per-connection granted-scope tracking enforces what each action/sync may do and what to re-request on reconnect.
   - Acceptance criteria: Granted scopes persisted per connection; action layer + sync engine check required-vs-granted scope before each operation; missing scope triggers a guided re-consent (not a silent failure); RBAC gates who can connect/disconnect per role.
   - Implementation notes: Map each AI action and sync to a required-scope set; reconnect flow can request incremental scopes. Server returns 404 (not 403) for flag-gated, but 403-equivalent guided re-consent for scope gaps.
@@ -1969,7 +1969,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-002, LOOP-NANGO-016.
   - Related files: `apps/project-sites/src/services/integration_scopes.ts`, `packages/shared/src/middleware/` (RBAC).
 
-- [ ] LOOP-NANGO-022: Integration billing + sync-volume metering [auto]
+- [ ] LOOP-NANGO-022: Integration billing + sync-volume metering [parked]
   - Why: Integrations consume real cost (sync compute, API quota); metering usage enables plan gating and a monetizable add-on while protecting margins.
   - Acceptance criteria: Per-tenant counters for active connections + monthly synced records + action invocations, metered to Stripe Billing usage; plan caps enforced (free tier = N connections); over-cap connect attempt shows upgrade moment; metering is idempotent.
   - Implementation notes: Usage events to Tinybird are the source of truth; nightly rollup pushes Stripe usage records. Recurring + usage-metered ⇒ Stripe Billing per payments-routing. Reuse upgrade_moments module for the cap UX.
@@ -1979,7 +1979,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-006, LOOP-NANGO-020.
   - Related files: `apps/project-sites/src/services/integration_billing.ts`, `apps/project-sites/src/services/billing.ts`.
 
-- [ ] LOOP-NANGO-023: Admin repair toolkit (force-refresh, replay sync, rotate, disconnect, impersonate-read) [auto]
+- [ ] LOOP-NANGO-023: Admin repair toolkit (force-refresh, replay sync, rotate, disconnect, impersonate-read) [parked]
   - Why: The solo founder needs first-line repair tools to fix broken connections without SSHing into Nango — turning support load into one-click ops.
   - Acceptance criteria: `/admin/integrations/repair` offers per-connection actions: force token refresh, replay last failed sync, rotate credentials, hard-disconnect, and view (redacted) last error + raw provider response; every action audited; destructive actions use ConfirmService danger default.
   - Implementation notes: Actions call refresh engine / sync dispatcher / connection store. Redact secrets in any displayed payload (redact util). Confirm dialogs RED-destructive by default.
@@ -1989,7 +1989,7 @@ Mined ~55 raw ideas across the integrations surface: the Nango control plane (pr
   - Dependencies: LOOP-NANGO-004, LOOP-NANGO-005, LOOP-NANGO-007.
   - Related files: `apps/project-sites/frontend/.../integrations/repair/`, `apps/project-sites/src/routes/integrations_admin.ts`.
 
-- [ ] LOOP-NANGO-024: Integration health alerting + AI-summarized incident notifications [auto]
+- [ ] LOOP-NANGO-024: Integration health alerting + AI-summarized incident notifications [parked]
   - Why: Owners and the founder must be told the moment an integration breaks, with an AI summary + remediation steps, closing the loop from detection to self-serve fix.
   - Acceptance criteria: Health-changed-to-broken/expired events trigger an actionable notification (what happened, why it matters, deep-link to reconnect/repair) via psnotify + email; an AI summary (via llm gateway) explains the failure + next step; dedup so a flapping connection doesn't spam; quiet hours respected.
   - Implementation notes: Subscribe to `connection.health.changed`; AI summary generated from last error + provider context, traced to Langfuse; notifications via custom psnotify (NO Novu) + Resend email.
@@ -2482,7 +2482,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-SUP-001: Deploy Chatwoot Rails web tier to Fly.io (escape-hatch decision of record) [auto]
+- [ ] LOOP-SUP-001: Deploy Chatwoot Rails web tier to Fly.io (escape-hatch decision of record) [parked]
   - Why: Chatwoot is a stateful Rails monolith; we need our own support inbox live at support.projectsites.dev before anything else can be built.
   - Acceptance criteria: `fly deploy` brings up the `chatwoot-web` process group; `/` returns 200; super-admin login works; health endpoint `/api/v1/...` reachable; image pinned to a Chatwoot release tag (no `:latest`).
   - Implementation notes: Use official `chatwoot/chatwoot` image; `fly.toml` with `[processes] web = "bundle exec rails server"`; release command runs `rails db:chatwoot_prepare` for migrations; `SECRET_KEY_BASE`, `FRONTEND_URL=https://support.projectsites.dev`.
@@ -2492,7 +2492,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-002, LOOP-SUP-003.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`, `docs/decisions/chatwoot-hosting.md`.
 
-- [ ] LOOP-SUP-002: Provision Neon Postgres database for Chatwoot [auto]
+- [ ] LOOP-SUP-002: Provision Neon Postgres database for Chatwoot [parked]
   - Why: Chatwoot's system of record (conversations, contacts, messages, accounts) needs durable Postgres.
   - Acceptance criteria: A `projectsites_chatwoot` database exists inside the shared Neon project; pooled connection string stored as Fly secret `DATABASE_URL`; pgvector extension enabled (Chatwoot Captain/embeddings optionally use it); migrations apply clean.
   - Implementation notes: `CREATE DATABASE projectsites_chatwoot;` on existing shared project (do NOT create a new Neon project per `neon-database-conservation`); use pooled endpoint for web, direct endpoint for migration release step.
@@ -2502,7 +2502,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: none.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`, `docs/decisions/chatwoot-hosting.md`.
 
-- [ ] LOOP-SUP-003: Provision Upstash Redis for Sidekiq queues + ActionCable pub/sub [auto]
+- [ ] LOOP-SUP-003: Provision Upstash Redis for Sidekiq queues + ActionCable pub/sub [parked]
   - Why: Both Sidekiq job queues and ActionCable's broadcast fan-out require Redis; this is the realtime backbone.
   - Acceptance criteria: Upstash Redis DB created; `REDIS_URL` set as Fly secret; TLS (`rediss://`) verified; Sidekiq enqueues + drains a test job; a broadcast on one machine reaches a websocket client on another.
   - Implementation notes: Use Upstash global/regional DB close to Fly region; set `REDIS_OPENSSL_VERIFY_MODE=none` only if cert chain fights TLS; confirm `maxmemory-policy` is `noeviction` (eviction can drop queued jobs).
@@ -2512,7 +2512,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: none.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`.
 
-- [ ] LOOP-SUP-004: Route Chatwoot attachments + avatars to R2 (S3-compatible Active Storage) [auto]
+- [ ] LOOP-SUP-004: Route Chatwoot attachments + avatars to R2 (S3-compatible Active Storage) [parked]
   - Why: Conversation attachments must not live on ephemeral Fly disk; R2 is our object store and is egress-free.
   - Acceptance criteria: `ACTIVE_STORAGE_SERVICE=s3` with R2 endpoint/keys; uploading a file in a conversation persists to R2 bucket `projectsites-chatwoot`; signed download URLs resolve; restart of a machine does not lose attachments.
   - Implementation notes: Set `STORAGE_BUCKET_NAME`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY`, `STORAGE_ENDPOINT=https://<acct>.r2.cloudflarestorage.com`, `STORAGE_REGION=auto`, `STORAGE_FORCE_PATH_STYLE=true`.
@@ -2522,7 +2522,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`.
 
-- [ ] LOOP-SUP-005: Run Sidekiq as a dedicated Fly process group [auto]
+- [ ] LOOP-SUP-005: Run Sidekiq as a dedicated Fly process group [parked]
   - Why: Background jobs (emails, automation rules, webhook delivery, report generation) are a 24/7 worker — exactly the workload CF Containers cannot host.
   - Acceptance criteria: `[processes] worker = "bundle exec sidekiq"` deployed; Sidekiq dashboard shows it consuming the `REDIS_URL`; a queued mailer job completes; worker auto-restarts on crash; min 1 machine always running (no scale-to-zero).
   - Implementation notes: Separate scaling from web (`fly scale count worker=1`); set `SIDEKIQ_CONCURRENCY`; ensure `autostop=false` for the worker group.
@@ -2532,7 +2532,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-003, LOOP-SUP-001.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`.
 
-- [ ] LOOP-SUP-006: Enable ActionCable realtime (live chat websockets) on Fly [auto]
+- [ ] LOOP-SUP-006: Enable ActionCable realtime (live chat websockets) on Fly [parked]
   - Why: Live chat and agent typing/presence depend on persistent websocket connections; this is the second reason CF Containers are unsuitable.
   - Acceptance criteria: Websocket upgrade to `/cable` succeeds through CF proxy; a customer widget message appears in the agent inbox in <1s without refresh; connection survives across agent navigation.
   - Implementation notes: Standalone `anycable`/Cable is optional; default in-process ActionCable is fine at our scale — ensure Fly `[[services]]` forwards websocket (CF must be set to allow ws upgrade on the proxied hostname); confirm `RAILS_ENV=production` Cable allowed-origins includes support.projectsites.dev and widget host origins.
@@ -2542,7 +2542,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-003, LOOP-SUP-007.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`.
 
-- [ ] LOOP-SUP-007: Wire support.projectsites.dev DNS, CF proxy, TLS to the Fly app [auto]
+- [ ] LOOP-SUP-007: Wire support.projectsites.dev DNS, CF proxy, TLS to the Fly app [parked]
   - Why: Brand domain, edge TLS, WAF, and Turnstile all flow through the CF front door even though origin is Fly.
   - Acceptance criteria: CNAME/`AAAA`+`A` to Fly anycast IPs (proxied=DNS-only OR proxied with ws verified); Fly cert issued for support.projectsites.dev; HTTPS 200; websocket still upgrades end-to-end.
   - Implementation notes: `fly certs add support.projectsites.dev`; add the Fly-provided validation records via CF API (`cloudflare-native-provisioning`); decide proxied-vs-grey-cloud after ws test (CF proxy can interfere with Cable — verify per `cf-containers-no-dev-shm`-style caution).
@@ -2552,7 +2552,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001.
   - Related files: `apps/project-sites/wrangler.toml` (none), `docs/decisions/chatwoot-hosting.md`.
 
-- [ ] LOOP-SUP-008: Configure outbound + inbound email channel (SES/Resend SMTP + inbound parse) [auto]
+- [ ] LOOP-SUP-008: Configure outbound + inbound email channel (SES/Resend SMTP + inbound parse) [parked]
   - Why: Email is a first-class support channel — customers reply by email, agents reply from the inbox.
   - Acceptance criteria: Outbound SMTP sends agent replies (test conversation → email delivered); inbound email to support@ creates/updates a conversation; SPF/DKIM/DMARC aligned for the sending domain.
   - Implementation notes: `SMTP_ADDRESS`/`SMTP_USERNAME`/`SMTP_PASSWORD` (SES SMTP creds or Resend); inbound via Chatwoot's email channel + a forwarding/MX or provider inbound-parse webhook; mind `email-deliverability` rule and sending-vs-site-domain mismatch.
@@ -2562,7 +2562,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001.
   - Related files: `apps/project-sites/infra/chatwoot/fly.toml`.
 
-- [ ] LOOP-SUP-009: Per-site embeddable live-chat widget for site-owners (multi-tenant inboxes) [auto]
+- [ ] LOOP-SUP-009: Per-site embeddable live-chat widget for site-owners (multi-tenant inboxes) [parked]
   - Why: Beyond our own support, generated sites can offer their visitors live chat — a paid platform feature mapped to per-tenant Chatwoot inboxes.
   - Acceptance criteria: For a given `site_id`, an inbox + website-channel exists; a one-line `<script>` snippet renders the widget on the site; messages land in the tenant's inbox; widget is feature-flagged (`support_widget`, default off).
   - Implementation notes: Provision inbox via Chatwoot API on plan-upgrade; store `chatwoot_inbox_id` against the site row; serve the loader through a stateless CF Worker (`widget.projectsites.dev`) that injects the tenant's `websiteToken` — **this stateless shim IS a fit for CF Workers/Containers**.
@@ -2572,7 +2572,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001, LOOP-SUP-016.
   - Related files: `apps/project-sites/src/services/` (new `chatwoot.ts` HTTP client), `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-SUP-010: AI triage agent-bot via llm.projectsites.dev (categorize + priority + first-response) [auto]
+- [ ] LOOP-SUP-010: AI triage agent-bot via llm.projectsites.dev (categorize + priority + first-response) [parked]
   - Why: Auto-classifying and drafting the first reply cuts response time and routes correctly before a human touches it.
   - Acceptance criteria: New conversation fires a webhook → triage service classifies (category, urgency, suspected-billing/domain/app-install) and sets Chatwoot labels + priority; optionally posts an AI draft as a private suggestion; all model calls traced.
   - Implementation notes: Chatwoot Agent Bot connected to a CF Worker endpoint; Worker calls llm.projectsites.dev with a structured (Zod) classification schema; idempotent on `conversation_id`.
@@ -2582,7 +2582,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001, LOOP-SUP-019.
   - Related files: `apps/project-sites/src/services/chatwoot.ts`, `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-SUP-011: AI concierge → human handoff (escalate llm.projectsites.dev sessions into Chatwoot) [auto]
+- [ ] LOOP-SUP-011: AI concierge → human handoff (escalate llm.projectsites.dev sessions into Chatwoot) [parked]
   - Why: When the in-product AI concierge can't resolve an issue, it must seamlessly open a real support conversation with full context.
   - Acceptance criteria: Concierge "talk to a human" creates a Chatwoot conversation pre-loaded with the AI transcript + user identity; the user is dropped into the same widget thread; no context re-entry required.
   - Implementation notes: Map concierge `session_id` → Chatwoot `source_id`; POST transcript as the opening message + private note; reuse the contact-upsert (LOOP-SUP-012).
@@ -2592,7 +2592,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-010, LOOP-SUP-012.
   - Related files: `apps/project-sites/src/services/chatwoot.ts`.
 
-- [ ] LOOP-SUP-012: Two-way contact sync between Chatwoot and Twenty CRM (crm-twenty) [auto]
+- [ ] LOOP-SUP-012: Two-way contact sync between Chatwoot and Twenty CRM (crm-twenty) [parked]
   - Why: Support contacts and CRM people must be one identity so agents see the full relationship.
   - Acceptance criteria: A new Chatwoot contact upserts a Twenty person (by email); CRM company/plan attributes appear in the Chatwoot contact custom-attributes panel; updates flow both directions without loops.
   - Implementation notes: Chatwoot `contact_created`/`contact_updated` webhooks → CF Worker → Twenty GraphQL; dedupe on email; guard recursion with a `synced_at` marker.
@@ -2602,7 +2602,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-019.
   - Related files: `apps/project-sites/src/services/chatwoot.ts`, `apps/project-sites/src/services/` (twenty client).
 
-- [ ] LOOP-SUP-013: Billing escalation enrichment — inject Stripe context into conversations [auto]
+- [ ] LOOP-SUP-013: Billing escalation enrichment — inject Stripe context into conversations [parked]
   - Why: Billing tickets resolve faster when the agent sees plan, MRR, last invoice, and dunning status inline.
   - Acceptance criteria: When a conversation is labeled `billing` (by triage or agent), a private note auto-populates with Stripe subscription status, last 3 invoices, and a deep link to the Stripe customer; refund action gated behind admin override.
   - Implementation notes: CF Worker reads Stripe by `tenant_id`→`stripe_customer_id`; never expose card data; refunds route through existing platform refund flow (test-mode first).
@@ -2612,7 +2612,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-010, LOOP-SUP-014.
   - Related files: `apps/project-sites/src/services/billing.ts`, `apps/project-sites/src/services/chatwoot.ts`.
 
-- [ ] LOOP-SUP-014: Customer timeline / context side-panel (dashboard data in the agent view) [auto]
+- [ ] LOOP-SUP-014: Customer timeline / context side-panel (dashboard data in the agent view) [parked]
   - Why: Agents need the customer's platform activity — sites created, apps installed, domains, recent errors — without leaving the inbox.
   - Acceptance criteria: Chatwoot contact panel renders a dashboard-app iframe/custom-attributes block showing sites, app installs, domains, plan, and last 5 platform events for the matched `tenant_id`.
   - Implementation notes: Use Chatwoot "Dashboard App" (contact sidebar URL); CF Worker serves the read-only panel auth'd by a signed token; data from D1 + platform event log.
@@ -2622,7 +2622,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-012.
   - Related files: `apps/project-sites/src/routes/api.ts` (panel endpoint).
 
-- [ ] LOOP-SUP-015: Knowledge base / help-center portal at support.projectsites.dev/help [auto]
+- [ ] LOOP-SUP-015: Knowledge base / help-center portal at support.projectsites.dev/help [parked]
   - Why: Deflect tickets and give the AI triage/concierge a citable source of truth.
   - Acceptance criteria: Chatwoot Help Center portal published with categories for onboarding, domains, apps, billing; articles searchable; portal reachable under the support hostname; sitemap + SEO basics present.
   - Implementation notes: Use Chatwoot's built-in portal; seed first articles from existing `docs/`; expose article corpus to the concierge for RAG citations.
@@ -2632,7 +2632,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001.
   - Related files: `docs/` (article sources).
 
-- [ ] LOOP-SUP-016: SLA policies + automation rules engine configuration [auto]
+- [ ] LOOP-SUP-016: SLA policies + automation rules engine configuration [parked]
   - Why: First-response and resolution targets must be enforced and breaches surfaced.
   - Acceptance criteria: SLA policy (e.g. first response 4h, resolution 24h by plan tier) attached to inboxes; breach raises a label + notification; automation rules (auto-label, auto-assign on keyword) defined as code-managed config, not click-ops.
   - Implementation notes: Provision SLA + automation rules via Chatwoot API from a seed script so they're reproducible/version-controlled; tier values keyed off plan.
@@ -2642,7 +2642,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001.
   - Related files: `apps/project-sites/infra/chatwoot/seed-sla.mjs`.
 
-- [ ] LOOP-SUP-017: Team routing / auto-assignment (round-robin + skill-based) [auto]
+- [ ] LOOP-SUP-017: Team routing / auto-assignment (round-robin + skill-based) [parked]
   - Why: Tickets must reach the right agent/team (billing vs technical vs onboarding) without manual triage.
   - Acceptance criteria: Teams created (Billing, Technical, Onboarding); auto-assignment distributes within team; triage labels (LOOP-SUP-010) drive team routing; unassigned-queue alert fires after N minutes.
   - Implementation notes: Chatwoot team + auto-assignment config via API seed; routing decision can be enriched by the triage classification.
@@ -2652,7 +2652,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-010, LOOP-SUP-016.
   - Related files: `apps/project-sites/infra/chatwoot/seed-sla.mjs`.
 
-- [ ] LOOP-SUP-018: Support metrics pipeline → Tinybird (volume, FRT, CSAT, SLA) [auto]
+- [ ] LOOP-SUP-018: Support metrics pipeline → Tinybird (volume, FRT, CSAT, SLA) [parked]
   - Why: We need our own analytics on support health, beyond Chatwoot's built-in reports, joined to platform data.
   - Acceptance criteria: Conversation lifecycle events stream to a Tinybird datasource; published endpoints expose ticket volume, first-response-time, resolution-time, CSAT, SLA-breach rate by tenant/plan; numbers reconcile with Chatwoot's own report for a sample day.
   - Implementation notes: Chatwoot webhooks → CF Worker → Tinybird ingest; one row per state transition with correlation IDs.
@@ -2662,7 +2662,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-019.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, `apps/project-sites/src/services/analytics.ts`.
 
-- [ ] LOOP-SUP-019: Hardened webhook ingress for Chatwoot events (Hookdeck + Outpost) [auto]
+- [ ] LOOP-SUP-019: Hardened webhook ingress for Chatwoot events (Hookdeck + Outpost) [parked]
   - Why: Triage, CRM sync, metrics, and concierge handoff all consume Chatwoot webhooks; delivery must be reliable, verified, idempotent, and replayable.
   - Acceptance criteria: All Chatwoot webhooks point at a Hookdeck source; signature verified; events fan out to triage/CRM/metrics consumers; D1 idempotency table dedupes; failed deliveries land in DLQ and are replayable.
   - Implementation notes: Use the `forge-webhook-handler` pattern (Hono route + sig verify + D1 idempotency + R2 dead-letter); Outpost for our outbound webhooks to tenants; bypass Bot-Fight-Mode by hosting receiver on a workers.dev/route per memory.
@@ -2672,7 +2672,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-001.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-SUP-020: Abuse / spam prevention on widget + inbound channels [auto]
+- [ ] LOOP-SUP-020: Abuse / spam prevention on widget + inbound channels [parked]
   - Why: A public chat widget and inbound email are spam/abuse magnets; protect agents and queue health.
   - Acceptance criteria: Turnstile gate on pre-chat form for anonymous widgets; per-IP/per-contact rate limit on conversation creation; spam heuristic (link-flood, repeat-content) auto-labels + holds; blocklist for known abusers.
   - Implementation notes: Turnstile widget minted via CF API; rate limit enforced in the stateless widget/webhook Worker (DO counter per `rate-limiting-plan-gated`); spam scoring can reuse the triage LLM call.
@@ -2682,7 +2682,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-009, LOOP-SUP-019.
   - Related files: `apps/project-sites/src/middleware/`, `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-SUP-021: Internal notes + private agent collaboration surfacing in /admin [auto]
+- [ ] LOOP-SUP-021: Internal notes + private agent collaboration surfacing in /admin [parked]
   - Why: Agents (and the AI) annotate conversations privately; these must be first-class and never leak to customers.
   - Acceptance criteria: Private notes post via API and render distinctly; AI-generated suggestions land as private notes (never public); a guard test proves notes with `private:true` never appear in customer-visible history (LOOP-SUP-022).
   - Implementation notes: Standardize on Chatwoot's `private` message flag; triage/billing enrichment always writes private; add a regression test asserting privacy.
@@ -2692,7 +2692,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-010, LOOP-SUP-013.
   - Related files: `apps/project-sites/src/services/chatwoot.ts`.
 
-- [ ] LOOP-SUP-022: Customer-visible support history in the platform /admin (read-only) [auto]
+- [ ] LOOP-SUP-022: Customer-visible support history in the platform /admin (read-only) [parked]
   - Why: Site owners should see their own past support conversations inside our dashboard, not a separate login.
   - Acceptance criteria: `/admin` support section lists the tenant's conversations (status, last message, resolution) pulled by `tenant_id`; opening one shows only public messages (private notes filtered server-side); pagination + empty state.
   - Implementation notes: ApiService → CF Worker → Chatwoot API scoped to the tenant's contact; strict server-side filter dropping `private` messages; Angular section per `admin-section-add-recipe` (cyan/black).
@@ -2702,7 +2702,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-012, LOOP-SUP-021.
   - Related files: `apps/project-sites/src/routes/api.ts`, admin frontend `sections/support`.
 
-- [ ] LOOP-SUP-023: Admin override tools (impersonate-safe reassign / merge / close / escalate) [auto]
+- [ ] LOOP-SUP-023: Admin override tools (impersonate-safe reassign / merge / close / escalate) [parked]
   - Why: Operators need controlled superpowers — reassign, merge duplicate conversations, force-close, escalate to incident — without raw Chatwoot super-admin sprawl.
   - Acceptance criteria: `/admin` operator actions for reassign, merge, close, and "escalate to incident" each call Chatwoot API with audit logging + confirm dialog (danger-default per `confirm-service-danger-default`); destructive actions require platform admin role.
   - Implementation notes: Thin authorized endpoints in the worker; never accept client `x-org-id` (use server `c.get('orgId')` per IDOR memory); each action emits an audit event.
@@ -2712,7 +2712,7 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
   - Dependencies: LOOP-SUP-022.
   - Related files: `apps/project-sites/src/routes/api.ts`, `apps/project-sites/src/services/audit.ts`.
 
-- [ ] LOOP-SUP-024: Incident-support bridge + AI-triage observability (Langfuse) and log shipping (Axiom) [auto]
+- [ ] LOOP-SUP-024: Incident-support bridge + AI-triage observability (Langfuse) and log shipping (Axiom) [parked]
   - Why: During platform incidents, support volume spikes and AI triage quality must be auditable; we also need a way to pin a status-banner to affected conversations.
   - Acceptance criteria: An "incident mode" toggle posts a status note/canned-reply to open conversations matching the affected `site_id`/region; every AI triage + suggestion call is traced in Langfuse with score hooks; all Chatwoot + worker logs ship to Axiom with the full correlation-ID set; Sentry captures platform-side exceptions only.
   - Implementation notes: Incident mode driven by the platform status source; Langfuse scoring rubric for triage accuracy enables regression tracking; standardize log fields: `tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id, conversation_id`.
@@ -3722,7 +3722,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-LLM-001: Deploy LiteLLM unified OpenAI-compatible proxy on CF Workers Containers [auto]
+- [ ] LOOP-LLM-001: Deploy LiteLLM unified OpenAI-compatible proxy on CF Workers Containers [parked]
   - Why: One OpenAI-compatible base URL (`llm.projectsites.dev/v1`) is the single ingress for every AI feature; eliminates per-feature SDK sprawl.
   - Acceptance criteria: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models` return 200 with OpenAI-shaped payloads; `/health` 200; container boots cold <10s; routes for `anthropic`, `openai`, `deepseek`, `workers-ai` resolvable through it.
   - Implementation notes: `litellm-proxy` Docker image, `config.yaml` enumerating model_list per tier; pin `--platform amd64` and build on amd64 CI per [[cf-containers-native-amd64-only]]; `mkdir /dev/shm` in entrypoint per [[cf-containers-no-dev-shm]].
@@ -3742,7 +3742,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001.
   - Related files: `apps/project-sites/src/services/external_llm.ts`, `apps/project-sites/src/services/llm_router.ts` (new).
 
-- [ ] LOOP-LLM-003: FLAGSHIP — per-tenant/app budget-enforcement primitive (hard caps + soft alerts) [auto]
+- [ ] LOOP-LLM-003: FLAGSHIP — per-tenant/app budget-enforcement primitive (hard caps + soft alerts) [parked]
   - Why: Cost discipline is paramount; an unbounded tenant can drain spend. Budgets are the safety rail every call passes through.
   - Acceptance criteria: pre-call `assertBudget(tenant_id, app_id, est_cost)` blocks (returns 402-style envelope) when projected spend exceeds cap; soft threshold (80%) fires notification; daily/monthly windows; enforced atomically (no race double-spend).
   - Implementation notes: LiteLLM `max_budget`/`budget_duration` per key + a worker-side Upstash atomic counter mirror for instant pre-check; reconcile against Neon spend ledger.
@@ -3752,7 +3752,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001, LOOP-LLM-013.
   - Related files: `apps/project-sites/src/services/llm_budget.ts` (new), `libs/features/llm_budgets/`.
 
-- [ ] LOOP-LLM-004: FLAGSHIP — semantic cache layer (embedding-similarity) in front of premium tier [auto]
+- [ ] LOOP-LLM-004: FLAGSHIP — semantic cache layer (embedding-similarity) in front of premium tier [parked]
   - Why: Repeated near-identical prompts (site-gen, concierge FAQs) should hit cache, not re-bill premium tokens — biggest single cost saver.
   - Acceptance criteria: cache hit when cosine similarity ≥ configurable threshold (default 0.95) on Workers-AI embedding of the normalized prompt; returns cached completion with `x-cache: semantic-hit`; per-tenant namespace; TTL + manual purge; measured hit-rate surfaced.
   - Implementation notes: Workers AI embeddings → Vectorize index per tenant; exact-match fast path via Upstash before semantic lookup; only cache deterministic (temperature≤0.3) calls.
@@ -3762,7 +3762,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002.
   - Related files: `apps/project-sites/src/services/llm_semantic_cache.ts` (new).
 
-- [ ] LOOP-LLM-005: RouteLLM cheap-vs-strong classifier wired into the standard tier [auto]
+- [ ] LOOP-LLM-005: RouteLLM cheap-vs-strong classifier wired into the standard tier [parked]
   - Why: Many "standard" prompts are answerable by instant tier; RouteLLM's classifier auto-downgrades safe ones, banking free Workers-AI calls.
   - Acceptance criteria: a per-request difficulty score (0–1) routes below-threshold to instant, above to standard/premium; threshold tunable per app; A/B logged; quality regression guardrail (eval-gated, see LOOP-LLM-019).
   - Implementation notes: RouteLLM `mf`/`bert` router or a Workers-AI lightweight classifier as the scorer; integrate as a pre-step inside `routeForTier`; "(needs decision)" — host RouteLLM model in LiteLLM vs. inline Workers-AI classifier.
@@ -3772,7 +3772,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002, LOOP-LLM-019.
   - Related files: `apps/project-sites/src/services/llm_router.ts`, `apps/project-sites/src/services/route_llm.ts` (new).
 
-- [ ] LOOP-LLM-006: Mandatory CF AI Gateway enforcement guard (no raw provider calls) [auto]
+- [ ] LOOP-LLM-006: Mandatory CF AI Gateway enforcement guard (no raw provider calls) [parked]
   - Why: AI Gateway is MANDATORY for caching/rate-limit/observability; any bypass is a drift bug and a blind spot.
   - Acceptance criteria: a lint/grep gate fails CI on any `fetch` to `api.anthropic.com`/`api.openai.com`/`api.deepseek.com` not routed through the `gateway.ai.cloudflare.com/.../projectsites/...` base; runtime assertion in `external_llm` rejects non-gateway base URLs.
   - Implementation notes: codify gateway base-URL builder per provider; add `bin/validate-ai-gateway.mjs` detector per [[audit-arc-detector-finds-bugs]].
@@ -3782,7 +3782,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001.
   - Related files: `bin/validate-ai-gateway.mjs` (new), `apps/project-sites/src/services/external_llm.ts`.
 
-- [ ] LOOP-LLM-007: Fallback chain + provider failover with circuit-breaker [auto]
+- [ ] LOOP-LLM-007: Fallback chain + provider failover with circuit-breaker [parked]
   - Why: A provider 5xx/timeout must transparently fail over (premium→alt-premium→standard) so AI features never hard-fail.
   - Acceptance criteria: configurable ordered fallback per model group; circuit-breaker opens after N consecutive failures with backoff+jitter; failover preserves streaming where possible; degraded-tier responses tagged `x-llm-fallback: true`.
   - Implementation notes: LiteLLM `fallbacks` + `cooldown_time`; worker-side circuit state in Upstash; AI Gateway's own fallback as the outer net.
@@ -3792,7 +3792,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002.
   - Related files: `apps/project-sites/src/services/llm_failover.ts` (new), `config.yaml`.
 
-- [ ] LOOP-LLM-008: Per-tenant virtual API keys with scopes + rotation [auto]
+- [ ] LOOP-LLM-008: Per-tenant virtual API keys with scopes + rotation [parked]
   - Why: Each tenant/app needs its own key for isolation, budget attribution, and revocation without touching provider keys.
   - Acceptance criteria: mint/list/revoke/rotate virtual keys via `/api/llm/keys`; key carries allowed models, tier ceiling, budget link, rate limit; revoked key 401s within cache TTL; provider keys never exposed to tenants.
   - Implementation notes: LiteLLM virtual keys (`/key/generate`) backed by Neon; KV cache (60s) of key→policy for edge fast-path.
@@ -3802,7 +3802,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001, LOOP-LLM-003.
   - Related files: `libs/features/llm_keys/`, `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-LLM-009: Customer BYO-key passthrough (bring-your-own provider keys) [auto]
+- [ ] LOOP-LLM-009: Customer BYO-key passthrough (bring-your-own provider keys) [parked]
   - Why: Some tenants want to bill their own Anthropic/OpenAI account; platform routes through their key while still enforcing gateway + observability.
   - Acceptance criteria: tenant stores encrypted provider key; requests flagged `byo` route on that key (no platform spend), still pass AI Gateway + budget-rate-limit + tracing; key encrypted at rest; validation ping on save.
   - Implementation notes: encrypt with Web Crypto, store ciphertext in Neon; inject at LiteLLM call time per-request header; never log plaintext.
@@ -3812,7 +3812,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001, LOOP-LLM-008.
   - Related files: `apps/project-sites/src/services/llm_byok.ts` (new).
 
-- [ ] LOOP-LLM-010: Spend ledger + cost-attribution write path (Tinybird OLAP) [auto]
+- [ ] LOOP-LLM-010: Spend ledger + cost-attribution write path (Tinybird OLAP) [parked]
   - Why: Every call's cost must be attributable per tenant/app/model/feature for dashboards, budgets, and margin analysis.
   - Acceptance criteria: each completed call writes a `llm_spend` event (input/output tokens, computed USD, tier, cache-status, latency) to Tinybird datasource `projectsites_llm_spend`; Neon holds the authoritative rollup; cost matches provider invoices within tolerance.
   - Implementation notes: token→USD pricing table per model (versioned); emit via existing `event_bus`→Tinybird path; NEVER ClickHouse.
@@ -3822,7 +3822,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001.
   - Related files: `apps/project-sites/src/services/tinybird.ts`, `apps/project-sites/src/services/llm_spend.ts` (new).
 
-- [ ] LOOP-LLM-011: /admin LLM cost dashboard (spend by tenant/app/model/tier) [auto]
+- [ ] LOOP-LLM-011: /admin LLM cost dashboard (spend by tenant/app/model/tier) [parked]
   - Why: Operator needs live visibility into where tokens and dollars go to tune routing and catch runaway spend.
   - Acceptance criteria: `/admin/llm-spend` renders Tinybird-backed charts (daily spend, top tenants, tier mix, cache hit-rate, fallback-rate); cyan/black cockpit styling; date-range filter; CSV export.
   - Implementation notes: Angular standalone section per [[admin-section-add-recipe]]; reads Tinybird endpoints; `<app-rolling-counter>` for headline spend.
@@ -3832,7 +3832,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-010.
   - Related files: `apps/project-sites/frontend/.../admin/sections/llm-spend/`, `apps/project-sites/src/routes/api.ts`.
 
-- [ ] LOOP-LLM-012: Embeddings routing (instant-tier default, premium fallback) [auto]
+- [ ] LOOP-LLM-012: Embeddings routing (instant-tier default, premium fallback) [parked]
   - Why: Embeddings power semantic cache, search, RAG — they should default to free Workers-AI and only escalate when quality demands.
   - Acceptance criteria: `/v1/embeddings` routes to Workers AI `@cf/baai/bge-*` by default; per-request override to OpenAI `text-embedding-3-*`; dimension normalization documented; batch support.
   - Implementation notes: register embedding models in LiteLLM model_list; normalize dims when mixing providers (re-embed on model switch).
@@ -3842,7 +3842,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002.
   - Related files: `apps/project-sites/src/services/llm_embeddings.ts` (new), `config.yaml`.
 
-- [ ] LOOP-LLM-013: Per-app LLM quotas + rate limiting (DO counter, plan-gated) [auto]
+- [ ] LOOP-LLM-013: Per-app LLM quotas + rate limiting (DO counter, plan-gated) [parked]
   - Why: Free-plan abuse and noisy neighbors must be throttled; CF managed rate-limiting doesn't enforce on this plan per [[rate-limiting-plan-gated]] → DO counter is the fix.
   - Acceptance criteria: per-app RPM/TPM ceilings from plan entitlements; exceed → 429 with friendly envelope + `Retry-After`; sliding window; counters in a Durable Object; AI Gateway rate-limit as outer layer.
   - Implementation notes: DO-based token-bucket keyed by `app_id`; entitlements from shared `ENTITLEMENTS` constants.
@@ -3852,7 +3852,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002, LOOP-LLM-008.
   - Related files: `apps/project-sites/src/services/llm_quota_do.ts` (new), `packages/shared/src/constants`.
 
-- [ ] LOOP-LLM-014: Friendly rate-limit + budget-exceeded UX (Problem Details + retry) [auto]
+- [ ] LOOP-LLM-014: Friendly rate-limit + budget-exceeded UX (Problem Details + retry) [parked]
   - Why: Limits must read as helpful, not broken — "errors as UX" per CLAUDE.md; users get clear next step.
   - Acceptance criteria: 429/402 responses use RFC7807 envelope with `correlationId`, human reason, "what to do next" (upgrade link / retry-after); admin + concierge surfaces render a calm banner not a stack trace; Flesch ≥50 copy.
   - Implementation notes: extend existing error taxonomy/envelope; map LiteLLM/quota errors to stable codes; UI banner reuses calm-fallback pattern.
@@ -3862,7 +3862,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-003, LOOP-LLM-013.
   - Related files: `apps/project-sites/src/middleware/error_handler.ts`, frontend banner component.
 
-- [ ] LOOP-LLM-015: Streaming passthrough integrity (SSE) with mid-stream failover [auto]
+- [ ] LOOP-LLM-015: Streaming passthrough integrity (SSE) with mid-stream failover [parked]
   - Why: Concierge/chat features need token streaming; broken or non-resumable streams degrade UX and hide failures.
   - Acceptance criteria: `/v1/chat/completions` with `stream:true` proxies SSE end-to-end with no buffering stalls; first-token latency logged; mid-stream provider drop triggers documented recovery (restart on alt provider or clean error frame); stream recovery E2E test green.
   - Implementation notes: Workers streaming `ReadableStream` passthrough; AI Gateway streaming support; record TTFT + token-rate.
@@ -3872,7 +3872,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001, LOOP-LLM-007.
   - Related files: `apps/project-sites/src/services/llm_stream.ts` (new).
 
-- [ ] LOOP-LLM-016: Structured-output + JSON-schema mode normalization across providers [auto]
+- [ ] LOOP-LLM-016: Structured-output + JSON-schema mode normalization across providers [parked]
   - Why: Site-gen and contract-first AI need guaranteed JSON; providers differ (response_format vs tool-forcing) — normalize to one contract.
   - Acceptance criteria: `response_format: json_schema` works uniformly across Anthropic/OpenAI/DeepSeek/Workers-AI (shim where unsupported); Zod-validate the parsed output; retry-with-repair on invalid JSON (max N); typed domain object returned.
   - Implementation notes: per-provider adapter (native schema vs forced tool-call vs grammar); Zod parse → repair loop per contract-first-AI doctrine.
@@ -3882,7 +3882,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002.
   - Related files: `apps/project-sites/src/services/llm_structured.ts` (new), `apps/project-sites/src/prompts/schemas.ts`.
 
-- [ ] LOOP-LLM-017: Tool-calling passthrough normalization (OpenAI tools ⇄ Anthropic tool_use) [auto]
+- [ ] LOOP-LLM-017: Tool-calling passthrough normalization (OpenAI tools ⇄ Anthropic tool_use) [parked]
   - Why: Agentic features (concierge, support triage) call tools; cross-provider tool-call shape divergence must be hidden behind one API.
   - Acceptance criteria: a single OpenAI-style `tools`/`tool_calls` contract translates to/from Anthropic `tool_use`/`tool_result` and DeepSeek; multi-turn tool loops preserved; parallel tool calls supported where provider allows.
   - Implementation notes: LiteLLM already normalizes much of this — verify + add worker-side adapter gaps; "(needs decision)" — rely on LiteLLM translation vs. own adapter for Workers-AI tool gaps.
@@ -3892,7 +3892,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001, LOOP-LLM-016.
   - Related files: `apps/project-sites/src/services/llm_tools.ts` (new).
 
-- [ ] LOOP-LLM-018: Vision routing guard (DeepSeek has no vision → force premium) [auto]
+- [ ] LOOP-LLM-018: Vision routing guard (DeepSeek has no vision → force premium) [parked]
   - Why: Brian directive — ALL vision is premium; routing image inputs to a vision-less mid-tier model silently fails.
   - Acceptance criteria: any request with image parts is detected and forced to Anthropic/OpenAI vision models regardless of requested tier; non-vision premium models excluded; clear error if BYO-key lacks vision access.
   - Implementation notes: content-part inspection in `routeForTier`; maintain a vision-capable model allowlist.
@@ -3902,7 +3902,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002.
   - Related files: `apps/project-sites/src/services/llm_router.ts`.
 
-- [ ] LOOP-LLM-019: Eval-gated model swaps (Langfuse datasets + scores in CI) [auto]
+- [ ] LOOP-LLM-019: Eval-gated model swaps (Langfuse datasets + scores in CI) [parked]
   - Why: Swapping a model/tier for cost must not silently drop quality; an eval gate makes swaps safe and reversible.
   - Acceptance criteria: candidate model runs against a Langfuse golden dataset per AI feature; aggregate score must meet/exceed incumbent within tolerance to promote; CI blocks a model_list change lacking a passing eval; regression tracked over time.
   - Implementation notes: reuse `/run-evals` harness; per-feature rubrics + schema-validated results; store runs in Langfuse datasets.
@@ -3912,7 +3912,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-002, LOOP-LLM-020.
   - Related files: `apps/project-sites/tools/evals/cases/`, `.github/workflows/llm-evals.yml` (new).
 
-- [ ] LOOP-LLM-020: Langfuse tracing on every LLM call (full correlation set) [auto]
+- [ ] LOOP-LLM-020: Langfuse tracing on every LLM call (full correlation set) [parked]
   - Why: AI is the primary maintainer; traces are how we debug routing, cost, and quality — non-optional.
   - Acceptance criteria: every call produces a Langfuse trace+generation with `tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id, model, provider, prompt_version`, token counts, cost, cache-status, tier; sampling configurable; PII redacted.
   - Implementation notes: LiteLLM Langfuse callback + worker-side enrichment for fields LiteLLM can't see; redact via existing `redact` util.
@@ -3922,7 +3922,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-001.
   - Related files: `apps/project-sites/src/services/llm_tracing.ts` (new), `config.yaml`.
 
-- [ ] LOOP-LLM-021: Prompt registry version-pinning + hot-patch (KV) integration [auto]
+- [ ] LOOP-LLM-021: Prompt registry version-pinning + hot-patch (KV) integration [parked]
   - Why: Prompts are versioned artifacts; the gateway must record which `prompt_version` produced each output for eval + rollback.
   - Acceptance criteria: calls reference a registered prompt id+version; version flows into traces + spend events; KV hot-patch updates a prompt without redeploy; rollback to prior version is one operation.
   - Implementation notes: extend existing `prompts/registry`; KV hot-patch path already exists — wire `prompt_version` through the router into telemetry.
@@ -3932,7 +3932,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-020.
   - Related files: `apps/project-sites/src/prompts/registry.ts`, `apps/project-sites/src/services/llm_router.ts`.
 
-- [ ] LOOP-LLM-022: Abuse / anomaly prevention (Turnstile + spend-spike + jailbreak heuristics) [auto]
+- [ ] LOOP-LLM-022: Abuse / anomaly prevention (Turnstile + spend-spike + jailbreak heuristics) [parked]
   - Why: A leaked tenant key or scripted abuse can spike spend and reputation risk; the gateway is the choke point to catch it.
   - Acceptance criteria: anomalous spend velocity per key auto-throttles + alerts; optional Turnstile gate on unauthenticated/public LLM surfaces; basic prompt-injection/jailbreak heuristic flags + logs (non-blocking by default, killswitch to block); repeated abuse auto-suspends key.
   - Implementation notes: Upstash sliding-window velocity check; Workers-AI instant classifier for injection heuristic; flag-gated blocking.
@@ -3942,7 +3942,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-003, LOOP-LLM-013.
   - Related files: `apps/project-sites/src/services/llm_abuse_guard.ts` (new).
 
-- [ ] LOOP-LLM-023: Webhook events for LLM lifecycle (Hookdeck + Outpost) [auto]
+- [ ] LOOP-LLM-023: Webhook events for LLM lifecycle (Hookdeck + Outpost) [parked]
   - Why: Tenants/apps need to react to budget-exceeded, key-revoked, eval-promoted, anomaly-detected without polling.
   - Acceptance criteria: typed events (`llm.budget.threshold`, `llm.budget.exceeded`, `llm.key.revoked`, `llm.model.promoted`, `llm.abuse.flagged`) delivered via Hookdeck→Outpost with signature + D1 idempotency + R2 dead-letter; subscribable per tenant.
   - Implementation notes: reuse webhook-handler scaffold; route outbound through Hookdeck+Outpost; host receiver on workers.dev to dodge Bot Fight Mode per [[bot-fight-mode-blocks-inbound-webhooks]].
@@ -3952,7 +3952,7 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
   - Dependencies: LOOP-LLM-003, LOOP-LLM-008.
   - Related files: `apps/project-sites/src/services/llm_webhooks.ts` (new), `apps/project-sites/src/routes/webhooks.ts`.
 
-- [ ] LOOP-LLM-024: Migrate all existing AI features onto the gateway + decommission direct calls [auto]
+- [ ] LOOP-LLM-024: Migrate all existing AI features onto the gateway + decommission direct calls [parked]
   - Why: The plane only delivers value when site-gen, concierge, content, support-triage, social posts ALL route through it — no shadow paths.
   - Acceptance criteria: every existing AI caller (`ai_workflows`, `chat_synthesis`, `image_generation` text parts, `openai_research`, social) uses `routeForTier`/LiteLLM base URL; LOOP-LLM-006 gate passes repo-wide; per-feature tier mapping documented; E2E proves each feature still works post-migration.
   - Implementation notes: incremental, feature-by-feature behind a `llm_gateway_<feature>` flag; grep full include-list per [[feedback_convergence_overclaim]] to avoid over-claiming "migrated".
@@ -4714,7 +4714,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-LINKS-001: Self-host Dub on CF Workers Containers (`links.projectsites.dev`) [auto]
+- [ ] LOOP-LINKS-001: Self-host Dub on CF Workers Containers (`links.projectsites.dev`) [parked]
   - Why: Owning the link engine is the precondition for every attribution + shortener feature; OSS self-host keeps cost flat and data in our stack.
   - Acceptance criteria: `links.projectsites.dev` 200 on `/api/health`; container DO boots Next.js + worker; a test link redirects with 302 and logs a click row in Tinybird; deploy is CI-driven on amd64.
   - Implementation notes: Dub is Next.js — multi-stage Dockerfile, `node:22-bookworm-slim` final stage, mkdir `/dev/shm` in entrypoint (CF Containers have none → silent crash). Pin `--platform=linux/amd64`, build on CI (cross-built arm64 image exits on CF). Per-host route `links.projectsites.dev/*` beats the `*.projectsites.dev/*` wildcard.
@@ -4724,7 +4724,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: none (foundational).
   - Related files: `containers/dub/Dockerfile`, `wrangler.toml` (route + container binding), `apps/project-sites/src/services/dub.ts` (HTTP client).
 
-- [ ] LOOP-LINKS-002: Dub Tinybird click pipeline wired to our workspace [auto]
+- [ ] LOOP-LINKS-002: Dub Tinybird click pipeline wired to our workspace [parked]
   - Why: Dub natively emits clicks to Tinybird — adopting it directly satisfies the ALWAYS-Tinybird rule and gives us OLAP click analytics for free.
   - Acceptance criteria: Dub's `dub_click_events` datasource lives in OUR Tinybird workspace; a redirect produces a row within 5s; an endpoint `clicks_by_link` returns aggregated counts by `link_id`.
   - Implementation notes: Point Dub's `TINYBIRD_API_KEY` + `TINYBIRD_API_URL` at our workspace; do NOT spin a separate ClickHouse (banned). Mirror enriched fields (`tenant_id`, `site_id`) into the click payload via Dub link `tags`/`externalId`.
@@ -4734,7 +4734,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-001.
   - Related files: `infra/tinybird/dub/*.datasource`, `infra/tinybird/dub/clicks_by_link.pipe`, container env.
 
-- [ ] LOOP-LINKS-003: HTTP-only Dub client in the worker (`services/dub.ts`) [auto]
+- [ ] LOOP-LINKS-003: HTTP-only Dub client in the worker (`services/dub.ts`) [parked]
   - Why: AGPL/license + clean-boundary discipline — the worker talks to Dub over HTTP only, never imports Dub packages or shares its Postgres schema.
   - Acceptance criteria: `createLink`, `getLink`, `listLinks`, `getClicks`, `deleteLink` typed methods; all request/response shapes declared locally with Zod; zero `@dub/*` deps in `package.json`.
   - Implementation notes: Bearer `DUB_API_KEY`; re-declare shapes (no shared types). `mcpFetch`-style wrapper: try/catch, gate on `res.ok`, typed error subclasses, size guard.
@@ -4744,7 +4744,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-001.
   - Related files: `apps/project-sites/src/services/dub.ts`, `packages/shared/src/schemas/links.ts`.
 
-- [ ] LOOP-LINKS-004: `click_id` attribution cookie + redirect interception [auto]
+- [ ] LOOP-LINKS-004: `click_id` attribution cookie + redirect interception [parked]
   - Why: The flagship primitive — a stable click identity that survives the hop from short link to the customer's site so every later event can be tied back to its source.
   - Acceptance criteria: Visiting a wrapped link sets a first-party `ps_click` cookie (signed, 90-day) carrying `click_id`; the value is readable on the destination site; tampered cookies are rejected.
   - Implementation notes: Dub's `?dub_id` / `dclid` param → on the destination worker, capture and set signed httpOnly+readable split cookie. HMAC with `LINK_COOKIE_SECRET`. Honor DNT / consent flag.
@@ -4754,7 +4754,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-002, LOOP-LINKS-003.
   - Related files: `src/middleware/attribution.ts`, `src/services/site_serving.ts`.
 
-- [ ] LOOP-LINKS-005: Link → site-claim attribution join [auto]
+- [ ] LOOP-LINKS-005: Link → site-claim attribution join [parked]
   - Why: First conversion hop — connect an anonymous click to a known site claim so we can credit the originating campaign.
   - Acceptance criteria: When a visitor claims/generates a site, the `ps_click` cookie's `click_id` is persisted on the claim row; `claims_by_source` Tinybird endpoint attributes claims to `link_id`/UTM.
   - Implementation notes: Reuse existing `claims_by_source` Tinybird endpoint; add `click_id` + `link_id` columns to the claim event. Backfill NULL for organic.
@@ -4764,7 +4764,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-004.
   - Related files: `src/routes/api.ts` (claim handler), `src/services/build_context.ts`.
 
-- [ ] LOOP-LINKS-006: Link → Twenty CRM lead attribution [auto]
+- [ ] LOOP-LINKS-006: Link → Twenty CRM lead attribution [parked]
   - Why: Second conversion hop — the originating link must ride into the CRM so sales sees which campaign produced the lead.
   - Acceptance criteria: A lead created in Twenty carries custom fields `source_link_id`, `source_click_id`, `utm_*`; visible on the Company/Lead record; falls back gracefully when attribution is absent.
   - Implementation notes: Extend existing Lead Scanner→Twenty flow; Twenty REST 400s on unknown fields → create custom fields via metadata API first (known gotcha). Map from claim row's `click_id`.
@@ -4774,7 +4774,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-005.
   - Related files: `src/services/twenty.ts` (or crm service), `libs/features/lead_attribution/`.
 
-- [ ] LOOP-LINKS-007: Link → Stripe customer attribution close-loop [auto]
+- [ ] LOOP-LINKS-007: Link → Stripe customer attribution close-loop [parked]
   - Why: Final hop — closing click→claim→lead→**paying customer** makes ROI-per-link a real, reportable number.
   - Acceptance criteria: On `checkout.session.completed`, the customer's originating `link_id`/`click_id` (from claim/lead lineage) is stamped on the subscription metadata; a `revenue_by_link` Tinybird endpoint returns MRR by source link.
   - Implementation notes: Resolve lineage at checkout via the org's earliest attributed claim; write to Stripe customer + subscription metadata; emit revenue event to Tinybird.
@@ -4784,7 +4784,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-006.
   - Related files: `src/routes/webhooks.ts`, `src/services/billing.ts`, `infra/tinybird/dub/revenue_by_link.pipe`.
 
-- [ ] LOOP-LINKS-008: Outbound link wrapping for Postiz (social) + Listmonk (email) [auto]
+- [ ] LOOP-LINKS-008: Outbound link wrapping for Postiz (social) + Listmonk (email) [parked]
   - Why: Every link we publish through social posts and newsletters must be attributable; auto-wrapping closes the biggest attribution leak.
   - Acceptance criteria: A Postiz post or Listmonk campaign body has its bare URLs rewritten to `links.projectsites.dev/<key>` before send; clicks attribute to the originating channel (`app_id=postiz|listmonk`) and campaign.
   - Implementation notes: Pre-send hook calls `dub.createLink` with `tags=[channel, campaign_id]`; idempotent on (url, campaign). For Listmonk, transform at template-render. Skip already-wrapped + unsubscribe links.
@@ -4794,7 +4794,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-003.
   - Related files: `src/services/postiz.ts`, `src/services/link_wrapper.ts`.
 
-- [ ] LOOP-LINKS-009: Customer-facing link shortener feature module (`libs/features/link_shortener`) [auto]
+- [ ] LOOP-LINKS-009: Customer-facing link shortener feature module (`libs/features/link_shortener`) [parked]
   - Why: Turn the engine into a product surface — site-owners create branded short links from `/admin`, behind a flag, as a complete feature module.
   - Acceptance criteria: Module ships `manifest.ts` (7 fields), Zod schemas, API handlers, Angular UI, E2E spec dir, flag `link_shortener` (experimental, 0%); create/list/edit/delete works tenant-scoped.
   - Implementation notes: Org-scoped via `c.get('orgId')` (never client `x-org-id` — IDOR). Calls `services/dub.ts`. UI uses `DialogShellComponent`, cyan/black tokens.
@@ -4804,7 +4804,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-003.
   - Related files: `libs/features/link_shortener/{manifest,schemas,handlers}.ts`, `e2e/link_shortener/`.
 
-- [ ] LOOP-LINKS-010: QR code generation + R2 storage [auto]
+- [ ] LOOP-LINKS-010: QR code generation + R2 storage [parked]
   - Why: Branded QR codes turn any short link into a print/physical channel — high-value for local-SMB site owners.
   - Acceptance criteria: `GET /api/links/:id/qr?format=svg|png&logo=1` returns a branded QR; PNG cached in R2 (`qr/<link_id>.png`); regenerates on link edit; CRM/print-ready.
   - Implementation notes: Use Dub's native QR endpoint where available, else generate server-side; embed site logo center; cache + ETag. Click via QR still carries `click_id`.
@@ -4814,7 +4814,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-009.
   - Related files: `src/routes/api.ts` (qr handler), `src/services/qr.ts`.
 
-- [ ] LOOP-LINKS-011: UTM builder UI + canonical UTM schema [auto]
+- [ ] LOOP-LINKS-011: UTM builder UI + canonical UTM schema [parked]
   - Why: Consistent UTMs are the backbone of attribution reporting; a guided builder prevents the typo-driven fragmentation that breaks campaign rollups.
   - Acceptance criteria: Admin form composes `utm_source/medium/campaign/term/content` with validation + presets; generated link stores UTMs as Dub link metadata; preview shows the final URL.
   - Implementation notes: Zod-validated UTM schema in `packages/shared`; preset library per channel; lowercase-normalize to avoid `Email`/`email` splits.
@@ -4824,7 +4824,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-009.
   - Related files: `packages/shared/src/schemas/utm.ts`, `libs/features/link_shortener/utm-builder.component.ts`.
 
-- [ ] LOOP-LINKS-012: Click analytics dashboard in `/admin` [auto]
+- [ ] LOOP-LINKS-012: Click analytics dashboard in `/admin` [parked]
   - Why: Owners and operators need a visual readout of clicks, sources, geo, and devices — the payoff surface for all the ingestion work.
   - Acceptance criteria: `/admin/links` renders clicks-over-time, top links, geo map, device split, referrer table from Tinybird endpoints; respects tenant scope; visibility-aware polling.
   - Implementation notes: Consume `clicks_by_link` + new `clicks_by_geo`/`clicks_by_device` Tinybird endpoints via worker proxy (no client Tinybird token). `<app-rolling-counter>` for totals; `appReveal` sections.
@@ -4834,7 +4834,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-002, LOOP-LINKS-009.
   - Related files: `frontend admin/sections/links/`, `src/routes/api.ts` (analytics proxy).
 
-- [ ] LOOP-LINKS-013: Per-customer vanity domains [auto]
+- [ ] LOOP-LINKS-013: Per-customer vanity domains [parked]
   - Why: Branded short domains (e.g. `go.acme.com`) materially lift click-through and trust for site owners on paid tiers.
   - Acceptance criteria: Owner adds a custom domain; we provision CF DNS + TLS via API and register it in Dub; links mint on the vanity domain; verification status surfaced in UI.
   - Implementation notes: Use Dub's domain API + CF zone/record API (global key, pre-stage on pending zone). Gate on plan entitlement. Verify CNAME before activation.
@@ -4844,7 +4844,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-009.
   - Related files: `src/services/domains.ts`, `libs/features/link_shortener/domains.component.ts`.
 
-- [ ] LOOP-LINKS-014: Bulk link creation (CSV import + API) [auto]
+- [ ] LOOP-LINKS-014: Bulk link creation (CSV import + API) [parked]
   - Why: Agencies and campaign-heavy owners need to mint hundreds of links at once; manual one-by-one is a non-starter.
   - Acceptance criteria: Upload CSV (url, key?, utm fields, tags) → batched `dub.createLink` with per-row validation report; partial success allowed; downloadable result with short URLs + errors.
   - Implementation notes: Stream-parse CSV in worker; chunk to Dub bulk endpoint; idempotency key per row; cap rows by plan. Dead-letter failures to R2.
@@ -4854,7 +4854,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-003, LOOP-LINKS-011.
   - Related files: `src/routes/api.ts` (bulk handler), `src/services/link_bulk.ts`.
 
-- [ ] LOOP-LINKS-015: Public Links API + scoped API keys [auto]
+- [ ] LOOP-LINKS-015: Public Links API + scoped API keys [parked]
   - Why: Programmatic link creation lets owners integrate shortening into their own tools and our partners build on top — a platform multiplier.
   - Acceptance criteria: `POST/GET/DELETE /api/v1/links` authenticated by tenant-scoped key (Unkey); rate-limited; OpenAPI documented; returns RFC7807 errors.
   - Implementation notes: Issue keys via Unkey (api.projectsites.dev) scoped to org; proxy to `services/dub.ts`. Semantic per-feature paths — no umbrella `/api/allstar/*`.
@@ -4864,7 +4864,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-003.
   - Related files: `src/routes/api/links.ts`, `openapi/links.yaml`.
 
-- [ ] LOOP-LINKS-016: Link-in-bio pages [auto]
+- [ ] LOOP-LINKS-016: Link-in-bio pages [parked]
   - Why: A hosted bio page is a self-contained marketing surface for owners' social profiles and a natural attribution funnel entry.
   - Acceptance criteria: Owner builds a `bio.<vanity>/<handle>` page with ordered links, avatar, theme; each link is a tracked short link; page served fast at edge; SSG-cached.
   - Implementation notes: Use Dub's link-in-bio if present, else our own Angular/SSG page reading Dub links by tag. Every outbound link carries `click_id`. Brand-token themes.
@@ -4874,7 +4874,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-009, LOOP-LINKS-013.
   - Related files: `libs/features/link_in_bio/`, `src/services/site_serving.ts`.
 
-- [ ] LOOP-LINKS-017: A/B link splits (rotator) [auto]
+- [ ] LOOP-LINKS-017: A/B link splits (rotator) [parked]
   - Why: Split-testing destinations from one short link lets owners optimize landing pages without re-sharing — a measurable conversion lever.
   - Acceptance criteria: A link can hold N weighted destinations; clicks distribute per weight; per-variant clicks + downstream conversions reported; sticky per `click_id`.
   - Implementation notes: Dub link with variant config (or our rotator in worker if Dub lacks it — decide). Persist variant choice keyed to `click_id` so a returning visitor stays consistent.
@@ -4884,7 +4884,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-004.
   - Related files: `src/middleware/link_redirect.ts`, `src/services/ab_split.ts`.
 
-- [ ] LOOP-LINKS-018: Geo + device targeting rules [auto]
+- [ ] LOOP-LINKS-018: Geo + device targeting rules [parked]
   - Why: Routing a single link to locale/device-appropriate destinations (App Store vs Play, region landing pages) raises relevance and conversion.
   - Acceptance criteria: A link can define rules (country/region/OS/device → URL); CF geo + UA drive selection; default fallback; rules editable in UI; targeted hits still attribute.
   - Implementation notes: Use `request.cf.country` + UA parse; Dub geo-targeting if available else worker rule engine. Rules validated with Zod; max N rules per plan.
@@ -4894,7 +4894,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-004.
   - Related files: `src/services/link_targeting.ts`, `libs/features/link_shortener/targeting.component.ts`.
 
-- [ ] LOOP-LINKS-019: Link expiration + scheduled activation [auto]
+- [ ] LOOP-LINKS-019: Link expiration + scheduled activation [parked]
   - Why: Time-boxed campaign links (sales, events) must auto-expire to a fallback to avoid dead or stale destinations.
   - Acceptance criteria: Link has `expiresAt` and optional `activatesAt`; expired links 410/redirect to fallback URL; activation gates pre-launch links; surfaced in UI with countdown.
   - Implementation notes: Dub native expiration where available; worker enforces at redirect. Cron sweep marks expired for analytics segmentation.
@@ -4904,7 +4904,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-003.
   - Related files: `src/middleware/link_redirect.ts`, `src/cron/link_expiry.ts`.
 
-- [ ] LOOP-LINKS-020: Password-protected + cloaked links [auto]
+- [ ] LOOP-LINKS-020: Password-protected + cloaked links [parked]
   - Why: Owners sharing gated content or affiliate links need access control and URL masking — table-stakes shortener features.
   - Acceptance criteria: A link can require a password (interstitial form) and/or cloak the destination (iframe/proxy mask) per Dub capability; settings toggled in UI; attribution preserved through the gate.
   - Implementation notes: Dub password + cloaking; password hashed, never logged. Cloaking respects target's frame headers (fail open to redirect if X-Frame-Options denies). Document cloaking caveats.
@@ -4914,7 +4914,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-009.
   - Related files: `src/routes/link_gate.ts`, `libs/features/link_shortener/protect.component.ts`.
 
-- [ ] LOOP-LINKS-021: Click-fraud / bot detection before conversion counting [auto]
+- [ ] LOOP-LINKS-021: Click-fraud / bot detection before conversion counting [parked]
   - Why: Bot and self-clicks pollute attribution and inflate conversion numbers — fraud filtering protects every downstream ROI metric.
   - Acceptance criteria: Clicks are scored (UA, ASN/datacenter IP, velocity, CF bot score) and tagged `is_bot`; conversion attribution (claims/leads/revenue) excludes bot clicks; dashboard shows human vs bot split.
   - Implementation notes: Use `request.cf.botManagement.score` + Upstash velocity counters; mark in Tinybird click row. Never block the redirect — only exclude from conversion + flag.
@@ -4924,7 +4924,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-002, LOOP-LINKS-004.
   - Related files: `src/services/click_fraud.ts`, `infra/tinybird/dub/human_clicks.pipe`.
 
-- [ ] LOOP-LINKS-022: Partner / referral links + payouts hook [auto]
+- [ ] LOOP-LINKS-022: Partner / referral links + payouts hook [parked]
   - Why: A referral program turns customers into a distribution channel; tracked partner links + commission accounting is a growth flywheel.
   - Acceptance criteria: A partner gets a unique referral link; referred signups/customers attribute to the partner via the click→customer lineage; a `referrals_by_partner` report drives commission; export to Stripe Connect for payout.
   - Implementation notes: Reuse Dub's partner program features if usable, else tag links `partner_id`. Commission = attributed revenue × rate; payout via Stripe Connect Express (per payments-routing). Anti-self-referral check.
@@ -4934,7 +4934,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-007.
   - Related files: `libs/features/referral_program/`, `src/services/billing.ts`.
 
-- [ ] LOOP-LINKS-023: Deep links (mobile app routing) + smart fallback [auto]
+- [ ] LOOP-LINKS-023: Deep links (mobile app routing) + smart fallback [parked]
   - Why: For owners with mobile apps, a single link that opens the app when installed and falls back to web/store maximizes engagement.
   - Acceptance criteria: A link configured with app scheme + iOS/Android store URLs opens the app via universal/app links, else routes to store, else web; `apple-app-site-association` + `assetlinks.json` served for the vanity domain.
   - Implementation notes: Serve AASA/assetlinks from the vanity domain root; interstitial JS fallback for non-supporting browsers. Attribution carried via deferred-deep-link param.
@@ -4944,7 +4944,7 @@ Surveyed ~50 raw themes across two scopes: (1) **platform attribution** — a re
   - Dependencies: LOOP-LINKS-013, LOOP-LINKS-018.
   - Related files: `src/routes/well_known.ts`, `src/services/deeplink.ts`.
 
-- [ ] LOOP-LINKS-024: Attribution lineage explorer + webhook fan-out (Hookdeck+Outpost) [auto]
+- [ ] LOOP-LINKS-024: Attribution lineage explorer + webhook fan-out (Hookdeck+Outpost) [parked]
   - Why: A single view of the full click→claim→lead→customer chain — plus emitting each hop as a webhook — makes attribution debuggable and lets owners pipe events into their own tools.
   - Acceptance criteria: `/admin/links/:id/lineage` shows the ordered chain for a `click_id` with all correlation IDs; each hop emits a typed webhook through Outpost; idempotent + signed; replay supported via Hookdeck.
   - Implementation criteria/notes: Single Tinybird/Neon join keyed on `click_id`; webhook events `click.recorded`, `claim.attributed`, `lead.attributed`, `revenue.attributed` with stable schema + HMAC. Dead-letter to R2.
@@ -4972,7 +4972,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: none (foundation).
   - Related files: `apps/project-sites/src/services/status/health_aggregator.ts`, `apps/project-sites/src/services/status/registry.ts`, `packages/shared/src/schemas/status.ts`
 
-- [ ] LOOP-STATUS-002: Cron-driven synthetic prober (monitoring-only doctrine) [auto]
+- [ ] LOOP-STATUS-002: Cron-driven synthetic prober (monitoring-only doctrine) [parked]
   - Why: Crons are monitoring-only by doctrine, which is exactly what a prober is — scheduled fan-out checks with zero mutation of business state.
   - Acceptance criteria: A CF Cron Trigger (`*/1 * * * *`) invokes the aggregator + per-component synthetic checks; results persist to D1; a missed-run guard flags stale snapshots (>3 min old) on the page. Idempotent — re-running the same minute does not double-count uptime.
   - Implementation notes: `scheduled()` handler dispatches to `runProbeCycle()`. Each check carries `check_id` (stable per component+type) for correlation. Stagger heavy checks across minutes via a modulo schedule to stay under CPU limits.
@@ -4982,7 +4982,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-001.
   - Related files: `apps/project-sites/src/workflows/status_probe.ts`, `apps/project-sites/wrangler.toml`
 
-- [ ] LOOP-STATUS-003: Durable Object check scheduler for sub-minute + regional probes [auto]
+- [ ] LOOP-STATUS-003: Durable Object check scheduler for sub-minute + regional probes [parked]
   - Why: Cron's floor is 1 minute and single-region; a DO with alarms enables tighter intervals and per-region scheduling for critical components (api/auth/billing).
   - Acceptance criteria: A `ProbeSchedulerDO` schedules alarms per high-priority component (configurable 15–60s), records jitter-corrected intervals, and survives restarts. Falls back to Cron cadence for low-priority components. (needs decision: which components warrant sub-minute — default api/auth/billing/mail.)
   - Implementation notes: One DO per region tag; `alarm()` runs the check and re-arms. Use `state.storage` for the schedule and last-result. Keep DO logic thin — delegate probe execution to the shared prober.
@@ -4992,7 +4992,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-002.
   - Related files: `apps/project-sites/src/durable_objects/probe_scheduler.ts`
 
-- [ ] LOOP-STATUS-004: Public status page — component grid + overall banner [auto]
+- [ ] LOOP-STATUS-004: Public status page — component grid + overall banner [parked]
   - Why: The primary user-facing artifact; one glance must answer "is the platform up?"
   - Acceptance criteria: `GET status.projectsites.dev/` renders an overall status banner (worst-of components), a grouped component grid (Core / Comms / Data / AI / Customer Sites), and a "last updated" timestamp; SSR/SSG from the KV-cached snapshot; degrades to a static R2 snapshot if the Worker errors. Axe-clean, 6 breakpoints.
   - Implementation notes: Dark-first brand tokens; status colors meet WCAG AA + carry text/icon (not color-only). Overall = max severity across non-maintenance components. Render from KV first, D1 fallback.
@@ -5002,7 +5002,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-001.
   - Related files: `apps/project-sites/src/routes/status_page.ts`, `apps/project-sites/public/status/`
 
-- [ ] LOOP-STATUS-005: 90-day uptime bars per component (Tinybird-backed) [auto]
+- [ ] LOOP-STATUS-005: 90-day uptime bars per component (Tinybird-backed) [parked]
   - Why: Historical uptime is the trust signal that distinguishes a real status page from a green light.
   - Acceptance criteria: Each component shows a 90-bar strip (one bar/day) colored by that day's worst observed state, with hover detail (uptime %, incident count); data served from a Tinybird endpoint over rolled-up check results.
   - Implementation notes: Daily rollup pipe aggregates `check_results` → `uptime_daily {component, day, pct, worst_state, incidents}`. Page calls the Tinybird endpoint with a short edge cache. Backfill from R2 archive on first build.
@@ -5012,7 +5012,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-002, LOOP-STATUS-013.
   - Related files: `apps/project-sites/src/services/status/uptime_rollup.ts`, `tinybird/pipes/uptime_daily.pipe`
 
-- [ ] LOOP-STATUS-006: Incident model + lifecycle (investigating→identified→monitoring→resolved) [auto]
+- [ ] LOOP-STATUS-006: Incident model + lifecycle (investigating→identified→monitoring→resolved) [parked]
   - Why: Status pages live or die on clear, time-stamped incident communication.
   - Acceptance criteria: D1 `incidents` + `incident_updates` tables; a typed lifecycle with append-only updates; an incident pins affected components and impact level; resolved incidents drop off the active banner but persist in history. Zod schemas for create/update; idempotent updates via client token.
   - Implementation notes: `incident_id` is the correlation key threaded everywhere. Updates are immutable rows (audit trail). Impact derives affected-component severity on the page.
@@ -5022,7 +5022,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-001.
   - Related files: `apps/project-sites/src/services/status/incidents.ts`, `packages/shared/src/schemas/status_incident.ts`
 
-- [ ] LOOP-STATUS-007: Incident timeline UI + per-incident permalink page [auto]
+- [ ] LOOP-STATUS-007: Incident timeline UI + per-incident permalink page [parked]
   - Why: Subscribers and customers need a linkable, chronological record of what happened and when.
   - Acceptance criteria: `/incidents` lists past incidents (paginated); `/incidents/:id` renders the full update thread with timestamps, affected components, and duration; both SSR, axe-clean, and exposed in the RSS feed (LOOP-STATUS-010).
   - Implementation notes: Render Markdown update bodies through a scheme-validated sanitizer (per markdown link-safety memory). Show computed downtime duration. Stable anchor per update.
@@ -5032,7 +5032,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-006.
   - Related files: `apps/project-sites/src/routes/status_incidents.ts`
 
-- [ ] LOOP-STATUS-008: Auto-incident creation from probe failures + Sentry/alert ingestion [auto]
+- [ ] LOOP-STATUS-008: Auto-incident creation from probe failures + Sentry/alert ingestion [parked]
   - Why: A solo founder cannot hand-open incidents; sustained failures and platform Sentry alerts should declare incidents automatically.
   - Acceptance criteria: N consecutive failed cycles (default 3) for a component auto-opens an incident (investigating) and auto-resolves after M consecutive recoveries; a Sentry webhook + internal alert webhook can also open/correlate incidents; dedup prevents flapping (debounce + open-incident check). Confirmable false-positive suppression window.
   - Implementation notes: State machine keyed by component; persist failure streak in DO/D1. Sentry payload maps `issue` → affected component via tag. Hysteresis thresholds configurable per component.
@@ -5042,7 +5042,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-006, LOOP-STATUS-002.
   - Related files: `apps/project-sites/src/services/status/auto_incident.ts`, `apps/project-sites/src/routes/webhooks.ts`
 
-- [ ] LOOP-STATUS-009: Subscriber registry + email notifications (Listmonk/SES double opt-in) [auto]
+- [ ] LOOP-STATUS-009: Subscriber registry + email notifications (Listmonk/SES double opt-in) [parked]
   - Why: Users want to be told about incidents/maintenance without watching the page.
   - Acceptance criteria: A subscribe form captures email + optional component scope, sends a double-opt-in confirmation, and on incident open/update/resolve + maintenance start/end fans out templated emails; unsubscribe link in every message; per-component subscriptions honored.
   - Implementation notes: Listmonk list per "status-subscribers" with SES transport; or direct SES for transactional incident mails (needs decision: Listmonk-broadcast vs direct-SES — default Listmonk for list mgmt, SES for instant incident blasts). Idempotent send keyed by `incident_update_id+subscriber_id`.
@@ -5052,7 +5052,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-006.
   - Related files: `apps/project-sites/src/services/status/subscribers.ts`
 
-- [ ] LOOP-STATUS-010: RSS/Atom + JSON feeds for incidents and maintenance [auto]
+- [ ] LOOP-STATUS-010: RSS/Atom + JSON feeds for incidents and maintenance [parked]
   - Why: Feeds are the zero-friction, no-PII subscription path and feed status aggregators/Slack.
   - Acceptance criteria: `/feed.rss`, `/feed.atom`, and `/api/status/feed.json` emit the latest incidents + scheduled maintenance with stable GUIDs, valid per W3C feed validation, cached with purge-on-update.
   - Implementation notes: GUID = `incident_id` (+ update seq for granular feeds). Conform to the Atom spec used by common status aggregators. Set correct content-type + `Last-Modified`.
@@ -5062,7 +5062,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-006, LOOP-STATUS-011.
   - Related files: `apps/project-sites/src/routes/status_feeds.ts`
 
-- [ ] LOOP-STATUS-011: Scheduled-maintenance notices (banner + auto-suppress alerts) [auto]
+- [ ] LOOP-STATUS-011: Scheduled-maintenance notices (banner + auto-suppress alerts) [parked]
   - Why: Planned work must show as maintenance, not red outage, and must suppress auto-incidents during the window.
   - Acceptance criteria: Create a maintenance window (components, start, end, body); page shows an upcoming/active maintenance banner; during the window affected components render `maintenance` (blue) and auto-incident creation is suppressed for them; notifications fire on schedule + start + end.
   - Implementation notes: Window stored in D1; aggregator checks active windows to override component color and gate LOOP-STATUS-008. Pre-notify at T-24h/T-1h (configurable).
@@ -5072,7 +5072,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-001, LOOP-STATUS-009.
   - Related files: `apps/project-sites/src/services/status/maintenance.ts`
 
-- [ ] LOOP-STATUS-012: SLA / uptime % computation + display (rolling windows) [auto]
+- [ ] LOOP-STATUS-012: SLA / uptime % computation + display (rolling windows) [parked]
   - Why: Uptime percentages (24h/7d/30d/90d) are the headline metric users and contracts care about.
   - Acceptance criteria: Per component + overall, compute uptime % over rolling windows excluding maintenance windows by default (toggleable), display with the bar strips, and expose via API; math is deterministic and unit-tested against fixtures including partial-degradation weighting.
   - Implementation notes: Degraded counts as fractional downtime (configurable weight, e.g. 0.5). Source from Tinybird daily rollups for long windows, D1 raw for 24h. Document the SLA formula in the page footer.
@@ -5082,7 +5082,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-005, LOOP-STATUS-011.
   - Related files: `apps/project-sites/src/services/status/sla.ts`
 
-- [ ] LOOP-STATUS-013: Check-result archival to R2 + retention policy [auto]
+- [ ] LOOP-STATUS-013: Check-result archival to R2 + retention policy [parked]
   - Why: D1 is the hot store; raw high-frequency check results must age out to cheap durable storage for backfill and audits.
   - Acceptance criteria: An hourly Cron batches raw `check_results` older than 7 days into compressed R2 objects (`status/archive/YYYY/MM/DD/component.ndjson.gz`), then prunes D1; Tinybird ingestion reads from R2 for long-window rollups; restore path documented.
   - Implementation notes: NDJSON + gzip; partition by day+component for cheap range reads. Keep D1 to a rolling 7-day window. Idempotent archive keyed by hour.
@@ -5092,7 +5092,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-002.
   - Related files: `apps/project-sites/src/workflows/status_archive.ts`
 
-- [ ] LOOP-STATUS-014: Component dependency map + cascade rendering [auto]
+- [ ] LOOP-STATUS-014: Component dependency map + cascade rendering [parked]
   - Why: When a shared dependency (db/auth) fails, dependent components should reflect impact instead of confusing independent reds.
   - Acceptance criteria: The registry declares a dependency DAG (e.g. billing→db, crm→auth); the page renders a dependency view and annotates "degraded due to <upstream>"; cascade is advisory (does not fake green/red), and cycle detection guards the DAG at build time.
   - Implementation notes: DAG in `SUBSYSTEM_REGISTRY`; topological annotation in the aggregator. Render a compact map (SVG) plus inline "depends on" badges.
@@ -5102,7 +5102,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-001.
   - Related files: `apps/project-sites/src/services/status/dependency_graph.ts`
 
-- [ ] LOOP-STATUS-015: Per-tenant customer-site uptime (status-as-a-feature) [auto]
+- [ ] LOOP-STATUS-015: Per-tenant customer-site uptime (status-as-a-feature) [parked]
   - Why: ProjectSites hosts customer sites; per-tenant uptime is a sellable product surface, not just internal ops.
   - Acceptance criteria: Each published customer site gets synthetic checks (homepage 200 + optional keyword assertion); a tenant-scoped status view shows their site's uptime + response time; org-scoped (orgId from `c.get('orgId')`, never client header) and behind a feature flag.
   - Implementation notes: Reuse the prober with per-tenant targets pulled from the sites table. Cap check frequency by plan tier. Tenant view at `/status/:tenant` (slug-scoped) or in admin.
@@ -5112,7 +5112,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-002, LOOP-STATUS-024.
   - Related files: `apps/project-sites/src/services/status/tenant_checks.ts`
 
-- [ ] LOOP-STATUS-016: Response-time / latency graphs with percentiles [auto]
+- [ ] LOOP-STATUS-016: Response-time / latency graphs with percentiles [parked]
   - Why: "Up" is not enough; degraded latency is the most common real-world failure mode and needs visualization.
   - Acceptance criteria: Per component, render p50/p90/p99 response-time charts over selectable windows from Tinybird; degraded-performance threshold lines overlaid; data downsampled for long windows.
   - Implementation notes: Latency events stream to Tinybird per check; percentile pipes per window. Chart with brand-locked, accessible series (labels not color-only).
@@ -5122,7 +5122,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-005.
   - Related files: `tinybird/pipes/latency_percentiles.pipe`, `apps/project-sites/src/routes/status_metrics.ts`
 
-- [ ] LOOP-STATUS-017: Degraded-performance detection (threshold + anomaly) [auto]
+- [ ] LOOP-STATUS-017: Degraded-performance detection (threshold + anomaly) [parked]
   - Why: Auto-detecting "slow but up" prevents silent SLA erosion that binary up/down checks miss.
   - Acceptance criteria: Per component, configurable latency thresholds (warn/critical) plus a rolling-baseline anomaly check flip the component to `degraded` and can feed auto-incident; thresholds tunable per component; false-positive damping via consecutive-breach requirement.
   - Implementation notes: Baseline = trailing p90 over 7d from Tinybird; breach = current p90 > k×baseline for N cycles. Keep thresholds in D1 config, editable in admin.
@@ -5132,7 +5132,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-016, LOOP-STATUS-008.
   - Related files: `apps/project-sites/src/services/status/degradation.ts`
 
-- [ ] LOOP-STATUS-018: Heartbeat / dead-man checks for crons & background jobs [auto]
+- [ ] LOOP-STATUS-018: Heartbeat / dead-man checks for crons & background jobs [parked]
   - Why: Crons fail silently; a heartbeat that expects a ping and alerts on absence catches missed monitoring/jobs.
   - Acceptance criteria: A `POST /api/status/heartbeat/:check_id` endpoint records pings; each heartbeat has an expected interval + grace; a sweep Cron opens an incident / fires alert when a heartbeat is overdue; bootstrap-tokened so only real jobs can ping.
   - Implementation notes: Store `last_ping_at` + `expected_interval_s` per heartbeat in D1/DO; sweep compares `now - last_ping > interval + grace`. Wire existing platform crons (probe, archive, rollup) to ping themselves.
@@ -5142,7 +5142,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-002, LOOP-STATUS-008.
   - Related files: `apps/project-sites/src/services/status/heartbeat.ts`
 
-- [ ] LOOP-STATUS-019: Embeddable status widget (badge + mini-panel) [auto]
+- [ ] LOOP-STATUS-019: Embeddable status widget (badge + mini-panel) [parked]
   - Why: Customers and the marketing site want a live "all systems operational" badge without iframing the whole page.
   - Acceptance criteria: `/embed/badge.svg` (dynamic SVG reflecting overall status), `/embed/badge.json` (Shields-compatible), and a `/embed.js` snippet that injects a mini status panel; all CORS-enabled, cached short, color + label (not color-only).
   - Implementation notes: SVG generated server-side from the cached snapshot; `embed.js` is a tiny script that fetches `badge.json` and renders. Provide copy-paste snippet in admin.
@@ -5152,7 +5152,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-004.
   - Related files: `apps/project-sites/src/routes/status_embed.ts`
 
-- [ ] LOOP-STATUS-020: Public status API (typed, rate-limited, documented) [auto]
+- [ ] LOOP-STATUS-020: Public status API (typed, rate-limited, documented) [parked]
   - Why: A machine-readable status API lets dashboards, bots, and customers integrate programmatically — table stakes for a platform.
   - Acceptance criteria: `GET /api/status/v1/summary`, `/components`, `/incidents`, `/uptime` return Zod-validated JSON with stable shapes; DO-backed rate limiting; OpenAPI spec published; RFC7807 error envelopes with `correlationId`.
   - Implementation notes: Versioned under `/v1`. Reuse the snapshot + D1 sources. Rate-limit per IP via DO counter (managed RL doesn't enforce on plan, per memory). Lint spec with Redocly.
@@ -5162,7 +5162,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-001, LOOP-STATUS-006.
   - Related files: `apps/project-sites/src/routes/status_api.ts`, `apps/project-sites/openapi/status.yaml`
 
-- [ ] LOOP-STATUS-021: Regional status — multi-PoP probe + regional breakdown [auto]
+- [ ] LOOP-STATUS-021: Regional status — multi-PoP probe + regional breakdown [parked]
   - Why: A component up in one region but down in another is invisible to single-region checks; regional truth matters for global customers.
   - Acceptance criteria: Checks run from ≥2 CF regions (via DO regional hints / Cron in multiple colos where feasible); the page shows a per-region matrix for selected components; overall reflects worst region with a regional drill-down. (needs decision: CF region coverage limits — document achievable regions; external prober is explicitly out of scope unless a region can't be reached.)
   - Implementation notes: Tag each `check_result` with `region`. Aggregate per region then roll up. Start with the region set CF placement actually grants.
@@ -5172,7 +5172,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-003.
   - Related files: `apps/project-sites/src/services/status/regions.ts`
 
-- [ ] LOOP-STATUS-022: Webhook subscriptions via Hookdeck + Outpost [auto]
+- [ ] LOOP-STATUS-022: Webhook subscriptions via Hookdeck + Outpost [parked]
   - Why: Teams want incident events pushed to Slack/PagerDuty/their own systems with delivery guarantees we don't have to build.
   - Acceptance criteria: Subscribers register a webhook URL + secret; incident/maintenance/component-state events publish through Hookdeck+Outpost with HMAC signatures, retries, and a DLQ; delivery status visible in admin; per-event-type filtering.
   - Implementation notes: Emit a typed `StatusEvent` to Outpost on each lifecycle transition; Hookdeck handles fan-out + retry. Sign payloads; document verification. Idempotency key = `event_id`.
@@ -5182,7 +5182,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-006, LOOP-STATUS-011.
   - Related files: `apps/project-sites/src/services/status/webhooks_out.ts`
 
-- [ ] LOOP-STATUS-023: Admin console — incidents, maintenance, components, thresholds [auto]
+- [ ] LOOP-STATUS-023: Admin console — incidents, maintenance, components, thresholds [parked]
   - Why: A solo founder needs one fast cyan/black panel to declare incidents, post updates, schedule maintenance, and tune checks.
   - Acceptance criteria: `/admin/status` provides CRUD for incidents (with update composer), maintenance windows, component registry overrides, and per-component thresholds; all mutations authed + audit-logged; templated quick-incidents ("API degraded"); flag-gated; matches admin cyan/black cockpit tokens.
   - Implementation criteria/notes: Reuse `DialogShellComponent` + `ConfirmService` (destructive=red default). orgId/operator scope from server context, never client header. Markdown preview for update bodies (sanitized).
@@ -5193,7 +5193,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
   - Dependencies: LOOP-STATUS-006, LOOP-STATUS-011, LOOP-STATUS-017.
   - Related files: `apps/project-sites/frontend/src/app/admin/sections/status/`, `apps/project-sites/src/routes/status_admin.ts`
 
-- [ ] LOOP-STATUS-024: Feature-module wrapper + flag + E2E + on-call escalation hook [auto]
+- [ ] LOOP-STATUS-024: Feature-module wrapper + flag + E2E + on-call escalation hook [parked]
   - Why: Per SUPREME feature-module doctrine the whole status plane must be a colocated module with a typed flag, and incidents need an escalation path beyond email.
   - Acceptance criteria: `libs/features/status_plane/` with `manifest.ts` (7 required fields), Zod `schemas.ts`, typed flag `status_plane` (enabled=0, rollout=0, experimental) wired to D1 + KV cache; Playwright `e2e/status_plane/` covers page render, incident lifecycle, subscribe flow, badge, and API; an on-call escalation step pages the founder (SES + webhook + optional Twilio — needs decision: Twilio vs webhook-only) when a major-outage incident stays open past a threshold.
   - Implementation notes: `validate:features` passes; disabled flag → page returns a minimal static "operational" snapshot (404 on admin/API). Escalation ladder configurable (T+5m warn → T+15m page). All events tagged `featureSlug: status_plane`.
@@ -5459,7 +5459,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-PLATFORM-001: Correlation-ID propagation middleware (shared spine) [auto]
+- [ ] LOOP-PLATFORM-001: Correlation-ID propagation middleware (shared spine) [parked]
   - Why: AI is the primary maintainer; without an unbroken `trace_id` + tenant lineage across all 19 subsystems, debugging a cross-service failure is impossible.
   - Acceptance criteria: A `@projectsites/correlation` shared package injects/reads the 7 IDs (tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id) from inbound headers (`x-ps-trace-id` etc.), generates missing ones, stamps them on `c.set()`, and re-emits them on every outbound fetch + queue message + event_bus row. A request entering any subsystem and fanning to 2 others shows ONE `trace_id` end-to-end in Axiom.
   - Implementation notes: Hono middleware + `AsyncLocalStorage`-style context; W3C `traceparent` compatible; never trust client-supplied `tenant_id` (derive from auth, mirror x-org-id IDOR fix).
@@ -5469,7 +5469,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: none (foundational — most others build on it).
   - Related files: `packages/shared/src/correlation/`, `apps/project-sites/src/middleware/request_id.ts`.
 
-- [ ] LOOP-PLATFORM-002: Typed internal service-client SDK [auto]
+- [ ] LOOP-PLATFORM-002: Typed internal service-client SDK [parked]
   - Why: 19 subsystems calling each other with raw `fetch` + ad-hoc shapes is the #1 source of integration drift; a Zod-typed client is the highest-leverage reusable primitive.
   - Acceptance criteria: `@projectsites/service-client` exposes `client.crm.createLead(input)`-style typed methods generated per subsystem; every request/response is Zod-validated in+out; correlation IDs auto-injected (depends on -001); internal auth (Unkey service key or signed JWT) attached automatically; bad response shape throws a typed `ServiceContractError`.
   - Implementation notes: One module per subsystem under `clients/<name>.ts`; shapes declared locally (no AGPL/cross-repo type imports per AGPL-isolation rule); retry+backoff+circuit-breaker baked in.
@@ -5479,7 +5479,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -004 (health), -021 (rate limit honored).
   - Related files: `packages/shared/src/service-client/`.
 
-- [ ] LOOP-PLATFORM-003: Platform event taxonomy + event_bus contract (flagship) [auto]
+- [ ] LOOP-PLATFORM-003: Platform event taxonomy + event_bus contract (flagship) [parked]
   - Why: The event_bus → Tinybird backbone is only useful if every subsystem emits events with a shared, versioned shape; a taxonomy is the contract that makes OLAP queries cross-subsystem.
   - Acceptance criteria: A canonical `PlatformEvent` Zod schema (`event_name` from a frozen enum `<subsystem>.<entity>.<verb>`, `event_version`, all 7 correlation IDs, `occurred_at`, `payload`) is published; a registry doc lists every legal event_name; `emitEvent()` helper rejects unknown names; Tinybird `projectsites_events` datasource columns match.
   - Implementation notes: Enum lives in shared package; CI gate fails build if a subsystem emits an event_name absent from the registry (drift-detection).
@@ -5489,7 +5489,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001.
   - Related files: `packages/shared/src/events/taxonomy.ts`, `apps/project-sites/src/services/event_bus.ts`, `services/tinybird.ts`.
 
-- [ ] LOOP-PLATFORM-004: Shared health/heartbeat contract (flagship) [auto]
+- [ ] LOOP-PLATFORM-004: Shared health/heartbeat contract (flagship) [parked]
   - Why: An operator needs one pane to know all 19 subsystems are alive; a uniform `/health` contract is what makes a platform status board possible.
   - Acceptance criteria: Every subsystem exposes `GET /health` returning the canonical `{ status: 'ok'|'degraded'|'down', version, commit_sha, uptime_s, checks: [{name,status,latency_ms}], correlation }` Zod shape. A platform poller aggregates all 19 into `/admin/system-services` health column with last-seen + latency.
   - Implementation notes: Shared `healthHandler(checks[])` factory; checks cover backing stores (Neon/Upstash/TiDB/R2 reachability); 200 even when degraded, status in body (mirror CF-Access body-not-status gotcha).
@@ -5499,7 +5499,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -018.
   - Related files: `packages/shared/src/health/`, `apps/project-sites/src/routes/health.ts`, `src/services/SERVICE_REGISTRY`.
 
-- [ ] LOOP-PLATFORM-005: New-subsystem golden-path template (flagship) [auto]
+- [ ] LOOP-PLATFORM-005: New-subsystem golden-path template (flagship) [parked]
   - Why: Solo founder adds subsystems constantly; a scaffold that bakes in every cross-cutting primitive makes each new subsystem cheap and drift-free from minute one.
   - Acceptance criteria: `npm run gen:subsystem -- --slug <name>` produces a CF Worker/Container skeleton wired with: correlation middleware (-001), `/health` (-004), event emitter (-003), entitlements gate (-008), service-client registration (-002), Zod env schema, WAF-skip+DNS provisioning call (-006), Sentry (platform-only), Axiom logger, a `manifest.ts`, E2E spec dir, and a wrangler.toml with `workers_dev=true`.
   - Implementation notes: Plop/Hygen generator; copies from a maintained `template-subsystem/`; refuses to scaffold without a unique subdomain.
@@ -5509,7 +5509,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001,-002,-003,-004,-006,-008.
   - Related files: `tools/gen/subsystem/`, `template-subsystem/`.
 
-- [ ] LOOP-PLATFORM-006: WAF-skip + DNS provisioning automation [auto]
+- [ ] LOOP-PLATFORM-006: WAF-skip + DNS provisioning automation [parked]
   - Why: Doctrine mandates every non-GET subdomain be added to the WAF skip rule + DNS provisioned via CF API; doing it by hand is the most repeated error-prone step (njsk.org wildcard incident).
   - Acceptance criteria: `provisionSubdomain(slug, {nonGet:true})` script: (a) creates the proxied DNS record via CF API, (b) appends `<slug>.projectsites.dev` to the named WAF skip ruleset, (c) ensures an explicit per-host Worker route beats the `*.projectsites.dev/*` wildcard, (d) sets `workers_dev=true`, (e) HTTP-verifies the live URL returns 200. Idempotent + re-runnable.
   - Implementation notes: Uses global CF key (`X-Auth-Key`+`X-Auth-Email`) per cloudflare-native-provisioning rule; reads existing skip rule, merges, PUTs.
@@ -5519,7 +5519,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: none.
   - Related files: `tools/provision/subdomain.mjs`, `apps/project-sites/wrangler.toml`.
 
-- [ ] LOOP-PLATFORM-007: Unified multi-tenant data model (tenant↔site↔app↔customer) [auto]
+- [ ] LOOP-PLATFORM-007: Unified multi-tenant data model (tenant↔site↔app↔customer) [parked]
   - Why: Every subsystem references tenants, sites, apps, and customers differently; a canonical relational model + ID convention is the shared backbone all correlation + entitlements + billing depend on.
   - Acceptance criteria: A documented canonical schema defines `tenant`, `org`, `site`, `app`, `customer` with stable UUID v7 PKs and FK conventions; a shared `@projectsites/ids` package provides typed branded IDs (`TenantId`, `SiteId`…) + validators; a `resolveTenantContext(req)` returns the full lineage from any subsystem.
   - Implementation notes: System-of-record in D1 (`project-sites-db-production`); per-app DBs reference by ID only, never duplicate the row (neon-database-conservation). UUID v7 per uuid-version-discipline.
@@ -5529,7 +5529,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001.
   - Related files: `packages/shared/src/ids/`, `packages/shared/src/schemas/`, `supabase/migrations/`.
 
-- [ ] LOOP-PLATFORM-008: Per-tenant entitlements gate spanning all subsystems (flagship) [auto]
+- [ ] LOOP-PLATFORM-008: Per-tenant entitlements gate spanning all subsystems (flagship) [parked]
   - Why: One authoritative entitlements service that every subsystem checks before serving is what makes plan tiers real platform-wide instead of per-app guesswork.
   - Acceptance criteria: `checkEntitlement(tenantId, capability)` returns `{allowed, limit, used, reason}` from a central entitlements store; shared middleware `requireEntitlement('crm.leads.create')` returns 404 (never 403) when disabled; a capability registry enumerates every gated capability across all 19 subsystems; admin UI shows per-tenant grid.
   - Implementation notes: Entitlements derived from plan + overrides in D1; KV-cached 60s with explicit invalidation on mutation (mirror flag-cache stale bug). Server-enforced, never client.
@@ -5539,7 +5539,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -007.
   - Related files: `packages/shared/src/entitlements/`, `apps/project-sites/src/middleware/auth.ts`.
 
-- [ ] LOOP-PLATFORM-009: Single sign-on across all consoles (Better Auth) [auto]
+- [ ] LOOP-PLATFORM-009: Single sign-on across all consoles (Better Auth) [parked]
   - Why: 19 admin consoles each with their own login is unusable; one Better Auth session shared across all `*.projectsites.dev` consoles is table stakes.
   - Acceptance criteria: A user signs in once at `auth.projectsites.dev` and is authenticated at every subsystem console via a shared session cookie (domain `.projectsites.dev`) + central session verification; sign-out propagates everywhere; RBAC role resolved centrally.
   - Implementation notes: Better Auth ONLY (Logto/WorkOS deleted); per-request D1 session check (better-auth-cf-gotchas: cookieCache bug #4203, TTL floor); static schema migration applied before cutover.
@@ -5549,7 +5549,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -007.
   - Related files: `apps/project-sites/src/auth/better-auth.ts`, `src/services/auth`.
 
-- [ ] LOOP-PLATFORM-010: Unified org/RBAC model + shared permission middleware [auto]
+- [ ] LOOP-PLATFORM-010: Unified org/RBAC model + shared permission middleware [parked]
   - Why: Authorization fragmented per subsystem leaks permissions; one role/permission matrix enforced by shared middleware is the only way to reason about access platform-wide.
   - Acceptance criteria: Canonical roles (owner/admin/member/viewer) + a permission matrix per capability live in shared config; `requirePermission('billing.write')` middleware enforces; orgId always derived server-side from session (`c.get('orgId')`, never client `x-org-id` — IDOR class); denial returns human-readable Problem Details envelope.
   - Implementation notes: Reuse `packages/shared/src/middleware/` RBAC; matrix versioned; AI search is permission-aware via this layer.
@@ -5559,7 +5559,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -007, -009.
   - Related files: `packages/shared/src/middleware/`, `packages/shared/src/constants/ROLES`.
 
-- [ ] LOOP-PLATFORM-011: Unified usage metering across services (Lago) [auto]
+- [ ] LOOP-PLATFORM-011: Unified usage metering across services (Lago) [parked]
   - Why: Billing + entitlements need a single source of metered usage; piping every subsystem's usage events into Lago events API is the platform's metering spine.
   - Acceptance criteria: A `meter(tenantId, meter_slug, value)` helper emits usage events to the D1 canonical ledger; every billable action across subsystems (AI tokens, site publishes, API calls, storage) reports through it; LagoProvider delivers aggregated usage to Lago events API; usage queryable for billing + entitlement `used` counts.
   - Implementation notes: Events also mirror to event_bus → Tinybird for analytics; idempotent via dedup key (request_id).
@@ -5569,7 +5569,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -003, -007.
   - Related files: `packages/shared/src/metering/`, `services/tinybird.ts`.
 
-- [ ] LOOP-PLATFORM-012: Unified billing — plan↔entitlement↔meter wiring (Stripe) [auto]
+- [ ] LOOP-PLATFORM-012: Unified billing — plan↔entitlement↔meter wiring (Stripe) [parked]
   - Why: A platform charges once across 19 subsystems; one billing service mapping Stripe subscriptions → entitlements → metered overage is the commercial backbone.
   - Acceptance criteria: Stripe subscription/usage webhooks update central entitlements (-008); plan change re-derives capabilities platform-wide within 60s; metered overage from the canonical ledger sent to Lago events API; single billing portal at `billing.projectsites.dev`.
   - Implementation notes: Stripe per payments-routing (SaaS recurring = Stripe Billing); webhook idempotency via D1; test-mode for loop verification.
@@ -5579,7 +5579,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -008, -011.
   - Related files: `apps/project-sites/src/services/billing`, `src/routes/webhooks.ts`.
 
-- [ ] LOOP-PLATFORM-013: Cost-attribution per tenant across services [auto]
+- [ ] LOOP-PLATFORM-013: Cost-attribution per tenant across services [parked]
   - Why: Solo founder must know which tenants are profitable; attributing infra cost (CF, Neon, Tinybird, AI tokens) per tenant turns usage data into margin data.
   - Acceptance criteria: A nightly job joins canonical ledger usage + per-vendor cost rates → a `tenant_cost_daily` Tinybird datasource showing cost-per-tenant per service; `/admin/cost-attribution` shows margin (revenue − cost) per tenant.
   - Implementation notes: Cost rates in config (CF/Neon/Tinybird/Workers AI unit prices); AI token cost from metering; correlation IDs make per-tenant attribution possible.
@@ -5589,7 +5589,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -011, -003.
   - Related files: `tools/cron/cost-attribution.mjs`, `services/tinybird.ts`.
 
-- [ ] LOOP-PLATFORM-014: End-to-end onboarding flow lighting up multiple subsystems [auto]
+- [ ] LOOP-PLATFORM-014: End-to-end onboarding flow lighting up multiple subsystems [parked]
   - Why: First value requires several subsystems (auth, site gen, CRM, billing) to activate in sequence; a single orchestrated onboarding is the platform's front door.
   - Acceptance criteria: A new tenant signup triggers a workflow that: creates org (-007), provisions a default site, seeds CRM, sets free-tier entitlements (-008), emits `platform.tenant.onboarded`, and surfaces a guided checklist at `/admin` (Getting Started hub). Each step idempotent + resumable.
   - Implementation notes: CF Workflow orchestrates cross-subsystem calls via service-client (-002); each step a compensating saga step.
@@ -5599,7 +5599,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -002, -003, -007, -008.
   - Related files: `apps/project-sites/src/workflows/`, dashboard Getting Started hub.
 
-- [ ] LOOP-PLATFORM-015: Platform-wide GDPR data export + erasure across all stores [auto]
+- [ ] LOOP-PLATFORM-015: Platform-wide GDPR data export + erasure across all stores [parked]
   - Why: A subject-access/erasure request must span D1, Neon, TiDB, R2, Tinybird, and every subsystem; a fan-out orchestrator is the only compliant approach.
   - Acceptance criteria: `POST /privacy/export` and `/privacy/erase` for a tenant/customer fan out to a registered handler per subsystem (each implements a `dataExport(subjectId)` / `dataErase(subjectId)` contract); results assembled into a signed R2 bundle (export) or verified-deletion report (erase) within SLA.
   - Implementation notes: Subsystems self-register their handlers in a privacy registry; correlation IDs scope the subject; Tinybird erasure via mutation/TTL (needs decision: append-only OLAP retention policy).
@@ -5609,7 +5609,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -002, -007.
   - Related files: `packages/shared/src/privacy/`, `tools/privacy/`.
 
-- [ ] LOOP-PLATFORM-016: Disaster recovery + backups across all stores [auto]
+- [ ] LOOP-PLATFORM-016: Disaster recovery + backups across all stores [parked]
   - Why: One platform needs one DR posture; per-store backups with a documented restore runbook is the safety net.
   - Acceptance criteria: Automated backups verified for D1 (Time Travel), Neon (PITR/branch), TiDB (snapshot), R2 (versioning), Upstash (daily backup); a `tools/dr/restore-runbook.md` with tested restore steps per store; a weekly DR-check Cron asserts backup freshness + alerts on staleness.
   - Implementation notes: Reuse mcp__upstash daily-backup + mcp__neon branch + R2 versioning; restore drills logged.
@@ -5619,7 +5619,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -004, -018.
   - Related files: `tools/dr/`, `docs/DEPLOYMENT.md`.
 
-- [ ] LOOP-PLATFORM-017: Platform-wide design system + shared console shell [auto]
+- [ ] LOOP-PLATFORM-017: Platform-wide design system + shared console shell [parked]
   - Why: 19 consoles must look like one product; a shared black+cyan design-token package + console shell makes every subsystem UI consistent and cheaper to build.
   - Acceptance criteria: `@projectsites/ui` ships the cyan/black tokens (`--ps-bg`,`--ps-ink`,`--ps-accent`, z-layers, radii, shadows), the `DialogShellComponent` primitive, nav shell, and Storybook docs at storybook.projectsites.dev; every console imports the shell; hard-coded brand colors fail an audit.
   - Implementation notes: Tokens in `_polish.scss`/`_cockpit.scss`; one dialog primitive (custom modals = drift); Storybook hosts only generated-site + console blocks.
@@ -5629,7 +5629,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: none.
   - Related files: `_polish.scss`, `_cockpit.scss`, design-system package, Storybook.
 
-- [ ] LOOP-PLATFORM-018: Unified notification fabric (psnotify) [auto]
+- [ ] LOOP-PLATFORM-018: Unified notification fabric (psnotify) [parked]
   - Why: Operational + tenant notifications must flow through one fabric, not 19 ad-hoc channels; psnotify is Brian's mandated custom build (ZERO Novu).
   - Acceptance criteria: A `notify({audience, severity, event, deep_link, correlation})` API routes to channels (in-app inbox DO, web-push, SES email) with per-tenant + per-user preferences; every notification carries what-happened / why-it-matters / what-to-do-next + correlation metadata; a notification center UI + preferences page.
   - Implementation notes: psnotify = DO inbox + center + prefs + SES/web-push (feedback_no_novu); subscribes to event_bus taxonomy events.
@@ -5639,7 +5639,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -003.
   - Related files: `apps/project-sites/src/services/notifications`, psnotify module.
 
-- [ ] LOOP-PLATFORM-019: Platform status board + incident timeline [auto]
+- [ ] LOOP-PLATFORM-019: Platform status board + incident timeline [parked]
   - Why: Operator + tenants need one live view of platform health; the health contract (-004) plus events (-003) make a real status page possible.
   - Acceptance criteria: `status.projectsites.dev` shows per-subsystem status (from -004 poller), open incidents, and a 90-day uptime history; an internal `/admin/incidents` lets the operator post/resolve incidents that fan to the notification fabric (-018); uptime computed from heartbeat events.
   - Implementation notes: Public read-only page (cacheable); incident state in D1; uptime from Tinybird heartbeat aggregation.
@@ -5649,7 +5649,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -004, -003, -018.
   - Related files: `apps/project-sites/src/routes/status`, status page.
 
-- [ ] LOOP-PLATFORM-020: Secret provisioning automation across subsystems [auto]
+- [ ] LOOP-PLATFORM-020: Secret provisioning automation across subsystems [parked]
   - Why: Each new subsystem needs the same secret-wiring dance; automating chezmoi→manifest→Env+Zod→`wrangler secret put` removes the most tedious per-subsystem chore.
   - Acceptance criteria: `provisionSecrets(subsystem)` reads a per-subsystem secret manifest, pulls values via `get-secret` (chezmoi/COMMON_SECRETS), validates against the subsystem's Zod `EnvSchema`, and runs `wrangler secret put` for each (global CF key, no Docker needed); reports missing secrets before deploy.
   - Implementation notes: Follows secret-provisioning-recipe; never echoes secret values; CF-native secrets (Turnstile etc.) retrieved via CF API not asked of user.
@@ -5659,7 +5659,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -005.
   - Related files: `tools/provision/secrets.mjs`, per-subsystem `EnvSchema`.
 
-- [ ] LOOP-PLATFORM-021: Platform-wide rate limiting (Unkey + DO counter) [auto]
+- [ ] LOOP-PLATFORM-021: Platform-wide rate limiting (Unkey + DO counter) [parked]
   - Why: A coherent platform enforces consistent abuse limits per tenant/api-key across all subsystems, not per-app guesses; CF managed rate-limiting doesn't enforce on this plan, so a shared limiter is required.
   - Acceptance criteria: `rateLimit(key={tenantId|apiKeyId}, bucket, limit, window)` shared helper backed by a Durable Object counter (rate-limiting-plan-gated); Unkey API keys carry per-key limits honored platform-wide; over-limit returns a friendly Problem Details + `Retry-After`; limits configurable per entitlement tier.
   - Implementation notes: DO sliding-window counter; api_key_id from Unkey verification flows into correlation IDs.
@@ -5669,7 +5669,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -008.
   - Related files: `packages/shared/src/ratelimit/`, Unkey integration.
 
-- [ ] LOOP-PLATFORM-022: Service mesh + subdomain routing conventions registry [auto]
+- [ ] LOOP-PLATFORM-022: Service mesh + subdomain routing conventions registry [parked]
   - Why: With 19 subsystems on subdomains, a single source of truth for "which host, which route, which auth, which host-type" prevents the wildcard-shadow + workers_dev incidents.
   - Acceptance criteria: A `SERVICE_REGISTRY` typed config lists every subsystem: subdomain, host type (Worker/Container/Fly), explicit route pattern (must beat `*.projectsites.dev/*`), `workers_dev` flag, WAF-skip status, health URL, auth requirement; a validator asserts each registry entry has a matching DNS record + WAF skip entry + live 200.
   - Implementation notes: Registry drives -004 poller, -006 provisioning, -017 nav, and `/admin/system-services`; Fly minimized (stateful/realtime/24-7 only).
@@ -5679,7 +5679,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -004, -006.
   - Related files: `apps/project-sites/src/services/SERVICE_REGISTRY`, `tools/validate/mesh.mjs`.
 
-- [ ] LOOP-PLATFORM-023: Cross-subsystem audit log (append-only, tamper-evident) [auto]
+- [ ] LOOP-PLATFORM-023: Cross-subsystem audit log (append-only, tamper-evident) [parked]
   - Why: Compliance + debugging need one immutable record of who-did-what across all 19 subsystems; a shared audit emitter unifies it.
   - Acceptance criteria: `audit({actor, action, target, tenantId, correlation})` writes to an append-only audit store from any subsystem; entries hash-chained (each row includes prev-hash) for tamper-evidence; `/admin/audit` is filterable by tenant/actor/action with all correlation IDs; exported into GDPR bundle (-015).
   - Implementation notes: Reuse existing `services/audit`; mirror to event_bus → Tinybird for queryability; never store secrets/PII raw (redact).
@@ -5689,7 +5689,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -001, -003.
   - Related files: `apps/project-sites/src/services/audit`, `packages/shared/src/audit/`.
 
-- [ ] LOOP-PLATFORM-024: Feature-architecture validator + drift CI gate (platform-wide) [auto]
+- [ ] LOOP-PLATFORM-024: Feature-architecture validator + drift CI gate (platform-wide) [parked]
   - Why: 19 subsystems × the feature-module rule = constant drift risk; one validator enforcing the spine (flag, manifest, schemas, E2E, correlation, health, event taxonomy) keeps the whole platform honest.
   - Acceptance criteria: `npm run validate:platform` checks across all subsystems: every capability has a feature flag + `manifest.ts` (7 fields), Zod schemas not duplicated, E2E dir present, every emitted event_name in the taxonomy (-003), every subsystem has `/health` (-004) + correlation middleware (-001) + a SERVICE_REGISTRY entry (-022) + WAF-skip if non-GET (-006); CI blocks merge on any violation.
   - Implementation notes: Extends existing `validate:features`; portable-audit fallbacks so partial subsystems still scan; HIGH/MEDIUM/LOW confidence per validator-precision-discipline.
@@ -6052,7 +6052,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-GLOBAL-001: Deploy tenant-aware correlation ID middleware across all service boundaries [auto]
+- [ ] LOOP-GLOBAL-001: Deploy tenant-aware correlation ID middleware across all service boundaries [parked]
   - Endpoint: Every Worker fetch handler and container entrypoint
   - Why: Every log line, trace span, and error must carry tenant context for debugging, billing, and security
   - Acceptance criteria: All Axiom log lines carry request_id + tenant_id + site_id; Sentry spans link via trace_id; PostHog events tagged with org context
@@ -6064,7 +6064,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/middleware/request_id.ts, src/middleware/auth.ts, src/types/env.ts
   - Primary sources: Cloudflare Workers middleware patterns, Axiom structured logging docs
 
-- [ ] LOOP-GLOBAL-002: Define and enforce resource naming convention across all backing stores [auto]
+- [ ] LOOP-GLOBAL-002: Define and enforce resource naming convention across all backing stores [parked]
   - Endpoint: N/A (convention document + CI validator)
   - Why: Consistent naming (projectsites_{service}_{resource}) prevents collision and makes cost attribution trivial across Neon/Upstash/R2/D1
   - Acceptance criteria: All D1 tables, Neon databases, Upstash keys, R2 buckets follow the convention; CI gate flags violations
@@ -6076,7 +6076,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: CONVENTIONS.md, scripts/check-naming-convention.mjs (new)
   - Primary sources: Repo naming conventions from existing services (Listmonk, Twenty, Postiz)
 
-- [ ] LOOP-GLOBAL-003: Build secret auto-provisioning pipeline for new service onboarding [auto]
+- [ ] LOOP-GLOBAL-003: Build secret auto-provisioning pipeline for new service onboarding [parked]
   - Endpoint: Internal (admin tooling)
   - Why: Every new service needs 3-8 secrets; manual provisioning is the #1 source of deploy friction for solo founder
   - Acceptance criteria: One script that generates (openssl rand), encrypts (chezmoi), and uploads (wrangler secret put / flyctl secrets set) all required secrets for a named service
@@ -6088,7 +6088,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: scripts/populate-secrets, ~/.local/bin/get-secret
   - Primary sources: secret-auto-provisioning.md rule, secret-provisioning.md rule
 
-- [ ] LOOP-GLOBAL-004: Implement structured logging schema with PII redaction [auto]
+- [ ] LOOP-GLOBAL-004: Implement structured logging schema with PII redaction [parked]
   - Endpoint: Every service emitting logs
   - Why: Unstructured logs are unqueryable; unredacted logs are a compliance liability
   - Acceptance criteria: Every log line is JSON with at minimum {service, env, eventName, request_id, tenant_id, timestamp}; PII fields (email, phone, address) auto-redacted at the log boundary
@@ -6100,7 +6100,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: packages/shared/src/utils/logger.ts (new), src/services/ai_logger.ts
   - Primary sources: Axiom structured logging docs, PII redaction patterns
 
-- [ ] LOOP-GLOBAL-005: Document Cloudflare-first runtime policy with Fly.io escape hatch criteria [auto]
+- [ ] LOOP-GLOBAL-005: Document Cloudflare-first runtime policy with Fly.io escape hatch criteria [parked]
   - Endpoint: N/A (policy document)
   - Why: Every new service needs a clear decision tree: Workers → Workers Containers → Fly.io → Coolify. Without it, every service becomes a Fly app by default.
   - Acceptance criteria: One-page decision tree in docs/ARCHITECTURE.md; every new service PR references it
@@ -6112,7 +6112,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: docs/ARCHITECTURE.md, docs/SERVICES-AND-SOCIAL.md
   - Primary sources: CF Containers docs, Fly.io docs, Coolify docs
 
-- [ ] LOOP-GLOBAL-006: Build per-site cost attribution pipeline [auto]
+- [ ] LOOP-GLOBAL-006: Build per-site cost attribution pipeline [parked]
   - Endpoint: Internal (admin dashboard)
   - Why: Without per-site cost visibility, you cannot price profitably or identify abuse
   - Acceptance criteria: D1 table cost_attribution with site_id, service, resource_type, estimated_cost_cents, period; admin dashboard showing top-10 sites by cost
@@ -6124,7 +6124,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/app_cost_meter.ts, src/services/cost_aggregation.ts
   - Primary sources: CF AI Gateway usage API, R2 usage API, D1 database size queries
 
-- [ ] LOOP-GLOBAL-007: Implement append-only audit trail across all admin mutations [auto]
+- [ ] LOOP-GLOBAL-007: Implement append-only audit trail across all admin mutations [parked]
   - Endpoint: Every admin/privileged API route
   - Why: SOC2, GDPR, and debugging all require knowing who changed what and when
   - Acceptance criteria: audit_events D1 table with immutable rows (no UPDATE/DELETE permissions via D1 token); every admin route writes {actor_id, action, resource_type, resource_id, before_snapshot, after_snapshot, timestamp}
@@ -6136,7 +6136,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/audit.ts, libs/features/audit_trail_export/
   - Primary sources: SOC2 audit trail requirements, D1 immutable row patterns
 
-- [ ] LOOP-GLOBAL-008: Deploy abuse detection pipeline at every public ingress point [auto]
+- [ ] LOOP-GLOBAL-008: Deploy abuse detection pipeline at every public ingress point [parked]
   - Endpoint: Signup, site create, API key create, webhook ingest, contact form
   - Why: A SaaS builder platform is a high-value abuse target (free hosting, domain provisioning, email sending)
   - Acceptance criteria: Rate limiting (DO-based), Turnstile on all public forms, content scanning on generated sites, email verification required before sending
@@ -6148,7 +6148,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/turnstile.ts, libs/features/abuse_takedown/
   - Primary sources: CF Turnstile docs, DO rate limiting patterns
 
-- [ ] LOOP-GLOBAL-009: Establish disaster recovery playbook with automated verification [auto]
+- [ ] LOOP-GLOBAL-009: Establish disaster recovery playbook with automated verification [parked]
   - Endpoint: Internal (admin tooling)
   - Why: You have 7+ services in production; a single fat-finger deploy or D1 migration can take out everything
   - Acceptance criteria: Documented recovery procedures for D1 (Time Travel), R2 (versioning), Workers (wrangler rollback), Neon (point-in-time recovery), Fly (flyctl restart/immediate rollback); automated weekly backup verification
@@ -6160,7 +6160,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: docs/DEPLOYMENT.md, scripts/verify-backups.mjs (new)
   - Primary sources: D1 Time Travel docs, R2 versioning docs, wrangler rollback docs
 
-- [ ] LOOP-GLOBAL-010: Build customer-visible timeline/event feed per site [auto]
+- [ ] LOOP-GLOBAL-010: Build customer-visible timeline/event feed per site [parked]
   - Endpoint: GET /api/sites/:id/timeline (customer-facing)
   - Why: Customers need to see build progress, publish events, domain changes, billing events — the site lifecycle
   - Acceptance criteria: Chronological feed of typed events (build.started, build.completed, site.published, domain.verified, billing.plan_changed) with timestamps and status
@@ -6172,7 +6172,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/build_events.ts, src/services/site_publish_event.ts, src/services/emit_event.ts
   - Primary sources: Existing repo event patterns, Stripe webhook events model
 
-- [ ] LOOP-GLOBAL-011: Implement tenant isolation audit across all data stores [auto]
+- [ ] LOOP-GLOBAL-011: Implement tenant isolation audit across all data stores [parked]
   - Endpoint: Internal (CI gate)
   - Why: A cross-tenant data leak is existential for a multi-tenant SaaS
   - Acceptance criteria: Every D1 query, R2 path, KV key, and Neon query includes org_id scoping; CI gate flags unscoped queries
@@ -6184,7 +6184,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: scripts/check-idor-gates.mjs, libs/features/*/handlers.ts
   - Primary sources: OWASP tenant isolation patterns, existing repo IDOR audit
 
-- [ ] LOOP-GLOBAL-012: Define and enforce per-service health-check contract [auto]
+- [ ] LOOP-GLOBAL-012: Define and enforce per-service health-check contract [parked]
   - Endpoint: GET /health on every service
   - Why: Without standardized health checks, the admin dashboard cannot show an accurate service topology
   - Acceptance criteria: Every service (Workers, Fly apps, CF Containers) exposes GET /health returning {status, service, version, uptime_seconds, checks: {db, redis, temporal?...}}; admin dashboard polls all
@@ -6196,7 +6196,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: packages/shared/src/routes/health.ts (new), each service's fly.toml/wrangler.toml
   - Primary sources: Hono health check patterns, Fly health check docs
 
-- [ ] LOOP-GLOBAL-013: Build platform-wide feature flag evaluation service [auto]
+- [ ] LOOP-GLOBAL-013: Build platform-wide feature flag evaluation service [parked]
   - Endpoint: GET /api/feature-flags/evaluate (internal, cached)
   - Why: Every service needs feature flags; a centralized evaluator with KV cache avoids N D1 queries per request
   - Acceptance criteria: KV-cached (60s TTL) flag state; admin mutations invalidate cache; SDK for Worker/React/Angular
@@ -6208,7 +6208,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/features.ts, libs/core/feature-flags/, modules/feature_flags/
   - Primary sources: CF Flagship docs, existing feature-flags.md rule
 
-- [ ] LOOP-GLOBAL-014: Build zero-touch app provisioning primitive [auto]
+- [ ] LOOP-GLOBAL-014: Build zero-touch app provisioning primitive [parked]
   - Endpoint: Internal (workflow)
   - Why: Every new app (Listmonk, Twenty, Postiz, Nango, Chatwoot) requires 5-10 provisioning steps; manual provisioning doesn't scale past ~3 services
   - Acceptance criteria: app_provisioner.provision(slug, config) creates Neon DB, Upstash DB, R2 bucket, D1 config row, Fly/CF container deployment, DNS record, admin catalog entry — all idempotent
@@ -6220,7 +6220,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/app_provisioner.ts, src/services/neon_provisioner.ts, src/services/upstash_provisioner.ts
   - Primary sources: Neon API docs, Upstash API docs, CF API docs, Fly Machines API docs
 
-- [ ] LOOP-GLOBAL-015: Build app deprovisioning/destruction primitive (mirror of provisioning) [auto]
+- [ ] LOOP-GLOBAL-015: Build app deprovisioning/destruction primitive (mirror of provisioning) [parked]
   - Endpoint: Internal (workflow with confirmation gate)
   - Why: Deleting an app must cleanly remove all resources — orphaned Neon DBs, R2 buckets, and DNS records accumulate cost and confusion
   - Acceptance criteria: app_provisioner.deprovision(slug) deletes or archives: Neon DB, Upstash DB, R2 bucket, D1 config row, Fly app, DNS record, admin catalog entry; confirmation gate prevents accidental deletion
@@ -6232,7 +6232,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/app_provisioner.ts
   - Primary sources: Same as provisioning
 
-- [ ] LOOP-GLOBAL-016: Build admin override/shadow mode for every tenant-facing service [auto]
+- [ ] LOOP-GLOBAL-016: Build admin override/shadow mode for every tenant-facing service [parked]
   - Endpoint: Admin-only API endpoints
   - Why: Support and abuse handling require impersonating or overriding tenant state (view their CRM, see their Listmonk lists, read their Postiz drafts)
   - Acceptance criteria: Super-admin auth middleware that sets impersonation context; every tenant-facing service accepts x-admin-impersonate-org-id header (admin-only); all impersonation events logged to audit trail
@@ -6244,7 +6244,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/middleware/auth.ts, src/services/auth.ts, src/services/sysadmin.ts
   - Primary sources: Existing repo admin auth patterns
 
-- [ ] LOOP-GLOBAL-017: Define vendor lock-in boundary for every external service [auto]
+- [ ] LOOP-GLOBAL-017: Define vendor lock-in boundary for every external service [parked]
   - Endpoint: N/A (architecture document)
   - Why: Each vendor choice is a one-way door; explicit boundaries make future migration cost knowable
   - Acceptance criteria: docs/decisions/VENDOR-BOUNDARIES.md listing each vendor + migration path + estimated migration cost (hours) + what data would be lost
@@ -6256,7 +6256,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: docs/decisions/
   - Primary sources: Each vendor's export/data-portability docs
 
-- [ ] LOOP-GLOBAL-018: Build platform-wide event bus with typed event schemas [auto]
+- [ ] LOOP-GLOBAL-018: Build platform-wide event bus with typed event schemas [parked]
   - Endpoint: Internal (service-to-service)
   - Why: Services need to react to events across boundaries (site published → notify Listmonk, CRM lead created → notify Chatwoot); point-to-point HTTP creates an N×M coupling mess
   - Acceptance criteria: Zod-typed events published to a Durable Object event bus; subscribers register per event type; at-least-once delivery with idempotency keys
@@ -6268,7 +6268,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/event_bus.ts, src/services/event_dispatch.ts, src/services/event_dedup.ts
   - Primary sources: Existing repo event patterns, DO pub/sub patterns
 
-- [ ] LOOP-GLOBAL-019: Implement per-environment (test/live) configuration separation [auto]
+- [ ] LOOP-GLOBAL-019: Implement per-environment (test/live) configuration separation [parked]
   - Endpoint: Internal (env management)
   - Why: Running test campaigns against real customer data is a data-leak risk; test mode must be explicit and isolated
   - Acceptance criteria: Every service accepts TEST_MODE env var; test mode uses separate D1 databases/Neon databases/Upstash DBs or prefixes keys with test_; admin UI shows test/live indicator
@@ -6280,7 +6280,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/types/env.ts, src/services/db.ts
   - Primary sources: Existing repo test patterns
 
-- [ ] LOOP-GLOBAL-020: Build cost escalation dashboard with automated alerts [auto]
+- [ ] LOOP-GLOBAL-020: Build cost escalation dashboard with automated alerts [parked]
   - Endpoint: Internal (admin dashboard widget)
   - Why: Managed services silently accumulate cost; without automated monitoring, you discover overages on the credit card statement
   - Acceptance criteria: Hourly cost aggregation from CF Analytics Engine + Neon usage API + Upstash usage API; Slack/email alert when any service exceeds 80% of monthly budget
@@ -6292,7 +6292,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: src/services/cost_aggregation.ts, src/services/cf_analytics.ts
   - Primary sources: CF Analytics Engine docs, Neon usage API, Upstash metrics API
 
-- [ ] LOOP-GLOBAL-021: Build admin global search across all tenant data [auto]
+- [ ] LOOP-GLOBAL-021: Build admin global search across all tenant data [parked]
   - Endpoint: GET /api/admin/search?q= (internal, super-admin only)
   - Why: Support and abuse handling require finding a tenant/site/email across all data stores
   - Acceptance criteria: Single search endpoint that queries D1 (sites, orgs, users), Neon (CRM contacts, Listmonk subscribers), and returns unified results with tenant context
@@ -6304,7 +6304,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: apps/project-sites/frontend/src/app/pages/admin/
   - Primary sources: Existing admin patterns, cross-service query patterns
 
-- [ ] LOOP-GLOBAL-022: Standardize error taxonomy across all services [auto]
+- [ ] LOOP-GLOBAL-022: Standardize error taxonomy across all services [parked]
   - Endpoint: Every error response
   - Why: Inconsistent error shapes make debugging across 7+ services a nightmare
   - Acceptance criteria: Every API error returns {error: {code, message, correlation_id, retryable: bool}}; error codes are stable and documented; CI gate flags new error shapes
@@ -6316,7 +6316,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: packages/shared/src/utils/errors.ts
   - Primary sources: RFC 7807 Problem Details, existing repo error patterns
 
-- [ ] LOOP-GLOBAL-023: Build disaster recovery runbook automation (semi-automated) [auto]
+- [ ] LOOP-GLOBAL-023: Build disaster recovery runbook automation (semi-automated) [parked]
   - Endpoint: Internal (CLI + admin UI)
   - Why: Recovery procedures that exist only in docs are untested and unreliable under pressure
   - Acceptance criteria: CLI tool for: D1 time-travel restore, R2 bucket version rollback, wrangler rollback, Neon PITR, Fly rollback; admin UI exposes these as guarded buttons
@@ -6328,7 +6328,7 @@ Tenant isolation via org_id on every D1 row + RLS-equivalent middleware; naming 
   - Related files: scripts/ (new recovery scripts)
   - Primary sources: D1 Time Travel API, R2 versioning API, wrangler rollback docs
 
-- [ ] LOOP-GLOBAL-024: Implement service mesh registry as platform topology SSOT [auto]
+- [ ] LOOP-GLOBAL-024: Implement service mesh registry as platform topology SSOT [parked]
   - Endpoint: Internal (admin dashboard + CI)
   - Why: Without a single source of truth for what runs where, health monitoring, WAF rules, and DNS provisioning all drift independently
   - Acceptance criteria: Typed SERVICE_REGISTRY array with {slug, name, hostname, hosting, healthUrl, wafSkip, observability}; admin dashboard renders live topology; CI gate validates health endpoints match registry; DNS provisioning reads from registry
@@ -6347,7 +6347,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-API-001: Wire Unkey API key verification into the main Worker auth middleware [auto]
+- [ ] LOOP-API-001: Wire Unkey API key verification into the main Worker auth middleware [parked]
   - Endpoint: Every /api/* route (auth middleware)
   - Why: Unkey is deployed but not integrated; API keys currently have no verification path
   - Acceptance criteria: x-api-key header on any /api/* request → Unkey verify → populate org context; invalid/revoked keys → 401
@@ -6359,7 +6359,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/auth.ts, apps/project-sites/infra/unkey/
   - Primary sources: https://unkey.com/docs/introduction, https://unkey.com/docs/api-reference/keys/verify
 
-- [ ] LOOP-API-002: Build customer-facing API key management dashboard [auto]
+- [ ] LOOP-API-002: Build customer-facing API key management dashboard [parked]
   - Endpoint: GET/POST/DELETE /api/keys (customer-facing, org-scoped)
   - Why: Customers need to create/revoke/view their own API keys for developer access
   - Acceptance criteria: UI shows key list (masked), create button with name + scope + expiration, revoke with confirmation, copy-on-create
@@ -6371,7 +6371,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: apps/project-sites/frontend/src/app/pages/admin/, src/services/api_tokens.ts
   - Primary sources: https://unkey.com/docs/api-reference/apis/create, https://unkey.com/docs/api-reference/keys
 
-- [ ] LOOP-API-003: Implement per-site scoped API keys with resource-level permissions [auto]
+- [ ] LOOP-API-003: Implement per-site scoped API keys with resource-level permissions [parked]
   - Endpoint: POST /api/keys (extend with site_id + permissions param)
   - Why: Agency customers need to give their clients API access scoped to a single site
   - Acceptance criteria: API key metadata carries {site_id, permissions: ['read','write']}; verification middleware enforces site-scoping
@@ -6383,7 +6383,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/auth.ts, src/services/api_tokens.ts
   - Primary sources: https://unkey.com/docs/api-reference/keys/create (metadata field)
 
-- [ ] LOOP-API-004: Enforce rate limits via Unkey on all public API endpoints [auto]
+- [ ] LOOP-API-004: Enforce rate limits via Unkey on all public API endpoints [parked]
   - Endpoint: Every /api/* route
   - Why: No rate limiting means one aggressive client can degrade the platform
   - Acceptance criteria: Per-key rate limits (100 req/min free, 1000 req/min paid) enforced at the middleware layer; 429 response with Retry-After header
@@ -6395,7 +6395,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/ (new rate_limit.ts), libs/features/
   - Primary sources: https://unkey.com/docs/ratelimiting/overview, CF DO rate limiting patterns
 
-- [ ] LOOP-API-005: Build developer portal at api.projectsites.dev/docs [auto]
+- [ ] LOOP-API-005: Build developer portal at api.projectsites.dev/docs [parked]
   - Endpoint: api.projectsites.dev/docs (public)
   - Why: Developer API adoption requires self-serve documentation with try-it-now
   - Acceptance criteria: Scalar-rendered OpenAPI docs; API key auth built into the try-it flow; quickstart guide with curl examples
@@ -6407,7 +6407,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/routes/openapi.ts, src/lib/docs_reference_page.ts
   - Primary sources: Scalar docs, existing openapi.ts
 
-- [ ] LOOP-API-006: Implement API key rotation with zero-downtime overlap [auto]
+- [ ] LOOP-API-006: Implement API key rotation with zero-downtime overlap [parked]
   - Endpoint: POST /api/keys/:id/rotate
   - Why: Key rotation is a security best practice; without overlap, rotation causes downtime
   - Acceptance criteria: Rotation creates new key, keeps old key active for 24h overlap, then auto-revokes; both keys work during overlap
@@ -6419,7 +6419,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/api_tokens.ts
   - Primary sources: https://unkey.com/docs/api-reference/keys/update
 
-- [ ] LOOP-API-007: Add API usage metering and billing integration [auto]
+- [ ] LOOP-API-007: Add API usage metering and billing integration [parked]
   - Endpoint: Internal (metering pipeline)
   - Why: API calls are a billable resource; without metering, you cannot charge for API access
   - Acceptance criteria: Every authenticated API call increments a usage counter (per key, per day); usage recorded in D1 canonical ledger for billing; customer-visible usage dashboard
@@ -6431,7 +6431,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/usage_metering.ts, billing feature module
   - Primary sources: Lago events API docs
 
-- [ ] LOOP-API-008: Configure Unkey root key governance and admin key rotation [auto]
+- [ ] LOOP-API-008: Configure Unkey root key governance and admin key rotation [parked]
   - Endpoint: Internal (admin)
   - Why: Unkey root keys have unlimited power; they must be rotated and audited
   - Acceptance criteria: Root key rotation script; root key usage logged to audit trail; root key never hardcoded (always from get-secret)
@@ -6443,7 +6443,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: scripts/rotate-unkey-root-key.sh (new), src/services/api_tokens.ts
   - Primary sources: https://unkey.com/docs/platform/root-keys/permissions
 
-- [ ] LOOP-API-009: Build MCP/agent-specific API key type with tool-level permissions [auto]
+- [ ] LOOP-API-009: Build MCP/agent-specific API key type with tool-level permissions [parked]
   - Endpoint: POST /api/keys (with type: 'mcp' parameter)
   - Why: AI agents and MCP servers need API access but should be scoped to specific tools
   - Acceptance criteria: MCP keys carry metadata {type: 'mcp', allowed_tools: ['site.read','site.list']}; verification middleware enforces tool-level scoping
@@ -6455,7 +6455,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: libs/features/platform_mcp/, src/services/mcp_client.ts
   - Primary sources: Unkey key metadata docs, MCP auth patterns
 
-- [ ] LOOP-API-010: Implement service-to-service auth using Unkey permanent keys [auto]
+- [ ] LOOP-API-010: Implement service-to-service auth using Unkey permanent keys [parked]
   - Endpoint: Internal (service mesh)
   - Why: Internal services (Listmonk, Twenty, Postiz) need to call the main Worker API; shared secrets are a security risk
   - Acceptance criteria: Each internal service gets a permanent Unkey API key with service-level permissions; main Worker verifies these at the middleware layer
@@ -6467,7 +6467,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/auth.ts, each service's config
   - Primary sources: Unkey permanent keys, service-to-service auth patterns
 
-- [ ] LOOP-API-011: Build OpenAPI validation gateway using Unkey Sentinel [auto]
+- [ ] LOOP-API-011: Build OpenAPI validation gateway using Unkey Sentinel [parked]
   - Endpoint: Every /api/* route (middleware)
   - Why: Malformed requests waste compute and hide bugs; validate at the edge
   - Acceptance criteria: Unkey Sentinel policy that validates request bodies against OpenAPI spec; reject invalid requests with 400 + field-level errors
@@ -6479,7 +6479,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/routes/openapi.ts
   - Primary sources: https://unkey.com/docs/platform/sentinel/policies/openapi-validation
 
-- [ ] LOOP-API-012: Build API key abuse detection and auto-revocation [auto]
+- [ ] LOOP-API-012: Build API key abuse detection and auto-revocation [parked]
   - Endpoint: Internal (background worker)
   - Why: Leaked keys cause damage fast; automated detection is the only scalable defense
   - Acceptance criteria: Monitor key usage patterns; auto-revoke keys with anomalous patterns (spike >10× baseline, calls from unexpected geographies, calls to unusual endpoints)
@@ -6491,7 +6491,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/abuse detection (new), libs/features/abuse_takedown/
   - Primary sources: CF Analytics Engine docs, Unkey revocation API
 
-- [ ] LOOP-API-013: Build customer-facing API usage dashboard [auto]
+- [ ] LOOP-API-013: Build customer-facing API usage dashboard [parked]
   - Endpoint: GET /api/usage (customer-facing, org-scoped)
   - Why: Customers need to see their API call volume, rate limit status, and quota consumption
   - Acceptance criteria: Dashboard showing daily/weekly/monthly API call count, top endpoints, error rate, rate limit hits; plan limit progress bar
@@ -6503,7 +6503,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/, src/services/usage_metering.ts
   - Primary sources: Existing admin dashboard patterns
 
-- [ ] LOOP-API-014: Implement key expiration with renewal flow [auto]
+- [ ] LOOP-API-014: Implement key expiration with renewal flow [parked]
   - Endpoint: POST /api/keys/:id/renew
   - Why: Expiring keys reduce the blast radius of leaked credentials
   - Acceptance criteria: Keys can be created with expiration date; renewal requires re-authentication; expired keys return 401 with x-key-expired header
@@ -6515,7 +6515,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/api_tokens.ts
   - Primary sources: Unkey key expiration docs
 
-- [ ] LOOP-API-015: Build SDK auth helper with copy-paste code snippets [auto]
+- [ ] LOOP-API-015: Build SDK auth helper with copy-paste code snippets [parked]
   - Endpoint: api.projectsites.dev/docs/sdks
   - Why: Developer adoption is gated by integration friction; copy-paste snippets reduce time-to-first-call
   - Acceptance criteria: Snippets for curl, Node.js, Python, and Go showing API key auth; each snippet is a working example
@@ -6527,7 +6527,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: docs/ (SDK docs)
   - Primary sources: Stripe SDK patterns, Stainless SDK generation
 
-- [ ] LOOP-API-016: Implement per-environment API keys (production vs sandbox) [auto]
+- [ ] LOOP-API-016: Implement per-environment API keys (production vs sandbox) [parked]
   - Endpoint: POST /api/keys (with environment parameter)
   - Why: Customers need separate keys for testing vs production; mixing them causes accidental production mutations
   - Acceptance criteria: Key metadata carries {environment: 'production'|'sandbox'}; sandbox keys are rate-limited to 10 req/min and cannot mutate production data
@@ -6539,7 +6539,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/auth.ts, src/services/api_tokens.ts
   - Primary sources: Stripe test/live key model
 
-- [ ] LOOP-API-017: Build API key claim/provision flow for new customer onboarding [auto]
+- [ ] LOOP-API-017: Build API key claim/provision flow for new customer onboarding [parked]
   - Endpoint: POST /api/onboarding/claim-api-key
   - Why: First API key creation should be part of onboarding, not a separate step
   - Acceptance criteria: New customer signup auto-creates a default API key; onboarding wizard shows the key with copy button
@@ -6551,7 +6551,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/auth.ts, onboarding components
   - Primary sources: Stripe onboarding key pattern
 
-- [ ] LOOP-API-018: Wire Unkey audit logs into the platform audit trail [auto]
+- [ ] LOOP-API-018: Wire Unkey audit logs into the platform audit trail [parked]
   - Endpoint: Internal (audit pipeline)
   - Why: Every API key action (create, revoke, rotate, verify) must be auditable across the platform
   - Acceptance criteria: Unkey audit events flow into the platform audit trail (D1 audit_events); admin dashboard shows API key audit timeline
@@ -6563,7 +6563,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/audit.ts, webhook handling
   - Primary sources: Unkey webhook docs
 
-- [ ] LOOP-API-019: Build admin API key management dashboard (platform operator view) [auto]
+- [ ] LOOP-API-019: Build admin API key management dashboard (platform operator view) [parked]
   - Endpoint: GET /api/admin/keys (super-admin only)
   - Why: Support and abuse handling require viewing/managing all API keys across all tenants
   - Acceptance criteria: Admin view showing all keys (searchable by tenant, site, key ID); force-revoke button; usage history per key
@@ -6575,7 +6575,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: apps/project-sites/frontend/src/app/pages/admin/sections/
   - Primary sources: Unkey admin API docs
 
-- [ ] LOOP-API-020: Implement API key reporting/analytics keys (read-only) [auto]
+- [ ] LOOP-API-020: Implement API key reporting/analytics keys (read-only) [parked]
   - Endpoint: POST /api/keys (with permissions: ['read'])
   - Why: Customers want to pull their own analytics without risk of mutation
   - Acceptance criteria: Read-only keys can access GET endpoints but are rejected on POST/PUT/DELETE with 403
@@ -6587,7 +6587,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/auth.ts
   - Primary sources: Unkey key permissions docs
 
-- [ ] LOOP-API-021: Implement instant key revocation with propagation under 60 seconds [auto]
+- [ ] LOOP-API-021: Implement instant key revocation with propagation under 60 seconds [parked]
   - Endpoint: DELETE /api/keys/:id
   - Why: Compromised keys must be dead within a minute, not eventually consistent
   - Acceptance criteria: Revocation propagates to all edge verification points within 60s; KV cache invalidation on revocation
@@ -6599,7 +6599,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/middleware/auth.ts, src/services/api_tokens.ts
   - Primary sources: Unkey revocation API, KV cache invalidation patterns
 
-- [ ] LOOP-API-022: Build API key quota enforcement tied to billing plan [auto]
+- [ ] LOOP-API-022: Build API key quota enforcement tied to billing plan [parked]
   - Endpoint: Middleware (every API call)
   - Why: Free-tier API access must be capped; paid tiers get higher limits
   - Acceptance criteria: Per-plan API call quotas (free=1000/day, pro=10000/day, business=unlimited); middleware rejects over-quota calls with 429
@@ -6611,7 +6611,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/usage_metering.ts, billing module
   - Primary sources: Lago event ingestion patterns, DO counter patterns
 
-- [ ] LOOP-API-023: Deploy API key event webhooks (create, revoke, expire, rotate) [auto]
+- [ ] LOOP-API-023: Deploy API key event webhooks (create, revoke, expire, rotate) [parked]
   - Endpoint: Outbound webhook (customer-configured)
   - Why: Customers integrating via API need programmatic notification of key lifecycle events
   - Acceptance criteria: Customers can configure a webhook URL for key events; events delivered via Hookdeck with retry
@@ -6623,7 +6623,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Related files: src/services/webhook.ts, libs/features/outbound_webhooks/
   - Primary sources: Unkey webhook docs, Hookdeck outbound delivery
 
-- [ ] LOOP-API-024: Performance-test Unkey verification under load and document latency budget [auto]
+- [ ] LOOP-API-024: Performance-test Unkey verification under load and document latency budget [parked]
   - Endpoint: Internal (benchmark)
   - Why: API key verification is on the hot path of every authenticated request; latency matters
   - Acceptance criteria: p50 <5ms, p99 <20ms for cached verification; p50 <50ms, p99 <200ms for uncached; documented in ARCHITECTURE.md
