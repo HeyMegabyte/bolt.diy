@@ -149,9 +149,7 @@ export function captureException(
     extra: {
       message: err.message,
     },
-    request: ctx?.path
-      ? { url: ctx.path, method: ctx.method ?? 'GET' }
-      : undefined,
+    request: ctx?.path ? { url: ctx.path, method: ctx.method ?? 'GET' } : undefined,
   };
 
   // Send the Sentry envelope (fire-and-forget)
