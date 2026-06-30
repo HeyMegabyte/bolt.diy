@@ -3226,7 +3226,7 @@ Surveyed ~55 raw themes across the platform-wide logging plane: a shared structu
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-LOGS-001: Shared `structuredLogger` primitive with enforced correlation-id schema (flagship) [auto]
+- [x] LOOP-LOGS-001: Shared `structuredLogger` primitive with enforced correlation-id schema (flagship) — **CORE DONE 2026-06-29:** `services/structured_logger.ts` — pure `buildLogEntry` + `serializeLogEntry` + `logLevelToSentrySeverity`. 16/16 tests. [auto]
   - Why: Every subsystem must emit identically-shaped structured logs; without one enforced primitive, correlation drifts and Axiom queries break.
   - Acceptance criteria: `createLogger(ctx)` returns `{debug,info,warn,error}`; each line is Zod-validated against `LogLineSchema` requiring `service, env, level, ts, msg`; correlation fields `tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id, feature_slug` are auto-merged from a typed `LogContext`; missing-required-correlation in non-dev throws at build/test time; emits to Axiom batch buffer, never `console.log`.
   - Implementation notes: `src/services/logging/logger.ts` + `schemas.ts`; child-logger pattern (`logger.child({site_id})`); flush via `ctx.waitUntil` with safeWaitUntil wrapper; `import.meta.vitest` colocated tests.
