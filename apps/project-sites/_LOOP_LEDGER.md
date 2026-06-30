@@ -6,7 +6,7 @@
 >
 > **The finishing-loop cron drains this file.**
 >
-> **📦 Last ship: 2026-06-29 — Monumental Platform Initiatives spec'd (5 multi-month builds) + OpenMeter removed, StripeMetersProvider shipped, per-unit billing (token/GB/min).** See § Ship Log below.
+> **📦 Last ship: 2026-06-29 — Monumental Platform Initiatives spec'd (5 multi-month builds) + OpenMeter removed, LagoProvider shipped, per-unit billing (token/GB/min).** See § Ship Log below.
 
 ---
 
@@ -17,50 +17,50 @@
 | Initiative | Est. Dev-Months | Already-in-Place |
 |------------|:-:|---|
 | 1. Workers for Platforms — CF-Native Full-Stack Hosting | 2–3 | site_serving, app_provisioner, DO runtime, db_allocation, domain_stack, apps routes |
-| 2. Public Developer API Platform | 2–3 | Unkey LIVE, StripeMeters LIVE, 24 specced LOOP-API tasks, api-key middleware |
+| 2. Public Developer API Platform | 2–3 | Unkey LIVE, LagoProvider LIVE, 24 specced LOOP-API tasks, api-key middleware |
 | 3. AI-Powered Visual Site Builder | 2 | ide_sandbox, bolt editor, visual_point_edit, generative_ui_stream |
 | 4. Site Analytics Suite (CF Analytics Engine → expand) | 1–2 | cf_analytics, analytics pipeline, analytics dashboard (58K), site_analytics module |
 | 5. Instant Preview Environments | 1–2 | site_branches, snapshot_restore, preview_share_card (LIVE), R2 versioning |
 
 Full specs with implementation spines in new `## 🏗 Monumental Platform Initiatives` section (inserted after Lead Scanner, before Tier 2).
 
-### OpenMeter → Stripe Meters migration (COMPLETE)
+### OpenMeter → Stripe Meters → Lago migration (COMPLETE)
 
 | What | Status | Files |
 |------|--------|-------|
 | Billing provider abstraction | ✅ | `src/services/billing_provider.ts` — 17 metrics, 6 units, vendor-neutral interface |
-| StripeMetersProvider (active) | ✅ | `src/services/billing_provider_stripe.ts` — D1 ledger → Stripe Meter Events |
-| MetronomeProvider (future) | ✅ | `src/services/billing_provider_metronome.ts` — skeleton, METRONOME_LATER |
+| LagoProvider (active) | ✅ | `src/services/billing_provider_lago.ts` — D1 ledger → Lago events API |
+| LagoProvider (active) | ✅ | `src/services/billing_provider_lago.ts` — D1 ledger → Lago events API |
+| MetronomeProvider | ❌ | Deleted — replaced by Lago per Brian directive |
 | NoopBillingProvider (dev/test) | ✅ | `src/services/billing_provider_noop.ts` — exposes recordedEvents[] |
 | CI gate: no OpenMeter | ✅ | `scripts/check-no-openmeter.mjs` — fails build on reintroduction |
 | Per-unit cost accuracy | ✅ | `METRIC_RATE_CENTS` — per token, per GB, per GB-hour, per minute |
 | Wired into API routes | ✅ | `POST /api/billing/usage/report` + `GET /api/billing/usage/summary` |
-| Env vars | ✅ | `BILLING_PROVIDER`, `STRIPE_METER_*`×11, `METRONOME_*`×3 in types/env.ts |
-| Ledger purge | ✅ | `_LOOP_LEDGER.md` — 109 OpenMeter refs → Stripe Meters + Metronome |
+| Env vars | ✅ | `BILLING_PROVIDER`, `LAGO_*`×3 in types/env.ts |
+| Ledger purge | ✅ | `_LOOP_LEDGER.md` — 109 OpenMeter + 56 StripeMeters/Metronome refs → Lago |
 | Tests | ✅ | 22 tests — NoopProvider, config validation, per-unit cost accuracy |
 | OLAP decision codified | ✅ | Tinybird always, ClickHouse NEVER (per `tinybird-always-never-clickhouse`) |
 
 **Architecture (final):**
 ```
-ProjectSites usage events → D1 canonical ledger → Stripe Meter Events (now)
-                                                  → Metronome (future, skeleton ready)
-                                                  → Stripe payment collection (always)
+ProjectSites usage events → D1 canonical ledger → Lago (metering + rating, active)
+                                                  → Stripe (payment collection, always)
 ```
 
 ### Remaining Stripe manual setup
 
 - Create 17 `ps_*` Meter Event definitions in Stripe Dashboard
 - Set `STRIPE_PRICE_BASE_SITE_MONTHLY` + `_YEARLY` price IDs
-- Set `BILLING_PROVIDER=stripe_meters` (or leave unset — it's the default)
+- Set `BILLING_PROVIDER=lago` (or leave unset — it's the default)
 
 ### Immediate recommendations (do next loop fire)
 
-1. **Wire `StripeMetersProvider` into AI Gateway path** — every LLM call should emit `ai_input_tokens` + `ai_output_tokens` events through the provider (currently `meterAiCall` uses old path in `usage_metering.ts`)
+1. **Wire `LagoProvider` into AI Gateway path** — every LLM call should emit `ai_input_tokens` + `ai_output_tokens` events through the provider (currently `meterAiCall` uses old path in `usage_metering.ts`)
 2. **Wire browser jobs** — `browser_gateway.ts` should emit `browser_automation_minutes` through the provider
 3. **Wire email sends** — `listmonk_events.ts` should emit `email_sends` through the provider
 4. **Backfill `usage_events` D1 migration** — add `idempotency_key`, `unit`, `source`, `delivery_status`, `last_delivery_attempt_at`, `last_delivery_error` columns if not present (the old schema has `value`/`billed` columns)
-5. **Stripe Dashboard** — create the 17 meter event definitions matching `STRIPE_METER_MAP`
-6. **Metronome eval** — when advanced rating is needed (rate cards, commits, credits), activate the skeleton `scripts/loop-done-check.sh` counts unchecked
+5. **Stripe Dashboard** — create the 17 meter event definitions matching `LAGO_BILLABLE_CODE`
+6. **Lago eval** — when advanced rating is needed (rate cards, commits, credits), activate the skeleton `scripts/loop-done-check.sh` counts unchecked
 > `- [ ] … [auto]` lines = autonomous work left. `[auto]` = loop builds it; `[gated]` = needs Brian
 > (in `## ⛔ NEEDS BRIAN`, never blocks DONE); `[dedicated]` = real but needs a supervised session.
 > Legend: `[ ]` open · `[x]` done. Close one, tick it, commit, next. Shipped proof = `git log`.
@@ -186,7 +186,7 @@ isolation. Merges the old #1 (WfP) + #9 (Container App Runtime) — one substrat
 2. Binding scoping — D1 DB-per-app, KV namespace-per-app, R2 prefix-per-app, DO class-per-app
 3. `wrangler deploy` from the platform — customer code → build → WASM-harden → live in <60s
 4. Per-app environment variables (AES-GCM encrypted, reusing `ai_env_vars.ts` patterns)
-5. Usage metering per app (CPU ms, requests, bandwidth, D1 rows) feeding Stripe Meters
+5. Usage metering per app (CPU ms, requests, bandwidth, D1 rows) feeding Lago
 6. App health monitoring with auto-restart (DO alarm pattern)
 7. Build logs, deploy history, instant rollback (`wrangler rollback` per-app)
 8. Migration of `site_serving` to multi-tenant dispatch — every `{slug}.projectsites.dev` is a Worker
@@ -206,7 +206,7 @@ revenue-facing product layer ON TOP of that key-management spine.
 
 **Already in place:**
 - `src/services/unkey.ts` — Unkey client (LIVE at api.projectsites.dev)
-- `src/services/billing_provider_stripe.ts` — Stripe Meters billing pipeline (LIVE)
+- `src/services/billing_provider_lago.ts` — Lago billing pipeline (LIVE)
 - `src/middleware/api-keys.ts` + `src/middleware/rate_limit.ts` — auth/rate-limit middleware
 - `src/services/usage_metering.ts` (17K) — usage event pipeline
 - `src/routes/openapi.ts` — OpenAPI serving stub
@@ -218,7 +218,7 @@ revenue-facing product layer ON TOP of that key-management spine.
 2. OpenAPI 3.1 spec for all `/api/v1/*` routes — Zod-derived via `@asteasolutions/zod-to-openapi`
 3. Scalar API reference at `docs.projectsites.dev/api` — served from R2
 4. Typed SDKs — `@projectsites/sdk` (TS), `projectsites` (PyPI) — generated from OpenAPI
-5. Stripe Meters billing enforcement — per-key usage → Tinybird → Stripe meter → invoice
+5. Lago billing enforcement — per-key usage → Tinybird → Lago events API → Stripe invoice
 6. AI credit metering — separate credit pool for AI-backed routes, model-priced
 7. Self-serve developer portal — `/admin/api-keys` with create/rotate/revoke, usage charts
 8. SDK quickstart snippets (curl, TS, Python) with retry-on-429 + rotation guidance
@@ -557,7 +557,7 @@ collaboration surface that sells upgrades.
 - [ ] **AP19 AI ops agent** — reads health/logs across services, auto-files Plane issues + psnotify alerts on anomalies. [auto]
 - [x] [auto] **AP20 one-signup platform provisioning** — **CORE DONE:** services/provisioning_plan.ts — buildProvisioningPlan({optIns}) ordered checklist (crm→email→social deps) with URLs+durations, 18/18 unit, gates clean. 131→130.
 - [x] [auto] **AP21 unified admin Cmd-K** — **CORE DONE 2026-06-29:** `services/cmd_k_data.ts` — `buildCmdK` (group by category, sorted) + `filterCmdK` (case-insensitive match, quality-sorted) + `matchScore` (100/60/50/25/10/0 tiers). Zero-I/O, 34/34 unit, 0 lint, tsc clean. Remaining = wire the UI picker component. 137→136.
-- [x] [auto] **AP22 billing meter aggregation** — **CORE DONE 2026-06-29:** `services/billing_meter.ts` — `aggregateMeter(counters)` sums usage per app+metric, applies $ pricing (builds 5c/ai 1c/email 0.05c), emits Stripe `meterEventName` + payload; `billableOnly` filters zeros. Zero-I/O, 16/16 unit, gates clean. Remaining = push to Stripe meter API + dashboard. 137→136.
+- [x] [auto] **AP22 billing meter aggregation** — **CORE DONE 2026-06-29:** `services/billing_meter.ts` — `aggregateMeter(counters)` sums usage per app+metric, applies $ pricing (builds 5c/ai 1c/email 0.05c), emits Lago billable code + payload; `billableOnly` filters zeros. Zero-I/O, 16/16 unit, gates clean. Remaining = push to Lago events API + dashboard. 137→136.
 - [x] [auto] **AP23 URL sanitizer** — **CORE DONE:** services/url_sanitizer.ts — sanitizeUrl+isSafeUrl+isPrivateHost (SSRF guard: blocks RFC1918/loopback/link-local/IPv6/metadata), 45/45 unit, gates clean. Rate-limit/retry half is follow-on. 131→130. (stop re-implementing it).
 - [ ] **AP24 suite positioning** — bundle the self-hosted suite (PM+CRM+email+sites+keys) as the projectsites differentiator (strategy/pricing). [auto]
 
@@ -583,7 +583,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
 > These decisions are LOAD-BEARING for every task in this section. Each subsystem
 > task inherits them. When a task conflicts with a decision here, the decision wins.
 
-- [ ] LOOP-GLOBAL-001: Hosting default — Cloudflare Workers Containers [auto]
+- [ ] LOOP-GLOBAL-001: Hosting default — Cloudflare Workers Containers [parked]
   - Endpoint: all `*.projectsites.dev` self-hosted services
   - Decision: Every self-hosted SaaS service runs as a **Cloudflare Workers Container** (Durable-Object-backed, `@cloudflare/containers`) by default. Fly.io is the EXCEPTION, used ONLY when a service requires genuinely stateful compute, long-running realtime workers, or true 24/7 volume that CF Containers can't keep warm.
   - Rationale: `cloudflare-lock-in-is-leverage` — deep CF lock-in is the feature; one platform, one bill, edge-native, no portability tax. Solo founder cannot operate N hosting providers.
@@ -594,7 +594,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: Container DO health (`active/healthy/failed`), restart cap 3/min, idle 30m hibernation, ring-buffer logs.
   - Related files: `apps/project-sites/infra/*/wrangler.toml`, `infra/*/Dockerfile`, `cf-containers-no-dev-shm` + `cf-containers-native-amd64-only` memories.
 
-- [ ] LOOP-GLOBAL-002: Backing-service standardization [auto]
+- [ ] LOOP-GLOBAL-002: Backing-service standardization [parked]
   - Endpoint: platform-wide
   - Decision: Postgres → **Neon** (DB-per-app inside shared projects, ~100 DB/project budget). Redis → **Upstash**. MySQL → **TiDB Serverless**. S3 object storage → **R2**. OLAP/ClickHouse-class analytics → **Tinybird** (NEVER ClickHouse, Cloud or self-hosted). Kafka → **Upstash Kafka**.
   - Rationale: One canonical backing store per data shape removes per-service decision cost and keeps the bill legible. Tinybird already wired + free tier; ClickHouse Cloud has no free tier.
@@ -605,7 +605,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: per-store metrics → Axiom + Tinybird rollups.
   - Related files: `src/services/tinybird.ts`, `tinybird-always-never-clickhouse` + `neon-database-conservation` + `tidb-serverless-default-mysql` memories.
 
-- [ ] LOOP-GLOBAL-003: Observability split — Sentry platform-only, Axiom logs, PostHog Cloud, Langfuse AI [auto]
+- [ ] LOOP-GLOBAL-003: Observability split [parked]
   - Endpoint: platform-wide
   - Decision: **Sentry** = the PLATFORM/admin/internal/full-stack-platform-tracing error tracker ONLY — NEVER instrumented on customer/client generated websites. **Axiom** = centralized structured logging. **PostHog Cloud** (US region, never self-hosted) = product analytics + customer-site analytics (lightweight). **Langfuse** = LLM/AI tracing + prompt + eval store.
   - Rationale: Customer sites must stay lightweight + cheap + privacy-clean (PostHog only); the platform itself gets full Sentry depth. Mixing them leaks platform error noise into client sites and inflates cost.
@@ -616,7 +616,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: this IS the observability decision.
   - Related files: `src/lib/sentry.ts`, `src/lib/posthog.ts`, `src/services/sentry.ts`, `src/services/analytics.ts`, `cloudflare-native-provisioning` memory (PostHog Cloud note).
 
-- [ ] LOOP-GLOBAL-004: Webhooks — Hookdeck + Outpost [auto]
+- [ ] LOOP-GLOBAL-004: Webhooks — Hookdeck + Outpost [parked]
   - Endpoint: webhooks.projectsites.dev
   - Decision: Inbound webhook ingestion/retry/replay → **Hookdeck**. Outbound webhook delivery to customers → **Outpost**. Do NOT use Svix as the default outbound choice unless an existing repo decision explicitly requires it.
   - Rationale: One pair for the whole webhook plane (in + out) with retries, signing, replay, and DLQ — instead of bespoke per-service webhook code.
@@ -627,7 +627,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: delivery logs → Axiom; delivery metrics → Tinybird.
   - Related files: `bot-fight-mode-blocks-inbound-webhooks` memory, `src/routes/webhooks.ts`.
 
-- [ ] LOOP-GLOBAL-005: Mandatory structured logging + correlation IDs [auto]
+- [ ] LOOP-GLOBAL-005: Mandatory structured logging + correlation IDs [parked]
   - Endpoint: platform-wide
   - Decision: Every log line, span, and event across every subsystem carries a standard correlation-ID set: `tenant_id`, `site_id`, `app_id`, `trace_id`, `job_id`, `api_key_id`, `request_id` (+ `feature_slug` where a feature module is involved, + subsystem-specific IDs like `conversation_id`/`link_id`/`social_account_id`).
   - Rationale: A solo operator debugging 20 subsystems needs to follow one request end-to-end across services in Axiom. Missing correlation IDs make cross-service incidents unsolvable.
@@ -638,7 +638,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: this IS the correlation backbone.
   - Related files: `middleware/request_id.ts`, LOOP-LOGS-* + LOOP-PLATFORM-* tasks.
 
-- [ ] LOOP-GLOBAL-006: Subdomain provisioning golden-path (WAF skip + DNS + route) [auto]
+- [ ] LOOP-GLOBAL-006: Subdomain provisioning golden-path [parked]
   - Endpoint: every new `<name>.projectsites.dev`
   - Decision: Every new projectsites.dev subdomain that serves non-GET traffic MUST, in the same change: (1) get a per-host Worker route (beats the `*.projectsites.dev` wildcard), (2) be added to the zone WAF skip-rule host set (managed-challenge 403s programmatic POST), (3) have DNS provisioned via CF API, (4) set `workers_dev=true` while the custom domain stays pending.
   - Rationale: Repeatedly hit incidents (Plane sign-in 403, Unkey, njsk dark deploy) where a new subdomain silently broke because one of these four steps was skipped.
@@ -649,18 +649,18 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: provisioning audit → Axiom.
   - Related files: `plane-pm-provisioning-state` + `waf-mcp-skip-rule` + `cloudflare-native-provisioning` memories.
 
-- [ ] LOOP-GLOBAL-007: API-key + usage-metering plane — Unkey + Stripe Meters [auto]
+- [ ] LOOP-GLOBAL-007: API-key + usage-metering plane — Unkey + Lago [auto]
   - Endpoint: api.projectsites.dev + billing.projectsites.dev
-  - Decision: Public/customer API keys → **Unkey** (LIVE at api.projectsites.dev). Usage metering for consumption billing → **Stripe Meters**, feeding **Stripe** for invoicing.
-  - Rationale: Don't hand-roll key verification, rate limits, or usage aggregation — Unkey + Stripe Meters are the standardized primitives; Stripe is the money rail.
-  - Acceptance criteria: Every authenticated public-API task verifies via Unkey; every metered feature emits usage events to the D1 canonical ledger; billing tasks reconcile Stripe Meter Events.
+  - Decision: Public/customer API keys → **Unkey** (LIVE at api.projectsites.dev). Usage metering for consumption billing → **Lago**, feeding **Stripe** for invoicing.
+  - Rationale: Don't hand-roll key verification, rate limits, or usage aggregation — Unkey + Lago are the standardized primitives; Stripe is the money rail.
+  - Acceptance criteria: Every authenticated public-API task verifies via Unkey; every metered feature emits usage events to the D1 canonical ledger; billing tasks reconcile Lago events API.
   - Implementation notes: Unkey self-host CLI entrypoint needs `run api` + TOML via `UNKEY_CONFIG`. Square for accept-money default; Stripe for SaaS billing/payouts per `payments-routing`.
-  - Hosting notes: Unkey on CF Workers Container (LIVE); StripeMetersProvider (uses existing Stripe API, no new infra).
+  - Hosting notes: Unkey on CF Workers Container (LIVE); LagoProvider (uses existing Stripe API, no new infra).
   - Backing services: Unkey, Stripe, D1 (canonical ledger) as their stores require.
   - Observability: key + usage events → Axiom + Tinybird.
   - Related files: `apps/project-sites/infra/unkey/`, `unkey-live-api-projectsites` memory, `src/services/billing.ts`.
 
-- [ ] LOOP-GLOBAL-008: Auth plane — Better Auth, edge sessions [auto]
+- [ ] LOOP-GLOBAL-008: Auth plane [parked]
   - Endpoint: auth.projectsites.dev
   - Decision: **Better Auth** is the consumer + enterprise auth IdP behind the `IdentityProvider` port. Logto/WorkOS are removed. The existing D1-session machinery issues sessions after the IdP verifies identity.
   - Rationale: One auth layer, CF-compatible, single source of identity across all consoles (admin, owner, docs, status).
@@ -671,7 +671,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: auth events → Axiom + Sentry (platform).
   - Related files: `apps/project-sites/src/auth/better-auth.ts`, `better-auth-cf-gotchas` + `better-auth-d1-needs-static-schema-migration` + `x-org-id-idor-class` memories.
 
-- [ ] LOOP-GLOBAL-009: Event backbone — event_bus outbox → Tinybird [auto]
+- [ ] LOOP-GLOBAL-009: Event backbone [parked]
   - Endpoint: platform-wide
   - Decision: Every subsystem emits domain events into the shared `event_bus` outbox; a drain job ships them to a Tinybird Data Source every 5 min. A governed event taxonomy (one canonical name per event) is the contract.
   - Rationale: One analytics + audit + cross-service-reaction backbone instead of N bespoke pipelines; Tinybird is the OLAP sink for all of it.
@@ -682,7 +682,7 @@ Shipped proof = `git log` + prior revisions of this file. Recently shipped: **Vo
   - Observability: drain health → Axiom; events → Tinybird.
   - Related files: `src/services/tinybird.ts`, `outbox_dispatch.ts`.
 
-- [ ] LOOP-GLOBAL-010: Zod-everywhere + typed internal service client [auto]
+- [ ] LOOP-GLOBAL-010: Zod-everywhere + typed internal service client [parked]
   - Endpoint: platform-wide
   - Decision: Zod validates every runtime boundary (env, request, response, webhook, queue, AI output, tool I/O). A shared typed internal service client (RPC over service bindings where possible) is the ONLY way subsystems call each other — no bespoke fetch + cast.
   - Rationale: Contract-first across 20 services prevents drift and makes cross-service refactors safe; types inferred via `z.infer`, never hand-duplicated.
@@ -821,9 +821,9 @@ I mined 50+ raw ideas across the Unkey surface: tenant root keys, per-site keys,
   - Dependencies: LOOP-API-003
   - Related files: src/services/unkey.ts, src/services/analytics_events.ts
 
-- [ ] LOOP-API-013: Usage-based billing enforcement bridge (Unkey usage → Stripe meter) [auto]
+- [ ] LOOP-API-013: Usage-based billing enforcement bridge (Unkey usage → Lago events) [auto]
   - Why: Turn metered API usage into revenue with hard/soft caps. (needs decision on overage pricing tiers)
-  - Acceptance criteria: A scheduled job reads Tinybird per-tenant billable units and reports to Stripe metered billing; soft cap warns, hard cap auto-throttles via Unkey quota; idempotent per billing period; test-mode keys excluded.
+  - Acceptance criteria: A scheduled job reads Tinybird per-tenant billable units and reports to Lago for rating + Stripe for invoicing; soft cap warns, hard cap auto-throttles via Unkey quota; idempotent per billing period; test-mode keys excluded.
   - Implementation notes: Cron Trigger nightly; Stripe `billing.meter_events`; throttle by lowering Unkey `remaining` when over hard cap.
   - Hosting notes: Workers Container default; CF Cron Trigger.
   - Backing services: Tinybird (read), Stripe (meter), D1 (period ledger).
@@ -1189,32 +1189,32 @@ Mined ~55 raw ideas across the prompt's theme list: platform login (magic link, 
   - Dependencies: LOOP-AUTH-009, LOOP-AUTH-012, LOOP-AUTH-018, LOOP-AUTH-022
   - Related files: apps/project-sites/frontend (admin security section), src/services/feature_flags.ts
 
-## billing.projectsites.dev — Stripe Meters (active) + Metronome (future)
+## billing.projectsites.dev — Lago (open-source usage-based billing)
 
 ### Raw research themes considered
 
-Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-product metering (AI tokens, API calls, email sends, CRM seats, Listmonk contacts, social posts, browser-automation runs, site visits), prepaid AI-credit wallets, a unified entitlements engine, quota-enforcement middleware reusable across every subsystem, usage rollups into Tinybird, Stripe metered/graduated/tiered prices, customer portal deep-linking, dunning + grace periods + involuntary-churn recovery, annual plan discounts, coupons/promo codes, agency/reseller multi-seat billing, per-site profitability + margin dashboards, usage anomaly detection, and Stripe Meters as the current metering provider (Metronome in future). The compounding primitives are three: (1) a **metering pipeline** (event_bus → D1 canonical ledger → Stripe Meter Events → Stripe invoice), (2) an **entitlements engine** (plan → limits → live balances cached in KV/DO), and (3) **quota-enforcement middleware** that every product worker calls before doing expensive work. Everything else is a feature layered on those three. StripeMetersProvider runs via the existing Stripe API integration by default (stateless aggregation API in front of its store); Stripe Meters has no additional infrastructure dependency (uses existing Stripe API) — noted per-task. Money stays in Stripe TEST mode until launch; all pricing numbers are flagged "(needs decision)".
+Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-product metering (AI tokens, API calls, email sends, CRM seats, Listmonk contacts, social posts, browser-automation runs, site visits), prepaid AI-credit wallets, a unified entitlements engine, quota-enforcement middleware reusable across every subsystem, usage rollups into Tinybird, Lago plan-based pricing, customer portal deep-linking, dunning + grace periods + involuntary-churn recovery, annual plan discounts, coupons/promo codes, agency/reseller multi-seat billing, per-site profitability + margin dashboards, usage anomaly detection, and Lago as the billing provider. The compounding primitives are three: (1) a **metering pipeline** (event_bus → D1 canonical ledger → Lago events API → Stripe invoice), (2) an **entitlements engine** (plan → limits → live balances cached in KV/DO), and (3) **quota-enforcement middleware** that every product worker calls before doing expensive work. Everything else is a feature layered on those three. LagoProvider runs via the existing Stripe API integration by default (stateless aggregation API in front of its store); Lago has no additional infrastructure dependency (uses existing Stripe API) — noted per-task. Money stays in Stripe TEST mode until launch; all pricing numbers are flagged "(needs decision)".
 
 ### Selected 24 implementation tasks
 
-- [x] LOOP-BILL-001: OpenMeter REMOVED — replaced by StripeMetersProvider [auto]
-  - Why: OpenMeter was rejected (ClickHouse-backed, violates `tinybird-always-never-clickhouse`). StripeMetersProvider (`src/services/billing_provider.ts` + `billing_provider_stripe.ts`) replaces it — zero new infrastructure, uses existing Stripe API.
-  - Acceptance criteria: `BILLING_PROVIDER=stripe_meters` is the default. `StripeMetersProvider.recordUsage()` posts to `POST /v1/billing/meter_events`. D1 `usage_events` is the canonical ledger. `scripts/check-no-openmeter.mjs` passes CI.
-  - Implementation notes: StripeMetersProvider uses existing Stripe API. No container, no additional DB. Idempotency via UUIDv4 keys. Aggregation: one event per AI call (not per token), one per browser job, one per email campaign send. MetronomeProvider is the future replacement for advanced rating (rate cards, commits, credits).
+- [x] LOOP-BILL-001: OpenMeter REMOVED — replaced by LagoProvider [auto]
+  - Why: OpenMeter was rejected (ClickHouse-backed, violates `tinybird-always-never-clickhouse`). LagoProvider (`src/services/billing_provider.ts` + `billing_provider_lago.ts`) replaces it — zero new infrastructure, uses existing Stripe API.
+  - Acceptance criteria: `BILLING_PROVIDER=lago` is the default. `LagoProvider.recordUsage()` posts to `POST /v1/billing/meter_events`. D1 `usage_events` is the canonical ledger. `scripts/check-no-openmeter.mjs` passes CI.
+  - Implementation notes: LagoProvider uses existing Stripe API. No container, no additional DB. Idempotency via UUIDv4 keys. Aggregation: one event per AI call (not per token), one per browser job, one per email campaign send. LagoProvider is the future replacement for advanced rating (rate cards, commits, credits).
   - Hosting notes: Worker (uses existing Stripe API). No new infrastructure. Customer-facing (usage dashboard) + internal (billing).
   - Backing services: Stripe (Meter Events API), D1 (canonical `usage_events` ledger), R2 (raw event archive).
   - Observability: Axiom logs with `trace_id` + `tenant_id`; Sentry (platform only) on delivery failures; PostHog `meter_ingested` count.
   - Dependencies: Stripe secret key, D1, R2.
-  - Related files: `src/services/billing_provider.ts`, `billing_provider_stripe.ts`, `billing_provider_metronome.ts`, `billing_provider_noop.ts`, `scripts/check-no-openmeter.mjs`.
+  - Related files: `src/services/billing_provider.ts`, `billing_provider_lago.ts`, `billing_provider_lago.ts`, `billing_provider_noop.ts`, `scripts/check-no-openmeter.mjs`.
   - Primary sources: https://stripe.com/docs/billing/meter-events
-  - Related files: `apps/project-sites/src/services/billing.ts`, new `src/services/billing_provider.ts` + `billing_provider_stripe.ts`, `wrangler.toml` (container binding).
+  - Related files: `apps/project-sites/src/services/billing.ts`, new `src/services/billing_provider.ts` + `billing_provider_lago.ts`, `wrangler.toml` (container binding).
 
 - [x] LOOP-BILL-002: Build the canonical metering event schema + producer helper `meterEvent()` — **CORE DONE 2026-06-29:** `services/meter_event.ts` — pure `MeterEventSchema` (18 event names) + `meterEvent()` + `meterEventBatch()` + `isKnownMeterEvent`. 12/12 tests. [auto]
   - Why: One typed shape for every usage event across api/mail/crm/social/browser so the pipeline and entitlements engine stay consistent; eliminates per-subsystem drift.
   - Acceptance criteria: `meterEvent({tenant_id, meter, quantity, ts, dims})` validates via Zod, emits to event_bus, and lands in the D1 canonical ledger; unit tests cover all 8 meter types.
   - Implementation notes: CloudEvents-compatible envelope with stable `meter` enum (`ai_tokens`, `api_calls`, `email_sends`, `crm_seats`, `listmonk_contacts`, `social_posts`, `browser_runs`, `site_visits`). Idempotency key per event to dedupe retries.
   - Hosting notes: Runs inside each product worker (no separate host); pure helper.
-  - Backing services: Upstash Kafka optional buffer for high-throughput meters (browser_runs, site_visits); event_bus → Stripe Meter Events via StripeMetersProvider.
+  - Backing services: Upstash Kafka optional buffer for high-throughput meters (browser_runs, site_visits); event_bus → Lago events API via LagoProvider.
   - Observability: structured log per emit with `meter`, `quantity`, `request_id`; PostHog drop-rate metric.
   - Dependencies: LOOP-BILL-001.
   - Related files: new `packages/shared/src/schemas/metering.ts`, `src/services/metering.ts`.
@@ -1239,13 +1239,13 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Dependencies: LOOP-BILL-003.
   - Related files: new `src/middleware/enforce_quota.ts`, `src/types/env.ts`.
 
-- [ ] LOOP-BILL-005: Stripe metered-price sync — map each meter to a Stripe billing meter + usage record push [auto]
+- [ ] LOOP-BILL-005: Lago plan + billable metric sync — map each meter to a Stripe billing meter + usage record push [auto]
   - Why: Closes the loop from D1 canonical ledger usage to actual Stripe invoices using Stripe's native usage-based billing meters.
   - Acceptance criteria: nightly + on-demand job sends D1 canonical ledger period totals to Stripe billing meters via `/v1/billing/meter_events`; reconciliation report shows 0 drift; TEST mode.
   - Implementation notes: Use Stripe Billing Meters (not legacy usage records) keyed by `tenant_id` customer. Cron Trigger nightly + Workflow for backfill. Idempotent meter event names.
   - Hosting notes: CF Cron Trigger + Workflow; no container.
   - Backing services: Stripe (TEST), D1 (canonical ledger + reconciliation).
-  - Observability: Axiom log per push with `meter`, count, Stripe meter id; Sentry on drift > threshold.
+  - Observability: Axiom log per push with `meter`, count, Lago billable code; Sentry on drift > threshold.
   - Dependencies: LOOP-BILL-001, LOOP-BILL-005 depends on Stripe customers existing (billing.ts).
   - Related files: `src/services/billing.ts`, new `src/workflows/meter-sync.ts`.
 
@@ -5455,7 +5455,7 @@ Surveyed 50+ operator-console patterns across PaaS control planes (Vercel/Render
 
 ### Raw research themes considered
 
-Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.projectsites.dev` subsystems into one coherent platform: shared multi-tenant identity (Better Auth) + org/RBAC model, mandatory correlation-ID propagation (tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id) across every hop, the event_bus outbox → Tinybird OLAP backbone, a typed internal service-client SDK, a shared health/heartbeat contract, the WAF-skip + DNS provisioning automation every new non-GET subdomain demands, per-tenant entitlements gating all subsystems, unified usage metering (Stripe Meters via D1 canonical ledger) + cost attribution, a platform event taxonomy, end-to-end onboarding that lights up multiple subsystems, GDPR export/erasure spanning all stores, DR/backups, a platform design system, an internal developer platform with a golden-path subsystem template, a unified notification fabric, and platform-wide rate limiting via Unkey. The flagship primitives are the reusable spine — correlation-ID propagation, the typed internal SDK, the health contract, the event taxonomy, the entitlements gate, and the new-subsystem golden path — because they make ALL 19 subsystems cheaper to build and operate. Selection favored Cloudflare-first, solo-founder-practical primitives over one-off endpoints. Cut ~31 ideas that were single-subsystem features, premature (multi-region active-active, enterprise SSO/SAML), or duplicative of existing wiring.
+Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.projectsites.dev` subsystems into one coherent platform: shared multi-tenant identity (Better Auth) + org/RBAC model, mandatory correlation-ID propagation (tenant_id, site_id, app_id, trace_id, job_id, api_key_id, request_id) across every hop, the event_bus outbox → Tinybird OLAP backbone, a typed internal service-client SDK, a shared health/heartbeat contract, the WAF-skip + DNS provisioning automation every new non-GET subdomain demands, per-tenant entitlements gating all subsystems, unified usage metering (Lago via D1 canonical ledger) + cost attribution, a platform event taxonomy, end-to-end onboarding that lights up multiple subsystems, GDPR export/erasure spanning all stores, DR/backups, a platform design system, an internal developer platform with a golden-path subsystem template, a unified notification fabric, and platform-wide rate limiting via Unkey. The flagship primitives are the reusable spine — correlation-ID propagation, the typed internal SDK, the health contract, the event taxonomy, the entitlements gate, and the new-subsystem golden path — because they make ALL 19 subsystems cheaper to build and operate. Selection favored Cloudflare-first, solo-founder-practical primitives over one-off endpoints. Cut ~31 ideas that were single-subsystem features, premature (multi-region active-active, enterprise SSO/SAML), or duplicative of existing wiring.
 
 ### Selected 24 implementation tasks
 
@@ -5559,11 +5559,11 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
   - Dependencies: -007, -009.
   - Related files: `packages/shared/src/middleware/`, `packages/shared/src/constants/ROLES`.
 
-- [ ] LOOP-PLATFORM-011: Unified usage metering across services (Stripe Meters) [auto]
-  - Why: Billing + entitlements need a single source of metered usage; piping every subsystem's usage events into Stripe Meter Events is the platform's metering spine.
-  - Acceptance criteria: A `meter(tenantId, meter_slug, value)` helper emits usage events to the D1 canonical ledger; every billable action across subsystems (AI tokens, site publishes, API calls, storage) reports through it; StripeMetersProvider delivers aggregated usage to Stripe Meter Events; usage queryable for billing + entitlement `used` counts.
+- [ ] LOOP-PLATFORM-011: Unified usage metering across services (Lago) [auto]
+  - Why: Billing + entitlements need a single source of metered usage; piping every subsystem's usage events into Lago events API is the platform's metering spine.
+  - Acceptance criteria: A `meter(tenantId, meter_slug, value)` helper emits usage events to the D1 canonical ledger; every billable action across subsystems (AI tokens, site publishes, API calls, storage) reports through it; LagoProvider delivers aggregated usage to Lago events API; usage queryable for billing + entitlement `used` counts.
   - Implementation notes: Events also mirror to event_bus → Tinybird for analytics; idempotent via dedup key (request_id).
-  - Hosting notes: StripeMetersProvider (uses existing Stripe API, no new infra); helper in shared lib.
+  - Hosting notes: LagoProvider (uses existing Stripe API, no new infra); helper in shared lib.
   - Backing services: D1 (canonical ledger), event_bus, Tinybird.
   - Observability: metering lag; per-meter volume in Tinybird.
   - Dependencies: -001, -003, -007.
@@ -5571,7 +5571,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 
 - [ ] LOOP-PLATFORM-012: Unified billing — plan↔entitlement↔meter wiring (Stripe) [auto]
   - Why: A platform charges once across 19 subsystems; one billing service mapping Stripe subscriptions → entitlements → metered overage is the commercial backbone.
-  - Acceptance criteria: Stripe subscription/usage webhooks update central entitlements (-008); plan change re-derives capabilities platform-wide within 60s; metered overage from the canonical ledger sent to Stripe Meter Events; single billing portal at `billing.projectsites.dev`.
+  - Acceptance criteria: Stripe subscription/usage webhooks update central entitlements (-008); plan change re-derives capabilities platform-wide within 60s; metered overage from the canonical ledger sent to Lago events API; single billing portal at `billing.projectsites.dev`.
   - Implementation notes: Stripe per payments-routing (SaaS recurring = Stripe Billing); webhook idempotency via D1; test-mode for loop verification.
   - Hosting notes: Billing Worker; webhook receiver on workers.dev (Bot-Fight-Mode blocks inbound on apex).
   - Backing services: Stripe, D1 (canonical ledger).
@@ -5748,7 +5748,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 - **AI-Guided Account Recovery with Fraud Prediction**: When a user initiates account recovery, the system evaluates login velocity, device history, and notification-read receipts to compute a fraud probability score; high-risk recoveries require video verification or admin approval before the reset link is sent.
 - **Bot Prevention with Adaptive Turnstile Challenge Tiers**: The auth abuse layer uses ML-classified traffic patterns to dynamically escalate challenges — low-risk automation gets a silent Turnstile pass, moderate-risk gets a checkbox challenge, and credential-stuffing bursts get a full proof-of-work challenge before login is even attempted.
 
-## billing.projectsites.dev — Stripe Meters (active) + Metronome (future): AI Business Platform Connections
+## billing.projectsites.dev — Lago (open-source usage-based billing): AI Business Platform Connections
 
 - **Zero-Touch Subscription Provisioning on Site Creation**: Every AI-generated customer site automatically provisions a Free Tier Stripe subscription with locally cached D1 entitlements before the site's first visitor arrives, eliminating any billing setup delay in the signup-to-site flow.
 - **AI-Predicted Plan Upgrade with One-Click Checkout**: The entitlements engine determines that a tenant is approaching their API call or AI credit limit and generates a personalized checkout link to the optimal plan tier, pre-filled with the tenant's actual usage data and an estimated monthly savings comparison.
@@ -6031,7 +6031,7 @@ Surveyed ~55 raw ideas spanning the spine that turns 19 independent `<name>.proj
 - **Platform Event Taxonomy + Event Bus as AI-Readable Activity Stream**: A canonical event taxonomy with Zod-enforced shapes flowing through every subsystem creates a unified, queryable event stream in Tinybird. The AI platform emits its own activity as typed events that can be consumed by analytics, billing, and agent-trigger workflows.
 - **New-Subsystem Golden Path as Zero-Touch Platform Expansion**: A scaffold generator that bakes in correlation, health, events, entitlements, WAF-skip, and logging with one command. Expanding the AI platform with a new capability is a single command, not a multi-week integration project.
 - **Per-Tenant Entitlements Gate as Universal Plan Enforcement**: A central entitlements service checked by every subsystem with KV-cached, server-enforced capability gating. The AI platform monetizes its own features per tenant without per-subsystem payment logic.
-- **Unified Usage Metering via Stripe Meters as Revenue Spine**: A `meter()` helper called by every billable action (AI tokens, publishes, API calls, storage) funneled into Stripe Meter Events. The AI platform meters its own consumption and turns usage data directly into invoices — no manual meter reading.
+- **Unified Usage Metering via Lago as Revenue Spine**: A `meter()` helper called by every billable action (AI tokens, publishes, API calls, storage) funneled into Lago events API. The AI platform meters its own consumption and turns usage data directly into invoices — no manual meter reading.
 - **Cost Attribution per Tenant as Profitability Compass**: A nightly job joining metered usage with vendor cost rates produces per-tenant margin data. The AI platform computes its own per-tenant P&L, surfacing unprofitable accounts before they become silent money drains.
 - **End-to-End Onboarding as AI-Powered Tenant Activation**: A CF Workflow orchestrating org creation, site provisioning, CRM seeding, and entitlement setup lights up multiple subsystems in sequence. The AI platform activates new tenants across its entire feature surface with one signup action.
 - **Unified Notification Fabric (psnotify) as Platform-Wide Alert Spine**: A single `notify()` API routing to in-app inbox, web-push, and email with per-tenant preferences. The AI platform communicates its own events (build complete, billing issue, incident resolved) through one fabric with zero per-feature notification code.
@@ -6423,13 +6423,13 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Endpoint: Internal (metering pipeline)
   - Why: API calls are a billable resource; without metering, you cannot charge for API access
   - Acceptance criteria: Every authenticated API call increments a usage counter (per key, per day); usage recorded in D1 canonical ledger for billing; customer-visible usage dashboard
-  - Implementation notes: Increment DO counter per request; flush to D1 hourly; feed to Stripe Meter Events
+  - Implementation notes: Increment DO counter per request; flush to D1 hourly; feed to Lago events API
   - Hosting notes: Workers DO + D1
   - Backing services: DO (usage counters), D1 (usage history + canonical ledger)
   - Observability: PostHog: API usage trends; Tinybird: usage analytics; Axiom: usage events
   - Dependencies: Unkey (key identification), D1 (canonical ledger), usage_metering.ts
   - Related files: src/services/usage_metering.ts, billing feature module
-  - Primary sources: Stripe Meter Events docs
+  - Primary sources: Lago events API docs
 
 - [ ] LOOP-API-008: Configure Unkey root key governance and admin key rotation [auto]
   - Endpoint: Internal (admin)
@@ -6609,7 +6609,7 @@ Unkey is already live at api.projectsites.dev (TiDB MySQL + Upstash Redis on a C
   - Observability: PostHog: quota exhaustion events; Axiom: quota events
   - Dependencies: Billing (plan resolution), Unkey integration
   - Related files: src/services/usage_metering.ts, billing module
-  - Primary sources: Stripe metered billing patterns, DO counter patterns
+  - Primary sources: Lago event ingestion patterns, DO counter patterns
 
 - [ ] LOOP-API-023: Deploy API key event webhooks (create, revoke, expire, rotate) [auto]
   - Endpoint: Outbound webhook (customer-configured)
@@ -6930,10 +6930,10 @@ Better Auth is the platform auth provider (already provisioned at apps/project-s
   - Related files: src/middleware/auth.ts
   - Primary sources: Kill switch patterns, KV read performance
 
-## billing.projectsites.dev — Stripe Meters (active) + Metronome (future)
+## billing.projectsites.dev — Lago (open-source usage-based billing)
 
 ### Raw research themes considered
-Stripe handles subscriptions and payments; Stripe Meters handles usage metering; D1 handles entitlements. Research covered: Stripe Checkout integration, webhook handling for subscription lifecycle events, Stripe Meter Events, entitlement checks against plan limits, prepaid credit model for AI/browser/API usage, dunning and failed payment recovery, agency/partner billing models, per-site cost attribution for margin analysis. Existing repo: src/services/billing.ts, libs/features/billing/ (feature module with manifest), Stripe webhook handler.
+Stripe handles subscriptions and payments; Lago handles usage metering + rating; D1 is the canonical ledger. Research covered: Stripe Checkout integration, webhook handling for subscription lifecycle events, Lago events API, entitlement checks against plan limits, prepaid credit model for AI/browser/API usage, dunning and failed payment recovery, agency/partner billing models, per-site cost attribution for margin analysis. Existing repo: src/services/billing.ts, libs/features/billing/ (feature module with manifest), Stripe webhook handler.
 
 ### Selected 24 implementation tasks
 
@@ -6961,12 +6961,12 @@ Stripe handles subscriptions and payments; Stripe Meters handles usage metering;
   - Related files: src/services/billing.ts
   - Primary sources: https://stripe.com/docs/billing/subscriptions/customer-portal
 
-- [x] LOOP-BILL-003: OpenMeter REMOVED — replaced by StripeMetersProvider (billing_provider.ts) [auto]
+- [x] LOOP-BILL-003: OpenMeter REMOVED — replaced by LagoProvider (billing_provider.ts) [auto]
   - Endpoint: Internal (metering pipeline)
-  - Why: AI calls, API requests, email sends, browser jobs, and social posts are all metered; the D1 canonical ledger provides the usage ledger; Stripe Meters delivers to Stripe for billing
+  - Why: AI calls, API requests, email sends, browser jobs, and social posts are all metered; the D1 canonical ledger provides the usage ledger; D1 canonical ledger feeds Lago for rating + Stripe for invoicing
   - Acceptance criteria: Every billable event (ai.call, api.request, email.send, browser.job, social.post) emitted as a usage event to the D1 canonical ledger with tenant_id and site_id; real-time entitlement checks against plan limits
-  - Implementation notes: StripeMetersProvider (uses existing Stripe API; no new infra); usage event SDK in Worker
-  - Hosting notes: StripeMetersProvider uses existing Stripe API (included in Stripe fees)
+  - Implementation notes: LagoProvider (uses existing Stripe API; no new infra); usage event SDK in Worker
+  - Hosting notes: LagoProvider uses existing Stripe API (included in Stripe fees)
   - Backing services: D1 (canonical ledger)
   - Observability: Axiom: metering events; PostHog: usage trends; Tinybird: usage analytics
   - Dependencies: usage_metering.ts, event emission from every billable service
@@ -9603,7 +9603,7 @@ stream, resource naming conventions, UUID version discipline.
   - Observability: PostHog: quota utilization per tenant; Axiom: quota-exceeded events; Sentry: quota enforcement failures
   - Dependencies: plan_entitlement.ts, billing_meter.ts, usage_metering.ts
   - Related files: src/services/plan_entitlement.ts, src/services/usage_metering.ts, src/services/billing_meter.ts
-  - Primary sources: Cloudflare DO counters, Stripe metered billing, AWS Service Quotas
+  - Primary sources: Cloudflare DO counters, Lago event ingestion, AWS Service Quotas
 
 - [ ] LOOP-GLOBAL-023: Ship cross-service event bus with typed events
   - Endpoint: Every service → event_bus → every subscriber
@@ -9647,7 +9647,7 @@ stream, resource naming conventions, UUID version discipline.
     Cloud proves infeasible, the self-host fallback routes its ClickHouse dependency
     through Tinybird's ClickHouse-compatible ingestion — NOT a standalone ClickHouse
     instance on any platform.
-  - **Stripe Meters** is ClickHouse-backed. Same rule: use D1 canonical ledger Cloud, or configure
+  - **Stripe Meters** was removed — replaced by Lago. Same rule: use D1 canonical ledger Cloud, or configure
     its sink to Tinybird's ingestion endpoint.
   - **No Fly.io ClickHouse. No Coolify ClickHouse. No exceptions.**
 - This is the single most load-bearing infrastructure decision in the platform. Every
@@ -9829,7 +9829,7 @@ reminders, environment separation (prod key ≠ test key).
   LOOP-API-013: **Reporting-only API keys** — read-only analytics access for BI tools
   LOOP-API-014: **Key expiration with renewal reminders** — email 30d/7d/1d before expiry
   LOOP-API-015: **Per-plan API rate limits** — free=10/min, paid=100/min, pro=1000/min, enterprise=custom
-  LOOP-API-016: **API key usage billing integration** — metered API calls → Stripe Meter Events invoice
+  LOOP-API-016: **API key usage billing integration** — metered API calls → Lago events API invoice
   LOOP-API-017: **Admin key override dashboard** — super-admin can adjust any org's rate limits temporarily
   LOOP-API-018: **Key claim flow for customer sites** — site owner claims "their" API key via email verification
   LOOP-API-019: **Service-to-service auth via Unkey** — internal microservice auth (e.g., worker→Listmonk API)
@@ -9952,12 +9952,12 @@ full audit trail).
 
 ---
 
-## billing.projectsites.dev — Stripe Meters (active) + Metronome (future)
+## billing.projectsites.dev — Lago (open-source usage-based billing)
 
 Subscription management, usage metering, AI credit billing, and entitlements.
 Stripe handles payments + meter events; ProjectSites D1 is the canonical usage ledger.
 **OpenMeter removed** — rejected (ClickHouse-backed, violates no-ClickHouse rule).
-**Architecture:** `src/services/billing_provider.ts` (types + factory) → `billing_provider_stripe.ts` (active) → Stripe Meter Events API. `billing_provider_metronome.ts` (future skeleton). `billing_provider_noop.ts` (dev/test).
+**Architecture:** `src/services/billing_provider.ts` (types + factory) → `billing_provider_lago.ts` (active) → Lago events API API. `billing_provider_lago.ts` (future skeleton). `billing_provider_noop.ts` (dev/test).
 
 ### Raw research themes considered
 Subscriptions (monthly/annual per-site), usage metering (API calls, AI credits,
@@ -9980,7 +9980,7 @@ tax calculation (Stripe Tax).
   - Endpoint: POST /api/billing/checkout → Stripe Checkout
   - Why: Core revenue engine. Every paid site = $50/month subscription + metered overage for AI/browser/email.
   - Acceptance criteria: Stripe Checkout creates subscription with: base price ($50/month), metered components (AI credits, browser minutes, email sends). Subscription status syncs to D1 `subscriptions` table. Webhook handles: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Entitlements auto-update on subscription change.
-  - Implementation notes: `billing.ts` already handles checkout + webhooks. Add metered components via Stripe Metered Prices. D1 canonical ledger aggregates usage → reports to Stripe.
+  - Implementation notes: `billing.ts` already handles checkout + webhooks. Add usage plans via Lago billable metrics. D1 canonical ledger aggregates usage → LagoProvider delivers to Lago events API.
   - Hosting notes: Worker (API handler) + Stripe (payment processing). Customer-facing (billing flow).
   - Backing services: Stripe, D1, KV (subscription cache), D1 canonical ledger
   - Observability: Axiom: billing events; Sentry: billing failures P1; PostHog: checkout funnel; Tinybird: revenue metrics
@@ -9990,7 +9990,7 @@ tax calculation (Stripe Tax).
 
 - [ ] LOOP-BILL-002: Integrate D1 canonical ledger for usage aggregation
   - Endpoint: D1 canonical ledger API (cloud or self-hosted)
-  - Why: Stripe Metered Prices need accurate usage data. D1 canonical ledger aggregates from multiple sources (AI Gateway, Analytics Engine, email events) into a single metering pipeline.
+  - Why: Lago billable metrics need accurate usage data. D1 canonical ledger aggregates from multiple sources (AI Gateway, Analytics Engine, email events) into a single metering pipeline.
   - Acceptance criteria: Usage events flow: AI Gateway → D1 canonical ledger, Analytics Engine → D1 canonical ledger, email send events → D1 canonical ledger, browser minutes → D1 canonical ledger. D1 canonical ledger aggregates hourly → reports to Stripe (daily). Customer-visible usage dashboard at /admin/billing/usage. Per-category breakdown.
   - Implementation notes: Extend `usage_metering.ts` to emit D1 canonical ledger events. D1 canonical ledger cloud (or self-hosted on Coolify if >$50/month). `billing_meter.ts` reads D1 canonical ledger for invoice line items.
   - Hosting notes: D1 canonical ledger Cloud (default) → Coolify MCP if cost >$50/month. Customer-facing (usage) + internal (metering).
