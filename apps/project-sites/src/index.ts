@@ -761,9 +761,10 @@ app.all('*', async (c, next) => {
   const resp = await fetch(target, {
     method: c.req.method,
     headers,
-    body: c.req.method !== 'GET' && c.req.method !== 'HEAD'
-      ? await c.req.raw.clone().arrayBuffer()
-      : undefined,
+    body:
+      c.req.method !== 'GET' && c.req.method !== 'HEAD'
+        ? await c.req.raw.clone().arrayBuffer()
+        : undefined,
     redirect: 'manual',
     cf: { cacheTtl: 0 },
   });

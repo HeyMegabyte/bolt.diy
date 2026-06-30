@@ -80,16 +80,20 @@ export type SQLiteResource = z.infer<typeof sqliteResourceSchema>;
 
 export const sqliteSnapshotSchema = z.object({
   version: z.number().int().positive(),
-  tables: z.array(z.object({
-    name: z.string(),
-    columns: z.array(z.object({
+  tables: z.array(
+    z.object({
       name: z.string(),
-      type: z.string(),
-      nullable: z.boolean(),
-      primaryKey: z.boolean().default(false),
-    })),
-    rowCount: z.number().int().nonnegative(),
-  })),
+      columns: z.array(
+        z.object({
+          name: z.string(),
+          type: z.string(),
+          nullable: z.boolean(),
+          primaryKey: z.boolean().default(false),
+        }),
+      ),
+      rowCount: z.number().int().nonnegative(),
+    }),
+  ),
   createdAt: z.string().datetime(),
 });
 
@@ -110,17 +114,23 @@ export type PostgresProfile = z.infer<typeof postgresProfileSchema>;
 
 export const postgresSnapshotSchema = z.object({
   version: z.number().int().positive(),
-  schemas: z.array(z.object({
-    name: z.string(),
-    tables: z.array(z.object({
+  schemas: z.array(
+    z.object({
       name: z.string(),
-      columns: z.array(z.object({
-        name: z.string(),
-        type: z.string(),
-        nullable: z.boolean(),
-      })),
-    })),
-  })),
+      tables: z.array(
+        z.object({
+          name: z.string(),
+          columns: z.array(
+            z.object({
+              name: z.string(),
+              type: z.string(),
+              nullable: z.boolean(),
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
   extensions: z.array(z.string()).default([]),
   createdAt: z.string().datetime(),
 });
@@ -142,12 +152,14 @@ export type RedisProfile = z.infer<typeof redisProfileSchema>;
 
 export const redisSnapshotSchema = z.object({
   version: z.number().int().positive(),
-  keys: z.array(z.object({
-    key: z.string(),
-    type: z.enum(['string', 'hash', 'list', 'set', 'zset', 'stream']),
-    ttl: z.number().int(),
-    value: z.unknown(),
-  })),
+  keys: z.array(
+    z.object({
+      key: z.string(),
+      type: z.enum(['string', 'hash', 'list', 'set', 'zset', 'stream']),
+      ttl: z.number().int(),
+      value: z.unknown(),
+    }),
+  ),
   createdAt: z.string().datetime(),
 });
 
@@ -164,11 +176,13 @@ export type KVNamespace = z.infer<typeof kvNamespaceSchema>;
 
 export const kvSnapshotSchema = z.object({
   version: z.number().int().positive(),
-  entries: z.array(z.object({
-    key: z.string(),
-    value: z.string(),
-    metadata: z.record(z.unknown()).optional(),
-  })),
+  entries: z.array(
+    z.object({
+      key: z.string(),
+      value: z.string(),
+      metadata: z.record(z.unknown()).optional(),
+    }),
+  ),
   createdAt: z.string().datetime(),
 });
 
@@ -245,11 +259,13 @@ export const functionManifestSchema = z.object({
   /** Dispatch namespace this function targets */
   dispatchNamespace: z.string().optional(),
   /** Future CPU / subrequest / memory limits */
-  limits: z.object({
-    cpuMs: z.number().int().optional(),
-    subrequests: z.number().int().optional(),
-    memoryMb: z.number().int().optional(),
-  }).optional(),
+  limits: z
+    .object({
+      cpuMs: z.number().int().optional(),
+      subrequests: z.number().int().optional(),
+      memoryMb: z.number().int().optional(),
+    })
+    .optional(),
 });
 
 export type FunctionManifest = z.infer<typeof functionManifestSchema>;
@@ -277,18 +293,22 @@ export type ProjectSiteManifest = z.infer<typeof projectSiteManifestSchema>;
 
 export const siteRepositorySchema = z.object({
   manifest: projectSiteManifestSchema,
-  frontend: z.object({
-    framework: z.string().optional(),
-    buildCommand: z.string().optional(),
-    outputDir: z.string().default('dist'),
-  }).default({}),
+  frontend: z
+    .object({
+      framework: z.string().optional(),
+      buildCommand: z.string().optional(),
+      outputDir: z.string().default('dist'),
+    })
+    .default({}),
   functions: z.array(functionManifestSchema).default([]),
-  resources: z.object({
-    sqlite: z.array(sqliteResourceSchema).default([]),
-    postgres: z.array(postgresProfileSchema).default([]),
-    redis: z.array(redisProfileSchema).default([]),
-    kv: z.array(kvNamespaceSchema).default([]),
-  }).default({}),
+  resources: z
+    .object({
+      sqlite: z.array(sqliteResourceSchema).default([]),
+      postgres: z.array(postgresProfileSchema).default([]),
+      redis: z.array(redisProfileSchema).default([]),
+      kv: z.array(kvNamespaceSchema).default([]),
+    })
+    .default({}),
   media: mediaManifestSchema.optional(),
   meta: z.record(z.unknown()).default({}),
 });
@@ -317,16 +337,20 @@ export const exportManifestSchema = z.object({
 export type ExportManifest = z.infer<typeof exportManifestSchema>;
 
 export const importDryRunResultSchema = z.object({
-  conflicts: z.array(z.object({
-    path: z.string(),
-    reason: z.string(),
-    action: z.enum(['overwrite', 'skip', 'merge']),
-  })),
+  conflicts: z.array(
+    z.object({
+      path: z.string(),
+      reason: z.string(),
+      action: z.enum(['overwrite', 'skip', 'merge']),
+    }),
+  ),
   newFiles: z.array(z.string()),
-  resourceChanges: z.array(z.object({
-    resource: z.string(),
-    change: z.string(),
-  })),
+  resourceChanges: z.array(
+    z.object({
+      resource: z.string(),
+      change: z.string(),
+    }),
+  ),
   warnings: z.array(z.string()).default([]),
   canProceed: z.boolean(),
 });
@@ -373,17 +397,21 @@ export type EditorTabState = z.infer<typeof editorTabStateSchema>;
 // ---------------------------------------------------------------------------
 
 export const routeResourceGraphSchema = z.object({
-  routes: z.array(z.object({
-    path: z.string(),
-    method: z.string(),
-    handlerFile: z.string(),
-    resources: z.array(z.object({
-      type: resourceBindingSchema.shape.type,
-      name: z.string(),
-      tables: z.array(z.string()).optional(),
-      keyPrefixes: z.array(z.string()).optional(),
-    })),
-  })),
+  routes: z.array(
+    z.object({
+      path: z.string(),
+      method: z.string(),
+      handlerFile: z.string(),
+      resources: z.array(
+        z.object({
+          type: resourceBindingSchema.shape.type,
+          name: z.string(),
+          tables: z.array(z.string()).optional(),
+          keyPrefixes: z.array(z.string()).optional(),
+        }),
+      ),
+    }),
+  ),
 });
 
 export type RouteResourceGraph = z.infer<typeof routeResourceGraphSchema>;
