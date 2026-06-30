@@ -56,12 +56,11 @@ test.describe('Checkmate — login page smoke test', () => {
   });
 
   test('API health is reachable behind nginx proxy', async ({ page }) => {
-    const apiResponse = await page.request.get(`${CHECKMATE_URL}/api/v1/`, {
+    const apiResponse = await page.request.get(`${CHECKMATE_URL}/api/v1/health`, {
       timeout: 10000,
-      // 401 or 200 are both valid — 401 means auth is working, 200 means open
     });
-    // The API should be reachable (any non-5xx status)
-    expect(apiResponse.status()).toBeLessThan(500);
+    // Health endpoint must return 200
+    expect(apiResponse.status()).toBe(200);
   });
 
   test('page does not contain CF Access challenge', async ({ page }) => {

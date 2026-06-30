@@ -58,13 +58,13 @@ else
   red "got $HEALTH (expected 200)"
 fi
 
-# --- 5. API reachable (will 401 without auth — that's correct) ---
-echo -n "→ API endpoint reachable... "
-API_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$CHECKMATE_URL/api/v1/" 2>&1)" || true
-if [ "$API_STATUS" = "200" ] || [ "$API_STATUS" = "401" ] || [ "$API_STATUS" = "404" ]; then
-  green "status $API_STATUS (API is reachable)"
+# --- 5. API reachable (health endpoint) ---
+echo -n "→ API health endpoint... "
+API_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$CHECKMATE_URL/api/v1/health" 2>&1)" || true
+if [ "$API_STATUS" = "200" ]; then
+  green "status $API_STATUS (health OK)"
 else
-  red "got $API_STATUS (expected 200/401/404)"
+  red "got $API_STATUS (expected 200)"
 fi
 
 # --- 6. Security headers ---
