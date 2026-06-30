@@ -1209,7 +1209,7 @@ Mined 50+ raw ideas across the billing surface: per-tenant subscriptions, multi-
   - Primary sources: https://stripe.com/docs/billing/meter-events
   - Related files: `apps/project-sites/src/services/billing.ts`, new `src/services/billing_provider.ts` + `billing_provider_stripe.ts`, `wrangler.toml` (container binding).
 
-- [ ] LOOP-BILL-002: Build the canonical metering event schema + producer helper `meterEvent()` [auto]
+- [x] LOOP-BILL-002: Build the canonical metering event schema + producer helper `meterEvent()` — **CORE DONE 2026-06-29:** `services/meter_event.ts` — pure `MeterEventSchema` (18 event names) + `meterEvent()` + `meterEventBatch()` + `isKnownMeterEvent`. 12/12 tests. [auto]
   - Why: One typed shape for every usage event across api/mail/crm/social/browser so the pipeline and entitlements engine stay consistent; eliminates per-subsystem drift.
   - Acceptance criteria: `meterEvent({tenant_id, meter, quantity, ts, dims})` validates via Zod, emits to event_bus, and lands in the D1 canonical ledger; unit tests cover all 8 meter types.
   - Implementation notes: CloudEvents-compatible envelope with stable `meter` enum (`ai_tokens`, `api_calls`, `email_sends`, `crm_seats`, `listmonk_contacts`, `social_posts`, `browser_runs`, `site_visits`). Idempotency key per event to dedupe retries.
@@ -3058,7 +3058,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-002; existing Stripe webhook handler.
   - Related files: `apps/project-sites/src/routes/webhooks.ts`, billing service.
 
-- [ ] LOOP-ANALYTICS-009: Activation scoring primitive (server-computed activation score) [auto]
+- [x] LOOP-ANALYTICS-009: Activation scoring primitive (server-computed activation score) — **CORE DONE 2026-06-29:** `services/activation_scoring.ts` — pure `computeActivationScore` from 12 weighted milestones (0–100) + level + nextBestAction. 22/22 tests. [auto]
   - Why: A single "is this account activated?" score (created site + published + claimed + invited teammate, etc.) drives onboarding, lifecycle emails, and churn prediction; it must be a reusable computed primitive.
   - Acceptance criteria: A `computeActivationScore(orgId)` function returns 0–100 from weighted milestone events; the score is persisted (D1) + set as a PostHog person/group property via `$set`; unit-tested with milestone fixtures; surfaced in admin per-org.
   - Implementation notes: Milestones sourced from taxonomy events; weights in a config const; recompute on milestone events + nightly cron.
@@ -3128,7 +3128,7 @@ Surveyed 50+ raw ideas spanning two distinct planes: (1) our own product analyti
   - Dependencies: LOOP-ANALYTICS-006, LOOP-ANALYTICS-009.
   - Related files: admin dashboard widgets.
 
-- [ ] LOOP-ANALYTICS-016: Churn-prediction signal (declining activation + dormancy → risk score) [auto]
+- [x] LOOP-ANALYTICS-016: Churn-prediction signal (declining activation + dormancy → risk score) — **CORE DONE 2026-06-29:** `services/churn_prediction.ts` — pure `computeChurnRisk` rules-based 0-100 scoring from dormancy/activation/billing/engagement signals with mitigating factors. 31/31 tests. [auto]
   - Why: Predicting churn lets lifecycle triggers (LOOP-ANALYTICS-017) intervene before a cancel; a simple, explainable risk score beats nothing.
   - Acceptance criteria: A nightly cron computes `churn_risk` (0–100) per org from dormancy (days since last `site.edited`), activation-score trend, and billing signals; persisted in D1 + set as group property; explainable (top 3 contributing factors stored); unit-tested.
   - Implementation notes: Rules-based first (transparent), not ML; (needs decision: graduate to a model later via Langfuse-traced LLM scoring — defer).
@@ -3674,7 +3674,7 @@ Surveyed ~50 themes across four pillars: (1) platform error tracking + full-stac
   - Dependencies: LOOP-TRACES-002.
   - Related files: `apps/project-sites/src/observability/breadcrumbs.ts`, `libs/features/*/manifest.ts`.
 
-- [ ] LOOP-TRACES-021: Customer-impact triage scoring on platform errors [auto]
+- [x] LOOP-TRACES-021: Customer-impact triage scoring on platform errors — **CORE DONE 2026-06-29:** `services/impact_triage.ts` — pure `triageError` scoring from blocker/revenue/critical-service/user-count/error-rate signals → P0–P4 priority. 20/20 tests. [auto]
   - Why: Not all errors matter equally; triage should rank issues by how many tenants/sites/revenue are affected so the solo founder fixes the highest-impact first.
   - Acceptance criteria: An enrichment step adds `affected_tenant_count`, `affected_site_count`, and plan tier to each Sentry issue (via tags + a join against D1/Tinybird); admin triage view sorts by impact; a test asserts impact fields populate.
   - Implementation notes: aggregate distinct tenant_id per fingerprint from trace events in Tinybird; attach as Sentry issue context.
@@ -4962,7 +4962,7 @@ Surveyed ~50 themes spanning the public-facing status page (component grid, 90-d
 
 ### Selected 24 implementation tasks
 
-- [ ] LOOP-STATUS-001: Health-aggregator core — pull every subsystem `/health` into normalized ComponentState [auto]
+- [x] LOOP-STATUS-001: Health-aggregator core — pull every subsystem `/health` into normalized ComponentState — **CORE DONE 2026-06-29:** `services/health_aggregator.ts` — pure `normalizeComponentState` + `deriveStatus` + `validateRegistry` + `summarizeAggregate`. 33/33 tests. [auto]
   - Why: This is the flagship primitive; every other feature (page, SLA, incidents, alerts) reads from one normalized health snapshot rather than re-probing.
   - Acceptance criteria: A `HealthAggregator` service fetches all 19 sibling `/health` endpoints + platform `/health` concurrently, parses each into a Zod-validated `ComponentState {slug, status: operational|degraded|partial_outage|major_outage|maintenance, latency_ms, checked_at, detail}`, tolerates non-200/timeouts (→ major_outage, not throw), and writes a single `status_snapshot` row to D1 per cycle. Unit tests cover all-up, one-down, timeout, and malformed-JSON cases.
   - Implementation notes: A `SUBSYSTEM_REGISTRY` const maps slug→health URL→expected JSON shape→dependency parents. `Promise.allSettled` with per-check `AbortSignal.timeout(5000)`. Reuse the `/health` doctrine contract (`{status, version, checks[]}`).
