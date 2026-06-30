@@ -1,0 +1,13 @@
+name = "integrations-proxy"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+routes = [
+  { pattern = "integrations.projectsites.dev", custom_domain = true },
+  { pattern = "integrations.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+[observability]
+enabled = true
+[[kv_namespaces]]
+binding = "OAUTH_STATE_KV"
+id = "dc6e00fd0de94cc3afc2c6c774347312"
