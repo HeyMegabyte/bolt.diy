@@ -142,7 +142,7 @@ export const EnvSchema = z.object({
   SENDGRID_API_KEY: z.string().optional(),
   CHATWOOT_API_URL: z.string().optional(),
   CHATWOOT_API_KEY: z.string().optional(),
-  NOVU_API_KEY: z.string().optional(),
+  PSNOTIFY_SIGNING_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
   GOOGLE_SHEETS_API_KEY: z.string().optional(),

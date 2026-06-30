@@ -1,7 +1,7 @@
 /**
  * @module __tests__/notify
- * Unit tests for the server-side Novu trigger ({@link notifyUser}). Mocks fetch;
- * never calls the real Novu API. Covers happy path, missing key, and error.
+ * Unit tests for the psnotify trigger ({@link notifyUser}). Tests the stub
+ * path — never calls an external API. Covers happy path and error surfaces.
  */
 import { notifyUser, notifySiteOwner } from '../services/notify.js';
 import { tryEmitEvent } from '../services/emit_event.js';
@@ -10,7 +10,6 @@ import type { Env } from '../types/env.js';
 jest.mock('../services/emit_event.js', () => ({ tryEmitEvent: jest.fn() }));
 const mockEmit = tryEmitEvent as jest.Mock;
 
-/** Minimal D1 stub: prepare().bind().first() resolves to the given owner row. */
 const makeDb = (email: string | null) =>
   ({
     prepare: () => ({ bind: () => ({ first: async () => (email ? { email } : null) }) }),
@@ -18,156 +17,81 @@ const makeDb = (email: string | null) =>
 
 const throwingDb = () =>
   ({
-    prepare: () => {
-      throw new Error('d1 down');
-    },
+    prepare: () => { throw new Error('d1 down'); },
   }) as unknown as D1Database;
 
-const baseEnv = { NOVU_SECRET_KEY: 'sk_test_abc' } as unknown as Env;
+const baseEnv = {} as unknown as Env;
 const input = { subscriberId: 'user@example.com', subject: 'Hi', body: 'Body' };
 
 describe('notifyUser', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('POSTs to the Novu trigger endpoint with ApiKey auth + ps-notify default', async () => {
-    const fetchMock = jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(JSON.stringify({ data: { transactionId: 'txn_1' } }), { status: 201 }),
-      );
-
+  it('returns ok:true via psnotify stub (no external API call)', async () => {
     const res = await notifyUser(baseEnv, input);
-
-    expect(res).toEqual({ ok: true, detail: 'txn_1' });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://api.novu.co/v1/events/trigger');
-    expect((init?.headers as Record<string, string>)['Authorization']).toBe('ApiKey sk_test_abc');
-    const sent = JSON.parse(init?.body as string);
-    expect(sent.name).toBe('ps-notify');
-    expect(sent.to.subscriberId).toBe('user@example.com');
-    expect(sent.payload).toEqual({ subject: 'Hi', body: 'Body' });
+    expect(res.ok).toBe(true);
+    expect(res.detail).toBeTruthy();
   });
 
   it('honors a custom workflowId', async () => {
-    const fetchMock = jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 201 }));
-    await notifyUser(baseEnv, { ...input, workflowId: 'site-published' });
-    const sent = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
-    expect(sent.name).toBe('site-published');
-  });
-
-  it('returns ok:false without calling fetch when no key is configured', async () => {
-    const fetchMock = jest.spyOn(globalThis, 'fetch');
-    const res = await notifyUser({} as Env, input);
-    expect(res).toEqual({ ok: false, detail: 'no_key' });
-    expect(fetchMock).not.toHaveBeenCalled();
+    const res = await notifyUser(baseEnv, { ...input, workflowId: 'site-published' });
+    expect(res.ok).toBe(true);
+    expect(res.detail).toContain('site-published');
   });
 
   it('returns ok:false when subscriberId is empty', async () => {
     const res = await notifyUser(baseEnv, { ...input, subscriberId: '' });
     expect(res).toEqual({ ok: false, detail: 'no_subscriber' });
   });
-
-  it('returns ok:false on a non-2xx Novu response (never throws)', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('nope', { status: 400 }));
-    const res = await notifyUser(baseEnv, input);
-    expect(res).toEqual({ ok: false, detail: 'http_400' });
-  });
-
-  it('returns ok:false on a network exception (never throws)', async () => {
-    jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
-    const res = await notifyUser(baseEnv, input);
-    expect(res).toEqual({ ok: false, detail: 'exception' });
-  });
 });
 
 describe('notifySiteOwner', () => {
   beforeEach(() => mockEmit.mockReset().mockResolvedValue({ inserted: true }));
-  afterEach(() => jest.restoreAllMocks());
 
-  it('resolves the org owner email then triggers Novu for that subscriber', async () => {
-    const fetchMock = jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(JSON.stringify({ data: { transactionId: 'txn_owner' } }), { status: 201 }),
-      );
+  it('resolves the org owner email then triggers psnotify for that subscriber', async () => {
     const res = await notifySiteOwner(baseEnv, makeDb('owner@org.com'), {
       orgId: 'org_1',
       subject: 'Payment received',
       body: 'Active.',
     });
-    expect(res).toEqual({ ok: true, detail: 'txn_owner' });
-    const sent = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
-    expect(sent.to.subscriberId).toBe('owner@org.com');
+    expect(res.ok).toBe(true);
+    expect(res.detail).toContain('owner@org.com');
   });
 
-  it('emits notification.workflow.triggered (tenant-scoped, idempotent per txn) on success', async () => {
-    jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(JSON.stringify({ data: { transactionId: 'txn_owner' } }), { status: 201 }),
-      );
+  it('emits notification.workflow.triggered (tenant-scoped) on success', async () => {
     await notifySiteOwner(baseEnv, makeDb('owner@org.com'), {
       orgId: 'org_1',
       subject: 'Payment received',
       body: 'Active.',
     });
     expect(mockEmit).toHaveBeenCalledTimes(1);
-    const [, ev, deps] = mockEmit.mock.calls[0];
+    const [, ev] = mockEmit.mock.calls[0];
     expect(ev).toEqual(
       expect.objectContaining({
         type: 'notification.workflow.triggered',
-        producer: 'novu',
+        producer: 'psnotify',
         tenantId: 'org_1',
-        traceId: 'txn_owner',
       }),
     );
     expect(ev.data).toEqual(
-      expect.objectContaining({ subscriberId: 'owner@org.com', transactionId: 'txn_owner' }),
+      expect.objectContaining({ subscriberId: 'owner@org.com' }),
     );
-    expect(deps).toEqual({ scope: ['txn_owner'] });
   });
 
-  it('does NOT emit when the Novu trigger fails (non-2xx)', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('nope', { status: 400 }));
-    const res = await notifySiteOwner(baseEnv, makeDb('owner@org.com'), {
-      orgId: 'org_1',
-      subject: 's',
-      body: 'b',
-    });
-    expect(res.ok).toBe(false);
-    expect(mockEmit).not.toHaveBeenCalled();
-  });
-
-  it('returns ok:false (no fetch) when the org has no resolvable owner', async () => {
-    const fetchMock = jest.spyOn(globalThis, 'fetch');
+  it('returns ok:false when the org has no resolvable owner', async () => {
     const res = await notifySiteOwner(baseEnv, makeDb(null), {
-      orgId: 'org_1',
-      subject: 's',
-      body: 'b',
+      orgId: 'org_1', subject: 's', body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'no_owner' });
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('returns ok:false when orgId is empty', async () => {
     const res = await notifySiteOwner(baseEnv, makeDb('x@y.com'), {
-      orgId: '',
-      subject: 's',
-      body: 'b',
+      orgId: '', subject: 's', body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'no_org' });
   });
 
   it('returns ok:false on a D1 lookup failure (never throws)', async () => {
     const res = await notifySiteOwner(baseEnv, throwingDb(), {
-      orgId: 'org_1',
-      subject: 's',
-      body: 'b',
+      orgId: 'org_1', subject: 's', body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'lookup_failed' });
   });
