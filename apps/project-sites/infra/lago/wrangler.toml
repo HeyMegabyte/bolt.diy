@@ -1,14 +1,22 @@
 # Lago billing — CF Workers Container (api + front)
 name = "projectsites-lago"
-main = "src/index.ts"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# billing.projectsites.dev → this container worker
+[[routes]]
+  pattern = "billing.projectsites.dev"
+  custom_domain = true
 
 [observability]
 enabled = true
 
-[[container]]
+[[containers]]
 name = "LAGO"
 class_name = "LagoContainerDO"
-image = "./apps/project-sites/infra/lago/Dockerfile"
+image = "./Dockerfile"
 
 # ── Env vars forwarded into the ContainerDO ──────────────────────────────
 [vars]
@@ -18,19 +26,8 @@ PORT = "3000"
 LAGO_FRONT_URL = "https://billing.projectsites.dev"
 LAGO_API_URL = "https://billing.projectsites.dev/api"
 
-# ── Secrets (set via wrangler secret put) ────────────────────────────────
-# Required:
-#   DATABASE_URL          — Neon Postgres connection string (Rails)
-#   REDIS_URL             — Upstash Redis connection string
-#   REDIS_CACHE_URL       — Upstash Redis (cache, can be same as REDIS_URL)
-#   SECRET_KEY_BASE       — openssl rand -hex 64
-#   LAGO_RSA_PRIVATE_KEY  — openssl genrsa 2048 | base64
-#   LAGO_ENCRYPTION_PRIMARY_KEY       — random 32-char alphanumeric
-#   LAGO_ENCRYPTION_DETERMINISTIC_KEY — same
-#   LAGO_ENCRYPTION_KEY_DERIVATION_SALT — same
-# Optional:
-#   LAGO_DISABLE_SIGNUP   — "true" after admin created
-#   LAGO_DISABLE_PDF_GENERATION — "true" to skip PDF invoice gen (saves CPU)
-#   LAGO_USE_AWS_S3       — "true" for S3-compatible storage (set R2_* vars)
-#   LAGO_FRONT_URL        — "https://billing.projectsites.dev"
-#   LAGO_API_URL          — "https://billing.projectsites.dev/api"
+# ── Secrets (already set via wrangler secret put) ────────────────────────
+# DATABASE_URL, REDIS_URL, REDIS_CACHE_URL
+# SECRET_KEY_BASE, LAGO_RSA_PRIVATE_KEY
+# LAGO_ENCRYPTION_PRIMARY_KEY, LAGO_ENCRYPTION_DETERMINISTIC_KEY
+# LAGO_ENCRYPTION_KEY_DERIVATION_SALT, LAGO_DISABLE_SIGNUP
