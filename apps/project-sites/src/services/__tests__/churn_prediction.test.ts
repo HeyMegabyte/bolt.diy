@@ -148,9 +148,7 @@ describe('computeChurnRisk', () => {
 
   it('ignores flat or positive activation trend', () => {
     const result = computeChurnRisk({ ...HEALTHY, activationTrend: 3 });
-    const activationFactors = result.factors.filter((f) =>
-      f.toLowerCase().includes('activation'),
-    );
+    const activationFactors = result.factors.filter((f) => f.toLowerCase().includes('activation'));
     expect(activationFactors).toHaveLength(0);
   });
 

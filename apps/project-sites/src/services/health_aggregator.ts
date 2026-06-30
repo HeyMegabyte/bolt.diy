@@ -251,7 +251,9 @@ export function validateRegistry(entries: readonly SubsystemEntry[]): string[] {
     }
     for (const dep of e.dependsOn) {
       if (!slugs.has(dep)) {
-        errors.push(`Unknown dependency: "${e.slug}" depends on "${dep}" which is not in the registry`);
+        errors.push(
+          `Unknown dependency: "${e.slug}" depends on "${dep}" which is not in the registry`,
+        );
       }
     }
   }

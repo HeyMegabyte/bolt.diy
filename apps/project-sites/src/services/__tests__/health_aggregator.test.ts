@@ -21,7 +21,8 @@ function mockResponse(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
-    statusText: status === 200 ? 'OK' : status === 500 ? 'Internal Server Error' : 'Service Unavailable',
+    statusText:
+      status === 200 ? 'OK' : status === 500 ? 'Internal Server Error' : 'Service Unavailable',
     text: async () => JSON.stringify(body),
   } as Response;
 }
@@ -134,35 +135,20 @@ describe('normalizeComponentState', () => {
   });
 
   it('returns operational for a 200 with no explicit status', async () => {
-    const state = await normalizeComponentState(
-      'r2',
-      mockResponse(200, {}),
-      15,
-      CHECKED_AT,
-    );
+    const state = await normalizeComponentState('r2', mockResponse(200, {}), 15, CHECKED_AT);
     expect(state.slug).toBe('r2');
     expect(state.status).toBe('operational');
     expect(state.latencyMs).toBe(15);
   });
 
   it('returns degraded for HTTP 4xx (degraded, not outage)', async () => {
-    const state = await normalizeComponentState(
-      'api',
-      mockResponse(429, {}),
-      100,
-      CHECKED_AT,
-    );
+    const state = await normalizeComponentState('api', mockResponse(429, {}), 100, CHECKED_AT);
     expect(state.status).toBe('degraded');
     expect(state.detail).toContain('429');
   });
 
   it('returns major_outage for HTTP 5xx', async () => {
-    const state = await normalizeComponentState(
-      'plane',
-      mockResponse(500, {}),
-      200,
-      CHECKED_AT,
-    );
+    const state = await normalizeComponentState('plane', mockResponse(500, {}), 200, CHECKED_AT);
     expect(state.status).toBe('major_outage');
     expect(state.detail).toContain('500');
   });
@@ -236,7 +222,12 @@ describe('normalizeComponentState', () => {
 describe('normalizeBatch', () => {
   it('normalizes multiple checks in parallel preserving order', async () => {
     const results = await normalizeBatch([
-      { slug: 'a', response: mockResponse(200, { status: 'ok' }), latencyMs: 10, checkedAt: CHECKED_AT },
+      {
+        slug: 'a',
+        response: mockResponse(200, { status: 'ok' }),
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+      },
       { slug: 'b', response: mockResponse(500, {}), latencyMs: 200, checkedAt: CHECKED_AT },
       { slug: 'c', response: null, latencyMs: 5001, checkedAt: CHECKED_AT },
     ]);
@@ -259,9 +250,24 @@ describe('normalizeBatch', () => {
 
 describe('validateRegistry', () => {
   const valid: SubsystemEntry[] = [
-    { slug: 'd1', label: 'D1 Database', healthUrl: 'https://worker.workers.dev/health', dependsOn: [] },
-    { slug: 'r2', label: 'R2 Storage', healthUrl: 'https://worker.workers.dev/health', dependsOn: [] },
-    { slug: 'api', label: 'API Worker', healthUrl: 'https://worker.workers.dev/health', dependsOn: ['d1', 'r2'] },
+    {
+      slug: 'd1',
+      label: 'D1 Database',
+      healthUrl: 'https://worker.workers.dev/health',
+      dependsOn: [],
+    },
+    {
+      slug: 'r2',
+      label: 'R2 Storage',
+      healthUrl: 'https://worker.workers.dev/health',
+      dependsOn: [],
+    },
+    {
+      slug: 'api',
+      label: 'API Worker',
+      healthUrl: 'https://worker.workers.dev/health',
+      dependsOn: ['d1', 'r2'],
+    },
   ];
 
   it('returns empty for a valid registry', () => {
@@ -278,9 +284,7 @@ describe('validateRegistry', () => {
   });
 
   it('flags self-referential dependsOn', () => {
-    const self: SubsystemEntry[] = [
-      { slug: 'd1', label: 'D1', healthUrl: '', dependsOn: ['d1'] },
-    ];
+    const self: SubsystemEntry[] = [{ slug: 'd1', label: 'D1', healthUrl: '', dependsOn: ['d1'] }];
     const errors = validateRegistry(self);
     expect(errors).toContainEqual(expect.stringContaining('Self-referential'));
   });
@@ -309,8 +313,20 @@ describe('validateRegistry', () => {
 describe('summarizeAggregate', () => {
   it('returns operational when all components are green', () => {
     const states = [
-      { slug: 'a', status: 'operational' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'b', status: 'operational' as const, latencyMs: 15, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'a',
+        status: 'operational' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
+      {
+        slug: 'b',
+        status: 'operational' as const,
+        latencyMs: 15,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
     ];
     const summary = summarizeAggregate(states);
     expect(summary.overall).toBe('operational');
@@ -323,7 +339,13 @@ describe('summarizeAggregate', () => {
 
   it('returns degraded when one component is degraded', () => {
     const states = [
-      { slug: 'a', status: 'operational' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'a',
+        status: 'operational' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
       { slug: 'b', status: 'degraded' as const, latencyMs: 200, checkedAt: CHECKED_AT, detail: '' },
     ];
     const summary = summarizeAggregate(states);
@@ -336,8 +358,20 @@ describe('summarizeAggregate', () => {
   it('major_outage beats everything else', () => {
     const states = [
       { slug: 'a', status: 'degraded' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'b', status: 'major_outage' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'c', status: 'partial_outage' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'b',
+        status: 'major_outage' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
+      {
+        slug: 'c',
+        status: 'partial_outage' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
     ];
     const summary = summarizeAggregate(states);
     expect(summary.overall).toBe('major_outage');
@@ -346,15 +380,33 @@ describe('summarizeAggregate', () => {
   it('partial_outage beats degraded', () => {
     const states = [
       { slug: 'a', status: 'degraded' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'b', status: 'partial_outage' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'b',
+        status: 'partial_outage' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
     ];
     expect(summarizeAggregate(states).overall).toBe('partial_outage');
   });
 
   it('maintenance is above operational but below degraded', () => {
     const states = [
-      { slug: 'a', status: 'operational' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'b', status: 'maintenance' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'a',
+        status: 'operational' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
+      {
+        slug: 'b',
+        status: 'maintenance' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
     ];
     const summary = summarizeAggregate(states);
     expect(summary.overall).toBe('maintenance');
@@ -370,10 +422,28 @@ describe('summarizeAggregate', () => {
 
   it('counts each status bucket correctly', () => {
     const states = [
-      { slug: 'a', status: 'operational' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'b', status: 'operational' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'a',
+        status: 'operational' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
+      {
+        slug: 'b',
+        status: 'operational' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
       { slug: 'c', status: 'degraded' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
-      { slug: 'd', status: 'major_outage' as const, latencyMs: 10, checkedAt: CHECKED_AT, detail: '' },
+      {
+        slug: 'd',
+        status: 'major_outage' as const,
+        latencyMs: 10,
+        checkedAt: CHECKED_AT,
+        detail: '',
+      },
     ];
     const summary = summarizeAggregate(states);
     expect(summary.counts.operational).toBe(2);

@@ -136,10 +136,7 @@ export function computeChurnRisk(signals: ChurnSignals): ChurnRiskResult {
     factors.push({ points: 30, label: 'Payment past due' });
   } else if (parsed.billingStatus === 'canceled') {
     factors.push({ points: 20, label: 'Subscription canceled' });
-  } else if (
-    parsed.billingStatus === 'trialing' &&
-    !parsed.hasPublishedSite
-  ) {
+  } else if (parsed.billingStatus === 'trialing' && !parsed.hasPublishedSite) {
     factors.push({ points: 15, label: 'Trial ending without published site' });
   }
 
