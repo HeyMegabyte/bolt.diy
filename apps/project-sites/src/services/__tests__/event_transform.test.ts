@@ -1,4 +1,9 @@
-import { extractEventType, transformGenericWebhook, transformStripeEvent, wrapPlatformEvent } from '../event_transform';
+import {
+  extractEventType,
+  transformGenericWebhook,
+  transformStripeEvent,
+  wrapPlatformEvent,
+} from '../event_transform';
 
 const NOW = 1719705600000;
 const TID = 'org-1';
@@ -52,7 +57,8 @@ describe('transformGenericWebhook', () => {
 describe('extractEventType', () => {
   it('extracts type', () => expect(extractEventType({ type: 'ping' })).toBe('ping'));
   it('extracts event', () => expect(extractEventType({ event: 'push' })).toBe('push'));
-  it('extracts event_type', () => expect(extractEventType({ event_type: 'deploy' })).toBe('deploy'));
+  it('extracts event_type', () =>
+    expect(extractEventType({ event_type: 'deploy' })).toBe('deploy'));
   it('extracts event_name', () => expect(extractEventType({ event_name: 'build' })).toBe('build'));
   it('returns null for non-object', () => expect(extractEventType(null)).toBeNull());
   it('returns null when no type field', () => expect(extractEventType({})).toBeNull());

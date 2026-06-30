@@ -67,8 +67,10 @@ export function transformStripeEvent(
 ): PlatformEvent {
   const e = raw as Record<string, unknown> | null | undefined;
   const eventType = `stripe.${String(e?.type ?? 'unknown')}`;
-  const obj = (e?.data as Record<string, unknown> | null | undefined)
-    ?.object as Record<string, unknown> | null | undefined;
+  const obj = (e?.data as Record<string, unknown> | null | undefined)?.object as
+    | Record<string, unknown>
+    | null
+    | undefined;
 
   return PlatformEventSchema.parse({
     type: eventType,
@@ -98,9 +100,7 @@ export function transformGenericWebhook(
   timestampMs: number,
 ): PlatformEvent {
   const body = raw as Record<string, unknown> | null | undefined;
-  const eventType = body?.type
-    ? `${typePrefix}.${String(body.type)}`
-    : `${typePrefix}.received`;
+  const eventType = body?.type ? `${typePrefix}.${String(body.type)}` : `${typePrefix}.received`;
 
   return PlatformEventSchema.parse({
     type: eventType,
