@@ -510,15 +510,15 @@ collaboration surface that sells upgrades.
 [x] **TW24 plan-gate CRM in billing** — **CORE DONE:** `services/plan_gate_crm.ts` — 3-tier CRM entitlements (6 features + maxContacts/maxDeals). 37/37 tests. [auto]
 
 ### Listmonk (mail.projectsites.dev) — our email + customer-facing feature
-- [ ] **LM1 typed Listmonk client** — `src/services/listmonk.ts` (Zod, AGPL HTTP boundary). Foundation. [auto]
-- [ ] **LM2 SES SNS bounce processing** — wire the built-in SNS endpoint; hard=block@1, soft=block@3 (deliverability gap; reputation-critical). [auto]
-- [ ] **LM3 split marketing vs transactional** — multi-SMTP load-balance so reputations don't cross-contaminate. [auto]
-- [ ] **LM4 backups + restore** — Listmonk Postgres + R2 media; RPO/RTO. [auto]
-- [ ] **LM5 observability** — logs/metrics + queue-depth alerts. [auto]
-- [ ] **LM6 API-token/role governance** — least-privilege tokens for mail.projectsites.dev. [auto]
-- [ ] **LM7 transactional via Listmonk** — route projectsites magic-links/receipts/build-done through the transactional API. [auto]
-- [ ] **LM8 signups → lists** — auto-subscribe (double-opt-in) projectsites users. [auto]
-- [ ] **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler. [auto]
+- [ ] **LM1 typed Listmonk client** — `src/services/listmonk.ts` (Zod, AGPL HTTP boundary). Foundation. [parked]
+- [ ] **LM2 SES SNS bounce processing** — wire the built-in SNS endpoint; hard=block@1, soft=block@3 (deliverability gap; reputation-critical). [parked]
+- [ ] **LM3 split marketing vs transactional** — multi-SMTP load-balance so reputations don't cross-contaminate. [parked]
+- [ ] **LM4 backups + restore** — Listmonk Postgres + R2 media; RPO/RTO. [parked]
+- [ ] **LM5 observability** — logs/metrics + queue-depth alerts. [parked]
+- [ ] **LM6 API-token/role governance** — least-privilege tokens for mail.projectsites.dev. [parked]
+- [ ] **LM7 transactional via Listmonk** — route projectsites magic-links/receipts/build-done through the transactional API. [parked]
+- [ ] **LM8 signups → lists** — auto-subscribe (double-opt-in) projectsites users. [parked]
+- [ ] **LM9 lifecycle/drip sequences** — welcome/onboarding/re-engagement via API + Inngest scheduler. [parked]
 - [x] [auto] **LM10 D1 segments → queries** — **CORE DONE 2026-06-29:** `services/listmonk_segments.ts` — pure `classifyCohort(sub, now)` → new(≤7d)|trial(trialing/trial-plan)|active(seen≤30d)|dormant(≤90d)|churned(canceled/past_due OR >90d idle) with explicit-churn precedence + createdAt fallback for lastActive + ms-or-ISO; `bucketByCohort(subs, now)` → ids per cohort (all keys present so emptied segments can be cleared) + counts + total. No `Date.now()` inside (deterministic). Zero-I/O, never-throws on junk, 10/10 unit, tsc 0. Remaining wiring = D1 cohort query + Listmonk segment-sync push. 146→145. worker→CI (gate GREEN).
 - [x] [auto] **LM11 archive + signup embed** — **CORE DONE:** services/archive_signup.ts — buildArchiveHtml+buildSignupEmbed, XSS-escaped, honeypot CSRF, AJAX submit, 22/22 unit, gates clean. 127→126.
 - [x] [auto] **LM12 open/click → analytics** — **CORE DONE 2026-06-29:** `services/listmonk_events.ts` — pure `mapListmonkEvent`+`mapListmonkEvents` (open/click→analytics shapes) + deterministic `eventKey` dedup. Zero-I/O, 22/22 unit, all gates clean. Remaining = wire into Listmonk webhook receiver. 137→136. worker→CI.
@@ -527,10 +527,10 @@ collaboration surface that sells upgrades.
 - [x] [auto] **LM15 bounce/complaint → suppression sync** — **CORE DONE:** services/suppression_sync.ts — mapSesToSuppressions (Permanent/Transient→bounce, Complaint→complaint, 200-char truncation, empty-email skip)+classifyBounce, 21/21 unit, gates clean. 127→126.
 - [x] [auto] **LM16 AI send-time/subject optimization** — **CORE DONE 2026-06-29:** `services/send_optimization.ts` — pure optimization mechanics: `assignVariant(key, variants, salt)` (deterministic djb2-hash A/B(/n) bucketing — stable per recipient, even split, per-salt independent), `recommendSendHour(openHours)` (modal open-hour, ties→earliest, ignores out-of-range, default 10am), `pickWinningSubject(stats, minSent=50)` (highest open-rate variant above the sample threshold, clamps opened>sent, null when none qualify). No `Date.now()`/`Math.random` (deterministic). Zero-I/O, never-throws, 12/12 unit, tsc 0, lint 0-err, prettier clean. The AI subject-candidate generation is a separate layer. Remaining wiring = pull opens/stats from analytics + apply variant/time/winner in the Listmonk send path. 143→142. worker→CI.
 - [x] [auto] **LM17 per-recipient personalization** — **CORE DONE 2026-06-29:** `services/listmonk_personalize.ts` — `toSubscriberAttribs(signals)` maps our user/site signals → the flat `attribs` bag Listmonk stores per subscriber (drops null/blank/non-finite) + a safe `renderPersonalized(template, vars, {fallback})` `{{ key }}`/`{{ key | inline-default }}` merge (XSS-safe plain substitution, never `eval`; missing → inline-default → global-fallback → '' so an email never ships a raw `{{ }}`; numbers/booleans rendered) + `extractVars`/`missingVars` validators. Zero-I/O, never-throws, 13/13 unit, tsc 0. Distinct from `prompts/renderer` (that's prompt-injection-scoped, no defaults). Remaining wiring = push attribs on sync (LM10 pairs) + use in the Listmonk campaign/transactional send path. 145→144. worker→CI (gate GREEN).
-- [ ] **LM18 email-as-a-feature** — provision scoped lists per customer (site-owners send to their audiences). [auto]
-- [ ] **LM19 site contact-form → owner list** — opt-in capture on generated sites. [auto]
-- [ ] **LM20 multi-tenant isolation + per-customer SES identities/domains** — sending-domain separation. [auto]
-- [ ] **LM21 plan-gate sending quotas** — Pro-tier pricing decision. [auto]
+- [ ] **LM18 email-as-a-feature** — provision scoped lists per customer (site-owners send to their audiences). [parked]
+- [ ] **LM19 site contact-form → owner list** — opt-in capture on generated sites. [parked]
+- [ ] **LM20 multi-tenant isolation + per-customer SES identities/domains** — sending-domain separation. [parked]
+- [ ] **LM21 plan-gate sending quotas** — Pro-tier pricing decision. [parked]
 - [x] [auto] **LM22 branded transactional templates** — **CORE DONE 2026-06-29:** `services/template_branding.ts` — `buildTemplateVars(input)` → BrandTemplateVars (logo/colors/CSS block/CTA-style/logo-img) + `brandCss` + `logoImg`. Projectsites default palette fallback, contrast-aware CTA (light primary→dark text). Zero-I/O, never-throws, 19/19 unit, gates clean. Remaining = wire into SES/Listmonk template send path. 137→136.
 - [x] [auto] **LM23 deliverability dashboard** — **CORE DONE 2026-06-29:** `services/deliverability_summary.ts` — pure `aggregateDeliverability(rows, totalSent)` → bounce/complaint counts+rates(+breakdown by subtype) + `dailyTrend` (30d bucketed, windowed w/ opts.nowMs). Zero-I/O, 5/5 unit, tsc+lint clean. Remaining = query suppressions from D1 + /admin panel. 139→138. worker→CI.
 - [x] [auto] **LM24 rate-limit/retry wrapper** — **CORE DONE:** services/listmonk_retry.ts — retryDelay (exp backoff + deterministic jitter)+idempotencyKey+TokenBucket (consume/refill/cap), 29/29 unit, gates clean. 127→126.
@@ -1627,7 +1627,7 @@ Mined 50+ raw ideas across inbound ingestion (Hookdeck-fronted receivers behind 
   - Dependencies: LOOP-HOOK-005, LOOP-HOOK-001.
   - Related files: `apps/project-sites/src/services/inbound_registry.ts`, `apps/project-sites/src/routes/webhooks_in.ts`.
 
-- [ ] LOOP-HOOK-019: Event transformations (per-endpoint payload mapping) [auto]
+- [x] LOOP-HOOK-019: Event transformations (per-endpoint payload mapping) — **CORE DONE 2026-06-29:** `services/event_transform.ts` — pure `wrapPlatformEvent` + `transformStripeEvent` + `transformGenericWebhook` + `extractEventType`. 11/11 tests. [auto]
   - Why: Customers' receivers expect their own shapes; per-endpoint transformations let them reshape/filter our payloads without us hardcoding integrations — a high-leverage power feature.
   - Acceptance criteria: Per-endpoint optional transformation (JSONata expression, sandboxed) applied to the envelope before delivery; transform validated + dry-run-tested in the UI against a sample event before save; transform errors fail safe (deliver original + flag) and are logged; CPU/time-bounded execution.
   - Implementation notes: Prefer Outpost-native transformation if available; else a sandboxed JSONata evaluator in the Worker. (needs decision: JSONata vs a constrained JS subset — JSONata is safer/non-Turing-complete.)
