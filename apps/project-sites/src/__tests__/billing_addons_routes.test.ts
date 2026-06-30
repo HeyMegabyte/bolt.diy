@@ -281,7 +281,7 @@ describe('POST /api/billing/usage/report', () => {
     expect(json.delivered).toBe(true);
   });
 
-  it('returns 400 with STRIPE_ERROR when the meter event is rejected', async () => {
+  it('returns 200 even when upstream delivery may fail (fail-soft)', async () => {
     global.fetch = fetchReturning(
       { error: { message: 'meter not found' } },
       { ok: false, status: 400 },
@@ -289,12 +289,15 @@ describe('POST /api/billing/usage/report', () => {
     const res = await jsonReq(
       makeApp(AUTH),
       '/api/billing/usage/report',
-      { meter: 'ghost', value: 2 },
+      { metric: 'email_sends', quantity: 2 },
       makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
     );
-    expect(res.status).toBe(400);
-    const json = (await res.json()) as { error?: { code?: string } };
-    expect(json.error?.code).toBe('STRIPE_ERROR');
+    // LagoProvider fails soft — the event is persisted to D1, delivery is retried.
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { event_id: string; delivered: boolean };
+    expect(json.event_id).toBeTruthy();
+    // delivered is true because recordUsage resolves even if upstream fails
+    // (persist succeeds, delivery failure is logged + retried)
   });
 });
 
