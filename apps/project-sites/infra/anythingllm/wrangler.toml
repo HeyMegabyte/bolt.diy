@@ -1,10 +1,11 @@
-name = "projectsites-anythingllm"
+name = "projectsites-anythingllm-v2"
 main = "worker.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# anything.projectsites.dev → this container worker
+# Reverse proxy to AnythingLLM on Fly.io
+# CF handles TLS termination; worker forwards to Fly
 routes = [
   { pattern = "anything.projectsites.dev", custom_domain = true },
 ]
@@ -12,31 +13,5 @@ routes = [
 [observability]
 enabled = true
 
-[[containers]]
-class_name = "AnythingLLMContainerDO"
-image = "./Dockerfile"
-max_instances = 1
-instance_type = "basic"
-name = "projectsites-anythingllm"
-
-[[durable_objects.bindings]]
-name = "ANYTHINGLLM"
-class_name = "AnythingLLMContainerDO"
-
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["AnythingLLMContainerDO"]
-
-# ── Vars forwarded into the container ────────────────────────────────────
 [vars]
-SERVER_PORT = "3001"
-STORAGE_DIR = "/app/server/storage"
-VECTOR_DB = "pgvector"
-DISABLE_SWAGGER_DOCS = "true"
-WORKSPACE_DELETION_PROTECTION = "1"
-ANYTHINGLLM_CHROMIUM_ARGS = "--no-sandbox,--disable-setuid-sandbox"
-PASSWORDMINCHAR = "12"
-DISABLE_HTTP_LOGGER = "true"
-
-# ── Secrets (all set via wrangler secret put) ────────────────────────────
-# JWT_SECRET, SIG_KEY, SIG_SALT, AUTH_TOKEN, PGVECTOR_CONNECTION_STRING
+FLY_URL = "https://projectsites-anythingllm.fly.dev"

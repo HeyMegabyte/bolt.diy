@@ -1,62 +1,44 @@
-import { Container, getContainer } from '@cloudflare/containers';
-
 /**
- * anything.projectsites.dev — AnythingLLM AI knowledge base on CF Workers Containers.
+ * anything.projectsites.dev — Proxy to AnythingLLM on Fly.io.
  *
- * AnythingLLM runs as a CF Container (port 3001) with Neon PostgreSQL + PGVector
- * for durable state. Uploaded documents live on ephemeral container disk —
- * lost on cold start. Re-upload after restart or migrate to external storage.
+ * The main worker's *.projectsites.dev/* wildcard prevents direct DNS changes.
+ * This worker acts as a reverse proxy to the Fly.io deployment.
+ * CF handles TLS termination; this worker forwards to Fly's internal URL.
  */
 interface Env {
-  ANYTHINGLLM: DurableObjectNamespace<AnythingLLMContainerDO>;
-  // Secrets forwarded into the container
-  JWT_SECRET: string;
-  SIG_KEY: string;
-  SIG_SALT: string;
-  AUTH_TOKEN: string;
-  PGVECTOR_CONNECTION_STRING: string;
-}
-
-export class AnythingLLMContainerDO extends Container<Env> {
-  defaultPort = 3001;
-  sleepAfter = '30m';
-
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.envVars = {
-      SERVER_PORT: '3001',
-      STORAGE_DIR: '/app/server/storage',
-      JWT_SECRET: env.JWT_SECRET,
-      SIG_KEY: env.SIG_KEY,
-      SIG_SALT: env.SIG_SALT,
-      AUTH_TOKEN: env.AUTH_TOKEN,
-      // PostgreSQL + PGVector
-      VECTOR_DB: 'pgvector',
-      PGVECTOR_CONNECTION_STRING: env.PGVECTOR_CONNECTION_STRING,
-      // Security hardening
-      DISABLE_SWAGGER_DOCS: 'true',
-      WORKSPACE_DELETION_PROTECTION: '1',
-      // Chromium args for web scraping in Docker
-      ANYTHINGLLM_CHROMIUM_ARGS: '--no-sandbox,--disable-setuid-sandbox',
-      // Password policy
-      PASSWORDMINCHAR: '12',
-      // Disable HTTP logger noise in production
-      DISABLE_HTTP_LOGGER: 'true',
-    };
-  }
-
-  override async fetch(request: Request): Promise<Response> {
-    await this.startAndWaitForPorts({
-      ports: 3001,
-      cancellationOptions: { portReadyTimeoutMS: 120_000, instanceGetTimeoutMS: 30_000 },
-    });
-    return this.containerFetch(request);
-  }
+  FLY_URL: string;
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const container = getContainer(env.ANYTHINGLLM, 'singleton');
-    return container.fetch(request);
+    const url = new URL(request.url);
+    const flyUrl = env.FLY_URL || 'https://projectsites-anythingllm.fly.dev';
+    const target = new URL(url.pathname + url.search, flyUrl);
+
+    // Forward the request to Fly.io, preserving method, headers, and body
+    const proxyReq = new Request(target, {
+      method: request.method,
+      headers: request.headers,
+      body: request.body,
+      redirect: 'manual',
+    });
+
+    try {
+      const response = await fetch(proxyReq);
+      // Return response mostly as-is, but add security headers
+      const newHeaders = new Headers(response.headers);
+      newHeaders.set('X-Forwarded-Host', url.hostname);
+      newHeaders.set('X-Proxy-By', 'projectsites-anythingllm-v2');
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders,
+      });
+    } catch (e) {
+      return new Response('AnythingLLM is starting up. Please try again in a moment.', {
+        status: 503,
+        headers: { 'Retry-After': '30', 'Content-Type': 'text/plain' },
+      });
+    }
   },
 };
