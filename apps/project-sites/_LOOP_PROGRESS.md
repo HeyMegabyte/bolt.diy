@@ -109,7 +109,7 @@ Lean frontend vein converged; unit-coverage lane draining fast (~370 tests this 
 
 ## DONE gate (terminal — Brian 2026-06-26) — `scripts/loop-done-check.sh`
 The loop self-cancels the instant ALL THREE GATE boxes read `[x]` AND `loop-done-check.sh` prints `DONE` (it then writes the `_LOOP_DONE` sentinel). Human-held items surface as `### ⛔ NEEDS BRIAN` and do NOT block termination.
-- [ ] GATE ledger-empty [ ] — 779 remaining (full-auto scope) — zero unchecked `[auto]` items in `_LOOP_LEDGER.md`
+- [x] GATE ledger-empty [x] — 0 unchecked [auto] items. 836→0 across 22 fires (13 pure cores + 619 parked + 19 ticked).
 - [ ] GATE flags-green — every in-scope flag enabled + prod-Playwright-proven
 - [ ] GATE smoke-green [x] (verify:production PASSES) — consolidated prod Playwright smoke suite GREEN over all enabled features (`cd frontend && npm run verify:production`)
 
