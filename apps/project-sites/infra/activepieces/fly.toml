@@ -1,0 +1,50 @@
+app = "projectsites-activepieces"
+primary_region = "iad"
+
+[build]
+  image = "activepieces/activepieces:latest"
+
+[env]
+  AP_EDITION = "ce"
+  AP_ENVIRONMENT = "prod"
+  AP_FRONTEND_URL = "https://automation.projectsites.dev"
+  AP_WEBHOOK_URL = "https://automation.projectsites.dev"
+  AP_CONTAINER_TYPE = "WORKER_AND_APP"
+  AP_DB_TYPE = "POSTGRES"
+  AP_POSTGRES_USE_SSL = "true"
+  AP_REDIS_TYPE = "STANDALONE"
+  AP_REDIS_USE_SSL = "true"
+  AP_WORKER_CONCURRENCY = "1"
+  AP_DEFAULT_CONCURRENT_JOBS_LIMIT = "5"
+  AP_FLOW_TIMEOUT_SECONDS = "600"
+  AP_TRIGGER_TIMEOUT_SECONDS = "60"
+  AP_PROJECT_RATE_LIMITER_ENABLED = "true"
+  AP_NETWORK_MODE = "STRICT"
+  AP_TELEMETRY_ENABLED = "false"
+  AP_EXECUTION_MODE = "UNSANDBOXED"
+  AP_PIECES_SYNC_MODE = "OFFICIAL_AUTO"
+
+[experimental]
+  auto_rollback = true
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4096mb"
+
+[[services]]
+  internal_port = 80
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "15s"
+    method = "GET"
+    path = "/"

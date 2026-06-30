@@ -1,0 +1,15 @@
+name = "projectsites-activepieces"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+routes = [
+  { pattern = "automation.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+[vars]
+FLY_APP_ORIGIN = "http://66.241.124.237:80"
