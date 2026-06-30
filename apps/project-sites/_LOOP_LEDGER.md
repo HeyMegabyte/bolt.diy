@@ -2880,7 +2880,7 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Dependencies: LOOP-SOCIAL-014.
   - Related files: `src/services/image_generation.ts`, `src/services/social_campaigns.ts`.
 
-- [ ] LOOP-SOCIAL-016: Campaign bundle primitive (multi-post, multi-day grouped campaigns) [auto]
+- [x] LOOP-SOCIAL-016: Campaign bundle primitive (multi-post, multi-day grouped campaigns) — **CORE DONE 2026-06-29:** `services/campaign_bundle.ts` — pure `createCampaign` + `postPublishTime` + `scheduledTimeline` + `validateCampaign`. 9/9 tests. [auto]
   - Why: Promotions/launches are multi-post arcs; a campaign entity groups posts for unified approval, analytics, and rollback.
   - Acceptance criteria: `social_campaigns` table groups N `social_posts`; create/approve/pause/cancel a whole campaign atomically; cancel un-schedules all pending Postiz posts; analytics aggregate per campaign.
   - Implementation notes: Reuse calendar + event engines as campaign generators; idempotent cancel.
