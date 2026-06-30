@@ -1106,9 +1106,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         const buildMinutes = Math.ceil((Date.now() - startTime) / 60000);
         void (async () => {
           try {
-            const { meterBuildComputeMinutes } = await import(
-              '../services/usage_metering.js'
-            );
+            const { meterBuildComputeMinutes } = await import('../services/usage_metering.js');
             await meterBuildComputeMinutes(env, {
               orgId: params.orgId,
               siteId: params.siteId,
