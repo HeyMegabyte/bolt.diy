@@ -65,6 +65,7 @@ The internal Browserbase MCP bridge stays at `mcp.megabyte.space` (behind CF Acc
 | `mail.projectsites.dev` | **Listmonk** — newsletters / lists (SES SMTP relay) | `listmonk/listmonk:latest` | 🔵 | SHIP |
 | `support.projectsites.dev` | **Chatwoot** — support / live-chat shared inbox | `chatwoot/chatwoot:latest` | 🔵 | SHIP |
 | `social.projectsites.dev` | **Postiz** — social-media scheduling / social add-on | `ghcr.io/gitroomhq/postiz-app:latest` | 🔵 | SHIP |
+| `billing.projectsites.dev` | **Lago** — usage-based billing (api+front on CF Container, worker on Fly) | `ghcr.io/getlago/lago-api:latest` + built front-end | 🔵 | SHIP |
 
 Lifecycle messaging (journeys, segmentation, campaign orchestration) is **Dittofeed** — it
 **replaces Novu** and rides the platform plane (no dedicated public subdomain by default; product

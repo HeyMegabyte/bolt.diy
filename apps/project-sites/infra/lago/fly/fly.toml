@@ -1,0 +1,32 @@
+# Lago worker (Sidekiq) — always-on Fly.io VM
+# Connects to the SAME Neon + Upstash as the CF Container.
+# No HTTP surface — just a persistent Sidekiq process.
+app = "lago-worker-ps"
+
+[build]
+image = "ghcr.io/getlago/lago-api:latest"
+
+[env]
+RAILS_ENV = "production"
+RACK_ENV = "production"
+# DATABASE_URL, REDIS_URL, REDIS_CACHE_URL, and crypto keys must match
+# the CF Container's values exactly. Set via `flyctl secrets set`.
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory_mb = 256
+
+[processes]
+worker = "bundle exec sidekiq -C config/sidekiq.yml"
+
+[[services]]
+internal_port = 3000
+protocol = "tcp"
+# No HTTP service — Sidekiq doesn't serve HTTP. The health check confirms
+# the process is alive by checking Sidekiq's stats endpoint.
+[[services.checks]]
+  path = "/health"
+  interval = "30s"
+  timeout = "10s"
+  grace_period = "60s"
