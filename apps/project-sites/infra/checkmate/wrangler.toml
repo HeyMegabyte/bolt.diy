@@ -4,8 +4,6 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# monitor.projectsites.dev → this CF Container worker (frontend only)
-# Backend (Node.js + MongoDB) runs on Fly.io at projectsites-checkmate.fly.dev
 routes = [
   { pattern = "monitor.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]

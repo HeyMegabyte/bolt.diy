@@ -1,18 +1,10 @@
-# Fly.io app: projectsites-checkmate
-# Combined: MongoDB + Node.js backend + nginx frontend (all in one container)
-# Frontend also served via CF Container at monitor.projectsites.dev if that route works.
-#
-# MongoDB Atlas is the TARGET but currently blocked by IP whitelist.
-# Fallback: local MongoDB with persistent volume.
-# When Atlas whitelist is updated, set DB_CONNECTION_STRING to the Atlas URI.
-
 app            = "projectsites-checkmate"
 primary_region = "iad"
 kill_signal    = "SIGTERM"
 kill_timeout   = 30
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = "Dockerfile.fly"
 
 [env]
   NODE_ENV                = "production"

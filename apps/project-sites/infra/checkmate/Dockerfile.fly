@@ -22,20 +22,16 @@ RUN apt-get update \
 COPY --from=backend /app /app
 COPY --from=frontend /usr/share/nginx/html /usr/share/nginx/html
 
-COPY nginx/default.conf /etc/nginx/sites-available/default
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/fly-default.conf /etc/nginx/sites-available/default
+COPY nginx/fly-default.conf /etc/nginx/conf.d/default.conf
 RUN rm -f /etc/nginx/sites-enabled/default \
   && ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=256"
-# Force rebuild — v2
+# v3 — fly backend (local proxy)
 
 EXPOSE 80
 
-ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf", "--nodaemon"]
