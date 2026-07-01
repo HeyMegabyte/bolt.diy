@@ -19,14 +19,3 @@ memory_mb = 256
 
 [processes]
 worker = "bundle exec sidekiq -C config/sidekiq.yml"
-
-[[services]]
-internal_port = 3000
-protocol = "tcp"
-# No HTTP service — Sidekiq doesn't serve HTTP. The health check confirms
-# the process is alive by checking Sidekiq's stats endpoint.
-[[services.checks]]
-  path = "/health"
-  interval = "30s"
-  timeout = "10s"
-  grace_period = "60s"
