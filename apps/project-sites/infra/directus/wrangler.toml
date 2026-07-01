@@ -33,9 +33,6 @@ new_sqlite_classes = ["DirectusContainerDO"]
 PUBLIC_URL = "https://directus.projectsites.dev"
 HOST = "0.0.0.0"
 PORT = "8055"
-DB_CLIENT = "pg"
-DB_PORT = "5432"
-DB_SSL = "false"
 CACHE_ENABLED = "true"
 CACHE_AUTO_PURGE = "true"
 CACHE_STORE = "redis"
@@ -47,6 +44,6 @@ STORAGE_R2_BUCKET = "projectsites-directus-assets"
 
 # ── Secrets (all set via wrangler secret put) ────────────────────────────
 # SECRET, ADMIN_EMAIL, ADMIN_PASSWORD
-# DB_HOST, DB_DATABASE, DB_USER, DB_PASSWORD
+# DB_CONNECTION_STRING (pooled Neon URL)
 # REDIS (rediss://...)
 # STORAGE_R2_KEY, STORAGE_R2_SECRET

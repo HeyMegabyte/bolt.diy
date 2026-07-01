@@ -4,24 +4,17 @@ import { Container, getContainer } from '@cloudflare/containers';
  * directus.projectsites.dev — Directus headless CMS on CF Workers Containers.
  *
  * Directus runs as a CF Container (port 8055).
- * Backing services: Neon Postgres + Upstash Redis + R2 (S3-compatible storage).
+ * Backing services: Neon Postgres (pooled connection) + Upstash Redis + R2 (S3-compatible storage).
  */
 interface Env {
   DIRECTUS_CONTAINER: DurableObjectNamespace<DirectusContainerDO>;
-  // Secrets forwarded into the container
   PUBLIC_URL: string;
   HOST: string;
   PORT: string;
   SECRET: string;
   ADMIN_EMAIL: string;
   ADMIN_PASSWORD: string;
-  DB_CLIENT: string;
-  DB_HOST: string;
-  DB_PORT: string;
-  DB_DATABASE: string;
-  DB_USER: string;
-  DB_PASSWORD: string;
-  DB_SSL: string;
+  DB_CONNECTION_STRING: string;
   CACHE_ENABLED: string;
   CACHE_AUTO_PURGE: string;
   CACHE_STORE: string;
@@ -48,13 +41,9 @@ export class DirectusContainerDO extends Container<Env> {
       SECRET: env.SECRET,
       ADMIN_EMAIL: env.ADMIN_EMAIL,
       ADMIN_PASSWORD: env.ADMIN_PASSWORD,
-      DB_CLIENT: env.DB_CLIENT,
-      DB_HOST: env.DB_HOST,
-      DB_PORT: env.DB_PORT,
-      DB_DATABASE: env.DB_DATABASE,
-      DB_USER: env.DB_USER,
-      DB_PASSWORD: env.DB_PASSWORD,
-      DB_SSL__REJECT_UNAUTHORIZED: env.DB_SSL,
+      DB_CLIENT: 'pg',
+      DB_CONNECTION_STRING: env.DB_CONNECTION_STRING,
+      DB_SSL__REJECT_UNAUTHORIZED: 'false',
       CACHE_ENABLED: env.CACHE_ENABLED,
       CACHE_AUTO_PURGE: env.CACHE_AUTO_PURGE,
       CACHE_STORE: env.CACHE_STORE,
@@ -82,7 +71,6 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // Health check for edge-level monitoring
     if (url.pathname === '/_edge/ping') {
       return new Response('ok', { status: 200 });
     }
@@ -90,7 +78,6 @@ export default {
     const container = getContainer(env.DIRECTUS_CONTAINER, 'singleton');
     const response = await container.fetch(request);
 
-    // Prevent caching of authenticated/admin responses
     const headers = new Headers(response.headers);
     if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/api')) {
       headers.set('Cache-Control', 'no-store, private');
