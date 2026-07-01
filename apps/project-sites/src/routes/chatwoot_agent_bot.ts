@@ -49,7 +49,11 @@ const ChatwootWebhookSchema = z.object({
             content: z.string().optional(),
             message_type: z.number().optional(),
             sender: z
-              .object({ id: z.number().optional(), name: z.string().optional(), email: z.string().optional() })
+              .object({
+                id: z.number().optional(),
+                name: z.string().optional(),
+                email: z.string().optional(),
+              })
               .optional(),
           }),
         )
@@ -57,7 +61,11 @@ const ChatwootWebhookSchema = z.object({
       meta: z
         .object({
           sender: z
-            .object({ id: z.number().optional(), name: z.string().optional(), email: z.string().optional() })
+            .object({
+              id: z.number().optional(),
+              name: z.string().optional(),
+              email: z.string().optional(),
+            })
             .optional(),
         })
         .optional(),
@@ -78,21 +86,89 @@ const ChatwootWebhookSchema = z.object({
 // ────────────────────────────────────────────────────────
 
 const URGENCY_KEYWORDS: Record<string, string[]> = {
-  critical: ['site down', 'not loading', '500', '502', '503', 'error', 'broken', 'crash', 'emergency', 'urgent', 'asap'],
-  high: ['can\'t log in', 'billing issue', 'payment failed', 'domain not working', 'dns', 'ssl', 'refund', 'cancel'],
+  critical: [
+    'site down',
+    'not loading',
+    '500',
+    '502',
+    '503',
+    'error',
+    'broken',
+    'crash',
+    'emergency',
+    'urgent',
+    'asap',
+  ],
+  high: [
+    "can't log in",
+    'billing issue',
+    'payment failed',
+    'domain not working',
+    'dns',
+    'ssl',
+    'refund',
+    'cancel',
+  ],
   medium: ['how to', 'question', 'help with', 'not sure', 'problem', 'issue'],
   low: ['feature request', 'suggestion', 'feedback', 'thanks', 'love the'],
 };
 
 const LABEL_PATTERNS: Array<{ label: string; keywords: string[] }> = [
-  { label: 'billing', keywords: ['billing', 'invoice', 'charge', 'payment', 'plan', 'price', 'refund', 'subscription', 'credit card'] },
-  { label: 'dns', keywords: ['domain', 'dns', 'cname', 'a record', 'ssl', 'https', 'certificate', 'nameserver', 'registrar'] },
-  { label: 'launch-blocker', keywords: ['site down', 'not loading', 'error', 'broken', '500', '502', 'blank', 'white screen'] },
-  { label: 'editor', keywords: ['editor', 'bolt', 'code', 'preview', 'generate', 'template', 'component'] },
+  {
+    label: 'billing',
+    keywords: [
+      'billing',
+      'invoice',
+      'charge',
+      'payment',
+      'plan',
+      'price',
+      'refund',
+      'subscription',
+      'credit card',
+    ],
+  },
+  {
+    label: 'dns',
+    keywords: [
+      'domain',
+      'dns',
+      'cname',
+      'a record',
+      'ssl',
+      'https',
+      'certificate',
+      'nameserver',
+      'registrar',
+    ],
+  },
+  {
+    label: 'launch-blocker',
+    keywords: [
+      'site down',
+      'not loading',
+      'error',
+      'broken',
+      '500',
+      '502',
+      'blank',
+      'white screen',
+    ],
+  },
+  {
+    label: 'editor',
+    keywords: ['editor', 'bolt', 'code', 'preview', 'generate', 'template', 'component'],
+  },
   { label: 'ai', keywords: ['ai', 'prompt', 'model', 'generate', 'chat'] },
   { label: 'bug', keywords: ['bug', 'error', 'broken', 'not working', 'glitch', 'unexpected'] },
-  { label: 'feature-request', keywords: ['feature', 'suggestion', 'could you add', 'wish', 'would be nice'] },
-  { label: 'refund-risk', keywords: ['refund', 'cancel subscription', 'chargeback', 'dispute', 'not satisfied'] },
+  {
+    label: 'feature-request',
+    keywords: ['feature', 'suggestion', 'could you add', 'wish', 'would be nice'],
+  },
+  {
+    label: 'refund-risk',
+    keywords: ['refund', 'cancel subscription', 'chargeback', 'dispute', 'not satisfied'],
+  },
 ];
 
 function classifyUrgency(text: string): { level: string; triggers: string[] } {
@@ -106,7 +182,9 @@ function classifyUrgency(text: string): { level: string; triggers: string[] } {
 
 function suggestLabels(text: string): string[] {
   const lower = text.toLowerCase();
-  const matched = LABEL_PATTERNS.filter(({ keywords }) => keywords.some((kw) => lower.includes(kw))).map(({ label }) => label);
+  const matched = LABEL_PATTERNS.filter(({ keywords }) =>
+    keywords.some((kw) => lower.includes(kw)),
+  ).map(({ label }) => label);
   return matched.length > 0 ? matched : ['human-needed'];
 }
 
@@ -150,7 +228,13 @@ chatwootAgentBot.post('/agent_bot', async (c) => {
   if (sig) {
     const encoder = new TextEncoder();
     const body = await c.req.text();
-    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
     const sigBytes = Uint8Array.from(atob(sig), (c) => c.charCodeAt(0));
     const valid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(body));
     if (!valid) {
