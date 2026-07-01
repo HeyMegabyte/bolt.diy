@@ -3,7 +3,7 @@
 # container env injected by worker.ts (UNKEY_DATABASE_PRIMARY / UNKEY_REDIS_URL). The Unkey
 # binary has NO baked config (distroless image = just /unkey), so this file is REQUIRED — a
 # missing config makes the server exit before binding :7070 (→ Worker 1101).
-# Minimal v1: Postgres (Neon) + Redis (Upstash) + root_key auth. ClickHouse (analytics),
+# Minimal v1: MySQL (TiDB) + Redis (Upstash) + root_key auth. ClickHouse (analytics),
 # Vault (encryption-at-rest) and Control (deploy mgmt) are optional feature sections, omitted.
 http_port = 7070
 region = "eu-central-1"

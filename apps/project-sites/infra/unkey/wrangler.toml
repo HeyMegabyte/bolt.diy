@@ -45,6 +45,6 @@ new_sqlite_classes = ["Unkey"]
 
 # Secrets to set before deploy (wrangler secret put ... --name projectsites-unkey), injected
 # into the Unkey container by worker.ts:
-#   UNKEY_DATABASE_PRIMARY   get-secret UNKEY_DATABASE_PRIMARY  (Neon Postgres `projectsites_unkey`, sslmode=require)
+#   UNKEY_DATABASE_PRIMARY   get-secret UNKEY_DATABASE_PRIMARY  (Go MySQL DSN → TiDB `unkey`, tls=true)
 #   UNKEY_REDIS_URL          get-secret UNKEY_REDIS_URL          (Upstash, rediss:// TLS)
 #   UNKEY_ROOT_KEY           get-secret UNKEY_ROOT_KEY           (bootstrap admin key)
