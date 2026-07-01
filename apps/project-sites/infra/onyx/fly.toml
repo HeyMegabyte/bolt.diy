@@ -1,0 +1,42 @@
+# Onyx — AI knowledge platform at onyx.projectsites.dev
+# All-in-one Fly.io VM (API + web + worker + nginx in one container)
+# Backing services: Neon Postgres + Upstash Redis
+app = "onyx-projectsites"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  AUTH_TYPE = "basic"
+  POSTGRES_HOST = "ep-round-wildflower-aigybxdk-pooler.c-4.us-east-1.aws.neon.tech"
+  POSTGRES_PORT = "5432"
+  POSTGRES_DB = "projectsites_onyx"
+  POSTGRES_USER = "neondb_owner"
+  REDIS_HOST = "assuring-cat-155637.upstash.io"
+  REDIS_PORT = "6379"
+  REDIS_SSL = "true"
+  DISABLE_VECTOR_DB = "true"
+  FILE_STORE_BACKEND = "postgres"
+  INTERNAL_URL = "http://127.0.0.1:8081"
+  LOG_LEVEL = "info"
+  # Secrets (set via flyctl secrets):
+  #   POSTGRES_PASSWORD, REDIS_PASSWORD, USER_AUTH_SECRET
+  # Optional:
+  #   GEN_AI_API_KEY, GEN_AI_API_ENDPOINT
+
+[[vm]]
+  size = "shared-cpu-4x"
+  memory = "8gb"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    path = "/health"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "600s"
+    method = "get"

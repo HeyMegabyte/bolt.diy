@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "onyx": {
+      "type": "http",
+      "url": "https://onyx.projectsites.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ONYX_TOKEN}"
+      }
+    }
+  }
+}
