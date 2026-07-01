@@ -553,7 +553,7 @@ app.route('/', siteThumbnailGrid); // /api/thumbnails/* (flag: site_thumbnail_gr
 
 app.route('/', api);
 app.route('/', webhooks);
-app.route('/', chatwootAgentBot); // /webhooks/chatwoot/* — Chatwoot AgentBot AI triage (flag: chatwoot_agent_bot)
+app.route('/webhooks/chatwoot', chatwootAgentBot); // /webhooks/chatwoot/agent_bot — Chatwoot AgentBot AI triage
 app.route('/', sesWebhooks); // POST /webhooks/ses — SES bounce/complaint → suppression list (§42/ADR-0019)
 
 // ─── Public status page (item #100) ─────────────────────────
