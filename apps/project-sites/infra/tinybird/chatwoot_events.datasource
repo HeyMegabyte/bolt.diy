@@ -1,0 +1,134 @@
+-- Tinybird Datasource: chatwoot_events
+-- Ingests Chatwoot webhook events for real-time support analytics.
+--
+-- Pipe events via:
+--   POST https://api.tinybird.co/v0/events?name=chatwoot_events
+--   Header: Authorization: Bearer <TINYBIRD_API_KEY>
+--
+-- Event types ingested:
+--   chatwoot_conversation, chatwoot_message, chatwoot_csat, chatwoot_ai_triage
+
+SCHEMA >
+    `event_type` String `json:$.type`,
+    `conversation_id` Int64 `json:$.payload.conversation_id`,
+    `account_id` Int64 `json:$.payload.account_id`,
+    `status` String `json:$.payload.status`,
+    `labels` Array(String) `json:$.payload.labels`,
+    `priority` String `json:$.payload.priority`,
+    `channel` String `json:$.payload.channel`,
+    `assignee_id` Int64 `json:$.payload.assignee_id`,
+    `team_id` Int64 `json:$.payload.team_id`,
+    `contact_id` Int64 `json:$.payload.contact_id`,
+    `message_type` String `json:$.payload.message_type`,
+    `sender_type` String `json:$.payload.sender_type`,
+    `content_length` Int64 `json:$.payload.content_length`,
+    `rating` Int64 `json:$.payload.rating`,
+    `intent` String `json:$.payload.intent`,
+    `urgency` Int64 `json:$.payload.urgency`,
+    `sentiment` Float64 `json:$.payload.sentiment`,
+    `confidence` Int64 `json:$.payload.confidence`,
+    `auto_resolved` UInt8 `json:$.payload.auto_resolved`,
+    `ai_model` String `json:$.payload.model`,
+    `ai_latency_ms` Int64 `json:$.payload.latency_ms`,
+    `created_at` DateTime `json:$.payload.created_at`,
+    `resolved_at` DateTime `json:$.payload.resolved_at`,
+    `ingested_at` DateTime `json:$.payload.ingested_at`
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toYYYYMM(created_at)"
+ENGINE_SORTING_KEY "event_type, created_at, conversation_id"
+
+-- ──────────────────────────────────────────────────────
+-- Pipes (pre-built queries for admin dashboard)
+-- ──────────────────────────────────────────────────────
+
+-- Pipe: conversation_volume_by_hour
+-- Usage: GET /v0/pipes/chatwoot_conversation_volume_by_hour.json?days=7
+NODE conversation_volume_by_hour
+SQL >
+    SELECT
+        toStartOfHour(created_at) AS hour,
+        countIf(event_type = 'chatwoot_conversation') AS conversations,
+        countIf(event_type = 'chatwoot_conversation' AND status = 'resolved') AS resolved
+    FROM chatwoot_events
+    WHERE created_at >= now() - INTERVAL {{ Int32(days, 7) }} DAY
+    GROUP BY hour
+    ORDER BY hour DESC
+
+-- Pipe: response_time_metrics
+-- Usage: GET /v0/pipes/chatwoot_response_time_metrics.json?days=30
+NODE response_time_metrics
+SQL >
+    SELECT
+        avg(ai_latency_ms) AS avg_response_ms,
+        quantile(0.50)(ai_latency_ms) AS p50_ms,
+        quantile(0.95)(ai_latency_ms) AS p95_ms,
+        quantile(0.99)(ai_latency_ms) AS p99_ms,
+        count() AS total_messages
+    FROM chatwoot_events
+    WHERE event_type = 'chatwoot_message' AND sender_type = 'agent'
+      AND created_at >= now() - INTERVAL {{ Int32(days, 30) }} DAY
+
+-- Pipe: csat_by_agent
+-- Usage: GET /v0/pipes/chatwoot_csat_by_agent.json?days=30
+NODE csat_by_agent
+SQL >
+    SELECT
+        assignee_id,
+        avg(rating) AS avg_csat,
+        count() AS ratings_count,
+        countIf(rating >= 4) / count() * 100 AS satisfaction_pct
+    FROM chatwoot_events
+    WHERE event_type = 'chatwoot_csat' AND rating > 0
+      AND created_at >= now() - INTERVAL {{ Int32(days, 30) }} DAY
+    GROUP BY assignee_id
+    ORDER BY ratings_count DESC
+
+-- Pipe: ai_deflection_rate
+-- Usage: GET /v0/pipes/chatwoot_ai_deflection.json?days=30
+NODE ai_deflection_rate
+SQL >
+    SELECT
+        countIf(auto_resolved = 1) AS auto_resolved,
+        count() AS total_triaged,
+        auto_resolved / total * 100 AS deflection_pct,
+        avg(confidence) AS avg_confidence,
+        avg(urgency) AS avg_urgency
+    FROM chatwoot_events
+    WHERE event_type = 'chatwoot_ai_triage'
+      AND created_at >= now() - INTERVAL {{ Int32(days, 30) }} DAY
+
+-- Pipe: label_distribution
+-- Usage: GET /v0/pipes/chatwoot_label_distribution.json?days=30
+NODE label_distribution
+SQL >
+    SELECT
+        arrayJoin(labels) AS label,
+        count() AS count
+    FROM chatwoot_events
+    WHERE event_type = 'chatwoot_conversation' AND length(labels) > 0
+      AND created_at >= now() - INTERVAL {{ Int32(days, 30) }} DAY
+    GROUP BY label
+    ORDER BY count DESC
+
+-- Pipe: sla_compliance
+-- Usage: GET /v0/pipes/chatwoot_sla_compliance.json?days=30
+NODE sla_compliance
+SQL >
+    SELECT
+        priority,
+        count() AS total,
+        countIf(status = 'resolved' AND dateDiff('minute', created_at, resolved_at) <
+            CASE
+                WHEN priority = 'critical' THEN 5
+                WHEN priority = 'high' THEN 15
+                WHEN priority = 'normal' THEN 60
+                ELSE 240
+            END
+        ) AS within_sla,
+        within_sla / total * 100 AS compliance_pct
+    FROM chatwoot_events
+    WHERE event_type = 'chatwoot_conversation' AND status = 'resolved' AND priority != ''
+      AND created_at >= now() - INTERVAL {{ Int32(days, 30) }} DAY
+    GROUP BY priority
+    ORDER BY priority

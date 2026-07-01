@@ -6,7 +6,7 @@
 >
 > **The finishing-loop cron drains this file.**
 >
-> **📦 Last ship: 2026-06-29 — Monumental Platform Initiatives spec'd (5 multi-month builds) + OpenMeter removed, LagoProvider shipped, per-unit billing (token/GB/min).** See § Ship Log below.
+> **📦 Last ship: 2026-07-01 — Chatwoot deployed (support.projectsites.dev 200), Chatwoot CE forked (ProfessorManhattan/chatwoot), AI Triage Engine shipped (Workers AI Llama 3.3), Multi-Language Pipeline built, Tinybird analytics datasource created, 50-idea research complete, Phase 1-5 roadmap published.** See § Ship Log below.
 
 ---
 
@@ -23,6 +23,25 @@
 | 5. Instant Preview Environments | 1–2 | site_branches, snapshot_restore, preview_share_card (LIVE), R2 versioning |
 
 Full specs with implementation spines in new `## 🏗 Monumental Platform Initiatives` section (inserted after Lead Scanner, before Tier 2).
+
+### Dittofeed deployed + integration foundation shipped (2026-07-01)
+
+| What | Status | Files |
+|------|--------|-------|
+| Dittofeed on Fly (CF Worker proxy) | ✅ | `infra/dittofeed/` + CF Worker `projectsites-dittofeed` — `https://engage.projectsites.dev/` |
+| Core Dittofeed client | ✅ | `src/services/dittofeed.ts` — Segment API (identify/track/page) + Admin API (journey/segment/template CRUD), 45 canonical PS_EVENTS, DI'd, never-throws |
+| Event bus fan-out | ✅ | `src/services/dittofeed_dispatch.ts` + `dittofeed_outbox.ts` — outbox→Dittofeed translation |
+| Service wiring glue | ✅ | `src/services/dittofeed_wiring.ts` — typed signals for abandoned builds, first lead, billing, lead scanner, integrations, CF deploys, bookings |
+| API routes | ✅ | `src/routes/dittofeed.ts` — `POST /api/dittofeed/sites/:id/events`, `GET .../status`, `GET /health` |
+| Outbox dispatch integration | ✅ | `src/services/outbox_dispatch.ts` — Dittofeed added as 3rd dispatch target (alongside Tinybird + Hatchet) |
+| Feature flag | ✅ | Migration `0583_dittofeed_integration.sql` — flag `dittofeed_integration` (experimental, default-off) |
+| Env vars | ✅ | `DITTOFEED_ADMIN_API_KEY`, `DITTOFEED_PUBLIC_WRITE_KEY`, `DITTOFEED_WORKSPACE_ID`, `DITTOFEED_BASE_URL` in `types/env.ts` |
+| Secrets | ✅ | Fly secrets set on `projectsites-engage` + `.env.dittofeed` |
+| Browserbase MCP | ✅ | Global MCP — HTTP hosted `mcp.browserbase.com` with API key |
+| Stagehand MCP | ✅ | Global MCP — `stagehand-mcp-local` (LOCAL mode, llm.megabyte.space/v1 LLM backend) |
+| ClickHouse shared instance | ✅ | Fly `ch.projectsites.dev` (50GB, 3 DBs: dittofeed/langfuse/lago) |
+| Temporal shared instance | ✅ | Fly `168.220.90.239:7233` (Neon-backed, default namespace) |
+| WAF skip rule | ✅ | `engage.projectsites.dev` added to custom-fir…
 
 ### OpenMeter → Stripe Meters → Lago migration (COMPLETE)
 
@@ -65,6 +84,139 @@ ProjectSites usage events → D1 canonical ledger → Lago (metering + rating, a
 > (in `## ⛔ NEEDS BRIAN`, never blocks DONE); `[dedicated]` = real but needs a supervised session.
 > Legend: `[ ]` open · `[x]` done. Close one, tick it, commit, next. Shipped proof = `git log`.
 > `_LOOP_PROGRESS.md` holds only the loop's runtime GATE state (not a TODO list).
+
+---
+
+## 📋 Platform Architecture Decisions (audited 2026-07-01)
+
+> Canonical architecture decisions for the ProjectSites.dev platform. This section is the
+> SSOT for hosting placement, data placement, integration routing, auth, observability,
+> AI gateway, browser automation, jobs, and approved/removed stack choices. Every entry is
+> a decision that a new agent or onboarding session MUST know without rediscovering.
+
+### Hosting placement (Cloudflare-first)
+
+Default placement order:
+1. **Cloudflare primitives** — Workers, Workers Containers, R2, KV, D1, DO, Queues, Workflows, Analytics Engine, Vectorize, AI Gateway
+2. **Managed serverless** — Neon (Postgres), Upstash (Redis/cache/queues/rate limits), Fly.io (always-on/stateful runtimes)
+3. **Coolify/self-hosted** — only for cost optimization >$50/mo (ClickHouse, observability, high-RAM services)
+
+**Anti-pattern:** Never default to Google Cloud Run or AWS. Never deploy ClickHouse Cloud when self-hosted on Coolify is cost-effective.
+
+### Data placement
+
+| Use case | Primary | Fallback |
+|----------|---------|----------|
+| No DB needed | Static R2 / edge compute | — |
+| Simple relational | D1 | — |
+| True Postgres | Neon via Hyperdrive | — |
+| Redis primitives | Upstash | — |
+| OLAP/analytics | Tinybird | ClickHouse on Coolify |
+
+**Multi-tenancy for normal customers:** Shared shards, logical tenancy (`site_id`/`org_id` scoping), Redis prefix `site:{site_id}:`, quotas via ProjectSites code. Never expose raw shared infra credentials. One Neon DB / Upstash DB per many customers, NOT per customer.
+
+**Enterprise exception:** Dedicated DBs or stronger isolation only when justified by plan, compliance, or customer requirement.
+
+### Dittofeed integration architecture (2026-07-01)
+
+**Normal customers:** One shared Dittofeed workspace. Model each site with `site_id` + `org_id` + site-scoped contacts/events/segments/journeys/templates. userId pattern: `site:{site_id}:contact:{contact_id}`. Never raw email as global userId.
+
+**When a site is created:** provision site_id → register default Dittofeed resource mappings → ensure all events carry site_id.
+
+**When a site is deleted:** pause/delete site journeys → delete site templates/segments → suppress site contacts → stop events for that site → purge site-scoped Dittofeed resources.
+
+**Embedded editors policy:**
+- 1 automation: guided/simple setup in ProjectSites dashboard
+- 2+ automations: embed Dittofeed editors (Journey, Segment, Template, Broadcast, Deliveries, Analysis) in dashboard
+- Enterprise: detached workspace/deployment only for hard isolation
+
+**Enterprise exception:** Separate Dittofeed workspaces/detached deployments only for Enterprise customers with explicit hard-separation requirements.
+
+### Billing
+
+- **Lago** is the billing control plane (replaces OpenMeter, Stripe Meters, Metronome)
+- **Stripe** is the payment collection rail only
+- All OpenMeter references are STALE/SUPERSEDED
+- All Metronome references are STALE/SUPERSEDED
+
+### Nango / Integrations (PERMANENT per Brian 2026-06-29)
+
+- **Nango** at `integrations.projectsites.dev` is the permanent canonical OAuth/auth layer
+- Capability Router: Native ProjectSites adapters → Composio (execution only) → Pipedream Connect (long-tail fallback)
+- Composio/Pipedream are NEVER the canonical OAuth owner
+
+### MCP & Capability Router
+
+- ProjectSites MCP is the main internal + agent-facing control surface
+- Manages: sites, pages, endpoints, agents, workflows, queues, jobs, secrets, domains, notifications, resources, integrations, deprovisioning
+- Capability Router decides: Native adapter → Composio → Pipedream → unsupported error
+
+### Auth & Permissions (DECIDED 2026-07-01)
+
+- **Better Auth** is the permanent app/auth IdP for orgs, normal user auth, and enterprise SSO/SAML. Actively deployed (255 refs, `infra/better-auth/`, 24 LOOP-AUTH tasks). The Logto direction was overridden by Brian — Better Auth stays.
+- **OpenFGA** for authorization (new — not yet deployed)
+- **WorkOS** only for enterprise SSO/SCIM (NOT for normal auth)
+- **Cloudflare Access** for internal tools
+- **Unkey** for tenant API keys/quotas (LIVE at api.projectsites.dev)
+
+### Observability
+
+| Purpose | Tool |
+|---------|------|
+| Frontend/backend errors | Sentry |
+| AI traces | Langfuse |
+| Traces/metrics/logs | OpenTelemetry |
+| Product/admin analytics | PostHog (cloud, never self-hosted) |
+| High-volume events | Tinybird |
+| CF-native analytics | Cloudflare Analytics Engine |
+
+**Langfuse placement:** Web/API on CF Workers Container if viable; Worker on Fly.io if always-on needed; Postgres on Neon; Redis/cache on Upstash; Blob on R2; ClickHouse self-hosted via Coolify. Do NOT collapse into single-process deployment.
+
+### AI Gateway
+
+- LiteLLM + RouteLLM at `llm.projectsites.dev`
+- Cloudflare AI Gateway for caching/rate-limiting/fallback
+- Provider strategy: CF/edge model first → DeepSeek (coding/high-volume) → Anthropic/OpenAI/Gemini (premium)
+- Route based on cost, quality, latency, task type
+- Promptfoo for AI evals
+
+### Browser Automation
+
+1. Cloudflare Browser Rendering / Browser Run + Playwright (default)
+2. Stagehand (when AI reasoning needed)
+3. Browserbase MCP (internal fallback)
+4. Skyvern is INTERNAL ONLY behind CF Access (NOT a customer product)
+
+### Jobs & Workflows
+
+1. Cloudflare Workflows/Queues first
+2. Self-hosted Inngest for product workflows
+3. Hatchet Cloud for heavy/stateful/browser/AI orchestration
+4. Trigger.dev is REMOVED — do not reintroduce
+
+### Approved stack (additive — must be present in repo to use)
+
+Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Drizzle ORM/Kit, Effect, MCP TypeScript SDK, Scalar docs, Stainless SDKs, Unkey, Hookdeck (inbound webhooks), Svix (outbound webhooks), Dub (short links/referrals), Puck + Storybook (builder/editor), React Flow/XYFlow (flow UIs), Plate.js (rich text), GrapesJS (only where right editor surface), Promptfoo, Repomix.
+
+### Removed / Superseded (mark as stale, never use in new work)
+
+| Removed | Replaced By | Notes |
+|---------|------------|-------|
+| Novu | psnotify (custom DO-based notifications) | All Novu references are STALE |
+| Resend | SES + Listmonk | All Resend references are STALE |
+| Postmark | SES | Removed |
+| Supabase (as default DB/auth) | D1 + Neon + Logto | Removed |
+| Skyvern (as customer product) | Browser Rendering + Stagehand | Internal-only behind CF Access |
+| Trigger.dev | Inngest + Hatchet | Removed |
+| OpenMeter | Lago | Removed — CI gate blocks reintroduction |
+| Metronome | Lago | Removed |
+| Stripe Meters | Lago | Superseded |
+| Tempo | React + shadcn/ui (site templates) | Removed |
+| Firecrawl, Crawl4AI, Crawlee | import_crawler.ts + Browser Rendering | Removed |
+| LlamaIndex.TS, LangGraph.js, Dify | LiteLLM + RouteLLM + custom | Removed |
+| Astro, Nitro | Vite + React (default stack) | Removed |
+| MJML | react-email | Removed |
+| Meilisearch, Browserless, Pulumi, SOPS, OpenBao, Metabase, Cube, DuckDB, ElectricSQL, AnalogJS, Mastra, UnoCSS, jose, Nano ID, oRPC, ArkType, ts-pattern | Various (see individual decisions) | Removed — do not introduce in new work |
 
 ---
 
@@ -327,6 +479,72 @@ owners get shareable review links; agents get sandbox URLs.
 Preview-first means every build is safe, every edit is reviewable, and the "vibe-code →
 production" pipeline gets a safety net. For agency/team plans, preview-with-comments is the
 collaboration surface that sells upgrades.
+
+---
+
+## 💬 Chatwoot Support Platform — Phase 1-5 Roadmap (2026-07-01)
+
+> **Deployed:** support.projectsites.dev (Fly.io, HTTP 200, Chatwoot onboarding LIVE)
+> **Fork:** [ProfessorManhattan/chatwoot](https://github.com/ProfessorManhattan/chatwoot) — CE with ProjectSites custom Docker image
+> **Research:** 50 deep-integration ideas → top 20 ranked · 50 ambitious ideas → top 20 ranked
+> **Strategy:** External services + API + targeted CE patches (not hard fork)
+> **Target:** First-response from hours → <5min critical, <30min normal
+> **Team:** 1-2 technical leads + generalist agents, tiered escalation
+> **AI autonomy:** Full — AI fixes whatever it can diagnose, escalates only when blocked
+
+### Phase 1 — Immediate Response (Ship by 2026-07-15) — Target: <5min critical
+
+| # | ID | Task | Est. | Status |
+|---|---|------|------|--------|
+| 1 | `chatwoot-ai-triage` | **AI Triage Engine** — Upgrade AgentBot from keyword matching to Workers AI Llama 3.3 70B semantic classification. Intent detection, urgency scoring (0-100), sentiment analysis (-1 to 1), confidence score, label suggestion. Service + route built, needs deploy + test. | 35h | ✅ **BUILT** (service + route), ⏳ deploy pending |
+| 2 | `chatwoot-sla-worker` | **SLA Enforcement Worker** — Cron polls Chatwoot API every 30s. SLA based on tier (VIP=5min, paid=15min, free=60min) × intent (site-down=contract, feature-request=relaxed). Breach → escalation ladder: Slack → SMS → team lead. Live SLA burn-down dashboard. | 40h | ⏳ TODO |
+| 3 | `chatwoot-smart-router` | **Smart Router** — Replace Chatwoot FIFO with intent+tier+load-based routing. Billing→billing team, DNS→launch team, VIP→senior agents. Respects agent shifts/offline status. | 25h | ⏳ TODO |
+| 4 | `chatwoot-health-dashboard` | **Admin Support Dashboard** — Angular SPA at /admin/support. Live queue depth, active agents, SLA status (green/yellow/red), today's metrics, "needs attention" list sorted by priority. 15s auto-refresh. | 10h | ⏳ TODO |
+
+### Phase 2 — Agent Acceleration (Ship by 2026-08-01) — Target: handle time -50%
+
+| # | ID | Task | Est. | Status |
+|---|---|------|------|--------|
+| 5 | `chatwoot-customer-360` | **Customer 360 Dashboard App** — Chatwoot iframe dashboard app. Shows sites owned, plan tier, MRR, last 5 deploys, Stripe invoices, Sentry errors, PostHog activity, past conversation summaries. Single /api/customer-360 endpoint. | 40h | ⏳ TODO |
+| 6 | `chatwoot-ai-copilot` | **AI Copilot — Draft Reply** — Agent opens conversation → AI drafts reply from macros + help center + similar past resolutions. Agent sees draft + sources. One-click send or edit. Suggests labels + priority. | 40h | ⏳ TODO |
+| 7 | `chatwoot-playbook-engine` | **Guided Playbook Engine** — For generalist agents. "Site-down" playbook: (1) confirm slug → (2) check HTTP [button] → (3) check DNS [button] → (4) check R2 [button] → (5) rebuild [button]. One click per step. Technical leads build playbooks, generalists execute. | 30h | ⏳ TODO |
+| 8 | `chatwoot-saved-replies` | **Saved Reply Library + AI Search** — 50+ macros via Chatwoot API (NOT Rails console). Agent types /dns → AI returns top 3 matching macros. Tracks macro usage + gap detection. Enhanced seed script replaces manual Rails console approach. | 10h | ⏳ TODO |
+
+### Phase 3 — AI Deflection (Ship by 2026-08-15) — Target: 50% auto-resolved
+
+| # | ID | Task | Est. | Status |
+|---|---|------|------|--------|
+| 9 | `chatwoot-captain-custom` | **Captain-Style AI Assistant** — Customer-facing AI on Workers AI Llama 3.3 with tool-calling. Can: answer FAQ, check site status, check DNS, trigger rebuild, process refunds. Hands off when confidence <0.7 or customer asks for human. | 60h | ⏳ TODO |
+| 10 | `chatwoot-site-doctor` | **Site Doctor Agent (Full Autonomy)** — AI with tool access: HTTP check → DNS check → SSL check → R2 check → D1 check → deploy logs → root cause → apply fix (purge, rebuild, DNS correction). Every action logged as private note. Escalates only when fix requires code change or diagnosis fails. | 50h | ⏳ TODO |
+| 11 | `chatwoot-knowledge-nexus` | **Knowledge Nexus — Self-Learning FAQ** — Resolved conversations are summarized, embedded, vector-stored in D1/Vectorize. Next similar question gets the answer instantly. 5+ same questions in a week → auto-generate help center draft. | 30h | ⏳ TODO |
+
+### Phase 4 — Operational Maturity (Ship by 2026-09-01) — Target: zero missed SLAs
+
+| # | ID | Task | Est. | Status |
+|---|---|------|------|--------|
+| 12 | `chatwoot-outage-war-room` | **Proactive Outage Detection + War Room** — >5 "site down" in 5min OR >10 failing health checks → auto-create war room conversation → post affected sites + errors → notify on-call via SMS → bulk-message affected customers → 15-min status update timer. | 30h | ⏳ TODO |
+| 13 | `chatwoot-oncall-engine` | **On-Call Escalation Engine** — After-hours mode. Critical convos → SMS to on-call. Unacknowledged 10min → next on-call. All miss → #incidents Slack. | 20h | ⏳ TODO |
+| 14 | `chatwoot-widget-prefill` | **Widget Pre-Chat Context Collector** — Before chat opens: "What's your site domain? What's the issue?" Two fields → conversation opens with site_id + issue as custom attributes. Cuts diagnostic back-and-forth. | 15h | ⏳ TODO |
+| 15 | `chatwoot-dedup` | **Conversation Dedup + Merge** — AI detects same customer + same issue across channels → merges into one. Also surfaces: "We answered this 3 days ago — here's the resolution." | 20h | ⏳ TODO |
+| 16 | `chatwoot-translate` | **Multi-Language Pipeline** — Auto-detect language → translate to agent's language → agent replies → translate back. Workers AI Llama 3.3 translation. Bilingual message storage. Analytics by language. | 15h | ✅ **BUILT** (service), ⏳ route integration pending |
+| 17 | `chatwoot-post-resolution` | **Post-Resolution AI Summary** — AI writes: root cause, what was tried, what worked, sentiment, follow-up needed, suggested help center update. Stored in D1 for future agent reference. | 10h | ⏳ TODO |
+
+### Phase 5 — Platform (Ship by 2026-10-01) — Target: support as revenue line
+
+| # | ID | Task | Est. | Status |
+|---|---|------|------|--------|
+| 18 | `chatwoot-support-as-service` | **Support-as-a-Service** — Stripe add-on for support plans (Basic/Premium/VIP). Platform API auto-provisions inbox + SLA policy + agent assignment. Customer gets branded widget. Billing via Stripe metered or flat monthly. | 40h | ⏳ TODO |
+| 19 | `chatwoot-health-score` | **Customer Health Score** — Composite from CSAT × response time × site uptime × payment history × login frequency × feature usage. Drops → proactive outreach. Rises → early-access offers. | 25h | ⏳ TODO |
+| 20 | `chatwoot-analytics` | **Support Analytics + Reporting** — Tinybird pipeline for Chatwoot webhook events. Real-time: conversation volume, response time trends, CSAT by agent/team/topic, AI deflection rate, SLA compliance. Weekly PDF report. 7 pre-built Tinybird pipes for admin dashboard. | 15h | ✅ **BUILT** (datasource + pipes + service), ⏳ Tinybird deploy pending |
+| — | `chatwoot-fork` | **Chatwoot CE Fork** — ProfessorManhattan/chatwoot with custom Dockerfile.projectsites extending official image. Branding env vars, seed scripts, health check. | — | ✅ **DONE** |
+
+### Immediate next actions (do in order)
+
+1. **Deploy AI Triage Engine** — `wrangler deploy` → test with real Chatwoot webhook
+2. **Create Tinybird datasource** — `tb push infra/tinybird/chatwoot_events.datasource`
+3. **Ship Saved Reply Library** — Update seed script to use Chatwoot API, add AI search
+4. **Build SLA Worker** — #2 is the highest-value missing piece for slow-response fix
+5. **Customer 360 Dashboard App** — #5 is the biggest agent-efficiency unlock
 
 ---
 

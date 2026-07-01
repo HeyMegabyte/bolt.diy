@@ -3,16 +3,18 @@
 > **Deployed:** 2026-06-30
 > **URL:** https://support.projectsites.dev
 > **Runtime:** Fly.io (iad) — Rails web + Sidekiq worker
-> **Status:** LIVE · onboarding page 200 · proxy-enabled
+> **Status:** LIVE · onboarding page 200 · DNS-only (no proxy — Worker wildcard bypass)
 
 ## Architecture
 
 ```
 support.projectsites.dev
   │
-  ├─ Cloudflare DNS (proxied, WAF)
+  ├─ Cloudflare DNS (DNS-only — NOT proxied)
   │    └─ A  → 66.241.124.118  (Fly shared IPv4)
   │    └─ AAAA → 2a09:8280:1::13a:573b:0 (Fly IPv6)
+  │    ⚠️  Proxy DISABLED: *.projectsites.dev/* Worker wildcard intercepts
+  │       all proxied subdomains — DNS-only mode bypasses Worker routing.
   │
   └─ Fly.io (iad) — support-chatwoot
        ├─ web (2 machines, shared-cpu-1x:512MB)
