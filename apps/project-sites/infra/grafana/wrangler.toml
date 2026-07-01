@@ -4,38 +4,17 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# grafana.projectsites.dev → this Worker → the Grafana container. EXPLICIT host route
-# (not custom_domain): the main `project-sites` worker owns `*.projectsites.dev/*`, and a
-# custom_domain LOSES to that wildcard — a more-specific `grafana.projectsites.dev/*` route WINS.
+# grafana.projectsites.dev → this Worker → Fly.io Grafana (projectsites-grafana.fly.dev).
+# EXPLICIT host route: the main `project-sites` worker owns `*.projectsites.dev/*`,
+# and a custom_domain LOSES to that wildcard — a more-specific route WINS.
 routes = [
   { pattern = "grafana.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]
 
+workers_dev = true
+
 [observability]
 enabled = true
 
-# ── Single Grafana container ──
-[[containers]]
-class_name = "Grafana"
-image = "./Dockerfile"
-max_instances = 1
-instance_type = "standard-2"
-name = "projectsites-grafana"
-
-[[durable_objects.bindings]]
-name = "GRAFANA"
-class_name = "Grafana"
-
-# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["Grafana"]
-
-# Secrets to set before deploy (wrangler secret put ... --name projectsites-grafana)
-#   GRAFANA_ADMIN_PASSWORD       get-secret GRAFANA_ADMIN_PASSWORD
-#   GRAFANA_SECURITY_SECRET_KEY  get-secret GRAFANA_SECURITY_SECRET_KEY
-#   GRAFANA_DATABASE_HOST        get-secret GRAFANA_DATABASE_HOST
-#   GRAFANA_DATABASE_NAME        grafana
-#   GRAFANA_DATABASE_USER        grafana
-#   GRAFANA_DATABASE_PASSWORD    get-secret GRAFANA_DATABASE_PASSWORD
-#   GRAFANA_DATABASE_SSL_MODE    require
+[vars]
+GRAFANA_UPSTREAM_URL = "https://projectsites-grafana.fly.dev"
