@@ -33,8 +33,11 @@ export function detectLanguage(text: string): string {
   let best = 'en';
   let bestScore = 0;
   for (const [lang, patterns] of Object.entries(LANG_PATTERNS)) {
-    const score = patterns.filter(p => p.test(text)).length;
-    if (score > bestScore) { best = lang; bestScore = score; }
+    const score = patterns.filter((p) => p.test(text)).length;
+    if (score > bestScore) {
+      best = lang;
+      bestScore = score;
+    }
   }
   return best;
 }
@@ -43,7 +46,8 @@ export function detectLanguage(text: string): string {
 // Translation
 // ────────────────────────────────────────────────────────
 
-const TRANSLATE_PROMPT = 'Translate the following text to {target}. Return ONLY the translated text, no explanation. Preserve formatting, URLs, and email addresses. Text: ';
+const TRANSLATE_PROMPT =
+  'Translate the following text to {target}. Return ONLY the translated text, no explanation. Preserve formatting, URLs, and email addresses. Text: ';
 
 export async function translateMessage(
   env: Env,
@@ -53,9 +57,18 @@ export async function translateMessage(
   if (!text?.trim()) return text;
   try {
     const langNames: Record<string, string> = {
-      en: 'English', es: 'Spanish', fr: 'French', de: 'German',
-      pt: 'Portuguese', it: 'Italian', nl: 'Dutch', ja: 'Japanese',
-      zh: 'Chinese', ar: 'Arabic', hi: 'Hindi', ko: 'Korean',
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      pt: 'Portuguese',
+      it: 'Italian',
+      nl: 'Dutch',
+      ja: 'Japanese',
+      zh: 'Chinese',
+      ar: 'Arabic',
+      hi: 'Hindi',
+      ko: 'Korean',
     };
     const target = langNames[targetLang] || targetLang;
     const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
@@ -88,8 +101,20 @@ export async function translatePair(
 ): Promise<TranslationPair> {
   const detected = detectLanguage(text);
   if (detected === targetLang) {
-    return { original: text, original_lang: detected, translated: text, target_lang: targetLang, auto_detected: false };
+    return {
+      original: text,
+      original_lang: detected,
+      translated: text,
+      target_lang: targetLang,
+      auto_detected: false,
+    };
   }
   const translated = await translateMessage(env, text, targetLang);
-  return { original: text, original_lang: detected, translated, target_lang: targetLang, auto_detected: true };
+  return {
+    original: text,
+    original_lang: detected,
+    translated,
+    target_lang: targetLang,
+    auto_detected: true,
+  };
 }

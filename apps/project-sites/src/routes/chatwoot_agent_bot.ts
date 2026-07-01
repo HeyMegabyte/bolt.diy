@@ -103,31 +103,45 @@ chatwootAgentBot.post('/agent_bot', async (c) => {
   if (sig) {
     const encoder = new TextEncoder();
     const body = await c.req.text();
-    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const sigBytes = Uint8Array.from(atob(sig), c => c.charCodeAt(0));
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const sigBytes = Uint8Array.from(atob(sig), (c) => c.charCodeAt(0));
     const valid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(body));
     if (!valid) return c.json({ error: 'invalid_signature' }, 401);
     const reparsed = ChatwootWebhookSchema.safeParse(JSON.parse(body));
-    if (!reparsed.success) return c.json({ error: 'invalid_payload', details: reparsed.error.flatten() }, 400);
+    if (!reparsed.success)
+      return c.json({ error: 'invalid_payload', details: reparsed.error.flatten() }, 400);
     return processEvent(reparsed.data, c.env);
   }
 
   const body = await c.req.json().catch(() => ({}));
   const parsed = ChatwootWebhookSchema.safeParse(body);
-  if (!parsed.success) return c.json({ error: 'invalid_payload', details: parsed.error.flatten() }, 400);
+  if (!parsed.success)
+    return c.json({ error: 'invalid_payload', details: parsed.error.flatten() }, 400);
   return processEvent(parsed.data, c.env);
 });
 
-async function processEvent(event: z.infer<typeof ChatwootWebhookSchema>, env: Env): Promise<Response> {
+async function processEvent(
+  event: z.infer<typeof ChatwootWebhookSchema>,
+  env: Env,
+): Promise<Response> {
   const messages = event.conversation?.messages ?? [];
-  const lastIncoming = [...messages].reverse().find(m => m.message_type === 0);
+  const lastIncoming = [...messages].reverse().find((m) => m.message_type === 0);
   const text = lastIncoming?.content ?? event.message?.content ?? '';
   if (!text?.trim()) return Response.json({ actions: [] });
 
   const triage = await classifyCached(env, text, {
     contact_email: lastIncoming?.sender?.email ?? event.conversation?.meta?.sender?.email,
     contact_name: lastIncoming?.sender?.name ?? event.conversation?.meta?.sender?.name,
-    history: messages.filter(m => m.content).slice(-5).map(m => `${m.message_type === 0 ? 'Customer' : 'Agent'}: ${m.content}`),
+    history: messages
+      .filter((m) => m.content)
+      .slice(-5)
+      .map((m) => `${m.message_type === 0 ? 'Customer' : 'Agent'}: ${m.content}`),
     channel: 'web_widget',
   });
 
@@ -135,10 +149,25 @@ async function processEvent(event: z.infer<typeof ChatwootWebhookSchema>, env: E
 
   if (triage.labels.length > 0) actions.push({ type: 'add_label', labels: triage.labels });
   if (triage.routing.priority === 'critical' || triage.routing.priority === 'high') {
-    actions.push({ type: 'assign_team', team_name: triage.routing.team === 'billing' ? 'Billing Support' : triage.routing.team === 'launch' ? 'Launch Support' : triage.routing.team === 'engineering' ? 'Engineering' : 'Priority Support' });
+    actions.push({
+      type: 'assign_team',
+      team_name:
+        triage.routing.team === 'billing'
+          ? 'Billing Support'
+          : triage.routing.team === 'launch'
+            ? 'Launch Support'
+            : triage.routing.team === 'engineering'
+              ? 'Engineering'
+              : 'Priority Support',
+    });
   }
-  if (triage.draft_reply) actions.push({ type: 'send_message', message: triage.draft_reply, private: false });
-  actions.push({ type: 'send_message', message: `[AI Triage] ${triage.summary} · ${triage.routing.priority} · confidence: ${triage.confidence}%`, private: true });
+  if (triage.draft_reply)
+    actions.push({ type: 'send_message', message: triage.draft_reply, private: false });
+  actions.push({
+    type: 'send_message',
+    message: `[AI Triage] ${triage.summary} · ${triage.routing.priority} · confidence: ${triage.confidence}%`,
+    private: true,
+  });
 
   return Response.json({ actions });
 }

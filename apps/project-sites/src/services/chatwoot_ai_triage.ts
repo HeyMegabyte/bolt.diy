@@ -37,8 +37,17 @@ export interface TriageContext {
 
 export interface TriageResult {
   /** Primary intent classification */
-  intent: 'billing' | 'dns' | 'site_down' | 'editor' | 'ai_help' | 'account' |
-    'feature_request' | 'bug_report' | 'general' | 'churn_risk';
+  intent:
+    | 'billing'
+    | 'dns'
+    | 'site_down'
+    | 'editor'
+    | 'ai_help'
+    | 'account'
+    | 'feature_request'
+    | 'bug_report'
+    | 'general'
+    | 'churn_risk';
   /** 0-100 urgency score */
   urgency: number;
   /** -1.0 to 1.0 sentiment */
@@ -111,15 +120,37 @@ function keywordFallback(text: string): TriageResult {
 
   // Intent detection
   let intent: TriageResult['intent'] = 'general';
-  if (/\b(billing|invoice|charge|payment|plan|price|refund|subscription|cancel|downgrade)\b/.test(lower)) intent = 'billing';
-  else if (/\b(domain|dns|cname|a record|ssl|certificate|nameserver|registrar|propagation)\b/.test(lower)) intent = 'dns';
-  else if (/\b(site down|not loading|500|502|503|blank|white screen|error page|won't load|can't access)\b/.test(lower)) intent = 'site_down';
-  else if (/\b(editor|bolt|code|preview|generate|template|component|css|html)\b/.test(lower)) intent = 'editor';
+  if (
+    /\b(billing|invoice|charge|payment|plan|price|refund|subscription|cancel|downgrade)\b/.test(
+      lower,
+    )
+  )
+    intent = 'billing';
+  else if (
+    /\b(domain|dns|cname|a record|ssl|certificate|nameserver|registrar|propagation)\b/.test(lower)
+  )
+    intent = 'dns';
+  else if (
+    /\b(site down|not loading|500|502|503|blank|white screen|error page|won't load|can't access)\b/.test(
+      lower,
+    )
+  )
+    intent = 'site_down';
+  else if (/\b(editor|bolt|code|preview|generate|template|component|css|html)\b/.test(lower))
+    intent = 'editor';
   else if (/\b(ai|prompt|model|chat|auto|generate)\b/.test(lower)) intent = 'ai_help';
-  else if (/\b(login|password|sign in|account|email|can't access)\b/.test(lower)) intent = 'account';
-  else if (/\b(feature|suggestion|could you|wish|would be nice|add support)\b/.test(lower)) intent = 'feature_request';
-  else if (/\b(bug|error|broken|glitch|unexpected|doesn't work)\b/.test(lower)) intent = 'bug_report';
-  else if (/\b(refund|cancel|switch|competitor|too expensive|not satisfied|not happy|leaving)\b/.test(lower)) intent = 'churn_risk';
+  else if (/\b(login|password|sign in|account|email|can't access)\b/.test(lower))
+    intent = 'account';
+  else if (/\b(feature|suggestion|could you|wish|would be nice|add support)\b/.test(lower))
+    intent = 'feature_request';
+  else if (/\b(bug|error|broken|glitch|unexpected|doesn't work)\b/.test(lower))
+    intent = 'bug_report';
+  else if (
+    /\b(refund|cancel|switch|competitor|too expensive|not satisfied|not happy|leaving)\b/.test(
+      lower,
+    )
+  )
+    intent = 'churn_risk';
 
   // Urgency
   let urgency = 30;
@@ -131,8 +162,10 @@ function keywordFallback(text: string): TriageResult {
 
   // Sentiment
   let sentiment = 0;
-  if (/\b(thanks|love|great|awesome|amazing|perfect|wonderful|happy)\b/.test(lower)) sentiment = 0.6;
-  else if (/\b(frustrated|angry|terrible|awful|worst|useless|broken|hate)\b/.test(lower)) sentiment = -0.6;
+  if (/\b(thanks|love|great|awesome|amazing|perfect|wonderful|happy)\b/.test(lower))
+    sentiment = 0.6;
+  else if (/\b(frustrated|angry|terrible|awful|worst|useless|broken|hate)\b/.test(lower))
+    sentiment = -0.6;
   else if (/\b(not working|issue|problem|help|confused|doesn't)\b/.test(lower)) sentiment = -0.3;
 
   // Labels
@@ -153,10 +186,16 @@ function keywordFallback(text: string): TriageResult {
     sentiment,
     labels,
     routing: {
-      team: intent === 'billing' || intent === 'churn_risk' ? 'billing' :
-            intent === 'site_down' || intent === 'dns' ? 'launch' :
-            intent === 'bug_report' ? 'engineering' : 'general',
-      priority: urgency >= 85 ? 'critical' : urgency >= 60 ? 'high' : urgency >= 30 ? 'normal' : 'low',
+      team:
+        intent === 'billing' || intent === 'churn_risk'
+          ? 'billing'
+          : intent === 'site_down' || intent === 'dns'
+            ? 'launch'
+            : intent === 'bug_report'
+              ? 'engineering'
+              : 'general',
+      priority:
+        urgency >= 85 ? 'critical' : urgency >= 60 ? 'high' : urgency >= 30 ? 'normal' : 'low',
       auto_resolvable: intent === 'dns' || intent === 'account' || intent === 'general',
     },
     confidence: 60,
@@ -169,11 +208,7 @@ function keywordFallback(text: string): TriageResult {
 // AI classify
 // ────────────────────────────────────────────────────────
 
-export async function classify(
-  env: Env,
-  text: string,
-  ctx?: TriageContext,
-): Promise<TriageResult> {
+export async function classify(env: Env, text: string, ctx?: TriageContext): Promise<TriageResult> {
   try {
     const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       messages: [
@@ -203,11 +238,13 @@ export async function classify(
       summary: parsed.summary || `${parsed.intent || 'general'} inquiry`,
     };
   } catch (err) {
-    console.warn(JSON.stringify({
-      level: 'warn',
-      msg: 'AI triage failed, falling back to keyword',
-      error: (err as Error).message,
-    }));
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'AI triage failed, falling back to keyword',
+        error: (err as Error).message,
+      }),
+    );
     return keywordFallback(text);
   }
 }
@@ -232,9 +269,7 @@ export async function classifyCached(
 
   // Keep cache bounded
   if (cache.size > 500) {
-    const oldest = [...cache.entries()]
-      .sort(([, a], [, b]) => a.ts - b.ts)
-      .slice(0, 100);
+    const oldest = [...cache.entries()].sort(([, a], [, b]) => a.ts - b.ts).slice(0, 100);
     oldest.forEach(([k]) => cache.delete(k));
   }
 

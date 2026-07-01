@@ -128,7 +128,12 @@ export interface SupportMetrics {
   csat: { avg: number; count: number; distribution: Record<string, number> };
   ai_deflection: { total_conversations: number; auto_resolved: number; rate_pct: number };
   sla_compliance: { total: number; breached: number; rate_pct: number };
-  agents: Array<{ agent_id: number; conversations: number; avg_response_ms: number; csat_avg: number }>;
+  agents: Array<{
+    agent_id: number;
+    conversations: number;
+    avg_response_ms: number;
+    csat_avg: number;
+  }>;
   labels: Record<string, number>;
   channels: Record<string, number>;
   hourly_volume: Array<{ hour: string; count: number }>;
