@@ -1,27 +1,10 @@
 # Fly.io app: projectsites-checkmate
+# Combined: MongoDB + Node.js backend + nginx frontend (all in one container)
+# Frontend also served via CF Container at monitor.projectsites.dev if that route works.
 #
-# Checkmate — open-source monitoring control plane for ProjectSites.dev.
-# Single-machine deployment: MongoDB 7.0 + Node.js backend + nginx frontend
-# all managed by supervisord inside one container.
-#
-# Domain: monitor.projectsites.dev → this Fly app (Cloudflare DNS + proxy)
-#
-# ARCHITECTURE:
-#   MongoDB  — 127.0.0.1:27017 (persistent volume /data/db)
-#   Backend  — 127.0.0.1:52345 (Node.js Express, Mongoose → MongoDB)
-#   nginx    — :80 (SPA + /api/* reverse proxy)
-#   Queue    — in-process ("primary" mode, no external Redis needed)
-#   Capture  — optional, not deployed (metrics from Fly.io dashboard)
-#
-# SECRETS (set via `flyctl secrets set KEY=VALUE --app projectsites-checkmate`):
-#   JWT_SECRET         — session signing secret (openssl rand -hex 64)
-#   CLIENT_HOST        — https://monitor.projectsites.dev
-#   ORIGIN             — monitor.projectsites.dev
-#   DB_CONNECTION_STRING — mongodb://127.0.0.1:27017/uptime_db (default, may override)
-#
-# PERSISTENCE:
-#   Fly volume "checkmate_mongo_data" mounted at /data/db
-#   Backups: manual mongodump → R2 via scripts/backup-mongo.sh
+# MongoDB Atlas is the TARGET but currently blocked by IP whitelist.
+# Fallback: local MongoDB with persistent volume.
+# When Atlas whitelist is updated, set DB_CONNECTION_STRING to the Atlas URI.
 
 app            = "projectsites-checkmate"
 primary_region = "iad"
@@ -35,13 +18,11 @@ kill_timeout   = 30
   NODE_ENV                = "production"
   LOG_LEVEL               = "info"
   CLIENT_HOST             = "https://monitor.projectsites.dev"
-  ORIGIN                  = "monitor.projectsites.dev"
-  DB_CONNECTION_STRING    = "mongodb://127.0.0.1:27017/uptime_db"
   QUEUE_MODE              = "primary"
   QUEUE_PRIMARY_PROCESSES = "true"
   TOKEN_TTL               = "30d"
   STATUS_PAGE_THEMES_ENABLED = "true"
-  # JWT_SECRET set via flyctl secrets (never in env)
+  DB_CONNECTION_STRING    = "mongodb://127.0.0.1:27017/uptime_db"
 
 [mounts]
   source      = "checkmate_mongo_data"
@@ -50,7 +31,7 @@ kill_timeout   = 30
 [http_service]
   internal_port        = 80
   force_https          = true
-  auto_stop_machines   = false  # monitoring must be always-on
+  auto_stop_machines   = false
   auto_start_machines  = true
   min_machines_running = 1
 
@@ -60,11 +41,11 @@ kill_timeout   = 30
     soft_limit = 80
 
   [[http_service.checks]]
-    grace_period = "120s"   # MongoDB init + Mongoose connect + nginx start (extended for 1st boot)
+    grace_period = "90s"
     interval     = "15s"
     timeout      = "5s"
     method       = "get"
     path         = "/health"
 
 [[vm]]
-  size = "shared-cpu-2x"   # 2 CPU, 2 GB RAM — MongoDB + Node + nginx need ≥2GB
+  size = "shared-cpu-2x"

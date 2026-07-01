@@ -1,0 +1,4 @@
+# Checkmate frontend — nginx + React SPA
+# Uses the prebuilt frontend-demo image directly.
+FROM ghcr.io/bluewave-labs/checkmate:frontend-demo
+EXPOSE 80

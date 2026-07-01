@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
-# Checkmate entrypoint — initialize MongoDB data dir and start supervisor
+# Checkmate entrypoint — start supervisor (backend + nginx)
+# MongoDB is external (Atlas) — no local mongod needed
 set -euo pipefail
-
-echo "[entrypoint] Starting Checkmate stack..."
-
-# Ensure MongoDB data directory exists on the persistent volume
-if [ ! -f /data/db/.mongodb_initialized ]; then
-  echo "[entrypoint] First boot — initializing MongoDB data directory..."
-  # mongod will create the WiredTiger files on first start
-  touch /data/db/.mongodb_initialized
-fi
-
-# Start supervisor (mongod → backend → nginx)
+echo "[entrypoint] Starting Checkmate (MongoDB Atlas)..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf --nodaemon

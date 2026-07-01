@@ -1,0 +1,3 @@
+# Checkmate Backend — Node.js Express API (MongoDB Atlas, no local DB)
+FROM ghcr.io/bluewave-labs/checkmate:backend-demo
+EXPOSE 52345
