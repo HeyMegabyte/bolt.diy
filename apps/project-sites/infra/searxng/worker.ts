@@ -94,6 +94,10 @@ export default {
       cfRay: request.headers.get('cf-ray') ?? undefined,
     }));
 
+    // JSON endpoint rate limiting: SearXNG's own Valkey-backed limiter
+    // (config in limiter.toml) gates all formats uniformly. No additional
+    // Worker-layer limit needed for an internal Access-protected tool.
+
     // ── Sanitize request: strip CF-Access JWT from SearXNG logs ────────
     // CF-Access-* headers are for the Worker layer only; don't leak them.
     const proxied = new Request(request);
