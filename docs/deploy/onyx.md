@@ -1,7 +1,8 @@
 # Onyx Deployment — onyx.projectsites.dev
 
 **Platform:** Fly.io (Path B — Cloudflare Containers infeasible for multi-process app)
-**Backing services:** Neon Postgres + Upstash Redis
+**Backing services:** Neon Postgres + Upstash Redis + Cloudflare R2
+**LLM:** llm.projectsites.dev (LiteLLM gateway)
 **DNS:** Cloudflare A/AAAA → Fly.io
 
 ## Why not Cloudflare Containers (Path A)
