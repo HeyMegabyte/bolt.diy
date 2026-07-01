@@ -85,7 +85,9 @@ export interface ChatwootAITriageEvent {
 const ANALYTICS_ENABLED = true;
 const PRODUCER = 'worker' as const;
 
-function noopCatch() { /* fire-and-forget — analytics never throws */ }
+function noopCatch() {
+  /* fire-and-forget — analytics never throws */
+}
 
 async function emit(env: Env, type: string, eventData: Record<string, unknown>): Promise<void> {
   if (!ANALYTICS_ENABLED) return;
