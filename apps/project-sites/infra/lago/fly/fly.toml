@@ -15,7 +15,7 @@ RACK_ENV = "production"
 [[vm]]
 cpu_kind = "shared"
 cpus = 1
-memory_mb = 256
+memory_mb = 512
 
 [processes]
 worker = "bundle exec sidekiq -C config/sidekiq.yml"

@@ -25,7 +25,8 @@ interface Env {
 
 export class LagoContainerDO extends Container<Env> {
   // Lago starts nginx on 80 (front-end) + Rails on 3000 (API).
-  // nginx proxies /api/* → :3000. We serve from :80 so the UI works at /.
+  // nginx proxies /api/* → :3000. Our Dockerfile adds
+  // /etc/nginx/extra-conf.d/00-api-proxy.conf to allow POST to /api/graphql.
   defaultPort = 80;
   sleepAfter = '30m';
 
@@ -51,12 +52,13 @@ export class LagoContainerDO extends Container<Env> {
   }
 
   override async fetch(request: Request): Promise<Response> {
-    // Lago needs both nginx (:80) and Rails (:3000) ready.
-    // nginx is the last to start — wait for it.
     await this.startAndWaitForPorts({
       ports: [80, 3000],
       cancellationOptions: { portReadyTimeoutMS: 120_000, instanceGetTimeoutMS: 30_000 },
     });
+    // Route everything through nginx on :80. Our Dockerfile adds
+    // /etc/nginx/extra-conf.d/00-api-proxy.conf which allows all HTTP
+    // methods to /api/* and proxies to Rails on :3000.
     return this.containerFetch(request);
   }
 }
@@ -70,7 +72,14 @@ export default {
     // Empty API_URL = same-origin → nginx proxies /api/* → Rails :3000.
     if (url.pathname === '/env-config.js') {
       return new Response(
-        `window.API_URL = "";\nwindow.LAGO_DOMAIN = "";\nwindow.APP_ENV = "production";\nwindow.LAGO_OAUTH_PROXY_URL = "https://proxy.getlago.com";\nwindow.LAGO_DISABLE_SIGNUP = "false";\nwindow.NANGO_PUBLIC_KEY = "";\nwindow.SENTRY_DSN = "";\nwindow.LAGO_DISABLE_PDF_GENERATION = "";\nwindow.LAGO_SUPERSET_URL = "";\n`,
+        'window.API_URL = "";' +
+        'window.LAGO_DOMAIN = "billing.projectsites.dev";' +
+        'window.APP_ENV = "production";' +
+        'window.LAGO_OAUTH_PROXY_URL = "https://proxy.getlago.com";' +
+        'window.LAGO_DISABLE_SIGNUP = "false";' +
+        'window.NANGO_PUBLIC_KEY = "";' +
+        'window.SENTRY_DSN = "";' +
+        'window.LAGO_DISABLE_PDF_GENERATION = "";\n',
         { headers: { 'Content-Type': 'application/javascript' } },
       );
     }
