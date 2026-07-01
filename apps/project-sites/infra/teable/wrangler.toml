@@ -1,9 +1,10 @@
 name = "projectsites-teable"
 main = "worker.ts"
 compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# teable.projectsites.dev → this Worker → Fly.io proxy.
+# teable.projectsites.dev → this Worker → Teable container.
 # Explicit host route beats the main `project-sites` worker's `*.projectsites.dev/*`
 # wildcard (validated per mail.projectsites.dev + pm.projectsites.dev pattern).
 routes = [
@@ -13,16 +14,29 @@ routes = [
 [observability]
 enabled = true
 
-# Fly.io origin (set via wrangler secret if different from default)
-[vars]
-FLY_ORIGIN = "https://projectsites-teable.fly.dev"
+# Keep the container warm between requests (30m idle → hibernate)
+[triggers]
+crons = ["*/15 * * * *"]
 
-# Durable Object stub — required for the existing DO migration from the old
-# Container-based deployment. The Teable class is now a no-op.
+# ── Single Teable container ──
+[[containers]]
+class_name = "Teable"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-4"
+name = "projectsites-teable"
+
 [[durable_objects.bindings]]
 name = "TEABLE"
 class_name = "Teable"
 
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes)
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Teable"]
+
+# Secrets (set via `wrangler secret put --name projectsites-teable`):
+#   SECRET_KEY                  App encryption key
+#   DATABASE_URL                Neon Postgres direct URL (port 5432, DB projectsites_teable)
+#   BACKEND_CACHE_REDIS_URI     Upstash Redis cache (rediss://...)
+#   BACKEND_PERFORMANCE_CACHE   Upstash Redis perf (rediss://...)
