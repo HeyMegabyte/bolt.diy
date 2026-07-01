@@ -1,6 +1,7 @@
 # SearXNG for ProjectSites.dev — private search infrastructure
 # Deployed as CF Workers Container behind Cloudflare Access.
 # Uses stock SearXNG entrypoint — config injected via env vars + copied files.
+# Update digest: docker pull searxng/searxng:latest && docker inspect --format='{{index .RepoDigests 0}}' searxng/searxng:latest
 FROM searxng/searxng:latest@sha256:c6d6af406d214a24edee971b98b92d05a83ee9707ff9a59a56471f9cfce5eee2
 
 # Copy SearXNG configuration files into the config directory
