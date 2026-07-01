@@ -46,12 +46,15 @@ search:
     # General web search
     - name: duckduckgo
       disabled: false
-    - name: brave
-      disabled: false
     - name: google
       disabled: false
     - name: bing
       disabled: false
+    - name: startpage
+      disabled: false
+    # Brave disabled — rate-limited on shared CF Container IP
+    # - name: brave
+    #   disabled: false
     # Images
     - name: google images
       disabled: false
@@ -85,6 +88,19 @@ ui:
   infinite_scroll: false
   theme: simple
   default_theme: simple
+  # Auto-configurable preferences (user can override via /preferences)
+  results_on_new_tab: false
+  query_in_title: false
+  search_on_category_select: true
+  hotkeys: default
+  url_formatting: pretty
+
+preferences:
+  lock:
+    - method        # POST only — prevents search query leakage via URL
+    - safesearch    # locked to moderate (1) — safe for internal research
+    - theme         # locked to simple — consistent UX
+    - autocomplete  # locked off — no external suggest calls
 
 outgoing:
   request_timeout: 10.0
