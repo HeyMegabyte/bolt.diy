@@ -9,6 +9,6 @@ FROM langflowai/langflow:1.10.1
 
 # Cache-bust LABEL: bump to force a new image hash → CF cold-starts the container so
 # worker.ts envVar changes actually reach the running server.
-LABEL dev.projectsites.config-rev="2026-06-30-init"
+LABEL dev.projectsites.config-rev="2026-07-01-new-user-active"
 
 EXPOSE 7860

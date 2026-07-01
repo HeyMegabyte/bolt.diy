@@ -44,6 +44,9 @@ export class LangflowContainerDO extends Container<Env> {
       LANGFLOW_DATABASE_URL: env.LANGFLOW_DATABASE_URL,
       // Single worker by default; set LANGFLOW_WORKERS > 1 + Redis to scale.
       LANGFLOW_WORKERS: '1',
+      // Auto-activate new users — no superuser approval required.
+      // Langflow has NO built-in SMTP or OAuth/SSO (username+password only).
+      LANGFLOW_NEW_USER_IS_ACTIVE: 'true',
     };
 
     // Optional Redis for multi-worker mode
