@@ -1,9 +1,9 @@
-# SearXNG worker — search.projectsites.dev
-# Cloudflare Workers Container running SearXNG behind Cloudflare Access.
-#
-# Proxy: Worker → Container DO → SearXNG on :8080
-# /healthz is handled at the Worker layer (no engine calls).
-# All other paths are proxied to SearXNG with safe header forwarding.
+// SearXNG worker — search.projectsites.dev
+// Cloudflare Workers Container running SearXNG behind Cloudflare Access.
+//
+// Proxy: Worker → Container DO → SearXNG on :8080
+// /healthz is handled at the Worker layer (no engine calls).
+// All other paths are proxied to SearXNG with safe header forwarding.
 
 import { Container, getContainer } from '@cloudflare/containers';
 
@@ -19,9 +19,21 @@ export class SearXNGContainer extends Container<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+
+    // Rewrite Upstash Redis URL scheme (redis:// → valkey://) for SearXNG.
+    // Upstash uses redis:// or rediss:// but SearXNG's valkey block expects
+    // valkey:// or valkeys://.  The connection params (host/port/password) are
+    // identical — only the scheme string differs.
+    let valkeyUrl = env.SEARXNG_VALKEY_URL;
+    if (valkeyUrl && valkeyUrl.startsWith('redis://')) {
+      valkeyUrl = 'valkey://' + valkeyUrl.slice('redis://'.length);
+    } else if (valkeyUrl && valkeyUrl.startsWith('rediss://')) {
+      valkeyUrl = 'valkeys://' + valkeyUrl.slice('rediss://'.length);
+    }
+
     this.envVars = {
       SEARXNG_SECRET: env.SEARXNG_SECRET,
-      SEARXNG_VALKEY_URL: env.SEARXNG_VALKEY_URL,
+      SEARXNG_VALKEY_URL: valkeyUrl,
       SEARXNG_BASE_URL: 'https://search.projectsites.dev/',
       SEARXNG_LIMITER: 'true',
       SEARXNG_PUBLIC_INSTANCE: 'false',

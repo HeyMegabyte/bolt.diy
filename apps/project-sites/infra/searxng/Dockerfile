@@ -1,24 +1,16 @@
 # SearXNG for ProjectSites.dev — private search infrastructure
 # Deployed as CF Workers Container behind Cloudflare Access.
-#
-# Lint: hadolint Dockerfile (DL3006 pin digest, DL3008 pin versions)
+# Uses stock SearXNG entrypoint — config injected via env vars + copied files.
 FROM searxng/searxng:latest
 
-# Copy SearXNG configuration files
+# Copy SearXNG configuration files into the config directory
 COPY searxng/settings.yml /etc/searxng/settings.yml
 COPY searxng/limiter.toml /etc/searxng/limiter.toml
-
-# Entrypoint wraps the stock SearXNG entrypoint:
-# 1. Fixes Upstash Redis URL scheme (redis:// → valkey://) if needed
-# 2. Verifies /etc/searxng/ ownership for the searxng user
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 # SearXNG listens on 8080 internally
 EXPOSE 8080
 
-# Health check — process-level only, no external engine calls
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=2 \
-  CMD ["/usr/bin/pgrep", "-f", "searxng"]
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Use stock SearXNG entrypoint (/usr/local/searxng/entrypoint.sh)
+# Config is at /etc/searxng/ — already set as $__SEARXNG_CONFIG_PATH.
+# Secrets (SEARXNG_SECRET, SEARXNG_VALKEY_URL) injected as env vars
+# by the CF Workers Container runtime.
