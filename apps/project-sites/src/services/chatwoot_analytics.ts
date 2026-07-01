@@ -24,7 +24,7 @@ import type { Env } from '../types/env.js';
 import { tryEmitEvent } from './emit_event.js';
 
 // ────────────────────────────────────────────────────────
-// Event schemas (typed, not Zod — event_bus validates)
+// Event schemas
 // ────────────────────────────────────────────────────────
 
 export interface ChatwootConversationEvent {
@@ -82,38 +82,36 @@ export interface ChatwootAITriageEvent {
 // Ingest helpers
 // ────────────────────────────────────────────────────────
 
-const ANALYTICS_ENABLED = true; // toggle for cost control
+const ANALYTICS_ENABLED = true;
+const PRODUCER = 'worker' as const;
 
-export async function trackConversation(env: Env, data: ChatwootConversationEvent): Promise<void> {
+function noopCatch() { /* fire-and-forget — analytics never throws */ }
+
+async function emit(env: Env, type: string, eventData: Record<string, unknown>): Promise<void> {
   if (!ANALYTICS_ENABLED) return;
   await tryEmitEvent(env, {
-    type: 'chatwoot_conversation' as any,
-    payload: { ...data, ingested_at: new Date().toISOString() },
-  }).catch(() => {}); // fire-and-forget
+    type: type as any,
+    producer: PRODUCER,
+    tenantId: 'system',
+    traceId: crypto.randomUUID(),
+    data: eventData,
+  }).catch(noopCatch);
+}
+
+export async function trackConversation(env: Env, data: ChatwootConversationEvent): Promise<void> {
+  await emit(env, 'chatwoot.conversation', data as unknown as Record<string, unknown>);
 }
 
 export async function trackMessage(env: Env, data: ChatwootMessageEvent): Promise<void> {
-  if (!ANALYTICS_ENABLED) return;
-  await tryEmitEvent(env, {
-    type: 'chatwoot_message' as any,
-    payload: { ...data, ingested_at: new Date().toISOString() },
-  }).catch(() => {});
+  await emit(env, 'chatwoot.message', data as unknown as Record<string, unknown>);
 }
 
 export async function trackCSAT(env: Env, data: ChatwootCSATEvent): Promise<void> {
-  if (!ANALYTICS_ENABLED) return;
-  await tryEmitEvent(env, {
-    type: 'chatwoot_csat' as any,
-    payload: { ...data, ingested_at: new Date().toISOString() },
-  }).catch(() => {});
+  await emit(env, 'chatwoot.csat', data as unknown as Record<string, unknown>);
 }
 
 export async function trackAITriage(env: Env, data: ChatwootAITriageEvent): Promise<void> {
-  if (!ANALYTICS_ENABLED) return;
-  await tryEmitEvent(env, {
-    type: 'chatwoot_ai_triage' as any,
-    payload: { ...data, ingested_at: new Date().toISOString() },
-  }).catch(() => {});
+  await emit(env, 'chatwoot.ai_triage', data as unknown as Record<string, unknown>);
 }
 
 // ────────────────────────────────────────────────────────
