@@ -6,17 +6,30 @@
  * The CF Worker acts as a reverse proxy front door that rewrites anonymous GET / to /login
  * so the root URL returns Grafana's login page (200), not a redirect.
  *
- * Hosting: Fly.io (CF Containers had a firecracker runtime incompatibility — Grafana
- * 12.2.10 hangs on container startup; works perfectly on Fly's standard Docker runtime).
- * DB: SQLite on Fly volume (Neon Postgres blocked by Grafana's lib/pq SCRAM-SHA-256 driver
- * incompatibility with Neon's i=1 iteration count, and pgbouncer breaks prepared statements).
+ * Cookie handling: Set-Cookie Domain attributes are stripped so the browser scopes
+ * cookies to grafana.projectsites.dev (not the upstream Fly domain).
+ *
+ * Hosting: Fly.io (CF Containers had a firecracker runtime incompatibility).
  */
 interface Env {
-  /** Fly.io Grafana URL */
   GRAFANA_UPSTREAM_URL: string;
 }
 
 const DEFAULT_UPSTREAM = 'https://projectsites-grafana.fly.dev';
+
+/**
+ * Strip `Domain=<value>` from each Set-Cookie header so the cookie
+ * scopes to the proxied hostname instead of the upstream Fly domain.
+ * Also strips `Secure` if present since the edge already enforces HTTPS.
+ */
+function rewriteSetCookie(setCookie: string | null): string | null {
+  if (!setCookie) return null;
+  return setCookie
+    .split(',')
+    .map(c => c.trim())
+    .map(c => c.replace(/;\s*Domain=[^;]*/gi, ''))
+    .join(', ');
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -45,21 +58,44 @@ export default {
 
     // Forward request to Fly.io Grafana
     const proxyReq = new Request(upstreamUrl, request);
-    proxyReq.headers.set('Host', 'grafana.projectsites.dev');
+    proxyReq.headers.set('Host', upstreamUrl.host);
     proxyReq.headers.set('X-Forwarded-Host', 'grafana.projectsites.dev');
     proxyReq.headers.set('X-Forwarded-Proto', 'https');
     proxyReq.headers.set('X-Real-IP', request.headers.get('CF-Connecting-IP') || '');
+    // Preserve the original Origin so Grafana's CSRF check passes
+    if (request.headers.get('Origin')) {
+      proxyReq.headers.set('Origin', request.headers.get('Origin')!);
+    }
+    if (request.headers.get('Referer')) {
+      proxyReq.headers.set('Referer', request.headers.get('Referer')!);
+    }
 
     try {
       const upstream = await fetch(proxyReq);
-      const resp = new Response(upstream.body, upstream);
+      const headers = new Headers(upstream.headers);
 
-      // Never cache authenticated pages
-      if (resp.headers.get('Set-Cookie')?.includes('grafana_session')) {
-        resp.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+      // Strip Domain from Set-Cookie so cookies scope to grafana.projectsites.dev
+      const rawSetCookie = upstream.headers.get('Set-Cookie');
+      if (rawSetCookie) {
+        headers.set('Set-Cookie', rewriteSetCookie(rawSetCookie) ?? '');
       }
 
-      return resp;
+      // Remove Fly.io-specific headers
+      headers.delete('fly-request-id');
+      headers.delete('fly-region');
+      headers.delete('server');
+      headers.delete('via');
+
+      // Never cache authenticated pages
+      if (rawSetCookie?.includes('grafana_session')) {
+        headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+      }
+
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers,
+      });
     } catch (err) {
       console.error('[grafana proxy error]', err instanceof Error ? err.message : String(err));
       return new Response('Grafana upstream unreachable', { status: 502 });
