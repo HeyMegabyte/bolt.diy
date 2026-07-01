@@ -160,9 +160,29 @@ To connect Claude Code to Directus via MCP:
 
 Generate at: https://dash.cloudflare.com/84fa0d1b16ff8086dd958c468ce7fd59/r2/api-tokens
 
-Then update secrets:
+Then run:
 ```bash
-echo "YOUR_R2_ACCESS_KEY" | npx wrangler secret put STORAGE_R2_KEY
-echo "YOUR_R2_SECRET_KEY" | npx wrangler secret put STORAGE_R2_SECRET
-npx wrangler deploy
+bash update-r2-secrets.sh <R2_ACCESS_KEY_ID> <R2_SECRET_ACCESS_KEY>
 ```
+
+## Monitor health
+
+```bash
+# Quick ping
+curl https://directus.projectsites.dev/server/ping
+
+# Deeper check (expect non-200 if optional services misconfigured)
+curl https://directus.projectsites.dev/server/health
+
+# Tail Worker logs
+cd apps/project-sites/infra/directus
+npx wrangler tail --format pretty
+```
+
+## Cloudflare Access (optional — extra auth layer)
+
+To put Directus admin behind CF Access:
+1. https://one.dash.cloudflare.com/84fa0d1b16ff8086dd958c468ce7fd59/access/apps
+2. Add application → Self-hosted → `directus.projectsites.dev/admin/*`
+3. Add policy: allow emails (brian@megabyte.space)
+4. Users get CF Access login before reaching Directus login

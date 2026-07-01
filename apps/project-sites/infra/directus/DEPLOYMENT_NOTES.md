@@ -56,11 +56,21 @@ Browser: opens Directus login page at https://directus.projectsites.dev/
 
 ## Known limitations
 
-1. **R2 S3 credentials are placeholders** — generate real ones at https://dash.cloudflare.com/84fa0d1b16ff8086dd958c468ce7fd59/r2/api-tokens and update `STORAGE_R2_KEY` / `STORAGE_R2_SECRET` secrets. Until then, uploads use ephemeral container-local storage.
+1. **R2 S3 credentials are placeholders** — generate real ones at https://dash.cloudflare.com/84fa0d1b16ff8086dd958c468ce7fd59/r2/api-tokens and run `bash update-r2-secrets.sh <KEY> <SECRET>`. Until then, uploads use ephemeral container-local storage.
 2. **Cold start ~15-30s** — container hibernates after 30min idle. First request after idle takes time to start.
 3. **Single instance** — no horizontal scaling. Fine for admin/internal use.
-4. **No SMTP configured** — email features (password reset, invitations) won't work until email transport is configured.
-5. **`/server/health` returns 403** — expected; health checks deeper dependencies that may not all be configured.
+4. **`/server/health` returns 403** — expected; health checks deeper dependencies that may not all be configured.
+
+## Security
+
+- **Rate limiting** active on Directus admin login: 5 req/10s per IP (merged into zone-wide auth rate limit rule `18463a1095f04e07aca2cd7b941be502`).
+- **CF Access** recommended for production: add an Access policy on `directus.projectsites.dev/admin/*` for an extra auth layer before Directus login. Configure at https://one.dash.cloudflare.com/84fa0d1b16ff8086dd958c468ce7fd59/access/apps.
+
+## Backups
+
+- **Neon PITR**: 30-day point-in-time recovery on the `jolly-pine-24431114` project (branch `br-cool-term-aifohvg9`). Restore via `wrangler d1 time-travel restore` or Neon console.
+- **Manual pg_dump**: `pg_dump "postgresql://directus:..." > directus-backup-$(date +%Y%m%d).sql`
+- **Schema snapshots**: `npx directus schema snapshot ./snapshot.yaml` (store in `snapshots/` dir)
 
 ## Files
 
