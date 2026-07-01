@@ -100,6 +100,17 @@ curl -sS -o /dev/null -w '%{http_code}' https://automation.projectsites.dev/
 bash apps/project-sites/infra/activepieces/smoke.sh
 ```
 
+## Admin Account
+
+Initial admin account auto-provisioned during first deploy (2026-06-30). The email is `brian@megabyte.space`.
+
+The password is **not committed to this repo**. It is stored in:
+- **Bitwarden** → search "Activepieces Admin"
+- **Neon** → `user_identity` table (bcrypt-hashed, `projectsites_activepieces` database)
+- **Fly secrets** → `AP_ENCRYPTION_KEY`, `AP_JWT_SECRET`, and all infra credentials
+
+To reset the admin password: sign in, or update the bcrypt hash in `user_identity.password` via Neon SQL.
+
 ## Rollback
 
 ```bash
