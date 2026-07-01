@@ -94,6 +94,7 @@ npx wrangler rollback <version-id> --name projectsites-langflow
 3. **R2 S3 storage untested**: Langflow may or may not support custom S3 endpoints. The env vars `AWS_ENDPOINT_URL_S3` + `AWS_DEFAULT_REGION=auto` are set but empirical testing needed.
 4. **Single worker only**: No Redis provisioned, so `LANGFLOW_WORKERS=1`. Multi-worker mode needs Upstash Redis + `LANGFLOW_REDIS_QUEUE_URL`.
 5. **No Langfuse/Sentry observability wired**: Can be added later. Container logs available via CF Observability.
+6. **"Await admin activation" shown after sign-up despite `LANGFLOW_NEW_USER_IS_ACTIVE=true`**: This is a static UI string in Langflow's frontend. The actual behavior is correct — users can log in immediately without admin approval. Verified via Playwright 2026-07-01.
 
 ## Follow-ups
 
