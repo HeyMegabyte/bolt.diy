@@ -1,0 +1,28 @@
+name = "projectsites-teable"
+main = "worker.ts"
+compatibility_date = "2025-04-01"
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# teable.projectsites.dev → this Worker → Fly.io proxy.
+# Explicit host route beats the main `project-sites` worker's `*.projectsites.dev/*`
+# wildcard (validated per mail.projectsites.dev + pm.projectsites.dev pattern).
+routes = [
+  { pattern = "teable.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
+
+[observability]
+enabled = true
+
+# Fly.io origin (set via wrangler secret if different from default)
+[vars]
+FLY_ORIGIN = "https://projectsites-teable.fly.dev"
+
+# Durable Object stub — required for the existing DO migration from the old
+# Container-based deployment. The Teable class is now a no-op.
+[[durable_objects.bindings]]
+name = "TEABLE"
+class_name = "Teable"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Teable"]
