@@ -41,9 +41,13 @@ STORAGE_R2_DRIVER = "s3"
 STORAGE_R2_REGION = "auto"
 STORAGE_R2_ENDPOINT = "https://84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com"
 STORAGE_R2_BUCKET = "projectsites-directus-assets"
+EMAIL_TRANSPORT = "smtp"
+EMAIL_SMTP_SECURE = "true"
+EMAIL_FROM = "directus@projectsites.dev"
 
 # ── Secrets (all set via wrangler secret put) ────────────────────────────
 # SECRET, ADMIN_EMAIL, ADMIN_PASSWORD
 # DB_CONNECTION_STRING (pooled Neon URL)
 # REDIS (rediss://...)
 # STORAGE_R2_KEY, STORAGE_R2_SECRET
+# EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD

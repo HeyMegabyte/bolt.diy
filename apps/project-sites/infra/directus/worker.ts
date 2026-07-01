@@ -26,6 +26,13 @@ interface Env {
   STORAGE_R2_ENDPOINT: string;
   STORAGE_R2_KEY: string;
   STORAGE_R2_SECRET: string;
+  EMAIL_TRANSPORT: string;
+  EMAIL_SMTP_HOST: string;
+  EMAIL_SMTP_PORT: string;
+  EMAIL_SMTP_USER: string;
+  EMAIL_SMTP_PASSWORD: string;
+  EMAIL_SMTP_SECURE: string;
+  EMAIL_FROM: string;
 }
 
 export class DirectusContainerDO extends Container<Env> {
@@ -55,6 +62,13 @@ export class DirectusContainerDO extends Container<Env> {
       STORAGE_R2_ENDPOINT: env.STORAGE_R2_ENDPOINT,
       STORAGE_R2_KEY: env.STORAGE_R2_KEY,
       STORAGE_R2_SECRET: env.STORAGE_R2_SECRET,
+      EMAIL_TRANSPORT: env.EMAIL_TRANSPORT,
+      EMAIL_SMTP_HOST: env.EMAIL_SMTP_HOST,
+      EMAIL_SMTP_PORT: env.EMAIL_SMTP_PORT,
+      EMAIL_SMTP_USER: env.EMAIL_SMTP_USER,
+      EMAIL_SMTP_PASSWORD: env.EMAIL_SMTP_PASSWORD,
+      EMAIL_SMTP_SECURE: env.EMAIL_SMTP_SECURE,
+      EMAIL_FROM: env.EMAIL_FROM,
     };
   }
 
