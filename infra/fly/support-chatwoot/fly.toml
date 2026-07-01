@@ -2,25 +2,21 @@
 #
 # ARCHITECTURE NOTE:
 #   support.projectsites.dev → this Fly app (Chatwoot).
-#   Postgres  → a DATABASE named "projectsites_chatwoot" in the SHARED Neon project
-#               (jolly-pine-24431114). Per neon-database-conservation.md: never create
-#               a new Neon project for a single app; allocate a database instead.
-#   Redis     → Upstash Redis (CF-only alt: Upstash is the sanctioned fallback for
-#               Redis primitives such as Sidekiq queues / Action Cable pub-sub).
+#   Postgres  → DATABASE "projectsites_chatwoot" in shared Neon project
+#               (jolly-pine-24431114). Per neon-database-conservation.md.
+#   Redis     → Upstash Redis (elegant-ringtail-155630.upstash.io:6379)
 #
 # SECRETS (set via `flyctl secrets set KEY=value --app support-chatwoot`):
-#   SECRET_KEY_BASE          — Rails secret key (generate: openssl rand -hex 64)
+#   SECRET_KEY_BASE          — Rails secret key (openssl rand -hex 64)
 #   POSTGRES_PASSWORD        — Neon database password
 #   REDIS_URL                — Upstash Redis URL (rediss://...)
-#   SMTP_ADDRESS             — SMTP host for outbound email
-#   SMTP_USERNAME            — SMTP username / API key
-#   SMTP_PASSWORD            — SMTP password / API key secret
+#   SMTP_ADDRESS             — SMTP host
+#   SMTP_USERNAME            — SMTP username
+#   SMTP_PASSWORD            — SMTP password
 #   MAILER_SENDER_EMAIL      — From address (e.g. support@projectsites.dev)
 #
 # FIRST-BOOT SETUP:
-#   After deploying for the first time, run the Chatwoot DB prepare task:
-#     flyctl ssh console --app support-chatwoot -C "bundle exec rails db:chatwoot_prepare"
-#   This creates schema + seeds default data. Only needed once.
+#   flyctl ssh console --app support-chatwoot -C "bundle exec rails db:chatwoot_prepare"
 
 app            = "support-chatwoot"
 primary_region = "iad"
@@ -30,6 +26,11 @@ kill_timeout   = 30
 [build]
   image = "chatwoot/chatwoot:latest"
 
+# Run DB prepare before the first deploy — Chatwoot schema must exist
+# before the web process boots
+[deploy]
+  release_command = "bundle exec rails db:chatwoot_prepare"
+
 [env]
   RAILS_ENV              = "production"
   NODE_ENV               = "production"
@@ -37,13 +38,19 @@ kill_timeout   = 30
   FRONTEND_URL           = "https://support.projectsites.dev"
   FORCE_SSL              = "true"
   ENABLE_ACCOUNT_SIGNUP  = "false"   # operator-only signups; invite users from admin
-  LOG_LEVEL              = "warn"
+  LOG_LEVEL              = "info"
   LOG_SIZE               = "500"
-  POSTGRES_HOST          = "ep-REPLACE-neon-hostname.us-east-2.aws.neon.tech"  # PLACEHOLDER
+  POSTGRES_HOST          = "ep-round-wildflower-aigybxdk-pooler.c-4.us-east-1.aws.neon.tech"
   POSTGRES_PORT          = "5432"
   POSTGRES_DB            = "projectsites_chatwoot"
-  POSTGRES_USERNAME      = "projectsites_chatwoot"
+  POSTGRES_USERNAME      = "neondb_owner"
   # POSTGRES_PASSWORD, SECRET_KEY_BASE, REDIS_URL, SMTP_* come from Fly secrets
+  # R2 / Active Storage (S3-compatible) — storage keys in Fly secrets
+  ACTIVE_STORAGE_SERVICE          = "s3_compatible"
+  STORAGE_BUCKET_NAME             = "projectsites-chatwoot"
+  STORAGE_REGION                  = "auto"
+  STORAGE_ENDPOINT                = "https://84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com"
+  STORAGE_FORCE_PATH_STYLE        = "true"
 
 # ------------------------------------------------------------------
 # Web process — serves the Rails app + ActionCable
@@ -67,12 +74,12 @@ kill_timeout   = 30
 
 [checks]
   [checks.health]
-    grace_period = "30s"   # Rails boot takes time
+    grace_period = "60s"   # Rails boot + DB migration takes time
     interval     = "30s"
     method       = "get"
     path         = "/auth/sign_in"
     port         = 3000
-    timeout      = "10s"
+    timeout      = "15s"
     type         = "http"
 
 # ------------------------------------------------------------------
