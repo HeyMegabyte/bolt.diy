@@ -11382,3 +11382,178 @@ docs and the actual ProjectSites.dev repository state. Key observations:
    OIDC (SAML, SCIM) is documented as in development. Tasks plan for current
    capability + upgrade path.
 
+---
+
+## automation.projectsites.dev — Activepieces Absorption (Brian directive 2026-06-30)
+
+> **Decision:** Fork Activepieces (MIT license). Absorb into ProjectSites — rebrand, skin,
+> deeply integrate, ship as a native product feature. NOT a wrapped/embedded third-party
+> iframe. Each ProjectSites customer gets one Activepieces project; multi-tenancy is
+> database-per-customer via the App Store provisioning layer. No customer ever sees
+> "Activepieces" — they see "Automation" inside ProjectSites.
+>
+> **Architecture:** Forked Activepieces source → modified at build time → deployed as
+> Fly.io app behind `automation.projectsites.dev` → CF Worker reverse-proxy injects
+> ProjectSites shell chrome + CSS tokens → Better Auth SSO bridge → Neon Postgres
+> (one DB per customer, provisioned via App Store) → Upstash Redis (shared).
+>
+> **17 projects, ordered by build sequence:** visual absorption first (days),
+> platform foundation second (weeks), AI-native features last (months).
+
+### LOOP-AP-001 — CSS Injection Pipeline (P0)
+- **Est. build:** 30h · **Revenue:** Foundational — everything builds on this
+- Build a reverse-proxy CF Worker at `automation.projectsites.dev` that intercepts every Activepieces HTML/CSS response and injects a `<style>` block remapping all `--ap-*` design tokens to `--ps-*` equivalents (cyan/black/#060610/#00E5FF/Sora/JetBrains Mono)
+- Map every CSS variable, font reference, border-radius, shadow, and color in the Activepieces UI to ProjectSites design tokens
+- Ship `_activepieces.scss` design-token map as committed source
+- Gate: Activepieces UI loads at `automation.projectsites.dev` looking like it was built by ProjectSites — no teal/green Activepieces brand colors visible anywhere
+- Files: `apps/project-sites/infra/activepieces/proxy-worker.ts`, `_activepieces.scss`
+
+### LOOP-AP-002 — SSO Bridge (Better Auth → Activepieces) (P0)
+- **Est. build:** 35h · **Revenue:** Eliminates separate login — makes automation a feature, not a separate app
+- Wire ProjectSites Better Auth as the identity provider for Activepieces via JWT managed auth
+- User signs into ProjectSites → clicks "Automation" → JWT minted with ProjectSites session claims → Activepieces accepts it → user lands in their project with zero additional login
+- Activepieces session TTL mirrors ProjectSites session TTL; logout propagates both ways
+- Files: `apps/project-sites/infra/activepieces/auth-bridge.ts`, Activepieces fork auth module
+
+### LOOP-AP-003 — ProjectSites Piece Family (P0)
+- **Est. build:** 55h · **Revenue:** The connective tissue — without these pieces, Activepieces can't touch ProjectSites
+- Build 5 custom Activepieces pieces using the Activepieces piece SDK (`@activepieces/piece-framework`):
+  - `projectsites-sites` — CRUD sites, list, get status, trigger rebuild
+  - `projectsites-build` — trigger builds, monitor progress, get build logs
+  - `projectsites-analytics` — query site stats from Tinybird/PostHog
+  - `projectsites-domains` — list, add, verify, set primary custom domains
+  - `projectsites-billing` — Stripe operations via ProjectSites billing API
+- Each piece follows Activepieces SDK patterns, has typed inputs/outputs, and is unit tested
+- Files: `apps/project-sites/infra/activepieces/pieces/*/`
+
+### LOOP-AP-004 — Per-Customer Database Auto-Provisioning (P0)
+- **Est. build:** 40h · **Revenue:** Makes automation a zero-friction upsell — no manual setup per customer
+- When a customer signs up or clicks "Enable Automation," the App Store provisioning layer creates a new Neon Postgres database (`projectsites_ap_{siteSlug}`) on the shared Listmonk project
+- Activepieces project is created and bound to that database + the shared Upstash Redis
+- Customer's first API key is provisioned, starter templates are seeded, and the embed URL is returned — all before the customer sees the Automation tab
+- No multi-tenancy from Activepieces' side — each customer gets a dedicated project, hidden from them
+- Files: `apps/project-sites/src/services/automation_provisioner.ts`, App Store integration
+
+### LOOP-AP-005 — AI Flow Builder (P1)
+- **Est. build:** 50h · **Revenue:** Flagship AI-native differentiator — "describe your automation, deploy it"
+- Chat panel embedded in the forked Activepieces builder UI (`<ChatToFlow>` component)
+- User types natural language: "When someone submits my contact form, send a Slack DM to #leads and create a Twenty CRM contact"
+- Workers AI (Llama 3.3 70B FP8 via AI Gateway) with structured output generates the complete flow JSON: piece selection, field mappings, auth wiring, trigger configuration
+- Flow renders in the builder for review; user tweaks, tests with sample data, clicks Deploy
+- Uses ProjectSites AI stack (AI Gateway, Workers AI, prompt registry) — no external AI dependency
+- Files: Activepieces fork: `packages/ui/feature-builder/src/lib/chat-to-flow/`
+
+### LOOP-AP-006 — Flow → MCP Tool Promotion (P1)
+- **Est. build:** 45h · **Revenue:** Turns every customer flow into an AI-callable tool — automation as an extension platform
+- Any published flow gets a "Promote to MCP Tool" button
+- The flow becomes callable from Claude via the ProjectSites MCP server at `automation.projectsites.dev/mcp`
+- A customer's "generate weekly SEO report" flow becomes `ap_generate_weekly_seo_report` — Claude or any MCP client can invoke it
+- Tool parameters map to flow trigger input schema; execution returns flow output as structured JSON
+- Gateway for per-customer tool isolation, rate limiting, and usage metering
+- Files: Activepieces fork: MCP server module modifications
+
+### LOOP-AP-007 — Starter Flow Template Library (P0)
+- **Est. build:** 50h · **Revenue:** Immediate value prop — customers see ROI in 5 minutes
+- 25 pre-built flow templates organized by category: Onboarding, Marketing, Operations, Support, Billing
+- Categories by ProjectSites vertical: Nonprofit, Restaurant, Professional Services, Local Business, E-commerce
+- Each template is a `.json` flow export with placeholder values, markdown documentation, and a one-click import
+- Templates stored in R2, versioned, with a "last verified working" date
+- Every template includes test fixtures (input payload, expected output, mock connections)
+- Files: `apps/project-sites/infra/activepieces/templates/`, R2 bucket `project-sites-automation-templates`
+
+### LOOP-AP-008 — Content Pane Absorption (P1)
+- **Est. build:** 35h · **Revenue:** The projectsites-dev content pane (site detail, editor, analytics) becomes a first-class surface inside the Activepieces builder
+- When building a flow that references a ProjectSites entity (a specific site, domain, build), the content pane slides out showing that entity's live state — site preview, recent builds, analytics snapshot
+- Bi-directional: clicking "Automate this site" from the ProjectSites admin opens Activepieces with the site pre-selected as context
+- Implemented as a shared `<ContentPane>` component in the forked Activepieces UI, driven by the ProjectSites API
+- Files: Activepieces fork: `packages/ui/feature-builder/src/lib/content-pane/`
+
+### LOOP-AP-010 — No-Signs-of-Activepieces Mode (P0)
+- **Est. build:** 40h · **Revenue:** If a customer ever sees "Activepieces," absorption failed
+- Audit and replace every Activepieces brand reference across the entire forked codebase: login page, dashboard chrome, builder toolbar, error pages, email footers, 404 page, MCP server description, piece descriptions, documentation links, console logs, env var names
+- Build a CI gate (`scripts/check-no-activepieces-brand.mjs`) that greps the fork for hardcoded brand strings and fails the build
+- Rename the GitHub fork to `project-sites-automation`; strip Activepieces from package.json, README, license headers (preserving MIT attribution)
+- Files: Entire fork, CI gate
+
+### LOOP-AP-011 — Unified Observability Pipeline (P1)
+- **Est. build:** 40h · **Revenue:** One pane of glass — flow failures appear alongside site deploy failures
+- Pipe Activepieces execution logs, flow run events, and error traces into ProjectSites observability stack
+- PostHog: capture flow runs as events with `featureSlug: automation`, `projectId`, `tenantId`
+- Sentry: flow step failures as exceptions with full context
+- Workers Tracing: every flow run creates a trace span with step-level children
+- Structured logs carry `correlationId` matching the ProjectSites format
+- Dashboard in ProjectSites admin shows flow success rate, p95 execution time, error breakdown
+- Files: Activepieces fork: observability module, `src/services/automation_observability.ts`
+
+### LOOP-AP-012 — OAuth Connection Vault Sharing (P2)
+- **Est. build:** 50h · **Revenue:** Eliminates double-auth — customer connects Stripe once
+- ProjectSites MCP OAuth Hub (Nango at `integrations.projectsites.dev`) connections exposed as Activepieces connections
+- Custom Activepieces piece that wraps the Nango connection: the piece calls `GET /api/nango/connections/{provider}` to get the token, then uses it for the API call
+- Customer who connected Stripe via ProjectSites never reconnects it in Activepieces
+- Connection lifecycle: create in Nango → available in Activepieces → revoke in Nango → removed from Activepieces
+- Files: `apps/project-sites/infra/activepieces/pieces/nango-proxy/`, Nango integration
+
+### LOOP-AP-014 — Responsive Cockpit Layout (P2)
+- **Est. build:** 45h · **Revenue:** Maximum information density — the admin cockpit doctrine applied to automation
+- Redesign the Activepieces dashboard/builder layout for compact density: collapsible side panels, compact table rows, inline editing, keyboard shortcuts for every action
+- `/` command palette for flow operations (create, duplicate, test, publish, delete)
+- Real-time run visibility: a live log tail of active flow runs in a bottom panel
+- Dark-only, cyan/black color scheme, 22px border radius, glassmorphism cards
+- Match the ProjectSites admin cockpit patterns from `[[admin-cockpit-v2-redesign]]`
+- Files: Activepieces fork: UI layout components
+
+### LOOP-AP-015 — Flow Template Marketplace UI (P2)
+- **Est. build:** 40h · **Revenue:** Turns the template library into a browsable product surface
+- Gallery UI inside the ProjectSites admin: search, filter by category/industry/complexity, preview flow steps as a visual diagram, "Add to My Project" button with one-click import
+- Templates pulled from R2 bucket, versioned, with user ratings and "used by N customers" counts
+- Admin can feature templates, deprecate old versions, and A/B test template descriptions
+- Files: `frontend/src/app/pages/admin/automation-marketplace/`
+
+### LOOP-AP-016 — Per-Industry Flow Packs (P2)
+- **Est. build:** 45h · **Revenue:** Vertical-specific automation = reason to upgrade
+- Curated template packs for each ProjectSites vertical:
+  - **Nonprofit:** donation tracking → thank-you email → CRM update, volunteer scheduling → reminder SMS, grant deadline → 30/14/7-day reminder sequence, in-kind donation receipt → inventory update
+  - **Restaurant:** online order → kitchen notification → confirmation SMS, reservation booked → reminder email → review request after visit, health inspection due → prep checklist → document upload
+  - **Professional Services:** lead capture → CRM contact → follow-up sequence, invoice sent → payment reminder → paid confirmation, appointment booked → prep email → follow-up survey
+  - **Local Business:** Google review posted → Slack notification → response template, inventory low → reorder alert → purchase order, social post published → cross-post to all platforms
+- Each pack = 5-8 templates, industry-specific documentation, and a "quick start" guide
+- Files: `apps/project-sites/infra/activepieces/templates/industry-packs/`
+
+### LOOP-AP-017 — Run Replay & Debugging (P2)
+- **Est. build:** 50h · **Revenue:** Professional-grade debugging — makes Activepieces feel like a developer tool
+- Record every step input/output for the last N runs (configurable, default 100)
+- Replay a failed run with the same inputs in a sandboxed execution context
+- Step-through debugger: pause at each step, inspect intermediate state, modify inputs, resume
+- Diff view between successful and failed runs of the same flow
+- "Copy as test fixture" button exports any run's input as a test case
+- Files: Activepieces fork: execution engine, debugger UI
+
+### LOOP-AP-018 — CF Worker Proxy Shell (P1)
+- **Est. build:** 35h · **Revenue:** The architectural absorption pattern — Activepieces doesn't know it's embedded
+- A thin CF Worker at `automation.projectsites.dev` acts as a reverse proxy to the Fly.io Activepieces app
+- Injects ProjectSites shell chrome (nav bar, user avatar, breadcrumbs, footer) around Activepieces HTML responses
+- Handles CSP header merging, cookie forwarding, CORS, and WebSocket upgrade for real-time features
+- Routes `/api/automation/*` to the proxy, serves Activepieces UI at `/automation`
+- Transparent to Activepieces — it thinks it's running standalone on its own domain
+- Files: `apps/project-sites/infra/activepieces/proxy-worker.ts`
+
+### Architectural Decisions (codified 2026-06-30)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Fork vs wrapper | **Fork** | Full control over branding, auth, UI. Upgrade pain accepted as cost of absorption |
+| Multi-tenancy model | **One DB per customer** | No Activepieces-level multi-tenancy. App Store provisions DBs. Simpler isolation |
+| Hosting | **Fly.io** | CF Containers tried, image too heavy. Fly.io proven working |
+| Auth | **Better Auth → JWT managed auth** | Uses Activepieces' documented JWT auth bridge. No custom auth module needed |
+| AI stack | **Workers AI (Llama 3.3 70B FP8)** | Free tier, AI Gateway routing. No external AI dependency |
+| Observability | **PostHog + Sentry + Workers Tracing** | Same stack as rest of platform. No new vendors |
+
+### Build sequence (Brian: "take your time and program it right")
+
+```
+Wave 1 (days, visual absorption):  AP-001 → AP-018 → AP-010
+Wave 2 (weeks, platform):         AP-002 → AP-004 → AP-003 → AP-007 → AP-008
+Wave 3 (weeks, observability):    AP-011 → AP-017
+Wave 4 (months, AI-native):       AP-005 → AP-006
+Wave 5 (months, marketplace):     AP-012 → AP-014 → AP-015 → AP-016
+```
