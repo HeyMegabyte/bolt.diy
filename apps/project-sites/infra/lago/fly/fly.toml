@@ -4,7 +4,7 @@
 app = "lago-worker-ps"
 
 [build]
-image = "ghcr.io/getlago/lago-api:latest"
+image = "getlago/lago:latest"
 
 [env]
 RAILS_ENV = "production"

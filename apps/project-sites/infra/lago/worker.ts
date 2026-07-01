@@ -70,7 +70,7 @@ export default {
     // Empty API_URL = same-origin → nginx proxies /api/* → Rails :3000.
     if (url.pathname === '/env-config.js') {
       return new Response(
-        `window.API_URL = "";\nwindow.LAGO_DOMAIN = "";\nwindow.APP_ENV = "production";\nwindow.LAGO_OAUTH_PROXY_URL = "";\nwindow.LAGO_DISABLE_SIGNUP = "false";\nwindow.NANGO_PUBLIC_KEY = "";\nwindow.SENTRY_DSN = "";\nwindow.LAGO_DISABLE_PDF_GENERATION = "";\nwindow.LAGO_SUPERSET_URL = "";\n`,
+        `window.API_URL = "";\nwindow.LAGO_DOMAIN = "";\nwindow.APP_ENV = "production";\nwindow.LAGO_OAUTH_PROXY_URL = "https://proxy.getlago.com";\nwindow.LAGO_DISABLE_SIGNUP = "false";\nwindow.NANGO_PUBLIC_KEY = "";\nwindow.SENTRY_DSN = "";\nwindow.LAGO_DISABLE_PDF_GENERATION = "";\nwindow.LAGO_SUPERSET_URL = "";\n`,
         { headers: { 'Content-Type': 'application/javascript' } },
       );
     }
