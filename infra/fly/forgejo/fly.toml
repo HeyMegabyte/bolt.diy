@@ -1,7 +1,7 @@
 # Fly.io app: projectsites-forgejo — Git forge at git.projectsites.dev
 #
-# Minimal config — Forgejo will use SQLite defaults and show install page.
-# Add Postgres/R2/Redis configs after initial install is verified.
+# Minimal config — SQLite on persistent volume, TCP health check.
+# Postgres/R2/Redis deferred until Fly proxy issue resolved.
 
 app            = "projectsites-forgejo"
 primary_region = "iad"
@@ -35,11 +35,11 @@ kill_timeout   = 30
   min_machines_running = 1
 
   [[http_service.checks]]
-    grace_period = "1m"
-    interval     = "15s"
-    timeout      = "10s"
-    method       = "get"
-    path         = "/"
+    type         = "tcp"
+    port         = 3000
+    grace_period = "30s"
+    interval     = "10s"
+    timeout      = "5s"
 
 [[vm]]
   cpu_kind = "shared"
