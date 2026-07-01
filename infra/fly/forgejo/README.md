@@ -79,20 +79,31 @@ flyctl certs create forgejo.projectsites.dev --app projectsites-forgejo
 
 ## Backup
 
-```bash
-# Forgejo dump (includes repos, config, database)
-flyctl ssh console --app projectsites-forgejo -C "su - git -c '/app/gitea/gitea dump -c /data/gitea/conf/app.ini -w /data/gitea'"
+Automated daily backup script: `scripts/backup-forgejo.sh`
 
-# The dump file is written to /data/gitea/
-# Copy it out: flyctl ssh sftp get /data/gitea/forgejo-dump-*.zip
+```bash
+# Run manually
+./scripts/backup-forgejo.sh
+
+# Schedule via cron (daily at 3am)
+# 0 3 * * * cd ~/emdash/repositories/projectsites.dev && ./scripts/backup-forgejo.sh
+
+# Output: ./backups/forgejo-YYYY-MM-DD-HHMMSS.zip
+# R2 target: r2://projectsites-backups/forgejo/YYYY-MM-DD/
 ```
+
+The backup script:
+1. Runs `forgejo dump` inside the Fly machine (DB + config + repos)
+2. Downloads the dump locally
+3. Uploads to R2 (if AWS CLI or wrangler configured)
+4. Prunes local backups older than 7 days
 
 ## Restore
 
 ```bash
 # 1. Deploy fresh app with clean volume
-# 2. SFTP the dump zip to /data/
-# 3. Extract and restore via CLI
+# 2. Upload dump to new machine
+# 3. Restore via CLI
 flyctl ssh console --app projectsites-forgejo -C "su - git -c '/app/gitea/gitea restore --config /data/gitea/conf/app.ini -w /data/gitea --file /data/forgejo-dump-*.zip'"
 ```
 
@@ -115,7 +126,7 @@ flyctl apps destroy projectsites-forgejo --yes
 
 - **URL:** https://git.projectsites.dev/user/login
 - **Username:** professormanhattan
-- **Password:** Set via install form (rotate immediately)
+- **Password:** Auto-generated and stored at `/tmp/forgejo-admin-creds.txt` — move to `get-secret FORGEJO_ADMIN_PASSWORD`
 - **Email:** hey@megabyte.space
 
 ## Next Improvements
@@ -126,5 +137,4 @@ flyctl apps destroy projectsites-forgejo --yes
 4. **Cloudflare proxying** — Re-enable Cloudflare proxy once Worker route exception is added
 5. **OIDC integration** — Add Logto OIDC SSO login
 6. **Actions runner** — Deploy separate Forgejo Actions runner
-7. **Automated backups** — Add scheduled Forgejo dump → R2
-8. **Redis cache** — Add Upstash Redis for cache/session/queue
+7. **Redis cache** — Add Upstash Redis for cache/session/queue
