@@ -686,12 +686,13 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
   },
   dittofeed_integration: {
-    key: "dittofeed_integration",
-    description: "Dittofeed customer engagement event pipeline. Fans out platform events to Dittofeed via Segment-compatible API. Wired through src/services/dittofeed.ts + dispatch + wiring + outbox.",
+    key: 'dittofeed_integration',
+    description:
+      'Dittofeed customer engagement event pipeline. Fans out platform events to Dittofeed via Segment-compatible API. Wired through src/services/dittofeed.ts + dispatch + wiring + outbox.',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: "experimental",
-    owner_email: "brian@megabyte.space",
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
   },
 };
 

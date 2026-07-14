@@ -11,7 +11,12 @@
  * const plan = await importService.dryRun(zipBytes);
  * if (plan.canProceed) await importService.apply(zipBytes, { backupBeforeOverwrite: true });
  */
-import type { SiteRepository, ExportManifest, ImportDryRunResult, ValidationProblem } from '@project-sites/shared';
+import type {
+  SiteRepository,
+  ExportManifest,
+  ImportDryRunResult,
+  ValidationProblem,
+} from '@project-sites/shared';
 import { exportManifestSchema, importDryRunResultSchema } from '@project-sites/shared';
 
 // ---------------------------------------------------------------------------
@@ -66,7 +71,14 @@ function isSafePath(entryPath: string): boolean {
 
 const SECRET_VALUE_RE = /(?:sk-[a-zA-Z0-9_-]{20,}|[A-Za-z0-9+/]{40,}={0,2})/g;
 
-const REDACT_KEY_PATTERNS = ['password', 'token', 'api_key', 'secret_key', 'client_secret', 'private_key'];
+const REDACT_KEY_PATTERNS = [
+  'password',
+  'token',
+  'api_key',
+  'secret_key',
+  'client_secret',
+  'private_key',
+];
 const PRESERVE_KEYS = new Set(['issecret', 'issecretkey']);
 
 function shouldRedactKey(key: string): boolean {
@@ -116,7 +128,9 @@ export const exportService = {
    * Produce a .zip archive from a SiteRepository.
    * Returns the zip bytes and the validated export manifest.
    */
-  async zipSite(repository: SiteRepository): Promise<{ zipBytes: Uint8Array; manifest: ExportManifest }> {
+  async zipSite(
+    repository: SiteRepository,
+  ): Promise<{ zipBytes: Uint8Array; manifest: ExportManifest }> {
     // Build manifest
     const manifest: ExportManifest = {
       format: 'projectsites.site-export',
@@ -163,7 +177,10 @@ export const exportService = {
     const zipBytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 
     if (zipBytes.byteLength > MAX_ARCHIVE_BYTES) {
-      throw new ExportError(`Archive size ${zipBytes.byteLength} exceeds max ${MAX_ARCHIVE_BYTES}`, 'ARCHIVE_TOO_LARGE');
+      throw new ExportError(
+        `Archive size ${zipBytes.byteLength} exceeds max ${MAX_ARCHIVE_BYTES}`,
+        'ARCHIVE_TOO_LARGE',
+      );
     }
 
     return { zipBytes, manifest: parsed.data };
@@ -193,7 +210,10 @@ export const importService = {
 
     const files = Object.keys(zip.files);
     if (files.length > MAX_FILE_COUNT) {
-      throw new ImportError(`File count ${files.length} exceeds max ${MAX_FILE_COUNT}`, 'TOO_MANY_FILES');
+      throw new ImportError(
+        `File count ${files.length} exceeds max ${MAX_FILE_COUNT}`,
+        'TOO_MANY_FILES',
+      );
     }
 
     // Validate paths

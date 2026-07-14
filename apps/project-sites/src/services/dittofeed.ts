@@ -47,7 +47,9 @@ export type FetchImpl = (input: RequestInfo, init?: RequestInit) => Promise<Resp
 
 export function validateConfig(
   cfg: Partial<DittofeedConfig>,
-): { ok: true; config: DittofeedConfig } | { ok: false; reason: 'not_configured' | 'invalid'; detail: string } {
+):
+  | { ok: true; config: DittofeedConfig }
+  | { ok: false; reason: 'not_configured' | 'invalid'; detail: string } {
   if (!cfg.adminApiKey || !cfg.publicWriteKey || !cfg.workspaceId || !cfg.baseUrl) {
     const missing = [];
     if (!cfg.adminApiKey) missing.push('DITTOFEED_ADMIN_API_KEY');
@@ -156,11 +158,20 @@ export async function identifyUser(
       }),
     });
     if (!resp.ok) {
-      return { ok: false, code: 'api_error', message: `identify failed: ${resp.status}`, status: resp.status };
+      return {
+        ok: false,
+        code: 'api_error',
+        message: `identify failed: ${resp.status}`,
+        status: resp.status,
+      };
     }
     return { ok: true, status: resp.status };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -196,11 +207,20 @@ export async function trackEvent(
       body: JSON.stringify(body),
     });
     if (!resp.ok) {
-      return { ok: false, code: 'api_error', message: `track failed: ${resp.status}`, status: resp.status };
+      return {
+        ok: false,
+        code: 'api_error',
+        message: `track failed: ${resp.status}`,
+        status: resp.status,
+      };
     }
     return { ok: true, status: resp.status, event: payload.event };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -230,11 +250,20 @@ export async function trackPageView(
       body: JSON.stringify(body),
     });
     if (!resp.ok) {
-      return { ok: false, code: 'api_error', message: `page failed: ${resp.status}`, status: resp.status };
+      return {
+        ok: false,
+        code: 'api_error',
+        message: `page failed: ${resp.status}`,
+        status: resp.status,
+      };
     }
     return { ok: true, status: resp.status };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -310,12 +339,21 @@ export async function createJourney(
       }),
     });
     if (!resp.ok) {
-      return { ok: false, code: 'api_error', message: `create journey failed: ${resp.status}`, status: resp.status };
+      return {
+        ok: false,
+        code: 'api_error',
+        message: `create journey failed: ${resp.status}`,
+        status: resp.status,
+      };
     }
     const data = (await resp.json()) as { id: string };
     return { ok: true, journeyId: data.id };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -341,12 +379,21 @@ export async function createSegment(
       }),
     });
     if (!resp.ok) {
-      return { ok: false, code: 'api_error', message: `create segment failed: ${resp.status}`, status: resp.status };
+      return {
+        ok: false,
+        code: 'api_error',
+        message: `create segment failed: ${resp.status}`,
+        status: resp.status,
+      };
     }
     const data = (await resp.json()) as { id: string };
     return { ok: true, segmentId: data.id };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -375,12 +422,21 @@ export async function createTemplate(
       }),
     });
     if (!resp.ok) {
-      return { ok: false, code: 'api_error', message: `create template failed: ${resp.status}`, status: resp.status };
+      return {
+        ok: false,
+        code: 'api_error',
+        message: `create template failed: ${resp.status}`,
+        status: resp.status,
+      };
     }
     const data = (await resp.json()) as { id: string };
     return { ok: true, templateId: data.id };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -390,14 +446,20 @@ export async function createTemplate(
 export async function dittofeedHealth(
   cfg: Partial<DittofeedConfig>,
   fetchImpl: FetchImpl = fetch,
-): Promise<{ ok: true; version: string } | DittofeedError | { ok: false; reason: 'not_configured' }> {
+): Promise<
+  { ok: true; version: string } | DittofeedError | { ok: false; reason: 'not_configured' }
+> {
   if (!cfg.baseUrl) return { ok: false, reason: 'not_configured' };
   try {
     const resp = await fetchImpl(`${cfg.baseUrl}/api`);
     const data = (await resp.json()) as { version: string };
     return { ok: true, version: data.version ?? 'unknown' };
   } catch (e) {
-    return { ok: false, code: 'network_error', message: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      code: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -495,10 +557,14 @@ export async function emitPsEvent(
   const valid = validateConfig(cfg);
   if (!valid.ok) return; // silently skip — not configured
 
-  await trackEvent(valid.config, {
-    userId: payload.userId,
-    event: payload.event,
-    properties: payload.properties,
-    anonymousId: payload.anonymousId,
-  }, fetchImpl);
+  await trackEvent(
+    valid.config,
+    {
+      userId: payload.userId,
+      event: payload.event,
+      properties: payload.properties,
+      anonymousId: payload.anonymousId,
+    },
+    fetchImpl,
+  );
 }

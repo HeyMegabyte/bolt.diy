@@ -44,18 +44,26 @@ export async function emitAbandonedBuildNudge(
   if (!c) return;
 
   const dUserId = `site:${signal.siteId}:owner`;
-  await identifyUser(c, { userId: dUserId, traits: { orgId: signal.orgId, siteId: signal.siteId } }, fetchImpl);
-  await trackEvent(c, {
-    userId: dUserId,
-    event: 'Abandoned Build Detected',
-    properties: {
-      siteId: signal.siteId,
-      siteSlug: signal.siteSlug,
-      previewUrl: signal.previewUrl,
-      finishedAt: signal.finishedAt,
-      hoursSinceFinish: signal.hoursSinceFinish,
+  await identifyUser(
+    c,
+    { userId: dUserId, traits: { orgId: signal.orgId, siteId: signal.siteId } },
+    fetchImpl,
+  );
+  await trackEvent(
+    c,
+    {
+      userId: dUserId,
+      event: 'Abandoned Build Detected',
+      properties: {
+        siteId: signal.siteId,
+        siteSlug: signal.siteSlug,
+        previewUrl: signal.previewUrl,
+        finishedAt: signal.finishedAt,
+        hoursSinceFinish: signal.hoursSinceFinish,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -79,20 +87,28 @@ export async function emitFirstLeadCelebration(
   const c = cfg(env);
   if (!c) return;
 
-  await identifyUser(c, {
-    userId: `site:${signal.siteId}:owner`,
-    traits: { orgId: signal.orgId, siteId: signal.siteId, businessName: signal.businessName },
-  }, fetchImpl);
-  await trackEvent(c, {
-    userId: `site:${signal.siteId}:owner`,
-    event: PS_EVENTS.FIRST_LEAD,
-    properties: {
-      siteId: signal.siteId,
-      businessName: signal.businessName,
-      conversionKind: signal.conversionKind,
-      sectionLabel: signal.sectionLabel,
+  await identifyUser(
+    c,
+    {
+      userId: `site:${signal.siteId}:owner`,
+      traits: { orgId: signal.orgId, siteId: signal.siteId, businessName: signal.businessName },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
+  await trackEvent(
+    c,
+    {
+      userId: `site:${signal.siteId}:owner`,
+      event: PS_EVENTS.FIRST_LEAD,
+      properties: {
+        siteId: signal.siteId,
+        businessName: signal.businessName,
+        conversionKind: signal.conversionKind,
+        sectionLabel: signal.sectionLabel,
+      },
+    },
+    fetchImpl,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -115,18 +131,26 @@ export async function emitPlanChanged(
   const c = cfg(env);
   if (!c) return;
 
-  await identifyUser(c, {
-    userId: `tenant:${signal.orgId}:owner`,
-    traits: { orgId: signal.orgId, plan: signal.newPlan },
-  }, fetchImpl);
-  await trackEvent(c, {
-    userId: `tenant:${signal.orgId}:owner`,
-    event: signal.isUpgrade ? PS_EVENTS.PLAN_UPGRADED : PS_EVENTS.PLAN_DOWNGRADED,
-    properties: {
-      previousPlan: signal.previousPlan,
-      newPlan: signal.newPlan,
+  await identifyUser(
+    c,
+    {
+      userId: `tenant:${signal.orgId}:owner`,
+      traits: { orgId: signal.orgId, plan: signal.newPlan },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
+  await trackEvent(
+    c,
+    {
+      userId: `tenant:${signal.orgId}:owner`,
+      event: signal.isUpgrade ? PS_EVENTS.PLAN_UPGRADED : PS_EVENTS.PLAN_DOWNGRADED,
+      properties: {
+        previousPlan: signal.previousPlan,
+        newPlan: signal.newPlan,
+      },
+    },
+    fetchImpl,
+  );
 }
 
 export interface InvoiceSignal {
@@ -146,16 +170,20 @@ export async function emitInvoiceEvent(
   const c = cfg(env);
   if (!c) return;
 
-  await trackEvent(c, {
-    userId: `tenant:${signal.orgId}:owner`,
-    event: signal.status === 'paid' ? PS_EVENTS.INVOICE_PAID : PS_EVENTS.INVOICE_FAILED,
-    properties: {
-      invoiceId: signal.invoiceId,
-      amount: signal.amount,
-      currency: signal.currency,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `tenant:${signal.orgId}:owner`,
+      event: signal.status === 'paid' ? PS_EVENTS.INVOICE_PAID : PS_EVENTS.INVOICE_FAILED,
+      properties: {
+        invoiceId: signal.invoiceId,
+        amount: signal.amount,
+        currency: signal.currency,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 export interface CreditSignal {
@@ -175,16 +203,20 @@ export async function emitCreditEvent(
   if (!c) return;
 
   const event = signal.percentUsed >= 100 ? PS_EVENTS.CREDIT_EXHAUSTED : PS_EVENTS.CREDIT_LOW;
-  await trackEvent(c, {
-    userId: `tenant:${signal.orgId}:owner`,
-    event,
-    properties: {
-      remainingCredits: signal.remainingCredits,
-      totalCredits: signal.totalCredits,
-      percentUsed: signal.percentUsed,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `tenant:${signal.orgId}:owner`,
+      event,
+      properties: {
+        remainingCredits: signal.remainingCredits,
+        totalCredits: signal.totalCredits,
+        percentUsed: signal.percentUsed,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -208,17 +240,21 @@ export async function emitLeadScannerRun(
   const c = cfg(env);
   if (!c) return;
 
-  await trackEvent(c, {
-    userId: `tenant:${signal.orgId}:owner`,
-    event: PS_EVENTS.LEAD_SCANNER_RUN,
-    properties: {
-      businessesFound: signal.businessesFound,
-      zipsScanned: signal.zipsScanned,
-      tier: signal.tier,
-      contactRate: signal.contactRate,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `tenant:${signal.orgId}:owner`,
+      event: PS_EVENTS.LEAD_SCANNER_RUN,
+      properties: {
+        businessesFound: signal.businessesFound,
+        zipsScanned: signal.zipsScanned,
+        tier: signal.tier,
+        contactRate: signal.contactRate,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 export interface LeadScannerBusinessSignal {
@@ -238,17 +274,21 @@ export async function emitLeadScannerBusinessFound(
   const c = cfg(env);
   if (!c) return;
 
-  await trackEvent(c, {
-    userId: `tenant:${signal.orgId}:owner`,
-    event: PS_EVENTS.LEAD_SCANNER_BUSINESS_FOUND,
-    properties: {
-      businessName: signal.businessName,
-      businessAddress: signal.businessAddress,
-      hasWebsite: signal.hasWebsite,
-      tier: signal.tier,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `tenant:${signal.orgId}:owner`,
+      event: PS_EVENTS.LEAD_SCANNER_BUSINESS_FOUND,
+      properties: {
+        businessName: signal.businessName,
+        businessAddress: signal.businessAddress,
+        hasWebsite: signal.hasWebsite,
+        tier: signal.tier,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -272,23 +312,28 @@ export async function emitIntegrationHealthChange(
   const c = cfg(env);
   if (!c) return;
 
-  const event = signal.status === 'connected'
-    ? PS_EVENTS.INTEGRATION_CONNECTED
-    : signal.status === 'degraded'
-      ? PS_EVENTS.INTEGRATION_HEALTH_DEGRADED
-      : PS_EVENTS.INTEGRATION_DISCONNECTED;
+  const event =
+    signal.status === 'connected'
+      ? PS_EVENTS.INTEGRATION_CONNECTED
+      : signal.status === 'degraded'
+        ? PS_EVENTS.INTEGRATION_HEALTH_DEGRADED
+        : PS_EVENTS.INTEGRATION_DISCONNECTED;
 
-  await trackEvent(c, {
-    userId: `site:${signal.siteId}:owner`,
-    event,
-    properties: {
-      provider: signal.provider,
-      status: signal.status,
-      reason: signal.reason,
-      siteId: signal.siteId,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `site:${signal.siteId}:owner`,
+      event,
+      properties: {
+        provider: signal.provider,
+        status: signal.status,
+        reason: signal.reason,
+        siteId: signal.siteId,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -313,17 +358,22 @@ export async function emitCfDeployEvent(
   const c = cfg(env);
   if (!c) return;
 
-  await trackEvent(c, {
-    userId: `site:${signal.siteId}:owner`,
-    event: signal.status === 'success' ? PS_EVENTS.CF_WORKER_DEPLOYED : PS_EVENTS.CF_DEPLOY_FAILED,
-    properties: {
-      workerName: signal.workerName,
-      versionId: signal.versionId,
-      durationMs: signal.durationMs,
-      siteId: signal.siteId,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `site:${signal.siteId}:owner`,
+      event:
+        signal.status === 'success' ? PS_EVENTS.CF_WORKER_DEPLOYED : PS_EVENTS.CF_DEPLOY_FAILED,
+      properties: {
+        workerName: signal.workerName,
+        versionId: signal.versionId,
+        durationMs: signal.durationMs,
+        siteId: signal.siteId,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -348,16 +398,20 @@ export async function emitBookingMade(
   const c = cfg(env);
   if (!c) return;
 
-  await trackEvent(c, {
-    userId: `site:${signal.siteId}:owner`,
-    event: PS_EVENTS.BOOKING_MADE,
-    properties: {
-      bookingId: signal.bookingId,
-      customerName: signal.customerName,
-      serviceName: signal.serviceName,
-      appointmentTime: signal.appointmentTime,
-      siteId: signal.siteId,
-      orgId: signal.orgId,
+  await trackEvent(
+    c,
+    {
+      userId: `site:${signal.siteId}:owner`,
+      event: PS_EVENTS.BOOKING_MADE,
+      properties: {
+        bookingId: signal.bookingId,
+        customerName: signal.customerName,
+        serviceName: signal.serviceName,
+        appointmentTime: signal.appointmentTime,
+        siteId: signal.siteId,
+        orgId: signal.orgId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }

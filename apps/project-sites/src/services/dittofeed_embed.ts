@@ -18,13 +18,13 @@ import { buildDittofeedConfig } from './dittofeed_dispatch.js';
 // ---------------------------------------------------------------------------
 
 export type DittofeedEditor =
-  | 'journeys'       // Journey Builder — visual drag-and-drop automation flows
+  | 'journeys' // Journey Builder — visual drag-and-drop automation flows
   | 'journeys-table' // Journey Table — list/manage automations
-  | 'broadcast'      // Broadcast Editor — one-off campaigns
-  | 'templates'      // Template Editor — reusable email/SMS/webhook templates
-  | 'segments'       // Segment Editor — audience rules
-  | 'deliveries'     // Deliveries Table — message history and delivery status
-  | 'analysis';      // Analysis Chart — performance reporting
+  | 'broadcast' // Broadcast Editor — one-off campaigns
+  | 'templates' // Template Editor — reusable email/SMS/webhook templates
+  | 'segments' // Segment Editor — audience rules
+  | 'deliveries' // Deliveries Table — message history and delivery status
+  | 'analysis'; // Analysis Chart — performance reporting
 
 export interface EmbeddedEditorConfig {
   /** The Dittofeed URL path for this editor. */
@@ -142,6 +142,14 @@ export function editorsForAutomationCount(count: number): {
   }
   return {
     mode: 'embedded',
-    editors: ['journeys', 'journeys-table', 'segments', 'templates', 'broadcast', 'deliveries', 'analysis'],
+    editors: [
+      'journeys',
+      'journeys-table',
+      'segments',
+      'templates',
+      'broadcast',
+      'deliveries',
+      'analysis',
+    ],
   };
 }

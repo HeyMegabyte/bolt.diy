@@ -36,10 +36,7 @@ export interface SiteCreateSignal {
  * Dittofeed workspace — the shared workspace model uses site-scoped
  * userIds and properties for segmentation.
  */
-export async function registerSiteInDittofeed(
-  env: Env,
-  signal: SiteCreateSignal,
-): Promise<void> {
+export async function registerSiteInDittofeed(env: Env, signal: SiteCreateSignal): Promise<void> {
   const cfg = buildDittofeedConfig(env);
   if (!cfg) return;
 
@@ -140,17 +137,12 @@ export interface DomainSignal {
   status: 'verified' | 'failed';
 }
 
-export async function emitDomainEvent(
-  env: Env,
-  signal: DomainSignal,
-): Promise<void> {
+export async function emitDomainEvent(env: Env, signal: DomainSignal): Promise<void> {
   const cfg = buildDittofeedConfig(env);
   if (!cfg) return;
 
   const dittoUserId = `site:${signal.siteId}:owner`;
-  const event = signal.status === 'verified'
-    ? PS_EVENTS.DOMAIN_VERIFIED
-    : PS_EVENTS.DOMAIN_FAILED;
+  const event = signal.status === 'verified' ? PS_EVENTS.DOMAIN_VERIFIED : PS_EVENTS.DOMAIN_FAILED;
 
   await trackEvent(cfg, {
     userId: dittoUserId,

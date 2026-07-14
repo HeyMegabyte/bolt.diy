@@ -47,7 +47,11 @@ const EVENT_TO_DITTOFEED: Record<string, string> = {
  * Build a Dittofeed config from Worker env vars. Returns undefined when not configured.
  */
 export function buildDittofeedConfig(env: Env): DittofeedConfig | undefined {
-  if (!env.DITTOFEED_ADMIN_API_KEY || !env.DITTOFEED_PUBLIC_WRITE_KEY || !env.DITTOFEED_WORKSPACE_ID) {
+  if (
+    !env.DITTOFEED_ADMIN_API_KEY ||
+    !env.DITTOFEED_PUBLIC_WRITE_KEY ||
+    !env.DITTOFEED_WORKSPACE_ID
+  ) {
     return undefined;
   }
   return {
@@ -64,7 +68,13 @@ export function buildDittofeedConfig(env: Env): DittofeedConfig | undefined {
  */
 export async function dispatchToDittofeed(
   env: Env,
-  event: { type: string; tenantId: string; siteId?: string; userId?: string; data: Record<string, unknown> },
+  event: {
+    type: string;
+    tenantId: string;
+    siteId?: string;
+    userId?: string;
+    data: Record<string, unknown>;
+  },
   fetchImpl?: FetchImpl,
 ): Promise<void> {
   const cfg = buildDittofeedConfig(env);
@@ -75,30 +85,36 @@ export async function dispatchToDittofeed(
 
   // User ID follows the site-scoped pattern per architecture decision:
   // site:{site_id}:owner (site-scoped) or tenant:{tenant_id} (org-scoped fallback)
-  const dittoUserId = event.siteId
-    ? `site:${event.siteId}:owner`
-    : `tenant:${event.tenantId}`;
+  const dittoUserId = event.siteId ? `site:${event.siteId}:owner` : `tenant:${event.tenantId}`;
 
   // Identify the site/org first so traits are available for segmentation
-  await identifyUser(cfg, {
-    userId: dittoUserId,
-    traits: {
-      tenantId: event.tenantId,
-      siteId: event.siteId,
-      eventSource: 'project_sites_worker',
+  await identifyUser(
+    cfg,
+    {
+      userId: dittoUserId,
+      traits: {
+        tenantId: event.tenantId,
+        siteId: event.siteId,
+        eventSource: 'project_sites_worker',
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 
   // Track the event
-  await trackEvent(cfg, {
-    userId: dittoUserId,
-    event: eventName,
-    properties: {
-      ...event.data,
-      tenantId: event.tenantId,
-      siteId: event.siteId,
+  await trackEvent(
+    cfg,
+    {
+      userId: dittoUserId,
+      event: eventName,
+      properties: {
+        ...event.data,
+        tenantId: event.tenantId,
+        siteId: event.siteId,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
 
 /**
@@ -120,14 +136,18 @@ export async function identifySiteOwner(
   const cfg = buildDittofeedConfig(env);
   if (!cfg) return;
 
-  await identifyUser(cfg, {
-    userId: payload.userId,
-    traits: {
-      orgId: payload.orgId,
-      email: payload.email,
-      siteId: payload.siteId,
-      plan: payload.plan,
-      siteCount: payload.siteCount,
+  await identifyUser(
+    cfg,
+    {
+      userId: payload.userId,
+      traits: {
+        orgId: payload.orgId,
+        email: payload.email,
+        siteId: payload.siteId,
+        plan: payload.plan,
+        siteCount: payload.siteCount,
+      },
     },
-  }, fetchImpl);
+    fetchImpl,
+  );
 }
