@@ -1,0 +1,55 @@
+{
+  "name": "ProjectSites Site Lifecycle Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "site-lifecycle",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "uuid-lifecycle-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "webhookId": "ps-site-lifecycle"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map lifecycle events to actions\nconst event = $input.first().json;\nconst actions = {\n  'site.created': { endpoint: '/sites', method: 'POST', body: event.data },\n  'site.published': { endpoint: '/sites/' + event.data.site_id + '/publish', method: 'POST' },\n  'site.deleted': { endpoint: '/sites/' + event.data.site_id, method: 'DELETE' },\n  'site.domain_added': { endpoint: '/sites/' + event.data.site_id + '/hostnames', method: 'POST', body: event.data }\n};\nconst action = actions[event.type];\nif (!action) throw new Error('Unknown event type: ' + event.type);\nreturn { action: action, event: event };"
+      },
+      "id": "uuid-lifecycle-route",
+      "name": "Route Event",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.action.method === 'POST' ? 'https://projectsites.dev/api' + $json.action.endpoint : '' }}",
+        "method": "={{ $json.action.method }}",
+        "sendBody": true
+      },
+      "id": "uuid-lifecycle-call",
+      "name": "Call ProjectSites API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"processed\", \"event\": \"{{ $('Route Event').first().json.event.type }}\" }"
+      },
+      "id": "uuid-lifecycle-response",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[ { "node": "Route Event", "type": "main", "index": 0 } ]] },
+    "Route Event": { "main": [[ { "node": "Call ProjectSites API", "type": "main", "index": 0 } ]] },
+    "Call ProjectSites API": { "main": [[ { "node": "Respond to Webhook", "type": "main", "index": 0 } ]] }
+  },
+  "settings": { "callerPolicy": "workflowsFromSameOwner" },
+  "staticData": null,
+  "tags": [{ "name": "projectsites" }, { "name": "lifecycle" }, { "name": "webhook" }]
+}

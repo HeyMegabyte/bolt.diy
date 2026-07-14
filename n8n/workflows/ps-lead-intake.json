@@ -1,0 +1,60 @@
+{
+  "name": "ProjectSites Lead Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "lead-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "uuid-lead-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "webhookId": "ps-lead-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate required fields\nconst lead = $input.first().json;\nif (!lead.email && !lead.phone) {\n  throw new Error('Lead must have email or phone');\n}\nif (!lead.name) {\n  throw new Error('Lead name is required');\n}\nreturn {\n  email: lead.email || null,\n  phone: lead.phone || null,\n  name: lead.name,\n  source: lead.source || 'n8n-webhook',\n  metadata: lead.metadata || {},\n  received_at: new Date().toISOString()\n};"
+      },
+      "id": "uuid-lead-validate",
+      "name": "Validate Lead",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "{{PS_CRM_ENDPOINT}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "lead", "value": "={{ JSON.stringify($json) }}" }
+          ]
+        }
+      },
+      "id": "uuid-lead-forward",
+      "name": "Forward to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"received\", \"lead_id\": \"{{ $('Forward to CRM').first().json.id || 'pending' }}\"}"
+      },
+      "id": "uuid-lead-response",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[ { "node": "Validate Lead", "type": "main", "index": 0 } ]] },
+    "Validate Lead": { "main": [[ { "node": "Forward to CRM", "type": "main", "index": 0 } ]] },
+    "Forward to CRM": { "main": [[ { "node": "Respond to Webhook", "type": "main", "index": 0 } ]] }
+  },
+  "settings": { "callerPolicy": "workflowsFromSameOwner" },
+  "staticData": null,
+  "tags": [{ "name": "projectsites" }, { "name": "crm" }, { "name": "webhook" }]
+}

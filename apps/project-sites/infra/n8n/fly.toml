@@ -1,0 +1,41 @@
+# n8n worker process — runs on Fly.io alongside the CF Container web/editor
+# Same Neon + Upstash + N8N_ENCRYPTION_KEY as the web process
+app = "projectsites-n8n-worker"
+primary_region = "ewr"
+
+[build]
+  image = "n8nio/n8n:2.28.3"
+
+[env]
+  NODE_ENV = "production"
+  GENERIC_TIMEZONE = "America/New_York"
+  TZ = "America/New_York"
+  DB_TYPE = "postgresdb"
+  DB_POSTGRESDB_PORT = "5432"
+  DB_POSTGRESDB_DATABASE = "n8n"
+  DB_POSTGRESDB_SSL_ENABLED = "true"
+  EXECUTIONS_MODE = "queue"
+  QUEUE_BULL_REDIS_PORT = "6379"
+  QUEUE_BULL_REDIS_TLS = "true"
+  N8N_HOST = "automations.projectsites.dev"
+  N8N_PROTOCOL = "https"
+  WEBHOOK_URL = "https://automations.projectsites.dev/"
+  N8N_EDITOR_BASE_URL = "https://automations.projectsites.dev/"
+  N8N_DIAGNOSTICS_ENABLED = "false"
+  N8N_VERSION_NOTIFICATIONS_ENABLED = "false"
+  N8N_TEMPLATES_ENABLED = "false"
+  N8N_DEFAULT_BINARY_DATA_MODE = "database"
+  EXECUTIONS_DATA_PRUNE = "true"
+  EXECUTIONS_DATA_MAX_AGE = "336"
+  EXECUTIONS_TIMEOUT = "300"
+  EXECUTIONS_TIMEOUT_MAX = "3600"
+  N8N_CONCURRENCY_PRODUCTION_LIMIT = "25"
+  N8N_COMMUNITY_PACKAGES_ENABLED = "false"
+
+[processes]
+  worker = "n8n worker"
+
+# ── Secrets (set via flyctl secrets set) ──────────────────────────────────
+# DB_POSTGRESDB_HOST, DB_POSTGRESDB_USER, DB_POSTGRESDB_PASSWORD
+# QUEUE_BULL_REDIS_HOST, QUEUE_BULL_REDIS_PASSWORD
+# N8N_ENCRYPTION_KEY

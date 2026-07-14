@@ -29,9 +29,14 @@ import { workbenchStore, type WorkbenchViewType } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { renderLogger } from '~/utils/logger';
+import { DataPanel } from './DataPanel';
 import { EditorPanel } from './EditorPanel';
+import { FunctionsPanel } from './FunctionsPanel';
+import { MediaPanel } from './MediaPanel';
 import { Preview } from './Preview';
+import { SettingsPanel } from './SettingsPanel';
 import { StatusBar } from './StatusBar.client';
+import { VisualEditor } from './VisualEditor.client';
 import { QuickJumpPalette, ShortcutsOverlay, openInStackBlitz, useEditorHotkeys } from './EditorOverlays.client';
 import useViewport from '~/lib/hooks';
 
@@ -365,15 +370,9 @@ export const Workbench = memo(
                       onFileReset={onFileReset}
                     />
                   </View>
-                  {/* Visual — GrapesJS-powered drag-and-drop editor (lazy) */}
+                  {/* Visual — GrapesJS-powered drag-and-drop editor */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('visual', selectedView) }}>
-                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="i-ph:paint-brush-duotone text-4xl" />
-                        <span className="text-sm">Visual editor — GrapesJS integration ready</span>
-                        <span className="text-xs">Mounts when Visual tab is active</span>
-                      </div>
-                    </div>
+                    {selectedView === 'visual' ? <VisualEditor /> : <div className="h-full bg-bolt-elements-background-depth-1" />}
                   </View>
                   {/* Preview — read-only rendered output */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
@@ -381,43 +380,19 @@ export const Workbench = memo(
                   </View>
                   {/* Media — site-scoped media manager */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('media', selectedView) }}>
-                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="i-ph:image-duotone text-4xl" />
-                        <span className="text-sm">Media — site-scoped asset manager</span>
-                        <span className="text-xs">Uploaded, AI-generated, and external media</span>
-                      </div>
-                    </div>
+                    <MediaPanel />
                   </View>
                   {/* Functions — Workers/functions manager */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>
-                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="i-ph:lightning-duotone text-4xl" />
-                        <span className="text-sm">Functions — Workers for Platforms manager</span>
-                        <span className="text-xs">Routes, handlers, bindings, deploy readiness</span>
-                      </div>
-                    </div>
+                    <FunctionsPanel />
                   </View>
-                  {/* Data — resource overview */}
+                  {/* Data — resource health overview */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
-                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="i-ph:chart-bar-duotone text-4xl" />
-                        <span className="text-sm">Data — resource health overview</span>
-                        <span className="text-xs">SQLite, Postgres, Redis, KV, R2 status</span>
-                      </div>
-                    </div>
+                    <DataPanel />
                   </View>
                   {/* Settings — site configuration */}
                   <View initial={{ x: '100%' }} animate={{ x: getViewX('settings', selectedView) }}>
-                    <div className="h-full flex items-center justify-center bg-bolt-elements-background-depth-1 text-bolt-elements-textTertiary">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="i-ph:gear-duotone text-4xl" />
-                        <span className="text-sm">Settings — site configuration</span>
-                        <span className="text-xs">Domains, SEO, export, deployment, resource plans</span>
-                      </div>
-                    </div>
+                    <SettingsPanel />
                   </View>
                 </div>
                 {/* Item 36 — StatusBar pinned to the bottom of the workbench */}

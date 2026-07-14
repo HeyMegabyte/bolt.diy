@@ -37,6 +37,9 @@ type Artifacts = MapStore<Record<string, ArtifactState>>;
 export type WorkbenchViewType = 'code' | 'visual' | 'preview' | 'media' | 'functions' | 'data' | 'settings';
 
 export class WorkbenchStore {
+  /** Per-route GrapesJS visual editor state — persists across tab switches + reloads. */
+  visualStates?: Map<string, { html: string; css: string }>;
+
   /**
    * Item 48: once-per-session sentinel for the `editor.first_save` funnel
    * event so we don't spam PostHog on every keystroke autosave.

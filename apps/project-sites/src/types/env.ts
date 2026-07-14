@@ -531,6 +531,12 @@ export interface Env {
   /** Shared secret for AgentBot webhook signature verification. */
   CHATWOOT_AGENT_BOT_SECRET?: string;
 
+  // ── Deepcrawl (website data extraction for site pipeline) ──
+  /** Deepcrawl v0 API worker base URL. If unset, Deepcrawl features are disabled. */
+  DEEPCRAWL_API_URL?: string;
+  /** Deepcrawl API key for authenticated endpoints. Required when AUTH_MODE=better-auth. */
+  DEEPCRAWL_API_KEY?: string;
+
   // ── psnotify (DO-based unified notifications, replaces Novu) ──
   /** psnotify DO binding. The notification center DO inbox + preferences. */
   PSNOTIFY_DO?: DurableObjectNamespace;

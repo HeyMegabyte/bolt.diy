@@ -17,6 +17,7 @@ primary_region = "iad"
   BOOTSTRAP = "false"
   DASHBOARD_API_BASE = "https://engage.projectsites.dev"
   ENABLE_WORKER = "false"
+  SESSION_COOKIE_SECURE = "true"
 
 [experimental]
   auto_rollback = false

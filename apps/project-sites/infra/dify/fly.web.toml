@@ -1,0 +1,36 @@
+# Dify Web (Next.js frontend) — Fly.io
+app = "projectsites-dify-web"
+
+[build]
+image = "langgenius/dify-web:1.10.1"
+
+[env]
+# API URL points to the Dify API Fly app
+NEXT_PUBLIC_API_PREFIX = "https://dify.projectsites.dev/console/api"
+NEXT_PUBLIC_PUBLIC_API_PREFIX = "https://dify.projectsites.dev/api"
+NEXT_PUBLIC_DEPLOY_ENV = "PRODUCTION"
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory_mb = 512
+
+[[services]]
+protocol = "tcp"
+internal_port = 3000
+processes = ["web"]
+
+  [[services.ports]]
+  port = 80
+  handlers = ["http"]
+
+  [[services.ports]]
+  port = 443
+  handlers = ["tls", "http"]
+
+  [services.http_service]
+  internal_port = 3000
+  force_https = true
+
+[processes]
+web = "node server.js"

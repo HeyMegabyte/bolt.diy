@@ -22,6 +22,8 @@ import { getApiKeysFromCookies } from './APIKeyManager';
 import Cookies from 'js-cookie';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import styles from './BaseChat.module.scss';
+import overlayStyles from './ChatOverlay.module.scss';
+import { useOverlayState, type OverlayState } from '~/lib/hooks/useOverlayState';
 import { ImportButtons } from '~/components/chat/chatExportAndImport/ImportButtons';
 import GitCloneButton from './GitCloneButton';
 import type { ProviderInfo } from '~/types/model';
@@ -491,81 +493,78 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     };
 
+    const overlay = useOverlayState({
+      isStreaming,
+      hasError: !!actionAlert || !!llmErrorAlert,
+    });
+
     const baseChat = (
       <div
         ref={ref}
         className={classNames(styles.BaseChat, 'relative flex h-full w-full overflow-hidden')}
         data-chat-visible={showChat}
+        data-overlay-state={chatStarted ? overlay.overlayState : undefined}
       >
-        <div className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
-          <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
-            <StickToBottom
-              className="pt-0 px-2 sm:px-6 relative h-full flex flex-col modern-scrollbar"
-              resize="smooth"
-              initial="smooth"
+        {/* Workbench — full-width when chatStarted, behind the overlay */}
+        <div className={classNames('flex-1 h-full', { 'w-full absolute inset-0': chatStarted })}>
+          <ClientOnly>
+            {() => (
+              <Suspense fallback={null}>
+                <Workbench chatStarted={chatStarted} isStreaming={isStreaming} setSelectedElement={setSelectedElement} />
+              </Suspense>
+            )}
+          </ClientOnly>
+        </div>
+
+        {/* Chat + prompt — sidebar when !chatStarted, floating overlay when chatStarted */}
+        {chatStarted ? (
+          /* ── Floating overlay mode ── */
+          <>
+            <div className={overlayStyles['ChatOverlay-backdrop']} />
+            <div
+              className={overlayStyles['ChatOverlay-chat']}
+              onMouseEnter={overlay.overlayProps.onMouseEnter}
             >
-              <StickToBottom.Content className="flex flex-col gap-4 relative ">
-                {!chatStarted && !heroState.embedded && (
-                  <div className="ps-hero mx-auto max-w-chat text-center pt-10 pb-2">
-                    <h1 className="ps-hero-title">
-                      {heroState.slug ? `Build for ${heroState.slug}` : 'Where ideas begin'}
-                    </h1>
-                    <p className="ps-hero-sub">
-                      Describe what you want to make and the AI will scaffold it.
-                    </p>
-                  </div>
-                )}
-                <ClientOnly>
-                  {() => {
-                    return chatStarted ? (
-                      <Messages
-                        className="flex flex-col w-full flex-1 max-w-chat pb-4 mx-auto z-1"
-                        messages={messages}
-                        isStreaming={isStreaming}
-                        append={append}
-                        chatMode={chatMode}
-                        setChatMode={setChatMode}
-                        provider={provider}
-                        model={model}
-                        addToolResult={addToolResult}
-                      />
-                    ) : null;
-                  }}
-                </ClientOnly>
-                <ScrollToBottom />
-              </StickToBottom.Content>
-              <div
-                className="my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6 sticky bottom-2"
-              >
+              <Messages
+                className="flex flex-col w-full max-w-chat mx-auto"
+                messages={messages}
+                isStreaming={isStreaming}
+                append={append}
+                chatMode={chatMode}
+                setChatMode={setChatMode}
+                provider={provider}
+                model={model}
+                addToolResult={addToolResult}
+              />
+            </div>
+            <div
+              className={overlayStyles['ChatOverlay-prompt']}
+              onMouseEnter={overlay.overlayProps.onMouseEnter}
+              onMouseLeave={overlay.overlayProps.onMouseLeave}
+              onFocusCapture={overlay.overlayProps.onFocus}
+              onBlurCapture={overlay.overlayProps.onBlur}
+            >
+              <div className="flex flex-col gap-2 w-full max-w-chat mx-auto">
                 <div className="flex flex-col gap-2">
                   {deployAlert && (
                     <DeployChatAlert
                       alert={deployAlert}
                       clearAlert={() => clearDeployAlert?.()}
-                      postMessage={(message: string | undefined) => {
-                        sendMessage?.({} as any, message);
-                        clearSupabaseAlert?.();
-                      }}
+                      postMessage={(message: string | undefined) => { sendMessage?.({} as any, message); clearSupabaseAlert?.(); }}
                     />
                   )}
                   {supabaseAlert && (
                     <SupabaseChatAlert
                       alert={supabaseAlert}
                       clearAlert={() => clearSupabaseAlert?.()}
-                      postMessage={(message) => {
-                        sendMessage?.({} as any, message);
-                        clearSupabaseAlert?.();
-                      }}
+                      postMessage={(message) => { sendMessage?.({} as any, message); clearSupabaseAlert?.(); }}
                     />
                   )}
                   {actionAlert && (
                     <ChatAlert
                       alert={actionAlert}
                       clearAlert={() => clearAlert?.()}
-                      postMessage={(message) => {
-                        sendMessage?.({} as any, message);
-                        clearAlert?.();
-                      }}
+                      postMessage={(message) => { sendMessage?.({} as any, message); clearAlert?.(); }}
                     />
                   )}
                   {llmErrorAlert && (
@@ -575,25 +574,61 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   )}
                 </div>
                 {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
-                {chatStarted && messages && messages.length > 0 && (
-                  <PromptSuggestions
-                    messages={messages}
-                    isStreaming={isStreaming}
-                    onPick={pickSuggestion}
-                  />
+                {messages && messages.length > 0 && (
+                  <PromptSuggestions messages={messages} isStreaming={isStreaming} onPick={pickSuggestion} />
                 )}
                 <div className="relative">
-                  <FileMentionMenu
-                    query={mentionQuery}
-                    onSelect={pickMention}
-                    onClose={() => setMentionQuery(null)}
-                  />
+                  <FileMentionMenu query={mentionQuery} onSelect={pickMention} onClose={() => setMentionQuery(null)} />
                   {input && input.length > 0 && (
-                    <div className="flex justify-end mb-1 px-1">
-                      <CostEstimateBadge input={input} model={model} />
-                    </div>
+                    <div className="flex justify-end mb-1 px-1"><CostEstimateBadge input={input} model={model} /></div>
                   )}
                 </div>
+                <ChatBox
+                  isModelSettingsCollapsed={isModelSettingsCollapsed} setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
+                  provider={provider} setProvider={setProvider} providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
+                  model={model} setModel={setModel} modelList={modelList} apiKeys={apiKeys}
+                  isModelLoading={isModelLoading} onApiKeysChange={onApiKeysChange}
+                  uploadedFiles={uploadedFiles} setUploadedFiles={setUploadedFiles}
+                  imageDataList={imageDataList} setImageDataList={setImageDataList}
+                  textareaRef={textareaRef} input={input}
+                  handleInputChange={handleInputChange} handlePaste={handlePaste}
+                  TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT} TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
+                  isStreaming={isStreaming} handleStop={handleStop} handleSendMessage={handleSendMessage}
+                  enhancingPrompt={enhancingPrompt} enhancePrompt={enhancePrompt}
+                  isListening={isListening} startListening={startListening} stopListening={stopListening}
+                  chatStarted={chatStarted} exportChat={exportChat}
+                  qrModalOpen={qrModalOpen} setQrModalOpen={setQrModalOpen}
+                  handleFileUpload={handleFileUpload} chatMode={chatMode} setChatMode={setChatMode}
+                  designScheme={designScheme} setDesignScheme={setDesignScheme}
+                  selectedElement={selectedElement} setSelectedElement={setSelectedElement}
+                  onWebSearchResult={onWebSearchResult}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ── Sidebar mode (pre-chat) ── */
+          <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
+            <StickToBottom
+              className="pt-0 px-2 sm:px-6 relative h-full flex flex-col modern-scrollbar"
+              resize="smooth"
+              initial="smooth"
+            >
+              <StickToBottom.Content className="flex flex-col gap-4 relative ">
+                {!heroState.embedded && (
+                  <div className="ps-hero mx-auto max-w-chat text-center pt-10 pb-2">
+                    <h1 className="ps-hero-title">
+                      {heroState.slug ? `Build for ${heroState.slug}` : 'Where ideas begin'}
+                    </h1>
+                    <p className="ps-hero-sub">
+                      Describe what you want to make and the AI will scaffold it.
+                    </p>
+                  </div>
+                )}
+                <ScrollToBottom />
+              </StickToBottom.Content>
+              <div className="my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6 sticky bottom-2">
+                {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
                 <ChatBox
                   isModelSettingsCollapsed={isModelSettingsCollapsed}
                   setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
@@ -640,17 +675,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
               </div>
             </StickToBottom>
           </div>
-          <ClientOnly>
-            {() => (
-              // Item 3: Suspense boundary lets the chat surface paint while
-              // the workbench chunk downloads. Empty fallback because the
-              // workbench is offscreen until `chatStarted` flips true.
-              <Suspense fallback={null}>
-                <Workbench chatStarted={chatStarted} isStreaming={isStreaming} setSelectedElement={setSelectedElement} />
-              </Suspense>
-            )}
-          </ClientOnly>
-        </div>
+        )}
       </div>
     );
 

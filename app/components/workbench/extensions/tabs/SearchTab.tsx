@@ -26,7 +26,7 @@ const KIND_ICONS: Record<SearchResult['kind'], string> = {
   schema: 'i-ph:table',
 };
 
-export const SearchTab = memo(() => {
+const SearchTab = memo(() => {
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<string>('all');
   const files = useStore(workbenchStore.files);
@@ -38,11 +38,13 @@ export const SearchTab = memo(() => {
     const out: SearchResult[] = [];
 
     if (files) {
-      for (const [path, file] of Object.entries(files)) {
+      for (const [path, entry] of Object.entries(files)) {
+        if (!entry || entry.type !== 'file') continue;
+        const file = entry;
         const nameMatch = path.toLowerCase().includes(q);
         let contentMatch = false;
 
-        if (file.type === 'file' && file.content) {
+        if (file.content) {
           const lines = file.content.split('\n');
           for (let i = 0; i < lines.length; i++) {
             if ((lines[i] ?? '').toLowerCase().includes(q)) {
@@ -148,3 +150,5 @@ export const SearchTab = memo(() => {
 });
 
 SearchTab.displayName = 'SearchTab';
+
+export default SearchTab;

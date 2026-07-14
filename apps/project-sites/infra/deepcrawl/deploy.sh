@@ -99,23 +99,35 @@ echo "→ Deploying dashboard container to CF Workers..."
 cd "${SCRIPT_DIR}"
 wrangler deploy --env production
 
+# 6. Deploy Firecrawl-compatible bridge worker
+echo "→ Deploying Firecrawl bridge worker..."
+cd "${SCRIPT_DIR}/firecrawl-bridge"
+wrangler deploy
+cd "${SCRIPT_DIR}"
+
 echo ""
 echo "=== Deploy complete ==="
-echo "Dashboard: https://deepcrawl.projectsites.dev"
+echo "Dashboard:       https://deepcrawl.projectsites.dev"
+echo "API Worker:      https://api.deepcrawl.projectsites.dev"
+echo "Bridge:          https://firecrawl-bridge.projectsites.dev"
 echo ""
-echo "Next steps:"
-echo "  1. Deploy v0 API Worker from deepcrawl repo:"
-echo "     cd ${DEEPCRAWL_DIR}/apps/workers/v0"
-echo "     # Edit wrangler.jsonc: change route to api.deepcrawl.projectsites.dev"
-echo "     # Update vars: BETTER_AUTH_URL=https://deepcrawl.projectsites.dev"
-echo "     wrangler secret put BETTER_AUTH_SECRET --env production"
-echo "     wrangler secret put JWT_SECRET --env production"
-echo "     wrangler deploy --env production --minify"
+echo "Firecrawl MCP config (add to ~/.claude.json):"
+echo '  "firecrawl": {'
+echo '    "command": "npx",'
+echo '    "args": ["-y", "mcp-server-firecrawl"],'
+echo '    "env": {'
+echo '      "FIRE_CRAWL_API_URL": "https://firecrawl-bridge.projectsites.dev",'
+echo '      "FIRE_CRAWL_API_KEY": ""'
+echo '    }'
+echo '  }'
 echo ""
-echo "  2. Add DNS CNAMEs (if not auto-provisioned):"
-echo "     deepcrawl.projectsites.dev → projectsites-deepcrawl.projectsites.workers.dev"
-echo "     api.deepcrawl.projectsites.dev → deepcrawl-worker-v0.projectsites.workers.dev"
+echo "Or use the local deepcrawl-mcp (no deploy needed):"
+echo '  "deepcrawl-mcp": {'
+echo '    "command": "npx",'
+echo '    "args": ["-y", "deepcrawl-mcp@latest"]'
+echo '  }'
 echo ""
-echo "  3. Verify:"
-echo "     curl -sI https://deepcrawl.projectsites.dev/login | head -1"
-echo "     curl -s https://api.deepcrawl.projectsites.dev/ | head -1"
+echo "Verify:"
+echo "  curl -sI https://deepcrawl.projectsites.dev/login | head -1"
+echo "  curl -s https://api.deepcrawl.projectsites.dev/ | head -1"
+echo "  curl -s https://firecrawl-bridge.projectsites.dev/health | head -1"

@@ -8,6 +8,7 @@ primary_region = "ewr"
   BROWSER_WS_PORT = "3001"
   BROWSER_HEALTH_PORT = "3002"
   NODE_ENV = "production"
+  BROWSER_WS_HOST = "projectsites-maxun-browser.internal"
 
 [[services]]
   protocol = "tcp"
@@ -15,6 +16,12 @@ primary_region = "ewr"
 
   [[services.ports]]
     port = 3002
+
+  [[services.tcp_checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "120s"
+    restart_limit = 3
 
 [[vm]]
   memory = "2gb"

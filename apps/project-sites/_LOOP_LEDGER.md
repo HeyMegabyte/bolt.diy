@@ -6,11 +6,26 @@
 >
 > **The finishing-loop cron drains this file.**
 >
-> **📦 Last ship: 2026-07-01 — Chatwoot deployed (support.projectsites.dev 200), Chatwoot CE forked (ProfessorManhattan/chatwoot), AI Triage Engine shipped (Workers AI Llama 3.3), Multi-Language Pipeline built, Tinybird analytics datasource created, 50-idea research complete, Phase 1-5 roadmap published.** See § Ship Log below.
+> **📦 Last ship: 2026-07-01 — Chatwoot deployed (support.projectsites.dev 200), Chatwoot CE forked (ProfessorManhattan/chatwoot), AI Triage Engine shipped (Workers AI Llama 3.3), Multi-Language Pipeline built, Tinybird analytics datasource created, 50-idea research complete, Phase 1-5 roadmap published, 10 Deepcrawl integration specs added to ledger, Firecrawl-compatible bridge deployed (firecrawl-bridge.projectsites.dev 200).** See § Ship Log below.
 
 ---
 
-## 📦 Ship Log — 2026-06-29
+## 📦 Ship Log — 2026-07-01
+
+### Deepcrawl integration blueprint + Firecrawl bridge LIVE
+
+| What | Status | Files |
+|------|--------|-------|
+| 50 Deepcrawl integration ideas (research) | ✅ | Top-20 curated, 10 specced for implementation |
+| 10 Deepcrawl specs in _LOOP_LEDGER | ✅ | § 🕷 Deepcrawl Integration (after Chatwoot, before Tier 2) |
+| Firecrawl-compatible bridge deployed | ✅ | `firecrawl-bridge.projectsites.dev` 200, workers.dev URL verified |
+| Deepcrawl dashboard container staged | 🔧 | Dockerfile + wrangler.toml + worker.ts ready, needs `wrangler deploy` |
+| Neon DB `projectsites_deepcrawl` | ✅ | Provisioned, connection string ready |
+| `deepcrawl-mcp` npm tested | ✅ | Local scrape works, 4 MCP tools verified |
+| Deepcrawl API client spec | 📋 | `src/services/deepcrawl.ts` — typed client for all 10 integrations |
+| Docs | ✅ | `docs/projectsites-deepcrawl.md` — architecture, MCP mapping, curl examples |
+
+### 2026-06-29
 
 ### Monumental Platform Initiatives spec'd (2026-06-29)
 
@@ -545,6 +560,242 @@ collaboration surface that sells upgrades.
 3. **Ship Saved Reply Library** — Update seed script to use Chatwoot API, add AI search
 4. **Build SLA Worker** — #2 is the highest-value missing piece for slow-response fix
 5. **Customer 360 Dashboard App** — #5 is the biggest agent-efficiency unlock
+
+---
+
+## 🕷 Deepcrawl Integration — Site Pipeline Supercharger (2026-07-01)
+
+> Deepcrawl is deployed at `deepcrawl.projectsites.dev` (dashboard) +
+> `api.deepcrawl.projectsites.dev` (API worker) + `firecrawl-bridge.projectsites.dev`
+> (Firecrawl-compatible bridge). These 10 specs wire it into the ProjectSites site
+> generation pipeline: research → build → verify → monitor → revenue.
+>
+> Each spec is a standalone feature module behind its own flag (dark-launch at
+> `experimental, enabled=0, rollout=0`). Promote individually through
+> experimental→beta→stable. Pure logic ships first (zero-I/O services); wiring
+> into the build pipeline + routes follows.
+>
+> **Architecture decisions (2026-07-01):**
+> - **Flags:** one per spec, never auto-activate on env var
+> - **#4 cutover:** run old scraper + Deepcrawl in parallel for 30 days, compare, drop old scraper
+> - **#2 severity:** log-only (D1 audit) during experimental; block publish at beta/stable
+> - **#6 billing:** Lago metered (per-monitor usage events), not flat plan add-on
+>
+> **Deepcrawl client:** `src/services/deepcrawl.ts` (✅ CREATED) — typed API client
+> calling `api.deepcrawl.projectsites.dev` with the ProjectSites internal API key.
+> All 10 specs below call this one client.
+
+### #1 — Competitor Research Automation [replace Phase -1 manual crawl]
+
+**What:** Deepcrawl top 5-10 competitor sites → structured data → 100-pt rubric scoring.
+Sets the floor every build must clear by ≥15% per `competitor-research.md`.
+
+**Implementation:**
+- [ ] `services/competitor_research.ts` — pure `researchCompetitors(deepcrawl, urls[])`:
+  crawl each → extract title/meta/OG/h1/JSON-LD/images/lighthouse-scores →
+  score on 10 dims × 10pts (visual/IA/copy/conversion/SEO+AI-search/perf/a11y/trust/AI-native/distinctiveness) →
+  return `{perCompetitor: ScoreCard[], aggregate: CompetitorFloor}`
+- [ ] `services/competitor_floor.ts` — pure `checkAgainstFloor(site, floor)` →
+  `{cleared, gaps[]}` — a build can't exit Phase 6 until every dim clears the MAX-of-competitors + 15%
+- [ ] Wire into `site-generation.ts` Phase -1 (research step) — crawl competitors, persist `_competitors/*_score.json`, set floor
+- [ ] Reuse existing `_competitor_aggregate.json` + `_competitor_gaps.md` conventions
+- [ ] Flag: `deepcrawl_competitor_research` (experimental, default-off, env: `DEEPCRAWL_API_URL` must be set)
+
+**Files:** `services/competitor_research.ts`, `services/competitor_floor.ts`, wire into `site-generation.ts`
+
+### #2 — Automated SEO Audit (Post-Deploy Gate)
+
+**What:** Post-build crawl of every generated page: title length, meta desc, H1 count,
+schema presence, canonical, OG image, sitemap lastmod. Feed violations into
+`validator-fixer` agent.
+
+**Implementation:**
+- [ ] `services/seo_audit_crawler.ts` — pure `auditSiteSeo(deepcrawl, baseUrl, routes[])`:
+  crawl each route → extract `<title>` length (50-60 gate), `<meta description>` (120-156 gate),
+  H1 count (exactly 1), JSON-LD block count (≥4), canonical presence, OG image dimensions,
+  sitemap entries with `<lastmod>` → return `SeoAuditReport{violations[], score, passedRoutes, failedRoutes}`
+- [ ] Map each violation to the 13 `build_validators.ts` invariant codes
+- [ ] Wire as a post-deploy step in `site-generation.ts` — run after R2 upload, before `published` status flip
+- [ ] **Log-only during experimental** — report violations to D1 `audit_logs`, never block publish
+- [ ] At beta/stable: flip to `strict` mode — violations block publish (site → `error` status)
+- [ ] Flag: `deepcrawl_seo_audit` (experimental, default-off)
+
+**Files:** `services/seo_audit_crawler.ts`, wire into `site-generation.ts` + `build_validators.ts`
+
+### #4 — Source Site Deep Crawl (Replace Current Scraper)
+
+**What:** Replace the existing scraping infrastructure with Deepcrawl's
+markdown + metadata + link-tree output. Single biggest quality lift for the
+entire generation pipeline.
+
+**Implementation:**
+- [ ] `services/deepcrawl_source.ts` — pure `crawlSourceSite(deepcrawl, url)`:
+  1. Call `/links?url=…&depth=6` to discover all source URLs
+  2. Call `/read` on every page → `{markdown, metadata, links, images}`
+  3. Classify each page: keep / merge / 301 / drop (per source-site-enhancement.md)
+  4. Return `SourceCrawlResult{pages: PageData[], ia: IAPlan, assets: AssetInventory}`
+- [ ] Replace the current scraper in Phase 0 with Deepcrawl — one call replaces the multi-API scrape chain
+- [ ] Feed output into existing `_scraped_content.json` format for backward compat
+- [ ] **30-day parallel run:** run old scraper + Deepcrawl side-by-side, compare output quality
+- [ ] After 30 days green: drop old scraper, Deepcrawl becomes sole source crawler
+- [ ] Flag: `deepcrawl_source_crawl` (experimental, default-off, promote to stable after parallel run green)
+
+**Files:** `services/deepcrawl_source.ts`, modify `site-generation.ts` Phase 0 research step
+
+### #5 — Agent-Ready Site Context (MCP + Public API)
+
+**What:** Expose every generated site as a clean markdown corpus for AI agents via
+MCP tools and a public API. Platform-level moat — no other website builder gives
+agents structured access to built sites.
+
+**Implementation:**
+- [ ] `services/site_context_mcp.ts` — MCP tool definitions (oRPC contract):
+  `projectsites.readSite(slug)` → full site as markdown corpus
+  `projectsites.readPage(slug, path)` → single page markdown
+  `projectsites.getSiteMap(slug)` → link tree + page summaries
+  `projectsites.searchSite(slug, query)` → semantic search across site pages
+- [ ] `routes/mcp_site_context.ts` — Hono routes implementing MCP protocol
+- [ ] Per-site `llms.txt` auto-generation on publish (Markdown listing all routes + summaries)
+- [ ] Per-site `/llms.txt` endpoint on every `{slug}.projectsites.dev/llms.txt`
+- [ ] Flag: `deepcrawl_agent_context` (experimental, default-off)
+
+**Files:** `services/site_context_mcp.ts`, `routes/mcp_site_context.ts`, modify `site_serving.ts` for llms.txt
+
+### #6 — Competitor Monitor Dashboard ($29/mo Add-On)
+
+**What:** Recurring revenue add-on. Track 3-5 competitor websites per client,
+detect changes, send weekly email reports. Firecrawl customers pay $19-299/mo
+for this — proven market, zero marginal cost.
+
+**Implementation:**
+- [ ] `services/competitor_monitor.ts` — core engine:
+  `createMonitor(siteId, competitorUrls[])` → D1 row
+  `runMonitorCheck(deepcrawl, monitor)` → crawl each competitor → diff vs prior snapshot →
+    detect: new pages, removed pages, content changes, design/layout changes, new pricing,
+    new features → `MonitorReport{changes[], diffSummary, snapshotId}`
+  `scheduleMonitorCheck(env, monitorId)` — Cron/Queue trigger
+- [ ] `services/competitor_diff.ts` — pure `diffPageSnapshots(prev, current)` →
+  content similarity (cosine), structural changes (link tree delta), metadata changes
+- [ ] D1 tables: `competitor_monitors` (site_id FK, urls JSON, frequency, tier), `competitor_snapshots`
+- [ ] `routes/competitor_monitor.ts` — CRUD + manual-check trigger
+- [ ] Email: weekly digest via Resend/SES using existing notify path
+- [ ] **Billing: Lago metered** — `competitor_monitor_check` usage events per check, NOT a flat plan add-on
+- [ ] Flag: `competitor_monitor` (experimental, default-off, paid-tier only)
+
+**Files:** `services/competitor_monitor.ts`, `services/competitor_diff.ts`, `routes/competitor_monitor.ts`,
+D1 migrations, `src/services/notifications.ts` (add competitor-digest template)
+
+### #7 — Broken Link + Content Rot Detection [Daily Monitor]
+
+**What:** Daily crawl of all published ProjectSites, flag 404s, broken assets, stale content,
+missing required files. Turns site hosting from "deploy and forget" into an ongoing
+service relationship. Feeds the Site Doctor dashboard.
+
+**Implementation:**
+- [ ] `services/site_health_monitor.ts` — pure `checkSiteHealth(deepcrawl, site)`:
+  1. Crawl all internal links → flag 4xx/5xx, redirect chains
+  2. Check all `<img>`/`<link>`/`<script>` → flag 404 assets
+  3. Verify sitemap entries all resolve
+  4. Check required files exist (`site.webmanifest`, `robots.txt`, `humans.txt`, etc.)
+  5. Score 0-100 health → `SiteHealthReport{score, issues[], warnings[]}`
+- [ ] `services/site_staleness.ts` — pure `checkContentStaleness(site)`:
+  detect pages unchanged >90 days, flag for refresh suggestion
+- [ ] Cron: `scheduled/health-monitor.ts` — iterates published sites, runs checks, logs to D1
+- [ ] Feed health scores into existing `site_doctor` + `prod_readiness_score` pipeline
+- [ ] Flag: `deepcrawl_health_monitor` (experimental, default-off)
+
+**Files:** `services/site_health_monitor.ts`, `services/site_staleness.ts`, `scheduled/health-monitor.ts`
+
+### #8 — Pre-Flight Research Agent [Autonomous Phase 0]
+
+**What:** Before any site build: Deepcrawl Google Places, Yelp, BBB, social profiles,
+existing website, Secretary of State filings. Assembles the full `_research.json`
+autonomously. Closes the Phase 0 context-saturation gap.
+
+**Implementation:**
+- [ ] `services/preflight_research.ts` — pure `runPreflightResearch(deepcrawl, business)`:
+  1. Deepcrawl the existing website (if any) → full content + structure
+  2. Deepcrawl Google Places listing → hours, photos, reviews, categories
+  3. Deepcrawl Yelp page → reviews, rating, price range
+  4. Deepcrawl BBB profile → rating, accreditation, complaints
+  5. Deepcrawl social profiles (Facebook, Instagram, LinkedIn) → follower counts, content
+  6. Deepcrawl SoS filings → legal name, incorporation date, status
+  7. Assemble `_research.json` with confidence scores per data point
+- [ ] Replace the current multi-API research phase with a single orchestrated call
+- [ ] Every data source is optional — missing/failed source degrades gracefully
+- [ ] Flag: `deepcrawl_preflight` (experimental, default-off)
+
+**Files:** `services/preflight_research.ts`, modify `site-generation.ts` Phase 0 research step
+
+### #10 — Content Inventory & IA Generator
+
+**What:** Crawl source sitemap → classify every page (keep/merge/301/drop) →
+generate information architecture with nav structure. Automates the most
+labor-intensive part of site rebuilds.
+
+**Implementation:**
+- [ ] `services/ia_generator.ts` — pure `generateIA(deepcrawl, sourceUrl)`:
+  1. Discover all source URLs via sitemap.xml + link crawl
+  2. Classify per `source-site-enhancement.md` rules:
+     - `/home` → `/` (301)
+     - `/our-mission-1`, `/blog-1`, `/testpage`, `/new-page-*` → drop or 301
+     - Squarespace random IDs → semantic + 301
+     - `/health-clinic` → `/services/health-clinic`
+  3. Generate IA tree: mega-menu for >12 routes, faceted nav, on-site search
+  4. Return `IAPlan{routes: RouteMapping[], nav: NavTree, redirects: RedirectMap}`
+- [ ] Wire into Phase 0 of `site-generation.ts` → output becomes the build plan
+- [ ] Flag: `deepcrawl_ia_generator` (experimental, default-off)
+
+**Files:** `services/ia_generator.ts`, modify `site-generation.ts` Phase 0
+
+### #14 — Bulk Site Migration Validator
+
+**What:** When updating templates across hundreds of sites: Deepcrawl before/after,
+assert every URL preserved, every image migrated, no content loss, no 404 regressions.
+
+**Implementation:**
+- [ ] `services/migration_validator.ts` — pure `validateMigration(deepcrawl, oldSite, newSite)`:
+  1. Crawl all old-site URLs → `OldSiteSnapshot{urls[], assets[]}`
+  2. Crawl all new-site URLs → `NewSiteSnapshot{urls[], assets[]}`
+  3. Diff: missing URLs (should be 301'd), missing images, changed titles, lost JSON-LD
+  4. Return `MigrationReport{passed:bool, missing[], changed[], 404s[]}`
+- [ ] `routes/migration_validator.ts` — admin-only `POST /api/admin/sites/validate-migration`
+  (accepts old-slug + new-slug)
+- [ ] Batch mode: validate 100+ sites during template rollout
+- [ ] Flag: `deepcrawl_migration_validator` (experimental, default-off, admin-only)
+
+**Files:** `services/migration_validator.ts`, `routes/migration_validator.ts`
+
+### #16 — Image Discovery & Augmentation Pipeline
+
+**What:** Deepcrawl all source images → extract dimensions/alt/context →
+feed into the 1.4-2.0× augmentation pipeline. Ensures the "minimum 10 unique
+images per site" invariant is data-driven.
+
+**Implementation:**
+- [ ] `services/image_discovery_crawler.ts` — pure `discoverSourceImages(deepcrawl, sourceUrl)`:
+  1. Crawl source site → extract every `<img>` src, CSS `background-image:` URL,
+     `<link rel="apple-touch-icon">`, `og:image`, favicon chain
+  2. For each: HEAD-check, get dimensions, file size, format
+  3. Score quality: resolution ≥800px, no watermarks, professional composition (GPT-4o vision)
+  4. Return `ImageInventory{images[], heroCandidates[], logoCandidates[], galleryGroups[]}`
+- [ ] Feed into existing `image_discovery.ts` + `image_generation.ts` augmentation pipeline
+- [ ] Assert `augmented.length >= original.length * 0.4` (validator-fixer gate)
+- [ ] Flag: `deepcrawl_image_discovery` (experimental, default-off)
+
+**Files:** `services/image_discovery_crawler.ts`, modify `site-generation.ts` asset phase
+
+### Shared: Deepcrawl API Client
+
+- [ ] `src/services/deepcrawl.ts` — typed `DeepcrawlClient` class:
+  `readUrl(url, opts?)` → `DeepcrawlPage`
+  `extractLinks(url, opts?)` → `DeepcrawlLinkTree`
+  `getMarkdown(url)` → `string`
+  `crawlSite(url, depth, limit)` → `DeepcrawlPage[]`
+  `siteMap(url)` → `string[]`
+  `healthCheck()` → `boolean`
+  With Zod-validated responses, retry (3× exponential backoff), `DEEPCRAWL_API_KEY` from env,
+  `DEEPCRAWL_API_URL` default `https://api.deepcrawl.projectsites.dev`.
 
 ---
 

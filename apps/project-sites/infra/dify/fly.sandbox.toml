@@ -1,0 +1,32 @@
+# Dify Sandbox (code execution) — Fly.io
+# Security boundary for running untrusted code.
+# Accessible only via Fly private network — NOT exposed publicly.
+app = "projectsites-dify-sandbox"
+
+[build]
+image = "langgenius/dify-sandbox:0.2.12"
+
+[env]
+SANDBOX_API_KEY = "dify-sandbox"
+GIN_MODE = "release"
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory_mb = 512
+
+[[services]]
+protocol = "tcp"
+internal_port = 8194
+processes = ["sandbox"]
+
+  [[services.ports]]
+  port = 80
+  handlers = ["http"]
+
+  [services.http_service]
+  internal_port = 8194
+  force_https = false
+
+[processes]
+sandbox = "/main"

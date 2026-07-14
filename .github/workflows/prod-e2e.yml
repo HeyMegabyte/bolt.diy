@@ -132,3 +132,61 @@ jobs:
           name: playwright-prod-report-frontend
           path: apps/project-sites/frontend/playwright-report/
           retention-days: 7
+
+  # Sign-in real-credentials suite (signin-real-chrome.e2e.ts) — authenticates
+  # as brian@megabyte.space via POST /api/auth/test-login with E2E_TEST_PASSWORD,
+  # then verifies /admin loads with zero console errors. Gated on E2E_TEST_PASSWORD
+  # being present: when unset the step SKIPS (fail-open).
+  prod-e2e-signin:
+    name: Playwright sign-in (real credentials) @ prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check E2E_TEST_PASSWORD is configured
+        id: gate
+        env:
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: |
+          if [ -n "$E2E_TEST_PASSWORD" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_TEST_PASSWORD secret not set — skipping sign-in E2E (fail-open)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.has_key == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+
+      - name: Install deps
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run sign-in E2E (real credentials)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        env:
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          PROD_URL: https://projectsites.dev
+        run: |
+          npx playwright test --config=playwright.prod.config.ts \
+            e2e/signin-green.e2e.ts e2e/signin-real-chrome.e2e.ts
+
+      - name: Upload Playwright report
+        if: steps.gate.outputs.has_key == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-signin-report
+          path: apps/project-sites/frontend/playwright-report/
+          retention-days: 7

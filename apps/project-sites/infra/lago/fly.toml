@@ -1,0 +1,39 @@
+app = "projectsites-lago"
+primary_region = "iad"
+
+[build]
+  image = "ghcr.io/getlago/api:latest"
+
+[env]
+  RAILS_ENV = "production"
+  LAGO_REDIS_URL = "PLACEHOLDER_REDIS"
+  LAGO_DATABASE_URL = "PLACEHOLDER_DB"
+  LAGO_CLICKHOUSE_URL = "http://ch.projectsites.dev:8123"
+  LAGO_CLICKHOUSE_DATABASE = "lago"
+  LAGO_CLICKHOUSE_USERNAME = "dittofeed"
+  LAGO_CLICKHOUSE_PASSWORD = "PLACEHOLDER_CH_PASS"
+  LAGO_FRONT_URL = "https://billing.projectsites.dev"
+  LAGO_API_URL = "https://billing.projectsites.dev"
+  LAGO_SECRET_KEY = "PLACEHOLDER_SECRET"
+  LAGO_LICENSE = "PLACEHOLDER_LICENSE"
+
+[experimental]
+  auto_rollback = false
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4096mb"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 3000
+    handlers = ["http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "15s"
+    method = "GET"
+    path = "/health"

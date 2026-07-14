@@ -31,7 +31,7 @@ const TYPE_ICONS: Record<RedisKey['type'], string> = {
   stream: 'i-ph:waveform',
 };
 
-export const RedisTab = memo(() => {
+const RedisTab = memo(() => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
@@ -118,3 +118,5 @@ export const RedisTab = memo(() => {
 });
 
 RedisTab.displayName = 'RedisTab';
+
+export default RedisTab;

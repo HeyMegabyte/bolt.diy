@@ -41,5 +41,11 @@ export default defineConfig({
     // lets the whole suite fan out across CF's browser fleet in parallel.
     ...(cfBrowserWs ? { connectOptions: { wsEndpoint: cfBrowserWs } } : {}),
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chrome',
+      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    },
+  ],
 });

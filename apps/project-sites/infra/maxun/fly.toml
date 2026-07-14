@@ -7,13 +7,14 @@ primary_region = "ewr"
 [env]
   BACKEND_PORT = "8080"
   NODE_ENV = "production"
-  MINIO_ENDPOINT = "localhost"
-  MINIO_PORT = "9000"
   MAXUN_TELEMETRY = "false"
 
-[mounts]
-  source = "minio_data"
-  destination = "/data/minio"
+  # R2 storage (replaces MinIO)
+  MINIO_ENDPOINT = "84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com"
+  MINIO_PORT = "443"
+  MINIO_USE_SSL = "true"
+  MINIO_REGION = "auto"
+  MINIO_PUBLIC_URL = "https://maxun.projectsites.dev/storage"
 
 [[services]]
   protocol = "tcp"

@@ -1,0 +1,20 @@
+name = "projectsites-dify"
+main = "worker.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
+
+# dify.projectsites.dev → this worker
+routes = [
+  { pattern = "dify.projectsites.dev", custom_domain = true },
+]
+
+[observability]
+enabled = true
+
+# Dify backend origins (Fly.io .fly.dev domains — set via vars)
+[vars]
+DIFY_API_ORIGIN = "https://projectsites-dify.fly.dev"
+DIFY_WEB_ORIGIN = "https://projectsites-dify-web.fly.dev"
+
+# No secrets at Worker level — all handled by Fly env vars

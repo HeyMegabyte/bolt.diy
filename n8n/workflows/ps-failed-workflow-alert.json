@@ -1,0 +1,36 @@
+{
+  "name": "ProjectSites Failed Workflow Alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "uuid-alert-error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "{{PS_ALERT_ENDPOINT}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "workflow_name", "value": "={{ $('Error Trigger').first().json.workflow.name }}" },
+            { "name": "error_message", "value": "={{ $('Error Trigger').first().json.error.message }}" },
+            { "name": "execution_id", "value": "={{ $('Error Trigger').first().json.execution.id }}" }
+          ]
+        }
+      },
+      "id": "uuid-alert-http",
+      "name": "Post Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300]
+    }
+  ],
+  "connections": {
+    "Error Trigger": { "main": [[ { "node": "Post Alert", "type": "main", "index": 0 } ]] }
+  },
+  "settings": { "callerPolicy": "workflowsFromSameOwner" },
+  "staticData": null,
+  "tags": [{ "name": "projectsites" }, { "name": "alerting" }]
+}

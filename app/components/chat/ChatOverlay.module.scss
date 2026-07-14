@@ -1,0 +1,167 @@
+/**
+ * Chat + Prompt floating overlay system over .z-workbench.
+ *
+ * Layers (bottom to top):
+ *   1. .z-workbench — full-canvas editor/preview surface
+ *   2. .ChatOverlay-backdrop — semi-transparent backdrop behind chat
+ *   3. .ChatOverlay-chat — floating chat panel, top:~40% to prompt top
+ *   4. .ChatOverlay-prompt — floating prompt input, bottom:0, 100% width
+ *
+ * State machine drives visibility:
+ *   hidden → peek → visible → focused → busy
+ */
+
+.ChatOverlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  /* Gradient from transparent at top to semi-opaque at chat area */
+  background: linear-gradient(
+    to bottom,
+    transparent 35%,
+    var(--bolt-elements-background-depth-1, rgba(0, 0, 0, 0.7)) 45%,
+    var(--bolt-elements-background-depth-1, rgba(0, 0, 0, 0.85)) 100%
+  );
+}
+
+.ChatOverlay-chat {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Top at ~40%, bottom above the prompt area (~72px + 16px gap) */
+  top: 40%;
+  bottom: calc(72px + 16px + 16px);
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  overflow-y: auto;
+  padding: 0 1rem;
+
+  /* Scrollable chat content */
+  display: flex;
+  flex-direction: column;
+}
+
+.ChatOverlay-prompt {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 8px 1rem 16px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  /* Subtle bottom handle when hidden */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--bolt-elements-borderColor, rgba(255, 255, 255, 0.15));
+    opacity: 0.6;
+  }
+}
+
+/* -------- State-driven visibility -------- */
+
+/* Hidden — nothing visible, no pointer events */
+[data-overlay-state='hidden'] {
+  .ChatOverlay-backdrop,
+  .ChatOverlay-chat {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ChatOverlay-prompt {
+    opacity: 0;
+    pointer-events: none;
+
+    &::before {
+      opacity: 0.4; /* Faint handle visible */
+    }
+  }
+}
+
+/* Peek — faint prompt hint, no chat or backdrop */
+[data-overlay-state='peek'] {
+  .ChatOverlay-backdrop {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ChatOverlay-chat {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ChatOverlay-prompt {
+    opacity: 0.35;
+    pointer-events: none;
+
+    &::before {
+      opacity: 0;
+    }
+  }
+}
+
+/* Visible — chat + prompt fully interactive, backdrop visible */
+[data-overlay-state='visible'],
+[data-overlay-state='focused'],
+[data-overlay-state='busy'] {
+  .ChatOverlay-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ChatOverlay-chat {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ChatOverlay-prompt {
+    opacity: 1;
+    pointer-events: auto;
+
+    &::before {
+      opacity: 0;
+    }
+  }
+}
+
+/* Busy — same as visible but with a pulsing indicator on prompt edge */
+[data-overlay-state='busy'] {
+  .ChatOverlay-prompt {
+    /* Subtle glow when busy/streaming */
+    box-shadow: 0 -2px 12px var(--bolt-elements-borderColorActive, rgba(0, 229, 255, 0.15));
+  }
+}
+
+/* -------- Reduced motion -------- */
+@media (prefers-reduced-motion: reduce) {
+  .ChatOverlay-backdrop,
+  .ChatOverlay-chat,
+  .ChatOverlay-prompt {
+    transition: none;
+  }
+}
+
+/* -------- Touch/coarse-pointer fallback -------- */
+@media (pointer: coarse) {
+  /* On touch devices, always keep prompt partially visible */
+  [data-overlay-state='hidden'] {
+    .ChatOverlay-prompt {
+      opacity: 0.5;
+    }
+  }
+}

@@ -34,7 +34,7 @@ interface Env {
 }
 
 const ACCOUNT_ID = '84fa0d1b16ff8086dd958c468ce7fd59';
-const CH_HOST = 'projectsites-clickhouse.fly.dev';
+const CH_HOST = 'ch.projectsites.dev';
 
 export class Langfuse extends Container<Env> {
   override defaultPort = 3000;

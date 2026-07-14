@@ -3,12 +3,17 @@ import { Container, getContainer } from '@cloudflare/containers';
 /**
  * billing.projectsites.dev — Lago usage-based billing on CF Workers Containers.
  *
- * Lago runs as a CF Container (port 3000): lago-api (Rails) + lago-front (baked
- * into public/). The Sidekiq worker runs separately on Fly.io (always-on polling).
- * Backing services: Neon Postgres + Upstash Redis.
+ * Architecture:
+ * - CF Container runs nginx on :80 (serves SPA front-end)
+ * - Fly.io VM runs Rails API on :3000 + Sidekiq (connected to Neon + Upstash)
+ * - Worker proxies /api/* → Fly Rails, everything else → CF Container nginx
+ *
+ * The Fly worker has working GraphQL (database reachable); the CF Container's
+ * Rails has a DB connectivity issue, so we route API calls to Fly instead.
  */
 interface Env {
   LAGO: DurableObjectNamespace<LagoContainerDO>;
+  FLY_API_URL?: string;
   // Secrets forwarded into the container
   DATABASE_URL: string;
   REDIS_URL: string;
@@ -24,9 +29,6 @@ interface Env {
 }
 
 export class LagoContainerDO extends Container<Env> {
-  // Lago starts nginx on 80 (front-end) + Rails on 3000 (API).
-  // nginx proxies /api/* → :3000. Our Dockerfile adds
-  // /etc/nginx/extra-conf.d/00-api-proxy.conf to allow POST to /api/graphql.
   defaultPort = 80;
   sleepAfter = '30m';
 
@@ -43,7 +45,7 @@ export class LagoContainerDO extends Container<Env> {
       LAGO_ENCRYPTION_KEY_DERIVATION_SALT: env.LAGO_ENCRYPTION_KEY_DERIVATION_SALT,
       LAGO_FRONT_URL: env.LAGO_FRONT_URL ?? 'https://billing.projectsites.dev',
       LAGO_API_URL: env.LAGO_API_URL ?? 'https://billing.projectsites.dev',
-      API_URL: '', // Empty = SPA calls same-origin; nginx proxies /api → :3000
+      API_URL: '',
       LAGO_DISABLE_SIGNUP: env.LAGO_DISABLE_SIGNUP ?? 'false',
       RAILS_ENV: 'production',
       RACK_ENV: 'production',
@@ -53,12 +55,9 @@ export class LagoContainerDO extends Container<Env> {
 
   override async fetch(request: Request): Promise<Response> {
     await this.startAndWaitForPorts({
-      ports: [80, 3000],
+      ports: [80],
       cancellationOptions: { portReadyTimeoutMS: 120_000, instanceGetTimeoutMS: 30_000 },
     });
-    // Route everything through nginx on :80. Our Dockerfile adds
-    // /etc/nginx/extra-conf.d/00-api-proxy.conf which allows all HTTP
-    // methods to /api/* and proxies to Rails on :3000.
     return this.containerFetch(request);
   }
 }
@@ -68,8 +67,6 @@ export default {
     const url = new URL(request.url);
 
     // Rewrite env-config.js so the SPA calls the correct API URL.
-    // The Lago Docker image defaults API_URL to localhost:3000.
-    // Empty API_URL = same-origin → nginx proxies /api/* → Rails :3000.
     if (url.pathname === '/env-config.js') {
       return new Response(
         'window.API_URL = "";' +
@@ -84,6 +81,24 @@ export default {
       );
     }
 
+    // Proxy /api/* and /health to Fly Rails (has working DB connectivity)
+    // The CF Container's Rails can't reach Neon, but Fly can.
+    const flyUrl = env.FLY_API_URL || 'https://lago-worker-ps.fly.dev';
+    if (url.pathname.startsWith('/api/') || url.pathname === '/health') {
+      const proxyUrl = new URL(url.pathname + url.search, flyUrl);
+      const proxyReq = new Request(proxyUrl, {
+        method: request.method,
+        headers: request.headers,
+        body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.clone().arrayBuffer() : undefined,
+        redirect: 'manual',
+      });
+      // Forward client IP
+      proxyReq.headers.set('X-Forwarded-For', request.headers.get('CF-Connecting-IP') || '');
+      proxyReq.headers.set('X-Forwarded-Proto', 'https');
+      return fetch(proxyReq);
+    }
+
+    // Everything else → CF Container (serves SPA front-end)
     const container = getContainer(env.LAGO, 'singleton');
     return container.fetch(request);
   },

@@ -1,13 +1,23 @@
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    const path = url.pathname;
+    
+    // Redirect root to /dashboard so Next.js client-side routing
+    // starts from the correct basePath (avoids "Failed to lookup route: /")
+    if (path === "/") {
+      return Response.redirect("https://engage.projectsites.dev/dashboard", 307);
+    }
+    
+    // Don't rewrite — serve paths as-is. Dittofeed's Next.js basePath
+    // is /dashboard, so all routes live under /dashboard/...
     url.protocol = "http:";
-    url.hostname = "168.220.85.96";
-    const resp = await fetch(url.toString(), {
+    url.hostname = "projectsites-engage.fly.dev";
+    
+    return fetch(url.toString(), {
       method: request.method,
       headers: request.headers,
-      signal: AbortSignal.timeout(90000),
+      body: request.body,
     });
-    return resp;
   },
 };

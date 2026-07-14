@@ -120,6 +120,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Feature | Spec(s) | Status |
 |---|---|---|
 | Sign-in flow (magic-link / OAuth) | `signin.spec.ts`, `journey-auth-admin.spec.ts` | ✅ |
+| Sign-in console hygiene (homepage, /signin, /admin — zero errors) | `signin-green.e2e.ts`, `signin-real-chrome.e2e.ts` | ✅ |
 | Bearer-auth sweep (no leaks) | `admin-auth-sweep.e2e.ts` | ✅ |
 | Header auth state transitions | `header-auth-state.spec.ts` | ✅ |
 | Auth-gated admin journey | `journey-auth-admin.spec.ts` | ✅ |

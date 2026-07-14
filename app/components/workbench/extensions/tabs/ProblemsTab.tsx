@@ -59,8 +59,10 @@ function useProblems(): ProblemEntry[] {
 
     // Surface empty files
     if (files) {
-      for (const [path, file] of Object.entries(files)) {
-        if (file.type === 'file' && !file.content?.trim()) {
+      for (const [path, entry] of Object.entries(files)) {
+        if (!entry || entry.type !== 'file') continue;
+        const file = entry;
+        if (!file.content?.trim()) {
           problems.push({
             severity: 'warning',
             file: path,
@@ -79,7 +81,7 @@ function useProblems(): ProblemEntry[] {
   }, [currentDocument, files]);
 }
 
-export const ProblemsTab = memo(() => {
+const ProblemsTab = memo(() => {
   const problems = useProblems();
   const [severityFilter, setSeverityFilter] = useState<'all' | ProblemEntry['severity']>('all');
 
@@ -197,3 +199,4 @@ export const ProblemsTab = memo(() => {
 });
 
 ProblemsTab.displayName = 'ProblemsTab';
+export default ProblemsTab;

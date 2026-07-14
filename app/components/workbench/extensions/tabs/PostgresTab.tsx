@@ -34,7 +34,7 @@ const MOCK_PROFILES: NeonConnectionProfile[] = [
   },
 ];
 
-export const PostgresTab = memo(() => {
+const PostgresTab = memo(() => {
   const [activeProfile] = useState<NeonConnectionProfile | null>(MOCK_PROFILES[0] ?? null);
   const [sql, setSql] = useState('SELECT 1;');
   const [results, setResults] = useState<Record<string, unknown>[] | null>(null);
@@ -144,3 +144,5 @@ export const PostgresTab = memo(() => {
 });
 
 PostgresTab.displayName = 'PostgresTab';
+
+export default PostgresTab;

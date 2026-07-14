@@ -46,6 +46,7 @@ import { idempotencyMiddleware } from './middleware/idempotency.js';
 import { health } from './routes/health.js';
 import { platformServiceLanding, resolvePlatformService } from './routes/platform_services.js';
 import { api } from './routes/api.js';
+import { dittofeedRoutes } from './routes/dittofeed.js';
 // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag.
 // Lazy-imported at the /api/auth/* handler below: the better-auth npm pkg pulls a
 // deep ESM-only dep tree that @swc/jest can't load, so a top-level import here
@@ -376,6 +377,11 @@ app.use('/api/*', idempotencyMiddleware);
 // flag ON → Better Auth owns /api/auth/* (email+pw, magic link, Google, 2FA, sessions);
 // flag OFF → next() falls through to the legacy magic-link/Google/D1-session auth.
 app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', async (c, next) => {
+  // Always fall through to legacy routes for these paths — Better Auth
+  // doesn't own the test-login seam or the session-read endpoint.
+  const path = new URL(c.req.url).pathname;
+  if (path === '/api/auth/me' || path === '/api/auth/test-login') return next();
+
   if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) return next();
   const { makeAuth, ensureBetterAuthSchema } = await import('./auth/better-auth.js');
   await ensureBetterAuthSchema(c.env);
@@ -415,6 +421,7 @@ app.route('/', adminAnalytics); // /api/admin/analytics/* — Super-Admin events
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
 app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (flag: i18n_localization)
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
+app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
 app.route('/', analyticsRoutes); // Unified Analytics ingestion: POST /api/events (202 fast-ack) + /api/analytics-debug (Plane H)

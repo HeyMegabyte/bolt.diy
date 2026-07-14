@@ -30,7 +30,7 @@ new_sqlite_classes = ["Nocodb"]
 # Neon Postgres (project royal-shape-97525164, branch br-old-leaf-ai01uq85, db neondb)
 # Host: c-4.us-east-1.aws.neon.tech
 [vars]
-NC_DB_HOST = "c-4.us-east-1.aws.neon.tech"
+NC_DB_HOST = "ep-round-wildflower-aigybxdk-pooler.c-4.us-east-1.aws.neon.tech"
 NC_DB_PORT = "5432"
 NC_DB_USER = "neondb_owner"
 NC_DB_NAME = "neondb"
