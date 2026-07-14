@@ -1,9 +1,0 @@
-name = "projectsites-dittofeed"
-main = "proxy-worker.ts"
-compatibility_date = "2025-04-01"
-account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
-workers_dev = false
-
-routes = [
-  { pattern = "engage.projectsites.dev", custom_domain = true },
-]

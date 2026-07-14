@@ -1,2 +1,0 @@
-FROM dittofeed/dittofeed-lite:v0.24.0-alpha.17
-EXPOSE 3000
