@@ -1,0 +1,54 @@
+app            = "projectsites-postiz"
+primary_region = "iad"
+kill_signal    = "SIGTERM"
+kill_timeout   = 30
+
+[build]
+  image = "ghcr.io/gitroomhq/postiz-app:latest"
+
+[env]
+  NODE_ENV                = "production"
+  MAIN_URL                = "https://social.projectsites.dev"
+  FRONTEND_URL            = "https://social.projectsites.dev"
+  NEXT_PUBLIC_BACKEND_URL = "https://social.projectsites.dev/api"
+  BACKEND_INTERNAL_URL    = "http://localhost:3000"
+  IS_GENERAL              = "true"
+  RUN_CRON                = "true"
+  DISABLE_REGISTRATION    = "true"
+  TEMPORAL_ADDRESS        = "social-projectsites.g3erb.tmprl.cloud:7233"
+  TEMPORAL_NAMESPACE      = "social-projectsites.g3erb"
+  TEMPORAL_TLS            = "true"
+  STORAGE_PROVIDER        = "cloudflare"
+  CLOUDFLARE_BUCKETNAME   = "social-media-assets"
+  CLOUDFLARE_BUCKET_URL   = "https://pub-4157dd570f0641458b9d4fabad0749d4.r2.dev"
+  CLOUDFLARE_REGION       = "auto"
+  EMAIL_PROVIDER          = "smtp"
+  EMAIL_FROM_ADDRESS      = "social@megabyte.space"
+  EMAIL_FROM_NAME         = "ProjectSites Social"
+  SMTP_HOST               = "email-smtp.us-east-1.amazonaws.com"
+  SMTP_PORT               = "587"
+  SMTP_SECURE             = "false"
+
+[http_service]
+  internal_port        = 5000
+  force_https          = true
+  auto_stop_machines   = false
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+[[http_service.checks]]
+  grace_period = "150s"
+  interval     = "20s"
+  timeout      = "15s"
+  method       = "get"
+  path         = "/auth"
+
+[[vm]]
+  cpu_kind  = "performance"
+  cpus      = 2
+  memory_mb = 4096
