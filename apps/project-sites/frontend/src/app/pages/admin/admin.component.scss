@@ -55,6 +55,24 @@ aside::before {
   color: rgba(255,255,255,0.7);
 }
 
+// Tier 1 #2: Sidebar live-count badges — pill next to nav items and site selector
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: rgba(0, 229, 255, 0.9);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 // Notification dot
 .notif-dot {
   position: absolute; top: -4px; right: -4px;
@@ -726,3 +744,66 @@ aside::before {
     border-left: none;
   }
 }
+
+// ═══════════════════════════════════════════════
+// Tier 1 #10: Full-width mode
+// ═══════════════════════════════════════════════
+// When full-width is active, the sidebar collapses to a 4px hover-zone.
+// Mouse near the left edge reveals it temporarily.
+.admin-sidebar.\!w-\[56px\] {
+  overflow: hidden;
+  // Hide all text, keep icons only
+  .nav-item span,
+  .nav-group-label,
+  .site-dropdown-row,
+  .nav-sub,
+  details summary span { display: none; }
+  // Center the icons
+  .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+  // Shrink the site selector
+  > div:first-of-type { padding: 0.5rem 0.25rem; }
+}
+
+// Tier 1 #6: Jump-back floating button
+.jump-back-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  background: rgba(10, 10, 35, 0.95);
+  backdrop-filter: blur(12px);
+  color: rgba(0, 229, 255, 0.9);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, opacity 200ms ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 229, 255, 0.06);
+  animation: fadeInUp 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 32px rgba(0, 229, 255, 0.12);
+    border-color: rgba(0, 229, 255, 0.35);
+  }
+
+  &:active { transform: translateY(0); }
+}
+
+.jump-back-label {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

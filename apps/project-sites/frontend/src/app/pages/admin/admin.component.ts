@@ -17,6 +17,8 @@ import { CommandPaletteComponent } from './command-palette.component';
 import { ShortcutsOverlayComponent } from '../../components/shortcuts-overlay/shortcuts-overlay.component';
 import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-widget.component';
 import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
+import { SectionSkeletonComponent } from '../../components/section-skeleton/section-skeleton.component';
+import { HoverPreloadingStrategy } from '../../services/hover-preloading-strategy';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
 import { GlobalDropZoneComponent } from '../../components/global-drop-zone/global-drop-zone.component';
@@ -56,7 +58,7 @@ export const G_CHORD_ROUTES: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, SectionSkeletonComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
   providers: [AdminStateService, provideHlmTooltip()],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -79,6 +81,7 @@ export class AdminComponent implements OnInit, OnDestroy {
   isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   router = inject(Router);
   bolt = inject(BoltEmbedService);
+  private hoverPreloader = inject(HoverPreloadingStrategy);
   private toast = inject(ToastService);
   private api = inject(ApiService);
   private novuInbox = inject(NovuInboxService);
@@ -114,6 +117,10 @@ export class AdminComponent implements OnInit, OnDestroy {
    * SECTION, not a drawer covering it. SSR-safe (guards `window`).
    */
   sidebarCollapsed = signal(typeof window !== 'undefined' && window.innerWidth < 768);
+  /** Full-width mode — sidebar collapses to a 4px hover-zone, content expands to viewport width. */
+  fullWidth = signal(false);
+  /** Previous route path — powers the "Jump back" floating button (Tier 1 #6). */
+  previousRoute = signal<{ label: string; url: string } | null>(null);
   isEditorRoute = signal(false);
   currentSection = signal('Editor');
   /** Full current admin URL — feeds the real-name title/announcer (P2). */
@@ -224,6 +231,12 @@ export class AdminComponent implements OnInit, OnDestroy {
     // the section they just picked instead of the nav covering it.
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       this.sidebarCollapsed.set(true);
+    }
+    // Capture previous route BEFORE updating, for the jump-back button (Tier 1 #6).
+    const prevUrl = this.currentUrl();
+    const prevLabel = this.currentSection();
+    if (prevUrl && prevUrl !== url && prevLabel !== 'Dashboard') {
+      this.previousRoute.set({ label: prevLabel, url: prevUrl });
     }
     // Resolve from the FULL path, not the last segment — a param route
     // (`/admin/sites/:id`) or sub-path (`/admin/snapshots/diff`) would otherwise
@@ -713,7 +726,7 @@ export class AdminComponent implements OnInit, OnDestroy {
   //   ⌘.    → toggle theme
   //   ⌘B    → toggle sidebar
   //   ⌘S    → save & deploy (editor route only)
-  //   g <e/s/a/f/l/c/b/v/d/u> → navigate per G_CHORD_ROUTES (e → Editor)
+  //   g <e/s/a/f/l/c/b/v/d/u/w> → navigate per G_CHORD_ROUTES (w → full-width toggle)
   private gPressedAt = 0;
   @HostListener('document:keydown', ['$event'])
   onGlobalKey(ev: KeyboardEvent): void {
@@ -733,9 +746,33 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
       if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
       if (Date.now() - this.gPressedAt < 900) {
+        if (ev.key.toLowerCase() === 'w') { ev.preventDefault(); this.toggleFullWidth(); this.gPressedAt = 0; return; }
         const path = G_CHORD_ROUTES[ev.key.toLowerCase()];
         if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
       }
     }
   }
+
+  /** Toggle full-width mode — sidebar collapses to icon rail. */
+  toggleFullWidth(): void { this.fullWidth.update((v) => !v); }
+
+  /**
+   * Tier 1 #4: Trigger route preloading on sidebar link hover.
+   * Event delegation on the sidebar `<nav>` element — checks the closest
+   * `<a>` with a `routerLink` attribute and queues it for background download.
+   */
+  onSidebarNavHover(ev: MouseEvent): void {
+    const target = (ev.target as HTMLElement | null)?.closest('a[routerlink]') as HTMLAnchorElement | null;
+    if (!target) return;
+    const path = target.getAttribute('routerlink') ?? '';
+    this.hoverPreloader.preloadRoute(path);
+  }
+
+  // ═══════════════════════════════════════════════
+  // Tier 1 #2: Sidebar live-count badges
+  // ═══════════════════════════════════════════════
+  /** Number of sites in the current org. */
+  readonly siteCount = computed(() => this.state.sites().length);
+  /** True when there are sites — controls badge visibility. */
+  readonly hasSites = computed(() => this.siteCount() > 0);
 }

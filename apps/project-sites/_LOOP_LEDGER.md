@@ -264,6 +264,58 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 **PARKED → ⛔ NEEDS BRIAN:** **Decision needed:** requires axe-core running inside the build container + an auto-fix pipeline. The `build_validators` infra exists; this adds an auto-fix step that touches DOM. Dedicated container session. + AI alt-text — axe findings fixed pre-publish (ADA legal-risk reducer).
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** GPT-4o scoring of 5 peer sites during build. Needs LLM calls + build-pipeline integration. Dedicated container session. — score 5 peer sites, propose missing sections.
 
+## 🎨 Admin Cockpit UI Wave — 2026-07-13 (40 ideas from full-section audit)
+
+> Full audit of 67 section components, 1402-line template, 31K SCSS, and _polish.scss token layer.
+> 100 raw ideas → 40 filtered across 3 tiers. Full detail in memory `admin-cockpit-40-ideas`.
+> Tier 1 (ship immediately): 10 items. Tier 2 (high impact/moderate effort): 15 items. Tier 3 (strategic): 15 items.
+
+### Tier 1 — Ship immediately
+- [x] [auto] **Collapsible sidebar rail** — `g b`/`Cmd+B` toggle sidebar + `g w` icon-only full-width 56px mode (2026-07-13)
+- [x] [auto] **Sidebar live-count badges** — `nav-badge` pill with site count on site selector + SCSS (2026-07-13)
+- [x] [auto] **Skeleton screens for every section** — `SectionSkeletonComponent` created + wired into admin template (2026-07-13)
+- [x] [auto] **Route preloading on sidebar hover** — `HoverPreloadingStrategy` replaces `PreloadAllModules`, sidebar nav `(mouseover)` delegation (2026-07-13)
+- [ ] [auto] **Optimistic UI on CRUD** — ApiService `optimistic:true` option, update signal immediately, rollback + toast on error
+- [x] [auto] **"Jump back" floating button** — bottom-right FAB with `previousRoute` tracking + keyboard nav (2026-07-13)
+- [ ] [auto] **Site list density toggle** — Compact/Comfortable/Card Grid, localStorage persisted
+- [ ] [auto] **Drag-to-reorder sidebar** — Angular CDK drag-drop on nav items, localStorage persisted
+- [ ] [auto] **Batch site operations** — checkbox selection → floating action bar → Rebuild/Snapshot/Delete All
+- [x] [auto] **Full-width mode toggle** — `g w` shortcut, `fullWidth` signal, toggle button in top bar, SCSS hover-zone collapse (2026-07-13)
+
+### Tier 2 — High impact, moderate effort
+- [ ] [auto] Dashboard live activity feed
+- [ ] [auto] "Continue where you left off" MRU cards
+- [ ] [auto] Onboarding progress ring
+- [ ] [auto] Natural-language analytics queries (Workers AI intent parser)
+- [ ] [auto] Usage gauge rings (SVG rings for Build Minutes/Media/Bandwidth)
+- [ ] [auto] Site tags/labels (colored pills, D1-backed, filterable)
+- [ ] [auto] System status strip (🟢🟡🔴 per-integration health in top bar)
+- [ ] [auto] Site health sparklines (7-day mini SVG traffic trend per site in list)
+- [ ] [auto] Cmd+K natural language actions ("rebuild njsk" → offers action)
+- [ ] [auto] Inline AI site auditor (one-click Scan Site → site_doctor grade+fixes)
+- [ ] [auto] Site comparison view (two sites side-by-side)
+- [ ] [auto] Dark/light theme sync with system preference
+- [ ] [auto] Keyboard skip-link (WCAG 2.4.1)
+- [ ] [auto] Sidebar accordion categories
+- [ ] [auto] Pull-to-refresh on list views
+
+### Tier 3 — Strategic investments (saved to memory for architecture planning)
+- [ ] [auto] Split-pane admin mode
+- [ ] [auto] Site clone one-click
+- [ ] [auto] Analytics annotations system
+- [ ] [auto] AI content gap analyzer
+- [ ] [auto] Scheduled AI tasks dashboard
+- [ ] [auto] Team presence + activity feed
+- [ ] [auto] Mobile bottom tab bar
+- [ ] [auto] Real-time visitor counter
+- [ ] [auto] Custom dashboard builder
+- [ ] [auto] AI chatbot admin actions
+- [ ] [auto] Bulk image optimization pipeline
+- [ ] [auto] Site transfer/ownership handoff
+- [ ] [auto] Git-style diff view for snapshots
+- [ ] [auto] Progressive hydration + SSR shell
+- [ ] [auto] Automated anomaly detection callouts
+
 ## 🌟 Brilliant Features Wave — 2026-06-28 (solo-SMB · generous-free + paid power-ups)
 
 > Curated from a brainstorm pass (Brian directive: all 4 axes, primary customer = solo SMB owner,

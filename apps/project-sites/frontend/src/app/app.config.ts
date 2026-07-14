@@ -9,12 +9,12 @@ import {
   provideZoneChangeDetection,
 } from '@angular/core';
 import {
-  PreloadAllModules,
   provideRouter,
   withInMemoryScrolling,
   withPreloading,
   withViewTransitions,
 } from '@angular/router';
+import { HoverPreloadingStrategy } from './services/hover-preloading-strategy';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -75,14 +75,14 @@ class CompositeErrorHandler implements ErrorHandler {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    // PreloadAllModules: kick off every lazy chunk in the background once the
-    // shell has painted. Eliminates the white-flash that read as "the dashboard
-    // reloads when I click a side-nav tab" — each tab's chunk is already in
-    // memory by the time it's clicked. Pair with withViewTransitions so the
-    // remaining swap is a quick cross-fade, not a network-bound mount.
+    // HoverPreloadingStrategy (Tier 1 #4): only preload lazy chunks when the
+    // user hovers over a sidebar link. Saves the initial bundle pressure of
+    // PreloadAllModules (which downloaded every section at boot) while keeping
+    // the instant-navigation feel — each tab's chunk loads on hover intent.
+    // Falls back to idle-preloading the first 2 routes after 2s.
     provideRouter(
       routes,
-      withPreloading(PreloadAllModules),
+      withPreloading(HoverPreloadingStrategy),
       withViewTransitions({ skipInitialTransition: true }),
       // Lets `routerLink="/" fragment="pricing"` (e.g. the /signin header nav)
       // scroll to the homepage #pricing section after navigation.
