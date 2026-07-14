@@ -487,15 +487,25 @@ export async function listmonkListSubscribers(
     const body = (await res.json()) as {
       data?: {
         results?: Array<{
-          id: number; email: string; name: string; status: string;
-          lists: number[]; attribs: Record<string, unknown>;
+          id: number;
+          email: string;
+          name: string;
+          status: string;
+          lists: number[];
+          attribs: Record<string, unknown>;
         }>;
-        total?: number; page?: number; per_page?: number;
+        total?: number;
+        page?: number;
+        per_page?: number;
       };
     };
     const results = (body?.data?.results ?? []).map((s) => ({
-      id: s.id, email: s.email, name: s.name, status: s.status,
-      lists: s.lists ?? [], attribs: s.attribs ?? {},
+      id: s.id,
+      email: s.email,
+      name: s.name,
+      status: s.status,
+      lists: s.lists ?? [],
+      attribs: s.attribs ?? {},
     }));
     return {
       ok: true,
@@ -513,7 +523,10 @@ export async function listmonkListSubscribers(
 
 /** A listmonk mailing list. */
 export interface ListmonkList {
-  id: number; name: string; type: string; subscriberCount: number;
+  id: number;
+  name: string;
+  type: string;
+  subscriberCount: number;
 }
 
 /** Result of listing mailing lists. */
@@ -535,10 +548,15 @@ export async function listmonkGetLists(
     });
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };
     const body = (await res.json()) as {
-      data?: { results?: Array<{ id: number; name: string; type: string; subscriber_count: number }> };
+      data?: {
+        results?: Array<{ id: number; name: string; type: string; subscriber_count: number }>;
+      };
     };
     const lists = (body?.data?.results ?? []).map((l) => ({
-      id: l.id, name: l.name, type: l.type, subscriberCount: l.subscriber_count,
+      id: l.id,
+      name: l.name,
+      type: l.type,
+      subscriberCount: l.subscriber_count,
     }));
     return { ok: true, lists };
   } catch (err: unknown) {

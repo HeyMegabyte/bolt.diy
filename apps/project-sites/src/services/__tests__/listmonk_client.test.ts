@@ -345,9 +345,14 @@ describe('listmonkListSubscribers', () => {
   const sub = { id: 1, email: 'a@x.com', name: 'A', status: 'enabled', lists: [1], attribs: {} };
 
   it('returns paginated subscribers', async () => {
-    const r = await listmonkListSubscribers(CFG, 1, 50, mockFetch(200, {
-      data: { results: [sub, { ...sub, id: 2 }], total: 100, page: 1, per_page: 50 },
-    }));
+    const r = await listmonkListSubscribers(
+      CFG,
+      1,
+      50,
+      mockFetch(200, {
+        data: { results: [sub, { ...sub, id: 2 }], total: 100, page: 1, per_page: 50 },
+      }),
+    );
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.page.subscribers).toHaveLength(2);
@@ -384,9 +389,12 @@ describe('listmonkListSubscribers', () => {
 
 describe('listmonkGetLists', () => {
   it('returns mailing lists', async () => {
-    const r = await listmonkGetLists(CFG, mockFetch(200, {
-      data: { results: [{ id: 1, name: 'Newsletter', type: 'public', subscriber_count: 42 }] },
-    }));
+    const r = await listmonkGetLists(
+      CFG,
+      mockFetch(200, {
+        data: { results: [{ id: 1, name: 'Newsletter', type: 'public', subscriber_count: 42 }] },
+      }),
+    );
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.lists).toHaveLength(1);
