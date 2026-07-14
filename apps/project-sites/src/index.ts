@@ -121,6 +121,7 @@ import { reviewPublic } from './routes/review_public.js';
 import { reviewLinks } from './routes/review_links.js';
 import { webhooksAdmin } from './routes/webhooks_admin.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
+import { integrationHealth } from './routes/integration_health.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
 // Feature modules (libs/features/*) — ideas #33, #34, #36, #46
 import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; // #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
@@ -557,6 +558,7 @@ app.route('/', cmdkAiActionsRouter); // /api/cmdk/resolve (flag: cmdk_ai_actions
 app.route('/', aeoPass); // /api/aeo/* (flag: aeo_pass)
 app.route('/', statusPageLive); // /api/status/* (flag: status_page_live)
 app.route('/', siteThumbnailGrid); // /api/thumbnails/* (flag: site_thumbnail_grid)
+app.route('/', integrationHealth); // GET /api/integrations/:name/health + /api/integrations/health
 
 app.route('/', api);
 app.route('/', webhooks);
