@@ -270,3 +270,211 @@ export const ListResponseSchema = z
 
 /** Inferred type for a Twenty list REST response. */
 export type ListResponse = z.infer<typeof ListResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Config + result types for REST calls
+// ---------------------------------------------------------------------------
+
+/** Twenty CRM connection config. All three fields required for any network operation. */
+export interface TwentyConfig {
+  /** Base URL of the Twenty instance, e.g. `https://crm.projectsites.dev`. */
+  baseUrl: string;
+  /** Bearer token (JWT API key). */
+  apiKey: string;
+}
+
+/** Result of a company lookup by domain. */
+export type TwentyFindCompanyResult =
+  | { ok: true; company: Company | null }
+  | { ok: false; reason: string };
+
+/** Result of a contact (person) creation. */
+export type TwentyCreateContactResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: string };
+
+/** Input for upserting a lead/opportunity. */
+export interface TwentyUpsertLeadInput {
+  name: string;
+  amount?: number;
+  stage?: TwentyStage;
+  closeDate?: string;
+  personId?: string;
+}
+
+/** Result of a lead/opportunity upsert. */
+export type TwentyUpsertLeadResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: string };
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function authHeaders(apiKey: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+function isConfigured(cfg: TwentyConfig): boolean {
+  return Boolean(cfg.baseUrl && cfg.apiKey);
+}
+
+// ---------------------------------------------------------------------------
+// Exported REST functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Find a company by domain name (`GET /rest/companies?filter=domain[eq]:...&limit=1`).
+ *
+ * @remarks
+ * Never throws. Returns `{ ok: true, company: null }` when no match exists —
+ * the lookup succeeded, the company just isn't in the CRM yet.
+ *
+ * @param cfg - Twenty connection config.
+ * @param domain - Domain to search (e.g. `acmeroofing.com`).
+ * @param fetchImpl - Injected fetch; defaults to global `fetch`.
+ * @returns A {@link TwentyFindCompanyResult} — never throws.
+ *
+ * @throws Never — all errors are encoded in the result union.
+ *
+ * @example
+ * ```ts
+ * const r = await twentyFindCompany(cfg, 'acme.com');
+ * if (r.ok && r.company) console.warn('found', r.company.id);
+ * ```
+ */
+export async function twentyFindCompany(
+  cfg: TwentyConfig,
+  domain: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TwentyFindCompanyResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const url = `${cfg.baseUrl}/rest/companies?filter=domain[eq]:${encodeURIComponent(domain)}&limit=1`;
+    const res = await fetchImpl(url, { headers: authHeaders(cfg.apiKey) });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = (await res.json()) as {
+      data?: { companies?: Array<{
+        id: string; name: string; domain?: string;
+        address?: Address; employees?: number;
+        annualRevenue?: number; createdAt: string;
+      }> };
+    };
+    const results = body?.data?.companies ?? [];
+    if (results.length === 0) return { ok: true, company: null };
+    const raw = results[0];
+    const parsed = CompanySchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, reason: `schema_mismatch: ${parsed.error.message}` };
+    return { ok: true, company: parsed.data };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Create a contact/person in Twenty CRM (`POST /rest/people`).
+ *
+ * @remarks
+ * Never throws. Validates input with {@link PersonCreateSchema} before sending.
+ * The `companyId` is required per Twenty's data model; pass the result of
+ * {@link twentyFindCompany} first.
+ *
+ * @param cfg - Twenty connection config.
+ * @param email - Contact email (required).
+ * @param name - Contact full name (required).
+ * @param companyId - UUID of the company to associate this person with.
+ * @param phone - Optional phone number.
+ * @param fetchImpl - Injected fetch; defaults to global `fetch`.
+ * @returns A {@link TwentyCreateContactResult} — never throws.
+ *
+ * @throws Never — all errors are encoded in the result union.
+ *
+ * @example
+ * ```ts
+ * const r = await twentyCreateContact(cfg, 'jane@acme.com', 'Jane Doe', companyId);
+ * if (r.ok) console.warn('created person', r.id);
+ * ```
+ */
+export async function twentyCreateContact(
+  cfg: TwentyConfig,
+  email: string,
+  name: string,
+  companyId: string,
+  phone?: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TwentyCreateContactResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  const input = PersonCreateSchema.safeParse({ email, name, companyId, ...(phone ? { phone } : {}) });
+  if (!input.success) return { ok: false, reason: `validation: ${input.error.message}` };
+  try {
+    const res = await fetchImpl(`${cfg.baseUrl}/rest/people`, {
+      method: 'POST',
+      headers: authHeaders(cfg.apiKey),
+      body: JSON.stringify(input.data),
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = (await res.json()) as { data?: { id?: string } };
+    return { ok: true, id: body?.data?.id ?? '' };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Create an opportunity/lead in Twenty CRM (`POST /rest/opportunities`).
+ *
+ * @remarks
+ * Never throws. Validates input with {@link OpportunityCreateSchema}. The caller
+ * should call {@link twentyFindCompany} first to resolve the company UUID, as
+ * `companyId` is required per Twenty's data model.
+ *
+ * @param cfg - Twenty connection config.
+ * @param companyId - UUID of the owning company.
+ * @param input - Opportunity fields.
+ * @param fetchImpl - Injected fetch; defaults to global `fetch`.
+ * @returns A {@link TwentyUpsertLeadResult} — never throws.
+ *
+ * @throws Never — all errors are encoded in the result union.
+ *
+ * @example
+ * ```ts
+ * const r = await twentyUpsertLead(cfg, companyId, {
+ *   name: 'Q3 Roofing Contract',
+ *   amount: 5000000,
+ *   stage: 'QUALIFIED',
+ * });
+ * if (r.ok) console.warn('created opportunity', r.id);
+ * ```
+ */
+export async function twentyUpsertLead(
+  cfg: TwentyConfig,
+  companyId: string,
+  input: TwentyUpsertLeadInput,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TwentyUpsertLeadResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  const parsed = OpportunityCreateSchema.safeParse({
+    companyId,
+    name: input.name,
+    amount: input.amount,
+    stage: input.stage ?? 'NEW',
+    closeDate: input.closeDate,
+    personId: input.personId,
+  });
+  if (!parsed.success) return { ok: false, reason: `validation: ${parsed.error.message}` };
+  try {
+    const res = await fetchImpl(`${cfg.baseUrl}/rest/opportunities`, {
+      method: 'POST',
+      headers: authHeaders(cfg.apiKey),
+      body: JSON.stringify(parsed.data),
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = (await res.json()) as { data?: { id?: string } };
+    return { ok: true, id: body?.data?.id ?? '' };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
