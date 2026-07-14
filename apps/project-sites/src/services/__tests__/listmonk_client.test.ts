@@ -33,17 +33,19 @@ const UNCONFIGURED: ListmonkConfig = {
 };
 
 function mockFetch(status: number, body: unknown): typeof fetch {
-  return ((async () => {
+  return (async () => {
     return {
       ok: status >= 200 && status < 300,
       status,
       json: async () => body,
     };
-  }) as unknown) as typeof fetch;
+  }) as unknown as typeof fetch;
 }
 
 function mockFetchThrow(message: string): typeof fetch {
-  return ((async () => { throw new Error(message); }) as unknown) as typeof fetch;
+  return (async () => {
+    throw new Error(message);
+  }) as unknown as typeof fetch;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +210,11 @@ describe('listmonkSendTransactional', () => {
   };
 
   it('sends transactional email and returns messageId', async () => {
-    const r = await listmonkSendTransactional(CFG, input, mockFetch(200, { data: { id: 'msg-001' } }));
+    const r = await listmonkSendTransactional(
+      CFG,
+      input,
+      mockFetch(200, { data: { id: 'msg-001' } }),
+    );
     expect(r).toEqual({ ok: true, messageId: 'msg-001' });
   });
 
@@ -237,7 +243,11 @@ describe('listmonkSendTransactional', () => {
   });
 
   it('returns HTTP error reason with message body', async () => {
-    const r = await listmonkSendTransactional(CFG, input, mockFetch(422, { message: 'Template not found' }));
+    const r = await listmonkSendTransactional(
+      CFG,
+      input,
+      mockFetch(422, { message: 'Template not found' }),
+    );
     expect(r).toEqual({ ok: false, reason: 'Template not found' });
   });
 
@@ -267,12 +277,30 @@ describe('listmonkGetSubscriber', () => {
   };
 
   it('returns subscriber when found', async () => {
-    const r = await listmonkGetSubscriber(CFG, 'found@example.com', mockFetch(200, { data: { results: [sub] } }));
-    expect(r).toEqual({ ok: true, subscriber: { id: 99, email: 'found@example.com', name: 'Found User', status: 'enabled', lists: [1, 2], attribs: { city: 'NYC' } } });
+    const r = await listmonkGetSubscriber(
+      CFG,
+      'found@example.com',
+      mockFetch(200, { data: { results: [sub] } }),
+    );
+    expect(r).toEqual({
+      ok: true,
+      subscriber: {
+        id: 99,
+        email: 'found@example.com',
+        name: 'Found User',
+        status: 'enabled',
+        lists: [1, 2],
+        attribs: { city: 'NYC' },
+      },
+    });
   });
 
   it('returns null subscriber when not found', async () => {
-    const r = await listmonkGetSubscriber(CFG, 'nope@example.com', mockFetch(200, { data: { results: [] } }));
+    const r = await listmonkGetSubscriber(
+      CFG,
+      'nope@example.com',
+      mockFetch(200, { data: { results: [] } }),
+    );
     expect(r).toEqual({ ok: true, subscriber: null });
   });
 

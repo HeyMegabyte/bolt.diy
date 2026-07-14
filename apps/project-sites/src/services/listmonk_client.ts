@@ -297,9 +297,7 @@ export interface ListmonkTxInput {
 }
 
 /** Result of a transactional send. */
-export type ListmonkTxResult =
-  | { ok: true; messageId: string }
-  | { ok: false; reason: string };
+export type ListmonkTxResult = { ok: true; messageId: string } | { ok: false; reason: string };
 
 /**
  * Send a transactional email via listmonk's `POST /api/tx`.
@@ -350,7 +348,9 @@ export async function listmonkSendTransactional(
       try {
         const body = (await res.json()) as { message?: string };
         if (body.message) reason = body.message;
-      } catch { /* keep status-based reason */ }
+      } catch {
+        /* keep status-based reason */
+      }
       return { ok: false, reason };
     }
     const body = (await res.json()) as { data?: { id?: string }; message?: string };
@@ -415,10 +415,16 @@ export async function listmonkGetSubscriber(
     });
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };
     const body = (await res.json()) as {
-      data?: { results?: Array<{
-        id: number; email: string; name: string; status: string;
-        lists: number[]; attribs: Record<string, unknown>;
-      }> };
+      data?: {
+        results?: Array<{
+          id: number;
+          email: string;
+          name: string;
+          status: string;
+          lists: number[];
+          attribs: Record<string, unknown>;
+        }>;
+      };
     };
     const results = body?.data?.results ?? [];
     if (results.length === 0) return { ok: true, subscriber: null };
