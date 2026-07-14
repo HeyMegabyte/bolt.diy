@@ -1,0 +1,21 @@
+app = 'projectsites-redis'
+primary_region = 'ewr'
+
+[build]
+  image = 'redis:7-alpine'
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[mounts]
+  source = 'redis_data'
+  destination = '/data'
+
+[services]
+  [[services.ports]]
+    port = 6379
+
+[experimental]
+  cmd = ["redis-server", "--appendonly", "yes", "--requirepass", "ohyi2Fjm8gCJ8Bfuh8rO/anHQYa1cMuk"]
