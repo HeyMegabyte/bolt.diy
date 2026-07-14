@@ -1,5 +1,0 @@
-# Checkmate infra — ignore generated files
-*.log
-.env
-server.env
-mongo.env

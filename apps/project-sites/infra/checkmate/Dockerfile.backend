@@ -1,5 +1,0 @@
-# Checkmate Backend — Node.js Express API ONLY (no nginx, no MongoDB)
-# Frontend is on CF Container. MongoDB is Atlas.
-FROM ghcr.io/bluewave-labs/checkmate:backend-demo
-ENV NODE_OPTIONS="--max-old-space-size=256"
-EXPOSE 52345
