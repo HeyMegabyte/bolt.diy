@@ -142,6 +142,7 @@ export async function listmonkUpsertSubscriber(
   input: ListmonkSubscriberInput,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ListmonkUpsertResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
   try {
     const res = await fetchImpl(`${cfg.baseUrl}/api/subscribers`, {
       method: 'POST',
@@ -276,6 +277,163 @@ export async function listmonkUnsubscribe(
     });
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };
     return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transactional send — `POST /api/tx`
+// ---------------------------------------------------------------------------
+
+/** Input to {@link listmonkSendTransactional}. */
+export interface ListmonkTxInput {
+  /** The template ID from the listmonk transactional templates. */
+  templateId: number;
+  /** Recipient email address. */
+  subscriberEmail: string;
+  /** Key-value data merged into the template placeholders. */
+  data?: Record<string, string>;
+}
+
+/** Result of a transactional send. */
+export type ListmonkTxResult =
+  | { ok: true; messageId: string }
+  | { ok: false; reason: string };
+
+/**
+ * Send a transactional email via listmonk's `POST /api/tx`.
+ *
+ * @remarks
+ * Listmonk transactional templates use `{{ variable }}` placeholders; keys from
+ * `data` fill those placeholders at send time. This function is idempotent-safe
+ * (listmonk does not dedupe — idempotency is the caller's responsibility).
+ *
+ * @param cfg - Listmonk connection config.
+ * @param input - Template ID, recipient email, and optional template data.
+ * @param fetchImpl - Injected fetch; defaults to global `fetch`.
+ * @returns A {@link ListmonkTxResult} — never throws.
+ *
+ * @throws Never — all errors are encoded in the result union.
+ *
+ * @example
+ * ```ts
+ * const r = await listmonkSendTransactional(cfg, {
+ *   templateId: 1,
+ *   subscriberEmail: 'user@example.com',
+ *   data: { code: 'abc123' },
+ * });
+ * if (r.ok) console.warn('sent', r.messageId);
+ * ```
+ */
+export async function listmonkSendTransactional(
+  cfg: ListmonkConfig,
+  input: ListmonkTxInput,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ListmonkTxResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const res = await fetchImpl(`${cfg.baseUrl}/api/tx`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: basicAuth(cfg.apiUser, cfg.apiToken),
+      },
+      body: JSON.stringify({
+        subscriber_email: input.subscriberEmail,
+        template_id: input.templateId,
+        ...(input.data ? { data: input.data } : {}),
+      }),
+    });
+    if (!res.ok) {
+      let reason = `http_${res.status}`;
+      try {
+        const body = (await res.json()) as { message?: string };
+        if (body.message) reason = body.message;
+      } catch { /* keep status-based reason */ }
+      return { ok: false, reason };
+    }
+    const body = (await res.json()) as { data?: { id?: string }; message?: string };
+    const messageId = body?.data?.id ?? body?.message ?? crypto.randomUUID();
+    return { ok: true, messageId };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Subscriber lookup — `GET /api/subscribers?query=...`
+// ---------------------------------------------------------------------------
+
+/** A resolved listmonk subscriber record. */
+export interface ListmonkSubscriber {
+  id: number;
+  email: string;
+  name: string;
+  status: string;
+  lists: number[];
+  attribs: Record<string, unknown>;
+}
+
+/** Result of a subscriber lookup. */
+export type ListmonkGetSubscriberResult =
+  | { ok: true; subscriber: ListmonkSubscriber | null }
+  | { ok: false; reason: string };
+
+/**
+ * Look up a subscriber by email (`GET /api/subscribers?query=...&limit=1`).
+ *
+ * @remarks
+ * Single quotes in the email are escaped to avoid breaking the listmonk SQL-ish
+ * query syntax. Returns `{ ok: true, subscriber: null }` when no match exists
+ * (the lookup succeeded, the subscriber just doesn't exist yet).
+ *
+ * @param cfg - Listmonk connection config.
+ * @param email - Subscriber email to look up.
+ * @param fetchImpl - Injected fetch; defaults to global `fetch`.
+ * @returns A {@link ListmonkGetSubscriberResult} — never throws.
+ *
+ * @throws Never — all errors are encoded in the result union.
+ *
+ * @example
+ * ```ts
+ * const r = await listmonkGetSubscriber(cfg, 'user@example.com');
+ * if (r.ok && r.subscriber) console.warn('found', r.subscriber.id);
+ * ```
+ */
+export async function listmonkGetSubscriber(
+  cfg: ListmonkConfig,
+  email: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ListmonkGetSubscriberResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const safe = email.replace(/'/g, "''");
+    const url = `${cfg.baseUrl}/api/subscribers?query=subscribers.email%20%3D%20%27${encodeURIComponent(safe)}%27&limit=1`;
+    const res = await fetchImpl(url, {
+      headers: { Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = (await res.json()) as {
+      data?: { results?: Array<{
+        id: number; email: string; name: string; status: string;
+        lists: number[]; attribs: Record<string, unknown>;
+      }> };
+    };
+    const results = body?.data?.results ?? [];
+    if (results.length === 0) return { ok: true, subscriber: null };
+    const s = results[0];
+    return {
+      ok: true,
+      subscriber: {
+        id: s.id,
+        email: s.email,
+        name: s.name,
+        status: s.status,
+        lists: s.lists ?? [],
+        attribs: s.attribs ?? {},
+      },
+    };
   } catch (err: unknown) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
