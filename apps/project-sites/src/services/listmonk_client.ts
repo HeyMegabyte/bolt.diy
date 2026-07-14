@@ -444,3 +444,104 @@ export async function listmonkGetSubscriber(
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Subscriber list management (Fire 4 — marketing surface)
+// ---------------------------------------------------------------------------
+
+/** Paginated result of listing subscribers. */
+export interface ListmonkSubscriberPage {
+  subscribers: ListmonkSubscriber[];
+  total: number;
+  page: number;
+  perPage: number;
+}
+
+/** Result of listing subscribers. */
+export type ListmonkListSubscribersResult =
+  | { ok: true; page: ListmonkSubscriberPage }
+  | { ok: false; reason: string };
+
+/**
+ * List subscribers with pagination (`GET /api/subscribers?page=N&per_page=N`).
+ *
+ * @param cfg - Listmonk connection config.
+ * @param page - Page number (1-based, default 1).
+ * @param perPage - Subscribers per page (default 50, max 100).
+ * @param fetchImpl - Injected fetch; defaults to global `fetch`.
+ * @returns A {@link ListmonkListSubscribersResult} — never throws.
+ */
+export async function listmonkListSubscribers(
+  cfg: ListmonkConfig,
+  page = 1,
+  perPage = 50,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ListmonkListSubscribersResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const url = `${cfg.baseUrl}/api/subscribers?page=${page}&per_page=${perPage}`;
+    const res = await fetchImpl(url, {
+      headers: { Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = (await res.json()) as {
+      data?: {
+        results?: Array<{
+          id: number; email: string; name: string; status: string;
+          lists: number[]; attribs: Record<string, unknown>;
+        }>;
+        total?: number; page?: number; per_page?: number;
+      };
+    };
+    const results = (body?.data?.results ?? []).map((s) => ({
+      id: s.id, email: s.email, name: s.name, status: s.status,
+      lists: s.lists ?? [], attribs: s.attribs ?? {},
+    }));
+    return {
+      ok: true,
+      page: {
+        subscribers: results,
+        total: body?.data?.total ?? results.length,
+        page: body?.data?.page ?? page,
+        perPage: body?.data?.per_page ?? perPage,
+      },
+    };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** A listmonk mailing list. */
+export interface ListmonkList {
+  id: number; name: string; type: string; subscriberCount: number;
+}
+
+/** Result of listing mailing lists. */
+export type ListmonkGetListsResult =
+  | { ok: true; lists: ListmonkList[] }
+  | { ok: false; reason: string };
+
+/**
+ * List all mailing lists (`GET /api/lists`).
+ */
+export async function listmonkGetLists(
+  cfg: ListmonkConfig,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ListmonkGetListsResult> {
+  if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
+  try {
+    const res = await fetchImpl(`${cfg.baseUrl}/api/lists`, {
+      headers: { Authorization: basicAuth(cfg.apiUser, cfg.apiToken) },
+    });
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = (await res.json()) as {
+      data?: { results?: Array<{ id: number; name: string; type: string; subscriber_count: number }> };
+    };
+    const lists = (body?.data?.results ?? []).map((l) => ({
+      id: l.id, name: l.name, type: l.type, subscriberCount: l.subscriber_count,
+    }));
+    return { ok: true, lists };
+  } catch (err: unknown) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}

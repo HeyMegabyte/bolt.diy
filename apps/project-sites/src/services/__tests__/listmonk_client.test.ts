@@ -13,6 +13,8 @@ import {
   listmonkUnsubscribe,
   listmonkSendTransactional,
   listmonkGetSubscriber,
+  listmonkListSubscribers,
+  listmonkGetLists,
   type ListmonkConfig,
 } from '../listmonk_client';
 
@@ -332,5 +334,84 @@ describe('listmonkGetSubscriber', () => {
   it('returns network error on fetch failure', async () => {
     const r = await listmonkGetSubscriber(CFG, 'x@x.com', mockFetchThrow('DNS fail'));
     expect(r).toEqual({ ok: false, reason: 'DNS fail' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listmonkListSubscribers (Fire 4)
+// ---------------------------------------------------------------------------
+
+describe('listmonkListSubscribers', () => {
+  const sub = { id: 1, email: 'a@x.com', name: 'A', status: 'enabled', lists: [1], attribs: {} };
+
+  it('returns paginated subscribers', async () => {
+    const r = await listmonkListSubscribers(CFG, 1, 50, mockFetch(200, {
+      data: { results: [sub, { ...sub, id: 2 }], total: 100, page: 1, per_page: 50 },
+    }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.page.subscribers).toHaveLength(2);
+      expect(r.page.total).toBe(100);
+      expect(r.page.page).toBe(1);
+    }
+  });
+
+  it('returns empty page when no subscribers', async () => {
+    const r = await listmonkListSubscribers(CFG, 1, 50, mockFetch(200, { data: { results: [] } }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.page.subscribers).toHaveLength(0);
+  });
+
+  it('returns not_configured when credentials missing', async () => {
+    const r = await listmonkListSubscribers(UNCONFIGURED);
+    expect(r).toEqual({ ok: false, reason: 'not_configured' });
+  });
+
+  it('returns error on HTTP failure', async () => {
+    const r = await listmonkListSubscribers(CFG, 1, 50, mockFetch(500, {}));
+    expect(r).toEqual({ ok: false, reason: 'http_500' });
+  });
+
+  it('returns network error on fetch failure', async () => {
+    const r = await listmonkListSubscribers(CFG, 1, 50, mockFetchThrow('timeout'));
+    expect(r).toEqual({ ok: false, reason: 'timeout' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listmonkGetLists (Fire 4)
+// ---------------------------------------------------------------------------
+
+describe('listmonkGetLists', () => {
+  it('returns mailing lists', async () => {
+    const r = await listmonkGetLists(CFG, mockFetch(200, {
+      data: { results: [{ id: 1, name: 'Newsletter', type: 'public', subscriber_count: 42 }] },
+    }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.lists).toHaveLength(1);
+      expect(r.lists[0].name).toBe('Newsletter');
+      expect(r.lists[0].subscriberCount).toBe(42);
+    }
+  });
+
+  it('returns empty array when no lists', async () => {
+    const r = await listmonkGetLists(CFG, mockFetch(200, { data: { results: [] } }));
+    expect(r).toEqual({ ok: true, lists: [] });
+  });
+
+  it('returns not_configured when credentials missing', async () => {
+    const r = await listmonkGetLists(UNCONFIGURED);
+    expect(r).toEqual({ ok: false, reason: 'not_configured' });
+  });
+
+  it('returns error on HTTP failure', async () => {
+    const r = await listmonkGetLists(CFG, mockFetch(503, {}));
+    expect(r).toEqual({ ok: false, reason: 'http_503' });
+  });
+
+  it('returns network error on fetch failure', async () => {
+    const r = await listmonkGetLists(CFG, mockFetchThrow('ENOTFOUND'));
+    expect(r).toEqual({ ok: false, reason: 'ENOTFOUND' });
   });
 });
