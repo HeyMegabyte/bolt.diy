@@ -1,0 +1,69 @@
+app            = "projectsites-chatwoot"
+primary_region = "iad"
+kill_signal    = "SIGTERM"
+kill_timeout   = 30
+
+[build]
+  image = "chatwoot/chatwoot:latest"
+
+[deploy]
+  release_command = "bundle exec rails db:chatwoot_prepare"
+
+[env]
+  RAILS_ENV              = "production"
+  NODE_ENV               = "production"
+  INSTALLATION_ENV       = "docker"
+  FRONTEND_URL           = "https://support.projectsites.dev"
+  FORCE_SSL              = "true"
+  ENABLE_ACCOUNT_SIGNUP  = "false"
+  LOG_LEVEL              = "info"
+  LOG_SIZE               = "500"
+  POSTGRES_HOST          = "ep-round-wildflower-aigybxdk-pooler.c-4.us-east-1.aws.neon.tech"
+  POSTGRES_PORT          = "5432"
+  POSTGRES_DB            = "projectsites_chatwoot"
+  POSTGRES_USERNAME      = "neondb_owner"
+  ACTIVE_STORAGE_SERVICE          = "s3_compatible"
+  STORAGE_BUCKET_NAME             = "projectsites-chatwoot"
+  STORAGE_REGION                  = "auto"
+  STORAGE_ENDPOINT                = "https://84fa0d1b16ff8086dd958c468ce7fd59.r2.cloudflarestorage.com"
+  STORAGE_FORCE_PATH_STYLE        = "true"
+
+[[processes]]
+  name    = "web"
+  command = "bundle exec rails server -p 3000 -b 0.0.0.0"
+
+[http_service]
+  internal_port       = 3000
+  force_https         = true
+  auto_stop_machines  = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes           = ["web"]
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+[checks]
+  [checks.health]
+    grace_period = "60s"
+    interval     = "30s"
+    method       = "get"
+    path         = "/auth/sign_in"
+    port         = 3000
+    timeout      = "15s"
+    type         = "http"
+
+[[processes]]
+  name    = "worker"
+  command = "bundle exec sidekiq -C config/sidekiq.yml"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "512mb"
+
+[[vm]]
+  processes = ["worker"]
+  size      = "shared-cpu-1x"
+  memory    = "1gb"
