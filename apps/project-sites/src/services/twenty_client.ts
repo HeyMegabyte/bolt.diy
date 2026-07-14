@@ -289,9 +289,7 @@ export type TwentyFindCompanyResult =
   | { ok: false; reason: string };
 
 /** Result of a contact (person) creation. */
-export type TwentyCreateContactResult =
-  | { ok: true; id: string }
-  | { ok: false; reason: string };
+export type TwentyCreateContactResult = { ok: true; id: string } | { ok: false; reason: string };
 
 /** Input for upserting a lead/opportunity. */
 export interface TwentyUpsertLeadInput {
@@ -303,9 +301,7 @@ export interface TwentyUpsertLeadInput {
 }
 
 /** Result of a lead/opportunity upsert. */
-export type TwentyUpsertLeadResult =
-  | { ok: true; id: string }
-  | { ok: false; reason: string };
+export type TwentyUpsertLeadResult = { ok: true; id: string } | { ok: false; reason: string };
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -357,11 +353,17 @@ export async function twentyFindCompany(
     const res = await fetchImpl(url, { headers: authHeaders(cfg.apiKey) });
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };
     const body = (await res.json()) as {
-      data?: { companies?: Array<{
-        id: string; name: string; domain?: string;
-        address?: Address; employees?: number;
-        annualRevenue?: number; createdAt: string;
-      }> };
+      data?: {
+        companies?: Array<{
+          id: string;
+          name: string;
+          domain?: string;
+          address?: Address;
+          employees?: number;
+          annualRevenue?: number;
+          createdAt: string;
+        }>;
+      };
     };
     const results = body?.data?.companies ?? [];
     if (results.length === 0) return { ok: true, company: null };
@@ -407,7 +409,12 @@ export async function twentyCreateContact(
   fetchImpl: typeof fetch = fetch,
 ): Promise<TwentyCreateContactResult> {
   if (!isConfigured(cfg)) return { ok: false, reason: 'not_configured' };
-  const input = PersonCreateSchema.safeParse({ email, name, companyId, ...(phone ? { phone } : {}) });
+  const input = PersonCreateSchema.safeParse({
+    email,
+    name,
+    companyId,
+    ...(phone ? { phone } : {}),
+  });
   if (!input.success) return { ok: false, reason: `validation: ${input.error.message}` };
   try {
     const res = await fetchImpl(`${cfg.baseUrl}/rest/people`, {

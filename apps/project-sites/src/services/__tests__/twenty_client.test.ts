@@ -20,7 +20,9 @@ function mockFetch(status: number, body: unknown): typeof fetch {
 }
 
 function mockFetchThrow(msg: string): typeof fetch {
-  return (async () => { throw new Error(msg); }) as unknown as typeof fetch;
+  return (async () => {
+    throw new Error(msg);
+  }) as unknown as typeof fetch;
 }
 
 const COMPANY_RAW = {
@@ -32,7 +34,11 @@ const COMPANY_RAW = {
 
 describe('twentyFindCompany', () => {
   it('returns company when found by domain', async () => {
-    const r = await twentyFindCompany(CFG, 'acmeroofing.com', mockFetch(200, { data: { companies: [COMPANY_RAW] } }));
+    const r = await twentyFindCompany(
+      CFG,
+      'acmeroofing.com',
+      mockFetch(200, { data: { companies: [COMPANY_RAW] } }),
+    );
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.company?.name).toBe('Acme Roofing');
   });
@@ -53,7 +59,11 @@ describe('twentyFindCompany', () => {
   });
 
   it('returns schema_mismatch on invalid response shape', async () => {
-    const r = await twentyFindCompany(CFG, 'bad.com', mockFetch(200, { data: { companies: [{ id: 'not-a-uuid', name: '', createdAt: 'bad' }] } }));
+    const r = await twentyFindCompany(
+      CFG,
+      'bad.com',
+      mockFetch(200, { data: { companies: [{ id: 'not-a-uuid', name: '', createdAt: 'bad' }] } }),
+    );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toContain('schema_mismatch');
   });
@@ -71,7 +81,14 @@ describe('twentyFindCompany', () => {
 
 describe('twentyCreateContact', () => {
   it('creates contact and returns id', async () => {
-    const r = await twentyCreateContact(CFG, 'jane@acme.com', 'Jane Doe', '123e4567-e89b-12d3-a456-426614174000', undefined, mockFetch(200, { data: { id: 'person-uuid-001' } }));
+    const r = await twentyCreateContact(
+      CFG,
+      'jane@acme.com',
+      'Jane Doe',
+      '123e4567-e89b-12d3-a456-426614174000',
+      undefined,
+      mockFetch(200, { data: { id: 'person-uuid-001' } }),
+    );
     expect(r).toEqual({ ok: true, id: 'person-uuid-001' });
   });
 
@@ -81,13 +98,25 @@ describe('twentyCreateContact', () => {
       capturedBody = (init?.body as string) ?? '';
       return { ok: true, status: 200, json: async () => ({ data: { id: 'x' } }) };
     }) as unknown as typeof fetch;
-    await twentyCreateContact(CFG, 'j@x.com', 'J', '123e4567-e89b-12d3-a456-426614174000', '+15551234567', spy);
+    await twentyCreateContact(
+      CFG,
+      'j@x.com',
+      'J',
+      '123e4567-e89b-12d3-a456-426614174000',
+      '+15551234567',
+      spy,
+    );
     const parsed = JSON.parse(capturedBody);
     expect(parsed.phone).toBe('+15551234567');
   });
 
   it('returns validation error for invalid email', async () => {
-    const r = await twentyCreateContact(CFG, 'not-email', 'Name', '123e4567-e89b-12d3-a456-426614174000');
+    const r = await twentyCreateContact(
+      CFG,
+      'not-email',
+      'Name',
+      '123e4567-e89b-12d3-a456-426614174000',
+    );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toContain('validation');
   });
@@ -99,17 +128,36 @@ describe('twentyCreateContact', () => {
   });
 
   it('returns not_configured when credentials missing', async () => {
-    const r = await twentyCreateContact(UNCONFIGURED, 'j@x.com', 'J', '123e4567-e89b-12d3-a456-426614174000');
+    const r = await twentyCreateContact(
+      UNCONFIGURED,
+      'j@x.com',
+      'J',
+      '123e4567-e89b-12d3-a456-426614174000',
+    );
     expect(r).toEqual({ ok: false, reason: 'not_configured' });
   });
 
   it('returns error on HTTP failure', async () => {
-    const r = await twentyCreateContact(CFG, 'j@x.com', 'J', '123e4567-e89b-12d3-a456-426614174000', undefined, mockFetch(409, {}));
+    const r = await twentyCreateContact(
+      CFG,
+      'j@x.com',
+      'J',
+      '123e4567-e89b-12d3-a456-426614174000',
+      undefined,
+      mockFetch(409, {}),
+    );
     expect(r).toEqual({ ok: false, reason: 'http_409' });
   });
 
   it('returns network error on fetch failure', async () => {
-    const r = await twentyCreateContact(CFG, 'j@x.com', 'J', '123e4567-e89b-12d3-a456-426614174000', undefined, mockFetchThrow('ENOTFOUND'));
+    const r = await twentyCreateContact(
+      CFG,
+      'j@x.com',
+      'J',
+      '123e4567-e89b-12d3-a456-426614174000',
+      undefined,
+      mockFetchThrow('ENOTFOUND'),
+    );
     expect(r).toEqual({ ok: false, reason: 'ENOTFOUND' });
   });
 });
@@ -119,7 +167,12 @@ describe('twentyUpsertLead', () => {
   const input = { name: 'Q3 Roofing Contract', amount: 5000000, stage: 'QUALIFIED' as const };
 
   it('creates opportunity and returns id', async () => {
-    const r = await twentyUpsertLead(CFG, COMPANY_ID, input, mockFetch(200, { data: { id: 'opp-uuid-001' } }));
+    const r = await twentyUpsertLead(
+      CFG,
+      COMPANY_ID,
+      input,
+      mockFetch(200, { data: { id: 'opp-uuid-001' } }),
+    );
     expect(r).toEqual({ ok: true, id: 'opp-uuid-001' });
   });
 
