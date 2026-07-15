@@ -694,6 +694,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  site_tags: {
+    key: 'site_tags',
+    description:
+      'Site Tags & Labels (#11): per-site colored label pills with custom names, colors (22 hues), and emoji icons. Org-scoped, filterable in the site list. CRUD at /api/site-tags + /api/sites/:siteId/tags.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

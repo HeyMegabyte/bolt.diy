@@ -747,6 +747,43 @@ app.post('/api/apps/launch', async (c) => {
   return c.json({ data: planLaunch(body) });
 });
 
+// Site Tags — org-scoped colored label pills (flag: site_tags)
+app.get('/api/site-tags', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleListTags } = await import('../libs/features/site_tags/handlers.js');
+  return handleListTags(c);
+});
+app.post('/api/site-tags', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleCreateTag } = await import('../libs/features/site_tags/handlers.js');
+  return handleCreateTag(c);
+});
+app.patch('/api/site-tags/:tagId', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleUpdateTag } = await import('../libs/features/site_tags/handlers.js');
+  return handleUpdateTag(c);
+});
+app.delete('/api/site-tags/:tagId', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleDeleteTag } = await import('../libs/features/site_tags/handlers.js');
+  return handleDeleteTag(c);
+});
+app.put('/api/sites/:siteId/tags', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  const siteId = c.req.param('siteId');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId'), siteId }))) return c.notFound();
+  const { handleSetSiteTags } = await import('../libs/features/site_tags/handlers.js');
+  return handleSetSiteTags(c);
+});
+app.get('/api/sites/:siteId/tags', async (c) => {
+  const { handleGetSiteTags } = await import('../libs/features/site_tags/handlers.js');
+  return handleGetSiteTags(c);
+});
+
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing
