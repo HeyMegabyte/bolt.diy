@@ -839,6 +839,13 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+app.get('/api/sites/:siteId/sparkline', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_health_sparklines', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSparkline } = await import('../libs/features/site_health_sparklines/handlers.js');
+  return handleSparkline(c);
+});
+
 app.get('/api/notifications/badge', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'notification_badge', { orgId: c.get('orgId')! }))) return c.notFound();

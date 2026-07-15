@@ -739,6 +739,11 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  site_health_sparklines: {
+    key: 'site_health_sparklines',
+    description: 'Site Health Sparklines (#22): 7-day traffic trend per site from analytics_daily. GET /api/sites/:siteId/sparkline.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
   notification_badge: {
     key: 'notification_badge',
     description: 'Notification Badge Count (#21): unread alert + failed-build count per org for admin nav badge. GET /api/notifications/badge.',
