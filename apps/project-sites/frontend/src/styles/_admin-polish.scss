@@ -433,3 +433,36 @@ html[data-theme="system"] body::after { display: none; }
     border-color: var(--ps-accent, #00E5FF);
   }
 }
+
+/* ── Site List Density Toggle (Compact / Comfortable / Card Grid) ── */
+[data-density='compact'] {
+  --ps-site-card-padding: 0.5rem;
+  --ps-site-card-gap: 0.25rem;
+  --ps-site-thumb-size: 24px;
+  .site-card,
+  .site-list-item {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.82rem;
+    .site-thumb { width: 24px; height: 24px; }
+    .site-name { font-size: 0.9rem; }
+    .site-meta { display: none; }
+  }
+}
+[data-density='card'] {
+  --ps-site-card-padding: 1.25rem;
+  --ps-site-card-gap: 1rem;
+  .site-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .site-card,
+  .site-list-item {
+    border-radius: var(--ps-radius-xl, 22px);
+    border: 1px solid var(--ps-border, rgba(100, 255, 218, 0.1));
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    &:hover { border-color: var(--ps-accent, #00E5FF); transform: translateY(-2px); }
+  }
+}
+/* comfortable is default — no overrides needed */
