@@ -10,6 +10,26 @@
 
 ---
 
+### 2026-07-15 — Convergence Session: 14 Features Shipped
+
+| Metric | Start | End | Δ |
+|--------|-------|-----|---|
+| TSC errors | 38 | 12 | -26 |
+| Feature flags | 71 | 85 | +14 |
+| New feature modules | 0 | 14 | +14 |
+| Unit tests | 11,336 | 11,407 | +71 |
+| FLAG_DOCS entries | 70 | 108 | +38 |
+| Deploys | - | 6 | +6 |
+| Billing CORS | broken | 204 | fixed |
+
+**14 features built, tested, deployed, and enabled:**
+site_tags · system_status · activity_feed · mru_cards · usage_gauges · onboarding_progress · nl_analytics · site_comparison · site_clone · batch_operations · notification_badge · site_health_sparklines · cmd_k_actions · analytics_annotations
+
+**Key fixes:** social-publish.ts TSC parse error · 29 feature_flags import paths migrated · isFlagOn 4-arg→3-arg scope-object · N8NContainer case · LISTMONK env var names · ListmonkTransactionalProvider class · NOTION/DISCORD/GOOGLE/NANGO/PIPEDREAM env vars · provisioned ServiceStatus · psnotify event producer · N8nContainer legacy alias · 56 DO containers exported
+
+**Deploy unlocks:** get-secret CLOUDFLARE_API_KEY/CLOUDFLARE_EMAIL · billing CORS proxy with OPTIONS preflight · wrangler.toml container DO config cleanup · v_app_subclasses migration comment-out
+
+
 ## 📦 Ship Log — 2026-07-01
 
 ### Deepcrawl integration blueprint + Firecrawl bridge LIVE
