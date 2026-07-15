@@ -109,7 +109,7 @@ export async function handleCodeExport(
   // ── Return as download ────────────────────────────────────────────────
   const filename = `${bindings.slug}-cf-project-${new Date().toISOString().split('T')[0]}.zip`;
 
-  return new Response(zipBytes, {
+  return new Response(zipBytes as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': 'application/zip',
