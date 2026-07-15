@@ -3,9 +3,16 @@
  *
  * @description
  * Upstash-primary, Fly.io-fallback Redis client for Workers.
- * Every Redis operation tries Upstash first; on network/timeout/auth error,
- * it fails over to the shared Fly Redis machine at `projectsites-redis.internal`.
- * Fallback events are logged to PostHog + structured JSON for cost attribution.
+ *
+ * ## Default: Upstash
+ * All catalog apps use Upstash Redis by default. Fly Redis is reserved for
+ * Nango only — it's an OAuth proxy where cache latency hits every proxied API
+ * call. Apps that don't need sub-ms Redis (Teable, Postiz — spreadsheet cache +
+ * job queue) use Upstash via catalog auto-provisioning.
+ *
+ * To override to Fly Redis: set `FLY_REDIS_PRIMARY=true` in the app's env.
+ * This is a review gate — adding an app to `FLY_REDIS_PRIMARY_APPS` requires
+ * justification in the commit message.
  *
  * ## Why
  *
@@ -37,6 +44,18 @@ const UPSTASH_BASE_RE = /^https:\/\/([^.]+)\.upstash\.io$/;
 
 /** Fly shared Redis connection string from get-secret. */
 const FLY_REDIS_URL = 'redis://:ohyi2Fjm8gCJ8Bfuh8rO/anHQYa1cMuk@projectsites-redis.internal:6379';
+
+/**
+ * Apps approved for Fly Redis primary. Only Nango — OAuth proxy where
+ * every proxied API call hits the token cache. Adding an app here requires
+ * commit-message justification of sub-ms latency need.
+ */
+const FLY_REDIS_PRIMARY_APPS = new Set(['nango']);
+
+/** Return true when an app is approved for Fly Redis as its primary. */
+export function isFlyRedisPrimary(appSlug: string): boolean {
+  return FLY_REDIS_PRIMARY_APPS.has(appSlug);
+}
 
 interface RedisFetchOpts {
   upstashUrl: string;
