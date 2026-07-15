@@ -81,6 +81,7 @@ import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/s
 import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js';
 import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
 import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
+import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -553,6 +554,16 @@ app.post('/api/sites/:siteId/health-check', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const report = runLifecycleCheck(siteId, body.signals || {});
   return c.json({ data: report });
+});
+
+// CMS Collections — content type model generator (flag: cms_collections)
+app.get('/api/sites/:siteId/cms-model', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'cms_collections', orgId, siteId))) return c.notFound();
+  const slugs = c.req.query('collections')?.split(',') || availableCollections();
+  return c.json({ data: buildCmsModel(siteId, slugs) });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
