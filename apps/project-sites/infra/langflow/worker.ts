@@ -19,6 +19,8 @@ interface Env {
   LANGFLOW_DATABASE_URL: string;
   // ── Optional Redis (only if multi-worker) ──
   LANGFLOW_REDIS_QUEUE_URL?: string;
+  // ── API key for programmatic access ──
+  LANGFLOW_API_KEY?: string;
   // ── Optional R2/S3 storage ──
   LANGFLOW_STORAGE_ACCESS_KEY_ID?: string;
   LANGFLOW_STORAGE_SECRET_ACCESS_KEY?: string;
@@ -42,6 +44,7 @@ export class LangflowContainerDO extends Container<Env> {
       LANGFLOW_SUPERUSER: env.LANGFLOW_SUPERUSER,
       LANGFLOW_SUPERUSER_PASSWORD: env.LANGFLOW_SUPERUSER_PASSWORD,
       LANGFLOW_DATABASE_URL: env.LANGFLOW_DATABASE_URL,
+      LANGFLOW_API_KEY: env.LANGFLOW_API_KEY,
       // Single worker by default; set LANGFLOW_WORKERS > 1 + Redis to scale.
       LANGFLOW_WORKERS: '1',
       // Auto-activate new users — no superuser approval required.
