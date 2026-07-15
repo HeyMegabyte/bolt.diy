@@ -282,6 +282,11 @@ export class WikiJsContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'wikijs';
   override defaultPort = 3000;
 }
+/** Lago — `ghcr.io/getlago/api:latest` port 3000, billing.projectsites.dev */
+export class LagoContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'lago';
+  override defaultPort = 3000;
+}
 export const SUPPORTED_APP_SLUGS = [
   'anything-llm',
   'appsmith',
@@ -304,6 +309,7 @@ export const SUPPORTED_APP_SLUGS = [
   'immich',
   'jellyfin',
   'khoj',
+  'lago',
   'langflow',
   'langfuse',
   'librechat',
