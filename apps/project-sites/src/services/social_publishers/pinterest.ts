@@ -140,7 +140,11 @@ export const pinterest: Publisher = {
       }),
     });
     if (!res.ok) throw new Error(`pinterest_media_create: ${res.status}`);
-    const json = (await res.json()) as { media_id?: string; upload_url?: string; upload_parameters?: Record<string, string> };
+    const json = (await res.json()) as {
+      media_id?: string;
+      upload_url?: string;
+      upload_parameters?: Record<string, string>;
+    };
     if (json.upload_url && json.upload_parameters) {
       const fd = new FormData();
       for (const [k, v] of Object.entries(json.upload_parameters)) fd.append(k, v);

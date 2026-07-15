@@ -141,20 +141,24 @@ export const youtube: Publisher = {
   },
 
   async getProfile(env, account) {
-    const res = await fetch(
-      `${API_BASE}channels?part=snippet,statistics&mine=true`,
-      { headers: { Authorization: `Bearer ${account.access_token}`, ...BROWSER_HEADERS } },
-    );
+    const res = await fetch(`${API_BASE}channels?part=snippet,statistics&mine=true`, {
+      headers: { Authorization: `Bearer ${account.access_token}`, ...BROWSER_HEADERS },
+    });
     if (!res.ok) throw new Error(`youtube_profile: ${res.status}`);
     const json = (await res.json()) as {
-      items?: Array<{ snippet?: { title?: string; thumbnails?: { default?: { url?: string } } }; statistics?: { subscriberCount?: string } }>;
+      items?: Array<{
+        snippet?: { title?: string; thumbnails?: { default?: { url?: string } } };
+        statistics?: { subscriberCount?: string };
+      }>;
     };
     const channel = json.items?.[0];
     return {
       handle: channel?.snippet?.title ?? account.handle ?? '',
       display_name: channel?.snippet?.title ?? '',
       avatar_url: channel?.snippet?.thumbnails?.default?.url ?? '',
-      follower_count: channel?.statistics?.subscriberCount ? Number(channel.statistics.subscriberCount) : undefined,
+      follower_count: channel?.statistics?.subscriberCount
+        ? Number(channel.statistics.subscriberCount)
+        : undefined,
     };
   },
 };

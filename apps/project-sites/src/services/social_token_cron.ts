@@ -130,7 +130,9 @@ export async function runTokenRefreshCron(
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
-          client_id: (env as unknown as Record<string, string>)[`${row.platform.toUpperCase()}_CLIENT_ID`] ?? '',
+          client_id:
+            (env as unknown as Record<string, string>)[`${row.platform.toUpperCase()}_CLIENT_ID`] ??
+            '',
         }),
       });
 
@@ -173,11 +175,14 @@ export async function runTokenRefreshCron(
           'social_accounts',
           {
             last_refreshed_at: new Date().toISOString(),
-            refresh_count: (await dbQuery<{ rc: number }>(
-              env.DB,
-              'SELECT refresh_count as rc FROM social_accounts WHERE id = ?',
-              [row.id],
-            )).data[0]?.rc ?? 0 + 1,
+            refresh_count:
+              (
+                await dbQuery<{ rc: number }>(
+                  env.DB,
+                  'SELECT refresh_count as rc FROM social_accounts WHERE id = ?',
+                  [row.id],
+                )
+              ).data[0]?.rc ?? 0 + 1,
           },
           'id = ?',
           [row.id],

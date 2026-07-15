@@ -104,7 +104,10 @@ export const tiktok: Publisher = {
       if (res.status === 401) throw new Error(`tiktok_refresh_failed: ${res.status}`);
       throw new Error(`tiktok_publish: ${res.status} ${await res.text().catch(() => '')}`);
     }
-    const json = (await res.json()) as { data?: { publish_id?: string }; error?: { message: string } };
+    const json = (await res.json()) as {
+      data?: { publish_id?: string };
+      error?: { message: string };
+    };
     if (json.error) throw new Error(`tiktok_publish: ${json.error.message}`);
     return {
       external_id: json.data?.publish_id ?? '',

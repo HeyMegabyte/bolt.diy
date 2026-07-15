@@ -102,10 +102,7 @@ export function buildDeadLetterCommands(
  * // Upstash REST executes these as a pipeline → returns due posts
  * ```
  */
-export function buildDrainCommands(
-  platform: Platform,
-  limit = 50,
-): Array<[string, ...string[]]> {
+export function buildDrainCommands(platform: Platform, limit = 50): Array<[string, ...string[]]> {
   const now = Date.now();
   const queueKey = `social:queue:${platform}`;
   return [['ZRANGEBYSCORE', queueKey, '0', String(now), 'LIMIT', '0', String(limit)]];

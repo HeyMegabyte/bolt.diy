@@ -66,8 +66,11 @@ export const mastodon: Publisher = {
   async getProfile(_env, account) {
     return {
       handle: account.handle ?? '',
-      display_name: (account.metadata as Record<string,unknown>).display_name as string ?? account.handle ?? '',
-      avatar_url: (account.metadata as Record<string,unknown>).avatar_url as string ?? '',
+      display_name:
+        ((account.metadata as Record<string, unknown>).display_name as string) ??
+        account.handle ??
+        '',
+      avatar_url: ((account.metadata as Record<string, unknown>).avatar_url as string) ?? '',
     };
   },
 };

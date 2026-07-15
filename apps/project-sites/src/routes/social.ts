@@ -915,7 +915,10 @@ socialRoutes.post(
           const queueKey = `social:queue:${platform}`;
           const res = await fetch(`${upstashUrl}/pipeline`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${upstashToken}`, 'Content-Type': 'application/json' },
+            headers: {
+              Authorization: `Bearer ${upstashToken}`,
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify([
               ['ZRANGEBYSCORE', queueKey, '0', String(now), 'LIMIT', '0', String(max)],
               ['ZREMRANGEBYSCORE', queueKey, '0', String(now)],

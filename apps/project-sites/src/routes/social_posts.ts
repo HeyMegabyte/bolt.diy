@@ -20,7 +20,11 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbInsert, dbQuery } from '../services/db.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import { PLATFORMS, type Platform, PLATFORM_CHAR_LIMITS } from '../services/social_publishers/index.js';
+import {
+  PLATFORMS,
+  type Platform,
+  PLATFORM_CHAR_LIMITS,
+} from '../services/social_publishers/index.js';
 
 export const socialPostRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -44,7 +48,10 @@ const PublishSchema = z.object({
   link: z.string().url().max(2000).optional(),
   site_id: z.string().uuid().optional(),
   per_platform_overrides: z
-    .record(platformEnum, z.object({ content: z.string().max(10000).optional(), alt: z.string().max(500).optional() }))
+    .record(
+      platformEnum,
+      z.object({ content: z.string().max(10000).optional(), alt: z.string().max(500).optional() }),
+    )
     .optional(),
 });
 
@@ -99,12 +106,15 @@ socialPostRoutes.post(
       const limit = PLATFORM_CHAR_LIMITS[platform] ?? 10000;
       const content = body.per_platform_overrides?.[platform]?.content ?? body.content;
       if (content.length > limit) {
-        return c.json({
-          error: {
-            code: 'CONTENT_TOO_LONG',
-            message: `${platform} content (${content.length}) exceeds limit (${limit})`,
+        return c.json(
+          {
+            error: {
+              code: 'CONTENT_TOO_LONG',
+              message: `${platform} content (${content.length}) exceeds limit (${limit})`,
+            },
           },
-        }, 400);
+          400,
+        );
       }
     }
 
@@ -118,8 +128,12 @@ socialPostRoutes.post(
       status: 'queued',
       scheduled_at: new Date().toISOString(),
       content: body.content,
-      per_platform_overrides: body.per_platform_overrides ? JSON.stringify(body.per_platform_overrides) : null,
-      media_keys: body.media_ids ? JSON.stringify(body.media_ids.map((k) => ({ r2_key: k }))) : null,
+      per_platform_overrides: body.per_platform_overrides
+        ? JSON.stringify(body.per_platform_overrides)
+        : null,
+      media_keys: body.media_ids
+        ? JSON.stringify(body.media_ids.map((k) => ({ r2_key: k })))
+        : null,
       account_ids: JSON.stringify(body.account_ids),
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
       link: body.link ?? null,
@@ -139,9 +153,7 @@ socialPostRoutes.post(
           scheduled_at: now,
           correlation_id: correlationId,
         };
-        const cmds = [
-          ['ZADD', `social:queue:${platform}`, String(now), JSON.stringify(entry)],
-        ];
+        const cmds = [['ZADD', `social:queue:${platform}`, String(now), JSON.stringify(entry)]];
         // Fire-and-forget to Upstash via ctx.waitUntil so we don't block the response.
         // Degraded mode: if Upstash is down, the drain-queue D1 fallback picks up
         // the pulse_posts row on the next cron tick.
@@ -151,7 +163,10 @@ socialPostRoutes.post(
           c.executionCtx.waitUntil(
             fetch(`${upstashUrl}/pipeline`, {
               method: 'POST',
-              headers: { Authorization: `Bearer ${upstashToken}`, 'Content-Type': 'application/json' },
+              headers: {
+                Authorization: `Bearer ${upstashToken}`,
+                'Content-Type': 'application/json',
+              },
               body: JSON.stringify(cmds),
             }).catch(() => undefined),
           );
@@ -170,14 +185,17 @@ socialPostRoutes.post(
       }
     }
 
-    return c.json({
-      data: {
-        id: postId,
-        status: 'queued',
-        deliveries,
-        correlation_id: correlationId,
+    return c.json(
+      {
+        data: {
+          id: postId,
+          status: 'queued',
+          deliveries,
+          correlation_id: correlationId,
+        },
       },
-    }, 201);
+      201,
+    );
   },
 );
 
@@ -216,7 +234,10 @@ socialPostRoutes.post(
     const body = c.req.valid('json');
     const scheduledMs = new Date(body.scheduled_at).getTime();
     if (scheduledMs <= Date.now()) {
-      return c.json({ error: { code: 'BAD_REQUEST', message: 'scheduled_at must be in the future' } }, 400);
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: 'scheduled_at must be in the future' } },
+        400,
+      );
     }
 
     // Validate accounts
@@ -241,8 +262,12 @@ socialPostRoutes.post(
       status: 'scheduled',
       scheduled_at: body.scheduled_at,
       content: body.content,
-      per_platform_overrides: body.per_platform_overrides ? JSON.stringify(body.per_platform_overrides) : null,
-      media_keys: body.media_ids ? JSON.stringify(body.media_ids.map((k) => ({ r2_key: k }))) : null,
+      per_platform_overrides: body.per_platform_overrides
+        ? JSON.stringify(body.per_platform_overrides)
+        : null,
+      media_keys: body.media_ids
+        ? JSON.stringify(body.media_ids.map((k) => ({ r2_key: k })))
+        : null,
       account_ids: JSON.stringify(body.account_ids),
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
       link: body.link ?? null,
@@ -279,14 +304,17 @@ socialPostRoutes.post(
       }
     }
 
-    return c.json({
-      data: {
-        id: postId,
-        status: 'scheduled',
-        scheduled_at: body.scheduled_at,
-        workflow_id: workflowId,
+    return c.json(
+      {
+        data: {
+          id: postId,
+          status: 'scheduled',
+          scheduled_at: body.scheduled_at,
+          workflow_id: workflowId,
+        },
       },
-    }, 201);
+      201,
+    );
   },
 );
 
@@ -321,11 +349,8 @@ socialPostRoutes.post(
     const { topic, platforms, tone } = c.req.valid('json');
 
     // Lazy-import auto-pilot to keep the cold-start footprint small.
-    const {
-      loadAutoPilotConfig,
-      generateAutoPilotPostForNetwork,
-      DEFAULT_AUTO_PILOT_PROMPT,
-    } = await import('../services/social_auto_pilot.js');
+    const { loadAutoPilotConfig, generateAutoPilotPostForNetwork, DEFAULT_AUTO_PILOT_PROMPT } =
+      await import('../services/social_auto_pilot.js');
 
     const cfg = await loadAutoPilotConfig(c.env.DB, ctx.orgId);
     const effectivePrompt = cfg.prompt || DEFAULT_AUTO_PILOT_PROMPT;

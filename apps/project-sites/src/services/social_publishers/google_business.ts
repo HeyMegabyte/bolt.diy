@@ -81,8 +81,12 @@ export const google_business: Publisher = {
   },
 
   async publish(env, account, post): Promise<PublishResult> {
-    const locationId = (account.metadata as Record<string, unknown>).location_id as string | undefined;
-    const accountId = (account.metadata as Record<string, unknown>).account_id as string | undefined;
+    const locationId = (account.metadata as Record<string, unknown>).location_id as
+      | string
+      | undefined;
+    const accountId = (account.metadata as Record<string, unknown>).account_id as
+      | string
+      | undefined;
     if (!locationId || !accountId) {
       throw new Error('gbp_publish: location_id and account_id required in metadata');
     }
@@ -90,9 +94,7 @@ export const google_business: Publisher = {
     const payload = {
       summary: body.slice(0, 1500),
       topicType: 'STANDARD',
-      callToAction: post.link
-        ? { actionType: 'LEARN_MORE', url: post.link }
-        : undefined,
+      callToAction: post.link ? { actionType: 'LEARN_MORE', url: post.link } : undefined,
       media: post.media_urls.map((m) => ({
         mediaFormat: m.type === 'video' ? 'VIDEO' : 'PHOTO',
         sourceUrl: m.url,
@@ -153,12 +155,13 @@ export const google_business: Publisher = {
   },
 
   async getProfile(env, account) {
-    const accountId = (account.metadata as Record<string, unknown>).account_id as string | undefined;
+    const accountId = (account.metadata as Record<string, unknown>).account_id as
+      | string
+      | undefined;
     if (!accountId) return { handle: account.handle ?? '', display_name: '', avatar_url: '' };
-    const res = await fetch(
-      `${API_BASE}accounts/${accountId}`,
-      { headers: { Authorization: `Bearer ${account.access_token}`, ...BROWSER_HEADERS } },
-    );
+    const res = await fetch(`${API_BASE}accounts/${accountId}`, {
+      headers: { Authorization: `Bearer ${account.access_token}`, ...BROWSER_HEADERS },
+    });
     if (!res.ok) throw new Error(`gbp_profile: ${res.status}`);
     const json = (await res.json()) as { name?: string; accountName?: string };
     return {
