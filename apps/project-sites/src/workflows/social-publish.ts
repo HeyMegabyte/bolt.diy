@@ -201,71 +201,67 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
     });
 
     // 3. fanoutPublish — load accounts then run per-account publishes in parallel.
-    // Clones the post per account, substituting platform-native media IDs from
-    // step 2.7 where available (fallback to original R2 URLs).
+    // Each account gets a cloned post context with platform-native media IDs
+    // substituted where available from step 2.7 (fallback to original R2 URLs).
     const accounts = await loadAccountsByIds(env, ctx.accountIds);
-    const publishPromises = accounts.map((acc) => {
-      // Build per-account post context with platform-specific media IDs
-      const accPost: PostCtx = {
-        ...post,
-        media_urls: post.media_urls.map((m) => {
-          const platformId = platformMediaIds[acc.id]?.[m.url];
-          if (platformId) {
-            // Platform accepted this media — use its native URL/ID.
-            // The publisher's publish() method knows how to use a platform
-            // media ID when the URL field carries a non-HTTP prefix.
-            return { ...m, url: `platform://${acc.platform}/${platformId}` };
-          }
-          return m;
-        }),
-      };
-      return step
-        .do(`publish-${acc.platform}-${acc.id}`, RETRY_30S, async () => {
-          try {
-            const pub = getPublisher(acc.platform as Platform);
-            const result = await pub.publish(env, acc, accPost);
-            return {
-              account_id: acc.id,
-              platform: acc.platform,
-              status: 'succeeded' as const,
-              external_id: result.external_id,
-              external_url: result.external_url,
-              error: null,
-            };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            if (err instanceof MissingAppCredsError) {
-              // Don't retry app-cred errors; surface and skip
+    const publishPromises = accounts.map((acc) =>
+      (() => {
+        // Build per-account post context with platform-specific media IDs
+        const accPost: PostCtx = {
+          ...post,
+          media_urls: post.media_urls.map((m) => {
+            const platformId = platformMediaIds[acc.id]?.[m.url];
+            if (platformId) {
+              return { ...m, url: `platform://${acc.platform}/${platformId}` };
+            }
+            return m;
+          }),
+        };
+        return step
+          .do(`publish-${acc.platform}-${acc.id}`, RETRY_30S, async () => {
+            try {
+              const pub = getPublisher(acc.platform as Platform);
+              const result = await pub.publish(env, acc, accPost);
               return {
                 account_id: acc.id,
                 platform: acc.platform,
-                status: 'skipped' as const,
-                external_id: null,
-                external_url: null,
-                error: msg,
+                status: 'succeeded' as const,
+                external_id: result.external_id,
+                external_url: result.external_url,
+                error: null,
               };
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              if (err instanceof MissingAppCredsError) {
+                return {
+                  account_id: acc.id,
+                  platform: acc.platform,
+                  status: 'skipped' as const,
+                  external_id: null,
+                  external_url: null,
+                  error: msg,
+                };
+              }
+              if (
+                msg.includes('401') ||
+                msg.includes('unauthorized') ||
+                msg.includes('refresh_failed')
+              ) {
+                await markAccountError(env, acc.id, msg).catch(() => undefined);
+              }
+              throw err;
             }
-            // Mark expired/revoked tokens
-            if (
-              msg.includes('401') ||
-              msg.includes('unauthorized') ||
-              msg.includes('refresh_failed')
-            ) {
-              await markAccountError(env, acc.id, msg).catch(() => undefined);
-            }
-            throw err;
-          }
-        })
-        .catch((err: unknown) => ({
-          account_id: acc.id,
-          platform: acc.platform,
-          status: 'failed' as const,
-          external_id: null,
-          external_url: null,
-          error: err instanceof Error ? err.message : String(err),
-        })),
-    }
-    });
+          })
+          .catch((err: unknown) => ({
+            account_id: acc.id,
+            platform: acc.platform,
+            status: 'failed' as const,
+            external_id: null,
+            external_url: null,
+            error: err instanceof Error ? err.message : String(err),
+          }));
+      })()
+    );
     const results = await Promise.all(publishPromises);
 
     // 4. recordResults

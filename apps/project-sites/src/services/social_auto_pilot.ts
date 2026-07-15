@@ -20,22 +20,7 @@
 import type { Env } from '../types/env.js';
 import { dbInsert, dbQueryOne, dbUpdate } from './db.js';
 import { callExternalLLM } from './external_llm.js';
-import { PLATFORMS, type Platform } from './social_publishers/index.js';
-
-/** Per-network char budget used to clamp generated drafts. */
-const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
-  twitter: 280,
-  linkedin: 3000,
-  facebook: 5000,
-  instagram: 2200,
-  threads: 500,
-  bluesky: 300,
-  reddit: 10000,
-  mastodon: 500,
-  discord: 2000,
-  slack: 4000,
-  telegram: 4096,
-};
+import { PLATFORMS, type Platform, PLATFORM_CHAR_LIMITS } from './social_publishers/index.js';
 
 /**
  * Default system prompt used when an org has not customized its own. Mirrors
