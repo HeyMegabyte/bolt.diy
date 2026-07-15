@@ -739,6 +739,11 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  batch_operations: {
+    key: 'batch_operations',
+    description: 'Batch Site Operations (#20): bulk rebuild/snapshot/delete for up to 50 sites. Validates org ownership per site. POST /api/batch.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
   site_comparison: {
     key: 'site_comparison',
     description: 'Site Comparison View (#18): side-by-side diff of two sites — pages, builds, domains, status, last activity. POST /api/sites/compare.',

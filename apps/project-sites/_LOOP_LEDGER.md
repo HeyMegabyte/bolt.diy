@@ -279,7 +279,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] **"Jump back" floating button** — bottom-right FAB with `previousRoute` tracking + keyboard nav (2026-07-13)
 - [ ] [auto] **Site list density toggle** — Compact/Comfortable/Card Grid, localStorage persisted
 - [ ] [auto] **Drag-to-reorder sidebar** — Angular CDK drag-drop on nav items, localStorage persisted
-- [ ] [auto] **Batch site operations** — checkbox selection → floating action bar → Rebuild/Snapshot/Delete All
+- [x] [auto] **Batch site operations** — **DONE 2026-07-15:** libs/features/batch_operations/ — rebuild/snapshot/delete, per-site ownership validation, 4 unit tests, flag batch_operations
 - [x] [auto] **Full-width mode toggle** — `g w` shortcut, `fullWidth` signal, toggle button in top bar, SCSS hover-zone collapse (2026-07-13)
 
 ### Tier 2 — High impact, moderate effort

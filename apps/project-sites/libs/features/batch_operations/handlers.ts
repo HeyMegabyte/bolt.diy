@@ -1,0 +1,12 @@
+import type { Context } from 'hono';
+import type { Env, Variables } from '../../../src/types/env.js';
+import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
+import { BatchRequestSchema } from './schemas.js';
+import { batchProcess } from './service.js';
+
+export async function handleBatchOps(c: Context<{ Bindings: Env; Variables: Variables }>): Promise<Response> {
+  if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const body = BatchRequestSchema.parse(await c.req.json());
+  const results = await batchProcess(c.env, c.get('orgId')!, body.siteIds, body.action);
+  return c.json({ results, summary: { total: results.length, ok: results.filter(r=>r.ok).length, failed: results.filter(r=>!r.ok).length } });
+}

@@ -1175,6 +1175,11 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Pct is capped at 100',
     ],
   },
+  batch_operations: {
+    checklist: ['Bulk rebuild/snapshot/delete for 1-50 sites', 'Per-site org-ownership validation', 'Per-site ok/fail result with message', 'Returns summary: total/ok/failed counts'],
+    explanation: 'Batch processor for site-level actions — rebuild (queues build workflow_job), snapshot (queues snapshot workflow_job), or delete (soft-deletes site). Each site ID is validated for org ownership before the action. Results are per-site with a summary block for quick status checks.',
+    smoke_test: ['Enable flag → POST /api/batch {"siteIds":["id1","id2"],"action":"rebuild"} → 200 with per-site results', 'Unowned site → ok:false, message:"not_found_or_not_owned"', 'Invalid action → 400 Zod validation error'],
+  },
   site_comparison: {
     checklist: ['Side-by-side diff of any two org-owned sites', 'Compares pages/builds/domains/status/last-build/updated', 'Highlights differences with null = identical'],
     explanation: 'Compares two sites side-by-side across 6 dimensions: page count, build count, active domains, status, last build date, and last updated date. Each dimension returns values for both sites plus a diff indicator. Useful for auditing or understanding what changed between two sites.',

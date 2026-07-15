@@ -839,6 +839,13 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+app.post('/api/batch', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleBatchOps } = await import('../libs/features/batch_operations/handlers.js');
+  return handleBatchOps(c);
+});
+
 // Site Comparison — side-by-side diff (flag: site_comparison)
 app.post('/api/sites/compare', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
