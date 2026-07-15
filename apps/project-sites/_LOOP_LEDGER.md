@@ -3685,6 +3685,278 @@ line item is the only significant cost — gated by per-site monthly quota in pl
 entitlements. Everything else is near-free on CF's scale.
 
 
+## 🔥 NATIVE SOCIAL — 100 Heavyweight Ideas (2026-07-15)
+
+> Research-backed ideas that each require 10+ developer-hours. Synthesized from
+> Buffer, Hootsuite, Sprout Social, Postiz, Later, Publer, and emerging 2025-2026
+> AI-agent trends. Each idea is scoped to a multi-day build — architecture, schema,
+> API surface, UI, tests, observability. No micro-features.
+
+### Tier 5 — AI-Native Social (SOCIAL-200 to SOCIAL-219)
+
+These are the "what's possible BECAUSE AI is programming?" ideas. Each transforms
+a manual social workflow into an autonomous AI agent pipeline.
+
+- [ ] **SOCIAL-200: Autonomous Social Agent (ASA)** — Full AI agent that plans, drafts, schedules, publishes, monitors, and course-corrects. Not a "generate post" button — an agent with a 7-day content plan, brand voice model, performance feedback loop, and the authority to adjust. Architecture: DO-backed state machine with Langfuse-traced decision points. Each decision logged to audit trail. Owner sets guardrails (max posts/day, banned topics, required approvals for certain content types). ~60h build.
+
+- [ ] **SOCIAL-201: Brand Voice Auto-Learning Engine** — Crawls a site's entire social history (all connected platforms, all past posts) to build a statistical brand voice model: vocabulary distribution, emoji patterns, hashtag clusters, sentence-length curves, CTA preferences, reply tone. Updates weekly. Exposed as a typed `BrandVoice` object consumed by every AI generation call. Not prompt-engineering — a data model. ~30h.
+
+- [ ] **SOCIAL-202: Content Performance Prediction Model** — Train a lightweight classifier on historical post performance (impressions, engagement rate, click-through) × content features (length, hashtags, media count, topic, tone, time-of-day, day-of-week). Scores drafts 0-100 before publishing. "This post is predicted to perform in the bottom 20% — try adding an image and shortening the hook." Uses Tinybird for training data, Workers AI for inference. ~40h.
+
+- [ ] **SOCIAL-203: AI Content Repurposing Pipeline** — One long-form input (blog post, newsletter, podcast transcript, YouTube description) → N platform-optimized outputs. Blog → X thread + LinkedIn carousel + Instagram carousel + TikTok script + Facebook post + Pinterest pin. Each output obeys platform char limits, hashtag conventions, and media specs. Uses llm.projectsites.dev with structured output schemas per platform. Langfuse-traced per transformation. ~35h.
+
+- [ ] **SOCIAL-204: AI Visual Content Generator** — Text-to-image and text-to-video generation for social posts. Connects to Replicate/Workers AI for image gen (Flux, SDXL) and video gen (Sora, Veo via API). Brand-kit-aware: logo overlay, brand colors, font injection. Social-format-aware: 1:1 for Instagram, 9:16 for TikTok/Reels/Shorts, 16:9 for YouTube. Generated assets auto-uploaded to R2 + registered in media library. ~50h.
+
+- [ ] **SOCIAL-205: Smart Scheduling Engine (ViralPost-style)** — Not just "best times from industry reports." Analyzes each connected account's historical engagement by hour-of-day and day-of-week. Computes personalized optimal posting windows. Auto-schedules drafts into the highest-predicted-engagement slot within the user's preferred cadence window. Re-evaluates weekly as data accumulates. Tinybird-powered. ~25h.
+
+- [ ] **SOCIAL-206: AI Hashtag Strategy Engine** — Analyzes hashtag performance across historical posts. Recommends hashtag mix: 2-3 high-volume, 3-4 mid-tier niche, 2-3 branded. Detects trending hashtags in the business's industry/location. Banned-hashtag list (shadowbanned, spam, irrelevant). Platform-aware (Instagram wants 20-30, X wants 1-2). KV-cached with 1h TTL per topic. ~20h.
+
+- [ ] **SOCIAL-207: AI First Reply / Engagement Bot** — Monitors comments on published posts across platforms. For positive comments: auto-likes and generates a draft reply (owner approves). For questions: drafts an answer from site knowledge base. For negative: flags for human review. Never auto-posts without approval (configurable per platform). Uses sentiment analysis to route. ~35h.
+
+- [ ] **SOCIAL-208: AI Competitor Content Analyzer** — User provides competitor social handles. System pulls their last 90 days of public posts. Analyzes: posting frequency, content themes, top-performing posts, hashtag strategy, engagement patterns, audience growth trajectory. Generates a weekly "Competitive Landscape" digest with actionable recommendations ("Competitor X is getting 3× your engagement on video content — here are 5 video ideas for your niche"). ~30h.
+
+- [ ] **SOCIAL-209: AI A/B Test Conductor** — User creates 2+ variants of a post. System publishes both (on platforms that support variant posting), tracks engagement for a configurable window (default 24h), declares a winner, and auto-deletes or archives the loser. Statistical significance calculation. Winner patterns feed back into the Content Performance Prediction Model (SOCIAL-202). ~25h.
+
+- [ ] **SOCIAL-210: AI Crisis Detection + Auto-Pause** — Monitors brand mentions across platforms for sudden sentiment shifts (negative spike detection). Emergency threshold triggers: (1) pause all scheduled posts, (2) notify owner via email+SMS+psnotify, (3) generate a draft holding statement, (4) create an incident record in D1. Owner reviews and either resumes or adjusts. Tinybird real-time sentiment pipeline. ~40h.
+
+- [ ] **SOCIAL-211: AI Trend Surfing Engine** — Monitors trending topics/hashtags/sounds in the business's industry and location. When a relevant trend is detected: (1) notify owner, (2) generate 3 draft posts riding the trend, (3) include trending audio/hashtag references. All within the trend's peak window (typically 24-72h). Uses platform trend APIs + news APIs + social listening. ~35h.
+
+- [ ] **SOCIAL-212: Multilingual Post Translation + Localization** — One post → N languages with culturally-aware localization (not just translation). Spanish for Mexico ≠ Spanish for Spain. Hashtag translation. Emoji cultural mapping. Date/time format localization. Currency conversion for commerce posts. Uses llm.projectsites.dev with per-locale system prompts. Per-account locale preferences. ~25h.
+
+- [ ] **SOCIAL-213: AI Podcast-to-Social Pipeline** — Upload an audio file → transcription (Deepgram) → topic extraction → key quote identification → 5-7 social posts at key timestamps → audiogram generation (waveform + caption overlay) → platform-optimized video clips. One podcast episode = one week of social content. ~45h.
+
+- [ ] **SOCIAL-214: AI Content Calendar Strategist** — Given a business's services, events, promotions, and industry calendar: generates a 90-day content strategy with themes per week, post-type mix (educational/promotional/engagement/behind-the-scenes), platform allocation, and estimated engagement. Owner reviews the strategy; AI fills in the individual posts. Strategic, not just tactical. ~30h.
+
+- [ ] **SOCIAL-215: AI Persona-Based Post Generator** — Define audience personas (e.g., "Sarah, 34, working mom, cares about organic food"). Generate the same message framed for each persona. Persona A gets an emotional, story-driven post. Persona B gets a data-driven, ROI-focused post. Persona C gets a short, punchy, emoji-rich post. Schedule persona-targeted posts on optimal days. ~25h.
+
+- [ ] **SOCIAL-216: AI Post Mortem Analyzer** — After a post's engagement window closes (48-72h): analyzes WHAT worked (hook pattern, media type, hashtag, time) and WHAT didn't. Compares against the account's baseline. Generates a one-paragraph "Post Mortem" with specific, actionable takeaways for the next post. Feeds back into brand voice + performance prediction models. ~20h.
+
+- [ ] **SOCIAL-217: AI Influencer Matchmaker** — User describes their business and target audience. System searches social platforms for micro-influencers (1K-50K followers) in the same niche/geography. Scores each on: audience authenticity (fraud detection), engagement rate, content quality, brand alignment. Generates a ranked list with outreach templates personalized per influencer. ~40h.
+
+- [ ] **SOCIAL-218: AI UGC (User-Generated Content) Solicitor** — After a purchase or positive review: auto-generates a personalized social media request. "Loved your experience? Share a photo and tag us for a chance to be featured!" Tracks UGC posts mentioning the brand. Auto-requests permission to reshare. Schedules reshared UGC into the content calendar. ~25h.
+
+- [ ] **SOCIAL-219: AI Social Media Audit Generator** — One-click audit of all connected social accounts. Analyzes: profile completeness, bio optimization, link strategy, posting consistency, visual cohesion, engagement trends, audience growth. Generates a 10-page PDF report with prioritized recommendations. Scheduled quarterly. White-label with business branding. ~30h.
+
+### Tier 6 — Social Commerce (SOCIAL-220 to SOCIAL-229)
+
+Social commerce = $100B+ market in 2026. These ideas wire social publishing
+directly into product catalogs, shops, and checkout flows.
+
+- [ ] **SOCIAL-220: Product Catalog Sync Engine** — Connect e-commerce platforms (Shopify, WooCommerce, Square) → auto-sync product catalog to D1 `social_products` table. Products become taggable in social posts. Scheduled product-launch posts auto-generated from new catalog entries. Inventory-aware (don't promote out-of-stock items). ~35h.
+
+- [ ] **SOCIAL-221: Shoppable Post Composer** — Extend the post composer with product tagging. Select products from synced catalog → post renders with product cards (image, price, "Shop Now" CTA). Platform-native where supported (Instagram Shopping tags, Facebook product tags, TikTok Shop links, Pinterest product pins). Fallback to link-in-bio for platforms without native shopping. ~40h.
+
+- [ ] **SOCIAL-222: TikTok Shop Integration** — Full TikTok Shop API integration: product catalog sync, shoppable video posts, LIVE shopping event scheduling, order tracking, commission reporting. TikTok Shop is the #1 SMB commerce platform in 2026 ($23B projected). This is a platform client, not a generic feature. ~50h.
+
+- [ ] **SOCIAL-223: Instagram Shopping + Product Tagging** — Instagram Graph API shopping integration: product catalog via Facebook Commerce Manager, product tags in feed posts + stories + reels, shop tab on Instagram profile, checkout-enabled posts. Requires Facebook Business verification + Commerce Account. ~35h.
+
+- [ ] **SOCIAL-224: Social Commerce Analytics Dashboard** — Track revenue per platform, per post, per product. Attribution: which social post led to which sale. ROAS (Return on Ad Spend) per campaign. Product performance: which items convert best from social. Compare social commerce vs. other channels. Tinybird + Stripe/Square transaction data joined. ~40h.
+
+- [ ] **SOCIAL-225: Automated Flash Sale / Promotion Engine** — Schedule time-limited promotions: "40% off for the next 2 hours." Auto-posts across all connected platforms at launch. Auto-posts "ending soon" reminders. Auto-posts "sold out" or "extended" updates. Tracks promo code usage. Auto-deletes expired promo posts. ~30h.
+
+- [ ] **SOCIAL-226: Social Proof Notification Pipeline** — When a product is purchased: (1) wait N days for delivery, (2) generate a personalized social-proof post ("[Name] just bought [Product] in [City]!"), (3) queue for owner approval, (4) publish. Privacy-safe: first name only, city-level location. Opt-out per customer. FOMO-driven social commerce. ~25h.
+
+- [ ] **SOCIAL-227: Pinterest Rich Pin + Catalog Integration** — Pinterest API v5 catalog integration: product data feed, Rich Pins (real-time price/availability), collections, shopping ads. Pinterest is the #1 visual discovery platform — critical for retail, fashion, home decor, food SMBs. ~25h.
+
+- [ ] **SOCIAL-228: Facebook/Instagram Ad Campaign Launcher** — From the social admin: create a simple boosted post / ad campaign targeting the business's local area. Set budget, duration, audience. Not a full ads manager — a lightweight "boost this post for $20 to people within 10 miles" flow. Uses Facebook Marketing API. ~40h.
+
+- [ ] **SOCIAL-229: Link-in-Bio Smart Page Builder** — Auto-generate a mobile-optimized link-in-bio landing page hosted at `{slug}.projectsites.dev/links`. Pulls latest posts, top products, current promotions, contact info, and appointment booking. Updates automatically when new content publishes. Analytics on link clicks. Replaces Linktree/Beacons for SMBs. ~30h.
+
+### Tier 7 — Enterprise & Agency (SOCIAL-230 to SOCIAL-244)
+
+Multi-client, multi-user, regulated-industry features. These make the platform
+viable for agencies managing 50+ client social presences.
+
+- [ ] **SOCIAL-230: Agency Multi-Client Dashboard** — Single-pane view of all managed client social accounts. Sort/filter by: posts scheduled today, accounts needing attention (expired tokens, failed posts, low engagement), recent activity. Batch operations: create a post and push to N client accounts. Client switching with full context isolation. ~40h.
+
+- [ ] **SOCIAL-231: Granular RBAC for Social** — Role-based access control extending beyond org/site. Social-specific roles: `social_admin` (full control), `social_editor` (create/edit, cannot publish), `social_reviewer` (approve/reject), `social_analyst` (read-only + analytics). Per-platform permissions: "Can post to Facebook and Instagram, but not X." Inherits from org RBAC, extends with social scope. ~30h.
+
+- [ ] **SOCIAL-232: Multi-Step Approval Workflows** — Configurable approval chains: Draft → Peer Review → Manager Approval → Compliance Review → Scheduled. Each step: assignee(s), SLA (escalate if not reviewed within X hours), rejection reason required. Audit trail per transition. Email/psnotify notifications. Per-client workflow configuration. ~35h.
+
+- [ ] **SOCIAL-233: Content Compliance Engine (Regulated Industries)** — For finance, healthcare, legal, government clients: (1) pre-publish content scanning against configurable rule sets (no performance claims without disclosure, mandatory hashtags like #ad, banned terms list), (2) automated archiving of all published content + edits + deletions (WORM-compliant for SEC/FINRA), (3) mandatory compliance review gate for flagged content types, (4) audit-ready export. Per-industry rule pack templates. ~50h.
+
+- [ ] **SOCIAL-234: White-Label / Reseller Mode** — Agency can rebrand the social admin with their own logo, colors, and domain (`social.agency.com`). Client sees the agency's brand, not ProjectSites. White-label email notifications. White-label reports. Configurable per client. Tenant isolation ensures no cross-client data leak. ~35h.
+
+- [ ] **SOCIAL-235: Client Approval Portal** — External-facing portal where agency clients review and approve scheduled posts. No login to the admin required — magic link to a read-only calendar view. Client can: approve, reject with comment, request changes. All actions feed back into the internal approval workflow. Audit-logged. ~30h.
+
+- [ ] **SOCIAL-236: Social Media Asset Library (Shared)** — Shared media library per agency/client. Upload once, use across all social posts. Folders, tags, search. AI auto-tagging (object detection, scene classification). Usage tracking (which posts used which assets). Duplicate detection. Expiring assets (rights-managed content with usage windows). R2-backed with signed URLs. ~35h.
+
+- [ ] **SOCIAL-237: Bulk Operations Engine** — CSV import/export for: posts (create 100 drafts from spreadsheet), accounts (bulk connect), analytics (export all metrics), content calendar (import from spreadsheet). Template validation with helpful error messages ("Row 17: content exceeds X character limit"). Progress tracking for long-running bulk operations. ~25h.
+
+- [ ] **SOCIAL-238: Client Onboarding Wizard** — Step-by-step wizard for agency to onboard a new client: (1) connect social accounts (OAuth flow per platform), (2) import historical posts (last 90 days for brand voice learning), (3) configure approval workflow, (4) set up content calendar preferences, (5) invite team members with roles. Progress saved between sessions. ~30h.
+
+- [ ] **SOCIAL-239: Agency Analytics Suite** — Cross-client analytics: compare performance across all managed clients, identify top/bottom performers, track account growth trends, measure agency impact (client's social metrics before vs. after agency management). White-label PDF reports auto-generated monthly. Tinybird-powered with per-client data isolation. ~40h.
+
+- [ ] **SOCIAL-240: Team Performance Analytics** — Track which team members create the highest-performing content. Posts attributed to creator. Engagement-per-creator metrics. Approval speed metrics. Client satisfaction correlated with posting consistency. Gamification: streaks, top-performer badges. ~25h.
+
+- [ ] **SOCIAL-241: Social Inbox / Community Management** — Unified inbox for comments, DMs, mentions across all connected platforms. Assign conversations to team members. Reply templates. Sentiment tagging. Auto-responders for common queries ("What are your hours?"). Escalation rules ("If sentiment is negative AND follower count > 10K, escalate to manager"). Collision detection (prevent two people replying to the same comment). ~50h.
+
+- [ ] **SOCIAL-242: Automated Client Reporting** — Scheduled reports (weekly, monthly, quarterly) auto-generated and emailed to clients. Customizable: which metrics, which platforms, comparison period, branding. PDF + interactive web version. Client portal access to historical reports. White-label with agency branding. Resend + react-email templates. ~30h.
+
+- [ ] **SOCIAL-243: Social Media Policy Enforcement** — Configurable policy rules per client: "No political content," "No competitor mentions," "Must include #ad for sponsored content," "No posts before 6 AM or after 10 PM." Pre-publish scan. Violations block publishing with clear explanation. Overridable by admin with audit reason. ~20h.
+
+- [ ] **SOCIAL-244: Franchise / Multi-Location Mode** — One "parent" brand account → many "child" location accounts. Parent creates content templates ("National Pizza Day promotion") → each location auto-customizes (location-specific offers, local images, local hashtags) → each location's social accounts publish. Parent can override, approve, or monitor. Critical for franchises, restaurant chains, retail chains. ~45h.
+
+### Tier 8 — Analytics, Listening & Intelligence (SOCIAL-245 to SOCIAL-259)
+
+Competitive intelligence, social listening, and advanced analytics. These make
+the platform a strategic tool, not just a publishing tool.
+
+- [ ] **SOCIAL-245: Social Listening Engine** — Monitor keywords, hashtags, and brand mentions across platforms. Real-time alerting for mention spikes. Sentiment tracking over time. Topic clustering (what are people saying about the brand?). Competitive share of voice. Tinybird ingestion pipeline + Workers AI sentiment classifier. ~50h.
+
+- [ ] **SOCIAL-246: Competitive Intelligence Dashboard** — Track competitor social accounts. Metrics: posting frequency, content themes, engagement rates, follower growth, top posts, hashtag strategy, ad activity (detectable). Weekly "Competitive Landscape" automated report. Benchmarks: "Your engagement rate (3.2%) is above the restaurant industry average (1.8%)." ~35h.
+
+- [ ] **SOCIAL-247: Custom Report Builder** — Drag-and-drop report builder: choose metrics, date ranges, platforms, visualizations (line chart, bar chart, heatmap, table). Save as template. Schedule recurring generation. Export to PDF, CSV, Google Slides, Notion. Share with magic link. White-label. ~40h.
+
+- [ ] **SOCIAL-248: Attribution Modeling (Social → Website → Conversion)** — UTM auto-tagging on all social links. Track: social post → website visit → page view → conversion event. Multi-touch attribution: which social touchpoints contributed to a conversion. ROAS calculation. Tinybird joining social post data with website analytics. ~35h.
+
+- [ ] **SOCIAL-249: Audience Demographics & Psychographics** — Per-platform audience breakdown: age, gender, location, language, interests, device, active hours. Changes over time. Platform comparison ("Your Instagram audience skews younger than your Facebook audience"). Data from platform APIs + enrichment. GDPR-compliant aggregation only. ~25h.
+
+- [ ] **SOCIAL-250: Hashtag Analytics Explorer** — Enter a hashtag → see: volume over time, top posts, related hashtags, sentiment, geographic distribution, key influencers using it. Compare hashtags. Discover trending hashtags in the business's niche BEFORE they peak. "This hashtag is growing 200% week-over-week in your industry." ~30h.
+
+- [ ] **SOCIAL-251: Content Theme & Gap Analysis** — Analyze a brand's content across platforms: what themes are they covering? What's missing compared to competitors? "You post 80% promotional, 20% educational. Competitors average 40/60. Educational posts get 2.3× your engagement." AI-powered content categorization. ~25h.
+
+- [ ] **SOCIAL-252: Optimal Posting Time Personalization** — Machine learning model trained on the account's OWN historical engagement data. Not industry averages — personalized per account, per platform, per content type. Updates weekly as more data accumulates. Confidence interval shown. Override with manual preferences. ~25h.
+
+- [ ] **SOCIAL-253: Social ROI Calculator** — Assign a monetary value to social actions: what's a like worth? A share? A comment? A click? Configurable per business. Calculate: total social investment (time + tools + ad spend) vs. total attributed value. Monthly ROI report. Benchmarks against industry. ~20h.
+
+- [ ] **SOCIAL-254: Influencer Campaign ROI Tracker** — Track influencer campaigns: posts, stories, engagement, link clicks, promo code usage, attributable sales. Per-influencer performance. Campaign comparison. "Influencer A drove 3× more sales per dollar than Influencer B." Influencer payment tracking. ~30h.
+
+- [ ] **SOCIAL-255: Content Library Performance Analytics** — Every post ever published = data point. Analyze: which content types perform best? What time of day? Which hashtags? What post length? Which media type (image, video, carousel, text-only)? Auto-generate a "What Works" playbook updated monthly with specific examples from top performers. ~20h.
+
+- [ ] **SOCIAL-256: Audience Growth Forensics** — Drill into follower growth/decline: where did new followers come from (which post, which platform, which campaign)? Why did followers leave (correlated with specific posts or inactivity periods)? Follower quality score (bots vs. real). Growth rate projection. ~25h.
+
+- [ ] **SOCIAL-257: Real-Time Social Dashboard (Live Mode)** — During a campaign or event: live dashboard showing posts going out, engagement rolling in, sentiment shifting, mentions spiking. Auto-refreshing every 30 seconds. "War room" mode for product launches, events, crisis monitoring. Tinybird real-time pipeline. ~30h.
+
+- [ ] **SOCIAL-258: Export & Data Portability Suite** — Export anything to anything: all posts to CSV/JSON/PDF, analytics to Google Sheets (live sync), reports to Google Slides, content calendar to Notion/Google Calendar (.ics), media library to Dropbox/Google Drive. Scheduled exports. GDPR data export compliance. ~25h.
+
+- [ ] **SOCIAL-259: API-First Analytics** — Public REST API for all analytics endpoints. Developer portal with API keys. Rate limiting per key. Webhook subscriptions for analytics events ("POST to my URL when a post crosses 1000 impressions"). SDKs in JavaScript and Python. Enables custom dashboards and integrations. ~35h.
+
+### Tier 9 — Video, Audio & Rich Media (SOCIAL-260 to SOCIAL-269)
+
+Video is 85% of reshared content in 2026. These ideas make the platform video-first.
+
+- [ ] **SOCIAL-260: Short-Form Video Studio** — In-browser video editor for creating TikTok/Reels/Shorts content. Trim, crop to 9:16, add text overlay, add music/sound (licensed library or upload), add captions (AI-generated), add brand watermark. Render via Cloudflare Browser Rendering or client-side WebCodecs. Output optimized per platform. ~60h.
+
+- [ ] **SOCIAL-261: AI Video Clip Generator** — From a longer video (up to 60 min): AI identifies the top 3-5 most engaging moments (based on audio energy, visual change, speech patterns). Auto-clips each into a platform-optimized short. Adds captions, brand overlay, and CTA. Like Opus Clip but built-in. ~50h.
+
+- [ ] **SOCIAL-262: AI Caption + Subtitle Generator** — Upload a video → auto-generate accurate captions (Deepgram/Whisper) → burn into video as styled subtitles. Style: brand fonts, brand colors, word-by-word highlight (TikTok style). Multiple languages. SRT/VTT download. Accessibility-first (WCAG-compliant). ~30h.
+
+- [ ] **SOCIAL-263: Instagram Stories / Reels Scheduler** — Full Stories and Reels scheduling with preview. Stories: image/video sequence, stickers, polls, links, mentions. 24h auto-archive tracking. Reels: audio selection, effects, captions, hashtags. Grid preview to ensure visual cohesion. ~40h.
+
+- [ ] **SOCIAL-264: AI Voiceover Generator** — Text-to-speech for social videos. Multiple AI voices (Piper self-hosted + ElevenLabs premium). Brand-custom voice cloning (with consent). Auto-sync voiceover to video timing. Multi-language voiceovers for localized content. ~25h.
+
+- [ ] **SOCIAL-265: Live Stream Scheduler + Promoter** — Schedule a live stream (Instagram Live, TikTok LIVE, YouTube Live, LinkedIn Live). Auto-generate promotional posts leading up to the event. Auto-post "Going live now!" when stream starts. Auto-save replay. Auto-generate highlight clips from replay. ~30h.
+
+- [ ] **SOCIAL-266: Social Audio Room Scheduler** — For platforms supporting audio rooms (X Spaces, LinkedIn Audio). Schedule, promote, host. Auto-record. Generate transcript + summary + key quotes → social posts. ~20h.
+
+- [ ] **SOCIAL-267: Visual Consistency Checker** — Before publishing: analyze the last 9-12 posts on Instagram/Facebook grid. Does this new post match the visual rhythm? Color palette consistency score. "This post's dominant color (#FF0000) clashes with your grid's established palette (blues and greens)." Grid preview with the new post inserted. ~20h.
+
+- [ ] **SOCIAL-268: Media Remix Engine** — Combine existing media library assets in new ways: "Take the hero image from last month's top post, add this week's promotion text overlay, render at 1:1 and 9:16." Template-based: "Product showcase" = product image + brand frame + price overlay + CTA. Non-destructive (originals preserved). ~25h.
+
+- [ ] **SOCIAL-269: Podcast Social Clip Generator** — Upload a podcast episode → AI finds the most shareable moments → generates: audiogram (waveform + caption), quote card (key quote + speaker photo + brand frame), video clip (animated waveform + captions + speaker image), thread (key points as X/LinkedIn thread). One episode = 10+ social assets. ~35h.
+
+### Tier 10 — Platform-Specific Deep Integrations (SOCIAL-270 to SOCIAL-279)
+
+Going beyond basic posting to deep platform-specific features.
+
+- [ ] **SOCIAL-270: LinkedIn Thought Leadership Suite** — LinkedIn-specific: long-form articles (not just posts), newsletter publishing, document posts (PDF carousels — the #1 LinkedIn format in 2026), employee advocacy (suggest posts for employees to share), company page analytics, LinkedIn Live scheduling. ~40h.
+
+- [ ] **SOCIAL-271: Instagram Advanced Features** — Instagram-specific: Collaborative Posts (co-author with another account), Guides (curated product/story collections), Broadcast Channels (one-to-many messaging), Subscriptions (exclusive content for paying followers), Shop tab management, Story Link stickers. ~45h.
+
+- [ ] **SOCIAL-272: X/Twitter Advanced Features** — X-specific: Communities (post to X Communities), long-form Articles (X Articles), Spaces scheduling + recording, Lists management, Polls, Super Follows content. X API v2 paid tier integration (Basic $100/mo, Pro $5,000/mo). ~35h.
+
+- [ ] **SOCIAL-273: Facebook Advanced Features** — Facebook-specific: Groups posting (post to multiple Groups), Events integration (create + promote Facebook Events), Fundraisers (nonprofit donation campaigns), Jobs (job posting to Facebook Jobs), Reels with Remix, Facebook Stories. ~35h.
+
+- [ ] **SOCIAL-274: TikTok Advanced Features** — TikTok-specific: TikTok Shop (full commerce integration), LIVE shopping events, Duet/Stitch strategy, Sound-based content planning (trending sounds library), Effects/filters, TikTok Series (premium content), TikTok Pulse (premium ad placement). ~40h.
+
+- [ ] **SOCIAL-275: YouTube Advanced Features** — YouTube-specific: Community tab posting, Shorts scheduling, playlist management, end screen + card configuration, chapter timestamps, Super Thanks / Super Chat monitoring, Memberships content. YouTube Studio API integration. ~35h.
+
+- [ ] **SOCIAL-276: Google Business Profile Deep Integration** — GBP-specific: Posts (What's New, Offer, Event types), Q&A monitoring + auto-response, review monitoring + response templates, photo/video upload with AI optimization, Insights (how customers find the business), service area management, appointment link integration. ~30h.
+
+- [ ] **SOCIAL-277: Pinterest Advanced Features** — Pinterest-specific: Idea Pins (multi-page video-first format), Try On product pins (AR), Catalogs (product feed management), Ad campaigns, Boards management + collaboration, Secret boards, Rich Pins validation. ~30h.
+
+- [ ] **SOCIAL-278: Messaging Platform Integration** — WhatsApp Business API: product catalogs, broadcast messages, auto-replies, click-to-chat links. Facebook Messenger: auto-replies, away messages, ice breakers. Telegram: bot commands, inline queries, channel analytics. WeChat (for businesses targeting Chinese markets). ~40h.
+
+- [ ] **SOCIAL-279: Reddit + Discord + Community Platforms** — Reddit: subreddit posting with flair, AMA scheduling, crosspost management, karma tracking. Discord: server announcements, stage events, forum channels, community analytics. Slack: multi-workspace posting, channel management, thread tracking. ~30h.
+
+### Tier 11 — Scale, Infrastructure & Developer Platform (SOCIAL-280 to SOCIAL-289)
+
+Infrastructure features that make the platform enterprise-grade and developer-friendly.
+
+- [ ] **SOCIAL-280: Social API Developer Platform** — Public REST API with documentation (Redocly), SDKs (JS, Python), API keys with scoped permissions, rate limiting, webhooks, sandbox environment. OpenAPI 3.1 spec derived from Zod schemas via zod-to-openapi. Developer portal at `developers.projectsites.dev/social`. ~50h.
+
+- [ ] **SOCIAL-281: Webhook & Event System** — Event-driven architecture for social publishing: `social.post.created`, `social.post.published`, `social.post.failed`, `social.post.engagement_updated`, `social.account.connected`, `social.account.expired`. Webhook subscriptions per org with retry + dead-letter (Hookdeck/Outpost). Customer-facing webhook management UI. ~30h.
+
+- [ ] **SOCIAL-282: Zapier / n8n / Make.com Integration** — Published integration on Zapier/n8n/Make marketplaces. Triggers: New Post Published, Post Failed, New Comment, Account Expired. Actions: Create Post, Schedule Post, Get Analytics. Reusable integration templates ("When new blog post → create social draft"). ~35h.
+
+- [ ] **SOCIAL-283: GraphQL API for Social** — GraphQL endpoint for social data. Complex queries: "Give me all posts from the last 30 days with engagement > 100, grouped by platform, with the account that published them." Particularly useful for analytics and dashboard queries. D1 + Tinybird resolvers. ~30h.
+
+- [ ] **SOCIAL-284: Social Data Export & Backup** — Scheduled exports of all social data to customer's R2 bucket, Google Drive, or S3. Full account backup including posts, media, analytics, settings, templates. Importable for account migration. GDPR-compliant data portability. Daily incremental + weekly full. ~25h.
+
+- [ ] **SOCIAL-285: Multi-Region Social Infrastructure** — Deploy social infrastructure to multiple CF regions for data residency compliance. EU customers' social data stays in EU. US stays in US. D1 per-region, R2 per-region, Tinybird per-region. Configurable per org. Required for GDPR + enterprise deals. ~40h.
+
+- [ ] **SOCIAL-286: Rate Limit & Quota Observability** — Per-platform rate limit dashboard: current usage, remaining, reset time, historical trends. Alerting: "You're at 90% of your X API daily quota." Predictive: "At current rate, you'll hit Instagram's hourly limit in 22 minutes." Per-account + aggregated views. ~25h.
+
+- [ ] **SOCIAL-287: Social Media Archiving & Compliance Export** — WORM-compliant (Write Once Read Many) archive of all published content, edits, and deletions. Timestamped, immutable. Exportable for regulatory audits (SEC, FINRA, HIPAA). Configurable retention periods. R2 with Object Lock for immutability. ~30h.
+
+- [ ] **SOCIAL-288: Disaster Recovery & Failover** — Multi-region D1 replicas for social data. Automated failover if primary region is down. RPO < 5 minutes, RTO < 15 minutes. Regular DR testing (quarterly automated). Status page integration. ~35h.
+
+- [ ] **SOCIAL-289: Usage-Based Billing Metering** — Meter social usage for billing: posts per month, platforms connected, AI generations used, analytics exports, team seats. Feed into the unified metering pipeline (event_bus → D1 ledger → Stripe). Free tier: 50 posts/month, 3 platforms, 10 AI generations. Pro tiers scale from there. ~30h.
+
+### Tier 12 — Innovation & Future-Forward (SOCIAL-290 to SOCIAL-299)
+
+Ideas pushing the boundaries of what social media management can be.
+
+- [ ] **SOCIAL-290: AR Filter / Lens Creator** — In-browser AR filter creator for Instagram/Facebook Stories. Simple templates: brand frame, color overlay, text animation. Export as Spark AR file for upload. No 3D modeling skills required. Cloudflare Browser Rendering for preview. ~45h.
+
+- [ ] **SOCIAL-291: AI-Generated Social Audio (Podcast-Style)** — AI generates a 60-90 second "social audio" clip: brand-voice narration + background music + sound effects. Topic from site content. Publishable as an audio post or as audio track for video content. Piper TTS + Suno/Udio music generation. ~30h.
+
+- [ ] **SOCIAL-292: Decentralized Social Protocol Support (ActivityPub)** — Native ActivityPub support for Mastodon, Threads (fediverse sharing), WordPress (via plugin), and any ActivityPub-compatible platform. One post → federated across decentralized networks. No platform lock-in for open-social SMBs. ~40h.
+
+- [ ] **SOCIAL-293: Blockchain-Verified Content Authenticity** — C2PA Content Credentials embedded in all AI-generated images and videos. Cryptographic proof of: "This image was AI-generated by ProjectSites on [date] for [business]." Visible badge on content. Verification API. Aligns with Meta/OpenAI's 2026 transparency standards. ~30h.
+
+- [ ] **SOCIAL-294: Social Media Digital Twin / Simulation** — Before publishing a campaign: run it through a simulation. "If we post this content at these times to these platforms, what's the predicted engagement?" Uses historical data + content features + platform models. Not 100% accurate but directionally useful for strategy decisions. ~40h.
+
+- [ ] **SOCIAL-295: AI Social Media Consultant Agent** — An always-available AI consultant that analyzes the business's social presence and gives strategic advice. "Your posting frequency dropped 40% this month. Here's a catch-up plan." "Competitor X just launched a TikTok strategy — here's what they're doing and how to respond." Not a generator — a strategist. ~35h.
+
+- [ ] **SOCIAL-296: Social Media Gamification for SMBs** — Streak tracking (consecutive posting days), badges (First 100 Followers, 1K Impressions, Viral Post), challenges ("Post every day this week"), leaderboards (anonymized industry benchmarks). Taps into behavioral psychology to encourage consistent posting. ~25h.
+
+- [ ] **SOCIAL-297: Accessibility-First Social Publishing** — Every post: auto-generated alt text (AI vision), caption/subtitle generation for all video, camelCase hashtags for screen readers (#YourBrand not #YOURBRAND), emoji moderation (no excessive emoji storms that confuse screen readers), WCAG 2.2 AA compliance for all social embeds. Accessibility score per post. ~25h.
+
+- [ ] **SOCIAL-298: Carbon-Aware Scheduling** — Schedule posts to publish when the compute energy is greenest. Tiny shift in scheduling (minutes, not hours) to align with renewable energy availability on the grid. Carbon footprint dashboard for social activity. ESG reporting integration. For environmentally-conscious brands. ~20h.
+
+- [ ] **SOCIAL-299: Social Media Time Capsule** — Schedule a post for a far-future date: "Happy 10th Anniversary to us — posted automatically on July 15, 2036." Time capsule management: view, edit, cancel. Trust mechanism: cryptographic commitment stored in D1, verified on publish. ~20h.
+
+### Scale Architecture Addendum — 10M+ Sites
+
+At 10M+ sites, the architecture shifts from single-worker to distributed-social:
+
+| Layer | 1M Sites | 10M+ Sites | Change |
+|---|---|---|---|
+| Job queue | Upstash sorted sets, sharded by platform | Upstash Kafka topics per platform | Move from poll to stream |
+| Scheduling | CF Workflow per post | Dedicated scheduling DO per platform shard | Reduce workflow overhead |
+| Token refresh | Single cron, 1000/tick | Sharded cron per platform, 10K/tick | Horizontal scale |
+| Media processing | R2 + CF Image Resizing | Dedicated media pipeline worker (Queue consumer) | Decouple from publish path |
+| Analytics | Tinybird datasources | Tinybird + materialized views + pre-aggregation | Scale read path |
+| API | Single Worker | Per-platform Workers with service bindings | Microservice decomposition |
+| Rate limiting | Per-platform DO | Per-account DO with global RL coordinator | Finer granularity |
+| Database | D1 primary + read replicas | D1 sharded by org_id range + read replicas per shard | Horizontal DB scale |
+
+### Total Idea Count: 100 (SOCIAL-200 through SOCIAL-299)
+
+| Tier | Range | Count | Theme |
+|---|---|---|---|
+| 5 | 200-219 | 20 | AI-Native Social |
+| 6 | 220-229 | 10 | Social Commerce |
+| 7 | 230-244 | 15 | Enterprise & Agency |
+| 8 | 245-259 | 15 | Analytics, Listening & Intelligence |
+| 9 | 260-269 | 10 | Video, Audio & Rich Media |
+| 10 | 270-279 | 10 | Platform-Specific Deep Integrations |
+| 11 | 280-289 | 10 | Scale, Infrastructure & Developer Platform |
+| 12 | 290-299 | 10 | Innovation & Future-Forward |
+
+
 ## analytics.projectsites.dev — PostHog Cloud
 
 ### Raw research themes considered
