@@ -75,6 +75,7 @@ import { siteRollbackRoutes } from './routes/site_rollback.js';
 import { handleCodeExport } from '../libs/features/code_export/handlers.js';
 import { buildCritique } from '../libs/features/ai_site_critic/service.js';
 import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
+import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -459,6 +460,26 @@ app.post('/api/sites/:siteId/geo-analyze', async (c) => {
   }
   const analysis = analyzeGeo(body.url || `https://${siteId}.projectsites.dev`, body.content, body.existingJsonLd || []);
   return c.json({ data: analysis });
+});
+
+// AI Video Hero — cinematic brand video script generator (flag: ai_video_hero)
+app.post('/api/sites/:siteId/video-hero', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'ai_video_hero', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.businessName || !body.description) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'businessName and description are required' } }, 400);
+  }
+  const script = generateVideoScript(
+    siteId,
+    body.businessName,
+    body.description,
+    body.sellingPoints || [],
+    { style: body.style, colors: body.colors, assetKeywords: body.assetKeywords },
+  );
+  return c.json({ data: script });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
