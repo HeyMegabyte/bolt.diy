@@ -18,6 +18,6 @@ export const manifest = {
     'Native social media posting (instant + scheduled) across 14 platforms. Replaces Postiz. CF Workflows v2 + Upstash + D1 + Tinybird.',
   flagKey: 'social_publishing_native',
   owner: 'brian@megabyte.space',
-  stage: 'experimental' as const,
+  stage: 'beta' as const,
   createdAt: '2026-07-15',
 };
