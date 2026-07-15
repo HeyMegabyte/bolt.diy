@@ -19,6 +19,7 @@
 /** Lifecycle of a registered service. */
 export type ServiceStatus =
   | 'planned'
+  | 'provisioned'
   | 'scaffolded'
   | 'integrated'
   | 'production'
