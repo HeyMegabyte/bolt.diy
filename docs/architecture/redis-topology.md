@@ -20,19 +20,20 @@ Fly apps          ──→ Fly Redis (primary, 1 machine)   ──→ Upstash (
 - **Cost:** $5.70/mo
 - **Config:** `infra/redis/fly.toml`
 
-### Fly Redis users (3 apps)
+### Fly Redis users (1 app)
 
 | App | DB | Purpose |
 |---|---|---|
-| Teable | 0 | Cache + session store (migrated July 14 from Upstash) |
-| Nango | 1 | OAuth token cache (needs sub-ms latency) |
-| Postiz | 1 | Social schedule cache |
+| Nango | 0 | OAuth token cache — ONLY app that needs sub-ms Redis latency |
+
+Teable and Postiz migrated back to Upstash (2026-07-15) — neither needs sub-ms latency.
+Teable: spreadsheet cache + sessions. Postiz: BullMQ job queue. Both work fine at Upstash speeds.
 
 ### Why Fly Redis for these?
 
 Fly-hosted apps calling Upstash add 50-100ms round-trip latency. These 3 apps need sub-ms Redis for cache/token/session operations.
 
-## Upstash Redis (13 databases)
+## Upstash Redis (14 databases)
 
 All CF-hosted services use their own Upstash Redis database:
 
@@ -51,6 +52,10 @@ All CF-hosted services use their own Upstash Redis database:
 | projectsites-n8n | n8n | CF Container | — |
 | projectsites-nango | Nango (backup) | Fly | 3.5K |
 | twenty-crm | Twenty CRM | CF Container | 998K |
+| teable | Teable | CF Container (catalog) | auto-provisioned |
+| postiz | Postiz | CF Container (catalog) | auto-provisioned |
+
+Apps with `auto-provisioned` get their Redis via the catalog pipeline (`infra: ['redis']` → Upstash).
 
 Nango's Upstash DB is dual-wired as fallback for the Fly Redis primary.
 
