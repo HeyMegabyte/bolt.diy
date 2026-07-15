@@ -739,6 +739,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  nl_analytics: {
+    key: 'nl_analytics',
+    description:
+      'Natural Language Analytics (#17): stateless NL→SQL intent parser. "How many sites?" → D1 query with results + explanation. 7 recognized patterns. POST /api/analytics/query.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   onboarding_progress: {
     key: 'onboarding_progress',
     description:

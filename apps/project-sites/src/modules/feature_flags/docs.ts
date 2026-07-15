@@ -1175,6 +1175,11 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Pct is capped at 100',
     ],
   },
+  nl_analytics: {
+    checklist: ['7 NL patterns recognized (sites/builds/activity/members/status)', 'Stateless regex→SQL parser — zero AI cost', 'Returns generated SQL + explanation + results'],
+    explanation: 'Natural-language analytics intent parser. Maps common questions ("how many sites?", "builds this month", "most active site") to parameterized D1 SQL queries with human-readable explanations. Stateless and free — no AI call needed. Designed to be progressively enhanced with Workers AI for fuzzy matching.',
+    smoke_test: ['Enable flag → POST /api/analytics/query {"question":"how many sites"} → 200 with sql+explanation+results', 'Try "builds this month", "most active site", "sites by status" — each returns different SQL', 'Unrecognized question returns hint with supported patterns'],
+  },
   onboarding_progress: {
     checklist: ['5-step org setup tracker: site/build/domain/billing/team', '5 parallel D1 COUNT queries', 'Returns pct complete + per-step detail'],
     explanation: 'Tracks org onboarding completion across 5 gates: site created, first build run, custom domain added, billing subscription active, and team member invited. Each step queries D1 for live counts. Returns percentage + per-step boolean completion status. Drives the admin dashboard progress ring widget.',

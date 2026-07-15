@@ -839,6 +839,14 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+// NL Analytics — natural language → SQL (flag: nl_analytics)
+app.post('/api/analytics/query', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'nl_analytics', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleAnalyticsQuery } = await import('../libs/features/nl_analytics/handlers.js');
+  return handleAnalyticsQuery(c);
+});
+
 // Onboarding Progress — org setup completion (flag: onboarding_progress)
 app.get('/api/onboarding', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
