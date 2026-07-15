@@ -3,7 +3,6 @@
  *
  * @description
  * Per-image Durable Object subclasses for catalog apps deployable on CFC+Neon+Upstash.
- * Excludes GPU apps + low-quality/unprofessional apps per catalog quality bar.
  * @packageDocumentation
  */
 
@@ -51,12 +50,6 @@ export class CodeServerContainer extends AppRuntimeContainer {
   override defaultPort = 8080;
 }
 
-/** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` port 8188 */
-export class ComfyuiContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'comfyui';
-  override defaultPort = 8188;
-}
-
 /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` port 5002 */
 export class CoquiTtsContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'coqui-tts';
@@ -85,12 +78,6 @@ export class FlowiseContainer extends AppRuntimeContainer {
 export class FocalboardContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'focalboard';
   override defaultPort = 8000;
-}
-
-/** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` port 7865 */
-export class FooocusContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'fooocus';
-  override defaultPort = 7865;
 }
 
 /** Forgejo — `codeberg.org/forgejo/forgejo:latest` port 3000 */
@@ -133,12 +120,6 @@ export class HealthchecksContainer extends AppRuntimeContainer {
 export class ImmichContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'immich';
   override defaultPort = 8080;
-}
-
-/** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` port 9090 */
-export class InvokeaiContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'invokeai';
-  override defaultPort = 9090;
 }
 
 /** Jellyfin — `jellyfin/jellyfin:latest` port 8096 */
@@ -297,12 +278,6 @@ export class QdrantContainer extends AppRuntimeContainer {
   override defaultPort = 6333;
 }
 
-/** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` port 7860 */
-export class StableDiffusionWebuiContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'sd-webui';
-  override defaultPort = 7860;
-}
-
 /** SearXNG — `searxng/searxng:latest` port 8080 */
 export class SearxngContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'searxng';
@@ -319,6 +294,12 @@ export class StirlingPdfContainer extends AppRuntimeContainer {
 export class TabbyContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'tabby';
   override defaultPort = 8080;
+}
+
+/** Teable — `teableio/teable:latest` port 3000 */
+export class TeableContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'teable';
+  override defaultPort = 3000;
 }
 
 /** Umami — `ghcr.io/umami-software/umami:postgresql-latest` port 3000 */
@@ -371,13 +352,11 @@ export const SUPPORTED_APP_SLUGS = [
   'cal',
   'chromadb',
   'code-server',
-  'comfyui',
   'coqui-tts',
   'directus',
   'drone',
   'flowise',
   'focalboard',
-  'fooocus',
   'forgejo',
   'freshrss',
   'ghost',
@@ -385,7 +364,6 @@ export const SUPPORTED_APP_SLUGS = [
   'grafana',
   'healthchecks',
   'immich',
-  'invokeai',
   'jellyfin',
   'khoj',
   'langflow',
@@ -412,10 +390,10 @@ export const SUPPORTED_APP_SLUGS = [
   'pocketbase',
   'postiz',
   'qdrant',
-  'sd-webui',
   'searxng',
   'stirling-pdf',
   'tabby',
+  'teable',
   'umami',
   'uptime-kuma',
   'vaultwarden',

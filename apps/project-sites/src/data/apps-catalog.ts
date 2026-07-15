@@ -535,6 +535,46 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     license: 'AGPL-3.0',
     tags: ['scheduling', 'calendar'],
   },
+  {
+    id: 'teable',
+    name: 'Teable',
+    tagline: 'Postgres-native Airtable alternative',
+    description:
+      'Smart spreadsheet UI on Postgres — forms, kanban, gallery, calendar views. Real-time collab, row-level permissions. The fastest-growing Airtable OSS alternative of 2026.',
+    category: 'productivity',
+    image: 'teableio/teable:latest',
+    infra: ['postgres', 'redis'],
+    port: 3000,
+    env: [
+      {
+        key: 'DATABASE_URL',
+        description: 'Postgres connection (Prisma format)',
+        required: true,
+        auto: 'postgres_url',
+      },
+      { key: 'REDIS_URL', description: 'Redis for cache + real-time sync', required: true, auto: 'redis_url' },
+      {
+        key: 'JWT_SECRET',
+        description: '32-byte JWT signing secret',
+        required: true,
+        auto: 'secret',
+      },
+      {
+        key: 'PUBLIC_ORIGIN',
+        description: 'Public URL of this Teable instance',
+        required: true,
+        auto: 'public_url',
+      },
+    ],
+    memoryMB: 512,
+    volumeMB: 0,
+    estCostMonthly: 14,
+    homepage: 'https://teable.io',
+    repo: 'https://github.com/teableio/teable',
+    glyph: '📋',
+    license: 'AGPL-3.0',
+    tags: ['airtable', 'database', 'no-code', 'spreadsheet'],
+  },
 
   // ── Communication ───────────────────────────────────────────
   {

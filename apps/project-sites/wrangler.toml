@@ -314,9 +314,9 @@ instance_type = "basic"
 
 
 
-# ─── 59 catalog apps — one container block + binding per app ──
-# Quality-filtered: GPU + unprofessional/ugly apps excluded.
-# Image registry: https://dash.cloudflare.com/?to=/:account/containers/registries
+
+# ─── 56 catalog apps — one container block + binding per app ──
+# CFC + Neon + Upstash compatible. GPU/unprofessional apps excluded.
 
 # anything-llm — AnythingLLM (mintplexlabs/anythingllm:latest, port 3001, 768 MiB)
 [[env.production.containers]]
@@ -395,17 +395,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_CODE_SERVER"
 class_name = "CodeServerContainer"
 
-# comfyui — ComfyUI (yanwk/comfyui-boot:cu128-megapak, port 8188, 1024 MiB)
-[[env.production.containers]]
-class_name = "ComfyuiContainer"
-image = "yanwk/comfyui-boot:cu128-megapak"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_COMFYUI"
-class_name = "ComfyuiContainer"
-
 # coqui-tts — Coqui TTS (ghcr.io/coqui-ai/tts-cpu:latest, port 5002, 1024 MiB)
 [[env.production.containers]]
 class_name = "CoquiTtsContainer"
@@ -460,17 +449,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_FOCALBOARD"
 class_name = "FocalboardContainer"
-
-# fooocus — Fooocus (ghcr.io/lllyasviel/fooocus:latest, port 7865, 1024 MiB)
-[[env.production.containers]]
-class_name = "FooocusContainer"
-image = "ghcr.io/lllyasviel/fooocus:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FOOOCUS"
-class_name = "FooocusContainer"
 
 # forgejo — Forgejo (codeberg.org/forgejo/forgejo:latest, port 3000, 384 MiB)
 [[env.production.containers]]
@@ -548,17 +526,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_IMMICH"
 class_name = "ImmichContainer"
-
-# invokeai — InvokeAI (ghcr.io/invoke-ai/invokeai:latest, port 9090, 1024 MiB)
-[[env.production.containers]]
-class_name = "InvokeaiContainer"
-image = "ghcr.io/invoke-ai/invokeai:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_INVOKEAI"
-class_name = "InvokeaiContainer"
 
 # jellyfin — Jellyfin (jellyfin/jellyfin:latest, port 8096, 1024 MiB)
 [[env.production.containers]]
@@ -846,17 +813,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_QDRANT"
 class_name = "QdrantContainer"
 
-# sd-webui — Stable Diffusion WebUI (ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda, port 7860, 1024 MiB)
-[[env.production.containers]]
-class_name = "StableDiffusionWebuiContainer"
-image = "ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_SD_WEBUI"
-class_name = "StableDiffusionWebuiContainer"
-
 # searxng — SearXNG (searxng/searxng:latest, port 8080, 384 MiB)
 [[env.production.containers]]
 class_name = "SearxngContainer"
@@ -889,6 +845,17 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_TABBY"
 class_name = "TabbyContainer"
+
+# teable — Teable (teableio/teable:latest, port 3000, 512 MiB)
+[[env.production.containers]]
+class_name = "TeableContainer"
+image = "teableio/teable:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_TEABLE"
+class_name = "TeableContainer"
 
 # umami — Umami (ghcr.io/umami-software/umami:postgresql-latest, port 3000, 256 MiB)
 [[env.production.containers]]
@@ -977,13 +944,11 @@ new_sqlite_classes = [
 "CalComContainer",
 "ChromaContainer",
 "CodeServerContainer",
-"ComfyuiContainer",
 "CoquiTtsContainer",
 "DirectusContainer",
 "DroneCiContainer",
 "FlowiseContainer",
 "FocalboardContainer",
-"FooocusContainer",
 "ForgejoContainer",
 "FreshrssContainer",
 "GhostContainer",
@@ -991,7 +956,6 @@ new_sqlite_classes = [
 "GrafanaContainer",
 "HealthchecksContainer",
 "ImmichContainer",
-"InvokeaiContainer",
 "JellyfinContainer",
 "KhojContainer",
 "LangflowContainer",
@@ -1018,10 +982,10 @@ new_sqlite_classes = [
 "PocketbaseContainer",
 "PostizContainer",
 "QdrantContainer",
-"StableDiffusionWebuiContainer",
 "SearxngContainer",
 "StirlingPdfContainer",
 "TabbyContainer",
+"TeableContainer",
 "UmamiContainer",
 "UptimeKumaContainer",
 "VaultwardenContainer",
@@ -1030,7 +994,6 @@ new_sqlite_classes = [
 "WhisperAsrContainer",
 "WikiJsContainer"
 ]
-
 # AppRuntimeContainer is new — register it under the SQLite storage backend
 # in a fresh migration tag. Existing classes (SiteBuilder/TraceHub/ActivityHub)
 # stay on their current backend per the legacy notes above.

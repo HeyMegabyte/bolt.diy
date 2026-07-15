@@ -745,8 +745,6 @@ export interface Env {
   APP_RUNTIME_CHROMADB?: DurableObjectNamespace;
   /** Code Server — `codercom/code-server:latest` */
   APP_RUNTIME_CODE_SERVER?: DurableObjectNamespace;
-  /** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` */
-  APP_RUNTIME_COMFYUI?: DurableObjectNamespace;
   /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` */
   APP_RUNTIME_COQUI_TTS?: DurableObjectNamespace;
   /** Directus — `directus/directus:latest` */
@@ -757,8 +755,6 @@ export interface Env {
   APP_RUNTIME_FLOWISE?: DurableObjectNamespace;
   /** Focalboard — `mattermost/focalboard:latest` */
   APP_RUNTIME_FOCALBOARD?: DurableObjectNamespace;
-  /** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` */
-  APP_RUNTIME_FOOOCUS?: DurableObjectNamespace;
   /** Forgejo — `codeberg.org/forgejo/forgejo:latest` */
   APP_RUNTIME_FORGEJO?: DurableObjectNamespace;
   /** FreshRSS — `freshrss/freshrss:latest` */
@@ -773,8 +769,6 @@ export interface Env {
   APP_RUNTIME_HEALTHCHECKS?: DurableObjectNamespace;
   /** Immich — `ghcr.io/imagegenius/immich:latest` */
   APP_RUNTIME_IMMICH?: DurableObjectNamespace;
-  /** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` */
-  APP_RUNTIME_INVOKEAI?: DurableObjectNamespace;
   /** Jellyfin — `jellyfin/jellyfin:latest` */
   APP_RUNTIME_JELLYFIN?: DurableObjectNamespace;
   /** Khoj — `ghcr.io/khoj-ai/khoj:latest` */
@@ -827,14 +821,14 @@ export interface Env {
   APP_RUNTIME_POSTIZ?: DurableObjectNamespace;
   /** Qdrant — `qdrant/qdrant:latest` */
   APP_RUNTIME_QDRANT?: DurableObjectNamespace;
-  /** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` */
-  APP_RUNTIME_SD_WEBUI?: DurableObjectNamespace;
   /** SearXNG — `searxng/searxng:latest` */
   APP_RUNTIME_SEARXNG?: DurableObjectNamespace;
   /** Stirling PDF — `docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest` */
   APP_RUNTIME_STIRLING_PDF?: DurableObjectNamespace;
   /** Tabby — `tabbyml/tabby:latest` */
   APP_RUNTIME_TABBY?: DurableObjectNamespace;
+  /** Teable — `teableio/teable:latest` */
+  APP_RUNTIME_TEABLE?: DurableObjectNamespace;
   /** Umami — `ghcr.io/umami-software/umami:postgresql-latest` */
   APP_RUNTIME_UMAMI?: DurableObjectNamespace;
   /** Uptime Kuma — `louislam/uptime-kuma:1` */
@@ -849,7 +843,7 @@ export interface Env {
   APP_RUNTIME_WHISPER_ASR?: DurableObjectNamespace;
   /** Wiki.js — `ghcr.io/requarks/wiki:2` */
   APP_RUNTIME_WIKIJS?: DurableObjectNamespace;
-
+  
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
   TWILIO_ACCOUNT_SID?: string;
