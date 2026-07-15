@@ -83,6 +83,7 @@ import { parseSiteCommand } from '../libs/features/nl_site_management/service.js
 import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
 import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
 import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
+import { generateSlots, confirmBooking } from '../libs/features/native_booking/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -578,6 +579,26 @@ app.post('/api/sites/:siteId/seo/audit', async (c) => {
     siteId, body.canonical || {}, body.sources || [], body.reviews || [],
   );
   return c.json({ data: audit });
+});
+
+// Native Booking — slots + confirmation (flag: native_booking)
+app.post('/api/sites/:siteId/booking/slots', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'native_booking', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const slots = generateSlots(body.service || {}, new Date(body.date + 'T00:00:00'), body.existing || []);
+  return c.json({ data: slots });
+});
+app.post('/api/sites/:siteId/booking/confirm', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'native_booking', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const result = confirmBooking(body, body.service || {}, body.existing || []);
+  return c.json('error' in result ? { error: result } : { data: result });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
