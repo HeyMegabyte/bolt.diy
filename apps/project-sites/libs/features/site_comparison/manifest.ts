@@ -1,0 +1,1 @@
+export const manifest = { slug: 'site_comparison', name: 'Site Comparison View', description: 'Side-by-side comparison of two sites — pages, builds, domains, status, last activity. Read-only D1 aggregation.', flagKey: 'site_comparison', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

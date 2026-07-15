@@ -1175,6 +1175,16 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Pct is capped at 100',
     ],
   },
+  site_comparison: {
+    checklist: ['Side-by-side diff of any two org-owned sites', 'Compares pages/builds/domains/status/last-build/updated', 'Highlights differences with null = identical'],
+    explanation: 'Compares two sites side-by-side across 6 dimensions: page count, build count, active domains, status, last build date, and last updated date. Each dimension returns values for both sites plus a diff indicator. Useful for auditing or understanding what changed between two sites.',
+    smoke_test: ['Enable flag → POST /api/sites/compare {"siteIdA":"<id1>","siteIdB":"<id2>"} → 200 with rows[] diff', 'Same site → all diffs null', 'Missing site → 404'],
+  },
+  site_clone: {
+    checklist: ['One-click site copy to new slug within same org', 'Copies all pages (title/path/content/meta) to new site', 'Validates slug uniqueness + source existence', 'Returns new site id + pagesCopied count'],
+    explanation: 'Creates a clone of an existing site under a new slug and name. Copies all non-deleted pages with their content and metadata. The new site starts in draft status. The source site is unchanged. Slug must be unique within the org.',
+    smoke_test: ['Enable flag → POST /api/sites/clone {"sourceSiteId":"<id>","targetSlug":"my-clone","targetName":"My Clone"} → 201', 'Duplicate slug → 409', 'Missing source → 404'],
+  },
   nl_analytics: {
     checklist: ['7 NL patterns recognized (sites/builds/activity/members/status)', 'Stateless regex→SQL parser — zero AI cost', 'Returns generated SQL + explanation + results'],
     explanation: 'Natural-language analytics intent parser. Maps common questions ("how many sites?", "builds this month", "most active site") to parameterized D1 SQL queries with human-readable explanations. Stateless and free — no AI call needed. Designed to be progressively enhanced with Workers AI for fuzzy matching.',

@@ -293,7 +293,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [ ] [auto] Site health sparklines (7-day mini SVG traffic trend per site in list)
 - [ ] [auto] Cmd+K natural language actions ("rebuild njsk" → offers action)
 - [ ] [auto] Inline AI site auditor (one-click Scan Site → site_doctor grade+fixes)
-- [ ] [auto] Site comparison view (two sites side-by-side)
+- [x] [auto] Site comparison view — **DONE 2026-07-15:** libs/features/site_comparison/ — 6-dimension diff, 3 unit tests, flag site_comparison
 - [ ] [auto] Dark/light theme sync with system preference
 - [ ] [auto] Keyboard skip-link (WCAG 2.4.1)
 - [ ] [auto] Sidebar accordion categories
@@ -301,7 +301,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 
 ### Tier 3 — Strategic investments (saved to memory for architecture planning)
 - [ ] [auto] Split-pane admin mode
-- [ ] [auto] Site clone one-click
+- [x] [auto] Site clone one-click — **DONE 2026-07-15:** libs/features/site_clone/ — page copy with slug validation, 4 unit tests, flag site_clone
 - [ ] [auto] Analytics annotations system
 - [ ] [auto] AI content gap analyzer
 - [ ] [auto] Scheduled AI tasks dashboard

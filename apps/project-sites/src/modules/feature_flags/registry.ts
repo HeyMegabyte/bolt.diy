@@ -739,6 +739,16 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  site_comparison: {
+    key: 'site_comparison',
+    description: 'Site Comparison View (#18): side-by-side diff of two sites — pages, builds, domains, status, last activity. POST /api/sites/compare.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  site_clone: {
+    key: 'site_clone',
+    description: 'Site Clone One-Click (#19): copies pages/settings/metadata to a new slug. POST /api/sites/clone.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
   nl_analytics: {
     key: 'nl_analytics',
     description:

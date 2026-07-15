@@ -839,6 +839,22 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+// Site Comparison — side-by-side diff (flag: site_comparison)
+app.post('/api/sites/compare', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_comparison', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSiteCompare } = await import('../libs/features/site_comparison/handlers.js');
+  return handleSiteCompare(c);
+});
+
+// Site Clone — one-click copy (flag: site_clone)
+app.post('/api/sites/clone', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_clone', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSiteClone } = await import('../libs/features/site_clone/handlers.js');
+  return handleSiteClone(c);
+});
+
 // NL Analytics — natural language → SQL (flag: nl_analytics)
 app.post('/api/analytics/query', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
