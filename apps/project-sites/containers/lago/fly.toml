@@ -9,12 +9,16 @@ primary_region = "iad"
   LAGO_FRONT_URL = "https://billing.projectsites.dev"
   LAGO_API_URL = "https://billing.projectsites.dev"
 
+[mounts]
+  source = "lago_data"
+  destination = "/data"
+
 [[vm]]
   size = "shared-cpu-2x"
   memory = "4096mb"
 
 [[services]]
-  internal_port = 3000
+  internal_port = 80
   protocol = "tcp"
 
   [[services.ports]]
