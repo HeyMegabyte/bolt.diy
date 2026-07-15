@@ -78,6 +78,7 @@ import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
 import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
 import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
 import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
+import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -514,6 +515,17 @@ app.post('/api/sites/:siteId/analytics/ask', async (c) => {
   }
   const result = parseAnalyticsQuery(body.query);
   return c.json({ data: result });
+});
+
+// MCP Per Tenant — per-site MCP server manifest (flag: mcp_per_tenant)
+app.get('/api/sites/:siteId/mcp-manifest', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'mcp_per_tenant', orgId, siteId))) return c.notFound();
+  const slug = c.req.query('slug') || siteId;
+  const manifest = generateMcpManifest(siteId, slug);
+  return c.json({ data: manifest });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
