@@ -76,6 +76,7 @@ import { handleCodeExport } from '../libs/features/code_export/handlers.js';
 import { buildCritique } from '../libs/features/ai_site_critic/service.js';
 import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
 import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
+import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -480,6 +481,24 @@ app.post('/api/sites/:siteId/video-hero', async (c) => {
     { style: body.style, colors: body.colors, assetKeywords: body.assetKeywords },
   );
   return c.json({ data: script });
+});
+
+// AI Content Strategist — gap analysis + 90-day calendar (flag: ai_content_strategist)
+app.post('/api/sites/:siteId/content-strategy', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'ai_content_strategist', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.siteName || !body.industry) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'siteName and industry are required' } }, 400);
+  }
+  const strategy = buildContentStrategy(
+    siteId, body.siteName, body.industry,
+    body.siteTopics || [], body.competitorTopics || [],
+    body.startDate ? new Date(body.startDate) : undefined,
+  );
+  return c.json({ data: strategy });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
