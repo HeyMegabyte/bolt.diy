@@ -3,11 +3,9 @@
  *
  * @description
  * Per-image Durable Object subclasses of {@link AppRuntimeContainer}, one per
- * catalog app. Cloudflare Containers (CFC) binds the container image at
- * wrangler.toml config time per ``[[containers]]`` block.
- *
- * Every subclass is otherwise identical to the base — all lifecycle / proxy /
- * log / restart logic lives in {@link AppRuntimeContainer}.
+ * catalog app deployable on Cloudflare Workers Containers + Neon + Upstash.
+ * GPU-only apps (ComfyUI, SD WebUI, Fooocus, InvokeAI) are excluded — CFC
+ * basic tier has no CUDA support.
  *
  * @packageDocumentation
  */
@@ -56,12 +54,6 @@ export class CodeServerContainer extends AppRuntimeContainer {
   override defaultPort = 8080;
 }
 
-/** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` port 8188 */
-export class ComfyuiContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'comfyui';
-  override defaultPort = 8188;
-}
-
 /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` port 5002 */
 export class CoquiTtsContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'coqui-tts';
@@ -96,12 +88,6 @@ export class FlowiseContainer extends AppRuntimeContainer {
 export class FocalboardContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'focalboard';
   override defaultPort = 8000;
-}
-
-/** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` port 7865 */
-export class FooocusContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'fooocus';
-  override defaultPort = 7865;
 }
 
 /** Forgejo — `codeberg.org/forgejo/forgejo:latest` port 3000 */
@@ -144,12 +130,6 @@ export class HealthchecksContainer extends AppRuntimeContainer {
 export class ImmichContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'immich';
   override defaultPort = 8080;
-}
-
-/** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` port 9090 */
-export class InvokeaiContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'invokeai';
-  override defaultPort = 9090;
 }
 
 /** Jellyfin — `jellyfin/jellyfin:latest` port 8096 */
@@ -338,12 +318,6 @@ export class RocketChatContainer extends AppRuntimeContainer {
   override defaultPort = 3000;
 }
 
-/** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` port 7860 */
-export class SdWebuiContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'sd-webui';
-  override defaultPort = 7860;
-}
-
 /** SearXNG — `searxng/searxng:latest` port 8080 */
 export class SearxngContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'searxng';
@@ -422,13 +396,6 @@ export class WikiJsContainer extends AppRuntimeContainer {
   override defaultPort = 3000;
 }
 
-/**
- * Catalog-slug → DO class-name map. Drives the dispatcher's binding-lookup
- * table and the runtime existence check (`isSupportedSlug`).
- *
- * Keep in lockstep with the `wrangler.toml` `[[env.production.containers]]`
- * blocks + the `[[env.production.durable_objects.bindings]]` `name` fields.
- */
 export const SUPPORTED_APP_SLUGS = [
   'anything-llm',
   'appsmith',
@@ -437,14 +404,12 @@ export const SUPPORTED_APP_SLUGS = [
   'cal',
   'chromadb',
   'code-server',
-  'comfyui',
   'coqui-tts',
   'directus',
   'drone',
   'farfalle',
   'flowise',
   'focalboard',
-  'fooocus',
   'forgejo',
   'freshrss',
   'ghost',
@@ -452,7 +417,6 @@ export const SUPPORTED_APP_SLUGS = [
   'grafana',
   'healthchecks',
   'immich',
-  'invokeai',
   'jellyfin',
   'karakeep',
   'khoj',
@@ -484,7 +448,6 @@ export const SUPPORTED_APP_SLUGS = [
   'postiz',
   'qdrant',
   'rocketchat',
-  'sd-webui',
   'searxng',
   'sillytavern',
   'stirling-pdf',
@@ -502,7 +465,6 @@ export const SUPPORTED_APP_SLUGS = [
 
 export type SupportedAppSlug = (typeof SUPPORTED_APP_SLUGS)[number];
 
-/** Type-guard for catalog slugs the dispatcher can route. */
 export function isSupportedSlug(slug: string): slug is SupportedAppSlug {
   return (SUPPORTED_APP_SLUGS as readonly string[]).includes(slug);
 }

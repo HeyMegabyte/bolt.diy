@@ -731,7 +731,7 @@ export interface Env {
   // upstream image of that catalog entry. All optional initially so local
   // dev + preview deploys don't break before the migration tag is applied.
   // See `src/durable_objects/app_runtime_subclasses.ts` for the slug map.
-  /** AnythingLLM — `mintplexlabs/anythingllm:latest` */
+/** AnythingLLM — `mintplexlabs/anythingllm:latest` */
   APP_RUNTIME_ANYTHING_LLM?: DurableObjectNamespace;
   /** Appsmith — `appsmith/appsmith-ce:latest` */
   APP_RUNTIME_APPSMITH?: DurableObjectNamespace;
@@ -745,8 +745,6 @@ export interface Env {
   APP_RUNTIME_CHROMADB?: DurableObjectNamespace;
   /** Code Server — `codercom/code-server:latest` */
   APP_RUNTIME_CODE_SERVER?: DurableObjectNamespace;
-  /** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` */
-  APP_RUNTIME_COMFYUI?: DurableObjectNamespace;
   /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` */
   APP_RUNTIME_COQUI_TTS?: DurableObjectNamespace;
   /** Directus — `directus/directus:latest` */
@@ -759,8 +757,6 @@ export interface Env {
   APP_RUNTIME_FLOWISE?: DurableObjectNamespace;
   /** Focalboard — `mattermost/focalboard:latest` */
   APP_RUNTIME_FOCALBOARD?: DurableObjectNamespace;
-  /** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` */
-  APP_RUNTIME_FOOOCUS?: DurableObjectNamespace;
   /** Forgejo — `codeberg.org/forgejo/forgejo:latest` */
   APP_RUNTIME_FORGEJO?: DurableObjectNamespace;
   /** FreshRSS — `freshrss/freshrss:latest` */
@@ -775,8 +771,6 @@ export interface Env {
   APP_RUNTIME_HEALTHCHECKS?: DurableObjectNamespace;
   /** Immich — `ghcr.io/imagegenius/immich:latest` */
   APP_RUNTIME_IMMICH?: DurableObjectNamespace;
-  /** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` */
-  APP_RUNTIME_INVOKEAI?: DurableObjectNamespace;
   /** Jellyfin — `jellyfin/jellyfin:latest` */
   APP_RUNTIME_JELLYFIN?: DurableObjectNamespace;
   /** Karakeep — `ghcr.io/karakeep-app/karakeep:release` */
@@ -839,8 +833,6 @@ export interface Env {
   APP_RUNTIME_QDRANT?: DurableObjectNamespace;
   /** Rocket.Chat — `rocket.chat:latest` */
   APP_RUNTIME_ROCKETCHAT?: DurableObjectNamespace;
-  /** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` */
-  APP_RUNTIME_SD_WEBUI?: DurableObjectNamespace;
   /** SearXNG — `searxng/searxng:latest` */
   APP_RUNTIME_SEARXNG?: DurableObjectNamespace;
   /** SillyTavern — `ghcr.io/sillytavern/sillytavern:latest` */
@@ -867,7 +859,7 @@ export interface Env {
   APP_RUNTIME_WHISPER_ASR?: DurableObjectNamespace;
   /** Wiki.js — `ghcr.io/requarks/wiki:2` */
   APP_RUNTIME_WIKIJS?: DurableObjectNamespace;
-
+  
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
   TWILIO_ACCOUNT_SID?: string;

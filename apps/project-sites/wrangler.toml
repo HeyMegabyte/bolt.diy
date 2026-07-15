@@ -312,8 +312,9 @@ max_instances = 50
 instance_type = "basic"
 
 
-# ─── 68 catalog apps — one container block + binding per app ──
-# Generated from apps-catalog.ts. All fit basic (1 GiB) instance class.
+
+# ─── 64 catalog apps — one container block + binding per app ──
+# Generated from apps-catalog.ts. GPU apps (ComfyUI/SD WebUI/Fooocus/InvokeAI) excluded.
 # Image registry provisioning: https://dash.cloudflare.com/?to=/:account/containers/registries
 
 # anything-llm — AnythingLLM (mintplexlabs/anythingllm:latest, port 3001, 768 MiB)
@@ -393,17 +394,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_CODE_SERVER"
 class_name = "CodeServerContainer"
 
-# comfyui — ComfyUI (yanwk/comfyui-boot:cu128-megapak, port 8188, 1024 MiB)
-[[env.production.containers]]
-class_name = "ComfyuiContainer"
-image = "yanwk/comfyui-boot:cu128-megapak"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_COMFYUI"
-class_name = "ComfyuiContainer"
-
 # coqui-tts — Coqui TTS (ghcr.io/coqui-ai/tts-cpu:latest, port 5002, 1024 MiB)
 [[env.production.containers]]
 class_name = "CoquiTtsContainer"
@@ -469,17 +459,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_FOCALBOARD"
 class_name = "FocalboardContainer"
-
-# fooocus — Fooocus (ghcr.io/lllyasviel/fooocus:latest, port 7865, 1024 MiB)
-[[env.production.containers]]
-class_name = "FooocusContainer"
-image = "ghcr.io/lllyasviel/fooocus:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FOOOCUS"
-class_name = "FooocusContainer"
 
 # forgejo — Forgejo (codeberg.org/forgejo/forgejo:latest, port 3000, 384 MiB)
 [[env.production.containers]]
@@ -557,17 +536,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_IMMICH"
 class_name = "ImmichContainer"
-
-# invokeai — InvokeAI (ghcr.io/invoke-ai/invokeai:latest, port 9090, 1024 MiB)
-[[env.production.containers]]
-class_name = "InvokeaiContainer"
-image = "ghcr.io/invoke-ai/invokeai:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_INVOKEAI"
-class_name = "InvokeaiContainer"
 
 # jellyfin — Jellyfin (jellyfin/jellyfin:latest, port 8096, 1024 MiB)
 [[env.production.containers]]
@@ -910,17 +878,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_ROCKETCHAT"
 class_name = "RocketChatContainer"
 
-# sd-webui — Stable Diffusion WebUI (ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda, port 7860, 1024 MiB)
-[[env.production.containers]]
-class_name = "SdWebuiContainer"
-image = "ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_SD_WEBUI"
-class_name = "SdWebuiContainer"
-
 # searxng — SearXNG (searxng/searxng:latest, port 8080, 384 MiB)
 [[env.production.containers]]
 class_name = "SearxngContainer"
@@ -1074,14 +1031,12 @@ new_sqlite_classes = [
 "CalComContainer",
 "ChromaContainer",
 "CodeServerContainer",
-"ComfyuiContainer",
 "CoquiTtsContainer",
 "DirectusContainer",
 "DroneCiContainer",
 "FarfalleContainer",
 "FlowiseContainer",
 "FocalboardContainer",
-"FooocusContainer",
 "ForgejoContainer",
 "FreshrssContainer",
 "GhostContainer",
@@ -1089,7 +1044,6 @@ new_sqlite_classes = [
 "GrafanaContainer",
 "HealthchecksContainer",
 "ImmichContainer",
-"InvokeaiContainer",
 "JellyfinContainer",
 "KarakeepContainer",
 "KhojContainer",
@@ -1121,7 +1075,6 @@ new_sqlite_classes = [
 "PostizContainer",
 "QdrantContainer",
 "RocketChatContainer",
-"SdWebuiContainer",
 "SearxngContainer",
 "SillytavernContainer",
 "StirlingPdfContainer",
