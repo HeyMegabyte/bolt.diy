@@ -315,8 +315,9 @@ instance_type = "basic"
 
 
 
-# ─── 56 catalog apps — one container block + binding per app ──
-# CFC + Neon + Upstash compatible. GPU/unprofessional apps excluded.
+
+# ─── 55 catalog apps — one container block + binding per app ──
+# CFC + Neon + Upstash. Excludes GPU, unprofessional UI, and always-on services.
 
 # anything-llm — AnythingLLM (mintplexlabs/anythingllm:latest, port 3001, 768 MiB)
 [[env.production.containers]]
@@ -791,17 +792,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_POCKETBASE"
 class_name = "PocketbaseContainer"
 
-# postiz — Postiz (ghcr.io/gitroomhq/postiz-app:latest, port 5000, 1024 MiB)
-[[env.production.containers]]
-class_name = "PostizContainer"
-image = "ghcr.io/gitroomhq/postiz-app:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_POSTIZ"
-class_name = "PostizContainer"
-
 # qdrant — Qdrant (qdrant/qdrant:latest, port 6333, 512 MiB)
 [[env.production.containers]]
 class_name = "QdrantContainer"
@@ -980,7 +970,6 @@ new_sqlite_classes = [
 "PlaneContainer",
 "PlausibleContainer",
 "PocketbaseContainer",
-"PostizContainer",
 "QdrantContainer",
 "SearxngContainer",
 "StirlingPdfContainer",

@@ -817,8 +817,6 @@ export interface Env {
   APP_RUNTIME_PLAUSIBLE?: DurableObjectNamespace;
   /** PocketBase — `spectado/pocketbase:latest` */
   APP_RUNTIME_POCKETBASE?: DurableObjectNamespace;
-  /** Postiz — `ghcr.io/gitroomhq/postiz-app:latest` */
-  APP_RUNTIME_POSTIZ?: DurableObjectNamespace;
   /** Qdrant — `qdrant/qdrant:latest` */
   APP_RUNTIME_QDRANT?: DurableObjectNamespace;
   /** SearXNG — `searxng/searxng:latest` */
@@ -843,7 +841,7 @@ export interface Env {
   APP_RUNTIME_WHISPER_ASR?: DurableObjectNamespace;
   /** Wiki.js — `ghcr.io/requarks/wiki:2` */
   APP_RUNTIME_WIKIJS?: DurableObjectNamespace;
-
+  
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
   TWILIO_ACCOUNT_SID?: string;
