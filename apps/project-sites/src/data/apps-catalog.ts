@@ -552,7 +552,12 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
         required: true,
         auto: 'postgres_url',
       },
-      { key: 'REDIS_URL', description: 'Redis for cache + real-time sync', required: true, auto: 'redis_url' },
+      {
+        key: 'REDIS_URL',
+        description: 'Redis for cache + real-time sync',
+        required: true,
+        auto: 'redis_url',
+      },
       {
         key: 'JWT_SECRET',
         description: '32-byte JWT signing secret',
