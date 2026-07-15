@@ -792,6 +792,14 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+// MRU Cards — recently-active sites for dashboard (flag: mru_cards)
+app.get('/api/mru', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'mru_cards', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleMruCards } = await import('../libs/features/mru_cards/handlers.js');
+  return handleMruCards(c);
+});
+
 // Activity Feed — org-scoped event timeline (flag: activity_feed)
 app.get('/api/activity', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
