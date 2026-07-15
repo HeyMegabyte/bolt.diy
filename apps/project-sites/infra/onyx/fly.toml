@@ -1,6 +1,6 @@
-# Onyx — AI knowledge platform at onyx.projectsites.dev
+# Onyx — AI knowledge platform at ai.projectsites.dev
 # All-in-one Fly.io VM (API + web + worker + nginx in one container)
-# Backing services: Neon Postgres + Upstash Redis
+# Backing services: Neon Postgres + Fly Redis
 app = "onyx-projectsites"
 
 [build]
