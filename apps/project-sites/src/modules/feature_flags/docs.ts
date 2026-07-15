@@ -1180,6 +1180,11 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     explanation: 'Computes notification badge counts for the admin nav. Queries audit_logs for failed actions in the last 7 days and workflow_jobs for current failed builds. Returns a simple {total, alerts, builds} breakdown suitable for a red badge pill.',
     smoke_test: ['Enable flag → GET /api/notifications/badge → 200 with {total, alerts, builds}', 'Clean org returns all zeros'],
   },
+  analytics_annotations: {
+    checklist: ['CRUD for chart annotations tied to analytics dates', '4 categories: deploy/marketing/incident/other', 'Org-ownership validated on create', 'List by site, delete by annotation id'],
+    explanation: 'Lightweight annotation system for analytics charts. Attach dated notes to sites to explain traffic spikes (marketing campaign), drops (incident), or changes (deploy). Annotations are site-scoped and org-ownership is validated on create. Soft-delete keeps audit trail.',
+    smoke_test: ['POST /api/sites/:id/annotations with date/note/category → 201', 'GET /api/sites/:id/annotations → returns list sorted by date desc', 'DELETE /api/annotations/:id → 204'],
+  },
   cmd_k_actions: {
     checklist: [
       'NL query to ranked admin action suggestions',
