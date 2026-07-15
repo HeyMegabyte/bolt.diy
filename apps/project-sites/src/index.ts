@@ -88,6 +88,7 @@ import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin
 import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
 import { defaultDashboard, filterBySource, buildMetric } from '../libs/features/marketing_dashboard/service.js';
+import { generateProposals, scoreEngagement } from '../libs/features/social_agent/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -675,6 +676,22 @@ app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
   if (!(await isFlagOn(c.env, 'marketing_dashboard', c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: buildMetric(body.label, body.current, body.previous, body.source || 'website') });
+});
+
+// Social Agent — content proposals + engagement scoring (flag: social_agent)
+app.post('/api/sites/:siteId/social/proposals', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'social_agent', c.get('orgId'), siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: generateProposals(body.business, body.sellingPoint, body.accounts || [], body.count || 5) });
+});
+app.post('/api/sites/:siteId/social/engagement', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'social_agent', c.get('orgId'), siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: scoreEngagement(body.account, body.metrics) });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
