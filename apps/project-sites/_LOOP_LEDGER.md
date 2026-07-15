@@ -290,7 +290,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] Usage gauge rings — **DONE 2026-07-15:** libs/features/usage_gauges/ — 4 metrics (sites/builds/media_gb/bandwidth_gb), D1 aggregation, pct-of-limit computed, 4 unit tests, flag usage_gauges (experimental, default-off)
 - [x] [auto] Site tags/labels (colored pills, D1-backed, filterable) — **DONE 2026-07-15:** libs/features/site_tags/ — D1 migration 0609, 22-color enum, 5 service fns, 6 routes, 11 unit tests, flag site_tags (experimental, default-off)
 - [x] [auto] System status strip — **DONE 2026-07-15:** libs/features/system_status/ — 10-target health probe, 5s timeout, parallel aggregation, 7 unit tests, flag system_status (experimental, default-off) (🟢🟡🔴 per-integration health in top bar)
-- [ ] [auto] Site health sparklines (7-day mini SVG traffic trend per site in list)
+- [x] [auto] Site health sparklines — **DONE 2026-07-15:** libs/features/site_health_sparklines/ — analytics_daily query, 3 tests, flag site_health_sparklines
 - [ ] [auto] Cmd+K natural language actions ("rebuild njsk" → offers action)
 - [ ] [auto] Inline AI site auditor (one-click Scan Site → site_doctor grade+fixes)
 - [x] [auto] Site comparison view — **DONE 2026-07-15:** libs/features/site_comparison/ — 6-dimension diff, 3 unit tests, flag site_comparison
