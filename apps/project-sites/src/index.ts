@@ -839,6 +839,14 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+// Onboarding Progress — org setup completion (flag: onboarding_progress)
+app.get('/api/onboarding', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'onboarding_progress', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleOnboardingProgress } = await import('../libs/features/onboarding_progress/handlers.js');
+  return handleOnboardingProgress(c);
+});
+
 // Usage Gauges — per-org usage metrics (flag: usage_gauges)
 app.get('/api/usage', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');

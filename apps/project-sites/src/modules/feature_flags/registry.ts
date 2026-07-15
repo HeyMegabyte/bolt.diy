@@ -739,6 +739,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  onboarding_progress: {
+    key: 'onboarding_progress',
+    description:
+      'Onboarding Progress Ring (#16): tracks org onboarding completion — site created, first build, domain added, billing set, team invited — returns pct complete with per-step detail. GET /api/onboarding.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

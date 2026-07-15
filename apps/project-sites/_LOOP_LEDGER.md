@@ -285,7 +285,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 ### Tier 2 — High impact, moderate effort
 - [x] [auto] Dashboard live activity feed — **DONE 2026-07-15:** libs/features/activity_feed/ — unified org-scoped timeline from audit_logs, cursor pagination, 14 event kinds, 8 unit tests, flag activity_feed (experimental, default-off)
 - [x] [auto] "Continue where you left off" MRU cards — **DONE 2026-07-15:** libs/features/mru_cards/ — audit_logs+sites join, GROUP BY recency, 4 unit tests, flag mru_cards (experimental, default-off)
-- [ ] [auto] Onboarding progress ring
+- [x] [auto] Onboarding progress ring — **DONE 2026-07-15:** libs/features/onboarding_progress/ — 5-step tracker (site/build/domain/billing/team), D1 aggregation, 4 unit tests, flag onboarding_progress (experimental, default-off)
 - [ ] [auto] Natural-language analytics queries (Workers AI intent parser)
 - [x] [auto] Usage gauge rings — **DONE 2026-07-15:** libs/features/usage_gauges/ — 4 metrics (sites/builds/media_gb/bandwidth_gb), D1 aggregation, pct-of-limit computed, 4 unit tests, flag usage_gauges (experimental, default-off)
 - [x] [auto] Site tags/labels (colored pills, D1-backed, filterable) — **DONE 2026-07-15:** libs/features/site_tags/ — D1 migration 0609, 22-color enum, 5 service fns, 6 routes, 11 unit tests, flag site_tags (experimental, default-off)
