@@ -1113,16 +1113,12 @@ app.all('*', async (c, next) => {
   return out;
 });
 
-// ─── billing.projectsites.dev — proxy to Fly (Lago) ─────────
-app.all('*', async (c, next) => {
-  const hostname = (c.req.header('host') ?? '').toLowerCase();
-  if (hostname !== `billing.${DOMAINS.SITES_BASE}`) return next();
-  const url = new URL(c.req.url);
-  return fetch(`https://projectsites-lago.fly.dev${url.pathname}${url.search}`, {
-    method: c.req.method,
-    headers: c.req.raw.headers,
-  });
-});
+// billing.projectsites.dev → Lago on Fly. CF free plan blocks Worker→Fly
+// fetch (error 1101). Use the direct Fly URL for now:
+//   https://projectsites-lago.fly.dev/users/sign_in
+//   admin@megabyte.space / 32D7OjlTK3id1M8flrQ
+// TODO: Origin Rule or DNS CNAME unproxy (requires Business plan or
+//   removing wildcard Worker route)
 
 // ─── docs.projectsites.dev — Scalar API Reference ──────────
 app.all('*', async (c, next) => {
