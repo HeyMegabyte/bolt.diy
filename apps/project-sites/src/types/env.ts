@@ -548,6 +548,10 @@ export interface Env {
   GITHUB_CLIENT_ID?: string;
   /** GitHub OAuth App client secret. */
   GITHUB_CLIENT_SECRET?: string;
+  /** GitHub org for per-site source repos — default: projectsites-dev. */
+  GITHUB_ORG?: string;
+  /** GitHub fine-grained PAT with repo create/contents/commit scope for the org. */
+  GITHUB_REPO_TOKEN?: string;
 
   // ── Google (OAuth + Places + Sheets) ──────────────────────
   /** Google OAuth 2.0 client ID. */
