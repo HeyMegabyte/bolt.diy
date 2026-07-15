@@ -79,6 +79,7 @@ import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
 import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
 import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
 import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js';
+import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -526,6 +527,20 @@ app.get('/api/sites/:siteId/mcp-manifest', async (c) => {
   const slug = c.req.query('slug') || siteId;
   const manifest = generateMcpManifest(siteId, slug);
   return c.json({ data: manifest });
+});
+
+// NL Site Management — NL→edit-intent parser (flag: nl_site_management)
+app.post('/api/sites/:siteId/nl-command', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'nl_site_management', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.command || typeof body.command !== 'string') {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'command is required' } }, 400);
+  }
+  const result = parseSiteCommand(body.command, body.page || '/');
+  return c.json({ data: result });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
