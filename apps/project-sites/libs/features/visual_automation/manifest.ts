@@ -1,0 +1,1 @@
+export const manifest = { slug: 'visual_automation', name: 'Visual Automation Builder', description: 'Journey validation engine: 7 action types, 6 trigger types, step delay estimation, linear journey validation with error reporting.', flagKey: 'visual_automation', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

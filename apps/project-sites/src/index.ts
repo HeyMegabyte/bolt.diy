@@ -90,6 +90,9 @@ import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
 import { defaultDashboard, filterBySource, buildMetric } from '../libs/features/marketing_dashboard/service.js';
 import { generateProposals, scoreEngagement } from '../libs/features/social_agent/service.js';
 import { parseVoiceCommand } from '../libs/features/voice_site_mgmt/service.js';
+import { assignVariant, computeSignificance } from '../libs/features/ab_testing/service.js';
+import { agencyMrr, buildAgencyDashboard } from '../libs/features/white_label/service.js';
+import { validateJourney } from '../libs/features/visual_automation/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -702,6 +705,32 @@ app.post('/api/sites/:siteId/voice-command', async (c) => {
   if (!(await isFlagOn(c.env, 'voice_site_mgmt', c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: parseVoiceCommand(body.transcript || '') });
+});
+
+// A/B Testing (flag: ab_testing) + White Label (flag: white_label) + Visual Automation (flag: visual_automation)
+app.post('/api/sites/:siteId/ab/assign', async (c) => {
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'ab_testing', c.get('orgId'), c.req.param('siteId')))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: assignVariant(body.experiment, body.visitorId) });
+});
+app.post('/api/sites/:siteId/ab/significance', async (c) => {
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'ab_testing', c.get('orgId'), c.req.param('siteId')))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: computeSignificance(body.control, body.variant) });
+});
+app.post('/api/sites/:siteId/agency/dashboard', async (c) => {
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'white_label', c.get('orgId'), c.req.param('siteId')))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: buildAgencyDashboard(body.brand, body.sites || []) });
+});
+app.post('/api/sites/:siteId/automation/validate', async (c) => {
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'visual_automation', c.get('orgId'), c.req.param('siteId')))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: validateJourney(body) });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id

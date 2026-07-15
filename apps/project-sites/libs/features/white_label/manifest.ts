@@ -1,0 +1,1 @@
+export const manifest = { slug: 'white_label', name: 'White-Label Agency Mode', description: 'Agency dashboard: MRR calculation, churn rate, client site management, branded reselling. Agencies resell ProjectSites under their own brand.', flagKey: 'white_label', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };
