@@ -1113,6 +1113,35 @@ app.all('*', async (c, next) => {
   return out;
 });
 
+// ─── billing.projectsites.dev — proxy to Fly (Lago) ─────────
+app.all('*', async (c, next) => {
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname !== `billing.${DOMAINS.SITES_BASE}`) return next();
+
+  const url = new URL(c.req.url);
+  const target = `https://projectsites-lago.fly.dev${url.pathname}${url.search}`;
+
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('X-Forwarded-Host', 'billing.projectsites.dev');
+  headers.set('X-Forwarded-Proto', 'https');
+  headers.delete('host');
+  headers.set('Host', 'projectsites-lago.fly.dev');
+
+  const resp = await fetch(target, {
+    method: c.req.method,
+    headers,
+    body: c.req.method !== 'GET' && c.req.method !== 'HEAD'
+      ? await c.req.raw.clone().arrayBuffer() : undefined,
+    redirect: 'manual',
+    cf: { cacheTtl: 0 },
+  });
+
+  const out = new Response(resp.body, resp);
+  out.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  out.headers.set('X-Billing-Proxy', 'cf-worker');
+  return out;
+});
+
 // ─── docs.projectsites.dev — Scalar API Reference ──────────
 app.all('*', async (c, next) => {
   const hostname = (c.req.header('host') ?? '').toLowerCase();
