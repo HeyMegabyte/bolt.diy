@@ -67,10 +67,7 @@ interface RedisFetchResult {
  *
  * @throws {RedisUnavailableError} when both Upstash AND Fly Redis are unreachable.
  */
-export async function redisFetch(
-  env: Env,
-  opts: RedisFetchOpts,
-): Promise<RedisFetchResult> {
+export async function redisFetch(env: Env, opts: RedisFetchOpts): Promise<RedisFetchResult> {
   const start = Date.now();
 
   // 1. Try Upstash
@@ -136,9 +133,7 @@ export async function redisFetch(
  * Thin wrapper around Fly Redis TCP connection.
  * TODO: replace with CF TCP Sockets API when available.
  */
-async function attemptFlyRedisFallback(
-  _path: string,
-): Promise<{ ok: boolean; result: unknown }> {
+async function attemptFlyRedisFallback(_path: string): Promise<{ ok: boolean; result: unknown }> {
   // Fly Redis is at projectsites-redis.internal:6379 with password auth.
   // CF Workers can't open raw TCP sockets yet — this is a placeholder.
   // When TCP Sockets ships, this becomes:
