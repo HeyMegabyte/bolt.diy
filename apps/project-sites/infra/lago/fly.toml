@@ -6,16 +6,14 @@ primary_region = "iad"
 
 [env]
   RAILS_ENV = "production"
-  LAGO_REDIS_URL = "PLACEHOLDER_REDIS"
-  LAGO_DATABASE_URL = "PLACEHOLDER_DB"
+  LAGO_FRONT_URL = "https://billing.projectsites.dev"
+  LAGO_API_URL = "https://billing.projectsites.dev"
   LAGO_CLICKHOUSE_URL = "http://ch.projectsites.dev:8123"
   LAGO_CLICKHOUSE_DATABASE = "lago"
   LAGO_CLICKHOUSE_USERNAME = "dittofeed"
-  LAGO_CLICKHOUSE_PASSWORD = "PLACEHOLDER_CH_PASS"
-  LAGO_FRONT_URL = "https://billing.projectsites.dev"
-  LAGO_API_URL = "https://billing.projectsites.dev"
-  LAGO_SECRET_KEY = "PLACEHOLDER_SECRET"
-  LAGO_LICENSE = "PLACEHOLDER_LICENSE"
+  # GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET come from get-secret
+  # GOOGLE_CLIENT_ID = ""   # set via: fly secrets set GOOGLE_CLIENT_ID=...
+  # GOOGLE_CLIENT_SECRET = "" # set via: fly secrets set GOOGLE_CLIENT_SECRET=...
 
 [experimental]
   auto_rollback = false
