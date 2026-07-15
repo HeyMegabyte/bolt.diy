@@ -58,6 +58,18 @@ export const mastodon: Publisher = {
       raw: data,
     };
   },
+
+  async uploadMedia(_env, _account, _file) {
+    return { mediaId: '' };
+  },
+
+  async getProfile(_env, account) {
+    return {
+      handle: account.handle ?? '',
+      display_name: (account.metadata as Record<string,unknown>).display_name as string ?? account.handle ?? '',
+      avatar_url: (account.metadata as Record<string,unknown>).avatar_url as string ?? '',
+    };
+  },
 };
 
 /** Verify a Mastodon token + return account details. */

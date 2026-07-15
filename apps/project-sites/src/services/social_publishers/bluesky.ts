@@ -115,6 +115,18 @@ export const bluesky: Publisher = {
       raw: data,
     };
   },
+
+  async uploadMedia(_env, _account, _file) {
+    return { mediaId: '' };
+  },
+
+  async getProfile(_env, account) {
+    return {
+      handle: account.handle ?? '',
+      display_name: (account.metadata as Record<string,unknown>).display_name as string ?? account.handle ?? '',
+      avatar_url: (account.metadata as Record<string,unknown>).avatar_url as string ?? '',
+    };
+  },
 };
 
 /** Bluesky-specific login helper, called by the social.ts paste route. */

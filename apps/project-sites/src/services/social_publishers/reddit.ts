@@ -179,4 +179,18 @@ export const reddit: Publisher = {
       raw: data,
     };
   },
+
+  /** No-op: media served from R2 URLs — platform fetches on publish. */
+  async uploadMedia(_env, _account, _file) {
+    return { mediaId: '' };
+  },
+
+  /** Return profile info from the account context (no extra API call). */
+  async getProfile(_env, account) {
+    return {
+      handle: account.handle ?? '',
+      display_name: (account.metadata as Record<string,unknown>).display_name as string ?? account.handle ?? '',
+      avatar_url: (account.metadata as Record<string,unknown>).avatar_url as string ?? '',
+    };
+  },
 };
