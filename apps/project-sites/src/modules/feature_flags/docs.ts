@@ -1180,7 +1180,22 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     explanation: 'Computes notification badge counts for the admin nav. Queries audit_logs for failed actions in the last 7 days and workflow_jobs for current failed builds. Returns a simple {total, alerts, builds} breakdown suitable for a red badge pill.',
     smoke_test: ['Enable flag → GET /api/notifications/badge → 200 with {total, alerts, builds}', 'Clean org returns all zeros'],
   },
-  site_health_sparklines: {
+  cmd_k_actions: {
+    checklist: [
+      'NL query to ranked admin action suggestions',
+      '6 verbs: rebuild/snapshot/delete/view/edit/publish',
+      'Slug/name substring scoring with prefix bonus',
+      'Returns top 20 matches for command palette',
+    ],
+    explanation:
+      'Natural language to admin action matching for the Cmd+K command palette. Queries the org sites and scores each against 6 action verbs using slug and name substring matching. Short queries return default navigation suggestions (Sites, Billing). Results are ranked by match score and capped at 20.',
+    smoke_test: [
+      'Enable flag -> POST /api/cmdk {"q":"rebuild njsk"} -> 200 with scored suggestions',
+      'Empty query returns defaults',
+      'No matches returns empty array',
+    ],
+  },
+    site_health_sparklines: {
     checklist: ['7-day traffic trend per site from analytics_daily', 'Configurable day range (1-30, default 7)', 'Returns {siteId, days: [{date, visits}]} for SVG sparkline'],
     explanation: 'Queries the analytics_daily rollup for per-day visit counts over a configurable window. Designed to feed SVG sparkline charts in the admin site list — a compact visual indicator of traffic health without loading a full analytics dashboard.',
     smoke_test: ['Enable flag → GET /api/sites/:siteId/sparkline?days=7 → 200 with days[] array', 'No data → days: []', 'Pass days=30 for monthly view'],
