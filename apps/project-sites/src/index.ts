@@ -792,6 +792,14 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+// Activity Feed — org-scoped event timeline (flag: activity_feed)
+app.get('/api/activity', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleActivityFeed } = await import('../libs/features/activity_feed/handlers.js');
+  return handleActivityFeed(c);
+});
+
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing

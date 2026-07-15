@@ -283,7 +283,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] **Full-width mode toggle** — `g w` shortcut, `fullWidth` signal, toggle button in top bar, SCSS hover-zone collapse (2026-07-13)
 
 ### Tier 2 — High impact, moderate effort
-- [ ] [auto] Dashboard live activity feed
+- [x] [auto] Dashboard live activity feed — **DONE 2026-07-15:** libs/features/activity_feed/ — unified org-scoped timeline from audit_logs, cursor pagination, 14 event kinds, 8 unit tests, flag activity_feed (experimental, default-off)
 - [ ] [auto] "Continue where you left off" MRU cards
 - [ ] [auto] Onboarding progress ring
 - [ ] [auto] Natural-language analytics queries (Workers AI intent parser)
