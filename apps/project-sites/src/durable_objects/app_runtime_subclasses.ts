@@ -2,11 +2,8 @@
  * @module durable_objects/app_runtime_subclasses
  *
  * @description
- * Per-image Durable Object subclasses of {@link AppRuntimeContainer}, one per
- * catalog app deployable on Cloudflare Workers Containers + Neon + Upstash.
- * GPU-only apps (ComfyUI, SD WebUI, Fooocus, InvokeAI) are excluded — CFC
- * basic tier has no CUDA support.
- *
+ * Per-image Durable Object subclasses for catalog apps deployable on CFC+Neon+Upstash.
+ * Excludes GPU apps + low-quality/unprofessional apps per catalog quality bar.
  * @packageDocumentation
  */
 
@@ -54,6 +51,12 @@ export class CodeServerContainer extends AppRuntimeContainer {
   override defaultPort = 8080;
 }
 
+/** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` port 8188 */
+export class ComfyuiContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'comfyui';
+  override defaultPort = 8188;
+}
+
 /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` port 5002 */
 export class CoquiTtsContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'coqui-tts';
@@ -72,12 +75,6 @@ export class DroneCiContainer extends AppRuntimeContainer {
   override defaultPort = 80;
 }
 
-/** Farfalle — `ghcr.io/rashadphz/farfalle:latest` port 8000 */
-export class FarfalleContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'farfalle';
-  override defaultPort = 8000;
-}
-
 /** Flowise — `flowiseai/flowise:latest` port 3000 */
 export class FlowiseContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'flowise';
@@ -88,6 +85,12 @@ export class FlowiseContainer extends AppRuntimeContainer {
 export class FocalboardContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'focalboard';
   override defaultPort = 8000;
+}
+
+/** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` port 7865 */
+export class FooocusContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'fooocus';
+  override defaultPort = 7865;
 }
 
 /** Forgejo — `codeberg.org/forgejo/forgejo:latest` port 3000 */
@@ -132,16 +135,16 @@ export class ImmichContainer extends AppRuntimeContainer {
   override defaultPort = 8080;
 }
 
+/** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` port 9090 */
+export class InvokeaiContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'invokeai';
+  override defaultPort = 9090;
+}
+
 /** Jellyfin — `jellyfin/jellyfin:latest` port 8096 */
 export class JellyfinContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'jellyfin';
   override defaultPort = 8096;
-}
-
-/** Karakeep — `ghcr.io/karakeep-app/karakeep:release` port 3000 */
-export class KarakeepContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'karakeep';
-  override defaultPort = 3000;
 }
 
 /** Khoj — `ghcr.io/khoj-ai/khoj:latest` port 42110 */
@@ -192,22 +195,10 @@ export class LobeChatContainer extends AppRuntimeContainer {
   override defaultPort = 3210;
 }
 
-/** Matomo — `matomo:5-apache` port 80 */
-export class MatomoContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'matomo';
-  override defaultPort = 80;
-}
-
 /** Mattermost — `mattermost/mattermost-team-edition:latest` port 8065 */
 export class MattermostContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'mattermost';
   override defaultPort = 8065;
-}
-
-/** Mautic — `mautic/mautic:5-apache` port 80 */
-export class MauticContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'mautic';
-  override defaultPort = 80;
 }
 
 /** Memos — `neosmemo/memos:stable` port 5230 */
@@ -238,12 +229,6 @@ export class N8NContainer extends AppRuntimeContainer {
 export class NavidromeContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'navidrome';
   override defaultPort = 4533;
-}
-
-/** NextChat — `yidadaa/chatgpt-next-web:latest` port 3000 */
-export class NextchatContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'nextchat';
-  override defaultPort = 3000;
 }
 
 /** Nextcloud — `nextcloud:latest` port 80 */
@@ -312,22 +297,16 @@ export class QdrantContainer extends AppRuntimeContainer {
   override defaultPort = 6333;
 }
 
-/** Rocket.Chat — `rocket.chat:latest` port 3000 */
-export class RocketChatContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'rocketchat';
-  override defaultPort = 3000;
+/** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` port 7860 */
+export class StableDiffusionWebuiContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'sd-webui';
+  override defaultPort = 7860;
 }
 
 /** SearXNG — `searxng/searxng:latest` port 8080 */
 export class SearxngContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'searxng';
   override defaultPort = 8080;
-}
-
-/** SillyTavern — `ghcr.io/sillytavern/sillytavern:latest` port 8000 */
-export class SillytavernContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'sillytavern';
-  override defaultPort = 8000;
 }
 
 /** Stirling PDF — `docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest` port 8080 */
@@ -360,12 +339,6 @@ export class VaultwardenContainer extends AppRuntimeContainer {
   override defaultPort = 80;
 }
 
-/** Vendure — `node:20-bookworm-slim` port 3000 */
-export class VendureContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'vendure';
-  override defaultPort = 3000;
-}
-
 /** Vikunja — `vikunja/vikunja:latest` port 3456 */
 export class VikunjaContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'vikunja';
@@ -376,12 +349,6 @@ export class VikunjaContainer extends AppRuntimeContainer {
 export class WeaviateContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'weaviate';
   override defaultPort = 8080;
-}
-
-/** Whishper — `pluja/whishper:latest` port 80 */
-export class WhishperContainer extends AppRuntimeContainer {
-  static readonly APP_SLUG = 'whishper';
-  override defaultPort = 80;
 }
 
 /** Whisper ASR — `onerahmet/openai-whisper-asr-webservice:latest` port 9000 */
@@ -404,12 +371,13 @@ export const SUPPORTED_APP_SLUGS = [
   'cal',
   'chromadb',
   'code-server',
+  'comfyui',
   'coqui-tts',
   'directus',
   'drone',
-  'farfalle',
   'flowise',
   'focalboard',
+  'fooocus',
   'forgejo',
   'freshrss',
   'ghost',
@@ -417,8 +385,8 @@ export const SUPPORTED_APP_SLUGS = [
   'grafana',
   'healthchecks',
   'immich',
+  'invokeai',
   'jellyfin',
-  'karakeep',
   'khoj',
   'langflow',
   'langfuse',
@@ -427,15 +395,12 @@ export const SUPPORTED_APP_SLUGS = [
   'listmonk',
   'litellm',
   'lobe-chat',
-  'matomo',
   'mattermost',
-  'mautic',
   'memos',
   'miniflux',
   'morphic',
   'n8n',
   'navidrome',
-  'nextchat',
   'nextcloud',
   'nocodb',
   'open-webui',
@@ -447,24 +412,19 @@ export const SUPPORTED_APP_SLUGS = [
   'pocketbase',
   'postiz',
   'qdrant',
-  'rocketchat',
+  'sd-webui',
   'searxng',
-  'sillytavern',
   'stirling-pdf',
   'tabby',
   'umami',
   'uptime-kuma',
   'vaultwarden',
-  'vendure',
   'vikunja',
   'weaviate',
-  'whishper',
   'whisper-asr',
   'wikijs',
 ] as const;
-
 export type SupportedAppSlug = (typeof SUPPORTED_APP_SLUGS)[number];
-
 export function isSupportedSlug(slug: string): slug is SupportedAppSlug {
   return (SUPPORTED_APP_SLUGS as readonly string[]).includes(slug);
 }

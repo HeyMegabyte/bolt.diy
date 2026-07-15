@@ -313,9 +313,10 @@ instance_type = "basic"
 
 
 
-# ─── 64 catalog apps — one container block + binding per app ──
-# Generated from apps-catalog.ts. GPU apps (ComfyUI/SD WebUI/Fooocus/InvokeAI) excluded.
-# Image registry provisioning: https://dash.cloudflare.com/?to=/:account/containers/registries
+
+# ─── 59 catalog apps — one container block + binding per app ──
+# Quality-filtered: GPU + unprofessional/ugly apps excluded.
+# Image registry: https://dash.cloudflare.com/?to=/:account/containers/registries
 
 # anything-llm — AnythingLLM (mintplexlabs/anythingllm:latest, port 3001, 768 MiB)
 [[env.production.containers]]
@@ -394,6 +395,17 @@ instance_type = "basic"
 name = "APP_RUNTIME_CODE_SERVER"
 class_name = "CodeServerContainer"
 
+# comfyui — ComfyUI (yanwk/comfyui-boot:cu128-megapak, port 8188, 1024 MiB)
+[[env.production.containers]]
+class_name = "ComfyuiContainer"
+image = "yanwk/comfyui-boot:cu128-megapak"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_COMFYUI"
+class_name = "ComfyuiContainer"
+
 # coqui-tts — Coqui TTS (ghcr.io/coqui-ai/tts-cpu:latest, port 5002, 1024 MiB)
 [[env.production.containers]]
 class_name = "CoquiTtsContainer"
@@ -427,17 +439,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_DRONE"
 class_name = "DroneCiContainer"
 
-# farfalle — Farfalle (ghcr.io/rashadphz/farfalle:latest, port 8000, 512 MiB)
-[[env.production.containers]]
-class_name = "FarfalleContainer"
-image = "ghcr.io/rashadphz/farfalle:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FARFALLE"
-class_name = "FarfalleContainer"
-
 # flowise — Flowise (flowiseai/flowise:latest, port 3000, 512 MiB)
 [[env.production.containers]]
 class_name = "FlowiseContainer"
@@ -459,6 +460,17 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_FOCALBOARD"
 class_name = "FocalboardContainer"
+
+# fooocus — Fooocus (ghcr.io/lllyasviel/fooocus:latest, port 7865, 1024 MiB)
+[[env.production.containers]]
+class_name = "FooocusContainer"
+image = "ghcr.io/lllyasviel/fooocus:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FOOOCUS"
+class_name = "FooocusContainer"
 
 # forgejo — Forgejo (codeberg.org/forgejo/forgejo:latest, port 3000, 384 MiB)
 [[env.production.containers]]
@@ -537,6 +549,17 @@ instance_type = "basic"
 name = "APP_RUNTIME_IMMICH"
 class_name = "ImmichContainer"
 
+# invokeai — InvokeAI (ghcr.io/invoke-ai/invokeai:latest, port 9090, 1024 MiB)
+[[env.production.containers]]
+class_name = "InvokeaiContainer"
+image = "ghcr.io/invoke-ai/invokeai:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_INVOKEAI"
+class_name = "InvokeaiContainer"
+
 # jellyfin — Jellyfin (jellyfin/jellyfin:latest, port 8096, 1024 MiB)
 [[env.production.containers]]
 class_name = "JellyfinContainer"
@@ -547,17 +570,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_JELLYFIN"
 class_name = "JellyfinContainer"
-
-# karakeep — Karakeep (ghcr.io/karakeep-app/karakeep:release, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "KarakeepContainer"
-image = "ghcr.io/karakeep-app/karakeep:release"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_KARAKEEP"
-class_name = "KarakeepContainer"
 
 # khoj — Khoj (ghcr.io/khoj-ai/khoj:latest, port 42110, 1024 MiB)
 [[env.production.containers]]
@@ -647,17 +659,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_LOBE_CHAT"
 class_name = "LobeChatContainer"
 
-# matomo — Matomo (matomo:5-apache, port 80, 512 MiB)
-[[env.production.containers]]
-class_name = "MatomoContainer"
-image = "matomo:5-apache"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_MATOMO"
-class_name = "MatomoContainer"
-
 # mattermost — Mattermost (mattermost/mattermost-team-edition:latest, port 8065, 768 MiB)
 [[env.production.containers]]
 class_name = "MattermostContainer"
@@ -668,17 +669,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_MATTERMOST"
 class_name = "MattermostContainer"
-
-# mautic — Mautic (mautic/mautic:5-apache, port 80, 768 MiB)
-[[env.production.containers]]
-class_name = "MauticContainer"
-image = "mautic/mautic:5-apache"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_MAUTIC"
-class_name = "MauticContainer"
 
 # memos — Memos (neosmemo/memos:stable, port 5230, 128 MiB)
 [[env.production.containers]]
@@ -734,17 +724,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_NAVIDROME"
 class_name = "NavidromeContainer"
-
-# nextchat — NextChat (yidadaa/chatgpt-next-web:latest, port 3000, 256 MiB)
-[[env.production.containers]]
-class_name = "NextchatContainer"
-image = "yidadaa/chatgpt-next-web:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_NEXTCHAT"
-class_name = "NextchatContainer"
 
 # nextcloud — Nextcloud (nextcloud:latest, port 80, 1024 MiB)
 [[env.production.containers]]
@@ -867,16 +846,16 @@ instance_type = "basic"
 name = "APP_RUNTIME_QDRANT"
 class_name = "QdrantContainer"
 
-# rocketchat — Rocket.Chat (rocket.chat:latest, port 3000, 1024 MiB)
+# sd-webui — Stable Diffusion WebUI (ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda, port 7860, 1024 MiB)
 [[env.production.containers]]
-class_name = "RocketChatContainer"
-image = "rocket.chat:latest"
+class_name = "StableDiffusionWebuiContainer"
+image = "ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda"
 max_instances = 20
 instance_type = "basic"
 
 [[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_ROCKETCHAT"
-class_name = "RocketChatContainer"
+name = "APP_RUNTIME_SD_WEBUI"
+class_name = "StableDiffusionWebuiContainer"
 
 # searxng — SearXNG (searxng/searxng:latest, port 8080, 384 MiB)
 [[env.production.containers]]
@@ -888,17 +867,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_SEARXNG"
 class_name = "SearxngContainer"
-
-# sillytavern — SillyTavern (ghcr.io/sillytavern/sillytavern:latest, port 8000, 384 MiB)
-[[env.production.containers]]
-class_name = "SillytavernContainer"
-image = "ghcr.io/sillytavern/sillytavern:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_SILLYTAVERN"
-class_name = "SillytavernContainer"
 
 # stirling-pdf — Stirling PDF (docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest, port 8080, 512 MiB)
 [[env.production.containers]]
@@ -955,17 +923,6 @@ instance_type = "basic"
 name = "APP_RUNTIME_VAULTWARDEN"
 class_name = "VaultwardenContainer"
 
-# vendure — Vendure (node:20-bookworm-slim, port 3000, 1024 MiB)
-[[env.production.containers]]
-class_name = "VendureContainer"
-image = "node:20-bookworm-slim"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_VENDURE"
-class_name = "VendureContainer"
-
 # vikunja — Vikunja (vikunja/vikunja:latest, port 3456, 256 MiB)
 [[env.production.containers]]
 class_name = "VikunjaContainer"
@@ -987,17 +944,6 @@ instance_type = "basic"
 [[env.production.durable_objects.bindings]]
 name = "APP_RUNTIME_WEAVIATE"
 class_name = "WeaviateContainer"
-
-# whishper — Whishper (pluja/whishper:latest, port 80, 1024 MiB)
-[[env.production.containers]]
-class_name = "WhishperContainer"
-image = "pluja/whishper:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_WHISHPER"
-class_name = "WhishperContainer"
 
 # whisper-asr — Whisper ASR (onerahmet/openai-whisper-asr-webservice:latest, port 9000, 1024 MiB)
 [[env.production.containers]]
@@ -1031,12 +977,13 @@ new_sqlite_classes = [
 "CalComContainer",
 "ChromaContainer",
 "CodeServerContainer",
+"ComfyuiContainer",
 "CoquiTtsContainer",
 "DirectusContainer",
 "DroneCiContainer",
-"FarfalleContainer",
 "FlowiseContainer",
 "FocalboardContainer",
+"FooocusContainer",
 "ForgejoContainer",
 "FreshrssContainer",
 "GhostContainer",
@@ -1044,8 +991,8 @@ new_sqlite_classes = [
 "GrafanaContainer",
 "HealthchecksContainer",
 "ImmichContainer",
+"InvokeaiContainer",
 "JellyfinContainer",
-"KarakeepContainer",
 "KhojContainer",
 "LangflowContainer",
 "LangfuseContainer",
@@ -1054,15 +1001,12 @@ new_sqlite_classes = [
 "ListmonkContainer",
 "LitellmContainer",
 "LobeChatContainer",
-"MatomoContainer",
 "MattermostContainer",
-"MauticContainer",
 "MemosContainer",
 "MinifluxContainer",
 "MorphicContainer",
 "N8NContainer",
 "NavidromeContainer",
-"NextchatContainer",
 "NextcloudContainer",
 "NocodbContainer",
 "OpenWebuiContainer",
@@ -1074,18 +1018,15 @@ new_sqlite_classes = [
 "PocketbaseContainer",
 "PostizContainer",
 "QdrantContainer",
-"RocketChatContainer",
+"StableDiffusionWebuiContainer",
 "SearxngContainer",
-"SillytavernContainer",
 "StirlingPdfContainer",
 "TabbyContainer",
 "UmamiContainer",
 "UptimeKumaContainer",
 "VaultwardenContainer",
-"VendureContainer",
 "VikunjaContainer",
 "WeaviateContainer",
-"WhishperContainer",
 "WhisperAsrContainer",
 "WikiJsContainer"
 ]

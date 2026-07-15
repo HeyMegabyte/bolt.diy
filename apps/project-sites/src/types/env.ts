@@ -745,18 +745,20 @@ export interface Env {
   APP_RUNTIME_CHROMADB?: DurableObjectNamespace;
   /** Code Server — `codercom/code-server:latest` */
   APP_RUNTIME_CODE_SERVER?: DurableObjectNamespace;
+  /** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` */
+  APP_RUNTIME_COMFYUI?: DurableObjectNamespace;
   /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` */
   APP_RUNTIME_COQUI_TTS?: DurableObjectNamespace;
   /** Directus — `directus/directus:latest` */
   APP_RUNTIME_DIRECTUS?: DurableObjectNamespace;
   /** Drone CI — `drone/drone:2` */
   APP_RUNTIME_DRONE?: DurableObjectNamespace;
-  /** Farfalle — `ghcr.io/rashadphz/farfalle:latest` */
-  APP_RUNTIME_FARFALLE?: DurableObjectNamespace;
   /** Flowise — `flowiseai/flowise:latest` */
   APP_RUNTIME_FLOWISE?: DurableObjectNamespace;
   /** Focalboard — `mattermost/focalboard:latest` */
   APP_RUNTIME_FOCALBOARD?: DurableObjectNamespace;
+  /** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` */
+  APP_RUNTIME_FOOOCUS?: DurableObjectNamespace;
   /** Forgejo — `codeberg.org/forgejo/forgejo:latest` */
   APP_RUNTIME_FORGEJO?: DurableObjectNamespace;
   /** FreshRSS — `freshrss/freshrss:latest` */
@@ -771,10 +773,10 @@ export interface Env {
   APP_RUNTIME_HEALTHCHECKS?: DurableObjectNamespace;
   /** Immich — `ghcr.io/imagegenius/immich:latest` */
   APP_RUNTIME_IMMICH?: DurableObjectNamespace;
+  /** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` */
+  APP_RUNTIME_INVOKEAI?: DurableObjectNamespace;
   /** Jellyfin — `jellyfin/jellyfin:latest` */
   APP_RUNTIME_JELLYFIN?: DurableObjectNamespace;
-  /** Karakeep — `ghcr.io/karakeep-app/karakeep:release` */
-  APP_RUNTIME_KARAKEEP?: DurableObjectNamespace;
   /** Khoj — `ghcr.io/khoj-ai/khoj:latest` */
   APP_RUNTIME_KHOJ?: DurableObjectNamespace;
   /** Langflow — `langflowai/langflow:latest` */
@@ -791,12 +793,8 @@ export interface Env {
   APP_RUNTIME_LITELLM?: DurableObjectNamespace;
   /** Lobe Chat — `lobehub/lobe-chat-database:latest` */
   APP_RUNTIME_LOBE_CHAT?: DurableObjectNamespace;
-  /** Matomo — `matomo:5-apache` */
-  APP_RUNTIME_MATOMO?: DurableObjectNamespace;
   /** Mattermost — `mattermost/mattermost-team-edition:latest` */
   APP_RUNTIME_MATTERMOST?: DurableObjectNamespace;
-  /** Mautic — `mautic/mautic:5-apache` */
-  APP_RUNTIME_MAUTIC?: DurableObjectNamespace;
   /** Memos — `neosmemo/memos:stable` */
   APP_RUNTIME_MEMOS?: DurableObjectNamespace;
   /** Miniflux — `miniflux/miniflux:latest` */
@@ -807,8 +805,6 @@ export interface Env {
   APP_RUNTIME_N8N?: DurableObjectNamespace;
   /** Navidrome — `deluan/navidrome:latest` */
   APP_RUNTIME_NAVIDROME?: DurableObjectNamespace;
-  /** NextChat — `yidadaa/chatgpt-next-web:latest` */
-  APP_RUNTIME_NEXTCHAT?: DurableObjectNamespace;
   /** Nextcloud — `nextcloud:latest` */
   APP_RUNTIME_NEXTCLOUD?: DurableObjectNamespace;
   /** NocoDB — `nocodb/nocodb:latest` */
@@ -831,12 +827,10 @@ export interface Env {
   APP_RUNTIME_POSTIZ?: DurableObjectNamespace;
   /** Qdrant — `qdrant/qdrant:latest` */
   APP_RUNTIME_QDRANT?: DurableObjectNamespace;
-  /** Rocket.Chat — `rocket.chat:latest` */
-  APP_RUNTIME_ROCKETCHAT?: DurableObjectNamespace;
+  /** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` */
+  APP_RUNTIME_SD_WEBUI?: DurableObjectNamespace;
   /** SearXNG — `searxng/searxng:latest` */
   APP_RUNTIME_SEARXNG?: DurableObjectNamespace;
-  /** SillyTavern — `ghcr.io/sillytavern/sillytavern:latest` */
-  APP_RUNTIME_SILLYTAVERN?: DurableObjectNamespace;
   /** Stirling PDF — `docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest` */
   APP_RUNTIME_STIRLING_PDF?: DurableObjectNamespace;
   /** Tabby — `tabbyml/tabby:latest` */
@@ -847,14 +841,10 @@ export interface Env {
   APP_RUNTIME_UPTIME_KUMA?: DurableObjectNamespace;
   /** Vaultwarden — `vaultwarden/server:latest` */
   APP_RUNTIME_VAULTWARDEN?: DurableObjectNamespace;
-  /** Vendure — `node:20-bookworm-slim` */
-  APP_RUNTIME_VENDURE?: DurableObjectNamespace;
   /** Vikunja — `vikunja/vikunja:latest` */
   APP_RUNTIME_VIKUNJA?: DurableObjectNamespace;
   /** Weaviate — `semitechnologies/weaviate:1.28.0` */
   APP_RUNTIME_WEAVIATE?: DurableObjectNamespace;
-  /** Whishper — `pluja/whishper:latest` */
-  APP_RUNTIME_WHISHPER?: DurableObjectNamespace;
   /** Whisper ASR — `onerahmet/openai-whisper-asr-webservice:latest` */
   APP_RUNTIME_WHISPER_ASR?: DurableObjectNamespace;
   /** Wiki.js — `ghcr.io/requarks/wiki:2` */
