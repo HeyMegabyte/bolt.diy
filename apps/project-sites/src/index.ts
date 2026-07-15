@@ -82,6 +82,7 @@ import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js'
 import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
 import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
 import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
+import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -564,6 +565,19 @@ app.get('/api/sites/:siteId/cms-model', async (c) => {
   if (!(await isFlagOn(c.env, 'cms_collections', orgId, siteId))) return c.notFound();
   const slugs = c.req.query('collections')?.split(',') || availableCollections();
   return c.json({ data: buildCmsModel(siteId, slugs) });
+});
+
+// Local SEO Suite — NAP audit + review replies (flag: local_seo_suite)
+app.post('/api/sites/:siteId/seo/audit', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'local_seo_suite', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const audit = runLocalSeoAudit(
+    siteId, body.canonical || {}, body.sources || [], body.reviews || [],
+  );
+  return c.json({ data: audit });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
