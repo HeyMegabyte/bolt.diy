@@ -731,28 +731,142 @@ export interface Env {
   // upstream image of that catalog entry. All optional initially so local
   // dev + preview deploys don't break before the migration tag is applied.
   // See `src/durable_objects/app_runtime_subclasses.ts` for the slug map.
-  /** Umami — `ghcr.io/umami-software/umami:postgresql-latest` */
-  APP_RUNTIME_UMAMI?: DurableObjectNamespace;
-  /** Outline — `outlinewiki/outline:latest` */
-  APP_RUNTIME_OUTLINE?: DurableObjectNamespace;
-  /** n8n — `n8nio/n8n:latest` */
-  APP_RUNTIME_N8N?: DurableObjectNamespace;
-  /** Vaultwarden — `vaultwarden/server:latest` */
-  APP_RUNTIME_VAULTWARDEN?: DurableObjectNamespace;
-  /** Uptime Kuma — `louislam/uptime-kuma:1` */
-  APP_RUNTIME_UPTIME_KUMA?: DurableObjectNamespace;
-  /** NocoDB — `nocodb/nocodb:latest` */
-  APP_RUNTIME_NOCODB?: DurableObjectNamespace;
+  /** AnythingLLM — `mintplexlabs/anythingllm:latest` */
+  APP_RUNTIME_ANYTHING_LLM?: DurableObjectNamespace;
+  /** Appsmith — `appsmith/appsmith-ce:latest` */
+  APP_RUNTIME_APPSMITH?: DurableObjectNamespace;
+  /** Audiobookshelf — `ghcr.io/advplyr/audiobookshelf:latest` */
+  APP_RUNTIME_AUDIOBOOKSHELF?: DurableObjectNamespace;
+  /** BookStack — `lscr.io/linuxserver/bookstack:latest` */
+  APP_RUNTIME_BOOKSTACK?: DurableObjectNamespace;
+  /** Cal.com — `calcom/cal.com:latest` */
+  APP_RUNTIME_CAL?: DurableObjectNamespace;
+  /** Chroma — `chromadb/chroma:latest` */
+  APP_RUNTIME_CHROMADB?: DurableObjectNamespace;
+  /** Code Server — `codercom/code-server:latest` */
+  APP_RUNTIME_CODE_SERVER?: DurableObjectNamespace;
+  /** ComfyUI — `yanwk/comfyui-boot:cu128-megapak` */
+  APP_RUNTIME_COMFYUI?: DurableObjectNamespace;
+  /** Coqui TTS — `ghcr.io/coqui-ai/tts-cpu:latest` */
+  APP_RUNTIME_COQUI_TTS?: DurableObjectNamespace;
+  /** Directus — `directus/directus:latest` */
+  APP_RUNTIME_DIRECTUS?: DurableObjectNamespace;
+  /** Drone CI — `drone/drone:2` */
+  APP_RUNTIME_DRONE?: DurableObjectNamespace;
+  /** Farfalle — `ghcr.io/rashadphz/farfalle:latest` */
+  APP_RUNTIME_FARFALLE?: DurableObjectNamespace;
+  /** Flowise — `flowiseai/flowise:latest` */
+  APP_RUNTIME_FLOWISE?: DurableObjectNamespace;
+  /** Focalboard — `mattermost/focalboard:latest` */
+  APP_RUNTIME_FOCALBOARD?: DurableObjectNamespace;
+  /** Fooocus — `ghcr.io/lllyasviel/fooocus:latest` */
+  APP_RUNTIME_FOOOCUS?: DurableObjectNamespace;
+  /** Forgejo — `codeberg.org/forgejo/forgejo:latest` */
+  APP_RUNTIME_FORGEJO?: DurableObjectNamespace;
+  /** FreshRSS — `freshrss/freshrss:latest` */
+  APP_RUNTIME_FRESHRSS?: DurableObjectNamespace;
+  /** Ghost — `ghost:5-alpine` */
+  APP_RUNTIME_GHOST?: DurableObjectNamespace;
+  /** Gitea — `gitea/gitea:latest` */
+  APP_RUNTIME_GITEA?: DurableObjectNamespace;
+  /** Grafana — `grafana/grafana-oss:latest` */
+  APP_RUNTIME_GRAFANA?: DurableObjectNamespace;
+  /** Healthchecks — `healthchecks/healthchecks:latest` */
+  APP_RUNTIME_HEALTHCHECKS?: DurableObjectNamespace;
+  /** Immich — `ghcr.io/imagegenius/immich:latest` */
+  APP_RUNTIME_IMMICH?: DurableObjectNamespace;
+  /** InvokeAI — `ghcr.io/invoke-ai/invokeai:latest` */
+  APP_RUNTIME_INVOKEAI?: DurableObjectNamespace;
+  /** Jellyfin — `jellyfin/jellyfin:latest` */
+  APP_RUNTIME_JELLYFIN?: DurableObjectNamespace;
+  /** Karakeep — `ghcr.io/karakeep-app/karakeep:release` */
+  APP_RUNTIME_KARAKEEP?: DurableObjectNamespace;
+  /** Khoj — `ghcr.io/khoj-ai/khoj:latest` */
+  APP_RUNTIME_KHOJ?: DurableObjectNamespace;
+  /** Langflow — `langflowai/langflow:latest` */
+  APP_RUNTIME_LANGFLOW?: DurableObjectNamespace;
+  /** Langfuse — `langfuse/langfuse:2` */
+  APP_RUNTIME_LANGFUSE?: DurableObjectNamespace;
+  /** LibreChat — `ghcr.io/danny-avila/librechat:latest` */
+  APP_RUNTIME_LIBRECHAT?: DurableObjectNamespace;
+  /** Linkwarden — `ghcr.io/linkwarden/linkwarden:latest` */
+  APP_RUNTIME_LINKWARDEN?: DurableObjectNamespace;
   /** Listmonk — `listmonk/listmonk:latest` */
   APP_RUNTIME_LISTMONK?: DurableObjectNamespace;
+  /** LiteLLM — `ghcr.io/berriai/litellm-database:main-stable` */
+  APP_RUNTIME_LITELLM?: DurableObjectNamespace;
+  /** Lobe Chat — `lobehub/lobe-chat-database:latest` */
+  APP_RUNTIME_LOBE_CHAT?: DurableObjectNamespace;
+  /** Matomo — `matomo:5-apache` */
+  APP_RUNTIME_MATOMO?: DurableObjectNamespace;
+  /** Mattermost — `mattermost/mattermost-team-edition:latest` */
+  APP_RUNTIME_MATTERMOST?: DurableObjectNamespace;
+  /** Mautic — `mautic/mautic:5-apache` */
+  APP_RUNTIME_MAUTIC?: DurableObjectNamespace;
   /** Memos — `neosmemo/memos:stable` */
   APP_RUNTIME_MEMOS?: DurableObjectNamespace;
-  /** PocketBase — `spectado/pocketbase:latest` */
-  APP_RUNTIME_POCKETBASE?: DurableObjectNamespace;
+  /** Miniflux — `miniflux/miniflux:latest` */
+  APP_RUNTIME_MINIFLUX?: DurableObjectNamespace;
+  /** Morphic — `ghcr.io/miurla/morphic:latest` */
+  APP_RUNTIME_MORPHIC?: DurableObjectNamespace;
+  /** n8n — `n8nio/n8n:latest` */
+  APP_RUNTIME_N8N?: DurableObjectNamespace;
+  /** Navidrome — `deluan/navidrome:latest` */
+  APP_RUNTIME_NAVIDROME?: DurableObjectNamespace;
+  /** NextChat — `yidadaa/chatgpt-next-web:latest` */
+  APP_RUNTIME_NEXTCHAT?: DurableObjectNamespace;
+  /** Nextcloud — `nextcloud:latest` */
+  APP_RUNTIME_NEXTCLOUD?: DurableObjectNamespace;
+  /** NocoDB — `nocodb/nocodb:latest` */
+  APP_RUNTIME_NOCODB?: DurableObjectNamespace;
   /** Open WebUI — `ghcr.io/open-webui/open-webui:main` */
   APP_RUNTIME_OPEN_WEBUI?: DurableObjectNamespace;
-  /** Langflow — `langflowai/langflow:latest` port 7860 */
-  APP_RUNTIME_LANGFLOW?: DurableObjectNamespace;
+  /** Outline — `outlinewiki/outline:latest` */
+  APP_RUNTIME_OUTLINE?: DurableObjectNamespace;
+  /** Perplexica — `itzcrazykns1337/perplexica:latest` */
+  APP_RUNTIME_PERPLEXICA?: DurableObjectNamespace;
+  /** Arize Phoenix — `arizephoenix/phoenix:latest` */
+  APP_RUNTIME_PHOENIX?: DurableObjectNamespace;
+  /** Plane — `makeplane/plane-frontend:latest` */
+  APP_RUNTIME_PLANE?: DurableObjectNamespace;
+  /** Plausible — `plausible/community-edition:latest` */
+  APP_RUNTIME_PLAUSIBLE?: DurableObjectNamespace;
+  /** PocketBase — `spectado/pocketbase:latest` */
+  APP_RUNTIME_POCKETBASE?: DurableObjectNamespace;
+  /** Postiz — `ghcr.io/gitroomhq/postiz-app:latest` */
+  APP_RUNTIME_POSTIZ?: DurableObjectNamespace;
+  /** Qdrant — `qdrant/qdrant:latest` */
+  APP_RUNTIME_QDRANT?: DurableObjectNamespace;
+  /** Rocket.Chat — `rocket.chat:latest` */
+  APP_RUNTIME_ROCKETCHAT?: DurableObjectNamespace;
+  /** Stable Diffusion WebUI — `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda` */
+  APP_RUNTIME_SD_WEBUI?: DurableObjectNamespace;
+  /** SearXNG — `searxng/searxng:latest` */
+  APP_RUNTIME_SEARXNG?: DurableObjectNamespace;
+  /** SillyTavern — `ghcr.io/sillytavern/sillytavern:latest` */
+  APP_RUNTIME_SILLYTAVERN?: DurableObjectNamespace;
+  /** Stirling PDF — `docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest` */
+  APP_RUNTIME_STIRLING_PDF?: DurableObjectNamespace;
+  /** Tabby — `tabbyml/tabby:latest` */
+  APP_RUNTIME_TABBY?: DurableObjectNamespace;
+  /** Umami — `ghcr.io/umami-software/umami:postgresql-latest` */
+  APP_RUNTIME_UMAMI?: DurableObjectNamespace;
+  /** Uptime Kuma — `louislam/uptime-kuma:1` */
+  APP_RUNTIME_UPTIME_KUMA?: DurableObjectNamespace;
+  /** Vaultwarden — `vaultwarden/server:latest` */
+  APP_RUNTIME_VAULTWARDEN?: DurableObjectNamespace;
+  /** Vendure — `node:20-bookworm-slim` */
+  APP_RUNTIME_VENDURE?: DurableObjectNamespace;
+  /** Vikunja — `vikunja/vikunja:latest` */
+  APP_RUNTIME_VIKUNJA?: DurableObjectNamespace;
+  /** Weaviate — `semitechnologies/weaviate:1.28.0` */
+  APP_RUNTIME_WEAVIATE?: DurableObjectNamespace;
+  /** Whishper — `pluja/whishper:latest` */
+  APP_RUNTIME_WHISHPER?: DurableObjectNamespace;
+  /** Whisper ASR — `onerahmet/openai-whisper-asr-webservice:latest` */
+  APP_RUNTIME_WHISPER_ASR?: DurableObjectNamespace;
+  /** Wiki.js — `ghcr.io/requarks/wiki:2` */
+  APP_RUNTIME_WIKIJS?: DurableObjectNamespace;
 
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */

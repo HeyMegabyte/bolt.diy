@@ -311,343 +311,298 @@ image = "./containers/app-runtime/Dockerfile"
 max_instances = 50
 instance_type = "basic"
 
-# ─── Top-10 supported catalog apps — one container block per upstream image ──
-# Each pairs with a DO subclass in `src/durable_objects/app_runtime_subclasses.ts`
-# + a dispatcher entry in `BINDING_BY_SLUG` (services/container_dispatcher.ts).
-# Memory ceilings come from `apps-catalog.ts` memoryMB; all fit in the
-# `basic` (1 GiB / 1/4 vCPU) instance class.
-#
-# NOTE (2026-05-24 deploy): the per-image [[containers]] blocks below are
-# BLOCKED on a Cloudflare account-level image registry setup (error
-# IMAGE_REGISTRY_NOT_CONFIGURED returned during `wrangler deploy`). Until
-# the registry is provisioned at
-# `https://dash.cloudflare.com/?to=/:account/containers/registries`, the
-# blocks stay commented out. The `BINDING_BY_SLUG` dispatcher in
-# `src/services/container_dispatcher.ts` gracefully degrades when a
-# binding is missing — `proxyToContainer` returns a 503 and the UI shows
-# the "Coming soon" interstitial. Once the registry is live, uncomment
-# both this and the matching DO bindings + migration block below.
 
-# # umami — privacy-respecting web analytics — 256 MiB
-# [[env.production.containers]]
-# class_name = "UmamiContainer"
-# image = "ghcr.io/umami-software/umami:postgresql-latest"
-# max_instances = 20
-# instance_type = "basic"
-#
-# # outline — modern team wiki — 768 MiB
-# [[env.production.containers]]
-# class_name = "OutlineContainer"
-# image = "outlinewiki/outline:latest"
-# max_instances = 10
-# instance_type = "basic"
-#
-# # n8n — workflow automation — 512 MiB
-# [[env.production.containers]]
-# class_name = "N8nContainer"
-# image = "n8nio/n8n:latest"
-# max_instances = 20
-# instance_type = "basic"
-#
-# # vaultwarden — Bitwarden-compatible password manager — 128 MiB
-# [[env.production.containers]]
-# class_name = "VaultwardenContainer"
-# image = "vaultwarden/server:latest"
-# max_instances = 20
-# instance_type = "basic"
-#
-# # uptime-kuma — self-hosted uptime monitor — 256 MiB
-# [[env.production.containers]]
-# class_name = "UptimeKumaContainer"
-# image = "louislam/uptime-kuma:1"
-# max_instances = 20
-# instance_type = "basic"
-#
-# # nocodb — Airtable-style smart spreadsheet — 512 MiB
-# [[env.production.containers]]
-# class_name = "NocodbContainer"
-# image = "nocodb/nocodb:latest"
-# max_instances = 10
-# instance_type = "basic"
-#
-# # listmonk — self-hosted newsletter + mailing list manager — 256 MiB
-# [[env.production.containers]]
-# class_name = "ListmonkContainer"
-# image = "listmonk/listmonk:latest"
-# max_instances = 10
-# instance_type = "basic"
-#
-# # memos — privacy-first knowledge-snippet wall — 128 MiB
-# [[env.production.containers]]
-# class_name = "MemosContainer"
-# image = "neosmemo/memos:stable"
-# max_instances = 20
-# instance_type = "basic"
-#
-# # pocketbase — Go-backed BaaS (SQLite + auth + storage) — 128 MiB
-# [[env.production.containers]]
-# class_name = "PocketbaseContainer"
-# image = "spectado/pocketbase:latest"
-# max_instances = 20
-# instance_type = "basic"
-#
-# # open-webui — chat UI for LLMs (Ollama / OpenAI) — 512 MiB
-# [[env.production.containers]]
-# class_name = "OpenWebuiContainer"
-# image = "ghcr.io/open-webui/open-webui:main"
-# max_instances = 10
-# instance_type = "basic"
+# ─── 68 catalog apps — one container block + binding per app ──
+# Generated from apps-catalog.ts. All fit basic (1 GiB) instance class.
+# Image registry provisioning: https://dash.cloudflare.com/?to=/:account/containers/registries
 
-[[env.production.durable_objects.bindings]]
-name = "SITE_BUILDER"
-class_name = "SiteBuilderContainer"
-
-[[env.production.durable_objects.bindings]]
-name = "TRACE_HUB"
-class_name = "TraceHub"
-
-[[env.production.durable_objects.bindings]]
-name = "ACTIVITY_HUB"
-class_name = "ActivityHub"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME"
-class_name = "AppRuntimeContainer"
-
-# Pulse Inbox — REMOVED from UI/code 2026-05-25. Binding kept active +
-# pointing at a 410-stub class (`src/durable_objects/conversation_hub.ts`)
-# so the existing v_conversation_hub migration tag stays valid (deleting
-# the binding without a `deleted_classes` migration breaks deploys with
-# error 10064). D1 data in chat_conversations/chat_messages stays intact.
-[[env.production.durable_objects.bindings]]
-name = "CONVERSATION_HUB"
-class_name = "ConversationHub"
-
-# EventDispatcher — per-site Unified Analytics ingestion DO (Plane H).
-# Class is built + unit-tested (`src/durable_objects/event_dispatcher.ts`, 6 tests)
-# and exported from index.ts. The /api/events handler already degrades gracefully
-# (returns 202) WITHOUT this binding, so analytics ingestion is safe-but-inert
-# until this goes live.
-#
-# ⚠️ GO-LIVE IS A WATCHED DEPLOY (one-way door). An active binding REQUIRES an
-# active migration (else `wrangler deploy` fails with error 10061), and this
-# worker's DO migration history is remote-managed + has previously errored on
-# tag reconciliation (10074/10064 — see the commented v_app_runtime note below).
-# A wrong tag blocks ALL deploys, and the migration cannot be dry-run-verified.
-# To enable: (1) uncomment BOTH blocks below, (2) confirm `v_event_dispatcher`
-# is NOT already in remote history (`wrangler deployments list`), (3) deploy with
-# eyes on it (`wrangler deploy --env production`), (4) verify
-# `POST /api/events` returns 202 + a row lands, then `GET /api/analytics-debug?siteId=…`.
-# [[env.production.durable_objects.bindings]]
-# name = "EVENT_DISPATCHER"
-# class_name = "EventDispatcher"
-#
-# [[env.production.migrations]]
-# tag = "v_event_dispatcher"
-# new_sqlite_classes = ["EventDispatcher"]
-
-# ─── Automation Plane §13 · events./jobs. → self-hosted Inngest ────────────────
-# InngestContainer — CF Container DO running `inngest start` (image:
-# containers/inngest/Dockerfile, FROM inngest/inngest — local-Dockerfile path
-# bypasses IMAGE_REGISTRY_NOT_CONFIGURED). Data plane: Neon project `Inngest`
-# (calm-sunset-61361436) + Upstash `inngest` (stirring-cricket-93162). Auth keys
-# self-generated (hex32). Worker code (src/durable_objects/inngest_container.ts,
-# src/inngest/*, host routing in index.ts) is BUILT + unit-tested + ships LIVE on
-# a normal deploy: `src/inngest/serve.ts` returns 503 on jobs./events. and
-# /api/inngest until this binding exists — so the plane is safe-but-inert.
-#
-# ⚠️ GO-LIVE IS A WATCHED DEPLOY (one-way door) — SAME hazard class as
-# EVENT_DISPATCHER above: an active [[containers]]/binding REQUIRES an active
-# migration (else error 10061), this worker's DO migration history is
-# remote-managed + has previously errored on tag reconciliation (10074/10064),
-# a wrong tag blocks ALL platform deploys, and it cannot be dry-run-verified.
-# InngestContainer is a pure runner (no ctx.storage.sql) → CLASSIC backend
-# (`new_classes`, NOT `new_sqlite_classes`), mirroring SiteBuilderContainer.
-#
-# To enable (eyes-on):
-#   (0) wrangler secret put the 4 INNGEST_* conn/auth secrets (independent of
-#       this binding; already settable today). Add INNGEST_BASE_URL var below.
-#   (1) ensure Docker is running (CF builds the image from the local Dockerfile).
-#   (2) confirm `v_inngest_container` is NOT in remote history
-#       (`wrangler deployments list`).
-#   (3) uncomment the THREE blocks below.
-#   (4) `wrangler deploy --env production` — watch the migration + image build.
-#   (5) verify: `curl https://jobs.projectsites.dev/` (Inngest dashboard/API 200),
-#       then `inngest.send({name:'site/generation.completed',...})` round-trips
-#       through the self-hosted server back to /api/inngest.
-#   (6) ⚠️ WAF: CF managed bot-protection CHALLENGES `PUT /api/inngest` (verified
-#       live 2026-06-20 — GET returns the route's 503, PUT → 403 managed-challenge).
-#       The Inngest server REGISTERS functions via PUT, so add a WAF skip/bypass
-#       rule for `http.request.uri.path eq "/api/inngest"` (zone projectsites.dev)
-#       BEFORE expecting registration to succeed, else server→worker callbacks 403.
-#
+# anything-llm — AnythingLLM (mintplexlabs/anythingllm:latest, port 3001, 768 MiB)
 [[env.production.containers]]
-class_name = "InngestContainer"
-image = "./containers/inngest/Dockerfile"
-max_instances = 1
-instance_type = "standard-4"
+class_name = "AnythingLlmContainer"
+image = "mintplexlabs/anythingllm:latest"
+max_instances = 20
+instance_type = "basic"
 
 [[env.production.durable_objects.bindings]]
-name = "INNGEST_CONTAINER"
-class_name = "InngestContainer"
+name = "APP_RUNTIME_ANYTHING_LLM"
+class_name = "AnythingLlmContainer"
 
-# NOTE: CF requires container-backed DOs to be SQLite (API error 10074 on new_classes).
-# The old "classic backend" guidance above is outdated — use new_sqlite_classes.
-#
-# COMMENTED OUT 2026-06-28 (unblocks ALL deploys). InngestContainer DOs are already
-# registered remotely (events.projectsites.dev is live), but the `v_inngest_container`
-# tag is NOT in the remote migration history, so re-sending it returns CF error 10074
-# ("class already depended on by existing Durable Objects") and FAILED every deploy.
-# Same documented case as `v_app_runtime` / `v_formbricks_container` / `v_conversation_hub`
-# below: the class stays exported (src/index.ts) + bound (above), so existing DOs keep
-# resolving and the running container is unchanged — only the redundant re-registration
-# is skipped. Reversible: uncomment if the class ever needs a fresh registration.
-# [[env.production.migrations]]
-# tag = "v_inngest_container"
-# new_sqlite_classes = ["InngestContainer"]
-#
-# [env.production.vars]  # (merge into existing prod vars, do not duplicate the table)
-# INNGEST_BASE_URL = "https://jobs.projectsites.dev"
-
-# ─── Documenso (sign.projectsites.dev) — CF Workers Container ─────────────────
-# Same dedicated-DO pattern as Inngest. Image is the LOCAL
-# ./containers/documenso/Dockerfile (FROM documenso/documenso). DO subclass
-# DocumensoContainer + the sign.* host route + env types are wired in code.
-# Data plane: Neon project "Documenso" (shiny-wind-41827027). Documenso is
-# Postgres-ONLY (no Redis). All 6 DOCUMENSO_* secrets are SET on the prod worker
-# (DB, NextAuth, 2× encryption keys, signing cert b64 + passphrase). The signing
-# cert is OPTIONAL for boot — login page 200s without it; only SIGNING needs it.
-#
-# ⚠️ GO-LIVE IS A WATCHED, EYES-ON DEPLOY (one-way door) — same hazard class as
-# Inngest (wrong migration tag blocks ALL deploys, can't dry-run).
-# Eyes-on: (1) Docker up; (2) confirm `v_documenso_container` NOT in remote
-# history; (3) uncomment the THREE blocks below; (4) `wrangler deploy --env
-# production` (watch migration + image build); (5) curl
-# `https://sign.projectsites.dev/signin` → 200. DNS already resolves via the
-# *.projectsites.dev wildcard (no record needed).
-#
+# appsmith — Appsmith (appsmith/appsmith-ce:latest, port 80, 1024 MiB)
 [[env.production.containers]]
-class_name = "DocumensoContainer"
-image = "./containers/documenso/Dockerfile"
-max_instances = 3
-instance_type = "standard-4"
+class_name = "AppsmithContainer"
+image = "appsmith/appsmith-ce:latest"
+max_instances = 20
+instance_type = "basic"
 
 [[env.production.durable_objects.bindings]]
-name = "DOCUMENSO_CONTAINER"
-class_name = "DocumensoContainer"
+name = "APP_RUNTIME_APPSMITH"
+class_name = "AppsmithContainer"
 
-[[env.production.migrations]]
-tag = "v_documenso_container"
-new_sqlite_classes = ["DocumensoContainer"]
-
-# ─── cal.diy (schedule.projectsites.dev) — CF Workers Container ───────────────
-# Same dedicated-DO pattern. Image is the LOCAL ./containers/caldiy/Dockerfile
-# (FROM calcom/cal.diy). DO subclass CaldiyContainer + the schedule.* host route
-# + env types are wired in code. Data plane: Neon project "Caldiy"
-# (empty-surf-47784419). cal.diy is Postgres-ONLY (no Redis). All 3 CALDIY_*
-# secrets are SET on the prod worker (DB, NextAuth, CALENDSO_ENCRYPTION_KEY).
-# NOTE: cal.diy rebuilds static files on first boot for the runtime
-# NEXT_PUBLIC_WEBAPP_URL → first request is slow (240s port-ready window).
-#
-# ⚠️ GO-LIVE IS A WATCHED, EYES-ON DEPLOY (one-way door) — same hazard class as
-# Documenso/Inngest (wrong migration tag blocks ALL deploys, can't
-# dry-run). Eyes-on: (1) Docker up; (2) confirm `v_caldiy_container` NOT in
-# remote history; (3) uncomment the THREE blocks below; (4) `wrangler deploy
-# --env production` (watch migration + image build); (5) curl
-# `https://schedule.projectsites.dev/auth/login` → 200 (allow for the slow first
-# boot). DNS already resolves via the *.projectsites.dev wildcard.
-#
+# audiobookshelf — Audiobookshelf (ghcr.io/advplyr/audiobookshelf:latest, port 80, 384 MiB)
 [[env.production.containers]]
-class_name = "CaldiyContainer"
-image = "./containers/caldiy/Dockerfile"
-max_instances = 3
-instance_type = "standard-4"
+class_name = "AudiobookshelfContainer"
+image = "ghcr.io/advplyr/audiobookshelf:latest"
+max_instances = 20
+instance_type = "basic"
 
 [[env.production.durable_objects.bindings]]
-name = "CALDIY_CONTAINER"
-class_name = "CaldiyContainer"
+name = "APP_RUNTIME_AUDIOBOOKSHELF"
+class_name = "AudiobookshelfContainer"
 
-[[env.production.migrations]]
-tag = "v_caldiy_container"
-new_sqlite_classes = ["CaldiyContainer"]
-
-# ─── Gotenberg (convert.projectsites.dev) — Office→PDF CF Workers Container ───
-# Powers Documenso's .docx/.xlsx/.pptx → PDF conversion (LibreOffice). Image is
-# the LOCAL ./containers/gotenberg/Dockerfile (FROM gotenberg/gotenberg:8). DO
-# subclass GotenbergContainer + the convert.* host dispatch + env types are wired
-# in code. Stateless (no DB) — basic-auth-gated via GOTENBERG_AUTH_* secrets.
-# Clean append after v_caldiy_container (clean appends work; reordering 10074s).
+# bookstack — BookStack (lscr.io/linuxserver/bookstack:latest, port 80, 384 MiB)
 [[env.production.containers]]
-class_name = "GotenbergContainer"
-image = "./containers/gotenberg/Dockerfile"
-max_instances = 2
-instance_type = "standard-4"
+class_name = "BookstackContainer"
+image = "lscr.io/linuxserver/bookstack:latest"
+max_instances = 20
+instance_type = "basic"
 
 [[env.production.durable_objects.bindings]]
-name = "GOTENBERG_CONTAINER"
-class_name = "GotenbergContainer"
+name = "APP_RUNTIME_BOOKSTACK"
+class_name = "BookstackContainer"
 
-[[env.production.migrations]]
-tag = "v_gotenberg_container"
-new_sqlite_classes = ["GotenbergContainer"]
+# cal — Cal.com (calcom/cal.com:latest, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "CalComContainer"
+image = "calcom/cal.com:latest"
+max_instances = 20
+instance_type = "basic"
 
-# ─── Formbricks REMOVED (2026-06-27) ─────────────────────────────────────────
-# Exceeds the 4-service max. The FormbricksContainer DO class, container block,
-# host route, and all FORMBRICKS_* env are deleted. NO delete-class migration is
-# needed/valid: FormbricksContainer was never registered in the deployed migration
-# chain (no prior new_sqlite_classes for it), so CF rejects `deleted_classes` with
-# "Cannot apply deleted_classes migration to non-existent class". The standalone
-# `formbricks-forms` worker (separate script) is decommissioned separately.
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_CAL"
+class_name = "CalComContainer"
 
-# Per-image AppRuntime subclass bindings — one per supported catalog app.
-# Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
-# `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in
-# `src/types/env.ts`.
-#
-# Commented out 2026-05-24 — blocks on image-registry provisioning. See the
-# note next to the [[containers]] blocks above. The dispatcher already
-# gracefully degrades when these bindings are missing.
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_UMAMI"
-# class_name = "UmamiContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_OUTLINE"
-# class_name = "OutlineContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_N8N"
-# class_name = "N8nContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_VAULTWARDEN"
-# class_name = "VaultwardenContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_UPTIME_KUMA"
-# class_name = "UptimeKumaContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_NOCODB"
-# class_name = "NocodbContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_LISTMONK"
-# class_name = "ListmonkContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_MEMOS"
-# class_name = "MemosContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_POCKETBASE"
-# class_name = "PocketbaseContainer"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "APP_RUNTIME_OPEN_WEBUI"
-# class_name = "OpenWebuiContainer"
+# chromadb — Chroma (chromadb/chroma:latest, port 8000, 512 MiB)
+[[env.production.containers]]
+class_name = "ChromaContainer"
+image = "chromadb/chroma:latest"
+max_instances = 20
+instance_type = "basic"
 
-# langflow — visual AI workflow builder (langflowai/langflow:latest, port 7860, 1024 MiB)
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_CHROMADB"
+class_name = "ChromaContainer"
+
+# code-server — Code Server (codercom/code-server:latest, port 8080, 1024 MiB)
+[[env.production.containers]]
+class_name = "CodeServerContainer"
+image = "codercom/code-server:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_CODE_SERVER"
+class_name = "CodeServerContainer"
+
+# comfyui — ComfyUI (yanwk/comfyui-boot:cu128-megapak, port 8188, 1024 MiB)
+[[env.production.containers]]
+class_name = "ComfyuiContainer"
+image = "yanwk/comfyui-boot:cu128-megapak"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_COMFYUI"
+class_name = "ComfyuiContainer"
+
+# coqui-tts — Coqui TTS (ghcr.io/coqui-ai/tts-cpu:latest, port 5002, 1024 MiB)
+[[env.production.containers]]
+class_name = "CoquiTtsContainer"
+image = "ghcr.io/coqui-ai/tts-cpu:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_COQUI_TTS"
+class_name = "CoquiTtsContainer"
+
+# directus — Directus (directus/directus:latest, port 8055, 512 MiB)
+[[env.production.containers]]
+class_name = "DirectusContainer"
+image = "directus/directus:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_DIRECTUS"
+class_name = "DirectusContainer"
+
+# drone — Drone CI (drone/drone:2, port 80, 256 MiB)
+[[env.production.containers]]
+class_name = "DroneCiContainer"
+image = "drone/drone:2"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_DRONE"
+class_name = "DroneCiContainer"
+
+# farfalle — Farfalle (ghcr.io/rashadphz/farfalle:latest, port 8000, 512 MiB)
+[[env.production.containers]]
+class_name = "FarfalleContainer"
+image = "ghcr.io/rashadphz/farfalle:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FARFALLE"
+class_name = "FarfalleContainer"
+
+# flowise — Flowise (flowiseai/flowise:latest, port 3000, 512 MiB)
+[[env.production.containers]]
+class_name = "FlowiseContainer"
+image = "flowiseai/flowise:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FLOWISE"
+class_name = "FlowiseContainer"
+
+# focalboard — Focalboard (mattermost/focalboard:latest, port 8000, 256 MiB)
+[[env.production.containers]]
+class_name = "FocalboardContainer"
+image = "mattermost/focalboard:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FOCALBOARD"
+class_name = "FocalboardContainer"
+
+# fooocus — Fooocus (ghcr.io/lllyasviel/fooocus:latest, port 7865, 1024 MiB)
+[[env.production.containers]]
+class_name = "FooocusContainer"
+image = "ghcr.io/lllyasviel/fooocus:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FOOOCUS"
+class_name = "FooocusContainer"
+
+# forgejo — Forgejo (codeberg.org/forgejo/forgejo:latest, port 3000, 384 MiB)
+[[env.production.containers]]
+class_name = "ForgejoContainer"
+image = "codeberg.org/forgejo/forgejo:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FORGEJO"
+class_name = "ForgejoContainer"
+
+# freshrss — FreshRSS (freshrss/freshrss:latest, port 80, 256 MiB)
+[[env.production.containers]]
+class_name = "FreshrssContainer"
+image = "freshrss/freshrss:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_FRESHRSS"
+class_name = "FreshrssContainer"
+
+# ghost — Ghost (ghost:5-alpine, port 2368, 512 MiB)
+[[env.production.containers]]
+class_name = "GhostContainer"
+image = "ghost:5-alpine"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_GHOST"
+class_name = "GhostContainer"
+
+# gitea — Gitea (gitea/gitea:latest, port 3000, 384 MiB)
+[[env.production.containers]]
+class_name = "GiteaContainer"
+image = "gitea/gitea:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_GITEA"
+class_name = "GiteaContainer"
+
+# grafana — Grafana (grafana/grafana-oss:latest, port 3000, 384 MiB)
+[[env.production.containers]]
+class_name = "GrafanaContainer"
+image = "grafana/grafana-oss:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_GRAFANA"
+class_name = "GrafanaContainer"
+
+# healthchecks — Healthchecks (healthchecks/healthchecks:latest, port 8000, 256 MiB)
+[[env.production.containers]]
+class_name = "HealthchecksContainer"
+image = "healthchecks/healthchecks:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_HEALTHCHECKS"
+class_name = "HealthchecksContainer"
+
+# immich — Immich (ghcr.io/imagegenius/immich:latest, port 8080, 1024 MiB)
+[[env.production.containers]]
+class_name = "ImmichContainer"
+image = "ghcr.io/imagegenius/immich:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_IMMICH"
+class_name = "ImmichContainer"
+
+# invokeai — InvokeAI (ghcr.io/invoke-ai/invokeai:latest, port 9090, 1024 MiB)
+[[env.production.containers]]
+class_name = "InvokeaiContainer"
+image = "ghcr.io/invoke-ai/invokeai:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_INVOKEAI"
+class_name = "InvokeaiContainer"
+
+# jellyfin — Jellyfin (jellyfin/jellyfin:latest, port 8096, 1024 MiB)
+[[env.production.containers]]
+class_name = "JellyfinContainer"
+image = "jellyfin/jellyfin:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_JELLYFIN"
+class_name = "JellyfinContainer"
+
+# karakeep — Karakeep (ghcr.io/karakeep-app/karakeep:release, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "KarakeepContainer"
+image = "ghcr.io/karakeep-app/karakeep:release"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_KARAKEEP"
+class_name = "KarakeepContainer"
+
+# khoj — Khoj (ghcr.io/khoj-ai/khoj:latest, port 42110, 1024 MiB)
+[[env.production.containers]]
+class_name = "KhojContainer"
+image = "ghcr.io/khoj-ai/khoj:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_KHOJ"
+class_name = "KhojContainer"
+
+# langflow — Langflow (langflowai/langflow:latest, port 7860, 1024 MiB)
 [[env.production.containers]]
 class_name = "LangflowContainer"
 image = "langflowai/langflow:latest"
@@ -658,9 +613,529 @@ instance_type = "basic"
 name = "APP_RUNTIME_LANGFLOW"
 class_name = "LangflowContainer"
 
+# langfuse — Langfuse (langfuse/langfuse:2, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "LangfuseContainer"
+image = "langfuse/langfuse:2"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LANGFUSE"
+class_name = "LangfuseContainer"
+
+# librechat — LibreChat (ghcr.io/danny-avila/librechat:latest, port 3080, 768 MiB)
+[[env.production.containers]]
+class_name = "LibrechatContainer"
+image = "ghcr.io/danny-avila/librechat:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LIBRECHAT"
+class_name = "LibrechatContainer"
+
+# linkwarden — Linkwarden (ghcr.io/linkwarden/linkwarden:latest, port 3000, 512 MiB)
+[[env.production.containers]]
+class_name = "LinkwardenContainer"
+image = "ghcr.io/linkwarden/linkwarden:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LINKWARDEN"
+class_name = "LinkwardenContainer"
+
+# listmonk — Listmonk (listmonk/listmonk:latest, port 9000, 256 MiB)
+[[env.production.containers]]
+class_name = "ListmonkContainer"
+image = "listmonk/listmonk:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LISTMONK"
+class_name = "ListmonkContainer"
+
+# litellm — LiteLLM (ghcr.io/berriai/litellm-database:main-stable, port 4000, 768 MiB)
+[[env.production.containers]]
+class_name = "LitellmContainer"
+image = "ghcr.io/berriai/litellm-database:main-stable"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LITELLM"
+class_name = "LitellmContainer"
+
+# lobe-chat — Lobe Chat (lobehub/lobe-chat-database:latest, port 3210, 768 MiB)
+[[env.production.containers]]
+class_name = "LobeChatContainer"
+image = "lobehub/lobe-chat-database:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LOBE_CHAT"
+class_name = "LobeChatContainer"
+
+# matomo — Matomo (matomo:5-apache, port 80, 512 MiB)
+[[env.production.containers]]
+class_name = "MatomoContainer"
+image = "matomo:5-apache"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_MATOMO"
+class_name = "MatomoContainer"
+
+# mattermost — Mattermost (mattermost/mattermost-team-edition:latest, port 8065, 768 MiB)
+[[env.production.containers]]
+class_name = "MattermostContainer"
+image = "mattermost/mattermost-team-edition:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_MATTERMOST"
+class_name = "MattermostContainer"
+
+# mautic — Mautic (mautic/mautic:5-apache, port 80, 768 MiB)
+[[env.production.containers]]
+class_name = "MauticContainer"
+image = "mautic/mautic:5-apache"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_MAUTIC"
+class_name = "MauticContainer"
+
+# memos — Memos (neosmemo/memos:stable, port 5230, 128 MiB)
+[[env.production.containers]]
+class_name = "MemosContainer"
+image = "neosmemo/memos:stable"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_MEMOS"
+class_name = "MemosContainer"
+
+# miniflux — Miniflux (miniflux/miniflux:latest, port 8080, 128 MiB)
+[[env.production.containers]]
+class_name = "MinifluxContainer"
+image = "miniflux/miniflux:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_MINIFLUX"
+class_name = "MinifluxContainer"
+
+# morphic — Morphic (ghcr.io/miurla/morphic:latest, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "MorphicContainer"
+image = "ghcr.io/miurla/morphic:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_MORPHIC"
+class_name = "MorphicContainer"
+
+# n8n — n8n (n8nio/n8n:latest, port 5678, 512 MiB)
+[[env.production.containers]]
+class_name = "N8NContainer"
+image = "n8nio/n8n:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_N8N"
+class_name = "N8NContainer"
+
+# navidrome — Navidrome (deluan/navidrome:latest, port 4533, 256 MiB)
+[[env.production.containers]]
+class_name = "NavidromeContainer"
+image = "deluan/navidrome:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_NAVIDROME"
+class_name = "NavidromeContainer"
+
+# nextchat — NextChat (yidadaa/chatgpt-next-web:latest, port 3000, 256 MiB)
+[[env.production.containers]]
+class_name = "NextchatContainer"
+image = "yidadaa/chatgpt-next-web:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_NEXTCHAT"
+class_name = "NextchatContainer"
+
+# nextcloud — Nextcloud (nextcloud:latest, port 80, 1024 MiB)
+[[env.production.containers]]
+class_name = "NextcloudContainer"
+image = "nextcloud:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_NEXTCLOUD"
+class_name = "NextcloudContainer"
+
+# nocodb — NocoDB (nocodb/nocodb:latest, port 8080, 512 MiB)
+[[env.production.containers]]
+class_name = "NocodbContainer"
+image = "nocodb/nocodb:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_NOCODB"
+class_name = "NocodbContainer"
+
+# open-webui — Open WebUI (ghcr.io/open-webui/open-webui:main, port 8080, 512 MiB)
+[[env.production.containers]]
+class_name = "OpenWebuiContainer"
+image = "ghcr.io/open-webui/open-webui:main"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_OPEN_WEBUI"
+class_name = "OpenWebuiContainer"
+
+# outline — Outline (outlinewiki/outline:latest, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "OutlineContainer"
+image = "outlinewiki/outline:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_OUTLINE"
+class_name = "OutlineContainer"
+
+# perplexica — Perplexica (itzcrazykns1337/perplexica:latest, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "PerplexicaContainer"
+image = "itzcrazykns1337/perplexica:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_PERPLEXICA"
+class_name = "PerplexicaContainer"
+
+# phoenix — Arize Phoenix (arizephoenix/phoenix:latest, port 6006, 768 MiB)
+[[env.production.containers]]
+class_name = "ArizePhoenixContainer"
+image = "arizephoenix/phoenix:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_PHOENIX"
+class_name = "ArizePhoenixContainer"
+
+# plane — Plane (makeplane/plane-frontend:latest, port 3000, 768 MiB)
+[[env.production.containers]]
+class_name = "PlaneContainer"
+image = "makeplane/plane-frontend:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_PLANE"
+class_name = "PlaneContainer"
+
+# plausible — Plausible (plausible/community-edition:latest, port 8000, 512 MiB)
+[[env.production.containers]]
+class_name = "PlausibleContainer"
+image = "plausible/community-edition:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_PLAUSIBLE"
+class_name = "PlausibleContainer"
+
+# pocketbase — PocketBase (spectado/pocketbase:latest, port 8090, 128 MiB)
+[[env.production.containers]]
+class_name = "PocketbaseContainer"
+image = "spectado/pocketbase:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_POCKETBASE"
+class_name = "PocketbaseContainer"
+
+# postiz — Postiz (ghcr.io/gitroomhq/postiz-app:latest, port 5000, 1024 MiB)
+[[env.production.containers]]
+class_name = "PostizContainer"
+image = "ghcr.io/gitroomhq/postiz-app:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_POSTIZ"
+class_name = "PostizContainer"
+
+# qdrant — Qdrant (qdrant/qdrant:latest, port 6333, 512 MiB)
+[[env.production.containers]]
+class_name = "QdrantContainer"
+image = "qdrant/qdrant:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_QDRANT"
+class_name = "QdrantContainer"
+
+# rocketchat — Rocket.Chat (rocket.chat:latest, port 3000, 1024 MiB)
+[[env.production.containers]]
+class_name = "RocketChatContainer"
+image = "rocket.chat:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_ROCKETCHAT"
+class_name = "RocketChatContainer"
+
+# sd-webui — Stable Diffusion WebUI (ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda, port 7860, 1024 MiB)
+[[env.production.containers]]
+class_name = "SdWebuiContainer"
+image = "ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_SD_WEBUI"
+class_name = "SdWebuiContainer"
+
+# searxng — SearXNG (searxng/searxng:latest, port 8080, 384 MiB)
+[[env.production.containers]]
+class_name = "SearxngContainer"
+image = "searxng/searxng:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_SEARXNG"
+class_name = "SearxngContainer"
+
+# sillytavern — SillyTavern (ghcr.io/sillytavern/sillytavern:latest, port 8000, 384 MiB)
+[[env.production.containers]]
+class_name = "SillytavernContainer"
+image = "ghcr.io/sillytavern/sillytavern:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_SILLYTAVERN"
+class_name = "SillytavernContainer"
+
+# stirling-pdf — Stirling PDF (docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest, port 8080, 512 MiB)
+[[env.production.containers]]
+class_name = "StirlingPdfContainer"
+image = "docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_STIRLING_PDF"
+class_name = "StirlingPdfContainer"
+
+# tabby — Tabby (tabbyml/tabby:latest, port 8080, 1024 MiB)
+[[env.production.containers]]
+class_name = "TabbyContainer"
+image = "tabbyml/tabby:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_TABBY"
+class_name = "TabbyContainer"
+
+# umami — Umami (ghcr.io/umami-software/umami:postgresql-latest, port 3000, 256 MiB)
+[[env.production.containers]]
+class_name = "UmamiContainer"
+image = "ghcr.io/umami-software/umami:postgresql-latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_UMAMI"
+class_name = "UmamiContainer"
+
+# uptime-kuma — Uptime Kuma (louislam/uptime-kuma:1, port 3001, 256 MiB)
+[[env.production.containers]]
+class_name = "UptimeKumaContainer"
+image = "louislam/uptime-kuma:1"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_UPTIME_KUMA"
+class_name = "UptimeKumaContainer"
+
+# vaultwarden — Vaultwarden (vaultwarden/server:latest, port 80, 128 MiB)
+[[env.production.containers]]
+class_name = "VaultwardenContainer"
+image = "vaultwarden/server:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_VAULTWARDEN"
+class_name = "VaultwardenContainer"
+
+# vendure — Vendure (node:20-bookworm-slim, port 3000, 1024 MiB)
+[[env.production.containers]]
+class_name = "VendureContainer"
+image = "node:20-bookworm-slim"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_VENDURE"
+class_name = "VendureContainer"
+
+# vikunja — Vikunja (vikunja/vikunja:latest, port 3456, 256 MiB)
+[[env.production.containers]]
+class_name = "VikunjaContainer"
+image = "vikunja/vikunja:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_VIKUNJA"
+class_name = "VikunjaContainer"
+
+# weaviate — Weaviate (semitechnologies/weaviate:1.28.0, port 8080, 1024 MiB)
+[[env.production.containers]]
+class_name = "WeaviateContainer"
+image = "semitechnologies/weaviate:1.28.0"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_WEAVIATE"
+class_name = "WeaviateContainer"
+
+# whishper — Whishper (pluja/whishper:latest, port 80, 1024 MiB)
+[[env.production.containers]]
+class_name = "WhishperContainer"
+image = "pluja/whishper:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_WHISHPER"
+class_name = "WhishperContainer"
+
+# whisper-asr — Whisper ASR (onerahmet/openai-whisper-asr-webservice:latest, port 9000, 1024 MiB)
+[[env.production.containers]]
+class_name = "WhisperAsrContainer"
+image = "onerahmet/openai-whisper-asr-webservice:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_WHISPER_ASR"
+class_name = "WhisperAsrContainer"
+
+# wikijs — Wiki.js (ghcr.io/requarks/wiki:2, port 3000, 384 MiB)
+[[env.production.containers]]
+class_name = "WikiJsContainer"
+image = "ghcr.io/requarks/wiki:2"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_WIKIJS"
+class_name = "WikiJsContainer"
+
 [[env.production.migrations]]
-tag = "v_langflow"
-new_sqlite_classes = ["LangflowContainer"]
+tag = "v_app_subclasses"
+new_sqlite_classes = [
+"AnythingLlmContainer",
+"AppsmithContainer",
+"AudiobookshelfContainer",
+"BookstackContainer",
+"CalComContainer",
+"ChromaContainer",
+"CodeServerContainer",
+"ComfyuiContainer",
+"CoquiTtsContainer",
+"DirectusContainer",
+"DroneCiContainer",
+"FarfalleContainer",
+"FlowiseContainer",
+"FocalboardContainer",
+"FooocusContainer",
+"ForgejoContainer",
+"FreshrssContainer",
+"GhostContainer",
+"GiteaContainer",
+"GrafanaContainer",
+"HealthchecksContainer",
+"ImmichContainer",
+"InvokeaiContainer",
+"JellyfinContainer",
+"KarakeepContainer",
+"KhojContainer",
+"LangflowContainer",
+"LangfuseContainer",
+"LibrechatContainer",
+"LinkwardenContainer",
+"ListmonkContainer",
+"LitellmContainer",
+"LobeChatContainer",
+"MatomoContainer",
+"MattermostContainer",
+"MauticContainer",
+"MemosContainer",
+"MinifluxContainer",
+"MorphicContainer",
+"N8NContainer",
+"NavidromeContainer",
+"NextchatContainer",
+"NextcloudContainer",
+"NocodbContainer",
+"OpenWebuiContainer",
+"OutlineContainer",
+"PerplexicaContainer",
+"ArizePhoenixContainer",
+"PlaneContainer",
+"PlausibleContainer",
+"PocketbaseContainer",
+"PostizContainer",
+"QdrantContainer",
+"RocketChatContainer",
+"SdWebuiContainer",
+"SearxngContainer",
+"SillytavernContainer",
+"StirlingPdfContainer",
+"TabbyContainer",
+"UmamiContainer",
+"UptimeKumaContainer",
+"VaultwardenContainer",
+"VendureContainer",
+"VikunjaContainer",
+"WeaviateContainer",
+"WhishperContainer",
+"WhisperAsrContainer",
+"WikiJsContainer"
+]
 
 # AppRuntimeContainer is new — register it under the SQLite storage backend
 # in a fresh migration tag. Existing classes (SiteBuilder/TraceHub/ActivityHub)
