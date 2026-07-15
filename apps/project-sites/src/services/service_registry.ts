@@ -127,7 +127,7 @@ export function createRegistry(entries: readonly ServiceEntry[]): ServiceRegistr
  * Unkey (api), Postiz (social), Inngest (events). Descriptions, secrets, and
  * categories reflect real-world deployment state as of 2026-06-29.
  */
-export const DEFAULT_SERVICES: readonly ServiceEntry[] = Object.freeze([
+export const DEFAULT_SERVICES = Object.freeze([
   Object.freeze({
     slug: 'plane',
     name: 'Plane',
