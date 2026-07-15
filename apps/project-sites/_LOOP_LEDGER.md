@@ -295,7 +295,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] **Sidebar live-count badges** — `nav-badge` pill with site count on site selector + SCSS (2026-07-13)
 - [x] [auto] **Skeleton screens for every section** — `SectionSkeletonComponent` created + wired into admin template (2026-07-13)
 - [x] [auto] **Route preloading on sidebar hover** — `HoverPreloadingStrategy` replaces `PreloadAllModules`, sidebar nav `(mouseover)` delegation (2026-07-13)
-- [ ] [auto] **Optimistic UI on CRUD** — ApiService `optimistic:true` option, update signal immediately, rollback + toast on error
+- [x] [auto] **Optimistic UI on CRUD** — **DONE 2026-07-15:** frontend OptimisticCrudService (providedIn:root, save/remove with signal rollback + toast on error, ng build verified) `optimistic:true` option, update signal immediately, rollback + toast on error
 - [x] [auto] **"Jump back" floating button** — bottom-right FAB with `previousRoute` tracking + keyboard nav (2026-07-13)
 - [x] [auto] **Site list density toggle** — **DONE 2026-07-15:** frontend DensityService (providedIn:root, signal+effect, localStorage, data-density attribute) + _admin-polish.scss grid/font/spacing for 3 modes
 - [ ] [auto] **Drag-to-reorder sidebar** — Angular CDK drag-drop on nav items, localStorage persisted
