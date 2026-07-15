@@ -3245,6 +3245,14 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
 
 ## social.projectsites.dev — Postiz
 
+> **⚠️ SUPERSEDED 2026-07-15 — Native Social replaces Postiz.**
+> Postiz stays on Fly as reference only. All new social features are built natively
+> on CF Workers + D1 + Upstash + CF Workflows v2 + MCP OAuth layer. No Temporal.
+> No BullMQ. No AGPL dependencies. No `@gitroom/*` packages. Architecture: direct
+> platform OAuth via MCP OAuth layer → D1 social accounts → Upstash job queues →
+> CF Workflows v2 for scheduled publishing → Tinybird analytics. See § Native Social
+> 50 below for the full implementation plan.
+
 ### Raw research themes considered
 
 Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app (accepted escape-hatch) because durable scheduling moved off BullMQ to Temporal Cloud — so all 50+ raw ideas were filtered to keep Postiz on Fly while every new platform glue surface lands on CF Workers behind a typed AGPL-isolating HTTP client. Themes mined: per-site social-account provisioning + reconnect/token-refresh flows, AI brand-voice post generation via llm.projectsites.dev (Langfuse-traced), local-business content calendars, review/event/holiday/launch post automations, agency approval mode, social analytics rollups to Tinybird, CRM/Listmonk audience sync, R2 media-library integration, rate-limit + failure alerting (Hookdeck/Outpost), and admin support tooling. Discarded ideas that violated repo decisions (e.g. "move Postiz to a CF Container", "embed Postiz UI in-process", "import @gitroom packages for shared types") and merged near-duplicates (separate "holiday posts" + "event posts" → one calendar-event engine with seed packs). Selection bias favored reusable primitives: one typed Postiz client, one webhook ingest worker, one campaign-template schema, one correlation-id logging contract spanning tenant/site/app/social_account/job/trace ids. Both axes are covered — our own ProjectSites brand presence AND social-publishing-as-a-feature for site owners.
@@ -3490,6 +3498,192 @@ Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app 
   - Observability: Audit every operator action with `user_id, site_id, action`; Axiom.
   - Dependencies: LOOP-SOCIAL-005, LOOP-SOCIAL-009, LOOP-SOCIAL-020.
   - Related files: `apps/project-sites/frontend admin system-services`, `src/services/postiz.ts`.
+
+
+## 🔥 NATIVE SOCIAL — 50 Ideas (2026-07-15)
+
+> Brian directive: absorb Postiz's API interaction patterns as inspiration, build
+> social posting natively into the admin "Social" tab. No Temporal. No BullMQ.
+> No AGPL deps. CF Workers + D1 + Upstash + CF Workflows v2 + MCP OAuth layer.
+> Postiz stays on Fly as reference only during the build-out; decommissioned after
+> all 50 ship.
+
+### Architecture (the 3 primitives)
+
+Every social idea sits on one of three CF-native primitives:
+
+1. **Social account connect** — MCP OAuth layer (`/api/mcp/:provider/connect`) extended to
+   social platforms. One OAuth flow per platform (X, Facebook, Instagram, LinkedIn, TikTok,
+   YouTube, Pinterest, Reddit, Discord, Threads, Bluesky, Mastodon). Token stored encrypted
+   in D1 `social_accounts`. Refresh managed by cron + platform-specific retry.
+
+2. **Social post queue** — Upstash Redis job queue (lists + sorted sets) for immediate posts.
+   CF Workflows v2 for scheduled posts (durable execution, retry with backoff, dead-letter to
+   R2). No Temporal dependency — Workflows v2 steps ARE the durable scheduler.
+
+3. **Media + analytics** — R2 for media uploads (image/video → platform-optimized via Sharp).
+   Tinybird for social analytics rollups (impressions, clicks, engagement per platform per
+   site per post). PostHog for funnel events.
+
+### Platforms to support (ordered by SMB value)
+
+1. Facebook (Pages + Groups) — #1 SMB platform
+2. Instagram (Business + Creator) — #1 visual SMB
+3. X (Twitter) — news + updates
+4. LinkedIn (Pages) — B2B SMB
+5. TikTok — growing SMB adoption
+6. Google Business Profile — local SEO posts
+7. Pinterest — retail + visual SMB
+8. YouTube — video SMBs
+9. Nextdoor — hyperlocal SMB
+10. Threads — growing text platform
+11. Bluesky — open protocol, growing
+12. Mastodon — open protocol
+13. Reddit — community SMBs
+14. Discord — community servers
+
+### The 50 implementation ideas
+
+#### Tier 0 — Foundation (SOCIAL-100 to SOCIAL-109)
+
+- [ ] **SOCIAL-100: D1 social schema v2** — `social_accounts` (org_id, site_id, platform, handle, encrypted_token, token_expires_at, status, refresh_count, last_posted_at), `social_posts` (org_id, site_id, content_json, media_urls, scheduled_at, status, correlation_id), `social_post_deliveries` (post_id, platform, account_id, platform_post_id, status, permalink, error_code, published_at, retry_count). All tables have soft-delete + audit timestamps. Zod schemas mirror every column. [auto]
+- [ ] **SOCIAL-101: `social_publishing_native` feature flag** — manifest.ts with all 7 fields, D1 seed `enabled=0, rollout=0, stage=experimental`. 404 when off. Risk: "scheduled posts silently undeliverable." `e2e/social_publishing/` directory. [auto]
+- [ ] **SOCIAL-102: MCP OAuth provider extensions for social platforms** — add Facebook, Instagram, X, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Discord, Threads, Bluesky, Mastodon to `src/routes/mcp_oauth.ts` supported-provider map. Each gets OAuth client_id/secret from get-secret. Paste-key fallback when secrets missing. [auto]
+- [ ] **SOCIAL-103: `social_auth` service** — `connectPlatform(siteId, platform)` → OAuth URL with PKCE state in KV. `handleCallback(siteId, platform, code)` → exchange code → encrypt tokens → upsert `social_accounts`. `refreshToken(accountId)` → platform-specific refresh → re-encrypt → update. `disconnectAccount(accountId)` → revoke if platform supports → soft-delete. Zero Postiz dependency. [auto]
+- [ ] **SOCIAL-104: `/api/social/:siteId/accounts` CRUD routes** — `GET /accounts` (list, decrypted status only), `POST /accounts/connect` (start OAuth), `GET /accounts/callback` (OAuth callback receiver), `DELETE /accounts/:id` (disconnect). All org-scoped + flag-gated. [auto]
+- [ ] **SOCIAL-105: Token refresh cron** — CF Cron Trigger scans `social_accounts WHERE token_expires_at < now + 72h AND status = 'active'`. Calls platform-specific refresh endpoints. On failure: marks `needs_reconnect`, fires psnotify + email. On success: re-encrypts new token, bumps `refresh_count`. Rate-limited per platform (1 req/sec max). [auto]
+- [ ] **SOCIAL-106: Platform API client library** — `src/services/social_platforms/` directory with one typed client per platform. Each exports: `postContent(account, post)`, `uploadMedia(account, file)`, `getPostStatus(account, platformPostId)`, `refreshToken(account)`, `getProfile(account)`, `getAnalytics(account, dateRange)`. All Zod-validated, never-throw, Upstash-rate-limited. Zero npm deps — raw `fetch` to platform REST APIs. [auto]
+- [ ] **SOCIAL-107: Upstash Redis job queue for social posting** — `social:queue:{platform}` sorted set with scheduled posts (score = scheduled_at epoch). `social:processing:{platform}` list for in-flight posts. `social:dead:{platform}` for failed posts. Consumer worker polls queue → posts → updates delivery status → moves to dead-letter on 3 failures. [auto]
+- [ ] **SOCIAL-108: CF Workflows v2 for durable scheduled posting** — `SocialPublishWorkflow` with steps: (1) load post + account from D1, (2) refresh token if needed, (3) upload media to platform, (4) publish content, (5) record delivery, (6) fire Tinybird event, (7) fire PostHog event. Each step retries 3× with exponential backoff. Dead-letter → R2 + psnotify. [auto]
+- [ ] **SOCIAL-109: Social admin tab UI** — extend existing `frontend/src/app/pages/admin/sections/social.component.ts` with: account connection cards, post composer, calendar view, post history, analytics widgets. No Postiz iframe — native Angular components. Reuses MCP OAuth toast pattern (paste-key fallback). [auto]
+
+#### Tier 1 — Core posting (SOCIAL-110 to SOCIAL-119)
+
+- [ ] **SOCIAL-110: Instant post endpoint** — `POST /api/social/:siteId/posts/publish`. Accepts content + platforms[] + media_ids[]. Validates: platforms are connected + non-expired, content within per-platform char limits. Enqueues to Upstash Redis `social:queue:{platform}`. Returns `{post_id, deliveries: [{platform, status: 'queued'}]}`. Idempotency via `Idempotency-Key` header. [auto]
+- [ ] **SOCIAL-111: Schedule post endpoint** — `POST /api/social/:siteId/posts/schedule`. Same as publish but accepts `scheduled_at` ISO datetime. Validates future datetime. Creates CF Workflow v2 instance per post. Stores post row with `status = 'scheduled'`. Returns `{post_id, scheduled_at, workflow_id}`. [auto]
+- [ ] **SOCIAL-112: Post composer UI** — Rich text editor with platform char-limit indicators. Multi-platform selector with per-platform preview (shows how post renders on each). Media drag-and-drop from R2 media library. Schedule picker (calendar + time, timezone-aware). "Generate with AI" button → SOCIAL-114. Draft auto-save to D1. [auto]
+- [ ] **SOCIAL-113: Calendar view** — Monthly/weekly calendar showing scheduled + published posts. Color-coded by platform. Drag to reschedule. Click to edit. Bulk actions (reschedule all, cancel all). Filters by platform, status, date range. [auto]
+- [ ] **SOCIAL-114: AI post generator v2** — `POST /api/social/:siteId/posts/generate`. Takes topic + tone + platforms[]. Uses site's brand voice profile (SOCIAL-006) as system prompt. Calls llm.projectsites.dev. Returns per-platform post variants respecting char limits + hashtag conventions + CTAs. Langfuse-traced. Eval cases per platform. [auto]
+- [ ] **SOCIAL-115: AI content calendar generator** — One-click "Generate my month" button. Reads site content (services, hours, events, blog posts) → generates 30 days of platform-tailored posts with optimal posting times per platform. Reviewable + editable before scheduling. [auto]
+- [ ] **SOCIAL-116: Media optimization pipeline** — On upload: Sharp auto-crops to platform-optimal aspect ratios (1:1 Instagram, 16:9 YouTube, 9:16 TikTok). Converts to platform-preferred formats. Strips EXIF. Compresses under platform size limits. Stores originals + variants in R2. [auto]
+- [ ] **SOCIAL-117: First-comment + thread support** — X threads, Instagram carousels, LinkedIn articles. `content_json` schema extended with `thread_items[]` and `first_comment` fields. Platform clients handle multi-part publishing. [auto]
+- [ ] **SOCIAL-118: Hashtag suggestions** — `GET /api/social/hashtags/suggest?topic=&platform=`. AI-powered from llm.projectsites.dev. Returns trending + niche hashtags with estimated reach. Platform-specific (Instagram wants 30, X wants 2). Cached in KV (1h TTL). [auto]
+- [ ] **SOCIAL-119: Optimal posting time engine** — Analyzes platform analytics + industry benchmarks → recommends best times per platform per site. `GET /api/social/:siteId/posting-times`. Defaults: Instagram 10am Tue/Thu, LinkedIn 8am Tue-Thu, X 9am Mon-Wed, TikTok 7pm daily, Facebook 1pm Thu-Sun. [auto]
+
+#### Tier 2 — Automation + intelligence (SOCIAL-120 to SOCIAL-129)
+
+- [ ] **SOCIAL-120: Event-triggered posting** — Site events (new blog post, service update, new review, holiday, local event) auto-generate draft social posts. `event_bus` fires → `social_event_handler` worker creates draft → psnotify owner → one-click approve + schedule. [auto]
+- [ ] **SOCIAL-121: Review auto-post** — New Google/Yelp review above 4 stars → auto-generate "Thanks for the review!" social post with review quote + star rating. Owner approves before publishing. [auto]
+- [ ] **SOCIAL-122: Blog-to-social pipeline** — New blog post published → auto-generate 3 social variants (teaser, quote, CTA) per connected platform. Scheduled over the next 7 days. [auto]
+- [ ] **SOCIAL-123: Evergreen content recycling** — Top-performing posts (by engagement) auto-resurface after 30/60/90 days with slight rephrasing. "Repost this winner?" prompt to owner. [auto]
+- [ ] **SOCIAL-124: Competitor social monitoring** — Track competitor social accounts → detect their posting patterns, top content, engagement rates. Weekly "Social Landscape" digest for site owner. Tinybird-powered. [auto]
+- [ ] **SOCIAL-125: AI brand voice auto-learning** — Analyze site's past posts (from connected accounts) to learn actual brand voice. Refines the SOCIAL-006 profile over time. Detects tone shifts, emoji patterns, hashtag preferences. [auto]
+- [ ] **SOCIAL-126: Multi-site cross-posting** — Agency mode: one post composed in "parent" account, push to all child sites' social accounts with per-brand adaptations. Useful for franchises + multi-location businesses. [auto]
+- [ ] **SOCIAL-127: Approval workflow for teams** — Posts enter "draft" → "pending review" → "approved" → "scheduled". RBAC: site owner = final approve. Email notification on pending. Rejection with feedback note. [auto]
+- [ ] **SOCIAL-128: A/B test posting** — Schedule 2 variants of a post. Platform client publishes both, tracks engagement, declares winner after 24h, auto-deletes loser. Tinybird A/B dashboard. [auto]
+- [ ] **SOCIAL-129: Emergency pause / killswitch** — One-button "Pause all scheduled posts" across all platforms. Reversible. Triggers workflow cancellation + queue drain. Audit-logged. [auto]
+
+#### Tier 3 — Analytics + growth (SOCIAL-130 to SOCIAL-139)
+
+- [ ] **SOCIAL-130: Per-post analytics** — `GET /api/social/:siteId/posts/:id/analytics`. Returns impressions, clicks, likes, shares, comments, saves per platform. Tinybird query aggregating `social_post_deliveries` + platform API pulls. [auto]
+- [ ] **SOCIAL-131: Social dashboard widgets** — Follower growth chart, engagement rate trend, top posts leaderboard, best posting times heatmap, platform comparison radar. All Tinybird-backed, Angular ECharts. Cached in KV (5min TTL). [auto]
+- [ ] **SOCIAL-132: ROI attribution** — UTM auto-tagging on all social links. Site analytics correlates UTM clicks → site visits → conversions. "Social drove $X this month" dashboard card. [auto]
+- [ ] **SOCIAL-133: Audience insights** — Demographic breakdown per platform (age, location, gender, interests). Platform API pulls + Tinybird aggregation. "Your Instagram audience is 65% women 25-34 in Newark" insights. [auto]
+- [ ] **SOCIAL-134: Competitor benchmarking** — Compare site's social metrics against industry averages. "Your engagement rate (3.2%) beats the restaurant industry average (1.8%)." Tinybird + PostHog. [auto]
+- [ ] **SOCIAL-135: Content performance prediction** — AI model scores draft posts before publishing (predicted engagement, best platform, optimal time). Uses historical data + content NLP analysis. llm.projectsites.dev. [auto]
+- [ ] **SOCIAL-136: Hashtag analytics** — Track which hashtags drive impressions + engagement. "Top 5 hashtags this month." "New trending hashtags in your niche." [auto]
+- [ ] **SOCIAL-137: Social → CRM pipeline** — "John commented 'interested' on Instagram" → create Twenty CRM lead with social context, comment text, and profile link. [auto]
+- [ ] **SOCIAL-138: Weekly social report email** — Auto-generated PDF email to site owner: top posts, follower growth, engagement trends, competitor comparison, recommended actions. Resend + react-email template. [auto]
+- [ ] **SOCIAL-139: Social health score** — Single 0-100 score combining: posting consistency, engagement rate, follower growth, response rate, content diversity. Red/Yellow/Green dashboard indicator with improvement suggestions. [auto]
+
+#### Tier 4 — Advanced (SOCIAL-140 to SOCIAL-149)
+
+- [ ] **SOCIAL-140: Bulk import from Postiz** — Migration tool reads Postiz API to export all connected accounts + post history → imports into native D1 schema. One-click from admin. [auto]
+- [ ] **SOCIAL-141: Postiz decommission plan** — Once all 50 ideas ship + verified: (1) migrate remaining Postiz data, (2) flip `social_publishing_native` flag to stable, (3) CNAME social.projectsites.dev to CF Worker, (4) shutdown Fly machine, (5) delete Postiz Upstash DB, (6) archive `infra/postiz/`. [auto]
+- [ ] **SOCIAL-142: Social inbox reply management** — View + reply to comments/DMs from admin dashboard. No full inbox (that's psnotify territory) — just the reply surface for social interactions. [auto]
+- [ ] **SOCIAL-143: Instagram Stories / Reels scheduling** — Extend media pipeline for vertical video. Story posts with 24h TTL auto-delete tracking. Reels with music/audio track metadata. [auto]
+- [ ] **SOCIAL-144: Carousel / multi-image posts** — Instagram carousels, LinkedIn document posts, Facebook albums. Extend `media_urls` to `media_groups[]` with layout hints. [auto]
+- [ ] **SOCIAL-145: Social proof widgets for generated sites** — "As seen on" social strip on generated websites. Embedded post carousel. Follower count badge. All GDPR-compliant (no third-party embeds, self-hosted render). [auto]
+- [ ] **SOCIAL-146: Location-based auto-content** — "You're near [landmark] — post this photo with [hashtag]." Google Places API + site location → suggested local-content posts. [auto]
+- [ ] **SOCIAL-147: AI video clip generator** — From site photos + brand colors → 15-30s social video clips (TikTok/Reels/Shorts). Uses Cloudflare Workers AI + Sharp for frame generation. Text overlay with brand fonts. [auto]
+- [ ] **SOCIAL-148: Social listening for local businesses** — Monitor local hashtags + competitor mentions + local events. Alert owner: "3 people are asking about [service you offer] on X this week." [auto]
+- [ ] **SOCIAL-149: Rate-limit + quota guard per platform** — Each platform client enforces platform-specific rate limits (X: 50 posts/day, Instagram: 25 posts/day Basic, TikTok: 20 posts/day). Quota consumed from site's plan entitlements. Over-quota → 402 with "Upgrade to post more" upsell. [auto]
+
+### Scalability architecture — 1M+ sites, millions of scheduled posts
+
+**The problem:** At 1M sites averaging 5 scheduled posts/week each, that's ~5M
+posts/week (~714K/day). Each post fans out to ~3 platforms on average = 2.1M
+platform-publish operations/day. Post distribution peaks at scheduled times
+(9am, 12pm, 5pm local time) — ~60% of daily volume in 3 hourly bursts.
+
+**The CF-native scaling plan:**
+
+| Layer | Primitive | Scale ceiling | Why |
+|---|---|---|---|
+| Job queue | Upstash Redis sorted sets + lists | 100K ops/sec per DB | Shard by platform (`social:queue:x`, `social:queue:instagram`) |
+| Durable scheduling | CF Workflows v2 | 500 instances/sec, 50K/day free | One workflow per scheduled post; Durable Objects for stateful retry |
+| Token refresh | CF Cron Triggers | 3-trigger max | Single cron scans `token_expires_at < now+72h` batching 1000 accounts/run |
+| Media processing | R2 + CF Image Resizing | Unlimited | Platform-optimized variants generated on upload via CF Image Resizing |
+| Analytics | Tinybird | Millions rows/sec ingest | `social_post_events` datasource; materialized views for dashboards |
+| Rate limiting | DO-backed per-platform counter | 10K req/sec per DO | `SocialRateLimiter` DO with sliding window per platform |
+| OAuth token encryption | AES-256-GCM (existing `ai_crypto.ts`) | Per-request encrypt/decrypt | No scaling issue — symmetric, in-memory |
+| Content generation | llm.projectsites.dev (LiteLLM) + AI Gateway | Rate-limited per site | 1 generation/site/5min throttle; cache repeated prompts in KV |
+| PostHog events | Server-side capture + `ctx.waitUntil` | Batch flush | Fire-and-forget; never block publish path |
+| Dead-letter | R2 bucket `social-dead-letter` | Unlimited objects | Compressed JSON; 90-day TTL lifecycle rule |
+
+**Key scaling invariants:**
+
+1. **Shard by platform, not by site.** Each platform gets its own Upstash queue +
+   its own Workflow binding. A TikTok outage never blocks X posts. `SOCIAL_QUEUE`
+   binding maps `platform → QueueBinding` in wrangler.toml.
+
+2. **Batch token refresh.** Single cron query: `SELECT * FROM social_accounts
+   WHERE token_expires_at < datetime('now', '+72 hours') AND status = 'active'
+   ORDER BY token_expires_at ASC LIMIT 1000`. Processes 1000 accounts per cron
+   tick (every 5 min) = 288K accounts/day — covers 1M active accounts with
+   multi-day buffer.
+
+3. **Workflow-per-post, not workflow-per-site.** Each scheduled post spawns its
+   own CF Workflow v2 instance. Workflow is: load → validate → refresh-token →
+   upload-media → publish → record → fire-events. Max 7 steps per workflow.
+   Failed workflows retry 3× then dead-letter. Workflow sleeps until
+   `scheduled_at` using `sleep()` step — no polling.
+
+4. **Upstash as burst buffer, not persistent store.** Posts drain from Upstash
+   queue within seconds → D1 is the durable source of truth. Upstash holds only
+   the "next 5 minutes of posts" per platform. If Upstash is down, the
+   Workflow scheduler falls back to polling D1 for due posts (degraded mode,
+   adds ~30s latency, never drops a post).
+
+5. **D1 read replicas for analytics queries.** All dashboard reads hit D1
+   Sessions API read replicas. Write path hits primary. Tinybird sinks all
+   analytics events so heavy aggregation never touches D1.
+
+6. **Per-platform DO rate limiter.** `SocialRateLimiter` DO tracks per-platform
+   request counts with sliding 1-min window. Each DO shard handles one platform.
+   Before any platform API call, `checkRateLimit(platform)` → returns remaining
+   budget. Budget exhausted → post stays queued until window resets. Prevents
+   platform API rate-limit bans at scale.
+
+7. **Cold-start recovery.** On worker deploy: scan D1 for `social_posts WHERE
+   status = 'scheduled' AND scheduled_at < now()` that were missed during
+   deploy window. Re-enqueue to Upstash. This covers the 0-30s deploy gap.
+
+**Cost model at 1M sites (monthly):**
+
+| Resource | Usage | Est. Cost |
+|---|---|---|
+| Upstash Redis commands | 714K posts/day × 5 ops = 3.6M/cmd day | ~$0.72/day |
+| CF Workflow steps | 714K/day × 7 steps = 5M steps/day | $50/day over free tier |
+| D1 reads (dashboard) | 1M sites × 30 reads/day | Within 5B free tier |
+| Tinybird rows | 2.1M events/day | Within starter tier |
+| R2 media storage | 714K posts × 2MB avg media | ~$21/month storage |
+| AI content gen | 1M sites × 1 gen/week × $0.002 | ~$8K/month (pay-per-use) |
+
+Total at 1M sites: ~$10K-12K/month. Per-site: ~$0.01/month. The AI generation
+line item is the only significant cost — gated by per-site monthly quota in plan
+entitlements. Everything else is near-free on CF's scale.
+
 
 ## analytics.projectsites.dev — PostHog Cloud
 
