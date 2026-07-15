@@ -421,7 +421,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     id: 'oauth-nango',
     name: 'OAuth connection layer — Nango (PERMANENT per Brian directive 2026-06-29)',
     category: 'auth',
-    runtime: 'cloudflare-workers-container',
+    runtime: 'cloudflare-container',
     domain: 'integrations.projectsites.dev',
     ownerPackage: 'apps/project-sites/infra/nango/',
     adapterPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',

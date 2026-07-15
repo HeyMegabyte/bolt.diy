@@ -76,7 +76,7 @@ export function transformStripeEvent(
     type: eventType,
     source: 'stripe',
     tenantId,
-    timestampMs: (e?.created as number) ? (e.created as number) * 1000 : timestampMs,
+    timestampMs: (e?.created as number) ? (e?.created as number) * 1000 : timestampMs,
     data: {
       eventId: e?.id,
       customerId: obj?.customer ?? (obj as Record<string, unknown> | null)?.customer,

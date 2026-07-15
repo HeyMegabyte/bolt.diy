@@ -47,7 +47,7 @@ export function getPublisher(platform: Platform): Publisher {
   return p;
 }
 
-export { PLATFORMS } from './types.js';
+export { PLATFORMS, PLATFORM_CHAR_LIMITS } from './types.js';
 export type {
   Platform,
   Publisher,

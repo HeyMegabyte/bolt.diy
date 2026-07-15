@@ -79,3 +79,52 @@ export class ListmonkMarketingEmailProvider implements MarketingEmailProvider {
     if (!r.ok) throw new Error(`Listmonk unsubscribe failed: ${r.reason}`);
   }
 }
+
+/** Simple transactional email payload — magic links, password resets, etc. */
+export interface TransactionalEmail {
+  kind: string;
+  to: string;
+  subject: string;
+  html: string;
+}
+
+/**
+ * Listmonk transactional email provider.
+ *
+ * Sends single-recipient transactional emails (magic links, password resets)
+ * through the Listmonk transactional API endpoint.
+ */
+export class ListmonkTransactionalProvider {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly username: string,
+    private readonly password: string,
+  ) {}
+
+  async sendTransactional(email: TransactionalEmail): Promise<void> {
+    const creds = btoa(`${this.username}:${this.password}`);
+    const res = await fetch(
+      `${this.baseUrl.replace(/\/$/, '')}/api/tx`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${creds}`,
+        },
+        body: JSON.stringify({
+          subscriber_email: email.to,
+          template_id: 1, // default transactional template
+          data: {
+            subject: email.subject,
+            body: email.html,
+            kind: email.kind,
+          },
+          content_type: 'html',
+        }),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`Listmonk transactional send failed: HTTP ${res.status}`);
+    }
+  }
+}

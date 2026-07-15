@@ -35,6 +35,11 @@ const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
   discord: 2000,
   slack: 4000,
   telegram: 4096,
+  tiktok: 2200,
+  youtube: 5000,
+  google_business: 1500,
+  pinterest: 500,
+  nextdoor: 5000,
 };
 
 /**

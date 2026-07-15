@@ -51,7 +51,7 @@ function getHours(date: Date, hours: BusinessHours[]): BusinessHours | null {
 export function generateSlots(
   service: ServiceOffering,
   date: Date,
-  existingBookings: Array<{ startTime: string; endTime: string }>,
+  existingBookings: Array<{ date: string; startTime: string; endTime: string }>,
   hours: BusinessHours[] = DEFAULT_HOURS,
 ): TimeSlot[] {
   const dayHours = getHours(date, hours);
