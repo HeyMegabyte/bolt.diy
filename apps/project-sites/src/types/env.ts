@@ -731,7 +731,7 @@ export interface Env {
   // upstream image of that catalog entry. All optional initially so local
   // dev + preview deploys don't break before the migration tag is applied.
   // See `src/durable_objects/app_runtime_subclasses.ts` for the slug map.
-/** AnythingLLM — `mintplexlabs/anythingllm:latest` */
+  /** AnythingLLM — `mintplexlabs/anythingllm:latest` */
   APP_RUNTIME_ANYTHING_LLM?: DurableObjectNamespace;
   /** Appsmith — `appsmith/appsmith-ce:latest` */
   APP_RUNTIME_APPSMITH?: DurableObjectNamespace;
@@ -859,7 +859,7 @@ export interface Env {
   APP_RUNTIME_WHISPER_ASR?: DurableObjectNamespace;
   /** Wiki.js — `ghcr.io/requarks/wiki:2` */
   APP_RUNTIME_WIKIJS?: DurableObjectNamespace;
-  
+
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
   TWILIO_ACCOUNT_SID?: string;
