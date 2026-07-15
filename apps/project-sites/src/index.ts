@@ -93,6 +93,7 @@ import { parseVoiceCommand } from '../libs/features/voice_site_mgmt/service.js';
 import { assignVariant, computeSignificance } from '../libs/features/ab_testing/service.js';
 import { agencyMrr, buildAgencyDashboard } from '../libs/features/white_label/service.js';
 import { validateJourney } from '../libs/features/visual_automation/service.js';
+import { planLaunch, listApps } from '../libs/features/app_launcher/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -731,6 +732,19 @@ app.post('/api/sites/:siteId/automation/validate', async (c) => {
   if (!(await isFlagOn(c.env, 'visual_automation', c.get('orgId'), c.req.param('siteId')))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: validateJourney(body) });
+});
+
+// App Launcher — catalog + launch planner (flag: app_launcher)
+app.get('/api/apps/catalog', async (c) => {
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'app_launcher', c.get('orgId'), 'system'))) return c.notFound();
+  return c.json({ data: listApps() });
+});
+app.post('/api/apps/launch', async (c) => {
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'app_launcher', c.get('orgId'), 'system'))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: planLaunch(body) });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
