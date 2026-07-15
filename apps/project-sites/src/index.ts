@@ -80,6 +80,7 @@ import { buildContentStrategy } from '../libs/features/ai_content_strategist/ser
 import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
 import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js';
 import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
+import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -541,6 +542,17 @@ app.post('/api/sites/:siteId/nl-command', async (c) => {
   }
   const result = parseSiteCommand(body.command, body.page || '/');
   return c.json({ data: result });
+});
+
+// Lifecycle Agent — site health check (flag: lifecycle_agent)
+app.post('/api/sites/:siteId/health-check', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'lifecycle_agent', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const report = runLifecycleCheck(siteId, body.signals || {});
+  return c.json({ data: report });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id

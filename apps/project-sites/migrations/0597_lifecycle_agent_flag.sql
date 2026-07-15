@@ -1,0 +1,3 @@
+INSERT INTO feature_flags (id, org_id, flag_name, enabled, metadata_json)
+VALUES ('flag_lifecycle_agent', NULL, 'lifecycle_agent', 0,
+  '{"stage":"experimental","rollout_percent":0,"description":"Autonomous site health monitoring — checks content freshness, SEO fundamentals, performance (LCP/CLS), security (SSL/HSTS/security.txt), trust signals (contact/hours/testimonials), competitive gaps, and broken links. Generates health score, severity-ranked issues, and auto-fixable recommendations. When disabled, health check endpoint returns 404.","owner_email":"brian@megabyte.space","e2e_tests":["e2e/lifecycle_agent/health-check.spec.ts"]}');
