@@ -1175,6 +1175,16 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Pct is capped at 100',
     ],
   },
+  notification_badge: {
+    checklist: ['Unread alert count + failed build count per org', '2 parallel D1 queries (audit_logs 7d + workflow_jobs)', 'Returns {total, alerts, builds} for nav badge rendering'],
+    explanation: 'Computes notification badge counts for the admin nav. Queries audit_logs for failed actions in the last 7 days and workflow_jobs for current failed builds. Returns a simple {total, alerts, builds} breakdown suitable for a red badge pill.',
+    smoke_test: ['Enable flag → GET /api/notifications/badge → 200 with {total, alerts, builds}', 'Clean org returns all zeros'],
+  },
+  site_health_sparklines: {
+    checklist: ['7-day traffic trend per site from analytics_daily', 'Configurable day range (1-30, default 7)', 'Returns {siteId, days: [{date, visits}]} for SVG sparkline'],
+    explanation: 'Queries the analytics_daily rollup for per-day visit counts over a configurable window. Designed to feed SVG sparkline charts in the admin site list — a compact visual indicator of traffic health without loading a full analytics dashboard.',
+    smoke_test: ['Enable flag → GET /api/sites/:siteId/sparkline?days=7 → 200 with days[] array', 'No data → days: []', 'Pass days=30 for monthly view'],
+  },
   batch_operations: {
     checklist: ['Bulk rebuild/snapshot/delete for 1-50 sites', 'Per-site org-ownership validation', 'Per-site ok/fail result with message', 'Returns summary: total/ok/failed counts'],
     explanation: 'Batch processor for site-level actions — rebuild (queues build workflow_job), snapshot (queues snapshot workflow_job), or delete (soft-deletes site). Each site ID is validated for org ownership before the action. Results are per-site with a summary block for quick status checks.',
