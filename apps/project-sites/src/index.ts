@@ -84,6 +84,7 @@ import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
 import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
 import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
 import { generateSlots, confirmBooking } from '../libs/features/native_booking/service.js';
+import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -599,6 +600,32 @@ app.post('/api/sites/:siteId/booking/confirm', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const result = confirmBooking(body, body.service || {}, body.existing || []);
   return c.json('error' in result ? { error: result } : { data: result });
+});
+
+// Built-in CRM — lead scoring + pipeline (flag: builtin_crm)
+app.post('/api/sites/:siteId/crm/score', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'builtin_crm', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: scoreLead(body) });
+});
+app.post('/api/sites/:siteId/crm/pipeline', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'builtin_crm', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: pipelineSummary(body.contacts || []) });
+});
+app.post('/api/sites/:siteId/crm/next-action', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'builtin_crm', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: nextAction(body) });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
