@@ -647,6 +647,21 @@ new_sqlite_classes = ["GotenbergContainer"]
 # name = "APP_RUNTIME_OPEN_WEBUI"
 # class_name = "OpenWebuiContainer"
 
+# langflow — visual AI workflow builder (langflowai/langflow:latest, port 7860, 1024 MiB)
+[[env.production.containers]]
+class_name = "LangflowContainer"
+image = "langflowai/langflow:latest"
+max_instances = 20
+instance_type = "basic"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LANGFLOW"
+class_name = "LangflowContainer"
+
+[[env.production.migrations]]
+tag = "v_langflow"
+new_sqlite_classes = ["LangflowContainer"]
+
 # AppRuntimeContainer is new — register it under the SQLite storage backend
 # in a fresh migration tag. Existing classes (SiteBuilder/TraceHub/ActivityHub)
 # stay on their current backend per the legacy notes above.

@@ -57,6 +57,7 @@ const BINDING_BY_SLUG: Readonly<Record<string, keyof Env>> = {
   memos: 'APP_RUNTIME_MEMOS',
   pocketbase: 'APP_RUNTIME_POCKETBASE',
   'open-webui': 'APP_RUNTIME_OPEN_WEBUI',
+  langflow: 'APP_RUNTIME_LANGFLOW',
 };
 
 /** Status snapshot mirror — kept loose so older DO versions stay compatible. */

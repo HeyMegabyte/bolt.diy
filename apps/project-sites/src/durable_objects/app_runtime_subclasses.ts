@@ -82,6 +82,12 @@ export class OpenWebuiContainer extends AppRuntimeContainer {
   override defaultPort = 8080;
 }
 
+/** Langflow — `langflowai/langflow:latest` port 7860 */
+export class LangflowContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'langflow';
+  override defaultPort = 7860;
+}
+
 /**
  * Catalog-slug → DO class-name map. Drives the dispatcher's binding-lookup
  * table and the runtime existence check (`isSupportedSlug`).
@@ -100,6 +106,7 @@ export const SUPPORTED_APP_SLUGS = [
   'memos',
   'pocketbase',
   'open-webui',
+  'langflow',
 ] as const;
 
 export type SupportedAppSlug = (typeof SUPPORTED_APP_SLUGS)[number];

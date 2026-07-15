@@ -751,6 +751,8 @@ export interface Env {
   APP_RUNTIME_POCKETBASE?: DurableObjectNamespace;
   /** Open WebUI — `ghcr.io/open-webui/open-webui:main` */
   APP_RUNTIME_OPEN_WEBUI?: DurableObjectNamespace;
+  /** Langflow — `langflowai/langflow:latest` port 7860 */
+  APP_RUNTIME_LANGFLOW?: DurableObjectNamespace;
 
   // ── Twilio (Voice + SMS Agent) ─────────────────────────────
   /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
