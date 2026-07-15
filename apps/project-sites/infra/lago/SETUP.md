@@ -16,9 +16,14 @@ PLACEHOLDERs. Here's what needs to happen:
 # (reuse the existing Neon project, create a new DB)
 psql postgresql://<neon-url> -c "CREATE DATABASE projectsites_lago"
 
-# Redis — reuse the shared Fly Redis (already running at 168.220.90.239)
-# Lago gets its own DB number (e.g. /2)
-LAGO_REDIS_URL="redis://168.220.90.239:6379/2"
+# Redis — Upstash dedicated instance (free tier: 10K cmds/day, 256MB).
+# Why Upstash over shared Fly Redis: Lago's Sidekiq billing jobs are critical
+# infrastructure. If the shared Fly Redis (Nango's OAuth cache) goes down,
+# billing should NOT go down with it. Upstash gives dedicated, globally
+# managed Redis with automatic failover.
+# Provision via: npx wrangler secret put UPSTASH_REDIS_URL
+# Or use the upstash_provisioner.ts: createDatabase(env, 'projectsites-lago')
+# After provisioning, get the REST URL from dashboard.upstash.com
 
 # ClickHouse — already running at ch.projectsites.dev (Dittofeed + Langfuse share it)
 # Get the password from get-secret CLICKHOUSE_PASSWORD
@@ -35,7 +40,7 @@ echo "Admin password: $ADMIN_PASSWORD"  # save this!
 # Set Fly secrets
 fly secrets set \
   LAGO_DATABASE_URL="postgresql://..." \
-  LAGO_REDIS_URL="redis://168.220.90.239:6379/2" \
+  LAGO_REDIS_URL="$(get-secret UPSTASH_REDIS_URL_LAGO)" \
   LAGO_CLICKHOUSE_PASSWORD="$(get-secret CLICKHOUSE_PASSWORD)" \
   LAGO_SECRET_KEY="$SECRET_KEY" \
   LAGO_ADMIN_EMAIL="admin@megabyte.space" \
@@ -76,7 +81,7 @@ npx wrangler secret put BILLING_PROVIDER --env production  # = lago
 billing.projectsites.dev (Fly.io)
   ├── Lago API (ghcr.io/getlago/api:latest) — Rails, port 3000
   ├── Neon Postgres (projectsites_lago) — system of record
-  ├── Fly Redis (shared, DB /2) — Sidekiq job queue
+  ├── Upstash Redis (dedicated, free tier) — Sidekiq job queue
   └── ClickHouse (ch.projectsites.dev) — analytics/events
 
 ProjectSites Worker
