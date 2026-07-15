@@ -839,6 +839,25 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+app.get('/api/sites/:siteId/annotations', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleListAnnotations } = await import('../libs/features/analytics_annotations/handlers.js');
+  return handleListAnnotations(c);
+});
+app.post('/api/sites/:siteId/annotations', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleCreateAnnotation } = await import('../libs/features/analytics_annotations/handlers.js');
+  return handleCreateAnnotation(c);
+});
+app.delete('/api/annotations/:id', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleDeleteAnnotation } = await import('../libs/features/analytics_annotations/handlers.js');
+  return handleDeleteAnnotation(c);
+});
+
 app.post('/api/cmdk', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'cmd_k_actions', { orgId: c.get('orgId')! }))) return c.notFound();

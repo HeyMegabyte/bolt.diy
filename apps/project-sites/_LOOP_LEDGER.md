@@ -302,7 +302,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 ### Tier 3 — Strategic investments (saved to memory for architecture planning)
 - [ ] [auto] Split-pane admin mode
 - [x] [auto] Site clone one-click — **DONE 2026-07-15:** libs/features/site_clone/ — page copy with slug validation, 4 unit tests, flag site_clone
-- [ ] [auto] Analytics annotations system
+- [x] [auto] Analytics annotations system — **DONE 2026-07-15:** libs/features/analytics_annotations/ — CRUD for chart annotations, 4 tests, flag analytics_annotations
 - [ ] [auto] AI content gap analyzer
 - [ ] [auto] Scheduled AI tasks dashboard
 - [ ] [auto] Team presence + activity feed

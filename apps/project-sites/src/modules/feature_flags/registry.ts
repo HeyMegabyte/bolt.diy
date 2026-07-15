@@ -739,6 +739,11 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  analytics_annotations: {
+    key: 'analytics_annotations',
+    description: 'Analytics Annotations (#24): CRUD for chart annotations tied to analytics events. GET/POST/DELETE /api/sites/:siteId/annotations.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
   cmd_k_actions: {
     key: 'cmd_k_actions',
     description: 'Cmd+K Natural Language Actions (#23): NL query → ranked admin action suggestions (rebuild/snapshot/delete/view/edit/publish). POST /api/cmdk.',
