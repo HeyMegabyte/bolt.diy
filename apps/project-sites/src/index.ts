@@ -77,6 +77,7 @@ import { buildCritique } from '../libs/features/ai_site_critic/service.js';
 import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
 import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
 import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
+import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -499,6 +500,20 @@ app.post('/api/sites/:siteId/content-strategy', async (c) => {
     body.startDate ? new Date(body.startDate) : undefined,
   );
   return c.json({ data: strategy });
+});
+
+// Conversational Analytics — NL→query intent parser (flag: conversational_analytics)
+app.post('/api/sites/:siteId/analytics/ask', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'conversational_analytics', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.query || typeof body.query !== 'string') {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'query is required' } }, 400);
+  }
+  const result = parseAnalyticsQuery(body.query);
+  return c.json({ data: result });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
