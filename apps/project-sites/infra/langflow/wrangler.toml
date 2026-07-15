@@ -37,6 +37,7 @@ new_sqlite_classes = ["LangflowContainerDO"]
 #   LANGFLOW_SUPERUSER               get-secret LANGFLOW_SUPERUSER
 #   LANGFLOW_SUPERUSER_PASSWORD      get-secret LANGFLOW_SUPERUSER_PASSWORD
 #   LANGFLOW_DATABASE_URL            get-secret LANGFLOW_DATABASE_URL (Neon Postgres, DB `neondb`)
+#   LANGFLOW_API_KEY                 get-secret LANGFLOW_API_KEY (Langflow API key for programmatic access)
 #   LANGFLOW_REDIS_QUEUE_URL         optional — Upstash Redis (rediss://...)
 #   LANGFLOW_STORAGE_ACCESS_KEY_ID   optional — R2 S3 access key
 #   LANGFLOW_STORAGE_SECRET_ACCESS_KEY   optional — R2 S3 secret

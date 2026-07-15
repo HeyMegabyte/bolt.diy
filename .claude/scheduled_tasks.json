@@ -1,14 +1,3 @@
 {
-  "tasks": [
-    {
-      "id": "32a11044",
-      "cron": "*/10 * * * *",
-      "prompt": "Integration build loop for projectsites.dev. Worktree-isolated; commit disjoint files; push HEAD:main with the cron-safe stash dance.\n\nRead `apps/project-sites/_LOOP_PROGRESS.md` and `~/.claude/projects/-Users-Apple-emdash-repositories-projectsites-dev/memory/integration-build-decisions.md` first.\n\nBUILD ORDER (TDD-first, one service module per fire):\n1. Listmonk transactional — `src/services/listmonk.ts` typed REST client (Zod, AGPL HTTP boundary). Use LISTMONK_API_KEY (get-secret), username=projectsites, base=https://mail.projectsites.dev/api. Start with `sendTransactional(templateId, subscriberEmail, data)` + `getSubscriber(email)`. Pure typed schemas, never-throw.\n2. Twenty CRM — `src/services/twenty.ts` typed REST client. Use TWENTY_API_KEY (get-secret), base=https://crm.projectsites.dev/rest. Start with `findCompany(domain)` + `createContact(email, name)` + `upsertLead(companyId, data)`.\n3. Integration health endpoints — `GET /api/integrations/:name/health` per service.\n4. Listmonk marketing — `createCampaign`, `sendCampaign`, subscriber list management.\n\nEach module: typed Zod schemas, co-located unit tests (jest), zero npm deps, never-throw, compatibility with Workers (no Node APIs). One module per fire. Commit + push each fire. Maintain _LOOP_PROGRESS.md.\n\nStop after 4 modules built or 2 hours elapsed. Deploy via CI push (not local wrangler).",
-      "createdAt": 1782856268289,
-      "recurring": true,
-      "createdBySessionId": "8191309f-c9c7-470f-8ec6-af82cd1e6ccc",
-      "createdByPid": 9360,
-      "createdByProcStart": "Sat Jun 27 00:45:30 2026"
-    }
-  ]
+  "tasks": []
 }
