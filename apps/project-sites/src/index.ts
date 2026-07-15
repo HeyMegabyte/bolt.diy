@@ -85,6 +85,7 @@ import { buildCmsModel, availableCollections } from '../libs/features/cms_collec
 import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
 import { generateSlots, confirmBooking } from '../libs/features/native_booking/service.js';
 import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
+import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -626,6 +627,24 @@ app.post('/api/sites/:siteId/crm/next-action', async (c) => {
   if (!(await isFlagOn(c.env, 'builtin_crm', orgId, siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: nextAction(body) });
+});
+
+// Customer Portal — magic-link access (flag: customer_portal)
+app.post('/api/sites/:siteId/portal/create', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'customer_portal', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: createPortal(body.clientId, body.clientName, body.pages || []) });
+});
+app.post('/api/sites/:siteId/portal/validate', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'customer_portal', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: { valid: validateAccess(body.portal, body.token, body.page) } });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
