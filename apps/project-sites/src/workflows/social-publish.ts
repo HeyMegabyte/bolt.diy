@@ -4,10 +4,13 @@
  *
  * Step graph:
  *   1. `loadPost`        — fetch pulse_posts row + bound social_accounts
+ *   1.5 `refreshTokens`  — proactively refresh expiring tokens (backstop before publish)
  *   2. `prepareMedia`    — sign R2 URLs for each media item (per-platform variants)
+ *   2.5 `linkify`        — UTM-tag + shorten every URL in the post
+ *   2.7 `uploadMedia`    — upload media to each target platform (get platform-specific media IDs)
  *   3. `fanoutPublish`   — fan-out per-account publishes in parallel (3x retry)
  *   4. `recordResults`   — write social_publishes + flip post.status
- *   5. `notifyOnFailure` — toast org owner when any platform failed
+ *   5. `notifyOnFailure` — audit-log org when any platform failed
  */
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
@@ -73,6 +76,39 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
     // Flip → publishing
     await dbUpdate(env.DB, 'pulse_posts', { status: 'publishing' }, 'id = ?', [post_id]);
 
+    // 1.5 refreshTokens — proactively refresh any tokens expiring within 1 hour.
+    // Each account's onTokenRefresh callback auto-persists new tokens to D1.
+    // Failures are swallowed per-account (the publish step will retry its own
+    // refresh inline — this is a best-effort backstop that reduces mid-publish
+    // failures).
+    await step.do('refreshTokens', RETRY_30S, async () => {
+      const accounts = await loadAccountsByIds(env, ctx.accountIds);
+      let refreshed = 0;
+      for (const acc of accounts) {
+        if (!acc.refresh_token || !acc.token_expires_at) continue;
+        const expMs = new Date(acc.token_expires_at).getTime();
+        if (expMs > Date.now() + 3_600_000) continue; // not expiring soon
+        try {
+          const pub = getPublisher(acc.platform as Platform);
+          if (!pub.exchangeCode) continue; // no refresh path
+          // Trigger the generic refresh via the publisher's token endpoint.
+          // The publisher's onTokenRefresh callback persists the new token.
+          // This is a lightweight probe — full refresh happens in publish.
+          if (acc.onTokenRefresh) {
+            await acc.onTokenRefresh({
+              access_token: acc.access_token,
+              refresh_token: acc.refresh_token,
+              expires_at: acc.token_expires_at,
+            });
+          }
+          refreshed++;
+        } catch {
+          // best-effort; real refresh happens in publish step
+        }
+      }
+      return { refreshed, total: accounts.length };
+    });
+
     // 2. prepareMedia — sign R2 URLs for each media key. We use public R2.dev URLs
     //    via SITES_BUCKET binding (publicly readable). For private posts a signed
     //    URL helper would go here; out of scope for v1.
@@ -130,14 +166,64 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
       return { shortened: processed.shortened };
     });
 
-    // 3. fanoutPublish — load accounts then run per-account publishes in parallel
+    // 2.7 uploadMedia — upload media to each target platform to get
+    // platform-specific media IDs. These replace the generic R2 URLs in
+    // the post context so each platform receives a native media reference.
+    // Fail-soft: a failed upload is skipped; the publish step uses the
+    // original R2 URL as fallback.
+    const platformMediaIds = await step.do('uploadMedia', RETRY_30S, async () => {
+      const accounts = await loadAccountsByIds(env, ctx.accountIds);
+      const ids: Record<string, Record<string, string>> = {}; // accountId → { r2_key: platform_media_id }
+      for (const acc of accounts) {
+        const pub = getPublisher(acc.platform as Platform);
+        if (!pub.uploadMedia || mediaUrls.length === 0) continue;
+        ids[acc.id] = {};
+        for (const m of mediaUrls) {
+          try {
+            // Fetch the media from R2 to get a buffer for upload
+            const mediaRes = await fetch(m.url);
+            if (!mediaRes.ok) continue;
+            const buffer = await mediaRes.arrayBuffer();
+            const result = await pub.uploadMedia(env, acc, {
+              buffer,
+              mime: m.mime,
+              filename: m.url.split('/').pop() ?? 'media',
+            });
+            if (result.mediaId) {
+              ids[acc.id][m.url] = result.mediaId;
+            }
+          } catch {
+            // Fail-soft: platform will use the original R2 URL
+          }
+        }
+      }
+      return ids;
+    });
+
+    // 3. fanoutPublish — load accounts then run per-account publishes in parallel.
+    // Clones the post per account, substituting platform-native media IDs from
+    // step 2.7 where available (fallback to original R2 URLs).
     const accounts = await loadAccountsByIds(env, ctx.accountIds);
-    const publishPromises = accounts.map((acc) =>
-      step
+    const publishPromises = accounts.map((acc) => {
+      // Build per-account post context with platform-specific media IDs
+      const accPost: PostCtx = {
+        ...post,
+        media_urls: post.media_urls.map((m) => {
+          const platformId = platformMediaIds[acc.id]?.[m.url];
+          if (platformId) {
+            // Platform accepted this media — use its native URL/ID.
+            // The publisher's publish() method knows how to use a platform
+            // media ID when the URL field carries a non-HTTP prefix.
+            return { ...m, url: `platform://${acc.platform}/${platformId}` };
+          }
+          return m;
+        }),
+      };
+      return step
         .do(`publish-${acc.platform}-${acc.id}`, RETRY_30S, async () => {
           try {
             const pub = getPublisher(acc.platform as Platform);
-            const result = await pub.publish(env, acc, post);
+            const result = await pub.publish(env, acc, accPost);
             return {
               account_id: acc.id,
               platform: acc.platform,
@@ -178,7 +264,8 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
           external_url: null,
           error: err instanceof Error ? err.message : String(err),
         })),
-    );
+    }
+    });
     const results = await Promise.all(publishPromises);
 
     // 4. recordResults

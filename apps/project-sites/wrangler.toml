@@ -227,6 +227,19 @@ ANALYTICS_INGEST_ENABLED = "false"
 # scripts/upload-sentry-sourcemaps.mjs. The placeholder below keeps the
 # binding present even on hand-rolled deploys.
 SENTRY_RELEASE = "project-sites@dev"
+# ── Native Social — platform OAuth credentials (SOCIAL-102/106) ──────
+# Each pair is optional — MissingAppCredsError → 501 gracefully when unset.
+# Provision via: wrangler secret put TIKTOK_CLIENT_SECRET --env production
+# TIKTOK_CLIENT_ID = ""
+# TIKTOK_CLIENT_SECRET = ""
+# YOUTUBE_CLIENT_ID = ""
+# YOUTUBE_CLIENT_SECRET = ""
+# PINTEREST_CLIENT_ID = ""
+# PINTEREST_CLIENT_SECRET = ""
+# GBP_CLIENT_ID = ""
+# GBP_CLIENT_SECRET = ""
+# NEXTDOOR_CLIENT_ID = ""
+# NEXTDOOR_CLIENT_SECRET = ""
 
 [[env.production.workflows]]
 name = "site-generation-workflow-production"

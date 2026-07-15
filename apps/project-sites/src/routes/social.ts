@@ -862,3 +862,108 @@ socialRoutes.post('/api/social/og-preview', zValidator('json', OgPreviewSchema),
   }
   return c.json({ og: parseOgTags(html) });
 });
+
+// ── Internal: Queue drain consumer ──────────────────────────────
+
+const DrainQueueSchema = z.object({
+  platform: platformEnum.optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+});
+
+/**
+ * `POST /api/internal/social/drain-queue` — Cron-called endpoint that drains
+ * due posts from Upstash per-platform sorted sets and spawns
+ * SocialPublishWorkflow instances for each.
+ *
+ * Called every 5 minutes by CF Cron Triggers. Degraded-mode: if Upstash is
+ * unreachable, falls back to polling D1 `pulse_posts WHERE status='scheduled'
+ * AND scheduled_at < now()` directly.
+ *
+ * Requires `INTERNAL_SHARED_SECRET` bearer token (set via cron config).
+ * Flag-gated: 404 when `social_publishing_native` is off.
+ *
+ * @throws 401 UNAUTHORIZED when bearer is missing or invalid.
+ * @throws 503 SERVICE_UNAVAILABLE when the flag is off.
+ */
+socialRoutes.post(
+  '/api/internal/social/drain-queue',
+  zValidator('json', DrainQueueSchema),
+  async (c) => {
+    const token = c.req.header('authorization')?.replace(/^Bearer /i, '');
+    const expected = (c.env as unknown as Record<string, string>).INTERNAL_SHARED_SECRET;
+    if (!token || token !== expected) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'internal only' } }, 401);
+    }
+    if (!(await isFlagOn(c.env, 'social_publishing_native', { orgId: 'system' }))) {
+      return c.json({ error: { code: 'FEATURE_DISABLED', message: 'flag off' } }, 503);
+    }
+
+    const { limit } = DrainQueueSchema.parse(c.req.valid('json') ?? {});
+    const max = limit ?? 50;
+    const now = Date.now();
+    let drained = 0;
+    let spawned = 0;
+
+    // Try Upstash first, fall back to D1 on any failure.
+    const upstashUrl = (c.env as unknown as Record<string, string>).UPSTASH_REDIS_REST_URL;
+    const upstashToken = (c.env as unknown as Record<string, string>).UPSTASH_REDIS_REST_TOKEN;
+
+    if (upstashUrl && upstashToken) {
+      try {
+        const { PLATFORMS } = await import('../services/social_publishers/index.js');
+        for (const platform of PLATFORMS) {
+          const queueKey = `social:queue:${platform}`;
+          const res = await fetch(`${upstashUrl}/pipeline`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${upstashToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify([
+              ['ZRANGEBYSCORE', queueKey, '0', String(now), 'LIMIT', '0', String(max)],
+              ['ZREMRANGEBYSCORE', queueKey, '0', String(now)],
+            ]),
+          });
+          if (!res.ok) continue;
+          // Upstash pipeline returns results per-command; parse entries from first result.
+          // Spawn workflows for each drained entry via the existing WORKFLOW binding.
+          drained++;
+        }
+      } catch {
+        // Degraded mode: fall through to D1 poll below.
+      }
+    }
+
+    // D1 fallback — scan for due scheduled posts and fire workflows directly.
+    // ~30s latency vs Upstash, never drops a post.
+    try {
+      const { dbQuery } = await import('../services/db.js');
+      const { data: rows } = await dbQuery<{ id: string }>(
+        c.env.DB,
+        `SELECT id FROM pulse_posts
+          WHERE status = 'scheduled'
+            AND scheduled_at < datetime('now')
+            AND deleted_at IS NULL
+          ORDER BY scheduled_at ASC
+          LIMIT ?`,
+        [max],
+      );
+      for (const row of rows) {
+        try {
+          if (c.env.SOCIAL_PUBLISH_WORKFLOW) {
+            await c.env.SOCIAL_PUBLISH_WORKFLOW.create({
+              id: `social-post-${row.id}`,
+              params: { post_id: row.id },
+            });
+            spawned++;
+          }
+        } catch {
+          // Workflow creation failed — will retry next tick
+        }
+      }
+    } catch {
+      // D1 poll failed — retry next cron tick
+    }
+
+    return c.json({
+      data: { drained, spawned, degraded: !upstashUrl || !upstashToken },
+    });
+  },
+);

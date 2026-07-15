@@ -31,7 +31,12 @@ export type Platform =
   | 'mastodon'
   | 'discord'
   | 'slack'
-  | 'telegram';
+  | 'telegram'
+  | 'tiktok'
+  | 'youtube'
+  | 'pinterest'
+  | 'google_business'
+  | 'nextdoor';
 
 export const PLATFORMS: readonly Platform[] = [
   'twitter',
@@ -45,6 +50,11 @@ export const PLATFORMS: readonly Platform[] = [
   'discord',
   'slack',
   'telegram',
+  'tiktok',
+  'youtube',
+  'pinterest',
+  'google_business',
+  'nextdoor',
 ] as const;
 
 /**
@@ -146,6 +156,17 @@ export interface Publisher {
     account: SocialAccountCtx,
     externalPostId: string,
   ): Promise<AnalyticsSnapshot>;
+  /** Upload media to the platform. Returns a platform-specific media ID for use in publish. */
+  uploadMedia?(
+    env: Env,
+    account: SocialAccountCtx,
+    file: { buffer: ArrayBuffer; mime: string; filename: string },
+  ): Promise<{ mediaId: string; mediaUrl?: string }>;
+  /** Fetch the authenticated user's profile info for the admin accounts panel. */
+  getProfile?(
+    env: Env,
+    account: SocialAccountCtx,
+  ): Promise<{ handle: string; display_name: string; avatar_url: string; follower_count?: number }>;
 }
 
 /** Compose per-platform content with per-platform overrides + hashtags. */
@@ -193,3 +214,23 @@ export function emptyAnalytics(raw: unknown = null): AnalyticsSnapshot {
     raw,
   };
 }
+
+/** Per-platform character limits for content validation + composer UI. */
+export const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
+  twitter: 280,
+  linkedin: 3000,
+  facebook: 5000,
+  instagram: 2200,
+  threads: 500,
+  bluesky: 300,
+  reddit: 10000,
+  mastodon: 500,
+  discord: 2000,
+  slack: 4000,
+  telegram: 4096,
+  tiktok: 2200,
+  youtube: 5000,
+  pinterest: 500,
+  google_business: 1500,
+  nextdoor: 5000,
+};

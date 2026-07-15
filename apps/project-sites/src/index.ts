@@ -1560,6 +1560,33 @@ export default {
           }),
         );
       }
+
+      // SOCIAL-105 — token refresh backstop: scan social_accounts for tokens
+      // expiring within 72h and refresh them before they expire. Flag-gated
+      // (no-op when social_publishing_native is off).
+      try {
+        const { runTokenRefreshCron } = await import('./services/social_token_cron.js');
+        const summary = await runTokenRefreshCron(env);
+        if (summary.scanned > 0) {
+          console.warn(
+            JSON.stringify({
+              level: 'info',
+              service: 'cron',
+              message: 'Social token refresh sweep complete',
+              ...summary,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Social token refresh sweep failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
     }
 
     // Monday 14:00 UTC (9 AM ET) — weekly summary digest emails (#96).
