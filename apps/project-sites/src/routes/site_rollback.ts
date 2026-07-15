@@ -9,7 +9,7 @@
  */
 import { Hono } from 'hono';
 import type { Env } from '../types/env.js';
-import { isFlagOn } from '../services/feature_flags.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
 import { getHistory, rollback } from '../services/github_repo.js';
 import { z } from 'zod';
 
@@ -25,7 +25,7 @@ export const siteRollbackRoutes = new Hono<{ Bindings: Env }>()
     const siteId = c.req.param('siteId');
     const orgId = c.get('orgId');
 
-    if (!(await isFlagOn(c.env, 'github_repo_sync', orgId, siteId))) {
+    if (!(await isFlagOn(c.env, 'github_repo_sync', { orgId: orgId, siteId: siteId }))) {
       return c.notFound();
     }
 
@@ -51,7 +51,7 @@ export const siteRollbackRoutes = new Hono<{ Bindings: Env }>()
     const siteId = c.req.param('siteId');
     const orgId = c.get('orgId');
 
-    if (!(await isFlagOn(c.env, 'github_repo_sync', orgId, siteId))) {
+    if (!(await isFlagOn(c.env, 'github_repo_sync', { orgId: orgId, siteId: siteId }))) {
       return c.notFound();
     }
 

@@ -1124,8 +1124,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         // Feature-flag-gated behind `github_repo_sync` (experimental, default-off).
         void (async () => {
           try {
-            const { isFlagOn } = await import('../services/feature_flags.js');
-            if (!(await isFlagOn(env, 'github_repo_sync', params.orgId, params.siteId))) return;
+            const { isFlagOn } = await import('../modules/feature_flags/services.js');
+            if (!(await isFlagOn(env, 'github_repo_sync', { orgId: params.orgId, siteId: params.siteId }))) return;
             const { pushBuild } = await import('../services/github_repo.js');
             const files = (sourceFiles as Array<{ name: string; content: string }>).map((f) => ({
               path: f.name.startsWith('/') ? f.name.slice(1) : f.name,

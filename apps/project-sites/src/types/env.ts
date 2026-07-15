@@ -523,6 +523,14 @@ export interface Env {
   /** SendGrid v3 API key for transactional email. Fallback provider. */
   SENDGRID_API_KEY?: string;
 
+  // ── Integration Platform (Nango / Composio / Pipedream) ───
+  /** Nango OAuth secret key for managed integrations. */
+  NANGO_SECRET_KEY?: string;
+  /** Composio API key for tool/action execution. */
+  COMPOSIO_API_KEY?: string;
+  /** Pipedream OAuth client ID for workflow automation. */
+  PIPEDREAM_CLIENT_ID?: string;
+
   // ── Chatwoot (Support Chat) ───────────────────────────────
   /** Chatwoot instance API URL. */
   CHATWOOT_API_URL?: string;

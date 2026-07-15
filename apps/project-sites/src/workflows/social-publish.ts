@@ -263,7 +263,7 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
           external_id: null,
           external_url: null,
           error: err instanceof Error ? err.message : String(err),
-        })),
+        }))
     });
     const results = await Promise.all(publishPromises);
 
@@ -336,7 +336,7 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
                 platform: r.platform,
                 status: r.status,
                 error: r.error,
-              })),
+              }))
             }),
           });
         } catch (err) {

@@ -153,8 +153,8 @@ export async function createSite(
   if (ctx.executionCtx) {
     const ghRepo = (async () => {
       try {
-        const { isFlagOn } = await import('./feature_flags.js');
-        if (!(await isFlagOn(env, 'github_repo_sync', ctx.actorId ?? null, site.id))) return;
+        const { isFlagOn } = await import('../modules/feature_flags/services.js');
+        if (!(await isFlagOn(env, 'github_repo_sync', { orgId: ctx.actorId ?? null, siteId: site.id }))) return;
         const { createRepo } = await import('./github_repo.js');
         await createRepo(env, site.id);
       } catch {
