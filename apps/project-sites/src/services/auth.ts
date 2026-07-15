@@ -84,6 +84,19 @@ async function sendEmail(
     return;
   }
 
+	  // Listmonk fallback — self-hosted on CF, sends transactional via SMTP.
+	  if (env.LISTMONK_API_URL && env.LISTMONK_USERNAME && env.LISTMONK_PASSWORD) {
+	    try {
+	      const { ListmonkTransactionalProvider } = await import('./listmonk_email_provider.js');
+	      const provider = new ListmonkTransactionalProvider(env.LISTMONK_API_URL, env.LISTMONK_USERNAME, env.LISTMONK_PASSWORD);
+	      await provider.sendTransactional({ kind: 'magic-link', to: opts.to, subject: opts.subject, html: opts.html });
+	      return;
+	    } catch (err) {
+	      console.warn(JSON.stringify({ level: 'warn', service: 'auth', message: 'Listmonk send failed', error: err instanceof Error ? err.message : String(err) }));
+	    }
+	  }
+
+
   if (env.RESEND_API_KEY) {
     try {
       return await sendViaResend(env.RESEND_API_KEY, opts);
