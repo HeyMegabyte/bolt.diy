@@ -839,6 +839,13 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+app.get('/api/notifications/badge', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'notification_badge', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleBadge } = await import('../libs/features/notification_badge/handlers.js');
+  return handleBadge(c);
+});
+
 app.post('/api/batch', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
