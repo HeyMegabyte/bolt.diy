@@ -937,6 +937,17 @@ instance_type = "basic"
 name = "APP_RUNTIME_WIKIJS"
 class_name = "WikiJsContainer"
 
+# lago — Lago billing (ghcr.io/getlago/api:latest, Rails, port 3000, 4GB)
+[[env.production.containers]]
+class_name = "LagoContainer"
+image = "./containers/lago/Dockerfile"
+max_instances = 5
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME_LAGO"
+class_name = "LagoContainer"
+
 [[env.production.migrations]]
 tag = "v_app_subclasses"
 new_sqlite_classes = [
