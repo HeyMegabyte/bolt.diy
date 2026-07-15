@@ -1175,6 +1175,11 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Pct is capped at 100',
     ],
   },
+  onboarding_progress: {
+    checklist: ['5-step org setup tracker: site/build/domain/billing/team', '5 parallel D1 COUNT queries', 'Returns pct complete + per-step detail'],
+    explanation: 'Tracks org onboarding completion across 5 gates: site created, first build run, custom domain added, billing subscription active, and team member invited. Each step queries D1 for live counts. Returns percentage + per-step boolean completion status. Drives the admin dashboard progress ring widget.',
+    smoke_test: ['Enable flag → GET /api/onboarding → 200 with steps[], completed, total, pct', 'Fresh org returns pct=0', 'Fully onboarded org returns pct=100'],
+  },
   dittofeed_integration: {
     checklist: ['Segment-compatible event pipeline', 'Fan-out from platform events to Dittofeed', 'Identify/track/page + Admin API (journey/segment/template CRUD)', 'Flag-gated with default-off rollout'],
     explanation:
