@@ -1,0 +1,33 @@
+app = "projectsites-lago"
+primary_region = "iad"
+
+[build]
+  image = "getlago/lago:latest"
+
+[env]
+  RAILS_ENV = "production"
+  LAGO_FRONT_URL = "https://billing.projectsites.dev"
+  LAGO_API_URL = "https://billing.projectsites.dev"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4096mb"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "15s"
+    method = "GET"
+    path = "/health"
