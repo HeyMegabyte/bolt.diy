@@ -87,6 +87,7 @@ import { generateSlots, confirmBooking } from '../libs/features/native_booking/s
 import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
 import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
+import { defaultDashboard, filterBySource, buildMetric } from '../libs/features/marketing_dashboard/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -656,6 +657,24 @@ app.post('/api/sites/:siteId/seo/health', async (c) => {
   if (!(await isFlagOn(c.env, 'seo_agent', orgId, siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: runSeoHealthCheck(siteId, body) });
+});
+
+// Marketing Dashboard — widget config + metrics (flag: marketing_dashboard)
+app.get('/api/sites/:siteId/dashboard', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'marketing_dashboard', orgId, siteId))) return c.notFound();
+  const d = defaultDashboard(siteId);
+  const filter = c.req.query('sources');
+  return c.json({ data: filter ? filterBySource(d, filter.split(',') as any) : d });
+});
+app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'marketing_dashboard', c.get('orgId'), siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: buildMetric(body.label, body.current, body.previous, body.source || 'website') });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
