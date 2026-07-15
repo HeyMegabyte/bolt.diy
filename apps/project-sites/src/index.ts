@@ -1131,9 +1131,8 @@ app.all('*', async (c, next) => {
     method: c.req.method,
     headers,
     body: c.req.method !== 'GET' && c.req.method !== 'HEAD'
-      ? await c.req.raw.clone().arrayBuffer() : undefined,
-    redirect: 'manual',
-    cf: { cacheTtl: 0 },
+      ? c.req.raw.body : undefined,
+    redirect: 'follow',
   });
 
   const out = new Response(resp.body, resp);

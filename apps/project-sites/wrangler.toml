@@ -307,22 +307,22 @@ dataset = "projectsites_admin_v1"
 
 # Claude Code build container — custom image with Claude Code + skills + template pre-baked
 # standard-4 = 4 vCPU, 12 GiB RAM, 8 GB disk. Larger size accelerates parallel prompt execution.
-[[env.production.containers]]
-class_name = "SiteBuilderContainer"
-image = "./Dockerfile"
-max_instances = 10
-instance_type = "standard-4"
-
-# AppRuntimeContainer — base "coming soon" placeholder. Catalog apps that
-# don't yet have a dedicated per-image DO subclass route here and surface
-# the friendly interstitial defined in `containers/app-runtime/Dockerfile`.
-# Per-image subclasses + their `[[containers]]` blocks below own the real
-# upstream images for the top-10 supported apps.
-[[env.production.containers]]
-class_name = "AppRuntimeContainer"
-image = "./containers/app-runtime/Dockerfile"
-max_instances = 50
-instance_type = "basic"
+#[[env.production.containers]]
+#class_name = "SiteBuilderContainer"
+#image = "./Dockerfile"
+#max_instances = 10
+#instance_type = "standard-4"
+#
+## AppRuntimeContainer — base "coming soon" placeholder. Catalog apps that
+## don't yet have a dedicated per-image DO subclass route here and surface
+## the friendly interstitial defined in `containers/app-runtime/Dockerfile`.
+## Per-image subclasses + their `[[containers]]` blocks below own the real
+## upstream images for the top-10 supported apps.
+#[[env.production.containers]]
+#class_name = "AppRuntimeContainer"
+#image = "./containers/app-runtime/Dockerfile"
+#max_instances = 50
+#instance_type = "basic"
 
 
 

@@ -264,7 +264,6 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
           external_url: null,
           error: err instanceof Error ? err.message : String(err),
         })),
-    }
     });
     const results = await Promise.all(publishPromises);
 
