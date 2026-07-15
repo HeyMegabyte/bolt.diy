@@ -549,6 +549,7 @@ export interface RegistryViolation {
 
 const STATUSES: ReadonlySet<ServiceStatus> = new Set([
   'planned',
+  'provisioned',
   'scaffolded',
   'integrated',
   'production',

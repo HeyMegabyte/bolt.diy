@@ -1125,6 +1125,66 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Re-enable → 200 again',
     ],
   },
+  site_tags: {
+    checklist: ['22-color label pills per site', 'Org-scoped, reusable across sites', 'D1-backed site_tag_assignments', 'Filterable in site list'],
+    explanation:
+      'Per-site colored label pills with custom names, colors (22 hues), and optional emoji icons. Tags are org-scoped — defined once, assigned to many sites. CRUD at /api/site-tags and /api/sites/:id/tags. Designed for the admin site list filter picker.',
+    smoke_test: [
+      'Enable flag → POST /api/site-tags {"name":"Production","color":"green"} → 201',
+      'PUT /api/sites/:id/tags {"tagIds":["<id>"]} → 200 with tag list',
+      'GET /api/site-tags → returns tag with site_count',
+    ],
+  },
+  system_status: {
+    checklist: ['10 integration health targets', '5s timeout per probe', 'Parallel aggregation via Promise.all', 'Returns overall + per-integration status'],
+    explanation:
+      'Aggregated health checks for all platform integrations (Listmonk, Lago, Nango, Dittofeed, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
+    smoke_test: [
+      'Enable flag → GET /api/system/status → 200 with overall+integrations array',
+      'Each integration has status (healthy/degraded/down/unknown) + latencyMs',
+      'Overall is "healthy" when all probes pass',
+    ],
+  },
+  activity_feed: {
+    checklist: ['Unified org event timeline', '14 event kinds from audit_logs', 'Cursor-based pagination', 'Actor name extraction from metadata'],
+    explanation:
+      'Unified org-scoped timeline of recent platform events — builds, publishes, deploys, domain changes, billing events, and member changes. Aggregated from the audit_logs table with cursor-based pagination (newest-first). Designed for the admin dashboard live-activity widget.',
+    smoke_test: [
+      'Enable flag → GET /api/activity → 200 with data[] + cursor + hasMore',
+      'Each entry has kind, summary, actorName, targetType, timestamp',
+      'Pass ?cursor=<ts> to paginate',
+    ],
+  },
+  mru_cards: {
+    checklist: ['Most-recently-active sites per org', 'JOIN audit_logs + sites with GROUP BY', 'Returns site name, slug, last action, timestamp', 'Configurable limit (1-20)'],
+    explanation:
+      '"Continue where you left off" — returns the N most recently active sites for the current org, ordered by last audit_log entry. Each card shows site name, slug, last action performed, and a timestamp. Drives the dashboard quick-jump widget.',
+    smoke_test: [
+      'Enable flag → GET /api/mru → 200 with data[] of site cards',
+      'Pass ?limit=10 to return up to 10 cards',
+      'Cards ordered by last activity descending',
+    ],
+  },
+  usage_gauges: {
+    checklist: ['4 metrics: sites, builds, media_gb, bandwidth_gb', 'Live D1 aggregation', 'Pct-of-free-tier-limit per metric', 'SVG gauge-ring ready output'],
+    explanation:
+      'Per-org usage metrics computed from live D1 queries — site count, build count, estimated media storage, and bandwidth. Each metric includes the used value, the free-tier limit, and a computed percentage (capped at 100). Designed to feed SVG gauge-ring components in the admin dashboard.',
+    smoke_test: [
+      'Enable flag → GET /api/usage → 200 with data[] of 4 gauges',
+      'Each gauge has metric, label, used, limit, unit, pct',
+      'Pct is capped at 100',
+    ],
+  },
+  dittofeed_integration: {
+    checklist: ['Segment-compatible event pipeline', 'Fan-out from platform events to Dittofeed', 'Identify/track/page + Admin API (journey/segment/template CRUD)', 'Flag-gated with default-off rollout'],
+    explanation:
+      'Dittofeed customer engagement event pipeline. Fans out platform events (site created, build completed, first lead, billing changes) to Dittofeed via its Segment-compatible API. Also exposes Admin API for journey, segment, and template management. Uses outbox dispatch alongside Tinybird + Hatchet.',
+    smoke_test: [
+      'Enable flag → trigger a platform event → verify Dittofeed receives the event',
+      'GET /api/dittofeed/status → returns workspace health',
+      'Flag off → events are not dispatched to Dittofeed',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {
