@@ -298,7 +298,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] **Optimistic UI on CRUD** — **DONE 2026-07-15:** frontend OptimisticCrudService (providedIn:root, save/remove with signal rollback + toast on error, ng build verified) `optimistic:true` option, update signal immediately, rollback + toast on error
 - [x] [auto] **"Jump back" floating button** — bottom-right FAB with `previousRoute` tracking + keyboard nav (2026-07-13)
 - [x] [auto] **Site list density toggle** — **DONE 2026-07-15:** frontend DensityService (providedIn:root, signal+effect, localStorage, data-density attribute) + _admin-polish.scss grid/font/spacing for 3 modes
-- [ ] [auto] **Drag-to-reorder sidebar** — Angular CDK drag-drop on nav items, localStorage persisted
+- [x] [auto] **Drag-to-reorder sidebar** — **DONE 2026-07-15:** frontend DragReorderDirective (standalone, HTML5 drag-drop, localStorage persistence, input group key, output reordered event, ng build verified)
 - [x] [auto] **Batch site operations** — **DONE 2026-07-15:** libs/features/batch_operations/ — rebuild/snapshot/delete, per-site ownership validation, 4 unit tests, flag batch_operations
 - [x] [auto] **Full-width mode toggle** — `g w` shortcut, `fullWidth` signal, toggle button in top bar, SCSS hover-zone collapse (2026-07-13)
 
