@@ -7,7 +7,7 @@
  * ## Default: Upstash
  * All catalog apps use Upstash Redis by default. Fly Redis is reserved for
  * Nango only — it's an OAuth proxy where cache latency hits every proxied API
- * call. Apps that don't need sub-ms Redis (Teable, Postiz — spreadsheet cache +
+ * call. Apps that don't need sub-ms Redis (Teable, Native Social — spreadsheet cache +
  * job queue) use Upstash via catalog auto-provisioning.
  *
  * To override to Fly Redis: set `FLY_REDIS_PRIMARY=true` in the app's env.

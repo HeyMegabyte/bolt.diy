@@ -46,12 +46,12 @@ export const APP_LISTINGS: readonly AppListing[] = [
     status: 'live',
   },
   {
-    slug: 'postiz',
-    name: 'Postiz',
-    description: 'Social media scheduler',
+    slug: 'social_native',
+    name: 'Native Social',
+    description: 'Social media publishing — CF-native (Workflows v2 + Upstash + D1)',
     url: 'https://social.projectsites.dev',
     category: 'social',
-    tags: ['social-media', 'scheduling', 'analytics'],
+    tags: ['social-media', 'scheduling', 'analytics', 'cf-native'],
     status: 'live',
   },
   {
