@@ -73,6 +73,8 @@ import { claimRoutes } from './routes/claim.js';
 import { i18n } from './routes/i18n.js';
 import { siteRollbackRoutes } from './routes/site_rollback.js';
 import { handleCodeExport } from '../libs/features/code_export/handlers.js';
+import { buildCritique } from '../libs/features/ai_site_critic/service.js';
+import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -429,6 +431,36 @@ app.get('/api/sites/:siteId/export', async (c) => {
   const siteId = c.req.param('siteId');
   return handleCodeExport(c, siteId);
 }); // ZIP download — deployable CF Worker project (flag: code_export)
+
+// AI Website Critic — structured site critique with A-F grading (flag: ai_site_critic)
+app.post('/api/sites/:siteId/critic', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'ai_site_critic', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const dimensions = Array.isArray(body.dimensions) ? body.dimensions : [];
+  const critique = buildCritique(siteId, body.url || `https://${siteId}.projectsites.dev`, dimensions, {
+    industry: body.industry,
+    competitorUrls: body.competitorUrls,
+  });
+  return c.json({ data: critique });
+});
+
+// GEO Toolkit — dual-score content analyzer for AI answer engine visibility (flag: geo_toolkit)
+app.post('/api/sites/:siteId/geo-analyze', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'geo_toolkit', orgId, siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.content || typeof body.content !== 'string') {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'content is required' } }, 400);
+  }
+  const analysis = analyzeGeo(body.url || `https://${siteId}.projectsites.dev`, body.content, body.existingJsonLd || []);
+  return c.json({ data: analysis });
+});
+
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing
