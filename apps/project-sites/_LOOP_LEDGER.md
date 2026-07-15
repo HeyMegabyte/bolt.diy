@@ -288,8 +288,8 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [ ] [auto] Onboarding progress ring
 - [ ] [auto] Natural-language analytics queries (Workers AI intent parser)
 - [ ] [auto] Usage gauge rings (SVG rings for Build Minutes/Media/Bandwidth)
-- [ ] [auto] Site tags/labels (colored pills, D1-backed, filterable)
-- [ ] [auto] System status strip (🟢🟡🔴 per-integration health in top bar)
+- [x] [auto] Site tags/labels (colored pills, D1-backed, filterable) — **DONE 2026-07-15:** libs/features/site_tags/ — D1 migration 0609, 22-color enum, 5 service fns, 6 routes, 11 unit tests, flag site_tags (experimental, default-off)
+- [x] [auto] System status strip — **DONE 2026-07-15:** libs/features/system_status/ — 10-target health probe, 5s timeout, parallel aggregation, 7 unit tests, flag system_status (experimental, default-off) (🟢🟡🔴 per-integration health in top bar)
 - [ ] [auto] Site health sparklines (7-day mini SVG traffic trend per site in list)
 - [ ] [auto] Cmd+K natural language actions ("rebuild njsk" → offers action)
 - [ ] [auto] Inline AI site auditor (one-click Scan Site → site_doctor grade+fixes)

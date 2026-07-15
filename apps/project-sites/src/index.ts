@@ -784,6 +784,14 @@ app.get('/api/sites/:siteId/tags', async (c) => {
   return handleGetSiteTags(c);
 });
 
+// System Status — aggregated integration health (flag: system_status)
+app.get('/api/system/status', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'system_status', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSystemStatus } = await import('../libs/features/system_status/handlers.js');
+  return handleSystemStatus(c);
+});
+
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing
