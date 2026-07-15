@@ -89,6 +89,7 @@ import { createPortal, validateAccess } from '../libs/features/customer_portal/s
 import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
 import { defaultDashboard, filterBySource, buildMetric } from '../libs/features/marketing_dashboard/service.js';
 import { generateProposals, scoreEngagement } from '../libs/features/social_agent/service.js';
+import { parseVoiceCommand } from '../libs/features/voice_site_mgmt/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -692,6 +693,15 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
   if (!(await isFlagOn(c.env, 'social_agent', c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: scoreEngagement(body.account, body.metrics) });
+});
+
+// Voice Site Mgmt — voice command parser (flag: voice_site_mgmt)
+app.post('/api/sites/:siteId/voice-command', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./services/feature_flags.js');
+  if (!(await isFlagOn(c.env, 'voice_site_mgmt', c.get('orgId'), siteId))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: parseVoiceCommand(body.transcript || '') });
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
