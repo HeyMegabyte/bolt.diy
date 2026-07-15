@@ -1118,6 +1118,25 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           }
         })();
 
+        // GitHub repo sync — commit + push all generated files to the site's
+        // private repo at github.com/projectsites-dev/{siteId}. Fire-and-forget
+        // so GitHub latency never blocks the build status response.
+        // Feature-flag-gated behind `github_repo_sync` (experimental, default-off).
+        void (async () => {
+          try {
+            const { isFlagOn } = await import('../services/feature_flags.js');
+            if (!(await isFlagOn(env, 'github_repo_sync', params.orgId, params.siteId))) return;
+            const { pushBuild } = await import('../services/github_repo.js');
+            const files = (sourceFiles as Array<{ name: string; content: string }>).map((f) => ({
+              path: f.name.startsWith('/') ? f.name.slice(1) : f.name,
+              content: f.content,
+            }));
+            await pushBuild(env, params.siteId, files, `feat(site): build ${version}`);
+          } catch {
+            // fail-soft — GitHub sync must never break the build pipeline
+          }
+        })();
+
         // Update D1 status to published
         await env.DB.prepare(
           "UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?",
