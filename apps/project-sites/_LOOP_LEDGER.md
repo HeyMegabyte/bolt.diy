@@ -287,7 +287,7 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] "Continue where you left off" MRU cards — **DONE 2026-07-15:** libs/features/mru_cards/ — audit_logs+sites join, GROUP BY recency, 4 unit tests, flag mru_cards (experimental, default-off)
 - [ ] [auto] Onboarding progress ring
 - [ ] [auto] Natural-language analytics queries (Workers AI intent parser)
-- [ ] [auto] Usage gauge rings (SVG rings for Build Minutes/Media/Bandwidth)
+- [x] [auto] Usage gauge rings — **DONE 2026-07-15:** libs/features/usage_gauges/ — 4 metrics (sites/builds/media_gb/bandwidth_gb), D1 aggregation, pct-of-limit computed, 4 unit tests, flag usage_gauges (experimental, default-off)
 - [x] [auto] Site tags/labels (colored pills, D1-backed, filterable) — **DONE 2026-07-15:** libs/features/site_tags/ — D1 migration 0609, 22-color enum, 5 service fns, 6 routes, 11 unit tests, flag site_tags (experimental, default-off)
 - [x] [auto] System status strip — **DONE 2026-07-15:** libs/features/system_status/ — 10-target health probe, 5s timeout, parallel aggregation, 7 unit tests, flag system_status (experimental, default-off) (🟢🟡🔴 per-integration health in top bar)
 - [ ] [auto] Site health sparklines (7-day mini SVG traffic trend per site in list)

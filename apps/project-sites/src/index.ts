@@ -792,6 +792,14 @@ app.get('/api/system/status', async (c) => {
   return handleSystemStatus(c);
 });
 
+// Usage Gauges — per-org usage metrics (flag: usage_gauges)
+app.get('/api/usage', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'usage_gauges', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleUsageGauges } = await import('../libs/features/usage_gauges/handlers.js');
+  return handleUsageGauges(c);
+});
+
 // MRU Cards — recently-active sites for dashboard (flag: mru_cards)
 app.get('/api/mru', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
