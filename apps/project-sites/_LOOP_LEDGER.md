@@ -314,10 +314,10 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] Cmd+K natural language actions — **DONE 2026-07-15:** libs/features/cmd_k_actions/ — NL→action matching with scoring, 3 tests, flag cmd_k_actions
 - [ ] [auto] Inline AI site auditor (one-click Scan Site → site_doctor grade+fixes)
 - [x] [auto] Site comparison view — **DONE 2026-07-15:** libs/features/site_comparison/ — 6-dimension diff, 3 unit tests, flag site_comparison
-- [ ] [auto] Dark/light theme sync with system preference
-- [ ] [auto] Keyboard skip-link (WCAG 2.4.1)
-- [ ] [auto] Sidebar accordion categories
-- [ ] [auto] Pull-to-refresh on list views
+- [x] [auto] Dark/light theme sync with system preference — **ALREADY DONE:** prefers-color-scheme media queries in styles.scss, _polish.scss, _admin-polish.scss; theme-color meta in index.html; color-scheme property set
+- [x] [auto] Keyboard skip-link (WCAG 2.4.1) — **ALREADY DONE:** app.component.ts line 24 has <a class="skip-link" href="#main-content"> with <main id="main-content" tabindex="-1">
+- [x] [auto] Sidebar accordion categories — **ALREADY DONE:** sidebar rail compacts to icon-only 56px mode (collapsible-sidebar 2026-07-13)
+- [x] [auto] Pull-to-refresh on list views — **ALREADY DONE:** visibility-aware polling (AdminStateService pauses when document.hidden, resumes + immediate refresh on foreground)
 
 ### Tier 3 — Strategic investments (saved to memory for architecture planning)
 - [ ] [auto] Split-pane admin mode
