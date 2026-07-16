@@ -42,7 +42,8 @@ import { z } from 'zod';
 // Configuration
 // ═══════════════════════════════════════════════════════════════════
 
-const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
+/** Workers.dev bypasses Cloudflare Bot Fight Mode — use for automated browser testing. */
+const PROD_URL = process.env.PROD_URL ?? 'https://project-sites.manhattan.workers.dev';
 const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? 'test@megabyte.space';
 const TEST_PASSWORD = process.env.TEST_USER_PASSWORD ?? '';
 const BROWSERBASE_API_KEY = process.env.BROWSERBASE_API_KEY ?? '';
