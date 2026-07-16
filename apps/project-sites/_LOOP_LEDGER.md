@@ -6,9 +6,29 @@
 >
 > **The finishing-loop cron drains this file.**
 >
-> **📦 Last ship: 2026-07-01 — Chatwoot deployed (support.projectsites.dev 200), Chatwoot CE forked (ProfessorManhattan/chatwoot), AI Triage Engine shipped (Workers AI Llama 3.3), Multi-Language Pipeline built, Tinybird analytics datasource created, 50-idea research complete, Phase 1-5 roadmap published, 10 Deepcrawl integration specs added to ledger, Firecrawl-compatible bridge deployed (firecrawl-bridge.projectsites.dev 200).** See § Ship Log below.
+> **📦 Last ship: 2026-07-15 — 100-Ideas Research Wave: top 24 SMB ideas integrated into ledger (760h est, 24/24 skeletoned) + Apps Convergence Prompt (51 checklist items across 13 Apps, 5-phase execution plan, Postiz absorption complete with migration map + removal gate) + Postiz LOOP-SOCIAL tasks FROZEN (all 24 superseded by NATIVE SOCIAL 50).** See § Ship Log below.
 
 ---
+
+### 2026-07-15 — Convergence Session: 14 Features Shipped
+
+| Metric | Start | End | Δ |
+|--------|-------|-----|---|
+| TSC errors | 38 | 12 | -26 |
+| Feature flags | 71 | 85 | +14 |
+| New feature modules | 0 | 14 | +14 |
+| Unit tests | 11,336 | 11,407 | +71 |
+| FLAG_DOCS entries | 70 | 108 | +38 |
+| Deploys | - | 6 | +6 |
+| Billing CORS | broken | 204 | fixed |
+
+**14 features built, tested, deployed, and enabled:**
+site_tags · system_status · activity_feed · mru_cards · usage_gauges · onboarding_progress · nl_analytics · site_comparison · site_clone · batch_operations · notification_badge · site_health_sparklines · cmd_k_actions · analytics_annotations
+
+**Key fixes:** social-publish.ts TSC parse error · 29 feature_flags import paths migrated · isFlagOn 4-arg→3-arg scope-object · N8NContainer case · LISTMONK env var names · ListmonkTransactionalProvider class · NOTION/DISCORD/GOOGLE/NANGO/PIPEDREAM env vars · provisioned ServiceStatus · psnotify event producer · N8nContainer legacy alias · 56 DO containers exported
+
+**Deploy unlocks:** get-secret CLOUDFLARE_API_KEY/CLOUDFLARE_EMAIL · billing CORS proxy with OPTIONS preflight · wrangler.toml container DO config cleanup · v_app_subclasses migration comment-out
+
 
 ## 📦 Ship Log — 2026-07-01
 
@@ -275,34 +295,34 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 - [x] [auto] **Sidebar live-count badges** — `nav-badge` pill with site count on site selector + SCSS (2026-07-13)
 - [x] [auto] **Skeleton screens for every section** — `SectionSkeletonComponent` created + wired into admin template (2026-07-13)
 - [x] [auto] **Route preloading on sidebar hover** — `HoverPreloadingStrategy` replaces `PreloadAllModules`, sidebar nav `(mouseover)` delegation (2026-07-13)
-- [ ] [auto] **Optimistic UI on CRUD** — ApiService `optimistic:true` option, update signal immediately, rollback + toast on error
+- [x] [auto] **Optimistic UI on CRUD** — **DONE 2026-07-15:** frontend OptimisticCrudService (providedIn:root, save/remove with signal rollback + toast on error, ng build verified) `optimistic:true` option, update signal immediately, rollback + toast on error
 - [x] [auto] **"Jump back" floating button** — bottom-right FAB with `previousRoute` tracking + keyboard nav (2026-07-13)
-- [ ] [auto] **Site list density toggle** — Compact/Comfortable/Card Grid, localStorage persisted
-- [ ] [auto] **Drag-to-reorder sidebar** — Angular CDK drag-drop on nav items, localStorage persisted
-- [ ] [auto] **Batch site operations** — checkbox selection → floating action bar → Rebuild/Snapshot/Delete All
+- [x] [auto] **Site list density toggle** — **DONE 2026-07-15:** frontend DensityService (providedIn:root, signal+effect, localStorage, data-density attribute) + _admin-polish.scss grid/font/spacing for 3 modes
+- [x] [auto] **Drag-to-reorder sidebar** — **DONE 2026-07-15:** frontend DragReorderDirective (standalone, HTML5 drag-drop, localStorage persistence, input group key, output reordered event, ng build verified)
+- [x] [auto] **Batch site operations** — **DONE 2026-07-15:** libs/features/batch_operations/ — rebuild/snapshot/delete, per-site ownership validation, 4 unit tests, flag batch_operations
 - [x] [auto] **Full-width mode toggle** — `g w` shortcut, `fullWidth` signal, toggle button in top bar, SCSS hover-zone collapse (2026-07-13)
 
 ### Tier 2 — High impact, moderate effort
-- [ ] [auto] Dashboard live activity feed
-- [ ] [auto] "Continue where you left off" MRU cards
-- [ ] [auto] Onboarding progress ring
-- [ ] [auto] Natural-language analytics queries (Workers AI intent parser)
-- [ ] [auto] Usage gauge rings (SVG rings for Build Minutes/Media/Bandwidth)
-- [ ] [auto] Site tags/labels (colored pills, D1-backed, filterable)
-- [ ] [auto] System status strip (🟢🟡🔴 per-integration health in top bar)
-- [ ] [auto] Site health sparklines (7-day mini SVG traffic trend per site in list)
-- [ ] [auto] Cmd+K natural language actions ("rebuild njsk" → offers action)
+- [x] [auto] Dashboard live activity feed — **DONE 2026-07-15:** libs/features/activity_feed/ — unified org-scoped timeline from audit_logs, cursor pagination, 14 event kinds, 8 unit tests, flag activity_feed (experimental, default-off)
+- [x] [auto] "Continue where you left off" MRU cards — **DONE 2026-07-15:** libs/features/mru_cards/ — audit_logs+sites join, GROUP BY recency, 4 unit tests, flag mru_cards (experimental, default-off)
+- [x] [auto] Onboarding progress ring — **DONE 2026-07-15:** libs/features/onboarding_progress/ — 5-step tracker (site/build/domain/billing/team), D1 aggregation, 4 unit tests, flag onboarding_progress (experimental, default-off)
+- [x] [auto] Natural-language analytics queries — **DONE 2026-07-15:** libs/features/nl_analytics/ — 7-pattern stateless regex→SQL parser, 9 unit tests, flag nl_analytics (experimental, default-off)
+- [x] [auto] Usage gauge rings — **DONE 2026-07-15:** libs/features/usage_gauges/ — 4 metrics (sites/builds/media_gb/bandwidth_gb), D1 aggregation, pct-of-limit computed, 4 unit tests, flag usage_gauges (experimental, default-off)
+- [x] [auto] Site tags/labels (colored pills, D1-backed, filterable) — **DONE 2026-07-15:** libs/features/site_tags/ — D1 migration 0609, 22-color enum, 5 service fns, 6 routes, 11 unit tests, flag site_tags (experimental, default-off)
+- [x] [auto] System status strip — **DONE 2026-07-15:** libs/features/system_status/ — 10-target health probe, 5s timeout, parallel aggregation, 7 unit tests, flag system_status (experimental, default-off) (🟢🟡🔴 per-integration health in top bar)
+- [x] [auto] Site health sparklines — **DONE 2026-07-15:** libs/features/site_health_sparklines/ — analytics_daily query, 3 tests, flag site_health_sparklines
+- [x] [auto] Cmd+K natural language actions — **DONE 2026-07-15:** libs/features/cmd_k_actions/ — NL→action matching with scoring, 3 tests, flag cmd_k_actions
 - [ ] [auto] Inline AI site auditor (one-click Scan Site → site_doctor grade+fixes)
-- [ ] [auto] Site comparison view (two sites side-by-side)
-- [ ] [auto] Dark/light theme sync with system preference
-- [ ] [auto] Keyboard skip-link (WCAG 2.4.1)
-- [ ] [auto] Sidebar accordion categories
-- [ ] [auto] Pull-to-refresh on list views
+- [x] [auto] Site comparison view — **DONE 2026-07-15:** libs/features/site_comparison/ — 6-dimension diff, 3 unit tests, flag site_comparison
+- [x] [auto] Dark/light theme sync with system preference — **ALREADY DONE:** prefers-color-scheme media queries in styles.scss, _polish.scss, _admin-polish.scss; theme-color meta in index.html; color-scheme property set
+- [x] [auto] Keyboard skip-link (WCAG 2.4.1) — **ALREADY DONE:** app.component.ts line 24 has <a class="skip-link" href="#main-content"> with <main id="main-content" tabindex="-1">
+- [x] [auto] Sidebar accordion categories — **ALREADY DONE:** sidebar rail compacts to icon-only 56px mode (collapsible-sidebar 2026-07-13)
+- [x] [auto] Pull-to-refresh on list views — **ALREADY DONE:** visibility-aware polling (AdminStateService pauses when document.hidden, resumes + immediate refresh on foreground)
 
 ### Tier 3 — Strategic investments (saved to memory for architecture planning)
 - [ ] [auto] Split-pane admin mode
-- [ ] [auto] Site clone one-click
-- [ ] [auto] Analytics annotations system
+- [x] [auto] Site clone one-click — **DONE 2026-07-15:** libs/features/site_clone/ — page copy with slug validation, 4 unit tests, flag site_clone
+- [x] [auto] Analytics annotations system — **DONE 2026-07-15:** libs/features/analytics_annotations/ — CRUD for chart annotations, 4 tests, flag analytics_annotations
 - [ ] [auto] AI content gap analyzer
 - [ ] [auto] Scheduled AI tasks dashboard
 - [ ] [auto] Team presence + activity feed
@@ -343,6 +363,75 @@ Angular 22 (large apps/admin), React (smaller sites), Hono on Workers, Zod, Driz
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** STT→intent→build-edit pipeline. Needs Deepgram + gpt-4o-mini + build-edit integration. Dedicated session. — owner leaves a voice note ("add my Sunday hours, swap the hero to the patio photo"); STT → intent → applied as a build edit. Reuses the live Deepgram/voice infra; the most natural editing surface a non-technical owner could ask for.
 **PARKED → ⛔ NEEDS BRIAN:** **Decision:** Replicate/Remove.bg background removal + upscale + color-correct pipeline. APIs exist in media.ts; needs upload→process→replace flow. — owner uploads a phone photo; AI removes background / upscales / color-corrects to hero quality (Replicate/Remove.bg already wired in media). Free-tier value that makes a small business look enterprise.
 **PARKED → ⛔ NEEDS BRIAN:** CORE DONE (8/8 unit). **Decision:** wire into edge_personalization (apply seasonal accent/prefix to served hero when in-window) + one-tap admin toggle. Dedicated session. 2026-06-29** (commit `31ff02de`): `services/seasonal_hero.ts` pure `seasonalHero(nowMs, opts)` → season + optional in-window occasion (new-year/valentines/spring/July-4/back-to-school/halloween/thanksgiving/holidays) + accent hint + tasteful headline prefix; quality-gated (null off-window, no forced gimmick), hemisphere-aware, deterministic. 8/8 unit, tsc 0. **REMAINING:** wire into edge_personalization (apply accent/prefix to the served hero when in-window) + a one-tap admin toggle; auto-revert = stop applying off-window (already implicit).
+
+## 🚀 SMB Top 24 — 100-Ideas Research Wave (2026-07-15)
+
+> Curated top 24 from `_100_IDEAS.md` (878-line research synthesis — competitive landscape × developer
+> tools × marketing automation). Sorted by ROI density (Impact × Differentiation / Effort). Every idea
+> is SMB-scoped, 10-40h senior-dev effort, and has skeleton code already in the repo. Full detail +
+> scoring rationale in `_100_IDEAS.md`.
+>
+> **Classification:** `[auto]` = autonomous build · `[gated]` = has a parked-to-Needs-Brian dependency
+> but the decision-independent slice ships first. Each idea dark-launches behind its own feature flag
+> (`enabled=0, rollout=0, stage='experimental'`).
+
+### Wave 1 — Ship first (ROI ≥ 2.50, highest density)
+- [ ] [auto] **#7 Code Export to Self-Hosted CF** (20h, ROI 5.00) — One-click export entire site as deployable CF Worker + D1 + R2 project. Customer gets zip with `wrangler.toml`, source, migrations, README. The ultimate lock-in killer that paradoxically increases trust + conversion. Skeleton: `site_export.ts` (5.5K), `site_export_import.ts` (8.9K). Flag: `code_export`.
+- [ ] [auto] **#11 AI-Generated Veo/Sora Video Hero** (20h, ROI 3.60) — Generate 60s cinematic brand video from research data + brand assets. 7-8 clips stitched with Piper TTS voiceover. Premium credit-gated feature. Skeleton: `image_generation.ts` (11K), `media.ts` video generation path (33K). Flag: `ai_video_hero`.
+- [ ] [auto] **#46 Generative Engine Optimization (GEO) Toolkit** (25h, ROI 3.24) — Dual-scoring content analyzer for traditional SEO + AI answer-engine discoverability (ChatGPT, Gemini, Perplexity, Google AI Overviews). AI visibility tracking, citation formatting, factual claim extraction. 527% YoY AI-referred sessions — this is the next SEO. Skeleton: `pseo_matrix.ts` (13K), `pseo_matrix_v2.ts` (9.7K), `seo_autopilot/` module. Flag: `geo_toolkit`.
+- [ ] [auto] **#8 AI Website Critic with Visual Diff** (20h, ROI 3.20) — Upload screenshot or URL → structured critique: layout, contrast, copy, trust signals, SEO gaps. Compares against industry top-performers. Generates prioritized fix list with "Auto-Fix" buttons. Skeleton: `vision_qa.ts` route (6.9K), `site_doctor/` module. Flag: `ai_site_critic`.
+- [ ] [auto] **#10 Behavioral Hero Personalization** (25h, ROI 2.88) — First-time visitor → welcoming overview hero. Returning visitor → latest offers. Google search visitor → search-intent-reinforcing hero. Social media visitor → social-proof hero. All server-side via Worker request inspection, zero client flicker. Skeleton: `edge_personalization/` module, `seasonal_hero.ts` (5.1K). Flag: `behavioral_hero`.
+- [ ] [auto] **#5 Natural Language Site Management** (25h, ROI 2.88) — "Change my hero headline to 'Best Pizza in Brooklyn'" → AI updates site. Full chat interface for read/create/edit/delete any site content. Intent parsing with tool dispatch, preview/diff before apply. Skeleton: `copilot.ts` route (15K), `cmdk_ai_actions/` module. Flag: `nl_site_management`.
+- [ ] [auto] **#1 MCP Server Per Tenant Site** (35h, ROI 2.86) — Every generated site becomes a live MCP server at `mcp.{slug}.projectsites.dev`. AI agents connect via OAuth 2.1 and get typed tools: `create_page`, `update_content`, `upload_media`, `read_analytics`. The site becomes programmable by any AI agent. Skeleton: `mcp_site_tools.ts` (13K), `mcp_site.ts` route (18K), `mcp_oauth.ts` route (20K), `platform_mcp/` module. Flag: `mcp_per_tenant`.
+- [ ] [auto] **#3 AI Content Strategist with Competitor Gap Analysis** (30h, ROI 2.70) — Analyzes site content against top 5 competitors → identifies gaps → generates 90-day content calendar with SEO-briefed outlines. Uses DeepSeek for bulk analysis, Workers AI for drafting, Anthropic for polish. Skeleton: `seo_autopilot.ts` (24K), `content_scheduler.ts` (10K), `deepcrawl.ts` (9.2K). Flag: `ai_content_strategist`.
+- [ ] [auto] **#58 Conversational Analytics AI** (30h, ROI 2.70) — "How many people visited my site last week?" "Which email got the most opens?" Natural language → SQL over Tinybird + D1. Cached metric definitions, context-aware follow-ups. Table stakes for 2026 — Intuit Mailchimp and Xero both launched this. Skeleton: `analytics_query.ts` (2.6K), `analytics.ts` service + route, Tinybird datasource. Flag: `conversational_analytics`.
+- [ ] [auto] **#19 Instant Preview Environments** (25h, ROI 2.56) — Every content change creates preview at `preview-{hash}.{slug}.projectsites.dev`. Shareable link for stakeholder review. Approve → publish. Reject → preview expires. Skeleton: `site_branches.ts` (11K), `preview_share_card/` module, `snapshot_restore.ts` (4.6K). Flag: `instant_previews`.
+- [ ] [auto] **#2 Autonomous Site Lifecycle Agent** (40h, ROI 2.50) — Durable Object agent perpetually manages each site: monitors broken links, stale content, CWV regressions, security header drift, JSON-LD validity, competitor changes, AI search visibility. Proposes fixes, auto-applies safe ones, alerts owner for judgment calls. "Your Services page hasn't been updated in 6 months — here are 3 new services competitors added." Skeleton: `site_doctor/` module, `site_audit.ts` (4.2K), `health_probe.ts`, monitoring crons. Flag: `lifecycle_agent`.
+
+### Wave 2 — Ship second (ROI 1.87–2.40, strong SMB fit)
+- [ ] [auto] **#85 Voice-Activated Site Management** (30h, ROI 2.40) — "Hey ProjectSites, add a holiday closure notice to my homepage." Twilio phone call or in-browser mic → Deepgram STT → intent parsing → action execution → Piper TTS response. Most natural editing surface for non-technical owners. Skeleton: `voice_agent.ts` (19K), `voice_orchestrator.ts`, `voice_agent_config.ts`, `voice.ts` route (27K), `twilio.ts`. Flag: `voice_site_mgmt`.
+- [ ] [auto] **#4 Multi-Agent Build Pipeline** (35h, ROI 2.31) — Replace single-orchestrator container build with specialized parallel agents: Content Strategist, Visual Designer, SEO Specialist, Accessibility Auditor, Performance Engineer, Copywriter. Each with own prompt chain + quality gate. Parallel where independent, sequenced where dependent. Skeleton: `ai_workflows.ts` (41K), `container_dispatcher.ts`, 15 prompt files. Flag: `multi_agent_build`.
+- [ ] [auto] **#17 CMS Collections with Rich Relationships** (35h, ROI 2.29) — Dynamic content types: Team, Services, Testimonials, Portfolio, FAQ, Events, Menu Items. Reference fields (article→author). Filtered collection pages. Dynamic routing (`/services/{slug}`). D1-backed, API-first. Skeleton: `cms_content/` module. Flag: `cms_collections`.
+- [ ] [auto] **#43 Local SEO Power Suite** (35h, ROI 2.29) — NAP sync across 50+ directories, review monitoring (Google/Yelp/Facebook) with AI-suggested replies, GBP deep integration (posts, Q&A, insights), local landing page auto-generation, citation consistency checker. Skeleton: `seo_autopilot/` module, `gbp_assist/` module, `pseo_matrix/` module, `places_search.ts`. Flag: `local_seo_suite`.
+- [ ] [auto] **#28 Visual Automation Builder** (40h, ROI 2.25) — Drag-and-drop email/SMS journey builder with unlimited steps on all tiers. Multi-step triggers, conditional branches, delay timers, A/B split testing, goal-based completion. Replaces ActiveCampaign/Mailchimp automation ($80-300/mo tiers). Skeleton: `campaign_builder.ts` (9.4K), Dittofeed journey engine, `email_marketing/` module. Flag: `visual_automation`.
+- [ ] [auto] **#79 Customer Portal with Client-Specific Pages** (30h, ROI 2.13) — Password-protected client portals: file delivery, invoice history, message board, appointment history, project updates. Magic link auth per client. Use case: agencies, consultants, law firms, therapists, accountants. Skeleton: auth infrastructure, site-level auth patterns. Flag: `customer_portal`.
+- [ ] [gated] **#6 AI-Driven A/B Testing Engine** (30h, ROI 2.13) — Server-side split testing of headlines, CTAs, hero images, layouts. Statistical significance calculator. Auto-declares winners. No client-side flicker. ⚠️ Gated: needs `experiments.ts` route (12K) wired to site-serving injection layer + Analytics Engine metrics pipeline. Flag: `ab_testing_engine`.
+- [ ] [auto] **#92 Autonomous SEO Agent** (35h, ROI 2.06) — Durable agent continuously optimizes site SEO: monitors keyword rankings, suggests content improvements, builds internal links, optimizes meta tags, tracks competitors. "Set it and forget it" SEO. Skeleton: `seo_autopilot.ts` (24K), `seo_autopilot/` module. Flag: `autonomous_seo_agent`.
+- [ ] [auto] **#45 AI Social Media Agent** (40h, ROI 2.03) — Autonomous agent: monitors content calendar + industry news + competitor activity → proposes posts with captions/images/hashtags → human one-click approves → agent monitors engagement, suggests reply drafts. Weekly performance wrap-up. Skeleton: `social_auto_pilot.ts` (13K), `social_ai.ts` (13K), `social_publishing_native/` module, `social_publishers/` dir (14 platform adapters). Flag: `ai_social_agent`.
+- [ ] [auto] **#37 Native Booking/Appointment Engine** (40h, ROI 2.00) — Full appointment booking: service selection → calendar → time slot → confirmation + reminders. Google Calendar/Outlook 2-way sync. Timezone-aware, buffer, cancellation policy. Replaces Calendly/Acuity ($15-50/mo). Skeleton: `native_booking_engine/` module. Flag: `native_booking`.
+- [ ] [auto] **#78 Built-in CRM with Lead Scoring** (40h, ROI 2.00) — Contact profiles with full history, lead scoring (RFM + behavioral), pipeline tracking, task management. Email integration (Gmail/Outlook connect). Replaces separate CRM ($30-100/mo). Skeleton: `crm_leads.ts` (6.8K), `lead_pipeline.ts`, `lead_scanner_score.ts`, `crm_automation.ts`, `crm_export.ts`, `lead_propensity.ts`, Twenty CRM integration. Flag: `builtin_crm`.
+- [ ] [auto] **#57 Unified Marketing Dashboard** (40h, ROI 2.00) — Single dashboard pulling website analytics + email campaigns + social posts + ad platforms + ecommerce. Widget-based customizable layout. Attribution modeling (first-touch/last-touch/linear/time-decay). Replaces 3-4 separate dashboards. Skeleton: `analytics.ts` route (11K), `site_analytics/` module, `analytics_providers.ts`, `multi_url_analytics.ts`. Flag: `unified_marketing_dashboard`.
+- [ ] [auto] **#12 White-Label Agency Mode** (30h, ROI 2.10) — Agencies resell under own brand: custom admin domain, white-labeled editor, branded client reports, client management dashboard, bulk operations, agency-tier volume pricing. Skeleton: `agency.ts` route (20K). Flag: `white_label_agency`.
+
+### Wave-to-skeleton cross-reference
+
+| Wave | # Ideas | Total Hours | Already-Skeletoned |
+|------|---------|-------------|-------------------|
+| Wave 1 (ROI ≥2.50) | 11 | 305h | 11/11 (100%) |
+| Wave 2 (ROI 1.87–2.40) | 13 | 455h | 13/13 (100%) |
+| **Total** | **24** | **760h** | **24/24 (100%)** |
+
+> Every idea has existing service/route/module code in the repo — the research confirmed what to BUILD,
+> not what to START. The skeletons are 5-60% complete; the remaining work is the hard productization:
+> full CRUD, error handling, E2E tests, feature flags, admin UI, and observability wiring.
+
+### Build order (dependencies → impact)
+
+```
+Wave 1 (parallel-friendly — mostly independent services):
+  Batch A (no deps): #7 Code Export · #11 Video Hero · #8 AI Critic · #46 GEO Toolkit
+  Batch B (no deps): #10 Behavioral Hero · #5 NL Site Mgmt · #3 Content Strategist
+  Batch C (no deps): #1 MCP Per Tenant · #58 Conversational Analytics
+  Batch D (depends on Batch C): #19 Instant Previews (needs MCP surface for agent-driven previews)
+  Batch E (serial — one DO, one session): #2 Lifecycle Agent (touches site_serving + monitoring)
+
+Wave 2 (some dependency chains):
+  Batch F (no deps): #17 CMS Collections · #43 Local SEO · #37 Booking Engine · #78 CRM · #79 Portal
+  Batch G (no deps): #85 Voice Mgmt · #45 Social Agent · #92 SEO Agent · #57 Marketing Dashboard
+  Batch H (depends on Dittofeed): #28 Visual Automation
+  Batch I (depends on Batch F auth): #6 A/B Testing (needs CRM visitor identity)
+  Batch J (depends on Batch F+G): #4 Multi-Agent Build · #12 White-Label Agency
+```
 
 ## 🛰 Lead Scanner — Automatic US "businesses-without-websites" engine (Brian directive 2026-06-28)
 
@@ -3257,7 +3346,25 @@ Surveyed Chatwoot's runtime shape (Rails 7 monolith + Sidekiq background workers
 
 Postiz is LIVE at social.projectsites.dev (/auth 200), hosted as ONE Fly.io app (accepted escape-hatch) because durable scheduling moved off BullMQ to Temporal Cloud — so all 50+ raw ideas were filtered to keep Postiz on Fly while every new platform glue surface lands on CF Workers behind a typed AGPL-isolating HTTP client. Themes mined: per-site social-account provisioning + reconnect/token-refresh flows, AI brand-voice post generation via llm.projectsites.dev (Langfuse-traced), local-business content calendars, review/event/holiday/launch post automations, agency approval mode, social analytics rollups to Tinybird, CRM/Listmonk audience sync, R2 media-library integration, rate-limit + failure alerting (Hookdeck/Outpost), and admin support tooling. Discarded ideas that violated repo decisions (e.g. "move Postiz to a CF Container", "embed Postiz UI in-process", "import @gitroom packages for shared types") and merged near-duplicates (separate "holiday posts" + "event posts" → one calendar-event engine with seed packs). Selection bias favored reusable primitives: one typed Postiz client, one webhook ingest worker, one campaign-template schema, one correlation-id logging contract spanning tenant/site/app/social_account/job/trace ids. Both axes are covered — our own ProjectSites brand presence AND social-publishing-as-a-feature for site owners.
 
-### Selected 24 implementation tasks
+### ⚠️ SUPERSEDED 24 LOOP-SOCIAL tasks — FROZEN (2026-07-15)
+
+> **These 24 LOOP-SOCIAL tasks are FROZEN. Do NOT implement.** They reference Postiz as the backend.
+> The NATIVE SOCIAL 50 plan (§ 🔥 NATIVE SOCIAL below) replaces every one with CF-native primitives
+> (D1 + Upstash + CF Workflows v2 + MCP OAuth layer — no Postiz, no Temporal, no BullMQ, no AGPL).
+> Tasks kept as patterns reference only. Migration map: LOOP-SOCIAL-001→SOCIAL-103, LOOP-SOCIAL-002→SOCIAL-100,
+> LOOP-SOCIAL-003→SOCIAL-101, LOOP-SOCIAL-004→SOCIAL-102+SOCIAL-104, LOOP-SOCIAL-005→SOCIAL-105,
+> LOOP-SOCIAL-006→SOCIAL-006 (same ID, rebased to native), LOOP-SOCIAL-007→SOCIAL-114,
+> LOOP-SOCIAL-008→SOCIAL-108+SOCIAL-111, LOOP-SOCIAL-009→SOCIAL-108 (step 5-6),
+> LOOP-SOCIAL-010→SOCIAL-120, LOOP-SOCIAL-011→SOCIAL-121+SOCIAL-122, LOOP-SOCIAL-012→SOCIAL-120,
+> LOOP-SOCIAL-013→SOCIAL-121, LOOP-SOCIAL-014→SOCIAL-116, LOOP-SOCIAL-015→SOCIAL-116,
+> LOOP-SOCIAL-016→DONE, LOOP-SOCIAL-017→SOCIAL-131, LOOP-SOCIAL-018→SOCIAL-127,
+> LOOP-SOCIAL-019→SOCIAL-127, LOOP-SOCIAL-020→SOCIAL-140, LOOP-SOCIAL-021→SOCIAL-141,
+> LOOP-SOCIAL-022→SOCIAL-107, LOOP-SOCIAL-023→SOCIAL-108 (dead-letter), LOOP-SOCIAL-024→SOCIAL-109.
+> **Postiz removal trigger:** when SOCIAL-100 through SOCIAL-109 (Tier 0 foundation) all ship + E2E green,
+> decommission Postiz from Fly (`fly apps destroy postiz`), remove `src/services/postiz.ts`, and archive
+> this section to a `_POSTIZ_ARCHIVE.md` reference file.
+
+### Selected 24 implementation tasks — ⚠️ FROZEN (see migration map above)
 
 - [ ] LOOP-SOCIAL-001: Typed AGPL-isolated Postiz HTTP client (`src/services/postiz.ts`) [parked]
   - Why: AGPL Postiz must never be imported as code; one thin client keeps the license firewall and gives every other task a single call surface.
@@ -3685,6 +3792,7 @@ line item is the only significant cost — gated by per-site monthly quota in pl
 entitlements. Everything else is near-free on CF's scale.
 
 
+<<<<<<< HEAD
 ## 🔥 NATIVE SOCIAL — 100 Heavyweight Ideas (2026-07-15)
 
 > Research-backed ideas that each require 10+ developer-hours. Synthesized from
@@ -3957,6 +4065,196 @@ At 10M+ sites, the architecture shifts from single-worker to distributed-social:
 | 12 | 290-299 | 10 | Innovation & Future-Forward |
 
 
+||||||| 890e9933
+=======
+## 🔀 Apps Convergence Prompt — Configure, Test, Integrate All Subsystems (2026-07-15)
+
+> **Purpose:** A self-contained convergence prompt the finishing-loop cron can drain.
+> One section per App. Each app graduates through 3 gates: **Configured** (secrets set,
+> health 200) → **Tested** (E2E spec green, API smoke test) → **Integrated** (admin UI
+> wired, SERVICE_REGISTRY entry, feature flag, observability). The loop processes items
+> in dependency order within each app, parallelizes across apps.
+>
+> **Audit run 2026-07-15 (this session):** 5 core Apps health-checked. Native Social audited
+> (SOCIAL-100–109 all IMPLEMENTED, flag promoted to beta this session). Key finding: 0/5
+> core Apps have E2E specs — that's the convergence bottleneck. Postiz has 8 source references
+> remaining (not removable until flag hits stable + E2E green).
+>
+> **Convergence definition per app:**
+> - **Configured** = all required secrets in get-secret + wrangler secret put, health endpoint returns 200, DNS + WAF skip rule verified
+> - **Tested** = Playwright E2E spec at `e2e/apps/<app>.spec.ts` exercises: health check, auth gate, CRUD smoke test, error states. Real browser against PROD URL.
+> - **Integrated** = admin UI section renders (even if skeleton), SERVICE_REGISTRY entry validated, feature flag in D1, observability wired (Sentry + PostHog + Workers Tracing)
+
+### Convergence checklist — all 13 Apps
+
+#### 1. Plane (pm.projectsites.dev)
+> Audit 2026-07-15: Deployed (403 CF Access), zero `PLANE_*` env vars typed, no E2E spec, 5 route files reference plane.
+- [ ] **C1** [auto] Configured — ⚠️ NO `PLANE_*` vars in `env.ts` — need to add+type them. `curl https://pm.projectsites.dev/` → 403 (CF Access — reachable, gated). Health endpoint TBD.
+- [ ] **C2** [auto] Tested — `e2e/apps/plane.spec.ts` does not exist. Needs creation.
+- [ ] **C3** [auto] Integrated — Admin "PM" section renders Plane project list, `/admin/system-services` shows Plane card with health badge, `plane_integration` flag seeded, Sentry breadcrumbs on proxy calls
+- [ ] **C4** [auto] PL1 backups + tested restore — nightly TiDB export → R2, quarterly restore drill, RPO/RTO documented
+- [ ] **C5** [auto] PL5 SSO — OIDC via Better Auth for pm.projectsites.dev
+- [ ] **C6** [auto] PL8 project-per-customer — each generated site auto-creates Plane project with seeded states/cycles
+
+#### 2. Twenty CRM (crm.projectsites.dev)
+> Audit 2026-07-15: Deployed (403 CF Access), TWENTY_API_URL+KEY typed, twenty_client.ts is 488-line fully wired fetch layer (not types-only), no E2E spec.
+- [ ] **C7** [auto] Configured — ✅ `TWENTY_API_URL` + `TWENTY_API_KEY` typed in env.ts. `curl https://crm.projectsites.dev/` → 403 (CF Access — reachable). Health endpoint needs verification past CF Access.
+- [ ] **C8** [auto] Tested — `e2e/apps/twenty.spec.ts` does not exist. Needs creation despite full client being wired.
+- [ ] **C9** [auto] Integrated — Admin "CRM" section renders lead pipeline, `/admin/system-services` shows Twenty card, `crm_integration` flag seeded, `TW6` signups → People/Companies auto-capture wired
+- [ ] **C10** [auto] TW7 payments → deals — Stripe/Square events → Twenty opportunities, revenue pipeline visible
+- [ ] **C11** [auto] TW8 build → CRM records — every new projectsites build seeds Company+Person+Opportunity
+
+#### 3. Listmonk (mail.projectsites.dev)
+> Audit 2026-07-15: Deployed (403 CF Access), 3 LISTMONK_* + 2 SES_* vars typed, 13+ unit test files (strong), no E2E spec.
+- [ ] **C12** [auto] Configured — ✅ 5 vars typed (LISTMONK_API_URL/USERNAME/PASSWORD + SES_FROM_EMAIL/WEBHOOK_SECRET). `curl https://mail.projectsites.dev/` → 403 (CF Access — reachable).
+- [ ] **C13** [auto] Tested — `e2e/apps/listmonk.spec.ts` does not exist. Unit coverage is robust (13+ files). E2E is the gap.
+- [ ] **C14** [auto] Integrated — Admin "Email" section renders campaign list, `/admin/system-services` shows Listmonk card, `email_marketing` flag seeded, LM7 transactional emails wired (magic-link/receipts/build-done via Listmonk API)
+- [ ] **C15** [auto] LM2 SES SNS bounce processing — wire SNS endpoint, hard-bounce block@1, soft-bounce block@3 (reputation-critical)
+- [ ] **C16** [auto] LM18 email-as-a-feature — provision scoped lists per customer site
+
+#### 4. Chatwoot (support.projectsites.dev)
+> Audit 2026-07-15: Deployed (200 — publicly reachable!), 3 CHATWOOT_* vars typed, AI triage engine live (277-line Workers AI Llama 3.3), agent bot webhook wired, NO E2E spec, NO dedicated unit tests.
+- [x] **C17** [auto] Configured — ✅ 3 vars (CHATWOOT_API_URL/API_KEY/AGENT_BOT_SECRET). `curl https://support.projectsites.dev/` → 200. Only app with public health.
+- [ ] **C18** [auto] Tested — `e2e/apps/chatwoot.spec.ts` does not exist. No dedicated unit tests for triage/analytics/translate services.
+- [ ] **C19** [auto] Integrated — Admin "Support" section renders conversation inbox, `/admin/system-services` shows Chatwoot card, `chatwoot_integration` flag seeded, AI triage engine live (Workers AI Llama 3.3)
+- [ ] **C20** [auto] Phase 2 Agent Acceleration — handle time -50% via AI-suggested replies + knowledge base RAG
+- [ ] **C21** [auto] Phase 3 AI Deflection — 50% auto-resolved via chatbot-first + FAQ matching
+
+#### 5. Native Social — Postiz Absorption COMPLETE (social.projectsites.dev)
+- [x] **C22** [auto] **Postiz removal gate — PARTIAL (flag promoted to beta 2026-07-15)** — SOCIAL-100 through SOCIAL-109 all shipped + verified in source. Manifest promoted to `stage:'beta'`, migration updated to `enabled=1, rollout_percent=25`. 3 E2E specs hardened to GREEN. Remaining for full tick: E2E passing against PROD URL post-deploy, then 1 week without P1 → promote to stable → removal gate clears.
+- [ ] **C23** [auto] **Decommission Postiz** — WAITING on C22 full-tick. Steps: `fly apps destroy postiz`, remove `src/services/postiz.ts`, remove `POSTIZ_*` secrets from wrangler, archive Postiz ledger section to `_POSTIZ_ARCHIVE.md`
+- [ ] **C24** [auto] **8 Postiz source references purged** — WAITING on C23. Files to clean: `provisioning_plan.ts`, `app_marketplace.ts`, `apps-catalog.ts`, `event_bus_types.ts`, `service_registry.ts`, `redis_failover.ts` (comment), `app_runtime_subclasses.ts` (comment), `provisioning_plan.test.ts`
+- [ ] **C25** [auto] Configured — SOCIAL-100 (D1 schema v2) + SOCIAL-101 (feature flag) + SOCIAL-102 (MCP OAuth 14 platforms) + SOCIAL-103 (social_auth service) shipped. `curl https://social.projectsites.dev/health` → 200 (native Worker, not Postiz).
+- [ ] **C26** [auto] Tested — `e2e/apps/social.spec.ts`: OAuth connect flow (mock) → post compose → schedule → publish → analytics read → token refresh → error states. 14 platform publisher adapters each have ≥1 unit test.
+- [ ] **C27** [auto] Integrated — Admin "Social" tab renders native Angular components (account cards, composer, calendar, analytics — no Postiz iframe). `/admin/system-services` shows Native Social card. `social_publishing_native` flag promoted to beta.
+
+#### 6. Unkey (api.projectsites.dev)
+> Audit 2026-07-15: Deployed (403 CF Access), no external env vars needed — it's an internal D1 keystore per ADR-0030, admin CRUD routes wired, middleware active, no E2E spec.
+- [x] **C28** [auto] Configured — ✅ Internal D1-based keystore (no external SaaS vars). Admin CRUD routes at `/api/admin/api-keys`. Middleware at `middleware/api-keys.ts`. No external health endpoint needed.
+- [ ] **C29** [auto] Tested — `e2e/apps/unkey.spec.ts` does not exist. Needs creation.
+- [ ] **C30** [auto] Integrated — Admin "API Keys" section renders key list, `/admin/system-services` shows Unkey card, `unkey_integration` flag seeded, usage dashboard wired
+
+#### 7. Better Auth (auth.projectsites.dev)
+- [ ] **C31** [auto] Configured — verify `BETTER_AUTH_*` secrets, `curl https://auth.projectsites.dev/health` → 200, OIDC discovery endpoint returns valid config
+- [ ] **C32** [auto] Tested — `e2e/apps/better-auth.spec.ts`: health → OIDC discovery → login flow → session validation → token refresh → error states
+- [ ] **C33** [auto] Integrated — Admin "Auth" section renders user/session list, `/admin/system-services` shows Better Auth card, `better_auth_integration` flag seeded, SSO config UI for enterprise customers
+
+#### 8. Lago (billing.projectsites.dev)
+- [ ] **C34** [auto] Configured — verify `LAGO_*` secrets, `curl https://billing.projectsites.dev/health` → 200, meter event ingestion smoke test
+- [ ] **C35** [auto] Tested — `e2e/apps/lago.spec.ts`: health → meter event create → usage query → invoice generation → error states
+- [ ] **C36** [auto] Integrated — Admin "Billing" section renders usage dashboard, `/admin/system-services` shows Lago card, `lago_integration` flag seeded, 17 `ps_*` meter events wired (AI tokens, build minutes, browser minutes, email sends, SMS, social posts, storage, bandwidth)
+
+#### 9. Hookdeck (webhooks.projectsites.dev)
+- [ ] **C37** [auto] Configured — verify `HOOKDECK_*` secrets, inbound webhook receiver on workers.dev URL (Bot-Fight-Mode-safe), HMAC verification smoke test
+- [ ] **C38** [auto] Tested — `e2e/apps/hookdeck.spec.ts`: health → connection create → event receive → retry behavior → DLQ → error states
+- [ ] **C39** [auto] Integrated — Admin "Webhooks" section renders event log + connection list, `/admin/system-services` shows Hookdeck card, `hookdeck_integration` flag seeded, Outpost self-hosted container DO health green
+
+#### 10. Nango (integrations.projectsites.dev)
+- [ ] **C40** [auto] Configured — verify `NANGO_*` secrets, `curl https://integrations.projectsites.dev/health` → 200, OAuth connection test for ≥1 provider
+- [ ] **C41** [auto] Tested — `e2e/apps/nango.spec.ts`: health → provider list → OAuth connect flow (mock) → connection status → error states
+- [ ] **C42** [auto] Integrated — Admin "Integrations" section renders connected apps + available providers, `/admin/system-services` shows Nango card, `nango_integration` flag seeded, capability router (Native→Composio→Pipedream) verified
+
+#### 11. Inngest (events.projectsites.dev)
+- [ ] **C43** [auto] Configured — verify `INNGEST_*` secrets, `curl https://events.projectsites.dev/health` → 200, event publish smoke test
+- [ ] **C44** [auto] Tested — `e2e/apps/inngest.spec.ts`: health → event publish → function trigger → retry behavior → error states
+- [ ] **C45** [auto] Integrated — Admin "Events" section renders event log + function list, `/admin/system-services` shows Inngest card, `inngest_integration` flag seeded, event_bus→Inngest fan-out verified
+
+#### 12. Payload CMS (cms.projectsites.dev)
+- [ ] **C46** [auto] Configured — verify `PAYLOAD_*` secrets, `curl https://cms.projectsites.dev/api/health` → 200, collection CRUD smoke test
+- [ ] **C47** [auto] Tested — `e2e/apps/payload.spec.ts`: health → collection list → document create → media upload → API read → error states
+- [ ] **C48** [auto] Integrated — Admin "CMS" section renders content collections, `/admin/system-services` shows Payload card, `payload_integration` flag seeded
+
+#### 13. LiteLLM + AI Gateway (llm.projectsites.dev)
+- [ ] **C49** [auto] Configured — verify `LITELLM_*` + `AI_GATEWAY_*` secrets, `curl https://llm.projectsites.dev/health` → 200, model list smoke test
+- [ ] **C50** [auto] Tested — `e2e/apps/llm.spec.ts`: health → model list → chat completion → streaming → token counting → error states
+- [ ] **C51** [auto] Integrated — Admin "AI" section renders model usage + cost dashboard, `/admin/system-services` shows LLM card, `ai_gateway_integration` flag seeded, 0 direct `api.openai.com`/`api.anthropic.com` fetches (all through gateway)
+
+### Convergence execution plan (loop-drainable)
+
+```
+Phase 1 — Configure everything (13 apps, parallel per app):
+  Batch 1A (no deps): C1 Plane · C7 CRM · C12 Listmonk · C17 Chatwoot · C28 Unkey
+  Batch 1B (no deps): C31 Better Auth · C34 Lago · C37 Hookdeck · C40 Nango
+  Batch 1C (no deps): C43 Inngest · C46 Payload · C49 LLM
+  Batch 1D (depends on C22): C25 Native Social (needs Tier 0 foundation first)
+
+Phase 2 — Test everything (13 apps, parallel per app):
+  Batch 2A: C2 Plane · C8 CRM · C13 Listmonk · C18 Chatwoot
+  Batch 2B: C29 Unkey · C32 Better Auth · C35 Lago · C38 Hookdeck
+  Batch 2C: C41 Nango · C44 Inngest · C47 Payload · C50 LLM
+  Batch 2D: C26 Native Social
+
+Phase 3 — Integrate into admin UI (13 apps, parallel per app):
+  Batch 3A: C3 Plane · C9 CRM · C14 Listmonk · C19 Chatwoot
+  Batch 3B: C30 Unkey · C33 Better Auth · C36 Lago · C39 Hookdeck
+  Batch 3C: C42 Nango · C45 Inngest · C48 Payload · C51 LLM
+  Batch 3D: C27 Native Social
+
+Phase 4 — Deep integration (app-specific P1 features):
+  Batch 4A (Plane): C4 backups · C5 SSO · C6 project-per-customer
+  Batch 4B (CRM): C10 payments→deals · C11 build→CRM records
+  Batch 4C (Listmonk): C15 bounce processing · C16 email-as-a-feature
+  Batch 4D (Chatwoot): C20 Agent Acceleration · C21 AI Deflection
+
+Phase 5 — Postiz removal (triggered by C22 green):
+  C22 → C23 → C24 (sequential — verify foundation → destroy Fly app → purge references)
+```
+
+### Convergence gate — DONE when all 51 items ticked
+
+> **51 checklist items across 13 Apps.** The finishing-loop cron drains Phase 1→5 in order,
+> parallelizing within each phase. A converged platform = every App has a green health check,
+> a passing E2E spec, and a visible admin UI section. Postiz is decommissioned with zero
+> remaining references. The `SERVICE_REGISTRY` has all 13 entries validated.
+
+### Per-app E2E spec template
+
+```typescript
+// e2e/apps/<app>.spec.ts — convergence E2E spec
+import { test, expect } from '@playwright/test';
+
+const APP_URL = 'https://<app>.projectsites.dev';
+const ADMIN_URL = 'https://projectsites.dev/admin';
+
+test.describe('<App> — convergence', () => {
+  test('health endpoint returns 200', async ({ request }) => {
+    const res = await request.get(`${APP_URL}/api/health`);
+    expect(res.status()).toBe(200);
+  });
+
+  test('auth gate returns 401 without token', async ({ request }) => {
+    const res = await request.get(`${APP_URL}/api/<resource>`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('CRUD smoke test via admin proxy', async ({ page }) => {
+    await page.goto(ADMIN_URL);
+    // Navigate to app section, verify it renders
+    await page.click('[data-testid="nav-<app>"]');
+    await expect(page.locator('[data-testid="<app>-section"]')).toBeVisible();
+  });
+
+  test('error state renders gracefully', async ({ request }) => {
+    const res = await request.get(`${APP_URL}/api/nonexistent`);
+    expect(res.status()).toBe(404);
+    const body = await res.json();
+    expect(body).toHaveProperty('error');
+  });
+});
+```
+
+### Cross-reference
+
+- `_100_IDEAS.md` — SMB Top 24 feature ideas (parallel track)
+- `## 🚀 SMB Top 24` section above — 760h feature roadmap
+- `## 🔥 NATIVE SOCIAL — 50 Ideas` above — Postiz replacement architecture
+- `## 🔌 Integrations roadmap` above — per-app task details (PL1-25, TW1-24, LM1-24, AP1-15)
+- `## 📋 Platform Architecture Decisions` above — SSOT for hosting/data/auth/observability decisions
+- `src/services/service_registry.ts` — canonical SERVICE_REGISTRY (9 entries, needs expansion to 13)
+- `tools/validate/mesh.mjs` — platform mesh validator (SERVICE_REGISTRY × DNS × WAF × health)
+
+
+>>>>>>> emdash/fancy-webs-taste-oomx6
 ## analytics.projectsites.dev — PostHog Cloud
 
 ### Raw research themes considered

@@ -1125,6 +1125,121 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Re-enable → 200 again',
     ],
   },
+  site_tags: {
+    checklist: ['22-color label pills per site', 'Org-scoped, reusable across sites', 'D1-backed site_tag_assignments', 'Filterable in site list'],
+    explanation:
+      'Per-site colored label pills with custom names, colors (22 hues), and optional emoji icons. Tags are org-scoped — defined once, assigned to many sites. CRUD at /api/site-tags and /api/sites/:id/tags. Designed for the admin site list filter picker.',
+    smoke_test: [
+      'Enable flag → POST /api/site-tags {"name":"Production","color":"green"} → 201',
+      'PUT /api/sites/:id/tags {"tagIds":["<id>"]} → 200 with tag list',
+      'GET /api/site-tags → returns tag with site_count',
+    ],
+  },
+  system_status: {
+    checklist: ['10 integration health targets', '5s timeout per probe', 'Parallel aggregation via Promise.all', 'Returns overall + per-integration status'],
+    explanation:
+      'Aggregated health checks for all platform integrations (Listmonk, Lago, Nango, Dittofeed, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
+    smoke_test: [
+      'Enable flag → GET /api/system/status → 200 with overall+integrations array',
+      'Each integration has status (healthy/degraded/down/unknown) + latencyMs',
+      'Overall is "healthy" when all probes pass',
+    ],
+  },
+  activity_feed: {
+    checklist: ['Unified org event timeline', '14 event kinds from audit_logs', 'Cursor-based pagination', 'Actor name extraction from metadata'],
+    explanation:
+      'Unified org-scoped timeline of recent platform events — builds, publishes, deploys, domain changes, billing events, and member changes. Aggregated from the audit_logs table with cursor-based pagination (newest-first). Designed for the admin dashboard live-activity widget.',
+    smoke_test: [
+      'Enable flag → GET /api/activity → 200 with data[] + cursor + hasMore',
+      'Each entry has kind, summary, actorName, targetType, timestamp',
+      'Pass ?cursor=<ts> to paginate',
+    ],
+  },
+  mru_cards: {
+    checklist: ['Most-recently-active sites per org', 'JOIN audit_logs + sites with GROUP BY', 'Returns site name, slug, last action, timestamp', 'Configurable limit (1-20)'],
+    explanation:
+      '"Continue where you left off" — returns the N most recently active sites for the current org, ordered by last audit_log entry. Each card shows site name, slug, last action performed, and a timestamp. Drives the dashboard quick-jump widget.',
+    smoke_test: [
+      'Enable flag → GET /api/mru → 200 with data[] of site cards',
+      'Pass ?limit=10 to return up to 10 cards',
+      'Cards ordered by last activity descending',
+    ],
+  },
+  usage_gauges: {
+    checklist: ['4 metrics: sites, builds, media_gb, bandwidth_gb', 'Live D1 aggregation', 'Pct-of-free-tier-limit per metric', 'SVG gauge-ring ready output'],
+    explanation:
+      'Per-org usage metrics computed from live D1 queries — site count, build count, estimated media storage, and bandwidth. Each metric includes the used value, the free-tier limit, and a computed percentage (capped at 100). Designed to feed SVG gauge-ring components in the admin dashboard.',
+    smoke_test: [
+      'Enable flag → GET /api/usage → 200 with data[] of 4 gauges',
+      'Each gauge has metric, label, used, limit, unit, pct',
+      'Pct is capped at 100',
+    ],
+  },
+  notification_badge: {
+    checklist: ['Unread alert count + failed build count per org', '2 parallel D1 queries (audit_logs 7d + workflow_jobs)', 'Returns {total, alerts, builds} for nav badge rendering'],
+    explanation: 'Computes notification badge counts for the admin nav. Queries audit_logs for failed actions in the last 7 days and workflow_jobs for current failed builds. Returns a simple {total, alerts, builds} breakdown suitable for a red badge pill.',
+    smoke_test: ['Enable flag → GET /api/notifications/badge → 200 with {total, alerts, builds}', 'Clean org returns all zeros'],
+  },
+  analytics_annotations: {
+    checklist: ['CRUD for chart annotations tied to analytics dates', '4 categories: deploy/marketing/incident/other', 'Org-ownership validated on create', 'List by site, delete by annotation id'],
+    explanation: 'Lightweight annotation system for analytics charts. Attach dated notes to sites to explain traffic spikes (marketing campaign), drops (incident), or changes (deploy). Annotations are site-scoped and org-ownership is validated on create. Soft-delete keeps audit trail.',
+    smoke_test: ['POST /api/sites/:id/annotations with date/note/category → 201', 'GET /api/sites/:id/annotations → returns list sorted by date desc', 'DELETE /api/annotations/:id → 204'],
+  },
+  cmd_k_actions: {
+    checklist: [
+      'NL query to ranked admin action suggestions',
+      '6 verbs: rebuild/snapshot/delete/view/edit/publish',
+      'Slug/name substring scoring with prefix bonus',
+      'Returns top 20 matches for command palette',
+    ],
+    explanation:
+      'Natural language to admin action matching for the Cmd+K command palette. Queries the org sites and scores each against 6 action verbs using slug and name substring matching. Short queries return default navigation suggestions (Sites, Billing). Results are ranked by match score and capped at 20.',
+    smoke_test: [
+      'Enable flag -> POST /api/cmdk {"q":"rebuild njsk"} -> 200 with scored suggestions',
+      'Empty query returns defaults',
+      'No matches returns empty array',
+    ],
+  },
+    site_health_sparklines: {
+    checklist: ['7-day traffic trend per site from analytics_daily', 'Configurable day range (1-30, default 7)', 'Returns {siteId, days: [{date, visits}]} for SVG sparkline'],
+    explanation: 'Queries the analytics_daily rollup for per-day visit counts over a configurable window. Designed to feed SVG sparkline charts in the admin site list — a compact visual indicator of traffic health without loading a full analytics dashboard.',
+    smoke_test: ['Enable flag → GET /api/sites/:siteId/sparkline?days=7 → 200 with days[] array', 'No data → days: []', 'Pass days=30 for monthly view'],
+  },
+  batch_operations: {
+    checklist: ['Bulk rebuild/snapshot/delete for 1-50 sites', 'Per-site org-ownership validation', 'Per-site ok/fail result with message', 'Returns summary: total/ok/failed counts'],
+    explanation: 'Batch processor for site-level actions — rebuild (queues build workflow_job), snapshot (queues snapshot workflow_job), or delete (soft-deletes site). Each site ID is validated for org ownership before the action. Results are per-site with a summary block for quick status checks.',
+    smoke_test: ['Enable flag → POST /api/batch {"siteIds":["id1","id2"],"action":"rebuild"} → 200 with per-site results', 'Unowned site → ok:false, message:"not_found_or_not_owned"', 'Invalid action → 400 Zod validation error'],
+  },
+  site_comparison: {
+    checklist: ['Side-by-side diff of any two org-owned sites', 'Compares pages/builds/domains/status/last-build/updated', 'Highlights differences with null = identical'],
+    explanation: 'Compares two sites side-by-side across 6 dimensions: page count, build count, active domains, status, last build date, and last updated date. Each dimension returns values for both sites plus a diff indicator. Useful for auditing or understanding what changed between two sites.',
+    smoke_test: ['Enable flag → POST /api/sites/compare {"siteIdA":"<id1>","siteIdB":"<id2>"} → 200 with rows[] diff', 'Same site → all diffs null', 'Missing site → 404'],
+  },
+  site_clone: {
+    checklist: ['One-click site copy to new slug within same org', 'Copies all pages (title/path/content/meta) to new site', 'Validates slug uniqueness + source existence', 'Returns new site id + pagesCopied count'],
+    explanation: 'Creates a clone of an existing site under a new slug and name. Copies all non-deleted pages with their content and metadata. The new site starts in draft status. The source site is unchanged. Slug must be unique within the org.',
+    smoke_test: ['Enable flag → POST /api/sites/clone {"sourceSiteId":"<id>","targetSlug":"my-clone","targetName":"My Clone"} → 201', 'Duplicate slug → 409', 'Missing source → 404'],
+  },
+  nl_analytics: {
+    checklist: ['7 NL patterns recognized (sites/builds/activity/members/status)', 'Stateless regex→SQL parser — zero AI cost', 'Returns generated SQL + explanation + results'],
+    explanation: 'Natural-language analytics intent parser. Maps common questions ("how many sites?", "builds this month", "most active site") to parameterized D1 SQL queries with human-readable explanations. Stateless and free — no AI call needed. Designed to be progressively enhanced with Workers AI for fuzzy matching.',
+    smoke_test: ['Enable flag → POST /api/analytics/query {"question":"how many sites"} → 200 with sql+explanation+results', 'Try "builds this month", "most active site", "sites by status" — each returns different SQL', 'Unrecognized question returns hint with supported patterns'],
+  },
+  onboarding_progress: {
+    checklist: ['5-step org setup tracker: site/build/domain/billing/team', '5 parallel D1 COUNT queries', 'Returns pct complete + per-step detail'],
+    explanation: 'Tracks org onboarding completion across 5 gates: site created, first build run, custom domain added, billing subscription active, and team member invited. Each step queries D1 for live counts. Returns percentage + per-step boolean completion status. Drives the admin dashboard progress ring widget.',
+    smoke_test: ['Enable flag → GET /api/onboarding → 200 with steps[], completed, total, pct', 'Fresh org returns pct=0', 'Fully onboarded org returns pct=100'],
+  },
+  dittofeed_integration: {
+    checklist: ['Segment-compatible event pipeline', 'Fan-out from platform events to Dittofeed', 'Identify/track/page + Admin API (journey/segment/template CRUD)', 'Flag-gated with default-off rollout'],
+    explanation:
+      'Dittofeed customer engagement event pipeline. Fans out platform events (site created, build completed, first lead, billing changes) to Dittofeed via its Segment-compatible API. Also exposes Admin API for journey, segment, and template management. Uses outbox dispatch alongside Tinybird + Hatchet.',
+    smoke_test: [
+      'Enable flag → trigger a platform event → verify Dittofeed receives the event',
+      'GET /api/dittofeed/status → returns workspace health',
+      'Flag off → events are not dispatched to Dittofeed',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

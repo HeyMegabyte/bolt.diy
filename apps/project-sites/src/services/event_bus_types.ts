@@ -4,7 +4,7 @@ export const EVENT_PRODUCERS = [
   'plane',
   'twenty',
   'listmonk',
-  'postiz',
+  'social_native',
   'inngest',
   'unkey',
   'billing',

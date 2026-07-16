@@ -146,6 +146,28 @@ export async function createSite(
     await emit;
   }
 
+  // GitHub repo provisioning — every site gets a private repo at
+  // github.com/projectsites-dev/{site.id} as canonical source-of-truth.
+  // Fire-and-forget: repo creation latency (~2s) never blocks site creation.
+  // Feature-flag-gated behind `github_repo_sync` (experimental, default-off).
+  if (ctx.executionCtx) {
+    const ghRepo = (async () => {
+      try {
+        const { isFlagOn } = await import('../modules/feature_flags/services.js');
+        if (!(await isFlagOn(env, 'github_repo_sync', { orgId: ctx.actorId ?? undefined, siteId: site.id }))) return;
+        const { createRepo } = await import('./github_repo.js');
+        await createRepo(env, site.id);
+      } catch {
+        /* fail-soft — GitHub outage never blocks site creation */
+      }
+    })();
+    try {
+      ctx.executionCtx.waitUntil(ghRepo);
+    } catch {
+      void ghRepo;
+    }
+  }
+
   // Authz relationship bootstrap (§29/ADR-0005): make the creating user the OWNER
   // of this site in the authorization graph, so the (deferred) requireAuthz
   // ('can_publish') guard passes once OpenFGA is live. Skipped for an anonymous /

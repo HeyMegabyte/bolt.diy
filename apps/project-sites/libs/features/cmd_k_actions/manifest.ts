@@ -1,0 +1,1 @@
+export const manifest = { slug: 'cmd_k_actions', name: 'Cmd+K Natural Language Actions', description: 'Natural language → admin action matching. "rebuild njsk" → offers rebuild action with matched site. Returns ranked action suggestions for the command palette.', flagKey: 'cmd_k_actions', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

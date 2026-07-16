@@ -6,16 +6,21 @@ primary_region = "iad"
 
 [env]
   RAILS_ENV = "production"
-  LAGO_REDIS_URL = "PLACEHOLDER_REDIS"
-  LAGO_DATABASE_URL = "PLACEHOLDER_DB"
+  LAGO_FRONT_URL = "https://billing.projectsites.dev"
+  LAGO_API_URL = "https://billing.projectsites.dev"
   LAGO_CLICKHOUSE_URL = "http://ch.projectsites.dev:8123"
   LAGO_CLICKHOUSE_DATABASE = "lago"
   LAGO_CLICKHOUSE_USERNAME = "dittofeed"
-  LAGO_CLICKHOUSE_PASSWORD = "PLACEHOLDER_CH_PASS"
-  LAGO_FRONT_URL = "https://billing.projectsites.dev"
-  LAGO_API_URL = "https://billing.projectsites.dev"
-  LAGO_SECRET_KEY = "PLACEHOLDER_SECRET"
-  LAGO_LICENSE = "PLACEHOLDER_LICENSE"
+  # Secrets (set via fly secrets set, NOT in this file):
+  #   LAGO_DATABASE_URL     — Neon Postgres (projectsites_lago)
+  #   LAGO_REDIS_URL        — Upstash Redis (dedicated, free tier)
+  #   LAGO_CLICKHOUSE_PASSWORD — shared ClickHouse at ch.projectsites.dev
+  #   LAGO_SECRET_KEY       — openssl rand -hex 64
+  #   LAGO_ADMIN_EMAIL      — admin@megabyte.space
+  #   LAGO_ADMIN_PASSWORD   — openssl rand -base64 16
+  #   GOOGLE_CLIENT_ID      — from get-secret (Google OAuth for admin sign-in)
+  #   GOOGLE_CLIENT_SECRET  — from get-secret
+  # See infra/lago/SETUP.md for full runbook.
 
 [experimental]
   auto_rollback = false

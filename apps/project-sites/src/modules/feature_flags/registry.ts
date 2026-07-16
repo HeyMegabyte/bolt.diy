@@ -694,6 +694,104 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  site_tags: {
+    key: 'site_tags',
+    description:
+      'Site Tags & Labels (#11): per-site colored label pills with custom names, colors (22 hues), and emoji icons. Org-scoped, filterable in the site list. CRUD at /api/site-tags + /api/sites/:siteId/tags.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  system_status: {
+    key: 'system_status',
+    description:
+      'System Status Strip (#12): aggregated health checks for all platform integrations (Listmonk, Lago, Nango, Dittofeed, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Returns per-integration green/yellow/red status for the admin top bar.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  activity_feed: {
+    key: 'activity_feed',
+    description:
+      'Dashboard Activity Feed (#13): unified org-scoped timeline of recent platform events — builds, publishes, deploys, domain changes, billing events, member changes. Aggregated from audit_logs with cursor-based pagination. GET /api/activity.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  mru_cards: {
+    key: 'mru_cards',
+    description:
+      'MRU Cards (#14): "Continue where you left off" — most-recently-active sites per org, ordered by last audit_log entry. Returns site name, slug, last action, and timestamp for dashboard quick-jump cards. GET /api/mru.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  usage_gauges: {
+    key: 'usage_gauges',
+    description:
+      'Usage Gauge Rings (#15): per-org usage metrics — sites, builds, media GB, bandwidth GB — computed from D1 with pct-of-limit for SVG gauge-ring dashboard visualization. GET /api/usage.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  analytics_annotations: {
+    key: 'analytics_annotations',
+    description: 'Analytics Annotations (#24): CRUD for chart annotations tied to analytics events. GET/POST/DELETE /api/sites/:siteId/annotations.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  cmd_k_actions: {
+    key: 'cmd_k_actions',
+    description: 'Cmd+K Natural Language Actions (#23): NL query → ranked admin action suggestions (rebuild/snapshot/delete/view/edit/publish). POST /api/cmdk.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  site_health_sparklines: {
+    key: 'site_health_sparklines',
+    description: 'Site Health Sparklines (#22): 7-day traffic trend per site from analytics_daily. GET /api/sites/:siteId/sparkline.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  notification_badge: {
+    key: 'notification_badge',
+    description: 'Notification Badge Count (#21): unread alert + failed-build count per org for admin nav badge. GET /api/notifications/badge.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  batch_operations: {
+    key: 'batch_operations',
+    description: 'Batch Site Operations (#20): bulk rebuild/snapshot/delete for up to 50 sites. Validates org ownership per site. POST /api/batch.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  site_comparison: {
+    key: 'site_comparison',
+    description: 'Site Comparison View (#18): side-by-side diff of two sites — pages, builds, domains, status, last activity. POST /api/sites/compare.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  site_clone: {
+    key: 'site_clone',
+    description: 'Site Clone One-Click (#19): copies pages/settings/metadata to a new slug. POST /api/sites/clone.',
+    default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space',
+  },
+  nl_analytics: {
+    key: 'nl_analytics',
+    description:
+      'Natural Language Analytics (#17): stateless NL→SQL intent parser. "How many sites?" → D1 query with results + explanation. 7 recognized patterns. POST /api/analytics/query.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  onboarding_progress: {
+    key: 'onboarding_progress',
+    description:
+      'Onboarding Progress Ring (#16): tracks org onboarding completion — site created, first build, domain added, billing set, team invited — returns pct complete with per-step detail. GET /api/onboarding.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

@@ -24,7 +24,7 @@ export type ProvisioningService =
   | 'email_listmonk'
   | 'pm_plane'
   | 'auth_unkey'
-  | 'social_postiz';
+  | 'social_native';
 
 /** A single step in the provisioning checklist. */
 export interface ProvisioningStep {
@@ -58,7 +58,7 @@ export const ALL_SERVICES: readonly ProvisioningService[] = [
   'email_listmonk',
   'pm_plane',
   'auth_unkey',
-  'social_postiz',
+  'social_native',
 ] as const;
 
 /**
@@ -76,7 +76,7 @@ export const SERVICE_DEPENDENCIES: Readonly<
   email_listmonk: 'crm_twenty',
   pm_plane: null,
   auth_unkey: null,
-  social_postiz: 'email_listmonk',
+  social_native: 'email_listmonk',
 } as const;
 
 /** Default base URLs for each service. */
@@ -85,7 +85,7 @@ const DEFAULT_BASE_URLS: Record<ProvisioningService, string> = {
   email_listmonk: 'https://mail.projectsites.dev',
   pm_plane: 'https://pm.projectsites.dev',
   auth_unkey: 'https://api.projectsites.dev',
-  social_postiz: 'https://social.projectsites.dev',
+  social_native: 'https://social.projectsites.dev',
 };
 
 /** Display metadata for each service. */
@@ -113,7 +113,7 @@ const SERVICE_META: Record<
     description: 'Rate limiting, API key management, and usage enforcement.',
     estDurationSeconds: 5,
   },
-  social_postiz: {
+  social_native: {
     displayName: 'Social Scheduler (Postiz)',
     description: 'Schedule, publish, and analyze social media posts.',
     estDurationSeconds: 10,
@@ -151,7 +151,7 @@ export function buildProvisioningPlan(opts: {
     email_listmonk: opts.baseUrls?.email_listmonk ?? DEFAULT_BASE_URLS.email_listmonk,
     pm_plane: opts.baseUrls?.pm_plane ?? DEFAULT_BASE_URLS.pm_plane,
     auth_unkey: opts.baseUrls?.auth_unkey ?? DEFAULT_BASE_URLS.auth_unkey,
-    social_postiz: opts.baseUrls?.social_postiz ?? DEFAULT_BASE_URLS.social_postiz,
+    social_native: opts.baseUrls?.social_native ?? DEFAULT_BASE_URLS.social_native,
   };
 
   const steps: ProvisioningStep[] = ALL_SERVICES.map((service, i) => {

@@ -1,0 +1,1 @@
+export const manifest = { slug: 'ab_testing', name: 'A/B Testing Engine', description: 'Deterministic variant assignment via hashed visitor ID + statistical significance calculator with z-test.', flagKey: 'ab_testing', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

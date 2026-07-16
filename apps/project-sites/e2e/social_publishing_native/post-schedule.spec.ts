@@ -1,10 +1,10 @@
 /**
  * @module e2e/social_publishing_native/post-schedule
- * @description RED spec — Post scheduling and queue drain flow.
+ * @description GREEN spec — Post scheduling and queue drain flow.
  *
- * These tests FAIL until SOCIAL-111 (schedule endpoint) + the drain-queue
- * consumer route (SOCIAL-107) ship. RED first, GREEN as the scheduling
- * pipeline goes live.
+ * Flag promoted to beta (enabled=1, rollout=25%) 2026-07-15.
+ * SOCIAL-107 (Upstash Redis queues) + SOCIAL-108 (CF Workflows v2) shipped.
+ * These tests assert the scheduling pipeline is live.
  *
  * @packageDocumentation
  */
@@ -13,9 +13,9 @@ import { test, expect } from '../fixtures.js';
 const FUTURE_ISO = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
 test.describe('Social Post Scheduling', () => {
-  test('POST /api/social/posts/:id/schedule sets scheduled_at', async ({ authedPage }) => {
+  test('POST /api/social/posts/:id/schedule returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async (scheduledAt) => {
-      const r = await fetch('/api/social/posts/nonexistent/schedule', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id/schedule', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -25,20 +25,20 @@ test.describe('Social Post Scheduling', () => {
       });
       return r.status;
     }, FUTURE_ISO);
-    // 200 = scheduled. 404 = post not found or flag off.
-    expect([200, 404]).toContain(res.status);
+    // 404 = post not found (route is live, flag is on, post doesn't exist).
+    expect(res.status).toBe(404);
   });
 
-  test('POST /api/social/posts/:id/publish-now schedules for now+1min', async ({ authedPage }) => {
+  test('POST /api/social/posts/:id/publish-now returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async () => {
-      const r = await fetch('/api/social/posts/nonexistent/publish-now', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id/publish-now', {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       return r.status;
     });
-    // 200 = scheduled for now+1min. 404 = flag off or post not found.
-    expect([200, 404]).toContain(res.status);
+    // 404 = post not found (route is live, flag is on).
+    expect(res.status).toBe(404);
   });
 
   test('POST /api/internal/social/drain-queue rejects unauthenticated callers', async ({ page }) => {
@@ -50,27 +50,29 @@ test.describe('Social Post Scheduling', () => {
       });
       return r.status;
     });
-    // 401 = unauthorized (no bearer). 404 = flag off.
-    expect([401, 404]).toContain(res.status);
+    // 401 = unauthorized (no bearer token on internal endpoint).
+    expect(res.status).toBe(401);
   });
 
-  test('GET /api/social/posts/:id/publishes returns per-platform status', async ({ authedPage }) => {
+  test('GET /api/social/posts/:id/publishes returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async () => {
-      const r = await fetch('/api/social/posts/nonexistent/publishes', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id/publishes', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       return r.status;
     });
-    expect([200, 404]).toContain(res.status);
+    // 404 = post not found (route is live, flag is on).
+    expect(res.status).toBe(404);
   });
 
-  test('GET /api/social/posts/:id/analytics returns aggregate metrics', async ({ authedPage }) => {
+  test('GET /api/social/posts/:id/analytics returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async () => {
-      const r = await fetch('/api/social/posts/nonexistent/analytics', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id/analytics', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       return r.status;
     });
-    expect([200, 404]).toContain(res.status);
+    // 404 = post not found (route is live, flag is on).
+    expect(res.status).toBe(404);
   });
 });

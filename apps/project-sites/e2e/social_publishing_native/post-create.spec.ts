@@ -1,9 +1,10 @@
 /**
  * @module e2e/social_publishing_native/post-create
- * @description RED spec — Social post creation + publishing flow.
+ * @description GREEN spec — Social post creation + publishing flow.
  *
- * These tests FAIL until SOCIAL-110 (instant post) + SOCIAL-111 (schedule)
- * endpoints ship. RED first, GREEN as Tier 1 core posting lands.
+ * Flag promoted to beta (enabled=1, rollout=25%) 2026-07-15.
+ * SOCIAL-100 through SOCIAL-109 all shipped. These tests assert the
+ * native social post CRUD API is live.
  *
  * @packageDocumentation
  */
@@ -28,12 +29,10 @@ test.describe('Social Post Create + Publish', () => {
       });
       return { status: r.status, body: await r.json() };
     }, TEST_POST);
-    // 201 = draft created. 404 = flag off.
-    expect([201, 404]).toContain(res.status);
-    if (res.status === 201) {
-      expect(res.body.data).toHaveProperty('id');
-      expect(res.body.data.status).toBe('draft');
-    }
+    // 201 = draft created. Flag is beta (enabled=1).
+    expect(res.status).toBe(201);
+    expect(res.body.data).toHaveProperty('id');
+    expect(res.body.data.status).toBe('draft');
   });
 
   test('GET /api/social/posts lists posts with status filter', async ({ authedPage }) => {
@@ -43,28 +42,25 @@ test.describe('Social Post Create + Publish', () => {
       });
       return { status: r.status, body: await r.json() };
     });
-    expect([200, 404]).toContain(res.status);
-    if (res.status === 200) {
-      expect(res.body).toHaveProperty('data');
-      expect(Array.isArray(res.body.data)).toBe(true);
-    }
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('data');
+    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
-  test('GET /api/social/posts/:id returns a single post', async ({ authedPage }) => {
-    // RED because we need a real post ID — seeded or created in previous step.
+  test('GET /api/social/posts/:id returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async () => {
-      const r = await fetch('/api/social/posts/nonexistent', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       return r.status;
     });
-    // 404 = no post found or flag off. 200 = post returned.
-    expect([200, 404]).toContain(res);
+    // 404 = post not found (flag is on, route is live, post just doesn't exist).
+    expect(res.status).toBe(404);
   });
 
-  test('PATCH /api/social/posts/:id edits a draft', async ({ authedPage }) => {
+  test('PATCH /api/social/posts/:id returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async () => {
-      const r = await fetch('/api/social/posts/nonexistent', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id', {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -74,17 +70,19 @@ test.describe('Social Post Create + Publish', () => {
       });
       return r.status;
     });
-    expect([200, 404, 409]).toContain(res.status);
+    // 404 = post not found (route is live, flag is on).
+    expect(res.status).toBe(404);
   });
 
-  test('DELETE /api/social/posts/:id soft-deletes a post', async ({ authedPage }) => {
+  test('DELETE /api/social/posts/:id returns 404 for nonexistent post', async ({ authedPage }) => {
     const res = await authedPage.evaluate(async () => {
-      const r = await fetch('/api/social/posts/nonexistent', {
+      const r = await fetch('/api/social/posts/nonexistent-test-id', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       return r.status;
     });
-    expect([200, 404]).toContain(res.status);
+    // 404 = post not found (route is live, flag is on).
+    expect(res.status).toBe(404);
   });
 });

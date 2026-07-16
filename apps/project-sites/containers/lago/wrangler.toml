@@ -1,0 +1,23 @@
+name = "projectsites-lago"
+main = "worker.ts"
+compatibility_date = "2026-07-15"
+
+[env.production]
+workers_dev = true
+
+[[env.production.containers]]
+class_name = "LagoContainer"
+image = "./Dockerfile"
+max_instances = 5
+
+[[durable_objects.bindings]]
+name = "LAGO_CONTAINER"
+class_name = "LagoContainer"
+
+[[durable_objects]]
+name = "LagoContainer"
+class_name = "LagoContainer"
+
+[[env.production.routes]]
+pattern = "billing.projectsites.dev"
+custom_domain = true

@@ -71,6 +71,29 @@ import { adminAnalytics } from './routes/admin_analytics.js';
 import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { i18n } from './routes/i18n.js';
+import { siteRollbackRoutes } from './routes/site_rollback.js';
+import { handleCodeExport } from '../libs/features/code_export/handlers.js';
+import { buildCritique } from '../libs/features/ai_site_critic/service.js';
+import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
+import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
+import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
+import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
+import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js';
+import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
+import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
+import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
+import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
+import { generateSlots, confirmBooking } from '../libs/features/native_booking/service.js';
+import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
+import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
+import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
+import { defaultDashboard, filterBySource, buildMetric } from '../libs/features/marketing_dashboard/service.js';
+import { generateProposals, scoreEngagement } from '../libs/features/social_agent/service.js';
+import { parseVoiceCommand } from '../libs/features/voice_site_mgmt/service.js';
+import { assignVariant, computeSignificance } from '../libs/features/ab_testing/service.js';
+import { agencyMrr, buildAgencyDashboard } from '../libs/features/white_label/service.js';
+import { validateJourney } from '../libs/features/visual_automation/service.js';
+import { planLaunch, listApps } from '../libs/features/app_launcher/service.js';
 import { webhooks } from './routes/webhooks.js';
 import { sesWebhooks } from './routes/ses_webhooks.js';
 import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
@@ -210,17 +233,64 @@ export { CaldiyContainer } from './durable_objects/caldiy_container.js';
 // convert.projectsites.dev — self-hosted Gotenberg Office→PDF container (dedicated DO).
 export { GotenbergContainer } from './durable_objects/gotenberg_container.js';
 export {
-  UmamiContainer,
-  OutlineContainer,
-  N8nContainer,
-  VaultwardenContainer,
-  UptimeKumaContainer,
-  NocodbContainer,
+  AnythingLlmContainer,
+  AppsmithContainer,
+  ArizePhoenixContainer,
+  AudiobookshelfContainer,
+  BookstackContainer,
+  CalComContainer,
+  ChromaContainer,
+  CodeServerContainer,
+  CoquiTtsContainer,
+  DirectusContainer,
+  DroneCiContainer,
+  FlowiseContainer,
+  FocalboardContainer,
+  ForgejoContainer,
+  FreshrssContainer,
+  GhostContainer,
+  GiteaContainer,
+  GrafanaContainer,
+  HealthchecksContainer,
+  ImmichContainer,
+  JellyfinContainer,
+  KhojContainer,
+  LagoContainer,
+  LangflowContainer,
+  LangfuseContainer,
+  LibrechatContainer,
+  LinkwardenContainer,
   ListmonkContainer,
+  LitellmContainer,
+  LobeChatContainer,
+  MattermostContainer,
   MemosContainer,
-  PocketbaseContainer,
+  MinifluxContainer,
+  MorphicContainer,
+  N8NContainer,
+  NavidromeContainer,
+  NextcloudContainer,
+  NocodbContainer,
   OpenWebuiContainer,
+  OutlineContainer,
+  PerplexicaContainer,
+  PlaneContainer,
+  PlausibleContainer,
+  PocketbaseContainer,
+  QdrantContainer,
+  SearxngContainer,
+  StirlingPdfContainer,
+  TabbyContainer,
+  TeableContainer,
+  UmamiContainer,
+  UptimeKumaContainer,
+  VaultwardenContainer,
+  VikunjaContainer,
+  WeaviateContainer,
+  WhisperAsrContainer,
+  WikiJsContainer,
 } from './durable_objects/app_runtime_subclasses.js';
+export { N8NContainer as N8nContainer } from './durable_objects/app_runtime_subclasses.js';
 
 // Register all prompt definitions at module load
 registerAllPrompts();
@@ -422,6 +492,456 @@ app.route('/', adminFunnel); // /api/admin/activation-funnel — Super-Admin rev
 app.route('/', adminAnalytics); // /api/admin/analytics/* — Super-Admin events-daily + publishes-by-source + claims-by-source rollups (Tinybird, read-only)
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
 app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (flag: i18n_localization)
+app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
+app.get('/api/sites/:siteId/export', async (c) => {
+  const siteId = c.req.param('siteId');
+  return handleCodeExport(c, siteId);
+}); // ZIP download — deployable CF Worker project (flag: code_export)
+
+// AI Website Critic — structured site critique with A-F grading (flag: ai_site_critic)
+app.post('/api/sites/:siteId/critic', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'ai_site_critic', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const dimensions = Array.isArray(body.dimensions) ? body.dimensions : [];
+  const critique = buildCritique(siteId, body.url || `https://${siteId}.projectsites.dev`, dimensions, {
+    industry: body.industry,
+    competitorUrls: body.competitorUrls,
+  });
+  return c.json({ data: critique });
+});
+
+// GEO Toolkit — dual-score content analyzer for AI answer engine visibility (flag: geo_toolkit)
+app.post('/api/sites/:siteId/geo-analyze', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'geo_toolkit', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.content || typeof body.content !== 'string') {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'content is required' } }, 400);
+  }
+  const analysis = analyzeGeo(body.url || `https://${siteId}.projectsites.dev`, body.content, body.existingJsonLd || []);
+  return c.json({ data: analysis });
+});
+
+// AI Video Hero — cinematic brand video script generator (flag: ai_video_hero)
+app.post('/api/sites/:siteId/video-hero', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'ai_video_hero', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.businessName || !body.description) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'businessName and description are required' } }, 400);
+  }
+  const script = generateVideoScript(
+    siteId,
+    body.businessName,
+    body.description,
+    body.sellingPoints || [],
+    { style: body.style, colors: body.colors, assetKeywords: body.assetKeywords },
+  );
+  return c.json({ data: script });
+});
+
+// AI Content Strategist — gap analysis + 90-day calendar (flag: ai_content_strategist)
+app.post('/api/sites/:siteId/content-strategy', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'ai_content_strategist', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.siteName || !body.industry) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'siteName and industry are required' } }, 400);
+  }
+  const strategy = buildContentStrategy(
+    siteId, body.siteName, body.industry,
+    body.siteTopics || [], body.competitorTopics || [],
+    body.startDate ? new Date(body.startDate) : undefined,
+  );
+  return c.json({ data: strategy });
+});
+
+// Conversational Analytics — NL→query intent parser (flag: conversational_analytics)
+app.post('/api/sites/:siteId/analytics/ask', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'conversational_analytics', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.query || typeof body.query !== 'string') {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'query is required' } }, 400);
+  }
+  const result = parseAnalyticsQuery(body.query);
+  return c.json({ data: result });
+});
+
+// MCP Per Tenant — per-site MCP server manifest (flag: mcp_per_tenant)
+app.get('/api/sites/:siteId/mcp-manifest', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'mcp_per_tenant', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const slug = c.req.query('slug') || siteId;
+  const manifest = generateMcpManifest(siteId, slug);
+  return c.json({ data: manifest });
+});
+
+// NL Site Management — NL→edit-intent parser (flag: nl_site_management)
+app.post('/api/sites/:siteId/nl-command', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'nl_site_management', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.command || typeof body.command !== 'string') {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'command is required' } }, 400);
+  }
+  const result = parseSiteCommand(body.command, body.page || '/');
+  return c.json({ data: result });
+});
+
+// Lifecycle Agent — site health check (flag: lifecycle_agent)
+app.post('/api/sites/:siteId/health-check', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'lifecycle_agent', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const report = runLifecycleCheck(siteId, body.signals || {});
+  return c.json({ data: report });
+});
+
+// CMS Collections — content type model generator (flag: cms_collections)
+app.get('/api/sites/:siteId/cms-model', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'cms_collections', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const slugs = c.req.query('collections')?.split(',') || availableCollections();
+  return c.json({ data: buildCmsModel(siteId, slugs) });
+});
+
+// Local SEO Suite — NAP audit + review replies (flag: local_seo_suite)
+app.post('/api/sites/:siteId/seo/audit', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'local_seo_suite', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const audit = runLocalSeoAudit(
+    siteId, body.canonical || {}, body.sources || [], body.reviews || [],
+  );
+  return c.json({ data: audit });
+});
+
+// Native Booking — slots + confirmation (flag: native_booking)
+app.post('/api/sites/:siteId/booking/slots', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const slots = generateSlots(body.service || {}, new Date(body.date + 'T00:00:00'), body.existing || []);
+  return c.json({ data: slots });
+});
+app.post('/api/sites/:siteId/booking/confirm', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  const result = confirmBooking(body, body.service || {}, body.existing || []);
+  return c.json('error' in result ? { error: result } : { data: result });
+});
+
+// Built-in CRM — lead scoring + pipeline (flag: builtin_crm)
+app.post('/api/sites/:siteId/crm/score', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: scoreLead(body) });
+});
+app.post('/api/sites/:siteId/crm/pipeline', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: pipelineSummary(body.contacts || []) });
+});
+app.post('/api/sites/:siteId/crm/next-action', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: nextAction(body) });
+});
+
+// Customer Portal — magic-link access (flag: customer_portal)
+app.post('/api/sites/:siteId/portal/create', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: createPortal(body.clientId, body.clientName, body.pages || []) });
+});
+app.post('/api/sites/:siteId/portal/validate', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: { valid: validateAccess(body.portal, body.token, body.page) } });
+});
+
+// SEO Agent — autonomous SEO health check (flag: seo_agent)
+app.post('/api/sites/:siteId/seo/health', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'seo_agent', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: runSeoHealthCheck(siteId, body) });
+});
+
+// Marketing Dashboard — widget config + metrics (flag: marketing_dashboard)
+app.get('/api/sites/:siteId/dashboard', async (c) => {
+  const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  const d = defaultDashboard(siteId);
+  const filter = c.req.query('sources');
+  return c.json({ data: filter ? filterBySource(d, filter.split(',') as any) : d });
+});
+app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: buildMetric(body.label, body.current, body.previous, body.source || 'website') });
+});
+
+// Social Agent — content proposals + engagement scoring (flag: social_agent)
+app.post('/api/sites/:siteId/social/proposals', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: generateProposals(body.business, body.sellingPoint, body.accounts || [], body.count || 5) });
+});
+app.post('/api/sites/:siteId/social/engagement', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: scoreEngagement(body.account, body.metrics) });
+});
+
+// Voice Site Mgmt — voice command parser (flag: voice_site_mgmt)
+app.post('/api/sites/:siteId/voice-command', async (c) => {
+  const siteId = c.req.param('siteId');
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'voice_site_mgmt', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: parseVoiceCommand(body.transcript || '') });
+});
+
+// A/B Testing (flag: ab_testing) + White Label (flag: white_label) + Visual Automation (flag: visual_automation)
+app.post('/api/sites/:siteId/ab/assign', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: assignVariant(body.experiment, body.visitorId) });
+});
+app.post('/api/sites/:siteId/ab/significance', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: computeSignificance(body.control, body.variant) });
+});
+app.post('/api/sites/:siteId/agency/dashboard', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'white_label', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: buildAgencyDashboard(body.brand, body.sites || []) });
+});
+app.post('/api/sites/:siteId/automation/validate', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'visual_automation', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: validateJourney(body) });
+});
+
+// App Launcher — catalog + launch planner (flag: app_launcher)
+app.get('/api/apps/catalog', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'app_launcher', { orgId: c.get('orgId'), siteId: 'system' }))) return c.notFound();
+  return c.json({ data: listApps() });
+});
+app.post('/api/apps/launch', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'app_launcher', { orgId: c.get('orgId'), siteId: 'system' }))) return c.notFound();
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ data: planLaunch(body) });
+});
+
+// Site Tags — org-scoped colored label pills (flag: site_tags)
+app.get('/api/site-tags', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleListTags } = await import('../libs/features/site_tags/handlers.js');
+  return handleListTags(c);
+});
+app.post('/api/site-tags', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleCreateTag } = await import('../libs/features/site_tags/handlers.js');
+  return handleCreateTag(c);
+});
+app.patch('/api/site-tags/:tagId', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleUpdateTag } = await import('../libs/features/site_tags/handlers.js');
+  return handleUpdateTag(c);
+});
+app.delete('/api/site-tags/:tagId', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
+  const { handleDeleteTag } = await import('../libs/features/site_tags/handlers.js');
+  return handleDeleteTag(c);
+});
+app.put('/api/sites/:siteId/tags', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  const siteId = c.req.param('siteId');
+  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId'), siteId }))) return c.notFound();
+  const { handleSetSiteTags } = await import('../libs/features/site_tags/handlers.js');
+  return handleSetSiteTags(c);
+});
+app.get('/api/sites/:siteId/tags', async (c) => {
+  const { handleGetSiteTags } = await import('../libs/features/site_tags/handlers.js');
+  return handleGetSiteTags(c);
+});
+
+// System Status — aggregated integration health (flag: system_status)
+app.get('/api/system/status', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'system_status', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSystemStatus } = await import('../libs/features/system_status/handlers.js');
+  return handleSystemStatus(c);
+});
+
+app.get('/api/sites/:siteId/annotations', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleListAnnotations } = await import('../libs/features/analytics_annotations/handlers.js');
+  return handleListAnnotations(c);
+});
+app.post('/api/sites/:siteId/annotations', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleCreateAnnotation } = await import('../libs/features/analytics_annotations/handlers.js');
+  return handleCreateAnnotation(c);
+});
+app.delete('/api/annotations/:id', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleDeleteAnnotation } = await import('../libs/features/analytics_annotations/handlers.js');
+  return handleDeleteAnnotation(c);
+});
+
+app.post('/api/cmdk', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'cmd_k_actions', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleCmdK } = await import('../libs/features/cmd_k_actions/handlers.js');
+  return handleCmdK(c);
+});
+
+app.get('/api/sites/:siteId/sparkline', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_health_sparklines', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSparkline } = await import('../libs/features/site_health_sparklines/handlers.js');
+  return handleSparkline(c);
+});
+
+app.get('/api/notifications/badge', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'notification_badge', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleBadge } = await import('../libs/features/notification_badge/handlers.js');
+  return handleBadge(c);
+});
+
+app.post('/api/batch', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleBatchOps } = await import('../libs/features/batch_operations/handlers.js');
+  return handleBatchOps(c);
+});
+
+// Site Comparison — side-by-side diff (flag: site_comparison)
+app.post('/api/sites/compare', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_comparison', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSiteCompare } = await import('../libs/features/site_comparison/handlers.js');
+  return handleSiteCompare(c);
+});
+
+// Site Clone — one-click copy (flag: site_clone)
+app.post('/api/sites/clone', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'site_clone', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleSiteClone } = await import('../libs/features/site_clone/handlers.js');
+  return handleSiteClone(c);
+});
+
+// NL Analytics — natural language → SQL (flag: nl_analytics)
+app.post('/api/analytics/query', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'nl_analytics', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleAnalyticsQuery } = await import('../libs/features/nl_analytics/handlers.js');
+  return handleAnalyticsQuery(c);
+});
+
+// Onboarding Progress — org setup completion (flag: onboarding_progress)
+app.get('/api/onboarding', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'onboarding_progress', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleOnboardingProgress } = await import('../libs/features/onboarding_progress/handlers.js');
+  return handleOnboardingProgress(c);
+});
+
+// Usage Gauges — per-org usage metrics (flag: usage_gauges)
+app.get('/api/usage', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'usage_gauges', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleUsageGauges } = await import('../libs/features/usage_gauges/handlers.js');
+  return handleUsageGauges(c);
+});
+
+// MRU Cards — recently-active sites for dashboard (flag: mru_cards)
+app.get('/api/mru', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'mru_cards', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleMruCards } = await import('../libs/features/mru_cards/handlers.js');
+  return handleMruCards(c);
+});
+
+// Activity Feed — org-scoped event timeline (flag: activity_feed)
+app.get('/api/activity', async (c) => {
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleActivityFeed } = await import('../libs/features/activity_feed/handlers.js');
+  return handleActivityFeed(c);
+});
+
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing
@@ -787,6 +1307,13 @@ app.all('*', async (c, next) => {
   out.headers.set('X-Appsmith-Proxy', 'cf-worker');
   return out;
 });
+
+// billing.projectsites.dev → Lago on Fly. CF free plan blocks Worker→Fly
+// fetch (error 1101). Use the direct Fly URL for now:
+//   https://projectsites-lago.fly.dev/users/sign_in
+//   admin@megabyte.space / 32D7OjlTK3id1M8flrQ
+// TODO: Origin Rule or DNS CNAME unproxy (requires Business plan or
+//   removing wildcard Worker route)
 
 // ─── docs.projectsites.dev — Scalar API Reference ──────────
 app.all('*', async (c, next) => {

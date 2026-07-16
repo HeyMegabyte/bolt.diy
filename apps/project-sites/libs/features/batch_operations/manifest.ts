@@ -1,0 +1,1 @@
+export const manifest = { slug: 'batch_operations', name: 'Batch Site Operations', description: 'Bulk rebuild/snapshot/delete for up to 50 sites. Validates org ownership for each site. Returns per-site results.', flagKey: 'batch_operations', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

@@ -36,6 +36,7 @@ export const EVENT_PRODUCERS = [
   'novu',
   'dub',
   'llm',
+  'psnotify',
 ] as const;
 
 /** The canonical golden-path event types (extend as transitions are wired). */

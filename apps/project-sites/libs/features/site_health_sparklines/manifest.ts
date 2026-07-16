@@ -1,0 +1,1 @@
+export const manifest = { slug: 'site_health_sparklines', name: 'Site Health Sparklines', description: '7-day mini traffic trend per site from analytics_daily. Returns date+visits array for sparkline SVG rendering.', flagKey: 'site_health_sparklines', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

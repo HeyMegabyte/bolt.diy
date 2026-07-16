@@ -36,7 +36,7 @@ export const googleCalendarAdapter = {
     context: { connection: OAuthConnection; nango: ProjectSitesNangoClient },
   ): Promise<CapabilityExecutionResult<T>> {
     try {
-      const { providerConfigKey, nangoConnectionId } = context.connection;
+      const { nangoProviderConfigKey: providerConfigKey, nangoConnectionId } = context.connection;
 
       if (request.action === 'calendar.create_event') {
         const parsed = CreateEventInput.safeParse(request.input);

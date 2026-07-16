@@ -307,22 +307,22 @@ dataset = "projectsites_admin_v1"
 
 # Claude Code build container — custom image with Claude Code + skills + template pre-baked
 # standard-4 = 4 vCPU, 12 GiB RAM, 8 GB disk. Larger size accelerates parallel prompt execution.
-[[env.production.containers]]
-class_name = "SiteBuilderContainer"
-image = "./Dockerfile"
-max_instances = 10
-instance_type = "standard-4"
-
-# AppRuntimeContainer — base "coming soon" placeholder. Catalog apps that
-# don't yet have a dedicated per-image DO subclass route here and surface
-# the friendly interstitial defined in `containers/app-runtime/Dockerfile`.
-# Per-image subclasses + their `[[containers]]` blocks below own the real
-# upstream images for the top-10 supported apps.
-[[env.production.containers]]
-class_name = "AppRuntimeContainer"
-image = "./containers/app-runtime/Dockerfile"
-max_instances = 50
-instance_type = "basic"
+#[[env.production.containers]]
+#class_name = "SiteBuilderContainer"
+#image = "./Dockerfile"
+#max_instances = 10
+#instance_type = "standard-4"
+#
+## AppRuntimeContainer — base "coming soon" placeholder. Catalog apps that
+## don't yet have a dedicated per-image DO subclass route here and surface
+## the friendly interstitial defined in `containers/app-runtime/Dockerfile`.
+## Per-image subclasses + their `[[containers]]` blocks below own the real
+## upstream images for the top-10 supported apps.
+#[[env.production.containers]]
+#class_name = "AppRuntimeContainer"
+#image = "./containers/app-runtime/Dockerfile"
+#max_instances = 50
+#instance_type = "basic"
 
 
 
@@ -333,669 +333,680 @@ instance_type = "basic"
 # CFC + Neon + Upstash. Excludes GPU, unprofessional UI, and always-on services.
 
 # anything-llm — AnythingLLM (mintplexlabs/anythingllm:latest, port 3001, 768 MiB)
-[[env.production.containers]]
-class_name = "AnythingLlmContainer"
-image = "mintplexlabs/anythingllm:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_ANYTHING_LLM"
-class_name = "AnythingLlmContainer"
-
+#[[env.production.containers]]
+#class_name = "AnythingLlmContainer"
+#image = "mintplexlabs/anythingllm:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_ANYTHING_LLM"
+#class_name = "AnythingLlmContainer"
+#
 # appsmith — Appsmith (appsmith/appsmith-ce:latest, port 80, 1024 MiB)
-[[env.production.containers]]
-class_name = "AppsmithContainer"
-image = "appsmith/appsmith-ce:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_APPSMITH"
-class_name = "AppsmithContainer"
-
+#[[env.production.containers]]
+#class_name = "AppsmithContainer"
+#image = "appsmith/appsmith-ce:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_APPSMITH"
+#class_name = "AppsmithContainer"
+#
 # audiobookshelf — Audiobookshelf (ghcr.io/advplyr/audiobookshelf:latest, port 80, 384 MiB)
-[[env.production.containers]]
-class_name = "AudiobookshelfContainer"
-image = "ghcr.io/advplyr/audiobookshelf:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_AUDIOBOOKSHELF"
-class_name = "AudiobookshelfContainer"
-
+#[[env.production.containers]]
+#class_name = "AudiobookshelfContainer"
+#image = "ghcr.io/advplyr/audiobookshelf:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_AUDIOBOOKSHELF"
+#class_name = "AudiobookshelfContainer"
+#
 # bookstack — BookStack (lscr.io/linuxserver/bookstack:latest, port 80, 384 MiB)
-[[env.production.containers]]
-class_name = "BookstackContainer"
-image = "lscr.io/linuxserver/bookstack:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_BOOKSTACK"
-class_name = "BookstackContainer"
-
+#[[env.production.containers]]
+#class_name = "BookstackContainer"
+#image = "lscr.io/linuxserver/bookstack:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_BOOKSTACK"
+#class_name = "BookstackContainer"
+#
 # cal — Cal.com (calcom/cal.com:latest, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "CalComContainer"
-image = "calcom/cal.com:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_CAL"
-class_name = "CalComContainer"
-
+#[[env.production.containers]]
+#class_name = "CalComContainer"
+#image = "calcom/cal.com:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_CAL"
+#class_name = "CalComContainer"
+#
 # chromadb — Chroma (chromadb/chroma:latest, port 8000, 512 MiB)
-[[env.production.containers]]
-class_name = "ChromaContainer"
-image = "chromadb/chroma:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_CHROMADB"
-class_name = "ChromaContainer"
-
+#[[env.production.containers]]
+#class_name = "ChromaContainer"
+#image = "chromadb/chroma:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_CHROMADB"
+#class_name = "ChromaContainer"
+#
 # code-server — Code Server (codercom/code-server:latest, port 8080, 1024 MiB)
-[[env.production.containers]]
-class_name = "CodeServerContainer"
-image = "codercom/code-server:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_CODE_SERVER"
-class_name = "CodeServerContainer"
-
+#[[env.production.containers]]
+#class_name = "CodeServerContainer"
+#image = "codercom/code-server:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_CODE_SERVER"
+#class_name = "CodeServerContainer"
+#
 # coqui-tts — Coqui TTS (ghcr.io/coqui-ai/tts-cpu:latest, port 5002, 1024 MiB)
-[[env.production.containers]]
-class_name = "CoquiTtsContainer"
-image = "ghcr.io/coqui-ai/tts-cpu:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_COQUI_TTS"
-class_name = "CoquiTtsContainer"
-
+#[[env.production.containers]]
+#class_name = "CoquiTtsContainer"
+#image = "ghcr.io/coqui-ai/tts-cpu:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_COQUI_TTS"
+#class_name = "CoquiTtsContainer"
+#
 # directus — Directus (directus/directus:latest, port 8055, 512 MiB)
-[[env.production.containers]]
-class_name = "DirectusContainer"
-image = "directus/directus:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_DIRECTUS"
-class_name = "DirectusContainer"
-
+#[[env.production.containers]]
+#class_name = "DirectusContainer"
+#image = "directus/directus:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_DIRECTUS"
+#class_name = "DirectusContainer"
+#
 # drone — Drone CI (drone/drone:2, port 80, 256 MiB)
-[[env.production.containers]]
-class_name = "DroneCiContainer"
-image = "drone/drone:2"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_DRONE"
-class_name = "DroneCiContainer"
-
+#[[env.production.containers]]
+#class_name = "DroneCiContainer"
+#image = "drone/drone:2"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_DRONE"
+#class_name = "DroneCiContainer"
+#
 # flowise — Flowise (flowiseai/flowise:latest, port 3000, 512 MiB)
-[[env.production.containers]]
-class_name = "FlowiseContainer"
-image = "flowiseai/flowise:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FLOWISE"
-class_name = "FlowiseContainer"
-
+#[[env.production.containers]]
+#class_name = "FlowiseContainer"
+#image = "flowiseai/flowise:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_FLOWISE"
+#class_name = "FlowiseContainer"
+#
 # focalboard — Focalboard (mattermost/focalboard:latest, port 8000, 256 MiB)
-[[env.production.containers]]
-class_name = "FocalboardContainer"
-image = "mattermost/focalboard:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FOCALBOARD"
-class_name = "FocalboardContainer"
-
+#[[env.production.containers]]
+#class_name = "FocalboardContainer"
+#image = "mattermost/focalboard:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_FOCALBOARD"
+#class_name = "FocalboardContainer"
+#
 # forgejo — Forgejo (codeberg.org/forgejo/forgejo:latest, port 3000, 384 MiB)
-[[env.production.containers]]
-class_name = "ForgejoContainer"
-image = "codeberg.org/forgejo/forgejo:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FORGEJO"
-class_name = "ForgejoContainer"
-
+#[[env.production.containers]]
+#class_name = "ForgejoContainer"
+#image = "codeberg.org/forgejo/forgejo:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_FORGEJO"
+#class_name = "ForgejoContainer"
+#
 # freshrss — FreshRSS (freshrss/freshrss:latest, port 80, 256 MiB)
-[[env.production.containers]]
-class_name = "FreshrssContainer"
-image = "freshrss/freshrss:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_FRESHRSS"
-class_name = "FreshrssContainer"
-
+#[[env.production.containers]]
+#class_name = "FreshrssContainer"
+#image = "freshrss/freshrss:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_FRESHRSS"
+#class_name = "FreshrssContainer"
+#
 # ghost — Ghost (ghost:5-alpine, port 2368, 512 MiB)
-[[env.production.containers]]
-class_name = "GhostContainer"
-image = "ghost:5-alpine"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_GHOST"
-class_name = "GhostContainer"
-
+#[[env.production.containers]]
+#class_name = "GhostContainer"
+#image = "docker.io/library/ghost:5-alpine"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_GHOST"
+#class_name = "GhostContainer"
+#
 # gitea — Gitea (gitea/gitea:latest, port 3000, 384 MiB)
-[[env.production.containers]]
-class_name = "GiteaContainer"
-image = "gitea/gitea:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_GITEA"
-class_name = "GiteaContainer"
-
+#[[env.production.containers]]
+#class_name = "GiteaContainer"
+#image = "gitea/gitea:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_GITEA"
+#class_name = "GiteaContainer"
+#
 # grafana — Grafana (grafana/grafana-oss:latest, port 3000, 384 MiB)
-[[env.production.containers]]
-class_name = "GrafanaContainer"
-image = "grafana/grafana-oss:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_GRAFANA"
-class_name = "GrafanaContainer"
-
+#[[env.production.containers]]
+#class_name = "GrafanaContainer"
+#image = "grafana/grafana-oss:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_GRAFANA"
+#class_name = "GrafanaContainer"
+#
 # healthchecks — Healthchecks (healthchecks/healthchecks:latest, port 8000, 256 MiB)
-[[env.production.containers]]
-class_name = "HealthchecksContainer"
-image = "healthchecks/healthchecks:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_HEALTHCHECKS"
-class_name = "HealthchecksContainer"
-
+#[[env.production.containers]]
+#class_name = "HealthchecksContainer"
+#image = "healthchecks/healthchecks:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_HEALTHCHECKS"
+#class_name = "HealthchecksContainer"
+#
 # immich — Immich (ghcr.io/imagegenius/immich:latest, port 8080, 1024 MiB)
-[[env.production.containers]]
-class_name = "ImmichContainer"
-image = "ghcr.io/imagegenius/immich:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_IMMICH"
-class_name = "ImmichContainer"
-
+#[[env.production.containers]]
+#class_name = "ImmichContainer"
+#image = "ghcr.io/imagegenius/immich:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_IMMICH"
+#class_name = "ImmichContainer"
+#
 # jellyfin — Jellyfin (jellyfin/jellyfin:latest, port 8096, 1024 MiB)
-[[env.production.containers]]
-class_name = "JellyfinContainer"
-image = "jellyfin/jellyfin:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_JELLYFIN"
-class_name = "JellyfinContainer"
-
+#[[env.production.containers]]
+#class_name = "JellyfinContainer"
+#image = "jellyfin/jellyfin:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_JELLYFIN"
+#class_name = "JellyfinContainer"
+#
 # khoj — Khoj (ghcr.io/khoj-ai/khoj:latest, port 42110, 1024 MiB)
-[[env.production.containers]]
-class_name = "KhojContainer"
-image = "ghcr.io/khoj-ai/khoj:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_KHOJ"
-class_name = "KhojContainer"
-
+#[[env.production.containers]]
+#class_name = "KhojContainer"
+#image = "ghcr.io/khoj-ai/khoj:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_KHOJ"
+#class_name = "KhojContainer"
+#
 # langflow — Langflow (langflowai/langflow:latest, port 7860, 1024 MiB)
-[[env.production.containers]]
-class_name = "LangflowContainer"
-image = "langflowai/langflow:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LANGFLOW"
-class_name = "LangflowContainer"
-
+#[[env.production.containers]]
+#class_name = "LangflowContainer"
+#image = "langflowai/langflow:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LANGFLOW"
+#class_name = "LangflowContainer"
+#
 # langfuse — Langfuse (langfuse/langfuse:2, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "LangfuseContainer"
-image = "langfuse/langfuse:2"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LANGFUSE"
-class_name = "LangfuseContainer"
-
+#[[env.production.containers]]
+#class_name = "LangfuseContainer"
+#image = "langfuse/langfuse:2"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LANGFUSE"
+#class_name = "LangfuseContainer"
+#
 # librechat — LibreChat (ghcr.io/danny-avila/librechat:latest, port 3080, 768 MiB)
-[[env.production.containers]]
-class_name = "LibrechatContainer"
-image = "ghcr.io/danny-avila/librechat:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LIBRECHAT"
-class_name = "LibrechatContainer"
-
+#[[env.production.containers]]
+#class_name = "LibrechatContainer"
+#image = "ghcr.io/danny-avila/librechat:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LIBRECHAT"
+#class_name = "LibrechatContainer"
+#
 # linkwarden — Linkwarden (ghcr.io/linkwarden/linkwarden:latest, port 3000, 512 MiB)
-[[env.production.containers]]
-class_name = "LinkwardenContainer"
-image = "ghcr.io/linkwarden/linkwarden:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LINKWARDEN"
-class_name = "LinkwardenContainer"
-
+#[[env.production.containers]]
+#class_name = "LinkwardenContainer"
+#image = "ghcr.io/linkwarden/linkwarden:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LINKWARDEN"
+#class_name = "LinkwardenContainer"
+#
 # listmonk — Listmonk (listmonk/listmonk:latest, port 9000, 256 MiB)
-[[env.production.containers]]
-class_name = "ListmonkContainer"
-image = "listmonk/listmonk:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LISTMONK"
-class_name = "ListmonkContainer"
-
+#[[env.production.containers]]
+#class_name = "ListmonkContainer"
+#image = "listmonk/listmonk:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LISTMONK"
+#class_name = "ListmonkContainer"
+#
 # litellm — LiteLLM (ghcr.io/berriai/litellm-database:main-stable, port 4000, 768 MiB)
-[[env.production.containers]]
-class_name = "LitellmContainer"
-image = "ghcr.io/berriai/litellm-database:main-stable"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LITELLM"
-class_name = "LitellmContainer"
-
+#[[env.production.containers]]
+#class_name = "LitellmContainer"
+#image = "ghcr.io/berriai/litellm-database:main-stable"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LITELLM"
+#class_name = "LitellmContainer"
+#
 # lobe-chat — Lobe Chat (lobehub/lobe-chat-database:latest, port 3210, 768 MiB)
-[[env.production.containers]]
-class_name = "LobeChatContainer"
-image = "lobehub/lobe-chat-database:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_LOBE_CHAT"
-class_name = "LobeChatContainer"
-
+#[[env.production.containers]]
+#class_name = "LobeChatContainer"
+#image = "lobehub/lobe-chat-database:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LOBE_CHAT"
+#class_name = "LobeChatContainer"
+#
 # mattermost — Mattermost (mattermost/mattermost-team-edition:latest, port 8065, 768 MiB)
-[[env.production.containers]]
-class_name = "MattermostContainer"
-image = "mattermost/mattermost-team-edition:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_MATTERMOST"
-class_name = "MattermostContainer"
-
+#[[env.production.containers]]
+#class_name = "MattermostContainer"
+#image = "mattermost/mattermost-team-edition:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_MATTERMOST"
+#class_name = "MattermostContainer"
+#
 # memos — Memos (neosmemo/memos:stable, port 5230, 128 MiB)
-[[env.production.containers]]
-class_name = "MemosContainer"
-image = "neosmemo/memos:stable"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_MEMOS"
-class_name = "MemosContainer"
-
+#[[env.production.containers]]
+#class_name = "MemosContainer"
+#image = "neosmemo/memos:stable"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_MEMOS"
+#class_name = "MemosContainer"
+#
 # miniflux — Miniflux (miniflux/miniflux:latest, port 8080, 128 MiB)
-[[env.production.containers]]
-class_name = "MinifluxContainer"
-image = "miniflux/miniflux:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_MINIFLUX"
-class_name = "MinifluxContainer"
-
+#[[env.production.containers]]
+#class_name = "MinifluxContainer"
+#image = "miniflux/miniflux:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_MINIFLUX"
+#class_name = "MinifluxContainer"
+#
 # morphic — Morphic (ghcr.io/miurla/morphic:latest, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "MorphicContainer"
-image = "ghcr.io/miurla/morphic:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_MORPHIC"
-class_name = "MorphicContainer"
-
+#[[env.production.containers]]
+#class_name = "MorphicContainer"
+#image = "ghcr.io/miurla/morphic:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_MORPHIC"
+#class_name = "MorphicContainer"
+#
 # n8n — n8n (n8nio/n8n:latest, port 5678, 512 MiB)
-[[env.production.containers]]
-class_name = "N8NContainer"
-image = "n8nio/n8n:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_N8N"
-class_name = "N8NContainer"
-
+#[[env.production.containers]]
+#class_name = "N8NContainer"
+#image = "n8nio/n8n:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_N8N"
+#class_name = "N8NContainer"
+#
 # navidrome — Navidrome (deluan/navidrome:latest, port 4533, 256 MiB)
-[[env.production.containers]]
-class_name = "NavidromeContainer"
-image = "deluan/navidrome:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_NAVIDROME"
-class_name = "NavidromeContainer"
-
+#[[env.production.containers]]
+#class_name = "NavidromeContainer"
+#image = "deluan/navidrome:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_NAVIDROME"
+#class_name = "NavidromeContainer"
+#
 # nextcloud — Nextcloud (nextcloud:latest, port 80, 1024 MiB)
-[[env.production.containers]]
-class_name = "NextcloudContainer"
-image = "nextcloud:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_NEXTCLOUD"
-class_name = "NextcloudContainer"
-
+#[[env.production.containers]]
+#class_name = "NextcloudContainer"
+#image = "docker.io/library/nextcloud:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_NEXTCLOUD"
+#class_name = "NextcloudContainer"
+#
 # nocodb — NocoDB (nocodb/nocodb:latest, port 8080, 512 MiB)
-[[env.production.containers]]
-class_name = "NocodbContainer"
-image = "nocodb/nocodb:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_NOCODB"
-class_name = "NocodbContainer"
-
+#[[env.production.containers]]
+#class_name = "NocodbContainer"
+#image = "nocodb/nocodb:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_NOCODB"
+#class_name = "NocodbContainer"
+#
 # open-webui — Open WebUI (ghcr.io/open-webui/open-webui:main, port 8080, 512 MiB)
-[[env.production.containers]]
-class_name = "OpenWebuiContainer"
-image = "ghcr.io/open-webui/open-webui:main"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_OPEN_WEBUI"
-class_name = "OpenWebuiContainer"
-
+#[[env.production.containers]]
+#class_name = "OpenWebuiContainer"
+#image = "ghcr.io/open-webui/open-webui:main"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_OPEN_WEBUI"
+#class_name = "OpenWebuiContainer"
+#
 # outline — Outline (outlinewiki/outline:latest, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "OutlineContainer"
-image = "outlinewiki/outline:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_OUTLINE"
-class_name = "OutlineContainer"
-
+#[[env.production.containers]]
+#class_name = "OutlineContainer"
+#image = "outlinewiki/outline:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_OUTLINE"
+#class_name = "OutlineContainer"
+#
 # perplexica — Perplexica (itzcrazykns1337/perplexica:latest, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "PerplexicaContainer"
-image = "itzcrazykns1337/perplexica:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_PERPLEXICA"
-class_name = "PerplexicaContainer"
-
+#[[env.production.containers]]
+#class_name = "PerplexicaContainer"
+#image = "itzcrazykns1337/perplexica:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_PERPLEXICA"
+#class_name = "PerplexicaContainer"
+#
 # phoenix — Arize Phoenix (arizephoenix/phoenix:latest, port 6006, 768 MiB)
-[[env.production.containers]]
-class_name = "ArizePhoenixContainer"
-image = "arizephoenix/phoenix:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_PHOENIX"
-class_name = "ArizePhoenixContainer"
-
+#[[env.production.containers]]
+#class_name = "ArizePhoenixContainer"
+#image = "arizephoenix/phoenix:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_PHOENIX"
+#class_name = "ArizePhoenixContainer"
+#
 # plane — Plane (makeplane/plane-frontend:latest, port 3000, 768 MiB)
-[[env.production.containers]]
-class_name = "PlaneContainer"
-image = "makeplane/plane-frontend:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_PLANE"
-class_name = "PlaneContainer"
-
+#[[env.production.containers]]
+#class_name = "PlaneContainer"
+#image = "makeplane/plane-frontend:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_PLANE"
+#class_name = "PlaneContainer"
+#
 # plausible — Plausible (plausible/community-edition:latest, port 8000, 512 MiB)
-[[env.production.containers]]
-class_name = "PlausibleContainer"
-image = "plausible/community-edition:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_PLAUSIBLE"
-class_name = "PlausibleContainer"
-
+#[[env.production.containers]]
+#class_name = "PlausibleContainer"
+#image = "plausible/community-edition:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_PLAUSIBLE"
+#class_name = "PlausibleContainer"
+#
 # pocketbase — PocketBase (spectado/pocketbase:latest, port 8090, 128 MiB)
-[[env.production.containers]]
-class_name = "PocketbaseContainer"
-image = "spectado/pocketbase:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_POCKETBASE"
-class_name = "PocketbaseContainer"
-
+#[[env.production.containers]]
+#class_name = "PocketbaseContainer"
+#image = "spectado/pocketbase:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_POCKETBASE"
+#class_name = "PocketbaseContainer"
+#
 # qdrant — Qdrant (qdrant/qdrant:latest, port 6333, 512 MiB)
-[[env.production.containers]]
-class_name = "QdrantContainer"
-image = "qdrant/qdrant:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_QDRANT"
-class_name = "QdrantContainer"
-
+#[[env.production.containers]]
+#class_name = "QdrantContainer"
+#image = "qdrant/qdrant:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_QDRANT"
+#class_name = "QdrantContainer"
+#
 # searxng — SearXNG (searxng/searxng:latest, port 8080, 384 MiB)
-[[env.production.containers]]
-class_name = "SearxngContainer"
-image = "searxng/searxng:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_SEARXNG"
-class_name = "SearxngContainer"
-
+#[[env.production.containers]]
+#class_name = "SearxngContainer"
+#image = "searxng/searxng:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_SEARXNG"
+#class_name = "SearxngContainer"
+#
 # stirling-pdf — Stirling PDF (docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest, port 8080, 512 MiB)
-[[env.production.containers]]
-class_name = "StirlingPdfContainer"
-image = "docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_STIRLING_PDF"
-class_name = "StirlingPdfContainer"
-
+#[[env.production.containers]]
+#class_name = "StirlingPdfContainer"
+#image = "docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_STIRLING_PDF"
+#class_name = "StirlingPdfContainer"
+#
 # tabby — Tabby (tabbyml/tabby:latest, port 8080, 1024 MiB)
-[[env.production.containers]]
-class_name = "TabbyContainer"
-image = "tabbyml/tabby:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_TABBY"
-class_name = "TabbyContainer"
-
+#[[env.production.containers]]
+#class_name = "TabbyContainer"
+#image = "tabbyml/tabby:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_TABBY"
+#class_name = "TabbyContainer"
+#
 # teable — Teable (teableio/teable:latest, port 3000, 512 MiB)
-[[env.production.containers]]
-class_name = "TeableContainer"
-image = "teableio/teable:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_TEABLE"
-class_name = "TeableContainer"
-
+#[[env.production.containers]]
+#class_name = "TeableContainer"
+#image = "teableio/teable:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_TEABLE"
+#class_name = "TeableContainer"
+#
 # umami — Umami (ghcr.io/umami-software/umami:postgresql-latest, port 3000, 256 MiB)
-[[env.production.containers]]
-class_name = "UmamiContainer"
-image = "ghcr.io/umami-software/umami:postgresql-latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_UMAMI"
-class_name = "UmamiContainer"
-
+#[[env.production.containers]]
+#class_name = "UmamiContainer"
+#image = "ghcr.io/umami-software/umami:postgresql-latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_UMAMI"
+#class_name = "UmamiContainer"
+#
 # uptime-kuma — Uptime Kuma (louislam/uptime-kuma:1, port 3001, 256 MiB)
-[[env.production.containers]]
-class_name = "UptimeKumaContainer"
-image = "louislam/uptime-kuma:1"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_UPTIME_KUMA"
-class_name = "UptimeKumaContainer"
-
+#[[env.production.containers]]
+#class_name = "UptimeKumaContainer"
+#image = "louislam/uptime-kuma:1"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_UPTIME_KUMA"
+#class_name = "UptimeKumaContainer"
+#
 # vaultwarden — Vaultwarden (vaultwarden/server:latest, port 80, 128 MiB)
-[[env.production.containers]]
-class_name = "VaultwardenContainer"
-image = "vaultwarden/server:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_VAULTWARDEN"
-class_name = "VaultwardenContainer"
-
+#[[env.production.containers]]
+#class_name = "VaultwardenContainer"
+#image = "vaultwarden/server:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_VAULTWARDEN"
+#class_name = "VaultwardenContainer"
+#
 # vikunja — Vikunja (vikunja/vikunja:latest, port 3456, 256 MiB)
-[[env.production.containers]]
-class_name = "VikunjaContainer"
-image = "vikunja/vikunja:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_VIKUNJA"
-class_name = "VikunjaContainer"
-
+#[[env.production.containers]]
+#class_name = "VikunjaContainer"
+#image = "vikunja/vikunja:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_VIKUNJA"
+#class_name = "VikunjaContainer"
+#
 # weaviate — Weaviate (semitechnologies/weaviate:1.28.0, port 8080, 1024 MiB)
-[[env.production.containers]]
-class_name = "WeaviateContainer"
-image = "semitechnologies/weaviate:1.28.0"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_WEAVIATE"
-class_name = "WeaviateContainer"
-
+#[[env.production.containers]]
+#class_name = "WeaviateContainer"
+#image = "semitechnologies/weaviate:1.28.0"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_WEAVIATE"
+#class_name = "WeaviateContainer"
+#
 # whisper-asr — Whisper ASR (onerahmet/openai-whisper-asr-webservice:latest, port 9000, 1024 MiB)
-[[env.production.containers]]
-class_name = "WhisperAsrContainer"
-image = "onerahmet/openai-whisper-asr-webservice:latest"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_WHISPER_ASR"
-class_name = "WhisperAsrContainer"
-
+#[[env.production.containers]]
+#class_name = "WhisperAsrContainer"
+#image = "onerahmet/openai-whisper-asr-webservice:latest"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_WHISPER_ASR"
+#class_name = "WhisperAsrContainer"
+#
 # wikijs — Wiki.js (ghcr.io/requarks/wiki:2, port 3000, 384 MiB)
-[[env.production.containers]]
-class_name = "WikiJsContainer"
-image = "ghcr.io/requarks/wiki:2"
-max_instances = 20
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "APP_RUNTIME_WIKIJS"
-class_name = "WikiJsContainer"
-
-[[env.production.migrations]]
-tag = "v_app_subclasses"
-new_sqlite_classes = [
-"AnythingLlmContainer",
-"AppsmithContainer",
-"AudiobookshelfContainer",
-"BookstackContainer",
-"CalComContainer",
-"ChromaContainer",
-"CodeServerContainer",
-"CoquiTtsContainer",
-"DirectusContainer",
-"DroneCiContainer",
-"FlowiseContainer",
-"FocalboardContainer",
-"ForgejoContainer",
-"FreshrssContainer",
-"GhostContainer",
-"GiteaContainer",
-"GrafanaContainer",
-"HealthchecksContainer",
-"ImmichContainer",
-"JellyfinContainer",
-"KhojContainer",
-"LangflowContainer",
-"LangfuseContainer",
-"LibrechatContainer",
-"LinkwardenContainer",
-"ListmonkContainer",
-"LitellmContainer",
-"LobeChatContainer",
-"MattermostContainer",
-"MemosContainer",
-"MinifluxContainer",
-"MorphicContainer",
-"N8NContainer",
-"NavidromeContainer",
-"NextcloudContainer",
-"NocodbContainer",
-"OpenWebuiContainer",
-"OutlineContainer",
-"PerplexicaContainer",
-"ArizePhoenixContainer",
-"PlaneContainer",
-"PlausibleContainer",
-"PocketbaseContainer",
-"QdrantContainer",
-"SearxngContainer",
-"StirlingPdfContainer",
-"TabbyContainer",
-"TeableContainer",
-"UmamiContainer",
-"UptimeKumaContainer",
-"VaultwardenContainer",
-"VikunjaContainer",
-"WeaviateContainer",
-"WhisperAsrContainer",
-"WikiJsContainer"
-]
+#[[env.production.containers]]
+#class_name = "WikiJsContainer"
+#image = "ghcr.io/requarks/wiki:2"
+#max_instances = 20
+#instance_type = "basic"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_WIKIJS"
+#class_name = "WikiJsContainer"
+#
+# lago — Lago billing (ghcr.io/getlago/api:latest, Rails, port 3000, 4GB)
+#[[env.production.containers]]
+#class_name = "LagoContainer"
+#image = "./containers/lago/Dockerfile"
+#max_instances = 5
+#instance_type = "standard-4"
+#
+#[[env.production.durable_objects.bindings]]
+#name = "APP_RUNTIME_LAGO"
+#class_name = "LagoContainer"
+#
+#[[env.production.migrations]]
+#tag = "v_app_subclasses"
+#new_sqlite_classes = [
+#"AnythingLlmContainer",
+#"AppsmithContainer",
+#"AudiobookshelfContainer",
+#"BookstackContainer",
+#"CalComContainer",
+#"ChromaContainer",
+#"CodeServerContainer",
+#"CoquiTtsContainer",
+#"DirectusContainer",
+#"DroneCiContainer",
+#"FlowiseContainer",
+#"FocalboardContainer",
+#"ForgejoContainer",
+#"FreshrssContainer",
+#"GhostContainer",
+#"GiteaContainer",
+#"GrafanaContainer",
+#"HealthchecksContainer",
+#"ImmichContainer",
+#"JellyfinContainer",
+#"KhojContainer",
+#"LangflowContainer",
+#"LangfuseContainer",
+#"LibrechatContainer",
+#"LinkwardenContainer",
+#"ListmonkContainer",
+#"LitellmContainer",
+#"LobeChatContainer",
+#"MattermostContainer",
+#"MemosContainer",
+#"MinifluxContainer",
+#"MorphicContainer",
+#"N8NContainer",
+#"NavidromeContainer",
+#"NextcloudContainer",
+#"NocodbContainer",
+#"OpenWebuiContainer",
+#"OutlineContainer",
+#"PerplexicaContainer",
+#"ArizePhoenixContainer",
+#"PlaneContainer",
+#"PlausibleContainer",
+#"PocketbaseContainer",
+#"QdrantContainer",
+#"SearxngContainer",
+#"StirlingPdfContainer",
+#"TabbyContainer",
+#"TeableContainer",
+#"UmamiContainer",
+#"UptimeKumaContainer",
+#"VaultwardenContainer",
+#"VikunjaContainer",
+#"WeaviateContainer",
+#"WhisperAsrContainer",
+#"WikiJsContainer"
+#]
 # AppRuntimeContainer is new — register it under the SQLite storage backend
 # in a fresh migration tag. Existing classes (SiteBuilder/TraceHub/ActivityHub)
 # stay on their current backend per the legacy notes above.

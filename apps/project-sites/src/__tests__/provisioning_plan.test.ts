@@ -22,7 +22,7 @@ describe('buildProvisioningPlan', () => {
   // -----------------------------------------------------------------------
   it('produces 5 steps when all services are opted in', () => {
     const plan = buildProvisioningPlan({
-      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_postiz'],
+      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_native'],
     });
 
     expect(plan.steps).toHaveLength(5);
@@ -31,7 +31,7 @@ describe('buildProvisioningPlan', () => {
 
   it('orders steps by provisioning order (CRM → email → PM → auth → social)', () => {
     const plan = buildProvisioningPlan({
-      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_postiz'],
+      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_native'],
     });
 
     const services = plan.steps.map((s) => s.service);
@@ -40,7 +40,7 @@ describe('buildProvisioningPlan', () => {
       'email_listmonk',
       'pm_plane',
       'auth_unkey',
-      'social_postiz',
+      'social_native',
     ]);
 
     // Orders are 1-based and sequential.
@@ -62,7 +62,7 @@ describe('buildProvisioningPlan', () => {
     const email = plan.steps.find((s) => s.service === 'email_listmonk')!;
     const pm = plan.steps.find((s) => s.service === 'pm_plane')!;
     const auth = plan.steps.find((s) => s.service === 'auth_unkey')!;
-    const social = plan.steps.find((s) => s.service === 'social_postiz')!;
+    const social = plan.steps.find((s) => s.service === 'social_native')!;
 
     expect(crm.optedIn).toBe(true);
     expect(pm.optedIn).toBe(true);
@@ -89,7 +89,7 @@ describe('buildProvisioningPlan', () => {
   // -----------------------------------------------------------------------
   it('assigns correct dependency for each service', () => {
     const plan = buildProvisioningPlan({
-      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_postiz'],
+      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_native'],
     });
 
     for (const step of plan.steps) {
@@ -106,12 +106,12 @@ describe('buildProvisioningPlan', () => {
     expect(deps.email_listmonk).toBe('crm_twenty');
     expect(deps.pm_plane).toBeNull();
     expect(deps.auth_unkey).toBeNull();
-    expect(deps.social_postiz).toBe('email_listmonk');
+    expect(deps.social_native).toBe('email_listmonk');
   });
 
   it('orders dependents after their dependencies', () => {
     const plan = buildProvisioningPlan({
-      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_postiz'],
+      optIns: ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_native'],
     });
 
     // email depends on CRM → CRM order < email order
@@ -120,7 +120,7 @@ describe('buildProvisioningPlan', () => {
     expect(email.order).toBeGreaterThan(crm.order);
 
     // social depends on email → email order < social order
-    const social = plan.steps.find((s) => s.service === 'social_postiz')!;
+    const social = plan.steps.find((s) => s.service === 'social_native')!;
     expect(social.order).toBeGreaterThan(email.order);
   });
 
@@ -134,7 +134,7 @@ describe('buildProvisioningPlan', () => {
     expect(plan.urls.email_listmonk).toBe('https://mail.projectsites.dev');
     expect(plan.urls.pm_plane).toBe('https://pm.projectsites.dev');
     expect(plan.urls.auth_unkey).toBe('https://api.projectsites.dev');
-    expect(plan.urls.social_postiz).toBe('https://social.projectsites.dev');
+    expect(plan.urls.social_native).toBe('https://social.projectsites.dev');
   });
 
   it('honours baseUrl overrides for each service', () => {
@@ -199,8 +199,8 @@ describe('buildProvisioningPlan', () => {
       [],
       ['crm_twenty'],
       ['email_listmonk'],
-      ['social_postiz'],
-      ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_postiz'],
+      ['social_native'],
+      ['crm_twenty', 'email_listmonk', 'pm_plane', 'auth_unkey', 'social_native'],
     ];
 
     for (const optIns of cases) {
@@ -242,7 +242,7 @@ describe('buildProvisioningPlan', () => {
     expect(byService.email_listmonk).toBe(10);
     expect(byService.pm_plane).toBe(10);
     expect(byService.auth_unkey).toBe(5);
-    expect(byService.social_postiz).toBe(10);
+    expect(byService.social_native).toBe(10);
   });
 
   // -----------------------------------------------------------------------
@@ -255,7 +255,7 @@ describe('buildProvisioningPlan', () => {
       'email_listmonk',
       'pm_plane',
       'auth_unkey',
-      'social_postiz',
+      'social_native',
     ]);
   });
 

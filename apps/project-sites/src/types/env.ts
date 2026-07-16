@@ -523,6 +523,22 @@ export interface Env {
   /** SendGrid v3 API key for transactional email. Fallback provider. */
   SENDGRID_API_KEY?: string;
 
+  // ── Integration Platform (Nango / Composio / Pipedream) ───
+  /** Nango OAuth secret key for managed integrations. */
+  NANGO_SECRET_KEY?: string;
+  /** Notion OAuth client ID for integration connections. */
+  NOTION_OAUTH_CLIENT_ID?: string;
+  /** Notion OAuth client secret for integration connections. */
+  NOTION_OAUTH_CLIENT_SECRET?: string;
+  /** Discord OAuth client ID for integration connections. */
+  DISCORD_OAUTH_CLIENT_ID?: string;
+  /** Discord OAuth client secret for integration connections. */
+  DISCORD_OAUTH_CLIENT_SECRET?: string;
+  /** Composio API key for tool/action execution. */
+  COMPOSIO_API_KEY?: string;
+  /** Pipedream OAuth client ID for workflow automation. */
+  PIPEDREAM_CLIENT_ID?: string;
+
   // ── Chatwoot (Support Chat) ───────────────────────────────
   /** Chatwoot instance API URL. */
   CHATWOOT_API_URL?: string;
@@ -548,6 +564,10 @@ export interface Env {
   GITHUB_CLIENT_ID?: string;
   /** GitHub OAuth App client secret. */
   GITHUB_CLIENT_SECRET?: string;
+  /** GitHub org for per-site source repos — default: projectsites-dev. */
+  GITHUB_ORG?: string;
+  /** GitHub fine-grained PAT with repo create/contents/commit scope for the org. */
+  GITHUB_REPO_TOKEN?: string;
 
   // ── Google (OAuth + Places + Sheets) ──────────────────────
   /** Google OAuth 2.0 client ID. */

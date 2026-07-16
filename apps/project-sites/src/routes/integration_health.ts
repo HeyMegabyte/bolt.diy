@@ -37,9 +37,9 @@ const KNOWN_INTEGRATIONS = new Set([
  */
 function listmonkCfg(env: Env): ListmonkConfig {
   return {
-    baseUrl: env.LISTMONK_BASE_URL ?? 'https://mail.projectsites.dev',
-    apiUser: env.LISTMONK_API_USER ?? 'projectsites',
-    apiToken: env.LISTMONK_API_KEY ?? '',
+    baseUrl: env.LISTMONK_API_URL ?? 'https://mail.projectsites.dev',
+    apiUser: env.LISTMONK_USERNAME ?? 'projectsites',
+    apiToken: env.LISTMONK_PASSWORD ?? '',
   };
 }
 
