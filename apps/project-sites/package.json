@@ -80,6 +80,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
+    "@browserbasehq/stagehand": "^3.7.0",
     "@cloudflare/workers-types": "^4.20251011.0",
     "@playwright/test": "^1.53.0",
     "@swc/core": "^1.4.0",
