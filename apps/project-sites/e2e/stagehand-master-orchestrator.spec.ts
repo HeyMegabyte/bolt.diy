@@ -489,15 +489,15 @@ class StagehandOrchestrator {
     await this.stagehand.init();
     // Stagehand V3: navigate via act(), browser is managed internally.
     // The page property is internal — use act/extract/observe for all interactions.
-    await this.stagehand.act({ action: `navigate to ${PROD_URL}` });
+    await this.stagehand.act(`Navigate to ${PROD_URL}`);
   }
 
   async signIn() {
     if (!this.stagehand) throw new Error('Not initialized');
     // V3: no direct page access. Use act to navigate and interact.
-    await this.stagehand.act({ action: `navigate to ${PROD_URL}/signin` });
-    await this.stagehand.act({ action: 'type test@megabyte.space into the email input field' });
-    await this.stagehand.act({ action: 'click the Send Magic Link button' });
+    await this.stagehand.act(`navigate to ${PROD_URL}/signin` );
+    await this.stagehand.act('type test@megabyte.space into the email input field' );
+    await this.stagehand.act('click the Send Magic Link button' );
   }
 
   /** Create test data before running flows. All prefixed with TEST_PREFIX. */
@@ -506,15 +506,15 @@ class StagehandOrchestrator {
     console.warn(JSON.stringify({ service: 'stagehand', message: 'Setting up test data...' }));
     const siteName = testName('test-site');
     try {
-      await this.stagehand.act({ action: `navigate to ${PROD_URL}` });
-      await this.stagehand.act({ action: 'type "Vito\'s Mens Salon" into the business search input' });
+      await this.stagehand.act(`Navigate to ${PROD_URL}`);
+      await this.stagehand.act('type "Vito\'s Mens Salon" into the business search input' );
       // Check if results appear using extract
       const results = await this.stagehand.extract({
         instruction: 'are there any search results visible? return { hasResults: boolean }',
         schema: z.object({ hasResults: z.boolean() }),
       });
       if (results.hasResults) {
-        await this.stagehand.act({ action: 'click the first search result' });
+        await this.stagehand.act('click the first search result' );
         this.createdResources.push({ type: 'site', id: 'pending', name: siteName });
       }
     } catch {
@@ -530,8 +530,8 @@ class StagehandOrchestrator {
     for (const resource of this.createdResources) {
       try {
         if (resource.type === 'site') {
-          await this.stagehand.act({ action: `navigate to ${PROD_URL}/admin/sites` });
-          await this.stagehand.act({ action: `find and delete the site named "${resource.name}"` });
+          await this.stagehand.act(`navigate to ${PROD_URL}/admin/sites` );
+          await this.stagehand.act(`find and delete the site named "${resource.name}"` );
         }
       } catch {
         console.warn(JSON.stringify({ service: 'stagehand', message: `Could not clean up ${resource.type} ${resource.name}` }));
@@ -548,9 +548,9 @@ class StagehandOrchestrator {
         if (step.startsWith('Navigate to')) {
           const url = step.replace('Navigate to', '').trim();
           const targetUrl = url.startsWith('http') ? url : `${PROD_URL}${url.startsWith('/') ? url : `/${url}`}`;
-          await this.stagehand.act({ action: `navigate to ${targetUrl}` });
+          await this.stagehand.act(`navigate to ${targetUrl}` );
         } else {
-          await this.stagehand.act({ action: step });
+          await this.stagehand.act(step);
         }
       }
 
