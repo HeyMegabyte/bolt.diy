@@ -470,7 +470,6 @@ interface FlowResult {
   passed: boolean;
   durationMs: number;
   error?: string;
-  screenshot?: string;
   retries: number;
 }
 
@@ -488,51 +487,39 @@ class StagehandOrchestrator {
       logger: (log) => console.warn(JSON.stringify({ service: 'stagehand', ...log })),
     });
     await this.stagehand.init();
-    await this.stagehand.page.goto(PROD_URL);
-    // Inject console error sniffer before any flows run
-    await this.stagehand.page.evaluate(() => {
-      (window as any).__stagehandErrors = [] as string[];
-      const orig = console.error;
-      console.error = (...args: any[]) => {
-        (window as any).__stagehandErrors.push(args.map(String).join(' '));
-        orig.apply(console, args);
-      };
-    });
+    // Stagehand V3: navigate via act(), browser is managed internally.
+    // The page property is internal — use act/extract/observe for all interactions.
+    await this.stagehand.act({ action: `navigate to ${PROD_URL}` });
   }
 
   async signIn() {
     if (!this.stagehand) throw new Error('Not initialized');
-    const hasToken = await this.stagehand.page.evaluate(() => !!localStorage.getItem('token'));
-    if (hasToken) return;
-    await this.stagehand.page.goto(`${PROD_URL}/signin`);
-    await this.stagehand.act({ action: 'type the test email into the email input' });
+    // V3: no direct page access. Use act to navigate and interact.
+    await this.stagehand.act({ action: `navigate to ${PROD_URL}/signin` });
+    await this.stagehand.act({ action: 'type test@megabyte.space into the email input field' });
     await this.stagehand.act({ action: 'click the Send Magic Link button' });
-    await this.stagehand.page.waitForTimeout(2000);
   }
 
   /** Create test data before running flows. All prefixed with TEST_PREFIX. */
   async setupTestData() {
     if (!this.stagehand) return;
     console.warn(JSON.stringify({ service: 'stagehand', message: 'Setting up test data...' }));
-    // Create a test site via the search→create flow
     const siteName = testName('test-site');
     try {
-      await this.stagehand.page.goto(PROD_URL);
+      await this.stagehand.act({ action: `navigate to ${PROD_URL}` });
       await this.stagehand.act({ action: 'type "Vito\'s Mens Salon" into the business search input' });
-      await this.stagehand.page.waitForTimeout(2000);
-      // If a search result appears, select it and create
-      const hasResult = await this.stagehand.page.evaluate(() =>
-        !!document.querySelector('.search-result, [data-testid="search-result"]'));
-      if (hasResult) {
+      // Check if results appear using extract
+      const results = await this.stagehand.extract({
+        instruction: 'are there any search results visible? return { hasResults: boolean }',
+        schema: z.object({ hasResults: z.boolean() }),
+      });
+      if (results.hasResults) {
         await this.stagehand.act({ action: 'click the first search result' });
-        await this.stagehand.page.waitForTimeout(1000);
         this.createdResources.push({ type: 'site', id: 'pending', name: siteName });
       }
     } catch {
-      console.warn(JSON.stringify({ service: 'stagehand', message: 'Test site creation skipped (may already exist or search unavailable)' }));
+      console.warn(JSON.stringify({ service: 'stagehand', message: 'Test site creation skipped' }));
     }
-    // Navigate back to admin
-    await this.stagehand.page.goto(`${PROD_URL}/admin`);
     console.warn(JSON.stringify({ service: 'stagehand', message: `Test data ready — ${this.createdResources.length} resources created` }));
   }
 
@@ -543,9 +530,7 @@ class StagehandOrchestrator {
     for (const resource of this.createdResources) {
       try {
         if (resource.type === 'site') {
-          await this.stagehand.page.goto(`${PROD_URL}/admin/sites`);
-          await this.stagehand.page.waitForTimeout(1000);
-          // Find and delete the test site
+          await this.stagehand.act({ action: `navigate to ${PROD_URL}/admin/sites` });
           await this.stagehand.act({ action: `find and delete the site named "${resource.name}"` });
         }
       } catch {
@@ -562,10 +547,8 @@ class StagehandOrchestrator {
       for (const step of flow.steps) {
         if (step.startsWith('Navigate to')) {
           const url = step.replace('Navigate to', '').trim();
-          await this.stagehand.page.goto(
-            url.startsWith('http') ? url : `${PROD_URL}${url.startsWith('/') ? url : `/${url}`}`,
-            { waitUntil: 'networkidle' }
-          );
+          const targetUrl = url.startsWith('http') ? url : `${PROD_URL}${url.startsWith('/') ? url : `/${url}`}`;
+          await this.stagehand.act({ action: `navigate to ${targetUrl}` });
         } else {
           await this.stagehand.act({ action: step });
         }
@@ -583,17 +566,16 @@ class StagehandOrchestrator {
         }
       }
 
-      const screenshot = await this.stagehand.page.screenshot({ type: 'png' });
       return {
         flowId: flow.id, name: flow.name, section: flow.section,
         passed: true, durationMs: Date.now() - start,
-        screenshot: screenshot.toString('base64'), retries: attempt,
+        retries: attempt,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (attempt < MAX_RETRIES) {
         console.warn(JSON.stringify({ service: 'stagehand', flow: flow.id, attempt: attempt + 1, error: msg }));
-        await this.stagehand.page.waitForTimeout(2000);
+        await new Promise((r) => setTimeout(r, 2000));
         return this.runFlow(flow, attempt + 1);
       }
       return {
