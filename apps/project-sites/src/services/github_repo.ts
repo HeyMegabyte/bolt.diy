@@ -107,7 +107,10 @@ export async function createRepo(
     return body.html_url as string;
   }
 
-  if (res.status === 422 && (body.errors as Array<{ message: string }>)?.some((e) => e.message?.includes('already exists'))) {
+  if (
+    res.status === 422 &&
+    (body.errors as Array<{ message: string }>)?.some((e) => e.message?.includes('already exists'))
+  ) {
     // Repo exists — fetch its URL
     const getRes = await fetch(`https://api.github.com/repos/${org}/${siteId}`, {
       headers: apiHeaders(token),
@@ -157,11 +160,7 @@ export async function pushBuild(
     parentSha = await createInitialCommit(base, token);
   } else if (!refRes.ok) {
     const errBody = (await refRes.json().catch(() => ({}))) as Record<string, unknown>;
-    throw new GithubRepoError(
-      `Failed to get ref: ${refRes.status}`,
-      'REF_FAILED',
-      refRes.status,
-    );
+    throw new GithubRepoError(`Failed to get ref: ${refRes.status}`, 'REF_FAILED', refRes.status);
   } else {
     const refBody = (await refRes.json()) as { object: { sha: string } };
     parentSha = refBody.object.sha;
@@ -273,7 +272,9 @@ async function createInitialCommit(base: string, token: string): Promise<string>
     const treeRes = await fetch(`${base}/git/trees`, {
       method: 'POST',
       headers: { ...apiHeaders(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tree: [{ path: 'README.md', mode: '100644', type: 'blob', sha: blobBody.sha }] }),
+      body: JSON.stringify({
+        tree: [{ path: 'README.md', mode: '100644', type: 'blob', sha: blobBody.sha }],
+      }),
     });
     const treeBody = (await treeRes.json()) as { sha: string };
 
@@ -361,7 +362,11 @@ export async function rollback(
     throw new GithubRepoError(`Target commit not found: ${targetSha}`, 'COMMIT_NOT_FOUND', 404);
   }
 
-  const commitBody = (await commitRes.json()) as { sha: string; tree: { sha: string }; message: string };
+  const commitBody = (await commitRes.json()) as {
+    sha: string;
+    tree: { sha: string };
+    message: string;
+  };
   const treeSha = commitBody.tree.sha;
 
   // Get current HEAD
@@ -385,7 +390,11 @@ export async function rollback(
   });
 
   if (!newCommitRes.ok) {
-    throw new GithubRepoError('Failed to create rollback commit', 'ROLLBACK_FAILED', newCommitRes.status);
+    throw new GithubRepoError(
+      'Failed to create rollback commit',
+      'ROLLBACK_FAILED',
+      newCommitRes.status,
+    );
   }
 
   const newCommitBody = (await newCommitRes.json()) as { sha: string; html_url: string };

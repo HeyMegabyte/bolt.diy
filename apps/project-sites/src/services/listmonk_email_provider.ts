@@ -103,26 +103,23 @@ export class ListmonkTransactionalProvider {
 
   async sendTransactional(email: TransactionalEmail): Promise<void> {
     const creds = btoa(`${this.username}:${this.password}`);
-    const res = await fetch(
-      `${this.baseUrl.replace(/\/$/, '')}/api/tx`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${creds}`,
-        },
-        body: JSON.stringify({
-          subscriber_email: email.to,
-          template_id: 1, // default transactional template
-          data: {
-            subject: email.subject,
-            body: email.html,
-            kind: email.kind,
-          },
-          content_type: 'html',
-        }),
+    const res = await fetch(`${this.baseUrl.replace(/\/$/, '')}/api/tx`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${creds}`,
       },
-    );
+      body: JSON.stringify({
+        subscriber_email: email.to,
+        template_id: 1, // default transactional template
+        data: {
+          subject: email.subject,
+          body: email.html,
+          kind: email.kind,
+        },
+        content_type: 'html',
+      }),
+    });
     if (!res.ok) {
       throw new Error(`Listmonk transactional send failed: HTTP ${res.status}`);
     }

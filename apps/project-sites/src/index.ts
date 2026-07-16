@@ -87,7 +87,11 @@ import { generateSlots, confirmBooking } from '../libs/features/native_booking/s
 import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
 import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
-import { defaultDashboard, filterBySource, buildMetric } from '../libs/features/marketing_dashboard/service.js';
+import {
+  defaultDashboard,
+  filterBySource,
+  buildMetric,
+} from '../libs/features/marketing_dashboard/service.js';
 import { generateProposals, scoreEngagement } from '../libs/features/social_agent/service.js';
 import { parseVoiceCommand } from '../libs/features/voice_site_mgmt/service.js';
 import { assignVariant, computeSignificance } from '../libs/features/ab_testing/service.js';
@@ -503,13 +507,19 @@ app.post('/api/sites/:siteId/critic', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ai_site_critic', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'ai_site_critic', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   const dimensions = Array.isArray(body.dimensions) ? body.dimensions : [];
-  const critique = buildCritique(siteId, body.url || `https://${siteId}.projectsites.dev`, dimensions, {
-    industry: body.industry,
-    competitorUrls: body.competitorUrls,
-  });
+  const critique = buildCritique(
+    siteId,
+    body.url || `https://${siteId}.projectsites.dev`,
+    dimensions,
+    {
+      industry: body.industry,
+      competitorUrls: body.competitorUrls,
+    },
+  );
   return c.json({ data: critique });
 });
 
@@ -518,12 +528,17 @@ app.post('/api/sites/:siteId/geo-analyze', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'geo_toolkit', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'geo_toolkit', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   if (!body.content || typeof body.content !== 'string') {
     return c.json({ error: { code: 'VALIDATION_ERROR', message: 'content is required' } }, 400);
   }
-  const analysis = analyzeGeo(body.url || `https://${siteId}.projectsites.dev`, body.content, body.existingJsonLd || []);
+  const analysis = analyzeGeo(
+    body.url || `https://${siteId}.projectsites.dev`,
+    body.content,
+    body.existingJsonLd || [],
+  );
   return c.json({ data: analysis });
 });
 
@@ -532,10 +547,14 @@ app.post('/api/sites/:siteId/video-hero', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ai_video_hero', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'ai_video_hero', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   if (!body.businessName || !body.description) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'businessName and description are required' } }, 400);
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'businessName and description are required' } },
+      400,
+    );
   }
   const script = generateVideoScript(
     siteId,
@@ -552,14 +571,21 @@ app.post('/api/sites/:siteId/content-strategy', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ai_content_strategist', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'ai_content_strategist', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   if (!body.siteName || !body.industry) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'siteName and industry are required' } }, 400);
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'siteName and industry are required' } },
+      400,
+    );
   }
   const strategy = buildContentStrategy(
-    siteId, body.siteName, body.industry,
-    body.siteTopics || [], body.competitorTopics || [],
+    siteId,
+    body.siteName,
+    body.industry,
+    body.siteTopics || [],
+    body.competitorTopics || [],
     body.startDate ? new Date(body.startDate) : undefined,
   );
   return c.json({ data: strategy });
@@ -570,7 +596,8 @@ app.post('/api/sites/:siteId/analytics/ask', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'conversational_analytics', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'conversational_analytics', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   if (!body.query || typeof body.query !== 'string') {
     return c.json({ error: { code: 'VALIDATION_ERROR', message: 'query is required' } }, 400);
@@ -584,7 +611,8 @@ app.get('/api/sites/:siteId/mcp-manifest', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'mcp_per_tenant', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'mcp_per_tenant', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const slug = c.req.query('slug') || siteId;
   const manifest = generateMcpManifest(siteId, slug);
   return c.json({ data: manifest });
@@ -595,7 +623,8 @@ app.post('/api/sites/:siteId/nl-command', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'nl_site_management', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'nl_site_management', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   if (!body.command || typeof body.command !== 'string') {
     return c.json({ error: { code: 'VALIDATION_ERROR', message: 'command is required' } }, 400);
@@ -609,7 +638,8 @@ app.post('/api/sites/:siteId/health-check', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'lifecycle_agent', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'lifecycle_agent', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   const report = runLifecycleCheck(siteId, body.signals || {});
   return c.json({ data: report });
@@ -620,7 +650,8 @@ app.get('/api/sites/:siteId/cms-model', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'cms_collections', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'cms_collections', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const slugs = c.req.query('collections')?.split(',') || availableCollections();
   return c.json({ data: buildCmsModel(siteId, slugs) });
 });
@@ -630,10 +661,14 @@ app.post('/api/sites/:siteId/seo/audit', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'local_seo_suite', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'local_seo_suite', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   const audit = runLocalSeoAudit(
-    siteId, body.canonical || {}, body.sources || [], body.reviews || [],
+    siteId,
+    body.canonical || {},
+    body.sources || [],
+    body.reviews || [],
   );
   return c.json({ data: audit });
 });
@@ -643,16 +678,22 @@ app.post('/api/sites/:siteId/booking/slots', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
-  const slots = generateSlots(body.service || {}, new Date(body.date + 'T00:00:00'), body.existing || []);
+  const slots = generateSlots(
+    body.service || {},
+    new Date(body.date + 'T00:00:00'),
+    body.existing || [],
+  );
   return c.json({ data: slots });
 });
 app.post('/api/sites/:siteId/booking/confirm', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   const result = confirmBooking(body, body.service || {}, body.existing || []);
   return c.json('error' in result ? { error: result } : { data: result });
@@ -663,7 +704,8 @@ app.post('/api/sites/:siteId/crm/score', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: scoreLead(body) });
 });
@@ -671,7 +713,8 @@ app.post('/api/sites/:siteId/crm/pipeline', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: pipelineSummary(body.contacts || []) });
 });
@@ -679,7 +722,8 @@ app.post('/api/sites/:siteId/crm/next-action', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: nextAction(body) });
 });
@@ -689,7 +733,8 @@ app.post('/api/sites/:siteId/portal/create', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: createPortal(body.clientId, body.clientName, body.pages || []) });
 });
@@ -697,7 +742,8 @@ app.post('/api/sites/:siteId/portal/validate', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: { valid: validateAccess(body.portal, body.token, body.page) } });
 });
@@ -717,7 +763,8 @@ app.get('/api/sites/:siteId/dashboard', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: orgId, siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: orgId, siteId: siteId })))
+    return c.notFound();
   const d = defaultDashboard(siteId);
   const filter = c.req.query('sources');
   return c.json({ data: filter ? filterBySource(d, filter.split(',') as any) : d });
@@ -725,23 +772,30 @@ app.get('/api/sites/:siteId/dashboard', async (c) => {
 app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: c.get('orgId'), siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: buildMetric(body.label, body.current, body.previous, body.source || 'website') });
+  return c.json({
+    data: buildMetric(body.label, body.current, body.previous, body.source || 'website'),
+  });
 });
 
 // Social Agent — content proposals + engagement scoring (flag: social_agent)
 app.post('/api/sites/:siteId/social/proposals', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: generateProposals(body.business, body.sellingPoint, body.accounts || [], body.count || 5) });
+  return c.json({
+    data: generateProposals(body.business, body.sellingPoint, body.accounts || [], body.count || 5),
+  });
 });
 app.post('/api/sites/:siteId/social/engagement', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: scoreEngagement(body.account, body.metrics) });
 });
@@ -750,7 +804,8 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
 app.post('/api/sites/:siteId/voice-command', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'voice_site_mgmt', { orgId: c.get('orgId'), siteId: siteId }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'voice_site_mgmt', { orgId: c.get('orgId'), siteId: siteId })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: parseVoiceCommand(body.transcript || '') });
 });
@@ -758,25 +813,43 @@ app.post('/api/sites/:siteId/voice-command', async (c) => {
 // A/B Testing (flag: ab_testing) + White Label (flag: white_label) + Visual Automation (flag: visual_automation)
 app.post('/api/sites/:siteId/ab/assign', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  if (
+    !(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))
+  )
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: assignVariant(body.experiment, body.visitorId) });
 });
 app.post('/api/sites/:siteId/ab/significance', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  if (
+    !(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))
+  )
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: computeSignificance(body.control, body.variant) });
 });
 app.post('/api/sites/:siteId/agency/dashboard', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'white_label', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  if (
+    !(await isFlagOn(c.env, 'white_label', {
+      orgId: c.get('orgId'),
+      siteId: c.req.param('siteId'),
+    }))
+  )
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: buildAgencyDashboard(body.brand, body.sites || []) });
 });
 app.post('/api/sites/:siteId/automation/validate', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'visual_automation', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))) return c.notFound();
+  if (
+    !(await isFlagOn(c.env, 'visual_automation', {
+      orgId: c.get('orgId'),
+      siteId: c.req.param('siteId'),
+    }))
+  )
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: validateJourney(body) });
 });
@@ -784,12 +857,14 @@ app.post('/api/sites/:siteId/automation/validate', async (c) => {
 // App Launcher — catalog + launch planner (flag: app_launcher)
 app.get('/api/apps/catalog', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'app_launcher', { orgId: c.get('orgId'), siteId: 'system' }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'app_launcher', { orgId: c.get('orgId'), siteId: 'system' })))
+    return c.notFound();
   return c.json({ data: listApps() });
 });
 app.post('/api/apps/launch', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'app_launcher', { orgId: c.get('orgId'), siteId: 'system' }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'app_launcher', { orgId: c.get('orgId'), siteId: 'system' })))
+    return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: planLaunch(body) });
 });
@@ -841,20 +916,26 @@ app.get('/api/system/status', async (c) => {
 
 app.get('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
-  const { handleListAnnotations } = await import('../libs/features/analytics_annotations/handlers.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! })))
+    return c.notFound();
+  const { handleListAnnotations } =
+    await import('../libs/features/analytics_annotations/handlers.js');
   return handleListAnnotations(c);
 });
 app.post('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
-  const { handleCreateAnnotation } = await import('../libs/features/analytics_annotations/handlers.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! })))
+    return c.notFound();
+  const { handleCreateAnnotation } =
+    await import('../libs/features/analytics_annotations/handlers.js');
   return handleCreateAnnotation(c);
 });
 app.delete('/api/annotations/:id', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! }))) return c.notFound();
-  const { handleDeleteAnnotation } = await import('../libs/features/analytics_annotations/handlers.js');
+  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! })))
+    return c.notFound();
+  const { handleDeleteAnnotation } =
+    await import('../libs/features/analytics_annotations/handlers.js');
   return handleDeleteAnnotation(c);
 });
 
@@ -867,14 +948,16 @@ app.post('/api/cmdk', async (c) => {
 
 app.get('/api/sites/:siteId/sparkline', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_health_sparklines', { orgId: c.get('orgId')! }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'site_health_sparklines', { orgId: c.get('orgId')! })))
+    return c.notFound();
   const { handleSparkline } = await import('../libs/features/site_health_sparklines/handlers.js');
   return handleSparkline(c);
 });
 
 app.get('/api/notifications/badge', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'notification_badge', { orgId: c.get('orgId')! }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'notification_badge', { orgId: c.get('orgId')! })))
+    return c.notFound();
   const { handleBadge } = await import('../libs/features/notification_badge/handlers.js');
   return handleBadge(c);
 });
@@ -913,8 +996,10 @@ app.post('/api/analytics/query', async (c) => {
 // Onboarding Progress — org setup completion (flag: onboarding_progress)
 app.get('/api/onboarding', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'onboarding_progress', { orgId: c.get('orgId')! }))) return c.notFound();
-  const { handleOnboardingProgress } = await import('../libs/features/onboarding_progress/handlers.js');
+  if (!(await isFlagOn(c.env, 'onboarding_progress', { orgId: c.get('orgId')! })))
+    return c.notFound();
+  const { handleOnboardingProgress } =
+    await import('../libs/features/onboarding_progress/handlers.js');
   return handleOnboardingProgress(c);
 });
 

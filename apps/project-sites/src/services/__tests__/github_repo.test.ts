@@ -48,16 +48,14 @@ describe('github_repo', () => {
       jest
         .spyOn(globalThis, 'fetch')
         .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({ errors: [{ message: 'Repository already exists' }] }),
-            { status: 422 },
-          ),
+          new Response(JSON.stringify({ errors: [{ message: 'Repository already exists' }] }), {
+            status: 422,
+          }),
         )
         .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({ html_url: `https://github.com/${ORG}/${SITE_ID}` }),
-            { status: 200 },
-          ),
+          new Response(JSON.stringify({ html_url: `https://github.com/${ORG}/${SITE_ID}` }), {
+            status: 200,
+          }),
         );
 
       const url = await createRepo(env, SITE_ID);
@@ -65,9 +63,11 @@ describe('github_repo', () => {
     });
 
     test('throws on auth failure', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(JSON.stringify({ message: 'Bad credentials' }), { status: 401 }),
-      );
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ message: 'Bad credentials' }), { status: 401 }),
+        );
 
       await expect(createRepo(env, SITE_ID)).rejects.toThrow(GithubRepoError);
     });
@@ -93,9 +93,7 @@ describe('github_repo', () => {
           new Response(JSON.stringify({ object: { sha: mockSha } }), { status: 200 }),
         )
         // POST git/trees
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ sha: 'tree-sha' }), { status: 201 }),
-        )
+        .mockResolvedValueOnce(new Response(JSON.stringify({ sha: 'tree-sha' }), { status: 201 }))
         // POST git/commits
         .mockResolvedValueOnce(
           new Response(
@@ -123,15 +121,10 @@ describe('github_repo', () => {
         .mockResolvedValueOnce(new Response(null, { status: 404 }))
         // PUT contents/README.md → create initial commit
         .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({ commit: { sha: 'init-sha' } }),
-            { status: 201 },
-          ),
+          new Response(JSON.stringify({ commit: { sha: 'init-sha' } }), { status: 201 }),
         )
         // POST git/trees
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ sha: 'tree-sha' }), { status: 201 }),
-        )
+        .mockResolvedValueOnce(new Response(JSON.stringify({ sha: 'tree-sha' }), { status: 201 }))
         // POST git/commits
         .mockResolvedValueOnce(
           new Response(
@@ -186,9 +179,7 @@ describe('github_repo', () => {
     });
 
     test('returns empty array when repo does not exist', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(null, { status: 404 }),
-      );
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 404 }));
 
       const history = await getHistory(env, SITE_ID);
       expect(history).toEqual([]);
@@ -236,9 +227,7 @@ describe('github_repo', () => {
     });
 
     test('throws when target commit not found', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(null, { status: 404 }),
-      );
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 404 }));
 
       await expect(rollback(env, SITE_ID, 'nonexistent')).rejects.toThrow(GithubRepoError);
     });
@@ -248,17 +237,13 @@ describe('github_repo', () => {
 
   describe('deleteRepo', () => {
     test('deletes the repo successfully', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(null, { status: 204 }),
-      );
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 204 }));
 
       await expect(deleteRepo(env, SITE_ID)).resolves.toBeUndefined();
     });
 
     test('swallows 404 silently', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(null, { status: 404 }),
-      );
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 404 }));
 
       await expect(deleteRepo(env, SITE_ID)).resolves.toBeUndefined();
     });
@@ -268,18 +253,14 @@ describe('github_repo', () => {
 
   describe('repoExists', () => {
     test('returns true when repo returns 200', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response('{}', { status: 200 }),
-      );
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
       const exists = await repoExists(env, SITE_ID);
       expect(exists).toBe(true);
     });
 
     test('returns false when repo returns 404', async () => {
-      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(null, { status: 404 }),
-      );
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 404 }));
 
       const exists = await repoExists(env, SITE_ID);
       expect(exists).toBe(false);

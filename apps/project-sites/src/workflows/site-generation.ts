@@ -1125,7 +1125,13 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         void (async () => {
           try {
             const { isFlagOn } = await import('../modules/feature_flags/services.js');
-            if (!(await isFlagOn(env, 'github_repo_sync', { orgId: params.orgId, siteId: params.siteId }))) return;
+            if (
+              !(await isFlagOn(env, 'github_repo_sync', {
+                orgId: params.orgId,
+                siteId: params.siteId,
+              }))
+            )
+              return;
             const { pushBuild } = await import('../services/github_repo.js');
             const files = ([] as Array<{ name: string; content: string }>).map((f) => ({
               path: f.name.startsWith('/') ? f.name.slice(1) : f.name,
