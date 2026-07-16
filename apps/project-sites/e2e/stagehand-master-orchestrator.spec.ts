@@ -509,10 +509,10 @@ class StagehandOrchestrator {
       await this.stagehand.act(`Navigate to ${PROD_URL}`);
       await this.stagehand.act('type "Vito\'s Mens Salon" into the business search input' );
       // Check if results appear using extract
-      const results = await this.stagehand.extract({
-        instruction: 'are there any search results visible? return { hasResults: boolean }',
-        schema: z.object({ hasResults: z.boolean() }),
-      });
+      const results = await this.stagehand.extract(
+        'are there any search results visible? return { hasResults: boolean }',
+        z.object({ hasResults: z.boolean() }),
+      );
       if (results.hasResults) {
         await this.stagehand.act('click the first search result' );
         this.createdResources.push({ type: 'site', id: 'pending', name: siteName });
@@ -557,10 +557,10 @@ class StagehandOrchestrator {
       // Run assertions
       for (const assertion of flow.assertions) {
         // Use Stagehand extract to verify the assertion
-        const result = await this.stagehand.extract({
-          instruction: `Verify this assertion: "${assertion}". Return { valid: boolean, evidence: string }.`,
-          schema: z.object({ valid: z.boolean(), evidence: z.string() }),
-        });
+        const result = await this.stagehand.extract(
+          `Verify this assertion: "${assertion}". Return { valid: boolean, evidence: string }.`,
+          z.object({ valid: z.boolean(), evidence: z.string() }),
+        );
         if (!result.valid) {
           throw new Error(`Assertion failed: ${assertion} — ${result.evidence}`);
         }
