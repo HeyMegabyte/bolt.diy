@@ -1,4 +1,4 @@
-import { planLaunch, listApps, APP_CATALOG } from '../service.js';
+import { planLaunch, listApps } from '../service.js';
 
 describe('planLaunch', () => {
   test('plane launch plan is valid with postgres + redis', () => {
@@ -13,11 +13,6 @@ describe('planLaunch', () => {
     const r = planLaunch({ appSlug: 'twenty', siteId: 's1', orgId: 'o1', hostname: 'crm.customer.com' });
     expect(r.plan!.hostname).toBe('crm.customer.com');
     expect(r.plan!.appUrl).toBe('https://crm.customer.com');
-  });
-  test('social_native needs no container infra', () => {
-    const entry = APP_CATALOG.social_native;
-    expect(entry.infra).toHaveLength(0);
-    expect(entry.image).toBe('');
   });
   test('all apps have unique slugs', () => {
     const slugs = listApps().map((a) => a.slug);

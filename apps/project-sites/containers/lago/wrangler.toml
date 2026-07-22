@@ -1,23 +1,21 @@
-name = "projectsites-lago"
+name = "projectsites-lago-billing"
 main = "worker.ts"
 compatibility_date = "2026-07-15"
 
-[env.production]
-workers_dev = true
-
-[[env.production.containers]]
-class_name = "LagoContainer"
+[[containers]]
+class_name = "LagoContainerDO"
 image = "./Dockerfile"
 max_instances = 5
 
 [[durable_objects.bindings]]
 name = "LAGO_CONTAINER"
-class_name = "LagoContainer"
+class_name = "LagoContainerDO"
+use_sqlite = true
 
-[[durable_objects]]
-name = "LagoContainer"
-class_name = "LagoContainer"
+[[migrations]]
+tag = "v1"
+new_classes = ["LagoContainerDO"]
 
-[[env.production.routes]]
+[[routes]]
 pattern = "billing.projectsites.dev"
 custom_domain = true

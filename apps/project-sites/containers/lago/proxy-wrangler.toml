@@ -1,0 +1,7 @@
+name = "billing-proxy"
+main = "proxy-worker.ts"
+compatibility_date = "2026-07-15"
+
+[[routes]]
+pattern = "billing.projectsites.dev"
+custom_domain = true
