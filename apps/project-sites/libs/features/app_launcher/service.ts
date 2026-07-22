@@ -12,7 +12,7 @@
  *   4. CNAME registered in KV (apphost:pm.customer.com → instanceId)
  *   5. DO boots → reads env → connects to own DB → serves on CNAME
  */
-export type AppSlug = 'plane' | 'twenty' | 'listmonk' | 'chatwoot' | 'lago' | 'unkey' | 'nango' | 'payload' | 'litellm' | 'better_auth' | 'social_native';
+export type AppSlug = 'plane' | 'twenty' | 'listmonk' | 'chatwoot' | 'lago' | 'unkey' | 'nango' | 'payload' | 'litellm';
 
 export interface AppCatalogEntry {
   slug: AppSlug; name: string; description: string;
@@ -84,15 +84,6 @@ export const APP_CATALOG: Record<AppSlug, AppCatalogEntry> = {
     image: 'ghcr.io/berriai/litellm:latest', infra: ['postgres'],
     defaultPort: 4000, envTemplate: { DATABASE_URL: '${DATABASE_URL}', LITELLM_MASTER_KEY: '${SECRET_KEY}' },
   },
-  better_auth: {
-    slug: 'better_auth', name: 'Better Auth', description: 'Authentication provider',
-    image: 'ghcr.io/better-auth/better-auth:latest', infra: ['postgres'],
-    defaultPort: 3000, envTemplate: { DATABASE_URL: '${DATABASE_URL}', BETTER_AUTH_SECRET: '${SECRET_KEY}' },
-  },
-  social_native: {
-    slug: 'social_native', name: 'Native Social', description: 'Social publishing — CF-native',
-    image: '', infra: [], defaultPort: 0, envTemplate: {}, // Runs on CF Workflows, no container
-  },
 };
 
 /**
@@ -103,7 +94,7 @@ export function planLaunch(req: LaunchRequest): { valid: boolean; errors: string
   const errors: string[] = [];
   const entry = APP_CATALOG[req.appSlug];
   if (!entry) { errors.push(`Unknown app: ${req.appSlug}`); return { valid: false, errors, plan: {} }; }
-  if (entry.infra.length === 0 && req.appSlug !== 'social_native') { errors.push(`${entry.name} requires zero infra — nothing to provision`); return { valid: false, errors, plan: {} }; }
+  if (entry.infra.length === 0) { errors.push(`${entry.name} requires zero infra — nothing to provision`); return { valid: false, errors, plan: {} }; }
 
   const instanceId = `inst_${req.appSlug}_${req.siteId.slice(0, 8)}_${Date.now().toString(36)}`;
   const hostname = req.hostname || `${req.appSlug}.${req.siteId}.app.projectsites.dev`;

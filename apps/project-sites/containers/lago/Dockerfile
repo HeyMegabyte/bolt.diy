@@ -1,6 +1,6 @@
 # Lago billing — CF Workers Container
 # Rails app serving billing.projectsites.dev
-FROM ghcr.io/getlago/api:latest
+FROM getlago/lago:latest
 
 ENV RAILS_ENV=production
 ENV LAGO_FRONT_URL=https://billing.projectsites.dev

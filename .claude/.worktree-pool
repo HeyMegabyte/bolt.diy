@@ -1,0 +1,26 @@
+{
+  "pool-1": {
+    "status": "free",
+    "path": ".claude/worktrees/pool-1",
+    "branch": "worktree-pool-1-1784092008",
+    "created": "2026-07-15T05:06:49Z"
+  },
+  "pool-2": {
+    "status": "free",
+    "path": ".claude/worktrees/pool-2",
+    "branch": "worktree-pool-2-1784092009",
+    "created": "2026-07-15T05:06:50Z"
+  },
+  "pool-3": {
+    "status": "free",
+    "path": ".claude/worktrees/pool-3",
+    "branch": "worktree-pool-3-1784092010",
+    "created": "2026-07-15T05:06:50Z"
+  },
+  "pool-4": {
+    "status": "free",
+    "path": ".claude/worktrees/pool-4",
+    "branch": "worktree-pool-4-1784092010",
+    "created": "2026-07-15T05:06:51Z"
+  }
+}
