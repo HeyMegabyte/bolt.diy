@@ -142,7 +142,7 @@ export function createNangoClient(nangoSecretKey: string): ProjectSitesNangoClie
       };
     },
 
-      // @ts-expect-error legacy proxy method — typed wrapper below
+    // @ts-expect-error legacy proxy method — typed wrapper below
     async proxyRequest<TResponse>(input) {
       const url = new URL(
         `${NANGO_BASE_URL}/proxy/${input.providerConfigKey}/${input.nangoConnectionId}${input.endpoint}`,
