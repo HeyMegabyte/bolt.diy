@@ -20,7 +20,7 @@ enabled = true
 class_name = "LiteLLM"
 image = "./Dockerfile"
 max_instances = 1
-instance_type = "standard-4"
+instance_type = "standard-2"
 name = "projectsites-litellm"
 
 [[durable_objects.bindings]]

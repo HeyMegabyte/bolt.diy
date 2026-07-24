@@ -1,4 +1,0 @@
-<clickhouse>
-  <!-- Accept connections from outside the container (Langfuse runs on CF, connects over the internet). -->
-  <listen_host>0.0.0.0</listen_host>
-</clickhouse>

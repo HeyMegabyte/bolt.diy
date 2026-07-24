@@ -16,10 +16,11 @@ routes = [
 [observability]
 enabled = true
 
-# Keep the API container warm so key-verification stays low-latency (no cold-start on first
-# verify). Unkey targets <40ms; a cold container would blow that. Re-poke every 3 min.
-[triggers]
-crons = ["*/3 * * * *"]
+# API container sleeps when idle — cold-start on first verify is 2-5s.
+# Cost of keeping it warm: ~$78/mo. Cost of cold start: one slow request.
+# Remove cron keep-alive. The container wakes on first API call.
+# [triggers]
+# crons = ["*/3 * * * *"]
 
 [vars]
 UNKEY_BASE_URL = "https://api.projectsites.dev"
