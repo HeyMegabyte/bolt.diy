@@ -4,9 +4,8 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# grafana.projectsites.dev → this Worker → Fly.io Grafana (projectsites-grafana.fly.dev).
-# EXPLICIT host route: the main `project-sites` worker owns `*.projectsites.dev/*`,
-# and a custom_domain LOSES to that wildcard — a more-specific route WINS.
+# grafana.projectsites.dev → CF Container (was: broken Fly.io proxy that never existed).
+# zone_name route beats the main worker's *.projectsites.dev/* wildcard.
 routes = [
   { pattern = "grafana.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]
@@ -16,5 +15,22 @@ workers_dev = true
 [observability]
 enabled = true
 
-[vars]
-GRAFANA_UPSTREAM_URL = "https://projectsites-grafana.fly.dev"
+# ── Grafana CF Container ──
+[[containers]]
+class_name = "Grafana"
+image = "./Dockerfile"
+max_instances = 1
+instance_type = "standard-1"
+name = "projectsites-grafana"
+
+[[durable_objects.bindings]]
+name = "GRAFANA"
+class_name = "Grafana"
+
+# Container-backed DOs MUST use new_sqlite_classes (CF API error 10074 on new_classes).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Grafana"]
+
+# Admin password set via wrangler secret:
+#   GF_SECURITY_ADMIN_PASSWORD  (wrangler secret put GF_SECURITY_ADMIN_PASSWORD --name projectsites-grafana)

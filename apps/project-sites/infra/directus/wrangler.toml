@@ -7,6 +7,7 @@ account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 # directus.projectsites.dev → this container worker
 routes = [
   { pattern = "directus.projectsites.dev", custom_domain = true },
+  { pattern = "directus.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]
 workers_dev = true
 

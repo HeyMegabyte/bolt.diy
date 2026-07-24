@@ -4,9 +4,11 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# automations.projectsites.dev → this container worker
-# Route created via CF API: zone route automations.projectsites.dev/* → projectsites-n8n
-# (custom_domain pattern was intercepted by the main worker's *.projectsites.dev/* wildcard)
+# automations.projectsites.dev → this container worker.
+# zone_name route beats the main worker's *.projectsites.dev/* wildcard.
+routes = [
+  { pattern = "automations.projectsites.dev/*", zone_name = "projectsites.dev" },
+]
 workers_dev = true
 
 [observability]

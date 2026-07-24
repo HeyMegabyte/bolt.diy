@@ -10,6 +10,7 @@ account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 # to activate; until then the main worker's *.projectsites.dev/* wildcard answers.
 routes = [
   { pattern = "cms.projectsites.dev", custom_domain = true },
+  { pattern = "cms.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]
 
 [observability]

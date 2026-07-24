@@ -10,6 +10,7 @@ account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 # deterministically over the *.projectsites.dev/* wildcard on the main worker.
 routes = [
   { pattern = "crm.projectsites.dev", custom_domain = true },
+  { pattern = "crm.projectsites.dev/*", zone_name = "projectsites.dev" },
 ]
 
 [observability]
