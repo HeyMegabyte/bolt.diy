@@ -3,6 +3,41 @@
 > Consolidated per-service infra notes (folded from per-folder `README.md`, 2026-06-27).
 > One section per self-hosted/infra service. Container↔subdomain SSOT is `docs/CONTAINER_MANIFEST.md`.
 
+## App Catalog Doctrine (2026-07-24)
+
+The "Apps" section in the admin dashboard deploys customer-facing applications. Every app in the catalog MUST:
+
+- **Run on CF Containers Workers** — no Fly.io, no external hosting.
+- **Scale-to-zero** via `sleepAfter` on the Container DO class. No cron keep-alives.
+- **Auto-scale** via CF's built-in container scaling (cold starts under 5s).
+- **Backed by CF-native infrastructure**: D1 (SQLite) for metadata, Neon Postgres for relational, Upstash/Redis for caching, R2 for blob storage, ClickHouse for analytics.
+- **Deploy as `customer-name.app.projectsites.dev`** via zone_name routes.
+- **Use the standard Container DO pattern**: `worker.ts` with Container subclass + `wrangler.toml` with `[[containers]]`.
+
+### Platform vs App Catalog
+
+| Tier | Subdomain | Examples | Managed By |
+|------|-----------|----------|------------|
+| **Platform Infra** | `service.projectsites.dev` | Langfuse, Unkey, LiteLLM, Listmonk, Plane, Payload, Twenty, SearXNG, Better Auth, Activepieces, Lago | This directory |
+| **App Catalog** | `customer-name.app.projectsites.dev` | n8n, Langflow, NocoDB, Medusa, Directus, Grafana, Deepcrawl, Appsmith | `_archived/` + admin UI |
+| **Shared Backing** | Fly.io hosted | ClickHouse, Redis, Nango, Chatwoot | Fly.io (shared infra) |
+
+### Platform Infra Selection Criteria
+
+A service gets a top-level subdomain ONLY if the projectsites.dev platform itself depends on it:
+- **Observability**: Langfuse (LLM traces), ClickHouse (analytics)
+- **Auth/API**: Better Auth (login), Unkey (API keys)
+- **Communication**: Listmonk (email)
+- **Content**: Payload (CMS), Twenty (CRM)
+- **AI Gateway**: LiteLLM (LLM proxy)
+- **Productivity**: Plane (PM), Activepieces (automation builder)
+- **Billing**: Lago (usage-based billing)
+- **Search**: SearXNG (meta search)
+
+Everything else is an App Catalog item — deployable per-customer via the admin UI.
+
+
+
 
 
 ---
