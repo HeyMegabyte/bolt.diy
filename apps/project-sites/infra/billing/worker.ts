@@ -1,7 +1,7 @@
 import { Container, getContainer } from '@cloudflare/containers';
 
 /**
- * lago.projectsites.dev — Lago billing on CF Containers.
+ * billing.projectsites.dev — Lago billing on CF Containers.
  *
  * Previously hosted on Fly.io. Moved to CF Containers for lower latency
  * (same edge network as all other platform infra) and native D1/KV/R2 integration.
@@ -32,7 +32,7 @@ export class Lago extends Container<Env> {
       DATABASE_URL: env.DATABASE_URL,
       SECRET_KEY_BASE: env.SECRET_KEY_BASE,
       REDIS_URL: env.REDIS_URL,
-      LAGO_FRONT_URL: env.LAGO_FRONT_URL || 'https://lago.projectsites.dev',
+      LAGO_FRONT_URL: env.LAGO_FRONT_URL || 'https://billing.projectsites.dev',
       RAILS_LOG_TO_STDOUT: 'true',
       RAILS_SERVE_STATIC_FILES: 'false',
     };
