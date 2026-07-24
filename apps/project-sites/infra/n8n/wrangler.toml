@@ -4,11 +4,17 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "84fa0d1b16ff8086dd958c468ce7fd59"
 
-# automations.projectsites.dev → this container worker.
-# zone_name route beats the main worker's *.projectsites.dev/* wildcard.
-routes = [
-  { pattern = "automations.projectsites.dev/*", zone_name = "projectsites.dev" },
-]
+# n8n — WORKFLOW AUTOMATION (APP CATALOG ITEM, NOT PLATFORM INFRA).
+# Deployed as customer-name.app.projectsites.dev via the app catalog.
+# NO top-level subdomain route — this is a customer-facing app, not platform infra.
+# To deploy for a specific customer:
+#   1. Copy this directory
+#   2. Set routes = [{ pattern = "customer-name.app.projectsites.dev/*", zone_name = "projectsites.dev" }]
+#   3. npx wrangler deploy
+# Keep warm for now via workers.dev while we test.
+# routes = [
+#   { pattern = "automations.projectsites.dev/*", zone_name = "projectsites.dev" },
+# ]
 workers_dev = true
 
 [observability]
