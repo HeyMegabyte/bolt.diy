@@ -8,7 +8,7 @@
 # `docker run … unkeyed/unkey:v2.0.49 run api` → "database connection pool initialized" + routes
 # registered). So CMD = ["run","api"]. Config comes from /unkey.toml (UNKEY_CONFIG), whose
 # ${UNKEY_*} placeholders are env-expanded from the secrets injected by worker.ts.
-FROM --platform=linux/amd64 ghcr.io/unkeyed/unkey:v2.0.49
+FROM --platform=linux/amd64 ghcr.io/unkeyed/unkey:v2.0.146
 
 COPY unkey.toml /unkey.toml
 
