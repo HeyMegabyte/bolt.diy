@@ -27,6 +27,13 @@ export default defineConfig({
     'admin-sections-smoke.spec.ts',        // 15 admin section redirect checks + API health (Pass 7)
     'marketing-seo.spec.ts',               // 9 route SEO metadata + critical files (Pass 7)
     'security-headers-extended.spec.ts',   // HSTS, CSP, CORS, security posture (Pass 7)
+    'auth-signup-oauth.spec.ts',           // Sign-up Google + GitHub OAuth buttons (Pass 8/14)
+    'admin-social.spec.ts',                // Social + 8 admin section redirects (Pass 11)
+    'admin-sysadmin.spec.ts',              // Sysadmin + system-services + subdomain probes (Pass 17)
+    'admin-site-detail.spec.ts',           // Site detail routes + subdomain landing pages (Pass 18)
+    'integration-health.spec.ts',          // 8 probes across all services (Pass 9)
+    'feature-flags.spec.ts',               // Public API + admin auth gates (Pass 9)
+    'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
   ],
   fullyParallel: true,
   reporter: 'line',
