@@ -107,7 +107,12 @@ export function makeAuth(env: Env): Auth {
       cookieCache: { enabled: false },
     },
 
-    rateLimit: { enabled: true, window: 10, max: 100, storage: 'secondary-storage' },
+    rateLimit: {
+      enabled: true,
+      window: 60,              // 60s sliding window (was 10s — saturated under E2E + real user load)
+      max: 600,                // ~10 req/s average (was 100 — convergence E2E tests burned it in seconds)
+      storage: 'secondary-storage',
+    },
 
     emailAndPassword: {
       enabled: true,
