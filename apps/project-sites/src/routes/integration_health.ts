@@ -194,7 +194,9 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       break;
     }
     case 'langfuse': {
-      const configured = Boolean((c.env as unknown as Record<string, unknown>)['LANGFUSE_PUBLIC_KEY']);
+      const configured = Boolean(
+        (c.env as unknown as Record<string, unknown>)['LANGFUSE_PUBLIC_KEY'],
+      );
       signals.push({
         provider: 'langfuse',
         lastStatus: 0,

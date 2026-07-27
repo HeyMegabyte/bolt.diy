@@ -52,7 +52,10 @@ export class GitHubOAuthAdapter implements NativeOAuthAdapter {
     if (!accessToken) return null;
     return {
       accessToken,
-      scopes: String(data.scope ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      scopes: String(data.scope ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     };
   }
 
@@ -63,17 +66,14 @@ export class GitHubOAuthAdapter implements NativeOAuthAdapter {
 
   async revokeToken(accessToken: string): Promise<boolean> {
     if (!this.clientId || !this.clientSecret) return false;
-    const res = await fetch(
-      `https://api.github.com/applications/${this.clientId}/grant`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Basic ${btoa(`${this.clientId}:${this.clientSecret}`)}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ access_token: accessToken }),
+    const res = await fetch(`https://api.github.com/applications/${this.clientId}/grant`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Basic ${btoa(`${this.clientId}:${this.clientSecret}`)}`,
+        'Content-Type': 'application/json',
       },
-    );
+      body: JSON.stringify({ access_token: accessToken }),
+    });
     return res.status === 204;
   }
 }
