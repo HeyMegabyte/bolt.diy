@@ -369,6 +369,19 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
       'Port + FakeAbuseProvider + AllowAllAbuseProvider + getAbuseProvider(env) factory + requireNotAbusive(kind) middleware, all tested. Sits ABOVE the CF-native rate_limit.ts (tenant/plan/kind-aware decisions). Fail-OPEN: unset ARCJET_KEY → AllowAll (CF limiter is the floor). Remaining: the Workers-compatible ArcjetAbuseProvider adapter + wiring requireNotAbusive onto claim/signup/form/ai-generate routes. §48.',
   },
   {
+    id: 'oauth-native',
+    name: 'Native OAuth connections — PKCE + paste-key + AES-GCM D1 storage',
+    category: 'auth',
+    runtime: 'cloudflare-worker',
+    domain: 'integrations.projectsites.dev',
+    ownerPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',
+    datastore: ['D1:mcp_connections'],
+    status: 'production',
+    access: 'customer-authenticated',
+    notes:
+      'Replaces Nango (removed 2026-07-27 per ADR-0034). /api/mcp/:provider/connect + /callback + /paste — PKCE state flow + paste-key fallback when client_id unset. AES-GCM encrypted tokens in D1 mcp_connections table. Per-provider native adapters in src/services/oauth/. Zero external token vault.',
+  },
+  {
     id: 'auth-better-auth',
     name: 'Better Auth — the ONLY auth system (embedded, ADR-0006)',
     category: 'auth',
@@ -420,16 +433,16 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'oauth-nango',
-    name: 'OAuth connection layer — Nango (PERMANENT per Brian directive 2026-06-29)',
+    name: 'OAuth connection layer — Nango (REMOVED 2026-07-27 per ADR-0034)',
     category: 'auth',
-    runtime: 'cloudflare-container',
+    runtime: 'self-hosted-container',
     domain: 'integrations.projectsites.dev',
     ownerPackage: 'apps/project-sites/infra/nango/',
     adapterPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',
-    status: 'provisioned',
-    access: 'customer-authenticated',
+    status: 'removed',
+    access: 'internal-access',
     notes:
-      'Nango is the PERMANENT OAuth/auth/proxy layer for ALL ProjectSites-owned customer OAuth connections at integrations.projectsites.dev on CF Workers Containers. It is the canonical token vault, refresh layer, and authenticated proxy. OAuth flows: authorize→callback→token-exchange→AES-GCM-encrypted upsert→refresh via Nango. PKCE + paste-key fallback when a provider client_id is unset. Capability Router priority: Native adapter → Composio (execution only) → Pipedream Connect (execution/workflow/long-tail fallback). Composio/Pipedream are NEVER the canonical OAuth owner. 10 non-negotiable auth rules codified in LOOP_LEDGER § integrations.projectsites.dev.',
+      'REMOVED 2026-07-27. Replaced by native OAuth connections via mcp_oauth.ts (PKCE + paste-key fallback + AES-GCM encrypted tokens in D1 mcp_connections). Each provider gets a native adapter in src/services/oauth/. Zero external token vault. See ADR-0034.',
   },
   {
     id: 'crawl-deepcrawl',

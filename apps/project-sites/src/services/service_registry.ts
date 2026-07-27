@@ -181,16 +181,7 @@ export const DEFAULT_SERVICES = Object.freeze([
     healthPath: '/api/social/accounts',
     category: 'social' as const,
     secrets: Object.freeze([]),
-  }),
-  Object.freeze({
-    slug: 'inngest',
-    name: 'Inngest',
-    description: 'Event-driven background job and workflow engine',
-    url: 'https://events.projectsites.dev',
-    healthPath: '/health',
-    category: 'infra' as const,
-    secrets: Object.freeze(['INNGEST_SIGNING_KEY', 'INNGEST_EVENT_KEY']),
-    container: true,
+    container: false,
   }),
   Object.freeze({
     slug: 'cms',

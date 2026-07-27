@@ -144,7 +144,7 @@ export async function executeCapability<T = unknown>(
 
   // ── Fail closed ──────────────────────────────────────────
   if (!connection) {
-    const result: CapabilityExecutionResult = {
+    const result: CapabilityExecutionResult<T> = {
       runtime: 'native',
       provider: request.provider,
       action: request.action,
@@ -159,7 +159,7 @@ export async function executeCapability<T = unknown>(
   }
 
   if (connection.status !== 'active') {
-    const result: CapabilityExecutionResult = {
+    const result: CapabilityExecutionResult<T> = {
       runtime: 'native',
       provider: request.provider,
       action: request.action,
@@ -186,7 +186,7 @@ export async function executeCapability<T = unknown>(
     if (entry && entry.requiredScopes.length > 0) {
       const missing = entry.requiredScopes.filter((s) => !connection.scopes.includes(s));
       if (missing.length > 0) {
-        const result: CapabilityExecutionResult = {
+        const result: CapabilityExecutionResult<T> = {
           runtime: 'native',
           provider: request.provider,
           action: request.action,
@@ -208,7 +208,7 @@ export async function executeCapability<T = unknown>(
       }
     }
 
-    const result: CapabilityExecutionResult = {
+    const result: CapabilityExecutionResult<T> = {
       runtime: 'native',
       provider: request.provider,
       action: request.action,

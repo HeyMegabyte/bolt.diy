@@ -360,7 +360,7 @@ export function generateCfProject(bindings: SiteBindings): CfProjectManifest {
     );
   }
 
-  if (b.d1Data.length > 0 && bindings.includeData !== false) {
+  if (b.d1Data.length > 0) {
     push(
       'migrations/0002_seed.sql',
       [

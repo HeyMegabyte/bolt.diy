@@ -80,6 +80,7 @@ export async function handleCodeExport(
   // ── Build the CF project ──────────────────────────────────────────────
   const bindings: SiteBindings = {
     slug: siteId,
+    pages: [],
     d1DatabaseName: `${siteId}-db`,
     r2BucketName: `${siteId}-assets`,
     staticAssets: assets,

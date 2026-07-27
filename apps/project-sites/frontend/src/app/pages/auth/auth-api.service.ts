@@ -165,6 +165,18 @@ export class AuthApiService {
     return this.post<{ success?: boolean }>('/sign-out', {});
   }
 
+  /**
+   * Initiate social OAuth sign-in by redirecting to Better Auth's social provider endpoint.
+   *
+   * @param provider - 'google' | 'github' — the Better Auth social provider id.
+   * @param callbackURL - where to return after auth (defaults to /admin).
+   */
+  signInSocial(provider: 'google' | 'github', callbackURL?: string): void {
+    const returnUrl = callbackURL ?? '/admin';
+    const params = new URLSearchParams({ provider, callbackURL: returnUrl });
+    window.location.href = `${AUTH_BASE}/sign-in/social?${params.toString()}`;
+  }
+
   /** Revoke every session except (optionally) the current one — sign out everywhere. */
   revokeOtherSessions(): Promise<AuthResult<{ status?: boolean }>> {
     return this.post<{ status?: boolean }>('/revoke-other-sessions', {});

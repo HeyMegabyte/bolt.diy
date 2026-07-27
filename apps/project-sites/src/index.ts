@@ -499,7 +499,8 @@ app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (fl
 app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
 app.get('/api/sites/:siteId/export', async (c) => {
   const siteId = c.req.param('siteId');
-  return handleCodeExport(c, siteId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return handleCodeExport(c as any, siteId);
 }); // ZIP download — deployable CF Worker project (flag: code_export)
 
 // AI Website Critic — structured site critique with A-F grading (flag: ai_site_critic)

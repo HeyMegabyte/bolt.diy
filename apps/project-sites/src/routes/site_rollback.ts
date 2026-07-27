@@ -8,7 +8,7 @@
  * Requires GITHUB_REPO_TOKEN set in wrangler secrets.
  */
 import { Hono } from 'hono';
-import type { Env } from '../types/env.js';
+import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { getHistory, rollback } from '../services/github_repo.js';
 import { z } from 'zod';
@@ -17,7 +17,7 @@ const rollbackSchema = z.object({
   commitSha: z.string().min(7).max(40),
 });
 
-export const siteRollbackRoutes = new Hono<{ Bindings: Env }>()
+export const siteRollbackRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
   /**
    * GET /api/sites/:siteId/history — list recent commits for the rollback UI.
    */
