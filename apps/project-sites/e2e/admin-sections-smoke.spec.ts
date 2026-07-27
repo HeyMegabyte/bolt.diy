@@ -9,23 +9,37 @@ import { test, expect } from '@playwright/test';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
-/** Admin sections that should render their component shell after auth. */
+/** Every admin route from app.routes.ts — verifies auth guard redirects to /signin. */
 const ADMIN_SECTIONS = [
-  { path: '/admin', name: 'Dashboard', testid: 'app-admin' },
-  { path: '/admin/editor', name: 'Editor', testid: 'app-admin' },
-  { path: '/admin/snapshots', name: 'Snapshots', testid: 'app-admin' },
-  { path: '/admin/analytics', name: 'Analytics', testid: 'app-admin' },
-  { path: '/admin/forms', name: 'Forms', testid: 'app-admin' },
-  { path: '/admin/apps', name: 'Apps', testid: 'app-admin' },
-  { path: '/admin/social', name: 'Social', testid: 'app-admin' },
-  { path: '/admin/voice', name: 'Voice', testid: 'app-admin' },
-  { path: '/admin/logs', name: 'Logs', testid: 'app-admin' },
-  { path: '/admin/docs', name: 'Docs', testid: 'app-admin' },
-  { path: '/admin/settings', name: 'Settings', testid: 'app-admin' },
-  { path: '/admin/billing', name: 'Billing', testid: 'app-admin' },
-  { path: '/admin/domains', name: 'Domains', testid: 'app-admin' },
-  { path: '/admin/api-tokens', name: 'API Tokens', testid: 'app-admin' },
-  { path: '/admin/user', name: 'User Settings', testid: 'app-admin' },
+  // Primary nav (15 items)
+  { path: '/admin', name: 'Dashboard' },
+  { path: '/admin/editor', name: 'Editor' },
+  { path: '/admin/snapshots', name: 'Snapshots' },
+  { path: '/admin/analytics', name: 'Analytics' },
+  { path: '/admin/forms', name: 'Forms' },
+  { path: '/admin/apps', name: 'Apps' },
+  { path: '/admin/site-features', name: 'Site Features' },
+  { path: '/admin/social', name: 'Social' },
+  { path: '/admin/voice', name: 'Voice' },
+  { path: '/admin/logs', name: 'Logs' },
+  { path: '/admin/feature-flags', name: 'Feature Flags (sysadmin)' },
+  { path: '/admin/leads', name: 'Leads (sysadmin)' },
+  { path: '/admin/system-services', name: 'System Services (sysadmin)' },
+  { path: '/admin/docs', name: 'Docs' },
+  { path: '/admin/settings', name: 'Settings' },
+  // More tools
+  { path: '/admin/domains', name: 'Domains' },
+  { path: '/admin/api-tokens', name: 'API Tokens' },
+  { path: '/admin/super-admin', name: 'Super Admin' },
+  { path: '/admin/editor-native', name: 'Editor (native)' },
+  // Secondary routes
+  { path: '/admin/team', name: 'Team' },
+  { path: '/admin/auth-security', name: 'Auth Security' },
+  { path: '/admin/user', name: 'User Settings' },
+  { path: '/admin/billing', name: 'Billing' },
+  // Detail routes (may 404 without siteId param — verify they don't white-screen)
+  { path: '/admin/snapshots/diff', name: 'Snapshots Diff' },
+  { path: '/admin/apps/instances', name: 'App Instances' },
 ];
 
 test.describe('Admin Section Smoke — Unauthenticated Redirect', () => {
