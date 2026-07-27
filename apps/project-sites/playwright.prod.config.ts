@@ -21,8 +21,12 @@ export default defineConfig({
     // LCP=9.4s (CSR-only SPA, fire 3) → app-shell static hero (fire 5) → async
     // fonts (fire 5b) → critical-CSS inline (fire 8). Tracked in _PERFECTION_BACKLOG.md Dim I.
     'perf/ttfr.spec.ts',
-    'auth-oauth-buttons.spec.ts',  // F001 — Google + GitHub OAuth button visibility (Pass 1)
-    'auth-and-signin.spec.ts',     // Full auth flow (all 6 methods + 2FA + error states)
+    'auth-oauth-buttons.spec.ts',          // F001 — Google + GitHub OAuth buttons (Pass 1)
+    'auth-and-signin.spec.ts',             // Full auth flow (all 6 methods + 2FA)
+    'admin-journey.spec.ts',               // Admin shell journey (Pass 6)
+    'admin-sections-smoke.spec.ts',        // 15 admin section redirect checks + API health (Pass 7)
+    'marketing-seo.spec.ts',               // 9 route SEO metadata + critical files (Pass 7)
+    'security-headers-extended.spec.ts',   // HSTS, CSP, CORS, security posture (Pass 7)
   ],
   fullyParallel: true,
   reporter: 'line',
