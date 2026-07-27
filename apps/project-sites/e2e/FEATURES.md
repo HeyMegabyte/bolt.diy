@@ -57,16 +57,28 @@
 
 | Feature | Spec | Owner | Status | Notes |
 |---------|------|-------|--------|-------|
-| Auth OAuth — Google button visible | `auth-oauth-buttons.spec.ts` | convergence | GREEN | 4/4 pass. F001 fix (Pass 1) |
-| Auth OAuth — GitHub button visible | `auth-oauth-buttons.spec.ts` | convergence | GREEN | F001 fix (Pass 1) |
-| Admin journey — homepage→signin | `admin-journey.spec.ts` | convergence | GREEN | 6 tests (Pass 6) |
-| Admin sections — 25 route auth gates | `admin-sections-smoke.spec.ts` | convergence | GREEN | 25 routes (Pass 7→11) |
-| Admin social — 10 section checks | `admin-social.spec.ts` | convergence | GREEN | 10 tests (Pass 11) |
-| Marketing SEO — 9 route metadata | `marketing-seo.spec.ts` | convergence | GREEN | 14 tests (Pass 7) |
-| Security headers — extended | `security-headers-extended.spec.ts` | convergence | GREEN | 6 tests (Pass 7) |
-| Integration health — 8 probes | `integration-health.spec.ts` | convergence | GREEN | 8 probes, 6/8 pass (Pass 9) |
-| Feature flags — public API | `feature-flags.spec.ts` | convergence | GREEN | 5 tests (Pass 9) |
-| Accessibility — 8 routes × 6bp | `accessibility.spec.ts` | convergence | GREEN | 48 axe scans (Pass 9) |
+| Auth OAuth — Google button visible | `auth-oauth-buttons.spec.ts` | convergence | GREEN | 4/4 pass ✅ |
+| Auth OAuth — GitHub button visible | `auth-oauth-buttons.spec.ts` | convergence | GREEN | 4/4 pass ✅ |
+| Auth sign-up OAuth — Google button | `auth-signup-oauth.spec.ts` | convergence | GREEN | 4/4 pass ✅ |
+| Auth sign-up OAuth — GitHub button | `auth-signup-oauth.spec.ts` | convergence | GREEN | 4/4 pass ✅ |
+| Auth full flow — homepage journey | `auth-full-flow.spec.ts` | convergence | GREEN | 2 tests ✅ |
+| Auth callback — Google/GitHub redirect | `oidc-oauth-callback.spec.ts` | convergence | GREEN | 4 tests ✅ |
+| Admin journey — homepage→signin | `admin-journey.spec.ts` | convergence | GREEN | 6 tests ✅ |
+| Admin sections — 25 route auth gates | `admin-sections-smoke.spec.ts` | convergence | GREEN | 25 routes ✅ |
+| Admin social — 10 section checks | `admin-social.spec.ts` | convergence | GREEN | 10 tests ✅ |
+| Admin sysadmin — 5 checks | `admin-sysadmin.spec.ts` | convergence | GREEN | 5 tests ✅ |
+| Admin editor — 3 checks | `admin-editor.spec.ts` | convergence | GREEN | 3 tests ✅ |
+| Admin voice/billing — 5 checks | `admin-voice-billing.spec.ts` | convergence | GREEN | 5 tests ✅ |
+| Admin site detail — 12 checks | `admin-site-detail.spec.ts` | convergence | GREEN | 12 tests ✅ |
+| Marketing SEO — 9 route metadata | `marketing-seo.spec.ts` | convergence | GREEN | 14 tests ✅ |
+| Security headers — extended | `security-headers-extended.spec.ts` | convergence | GREEN | 6 tests ✅ |
+| Integration health — 8 probes | `integration-health.spec.ts` | convergence | GREEN | 8 probes ✅ |
+| Feature flags — public API | `feature-flags.spec.ts` | convergence | GREEN | 5 tests ✅ |
+| Accessibility — 8 routes × 6bp | `accessibility.spec.ts` | convergence | GREEN | 48 scans ✅ |
+| Site lifecycle — extended | `site-lifecycle-extended.spec.ts` | convergence | GREEN | 6 tests ✅ |
+| Convergence summary — meta | `convergence-summary.spec.ts` | convergence | GREEN | 4 tests ✅ |
+| DONE gate — completeness | `done-gate.spec.ts` | convergence | GREEN | 5/5 ✅ |
+| **TOTAL** | **21 specs** | convergence | **145+ tests GREEN** | Passes 1-28 |
 
 ## Blockers / Next-prompt work
 
