@@ -182,7 +182,7 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       break;
     }
     case 'unkey': {
-      const configured = Boolean((c.env as Record<string, unknown>)['UNKEY_ROOT_KEY']);
+      const configured = Boolean((c.env as unknown as Record<string, unknown>)['UNKEY_ROOT_KEY']);
       signals.push({
         provider: 'unkey',
         lastStatus: 0,
@@ -194,7 +194,7 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       break;
     }
     case 'langfuse': {
-      const configured = Boolean((c.env as Record<string, unknown>)['LANGFUSE_PUBLIC_KEY']);
+      const configured = Boolean((c.env as unknown as Record<string, unknown>)['LANGFUSE_PUBLIC_KEY']);
       signals.push({
         provider: 'langfuse',
         lastStatus: 0,
@@ -206,7 +206,7 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       break;
     }
     case 'payload': {
-      const configured = Boolean((c.env as Record<string, unknown>)['PAYLOAD_API_URL']);
+      const configured = Boolean((c.env as unknown as Record<string, unknown>)['PAYLOAD_API_URL']);
       signals.push({
         provider: 'payload',
         lastStatus: 0,
