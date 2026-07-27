@@ -57,8 +57,11 @@ export class GoogleOAuthAdapter implements NativeOAuthAdapter {
     return {
       accessToken: String(data.access_token ?? ''),
       refreshToken: data.refresh_token ? String(data.refresh_token) : undefined,
-      expiresAt: typeof data.expires_in === 'number' ? Date.now() + data.expires_in * 1000 : undefined,
-      scopes: String(data.scope ?? '').split(' ').filter(Boolean),
+      expiresAt:
+        typeof data.expires_in === 'number' ? Date.now() + data.expires_in * 1000 : undefined,
+      scopes: String(data.scope ?? '')
+        .split(' ')
+        .filter(Boolean),
     };
   }
 
@@ -78,8 +81,11 @@ export class GoogleOAuthAdapter implements NativeOAuthAdapter {
     const data = (await res.json()) as Record<string, unknown>;
     return {
       accessToken: String(data.access_token ?? ''),
-      expiresAt: typeof data.expires_in === 'number' ? Date.now() + data.expires_in * 1000 : undefined,
-      scopes: String(data.scope ?? '').split(' ').filter(Boolean),
+      expiresAt:
+        typeof data.expires_in === 'number' ? Date.now() + data.expires_in * 1000 : undefined,
+      scopes: String(data.scope ?? '')
+        .split(' ')
+        .filter(Boolean),
     };
   }
 
