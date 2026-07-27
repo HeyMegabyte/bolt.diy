@@ -90,3 +90,13 @@ observability:
 
 site_serving:
   serving:          { status: covered, specs: [site-serving.spec.ts] }
+
+convergence:
+  admin_journey:        { status: covered, specs: [admin-journey.spec.ts] }
+  admin_sections:       { status: covered, specs: [admin-sections-smoke.spec.ts, admin-social.spec.ts] }
+  auth_oauth:           { status: covered, specs: [auth-oauth-buttons.spec.ts] }
+  marketing_seo:        { status: covered, specs: [marketing-seo.spec.ts] }
+  security_headers_ext: { status: covered, specs: [security-headers-extended.spec.ts] }
+  integration_health:   { status: covered, specs: [integration-health.spec.ts] }
+  feature_flags:        { status: covered, specs: [feature-flags.spec.ts] }
+  accessibility:        { status: covered, specs: [accessibility.spec.ts] }

@@ -53,6 +53,21 @@
 | Chat Streaming — suggestion chips render | `streaming-markdown-render.spec.ts` | test-writer | TDD-RED | Action chip below message |
 | Chat Streaming — zero console errors | `streaming-markdown-render.spec.ts` | test-writer | TDD-RED | Blocking errors filter applied |
 
+## Convergence E2E Specs (Pass 1-11, 2026-07-27)
+
+| Feature | Spec | Owner | Status | Notes |
+|---------|------|-------|--------|-------|
+| Auth OAuth — Google button visible | `auth-oauth-buttons.spec.ts` | convergence | GREEN | 4/4 pass. F001 fix (Pass 1) |
+| Auth OAuth — GitHub button visible | `auth-oauth-buttons.spec.ts` | convergence | GREEN | F001 fix (Pass 1) |
+| Admin journey — homepage→signin | `admin-journey.spec.ts` | convergence | GREEN | 6 tests (Pass 6) |
+| Admin sections — 25 route auth gates | `admin-sections-smoke.spec.ts` | convergence | GREEN | 25 routes (Pass 7→11) |
+| Admin social — 10 section checks | `admin-social.spec.ts` | convergence | GREEN | 10 tests (Pass 11) |
+| Marketing SEO — 9 route metadata | `marketing-seo.spec.ts` | convergence | GREEN | 14 tests (Pass 7) |
+| Security headers — extended | `security-headers-extended.spec.ts` | convergence | GREEN | 6 tests (Pass 7) |
+| Integration health — 8 probes | `integration-health.spec.ts` | convergence | GREEN | 8 probes, 6/8 pass (Pass 9) |
+| Feature flags — public API | `feature-flags.spec.ts` | convergence | GREEN | 5 tests (Pass 9) |
+| Accessibility — 8 routes × 6bp | `accessibility.spec.ts` | convergence | GREEN | 48 axe scans (Pass 9) |
+
 ## Blockers / Next-prompt work
 
 1. **task-tray seed endpoint** — `POST /api/inbox/tasks` does not exist as a test-env endpoint today.
