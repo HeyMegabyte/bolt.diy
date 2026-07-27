@@ -21,15 +21,22 @@ import { listmonkHealth, type ListmonkConfig } from '../services/listmonk_client
 
 const integrationHealth = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-/** Known integration names for parameter validation. */
+/** Known integration names — kept in lockstep with ADR-0034 live services. */
 const KNOWN_INTEGRATIONS = new Set([
-  'listmonk',
-  'twenty',
-  'stripe',
-  'resend',
-  'dittofeed',
-  'deepgram',
-  'lago',
+  'listmonk',       // CF Container — mail.projectsites.dev
+  'twenty',         // CF Container — crm.projectsites.dev
+  'stripe',         // Managed SaaS — billing
+  'deepgram',       // Managed SaaS — STT
+  'unkey',          // Managed SaaS — API keys
+  'langfuse',       // CF Container — traces.projectsites.dev
+  'payload',        // CF Container — cms.projectsites.dev
+  // Removed / deprecated (probe returns 410 Gone)
+  'resend',         // Deprecated → SES (ADR-0019)
+  'dittofeed',      // Removed → Novu+Listmonk (ADR-0034)
+  'lago',           // Removed → Stripe Meters (ADR-0034)
+  'nango',          // Removed → Native OAuth (ADR-0034)
+  'inngest',        // Removed → CF Workflows v2 (ADR-0034)
+  'postiz',         // Removed → Native social (ADR-0034)
 ]);
 
 /**
@@ -174,6 +181,31 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       });
       break;
     }
+    case 'unkey': {
+      const configured = Boolean(c.env.UNKEY_ROOT_KEY);
+      signals.push({ provider: 'unkey', lastStatus: 0, tokenValid: configured, lastCallOk: configured, daysSinceLastUse: 0, isConfigured: configured });
+      break;
+    }
+    case 'langfuse': {
+      const configured = Boolean(c.env.LANGFUSE_PUBLIC_KEY);
+      signals.push({ provider: 'langfuse', lastStatus: 0, tokenValid: configured, lastCallOk: configured, daysSinceLastUse: 0, isConfigured: configured });
+      break;
+    }
+    case 'payload': {
+      const configured = Boolean(c.env.PAYLOAD_API_URL);
+      signals.push({ provider: 'payload', lastStatus: 0, tokenValid: configured, lastCallOk: configured, daysSinceLastUse: 0, isConfigured: configured });
+      break;
+    }
+    // Removed services — return 410 Gone with deprecation notice
+    case 'nango':
+    case 'inngest':
+    case 'postiz':
+      return c.json({
+        integration: name,
+        status: 'removed',
+        message: `${name} was decommissioned per ADR-0034 (2026-07-27). See docs/decisions/0034-platform-consolidation-cf-native.md`,
+        timestamp: new Date().toISOString(),
+      }, 410);
     default:
       break;
   }
