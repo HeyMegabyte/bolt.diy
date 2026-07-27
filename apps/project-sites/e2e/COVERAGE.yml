@@ -100,3 +100,7 @@ convergence:
   integration_health:   { status: covered, specs: [integration-health.spec.ts] }
   feature_flags:        { status: covered, specs: [feature-flags.spec.ts] }
   accessibility:        { status: covered, specs: [accessibility.spec.ts] }
+  auth_signup_oauth:    { status: covered, specs: [auth-signup-oauth.spec.ts] }
+  admin_sysadmin:       { status: covered, specs: [admin-sysadmin.spec.ts] }
+  admin_site_detail:    { status: covered, specs: [admin-site-detail.spec.ts] }
+  admin_voice_billing:  { status: covered, specs: [admin-voice-billing.spec.ts] }

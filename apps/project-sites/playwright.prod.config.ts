@@ -34,6 +34,7 @@ export default defineConfig({
     'integration-health.spec.ts',          // 8 probes across all services (Pass 9)
     'feature-flags.spec.ts',               // Public API + admin auth gates (Pass 9)
     'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
+    'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
   ],
   fullyParallel: true,
   reporter: 'line',
