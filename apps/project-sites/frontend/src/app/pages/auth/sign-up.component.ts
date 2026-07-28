@@ -149,7 +149,7 @@ import { AuthApiService } from './auth-api.service';
 
         <div class="flex flex-col gap-2.5">
           <a
-            href="/api/auth/sign-in/social?provider=google&callbackURL=/admin"
+            href="/api/auth/google?returnUrl=/admin"
             data-testid="sign-up-google"
             class="min-h-[44px] flex items-center justify-center gap-2 rounded-lg border border-white/[0.12] bg-transparent px-4 text-[0.85rem] font-semibold text-white transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/50 no-underline"
           >
@@ -157,7 +157,7 @@ import { AuthApiService } from './auth-api.service';
             Continue with Google
           </a>
           <a
-            href="/api/auth/sign-in/social?provider=github&callbackURL=/admin"
+            href="/api/auth/github?returnUrl=/admin"
             data-testid="sign-up-github"
             class="min-h-[44px] flex items-center justify-center gap-2 rounded-lg border border-white/[0.12] bg-transparent px-4 text-[0.85rem] font-semibold text-white transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/50 no-underline"
           >

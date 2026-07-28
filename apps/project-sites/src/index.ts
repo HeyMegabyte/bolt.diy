@@ -451,14 +451,18 @@ app.use('/api/*', idempotencyMiddleware);
 // EMBEDDED Better Auth (full-cutover rebuild, Phase 1) — DARK behind the `better_auth`
 // flag. Registered BEFORE the legacy auth routes so it's a clean same-path cutover:
 // flag ON → Better Auth owns /api/auth/* (email+pw, magic link, Google, 2FA, sessions);
-// flag OFF → next() falls through to the legacy magic-link/Google/D1-session auth.
-app.on(['GET', 'POST', 'OPTIONS'], '/api/auth/*', async (c, next) => {
-  // Always fall through to legacy routes for these paths — Better Auth
-  // doesn't own the test-login seam or the session-read endpoint.
+// flag OFF → falls through to the legacy magic-link/Google/D1-session auth.
+// MUST use app.use (middleware) not app.on (route handler) — app.on blocks sub-app routes.
+app.use('/api/auth/*', async (c, next) => {
   const path = new URL(c.req.url).pathname;
-  if (path === '/api/auth/me' || path === '/api/auth/test-login') return next();
+  // Always fall through to legacy for these paths
+  const legacyPaths = ['/api/auth/me', '/api/auth/test-login',
+    '/api/auth/google', '/api/auth/google/callback',
+    '/api/auth/github', '/api/auth/github/callback'];
+  if (legacyPaths.includes(path)) { await next(); return; }
 
-  if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) return next();
+  if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) { await next(); return; }
+
   const { makeAuth, ensureBetterAuthSchema } = await import('./auth/better-auth.js');
   await ensureBetterAuthSchema(c.env);
   return makeAuth(c.env).handler(c.req.raw);

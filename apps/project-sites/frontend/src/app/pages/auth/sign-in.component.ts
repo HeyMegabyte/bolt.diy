@@ -138,7 +138,7 @@ export function sanitizeReturnUrl(raw: string | null | undefined): string {
         <!-- Social OAuth buttons — matches backend Better Auth socialProviders -->
         <div class="flex flex-col gap-2.5">
           <a
-            [href]="'/api/auth/sign-in/social?provider=google&callbackURL=' + safeReturnUrl()"
+            [href]="'/api/auth/google?returnUrl=' + safeReturnUrl()"
             data-testid="sign-in-google"
             class="min-h-[44px] flex items-center justify-center gap-2 rounded-lg border border-white/[0.12] bg-transparent px-4 text-[0.85rem] font-semibold text-white transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/50 no-underline"
           >
@@ -146,7 +146,7 @@ export function sanitizeReturnUrl(raw: string | null | undefined): string {
             Continue with Google
           </a>
           <a
-            [href]="'/api/auth/sign-in/social?provider=github&callbackURL=' + safeReturnUrl()"
+            [href]="'/api/auth/github?returnUrl=' + safeReturnUrl()"
             data-testid="sign-in-github"
             class="min-h-[44px] flex items-center justify-center gap-2 rounded-lg border border-white/[0.12] bg-transparent px-4 text-[0.85rem] font-semibold text-white transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/50 no-underline"
           >

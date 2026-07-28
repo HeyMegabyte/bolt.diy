@@ -47,7 +47,6 @@ test.describe('Sign-in — OAuth button visibility', () => {
 
     const googleBtn = page.locator('[data-testid="sign-in-google"]');
     const href = await googleBtn.getAttribute('href');
-    expect(href).toContain('/api/auth/sign-in/social');
-    expect(href).toContain('google');
+    expect(href).toContain('/api/auth/google');
   });
 });
