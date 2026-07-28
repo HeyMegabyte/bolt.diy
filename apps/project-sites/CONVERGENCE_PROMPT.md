@@ -72,6 +72,24 @@ ALL of these true across 2 consecutive passes with zero changes:
 - [ ] Error boundary: per-section crash isolation with recovery card
 - [ ] Global drop zone: drag file → navigates to media with asset
 
+### All LOOP_LEDGER Features — Complete & Integrated
+
+The `_LOOP_LEDGER.md` is the authoritative feature inventory. Every open `[ ]` item must be completed or explicitly deferred. Key feature groups:
+
+- [ ] All 85+ feature flags promoted to `stage='stable', enabled=1, rollout_percent=100` (except killswitch/deprecated)
+- [ ] Inline AI site auditor: one-click Scan Site → site_doctor grade + fixes
+- [ ] Social publishing native: 16 publisher adapters wired to CF Workflows v2 scheduling
+- [ ] Voice: phone numbers, conversations, test console, agent prompt, MCP attachments
+- [ ] Apps catalog: 30 entries, 10 deployable, instance management
+- [ ] Billing: Stripe Meters 17 events, checkout, portal, wallet auto-topup
+- [ ] Site lifecycle: create → build → deploy → analytics → rebuild → delete
+- [ ] Agent-native: MCP server at mcp.projectsites.dev, OAuth 2.1, per-site MCP
+- [ ] Dogfooded: platform deploys through own MCP, admin uses site-kit blocks
+- [ ] All 30 agent-grade features from STRATEGY.md (deploy_site MCP tool, npx connect, preview URLs, etc.)
+- [ ] Every `libs/features/*/` module: manifest complete, E2E tested, flag promoted
+- [ ] Every `src/routes/*.ts` handler: Zod-validated, flag-guarded, audit-logged
+- [ ] Every `src/services/*.ts` service: typed contracts, error handling, observability
+
 ### Every Admin Section — Populated & Functional
 - [ ] Dashboard: Getting Started hub, upgrade-moments strip, onboarding checklist, calendar, site health sparklines, usage gauges, MRU cards, activity feed
 - [ ] Editor: bolt.diy iframe loads, WebContainer boots, file tree populated, preview renders
