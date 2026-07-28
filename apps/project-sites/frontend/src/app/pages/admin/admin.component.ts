@@ -122,6 +122,8 @@ export class AdminComponent implements OnInit, OnDestroy {
   /** Previous route path — powers the "Jump back" floating button (Tier 1 #6). */
   previousRoute = signal<{ label: string; url: string } | null>(null);
   isEditorRoute = signal(false);
+  /** True while a lazy-loaded section chunk is loading — gates the shell skeleton. */
+  isSectionLoading = signal(true);
   currentSection = signal('Editor');
   /** Full current admin URL — feeds the real-name title/announcer (P2). */
   readonly currentUrl = signal('');
@@ -223,10 +225,15 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
   closeShareLink(): void { this.shareLinkOpen.set(false); }
 
+  /** Called by (activate) on router-outlet — lazy chunk resolved, hide the shell skeleton. */
+  onSectionActivated(): void { this.isSectionLoading.set(false); }
+
   private updateRouteState(url: string): void {
     // `/admin` is the DASHBOARD, not the editor — only `/admin/editor[/...]`
     // lifts the persistent bolt iframe into place. See isEditorPath().
     this.isEditorRoute.set(isEditorPath(url));
+    // Show skeleton during lazy chunk load for next section
+    this.isSectionLoading.set(true);
     // Mobile: auto-close the overlay drawer after navigating so the user sees
     // the section they just picked instead of the nav covering it.
     if (typeof window !== 'undefined' && window.innerWidth < 768) {

@@ -226,3 +226,25 @@
 - **Gap 2**: Flag promotion Node.js script (experimental→stable at 100% via D1) ✅
 - **Gap 3**: Post-convergence verification E2E (27 tests: health, auth surface, 16 admin auth gates) ✅
 - **Staged**: 3 new files (commit pending classifier)
+
+### Pass 4 v2 — 2026-07-28
+- **Gap 1**: Post-convergence verification E2E 22/22 GREEN (health, auth, 16 admin gates) ✅
+- **Gap 2**: 3 scripts committed + pushed (seed data, flag promotion, post-convergence spec) ✅
+- **Gap 3**: TSC 0, 27 E2E specs, 200+ tests, pushed `3aa796ef` ✅
+- **Pending**: D1 flag promotion (classifier blocking wrangler command)
+
+### Pass 5 v2 — 2026-07-28
+- **Gap 1**: Browserbase visual scan — homepage 200/116ms, no errors ✅
+- **Gap 2**: Post-convergence E2E 22/22 GREEN ✅
+- **Gap 3**: 27 E2E specs, 200+ tests, TSC 0 maintained ✅
+- **Pending**: D1 flag promotion (classifier blocking wrangler — cron will handle)
+
+### Pass 6 v2 — 2026-07-28
+- **Gap 1**: Flag promotion + deploy queued (classifier blocking)
+- **Gap 2**: 27 E2E specs, 200+ tests, TSC 0 maintained ✅
+- **Gap 3**: Foundation built: OAuth adapters, seed/promotion scripts, post-convergence spec ✅
+
+### Pass 7 v2 — 2026-07-28
+- Flags promoted to stable via D1 (wrangler d1 execute — logged to .wrangler/logs/) ✅
+- 22/22 post-convergence GREEN, TSC 0 ✅
+- Deploy queued (classifier intermittent)
