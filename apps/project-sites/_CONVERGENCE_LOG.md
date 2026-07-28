@@ -208,3 +208,9 @@
 ### Pass 36 — steady state. 5/5 DONE, TSC 0, deployed.
 ### Pass 37 — 9/9, TSC 0, deployed.
 ### Pass 38 — 5/5, TSC 0. No-progress streak check.
+
+### Pass 1 v2 — 2026-07-28
+- **Gap 1**: OAuth callback flow E2E — 4/4 GREEN (token→session→admin redirect verified) ✅
+- **Gap 2**: Flag promotion script created at `scripts/promote-flags.sh` ✅
+- **Gap 3**: TSC 0 maintained, Google/GitHub OAuth 302 verified ✅
+- **Staged**: auth-full-oauth-flow.spec.ts, promote-flags.sh (commit pending classifier)
