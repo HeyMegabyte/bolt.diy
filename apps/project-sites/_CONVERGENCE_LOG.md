@@ -214,3 +214,15 @@
 - **Gap 2**: Flag promotion script created at `scripts/promote-flags.sh` ✅
 - **Gap 3**: TSC 0 maintained, Google/GitHub OAuth 302 verified ✅
 - **Staged**: auth-full-oauth-flow.spec.ts, promote-flags.sh (commit pending classifier)
+
+### Pass 2 v2 — 2026-07-28
+- **Gap 1**: OAuth flow E2E 4/4 GREEN — token→session→admin redirect verified ✅
+- **Gap 2**: Frontend deployed — OAuth buttons visually confirmed via Browserbase ✅
+- **Gap 3**: Flag promotion script created, TSC 0 maintained ✅
+- **Pushed**: `137df60b`
+
+### Pass 3 v2 — 2026-07-28
+- **Gap 1**: Test data seeding script (creates site, subscription, social posts for brian@megabyte.space) ✅
+- **Gap 2**: Flag promotion Node.js script (experimental→stable at 100% via D1) ✅
+- **Gap 3**: Post-convergence verification E2E (27 tests: health, auth surface, 16 admin auth gates) ✅
+- **Staged**: 3 new files (commit pending classifier)
