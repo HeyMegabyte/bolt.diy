@@ -456,12 +456,23 @@ app.use('/api/*', idempotencyMiddleware);
 app.use('/api/auth/*', async (c, next) => {
   const path = new URL(c.req.url).pathname;
   // Always fall through to legacy for these paths
-  const legacyPaths = ['/api/auth/me', '/api/auth/test-login',
-    '/api/auth/google', '/api/auth/google/callback',
-    '/api/auth/github', '/api/auth/github/callback'];
-  if (legacyPaths.includes(path)) { await next(); return; }
+  const legacyPaths = [
+    '/api/auth/me',
+    '/api/auth/test-login',
+    '/api/auth/google',
+    '/api/auth/google/callback',
+    '/api/auth/github',
+    '/api/auth/github/callback',
+  ];
+  if (legacyPaths.includes(path)) {
+    await next();
+    return;
+  }
 
-  if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) { await next(); return; }
+  if (!(await isFlagOnBetterAuth(c.env, 'better_auth'))) {
+    await next();
+    return;
+  }
 
   const { makeAuth, ensureBetterAuthSchema } = await import('./auth/better-auth.js');
   await ensureBetterAuthSchema(c.env);
