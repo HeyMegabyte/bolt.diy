@@ -1719,7 +1719,7 @@ app.all('*', async (c) => {
             },
           ],
         })}</script>`;
-        const quotable = `<div data-quotable style="position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.</div>`;
+        const quotable = `<div data-quotable style="position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. The AI gateway routes each prompt to the right model by complexity — instant responses via Workers AI (free), routine generation via DeepSeek, premium reasoning via Anthropic Claude or OpenAI. Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.</div>`;
 
         html = html.replace(
           '</head>',
