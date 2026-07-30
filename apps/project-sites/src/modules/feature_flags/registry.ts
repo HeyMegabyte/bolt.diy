@@ -820,6 +820,65 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  // ── Flags referenced in frontend components but missing from registry ──
+  // These were discovered by the convergence loop: the frontend checks these
+  // flag keys via app-flag-gate-notice, but the keys never existed in D1.
+  log_explorer: {
+    key: 'log_explorer',
+    description: 'Log Explorer — Worker tail log search with cost-by-route breakdown. Feature flag gate on the Explorer tab inside /admin/logs.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  domain_stack_wizard: {
+    key: 'domain_stack_wizard',
+    description: 'Domain Stack Wizard — 7-tile progress board for DNS→SSL→email-auth→GSC. Feature flag gate on /admin/domains/:id/stack.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  email_deliverability_wizard: {
+    key: 'email_deliverability_wizard',
+    description: 'Email Deliverability Wizard — SPF/DKIM/DMARC score + fixes per site. Feature flag gate on /admin/sites/:id/deliverability.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  multimodal_copilot: {
+    key: 'multimodal_copilot',
+    description: 'Multimodal AI Site Copilot — per-site copilot admin with intent distribution + sessions. Feature flag gate on /admin/sites/:id/copilot.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  outbound_webhooks: {
+    key: 'outbound_webhooks',
+    description: 'Outbound Webhooks — CF-native delivery engine for customer webhook subscriptions. Feature flag gate on /admin/webhooks.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  section_marketplace: {
+    key: 'section_marketplace',
+    description: 'Section Marketplace — browsable catalog of installable site sections (hero, FAQ, pricing, etc.). Feature flag gate on the section picker.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
+  site_dna_taste_graph: {
+    key: 'site_dna_taste_graph',
+    description: 'Site DNA Taste Graph — per-site taste-signal admin with feedback history + preference bars. Feature flag gate on /admin/sites/:id/dna.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'stable',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

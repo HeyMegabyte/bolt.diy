@@ -248,3 +248,8 @@
 - Flags promoted to stable via D1 (wrangler d1 execute — logged to .wrangler/logs/) ✅
 - 22/22 post-convergence GREEN, TSC 0 ✅
 - Deploy queued (classifier intermittent)
+
+### Pass 8 v2 — 2026-07-30 system-level fix
+- **Gap 1**: 7 missing feature flags discovered — frontend referenced `log_explorer`, `domain_stack_wizard`, `email_deliverability_wizard`, `multimodal_copilot`, `outbound_webhooks`, `section_marketplace`, `site_dna_taste_graph` but they never existed in D1 registry. Added to registry + D1 at stable/100%.
+- **Gap 2**: Admin shell skeleton bug fixed — `<app-section-skeleton>` was unconditional, now gated behind `isSectionLoading()` signal with `(activate)` event on router-outlet.
+- **Gap 3**: Convergence prompt hardened — authenticated E2E testing now MANDATORY for every admin section. Auth-gate-only specs banned.

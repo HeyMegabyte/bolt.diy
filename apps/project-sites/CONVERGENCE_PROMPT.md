@@ -18,25 +18,38 @@ If a human can't do those 6 things, the convergence loop isn't done.
 
 Each pass picks the highest-impact gap and closes it with TDD:
 
-1. **Visual Discovery** (Stagehand/Browserbase on prod): Navigate the app AS A USER. Sign in with real credentials. Click every nav item. Observe every error — a hover tooltip with error text, a blank section, a console.error, a 404 in the network tab, a "Too many requests" on a legitimate action.
+1. **Visual Discovery** (Stagehand on prod, EVERY pass): Sign in as `brian@megabyte.space` via Google OAuth. Click EVERY nav item. EVERY section must render content — not skeleton, not empty-without-explanation, not a "feature not enabled" message when the flag IS enabled. Find every error: stuck skeletons, broken dropdowns, flag-gated features still showing "not enabled" despite flags being on, error toasts, console.errors.
 
-2. **Write Failing Test**: Playwright spec that starts at `PROD_URL` homepage, signs in via `e2e/helpers/auth.js` `signInAsTestUser(page)`, navigates via UI clicks to the broken surface, and asserts the fix.
+2. **Write Failing Authenticated Test**: Playwright spec that starts at `PROD_URL` homepage, signs in (real credentials or `signInAsTestUser`), navigates via UI clicks to the broken surface, and asserts the section WORKS — content rendered, interactive elements functional, no console errors, no stuck skeletons.
 
-3. **Fix Root Cause**: Read the error, fix the SOURCE (not the symptom), verify the fix locally.
+3. **Fix Root Cause**: Read the error, fix the SOURCE (not the symptom), verify locally.
 
-4. **Deploy + Verify**: Deploy backend + frontend. Run the spec against prod. Confirm GREEN. Stagehand visual verify.
+4. **Deploy + Verify**: Deploy. Run against prod. Confirm GREEN. Stagehand visual verify.
+
+## CRITICAL: Every Admin Section Must Have an Authenticated Journey Test
+
+**This is the #1 rule. It is non-negotiable.** The convergence loop previously wrote 27 E2E specs that only verified unauthenticated redirect gates (`/admin/*` → `/signin`). This class of test is INSUFFICIENT — it cannot catch bugs behind the auth gate.
+
+Every single admin section MUST have a Playwright spec that:
+1. Signs in (via `signInAsTestUser(page)` or real credentials)
+2. Navigates to the section
+3. Asserts content renders (not skeleton, not empty state, not "not enabled" when flag IS on)
+4. Asserts zero console errors
+5. Clicks at least one interactive element to prove it works
+
+**Anti-pattern: auth-gate-only specs.** `test('/admin/foo redirects to sign-in')` verifies nothing about whether the section works. These are gate checks, not feature tests. Every section needs BOTH: an auth-gate check AND an authenticated journey test.
 
 ## Critical Rules
 
-**No single-fix passes.** Minimum 3 distinct fixes per 20m window. Parallel where possible.
+**No single-fix passes.** Minimum 3 distinct fixes per 20m window.
 
-**No "visual scan found nothing" passes.** If no visual gaps remain, fix code gaps (TSC errors, missing E2E tests, unintegrated features, feature flags still experimental, console errors, axe violations). There are ALWAYS gaps until the DONE conditions are met.
+**No "visual scan found nothing" passes.** If no visual gaps, fix code gaps (TSC, missing authenticated E2E tests, flags still experimental, stuck skeletons). There are ALWAYS gaps.
 
-**Feature flags: promote to production.** When the loop verifies a feature works end-to-end (real data renders, E2E GREEN, Stagehand verified, no console errors), autonomously promote its flag to `stage='stable', enabled=1, rollout_percent=100`. The finished app has NO features hidden behind experimental flags — everything works, everything is visible. Exception: flags explicitly marked as `killswitch` or `deprecated` in their description.
+**Feature flags: promote to production.** When verified working end-to-end (authenticated E2E GREEN, Stagehand verified, no console errors, content actually renders), promote flag to `stage='stable', enabled=1, rollout_percent=100`.
 
-**Real auth for E2E: use `e2e/helpers/auth.js`.** The auth helper has 3 fallback paths: mock cookie → email/password POST → magic-link verify. Provision `E2E_API_KEY` via `wrangler secret put` if not already set. If sign-in breaks, fix the auth helper FIRST — every other E2E test depends on it.
+**Real auth for E2E: use `e2e/helpers/auth.js`.** `signInAsTestUser(page)` must work reliably. If it breaks, fix it FIRST — every authenticated test depends on it.
 
-**Test data: create it.** Use the `/api/*` endpoints to seed test data on the `brian@megabyte.space` account: create a test site, generate analytics events, create a subscription, set up voice numbers, create social posts, add feature flag overrides. Every admin section must show REAL data, not empty states.
+**Test data: create it.** Seed via API on `brian@megabyte.space`: sites, analytics, subscription, social posts, voice numbers. Admin sections must show REAL data.
 
 **Every console error is a bug.** Stagehand must check `page.evaluate(() => (window as any).__consoleErrors || [])` on every section. Any error → write a failing E2E → fix → verify.
 
