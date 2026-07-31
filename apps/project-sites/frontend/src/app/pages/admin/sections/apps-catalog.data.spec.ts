@@ -25,6 +25,10 @@ describe('apps-catalog.data (catalog integrity)', () => {
       expect((a.name ?? '').trim().length).withContext(`name of ${a.id}`).toBeGreaterThan(0);
       expect((a.tagline ?? '').trim().length).withContext(`tagline of ${a.id}`).toBeGreaterThan(0);
       expect((a.description ?? '').trim().length).withContext(`description of ${a.id}`).toBeGreaterThan(0);
+      // Tombstones (removed apps kept as `supported: false` markers, e.g. n8n
+      // per ADR-0034) intentionally carry inert infra fields — the deployable
+      // contract below applies only to live entries.
+      if (a.supported === false) continue;
       expect((a.image ?? '').trim().length).withContext(`image of ${a.id}`).toBeGreaterThan(0);
       expect(typeof a.port).withContext(`port of ${a.id}`).toBe('number');
       expect(a.port).withContext(`port of ${a.id}`).toBeGreaterThan(0);

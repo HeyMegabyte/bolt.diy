@@ -150,6 +150,18 @@ export class AuthApiService {
     return this.post<{ status?: boolean }>('/sign-in/magic-link', input);
   }
 
+  /**
+   * Read the cookie-backed Better Auth session, if any.
+   *
+   * @remarks The SPA's route guards key off the localStorage `ps_session`,
+   * which cookie-only flows (magic-link email verify, OAuth callbackURL
+   * redirects) never mint — callers use this to bridge a live BA cookie
+   * into a local session.
+   */
+  getSession(): Promise<AuthResult<{ session?: { token?: string }; user?: AuthUser }>> {
+    return this.get<{ session?: { token?: string }; user?: AuthUser }>('/get-session');
+  }
+
   /** List the current user's active sessions. */
   listSessions(): Promise<AuthResult<AuthSession[]>> {
     return this.get<AuthSession[]>('/list-sessions');

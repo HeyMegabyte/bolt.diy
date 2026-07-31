@@ -129,7 +129,9 @@ export interface CatalogApp {
 export const SUPPORTED_APP_SLUGS: ReadonlyArray<string> = [
   'umami',
   'outline',
-  'n8n',
+  // 'n8n' removed per ADR-0034 — tombstone entry stays in APPS_CATALOG
+  // (supported: false) but it is no longer deployable, so it must not be
+  // in the Live slug set that gates deploys + the catalog-integrity specs.
   'vaultwarden',
   'uptime-kuma',
   'nocodb',

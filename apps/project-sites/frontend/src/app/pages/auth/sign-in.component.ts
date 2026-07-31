@@ -1,7 +1,8 @@
-import { Component, signal, computed, inject } from '@angular/core';
+import { Component, signal, computed, inject, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthApiService } from './auth-api.service';
+import { AuthService } from '../../services/auth.service';
 import { isValidEmail } from '../../utils/validators/email';
 
 /**
@@ -180,10 +181,31 @@ export function sanitizeReturnUrl(raw: string | null | undefined): string {
     </main>
   `,
 })
-export class SignInComponent {
+export class SignInComponent implements OnInit {
   private readonly authApi = inject(AuthApiService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  /**
+   * Better Auth → ps_session bridge (heal-on-arrival).
+   *
+   * Cookie-only Better Auth flows (magic-link email verify, OAuth callbackURL
+   * redirects) land the user on a guarded route with a live BA cookie but NO
+   * localStorage `ps_session` — the auth guard bounces them straight back
+   * here. On arrival, probe `/api/auth/get-session`; when a BA session
+   * exists, mint the local session and continue to the intended destination.
+   * The worker's authMiddleware already resolves BA cookie sessions on every
+   * API call, so the local token's only job is satisfying the client guard.
+   */
+  async ngOnInit(): Promise<void> {
+    if (this.auth.isLoggedIn()) return;
+    const res = await this.authApi.getSession();
+    if (res.ok && res.data.user?.email) {
+      this.auth.setSession(res.data.session?.token ?? 'ba-cookie-session', res.data.user.email);
+      this.router.navigateByUrl(this.safeReturnUrl());
+    }
+  }
 
   /**
    * Post-sign-in destination from `?returnUrl=` (the app bounces protected 401s
@@ -226,6 +248,10 @@ export class SignInComponent {
     this.busy.set(false);
 
     if (res.ok) {
+      // Mint the local session the route guards key off — Better Auth only
+      // sets a cookie, and navigating to /admin without ps_session bounces
+      // straight back here (the guard reads localStorage, not cookies).
+      this.auth.setSession(res.data.token ?? 'ba-cookie-session', this.email().trim());
       this.router.navigateByUrl(this.safeReturnUrl());
     } else {
       this.error.set(res.error);

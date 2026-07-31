@@ -217,43 +217,52 @@ async function _realMagicLinkSignIn(
 ): Promise<void> {
   const peekSecret = process.env.E2E_PEEK_SECRET ?? '';
 
-  await page.goto(`${prodUrl}/`);
-  await page.evaluate(() => {
-    const w = window as unknown as Record<string, unknown>;
-    const nav = w.navigateTo as (s: string) => void;
-    if (typeof nav === 'function') nav('signin');
+  // Step 1: POST the magic-link request directly via page.request — no UI interaction.
+  // Body shape from POST /api/auth/magic-link: { email: string, redirect_url?: string }
+  const postRes = await page.request.post(`${prodUrl}/api/auth/magic-link`, {
+    data: { email },
+    headers: { 'Content-Type': 'application/json' },
   });
+  if (!postRes.ok()) {
+    throw new Error(
+      `[auth.ts] Magic-link POST failed: ${postRes.status()} ${await postRes.text()}`,
+    );
+  }
 
-  await page.locator('[onclick*="showSigninPanel(\'email\')"]').click();
-  await page.locator('#email-input').fill(email);
-  const sendBtn = page.locator('[onclick*="sendMagicLink"]').first();
-  await sendBtn.click();
-
+  // Step 2: Poll the peek endpoint until the KV-stashed token is visible (up to 20 s).
   const peekUrl = `${prodUrl}/api/auth/magic-link/peek?email=${encodeURIComponent(email)}&secret=${encodeURIComponent(peekSecret)}`;
-  let token: string | null = null;
-  const deadline = Date.now() + 30_000;
+  let magicToken: string | null = null;
+  const deadline = Date.now() + 20_000;
 
   while (Date.now() < deadline) {
     const res = await page.request.get(peekUrl);
     if (res.ok()) {
-      const json = (await res.json()) as { token?: string };
+      const json = (await res.json()) as { token?: string | null };
       if (json.token) {
-        token = json.token;
+        magicToken = json.token;
         break;
       }
     }
     await page.waitForTimeout(1_000);
   }
 
-  if (!token) {
+  if (!magicToken) {
     throw new Error(
       `[auth.ts] Timed out waiting for magic-link token for ${email}.`,
     );
   }
 
+  // Step 3: Navigate to the GET verify URL — exactly what the email link does.
+  //   GET /api/auth/magic-link/verify?token=MAGIC_TOKEN
+  //   → 302 → /?token={sess_token}&email={email}&auth_callback=email
+  //   Playwright follows the redirect; Angular AppComponent reads the URL params
+  //   and calls auth.setSession(token, email) → sets localStorage.ps_session.
   await page.goto(
-    `${prodUrl}/?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`,
+    `${prodUrl}/api/auth/magic-link/verify?token=${encodeURIComponent(magicToken)}`,
+    { waitUntil: 'networkidle' },
   );
+
+  // Step 4: Assert ps_session was written to localStorage by the Angular callback.
   await page.waitForFunction(
     () => localStorage.getItem('ps_session') !== null,
     { timeout: 10_000 },

@@ -463,6 +463,10 @@ app.use('/api/auth/*', async (c, next) => {
     '/api/auth/google/callback',
     '/api/auth/github',
     '/api/auth/github/callback',
+    // E2E peek seam — OUR secret-gated route, not a Better Auth one. Without
+    // this passthrough the BA handler swallows the path and returns its own
+    // 404, killing the real-roundtrip suite whenever the flag is on.
+    '/api/auth/magic-link/peek',
   ];
   if (legacyPaths.includes(path)) {
     await next();

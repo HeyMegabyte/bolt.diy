@@ -2,9 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { SignUpComponent } from './sign-up.component';
 import { AuthApiService } from './auth-api.service';
+import { AuthService } from '../../services/auth.service';
 
 describe('SignUpComponent', () => {
   const signUpEmail = jasmine.createSpy('signUpEmail');
+  const setSession = jasmine.createSpy('setSession');
   let navigateByUrl: jasmine.Spy;
 
   function make() {
@@ -12,6 +14,7 @@ describe('SignUpComponent', () => {
       imports: [SignUpComponent],
       providers: [
         { provide: AuthApiService, useValue: { signUpEmail } },
+        { provide: AuthService, useValue: { isLoggedIn: () => false, setSession } },
         provideRouter([]),
       ],
     });
@@ -24,6 +27,7 @@ describe('SignUpComponent', () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     signUpEmail.calls.reset();
+    setSession.calls.reset();
     signUpEmail.and.resolveTo({ ok: true, data: {} });
   });
 
@@ -72,6 +76,9 @@ describe('SignUpComponent', () => {
       email: 'jane@example.com',
       password: 'longenough',
     });
+    // Local session must be minted before navigating — the guard reads
+    // localStorage ps_session, and BA only set a cookie.
+    expect(setSession).toHaveBeenCalled();
     expect(navigateByUrl).toHaveBeenCalledWith('/admin');
   });
 

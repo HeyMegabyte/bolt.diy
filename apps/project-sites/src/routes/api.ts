@@ -562,6 +562,12 @@ api.get('/api/auth/magic-link/peek', async (c) => {
     token = stashed;
   }
 
+  // Better Auth stash — when the `better_auth` cutover flag is on, sends go
+  // through the BA magicLink plugin whose sendMagicLink hook stashes the FULL
+  // verify URL (no D1 `magic_links` row exists to cross-check; the stash is
+  // written only by the real send path and this endpoint is secret-gated).
+  const url = await c.env.CACHE_KV.get(`e2e:ba-magic-url:${email}`);
+
   // Audit every authorized peek — best-effort, same pattern as the
   // magic-link request handler above.
   auditService
@@ -569,15 +575,15 @@ api.get('/api/auth/magic-link/peek', async (c) => {
       org_id: 'system',
       actor_id: null,
       action: 'e2e.magic_link_peek',
-      message: `E2E magic-link peek for '${email}' — token ${token ? 'returned' : 'absent'}`,
+      message: `E2E magic-link peek for '${email}' — token ${token ? 'returned' : 'absent'}, BA url ${url ? 'returned' : 'absent'}`,
       target_type: 'auth',
       target_id: email,
-      metadata_json: { email, found: token !== null },
+      metadata_json: { email, found: token !== null || url !== null },
       request_id: c.get('requestId'),
     })
     .catch(() => {});
 
-  return c.json({ token });
+  return c.json({ token, url });
 });
 
 /**

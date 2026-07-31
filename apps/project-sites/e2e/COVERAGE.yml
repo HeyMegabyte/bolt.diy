@@ -123,3 +123,8 @@ convergence:
   admin_sysadmin:       { status: covered, specs: [admin-sysadmin.spec.ts] }
   admin_site_detail:    { status: covered, specs: [admin-site-detail.spec.ts] }
   admin_voice_billing:  { status: covered, specs: [admin-voice-billing.spec.ts] }
+
+auth_lifecycle:
+  session_lifecycle:    { status: covered, specs: [auth-session-lifecycle.spec.ts] }
+  magic_link_roundtrip: { status: covered, specs: [auth-magic-link-roundtrip.spec.ts] }
+  team_invite_values:   { status: covered, specs: [value-domains-team-invite.spec.ts] }

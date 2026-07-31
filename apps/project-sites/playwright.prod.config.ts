@@ -39,6 +39,9 @@ export default defineConfig({
     'admin-*-journey.spec.ts',             // 12 authenticated section journeys (Convergence Pass 2)
     'admin-feature-flags.spec.ts',         // sysAdmin feature-flags journey (Convergence Pass 2)
     'value-domains-*.spec.ts',             // TDD Contract #10 value-domain suites (Convergence Pass 3)
+    'auth-session-lifecycle.spec.ts',      // Sign-out / expiry / 429 / reload (Convergence Pass 8)
+    // auth-magic-link-roundtrip.spec.ts is EXCLUDED on purpose: it sends 2 REAL
+    // emails per run — run manually with E2E_PEEK_SECRET + --workers=1 only.
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,

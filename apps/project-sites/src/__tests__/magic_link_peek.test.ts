@@ -57,6 +57,18 @@ const createKvMock = (): KvMock => ({
   put: jest.fn().mockResolvedValue(undefined),
 });
 
+/**
+ * Key-aware KV get: the peek handler reads TWO stashes — the legacy plaintext
+ * token (`e2e:magic-link:<email>`) and the Better Auth verify URL
+ * (`e2e:ba-magic-url:<email>`). A key-blind mock leaks the legacy value into
+ * the BA field and vice versa.
+ */
+const kvWith = (kv: KvMock, entries: Record<string, string | null>): void => {
+  kv.get.mockImplementation((key: string) => Promise.resolve(entries[key] ?? null));
+};
+const LEGACY_KEY = `e2e:magic-link:${EMAIL}`;
+const BA_KEY = `e2e:ba-magic-url:${EMAIL}`;
+
 const createMockEnv = (overrides: Partial<Env> = {}): Env =>
   ({
     ENVIRONMENT: 'test',
@@ -142,7 +154,7 @@ describe('GET /api/auth/magic-link/peek', () => {
   it('happy path: returns the newest unconsumed token WITHOUT consuming it + audits', async () => {
     const token = 'a'.repeat(64);
     const kv = createKvMock();
-    kv.get.mockResolvedValue(token);
+    kvWith(kv, { [LEGACY_KEY]: token });
     mockDbQueryOne.mockResolvedValue({
       token_hash: await sha256Hex(token),
       expires_at: futureIso(),
@@ -155,7 +167,7 @@ describe('GET /api/auth/magic-link/peek', () => {
     const res = await app.request(peekPath(EMAIL, PEEK_SECRET), {}, env, execCtx);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ token });
+    expect(await res.json()).toEqual({ token, url: null });
 
     // Newest-unconsumed lookup, exact-email scoped, read-only.
     const [, sql, params] = mockDbQueryOne.mock.calls[0] as [unknown, string, unknown[]];
@@ -189,7 +201,7 @@ describe('GET /api/auth/magic-link/peek', () => {
 
   it('returns { token: null } when no unconsumed row exists (consumed/absent)', async () => {
     const kv = createKvMock();
-    kv.get.mockResolvedValue('stale-plaintext-from-a-consumed-link');
+    kvWith(kv, { [LEGACY_KEY]: 'stale-plaintext-from-a-consumed-link' });
     mockDbQueryOne.mockResolvedValue(null);
 
     const { app, env } = createApp({
@@ -199,12 +211,12 @@ describe('GET /api/auth/magic-link/peek', () => {
     const res = await app.request(peekPath(EMAIL, PEEK_SECRET), {}, env, execCtx);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ token: null });
+    expect(await res.json()).toEqual({ token: null, url: null });
   });
 
   it('returns { token: null } when the KV stash does not hash to the newest row', async () => {
     const kv = createKvMock();
-    kv.get.mockResolvedValue('older-plaintext-token-000000000000');
+    kvWith(kv, { [LEGACY_KEY]: 'older-plaintext-token-000000000000' });
     mockDbQueryOne.mockResolvedValue({
       token_hash: await sha256Hex('a-different-newer-token-1111111111'),
       expires_at: futureIso(),
@@ -217,13 +229,33 @@ describe('GET /api/auth/magic-link/peek', () => {
     const res = await app.request(peekPath(EMAIL, PEEK_SECRET), {}, env, execCtx);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ token: null });
+    expect(await res.json()).toEqual({ token: null, url: null });
+  });
+
+  it('returns the Better Auth verify URL from the BA stash (flag-ON send path)', async () => {
+    const baUrl = 'https://projectsites.dev/api/auth/magic-link/verify?token=ba-tok&callbackURL=%2Fadmin';
+    const kv = createKvMock();
+    kvWith(kv, { [BA_KEY]: baUrl });
+    mockDbQueryOne.mockResolvedValue(null); // no legacy row — BA owns the send
+
+    const { app, env } = createApp({
+      E2E_PEEK_SECRET: PEEK_SECRET,
+      CACHE_KV: kv as unknown as KVNamespace,
+    });
+    const res = await app.request(peekPath(EMAIL, PEEK_SECRET), {}, env, execCtx);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ token: null, url: baUrl });
+    expect(mockWriteAuditLog).toHaveBeenCalledWith(
+      env.DB,
+      expect.objectContaining({ action: 'e2e.magic_link_peek' }),
+    );
   });
 
   it('returns { token: null } when the newest unconsumed row is expired', async () => {
     const token = 'b'.repeat(64);
     const kv = createKvMock();
-    kv.get.mockResolvedValue(token);
+    kvWith(kv, { [LEGACY_KEY]: token });
     mockDbQueryOne.mockResolvedValue({
       token_hash: await sha256Hex(token),
       expires_at: pastIso(),
@@ -236,7 +268,7 @@ describe('GET /api/auth/magic-link/peek', () => {
     const res = await app.request(peekPath(EMAIL, PEEK_SECRET), {}, env, execCtx);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ token: null });
+    expect(await res.json()).toEqual({ token: null, url: null });
   });
 });
 

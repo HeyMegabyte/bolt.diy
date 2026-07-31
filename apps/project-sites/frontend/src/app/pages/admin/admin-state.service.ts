@@ -287,6 +287,15 @@ export class AdminStateService {
   signOut(): void {
     this.telemetry.track('auth.signout');
     this.telemetry.reset();
+    // Revoke the cookie-backed Better Auth session too — clearing only the
+    // local ps_session leaves a live server session behind, and the /signin
+    // BA-cookie bridge would silently re-authenticate on the next visit.
+    // Fire-and-forget: local sign-out must never block on the network.
+    void fetch('/api/auth/sign-out', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    }).catch(() => undefined);
     this.auth.clearSession();
     this.router.navigate(['/']);
   }

@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { SignInComponent, sanitizeReturnUrl } from './sign-in.component';
 import { AuthApiService } from './auth-api.service';
+import { AuthService } from '../../services/auth.service';
 
 describe('sanitizeReturnUrl (open-redirect safety)', () => {
   it('honors a same-origin absolute path', () => {
@@ -18,13 +19,17 @@ describe('sanitizeReturnUrl (open-redirect safety)', () => {
 describe('SignInComponent', () => {
   const signInEmail = jasmine.createSpy('signInEmail');
   const sendMagicLink = jasmine.createSpy('sendMagicLink');
+  const getSession = jasmine.createSpy('getSession');
+  const setSession = jasmine.createSpy('setSession');
+  let loggedIn = false;
   let navigateByUrl: jasmine.Spy;
 
   function make() {
     TestBed.configureTestingModule({
       imports: [SignInComponent],
       providers: [
-        { provide: AuthApiService, useValue: { signInEmail, sendMagicLink } },
+        { provide: AuthApiService, useValue: { signInEmail, sendMagicLink, getSession } },
+        { provide: AuthService, useValue: { isLoggedIn: () => loggedIn, setSession } },
         provideRouter([]),
       ],
     });
@@ -38,8 +43,13 @@ describe('SignInComponent', () => {
     TestBed.resetTestingModule();
     signInEmail.calls.reset();
     sendMagicLink.calls.reset();
+    getSession.calls.reset();
+    setSession.calls.reset();
+    loggedIn = false;
     signInEmail.and.resolveTo({ ok: true, data: {} });
     sendMagicLink.and.resolveTo({ ok: true, data: {} });
+    // Default: no cookie-backed BA session — the bridge stays inert.
+    getSession.and.resolveTo({ ok: false, error: 'no session' });
   });
 
   it('renders email + password inputs and the submit button', () => {
@@ -71,13 +81,43 @@ describe('SignInComponent', () => {
     expect(signInEmail).not.toHaveBeenCalled();
   });
 
-  it('signs in and navigates to /admin on success', async () => {
+  it('signs in, mints the local session, and navigates to /admin on success', async () => {
+    signInEmail.and.resolveTo({ ok: true, data: { token: 'ba-tok-1' } });
     const f = make();
     f.componentInstance.email.set('user@example.com');
     f.componentInstance.password.set('secret');
     await f.componentInstance.submit();
     expect(signInEmail).toHaveBeenCalledWith({ email: 'user@example.com', password: 'secret' });
+    // The guard keys off localStorage ps_session — BA only sets a cookie, so
+    // the component must mint the local session itself or /admin bounces back.
+    expect(setSession).toHaveBeenCalledWith('ba-tok-1', 'user@example.com');
     expect(navigateByUrl).toHaveBeenCalledWith('/admin');
+  });
+
+  it('bridges a live BA cookie session into ps_session on arrival', async () => {
+    getSession.and.resolveTo({
+      ok: true,
+      data: { session: { token: 'ba-cookie-tok' }, user: { email: 'user@example.com' } },
+    });
+    const f = make();
+    await f.whenStable();
+    expect(getSession).toHaveBeenCalled();
+    expect(setSession).toHaveBeenCalledWith('ba-cookie-tok', 'user@example.com');
+    expect(navigateByUrl).toHaveBeenCalledWith('/admin');
+  });
+
+  it('leaves the bridge inert when no BA session exists', async () => {
+    const f = make();
+    await f.whenStable();
+    expect(setSession).not.toHaveBeenCalled();
+    expect(navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('skips the bridge probe entirely when already logged in', async () => {
+    loggedIn = true;
+    const f = make();
+    await f.whenStable();
+    expect(getSession).not.toHaveBeenCalled();
   });
 
   it('surfaces the error on a failed sign-in', async () => {

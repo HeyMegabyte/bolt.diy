@@ -2,6 +2,7 @@ import { Component, signal, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthApiService } from './auth-api.service';
+import { AuthService } from '../../services/auth.service';
 import { isValidEmail } from '../../utils/validators/email';
 
 /**
@@ -183,6 +184,7 @@ import { isValidEmail } from '../../utils/validators/email';
 })
 export class SignUpComponent {
   private readonly authApi = inject(AuthApiService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
   readonly name = signal('');
@@ -220,6 +222,9 @@ export class SignUpComponent {
     if (res.ok) {
       this.done.set(true);
       this.busy.set(false);
+      // Mint the local session the route guards key off — Better Auth only
+      // sets a cookie, and /admin without ps_session bounces to /signin.
+      this.auth.setSession(res.data.token ?? 'ba-cookie-session', this.email().trim());
       this.router.navigateByUrl('/admin');
     } else {
       this.busy.set(false);

@@ -41,8 +41,108 @@ import { D1Dialect } from 'kysely-d1';
 import type { Env } from '../types/env.js';
 import { getEmailProvider } from '../platform/email-router.js';
 import { brandedEmail } from './email-templates.js'; // #31 branded transactional emails
+import { dbQueryOne, dbInsert } from '../services/db.js';
 
 const APP_ORIGIN = 'https://projectsites.dev';
+
+/**
+ * Mirror a Better Auth user into the LEGACY tables (`users` + `orgs` +
+ * `memberships`) under the SAME id.
+ *
+ * Every legacy endpoint (`/api/auth/me`, sites, billing, …) resolves the
+ * caller through `users`/`memberships` — a BA-only user authenticates fine
+ * but then 401s "User not found" on the entire admin API. Idempotent: called
+ * from BOTH user.create (new sign-ups) and session.create (heals BA users
+ * minted before this hook existed). Best-effort — mirroring must never block
+ * auth itself.
+ */
+async function ensureLegacyMirror(
+  env: Env,
+  user: { id?: string; email?: string; name?: string },
+): Promise<void> {
+  const id = user.id;
+  const email = user.email?.toLowerCase();
+  if (!id || !email) return;
+  try {
+    const byId = await dbQueryOne<{ id: string }>(
+      env.DB,
+      'SELECT id FROM users WHERE id = ? AND deleted_at IS NULL',
+      [id],
+    );
+    if (byId) return; // already mirrored
+
+    const byEmail = await dbQueryOne<{ id: string }>(
+      env.DB,
+      'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL',
+      [email],
+    );
+    if (byEmail) {
+      // Same email, different id — a pre-cutover legacy account this BA user
+      // should have been backfilled onto. Surfacing beats silently forking
+      // the identity; the backfill migration owns the remap.
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'better-auth',
+          msg: 'BA user id diverges from existing legacy user with same email — skipping mirror',
+          ba_user_id: id,
+          legacy_user_id: byEmail.id,
+        }),
+      );
+      return;
+    }
+
+    const orgId = crypto.randomUUID();
+    const slugBase = email
+      .split('@')[0]!
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 63);
+    const slug = `${slugBase}-${crypto.randomUUID().substring(0, 6)}`;
+
+    await dbInsert(env.DB, 'users', {
+      id,
+      email,
+      phone: null,
+      display_name: user.name ?? null,
+      avatar_url: null,
+      deleted_at: null,
+    });
+    await dbInsert(env.DB, 'orgs', {
+      id: orgId,
+      name: email,
+      slug,
+      deleted_at: null,
+    });
+    await dbInsert(env.DB, 'memberships', {
+      id: crypto.randomUUID(),
+      org_id: orgId,
+      user_id: id,
+      role: 'owner',
+      billing_admin: 1,
+      deleted_at: null,
+    });
+    console.warn(
+      JSON.stringify({
+        level: 'info',
+        service: 'better-auth',
+        msg: 'Mirrored BA user into legacy users/orgs/memberships',
+        user_id: id,
+        org_id: orgId,
+      }),
+    );
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'better-auth',
+        msg: 'legacy mirror failed (best-effort)',
+        err: String(err),
+      }),
+    );
+  }
+}
 
 // Access control (#20) — granular, tenant-scoped permissions.
 const ac = createAccessControl({
@@ -172,6 +272,15 @@ export function makeAuth(env: Env): Auth {
     // impossible-travel / new-device detection (a downstream query compares a
     // user's session IP/UA history — no per-request geo lookup needed here).
     databaseHooks: {
+      user: {
+        create: {
+          // Mirror every NEW BA user into legacy users/orgs/memberships —
+          // without this the whole admin API 401s BA-created accounts.
+          after: async (user) => {
+            await ensureLegacyMirror(env, user as { id?: string; email?: string; name?: string });
+          },
+        },
+      },
       session: {
         create: {
           after: async (session) => {
@@ -183,6 +292,16 @@ export function makeAuth(env: Env): Auth {
             const userId = s.userId ?? 'unknown';
             const ipAddress = s.ipAddress ?? '';
             const userAgent = s.userAgent ?? '';
+            // Heal path: BA users minted BEFORE the user.create mirror hook
+            // existed have no legacy row — mirror on their next session.
+            try {
+              const row = await env.DB.prepare('SELECT id, email, name FROM user WHERE id = ?')
+                .bind(userId)
+                .first<{ id?: string; email?: string; name?: string }>();
+              if (row) await ensureLegacyMirror(env, row);
+            } catch {
+              /* mirror heal is best-effort */
+            }
             try {
               env.ANALYTICS?.writeDataPoint({
                 blobs: ['auth.session.created', userId, ipAddress, userAgent],
@@ -275,6 +394,15 @@ export function makeAuth(env: Env): Auth {
     plugins: [
       magicLink({
         sendMagicLink: async ({ email, url }) => {
+          // E2E peek seam (dark unless `E2E_PEEK_SECRET` is provisioned): stash
+          // the full verify URL so `GET /api/auth/magic-link/peek` can hand it
+          // to the Playwright real-roundtrip suite. Mirrors the legacy handler's
+          // stash; best-effort — a KV hiccup must never fail the real send.
+          if (env.E2E_PEEK_SECRET && env.CACHE_KV) {
+            await env.CACHE_KV.put(`e2e:ba-magic-url:${email.toLowerCase()}`, url, {
+              expirationTtl: 900,
+            }).catch(() => {});
+          }
           await sendMail(
             email,
             'Your ProjectSites sign-in link',
