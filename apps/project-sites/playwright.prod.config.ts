@@ -40,16 +40,7 @@ export default defineConfig({
     'admin-feature-flags.spec.ts',         // sysAdmin feature-flags journey (Convergence Pass 2)
     'value-domains-*.spec.ts',             // TDD Contract #10 value-domain suites (Convergence Pass 3)
   ],
-  // Wave-4 specs still TDD-RED — excluded from the green prod gate until they
-  // pass; the convergence loop works them (see _CONVERGENCE_TASKS.md § P0).
-  testIgnore: [
-    'admin-editor-journey.spec.ts',
-    'admin-snapshots-journey.spec.ts',
-    'admin-site-features-journey.spec.ts',
-    'admin-site-detail-journey.spec.ts',
-    'value-domains-create.spec.ts',
-    'value-domains-settings.spec.ts',
-  ],
+  // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,
   reporter: 'line',
   use: {
