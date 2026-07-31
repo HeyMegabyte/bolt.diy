@@ -977,3 +977,89 @@ For EACH of the 56 admin section components, verify at 6 breakpoints:
 - [ ] Global: mobile overlay backdrop click → sidebar closes
 - [ ] Global: theme toggle in header → cycles dark/light/system
 - [ ] Global: drag-drop zone → file dragged over → drop-zone highlight
+
+---
+
+## 35. Micro-Interaction Additions (Pass-2 full-repo scan, 2026-07-30)
+
+Interactive micro-features found in component code but previously missing from this inventory.
+
+### Site Detail (additions)
+- [ ] Site Detail: tab switch preserves in-tab state (no loss on return)
+- [ ] Site Detail: SQL console query results paginate
+- [ ] Site Detail: log stream WS disconnect → reconnect with backoff, no stale-data illusion
+- [ ] Site Detail: snapshot rollback → confirmation dialog before destructive action
+- [ ] Site Detail: integrations disconnect flow → confirm → row updates
+
+### Media Library (additions)
+- [ ] Media: upload progress bar advances during upload
+- [ ] Media: image preview on hover
+- [ ] Media: bulk delete → modal confirm → rows removed
+- [ ] Media: filter by kind/source narrows grid
+- [ ] Media: failed upload → retry affordance works (Uppy retry)
+
+### Settings (additions)
+- [ ] Settings: MCP credential paste-key fallback form renders when OAuth unconfigured
+- [ ] Settings: per-field validation messages inline
+- [ ] Settings: save → inline success confirmation
+- [ ] Settings: active tab persists across reload
+- [ ] Settings: secure copy-to-clipboard shows feedback
+
+### Forms (additions)
+- [ ] Forms: submissions auto-poll pauses when tab hidden, resumes on focus
+- [ ] Forms: AI prompt improvement modal opens + returns suggestion
+- [ ] Forms: MCP pill toggle flips per-provider on/off state
+- [ ] Forms: submission detail modal renders AI log tree
+
+### Analytics (additions)
+- [ ] Analytics: live-stream pause/resume toggle
+- [ ] Analytics: date-range persists across tab switches
+- [ ] Analytics: funnel step drill-down opens detail
+- [ ] Analytics: export-to-CSV → success toast
+
+### Domains (additions)
+- [ ] Domains: availability check debounces (no request per keystroke)
+- [ ] Domains: stack wizard progress saves + resumes after navigation away
+- [ ] Domains: DNS record copy-to-clipboard
+- [ ] Domains: SSL renewal countdown badge renders
+
+### Feature Flags (additions)
+- [ ] Flags: stage-promotion → confirmation before apply
+- [ ] Flags: rollout slider accepts precise 0-100 input
+- [ ] Flags: killswitch red-zone UX distinct from normal disable
+- [ ] Flags: override scope picker (user/role/email) selects + applies
+- [ ] Flags: audit log entry expands to full context
+
+### API Tokens (additions)
+- [ ] Tokens: one-time reveal modal shows token exactly once
+- [ ] Tokens: copy-to-clipboard with expiry note
+- [ ] Tokens: revocation → confirmation → row updates
+- [ ] Tokens: revealed token auto-hides after ~30s
+
+## 36. Zero-Spec Sections (Pass-2 scan — no spec file exists at all)
+
+- [ ] System Services (`/admin/system-services`) — registry renders, REAL probed status, deep-links (wave-2 spec in flight)
+- [ ] Site Branches (`/admin/sites/:id/branches`) — stub component; needs real UI + spec
+- [ ] Site MCP Server (`/admin/sites/:id/mcp`) — stub component; needs real UI + spec
+- [ ] Site Copilot (`/admin/sites/:id/copilot`) — toggle + intent distribution chart (flag-gated)
+- [ ] Site DNA (`/admin/sites/:id/dna`) — taste-graph render + preference toggles
+- [ ] Swarm (`/admin/swarm`) — board auto-save + conflict resolution
+- [ ] Super Admin (`/admin/super-admin`) — sysAdmin-gated views
+- [ ] Accept Invite (`/admin/accept-invite`) — full onboarding acceptance flow
+- [ ] Wait (`/admin/wait`) — build progress real-time updates
+
+## 37. Backend High-Risk Endpoints Without E2E (Pass-2 scan)
+
+Request-level specs (Playwright `request` fixture) where no UI reaches them; journey specs where UI exists.
+
+- [ ] `POST /api/ai-actions/payment-command` (+ refund, status, methods, customers) — dry-run→confirm→charge safety gates
+- [ ] `POST /api/billing/checkout` + `POST /api/billing/embedded-checkout` — session created, no duplicate charge
+- [ ] `POST /api/auth/magic-link` + `GET /api/auth/magic-link/verify` — token single-use + expiry
+- [ ] `POST /api/sites/:id/publish-bolt` — publish path integrity
+- [ ] `GET /api/sites/:id/export` — ZIP completeness (code_export flag)
+- [ ] `POST /webhooks/stripe` — signature verify + idempotent replay
+- [ ] `POST /api/sites/:id/reset` — rebuild without data loss
+- [ ] `DELETE /api/sites/:id` — cleanup completeness (R2/D1/KV)
+- [ ] `POST /api/mcp/:provider/callback` — state/PKCE verification
+- [ ] `GET /api/auth/me` + logout — session lifecycle
+- [ ] Zero-coverage route families: mcp-site · collab · browser-service · jobs · voice webhooks · livekit-webhooks · integrations/health · seo-autopilot · email-deliverability · ses webhooks · ai-endpoints-public · domain-stack · review-links · site-dna · pseo-matrix-v2 · storefront · wallet · experiments · templates · agentic-commerce · concierge · podcast-studio

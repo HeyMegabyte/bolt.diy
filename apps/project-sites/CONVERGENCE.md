@@ -301,3 +301,12 @@ The loop self-terminates when ALL of these are true across 3 consecutive passes 
 ```
 
 20 minutes is the sweet spot — enough for one coherent fix cycle (discover → fix → deploy → verify) without drifting. Switch to 30m when doing deeper multi-file wiring work.
+
+## Appendix — v3 master prompt (folded from CONVERGENCE_V3.md, 2026-07-30)
+
+The v3 prompt's unique content, preserved here; the file itself was removed (full text in git history).
+
+- **Framing**: act as Principal Engineer + product architect + UX lead + QA + security reviewer + PM. Reconstruct the strongest finished-product vision from all context, compare the entire repo against it, and implement until the repo substantially represents that vision. Assume every feature may be broken and disconnected. Do not stop at analysis — implement.
+- **Eleven phases**: (1) product vision → PRODUCT_VISION.md + FINISHED_PRODUCT_SPEC.md · (2) feature matrix → FEATURE_MATRIX.md · (3) user journeys end-to-end · (4) assume-everything-is-broken adversarial review · (5) find + connect disconnected features · (6) missing capabilities a real user expects · (7) product improvement (IA, terminology, defaults) · (8) UI/UX completion (all states on everything) · (9) architecture consolidation · (10) realistic authenticated testing (happy, error, concurrent, refresh, keyboard, responsive) · (11) continuous convergence with priority order security > broken builds > core journeys > auth/billing > data integrity > disconnected features > missing UI > missing capabilities > reliability > a11y > polish > refactoring.
+- **Engineering rules**: begin executing immediately; keep repo runnable; root-cause fixes; never silence errors / weaken security / disable tests / delete features to reduce issue count; no completion claims without evidence; every pass ships something.
+- **Done**: vision documented, core journeys implemented, every feature classified, no critical/high defects, tests + builds pass, product feels intentional, no actionable convergence item remains. (Terminal DONE gate mechanics live in `_CONVERGENCE_TASKS.md` § TDD Contract + loop-driven-development rules.)
