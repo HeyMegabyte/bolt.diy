@@ -124,6 +124,8 @@ export class AdminComponent implements OnInit, OnDestroy {
   isEditorRoute = signal(false);
   /** True while a lazy-loaded section chunk is loading — gates the shell skeleton. */
   isSectionLoading = signal(true);
+  /** Safety timeout — auto-hides skeleton if component never activates. */
+  private skeletonTimeout: ReturnType<typeof setTimeout> | null = null;
   currentSection = signal('Editor');
   /** Full current admin URL — feeds the real-name title/announcer (P2). */
   readonly currentUrl = signal('');
@@ -226,7 +228,10 @@ export class AdminComponent implements OnInit, OnDestroy {
   closeShareLink(): void { this.shareLinkOpen.set(false); }
 
   /** Called by (activate) on router-outlet — lazy chunk resolved, hide the shell skeleton. */
-  onSectionActivated(): void { this.isSectionLoading.set(false); }
+  onSectionActivated(): void {
+    if (this.skeletonTimeout) { clearTimeout(this.skeletonTimeout); this.skeletonTimeout = null; }
+    this.isSectionLoading.set(false);
+  }
 
   private updateRouteState(url: string): void {
     // `/admin` is the DASHBOARD, not the editor — only `/admin/editor[/...]`
@@ -234,6 +239,10 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.isEditorRoute.set(isEditorPath(url));
     // Show skeleton during lazy chunk load for next section
     this.isSectionLoading.set(true);
+    // Safety net: auto-hide skeleton after 10s if component never activates
+    // (lazy chunk 404, JS error, redirect without activation, etc.)
+    if (this.skeletonTimeout) clearTimeout(this.skeletonTimeout);
+    this.skeletonTimeout = setTimeout(() => { this.isSectionLoading.set(false); }, 10_000);
     // Mobile: auto-close the overlay drawer after navigating so the user sees
     // the section they just picked instead of the nav covering it.
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -314,6 +323,7 @@ export class AdminComponent implements OnInit, OnDestroy {
   });
 
   ngOnDestroy(): void {
+    if (this.skeletonTimeout) clearTimeout(this.skeletonTimeout);
     this.routerSub?.unsubscribe();
     this.shareLinkSub?.unsubscribe();
     this.state.stopPolling();
