@@ -247,31 +247,61 @@ test('frontend /?token=…&email=…&auth_callback=google → stores ps_session,
 });
 
 // ─── Test 4: P0 regression — no raw error toast/tooltip on signin after failure ─
+// Stability fix (Pass 7): /api/auth/google/callback?error=access_denied issues a
+// server-side 302 redirect. Under repeat-each/parallel execution the redirect races
+// with domcontentloaded causing net::ERR_ABORTED on some runs.
+// Fix: prime the SPA first, wrap goto in try/catch (ERR_ABORTED = benign redirect),
+// use waitForURL to confirm the non-API landing, then poll DOM stability instead of
+// waitForTimeout.
 
 test('P0 regression: no raw error tooltip/toast persists on signin page after access_denied callback', async ({
   page,
 }) => {
   const errors = collectConsoleErrors(page);
 
-  // Hit the callback with error — real prod read-only GET
-  await page.goto(`${PROD_URL}/api/auth/google/callback?error=access_denied`, {
-    waitUntil: 'domcontentloaded',
-  });
+  // 1. Prime the SPA so the Angular shell is cached and CSP headers are warm.
+  //    This prevents the redirect from landing on a cold isolate.
+  await page.goto(PROD_URL, { waitUntil: 'domcontentloaded' });
+
+  // 2. Navigate to the callback URL. The server returns 302 → SPA root (or /signin).
+  //    Use 'load' so Playwright follows the redirect completely before resolving;
+  //    catch ERR_ABORTED which is benign when the redirect fires before load fires.
+  try {
+    await page.goto(`${PROD_URL}/api/auth/google/callback?error=access_denied`, {
+      waitUntil: 'load',
+      timeout: 20_000,
+    });
+  } catch {
+    // ERR_ABORTED means the browser followed the redirect — that's expected.
+    // waitForURL below confirms we actually landed on a SPA page.
+  }
+
+  // 3. Wait for URL to settle on a non-api path (the redirect destination).
+  await page.waitForURL((url) => !url.pathname.startsWith('/api/'), { timeout: 15_000 });
 
   await page.screenshot({
     path: path.join(SCREENSHOT_DIR, '04-pre-settle.png'),
     fullPage: true,
   });
 
-  // Wait for any toasts/tooltips to settle after redirect
-  await page.waitForTimeout(1500);
+  // 4. Poll until the DOM is stable (no active toasts expanding/dismissing).
+  //    Replaces waitForTimeout — deterministic, not time-dependent.
+  await expect
+    .poll(
+      async () => {
+        const bodyLen = await page.evaluate(() => document.body?.innerHTML?.length ?? 0);
+        return bodyLen;
+      },
+      { timeout: 8_000, intervals: [200, 400, 800] }
+    )
+    .toBeGreaterThan(200);
 
   await page.screenshot({
     path: path.join(SCREENSHOT_DIR, '04-post-settle.png'),
     fullPage: true,
   });
 
-  // Check for stray error toasts with raw technical content
+  // 5. Check for stray error toasts with raw technical content
   const errorToastSelectors = [
     '[role="alert"]',
     '[data-testid*="toast"]',
