@@ -52,6 +52,14 @@ describe('wrangler class_name ↔ exported src class lockstep (deploy safety)', 
   it('scans a non-trivial set of bindings (guard is not vacuously passing)', () => {
     // Guards against a regex that silently matches nothing → the check above
     // passing on an empty list.
-    expect(liveWranglerClassNames().length).toBeGreaterThanOrEqual(10);
+    //
+    // Floor recount 2026-07-31: commit 655ccf2c ("feat(catalog): enable Deploy
+    // for all 68 catalog apps", 2026-07-14) removed the live SiteBuilderContainer /
+    // AppRuntimeContainer / TraceHub / ActivityHub / ConversationHub bindings
+    // (containers now live as commented per-image deferred config). Live ground
+    // truth is 6 distinct class_names — the 6 Workflows (SiteGeneration,
+    // SocialPublish, PseoGeneration, DriveSync, ImageGeneration, SnapshotQuality).
+    // Raise this floor again when container/DO bindings go live-uncommented.
+    expect(liveWranglerClassNames().length).toBeGreaterThanOrEqual(6);
   });
 });

@@ -58,6 +58,7 @@ test.describe('HOME-01 — Search input + 300ms debounce', () => {
 
   test('search does not fire immediately (debounce guard)', async ({ page }) => {
     let callCount = 0;
+    // glob-ok: query-suffix only — /api/search/businesses has no subpaths
     await page.route('**/api/search/businesses**', (route) => {
       callCount++;
       return route.fulfill({
@@ -66,6 +67,7 @@ test.describe('HOME-01 — Search input + 300ms debounce', () => {
         body: JSON.stringify({ predictions: [] }),
       });
     });
+    // glob-ok: query-suffix only — /api/sites/search has no subpaths
     await page.route('**/api/sites/search**', (route) => {
       return route.fulfill({
         status: 200,
@@ -87,6 +89,7 @@ test.describe('HOME-01 — Search input + 300ms debounce', () => {
 
   test('search fires after debounce interval', async ({ page }) => {
     let fired = false;
+    // glob-ok: query-suffix only — /api/search/businesses has no subpaths
     await page.route('**/api/search/businesses**', (route) => {
       fired = true;
       return route.fulfill({
@@ -95,6 +98,7 @@ test.describe('HOME-01 — Search input + 300ms debounce', () => {
         body: JSON.stringify({ predictions: [] }),
       });
     });
+    // glob-ok: query-suffix only — /api/sites/search has no subpaths
     await page.route('**/api/sites/search**', (route) =>
       route.fulfill({
         status: 200,
@@ -123,6 +127,7 @@ test.describe('HOME-02 — Parallel search API calls', () => {
     let businessesCalled = false;
     let sitesCalled = false;
 
+    // glob-ok: query-suffix only — /api/search/businesses has no subpaths
     await page.route('**/api/search/businesses**', (route) => {
       businessesCalled = true;
       return route.fulfill({
@@ -131,6 +136,7 @@ test.describe('HOME-02 — Parallel search API calls', () => {
         body: JSON.stringify({ predictions: [] }),
       });
     });
+    // glob-ok: query-suffix only — /api/sites/search has no subpaths
     await page.route('**/api/sites/search**', (route) => {
       sitesCalled = true;
       return route.fulfill({

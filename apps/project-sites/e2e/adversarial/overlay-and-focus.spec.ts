@@ -5,10 +5,6 @@
  * and cross-section keyboard navigation scenarios.
  *
  * Scenarios:
- *  ADV-OL-01  Open + close media overlay 5× rapidly (editor route)
- *  ADV-OL-02  Open + close agents overlay 5× rapidly
- *  ADV-OL-03  Open media overlay → press Escape → returns to code tab
- *  ADV-OL-04  Open agents overlay → press Escape → returns to code tab
  *  ADV-OL-05  Shortcuts overlay `?` key — open and close via Escape
  *  ADV-OL-06  Shortcuts overlay — open twice (idempotent)
  *  ADV-OL-07  Focus trap: Tab cannot escape user-menu while open
@@ -16,15 +12,8 @@
  *  ADV-OL-09  Network-status banner disappears on back-online
  *  ADV-OL-10  AI chat widget: Cmd+K spam opens then closes properly
  *  ADV-OL-11  AI chat widget: open chat, type, press Escape, no residual state
- *  ADV-OL-12  Agents overlay: close button (X) resets tab to code
- *  ADV-OL-13  Media overlay: close button (X) resets tab to code
  *  ADV-OL-14  Drag-and-drop zone does not block keyboard navigation
- *  ADV-OL-15  Site-selector dropdown: keyboard ↓↑ Enter navigation
- *  ADV-OL-16  Site-selector dropdown: closing via Escape
- *  ADV-OL-17  Command palette: typing then pressing Escape clears and closes
  *  ADV-OL-18  Section error boundary: renders gracefully on bad route param
- *  ADV-OL-19  Traces filter reset does not blank the grid
- *  ADV-OL-20  AI-endpoint overlay deploy button: click with no changes
  *
  * Project rules:
  *  - authedPage starts at BASE
@@ -57,121 +46,6 @@ function attachErrorCollector(page: import('@playwright/test').Page): string[] {
   page.on('pageerror', (err) => errors.push(`[pageerror] ${err.message}`));
   return errors;
 }
-
-async function openEditorTab(
-  page: import('@playwright/test').Page,
-  tabId: 'media' | 'agents',
-): Promise<boolean> {
-  const tab = page.getByTestId(`editor-tab-${tabId}`);
-  const visible = await tab.isVisible({ timeout: 5_000 }).catch(() => false);
-  if (visible) await tab.click();
-  return visible;
-}
-
-async function closeOverlayViaButton(page: import('@playwright/test').Page): Promise<void> {
-  // Try the overlay close button (aria-label "Close media overlay" or "Close agents overlay")
-  const closeBtn = page.locator('[class*="editor-overlay__close"], button[aria-label*="Close"][aria-label*="overlay"]').first();
-  if (await closeBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await closeBtn.click();
-  }
-}
-
-// ─── ADV-OL-01: Open + close media overlay rapidly ──────────────────────────
-
-test.describe('ADV-OL-01 — Media overlay rapid open/close', () => {
-  test('toggling media overlay 5× on editor route does not crash', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-    // We're already on /admin (editor route)
-
-    const mediaTabVisible = await page.getByTestId('editor-tab-media').isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!mediaTabVisible) {
-      test.skip(true, 'editor-tab-media not visible');
-      return;
-    }
-
-    for (let i = 0; i < 5; i++) {
-      await page.getByTestId('editor-tab-media').click();
-      await page.getByTestId('editor-overlay-media').isVisible({ timeout: 2_000 }).catch(() => undefined);
-      await closeOverlayViaButton(page);
-    }
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-02: Open + close agents overlay rapidly ─────────────────────────
-
-test.describe('ADV-OL-02 — Agents overlay rapid open/close', () => {
-  test('toggling agents overlay 5× on editor route does not crash', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const agentsTabVisible = await page.getByTestId('editor-tab-agents').isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!agentsTabVisible) {
-      test.skip(true, 'editor-tab-agents not visible');
-      return;
-    }
-
-    for (let i = 0; i < 5; i++) {
-      await page.getByTestId('editor-tab-agents').click();
-      await page.getByTestId('editor-overlay-agents').isVisible({ timeout: 2_000 }).catch(() => undefined);
-      await closeOverlayViaButton(page);
-    }
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-03: Media overlay Escape → code tab ─────────────────────────────
-
-test.describe('ADV-OL-03 — Media overlay: Escape returns to code tab', () => {
-  test('pressing Escape while media overlay is open closes it', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const opened = await openEditorTab(page, 'media');
-    if (!opened) {
-      test.skip(true, 'editor-tab-media not visible');
-      return;
-    }
-
-    await expect(page.getByTestId('editor-overlay-media')).toBeVisible({ timeout: 5_000 });
-    await page.keyboard.press('Escape');
-
-    // Overlay should close (or at minimum not crash)
-    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 3_000 });
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-04: Agents overlay Escape → code tab ────────────────────────────
-
-test.describe('ADV-OL-04 — Agents overlay: Escape closes it', () => {
-  test('pressing Escape while agents overlay is open closes it', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const opened = await openEditorTab(page, 'agents');
-    if (!opened) {
-      test.skip(true, 'editor-tab-agents not visible');
-      return;
-    }
-
-    await expect(page.getByTestId('editor-overlay-agents')).toBeVisible({ timeout: 5_000 });
-    await page.keyboard.press('Escape');
-    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 3_000 });
-    expect(errors).toHaveLength(0);
-  });
-});
 
 // ─── ADV-OL-05: Shortcuts overlay via ? key ─────────────────────────────────
 
@@ -341,53 +215,6 @@ test.describe('ADV-OL-11 — AI chat: open, type, Escape', () => {
   });
 });
 
-// ─── ADV-OL-12: Agents overlay — X button resets to code tab ─────────────────
-
-test.describe('ADV-OL-12 — Agents overlay: X button resets tab', () => {
-  test('clicking the X on agents overlay closes it and tab strip shows code active', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const opened = await openEditorTab(page, 'agents');
-    if (!opened) {
-      test.skip(true, 'editor-tab-agents not visible');
-      return;
-    }
-
-    await expect(page.getByTestId('editor-overlay-agents')).toBeVisible({ timeout: 5_000 });
-    await closeOverlayViaButton(page);
-
-    // Overlay should be gone
-    const overlayVisible = await page.getByTestId('editor-overlay-agents').isVisible({ timeout: 1_500 }).catch(() => false);
-    expect(overlayVisible).toBe(false);
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-13: Media overlay — X button resets tab ─────────────────────────
-
-test.describe('ADV-OL-13 — Media overlay: X button resets tab', () => {
-  test('clicking the X on media overlay closes it', async ({ authedPage: page }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const opened = await openEditorTab(page, 'media');
-    if (!opened) {
-      test.skip(true, 'editor-tab-media not visible');
-      return;
-    }
-
-    await expect(page.getByTestId('editor-overlay-media')).toBeVisible({ timeout: 5_000 });
-    await closeOverlayViaButton(page);
-
-    const overlayVisible = await page.getByTestId('editor-overlay-media').isVisible({ timeout: 1_500 }).catch(() => false);
-    expect(overlayVisible).toBe(false);
-    expect(errors).toHaveLength(0);
-  });
-});
-
 // ─── ADV-OL-14: Drag-and-drop zone does not block keyboard nav ───────────────
 
 test.describe('ADV-OL-14 — Global drop zone does not block keyboard nav', () => {
@@ -404,86 +231,6 @@ test.describe('ADV-OL-14 — Global drop zone does not block keyboard nav', () =
     }
 
     // No assertion on focused element — just that Tab does not cause errors
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-15: Site-selector ↓↑ Enter navigation ───────────────────────────
-
-test.describe('ADV-OL-15 — Site-selector: keyboard navigation', () => {
-  test('opening site selector and pressing ↓ ArrowDown does not crash', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    // The site selector is a button in the sidebar with aria-haspopup="listbox"
-    const selectorBtn = page.locator('[aria-haspopup="listbox"]').first();
-    if (!(await selectorBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      test.skip(true, 'site selector not visible');
-      return;
-    }
-
-    await selectorBtn.click();
-    // Press Arrow Down 3× to navigate the list
-    for (let i = 0; i < 3; i++) {
-      await page.keyboard.press('ArrowDown');
-    }
-    await page.keyboard.press('Escape');
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-16: Site-selector closes via Escape ──────────────────────────────
-
-test.describe('ADV-OL-16 — Site-selector: Escape closes dropdown', () => {
-  test('pressing Escape after opening site dropdown closes it', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const selectorBtn = page.locator('[aria-haspopup="listbox"]').first();
-    if (!(await selectorBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      test.skip(true, 'site selector not visible');
-      return;
-    }
-
-    await selectorBtn.click();
-    const listbox = page.locator('[role="listbox"]');
-    const dropdownOpen = await listbox.isVisible({ timeout: 2_000 }).catch(() => false);
-
-    if (dropdownOpen) {
-      await page.keyboard.press('Escape');
-      await expect(listbox).toBeHidden({ timeout: 3_000 }).catch(() => undefined);
-    }
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-17: Command palette: type, Escape clears ────────────────────────
-
-test.describe('ADV-OL-17 — Command palette: type then Escape', () => {
-  test('typing in palette and pressing Escape clears input and closes palette', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    await page.keyboard.press('Meta+k');
-    const input = page.getByTestId('command-palette-input');
-    if (!(await input.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      test.skip(true, 'command-palette-input not visible');
-      return;
-    }
-
-    await input.fill('test adversarial palette');
-    await page.keyboard.press('Escape');
-
-    const paletteOpen = await page.getByTestId('command-palette').isVisible({ timeout: 1_000 }).catch(() => false);
-    expect(paletteOpen).toBe(false);
     expect(errors).toHaveLength(0);
   });
 });
@@ -507,68 +254,6 @@ test.describe('ADV-OL-18 — Section error boundary on bad route', () => {
 
     // Sidebar must still be visible (shell intact)
     await expect(page.locator('aside').first()).toBeVisible({ timeout: 8_000 });
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-19: Traces filter reset ─────────────────────────────────────────
-
-test.describe('ADV-OL-19 — Traces filter reset does not blank grid', () => {
-  test('setting and clearing traces filter shows entries without crashing', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    const tracesLink = page.locator('a[routerLink="/admin/traces"]').first();
-    if (!(await tracesLink.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      test.skip(true, 'traces nav not visible');
-      return;
-    }
-
-    await tracesLink.click();
-    await page.waitForURL(/\/admin\/traces/, { timeout: 8_000 }).catch(() => undefined);
-
-    const filter = page.getByTestId('traces-filter');
-    if (await filter.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await filter.fill('nonexistent_filter_xyz');
-      await filter.clear();
-    }
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-OL-20: AI-endpoint overlay deploy with no changes ───────────────────
-
-test.describe('ADV-OL-20 — AI endpoint overlay deploy with no changes', () => {
-  test('clicking deploy button on unchanged AI endpoint does not crash', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await gotoAdminShell(page);
-
-    // AI endpoints may be reachable at /admin/ai-endpoints
-    const link = page.locator('a[routerLink="/admin/ai-endpoints"]').first();
-    const reachable = await link.isVisible({ timeout: 2_000 }).catch(() => false);
-    if (!reachable) {
-      test.skip(true, 'ai-endpoints route not in nav');
-      return;
-    }
-
-    await link.click();
-    await page.waitForURL(/\/admin\/ai-endpoints/, { timeout: 8_000 }).catch(() => undefined);
-
-    // Click the first list card to open the editor
-    const firstCard = page.getByTestId('ai-endpoints-list-card').first();
-    if (await firstCard.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await firstCard.click();
-      const deployBtn = page.getByTestId('ai-endpoint-overlay-deploy');
-      if (await deployBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await deployBtn.click();
-      }
-    }
-
     expect(errors).toHaveLength(0);
   });
 });

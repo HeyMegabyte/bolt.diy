@@ -128,6 +128,7 @@ async function signInAsAdmin(page: any): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — /api/super-admin/services has no subpaths
   await page.route('**/api/super-admin/services**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -136,6 +137,7 @@ async function signInAsAdmin(page: any): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls to catch-all
   await page.route('**/api/sites**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -162,6 +164,8 @@ async function signInAsAdmin(page: any): Promise<void> {
   // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
   // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
   await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', (route: any) => route.continue());
   await page.route('**/api/admin/**', async (route: any) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });

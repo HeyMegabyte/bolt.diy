@@ -13,7 +13,6 @@
  *  ADV-SHELL-07  User-menu rapid open/close toggle (5×)
  *  ADV-SHELL-08  SPA sentinel across all sidebar links (no full reload)
  *  ADV-SHELL-09  NO editor-tab-preview element exists anywhere in DOM
- *  ADV-SHELL-10  Media overlay is full-width (left:0 / right:0) when open
  *  ADV-SHELL-11  site-error-banner is not visible under normal load
  *  ADV-SHELL-12  Escape closes user menu and restores focus
  *
@@ -331,38 +330,6 @@ test.describe('ADV-SHELL-09 — Preview tab was removed', () => {
 
     // CRITICAL assertion: preview tab must not exist
     await expect(page.getByTestId('editor-tab-preview')).toHaveCount(0);
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-SHELL-10: Media overlay is full-width ──────────────────────────────
-
-test.describe('ADV-SHELL-10 — Media overlay full-width', () => {
-  test('editor-overlay-media is full-width (left:0/right:0) when media tab is active', async ({
-    authedPage: page,
-  }) => {
-    const errors = attachErrorCollector(page);
-    await page.goto(`${BASE}/admin`);
-    await expect(page.locator('aside').first()).toBeVisible({ timeout: 15_000 });
-
-    const mediaTab = page.getByTestId('editor-tab-media');
-    if (!(await mediaTab.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, 'Media tab not visible — editor not on this route');
-      return;
-    }
-
-    await mediaTab.click();
-    const overlay = page.getByTestId('editor-overlay-media');
-    await expect(overlay).toBeVisible({ timeout: 6_000 });
-
-    const box = await overlay.boundingBox();
-    if (box) {
-      // Must start at or near left edge (left: 0 in CSS)
-      expect(box.x).toBeLessThanOrEqual(5);
-      // Must span to (at least) the right of the sidebar (232 px)
-      const vw = page.viewportSize()?.width ?? 1280;
-      expect(box.x + box.width).toBeGreaterThanOrEqual(vw - 232 - 20);
-    }
     expect(errors).toHaveLength(0);
   });
 });

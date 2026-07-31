@@ -99,6 +99,8 @@ async function signInAsAdmin(page: any, email: string) {
   });
 
   // Sites list — one site so analytics section has a selection
+  // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* is stubbed
+  // separately below or falls to the benign catch-all
   await page.route('**/api/sites**', async (route: any) => {
     if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(route.request().method())) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -138,6 +140,7 @@ async function signInAsAdmin(page: any, email: string) {
   });
 
   // Cloudflare credential status — configured + valid so the connect-CF banner is hidden
+  // glob-ok: query-suffix only — cloudflare-credentials has no subpaths
   await page.route('**/api/admin/cloudflare-credentials**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -161,6 +164,8 @@ async function signInAsAdmin(page: any, email: string) {
   // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
   // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
   await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', (route: any) => route.continue());
   await page.route('**/api/admin/**', async (route: any) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });

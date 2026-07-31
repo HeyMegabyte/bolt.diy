@@ -14,26 +14,32 @@ test.describe('Admin — Billing (authenticated journey)', () => {
     });
 
     // Stub GETs first, before auth injection
-    await page.route('**/api/billing/subscription**', (route) =>
+    const subscriptionStub = (route: import('@playwright/test').Route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           data: { plan: 'pro', status: 'active', period_end: '2025-12-31T00:00:00Z' },
         }),
-      }));
+      });
+    await page.route('**/api/billing/subscription**', subscriptionStub);
+    // Mid-token ** can't cross '/' — twin covers /billing/subscription/cancel
+    await page.route('**/api/billing/subscription/**', subscriptionStub);
+    // glob-ok: query-suffix only — entitlements is a leaf endpoint
     await page.route('**/api/billing/entitlements**', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: { sites: 25, seats: 5, storage_gb: 50 } }),
       }));
+    // glob-ok: query-suffix only — wallet is a leaf endpoint
     await page.route('**/api/billing/wallet**', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: { balance: 1250, currency: 'usd' } }),
       }));
+    // glob-ok: query-suffix only — alerts is a leaf endpoint
     await page.route('**/api/billing/alerts**', (route) =>
       route.fulfill({
         status: 200,
@@ -44,6 +50,7 @@ test.describe('Admin — Billing (authenticated journey)', () => {
           ],
         }),
       }));
+    // glob-ok: query-suffix only — caps is a leaf endpoint
     await page.route('**/api/billing/caps**', (route) =>
       route.fulfill({
         status: 200,

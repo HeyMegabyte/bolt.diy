@@ -1,10 +1,11 @@
 /**
  * E2E: Per-site MCP Server CRUD tools (#29)
  *
- * Tests the JSON-RPC 2.0 endpoints and token management API.
- * Auth-gated tests are skipped unless E2E_AUTH_TOKEN is set.
+ * Tests the JSON-RPC 2.0 endpoints, token management API, and the
+ * admin UI (stub-authed via signInAsTestUser + deterministic API stubs).
  */
 import { test, expect } from '@playwright/test';
+import { signInAsTestUser } from '../helpers/auth.js';
 
 const PROD_URL = process.env['PROD_URL'] ?? 'https://projectsites.dev';
 
@@ -113,11 +114,52 @@ test.describe('MCP Server — admin UI', () => {
     expect(errors).toHaveLength(0);
   });
 
-  test.skip('Admin /admin/sites/:id/mcp-server renders tool list (requires auth)', async ({
+  test('Admin /admin/sites/:id/mcp-server renders tool list (requires auth)', async ({
     page,
   }) => {
-    // Skipped: requires live auth session. Run manually with E2E_AUTH_TOKEN.
-    // Assertions: data-testid="site-mcp-server", rolling-counter for calls today,
-    // tokens table visible, "Test" button present for each tool.
+    await signInAsTestUser(page);
+
+    // Stub the per-site MCP data APIs so the section renders deterministically.
+    const json = (body: unknown) => ({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
+    });
+    await page.route('**/api/sites/e2e-mcp-site*', (route) =>
+      route.fulfill(json({ data: { slug: 'demo' } })),
+    );
+    await page.route('**/api/sites/e2e-mcp-site/mcp/tokens*', (route) =>
+      route.fulfill(
+        json({
+          tokens: [
+            { id: 'tok-1', label: 'Cursor', last_used: null, created_at: '2026-07-01T00:00:00.000Z' },
+          ],
+        }),
+      ),
+    );
+    await page.route('**/api/sites/e2e-mcp-site/mcp/tools*', (route) =>
+      route.fulfill(
+        json({
+          tools: [{ name: 'list_pages', description: 'List all site pages', requiresAuth: false }],
+        }),
+      ),
+    );
+    await page.route('**/api/sites/e2e-mcp-site/mcp/tool-usage*', (route) =>
+      route.fulfill(json({ usage: [] })),
+    );
+
+    await page.goto(`${PROD_URL}/admin/sites/e2e-mcp-site/mcp-server`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+
+    const section = page.getByTestId('site-mcp-server');
+    await expect(section).toBeVisible({ timeout: 20_000 });
+    // Rolling-counter header pill for calls today.
+    await expect(section.getByText(/calls today/i).first()).toBeVisible();
+    // Tokens table renders the stubbed token row.
+    await expect(page.getByTestId('tokens-table')).toBeVisible();
+    // Every tool row exposes a "Test" button.
+    await expect(page.getByTestId('test-tool-btn').first()).toBeVisible();
   });
 });

@@ -70,6 +70,7 @@ test.describe('/admin/audit — site-scoped view', () => {
         body: JSON.stringify({ data: null }),
       }),
     );
+    // glob-ok: query-suffix only — /api/audit-logs has no deeper path segments
     await page.route('**/api/audit-logs**', (route) => {
       const url = new URL(route.request().url());
       const scoped = url.searchParams.get('site_slug') === SITE_SLUG;

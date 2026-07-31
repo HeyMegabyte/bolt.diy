@@ -8,9 +8,9 @@ import {
 import type { ProjectSitesEvent } from '../services/event_bus';
 
 /**
- * Outbox dispatch router — fans event_bus events to Tinybird (all) + Hatchet
- * (orchestration types). Pure router + DI'd adapters; D1 stubbed for the drain.
- * No real network/DB.
+ * Outbox dispatch router — fans event_bus events to Tinybird + Dittofeed (all)
+ * + Hatchet (orchestration types). Pure router + DI'd adapters; D1 stubbed for
+ * the drain. No real network/DB.
  */
 function ev(type: string, over: Partial<ProjectSitesEvent> = {}): ProjectSitesEvent {
   return {
@@ -36,12 +36,19 @@ describe('eventDispatchTargets', () => {
     expect(eventDispatchTargets(ev('site.created'))).toContain('tinybird');
     expect(eventDispatchTargets(ev('site.published'))).toContain('tinybird');
   });
+  // Routing table per src/services/outbox_dispatch.ts (git f49e4d45 "Latest"):
+  // baseline = ['tinybird', 'dittofeed'] for EVERY event (analytics + customer
+  // engagement journeys), with 'hatchet' appended for orchestration types only.
   it('adds Hatchet for orchestration types', () => {
-    expect(eventDispatchTargets(ev('site.published'))).toEqual(['tinybird', 'hatchet']);
-    expect(eventDispatchTargets(ev('invoice.paid'))).toEqual(['tinybird', 'hatchet']);
+    expect(eventDispatchTargets(ev('site.published'))).toEqual([
+      'tinybird',
+      'dittofeed',
+      'hatchet',
+    ]);
+    expect(eventDispatchTargets(ev('invoice.paid'))).toEqual(['tinybird', 'dittofeed', 'hatchet']);
   });
-  it('does NOT route pure-analytics types to Hatchet', () => {
-    expect(eventDispatchTargets(ev('site.created'))).toEqual(['tinybird']);
+  it('does NOT route pure-analytics types to Hatchet (Dittofeed still gets them)', () => {
+    expect(eventDispatchTargets(ev('site.created'))).toEqual(['tinybird', 'dittofeed']);
   });
 });
 

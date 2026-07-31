@@ -141,13 +141,16 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
     // Override the empty super-admin stub with realistic data
-    await page.route('**/api/super-admin/feature-flags**', async (route) => {
+    const superFlagsStub = async (route: any) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(STUB_SUPER_ADMIN_FLAGS),
       });
-    });
+    };
+    await page.route('**/api/super-admin/feature-flags**', superFlagsStub);
+    // Mid-token ** can't cross '/' — twin covers /:key + /:key/audit subpaths
+    await page.route('**/api/super-admin/feature-flags/**', superFlagsStub);
 
     // Also override the public flags stub with definition data
     await page.route('**/api/feature-flags', async (route) => {
@@ -237,13 +240,16 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
   test('search input is accessible and filters flag list', async ({ page }) => {
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags**', async (route) => {
+    const superFlagsStub = async (route: any) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(STUB_SUPER_ADMIN_FLAGS),
       });
-    });
+    };
+    await page.route('**/api/super-admin/feature-flags**', superFlagsStub);
+    // Mid-token ** can't cross '/' — twin covers /:key + /:key/audit subpaths
+    await page.route('**/api/super-admin/feature-flags/**', superFlagsStub);
 
     await page.route('**/api/feature-flags', async (route) => {
       if (route.request().method() === 'GET') {
@@ -314,13 +320,16 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
   test('stage filter tabs are keyboard-accessible and interactive', async ({ page }) => {
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags**', async (route) => {
+    const superFlagsStub = async (route: any) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(STUB_SUPER_ADMIN_FLAGS),
       });
-    });
+    };
+    await page.route('**/api/super-admin/feature-flags**', superFlagsStub);
+    // Mid-token ** can't cross '/' — twin covers /:key + /:key/audit subpaths
+    await page.route('**/api/super-admin/feature-flags/**', superFlagsStub);
 
     await page.route('**/api/feature-flags', async (route) => {
       if (route.request().method() === 'GET') {
@@ -392,13 +401,16 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
   test('toggle and inspect button affordances are present on flag cards', async ({ page }) => {
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags**', async (route) => {
+    const superFlagsStub = async (route: any) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(STUB_SUPER_ADMIN_FLAGS),
       });
-    });
+    };
+    await page.route('**/api/super-admin/feature-flags**', superFlagsStub);
+    // Mid-token ** can't cross '/' — twin covers /:key + /:key/audit subpaths
+    await page.route('**/api/super-admin/feature-flags/**', superFlagsStub);
 
     await page.route('**/api/feature-flags', async (route) => {
       if (route.request().method() === 'GET') {
@@ -464,13 +476,16 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
 
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags**', async (route) => {
+    const superFlagsStub = async (route: any) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(STUB_SUPER_ADMIN_FLAGS),
       });
-    });
+    };
+    await page.route('**/api/super-admin/feature-flags**', superFlagsStub);
+    // Mid-token ** can't cross '/' — twin covers /:key + /:key/audit subpaths
+    await page.route('**/api/super-admin/feature-flags/**', superFlagsStub);
 
     await page.route('**/api/feature-flags', async (route) => {
       if (route.request().method() === 'GET') {
@@ -508,13 +523,16 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
 
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags**', async (route) => {
+    const superFlagsStub = async (route: any) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(STUB_SUPER_ADMIN_FLAGS),
       });
-    });
+    };
+    await page.route('**/api/super-admin/feature-flags**', superFlagsStub);
+    // Mid-token ** can't cross '/' — twin covers /:key + /:key/audit subpaths
+    await page.route('**/api/super-admin/feature-flags/**', superFlagsStub);
 
     await page.route('**/api/feature-flags', async (route) => {
       if (route.request().method() === 'GET') {

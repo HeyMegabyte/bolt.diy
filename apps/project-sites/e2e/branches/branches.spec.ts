@@ -5,15 +5,9 @@
  * Starts from homepage per [[e2e-tdd-organization]] hermetic-spec contract.
  */
 import { test, expect } from '@playwright/test';
+import { signInAsTestUser } from '../helpers/auth.js';
 
 const PROD_URL = process.env['PROD_URL'] ?? 'https://projectsites.dev';
-const AUTH_TOKEN = process.env['E2E_AUTH_TOKEN'] ?? '';
-
-// Shared headers for authenticated requests.
-const authHeaders = () => ({
-  Authorization: `Bearer ${AUTH_TOKEN}`,
-  'Content-Type': 'application/json',
-});
 
 test.describe('Branch Previews — API surface', () => {
   test('GET /api/sites/:id/branches returns 401 without auth', async ({ request }) => {
@@ -79,11 +73,33 @@ test.describe('Branch Previews — admin UI', () => {
     expect(errors.length).toBe(0);
   });
 
-  test.skip('Admin /admin/sites/:id/branches renders branch list (requires auth)', async ({
+  test('Admin /admin/sites/:id/branches renders branch list (requires auth)', async ({
     page,
   }) => {
-    // Skipped: requires a live auth session — run manually with E2E_AUTH_TOKEN set.
-    // When run: verify data-testid="site-branches" is present, "Branches" heading,
-    // and create button is clickable.
+    await signInAsTestUser(page);
+
+    // Stub the branch-list API so the section renders deterministically.
+    await page.route('**/api/sites/e2e-branch-site/branches*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ branches: [] }),
+      }),
+    );
+
+    await page.goto(`${PROD_URL}/admin/sites/e2e-branch-site/branches`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+
+    const section = page.getByTestId('site-branches');
+    await expect(section).toBeVisible({ timeout: 20_000 });
+    await expect(section.getByRole('heading', { name: 'Branches' })).toBeVisible();
+
+    // Create button is enabled (siteId resolved from the route) and clickable.
+    const newToggle = page.getByTestId('branch-new-toggle');
+    await expect(newToggle).toBeEnabled();
+    await newToggle.click();
+    await expect(page.getByTestId('branch-name-input')).toBeVisible();
   });
 });

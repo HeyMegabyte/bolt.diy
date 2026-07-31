@@ -80,6 +80,7 @@ async function stubAuth(page: Page): Promise<void> {
 }
 
 async function stubChatStream(page: Page): Promise<void> {
+  // glob-ok: query-suffix only — /api/dashboard/chat has no subpaths
   await page.route('**/api/dashboard/chat**', async (route: Route) => {
     await route.fulfill({
       status: 200,

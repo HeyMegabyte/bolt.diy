@@ -61,7 +61,7 @@ async function stubAuth(page: Page): Promise<void> {
     });
   });
 
-  await page.route('**/api/media**', async (route: Route) => {
+  const mediaStub = async (route: Route) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
@@ -89,7 +89,11 @@ async function stubAuth(page: Page): Promise<void> {
       return;
     }
     await route.fallback();
-  });
+  };
+  await page.route('**/api/media**', mediaStub);
+  // Mid-token ** can't cross '/' — the drop-zone actually POSTs
+  // /api/media/upload (a subpath); twin makes the stub intercept it.
+  await page.route('**/api/media/**', mediaStub);
 }
 
 /**

@@ -108,7 +108,11 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
     const json = (await res.json()) as { flags: Array<{ key: string }>; count: number };
     expect(json.count).toBe(json.flags.length);
     expect(json.count).toBeGreaterThan(20);
-    expect(json.count).toBeLessThan(80); // trimmed registry, not the old 155
+    // Trim-regression TRIPWIRE, not a hard spec: the 2026-06-07 trim cut the
+    // registry 155→33; deliberate feature waves have since grown it to ~90.
+    // <120 trips only if the registry balloons back toward pre-trim sprawl —
+    // raise this consciously (with a wave rationale) rather than reflexively.
+    expect(json.count).toBeLessThan(120);
   });
 
   it('KEEPS the core + surviving flags', async () => {

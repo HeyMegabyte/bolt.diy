@@ -60,7 +60,7 @@ async function stubAuth(page: Page): Promise<void> {
 
 /** Stubs image generation to return a generated image URL. */
 async function stubGenerateSuccess(page: Page): Promise<void> {
-  await page.route('**/api/media/generate**', async (route: Route) => {
+  const successStub = async (route: Route) => {
     // Simulate a 1s delay to exercise the loading spinner
     await new Promise((r) => setTimeout(r, 800));
     await route.fulfill({
@@ -76,12 +76,16 @@ async function stubGenerateSuccess(page: Page): Promise<void> {
         },
       }),
     });
-  });
+  };
+  await page.route('**/api/media/generate**', successStub);
+  // Mid-token ** can't cross '/' — the studio actually POSTs
+  // /api/media/generate/image (a subpath); twin makes the stub intercept it.
+  await page.route('**/api/media/generate/**', successStub);
 }
 
 /** Stubs image generation to return a 502 (missing API key scenario). */
 async function stubGenerateError(page: Page): Promise<void> {
-  await page.route('**/api/media/generate**', async (route: Route) => {
+  const errorStub = async (route: Route) => {
     await route.fulfill({
       status: 503,
       contentType: 'application/json',
@@ -89,7 +93,10 @@ async function stubGenerateError(page: Page): Promise<void> {
         error: { code: 'AI_GENERATION_ERROR', message: 'OPENAI_API_KEY is not configured' },
       }),
     });
-  });
+  };
+  await page.route('**/api/media/generate**', errorStub);
+  // Mid-token ** can't cross '/' — twin covers /api/media/generate/image
+  await page.route('**/api/media/generate/**', errorStub);
 }
 
 async function navigateToImageStudio(page: Page): Promise<void> {
@@ -191,14 +198,17 @@ test.describe('Media — Image Studio tab', () => {
   test('Generate button is disabled while a generation is in progress', async ({ page }) => {
     await stubAuth(page);
     // Slow response to catch the in-flight disabled state
-    await page.route('**/api/media/generate**', async (route: Route) => {
+    const slowStub = async (route: Route) => {
       await new Promise((r) => setTimeout(r, 3_000));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: { id: 'gen-2', url: 'https://example.com/img.png' } }),
       });
-    });
+    };
+    await page.route('**/api/media/generate**', slowStub);
+    // Mid-token ** can't cross '/' — twin covers /api/media/generate/image
+    await page.route('**/api/media/generate/**', slowStub);
 
     await navigateToImageStudio(page);
 

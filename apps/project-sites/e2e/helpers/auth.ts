@@ -103,6 +103,9 @@ async function _stubAdminApis(page: Page, email: string): Promise<void> {
   // `selectedSite` computed defaults to `sites[0]` (admin-state.service.ts:64).
   // An empty sites stub = "No sites yet" empty state on EVERY admin route —
   // no section component ever mounts, regardless of the URL.
+  // glob-ok: query-suffix only — this stubs the sites LIST (/api/sites?…);
+  // /api/sites/:id/* subresources intentionally fall to the benign catch-all
+  // above (mid-token ** cannot cross '/').
   await page.route('**/api/sites**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -155,6 +158,10 @@ async function _stubAdminApis(page: Page, email: string): Promise<void> {
   // lies: flags:{} turns every gated section into a "not enabled" notice and
   // manufactures false test failures). continue() is terminal + safe here.
   await page.route('**/api/feature-flags**', (route) => route.continue());
+  // Mid-token ** cannot cross '/' — '**/api/feature-flags**' never matches
+  // /api/feature-flags/:key (useFeatureFlag per-key reads). Without this twin
+  // those requests fall to the benign catch-all and fake "flag off".
+  await page.route('**/api/feature-flags/**', (route) => route.continue());
 
   await page.route('**/api/analytics/track', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });

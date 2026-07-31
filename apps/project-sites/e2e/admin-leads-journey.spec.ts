@@ -93,6 +93,7 @@ async function signInAndStubLeads(page: Page): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls to catch-all
   await page.route('**/api/sites**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -119,13 +120,16 @@ async function signInAndStubLeads(page: Page): Promise<void> {
   });
 
   // Stub feature-flags to avoid prod 400s with fake bearer token.
-  await page.route('**/api/feature-flags**', async (route) => {
+  const flagsStub = async (route: any) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({}),
     });
-  });
+  };
+  await page.route('**/api/feature-flags**', flagsStub);
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', flagsStub);
 
   await page.route('**/api/analytics/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -151,31 +155,11 @@ async function signInAndStubLeads(page: Page): Promise<void> {
   // Leads data stubs — registered AFTER the broad /api/admin/** catch-all so they
   // have HIGHER priority (Playwright: last registered = first matched).
   // The `**` suffix matches URLs with query params (e.g. ?noWebsite=true&limit=50).
-  await page.route('**/api/admin/leads/scan-osm**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: [STUB_LEADS[0]], total: 1, scanned: 10 }),
-    });
-  });
-
-  await page.route('**/api/admin/leads/scan**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
-    });
-  });
-
-  await page.route('**/api/admin/leads/*/claim-link**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ claimUrl: 'https://projectsites.dev/claim/test-token-123' }),
-    });
-  });
-
-  await page.route('**/api/admin/leads**', async (route) => {
+  // Registered FIRST in the leads family so scan/scan-osm/claim-link (below,
+  // later-registered) keep precedence. Mid-token ** can't cross '/' — this twin
+  // covers /api/admin/leads/:id/* traffic the bare '**/api/admin/leads**' glob
+  // (further below) can never match.
+  const leadsStub = async (route: any) => {
     const method = route.request().method();
     if (method === 'GET') {
       // Component reads res?.leads — shape is { leads: [...], count: N }
@@ -191,7 +175,41 @@ async function signInAndStubLeads(page: Page): Promise<void> {
         body: JSON.stringify({ leads: STUB_LEADS.slice(0, 2), count: 2, summary: { scanned: 5, created: 2 } }),
       });
     }
+  };
+  await page.route('**/api/admin/leads/**', leadsStub);
+
+  // glob-ok: query-suffix only — scan-osm is a leaf endpoint
+  await page.route('**/api/admin/leads/scan-osm**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [STUB_LEADS[0]], total: 1, scanned: 10 }),
+    });
   });
+
+  // glob-ok: query-suffix only — scan is a leaf endpoint. NOTE (pre-existing):
+  // 'scan**' also token-matches 'scan-osm' and, being registered later, shadows
+  // the scan-osm stub above for GET/POST /api/admin/leads/scan-osm.
+  await page.route('**/api/admin/leads/scan**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
+    });
+  });
+
+  // glob-ok: query-suffix only — claim-link is a leaf endpoint
+  await page.route('**/api/admin/leads/*/claim-link**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ claimUrl: 'https://projectsites.dev/claim/test-token-123' }),
+    });
+  });
+
+  // Bare/query-suffix half of the pair — subpaths are covered by the
+  // '**/api/admin/leads/**' twin registered above (same handler).
+  await page.route('**/api/admin/leads**', leadsStub);
 
   // Safety: block all other mutations
   await page.route('**/api/**', async (route) => {

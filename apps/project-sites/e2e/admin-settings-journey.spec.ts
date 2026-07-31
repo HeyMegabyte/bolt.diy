@@ -197,6 +197,8 @@ async function signInAsAdmin(page: any): Promise<void> {
   // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
   // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
   await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', (route: any) => route.continue());
 
   // Admin catch-all
   await page.route('**/api/admin/**', async (route: any) => {

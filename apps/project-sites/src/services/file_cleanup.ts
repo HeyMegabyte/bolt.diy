@@ -102,8 +102,11 @@ export interface CleanupResult {
  * - `exports/*` — deleted after 7 days (stale export downloads).
  */
 export const DEFAULT_RULES: readonly CleanupRule[] = Object.freeze([
-  { pattern: '*.tmp', maxAgeDays: 1 },
-  { pattern: 'exports/*', maxAgeDays: 7 },
+  // Deep-frozen: the inner rule objects are frozen too. A shallow freeze lets
+  // `DEFAULT_RULES[0].pattern = …` silently succeed (frozen array, mutable
+  // elements), corrupting the shared default for every later caller.
+  Object.freeze({ pattern: '*.tmp', maxAgeDays: 1 }),
+  Object.freeze({ pattern: 'exports/*', maxAgeDays: 7 }),
 ]);
 
 /**

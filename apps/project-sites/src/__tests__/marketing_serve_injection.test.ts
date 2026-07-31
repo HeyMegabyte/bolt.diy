@@ -53,7 +53,9 @@ function makeEnv(overrides: Record<string, unknown> = {}) {
     GOOGLE_CLIENT_SECRET: 'gsecret_test',
     GOOGLE_PLACES_API_KEY: 'places_test',
     ENVIRONMENT: 'test',
-    SENTRY_DSN: '',
+    // EnvSchema types SENTRY_DSN as z.string().url().optional() — '' fails the
+    // url() check and VALIDATION_ERRORs every request, so use a valid DSN shape.
+    SENTRY_DSN: 'https://x@o0.ingest.sentry.io/0',
     SENTRY_RELEASE: 'project-sites@test',
     ...overrides,
   } as never;

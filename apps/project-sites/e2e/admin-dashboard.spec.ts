@@ -27,9 +27,14 @@ async function signInAsAdmin(page: any, email: string) {
       body: JSON.stringify({ data: { user_id: 'e2e', email, name: 'E2E Test', org_id: 'e2e-org', is_super_admin: true } }),
     });
   });
-  await page.route('**/api/sites**', async (route: any) => {
+  const sitesStub = async (route: any) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { total: 0 } }) });
-  });
+  };
+  await page.route('**/api/sites**', sitesStub);
+  // Mid-token ** can't cross '/' — without this twin /api/sites/:id/* requests
+  // leak to real prod (this spec has no /api/** catch-all) and 401 with the
+  // fake bearer, which clears the session mid-test.
+  await page.route('**/api/sites/**', sitesStub);
   await page.route('**/api/billing/**', async (route: any) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });

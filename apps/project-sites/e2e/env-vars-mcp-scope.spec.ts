@@ -73,6 +73,7 @@ async function stubAuth(page: Page): Promise<void> {
 
 async function stubMcpApi(page: Page): Promise<void> {
   // MCP connections list
+  // glob-ok: query-suffix only — /api/mcp/connections has no subpaths
   await page.route('**/api/mcp/connections**', async (route: Route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({
@@ -83,6 +84,7 @@ async function stubMcpApi(page: Page): Promise<void> {
   });
 
   // Scoped env vars for a specific MCP
+  // glob-ok: query-suffix only — /api/mcp/:id/env-vars has no deeper segments
   await page.route('**/api/mcp/*/env-vars**', async (route: Route) => {
     const method = route.request().method();
     const url = route.request().url();
@@ -116,14 +118,18 @@ async function stubMcpApi(page: Page): Promise<void> {
   });
 
   // Org-scope env vars
-  await page.route('**/api/env-vars**', async (route: Route) => {
+  const orgVarsStub = async (route: Route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: orgVarStore }),
     });
-  });
+  };
+  await page.route('**/api/env-vars**', orgVarsStub);
+  // Mid-token ** can't cross '/' — twin covers /api/env-vars/:id traffic
+  // (does NOT match /api/mcp/*/env-vars, so the scoped stub above still wins)
+  await page.route('**/api/env-vars/**', orgVarsStub);
 }
 
 async function navigateToMcpTab(page: Page): Promise<void> {

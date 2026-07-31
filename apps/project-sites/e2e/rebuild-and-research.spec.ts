@@ -211,17 +211,10 @@ test.describe('Research JSON Endpoint', () => {
   test('research.json is downloadable from production for vitos-mens-saln', async ({ request }) => {
     // This test verifies the full end-to-end: workflow generates research, uploads to R2,
     // and the public endpoint returns the JSON with all required sections.
-    // Skip if external network is unavailable (CI / sandbox environments).
-    let res;
-    try {
-      res = await request.fetch(
-        'https://projectsites.dev/api/sites/by-slug/vitos-mens-saln/research.json',
-        { timeout: 10000 },
-      );
-    } catch {
-      test.skip(true, 'External network unavailable — skipping production research.json test');
-      return;
-    }
+    const res = await request.fetch(
+      'https://projectsites.dev/api/sites/by-slug/vitos-mens-saln/research.json',
+      { timeout: 10000 },
+    );
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('application/json');
 

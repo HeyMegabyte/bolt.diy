@@ -14,6 +14,7 @@ test.describe('Admin — Team (authenticated journey)', () => {
     });
 
     // GET stubs
+    // glob-ok: query-suffix only — no /members/:id traffic in the frontend
     await page.route('**/api/orgs/*/members**', (route) =>
       route.fulfill({
         status: 200,
@@ -25,6 +26,7 @@ test.describe('Admin — Team (authenticated journey)', () => {
           ],
         }),
       }));
+    // glob-ok: query-suffix only — no /invitations/:id traffic in the frontend
     await page.route('**/api/orgs/*/invitations**', (route) =>
       route.fulfill({
         status: 200,
@@ -35,6 +37,7 @@ test.describe('Admin — Team (authenticated journey)', () => {
           ],
         }),
       }));
+    // glob-ok: query-suffix only — entitlements is a leaf endpoint
     await page.route('**/api/billing/entitlements**', (route) =>
       route.fulfill({
         status: 200,

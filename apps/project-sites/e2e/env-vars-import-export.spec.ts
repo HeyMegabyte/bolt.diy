@@ -70,6 +70,25 @@ async function stubAuth(page: Page): Promise<void> {
 async function stubEnvVarsApi(page: Page): Promise<void> {
   envVarStore = [];
 
+  const listStub = async (route: Route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: envVarStore }),
+      });
+    } else {
+      await route.fallback();
+    }
+  };
+  // Mid-token ** can't cross '/' — this twin covers /api/env-vars/:id traffic
+  // the bare '**/api/env-vars**' glob (bottom) can never match. Registered
+  // FIRST so the more-specific /import + /export stubs below (registered
+  // later = matched first) keep precedence.
+  await page.route('**/api/env-vars/**', listStub);
+
+  // glob-ok: query-suffix only — /import is a leaf endpoint
   await page.route('**/api/env-vars/import**', async (route: Route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     const body = await route.request().postDataJSON() as { content?: string };
@@ -89,6 +108,7 @@ async function stubEnvVarsApi(page: Page): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — /export is a leaf endpoint
   await page.route('**/api/env-vars/export**', async (route: Route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     const content = envVarStore.map((v) => `${v.key}=<masked>`).join('\n');
@@ -102,18 +122,9 @@ async function stubEnvVarsApi(page: Page): Promise<void> {
     });
   });
 
-  await page.route('**/api/env-vars**', async (route: Route) => {
-    const method = route.request().method();
-    if (method === 'GET') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: envVarStore }),
-      });
-    } else {
-      await route.fallback();
-    }
-  });
+  // glob-ok: bare/query half of a pair — subpaths are owned by the
+  // '**/api/env-vars/**' twin registered at the top of this function.
+  await page.route('**/api/env-vars**', listStub);
 }
 
 async function navigateToEnvVars(page: Page): Promise<void> {

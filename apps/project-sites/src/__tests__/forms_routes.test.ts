@@ -9,7 +9,10 @@
  * 1. **Public ingest** — `POST /api/v1/forms/submit`: missing-slug 400,
  *    unknown-site 404, disallowed-Origin 403, Zod 400, the no-integrations
  *    "received" path, and the all-success "forwarded" / partial fan-out paths
- *    (contact record + audit dispatch).
+ *    (contact record + audit dispatch). Every successful submit ALSO meters a
+ *    `usage_events` row via meterFormSubmission → LagoProvider (through the
+ *    mocked db.js helpers) — asserted by table name alongside the
+ *    form_submissions capture.
  * 2. **Auth-gated CRUD** — list submissions (401 unauthenticated, org-scoping
  *    404 non-leak, 200 success), list/create/patch/delete integrations,
  *    draft/send-reply, and form-router improve.
@@ -246,12 +249,23 @@ describe('POST /api/v1/forms/submit', () => {
     expect(json.data.forwarded).toBe(0);
     expect(typeof json.data.id).toBe('string');
 
-    // Persisted exactly one form_submissions row with the right status.
-    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+    // The submit path persists TWO rows (both intentional):
+    //   1. the form_submissions capture, then
+    //   2. a usage_events metering row — the fire-and-forget
+    //      meterFormSubmission → LagoProvider #persistToLedger (free metric,
+    //      analytics only; deliverToLago no-ops without LAGO_API_KEY).
+    // The metering runs in a floating `void (async …)()`, so drain one
+    // macrotask to make the second insert deterministic before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockDbInsert).toHaveBeenCalledTimes(2);
     const [, table, record] = mockDbInsert.mock.calls[0];
     expect(table).toBe('form_submissions');
     expect((record as { status: string }).status).toBe('received');
     expect((record as { org_id: string }).org_id).toBe('org-1');
+    const [, meterTable, meterRecord] = mockDbInsert.mock.calls[1];
+    expect(meterTable).toBe('usage_events');
+    expect((meterRecord as { metric: string }).metric).toBe('form_submissions');
+    expect((meterRecord as { org_id: string }).org_id).toBe('org-1');
   });
 
   it('returns status "forwarded" and updates integration health when dispatch succeeds', async () => {

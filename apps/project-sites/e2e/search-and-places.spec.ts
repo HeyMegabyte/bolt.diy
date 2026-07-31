@@ -132,11 +132,13 @@ test.describe('Google Places Search Integration', () => {
   test('search makes parallel API calls to businesses and sites endpoints', async ({ page }) => {
     const apiCalls: string[] = [];
 
+    // glob-ok: query-suffix only — /api/search/businesses has no subpaths
     await page.route('**/api/search/businesses**', async (route) => {
       apiCalls.push(route.request().url());
       await route.fallback();
     });
 
+    // glob-ok: query-suffix only — /api/sites/search has no subpaths
     await page.route('**/api/sites/search**', async (route) => {
       apiCalls.push(route.request().url());
       await route.fallback();
@@ -158,6 +160,7 @@ test.describe('Google Places Search Integration', () => {
   test('search debounces rapid typing to single API call', async ({ page }) => {
     let callCount = 0;
 
+    // glob-ok: query-suffix only — /api/search/businesses has no subpaths
     await page.route('**/api/search/businesses**', async (route) => {
       callCount++;
       await route.fallback();

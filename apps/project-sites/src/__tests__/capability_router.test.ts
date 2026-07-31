@@ -9,7 +9,9 @@
  * @module __tests__/capability_router
  */
 
-import { describe, it, expect, vi } from 'vitest';
+// Jest suite — describe/it/expect and the mock factory are Jest globals.
+// (This repo transforms tests with @swc/jest; the GLOBAL `jest` identifier is
+// required — importing { jest } from '@jest/globals' breaks mock hoisting.)
 import {
   routeCapabilityRequest,
   executeCapability,
@@ -54,17 +56,17 @@ function makeConnection(overrides: Partial<OAuthConnection> = {}): OAuthConnecti
 
 function makeNango(): ProjectSitesNangoClient {
   return {
-    createConnectSession: vi.fn(),
-    getConnection: vi.fn(),
-    proxyRequest: vi.fn().mockResolvedValue({ ok: true }),
-    revokeConnection: vi.fn(),
+    createConnectSession: jest.fn(),
+    getConnection: jest.fn(),
+    proxyRequest: jest.fn().mockResolvedValue({ ok: true }),
+    revokeConnection: jest.fn(),
   };
 }
 
 function makeComposio(supports = false): ComposioRuntimeAdapter {
   return {
-    supports: vi.fn().mockResolvedValue(supports),
-    execute: vi.fn().mockResolvedValue({
+    supports: jest.fn().mockResolvedValue(supports),
+    execute: jest.fn().mockResolvedValue({
       runtime: 'composio',
       provider: 'notion',
       action: 'notion.create_page',
@@ -76,8 +78,8 @@ function makeComposio(supports = false): ComposioRuntimeAdapter {
 
 function makePipedream(supports = false): PipedreamConnectRuntimeAdapter {
   return {
-    supports: vi.fn().mockResolvedValue(supports),
-    execute: vi.fn().mockResolvedValue({
+    supports: jest.fn().mockResolvedValue(supports),
+    execute: jest.fn().mockResolvedValue({
       runtime: 'pipedream',
       provider: 'airtable',
       action: 'airtable.create_record',
@@ -92,9 +94,9 @@ function makeDeps(overrides: Partial<CapabilityRouterDeps> = {}): CapabilityRout
     nango: makeNango(),
     composio: makeComposio(false),
     pipedream: makePipedream(false),
-    getConnection: vi.fn().mockResolvedValue(makeConnection()),
-    emitAudit: vi.fn(),
-    emitMetering: vi.fn(),
+    getConnection: jest.fn().mockResolvedValue(makeConnection()),
+    emitAudit: jest.fn(),
+    emitMetering: jest.fn(),
     ...overrides,
   };
 }
@@ -127,7 +129,9 @@ describe('routeCapabilityRequest', () => {
   it('chooses Composio when no native adapter exists', async () => {
     const deps = makeDeps({
       composio: makeComposio(true),
-      getConnection: vi.fn().mockResolvedValue(makeConnection({ provider: 'notion', scopes: [] })),
+      getConnection: jest
+        .fn()
+        .mockResolvedValue(makeConnection({ provider: 'notion', scopes: [] })),
     });
 
     const { decision } = await routeCapabilityRequest(
@@ -142,7 +146,7 @@ describe('routeCapabilityRequest', () => {
     const deps = makeDeps({
       composio: makeComposio(false), // Composio doesn't support
       pipedream: makePipedream(true),
-      getConnection: vi
+      getConnection: jest
         .fn()
         .mockResolvedValue(makeConnection({ provider: 'airtable', scopes: [] })),
     });
@@ -156,7 +160,7 @@ describe('routeCapabilityRequest', () => {
   });
 
   it('fails closed with no connection', async () => {
-    const deps = makeDeps({ getConnection: vi.fn().mockResolvedValue(null) });
+    const deps = makeDeps({ getConnection: jest.fn().mockResolvedValue(null) });
     const { decision, connection } = await routeCapabilityRequest(makeRequest(), deps);
     expect(decision).toBeNull();
     expect(connection).toBeNull();
@@ -164,7 +168,7 @@ describe('routeCapabilityRequest', () => {
 
   it('fails closed with revoked connection', async () => {
     const deps = makeDeps({
-      getConnection: vi.fn().mockResolvedValue(makeConnection({ status: 'revoked' })),
+      getConnection: jest.fn().mockResolvedValue(makeConnection({ status: 'revoked' })),
     });
     const { decision } = await routeCapabilityRequest(makeRequest(), deps);
     expect(decision).toBeNull();
@@ -172,7 +176,7 @@ describe('routeCapabilityRequest', () => {
 
   it('fails closed with expired connection', async () => {
     const deps = makeDeps({
-      getConnection: vi.fn().mockResolvedValue(makeConnection({ status: 'expired' })),
+      getConnection: jest.fn().mockResolvedValue(makeConnection({ status: 'expired' })),
     });
     const { decision } = await routeCapabilityRequest(makeRequest(), deps);
     expect(decision).toBeNull();
@@ -180,7 +184,7 @@ describe('routeCapabilityRequest', () => {
 
   it('fails closed with missing scopes', async () => {
     const deps = makeDeps({
-      getConnection: vi
+      getConnection: jest
         .fn()
         .mockResolvedValue(makeConnection({ provider: 'slack', scopes: ['chat:write'] })),
     });
@@ -205,7 +209,7 @@ describe('routeCapabilityRequest', () => {
 
 describe('executeCapability', () => {
   it('returns error for no connection', async () => {
-    const deps = makeDeps({ getConnection: vi.fn().mockResolvedValue(null) });
+    const deps = makeDeps({ getConnection: jest.fn().mockResolvedValue(null) });
     const result = await executeCapability(makeRequest(), deps);
     expect(result.success).toBe(false);
     expect(result.error!.code).toBe('NO_CONNECTION');
@@ -213,7 +217,7 @@ describe('executeCapability', () => {
 
   it('returns error for inactive connection', async () => {
     const deps = makeDeps({
-      getConnection: vi.fn().mockResolvedValue(makeConnection({ status: 'revoked' })),
+      getConnection: jest.fn().mockResolvedValue(makeConnection({ status: 'revoked' })),
     });
     const result = await executeCapability(makeRequest(), deps);
     expect(result.success).toBe(false);
@@ -228,7 +232,7 @@ describe('executeCapability', () => {
   });
 
   it('emits audit event on success', async () => {
-    const emitAudit = vi.fn();
+    const emitAudit = jest.fn();
     const deps = makeDeps({ emitAudit });
     await executeCapability(makeRequest(), deps);
     expect(emitAudit).toHaveBeenCalledWith(
@@ -237,17 +241,17 @@ describe('executeCapability', () => {
   });
 
   it('emits audit event on failure', async () => {
-    const emitAudit = vi.fn();
+    const emitAudit = jest.fn();
     const deps = makeDeps({
       emitAudit,
-      getConnection: vi.fn().mockResolvedValue(null),
+      getConnection: jest.fn().mockResolvedValue(null),
     });
     await executeCapability(makeRequest(), deps);
     expect(emitAudit).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
   });
 
   it('emits metering event', async () => {
-    const emitMetering = vi.fn();
+    const emitMetering = jest.fn();
     const deps = makeDeps({ emitMetering });
     await executeCapability(makeRequest(), deps);
     expect(emitMetering).toHaveBeenCalledWith(
@@ -260,7 +264,7 @@ describe('executeCapability', () => {
 
   it('handles reauth when provider returns auth error', async () => {
     const nango = makeNango();
-    (nango.proxyRequest as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (nango.proxyRequest as jest.Mock).mockRejectedValue(
       new Error('NANGO_PROXY_AUTH_FAILURE'),
     );
     const deps = makeDeps({ nango });

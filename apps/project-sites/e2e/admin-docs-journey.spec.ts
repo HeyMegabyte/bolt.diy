@@ -174,6 +174,7 @@ async function signInAsAdmin(page: any): Promise<void> {
     { t: 'e2e-docs-token', id: TEST_EMAIL },
   );
 
+  // glob-ok: query-suffix only — /api/auth/me has no deeper path segments
   await page.route('**/api/auth/me**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -197,6 +198,7 @@ async function signInAsAdmin(page: any): Promise<void> {
   });
 
   // OpenAPI spec endpoint — MUST be registered AFTER **/api/admin/** so it wins
+  // glob-ok: query-suffix only — openapi.json is a leaf
   await page.route('**/api/admin/docs/openapi.json**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -206,6 +208,7 @@ async function signInAsAdmin(page: any): Promise<void> {
   });
 
   // Docs stats endpoint
+  // glob-ok: query-suffix only — stats is a leaf
   await page.route('**/api/admin/docs/stats**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -215,6 +218,7 @@ async function signInAsAdmin(page: any): Promise<void> {
   });
 
   // Overview markdown (if fetched)
+  // glob-ok: query-suffix only — app-overview is a leaf
   await page.route('**/api/admin/docs/app-overview**', async (route: any) => {
     await route.fulfill({
       status: 200,
@@ -230,6 +234,7 @@ async function signInAsAdmin(page: any): Promise<void> {
 
   // Standard stubs — sites must return ≥1 entry so selectedSite() resolves
   // (admin-state.service.ts:67 falls back to sites[0]; null → "No sites yet" wall).
+  // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls to catch-all
   await page.route('**/api/sites**', async (route: any) => {
     if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(route.request().method())) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -260,6 +265,8 @@ async function signInAsAdmin(page: any): Promise<void> {
   // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
   // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
   await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', (route: any) => route.continue());
   // NOTE: **/api/admin/** was moved BEFORE the specific openapi.json/stats/app-overview
   // stubs above so that the specific patterns win (last-registered-first-matched).
   await page.route('**/api/analytics/**', async (route: any) => {

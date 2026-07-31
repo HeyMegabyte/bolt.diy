@@ -122,6 +122,7 @@ async function loadSignInAsTestUser(): Promise<AuthHelpers['signInAsTestUser']> 
         }),
       });
     });
+    // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls to catch-all
     await page.route('**/api/sites**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -146,13 +147,16 @@ async function loadSignInAsTestUser(): Promise<AuthHelpers['signInAsTestUser']> 
     await page.route('**/api/billing/**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
-    await page.route('**/api/feature-flags**', async (route) => {
+    const flagsStub = async (route: import('@playwright/test').Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ flags: {}, count: 90 }),
       });
-    });
+    };
+    await page.route('**/api/feature-flags**', flagsStub);
+    // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+    await page.route('**/api/feature-flags/**', flagsStub);
     await page.route('**/api/admin/**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });

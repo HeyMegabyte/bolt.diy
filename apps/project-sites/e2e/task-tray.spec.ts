@@ -81,7 +81,7 @@ async function stubTaskApi(page: Page): Promise<{ resolvedCalls: string[] }> {
   const resolvedCalls: string[] = [];
 
   // GET open tasks — returns one task
-  await page.route('**/api/inbox/tasks**', async (route: Route) => {
+  const openTasksStub = async (route: Route) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
@@ -92,9 +92,14 @@ async function stubTaskApi(page: Page): Promise<{ resolvedCalls: string[] }> {
       return;
     }
     await route.fallback();
-  });
+  };
+  await page.route('**/api/inbox/tasks**', openTasksStub);
+  // Mid-token ** can't cross '/' — twin covers /api/inbox/tasks/:id/*; the
+  // more-specific /resolve stub below is registered later, so it still wins.
+  await page.route('**/api/inbox/tasks/**', openTasksStub);
 
   // POST /api/inbox/tasks/:id/resolve
+  // glob-ok: query-suffix only — /resolve is a leaf (no deeper segments)
   await page.route('**/api/inbox/tasks/*/resolve**', async (route: Route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     taskResolved = true;
@@ -201,14 +206,17 @@ test.describe('AI Task Tray', () => {
     await stubAuth(page);
 
     // Stub an empty response
-    await page.route('**/api/inbox/tasks**', async (route: Route) => {
+    const emptyTasksStub = async (route: Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: [] }),
       });
-    });
+    };
+    await page.route('**/api/inbox/tasks**', emptyTasksStub);
+    // Mid-token ** can't cross '/' — twin covers /api/inbox/tasks/:id/* too
+    await page.route('**/api/inbox/tasks/**', emptyTasksStub);
 
     await page.goto('/');
     await page.click('[data-testid="nav-admin"], a[href*="/admin"], text=Admin');

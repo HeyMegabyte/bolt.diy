@@ -69,6 +69,8 @@ async function stubEnvVarsApi(page: Page): Promise<void> {
   envVarStore = []; // reset per-test
 
   // GET env vars
+  // glob-ok: bare/query half of a pair — mid-token ** can't cross '/', and the
+  // '**/api/env-vars/**' route below (registered later) owns the subpaths.
   await page.route('**/api/env-vars**', async (route: Route) => {
     const method = route.request().method();
 

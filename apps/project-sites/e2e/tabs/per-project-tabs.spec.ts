@@ -140,6 +140,7 @@ test.describe('Per-project tabs — Integrations', () => {
 
   test('TAB-12 — Paste-key fallback when OAuth unconfigured', async ({ authedPage: page }) => {
     // Force 501 oauth_not_configured to trigger paste-key UX.
+    // glob-ok: query-suffix only — /connect is a leaf (callback/paste are siblings)
     await page.route('**/api/mcp/resend/connect**', async (route) => {
       await route.fulfill({
         status: 501,

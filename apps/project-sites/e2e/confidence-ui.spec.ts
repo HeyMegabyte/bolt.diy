@@ -10,16 +10,10 @@ import { test, expect } from './fixtures.js';
 
 test.describe('Confidence-Weighted UI — Research JSON v3', () => {
   test('research.json from production includes _v3 section', async ({ request }) => {
-    let res;
-    try {
-      res = await request.fetch(
-        'https://projectsites.dev/api/sites/by-slug/vitos-mens-saln/research.json',
-        { timeout: 10000 },
-      );
-    } catch {
-      test.skip(true, 'External network unavailable');
-      return;
-    }
+    const res = await request.fetch(
+      'https://projectsites.dev/api/sites/by-slug/vitos-mens-saln/research.json',
+      { timeout: 10000 },
+    );
     expect(res.status()).toBe(200);
     const data = await res.json();
     // After redeployment, should include _v3 section

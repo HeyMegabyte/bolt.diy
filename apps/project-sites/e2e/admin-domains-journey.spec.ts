@@ -14,7 +14,7 @@ test.describe('Admin — Domains (authenticated journey)', () => {
     });
 
     // GET stubs
-    await page.route('**/api/sites/*/hostnames**', (route) =>
+    const hostnamesStub = (route: import('@playwright/test').Route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -24,7 +24,12 @@ test.describe('Admin — Domains (authenticated journey)', () => {
             { id: 'h2', hostname: 'custom.example.com', is_primary: false, verified: false },
           ],
         }),
-      }));
+      });
+    await page.route('**/api/sites/*/hostnames**', hostnamesStub);
+    // Mid-token ** can't cross '/' — twin covers /hostnames/:id/primary etc.
+    await page.route('**/api/sites/*/hostnames/**', hostnamesStub);
+    // glob-ok: query-suffix only — /api/domains/search has no subpaths
+    // (search-enrich is a sibling token-extension, no '/' crossed)
     await page.route('**/api/domains/search**', (route) =>
       route.fulfill({
         status: 200,

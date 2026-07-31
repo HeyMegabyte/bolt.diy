@@ -70,14 +70,18 @@ async function stubAuth(page: Page): Promise<void> {
   });
 
   // Stub media library to return one asset
-  await page.route('**/api/media**', async (route: Route) => {
+  const oneAssetStub = async (route: Route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: [MOCK_ASSET] }),
     });
-  });
+  };
+  await page.route('**/api/media**', oneAssetStub);
+  // Mid-token ** can't cross '/' — the library actually GETs
+  // /api/media/assets?… (a subpath); twin makes the stub intercept it.
+  await page.route('**/api/media/**', oneAssetStub);
 }
 
 /**

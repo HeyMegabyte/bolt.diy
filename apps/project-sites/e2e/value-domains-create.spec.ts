@@ -56,6 +56,7 @@ async function interceptMutations(page: Page): Promise<void> {
 }
 
 async function stubSearchEndpoints(page: Page): Promise<void> {
+  // glob-ok: query-suffix only — /api/search/businesses has no subpaths
   await page.route('**/api/search/businesses**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -69,6 +70,7 @@ async function stubSearchEndpoints(page: Page): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — /api/search/places has no subpaths
   await page.route('**/api/search/places**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -82,6 +84,7 @@ async function stubSearchEndpoints(page: Page): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — /api/sites/search has no subpaths
   await page.route('**/api/sites/search**', async (route) => {
     await route.fulfill({
       status: 200,

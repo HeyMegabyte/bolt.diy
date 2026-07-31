@@ -34,6 +34,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await signInAsTestUser(page);
 
     // GET stubs AFTER auth
+    // glob-ok: query-suffix only — /logs/tail is a leaf endpoint
     await page.route('**/api/sites/e2e-site-001/logs/tail**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -48,7 +49,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
       });
     });
 
-    await page.route('**/api/sites/e2e-site-001/snapshots**', (route) => {
+    const snapshotsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
@@ -60,9 +61,12 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
           ],
         }),
       });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/snapshots**', snapshotsStub);
+    // Mid-token ** can't cross '/' — twin covers /snapshots/:id/* subpaths
+    await page.route('**/api/sites/e2e-site-001/snapshots/**', snapshotsStub);
 
-    await page.route('**/api/sites/e2e-site-001/integrations**', (route) => {
+    const integrationsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
@@ -74,7 +78,10 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
           ],
         }),
       });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
 
     await page.route('**/api/sites/e2e-site-001**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
@@ -145,6 +152,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
 
     await signInAsTestUser(page);
 
+    // glob-ok: query-suffix only — /logs/tail is a leaf endpoint
     await page.route('**/api/sites/e2e-site-001/logs/tail**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -156,7 +164,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
       });
     });
 
-    await page.route('**/api/sites/e2e-site-001/snapshots**', (route) => {
+    const snapshotsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
@@ -167,16 +175,22 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
           ],
         }),
       });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/snapshots**', snapshotsStub);
+    // Mid-token ** can't cross '/' — twin covers /snapshots/:id/* subpaths
+    await page.route('**/api/sites/e2e-site-001/snapshots/**', snapshotsStub);
 
-    await page.route('**/api/sites/e2e-site-001/integrations**', (route) => {
+    const integrationsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ providers: [{ key: 'github', name: 'GitHub', connected: false, description: 'Connect' }] }),
       });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
 
     await page.route('**/api/sites/e2e-site-001**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
@@ -243,6 +257,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
 
     await signInAsTestUser(page);
 
+    // glob-ok: query-suffix only — /logs/tail is a leaf endpoint
     await page.route('**/api/sites/e2e-site-001/logs/tail**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -252,16 +267,19 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
       });
     });
 
-    await page.route('**/api/sites/e2e-site-001/snapshots**', (route) => {
+    const snapshotsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ snapshots: [] }),
       });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/snapshots**', snapshotsStub);
+    // Mid-token ** can't cross '/' — twin covers /snapshots/:id/* subpaths
+    await page.route('**/api/sites/e2e-site-001/snapshots/**', snapshotsStub);
 
-    await page.route('**/api/sites/e2e-site-001/integrations**', (route) => {
+    const integrationsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
@@ -274,7 +292,10 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
           ],
         }),
       });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
 
     await page.route('**/api/sites/e2e-site-001**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
@@ -331,6 +352,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
 
     await signInAsTestUser(page);
 
+    // glob-ok: query-suffix only — /logs/tail is a leaf endpoint
     await page.route('**/api/sites/e2e-site-001/logs/tail**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -339,14 +361,20 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
         body: JSON.stringify({ logs: [] }),
       });
     });
-    await page.route('**/api/sites/e2e-site-001/snapshots**', (route) => {
+    const snapshotsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ snapshots: [] }) });
-    });
-    await page.route('**/api/sites/e2e-site-001/integrations**', (route) => {
+    };
+    await page.route('**/api/sites/e2e-site-001/snapshots**', snapshotsStub);
+    // Mid-token ** can't cross '/' — twin covers /snapshots/:id/* subpaths
+    await page.route('**/api/sites/e2e-site-001/snapshots/**', snapshotsStub);
+    const integrationsStub = (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ providers: [] }) });
-    });
+    };
+    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
     await page.route('**/api/sites/e2e-site-001**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({

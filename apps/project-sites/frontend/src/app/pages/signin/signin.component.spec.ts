@@ -6,6 +6,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { TelemetryService } from '../../services/telemetry.service';
+import { AuthApiService } from '../auth/auth-api.service';
 
 /**
  * §1/P0 test-harness: wire the /signin UI to the secret-gated worker seam
@@ -24,6 +25,7 @@ describe('SigninComponent — test-login seam wiring (?test=1)', () => {
     getMode: () => string;
   };
   let toast: { error: jasmine.Spy };
+  let authApi: { getSession: jasmine.Spy };
 
   afterEach(() => TestBed.resetTestingModule());
 
@@ -31,7 +33,15 @@ describe('SigninComponent — test-login seam wiring (?test=1)', () => {
     return { snapshot: { queryParamMap: { get: (k: string) => params[k] ?? null } } };
   }
 
-  function render(params: Record<string, string | null>): ComponentFixture<SigninComponent> {
+  /** Flush the async ngOnInit Better Auth probe (microtasks) deterministically. */
+  function flushInit(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  function render(
+    params: Record<string, string | null>,
+    baSession?: { session?: { token?: string }; user?: { email?: string } },
+  ): ComponentFixture<SigninComponent> {
     api = {
       testLogin: jasmine
         .createSpy('testLogin')
@@ -49,6 +59,14 @@ describe('SigninComponent — test-login seam wiring (?test=1)', () => {
       getMode: () => 'build',
     };
     toast = { error: jasmine.createSpy('error') };
+    // Better Auth bridge default: NO cookie session → the legacy form renders.
+    authApi = {
+      getSession: jasmine
+        .createSpy('getSession')
+        .and.resolveTo(
+          baSession ? { ok: true, data: baSession } : { ok: false, error: 'No session' },
+        ),
+    };
     TestBed.configureTestingModule({
       imports: [SigninComponent],
       providers: [
@@ -57,6 +75,7 @@ describe('SigninComponent — test-login seam wiring (?test=1)', () => {
         { provide: AuthService, useValue: auth },
         { provide: ToastService, useValue: toast },
         { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: AuthApiService, useValue: authApi },
         { provide: ActivatedRoute, useValue: routeStub(params) },
       ],
     });
@@ -111,5 +130,25 @@ describe('SigninComponent — test-login seam wiring (?test=1)', () => {
     c.testSignIn();
     expect(c.inlineError()).toBe('Invalid test credentials.');
     expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('bridges a live Better Auth cookie session into a local session and redirects', async () => {
+    const fx = render(
+      { returnUrl: '/admin/sites' },
+      { session: { token: 'ba_tok_1' }, user: { email: 'brian@megabyte.space' } },
+    );
+    const nav = spyOn(TestBed.inject(Router), 'navigateByUrl');
+    await flushInit();
+    expect(authApi.getSession).toHaveBeenCalled();
+    expect(auth.setSession).toHaveBeenCalledWith('ba_tok_1', 'brian@megabyte.space');
+    expect(nav).toHaveBeenCalledWith('/admin/sites');
+    expect(fx.componentInstance).toBeTruthy();
+  });
+
+  it('leaves the form untouched when no Better Auth session exists', async () => {
+    render({});
+    await flushInit();
+    expect(authApi.getSession).toHaveBeenCalled();
+    expect(auth.setSession).not.toHaveBeenCalled();
   });
 });

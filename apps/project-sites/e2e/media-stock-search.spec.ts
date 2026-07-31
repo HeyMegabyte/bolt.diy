@@ -57,6 +57,7 @@ async function stubAuth(page: Page): Promise<void> {
 
 /** Returns stock search results with 3 candidate images. */
 async function stubStockResults(page: Page): Promise<void> {
+  // glob-ok: query-suffix only — /api/media/stock/search is a leaf endpoint
   await page.route('**/api/media/stock/search**', async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -74,6 +75,7 @@ async function stubStockResults(page: Page): Promise<void> {
 
 /** Returns 401 → frontend should show a "set API keys" empty state. */
 async function stubMissingApiKeys(page: Page): Promise<void> {
+  // glob-ok: query-suffix only — /api/media/stock/search is a leaf endpoint
   await page.route('**/api/media/stock/search**', async (route: Route) => {
     await route.fulfill({
       status: 401,
@@ -86,6 +88,7 @@ async function stubMissingApiKeys(page: Page): Promise<void> {
 /** Stub saving an asset from stock to library. */
 async function stubSaveToLibrary(page: Page): Promise<{ saved: string[] }> {
   const saved: string[] = [];
+  // glob-ok: query-suffix only — /api/media/stock/save is a leaf endpoint
   await page.route('**/api/media/stock/save**', async (route: Route) => {
     const body = await route.request().postDataJSON() as { id?: string };
     if (body.id) saved.push(body.id);

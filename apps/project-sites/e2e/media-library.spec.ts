@@ -70,21 +70,25 @@ async function stubAuth(page: Page): Promise<void> {
 
 /** Stubs GET media library with zero assets (empty state). */
 async function stubEmptyLibrary(page: Page): Promise<void> {
-  await page.route('**/api/media**', async (route: Route) => {
+  const emptyStub = async (route: Route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: [] }),
     });
-  });
+  };
+  await page.route('**/api/media**', emptyStub);
+  // Mid-token ** can't cross '/' — the real library calls are subpaths
+  // (/api/media/assets?…, /api/media/upload); twin actually intercepts them.
+  await page.route('**/api/media/**', emptyStub);
 }
 
 /** Stubs GET media library with one asset, then upload returns the new asset. */
 async function stubLibraryWithUpload(page: Page): Promise<{ uploads: Request[] }> {
   const uploads: Request[] = [];
 
-  await page.route('**/api/media**', async (route: Route) => {
+  const libraryStub = async (route: Route) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
@@ -104,7 +108,10 @@ async function stubLibraryWithUpload(page: Page): Promise<{ uploads: Request[] }
       return;
     }
     await route.fallback();
-  });
+  };
+  await page.route('**/api/media**', libraryStub);
+  // Mid-token ** can't cross '/' — twin covers /api/media/assets + /upload
+  await page.route('**/api/media/**', libraryStub);
 
   return { uploads };
 }

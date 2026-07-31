@@ -60,7 +60,7 @@ async function stubAuth(page: Page): Promise<void> {
 async function stubPodcastGenerate(page: Page): Promise<{ calls: string[] }> {
   const calls: string[] = [];
 
-  await page.route('**/api/media/podcast/generate**', async (route: Route) => {
+  const generateStub = async (route: Route) => {
     const body = await route.request().postDataJSON() as { segments?: unknown[] };
     calls.push(JSON.stringify(body));
     await route.fulfill({
@@ -75,14 +75,20 @@ async function stubPodcastGenerate(page: Page): Promise<{ calls: string[] }> {
         },
       }),
     });
-  });
+  };
+  // glob-ok: leaf endpoints (no deeper segments) registered as a PAIR — the
+  // REAL worker route is POST /api/media/generate/podcast (segment order
+  // reversed vs the legacy glob, which matches nothing on its own); mid-token
+  // ** can't cross '/'.
+  await page.route('**/api/media/podcast/generate**', generateStub);
+  await page.route('**/api/media/generate/podcast**', generateStub);
 
   return { calls };
 }
 
 /** Missing-key stub: returns 503. */
 async function stubPodcastMissingKey(page: Page): Promise<void> {
-  await page.route('**/api/media/podcast/generate**', async (route: Route) => {
+  const missingKeyStub = async (route: Route) => {
     await route.fulfill({
       status: 503,
       contentType: 'application/json',
@@ -90,7 +96,11 @@ async function stubPodcastMissingKey(page: Page): Promise<void> {
         error: { code: 'AI_GENERATION_ERROR', message: 'ELEVENLABS_API_KEY is not configured' },
       }),
     });
-  });
+  };
+  // glob-ok: leaf-endpoint pair — real route is /api/media/generate/podcast
+  // (see note above).
+  await page.route('**/api/media/podcast/generate**', missingKeyStub);
+  await page.route('**/api/media/generate/podcast**', missingKeyStub);
 }
 
 async function navigateToPodcastStudio(page: Page): Promise<void> {

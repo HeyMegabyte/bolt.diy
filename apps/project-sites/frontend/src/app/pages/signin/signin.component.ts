@@ -5,6 +5,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { TelemetryService } from '../../services/telemetry.service';
+import { AuthApiService } from '../auth/auth-api.service';
 import { emailError } from '../../utils/validators/email';
 
 @Component({
@@ -21,6 +22,7 @@ export class SigninComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private telemetry = inject(TelemetryService);
+  private authApi = inject(AuthApiService);
 
   panel = signal<'main' | 'email'>('main');
   email = '';
@@ -51,15 +53,30 @@ export class SigninComponent implements OnInit {
   private returnUrl = '/admin';
 
   /**
-   * Already-signed-in short-circuit. Landing on `/signin` with a live session
-   * used to render the full login form ("it's already signed in" — the user's
-   * exact complaint). Now we bounce straight to `returnUrl` (or the dashboard)
-   * so a signed-in user never sees a login screen they don't need.
+   * Already-signed-in short-circuit + Better Auth → ps_session bridge.
+   *
+   * Landing on `/signin` with a live local session used to render the full
+   * login form ("it's already signed in" — the user's exact complaint). Now we
+   * bounce straight to `returnUrl` (or the dashboard) so a signed-in user
+   * never sees a login screen they don't need.
+   *
+   * Bridge (ported from {@link pages/auth/sign-in.component.ts}): cookie-only
+   * Better Auth flows (magic-link email verify, OAuth callbackURL redirects)
+   * can land here with a live BA cookie but NO localStorage `ps_session` — the
+   * auth guard bounces them right back to this page. When no local session
+   * exists, probe `/api/auth/get-session`; if a BA session + user email are
+   * live, mint the local session and continue to the intended destination.
    */
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.returnUrl = this.sanitizeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
     this.testMode.set(this.route.snapshot.queryParamMap.get('test') === '1');
     if (this.auth.isLoggedIn()) {
+      this.router.navigateByUrl(this.returnUrl);
+      return;
+    }
+    const res = await this.authApi.getSession();
+    if (res.ok && res.data.user?.email) {
+      this.auth.setSession(res.data.session?.token ?? 'ba-cookie-session', res.data.user.email);
       this.router.navigateByUrl(this.returnUrl);
     }
   }

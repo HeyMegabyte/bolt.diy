@@ -23,6 +23,7 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
     await signInAsTestUser(page);
 
     // Stub sites endpoint AFTER auth
+    // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls through
     await page.route('**/api/sites**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -99,6 +100,7 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
 
     await signInAsTestUser(page);
 
+    // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls through
     await page.route('**/api/sites**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -163,6 +165,7 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
 
     await signInAsTestUser(page);
 
+    // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls through
     await page.route('**/api/sites**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -229,6 +232,7 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
 
     await signInAsTestUser(page);
 
+    // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls through
     await page.route('**/api/sites**', (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({

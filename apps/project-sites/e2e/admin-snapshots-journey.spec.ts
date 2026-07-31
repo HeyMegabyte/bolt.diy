@@ -78,6 +78,7 @@ test.describe('Admin — Snapshots journey', () => {
     });
 
     // Metrics endpoint (batch)
+    // glob-ok: query-suffix only — /snapshots/metrics is a leaf endpoint
     await page.route('**/api/sites/*/snapshots/metrics**', async (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
@@ -88,6 +89,7 @@ test.describe('Admin — Snapshots journey', () => {
     });
 
     // GitHub status
+    // glob-ok: query-suffix only — /github/status is a leaf endpoint
     await page.route('**/api/sites/*/github/status**', async (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({

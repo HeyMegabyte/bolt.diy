@@ -124,6 +124,7 @@ test.describe('Add-on purchases', () => {
 test.describe('Per-site metering — Stripe Meters API', () => {
   test('BILL-08 — Usage event posted to Stripe Meters', async ({ authedPage: page }) => {
     let meterPosted = false;
+    // glob-ok: query-suffix only — /billing/usage/report is a leaf endpoint
     await page.route('**/api/billing/usage/report**', async (route) => {
       meterPosted = true;
       await route.fulfill({
@@ -213,6 +214,7 @@ test.describe('Stripe webhooks', () => {
 
 test.describe('Stripe Connect live mode', () => {
   test('BILL-14 — Agency tier enables Connect payouts to child orgs', async ({ authedPage: page }) => {
+    // glob-ok: query-suffix only — a single flag key is a leaf endpoint
     await page.route('**/api/feature-flags/agency_tier**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -237,6 +239,7 @@ test.describe('Stripe Connect live mode', () => {
   });
 
   test('BILL-15 — Affiliate referrals trigger payout split', async ({ authedPage: page }) => {
+    // glob-ok: query-suffix only — a single flag key is a leaf endpoint
     await page.route('**/api/feature-flags/affiliate_program**', async (route) => {
       await route.fulfill({
         status: 200,

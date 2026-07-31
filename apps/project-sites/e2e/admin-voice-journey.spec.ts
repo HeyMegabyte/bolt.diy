@@ -109,6 +109,7 @@ async function signInAndStubVoice(page: Page): Promise<void> {
   });
 
   // CRITICAL: return one site so voice selectedSite() signal is populated
+  // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls to catch-all
   await page.route('**/api/sites**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -124,6 +125,8 @@ async function signInAndStubVoice(page: Page): Promise<void> {
   // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
   // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
   await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', (route: any) => route.continue());
 
   await page.route('**/api/analytics/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -142,7 +145,7 @@ async function signInAndStubVoice(page: Page): Promise<void> {
   });
 
   // Voice-specific API stubs
-  await page.route('**/api/voice/numbers**', async (route) => {
+  const numbersStub = async (route: any) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
@@ -153,16 +156,23 @@ async function signInAndStubVoice(page: Page): Promise<void> {
     } else {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
     }
-  });
+  };
+  await page.route('**/api/voice/numbers**', numbersStub);
+  // Mid-token ** can't cross '/' — twin covers /numbers/:id, /purchase, /search
+  await page.route('**/api/voice/numbers/**', numbersStub);
 
-  await page.route('**/api/voice/conversations**', async (route) => {
+  const conversationsStub = async (route: any) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: STUB_CONVERSATIONS }),
     });
-  });
+  };
+  await page.route('**/api/voice/conversations**', conversationsStub);
+  // Mid-token ** can't cross '/' — twin covers /conversations/:id + downloads
+  await page.route('**/api/voice/conversations/**', conversationsStub);
 
+  // glob-ok: query-suffix only — /api/voice/search has no deeper path segments
   await page.route('**/api/voice/search**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -175,6 +185,7 @@ async function signInAndStubVoice(page: Page): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — vanity-suggestions has no deeper path segments
   await page.route('**/api/voice/vanity-suggestions**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -183,6 +194,8 @@ async function signInAndStubVoice(page: Page): Promise<void> {
     });
   });
 
+  // glob-ok: query-suffix only — matches /agent-settings (token extension, no
+  // '/' crossed); there are no /api/voice/agent/... subpaths in the frontend
   await page.route('**/api/voice/agent**', async (route) => {
     const method = route.request().method();
     if (method === 'GET') {

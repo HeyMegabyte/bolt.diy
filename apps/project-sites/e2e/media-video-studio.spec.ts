@@ -58,7 +58,7 @@ async function stubAuth(page: Page): Promise<void> {
 async function stubVideoGenerate(page: Page, model: string = 'sora'): Promise<{ calls: string[] }> {
   const calls: string[] = [];
 
-  await page.route('**/api/media/video/generate**', async (route: Route) => {
+  const generateStub = async (route: Route) => {
     const body = await route.request().postDataJSON() as { prompt?: string; model?: string };
     calls.push(JSON.stringify(body));
     await route.fulfill({
@@ -74,7 +74,13 @@ async function stubVideoGenerate(page: Page, model: string = 'sora'): Promise<{ 
         },
       }),
     });
-  });
+  };
+  // glob-ok: leaf endpoints (no deeper segments) registered as a PAIR — the
+  // REAL worker route is POST /api/media/generate/video (segment order
+  // reversed vs the legacy glob, which matches nothing on its own); mid-token
+  // ** can't cross '/'.
+  await page.route('**/api/media/video/generate**', generateStub);
+  await page.route('**/api/media/generate/video**', generateStub);
 
   return { calls };
 }

@@ -1344,6 +1344,87 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Flag off → events are not dispatched to Dittofeed',
     ],
   },
+  log_explorer: {
+    checklist: [
+      'Worker tail-log search with free-text + level filtering',
+      'Cost-by-route breakdown surfaces the expensive endpoints',
+      'Explorer tab inside /admin/logs, gated via app-flag-gate-notice',
+      'Read-only over the existing log pipeline — no new write path',
+    ],
+    explanation:
+      'Log Explorer — searchable Worker tail logs with a cost-by-route breakdown inside /admin/logs. Turns raw structured log lines into an operator surface: filter by route, level, and free text, then rank routes by estimated request cost to spot the endpoints burning the budget. Read-only over the existing log pipeline; the flag only gates the Explorer tab, so disabling hides the UI without touching ingestion.',
+    smoke_test: [
+      'GET /api/feature-flags/log_explorer → enabled:true (stable, 100%)',
+      'UI: /admin/logs → Explorer tab renders search + results (no flag-gate notice)',
+      'Search a known route (e.g. /api/health) → matching tail lines + cost-by-route table',
+      'Flag off → the Explorer tab shows the flag-gate notice instead',
+    ],
+    e2e_tests: ['e2e/logs/logs-explorer.spec.ts'],
+  },
+  domain_stack_wizard: {
+    checklist: [
+      '7-tile progress board: DNS → SSL → email auth (SPF/DKIM/DMARC) → GSC',
+      'Per-tile live status with plain-English fix instructions',
+      'Lives at /admin/domains/:id/stack, gated via app-flag-gate-notice',
+      'Stack API routes 404 when the flag is off — existence never leaks',
+    ],
+    explanation:
+      'Domain Stack Wizard — a 7-tile progress board that walks a custom domain from raw registration to fully-armed production: DNS pointing, SSL issuance, SPF/DKIM/DMARC email auth, and Google Search Console verification. Each tile reports its live status and translates failures into plain-English next steps, replacing the "why is my domain broken" support loop with self-serve diagnosis at /admin/domains/:id/stack.',
+    smoke_test: [
+      'GET /api/feature-flags/domain_stack_wizard → enabled:true (stable, 100%)',
+      'UI: /admin/domains/:id/stack → 7 tiles render with per-step status',
+      'Flag off → POST /api/domains/:hostname/stack returns 404 (never 403)',
+    ],
+    e2e_tests: ['e2e/domain-stack/domain-stack.spec.ts'],
+  },
+  multimodal_copilot: {
+    checklist: [
+      'Per-site AI copilot console at /admin/sites/:id/copilot',
+      'Intent-distribution breakdown over captured visitor questions',
+      'Session list with per-conversation drill-in',
+      'Visitor widget ships as a standalone JS bundle on generated sites',
+    ],
+    explanation:
+      'Multimodal AI Site Copilot — the per-site copilot console at /admin/sites/:id/copilot. Owners see what visitors actually ask their site: an intent-distribution breakdown over captured copilot conversations plus a session list with drill-in. The visitor-facing widget ships as a standalone JS bundle on generated sites; this flag gates the admin console that reads those sessions, so disabling hides the console without breaking the widget.',
+    smoke_test: [
+      'GET /api/feature-flags/multimodal_copilot → enabled:true (stable, 100%)',
+      'UI: /admin/sites/:id/copilot → intent distribution + sessions render (no flag-gate notice)',
+      'Copilot widget JS bundle still serves on a published site regardless of the admin flag',
+    ],
+    e2e_tests: ['e2e/copilot/copilot.spec.ts'],
+  },
+  section_marketplace: {
+    checklist: [
+      'Browsable catalog of installable site sections (hero, FAQ, pricing, …)',
+      'Industry filter tailors the catalog (?industry=nonprofit etc.)',
+      'Gates the section picker in the editor surface',
+      'GET /api/section-marketplace returns 404 when the flag is off',
+    ],
+    explanation:
+      'Section Marketplace — a browsable catalog of installable site sections (hero, FAQ, pricing, testimonials, …) behind the section picker. Owners browse by industry and install a proven section into their site instead of prompting one from scratch; catalog rows carry preview metadata so the picker renders real thumbnails. The flag gates both the picker UI and GET /api/section-marketplace, which returns 404 (never 403) when off.',
+    smoke_test: [
+      'GET /api/feature-flags/section_marketplace → enabled:true (stable, 100%)',
+      'GET /api/section-marketplace?industry=nonprofit → section list for the industry',
+      'Flag off → GET /api/section-marketplace 404s and the picker hides',
+    ],
+    e2e_tests: ['e2e/marketplace/marketplace.spec.ts'],
+  },
+  site_dna_taste_graph: {
+    checklist: [
+      'Per-site taste-signal console at /admin/sites/:id/dna',
+      'Feedback history timeline of owner reactions to generated output',
+      'Preference bars aggregate signals into a durable taste profile',
+      "Profile steers future AI edits toward the owner's taste",
+    ],
+    explanation:
+      "Site DNA Taste Graph — the per-site taste-signal console at /admin/sites/:id/dna. Every owner reaction to generated output (likes, dislikes, edit patterns) accumulates into a feedback history plus aggregated preference bars: a durable taste profile for the site. Future AI edits read that profile so regeneration converges on the owner's taste instead of resetting to platform defaults. The flag gates the admin surface via app-flag-gate-notice.",
+    smoke_test: [
+      'GET /api/feature-flags/site_dna_taste_graph → enabled:true (stable, 100%)',
+      'UI: /admin/sites/:id/dna → feedback history + preference bars render (no flag-gate notice)',
+      'Flag off → the DNA admin tab shows the flag-gate notice instead',
+    ],
+    e2e_tests: ['e2e/site-dna/site-dna.spec.ts'],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

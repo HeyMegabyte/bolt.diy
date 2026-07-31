@@ -105,6 +105,7 @@ async function signInAndStubSocial(page: Page): Promise<void> {
   });
 
   // Return one site so selectedSite() is populated (social requires it)
+  // glob-ok: query-suffix only — sites LIST; /api/sites/:id/* falls to catch-all
   await page.route('**/api/sites**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -120,6 +121,8 @@ async function signInAndStubSocial(page: Page): Promise<void> {
   // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
   // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
   await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Mid-token ** can't cross '/' — twin covers /api/feature-flags/:key reads
+  await page.route('**/api/feature-flags/**', (route: any) => route.continue());
 
   await page.route('**/api/analytics/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -138,7 +141,7 @@ async function signInAndStubSocial(page: Page): Promise<void> {
   });
 
   // Social-specific API stubs
-  await page.route('**/api/social/accounts**', async (route) => {
+  const accountsStub = async (route: any) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
@@ -149,9 +152,12 @@ async function signInAndStubSocial(page: Page): Promise<void> {
     } else {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
     }
-  });
+  };
+  await page.route('**/api/social/accounts**', accountsStub);
+  // Mid-token ** can't cross '/' — twin covers /api/social/accounts/:id
+  await page.route('**/api/social/accounts/**', accountsStub);
 
-  await page.route('**/api/social/posts**', async (route) => {
+  const postsStub = async (route: any) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
@@ -166,7 +172,10 @@ async function signInAndStubSocial(page: Page): Promise<void> {
         body: JSON.stringify({ success: true, id: 'post-new-001' }),
       });
     }
-  });
+  };
+  await page.route('**/api/social/posts**', postsStub);
+  // Mid-token ** can't cross '/' — twin covers /posts/:id + /:id/publish-now
+  await page.route('**/api/social/posts/**', postsStub);
 
   await page.route('**/api/social/generate', async (route) => {
     await route.fulfill({

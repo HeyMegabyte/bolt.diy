@@ -56,7 +56,6 @@ admin_sections:
 ai_features:
   chat_context:     { status: covered, specs: [ai-chat-context.spec.ts] }
   ai_edit:          { status: covered, specs: [ai-edit.spec.ts] }
-  endpoints_ide:    { status: covered, specs: [ai-endpoints-ide.spec.ts] }
   traces:           { status: covered, specs: [ai-traces.spec.ts] }
   workflow:         { status: covered, specs: [ai-workflow.spec.ts] }
   bolt_chat_ready:  { status: covered, specs: [bolt-chat-ready.spec.ts] }

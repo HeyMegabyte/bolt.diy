@@ -172,11 +172,14 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
     // Fail-soft: a failed upload is skipped; the publish step uses the
     // original R2 URL as fallback.
     const platformMediaIds = await step.do('uploadMedia', RETRY_30S, async () => {
-      const accounts = await loadAccountsByIds(env, ctx.accountIds);
       const ids: Record<string, Record<string, string>> = {}; // accountId → { r2_key: platform_media_id }
+      // No media → nothing to upload. Skip the account load + publisher
+      // registry lookups entirely (they are only needed for real uploads).
+      if (mediaUrls.length === 0) return ids;
+      const accounts = await loadAccountsByIds(env, ctx.accountIds);
       for (const acc of accounts) {
         const pub = getPublisher(acc.platform as Platform);
-        if (!pub.uploadMedia || mediaUrls.length === 0) continue;
+        if (!pub.uploadMedia) continue;
         ids[acc.id] = {};
         for (const m of mediaUrls) {
           try {
