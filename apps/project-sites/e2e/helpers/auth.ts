@@ -98,11 +98,31 @@ async function _stubAdminApis(page: Page, email: string): Promise<void> {
     });
   });
 
+  // ONE site, never an empty list: the admin shell's router-outlet only
+  // renders a section when `state.selectedSite()` is truthy, and the
+  // `selectedSite` computed defaults to `sites[0]` (admin-state.service.ts:64).
+  // An empty sites stub = "No sites yet" empty state on EVERY admin route —
+  // no section component ever mounts, regardless of the URL.
   await page.route('**/api/sites**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: [], meta: { total: 0 } }),
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'e2e-site-001',
+            slug: 'e2e-test-site',
+            name: 'E2E Test Site',
+            business_name: 'E2E Test Site',
+            status: 'published',
+            org_id: 'e2e-test-org',
+            primary_hostname: 'e2e-test-site.projectsites.dev',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-07-01T00:00:00Z',
+          },
+        ],
+        meta: { total: 1 },
+      }),
     });
   });
 
