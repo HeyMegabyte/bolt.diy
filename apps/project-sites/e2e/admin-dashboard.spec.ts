@@ -5,6 +5,7 @@
  * has NO sysAdminGuard — only the authGuard.
  */
 import { test, expect } from '@playwright/test';
+import { checkA11y } from './helpers/a11y.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
