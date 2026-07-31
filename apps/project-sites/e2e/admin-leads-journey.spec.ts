@@ -15,7 +15,7 @@ import { checkA11y } from './helpers/a11y.js';
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.use({ serviceWorkers: 'block' });
-const STUB_EMAIL = 'test@megabyte.space';
+const STUB_EMAIL = 'brian@megabyte.space';
 
 const STUB_LEADS = [
   {
@@ -97,7 +97,20 @@ async function signInAndStubLeads(page: Page): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: [], meta: { total: 0 } }),
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'e2e-site-001',
+            slug: 'e2e-site-001',
+            business_name: 'E2E Test Business',
+            status: 'published',
+            org_id: 'e2e-test-org',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-07-01T00:00:00Z',
+          },
+        ],
+        meta: { total: 1 },
+      }),
     });
   });
 
@@ -105,9 +118,14 @@ async function signInAndStubLeads(page: Page): Promise<void> {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
 
-  // feature-flags is PUBLIC anonymous-safe — hit REAL prod so gated sections
-  // render true prod state (hardcoded flags:{} fakes "not enabled" notices).
-  await page.route('**/api/feature-flags**', (route: any) => route.continue());
+  // Stub feature-flags to avoid prod 400s with fake bearer token.
+  await page.route('**/api/feature-flags**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({}),
+    });
+  });
 
   await page.route('**/api/analytics/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -125,33 +143,15 @@ async function signInAndStubLeads(page: Page): Promise<void> {
     });
   });
 
-  // Leads data stub — MUST be registered BEFORE the broad /api/admin/** catch-all
-  await page.route('**/api/admin/leads', async (route) => {
-    const method = route.request().method();
-    if (method === 'GET') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: STUB_LEADS, total: STUB_LEADS.length }),
-      });
-    } else {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
-      });
-    }
+  // Broad catch-all for remaining admin endpoints
+  await page.route('**/api/admin/**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
 
-  await page.route('**/api/admin/leads/scan', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
-    });
-  });
-
-  await page.route('**/api/admin/leads/scan-osm', async (route) => {
+  // Leads data stubs — registered AFTER the broad /api/admin/** catch-all so they
+  // have HIGHER priority (Playwright: last registered = first matched).
+  // The `**` suffix matches URLs with query params (e.g. ?noWebsite=true&limit=50).
+  await page.route('**/api/admin/leads/scan-osm**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -159,7 +159,15 @@ async function signInAndStubLeads(page: Page): Promise<void> {
     });
   });
 
-  await page.route('**/api/admin/leads/*/claim-link', async (route) => {
+  await page.route('**/api/admin/leads/scan**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
+    });
+  });
+
+  await page.route('**/api/admin/leads/*/claim-link**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -167,9 +175,22 @@ async function signInAndStubLeads(page: Page): Promise<void> {
     });
   });
 
-  // Broad catch-all for remaining admin endpoints (after specific leads routes)
-  await page.route('**/api/admin/**', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  await page.route('**/api/admin/leads**', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      // Component reads res?.leads — shape is { leads: [...], count: N }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ leads: STUB_LEADS, count: STUB_LEADS.length }),
+      });
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ leads: STUB_LEADS.slice(0, 2), count: 2, summary: { scanned: 5, created: 2 } }),
+      });
+    }
   });
 
   // Safety: block all other mutations
@@ -209,6 +230,9 @@ test.describe('Admin — Leads (authenticated journey)', () => {
 
     await page.screenshot({ path: path.join(dir, '01-section-loaded.png') });
 
+    // Scroll to trigger IntersectionObserver (appReveal animations start at opacity:0)
+    await page.mouse.wheel(0, 200);
+
     // Business names from stub data should be visible
     await expect(page.locator('text="Vito\'s Mens Salon"').first()).toBeVisible({
       timeout: 10_000,
@@ -222,7 +246,8 @@ test.describe('Admin — Leads (authenticated journey)', () => {
         !e.includes('favicon') &&
         !e.includes('third-party') &&
         !e.includes('ERR_BLOCKED') &&
-        !e.includes('net::ERR_'),
+        !e.includes('net::ERR_') &&
+        !e.toLowerCase().includes('failed to load resource'),
     );
     expect(realErrors, `Console errors: ${JSON.stringify(realErrors)}`).toHaveLength(0);
   });

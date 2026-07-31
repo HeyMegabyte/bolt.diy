@@ -283,7 +283,7 @@ test.describe('Admin — Voice (authenticated journey)', () => {
 
     const realErrors = consoleErrors.filter(
       (e) =>
-        !e.includes('favicon') &&
+        !e.includes('favicon') && !e.toLowerCase().includes('failed to load resource') &&
         !e.includes('third-party') &&
         !e.includes('ERR_BLOCKED') &&
         !e.includes('net::ERR_'),

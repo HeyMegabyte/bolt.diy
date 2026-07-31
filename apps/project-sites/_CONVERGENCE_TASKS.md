@@ -92,12 +92,11 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 - [~] **Prod testMatch gaps** — journey suite + value-domain suites added via globs (Pass 3): `admin-*-journey`, `admin-dashboard`, `admin-feature-flags`, `value-domains-*`. Remaining: ~15 legacy dev-only specs (media-*, env-vars-*, modals, domain-management-*) still outside prod testMatch — triage next pass.
 - [ ] **Skip/fixme triage** — 135 `skip|fixme` hits across suite (~72% of 188 specs inactive). Triage each: re-enable+fix / delete obsolete / keep with dated TODO. Track count downward every pass.
 - [ ] **MCP .env export fix** — show defaults when empty, not error.
-- [ ] **Journey-suite failure queue (Pass 2 wave-2 findings — work top-down next pass):**
-  - Sections whose content locator never appears (verify flag-dark vs broken vs wrong selector, fix product or spec): leads (`app-admin-leads`), feature-flags (`app-admin-feature-flags`), apps (`apps-search-input`), docs (`docs-search`), system-services (`system-services` testid)
-  - 3 strict-mode selector violations + 3 signin-page selector mismatches in wave-2 specs
-  - Analytics KPI test needs a SITE SELECTED (`state.selectedSite()` starts null; no boot auto-select) — spec must drive the site switcher (`toggleSiteDropdown` → `role=option` click) after stubbing sites
-  - `/api/feature-flags` returns `{"flags":[{key,default_enabled,stage,…}]}` (ARRAY) — any stub using a boolean-map shape is wrong; specs now pass it through to real prod (public + anonymous-safe)
-  - Real axe `critical` findings from the first working a11y sweep → a11y backlog (advisory list in run logs)
+- [x] **Journey-suite failure queue — CLOSED Pass 3 (94/94 GREEN).** Root causes, for the record: (a) admin shell's router-outlet only mounts a section when `state.selectedSite()` is truthy, and the computed defaults to `sites[0]` — an EMPTY sites stub = "No sites yet" on every route (fixed in helpers/auth.ts + every spec: stub ONE site); (b) `**`-suffix required on every specific GET stub (query-string variants otherwise fall into the catch-all); (c) generic "Failed to load resource" console noise (Novu-remnant 400 + third-party 401s, no URL in text) leaked through case-sensitive filters — filtered suite-wide; (d) `appReveal` IntersectionObserver keeps content at opacity:0 until scroll — scroll-nudge in early tests; (e) wrong-button targeting on /signin (three submit-ish buttons; magic-link = `sign-in-magic-link`).
+- [ ] **EMAIL_RE parity drift (TOP product fix — 5 TDD-RED tests waiting):** `frontend/src/app/pages/auth/sign-in.component.ts` uses a local `EMAIL_RE` instead of shared `utils/validators/email.ts` — it ACCEPTS overlong (>254), unicode, emoji, and `<script>`-shaped emails the shared validator + backend reject. Swap to shared `emailError()`, redeploy frontend, then remove the 5 `test.fail()` markers in `value-domains-auth.spec.ts`.
+- [ ] **Novu remnant in admin shell** — a boot request 400s (notification-bell path per Pass-3 agent); ties to P5 "All Novu references removed → psnotify". Remove the call site, not just the console filter.
+- [ ] **Parallel-load flakes** — `admin-dashboard` shell test + `admin-docs` search test are order-sensitive at 8 workers (green ≤4). Stabilize with tighter waits next pass.
+- [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 
 ## P1 — Admin Sections Without Authenticated E2E
 
@@ -107,25 +106,25 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 - [x] Dashboard (`/admin`) — `admin-dashboard.spec.ts` GREEN (Pass 1)
 - [~] Editor (`/admin/editor`) — auth-gate only. Need: bolt.diy iframe loads → WebContainer boots → file tree populated
 - [~] Snapshots (`/admin/snapshots`) — auth-gate only. Need: list renders → create/restore/diff actions
-- [WIP] Analytics (`/admin/analytics`) — `admin-analytics-journey.spec.ts` (wave 2)
-- [WIP] Forms (`/admin/forms`) — `admin-forms-journey.spec.ts` (wave 2)
-- [WIP] Apps (`/admin/apps`) — `admin-apps-journey.spec.ts` (wave 2)
+- [x] Analytics (`/admin/analytics`) — `admin-analytics-journey.spec.ts` (GREEN Pass 3)
+- [x] Forms (`/admin/forms`) — `admin-forms-journey.spec.ts` (GREEN Pass 3)
+- [x] Apps (`/admin/apps`) — `admin-apps-journey.spec.ts` (GREEN Pass 3)
 - [~] Site Features (`/admin/site-features`) — auth-gate only
-- [WIP] Social (`/admin/social`) — `admin-social-journey.spec.ts` (wave 2)
-- [WIP] Voice (`/admin/voice`) — `admin-voice-journey.spec.ts` (wave 2)
+- [x] Social (`/admin/social`) — `admin-social-journey.spec.ts` (GREEN Pass 3)
+- [x] Voice (`/admin/voice`) — `admin-voice-journey.spec.ts` (GREEN Pass 3)
 - [~] Logs (`/admin/logs`) — flags fixed (Pass 1); need full journey for Audit Trail + Log Explorer tabs
-- [WIP] Feature Flags (`/admin/feature-flags`) — `admin-feature-flags.spec.ts` full journey + sysAdminGuard fix (wave 2)
-- [WIP] Leads (`/admin/leads`) — `admin-leads-journey.spec.ts` (wave 2)
-- [WIP] System Services (`/admin/system-services`) — `admin-system-services-journey.spec.ts` (wave 2; was ZERO-spec)
-- [WIP] Docs (`/admin/docs`) — `admin-docs-journey.spec.ts` (wave 2)
-- [WIP] Settings (`/admin/settings`) — `admin-settings-journey.spec.ts` (wave 2)
+- [x] Feature Flags (`/admin/feature-flags`) — `admin-feature-flags.spec.ts` full journey + sysAdminGuard fix (GREEN Pass 3)
+- [x] Leads (`/admin/leads`) — `admin-leads-journey.spec.ts` (GREEN Pass 3)
+- [x] System Services (`/admin/system-services`) — `admin-system-services-journey.spec.ts` (GREEN Pass 3; was ZERO-spec)
+- [x] Docs (`/admin/docs`) — `admin-docs-journey.spec.ts` (GREEN Pass 3)
+- [x] Settings (`/admin/settings`) — `admin-settings-journey.spec.ts` (GREEN Pass 3)
 
 ### Secondary Routes (10 items)
-- [WIP] Domains (`/admin/domains`) — `admin-domains-journey.spec.ts` (wave 2)
+- [x] Domains (`/admin/domains`) — `admin-domains-journey.spec.ts` (GREEN Pass 3)
 - [~] API Tokens (`/admin/api-tokens`) — auth-gate only (one-time reveal + auto-hide micro-features untested)
-- [WIP] Billing (`/admin/billing`) — `admin-billing-journey.spec.ts` (wave 2)
+- [x] Billing (`/admin/billing`) — `admin-billing-journey.spec.ts` (GREEN Pass 3)
 - [~] User Settings (`/admin/user`) — auth-gate only
-- [WIP] Team (`/admin/team`) — `admin-team-journey.spec.ts` (wave 2)
+- [x] Team (`/admin/team`) — `admin-team-journey.spec.ts` (GREEN Pass 3)
 - [~] Auth Security (`/admin/auth-security`) — auth-gate only
 - [~] Site Detail (`/admin/sites/:id`) — auth-gate only (tabs, SQL pagination, log-stream reconnect untested)
 - [~] Site Branches (`/admin/sites/:id/branches`) — stub component, zero spec
@@ -227,7 +226,7 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 
 ## P11 — E2E Infrastructure Fixes (Pass 2 audit, ranked)
 
-- [WIP] 1. sysAdminGuard bypass (wave 2 — see P0)
+- [x] 1. sysAdminGuard bypass (wave 2 — see P0)
 - [ ] 2. Screenshot assertions across suite (only 7/188 specs screenshot; wave-2 specs raise this; systematize via shared helper)
 - [ ] 3. axe in dev suite (only smoke-prod runs it locally; add to 20+ critical routes)
 - [ ] 4. prod testMatch gaps (see P0)
@@ -258,7 +257,7 @@ Tracked here so the loop never loses them; each graduates to its own P-section w
 | TSC errors | 0 | 0 |
 | Feature flags | 90 | 90 (all with e2e_tests + smoke_steps) |
 | E2E spec files (apps/project-sites) | 188 (≈53 active) | all active or deleted |
-| Authenticated journey specs | 14 files / 74 tests / 32 GREEN (Pass 2) | 41 admin routes, all green |
+| Authenticated journey specs | 15 files / 94 tests / **94 GREEN** (Pass 3; 5 = TDD-RED expected-fail on EMAIL_RE parity bug) | 41 admin routes, all green |
 | Skip/fixme hits | 135 | 0 |
 | Specs taking screenshots | 7 | every journey spec |
 | Specs running axe | 1 (dev) + prod accessibility.spec | every journey spec |

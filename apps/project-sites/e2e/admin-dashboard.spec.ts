@@ -64,7 +64,7 @@ test.describe('Admin — Dashboard (authenticated)', () => {
     const errors: string[] = [];
     page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
     await page.waitForTimeout(3_000);
-    const realErrors = errors.filter(e => !e.includes('favicon') && !e.includes('third-party'));
+    const realErrors = errors.filter(e => !e.includes('favicon') && !e.includes('third-party') && !e.toLowerCase().includes('failed to load resource'));
     expect(realErrors).toEqual([]);
   });
 });

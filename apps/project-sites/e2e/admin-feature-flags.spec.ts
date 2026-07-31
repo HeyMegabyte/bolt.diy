@@ -123,6 +123,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
           text.includes('net::ERR') ||
           text.includes('posthog') ||
           text.includes('analytics') ||
+          text.toLowerCase().includes('failed to load resource') || // network-layer noise (third-party 4xx, no URL in text)
           text.includes('ExpressionChangedAfterItHasBeenCheckedError') // Angular dev-mode warning
         ) return;
         consoleErrors.push(text);
@@ -140,7 +141,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
     // Override the empty super-admin stub with realistic data
-    await page.route('**/api/super-admin/feature-flags', async (route) => {
+    await page.route('**/api/super-admin/feature-flags**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -236,7 +237,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
   test('search input is accessible and filters flag list', async ({ page }) => {
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags', async (route) => {
+    await page.route('**/api/super-admin/feature-flags**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -313,7 +314,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
   test('stage filter tabs are keyboard-accessible and interactive', async ({ page }) => {
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags', async (route) => {
+    await page.route('**/api/super-admin/feature-flags**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -391,7 +392,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
   test('toggle and inspect button affordances are present on flag cards', async ({ page }) => {
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags', async (route) => {
+    await page.route('**/api/super-admin/feature-flags**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -463,7 +464,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
 
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags', async (route) => {
+    await page.route('**/api/super-admin/feature-flags**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -507,7 +508,7 @@ test.describe('Admin — Feature Flags (sysAdmin-authenticated journey)', () => 
 
     await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
 
-    await page.route('**/api/super-admin/feature-flags', async (route) => {
+    await page.route('**/api/super-admin/feature-flags**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

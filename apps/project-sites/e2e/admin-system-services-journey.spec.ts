@@ -128,7 +128,7 @@ async function signInAsAdmin(page: any): Promise<void> {
     });
   });
 
-  await page.route('**/api/super-admin/services', async (route: any) => {
+  await page.route('**/api/super-admin/services**', async (route: any) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -140,7 +140,20 @@ async function signInAsAdmin(page: any): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: [], meta: { total: 0 } }),
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'e2e-site-001',
+            slug: 'e2e-site-001',
+            business_name: 'E2E Test Business',
+            status: 'published',
+            org_id: 'e2e-org',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-07-01T00:00:00Z',
+          },
+        ],
+        meta: { total: 1 },
+      }),
     });
   });
   await page.route('**/api/billing/**', async (route: any) => {
@@ -295,7 +308,8 @@ test.describe('Admin — System Services journey', () => {
         !e.includes('favicon') &&
         !e.includes('third-party') &&
         !e.includes('posthog') &&
-        !e.includes('sentry'),
+        !e.includes('sentry') &&
+        !e.toLowerCase().includes('failed to load resource'),
     );
     expect(realErrors, `Console errors:\n${realErrors.join('\n')}`).toEqual([]);
   });

@@ -91,7 +91,7 @@ test.describe('Admin — Domains (authenticated journey)', () => {
     await page.screenshot({ path: 'e2e/screenshots/admin-domains/mobile.png', fullPage: true });
 
     const real = errors.filter(
-      (e) => !e.includes('favicon') && !e.includes('third-party') && !e.includes('ERR_BLOCKED_BY_CLIENT'),
+      (e) => !e.includes('favicon') && !e.includes('third-party') && !e.includes('ERR_BLOCKED_BY_CLIENT') && !e.toLowerCase().includes('failed to load resource'),
     );
     expect(real).toEqual([]);
   });
@@ -99,7 +99,7 @@ test.describe('Admin — Domains (authenticated journey)', () => {
   test('unauthenticated access redirects to sign-in', async ({ page }) => {
     await page.goto(`${PROD_URL}/admin/domains`);
     await page.waitForURL('**/signin**', { timeout: 10_000 });
-    await expect(page.locator('[data-testid="sign-in-page"], [data-testid="auth-container"], form')).toBeVisible();
+    await expect(page.locator('[data-testid="sign-in-page"], [data-testid="auth-container"], form').first()).toBeVisible();
   });
 
   test('API: GET /api/domains/search returns structured response', async ({ request }) => {

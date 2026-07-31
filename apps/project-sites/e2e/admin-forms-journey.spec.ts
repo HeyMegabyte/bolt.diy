@@ -211,16 +211,18 @@ test.describe('Admin — Forms journey (authenticated)', () => {
       fullPage: false,
     });
 
-    const realErrors = errors.filter(
-      (e) =>
-        !e.includes('favicon') &&
-        !e.includes('posthog') &&
-        !e.includes('sentry') &&
-        !e.includes('google') &&
-        !e.includes('net::ERR_BLOCKED_BY_CLIENT') &&
-        !e.includes('failed to load resource') &&
-        !e.includes('third-party'),
-    );
+    const realErrors = errors.filter((e) => {
+      const low = e.toLowerCase();
+      return (
+        !low.includes('favicon') &&
+        !low.includes('posthog') &&
+        !low.includes('sentry') &&
+        !low.includes('google') &&
+        !low.includes('net::err_blocked_by_client') &&
+        !low.includes('failed to load resource') &&
+        !low.includes('third-party')
+      );
+    });
     expect(realErrors).toEqual([]);
   });
 

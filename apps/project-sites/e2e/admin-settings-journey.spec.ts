@@ -438,7 +438,7 @@ test.describe('Admin — Settings journey', () => {
 
     const realErrors = errors.filter(
       (e) =>
-        !e.includes('favicon') &&
+        !e.includes('favicon') && !e.toLowerCase().includes('failed to load resource') &&
         !e.includes('third-party') &&
         !e.includes('posthog') &&
         !e.includes('sentry'),

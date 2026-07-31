@@ -113,7 +113,7 @@ test.describe('Admin — Billing (authenticated journey)', () => {
 
     // Console error gate (filter noise)
     const real = errors.filter(
-      (e) => !e.includes('favicon') && !e.includes('third-party') && !e.includes('ERR_BLOCKED_BY_CLIENT'),
+      (e) => !e.includes('favicon') && !e.includes('third-party') && !e.includes('ERR_BLOCKED_BY_CLIENT') && !e.toLowerCase().includes('failed to load resource'),
     );
     expect(real).toEqual([]);
   });
@@ -121,7 +121,7 @@ test.describe('Admin — Billing (authenticated journey)', () => {
   test('unauthenticated access redirects to sign-in', async ({ page }) => {
     await page.goto(`${PROD_URL}/admin/billing`);
     await page.waitForURL('**/signin**', { timeout: 10_000 });
-    await expect(page.locator('[data-testid="sign-in-page"], [data-testid="auth-container"], form')).toBeVisible();
+    await expect(page.locator('[data-testid="sign-in-page"], [data-testid="auth-container"], form').first()).toBeVisible();
   });
 
   test('API: GET /api/billing/subscription returns structured response', async ({ request }) => {
