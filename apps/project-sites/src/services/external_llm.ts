@@ -203,7 +203,7 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
 /** Default model IDs per provider — used when caller does not pass `model`. */
 const DEFAULT_MODELS: Record<'openai' | 'anthropic' | 'deepseek', string> = {
   openai: 'gpt-4o-2024-11-20',
-  anthropic: 'claude-sonnet-4-6',
+  anthropic: 'claude-fable-5',
   deepseek: 'deepseek-chat',
 };
 

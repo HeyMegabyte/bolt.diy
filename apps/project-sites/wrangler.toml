@@ -683,14 +683,7 @@ dataset = "projectsites_admin_v1"
 #[[env.production.durable_objects.bindings]]
 #name = "APP_RUNTIME_MORPHIC"
 #class_name = "MorphicContainer"
-#
-# n8n — n8n (n8nio/n8n:latest, port 5678, 512 MiB)
-#[[env.production.containers]]
-#class_name = "N8NContainer"
-#image = "n8nio/n8n:latest"
-#max_instances = 20
-#instance_type = "basic"
-#
+# n8n removed — ADR-0034 platform consolidation; CF Workflows v2 replaces it
 #[[env.production.durable_objects.bindings]]
 #name = "APP_RUNTIME_N8N"
 #class_name = "N8NContainer"
