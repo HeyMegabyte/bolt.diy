@@ -87,6 +87,10 @@ export const envConfigSchema = z
     RESEND_API_KEY: z.string().min(1).optional(),
     SENDGRID_API_KEY: z.string().min(1).optional(),
 
+    // E2E test seams (dark 404 in prod unless provisioned)
+    E2E_TEST_PASSWORD: z.string().min(1).optional(),
+    E2E_PEEK_SECRET: z.string().min(1).optional(),
+
     // Chatwoot
     CHATWOOT_API_URL: z.string().url().optional(),
     CHATWOOT_API_KEY: z.string().min(1).optional(),

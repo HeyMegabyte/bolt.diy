@@ -57,6 +57,15 @@ export interface Env {
    * `wrangler secret put E2E_TEST_PASSWORD`. See `authenticateTestLogin`.
    */
   E2E_TEST_PASSWORD?: string;
+  /**
+   * Secret arming the `GET /api/auth/magic-link/peek` test seam used by the
+   * Playwright suite (Pathway C real-auth round-trip in `e2e/helpers/auth.ts`).
+   * The peek endpoint returns 404 whenever this is UNSET, so the seam never
+   * exists in normal prod. When set, `POST /api/auth/magic-link` also stashes
+   * the plaintext token in KV (15-min TTL) so the suite can complete a real
+   * verification. Provision via `wrangler secret put E2E_PEEK_SECRET`.
+   */
+  E2E_PEEK_SECRET?: string;
 
   // ── R2 Object Storage ─────────────────────────────────────
   /** Static site output bucket (`sites/{slug}/{version}/`, `marketing/`). */

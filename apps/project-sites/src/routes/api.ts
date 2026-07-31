@@ -21,6 +21,7 @@
  * | POST   | `/api/auth/magic-link`            | Request a magic-link email (Resend → SendGrid fallback) |
  * | GET    | `/api/auth/magic-link/verify`     | Verify token via email click → 302 redirect to homepage with session token |
  * | POST   | `/api/auth/magic-link/verify`     | Verify token programmatically → JSON session response |
+ * | GET    | `/api/auth/magic-link/peek`       | E2E-only token peek — 404 dark unless `E2E_PEEK_SECRET` set |
  * | GET    | `/api/auth/google`                | Start Google OAuth flow (302 to Google consent) |
  * | GET    | `/api/auth/google/callback`       | Google OAuth callback → create/find user → 302 with session token |
  * | GET    | `/api/auth/me`                    | Read current session → user + org |
@@ -120,6 +121,9 @@ import {
   createMagicLinkSchema,
   verifyMagicLinkSchema,
   createHostnameSchema,
+  emailSchema,
+  sha256Hex,
+  timingSafeEqual,
   DOMAINS,
   badRequest,
   notFound,
@@ -246,6 +250,19 @@ api.post('/api/auth/magic-link', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const validated = createMagicLinkSchema.parse(body);
   const result = await authService.createMagicLink(c.env.DB, c.env, validated);
+
+  // E2E peek seam (dark unless `E2E_PEEK_SECRET` is provisioned): stash the
+  // plaintext token so `GET /api/auth/magic-link/peek` can hand it to the
+  // Playwright suite — D1 only ever stores the SHA-256 hash. Best-effort;
+  // a KV hiccup must never fail the real auth path.
+  if (c.env.E2E_PEEK_SECRET && c.env.CACHE_KV) {
+    await c.env.CACHE_KV.put(
+      `${E2E_MAGIC_LINK_STASH_PREFIX}${validated.email}`,
+      result.token,
+      { expirationTtl: E2E_MAGIC_LINK_STASH_TTL_SECONDS },
+    ).catch(() => {});
+  }
+
   posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'requested', validated.email);
 
   // Audit: magic link requested (no org_id yet since user may not exist)
@@ -473,6 +490,100 @@ api.post('/api/auth/test-login', async (c) => {
   return c.json({ data: result });
 });
 
+/** KV key prefix for the E2E plaintext magic-link stash (peek seam). */
+const E2E_MAGIC_LINK_STASH_PREFIX = 'e2e:magic-link:';
+/** Stash TTL — generous vs the suite's 30s poll window, tiny vs link expiry. */
+const E2E_MAGIC_LINK_STASH_TTL_SECONDS = 900;
+
+/** Peek query boundary — same lowercasing email rule as `createMagicLinkSchema`. */
+const magicLinkPeekQuerySchema = z.object({ email: emailSchema });
+
+/**
+ * E2E-only magic-link PEEK — lets the Playwright suite read the newest live
+ * magic-link token for an email so real-auth E2E (Pathway C in
+ * `e2e/helpers/auth.ts`) can complete a genuine sign-in round-trip.
+ *
+ * @route GET /api/auth/magic-link/peek
+ * @queryParam email  - Recipient email to peek (lowercased, exact match only).
+ * @queryParam secret - Must equal `env.E2E_PEEK_SECRET`.
+ *
+ * @remarks
+ * Secret-gated like `/api/auth/test-login`: whenever `E2E_PEEK_SECRET` is
+ * UNSET the route 404s dark — identical envelope to an unknown path, so the
+ * seam does not exist in normal prod (per `ai-agent-security`). A wrong
+ * secret returns the SAME 404, compared constant-time over equal-length
+ * SHA-256 digests, so neither existence nor secret length leaks. D1 stores
+ * only `token_hash`, so the plaintext comes from the KV stash written by
+ * `POST /api/auth/magic-link` while the seam is armed — and is returned ONLY
+ * when it hashes to the NEWEST unconsumed, unexpired `magic_links` row for
+ * that exact email (stale or consumed stashes can never leak). Read-only:
+ * the link is never marked used. Every authorized peek writes an
+ * `e2e.magic_link_peek` audit row.
+ *
+ * @returns `{ token: string | null }` — 200 with `null` when no live token.
+ * @throws 404 when the seam is disabled or the secret mismatches; 400
+ *   (ZodError → VALIDATION_ERROR) on a malformed email.
+ */
+api.get('/api/auth/magic-link/peek', async (c) => {
+  const expected = c.env.E2E_PEEK_SECRET;
+  // Guard (a): seam OFF — dark, indistinguishable from an unknown route.
+  if (!expected) {
+    throw notFound('Not found');
+  }
+
+  // Guard (b): constant-time-ish compare over equal-length digests; same
+  // 404 shape as seam-off so a probe learns nothing.
+  const supplied = c.req.query('secret') ?? '';
+  const secretOk = timingSafeEqual(await sha256Hex(supplied), await sha256Hex(expected));
+  if (!secretOk) {
+    throw notFound('Not found');
+  }
+
+  // Guard (c): Zod at the boundary — ZodError → 400 via errorHandler.
+  const { email } = magicLinkPeekQuerySchema.parse({ email: c.req.query('email') });
+
+  // (d) Newest unconsumed link for EXACTLY this email — read-only, never
+  // marks `used`, never returns another user's data.
+  const link = await dbQueryOne<{ token_hash: string; expires_at: string }>(
+    c.env.DB,
+    'SELECT token_hash, expires_at FROM magic_links WHERE email = ? AND used = 0 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
+    [email],
+  );
+
+  // Plaintext stash (KV) written by the request handler while armed. The
+  // hash cross-check pins it to the newest row.
+  const stashed = link
+    ? await c.env.CACHE_KV.get(`${E2E_MAGIC_LINK_STASH_PREFIX}${email}`)
+    : null;
+
+  let token: string | null = null;
+  if (
+    link &&
+    stashed &&
+    new Date(link.expires_at) >= new Date() &&
+    (await sha256Hex(stashed)) === link.token_hash
+  ) {
+    token = stashed;
+  }
+
+  // Audit every authorized peek — best-effort, same pattern as the
+  // magic-link request handler above.
+  auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: 'system',
+      actor_id: null,
+      action: 'e2e.magic_link_peek',
+      message: `E2E magic-link peek for '${email}' — token ${token ? 'returned' : 'absent'}`,
+      target_type: 'auth',
+      target_id: email,
+      metadata_json: { email, found: token !== null },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  return c.json({ token });
+});
+
 /**
  * Start the Google OAuth flow — generates state, persists it to D1
  * via `oauth_states`, and 302-redirects the browser to Google's
@@ -544,11 +655,29 @@ api.get('/api/auth/google/callback', async (c) => {
   const code = c.req.query('code');
   const state = c.req.query('state');
 
-  if (!code || !state) {
-    throw badRequest('Missing code or state parameter');
+  // Browser-navigated endpoint: every failure redirects to a FRIENDLY signin
+  // page instead of surfacing raw JSON (P0 fix, convergence Pass 6 — the old
+  // `throw badRequest(...)` rendered a bare JSON 400 in the user's browser
+  // when they canceled the Google consent screen).
+  const signinErrorRedirect = (reason: string): Response =>
+    c.redirect(`https://${DOMAINS.SITES_BASE}/signin?error=${encodeURIComponent(reason)}`, 302);
+
+  if (c.req.query('error')) {
+    // User canceled / Google denied (e.g. ?error=access_denied)
+    return signinErrorRedirect('google_denied');
   }
 
-  const result = await authService.handleGoogleOAuthCallback(c.env.DB, c.env, code, state);
+  if (!code || !state) {
+    return signinErrorRedirect('google_missing_params');
+  }
+
+  let result: Awaited<ReturnType<typeof authService.handleGoogleOAuthCallback>>;
+  try {
+    result = await authService.handleGoogleOAuthCallback(c.env.DB, c.env, code, state);
+  } catch {
+    // Invalid/expired/replayed state or token-exchange failure — friendly bounce.
+    return signinErrorRedirect('google_failed');
+  }
 
   const user = await authService.findOrCreateUser(c.env.DB, {
     email: result.email,

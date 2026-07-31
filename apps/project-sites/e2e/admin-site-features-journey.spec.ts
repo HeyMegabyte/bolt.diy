@@ -61,23 +61,22 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
     // Scroll-nudge to trigger appReveal (opacity:0 on mount)
     await page.mouse.wheel(0, 200);
 
+    // Heading + search toolbar are unconditional template — hard assertions.
     const heading = page.locator('[data-testid="sf-layer-heading"]');
-    if (await heading.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      await expect(heading).toBeVisible();
-    }
+    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('input[aria-label="Search site features"]')).toBeVisible();
 
-    const provisioning = page.locator('[data-testid="sf-provisioning"]');
-    if (await provisioning.isVisible({ timeout: 10_000 }).catch(() => false)) {
-      const cards = page.locator('[data-testid^="sf-card-"]');
-      const count = await cards.count();
-      expect(count).toBeGreaterThan(0);
-    }
+    // The grid always renders >0 rows: the live /api/site-features catalog, or
+    // the component's static read-only fallback when the route isn't serving
+    // JSON (enterFallbackMode). sf-provisioning is the degraded-only banner —
+    // deliberately not asserted either way.
+    const cards = page.locator('[data-testid^="sf-card-"]');
+    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+    expect(await cards.count()).toBeGreaterThan(0);
 
-    const filterCount = page.locator('[data-testid="sf-filter-count"]');
-    if (await filterCount.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      const txt = await filterCount.textContent();
-      expect(txt).toMatch(/\d/);
-    }
+    // sf-filter-count renders only while a search query is active
+    // (@if isFiltering()) — with no query typed it must be absent.
+    await expect(page.locator('[data-testid="sf-filter-count"]')).toBeHidden();
 
     await page.screenshot({ path: 'e2e/screenshots/admin-site-features/grid.png', fullPage: true });
     await checkA11y(page, 'admin-site-features-grid');
@@ -123,28 +122,26 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
     await page.mouse.wheel(0, 200);
 
-    const provisioning = page.locator('[data-testid="sf-provisioning"]');
-    if (await provisioning.isVisible({ timeout: 10_000 }).catch(() => false)) {
-      const cardsBefore = await page.locator('[data-testid^="sf-card-"]').count();
+    // Grid renders before filtering (live catalog or static fallback).
+    const cards = page.locator('[data-testid^="sf-card-"]');
+    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
 
-      const searchInput = page.locator('input[type="search"], input[placeholder*="search" i], input[placeholder*="filter" i]').first();
-      const searchVisible = await searchInput.isVisible({ timeout: 3_000 }).catch(() => false);
-      if (searchVisible && cardsBefore > 1) {
-        await searchInput.click();
-        await page.keyboard.type('zzz-no-match');
-        await page.waitForTimeout(400);
+    // Target the section's own search box by its aria-label — a bare
+    // input[type=search] .first() can grab the sidebar site-switcher search.
+    const searchInput = page.locator('input[aria-label="Search site features"]');
+    await expect(searchInput).toBeVisible();
+    await searchInput.click();
+    await page.keyboard.type('zzz-no-match');
 
-        const filterCount = page.locator('[data-testid="sf-filter-count"]');
-        if (await filterCount.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          const txt = await filterCount.textContent() ?? '';
-          expect(txt).toMatch(/^0\s/);
-        }
+    // isFiltering() flips true → the "0 of N" count chip must render.
+    const filterCount = page.locator('[data-testid="sf-filter-count"]');
+    await expect(filterCount).toBeVisible({ timeout: 5_000 });
+    expect((await filterCount.textContent()) ?? '').toMatch(/^0\s/);
 
-        await searchInput.click({ clickCount: 3 });
-        await page.keyboard.press('Delete');
-        await page.waitForTimeout(300);
-      }
-    }
+    // Clearing the query hides the chip again (deterministic wait, no sleeps).
+    await searchInput.click({ clickCount: 3 });
+    await page.keyboard.press('Delete');
+    await expect(filterCount).toBeHidden({ timeout: 5_000 });
 
     await page.screenshot({ path: 'e2e/screenshots/admin-site-features/search-filter.png' });
 
@@ -189,20 +186,25 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
     await page.mouse.wheel(0, 200);
 
-    // locked-gate: sf-locked on non-entitled cards
-    const lockedEl = page.locator('[data-testid="sf-locked"]').first();
-    if (await lockedEl.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      await expect(lockedEl).toBeVisible();
-      const lockedCta = page.locator('[data-testid="sf-locked-cta"]').first();
-      if (await lockedCta.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await expect(lockedCta).toBeVisible();
-      }
-    }
+    // Cards render, and every card shows EITHER a toggle (entitled) or the
+    // locked gate — the template @if/@else is exhaustive, so the union is a
+    // hard assertion even though which side wins is entitlement data.
+    const cards = page.locator('[data-testid^="sf-card-"]');
+    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator('[data-testid="sf-toggle"], [data-testid="sf-locked"]').first(),
+    ).toBeVisible({ timeout: 5_000 });
 
-    // entitled cards should show toggle switches
+    // Branch checks stay conditional (plan-dependent), but each branch's inner
+    // structure is asserted hard once that branch renders.
+    const lockedEl = page.locator('[data-testid="sf-locked"]').first();
+    if (await lockedEl.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      // sf-locked-cta is unconditional inside the locked block.
+      await expect(page.locator('[data-testid="sf-locked-cta"]').first()).toBeVisible();
+    }
     const toggle = page.locator('[data-testid="sf-toggle"]').first();
-    if (await toggle.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await expect(toggle).toBeVisible();
+    if (await toggle.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expect(toggle).toHaveAttribute('role', 'switch');
     }
 
     await page.screenshot({ path: 'e2e/screenshots/admin-site-features/locked-state.png' });
@@ -249,6 +251,9 @@ test.describe('Admin — Site Features (authenticated journey)', () => {
     await page.goto(`${PROD_URL}/admin/site-features`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
     await page.mouse.wheel(0, 200);
+
+    // Page must actually render before the overflow check means anything.
+    await expect(page.locator('[data-testid="sf-layer-heading"]')).toBeVisible({ timeout: 15_000 });
 
     // No horizontal overflow on 375px
     const bodyWidth = await page.evaluate(() => document.body.scrollWidth);

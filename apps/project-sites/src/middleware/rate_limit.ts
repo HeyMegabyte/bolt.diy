@@ -48,6 +48,14 @@ export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
     windowSeconds: 60,
     prefix: 'auth:magic-link-verify',
   },
+  {
+    // Test-only peek (dark 404 unless E2E_PEEK_SECRET set) — bounded anyway so
+    // a leaked secret can't be brute-forced against token rows at speed.
+    path: '/api/auth/magic-link/peek',
+    maxRequests: 30,
+    windowSeconds: 60,
+    prefix: 'auth:magic-link-peek',
+  },
   { path: '/api/auth/google', maxRequests: 20, windowSeconds: 60, prefix: 'auth:google' },
   {
     path: '/api/auth/google/callback',

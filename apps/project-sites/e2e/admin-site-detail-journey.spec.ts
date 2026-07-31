@@ -102,33 +102,27 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     // Scroll-nudge to trigger appReveal
     await page.mouse.wheel(0, 200);
 
-    // Site detail shell
+    // Site detail shell — always renders on this route.
     const detailShell = page.locator('[data-testid="site-detail"]');
-    if (await detailShell.isVisible({ timeout: 10_000 }).catch(() => false)) {
-      await expect(detailShell).toBeVisible();
-    }
+    await expect(detailShell).toBeVisible({ timeout: 15_000 });
 
-    // Site name in title (class-based: site-detail__title)
-    const title = page.locator('h1.site-detail__title, [data-testid="site-detail"] h1');
-    if (await title.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      const titleText = await title.textContent();
-      expect(titleText).toMatch(/E2E Test Site|e2e-site-001/);
-    }
+    // Site name in title. loadSite falls back to a slug-only record derived
+    // from the route id, so the regex matches even without the stubbed fetch.
+    const title = page.locator('h1.site-detail__title, [data-testid="site-detail"] h1').first();
+    await expect(title).toBeVisible({ timeout: 10_000 });
+    expect(await title.textContent()).toMatch(/E2E Test Site|e2e-site-001/);
 
-    // Tab strip: at least 2 of 4 tabs visible
+    // Tab strip: all four tabs are static template — assert each one hard.
+    // (id + data-testid now live on the same button; either arm matches it.)
     const tabLogs = page.locator('[id="sd-tab-logs"], [data-testid="sd-tab-logs"]');
     const tabSnapshots = page.locator('[id="sd-tab-snapshots"], [data-testid="sd-tab-snapshots"]');
     const tabSql = page.locator('[id="sd-tab-sql"], [data-testid="sd-tab-sql"]');
     const tabIntegrations = page.locator('[id="sd-tab-integrations"], [data-testid="sd-tab-integrations"]');
 
-    const visibleTabs = await Promise.all([
-      tabLogs.isVisible({ timeout: 8_000 }).catch(() => false),
-      tabSnapshots.isVisible({ timeout: 3_000 }).catch(() => false),
-      tabSql.isVisible({ timeout: 3_000 }).catch(() => false),
-      tabIntegrations.isVisible({ timeout: 3_000 }).catch(() => false),
-    ]);
-    const visibleCount = visibleTabs.filter(Boolean).length;
-    expect(visibleCount).toBeGreaterThanOrEqual(1);
+    await expect(tabLogs).toBeVisible({ timeout: 10_000 });
+    await expect(tabSnapshots).toBeVisible();
+    await expect(tabSql).toBeVisible();
+    await expect(tabIntegrations).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/shell.png', fullPage: true });
     await checkA11y(page, 'admin-site-detail-shell');
@@ -205,45 +199,31 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
     await page.mouse.wheel(0, 200);
 
-    // Default panel: logs
+    // Default panel: logs (the tab signal defaults to 'logs').
     const logsPanel = page.locator('[data-testid="site-logs-panel"]');
-    if (await logsPanel.isVisible({ timeout: 10_000 }).catch(() => false)) {
-      await expect(logsPanel).toBeVisible();
-    }
+    await expect(logsPanel).toBeVisible({ timeout: 15_000 });
 
-    // Click snapshots tab
+    // Click snapshots tab → snapshots panel replaces logs.
     const tabSnapshots = page.locator('[id="sd-tab-snapshots"], [data-testid="sd-tab-snapshots"]');
-    if (await tabSnapshots.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await tabSnapshots.click();
-      await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/snapshots-tab.png' });
+    await expect(tabSnapshots).toBeVisible({ timeout: 5_000 });
+    await tabSnapshots.click();
+    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/snapshots-tab.png' });
 
-      const snapshotsPanel = page.locator('[data-testid="site-snapshots-panel"]');
-      if (await snapshotsPanel.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await expect(snapshotsPanel).toBeVisible();
+    const snapshotsPanel = page.locator('[data-testid="site-snapshots-panel"]');
+    await expect(snapshotsPanel).toBeVisible({ timeout: 5_000 });
 
-        // Should show at least one snapshot row
-        const snapshotRow = page.locator('[data-testid="snapshot-row"]').first();
-        if (await snapshotRow.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          await expect(snapshotRow).toBeVisible();
-          const aiName = page.locator('[data-testid="snapshot-ai-name"]').first();
-          if (await aiName.isVisible({ timeout: 2_000 }).catch(() => false)) {
-            const nameText = await aiName.textContent();
-            expect(nameText).toBeTruthy();
-          }
-        }
-      }
+    // The stubbed /snapshots response has one row — it must render with its AI name.
+    const snapshotRow = page.locator('[data-testid="snapshot-row"]').first();
+    await expect(snapshotRow).toBeVisible({ timeout: 5_000 });
+    const aiName = page.locator('[data-testid="snapshot-ai-name"]').first();
+    await expect(aiName).toBeVisible();
+    expect(await aiName.textContent()).toBeTruthy();
 
-      // Switch back to logs — state should be preserved
-      const tabLogs = page.locator('[id="sd-tab-logs"], [data-testid="sd-tab-logs"]');
-      if (await tabLogs.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await tabLogs.click();
-        const logsPanelAgain = page.locator('[data-testid="site-logs-panel"]');
-        if (await logsPanelAgain.isVisible({ timeout: 5_000 }).catch(() => false)) {
-          await expect(logsPanelAgain).toBeVisible();
-        }
-        await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/back-to-logs.png' });
-      }
-    }
+    // Switch back to logs — panel state is preserved.
+    const tabLogs = page.locator('[id="sd-tab-logs"], [data-testid="sd-tab-logs"]');
+    await tabLogs.click();
+    await expect(page.locator('[data-testid="site-logs-panel"]')).toBeVisible({ timeout: 5_000 });
+    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/back-to-logs.png' });
 
     const real = errors.filter(
       (e) =>
@@ -318,26 +298,20 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await page.mouse.wheel(0, 200);
 
     const tabIntegrations = page.locator('[id="sd-tab-integrations"], [data-testid="sd-tab-integrations"]');
-    if (await tabIntegrations.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      await tabIntegrations.click();
-      await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/integrations-tab.png' });
+    await expect(tabIntegrations).toBeVisible({ timeout: 10_000 });
+    await tabIntegrations.click();
+    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/integrations-tab.png' });
 
-      const intPanel = page.locator('[data-testid="site-integrations-panel"]');
-      if (await intPanel.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await expect(intPanel).toBeVisible();
+    const intPanel = page.locator('[data-testid="site-integrations-panel"]');
+    await expect(intPanel).toBeVisible({ timeout: 5_000 });
 
-        // MCP provider list
-        const providerList = page.locator('[data-testid="mcp-provider-list"]');
-        if (await providerList.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          await expect(providerList).toBeVisible();
-          // At least one provider card
-          const providerCard = page.locator('[data-testid^="mcp-provider-card-"]').first();
-          if (await providerCard.isVisible({ timeout: 2_000 }).catch(() => false)) {
-            await expect(providerCard).toBeVisible();
-          }
-        }
-      }
-    }
+    // Provider list is an unconditional container inside the panel, and
+    // loadIntegrations falls back to DEFAULT_PROVIDERS on any failure — so at
+    // least one provider card always renders.
+    const providerList = page.locator('[data-testid="mcp-provider-list"]');
+    await expect(providerList).toBeVisible({ timeout: 5_000 });
+    const providerCard = page.locator('[data-testid^="mcp-provider-card-"]').first();
+    await expect(providerCard).toBeVisible({ timeout: 5_000 });
 
     const real = errors.filter(
       (e) =>
@@ -393,22 +367,15 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
     await page.mouse.wheel(0, 200);
 
+    // ?tab=sql is applied via queryParamMap → the SQL panel renders directly.
     const sqlPanel = page.locator('[data-testid="site-sql-panel"]');
-    if (await sqlPanel.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      await expect(sqlPanel).toBeVisible();
+    await expect(sqlPanel).toBeVisible({ timeout: 15_000 });
 
-      // SQL editor should be present
-      const sqlEditor = page.locator('[data-testid="sql-editor"]');
-      if (await sqlEditor.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await expect(sqlEditor).toBeVisible();
-      }
-
-      // Read-only pill or safe note
-      const readonlyPill = page.locator('[data-testid="sql-readonly-pill"], [data-testid="sql-safe-note"]').first();
-      if (await readonlyPill.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await expect(readonlyPill).toBeVisible();
-      }
-    }
+    // Editor + read-only affordances are static template inside the SQL panel.
+    const sqlEditor = page.locator('[data-testid="sql-editor"]');
+    await expect(sqlEditor).toBeVisible({ timeout: 5_000 });
+    const readonlyPill = page.locator('[data-testid="sql-readonly-pill"], [data-testid="sql-safe-note"]').first();
+    await expect(readonlyPill).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/sql-deeplink.png' });
 
