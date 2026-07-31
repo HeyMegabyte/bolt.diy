@@ -241,10 +241,7 @@ describe('GET /api/auth/magic-link/peek', () => {
 });
 
 describe('POST /api/auth/magic-link — E2E peek stash', () => {
-  const post = (
-    app: Hono<{ Bindings: Env; Variables: Variables }>,
-    env: Env,
-  ): Promise<Response> =>
+  const post = (app: Hono<{ Bindings: Env; Variables: Variables }>, env: Env): Promise<Response> =>
     app.request(
       '/api/auth/magic-link',
       {

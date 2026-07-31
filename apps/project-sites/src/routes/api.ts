@@ -256,11 +256,9 @@ api.post('/api/auth/magic-link', async (c) => {
   // Playwright suite — D1 only ever stores the SHA-256 hash. Best-effort;
   // a KV hiccup must never fail the real auth path.
   if (c.env.E2E_PEEK_SECRET && c.env.CACHE_KV) {
-    await c.env.CACHE_KV.put(
-      `${E2E_MAGIC_LINK_STASH_PREFIX}${validated.email}`,
-      result.token,
-      { expirationTtl: E2E_MAGIC_LINK_STASH_TTL_SECONDS },
-    ).catch(() => {});
+    await c.env.CACHE_KV.put(`${E2E_MAGIC_LINK_STASH_PREFIX}${validated.email}`, result.token, {
+      expirationTtl: E2E_MAGIC_LINK_STASH_TTL_SECONDS,
+    }).catch(() => {});
   }
 
   posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'requested', validated.email);
@@ -552,9 +550,7 @@ api.get('/api/auth/magic-link/peek', async (c) => {
 
   // Plaintext stash (KV) written by the request handler while armed. The
   // hash cross-check pins it to the newest row.
-  const stashed = link
-    ? await c.env.CACHE_KV.get(`${E2E_MAGIC_LINK_STASH_PREFIX}${email}`)
-    : null;
+  const stashed = link ? await c.env.CACHE_KV.get(`${E2E_MAGIC_LINK_STASH_PREFIX}${email}`) : null;
 
   let token: string | null = null;
   if (
