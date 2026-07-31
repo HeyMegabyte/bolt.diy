@@ -21,6 +21,7 @@
  * @see {@link ../src/durable_objects/collab_room.ts} — CollabRoomDO (inert)
  */
 
+import { resilientGet } from './helpers/api-request.js';
 import { test, expect } from '@playwright/test';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
@@ -36,7 +37,7 @@ const collabPath = (siteId: string): string =>
 
 test.describe('collab_editing gateway — production gating (inert feature)', () => {
   test('unauthenticated request is rejected with 401', async ({ request }) => {
-    const res = await request.get(collabPath(OWNED_SITE));
+    const res = await resilientGet(request, collabPath(OWNED_SITE));
     expect(res.status()).toBe(401);
   });
 
@@ -44,7 +45,7 @@ test.describe('collab_editing gateway — production gating (inert feature)', ()
     request,
   }) => {
     test.skip(!API_KEY, 'E2E_API_KEY not set — skipping authenticated assertion');
-    const res = await request.get(collabPath(OWNED_SITE), {
+    const res = await resilientGet(request, collabPath(OWNED_SITE), {
       headers: { Authorization: `Bearer ${API_KEY}` },
     });
     // Flag is OFF → 404 (never 403). The route never leaks feature existence.
@@ -53,7 +54,7 @@ test.describe('collab_editing gateway — production gating (inert feature)', ()
 
   test('authenticated request for an unowned site returns 404', async ({ request }) => {
     test.skip(!API_KEY, 'E2E_API_KEY not set — skipping authenticated assertion');
-    const res = await request.get(collabPath(UNOWNED_SITE), {
+    const res = await resilientGet(request, collabPath(UNOWNED_SITE), {
       headers: { Authorization: `Bearer ${API_KEY}` },
     });
     expect(res.status()).toBe(404);

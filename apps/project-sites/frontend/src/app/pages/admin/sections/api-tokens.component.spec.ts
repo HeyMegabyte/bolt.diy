@@ -52,6 +52,19 @@ describe('AdminApiTokensComponent (token CRUD)', () => {
     expect(c.flagDisabled()).toBe(false);
   });
 
+  it('a non-array data payload (stale-route fake-empty class) coerces to [] — TanStack never sees a non-array', () => {
+    // Regression: `res.data ?? []` passed a non-array `data` straight through
+    // and getCoreRowModel threw mid-render, blanking the section in the
+    // feature-journey walk. Array.isArray is the contract, not truthiness.
+    const { c } = make({
+      get: jasmine.createSpy('get').and.returnValue(of({ data: { html: '<!doctype html>' } })),
+    });
+    (c as unknown as { loadTokens(): void }).loadTokens();
+    expect(c.tokens()).toEqual([]);
+    expect(c.loading()).toBe(false);
+    expect(c.flagDisabled()).toBe(false);
+  });
+
   it('a 503 marks the feature flag-disabled (graceful) — not an error toast', () => {
     const { c, show } = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 503 }))) });
     (c as unknown as { loadTokens(): void }).loadTokens();

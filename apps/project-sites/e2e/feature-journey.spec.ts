@@ -12,6 +12,12 @@
  *        navigation-entry count flat) — verifies the View-Transition shell fix
  *      • the sticky topbar is still in the viewport
  *      • the section rendered *something* (not a blank crash)
+ *  - GUARD-REDIRECT TOLERANCE: a click that lands on a DIFFERENT /admin URL
+ *    than targeted is a route guard doing its job (sysAdminGuard bounces
+ *    non-operators to /admin/site-features; featureFlagGuard('native_editor')
+ *    chains /admin/editor-native → /admin/feature-flags → /admin/site-features
+ *    when the flag is dark). The contract for those routes is "no crash, no
+ *    full reload, shell intact at the DESTINATION" — never "URL equals target".
  *  - verifies the recent fixes explicitly: Preview tab removed, editor tabs =
  *    code/media/agents, topbar stays put on scroll.
  *
@@ -60,17 +66,10 @@ async function readProbe(page: Page): Promise<{ spa: number | null; navs: number
 
 test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
   test('browses every feature without a full reload, crash, or uncaught error', async ({ authedPage: page }) => {
-    // TDD-RED (product bug, board Pass-13): after ~10-12 SPA section visits
-    // the renderer PEGS solid — victim section varies per run (domains,
-    // api-tokens, …) so it is ACCUMULATION (leaked pollers/intervals piling
-    // up across section mounts), not any one section. Real users doing a
-    // long admin session freeze the tab. Repro traces: tr-fj3/7/9/10.
-    // Remove this marker when the leak is fixed and the full walk passes.
-    test.fail(true, 'accumulated section-poller leak pegs the renderer mid-walk');
     // The single-pass journey grew with every section the loop added — 180s
-  // was outgrown (timeout mid-browse under prod latency). Budget scales with
-  // the section count; revisit if it approaches 6 minutes again.
-  test.setTimeout(360_000);
+    // was outgrown (timeout mid-browse under prod latency). Budget scales with
+    // the section count; revisit if it approaches 6 minutes again.
+    test.setTimeout(360_000);
 
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
@@ -113,6 +112,15 @@ test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
       console.log(`[journey] → ${r.path}`);
       const before = await readProbe(page);
       const link = page.locator(`a[routerlink="${r.path}"], a[href="${r.path}"]`).first();
+      // "More tools" is a collapsed <details class="nav-more"> — its links
+      // exist in the DOM (so the walk harvests them) but are hidden until the
+      // disclosure opens; clicking hidden links silently no-ops and the walk
+      // then measures the PRIOR page (this faked the whole trailing-trio
+      // failure, incl. domains "redirecting" to settings). Same lesson as the
+      // mobile hamburger: open the real affordance first.
+      if (!(await link.isVisible().catch(() => false))) {
+        await page.locator('details.nav-more > summary').click({ timeout: 5_000 }).catch(() => {});
+      }
       // Explicit timeout: with no global actionTimeout a click on a pegged
       // page waits FOREVER — this was silently burning the whole budget
       // before the starve-detector could even fire.
@@ -130,16 +138,45 @@ test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
         console.log(`[journey] RENDERER PEGGED at ${r.path} after ${results.length} sections`);
         break;
       }
+      // Give the lazy section chunk a bounded window to PAINT before measuring.
+      // The topbar wait above resolves instantly (persistent shell), so
+      // measuring right after it raced the section chunk download under prod
+      // latency and mis-scored slow-mounting sections (api-tokens, super-admin)
+      // as `blank-main`. Locator-condition wait, never a sleep.
+      await page
+        .locator('main')
+        .filter({ hasText: /\S/ })
+        .first()
+        .waitFor({ state: 'attached', timeout: 10_000 })
+        .catch(() => {});
       const reloaded = after.spa === null || after.spa !== before.spa || after.navs > before.navs;
-      const topbar = await page.locator('.admin-topbar').isVisible().catch(() => false);
-      const sidebar = await page.locator('.admin-sidebar').isVisible().catch(() => false);
-      const mainText = (await page.locator('main').innerText().catch(() => '')).trim().length;
+      // Bounded WAITS, not instant isVisible: guard-gated routes (editor-native,
+      // super-admin) hop a multi-redirect chain (flag guard → feature-flags →
+      // sysAdmin guard → site-features), each hop hitting the live per-key
+      // flags endpoint — an instant check mid-chain mis-scored the shell as
+      // missing.
+      const topbar = await page.locator('.admin-topbar').waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false);
+      const sidebar = await page.locator('.admin-sidebar').waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false);
+      // `.first()` — a section that renders its own nested <main> would trip
+      // Playwright strict mode and fake a blank via the catch fallback.
+      const mainText = (await page.locator('main').first().innerText().catch(() => '')).trim().length;
+
+      // Guard-redirect detection (see module doc): landing on a different
+      // /admin path than targeted is tolerated — the contract stays "shell
+      // intact + content rendered at the destination".
+      const norm = (p: string): string => p.replace(/\/+$/, '') || '/';
+      const landedPath = norm(new URL(page.url()).pathname);
+      const guardRedirected = landedPath.startsWith('/admin') && landedPath !== norm(r.path);
 
       const ok = !reloaded && topbar && sidebar && mainText > 0;
       results.push({
         label: r.label,
         ok,
-        note: `${reloaded ? 'FULL-RELOAD ' : ''}${!topbar ? 'no-topbar ' : ''}${!sidebar ? 'no-sidebar ' : ''}${mainText === 0 ? 'blank-main' : ''}`.trim() || 'ok',
+        note: ok
+          ? guardRedirected
+            ? `guard-redirect→${landedPath}`
+            : 'ok'
+          : `${reloaded ? 'FULL-RELOAD ' : ''}${!topbar ? 'no-topbar ' : ''}${!sidebar ? 'no-sidebar ' : ''}${mainText === 0 ? 'blank-main ' : ''}${guardRedirected ? `guard-redirect→${landedPath}` : ''}`.trim(),
       });
 
       // Re-seed the probe if (only) the nav counter advanced harmlessly.

@@ -545,7 +545,12 @@ export class AdminApiTokensComponent {
       .get<{ data: ApiToken[] }>('/v1-tokens', undefined, { silent: true })
       .subscribe({
         next: (res) => {
-          this.tokens.set(res.data ?? []);
+          // Stale-route fake-empty guard: a non-array `data` (error envelope,
+          // SPA-shell HTML on a stale route, catch-all stub drift) must never
+          // reach the TanStack `data:` input — a non-array throws inside
+          // getCoreRowModel mid-render and blanks the whole section. The
+          // contract is Array.isArray, not truthiness.
+          this.tokens.set(Array.isArray(res?.data) ? res.data : []);
           this.loading.set(false);
           this.flagDisabled.set(false);
         },

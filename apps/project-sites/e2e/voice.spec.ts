@@ -1,3 +1,4 @@
+import { resilientGet } from './helpers/api-request.js';
 import { test, expect } from '@playwright/test';
 
 const PROD = process.env.PROD_URL ?? 'https://projectsites.dev';
@@ -31,17 +32,17 @@ test.describe('Voice + SMS Agent (prod)', () => {
   });
 
   test('public API: voice numbers search is mounted (auth-gated)', async ({ request }) => {
-    const r = await request.get(`${PROD}/api/voice/numbers/search?contains=ABOR`);
+    const r = await resilientGet(request, `${PROD}/api/voice/numbers/search?contains=ABOR`);
     expect(r.status()).toBe(401);
   });
 
   test('public API: vanity suggestions is mounted (auth-gated)', async ({ request }) => {
-    const r = await request.get(`${PROD}/api/voice/vanity-suggestions?siteId=test`);
+    const r = await resilientGet(request, `${PROD}/api/voice/vanity-suggestions?siteId=test`);
     expect(r.status()).toBe(401);
   });
 
   test('public API: health endpoint reachable', async ({ request }) => {
-    const r = await request.get(`${PROD}/health`);
+    const r = await resilientGet(request, `${PROD}/health`);
     expect(r.status()).toBe(200);
   });
 

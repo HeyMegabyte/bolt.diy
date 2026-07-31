@@ -1016,6 +1016,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Exceed the per-site quota → events past the cap are dropped (still 202)',
       'Disable the flag → the route 404s',
     ],
+    e2e_tests: ['e2e/observability_gateway.spec.ts'],
   },
   generative_ui_stream: {
     checklist: [
@@ -1094,6 +1095,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Two clients on the same site → a Y.Doc edit on client A appears on client B',
       'Disable the flag → GET /api/sites/:id/collab → 404; binding absent → 503; plain HTTP GET → 426',
     ],
+    e2e_tests: ['e2e/collab.spec.ts'],
   },
   social_publishing: {
     checklist: [

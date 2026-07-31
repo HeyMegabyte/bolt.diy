@@ -2238,15 +2238,24 @@ export class AdminSocialComponent implements OnInit {
     // THEN open the popup at the provider's authorize page.
     this.api
       .get<{ data?: { authorize_url?: string } }>(`/social/${pid}/connect`, { site_id: sid }, { silent: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
       next: (res: { data?: { authorize_url?: string } }) => {
         const authUrl = res?.data?.authorize_url;
         if (!authUrl) { this.toast.error(`Couldn't start ${this.defOf(pid)?.label} sign-in — try again.`); return; }
         const popup = window.open(authUrl, 'social-oauth', 'width=620,height=720,popup=yes');
         if (!popup) { this.toast.error('Popup blocked — allow popups and try again'); return; }
+        // Popup-closed poll, leak-proofed: stops on popup close, on component
+        // destroy (route nav mid-flow), or after a 10-min abandonment cap.
+        // Previously every Connect click left a 600ms interval running forever
+        // when the popup was abandoned — accumulating across attempts.
+        let capTimer = 0;
+        const stopPoll = (): void => { window.clearInterval(poll); window.clearTimeout(capTimer); };
         const poll = window.setInterval(() => {
-          if (popup.closed) { window.clearInterval(poll); this.loadAccounts(); }
+          if (popup.closed) { stopPoll(); this.loadAccounts(); }
         }, 600);
+        capTimer = window.setTimeout(stopPoll, 600_000);
+        this.destroyRef.onDestroy(stopPoll);
       },
       error: (err: { status?: number; error?: { error?: { code?: string; message?: string; deeplink?: string } } }) => {
         const e = err?.error?.error;

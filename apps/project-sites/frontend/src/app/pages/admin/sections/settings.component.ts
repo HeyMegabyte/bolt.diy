@@ -1,4 +1,5 @@
-import { Component, HostListener, inject, signal, type OnInit } from '@angular/core';
+import { Component, DestroyRef, HostListener, inject, signal, type OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { z } from 'zod';
 import { isValidEmail as isSharedValidEmail } from '../../../utils/validators/email';
 import { DatePipe, SlicePipe } from '@angular/common';
@@ -998,6 +999,7 @@ export class AdminSettingsComponent implements OnInit {
   private confirmSvc = inject(ConfirmService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   tab = signal<Tab>('general');
   /** Static tab list exposed to the template (Cmd-K palette handles search now). */
@@ -1530,6 +1532,7 @@ export class AdminSettingsComponent implements OnInit {
         { site_id: s.id, return_url: '/admin/settings#mcp' },
         { silent: true },
       )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
           const authUrl = res?.data?.authorize_url;
@@ -1566,6 +1569,13 @@ export class AdminSettingsComponent implements OnInit {
             window.setTimeout(() => {
               if (!settled) { settled = true; window.clearInterval(interval); window.removeEventListener('message', onMessage); }
             }, 600000);
+            // Route-nav teardown: same SILENT cleanup as abandonment (no
+            // loadConnections on a destroyed component). Safe to register here
+            // because takeUntilDestroyed above guarantees this `next` ran
+            // before the component was destroyed.
+            this.destroyRef.onDestroy(() => {
+              if (!settled) { settled = true; window.clearInterval(interval); window.removeEventListener('message', onMessage); }
+            });
             return;
           }
           // Adapter has no OAuth → inline paste-key form.

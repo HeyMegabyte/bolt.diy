@@ -1,3 +1,4 @@
+import { resilientGet } from './helpers/api-request.js';
 import { test, expect } from '@playwright/test';
 
 /**
@@ -11,7 +12,7 @@ const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('Health Check', () => {
   test('returns healthy status', async ({ request }) => {
-    const res = await request.get('/health');
+    const res = await resilientGet(request, '/health');
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty('status');
@@ -22,20 +23,20 @@ test.describe('Health Check', () => {
   });
 
   test('includes dependency checks', async ({ request }) => {
-    const res = await request.get('/health');
+    const res = await resilientGet(request, '/health');
     const body = await res.json();
     expect(body).toHaveProperty('checks');
   });
 
   test('returns valid ISO timestamp', async ({ request }) => {
-    const res = await request.get('/health');
+    const res = await resilientGet(request, '/health');
     const body = await res.json();
     expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
   });
 
   test('responds within 5 seconds', async ({ request }) => {
     const start = Date.now();
-    await request.get('/health');
+    await resilientGet(request, '/health');
     expect(Date.now() - start).toBeLessThan(5000);
   });
 });
@@ -46,7 +47,7 @@ test.describe('Marketing Site', () => {
     // public/index.html) was deleted — `/` now serves the Angular shell from
     // R2 via the worker. Request-level on purpose; absolute URL because the
     // local e2e mock server has no SPA shell to serve.
-    const res = await request.get(`${PROD_URL}/`);
+    const res = await resilientGet(request, `${PROD_URL}/`);
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('text/html');
     const html = await res.text();
@@ -57,12 +58,12 @@ test.describe('Marketing Site', () => {
 
 test.describe('API Auth Gates', () => {
   test('returns 401/403 for unauthenticated /api/sites', async ({ request }) => {
-    const res = await request.get('/api/sites');
+    const res = await resilientGet(request, '/api/sites');
     expect([401, 403]).toContain(res.status());
   });
 
   test('returns 401/403 for unauthenticated /api/billing/subscription', async ({ request }) => {
-    const res = await request.get('/api/billing/subscription');
+    const res = await resilientGet(request, '/api/billing/subscription');
     expect([401, 403]).toContain(res.status());
   });
 
@@ -71,26 +72,26 @@ test.describe('API Auth Gates', () => {
     // The API soft-404 guard must answer with machine-readable JSON, never
     // the SPA shell (which this asserted-as-401 test silently tolerated for
     // as long as the suite was skipped).
-    const res = await request.get('/api/hostnames');
+    const res = await resilientGet(request, '/api/hostnames');
     expect(res.status()).toBe(404);
     expect(res.headers()['content-type'] ?? '').toContain('application/json');
   });
 
   test('returns 401/403 for unauthenticated /api/audit-logs', async ({ request }) => {
-    const res = await request.get('/api/audit-logs');
+    const res = await resilientGet(request, '/api/audit-logs');
     expect([401, 403]).toContain(res.status());
   });
 });
 
 test.describe('Request Tracing', () => {
   test('returns x-request-id header', async ({ request }) => {
-    const res = await request.get('/health');
+    const res = await resilientGet(request, '/health');
     expect(res.headers()).toHaveProperty('x-request-id');
   });
 
   test('propagates provided x-request-id', async ({ request }) => {
     const testId = `e2e-test-${Date.now()}`;
-    const res = await request.get('/health', {
+    const res = await resilientGet(request, '/health', {
       headers: { 'x-request-id': testId },
     });
     expect(res.headers()['x-request-id']).toBe(testId);
@@ -99,7 +100,7 @@ test.describe('Request Tracing', () => {
 
 test.describe('CORS', () => {
   test('includes request-id for allowed origin', async ({ request }) => {
-    const res = await request.get('/health', {
+    const res = await resilientGet(request, '/health', {
       headers: { Origin: 'https://projectsites.dev' },
     });
     expect(res.headers()).toHaveProperty('x-request-id');
@@ -111,7 +112,7 @@ test.describe('Error Handling', () => {
     // Soft-404 guard (worker commit 76249c96): every unmatched /api/* path is
     // a machine-readable JSON 404 — never the SPA shell, never a bare 401.
     // The local mock server implements the same contract.
-    const res = await request.get('/api/nonexistent-route-xyz');
+    const res = await resilientGet(request, '/api/nonexistent-route-xyz');
     expect(res.status()).toBe(404);
     expect(res.headers()['content-type'] ?? '').toContain('application/json');
     const body = await res.json();

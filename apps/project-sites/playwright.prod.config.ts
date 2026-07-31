@@ -50,6 +50,13 @@ export default defineConfig({
     // emails per run — run manually with E2E_PEEK_SECRET + --workers=1 only.
     'admin-user-settings-journey.spec.ts', // /admin/user profile + display-name value domains (settings-security wave; also matched by the admin-*-journey glob)
     'admin-auth-security-journey.spec.ts', // /admin/auth-security sessions + revoke + 2FA entry (settings-security wave; also matched by the admin-*-journey glob)
+    'admin/review-links.spec.ts',          // ANCHORED subdir path (→ '**/admin/review-links.spec.ts') — Share-link dialog journey, modernized from the removed /admin/review-links page (stale-7 triage 2026-07-31). The other 6 stale e2e/admin twins (bulk-ops, recipes, ai-chat-extras, email, seo, mcp) were DELETED: surfaces removed or relocated into Settings tabs already covered by admin-settings-journey + ai-chat-context.
+    // Flag-verification suites (site_analytics, pwa_manifest_full,
+    // site_mcp_server, pseo_matrix_v2, unified_inbox, email_deliverability
+    // _wizard, outbound_webhooks, site_video_gen) are NOT wired yet: their 9
+    // evidence specs failed 33/55 live on 2026-07-31 (stale vs current
+    // product — never previously executed). Modernize per Pass-14 queue,
+    // wire back one-by-one as each goes green, THEN bump its flag to beta.
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,

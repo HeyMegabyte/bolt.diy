@@ -1,4 +1,4 @@
-import { Component, HostListener, computed, inject, signal, type OnInit } from '@angular/core';
+import { Component, HostListener, computed, inject, signal, type OnDestroy, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -1318,7 +1318,7 @@ interface GhStatus {
     }
   `],
 })
-export class AdminSnapshotsComponent implements OnInit {
+export class AdminSnapshotsComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
@@ -1558,6 +1558,16 @@ export class AdminSnapshotsComponent implements OnInit {
       this.loadSnapshots(site.id);
       this.loadGhStatus(site.id);
     }
+  }
+
+  /**
+   * Lifecycle: stop every in-flight capture poll. Each quality scan runs a 3s
+   * `setInterval` for up to 90s — without this teardown the intervals (and
+   * their API requests) outlive route navigation and accumulate across visits.
+   */
+  ngOnDestroy(): void {
+    for (const handle of this.capturePollHandles.values()) clearInterval(handle);
+    this.capturePollHandles.clear();
   }
 
   /**

@@ -47,6 +47,7 @@ import {
   inject,
   signal,
   ViewChild,
+  type OnDestroy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -1109,13 +1110,16 @@ const LOW_BALANCE_CENTS = 500;
     </div>
   `,
 })
-export class DomainPickerComponent {
+export class DomainPickerComponent implements OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private billing = inject(BillingService);
   private telemetry = inject(TelemetryService);
   private toast = inject(ToastService);
   private router = inject(Router);
+
+  /** Clears the in-flight wallet-checkout popup poll + listener, if any. Set by startWalletViaCheckout. */
+  private walletPopupCleanup: (() => void) | null = null;
 
   @ViewChild('trigger', { static: false }) trigger?: ElementRef<HTMLButtonElement>;
   @ViewChild('searchInput', { static: false }) searchInput?: ElementRef<HTMLInputElement>;
@@ -1260,6 +1264,18 @@ export class DomainPickerComponent {
         this.refreshHostnames(site.id);
       }
     });
+  }
+
+  /**
+   * Lifecycle: release long-lived handles on route nav. `close()` normally
+   * pairs `billing.stop()` with `openPanel()`'s `billing.start()` — but a
+   * destroy while the panel is open would leave the ref-counted 60s wallet
+   * poll running forever. Also stops any in-flight checkout-popup poll.
+   */
+  ngOnDestroy(): void {
+    if (this.open()) this.billing.stop();
+    this.walletPopupCleanup?.();
+    this.walletPopupCleanup = null;
   }
 
   // ---------- Panel lifecycle ----------
@@ -1725,9 +1741,19 @@ export class DomainPickerComponent {
         return false;
       }
       return await new Promise<boolean>((resolve) => {
+        // stop() tears down ALL popup-flow handles: previously the success
+        // (message) path never cleared `closedPoll`, so it kept ticking until
+        // the popup was manually closed — and a component destroy mid-checkout
+        // leaked it entirely. ngOnDestroy invokes `walletPopupCleanup`.
+        const stop = (): void => {
+          clearInterval(closedPoll);
+          window.clearTimeout(capTimer);
+          window.removeEventListener('message', handler);
+          if (this.walletPopupCleanup === stop) this.walletPopupCleanup = null;
+        };
         const handler = (e: MessageEvent) => {
           if (typeof e.data === 'string' && e.data === 'stripe-checkout-complete') {
-            window.removeEventListener('message', handler);
+            stop();
             void this.billing.refreshWallet();
             this.telemetry.track('wallet.subscription_started', {});
             resolve(true);
@@ -1736,12 +1762,14 @@ export class DomainPickerComponent {
         window.addEventListener('message', handler);
         const closedPoll = setInterval(() => {
           if (popup.closed) {
-            clearInterval(closedPoll);
-            window.removeEventListener('message', handler);
+            stop();
             void this.billing.refreshWallet();
             resolve(this.wallet().has_wallet);
           }
         }, 600);
+        // Abandonment cap: popup left open >10 min → stop polling, resolve current state.
+        const capTimer = window.setTimeout(() => { stop(); resolve(this.wallet().has_wallet); }, 600_000);
+        this.walletPopupCleanup = stop;
       });
     } catch (err) {
       console.warn('domain-picker startWalletViaCheckout failed', err);
