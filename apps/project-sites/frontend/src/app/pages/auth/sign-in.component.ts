@@ -2,6 +2,7 @@ import { Component, signal, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthApiService } from './auth-api.service';
+import { isValidEmail } from '../../utils/validators/email';
 
 /**
  * Open-redirect-safe post-sign-in destination. Only a same-origin absolute path
@@ -201,9 +202,11 @@ export class SignInComponent {
   readonly magicSent = signal(false);
   readonly error = signal<string | null>(null);
 
-  private static readonly EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  readonly emailValid = computed(() => SignInComponent.EMAIL_RE.test(this.email().trim()));
+  // Shared validator (utils/validators/email.ts) — mirrors the backend
+  // emailSchema (254-char cap, ASCII pattern). A local EMAIL_RE here caused
+  // FE/BE parity drift: overlong/unicode/<script>-shaped emails were accepted
+  // client-side and rejected server-side (caught by value-domains-auth E2E).
+  readonly emailValid = computed(() => isValidEmail(this.email()));
   readonly passwordValid = computed(() => this.password().length > 0);
   readonly canSubmit = computed(() => this.emailValid() && this.passwordValid());
   readonly showEmailError = computed(() => this.touched() && !this.emailValid());

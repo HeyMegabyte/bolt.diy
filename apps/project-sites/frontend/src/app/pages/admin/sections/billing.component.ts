@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, type OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { isValidEmail } from '../../../utils/validators/email';
 import { DatePipe, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
@@ -2055,8 +2056,8 @@ export class AdminBillingComponent implements OnInit {
   alertEmailError(): string | null {
     const raw = (this.alertDraft.notify_email ?? '').trim();
     if (raw.length === 0) return null;
-    // Lightweight RFC-5322 sanity check — full validation happens server-side.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return 'Enter a valid email address.';
+    // SSOT validator — a local regex here caused FE/BE parity drift (see sign-in).
+    if (!isValidEmail(raw)) return 'Enter a valid email address.';
     return null;
   }
   canSaveAlert(): boolean {

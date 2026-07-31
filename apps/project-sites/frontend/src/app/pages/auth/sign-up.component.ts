@@ -2,6 +2,7 @@ import { Component, signal, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthApiService } from './auth-api.service';
+import { isValidEmail } from '../../utils/validators/email';
 
 /**
  * Better Auth sign-up surface — name + email + password registration.
@@ -192,10 +193,9 @@ export class SignUpComponent {
   readonly done = signal(false);
   readonly error = signal<string | null>(null);
 
-  private static readonly EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   readonly nameValid = computed(() => this.name().trim().length > 0);
-  readonly emailValid = computed(() => SignUpComponent.EMAIL_RE.test(this.email().trim()));
+  // Shared validator — see sign-in.component.ts; local EMAIL_RE = parity drift.
+  readonly emailValid = computed(() => isValidEmail(this.email()));
   readonly passwordValid = computed(() => this.password().length >= 8);
   readonly canSubmit = computed(
     () => this.nameValid() && this.emailValid() && this.passwordValid(),

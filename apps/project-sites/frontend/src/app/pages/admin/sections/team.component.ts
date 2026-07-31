@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { isValidEmail } from '../../../utils/validators/email';
 import {
   OrgApiService,
   type FullOrganization,
@@ -214,7 +215,6 @@ export class TeamComponent {
 
   /** Default seat cap when entitlements don't surface one. */
   private static readonly DEFAULT_SEAT_LIMIT = 10;
-  private static readonly EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -232,7 +232,8 @@ export class TeamComponent {
   /** Ids (member key / invitation id) with an in-flight mutation. */
   private readonly busyIds = signal<ReadonlySet<string>>(new Set());
 
-  readonly emailValid = computed(() => TeamComponent.EMAIL_RE.test(this.inviteEmail().trim()));
+  // Shared validator — local EMAIL_RE caused FE/BE parity drift (see sign-in).
+  readonly emailValid = computed(() => isValidEmail(this.inviteEmail()));
   readonly showEmailError = computed(() => this.emailTouched() && !this.emailValid());
   /** Seats = active members + outstanding invitations (each holds a seat). */
   readonly seatsUsed = computed(() => this.members().length + this.invitations().length);

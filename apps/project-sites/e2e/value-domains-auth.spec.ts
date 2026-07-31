@@ -277,12 +277,6 @@ test.describe('signin /signin — magic-link email field value domains', () => {
 
   // ── (5) overlong — 320+ chars ────────────────────────────────────────────
   test('(5) overlong — 320-char email → rejected with length error', async ({ page }) => {
-    // TDD-RED product bug (FE/BE parity drift): pages/auth/sign-in.component.ts
-    // uses its OWN EMAIL_RE instead of the shared utils/validators/email.ts —
-    // it ACCEPTS this value class (no 254-char cap / allows unicode + <script>),
-    // while the shared validator + backend reject it. Fix = swap EMAIL_RE for
-    // the shared emailError(); then remove this test.fail().
-    test.fail();
     const errors = collectErrors(page);
     await interceptMutations(page);
     await navigateToSignin(page);
@@ -303,12 +297,6 @@ test.describe('signin /signin — magic-link email field value domains', () => {
 
   // ── (5b) extreme overlong — 2,000 chars — must not crash ─────────────────
   test('(5b) extreme-overlong — 2000-char string → rejected, no crash', async ({ page }) => {
-    // TDD-RED product bug (FE/BE parity drift): pages/auth/sign-in.component.ts
-    // uses its OWN EMAIL_RE instead of the shared utils/validators/email.ts —
-    // it ACCEPTS this value class (no 254-char cap / allows unicode + <script>),
-    // while the shared validator + backend reject it. Fix = swap EMAIL_RE for
-    // the shared emailError(); then remove this test.fail().
-    test.fail();
     const errors = collectErrors(page);
     await interceptMutations(page);
     await navigateToSignin(page);
@@ -328,12 +316,6 @@ test.describe('signin /signin — magic-link email field value domains', () => {
 
   // ── (6a) unicode local part ──────────────────────────────────────────────
   test('(6a) unicode — ünïcode@exämple.com → validation error (Angular EMAIL_PATTERN)', async ({ page }) => {
-    // TDD-RED product bug (FE/BE parity drift): pages/auth/sign-in.component.ts
-    // uses its OWN EMAIL_RE instead of the shared utils/validators/email.ts —
-    // it ACCEPTS this value class (no 254-char cap / allows unicode + <script>),
-    // while the shared validator + backend reject it. Fix = swap EMAIL_RE for
-    // the shared emailError(); then remove this test.fail().
-    test.fail();
     const errors = collectErrors(page);
     await interceptMutations(page);
     await navigateToSignin(page);
@@ -353,12 +335,6 @@ test.describe('signin /signin — magic-link email field value domains', () => {
 
   // ── (6b) emoji in email ───────────────────────────────────────────────────
   test('(6b) emoji — 😀@example.com → validation error shown', async ({ page }) => {
-    // TDD-RED product bug (FE/BE parity drift): pages/auth/sign-in.component.ts
-    // uses its OWN EMAIL_RE instead of the shared utils/validators/email.ts —
-    // it ACCEPTS this value class (no 254-char cap / allows unicode + <script>),
-    // while the shared validator + backend reject it. Fix = swap EMAIL_RE for
-    // the shared emailError(); then remove this test.fail().
-    test.fail();
     const errors = collectErrors(page);
     await interceptMutations(page);
     await navigateToSignin(page);
@@ -372,12 +348,6 @@ test.describe('signin /signin — magic-link email field value domains', () => {
 
   // ── (7a) XSS-shaped — script tag ─────────────────────────────────────────
   test('(7a) injection — <script>alert(1)</script>@x.com → no dialog, no console error', async ({ page }) => {
-    // TDD-RED product bug (FE/BE parity drift): pages/auth/sign-in.component.ts
-    // uses its OWN EMAIL_RE instead of the shared utils/validators/email.ts —
-    // it ACCEPTS this value class (no 254-char cap / allows unicode + <script>),
-    // while the shared validator + backend reject it. Fix = swap EMAIL_RE for
-    // the shared emailError(); then remove this test.fail().
-    test.fail();
     const errors = collectErrors(page);
     let dialogOpened = false;
     page.on('dialog', async (dialog) => {

@@ -737,13 +737,24 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
     tags: ['email', 'newsletter', 'mautic-alt'],
   },
   {
-    // n8n removed — ADR-0034 platform consolidation; CF Workflows v2 replaces it
+    // n8n removed — ADR-0034 platform consolidation; CF Workflows v2 replaces it.
+    // Tombstone entry: `supported: false` hides it from deploys; inert infra
+    // fields satisfy the CatalogApp shape (no container is ever provisioned).
     id: 'n8n',
     supported: false,
     name: 'n8n (removed)',
     tagline: 'Workflow automation — replaced by CF Workflows v2',
     description: 'Removed per ADR-0034 platform consolidation.',
     category: 'marketing',
+    image: '',
+    infra: [],
+    port: 0,
+    env: [],
+    memoryMB: 0,
+    volumeMB: 0,
+    homepage: 'https://developers.cloudflare.com/workflows/',
+    repo: 'https://github.com/n8n-io/n8n',
+    license: 'Sustainable Use',
     tags: ['automation', 'zapier-alt', 'workflows', 'removed'],
     estCostMonthly: 0,
     glyph: '🔄',

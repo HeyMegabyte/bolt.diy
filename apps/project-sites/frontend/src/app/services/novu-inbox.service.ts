@@ -1,15 +1,8 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { AuthService } from './auth.service';
-
-/**
- * Public, client-safe Novu **application identifier** (NOT the secret key —
- * that lives server-side only). Safe to ship in the bundle by Novu's design.
- */
-const NOVU_APP_ID = 'TmBjOXewtEG8';
+import { Injectable, signal } from '@angular/core';
 
 /** Flat, framework-agnostic inbox item the admin bell merges into its feed. */
 export interface NovuInboxItem {
-  /** Already namespaced `novu-<id>` so it never collides with audit/seed ids. */
+  /** Namespaced `novu-<id>` so it never collides with audit/seed ids. */
   id: string;
   title: string;
   body: string;
@@ -19,98 +12,32 @@ export interface NovuInboxItem {
 }
 
 /**
- * Reusable wrapper around headless `@novu/js` — the doctrine notification
- * backbone. Connects to Novu Cloud for the current subscriber and returns the
- * inbox mapped to a flat shape.
+ * INERT Novu shim — Novu is fully decommissioned per ADR-0034
+ * (Novu → custom `psnotify`). The previous implementation lazily loaded
+ * `@novu/js` and opened a Novu Cloud session on every admin boot, which
+ * produced a `400` console error on each load (caught by the Pass-3
+ * convergence journey suite). Until `psnotify` (DO-backed inbox + center +
+ * prefs + SES/web-push) lands, this service keeps the notification-bell
+ * contract intact while doing ZERO network I/O.
  *
- * @remarks Every method is fully guarded: any failure resolves to a safe empty
- * value and NEVER throws or rethrows, so callers can merge results without
- * risking the surface that depends on them. The `@novu/js` module is loaded
- * lazily (dynamic import) so it stays out of the initial bundle.
+ * @remarks `list()` always resolves `[]`, `read()` is a no-op, and
+ * {@link connected} stays `false` — the bell degrades to the seeded/audit
+ * feed exactly as it did when Novu Cloud was unreachable.
  *
- * @example
- * ```ts
- * const items = await inject(NovuInboxService).list(20);
- * ```
+ * @see apps/project-sites/_CONVERGENCE_TASKS.md § P5 (psnotify)
  */
 @Injectable({ providedIn: 'root' })
 export class NovuInboxService {
-  private auth = inject(AuthService);
-  private novu: NovuClient | null = null;
-
-  /** True once a Novu Cloud session has been established for this subscriber. */
+  /** Always false — no external notification backend is connected. */
   readonly connected = signal(false);
 
-  /**
-   * Return the latest inbox items for the signed-in subscriber. Resolves to
-   * `[]` when signed out, when Novu is unreachable, or on any error.
-   */
-  async list(limit = 20): Promise<NovuInboxItem[]> {
-    try {
-      const subscriberId = this.auth.email();
-      if (!subscriberId) return [];
-      const novu = await this.client(subscriberId);
-      if (!novu) return [];
-      const res = await novu.notifications.list({ limit });
-      const rows = res?.data?.notifications ?? [];
-      return rows.map((n) => this.map(n)).filter((x): x is NovuInboxItem => x !== null);
-    } catch {
-      return [];
-    }
+  /** Resolves to an empty inbox; psnotify will replace this surface. */
+  async list(_limit = 20): Promise<NovuInboxItem[]> {
+    return [];
   }
 
-  /** Mark a single Novu notification read. Best-effort, swallows errors. */
-  async read(namespacedId: string): Promise<void> {
-    try {
-      const id = namespacedId.startsWith('novu-') ? namespacedId.slice(5) : namespacedId;
-      await this.novu?.notifications?.read?.({ notificationId: id });
-    } catch {
-      /* swallow — read receipts are non-critical */
-    }
-  }
-
-  private async client(subscriberId: string): Promise<NovuClient | null> {
-    if (this.novu) return this.novu;
-    try {
-      const mod = (await import('@novu/js')) as unknown as { Novu: NovuCtor };
-      this.novu = new mod.Novu({ applicationIdentifier: NOVU_APP_ID, subscriber: { subscriberId } });
-      this.connected.set(true);
-      return this.novu;
-    } catch {
-      return null;
-    }
-  }
-
-  private map(n: unknown): NovuInboxItem | null {
-    try {
-      const o = n as Record<string, unknown>;
-      const rawId = String(o['id'] ?? o['_id'] ?? '');
-      if (!rawId) return null;
-      const subject = typeof o['subject'] === 'string' ? (o['subject'] as string) : '';
-      const body = String(o['body'] ?? o['content'] ?? '');
-      const createdAt = o['createdAt'] ?? o['created_at'];
-      const ts = createdAt ? new Date(String(createdAt)).getTime() : Date.now();
-      const redirect = (o['redirect'] as { url?: string } | undefined)?.url ?? null;
-      return {
-        id: `novu-${rawId}`,
-        title: subject || body || 'Notification',
-        body,
-        read: Boolean(o['isRead'] ?? o['read'] ?? false),
-        ts: Number.isFinite(ts) ? ts : Date.now(),
-        href: redirect,
-      };
-    } catch {
-      return null;
-    }
+  /** No-op read receipt — nothing external to acknowledge. */
+  async read(_namespacedId: string): Promise<void> {
+    /* intentionally empty */
   }
 }
-
-// Minimal structural types for the slice of `@novu/js` we use — avoids a hard
-// compile-time dependency on the SDK's exported types (which vary by version).
-interface NovuClient {
-  notifications: {
-    list(args: { limit: number }): Promise<{ data?: { notifications?: unknown[] } }>;
-    read?(args: { notificationId: string }): Promise<unknown>;
-  };
-}
-type NovuCtor = new (opts: { applicationIdentifier: string; subscriber: { subscriberId: string } }) => NovuClient;

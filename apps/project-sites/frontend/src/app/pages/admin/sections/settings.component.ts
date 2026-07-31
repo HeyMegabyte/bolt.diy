@@ -1,5 +1,6 @@
 import { Component, HostListener, inject, signal, type OnInit } from '@angular/core';
 import { z } from 'zod';
+import { isValidEmail as isSharedValidEmail } from '../../../utils/validators/email';
 import { DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -1393,9 +1394,9 @@ export class AdminSettingsComponent implements OnInit {
       error: () => { this.loadingTeam.set(false); /* api.service already toasted */ },
     });
   }
-  /** Mirrors the SSOT email validator — guards the invite before it round-trips. */
+  /** Delegates to the SSOT email validator — a local regex here caused FE/BE parity drift. */
   private isValidEmail(raw: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim());
+    return isSharedValidEmail(raw);
   }
 
   /** True when the invite field holds a non-empty value that isn't a valid email — drives the inline hint + button gate. */
