@@ -178,23 +178,23 @@ async function signInAndStubLeads(page: Page): Promise<void> {
   };
   await page.route('**/api/admin/leads/**', leadsStub);
 
+
+  // glob-ok: query-suffix only — scan is a leaf endpoint. 'scan**' also
+  // token-matches 'scan-osm', so the scan-osm stub is registered AFTER this
+  // one (reverse-match: later registration wins) — sweep hazard fixed.
+  await page.route('**/api/admin/leads/scan**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
+    });
+  });
   // glob-ok: query-suffix only — scan-osm is a leaf endpoint
   await page.route('**/api/admin/leads/scan-osm**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: [STUB_LEADS[0]], total: 1, scanned: 10 }),
-    });
-  });
-
-  // glob-ok: query-suffix only — scan is a leaf endpoint. NOTE (pre-existing):
-  // 'scan**' also token-matches 'scan-osm' and, being registered later, shadows
-  // the scan-osm stub above for GET/POST /api/admin/leads/scan-osm.
-  await page.route('**/api/admin/leads/scan**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: STUB_LEADS.slice(0, 2), total: 2, scanned: 5 }),
     });
   });
 

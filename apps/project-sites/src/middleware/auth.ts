@@ -105,20 +105,53 @@ export const authMiddleware: MiddlewareHandler<{
   // API calls work for users signed in via Better Auth. Backfilled BA users reuse
   // the legacy user id, so org resolution reuses the same `memberships` lookup.
   // Best-effort: only runs when no bearer token authenticated the request.
+  //
+  // Pre-cutover EMAIL collision resolution: `ensureLegacyMirror` (auth/better-auth.ts)
+  // mirrors NEW BA users into the legacy `users`/`orgs`/`memberships` tables under the
+  // SAME id — but when a LEGACY user already exists with the same EMAIL under a
+  // DIFFERENT id (accounts created before the cutover), the mirror skips + warns.
+  // For those users the BA id has no legacy row, so every legacy query keyed on
+  // "WHERE id = ?" would come back empty and the account looks wiped. We resolve at
+  // THIS read layer instead: prefer the BA id when it owns a legacy row, else fall
+  // back to the legacy `users` row matched by the BA session's email and act as that
+  // id. Resolution-by-email keeps every piece of legacy data (org, membership, sites,
+  // billing) attached and is non-destructive + idempotent — unlike a one-shot id
+  // remap across all tables, which fans out into every FK, races concurrent writes,
+  // and has no safe rollback. If neither id nor email matches, keep the BA id; the
+  // mirror hook creates the legacy rows on the next session.
   if (!c.get('userId')) {
     try {
       if (await isFlagOn(c.env, 'better_auth')) {
         const { makeAuth } = await import('../auth/better-auth.js');
         const ba = (await makeAuth(c.env).api.getSession({ headers: c.req.raw.headers })) as {
-          user?: { id?: string };
+          user?: { id?: string; email?: string };
         } | null;
         const uid = ba?.user?.id;
         if (uid) {
-          c.set('userId', uid);
+          let resolvedId = uid;
+          const byId = await dbQueryOne<{ id: string }>(
+            c.env.DB,
+            'SELECT id FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+            [uid],
+          );
+          if (!byId) {
+            const email = ba?.user?.email;
+            if (email) {
+              const byEmail = await dbQueryOne<{ id: string }>(
+                c.env.DB,
+                'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1',
+                [email],
+              );
+              if (byEmail) {
+                resolvedId = byEmail.id;
+              }
+            }
+          }
+          c.set('userId', resolvedId);
           const membership = await dbQueryOne<{ org_id: string }>(
             c.env.DB,
             'SELECT m.org_id FROM memberships m WHERE m.user_id = ? AND m.deleted_at IS NULL LIMIT 1',
-            [uid],
+            [resolvedId],
           );
           if (membership) {
             c.set('orgId', membership.org_id);

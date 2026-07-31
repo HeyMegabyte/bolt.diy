@@ -37,11 +37,15 @@ export default defineConfig({
     'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
     'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)
     'admin-*-journey.spec.ts',             // 12 authenticated section journeys (Convergence Pass 2)
+    'admin-logs-journey.spec.ts',          // Logs dashboard tabs journey — audit + explorer + filter + pagination (also matched by the glob above)
+    'admin-api-tokens-journey.spec.ts',    // API tokens one-time-reveal + value-domains + revoke journey (also matched by the glob above)
     'admin-feature-flags.spec.ts',         // sysAdmin feature-flags journey (Convergence Pass 2)
     'value-domains-*.spec.ts',             // TDD Contract #10 value-domain suites (Convergence Pass 3)
     'auth-session-lifecycle.spec.ts',      // Sign-out / expiry / 429 / reload (Convergence Pass 8)
     // auth-magic-link-roundtrip.spec.ts is EXCLUDED on purpose: it sends 2 REAL
     // emails per run — run manually with E2E_PEEK_SECRET + --workers=1 only.
+    'admin-user-settings-journey.spec.ts', // /admin/user profile + display-name value domains (settings-security wave; also matched by the admin-*-journey glob)
+    'admin-auth-security-journey.spec.ts', // /admin/auth-security sessions + revoke + 2FA entry (settings-security wave; also matched by the admin-*-journey glob)
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,

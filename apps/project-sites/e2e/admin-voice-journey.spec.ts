@@ -215,7 +215,9 @@ async function signInAndStubVoice(page: Page): Promise<void> {
     }
   });
 
-  // Safety: stub all remaining voice mutations
+  // Safety: stub all remaining voice MUTATIONS only. Registered LAST = matched
+  // FIRST, so GETs must fall through to the specific numbers/conversations/
+  // search stubs above (fulfilling '{}' here shadowed them all — sweep hazard).
   await page.route('**/api/voice/**', async (route) => {
     const method = route.request().method();
     if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
@@ -225,7 +227,7 @@ async function signInAndStubVoice(page: Page): Promise<void> {
         body: JSON.stringify({ success: true }),
       });
     } else {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      await route.fallback();
     }
   });
 

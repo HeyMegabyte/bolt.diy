@@ -99,21 +99,53 @@ interface NotificationGroup {
       </header>
 
       <!-- ─────────────────── PROFILE ─────────────────── -->
-      <section class="card" appReveal>
+      <section class="card" appReveal data-testid="us-profile-card">
         <div class="flex items-start gap-4 flex-wrap">
           <div class="profile-avatar" [attr.aria-label]="'Avatar for ' + (auth.email() || 'you')">
             <span>{{ initials() }}</span>
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap mb-1">
-              <h3 class="section-h m-0 text-base font-semibold text-white truncate" [attr.title]="displayName()">{{ displayName() }}</h3>
+              <h3 class="section-h m-0 text-base font-semibold text-white truncate" [attr.title]="displayName()" data-testid="us-display-name-heading">{{ displayName() }}</h3>
               <span class="role-pill" title="Your role on this workspace">{{ roleLabel() }}</span>
             </div>
-            <p class="text-[0.74rem] text-text-secondary m-0 break-all">{{ auth.email() || '—' }}</p>
+            <p class="text-[0.74rem] text-text-secondary m-0 break-all" data-testid="us-profile-email">{{ auth.email() || '—' }}</p>
             <p class="text-[0.66rem] text-text-secondary/70 m-0 mt-2">
               Account ID: <code class="font-mono text-[0.7rem]">{{ shortId() }}</code>
             </p>
           </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-white/[0.06]">
+          <label class="block">
+            <span class="text-[0.7rem] font-semibold uppercase tracking-wide text-text-secondary">Display name</span>
+            <div class="flex items-center gap-2 mt-1.5 max-w-md">
+              <input
+                type="text"
+                name="displayName"
+                placeholder="How your name appears across the workspace"
+                [ngModel]="profileNameDraft"
+                (ngModelChange)="onDisplayNameInput($event)"
+                hlmInput class="w-full"
+                [attr.aria-invalid]="!!displayNameError()"
+                aria-describedby="us-display-name-error"
+                data-testid="us-display-name-input" />
+              <button class="btn-primary shrink-0" type="button"
+                      (click)="saveDisplayName()"
+                      [disabled]="!canSaveDisplayName()"
+                      [attr.aria-busy]="savingDisplayName()"
+                      data-testid="us-display-name-save">{{ savingDisplayName() ? 'Saving…' : 'Save' }}</button>
+              <span class="notif-saved" role="status" aria-live="polite"
+                    [class.is-shown]="displayNameSaved()" data-testid="us-display-name-saved">
+                @if (displayNameSaved()) {
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                  Saved
+                }
+              </span>
+            </div>
+            @if (displayNameError(); as err) {
+              <p id="us-display-name-error" class="apikey-error" role="alert" aria-live="polite" data-testid="us-display-name-error">{{ err }}</p>
+            }
+          </label>
         </div>
       </section>
 
@@ -944,10 +976,99 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     return (local.slice(0, 2) || 'PS').toUpperCase();
   });
   displayName = computed<string>(() => {
+    const override = this.displayNameOverride().trim();
+    if (override) return override;
     const e = this.auth.email();
     if (!e) return 'Signed-out';
     return (e.split('@')[0] ?? e).replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   });
+
+  // ── Display name (local-first; forward-syncs to PATCH /api/admin/profile) ──
+  private static readonly DISPLAY_NAME_KEY = 'ps_display_name';
+  /** Operator-chosen display name; overrides the email-derived default above. */
+  displayNameOverride = signal<string>(((): string => {
+    try { return localStorage.getItem(AdminUserSettingsComponent.DISPLAY_NAME_KEY) ?? ''; } catch { return ''; }
+  })());
+  /** Template-driven draft bound to the profile input (mirrors newKey pattern). */
+  profileNameDraft = '';
+  savingDisplayName = signal(false);
+  /** Brief "Saved" confirmation after a successful save — no silent save. */
+  displayNameSaved = signal(false);
+  private displayNameSavedTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Server-rejected save message (400/422) — cleared on the next keystroke. */
+  private displayNameServerError = signal<string | null>(null);
+
+  onDisplayNameInput(value: string): void {
+    this.profileNameDraft = value;
+    this.displayNameServerError.set(null);
+  }
+
+  /**
+   * Validate the display-name draft. Returns null when valid (or empty —
+   * emptiness disables Save instead of erroring, mirroring nameError()).
+   * Rejects overlong (>80 chars) and injection-shaped values (markup,
+   * `javascript:` URLs, inline-handler fragments). Unicode/emoji are valid.
+   */
+  displayNameError(): string | null {
+    const server = this.displayNameServerError();
+    if (server) return server;
+    const raw = this.profileNameDraft.trim();
+    if (raw.length === 0) return null;
+    if (raw.length > 80) return 'Display name must be 80 characters or fewer.';
+    if (/[<>]/.test(raw) || /javascript\s*:/i.test(raw) || /\bon[a-z]+\s*=/i.test(raw)) {
+      return 'Display name cannot contain markup or script-like content.';
+    }
+    return null;
+  }
+
+  canSaveDisplayName(): boolean {
+    const raw = this.profileNameDraft.trim();
+    return raw.length > 0 && this.displayNameError() === null && !this.savingDisplayName();
+  }
+
+  /**
+   * Save the display name. Raw HttpClient (NOT ApiService) — mirrors
+   * loadSessions(): a not-yet-wired PATCH /api/admin/profile falls SILENTLY
+   * into the local-first persist below instead of ApiService toasting a
+   * spurious "Can't reach the server". A real 400/422 rejection is surfaced
+   * inline and does NOT persist.
+   */
+  saveDisplayName(): void {
+    if (!this.canSaveDisplayName()) return;
+    const name = this.profileNameDraft.trim();
+    this.savingDisplayName.set(true);
+    this.displayNameServerError.set(null);
+    const nameToken = this.auth.getToken();
+    const nameHeaders = nameToken ? new HttpHeaders({ Authorization: `Bearer ${nameToken}` }) : new HttpHeaders();
+    this.http.patch<{ ok?: boolean }>('/api/admin/profile', { name }, { headers: nameHeaders }).subscribe({
+      next: () => {
+        this.savingDisplayName.set(false);
+        this.persistDisplayName(name);
+        this.toast.success('Display name updated');
+      },
+      error: (err: { status?: number; error?: { error?: { message?: string }; message?: string } }) => {
+        this.savingDisplayName.set(false);
+        if (err?.status === 400 || err?.status === 422) {
+          const msg = err?.error?.error?.message || err?.error?.message
+            || 'That display name was rejected — try a different one.';
+          this.displayNameServerError.set(msg);
+          return;
+        }
+        // Endpoint not wired yet — local-first persist, same doctrine as the
+        // notification prefs below.
+        this.persistDisplayName(name);
+        this.toast.info('Display name saved on this device — server sync pending.');
+      },
+    });
+  }
+
+  private persistDisplayName(name: string): void {
+    this.displayNameOverride.set(name);
+    try { localStorage.setItem(AdminUserSettingsComponent.DISPLAY_NAME_KEY, name); } catch { /* private mode / quota */ }
+    this.displayNameSaved.set(true);
+    if (this.displayNameSavedTimer) clearTimeout(this.displayNameSavedTimer);
+    this.displayNameSavedTimer = setTimeout(() => this.displayNameSaved.set(false), 2500);
+  }
   /**
    * Role label shown in the profile pill. Reads from the session shape if a
    * `role` claim is present; otherwise defaults to the only role we currently
@@ -1062,6 +1183,7 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   deleteConfirm = '';
 
   ngOnInit(): void {
+    this.profileNameDraft = this.displayName();
     this.loadApiKeys();
     this.loadSessions();
     this.hydrateNotificationPrefs();
@@ -1531,6 +1653,7 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.notifSavedTimer) clearTimeout(this.notifSavedTimer);
     if (this.notifSyncTimer) clearTimeout(this.notifSyncTimer);
+    if (this.displayNameSavedTimer) clearTimeout(this.displayNameSavedTimer);
   }
 
   // ─────────────────── Delete account ───────────────────

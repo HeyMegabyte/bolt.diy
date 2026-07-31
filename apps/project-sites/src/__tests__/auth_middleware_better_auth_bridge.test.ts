@@ -3,9 +3,14 @@
  * when the `better_auth` flag is on and no bearer token matched, the BA COOKIE
  * session resolves userId + orgId (via the shared memberships lookup), and that
  * resolution is best-effort (never blocks the request).
+ *
+ * Also locks the pre-cutover EMAIL-collision resolution order: (1) BA id owns a
+ * legacy `users` row → use the BA id; (2) miss → legacy row matched by the BA
+ * session email → use the LEGACY id (org resolved via that id); (3) both miss →
+ * keep the BA id (mirror hook backfills on next session).
  */
 let flagOn = true;
-let baSession: { user?: { id?: string } } | null = { user: { id: 'u_ba' } };
+let baSession: { user?: { id?: string; email?: string } } | null = { user: { id: 'u_ba' } };
 let baThrows = false;
 let membership: { org_id: string } | null = { org_id: 'org_1' };
 
@@ -27,6 +32,9 @@ jest.mock('../auth/better-auth.js', () => ({
 }));
 
 import { authMiddleware } from '../middleware/auth.js';
+import { dbQueryOne } from '../services/db.js';
+
+const dbMock = dbQueryOne as unknown as jest.Mock;
 
 function ctx(authHeader?: string) {
   const vars = new Map<string, unknown>();
@@ -52,6 +60,7 @@ describe('Better Auth session bridge', () => {
     baSession = { user: { id: 'u_ba' } };
     baThrows = false;
     membership = { org_id: 'org_1' };
+    dbMock.mockClear();
   });
 
   it('resolves userId + orgId from the BA cookie session when no bearer token', async () => {
@@ -90,6 +99,50 @@ describe('Better Auth session bridge', () => {
     const { c, next, vars, nexted } = ctx(undefined);
     await authMiddleware(c, next);
     expect(vars.get('userId')).toBeUndefined();
+    expect(nexted()).toBe(1);
+  });
+
+  // Pre-cutover email-collision resolution order (mirrors the middleware comment):
+  // (1) BA id owns a legacy row → BA id; (2) legacy row by email → LEGACY id;
+  // (3) neither → BA id (mirror hook backfills on next session).
+  it('BA id with an existing legacy row resolves to the BA id (no email fallback)', async () => {
+    baSession = { user: { id: 'u_ba', email: 'someone@example.com' } };
+    dbMock.mockResolvedValueOnce({ id: 'u_ba' }); // id lookup HIT
+    dbMock.mockResolvedValueOnce({ org_id: 'org_a' }); // membership for BA id
+    const { c, next, vars } = ctx(undefined);
+    await authMiddleware(c, next);
+    expect(vars.get('userId')).toBe('u_ba');
+    expect(vars.get('orgId')).toBe('org_a');
+    expect(dbMock).toHaveBeenCalledTimes(2); // never falls through to the email lookup
+    expect(dbMock.mock.calls[0][2]).toEqual(['u_ba']); // id lookup keyed on the BA id
+    expect(dbMock.mock.calls[1][2]).toEqual(['u_ba']); // membership keyed on the BA id
+  });
+
+  it('BA id without a legacy row resolves to the LEGACY id matched by email', async () => {
+    baSession = { user: { id: 'u_ba_new', email: 'legacy@example.com' } };
+    dbMock.mockResolvedValueOnce(null); // id lookup MISS (collision case)
+    dbMock.mockResolvedValueOnce({ id: 'u_legacy' }); // email lookup HIT → legacy id
+    dbMock.mockResolvedValueOnce({ org_id: 'org_legacy' }); // membership for LEGACY id
+    const { c, next, vars } = ctx(undefined);
+    await authMiddleware(c, next);
+    expect(vars.get('userId')).toBe('u_legacy');
+    expect(vars.get('orgId')).toBe('org_legacy');
+    expect(dbMock).toHaveBeenCalledTimes(3);
+    expect(dbMock.mock.calls[1][1]).toContain('email = ?'); // second query is by email
+    expect(dbMock.mock.calls[1][2]).toEqual(['legacy@example.com']);
+    expect(dbMock.mock.calls[2][2]).toEqual(['u_legacy']); // org resolved via the LEGACY id
+  });
+
+  it('neither BA id nor email matches a legacy row → keeps the BA id', async () => {
+    baSession = { user: { id: 'u_ba_new', email: 'ghost@example.com' } };
+    dbMock.mockResolvedValueOnce(null); // id lookup MISS
+    dbMock.mockResolvedValueOnce(null); // email lookup MISS
+    dbMock.mockResolvedValueOnce(null); // membership MISS for BA id
+    const { c, next, vars, nexted } = ctx(undefined);
+    await authMiddleware(c, next);
+    expect(vars.get('userId')).toBe('u_ba_new'); // mirror hook creates rows on next session
+    expect(vars.get('orgId')).toBeUndefined();
+    expect(dbMock.mock.calls[2][2]).toEqual(['u_ba_new']); // membership still keyed on BA id
     expect(nexted()).toBe(1);
   });
 });

@@ -1598,6 +1598,27 @@ app.all('*', async (c, next) => {
   return c.html(renderStatusPage(feed.status, feed.incidents));
 });
 
+// ─── API soft-404 guard ──────────────────────────────────────
+// An unmatched /api/* path must return a machine-readable JSON 404 — NEVER
+// fall through to the SPA-shell catch-all below (a 200 text/html "response"
+// to an API caller is a soft-404: it reads as success to fetch()/SDKs and
+// poisons caches). Surfaced by the Pass-10 certification when the health-spec
+// API-shape tests entered the executed set. Registered AFTER every /api route
+// mount and BEFORE the site-serving catch-all, so only truly-unknown API
+// paths land here.
+app.all('/api/*', (c) =>
+  c.json(
+    {
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Unknown API route',
+        request_id: c.get('requestId') ?? 'unknown',
+      },
+    },
+    404,
+  ),
+);
+
 // ─── Site Serving (catch-all for subdomain routing) ──────────
 
 app.all('*', async (c) => {

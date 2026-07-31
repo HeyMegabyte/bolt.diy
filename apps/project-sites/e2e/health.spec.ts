@@ -54,9 +54,14 @@ test.describe('API Auth Gates', () => {
     expect([401, 403]).toContain(res.status());
   });
 
-  test('returns 401/403 for unauthenticated /api/hostnames', async ({ request }) => {
+  test('returns 404 JSON for bare /api/hostnames (route lives under /api/sites/:siteId/hostnames)', async ({ request }) => {
+    // There is no bare /api/hostnames route — hostname CRUD is site-scoped.
+    // The API soft-404 guard must answer with machine-readable JSON, never
+    // the SPA shell (which this asserted-as-401 test silently tolerated for
+    // as long as the suite was skipped).
     const res = await request.get('/api/hostnames');
-    expect([401, 403]).toContain(res.status());
+    expect(res.status()).toBe(404);
+    expect(res.headers()['content-type'] ?? '').toContain('application/json');
   });
 
   test('returns 401/403 for unauthenticated /api/audit-logs', async ({ request }) => {

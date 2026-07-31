@@ -95,7 +95,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
         </div>
       </header>
 
-      <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections" appReveal>
+      <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections" appReveal data-testid="sd-tab-strip">
         <button
           type="button"
           role="tab"

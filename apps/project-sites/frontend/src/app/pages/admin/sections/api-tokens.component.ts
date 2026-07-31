@@ -103,7 +103,7 @@ const ALL_SCOPES = [
             <a hlmBtn variant="outline" size="sm" [routerLink]="'/admin/docs/api-reference'">
               <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> API Docs
             </a>
-            <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">
+            <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-create-open" (click)="openCreateModal()">
               <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New Token
             </button>
           </div>
@@ -185,6 +185,7 @@ const ALL_SCOPES = [
                   <td class="at-actions-col">
                     <button hlmBtn variant="ghost" size="sm" type="button"
                       class="text-destructive"
+                      data-testid="at-revoke-btn"
                       (click)="confirmRevoke(row.original)"
                       [attr.aria-label]="'Revoke token ' + row.original.name">
                       Revoke
@@ -231,7 +232,7 @@ const ALL_SCOPES = [
       <div class="at-dialog-body">
         <div class="at-field">
           <label class="at-label" for="token-name">Token name *</label>
-          <input id="token-name" hlmInput type="text" [(ngModel)]="newName" placeholder="e.g. CI Deploy Bot" autocomplete="off" class="w-full" />
+          <input id="token-name" hlmInput type="text" data-testid="at-name-input" [(ngModel)]="newName" placeholder="e.g. CI Deploy Bot" autocomplete="off" class="w-full" />
         </div>
 
         <div class="at-field">
@@ -275,7 +276,7 @@ const ALL_SCOPES = [
       </div>
       <div footer>
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeCreateModal()">Cancel</button>
-        <button hlmBtn variant="primary" size="sm" type="button"
+        <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-create-submit"
           [disabled]="creating() || !newName.trim() || expiryInvalid()" (click)="createToken()">
           <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.at-spin]="creating()"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
           {{ creating() ? 'Creating…' : 'Create Token' }}
@@ -292,15 +293,15 @@ const ALL_SCOPES = [
           <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:#ffd166"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           Store this token securely — it will <strong>not</strong> be shown again.
         </div>
-        <div class="at-token-reveal">
-          <code class="at-token-text">{{ createdToken()?.plaintext }}</code>
-          <button hlmBtn variant="outline" size="sm" type="button" (click)="copyToken()">
+        <div class="at-token-reveal" data-testid="at-token-reveal">
+          <code class="at-token-text" data-testid="at-token-plaintext">{{ createdToken()?.plaintext }}</code>
+          <button hlmBtn variant="outline" size="sm" type="button" data-testid="at-copy-btn" (click)="copyToken()">
             {{ copied() ? '✓ Copied' : 'Copy' }}
           </button>
         </div>
       </div>
       <div footer>
-        <button hlmBtn variant="primary" size="sm" type="button" (click)="clearCreatedToken()">Done — I've saved this token</button>
+        <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-reveal-done" (click)="clearCreatedToken()">Done — I've saved this token</button>
       </div>
     </app-dialog-shell>
     }
@@ -313,7 +314,7 @@ const ALL_SCOPES = [
       </div>
       <div footer>
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="revokeTarget.set(null)">Cancel</button>
-        <button hlmBtn variant="destructive" size="sm" type="button"
+        <button hlmBtn variant="destructive" size="sm" type="button" data-testid="at-revoke-confirm"
           [disabled]="revoking()" (click)="revokeToken()">
           {{ revoking() ? 'Revoking…' : 'Yes, revoke' }}
         </button>

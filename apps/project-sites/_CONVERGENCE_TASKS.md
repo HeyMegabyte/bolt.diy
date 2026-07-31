@@ -107,12 +107,19 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
   - **Skip surgery DONE per `e2e/_skip-triage-2026-07-31.md`: 81 dead tests deleted (103 static skips existed on disk vs the doc's 107), `ai-endpoints-ide.spec.ts` deleted + COVERAGE entry removed (112 specs valid), 2 revived (site-mcp, branches) as real stub-authed tests, 24 conditional guards kept.**
   - **Frontend: legacy `/signin` page got the BA-cookie bridge (parity with pages/auth), `#create-address` maxlength=500 now spec-asserted. Karma 1598/1598.**
   - **Certification: full prod suite 337 passed / 2 skipped / 0 failed (6.8m, workers=4). Worker `40fe2e63` + frontend deployed + purged; home/health/signin 200.**
-- [ ] **⏭ PASS-10 QUEUE (carried from Pass-8/9):**
-  - site-features/site-detail specs SOFT-ASSERTED (`if visible` guards) — add missing `sf-*`/`sd-tab-*` testids to components, then stricten specs.
-  - 2 create-suite `test.fixme` races (post-submit auth flow) — revisit with the real-session pathway (roundtrip infra now proven).
-  - BA email-collision backfill remap (ensureLegacyMirror skips + warns when a legacy row exists under a different id).
-  - `flags/all-flags.spec.ts:1` static skip — unclassified by the triage doc; classify + act.
-  - Pre-existing hazards noted by sweep (leads `scan**` token-shadow, admin-voice safety-stub shadow) — vet on next journey-suite touch.
+- [x] **✅ PASS-10 COMPLETE (2026-07-31, 5-agent fan-out + fold + incident):**
+  - Soft-asserts STRICTENED: site-features (`sf-*` testids, 2 if-guards → hard asserts + toggle/undo/search coverage) + site-detail (`sd-tab-strip`, 4-tab click-through, stub-proof asserts). Logs + API-Tokens + User-Settings + Auth-Security got REAL authenticated journeys (28 new tests: one-time reveal + auto-hide, display-name value domains, session revoke, 2FA entry). BA email-collision fixed at the READ layer: authMiddleware resolves legacy user id by email when BA id has no legacy row (3 unit cases).
+  - Hazards fixed: voice safety-stub GET branch → `route.fallback()` (was shadowing every specific voice stub); leads `scan-osm` re-registered after `scan**` (token-shadow). `flags/all-flags.spec.ts` skip classified: legitimate data-driven guard (fires only for flags missing FLAG_PRIMARY_PATH) — KEEP.
+  - `checkA11y` gained `exclude` (third-party-widget defects only); logs journey excludes `.ag-root` citing docs/perf-wave-ag-grid-to-tanstack.md (ag-grid Community aria-required-children, critical, vendored).
+  - **🔥 REAL GAP SHIPPED: API soft-404 guard** — unknown `/api/*` returned the 200 SPA shell (soft-404 poisoning API callers); now `app.all('/api/*')` JSON 404 before the site-serving catch-all (+2 units, health.spec 11/11 live).
+  - **⚠️ INCIDENT LEARNED (bisect-verified):** the full-cert "N passed" counts are NOT comparable across passes — pass-9's 339-total run silently EXCLUDED ~112 tests that pass-10's 451-total run executed (skip-surgery made them runnable). Their ~90 failures are PRE-EXISTING stale contracts (bisect: identical behavior on the pass-8 worker via `wrangler rollback` probe), NOT a regression. Also: two FOREIGN deploys (38e93ca6, 0b1b6ffa — 3:28/3:37 EDT) shipped from this shared dirty checkout between my deploys; roll-forward to clean-HEAD build done (now bd4e62fb). NEVER trust "N passed" without comparing totals; NEVER trust default-UA curl probes (BFM/cache artifacts) — Playwright request context is authoritative.
+- [ ] **⏭ PASS-11 QUEUE — stale-contract suite modernization (~90 failures, newly executing, NOT regressions):**
+  - `auth-and-signin.spec.ts` (14): tests the DELETED vanilla homepage's window functions (`sendMagicLink`, `saveSession`) — `public/index.html` was removed in 91182ec2 and R2 `marketing/index.html` now serves the Angular shell. Rewrite against the Angular /signin + session model (or retire per-test with citation).
+  - `golden-path.spec.ts` (13) + `adversarial/shell-stress` (17) + `adversarial/sections-*` (19) + `overlay-and-focus` (9) + `form-and-dirty-state` (4): same vanilla-era assumptions + `networkidle` waits (never settles on this app — use domcontentloaded + explicit waits).
+  - `accessibility.spec.ts` (7): `networkidle` waits on public routes — replace; re-verify.
+  - `health.spec.ts` remaining 3 + `voice.spec.ts` 1 + `admin-voice-billing` 2 + `admin-voice-journey` residuals: re-run post-guard; fix stragglers with real contracts.
+  - Marketing homepage decision RATIFIED by evidence (public/index.html deleted from repo; Angular shell carries full GTM/meta): Angular shell at `/` is intended — vanilla-era specs modernize, no restore.
+  - Editor/Snapshots/Branches/Copilot/DNA journeys (P1 [~]) still queued.
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 

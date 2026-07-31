@@ -46,16 +46,27 @@ async function _loadAxeBuilder(): Promise<AxeBuilderCtor> {
  * @param stepName - Human-readable step name for error context
  * @param options.includedImpacts - Only fail on these impact levels
  *   (e.g. ['critical', 'serious']). Default: fail on ALL violations.
+ * @param options.exclude - CSS selectors to exclude from the scan. Reserve for
+ *   KNOWN third-party-widget defects that are tracked for removal (cite the
+ *   tracking doc at the call site) — never for first-party markup.
  */
 export async function checkA11y(
   page: Page,
   stepName: string,
-  options?: { includedImpacts?: string[] },
+  options?: { includedImpacts?: string[]; exclude?: string[] },
 ): Promise<void> {
   const AxeBuilder = await _loadAxeBuilder();
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-    .analyze();
+  let builder = new AxeBuilder({ page }).withTags([
+    'wcag2a',
+    'wcag2aa',
+    'wcag21a',
+    'wcag21aa',
+    'wcag22aa',
+  ]);
+  for (const sel of options?.exclude ?? []) {
+    builder = builder.exclude(sel);
+  }
+  const results = await builder.analyze();
 
   // Brian directive 2026-07-30: a11y is ADVISORY in journey specs — functional
   // completeness gates the suite. Only `critical` impact fails by default;

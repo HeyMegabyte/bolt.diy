@@ -114,6 +114,7 @@ const LEVEL_COLORS: Record<string, string> = {
         <input
           hlmInput
           class="flex-1 font-mono"
+          data-testid="logs-search-input"
           aria-label="Log search query"
           [(ngModel)]="queryInput"
           placeholder="level:error AND route:/api/sites/* AND duration>2s"
@@ -121,7 +122,7 @@ const LEVEL_COLORS: Record<string, string> = {
           autocomplete="off"
           spellcheck="false"
         />
-        <button class="btn-primary text-xs px-4" (click)="search()" [disabled]="searching()">
+        <button class="btn-primary text-xs px-4" data-testid="logs-search-btn" (click)="search()" [disabled]="searching()">
           {{ searching() ? 'Searching…' : 'Search' }}
         </button>
         @if (queryInput) {
@@ -184,7 +185,7 @@ const LEVEL_COLORS: Record<string, string> = {
               <button class="btn-ghost text-xs" (click)="loadMore()" [disabled]="searching()">Load more</button>
             }
           </div>
-          <div class="log-table">
+          <div class="log-table" data-testid="logs-table">
             <div class="log-header">
               <span class="col-ts">Time</span>
               <span class="col-level">Level</span>
@@ -195,7 +196,7 @@ const LEVEL_COLORS: Record<string, string> = {
               <span class="col-msg">Message</span>
             </div>
             @for (row of rows(); track row.id) {
-              <div class="log-row" [class.log-error]="row.level === 'error' || row.level === 'fatal'">
+              <div class="log-row" data-testid="logs-row" [class.log-error]="row.level === 'error' || row.level === 'fatal'">
                 <span class="col-ts text-[#888]">{{ row.ts | slice:11:19 }}</span>
                 <span class="col-level {{ LEVEL_COLORS[row.level] ?? '' }}">{{ row.level }}</span>
                 <span class="col-method text-[#888]">{{ row.method }}</span>

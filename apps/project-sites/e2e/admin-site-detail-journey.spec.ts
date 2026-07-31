@@ -5,6 +5,14 @@
  * Component reads siteId from ActivatedRoute.
  * All API endpoints are stubbed with realistic non-empty data after auth.
  * Tab type: 'logs' | 'snapshots' | 'sql' | 'integrations' — default: 'logs'
+ *
+ * STRICT contract (no if-visible guards): tab strip `sd-tab-strip` + tabs
+ * `sd-tab-*` + panels (`sd-panel-*` ids / `site-*-panel` testids) are
+ * hard-asserted, and each exercised panel must render its STUBBED content
+ * (log row 'Build complete', snapshot AI name, exactly the 3 stubbed MCP
+ * providers). Screenshots land in e2e/screenshots/site-detail/.
+ * No pagination asserts: the SQL tab is an editor + render-capped results
+ * (`sql-result-cap`), not a paged browse — sd-page-next/prev has no target.
  */
 import { test, expect } from '@playwright/test';
 import { signInAsTestUser } from './helpers/auth.js';
@@ -119,8 +127,11 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await expect(title).toBeVisible({ timeout: 10_000 });
     expect(await title.textContent()).toMatch(/E2E Test Site|e2e-site-001/);
 
-    // Tab strip: all four tabs are static template — assert each one hard.
+    // Tab strip: container + all four tabs are static template — assert each hard.
     // (id + data-testid now live on the same button; either arm matches it.)
+    const tabStrip = page.locator('[data-testid="sd-tab-strip"]');
+    await expect(tabStrip).toBeVisible({ timeout: 10_000 });
+
     const tabLogs = page.locator('[id="sd-tab-logs"], [data-testid="sd-tab-logs"]');
     const tabSnapshots = page.locator('[id="sd-tab-snapshots"], [data-testid="sd-tab-snapshots"]');
     const tabSql = page.locator('[id="sd-tab-sql"], [data-testid="sd-tab-sql"]');
@@ -131,7 +142,18 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await expect(tabSql).toBeVisible();
     await expect(tabIntegrations).toBeVisible();
 
-    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/shell.png', fullPage: true });
+    // Default panel is logs; click through to SQL and back — panels are hard-asserted.
+    const logsPanel = page.locator('[data-testid="site-logs-panel"]');
+    await expect(logsPanel).toBeVisible({ timeout: 10_000 });
+
+    await tabSql.click();
+    await expect(page.locator('[data-testid="site-sql-panel"]')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid="sql-editor"]')).toBeVisible({ timeout: 5_000 });
+
+    await tabLogs.click();
+    await expect(logsPanel).toBeVisible({ timeout: 5_000 });
+
+    await page.screenshot({ path: 'e2e/screenshots/site-detail/shell.png', fullPage: true });
     await checkA11y(page, 'admin-site-detail-shell');
 
     const real = errors.filter(
@@ -213,31 +235,41 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
     await page.mouse.wheel(0, 200);
 
-    // Default panel: logs (the tab signal defaults to 'logs').
+    // Default panel: logs (the tab signal defaults to 'logs'). The log stream
+    // area must render the STUBBED row — proves /logs/tail flowed through.
     const logsPanel = page.locator('[data-testid="site-logs-panel"]');
     await expect(logsPanel).toBeVisible({ timeout: 15_000 });
+    const logStream = page.locator('[data-testid="site-logs-tail"]');
+    await expect(logStream).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid="site-logs-row"]').first()).toContainText('Build complete', {
+      timeout: 10_000,
+    });
 
     // Click snapshots tab → snapshots panel replaces logs.
     const tabSnapshots = page.locator('[id="sd-tab-snapshots"], [data-testid="sd-tab-snapshots"]');
     await expect(tabSnapshots).toBeVisible({ timeout: 5_000 });
     await tabSnapshots.click();
-    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/snapshots-tab.png' });
+    await page.screenshot({ path: 'e2e/screenshots/site-detail/snapshots-tab.png' });
 
     const snapshotsPanel = page.locator('[data-testid="site-snapshots-panel"]');
     await expect(snapshotsPanel).toBeVisible({ timeout: 5_000 });
 
-    // The stubbed /snapshots response has one row — it must render with its AI name.
+    // The stubbed /snapshots response has one row — it must render with the
+    // exact stubbed AI name (fallback data would show something else).
     const snapshotRow = page.locator('[data-testid="snapshot-row"]').first();
     await expect(snapshotRow).toBeVisible({ timeout: 5_000 });
     const aiName = page.locator('[data-testid="snapshot-ai-name"]').first();
     await expect(aiName).toBeVisible();
-    expect(await aiName.textContent()).toBeTruthy();
+    await expect(aiName).toHaveText('Initial launch version');
 
-    // Switch back to logs — panel state is preserved.
+    // Switch back to logs — panel state is preserved and the stream re-renders.
     const tabLogs = page.locator('[id="sd-tab-logs"], [data-testid="sd-tab-logs"]');
     await tabLogs.click();
     await expect(page.locator('[data-testid="site-logs-panel"]')).toBeVisible({ timeout: 5_000 });
-    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/back-to-logs.png' });
+    await expect(page.locator('[data-testid="site-logs-row"]').first()).toContainText('Build complete', {
+      timeout: 10_000,
+    });
+    await page.screenshot({ path: 'e2e/screenshots/site-detail/back-to-logs.png' });
 
     const real = errors.filter(
       (e) =>
@@ -321,18 +353,20 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     const tabIntegrations = page.locator('[id="sd-tab-integrations"], [data-testid="sd-tab-integrations"]');
     await expect(tabIntegrations).toBeVisible({ timeout: 10_000 });
     await tabIntegrations.click();
-    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/integrations-tab.png' });
+    await page.screenshot({ path: 'e2e/screenshots/site-detail/integrations-tab.png' });
 
     const intPanel = page.locator('[data-testid="site-integrations-panel"]');
     await expect(intPanel).toBeVisible({ timeout: 5_000 });
 
-    // Provider list is an unconditional container inside the panel, and
-    // loadIntegrations falls back to DEFAULT_PROVIDERS on any failure — so at
-    // least one provider card always renders.
+    // The STUBBED provider list must render — exactly the 3 stubbed providers
+    // (loadIntegrations replaces, never merges; DEFAULT_PROVIDERS has no
+    // github key, so these asserts fail if the stub didn't flow through).
     const providerList = page.locator('[data-testid="mcp-provider-list"]');
     await expect(providerList).toBeVisible({ timeout: 5_000 });
-    const providerCard = page.locator('[data-testid^="mcp-provider-card-"]').first();
-    await expect(providerCard).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid^="mcp-provider-card-"]')).toHaveCount(3, { timeout: 5_000 });
+    const githubCard = page.locator('[data-testid="mcp-provider-card-github"]');
+    await expect(githubCard).toBeVisible({ timeout: 5_000 });
+    await expect(githubCard).toContainText('GitHub');
 
     const real = errors.filter(
       (e) =>
@@ -405,7 +439,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     const readonlyPill = page.locator('[data-testid="sql-readonly-pill"], [data-testid="sql-safe-note"]').first();
     await expect(readonlyPill).toBeVisible();
 
-    await page.screenshot({ path: 'e2e/screenshots/admin-site-detail/sql-deeplink.png' });
+    await page.screenshot({ path: 'e2e/screenshots/site-detail/sql-deeplink.png' });
 
     const real = errors.filter(
       (e) =>

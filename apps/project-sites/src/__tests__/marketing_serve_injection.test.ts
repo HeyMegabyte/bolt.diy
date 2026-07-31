@@ -155,3 +155,21 @@ describe('marketing serve — guardrails', () => {
     expect(json.name).toBe('Project Sites');
   });
 });
+
+describe('API soft-404 guard — unknown /api/* never falls to the SPA shell', () => {
+  it('returns a machine-readable JSON 404 for an unknown API path', async () => {
+    const res = await serve('/api/definitely-not-a-route');
+    expect(res.status).toBe(404);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('does not shadow mounted API routes (/api/health still serves)', async () => {
+    const res = await serve('/api/health');
+    // KV/R2 stubs are minimal so health may degrade, but it must be handled
+    // by the health route (JSON), never by the guard or the SPA shell.
+    expect(res.headers.get('content-type')).toContain('application/json');
+    expect(res.status).not.toBe(404);
+  });
+});

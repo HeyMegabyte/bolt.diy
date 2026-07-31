@@ -184,7 +184,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     FlagBadgeRowComponent, FeatureDossierComponent,
   ],
   template: `
-    <section class="sf-page" appReveal>
+    <section class="sf-page" appReveal data-testid="sf-root">
       <header class="sf-header">
         <div class="sf-head-left">
           <p class="sf-kicker">Control plane · Layer 2</p>
@@ -208,6 +208,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
           [ngModel]="search()"
           (ngModelChange)="search.set($event)"
           aria-label="Search site features"
+          data-testid="sf-search"
         />
         @if (isFiltering()) {
           <span class="sf-count" data-testid="sf-filter-count" aria-hidden="true">{{ filtered().length }} <span class="sf-count-sep">of</span> {{ features().length }}</span>
@@ -229,7 +230,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
       } @else if (features().length === 0) {
         <app-empty-state icon="✨" title="No features yet" message="Site features appear here once your plan is active." />
       } @else if (filtered().length === 0) {
-        <app-empty-state icon="⊘" title="No features match your search"
+        <app-empty-state icon="⊘" title="No features match your search" data-testid="sf-empty"
           [message]="'Nothing matches “' + search() + '”.'" ctaLabel="Clear search" (ctaClick)="search.set('')" />
       } @else {
         @if (degraded()) {
@@ -340,7 +341,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
       @if (lastChange(); as lc) {
         <div class="sf-undo-bar" role="status" data-testid="sf-undo">
           <span>{{ lc.name }} {{ lc.enabled ? 'enabled' : 'disabled' }}.</span>
-          <button type="button" class="sf-undo-btn" (click)="undo()" [disabled]="busy()[lc.key]">Undo</button>
+          <button type="button" class="sf-undo-btn" data-testid="sf-undo-btn" (click)="undo()" [disabled]="busy()[lc.key]">Undo</button>
         </div>
       }
 
