@@ -493,6 +493,7 @@ app.notFound((c) => c.html(notFoundHtml(), 404));
 // ─── Mount Routes ────────────────────────────────────────────
 
 app.route('/', health);
+app.route('/api', health); // /api/health alias for external consumers who expect RESTful path
 app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
 app.route('/', collabRoutes); // /api/sites/:id/collab WS gateway → CollabRoomDO (collab_editing flag; 503 inert until COLLAB_ROOM bound)

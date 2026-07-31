@@ -841,28 +841,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'stable',
     owner_email: 'brian@megabyte.space',
   },
-  email_deliverability_wizard: {
-    key: 'email_deliverability_wizard',
-    description:
-      'Email Deliverability Wizard — SPF/DKIM/DMARC score + fixes per site. Feature flag gate on /admin/sites/:id/deliverability.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
   multimodal_copilot: {
     key: 'multimodal_copilot',
     description:
       'Multimodal AI Site Copilot — per-site copilot admin with intent distribution + sessions. Feature flag gate on /admin/sites/:id/copilot.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  outbound_webhooks: {
-    key: 'outbound_webhooks',
-    description:
-      'Outbound Webhooks — CF-native delivery engine for customer webhook subscriptions. Feature flag gate on /admin/webhooks.',
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'stable',
