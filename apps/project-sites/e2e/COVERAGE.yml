@@ -21,9 +21,12 @@ marketing_public:
   security_headers: { status: covered, specs: [security-headers.spec.ts] }
   health:           { status: covered, specs: [health.spec.ts] }
   smoke_prod:       { status: covered, specs: [smoke-prod.spec.ts] }
+  routes_complete:  { status: covered, specs: [public-routes-completeness.spec.ts] }
 
 auth:
   signin:           { status: covered, specs: [auth-and-signin.spec.ts] }
+  full_flow:        { status: covered, specs: [auth-full-flow.spec.ts, auth-full-oauth-flow.spec.ts] }
+  oidc_callback:    { status: covered, specs: [oidc-oauth-callback.spec.ts] }
 
 site_lifecycle:
   golden_path:      { status: covered, specs: [golden-path.spec.ts, vitos-full-flow.spec.ts] }
@@ -32,6 +35,7 @@ site_lifecycle:
   enrichment:       { status: covered, specs: [business-enrichment.spec.ts] }
   rebuild_research: { status: covered, specs: [rebuild-and-research.spec.ts] }
   waiting_terminal: { status: covered, specs: [waiting-and-terminal.spec.ts] }
+  lifecycle_ext:    { status: covered, specs: [site-lifecycle-extended.spec.ts] }
 
 site_management:
   site_cards:       { status: covered, specs: [site-card-features.spec.ts] }
@@ -86,19 +90,26 @@ modals_interactions:
 
 observability:
   error_boundary:   { status: covered, specs: [error-boundary.spec.ts] }
-  sentry_crash:     { status: covered, specs: [sentry-crash.spec.ts] }
+  gateway:          { status: covered, specs: [observability_gateway.spec.ts] }
 
 site_serving:
   serving:          { status: covered, specs: [site-serving.spec.ts] }
 
+collab:
+  realtime:         { status: covered, specs: [collab.spec.ts] }
+
 convergence:
   admin_journey:        { status: covered, specs: [admin-journey.spec.ts] }
+  admin_dashboard_authed: { status: covered, specs: [admin-dashboard.spec.ts] }
+  admin_editor:         { status: covered, specs: [admin-editor.spec.ts] }
+  loop_gates:           { status: covered, specs: [convergence-summary.spec.ts, done-gate.spec.ts, post-convergence-verification.spec.ts] }
+  stagehand_visual:     { status: covered, specs: [stagehand-master-orchestrator.spec.ts] }
   admin_sections:       { status: covered, specs: [admin-sections-smoke.spec.ts, admin-social.spec.ts] }
   auth_oauth:           { status: covered, specs: [auth-oauth-buttons.spec.ts] }
   marketing_seo:        { status: covered, specs: [marketing-seo.spec.ts] }
   security_headers_ext: { status: covered, specs: [security-headers-extended.spec.ts] }
   integration_health:   { status: covered, specs: [integration-health.spec.ts] }
-  feature_flags:        { status: covered, specs: [feature-flags.spec.ts] }
+  feature_flags:        { status: covered, specs: [feature-flags.spec.ts, admin-feature-flags.spec.ts] }
   accessibility:        { status: covered, specs: [accessibility.spec.ts] }
   auth_signup_oauth:    { status: covered, specs: [auth-signup-oauth.spec.ts] }
   admin_sysadmin:       { status: covered, specs: [admin-sysadmin.spec.ts] }

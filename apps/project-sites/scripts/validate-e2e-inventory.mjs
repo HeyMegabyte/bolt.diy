@@ -19,7 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const e2eDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'e2e');
-const SPEC_RE = /[a-z0-9-]+\.spec\.ts/g;
+const SPEC_RE = /[a-z0-9_-]+\.spec\.ts/g;
 
 const onDisk = readdirSync(e2eDir)
   .filter((f) => /\.spec\.ts$/.test(f))
