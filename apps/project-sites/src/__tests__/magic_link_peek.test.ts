@@ -233,7 +233,8 @@ describe('GET /api/auth/magic-link/peek', () => {
   });
 
   it('returns the Better Auth verify URL from the BA stash (flag-ON send path)', async () => {
-    const baUrl = 'https://projectsites.dev/api/auth/magic-link/verify?token=ba-tok&callbackURL=%2Fadmin';
+    const baUrl =
+      'https://projectsites.dev/api/auth/magic-link/verify?token=ba-tok&callbackURL=%2Fadmin';
     const kv = createKvMock();
     kvWith(kv, { [BA_KEY]: baUrl });
     mockDbQueryOne.mockResolvedValue(null); // no legacy row — BA owns the send
