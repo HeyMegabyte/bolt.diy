@@ -292,6 +292,9 @@ async function goToDocs(page: any): Promise<void> {
     timeout: 30_000,
   });
   await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  // appReveal keeps section content at opacity:0 until IntersectionObserver
+  // fires — a small scroll nudge makes reveal deterministic under load.
+  await page.mouse.wheel(0, 200);
 }
 
 // ---------------------------------------------------------------------------

@@ -46,9 +46,15 @@ async function signInAsAdmin(page: any, email: string) {
 
 test.describe('Admin — Dashboard (authenticated)', () => {
   test('auth guard passes → admin shell renders → dashboard content visible', async ({ page }) => {
+    // Console listener attaches BEFORE navigation so boot-time errors are
+    // captured deterministically (attaching after goto made this test
+    // order-sensitive under parallel load).
+    const errors: string[] = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+
     const email = 'brian@megabyte.space';
     await signInAsAdmin(page, email);
-    await page.goto(`${PROD_URL}/admin`, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await page.goto(`${PROD_URL}/admin`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
     const url = page.url();
     expect(url).not.toContain('/signin');
@@ -56,14 +62,12 @@ test.describe('Admin — Dashboard (authenticated)', () => {
     // Admin shell must render
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
 
-    // Dashboard should show some content (not blank)
+    // Dashboard should show some content (not blank) — this deterministic wait
+    // replaces the old fixed 3s sleep.
     const mainContent = page.locator('app-admin main, [data-cockpit="v2"] main, router-outlet + *');
-    await expect(mainContent.first()).toBeVisible({ timeout: 15_000 });
+    await expect(mainContent.first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(500);
 
-    // No console errors
-    const errors: string[] = [];
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
-    await page.waitForTimeout(3_000);
     const realErrors = errors.filter(e => !e.includes('favicon') && !e.includes('third-party') && !e.toLowerCase().includes('failed to load resource'));
     expect(realErrors).toEqual([]);
   });
