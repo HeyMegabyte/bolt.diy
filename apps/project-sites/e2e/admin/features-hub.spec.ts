@@ -7,7 +7,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-25 — /admin/features features-hub cards render', () => {
   test('features-hub section mounts and has tab navigation', async ({ authedPage: page }) => {

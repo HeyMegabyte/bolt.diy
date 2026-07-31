@@ -14,7 +14,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN — /admin/deliverability Email Deliverability Wizard renders', () => {
   test('deliverability heading, SPF/DKIM/DMARC intro and check surface visible', async ({ authedPage: page }) => {

@@ -11,7 +11,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-17 — /admin/bulk-ops Bulk Site Ops flow renders', () => {
   test('bulk-ops section, operation select, and preview control are visible', async ({ authedPage: page }) => {

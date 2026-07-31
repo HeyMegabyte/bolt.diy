@@ -1,4 +1,13 @@
-import { test, expect } from './fixtures.js';
+import { test, expect } from '@playwright/test';
+
+/**
+ * Health + API contract checks. Request-level only — API assertions run
+ * against the config baseURL (local mock `scripts/e2e_server.cjs` or prod);
+ * the SPA-shell check targets PROD_URL because the vanilla
+ * `public/index.html` was deleted and the Angular shell is served by the
+ * worker from R2 (only observable on a deployed origin).
+ */
+const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('Health Check', () => {
   test('returns healthy status', async ({ request }) => {
@@ -32,14 +41,17 @@ test.describe('Health Check', () => {
 });
 
 test.describe('Marketing Site', () => {
-  test('loads the marketing homepage', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('.logo').getByText('Project')).toBeVisible();
-  });
-
-  test('has correct content-type for homepage', async ({ request }) => {
-    const res = await request.get('/');
+  test('serves the Angular SPA shell at /', async ({ request }) => {
+    // Modernized 2026-07-31: the vanilla homepage (`.logo` / "Project" copy in
+    // public/index.html) was deleted — `/` now serves the Angular shell from
+    // R2 via the worker. Request-level on purpose; absolute URL because the
+    // local e2e mock server has no SPA shell to serve.
+    const res = await request.get(`${PROD_URL}/`);
+    expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('<app-root');
+    expect(html).toContain('<title>ProjectSites');
   });
 });
 
@@ -95,12 +107,25 @@ test.describe('CORS', () => {
 });
 
 test.describe('Error Handling', () => {
-  test('returns error for unknown API routes', async ({ request }) => {
+  test('returns JSON 404 for unknown API routes', async ({ request }) => {
+    // Soft-404 guard (worker commit 76249c96): every unmatched /api/* path is
+    // a machine-readable JSON 404 — never the SPA shell, never a bare 401.
+    // The local mock server implements the same contract.
     const res = await request.get('/api/nonexistent-route-xyz');
-    expect([401, 403, 404]).toContain(res.status());
+    expect(res.status()).toBe(404);
+    expect(res.headers()['content-type'] ?? '').toContain('application/json');
+    const body = await res.json();
+    expect(body.error.code).toBe('NOT_FOUND');
   });
 
-  test('returns 413 for oversized payloads', async ({ request }) => {
+  test('returns 413 for oversized payloads (403 when the CF challenge intercepts)', async ({ request }) => {
+    // The worker's payloadLimitMiddleware rejects >256KB bodies with a 413
+    // PAYLOAD_TOO_LARGE envelope (src/middleware/payload_limit.ts), and the
+    // local mock mirrors it. On prod, however, Cloudflare Bot Fight Mode
+    // challenges request-context POSTs BEFORE the worker runs — a 403
+    // text/html challenge page (reproduced 2026-07-31 via curl). Both are
+    // the honest observable contract; the old `[413, 400]` set was not
+    // (400 was never produced by the size path).
     const largeBody = 'x'.repeat(300_000);
     const res = await request.post('/api/auth/magic-link', {
       data: largeBody,
@@ -109,6 +134,10 @@ test.describe('Error Handling', () => {
         'Content-Length': String(largeBody.length),
       },
     });
-    expect([413, 400]).toContain(res.status());
+    expect([413, 403]).toContain(res.status());
+    if (res.status() === 413) {
+      const body = await res.json();
+      expect(body.error.code).toBe('PAYLOAD_TOO_LARGE');
+    }
   });
 });

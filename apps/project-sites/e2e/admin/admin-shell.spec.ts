@@ -9,7 +9,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-01 — /admin dashboard loads, sidebar visible', () => {
   test('admin shell mounts with sidebar and no console errors', async ({ authedPage: page }) => {

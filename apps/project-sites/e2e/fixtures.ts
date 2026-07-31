@@ -33,8 +33,11 @@ function _isCdnHost(url: URL): boolean {
   const { hostname } = url;
   if (hostname === 'localhost' || hostname === '127.0.0.1') return false;
 
-  // Allow requests to the configured PROD_URL host so smoke tests can hit prod
-  const prodUrl = process.env.PROD_URL;
+  // Allow requests to the app-under-test host. Mirror the config's baseURL
+  // fallback chain — reading ONLY the env var made the fixture abort the
+  // DOCUMENT request (net::ERR_FAILED on every goto) whenever PROD_URL was
+  // not exported, even though the run's baseURL correctly pointed at prod.
+  const prodUrl = process.env.PROD_URL ?? process.env.BASE_URL ?? 'https://projectsites.dev';
   if (prodUrl) {
     try {
       const prodHost = new URL(prodUrl).hostname;
@@ -85,7 +88,9 @@ export const test = base.extend<ProjectSitesFixtures>({
   authedPage: async ({ browser }, use) => {
     // Create a fresh browser context so the auth stub doesn't bleed into
     // other tests running in parallel.
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      baseURL: process.env.PROD_URL ?? process.env.BASE_URL ?? 'https://projectsites.dev',
+    });
     const page = await context.newPage();
 
     // Block external CDN requests (same policy as the `page` fixture above).
@@ -93,10 +98,12 @@ export const test = base.extend<ProjectSitesFixtures>({
 
     // Navigate to the app root first so addInitScript + route mocks take effect
     // before any app scripts run.
-    const baseUrl =
-      process.env.PROD_URL ??
-      process.env.BASE_URL ??
-      'http://localhost:8787';
+    // Mirror the config's baseURL chain. The old 'http://localhost:8787'
+    // terminal fallback sent every authedPage to whatever stray dev server
+    // was listening there whenever PROD_URL/BASE_URL were not exported —
+    // the entire adversarial suite failed on an "Authentication Fails
+    // (governor)" page that exists nowhere in this repo.
+    const baseUrl = process.env.PROD_URL ?? process.env.BASE_URL ?? 'https://projectsites.dev';
     await page.goto(baseUrl);
 
     // Sign in as the test user (seeds localStorage + stubs /api/auth/me).

@@ -22,7 +22,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-22 — /admin/webhooks Outbound Webhooks surface renders', () => {
   test('webhooks header + add-endpoint control / empty-state render', async ({ authedPage: page }) => {

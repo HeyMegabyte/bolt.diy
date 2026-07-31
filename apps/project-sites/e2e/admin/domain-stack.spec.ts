@@ -22,7 +22,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-DOMAIN-STACK — /admin/domains/:id/stack wizard renders', () => {
   test('domain stack wizard shell heading and back link are visible', async ({

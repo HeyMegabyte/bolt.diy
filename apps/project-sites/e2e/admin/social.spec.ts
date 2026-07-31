@@ -7,7 +7,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-26 — /admin/social Pulse social posting UI renders', () => {
   test('social section h1 and auto-pilot button visible', async ({ authedPage: page }) => {

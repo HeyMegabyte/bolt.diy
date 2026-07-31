@@ -8,7 +8,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-18 — /admin/apps apps catalog renders', () => {
   test('apps catalog heading and search input visible', async ({ authedPage: page }) => {

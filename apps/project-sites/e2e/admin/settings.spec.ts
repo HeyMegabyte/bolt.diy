@@ -7,7 +7,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-14 — /admin/settings org settings render', () => {
   test('settings section heading and 2FA toggle visible', async ({ authedPage: page }) => {

@@ -22,7 +22,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 const SITE_ID = process.env.E2E_SITE_ID ?? 'e2e-site';
 
 test.describe('ADMIN-31 — /admin/sites/:id/dna Site DNA Taste Graph surface renders', () => {

@@ -119,14 +119,14 @@ test.describe('SITE-09 — Publish bolt files', () => {
 // ---------------------------------------------------------------------------
 test.describe('SITE-11 — Subdomain serving', () => {
   test('Known test slug serves a non-401 response', async ({ page }) => {
-    const baseUrl = process.env.PROD_URL ?? 'http://localhost:8787';
+    const baseUrl = process.env.PROD_URL ?? 'https://projectsites.dev';
     // Request the health endpoint on the main domain to verify the server responds
     const res = await page.request.get(`${baseUrl}/health`);
     expect(res.status()).toBe(200);
   });
 
   test('Hosting header check: X-Request-ID present on site responses', async ({ page }) => {
-    const baseUrl = process.env.PROD_URL ?? 'http://localhost:8787';
+    const baseUrl = process.env.PROD_URL ?? 'https://projectsites.dev';
     const res = await page.request.get(baseUrl);
     expect(res.status()).not.toBe(500);
     // Either X-Request-ID or a 200 response indicates serving layer is up

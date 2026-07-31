@@ -28,7 +28,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 // Deterministic placeholder site id — the always-rendered shell mounts for any
 // `:id`; the fetch outcome for this id is irrelevant to the shell assertions.

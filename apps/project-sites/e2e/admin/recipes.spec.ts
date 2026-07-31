@@ -22,7 +22,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-23 — /admin/recipes Automation Builder surface renders', () => {
   test('recipes header + create control / empty-state render', async ({ authedPage: page }) => {

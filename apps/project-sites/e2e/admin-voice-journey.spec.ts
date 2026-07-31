@@ -31,41 +31,56 @@ const STUB_SITE = {
   primary_hostname: 'e2e-test.projectsites.dev',
 };
 
+// Shapes mirror the component interfaces EXACTLY (snake_case) — camelCase
+// twins of these stubs previously rendered undefined fields (vanityHtml on
+// undefined phone_number, DatePipe on undefined started_at) → console errors
+// that tripped the hard console-hygiene assertion.
+
+// numbers.component.ts `interface PurchasedNumber`
 const STUB_NUMBERS = [
   {
     id: 'num-001',
-    number: '+12015550001',
-    friendlyName: '(201) 555-0001',
-    siteId: 'e2e-site-id',
-    provider: 'livekit',
-    active: true,
-    purchasedAt: '2026-07-01T00:00:00Z',
+    phone_number: '+12015550001',
+    friendly_name: 'Main line',
+    capabilities: { voice: true, sms: true, mms: false },
+    monthly_cost_usd: 1.0,
+    purchased_at: '2026-07-01T00:00:00Z',
   },
   {
     id: 'num-002',
-    number: '+12015550002',
-    friendlyName: '(201) 555-0002',
-    siteId: 'e2e-site-id',
-    provider: 'livekit',
-    active: true,
-    purchasedAt: '2026-07-10T00:00:00Z',
+    phone_number: '+12015550002',
+    friendly_name: 'Overflow',
+    capabilities: { voice: true, sms: false, mms: false },
+    monthly_cost_usd: 1.0,
+    purchased_at: '2026-07-10T00:00:00Z',
   },
 ];
 
+// conversations.component.ts `interface Conversation` — transcript is
+// TranscriptTurn[] ({ speaker, text, t_ms }), never a string.
 const STUB_CONVERSATIONS = [
   {
     id: 'conv-001',
-    callerId: '+15555550100',
-    duration: 120,
+    channel: 'call',
+    from_number: '+15555550100',
+    to_number: '+12015550001',
+    started_at: '2026-07-28T14:00:00Z',
+    duration_s: 120,
+    message_preview: 'Hello, I am calling about your services.',
     status: 'completed',
-    startedAt: '2026-07-28T14:00:00Z',
-    transcript: 'Hello, I am calling about your services.',
+    sentiment: 'neutral',
+    has_recording: false,
+    transcript: [
+      { speaker: 'caller', text: 'Hello, I am calling about your services.', t_ms: 0 },
+      { speaker: 'agent', text: 'Happy to help — what would you like to know?', t_ms: 2400 },
+    ],
   },
 ];
 
+// numbers.component.ts `interface VanitySuggestion`
 const STUB_VANITY = [
-  { suggestion: '1-800-E2E-TEST', score: 0.9 },
-  { suggestion: '1-800-TESTSITE', score: 0.8 },
+  { word: 'E2E-TEST', digits: '3238378', rationale: 'Matches the test-suite name', score: 0.9 },
+  { word: 'TESTSITE', digits: '83787483', rationale: 'Matches the site name', score: 0.8 },
 ];
 
 async function signInAndStubVoice(page: Page): Promise<void> {
@@ -173,13 +188,21 @@ async function signInAndStubVoice(page: Page): Promise<void> {
   await page.route('**/api/voice/conversations/**', conversationsStub);
 
   // glob-ok: query-suffix only — /api/voice/search has no deeper path segments
+  // Shape: numbers.component.ts `interface NumberCandidate`.
   await page.route('**/api/voice/search**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         data: [
-          { number: '+12015550099', friendlyName: '(201) 555-0099', monthlyPrice: 1.0 },
+          {
+            phone_number: '+12015550099',
+            locality: 'Jersey City',
+            region: 'NJ',
+            iso_country: 'US',
+            capabilities: { voice: true, sms: true, mms: false },
+            monthly_cost_usd: 1.0,
+          },
         ],
       }),
     });
@@ -196,6 +219,9 @@ async function signInAndStubVoice(page: Page): Promise<void> {
 
   // glob-ok: query-suffix only — matches /agent-settings (token extension, no
   // '/' crossed); there are no /api/voice/agent/... subpaths in the frontend
+  // Shape: agent-settings.component.ts `interface AgentSettings` — component
+  // spreads `{ ...DEFAULTS, ...r.data }`, so a valid partial suffices;
+  // provider/voice must be a legal VOICE_OPTIONS pair.
   await page.route('**/api/voice/agent**', async (route) => {
     const method = route.request().method();
     if (method === 'GET') {
@@ -204,11 +230,40 @@ async function signInAndStubVoice(page: Page): Promise<void> {
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            systemPrompt: 'You are a helpful assistant for E2E Test Site.',
-            greeting: 'Hello! Welcome to E2E Test Site.',
-            voice: 'alloy',
+            voice_system_prompt: 'You are a helpful assistant for E2E Test Site.',
+            sms_system_prompt: 'You handle inbound texts for E2E Test Site.',
+            voice_provider: 'openai',
+            voice_id: 'alloy',
           },
         }),
+      });
+    } else {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
+    }
+  });
+
+  // glob-ok: query-suffix only — meta-prompt has no deeper path segments.
+  // agent-settings.component expects { data: { text } }; without this stub the
+  // GET fell through to the /api catch-all's { data: [] } (array, wrong shape).
+  await page.route('**/api/voice/meta-prompt**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { text: 'Immutable safety meta-prompt (E2E stub).' } }),
+    });
+  });
+
+  // glob-ok: query-suffix only — mcp-attachments has no deeper path segments.
+  // mcps.component expects { data: { voice: string[]; sms: string[] } }; the
+  // catch-all's { data: [] } left data.voice/data.sms undefined → template @for
+  // over undefined throws when the MCPs tab renders.
+  await page.route('**/api/voice/mcp-attachments**', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { voice: [], sms: [] } }),
       });
     } else {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });

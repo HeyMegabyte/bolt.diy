@@ -15,7 +15,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-DASH — /admin Getting Started hub renders', () => {
   test('hub shell, welcome hero, and section guide are visible', async ({ authedPage: page }) => {

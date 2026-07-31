@@ -6,7 +6,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-24 — /admin/feature-flags lists flags', () => {
   test('feature flags heading and at least one flag card visible', async ({ authedPage: page }) => {

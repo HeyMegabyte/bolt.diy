@@ -6,7 +6,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-23 — /admin/email provider config renders', () => {
   test('email section heading visible and no console errors', async ({ authedPage: page }) => {

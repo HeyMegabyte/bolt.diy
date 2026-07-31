@@ -291,7 +291,7 @@ interface GhStatus {
           </div>
         } @else {
           <!-- Timeline -->
-          <div class="relative pl-6 max-h-[500px] overflow-y-auto sidebar-scrollbar">
+          <div class="relative pl-6 max-h-[500px] overflow-y-auto sidebar-scrollbar" data-testid="snap-timeline">
             <!-- Timeline line -->
             <div class="absolute left-[11px] top-[10px] bottom-0 w-[2px] bg-gradient-to-b from-primary/30 via-primary/15 to-transparent"></div>
 
@@ -310,7 +310,8 @@ interface GhStatus {
                      On narrow viewports (<768px) the description hides via .snap-desc-inline
                      media query, leaving the row tight + scannable. -->
                 <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 transition-all hover:border-primary/[0.12] ml-2"
-                     [class]="first ? 'border-primary/[0.15] bg-primary/[0.02]' : ''">
+                     [class]="first ? 'border-primary/[0.15] bg-primary/[0.02]' : ''"
+                     [attr.data-testid]="'snap-row-' + snap.id">
                   <div class="snap-row">
                     <a class="snap-title"
                        [href]="'https://' + state.selectedSite()!.slug + '-' + snap.snapshot_name + '.projectsites.dev'"

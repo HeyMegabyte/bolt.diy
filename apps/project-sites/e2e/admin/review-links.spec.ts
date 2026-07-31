@@ -19,7 +19,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-32 — /admin/review-links Review & Approval Links surface renders', () => {
   test('review-links header + create control / empty-state render', async ({ authedPage: page }) => {

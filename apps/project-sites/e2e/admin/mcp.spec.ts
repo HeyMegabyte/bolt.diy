@@ -6,7 +6,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-17 — /admin/mcp MCP provider list renders', () => {
   test('MCP section heading and at least one provider card visible', async ({ authedPage: page }) => {

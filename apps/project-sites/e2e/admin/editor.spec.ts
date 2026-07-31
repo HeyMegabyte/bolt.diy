@@ -8,7 +8,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-21 — /admin/editor mounts bolt iframe', () => {
   test('bolt iframe src points to editor.projectsites.dev and editor-tabs-host mounts', async ({ authedPage: page }) => {

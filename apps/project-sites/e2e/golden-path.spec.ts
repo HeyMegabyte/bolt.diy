@@ -1,1233 +1,592 @@
 /**
  * @module e2e/golden-path
- * @description Comprehensive end-to-end tests that verify ENTIRE user flows
- * from homepage to build completion. Each test walks through a complete journey
- * covering search, details, authentication, build submission, and waiting.
+ * @description End-to-end tests for the create flow golden path, modernized for
+ * the Angular SPA (2026-07-31). The vanilla `public/index.html` 4-screen state
+ * machine was deleted; `/` now serves the Angular shell and the flow lives in
+ * real routes: `/` (homepage hero search) → `/signin` (Better Auth UI) →
+ * `/create` (wizard) → `/waiting?id=…&slug=…` (build progress).
  *
- * Uses the E2E test server's built-in mocks for realistic behavior.
+ * Page tests run against PROD_URL with EVERY `/api/*` request intercepted
+ * (benign catch-all + specific stubs) so nothing mutates prod. Request-level
+ * tests use the config baseURL (local mock `scripts/e2e_server.cjs` or prod).
+ *
+ * ── Retired vanilla-era tests (with citations) ─────────────────────────────
+ * - "Existing published site redirects to live URL" + "Queued/building site
+ *   goes directly to waiting": RETIRED — `lookupSite` (frontend
+ *   api.service.ts:292) has ZERO callers; `SearchComponent.selectItem`
+ *   (search.component.ts:193-218) and `HomepageComponent.selectItem` route
+ *   every result to /create (authed) or /signin (guest). No lookup→redirect
+ *   branch exists in the Angular flow.
+ * - 4-screen `#screen-*` assertions, `window.state`, `window.redirectTo`,
+ *   `sessionStorage.ps_pending_build` auto-submit choreography: RETIRED —
+ *   vanilla homepage deleted; SPA router owns navigation.
+ * - Request-level POST `/api/auth/magic-link` (legacy) assertions: RETIRED —
+ *   mutation-unsafe against prod (would email) and Cloudflare BFM challenges
+ *   request-context POSTs with 403 HTML (verified 2026-07-31). The UI now
+ *   posts Better Auth `/api/auth/sign-in/magic-link` (auth-api.service.ts:150),
+ *   covered here with a stub.
+ * - Oversized-payload 413 duplicate: consolidated into e2e/health.spec.ts.
+ *
+ * ── Surviving contracts, modernized ────────────────────────────────────────
+ * - Search input + results dropdown + "Build a custom website" option.
+ * - Details form (now /create): required name+address, context textarea.
+ * - Email branch (magic link, stubbed) incl. the email value-domain trio.
+ * - Google branch (`<a href="/api/auth/google?returnUrl=…">`), intercepted.
+ * - Waiting screen after a stubbed build POST; building → published states.
+ * - `/?token=…&email=…&auth_callback=…` session-mint callback
+ *   (app.component.ts:339-354).
  *
  * @packageDocumentation
  */
 
-import { test, expect } from './fixtures.js';
+import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+
+const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
+const PROD_HOST = new URL(PROD_URL).hostname;
+
+// The SPA registers an Angular service worker on prod; block it so page.route
+// interception sees every request (same discipline as the admin journeys).
+test.use({ serviceWorkers: 'block' });
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-/** Type a query in the search input, wait for dropdown, select a result. */
-async function searchAndSelect(page: Page, query: string, resultText: string) {
-  const input = page.getByPlaceholder(/Enter your business name/);
+/**
+ * Abort third-party requests (GTM, PostHog, Turnstile, fonts) so page loads
+ * never hang on unreachable CDNs. App-origin + localhost stay allowed.
+ */
+async function blockThirdParty(page: Page): Promise<void> {
+  await page.route(
+    (url) =>
+      url.hostname !== PROD_HOST &&
+      !url.hostname.endsWith(`.${PROD_HOST}`) &&
+      url.hostname !== 'localhost' &&
+      url.hostname !== '127.0.0.1',
+    (route) => route.abort(),
+  );
+}
+
+/**
+ * Stub the API surface the create flow touches. The benign catch-all is
+ * registered FIRST so Playwright matches it LAST (reverse registration
+ * order) — any unstubbed authed GET lands on a harmless 200 instead of
+ * reaching real prod (helpers/auth.ts pattern; without it, boot-time calls
+ * 401 with a fake bearer and ApiService clears the session mid-test).
+ */
+async function stubApis(page: Page): Promise<void> {
+  await page.route('**/api/**', async (route) => {
+    const method = route.request().method();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: method === 'GET' ? '{"data":[]}' : '{"ok":true}',
+    });
+  });
+
+  // Business search — echoes the query like the e2e mock server contract.
+  await page.route('**/api/search/businesses**', async (route) => {
+    const q = new URL(route.request().url()).searchParams.get('q') ?? 'Test';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            place_id: 'ChIJ_e2e_1',
+            name: `${q} Pizza`,
+            address: '123 Main St, New York, NY',
+            types: ['restaurant'],
+          },
+          {
+            place_id: 'ChIJ_e2e_2',
+            name: `${q} Plumbing`,
+            address: '456 Oak Ave, Brooklyn, NY',
+            types: ['plumber'],
+          },
+        ],
+      }),
+    });
+  });
+
+  // Pre-built site search — empty so Google Places results lead the dropdown.
+  await page.route('**/api/sites/search**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: '{"data":[]}',
+    });
+  });
+
+  // Better Auth cookie-session probe (sign-in ngOnInit bridge) — no session.
+  await page.route('**/api/auth/get-session**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+
+  // Better Auth passwordless magic link — the ONLY sign-in mutation this
+  // suite exercises, always stubbed (never a real email).
+  await page.route('**/api/auth/sign-in/magic-link**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: '{"status":true}',
+    });
+  });
+}
+
+/**
+ * Inject a fake `ps_session` before the SPA boots (AuthService shape:
+ * `{ token, identifier, createdAt }` — see e2e/helpers/auth.ts). All API
+ * traffic is stubbed, so the fake bearer never reaches prod.
+ */
+async function injectSession(page: Page, email = 'e2e-golden@megabyte.space'): Promise<void> {
+  await page.context().addInitScript(
+    ({ id }: { id: string }) => {
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({ token: 'e2e-stub-session-token', identifier: id, createdAt: Date.now() }),
+      );
+    },
+    { id: email },
+  );
+}
+
+/** Hero search input on the homepage (first match; the CTA section repeats it). */
+function heroSearch(page: Page) {
+  return page.getByPlaceholder('Search for your business...').first();
+}
+
+/** Open the homepage and wait for the hero to render. */
+async function openHomepage(page: Page): Promise<void> {
+  await page.goto(`${PROD_URL}/`, { waitUntil: 'domcontentloaded' });
+  await expect(page.getByTestId('hero-headline')).toBeVisible({ timeout: 15_000 });
+  await expect(heroSearch(page)).toBeVisible();
+}
+
+/** Type a query into the hero search and click the named dropdown result. */
+async function searchAndSelect(page: Page, query: string, resultName: string | RegExp) {
+  const input = heroSearch(page);
   await input.click();
   await input.pressSequentially(query, { delay: 30 });
 
-  const result = page.locator('.search-result').filter({ hasText: resultText });
-  await expect(result.first()).toBeVisible({ timeout: 15_000 });
+  const result = page.getByRole('button', { name: resultName });
+  await expect(result.first()).toBeVisible({ timeout: 10_000 });
   await result.first().click();
 }
 
-/** Stub window.redirectTo so external navigations are captured instead of executed. */
-async function stubRedirects(page: Page): Promise<() => Promise<string[]>> {
-  await page.evaluate(() => {
-    (window as any).__redirects = [] as string[];
-    (window as any).redirectTo = (url: string) => {
-      (window as any).__redirects.push(url);
-    };
-  });
-  return async () => page.evaluate(() => (window as any).__redirects as string[]);
-}
+// ─── Guest golden path: search → select → sign-in gate ───────
 
-// ─── GRANULAR FULL FLOW: Every Micro-Step ────────────────────
-
-test.describe('Granular Full Flow: Search → Select → Details → Build → Sign-In → Email → Waiting', () => {
-  test('Verifies every single micro-interaction from page load to waiting screen', async ({
+test.describe('Guest golden path: homepage search → select → sign-in', () => {
+  test('hero search shows stubbed results + custom option; selecting routes a guest to /signin', async ({
     page,
   }) => {
-    // ────────────────────────────────────────────────────────
-    // STEP 1: Open the page and verify initial state
-    // ────────────────────────────────────────────────────────
-    await page.goto('/');
-
-    // Search screen should be active (the default screen)
-    const searchScreen = page.locator('#screen-search');
-    await expect(searchScreen).toBeVisible();
-    await expect(searchScreen).toHaveClass(/active/);
-
-    // Other screens should NOT be active
-    await expect(page.locator('#screen-details')).not.toHaveClass(/active/);
-    await expect(page.locator('#screen-signin')).not.toHaveClass(/active/);
-    await expect(page.locator('#screen-waiting')).not.toHaveClass(/active/);
-
-    // Logo and hero branding visible
-    await expect(page.locator('.logo').getByText('Project')).toBeVisible();
-    await expect(page.locator('.hero-brand').getByText(/handled/i)).toBeVisible();
-
-    // Search input is present and empty
-    const searchInput = page.locator('#search-input');
-    await expect(searchInput).toBeVisible();
-    await expect(searchInput).toHaveAttribute('placeholder', 'Enter your business name...');
-    await expect(searchInput).toHaveValue('');
-
-    // Dropdown should be closed (no .open class)
-    const dropdown = page.locator('#search-dropdown');
-    await expect(dropdown).not.toHaveClass(/open/);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 2: Focus the search input and type a business name
-    // ────────────────────────────────────────────────────────
-    await searchInput.click();
-    await expect(searchInput).toBeFocused();
-
-    // Type a business name character by character (triggers 300ms debounce)
-    await searchInput.pressSequentially('Sunrise Bakery', { delay: 30 });
-    await expect(searchInput).toHaveValue('Sunrise Bakery');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 3: Wait for live search dropdown to appear
-    // ────────────────────────────────────────────────────────
-    // The E2E server returns "{query} Pizza" and "{query} Plumbing" for any query
-    // After debounce + fetch, the dropdown should open with results
-    await expect(dropdown).toHaveClass(/open/, { timeout: 10_000 });
-
-    // Verify search results are rendered with correct structure
-    const results = dropdown.locator('.search-result');
-    // Should have: 2 Google Places results + 1 Custom Website = 3 total
-    await expect(results).toHaveCount(3, { timeout: 5_000 });
-
-    // First result: "Sunrise Bakery Pizza" (E2E server returns "{query} Pizza")
-    const firstResult = results.nth(0);
-    await expect(firstResult.locator('.search-result-name')).toContainText('Sunrise Bakery Pizza');
-    await expect(firstResult.locator('.search-result-address')).toContainText(
-      '123 Main St, New York, NY',
-    );
-    await expect(firstResult.locator('.search-result-icon')).toBeVisible();
-
-    // Second result: "Sunrise Bakery Plumbing"
-    const secondResult = results.nth(1);
-    await expect(secondResult.locator('.search-result-name')).toContainText(
-      'Sunrise Bakery Plumbing',
-    );
-    await expect(secondResult.locator('.search-result-address')).toContainText(
-      '456 Oak Ave, Brooklyn, NY',
-    );
-
-    // Third result: Custom Website option (always present)
-    const customResult = results.nth(2);
-    await expect(customResult).toHaveClass(/search-result-custom/);
-    await expect(customResult.locator('.search-result-name')).toContainText('Custom Website');
-    await expect(customResult.locator('.search-result-address')).toContainText(
-      'Build a custom website from scratch',
-    );
-
-    // ────────────────────────────────────────────────────────
-    // STEP 4: Click the first search result
-    // ────────────────────────────────────────────────────────
-    // Intercept the lookup API call to verify it fires
-    const lookupPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/sites/lookup') && resp.status() === 200,
-    );
-
-    await firstResult.click();
-
-    // Dropdown should close after selection
-    await expect(dropdown).not.toHaveClass(/open/, { timeout: 3_000 });
-
-    // Lookup API call should have fired with the place_id
-    const lookupResp = await lookupPromise;
-    expect(lookupResp.url()).toContain('place_id=ChIJ_mock_1');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 5: Verify Details screen appears with correct data
-    // ────────────────────────────────────────────────────────
-    const detailsScreen = page.locator('#screen-details');
-    await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
-    await expect(detailsScreen).toHaveClass(/active/);
-
-    // Search screen is no longer active
-    await expect(searchScreen).not.toHaveClass(/active/);
-
-    // Title says "Tell us more about your business" (business mode, not custom)
-    await expect(page.locator('#details-title')).toHaveText('Tell us more about your business');
-    await expect(page.locator('#details-subtitle')).toContainText(
-      'Any extra info helps us build the perfect website',
-    );
-
-    // Business badge is visible and populated with selected business data
-    const badge = page.locator('#details-business-badge');
-    await expect(badge).toBeVisible();
-    await expect(page.locator('#badge-biz-name')).toHaveText('Sunrise Bakery Pizza');
-    await expect(page.locator('#badge-biz-addr')).toHaveText('123 Main St, New York, NY');
-
-    // Textarea is empty and ready for input
-    const textarea = page.locator('#details-textarea');
-    await expect(textarea).toBeVisible();
-    await expect(textarea).toHaveValue('');
-    await expect(textarea).toHaveAttribute('placeholder', /Tell us about your business/);
-
-    // Build button is enabled and shows correct text
-    const buildBtn = page.locator('#build-btn');
-    await expect(buildBtn).toBeVisible();
-    await expect(buildBtn).toBeEnabled();
-    await expect(buildBtn).toHaveText('Build My Website');
-
-    // Back to search button is present
-    await expect(detailsScreen.getByText('Back to search')).toBeVisible();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 6: Fill in additional context and click Build
-    // ────────────────────────────────────────────────────────
-    await textarea.click();
-    await textarea.fill(
-      'We are a family-owned bakery specializing in sourdough bread and French pastries. Open since 1998. Warm rustic interior.',
-    );
-    await expect(textarea).toHaveValue(/family-owned bakery specializing in sourdough/);
-
-    // Click the Build button
-    await buildBtn.click();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 7: Verify Sign-In screen appears (not authenticated)
-    // ────────────────────────────────────────────────────────
-    // submitBuild() detects no session token → sets _pendingBuild → navigateTo('signin')
-    const signinScreen = page.locator('#screen-signin');
-    await expect(signinScreen).toBeVisible({ timeout: 10_000 });
-    await expect(signinScreen).toHaveClass(/active/);
-    await expect(detailsScreen).not.toHaveClass(/active/);
-
-    // Sign-in heading and subtitle
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
-    await expect(page.locator('.signin-subtitle')).toContainText(/create your account/i);
-
-    // Sign-in method buttons visible (main panel)
-    const googleBtn = page.getByRole('button', { name: /google/i });
-    const emailBtn = page.getByRole('button', { name: /email/i });
-    await expect(googleBtn).toBeVisible();
-    await expect(emailBtn).toBeVisible();
-
-    // Email panel should NOT be active yet
-    await expect(page.locator('#signin-email-panel')).not.toHaveClass(/active/);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 8: Click "Sign in with Email" button
-    // ────────────────────────────────────────────────────────
-    await emailBtn.click();
-
-    // Email panel becomes active, methods panel hides
-    await expect(page.locator('#signin-email-panel')).toHaveClass(/active/);
-
-    // Email input step is visible, sent step is hidden
-    await expect(page.locator('#email-step-input')).toBeVisible();
-    await expect(page.locator('#email-step-sent')).not.toBeVisible();
-
-    // Email input field is visible
-    const emailInput = page.locator('#email-input');
-    await expect(emailInput).toBeVisible();
-    await expect(emailInput).toHaveAttribute('placeholder', 'you@example.com');
-    await expect(emailInput).toHaveAttribute('type', 'email');
-    await expect(emailInput).toHaveValue('');
-
-    // Send button is visible and enabled
-    const sendBtn = page.locator('#email-send-btn');
-    await expect(sendBtn).toBeVisible();
-    await expect(sendBtn).toBeEnabled();
-    await expect(sendBtn).toContainText('Send Magic Link');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 9: Enter email and send magic link
-    // ────────────────────────────────────────────────────────
-    await emailInput.fill('test@example.com');
-    await expect(emailInput).toHaveValue('test@example.com');
-
-    // Intercept the magic link API call
-    const magicLinkPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/auth/magic-link') && resp.status() === 200,
-    );
-
-    await sendBtn.click();
-
-    // Verify API call succeeds
-    const mlResp = await magicLinkPromise;
-    const mlJson = await mlResp.json();
-    expect(mlJson.data).toHaveProperty('expires_at');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 10: Verify "Check your email" confirmation
-    // ────────────────────────────────────────────────────────
-    // After successful send: email-step-input hides, email-step-sent shows
-    await expect(page.locator('#email-step-input')).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('#email-step-sent')).toBeVisible();
-    await expect(page.getByText(/check your email/i)).toBeVisible();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 11: Simulate magic link callback (user clicks link in email)
-    // ────────────────────────────────────────────────────────
-    // Save state to sessionStorage before navigating away
-    await page.evaluate(() => {
-      const s = (window as any).state;
-      if (s.selectedBusiness) {
-        sessionStorage.setItem('ps_selected_business', JSON.stringify(s.selectedBusiness));
-        sessionStorage.setItem('ps_mode', s.mode);
-      }
-      sessionStorage.setItem('ps_pending_build', '1');
-    });
-
-    // Navigate as if user clicked magic link in email
-    await page.goto('/?token=e2e-magic-link-token&email=test@example.com&auth_callback=email');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 12: Auto-navigation back to details, auto-submit build
-    // ────────────────────────────────────────────────────────
-    // After callback: handleAuthCallback sets state.session → restores business
-    // → navigateTo('details') → wrapper detects _pendingBuild → auto-calls submitBuild()
-    // submitBuild sends POST /api/sites/create-from-search with auth header
-
-    // Intercept the create-from-search API call
-    const createPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/sites/create-from-search') && resp.status() === 201,
-    );
-
-    const createResp = await createPromise;
-    const createJson = await createResp.json();
-    expect(createJson.data).toHaveProperty('site_id');
-    expect(createJson.data).toHaveProperty('slug');
-    expect(createJson.data).toHaveProperty('workflow_instance_id');
-    expect(createJson.data.status).toBe('building');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 13: Verify Waiting screen appears with all elements
-    // ────────────────────────────────────────────────────────
-    const waitingScreen = page.locator('#screen-waiting');
-    await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
-    await expect(waitingScreen).toHaveClass(/active/);
-
-    // Sign-in screen is no longer active
-    await expect(signinScreen).not.toHaveClass(/active/);
-
-    // Waiting title and subtitle
-    await expect(page.locator('.waiting-title')).toContainText(/building your website/i);
-    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
-
-    // Status indicator with pulsing dot
-    const statusDot = page.locator('.status-dot');
-    await expect(statusDot).toBeVisible();
-    await expect(page.locator('.waiting-status')).toContainText('Build in progress');
-
-    // Loading dots animation in status bar
-    await expect(page.locator('.waiting-status .loading-dots')).toBeVisible();
-
-    // Animated loading rings
-    await expect(page.locator('.waiting-anim')).toBeVisible();
-    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
-    await expect(page.locator('.waiting-anim-icon')).toBeVisible();
-
-    // Contact line shows signed-in identity (email)
-    const contactEl = page.locator('#waiting-contact');
-    await expect(contactEl).toContainText('test@example.com');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 14: Verify internal state via JS evaluation
-    // ────────────────────────────────────────────────────────
-    const appState = await page.evaluate(() => {
-      const s = (window as any).state;
-      return {
-        screen: s.screen,
-        mode: s.mode,
-        hasSession: !!s.session && !!s.session.token,
-        hasSiteId: !!s.siteId,
-        selectedBusinessName: s.selectedBusiness?.name || null,
-        pendingBuild: s._pendingBuild,
-      };
-    });
-
-    expect(appState.screen).toBe('waiting');
-    expect(appState.mode).toBe('business');
-    expect(appState.hasSession).toBe(true);
-    expect(appState.selectedBusinessName).toBe('Sunrise Bakery Pizza');
-    expect(appState.pendingBuild).toBeFalsy();
-  });
-});
-
-// ─── GRANULAR FULL FLOW: Google OAuth ────────────────────────
-
-test.describe('Granular Full Flow: Google OAuth Sign-In', () => {
-  test('Verifies every micro-step of search → details → Google redirect → callback → waiting', async ({
-    page,
-  }) => {
-    // ────────────────────────────────────────────────────────
-    // STEP 1: Open page and verify initial state
-    // ────────────────────────────────────────────────────────
-    await page.goto('/');
-    const getRedirects = await stubRedirects(page);
-
-    const searchScreen = page.locator('#screen-search');
-    await expect(searchScreen).toBeVisible();
-    await expect(searchScreen).toHaveClass(/active/);
-
-    const searchInput = page.locator('#search-input');
-    await expect(searchInput).toBeVisible();
-    await expect(searchInput).toHaveValue('');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 2: Focus input and type a business name
-    // ────────────────────────────────────────────────────────
-    await searchInput.click();
-    await expect(searchInput).toBeFocused();
-    await searchInput.pressSequentially('Mountain Coffee', { delay: 30 });
-    await expect(searchInput).toHaveValue('Mountain Coffee');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 3: Wait for live search dropdown
-    // ────────────────────────────────────────────────────────
-    const dropdown = page.locator('#search-dropdown');
-    await expect(dropdown).toHaveClass(/open/, { timeout: 10_000 });
-
-    const results = dropdown.locator('.search-result');
-    await expect(results).toHaveCount(3, { timeout: 5_000 });
-
-    // Verify first result structure
-    const firstResult = results.nth(0);
-    await expect(firstResult.locator('.search-result-name')).toContainText('Mountain Coffee Pizza');
-    await expect(firstResult.locator('.search-result-address')).toContainText(
-      '123 Main St, New York, NY',
-    );
-
-    // ────────────────────────────────────────────────────────
-    // STEP 4: Click first result and verify lookup API fires
-    // ────────────────────────────────────────────────────────
-    const lookupPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/sites/lookup') && resp.status() === 200,
-    );
-    await firstResult.click();
-    await expect(dropdown).not.toHaveClass(/open/, { timeout: 3_000 });
-
-    const lookupResp = await lookupPromise;
-    expect(lookupResp.url()).toContain('place_id=ChIJ_mock_1');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 5: Verify Details screen
-    // ────────────────────────────────────────────────────────
-    const detailsScreen = page.locator('#screen-details');
-    await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
-    await expect(detailsScreen).toHaveClass(/active/);
-    await expect(searchScreen).not.toHaveClass(/active/);
-
-    // Business badge populated
-    await expect(page.locator('#details-title')).toHaveText('Tell us more about your business');
-    await expect(page.locator('#badge-biz-name')).toHaveText('Mountain Coffee Pizza');
-    await expect(page.locator('#badge-biz-addr')).toHaveText('123 Main St, New York, NY');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 6: Fill details and click Build
-    // ────────────────────────────────────────────────────────
-    const textarea = page.locator('#details-textarea');
-    await textarea.fill(
-      'Specialty coffee roaster and cafe. Single-origin beans, pour-over bar, cozy atmosphere.',
-    );
-    await expect(textarea).toHaveValue(/Specialty coffee roaster/);
-
-    const buildBtn = page.locator('#build-btn');
-    await expect(buildBtn).toBeEnabled();
-    await buildBtn.click();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 7: Verify Sign-In screen appears
-    // ────────────────────────────────────────────────────────
-    const signinScreen = page.locator('#screen-signin');
-    await expect(signinScreen).toBeVisible({ timeout: 10_000 });
-    await expect(signinScreen).toHaveClass(/active/);
-    await expect(detailsScreen).not.toHaveClass(/active/);
-
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
-    await expect(page.locator('.signin-subtitle')).toContainText(/create your account/i);
-
-    // Sign-in buttons visible
-    const googleBtn = page.getByRole('button', { name: /google/i });
-    await expect(googleBtn).toBeVisible();
-    await expect(page.getByRole('button', { name: /email/i })).toBeVisible();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 8: Click "Continue with Google"
-    // ────────────────────────────────────────────────────────
-    await googleBtn.click();
-
-    // The signInWithGoogle wrapper saves state to sessionStorage before redirect
-    const savedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
-    expect(savedBiz).toBeTruthy();
-
-    // Verify the saved business data is correct
-    const parsedBiz = JSON.parse(savedBiz!);
-    expect(parsedBiz.name).toBe('Mountain Coffee Pizza');
-    expect(parsedBiz.address).toBe('123 Main St, New York, NY');
-    expect(parsedBiz.place_id).toBe('ChIJ_mock_1');
-
-    // Verify mode and pending build saved
-    const savedMode = await page.evaluate(() => sessionStorage.getItem('ps_mode'));
-    expect(savedMode).toBe('business');
-
-    const savedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
-    expect(savedPending).toBe('1');
-
-    // Verify redirect was captured (redirectTo was stubbed)
-    const redirects = await getRedirects();
-    expect(redirects.length).toBe(1);
-    expect(redirects[0]).toContain('/api/auth/google');
-    expect(redirects[0]).toContain('redirect_url=');
-    // auth_callback=google is URL-encoded inside the redirect_url param
-    expect(redirects[0]).toContain('auth_callback');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 9: Simulate Google OAuth callback (user returns from Google)
-    // ────────────────────────────────────────────────────────
-    // In real flow: Google redirects back with token. We simulate this.
-    await page.goto('/?token=e2e-google-oauth-token&email=user@gmail.com&auth_callback=google');
-
-    // handleAuthCallback IIFE fires:
-    //   → sets state.session with token
-    //   → cleans URL
-    //   → restores selectedBusiness from sessionStorage
-    //   → detects _pendingBuild
-    //   → navigateTo('details')
-    //   → navigateTo wrapper detects _pendingBuild + session → auto-submitBuild()
-
-    // ────────────────────────────────────────────────────────
-    // STEP 10: Verify sessionStorage was consumed (cleaned up)
-    // ────────────────────────────────────────────────────────
-    const clearedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
-    expect(clearedBiz).toBeNull();
-    const clearedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
-    expect(clearedPending).toBeNull();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 11: Verify auto-submit fires create-from-search API
-    // ────────────────────────────────────────────────────────
-    // The auto-submit should POST to create-from-search with the restored business
-    // Wait for the waiting screen (create API + navigateTo('waiting'))
-    const waitingScreen = page.locator('#screen-waiting');
-    await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
-    await expect(waitingScreen).toHaveClass(/active/);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 12: Verify waiting screen elements
-    // ────────────────────────────────────────────────────────
-    await expect(page.locator('.waiting-title')).toContainText(/building your website/i);
-    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
-    await expect(page.locator('.status-dot')).toBeVisible();
-    await expect(page.locator('.waiting-status')).toContainText('Build in progress');
-    await expect(page.locator('.waiting-anim')).toBeVisible();
-    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
-
-    // Contact shows the Google email from callback
-    await expect(page.locator('#waiting-contact')).toContainText('user@gmail.com');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 13: Verify internal state
-    // ────────────────────────────────────────────────────────
-    const appState = await page.evaluate(() => {
-      const s = (window as any).state;
-      return {
-        screen: s.screen,
-        mode: s.mode,
-        hasSession: !!s.session && !!s.session.token,
-        sessionIdentifier: s.session?.identifier || null,
-        selectedBusinessName: s.selectedBusiness?.name || null,
-        pendingBuild: s._pendingBuild,
-      };
-    });
-
-    expect(appState.screen).toBe('waiting');
-    expect(appState.mode).toBe('business');
-    expect(appState.hasSession).toBe(true);
-    expect(appState.sessionIdentifier).toBe('user@gmail.com');
-    expect(appState.selectedBusinessName).toBe('Mountain Coffee Pizza');
-    expect(appState.pendingBuild).toBeFalsy();
-  });
-});
-
-// ─── GRANULAR FULL FLOW: Email Magic Link ────────────────────
-
-test.describe('Granular Full Flow: Email Magic Link Sign-In', () => {
-  test('Verifies every micro-step of search → details → email → check-email → callback → waiting', async ({
-    page,
-  }) => {
-    // ────────────────────────────────────────────────────────
-    // STEP 1: Open page and verify initial state
-    // ────────────────────────────────────────────────────────
-    await page.goto('/');
-
-    const searchScreen = page.locator('#screen-search');
-    await expect(searchScreen).toBeVisible();
-
-    const searchInput = page.locator('#search-input');
-    await expect(searchInput).toBeVisible();
-    await expect(searchInput).toHaveValue('');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 2: Focus input and type a business name
-    // ────────────────────────────────────────────────────────
-    await searchInput.click();
-    await expect(searchInput).toBeFocused();
-    await searchInput.pressSequentially('Harbor Sushi', { delay: 30 });
-    await expect(searchInput).toHaveValue('Harbor Sushi');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 3: Wait for live search dropdown
-    // ────────────────────────────────────────────────────────
-    const dropdown = page.locator('#search-dropdown');
-    await expect(dropdown).toHaveClass(/open/, { timeout: 10_000 });
-
-    const results = dropdown.locator('.search-result');
-    await expect(results).toHaveCount(3, { timeout: 5_000 });
-
-    // Verify result structure
-    const firstResult = results.nth(0);
-    await expect(firstResult.locator('.search-result-name')).toContainText('Harbor Sushi Pizza');
-    await expect(firstResult.locator('.search-result-address')).toContainText(
-      '123 Main St, New York, NY',
-    );
-    await expect(firstResult.locator('.search-result-icon')).toBeVisible();
-
-    // Second result
-    await expect(results.nth(1).locator('.search-result-name')).toContainText(
-      'Harbor Sushi Plumbing',
-    );
-
-    // Custom option always present
-    await expect(results.nth(2)).toHaveClass(/search-result-custom/);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 4: Click first result and verify lookup API
-    // ────────────────────────────────────────────────────────
-    const lookupPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/sites/lookup') && resp.status() === 200,
-    );
-    await firstResult.click();
-    await expect(dropdown).not.toHaveClass(/open/, { timeout: 3_000 });
-
-    const lookupResp = await lookupPromise;
-    expect(lookupResp.url()).toContain('place_id=ChIJ_mock_1');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 5: Verify Details screen
-    // ────────────────────────────────────────────────────────
-    const detailsScreen = page.locator('#screen-details');
-    await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
-    await expect(detailsScreen).toHaveClass(/active/);
-
-    await expect(page.locator('#details-title')).toHaveText('Tell us more about your business');
-    await expect(page.locator('#badge-biz-name')).toHaveText('Harbor Sushi Pizza');
-    await expect(page.locator('#badge-biz-addr')).toHaveText('123 Main St, New York, NY');
-
-    const textarea = page.locator('#details-textarea');
-    await expect(textarea).toHaveValue('');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 6: Fill details and click Build
-    // ────────────────────────────────────────────────────────
-    await textarea.fill(
-      'Authentic Japanese sushi bar. Omakase menu, fresh fish daily, sake selection.',
-    );
-    await expect(textarea).toHaveValue(/Authentic Japanese sushi/);
-
-    const buildBtn = page.locator('#build-btn');
-    await expect(buildBtn).toBeEnabled();
-    await expect(buildBtn).toHaveText('Build My Website');
-    await buildBtn.click();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 7: Verify Sign-In screen
-    // ────────────────────────────────────────────────────────
-    const signinScreen = page.locator('#screen-signin');
-    await expect(signinScreen).toBeVisible({ timeout: 10_000 });
-    await expect(signinScreen).toHaveClass(/active/);
-    await expect(detailsScreen).not.toHaveClass(/active/);
-
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
-    await expect(page.locator('.signin-subtitle')).toContainText(/create your account/i);
-
-    // Sign-in buttons visible on main panel
-    await expect(page.getByRole('button', { name: /google/i })).toBeVisible();
-    const emailBtn = page.getByRole('button', { name: /email/i });
-    await expect(emailBtn).toBeVisible();
-
-    // Email panel not active yet
-    await expect(page.locator('#signin-email-panel')).not.toHaveClass(/active/);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 8: Click "Sign in with Email"
-    // ────────────────────────────────────────────────────────
-    await emailBtn.click();
-
-    // Email panel becomes active
-    await expect(page.locator('#signin-email-panel')).toHaveClass(/active/);
-
-    // Email input step is visible, sent step is hidden
-    await expect(page.locator('#email-step-input')).toBeVisible();
-    await expect(page.locator('#email-step-sent')).not.toBeVisible();
-
-    // Email input field
-    const emailInput = page.locator('#email-input');
-    await expect(emailInput).toBeVisible();
-    await expect(emailInput).toHaveAttribute('placeholder', 'you@example.com');
-    await expect(emailInput).toHaveAttribute('type', 'email');
-    await expect(emailInput).toHaveValue('');
-
-    // Send button
-    const sendBtn = page.locator('#email-send-btn');
-    await expect(sendBtn).toBeVisible();
-    await expect(sendBtn).toBeEnabled();
-    await expect(sendBtn).toContainText('Send Magic Link');
-
-    // Error message area hidden
-    await expect(page.locator('#email-send-msg')).not.toBeVisible();
-
-    // Back to sign-in options link
-    await expect(page.locator('#signin-email-panel .back-link')).toContainText(
-      'Back to sign-in options',
-    );
-
-    // ────────────────────────────────────────────────────────
-    // STEP 9: Try empty email (validation)
-    // ────────────────────────────────────────────────────────
-    await sendBtn.click();
-    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 10: Try invalid email (validation)
-    // ────────────────────────────────────────────────────────
-    await emailInput.fill('not-a-real-email');
-    await sendBtn.click();
-    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
-
-    // ────────────────────────────────────────────────────────
-    // STEP 11: Enter valid email and send magic link
-    // ────────────────────────────────────────────────────────
-    await emailInput.fill('chef@harborsushi.com');
-    await expect(emailInput).toHaveValue('chef@harborsushi.com');
-
-    // Intercept magic link API call
-    const magicLinkPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/auth/magic-link') && resp.status() === 200,
-    );
-
-    await sendBtn.click();
-
-    // Verify API call
-    const mlResp = await magicLinkPromise;
-    const mlJson = await mlResp.json();
-    expect(mlJson.data).toHaveProperty('expires_at');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 12: Verify "Check your email" confirmation
-    // ────────────────────────────────────────────────────────
-    // email-step-input hides, email-step-sent shows
-    await expect(page.locator('#email-step-input')).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('#email-step-sent')).toBeVisible();
-    await expect(page.getByText(/check your email/i)).toBeVisible();
-    await expect(page.getByText(/sign-in link/i)).toBeVisible();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 13: Save state to sessionStorage (simulate pre-redirect state)
-    // ────────────────────────────────────────────────────────
-    // In the real flow, the user clicks the magic link in their email,
-    // which redirects back to the app with a token. We need to save
-    // the current state to sessionStorage so handleAuthCallback can restore it.
-    await page.evaluate(() => {
-      const s = (window as any).state;
-      if (s.selectedBusiness) {
-        sessionStorage.setItem('ps_selected_business', JSON.stringify(s.selectedBusiness));
-        sessionStorage.setItem('ps_mode', s.mode);
-      }
-      sessionStorage.setItem('ps_pending_build', '1');
-    });
-
-    // Verify sessionStorage was set correctly
-    const savedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
-    expect(savedBiz).toBeTruthy();
-    const parsedBiz = JSON.parse(savedBiz!);
-    expect(parsedBiz.name).toBe('Harbor Sushi Pizza');
-
-    const savedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
-    expect(savedPending).toBe('1');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 14: Simulate magic link callback (user clicks link in email)
-    // ────────────────────────────────────────────────────────
-    await page.goto('/?token=e2e-magic-link-token&email=chef@harborsushi.com&auth_callback=email');
-
-    // handleAuthCallback IIFE:
-    //   → sets state.session with token + email
-    //   → cleans URL params
-    //   → restores selectedBusiness from sessionStorage
-    //   → detects _pendingBuild
-    //   → navigateTo('details') → auto-submitBuild()
-
-    // ────────────────────────────────────────────────────────
-    // STEP 15: Verify sessionStorage was consumed
-    // ────────────────────────────────────────────────────────
-    const clearedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
-    expect(clearedBiz).toBeNull();
-    const clearedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
-    expect(clearedPending).toBeNull();
-
-    // ────────────────────────────────────────────────────────
-    // STEP 16: Verify Waiting screen
-    // ────────────────────────────────────────────────────────
-    const waitingScreen = page.locator('#screen-waiting');
-    await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
-    await expect(waitingScreen).toHaveClass(/active/);
-
-    await expect(page.locator('.waiting-title')).toContainText(/building your website/i);
-    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
-    await expect(page.locator('.status-dot')).toBeVisible();
-    await expect(page.locator('.waiting-status')).toContainText('Build in progress');
-    await expect(page.locator('.waiting-status .loading-dots')).toBeVisible();
-    await expect(page.locator('.waiting-anim')).toBeVisible();
-    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
-
-    // Contact shows email from magic link callback
-    await expect(page.locator('#waiting-contact')).toContainText('chef@harborsushi.com');
-
-    // ────────────────────────────────────────────────────────
-    // STEP 17: Verify internal state
-    // ────────────────────────────────────────────────────────
-    const appState = await page.evaluate(() => {
-      const s = (window as any).state;
-      return {
-        screen: s.screen,
-        mode: s.mode,
-        hasSession: !!s.session && !!s.session.token,
-        sessionToken: s.session?.token || null,
-        sessionIdentifier: s.session?.identifier || null,
-        selectedBusinessName: s.selectedBusiness?.name || null,
-        pendingBuild: s._pendingBuild,
-      };
-    });
-
-    expect(appState.screen).toBe('waiting');
-    expect(appState.mode).toBe('business');
-    expect(appState.hasSession).toBe(true);
-    expect(appState.sessionToken).toBe('e2e-magic-link-token');
-    expect(appState.sessionIdentifier).toBe('chef@harborsushi.com');
-    expect(appState.selectedBusinessName).toBe('Harbor Sushi Pizza');
-    expect(appState.pendingBuild).toBeFalsy();
-  });
-});
-
-// ─── FULL FLOW: Email Magic Link ──────────────────────────────
-
-test.describe('Full Flow: Email Magic Link Sign-In', () => {
-  test('Search → Details → Build → Email → Check Email → Callback → Waiting', async ({ page }) => {
-    await page.goto('/');
-    const getRedirects = await stubRedirects(page);
-
-    // ── 1. Search and select ─────────────────────────────
-    await searchAndSelect(page, 'Test Plumbing', 'Test Plumbing');
-
-    // ── 2. Details screen ────────────────────────────────
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
-    await page.locator('#details-textarea').fill('Licensed plumbing since 2001.');
-    await page.locator('#build-btn').click();
-
-    // ── 3. Sign-in screen ────────────────────────────────
-    await expect(page.locator('#screen-signin')).toBeVisible({ timeout: 10_000 });
-
-    // Click Email sign-in
-    await page.getByRole('button', { name: /email/i }).click();
-    await expect(page.locator('#email-input')).toBeVisible();
-
-    // Enter email and send magic link
-    await page.locator('#email-input').fill('test@plumbingco.com');
-    await page.locator('#email-send-btn').click();
-
-    // "Check your email" message should appear
-    await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 10_000 });
-
-    // ── 4. Simulate magic link callback ──────────────────
-    // Save state to sessionStorage (the app does this for Google, we simulate it)
-    await page.evaluate(() => {
-      const s = (window as any).state;
-      if (s.selectedBusiness) {
-        sessionStorage.setItem('ps_selected_business', JSON.stringify(s.selectedBusiness));
-        sessionStorage.setItem('ps_mode', s.mode);
-      }
-      sessionStorage.setItem('ps_pending_build', '1');
-    });
-
-    // Navigate as if user clicked the magic link and was redirected back
-    await page.goto('/?token=e2e-magic-link-token&email=test@plumbingco.com&auth_callback=email');
-
-    // ── 5. After callback: restores state → details → auto-submit → waiting
-    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 15_000 });
-  });
-});
-
-// ─── FULL FLOW: Google OAuth ──────────────────────────────────
-
-test.describe('Full Flow: Google OAuth Sign-In', () => {
-  test('Search → Details → Build → Google → Redirect Callback → Waiting', async ({ page }) => {
-    await page.goto('/');
-    const getRedirects = await stubRedirects(page);
-
-    // ── 1. Search and select ─────────────────────────────
-    await searchAndSelect(page, 'Test Coffee', 'Test Coffee');
-
-    // ── 2. Details screen ────────────────────────────────
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
-    await page.locator('#details-textarea').fill('Specialty coffee roaster and cafe.');
-    await page.locator('#build-btn').click();
-
-    // ── 3. Sign-in screen ────────────────────────────────
-    await expect(page.locator('#screen-signin')).toBeVisible({ timeout: 10_000 });
-
-    // Click Google sign-in - this tries to redirect to /api/auth/google
-    // The E2E server returns 400 for this (missing OAuth config), but the
-    // frontend calls redirectTo() which we've stubbed.
-    // We need to verify the redirect was captured and then simulate the callback.
-    await page.getByRole('button', { name: /google/i }).click();
-
-    // The signInWithGoogle wrapper saves state to sessionStorage before redirect
-    const savedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
-    expect(savedBiz).toBeTruthy();
-
-    const savedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
-    expect(savedPending).toBe('1');
-
-    // Verify redirect was captured
-    const redirects = await getRedirects();
-    expect(redirects.length).toBeGreaterThan(0);
-    expect(redirects[0]).toContain('/api/auth/google');
-
-    // ── 4. Simulate Google OAuth callback ────────────────
-    await page.goto('/?token=e2e-google-token&email=test@gmail.com&auth_callback=google');
-
-    // ── 5. After callback: restores state → details → auto-submit → waiting
-    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 15_000 });
-  });
-});
-
-// ─── FULL FLOW: Custom Website ────────────────────────────────
-
-test.describe('Full Flow: Custom Website', () => {
-  test('Search → Custom option → Details (custom mode) → Email → Waiting', async ({ page }) => {
-    await page.goto('/');
-    await stubRedirects(page);
-
-    // ── 1. Search and select "Custom Website" option ─────
-    const input = page.getByPlaceholder(/Enter your business name/);
+    await blockThirdParty(page);
+    await stubApis(page);
+    await openHomepage(page);
+
+    // Type a business name (300ms debounce upstream of the stubbed API).
+    const input = heroSearch(page);
     await input.click();
-    await input.pressSequentially('my new project', { delay: 30 });
+    await input.pressSequentially('Sunrise Bakery', { delay: 30 });
+    await expect(input).toHaveValue('Sunrise Bakery');
 
-    // Custom Website option should appear at bottom of dropdown
-    const customOption = page.locator('.search-result-custom');
-    await expect(customOption).toBeVisible({ timeout: 10_000 });
-    await customOption.click();
+    // Dropdown renders both stubbed results with addresses…
+    const first = page.getByRole('button', { name: /Sunrise Bakery Pizza/ }).first();
+    await expect(first).toBeVisible({ timeout: 10_000 });
+    await expect(first).toContainText('123 Main St, New York, NY');
+    const second = page.getByRole('button', { name: /Sunrise Bakery Plumbing/ }).first();
+    await expect(second).toBeVisible();
+    await expect(second).toContainText('456 Oak Ave, Brooklyn, NY');
 
-    // ── 2. Details screen in custom mode ─────────────────
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('#details-title')).toContainText(/custom website/i);
+    // …plus the always-present custom option (SearchItem type 'custom').
+    const custom = page.getByRole('button', { name: /Build a custom website/ }).first();
+    await expect(custom).toBeVisible();
+    await expect(custom).toContainText('Enter your business details manually');
 
-    // Business badge should NOT be visible in custom mode
-    // Fill description
-    await page
-      .locator('#details-textarea')
-      .fill('A personal portfolio site showcasing my photography and design work.');
-    await page.locator('#build-btn').click();
-
-    // ── 3. Sign-in with email ────────────────────────────
-    await expect(page.locator('#screen-signin')).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /email/i }).click();
-    await page.locator('#email-input').fill('test@example.com');
-    await page.locator('#email-send-btn').click();
-    await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 10_000 });
-
-    // Simulate magic link callback
-    await page.evaluate(() => {
-      const s = (window as any).state;
-      if (s.selectedBusiness) {
-        sessionStorage.setItem('ps_selected_business', JSON.stringify(s.selectedBusiness));
-        sessionStorage.setItem('ps_mode', s.mode);
-      }
-      sessionStorage.setItem('ps_pending_build', '1');
-    });
-    await page.goto('/?token=e2e-magic-link-token&email=test@example.com&auth_callback=email');
-
-    // ── 4. Auto-submit → Waiting ─────────────────────────
-    await expect(page.locator('#screen-waiting')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/building your website/i)).toBeVisible();
+    // Selecting a result as a GUEST routes to the Better Auth sign-in surface
+    // (HomepageComponent.navigateToDetailsOrSignin — no session → /signin).
+    await first.click();
+    await expect(page.getByTestId('sign-in-page')).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/signin/);
   });
 });
 
-// ─── FULL FLOW: Pre-Authenticated User ───────────────────────
+// ─── Sign-in: email branch (value domains + magic link) ──────
 
-test.describe('Full Flow: Pre-Authenticated User', () => {
-  test('Auth callback → Details → Build directly (no sign-in) → Waiting', async ({ page }) => {
-    // User arrives with a token in the URL (e.g., from a previous magic link)
-    await page.goto('/?token=e2e-preauth-token&email=user@example.com&auth_callback=email');
-    await stubRedirects(page);
+test.describe('Sign-in email branch', () => {
+  test('email value domains gate the magic-link button; valid email sends the stubbed link', async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+    await openHomepage(page);
 
-    // Should land on details screen (auth callback navigates there)
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
+    // Navigate via the nav — guests see "Sign In".
+    await page.getByRole('button', { name: 'Sign In' }).first().click();
+    await expect(page.getByTestId('sign-in-page')).toBeVisible({ timeout: 15_000 });
 
-    // No business selected yet, so we need to search first
-    // Actually, handleAuthCallback navigates to 'details' directly.
-    // Without a selectedBusiness, details shows custom mode.
+    const email = page.getByTestId('sign-in-email');
+    const magicBtn = page.getByTestId('sign-in-magic-link');
 
-    // Fill details
-    await page.locator('#details-textarea').fill('Pre-authenticated user building a site.');
-    await page.locator('#build-btn').click();
+    // Value domain 1 — empty: button disabled, no request possible.
+    await expect(magicBtn).toBeDisabled();
 
-    // Should go DIRECTLY to waiting (already authenticated, no sign-in needed)
-    await expect(page.locator('#screen-waiting')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/building your website/i)).toBeVisible();
+    // Value domain 2 — invalid format: inline error + still disabled.
+    await email.fill('not-a-real-email');
+    await email.blur();
+    await expect(page.getByTestId('sign-in-email-error')).toBeVisible();
+    await expect(magicBtn).toBeDisabled();
+
+    // Value domain 3 — valid: enabled; click posts the Better Auth endpoint.
+    await email.fill('chef@harborsushi.com');
+    await expect(magicBtn).toBeEnabled();
+
+    const reqPromise = page.waitForRequest(
+      (req) => req.url().includes('/api/auth/sign-in/magic-link') && req.method() === 'POST',
+    );
+    await magicBtn.click();
+    const req = await reqPromise;
+    expect(req.postDataJSON()).toMatchObject({ email: 'chef@harborsushi.com' });
+
+    // Confirmation state renders with the address echoed back.
+    const sent = page.getByTestId('sign-in-magic-sent');
+    await expect(sent).toBeVisible({ timeout: 10_000 });
+    await expect(sent).toContainText('chef@harborsushi.com');
   });
+});
 
-  test('Existing published site redirects to live URL', async ({ page }) => {
-    // Override lookup to return an existing published site
-    await page.route('**/api/sites/lookup*', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          data: {
-            exists: true,
-            site_id: 'site-existing-1',
-            slug: 'existing-biz',
-            status: 'published',
-            has_build: true,
-          },
-        }),
-      }),
+// ─── Sign-in: Google branch (handoff contract) ───────────────
+
+test.describe('Sign-in Google branch', () => {
+  test('Google button carries the OAuth handoff URL; the endpoint redirects toward Google', async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+
+    await openHomepage(page);
+    await page.getByRole('button', { name: 'Sign In' }).first().click();
+    await expect(page.getByTestId('sign-in-page')).toBeVisible({ timeout: 15_000 });
+
+    // The branch is a plain anchor (full-page handoff), not an XHR. We do NOT
+    // click it: the SPA ships Speculation Rules (speculation_rules flag), and
+    // Chromium prerenders the anchor target OUTSIDE page.route interception —
+    // clicking activates the already-redirected prerender, bypassing every
+    // stub (verified empirically 2026-07-31: catch-all caught XHRs but the
+    // nav produced zero request events and landed on accounts.google.com).
+    const google = page.getByTestId('sign-in-google');
+    await expect(google).toBeVisible();
+    const href = await google.getAttribute('href');
+    expect(href).toContain('/api/auth/google?returnUrl=');
+
+    // Assert the real handoff contract request-level instead: the worker
+    // 302s toward Google's OAuth screen (no user data mutated; the CSRF
+    // state row it stashes is one-shot + expiring).
+    const handoff = await page.request.get(`${PROD_URL}${href}`, {
+      maxRedirects: 0,
+    });
+    expect([301, 302, 307]).toContain(handoff.status());
+    expect(handoff.headers()['location'] ?? '').toContain('accounts.google.com');
+  });
+});
+
+// ─── Auth callback: token in URL mints the session ───────────
+
+test.describe('Auth callback landing', () => {
+  test('/?token=…&email=…&auth_callback=… mints ps_session and cleans the URL', async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+
+    // Surviving contract from the magic-link/Google email round-trip:
+    // AppComponent reads token+email params, calls auth.setSession, then
+    // strips the params (app.component.ts:339-354).
+    await page.goto(
+      `${PROD_URL}/?token=e2e-callback-token&email=cb%40example.com&auth_callback=email`,
+      { waitUntil: 'domcontentloaded' },
     );
 
-    await page.goto('/');
-    const getRedirects = await stubRedirects(page);
+    await page.waitForFunction(() => localStorage.getItem('ps_session') !== null, {
+      timeout: 15_000,
+    });
+    const session = JSON.parse(
+      (await page.evaluate(() => localStorage.getItem('ps_session'))) as string,
+    );
+    expect(session.token).toBe('e2e-callback-token');
+    expect(session.identifier).toBe('cb@example.com');
 
-    // Search and select a business that already has a published site
-    await searchAndSelect(page, 'Existing Biz', 'Existing Biz');
-
-    // Should redirect to the published site
-    await page.waitForTimeout(2000);
-    const redirects = await getRedirects();
-    expect(redirects).toContain('https://existing-biz.projectsites.dev');
+    // URL is cleaned — the one-time token never lingers in history.
+    await expect(page).not.toHaveURL(/auth_callback|token=/);
   });
+});
 
-  test('Queued/building site goes directly to waiting', async ({ page }) => {
-    await page.route('**/api/sites/lookup*', (route) =>
+// ─── Authed golden path: search → create → build → waiting ───
+
+test.describe('Authed golden path: search → prefilled create → build → waiting', () => {
+  test('selecting a business pre-fills /create; Create site POSTs and lands on /waiting through published', async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+    await injectSession(page);
+
+    // Build POST — stubbed; asserted below via waitForRequest.
+    await page.route('**/api/sites/create-from-search**', (route) =>
       route.fulfill({
-        status: 200,
+        status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            exists: true,
-            site_id: 'site-building-1',
-            slug: 'building-biz',
+            site_id: 'site-e2e-001',
+            slug: 'e2e-biz',
             status: 'building',
-            has_build: false,
+            workflow_instance_id: 'wf-e2e-001',
           },
         }),
       }),
     );
 
-    await page.goto('/');
-    await stubRedirects(page);
-    await searchAndSelect(page, 'Building Biz', 'Building Biz');
-
-    await expect(page.locator('#screen-waiting')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/building your website/i)).toBeVisible();
-  });
-});
-
-// ─── FULL FLOW: Validation & Error Handling ──────────────────
-
-test.describe('Full Flow: Validation and Errors', () => {
-  test('Email: empty, invalid format, valid - then check-your-email', async ({ page }) => {
-    await page.goto('/');
-    await stubRedirects(page);
-
-    await searchAndSelect(page, 'Email Test', 'Email Test');
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
-    await page.locator('#details-textarea').fill('Testing email validation.');
-    await page.locator('#build-btn').click();
-    await expect(page.locator('#screen-signin')).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /email/i }).click();
-
-    // ── Empty email ──────────────────────────────────────
-    await page.locator('#email-send-btn').click();
-    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
-
-    // ── Invalid email ────────────────────────────────────
-    await page.locator('#email-input').fill('not-an-email');
-    await page.locator('#email-send-btn').click();
-    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
-
-    // ── Valid email → success ────────────────────────────
-    await page.locator('#email-input').fill('valid@test.com');
-    await page.locator('#email-send-btn').click();
-    await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 10_000 });
-  });
-});
-
-// ─── MARKETING & UI FEATURES ─────────────────────────────────
-
-test.describe('Homepage: Marketing Sections & Interactive Features', () => {
-  test('All marketing sections render correctly with interactive elements', async ({ page }) => {
-    await page.goto('/');
-
-    // ── Hero ─────────────────────────────────────────────
-    await expect(page.locator('.logo').getByText('Project')).toBeVisible();
-    await expect(page.getByPlaceholder(/Enter your business name/)).toBeVisible();
-    await expect(page.locator('.hero-brand').getByText(/handled/i)).toBeVisible();
-
-    // ── Proof Section ────────────────────────────────────
-    const proof = page.locator('#proof');
-    await expect(proof).toBeVisible();
-    await expect(proof.getByText(/sites we've built/i)).toBeVisible();
-    await expect(proof.locator('.site-thumb')).toHaveCount(6);
-    await expect(proof.locator('.testimonial-card')).toHaveCount(3);
-
-    // ── How It Works ─────────────────────────────────────
-    const howItWorks = page.locator('#how-it-works');
-    await expect(howItWorks).toBeVisible();
-    await expect(howItWorks.locator('.step-card')).toHaveCount(3);
-    await expect(howItWorks.getByText(/search for your business/i)).toBeVisible();
-    await expect(howItWorks.getByText(/review your ai-built site/i)).toBeVisible();
-    await expect(howItWorks.getByText(/go live/i)).toBeVisible();
-
-    // ── What's Handled ───────────────────────────────────
-    const handled = page.locator('#handled');
-    await expect(handled).toBeVisible();
-    await expect(handled.locator('.handled-card')).toHaveCount(3);
-    await expect(handled.getByText(/unlimited change requests/i)).toBeVisible();
-
-    // ── Done-for-you vs DIY ──────────────────────────────
-    const dvd = page.locator('#dvd');
-    await expect(dvd).toBeVisible();
-    await expect(dvd.getByText(/done-for-you vs/i)).toBeVisible();
-    await expect(dvd.locator('.dvd-highlight')).toBeVisible();
-    await expect(dvd.locator('.dvd-other')).toBeVisible();
-
-    // ── FAQ Accordion ────────────────────────────────────
-    const faq = page.locator('#faq');
-    await expect(faq).toBeVisible();
-    const faqItems = faq.locator('.faq-item');
-    const faqCount = await faqItems.count();
-    expect(faqCount).toBeGreaterThanOrEqual(6);
-
-    // Click first FAQ → opens
-    await faqItems.first().locator('.faq-question').click();
-    await expect(faqItems.first()).toHaveClass(/open/);
-
-    // Click second FAQ → first closes, second opens
-    await faqItems.nth(1).locator('.faq-question').click();
-    await expect(faqItems.first()).not.toHaveClass(/open/);
-    await expect(faqItems.nth(1)).toHaveClass(/open/);
-
-    // Click same FAQ again → closes (accordion collapse)
-    await faqItems.nth(1).locator('.faq-question').click();
-    await expect(faqItems.nth(1)).not.toHaveClass(/open/);
-
-    // ── Pricing ──────────────────────────────────────────
-    const pricing = page.locator('#pricing');
-    await expect(pricing).toBeVisible();
-
-    // Free preview card
-    await expect(pricing.locator('.pricing-card-free')).toBeVisible();
-    await expect(pricing.getByText(/free preview/i).first()).toBeVisible();
-
-    // Paid plan with $50/mo
-    await expect(pricing.locator('#pricing-amount')).toContainText('$50');
-    await expect(pricing.locator('#pricing-amount')).toContainText('/mo');
-
-    // Toggle to annual pricing
-    await pricing.locator('#toggle-switch').click();
-    await expect(pricing.locator('#pricing-amount')).toContainText('$480');
-    await expect(pricing.locator('#pricing-amount')).toContainText('/yr');
-    await expect(pricing.locator('#toggle-annual')).toHaveClass(/active/);
-
-    // Toggle back to monthly
-    await pricing.locator('#toggle-switch').click();
-    await expect(pricing.locator('#pricing-amount')).toContainText('$50');
-    await expect(pricing.locator('#pricing-amount')).toContainText('/mo');
-    await expect(pricing.locator('#toggle-monthly')).toHaveClass(/active/);
-
-    // 14-day guarantee text
-    await expect(pricing.getByText(/14-day money-back/i)).toBeVisible();
-
-    // ── Footer ───────────────────────────────────────────
-    const footer = page.locator('footer');
-    await expect(footer).toBeVisible();
-    await expect(footer.getByText(/© 2026 Megabyte LLC/)).toBeVisible();
-
-    // Footer links
-    await expect(footer.getByRole('link', { name: /support/i })).toHaveAttribute(
-      'href',
-      'mailto:hey@megabyte.space',
+    // Waiting-screen polls (every 3s): site status + logs. `phase` flips after
+    // the building state is asserted, driving the published transition.
+    let phase: 'building' | 'published' = 'building';
+    await page.route(
+      (url) => url.pathname.endsWith('/api/sites/site-e2e-001'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { id: 'site-e2e-001', slug: 'e2e-biz', status: phase } }),
+        }),
     );
-    await expect(footer.getByRole('link', { name: /contact/i })).toBeVisible();
+    await page.route(
+      (url) => url.pathname.includes('/api/sites/site-e2e-001/logs'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data:
+              phase === 'published'
+                ? [{ action: 'workflow.completed' }]
+                : [{ action: 'workflow.started' }],
+          }),
+        }),
+    );
 
-    // Social links
-    await expect(footer.locator('a[href*="github.com/HeyMegabyte"]')).toBeVisible();
-    await expect(footer.locator('a[href*="x.com/HeyMegabyte"]')).toBeVisible();
-  });
-});
+    await openHomepage(page);
+    await searchAndSelect(page, 'Harbor Sushi', /Harbor Sushi Pizza/);
 
-// ─── SEARCH FEATURES ─────────────────────────────────────────
-
-test.describe('Search Features', () => {
-  test('Search dropdown, API errors, and custom option all work', async ({ page }) => {
-    await page.goto('/');
-    const input = page.getByPlaceholder(/Enter your business name/);
-
-    // ── Search shows results from E2E server ─────────────
-    await input.click();
-    await input.pressSequentially('Test', { delay: 50 });
-
-    // E2E server returns "{query} Pizza" and "{query} Plumbing"
-    await expect(page.locator('.search-result-name', { hasText: 'Test Pizza' })).toBeVisible({
+    // Authed → straight to /create with the selection pre-filled.
+    await expect(page).toHaveURL(/\/create/, { timeout: 15_000 });
+    await expect(page.locator('#create-name')).toHaveValue('Harbor Sushi Pizza', {
       timeout: 10_000,
     });
-    await expect(page.locator('.search-result-name', { hasText: 'Test Plumbing' })).toBeVisible();
-    await expect(page.locator('.search-result-address', { hasText: '123 Main St' })).toBeVisible();
+    await expect(page.locator('#create-address')).toHaveValue('123 Main St, New York, NY');
 
-    // Custom Website option always present
-    await expect(page.locator('.search-result-custom')).toBeVisible();
-    await expect(page.locator('.search-result-custom .search-result-name')).toContainText(
-      'Custom Website',
+    // Add context and submit.
+    await page
+      .locator('#create-context')
+      .fill('Authentic Japanese sushi bar. Omakase menu, fresh fish daily.');
+
+    const buildReq = page.waitForRequest(
+      (req) => req.url().includes('/api/sites/create-from-search') && req.method() === 'POST',
     );
+    await page.getByRole('button', { name: /Create site|Create with/ }).click();
+    const posted = (await buildReq).postDataJSON() as {
+      mode: string;
+      business: { name: string };
+    };
+    expect(posted.mode).toBe('business');
+    expect(posted.business.name).toBe('Harbor Sushi Pizza');
 
-    // ── Close and clear ──────────────────────────────────
-    await input.fill('');
-    await page.waitForTimeout(500);
+    // Waiting screen — building state.
+    await expect(page).toHaveURL(/\/waiting\?.*id=site-e2e-001/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: /Preparing your project/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/Step \d of 8/)).toBeVisible();
 
-    // ── Search handles API errors gracefully ─────────────
-    await page.route('**/api/search/businesses*', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"fail"}' }),
-    );
-    await input.fill('');
-    await input.pressSequentially('error test', { delay: 30 });
-
-    // Page should not crash, input still works
-    await page.waitForTimeout(1000);
-    await expect(input).toBeVisible();
+    // Flip the stub — the next 3s poll transitions to the published state.
+    phase = 'published';
+    await expect(page.getByRole('heading', { name: /Your site is live!/i })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText('e2e-biz.projectsites.dev')).toBeVisible();
+    await expect(page.getByRole('button', { name: /View Your Site/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Go to Dashboard/i })).toBeVisible();
   });
 });
 
-// ─── API INTEGRATION ─────────────────────────────────────────
+// ─── Custom website branch ───────────────────────────────────
+
+test.describe('Custom website branch', () => {
+  test('custom option opens an empty /create; name is required; filled form builds in custom mode', async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+    await injectSession(page);
+
+    await page.route('**/api/sites/create-from-search**', (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            site_id: 'site-e2e-002',
+            slug: 'my-new-project',
+            status: 'building',
+            workflow_instance_id: 'wf-e2e-002',
+          },
+        }),
+      }),
+    );
+
+    await openHomepage(page);
+    await searchAndSelect(page, 'my new project', /Build a custom website/);
+
+    // Custom mode → /create with an EMPTY form (clearSelectedBusiness).
+    await expect(page).toHaveURL(/\/create/, { timeout: 15_000 });
+    const name = page.locator('#create-name');
+    await expect(name).toHaveValue('');
+
+    // Required-field value domain: submitting without a name stays on /create
+    // and surfaces the error (toast + inline field alert both render the
+    // message — .first() avoids the strict-mode double match).
+    await page.getByRole('button', { name: /Create site|Create with/ }).click();
+    await expect(page.getByText(/Business name is required/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page).toHaveURL(/\/create/);
+
+    // Fill the form. Typing the name opens the create page's own suggestion
+    // dropdown (stubbed search) which OVERLAYS the address input — use fill()
+    // (keyboard-focus path, no pointer-interception check) instead of click();
+    // focusing the address blurs the name and the dropdown closes.
+    await name.fill('My New Project');
+    await page.locator('#create-address').fill('789 Elm St, Jersey City, NJ');
+    await page
+      .locator('#create-context')
+      .fill('A personal portfolio site showcasing photography and design work.');
+
+    const buildReq = page.waitForRequest(
+      (req) => req.url().includes('/api/sites/create-from-search') && req.method() === 'POST',
+    );
+    await page.getByRole('button', { name: /Create site|Create with/ }).click();
+    const posted = (await buildReq).postDataJSON() as { mode: string };
+    expect(posted.mode).toBe('custom');
+
+    await expect(page).toHaveURL(/\/waiting\?.*id=site-e2e-002/, { timeout: 15_000 });
+  });
+});
+
+// ─── Waiting deep-link guard ─────────────────────────────────
+
+test.describe('Waiting deep-link guard', () => {
+  test('/waiting without an id redirects to the homepage', async ({ page }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+
+    // WaitingComponent.ngOnInit: no `id` query param → router.navigate(['/']).
+    await page.goto(`${PROD_URL}/waiting`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('hero-headline')).toBeVisible({ timeout: 15_000 });
+    await expect(page).not.toHaveURL(/\/waiting/);
+  });
+});
+
+// ─── Marketing sections ──────────────────────────────────────
+
+test.describe('Homepage: marketing sections & interactive features', () => {
+  test('all sections render; FAQ accordion opens one item at a time; footer present', async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+    await openHomepage(page);
+
+    // Section inventory (homepage.component.html ids — the old vanilla
+    // #proof/#handled/#dvd sections were replaced by #compare/#features).
+    for (const id of ['#hero', '#compare', '#how-it-works', '#features', '#pricing', '#faq']) {
+      const section = page.locator(id);
+      await section.scrollIntoViewIfNeeded();
+      await expect(section).toBeVisible();
+    }
+
+    // FAQ accordion — single-open behavior via the openFaqIndex signal.
+    const faq = page.locator('#faq');
+    await faq.scrollIntoViewIfNeeded();
+    const q1 = faq.getByRole('button', { name: /How long does it take/i });
+    await expect(q1).toBeVisible();
+
+    // Open Q1 → exactly one active item.
+    await q1.click();
+    const active = faq.locator('.faq-active');
+    await expect(active).toHaveCount(1);
+
+    // Open Q2 → Q1 closes (still exactly one active).
+    const q2 = faq.locator('button').nth(1);
+    await q2.click();
+    await expect(active).toHaveCount(1);
+
+    // Click Q2 again → accordion fully closes.
+    await q2.click();
+    await expect(active).toHaveCount(0);
+
+    // Footer.
+    const footer = page.locator('footer[role="contentinfo"]');
+    await footer.scrollIntoViewIfNeeded();
+    await expect(footer).toBeVisible();
+
+    // Guest nav shows the sign-in affordance.
+    await expect(page.getByRole('button', { name: 'Sign In' }).first()).toBeVisible();
+  });
+});
+
+// ─── Search resilience ───────────────────────────────────────
+
+test.describe('Search resilience', () => {
+  test('a failing search API does not crash the page', async ({ page }) => {
+    await blockThirdParty(page);
+    await stubApis(page);
+    // Registered last → matched first: force the search API to 500.
+    await page.route('**/api/search/businesses**', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"fail"}' }),
+    );
+
+    await openHomepage(page);
+    const input = heroSearch(page);
+    await input.click();
+    await input.pressSequentially('error test', { delay: 30 });
+
+    // No dropdown results appear, and the shell stays interactive.
+    await expect(page.getByRole('button', { name: /error test Pizza/ })).toHaveCount(0);
+    await expect(input).toBeVisible();
+    await expect(input).toHaveValue('error test');
+    await expect(page.getByTestId('hero-headline')).toBeVisible();
+  });
+});
+
+// ─── API integration (request-level, current contracts) ──────
 
 test.describe('API Integration', () => {
-  test('Health, search, auth gates, and security headers all work', async ({ request }) => {
+  test('health, search, soft-404 guard, auth gates, and security headers honor current contracts', async ({
+    request,
+  }) => {
     // ── Health endpoint ──────────────────────────────────
     const healthRes = await request.get('/health');
     expect(healthRes.status()).toBe(200);
     const health = await healthRes.json();
-    expect(health).toHaveProperty('status');
+    expect(['ok', 'degraded']).toContain(health.status);
     expect(health).toHaveProperty('version');
-    expect(health).toHaveProperty('timestamp');
+    expect(health).toHaveProperty('checks');
     expect(new Date(health.timestamp).toISOString()).toBe(health.timestamp);
 
     // ── Security headers ─────────────────────────────────
     expect(healthRes.headers()['strict-transport-security']).toContain('max-age=');
     expect(healthRes.headers()['x-content-type-options']).toBe('nosniff');
-    expect(healthRes.headers()['x-frame-options']).toBe('DENY');
+    // Local mock sends DENY; the prod worker sends SAMEORIGIN (observed
+    // 2026-07-31). Both deny cross-origin framing.
+    expect(['DENY', 'SAMEORIGIN']).toContain(healthRes.headers()['x-frame-options']);
     expect(healthRes.headers()['x-request-id']).toBeTruthy();
 
     // ── Request ID propagation ───────────────────────────
@@ -1235,77 +594,51 @@ test.describe('API Integration', () => {
     const idRes = await request.get('/health', { headers: { 'x-request-id': testId } });
     expect(idRes.headers()['x-request-id']).toBe(testId);
 
-    // ── Search API ───────────────────────────────────────
+    // ── Search API (public GET) ──────────────────────────
+    // Shape-only: the local mock always returns 2 rows, but prod proxies
+    // LIVE Google Places — result count legitimately varies (can be 0 on
+    // quota/no-match), so asserting non-empty was flaky-by-design.
     const searchRes = await request.get('/api/search/businesses?q=pizza');
+    expect(searchRes.status()).toBe(200);
     expect(searchRes.headers()['content-type']).toContain('application/json');
     const searchJson = await searchRes.json();
     expect(searchJson.data).toBeInstanceOf(Array);
-    expect(searchJson.data.length).toBeGreaterThan(0);
 
-    // ── Search requires query ────────────────────────────
+    // Missing query → 400.
     const noQuery = await request.get('/api/search/businesses');
     expect(noQuery.status()).toBe(400);
 
-    // ── Lookup API ───────────────────────────────────────
-    const lookupRes = await request.get('/api/sites/lookup?place_id=nonexistent');
-    expect(lookupRes.headers()['content-type']).toContain('application/json');
+    // ── Soft-404 guard: unknown /api/* is machine-readable JSON 404 ──
+    // (never the SPA shell — worker commit 76249c96).
+    const unknown = await request.get('/api/nonexistent-route-xyz');
+    expect(unknown.status()).toBe(404);
+    expect(unknown.headers()['content-type']).toContain('application/json');
+    const unknownBody = await unknown.json();
+    expect(unknownBody.error.code).toBe('NOT_FOUND');
 
-    // ── Auth-gated routes return 401 ─────────────────────
-    for (const route of [
-      '/api/sites',
-      '/api/billing/subscription',
-      '/api/hostnames',
-      '/api/audit-logs',
-    ]) {
+    // ── Auth gates on REAL endpoints ─────────────────────
+    for (const route of ['/api/sites', '/api/billing/subscription', '/api/audit-logs']) {
       const res = await request.get(route);
-      expect([401, 403]).toContain(res.status());
+      expect([401, 403], `${route} must be auth-gated`).toContain(res.status());
     }
 
-    // ── Create-from-search requires auth ─────────────────
+    // ── Unauthed build POST rejected ─────────────────────
+    // 401 from the worker/local mock; 403 when Cloudflare Bot Fight Mode
+    // challenges request-context POSTs on prod (verified 2026-07-31 — the
+    // challenge fires BEFORE the worker).
     const unauthed = await request.post('/api/sites/create-from-search', {
-      data: { business_name: 'Test' },
+      data: { mode: 'business', business: { name: 'API Test Biz' } },
       headers: { 'Content-Type': 'application/json' },
     });
-    expect(unauthed.status()).toBe(401);
+    expect([401, 403]).toContain(unauthed.status());
 
-    // ── Create-from-search works with auth ───────────────
-    const authed = await request.post('/api/sites/create-from-search', {
-      data: { mode: 'business', business: { name: 'API Test Biz', address: '123 Main St' } },
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-token' },
-    });
-    expect(authed.status()).toBe(201);
-    const createJson = await authed.json();
-    expect(createJson.data).toHaveProperty('site_id');
-    expect(createJson.data).toHaveProperty('slug');
-    expect(createJson.data).toHaveProperty('workflow_instance_id');
-
-    // ── Magic link API ───────────────────────────────────
-    const mlRes = await request.post('/api/auth/magic-link', {
-      data: { email: 'test@example.com' },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    expect(mlRes.status()).toBe(200);
-
-    // Invalid email
-    const badEmail = await request.post('/api/auth/magic-link', {
-      data: { email: 'not-an-email' },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    expect(badEmail.status()).toBe(400);
-
-    // ── Stripe webhook requires signature ────────────────
+    // ── Stripe webhook requires a signature ──────────────
+    // 400 (local mock: missing header) / 401 (worker: invalid signature) /
+    // 403 (prod BFM challenge on request-context POSTs).
     const stripeRes = await request.post('/webhooks/stripe', {
       data: '{}',
       headers: { 'Content-Type': 'application/json' },
     });
-    expect([400, 401]).toContain(stripeRes.status());
-
-    // ── 413 for oversized payloads ───────────────────────
-    const largeBody = 'x'.repeat(300_000);
-    const largeRes = await request.post('/api/auth/magic-link', {
-      data: largeBody,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': String(largeBody.length) },
-    });
-    expect([413, 400]).toContain(largeRes.status());
+    expect([400, 401, 403]).toContain(stripeRes.status());
   });
 });

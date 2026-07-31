@@ -7,7 +7,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-13 — /admin/ai-chat-extras flag-gated tools render', () => {
   test('ai-chat-extras web-research and files fieldsets are visible', async ({ authedPage: page }) => {

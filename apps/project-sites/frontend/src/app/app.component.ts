@@ -100,8 +100,12 @@ export class AppComponent implements OnInit, OnDestroy {
       this.showShortcuts.set(false);
       return;
     }
-    // '?' — show shortcuts overlay (only when not typing in an input/textarea)
+    // '?' — show shortcuts overlay (only when not typing in an input/textarea).
+    // Same /admin skip as Cmd+K above: the admin shell mounts its own overlay
+    // and BOTH opening stacked was a real bug (caught by ADV-OL-05/06 —
+    // pressing ? inside /admin rendered two identical modals).
     if (event.key === '?' && !this.isInputFocused()) {
+      if (this.router.url.startsWith('/admin')) return; // admin shell owns ? there
       this.showShortcuts.update(v => !v);
       this.showCommandPalette.set(false);
       return;

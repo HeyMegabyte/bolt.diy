@@ -6,7 +6,7 @@
 
 import { test, expect } from '../fixtures.js';
 
-const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'http://localhost:8787';
+const BASE = process.env.BASE_URL ?? process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('ADMIN-28 — /admin/voice Twilio voice/SMS config renders', () => {
   test('voice section heading and tab navigation visible', async ({ authedPage: page }) => {
