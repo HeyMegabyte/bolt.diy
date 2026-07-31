@@ -264,9 +264,7 @@ describe('executeCapability', () => {
 
   it('handles reauth when provider returns auth error', async () => {
     const nango = makeNango();
-    (nango.proxyRequest as jest.Mock).mockRejectedValue(
-      new Error('NANGO_PROXY_AUTH_FAILURE'),
-    );
+    (nango.proxyRequest as jest.Mock).mockRejectedValue(new Error('NANGO_PROXY_AUTH_FAILURE'));
     const deps = makeDeps({ nango });
     const result = await executeCapability(makeRequest(), deps);
     expect(result.success).toBe(false);
