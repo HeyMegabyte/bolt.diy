@@ -97,7 +97,9 @@ describe('ba_backfill — remap statement set', () => {
     expect(BA_USER_ID_COLUMNS.map((c) => `${c.table}.${c.column}`)).toEqual(expected);
     for (const { table, column } of BA_USER_ID_COLUMNS) {
       const hit = statements.find((s) =>
-        s.startsWith(`UPDATE "${table}" SET "${column}" = '${LEGACY_ID}' WHERE "${column}" = '${BA_ID}'`),
+        s.startsWith(
+          `UPDATE "${table}" SET "${column}" = '${LEGACY_ID}' WHERE "${column}" = '${BA_ID}'`,
+        ),
       );
       expect(hit).toBeDefined();
     }
@@ -134,17 +136,17 @@ describe('ba_backfill — idempotency guards', () => {
   });
 
   it('rejects an already-converged pair (same id on both sides) outright', () => {
-    expect(() =>
-      buildRemapStatements({ baId: BA_ID, legacyId: BA_ID, email: 'x@y.z' }),
-    ).toThrow(ZodError);
+    expect(() => buildRemapStatements({ baId: BA_ID, legacyId: BA_ID, email: 'x@y.z' })).toThrow(
+      ZodError,
+    );
   });
 });
 
 describe('ba_backfill — injection safety', () => {
   it('rejects ids carrying quotes or statement separators', () => {
-    expect(() =>
-      buildRemapStatements({ ...PAIR, baId: "abc'; DROP TABLE user;--" }),
-    ).toThrow(ZodError);
+    expect(() => buildRemapStatements({ ...PAIR, baId: "abc'; DROP TABLE user;--" })).toThrow(
+      ZodError,
+    );
     expect(() => buildRemapStatements({ ...PAIR, legacyId: "x' OR '1'='1" })).toThrow(ZodError);
   });
 
