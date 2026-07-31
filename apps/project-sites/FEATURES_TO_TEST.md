@@ -708,4 +708,272 @@ For EACH of the 56 admin section components, verify at 6 breakpoints:
 | Edge Cases | 12 | 0 | 12 |
 | Skeleton & Loading | 8 | 0 | 8 |
 | Visual Inspection | 10×56=560 | 0 | 560 |
-| **TOTAL** | **~1,207** | **0** | **~1,207** |
+| Interactive Element Audit | 245 | 0 | 245 |
+| **TOTAL** | **~1,659** | **0** | **~1,659** |
+
+---
+
+## 35. Interactive Element Audit — Every Filter, Checkbox, Search, Dropdown (245 scenarios)
+
+### Dashboard
+- [ ] Dashboard: site-selector dropdown opens on click, lists all sites, closes on selection
+- [ ] Dashboard: site-selector keyboard nav: Arrow down → Enter selects
+- [ ] Dashboard: upgrade-strip dismiss button (×) sets localStorage flag, strip hidden on reload
+- [ ] Dashboard: every section card clickable → navigates to correct route
+
+### Editor
+- [ ] Editor: file-tree search input filters files as you type
+- [ ] Editor: file-tree arrow keys navigate, Enter opens file
+- [ ] Editor: code editor Tab key inserts spaces (not navigates away)
+- [ ] Editor: save button disabled when no changes, enabled after edit
+- [ ] Editor: save keyboard shortcut (Cmd+S) triggers save
+- [ ] Editor: preview-device dropdown: Desktop/Tablet/Mobile changes viewport
+
+### Snapshots
+- [ ] Snapshots: search-by-name input filters table rows in real time
+- [ ] Snapshots: date-range picker filters snapshots correctly
+- [ ] Snapshots: status filter dropdown (All/Published/Draft/Error) works
+- [ ] Snapshots: sort-by column header click toggles asc/desc
+- [ ] Snapshots: restore confirm-dialog Cancel button → no action
+- [ ] Snapshots: restore confirm-dialog Confirm button → restore proceeds
+
+### Analytics
+- [ ] Analytics: date-range preset buttons (7d/30d/90d/custom) switch range
+- [ ] Analytics: custom-date picker → calendar popover → select dates → apply
+- [ ] Analytics: metric-card hover shows tooltip with explanation
+- [ ] Analytics: chart legend click toggles dataset visibility
+- [ ] Analytics: chart hover shows data point value tooltip
+- [ ] Analytics: tab switcher (Overview/Live/Social) preserves date range
+- [ ] Analytics: export dropdown → CSV → file downloads
+- [ ] Analytics: export dropdown → PNG → image downloads
+
+### Forms
+- [ ] Forms: field-type dropdown lists all field types (text/email/number/select/etc.)
+- [ ] Forms: drag field from palette → canvas → drop at position
+- [ ] Forms: click field on canvas → config panel opens with properties
+- [ ] Forms: required-field checkbox toggles → preview shows asterisk
+- [ ] Forms: placeholder-text input → preview updates in real time
+- [ ] Forms: delete-field button → confirm → field removed from canvas
+- [ ] Forms: form-name input → save → title updated
+- [ ] Forms: submissions-table column sort: click header → asc/desc
+- [ ] Forms: submissions filter: status dropdown (All/Read/Unread/Spam)
+- [ ] Forms: submissions search: type email → matching rows shown
+
+### Apps Catalog
+- [ ] Apps: search-by-name input → filters cards as you type (debounced)
+- [ ] Apps: category dropdown filter → only matching apps shown
+- [ ] Apps: compatibility toggle "CF Container only" → filters incompatible
+- [ ] Apps: sort dropdown (Name/Category/Cost) → reorders cards
+- [ ] Apps: app-card hover → elevation + border highlight
+- [ ] Apps: app-card click → navigates to detail page
+- [ ] Apps: pagination: "Load more" button appends next page
+- [ ] Apps: detail: back button returns to catalog with filters preserved
+
+### Apps Deploy Wizard
+- [ ] Apps deploy: env-var key input validates format (alphanumeric + underscore)
+- [ ] Apps deploy: env-var value input → eye toggle shows/hides secret
+- [ ] Apps deploy: add-env-var button → new row appears
+- [ ] Apps deploy: delete-env-var button → row removed
+- [ ] Apps deploy: required env vars marked with red asterisk
+- [ ] Apps deploy: auto-filled env vars show placeholder + lock icon
+- [ ] Apps deploy: instance-name input validated on blur
+- [ ] Apps deploy: deploy button disabled until required fields filled
+- [ ] Apps deploy: deploy button shows spinner during deployment
+- [ ] Apps deploy: cancel button during deploy → confirm → deploy aborted
+
+### Apps Instances
+- [ ] Apps instances: search-by-name input filters instance list
+- [ ] Apps instances: status filter (All/Running/Stopped/Error) works
+- [ ] Apps instances: restart button → confirm dialog → restart initiated
+- [ ] Apps instances: stop button → confirm dialog → instance stopped
+- [ ] Apps instances: delete button → confirm with name input → deleted
+- [ ] Apps instances: logs tab → auto-scroll toggle on/off
+- [ ] Apps instances: logs tab → search-by-keyword filters log lines
+- [ ] Apps instances: logs tab → severity filter (All/Info/Warn/Error)
+- [ ] Apps instances: logs tab → download-logs button → file downloads
+
+### Site Features
+- [ ] Site Features: search-by-name input filters feature toggles
+- [ ] Site Features: category filter tabs (All/AI/SEO/Social/Security)
+- [ ] Site Features: toggle switch click → optimistic update → API call
+- [ ] Site Features: toggle switch keyboard: Space toggles, Enter opens detail
+- [ ] Site Features: plan-gated feature → upgrade badge instead of toggle
+- [ ] Site Features: feature detail expansion → description + risk notes visible
+
+### Social
+- [ ] Social: platform-selector multi-select checkboxes → toggle platforms
+- [ ] Social: composer text input expands as content grows
+- [ ] Social: character-counter updates in real time
+- [ ] Social: media-attach button → file picker → preview thumbnail appears
+- [ ] Social: remove-media button (×) → thumbnail removed
+- [ ] Social: schedule date-picker → calendar popover → select date/time
+- [ ] Social: schedule time-dropdown (15-min increments) → select time
+- [ ] Social: schedule timezone dropdown → select → displayed time adjusts
+- [ ] Social: post-queue filter: All/Scheduled/Published/Failed tabs
+- [ ] Social: post-queue search: type content → matching posts shown
+
+### Logs
+- [ ] Logs: Audit Trail search-by-action input filters rows
+- [ ] Logs: Audit Trail date-range picker narrows results
+- [ ] Logs: Audit Trail user-dropdown filters by user
+- [ ] Logs: Audit Trail severity filter (All/Info/Warn/Error)
+- [ ] Logs: Log Explorer query input → submit → results render
+- [ ] Logs: Log Explorer syntax-highlight toggle on/off
+- [ ] Logs: Log Explorer time-range picker (Last 1h/6h/24h/7d/Custom)
+- [ ] Logs: log-row click → detail panel expands with full JSON
+- [ ] Logs: detail-panel copy-JSON button → clipboard populated
+- [ ] Logs: detail-panel close button (×) → panel collapses
+
+### Feature Flags
+- [ ] Feature Flags: search-by-key input filters flag list in real time
+- [ ] Feature Flags: stage filter pills — clicking toggles active/inactive
+- [ ] Feature Flags: multiple stage pills can be active simultaneously
+- [ ] Feature Flags: toggle switch click → optimistic update
+- [ ] Feature Flags: rollout slider drag → percentage updates
+- [ ] Feature Flags: rollout input: type number → validated 0-100
+- [ ] Feature Flags: stage-promote dropdown → select stage → confirm
+- [ ] Feature Flags: Simple/Advanced/Expert radio buttons → view changes
+- [ ] Feature Flags: dangerous-change confirm: reason textarea required
+- [ ] Feature Flags: dangerous-change confirm: Cancel button → no mutation
+- [ ] Feature Flags: dangerous-change confirm: Confirm button → mutation proceeds
+- [ ] Feature Flags: audit-timeline row click → expands change detail
+
+### Leads
+- [ ] Leads: search-by-name input filters lead table
+- [ ] Leads: score-range slider filters by score
+- [ ] Leads: status filter dropdown (All/New/Contacted/Claimed/Ignored)
+- [ ] Leads: sort-by column header click → asc/desc
+- [ ] Leads: claim-link button → toast "Link copied"
+- [ ] Leads: export-CSV button → file downloads with filtered results
+
+### System Services
+- [ ] System Services: search-by-name input filters service list
+- [ ] System Services: status filter (All/Healthy/Degraded/Down)
+- [ ] System Services: service-row click → detail panel expands
+- [ ] System Services: detail-panel close button (×) → panel collapses
+- [ ] System Services: refresh-all button → all probes re-run
+- [ ] System Services: refresh-single button per row → single probe re-runs
+- [ ] System Services: sort-by column (Name/Status/Latency/Uptime)
+
+### Docs
+- [ ] Docs: endpoint-search input filters endpoint list
+- [ ] Docs: method filter (GET/POST/PUT/PATCH/DELETE) toggles
+- [ ] Docs: tag filter dropdown → select tag → filtered endpoints
+- [ ] Docs: endpoint click → request/response panels expand
+- [ ] Docs: Try-It param inputs: fill → type validation on blur
+- [ ] Docs: Try-It send button → request fires → response renders
+- [ ] Docs: response syntax-highlight toggle
+
+### Settings — General
+- [ ] Settings General: name input validated on blur (min 1 char)
+- [ ] Settings General: email input validated (email format)
+- [ ] Settings General: theme radio buttons (Dark/Light/System) → theme changes
+- [ ] Settings General: language dropdown → select → UI language updates
+- [ ] Settings General: save button disabled when no changes
+- [ ] Settings General: save button enabled after edit → click → success toast
+- [ ] Settings General: reset button → confirms → reverts to saved values
+
+### Settings — AI Chat
+- [ ] Settings AI Chat: model-selector dropdown → lists all tiered models
+- [ ] Settings AI Chat: system-prompt textarea → edit → save button enables
+- [ ] Settings AI Chat: temperature slider drag → value updates
+- [ ] Settings AI Chat: max-tokens input → validated positive integer
+- [ ] Settings AI Chat: test-chat input → type message → Enter sends
+- [ ] Settings AI Chat: test-chat streaming response renders token by token
+- [ ] Settings AI Chat: clear-chat button → messages removed
+
+### Settings — MCP
+- [ ] Settings MCP: provider-search input filters connection list
+- [ ] Settings MCP: connect button → OAuth popup or paste-key form
+- [ ] Settings MCP: paste-key textarea → type key → save button enables
+- [ ] Settings MCP: paste-key cancel → form closes, no connection created
+- [ ] Settings MCP: disconnect button → confirm dialog → connection removed
+- [ ] Settings MCP: Export .env button → file downloads with valid format
+- [ ] Settings MCP: Export .env — empty state → example .env with comments
+- [ ] Settings MCP: Import .env button → file picker → vars parsed + populated
+
+### Settings — API Tokens
+- [ ] Settings API Tokens: create-token button → name input + generate
+- [ ] Settings API Tokens: token-name input validated (min 3 chars)
+- [ ] Settings API Tokens: generated token shown once with copy button
+- [ ] Settings API Tokens: copy-token button → clipboard populated → "copied"
+- [ ] Settings API Tokens: token-list search filters by name
+- [ ] Settings API Tokens: revoke button → confirm → token removed
+- [ ] Settings API Tokens: no-tokens empty state → "Create your first token"
+
+### Settings — Team
+- [ ] Settings Team: member-search input filters member list
+- [ ] Settings Team: invite-email input validated (email format)
+- [ ] Settings Team: invite-role dropdown (Admin/Member/Viewer) → select
+- [ ] Settings Team: send-invite button → disabled until email valid
+- [ ] Settings Team: cancel-invite button per row → confirm → removed
+- [ ] Settings Team: change-role dropdown per member → select → saved
+- [ ] Settings Team: remove-member button → confirm → member removed
+- [ ] Settings Team: seat-usage counter updates after add/remove
+
+### Domains
+- [ ] Domains: search-by-domain input filters domain list
+- [ ] Domains: status filter (All/Active/Pending/Error) tabs
+- [ ] Domains: connect-domain input → validated domain format on blur
+- [ ] Domains: connect button disabled until valid domain entered
+- [ ] Domains: set-primary button → confirm → primary badge moves
+- [ ] Domains: delete-domain button → confirm → removed
+- [ ] Domains: DNS-record copy button per record type → clipboard populated
+- [ ] Domains: verify-DNS button → status refreshes
+
+### Billing
+- [ ] Billing: plan selector (Monthly/Annual) toggle → prices update
+- [ ] Billing: plan-card hover → elevation + border highlight
+- [ ] Billing: upgrade button per plan → Stripe checkout redirect
+- [ ] Billing: current-plan badge visible on active plan
+- [ ] Billing: invoice-row click → expands invoice detail
+- [ ] Billing: invoice-download button → PDF downloads
+- [ ] Billing: wallet-top-up amount input → validated positive number
+- [ ] Billing: wallet-top-up preset buttons ($10/$25/$50/$100) → fill amount
+- [ ] Billing: cancel-subscription button → confirm → status changes
+- [ ] Billing: reactivate-subscription button → confirm → status changes
+
+### Site Detail
+- [ ] Site Detail: tab switcher (Overview/Logs/Snapshots/SQL/Integrations) works
+- [ ] Site Detail: site-name inline edit → click → input → save → updated
+- [ ] Site Detail: status-badge dropdown → change status → confirm
+- [ ] Site Detail: delete-site button → confirm with slug input → deleted
+- [ ] Site Detail: SQL editor → type query → Ctrl+Enter executes
+- [ ] Site Detail: SQL results table → column sort by clicking header
+- [ ] Site Detail: SQL results export-CSV button → file downloads
+- [ ] Site Detail: integrations toggle per service → connect/disconnect
+
+### Site Branches
+- [ ] Branches: create-branch name input → validated on blur
+- [ ] Branches: create button disabled until name valid
+- [ ] Branches: preview button → opens branch URL in new tab
+- [ ] Branches: delete button → confirm → branch removed
+
+### Site Copilot
+- [ ] Copilot: enable toggle → switch → API call → status updates
+- [ ] Copilot: chat input → type message → Enter sends
+- [ ] Copilot: chat message bubbles render with user/AI labels
+- [ ] Copilot: code-block in response → syntax highlighted + copy button
+- [ ] Copilot: session-list click → switches active session
+
+### Site DNA
+- [ ] DNA: preference toggles → click → saved optimistically
+- [ ] DNA: feedback textarea → type → submit button enables
+- [ ] DNA: taste-graph node hover → tooltip with explanation
+
+### Cross-Cutting Interactive Elements
+- [ ] Cmd+K: input focused on open, Escape closes, arrow keys navigate results
+- [ ] Cmd+K: type partial match → fuzzy-filters results, Enter navigates
+- [ ] Global: toast close button (×) dismisses toast
+- [ ] Global: toast action button ("Retry"/"Undo") → triggers action
+- [ ] Global: notification-bell click → popover opens with notification list
+- [ ] Global: notification-bell badge count matches unread count
+- [ ] Global: notification-item click → marks read + navigates
+- [ ] Global: sidebar nav link hover → tooltip with section name
+- [ ] Global: sidebar collapse toggle → sidebar width changes
+- [ ] Global: sidebar nav: keyboard Tab through links, Enter activates
+- [ ] Global: breadcrumb click → navigates to that level
+- [ ] Global: mobile hamburger menu → click → sidebar overlay opens
+- [ ] Global: mobile overlay backdrop click → sidebar closes
+- [ ] Global: theme toggle in header → cycles dark/light/system
+- [ ] Global: drag-drop zone → file dragged over → drop-zone highlight
