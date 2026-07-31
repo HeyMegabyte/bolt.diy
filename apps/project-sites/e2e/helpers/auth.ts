@@ -71,6 +71,21 @@ const STUB_USER = {
  * navigations on the same page.
  */
 async function _stubAdminApis(page: Page, email: string): Promise<void> {
+  // LAST-RESORT catch-all — registered FIRST so Playwright matches it LAST
+  // (routes match in reverse registration order). Any /api/* request no other
+  // handler stubbed gets a benign 200 here instead of reaching real prod.
+  // Load-bearing: the admin shell fires /api/audit/rows + /api/inbox/tasks on
+  // boot; with a fake bearer those 401 and ApiService then CLEARS the session
+  // and bounces to /signin mid-test. No admin journey survives without this.
+  await page.route('**/api/**', async (route) => {
+    const method = route.request().method();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: method === 'GET' ? '{"data":[]}' : '{"ok":true}',
+    });
+  });
+
   // Stub /api/auth/me — the admin component calls this to verify the session.
   // Without it, the fake token gets 401 and the admin shows a "Sign In" prompt.
   await page.route('**/api/auth/me', async (route) => {
@@ -115,30 +130,11 @@ async function _stubAdminApis(page: Page, email: string): Promise<void> {
     });
   });
 
-  await page.route('**/api/feature-flags', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        flags: {
-          core_auth: true,
-          core_admin_detail: true,
-          core_site_create: true,
-          core_feature_flags: true,
-          core_billing: true,
-          log_explorer: true,
-          domain_stack_wizard: true,
-          email_deliverability_wizard: true,
-          multimodal_copilot: true,
-          outbound_webhooks: true,
-          section_marketplace: true,
-          site_dna_taste_graph: true,
-          better_auth: false,
-        },
-        count: 90,
-      }),
-    });
-  });
+  // /api/feature-flags is PUBLIC + anonymous-safe — let it hit REAL prod so
+  // flag-gated sections render their true prod state (a hardcoded flag map
+  // lies: flags:{} turns every gated section into a "not enabled" notice and
+  // manufactures false test failures). continue() is terminal + safe here.
+  await page.route('**/api/feature-flags**', (route) => route.continue());
 
   await page.route('**/api/analytics/track', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -364,6 +360,26 @@ export async function gotoAdmin(
     }
   }
 }
+
+/**
+ * The email address that passes the `sysAdminGuard` protecting
+ * `/admin/feature-flags` and other operator-only routes.
+ *
+ * The default stub email (`test@megabyte.space` / `E2E_USER_EMAIL`) is NOT
+ * in `SYS_ADMIN_EMAILS` — it will be redirected to `/admin/site-features` by
+ * `sysAdminGuard`. Any spec that navigates to a sysAdmin-guarded route MUST
+ * override the email:
+ *
+ * ```ts
+ * import { signInAsTestUser, SYS_ADMIN_TEST_EMAIL } from './helpers/auth.js';
+ *
+ * await signInAsTestUser(page, { email: SYS_ADMIN_TEST_EMAIL });
+ * ```
+ *
+ * Source of truth: `frontend/src/app/pages/admin/sys-admin.ts`
+ * `SYS_ADMIN_EMAILS = ['brian@megabyte.space', 'hey@megabyte.space']`
+ */
+export const SYS_ADMIN_TEST_EMAIL = 'brian@megabyte.space';
 
 // Re-export constants for sibling helpers
 export { DEFAULT_TEST_EMAIL, DEFAULT_TEST_PASSWORD, STUB_TOKEN, STUB_USER };

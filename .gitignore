@@ -85,3 +85,4 @@ vite.config.*.timestamp-*
 
 # MkDocs build output
 docs/site/
+apps/project-sites/e2e/screenshots/

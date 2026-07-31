@@ -13,16 +13,19 @@ A feature/micro-feature is DONE only when it has an authenticated Playwright spe
 3. Navigates like a real user and asserts REAL content renders (not skeleton, not blank, not "not enabled" when flag is on)
 4. Exercises ≥3 interactive micro-features (clicks, forms, toggles, tabs, modals, keyboard)
 5. Asserts zero console errors (favicon/third-party filtered)
-6. Runs axe (`checkA11y`) at ≥2 breakpoints (1280 + 375); full 6bp on stable promotion
+6. Runs axe (`checkA11y`) at ≥2 breakpoints — **ADVISORY except `critical` impact** (Brian 2026-07-30: functional completeness gates the suite, not axe; non-critical violations log to the a11y sweep backlog)
 7. Screenshots every major step to `e2e/screenshots/<section>/` — the visual-inspection artifact
-8. Never mutates prod data: ALL POST/PATCH/DELETE intercepted in-spec
+8. Never mutates prod data: ALL POST/PATCH/DELETE intercepted in-spec; unstubbed GETs land in the helper's last-resort `**/api/**` catch-all (never real prod — a fake-bearer 401 clears the session and bounces to /signin)
 9. Is registered in `e2e/COVERAGE.yml` (`npm run validate:e2e-inventory` fails on orphan specs)
+10. **Value-domain coverage (Brian 2026-07-30): every input micro-feature is exercised with all value types** — valid, invalid, empty, boundary (min/max/limit±1), overlong, unicode/emoji, whitespace-only, injection-shaped (`<script>`, `' OR 1=1`, `javascript:`). One `describe` block per input, one test per value class.
 
 ## P-1 — Feedback Directives (full prompt-history mine, 2026-07-30)
 
 Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*` memories, and CONVERGENCE prompt docs. Standing requirements — no pass may violate any. Source tags: (t)=transcript, (m)=memory, (p)=prompt-doc.
 
 ### Testing & QA
+- **Functional completeness FIRST (Brian 2026-07-30): "focus less on axe-core violations… ensure the app is fully complete and fully tested, with an optimal feature set that works flawlessly together"** — integration/journey correctness outranks a11y strictness in the journey suite (t)
+- **All value types (Brian 2026-07-30): "every single feature gets fully tested with all possible types of values"** — see TDD Contract #10 (t)
 - Every admin section gets an authenticated JOURNEY test, never just an auth-gate shim (t,p)
 - Failing Playwright test FIRST for every bug fix and feature (t,p)
 - Every console error is a bug: capture → E2E → fix → verify (p)
@@ -89,6 +92,12 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 - [ ] **Prod testMatch gaps** — `playwright.prod.config.ts` lists 38 specs; ~30 dev specs (incl. new `-journey` specs) fall outside → add to testMatch or move to glob patterns.
 - [ ] **Skip/fixme triage** — 135 `skip|fixme` hits across suite (~72% of 188 specs inactive). Triage each: re-enable+fix / delete obsolete / keep with dated TODO. Track count downward every pass.
 - [ ] **MCP .env export fix** — show defaults when empty, not error.
+- [ ] **Journey-suite failure queue (Pass 2 wave-2 findings — work top-down next pass):**
+  - Sections whose content locator never appears (verify flag-dark vs broken vs wrong selector, fix product or spec): leads (`app-admin-leads`), feature-flags (`app-admin-feature-flags`), apps (`apps-search-input`), docs (`docs-search`), system-services (`system-services` testid)
+  - 3 strict-mode selector violations + 3 signin-page selector mismatches in wave-2 specs
+  - Analytics KPI test needs a SITE SELECTED (`state.selectedSite()` starts null; no boot auto-select) — spec must drive the site switcher (`toggleSiteDropdown` → `role=option` click) after stubbing sites
+  - `/api/feature-flags` returns `{"flags":[{key,default_enabled,stage,…}]}` (ARRAY) — any stub using a boolean-map shape is wrong; specs now pass it through to real prod (public + anonymous-safe)
+  - Real axe `critical` findings from the first working a11y sweep → a11y backlog (advisory list in run logs)
 
 ## P1 — Admin Sections Without Authenticated E2E
 
@@ -249,7 +258,7 @@ Tracked here so the loop never loses them; each graduates to its own P-section w
 | TSC errors | 0 | 0 |
 | Feature flags | 90 | 90 (all with e2e_tests + smoke_steps) |
 | E2E spec files (apps/project-sites) | 188 (≈53 active) | all active or deleted |
-| Authenticated journey specs | 1 GREEN + 13 in flight (wave 2) | 41 admin routes covered |
+| Authenticated journey specs | 14 files / 74 tests / 32 GREEN (Pass 2) | 41 admin routes, all green |
 | Skip/fixme hits | 135 | 0 |
 | Specs taking screenshots | 7 | every journey spec |
 | Specs running axe | 1 (dev) + prod accessibility.spec | every journey spec |
