@@ -89,7 +89,7 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 - [~] **sysAdminGuard E2E bypass** — ROOT CAUSE FOUND: stub default `test@megabyte.space` is not in `isSysAdminEmail` allowlist; `brian@megabyte.space` is. Wave-2 agent wiring `SYS_ADMIN_TEST_EMAIL` into helpers + feature-flags journey spec. Verify then mark [x].
 - [ ] **Google OAuth callback error** — full E2E: Google button → consent (mock) → callback → session → admin
 - [ ] **`@axe-core/playwright` wired into every admin spec** — installed (v4.11); wave-2 specs use `checkA11y`; remaining legacy specs need wiring.
-- [ ] **Prod testMatch gaps** — `playwright.prod.config.ts` lists 38 specs; ~30 dev specs (incl. new `-journey` specs) fall outside → add to testMatch or move to glob patterns.
+- [~] **Prod testMatch gaps** — journey suite + value-domain suites added via globs (Pass 3): `admin-*-journey`, `admin-dashboard`, `admin-feature-flags`, `value-domains-*`. Remaining: ~15 legacy dev-only specs (media-*, env-vars-*, modals, domain-management-*) still outside prod testMatch — triage next pass.
 - [ ] **Skip/fixme triage** — 135 `skip|fixme` hits across suite (~72% of 188 specs inactive). Triage each: re-enable+fix / delete obsolete / keep with dated TODO. Track count downward every pass.
 - [ ] **MCP .env export fix** — show defaults when empty, not error.
 - [ ] **Journey-suite failure queue (Pass 2 wave-2 findings — work top-down next pass):**

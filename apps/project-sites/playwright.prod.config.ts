@@ -35,6 +35,10 @@ export default defineConfig({
     'feature-flags.spec.ts',               // Public API + admin auth gates (Pass 9)
     'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
     'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
+    'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)
+    'admin-*-journey.spec.ts',             // 12 authenticated section journeys (Convergence Pass 2)
+    'admin-feature-flags.spec.ts',         // sysAdmin feature-flags journey (Convergence Pass 2)
+    'value-domains-*.spec.ts',             // TDD Contract #10 value-domain suites (Convergence Pass 3)
   ],
   fullyParallel: true,
   reporter: 'line',
