@@ -18,7 +18,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'feature-flags', label: 'Feature Flags' },
   { path: 'site-features', label: 'Features' },
   { path: 'domains', label: 'Domains' },
-  { path: 'seo', label: 'SEO' },
   { path: 'pseo', label: 'Programmatic SEO' },
   { path: 'social', label: 'Social' },
   { path: 'voice', label: 'Voice' },
@@ -36,7 +35,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'trust', label: 'Trust Center' },
   { path: 'enterprise', label: 'Enterprise' },
   { path: 'logs', label: 'Logs' },
-  { path: 'bulk-ops', label: 'Bulk Ops' },
   { path: 'deliverability', label: 'Deliverability' },
   { path: 'content-freshness', label: 'Content Freshness' },
 ];

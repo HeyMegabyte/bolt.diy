@@ -1,203 +1,118 @@
 /**
- * @fortress INBOX — happy-path journey
+ * @fortress UNIFIED_INBOX — happy-path evidence  (flag `unified_inbox`)
  *
- * Chain: homepage → /admin/inbox → assign task → AI draft → send via
- * channel → SLA tick → reassign.
+ * ── Surface reality (grepped 2026-07-31) ────────────────────────────────────
+ * `unified_inbox` is a WORKER-ONLY feature. There is NO frontend inbox panel —
+ * the admin "inbox" the old spec drove is the Task Tray (`components/task-tray/`,
+ * `/api/inbox/tasks`), a DIFFERENT feature. The real Unified Visitor Inbox is the
+ * `/api/inbox/conversations*` family in `src/routes/inbox.ts`, gated by
+ * `isFlagOn(env, 'unified_inbox', …)` (returns 404 when the flag is OFF).
+ *
+ * ── Why the old spec failed live (root cause) ───────────────────────────────
+ * The old happy-path assumed a UI at `/admin/inbox` and stubbed `/api/inbox/tasks`.
+ * There is no such route or surface, so every UI assertion failed. Separately,
+ * `GET /api/feature-flags/unified_inbox` shows the flag is presently resolved
+ * **ON in prod** (`resolved.enabled=true, rollout_percent=100, source:"global"`
+ * — an operator override), so any "flag-off ⇒ 404" claim is FALSE against live
+ * prod. This spec asserts the API family's REAL live contract instead.
+ *
+ * ── Evidence shape chosen (server-side flags can't be stubbed from Playwright) ─
+ * (a) resilientGet the read endpoints and assert the live contract:
+ *       - list: 200 JSON envelope {conversations,hasMore,total} (flag currently ON),
+ *         OR the dark 404 if an operator flips it OFF — both are the CORRECT
+ *         contract, never a 500/HTML.
+ *       - detail with a bogus id: org-scoped non-leak 404 (never 500).
+ * (b) The full ON-state behavior (list filters, reply→channel dispatch, assign,
+ *     status transitions, AI draft, Zod 400s) is exercised by the worker Jest
+ *     suite `src/__tests__/inbox_routes.test.ts` — cited by name below. Those
+ *     stub `isFlagOn` true (impossible from the browser) and assert the mounted
+ *     handlers directly, which is where ON-state coverage correctly lives.
+ *
+ *   Jest coverage (src/__tests__/inbox_routes.test.ts), cited so the ON path is
+ *   provably covered somewhere:
+ *     · 'returns the conversation list with hasMore + total'
+ *     · 'forwards status / channel / assigned_to / limit / cursor filters (limit capped at 100)'
+ *     · 'appends the message, dispatches via channel, and returns sent status'
+ *     · 'assigns the conversation and echoes assigned_to'  /  'accepts a null assignee (unassign)'
+ *     · 'updates the status and echoes it'
+ *     · 'returns the AI-generated draft when the conversation exists'
+ *     · 'returns 400 when the body is empty (Zod min(1))'  /  '…returns 400 for an out-of-enum status'
+ *
+ * Screenshots: none (worker-only; there is no page to shoot). Console-error and
+ * axe gates are covered in the feature-flags/admin fortress pairs, not here.
  */
 import { test, expect } from '../../fixtures.js';
-import AxeBuilder from '@axe-core/playwright';
+import { resilientGet } from '../../helpers/api-request.js';
 
 const BASE = process.env['PROD_URL'] ?? 'https://projectsites.dev';
 
-const MOCK_TASK = {
-  id: 'task-hp-001',
-  title: 'Review site build request',
-  description: 'Client wants to update their homepage hero.',
-  assignee: null,
-  channel: 'email',
-  status: 'open',
-  sla_deadline: new Date(Date.now() + 3600_000).toISOString(),
-  created_at: new Date().toISOString(),
-};
+test.describe('UNIFIED_INBOX HAPPY — live API family contract', () => {
+  test('IB-HP-01 GET /api/inbox/conversations honours its live contract (200 envelope OR 404 dark)', async ({
+    request,
+  }) => {
+    const res = await resilientGet(request, `${BASE}/api/inbox/conversations`, { timeout: 15_000 });
+    const status = res.status();
 
-test.describe('INBOX HAPPY — assign → AI draft → send → reassign', () => {
-  test('IB-HP-01 inbox page renders open task list', async ({ authedPage: page }) => {
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [MOCK_TASK] }),
-      });
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    const inboxHeader = page.locator(
-      '[data-testid="inbox-section"], h1:has-text("Inbox"), h2:has-text("Inbox")',
-    ).first();
-    await expect(inboxHeader.or(page.locator('[data-testid="admin-shell"]'))).toBeVisible({ timeout: 12_000 });
-  });
-
-  test('IB-HP-02 task card shows title, channel, SLA', async ({ authedPage: page }) => {
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [MOCK_TASK] }),
-      });
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    const taskTitle = page.locator(`text=Review site build request`).first();
-    await expect(taskTitle.or(page.locator('[data-testid="admin-shell"]'))).toBeVisible({ timeout: 10_000 }).catch(() => {});
-  });
-
-  test('IB-HP-03 assign task sends PATCH with assignee', async ({ authedPage: page }) => {
-    let patchBody: Record<string, unknown> | null = null;
-
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      const method = route.request().method();
-      if (method === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: [MOCK_TASK] }),
-        });
-      } else if (['PATCH', 'PUT'].includes(method)) {
-        patchBody = route.request().postDataJSON() as Record<string, unknown>;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: { ...MOCK_TASK, assignee: 'brian@megabyte.space' } }),
-        });
-      } else {
-        await route.continue();
-      }
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    const assignBtn = page.getByRole('button', { name: /assign/i }).first();
-    if (await assignBtn.isVisible({ timeout: 6_000 }).catch(() => false)) {
-      await assignBtn.click();
-      await page.waitForTimeout(500);
-    }
-  });
-
-  test('IB-HP-04 AI draft generates reply text', async ({ authedPage: page }) => {
-    let draftCalled = false;
-
-    await page.route('**/api/inbox/tasks/*/draft*', async (route) => {
-      draftCalled = true;
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          draft: 'Thank you for reaching out! We can update your homepage hero. We will get started right away.',
-        }),
-      });
-    });
-
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [MOCK_TASK] }),
-      });
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    const draftBtn = page.getByRole('button', { name: /ai.*draft|draft.*reply|generate.*reply/i }).first();
-    if (await draftBtn.isVisible({ timeout: 6_000 }).catch(() => false)) {
-      await draftBtn.click();
-      await page.waitForTimeout(700);
-    }
-  });
-
-  test('IB-HP-05 resolve task removes it from the open list', async ({ authedPage: page }) => {
-    let resolveCalled = false;
-
-    await page.route(`**/api/inbox/tasks/${MOCK_TASK.id}/resolve`, async (route) => {
-      resolveCalled = true;
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ resolved: true }),
-      });
-    });
-
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: resolveCalled ? [] : [MOCK_TASK] }),
-      });
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    const resolveBtn = page.getByRole('button', { name: /resolve|close|done/i }).first();
-    if (await resolveBtn.isVisible({ timeout: 6_000 }).catch(() => false)) {
-      await resolveBtn.click();
-      await page.waitForTimeout(500);
-    }
-  });
-
-  test('IB-HP-06 empty inbox shows helpful empty state', async ({ authedPage: page }) => {
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [] }),
-      });
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    await page.waitForTimeout(1_500);
-
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    expect(bodyText.trim().length, 'page not blank on empty inbox').toBeGreaterThan(0);
-  });
-
-  test('IB-HP-07 zero console errors during inbox journey', async ({ authedPage: page }) => {
-    const errors: string[] = [];
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-
-    await page.route('**/api/inbox/tasks*', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [MOCK_TASK] }),
-      });
-    });
-
-    await page.goto(`${BASE}/admin/inbox`);
-    await page.waitForTimeout(2_000);
-
-    const blocking = errors.filter(
-      (e) => !e.includes('posthog') && !e.includes('sentry') && !e.includes('extension'),
+    // Flag ON (current prod) → 200 list; flag OFF → 404 dark. Both correct.
+    // A 500 / HTML shell / anything else is a real regression.
+    expect([200, 404], `unexpected status ${status} from conversations list`).toContain(status);
+    expect(res.headers()['content-type'] ?? '', 'JSON contract, never an HTML shell').toContain(
+      'application/json',
     );
-    expect(blocking, 'no blocking console errors in inbox').toHaveLength(0);
+
+    const body = (await res.json().catch(() => null)) as
+      | { conversations?: unknown[]; hasMore?: boolean; total?: number; error?: unknown }
+      | null;
+    expect(body, 'response must be parseable JSON').not.toBeNull();
+
+    if (status === 200) {
+      // Flag ON: the envelope shape is the contract (see Jest
+      // 'returns the conversation list with hasMore + total').
+      expect(Array.isArray(body?.conversations), 'conversations is an array').toBe(true);
+      expect(typeof body?.hasMore, 'hasMore is a boolean').toBe('boolean');
+      expect(typeof body?.total, 'total is a number').toBe('number');
+    } else {
+      // Flag OFF: dark contract — {error:'not_found'}, never a leak of internals.
+      expect(body).toHaveProperty('error');
+    }
   });
 
-  test('A11Y — page has zero serious/critical axe violations', async ({ page }) => {
-    await page.route('**/api/**', async (route) => {
-      // Pass through — axe needs the real DOM; network errors suppressed below.
-      await route.continue().catch(() => {});
-    });
-    await page.goto(`${BASE}/admin/inbox`);
-    // Wait for the SPA shell to mount before scanning.
-    await page.waitForSelector('body', { timeout: 10_000 });
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-      .analyze();
-    const hardViolations = results.violations.filter(
-      (v) => v.impact === 'critical' || v.impact === 'serious',
+  test('IB-HP-02 list accepts status/channel filters without 500', async ({ request }) => {
+    // Filter forwarding is unit-covered ('forwards status / channel / … filters');
+    // here we prove the LIVE endpoint tolerates the query surface (no crash).
+    const res = await resilientGet(
+      request,
+      `${BASE}/api/inbox/conversations?status=open&channel=email&limit=10`,
+      { timeout: 15_000 },
     );
-    expect(hardViolations, 'no serious/critical axe violations').toEqual([]);
+    expect([200, 404]).toContain(res.status());
+    expect(res.status(), 'filter query must never 500').not.toBe(500);
   });
 
+  test('IB-HP-03 GET /api/inbox/conversations/:id is an org-scoped non-leak (404, never 500)', async ({
+    request,
+  }) => {
+    // A conversation id that cannot belong to an unauthenticated caller's org →
+    // the handler returns 404 (org-scoping non-leak) whether the flag is on or
+    // off. Unit mirror: 'returns 404 (org-scoping non-leak) when the row is not
+    // found for this org'.
+    const res = await resilientGet(
+      request,
+      `${BASE}/api/inbox/conversations/00000000-0000-0000-0000-000000000000`,
+      { timeout: 15_000 },
+    );
+    expect(res.status(), 'unknown conversation must be 404, not 500').toBe(404);
+  });
+
+  test('IB-HP-04 unknown /api/inbox/* subpath is a clean JSON 404 (not the SPA shell)', async ({
+    request,
+  }) => {
+    // Soft-404 doctrine: an unmatched /api/* path returns a real 404 STATUS with
+    // JSON, never a 200 index.html.
+    const res = await resilientGet(request, `${BASE}/api/inbox/zzz-nonexistent-route`, {
+      timeout: 15_000,
+    });
+    expect(res.status()).toBe(404);
+    expect(res.headers()['content-type'] ?? '').toContain('application/json');
+  });
 });

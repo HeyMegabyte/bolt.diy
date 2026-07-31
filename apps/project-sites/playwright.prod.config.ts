@@ -51,12 +51,19 @@ export default defineConfig({
     'admin-user-settings-journey.spec.ts', // /admin/user profile + display-name value domains (settings-security wave; also matched by the admin-*-journey glob)
     'admin-auth-security-journey.spec.ts', // /admin/auth-security sessions + revoke + 2FA entry (settings-security wave; also matched by the admin-*-journey glob)
     'admin/review-links.spec.ts',          // ANCHORED subdir path (→ '**/admin/review-links.spec.ts') — Share-link dialog journey, modernized from the removed /admin/review-links page (stale-7 triage 2026-07-31). The other 6 stale e2e/admin twins (bulk-ops, recipes, ai-chat-extras, email, seo, mcp) were DELETED: surfaces removed or relocated into Settings tabs already covered by admin-settings-journey + ai-chat-context.
-    // Flag-verification suites (site_analytics, pwa_manifest_full,
-    // site_mcp_server, pseo_matrix_v2, unified_inbox, email_deliverability
-    // _wizard, outbound_webhooks, site_video_gen) are NOT wired yet: their 9
-    // evidence specs failed 33/55 live on 2026-07-31 (stale vs current
-    // product — never previously executed). Modernize per Pass-14 queue,
-    // wire back one-by-one as each goes green, THEN bump its flag to beta.
+    // ── Flag-verification suites (modernized Pass-14) — evidence behind the
+    //    experimental→beta bumps that LANDED: pwa_manifest_full,
+    //    outbound_webhooks, unified_inbox. The other five evidence specs
+    //    (analytics/deliverability/site-mcp/pseo/video-studio) were
+    //    modernized but carry 16 live tails (authoring agents cannot
+    //    self-run) — held out with their flags; Pass-15 fixes forward.
+    //    KEY probe finding: the media SECTION never mounts at /admin/media
+    //    under the stub session (zero testids, no component) — route/guard
+    //    investigation first.
+    'pwa.spec.ts',                          // pwa_manifest_full (root file — basename ok, no twin)
+    'webhook/webhooks.spec.ts',             // outbound_webhooks
+    '_fortress/unified_inbox/happy-path.spec.ts',   // unified_inbox
+    '_fortress/unified_inbox/adversarial.spec.ts',  // unified_inbox
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,

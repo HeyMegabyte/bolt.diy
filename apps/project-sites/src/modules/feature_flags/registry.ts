@@ -198,7 +198,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     description: 'PWA manifest with screenshots + shortcuts + share_target',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/pwa.spec.ts (5/5 live),
     owner_email: 'brian@megabyte.space',
   },
   // ── 10 brilliant — site-as-MCP, cold-tier, AI-auto-router, ghost-routes, speed-compare, auto-gen-files, hallucination-guard, visitor-recognition, faq-from-tickets, competitor-monitor
@@ -260,7 +260,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
       'Unified Visitor Inbox: forms+chat+voice+email+SMS under one identity, assignable, SLA-tracked, AI-drafted replies',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/_fortress/unified_inbox/* (happy+adversarial live; flag already ON at 100% via operator override),
     owner_email: 'brian@megabyte.space',
   },
   // ── #5+#6+#7+#8 Swarm editor + live stream + Site DNA + section marketplace
@@ -281,7 +281,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
       'Outbound Webhooks (#10): customers subscribe their own https endpoints to site events; deliveries are signed (HMAC, replay-safe) + retried with backoff. Endpoint secret AES-GCM encrypted at rest. CRUD at /api/sites/:siteId/webhooks.',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/webhook/webhooks.spec.ts (7/7 live),
     owner_email: 'brian@megabyte.space',
   },
   // ── Marketplace + Creator Economy (ideas #39/#40/#41/#42 — 2026-05-28)

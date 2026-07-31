@@ -252,6 +252,7 @@ interface BoltMediaAttachMessage {
             role="tab"
             class="med-tab"
             [id]="'med-tab-' + t.id"
+            [attr.data-testid]="'media-tab-' + t.id"
             [class.is-active]="activeTab() === t.id"
             [attr.aria-selected]="activeTab() === t.id"
             [attr.aria-controls]="'med-panel-' + t.id"
@@ -607,23 +608,28 @@ interface BoltMediaAttachMessage {
 
         <!-- ═════ Video Studio ═════ -->
         @case ('video') {
-          <div id="med-panel-video" role="tabpanel" aria-labelledby="med-tab-video" class="studio">
+          <div id="med-panel-video" role="tabpanel" aria-labelledby="med-tab-video" class="studio"
+               data-testid="video-studio-panel">
             <div class="studio__form">
               <div class="studio__chip-row">
                 <button type="button" class="pill"
+                        data-testid="video-model-sora"
                         [class.is-on]="videoModel === 'sora'"
                         (click)="videoModel = 'sora'"
-                        aria-pressed="true">Sora</button>
+                        [attr.aria-pressed]="videoModel === 'sora'">Sora</button>
                 <button type="button" class="pill"
+                        data-testid="video-model-veo"
                         [class.is-on]="videoModel === 'veo'"
                         (click)="videoModel = 'veo'"
-                        aria-pressed="false">Veo</button>
+                        [attr.aria-pressed]="videoModel === 'veo'">Veo</button>
               </div>
               <label class="studio__label" for="vid-prompt">Prompt</label>
               <textarea
                 id="vid-prompt"
+                data-testid="video-studio-prompt"
                 hlmInput [multiline]="true" class="input-field--textarea"
                 rows="5"
+                maxlength="2000"
                 [(ngModel)]="videoPrompt"
                 placeholder="Drone footage flying over a misty redwood forest at dawn, cinematic…"
                 aria-label="Video prompt"
@@ -639,7 +645,12 @@ interface BoltMediaAttachMessage {
                 class="studio__range"
                 aria-label="Video duration in seconds"
               />
+              <p class="studio__hint" data-testid="video-queue-notice">
+                Video generation is asynchronous — the job is queued and appears below;
+                track its status in this list or the Library once it is ready.
+              </p>
               <button type="button" class="btn-primary studio__cta"
+                      data-testid="video-studio-generate"
                       (click)="generateVideo()"
                       [disabled]="videoSubmitting() || !videoPrompt.trim()">
                 {{ videoSubmitting() ? 'Queuing…' : 'Generate video' }}
@@ -647,7 +658,7 @@ interface BoltMediaAttachMessage {
             </div>
 
             @if (lastVideoNote()) {
-              <div class="studio__notice" role="status">
+              <div class="studio__notice" role="status" data-testid="video-studio-note">
                 {{ lastVideoNote() }}
               </div>
             }
@@ -655,16 +666,17 @@ interface BoltMediaAttachMessage {
             <div class="studio__results">
               <h3 class="studio__results-h">Recent video jobs</h3>
               @if (videoJobs().length === 0) {
-                <p class="studio__empty">No video jobs yet — queue one above.</p>
+                <p class="studio__empty" data-testid="video-jobs-empty">No video jobs yet — queue one above.</p>
               } @else {
                 <ul class="job-list">
                   @for (j of videoJobs(); track j.id) {
-                    <li class="job-row">
+                    <li class="job-row" data-testid="video-job-row" [attr.data-status]="j.status">
                       <div class="min-w-0">
                         <div class="job-name">{{ j.name }}</div>
                         <div class="job-sub">{{ sourceLabel(j.source) }} · {{ j.created_at | date:'short' }}</div>
                       </div>
-                      <span class="chip" [class.chip--warn]="j.status === 'queued' || j.status === 'generating'"
+                      <span class="chip" data-testid="video-model-chip"
+                                          [class.chip--warn]="j.status === 'queued' || j.status === 'generating'"
                                           [class.chip--ok]="j.status === 'ready'"
                                           [class.chip--err]="j.status === 'error'">
                         {{ j.status }}

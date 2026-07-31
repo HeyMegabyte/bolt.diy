@@ -128,10 +128,14 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
   - **Stale-7 triage:** 6 DELETED (features removed or covered by modern journeys), review-links MODERNIZED against the live ShareLinkDialog (`share-link-*` set) + enrolled (453rd/454th tests).
   - **Directive-5 second honest hold:** the 9 evidence specs behind the 8 promotion candidates FAILED 33/55 live (stale-era, never previously executed) — registry bumps reverted, testMatch entries pruned with citation, `docs/flag-promotions-2026-07-31.md` recovered (gitignore had eaten it from the fold — status-scan misses ignored files!) + annotated. FLAG_DOCS inverse-drift fixed (observability_gateway + collab_editing e2e_tests added; note: key is collab_editing, docs field is smoke_test).
   - Tarpit stragglers converted (health 13, voice 3, collab 3 call-sites → resilientGet).
-- [ ] **⏭ PASS-14 QUEUE:**
-  - Modernize the 9 flag-evidence specs one-by-one (admin/analytics, pwa, site-mcp, pseo-matrix, _fortress/unified_inbox ×2, admin/deliverability, webhook/webhooks, media-video-studio) → wire each into testMatch when green → apply that flag's experimental→beta bump (prepared hunks documented in docs/flag-promotions-2026-07-31.md).
-  - ADMIN_ROUTE_HINTS (not-found.component.ts) still suggests deleted routes (seo, bulk-ops) — prune.
-  - BA email-collision data backfill remap · psnotify (P12) · ag-grid→TanStack (P4, blueprint doc) · a11y advisory backlog · e2e/admin residual dead specs beyond the 7 (dashboard/admin-shell/accept-invite/analytics/apps/deliverability — audit whether covered or unique).
+- [x] **✅ PASS-14 COMPLETE (2026-07-31): first REAL flag promotions — 3 experimental→beta on executed evidence · cert 474 / 0 / 3 (4.2m).**
+  - All 9 evidence specs modernized by a 4-agent wave with deep surface discovery: analytics gating is server-side via requireOrgFlag with a documented route-shadow promotion blocker; deliverability gates in routes/email_deliverability.ts (401→404-never-403→ownership); PWA runs Angular ngsw (legacy sw.js asserts were drift); webhooks admin surface moved to /admin/settings#webhooks; site-mcp is auth-gated not flag-gated; pseo's live surface is the site-features card (v1 admin route retired); unified_inbox is worker-only AND already ON at 100% in prod via operator override; video-studio needed 11 testids.
+  - **PROMOTED (live, worker `0de7bcbc`):** pwa_manifest_full (5/5), outbound_webhooks (7/7), unified_inbox (happy+adversarial green) — stage metadata only, per doctrine.
+  - **HELD (5): site_analytics, email_deliverability_wizard, site_mcp_server, pseo_matrix_v2, site_video_gen** — modernized but 16 live tails (author agents cannot self-run); testMatch held with citation. KEY probe finding for the biggest cluster: the media SECTION never mounts at `/admin/media` under the stub session (zero testids, no component in DOM) — route/guard investigation is the Pass-15 head.
+  - ADMIN_ROUTE_HINTS dead entries pruned (seo, bulk-ops). Karma 1601; flag-docs jest 136/136.
+- [ ] **⏭ PASS-15 QUEUE:**
+  - Media-mount investigation (why /admin/media renders no component under stub auth) → then fix the 16 evidence tails (media 10, deliverability 3, analytics 1, pseo 1, site-mcp 1) → wire the 5 held files → apply their beta bumps.
+  - BA email-collision data backfill remap · psnotify (P12) · ag-grid→TanStack (P4 blueprint) · a11y advisory backlog · residual e2e/admin dead-spec audit (dashboard/admin-shell/accept-invite/analytics-old/apps/deliverability-old).
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 

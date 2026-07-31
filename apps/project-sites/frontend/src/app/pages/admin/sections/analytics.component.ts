@@ -195,6 +195,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         </div>
       } @else if (error()) {
         <app-error-card class="block"
+          data-testid="analytics-error"
           title="Analytics returned an error"
           [message]="error() ?? ''"
           [correlationId]="loadErrorRef()"
