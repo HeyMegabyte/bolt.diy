@@ -5,11 +5,15 @@ export default defineConfig({
   // Prod smoke set — broadened from voice-only. The feature-journey + adversarial
   // suites do a REAL login via E2E_API_KEY (helpers/auth.ts Pathway C) and browse
   // every admin feature against the live URL. Set E2E_API_KEY in CI.
+  // ⚠️ Basename semantics: Playwright prepends '**/' to any testMatch string, so a
+  // bare 'name.spec.ts' matches at ANY depth under testDir — including stale twins
+  // in e2e/admin/. Entries whose basename recurs in a subdir MUST be anchored with
+  // an explicit 'e2e/'-relative glob (see the two anchored entries below).
   testMatch: [
     'feature-journey.spec.ts',
     'health.spec.ts',
     'golden-path.spec.ts',
-    'voice.spec.ts',
+    'e2e/voice.spec.ts',                   // ANCHORED: bare 'voice.spec.ts' also pulled in e2e/admin/voice.spec.ts (stale, deleted)
     'observability_gateway.spec.ts',
     'collab.spec.ts',
     'adversarial/**/*.spec.ts',
@@ -32,7 +36,7 @@ export default defineConfig({
     'admin-sysadmin.spec.ts',              // Sysadmin + system-services + subdomain probes (Pass 17)
     'admin-site-detail.spec.ts',           // Site detail routes + subdomain landing pages (Pass 18)
     'integration-health.spec.ts',          // 8 probes across all services (Pass 9)
-    'feature-flags.spec.ts',               // Public API + admin auth gates (Pass 9)
+    'e2e/feature-flags.spec.ts',           // ANCHORED (bare basename also pulled in e2e/admin/feature-flags.spec.ts, stale, deleted) — Public API + admin auth gates (Pass 9)
     'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
     'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
     'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)

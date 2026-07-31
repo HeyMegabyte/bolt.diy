@@ -6,6 +6,7 @@
  * errors. Deeper journey tests per section live in their own spec files.
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet } from './helpers/api-request.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -54,17 +55,17 @@ test.describe('Admin Section Smoke — Unauthenticated Redirect', () => {
 
 test.describe('API Health', () => {
   test('GET /api/health returns 200', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/api/health`);
+    const res = await resilientGet(request, `${PROD_URL}/api/health`);
     expect(res.status()).toBe(200);
   });
 
   test('GET /api/openapi.json returns 200', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/api/openapi.json`);
+    const res = await resilientGet(request, `${PROD_URL}/api/openapi.json`);
     expect(res.status()).toBe(200);
   });
 
   test('GET /api/integrations/listmonk/health returns structured response', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/api/integrations/listmonk/health`);
+    const res = await resilientGet(request, `${PROD_URL}/api/integrations/listmonk/health`);
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty('integration');

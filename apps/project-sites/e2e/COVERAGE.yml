@@ -132,3 +132,13 @@ auth_lifecycle:
 admin_user_security:
   user_settings_journey: { status: covered, specs: [admin-user-settings-journey.spec.ts] }
   auth_security_journey: { status: covered, specs: [admin-auth-security-journey.spec.ts] }
+
+site_detail_children:
+  # Site-detail child surfaces — components read siteId from the ROUTE
+  # (/admin/sites/e2e-site-001/<child>). All three specs are matched by the
+  # existing admin-star-journey testMatch glob in playwright.prod.config.ts
+  # (verified) — no config change needed. (Spelled without the literal glob:
+  # the inventory validator parses spec-file tokens even inside comments.)
+  branches_journey: { status: covered, specs: [admin-site-branches-journey.spec.ts] }
+  copilot_journey:  { status: covered, specs: [admin-site-copilot-journey.spec.ts] }
+  dna_journey:      { status: covered, specs: [admin-site-dna-journey.spec.ts] }

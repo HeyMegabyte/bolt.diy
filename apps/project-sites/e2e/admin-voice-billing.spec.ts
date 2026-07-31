@@ -12,6 +12,7 @@
  * request-context (non-browser) calls.
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet, resilientPost } from './helpers/api-request.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -35,14 +36,14 @@ test.describe('API Smoke', () => {
   test('GET /api/billing/subscription is mounted + auth-gated (401, never 404)', async ({
     request,
   }) => {
-    const res = await request.get(`${PROD_URL}/api/billing/subscription`);
+    const res = await resilientGet(request, `${PROD_URL}/api/billing/subscription`);
     expect([401, 403]).toContain(res.status());
   });
 
   test('GET /api/billing/entitlements is mounted + auth-gated (401, never 404)', async ({
     request,
   }) => {
-    const res = await request.get(`${PROD_URL}/api/billing/entitlements`);
+    const res = await resilientGet(request, `${PROD_URL}/api/billing/entitlements`);
     expect([401, 403]).toContain(res.status());
   });
 
@@ -52,7 +53,7 @@ test.describe('API Smoke', () => {
     // gate), so the body must satisfy the schema (success_url + cancel_url
     // required URLs, budget_tier enum — packages/shared/src/schemas/billing.ts)
     // for the request to reach — and be rejected by — the auth gate as 401.
-    const res = await request.post(`${PROD_URL}/api/billing/checkout`, {
+    const res = await resilientPost(request, `${PROD_URL}/api/billing/checkout`, {
       data: {
         success_url: 'https://projectsites.dev/admin/billing',
         cancel_url: 'https://projectsites.dev/pricing',

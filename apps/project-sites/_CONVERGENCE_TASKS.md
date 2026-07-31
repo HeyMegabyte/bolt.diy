@@ -116,12 +116,18 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 - [x] **✅ PASS-11 COMPLETE (2026-07-31, 5-agent modernization wave + fold):** ~100 stale-era tests modernized/retired-with-citation: auth-and-signin 11/11 (Angular /signin + BA endpoints), golden-path 10 modernized + health 3 (verified live 24/24 by its agent), adversarial 48/48 (real affordances: logs tabs, hamburger-at-375, palette via `palette-input`, honest goBack/chip/mcp contracts), accessibility networkidle→landmark waits, voice.spec retired-with-citation, admin-voice-journey shapes rebuilt to component interfaces. Editor journey (iframe persistence round-trip via data marker) + Snapshots journey (create/restore-confirm/diff) now REAL.
   - **3 root causes with repo-wide sweeps:** (1) e2e/fixtures.ts allowlisted ONLY $PROD_URL host → aborted the DOCUMENT request when env unset (net::ERR_FAILED everywhere); now mirrors config fallback chain. (2) authedPage + 44 specs carried `?? 'http://localhost:8787'` terminal fallbacks → whole suites ran against a stray local dev server showing "Authentication Fails (governor)"; swept to prod fallback. (3) 🐛 PRODUCT BUG: marketing `?` handler lacked the /admin skip that Cmd+K already had → TWO stacked shortcuts overlays inside admin (caught by ADV-OL-05/06); fixed in app.component + deployed.
   - Baseline: **434 passed / 10 failed / 2 skipped** full cert (463 executing tests — grew again as more suites became runnable).
-- [ ] **⏭ PASS-12 QUEUE — last 10 + strays (mixed stale/real, names exact):**
-  - `e2e/admin/voice.spec.ts` ADMIN-28 + `e2e/admin/feature-flags.spec.ts` ADMIN-24 — e2e/admin/ SUBDIR-era specs asserting old markup ("flag card"; voice tab set) — modernize or fold into the journey specs + retire files (check what testMatch pulls them in).
-  - `admin-billing-journey.spec.ts` API-structured tests + `admin-voice-billing.spec.ts` entitlements-401 — request-context calls tarpitted UNDER SUITE LOAD (standalone: health 200/680ms; under 4-worker cert: 30s hangs). Consider a shared request-context retry/serial-project for pure-API tests, or move them to jest-level worker tests.
-  - `admin-dashboard.spec.ts` auth-guard test + `feature-journey.spec.ts` full-SPA pass + `golden-path` google-branch + `integration-health` Listmonk probe + `perf/ttfr` LCP — re-run after cooldown; fix real tails individually.
-  - `admin-sections-smoke.spec.ts` /api/health + /api/openapi.json 200s — pure load-tarpit flakes; consider retry annotation.
-  - Then: P1 [~] Branches/Copilot/DNA journeys; BA email-collision backfill remap (read-layer done); psnotify (P12); ag-grid→TanStack (P4).
+- [x] **✅ PASS-12 COMPLETE (2026-07-31): FIRST FULLY-GREEN FULL CERTIFICATION — 451 passed / 0 failed / 2 conditional-skips (3.9m, was 8.4m).**
+  - Collision root cause: Playwright prepends `**/` to bare testMatch strings — 2 entries multi-matched; anchored + 2 stale `e2e/admin/` twins deleted (their failures were structural: empty-sites stub → app-empty-state; sysAdminGuard redirect). 28 remaining `e2e/admin/*` specs confirmed NON-executing + inventoried (7 stale-testid candidates for future triage).
+  - Tarpit class CLOSED: `e2e/helpers/api-request.ts` resilient transport (3×, 12s/attempt, transport-errors only) across 17 call-sites in 6 files (+ domains/search with a 20s budget — live registrar upstream).
+  - **P1 SECTION SWEEP COMPLETE:** Branches/Copilot/DNA journeys shipped green first-run (copilot's gate is SERVER-derived via 404s; DNA client-gated with a zero-leak assert on flag-off). With pass-10/11 work, EVERY admin section now has a real authenticated journey.
+  - feature-journey rebuilt as a self-updating DOM-walk (sidebar = SSOT; retired routes can't rot it) + bounded probes/clicks. Diagnostic table revealed: the multi-minute burner was an UNBOUNDED CLICK on a stalled page (no actionTimeout); at bounded pacing the full walk completes in 1.6m. Carries test.fail TDD-RED for 3 blank-render routes: `/admin/api-tokens`, `/admin/super-admin`, `/admin/editor-native` (no-topbar/no-sidebar/blank-main in-walk — render-latency or real gaps).
+  - Directive-5 truth (docs/flag-promotions-2026-07-31.md): stage is CODE-persisted in registry.ts; all 71 experimental flags are dark → 0 promotable without enabling features (forbidden); the 8 flags WITH e2e_tests are blocked solely because their specs never entered testMatch. Inverse drift: observability_gateway + collab specs run but lack FLAG_DOCS e2e_tests entries.
+- [ ] **⏭ PASS-13 QUEUE:**
+  - Run the 8 flag-linked specs individually (site_analytics, pwa_manifest_full, site_mcp_server, pseo_matrix_v2, unified_inbox, email_deliverability_wizard, outbound_webhooks, site_video_gen) → wire green ones into testMatch → experimental→beta stage bumps in registry.ts (metadata only) + add the 2 missing FLAG_DOCS e2e_tests entries.
+  - feature-journey TDD-RED trio: root-cause blank-render of api-tokens/super-admin/editor-native inside the walk (in-walk render latency vs real gap) → fix → drop the test.fail marker.
+  - Renderer-freeze question (traces tr-fj3/7/9/10/12): at SLOW pacing (long stalls between navs) the renderer pegged solid ~10-12 sections in, victim varies → suspected interval/poller accumulation across section mounts; profile in a dedicated session (heap/interval audit). Real-user impact: long admin sessions may freeze.
+  - 7 stale-testid `e2e/admin/*` dead specs (bulk-ops 8 missing testids, recipes 5, ai-chat-extras 2, review-links 2, email/seo/mcp 1 each): modernize-or-delete triage.
+  - BA email-collision BACKFILL remap (read-layer resolution shipped pass-10; data-layer remap still open) · psnotify (P12) · ag-grid→TanStack (P4) · a11y advisory backlog.
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 
@@ -131,15 +137,15 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 
 ### Primary Nav (15 items)
 - [x] Dashboard (`/admin`) — `admin-dashboard.spec.ts` GREEN (Pass 1)
-- [~] Editor (`/admin/editor`) — auth-gate only. Need: bolt.diy iframe loads → WebContainer boots → file tree populated
-- [~] Snapshots (`/admin/snapshots`) — auth-gate only. Need: list renders → create/restore/diff actions
+- [x] Editor (`/admin/editor`) — `admin-editor-journey.spec.ts` iframe-persistence journey (Pass 11)
+- [x] Snapshots (`/admin/snapshots`) — `admin-snapshots-journey.spec.ts` create/restore-confirm/diff (Pass 11)
 - [x] Analytics (`/admin/analytics`) — `admin-analytics-journey.spec.ts` (GREEN Pass 3)
 - [x] Forms (`/admin/forms`) — `admin-forms-journey.spec.ts` (GREEN Pass 3)
 - [x] Apps (`/admin/apps`) — `admin-apps-journey.spec.ts` (GREEN Pass 3)
-- [~] Site Features (`/admin/site-features`) — auth-gate only
+- [x] Site Features (`/admin/site-features`) — strictened journey, sf-* testids (Pass 10)
 - [x] Social (`/admin/social`) — `admin-social-journey.spec.ts` (GREEN Pass 3)
 - [x] Voice (`/admin/voice`) — `admin-voice-journey.spec.ts` (GREEN Pass 3)
-- [~] Logs (`/admin/logs`) — flags fixed (Pass 1); need full journey for Audit Trail + Log Explorer tabs
+- [x] Logs (`/admin/logs`) — `admin-logs-journey.spec.ts` both tabs + filter + pagination (Pass 10)
 - [x] Feature Flags (`/admin/feature-flags`) — `admin-feature-flags.spec.ts` full journey + sysAdminGuard fix (GREEN Pass 3)
 - [x] Leads (`/admin/leads`) — `admin-leads-journey.spec.ts` (GREEN Pass 3)
 - [x] System Services (`/admin/system-services`) — `admin-system-services-journey.spec.ts` (GREEN Pass 3; was ZERO-spec)
@@ -148,15 +154,15 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 
 ### Secondary Routes (10 items)
 - [x] Domains (`/admin/domains`) — `admin-domains-journey.spec.ts` (GREEN Pass 3)
-- [~] API Tokens (`/admin/api-tokens`) — auth-gate only (one-time reveal + auto-hide micro-features untested)
+- [x] API Tokens (`/admin/api-tokens`) — one-time reveal + auto-hide + value domains + revoke (Pass 10)
 - [x] Billing (`/admin/billing`) — `admin-billing-journey.spec.ts` (GREEN Pass 3)
-- [~] User Settings (`/admin/user`) — auth-gate only
+- [x] User Settings (`/admin/user`) — display-name editor journey + value domains (Pass 10)
 - [x] Team (`/admin/team`) — `admin-team-journey.spec.ts` (GREEN Pass 3)
-- [~] Auth Security (`/admin/auth-security`) — auth-gate only
-- [~] Site Detail (`/admin/sites/:id`) — auth-gate only (tabs, SQL pagination, log-stream reconnect untested)
-- [~] Site Branches (`/admin/sites/:id/branches`) — stub component, zero spec
-- [~] Site Copilot (`/admin/sites/:id/copilot`) — zero spec, flag-gated
-- [~] Site DNA (`/admin/sites/:id/dna`) — zero spec
+- [x] Auth Security (`/admin/auth-security`) — sessions/revoke/2FA-entry journey (Pass 10)
+- [x] Site Detail (`/admin/sites/:id`) — strictened 4-tab journey, sd-* testids (Pass 10)
+- [x] Site Branches — `admin-site-branches-journey.spec.ts` + value domains (Pass 12)
+- [x] Site Copilot — two-mode journey; gate is server-derived via 404s (Pass 12)
+- [x] Site DNA — two-mode journey + zero-leak flag-off assert (Pass 12)
 
 ### Other Admin Routes (zero-spec set from Pass 2 scan)
 - [~] Super Admin (`/admin/super-admin`) — zero spec

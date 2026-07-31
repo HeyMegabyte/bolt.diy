@@ -1,3 +1,4 @@
+import { resilientGet } from './helpers/api-request.js';
 import { test, expect } from '@playwright/test';
 import { signInAsTestUser } from './helpers/auth.js';
 import { checkA11y } from './helpers/a11y.js';
@@ -108,7 +109,8 @@ test.describe('Admin — Domains (authenticated journey)', () => {
   });
 
   test('API: GET /api/domains/search returns structured response', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/api/domains/search?q=test`);
+    // Live registrar/RDAP upstream — honestly slow; resilient transport + real budget.
+    const res = await resilientGet(request, `${PROD_URL}/api/domains/search?q=test`, { timeout: 20_000 });
     expect([200, 401, 404]).toContain(res.status());
   });
 

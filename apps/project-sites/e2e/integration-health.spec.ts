@@ -6,6 +6,7 @@
  * (managed SaaS) + Better Auth, CF Workflows binding.
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet } from './helpers/api-request.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -31,7 +32,7 @@ const HEALTH_PROBES: HealthProbe[] = [
 test.describe('Integration Health Probes', () => {
   for (const probe of HEALTH_PROBES) {
     test(`${probe.name} — GET ${probe.path}`, async ({ request }) => {
-      const res = await request.get(`${PROD_URL}${probe.path}`);
+      const res = await resilientGet(request, `${PROD_URL}${probe.path}`);
       if (probe.required) {
         expect(res.status()).toBe(200);
       } else {

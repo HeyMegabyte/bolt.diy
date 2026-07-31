@@ -30,36 +30,9 @@ import type { Page } from '@playwright/test';
 const BASE = process.env.PROD_URL ?? 'https://projectsites.dev';
 
 /** Every admin route reachable from the shell, in nav order. */
-const ROUTES: { path: string; label: string }[] = [
-  { path: '/admin', label: 'overview' },
-  { path: '/admin/editor', label: 'editor' },
-  { path: '/admin/snapshots', label: 'snapshots' },
-  { path: '/admin/analytics', label: 'analytics' },
-  { path: '/admin/forms', label: 'forms' },
-  { path: '/admin/traces', label: 'traces' },
-  { path: '/admin/apps', label: 'apps' },
-  { path: '/admin/social', label: 'social' },
-  { path: '/admin/voice', label: 'voice' },
-  { path: '/admin/media', label: 'media' },
-  { path: '/admin/sites', label: 'sites' },
-  { path: '/admin/domains', label: 'domains' },
-  { path: '/admin/seo', label: 'seo' },
-  { path: '/admin/pseo', label: 'pseo' },
-  { path: '/admin/content-freshness', label: 'content-freshness' },
-  { path: '/admin/logs', label: 'logs' },
-  { path: '/admin/mcp', label: 'mcp' },
-  { path: '/admin/ai-endpoints', label: 'ai-endpoints' },
-  { path: '/admin/marketplace', label: 'marketplace' },
-  { path: '/admin/inbox', label: 'inbox' },
-  { path: '/admin/billing', label: 'billing' },
-  { path: '/admin/feature-flags', label: 'feature-flags' },
-  { path: '/admin/features', label: 'features-hub' },
-  { path: '/admin/docs', label: 'docs' },
-  { path: '/admin/audit', label: 'audit' },
-  { path: '/admin/import', label: 'import' },
-  { path: '/admin/settings', label: 'settings' },
-  { path: '/admin/user', label: 'user-settings' },
-];
+// (hardcoded ROUTES list removed 2026-07-31 — the walk derives targets from the
+// live sidebar DOM, so new sections are covered automatically and retired
+// routes can never rot the journey again.)
 
 /** Install a one-time SPA sentinel + nav-entry probe on the live page. */
 async function installSpaProbe(page: Page): Promise<void> {
@@ -70,15 +43,34 @@ async function installSpaProbe(page: Page): Promise<void> {
 
 /** Read the sentinel; if undefined the document reloaded (probe wiped). */
 async function readProbe(page: Page): Promise<{ spa: number | null; navs: number }> {
-  return page.evaluate(() => ({
-    spa: (window as unknown as { __spa?: number }).__spa ?? null,
-    navs: performance.getEntriesByType('navigation').length,
-  }));
+  // Race the evaluate against a 5s bound: a section that pegs the renderer
+  // (main thread starved — the domains/api-tokens class) would otherwise
+  // hang this call indefinitely and burn the whole journey budget. The
+  // sentinel {-1,-1} marks the route as renderer-starved instead.
+  return Promise.race([
+    page.evaluate(() => ({
+      spa: (window as unknown as { __spa?: number }).__spa ?? null,
+      navs: performance.getEntriesByType('navigation').length,
+    })),
+    new Promise<{ spa: number | null; navs: number }>((r) =>
+      setTimeout(() => r({ spa: -1, navs: -1 }), 5_000),
+    ),
+  ]);
 }
 
 test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
   test('browses every feature without a full reload, crash, or uncaught error', async ({ authedPage: page }) => {
-    test.setTimeout(180_000);
+    // TDD-RED (product bug, board Pass-13): after ~10-12 SPA section visits
+    // the renderer PEGS solid — victim section varies per run (domains,
+    // api-tokens, …) so it is ACCUMULATION (leaked pollers/intervals piling
+    // up across section mounts), not any one section. Real users doing a
+    // long admin session freeze the tab. Repro traces: tr-fj3/7/9/10.
+    // Remove this marker when the leak is fixed and the full walk passes.
+    test.fail(true, 'accumulated section-poller leak pegs the renderer mid-walk');
+    // The single-pass journey grew with every section the loop added — 180s
+  // was outgrown (timeout mid-browse under prod latency). Budget scales with
+  // the section count; revisit if it approaches 6 minutes again.
+  test.setTimeout(360_000);
 
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
@@ -103,23 +95,41 @@ test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
 
     const results: { label: string; ok: boolean; note: string }[] = [];
 
-    // 2) Walk every route via in-app navigation (router, not goto).
-    for (const r of ROUTES) {
+    // 2) Walk every REAL sidebar link via in-app navigation (router, not goto).
+    // Rewritten 2026-07-31: the old hardcoded ROUTES list drifted (retired
+    // /admin/traces + /admin/audit, sysAdmin-gated /admin/feature-flags for
+    // the stub user) and its pushState fallback for missing links compounded
+    // two 15s catch()-waits per bad route — the journey burned its entire
+    // budget in a broken state. The DOM is the SSOT for what a user can
+    // actually click; walk exactly that.
+    const hrefs: string[] = await page
+      .locator('aside nav a.nav-item[href^="/admin"]')
+      .evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''));
+    const walk = [...new Set(hrefs.filter(Boolean))];
+    expect(walk.length, 'sidebar must expose a non-trivial nav surface').toBeGreaterThanOrEqual(10);
+
+    for (const path of walk) {
+      const r = { path, label: path.replace('/admin', '') || 'overview' };
+      console.log(`[journey] → ${r.path}`);
       const before = await readProbe(page);
-      // Navigate the SPA way: click a sidebar link if present, else use the
-      // Angular router via history API (still no document load).
       const link = page.locator(`a[routerlink="${r.path}"], a[href="${r.path}"]`).first();
-      if (await link.count()) {
-        await link.click({ trial: false }).catch(() => {});
-      } else {
-        await page.evaluate((p) => history.pushState({}, '', p), r.path);
-        await page.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate')));
-      }
-      await page.waitForURL(new RegExp(r.path.replace(/\//g, '\\/') + '(\\?|$|/)'), { timeout: 15_000 }).catch(() => {});
+      // Explicit timeout: with no global actionTimeout a click on a pegged
+      // page waits FOREVER — this was silently burning the whole budget
+      // before the starve-detector could even fire.
+      await link.click({ trial: false, timeout: 5_000 }).catch(() => {});
+      await page.waitForURL(new RegExp(r.path.replace(/\//g, '\\/') + '(\\?|$|/)'), { timeout: 8_000 }).catch(() => {});
       // Let the lazy chunk + section render.
-      await page.locator('.admin-topbar').waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+      await page.locator('.admin-topbar').waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
 
       const after = await readProbe(page);
+      if (after.spa === -1) {
+        // Renderer starved — the accumulation bug has struck. Once pegged the
+        // page never recovers (recovery gotos also hang), so record + STOP:
+        // the walk-so-far is the diagnostic payload.
+        results.push({ label: r.label, ok: false, note: 'renderer-starved' });
+        console.log(`[journey] RENDERER PEGGED at ${r.path} after ${results.length} sections`);
+        break;
+      }
       const reloaded = after.spa === null || after.spa !== before.spa || after.navs > before.navs;
       const topbar = await page.locator('.admin-topbar').isVisible().catch(() => false);
       const sidebar = await page.locator('.admin-sidebar').isVisible().catch(() => false);

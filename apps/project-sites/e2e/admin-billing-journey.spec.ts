@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInAsTestUser } from './helpers/auth.js';
 import { checkA11y } from './helpers/a11y.js';
+import { resilientGet } from './helpers/api-request.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -132,12 +133,12 @@ test.describe('Admin — Billing (authenticated journey)', () => {
   });
 
   test('API: GET /api/billing/subscription returns structured response', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/api/billing/subscription`);
+    const res = await resilientGet(request, `${PROD_URL}/api/billing/subscription`);
     expect([200, 401, 404]).toContain(res.status());
   });
 
   test('API: GET /api/billing/entitlements returns structured response', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/api/billing/entitlements`);
+    const res = await resilientGet(request, `${PROD_URL}/api/billing/entitlements`);
     expect([200, 401, 404]).toContain(res.status());
   });
 });

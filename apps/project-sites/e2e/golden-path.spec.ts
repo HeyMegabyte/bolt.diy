@@ -41,6 +41,7 @@
 
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { resilientGet, resilientPost } from './helpers/api-request.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 const PROD_HOST = new URL(PROD_URL).hostname;
@@ -573,7 +574,7 @@ test.describe('API Integration', () => {
     request,
   }) => {
     // ── Health endpoint ──────────────────────────────────
-    const healthRes = await request.get('/health');
+    const healthRes = await resilientGet(request, '/health');
     expect(healthRes.status()).toBe(200);
     const health = await healthRes.json();
     expect(['ok', 'degraded']).toContain(health.status);
@@ -591,26 +592,26 @@ test.describe('API Integration', () => {
 
     // ── Request ID propagation ───────────────────────────
     const testId = `e2e-${Date.now()}`;
-    const idRes = await request.get('/health', { headers: { 'x-request-id': testId } });
+    const idRes = await resilientGet(request, '/health', { headers: { 'x-request-id': testId } });
     expect(idRes.headers()['x-request-id']).toBe(testId);
 
     // ── Search API (public GET) ──────────────────────────
     // Shape-only: the local mock always returns 2 rows, but prod proxies
     // LIVE Google Places — result count legitimately varies (can be 0 on
     // quota/no-match), so asserting non-empty was flaky-by-design.
-    const searchRes = await request.get('/api/search/businesses?q=pizza');
+    const searchRes = await resilientGet(request, '/api/search/businesses?q=pizza');
     expect(searchRes.status()).toBe(200);
     expect(searchRes.headers()['content-type']).toContain('application/json');
     const searchJson = await searchRes.json();
     expect(searchJson.data).toBeInstanceOf(Array);
 
     // Missing query → 400.
-    const noQuery = await request.get('/api/search/businesses');
+    const noQuery = await resilientGet(request, '/api/search/businesses');
     expect(noQuery.status()).toBe(400);
 
     // ── Soft-404 guard: unknown /api/* is machine-readable JSON 404 ──
     // (never the SPA shell — worker commit 76249c96).
-    const unknown = await request.get('/api/nonexistent-route-xyz');
+    const unknown = await resilientGet(request, '/api/nonexistent-route-xyz');
     expect(unknown.status()).toBe(404);
     expect(unknown.headers()['content-type']).toContain('application/json');
     const unknownBody = await unknown.json();
@@ -618,7 +619,7 @@ test.describe('API Integration', () => {
 
     // ── Auth gates on REAL endpoints ─────────────────────
     for (const route of ['/api/sites', '/api/billing/subscription', '/api/audit-logs']) {
-      const res = await request.get(route);
+      const res = await resilientGet(request, route);
       expect([401, 403], `${route} must be auth-gated`).toContain(res.status());
     }
 
@@ -626,7 +627,7 @@ test.describe('API Integration', () => {
     // 401 from the worker/local mock; 403 when Cloudflare Bot Fight Mode
     // challenges request-context POSTs on prod (verified 2026-07-31 — the
     // challenge fires BEFORE the worker).
-    const unauthed = await request.post('/api/sites/create-from-search', {
+    const unauthed = await resilientPost(request, '/api/sites/create-from-search', {
       data: { mode: 'business', business: { name: 'API Test Biz' } },
       headers: { 'Content-Type': 'application/json' },
     });
@@ -635,7 +636,7 @@ test.describe('API Integration', () => {
     // ── Stripe webhook requires a signature ──────────────
     // 400 (local mock: missing header) / 401 (worker: invalid signature) /
     // 403 (prod BFM challenge on request-context POSTs).
-    const stripeRes = await request.post('/webhooks/stripe', {
+    const stripeRes = await resilientPost(request, '/webhooks/stripe', {
       data: '{}',
       headers: { 'Content-Type': 'application/json' },
     });

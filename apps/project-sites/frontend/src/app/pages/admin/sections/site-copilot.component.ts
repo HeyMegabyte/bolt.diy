@@ -62,11 +62,11 @@ const INTENT_ICONS: Record<string, string> = {
         <div class="copilot-toggle-wrap" appReveal
              [class.copilot-toggle-wrap--locked]="!flagEnabled()"
              [attr.title]="!flagEnabled() ? 'Enable the multimodal_copilot feature flag first' : null">
-          <label class="copilot-toggle" [attr.aria-label]="enabled() ? 'Copilot enabled' : 'Copilot disabled'">
+          <label class="copilot-toggle" data-testid="copilot-enable-toggle" [attr.aria-label]="enabled() ? 'Copilot enabled' : 'Copilot disabled'">
             <input hlmCheckbox type="checkbox" [checked]="enabled()" [disabled]="!flagEnabled()" (change)="toggleEnabled($event)" />
             <span class="copilot-toggle-track"></span>
           </label>
-          <span class="copilot-toggle-label">{{ enabled() ? 'Enabled' : 'Disabled' }}</span>
+          <span class="copilot-toggle-label" data-testid="copilot-enable-state">{{ enabled() ? 'Enabled' : 'Disabled' }}</span>
         </div>
       </header>
 
