@@ -782,7 +782,10 @@
           </svg>
           <span class="text-white font-semibold max-md:hidden">{{ currentSection() }}</span>
         </div>
-        <div class="flex items-center gap-2">
+        <!-- max-md:gap-1 + shrink: at 375px the 52px hamburger inset + this
+             cluster + right padding exceeded the viewport by 3px (VID-BP
+             horizontal-overflow gate caught it). -->
+        <div class="flex items-center gap-2 max-md:gap-1 min-w-0">
           <!-- Cmd-K palette opener -->
           <button
             class="top-btn cmdk-btn"
@@ -976,7 +979,7 @@
               }
             </div>
           }
-          <div class="w-px h-6 bg-white/[0.06] mx-1"></div>
+          <div class="w-px h-6 bg-white/[0.06] mx-1 max-md:mx-0.5"></div>
 
           <!-- Notifications bell — wrapped in .avatar-wrap to provide the
              positioning context for the absolutely-positioned .notif-pop. -->

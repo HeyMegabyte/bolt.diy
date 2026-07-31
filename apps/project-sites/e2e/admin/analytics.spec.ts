@@ -16,11 +16,18 @@
  *   (`data-testid="analytics-error"`, added with this evidence spec).
  * - ⚠️ Shape note for promotion: flag-ON, the module returns the OWNER summary
  *   `{contacts, formSubmissions, subscribers, donations, traffic:{pageviews,
- *   uniqueSessions, conversions}}` — NOT the `{data:{source:'cloudflare',…}}`
- *   envelope the admin section parses. Promotion must reconcile the shapes;
- *   stub-on mode below stubs the envelope the COMPONENT actually consumes
- *   (mirrors the green e2e/admin-analytics-journey.spec.ts, which owns the
- *   full KPI/range/a11y journey — deliberately NOT duplicated here).
+ *   uniqueSessions, conversions}}` — NOT what the admin section parses. The
+ *   component consumes `MultiUrlAnalyticsEnvelope` (api.service.ts:1467):
+ *   `{data:{range_days, urls_included:[{hostname,resolved_zone}], pageviews,
+ *   uniques, total_requests, series:[{date,page_views,unique_visitors,
+ *   requests}], top_pages, top_countries, top_referrers, any_real_data}}`.
+ *   Promotion must reconcile the shapes; stub-on mode below stubs THAT exact
+ *   envelope — a wrong-shaped 200 is worse than a 404 here, because
+ *   `isResolved()` dereferences `envelope.urls_included.find(…)` unguarded:
+ *   with URL pills present the render pass throws mid-template and the KPI
+ *   tiles freeze as empty skeletons. (admin-analytics-journey.spec.ts stubs a
+ *   legacy shape and stays green only because its asserts are visible-only —
+ *   this spec is the render PROOF, so the stub must be shape-true.)
  *
  * FLAG_DOCS checklist coverage (`src/modules/feature_flags/docs.ts`):
  * - "When off, /api/sites/:id/analytics returns 404" → tests 1 + 2.
@@ -46,21 +53,32 @@ const NOT_FOUND_BODY = JSON.stringify({
   error: { code: 'NOT_FOUND', message: 'Not found', request_id: 'e2e-stub' },
 });
 
-/** CF multi-URL envelope the admin component consumes (journey-spec parity). */
+/**
+ * The EXACT `MultiUrlAnalyticsEnvelope` the component consumes
+ * (api.service.ts:1467). Field names matter: the KPI tiles bind
+ * `pageviews` / `uniques` / `total_requests`, the sparklines map
+ * `series[].page_views` / `unique_visitors`, and `isResolved()` reads
+ * `urls_included.find(…)` UNGUARDED — the hostname must match the /urls stub
+ * so the URL pill resolves without throwing mid-render.
+ */
 const ANALYTICS_ENVELOPE = JSON.stringify({
   data: {
-    source: 'cloudflare',
+    range_days: 7,
+    urls_included: [{ hostname: 'e2e-test-site.projectsites.dev', resolved_zone: true }],
     pageviews: 12_450,
-    visitors: 3_210,
-    requests: 28_900,
-    period: '7d',
-    urls: [
-      { hostname: 'e2e-test-site.projectsites.dev', pageviews: 12_450, visitors: 3_210, requests: 28_900 },
+    uniques: 3_210,
+    total_requests: 28_900,
+    series: [
+      { date: '2026-07-29', page_views: 6_200, unique_visitors: 1_600, requests: 14_400 },
+      { date: '2026-07-30', page_views: 6_250, unique_visitors: 1_610, requests: 14_500 },
     ],
-    daily: [
-      { date: '2026-07-29', pageviews: 6_200, visitors: 1_600, requests: 14_400 },
-      { date: '2026-07-30', pageviews: 6_250, visitors: 1_610, requests: 14_500 },
+    top_pages: [
+      { path: '/', views: 8_400 },
+      { path: '/about', views: 2_150 },
     ],
+    top_countries: [{ country: 'US', views: 9_900 }],
+    top_referrers: [{ referrer: 'https://google.com/', views: 4_300 }],
+    any_real_data: true,
   },
 });
 
@@ -128,18 +146,21 @@ async function stubAnalyticsOn(page: Page): Promise<void> {
   await page.route(`**/api/sites/${SITE_ID}/urls**`, urls);
   await page.route(`**/api/sites/${SITE_ID}/urls/**`, urls);
 
-  // CF credentials configured+valid → the "Connect Cloudflare" banner stays hidden.
+  // CF credentials configured+valid → the "Connect Cloudflare" banner stays
+  // hidden. Shape-true `CloudflareCredentialStatus` (api.service.ts:1500) —
+  // the component branches on `source === 'none'`, so the real field set is
+  // what keeps the connect-CTA suppressed.
   const creds = async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          configured: true,
-          account_id_set: true,
-          api_token_set: true,
+          has_credentials: true,
+          source: 'org',
+          email: 'test@megabyte.space',
           last_validated_at: '2026-07-30T00:00:00Z',
-          valid: true,
+          last_validated_account_id: 'acct-e2e',
         },
       }),
     });

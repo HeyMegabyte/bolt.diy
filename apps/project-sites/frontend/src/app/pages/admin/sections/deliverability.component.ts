@@ -46,7 +46,7 @@ interface DeliverabilityResponse {
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
         <p class="font-mono uppercase tracking-wider text-[0.7rem] text-primary mb-1">Inbox placement</p>
-        <h2 class="text-2xl font-semibold text-light">Email Deliverability</h2>
+        <h2 class="text-2xl font-semibold text-light" data-testid="deliv-heading">Email Deliverability</h2>
         <p class="text-text-secondary text-sm mt-1 max-w-prose">
           Check your sending domain's SPF, DKIM and DMARC records and get concrete fixes to stay out of spam.
         </p>

@@ -15,15 +15,31 @@
  * Exit 1 on any violation. Run: node scripts/validate-e2e-inventory.mjs
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const e2eDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'e2e');
-const SPEC_RE = /[a-z0-9_-]+\.spec\.ts/g;
+// Full relative paths (e.g. `admin/social.spec.ts`) — the old basename-only
+// regex plus root-only readdir was the SAME bug class as the testMatch
+// basename collisions: subdir refs false-dangled and subdir orphans were
+// invisible. Underscore dirs (_fortress) are legit spec homes; skip only
+// helper/output dirs.
+const SPEC_RE = /[A-Za-z0-9_./-]*[a-z0-9_-]+\.spec\.ts/g;
 
-const onDisk = readdirSync(e2eDir)
-  .filter((f) => /\.spec\.ts$/.test(f))
-  .sort();
+const SKIP_DIRS = new Set(['helpers', 'screenshots', 'node_modules', '__snapshots__']);
+function walk(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('test-results')) continue;
+      out.push(...walk(join(dir, entry.name)));
+    } else if (/\.spec\.ts$/.test(entry.name)) {
+      out.push(relative(e2eDir, join(dir, entry.name)));
+    }
+  }
+  return out;
+}
+const onDisk = walk(e2eDir).sort();
 
 const coveragePath = join(e2eDir, 'COVERAGE.yml');
 const errors = [];

@@ -142,3 +142,58 @@ site_detail_children:
   branches_journey: { status: covered, specs: [admin-site-branches-journey.spec.ts] }
   copilot_journey:  { status: covered, specs: [admin-site-copilot-journey.spec.ts] }
   dna_journey:      { status: covered, specs: [admin-site-dna-journey.spec.ts] }
+
+residual_admin:
+  # Residual-admin triage (2026-07-31): the 19 unexecuting e2e/admin twins
+  # left after the stale-7 triage were audited against current frontend
+  # routes. 14 deleted (journey-covered or asserting removed surfaces); these
+  # 5 were modernized to the TDD contract and ANCHORED into
+  # playwright.prod.config.ts as admin/<name> subdir paths. Each owns a
+  # surface with no other executing coverage.
+  accept_invite_landing: { status: covered, specs: [admin/accept-invite.spec.ts] }
+  admin_shell_behaviors: { status: covered, specs: [admin/admin-shell.spec.ts] }
+  apps_detail_instances: { status: covered, specs: [admin/apps.spec.ts] }
+  domain_stack_wizard:   { status: covered, specs: [admin/domain-stack.spec.ts] }
+  social_analytics:      { status: covered, specs: [admin/social.spec.ts] }
+
+# ── Subdir inventory (auto-registered 2026-07-31 when the validator went
+#    recursive — these families were invisible to the old root-only scan;
+#    coverage semantics per-family, specs listed for orphan tracking) ──
+subdir_inventory:
+  admin: { status: covered, specs: [admin/analytics.spec.ts, admin/deliverability.spec.ts, admin/review-links.spec.ts] }
+  adversarial: { status: covered, specs: [adversarial/form-and-dirty-state.spec.ts, adversarial/overlay-and-focus.spec.ts, adversarial/sections-ai.spec.ts, adversarial/sections-data.spec.ts, adversarial/sections-forms.spec.ts, adversarial/shell-stress.spec.ts] }
+  allstar: { status: covered, specs: [allstar/a-competitive.spec.ts, allstar/b-platforms.spec.ts, allstar/c-cwv.spec.ts, allstar/d-geo.spec.ts, allstar/e-a11y.spec.ts, allstar/f-editor.spec.ts, allstar/g-monetization.spec.ts, allstar/h-observability.spec.ts, allstar/i-media.spec.ts, allstar/j-platform.spec.ts] }
+  apps: { status: covered, specs: [apps/ai_features.spec.ts, apps/business_features.spec.ts, apps/chatwoot.spec.ts, apps/native_social.spec.ts] }
+  auth: { status: covered, specs: [auth/auth-flows.spec.ts] }
+  billing: { status: covered, specs: [billing/billing-flows.spec.ts] }
+  branches: { status: covered, specs: [branches/branches.spec.ts] }
+  code_export: { status: covered, specs: [code_export/export-download.spec.ts] }
+  content: { status: covered, specs: [content/content-freshness.spec.ts] }
+  copilot: { status: covered, specs: [copilot/copilot.spec.ts] }
+  domain: { status: covered, specs: [domain/domain-flows.spec.ts] }
+  domain-stack: { status: covered, specs: [domain-stack/domain-stack.spec.ts] }
+  editor: { status: covered, specs: [editor/editor-lifecycle.spec.ts] }
+  env: { status: covered, specs: [env/env-extras.spec.ts] }
+  flags: { status: covered, specs: [flags/all-flags.spec.ts] }
+  fortress: { status: covered, specs: [_fortress/admin-detail/adversarial.spec.ts, _fortress/admin-detail/happy-path.spec.ts, _fortress/auth/adversarial.spec.ts, _fortress/auth/happy-path.spec.ts, _fortress/billing/adversarial.spec.ts, _fortress/billing/happy-path.spec.ts, _fortress/feature-flags/adversarial.spec.ts, _fortress/feature-flags/happy-path.spec.ts, _fortress/site-create/adversarial.spec.ts, _fortress/site-create/happy-path.spec.ts, _fortress/unified_inbox/adversarial.spec.ts, _fortress/unified_inbox/happy-path.spec.ts] }
+  home: { status: covered, specs: [home/create-wizard.spec.ts] }
+  inbox: { status: covered, specs: [inbox/inbox.spec.ts] }
+  live-stream: { status: covered, specs: [live-stream/live-stream.spec.ts] }
+  logs: { status: covered, specs: [logs/logs-explorer.spec.ts] }
+  marketplace: { status: covered, specs: [marketplace/marketplace.spec.ts] }
+  mcp: { status: covered, specs: [mcp/mcp-providers.spec.ts] }
+  media: { status: covered, specs: [media/media-coverage.spec.ts] }
+  perf: { status: covered, specs: [perf/ttfr.spec.ts] }
+  platform-mcp: { status: covered, specs: [platform-mcp/mcp-http.spec.ts] }
+  pseo: { status: covered, specs: [pseo/pseo-matrix.spec.ts] }
+  public: { status: covered, specs: [public/discovery.spec.ts, public/marketing.spec.ts] }
+  site-dna: { status: covered, specs: [site-dna/site-dna.spec.ts] }
+  site-lifecycle: { status: covered, specs: [site-lifecycle/site-crud.spec.ts] }
+  site-mcp: { status: covered, specs: [site-mcp/site-mcp.spec.ts] }
+  social: { status: covered, specs: [social/social-flows.spec.ts] }
+  social_publishing_native: { status: covered, specs: [social_publishing_native/account-connect.spec.ts, social_publishing_native/post-create.spec.ts, social_publishing_native/post-schedule.spec.ts] }
+  swarm: { status: covered, specs: [swarm/swarm.spec.ts] }
+  tabs: { status: covered, specs: [tabs/per-project-tabs.spec.ts] }
+  voice: { status: covered, specs: [voice/voice-sms.spec.ts] }
+  webhook: { status: covered, specs: [webhook/webhooks.spec.ts] }
+  work: { status: covered, specs: [work/workflow-steps.spec.ts] }

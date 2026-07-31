@@ -106,7 +106,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
       'Owner-facing per-site analytics summary aggregating contacts, form submissions, newsletter subs and donations',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/admin/analytics.spec.ts (green live),
     owner_email: 'brian@megabyte.space',
   },
   visitor_events_core: {
@@ -207,7 +207,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     description: 'Per-customer-site MCP server — Siri/Claude/Cursor query the site directly',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/site-mcp/site-mcp.spec.ts (green live),
     owner_email: 'brian@megabyte.space',
   },
   ai_auto_router: {
@@ -249,7 +249,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
       'pSEO v2: user-tasks (not keywords) + >=40% unique data floor per page from live Google Places, real reviews, real pricing. Cap 200 per axis. Covers comparison/alternative + integration-directory page sets.',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/pseo/pseo-matrix.spec.ts (green live),
     owner_email: 'brian@megabyte.space',
   },
   // ── Domain & Logs (items #10 + #14)
@@ -272,7 +272,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
       'Email Deliverability Wizard (#12): checks a sending domain SPF, DKIM and DMARC via DNS-over-HTTPS and returns a 0-100 score plus concrete DNS fixes. Read-only, persists nothing.',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/admin/deliverability.spec.ts (green live),
     owner_email: 'brian@megabyte.space',
   },
   outbound_webhooks: {
@@ -305,7 +305,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
       'Per-site narrative video: storyboard → Veo clips → ~56s brand film assembled in the build Workflow, delivered device-adaptive via Media Transformations.',
     default_enabled: false,
     default_rollout_percent: 0,
-    stage: 'experimental',
+    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/media-video-studio.spec.ts (green live, editor-overlay path),
     owner_email: 'brian@megabyte.space',
   },
   editor_vision_qa: {

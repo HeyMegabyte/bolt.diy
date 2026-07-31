@@ -186,7 +186,10 @@ test.describe('pSEO Matrix v2 — Features-layer card (stub-authed journey)', ()
     await expect(locked).toBeVisible();
     await expect(locked.getByTestId('sf-locked')).toBeVisible();
     await expect(locked.getByTestId('sf-toggle')).toHaveCount(0);
-    await expect(locked.getByText(/business plan/)).toBeVisible();
+    // Scoped to the locked panel: "business plan" ALSO appears in the card's
+    // sf-why line ("Locked — included on the business plan and above."), so a
+    // card-wide getByText resolves to 2 elements → strict-mode violation.
+    await expect(locked.getByTestId('sf-locked')).toContainText(/business plan/);
 
     // ── Step 3: enable — the mutation POST is intercepted + body-asserted ──
     await toggle.click();
@@ -230,11 +233,13 @@ test.describe('pSEO Matrix v2 — Features-layer card (stub-authed journey)', ()
     await search.fill('q'.repeat(400));
     await expect(page.getByTestId('sf-empty')).toBeVisible({ timeout: 10_000 });
 
-    // CLEARED — both cards return.
+    // CLEARED — both cards return. The "N of M" chip is gated
+    // `@if (isFiltering())` (shown only while a search is active), so with the
+    // query cleared the honest contract is: chip GONE, full catalog back.
     await search.fill('');
     await expect(card).toBeVisible();
     await expect(locked).toBeVisible();
-    await expect(count).toHaveText(/2\s*of\s*2/);
+    await expect(count).toHaveCount(0);
     await page.screenshot({ path: 'e2e/screenshots/pseo/03-search-domains.png', fullPage: true });
 
     await checkA11y(page, 'pseo-features-card');

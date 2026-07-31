@@ -10,12 +10,18 @@
  *   (never 403 — existence never leaks) → `assertSiteOwned` miss → 404 →
  *   `?domain=` override (normalizeDomain) else the site's primary custom_cname
  *   hostname else 400 BAD_REQUEST. Read-only DNS-over-HTTPS; persists nothing.
- * - The ADMIN section (`sections/deliverability.component.ts`,
- *   `app-admin-deliverability`) reads NO flag client-side and never auto-fires:
- *   the check runs only on the explicit button. A 404 from the check →
- *   `flagDisabled` → calm cyan `data-testid="deliverability-flag-gate"`
- *   (FlagGateNotice) + button disabled; any other failure → red
- *   `data-testid="deliverability-error"` card with Retry.
+ * - The ADMIN surface (`sections/deliverability.component.ts`,
+ *   `app-admin-deliverability`) is EMBEDDED in Settings' Email tab —
+ *   `/admin/settings#email` (settings.component.ts imports it and reads the
+ *   URL fragment for the initial tab). `/admin/deliverability` itself is NOT
+ *   a route: app.routes.ts has no such child, so it falls to the admin `**`
+ *   wildcard → AdminNotFoundComponent (no wizard, no heading — the not-found
+ *   hint list merely SUGGESTS it). The component reads NO flag client-side
+ *   and never auto-fires: the check runs only on the explicit button. A 404
+ *   from the check → `flagDisabled` → calm cyan
+ *   `data-testid="deliverability-flag-gate"` (FlagGateNotice) + button
+ *   disabled; any other failure → red `data-testid="deliverability-error"`
+ *   card with Retry.
  * - The optional sending-domain override is validated CLIENT-side by a
  *   bare-hostname regex (`isValidDomain`): junk → `deliverability-domain-hint`
  *   + `aria-invalid="true"` + Check disabled, BEFORE any network round-trip.
@@ -114,15 +120,21 @@ async function stubDeliverabilityOn(page: Page, requested: string[]): Promise<vo
 }
 
 async function gotoDeliverability(page: Page): Promise<void> {
-  await page.goto(`${BASE}/admin/deliverability`, {
+  // The wizard renders inside Settings' Email tab (fragment picks the initial
+  // tab — same mechanism the green webhooks evidence spec uses for #webhooks).
+  // `/admin/deliverability` is unrouted → admin-not-found, NOT the wizard.
+  await page.goto(`${BASE}/admin/settings#email`, {
     waitUntil: 'domcontentloaded',
     timeout: 25_000,
   });
   expect(page.url()).not.toContain('/signin');
   await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
-  await expect(
-    page.locator('h2').filter({ hasText: /Email Deliverability/i }).first(),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid="settings-email-panel"]')).toBeVisible({
+    timeout: 20_000,
+  });
+  // Stable testid on the wizard's own heading — the settings page carries
+  // several headings of its own, so text-matching an h2 is ambiguous there.
+  await expect(page.locator('[data-testid="deliv-heading"]')).toBeVisible({ timeout: 15_000 });
   // The helper seeds ONE site → selectedSite is truthy → the check surface
   // (not the deliverability-empty prompt) must render.
   await expect(page.locator('[data-testid="deliverability-domain"]')).toBeVisible({

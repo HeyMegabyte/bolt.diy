@@ -241,8 +241,11 @@ test.describe('Site MCP Server — admin UI (stub-authed journey)', () => {
     await expect(section.getByText('https://e2e-test-site.projectsites.dev/mcp')).toBeVisible({ timeout: 10_000 });
     // Calls-today pill counts today's stubbed usage (7+5) — never the "—" unknown state.
     await expect(section.getByText(/\d+ calls today/)).toBeVisible({ timeout: 10_000 });
-    await expect(section.getByText('Tools')).toBeVisible();
-    await expect(section.getByText('Tokens')).toBeVisible();
+    // Section headings by role — bare getByText('Tools'/'Tokens') is a
+    // case-insensitive SUBSTRING match that also hits the stat labels and the
+    // "…MCP CRUD tools" intro copy → strict-mode violation (3+/2 elements).
+    await expect(section.getByRole('heading', { name: 'Available Tools' })).toBeVisible();
+    await expect(section.getByRole('heading', { name: 'API Tokens' })).toBeVisible();
 
     const table = page.getByTestId('tokens-table');
     await expect(table).toBeVisible({ timeout: 10_000 });

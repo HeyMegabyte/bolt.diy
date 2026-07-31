@@ -64,6 +64,26 @@ export default defineConfig({
     'webhook/webhooks.spec.ts',             // outbound_webhooks
     '_fortress/unified_inbox/happy-path.spec.ts',   // unified_inbox
     '_fortress/unified_inbox/adversarial.spec.ts',  // unified_inbox
+    'admin/analytics.spec.ts',              // site_analytics evidence (Pass-15 tails fixed)
+    'admin/deliverability.spec.ts',         // email_deliverability_wizard evidence
+    'site-mcp/site-mcp.spec.ts',            // site_mcp_server evidence
+    'pseo/pseo-matrix.spec.ts',             // pseo_matrix_v2 evidence
+    'media-video-studio.spec.ts',           // site_video_gen evidence (editor-overlay path)
+    // ── Residual-admin triage (2026-07-31) — the remaining 19 unexecuting
+    //    e2e/admin twins were audited against frontend routes: 14 DELETED
+    //    (covered by admin-*-journey / admin-dashboard / webhook + site-mcp
+    //    evidence specs, or asserting REMOVED surfaces — features-hub,
+    //    stripe-app-status, trust-center, /admin/webhooks, bare /admin/sites
+    //    list, old apps-detail|apps-instances|snapshots-diff|social-analytics
+    //    paths). 5 MODERNIZED below to the TDD contract (authedPage, stubs
+    //    after helper, ?** glob twins, hard asserts, value domains,
+    //    screenshots) — each owns a surface with no other executing coverage.
+    //    All 5 are ANCHORED subdir paths (→ '**/admin/<name>.spec.ts').
+    'admin/accept-invite.spec.ts',          // /admin/accept-invite?token= invite landing (4 tests incl. token value-domains)
+    'admin/admin-shell.spec.ts',            // SPA no-reload sentinel + network-status banner + toast dedupe (4 tests)
+    'admin/apps.spec.ts',                   // apps/:id deploy panel + subdomain value-domains + apps/instances (4 tests)
+    'admin/domain-stack.spec.ts',           // domains/:id/stack wizard board / flag-gate / no-hostname (3 tests)
+    'admin/social.spec.ts',                 // social/analytics aggregate + windows + empty + error-retry (4 tests)
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,

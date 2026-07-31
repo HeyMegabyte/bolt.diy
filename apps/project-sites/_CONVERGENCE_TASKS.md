@@ -133,9 +133,17 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
   - **PROMOTED (live, worker `0de7bcbc`):** pwa_manifest_full (5/5), outbound_webhooks (7/7), unified_inbox (happy+adversarial green) — stage metadata only, per doctrine.
   - **HELD (5): site_analytics, email_deliverability_wizard, site_mcp_server, pseo_matrix_v2, site_video_gen** — modernized but 16 live tails (author agents cannot self-run); testMatch held with citation. KEY probe finding for the biggest cluster: the media SECTION never mounts at `/admin/media` under the stub session (zero testids, no component in DOM) — route/guard investigation is the Pass-15 head.
   - ADMIN_ROUTE_HINTS dead entries pruned (seo, bulk-ops). Karma 1601; flag-docs jest 136/136.
-- [ ] **⏭ PASS-15 QUEUE:**
-  - Media-mount investigation (why /admin/media renders no component under stub auth) → then fix the 16 evidence tails (media 10, deliverability 3, analytics 1, pseo 1, site-mcp 1) → wire the 5 held files → apply their beta bumps.
-  - BA email-collision data backfill remap · psnotify (P12) · ag-grid→TanStack (P4 blueprint) · a11y advisory backlog · residual e2e/admin dead-spec audit (dashboard/admin-shell/accept-invite/analytics-old/apps/deliverability-old).
+- [x] **✅ PASS-15 COMPLETE (2026-07-31): all 8 evidence-backed flags now BETA · suite 516+3-rotators green (522 total, was 339 at arc start).**
+  - **Media mystery solved:** no /admin/media route exists — AdminMediaComponent is an EDITOR-OVERLAY tab (`/admin/editor` → `editor-tab-media` → overlay → inner `media-tab-video`). Spec rewritten to the real path; compact-mode verified density-only; stateful polling-safe stubs.
+  - **5 remaining evidence specs green → site_analytics, email_deliverability_wizard, site_mcp_server, pseo_matrix_v2, site_video_gen bumped experimental→beta** (worker `b6f64656`). With pass-14's three: 8/8 promotion candidates DONE on executed evidence. Surface truths banked: deliverability wizard lives in Settings#email (its /admin route never existed); analytics stub must speak MultiUrlAnalyticsEnvelope; sync postDataJSON() treated as promise killed a whole stub silently.
+  - **BA collision backfill AUTHORED (operator-invoked only, approval-tier):** scripts/backfill-ba-collisions.mjs (--report→--plan→--apply --confirm-bookmark→--verify; per-pair D1 transactions, defer_foreign_keys, 7 BA child tables remapped ba→legacy, idempotency guards) + src/services/ba_backfill.ts + 23 unit tests. NOT RUN — needs Brian-tier invocation with a Time Travel bookmark.
+  - **Residual audit finale:** 19 (not 6) leftover e2e/admin specs — 14 deleted (journey-covered/removed surfaces), 5 modernized+enrolled (accept-invite, admin-shell, apps, domain-stack, social — 19 tests). Inventory validator went RECURSIVE (root-only+basename was the testMatch bug class again) → 70 invisible subdir specs registered → **194-spec truth-complete inventory**.
+  - Real product fixes: 3px horizontal overflow at 375px on the editor route (topbar cluster shave, deployed); editor a11y scan excludes the third-party bolt iframe. 🐛 TDD-RED carried: 500 on social aggregate CRASHES social-analytics into the section boundary instead of the calm error card (marker in admin/social.spec.ts).
+  - Responsive contract encoded: Video Studio is a desktop workspace (≥1280 full journey; <1280 render+no-overflow smoke — media tab intentionally inactive).
+- [ ] **⏭ PASS-16 QUEUE:**
+  - Fix social-analytics 500-crash (component bug behind the TDD-RED marker in e2e/admin/social.spec.ts).
+  - Load-rotation trio management: consider a serial project for pure-API + perf/ttfr tests (4-worker per-IP contention rotates 3-6 false fails per full cert; all solo-green).
+  - psnotify module (P12) · ag-grid→TanStack (P4 blueprint) · a11y advisory backlog · beta→stable promotions after the 1-week-no-P1 window per rules/feature-flags.md (earliest 2026-08-07).
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 
