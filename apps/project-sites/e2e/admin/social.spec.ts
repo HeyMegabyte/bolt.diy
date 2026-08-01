@@ -188,27 +188,23 @@ test.describe('ADMIN-27 — /admin/social/analytics aggregate dashboards', () =>
   test('500 shows the error card; retry refetches into the table', async ({
     authedPage: page,
   }) => {
-    // TDD-RED (component bug, board Pass-16): a 500 on the aggregate endpoint
-    // CRASHES social-analytics into the section error boundary (page snapshot
-    // shows the boundary fallback, never the calm "Could not load" card at
-    // component.ts:212). errors-as-UX contract violated. Remove when fixed.
-    test.fail(true, '500 crashes social-analytics into the section boundary');
+    // GREEN (Pass-16): the surface was never crashing — the `social/analytics`
+    // route had been redirected to `/admin/analytics?tab=social`, a page with no
+    // social tab, stranding it AND orphaning AdminSocialAnalyticsComponent. Route
+    // restored to render that component (graceful 500 → calm error card, unit-
+    // covered in social-analytics.component.spec.ts). A call-counter proved
+    // unreliable here: the ngsw service worker / a duplicate network fetch consumes
+    // an extra aggregate request non-deterministically, so "first call = 500"
+    // sometimes served the component a 200. This uses a re-route instead: serve 500
+    // for EVERY call, assert the calm error state, THEN re-route to 200 + retry.
     const errors = collectConsoleErrors(page);
-    let calls = 0;
+
+    // Phase 1 — every aggregate call 500s → deterministic error state.
     await stubAggregate(page, async (route) => {
-      calls += 1;
-      if (calls === 1) {
-        await route.fulfill({
-          status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'boom' } }),
-        });
-        return;
-      }
       await route.fulfill({
-        status: 200,
+        status: 500,
         contentType: 'application/json',
-        body: JSON.stringify(AGGREGATE),
+        body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'boom' } }),
       });
     });
 
@@ -217,7 +213,7 @@ test.describe('ADMIN-27 — /admin/social/analytics aggregate dashboards', () =>
       timeout: 30_000,
     });
 
-    // Errors-as-UX: the shared error card renders with a Retry affordance.
+    // Errors-as-UX: the shared error card renders the calm message + Retry.
     await expect(page.getByText(/Could not load/i)).toBeVisible({
       timeout: 20_000,
     });
@@ -226,13 +222,24 @@ test.describe('ADMIN-27 — /admin/social/analytics aggregate dashboards', () =>
 
     await page.screenshot({ path: 'e2e/screenshots/admin-social/04-error.png' });
 
+    // Phase 2 — re-route to 200 (later registration wins), then retry into the table.
+    let retried = false;
+    await stubAggregate(page, async (route) => {
+      retried = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(AGGREGATE),
+      });
+    });
+
     await retry.click();
 
-    // Second fetch succeeds → the table replaces the error card.
+    // The successful refetch replaces the error card with the platform table.
     await expect(
       page.locator('th[scope="row"]').filter({ hasText: /^x$/ }),
     ).toBeVisible({ timeout: 15_000 });
-    expect(calls).toBeGreaterThanOrEqual(2);
+    expect(retried).toBe(true);
 
     await page.screenshot({ path: 'e2e/screenshots/admin-social/05-retried.png' });
 
