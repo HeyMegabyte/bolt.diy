@@ -178,7 +178,11 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 **DONE-gate note:** the literal "all P0-P2 `[x]`" gate has ONE open item left — the a11y ADVISORY line — which directive #2 explicitly makes non-blocking (a11y advisory except critical; critical is clean). The loop stays armed to work that advisory sweep + the P4/P12 roadmap; it is NOT auto-deleted, since real (non-functional) polish + roadmap work remains.
 
 - [x] Axe **CRITICAL** findings — CLEAN (the only a11y class that gates functional DONE per directive #2). Every enrolled admin journey spec calls `checkA11y` critical-only and passes in the 536-test / 0-failed cert.
-- [ ] _(ADVISORY, non-blocking)_ axe advisories — aria-prohibited-attr (serious), nested-interactive, target-size <24px, scrollable-region-focusable (docs). Per directive #2 (a11y advisory except critical) these are POLISH, NOT a functional-DONE blocker; ongoing sweep per [[admin-a11y-sweeps]]. Tracked as P6/advisory, not a P0 gate.
+- [~] _(ADVISORY, non-blocking per directive #2)_ axe advisory sweep — IN PROGRESS (Pass 24 fixed + deployed 5 admin components):
+  - ✅ **aria-prohibited-attr (serious) — FIXED EVERYWHERE.** Root: `app-task-tray` host had `aria-label`+`aria-live` but no `role` (generic elements prohibit naming). Added `role="region"` — clears it on every admin page (it's a shell component).
+  - ✅ **color-contrast (serious) — muted `--ps-ink` @60% alpha was below AA.** Bumped to 72% across social (`.tab`/`.hdr-sub`/`.preview-h`/`.media-empty`/`.og-desc`), feature-flags (`.ff-sub`), site-features (`.sf-sub`). Social/ff/sf now axe-clean.
+  - ✅ **link-in-text-block (serious) — `.sf-cross-link`** distinguished by color only → added `text-decoration: underline`.
+  - Tooling: `checkA11y` now logs the first node's `target` selector for each advisory (locate-then-fix). Remaining tail (target-size <24px, nested-interactive, scrollable-region, + muted-text on other routes) surfaces per-route as fixed; continue per [[admin-a11y-sweeps]]. Still NON-blocking per directive #2 (critical is clean).
 
 ## P1 — Admin Sections Without Authenticated E2E
 
