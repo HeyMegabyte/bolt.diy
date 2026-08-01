@@ -519,6 +519,15 @@ app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (fl
 app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
 app.get('/api/sites/:siteId/export', async (c) => {
   const siteId = c.req.param('siteId');
+  const orgId = c.get('orgId');
+  // Gate the export: flag-on AND the caller's org owns the site. Any miss → 404
+  // (never leak the route's existence, never stream a zip of the site's R2 assets
+  // + the D1 schema to an anonymous or foreign caller). assertSiteOwned returns
+  // false for an undefined orgId, so this also enforces authentication.
+  const { isFlagOn } = await import('./modules/feature_flags/services.js');
+  if (!(await isFlagOn(c.env, 'code_export', { orgId, siteId }))) return c.notFound();
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) return c.notFound();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return handleCodeExport(c as any, siteId);
 }); // ZIP download — deployable CF Worker project (flag: code_export)

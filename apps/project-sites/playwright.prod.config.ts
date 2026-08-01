@@ -41,6 +41,7 @@ export default defineConfig({
     'e2e/feature-flags.spec.ts',           // ANCHORED (bare basename also pulled in e2e/admin/feature-flags.spec.ts, stale, deleted) — Public API + admin auth gates (Pass 9)
     'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
     'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
+    'ai-actions/*.spec.ts',                // P10 — money-endpoint family (payment-safety) + code-export (export-safety) unauth leak-free gates (Pass 25)
     'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)
     // NOTE (#91, Pass 20): admin-and-billing/docs/modals/upgrades-30 got checkA11y
     // WIRED but are deliberately NOT enrolled — they hang against prod (pre-existing
