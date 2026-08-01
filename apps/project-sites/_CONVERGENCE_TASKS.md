@@ -298,11 +298,11 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 
 ~150 route groups / 250+ handlers / 87 feature modules; ~30-40% lack any E2E reference. Highest-risk untested endpoints (each needs a spec per TDD Contract, real-browser where UI-reachable, request-level otherwise):
 
-- [ ] `POST /api/ai-actions/payment-command` (+ refund/status/methods/customers) — safety-gated AI payments, ZERO E2E
+- [x] `POST /api/ai-actions/payment-command` (+ refund/status/methods/customers) — DONE Pass 25. `e2e/ai-actions/payment-safety.spec.ts` asserts all 5 money endpoints reject unauth with a leak-free `[401,403,404]` (never 2xx=acted, never 5xx). Enrolled + 5/5 green vs prod. All 5 already gated correctly (403 unauth).
 - [ ] `POST /api/billing/checkout` + embedded-checkout — no COVERAGE entry
 - [ ] `POST /api/auth/magic-link` + `GET /api/auth/magic-link/verify` — per-handler coverage (token reuse/expiry)
 - [ ] `POST /api/sites/:id/publish-bolt` — zero E2E (loss-of-work risk)
-- [ ] `GET /api/sites/:id/export` (code_export flag) — zero E2E
+- [x] `GET /api/sites/:id/export` (code_export flag) — DONE Pass 25 + **LIVE VULN FIXED**. Prod probe found it returned **200 unauth** — the route had NO auth/flag/ownership gate and `handleCodeExport` streamed a zip of R2 assets + the full D1 schema (`sqlite_master`) to anyone. Added `isFlagOn('code_export') + assertSiteOwned` gate at `src/index.ts:520`; deployed (worker `b9daf869`). `e2e/ai-actions/export-safety.spec.ts` is the enrolled regression guard (2/2 green vs prod post-deploy; was 2/2 RED pre-fix). Commit 621f7aa1.
 - [ ] `POST /webhooks/stripe` — signature + idempotency not indexed in COVERAGE
 - [ ] `POST /api/sites/:id/reset` + `DELETE /api/sites/:id` — destructive, zero explicit E2E
 - [ ] `POST /api/mcp/:provider/callback` — endpoint-level verification (token injection risk)
