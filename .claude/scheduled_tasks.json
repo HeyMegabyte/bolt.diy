@@ -5,7 +5,7 @@
       "cron": "11,41 * * * *",
       "prompt": "Convergence loop fire (projectsites.dev). Read apps/project-sites/CONVERGENCE_PROMPT.md + apps/project-sites/_CONVERGENCE_TASKS.md and execute the next pass. Work the P0 \"Journey-suite failure queue\" first, then P1 [WIP]/[~] sections, then P9/P10. Standing directives (Brian 2026-07-30): (1) fan out 4-5 parallel specialist agents each fire — distinct files, one message, main thread folds once; (2) functional completeness + optimal feature set working flawlessly together outranks axe strictness — a11y is advisory except critical impact; (3) every feature tested with ALL value types per TDD Contract #10 in _CONVERGENCE_TASKS.md (valid/invalid/empty/boundary/overlong/unicode/injection-shaped); (4) journey specs never let unstubbed /api GETs reach prod (session-clear bounce) — use helpers/auth.ts signInAsTestUser or replicate its last-resort catch-all; (5) promote verified flags to stable, commit + push every green slice. First run the DONE gate (all _CONVERGENCE_TASKS.md P0-P2 checked + journey suite green); if DONE, delete this cron via CronList/CronDelete and stop.",
       "createdAt": 1785604735028,
-      "lastFiredAt": 1785625937291,
+      "lastFiredAt": 1785627736966,
       "recurring": true,
       "createdBySessionId": "c37b196f-7e52-4af9-a2c5-73cd10da4bb3",
       "createdByPid": 66925,
