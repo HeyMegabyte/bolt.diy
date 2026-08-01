@@ -164,11 +164,13 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 - [x] **✅ PASS-21 COMPLETE (2026-08-01): board-stale reconciliation — ALL 8 `[~]` secondary routes verified + closed (7 `[x]`, 1 kept honest), + sysAdminGuard resolved. Non-`[x]` P0-P2 dropped ~12 → 4.**
   - Every `[~]` "zero spec" secondary route was already covered by an enrolled+green spec (board was stale, Pass-15 residual triage): accept-invite/domain-stack/site-mcp (dedicated enrolled specs), snapshots-diff (snapshots journey), super-admin (sysadmin+smoke guards + system-services journey), editor-native (feature-flags+journey+smoke), wait (golden-path). Sign-in Google/GitHub OAuth closed (button+callback via auth-full-oauth-flow/auth-oauth-buttons; real consent un-mockable). sysAdminGuard verified resolved (SYS_ADMIN_TEST_EMAIL + green feature-flags journey).
   - Swarm kept `[~]` HONESTLY: `e2e/swarm/swarm.spec.ts` is stale (asserts swarm_editor flag-OFF→404 but flag is globally overridden ON, same class as collab; + a console-noise failure) → not enrolled; route's guard IS covered by admin-sections-smoke.
-- [ ] **⏭ PASS-22 QUEUE — DONE gate down to 4 non-functional items (no functional gaps remain):**
-  - `[~]` Swarm spec-repair: flag-on dark-gate ([404,200/shape]) + console-noise filter, then enroll (like the collab Pass-17 fix).
-  - `[~]` Prod testMatch gaps: ~15 legacy dev-only specs — triage each (enroll green / delete stale / mark dev-only); some are the known-stale admin-and-billing/docs/modals/upgrades-30 + swarm.
-  - `[ ]` a11y advisory backlog (aria-prohibited-attr serious, target-size <24px, nested-interactive, scrollable-region) — ADVISORY per directive #2 (not critical), so NOT a functional blocker; sweep per [[admin-a11y-sweeps]].
-  - psnotify (P12) · ag-grid→TanStack (P4) · beta→stable promotions (earliest 2026-08-07).
+- [x] **✅ PASS-22 COMPLETE (2026-08-01): swarm spec-repair (collab-class flag-on stale spec) — `[~]` closed. Cert green 534/0/2-flaky.**
+  - Live probe: unauth POST /api/swarm/:id/start → 403, GET /runs → 404. Rewrote `e2e/swarm/swarm.spec.ts` to the leak-free dark-gate `[401,403,404]` + shape-only-on-2xx + bounded admin-guard poll; dropped the mis-scoped homepage-console test. Enrolled → green in cert.
+- [ ] **⏭ PASS-23 QUEUE — DONE gate down to 3 items, ZERO functional gaps:**
+  - `[~]` Prod testMatch gaps: ~15 legacy dev-only specs — verify-not-author triage (enroll green / delete stale / mark dev-only). Known-stale: admin-and-billing/docs/modals/upgrades-30 (hang against prod, wired-but-unenrolled). This is the last real spec-hygiene item.
+  - `[ ]` a11y advisory backlog (aria-prohibited-attr serious, target-size <24px, nested-interactive, scrollable-region) — **ADVISORY per directive #2, NOT a functional blocker.** Critical a11y is CLEAN (every enrolled journey spec's `checkA11y` critical-only passes). This is polish, not a P0-critical gate. Sweep per [[admin-a11y-sweeps]] when convenient.
+  - Then the forward roadmap: psnotify (P12) · ag-grid→TanStack (P4) · beta→stable promotions (earliest 2026-08-07).
+  - **Gate assessment:** all FUNCTIONAL P0-P2 surfaces are covered + green (536-test cert, 0 failed). The 3 open items are spec-hygiene + advisory-a11y + a queue marker — none block functional completeness. A literal all-`[x]` gate still needs the testMatch triage + the advisory-a11y sweep.
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 
