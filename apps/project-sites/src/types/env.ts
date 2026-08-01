@@ -532,9 +532,9 @@ export interface Env {
   /** SendGrid v3 API key for transactional email. Fallback provider. */
   SENDGRID_API_KEY?: string;
 
-  // ── Integration Platform (Nango / Composio / Pipedream) ───
-  /** Nango OAuth secret key for managed integrations. */
-  NANGO_SECRET_KEY?: string;
+  // ── Native OAuth client credentials (per-provider — used by mcp_oauth.ts) ───
+  // NOTE: the Nango/Composio/Pipedream capability-router subsystem was removed
+  // (Pass 28) — it was unmounted dead code superseded by native OAuth (ADR-0034).
   /** Notion OAuth client ID for integration connections. */
   NOTION_OAUTH_CLIENT_ID?: string;
   /** Notion OAuth client secret for integration connections. */
@@ -543,10 +543,6 @@ export interface Env {
   DISCORD_OAUTH_CLIENT_ID?: string;
   /** Discord OAuth client secret for integration connections. */
   DISCORD_OAUTH_CLIENT_SECRET?: string;
-  /** Composio API key for tool/action execution. */
-  COMPOSIO_API_KEY?: string;
-  /** Pipedream OAuth client ID for workflow automation. */
-  PIPEDREAM_CLIENT_ID?: string;
 
   // ── Chatwoot (Support Chat) ───────────────────────────────
   /** Chatwoot instance API URL. */
