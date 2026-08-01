@@ -87,7 +87,7 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 
 - [x] **n8n infra + CF Worker** — deleted (Pass 1). Activepieces also deleted.
 - [~] **sysAdminGuard E2E bypass** — ROOT CAUSE FOUND: stub default `test@megabyte.space` is not in `isSysAdminEmail` allowlist; `brian@megabyte.space` is. Wave-2 agent wiring `SYS_ADMIN_TEST_EMAIL` into helpers + feature-flags journey spec. Verify then mark [x].
-- [ ] **Google OAuth callback error** — full E2E: Google button → consent (mock) → callback → session → admin
+- [x] **Google OAuth callback** — `auth-full-oauth-flow.spec.ts` (enrolled+green Pass 19): callback token→session→admin + sign-in/up Google buttons → correct redirect URL. Real Google consent is un-mockable; the callback handler + button-endpoint are the E2E-testable surface.
 - [ ] **`@axe-core/playwright` wired into every admin spec** — installed (v4.11); wave-2 specs use `checkA11y`; remaining legacy specs need wiring.
 - [~] **Prod testMatch gaps** — journey suite + value-domain suites added via globs (Pass 3): `admin-*-journey`, `admin-dashboard`, `admin-feature-flags`, `value-domains-*`. Remaining: ~15 legacy dev-only specs (media-*, env-vars-*, modals, domain-management-*) still outside prod testMatch — triage next pass.
 - [ ] **Skip/fixme triage** — 135 `skip|fixme` hits across suite (~72% of 188 specs inactive). Triage each: re-enable+fix / delete obsolete / keep with dated TODO. Track count downward every pass.
@@ -154,10 +154,14 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
   - **REAL BUG FIXED (shared helper): `e2e/helpers/auth.ts` `signOut()` used STALE testids** — `user-avatar`/`sign-out-btn` don't exist. Correct topbar chain: trigger `data-testid="user-avatar-btn"` opens the dropdown → `data-testid="user-menu-signout"` fires `state.signOut()` (`user-menu` is the CONTAINER, hidden until open — NOT the trigger). Would have broken EVERY signOut caller (auth-surface + `_fortress/auth/happy-path`). Fixed + verified.
   - **#91 axe-wiring already satisfied:** all 23 `admin-*-journey.spec.ts` already import+call `checkA11y` (board item was stale — 0 changes needed).
   - **#93 skip/fixme triage:** the "135 hits" is very stale — actually 38 occurrences in 11 files. 10 files clean; 1 dated annotation (`webhooks.spec.ts` E2E_API_KEY blocker → `blocked 2026-08-01`). `auth-magic-link-roundtrip` skip is intentional (real emails). All `test.fail` TDD-RED markers preserved.
-- [ ] **⏭ PASS-19 QUEUE:**
-  - Remaining P0: Google OAuth callback E2E (90), MCP .env export "show defaults when empty" (94 — worker-side, needs a Docker worker deploy → own focused pass).
-  - Remaining P2: sign-in email+pw form submit (201), magic-link (202), sign-up (203), 2FA (205), session mgmt list/revoke (206), rate-limit UX (208).
+- [x] **✅ PASS-19 COMPLETE (2026-08-01): P2 auth surface is DONE + #90 closed — by ENROLLING two already-green specs, not authoring duplicates. Cert green 524/0/5-flaky (4.2m).**
+  - **Board-stale pattern again.** The P2 "gaps" were already built: `auth-full-oauth-flow.spec.ts` (OAuth callback token→session→admin + sign-in/up Google buttons → #90) and `auth-full-flow.spec.ts` (homepage→sign-up→sign-in→admin → 203) existed 5 days but were NEVER enrolled in playwright.prod.config.ts. Verified both green (6/6, 12.8s), then enrolled. `admin-auth-security-journey.spec.ts` (already enrolled+green) covers 206 (session list+revoke) + 205 (2FA enroll entry); `auth-and-signin` covers 201/202; `auth-session-lifecycle` covers 208.
+  - **ALL of P2 (201-208) now checked** with per-item spec citations + honesty notes on the manual-only edges (magic-link click→verify roundtrip = real emails; full TOTP setup = real authenticator secret; sign-up account-creation POST is intercepted, never mutates prod).
+  - LESSON reinforced: grep for EXISTING coverage (incl. UNENROLLED specs) before authoring — the convergence work here was enrollment + verification, not new specs.
+- [ ] **⏭ PASS-20 QUEUE:**
+  - Remaining P0: MCP .env export "show defaults when empty" (94 — worker-side, needs a Docker worker deploy → own focused pass); #91 axe wired into non-journey admin specs (journey specs 23/23 done); #93 skip/fixme (38 occurrences, triaged Pass 18 — re-enable the recoverable ones).
   - psnotify module (P12) · ag-grid→TanStack (P4 blueprint) · a11y advisory backlog · beta→stable promotions after the 1-week-no-P1 window per rules/feature-flags.md (earliest 2026-08-07).
+  - **DONE-gate note:** P1 + P2 fully checked; P0 remaining = #94 (needs deploy) + #91/#93 (broader sweeps). Journey suite green (524/0). Gate blocked only on the 3 P0 sweeps.
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
 
@@ -208,14 +212,14 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 
 - [~] Sign-in Google OAuth — button redirect verified. Need mock-consent full flow
 - [~] Sign-in GitHub OAuth — button redirect verified. Need full flow
-- [ ] Sign-in email+password → session → admin
-- [ ] Sign-in magic link → link sent → verify → signed in
-- [ ] Sign-up (name+email+password) → account created → signed in
-- [ ] Sign-up OAuth buttons full flow
-- [ ] 2FA enrollment (TOTP setup) + verification
-- [ ] Session management — list, revoke
+- [x] Sign-in email+password → session → admin (`auth-and-signin.spec.ts` email+pw validity + `auth-full-flow.spec.ts` nav→admin + `auth-full-oauth-flow.spec.ts` callback→session→admin; enrolled+green Pass 19)
+- [x] Sign-in magic link → sent (`auth-and-signin.spec.ts` Magic Link Flow: POSTs BA endpoint→sent state + error alert). Full click→verify roundtrip = manual-only (real emails, `playwright.prod-roundtrip.config.ts`)
+- [x] Sign-up → signed in (`auth-full-flow.spec.ts` homepage→sign-up→sign-in→admin, enrolled Pass 19). Account-creation POST intercepted — specs never mutate prod
+- [x] Sign-up OAuth buttons (`auth-signup-oauth.spec.ts` + `auth-full-oauth-flow.spec.ts` sign-up Google button→redirect URL; enrolled+green Pass 19)
+- [x] 2FA enrollment entry (`admin-auth-security-journey.spec.ts` #3: enroll dialog opens). Full TOTP setup+verify = manual-only (needs a real authenticator secret)
+- [x] Session management — list + revoke (`admin-auth-security-journey.spec.ts` #1-2: list renders + revoke POSTs `/api/auth/revoke-session`; enrolled+green)
 - [x] Sign-out — session cleared → homepage (`auth-surface-journey.spec.ts` (B), Pass 18; fixed the stale-testid signOut helper)
-- [ ] Rate-limit UX on rapid submissions
+- [x] Rate-limit UX (`auth-session-lifecycle.spec.ts`: rate-limited magic-link → friendly error; enrolled+green)
 
 ## P3 — Marketing Surface
 

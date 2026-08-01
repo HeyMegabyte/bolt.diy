@@ -32,6 +32,8 @@ export default defineConfig({
     'marketing-seo.spec.ts',               // 9 route SEO metadata + critical files (Pass 7)
     'security-headers-extended.spec.ts',   // HSTS, CSP, CORS, security posture (Pass 7)
     'auth-signup-oauth.spec.ts',           // Sign-up Google + GitHub OAuth buttons (Pass 8/14)
+    'auth-full-flow.spec.ts',              // P2 203 — homepage → sign-up → sign-in → admin nav (enrolled Pass 19 after green verify)
+    'auth-full-oauth-flow.spec.ts',        // P0 90 — OAuth callback token→session→admin + sign-in/up Google buttons (enrolled Pass 19)
     'admin-social.spec.ts',                // Social + 8 admin section redirects (Pass 11)
     'admin-sysadmin.spec.ts',              // Sysadmin + system-services + subdomain probes (Pass 17)
     'admin-site-detail.spec.ts',           // Site detail routes + subdomain landing pages (Pass 18)
