@@ -357,7 +357,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     .sf-head-right { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     .sf-kicker { margin: 0 0 .25rem; font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); opacity: 0.85; }
     .sf-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
-    .sf-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); max-width: 66ch; }
+    .sf-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); max-width: 66ch; }
     .sf-sub strong { color: var(--ps-accent, #00e5ff); }
     .sf-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
     .sf-provisioning { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: 1rem; padding: .7rem .9rem; font-size: .8rem; line-height: 1.45;
@@ -371,7 +371,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     .sf-provisioning-retry { margin-left: .35rem; background: none; border: none; padding: 0; font: inherit; color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
     .sf-provisioning-retry:disabled { opacity: .5; cursor: default; }
     .sf-provisioning-retry:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 3px; }
-    .sf-cross-link { color: var(--ps-accent, #00e5ff); }
+    .sf-cross-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; }
     .sf-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
     .sf-refresh { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
     .sf-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }

@@ -452,7 +452,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-head-right { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     .ff-kicker { margin: 0 0 .25rem; font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); opacity: 0.85; }
     .ff-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
-    .ff-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); max-width: 66ch; }
+    .ff-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); max-width: 66ch; }
     .ff-sub strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
     .ff-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
     .ff-cross-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
