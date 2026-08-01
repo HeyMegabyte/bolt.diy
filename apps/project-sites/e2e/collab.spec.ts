@@ -6,10 +6,13 @@
  * spec asserts the live guard chain returns the correct gated responses against
  * PROD rather than exercising a real WebSocket session.
  *
- * Live behaviour verified (Version 33ed1529, 2026-06-24):
+ * Live behaviour (re-verified 2026-08-01):
  * - unauthenticated → 401
- * - authenticated + owned site + flag OFF → 404 (never 403; no info leak)
- * - authenticated + UNowned site → 404
+ * - authenticated + owned site → 404 (flag off) OR 503 (flag on + COLLAB_ROOM DO
+ *   absent). A global "ensure all flags on" override (set by Brian 2026-06-27) is
+ *   currently live, so this returns 503 — the DESIGNED response for flag-on-but-
+ *   DO-inert, still leak-free. The gate stays correct whichever way the flag sits.
+ * - authenticated + UNowned site → 404 (ownership check precedes the flag check)
  *
  * Run:
  * ```sh
@@ -41,15 +44,19 @@ test.describe('collab_editing gateway — production gating (inert feature)', ()
     expect(res.status()).toBe(401);
   });
 
-  test('authenticated owned-site request returns 404 while the flag is off', async ({
+  test('authenticated owned-site request returns a clean dark gate (404 flag-off | 503 inert-DO), never a leak', async ({
     request,
   }) => {
     test.skip(!API_KEY, 'E2E_API_KEY not set — skipping authenticated assertion');
     const res = await resilientGet(request, collabPath(OWNED_SITE), {
       headers: { Authorization: `Bearer ${API_KEY}` },
     });
-    // Flag is OFF → 404 (never 403). The route never leaks feature existence.
-    expect(res.status()).toBe(404);
+    // collab_editing ships INERT (COLLAB_ROOM DO commented in wrangler.toml). Both
+    // gates are leak-free: 404 when the flag is off, 503 when the flag is on (the
+    // live global override) but the DO binding is absent. Never 200 (would mean the
+    // feature actually served), never 403 (would leak existence), never 401 (would
+    // mean the session cleared out from under an authenticated caller).
+    expect([404, 503]).toContain(res.status());
   });
 
   test('authenticated request for an unowned site returns 404', async ({ request }) => {

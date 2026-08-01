@@ -87,6 +87,17 @@ export default defineConfig({
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,
+  // Prod cert runs against the LIVE rate-limited edge from ONE IP under 4 workers,
+  // so a ROTATING handful of pure-API/perf tests tarpit (transport timeout) on any
+  // given run — all solo-green. A cert (Pass-17) proved the rotation is a broad
+  // class, not a fixed trio: run A failed golden-path/ttfr/analytics; run B failed
+  // 8 different pure-API probes (health, feature-flags, admin lists, pseo,
+  // hostnames). So the fix is a global backstop, not a per-spec serial project:
+  // retries:2 gives each failure a fresh context 1-2× more (by when the per-IP
+  // tarpit has cleared), ending the "3-6 false fails per cert" churn. A REAL
+  // failure is deterministic → fails ALL 3 attempts, never masked; Playwright
+  // still marks any retried test "flaky" for audit. (Board Pass-16 queue head.)
+  retries: 2,
   reporter: 'line',
   use: {
     baseURL: process.env.PROD_URL ?? 'https://projectsites.dev',
