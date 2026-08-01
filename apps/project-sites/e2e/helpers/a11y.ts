@@ -85,6 +85,14 @@ export async function checkA11y(
         .map((v) => `${v.id}(${v.impact ?? '?'}×${v.nodes?.length ?? 0})`)
         .join(', ')}`,
     );
+    // Locate serious/moderate advisories: log the first node's target selector so
+    // the a11y sweep can jump straight to the element (per admin-a11y-sweeps).
+    for (const v of advisory) {
+      const first = (v.nodes as { target?: unknown[] }[] | undefined)?.[0];
+      if (first?.target) {
+        console.warn(`[a11y advisory node] ${stepName} ${v.id} → ${JSON.stringify(first.target)}`);
+      }
+    }
   }
 
   if (violations.length > 0) {

@@ -282,6 +282,11 @@ const POLL_INTERVAL_MS = 8_000;
     }
   `,
   host: {
+    // `role="region"` gives the host a role that PERMITS naming — a generic
+    // element (no role) prohibits aria-label, which axe flags as
+    // `aria-prohibited-attr` (serious). A named live region is the correct
+    // semantic for the AI task tray panel. (a11y sweep, Pass 24.)
+    role: 'region',
     'aria-live': 'polite',
     'aria-label': 'AI task tray',
   },
