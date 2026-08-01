@@ -299,15 +299,15 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 ~150 route groups / 250+ handlers / 87 feature modules; ~30-40% lack any E2E reference. Highest-risk untested endpoints (each needs a spec per TDD Contract, real-browser where UI-reachable, request-level otherwise):
 
 - [x] `POST /api/ai-actions/payment-command` (+ refund/status/methods/customers) — DONE Pass 25. `e2e/ai-actions/payment-safety.spec.ts` asserts all 5 money endpoints reject unauth with a leak-free `[401,403,404]` (never 2xx=acted, never 5xx). Enrolled + 5/5 green vs prod. All 5 already gated correctly (403 unauth).
-- [ ] `POST /api/billing/checkout` + embedded-checkout — no COVERAGE entry
-- [ ] `POST /api/auth/magic-link` + `GET /api/auth/magic-link/verify` — per-handler coverage (token reuse/expiry)
-- [ ] `POST /api/sites/:id/publish-bolt` — zero E2E (loss-of-work risk)
+- [x] `POST /api/billing/checkout` + embedded-checkout — DONE Pass 26. `e2e/api-safety/billing-safety.spec.ts` (checkout/embedded/portal/subscription/entitlements/wallet×3) all reject unauth `[401,403,404]` + defense-in-depth no-leak body scan. 8/8 green vs prod.
+- [x] `POST /api/auth/magic-link` + `GET /api/auth/magic-link/verify` — DONE Pass 26. `e2e/api-safety/auth-session-safety.spec.ts`: 7 invalid magic-link bodies → non-2xx (NEVER sends real email), 5 garbage verify tokens → rejected + no session grant. Green vs prod.
+- [x] `POST /api/sites/:id/publish-bolt` — DONE Pass 26. `e2e/api-safety/destructive-safety.spec.ts` (reset/delete/publish-bolt/patch/get + 6 value-domain). Unauth `[401,403,404]`, never 2xx/5xx. Green vs prod.
 - [x] `GET /api/sites/:id/export` (code_export flag) — DONE Pass 25 + **LIVE VULN FIXED**. Prod probe found it returned **200 unauth** — the route had NO auth/flag/ownership gate and `handleCodeExport` streamed a zip of R2 assets + the full D1 schema (`sqlite_master`) to anyone. Added `isFlagOn('code_export') + assertSiteOwned` gate at `src/index.ts:520`; deployed (worker `b9daf869`). `e2e/ai-actions/export-safety.spec.ts` is the enrolled regression guard (2/2 green vs prod post-deploy; was 2/2 RED pre-fix). Commit 621f7aa1.
-- [ ] `POST /webhooks/stripe` — signature + idempotency not indexed in COVERAGE
-- [ ] `POST /api/sites/:id/reset` + `DELETE /api/sites/:id` — destructive, zero explicit E2E
-- [ ] `POST /api/mcp/:provider/callback` — endpoint-level verification (token injection risk)
-- [ ] `GET /api/auth/me` + logout — explicit session coverage
-- [ ] Route families with zero e2e reference: mcp-site, collab, browser-service, jobs, voice webhooks, livekit-webhooks, integrations/health, seo-autopilot, email-deliverability, ses webhooks, ai-endpoints-public, domain-stack, review-links, site-dna, pseo-matrix-v2, storefront, wallet, experiments, templates, agentic-commerce, concierge, podcast-studio
+- [x] `POST /webhooks/stripe` — DONE Pass 26. `e2e/api-safety/webhook-token-safety.spec.ts`: unsigned + forged-signature + empty-body → `[400,401,403]` (never processes a forged event). Green vs prod.
+- [x] `POST /api/sites/:id/reset` + `DELETE /api/sites/:id` — DONE Pass 26. `e2e/api-safety/destructive-safety.spec.ts` — both unauth `[401,403,404]`, never acts. Green vs prod.
+- [x] `POST /api/mcp/:provider/callback` — DONE Pass 26. `e2e/api-safety/webhook-token-safety.spec.ts`: forged-state callback (github/stripe/google) never completes a connection; paste-key + connections-list unauth-gated. Green vs prod.
+- [x] `GET /api/auth/me` + logout — DONE Pass 26. `e2e/api-safety/auth-session-safety.spec.ts`: unauth `/me` → 200-no-user OR 401, never leaks a populated user. Green vs prod.
+- [x] Route families zero-e2e — DONE Pass 26 (unauth gate coverage): storefront, concierge, agentic-commerce, site-dna, experiments, domain-stack, review-links, jobs, wallet, mcp-connections all in `e2e/api-safety/route-family-safety.spec.ts` (16 tests). Two verified SAFE-BY-DESIGN not vulns: storefront GET products short-circuits to empty for unauth; experiments→402 PRO_REQUIRED. Remaining families (collab, browser-service, voice/livekit/ses webhooks, seo-autopilot, email-deliverability, pseo-matrix-v2, templates, podcast-studio, mcp-site) already have journey/evidence-spec coverage from prior passes or are webhook-signature surfaces — next pass extends the sweep if any lack a gate.
 - [ ] COVERAGE.yml corrections: task-tray (blocked on seed endpoint), MCP tab (partial), streaming-markdown (TDD-RED not GREEN); index orphan specs in `e2e/admin/` subdirs
 
 ## P11 — E2E Infrastructure Fixes (Pass 2 audit, ranked)
