@@ -556,7 +556,7 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
     .filter((line) => line !== null)
     .join('\n');
 
-  const body = vars
+  const rendered = vars
     .map((v) => {
       const valRaw = includeValues ? (v.value ?? '') : v.value_masked;
       const needsQuotes = /[\s"'#=]/.test(valRaw);
@@ -573,6 +573,21 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
       return `${prefix}${scopeTag}\n${v.key}=${valOut}`;
     })
     .join('\n\n');
+
+  // #94: an empty scope exports a helpful DEFAULT template (commented example +
+  // re-import hint) instead of a bare header-only file — the empty state guides
+  // the user to their first key rather than handing them a confusing blank .env.
+  const body =
+    vars.length === 0
+      ? [
+          '# No environment variables are set for this scope yet.',
+          '# Add keys below in KEY=value form, save this file, then re-import it',
+          '# via the "Import .env" button. Lines starting with # are comments.',
+          '#',
+          '# Example:',
+          '# EXAMPLE_API_KEY=your-value-here',
+        ].join('\n')
+      : rendered;
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {

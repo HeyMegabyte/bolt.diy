@@ -42,6 +42,11 @@ export default defineConfig({
     'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
     'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
     'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)
+    // NOTE (#91, Pass 20): admin-and-billing/docs/modals/upgrades-30 got checkA11y
+    // WIRED but are deliberately NOT enrolled — they hang against prod (pre-existing
+    // unbounded-wait staleness, why they were never in the cert). Their surfaces
+    // (billing/docs/modals/palette) are already axe-critical-verified by the enrolled
+    // admin-*-journey specs. Enrollment is a separate stale-spec-repair task.
     'admin-*-journey.spec.ts',             // 12 authenticated section journeys (Convergence Pass 2)
     'admin-logs-journey.spec.ts',          // Logs dashboard tabs journey — audit + explorer + filter + pagination (also matched by the glob above)
     'admin-api-tokens-journey.spec.ts',    // API tokens one-time-reveal + value-domains + revoke journey (also matched by the glob above)

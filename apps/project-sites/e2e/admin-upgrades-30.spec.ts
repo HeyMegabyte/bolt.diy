@@ -11,6 +11,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { checkA11y } from './helpers/a11y.js';
 
 const PROD = process.env.BASE_URL ?? 'https://projectsites.dev';
 
@@ -61,6 +62,7 @@ test.describe('30 admin dashboard upgrades — coverage matrix', () => {
     await page.keyboard.press('Meta+k').catch(() => undefined);
     // Universal search input is in the shell topbar and acts as fallback palette
     await expect(page.locator('[data-testid="admin-universal-search"]').first()).toBeVisible({ timeout: 5_000 });
+    await checkA11y(page, 'admin-upgrades-shell-loaded');
   });
 
   // Topbar

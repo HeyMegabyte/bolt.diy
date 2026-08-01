@@ -5,6 +5,7 @@
  */
 
 import { test, expect } from './fixtures.js';
+import { checkA11y } from './helpers/a11y.js';
 
 test.describe('Admin Dashboard Modals', () => {
   test('Inline editing functions exist (edit-site-modal removed)', async ({ page }) => {
@@ -129,6 +130,7 @@ test.describe('Material Ripple Animation', () => {
 
     const ctaBtn = page.locator('.hero-ctas .btn-accent');
     await expect(ctaBtn).toBeVisible();
+    await checkA11y(page, 'modals-surface-loaded');
 
     await ctaBtn.click();
 

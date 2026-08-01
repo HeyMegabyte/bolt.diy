@@ -658,4 +658,19 @@ describe('GET /api/env-vars/export', () => {
     expect(mockWriteAuditLog).toHaveBeenCalledTimes(1);
     expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'env_var.export' });
   });
+
+  it('#94 — an empty scope exports a helpful DEFAULT template, never a bare/blank file', async () => {
+    mockListEnvVars.mockResolvedValue([]);
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/env-vars/export?scope=mcp&mcpProvider=resend', env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/text\/plain/);
+    const text = await res.text();
+    // Empty state guides the user to their first key instead of a confusing blank .env.
+    expect(text).toMatch(/No environment variables are set for this scope yet/);
+    expect(text).toMatch(/EXAMPLE_API_KEY=/);
+    expect(text).toMatch(/Import \.env/);
+    // No masked/real pairs rendered — there are none — but the template is present.
+    expect(text).not.toMatch(/••••/);
+  });
 });

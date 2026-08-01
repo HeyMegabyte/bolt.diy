@@ -12,6 +12,7 @@
  */
 import { test, expect } from './fixtures.js';
 import type { Page } from '@playwright/test';
+import { checkA11y } from './helpers/a11y.js';
 
 /**
  * Stub the auth session + OpenAPI spec + `/api/auth/me` response so the
@@ -114,6 +115,7 @@ test.describe('Admin Docs Explorer', () => {
     const rows = page.getByTestId('endpoint-row');
     // At least one per tag (auth, sites, billing, hostnames) = ≥ 4 rows total.
     await expect(rows.first()).toBeVisible();
+    await checkA11y(page, 'docs-explorer-loaded');
     expect(await rows.count()).toBeGreaterThanOrEqual(4);
   });
 

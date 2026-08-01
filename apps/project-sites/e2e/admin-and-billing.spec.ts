@@ -4,6 +4,7 @@
  */
 import { test, expect } from './fixtures.js';
 import type { Page } from '@playwright/test';
+import { checkA11y } from './helpers/a11y.js';
 
 /** Mock authenticated state with site data */
 async function setupAuthenticatedAdmin(page: Page) {
@@ -117,6 +118,7 @@ test.describe('Admin Dashboard', () => {
     const adminPanel = page.locator('#admin-panel, .admin-dashboard');
     // It should be attached (may or may not be visible depending on auth restore timing)
     await expect(adminPanel.first()).toBeAttached();
+    await checkA11y(page, 'admin-dashboard-loaded');
   });
 
   test('site cards container exists', async ({ page }) => {
