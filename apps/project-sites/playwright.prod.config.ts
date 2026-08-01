@@ -75,11 +75,7 @@ export default defineConfig({
     'admin/analytics.spec.ts',              // site_analytics evidence (Pass-15 tails fixed)
     'admin/deliverability.spec.ts',         // email_deliverability_wizard evidence
     'site-mcp/site-mcp.spec.ts',            // site_mcp_server evidence
-    // NOTE (Pass 21): swarm/swarm.spec.ts NOT enrolled — 3 stale failures (asserts
-    // swarm_editor flag-OFF → 404, but the flag is globally overridden ON via
-    // "ensure all flags on"; same class as the collab fix). Needs a flag-on
-    // dark-gate repair ([404, 200/shape]) + a console-noise filter. The /admin/swarm
-    // route's auth-guard is already covered by the enrolled admin-sections-smoke.
+    'swarm/swarm.spec.ts',                  // P1 secondary — swarm_editor unauth dark-gate (401/403/404) + shape-on-2xx + admin auth guard (repaired + enrolled Pass 22)
     'pseo/pseo-matrix.spec.ts',             // pseo_matrix_v2 evidence
     'media-video-studio.spec.ts',           // site_video_gen evidence (editor-overlay path)
     // ── Residual-admin triage (2026-07-31) — the remaining 19 unexecuting

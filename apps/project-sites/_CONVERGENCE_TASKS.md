@@ -212,7 +212,7 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 - [x] Snapshots Diff (`/admin/snapshots/diff`) — enrolled `admin-snapshots-journey.spec.ts` (create/restore-confirm/diff) + `admin-sections-smoke.spec.ts`.
 - [x] Domain Stack (`/admin/domains/:id/stack`) — `e2e/admin/domain-stack.spec.ts` (enrolled, 3 tests: wizard board / flag-gate / no-hostname).
 - [x] Site MCP Server (`/admin/sites/:id/mcp`) — `e2e/site-mcp/site-mcp.spec.ts` (enrolled) + `admin-site-detail.spec.ts`.
-- [~] Swarm (`/admin/swarm`) — guard covered by enrolled `admin-sections-smoke.spec.ts`. Dedicated `e2e/swarm/swarm.spec.ts` (7 tests) is STALE (asserts swarm_editor flag-OFF→404, but flag is globally overridden ON; + a console-noise failure) → NOT enrolled; needs a flag-on dark-gate repair ([404,200/shape]). Deferred to a spec-repair pass.
+- [x] Swarm (`/admin/swarm`) — REPAIRED + enrolled Pass 22. `e2e/swarm/swarm.spec.ts` (6 tests) rewritten to the dark-gate contract: unauth API is gated `[401,403,404]` (live: POST /start→403, GET /runs→404 — the old "flag-OFF→404" premise was stale, swarm_editor is globally overridden ON), shape assertions apply only on an authenticated 2xx, admin route bounces to /signin (bounded, no networkidle). Dropped the mis-scoped homepage-console test. Cert-green (534/0/2-flaky).
 - [x] Wait (`/admin/waiting`) — build-progress flow covered by enrolled `golden-path.spec.ts` + `value-domains-create.spec.ts`.
 
 ## P2 — Auth Surface Without Authenticated E2E
