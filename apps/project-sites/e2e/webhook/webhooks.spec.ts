@@ -242,7 +242,7 @@ test.describe('WEBHOOK-02 — outbound_webhooks dark gate behind auth', () => {
   }) => {
     test.skip(
       !process.env.E2E_API_KEY,
-      'E2E_API_KEY not set — the post-auth 404 gate needs a real bearer (get-secret E2E_API_KEY)',
+      'blocked 2026-08-01: E2E_API_KEY not set — the post-auth 404 gate needs a real bearer (get-secret E2E_API_KEY)',
     );
     const headers = {
       Authorization: `Bearer ${process.env.E2E_API_KEY}`,

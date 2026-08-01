@@ -148,9 +148,15 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 - [x] **✅ PASS-17 COMPLETE (2026-08-01): load-rotation churn ENDED — cert greens in ONE run (515 passed / 0 failed / 7 flaky-passed, 4.9m). + a real collab failure fixed.**
   - **The rotation is a BROAD CLASS, not a fixed trio.** A first cert failed golden-path/ttfr/analytics; a second failed 8 DIFFERENT pure-API probes (health, feature-flags, admin lists, pseo, hostnames) — different victims each run. So a per-spec serial project (my first attempt) can't work; the fix is a global backstop: **top-level `retries: 2`** in playwright.prod.config.ts. Each per-IP tarpit gets a fresh context 1-2× more (by when the rate-limit window clears) → passes; a REAL failure is deterministic → fails all 3 attempts, never masked; Playwright flags retried tests "flaky" for audit. The 3-spec 2-project split was built, tested, and REVERTED (over-narrow).
   - **Real failure uncovered + fixed: `e2e/collab.spec.ts`.** The strict cert surfaced collab returning **503** (not the asserted 404) for an authed owned-site request. Root cause: `collab_editing` has a GLOBAL D1 override `{"enabled":true,"rollout_percent":100,"stage":"stable"}` (set_by brian@megabyte.space 2026-06-27, reason "ensure all flags on") while its `COLLAB_ROOM` DO ships INERT (commented in wrangler.toml) → 503 is the DESIGNED "flag-on-but-DO-absent" gate. Test was stale (written flag-off era). Fix: assert the leak-free dark gate `[404, 503]` (404 flag-off | 503 flag-on-inert-DO), never 200/403/401. Did NOT remove the override (respects Brian's "all flags on"; 503 is a correct gate). Registry stays experimental/off — collab is a watched one-way-door DO deploy, still dark by design.
-- [ ] **⏭ PASS-18 QUEUE:**
-  - Remaining P0: Google OAuth callback E2E (90), axe wired into every admin spec (91), skip/fixme triage — 135 hits (93), MCP .env export "show defaults when empty" (94).
-  - P2 auth-surface authenticated E2E (201-208: email+pw, magic-link, sign-up, 2FA, session mgmt, sign-out, rate-limit).
+- [x] **✅ PASS-18 COMPLETE (2026-08-01): 4-agent fan-out — P2 sign-out E2E shipped + a real shared-helper bug fixed. Cert green 523/0/1-flaky (524 total, 3.3m).**
+  - **Fanned out 3 specialist agents (test-writer · accessibility-auditor · code-simplifier), worktree-isolated, disjoint files.** Two produced changes; one found the work already done.
+  - **P2 sign-out E2E (211) DONE:** new `e2e/auth-surface-journey.spec.ts` — (A) authed `/admin` shell renders, (B) sign-out clears session + removes the shell. Enrolled in playwright.prod.config.ts. 2/2 green.
+  - **REAL BUG FIXED (shared helper): `e2e/helpers/auth.ts` `signOut()` used STALE testids** — `user-avatar`/`sign-out-btn` don't exist. Correct topbar chain: trigger `data-testid="user-avatar-btn"` opens the dropdown → `data-testid="user-menu-signout"` fires `state.signOut()` (`user-menu` is the CONTAINER, hidden until open — NOT the trigger). Would have broken EVERY signOut caller (auth-surface + `_fortress/auth/happy-path`). Fixed + verified.
+  - **#91 axe-wiring already satisfied:** all 23 `admin-*-journey.spec.ts` already import+call `checkA11y` (board item was stale — 0 changes needed).
+  - **#93 skip/fixme triage:** the "135 hits" is very stale — actually 38 occurrences in 11 files. 10 files clean; 1 dated annotation (`webhooks.spec.ts` E2E_API_KEY blocker → `blocked 2026-08-01`). `auth-magic-link-roundtrip` skip is intentional (real emails). All `test.fail` TDD-RED markers preserved.
+- [ ] **⏭ PASS-19 QUEUE:**
+  - Remaining P0: Google OAuth callback E2E (90), MCP .env export "show defaults when empty" (94 — worker-side, needs a Docker worker deploy → own focused pass).
+  - Remaining P2: sign-in email+pw form submit (201), magic-link (202), sign-up (203), 2FA (205), session mgmt list/revoke (206), rate-limit UX (208).
   - psnotify module (P12) · ag-grid→TanStack (P4 blueprint) · a11y advisory backlog · beta→stable promotions after the 1-week-no-P1 window per rules/feature-flags.md (earliest 2026-08-07).
 
 - [ ] Real axe `critical` findings + advisories (aria-prohibited-attr serious, nested-interactive, target-size <24px, scrollable-region-focusable in docs) → a11y sweep backlog per [[admin-a11y-sweeps]]
@@ -208,7 +214,7 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 - [ ] Sign-up OAuth buttons full flow
 - [ ] 2FA enrollment (TOTP setup) + verification
 - [ ] Session management — list, revoke
-- [ ] Sign-out — session cleared → homepage
+- [x] Sign-out — session cleared → homepage (`auth-surface-journey.spec.ts` (B), Pass 18; fixed the stale-testid signOut helper)
 - [ ] Rate-limit UX on rapid submissions
 
 ## P3 — Marketing Surface

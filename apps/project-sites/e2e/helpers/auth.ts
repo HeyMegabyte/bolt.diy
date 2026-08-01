@@ -326,15 +326,20 @@ export async function signInAsTestUser(
  * Signs out the currently authenticated user.
  */
 export async function signOut(page: Page): Promise<void> {
+  // Admin topbar account menu: the `user-avatar-btn` button opens the dropdown
+  // (`@if (userMenuOpen())` → `user-menu` container), then `user-menu-signout`
+  // fires state.signOut(). NOTE: `user-menu` is the CONTAINER (hidden until
+  // open), never the trigger. (Older `user-avatar`/`account-menu-trigger`/
+  // `sign-out-btn` ids kept as fallbacks.)
   const avatarTrigger = page.locator(
-    '[data-testid="user-avatar"], [data-testid="account-menu-trigger"]',
+    '[data-testid="user-avatar-btn"], [data-testid="user-avatar"], [data-testid="account-menu-trigger"]',
   );
   await avatarTrigger.first().click();
 
   const signOutBtn = page.locator(
-    '[data-testid="sign-out-btn"], [onclick*="logout"], text="Sign out"',
+    '[data-testid="user-menu-signout"], [data-testid="sign-out-btn"]',
   );
-  await signOutBtn.first().click();
+  await signOutBtn.first().click({ timeout: 10_000 });
 
   await page.waitForFunction(
     () => localStorage.getItem('ps_session') === null,

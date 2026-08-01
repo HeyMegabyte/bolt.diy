@@ -46,6 +46,7 @@ export default defineConfig({
     'admin-feature-flags.spec.ts',         // sysAdmin feature-flags journey (Convergence Pass 2)
     'value-domains-*.spec.ts',             // TDD Contract #10 value-domain suites (Convergence Pass 3)
     'auth-session-lifecycle.spec.ts',      // Sign-out / expiry / 429 / reload (Convergence Pass 8)
+    'auth-surface-journey.spec.ts',        // P2 — authed /admin shell renders + sign-out clears session (Pass 18)
     // auth-magic-link-roundtrip.spec.ts is EXCLUDED on purpose: it sends 2 REAL
     // emails per run — run manually with E2E_PEEK_SECRET + --workers=1 only.
     'admin-user-settings-journey.spec.ts', // /admin/user profile + display-name value domains (settings-security wave; also matched by the admin-*-journey glob)
