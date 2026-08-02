@@ -178,18 +178,19 @@ export async function resolveZoneForHostname(
 }
 
 /** GraphQL response we depend on. */
-interface CfGraphQlResponse {
-  data?: {
-    viewer?: {
-      zones?: Array<{
-        totals?: Array<{ sum?: SumFields; uniq?: UniqFields }>;
-        byDay?: Array<{ dimensions?: { date?: string }; sum?: SumFields; uniq?: UniqFields }>;
-        topPaths?: Array<{ dimensions?: { clientRequestPath?: string }; sum?: SumFields }>;
-        byCountry?: Array<{ dimensions?: { clientCountryName?: string }; sum?: SumFields }>;
-        byReferer?: Array<{ dimensions?: { clientRequestReferer?: string }; sum?: SumFields }>;
-      }>;
-    };
+interface CfGroup {
+  count?: number;
+  sum?: { visits?: number };
+  dimensions?: {
+    clientRequestPath?: string;
+    clientCountryName?: string;
+    clientRequestReferer?: string;
   };
+}
+interface CfGraphQlResponse {
+  // zones[0] holds the dynamic day aliases (d0..dN) + fixed paths/geo/refs,
+  // every one an httpRequestsAdaptiveGroups selection → uniform CfGroup[].
+  data?: { viewer?: { zones?: Array<Record<string, CfGroup[] | undefined>> } };
   errors?: Array<{ message: string }>;
 }
 interface SumFields {
@@ -239,79 +240,41 @@ async function loadHostAggregate(
   const zone = await resolveZoneForHostname(env, auth, hostname);
   if (!zone) return empty;
 
-  const since = new Date(Date.now() - days * 86_400_000).toISOString();
-  const until = new Date().toISOString();
+  // Free-plan CF Analytics: httpRequestsAdaptiveGroups is the only PER-HOST
+  // dataset, but each query caps at a 1-DAY range and exposes `count` (requests)
+  // + `sum.visits` (~page views) + path/country/referer dimensions — NOT
+  // uniques. So we query one 1-day window per day (aliased d0..dN, most-recent
+  // first) for the daily series + totals, and pull top paths/countries/referrers
+  // over the most-recent day. This fixes the prior query, which hit this dataset
+  // with a `$host: string!` type + `requests`/`pageViews`/`uniq` fields it lacks
+  // over a >1d range → errored on every call → "analytics not available yet" for
+  // every site (root-caused + fixed 2026-08-02).
+  const windowCount = Math.min(Math.max(days, 1), 30);
+  const nowMs = Date.now();
+  const windows = Array.from({ length: windowCount }, (_, i) => ({
+    alias: `d${i}`,
+    date: new Date(nowMs - i * 86_400_000).toISOString().slice(0, 10),
+    since: new Date(nowMs - (i + 1) * 86_400_000).toISOString(),
+    until: new Date(nowMs - i * 86_400_000).toISOString(),
+  }));
+  const recent = windows[0];
+  const dayFields = windows
+    .map(
+      (w) =>
+        `${w.alias}: httpRequestsAdaptiveGroups(limit: 1, filter: { datetime_geq: "${w.since}", datetime_leq: "${w.until}", clientRequestHTTPHost: $host }) { count sum { visits } }`,
+    )
+    .join('\n          ');
+  const breakdown = (name: string, dim: string, limit: number) =>
+    `${name}: httpRequestsAdaptiveGroups(limit: ${limit}, filter: { datetime_geq: "${recent.since}", datetime_leq: "${recent.until}", clientRequestHTTPHost: $host }, orderBy: [count_DESC]) { count dimensions { ${dim} } }`;
 
   const query = /* GraphQL */ `
-    query MultiUrlTraffic($zoneTag: String!, $since: Time!, $until: Time!, $host: string!) {
+    query MultiUrlTraffic($zoneTag: String!, $host: String!) {
       viewer {
         zones(filter: { zoneTag: $zoneTag }) {
-          totals: httpRequestsAdaptiveGroups(
-            limit: 1
-            filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-          ) {
-            sum {
-              requests
-              pageViews
-              edgeResponseBytes
-            }
-            uniq {
-              uniques
-            }
-          }
-          byDay: httpRequestsAdaptiveGroups(
-            limit: 100
-            filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-            orderBy: [date_ASC]
-          ) {
-            dimensions {
-              date
-            }
-            sum {
-              requests
-              pageViews
-            }
-            uniq {
-              uniques
-            }
-          }
-          topPaths: httpRequestsAdaptiveGroups(
-            limit: 50
-            filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-            orderBy: [sum_requests_DESC]
-          ) {
-            dimensions {
-              clientRequestPath
-            }
-            sum {
-              requests
-              pageViews
-            }
-          }
-          byCountry: httpRequestsAdaptiveGroups(
-            limit: 25
-            filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-            orderBy: [sum_requests_DESC]
-          ) {
-            dimensions {
-              clientCountryName
-            }
-            sum {
-              requests
-            }
-          }
-          byReferer: httpRequestsAdaptiveGroups(
-            limit: 25
-            filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-            orderBy: [sum_requests_DESC]
-          ) {
-            dimensions {
-              clientRequestReferer
-            }
-            sum {
-              requests
-            }
-          }
+          ${dayFields}
+          ${breakdown('paths', 'clientRequestPath', 50)}
+          ${breakdown('geo', 'clientCountryName', 25)}
+          ${breakdown('refs', 'clientRequestReferer', 25)}
         }
       }
     }
@@ -321,7 +284,7 @@ async function loadHostAggregate(
     const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
       body: JSON.stringify({
         query,
-        variables: { host: hostname, since, until, zoneTag: zone.zone_id },
+        variables: { host: hostname, zoneTag: zone.zone_id },
       }),
       headers: { ...cfAuthHeaders(auth), 'Content-Type': 'application/json' },
       method: 'POST',
@@ -359,44 +322,45 @@ async function loadHostAggregate(
     const zoneRow = json.data?.viewer?.zones?.[0];
     if (!zoneRow) return { ...empty, resolved: true };
 
-    const totals = zoneRow.totals?.[0];
     const agg: HostAggregate = {
       by_day: new Map(),
       hostname,
-      page_views: Number(totals?.sum?.pageViews ?? 0),
+      page_views: 0,
       resolved: true,
       top_countries: new Map(),
       top_paths: new Map(),
       top_referrers: new Map(),
-      total_requests: Number(totals?.sum?.requests ?? 0),
-      unique_visitors: Number(totals?.uniq?.uniques ?? 0),
+      total_requests: 0,
+      // Per-host uniques aren't exposed by httpRequestsAdaptiveGroups on this
+      // zone plan → 0 (the UI hides the uniques stat when it's zero).
+      unique_visitors: 0,
     };
 
-    for (const row of zoneRow.byDay ?? []) {
-      const date = String(row.dimensions?.date ?? '');
-      if (!date) continue;
-      agg.by_day.set(date, {
-        page_views: Number(row.sum?.pageViews ?? 0),
-        requests: Number(row.sum?.requests ?? 0),
-        unique_visitors: Number(row.uniq?.uniques ?? 0),
-      });
+    // Daily series + totals: one 1-day window per alias — count = requests,
+    // sum.visits ≈ page views.
+    for (const w of windows) {
+      const row = zoneRow[w.alias]?.[0];
+      if (!row) continue;
+      const requests = Number(row.count ?? 0);
+      const views = Number(row.sum?.visits ?? 0);
+      agg.total_requests += requests;
+      agg.page_views += views;
+      agg.by_day.set(w.date, { page_views: views, requests, unique_visitors: 0 });
     }
-    for (const row of zoneRow.topPaths ?? []) {
+    for (const row of zoneRow.paths ?? []) {
       const path = String(row.dimensions?.clientRequestPath ?? '/');
-      const views = Number(row.sum?.pageViews ?? row.sum?.requests ?? 0);
-      if (views > 0) agg.top_paths.set(path, (agg.top_paths.get(path) ?? 0) + views);
+      const c = Number(row.count ?? 0);
+      if (c > 0) agg.top_paths.set(path, (agg.top_paths.get(path) ?? 0) + c);
     }
-    for (const row of zoneRow.byCountry ?? []) {
+    for (const row of zoneRow.geo ?? []) {
       const country = String(row.dimensions?.clientCountryName ?? 'Unknown');
-      const views = Number(row.sum?.requests ?? 0);
-      if (views > 0) agg.top_countries.set(country, (agg.top_countries.get(country) ?? 0) + views);
+      const c = Number(row.count ?? 0);
+      if (c > 0) agg.top_countries.set(country, (agg.top_countries.get(country) ?? 0) + c);
     }
-    for (const row of zoneRow.byReferer ?? []) {
-      const raw = String(row.dimensions?.clientRequestReferer ?? '');
-      const referrer = safeHost(raw) || '(direct)';
-      const views = Number(row.sum?.requests ?? 0);
-      if (views > 0)
-        agg.top_referrers.set(referrer, (agg.top_referrers.get(referrer) ?? 0) + views);
+    for (const row of zoneRow.refs ?? []) {
+      const referrer = safeHost(String(row.dimensions?.clientRequestReferer ?? '')) || '(direct)';
+      const c = Number(row.count ?? 0);
+      if (c > 0) agg.top_referrers.set(referrer, (agg.top_referrers.get(referrer) ?? 0) + c);
     }
     return agg;
   } catch (err) {
