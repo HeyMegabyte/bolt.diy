@@ -122,6 +122,7 @@ import { socialOauthRoutes } from './routes/social_oauth.js';
 import { socialPostRoutes } from './routes/social_posts.js';
 import { pulseAnalytics, runHourlyPulseAnalyticsCron } from './routes/pulse_analytics.js';
 import { voiceRoutes } from './routes/voice.js';
+import { logsRoutes } from './routes/logs.js';
 import { voiceWebhookRoutes } from './routes/voice_webhooks.js';
 import { livekitWebhookRoutes } from './routes/livekit_webhooks.js';
 import { domainPurchase } from './routes/domain_purchase.js';
@@ -1077,6 +1078,7 @@ app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,pa
 app.route('/', socialRoutes); // /api/social/{accounts,posts}/* — Pulse Social CRUD; must precede `api`
 app.route('/', socialPostRoutes); // /api/social/:siteId/posts/{publish,schedule,generate} — Native Social Tier 1
 app.route('/', voiceRoutes); // /api/voice/* — AI Voice + SMS Agent (numbers, vanity, calls, messages, settings)
+app.route('/', logsRoutes); // /api/logs/{search,cost-by-route} — Log Explorer over Workers Observability (flag: log_explorer); must precede `api`
 app.route('/', voiceWebhookRoutes); // /webhooks/voice/* + /webhooks/sms/* + /internal/voice/* — Twilio webhook + media stream bridge
 app.route('/', livekitWebhookRoutes); // /webhooks/livekit — LiveKit Cloud room/egress lifecycle (signed) → D1
 app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/billing/checkout/{wallet,topup} + /api/billing/wallet — must precede `api` so the wallet-aware purchase route wins over the legacy hosted-checkout route
