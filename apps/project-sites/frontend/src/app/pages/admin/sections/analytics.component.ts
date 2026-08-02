@@ -615,7 +615,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
     .urls-label {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
-      color: rgba(255,255,255,0.45); margin-right: 4px;
+      color: rgba(255,255,255,0.8); margin-right: 4px;
     }
     .url-pill {
       display: inline-flex; align-items: center; gap: 4px;

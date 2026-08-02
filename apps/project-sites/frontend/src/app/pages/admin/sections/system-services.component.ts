@@ -98,7 +98,7 @@ const STATUS_ORDER: Record<string, number> = {
                   }
                 </div>
                 @if (s.notes) {
-                  <p class="text-[0.72rem] text-text-secondary/70 mt-1.5 line-clamp-2" [attr.title]="s.notes">{{ s.notes }}</p>
+                  <p class="text-[0.72rem] text-text-secondary mt-1.5 line-clamp-2" [attr.title]="s.notes">{{ s.notes }}</p>
                 }
               </div>
             </div>

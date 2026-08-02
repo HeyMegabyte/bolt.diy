@@ -844,7 +844,7 @@ interface GhStatus {
       flex-shrink: 0;
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 0.68rem;
-      color: rgba(255, 255, 255, 0.5);
+      color: rgba(255, 255, 255, 0.8);
       letter-spacing: 0.01em;
       white-space: nowrap;
       cursor: help;

@@ -345,7 +345,7 @@ const ALL_SCOPES = [
     @media (prefers-reduced-motion: reduce) { .at-sk-line { animation: none; } }
     .at-name-cell { display: table-cell; }
     .at-token-name { display: block; font-weight: 600; color: var(--ps-ink); font-size: 13px; }
-    .at-token-id { display: block; font-size: 11px; color: rgba(244,244,255,0.35); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+    .at-token-id { display: block; font-size: 11px; color: rgba(244,244,255,0.8); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
     .at-scopes-cell { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
     .at-meta-cell { color: rgba(244,244,255,0.55); font-size: 12px; }
     .at-actions-col { text-align: right; white-space: nowrap; }

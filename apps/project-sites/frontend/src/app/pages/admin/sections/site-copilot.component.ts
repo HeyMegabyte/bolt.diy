@@ -40,7 +40,7 @@ interface CopilotSession {
 interface IntentDistRow { intent: string; count: number; }
 
 const INTENT_COLORS: Record<string, string> = {
-  book: '#22c55e', quote: '#00e5ff', support: '#f59e0b', browse: '#7c3aed', unknown: 'rgba(244,244,255,0.2)',
+  book: '#22c55e', quote: '#00e5ff', support: '#f59e0b', browse: '#a78bfa', unknown: 'rgba(244,244,255,0.85)',
 };
 const INTENT_ICONS: Record<string, string> = {
   book: '📅', quote: '💰', support: '🛠', browse: '👁', unknown: '❓',
@@ -176,7 +176,7 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-toggle input:checked ~ .copilot-toggle-track { background: var(--ps-accent); }
       .copilot-toggle-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: left .2s; }
       .copilot-toggle input:checked ~ .copilot-toggle-track::after { left: 21px; }
-      .copilot-toggle-label { font-size: 13px; color: rgba(244,244,255,0.7); }
+      .copilot-toggle-label { font-size: 13px; color: rgba(244,244,255,0.85); }
       .copilot-flag-gate { padding: 20px; background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; }
       .copilot-embed-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,229,255,0.12); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .copilot-embed-label { font-size: 11px; color: rgba(244,244,255,0.72); text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
@@ -330,7 +330,7 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
     }).catch(() => {});
   }
 
-  intentColor(intent: string): string { return INTENT_COLORS[intent] ?? 'rgba(244,244,255,0.4)'; }
+  intentColor(intent: string): string { return INTENT_COLORS[intent] ?? 'rgba(244,244,255,0.85)'; }
   intentIcon(intent: string): string { return INTENT_ICONS[intent] ?? '?'; }
 
   relativeTime(iso: string): string {

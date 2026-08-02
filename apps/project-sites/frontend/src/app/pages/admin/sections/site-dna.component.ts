@@ -343,7 +343,7 @@ interface DnaPrefsResp {
       .dna-hdr { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
       .dna-eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ps-accent, #00e5ff); font-weight: 600; }
       .dna-title { font-size: 20px; font-weight: 700; margin: 4px 0 4px; }
-      .dna-sub { font-size: 13px; color: rgba(244,244,255,0.5); margin: 0; }
+      .dna-sub { font-size: 13px; color: rgba(244,244,255,0.8); margin: 0; }
       .dna-flag-link { text-decoration: none; }
       .dna-flag-chip { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); border-radius: 6px; padding: 4px 8px; font-size: 11px; color: var(--ps-accent, #00e5ff); font-family: 'JetBrains Mono', monospace; }
 
@@ -356,7 +356,7 @@ interface DnaPrefsResp {
       /* Shimmer placeholder sized like the counter value — keeps the row height
          steady (no layout shift) while the first fetch is in flight. */
       .dna-stat-skel { display: inline-block; width: 56px; height: 15px; border-radius: 5px; margin-block: 1px; }
-      .dna-stat-label { font-size: 11px; color: rgba(244,244,255,0.5); display: inline-flex; align-items: center; gap: 4px; }
+      .dna-stat-label { font-size: 11px; color: rgba(244,244,255,0.8); display: inline-flex; align-items: center; gap: 4px; }
       .dna-glyph { display: inline-flex; align-items: center; vertical-align: -2px; }
       .dna-glyph svg { width: 12px; height: 12px; }
       .dna-stat-label--accept { color: var(--dna-accept); }
@@ -373,7 +373,7 @@ interface DnaPrefsResp {
       .dna-pulse-seg--edit   { background: var(--dna-edit); }
       .dna-pulse-seg--reject { background: var(--dna-reject); }
       .dna-pulse-legend { display: flex; gap: 14px; }
-      .dna-pulse-key { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.45); display: inline-flex; align-items: center; gap: 5px; }
+      .dna-pulse-key { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.8); display: inline-flex; align-items: center; gap: 5px; }
       .dna-pulse-key::before { content: ""; width: 8px; height: 8px; border-radius: 2px; }
       .dna-pulse-key--accept::before { background: var(--dna-accept); }
       .dna-pulse-key--edit::before   { background: var(--dna-edit); }
@@ -381,7 +381,7 @@ interface DnaPrefsResp {
       @media (prefers-reduced-motion: reduce) { .dna-pulse-seg { transition: none; } }
 
       /* ── Section label ── */
-      .dna-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(244,244,255,0.4); font-weight: 600; }
+      .dna-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(244,244,255,0.8); font-weight: 600; }
 
       /* ── Preferences chart ── */
       .dna-prefs-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -390,7 +390,7 @@ interface DnaPrefsResp {
       .dna-pref-class { font-size: 12px; color: rgba(244,244,255,0.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dna-pref-bar-wrap { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
       .dna-pref-bar { height: 100%; border-radius: 3px; transition: width .4s ease; min-width: 2px; }
-      .dna-pref-score { font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(244,244,255,0.4); text-align: right; }
+      .dna-pref-score { font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(244,244,255,0.8); text-align: right; }
       .dna-pref-score.positive { color: var(--ps-accent, #00e5ff); }
 
       /* ── Table ── */
@@ -403,14 +403,14 @@ interface DnaPrefsResp {
       .dna-refresh-btn:hover:not(:disabled) { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.4); }
       .dna-refresh-btn:disabled { opacity: 0.4; cursor: default; }
       .dna-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      .dna-table th { padding: 7px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.4); }
+      .dna-table th { padding: 7px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.8); }
       .dna-table td { padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); line-height: 1.3; max-height: 36px; overflow: hidden; }
       .dna-table tr:last-child td { border-bottom: none; }
       .dna-table tr:hover td { background: rgba(0,229,255,0.04); }
-      .dna-td-center { text-align: center; color: rgba(244,244,255,0.35); padding: 24px !important; }
+      .dna-td-center { text-align: center; color: rgba(244,244,255,0.8); padding: 24px !important; }
       .dna-skel-bar { display: inline-block; height: 11px; border-radius: 4px; }
       .dna-mono { font-family: 'JetBrains Mono', monospace; color: rgba(244,244,255,0.7); }
-      .dna-ts { color: rgba(244,244,255,0.35); font-size: 11px; }
+      .dna-ts { color: rgba(244,244,255,0.8); font-size: 11px; }
       .dna-class-chip { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15); border-radius: 4px; padding: 1px 6px; font-size: 11px; color: var(--ps-accent, #00e5ff); }
       .dna-action-chip { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
       .dna-action-chip.accept { background: rgba(46,230,166,0.12); color: var(--dna-accept); }
@@ -421,8 +421,8 @@ interface DnaPrefsResp {
       .dna-form-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
       .dna-form { display: flex; flex-direction: column; gap: 10px; }
       .dna-form-row { display: flex; flex-direction: column; gap: 4px; }
-      .dna-label { font-size: 11px; color: rgba(244,244,255,0.5); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-      .dna-opt { text-transform: none; letter-spacing: 0; color: rgba(244,244,255,0.3); font-weight: 400; }
+      .dna-label { font-size: 11px; color: rgba(244,244,255,0.8); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+      .dna-opt { text-transform: none; letter-spacing: 0; color: rgba(244,244,255,0.8); font-weight: 400; }
       /* .dna-input/.dna-select removed — now Spartan hlmInput/hlmSelect. (.dna-mono kept; shared with the table cell.) */
       .dna-form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .dna-submit-btn { background: var(--ps-accent, #00e5ff); color: #060610; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; }

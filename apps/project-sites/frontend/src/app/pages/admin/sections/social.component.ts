@@ -1080,7 +1080,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
       }
       .hdr-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ps-accent, #00e5ff); box-shadow: 0 0 8px var(--ps-accent, #00e5ff); }
-      .hdr-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); font-size: 0.82rem; margin: 0; }
+      .hdr-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 82%, transparent); font-size: 0.82rem; margin: 0; }
 
       /* ── Auto-Pilot header controls ── */
       .auto-pilot-row {
@@ -1260,7 +1260,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
       .tab {
         padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
-        background: transparent; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent);
+        background: transparent; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 82%, transparent);
         font-size: 0.78rem; font-weight: 600; font-family: inherit; transition: all 0.18s ease;
         display: inline-flex; align-items: center; gap: 6px;
       }
@@ -1377,7 +1377,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       .x-cost-note span { flex: 1; }
       .x-cost-note button { flex: none; font-size: 0.7rem; font-weight: 600; color: #fbbf24; background: none; border: 0; cursor: pointer; padding: 0.1rem 0.3rem; }
       .preview-block { margin: 0.2rem 0 0.4rem; }
-      .preview-h { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); margin-bottom: 0.4rem; }
+      .preview-h { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 82%, transparent); margin-bottom: 0.4rem; }
       .preview-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
       .preview-card { border: 1px solid color-mix(in oklch, var(--brand, #00e5ff) 30%, transparent); border-left: 2px solid var(--brand, #00e5ff); border-radius: 0.55rem; background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); padding: 0.5rem 0.6rem; min-width: 0; }
       .pc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 0.35rem; }
@@ -1436,7 +1436,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         background: color-mix(in oklch, var(--ps-accent, #00e5ff) 4%, transparent);
       }
       .media-zone:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-      .media-empty { display: flex; align-items: center; gap: 10px; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); font-size: 0.82rem; }
+      .media-empty { display: flex; align-items: center; gap: 10px; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 82%, transparent); font-size: 0.82rem; }
       .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
       .media-tile {
         position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; margin: 0;
@@ -1494,7 +1494,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       .og-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
       .og-site { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
       .og-title { font-size: 0.78rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .og-desc { font-size: 0.68rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .og-desc { font-size: 0.68rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 82%, transparent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
       /* ── AI row ── */
       .ai-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px; border-radius: 10px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 4%, transparent); }

@@ -439,7 +439,7 @@ export function renderMarkdown(md: string): string {
     const langAttr = lng ? ` data-lang="${escapeHtml(lng)}"` : '';
     const langChip = lng ? `<span class="code-lang" aria-hidden="true">${escapeHtml(lng)}</span>` : '';
     fences.push(
-      `<pre${langAttr}>${langChip}<button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
+      `<pre${langAttr} tabindex="0">${langChip}<button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
     );
     return ` FENCE${id} `;
   });
