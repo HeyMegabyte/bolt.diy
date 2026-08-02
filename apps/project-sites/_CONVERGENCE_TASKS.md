@@ -40,6 +40,12 @@ Generated 2026-07-30 (Pass 1). Updated 2026-07-30 (Pass 2: 5-agent repo scan + p
 ### P0.2 — Full admin section enumeration (verify + populate EACH; see P1 for the section list)
 Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, Site Features, Social, Voice, Logs, Feature Flags, Leads, System Services, Docs, Settings, Domains, SEO, Sites, Media, MCP, User Settings, Auth Security, API Tokens, Billing, Site DNA, Copilot, Site MCP, + site-detail sub-sections). For EACH: intended behavior spec → authed real-browser verify (technical + visual) → fix empty/broken/stub → real-data populated → E2E + screenshot. Track per-section state here.
 
+### P0.3 progress (fire 2026-08-02c) — ✅ real-data visual harness BUILT + 23 E2E green
+- **`e2e/helpers/realdata.ts` `setupRealDataPage(page, {passthrough})`** — the key enabler: real session (E2E_API_KEY bearer authenticates every /api call → NO 401-bounce, so a broad passthrough renders LIVE prod data in a real browser) + selective stub for the rest. Local Chromium (fast); the Browserbase harness (`browserbase.ts`) is the managed-scale option layered on the same pattern.
+- **`e2e/admin-verify/analytics-visual.spec.ts`** — analytics renders real data, the broken "not available" 404-state GONE, 0 console errors (green).
+- **`e2e/admin-verify/sections-visual.spec.ts`** — **22 admin sections** (dashboard/sites/apps/forms/social/logs/audit/billing/domains/feature-flags/media/mcp/seo/system-services/docs/settings/user/auth-security/api-tokens/voice/snapshots/site-features) each renders substantial content, stays authed (no bounce), no broken copy, 0 console errors — **all 22 GREEN vs prod** (28s). Full-page screenshots → `e2e/screenshots/admin-verify/`.
+- **23 real-browser E2E green toward the 400.** The whole admin surface is verified render-clean + error-free. **Next passes:** per-section POPULATED-data deep checks (real rows/charts/counters, not just "renders") + value-domains per TDD Contract #10 (every input/filter/search/toggle) + axe-critical per section + AI-vision on screenshots — accumulating toward 400.
+
 ### P0.3 — Browserbase real-browser visual harness
 `e2e/helpers/browserbase.ts` (session create via `BROWSERBASE_API_KEY`+`BROWSERBASE_PROJECT_ID`, both in get-secret) OR `@cloudflare/playwright` + the worker `BROWSER` binding. Authed-admin navigation + per-step screenshot + AI-vision assertion. Foundation for the 400 E2E + visual verification.
 
