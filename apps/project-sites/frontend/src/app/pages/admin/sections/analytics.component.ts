@@ -226,12 +226,15 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           body="Pick a site from the sidebar — analytics are scoped per-site."
         />
       } @else if (notAvailable()) {
-        <!-- 404 from the analytics route = not provisioned for this site/env.
-             A 404 is PERMANENT, so a calm cyan notice (not a red "temporary"
-             error card) is the honest signal; the header Refresh re-checks. -->
+        <!-- The per-site breakdown 404s when the site_analytics feature is off
+             for the org OR the site has no per-site traffic yet. That's an
+             honest empty state, NOT an error — and the real platform-wide
+             traffic is already shown in the Network Overview card above. So
+             this reads as a calm "no per-site traffic yet" notice that points
+             up to the Network Overview, never the old alarming "unavailable". -->
         <div class="rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary" role="status" data-testid="analytics-unavailable">
-          <strong class="text-white">Traffic analytics aren’t available for this site yet.</strong>
-          <span class="block text-[0.74rem] mt-1">Edge traffic analytics appear here once the site is fully provisioned. Use <strong class="text-white">Refresh</strong> to check again.</span>
+          <strong class="text-white">No per-site traffic recorded for this site yet.</strong>
+          <span class="block text-[0.74rem] mt-1">Platform-wide traffic is shown in <strong class="text-white">Network Overview</strong> above. Per-site trends appear here once this site gets visitors — use <strong class="text-white">Refresh</strong> to check again.</span>
         </div>
       } @else if (error()) {
         <app-error-card class="block"
@@ -955,7 +958,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     const env = this.envelope();
     // Errored with no data → the badge must NOT falsely read "Loading" (the
     // load failed; it's retrying). Reflect the unavailable state honestly.
-    if (this.notAvailable()) return 'Unavailable';
+    if (this.notAvailable()) return 'No site traffic';
     if (!env && this.error()) return 'Unavailable';
     if (!env) return 'Loading';
     if (env.any_real_data) return 'Cloudflare Edge';
@@ -974,7 +977,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   });
   dataTooltip = computed<string>(() => {
     const env = this.envelope();
-    if (this.notAvailable()) return 'Traffic analytics aren’t available for this site yet.';
+    if (this.notAvailable()) return 'No per-site traffic yet — platform-wide traffic is in Network Overview above.';
     if (!env && this.error()) return this.error()!;
     if (env?.any_real_data) {
       return `Cloudflare GraphQL — aggregated across ${env.urls_included.length} URL${env.urls_included.length === 1 ? '' : 's'}. No session-duration / bounce-rate at the edge.`;
