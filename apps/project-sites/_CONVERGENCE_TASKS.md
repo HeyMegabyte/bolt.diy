@@ -4,6 +4,39 @@ Every item below was discovered by cross-referencing admin routes, worker routes
 
 Generated 2026-07-30 (Pass 1). Updated 2026-07-30 (Pass 2: 5-agent repo scan + prompt-history mine + wave-2 spec fan-out). Updated each pass.
 
+---
+
+## 🔴 P0-ADMIN — ADMIN FEATURE VERIFICATION MANDATE (Brian 2026-08-02 — NEW top priority, supersedes prior DONE)
+
+> **The prior loop verified unauth GATES + a11y, but NOT that admin features actually WORK and are POPULATED with real data.** New mandate: **every single feature in the admin section must WORK and be POPULATED with real data in the `brian@megabyte.space` account, verified via REAL BROWSER (Browserbase / `@cloudflare/playwright` + BROWSER binding) both TECHNICALLY and VISUALLY.** No "not available yet" / empty / stub states where real data should exist. No console errors, no visible errors, no broken UI.
+
+### How the loop works (each fire)
+1. **Take the FULL admin section into context** — for the assigned section(s), read the component + its API endpoint(s) + determine what it SHOULD look like and do (UI + technical). Write that intended-behavior spec on the section's board line before verifying.
+2. **Authenticate as `brian@megabyte.space`** (sysadmin; `helpers/auth.ts` E2E_API_KEY peek → real session, or Browserbase real-login) and **navigate from the homepage** through the UI to the section (never `page.goto()` deep-links after initial load — directive #4).
+3. **Verify TECHNICALLY** — the section's API returns real, populated data (not empty/`any_real_data:false`/stub); 0 console errors; 0 failed network requests; correct status codes; value-domain coverage per TDD Contract #10.
+4. **Verify VISUALLY** — real-browser screenshot; assert the feature renders populated (rows/charts/counters show real numbers), no empty-state where data should be, no layout break, AI-vision ≥9/10, axe critical clean.
+5. **FIX every error found** — technical (wire the feature to its live data source, fix the query/handler) AND visible (empty state, broken render, wrong data). Deploy + re-verify live.
+6. **Build toward 400 homepage-first real-browser E2E tests** — every clickable/form/nav/modal/state across every admin section + the full user journeys. Accumulate in `e2e/admin-verify/` (Browserbase-backed). Fix errors along the way.
+7. Commit + push every green slice. Screenshots → artifacts.
+
+### P0.1 — Analytics "Traffic analytics aren't available for this site yet" — ROOT CAUSE FOUND (2026-08-02), FIX SPEC BELOW
+- **The `GET /api/sites/:id/analytics` CF-GraphQL query in `src/services/multi_url_analytics.ts` `loadHostAggregate` is MALFORMED — it errors on EVERY call → `any_real_data:false` → the "not available yet" state for EVERY site.** Three confirmed bugs (each verified live against CF GraphQL with the global key):
+  1. **Line 246 `$host: string!`** — lowercase `string` is not a valid GraphQL scalar (must be `String`).
+  2. **`sum { requests pageViews }` + `uniq { uniques }`** — the `httpRequestsAdaptiveGroups` dataset does NOT expose `requests`/`pageViews` in `sum` (→ "unknown field requests") nor `uniq` on this zone plan. Its request count is the top-level `count`; it has `sum{edgeResponseBytes visits}` only.
+  3. **Time range** — `httpRequestsAdaptiveGroups` on this zone plan **caps at a 1-DAY range** ("cannot request a time range wider than 1d"), but the UI requests 7d/30d/90d.
+- **CONFIRMED WORKING FIX:** query **`httpRequests1dGroups`** instead — it has `sum { requests pageViews bytes countryMap { clientCountryName requests } }` + `uniq { uniques }` + `dimensions { date }`, accepts a multi-day `date_geq`/`date_leq` (YYYY-MM-DD) filter, and RETURNS REAL DATA for projectsites.dev (verified: 2026-07-27 = 463,465 requests / 11,818 pageViews / 283 uniques). Rewrite the query + `variables` (drop `host`, use `sinceDate`/`untilDate` YYYY-MM-DD + `zoneTag`) + the parsing (totals = Σ byDay; byCountry from `countryMap`; `topPaths`/`topReferrers` are adaptive-only → leave empty or fill from a separate ≤1d adaptive `count` query) + update the `CfGraphQlResponse` type. Fix `String!`.
+- **DESIGN NUANCE (per-subdomain):** `httpRequests1dGroups` is ZONE-level (all `*.projectsites.dev` traffic), correct for the apex/primary domain but over-counts a single subdomain. For true per-subdomain multi-day, loop the adaptive dataset (per-host `clientRequestHTTPHost`, `count`) in 1-day windows and aggregate, OR use the RUM dataset (`rumPageloadEventsAdaptiveGroups`, needs Web Analytics enabled). Ship the zone-level fix first (makes it visibly WORK with real numbers), refine per-subdomain next.
+- **Verify:** deploy worker → authed `GET /api/sites/<brian-site>/analytics` returns `any_real_data:true` + real totals → the /admin/analytics UI renders populated charts/counters (real-browser screenshot).
+
+### P0.2 — Full admin section enumeration (verify + populate EACH; see P1 for the section list)
+Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, Site Features, Social, Voice, Logs, Feature Flags, Leads, System Services, Docs, Settings, Domains, SEO, Sites, Media, MCP, User Settings, Auth Security, API Tokens, Billing, Site DNA, Copilot, Site MCP, + site-detail sub-sections). For EACH: intended behavior spec → authed real-browser verify (technical + visual) → fix empty/broken/stub → real-data populated → E2E + screenshot. Track per-section state here.
+
+### P0.3 — Browserbase real-browser visual harness
+`e2e/helpers/browserbase.ts` (session create via `BROWSERBASE_API_KEY`+`BROWSERBASE_PROJECT_ID`, both in get-secret) OR `@cloudflare/playwright` + the worker `BROWSER` binding. Authed-admin navigation + per-step screenshot + AI-vision assertion. Foundation for the 400 E2E + visual verification.
+
+---
+
+
 ## TDD Contract — applies to EVERY item in this file
 
 A feature/micro-feature is DONE only when it has an authenticated Playwright spec that:
