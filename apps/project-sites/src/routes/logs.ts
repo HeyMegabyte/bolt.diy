@@ -20,9 +20,7 @@ import { costByRoute, parseLogRange, searchLogs } from '../services/logs_explore
 export const logsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /** Auth guard — returns the caller's ids or null (→ 401). */
-function requireAuth(c: {
-  get: (k: string) => unknown;
-}): { userId: string; orgId: string } | null {
+function requireAuth(c: { get: (k: string) => unknown }): { userId: string; orgId: string } | null {
   const userId = c.get('userId') as string | undefined;
   const orgId = c.get('orgId') as string | undefined;
   if (!userId || !orgId) return null;

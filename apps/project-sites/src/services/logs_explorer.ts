@@ -118,14 +118,16 @@ export function parseLogQuery(query: string): LogFilters {
     } else if (lower.startsWith('status')) {
       const m = /status\s*(>=|>|:|=)\s*(\d{3})/.exec(lower);
       if (m) {
-        if (m[1] === '>=' || m[1] === '>') filters.minStatus = Number(m[2]) + (m[1] === '>' ? 1 : 0);
+        if (m[1] === '>=' || m[1] === '>')
+          filters.minStatus = Number(m[2]) + (m[1] === '>' ? 1 : 0);
         else filters.exactStatus = Number(m[2]);
       }
     } else if (lower.startsWith('duration')) {
       const m = /duration\s*(>=|>)\s*(\d+(?:\.\d+)?)(ms|s)?/.exec(lower);
       if (m) {
         const n = Number(m[2]);
-        filters.minDurationMs = m[3] === 's' ? n * 1000 : m[3] === 'ms' ? n : n >= 1000 ? n : n * 1000;
+        filters.minDurationMs =
+          m[3] === 's' ? n * 1000 : m[3] === 'ms' ? n : n >= 1000 ? n : n * 1000;
       }
     } else {
       filters.text.push(lower);

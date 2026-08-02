@@ -73,19 +73,41 @@ describe('parseLogQuery + rowMatches', () => {
 
   it('combines constraints with AND + free text', () => {
     const f = parseLogQuery('level:error AND route:/api/* AND timeout');
-    expect(rowMatches(rowOf({ level: 'error', route: '/api/sites', message: 'gateway timeout' }), f)).toBe(true);
-    expect(rowMatches(rowOf({ level: 'error', route: '/api/sites', message: 'ok' }), f)).toBe(false); // no "timeout"
-    expect(rowMatches(rowOf({ level: 'info', route: '/api/sites', message: 'timeout' }), f)).toBe(false); // wrong level
+    expect(
+      rowMatches(rowOf({ level: 'error', route: '/api/sites', message: 'gateway timeout' }), f),
+    ).toBe(true);
+    expect(rowMatches(rowOf({ level: 'error', route: '/api/sites', message: 'ok' }), f)).toBe(
+      false,
+    ); // no "timeout"
+    expect(rowMatches(rowOf({ level: 'info', route: '/api/sites', message: 'timeout' }), f)).toBe(
+      false,
+    ); // wrong level
   });
 });
 
 describe('mapEvent + estimateCost', () => {
   it('maps an http_request event to a LogRow', () => {
     const row = mapEvent(
-      { ts: '2026-08-02T01:00:00Z', level: 'info', msg: 'http_request', method: 'GET', path: '/x', status: 200, durationMs: 42, requestId: 'req-1' },
+      {
+        ts: '2026-08-02T01:00:00Z',
+        level: 'info',
+        msg: 'http_request',
+        method: 'GET',
+        path: '/x',
+        status: 200,
+        durationMs: 42,
+        requestId: 'req-1',
+      },
       0,
     );
-    expect(row).toMatchObject({ route: '/x', method: 'GET', status: 200, duration_ms: 42, request_id: 'req-1', level: 'info' });
+    expect(row).toMatchObject({
+      route: '/x',
+      method: 'GET',
+      status: 200,
+      duration_ms: 42,
+      request_id: 'req-1',
+      level: 'info',
+    });
     expect(row.cost_estimate).toBeGreaterThan(0);
   });
 
@@ -108,7 +130,10 @@ function makeEnv(): Env {
   } as unknown as Env;
 }
 function obsResponse(sources: Array<Record<string, unknown>>) {
-  return new Response(JSON.stringify({ result: { events: { events: sources.map((s) => ({ source: s })) } } }), { status: 200 });
+  return new Response(
+    JSON.stringify({ result: { events: { events: sources.map((s) => ({ source: s })) } } }),
+    { status: 200 },
+  );
 }
 
 describe('searchLogs + costByRoute (mocked Observability)', () => {
@@ -122,8 +147,24 @@ describe('searchLogs + costByRoute (mocked Observability)', () => {
   it('searchLogs maps + filters events', async () => {
     global.fetch = jest.fn().mockResolvedValue(
       obsResponse([
-        { eventName: 'http_request', method: 'GET', path: '/api/health', status: 200, durationMs: 5, level: 'info', msg: 'http_request' },
-        { eventName: 'http_request', method: 'POST', path: '/api/sites/x', status: 500, durationMs: 30, level: 'error', msg: 'http_request' },
+        {
+          eventName: 'http_request',
+          method: 'GET',
+          path: '/api/health',
+          status: 200,
+          durationMs: 5,
+          level: 'info',
+          msg: 'http_request',
+        },
+        {
+          eventName: 'http_request',
+          method: 'POST',
+          path: '/api/sites/x',
+          status: 500,
+          durationMs: 30,
+          level: 'error',
+          msg: 'http_request',
+        },
       ]),
     ) as unknown as typeof fetch;
     const res = await searchLogs(makeEnv(), { query: 'level:error', range: '24h', limit: 100 });
@@ -150,7 +191,9 @@ describe('searchLogs + costByRoute (mocked Observability)', () => {
   });
 
   it('fails soft to empty when the API errors', async () => {
-    global.fetch = jest.fn().mockResolvedValue(new Response('nope', { status: 403 })) as unknown as typeof fetch;
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(new Response('nope', { status: 403 })) as unknown as typeof fetch;
     const res = await searchLogs(makeEnv(), { query: '', range: '24h', limit: 100 });
     expect(res.items).toEqual([]);
     const cost = await costByRoute(makeEnv(), '24h');
@@ -160,11 +203,14 @@ describe('searchLogs + costByRoute (mocked Observability)', () => {
   it('returns empty (no fetch) when CF_ACCOUNT_ID is missing', async () => {
     const fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
-    const res = await searchLogs({ CLOUDFLARE_API_KEY: 'k', CLOUDFLARE_EMAIL: 'e' } as unknown as Env, {
-      query: '',
-      range: '24h',
-      limit: 100,
-    });
+    const res = await searchLogs(
+      { CLOUDFLARE_API_KEY: 'k', CLOUDFLARE_EMAIL: 'e' } as unknown as Env,
+      {
+        query: '',
+        range: '24h',
+        limit: 100,
+      },
+    );
     expect(res.items).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
