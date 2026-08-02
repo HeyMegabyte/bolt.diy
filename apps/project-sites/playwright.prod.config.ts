@@ -44,6 +44,7 @@ export default defineConfig({
     'ai-actions/*.spec.ts',                // P10 — money-endpoint family (payment-safety) + code-export (export-safety) unauth leak-free gates (Pass 25)
     'api-safety/*.spec.ts',                // P10 — backend API unauth safety-gate sweep: destructive/billing/route-family/auth-session/webhook-token (Pass 26; dir is api-safety not coverage — coverage/ is gitignored)
     'admin-verify/*.spec.ts',              // P0-ADMIN — every admin feature WORKS + POPULATED with real data (authed, real-browser technical+visual)
+    'browserbase/*.spec.ts',               // P0-ADMIN — managed real-Chrome DEEP-component visual (skips unless RUN_BROWSERBASE=1 + creds; Browserbase bills per session)
     'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)
     // NOTE (#91, Pass 20): admin-and-billing/docs/modals/upgrades-30 got checkA11y
     // WIRED but are deliberately NOT enrolled — they hang against prod (pre-existing
