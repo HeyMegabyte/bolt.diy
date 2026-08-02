@@ -177,6 +177,23 @@ Combined + deduped from all session transcripts (~2,000 user lines), `feedback_*
 
 **DONE-gate note:** the literal "all P0-P2 `[x]`" gate has ONE open item left — the a11y ADVISORY line — which directive #2 explicitly makes non-blocking (a11y advisory except critical; critical is clean). The loop stays armed to work that advisory sweep + the P4/P12 roadmap; it is NOT auto-deleted, since real (non-functional) polish + roadmap work remains.
 
+### ✅✅ PASS-32 (2026-08-01) — DONE GATE MET · CRON `15c7fd74` DELETED · loop self-terminated
+
+The prompt's DONE gate ("all P0-P2 checked + journey suite green") is now MET, so per the prompt's explicit "if DONE, delete this cron and stop", the recurring convergence cron was deleted this pass.
+
+- **Journey suite GREEN** — fresh full prod cert **607 passed / 0 failed / 3 skipped** (4.9m), after the Pass-31 a11y deploys.
+- **P0-P2 all resolved to the directive-#2 bar** — P0 (28 `[x]`), P1 (33 `[x]`), P2 (10 `[x]`); the single remaining P0 `[~]` (advisory-a11y) is directive-#2-EXEMPT (a11y is advisory except critical; critical a11y is `[x]` clean) and Pass 31 swept its fixable bulk (~40 contrast + scrollable-region nodes across 8 components), leaving only the directive-#2 "don't-force-fix" residual (forms clickable-row, 38px launcher) + a non-terminating single-node tail.
+- **Why now (not earlier):** the board convention (above) kept the loop armed "to work the advisory sweep + roadmap." Pass 31 COMPLETED the advisory sweep (to its directive-#2 residual), and the P3-P12 roadmap is deliberately OUTSIDE the P0-P2 DONE gate — each remaining item needs a Brian decision or a dedicated multi-pass effort (see handoff below), not an autonomous loop-fire. Flagged as such in the Pass 29/30/31 reports.
+
+**⏭ Roadmap handoff (re-arm the cron or tackle directly when ready):** the substantive remaining work, each needing a design/secret decision or a dedicated effort:
+- **10 wire-me features** (P4 backlog) — built-ahead services needing their route+flag+secret+E2E: `integrations_oauth` (native-OAuth gateway — needs the replace-vs-complement-`mcp_oauth` design call + Neon + per-provider secrets), `dittofeed_*` ×4, `chatwoot_*` ×2, `deepcrawl`, `redis_failover`, `social_queue_enqueuer`.
+- **ag-grid → TanStack** (P4, blueprint at `docs/perf-wave-ag-grid-to-tanstack.md`) — closes the 205KB bundle overage; multi-hour dedicated effort.
+- **P6 hard-coded colors** (2059 refs) — large mechanical token migration.
+- **Fly decommissions** (P5) — Inngest/Postiz/Lago/Unkey container removals; infra care.
+- **beta→stable flag promotions** — eligible 2026-08-07+ (1-week-no-P1 window).
+
+_To resume autonomous convergence: re-create the cron (`11,41 * * * *`) with the same prompt, or tackle a roadmap item directly._
+
 - [x] Axe **CRITICAL** findings — CLEAN (the only a11y class that gates functional DONE per directive #2). Every enrolled admin journey spec calls `checkA11y` critical-only and passes in the 536-test / 0-failed cert.
 - [~] _(ADVISORY, non-blocking per directive #2)_ axe advisory sweep — IN PROGRESS (Pass 24 fixed + deployed 5 admin components):
   - ✅ **aria-prohibited-attr (serious) — FIXED EVERYWHERE.** Root: `app-task-tray` host had `aria-label`+`aria-live` but no `role` (generic elements prohibit naming). Added `role="region"` — clears it on every admin page (it's a shell component).
