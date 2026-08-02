@@ -133,9 +133,11 @@ describe('loadNetworkAnalytics', () => {
   });
 
   it('fails soft on a GraphQL errors[] response', async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      new Response(JSON.stringify({ errors: [{ message: 'bad field' }] }), { status: 200 }),
-    ) as unknown as typeof fetch;
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ errors: [{ message: 'bad field' }] }), { status: 200 }),
+      ) as unknown as typeof fetch;
     const out = await loadNetworkAnalytics(makeEnv(), '7d');
     expect(out.any_real_data).toBe(false);
   });

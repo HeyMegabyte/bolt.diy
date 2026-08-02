@@ -165,14 +165,21 @@ async function queryZone(auth: CfAuth, zoneId: string, days: number): Promise<Ne
             filter: { date_geq: $since, date_leq: $until }
             orderBy: [date_ASC]
           ) {
-            dimensions { date }
+            dimensions {
+              date
+            }
             sum {
               requests
               pageViews
               bytes
-              countryMap { clientCountryName requests }
+              countryMap {
+                clientCountryName
+                requests
+              }
             }
-            uniq { uniques }
+            uniq {
+              uniques
+            }
           }
         }
       }

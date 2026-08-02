@@ -37,11 +37,7 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
-import {
-  listUserSessions,
-  revokeUserSession,
-  revokeOtherUserSessions,
-} from '../services/auth.js';
+import { listUserSessions, revokeUserSession, revokeOtherUserSessions } from '../services/auth.js';
 import {
   transferOwnership,
   canInviteMember,

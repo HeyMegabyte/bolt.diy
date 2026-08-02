@@ -12,11 +12,7 @@
  * exercised without a live database.
  */
 import { sha256Hex } from '@project-sites/shared';
-import {
-  listUserSessions,
-  revokeUserSession,
-  revokeOtherUserSessions,
-} from '../services/auth.js';
+import { listUserSessions, revokeUserSession, revokeOtherUserSessions } from '../services/auth.js';
 
 interface Row {
   id: string;
@@ -43,7 +39,8 @@ function fakeDb(rows: Row[]) {
               }
               if (isOwnershipProbe) {
                 const [sessionId, userId] = params as [string, string];
-                const hit = rows.find((r) => r.id === sessionId) && userId ? [{ id: sessionId }] : [];
+                const hit =
+                  rows.find((r) => r.id === sessionId) && userId ? [{ id: sessionId }] : [];
                 return { results: hit };
               }
               return { results: rows };
@@ -131,9 +128,27 @@ describe('revokeOtherUserSessions', () => {
     const currentToken = 'tok_keep';
     const currentHash = await sha256Hex(currentToken);
     const rows: Row[] = [
-      { id: 's1', token_hash: currentHash, device_info: null, ip_address: null, last_active_at: null },
-      { id: 's2', token_hash: 'other-1', device_info: null, ip_address: null, last_active_at: null },
-      { id: 's3', token_hash: 'other-2', device_info: null, ip_address: null, last_active_at: null },
+      {
+        id: 's1',
+        token_hash: currentHash,
+        device_info: null,
+        ip_address: null,
+        last_active_at: null,
+      },
+      {
+        id: 's2',
+        token_hash: 'other-1',
+        device_info: null,
+        ip_address: null,
+        last_active_at: null,
+      },
+      {
+        id: 's3',
+        token_hash: 'other-2',
+        device_info: null,
+        ip_address: null,
+        last_active_at: null,
+      },
     ];
     const { db, updates } = fakeDb(rows);
     const count = await revokeOtherUserSessions(db, 'usr_1', currentToken);
