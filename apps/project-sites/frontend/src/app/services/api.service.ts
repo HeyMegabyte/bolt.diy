@@ -803,6 +803,17 @@ export class ApiService {
     return this.get(`/sites/${siteId}/analytics`, params, { silent: true });
   }
 
+  /**
+   * Zone-level ("Network Overview") analytics for the whole platform. Silent:
+   * the analytics component renders a calm inline state for the empty/error
+   * case, so the generic network-blame toast would be a redundant double-signal.
+   */
+  getNetworkAnalytics(
+    range: AnalyticsRange = '7d',
+  ): Observable<{ data: NetworkAnalyticsEnvelope }> {
+    return this.get('/network-analytics', { range }, { silent: true });
+  }
+
   /** List the URLs (primary + alternates) bound to a site. */
   listSiteUrls(siteId: string): Observable<{ data: SiteUrlRow[] }> {
     // Silent: a failed URL list is explained inline by the analytics empty/cred
@@ -1478,6 +1489,24 @@ export interface MultiUrlAnalyticsEnvelope {
    * `true` when at least one URL contributed real CF data. `false` means the
    * UI should surface a "connect Cloudflare credentials" CTA.
    */
+  any_real_data: boolean;
+}
+
+/**
+ * Zone-level ("Network Overview") analytics for the whole projectsites.dev
+ * platform — real traffic totals from the CF zone dataset, shown above the
+ * per-site panel so an operator always sees analytics working even when every
+ * one of their sites is a zero-traffic demo subdomain.
+ */
+export interface NetworkAnalyticsEnvelope {
+  zone: string;
+  range_days: number;
+  total_requests: number;
+  page_views: number;
+  unique_visitors: number;
+  bytes: number;
+  series: { date: string; requests: number; page_views: number; unique_visitors: number }[];
+  top_countries: { country: string; requests: number }[];
   any_real_data: boolean;
 }
 
