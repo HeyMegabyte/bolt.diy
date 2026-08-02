@@ -932,6 +932,151 @@ export async function revokeSession(db: D1Database, sessionId: string): Promise<
   );
 }
 
+/** One active-session row for the /admin/user "Active sessions" panel. */
+export interface UserSessionRow {
+  id: string;
+  device?: string;
+  browser?: string;
+  os?: string;
+  location?: string;
+  last_active_at?: string;
+  current?: boolean;
+}
+
+/**
+ * Best-effort parse of a stored `device_info` string into a friendly
+ * device/browser/os triple. `device_info` is free-form (a UA string for real
+ * browser logins, a label like `e2e-test-login` for programmatic ones, or
+ * null). Never throws — an unrecognized value passes through as `device`.
+ */
+function parseDeviceInfo(info: string | null): { device?: string; browser?: string; os?: string } {
+  if (!info) return {};
+  const ua = info;
+  // Only treat it as a UA if it looks like one (has a slash or "Mozilla").
+  if (!/mozilla|applewebkit|\//i.test(ua)) return { device: info };
+  const browser = /edg\//i.test(ua)
+    ? 'Edge'
+    : /chrome\//i.test(ua)
+      ? 'Chrome'
+      : /firefox\//i.test(ua)
+        ? 'Firefox'
+        : /safari\//i.test(ua)
+          ? 'Safari'
+          : undefined;
+  const os = /windows/i.test(ua)
+    ? 'Windows'
+    : /mac os|macintosh/i.test(ua)
+      ? 'macOS'
+      : /android/i.test(ua)
+        ? 'Android'
+        : /iphone|ipad|ios/i.test(ua)
+          ? 'iOS'
+          : /linux/i.test(ua)
+            ? 'Linux'
+            : undefined;
+  const device = /mobile|iphone|android/i.test(ua) ? 'Mobile' : 'Desktop';
+  return { browser, device, os };
+}
+
+/**
+ * List a user's active (non-deleted, non-expired) sessions for the account
+ * "Active sessions" panel, most-recently-active first. When `currentToken` is
+ * supplied, the row whose `token_hash` matches it is flagged `current: true`.
+ *
+ * @param db - D1Database binding.
+ * @param userId - The authenticated user's id (`c.get('userId')`).
+ * @param currentToken - The caller's raw bearer token (to flag the current row).
+ * @returns Friendly {@link UserSessionRow}s; empty array when the user has none.
+ *
+ * @example
+ * const rows = await listUserSessions(env.DB, userId, bearerToken);
+ * // → [{ id, device:'Desktop', browser:'Chrome', os:'macOS', current:true }, …]
+ */
+export async function listUserSessions(
+  db: D1Database,
+  userId: string,
+  currentToken?: string,
+): Promise<UserSessionRow[]> {
+  const currentHash = currentToken ? await sha256Hex(currentToken) : null;
+  const { data } = await dbQuery<{
+    id: string;
+    token_hash: string;
+    device_info: string | null;
+    ip_address: string | null;
+    last_active_at: string | null;
+  }>(
+    db,
+    `SELECT id, token_hash, device_info, ip_address, last_active_at
+     FROM sessions
+     WHERE user_id = ? AND deleted_at IS NULL AND expires_at > ?
+     ORDER BY last_active_at DESC
+     LIMIT 100`,
+    [userId, new Date().toISOString()],
+  );
+  return data.map((s) => {
+    const parsed = parseDeviceInfo(s.device_info);
+    return {
+      browser: parsed.browser,
+      current: currentHash ? s.token_hash === currentHash : false,
+      device: parsed.device,
+      id: s.id,
+      last_active_at: s.last_active_at ?? undefined,
+      location: s.ip_address ?? undefined,
+      os: parsed.os,
+    };
+  });
+}
+
+/**
+ * Revoke one of a user's sessions, but ONLY if the session belongs to that
+ * user (prevents revoking another user's session by id). Returns whether a row
+ * was revoked.
+ *
+ * @param db - D1Database binding.
+ * @param userId - The owner user id.
+ * @param sessionId - The session id to revoke.
+ * @returns `true` when a session owned by the user was revoked; `false` otherwise.
+ */
+export async function revokeUserSession(
+  db: D1Database,
+  userId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const owned = await dbQueryOne<{ id: string }>(
+    db,
+    'SELECT id FROM sessions WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+    [sessionId, userId],
+  );
+  if (!owned) return false;
+  await revokeSession(db, sessionId);
+  return true;
+}
+
+/**
+ * Revoke all of a user's sessions EXCEPT the current one (identified by the
+ * caller's bearer token). Returns the number of sessions revoked.
+ *
+ * @param db - D1Database binding.
+ * @param userId - The owner user id.
+ * @param currentToken - The caller's raw bearer token (its session is kept).
+ * @returns Count of other sessions revoked.
+ */
+export async function revokeOtherUserSessions(
+  db: D1Database,
+  userId: string,
+  currentToken?: string,
+): Promise<number> {
+  const currentHash = currentToken ? await sha256Hex(currentToken) : null;
+  const { data } = await dbQuery<{ id: string; token_hash: string }>(
+    db,
+    'SELECT id, token_hash FROM sessions WHERE user_id = ? AND deleted_at IS NULL',
+    [userId],
+  );
+  const others = data.filter((s) => !currentHash || s.token_hash !== currentHash);
+  for (const s of others) await revokeSession(db, s.id);
+  return others.length;
+}
+
 /**
  * List all active (non-expired, non-deleted) sessions for a user.
  *

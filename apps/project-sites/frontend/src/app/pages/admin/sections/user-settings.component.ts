@@ -1430,29 +1430,39 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
     this.http.get<{ data: SessionRow[] }>('/api/admin/sessions', { headers }).subscribe({
       next: (r) => {
-        this.sessions.set(r.data ?? []);
+        // Real D1-backed list (endpoint now wired). When it's non-empty, show the
+        // real sessions. When it's empty — e.g. an API-key session with no D1 row —
+        // fall back to the synthetic current-device row so the panel never looks
+        // blank for a signed-in operator.
+        const rows = r.data ?? [];
+        this.sessions.set(rows.length > 0 ? rows : this.fallbackSessions());
         this.loadingSessions.set(false);
       },
       error: () => {
-        // Endpoint may not be wired yet — fall back to a single synthetic "this device"
-        // row so the section never looks broken. Hide the row when there's no session.
-        const s = this.auth.session();
-        if (s) {
-          this.sessions.set([{
-            id: 'current',
-            device: this.detectDevice(),
-            browser: this.detectBrowser(),
-            os: this.detectOs(),
-            location: 'This browser',
-            last_active_at: new Date().toISOString(),
-            current: true,
-          }]);
-        } else {
-          this.sessions.set([]);
-        }
+        // Transient failure — same graceful current-device fallback.
+        this.sessions.set(this.fallbackSessions());
         this.loadingSessions.set(false);
       },
     });
+  }
+
+  /**
+   * A single synthetic "this device" row from the live session + UA sniffing —
+   * shown when the real sessions list is empty or unreachable so the Active
+   * Sessions panel never renders blank for a signed-in operator.
+   */
+  private fallbackSessions(): SessionRow[] {
+    const s = this.auth.session();
+    if (!s) return [];
+    return [{
+      id: 'current',
+      device: this.detectDevice(),
+      browser: this.detectBrowser(),
+      os: this.detectOs(),
+      location: 'This browser',
+      last_active_at: new Date().toISOString(),
+      current: true,
+    }];
   }
 
   revokeSession(s: SessionRow): void {

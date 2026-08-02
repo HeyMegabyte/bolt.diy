@@ -38,6 +38,11 @@ import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
 import {
+  listUserSessions,
+  revokeUserSession,
+  revokeOtherUserSessions,
+} from '../services/auth.js';
+import {
   transferOwnership,
   canInviteMember,
   countSeatUsage,
@@ -2223,6 +2228,55 @@ aiAdmin.delete('/api/admin/api-keys/:id', async (c) => {
     .bind(c.req.param('id'), orgId)
     .run();
   return c.json({ data: { revoked: true } });
+});
+
+/* ────────────────────────── Active sessions (account security) ────────────────────────── */
+// The /admin/user "Active sessions" panel showed a synthetic "this device" row
+// because this route was never wired — a stub where real data exists (the D1
+// `sessions` table). These three handlers turn it into the real list + revoke.
+
+/** Extract the caller's raw bearer token (to flag the CURRENT session row). */
+function bearerToken(c: Ctx): string | undefined {
+  const h = c.req.header('Authorization');
+  return h && h.startsWith('Bearer ') ? h.slice(7) : undefined;
+}
+
+/**
+ * `GET /api/admin/sessions` — List the caller's active sessions (real D1 rows),
+ * most-recently-active first, with the current session flagged.
+ *
+ * @throws 401 UNAUTHORIZED when user context is missing.
+ */
+aiAdmin.get('/api/admin/sessions', async (c) => {
+  const { userId } = need(c);
+  const rows = await listUserSessions(c.env.DB, userId, bearerToken(c));
+  return c.json({ data: rows });
+});
+
+/**
+ * `DELETE /api/admin/sessions/:id` — Revoke one of the caller's own sessions.
+ * Only succeeds when the session belongs to the caller (no cross-user revoke).
+ *
+ * @throws 401 UNAUTHORIZED when user context is missing.
+ * @throws 404 NOT_FOUND when the session isn't the caller's.
+ */
+aiAdmin.delete('/api/admin/sessions/:id', async (c) => {
+  const { userId } = need(c);
+  const revoked = await revokeUserSession(c.env.DB, userId, c.req.param('id'));
+  if (!revoked) throw new HTTPError(404, 'Session not found');
+  return c.json({ data: { revoked: true } });
+});
+
+/**
+ * `POST /api/admin/sessions/revoke-others` — Sign out every OTHER device,
+ * keeping the caller's current session. Returns the count revoked.
+ *
+ * @throws 401 UNAUTHORIZED when user context is missing.
+ */
+aiAdmin.post('/api/admin/sessions/revoke-others', async (c) => {
+  const { userId } = need(c);
+  const count = await revokeOtherUserSessions(c.env.DB, userId, bearerToken(c));
+  return c.json({ data: { revoked: count } });
 });
 
 /* ────────────────────────── Domains aggregator (all sites' hostnames) ────────────────────────── */
