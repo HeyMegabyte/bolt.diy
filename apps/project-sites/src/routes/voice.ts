@@ -26,9 +26,22 @@ import {
 import { suggestVanityWords, type VanityBusinessProfile } from '../services/vanity_generator.js';
 import { simulateInbound } from '../services/sms_agent.js';
 import * as auditService from '../services/audit.js';
+import { PROMPT_META } from '../services/voice_agent.js';
 import { AppError, unauthorized, notFound, badRequest, conflict } from '@project-sites/shared';
 
 export const voiceRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * `GET /api/voice/meta-prompt` — The immutable voice-agent safety meta-prompt
+ * (the 10 non-negotiable rules every agent obeys). Read-only; the admin agent-
+ * settings panel renders it as the "immutable safety meta-prompt". Was 404
+ * (never registered) → the panel showed a STALE hardcoded fallback that no
+ * longer matched the real rules; now it serves the genuine {@link PROMPT_META}.
+ *
+ * @returns `{ data: { text: string } }` — the meta-prompt template (with
+ *   `{{BUSINESS_NAME}}` / `{{BUSINESS_LOCATION}}` placeholders, as stored).
+ */
+voiceRoutes.get('/api/voice/meta-prompt', (c) => c.json({ data: { text: PROMPT_META } }));
 
 // ─── small helpers ───────────────────────────────────────────────
 

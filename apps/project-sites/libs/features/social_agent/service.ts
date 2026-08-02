@@ -32,6 +32,40 @@ const PLATFORM_LIMITS: Record<Platform, { maxChars: number; maxHashtags: number;
   youtube: { maxChars: 5000, maxHashtags: 3, bestDays: ['Thu', 'Fri', 'Sat'], bestTimes: ['12:00', '17:00'] },
 };
 
+/** Convert a 24h `"HH:MM"` to a friendly 12h label — `"08:00"` → `"8am"`, `"17:00"` → `"5pm"`. */
+function toLabel12h(hhmm: string): string {
+  const h = Number((hhmm.split(':')[0] ?? '0').trim());
+  const period = h < 12 ? 'am' : 'pm';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${period}`;
+}
+
+/**
+ * Best posting-time labels (`"Tue 8am"`) for the given platforms, de-duplicated
+ * and preserving encounter order. Pairs each platform's best day with each of
+ * its best times from {@link PLATFORM_LIMITS} — the label shape the admin
+ * Social composer's "best time" chips parse (`/^(\w{3})\s+(\d{1,2})(am|pm)/`).
+ * Unknown platform slugs are ignored (never throws).
+ *
+ * @param platforms - Platform slugs (`'x'`, `'linkedin'`, …).
+ * @returns Ordered unique labels, e.g. `['Tue 8am', 'Wed 12pm', 'Thu 5pm']`.
+ *
+ * @example
+ * bestPostingTimes(['linkedin']); // → ['Tue 8am', 'Wed 12pm', 'Thu 5pm']
+ */
+export function bestPostingTimes(platforms: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const p of platforms) {
+    const limits = PLATFORM_LIMITS[p as Platform];
+    if (!limits) continue;
+    limits.bestTimes.forEach((t, i) => {
+      const day = limits.bestDays[i % limits.bestDays.length] ?? limits.bestDays[0];
+      out.add(`${day} ${toLabel12h(t)}`);
+    });
+  }
+  return [...out];
+}
+
 const TOPIC_TEMPLATES = [
   'Behind the scenes at {business}',
   'Customer spotlight: {business} made their day',

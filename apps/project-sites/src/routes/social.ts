@@ -29,6 +29,7 @@ import {
   loadAutoPilotConfig,
   upsertAutoPilotConfig,
 } from '../services/social_auto_pilot.js';
+import { bestPostingTimes } from '../../libs/features/social_agent/service.js';
 
 export const socialRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -40,6 +41,23 @@ function requireAuth(c: { get: (k: string) => unknown }): { userId: string; orgI
 }
 
 const platformEnum = z.enum(PLATFORMS as readonly [Platform, ...Platform[]]);
+
+/**
+ * `GET /api/social/best-times?platforms=x,linkedin` — Best posting-time labels
+ * per platform for the admin Social composer's "best time" chips. Static
+ * heuristic data (no org scoping, no auth needed) from the platform posting
+ * playbook; unknown slugs are ignored. Was 404 (never registered) → the chips
+ * silently hid; now returns the real labels.
+ *
+ * @returns `{ times: string[] }` — e.g. `['Tue 8am', 'Wed 12pm', 'Thu 5pm']`.
+ */
+socialRoutes.get('/api/social/best-times', (c) => {
+  const platforms = (c.req.query('platforms') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return c.json({ times: bestPostingTimes(platforms) });
+});
 
 // ── Accounts ─────────────────────────────────────────────────
 
