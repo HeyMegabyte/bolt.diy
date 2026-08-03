@@ -275,10 +275,9 @@ const alertRow = (over: Partial<SpendAlertRow> = {}): SpendAlertRow => ({
   id: 'al-1',
   name: 'Low balance',
   threshold_credits: 10,
-  alert_kind: 'balance_low',
-  notify_email: 'ops@example.com',
-  enabled: 1,
-  last_triggered_at: null,
+  trigger_type: 'balance_below',
+  email: 'ops@example.com',
+  last_fired_at: null,
   ...over,
 });
 
@@ -302,7 +301,7 @@ describe('maybeFireAlerts', () => {
     await maybeFireAlerts(makeEnv(h.db), 'org-scope', 5);
     const rec = h.prepared[0];
     expect(rec.sql).toContain('spend_alerts');
-    expect(rec.sql).toContain('enabled = 1');
+    expect(rec.sql).toContain('deleted_at IS NULL');
     expect(rec.params).toEqual(['org-scope']);
   });
 
@@ -375,7 +374,7 @@ describe('maybeFireAlerts', () => {
   it('throttles when last_triggered_at is within 12h', async () => {
     const h = makeDb();
     const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1h ago
-    h.allQueue.push({ results: [alertRow({ threshold_credits: 10, last_triggered_at: recent })] });
+    h.allQueue.push({ results: [alertRow({ threshold_credits: 10, last_fired_at: recent })] });
     const fetchSpy = jest.fn();
     global.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -389,7 +388,7 @@ describe('maybeFireAlerts', () => {
   it('fires again when last_triggered_at is older than 12h', async () => {
     const h = makeDb();
     const old = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString(); // 13h ago
-    h.allQueue.push({ results: [alertRow({ threshold_credits: 10, last_triggered_at: old })] });
+    h.allQueue.push({ results: [alertRow({ threshold_credits: 10, last_fired_at: old })] });
     const fetchSpy = jest.fn().mockResolvedValue({ ok: true });
     global.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -401,7 +400,7 @@ describe('maybeFireAlerts', () => {
   it('fires a daily_burn alert when summed spend >= threshold', async () => {
     const h = makeDb();
     h.allQueue.push({
-      results: [alertRow({ alert_kind: 'daily_burn', threshold_credits: 100 })],
+      results: [alertRow({ trigger_type: 'rate_spike', threshold_credits: 100 })],
     });
     // the daily-burn sub-query first() returns the spent total
     h.firstQueue.push({ spent: 150 });
@@ -417,7 +416,7 @@ describe('maybeFireAlerts', () => {
   it('does NOT fire daily_burn when summed spend is below threshold', async () => {
     const h = makeDb();
     h.allQueue.push({
-      results: [alertRow({ alert_kind: 'daily_burn', threshold_credits: 100 })],
+      results: [alertRow({ trigger_type: 'rate_spike', threshold_credits: 100 })],
     });
     h.firstQueue.push({ spent: 40 });
     const fetchSpy = jest.fn();

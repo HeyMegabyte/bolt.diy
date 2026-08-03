@@ -184,7 +184,7 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
   });
 
   // ── Destructive action: removing a spend alert is confirmed ───────────────
-  const ALERT = { id: 'al1', name: 'Low balance', threshold_credits: 1000, alert_kind: 'balance_low', notify_email: 'me@x.com', enabled: 1, last_triggered_at: null } as never;
+  const ALERT = { id: 'al1', name: 'Low balance', threshold_credits: 1000, trigger_type: 'balance_below', email: 'me@x.com' } as never;
 
   it('removeAlert deletes the alert after the operator confirms', async () => {
     build(); // confirm resolves true
@@ -199,6 +199,49 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     await fixture.componentInstance.removeAlert(ALERT);
     expect(confirmSpy).toHaveBeenCalled();
     expect(delSpy).not.toHaveBeenCalled();
+  });
+
+  // ── saveAlert wires to the worker createSpendAlertSchema (was 400 on every save) ──
+  it('saveAlert POSTs { trigger, email, channels } — NOT the old alert_kind/notify_email that 400d', () => {
+    build();
+    const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: {} }));
+    const c = fixture.componentInstance;
+    // A valid draft (select value IS the worker enum; email valid; positive threshold).
+    c.alertDraft = {
+      name: 'Runaway guard',
+      alert_kind: 'balance_below',
+      threshold_credits: 500,
+      notify_email: 'ops@megabyte.space',
+      notify_via_email: true,
+      notify_via_slack: false,
+    };
+    c.saveAlert();
+    const call = postSpy.calls.all().find((x) => x.args[0] === '/billing/spend-alerts');
+    expect(call).withContext('saveAlert POSTs to /billing/spend-alerts').toBeTruthy();
+    const body = call!.args[1] as Record<string, unknown>;
+    expect(body['trigger']).withContext('worker enum `trigger`').toBe('balance_below');
+    expect(body['email']).withContext('`email` (not notify_email)').toBe('ops@megabyte.space');
+    expect(body['channels']).withContext('channels[] built from the toggles').toEqual(['email']);
+    expect('alert_kind' in body).withContext('NEVER the old alert_kind key (worker 400d on it)').toBe(false);
+    expect('notify_email' in body).withContext('NEVER the old notify_email key').toBe(false);
+  });
+
+  it('saveAlert maps the rate_spike trigger + both channels when slack is on too', () => {
+    build();
+    const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: {} }));
+    const c = fixture.componentInstance;
+    c.alertDraft = {
+      name: 'Burn guard',
+      alert_kind: 'rate_spike',
+      threshold_credits: 2000,
+      notify_email: 'ops@megabyte.space',
+      notify_via_email: true,
+      notify_via_slack: true,
+    };
+    c.saveAlert();
+    const body = postSpy.calls.all().find((x) => x.args[0] === '/billing/spend-alerts')!.args[1] as Record<string, unknown>;
+    expect(body['trigger']).toBe('rate_spike');
+    expect(body['channels']).toEqual(['email', 'slack']);
   });
 
   it('an empty/absent subscription does not fabricate a {plan:"—"} — subStatus stays null + card shows "Free"', () => {

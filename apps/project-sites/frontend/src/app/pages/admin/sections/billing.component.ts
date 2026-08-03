@@ -17,7 +17,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
 interface CreditState { balance: number; bundles: Record<string, Bundle>; ledger: { delta: number; reason: string; stripe_session_id: string | null; created_at: string }[]; }
-interface Alert { id: string; name: string; threshold_credits: number; alert_kind: string; notify_email: string; enabled: number; last_triggered_at: string | null; notify_via_slack?: boolean; }
+interface Alert { id: string; name: string; threshold_credits: number; trigger_type: string; email: string; channels_json?: string; last_fired_at?: string | null; fire_count?: number; }
 
 /** Single row of the `/sites/:id/mcp/connections` response — only the fields
  *  this component needs (provider name + ok flag). Kept narrow so we don't
@@ -966,7 +966,7 @@ interface ForecastBar {
             <div class="flex items-center justify-between py-2 border-b border-white/[0.04] text-[0.78rem]">
               <div>
                 <div class="font-semibold text-white">{{ a.name }}</div>
-                <div class="text-text-secondary text-[0.7rem]">{{ a.alert_kind === 'balance_low' ? 'When balance <' : 'When daily burn >' }} {{ formatCredits(a.threshold_credits) }} credits → {{ a.notify_email }}</div>
+                <div class="text-text-secondary text-[0.7rem]">{{ a.trigger_type === 'balance_below' ? 'When balance <' : 'When spend/burn >' }} {{ formatCredits(a.threshold_credits) }} credits → {{ a.email }}</div>
               </div>
               <button type="button"
                       class="btn-danger-ghost"
@@ -1017,8 +1017,8 @@ interface ForecastBar {
                 data-testid="billing-spend-alert-trigger"
                 [ngModel]="alertDraft.alert_kind"
                 (ngModelChange)="alertDraft.alert_kind = $event">
-                <option value="balance_low">Balance dropped below</option>
-                <option value="daily_burn">Daily burn exceeded</option>
+                <option value="balance_below">Balance dropped below</option>
+                <option value="rate_spike">Daily burn exceeded</option>
               </select>
             </label>
 
@@ -2031,7 +2031,7 @@ export class AdminBillingComponent implements OnInit {
     // Default threshold = $10,000 (Turn 4) — surfaces a sensible runaway-spend
     // ceiling out of the box. Field is USD; saveAlert() converts to credits
     // via the $0.04/credit rate. User can override before submit.
-    name: '', alert_kind: 'balance_low', threshold_credits: 10000, notify_email: '',
+    name: '', alert_kind: 'balance_below', threshold_credits: 10000, notify_email: '',
     notify_via_email: true, notify_via_slack: false,
   };
 
@@ -2079,7 +2079,7 @@ export class AdminBillingComponent implements OnInit {
     // working number rather than an empty input — most operators want a high
     // runaway-spend ceiling, not a zero-from-scratch decision.
     this.alertDraft = {
-      name: '', alert_kind: 'balance_low', threshold_credits: 10000, notify_email: '',
+      name: '', alert_kind: 'balance_below', threshold_credits: 10000, notify_email: '',
       notify_via_email: true, notify_via_slack: false,
     };
     this.alertModalOpen.set(true);
@@ -2409,13 +2409,19 @@ export class AdminBillingComponent implements OnInit {
     this.savingAlert.set(true);
     const usdThreshold = this.alertDraft.threshold_credits ?? 0;
     const creditsThreshold = Math.max(1, Math.round(usdThreshold / 0.04));
+    // Align to the worker createSpendAlertSchema: { trigger (enum) + email + channels[] }.
+    // The select values ARE the worker enum (balance_below / rate_spike); the notify
+    // toggles build the channels array (never empty — the schema requires min 1).
+    const channels: ('email' | 'slack')[] = [];
+    if (this.alertDraft.notify_via_email) channels.push('email');
+    if (this.alertDraft.notify_via_slack) channels.push('slack');
+    if (channels.length === 0) channels.push('email');
     const payload = {
       name: this.alertDraft.name.trim(),
-      alert_kind: this.alertDraft.alert_kind,
+      trigger: this.alertDraft.alert_kind,
       threshold_credits: creditsThreshold,
-      notify_email: this.alertDraft.notify_email.trim(),
-      notify_via_email: this.alertDraft.notify_via_email,
-      notify_via_slack: this.alertDraft.notify_via_slack,
+      email: this.alertDraft.notify_email.trim(),
+      channels,
     };
     this.api.post('/billing/spend-alerts', payload).subscribe({
       next: () => {

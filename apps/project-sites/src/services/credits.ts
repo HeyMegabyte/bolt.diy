@@ -67,54 +67,64 @@ export interface SpendAlertRow {
   id: string;
   name: string;
   threshold_credits: number;
-  alert_kind: string;
-  notify_email: string;
-  enabled: number;
-  last_triggered_at: string | null;
+  trigger_type: string;
+  email: string;
+  last_fired_at: string | null;
 }
 
 /** Check alerts after a debit; fire-and-forget Resend if any trip. */
 export async function maybeFireAlerts(env: Env, orgId: string, newBalance: number): Promise<void> {
+  // Schema truth (prod D1 `spend_alerts`): trigger_type / email / last_fired_at,
+  // soft-deleted via deleted_at. There is NO `alert_kind` / `notify_email` /
+  // `enabled` / `last_triggered_at` column — reading those errored ("no such
+  // column") so this whole function threw and alerts NEVER fired. Trigger enum
+  // matches createSpendAlertSchema: balance_below / monthly_spend_above / rate_spike.
   const alerts = await env.DB.prepare(
-    `SELECT id, name, threshold_credits, alert_kind, notify_email, enabled, last_triggered_at
-     FROM spend_alerts WHERE org_id = ? AND enabled = 1`,
+    `SELECT id, name, threshold_credits, trigger_type, email, last_fired_at
+     FROM spend_alerts WHERE org_id = ? AND deleted_at IS NULL`,
   )
     .bind(orgId)
     .all<SpendAlertRow>();
   if (!alerts.results?.length) return;
   for (const a of alerts.results) {
     let shouldFire = false;
-    if (a.alert_kind === 'balance_low' && newBalance <= a.threshold_credits) shouldFire = true;
-    if (a.alert_kind === 'daily_burn') {
-      const today = new Date().toISOString().slice(0, 10);
+    if (a.trigger_type === 'balance_below' && newBalance <= a.threshold_credits) shouldFire = true;
+    if (a.trigger_type === 'rate_spike' || a.trigger_type === 'monthly_spend_above') {
+      // rate_spike ≈ today's burn; monthly_spend_above ≈ calendar-month spend.
+      const since =
+        a.trigger_type === 'monthly_spend_above'
+          ? `${new Date().toISOString().slice(0, 7)}-01T00:00:00.000Z`
+          : `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`;
       const row = await env.DB.prepare(
         `SELECT COALESCE(SUM(-delta), 0) AS spent FROM ai_credits_ledger
          WHERE org_id = ? AND delta < 0 AND created_at >= ?`,
       )
-        .bind(orgId, `${today}T00:00:00.000Z`)
+        .bind(orgId, since)
         .first<{ spent: number }>();
       if ((row?.spent ?? 0) >= a.threshold_credits) shouldFire = true;
     }
     if (!shouldFire) continue;
     // Throttle to once per 12h.
-    if (a.last_triggered_at) {
-      const lastMs = Date.parse(a.last_triggered_at);
+    if (a.last_fired_at) {
+      const lastMs = Date.parse(a.last_fired_at);
       if (Date.now() - lastMs < 12 * 60 * 60 * 1000) continue;
     }
-    await env.DB.prepare(`UPDATE spend_alerts SET last_triggered_at = datetime('now') WHERE id = ?`)
+    await env.DB.prepare(
+      `UPDATE spend_alerts SET last_fired_at = datetime('now'), fire_count = fire_count + 1 WHERE id = ?`,
+    )
       .bind(a.id)
       .run();
     // ADR-0019 Resend→SES: billing alerts route through SES when configured;
     // Resend stays the fallback. The seam is html-only, so wrap the plain-text
     // alert in an escaped <pre> block. Fire-and-forget — never blocks the debit.
     const subject = `Project Sites spend alert: ${a.name}`;
-    const text = `Alert "${a.name}" triggered.\nKind: ${a.alert_kind}\nThreshold: ${a.threshold_credits}\nCurrent balance: ${newBalance}\n\nManage alerts: https://projectsites.dev/admin/billing`;
+    const text = `Alert "${a.name}" triggered.\nKind: ${a.trigger_type}\nThreshold: ${a.threshold_credits}\nCurrent balance: ${newBalance}\n\nManage alerts: https://projectsites.dev/admin/billing`;
     if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
       await getEmailProvider(env)
         .sendTransactional({
           kind: 'billing-alert',
           from: 'alerts@projectsites.dev',
-          to: a.notify_email,
+          to: a.email,
           subject,
           html: `<pre>${escapeHtml(text)}</pre>`,
         })
@@ -128,7 +138,7 @@ export async function maybeFireAlerts(env: Env, orgId: string, newBalance: numbe
         },
         body: JSON.stringify({
           from: 'alerts@projectsites.dev',
-          to: [a.notify_email],
+          to: [a.email],
           subject,
           text,
         }),

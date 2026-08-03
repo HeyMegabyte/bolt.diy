@@ -74,6 +74,24 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     expect(c.podcastReady()).withContext('whitespace-only title → not ready').toBeFalse();
   });
 
+  // generatePodcast must send the keys the worker (media.ts) reads — voiceProvider + script.
+  // The old provider/segments keys 400d "script (array of {voice,text}) is required" every time.
+  it('generatePodcast POSTs { voiceProvider, script } — NOT the old provider/segments that 400d', () => {
+    build();
+    const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: {} }));
+    const c = fixture.componentInstance;
+    c.podcastTitle.set('My Episode');
+    c.podcastSegments.set([{ voice: 'Aria', text: 'Hello world' }]);
+    c.generatePodcast();
+    const call = postSpy.calls.all().find((x) => x.args[0] === '/media/generate/podcast');
+    expect(call).withContext('POSTs to /media/generate/podcast').toBeTruthy();
+    const body = call!.args[1] as Record<string, unknown>;
+    expect(body['voiceProvider']).withContext('worker reads voiceProvider').toBe('elevenlabs');
+    expect(body['script']).withContext('worker reads script ([{voice,text}])').toEqual([{ voice: 'Aria', text: 'Hello world' }]);
+    expect('provider' in body).withContext('NEVER the old provider key').toBe(false);
+    expect('segments' in body).withContext('NEVER the old segments key (worker 400d)').toBe(false);
+  });
+
   it('the count chip is filter-aware: shows "N of M" while filtering, total otherwise', () => {
     build();
     const c = fixture.componentInstance;

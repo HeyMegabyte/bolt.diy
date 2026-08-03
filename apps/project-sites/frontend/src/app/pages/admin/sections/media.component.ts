@@ -1836,8 +1836,10 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.api
       .post<{ data: MediaAsset }>('/media/generate/podcast', {
         title: this.podcastTitle().trim(),
-        provider: this.podcastProvider,
-        segments: this.podcastSegments(),
+        // Worker (media.ts) reads `voiceProvider` + `script` ([{voice,text}]) —
+        // the old `provider`/`segments` keys 400'd "script is required" every time.
+        voiceProvider: this.podcastProvider,
+        script: this.podcastSegments(),
       })
       .subscribe({
         next: (r) => {
