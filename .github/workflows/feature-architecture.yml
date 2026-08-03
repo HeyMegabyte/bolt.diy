@@ -117,6 +117,16 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-idor-gates.mjs --ci
 
+      # Unwired-endpoint detector — every FE `/api/*` call must resolve to a
+      # registered worker route (caps the 2026-08-02 admin-verification arc:
+      # P0.20 `PATCH /api/admin/profile` + P0.21 `GET/PUT /api/voice/mcp-attachments`
+      # were FE calls to routes that did not exist → "Save failed" 404s). Scans
+      # 623 worker route shapes vs every FE call; 0-finding-stable at arc close →
+      # graduated straight to a blocking gate. Pure Node, no deps.
+      - name: Unwired-endpoint gate
+        working-directory: apps/project-sites
+        run: node scripts/check-unwired-endpoints.mjs --ci
+
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
         if: always()
