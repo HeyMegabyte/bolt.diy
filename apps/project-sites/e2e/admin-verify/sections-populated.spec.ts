@@ -33,6 +33,13 @@ const POPULATED: Array<{ section: string; minItems: number; token: RegExp }> = [
   { section: 'domains', minItems: 2, token: /projectsites\.dev|domain|subdomain|active|cname|connect/i },
   { section: 'billing', minItems: 3, token: /free|pro|plan|subscription|entitlement|upgrade|credit/i },
   { section: 'user', minItems: 2, token: /api key|session|display name|profile|notification|sign out|revoke/i },
+  // P0.58 — LIVE-verified populated (analytics Network Overview shows real all-network
+  // traffic even for a zero-traffic account; logs = the real audit trail; auth-security
+  // = live sessions/health). Per-site analytics is legitimately "no data yet" for a
+  // zero-traffic demo site — the network overview + tab shell is what must render.
+  { section: 'analytics', minItems: 3, token: /analytics|traffic|requests|page views|visitors|network overview|no data yet/i },
+  { section: 'logs', minItems: 3, token: /audit|event|log|workflow|action|trace|forensics/i },
+  { section: 'auth-security', minItems: 2, token: /session|auth|security|health|device|sign|password|mfa/i },
 ];
 
 test.describe('Admin · data-rich sections are POPULATED (P0-ADMIN)', () => {
