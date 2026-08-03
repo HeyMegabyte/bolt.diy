@@ -868,6 +868,24 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'stable',
     owner_email: 'brian@megabyte.space',
   },
+  swarm_editor: {
+    key: 'swarm_editor',
+    description:
+      'Multi-Agent Swarm Editor — the 7-column parallel-specialist editing board + live component stream at /admin/swarm/:siteId. DARK: the /api/swarm/* backend is roadmap; the panel is a simulated preview and the run-history fetch is gated on this flag until live multi-agent execution ships.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  multi_agent_concurrent: {
+    key: 'multi_agent_concurrent',
+    description:
+      'Concurrent multi-agent execution for the Swarm Editor (paired with swarm_editor; both must be on to run a live swarm). DARK until the swarm orchestration backend ships — registered so the FE flag-resolution endpoint returns 200 (not 404) while the feature is dark.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

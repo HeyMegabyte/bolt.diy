@@ -26,10 +26,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
-import { catchError, of } from 'rxjs';
+import { catchError, of, take } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
 import { ToastService } from '../../../services/toast.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmInputDirective } from '../../../ui';
 
@@ -392,6 +393,7 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private cdr = inject(ChangeDetectorRef);
   private toast = inject(ToastService);
+  private flags = inject(FeatureFlagService);
 
   readonly siteId = signal<string>('');
   readonly loading = signal(false);
@@ -440,7 +442,26 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.siteId.set(this.route.snapshot.paramMap.get('siteId') ?? '');
-    this.loadHistory();
+    // The `/api/swarm/*` backend is roadmap — runs are simulated (see the header
+    // badge). Gate the real run-history fetch on `swarm_editor` so a dark feature
+    // never fires `/swarm/:id/runs` → a console 404 ({silent} only hides the toast,
+    // not the browser network log). See [[flag-gated-fetch-gate-on-ison-not-silent]].
+    this.flags
+      .isOn('swarm_editor')
+      .pipe(take(1))
+      .subscribe((on) => {
+        if (on) {
+          this.loadHistory();
+        } else {
+          // Render the clean gate notice (roadmap framing) — no fetch, no 404,
+          // and `unavailable()` disables launch/stream so no dead buttons.
+          this.loading.set(false);
+          this.loadErrorGated.set(true);
+          this.loadError.set(
+            'Live swarm runs activate once the multi-agent backend ships — this panel is a simulated preview.',
+          );
+        }
+      });
   }
 
   ngOnDestroy() {

@@ -1427,6 +1427,35 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     ],
     e2e_tests: ['e2e/site-dna/site-dna.spec.ts'],
   },
+  swarm_editor: {
+    checklist: [
+      'Simulated-preview board of the Multi-Agent Swarm Editor at /admin/swarm/:siteId',
+      '7-column parallel-specialist grid + live component-stream preview',
+      'Run-history fetch (/api/swarm/:id/runs) gated on this flag — dark = no fetch',
+      'Launch + SSE stream disabled while dark (the /api/swarm/* backend is roadmap)',
+    ],
+    explanation:
+      'Multi-Agent Swarm Editor — the 7-column parallel-specialist editing board plus live component-stream preview at /admin/swarm/:siteId. The panel is a simulated preview: real multi-agent execution (the /api/swarm/* backend) is on the roadmap. This flag gates the run-history fetch and the launch/stream actions, so while dark the section renders a clean gate notice and never fires a 404. Paired with multi_agent_concurrent; both must be on to run a live swarm.',
+    smoke_test: [
+      'GET /api/feature-flags/swarm_editor → enabled:false (experimental, 0%)',
+      'UI: /admin/swarm/:id → simulated preview + gate notice, 0 console errors, NO /api/swarm/:id/runs request',
+      'Flag on (+ backend) → run history loads and Start swarm run is enabled',
+    ],
+  },
+  multi_agent_concurrent: {
+    checklist: [
+      'Concurrent multi-agent execution capability for the Swarm Editor',
+      'Paired with swarm_editor — both must be on to launch a live swarm',
+      'Dark until the swarm orchestration backend ships',
+      'Registered so the FE flag-resolution endpoint returns 200, not 404',
+    ],
+    explanation:
+      'Concurrent multi-agent execution capability for the Swarm Editor. It pairs with swarm_editor — both flags must resolve on before a live swarm run can launch. It stays dark until the swarm orchestration backend (parallel specialists each owning a file partition, with conflict detection) ships. Registered in the flag registry so the frontend flag-resolution endpoint returns 200 with enabled:false instead of a 404 while the feature is dark.',
+    smoke_test: [
+      'GET /api/feature-flags/multi_agent_concurrent → enabled:false (experimental, 0%)',
+      'Both swarm_editor + multi_agent_concurrent must resolve on before a live swarm launches',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

@@ -17,6 +17,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminSwarmComponent } from './swarm.component';
 import { ToastService } from '../../../services/toast.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
+import { of } from 'rxjs';
 
 describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
   let fixture: ComponentFixture<AdminSwarmComponent>;
@@ -24,7 +26,15 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AdminSwarmComponent],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        // Swarm gates its run-history fetch on `swarm_editor`; mock it dark so
+        // ngOnInit takes the no-fetch path (no /runs 404) and the explicit
+        // loadHistory() tests still drive the single /api/swarm/s1/runs request.
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(AdminSwarmComponent);
     fixture.detectChanges();
@@ -269,6 +279,7 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     const errSpy = spyOn(TestBed.inject(ToastService), 'error');
     const http = TestBed.inject(HttpTestingController);
     fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadError.set(null); // feature available (flag-gate cleared)
     fixture.componentInstance.startSwarm();
     http.expectOne('/api/swarm/s1/start').flush('boom', { status: 500, statusText: 'Server Error' });
     expect(errSpy).toHaveBeenCalled();
@@ -278,6 +289,7 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
   it('startSwarm posts the DEFAULT directive when the field is blank', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadError.set(null); // feature available (flag-gate cleared)
     fixture.componentInstance.swarmPrompt = '   ';
     fixture.componentInstance.startSwarm();
     const req = http.expectOne('/api/swarm/s1/start');
@@ -288,6 +300,7 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
   it('startSwarm posts the operator-typed directive when provided (steerable)', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadError.set(null); // feature available (flag-gate cleared)
     fixture.componentInstance.swarmPrompt = '  Focus on mobile conversion + faster LCP  ';
     fixture.componentInstance.startSwarm();
     const req = http.expectOne('/api/swarm/s1/start');
@@ -342,7 +355,15 @@ describe('AdminSwarmComponent — auth bearer (raw-http 401 regression guard)', 
     } catch { /* private mode */ }
     TestBed.configureTestingModule({
       imports: [AdminSwarmComponent],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        // Swarm gates its run-history fetch on `swarm_editor`; mock it dark so
+        // ngOnInit takes the no-fetch path (no /runs 404) and the explicit
+        // loadHistory() tests still drive the single /api/swarm/s1/runs request.
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
     });
     const fx = TestBed.createComponent(AdminSwarmComponent);
     const http = TestBed.inject(HttpTestingController);
