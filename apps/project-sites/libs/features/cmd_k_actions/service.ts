@@ -22,7 +22,10 @@ function matchScore(slug: string, name: string, query: string): number {
 }
 
 export async function suggestActions(env: Env, orgId: string, query: string): Promise<{ id: string; label: string; action: string; siteSlug: string | null; route: string }[]> {
-  const sites = await dbQuery<SiteRow>(env.DB, `SELECT id, slug, name FROM sites WHERE org_id=? AND deleted_at IS NULL ORDER BY name LIMIT 50`, [orgId]);
+  // sites has no `name` column — it's `business_name`. Alias it back to `name` so
+  // the SiteRow shape + reads below stay unchanged. (Was `name` → no such column →
+  // swallowed → the Cmd-K palette returned only static fallbacks for every org.)
+  const sites = await dbQuery<SiteRow>(env.DB, `SELECT id, slug, business_name as name FROM sites WHERE org_id=? AND deleted_at IS NULL ORDER BY business_name LIMIT 50`, [orgId]);
   const results: { score: number; id: string; label: string; action: string; siteSlug: string | null; route: string }[] = [];
   for (const site of (sites.data ?? [])) {
     for (const a of ACTIONS) {

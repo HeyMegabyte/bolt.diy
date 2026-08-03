@@ -61,10 +61,9 @@ deployButtons.get('/:siteId', async (c) => {
     id: string;
     slug: string;
     business_name: string;
-    primary_hostname: string | null;
   }>(
     c.env.DB,
-    'SELECT id, slug, business_name, primary_hostname FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    'SELECT id, slug, business_name FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
     [siteId, orgId],
   );
 
@@ -72,9 +71,18 @@ deployButtons.get('/:siteId', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found.' } }, 404);
   }
 
+  // `primary_hostname` is NOT a sites column — resolve from the hostnames table
+  // (custom primary when set, else the slug default). The old SELECT of it threw
+  // `no such column` → swallowed → site=null → deploy buttons 404'd for every site.
+  const primaryRow = await dbQueryOne<{ hostname: string }>(
+    c.env.DB,
+    'SELECT hostname FROM hostnames WHERE site_id = ? AND is_primary = 1 AND deleted_at IS NULL LIMIT 1',
+    [site.id],
+  );
+
   // 5. Generate snippets — pure logic, no I/O.
-  const siteUrl = site.primary_hostname
-    ? `https://${site.primary_hostname}`
+  const siteUrl = primaryRow?.hostname
+    ? `https://${primaryRow.hostname}`
     : `https://${site.slug}.projectsites.dev`;
 
   const snippets = generateDeploySnippets(

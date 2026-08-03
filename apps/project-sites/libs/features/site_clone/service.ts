@@ -11,7 +11,11 @@ export async function cloneSite(env: Env, orgId: string, sourceSiteId: string, t
 
   const newId = crypto.randomUUID();
   const now = new Date().toISOString();
-  await dbExecute(env.DB, `INSERT INTO sites (id, org_id, slug, name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`, [newId, orgId, targetSlug, targetName, 'draft', now, now]);
+  // sites has no `name` column — it's `business_name`. (Was `name` → the INSERT
+  // threw `no such column` → cloneSite 500'd on every call.) NOTE: the `pages` copy
+  // below targets a `pages` table that does NOT exist in prod — boarded separately;
+  // the clone now creates the site but copies 0 pages until that's re-sourced.
+  await dbExecute(env.DB, `INSERT INTO sites (id, org_id, slug, business_name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`, [newId, orgId, targetSlug, targetName, 'draft', now, now]);
 
   const pages = await dbQuery<{ id: string; title: string; path: string; content: string; meta_json: string | null }>(env.DB, `SELECT id, title, path, content, meta_json FROM pages WHERE site_id=? AND deleted_at IS NULL`, [sourceSiteId]);
   let copied = 0;

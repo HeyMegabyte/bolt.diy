@@ -8944,7 +8944,10 @@ api.post('/api/admin/sites/:slug/migrate-assets', async (c) => {
 
   try {
     await c.env.DB.prepare(
-      "INSERT INTO audit_logs (id, org_id, site_id, action, metadata, created_at) VALUES (?, ?, ?, 'admin.asset_migration', ?, datetime('now'))",
+      // audit_logs has NO `site_id`/`metadata` columns — the site is recorded via
+      // target_type/target_id, and the JSON blob is `metadata_json`. (The old cols
+      // threw `no such column` → swallowed → this audit write silently never happened.)
+      "INSERT INTO audit_logs (id, org_id, target_type, target_id, action, metadata_json, created_at) VALUES (?, ?, 'site', ?, 'admin.asset_migration', ?, datetime('now'))",
     )
       .bind(
         crypto.randomUUID(),

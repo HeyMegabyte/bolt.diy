@@ -24,7 +24,7 @@
  * @packageDocumentation
  */
 import { z } from 'zod';
-import { dbInsert, dbQueryOne } from './db.js';
+import { dbExecute, dbQueryOne } from './db.js';
 
 /** Metric name used to accumulate AI spend rows in `usage_events`. */
 export const AI_SPEND_METRIC = 'ai_spend_micro_usd';
@@ -234,16 +234,24 @@ export async function recordSpend(
   if (microUsd <= 0) return;
 
   try {
-    await dbInsert(env.DB, 'usage_events', {
-      id: crypto.randomUUID(),
-      org_id: orgId,
-      site_id: parsed.data.siteId ?? null,
-      metric: AI_SPEND_METRIC,
-      value: microUsd,
-      ts: new Date().toISOString(),
-      billed: 0,
-      stripe_subscription_item_id: null,
-    });
+    // usage_events has NO created_at/updated_at columns — `dbInsert` auto-prepends
+    // them, so its INSERT threw `no such column: created_at` every time → swallowed →
+    // the AI-spend billing meter recorded NOTHING ($0 forever). Use an explicit
+    // dbExecute over the 8 real columns.
+    await dbExecute(
+      env.DB,
+      `INSERT INTO usage_events (id, org_id, site_id, metric, value, ts, billed, stripe_subscription_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        orgId,
+        parsed.data.siteId ?? null,
+        AI_SPEND_METRIC,
+        microUsd,
+        new Date().toISOString(),
+        0,
+        null,
+      ],
+    );
   } catch (err) {
     console.warn(
       JSON.stringify({
