@@ -149,6 +149,44 @@ export function isTwilioConfigured(env: Env): boolean {
   return !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN);
 }
 
+/**
+ * Map a failed Twilio REST response to a typed {@link AppError}.
+ *
+ * @remarks
+ * A Twilio **401** (error 20003 "Authenticate") means the configured
+ * `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` are PRESENT but do not
+ * authenticate — a *provisioning* problem, not a transient upstream outage.
+ * {@link isTwilioConfigured} only checks presence, so invalid creds sail past
+ * the 501 gate and would otherwise surface as a misleading **502 Bad Gateway**
+ * ("Twilio is down / our fault"). We instead return **501 SERVICE_UNAVAILABLE**
+ * — the same "not configured" status {@link getCreds} throws when the creds are
+ * ABSENT — so the admin UI shows one calm "connect Twilio" state whether the
+ * credentials are missing OR present-but-rejected. A **404** passes through as
+ * 404; every other non-2xx is a genuine upstream failure → **502**.
+ *
+ * @param op  - short operation label for the message (e.g. `"number search"`).
+ * @param res - the non-ok Twilio `Response` (body is read once via {@link safeBody}).
+ * @returns an {@link AppError} ready to `throw`.
+ * @example
+ * const res = await fetch(twilioUrl, { headers });
+ * if (!res.ok) throw await twilioFail('number search', res);
+ */
+async function twilioFail(op: string, res: Response): Promise<AppError> {
+  const body = await safeBody(res);
+  if (res.status === 401) {
+    return new AppError({
+      code: 'SERVICE_UNAVAILABLE',
+      statusCode: 501,
+      message: `TWILIO_NOT_AUTHENTICATED: the configured Twilio credentials were rejected (401) during ${op}. Set valid TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN via \`wrangler secret put\`.`,
+    });
+  }
+  return new AppError({
+    code: 'SERVICE_UNAVAILABLE',
+    statusCode: res.status === 404 ? 404 : 502,
+    message: `Twilio ${op} failed: ${res.status} ${body}`,
+  });
+}
+
 // ─── Number search ───────────────────────────────────────────────
 
 export interface NumberSearchOpts {
@@ -208,13 +246,7 @@ export async function searchAvailableNumbers(
   const res = await fetch(url.toString(), {
     headers: { Authorization: basicAuthHeader(creds), Accept: 'application/json' },
   });
-  if (!res.ok) {
-    throw new AppError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: `Twilio number search failed: ${res.status} ${await safeBody(res)}`,
-      statusCode: 502,
-    });
-  }
+  if (!res.ok) throw await twilioFail('number search', res);
   const json = (await res.json()) as { available_phone_numbers?: TwilioAvailableRow[] };
   return (json.available_phone_numbers ?? []).map((row) => ({
     phone_number: row.phone_number,
@@ -269,13 +301,7 @@ export async function purchaseNumber(env: Env, opts: PurchaseOpts): Promise<Purc
     },
     body: body.toString(),
   });
-  if (!res.ok) {
-    throw new AppError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: `Twilio purchase failed: ${res.status} ${await safeBody(res)}`,
-      statusCode: 502,
-    });
-  }
+  if (!res.ok) throw await twilioFail('purchase', res);
   const json = (await res.json()) as {
     sid: string;
     phone_number: string;
@@ -302,13 +328,7 @@ export async function releaseNumber(env: Env, twilioSid: string): Promise<void> 
     `${TWILIO_BASE}/Accounts/${creds.sid}/IncomingPhoneNumbers/${twilioSid}.json`,
     { method: 'DELETE', headers: { Authorization: basicAuthHeader(creds) } },
   );
-  if (!res.ok && res.status !== 404) {
-    throw new AppError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: `Twilio release failed: ${res.status} ${await safeBody(res)}`,
-      statusCode: 502,
-    });
-  }
+  if (!res.ok && res.status !== 404) throw await twilioFail('release', res);
 }
 
 // ─── SMS ────────────────────────────────────────────────────────
@@ -344,13 +364,7 @@ export async function sendSms(env: Env, opts: SendSmsOpts): Promise<SentSms> {
     },
     body: body.toString(),
   });
-  if (!res.ok) {
-    throw new AppError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: `Twilio sendSms failed: ${res.status} ${await safeBody(res)}`,
-      statusCode: 502,
-    });
-  }
+  if (!res.ok) throw await twilioFail('sendSms', res);
   const json = (await res.json()) as {
     sid: string;
     status: string;

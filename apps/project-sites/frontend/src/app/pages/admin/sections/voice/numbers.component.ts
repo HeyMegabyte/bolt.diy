@@ -228,6 +228,11 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
               </li>
             }
           </ul>
+        } @else if (searchError(); as err) {
+          <p class="notice notice-amber mt-3" role="status" data-testid="voice-search-error">
+            <strong>{{ err }}</strong>
+            <button class="btn-ghost text-xs ml-2 align-middle" type="button" (click)="retrySearch()">Retry</button>
+          </p>
         } @else if (searchAttempted()) {
           <p class="muted-help mt-3" role="status">No numbers available for that search — try a different vanity word or area code.</p>
         }
@@ -397,6 +402,10 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
   areaCode = '';
   searching = signal(false);
   searchResults = signal<NumberCandidate[]>([]);
+  /** Set when a search REQUEST fails (Twilio not connected / creds rejected /
+   *  transient) so the UI shows an honest, actionable notice — never a lying
+   *  "No numbers available for that search" empty state that hides the failure. */
+  searchError = signal<string | null>(null);
   suggestions = signal<VanitySuggestion[]>([]);
   suggestionsLoading = signal(false);
   cappedNotice = signal(false);
@@ -481,6 +490,7 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (!q.trim() && !this.areaCode.trim()) {
       this.searchResults.set([]);
+      this.searchError.set(null);
       return;
     }
     this.debounceTimer = setTimeout(() => this.runSearch(), 300);
@@ -492,13 +502,35 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     this.abortCtrl?.abort();
     this.abortCtrl = new AbortController();
     this.searching.set(true);
-    const params: Record<string, string> = { siteId: site.id };
-    if (this.query.trim()) params['q'] = this.query.trim().toUpperCase();
-    if (this.areaCode.trim()) params['area'] = this.areaCode.trim();
-    this.api.get<{ data: NumberCandidate[] }>('/voice/search', params).subscribe({
-      next: (r) => { this.searchResults.set((r.data ?? []).slice(0, 20)); this.searching.set(false); },
-      error: () => { this.searchResults.set([]); this.searching.set(false); },
+    // Worker route is GET /api/voice/numbers/search (params: contains / areaCode
+    // [3 digits] / country / limit; returns { numbers, total }). Earlier this
+    // called a nonexistent /api/voice/search → 404 → search always came up empty.
+    const params: Record<string, string> = {};
+    if (this.query.trim()) params['contains'] = this.query.trim().toUpperCase();
+    const area = this.areaCode.trim();
+    if (/^\d{3}$/.test(area)) params['areaCode'] = area; // worker rejects non-3-digit → omit
+    // {silent}: the section owns its own failure surface (the searchError notice
+    // below) — no generic ApiService toast on top of it.
+    this.api.get<{ numbers?: NumberCandidate[] }>('/voice/numbers/search', params, { silent: true }).subscribe({
+      next: (r) => { this.searchResults.set((r.numbers ?? []).slice(0, 20)); this.searchError.set(null); this.searching.set(false); },
+      // A failed search must NEVER masquerade as "No numbers available" (a lie).
+      // 501 = phone provider not connected / Twilio creds rejected → calm,
+      // actionable notice. Any other status = a real transient failure → Retry.
+      error: (e: { status?: number }) => {
+        this.searchResults.set([]);
+        this.searchError.set(
+          e?.status === 501
+            ? 'Number search needs a connected phone provider — add valid Twilio credentials to search live numbers.'
+            : 'Could not search numbers right now. Check your connection and press Retry.',
+        );
+        this.searching.set(false);
+      },
     });
+  }
+
+  /** Public retry entry for the search-error notice's Retry button. */
+  retrySearch(): void {
+    this.runSearch();
   }
 
   useSuggestion(s: VanitySuggestion): void {

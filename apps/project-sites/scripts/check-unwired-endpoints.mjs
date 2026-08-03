@@ -45,7 +45,8 @@ const EXEMPT_SHAPES = new Set([
   'GET /api/swarm/*/runs', // swarm.component — planned agent-swarm subsystem
   'POST /api/swarm/*/start', // swarm.component — planned agent-swarm subsystem
   'GET /api/voice/conversations/*', // voice conversation DETAIL — list exists (/voice/conversations), detail route not built
-  'GET /api/voice/search', // voice number search — FE aspirational path; worker has /voice/numbers/search with a different signature
+  // (voice number search FIXED 2026-08-02: runSearch() now calls the real
+  //  GET /api/voice/numbers/search — no longer exempted.)
   // Surfaced 2026-08-02 when the regex learned to see fluent line-split calls (`this.api\n.get(...)`):
   'GET /api/v1-tokens', // api-tokens — "Public API v1 token management" UI, built ahead of the Public-Developer-API worker (monumental initiative)
   'POST /api/v1-tokens', // api-tokens — same (mint)

@@ -165,6 +165,38 @@ describe('VoiceNumbersComponent (area-code-only search shows the no-results hint
     c.query = '   '; c.areaCode = '';
     expect(c.searchAttempted()).toBeFalse();
   });
+
+  // A failed search must NOT masquerade as the "No numbers available" empty hint
+  // (a lie). It sets searchError so the template shows an honest, actionable
+  // notice instead — the exact class the admin-verification mandate forbids.
+  it('a 501 search failure sets the connect-provider notice (never a lying empty result)', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 501 })));
+    c.query = 'MOVE';
+    c.retrySearch();
+    expect(c.searchResults().length).withContext('no fake results').toBe(0);
+    expect(c.searchError()).withContext('honest provider notice').toContain('phone provider');
+  });
+
+  it('a non-501 search failure shows the transient Retry message', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 503 })));
+    c.query = 'MOVE';
+    c.retrySearch();
+    expect(c.searchError()).toContain('Retry');
+  });
+
+  it('a successful search clears any prior searchError and populates results', () => {
+    const { c, api } = make();
+    c.searchError.set('stale');
+    api.get.and.returnValue(
+      of({ numbers: [{ phone_number: '+18005550100', iso_country: 'US', capabilities: { voice: true, sms: true, mms: false }, monthly_cost_usd: 1.15 }] }),
+    );
+    c.query = 'MOVE';
+    c.retrySearch();
+    expect(c.searchError()).toBeNull();
+    expect(c.searchResults().length).toBe(1);
+  });
 });
 
 /**

@@ -257,6 +257,18 @@ describe('searchAvailableNumbers', () => {
     });
   });
 
+  it('maps a Twilio 401 (present-but-rejected creds) to 501, not a misleading 502', async () => {
+    // Twilio error 20003 "Authenticate": the configured SID/token ARE present
+    // (isTwilioConfigured passed) but do not authenticate — a provisioning
+    // problem. Surfaced as 501 (same as missing creds) so the admin UI shows one
+    // calm "connect Twilio" state, never a 502 that implies a transient outage.
+    mockFetchOnce({ code: 20003, message: 'Authenticate', status: 401 }, { ok: false, status: 401 });
+    await expect(searchAvailableNumbers(env())).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      statusCode: 501,
+    });
+  });
+
   it('propagates a network throw', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('ECONNRESET'));
     await expect(searchAvailableNumbers(env())).rejects.toThrow('ECONNRESET');
