@@ -87,6 +87,22 @@ try {
     return { status: res.status, email: d?.email ?? null };
   }, PW);
   report._login = login;
+  // Kill the PWA service worker + caches so the sweep renders the FRESHLY-DEPLOYED
+  // bundle, not a stale SW-cached one. A fresh Browserbase session can still serve a
+  // prior-deploy SW cache right after a deploy → a false "still broken" render even
+  // though R2 has the fix (cost 2 verify cycles, 2026-08-03 snapshots-diff).
+  await page.evaluate(async () => {
+    try {
+      if (navigator.serviceWorker) {
+        const rs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(rs.map((x) => x.unregister()));
+      }
+      if (window.caches) {
+        const ks = await caches.keys();
+        await Promise.all(ks.map((k) => caches.delete(k)));
+      }
+    } catch { /* ignore — SW/cache API unavailable */ }
+  });
   // Reload so AuthService hydrates the seeded session before the guards run.
   await page.goto('https://projectsites.dev/admin', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(3000);

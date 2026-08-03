@@ -47,12 +47,13 @@ describe('AdminSnapshotsDiffComponent (diff load + guards)', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('errors (no fetch) when from/to ids are missing', async () => {
+  it('shows the neutral pick-two prompt (no error, no fetch) when from/to ids are missing', async () => {
     const get = jasmine.createSpy('get');
     const { c } = make(get);
     c.fromId.set(''); c.toId.set('');
     await c.load();
-    expect(c.error()).toContain('required in the URL');
+    expect(c.needsSelection()).toBeTrue();
+    expect(c.error()).toBeNull();
     expect(get).not.toHaveBeenCalled();
   });
 

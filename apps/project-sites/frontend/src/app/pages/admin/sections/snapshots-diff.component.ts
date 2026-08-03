@@ -219,6 +219,11 @@ interface DiffResponse {
             Snapshots are identical — no file changes detected.
           </div>
         }
+      } @else if (needsSelection()) {
+        <div class="rounded-xl border border-[var(--ps-accent)]/15 bg-[var(--ps-accent)]/[0.04] p-8 text-center text-white/70"
+             role="status" data-testid="snapshots-diff-hint" appReveal>
+          Select two snapshots above to compare — pick a <strong class="text-white">from</strong> and a <strong class="text-white">to</strong> version to see what changed.
+        </div>
       }
     </div>
   `,
@@ -265,6 +270,8 @@ export class AdminSnapshotsDiffComponent implements OnInit {
 
   loading = signal(true);
   error = signal<string | null>(null);
+  /** Initial state — no from/to selected yet → a neutral "pick two" prompt, NOT the red error card. */
+  readonly needsSelection = signal(false);
   /** Worker request_id from a failed diff load — shown as the card's copyable support reference. */
   readonly loadErrorRef = signal('');
   diff = signal<DiffResponse | null>(null);
@@ -329,8 +336,21 @@ export class AdminSnapshotsDiffComponent implements OnInit {
       )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (res) =>
-          this.snapshots.set((res?.data ?? []).map((s) => ({ id: s.id, name: s.snapshot_name }))),
+        next: (res) => {
+          const list = (res?.data ?? []).map((s) => ({ id: s.id, name: s.snapshot_name }));
+          this.snapshots.set(list);
+          // Populate by default: if the user arrived without a ?from/?to selection
+          // and there are ≥2 snapshots, auto-compare the two most recent so the
+          // section shows a real diff instead of the "pick two" prompt. Guarded on
+          // both being empty → fires at most once, never a navigate loop.
+          if (!this.fromId() && !this.toId() && list.length >= 2) {
+            this.router.navigate([], {
+              relativeTo: this.route,
+              queryParams: { from: list[1].id, to: list[0].id },
+              queryParamsHandling: 'merge',
+            });
+          }
+        },
         error: () => this.snapshots.set([]),
       });
   }
@@ -359,11 +379,16 @@ export class AdminSnapshotsDiffComponent implements OnInit {
       return;
     }
     if (!from || !to) {
-      this.error.set('Both `from` and `to` snapshot ids are required in the URL.');
+      // Initial state (no ?from/?to yet) is NOT an error — show a neutral
+      // "pick two snapshots to compare" prompt, never the red error card.
+      // (loadSnapshotList auto-selects the two most recent when ≥2 exist.)
+      this.needsSelection.set(true);
+      this.error.set(null);
       this.loading.set(false);
       return;
     }
     this.loading.set(true);
+    this.needsSelection.set(false);
     this.error.set(null);
     this.loadErrorRef.set('');
     try {
