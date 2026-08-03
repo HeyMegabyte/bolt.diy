@@ -262,7 +262,10 @@ describe('searchAvailableNumbers', () => {
     // (isTwilioConfigured passed) but do not authenticate — a provisioning
     // problem. Surfaced as 501 (same as missing creds) so the admin UI shows one
     // calm "connect Twilio" state, never a 502 that implies a transient outage.
-    mockFetchOnce({ code: 20003, message: 'Authenticate', status: 401 }, { ok: false, status: 401 });
+    mockFetchOnce(
+      { code: 20003, message: 'Authenticate', status: 401 },
+      { ok: false, status: 401 },
+    );
     await expect(searchAvailableNumbers(env())).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       statusCode: 501,
