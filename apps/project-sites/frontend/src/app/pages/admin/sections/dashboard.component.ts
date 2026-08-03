@@ -1027,8 +1027,17 @@ export class AdminDashboardComponent {
 
   private loadLatestMetrics(siteId: string): void {
     this.metricsLoading.set(true);
+    // `silent: true` — CWV is a non-critical background widget that already
+    // degrades gracefully to "—". Without this, a transient status-0 (network
+    // blip) fired ApiService's alarming "Can't reach the server" toast on the
+    // dashboard even though the page is fine. Fail-soft: degrade quietly, no toast;
+    // 401 handling + telemetry still run. (Caught by the dashboard AI-vision pass.)
     this.api
-      .get<{ data: Record<string, SnapshotMetrics | null> }>(`/sites/${siteId}/snapshots/metrics`)
+      .get<{ data: Record<string, SnapshotMetrics | null> }>(
+        `/sites/${siteId}/snapshots/metrics`,
+        undefined,
+        { silent: true },
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
