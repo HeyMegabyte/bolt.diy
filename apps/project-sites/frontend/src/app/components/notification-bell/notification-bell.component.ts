@@ -293,7 +293,10 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
     // Poll every 60 seconds for new notifications
     this.pollSub = interval(60_000).pipe(
       filter(() => this.auth.isLoggedIn()),
-      switchMap(() => this.api.get<{ data: Notification[]; unread_count: number }>('/notifications')),
+      // `silent: true` — a poll status-0 must NOT fire ApiService's alarming
+      // "Can't reach the server" toast (the component handler below is silent, but
+      // ApiService toasts BEFORE it). Notifications are non-critical background data.
+      switchMap(() => this.api.get<{ data: Notification[]; unread_count: number }>('/notifications', undefined, { silent: true })),
     ).subscribe({
       next: (res) => {
         this.notifications.set(res.data);

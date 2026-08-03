@@ -89,11 +89,16 @@ export class UpgradeMomentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.api
-      .get<UpgradeMomentList>('/upgrade-moments')
+      // `silent: true` — this renders on the /admin hub and its flag is experimental,
+      // so a flag-off 404 is EXPECTED. Without silent, ApiService fired the alarming
+      // "Can't reach the server" toast on the dashboard (the subscribe error handler
+      // below only stops the COMPONENT from toasting; ApiService toasts first).
+      // Confirmed the dashboard toast source via the sweep's net-failure logger.
+      .get<UpgradeMomentList>('/upgrade-moments', undefined, { silent: true })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (r) => this.moments.set(Array.isArray(r?.moments) ? r.moments : []),
-        // Silent: flag-off 404 or any error → render nothing (never break the dashboard).
+        // flag-off 404 or any error → render nothing (never break the dashboard).
         error: () => this.moments.set([]),
       });
   }
