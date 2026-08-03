@@ -54,7 +54,18 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   let current = 'boot';
   const errors = {}, failed = {};
-  page.on('console', (m) => { if (m.type() === 'error') (errors[current] ??= []).push(m.text().slice(0, 140)); });
+  // Capture console.error AND the console.warning that GlobalErrorHandler emits
+  // for a caught render crash — a section swallowed by the error boundary logs
+  // via console.warning, NOT console.error, so a console.error-only sweep reports
+  // errors:[] on a fully CRASHED section (cost a fire, 2026-08-03: Voice was dark
+  // yet the sweep said 0 errors). Also capture uncaught pageerror.
+  page.on('console', (m) => {
+    const t = m.type(), txt = m.text();
+    if (t === 'error' || (t === 'warning' && /Unhandled error|GlobalErrorHandler|ran into a problem/i.test(txt))) {
+      (errors[current] ??= []).push(`[${t}] ${txt.slice(0, 160)}`);
+    }
+  });
+  page.on('pageerror', (e) => { (errors[current] ??= []).push(`[pageerror] ${(e.message || String(e)).slice(0, 160)}`); });
   page.on('response', (res) => {
     if (res.status() >= 400 && !res.url().includes('google-analytics') && !res.url().includes('/g/collect')) {
       (failed[current] ??= []).push(res.status() + ' ' + res.url().replace('https://projectsites.dev', '').slice(0, 90));
@@ -86,11 +97,18 @@ try {
       await page.goto('https://projectsites.dev' + p, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(5500);
       await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: false });
-      const info = await page.evaluate(() => ({
-        url: location.pathname,
-        h1: (document.querySelector('h1')?.innerText || '').slice(0, 60),
-        mainLen: (document.querySelector('main')?.innerText || document.body.innerText || '').trim().length,
-      }));
+      const info = await page.evaluate(() => {
+        // The section error boundary renders "This section ran into a problem" on
+        // a caught render crash — detect it so a crashed section is flagged even
+        // when it logged no console.error (it went through GlobalErrorHandler).
+        const bodyText = document.body.innerText || '';
+        return {
+          url: location.pathname,
+          h1: (document.querySelector('h1')?.innerText || '').slice(0, 60),
+          mainLen: (document.querySelector('main')?.innerText || bodyText).trim().length,
+          crashed: /ran into a problem/i.test(bodyText),
+        };
+      });
       report[name] = { ...info, errors: errors[name] ?? [], failed: (failed[name] ?? []).slice(0, 6) };
     } catch (e) {
       report[name] = { shot: 'FAIL', error: String(e).slice(0, 120) };
