@@ -278,9 +278,17 @@ export async function dispatchPlatformTool(
         primary_hostname: string | null;
       }>(
         db,
-        `SELECT id, slug, business_name, status, primary_hostname
-           FROM sites WHERE org_id = ? AND deleted_at IS NULL
-           ORDER BY updated_at DESC LIMIT ?`,
+        // `primary_hostname` is NOT a sites column — resolve the primary custom
+        // hostname from the hostnames table via a correlated subquery (null when
+        // the site is still on its {slug}.projectsites.dev default). The old
+        // SELECT of it threw `no such column` → swallowed → list_sites returned
+        // ZERO sites for every MCP client.
+        `SELECT s.id, s.slug, s.business_name, s.status,
+                (SELECT h.hostname FROM hostnames h
+                   WHERE h.site_id = s.id AND h.is_primary = 1 AND h.deleted_at IS NULL
+                   LIMIT 1) AS primary_hostname
+           FROM sites s WHERE s.org_id = ? AND s.deleted_at IS NULL
+           ORDER BY s.updated_at DESC LIMIT ?`,
         [orgId, limit],
       );
       return ok({ count: data.length, sites: data });
@@ -298,8 +306,15 @@ export async function dispatchPlatformTool(
         updated_at: string;
       }>(
         db,
-        `SELECT id, slug, business_name, status, plan, primary_hostname, updated_at
-           FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+        // `primary_hostname` is resolved from hostnames (see list_sites); `plan`
+        // IS a real sites column. The old SELECT of primary_hostname threw
+        // `no such column` → swallowed → get_site returned "Site not found" for
+        // every real site.
+        `SELECT s.id, s.slug, s.business_name, s.status, s.plan, s.updated_at,
+                (SELECT h.hostname FROM hostnames h
+                   WHERE h.site_id = s.id AND h.is_primary = 1 AND h.deleted_at IS NULL
+                   LIMIT 1) AS primary_hostname
+           FROM sites s WHERE s.id = ? AND s.org_id = ? AND s.deleted_at IS NULL`,
         [site_id, orgId],
       );
       // 404-on-missing-or-foreign (never leak another org's site existence).
@@ -314,9 +329,13 @@ export async function dispatchPlatformTool(
         [site_id, orgId],
       );
       if (!owned) return err('Site not found.');
-      const job = await dbQueryOne<{ status: string; step: string | null; updated_at: string }>(
+      // workflow_jobs has NO `step` column (real cols: job_name, status, attempt,
+      // started_at, completed_at, error_message, updated_at …). Selecting `step`
+      // threw `no such column` → swallowed → the build-status tool returned
+      // {status:'none'} for every site. Drop it.
+      const job = await dbQueryOne<{ status: string; updated_at: string }>(
         db,
-        `SELECT status, step, updated_at FROM workflow_jobs
+        `SELECT status, updated_at FROM workflow_jobs
            WHERE site_id = ? ORDER BY updated_at DESC LIMIT 1`,
         [site_id],
       );
@@ -333,10 +352,14 @@ export async function dispatchPlatformTool(
         [site_id, orgId],
       );
       if (!owned) return err('Site not found.');
+      // audit_logs has NO `site_id` column — site scoping is target_type/target_id.
+      // The old `WHERE site_id = ?` threw `no such column` → swallowed → the
+      // audit-log tool returned zero entries for every site (despite 1,129 real
+      // rows for this org). Filter on target_type='site' AND target_id instead.
       const { data } = await dbQuery<{ action: string; created_at: string }>(
         db,
         `SELECT action, created_at FROM audit_logs
-           WHERE org_id = ? AND site_id = ? ORDER BY created_at DESC LIMIT ?`,
+           WHERE org_id = ? AND target_type = 'site' AND target_id = ? ORDER BY created_at DESC LIMIT ?`,
         [orgId, site_id, limit],
       );
       return ok({ site_id, count: data.length, entries: data });
@@ -482,9 +505,11 @@ export async function dispatchPlatformTool(
         [site_id, orgId],
       );
       if (!owned) return err('Site not found.');
-      const { data } = await dbQuery<{ status: string; step: string | null; updated_at: string }>(
+      // workflow_jobs has no `step` column (see get_build_status). Drop it so
+      // tail_logs stops silently returning zero entries.
+      const { data } = await dbQuery<{ status: string; updated_at: string }>(
         db,
-        `SELECT status, step, updated_at FROM workflow_jobs
+        `SELECT status, updated_at FROM workflow_jobs
            WHERE site_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`,
         [site_id, limit],
       );

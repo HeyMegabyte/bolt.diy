@@ -182,11 +182,18 @@ export async function dbQueryOne<T = Record<string, unknown>>(
   return data[0] ?? null;
 }
 
+/** Per-isolate cache of tables known to LACK created_at/updated_at columns. */
+const NO_TIMESTAMP_TABLES = new Set<string>();
+
 /**
  * Insert a row into a table using a plain object.
  *
  * Automatically generates `INSERT INTO table (col1, col2) VALUES (?, ?)` from
- * the object keys. Sets `created_at` and `updated_at` if not already present.
+ * the object keys. Prepends `created_at`/`updated_at` for tables that have them;
+ * a table WITHOUT those columns (e.g. `usage_events`) is detected on first use,
+ * cached, and re-inserted without the timestamps — so the write never silently
+ * fails on `no such column: created_at`. Caller-supplied timestamp values still
+ * win (spread order), and genuine drift on any OTHER column stays loud.
  *
  * @param db    - The D1Database binding.
  * @param table - Table name (must be a known table — **not** user input).
@@ -210,19 +217,28 @@ export async function dbInsert(
   row: Record<string, unknown>,
 ): Promise<{ error: string | null }> {
   const now = new Date().toISOString();
-  const withTimestamps: Record<string, unknown> = {
-    created_at: now,
-    updated_at: now,
-    ...row,
+
+  const buildAndExec = (record: Record<string, unknown>) => {
+    const keys = Object.keys(record);
+    const placeholders = keys.map(() => '?').join(', ');
+    const values = keys.map((k) => record[k]);
+    const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
+    return dbExecute(db, sql, values);
   };
 
-  const keys = Object.keys(withTimestamps);
-  const placeholders = keys.map(() => '?').join(', ');
-  const values = keys.map((k) => withTimestamps[k]);
+  // Tables already learned to be timestamp-less skip the doomed first attempt.
+  if (NO_TIMESTAMP_TABLES.has(table)) {
+    return { error: (await buildAndExec(row)).error };
+  }
 
-  const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
-  const { error } = await dbExecute(db, sql, values);
-  return { error };
+  // Default path: prepend created_at/updated_at (caller values win via spread).
+  const first = await buildAndExec({ created_at: now, updated_at: now, ...row });
+  if (first.error && /no such column:\s*(created_at|updated_at)/i.test(first.error)) {
+    // This table has no timestamp columns — remember it + retry with the raw row.
+    NO_TIMESTAMP_TABLES.add(table);
+    return { error: (await buildAndExec(row)).error };
+  }
+  return { error: first.error };
 }
 
 /**
