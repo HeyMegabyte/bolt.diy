@@ -32,9 +32,9 @@ import {
 } from '../helpers/browserbase.js';
 import { checkA11y } from '../helpers/a11y.js';
 import { SECTIONS, BROKEN } from './_admin-sections.js';
+import { loginAsBrian } from './_brian-login.js';
 
 const PROD = 'https://projectsites.dev';
-const BRIAN = 'brian@megabyte.space';
 const GATE = Boolean(
   process.env.RUN_BROWSERBASE && process.env.E2E_TEST_PASSWORD && browserbaseAvailable(),
 );
@@ -60,40 +60,13 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
       });
       page.on('pageerror', (e) => consoleErrors.push(String(e)));
 
-      // 1) Establish the origin in a real browser so Cloudflare's Bot-Fight
-      //    JS-challenge is solved before we issue the auth fetch.
-      await page.goto(`${PROD}/`, { waitUntil: 'domcontentloaded' });
+      // Real login AS brian FROM the page (the shared helper solves the Bot-Fight
+      // challenge via a first goto, then seeds ps_session — see ./_brian-login.ts).
+      const token = await loginAsBrian(page, PROD, process.env.E2E_TEST_PASSWORD!);
+      expect(token.length, 'brian test-login failed (empty token)').toBeGreaterThan(0);
 
-      // 2) Real login AS brian FROM the page (bypasses the curl BFM block). The
-      //    password is passed as an evaluate arg — never logged.
-      const token = await page.evaluate(
-        async ({ email, password }: { email: string; password: string }) => {
-          const r = await fetch('/api/auth/test-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
-          if (!r.ok) return { ok: false, status: r.status, token: '' };
-          const j = (await r.json()) as { data?: { token?: string } };
-          return { ok: true, status: r.status, token: j.data?.token ?? '' };
-        },
-        { email: BRIAN, password: process.env.E2E_TEST_PASSWORD! },
-      );
-      expect(token.ok && token.token.length > 0, `brian test-login failed (status ${token.status})`).toBe(true);
-
-      // 3) Seed brian's real session the way the SPA expects it.
-      await page.evaluate(
-        ({ t, id }: { t: string; id: string }) => {
-          localStorage.setItem(
-            'ps_session',
-            JSON.stringify({ token: t, identifier: id, createdAt: Date.now() }),
-          );
-        },
-        { t: token.token, id: BRIAN },
-      );
-
-      // 4) Sweep every section as brian — same contract as the e2e-org sweep,
-      //    NEVER cascade (a bad section must not blind us to the other 19).
+      // Sweep every section as brian — same contract as the e2e-org sweep,
+      // NEVER cascade (a bad section must not blind us to the other 19).
       for (const section of SECTIONS) {
         const label = section.path || 'dashboard';
         const errBefore = consoleErrors.length;
