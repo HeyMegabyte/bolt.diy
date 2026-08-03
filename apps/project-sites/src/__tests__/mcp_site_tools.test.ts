@@ -254,12 +254,14 @@ describe('dispatchTool — success routing', () => {
     expect(mockInsert.mock.calls[0][2].slug).toBe('/custom');
   });
 
-  it('get_analytics_summary returns a 30d period envelope', async () => {
-    mockQuery.mockResolvedValueOnce({ data: [{ metric: 'views', total: 5 }], error: null });
+  it('get_analytics_summary returns a 30d columnar-sum envelope (metrics = the summed row)', async () => {
+    // analytics_daily is COLUMNAR — the tool sums the real columns into ONE row
+    // (P0.32 rewrite). metrics is that row object, NOT an EAV metric/value array.
+    mockQuery.mockResolvedValueOnce({ data: [{ pageviews: 108, unique_sessions: 44, conversions: 2, total_events: 200 }], error: null });
     const r = await dispatchTool(db, SITE, 'get_analytics_summary', {});
     const out = JSON.parse(textOf(r));
     expect(out.period).toBe('30d');
-    expect(out.metrics).toEqual([{ metric: 'views', total: 5 }]);
+    expect(out.metrics).toEqual({ pageviews: 108, unique_sessions: 44, conversions: 2, total_events: 200 });
   });
 });
 
@@ -283,12 +285,15 @@ describe('dispatchTool — limit defaults and clamping', () => {
     expect(mockQuery.mock.calls[0][2]).toEqual([SITE, 100]);
   });
 
-  it('list_media_assets defaults to 30 and clamps to 100', async () => {
+  it('list_media_assets resolves the org first, then defaults limit to 30 and clamps to 100', async () => {
+    // media_assets is ORG-scoped (P0.32): the handler resolves the site's org
+    // (dbQueryOne) then lists by [org_id, clampedLimit] — NOT [siteId, limit].
+    mockQueryOne.mockResolvedValue({ org_id: 'org-x' });
     await dispatchTool(db, SITE, 'list_media_assets', {});
-    expect(mockQuery.mock.calls[0][2]).toEqual([SITE, 30]);
+    expect(mockQuery.mock.calls[0][2]).toEqual(['org-x', 30]);
     mockQuery.mockClear();
     await dispatchTool(db, SITE, 'list_media_assets', { limit: 999 });
-    expect(mockQuery.mock.calls[0][2]).toEqual([SITE, 100]);
+    expect(mockQuery.mock.calls[0][2]).toEqual(['org-x', 100]);
   });
 });
 
