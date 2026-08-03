@@ -106,6 +106,7 @@ import { forms } from './routes/forms.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { aiAdmin } from './routes/ai_admin.js';
 import { apiTokensAdmin } from './routes/api_tokens_admin.js'; // account psk_ token CRUD for /admin/api-tokens (flag: public_api)
+import { authSessions } from './routes/auth_sessions.js'; // custom-auth Active Sessions for /admin/auth-security (Better Auth is dark)
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
 import { envVarsRoutes } from './routes/env_vars.js';
@@ -469,6 +470,12 @@ app.use('/api/auth/*', async (c, next) => {
     // this passthrough the BA handler swallows the path and returns its own
     // 404, killing the real-roundtrip suite whenever the flag is on.
     '/api/auth/magic-link/peek',
+    // Custom-auth "Active sessions" for /admin/auth-security — implemented over
+    // the legacy D1 `sessions` table (routes/auth_sessions.ts). Must fall through
+    // to our handler, not the BA handler (which 401s on a legacy session token).
+    '/api/auth/list-sessions',
+    '/api/auth/revoke-session',
+    '/api/auth/revoke-other-sessions',
   ];
   if (legacyPaths.includes(path)) {
     await next();
@@ -1069,6 +1076,7 @@ app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend
 app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizable env vars for AI + MCP dispatch
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
 app.route('/', apiTokensAdmin); // GET/POST/DELETE /api/v1-tokens — account API-token CRUD for /admin/api-tokens (flag: public_api)
+app.route('/', authSessions); // GET /api/auth/list-sessions + revoke-session/revoke-other — custom-auth Active Sessions (Better Auth dark). Reached because the /api/auth/* BA middleware next()s when better_auth is off.
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first

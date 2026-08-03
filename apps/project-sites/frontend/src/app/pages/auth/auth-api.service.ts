@@ -88,10 +88,22 @@ export class AuthApiService {
     body?: unknown,
   ): Promise<AuthResult<T>> {
     try {
+      // Attach the custom-auth Bearer session (ps_session) so authed calls
+      // (list-sessions, revoke-session, …) reach our custom handlers authenticated.
+      // Native fetch bypasses Angular's HttpClient interceptors, so the token has
+      // to be added here. Pre-auth flows (sign-in/up/magic-link) simply have none.
+      const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
+      try {
+        const raw = localStorage.getItem('ps_session');
+        const token = raw ? (JSON.parse(raw) as { token?: string })?.token : null;
+        if (token) headers['authorization'] = `Bearer ${token}`;
+      } catch {
+        /* no session / private mode — send unauthenticated (pre-auth flows) */
+      }
       const res = await fetch(`${AUTH_BASE}${path}`, {
         method,
         credentials: 'include',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        headers,
         body: body === undefined ? undefined : JSON.stringify(body),
       });
 
