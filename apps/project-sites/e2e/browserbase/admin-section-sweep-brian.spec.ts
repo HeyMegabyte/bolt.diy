@@ -66,6 +66,20 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
       });
       page.on('pageerror', (e) => consoleErrors.push(String(e)));
 
+      // Network-failure log — surfaces failed /api requests (the mandate's "no
+      // failed requests"). status-0 requestfailed is what fires ApiService's
+      // "Can't reach the server" toast; 4xx/5xx catches broken endpoints. Logged
+      // per section (not a hard fail — some failures are benign aborts on nav).
+      const netFailures: string[] = [];
+      page.on('requestfailed', (req) => {
+        const u = req.url();
+        if (u.includes('/api/')) netFailures.push(`FAILED ${req.method()} ${u.replace(PROD, '')} — ${req.failure()?.errorText ?? '?'}`);
+      });
+      page.on('response', (res) => {
+        const u = res.url();
+        if (u.includes('/api/') && res.status() >= 400) netFailures.push(`HTTP ${res.status()} ${res.request().method()} ${u.replace(PROD, '')}`);
+      });
+
       // Real login AS brian FROM the page (the shared helper solves the Bot-Fight
       // challenge via a first goto, then seeds ps_session — see ./_brian-login.ts).
       const token = await loginAsBrian(page, PROD, process.env.E2E_TEST_PASSWORD!);
@@ -76,6 +90,7 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
       for (const section of BRIAN_SECTIONS) {
         const label = section.path || 'dashboard';
         const errBefore = consoleErrors.length;
+        const netBefore = netFailures.length;
         try {
           await page.goto(`${PROD}/admin/${section.path}`, { waitUntil: 'domcontentloaded' });
           await page
@@ -102,6 +117,11 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
 
           const newErrors = consoleErrors.slice(errBefore);
           if (newErrors.length) failures.push(`${label}: console errors — ${newErrors.join(' | ')}`);
+
+          // Diagnostic (not a hard fail): log any /api request that failed during
+          // this section's load — pins the source of ApiService's status-0 toast.
+          const newNet = netFailures.slice(netBefore);
+          if (newNet.length) console.log(`[net ${label}] ${newNet.join(' | ')}`);
 
           try {
             await checkA11y(page, `/admin/${label} (brian)`);
