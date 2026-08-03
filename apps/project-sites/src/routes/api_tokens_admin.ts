@@ -64,7 +64,12 @@ apiTokensAdmin.post('/api/v1-tokens', async (c) => {
   const name = String(body.name ?? '').trim();
   if (!name || name.length > 120) {
     return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'A token name (1–120 characters) is required.' } },
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'A token name (1–120 characters) is required.',
+        },
+      },
       400,
     );
   }
@@ -85,7 +90,8 @@ apiTokensAdmin.post('/api/v1-tokens', async (c) => {
         {
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'Expiry must be a valid future date — leave blank for a token that never expires.',
+            message:
+              'Expiry must be a valid future date — leave blank for a token that never expires.',
           },
         },
         400,
@@ -93,7 +99,14 @@ apiTokensAdmin.post('/api/v1-tokens', async (c) => {
     }
     expiresAt = d.toISOString();
   }
-  const result = await createApiToken(c.env.DB, orgId, name, scopes, c.get('userId') ?? null, expiresAt);
+  const result = await createApiToken(
+    c.env.DB,
+    orgId,
+    name,
+    scopes,
+    c.get('userId') ?? null,
+    expiresAt,
+  );
   return c.json(
     {
       token: result.token,
