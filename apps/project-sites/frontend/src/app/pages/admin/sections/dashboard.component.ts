@@ -157,25 +157,33 @@ const RECENT_KEY = 'ps_dash_recents';
         @if (hasSites() && latestMetrics()) {
           <section class="group cwv-group" appReveal aria-labelledby="grp-cwv">
             <h2 class="group-title" id="grp-cwv"><app-cmd-glyph name="activity" /> Core Web Vitals</h2>
-            <p class="status-source">From your latest snapshot · real Lighthouse data</p>
-            <ul class="cwv-strip" aria-label="Core Web Vitals">
-              @for (pill of cwvPills(latestMetrics()!); track pill.key) {
+            @if (hasCwvData()) {
+              <p class="status-source">From your latest snapshot · real Lighthouse data</p>
+              <ul class="cwv-strip" aria-label="Core Web Vitals">
+                @for (pill of cwvPills(latestMetrics()!); track pill.key) {
+                  <li>
+                    <span class="cwv-chip" [attr.data-tier]="pill.tier" [attr.title]="pill.tooltip">
+                      <span class="cwv-label">{{ pill.label }}</span>
+                      <span class="cwv-value">{{ pill.formatted }}</span>
+                    </span>
+                  </li>
+                }
                 <li>
-                  <span class="cwv-chip" [attr.data-tier]="pill.tier" [attr.title]="pill.tooltip">
-                    <span class="cwv-label">{{ pill.label }}</span>
-                    <span class="cwv-value">{{ pill.formatted }}</span>
+                  <span class="cwv-chip"
+                        [attr.data-tier]="tierForLh(latestMetrics()!.lh_performance)"
+                        title="Lighthouse Performance score (0-100). Target ≥90.">
+                    <span class="cwv-label">Perf</span>
+                    <span class="cwv-value">{{ latestMetrics()!.lh_performance !== null ? latestMetrics()!.lh_performance : '—' }}</span>
                   </span>
                 </li>
-              }
-              <li>
-                <span class="cwv-chip"
-                      [attr.data-tier]="tierForLh(latestMetrics()!.lh_performance)"
-                      title="Lighthouse Performance score (0-100). Target ≥90.">
-                  <span class="cwv-label">Perf</span>
-                  <span class="cwv-value">{{ latestMetrics()!.lh_performance !== null ? latestMetrics()!.lh_performance : '—' }}</span>
-                </span>
-              </li>
-            </ul>
+              </ul>
+            } @else {
+              <p class="status-source">Latest snapshot captured — Lighthouse metrics not run on it yet</p>
+              <p class="cwv-empty" data-testid="cwv-empty">
+                No Core Web Vitals on your most recent snapshot. They populate automatically once a
+                snapshot runs with Lighthouse enabled.
+              </p>
+            }
           </section>
         }
 
@@ -740,6 +748,14 @@ const RECENT_KEY = 'ps_dash_recents';
         padding: 0;
         margin: 8px 0 0;
       }
+      .cwv-empty {
+        /* 0.66 alpha ≈ 6.5:1 on the dark bg — clears WCAG AA (matches .status-source fix). */
+        color: rgba(255, 255, 255, 0.66);
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 560px;
+        margin: 8px 0 0;
+      }
       .cwv-chip {
         display: inline-flex;
         flex-direction: column;
@@ -816,6 +832,24 @@ export class AdminDashboardComponent {
   readonly hasSites = computed(() => this.siteCount() > 0);
   readonly latestMetrics = signal<SnapshotMetrics | null>(null);
   readonly metricsLoading = signal(false);
+  /**
+   * True when the latest snapshot actually captured Lighthouse/CWV numbers. Cron
+   * snapshots frequently store only a screenshot (all metric columns null) → we
+   * show an honest "not run yet" note instead of a strip of bare "—" dashes under
+   * a "real Lighthouse data" heading (reads as broken). Caught by the dashboard
+   * AI-vision pass 2026-08-02.
+   */
+  readonly hasCwvData = computed(() => {
+    const m = this.latestMetrics();
+    return (
+      !!m &&
+      (m.lcp_ms !== null ||
+        m.cls !== null ||
+        m.inp_ms !== null ||
+        m.tbt_ms !== null ||
+        m.lh_performance !== null)
+    );
+  });
   readonly activeSiteDomain = computed(() => {
     const site = this.state.selectedSite() ?? this.state.sites()[0];
     return (site as { domain?: string })?.domain ?? null;
