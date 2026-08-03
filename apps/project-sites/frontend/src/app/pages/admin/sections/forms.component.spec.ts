@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, flush, TestBed, tick } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminFormsComponent } from './forms.component';
@@ -84,6 +84,61 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     build(null);
     expect(get).not.toHaveBeenCalled();
   });
+
+  // The test panel POSTs /v1/forms/submit, which resolves the site from ?slug= —
+  // WITHOUT it the worker 400s "Missing X-Site-Slug" before validation (the panel
+  // never worked). And form_name must be a slug (worker rejects a bad one → 400).
+  it('runTest POSTs /v1/forms/submit?slug=<slug> — was 400 "Missing X-Site-Slug"', () => {
+    build({ id: 'site-1', slug: 'megabytespace' } as never);
+    const post = TestBed.inject(ApiService).post as jasmine.Spy;
+    post.calls.reset();
+    component.testInput.form_name = 'newsletter';
+    component.testInput.fields_json = '{}';
+    component.runTest();
+    const call = post.calls.all().find((x) => String(x.args[0]).startsWith('/v1/forms/submit'));
+    expect(call).withContext('runTest POSTs to the forms-submit endpoint').toBeTruthy();
+    expect(String(call!.args[0])).withContext('carries ?slug= so the worker resolves the site').toContain('slug=megabytespace');
+  });
+
+  it('runTest BLOCKS a malformed form_name (not a slug) — no POST + error toast', () => {
+    build({ id: 'site-1', slug: 'megabytespace' } as never);
+    const post = TestBed.inject(ApiService).post as jasmine.Spy;
+    const toastErr = TestBed.inject(ToastService).error as jasmine.Spy;
+    post.calls.reset();
+    component.testInput.form_name = 'Not A Slug!';
+    expect(component.formNameInvalid()).withContext('spaces + ! → not a slug').toBeTrue();
+    component.runTest();
+    expect(post.calls.all().find((x) => String(x.args[0]).startsWith('/v1/forms/submit')))
+      .withContext('a malformed form_name blocks the POST').toBeUndefined();
+    expect(toastErr).toHaveBeenCalled();
+  });
+
+  it('formNameInvalid: empty is VALID (worker defaults to "default"); >64 + non-slug are invalid', () => {
+    build({ id: 'site-1', slug: 'megabytespace' } as never);
+    component.testInput.form_name = '';
+    expect(component.formNameInvalid()).withContext('empty → valid (worker default)').toBeFalse();
+    component.testInput.form_name = 'a'.repeat(65);
+    expect(component.formNameInvalid()).withContext('>64 chars → invalid').toBeTrue();
+    component.testInput.form_name = 'valid-slug_1';
+    expect(component.formNameInvalid()).withContext('a real slug → valid').toBeFalse();
+  });
+
+  // The worker returns { data: { id } }; the FE read `data.submission_id` (always
+  // undefined) → the inline AI-trace poll was ALWAYS skipped. Reading data.id fixes it.
+  it('runTest reads data.id (not submission_id) → schedules the AI-trace poll after submit', fakeAsync(() => {
+    build({ id: 'site-1', slug: 'megabytespace' } as never);
+    const api = TestBed.inject(ApiService);
+    (api.post as jasmine.Spy).and.returnValue(of({ data: { id: 'sub-9' } }));
+    const getSpy = api.get as jasmine.Spy;
+    getSpy.calls.reset();
+    component.testInput.form_name = 'newsletter';
+    component.testInput.fields_json = '{}';
+    component.runTest();
+    tick(700); // the poll is scheduled via setTimeout(poll, 700)
+    const pollCall = getSpy.calls.all().find((x) => String(x.args[0]).includes('/form-submissions/sub-9'));
+    expect(pollCall).withContext('data.id drives the trace poll (was submission_id → always skipped)').toBeTruthy();
+    flush(); // drain the poll's re-scheduled timers so none leak into later specs
+  }));
 
   // A submitter email in the table is a reply target — render it as a mailto: link
   // ([[always]] mandate). The cell stops propagation so clicking the link replies

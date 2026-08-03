@@ -194,6 +194,9 @@ const POLL_INTERVAL_MS = 10_000;
             <input hlmInput placeholder="form_name (e.g. newsletter, contact)" aria-label="Form name" [(ngModel)]="testInput.form_name" />
             <input hlmInput type="email" placeholder="email" aria-label="Submitter email" [(ngModel)]="testInput.email" />
           </div>
+          @if (formNameInvalid()) {
+            <p class="text-[0.7rem] text-red-300/90 mt-1" role="alert" data-testid="forms-test-name-hint">Form name must be a short slug — letters, numbers, hyphen or underscore, max 64 chars.</p>
+          }
           <textarea hlmInput [multiline]="true" class="w-full mt-2 font-mono text-[0.72rem]" rows="3" placeholder='Other fields as JSON, e.g. { "message": "hi", "name": "Brian" }'
                     aria-label="Additional fields as JSON"
                     [(ngModel)]="testInput.fields_json"></textarea>
@@ -203,7 +206,7 @@ const POLL_INTERVAL_MS = 10_000;
                 <span class="mcp-chip" [style.background]="m.color + '20'" [style.color]="m.color" [style.border-color]="m.color + '60'" [title]="m.desc">{{ m.label }}</span>
               }
             </div>
-            <button class="btn-primary" (click)="runTest()" [disabled]="testing()" [brnTooltip]="'Run the prompt now'">{{ testing() ? 'Running…' : 'Run' }}</button>
+            <button class="btn-primary" (click)="runTest()" [disabled]="testing() || formNameInvalid()" [brnTooltip]="'Run the prompt now'">{{ testing() ? 'Running…' : 'Run' }}</button>
           </div>
           @if (testResult()) {
             <div class="mt-3 submission-success" data-testid="forms-submission-success">
@@ -380,7 +383,7 @@ const POLL_INTERVAL_MS = 10_000;
                         data-testid="forms-test-body"></textarea>
             </label>
 
-            <button class="btn-primary w-full" [disabled]="testing()" data-testid="forms-test-run" (click)="runTest()">
+            <button class="btn-primary w-full" [disabled]="testing() || formNameInvalid()" data-testid="forms-test-run" (click)="runTest()">
               {{ testing() ? 'Running…' : 'Run test' }}
             </button>
 
@@ -1669,9 +1672,21 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Mirror the worker formSubmissionInputSchema form_name rule (min1/max64/slug
+   *  regex). Empty is VALID — the worker defaults it to 'default'. */
+  formNameInvalid(): boolean {
+    const raw = (this.testInput.form_name ?? '').trim();
+    if (raw.length === 0) return false;
+    return raw.length > 64 || !/^[a-z0-9][a-z0-9-_]{0,62}$/i.test(raw);
+  }
+
   runTest(): void {
     const site = this.state.selectedSite();
     if (!site) return;
+    if (this.formNameInvalid()) {
+      this.toast.error('Form name must be a short slug — letters, numbers, hyphen or underscore, max 64 chars.');
+      return;
+    }
     let fields: Record<string, unknown> = {};
     try {
       fields = JSON.parse(this.testInput.fields_json || '{}') as Record<string, unknown>;
@@ -1683,8 +1698,11 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     this.testResult.set(null);
     // Reuse the public form-submit endpoint — the worker runs the router prompt
     // and writes an ai_form_logs row we then poll back for the structured trace.
+    // The worker resolves the site from ?slug= (or the X-Site-Slug header) —
+    // WITHOUT it the request 400s "Missing X-Site-Slug" before validation ever
+    // runs, so the test panel never worked. Pass the selected site's slug.
     this.api
-      .post<{ data?: { submission_id?: string } }>(`/v1/forms/submit`, {
+      .post<{ data?: { id?: string } }>(`/v1/forms/submit?slug=${encodeURIComponent(site.slug)}`, {
         form_name: this.testInput.form_name,
         email: this.testInput.email,
         fields,
@@ -1692,7 +1710,9 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (res) => {
-          const subId = res?.data?.submission_id;
+          // Worker returns { data: { id } } (was read as `submission_id` → always
+          // undefined → the inline AI-trace poll was skipped every time).
+          const subId = res?.data?.id;
           if (!subId) {
             this.testResult.set({ note: 'Submitted — open AI Logs to see the trace.' });
             this.testing.set(false);
