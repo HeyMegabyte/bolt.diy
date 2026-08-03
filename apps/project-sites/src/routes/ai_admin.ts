@@ -482,6 +482,19 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  // FE↔BE parity ([[zod-everywhere]]): contact_email/reply_email are validated on
+  // the FE (`emailInvalid()`); gate the raw API too so a NON-empty value must be a
+  // real email (≤254 chars). '' or null clears the field; omitted keys stay
+  // untouched (partial saves — e.g. the lone `{allow_web_research}` toggle).
+  // `.passthrough()` leaves every other field to the existing allow-list below.
+  const emailField = z.union([z.literal(''), z.null(), z.string().email().max(254)]).optional();
+  const emailGate = z
+    .object({ reply_email: emailField, contact_email: emailField })
+    .passthrough()
+    .safeParse(body);
+  if (!emailGate.success) {
+    throw new HTTPError(400, 'contact_email and reply_email must be valid email addresses');
+  }
   const allowed = [
     'chat_persona',
     'chat_system_prompt',
@@ -642,6 +655,13 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
     cron_expression?: string | null;
     tags?: unknown[];
   };
+  // Clamp numeric config to the range the FE enforces (rate 0-10000/sec, ttl
+  // 0-86400s) so the raw API can't persist a negative or absurd value that would
+  // break the endpoint's own limiter/cache. Clamps (never rejects) — matches FE.
+  const clampInt = (v: unknown, min: number, max: number, dflt: number): number => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : dflt;
+    return Math.max(min, Math.min(max, n));
+  };
   const slug = normaliseSlug(body.endpoint_slug);
   if (!slug) throw new HTTPError(400, 'slug must be lowercase a-z 0-9 dashes, 2-64 chars');
   const language: IdeLanguage =
@@ -685,8 +705,8 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
       JSON.stringify(files),
       body.bindings ? JSON.stringify(body.bindings) : null,
       body.auth_mode ?? 'open',
-      typeof body.rate_limit_per_sec === 'number' ? body.rate_limit_per_sec : 60,
-      typeof body.cache_ttl_seconds === 'number' ? body.cache_ttl_seconds : 0,
+      clampInt(body.rate_limit_per_sec, 0, 10000, 60),
+      clampInt(body.cache_ttl_seconds, 0, 86400, 0),
       body.cron_expression ?? null,
       body.tags ? JSON.stringify(body.tags) : null,
       deploy.runtimePending ? 'idle' : 'live',
@@ -831,6 +851,11 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
     'cron_expression',
   ];
   for (const k of direct) if (k in body) updates[k] = body[k];
+  // Same clamp as create — the raw API can't persist an out-of-range rate/ttl.
+  if ('rate_limit_per_sec' in updates)
+    updates['rate_limit_per_sec'] = Math.max(0, Math.min(10000, Math.trunc(Number(updates['rate_limit_per_sec']) || 0)));
+  if ('cache_ttl_seconds' in updates)
+    updates['cache_ttl_seconds'] = Math.max(0, Math.min(86400, Math.trunc(Number(updates['cache_ttl_seconds']) || 0)));
   if (nextSlug !== existing.endpoint_slug) updates['endpoint_slug'] = nextSlug;
   if (body['files']) updates['files_json'] = JSON.stringify(body['files']);
   if (body['bindings']) updates['bindings_json'] = JSON.stringify(body['bindings']);
