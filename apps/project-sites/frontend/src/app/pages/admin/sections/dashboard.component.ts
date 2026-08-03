@@ -670,7 +670,9 @@ const RECENT_KEY = 'ps_dash_recents';
         margin: -2px 0 10px;
         font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
         font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase;
-        color: var(--ps-text-muted, rgba(255,255,255,0.45));
+        /* 66% (not 45%) so this 0.62rem caption clears WCAG AA 4.5:1 on the dark
+           bg — the axe serious color-contrast advisory the real-Chrome sweep flagged. */
+        color: rgba(255,255,255,0.66);
       }
       .status-strip {
         list-style: none; margin: 0; padding: 0;
