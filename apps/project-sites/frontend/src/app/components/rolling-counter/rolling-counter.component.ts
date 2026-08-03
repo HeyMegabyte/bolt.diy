@@ -82,6 +82,12 @@ export class RollingCounterComponent implements OnInit, OnDestroy {
   private started = false;
 
   ngOnInit(): void {
+    // Defense-in-depth: `value` is `required`, but a caller passing undefined/NaN
+    // (e.g. a stats-shape mismatch) must never crash the counter — and it's rendered
+    // in dashboards/analytics/super-admin, so one bad binding would take down the
+    // whole section via the error boundary. Coerce to a finite number ONCE.
+    if (!Number.isFinite(this.value)) this.value = 0;
+
     const isBrowser = isPlatformBrowser(this.platformId);
     const reduce = isBrowser && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 

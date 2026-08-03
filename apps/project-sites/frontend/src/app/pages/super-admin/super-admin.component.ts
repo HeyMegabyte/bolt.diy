@@ -43,6 +43,25 @@ interface SuperAdminStats {
 }
 
 /**
+ * The RAW shape `GET /api/super-admin/stats` actually returns — NESTED totals +
+ * per-category + daily rows. The stats tiles read the FLAT {@link SuperAdminStats};
+ * `loadStats` maps + derives between the two. (Before the 2026-08-02 fix the
+ * component stored this object directly, so every flat `s.*` read was undefined →
+ * `<app-rolling-counter [value]="undefined">` threw → the whole section crashed.)
+ */
+interface WorkerStatsResponse {
+  totals?: {
+    total_orgs?: number;
+    active_subs?: number;
+    total_balance_cents?: number;
+    monthly_revenue_cents?: number;
+    topups_today?: number;
+  };
+  by_category?: Array<{ gross_charged_cents?: number; net_margin_cents?: number }>;
+  daily?: Array<{ day?: string; topup_credits_cents?: number }>;
+}
+
+/**
  * `/super-admin` — single-page surface for tuning the cost × markup_factor
  * model that drives every wallet debit. Gated server-side on
  * `users.is_super_admin = 1`; non-super-admin requests get a 403.
@@ -337,9 +356,27 @@ export class SuperAdminComponent implements OnInit {
 
   private async loadStats(): Promise<void> {
     try {
-      const res = await this.api.get<SuperAdminStats>('/super-admin/stats?days=30').toPromise();
-      if (res) this.stats.set(res);
-    } catch (e) { if (this.is403(e)) this.forbidden.set(true); }
+      // Map the worker's NESTED response → the flat SuperAdminStats the tiles read,
+      // DERIVING spend/margin from by_category + topups from today's daily row. Every
+      // field is coerced to a real number so no <app-rolling-counter [value]> is ever
+      // undefined (which throws → crashes the section). See WorkerStatsResponse.
+      const raw = await this.api.get<WorkerStatsResponse>('/super-admin/stats?days=30').toPromise();
+      if (!raw?.totals) return;
+      const byCat = raw.by_category ?? [];
+      const sumCat = (k: 'gross_charged_cents' | 'net_margin_cents'): number =>
+        byCat.reduce((acc, row) => acc + (Number(row?.[k]) || 0), 0);
+      const today = (raw.daily ?? []).at(-1);
+      this.stats.set({
+        orgs_total: Number(raw.totals.total_orgs) || 0,
+        active_subscriptions: Number(raw.totals.active_subs) || 0,
+        monthly_revenue_cents: Number(raw.totals.monthly_revenue_cents) || 0,
+        spend_30d_cents: sumCat('gross_charged_cents'),
+        topups_today_cents: Number(today?.topup_credits_cents) || 0,
+        margin_30d_cents: sumCat('net_margin_cents'),
+      });
+    } catch (e) {
+      if (this.is403(e)) this.forbidden.set(true);
+    }
   }
 
   private async loadCategories(): Promise<void> {
