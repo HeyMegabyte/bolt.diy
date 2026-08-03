@@ -374,7 +374,9 @@ async function handleGetAnalyticsSummary(db: D1Database, siteId: string): Promis
     [siteId],
   );
   return {
-    content: [{ type: 'text', text: JSON.stringify({ period: '30d', metrics: data[0] ?? {} }, null, 2) }],
+    content: [
+      { type: 'text', text: JSON.stringify({ period: '30d', metrics: data[0] ?? {} }, null, 2) },
+    ],
   };
 }
 
