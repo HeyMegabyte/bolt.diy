@@ -46,7 +46,7 @@ export async function computeUsageGauges(
   const buildRow = await dbQueryOne<CountRow>(
     env.DB,
     `SELECT COUNT(*) as cnt FROM workflow_jobs
-     WHERE org_id = ? AND type = 'build' AND deleted_at IS NULL`,
+     WHERE org_id = ? AND job_name = 'build' AND deleted_at IS NULL`,
     [orgId],
   );
 

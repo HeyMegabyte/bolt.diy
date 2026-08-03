@@ -7,7 +7,12 @@ interface CountRow { cnt: number }
 export async function getOnboardingProgress(env: Env, orgId: string): Promise<OnboardingProgress> {
   const [siteRow, buildRow, domainRow, billingRow, memberRow] = await Promise.all([
     dbQueryOne<CountRow>(env.DB, `SELECT COUNT(*) as cnt FROM sites WHERE org_id = ? AND deleted_at IS NULL`, [orgId]),
-    dbQueryOne<CountRow>(env.DB, `SELECT COUNT(*) as cnt FROM workflow_jobs WHERE org_id = ? AND type = 'build' AND status = 'completed' AND deleted_at IS NULL`, [orgId]),
+    // "First build" = the org has a BUILT site. Single-site builds record via
+    // sites.current_build_version (site-generation workflow), NOT workflow_jobs
+    // (only batch ops write that, and its `type` column doesn't exist → the table
+    // is empty). Count built sites so this reflects reality (was: workflow_jobs
+    // `type='build'` → non-existent column → always 0 → step never completed).
+    dbQueryOne<CountRow>(env.DB, `SELECT COUNT(*) as cnt FROM sites WHERE org_id = ? AND current_build_version IS NOT NULL AND deleted_at IS NULL`, [orgId]),
     dbQueryOne<CountRow>(env.DB, `SELECT COUNT(*) as cnt FROM hostnames h JOIN sites s ON s.id = h.site_id WHERE s.org_id = ? AND h.deleted_at IS NULL AND s.deleted_at IS NULL AND h.status = 'active'`, [orgId]),
     dbQueryOne<CountRow>(env.DB, `SELECT COUNT(*) as cnt FROM subscriptions WHERE org_id = ? AND status = 'active' AND deleted_at IS NULL`, [orgId]),
     dbQueryOne<CountRow>(env.DB, `SELECT COUNT(*) as cnt FROM memberships WHERE org_id = ? AND deleted_at IS NULL`, [orgId]),

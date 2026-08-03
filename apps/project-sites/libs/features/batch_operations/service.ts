@@ -9,9 +9,9 @@ export async function batchProcess(env: Env, orgId: string, siteIds: string[], a
     if (!site) { results.push({ siteId, ok: false, message: 'not_found_or_not_owned' }); continue; }
     try {
       if (action === 'rebuild') {
-        await dbExecute(env.DB, `INSERT INTO workflow_jobs (id, org_id, site_id, type, status, created_at, updated_at) VALUES (?,?,?,?,'queued',datetime('now'),datetime('now'))`, [crypto.randomUUID(), orgId, siteId, 'build']);
+        await dbExecute(env.DB, `INSERT INTO workflow_jobs (id, org_id, site_id, job_name, status, created_at, updated_at) VALUES (?,?,?,?,'queued',datetime('now'),datetime('now'))`, [crypto.randomUUID(), orgId, siteId, 'build']);
       } else if (action === 'snapshot') {
-        await dbExecute(env.DB, `INSERT INTO workflow_jobs (id, org_id, site_id, type, status, created_at, updated_at) VALUES (?,?,?,?,'queued',datetime('now'),datetime('now'))`, [crypto.randomUUID(), orgId, siteId, 'snapshot']);
+        await dbExecute(env.DB, `INSERT INTO workflow_jobs (id, org_id, site_id, job_name, status, created_at, updated_at) VALUES (?,?,?,?,'queued',datetime('now'),datetime('now'))`, [crypto.randomUUID(), orgId, siteId, 'snapshot']);
       } else if (action === 'delete') {
         await dbExecute(env.DB, `UPDATE sites SET deleted_at=datetime('now') WHERE id=?`, [siteId]);
       }
