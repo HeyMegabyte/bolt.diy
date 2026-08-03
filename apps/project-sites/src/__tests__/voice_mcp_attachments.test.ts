@@ -23,7 +23,9 @@ jest.mock('../services/twilio.js', () => ({
 }));
 jest.mock('../services/vanity_generator.js', () => ({ suggestVanityWords: jest.fn() }));
 jest.mock('../services/sms_agent.js', () => ({ simulateInbound: jest.fn() }));
-jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../services/audit.js', () => ({
+  writeAuditLog: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { Hono } from 'hono';
 import { dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
@@ -53,12 +55,20 @@ function app(auth = true) {
   a.onError(errorHandler);
   a.route('/', voiceRoutes);
   const env = { DB: {}, ENVIRONMENT: 'test' } as unknown as Env;
-  const ctx = { waitUntil: () => undefined, passThroughOnException: () => undefined } as unknown as ExecutionContext;
+  const ctx = {
+    waitUntil: () => undefined,
+    passThroughOnException: () => undefined,
+  } as unknown as ExecutionContext;
   return { request: (path: string, init?: RequestInit) => a.request(path, init, env, ctx) };
 }
 const put = (body: unknown, auth = true): Promise<Response> =>
-  app(auth).request('/api/voice/mcp-attachments', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-const get = (qs: string): Promise<Response> => app().request('/api/voice/mcp-attachments' + qs, { method: 'GET' });
+  app(auth).request('/api/voice/mcp-attachments', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+const get = (qs: string): Promise<Response> =>
+  app().request('/api/voice/mcp-attachments' + qs, { method: 'GET' });
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -121,7 +131,11 @@ describe('PUT /api/voice/mcp-attachments — value domains (TDD #10)', () => {
   });
 
   it('OVERLONG list (>20 ids): 400', async () => {
-    const res = await put({ site_id: SITE, voice: Array.from({ length: 21 }, (_, i) => 'id-' + i), sms: [] });
+    const res = await put({
+      site_id: SITE,
+      voice: Array.from({ length: 21 }, (_, i) => 'id-' + i),
+      sms: [],
+    });
     expect(res.status).toBe(400);
   });
 

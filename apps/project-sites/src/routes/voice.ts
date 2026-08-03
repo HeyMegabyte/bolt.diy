@@ -592,12 +592,20 @@ voiceRoutes.get('/api/voice/mcp-attachments', async (c) => {
   const siteId = c.req.query('siteId');
   if (!siteId) throw badRequest('siteId required');
   await requireSiteMembership(c.env, siteId, orgId);
-  const row = await dbQueryOne<{ mcp_connection_ids: string | null; mcp_sms_connection_ids: string | null }>(
+  const row = await dbQueryOne<{
+    mcp_connection_ids: string | null;
+    mcp_sms_connection_ids: string | null;
+  }>(
     c.env.DB,
     `SELECT mcp_connection_ids, mcp_sms_connection_ids FROM voice_agent_settings WHERE site_id = ? AND deleted_at IS NULL LIMIT 1`,
     [siteId],
   );
-  return c.json({ data: { voice: parseIdList(row?.mcp_connection_ids), sms: parseIdList(row?.mcp_sms_connection_ids) } });
+  return c.json({
+    data: {
+      voice: parseIdList(row?.mcp_connection_ids),
+      sms: parseIdList(row?.mcp_sms_connection_ids),
+    },
+  });
 });
 
 /**
