@@ -31,8 +31,29 @@ const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const FE_DIR = join(APP_DIR, 'frontend', 'src', 'app');
 const WORKER_DIRS = [join(APP_DIR, 'src'), join(APP_DIR, 'libs')];
 
-/** FE `/api/*` shapes intentionally handled outside the scanned worker dirs (none today). */
-const EXEMPT_SHAPES = new Set();
+/**
+ * BUILT-AHEAD FE calls — the frontend component ships before its worker route is
+ * wired (the "wire-me backlog" class, per `_CONVERGENCE_TASKS.md`). These 6 were
+ * surfaced 2026-08-02 when the regex was fixed to see generic-typed calls
+ * (`api.get<T>(...)`). They are INTENTIONAL, TRACKED gaps — not accidental
+ * regressions — so they're exempted here; the gate still blocks any NEW unwired
+ * call. Remove an entry from this set the turn its worker route is wired.
+ */
+const EXEMPT_SHAPES = new Set([
+  'POST /api/sites/*/ai-endpoints/*/invoke', // ai-logs "re-invoke" — worker invoke route not built (button has a captured-input fallback)
+  'GET /api/admin/grafana/status', // grafana-dashboard — planned observability surface
+  'GET /api/swarm/*/runs', // swarm.component — planned agent-swarm subsystem
+  'POST /api/swarm/*/start', // swarm.component — planned agent-swarm subsystem
+  'GET /api/voice/conversations/*', // voice conversation DETAIL — list exists (/voice/conversations), detail route not built
+  'GET /api/voice/search', // voice number search — FE aspirational path; worker has /voice/numbers/search with a different signature
+  // Surfaced 2026-08-02 when the regex learned to see fluent line-split calls (`this.api\n.get(...)`):
+  'GET /api/v1-tokens', // api-tokens — "Public API v1 token management" UI, built ahead of the Public-Developer-API worker (monumental initiative)
+  'POST /api/v1-tokens', // api-tokens — same (mint)
+  'DELETE /api/v1-tokens/*', // api-tokens — same (revoke)
+  'POST /api/social/generate', // social AI-assist — FE wants {variants:string[]} alternatives; worker has /social/:siteId/posts/generate returning per-platform {platform,text}[] behind social_publishing_native. Needs feature reconciliation, not a path swap. FE fails soft to a toast.
+]);
+/** Matches `EXEMPT_SHAPES` entries `"<METHOD> <shape>"`. */
+const exemptKey = (method, shape) => `${method} ${shape}`;
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
@@ -85,7 +106,10 @@ for (const dir of WORKER_DIRS) {
 }
 
 // ── FE calls ──
-const feCallRe = /\b(api|http)\.(get|post|put|patch|delete)\(\s*([`'"])([^`'"]*)\3/g;
+// Match an optional TS generic between the method and `(` — e.g.
+// `api.get<{ data: ApiToken[] }>('/x')` — so generic-typed calls aren't missed
+// (that false-negative hid the /api/v1-tokens 404, found by visual sweep 2026-08-02).
+const feCallRe = /\b(api|http)\s*\.\s*(get|post|put|patch|delete)\s*(?:<[^(;]*>)?\s*\(\s*([`'"])([^`'"]*)\3/g;
 const flagged = [];
 const seen = new Set();
 for (const f of walk(FE_DIR)) {
@@ -100,7 +124,7 @@ for (const f of walk(FE_DIR)) {
     if (kind === 'api') path = '/api' + path;
     if (!path.startsWith('/api')) continue;
     const s = shape(path);
-    if (!s || EXEMPT_SHAPES.has(s)) continue;
+    if (!s || EXEMPT_SHAPES.has(exemptKey(method, s))) continue;
     if (!workerShapes.has(s)) {
       const key = method + ' ' + s;
       if (!seen.has(key)) {
