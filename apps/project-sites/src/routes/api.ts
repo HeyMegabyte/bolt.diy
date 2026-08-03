@@ -10762,14 +10762,19 @@ async function loadSiteAndAuth(
       ),
     };
   }
+  // NOTE: `primary_hostname` is NOT a column on `sites` — it is resolved from the
+  // `hostnames` table via domainService.getPrimaryHostname. Selecting it here made
+  // the query error `no such column: primary_hostname`, which dbQueryOne swallows
+  // to null → loadSiteAndAuth 404'd "Site not found" for EVERY site → every route
+  // that uses it (per-site multi-URL analytics, /urls, …) was dark for all users.
+  // Select only real columns; resolve the hostname below.
   const site = await dbQueryOne<{
     id: string;
     slug: string;
     org_id: string;
-    primary_hostname: string | null;
   }>(
     c.env.DB,
-    'SELECT id, slug, org_id, primary_hostname FROM sites WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, slug, org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
     [siteId],
   );
   if (!site) {
@@ -10793,7 +10798,11 @@ async function loadSiteAndAuth(
       ),
     };
   }
-  return { site, requestId };
+  // Resolve the primary hostname from the `hostnames` table (custom domain when
+  // set, else null → callers fall back to `${slug}.projectsites.dev`). Keeps the
+  // returned shape `{ id, slug, org_id, primary_hostname }` that callers expect.
+  const primary_hostname = await domainService.getPrimaryHostname(c.env.DB, site.id);
+  return { site: { ...site, primary_hostname }, requestId };
 }
 
 /**
@@ -10935,11 +10944,19 @@ api.delete('/api/sites/:id/urls/:urlId', async (c) => {
 });
 
 /**
- * GET /api/sites/:id/analytics — Aggregated Cloudflare analytics across every URL.
+ * GET /api/sites/:id/multi-url-analytics — Aggregated Cloudflare analytics across every URL.
  *
  * Sums page-views, unique visitors, top pages, countries, referrers, and
  * the daily series across every `site_urls` row bound to the site. Caches
  * the result in KV for 5 minutes keyed by `site_id + range + url_set`.
+ *
+ * @remarks Path is `/multi-url-analytics`, NOT `/analytics` — the `site_analytics`
+ *   SUMMARY handler (`libs/features/site_analytics/handlers.ts`, mounted first)
+ *   owns `/api/sites/:siteId/analytics` and shadowed this route, so the per-site
+ *   panel received the bare summary shape (no `data` key) → every KPI rendered 0
+ *   / "No traffic yet". Distinct paths let both features serve their own shape.
+ *   (Gated on the loadSiteAndAuth `primary_hostname` fix — before it, this handler
+ *   404'd "Site not found" for every site.)
  *
  * @queryParam range - One of `24h | 7d | 30d | 90d`. Defaults to `7d`.
  * @queryParam exclude - Comma-separated hostnames to skip (UI toggle pill).
@@ -10950,7 +10967,7 @@ api.delete('/api/sites/:id/urls/:urlId', async (c) => {
  *
  * @auth Required.
  */
-api.get('/api/sites/:id/analytics', async (c) => {
+api.get('/api/sites/:id/multi-url-analytics', async (c) => {
   const siteId = c.req.param('id');
   const ctx = await loadSiteAndAuth(c, siteId);
   if ('err' in ctx) return ctx.err;
@@ -10983,7 +11000,7 @@ api.get('/api/sites/:id/analytics', async (c) => {
       JSON.stringify({
         level: 'warn',
         service: 'api',
-        route: 'GET /api/sites/:id/analytics',
+        route: 'GET /api/sites/:id/multi-url-analytics',
         site_id: siteId,
         error: err instanceof Error ? err.message : String(err),
         request_id: ctx.requestId,

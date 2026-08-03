@@ -800,7 +800,11 @@ export class ApiService {
     // Silent: the analytics component owns an accurate inline error banner +
     // a cred-aware "Connect Cloudflare" panel + Retry. The generic network-blame
     // toast firing on top would be a misleading, redundant double-signal.
-    return this.get(`/sites/${siteId}/analytics`, params, { silent: true });
+    // Path is `/multi-url-analytics`, NOT `/analytics` — the `site_analytics`
+    // SUMMARY handler owns `/api/sites/:siteId/analytics` and shadowed this call,
+    // so the panel was fed the bare summary shape (no `data`) → every KPI showed
+    // 0 / "No traffic yet". Distinct path = each feature serves its own shape.
+    return this.get(`/sites/${siteId}/multi-url-analytics`, params, { silent: true });
   }
 
   /**
