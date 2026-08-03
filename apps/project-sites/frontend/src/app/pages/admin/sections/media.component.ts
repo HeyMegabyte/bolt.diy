@@ -1446,9 +1446,13 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.searchTerm().trim()) params['q'] = this.searchTerm().trim();
 
     this.libraryError.set(null);
-    this.api.get<{ data: MediaAsset[] }>('/media/assets', params).subscribe({
+    // Worker GET /api/media/assets returns { ok, assets } (routes/media.ts:130) —
+    // NOT { data }. Reading r.data left assets undefined → the whole library
+    // rendered "No media yet" for EVERY org on EVERY load, inviting re-uploads of
+    // assets that already exist. Read the real key.
+    this.api.get<{ assets: MediaAsset[] }>('/media/assets', params).subscribe({
       next: (r) => {
-        this.assets.set(r.data ?? []);
+        this.assets.set(r.assets ?? []);
         this.libraryError.set(null);
         this.loadingLibrary.set(false);
         if (this.hasInFlightJobs()) this.startPolling();

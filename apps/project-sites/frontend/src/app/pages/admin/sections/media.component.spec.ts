@@ -214,11 +214,21 @@ describe('AdminMediaComponent (library load-error gating)', () => {
   });
 
   it('success populates assets and leaves libraryError null', () => {
-    const c = makeErroring(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'a1', status: 'ready' }] })));
+    // Worker returns { assets }, not { data } (routes/media.ts:130).
+    const c = makeErroring(jasmine.createSpy('get').and.returnValue(of({ assets: [{ id: 'a1', status: 'ready' }] })));
     c.refreshLibrary();
     expect(c.libraryError()).toBeNull();
     expect(c.assets().length).toBe(1);
     expect(c.loadingLibrary()).toBe(false);
+  });
+
+  // Regression: reading r.data (the old bug) hid EVERY org's whole library behind
+  // a false "No media yet". A { data }-only response must now populate NOTHING —
+  // proving the load reads the worker's real { assets } key.
+  it('reads the real { assets } key — a { data }-only response populates nothing', () => {
+    const c = makeErroring(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'x1' }, { id: 'x2' }] })));
+    c.refreshLibrary();
+    expect(c.assets().length).withContext('r.data must NOT populate — only r.assets').toBe(0);
   });
 
   it('a load error sets a persistent libraryError (not a fake "No media yet")', () => {
@@ -230,7 +240,7 @@ describe('AdminMediaComponent (library load-error gating)', () => {
   });
 
   it('retry after an error clears the prior libraryError', () => {
-    const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ data: [] }));
+    const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ assets: [] }));
     const c = makeErroring(get);
     c.refreshLibrary();
     expect(c.libraryError()).not.toBeNull();

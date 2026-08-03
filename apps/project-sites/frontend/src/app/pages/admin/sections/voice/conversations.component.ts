@@ -500,12 +500,42 @@ export class VoiceConversationsComponent implements OnDestroy {
     if (!site) return;
     this.loading.set(true);
     this.loadError.set(null);
-    this.api.get<{ data: Conversation[] }>(`/voice/conversations?siteId=${site.id}`, undefined, { silent: true }).subscribe({
-      next: (r) => { this.conversations.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
+    // Worker GET /api/voice/conversations returns { items } of RAW merged
+    // voice_calls + voice_messages rows (aliased to a common { kind, event_at }
+    // for merge-sorting) — NOT { data } in the Conversation shape. Reading r.data
+    // left the feed empty ("No conversations yet") even with real calls; map the
+    // raw rows → Conversation so it populates correctly.
+    this.api.get<{ items: Record<string, unknown>[] }>(`/voice/conversations?siteId=${site.id}`, undefined, { silent: true }).subscribe({
+      next: (r) => { this.conversations.set((r.items ?? []).map((row) => this.mapConversation(row))); this.loadError.set(null); this.loading.set(false); },
       // Keep any already-loaded calls on a transient poll blip; surface a Retry
       // card (not a fake "No conversations yet") when there's nothing to show.
       error: () => { this.loading.set(false); this.loadError.set('The conversation feed did not respond.'); },
     });
+  }
+
+  /**
+   * Map a raw merged conversation row (voice_calls / voice_messages, exactly as
+   * the worker returns them) to the {@link Conversation} view-model. The worker
+   * aliases both tables to a common `{ kind, event_at }` for merge-sorting; the
+   * UI needs `channel` / `started_at` / `message_preview` / `duration_s`.
+   * @example mapConversation({ id: 'c1', kind: 'sms', event_at: '2026-08-03T…', body: 'hi' })
+   *   // → { id: 'c1', channel: 'sms', started_at: '2026-08-03T…', message_preview: 'hi', … }
+   */
+  private mapConversation(row: Record<string, unknown>): Conversation {
+    const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+    const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
+    return {
+      id: String(row['id'] ?? ''),
+      channel: row['kind'] === 'sms' ? 'sms' : 'call',
+      from_number: String(row['from_number'] ?? ''),
+      to_number: String(row['to_number'] ?? ''),
+      started_at: String(row['event_at'] ?? ''),
+      duration_s: num(row['duration_seconds']),
+      message_preview: str(row['body']),
+      status: (str(row['status']) as Conversation['status']) ?? 'completed',
+      sentiment: str(row['sentiment']) as Conversation['sentiment'] | undefined,
+      summary: str(row['summary']),
+    };
   }
 
   private startPolling(): void {

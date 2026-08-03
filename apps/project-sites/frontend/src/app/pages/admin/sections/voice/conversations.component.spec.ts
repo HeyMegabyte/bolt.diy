@@ -30,11 +30,39 @@ describe('VoiceConversationsComponent (load error ≠ fake empty)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   it('refresh() success populates conversations and clears loadError', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'a' }] })));
+    // Worker returns { items } of raw rows (kind/event_at/body), not { data }.
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [{ id: 'a', kind: 'call' }] })));
     c.refresh();
     expect(c.conversations().length).toBe(1);
     expect(c.loadError()).toBeNull();
     expect(c.loading()).toBeFalse();
+  });
+
+  // Regression: reading r.data (the old bug) left the feed empty even with real
+  // calls; and the worker's raw rows need mapping. Assert BOTH: r.items populates
+  // AND each raw row is mapped to the Conversation shape (kind→channel,
+  // event_at→started_at, body→message_preview).
+  it('maps raw { items } rows → the Conversation shape (channel/started_at/message_preview)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [
+      { id: 'call1', kind: 'call', from_number: '+1', to_number: '+2', event_at: '2026-08-03T10:00:00Z', duration_seconds: 42, status: 'completed' },
+      { id: 'sms1', kind: 'sms', from_number: '+3', to_number: '+4', event_at: '2026-08-03T09:00:00Z', body: 'hello there' },
+    ] })));
+    c.refresh();
+    const rows = c.conversations();
+    expect(rows.length).toBe(2);
+    expect(rows[0].channel).toBe('call');
+    expect(rows[0].started_at).toBe('2026-08-03T10:00:00Z');
+    expect(rows[0].duration_s).toBe(42);
+    expect(rows[1].channel).toBe('sms');
+    expect(rows[1].message_preview).toBe('hello there');
+  });
+
+  // A { data }-only response (the old shape) must now populate NOTHING —
+  // proving the load reads the worker's real { items } key, not r.data.
+  it('a { data }-only response populates nothing (reads the real { items } key)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'a', kind: 'call' }] })));
+    c.refresh();
+    expect(c.conversations().length).withContext('r.data must NOT populate — only r.items').toBe(0);
   });
 
   it('refresh() failure sets loadError (not a fake empty list)', () => {
@@ -45,7 +73,7 @@ describe('VoiceConversationsComponent (load error ≠ fake empty)', () => {
   });
 
   it('a transient poll failure PRESERVES already-loaded calls (no wipe)', () => {
-    const get = jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'a' }, { id: 'b' }] }));
+    const get = jasmine.createSpy('get').and.returnValue(of({ items: [{ id: 'a', kind: 'call' }, { id: 'b', kind: 'sms' }] }));
     const c = make(get);
     c.refresh(); // first load succeeds → 2 calls
     expect(c.conversations().length).toBe(2);
@@ -60,7 +88,7 @@ describe('VoiceConversationsComponent (load error ≠ fake empty)', () => {
     const c = make(get);
     c.refresh();
     expect(c.loadError()).toBeTruthy();
-    get.and.returnValue(of({ data: [] }));
+    get.and.returnValue(of({ items: [] }));
     c.refresh();
     expect(c.loadError()).toBeNull();
   });
@@ -79,7 +107,7 @@ describe('VoiceConversationsComponent (filter no-match ≠ truly empty)', () => 
     ({ id, from_number: '+15551234567', channel: 'call', status: 'open', message_preview: '', summary: '', created_at: new Date().toISOString(), ...over }) as never;
 
   it('conversations exist but the filter excludes all → filterNoMatch (not a fake "No conversations yet")', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     c.conversations.set([conv('a'), conv('b')]);
     c.searchQ.set('zzz-nothing-matches');
     expect(c.filtered().length).withContext('filter excludes all').toBe(0);
@@ -87,14 +115,14 @@ describe('VoiceConversationsComponent (filter no-match ≠ truly empty)', () => 
   });
 
   it('truly empty (no conversations at all) → NOT filterNoMatch', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     c.conversations.set([]);
     c.searchQ.set('anything');
     expect(c.filterNoMatch()).withContext('genuinely empty is not a filter problem').toBeFalse();
   });
 
   it('clearFilters() resets search + channel + escalated and reveals the rows (live, signal-reactive)', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     c.conversations.set([conv('a'), conv('b')]);
     c.searchQ.set('zzz'); c.channelFilter.set('sms'); c.escalatedOnly.set(true);
     expect(c.filtered().length).withContext('filtered to none').toBe(0);
@@ -116,7 +144,7 @@ describe('VoiceConversationsComponent (top-caller click-to-call)', () => {
     ({ id: from, from_number: from, channel: 'call', status: 'open', message_preview: '', summary: '', created_at: new Date().toISOString() }) as never;
 
   it('topCaller formats for display while topCallerRaw keeps the dialable raw number', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     c.conversations.set([conv('+12015551234'), conv('+12015551234'), conv('+19738880000')]);
     expect(c.topCaller()).withContext('formatted like the list').toBe('(201) 555-1234');
     expect(c.topCallerRaw()).withContext('raw E.164 preserved for tel:').toBe('+12015551234');
@@ -124,12 +152,12 @@ describe('VoiceConversationsComponent (top-caller click-to-call)', () => {
   });
 
   it('telHref strips formatting to a dialable tel: target', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     expect(c.telHref('+1 (201) 555-1234')).toBe('+12015551234');
   });
 
   it('topCallerRaw + topCaller are empty with no calls (the — placeholder renders, no link)', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     c.conversations.set([]);
     expect(c.topCallerRaw()).toBe('');
     expect(c.topCaller()).toBe('');
@@ -143,7 +171,7 @@ describe('VoiceConversationsComponent (detail caller is click-to-call)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   it('statusLabel spaces a hyphenated status (in-progress → "in progress"; the chip CSS uppercases)', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ items: [] })));
     expect(c.statusLabel('in-progress')).toBe('in progress');
     expect(c.statusLabel('completed')).toBe('completed');
   });
@@ -152,7 +180,7 @@ describe('VoiceConversationsComponent (detail caller is click-to-call)', () => {
     TestBed.configureTestingModule({
       imports: [VoiceConversationsComponent],
       providers: [
-        { provide: ApiService, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ data: [] })) } },
+        { provide: ApiService, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ items: [] })) } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
       ],
@@ -173,7 +201,7 @@ describe('VoiceConversationsComponent (detail caller is click-to-call)', () => {
     TestBed.configureTestingModule({
       imports: [VoiceConversationsComponent],
       providers: [
-        { provide: ApiService, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ data: [] })) } },
+        { provide: ApiService, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ items: [] })) } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
       ],
