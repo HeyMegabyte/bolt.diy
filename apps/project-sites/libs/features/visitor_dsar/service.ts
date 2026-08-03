@@ -112,17 +112,20 @@ export async function writeDsarAuditLog(
     count: number;
   },
 ): Promise<void> {
+  // audit_logs has no `site_id`/`resource_type`/`resource_id` columns (real:
+  // target_type/target_id/metadata_json). The old shape threw `no such column`
+  // → dbInsert swallowed it → the DSAR export/delete audit row NEVER landed.
   await dbInsert(db, 'audit_logs', {
     id: crypto.randomUUID(),
     org_id: opts.orgId,
-    site_id: opts.siteId,
     actor_id: opts.actorId,
     action: `dsar.${opts.mode}`,
-    resource_type: 'visitor_identity',
-    resource_id: opts.siteId,
+    target_type: 'visitor_identity',
+    target_id: opts.siteId,
     metadata_json: JSON.stringify({
       subject: opts.subject,
       count: opts.count,
+      site_id: opts.siteId,
     }),
   });
 }

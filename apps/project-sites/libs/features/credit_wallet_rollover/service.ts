@@ -18,6 +18,17 @@ export const FLAG_KEY = 'credit_wallet_rollover';
 /** Default monthly credit allowance when no subscription row is found. */
 export const DEFAULT_MONTHLY_ALLOWANCE = 100;
 
+/**
+ * Per-plan monthly credit allowance. `subscriptions` has no `monthly_credits`
+ * column, so the allowance is derived from the plan. Both tiers currently map
+ * to the same flat default — product has not set per-plan amounts yet.
+ * BOARD: when real tiers are decided, encode them here (and/or in ENTITLEMENTS).
+ */
+export const PLAN_MONTHLY_ALLOWANCE: Record<string, number> = {
+  free: DEFAULT_MONTHLY_ALLOWANCE,
+  paid: DEFAULT_MONTHLY_ALLOWANCE,
+};
+
 /** Maximum rollover multiplier: accumulated balance may not exceed this × monthly. */
 export const ROLLOVER_CAP_MULTIPLIER = 3;
 
@@ -33,14 +44,18 @@ export const ROLLOVER_CAP_MULTIPLIER = 3;
  * @returns Monthly credit allowance (integer).
  */
 export async function resolveMonthlyAllowance(db: D1Database, orgId: string): Promise<number> {
-  const row = await dbQueryOne<{ monthly_credits: number }>(
+  // `subscriptions` has no `monthly_credits` column — the old SELECT threw
+  // `no such column`, was swallowed to null, and every org silently got the
+  // flat default. Read the real `plan` and map it (flat until per-plan amounts
+  // land — see PLAN_MONTHLY_ALLOWANCE).
+  const row = await dbQueryOne<{ plan: string }>(
     db,
-    `SELECT monthly_credits FROM subscriptions
+    `SELECT plan FROM subscriptions
      WHERE org_id = ? AND status = 'active' AND deleted_at IS NULL
      LIMIT 1`,
     [orgId],
   ).catch(() => null);
-  return row?.monthly_credits ?? DEFAULT_MONTHLY_ALLOWANCE;
+  return PLAN_MONTHLY_ALLOWANCE[row?.plan ?? 'free'] ?? DEFAULT_MONTHLY_ALLOWANCE;
 }
 
 // ---------------------------------------------------------------------------

@@ -217,7 +217,8 @@ describe('export mode', () => {
       expect.objectContaining({
         action: 'dsar.export',
         org_id: 'org-1',
-        site_id: 'site-001',
+        target_type: 'visitor_identity',
+        target_id: 'site-001',
       }),
     );
   });

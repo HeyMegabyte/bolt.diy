@@ -1,5 +1,5 @@
 import type { Env } from '../../../src/types/env.js';
-import { dbExecute, dbQueryOne, dbQuery, dbInsert } from '../../../src/services/db.js';
+import { dbExecute, dbQueryOne } from '../../../src/services/db.js';
 import type { CloneResponse } from './schemas.js';
 
 export async function cloneSite(env: Env, orgId: string, sourceSiteId: string, targetSlug: string, targetName: string): Promise<CloneResponse> {
@@ -12,16 +12,13 @@ export async function cloneSite(env: Env, orgId: string, sourceSiteId: string, t
   const newId = crypto.randomUUID();
   const now = new Date().toISOString();
   // sites has no `name` column — it's `business_name`. (Was `name` → the INSERT
-  // threw `no such column` → cloneSite 500'd on every call.) NOTE: the `pages` copy
-  // below targets a `pages` table that does NOT exist in prod — boarded separately;
-  // the clone now creates the site but copies 0 pages until that's re-sourced.
+  // threw `no such column` → cloneSite 500'd on every call.)
   await dbExecute(env.DB, `INSERT INTO sites (id, org_id, slug, business_name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`, [newId, orgId, targetSlug, targetName, 'draft', now, now]);
 
-  const pages = await dbQuery<{ id: string; title: string; path: string; content: string; meta_json: string | null }>(env.DB, `SELECT id, title, path, content, meta_json FROM pages WHERE site_id=? AND deleted_at IS NULL`, [sourceSiteId]);
-  let copied = 0;
-  for (const p of (pages.data ?? [])) {
-    await dbExecute(env.DB, `INSERT INTO pages (id, site_id, title, path, content, meta_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`, [crypto.randomUUID(), newId, p.title, p.path, p.content, p.meta_json, now, now]);
-    copied++;
-  }
-  return { id: newId, slug: targetSlug, name: targetName, pagesCopied: copied };
+  // No `pages`/`site_pages` table exists in prod — per-site page content lives
+  // in R2 (sites/{slug}/{version}/…), not D1. The old SELECT was swallowed to
+  // empty and the INSERT threw `no such table: pages` (a real 500) the moment a
+  // source site had rows. Clone the site row only; deep-copying the source's R2
+  // files is a separate concern (boarded).
+  return { id: newId, slug: targetSlug, name: targetName, pagesCopied: 0 };
 }

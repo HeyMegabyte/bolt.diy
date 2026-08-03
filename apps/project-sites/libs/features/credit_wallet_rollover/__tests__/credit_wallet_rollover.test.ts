@@ -70,9 +70,10 @@ describe('constants', () => {
 // resolveMonthlyAllowance — one SELECT on subscriptions
 // ─────────────────────────────────────────────────────────────────────────────
 describe('resolveMonthlyAllowance', () => {
-  it('returns monthly_credits from the subscriptions row when found', async () => {
-    const db = makeDb([{ results: [{ monthly_credits: 250 }] }]);
-    expect(await resolveMonthlyAllowance(db, 'org-1')).toBe(250);
+  it('maps the active subscription plan to its allowance', async () => {
+    const db = makeDb([{ results: [{ plan: 'paid' }] }]);
+    // Flat until per-plan credit amounts are set (see PLAN_MONTHLY_ALLOWANCE).
+    expect(await resolveMonthlyAllowance(db, 'org-1')).toBe(DEFAULT_MONTHLY_ALLOWANCE);
   });
 
   it('falls back to DEFAULT_MONTHLY_ALLOWANCE when no subscription row', async () => {
@@ -80,8 +81,8 @@ describe('resolveMonthlyAllowance', () => {
     expect(await resolveMonthlyAllowance(db, 'org-1')).toBe(DEFAULT_MONTHLY_ALLOWANCE);
   });
 
-  it('falls back to DEFAULT_MONTHLY_ALLOWANCE when monthly_credits is null', async () => {
-    const db = makeDb([{ results: [{ monthly_credits: null }] }]);
+  it('maps an unknown or absent plan to the default allowance', async () => {
+    const db = makeDb([{ results: [{ plan: 'legacy_unknown' }] }]);
     expect(await resolveMonthlyAllowance(db, 'org-1')).toBe(DEFAULT_MONTHLY_ALLOWANCE);
   });
 });
@@ -147,7 +148,7 @@ describe('applyCredits', () => {
 describe('processMonthlyRollover', () => {
   it('grants the full monthly allowance when wallet is empty', async () => {
     const env = makeEnv(
-      makeDb([{ results: [{ monthly_credits: 100 }] }, { results: [{ total: 0 }] }]),
+      makeDb([{ results: [{ plan: 'free' }] }, { results: [{ total: 0 }] }]),
     );
     expect(await processMonthlyRollover(env, 'org-1')).toBe(100);
   });
@@ -155,14 +156,14 @@ describe('processMonthlyRollover', () => {
   it('caps total balance at 3x the monthly allowance (grants only the headroom)', async () => {
     // allowance=100, cap=300, balance=250 → grant = min(350,300) - 250 = 50.
     const env = makeEnv(
-      makeDb([{ results: [{ monthly_credits: 100 }] }, { results: [{ total: 250 }] }]),
+      makeDb([{ results: [{ plan: 'free' }] }, { results: [{ total: 250 }] }]),
     );
     expect(await processMonthlyRollover(env, 'org-1')).toBe(50);
   });
 
   it('grants nothing when balance is already at the cap', async () => {
     const env = makeEnv(
-      makeDb([{ results: [{ monthly_credits: 100 }] }, { results: [{ total: 300 }] }]),
+      makeDb([{ results: [{ plan: 'free' }] }, { results: [{ total: 300 }] }]),
     );
     expect(await processMonthlyRollover(env, 'org-1')).toBe(0);
   });
