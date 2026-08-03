@@ -43,16 +43,22 @@ export function browserbaseAvailable(): boolean {
  * @returns The session (its `id` feeds {@link browserbaseConnectUrl}).
  * @throws {Error} When creds are missing or the API rejects the request.
  */
-export async function createBrowserbaseSession(): Promise<BrowserbaseSession> {
+export async function createBrowserbaseSession(
+  opts?: { timeoutSec?: number },
+): Promise<BrowserbaseSession> {
   const apiKey = process.env.BROWSERBASE_API_KEY;
   const projectId = process.env.BROWSERBASE_PROJECT_ID;
   if (!apiKey || !projectId) {
     throw new Error('Browserbase creds missing (BROWSERBASE_API_KEY / BROWSERBASE_PROJECT_ID)');
   }
+  // `timeout` (seconds) is the session's max duration — bump it for long
+  // multi-section sweeps so the shared session doesn't expire mid-run.
+  const reqBody: { projectId: string; timeout?: number } = { projectId };
+  if (opts?.timeoutSec) reqBody.timeout = opts.timeoutSec;
   const res = await fetch('https://api.browserbase.com/v1/sessions', {
     method: 'POST',
     headers: { 'X-BB-API-Key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId }),
+    body: JSON.stringify(reqBody),
   });
   if (!res.ok) {
     throw new Error(`Browserbase session create failed: ${res.status} ${await res.text().catch(() => '')}`);

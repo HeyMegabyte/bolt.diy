@@ -37,7 +37,7 @@ import {
   standalone: true,
   imports: [FormsModule, DialogShellComponent],
   template: `
-    <main class="bg-dark text-white px-6 py-8 max-md:px-4" data-testid="auth-security-page">
+    <section class="bg-dark text-white px-6 py-8 max-md:px-4" data-testid="auth-security-page">
       <header class="mb-6 max-w-3xl">
         <p class="text-[0.72rem] font-bold uppercase tracking-[0.15em] text-primary m-0">Security</p>
         <h1 class="text-2xl font-extrabold tracking-tight mt-1 mb-1.5">Auth security &amp; health</h1>
@@ -294,7 +294,7 @@ import {
           </div>
         </app-dialog-shell>
       }
-    </main>
+    </section>
   `,
 })
 export class AuthSecurityComponent implements OnInit {

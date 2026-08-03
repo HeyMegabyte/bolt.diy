@@ -25,7 +25,7 @@ import {
   standalone: true,
   imports: [FormsModule],
   template: `
-    <main class="bg-dark text-white px-6 py-8 max-md:px-4" data-testid="team-page">
+    <section class="bg-dark text-white px-6 py-8 max-md:px-4" data-testid="team-page">
       <header class="mb-6 max-w-3xl">
         <p class="text-[0.72rem] font-bold uppercase tracking-[0.15em] text-primary m-0">Organization</p>
         <h1 class="text-2xl font-extrabold tracking-tight mt-1 mb-1.5">Team members</h1>
@@ -207,7 +207,7 @@ import {
           }
         </section>
       }
-    </main>
+    </section>
   `,
 })
 export class TeamComponent {
