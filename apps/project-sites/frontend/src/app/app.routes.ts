@@ -395,6 +395,33 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/analytics?tab=social'),
         pathMatch: 'full',
       },
+      // ─── Section aliases ──────────────────────────────────────────
+      // The dashboard section-guide + not-found route hints link /admin/media,
+      // /admin/traces, /admin/seo, but those surfaces live elsewhere (Media is
+      // the editor's Media tab, Traces is a tab under Logs, and search-readiness
+      // toggles under site Features). Without these redirects each link rendered
+      // the admin not-found page ("This admin page doesn't exist"). Redirect so
+      // every advertised link + bookmark resolves to the real surface.
+      {
+        // Media library is the editor's Media tab (AdminMediaComponent, mounted
+        // in AdminComponent) — not a standalone route.
+        path: 'media',
+        redirectTo: () => inject(Router).parseUrl('/admin/editor'),
+        pathMatch: 'full',
+      },
+      {
+        // AI Traces is the `traces` tab under the unified Logs dashboard.
+        path: 'traces',
+        redirectTo: () => inject(Router).parseUrl('/admin/logs?tab=traces'),
+        pathMatch: 'full',
+      },
+      {
+        // No standalone SEO section — search-readiness capabilities (structured
+        // data autopilot, llms.txt, quotable answers) toggle under site Features.
+        path: 'seo',
+        redirectTo: () => inject(Router).parseUrl('/admin/site-features'),
+        pathMatch: 'full',
+      },
       // ─── Multimodal AI Site Copilot (#25) ────────────────────────
       // Per-site copilot admin: enable toggle + intent distribution + sessions.
       // Flag-gated: multimodal_copilot. Shows gate notice when off.

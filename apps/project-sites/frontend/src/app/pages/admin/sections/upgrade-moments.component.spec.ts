@@ -3,6 +3,7 @@ import { of, throwError } from 'rxjs';
 import { provideRouter } from '@angular/router';
 import { UpgradeMomentsComponent } from './upgrade-moments.component';
 import { ApiService } from '../../../services/api.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 
 const MOMENT = {
   trigger: 'custom_domain',
@@ -17,13 +18,20 @@ const MOMENT = {
   dismiss_key: 'upgrade_moment:custom_domain',
 };
 
-function make(opts: { get?: jasmine.Spy; post?: jasmine.Spy } = {}) {
+function make(opts: { get?: jasmine.Spy; post?: jasmine.Spy; flagOn?: boolean } = {}) {
   const get = opts.get ?? jasmine.createSpy('get').and.returnValue(of({ moments: [MOMENT], count: 1 }));
   const post = opts.post ?? jasmine.createSpy('post').and.returnValue(of({ trigger: 'custom_domain', dismissed: true }));
+  const flagOn = opts.flagOn ?? true;
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [UpgradeMomentsComponent],
-    providers: [provideRouter([]), { provide: ApiService, useValue: { get, post } }],
+    providers: [
+      provideRouter([]),
+      { provide: ApiService, useValue: { get, post } },
+      // The component gates its fetch on the flag (isOn → 200 resolution) so it
+      // never calls the 404ing feature endpoint while dark. Mock it on.
+      { provide: FeatureFlagService, useValue: { isOn: () => of(flagOn) } },
+    ],
   });
   const f = TestBed.createComponent(UpgradeMomentsComponent);
   f.detectChanges();
@@ -33,13 +41,19 @@ function make(opts: { get?: jasmine.Spy; post?: jasmine.Spy } = {}) {
 describe('UpgradeMomentsComponent', () => {
   it('fetches eligible moments and renders a trigger-attributed CTA', () => {
     const { f, get } = make();
-    expect(get).toHaveBeenCalledWith('/upgrade-moments');
+    expect(get).toHaveBeenCalledWith('/upgrade-moments', undefined, { silent: true });
     expect(f.nativeElement.querySelector('[data-testid="upgrade-moments"]')).toBeTruthy();
     expect(f.nativeElement.querySelector('[data-testid="upgrade-moment-card"]')).toBeTruthy();
     const cta = f.nativeElement.querySelector('[data-testid="upgrade-moment-cta"]');
     expect(cta.getAttribute('href')).toContain('upsell=custom_domain');
     expect(cta.getAttribute('data-bcl-trigger')).toBe('custom_domain');
     expect(f.nativeElement.textContent).toContain('Launch on your own domain');
+  });
+
+  it('does NOT call the feature endpoint when the flag is off (no console 404)', () => {
+    const { f, get } = make({ flagOn: false });
+    expect(get).not.toHaveBeenCalled();
+    expect(f.nativeElement.querySelector('[data-testid="upgrade-moments"]')).toBeNull();
   });
 
   it('renders nothing when there are no eligible moments', () => {
