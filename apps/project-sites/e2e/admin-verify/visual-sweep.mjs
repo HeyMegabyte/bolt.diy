@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+/**
+ * visual-sweep.mjs — real-browser VISUAL verification of admin sections
+ * (P0-ADMIN mandate step 4: screenshot + AI-vision ≥9/10 + no console errors +
+ * no failed requests, in brian@megabyte.space's real account via Browserbase).
+ *
+ * Logs in as brian (test-login), captures a full screenshot of each section to
+ * `/tmp/psvis/<name>.png`, and prints a per-section report of h1 / main text
+ * length / console errors / failed requests (google-analytics beacons filtered
+ * — they fail in automation by design and are not app bugs).
+ *
+ * ⚠️ CRITICAL GOTCHA (cost a whole fire, 2026-08-02): `AuthService.email`
+ * reads `session.identifier` (services/auth.service.ts) — NOT `session.email`.
+ * Seed `ps_session` with `{ token, identifier }`. If you seed `email`,
+ * `auth.email()` is empty and `sysAdminGuard` bounces brian OFF the operator
+ * sections (feature-flags, system-services, leads) to `/admin/site-features`,
+ * so you screenshot the WRONG (owner) view and think the operator view is broken.
+ *
+ * Creds (get-secret): BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID,
+ * E2E_TEST_PASSWORD. Exits 0 (skip) if any is unset — never fail-closed.
+ *
+ * Usage:
+ *   node e2e/admin-verify/visual-sweep.mjs                 # default section set
+ *   node e2e/admin-verify/visual-sweep.mjs /admin/analytics /admin/social  # custom
+ */
+import { chromium } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+
+const BB = process.env.BROWSERBASE_API_KEY;
+const PROJ = process.env.BROWSERBASE_PROJECT_ID;
+const PW = process.env.E2E_TEST_PASSWORD;
+if (!BB || !PROJ || !PW) {
+  console.log('::notice:: visual-sweep skipped — BROWSERBASE_API_KEY / BROWSERBASE_PROJECT_ID / E2E_TEST_PASSWORD unset');
+  process.exit(0);
+}
+
+const OUT = '/tmp/psvis';
+mkdirSync(OUT, { recursive: true });
+const DEFAULT = ['/admin', '/admin/analytics', '/admin/feature-flags', '/admin/system-services', '/admin/site-features', '/admin/social', '/admin/media', '/admin/seo', '/admin/domains', '/admin/settings'];
+const paths = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT;
+const nameOf = (p) => p.replace(/^\/admin\/?/, '') || 'dashboard';
+
+const r = await fetch('https://api.browserbase.com/v1/sessions', {
+  method: 'POST', headers: { 'X-BB-API-Key': BB, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ projectId: PROJ, timeout: 600 }),
+});
+if (!r.ok) { console.log('session create failed', r.status); process.exit(3); }
+const { id } = await r.json();
+const browser = await chromium.connectOverCDP(`wss://connect.browserbase.com?apiKey=${encodeURIComponent(BB)}&sessionId=${encodeURIComponent(id)}`);
+const report = {};
+try {
+  const ctx = browser.contexts()[0] ?? await browser.newContext();
+  const page = ctx.pages()[0] ?? await ctx.newPage();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  let current = 'boot';
+  const errors = {}, failed = {};
+  page.on('console', (m) => { if (m.type() === 'error') (errors[current] ??= []).push(m.text().slice(0, 140)); });
+  page.on('response', (res) => {
+    if (res.status() >= 400 && !res.url().includes('google-analytics') && !res.url().includes('/g/collect')) {
+      (failed[current] ??= []).push(res.status() + ' ' + res.url().replace('https://projectsites.dev', '').slice(0, 90));
+    }
+  });
+
+  await page.goto('https://projectsites.dev/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(7000); // CF managed-challenge solve
+
+  const login = await page.evaluate(async (pw) => {
+    const res = await fetch('/api/auth/test-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'brian@megabyte.space', password: pw }) });
+    const j = await res.json().catch(() => ({}));
+    const d = j?.data;
+    if (d?.token) {
+      // AuthService.email reads session.identifier — seed THAT (not `email`).
+      try { localStorage.setItem('ps_session', JSON.stringify({ token: d.token, identifier: d.email ?? 'brian@megabyte.space', issuedAt: Date.now() })); } catch { /* private mode */ }
+    }
+    return { status: res.status, email: d?.email ?? null };
+  }, PW);
+  report._login = login;
+  // Reload so AuthService hydrates the seeded session before the guards run.
+  await page.goto('https://projectsites.dev/admin', { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForTimeout(3000);
+
+  for (const p of paths) {
+    const name = nameOf(p);
+    current = name;
+    try {
+      await page.goto('https://projectsites.dev' + p, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.waitForTimeout(5500);
+      await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: false });
+      const info = await page.evaluate(() => ({
+        url: location.pathname,
+        h1: (document.querySelector('h1')?.innerText || '').slice(0, 60),
+        mainLen: (document.querySelector('main')?.innerText || document.body.innerText || '').trim().length,
+      }));
+      report[name] = { ...info, errors: errors[name] ?? [], failed: (failed[name] ?? []).slice(0, 6) };
+    } catch (e) {
+      report[name] = { shot: 'FAIL', error: String(e).slice(0, 120) };
+    }
+  }
+  console.log(JSON.stringify(report, null, 2));
+  console.log(`\nScreenshots → ${OUT}/*.png — Read each + AI-vision score (populated? layout? brand? ≥9/10?).`);
+} finally {
+  await browser.close();
+}
