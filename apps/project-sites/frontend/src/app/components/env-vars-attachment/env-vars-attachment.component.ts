@@ -359,9 +359,12 @@ export class EnvVarsAttachmentComponent {
       case 'site': params['site_id'] = id; break;
     }
     this.mcpsLoading.set(true);
-    this.api.get<{ connections?: McpConnectionDto[] }>('/mcp/connections', params).subscribe({
+    // Worker (`mcp_oauth.ts`) returns `{ data: [...] }` — reading `res.connections`
+    // left the list ALWAYS empty (every "connected" badge hidden). The sibling
+    // voice/mcps consumer already reads `.data`, so the worker shape is correct.
+    this.api.get<{ data?: McpConnectionDto[] }>('/mcp/connections', params).subscribe({
       next: (res) => {
-        this.mcps.set(res?.connections ?? []);
+        this.mcps.set(res?.data ?? []);
         this.mcpsLoading.set(false);
       },
       error: () => {

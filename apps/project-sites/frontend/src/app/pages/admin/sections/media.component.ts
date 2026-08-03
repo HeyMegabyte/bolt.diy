@@ -95,15 +95,20 @@ interface MediaAsset {
 
 /** Stock-search candidate returned from `POST /api/media/stock/search`. */
 interface StockCandidate {
-  source: MediaSource;
-  thumb_url: string;
-  preview_url: string;
-  full_url: string;
+  // Mirrors the WORKER shape (src/services/media.ts StockCandidate) — the search
+  // endpoint returns these EXACT keys. The old FE interface used snake_case
+  // (`source`/`thumb_url`/`full_url`) that never matched the wire, so thumbnails,
+  // the source chip, and the dedup key all read `undefined`.
+  provider: string;
+  kind: 'image' | 'video';
+  thumbUrl: string;
+  fullUrl: string;
+  title: string;
+  attribution: string;
+  sourceUrl: string;
   width?: number;
   height?: number;
-  attribution?: string;
-  external_id?: string;
-  kind: MediaKind;
+  durationMs?: number;
 }
 
 /** Stock-source toggle entry rendered as a pill in the Stock Search tab. */
@@ -500,12 +505,12 @@ interface BoltMediaAttachMessage {
                   <article class="med-card" role="listitem">
                     <div class="med-thumb">
                       <img
-                        [src]="c.thumb_url"
-                        [alt]="c.attribution || c.source"
+                        [src]="c.thumbUrl"
+                        [alt]="c.attribution || c.provider"
                         loading="lazy"
                         decoding="async"
                       />
-                      <span class="med-thumb__attrib">{{ sourceLabel(c.source) }}</span>
+                      <span class="med-thumb__attrib">{{ sourceLabel(c.provider) }}</span>
                       <div class="med-overlay">
                         <button type="button" class="btn-overlay"
                                 (click)="saveStock(c)" [disabled]="savingCandidates().has(candidateKey(c))">
@@ -514,7 +519,7 @@ interface BoltMediaAttachMessage {
                       </div>
                     </div>
                     <div class="med-meta">
-                      <span class="med-meta__name">{{ c.attribution || 'Untitled' }}</span>
+                      <span class="med-meta__name">{{ c.title || c.attribution || 'Untitled' }}</span>
                       <div class="med-meta__chips">
                         <span class="chip chip--kind">{{ c.kind }}</span>
                         @if (c.width && c.height) {
@@ -1645,7 +1650,10 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     const url = asset.url || this.rawUrl(asset);
     this.api
       .post<{ ok: boolean }>('/media/send-to-bolt', {
-        asset_id: asset.id,
+        // Worker guards `body.assetId` (camelCase) — the old snake `asset_id`
+        // 400'd every send; the FE then postMessaged the iframe anyway so the
+        // backend hook silently never fired.
+        assetId: asset.id,
         name: asset.name,
         mime: asset.mime,
       })
@@ -1665,7 +1673,8 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     for (const a of chosen) {
       this.api
         .post<{ ok: boolean }>('/media/send-to-bolt', {
-          asset_id: a.id,
+          // camelCase `assetId` — worker guards it; snake `asset_id` 400'd.
+          assetId: a.id,
           name: a.name,
           mime: a.mime,
         })
@@ -1722,14 +1731,16 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.stockError.set(null);
     this.stockLastQuery = q;
     this.api
-      .post<{ data: StockCandidate[] }>('/media/stock/search', {
+      .post<{ candidates: StockCandidate[] }>('/media/stock/search', {
         query: q,
         sources,
         perPage: 20,
       })
       .subscribe({
         next: (r) => {
-          this.stockResults.set(r.data ?? []);
+          // Worker returns `{ ok, candidates }` — reading `r.data` rendered
+          // "no results" on every 200 with hits.
+          this.stockResults.set(r.candidates ?? []);
           this.stockSearched.set(true);
           this.stockLoading.set(false);
         },
@@ -1746,7 +1757,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   candidateKey(c: StockCandidate): string {
-    return `${c.source}::${c.external_id ?? c.full_url}`;
+    return `${c.provider}::${c.sourceUrl || c.fullUrl}`;
   }
 
   saveStock(c: StockCandidate): void {
@@ -1755,11 +1766,13 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     next.add(key);
     this.savingCandidates.set(next);
     this.api
-      .post<{ data: MediaAsset }>('/media/stock/save', { candidate: c })
+      .post<{ asset: MediaAsset }>('/media/stock/save', { candidate: c })
       .subscribe({
         next: (r) => {
           this.removeSaving(key);
-          if (r.data) this.assets.update((rows) => [r.data, ...rows]);
+          // Worker returns `{ ok, asset }` — reading `r.data` never added the
+          // saved asset to the library grid.
+          if (r.asset) this.assets.update((rows) => [r.asset, ...rows]);
           this.toast.success('Saved to Library');
         },
         error: () => {
@@ -1780,14 +1793,16 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.imagePrompt.trim()) return;
     this.imageGenerating.set(true);
     this.api
-      .post<{ data: MediaAsset[] }>('/media/generate/image', {
+      .post<{ assets: MediaAsset[] }>('/media/generate/image', {
         prompt: this.imagePrompt.trim(),
         size: this.imageSize,
         n: this.imageCount,
       })
       .subscribe({
         next: (r) => {
-          const data = r.data ?? [];
+          // Worker returns `{ ok, assets }` — reading `r.data` showed
+          // "Generated 0 images" and never added them to the grid.
+          const data = r.assets ?? [];
           this.imageResults.set([...data, ...this.imageResults()].slice(0, 12));
           this.assets.update((rows) => [...data, ...rows]);
           this.imageGenerating.set(false);
@@ -1813,7 +1828,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.videoPrompt.trim()) return;
     this.videoSubmitting.set(true);
     this.api
-      .post<{ data: MediaAsset }>('/media/generate/video', {
+      .post<{ asset: MediaAsset }>('/media/generate/video', {
         prompt: this.videoPrompt.trim(),
         // Worker (media.ts) reads `durationSec` — the old `duration_s` key was
         // silently dropped, so the user's chosen duration never took effect.
@@ -1826,7 +1841,9 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
           this.lastVideoNote.set(
             `Job queued — ${this.videoModel === 'sora' ? 'Sora' : 'Veo'} API integration pending. Track in Library.`,
           );
-          if (r.data) this.assets.update((rows) => [r.data, ...rows]);
+          // Worker returns `{ ok, asset }` — reading `r.data` never added the
+          // queued job to the library list.
+          if (r.asset) this.assets.update((rows) => [r.asset, ...rows]);
           this.toast.success('Video job queued');
           this.startPolling();
         },
@@ -1856,7 +1873,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.podcastReady()) return;
     this.podcastGenerating.set(true);
     this.api
-      .post<{ data: MediaAsset }>('/media/generate/podcast', {
+      .post<{ asset: MediaAsset }>('/media/generate/podcast', {
         title: this.podcastTitle().trim(),
         // Worker (media.ts) reads `voiceProvider` + `script` ([{voice,text}]) —
         // the old `provider`/`segments` keys 400'd "script is required" every time.
@@ -1866,9 +1883,11 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       .subscribe({
         next: (r) => {
           this.podcastGenerating.set(false);
-          if (r.data) {
-            this.podcastResult.set(r.data);
-            this.assets.update((rows) => [r.data, ...rows]);
+          // Worker returns `{ ok, asset }` — reading `r.data` never surfaced the
+          // finished podcast or added it to the library.
+          if (r.asset) {
+            this.podcastResult.set(r.asset);
+            this.assets.update((rows) => [r.asset, ...rows]);
           }
           this.toast.success('Podcast ready');
         },
@@ -1913,14 +1932,18 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     return `${m}:${ss.toString().padStart(2, '0')}`;
   }
 
-  sourceLabel(s: MediaSource): string {
-    const m: Record<MediaSource, string> = {
+  // Accepts a plain string so both MediaAsset.source AND a stock candidate's
+  // `provider` (worker union — note `google-cse`, absent from MediaSource) map
+  // cleanly. Unknown ids fall back to the raw string.
+  sourceLabel(s: string): string {
+    const m: Record<string, string> = {
       upload: 'Upload',
       unsplash: 'Unsplash',
       pexels: 'Pexels',
       'pexels-video': 'Pexels Video',
       pixabay: 'Pixabay',
       'google-images': 'Google',
+      'google-cse': 'Google',
       foursquare: 'Foursquare',
       yelp: 'Yelp',
       dalle: 'DALL·E 3',

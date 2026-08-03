@@ -893,7 +893,11 @@ export class AdminSiteDetailComponent {
     this.api
       // {silent} — surface the specific failure below, not the generic toast.
       // catchError returns null (not a fake { ok }) so failure is distinguishable.
-      .post(`/mcp/${p.key}/paste`, { api_key: apiKey, site_id: this.siteId() }, { silent: true })
+      // Worker reads the site from `?state=` (OAuth flow) OR the `?site_id=`
+      // query fallback — NOT the body. Without a query param it 400'd
+      // "site_id required" on every paste-key connect (Resend + any provider
+      // without OAuth creds). Send site_id as the query param it actually reads.
+      .post(`/mcp/${p.key}/paste?site_id=${encodeURIComponent(this.siteId())}`, { api_key: apiKey, site_id: this.siteId() }, { silent: true })
       .pipe(
         catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef),

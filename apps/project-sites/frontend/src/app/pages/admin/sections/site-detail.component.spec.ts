@@ -546,7 +546,9 @@ describe('AdminSiteDetailComponent (paste-key save — no silent failure)', () =
     const { c } = build(post);
     c.pasteKeyValue.set('k');
     c.submitPasteKey(PROV);
-    expect(post).toHaveBeenCalledWith('/mcp/mailchimp/paste', { api_key: 'k', site_id: 's1' }, { silent: true });
+    // The worker reads the site from `?site_id=` (query), not the body — without
+    // it every paste-key connect 400'd "site_id required". The query param is the fix.
+    expect(post).toHaveBeenCalledWith('/mcp/mailchimp/paste?site_id=s1', { api_key: 'k', site_id: 's1' }, { silent: true });
     c.submitPasteKey(PROV); // second click while in-flight
     expect(post).withContext('double-submit guarded').toHaveBeenCalledTimes(1);
   });

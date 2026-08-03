@@ -348,8 +348,12 @@ describe('AdminMediaComponent (stock search states)', () => {
     expect(c.stockSearched()).toBeFalse();
   });
 
-  it('a successful search marks searched + clears any error', () => {
-    const post = jasmine.createSpy('post').and.returnValue(of({ data: [{ source: 'unsplash', thumb_url: 'x', kind: 'image' }] }));
+  it('a successful search marks searched + clears any error (reads the worker { candidates } key)', () => {
+    // Worker returns { ok, candidates } with camelCase rows — the old mock used
+    // { data: [{ source, thumb_url }] } which no longer matches either key.
+    const post = jasmine.createSpy('post').and.returnValue(
+      of({ candidates: [{ provider: 'unsplash', thumbUrl: 'x', fullUrl: 'y', title: 't', attribution: 'a', sourceUrl: 's', kind: 'image' }] }),
+    );
     const { c } = makeStock(post);
     c.stockQuery = 'mountains';
     c.runStockSearch();
@@ -358,6 +362,17 @@ describe('AdminMediaComponent (stock search states)', () => {
     expect(c.stockError()).toBeNull();
     expect(c.stockResults().length).toBe(1);
     expect(c.stockLastQuery).toBe('mountains');
+  });
+
+  // Regression: reading r.data (the old bug) rendered "no results" on every 200
+  // with hits — the whole stock tab was dead behind a green render. A { data }-only
+  // response must now populate NOTHING (proves the read uses the worker's { candidates }).
+  it('reads the real { candidates } key — a { data }-only response populates nothing', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: [{ provider: 'unsplash' }, { provider: 'pexels' }] }));
+    const { c } = makeStock(post);
+    c.stockQuery = 'mountains';
+    c.runStockSearch();
+    expect(c.stockResults().length).withContext('r.data must NOT populate — only r.candidates').toBe(0);
   });
 
   it('a FAILED search surfaces an error + toasts + does NOT masquerade as empty results', () => {
@@ -765,5 +780,58 @@ describe('AdminMediaComponent (per-row delete busy guard)', () => {
     del$.next({ ok: true }); del$.complete();
     expect(c.deletingId()).withContext('cleared on completion').toBeNull();
     expect(c.assets().length).withContext('row dropped').toBe(0);
+  });
+});
+
+/**
+ * Studio request-shape regressions (P0.55). The media worker returns SEMANTIC
+ * keys (`{ assets }` / `{ asset }` / `{ candidates }`) and guards `body.assetId`
+ * — the studios read `r.data` and sent `asset_id`, so the whole generate / stock
+ * / send-to-bolt surface was dead behind a green render.
+ */
+describe('AdminMediaComponent (studio request-shape regressions)', () => {
+  function mk(post: jasmine.Spy): AdminMediaComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ApiService, useValue: { get: () => of({ assets: [] }), post, postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMediaComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminMediaComponent).componentInstance;
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('generateImage reads the worker { assets } key + adds them to the grid', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ assets: [{ id: 'img1', kind: 'image' }] }));
+    const c = mk(post);
+    c.imagePrompt = 'a red barn';
+    c.generateImage();
+    expect(c.imageResults().length).withContext('reads r.assets').toBe(1);
+    expect(c.assets().some((a) => a.id === 'img1')).withContext('generated asset added to the grid').toBeTrue();
+  });
+
+  it('generateImage does NOT populate from the old { data } key', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: [{ id: 'x' }] }));
+    const c = mk(post);
+    c.imagePrompt = 'a red barn';
+    c.generateImage();
+    expect(c.imageResults().length).withContext('r.data must not populate').toBe(0);
+  });
+
+  it('sendOneToBolt POSTs { assetId } — NOT the old snake asset_id (worker guards body.assetId)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ ok: true }));
+    const c = mk(post);
+    c.sendOneToBolt({ id: 'a9', name: 'hero.png', mime: 'image/png' } as never);
+    const call = post.calls.all().find((x) => x.args[0] === '/media/send-to-bolt');
+    expect(call).withContext('POSTs to /media/send-to-bolt').toBeTruthy();
+    const body = call!.args[1] as Record<string, unknown>;
+    expect(body['assetId']).withContext('worker guards body.assetId').toBe('a9');
+    expect('asset_id' in body).withContext('NEVER the old asset_id key that 400d').toBe(false);
   });
 });
