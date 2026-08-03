@@ -10772,11 +10772,7 @@ async function loadSiteAndAuth(
     id: string;
     slug: string;
     org_id: string;
-  }>(
-    c.env.DB,
-    'SELECT id, slug, org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
-    [siteId],
-  );
+  }>(c.env.DB, 'SELECT id, slug, org_id FROM sites WHERE id = ? AND deleted_at IS NULL', [siteId]);
   if (!site) {
     return {
       err: c.json(
