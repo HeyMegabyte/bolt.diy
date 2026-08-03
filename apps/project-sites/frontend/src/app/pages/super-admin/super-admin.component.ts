@@ -256,15 +256,24 @@ interface WorkerStatsResponse {
             <p class="muted small">Current balance: <span class="cyan">{{ formatCents(w.balance_cents) }}</span></p>
             <label>
               Amount in cents (negative to debit)
-              <input type="number" [(ngModel)]="adjustCents" autofocus />
+              <input type="number" step="1" [(ngModel)]="adjustCents" autofocus
+                     [attr.aria-invalid]="adjustError() ? 'true' : null" />
             </label>
             <label>
               Reason
-              <input type="text" [(ngModel)]="adjustReason" placeholder="why this adjustment?" />
+              <input type="text" maxlength="500" [(ngModel)]="adjustReason"
+                     placeholder="why this adjustment? (3–500 chars)"
+                     [attr.aria-invalid]="adjustError() ? 'true' : null" />
             </label>
+            <!-- FE↔BE parity: mirror adjustmentSchema (non-zero integer cents + reason
+                 3–500 chars) so bad input is caught instantly, not by a server 400. -->
+            @if (adjustError(); as e) {
+              <p class="sa-adjust-err" role="alert" data-testid="sa-adjust-error">{{ e }}</p>
+            }
             <div class="sa-modal-actions">
               <button type="button" class="sa-btn-ghost" (click)="closeAdjust()">Cancel</button>
-              <button type="button" class="sa-btn-primary" (click)="submitAdjust()" [disabled]="!adjustReason.trim()">
+              <button type="button" class="sa-btn-primary" (click)="submitAdjust()"
+                      data-testid="sa-adjust-apply" [disabled]="!adjustValid()">
                 Apply
               </button>
             </div>
@@ -442,9 +451,31 @@ export class SuperAdminComponent implements OnInit {
     this.adjustReason = '';
   }
   closeAdjust(): void { this.adjustOpen.set(null); }
+
+  /**
+   * FE mirror of the worker's `adjustmentSchema` (super_admin.ts): a manual wallet
+   * adjustment needs a NON-ZERO INTEGER cent amount + a 3–500 char reason. Enforced
+   * on the FE so bad input never reaches a server 400 (zod-everywhere FE↔BE parity;
+   * value-domain coverage per TDD #10 on a money-mutating form).
+   */
+  adjustValid(): boolean {
+    return this.adjustError() === null && this.adjustReason.trim().length > 0;
+  }
+
+  /** Human message for the first value-domain violation, or null when valid. */
+  adjustError(): string | null {
+    const cents = Number(this.adjustCents);
+    if (!Number.isFinite(cents) || !Number.isInteger(cents)) return 'Amount must be a whole number of cents.';
+    if (cents === 0) return 'Amount cannot be zero.';
+    const reason = this.adjustReason.trim();
+    if (reason.length > 0 && reason.length < 3) return 'Reason must be at least 3 characters.';
+    if (reason.length > 500) return 'Reason must be 500 characters or fewer.';
+    return null;
+  }
+
   async submitAdjust(): Promise<void> {
     const w = this.adjustOpen();
-    if (!w || !this.adjustReason.trim()) return;
+    if (!w || !this.adjustValid()) return;
     try {
       await this.api.post('/super-admin/manual-adjustment', { org_id: w.org_id, amount_cents: Number(this.adjustCents), reason: this.adjustReason.trim() }).toPromise();
       this.toast.success(`Adjusted ${w.org_name} by ${this.formatCents(Number(this.adjustCents))}`);

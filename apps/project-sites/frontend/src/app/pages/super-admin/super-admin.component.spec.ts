@@ -1,0 +1,111 @@
+/**
+ * Value-domain coverage (TDD Contract #10) for the super-admin manual wallet
+ * adjustment — a MONEY-mutating form. Asserts the FE mirrors the worker's
+ * `adjustmentSchema` (non-zero INTEGER cents + reason 3–500 chars) across every
+ * value class: valid / invalid / empty / boundary / overlong / unicode / injection.
+ *
+ * Pure-logic test: the template is overridden so `ngOnInit` never fires (no API
+ * calls) — we drive `adjustCents`/`adjustReason` directly and assert
+ * `adjustError()` / `adjustValid()`.
+ */
+import { TestBed } from '@angular/core/testing';
+import { SuperAdminComponent } from './super-admin.component';
+import { ApiService } from '../../services/api.service';
+import { ToastService } from '../../services/toast.service';
+
+function makeComponent(): SuperAdminComponent {
+  TestBed.configureTestingModule({
+    providers: [
+      { provide: ApiService, useValue: {} },
+      { provide: ToastService, useValue: { success: () => {}, error: () => {} } },
+    ],
+  });
+  // Override the template so no rendering / ngOnInit-triggered API calls run.
+  TestBed.overrideComponent(SuperAdminComponent, { set: { template: '<div></div>', imports: [] } });
+  return TestBed.createComponent(SuperAdminComponent).componentInstance;
+}
+
+describe('SuperAdminComponent — manual-adjustment value domains (TDD #10)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function set(c: SuperAdminComponent, cents: number, reason: string): void {
+    c.adjustCents = cents;
+    c.adjustReason = reason;
+  }
+
+  it('VALID: non-zero integer cents + 3–500 char reason → no error, valid', () => {
+    const c = makeComponent();
+    set(c, 500, 'manual credit for downtime');
+    expect(c.adjustError()).toBeNull();
+    expect(c.adjustValid()).toBe(true);
+  });
+
+  it('VALID negative (debit): a negative integer is allowed', () => {
+    const c = makeComponent();
+    set(c, -2500, 'clawback for refund');
+    expect(c.adjustError()).toBeNull();
+    expect(c.adjustValid()).toBe(true);
+  });
+
+  it('EMPTY reason: no error message, but submit is blocked', () => {
+    const c = makeComponent();
+    set(c, 500, '');
+    expect(c.adjustError()).toBeNull(); // empty ≠ "too short" — stay quiet
+    expect(c.adjustValid()).toBe(false); // …but not submittable
+  });
+
+  it('INVALID zero amount (the default): rejected', () => {
+    const c = makeComponent();
+    set(c, 0, 'valid reason');
+    expect(c.adjustError()).toBe('Amount cannot be zero.');
+    expect(c.adjustValid()).toBe(false);
+  });
+
+  it('INVALID non-integer cents (5.5): rejected', () => {
+    const c = makeComponent();
+    set(c, 5.5, 'valid reason');
+    expect(c.adjustError()).toBe('Amount must be a whole number of cents.');
+    expect(c.adjustValid()).toBe(false);
+  });
+
+  it('INVALID NaN amount: rejected', () => {
+    const c = makeComponent();
+    set(c, Number('not-a-number'), 'valid reason');
+    expect(c.adjustError()).toBe('Amount must be a whole number of cents.');
+    expect(c.adjustValid()).toBe(false);
+  });
+
+  it('BOUNDARY reason length: 2 rejected, 3 ok, 500 ok, 501 rejected', () => {
+    const c = makeComponent();
+    set(c, 500, 'ab');
+    expect(c.adjustError()).toBe('Reason must be at least 3 characters.');
+    set(c, 500, 'abc');
+    expect(c.adjustError()).toBeNull();
+    set(c, 500, 'x'.repeat(500));
+    expect(c.adjustError()).toBeNull();
+    set(c, 500, 'x'.repeat(501));
+    expect(c.adjustError()).toBe('Reason must be 500 characters or fewer.');
+    expect(c.adjustValid()).toBe(false);
+  });
+
+  it('OVERLONG reason (10k chars): rejected, never submittable', () => {
+    const c = makeComponent();
+    set(c, 500, 'y'.repeat(10_000));
+    expect(c.adjustError()).toBe('Reason must be 500 characters or fewer.');
+    expect(c.adjustValid()).toBe(false);
+  });
+
+  it('UNICODE reason (valid length): accepted', () => {
+    const c = makeComponent();
+    set(c, 1200, '日本語の理由 — émojis 🎉 ok');
+    expect(c.adjustError()).toBeNull();
+    expect(c.adjustValid()).toBe(true);
+  });
+
+  it('INJECTION-shaped reason (valid length): accepted as free text (BE parameterizes)', () => {
+    const c = makeComponent();
+    set(c, 700, `'; DROP TABLE wallets; --`);
+    expect(c.adjustError()).toBeNull();
+    expect(c.adjustValid()).toBe(true);
+  });
+});
