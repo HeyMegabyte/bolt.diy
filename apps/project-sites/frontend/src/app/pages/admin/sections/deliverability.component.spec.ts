@@ -99,6 +99,45 @@ describe('AdminDeliverabilityComponent', () => {
     expect((q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).disabled).toBeTrue();
   });
 
+  it('a 200 { needsDomain } (site has no sending domain) shows the calm neutral prompt, NOT a red error', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    get.and.returnValue(of({ ok: true, report: null, needsDomain: true }));
+    fixture.componentInstance.check();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.noDomain()).withContext('no sending domain → neutral state').toBeTrue();
+    expect(fixture.componentInstance.error()).withContext('neutral prompt is not a red error').toBeNull();
+    expect(q('[data-testid="deliverability-no-domain"]')).withContext('calm neutral prompt renders').not.toBeNull();
+    expect(q('[data-testid="deliverability-error"]')).withContext('no red error card for a no-domain state').toBeNull();
+    expect(q('[data-testid="deliverability-result"]')).withContext('no score card without a domain').toBeNull();
+  });
+
+  it('a legacy 400 (deploy-propagation window) degrades to the SAME calm neutral prompt, not a red error', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    get.and.returnValue(throwError(() => ({ status: 400, error: { error: { message: 'No sending domain to check' } } })));
+    fixture.componentInstance.check();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.noDomain()).withContext('400 → neutral (not red)').toBeTrue();
+    expect(fixture.componentInstance.error()).withContext('no red error on the no-domain path').toBeNull();
+    expect(q('[data-testid="deliverability-no-domain"]')).not.toBeNull();
+    expect(q('[data-testid="deliverability-error"]')).toBeNull();
+  });
+
+  it('typing a domain after a no-domain prompt + a successful check clears the prompt and shows the result', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    get.and.returnValue(of({ ok: true, report: null, needsDomain: true }));
+    fixture.componentInstance.check();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.noDomain()).toBeTrue();
+    // Operator types a real domain → the next check returns a report → prompt clears.
+    get.and.returnValue(of(REPORT));
+    fixture.componentInstance.domainModel.set('mail.acme.com');
+    fixture.componentInstance.check();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.noDomain()).withContext('neutral prompt cleared on a real result').toBeFalse();
+    expect(q('[data-testid="deliverability-no-domain"]')).toBeNull();
+    expect(q('[data-testid="deliverability-result"]')).not.toBeNull();
+  });
+
   it('a transient failure (no server message) says "try again" — NOT a permanent "not available"', () => {
     build({ id: 'site1', name: 'Acme', slug: 'acme' });
     get.and.returnValue(throwError(() => ({ status: 500 })));

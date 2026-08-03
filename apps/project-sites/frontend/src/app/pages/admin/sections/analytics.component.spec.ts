@@ -36,6 +36,9 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
             listSiteUrls: listUrls,
             getCloudflareCredentialStatus: credStatus,
             addSiteUrl: jasmine.createSpy('addSiteUrl').and.returnValue(of({})),
+            // loadNetwork() runs on mount (zone-level, fail-soft) — stub so
+            // detectChanges() doesn't crash on an undefined ApiService method.
+            getNetworkAnalytics: jasmine.createSpy('getNetworkAnalytics').and.returnValue(of({ data: null })),
           },
         },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
@@ -367,6 +370,7 @@ describe('AdminAnalyticsComponent (top-pages/countries cyan mini-empty cohesion)
             listSiteUrls: () => of({ data: [] }),
             getCloudflareCredentialStatus: () => of({ data: null }),
             addSiteUrl: () => of({}),
+            getNetworkAnalytics: () => of({ data: null }),
           },
         },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
@@ -411,6 +415,7 @@ describe('AdminAnalyticsComponent — bounded auto-refresh retry (error-recovery
           listSiteUrls: () => of({ data: [] }),
           getCloudflareCredentialStatus: () => of({ data: null }),
           addSiteUrl: () => of({}),
+          getNetworkAnalytics: () => of({ data: null }),
         } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },

@@ -347,6 +347,16 @@ export const routes: Routes = [
             (m) => m.AdminLogsDashboardComponent,
           ),
       },
+      {
+        // Email Deliverability Wizard (#12) — SPF/DKIM/DMARC check + fixes.
+        // Component + worker route + flag (email_deliverability_wizard) all
+        // existed; the route was the only missing piece (was admin-404).
+        path: 'deliverability',
+        loadComponent: () =>
+          import('./pages/admin/sections/deliverability.component').then(
+            (m) => m.AdminDeliverabilityComponent,
+          ),
+      },
       // ─── Apps store ───────────────────────────────────────────────
       // Catalog of self-hostable apps deployable to Cloudflare Workers
       // Containers in <5 min. List → detail → instances. All three lazy.

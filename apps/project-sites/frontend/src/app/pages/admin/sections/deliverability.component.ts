@@ -35,7 +35,10 @@ interface DeliverabilityReport {
 }
 interface DeliverabilityResponse {
   ok: boolean;
-  report: DeliverabilityReport;
+  /** null when the site has no sending domain configured (needsDomain) — a calm neutral state, not a result. */
+  report: DeliverabilityReport | null;
+  /** true when there's no sending domain to check (no custom domain + no ?domain=) — render the neutral prompt. */
+  needsDomain?: boolean;
 }
 
 @Component({
@@ -100,6 +103,20 @@ interface DeliverabilityResponse {
       @if (flagDisabled()) {
         <!-- Flag OFF (404) → calm cohesive cyan notice (NOT alarming red). Shared primitive. -->
         <app-flag-gate-notice feature="The deliverability wizard" flag="email_deliverability_wizard" testid="deliverability-flag-gate" margin="mt-5" />
+      } @else if (noDomain()) {
+        <!-- No sending domain configured (worker 200 { needsDomain }) → calm neutral
+             cyan prompt, NOT a red error. The user types a domain in the input above
+             (or connects a custom domain) and re-runs the check. -->
+        <div
+          data-testid="deliverability-no-domain"
+          class="mt-5 rounded-xl border border-primary/20 bg-primary/[0.04] p-5"
+        >
+          <p class="text-sm font-medium text-light">No sending domain configured yet</p>
+          <p class="mt-1 text-sm text-text-secondary">
+            Enter a sending domain above (e.g. <code class="text-primary">mail.example.com</code>) to check its
+            SPF, DKIM and DMARC — or connect a custom domain to this site and it'll be checked automatically.
+          </p>
+        </div>
       } @else if (error()) {
         <!-- TRANSIENT failure (network/5xx) → gold-standard error card: a real Retry
              that re-runs the DNS check (preserving the typed domain) + a copyable
@@ -202,6 +219,7 @@ export class AdminDeliverabilityComponent {
         this.error.set(null);
         this.loadErrorRef.set('');
         this.flagDisabled.set(false);
+        this.noDomain.set(false);
         this.domainModel.set('');
       }
     });
@@ -213,6 +231,8 @@ export class AdminDeliverabilityComponent {
   readonly loadErrorRef = signal('');
   /** Flag OFF (check 404 = email_deliverability_wizard disabled) → calm cyan Feature-Flags notice, NOT a red error. */
   readonly flagDisabled = signal(false);
+  /** No sending domain to check (site has no custom domain + no override typed) → calm neutral prompt, NOT a red error. */
+  readonly noDomain = signal(false);
   readonly report = signal<DeliverabilityReport | null>(null);
 
   /** The domain override is OPTIONAL (empty → the site's own domain). When the
@@ -244,6 +264,7 @@ export class AdminDeliverabilityComponent {
     this.error.set(null);
     this.loadErrorRef.set('');
     this.flagDisabled.set(false);
+    this.noDomain.set(false);
     // Drop the prior report so a still-visible score can never sit under a fresh
     // failure (a stale-result lie). It re-renders on success.
     this.report.set(null);
@@ -253,7 +274,14 @@ export class AdminDeliverabilityComponent {
 
     this.api.get<DeliverabilityResponse>(`/sites/${s.id}/deliverability`, params, { silent: true }).subscribe({
       next: (res) => {
-        this.report.set(res.report);
+        if (res.report) {
+          // Real SPF/DKIM/DMARC result → render the score card.
+          this.report.set(res.report);
+        } else {
+          // needsDomain: the site has no custom sending domain and no override was
+          // typed → calm neutral "enter a domain" prompt, NOT a red error card.
+          this.noDomain.set(true);
+        }
         this.loading.set(false);
       },
       error: (err: { status?: number; error?: { error?: { message?: string } } }) => {
@@ -262,6 +290,11 @@ export class AdminDeliverabilityComponent {
         // is remapped to 404 by ApiService so it lands here as the calm gate too).
         if (err?.status === 404) {
           this.flagDisabled.set(true);
+        } else if (err?.status === 400) {
+          // Defensive: the worker now returns 200 { needsDomain } for the no-domain
+          // case, but during the deploy-propagation window an older worker can still
+          // 400 it — treat that as the SAME calm neutral prompt, never a red error.
+          this.noDomain.set(true);
         } else {
           // Anything else = transient (network / 5xx). Honest, retryable failure via
           // the gold-standard <app-error-card>: a real Retry (re-runs check(), keeping

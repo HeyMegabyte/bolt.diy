@@ -10,7 +10,9 @@
  * when off so feature existence never leaks. Ownership enforced via the shared
  * `assertSiteOwned` guard (404 on missing/foreign site). The sending domain is
  * taken from `?domain=` (the address mail is actually sent from) or falls back
- * to the site's primary custom hostname; 400 when neither is available.
+ * to the site's primary custom hostname; a clean 200 `{ ok: true, report: null,
+ * needsDomain: true }` (never a 4xx) when neither is available, so the browser
+ * logs no failed request and the UI shows a calm "enter a domain" prompt.
  *
  * Read-only: performs DNS-over-HTTPS lookups only, persists nothing.
  *
@@ -53,19 +55,15 @@ emailDeliverabilityRoutes.get('/api/sites/:siteId/deliverability', async (c) => 
     if (row?.hostname) domain = normalizeDomain(row.hostname);
   }
   if (!domain) {
-    return c.json(
-      {
-        error: {
-          code: 'BAD_REQUEST',
-          message: 'No sending domain to check — connect a custom domain or pass ?domain=',
-        },
-      },
-      400,
-    );
+    // A site with no custom sending domain (and no ?domain= override) is a VALID
+    // neutral state, NOT a client error — return a clean 200 so the browser logs
+    // no failed request. The UI renders a calm "enter a domain to check" prompt
+    // instead of a red error card. (Was a 400 → console error on the empty path.)
+    return c.json({ ok: true, report: null, needsDomain: true });
   }
 
   const report = await checkDeliverability(fetch, domain);
-  return c.json({ ok: true, report });
+  return c.json({ ok: true, report, needsDomain: false });
 });
 
 export { emailDeliverabilityRoutes };
