@@ -49,7 +49,11 @@ const env = { DB: {} } as unknown as Env;
 async function patchProfile(app: ReturnType<typeof authedApp>, body: unknown): Promise<Response> {
   return app.request(
     '/api/admin/profile',
-    { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
     env,
   );
 }
@@ -110,7 +114,12 @@ describe('PATCH /api/admin/profile — display-name value domains (TDD #10)', ()
   });
 
   it('MARKUP / script-like shapes: rejected 400', async () => {
-    for (const name of ['<script>alert(1)</script>', 'a javascript:alert(1)', 'x onerror=alert(1)', 'Bob <b>bold</b>']) {
+    for (const name of [
+      '<script>alert(1)</script>',
+      'a javascript:alert(1)',
+      'x onerror=alert(1)',
+      'Bob <b>bold</b>',
+    ]) {
       const res = await patchProfile(authedApp(), { name });
       expect(res.status).toBe(400);
     }
