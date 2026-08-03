@@ -34,11 +34,11 @@ export async function getMruCards(
   const effectiveLimit = Math.min(Math.max(limit, 1), 20);
   const rows = await dbQuery<MruRow>(
     env.DB,
-    `SELECT a.target_id as site_id, s.slug, s.name,
+    `SELECT a.target_id as site_id, s.slug, s.business_name as name,
             a.action, MAX(a.created_at) as max_created_at
      FROM audit_logs a
      JOIN sites s ON s.id = a.target_id AND s.deleted_at IS NULL
-     WHERE a.org_id = ? AND a.deleted_at IS NULL
+     WHERE a.org_id = ?
        AND a.target_type = 'site'
      GROUP BY a.target_id
      ORDER BY max_created_at DESC

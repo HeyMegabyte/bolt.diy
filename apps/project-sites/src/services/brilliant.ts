@@ -30,12 +30,12 @@ export interface McpToolSpec {
 
 export async function buildSiteMcpManifest(env: Env, siteId: string) {
   // Pull site metadata; gracefully mock when site not in D1.
-  const site = await env.DB.prepare('SELECT slug, name FROM sites WHERE id = ? LIMIT 1')
+  const site = await env.DB.prepare('SELECT slug, business_name FROM sites WHERE id = ? LIMIT 1')
     .bind(siteId)
-    .first<{ slug: string; name: string }>()
+    .first<{ slug: string; business_name: string | null }>()
     .catch(() => null);
   const slug = site?.slug ?? `demo-${siteId.slice(0, 8)}`;
-  const name = site?.name ?? 'Demo customer site';
+  const name = site?.business_name ?? 'Demo customer site';
 
   const tools: McpToolSpec[] = [
     {

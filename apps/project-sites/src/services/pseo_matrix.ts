@@ -332,12 +332,12 @@ export async function generatePseoPageContent(
     return { ok: false, thinContent: false, error: 'Invalid intent' };
 
   // Get business name
-  const site = await dbQueryOne<{ name: string; slug: string }>(
+  const site = await dbQueryOne<{ business_name: string | null; slug: string }>(
     env.DB,
-    'SELECT name, slug FROM sites WHERE id = ? AND deleted_at IS NULL',
+    'SELECT business_name, slug FROM sites WHERE id = ? AND deleted_at IS NULL',
     [row.site_id],
   );
-  const businessName = site?.name ?? 'Local Business';
+  const businessName = site?.business_name ?? 'Local Business';
 
   const { html, tokensUsed } = await generatePseoPage(
     env,

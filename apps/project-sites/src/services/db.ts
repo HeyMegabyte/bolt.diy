@@ -93,10 +93,16 @@ export async function dbQuery<T = Record<string, unknown>>(
     const result = await stmt.all<T>();
     return { data: result.results ?? [], error: null };
   } catch (err) {
-    return {
-      data: [],
-      error: err instanceof Error ? err.message : 'Unknown D1 error',
-    };
+    const message = err instanceof Error ? err.message : 'Unknown D1 error';
+    // LOG every swallowed D1 error. `dbQueryOne` + callers that ignore the `error`
+    // field would otherwise silently see `[]`/null — turning a schema-drift/typo
+    // (e.g. a SELECT on a column that doesn't exist) into a SILENT empty/404 rather
+    // than a loud failure. That masked the loadSiteAndAuth `primary_hostname` bug for
+    // weeks (P0.30). Surfacing it makes drift visible in Workers Observability.
+    console.warn(
+      JSON.stringify({ level: 'warn', service: 'db', event: 'd1_query_error', message, sql: sql.slice(0, 200) }),
+    );
+    return { data: [], error: message };
   }
 }
 
@@ -126,10 +132,13 @@ export async function dbExecute(
     const result = await stmt.run();
     return { error: null, changes: result.meta?.changes ?? 0 };
   } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : 'Unknown D1 error',
-      changes: 0,
-    };
+    const message = err instanceof Error ? err.message : 'Unknown D1 error';
+    // Log swallowed mutation errors too (see dbQuery) — a drifted column in an
+    // INSERT/UPDATE otherwise looks like a silent no-op (changes: 0).
+    console.warn(
+      JSON.stringify({ level: 'warn', service: 'db', event: 'd1_exec_error', message, sql: sql.slice(0, 200) }),
+    );
+    return { error: message, changes: 0 };
   }
 }
 

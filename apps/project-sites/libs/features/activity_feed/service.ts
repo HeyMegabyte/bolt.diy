@@ -73,7 +73,7 @@ export async function getActivityFeed(
     `SELECT id, action, message, actor_id, target_type, target_id,
             metadata_json, created_at
      FROM audit_logs
-     WHERE org_id = ? AND deleted_at IS NULL
+     WHERE org_id = ?
        ${cursor ? 'AND created_at <= ?' : ''}
      ORDER BY created_at DESC
      LIMIT ?`,

@@ -208,13 +208,13 @@ domainPurchase.post('/api/domains/purchase', zValidator('json', purchaseSchema),
 
   // (d) CF Registrar register — refund on failure.
   const user = userId
-    ? await dbQueryOne<{ email: string; name: string | null; phone: string | null }>(
+    ? await dbQueryOne<{ email: string; display_name: string | null; phone: string | null }>(
         c.env.DB,
-        'SELECT email, name, phone FROM users WHERE id = ? AND deleted_at IS NULL',
+        'SELECT email, display_name, phone FROM users WHERE id = ? AND deleted_at IS NULL',
         [userId],
       )
     : null;
-  const userName = (user?.name || 'Site Owner').trim();
+  const userName = (user?.display_name || 'Site Owner').trim();
   const nameParts = userName.split(/\s+/);
   const firstName = nameParts[0] || 'Site';
   const lastName = nameParts.slice(1).join(' ') || 'Owner';
