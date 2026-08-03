@@ -418,8 +418,17 @@ export class SuperAdminComponent implements OnInit {
   }
 
   async saveFactor(c: CostCategory): Promise<void> {
+    // Value-domain parity with the worker's `patchCategorySchema.markup_factor`
+    // (`z.number().min(0.5).max(5)`). Guard on the FE so an out-of-range value
+    // surfaces a specific 0.5–5 hint instead of a generic "try again" after a
+    // server 400 (zod-everywhere FE↔BE parity on a money-tuning input).
+    const factor = Number(c.markup_factor);
+    if (!Number.isFinite(factor) || factor < 0.5 || factor > 5) {
+      this.toast.error(`Markup factor for ${c.label} must be between 0.5 and 5`);
+      return;
+    }
     try {
-      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { markup_factor: Number(c.markup_factor) }).toPromise();
+      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { markup_factor: factor }).toPromise();
       const next = new Set(this.dirty()); next.delete(c.slug); this.dirty.set(next);
       this.toast.success(`Factor saved for ${c.label}`);
     } catch (e) {
@@ -431,7 +440,10 @@ export class SuperAdminComponent implements OnInit {
   async toggleBillable(c: CostCategory): Promise<void> {
     const next = c.billable === 1 ? 0 : 1;
     try {
-      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { billable: next }).toPromise();
+      // Worker `patchCategorySchema.billable` is `z.boolean()` — sending the raw
+      // 0|1 NUMBER got Zod-rejected (400) on every toggle click (dead control).
+      // Send a boolean; the worker coerces it back to 1|0 for storage.
+      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { billable: next === 1 }).toPromise();
       c.billable = next;
       this.toast.success(`${c.label} ${next === 1 ? 'enabled' : 'disabled'}`);
     } catch (e) {

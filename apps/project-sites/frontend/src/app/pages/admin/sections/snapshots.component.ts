@@ -1689,17 +1689,23 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
 
   /**
    * Batch-fetch metrics for every snapshot of the active site in a single
-   * round-trip. Backend returns `{ data: Record<snapshotId, SnapshotMetrics | null> }`.
+   * round-trip. Backend (`snapshot_quality.ts`) returns
+   * `{ data: Array<SnapshotMetrics & { snapshot_id }> }` — an ARRAY of enriched
+   * rows (each carries its `snapshot_id` via the metrics `SELECT m.*`), NOT a
+   * Record keyed by snapshot id. The old code `Object.entries(data)`'d the array
+   * and keyed the cache by array INDEX ("0","1","2"), so `.get(snap.id)` always
+   * missed → Quality chips never populated. Iterate the array + key by the real
+   * `snapshot_id` instead.
    * We populate the cache so the Quality chip + matrix render instantly on
    * row hover/expand — no per-row spinner unless the user clicks Capture.
    */
   private loadMetricsBatch(siteId: string): void {
-    this.api.get<{ data: Record<string, SnapshotMetrics | null> }>(`/sites/${siteId}/snapshots/metrics`).subscribe({
+    this.api.get<{ data: Array<SnapshotMetrics & { snapshot_id: string }> }>(`/sites/${siteId}/snapshots/metrics`).subscribe({
       next: (res) => {
         const merged = new Map(this.metricsBySnapshotId());
-        const data = res.data || {};
-        for (const [snapshotId, metrics] of Object.entries(data)) {
-          merged.set(snapshotId, metrics);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        for (const row of rows) {
+          if (row?.snapshot_id) merged.set(row.snapshot_id, row);
         }
         this.metricsBySnapshotId.set(merged);
       },

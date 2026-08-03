@@ -254,6 +254,60 @@ describe('AdminSnapshotsComponent (⋯ popover Esc dismiss)', () => {
   });
 });
 
+/**
+ * Quality-metrics batch response-shape (P0.54). The worker (snapshot_quality.ts)
+ * returns `{ data: Array<SnapshotMetrics & { snapshot_id }> }` — an ARRAY of
+ * enriched rows. The old FE `Object.entries(data)`'d it and keyed the cache by
+ * array INDEX ("0","1"), so `metricsBySnapshotId().get(snap.id)` always missed →
+ * the Quality chips NEVER populated (a green render hiding a dead surface). These
+ * pin: an array keys by row.snapshot_id; a non-array response populates nothing.
+ */
+describe('AdminSnapshotsComponent — quality-metrics batch keys by snapshot_id', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeMetrics(metricsObs: Observable<unknown>): AdminSnapshotsComponent {
+    const get = jasmine.createSpy('get').and.callFake((url: string) => {
+      if (url.endsWith('/snapshots/metrics')) return metricsObs;
+      if (url.endsWith('/snapshots')) return of({ data: [{ id: 'snapA' }, { id: 'snapB' }] });
+      return of({ data: [] });
+    });
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSnapshotsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSnapshotsComponent).componentInstance;
+  }
+
+  it('an ARRAY of rows keys the cache by row.snapshot_id (never by array index)', () => {
+    const c = makeMetrics(
+      of({
+        data: [
+          { snapshot_id: 'snapA', lh_performance: 90 },
+          { snapshot_id: 'snapB', lh_performance: 70 },
+        ],
+      }),
+    );
+    c.retryLoadSnapshots();
+    expect(c.metricsBySnapshotId().get('snapA')?.lh_performance).toBe(90);
+    expect(c.metricsBySnapshotId().get('snapB')?.lh_performance).toBe(70);
+    expect(c.metricsBySnapshotId().has('0')).withContext('never keyed by array index').toBe(false);
+  });
+
+  it('a non-array (legacy Record) response populates nothing — no fake index keys, no crash', () => {
+    const c = makeMetrics(of({ data: { snapA: { lh_performance: 90 } } as never }));
+    c.retryLoadSnapshots();
+    expect(c.metricsBySnapshotId().size).toBe(0);
+  });
+});
+
 describe('AdminSnapshotsComponent (⋯ more-actions hover title)', () => {
   afterEach(() => TestBed.resetTestingModule());
 

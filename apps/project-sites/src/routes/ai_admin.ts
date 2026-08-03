@@ -430,7 +430,8 @@ aiAdmin.get('/api/sites/:siteId/ai-settings', async (c) => {
   const site = await siteOwned(c, orgId, siteId);
   const row = await c.env.DB.prepare(
     `SELECT chat_persona, chat_system_prompt, form_router_prompt, reply_email,
-            contact_email, brand_tone, search_synonyms_json, updated_at,
+            contact_email, brand_tone, brand_primary, brand_accent, timezone,
+            default_locale, search_synonyms_json, updated_at,
             allow_web_research, drive_folder_id, drive_folder_name,
             drive_last_synced_at,
             CASE WHEN drive_access_token_enc IS NOT NULL THEN 1 ELSE 0 END AS drive_connected
@@ -451,6 +452,12 @@ aiAdmin.get('/api/sites/:siteId/ai-settings', async (c) => {
       reply_email: (row?.reply_email as string | null) ?? null,
       contact_email: (row?.contact_email as string | null) ?? null,
       brand_tone: (row?.brand_tone as string | null) ?? null,
+      // Settings → General brand + locale (0611) — returned so the tab reloads
+      // the saved values instead of reverting to hardcoded FE defaults.
+      brand_primary: (row?.brand_primary as string | null) ?? null,
+      brand_accent: (row?.brand_accent as string | null) ?? null,
+      timezone: (row?.timezone as string | null) ?? null,
+      default_locale: (row?.default_locale as string | null) ?? null,
       search_synonyms: row?.search_synonyms_json
         ? safeJson(row.search_synonyms_json as string)
         : {},
@@ -502,6 +509,11 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
     'reply_email',
     'contact_email',
     'brand_tone',
+    // Settings → General fields the FE sends; were silently dropped before (0611).
+    'brand_primary',
+    'brand_accent',
+    'timezone',
+    'default_locale',
   ] as const;
   const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) if (k in body) fields[k] = body[k];

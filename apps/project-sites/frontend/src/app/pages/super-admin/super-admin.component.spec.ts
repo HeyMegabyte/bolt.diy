@@ -109,3 +109,52 @@ describe('SuperAdminComponent — manual-adjustment value domains (TDD #10)', ()
     expect(c.adjustValid()).toBe(true);
   });
 });
+
+/**
+ * Cost-category mutation request-shape parity (P0.54). The worker
+ * `patchCategorySchema` (super_admin.ts) declares `billable: z.boolean()` +
+ * `markup_factor: z.number().min(0.5).max(5)`. The FE previously sent `billable`
+ * as a raw 0|1 NUMBER → Zod 400 on every toggle (a dead control behind a green
+ * render), and sent `markup_factor` with no bound → a 400 with a generic toast.
+ * These specs pin the contract: boolean billable + FE-clamped factor.
+ */
+describe('SuperAdminComponent — cost-category mutations (request-shape parity)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithPatch(patch: jasmine.Spy): SuperAdminComponent {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: { patch } },
+        { provide: ToastService, useValue: { success: () => {}, error: () => {} } },
+      ],
+    });
+    TestBed.overrideComponent(SuperAdminComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(SuperAdminComponent).componentInstance;
+  }
+
+  it('toggleBillable sends a BOOLEAN billable, never the old number 0|1 (worker Zod is z.boolean())', async () => {
+    const patch = jasmine.createSpy('patch').and.returnValue({ toPromise: () => Promise.resolve({}) });
+    const c = makeWithPatch(patch);
+    await c.toggleBillable({ slug: 'llm_tokens', label: 'LLM', billable: 0 } as never);
+    expect(patch).toHaveBeenCalled();
+    const body = patch.calls.mostRecent().args[1] as Record<string, unknown>;
+    expect(typeof body['billable']).withContext('boolean, not number 0|1').toBe('boolean');
+    expect(body['billable']).withContext('billable=0 → enabling → true').toBe(true);
+  });
+
+  it('saveFactor BLOCKS an out-of-range markup_factor without hitting the API (0.5–5 clamp)', async () => {
+    const patch = jasmine.createSpy('patch').and.returnValue({ toPromise: () => Promise.resolve({}) });
+    const c = makeWithPatch(patch);
+    await c.saveFactor({ slug: 'x', label: 'X', markup_factor: 9 } as never);
+    expect(patch).withContext('9 > 5 → rejected FE-side, no server 400').not.toHaveBeenCalled();
+  });
+
+  it('saveFactor sends a valid in-range factor as a number', async () => {
+    const patch = jasmine.createSpy('patch').and.returnValue({ toPromise: () => Promise.resolve({}) });
+    const c = makeWithPatch(patch);
+    await c.saveFactor({ slug: 'x', label: 'X', markup_factor: 2.5 } as never);
+    expect(patch).toHaveBeenCalled();
+    const body = patch.calls.mostRecent().args[1] as Record<string, unknown>;
+    expect(body['markup_factor']).toBe(2.5);
+  });
+});
