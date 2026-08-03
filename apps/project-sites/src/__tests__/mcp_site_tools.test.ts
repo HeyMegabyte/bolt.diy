@@ -257,11 +257,19 @@ describe('dispatchTool — success routing', () => {
   it('get_analytics_summary returns a 30d columnar-sum envelope (metrics = the summed row)', async () => {
     // analytics_daily is COLUMNAR — the tool sums the real columns into ONE row
     // (P0.32 rewrite). metrics is that row object, NOT an EAV metric/value array.
-    mockQuery.mockResolvedValueOnce({ data: [{ pageviews: 108, unique_sessions: 44, conversions: 2, total_events: 200 }], error: null });
+    mockQuery.mockResolvedValueOnce({
+      data: [{ pageviews: 108, unique_sessions: 44, conversions: 2, total_events: 200 }],
+      error: null,
+    });
     const r = await dispatchTool(db, SITE, 'get_analytics_summary', {});
     const out = JSON.parse(textOf(r));
     expect(out.period).toBe('30d');
-    expect(out.metrics).toEqual({ pageviews: 108, unique_sessions: 44, conversions: 2, total_events: 200 });
+    expect(out.metrics).toEqual({
+      pageviews: 108,
+      unique_sessions: 44,
+      conversions: 2,
+      total_events: 200,
+    });
   });
 });
 
