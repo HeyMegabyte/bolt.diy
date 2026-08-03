@@ -31,8 +31,11 @@ import {
   browserbaseConnectUrl,
 } from '../helpers/browserbase.js';
 import { checkA11y } from '../helpers/a11y.js';
-import { SECTIONS, BROKEN } from './_admin-sections.js';
+import { SECTIONS, BRIAN_ONLY_SECTIONS, BROKEN } from './_admin-sections.js';
 import { loginAsBrian } from './_brian-login.js';
+
+/** brian sees the shared 22 PLUS the operator-only sections (super-admin). */
+const BRIAN_SECTIONS = [...SECTIONS, ...BRIAN_ONLY_SECTIONS];
 
 const PROD = 'https://projectsites.dev';
 const GATE = Boolean(
@@ -68,9 +71,9 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
       const token = await loginAsBrian(page, PROD, process.env.E2E_TEST_PASSWORD!);
       expect(token.length, 'brian test-login failed (empty token)').toBeGreaterThan(0);
 
-      // Sweep every section as brian — same contract as the e2e-org sweep,
-      // NEVER cascade (a bad section must not blind us to the other 19).
-      for (const section of SECTIONS) {
+      // Sweep every section as brian (22 shared + operator-only) — same contract
+      // as the e2e-org sweep, NEVER cascade (a bad section must not blind the rest).
+      for (const section of BRIAN_SECTIONS) {
         const label = section.path || 'dashboard';
         const errBefore = consoleErrors.length;
         try {

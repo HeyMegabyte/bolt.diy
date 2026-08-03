@@ -44,6 +44,19 @@ export const SECTIONS: readonly AdminSection[] = [
   { path: 'leads', signal: /lead|scan|contact|prospect|capture|email|source/i },
 ] as const;
 
+/**
+ * Operator-only sections swept ONLY in the brian sweep, NEVER the e2e-org one.
+ * `super-admin` redirects non-operators (e2e-org → /admin/site-features) so it
+ * can't join the shared SECTIONS — the e2e-org sweep would land on the wrong page
+ * and fail the signal. brian (`is_super_admin=1` + on SYS_ADMIN_EMAILS) sees the
+ * real console. The signal is DATA-SPECIFIC (markup/wallet/cost-category/factor) so
+ * a ⛔ "Restricted"/403 state — which renders only the "Super admin" h1 — would
+ * FAIL, correctly flagging a missing-real-data regression.
+ */
+export const BRIAN_ONLY_SECTIONS: readonly AdminSection[] = [
+  { path: 'super-admin', signal: /markup|wallet|cost categor|base cost|factor|balance|adjustment/i },
+] as const;
+
 /** Copy that indicates a genuinely broken surface (not an honest empty state). */
 export const BROKEN: readonly string[] = [
   'something went wrong',
