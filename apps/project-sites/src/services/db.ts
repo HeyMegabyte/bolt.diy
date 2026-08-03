@@ -100,7 +100,13 @@ export async function dbQuery<T = Record<string, unknown>>(
     // than a loud failure. That masked the loadSiteAndAuth `primary_hostname` bug for
     // weeks (P0.30). Surfacing it makes drift visible in Workers Observability.
     console.warn(
-      JSON.stringify({ level: 'warn', service: 'db', event: 'd1_query_error', message, sql: sql.slice(0, 200) }),
+      JSON.stringify({
+        level: 'warn',
+        service: 'db',
+        event: 'd1_query_error',
+        message,
+        sql: sql.slice(0, 200),
+      }),
     );
     return { data: [], error: message };
   }
@@ -136,7 +142,13 @@ export async function dbExecute(
     // Log swallowed mutation errors too (see dbQuery) — a drifted column in an
     // INSERT/UPDATE otherwise looks like a silent no-op (changes: 0).
     console.warn(
-      JSON.stringify({ level: 'warn', service: 'db', event: 'd1_exec_error', message, sql: sql.slice(0, 200) }),
+      JSON.stringify({
+        level: 'warn',
+        service: 'db',
+        event: 'd1_exec_error',
+        message,
+        sql: sql.slice(0, 200),
+      }),
     );
     return { error: message, changes: 0 };
   }
