@@ -20,18 +20,22 @@ import {
   listDnaFeedback,
   type DnaAction,
 } from '../services/site_dna.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
 
 const siteDna = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+const SITE_DNA_FLAG = 'site_dna_taste_graph';
+
 // ── Flag gate helper ───────────────────────────────────────────────────────
 
-async function assertFlagOn(env: Env): Promise<boolean> {
-  const row = await env.DB.prepare(
-    "SELECT enabled FROM feature_flags WHERE key = 'site_dna_taste_graph' LIMIT 1",
-  )
-    .first<{ enabled: number }>()
-    .catch(() => null);
-  return !!row?.enabled;
+async function assertFlagOn(env: Env, siteId?: string): Promise<boolean> {
+  // Use the CANONICAL flag resolver (registry + `flag_overrides`) — the same
+  // source the admin toggle and the frontend FeatureFlagService read. The old
+  // bespoke `SELECT enabled FROM feature_flags WHERE key=…` hit the LEGACY
+  // table (no `key` column, no row for this flag) → threw → caught → always
+  // false → every route 404'd even with the flag enabled, and the FE-sees-on /
+  // worker-sees-off mismatch logged console 404s on /admin/sites/:id/dna.
+  return isFlagOn(env, SITE_DNA_FLAG, siteId ? { siteId } : {});
 }
 
 // ── POST /api/site-dna/:siteId/feedback ──────────────────────────────────
@@ -47,7 +51,7 @@ siteDna.post(
   '/api/site-dna/:siteId/feedback',
   zValidator('json', DnaFeedbackBodySchema),
   async (c) => {
-    if (!(await assertFlagOn(c.env))) {
+    if (!(await assertFlagOn(c.env, c.req.param('siteId')))) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'site_dna_taste_graph not enabled' } },
         404,
@@ -85,7 +89,7 @@ siteDna.post(
 // ── GET /api/site-dna/:siteId/preferences ─────────────────────────────────
 
 siteDna.get('/api/site-dna/:siteId/preferences', async (c) => {
-  if (!(await assertFlagOn(c.env))) {
+  if (!(await assertFlagOn(c.env, c.req.param('siteId')))) {
     return c.json(
       { error: { code: 'NOT_FOUND', message: 'site_dna_taste_graph not enabled' } },
       404,
@@ -114,7 +118,7 @@ siteDna.get('/api/site-dna/:siteId/preferences', async (c) => {
 // ── GET /api/site-dna/:siteId/history ─────────────────────────────────────
 
 siteDna.get('/api/site-dna/:siteId/history', async (c) => {
-  if (!(await assertFlagOn(c.env))) {
+  if (!(await assertFlagOn(c.env, c.req.param('siteId')))) {
     return c.json(
       { error: { code: 'NOT_FOUND', message: 'site_dna_taste_graph not enabled' } },
       404,

@@ -18,6 +18,13 @@ import { getDnaPreferences, listDnaFeedback } from '../services/site_dna.js';
 import { authApp } from './helpers/route_harness.js';
 import type { Env } from '../types/env.js';
 
+// The flag gate now uses the CANONICAL isFlagOn (registry + flag_overrides), not
+// a bespoke `SELECT … FROM feature_flags`. Mock it here (global `jest` so @swc/jest
+// hoists this above the imports). Per test: mockResolvedValue(true|false).
+jest.mock('../modules/feature_flags/services.js', () => ({ isFlagOn: jest.fn() }));
+import { isFlagOn } from '../modules/feature_flags/services.js';
+const mockIsFlagOn = isFlagOn as jest.Mock;
+
 interface Captured {
   sql: string;
   params: unknown[];
@@ -46,6 +53,8 @@ function dnaDb(flagOn: boolean, sink?: Captured[]): Env['DB'] {
 }
 
 const env = (flagOn: boolean, sink?: Captured[]) => ({ DB: dnaDb(flagOn, sink) }) as unknown as Env;
+
+beforeEach(() => mockIsFlagOn.mockResolvedValue(true));
 
 const PREFS = '/api/site-dna/site1/preferences';
 const HISTORY = '/api/site-dna/site1/history';
@@ -81,6 +90,7 @@ describe('listDnaFeedback (tenant-scoped)', () => {
 // ─── route: GET /preferences ─────────────────────────────────────────
 describe('site_dna GET /preferences (isolation)', () => {
   it('404 when the flag is off', async () => {
+    mockIsFlagOn.mockResolvedValue(false);
     const app = authApp(siteDna, { userId: 'u', orgId: 'org-a' });
     expect((await app.request(PREFS, {}, env(false))).status).toBe(404);
   });
@@ -102,6 +112,7 @@ describe('site_dna GET /preferences (isolation)', () => {
 // ─── route: GET /history ─────────────────────────────────────────────
 describe('site_dna GET /history (isolation)', () => {
   it('404 when the flag is off', async () => {
+    mockIsFlagOn.mockResolvedValue(false);
     const app = authApp(siteDna, { userId: 'u', orgId: 'org-a' });
     expect((await app.request(HISTORY, {}, env(false))).status).toBe(404);
   });
@@ -126,6 +137,7 @@ describe('site_dna POST /feedback', () => {
   const headers = { 'content-type': 'application/json' };
 
   it('404 when the flag is off', async () => {
+    mockIsFlagOn.mockResolvedValue(false);
     const app = authApp(siteDna, { userId: 'u', orgId: 'org-a' });
     const res = await app.request(
       '/api/site-dna/site1/feedback',

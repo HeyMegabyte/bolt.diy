@@ -38,7 +38,8 @@ const OUT = '/tmp/psvis';
 mkdirSync(OUT, { recursive: true });
 const DEFAULT = ['/admin', '/admin/analytics', '/admin/feature-flags', '/admin/system-services', '/admin/site-features', '/admin/social', '/admin/media', '/admin/seo', '/admin/domains', '/admin/settings'];
 const paths = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT;
-const nameOf = (p) => p.replace(/^\/admin\/?/, '') || 'dashboard';
+// Sanitize slashes so nested routes (sites/:id/copilot) screenshot to a flat file.
+const nameOf = (p) => (p.replace(/^\/admin\/?/, '') || 'dashboard').replace(/\//g, '_');
 
 const r = await fetch('https://api.browserbase.com/v1/sessions', {
   method: 'POST', headers: { 'X-BB-API-Key': BB, 'Content-Type': 'application/json' },
