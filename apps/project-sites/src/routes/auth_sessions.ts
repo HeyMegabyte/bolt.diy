@@ -86,7 +86,10 @@ authSessions.post('/api/auth/revoke-session', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { token?: unknown };
   const id = String(body.token ?? '').trim();
   if (!id) {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'A session id is required.' } }, 400);
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'A session id is required.' } },
+      400,
+    );
   }
   const now = new Date().toISOString();
   await dbExecute(
