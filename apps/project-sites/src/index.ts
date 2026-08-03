@@ -105,6 +105,7 @@ import { assets } from './routes/assets.js';
 import { forms } from './routes/forms.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { aiAdmin } from './routes/ai_admin.js';
+import { apiTokensAdmin } from './routes/api_tokens_admin.js'; // account psk_ token CRUD for /admin/api-tokens (flag: public_api)
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
 import { envVarsRoutes } from './routes/env_vars.js';
@@ -1067,6 +1068,7 @@ app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
 app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizable env vars for AI + MCP dispatch
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
+app.route('/', apiTokensAdmin); // GET/POST/DELETE /api/v1-tokens — account API-token CRUD for /admin/api-tokens (flag: public_api)
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
