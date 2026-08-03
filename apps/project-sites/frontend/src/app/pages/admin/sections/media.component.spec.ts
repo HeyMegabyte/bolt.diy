@@ -92,6 +92,43 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     expect('segments' in body).withContext('NEVER the old segments key (worker 400d)').toBe(false);
   });
 
+  // generateVideo must send `durationSec` (worker key) — the old `duration_s` was silently dropped.
+  it('generateVideo POSTs { durationSec } — NOT the old duration_s that the worker silently dropped', () => {
+    build();
+    const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: {} }));
+    const c = fixture.componentInstance;
+    c.videoPrompt = 'a calm ocean at dawn';
+    c.videoDuration = 15;
+    c.generateVideo();
+    const call = postSpy.calls.all().find((x) => x.args[0] === '/media/generate/video');
+    expect(call).withContext('POSTs to /media/generate/video').toBeTruthy();
+    const body = call!.args[1] as Record<string, unknown>;
+    expect(body['durationSec']).withContext('worker reads durationSec').toBe(15);
+    expect('duration_s' in body).withContext('NEVER the old duration_s key').toBe(false);
+  });
+
+  // Client-side 25 MB upload guard (the worker 413s over the cap) — value-domain #10 boundary.
+  it('onFilesPicked rejects files over the 25 MB cap (toast) + uploads only the valid ones', () => {
+    build();
+    const c = fixture.componentInstance;
+    const toastErr = spyOn(TestBed.inject(ToastService), 'error');
+    const uploadSpy = spyOn(c as unknown as { uploadAll: (f: File[]) => Promise<void> }, 'uploadAll').and.resolveTo();
+    const big = { name: 'huge.mp4', size: 30 * 1024 * 1024 } as File;
+    const okFile = { name: 'ok.png', size: 1024 } as File;
+    c.onFilesPicked({ target: { files: [big, okFile], value: 'x' } } as unknown as Event);
+    expect(toastErr).withContext('oversize file → error toast').toHaveBeenCalled();
+    expect(uploadSpy).withContext('only the ≤25 MB file uploads').toHaveBeenCalledWith([okFile]);
+  });
+
+  it('onFilesPicked skips the upload entirely when every file is oversize', () => {
+    build();
+    const c = fixture.componentInstance;
+    spyOn(TestBed.inject(ToastService), 'error');
+    const uploadSpy = spyOn(c as unknown as { uploadAll: (f: File[]) => Promise<void> }, 'uploadAll').and.resolveTo();
+    c.onFilesPicked({ target: { files: [{ name: 'huge.mp4', size: 30 * 1024 * 1024 } as File], value: 'x' } } as unknown as Event);
+    expect(uploadSpy).withContext('no valid file → no upload').not.toHaveBeenCalled();
+  });
+
   it('the count chip is filter-aware: shows "N of M" while filtering, total otherwise', () => {
     build();
     const c = fixture.componentInstance;

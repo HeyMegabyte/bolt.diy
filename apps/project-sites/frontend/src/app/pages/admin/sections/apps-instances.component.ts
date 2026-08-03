@@ -726,6 +726,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
                     <input type="text"
                            hlmInput
                            class="font-mono text-xs"
+                           maxlength="8000"
                            [placeholder]="e.auto ? '(auto-resolved)' : (e.default ?? 'set value')"
                            [(ngModel)]="envValues[e.key]"
                            [disabled]="!!e.auto"

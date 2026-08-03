@@ -1487,11 +1487,31 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.fileInputRef?.nativeElement.click();
   }
 
+  /** Worker upload cap (media.ts UPLOAD_MAX_BYTES = 25 MB → 413 when exceeded). */
+  private static readonly UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+
   onFilesPicked(event: Event): void {
     const input = event.target as HTMLInputElement;
     const files = input.files ? Array.from(input.files) : [];
     if (files.length === 0) return;
-    void this.uploadAll(files).then(() => {
+    // Client-side size guard: reject oversize files INSTANTLY with a clear toast
+    // instead of firing a doomed upload that the worker 413s (value-domain #10:
+    // overlong/boundary). The worker has no mime allowlist, so type is unrestricted.
+    const max = AdminMediaComponent.UPLOAD_MAX_BYTES;
+    const tooBig = files.filter((f) => f.size > max);
+    const ok = files.filter((f) => f.size <= max);
+    if (tooBig.length) {
+      this.toast.error(
+        tooBig.length === 1
+          ? `"${tooBig[0].name}" is ${(tooBig[0].size / 1048576).toFixed(1)} MB — over the 25 MB limit.`
+          : `${tooBig.length} files exceed the 25 MB limit and were skipped.`,
+      );
+    }
+    if (ok.length === 0) {
+      input.value = '';
+      return;
+    }
+    void this.uploadAll(ok).then(() => {
       // Reset the input so re-selecting the same file fires `change` again.
       input.value = '';
     });
@@ -1795,7 +1815,9 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.api
       .post<{ data: MediaAsset }>('/media/generate/video', {
         prompt: this.videoPrompt.trim(),
-        duration_s: this.videoDuration,
+        // Worker (media.ts) reads `durationSec` — the old `duration_s` key was
+        // silently dropped, so the user's chosen duration never took effect.
+        durationSec: this.videoDuration,
         model: this.videoModel,
       })
       .subscribe({
