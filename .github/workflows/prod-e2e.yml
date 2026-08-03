@@ -190,3 +190,77 @@ jobs:
           name: playwright-signin-report
           path: apps/project-sites/frontend/playwright-report/
           retention-days: 7
+
+  # Browserbase real-Chrome VISUAL sweep of all 20 admin sections — the mandate
+  # "every admin feature WORKS + is POPULATED with real data, verified via REAL
+  # BROWSER technically AND visually" (Brian 2026-08-02). Real Chrome (no device
+  # emulation) renders deep section content headless Playwright can't; per section
+  # it asserts render + a per-section REAL-DATA signal + 0 console errors +
+  # 0 CRITICAL axe + a full-page screenshot artifact. Burns ONE billed Browserbase
+  # session (~8 min) so it runs ONLY on the nightly schedule + manual dispatch,
+  # NEVER per-push. Triple-gated fail-open: E2E_API_KEY + BROWSERBASE_API_KEY +
+  # BROWSERBASE_PROJECT_ID all present, else the run step SKIPS (never fails).
+  prod-visual-browserbase:
+    name: Browserbase real-Chrome visual sweep @ prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A Browserbase session is billed — nightly + manual only, never on push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Browserbase + E2E secrets are configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          BROWSERBASE_API_KEY: ${{ secrets.BROWSERBASE_API_KEY }}
+          BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
+        run: |
+          if [ -n "$E2E_API_KEY" ] && [ -n "$BROWSERBASE_API_KEY" ] && [ -n "$BROWSERBASE_PROJECT_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Browserbase/E2E secrets not all set — skipping visual sweep (fail-open)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/package-lock.json
+
+      - name: Install deps
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
+
+      # The sweep drives a REMOTE Browserbase Chrome via connectOverCDP; a local
+      # Chromium is only a safety net for the Playwright runner's project resolver.
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/project-sites
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Browserbase visual sweep
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/project-sites
+        env:
+          RUN_BROWSERBASE: '1'
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          BROWSERBASE_API_KEY: ${{ secrets.BROWSERBASE_API_KEY }}
+          BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
+          PROD_URL: https://projectsites.dev
+        run: |
+          npx playwright test --config=playwright.prod.config.ts \
+            browserbase/admin-section-sweep --workers=1
+
+      - name: Upload section screenshots + report
+        if: steps.gate.outputs.ready == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browserbase-visual-sweep
+          path: |
+            apps/project-sites/e2e/screenshots/browserbase/
+            apps/project-sites/playwright-report/
+          retention-days: 14

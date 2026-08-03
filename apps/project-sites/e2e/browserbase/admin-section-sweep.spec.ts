@@ -32,30 +32,43 @@ const GATE = Boolean(
   process.env.RUN_BROWSERBASE && process.env.E2E_API_KEY && browserbaseAvailable(),
 );
 
-/** Sections to sweep. '' = the dashboard hub. logs/user are in admin-deep-visual. */
-const SECTIONS = [
-  '',
-  'analytics',
-  'feature-flags',
-  'apps',
-  'system-services',
-  'docs',
-  'billing',
-  'domains',
-  'snapshots',
-  'forms',
-  'social',
-  'media',
-  'seo',
-  'site-features',
-  'settings',
+/**
+ * Sections to sweep. '' = the dashboard hub. logs/user are in admin-deep-visual.
+ *
+ * `signal` is a per-section REAL-DATA proof (directive: "populated, not just
+ * gated" — Brian 2026-08-02 [[convergence-verify-populated-not-just-gated]]).
+ * Each is a regex the section's `<main>` innerText MUST match to prove the
+ * section rendered ITS OWN data domain — not a blank shell, a spinner, an error,
+ * or the wrong section. Signals match domain labels / headings / empty-state copy
+ * that name the domain, so they pass for Brian's real-data account AND for the
+ * e2e-org (whose build-derived surfaces are legitimately row-empty
+ * [[e2e-key-is-not-brians-account]]) — what they REJECT is a section that didn't
+ * actually render its content. Two words min (alternation) keeps them lenient
+ * enough to never false-fail an honest empty state.
+ */
+const SECTIONS: ReadonlyArray<{ path: string; signal: RegExp }> = [
+  { path: '', signal: /site|getting started|dashboard|create|deploy/i },
+  { path: 'analytics', signal: /\d/ }, // real traffic numbers (Network Overview)
+  { path: 'feature-flags', signal: /experimental|beta|stable|killswitch|flag/i },
+  { path: 'apps', signal: /app|install|connect|catalog|integration/i },
+  { path: 'system-services', signal: /service|status|operational|worker|healthy|degraded/i },
+  { path: 'docs', signal: /doc|guide|api|reference|endpoint/i },
+  { path: 'billing', signal: /plan|billing|subscription|free|pro|invoice|payment/i },
+  { path: 'domains', signal: /domain|hostname|dns|projectsites|custom/i },
+  { path: 'snapshots', signal: /snapshot|version|restore|initial|frozen/i },
+  { path: 'forms', signal: /form|submission|contact|field|response/i },
+  { path: 'social', signal: /social|post|connect|platform|schedule|account/i },
+  { path: 'media', signal: /media|upload|image|asset|library|stock/i },
+  { path: 'seo', signal: /seo|meta|keyword|sitemap|title|description/i },
+  { path: 'site-features', signal: /feature|enable|plan|flag|capability/i },
+  { path: 'settings', signal: /setting|preference|notification|account|language/i },
   // P0.9 follow-on — the remaining top-level sections (+ audit redirects to
   // logs?tab=audit; mcp = the site-MCP surface).
-  'voice',
-  'auth-security',
-  'api-tokens',
-  'audit',
-  'mcp',
+  { path: 'voice', signal: /voice|call|agent|phone|prompt|greeting/i },
+  { path: 'auth-security', signal: /session|security|2fa|password|device|sign|authentication/i },
+  { path: 'api-tokens', signal: /token|key|api|secret|create|scope/i },
+  { path: 'audit', signal: /audit|action|event|log|activity|timestamp/i },
+  { path: 'mcp', signal: /mcp|connect|provider|server|integration/i },
 ] as const;
 
 /** Copy that indicates a genuinely broken surface (not an honest empty state). */
@@ -97,10 +110,10 @@ test.describe('Browserbase real-Chrome — admin section visual sweep (P0-ADMIN)
       // One session, sequential sections — collect issues per section, NEVER
       // cascade (a bad section must not blind us to the other 19).
       for (const section of SECTIONS) {
-        const label = section || 'dashboard';
+        const label = section.path || 'dashboard';
         const errBefore = consoleErrors.length;
         try {
-          await page.goto(`${PROD}/admin/${section}`, { waitUntil: 'domcontentloaded' });
+          await page.goto(`${PROD}/admin/${section.path}`, { waitUntil: 'domcontentloaded' });
           await page
             .waitForFunction(() => (document.querySelector('main')?.innerText?.length ?? 0) > 150, {
               timeout: 25_000,
@@ -115,6 +128,13 @@ test.describe('Browserbase real-Chrome — admin section visual sweep (P0-ADMIN)
           if (mainText.length <= 150) failures.push(`${label}: thin content (${mainText.length} chars)`);
           const lower = mainText.toLowerCase();
           for (const phrase of BROKEN) if (lower.includes(phrase)) failures.push(`${label}: broken copy "${phrase}"`);
+
+          // REAL-DATA proof: the section must render ITS OWN data domain, not a
+          // blank/spinner/error shell. Distinguishes "populated" from "merely
+          // gated+rendered" — the exact gap Brian flagged 2026-08-02.
+          if (!section.signal.test(mainText)) {
+            failures.push(`${label}: no real-data signal (expected ${section.signal}) in ${mainText.length} chars`);
+          }
 
           await page.screenshot({
             path: `e2e/screenshots/browserbase/section-${label}.png`,
