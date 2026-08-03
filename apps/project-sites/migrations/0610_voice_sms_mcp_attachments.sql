@@ -1,0 +1,11 @@
+-- 0610_voice_sms_mcp_attachments.sql
+--
+-- Adds the SMS-channel MCP attachment list to voice_agent_settings so the voice
+-- "MCPs" tab (PUT /api/voice/mcp-attachments) can persist its per-channel
+-- {voice, sms} selection. The VOICE-channel list continues to reuse the existing
+-- `mcp_connection_ids` column (the same "which MCPs the voice agent may use"
+-- concept the Agent tab already writes); this new column is its SMS counterpart.
+--
+-- Additive + nullable → safe, reversible (two-way door), no runtime-reader impact
+-- (the voice agent keeps reading mcp_connection_ids as a flat JSON string[]).
+ALTER TABLE voice_agent_settings ADD COLUMN mcp_sms_connection_ids TEXT; -- JSON string[]

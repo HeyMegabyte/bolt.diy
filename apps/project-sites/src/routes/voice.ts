@@ -554,6 +554,102 @@ const agentSettingsBody = z.object({
   knowledge_base_urls: z.array(z.string().url()).max(20).optional(),
 });
 
+/** Parse a JSON `string[]` column defensively → always a `string[]`. */
+function parseIdList(v: string | null | undefined): string[] {
+  if (!v) return [];
+  try {
+    const a: unknown = JSON.parse(v);
+    return Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Body for `PUT /api/voice/mcp-attachments` — which MCP connections each channel
+ * (voice, sms) may use. Each id ≤64 chars, ≤20 per channel (mirrors the Agent
+ * tab's `mcp_connection_ids` cap). Note the FE sends `site_id` (snake), unlike
+ * agent-settings' `siteId`.
+ */
+const mcpAttachmentsBody = z.object({
+  site_id: z.string().min(1),
+  voice: z.array(z.string().min(1).max(64)).max(20),
+  sms: z.array(z.string().min(1).max(64)).max(20),
+});
+
+/**
+ * `GET /api/voice/mcp-attachments?siteId=` — the per-channel MCP attachment
+ * lists (`{voice, sms}`) for the site's voice agent. The voice list reuses the
+ * existing `mcp_connection_ids` column (same concept the Agent tab writes); the
+ * sms list lives in `mcp_sms_connection_ids` (migration 0610). A site with no
+ * settings row yet returns empty lists, never an error.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 404 NOT_FOUND when the site isn't in the caller's org (never 403).
+ */
+voiceRoutes.get('/api/voice/mcp-attachments', async (c) => {
+  const { orgId } = requireAuth(c);
+  const siteId = c.req.query('siteId');
+  if (!siteId) throw badRequest('siteId required');
+  await requireSiteMembership(c.env, siteId, orgId);
+  const row = await dbQueryOne<{ mcp_connection_ids: string | null; mcp_sms_connection_ids: string | null }>(
+    c.env.DB,
+    `SELECT mcp_connection_ids, mcp_sms_connection_ids FROM voice_agent_settings WHERE site_id = ? AND deleted_at IS NULL LIMIT 1`,
+    [siteId],
+  );
+  return c.json({ data: { voice: parseIdList(row?.mcp_connection_ids), sms: parseIdList(row?.mcp_sms_connection_ids) } });
+});
+
+/**
+ * `PUT /api/voice/mcp-attachments` — persist the `{voice, sms}` MCP attachment
+ * lists for a site's voice agent. Upserts the `voice_agent_settings` row.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 404 NOT_FOUND when the site isn't in the caller's org (never 403).
+ * @throws 400 VALIDATION_ERROR when the body fails {@link mcpAttachmentsBody}.
+ */
+voiceRoutes.put('/api/voice/mcp-attachments', async (c) => {
+  const { userId, orgId } = requireAuth(c);
+  const body = mcpAttachmentsBody.parse(await c.req.json().catch(() => ({})));
+  await requireSiteMembership(c.env, body.site_id, orgId);
+
+  const voiceJson = body.voice.length ? JSON.stringify(body.voice) : null;
+  const smsJson = body.sms.length ? JSON.stringify(body.sms) : null;
+
+  const existing = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    `SELECT id FROM voice_agent_settings WHERE site_id = ? AND deleted_at IS NULL LIMIT 1`,
+    [body.site_id],
+  );
+  if (existing) {
+    await dbUpdate(
+      c.env.DB,
+      'voice_agent_settings',
+      { mcp_connection_ids: voiceJson, mcp_sms_connection_ids: smsJson },
+      'id = ?',
+      [existing.id],
+    );
+  } else {
+    await dbInsert(c.env.DB, 'voice_agent_settings', {
+      id: crypto.randomUUID(),
+      site_id: body.site_id,
+      mcp_connection_ids: voiceJson,
+      mcp_sms_connection_ids: smsJson,
+    });
+  }
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: userId,
+    action: 'voice.mcp_attachments_updated',
+    message: `Voice/SMS MCP attachments updated for site ${body.site_id}`,
+    target_type: 'site',
+    target_id: body.site_id,
+  });
+
+  return c.json({ data: { voice: body.voice, sms: body.sms } });
+});
+
 /**
  * `GET /api/voice/agent-settings?site_id=` — Read the AI voice agent's
  * per-site settings (greeting, voice, escalation rules, hours).
