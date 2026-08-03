@@ -34,15 +34,17 @@ const GATE = Boolean(
 );
 
 test.describe('Browserbase real-Chrome — admin section visual sweep (P0-ADMIN)', () => {
-  // Deterministic collect-then-assert (below) — retries would just re-bill a
-  // Browserbase session for the same result.
-  test.describe.configure({ retries: 0 });
+  // retries:1 — a Browserbase session can transiently DROP mid-sweep ("Target page
+  // has been closed"); that non-deterministic infra failure is exactly what a retry
+  // heals (fresh session on attempt 2). A REAL content failure is deterministic and
+  // fails both attempts, so it's never masked.
+  test.describe.configure({ retries: 1 });
 
   test('every section renders populated + 0 console errors + 0 critical axe (real Chrome)', async () => {
     test.skip(!GATE, 'on-demand — RUN_BROWSERBASE=1 + creds + E2E_API_KEY');
-    test.setTimeout(480_000); // 8 min — 20 sections × (nav + render + screenshot + axe)
+    test.setTimeout(600_000); // 10 min — 22 sections × (nav + render + screenshot + axe)
 
-    const session = await createBrowserbaseSession({ timeoutSec: 600 });
+    const session = await createBrowserbaseSession({ timeoutSec: 900 });
     const browser: Browser = await chromium.connectOverCDP(browserbaseConnectUrl(session.id));
     const failures: string[] = [];
     try {

@@ -40,13 +40,16 @@ const GATE = Boolean(
 );
 
 test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (P0-ADMIN)', () => {
-  test.describe.configure({ retries: 0 });
+  // retries:1 — a Browserbase session can transiently DROP mid-sweep ("Target page
+  // has been closed"); that's non-deterministic infra, exactly what a retry heals
+  // (a fresh session + re-login on attempt 2). Each attempt is a clean full run.
+  test.describe.configure({ retries: 1 });
 
   test('every section renders brian’s real data + 0 console errors + 0 critical axe (real Chrome)', async () => {
     test.skip(!GATE, 'on-demand — RUN_BROWSERBASE=1 + creds + E2E_TEST_PASSWORD');
-    test.setTimeout(480_000); // 8 min — login + 20 sections × (nav + render + screenshot + axe)
+    test.setTimeout(600_000); // 10 min — login + 22 sections × (nav + render + screenshot + axe)
 
-    const session = await createBrowserbaseSession({ timeoutSec: 600 });
+    const session = await createBrowserbaseSession({ timeoutSec: 900 });
     const browser: Browser = await chromium.connectOverCDP(browserbaseConnectUrl(session.id));
     const failures: string[] = [];
     try {
