@@ -317,8 +317,8 @@ async function handleListFormSubmissions(
 ): Promise<ToolResult> {
   const { data } = await dbQuery<Record<string, unknown>>(
     db,
-    `SELECT id, form_slug, data, created_at FROM form_submissions
-      WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?`,
+    `SELECT id, form_name, payload, created_at FROM form_submissions
+      WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
     [siteId, Math.min(limit, 200)],
   );
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
@@ -359,17 +359,22 @@ async function handleCreateBlogPost(
 }
 
 async function handleGetAnalyticsSummary(db: D1Database, siteId: string): Promise<ToolResult> {
+  // analytics_daily is COLUMNAR (day, pageviews, unique_sessions, conversions,
+  // total_events) — NOT an EAV metric/value table. Sum the real columns over the
+  // window (was `SELECT metric, SUM(value) … WHERE date …` → all 3 cols non-existent
+  // → swallowed error → the tool always returned []).
   const { data } = await dbQuery<Record<string, unknown>>(
     db,
-    `SELECT metric, SUM(value) AS total
+    `SELECT COALESCE(SUM(pageviews),0) AS pageviews,
+            COALESCE(SUM(unique_sessions),0) AS unique_sessions,
+            COALESCE(SUM(conversions),0) AS conversions,
+            COALESCE(SUM(total_events),0) AS total_events
        FROM analytics_daily
-      WHERE site_id = ? AND date >= date('now','-30 days')
-      GROUP BY metric
-      ORDER BY metric`,
+      WHERE site_id = ? AND day >= date('now','-30 days')`,
     [siteId],
   );
   return {
-    content: [{ type: 'text', text: JSON.stringify({ period: '30d', metrics: data }, null, 2) }],
+    content: [{ type: 'text', text: JSON.stringify({ period: '30d', metrics: data[0] ?? {} }, null, 2) }],
   };
 }
 
@@ -378,11 +383,21 @@ async function handleListMediaAssets(
   siteId: string,
   limit: number,
 ): Promise<ToolResult> {
+  // media_assets is ORG-scoped (real cols: name, r2_key, org_id — NO site_id,
+  // filename, or r2_path). The old query (`site_id`/`filename`/`r2_path`) threw
+  // `no such column` → swallowed → the tool always returned []. Resolve the site's
+  // org, then list that org's media with the real columns.
+  const site = await dbQueryOne<{ org_id: string }>(
+    db,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  if (!site) return { content: [{ type: 'text', text: '[]' }] };
   const { data } = await dbQuery<Record<string, unknown>>(
     db,
-    `SELECT id, filename, kind, source, r2_path, created_at FROM media_assets
-      WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?`,
-    [siteId, Math.min(limit, 100)],
+    `SELECT id, name, kind, source, r2_key, created_at FROM media_assets
+      WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?`,
+    [site.org_id, Math.min(limit, 100)],
   );
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
 }
