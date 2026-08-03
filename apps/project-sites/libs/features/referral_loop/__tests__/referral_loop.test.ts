@@ -39,11 +39,12 @@ function makeDb(rows: Row[] = []) {
 describe('referral_loop/schemas', () => {
   it('ReferralCodeRowSchema parses a valid row', async () => {
     const { ReferralCodeRowSchema } = await import('../schemas.js');
+    // `clicks` is NOT a referral_codes column — it's derived from attributions.
     const row = {
       id: 'id-1',
+      site_id: 'site-1',
       org_id: 'org-1',
       code: 'AB12CD34',
-      clicks: 5,
       conversions: 1,
       created_at: '2026-06-17T00:00:00.000Z',
     };
@@ -51,7 +52,7 @@ describe('referral_loop/schemas', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.code).toBe('AB12CD34');
-      expect(result.data.clicks).toBe(5);
+      expect(result.data.conversions).toBe(1);
     }
   });
 
@@ -60,7 +61,6 @@ describe('referral_loop/schemas', () => {
     const result = ReferralCodeRowSchema.safeParse({
       id: 'x',
       code: 'AB',
-      clicks: 0,
       conversions: 0,
       created_at: 'now',
     });
@@ -97,17 +97,25 @@ describe('referral_loop/schemas', () => {
 
 describe('referral_loop/service — getOrCreateReferralCode', () => {
   it('returns existing code when one is present', async () => {
-    const db = makeDb([{ id: 'rc-1', code: 'EXIST001', clicks: 3, conversions: 1 }]);
+    const db = makeDb();
+    let call = 0;
+    db._prepared.all.mockImplementation(() => {
+      call += 1;
+      // 1st = the code row (conversions is a real column); 2nd = countClicks COUNT.
+      if (call === 1) return Promise.resolve({ results: [{ code: 'EXIST001', conversions: 1 }] });
+      return Promise.resolve({ results: [{ n: 3 }] });
+    });
     const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
 
     const { getOrCreateReferralCode } = await import('../service.js');
     const result = await getOrCreateReferralCode(env, 'org-1');
 
     expect(result.code).toBe('EXIST001');
-    expect(result.clicks).toBe(3);
+    expect(result.clicks).toBe(3); // derived from click attributions
+    expect(result.conversions).toBe(1);
     expect(result.referral_url).toContain('ref=EXIST001');
-    // INSERT should NOT have been called.
-    expect(db.prepare).toHaveBeenCalledTimes(1);
+    // Existing code → SELECT + countClicks only, no INSERT (2 prepares).
+    expect(db.prepare).toHaveBeenCalledTimes(2);
   });
 
   it('creates a new code when none exists', async () => {
@@ -190,15 +198,16 @@ describe('referral_loop/service — getReferralStats', () => {
 
   it('returns aggregated stats for an existing code', async () => {
     const db = makeDb([]);
-    // Both lookups go through dbQueryOne/dbQuery → .all(): 1st = the code row,
-    // 2nd = the pending-attribution COUNT.
+    // Three lookups via dbQueryOne/dbQuery → .all(): 1st = the code row,
+    // 2nd = countClicks (event_kind='click'), 3rd = pending (event_kind='signup').
     let selectCall = 0;
     db._prepared.all.mockImplementation(() => {
       selectCall += 1;
       if (selectCall === 1) {
-        return Promise.resolve({
-          results: [{ id: 'rc-1', code: 'MYCODE01', clicks: 10, conversions: 2 }],
-        });
+        return Promise.resolve({ results: [{ code: 'MYCODE01', conversions: 2 }] });
+      }
+      if (selectCall === 2) {
+        return Promise.resolve({ results: [{ n: 10 }] });
       }
       return Promise.resolve({ results: [{ count: 8 }] });
     });
@@ -208,7 +217,7 @@ describe('referral_loop/service — getReferralStats', () => {
     const stats = await getReferralStats(env, 'org-1');
 
     expect(stats.code).toBe('MYCODE01');
-    expect(stats.clicks).toBe(10);
+    expect(stats.clicks).toBe(10); // derived from click attributions
     expect(stats.conversions).toBe(2);
     expect(stats.pending).toBe(8);
   });

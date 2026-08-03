@@ -5,16 +5,16 @@ import { dbQueryOne } from '../../../../src/services/db.js';
 function env(): Env { return { DB: {} as D1Database } as unknown as Env; }
 beforeEach(() => jest.clearAllMocks());
 
-const siteA = { slug: 'alpha', name: 'Alpha', page_count: 5, build_count: 3, domain_count: 1, status: 'published', last_build: '2026-07-01', updated_at: '2026-07-15' };
-const siteB = { slug: 'beta', name: 'Beta', page_count: 8, build_count: 1, domain_count: 0, status: 'draft', last_build: null, updated_at: '2026-07-10' };
+const siteA = { slug: 'alpha', name: 'Alpha', status: 'published', build_version: 'v3', lighthouse: 95, domain_count: 1, updated_at: '2026-07-15' };
+const siteB = { slug: 'beta', name: 'Beta', status: 'draft', build_version: 'v1', lighthouse: 80, domain_count: 0, updated_at: '2026-07-10' };
 
 describe('compareSites', () => {
   it('compares two sites and returns diff rows', async () => {
     (dbQueryOne as jest.Mock).mockResolvedValueOnce(siteA).mockResolvedValueOnce(siteB);
     const r = await compareSites(env(), 'id-a', 'id-b');
     expect(r).not.toBeNull();
-    expect(r!.rows).toHaveLength(6);
-    expect(r!.rows.find(q => q.metric === 'Pages')!.diff).not.toBeNull();
+    expect(r!.rows).toHaveLength(5);
+    expect(r!.rows.find(q => q.metric === 'Custom Domains')!.diff).not.toBeNull();
     expect(r!.siteA.slug).toBe('alpha');
   });
   it('returns null for missing site', async () => {

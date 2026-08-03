@@ -18,9 +18,10 @@ import { z } from 'zod';
 export const ReferralCodeRowSchema = z
   .object({
     id: z.string().min(1),
+    site_id: z.string().nullable().default(null),
     org_id: z.string().min(1),
     code: z.string().min(1),
-    clicks: z.number().int().nonnegative().default(0),
+    // `clicks` is NOT a column — it's derived by counting click attributions.
     conversions: z.number().int().nonnegative().default(0),
     created_at: z.string(),
   })
@@ -32,10 +33,15 @@ export type ReferralCodeRow = z.infer<typeof ReferralCodeRowSchema>;
 export const ReferralAttributionRowSchema = z
   .object({
     id: z.string().min(1),
-    referral_code_id: z.string().min(1),
-    referred_org_id: z.string().nullable().default(null),
-    status: z.enum(['click', 'signup', 'converted']),
-    converted_at: z.string().nullable().default(null),
+    site_id: z.string().nullable().default(null),
+    // Attributions link to a code by the code STRING, and record kind in
+    // `event_kind` (real schema — NOT referral_code_id / status).
+    code: z.string().min(1),
+    event_kind: z.enum(['click', 'signup', 'converted']),
+    visitor_token: z.string().nullable().default(null),
+    conversion_cents: z.number().int().nonnegative().default(0),
+    request_id: z.string().nullable().default(null),
+    user_agent: z.string().nullable().default(null),
     created_at: z.string(),
   })
   .strict();
