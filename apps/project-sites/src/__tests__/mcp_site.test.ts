@@ -19,8 +19,16 @@ jest.mock('../services/db.js', () => ({
 
 jest.mock('../services/mcp_site_tools.js', () => ({
   SITE_MCP_TOOLS: [
-    { name: 'list_pages', description: 'List all pages', inputSchema: { type: 'object', properties: {} } },
-    { name: 'read_page', description: 'Read a page', inputSchema: { type: 'object', properties: {} } },
+    {
+      name: 'list_pages',
+      description: 'List all pages',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'read_page',
+      description: 'Read a page',
+      inputSchema: { type: 'object', properties: {} },
+    },
   ],
   dispatchTool: jest.fn().mockResolvedValue({ ok: true }),
   mintSiteMcpToken: jest.fn().mockResolvedValue({ token: 'raw-token', id: 'tok1' }),
@@ -123,7 +131,9 @@ describe('admin MCP routes — tenant isolation (404 never 403)', () => {
     // 2 built-in (list_pages, read_page) + 1 custom DB tool (book) — the admin
     // panel now shows the same catalog the /mcp endpoint serves.
     expect(tools).toHaveLength(3);
-    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['list_pages', 'read_page', 'book']));
+    expect(tools.map((t) => t.name)).toEqual(
+      expect.arrayContaining(['list_pages', 'read_page', 'book']),
+    );
     expect(tools.find((t) => t.name === 'list_pages')?.builtIn).toBe(true);
     expect(tools.find((t) => t.name === 'book')?.builtIn).toBe(false);
   });
