@@ -214,11 +214,13 @@ interface InlineEdit {
                       class="slug-input"
                       aria-label="Endpoint slug"
                       [(ngModel)]="inlineEdit().slug"
+                      maxlength="64"
+                      [attr.aria-invalid]="slugLiveInvalid(inlineEdit().slug) || null"
                       (keydown.escape)="cancelInlineEdit()"
                       (keydown.enter)="saveInlineEdit(e)"
                       [attr.data-testid]="'ai-endpoint-slug-input-' + e.endpoint_slug"
                       autofocus />
-                    <button class="btn-ok" (click)="saveInlineEdit(e)" title="Save (Enter)" aria-label="Save slug" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug"><svg class="ie-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+                    <button class="btn-ok" [disabled]="!inlineSlugValid()" (click)="saveInlineEdit(e)" title="Save (Enter)" aria-label="Save slug" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug"><svg class="ie-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
                     <button class="btn-cancel" (click)="cancelInlineEdit()" title="Cancel (Esc)" aria-label="Cancel edit"><svg class="ie-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                   } @else {
                     <a class="url-slug" [href]="endpointUrl(e)" target="_blank" rel="noopener" [attr.data-testid]="'ai-endpoint-url-' + e.endpoint_slug">{{ e.endpoint_slug }}</a>
@@ -352,8 +354,14 @@ interface InlineEdit {
                   placeholder="endpoint-slug"
                   aria-label="Endpoint slug"
                   [(ngModel)]="createDraft().slug"
+                  maxlength="64"
+                  [attr.aria-invalid]="slugLiveInvalid(createDraft().slug) || null"
+                  [attr.aria-describedby]="slugLiveInvalid(createDraft().slug) ? 'ai-endpoint-create-slug-err' : null"
                   data-testid="ai-endpoint-create-slug" />
               </div>
+              @if (slugLiveInvalid(createDraft().slug)) {
+                <p class="text-[0.72rem] text-red-400 mt-1" id="ai-endpoint-create-slug-err" role="alert" data-testid="ai-endpoint-create-slug-err">{{ slugReason(createDraft().slug) }}</p>
+              }
             </div>
 
             <label class="block">
@@ -397,7 +405,7 @@ interface InlineEdit {
             <button
               class="btn-primary"
               type="button"
-              [disabled]="saving()"
+              [disabled]="saving() || !createSlugValid()"
               data-testid="ai-endpoint-create-submit"
               (click)="createEndpoint()">
               {{ saving() ? 'Creating…' : 'Create agent' }}
@@ -1069,6 +1077,30 @@ export class AdminAiEndpointsComponent implements OnInit {
   }
 
   /* ─────────────── inline URL editor ─────────────── */
+
+  /**
+   * Live inline-hint gate for a slug field: non-empty but NOT worker-acceptable.
+   * `validateSlug` (`ai-endpoints/types.ts`) mirrors the worker `normaliseSlug`
+   * (`src/services/ai_endpoints_ide.ts`) EXACTLY — 2-64 chars,
+   * `^[a-z0-9]+(?:-[a-z0-9]+)*$`, trim+lowercase — so both submit paths already
+   * block a bad slug; this surfaces the same verdict LIVE as the user types
+   * (per [[zod-everywhere]] visible-per-field-affordance standard).
+   */
+  slugLiveInvalid(raw: string): boolean {
+    return raw.trim().length > 0 && !validateSlug(raw).ok;
+  }
+  /** Human reason for an invalid slug — drives the inline hint text. */
+  slugReason(raw: string): string {
+    return validateSlug(raw).reason ?? '';
+  }
+  /** Create submit-gate: the draft slug is worker-acceptable. */
+  createSlugValid(): boolean {
+    return validateSlug(this.createDraft().slug).ok;
+  }
+  /** Inline-rename submit-gate: the edited slug is worker-acceptable. */
+  inlineSlugValid(): boolean {
+    return validateSlug(this.inlineEdit().slug).ok;
+  }
 
   startInlineEdit(e: EndpointRow): void {
     this.editingId.set(e.id);

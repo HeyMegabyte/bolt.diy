@@ -483,3 +483,93 @@ describe('AdminAiEndpointsComponent (⋯ popover Esc dismiss)', () => {
     expect(c.moreOpenId()).toBeNull();
   });
 });
+
+/**
+ * Value-domain coverage (TDD Contract #10) for the endpoint SLUG — the live
+ * inline-affordance layer over `validateSlug` (which already mirrors the worker
+ * `normaliseSlug` EXACTLY: 2-64 chars, ^[a-z0-9]+(?:-[a-z0-9]+)*$, trim+lower).
+ * Both submit paths were ALREADY gated by validateSlug; this proves the new
+ * live gates (slugLiveInvalid / createSlugValid / inlineSlugValid) agree with
+ * that boundary across every value class: valid / invalid / empty / boundary /
+ * overlong / unicode / injection.
+ */
+describe('AdminAiEndpointsComponent — slug value domains (TDD #10, FE↔BE parity)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function setCreateSlug(c: AdminAiEndpointsComponent, slug: string): void {
+    c.createDraft.update((d) => ({ ...d, slug }));
+  }
+
+  it('VALID slug: no live hint, create + inline gates open', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    setCreateSlug(c, 'summarize-text');
+    expect(c.slugLiveInvalid('summarize-text')).toBeFalse();
+    expect(c.createSlugValid()).toBeTrue();
+    c.inlineEdit.update((v) => ({ ...v, slug: 'summarize-text' }));
+    expect(c.inlineSlugValid()).toBeTrue();
+  });
+
+  it('EMPTY slug: no live hint (empty is not invalid-shaped), but submit blocked', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    setCreateSlug(c, '');
+    expect(c.slugLiveInvalid('')).toBeFalse();
+    expect(c.createSlugValid()).toBeFalse();
+  });
+
+  it('BOUNDARY length: 1 rejected, 2 ok, 64 ok, 65 rejected', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.slugLiveInvalid('a')).toBeTrue();
+    setCreateSlug(c, 'a');
+    expect(c.createSlugValid()).toBeFalse();
+    expect(c.slugLiveInvalid('ab')).toBeFalse();
+    setCreateSlug(c, 'ab');
+    expect(c.createSlugValid()).toBeTrue();
+    const ok64 = 'a'.repeat(64);
+    expect(c.slugLiveInvalid(ok64)).toBeFalse();
+    setCreateSlug(c, ok64);
+    expect(c.createSlugValid()).toBeTrue();
+    const bad65 = 'a'.repeat(65);
+    expect(c.slugLiveInvalid(bad65)).toBeTrue();
+    setCreateSlug(c, bad65);
+    expect(c.createSlugValid()).toBeFalse();
+  });
+
+  it('INVALID shapes: mixed-case accepted (BE lowercases); space/underscore/dot/leading-double-trailing dash rejected', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.slugLiveInvalid('MySlug')).toBeFalse(); // BE lowercases → accepted
+    expect(c.slugLiveInvalid('my slug')).toBeTrue();
+    expect(c.slugLiveInvalid('my_slug')).toBeTrue();
+    expect(c.slugLiveInvalid('my.slug')).toBeTrue();
+    expect(c.slugLiveInvalid('-myslug')).toBeTrue();
+    expect(c.slugLiveInvalid('my--slug')).toBeTrue();
+    expect(c.slugLiveInvalid('myslug-')).toBeTrue();
+  });
+
+  it('OVERLONG slug (200 chars): rejected, submit blocked', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const long = 'a'.repeat(200);
+    expect(c.slugLiveInvalid(long)).toBeTrue();
+    setCreateSlug(c, long);
+    expect(c.createSlugValid()).toBeFalse();
+  });
+
+  it('UNICODE slug: rejected (BE charset is ASCII a-z0-9 + dash only)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.slugLiveInvalid('café-agent')).toBeTrue();
+    expect(c.slugLiveInvalid('日本語')).toBeTrue();
+  });
+
+  it('INJECTION-shaped slug: rejected (special chars not in the slug charset)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.slugLiveInvalid("a'; DROP TABLE x; --")).toBeTrue();
+    expect(c.slugLiveInvalid('a/../b')).toBeTrue();
+    expect(c.slugLiveInvalid('a<script>')).toBeTrue();
+  });
+
+  it('slugReason: human message for invalid, empty for valid', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.slugReason('a')).toContain('2-64');
+    expect(c.slugReason('my slug')).toContain('lowercase');
+    expect(c.slugReason('valid-slug')).toBe('');
+  });
+});
