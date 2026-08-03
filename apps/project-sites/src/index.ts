@@ -107,6 +107,7 @@ import { analyticsRoutes } from './routes/analytics.js';
 import { aiAdmin } from './routes/ai_admin.js';
 import { apiTokensAdmin } from './routes/api_tokens_admin.js'; // account psk_ token CRUD for /admin/api-tokens (flag: public_api)
 import { authSessions } from './routes/auth_sessions.js'; // custom-auth Active Sessions for /admin/auth-security (Better Auth is dark)
+import { authOrg } from './routes/auth_org.js'; // custom-auth Organization/Team for /admin/team (Better Auth is dark)
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
 import { envVarsRoutes } from './routes/env_vars.js';
@@ -476,6 +477,12 @@ app.use('/api/auth/*', async (c, next) => {
     '/api/auth/list-sessions',
     '/api/auth/revoke-session',
     '/api/auth/revoke-other-sessions',
+    // Custom-auth Team/Organization for /admin/team (routes/auth_org.ts) — over
+    // the live memberships/users/team_invites tables, not the BA org plugin.
+    '/api/auth/organization/get-full-organization',
+    '/api/auth/organization/invite-member',
+    '/api/auth/organization/cancel-invitation',
+    '/api/auth/organization/remove-member',
   ];
   if (legacyPaths.includes(path)) {
     await next();
@@ -1077,6 +1084,7 @@ app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizabl
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
 app.route('/', apiTokensAdmin); // GET/POST/DELETE /api/v1-tokens — account API-token CRUD for /admin/api-tokens (flag: public_api)
 app.route('/', authSessions); // GET /api/auth/list-sessions + revoke-session/revoke-other — custom-auth Active Sessions (Better Auth dark). Reached because the /api/auth/* BA middleware next()s when better_auth is off.
+app.route('/', authOrg); // /api/auth/organization/* — custom-auth Team (get-full-organization/invite/cancel/remove over memberships+users+team_invites). Same legacyPaths bypass.
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first

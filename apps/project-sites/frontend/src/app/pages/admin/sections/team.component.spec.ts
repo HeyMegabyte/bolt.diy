@@ -71,6 +71,57 @@ describe('TeamComponent (org members + invites — idea #24)', () => {
     expect(seats).toContain('10');
   });
 
+  it('shows the real entitlement seat cap and blocks invite when seats are full', async () => {
+    const api = makeOrgApiMock();
+    // Free org: 1 seat, the owner already fills it → full.
+    api.getFullOrganization.and.resolveTo(
+      ok({
+        id: 'org_free',
+        name: 'Solo',
+        seatLimit: 1,
+        members: [{ id: 'mem_1', role: 'owner', email: 'solo@acme.test' }],
+        invitations: [],
+      } as FullOrganization),
+    );
+    const { fixture } = await setup(api);
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+
+    // Truthful "1 of 1", NOT the hardcoded default of 10.
+    const seats = el.querySelector('[data-testid="team-seats"]')?.textContent ?? '';
+    expect(seats).toContain('1');
+    expect(seats).not.toContain('10');
+    expect(c.seatsFull()).toBeTrue();
+
+    // Full → upgrade hint shows and the submit is disabled even for a valid email.
+    expect(el.querySelector('[data-testid="team-seats-full"]')).toBeTruthy();
+    c.inviteEmail.set('valid@acme.test');
+    fixture.detectChanges();
+    const submit = el.querySelector('[data-testid="team-invite-submit"]') as HTMLButtonElement;
+    expect(submit.disabled).toBeTrue();
+  });
+
+  it('treats a seat limit of -1 as unlimited (never full)', async () => {
+    const api = makeOrgApiMock();
+    api.getFullOrganization.and.resolveTo(
+      ok({
+        id: 'org_ent',
+        name: 'Ent',
+        seatLimit: -1,
+        members: FULL_ORG.members,
+        invitations: [],
+      } as FullOrganization),
+    );
+    const { fixture } = await setup(api);
+    const c = fixture.componentInstance;
+    expect(c.seatsUnlimited()).toBeTrue();
+    expect(c.seatsFull()).toBeFalse();
+    const seats =
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="team-seats"]')
+        ?.textContent ?? '';
+    expect(seats.toLowerCase()).toContain('unlimited');
+  });
+
   it('blocks invite submit until the email is valid (busy/validity guard)', async () => {
     const { fixture, orgApi } = await setup();
     const c = fixture.componentInstance;

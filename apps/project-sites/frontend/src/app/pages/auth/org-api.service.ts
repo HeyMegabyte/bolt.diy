@@ -52,6 +52,10 @@ export interface FullOrganization {
   id?: string;
   name?: string;
   slug?: string;
+  /** Authoritative seat cap from plan entitlements (`-1` = unlimited). */
+  seatLimit?: number;
+  /** Seats consumed = active members + pending invites. */
+  seatUsed?: number;
   members: OrgMember[];
   invitations: OrgInvitation[];
 }
@@ -77,10 +81,21 @@ export class OrgApiService {
     body?: unknown,
   ): Promise<AuthResult<T>> {
     try {
+      // Attach the custom-auth Bearer session (ps_session) so authed org calls
+      // reach our custom handlers authenticated — native fetch bypasses Angular's
+      // HttpClient interceptor (same fix as auth-api.service).
+      const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
+      try {
+        const raw = localStorage.getItem('ps_session');
+        const token = raw ? (JSON.parse(raw) as { token?: string })?.token : null;
+        if (token) headers['authorization'] = `Bearer ${token}`;
+      } catch {
+        /* no session / private mode */
+      }
       const res = await fetch(`${ORG_BASE}${path}`, {
         method,
         credentials: 'include',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        headers,
         body: body === undefined ? undefined : JSON.stringify(body),
       });
 

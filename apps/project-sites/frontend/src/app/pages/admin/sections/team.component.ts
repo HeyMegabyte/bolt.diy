@@ -57,7 +57,15 @@ import {
       <!-- Seat usage -->
       <p class="mb-6 text-[0.82rem] text-text-secondary" data-testid="team-seats">
         <span class="font-semibold text-white">{{ seatsUsed() }}</span> of
-        <span class="font-semibold text-white">{{ seatLimit() }}</span> seats used
+        <span class="font-semibold text-white">{{ seatsUnlimited() ? 'unlimited' : seatLimit() }}</span>
+        seats used
+        @if (seatsFull()) {
+          <span class="text-amber-300/90" data-testid="team-seats-full">
+            · Seat limit reached —
+            <a href="/admin/billing" class="underline hover:text-amber-200">upgrade your plan</a>
+            to invite more.
+          </span>
+        }
       </p>
 
       <!-- Invite form -->
@@ -117,7 +125,7 @@ import {
 
           <button
             type="submit"
-            [disabled]="inviting() || !emailValid()"
+            [disabled]="inviting() || !emailValid() || seatsFull()"
             data-testid="team-invite-submit"
             class="min-h-[44px] self-end max-md:self-stretch rounded-lg bg-primary px-4 text-[0.9rem] font-bold text-dark transition-colors motion-safe:transition-all hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -237,6 +245,12 @@ export class TeamComponent {
   readonly showEmailError = computed(() => this.emailTouched() && !this.emailValid());
   /** Seats = active members + outstanding invitations (each holds a seat). */
   readonly seatsUsed = computed(() => this.members().length + this.invitations().length);
+  /** `-1` seat limit = unlimited (enterprise) — never "full". */
+  readonly seatsUnlimited = computed(() => this.seatLimit() < 0);
+  /** Every seat consumed — further invites are rejected server-side (409). */
+  readonly seatsFull = computed(
+    () => !this.seatsUnlimited() && this.seatsUsed() >= this.seatLimit(),
+  );
 
   constructor() {
     void this.load();
@@ -265,6 +279,9 @@ export class TeamComponent {
         (i) => !i.status || i.status === 'pending',
       ),
     );
+    // Show the TRUE seat cap from entitlements, not the hardcoded default —
+    // a free org is 1 seat, not 10. `-1` = unlimited.
+    if (typeof org.seatLimit === 'number') this.seatLimit.set(org.seatLimit);
   }
 
   /** Send an invite; on success, refresh the lists. */
