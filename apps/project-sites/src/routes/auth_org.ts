@@ -120,7 +120,9 @@ authOrg.post('/api/auth/organization/invite-member', async (c) => {
   const userId = c.get('userId') ?? null;
   if (!orgId) return unauthorized(c);
   const body = (await c.req.json().catch(() => ({}))) as { email?: unknown; role?: unknown };
-  const email = String(body.email ?? '').trim().toLowerCase();
+  const email = String(body.email ?? '')
+    .trim()
+    .toLowerCase();
   const role = String(body.role ?? 'member');
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) {
     return badRequest(c, 'A valid email address is required.');
@@ -130,7 +132,10 @@ authOrg.post('/api/auth/organization/invite-member', async (c) => {
   const seatLimit = resolveSeatLimit(await getOrgEntitlements(c.env.DB, orgId));
   const decision = canInviteMember(await countSeatUsage(c.env, orgId), seatLimit);
   if (!decision.allowed) {
-    return c.json({ error: { code: 'CONFLICT', message: decision.reason ?? 'Seat limit reached.' } }, 409);
+    return c.json(
+      { error: { code: 'CONFLICT', message: decision.reason ?? 'Seat limit reached.' } },
+      409,
+    );
   }
   const id = crypto.randomUUID();
   const token = crypto.randomUUID().replace(/-/g, '');
@@ -158,7 +163,10 @@ authOrg.post('/api/auth/organization/invite-member', async (c) => {
   } else if (c.env.RESEND_API_KEY) {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${c.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ from: 'team@projectsites.dev', to: [email], subject, text }),
     }).catch(() => {});
   }
