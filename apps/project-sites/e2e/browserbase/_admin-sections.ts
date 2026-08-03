@@ -40,6 +40,8 @@ export const SECTIONS: readonly AdminSection[] = [
   { path: 'api-tokens', signal: /token|key|api|secret|create|scope/i },
   { path: 'audit', signal: /audit|action|event|log|activity|timestamp/i },
   { path: 'mcp', signal: /mcp|connect|provider|server|integration/i },
+  { path: 'team', signal: /team|member|invite|role|owner|seat|pending/i },
+  { path: 'leads', signal: /lead|scan|contact|prospect|capture|email|source/i },
 ] as const;
 
 /** Copy that indicates a genuinely broken surface (not an honest empty state). */
