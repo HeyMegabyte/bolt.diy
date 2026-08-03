@@ -9,7 +9,9 @@
  * Audit is mocked; a single-row D1 stub satisfies `siteOwned()` so requests reach
  * the email gate.
  */
-jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../services/audit.js', () => ({
+  writeAuditLog: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -38,18 +40,27 @@ function app(): Hono<{ Bindings: Env; Variables: Variables }> {
   a.route('/', aiAdmin);
   return a;
 }
-const ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext;
+const ctx = {
+  waitUntil: () => {},
+  passThroughOnException: () => {},
+} as unknown as ExecutionContext;
 const put = (bodyObj: unknown): Promise<Response> =>
   app().request(
     '/api/sites/s1/ai-settings',
-    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj) },
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyObj),
+    },
     env(),
     ctx,
   );
 
 describe('PUT ai-settings — email value domains (TDD #10)', () => {
   it('VALID: both emails well-formed → 200', async () => {
-    expect((await put({ contact_email: 'hello@yourbiz.com', reply_email: 'owner@yourbiz.com' })).status).toBe(200);
+    expect(
+      (await put({ contact_email: 'hello@yourbiz.com', reply_email: 'owner@yourbiz.com' })).status,
+    ).toBe(200);
   });
   it('EMPTY string clears the field → 200', async () => {
     expect((await put({ contact_email: '', reply_email: '' })).status).toBe(200);

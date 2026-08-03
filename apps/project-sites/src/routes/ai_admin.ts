@@ -853,9 +853,15 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   for (const k of direct) if (k in body) updates[k] = body[k];
   // Same clamp as create — the raw API can't persist an out-of-range rate/ttl.
   if ('rate_limit_per_sec' in updates)
-    updates['rate_limit_per_sec'] = Math.max(0, Math.min(10000, Math.trunc(Number(updates['rate_limit_per_sec']) || 0)));
+    updates['rate_limit_per_sec'] = Math.max(
+      0,
+      Math.min(10000, Math.trunc(Number(updates['rate_limit_per_sec']) || 0)),
+    );
   if ('cache_ttl_seconds' in updates)
-    updates['cache_ttl_seconds'] = Math.max(0, Math.min(86400, Math.trunc(Number(updates['cache_ttl_seconds']) || 0)));
+    updates['cache_ttl_seconds'] = Math.max(
+      0,
+      Math.min(86400, Math.trunc(Number(updates['cache_ttl_seconds']) || 0)),
+    );
   if (nextSlug !== existing.endpoint_slug) updates['endpoint_slug'] = nextSlug;
   if (body['files']) updates['files_json'] = JSON.stringify(body['files']);
   if (body['bindings']) updates['bindings_json'] = JSON.stringify(body['bindings']);
