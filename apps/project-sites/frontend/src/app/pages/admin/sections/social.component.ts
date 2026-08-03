@@ -976,11 +976,19 @@ const PLATFORMS: readonly PlatformDef[] = [
             <p class="ap-dlg-blurb">Create an app password at Settings → App Passwords, then paste it below.</p>
             <div>
               <label class="ap-dlg-lbl" for="paste-bsky-id">Handle or email</label>
-              <input hlmInput id="paste-bsky-id" class="w-full" type="text" [(ngModel)]="pasteF.identifier" placeholder="you.bsky.social" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input hlmInput id="paste-bsky-id" class="w-full" type="text" [(ngModel)]="pasteF.identifier" maxlength="120" placeholder="you.bsky.social" autocomplete="off" autocapitalize="off" spellcheck="false"
+                     [attr.aria-invalid]="bskyIdInvalid() || null" [attr.aria-describedby]="bskyIdInvalid() ? 'paste-bsky-id-err' : null" />
+              @if (bskyIdInvalid()) {
+                <p class="paste-err" id="paste-bsky-id-err" role="alert">Handle or email must be 2–120 characters.</p>
+              }
             </div>
             <div>
               <label class="ap-dlg-lbl" for="paste-bsky-pw">App password</label>
-              <input hlmInput id="paste-bsky-pw" class="w-full" type="password" [(ngModel)]="pasteF.app_password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" />
+              <input hlmInput id="paste-bsky-pw" class="w-full" type="password" [(ngModel)]="pasteF.app_password" maxlength="120" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off"
+                     [attr.aria-invalid]="bskyPwInvalid() || null" [attr.aria-describedby]="bskyPwInvalid() ? 'paste-bsky-pw-err' : null" />
+              @if (bskyPwInvalid()) {
+                <p class="paste-err" id="paste-bsky-pw-err" role="alert">App password must be 8–120 characters.</p>
+              }
             </div>
           }
           @case ('mastodon') {
@@ -995,29 +1003,41 @@ const PLATFORMS: readonly PlatformDef[] = [
             </div>
             <div>
               <label class="ap-dlg-lbl" for="paste-masto-tok">Access token</label>
-              <input hlmInput id="paste-masto-tok" class="w-full" type="password" [(ngModel)]="pasteF.access_token" placeholder="Your application access token" autocomplete="off" />
+              <input hlmInput id="paste-masto-tok" class="w-full" type="password" [(ngModel)]="pasteF.access_token" maxlength="500" placeholder="Your application access token" autocomplete="off"
+                     [attr.aria-invalid]="mastoTokInvalid() || null" [attr.aria-describedby]="mastoTokInvalid() ? 'paste-masto-tok-err' : null" />
+              @if (mastoTokInvalid()) {
+                <p class="paste-err" id="paste-masto-tok-err" role="alert">Access token must be 20–500 characters.</p>
+              }
             </div>
           }
           @case ('telegram') {
             <p class="ap-dlg-blurb">Add your bot to the channel as an admin, then paste the channel’s chat ID.</p>
             <div>
               <label class="ap-dlg-lbl" for="paste-tg-chat">Chat ID</label>
-              <input hlmInput id="paste-tg-chat" class="w-full" type="text" [(ngModel)]="pasteF.chat_id" placeholder="@yourchannel or -100123456789" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input hlmInput id="paste-tg-chat" class="w-full" type="text" [(ngModel)]="pasteF.chat_id" maxlength="80" placeholder="@yourchannel or -100123456789" autocomplete="off" autocapitalize="off" spellcheck="false"
+                     [attr.aria-invalid]="tgChatInvalid() || null" [attr.aria-describedby]="tgChatInvalid() ? 'paste-tg-chat-err' : null" />
+              @if (tgChatInvalid()) {
+                <p class="paste-err" id="paste-tg-chat-err" role="alert">Chat ID must be 80 characters or fewer.</p>
+              }
             </div>
             <div>
               <label class="ap-dlg-lbl" for="paste-tg-name">Display name <span class="paste-opt">(optional)</span></label>
-              <input hlmInput id="paste-tg-name" class="w-full" type="text" [(ngModel)]="pasteF.display_name" placeholder="My Channel" autocomplete="off" />
+              <input hlmInput id="paste-tg-name" class="w-full" type="text" [(ngModel)]="pasteF.display_name" maxlength="120" placeholder="My Channel" autocomplete="off" />
             </div>
           }
           @case ('discord') {
             <p class="ap-dlg-blurb">Enable the channel webhook for your server, then paste the channel ID.</p>
             <div>
               <label class="ap-dlg-lbl" for="paste-dc-chan">Channel ID</label>
-              <input hlmInput id="paste-dc-chan" class="w-full" type="text" [(ngModel)]="pasteF.channel_id" placeholder="123456789012345678" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input hlmInput id="paste-dc-chan" class="w-full" type="text" [(ngModel)]="pasteF.channel_id" maxlength="40" placeholder="123456789012345678" autocomplete="off" autocapitalize="off" spellcheck="false"
+                     [attr.aria-invalid]="dcChanInvalid() || null" [attr.aria-describedby]="dcChanInvalid() ? 'paste-dc-chan-err' : null" />
+              @if (dcChanInvalid()) {
+                <p class="paste-err" id="paste-dc-chan-err" role="alert">Channel ID must be 5–40 characters.</p>
+              }
             </div>
             <div>
               <label class="ap-dlg-lbl" for="paste-dc-name">Display name <span class="paste-opt">(optional)</span></label>
-              <input hlmInput id="paste-dc-name" class="w-full" type="text" [(ngModel)]="pasteF.display_name" placeholder="My Server" autocomplete="off" />
+              <input hlmInput id="paste-dc-name" class="w-full" type="text" [(ngModel)]="pasteF.display_name" maxlength="120" placeholder="My Server" autocomplete="off" />
             </div>
           }
         }
@@ -1033,7 +1053,7 @@ const PLATFORMS: readonly PlatformDef[] = [
           type="button"
           class="ap-dlg-btn primary"
           (click)="submitPasteConnect()"
-          [disabled]="pasteSubmitting()"
+          [disabled]="pasteSubmitting() || !pasteValid()"
           data-testid="social-paste-submit">
           {{ pasteSubmitting() ? 'Connecting…' : 'Connect' }}
         </button>
@@ -2283,22 +2303,42 @@ export class AdminSocialComponent implements OnInit {
   }
   closePaste(): void { this.pasteOpen.set(null); }
 
-  /** Build the worker's per-platform paste body ({@link PasteSchema}); null if invalid/unsupported. */
+  /**
+   * Build the worker's per-platform paste body ({@link PasteSchema}); null if
+   * invalid/unsupported. Mirrors the worker Zod bounds EXACTLY
+   * (`src/routes/social_oauth.ts` PasteSchema) so a body that would 400 at the
+   * boundary never leaves the browser: bluesky identifier 2–120 / app_password
+   * 8–120, mastodon access_token 20–500, telegram chat_id 1–80, discord
+   * channel_id 5–40, display_name ≤120. Per [[zod-everywhere]] FE↔BE parity.
+   */
   private pasteBody(pid: PlatformId): Record<string, unknown> | null {
     const f = this.pasteF;
+    const inRange = (s: string, min: number, max: number): boolean => s.length >= min && s.length <= max;
+    const name = f.display_name.trim();
+    const nameOk = name.length <= 120;
     switch (pid) {
-      case 'bluesky':
-        return f.identifier.trim() && f.app_password.trim() ? { kind: 'bluesky', identifier: f.identifier.trim(), app_password: f.app_password.trim() } : null;
-      case 'mastodon':
+      case 'bluesky': {
+        const id = f.identifier.trim();
+        const pw = f.app_password.trim();
+        return inRange(id, 2, 120) && inRange(pw, 8, 120) ? { kind: 'bluesky', identifier: id, app_password: pw } : null;
+      }
+      case 'mastodon': {
         // instance_url is FETCHED/authenticated against server-side → require a
         // real public https URL (rejects http://, localhost, single-label + internal
         // hosts) via the shared isValidHttpsUrl guard, NOT a permissive http?-regex
         // (SSRF-adjacent). See [[server-fetched-url-validation-sweep]].
-        return this.isValidHttpsUrl(f.instance_url.trim()) && f.access_token.trim().length >= 20 ? { kind: 'mastodon', instance_url: f.instance_url.trim(), access_token: f.access_token.trim() } : null;
-      case 'telegram':
-        return f.chat_id.trim() ? { kind: 'telegram', chat_id: f.chat_id.trim(), ...(f.display_name.trim() ? { display_name: f.display_name.trim() } : {}) } : null;
-      case 'discord':
-        return f.channel_id.trim().length >= 5 ? { kind: 'discord', channel_id: f.channel_id.trim(), ...(f.display_name.trim() ? { display_name: f.display_name.trim() } : {}) } : null;
+        const url = f.instance_url.trim();
+        const tok = f.access_token.trim();
+        return this.isValidHttpsUrl(url) && inRange(tok, 20, 500) ? { kind: 'mastodon', instance_url: url, access_token: tok } : null;
+      }
+      case 'telegram': {
+        const chat = f.chat_id.trim();
+        return inRange(chat, 1, 80) && nameOk ? { kind: 'telegram', chat_id: chat, ...(name ? { display_name: name } : {}) } : null;
+      }
+      case 'discord': {
+        const chan = f.channel_id.trim();
+        return inRange(chan, 5, 40) && nameOk ? { kind: 'discord', channel_id: chan, ...(name ? { display_name: name } : {}) } : null;
+      }
       default:
         return null;
     }
@@ -3059,6 +3099,35 @@ export class AdminSocialComponent implements OnInit {
   mastoUrlInvalid(): boolean {
     const v = this.pasteF.instance_url.trim();
     return v.length > 0 && !this.isValidHttpsUrl(v);
+  }
+  /** Bluesky identifier (handle/email): BE `z.string().min(2).max(120)`. Inline-hint gate — non-empty but out of 2–120. */
+  bskyIdInvalid(): boolean {
+    const v = this.pasteF.identifier.trim();
+    return v.length > 0 && (v.length < 2 || v.length > 120);
+  }
+  /** Bluesky app password: BE `z.string().min(8).max(120)`. Inline-hint gate. */
+  bskyPwInvalid(): boolean {
+    const v = this.pasteF.app_password.trim();
+    return v.length > 0 && (v.length < 8 || v.length > 120);
+  }
+  /** Mastodon access token: BE `z.string().min(20).max(500)`. Inline-hint gate. */
+  mastoTokInvalid(): boolean {
+    const v = this.pasteF.access_token.trim();
+    return v.length > 0 && (v.length < 20 || v.length > 500);
+  }
+  /** Telegram chat_id: BE `z.string().min(1).max(80)` — only overlong (>80) trips the hint (min 1 = any non-empty is valid). */
+  tgChatInvalid(): boolean {
+    return this.pasteF.chat_id.trim().length > 80;
+  }
+  /** Discord channel_id: BE `z.string().min(5).max(40)`. Inline-hint gate. */
+  dcChanInvalid(): boolean {
+    const v = this.pasteF.channel_id.trim();
+    return v.length > 0 && (v.length < 5 || v.length > 40);
+  }
+  /** Submit-gate for the paste dialog: the open platform's required fields all satisfy the BE Zod bounds. */
+  pasteValid(): boolean {
+    const pid = this.pasteOpen();
+    return pid !== null && this.pasteBody(pid) !== null;
   }
 
   rssPreview(): void {

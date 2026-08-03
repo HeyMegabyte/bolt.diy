@@ -1020,3 +1020,232 @@ describe('AdminSocialComponent (deep-linked tabs — brief #8)', () => {
     expect(args[1].queryParamsHandling).toBe('merge');
   });
 });
+
+/**
+ * Value-domain coverage (TDD Contract #10) for the paste-key CONNECT dialog — a
+ * HIGH-value surface (it wires real social accounts). Asserts the FE mirrors the
+ * worker `PasteSchema` (`src/routes/social_oauth.ts`) bounds EXACTLY across every
+ * value class: valid / invalid / empty / boundary / overlong / unicode / injection.
+ * BE bounds: bluesky identifier 2-120 + app_password 8-120, mastodon
+ * access_token 20-500 (instance_url must be a public https URL), telegram
+ * chat_id 1-80, discord channel_id 5-40, display_name <=120.
+ *
+ * Drives the pure validator methods + pasteValid() directly (no network) after a
+ * real mount, so the parity gates are proven independent of Karma order.
+ */
+describe('AdminSocialComponent — paste-connect value domains (TDD #10)', () => {
+  function make(): AdminSocialComponent {
+    localStorage.clear();
+    const get = jasmine.createSpy('get').and.callFake((path: string) => {
+      if (path === '/social/auto-pilot/config') return of({ data: null });
+      return of({ data: [] });
+    });
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: jasmine.createSpy('post').and.returnValue(of({ data: {} })), delete: jasmine.createSpy('delete').and.returnValue(of({})) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>({ id: 'site-vd' }) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  // ── Bluesky (identifier 2-120, app_password 8-120) ──
+  it('BLUESKY VALID: in-range identifier + app password → no hint, submittable', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    c.pasteF.identifier = 'you.bsky.social';
+    c.pasteF.app_password = 'abcd-efgh-ijkl';
+    expect(c.bskyIdInvalid()).toBe(false);
+    expect(c.bskyPwInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  it('BLUESKY EMPTY: no hint (empty is not too-short), but submit blocked', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    expect(c.bskyIdInvalid()).toBe(false);
+    expect(c.bskyPwInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('BLUESKY BOUNDARY identifier: 1 rejected, 2 ok, 120 ok, 121 rejected', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    c.pasteF.app_password = 'abcd-efgh-ijkl';
+    c.pasteF.identifier = 'a';
+    expect(c.bskyIdInvalid()).toBe(true);
+    c.pasteF.identifier = 'ab';
+    expect(c.bskyIdInvalid()).toBe(false);
+    c.pasteF.identifier = 'x'.repeat(120);
+    expect(c.bskyIdInvalid()).toBe(false);
+    c.pasteF.identifier = 'x'.repeat(121);
+    expect(c.bskyIdInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('BLUESKY BOUNDARY app password: 7 rejected, 8 ok, 120 ok, 121 rejected', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    c.pasteF.identifier = 'you.bsky.social';
+    c.pasteF.app_password = 'x'.repeat(7);
+    expect(c.bskyPwInvalid()).toBe(true);
+    c.pasteF.app_password = 'x'.repeat(8);
+    expect(c.bskyPwInvalid()).toBe(false);
+    c.pasteF.app_password = 'x'.repeat(120);
+    expect(c.bskyPwInvalid()).toBe(false);
+    c.pasteF.app_password = 'x'.repeat(121);
+    expect(c.bskyPwInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('BLUESKY OVERLONG identifier (200 chars): rejected, never submittable', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    c.pasteF.identifier = 'y'.repeat(200);
+    c.pasteF.app_password = 'abcd-efgh-ijkl';
+    expect(c.bskyIdInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('BLUESKY UNICODE identifier (valid length): accepted', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    c.pasteF.identifier = 'ユーザー.bsky.social';
+    c.pasteF.app_password = 'abcd-efgh-ijkl';
+    expect(c.bskyIdInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  it('BLUESKY INJECTION-shaped app password (valid length): accepted (BE encrypts)', () => {
+    const c = make();
+    c.openPaste('bluesky');
+    c.pasteF.identifier = 'you.bsky.social';
+    c.pasteF.app_password = 'a; DROP TABLE social_accounts; --';
+    expect(c.bskyPwInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  // ── Mastodon (instance_url public https, access_token 20-500) ──
+  it('MASTODON VALID: public https URL + in-range token → submittable', () => {
+    const c = make();
+    c.openPaste('mastodon');
+    c.pasteF.instance_url = 'https://mastodon.social';
+    c.pasteF.access_token = 'x'.repeat(40);
+    expect(c.mastoUrlInvalid()).toBe(false);
+    expect(c.mastoTokInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  it('MASTODON INVALID url (http / localhost): url hint trips, submit blocked', () => {
+    const c = make();
+    c.openPaste('mastodon');
+    c.pasteF.access_token = 'x'.repeat(40);
+    c.pasteF.instance_url = 'http://mastodon.social';
+    expect(c.mastoUrlInvalid()).toBe(true);
+    c.pasteF.instance_url = 'https://localhost';
+    expect(c.mastoUrlInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('MASTODON BOUNDARY token: 19 rejected, 20 ok, 500 ok, 501 rejected', () => {
+    const c = make();
+    c.openPaste('mastodon');
+    c.pasteF.instance_url = 'https://mastodon.social';
+    c.pasteF.access_token = 'x'.repeat(19);
+    expect(c.mastoTokInvalid()).toBe(true);
+    c.pasteF.access_token = 'x'.repeat(20);
+    expect(c.mastoTokInvalid()).toBe(false);
+    c.pasteF.access_token = 'x'.repeat(500);
+    expect(c.mastoTokInvalid()).toBe(false);
+    c.pasteF.access_token = 'x'.repeat(501);
+    expect(c.mastoTokInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  // ── Telegram (chat_id 1-80, display_name <=120) ──
+  it('TELEGRAM VALID: non-empty chat id → submittable', () => {
+    const c = make();
+    c.openPaste('telegram');
+    c.pasteF.chat_id = '@myChannel';
+    expect(c.tgChatInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  it('TELEGRAM BOUNDARY chat id: 80 ok, 81 rejected (min 1 = any non-empty)', () => {
+    const c = make();
+    c.openPaste('telegram');
+    c.pasteF.chat_id = 'x'.repeat(80);
+    expect(c.tgChatInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+    c.pasteF.chat_id = 'x'.repeat(81);
+    expect(c.tgChatInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('TELEGRAM OVERLONG display name (121): blocks submit even with valid chat id', () => {
+    const c = make();
+    c.openPaste('telegram');
+    c.pasteF.chat_id = '@myChannel';
+    c.pasteF.display_name = 'x'.repeat(121);
+    expect(c.pasteValid()).toBe(false);
+    c.pasteF.display_name = 'x'.repeat(120);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  // ── Discord (channel_id 5-40) ──
+  it('DISCORD VALID: 18-digit channel id → no hint, submittable', () => {
+    const c = make();
+    c.openPaste('discord');
+    c.pasteF.channel_id = '123456789012345678';
+    expect(c.dcChanInvalid()).toBe(false);
+    expect(c.pasteValid()).toBe(true);
+  });
+
+  it('DISCORD BOUNDARY channel id: 4 rejected, 5 ok, 40 ok, 41 rejected', () => {
+    const c = make();
+    c.openPaste('discord');
+    c.pasteF.channel_id = '1234';
+    expect(c.dcChanInvalid()).toBe(true);
+    c.pasteF.channel_id = '12345';
+    expect(c.dcChanInvalid()).toBe(false);
+    c.pasteF.channel_id = '1'.repeat(40);
+    expect(c.dcChanInvalid()).toBe(false);
+    c.pasteF.channel_id = '1'.repeat(41);
+    expect(c.dcChanInvalid()).toBe(true);
+    expect(c.pasteValid()).toBe(false);
+  });
+
+  it('renders the inline error hint in the DOM when a field is out of range (template wiring)', () => {
+    localStorage.clear();
+    const get = jasmine.createSpy('get').and.callFake((path: string) => {
+      if (path === '/social/auto-pilot/config') return of({ data: null });
+      return of({ data: [] });
+    });
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: jasmine.createSpy('post').and.returnValue(of({ data: {} })), delete: jasmine.createSpy('delete').and.returnValue(of({})) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>({ id: 'site-vd' }) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.openPaste('discord');
+    fixture.componentInstance.pasteF.channel_id = '12'; // too short (min 5)
+    fixture.detectChanges();
+    const hint = (fixture.nativeElement as HTMLElement).querySelector('#paste-dc-chan-err');
+    expect(hint).withContext('inline error hint rendered').not.toBeNull();
+    expect(hint?.textContent).toContain('5–40');
+  });
+});
