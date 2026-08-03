@@ -902,6 +902,61 @@ api.get('/api/auth/me', async (c) => {
   });
 });
 
+/**
+ * Body schema for {@link updateProfile}. Mirrors the frontend
+ * `AdminUserSettingsComponent.displayNameError()` EXACTLY (zod-everywhere FE↔BE
+ * parity): 1-80 chars, no markup / `javascript:` / inline-handler fragments.
+ * Unicode + emoji are allowed. Exported for value-domain unit coverage.
+ */
+export const updateProfileSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Display name is required.')
+    .max(80, 'Display name must be 80 characters or fewer.')
+    .refine(
+      (v) => !/[<>]/.test(v) && !/javascript\s*:/i.test(v) && !/\bon[a-z]+\s*=/i.test(v),
+      'Display name cannot contain markup or script-like content.',
+    ),
+});
+
+/**
+ * Persist the caller's chosen display name to `users.display_name`. The client
+ * (`user-settings`) is LOCAL-FIRST — it writes localStorage immediately and
+ * treats this PATCH as a best-effort forward-sync. Wiring it (a) completes the
+ * feature so the name survives a localStorage clear + follows the account across
+ * devices, and (b) removes the 404 the unwired route used to emit on every save
+ * (the client then showed a perpetual "server sync pending" half-state).
+ *
+ * @route PATCH /api/admin/profile
+ * @throws {AppError} `UNAUTHORIZED` 401 when the session `userId` is unresolved.
+ * @throws {ZodError} 400 `VALIDATION_ERROR` when `name` is empty/overlong/markup.
+ * @example
+ * ```http
+ * PATCH /api/admin/profile
+ * Authorization: Bearer <session_token>
+ * { "name": "Brian Zalewski" }
+ *
+ * 200 OK
+ * { "data": { "display_name": "Brian Zalewski" } }
+ * ```
+ */
+api.patch('/api/admin/profile', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) throw unauthorized('Must be authenticated');
+
+  const body = await c.req.json().catch(() => ({}));
+  const { name } = updateProfileSchema.parse(body);
+
+  await dbExecute(
+    c.env.DB,
+    "UPDATE users SET display_name = ?, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL",
+    [name, userId],
+  );
+
+  return c.json({ data: { display_name: name } });
+});
+
 // ─── Sites Routes ────────────────────────────────────────────
 
 /**
