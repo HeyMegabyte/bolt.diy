@@ -187,6 +187,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 type="text"
                 name="customDomain"
                 placeholder="www.example.com"
+                maxlength="253"
                 [(ngModel)]="customDomainInput"
                 [disabled]="addingCustom()"
                 [attr.aria-invalid]="customDomainInvalid()"
@@ -777,7 +778,15 @@ export class AdminDomainsComponent implements OnInit {
    * enforces the strict rules via Zod.
    */
   isValidDomain(value: string): boolean {
-    return /^[a-z0-9][a-z0-9-]*\.[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(value.trim());
+    // Full parity with the worker's hostnameSchema (min 3 / max 253 + RFC format)
+    // so an overlong/too-short hostname is caught on the client, not by a server
+    // 400. Value-domain coverage per TDD #10 (boundary/overlong).
+    const v = value.trim();
+    return (
+      v.length >= 3 &&
+      v.length <= 253 &&
+      /^[a-z0-9][a-z0-9-]*\.[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(v)
+    );
   }
 
   /**

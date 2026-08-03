@@ -70,6 +70,33 @@ describe('AdminDomainsComponent (cyan/black cohesion + a11y)', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
+  // Value-domain coverage (TDD #10) for isValidDomain — the FE gate that mirrors
+  // the worker's hostnameSchema (min 3 / max 253 + RFC format). Ensures overlong /
+  // too-short / malformed hostnames are caught on the client, not by a server 400.
+  it('isValidDomain rejects every bad value class and accepts real hostnames', () => {
+    build({ id: 's1', slug: 'vito' }, []);
+    const c = fixture.componentInstance;
+    // VALID (incl. trim + case-insensitive)
+    expect(c.isValidDomain('www.example.com')).toBe(true);
+    expect(c.isValidDomain('  EXAMPLE.co.uk  ')).toBe(true);
+    expect(c.isValidDomain('a-b.co')).toBe(true);
+    // EMPTY / too short (< 3)
+    expect(c.isValidDomain('')).toBe(false);
+    expect(c.isValidDomain('ab')).toBe(false);
+    // INVALID format: no dot / scheme / spaces
+    expect(c.isValidDomain('localhost')).toBe(false);
+    expect(c.isValidDomain('http://x.com')).toBe(false);
+    expect(c.isValidDomain('x y.com')).toBe(false);
+    // OVERLONG (> 253) — format-valid but blocked by the new length gate
+    const overlong = 'sub.'.repeat(70) + 'example.com'; // ~291 chars
+    expect(overlong.length).toBeGreaterThan(253);
+    expect(c.isValidDomain(overlong)).toBe(false);
+    // UNICODE (raw, not punycode) → rejected (expects xn--)
+    expect(c.isValidDomain('café.com')).toBe(false);
+    // INJECTION-shaped → rejected by format
+    expect(c.isValidDomain(`'; DROP TABLE hostnames;--.com`)).toBe(false);
+  });
+
   it('the "No connected domains" empty state offers an "Add a domain" CTA that focuses the input', () => {
     build({ id: 's1', slug: 'vito' }, []); // empty → the no-domains empty state renders
     const el = fixture.nativeElement as HTMLElement;
