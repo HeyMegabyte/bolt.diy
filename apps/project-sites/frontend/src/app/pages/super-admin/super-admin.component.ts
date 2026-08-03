@@ -30,7 +30,10 @@ interface OrgWalletRow {
   balance_cents: number;
   subscription_status: string;
   last_topup_at: string | null;
-  total_charged_30d_cents: number;
+  // Optional — the /super-admin/wallets endpoint doesn't currently SELECT this;
+  // formatCents renders it as $0.00 (honest for empty wallets). Worker follow-up:
+  // add a 30d-debit SUM subquery so it shows real spend for active wallets.
+  total_charged_30d_cents?: number;
 }
 
 interface SuperAdminStats {
@@ -454,9 +457,13 @@ export class SuperAdminComponent implements OnInit {
     }
   }
 
-  formatCents(cents: number): string {
-    const sign = cents < 0 ? '-' : '';
-    const abs = Math.abs(cents);
+  formatCents(cents: number | undefined | null): string {
+    // Never render "$NaN" — a missing field (e.g. the wallets endpoint doesn't
+    // return total_charged_30d_cents) coerces to 0, which is the honest value for
+    // an empty wallet. Caught by the super-admin AI-vision pass 2026-08-02.
+    const n = Number.isFinite(cents as number) ? (cents as number) : 0;
+    const sign = n < 0 ? '-' : '';
+    const abs = Math.abs(n);
     return `${sign}$${(abs / 100).toFixed(2)}`;
   }
 
