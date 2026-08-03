@@ -362,10 +362,11 @@ export class VoiceAgentSettingsComponent {
     // {silent}: this passive tab-entry load degrades gracefully to DEFAULTS, so a
     // generic "Can't reach the server" toast on top is redundant + scary for an
     // un-provisioned org (the form just shows defaults).
-    this.api.get<{ data: AgentSettings }>(`/voice/agent-settings?siteId=${site.id}`, undefined, { silent: true }).subscribe({
+    this.api.get<{ settings: AgentSettings | null }>(`/voice/agent-settings?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.loadError.set(null);
-        if (r.data) this.settings = { ...DEFAULTS, ...r.data };
+        // Worker returns { settings } — reading r.data left the form on DEFAULTS forever.
+        if (r.settings) this.settings = { ...DEFAULTS, ...r.settings };
         else this.settings = { ...DEFAULTS };
       },
       // 404 = un-provisioned org → graceful defaults (the author's intent). Any other
@@ -390,7 +391,8 @@ export class VoiceAgentSettingsComponent {
     if (!site) return;
     this.saving.set(true);
     this.api.put<{ data: AgentSettings }>(`/voice/agent-settings`, {
-      site_id: site.id,
+      // Worker Zod (agentSettingsBody) requires `siteId` — `site_id` 400d every save.
+      siteId: site.id,
       ...this.settings,
     }, { silent: true }).subscribe({
       next: () => { this.toast.success('Voice settings saved'); this.saving.set(false); },

@@ -68,6 +68,9 @@ describe('VoiceAgentSettingsComponent (save PUT is {silent} — no double-toast)
     c.save();
     expect(put).toHaveBeenCalled();
     expect(put.calls.mostRecent().args[0]).toBe('/voice/agent-settings');
+    // Worker Zod (agentSettingsBody) requires `siteId` (camelCase) — `site_id` 400d every save.
+    expect((put.calls.mostRecent().args[1] as Record<string, unknown>)['siteId']).withContext('sends siteId, not site_id').toBe('s1');
+    expect('site_id' in (put.calls.mostRecent().args[1] as Record<string, unknown>)).withContext('never the old site_id key').toBe(false);
     expect(put.calls.mostRecent().args[2]).withContext('mutation silenced so the own toast is sole').toEqual({ silent: true });
   });
 });

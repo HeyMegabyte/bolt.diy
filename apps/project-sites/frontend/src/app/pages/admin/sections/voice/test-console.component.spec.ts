@@ -39,6 +39,9 @@ describe('VoiceTestConsoleComponent (call-token fetch — no double-toast; 501 �
     await (c as unknown as WithFetch).fetchToken();
     expect(post).toHaveBeenCalled();
     expect(post.calls.mostRecent().args[0]).toBe('/voice/test/call-token');
+    // Worker Zod requires `siteId` (camelCase) — `site_id` 400d every test call.
+    expect((post.calls.mostRecent().args[1] as Record<string, unknown>)['siteId']).withContext('sends siteId, not site_id').toBeTruthy();
+    expect('site_id' in (post.calls.mostRecent().args[1] as Record<string, unknown>)).withContext('never the old site_id key').toBe(false);
     expect(post.calls.mostRecent().args[2]).withContext('silenced → no generic double-toast').toEqual({ silent: true });
   });
 

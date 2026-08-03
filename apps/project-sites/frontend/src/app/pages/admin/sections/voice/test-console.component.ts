@@ -324,9 +324,10 @@ export class VoiceTestConsoleComponent implements OnDestroy {
   private loadNumbers(): void {
     const site = this.state.selectedSite();
     if (!site) return;
-    this.api.get<{ data: { phone_number: string; capabilities?: { voice?: boolean; sms?: boolean } }[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
+    this.api.get<{ numbers: { phone_number: string; capabilities?: { voice?: boolean; sms?: boolean } }[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
-        const nums = r.data ?? [];
+        // Worker returns { numbers } — reading r.data left the test console with no number.
+        const nums = r.numbers ?? [];
         const voiceNum = nums.find((n) => n.capabilities?.voice !== false)?.phone_number ?? null;
         this.primaryNumber.set(voiceNum);
         const smsCapable = nums.filter((n) => n.capabilities?.sms !== false).map((n) => n.phone_number);
@@ -378,7 +379,8 @@ export class VoiceTestConsoleComponent implements OnDestroy {
   private async fetchToken(): Promise<CallToken | null> {
     return new Promise((resolve) => {
       this.api.post<{ data: CallToken }>('/voice/test/call-token', {
-        site_id: this.state.selectedSite()?.id,
+        // Worker Zod requires `siteId` — `site_id` 400d every test call.
+        siteId: this.state.selectedSite()?.id,
       }, { silent: true }).subscribe({
         // {silent}: a 501 shows the inline notConfigured panel, a non-501 shows the
         // specific toast below — either way ONE surface, no generic double-toast.
@@ -512,7 +514,8 @@ export class VoiceTestConsoleComponent implements OnDestroy {
     this.smsSending.set(true);
 
     this.api.post<{ data: { reply: string; conversation_id: string } }>('/voice/test/sms', {
-      site_id: this.state.selectedSite()?.id,
+      // Worker Zod (testSmsBody) requires `siteId` — `site_id` 400d every SMS test.
+      siteId: this.state.selectedSite()?.id,
       from_number: this.smsFromNumber,
       conversation_id: this.smsConvId ?? null,
       body,

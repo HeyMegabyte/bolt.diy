@@ -31,7 +31,7 @@ describe('VoiceShareComponent (load failure ≠ "buy a number")', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   it('retryLoad success populates numbers and clears loadError', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'n1', capabilities: { voice: true } }] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ numbers: [{ id: 'n1', capabilities: { voice: true } }] })));
     c.retryLoad();
     expect(c.numbers().length).toBe(1);
     expect(c.loadError()).toBeNull();
@@ -45,7 +45,7 @@ describe('VoiceShareComponent (load failure ≠ "buy a number")', () => {
   });
 
   it('a transient failure PRESERVES already-loaded numbers (no wipe)', () => {
-    const get = jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'n1', capabilities: { voice: true } }] }));
+    const get = jasmine.createSpy('get').and.returnValue(of({ numbers: [{ id: 'n1', capabilities: { voice: true } }] }));
     const c = make(get);
     c.retryLoad();
     expect(c.numbers().length).toBe(1);

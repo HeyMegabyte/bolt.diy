@@ -261,9 +261,10 @@ export class VoiceShareComponent {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loadError.set(null);
-    this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
+    this.api.get<{ numbers: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
-        this.numbers.set(r.data ?? []);
+        // Worker returns { numbers } — reading r.data showed "no number" forever.
+        this.numbers.set(r.numbers ?? []);
         this.loadError.set(null);
         queueMicrotask(() => this.renderQr());
       },
