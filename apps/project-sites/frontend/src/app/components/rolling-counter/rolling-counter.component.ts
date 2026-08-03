@@ -4,9 +4,11 @@ import {
   ElementRef,
   HostBinding,
   Input,
+  type OnChanges,
   OnDestroy,
   OnInit,
   PLATFORM_ID,
+  type SimpleChanges,
   ViewChild,
   inject,
 } from '@angular/core';
@@ -46,7 +48,7 @@ import { isPlatformBrowser } from '@angular/common';
     `,
   ],
 })
-export class RollingCounterComponent implements OnInit, OnDestroy {
+export class RollingCounterComponent implements OnInit, OnDestroy, OnChanges {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -120,6 +122,25 @@ export class RollingCounterComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.observer?.disconnect();
     if (this.rafId != null) cancelAnimationFrame(this.rafId);
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // React to a LATE value change. `[value]` is frequently bound to an async
+    // signal (e.g. `numbers().length` / `monthlySpend()`) that is 0 at init and
+    // resolves to the real value after an API load. Without this, the counter
+    // captured 0 in ngOnInit, animated 0→0, disconnected the observer, and was
+    // stuck at 0 next to the real data (a "0 / 3 · $0.00" stat above a populated
+    // list). On a non-first value change, re-run to the new target if we've
+    // already animated (in view); if not yet in view, the pending observer run()
+    // reads the fresh value.
+    const change = changes['value'];
+    if (!change || change.firstChange) return;
+    if (!Number.isFinite(this.value)) this.value = 0;
+    this.host.nativeElement.setAttribute('aria-label', this.format(this.value));
+    if (this.started) {
+      if (this.rafId != null) cancelAnimationFrame(this.rafId);
+      this.run();
+    }
   }
 
   private snapToEnd(): void {

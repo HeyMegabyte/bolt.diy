@@ -307,7 +307,36 @@ voiceRoutes.get('/api/voice/numbers', async (c) => {
        ORDER BY created_at DESC`,
     [siteId],
   );
-  return c.json({ numbers: rows.data });
+  // Map D1 rows → the SPA contract. `capabilities` is stored as a JSON STRING
+  // (or NULL for numbers purchased before capture) and cost lives in cents — but
+  // the numbers list expects a {voice,sms,mms} OBJECT + `monthly_cost_usd`.
+  // Returning the raw row meant `capabilities: null` → the template's `.voice`
+  // read did `null.voice` → TypeError that crashed the ENTIRE Voice section
+  // (caught by the section error boundary; the visual sweep flagged it). Normalize.
+  const numbers = (rows.data ?? []).map((r) => {
+    // Default for a purchased US local number (voice + SMS; MMS carrier-varies).
+    let caps = { voice: true, sms: true, mms: false };
+    const raw = r['capabilities'];
+    if (raw != null) {
+      try {
+        const p = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, unknown>;
+        caps = { voice: !!p?.['voice'], sms: !!p?.['sms'], mms: !!p?.['mms'] };
+      } catch {
+        /* malformed JSON → keep the sane default */
+      }
+    }
+    return {
+      id: r['id'],
+      phone_number: r['phone_number'],
+      friendly_name: r['friendly_name'] ?? null,
+      vanity_display: r['vanity_display'] ?? null,
+      capabilities: caps,
+      monthly_cost_usd: Number(r['monthly_cost_cents'] ?? 0) / 100,
+      purchased_at: r['purchased_at'],
+      status: r['status'],
+    };
+  });
+  return c.json({ numbers });
 });
 
 // ─── release ────────────────────────────────────────────────────

@@ -125,10 +125,10 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
                 <div class="min-w-0 flex-1">
                   <div class="vanity-display" [innerHTML]="vanityHtml(n.phone_number, n.friendly_name)"></div>
                   <div class="num-meta">
-                    @if (n.capabilities.voice) { <span class="cap-chip">Voice</span> }
-                    @if (n.capabilities.sms)   { <span class="cap-chip">SMS</span> }
-                    @if (n.capabilities.mms)   { <span class="cap-chip">MMS</span> }
-                    <span class="cost-chip">\${{ n.monthly_cost_usd.toFixed(2) }}/mo</span>
+                    @if (n.capabilities?.voice) { <span class="cap-chip">Voice</span> }
+                    @if (n.capabilities?.sms)   { <span class="cap-chip">SMS</span> }
+                    @if (n.capabilities?.mms)   { <span class="cap-chip">MMS</span> }
+                    <span class="cost-chip">\${{ (n.monthly_cost_usd ?? 0).toFixed(2) }}/mo</span>
                   </div>
                 </div>
                 <button class="btn-ghost text-xs"
@@ -214,9 +214,9 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
                   <div class="vanity-display" [innerHTML]="vanityHtml(c.phone_number, c.vanity_match)"></div>
                   <div class="num-meta">
                     @if (c.locality) { <span>{{ c.locality }}, {{ c.region }}</span> }
-                    @if (c.capabilities.voice) { <span class="cap-chip">Voice</span> }
-                    @if (c.capabilities.sms)   { <span class="cap-chip">SMS</span> }
-                    <span class="cost-chip">\${{ c.monthly_cost_usd.toFixed(2) }}/mo</span>
+                    @if (c.capabilities?.voice) { <span class="cap-chip">Voice</span> }
+                    @if (c.capabilities?.sms)   { <span class="cap-chip">SMS</span> }
+                    <span class="cost-chip">\${{ (c.monthly_cost_usd ?? 0).toFixed(2) }}/mo</span>
                   </div>
                 </div>
                 <button class="btn-primary"
