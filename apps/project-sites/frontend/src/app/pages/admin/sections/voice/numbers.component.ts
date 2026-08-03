@@ -466,8 +466,12 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     if (!site) return;
     this.loading.set(true);
     this.loadError.set(null);
-    this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
-      next: (r) => { this.numbers.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
+    // Worker GET /api/voice/numbers returns { numbers } (voice.ts:310) — NOT
+    // { data }. Reading r.data left the list empty → "No numbers yet" + $0.00
+    // spend even when the site owns purchased numbers (the sibling search below
+    // already reads r.numbers correctly; only this list-load regressed).
+    this.api.get<{ numbers: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
+      next: (r) => { this.numbers.set(r.numbers ?? []); this.loadError.set(null); this.loading.set(false); },
       // Keep already-loaded numbers on a transient failure; surface a Retry card
       // (not a fake "No numbers" + $0.00 spend) when there's nothing to show.
       error: () => { this.loading.set(false); this.loadError.set('The numbers service did not respond.'); },

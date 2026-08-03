@@ -116,13 +116,24 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
 
   it('a transient load failure PRESERVES already-loaded numbers (no wipe → no false $0 spend)', () => {
     const { c, api } = make();
-    api.get.and.returnValue(of({ data: [{ id: 'n1', monthly_cost_usd: 1.15 }, { id: 'n2', monthly_cost_usd: 2 }] }));
+    // Worker GET /api/voice/numbers returns { numbers }, not { data } (voice.ts:310).
+    api.get.and.returnValue(of({ numbers: [{ id: 'n1', monthly_cost_usd: 1.15 }, { id: 'n2', monthly_cost_usd: 2 }] }));
     c.loadNumbers();
     expect(c.numbers().length).toBe(2);
     api.get.and.returnValue(throwError(() => ({ status: 503 })));
     c.loadNumbers();
     expect(c.numbers().length).withContext('numbers survive a transient failure').toBe(2);
     expect(c.loadError()).toBeTruthy();
+  });
+
+  // Regression: reading r.data (the old bug) hid the site's purchased numbers
+  // behind "No numbers yet" + a false $0.00 spend. A { data }-only response must
+  // now populate NOTHING — proving loadNumbers reads the worker's real { numbers }.
+  it('loadNumbers reads the real { numbers } key — a { data }-only response populates nothing', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({ data: [{ id: 'x1', monthly_cost_usd: 5 }] }));
+    c.loadNumbers();
+    expect(c.numbers().length).withContext('r.data must NOT populate — only r.numbers').toBe(0);
   });
 
   // The vanity match is bolded with <b> (injected via [innerHTML]); the cockpit
