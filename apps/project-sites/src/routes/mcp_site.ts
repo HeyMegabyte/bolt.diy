@@ -330,14 +330,41 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
 mcpSite.get('/api/sites/:siteId/mcp/tools', async (c) => {
   const siteId = c.req.param('siteId');
   await assertSiteOwnership(c, siteId);
-  const { data } = await dbQuery(
+  const { data } = await dbQuery<{
+    tool_name: string;
+    schema_json: string;
+    requires_auth: number;
+    enabled: number;
+  }>(
     c.env.DB,
     `SELECT id, tool_name, handler_kind, schema_json, requires_auth,
             scopes_json, enabled, updated_at
        FROM mcp_tools WHERE site_id = ? ORDER BY tool_name`,
     [siteId],
   );
-  return c.json({ tools: data });
+  // The admin panel must show the SAME tools the `/mcp` endpoint actually serves
+  // to external agents: the always-on built-in CRUD catalog (SITE_MCP_TOOLS) PLUS
+  // any custom per-site DB tools, in the FE ToolDef shape. Returning only the
+  // (empty) DB rows made "Available Tools" read "No MCP tools available yet" while
+  // agents got the full catalog — an empty-where-data-exists lie. `mcp_tools` is
+  // never seeded (0 rows platform-wide); the built-ins live in code.
+  const tools = [
+    ...SITE_MCP_TOOLS.map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+      requiresAuth: true,
+      builtIn: true,
+    })),
+    ...data.map((t) => ({
+      name: t.tool_name,
+      inputSchema: safeParse(t.schema_json),
+      requiresAuth: t.requires_auth === 1,
+      enabled: t.enabled === 1,
+      builtIn: false,
+    })),
+  ];
+  return c.json({ tools });
 });
 
 const toolPatchSchema = z.object({

@@ -18,7 +18,10 @@ jest.mock('../services/db.js', () => ({
 }));
 
 jest.mock('../services/mcp_site_tools.js', () => ({
-  SITE_MCP_TOOLS: [],
+  SITE_MCP_TOOLS: [
+    { name: 'list_pages', description: 'List all pages', inputSchema: { type: 'object', properties: {} } },
+    { name: 'read_page', description: 'Read a page', inputSchema: { type: 'object', properties: {} } },
+  ],
   dispatchTool: jest.fn().mockResolvedValue({ ok: true }),
   mintSiteMcpToken: jest.fn().mockResolvedValue({ token: 'raw-token', id: 'tok1' }),
   verifySiteMcpToken: jest.fn().mockResolvedValue(false),
@@ -110,13 +113,19 @@ describe('admin MCP routes — tenant isolation (404 never 403)', () => {
     expect((await request('/api/sites/site1/mcp/tools')).status).toBe(404);
   });
 
-  it('GET tools → 200 for an org-owned site', async () => {
+  it('GET tools → 200 merges the built-in SITE_MCP_TOOLS catalog with custom DB tools', async () => {
     mockQueryOne.mockResolvedValueOnce({ org_id: 'org-a' } as never); // owned
     mockQuery.mockResolvedValueOnce({ data: [{ id: 't1', tool_name: 'book' }], error: null });
     const { request } = app({ userId: 'u', orgId: 'org-a' });
     const res = await request('/api/sites/site1/mcp/tools');
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { tools: unknown[] }).tools).toHaveLength(1);
+    const { tools } = (await res.json()) as { tools: Array<{ name: string; builtIn?: boolean }> };
+    // 2 built-in (list_pages, read_page) + 1 custom DB tool (book) — the admin
+    // panel now shows the same catalog the /mcp endpoint serves.
+    expect(tools).toHaveLength(3);
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['list_pages', 'read_page', 'book']));
+    expect(tools.find((t) => t.name === 'list_pages')?.builtIn).toBe(true);
+    expect(tools.find((t) => t.name === 'book')?.builtIn).toBe(false);
   });
 
   it('POST tools → 400 on an invalid body (still gated owned first)', async () => {
