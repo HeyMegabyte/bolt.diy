@@ -896,13 +896,18 @@ describe('AdminSocialComponent (stale-route shape guards)', () => {
     expect(error).withContext('a shapeless response must be flagged, not silently swallowed').toHaveBeenCalled();
   });
 
-  it('generate() with a real variants array still works', () => {
+  it('generate() maps the worker per-platform drafts { data: { variants: [{platform,text}] } } into the carousel', () => {
     const c = make();
-    post.and.returnValue(of({ variants: ['hello', 'world'] }));
-    c.selected.set(['twitter']);
+    // Worker POST /api/social/:siteId/posts/generate returns per-platform drafts.
+    post.and.returnValue(
+      of({ data: { variants: [{ platform: 'twitter', text: 'hello' }, { platform: 'linkedin', text: 'world' }] } }),
+    );
+    c.selected.set(['twitter', 'linkedin']);
     c.generate();
     expect(c.aiVariants()).toEqual(['hello', 'world']);
     expect(error).not.toHaveBeenCalled();
+    // Calls the real wired path with the selected site id.
+    expect(post).toHaveBeenCalledWith('/social/s1/posts/generate', jasmine.objectContaining({ platforms: ['twitter', 'linkedin'] }));
   });
 
   it('fetchOg() on a shapeless 200 sets og to null (branded fallback), never a malformed/undefined OG', () => {

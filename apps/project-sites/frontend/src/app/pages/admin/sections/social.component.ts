@@ -2750,9 +2750,18 @@ export class AdminSocialComponent implements OnInit {
       this.toast.warning('Select at least one platform first');
       return;
     }
+    const sid = this.siteId();
+    if (!sid) {
+      this.toast.warning('Select a site first');
+      return;
+    }
     this.aiLoading.set(true);
+    // The worker route is POST /api/social/:siteId/posts/generate — it returns
+    // per-platform drafts { data: { variants: [{platform, text}] } } behind the
+    // social_publishing_native flag (503 when off). Earlier this called a
+    // nonexistent /api/social/generate → 404 → the AI-assist button always failed.
     this.api
-      .post<{ variants: string[] }>('/social/generate', {
+      .post<{ data?: { variants?: { platform: string; text: string }[] } }>(`/social/${sid}/posts/generate`, {
         topic: this.content() || 'a tasteful update from our team',
         platforms: this.selected(),
         tone: this.aiTone,
@@ -2760,13 +2769,17 @@ export class AdminSocialComponent implements OnInit {
       .subscribe({
         next: (r) => {
           this.aiLoading.set(false);
-          // A stale route can return a parseable-but-shapeless 200 (HTML→{}); an
-          // empty-or-missing variants array is a failure, not a silent dead-end.
-          if (!r || !Array.isArray(r.variants) || r.variants.length === 0) {
+          // Map the per-platform drafts into the variant carousel (pick the one
+          // you like to seed the composer). An empty set (flag off / all failed /
+          // shapeless 200) is a failure, not a silent dead-end.
+          const drafts = (r?.data?.variants ?? [])
+            .map((v) => v?.text)
+            .filter((t): t is string => typeof t === 'string' && t.trim().length > 0);
+          if (drafts.length === 0) {
             this.toast.error('AI assist unavailable right now');
             return;
           }
-          this.aiVariants.set(r.variants);
+          this.aiVariants.set(drafts);
           this.variantIdx.set(0);
         },
         error: () => {

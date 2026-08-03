@@ -50,7 +50,8 @@ const EXEMPT_SHAPES = new Set([
   'GET /api/v1-tokens', // api-tokens — "Public API v1 token management" UI, built ahead of the Public-Developer-API worker (monumental initiative)
   'POST /api/v1-tokens', // api-tokens — same (mint)
   'DELETE /api/v1-tokens/*', // api-tokens — same (revoke)
-  'POST /api/social/generate', // social AI-assist — FE wants {variants:string[]} alternatives; worker has /social/:siteId/posts/generate returning per-platform {platform,text}[] behind social_publishing_native. Needs feature reconciliation, not a path swap. FE fails soft to a toast.
+  // (social AI-assist FIXED 2026-08-02: generate() now calls the real
+  //  POST /api/social/:siteId/posts/generate — no longer exempted.)
 ]);
 /** Matches `EXEMPT_SHAPES` entries `"<METHOD> <shape>"`. */
 const exemptKey = (method, shape) => `${method} ${shape}`;
