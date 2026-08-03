@@ -29,6 +29,10 @@ const POPULATED: Array<{ section: string; minItems: number; token: RegExp }> = [
   { section: 'apps', minItems: 8, token: /app|install|catalog|live|coming soon/i },
   { section: 'docs', minItems: 5, token: /\/api\/|endpoint|GET|POST|method/i },
   { section: 'sites', minItems: 1, token: /projectsites\.dev|site|slug|published|draft/i },
+  // P0.56 — verified request-shape CLEAN + LIVE-populated (Browserbase, brian).
+  { section: 'domains', minItems: 2, token: /projectsites\.dev|domain|subdomain|active|cname|connect/i },
+  { section: 'billing', minItems: 3, token: /free|pro|plan|subscription|entitlement|upgrade|credit/i },
+  { section: 'user', minItems: 2, token: /api key|session|display name|profile|notification|sign out|revoke/i },
 ];
 
 test.describe('Admin · data-rich sections are POPULATED (P0-ADMIN)', () => {
