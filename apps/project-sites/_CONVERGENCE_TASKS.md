@@ -145,6 +145,14 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) = 28 run-green**.
 - **Next:** business-name submit-validation (invalid-path only, non-mutating) + a client-side-filterable search input; verify free-org Team-section UX as brian; the 2 boarded product calls.
 
+### P0.64 (fire 2026-08-03k) — ✅ +2 green apps search/filter E2E (apps-search-filter.spec.ts) — new interaction type, RUN green vs prod
+- **NEW `e2e/admin-verify/apps-search-filter.spec.ts` — 2 tests, RUN GREEN vs prod** (`2 passed, 7.9s, 0 flaky`):
+  - **Search:** the static `APPS_CATALOG` renders ≥20 `.app-card`s; a gibberish query filters every card out (empty); clearing restores the full count → proves the search box actually filters.
+  - **Lifecycle chips:** All → full catalog; Live → a subset (`0 < live ≤ full`); All → restores → proves the filter chips narrow + restore.
+- Deterministic client-side assertions (no catalog-content knowledge) over the signal-computed `filteredApps()` → INSTANT + load-independent → **green on first try** (unlike the value-domain aria-invalid propagation which needs a retry). A search/filter over a static list is the most robust interaction type yet.
+- admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) + 2 (apps-search-filter) = 30 run-green**.
+- **Next:** more search/filter specs (feature-flags, logs) + business-name submit-validation; verify free-org Team UX as brian; the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
