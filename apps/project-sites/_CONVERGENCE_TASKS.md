@@ -210,6 +210,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~91 run-green** (+2 this fire, 22 spec files).
 - **Next:** sidebar toggle (Cmd+B) / a sortable table (data-dependent) / value-domain on a mutating form + the 2 boarded product calls (wallet-topup flow, social/media backend).
 
+### P0.73 (fire 2026-08-04g) — ✅ +2 green Domains VALUE-DOMAIN matrix E2E (directive #3, all value classes, non-mutating) — RUN green vs prod
+- **Served directive #3 (value-domain, under-covered vs the interaction arc).** The "Connect a custom domain" input is client-side-validated by `isValidDomain()` — STATED full parity with the worker `hostnameSchema` (len 3–253 + RFC regex) — gating the submit + driving `aria-invalid` via `customDomainInvalid()`. So the client rejects bad input before any request → test asserts the gate purely from the DOM, NEVER submits (zero mutation, safe to throw injection/unicode).
+- **`domains-value-domains.spec.ts` (+2, RUN green 5.9s vs prod):** (1) 11-class matrix — valid (3-part/2-part/hyphenated) → submit ENABLED + `aria-invalid=false`; invalid (no-dot / spaces / protocol / trailing-path / too-short<3 / unicode-IDN / `<script>` injection / `'; DROP TABLE--` sql-injection) → submit DISABLED + `aria-invalid=true` + inline hint; plus the `maxlength=253` boundary cap. (2) empty input = neutral no-op (disabled submit, NOT flagged invalid, no hint) — the correct "not-yet-valid" ≠ "invalid" distinction.
+- admin-verify green count: **~93 run-green** (+2 this fire, 23 spec files).
+- **Next:** value-domain on another mutating form (api-tokens/env-vars) / sidebar toggle / sortable table + the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
