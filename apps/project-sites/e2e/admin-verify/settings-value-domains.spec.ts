@@ -119,4 +119,54 @@ test.describe('Admin · Settings General — value-domain validation (P0-ADMIN, 
     await hex.blur();
     await expect(save, 'valid hex must RE-ENABLE Save').toBeEnabled({ timeout: 6000 });
   });
+
+  test('brand-accent hex validates live across the value-domain matrix', async ({ page }) => {
+    test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
+    await gotoSettings(page); // setup + wait for the General form
+    const accent = page.locator('[aria-label="Brand accent color hex value"]');
+    await accent.waitFor({ state: 'visible', timeout: 15000 });
+
+    for (const { label, value, invalid } of HEX_CASES) {
+      await accent.fill(value);
+      await accent.blur();
+      if (invalid) {
+        await expect(accent, `accent "${label}" (${value}) must flag aria-invalid`).toHaveAttribute(
+          'aria-invalid',
+          'true',
+          { timeout: 6000 },
+        );
+      } else {
+        await expect(accent, `accent "${label}" (${value}) must NOT flag invalid`).not.toHaveAttribute(
+          'aria-invalid',
+          'true',
+          { timeout: 6000 },
+        );
+      }
+    }
+  });
+
+  test('reply-email validates live across the value-domain matrix', async ({ page }) => {
+    test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
+    await gotoSettings(page);
+    const reply = page.getByPlaceholder('owner@yourbiz.com');
+    await reply.waitFor({ state: 'visible', timeout: 15000 });
+
+    for (const { label, value, invalid } of EMAIL_CASES) {
+      await reply.fill(value);
+      await reply.blur();
+      if (invalid) {
+        await expect(reply, `reply-email "${label}" (${value}) must flag aria-invalid`).toHaveAttribute(
+          'aria-invalid',
+          'true',
+          { timeout: 6000 },
+        );
+      } else {
+        await expect(reply, `reply-email "${label}" (${value}) must NOT flag invalid`).not.toHaveAttribute(
+          'aria-invalid',
+          'true',
+          { timeout: 6000 },
+        );
+      }
+    }
+  });
 });
