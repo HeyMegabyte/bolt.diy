@@ -198,6 +198,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~87 run-green** (+3 this fire).
 - **Next:** more interaction specs (sort a TanStack table, feature-flag toggle-state, logs tab filter) + the 2 boarded product calls (wallet-topup flow, social/media backend).
 
+### P0.71 (fire 2026-08-04e) — ✅ +2 green admin keyboard-nav E2E (g-chords + theme cycle) — RUN green vs prod
+- **Continued the keyboard-affordance arc** (client-side, load-independent). Read the shell's `document:keydown` handler + `G_CHORD_ROUTES` (exported for unit-testing) + `toggleTheme` before authoring.
+- **`admin-keyboard-nav.spec.ts` (+2, RUN green 6.9s vs prod):** (1) the `g`-chord navigates to 5 sections — `g a`→analytics, `g d`→domains, `g f`→forms, `g b`→billing, `g l`→traces→`/admin/logs` (ties to the P0.69 alias-redirect chain); each blurs focus to `<body>` first so the handler's `inField` guard doesn't swallow the keys. (2) Cmd/Ctrl+. cycles the theme (dark→system→light) — asserts `<html data-theme>` becomes a valid theme, `localStorage['ps_theme']` mirrors it, and a second press advances to a DIFFERENT theme (proves the cycle, not a no-op).
+- admin-verify green count: **~89 run-green** (+2 this fire, 21 spec files).
+- **Next:** sidebar toggle (Cmd+B — needs the sidebar DOM-class selector) / feature-flag toggle-state / a sortable table + the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
