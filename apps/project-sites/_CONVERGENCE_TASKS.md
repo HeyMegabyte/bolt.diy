@@ -228,6 +228,16 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.86 (fire 2026-08-04t) — ✅ DIRECTIVE #1 fan-out (3rd): 4 agents enumerated settings-tabs/api-tokens/apps-detail/system-services → +11 green — RUN green vs prod
+- **3rd fan-out** (4 `Explore` agents → main-thread authored + ran 4 specs). **+11 green (RUN green 9.4s vs prod):**
+  - `settings-tabs.spec.ts` (+4): the 8-tab strip renders + one active; clicking MCP → aria-selected + "MCP integrations" panel; AI Chat tab → its panel; Email tab → switches active. (Distinct from settings-value-domains which covers General fields.)
+  - `api-tokens-interactions.spec.ts` (+3): populated stats (0 active / 6 scopes counters) + honest-empty ("No API tokens yet"); create-token modal opens/cancels (no key minted); **value-domain (directive #3): create submit gates on a non-empty token name** (blank→disabled, valid→enabled, never submitted).
+  - `apps-detail.spec.ts` (+2): a catalog card opens its `/admin/apps/:id` detail (REAL id via click-through, no hardcode) with the deploy control PRESENT (never clicked — provisions infra); an unknown id shows a not-found state.
+  - `system-services-interactions.spec.ts` (+2): heading + not-404; renders an access-appropriate state (populated for brian / graceful for the e2e-org whose `/api/super-admin/services` 403s — account-expected per [[e2e-key-is-not-brians-account]]), never a crash.
+- **3 iterate rounds** down-scoped agent-guessed markers (Email panel words, system-services 403-state testids, an async `#mcp` fragment) to org-agnostic invariants — the established fan-out pattern.
+- admin-verify green count: **~147 run-green** (41 spec files).
+- **Next:** more fan-out fires (sites-detail copilot/dna/branches, media-studios via editor, network-overview deeper) toward 400; pSEO frontend awaits a Brian design call.
+
 ### P0.85 (fire 2026-08-04s) — ✅ DIRECTIVE #1 fan-out (2nd): 4 agents enumerated site-features/docs/forms/leads → +12 green comprehensive specs — RUN green vs prod
 - **Repeated the P0.84 fan-out:** 4 parallel `Explore` agents mapped the sections; main thread authored + ran 4 specs. **+12 green (RUN green 10.6s vs prod):**
   - `site-features-interactions.spec.ts` (+3): Features heading + system cross-link + not-404; section renders a state (cards toggle-able/plan-locked, or a no-plan/no-site notice for the FREE e2e-org); search filters.
