@@ -228,6 +228,13 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.97 (fire 2026-08-05e) — ✅ interaction/flow cont'd: +4 green empty-state CTAs + section refresh actions
+- **✅ `empty-state-first-action.spec.ts` (+2, ×3 green, NON-MUTATING):** the conversion affordances inside honest empty states WORK — api-tokens "Create your first token" (`.at-empty` → `openCreateModal()`) opens the create modal (`[role=dialog]`) + Esc-close; apps-instances "Browse the app store" navigates to `/admin/apps`. Resilient: `test.skip` if the org has data (empty CTA absent).
+- **✅ `refresh-actions.spec.ts` (+2, ×3 green, NON-MUTATING):** always-visible refresh buttons re-fetch cleanly — `as-sessions-refresh` (auth-security) + `al-refresh` (analytics Live-Events tab, via `selectFirstSite`) → click → section still renders (not crashed/404) + ZERO console errors on the reload.
+- Verified all testids/handlers from source FIRST (P0.94 lesson): api-tokens empty CTA (api-tokens:201), `/`/Cmd+B/Escape handlers (admin.component:748-761), always-visible refreshes. Skipped fiddly sidebar-collapse/dropdown-Escape (buried markup) + palette keyboard (already covered by command-palette-shortcuts.spec).
+- admin-verify green count: **~197 run-green** (63 spec files). No code changed → no deploy; RUN ×3 green vs prod.
+- **Next:** more interaction/flow (conditional refresh/retry error states, loading→resolved skeletons, drag/drop upload, side-panel/task-tray) toward 400 · wallet-topup product call.
+
 ### P0.96 (fire 2026-08-05d) — ✅ PIVOT to INTERACTION/FLOW E2E: +5 green modal-lifecycle + close-affordances (validates the shared DialogShell primitive)
 - **Executed the P0.95 pivot** (value-domain exhausted) → interaction/flow class. Every admin modal uses `DialogShellComponent` (`role="dialog" aria-modal="true"`, Escape via `@HostListener('document:keydown.escape')`, CDK focus-trap on `.dialog-panel`, closes via ✕/Cancel/backdrop). Proving it validates the primitive app-wide.
 - **✅ `admin-modal-lifecycle.spec.ts` (+3, ×3 green, NON-MUTATING):** api-tokens create modal (org-scoped, no site) OPENS (`[role="dialog"]` visible) + moves focus INTO the dialog + Escape-CLOSES; Tab ×6 keeps focus TRAPPED inside (WCAG 2.1.2/2.4.3); a site-scoped modal (snapshots, via `selectFirstSite`) opens + Escape-closes.
