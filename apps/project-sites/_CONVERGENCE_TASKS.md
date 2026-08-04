@@ -228,6 +228,13 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.82 (fire 2026-08-04p) — ✅ +4 green COMPREHENSIVE audit-section spec (deep-covers the P0.79-restored section) — RUN green vs prod. E2E-count accumulation toward 400
+- **With P0-ADMIN "every section verified" effectively met (P0.81), the remaining DONE lever is the ≥400 `admin-verify/` count (~107→~111).** Accelerating with comprehensive per-section specs. Chose the restored audit section (500 real events for brian) for deep coverage.
+- **`audit-interactions.spec.ts` (+4, RUN green 4.9s vs prod):** (1) renders the Audit Log section (not the 404 it was restored from); (2) the 4 stat cards (Events/Unique actions/Last 24h/Actors) render with numeric `<app-rolling-counter>` values; (3) the ag-grid `audit-grid` OR the honest-empty `audit-empty` renders — NEVER the `audit-error` card (grid-or-empty is org-agnostic per gotcha #5); (4) Export CSV + Auto-refresh affordances present.
+- **1 authoring fix:** Export CSV asserted via `getByRole('button')` + `toBeEnabled()` flaked (2 export controls → strict-mode + disabled-when-empty for the e2e-org) → switched to text `.first()` presence (org-agnostic).
+- admin-verify green count: **~111 run-green** (28 spec files).
+- **Next:** more comprehensive per-section specs (auth-security/snapshots/social/voice) toward 400; pSEO frontend awaits a Brian design call.
+
 ### P0.81 (fire 2026-08-04o) — ✅ BROWSERBASE visual verification of the 10 REMAINING sections as brian — all clean (0 errors, no 404s), restored ai-endpoints confirmed POPULATED. Admin surface now end-to-end verified. + g-chord `g c` completed
 - **Swept the remaining unverified sections as brian** (leads/forms/apps/site-features/snapshots/user/api-tokens/auth-security/docs/ai-endpoints). **ALL 10: `crashed:false`, 0 console errors, 0 failed requests, NO 404s** (none bounced to not-found — the orphan gate holds).
   - Richly POPULATED: apps (8550 chars), user (8734), auth-security (7710 "Auth security & health"), docs (6734), site-features (5960 "Features"), leads ("Lead Scanner").
