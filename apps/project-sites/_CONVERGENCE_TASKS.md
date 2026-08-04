@@ -131,6 +131,14 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify interaction E2E this arc: **+17 (nav-shell, P0.59) + 4 (tabs, P0.60) + 3 (value-domains, P0.61) = 24 run-green**.
 - **Next:** more value-domain specs (api-key name, invite email, form-router prompt) + filter/search-input + modal open/close; the 2 boarded product calls.
 
+### P0.62 (fire 2026-08-03i) — ✅ +2 green value-domain/modal E2E (user-settings-value-domains.spec.ts) — RUN green vs prod
+- **NEW `e2e/admin-verify/user-settings-value-domains.spec.ts` — 2 tests, RUN GREEN vs prod** (`2 passed, 4.7s`):
+  - **Display-name value-domain matrix (10 cases):** valid / single-char / unicode / empty (no error but Save GATED on length>0 — the nuance) / boundary-80 / overlong-81 + **XSS defense**: the validator REJECTS `<script>` markup, `javascript:` URIs, and `on…=` event-handlers (aria-invalid + Save disabled), while ACCEPTING SQL-injection-shaped free text (`Robert'); DROP TABLE…` — no markup; BE parameterizes). Locked `displayNameError()` = length + `/[<>]|javascript:|\bon[a-z]+=/`.
+  - **API-key create MODAL:** clicking the trigger OPENS the dialog (interaction), a valid name is accepted, the name input CAPS at 40 chars via `maxlength` (typing 45 truncates → the >40 error is unreachable by design — stronger than a post-hoc error), and **Esc closes** the modal.
+- **Lessons (folded into the spec):** (a) don't assume a free-text field accepts injection — many have XSS-markup defense (`[<>]`/js:/on=); a SQL-shaped string with no markup IS accepted. (b) A `maxlength` input makes the "too long" error unreachable via `fill` (Playwright respects maxlength) → assert the CAP, not the error.
+- admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 3 (settings-vd) + 2 (user-settings-vd/modal) = 26 run-green**.
+- **Next:** more value-domain/modal specs (invite email, business-name, delete-confirm) + filter/search; the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
