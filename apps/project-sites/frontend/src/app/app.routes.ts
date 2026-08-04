@@ -432,6 +432,23 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/site-features'),
         pathMatch: 'full',
       },
+      {
+        // MCP lives as the MCP tab inside Settings (Slack/Stripe/Notion/HubSpot
+        // +20 more). Settings reads the `#mcp` fragment to open that tab, so the
+        // functional redirect carries the fragment (a static redirectTo can't).
+        // Without this, /admin/mcp rendered the admin not-found page.
+        path: 'mcp',
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#mcp'),
+        pathMatch: 'full',
+      },
+      {
+        // AI Chat moved into Settings as a tab — keep old deep-links + the `g c`
+        // g-chord working. Settings reads the `#ai-chat` fragment to open it.
+        // Without this, /admin/ai-chat rendered the admin not-found page.
+        path: 'ai-chat',
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#ai-chat'),
+        pathMatch: 'full',
+      },
       // ─── Multimodal AI Site Copilot (#25) ────────────────────────
       // Per-site copilot admin: enable toggle + intent distribution + sessions.
       // Flag-gated: multimodal_copilot. Shows gate notice when off.
