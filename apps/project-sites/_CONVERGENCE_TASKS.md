@@ -204,6 +204,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~89 run-green** (+2 this fire, 21 spec files).
 - **Next:** sidebar toggle (Cmd+B — needs the sidebar DOM-class selector) / feature-flag toggle-state / a sortable table + the 2 boarded product calls.
 
+### P0.72 (fire 2026-08-04f) — ✅ +2 green feature-flags SENTINEL-PROTECTION E2E (a real safety feature verified populated) — RUN green vs prod
+- **Deeper than the keyboard arc — verifies a safety-critical admin feature works on real data.** `core_*` flags are load-bearing platform sentinels (auth/admin/site-create); the UI must never let them be disabled/killswitched. Read the contract first: `isSentinel(f)=f.key.startsWith('core_')` → toggle `[disabled]` + "Always on", killswitch `[disabled]`, plus `toggle()`/`killswitch()` early-return (defence in depth). Ref [[feature-flags-sentinel-protection]].
+- **`feature-flags-sentinel-protection.spec.ts` (+2, RUN green 7.2s vs prod):** (1) the registry POPULATES (real `.ff-card`s), ≥1 `core_*` sentinel exists, and its toggle reads "Always on" + is `disabled` + its Killswitch is `disabled` (can't dark the platform by fat-finger); (2) a NON-sentinel flag keeps LIVE controls (Enable/Disable globally, enabled). Both client-side (rendered from the loaded registry) → populated + load-independent.
+- admin-verify green count: **~91 run-green** (+2 this fire, 22 spec files).
+- **Next:** sidebar toggle (Cmd+B) / a sortable table (data-dependent) / value-domain on a mutating form + the 2 boarded product calls (wallet-topup flow, social/media backend).
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
