@@ -449,6 +449,37 @@ export const routes: Routes = [
         redirectTo: () => inject(Router).parseUrl('/admin/settings#ai-chat'),
         pathMatch: 'full',
       },
+      {
+        // Webhooks live as the Webhooks tab inside Settings (signed, retried event
+        // notifications). Carry the #webhooks fragment so Settings opens that tab.
+        // Without this, /admin/webhooks (command palette "Go to Webhooks") 404'd.
+        path: 'webhooks',
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#webhooks'),
+        pathMatch: 'full',
+      },
+      {
+        // AI Logs was renamed to the Traces tab under the unified Logs dashboard
+        // (not-found RENAMED_ROUTES: ai-logs → traces). Keep old deep-links working.
+        path: 'ai-logs',
+        redirectTo: () => inject(Router).parseUrl('/admin/logs?tab=traces'),
+        pathMatch: 'full',
+      },
+      {
+        // Audit Log — a standalone section (AdminAuditComponent) whose route was
+        // lost, so audit-notification hrefs + the not-found hint list linked to a
+        // 404. Restore it (no required inputs; reads AdminStateService from shell).
+        path: 'audit',
+        loadComponent: () =>
+          import('./pages/admin/sections/audit.component').then((m) => m.AdminAuditComponent),
+      },
+      {
+        // AI Endpoints — standalone section (AdminAiEndpointsComponent); Forms +
+        // onboarding checklist + command palette link here for the app.js install.
+        // Route was lost → 404. Restore it (`compact` input optional).
+        path: 'ai-endpoints',
+        loadComponent: () =>
+          import('./pages/admin/sections/ai-endpoints.component').then((m) => m.AdminAiEndpointsComponent),
+      },
       // ─── Multimodal AI Site Copilot (#25) ────────────────────────
       // Per-site copilot admin: enable toggle + intent distribution + sessions.
       // Flag-gated: multimodal_copilot. Shows gate notice when off.
