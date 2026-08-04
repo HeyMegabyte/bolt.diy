@@ -216,6 +216,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~93 run-green** (+2 this fire, 23 spec files).
 - **Next:** value-domain on another mutating form (api-tokens/env-vars) / sidebar toggle / sortable table + the 2 boarded product calls.
 
+### P0.74 (fire 2026-08-04h) — ✅ +4 green COMPREHENSIVE feature-flags interaction spec (accelerate toward 400 + complete the section) — RUN green vs prod
+- **Shifted from +2 shallow specs to a comprehensive per-section spec** to accelerate the admin-verify/ count (target 400; ~93→~97) AND satisfy "every clickable/nav/modal/state has ≥1 E2E". Feature-flags is now fully covered: search/filter (P0.65) + copy-key (P0.67) + sentinel-protection (P0.72) + THIS (P0.74).
+- **`feature-flags-interactions.spec.ts` (+4, RUN green 8.2s vs prod):** (1) registry POPULATES (>5 real cards) + registered/on counters resolve (no stuck `…` loading dots); (2) stage-filter tabs narrow EXCLUSIVELY — clicking "stable" → `aria-selected` + zero non-stable cards + `all` restores the full set; (3) Inspect expands then collapses the per-flag `.ff-detail` panel (aria-expanded toggles); (4) the "Features →" cross-link routes to `/admin/site-features`. All client-side, non-mutating.
+- admin-verify green count: **~97 run-green** (+4 this fire, 24 spec files).
+- **Next:** comprehensive per-section specs for other sections (apps/domains/user) to accelerate the count + value-domain on api-tokens/env-vars + the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
