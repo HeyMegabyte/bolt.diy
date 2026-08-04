@@ -161,6 +161,14 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) + 2 (apps-search) + 2 (feature-flags-search) = 32 run-green**.
 - **Next:** more search/filter (logs audit filter, media search) + sort/pagination; the 2 boarded product calls.
 
+### P0.66 (fire 2026-08-03m) — ✅ +2 green apps category-filter + keyboard E2E — RUN green vs prod
+- **NEW `e2e/admin-verify/apps-category-keyboard.spec.ts` — 2 tests, RUN GREEN vs prod** (`2 passed, 7.7s, 0 flaky`):
+  - **Category multi-select menu:** open the menu → check the first category → the "Clear (N)" affordance appears + the catalog narrows to a strict subset (`< full`, `> 0`) → Clear → full restored.
+  - **Escape-clears-search (keyboard):** gibberish → 0 cards → press Escape in the search → the input clears (value '') + the full catalog returns.
+- Both client-side over the static `APPS_CATALOG` → green first-try. New interaction coverage: multi-select filter MENU + a keyboard affordance.
+- admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) + 2 (apps-search) + 2 (feature-flags-search) + 2 (apps-category/keyboard) = 34 run-green** across 6 interaction patterns.
+- **Next:** copy-to-clipboard (domains Copy / flag-key copy) + sort (table headers) + logs audit filter; the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
