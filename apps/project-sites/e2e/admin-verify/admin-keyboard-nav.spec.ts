@@ -30,6 +30,9 @@ const G_CHORDS: ReadonlyArray<readonly [string, RegExp]> = [
   ['d', /\/admin\/domains/],
   ['f', /\/admin\/forms/],
   ['b', /\/admin\/billing/],
+  // `c` → /admin/ai-chat which redirects to /admin/settings#ai-chat (P0.78 fix —
+  // this chord was silently navigating to a 404 before the redirect was restored).
+  ['c', /\/admin\/settings/],
   // `l` → /admin/traces which itself redirects to /admin/logs?tab=traces (P0.69 alias).
   ['l', /\/admin\/logs/],
 ] as const;
@@ -37,7 +40,7 @@ const G_CHORDS: ReadonlyArray<readonly [string, RegExp]> = [
 const VALID_THEMES = ['dark', 'system', 'light'];
 
 test.describe('Admin · keyboard nav — g-chords + theme cycle (P0-ADMIN)', () => {
-  test('the g-chord navigates to each section (g a / g d / g f / g b / g l)', async ({ page }) => {
+  test('the g-chord navigates to each section (g a / g d / g f / g b / g l / g c)', async ({ page }) => {
     test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
     await setupRealDataPage(page, { passthrough: /\/api\// });
     await page.goto('/admin', { waitUntil: 'domcontentloaded' });
