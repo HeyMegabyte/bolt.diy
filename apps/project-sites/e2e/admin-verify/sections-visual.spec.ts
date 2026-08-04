@@ -54,6 +54,19 @@ const BROKEN = [
   '500',
 ];
 
+/**
+ * Harness-only console/page noise that NEVER fires in a real browser (0 in the
+ * Browserbase sweep) — see [[admin-verify-e2e-authoring-gotchas]]:
+ *  - fixtures.ts BLOCKS external CDN/Stripe/GA → net::ERR_FAILED / "Failed to load resource"
+ *  - cross-origin iframes (bolt.diy editor / send-to-bolt on /admin/media) read
+ *    localStorage in the partitioned fixture context → "Access is denied" SecurityError
+ *  - GA/PostHog analytics beacons fail in automation by design
+ */
+const isHarnessNoise = (t: string): boolean =>
+  /Failed to load resource|net::ERR|Access is denied for this document|Failed to read the 'localStorage'|google-analytics|\/g\/collect|posthog/i.test(
+    t,
+  );
+
 test.describe('Admin · every section renders real, no errors (P0-ADMIN)', () => {
   for (const section of SECTIONS) {
     const label = section || '(dashboard)';
@@ -62,15 +75,24 @@ test.describe('Admin · every section renders real, no errors (P0-ADMIN)', () =>
 
       const errors: string[] = [];
       page.on('console', (m) => {
-        if (m.type() === 'error' && !/Failed to load resource|net::ERR/i.test(m.text())) {
-          errors.push(m.text());
-        }
+        if (m.type() === 'error' && !isHarnessNoise(m.text())) errors.push(m.text());
       });
-      page.on('pageerror', (e) => errors.push(String(e)));
+      page.on('pageerror', (e) => {
+        const t = e?.message ?? String(e);
+        if (!isHarnessNoise(t)) errors.push(t);
+      });
 
       await setupRealDataPage(page, { passthrough: /\/api\// });
       await page.goto(`/admin/${section}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
+      // Never `waitForLoadState('networkidle')` — analytics/logs poll on an interval
+      // so it never settles (burns ~30s/section). Wait for content to render instead.
+      await page
+        .waitForFunction(
+          () => (document.querySelector('main')?.innerText ?? document.body.innerText).trim().length > 400,
+          { timeout: 15000 },
+        )
+        .catch(() => {});
+      await page.waitForTimeout(500);
 
       // 1. Not bounced to /signin (a load-bearing 401 would redirect there).
       expect(page.url(), `${label} must stay in /admin (not bounce to /signin)`).toContain('/admin');

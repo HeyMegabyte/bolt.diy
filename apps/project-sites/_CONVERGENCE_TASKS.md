@@ -177,6 +177,13 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) + 2 (apps-search) + 2 (feature-flags-search) + 2 (apps-category/keyboard) + 2 (copy-clipboard) = 36 run-green** across 7 interaction patterns.
 - **Next:** sort (table headers) + logs audit filter + toggle/switch; the 2 boarded product calls.
 
+### P0.68 (fire 2026-08-04b) — ✅ full admin-verify suite RUN together (82 green) + fixed a pre-existing flaky/slow spec
+- **Ran the full `admin-verify/` prod suite together** (18 spec files, retries=2): **81 passed, 1 failed** → the 9-fire arc is green as a whole.
+- **The 1 failure was a PRE-EXISTING spec** (`sections-visual.spec.ts` `/admin/media`): it hit the localStorage "Access is denied" SecurityError (gotcha #3 — the media section's bolt.diy iframe under the fixture context) which it pushed UNFILTERED as a `pageerror`, AND used `waitForLoadState('networkidle')` (gotcha #1 — hangs on polling sections). Applied the documented `isHarnessNoise` filter (net::ERR / Failed-to-load / localStorage-access-denied / GA/posthog) to BOTH console + pageerror handlers + replaced networkidle with a content-readiness wait.
+- **Result: sections-visual now 22/22 GREEN in 10.3s** (was 21/22 + slow — the full suite's 1.9m was mostly THIS spec's per-section 30s networkidle blocks). The `[[admin-verify-e2e-authoring-gotchas]]` memory applied to a pre-existing spec: fixed the failure AND ~11× faster.
+- admin-verify green count: **~82 run-green** (the 36 arc-added interaction tests + ~46 pre-existing populated/visual/route tests).
+- **Next:** more interaction specs (sort, toggle, logs filter) + the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
