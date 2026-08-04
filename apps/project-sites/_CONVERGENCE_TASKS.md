@@ -169,6 +169,14 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) + 2 (apps-search) + 2 (feature-flags-search) + 2 (apps-category/keyboard) = 34 run-green** across 6 interaction patterns.
 - **Next:** copy-to-clipboard (domains Copy / flag-key copy) + sort (table headers) + logs audit filter; the 2 boarded product calls.
 
+### P0.67 (fire 2026-08-04a) — ✅ +2 green copy-to-clipboard E2E — RUN green vs prod
+- **NEW `e2e/admin-verify/copy-to-clipboard.spec.ts` — 2 tests, RUN GREEN vs prod** (`2 passed, 6.8s, 0 flaky`):
+  - **Feature-flags flag-key copy:** clicking `.ff-key-btn` copies the EXACT key — verified by granting clipboard perms + reading `navigator.clipboard.readText()` back === the key (from the button's aria-label) + a `Copied "<key>"` toast.
+  - **Domains backup-domain copy:** clicking "Copy" copies the backup subdomain (clipboard `.toContain('.projectsites.dev')`) + a "Backup domain copied" toast.
+- New interaction type: copy-to-clipboard with clipboard-VALUE verification (the strongest assertion — the real copied bytes, not just a toast). `context.grantPermissions(['clipboard-read','clipboard-write'])`.
+- admin-verify interaction E2E this arc: **17 (nav-shell) + 4 (tabs) + 5 (settings-vd) + 2 (user-settings-vd) + 2 (apps-search) + 2 (feature-flags-search) + 2 (apps-category/keyboard) + 2 (copy-clipboard) = 36 run-green** across 7 interaction patterns.
+- **Next:** sort (table headers) + logs audit filter + toggle/switch; the 2 boarded product calls.
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
