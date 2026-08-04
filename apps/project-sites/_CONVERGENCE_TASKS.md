@@ -228,6 +228,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.83 (fire 2026-08-04q) — ✅ +4 green COMPREHENSIVE auth-security spec (metrics + sessions + 2FA modal) — RUN green vs prod. E2E-count toward 400
+- **`auth-security-interactions.spec.ts` (+4, RUN green 6.2s vs prod):** (1) page renders authed (not the 404, not a load error — it wraps custom-D1 auth endpoints per [[better-auth-sections-need-custom-d1-endpoints]]); (2) security metrics render OR honest-empty — when present, all 4 cards (sign-ins/anomalies/anomaly-rate/actors); (3) sessions panel shows a state (list/empty/unavailable) + a refresh control; (4) the **2FA enroll dialog opens + cancels** (modal interaction, non-mutating — never submits a real 2FA enrollment).
+- **1 dropped test:** the suspicious-activity panel is more data-gated than assumed (renders only within the loaded metrics view / when suspicious events exist — no always-on empty variant for the e2e-org) → dropped rather than flake (validator-precision: prefer robust org-agnostic assertions).
+- admin-verify green count: **~115 run-green** (29 spec files).
+- **Next:** comprehensive specs for snapshots/social/voice/user toward 400; pSEO frontend awaits a Brian design call.
+
 ### P0.82 (fire 2026-08-04p) — ✅ +4 green COMPREHENSIVE audit-section spec (deep-covers the P0.79-restored section) — RUN green vs prod. E2E-count accumulation toward 400
 - **With P0-ADMIN "every section verified" effectively met (P0.81), the remaining DONE lever is the ≥400 `admin-verify/` count (~107→~111).** Accelerating with comprehensive per-section specs. Chose the restored audit section (500 real events for brian) for deep coverage.
 - **`audit-interactions.spec.ts` (+4, RUN green 4.9s vs prod):** (1) renders the Audit Log section (not the 404 it was restored from); (2) the 4 stat cards (Events/Unique actions/Last 24h/Actors) render with numeric `<app-rolling-counter>` values; (3) the ag-grid `audit-grid` OR the honest-empty `audit-empty` renders — NEVER the `audit-error` card (grid-or-empty is org-agnostic per gotcha #5); (4) Export CSV + Auto-refresh affordances present.
