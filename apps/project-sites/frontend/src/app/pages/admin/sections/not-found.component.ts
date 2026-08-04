@@ -18,7 +18,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'feature-flags', label: 'Feature Flags' },
   { path: 'site-features', label: 'Features' },
   { path: 'domains', label: 'Domains' },
-  { path: 'pseo', label: 'Programmatic SEO' },
   { path: 'social', label: 'Social' },
   { path: 'voice', label: 'Voice' },
   { path: 'media', label: 'Media' },
@@ -31,12 +30,8 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'ai-endpoints', label: 'AI Endpoints' },
   { path: 'settings', label: 'Settings' },
   { path: 'user', label: 'Account' },
-  { path: 'marketplace', label: 'Marketplace' },
-  { path: 'trust', label: 'Trust Center' },
-  { path: 'enterprise', label: 'Enterprise' },
   { path: 'logs', label: 'Logs' },
   { path: 'deliverability', label: 'Deliverability' },
-  { path: 'content-freshness', label: 'Content Freshness' },
 ];
 
 /** Known renamed routes → current path (stale bookmarks the component comment notes). */

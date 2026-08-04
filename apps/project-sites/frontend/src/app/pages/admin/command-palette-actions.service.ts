@@ -171,8 +171,6 @@ export class CommandPaletteActionsService {
       { id: 'nav-leads',        title: 'Go to Lead Scanner',  section: 'Navigation', icon: ICONS.chart,    keywords: ['leads', 'scanner', 'prospects', 'outreach', 'no website', 'claim', 'operator'], href: navHref('/admin/leads'), run: () => go('/admin/leads') },
       { id: 'nav-super-admin',  title: 'Go to Super Admin',   section: 'Navigation', icon: ICONS.shield,   keywords: ['super admin', 'operator', 'cost', 'wallet', 'margin', 'markup', 'billing ops', 'impersonate'], href: navHref('/admin/super-admin'), run: () => go('/admin/super-admin') },
       { id: 'nav-media',         title: 'Go to Media',             section: 'Navigation', icon: ICONS.layers, keywords: ['assets', 'images', 'upload', 'library', 'video', 'stock', 'podcast'], href: navHref('/admin/media'), run: () => go('/admin/media') },
-      { id: 'nav-pseo',          title: 'Go to pSEO',              section: 'Navigation', icon: ICONS.chart,  keywords: ['programmatic seo', 'pages', 'city', 'landing', 'generate'], href: navHref('/admin/pseo'), run: () => go('/admin/pseo') },
-      { id: 'nav-freshness',     title: 'Go to Content Freshness', section: 'Navigation', icon: ICONS.book,   keywords: ['stale', 'drafts', 'update', 'age', 'review', 'content'], href: navHref('/admin/content-freshness'), run: () => go('/admin/content-freshness') },
       { id: 'nav-site-features', title: 'Go to Features',          section: 'Navigation', icon: ICONS.cog,    keywords: ['features', 'plan', 'entitlements', 'site', 'add-on', 'tenant', 'preview'], href: navHref('/admin/site-features'), run: () => go('/admin/site-features') },
 
       // ── Settings tabs (5) ────────────────────────────────────────
