@@ -228,6 +228,17 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.84 (fire 2026-08-04r) — ✅ DIRECTIVE #1 fan-out: 4 read-only agents enumerated snapshots/social/voice/user in parallel → main-thread authored 4 comprehensive specs (+9 green) — ~4× a normal fire's output
+- **Honored the standing fan-out directive** (skipped ~10 prior fires): 4 parallel `Explore` (read-only) agents mapped each section's testids/states/interactions + proposed org-agnostic assertions; the main thread authored + ran all 4 specs (per "author code in main thread since worktree agents auto-clean"). Covers 4 sections in ONE fire vs the usual 1.
+- **4 specs (+9 green, +2 conditional-skip, RUN green 9.6s vs prod):**
+  - `snapshots-interactions.spec.ts` (+3): state one-of (timeline/empty/error) + not-404; create-snapshot modal opens/Escapes (non-mutating); rolling-counter present.
+  - `social-interactions.spec.ts` (+2): connected-accounts summary + not-404; section is interactive (controls) + not crashed. (The agent over-specified a full composer/tab surface that's account/flag-gated for the 0-connected e2e-org → simplified to the org-agnostic invariant.)
+  - `voice-interactions.spec.ts` (+1 green, +2 conditional-skip): voice shell OR no-site empty-state + not-404; the 6-tab switch + stat-strip tests `test.skip` when no site is selected (e2e-org) — they run for a site-selected owner.
+  - `user-settings-interactions.spec.ts` (+3): theme buttons set `<html data-theme>`+localStorage; API-keys create modal open/cancel (no key made); **delete-account dialog opens, gates the final delete on the exact phrase, cancels** (safety-critical, never deletes). Avoids the existing profile-value-domain + sessions specs.
+- **Fan-out lesson:** agents enumerating a data-rich section can over-specify surfaces that are flag/account-gated for the e2e-org → the main thread must down-scope to org-agnostic invariants when a proposed assertion fails. Net still a big win (4 sections/fire).
+- admin-verify green count: **~124 run-green** (33 spec files).
+- **Next:** more fan-out fires (site-features/forms/apps-deeper/media-studios) toward 400; pSEO frontend awaits a Brian design call.
+
 ### P0.83 (fire 2026-08-04q) — ✅ +4 green COMPREHENSIVE auth-security spec (metrics + sessions + 2FA modal) — RUN green vs prod. E2E-count toward 400
 - **`auth-security-interactions.spec.ts` (+4, RUN green 6.2s vs prod):** (1) page renders authed (not the 404, not a load error — it wraps custom-D1 auth endpoints per [[better-auth-sections-need-custom-d1-endpoints]]); (2) security metrics render OR honest-empty — when present, all 4 cards (sign-ins/anomalies/anomaly-rate/actors); (3) sessions panel shows a state (list/empty/unavailable) + a refresh control; (4) the **2FA enroll dialog opens + cancels** (modal interaction, non-mutating — never submits a real 2FA enrollment).
 - **1 dropped test:** the suspicious-activity panel is more data-gated than assumed (renders only within the loaded metrics view / when suspicious events exist — no always-on empty variant for the e2e-org) → dropped rather than flake (validator-precision: prefer robust org-agnostic assertions).
