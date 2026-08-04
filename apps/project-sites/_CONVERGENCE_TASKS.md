@@ -191,6 +191,13 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~84 run-green** (removed the 5 invalid deep-link tests, +2 correct alias/editor tests).
 - **Next:** more interaction specs (sort, toggle, logs filter) + the 2 boarded product calls.
 
+### P0.70 (fire 2026-08-04d) — ✅ +3 green command-palette + shortcuts-overlay E2E (universal keyboard affordances) — RUN green vs prod
+- **New interaction type: global keyboard shortcut → overlay dialog.** Both affordances are mounted in `AdminComponent` (every /admin/* route), purely client-side → robust under parallel prod load. Read the live components first: palette = `pages/admin/command-palette.component.ts` (NOT the orphaned `components/command-palette/` one) — Cmd/Ctrl+K via its own `window:keydown`, `[data-testid=palette-input|palette-results|palette-action-*]`; shortcuts = `?` via the admin shell `document:keydown` (line 754) → `[data-testid=shortcuts-overlay]`.
+- **`command-palette-shortcuts.spec.ts` (+3, RUN green 4.4s vs prod):** (1) Ctrl+K opens palette → typing "settings" filters the static command list → Escape closes; (2) selecting the Logs command NAVIGATES to `/admin/logs` (proves the palette EXECUTES, not just opens); (3) `?` opens the shortcuts cheat-sheet (asserts a `<kbd>` legend key) → Escape closes.
+- **1 authoring fix mid-run:** `role="dialog"` is on the overlay's outer wrapper, `data-testid="shortcuts-overlay"` is the inner `.shortcuts-modal` → asserted the cheat-sheet's `<kbd>` content instead (surface-specific, not the wrong element).
+- admin-verify green count: **~87 run-green** (+3 this fire).
+- **Next:** more interaction specs (sort a TanStack table, feature-flag toggle-state, logs tab filter) + the 2 boarded product calls (wallet-topup flow, social/media backend).
+
 ### P0.52 (fire 2026-08-03y) — ✅ the forms TEST PANEL was FULLY BROKEN (400 "Missing X-Site-Slug" on EVERY run) — the boarded "form_name value-domain gap" was masking a dead feature. Fixed 3 layers → works end-to-end, LIVE-verified
 - **Investigating P0.51's boarded forms `form_name` gap uncovered a bigger bug:** `runTest()` POSTed `/v1/forms/submit` with **no `x-site-slug` header + no `?slug=`** — the worker resolves the site from that param and 400s `"Missing X-Site-Slug header"` BEFORE validation, so **the test panel 400d on every run** (the form_name gap never even executed). A fully-broken admin feature.
 - **✅ Fix 1 — slug:** `runTest` now POSTs `/v1/forms/submit?slug=${site.slug}` (site.slug is on the selected site). **LIVE (Browserbase, brian):** no-slug → **400 "Missing X-Site-Slug header"** (was the bug); `?slug=megabytespace` → **200**.
