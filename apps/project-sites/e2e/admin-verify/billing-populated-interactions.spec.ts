@@ -80,4 +80,23 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
       'a renewal/period field renders (e.g. "No renewal" for Free)',
     ).toHaveText(/\w/);
   });
+
+  test('the Free plan surfaces its plan-gated Upgrade CTA (subscription card, not clicked)', async ({ page }) => {
+    test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
+    await gotoBilling(page);
+
+    // `plan()` is derived from /billing/subscription (status==='active' ? 'pro' : 'free').
+    // e2e-test-org has no active sub → Free → the subscription card shows the Upgrade CTA
+    // and NOT the Pro-only "Manage billing" control. Scope to the subscription card so we
+    // don't collide with the SECOND upgrade CTA in the plan-comparison card below it.
+    // Never clicked — upgrade() opens a real Stripe checkout (money path).
+    const card = page.locator('[data-testid="subscription-card"]');
+    const upgrade = card.getByRole('button', { name: /upgrade to pro/i });
+    await expect(upgrade, 'a Free plan must surface the Upgrade CTA').toBeVisible({ timeout: 8000 });
+    await expect(upgrade, 'the Upgrade CTA must be actionable').toBeEnabled();
+    await expect(
+      card.getByRole('button', { name: /manage billing/i }),
+      'the Pro-only "Manage billing" control must NOT show on a Free plan',
+    ).toHaveCount(0);
+  });
 });
