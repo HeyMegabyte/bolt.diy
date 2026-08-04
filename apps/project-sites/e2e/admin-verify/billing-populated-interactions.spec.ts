@@ -1,0 +1,83 @@
+/**
+ * ADMIN FEATURE VERIFICATION (P0-ADMIN) — comprehensive Billing coverage: the
+ * section renders REAL populated plan/entitlement data (the mandate's core) and its
+ * tab navigation works, WITHOUT ever touching a money-path button (upgrade /
+ * checkout / cancel / topup are never clicked).
+ *
+ * Billing (verified request-shape CLEAN + populated in P0.56) is a tabbed section:
+ * a plan pill + `subscription-plan` + `entitlement-{sites,storage_gb,seats}` rolling
+ * counters on the Subscription tab, and a `role="tablist"` of `billing-tab-*` tabs
+ * with `billing-tab-panel-*` panels. Tabs are discovered at runtime (no hard-coded
+ * ids). Real session (E2E_API_KEY) → the e2e-test-org is a real FREE plan.
+ *
+ * @see {@link ../helpers/realdata.ts}
+ * @see {@link ./admin-tabs.spec.ts}
+ */
+import { test, expect } from '../fixtures.js';
+import { setupRealDataPage, realDataAvailable } from '../helpers/realdata.js';
+
+const gotoBilling = async (page: import('@playwright/test').Page) => {
+  await setupRealDataPage(page, { passthrough: /\/api\// });
+  await page.goto('/admin/billing', { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-testid="subscription-plan"]').waitFor({ state: 'visible', timeout: 15000 });
+};
+
+test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
+  test('renders REAL plan + entitlement data (populated, not empty/stub)', async ({ page }) => {
+    test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
+    await gotoBilling(page);
+
+    // The current-plan pill shows a real plan label.
+    const planPill = page.locator('[aria-label="Current plan"]');
+    await expect(planPill).toBeVisible();
+    await expect(planPill, 'the plan pill must name a real plan').toHaveText(/free|pro|business|enterprise/i);
+
+    // The subscription card names the plan (falls back to planLabel — always real).
+    await expect(page.locator('[data-testid="subscription-plan"]'), 'the subscription plan must be populated').toHaveText(
+      /\w/,
+    );
+
+    // Entitlements render as real numeric counters (0 is valid for a fresh Free org —
+    // that is populated real data, NOT an empty/stub state).
+    for (const key of ['sites', 'storage_gb', 'seats']) {
+      const ent = page.locator(`[data-testid="entitlement-${key}"]`);
+      await expect(ent, `entitlement ${key} must render`).toBeVisible({ timeout: 10000 });
+      await expect(ent, `entitlement ${key} must be a real number`).toHaveText(/\d/);
+    }
+  });
+
+  test('every billing tab switches and renders its panel', async ({ page }) => {
+    test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
+    await gotoBilling(page);
+
+    const tabs = page.locator('[data-testid^="billing-tab-"]');
+    const count = await tabs.count();
+    expect(count, 'billing must expose multiple section tabs').toBeGreaterThan(1);
+
+    for (let i = 0; i < count; i++) {
+      const tab = tabs.nth(i);
+      const id = (await tab.getAttribute('data-testid'))!.replace('billing-tab-', '');
+      await tab.click();
+      await expect(tab, `tab ${id} becomes selected`).toHaveAttribute('aria-selected', 'true', { timeout: 6000 });
+      await expect(
+        page.locator(`#billing-tab-panel-${id}`),
+        `tab ${id} reveals its panel`,
+      ).toBeVisible({ timeout: 6000 });
+    }
+  });
+
+  test('the subscription card shows a real plan + billing status (no empty/stub)', async ({ page }) => {
+    test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
+    await gotoBilling(page);
+
+    // The subscription card renders (not an empty/error placeholder).
+    await expect(page.locator('[data-testid="subscription-card"]'), 'the subscription card must render').toBeVisible({
+      timeout: 10000,
+    });
+    // The renewal/period field is always populated ("No renewal" for Free, or a date).
+    await expect(
+      page.locator('[data-testid="subscription-period-end"]'),
+      'a renewal/period field renders (e.g. "No renewal" for Free)',
+    ).toHaveText(/\w/);
+  });
+});
