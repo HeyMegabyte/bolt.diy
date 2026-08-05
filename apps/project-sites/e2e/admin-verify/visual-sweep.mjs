@@ -25,6 +25,10 @@
  */
 import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
+// Optional axe-core a11y (PSVIS_AXE=1) — the ONLY way to verify the super-admin
+// sections' a11y (they 403 for the e2e-org E2E harness, so they can't be axe'd there).
+let AxeBuilder = null;
+try { ({ default: AxeBuilder } = await import('@axe-core/playwright')); } catch { /* axe optional */ }
 
 const BB = process.env.BROWSERBASE_API_KEY;
 const PROJ = process.env.BROWSERBASE_PROJECT_ID;
@@ -152,6 +156,15 @@ try {
         };
       });
       report[name] = { ...info, errors: errors[name] ?? [], failed: (failed[name] ?? []).slice(0, 6) };
+      if (process.env.PSVIS_AXE && AxeBuilder) {
+        try {
+          const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+          const crit = r.violations.filter((v) => v.impact === 'critical').map((v) => `${v.id}×${v.nodes.length}`);
+          report[name].axeCritical = crit.length ? crit : 'none';
+        } catch (e) {
+          report[name].axeCritical = 'axe-failed: ' + String(e).slice(0, 60);
+        }
+      }
     } catch (e) {
       report[name] = { shot: 'FAIL', error: String(e).slice(0, 120) };
     }
