@@ -228,6 +228,11 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.111 (fire 2026-08-05s) — ✅ +5 green axe-CRITICAL a11y on 5 more sections — 0 violations (9 sections now a11y-clean)
+- **✅ `admin-a11y-critical-more.spec.ts` (+5, green):** extends the axe-critical sweep to audit / ai-endpoints / logs / billing / user — zero `impact==='critical'` axe violations (WCAG A/AA). **5/5 green.** With P0.110's 4, **9 admin sections are now axe-critical-clean; 0 a11y blockers.** Directive #2 (advisory except critical). NON-MUTATING.
+- admin-verify green count: **~249 run-green** (80 spec files). No code change → no deploy. Committed + pushed `71ea60e2`.
+- **Status (steady):** verification mandate INTENT long-met; each fire adds a real dimension (responsive, axe-critical) finding 0 bugs, confirming build quality. ~249/400. **Brian: delete the cron? (case made 6× — awaiting your call.)**
+
 ### P0.110 (fire 2026-08-05r) — ✅ +4 green axe-CRITICAL a11y (a genuine untested dimension — 0/78 admin-verify specs ran axe) — 0 violations
 - **✅ `admin-a11y-critical.spec.ts` (+4, green):** the 78 admin-verify specs NEVER ran axe — a real a11y-dimension gap (`@axe-core/playwright` was installed but unused there). Per directive #2 (a11y advisory EXCEPT critical), asserts `impact==='critical'` axe violations = **0** on /admin, /admin/apps, /admin/docs, /admin/api-tokens (WCAG A/AA `AxeBuilder`). **4/4 green — the admin is critical-a11y-clean** (the aria-label/role/testid/focus-visible doctrine holds). Covers the mandate's "axe critical clean." NON-MUTATING.
 - Two genuine dimensions now closed beyond interaction/value-domain: responsive (P0.108/109, 6 sections × mobile/tablet, no overflow) + axe-critical (this, 0 violations). Both found 0 bugs — corroborating the admin's build quality.
