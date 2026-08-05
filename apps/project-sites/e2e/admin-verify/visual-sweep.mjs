@@ -56,7 +56,13 @@ const report = {};
 try {
   const ctx = browser.contexts()[0] ?? await browser.newContext();
   const page = ctx.pages()[0] ?? await ctx.newPage();
-  await page.setViewportSize({ width: 1440, height: 900 });
+  // Viewport is configurable (PSVIS_WIDTH/PSVIS_HEIGHT) so the same sweep verifies
+  // AI-vision quality at ANY breakpoint (mandate: ≥9/10 at all 6 breakpoints), not
+  // just desktop. Default 1440×900.
+  await page.setViewportSize({
+    width: Number(process.env.PSVIS_WIDTH) || 1440,
+    height: Number(process.env.PSVIS_HEIGHT) || 900,
+  });
   let current = 'boot';
   const errors = {}, failed = {};
   // Capture console.error AND the console.warning that GlobalErrorHandler emits
