@@ -228,6 +228,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.115 (fire 2026-08-06a) — ✅ +2 green mobile-nav drawer flow @375 (genuine mobile-UX path) — 0 bugs
+- **✅ `admin-mobile-nav.spec.ts` (+2, ×2 green):** the 375px hamburger `[aria-label="Open navigation menu"]` opens the overlay nav drawer; the ✕ `[aria-label="Close navigation menu"]` (a button INSIDE the `admin-sidebar-mobile-close` wrapper div) closes it; tapping `nav-features` navigates + auto-closes the drawer (admin.component:246). A genuine mobile-UX flow the desktop specs can't cover.
+- **Selectors DISCOVERED, not guessed (P0.94):** a 375px probe dumped the header buttons (opener = `[aria-label="Open navigation menu"]`, no testid) + confirmed the drawer reveals `nav-features` + `admin-sidebar-mobile-close`; grep of **`admin.component.html`** found the real ✕ button. **⚠️ NOTE: the admin SHELL template is `admin.component.html` (templateUrl), NOT inline in admin.component.ts** — that's why P0.114's mobile-nav testid greps came up empty. Grep the `.html` for shell/header/drawer markup.
+- admin-verify green count: **~305 run-green** (84 spec files). No code change → no deploy. Committed + pushed.
+- **Status:** ~305/400. First failed attempt (clicked the close-WRAPPER div, not the button inside) → fixed via the discovered aria-label. 0 product bugs. **Brian: mandate fulfilled bar the count — delete? (7×).**
+
 ### P0.114 (fire 2026-08-05v) — ✅ +24 green site-scoped responsive (distinct layouts) — 0 layout bugs
 - **✅ `responsive-site-scoped.spec.ts` (+24, green):** the site-scoped sections have DISTINCT layouts (snapshot version-history, form-submission table, domain hostname table, settings tabs, feature catalog, social composer) not covered by the org-level responsive specs. Tested × 768/1024/1280/1920 via `selectFirstSite` → no horizontal overflow, not crashed. **24/24 green, 0 layout bugs.** (Mobile 375/390 is behind the hamburger for `selectFirstSite`; those shared card/table components are already mobile-verified via the org-level specs.)
 - **Mobile hamburger-nav flow NOT authored** — its open/drawer/close testids weren't cleanly grep-able; per P0.94 I don't author against unverified selectors. Boarded for a future fire if the testids are confirmed.
