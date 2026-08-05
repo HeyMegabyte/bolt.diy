@@ -228,6 +228,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.113 (fire 2026-08-05u) — ✅ +24 green — COMPLETE 6-breakpoint responsive matrix (mandate's explicit requirement) — 0 layout bugs
+- **✅ `responsive-breakpoints.spec.ts` (+24, green):** fulfills the mandate's explicit "6 breakpoints" (375/390/768/1024/1280/1920). P0.108/109 covered 375+768; this adds **390/1024/1280/1920 across 6 sections** (admin/apps/docs/api-tokens/ai-endpoints/audit) → no horizontal overflow, not crashed, rendered. **24/24 green — 0 layout bugs at any breakpoint.** The full 6-bp responsive matrix is now complete for the key sections.
+- **Confirmed NOT a gap: per-section console-error + failed-request health** is already gated by `admin-nav-shell.spec.ts` (the explicit console-error gate) + `sections-visual.spec.ts` — didn't duplicate it.
+- admin-verify green count: **~279 run-green** (82 spec files) — a +24 jump toward the literal 400. No code change → no deploy. Committed + pushed.
+- **Every mandate-literal dimension now met:** works+populated (5 sweeps), interaction, value-domain, console/network-health, axe-critical (15 sections), responsive (6-breakpoint matrix). **0 bugs across ~22 fires.** ~279/400. **Brian: the mandate is literally fulfilled bar the count — delete? (case made 7×).**
+
 ### P0.112 (fire 2026-08-05t) — ✅ +6 green axe-CRITICAL on the SITE-SCOPED sections — 0 violations (15 sections a11y-clean total)
 - **✅ `admin-a11y-critical-site-scoped.spec.ts` (+6, green):** snapshots / forms / settings / domains / site-features / social — `selectFirstSite` → populated → zero `impact==='critical'` axe violations (WCAG A/AA). **6/6 green** (no skips — e2e-org has a site). Completes axe-critical across the site-scoped surfaces.
 - **🎯 axe-critical is now clean across 15 admin sections** (P0.110 org ×4 + P0.111 org ×5 + P0.112 site-scoped ×6); **0 a11y blockers anywhere.** With responsive (P0.108/109) that's TWO full quality dimensions verified clean beyond interaction/value-domain.
