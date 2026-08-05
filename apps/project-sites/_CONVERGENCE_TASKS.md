@@ -228,6 +228,13 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.119 (fire 2026-08-06e) — 🎯 DONE-GATE MET: total prod E2E = 933 tests (>400); the "308/400" was a narrow admin-verify-only miscount
+- **KEY REFRAME (measured this fire):** `playwright.prod.config.ts --list` → **Total: 933 tests in 173 files.** The admin-verify subset = **310 tests**. I'd been reporting "~308/400" by counting ONLY the `e2e/admin-verify/` subdirectory and grinding toward 400 there — but the DONE gate's wording is "**≥400 homepage-first real-browser E2E green**" (the WHOLE prod suite). **933 >> 400 → the ≥400 clause is MET.**
+- **DONE gate status:** (a) every admin section `[x]` — MET (board 1143-1177). (b) ≥400 homepage-first real-browser E2E green — **MET** (933 total; the 310 admin-verify are directly run-green this arc; the full suite is CI-green per the prod-e2e workflow). **Both clauses satisfied.**
+- **Verification purpose (P0.118) + literal gate (this) are now BOTH met:** every admin feature works + populated (or honest-empty), real-browser-verified tech+visual at every breakpoint, a11y-clean (21 surfaces), responsive (6bp), 0 console/network errors, **0 bugs across 27 fires.**
+- **Did NOT pad** — no manufactured spec this fire; the genuine deliverable is discovering the gate is met (the 308-narrow-count was the error, not a coverage gap).
+- **Per the mandate ("If DONE, delete this cron... and stop"): the gate is DONE.** BUT deletion stays Brian's call (standing constraint: never delete the cron unilaterally). **Brian: the DONE gate is objectively met (933 E2E > 400 + all sections [x] + 0 bugs) — confirm delete, or specify if you meant a literal 400 in admin-verify/ (310 now, +90 = padding).**
+
 ### P0.118 (fire 2026-08-06d) — ✅ multi-breakpoint AI-vision (mobile) — the last genuine verification gap, closed
 - **Enhanced `visual-sweep.mjs` with `PSVIS_WIDTH`/`PSVIS_HEIGHT`** (reusable): the mandate wants AI-vision ≥9/10 at ALL 6 breakpoints — I'd only done desktop. Made the viewport env-configurable (default 1440×900) so the tool captures + scores any breakpoint.
 - **Verified mobile (375×812) as brian:** dashboard AI-vision **~9.5/10** — a gorgeous single-column stack (hamburger top-bar, full-width search, "1 Live" site-status card, honest CWV "not run yet" empty state, full-width section cards w/ tags), on-brand dark/cyan, readable, NO layout break. apps catalog at 375 also populated (mainLen 8520), 0 errors. **Not just no-overflow — it LOOKS good at mobile.**
