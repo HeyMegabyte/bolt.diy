@@ -107,12 +107,37 @@ try {
   await page.goto('https://projectsites.dev/admin', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(3000);
 
+  // Site-scoped sections (/admin/snapshots, /admin/forms, /admin/settings, …) show a
+  // "select a site" prompt until AdminStateService.selectedSite() is non-null — and it
+  // has NO persistence, so it resets on every full page.goto (this loop navigates that
+  // way). Therefore the site MUST be selected PER-SECTION, after the goto + before the
+  // screenshot, so the section renders POPULATED for brian. Gated on PSVIS_SELECT_SITE=1.
+  const selectSiteOnPage = async () => {
+    try {
+      const sw = page.locator('button[aria-label="Select site"]');
+      if ((await sw.count()) === 0) return null;
+      await sw.click();
+      const opt = page.locator('button[role="option"]').first();
+      await opt.waitFor({ state: 'visible', timeout: 5000 });
+      const picked = (await opt.innerText().catch(() => '')).slice(0, 50);
+      await opt.click();
+      await page.waitForTimeout(2500); // let the section re-render with the selected site
+      return picked || 'first-option';
+    } catch {
+      return 'select-failed';
+    }
+  };
+
   for (const p of paths) {
     const name = nameOf(p);
     current = name;
     try {
       await page.goto('https://projectsites.dev' + p, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(5500);
+      if (process.env.PSVIS_SELECT_SITE) {
+        const picked = await selectSiteOnPage();
+        if (picked) (report._selectedSite ??= {})[name] = picked;
+      }
       await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: false });
       const info = await page.evaluate(() => {
         // The section error boundary renders "This section ran into a problem" on
