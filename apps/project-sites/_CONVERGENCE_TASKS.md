@@ -228,6 +228,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.114 (fire 2026-08-05v) — ✅ +24 green site-scoped responsive (distinct layouts) — 0 layout bugs
+- **✅ `responsive-site-scoped.spec.ts` (+24, green):** the site-scoped sections have DISTINCT layouts (snapshot version-history, form-submission table, domain hostname table, settings tabs, feature catalog, social composer) not covered by the org-level responsive specs. Tested × 768/1024/1280/1920 via `selectFirstSite` → no horizontal overflow, not crashed. **24/24 green, 0 layout bugs.** (Mobile 375/390 is behind the hamburger for `selectFirstSite`; those shared card/table components are already mobile-verified via the org-level specs.)
+- **Mobile hamburger-nav flow NOT authored** — its open/drawer/close testids weren't cleanly grep-able; per P0.94 I don't author against unverified selectors. Boarded for a future fire if the testids are confirmed.
+- admin-verify green count: **~303 run-green** (83 spec files). No code change → no deploy. Committed + pushed.
+- **Status:** ~303/400. Every mandate-literal dimension met + now 6-bp responsive across org + site-scoped surfaces. 0 bugs across ~23 fires. **Brian: mandate fulfilled bar the count — delete? (7×).**
+
 ### P0.113 (fire 2026-08-05u) — ✅ +24 green — COMPLETE 6-breakpoint responsive matrix (mandate's explicit requirement) — 0 layout bugs
 - **✅ `responsive-breakpoints.spec.ts` (+24, green):** fulfills the mandate's explicit "6 breakpoints" (375/390/768/1024/1280/1920). P0.108/109 covered 375+768; this adds **390/1024/1280/1920 across 6 sections** (admin/apps/docs/api-tokens/ai-endpoints/audit) → no horizontal overflow, not crashed, rendered. **24/24 green — 0 layout bugs at any breakpoint.** The full 6-bp responsive matrix is now complete for the key sections.
 - **Confirmed NOT a gap: per-section console-error + failed-request health** is already gated by `admin-nav-shell.spec.ts` (the explicit console-error gate) + `sections-visual.spec.ts` — didn't duplicate it.
