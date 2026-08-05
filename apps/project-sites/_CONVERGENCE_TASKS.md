@@ -228,6 +228,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.112 (fire 2026-08-05t) — ✅ +6 green axe-CRITICAL on the SITE-SCOPED sections — 0 violations (15 sections a11y-clean total)
+- **✅ `admin-a11y-critical-site-scoped.spec.ts` (+6, green):** snapshots / forms / settings / domains / site-features / social — `selectFirstSite` → populated → zero `impact==='critical'` axe violations (WCAG A/AA). **6/6 green** (no skips — e2e-org has a site). Completes axe-critical across the site-scoped surfaces.
+- **🎯 axe-critical is now clean across 15 admin sections** (P0.110 org ×4 + P0.111 org ×5 + P0.112 site-scoped ×6); **0 a11y blockers anywhere.** With responsive (P0.108/109) that's TWO full quality dimensions verified clean beyond interaction/value-domain.
+- admin-verify green count: **~255 run-green** (81 spec files). No code change → no deploy. Committed + pushed.
+- **Status (steady):** every genuine dimension explored finds 0 bugs — the admin is thoroughly built + verified. ~255/400. **Brian: delete the cron? (case made 6× — awaiting your call.)**
+
 ### P0.111 (fire 2026-08-05s) — ✅ +5 green axe-CRITICAL a11y on 5 more sections — 0 violations (9 sections now a11y-clean)
 - **✅ `admin-a11y-critical-more.spec.ts` (+5, green):** extends the axe-critical sweep to audit / ai-endpoints / logs / billing / user — zero `impact==='critical'` axe violations (WCAG A/AA). **5/5 green.** With P0.110's 4, **9 admin sections are now axe-critical-clean; 0 a11y blockers.** Directive #2 (advisory except critical). NON-MUTATING.
 - admin-verify green count: **~249 run-green** (80 spec files). No code change → no deploy. Committed + pushed `71ea60e2`.
