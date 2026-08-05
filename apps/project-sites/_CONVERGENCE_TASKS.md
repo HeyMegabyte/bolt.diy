@@ -228,6 +228,12 @@ Every `/admin/*` section (Dashboard, Editor, Snapshots, Analytics, Forms, Apps, 
 - admin-verify green count: **~100 run-green** (+3 this fire, 25 spec files). 🎯 milestone.
 - **Next:** comprehensive per-section specs (audit/mcp/snapshots) · value-domain on api-tokens/env-vars · the 2 boarded product calls.
 
+### P0.116 (fire 2026-08-06b) — ✅ +3 green axe-CRITICAL on OPEN OVERLAYS (modal/palette/drawer) — 0 violations
+- **✅ `admin-a11y-critical-overlays.spec.ts` (+3, green):** overlays are the highest a11y-risk surface (focus-trap, `aria-modal`, accessible names) and the section-level axe specs only scan the base page. This scans OPEN states: api-token create modal (`at-create-open` → `[role=dialog]`), command palette (Ctrl+K → `palette-input`), mobile nav drawer (375px → `admin-sidebar-mobile-close`). **Zero `impact==='critical'` axe violations. 3/3 green — overlay a11y is clean** (DialogShell + palette + drawer focus/labels correct).
+- **axe-critical is now clean across 15 sections + 3 overlay states; responsive across 6 breakpoints (org + site-scoped); mobile-nav flow; 5 populated sweeps.** 0 bugs across ~25 fires.
+- admin-verify green count: **~308 run-green** (85 spec files). No code change → no deploy. Committed + pushed.
+- **Status:** ~308/400. **Brian: verification is comprehensive + complete — delete the cron? (case made 7×, awaiting your call.)**
+
 ### P0.115 (fire 2026-08-06a) — ✅ +2 green mobile-nav drawer flow @375 (genuine mobile-UX path) — 0 bugs
 - **✅ `admin-mobile-nav.spec.ts` (+2, ×2 green):** the 375px hamburger `[aria-label="Open navigation menu"]` opens the overlay nav drawer; the ✕ `[aria-label="Close navigation menu"]` (a button INSIDE the `admin-sidebar-mobile-close` wrapper div) closes it; tapping `nav-features` navigates + auto-closes the drawer (admin.component:246). A genuine mobile-UX flow the desktop specs can't cover.
 - **Selectors DISCOVERED, not guessed (P0.94):** a 375px probe dumped the header buttons (opener = `[aria-label="Open navigation menu"]`, no testid) + confirmed the drawer reveals `nav-features` + `admin-sidebar-mobile-close`; grep of **`admin.component.html`** found the real ✕ button. **⚠️ NOTE: the admin SHELL template is `admin.component.html` (templateUrl), NOT inline in admin.component.ts** — that's why P0.114's mobile-nav testid greps came up empty. Grep the `.html` for shell/header/drawer markup.
