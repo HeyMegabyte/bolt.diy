@@ -93,7 +93,7 @@ export interface CrawlReport {
  * errors (returns `null`), enforces a 15-second timeout so a slow origin can't
  * hang the entire crawl. Never throws.
  */
-async function safeFetch(url: string, timeoutMs = 15_000): Promise<Response | null> {
+export async function safeFetch(url: string, timeoutMs = 15_000): Promise<Response | null> {
   // SSRF defense-in-depth (#31): never fetch an internal/private/metadata target,
   // even when a sitemap entry, robots.txt line, or homepage `<a href>` the BFS
   // follows points at one. The import route guards the SEED url; this guards every
@@ -107,11 +107,24 @@ async function safeFetch(url: string, timeoutMs = 15_000): Promise<Response | nu
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, {
-      headers: REAL_BROWSER_HEADERS,
-      signal: controller.signal,
-      redirect: 'follow',
-    });
+    // SSRF (gap-audit #2): follow redirects MANUALLY and re-validate every hop.
+    // `redirect:'follow'` would let a public URL 302 to 169.254.169.254 / localhost /
+    // RFC1918 — the seed guard above only sees the pre-redirect host. Cap at 5 hops.
+    let current = url;
+    for (let hop = 0; hop < 5; hop++) {
+      const res = await fetch(current, {
+        headers: REAL_BROWSER_HEADERS,
+        signal: controller.signal,
+        redirect: 'manual',
+      });
+      if (res.status < 300 || res.status >= 400) return res;
+      const loc = res.headers.get('location');
+      if (!loc) return res;
+      const next = new URL(loc, current).toString();
+      if (!isSafeCrawlUrl(next)) return null; // redirect points at an internal target
+      current = next;
+    }
+    return null; // too many redirects (possible redirect-loop SSRF)
   } catch {
     return null;
   } finally {

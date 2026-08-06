@@ -30,6 +30,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
+import { isSafeCrawlUrl } from '../services/outbound_webhooks.js';
 import {
   generateImage,
   generatePodcast,
@@ -327,6 +328,22 @@ mediaRoutes.post('/api/media/stock/save', async (c) => {
         error: {
           code: 'BAD_REQUEST',
           message: 'candidate is required',
+          request_id: c.get('requestId'),
+        },
+      },
+      400,
+    );
+  }
+
+  // SSRF (gap-audit #1): saveStockToLibrary fetches candidate.fullUrl server-side.
+  // Reject internal / private / metadata targets before the fetch — the same guard
+  // the build crawler uses. Legit stock URLs (Unsplash/Pexels/Pixabay) always pass.
+  if (!isSafeCrawlUrl(body.candidate.fullUrl)) {
+    return c.json(
+      {
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'candidate URL is not allowed',
           request_id: c.get('requestId'),
         },
       },

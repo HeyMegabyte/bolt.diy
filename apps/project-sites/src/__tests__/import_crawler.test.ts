@@ -21,6 +21,7 @@
 import {
   crawlSiteForImport,
   estimateRebuildMinutes,
+  safeFetch,
   REAL_BROWSER_UA,
   REAL_BROWSER_HEADERS,
   type CrawlReport,
@@ -417,5 +418,44 @@ describe('estimateRebuildMinutes', () => {
 
   it('clamps at 60 minutes for huge crawls', () => {
     expect(estimateRebuildMinutes(100_000)).toBe(60);
+  });
+});
+
+describe('safeFetch — SSRF redirect-hop guard (gap-audit #2)', () => {
+  const redirectTo = (loc: string, status = 302): Response =>
+    ({
+      status,
+      headers: { get: (h: string) => (h.toLowerCase() === 'location' ? loc : null) },
+    }) as unknown as Response;
+
+  it('refuses a redirect that points at an internal/metadata host', async () => {
+    // public seed → 302 → 169.254.169.254 (cloud metadata). Must NOT be followed.
+    fetchMock.mockResolvedValueOnce(redirectTo('http://169.254.169.254/latest/meta-data/'));
+    const res = await safeFetch('https://example.com/');
+    expect(res).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1); // stopped at the redirect, never hit the internal target
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+  });
+
+  it('follows a redirect to another PUBLIC host', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectTo('https://cdn.example.net/final'))
+      .mockResolvedValueOnce(okText('<html>ok</html>'));
+    const res = await safeFetch('https://example.com/');
+    expect(res?.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects an internal SEED before any fetch (pre-redirect guard)', async () => {
+    const res = await safeFetch('http://localhost:8080/admin');
+    expect(res).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('stops after 5 redirect hops (redirect-loop SSRF)', async () => {
+    fetchMock.mockResolvedValue(redirectTo('https://example.com/next'));
+    const res = await safeFetch('https://example.com/');
+    expect(res).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });
