@@ -42,7 +42,10 @@ const SECTIONS = [
   // /admin/leads = the Lead SCANNER (external-prospect scanning, scored) — a DIFFERENT
   // concept than inbound leads; populated by running a scan, not by the leads table.
   { path: '/admin/leads', site: false, expectData: false },
-  { path: '/admin/apps', site: false, expectData: true },
+  // /admin/apps = the static app CATALOG (67 entries, card grid — always "populated",
+  // not brian-scoped data). The INSTALLED instances live at /admin/apps/instances.
+  { path: '/admin/apps', site: false, expectData: false },
+  { path: '/admin/apps/instances', site: false, expectData: true },
   { path: '/admin/billing', site: false, expectData: true },
   { path: '/admin/site-features', site: true, expectData: false },
   { path: '/admin/seo', site: true, expectData: false },

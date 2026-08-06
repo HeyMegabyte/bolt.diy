@@ -131,9 +131,8 @@ interface OgData {
 }
 
 type Tab = 'compose' | 'drafts' | 'queue' | 'sent' | 'calendar';
-/** Valid `?tab=` deep-link values + the post-status each one loads. */
+/** Valid `?tab=` deep-link values. */
 const SOCIAL_TABS: readonly Tab[] = ['compose', 'drafts', 'queue', 'sent', 'calendar'];
-const TAB_STATUS: Partial<Record<Tab, PostStatus>> = { drafts: 'draft', queue: 'scheduled', sent: 'published' };
 
 /* ──────────────────────────────────────────────────────────────────── */
 /*  Platform registry — single source of truth                          */
@@ -741,7 +740,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                 <header class="post-h">
                   <input type="checkbox" class="post-sel" [checked]="isBulkSelected(post.id)" (change)="toggleBulk(post.id)" [attr.aria-label]="'Select this post for bulk actions'" />
                   <div class="post-platforms">
-                    @for (p of post.platforms; track p) {
+                    @for (p of post.platforms ?? []; track p) {
                       @let pd = defOf(p);
                       <span class="post-pglyph" [style.--brand]="pd?.color" [title]="pd?.label || p">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="pd?.glyph || ''"/></svg>
@@ -752,7 +751,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                   <span class="post-time">{{ post.scheduled_at || post.published_at | date:'short' }}</span>
                 </header>
                 <p class="post-body">{{ post.content }}</p>
-                @if (post.media.length > 0) {
+                @if (post.media?.length) {
                   <div class="post-thumbs">
                     @for (m of post.media; track m.id) {
                       <img [src]="m.thumb_url || m.url" [alt]="m.alt" loading="lazy" />
@@ -776,7 +775,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                     }
                   </div>
                   <div class="post-links">
-                    @for (p of post.platforms; track p) {
+                    @for (p of post.platforms ?? []; track p) {
                       @if (post.per_platform_url?.[p]) {
                         <a [href]="post.per_platform_url![p]!" target="_blank" rel="noopener noreferrer">View on {{ defOf(p)?.label }}<svg class="inline-block align-[-2px] ml-[3px]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                       }
@@ -830,7 +829,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                     type="button"
                     class="cal-event"
                     draggable="true"
-                    [style.--brand]="defOf(post.platforms[0])?.color"
+                    [style.--brand]="defOf(post.platforms?.[0])?.color"
                     (dragstart)="onCalEventDrag($event, post)"
                     (click)="editPost(post)"
                     [title]="post.content">
@@ -2903,19 +2902,22 @@ export class AdminSocialComponent implements OnInit {
    *  so it's safe to call from the `?tab=` deep-link handler without looping. */
   private applyTab(t: Tab): void {
     this.tab.set(t);
-    const status = TAB_STATUS[t];
-    if (status) this.loadPosts(status);
+    // Per-tab lists + count badges all derive from the full `posts()` set client-side
+    // (`filteredPosts`), loaded once when the site resolves — so no per-tab reload is
+    // needed. (Reloading with a status filter zeroed the other tabs' count badges.)
   }
 
   /* ── Posts ── */
-  loadPosts(filter?: PostStatus): void {
+  loadPosts(): void {
     const sid = this.siteId();
     if (!sid) return;
     this.loading.set(true);
-    const params: Record<string, string> = { site_id: sid };
-    if (filter) params['status'] = filter;
-    this.api.get<{ data: SocialPost[] }>('/social/posts', params).subscribe({
-      next: (r) => { this.posts.set(r.data ?? []); this.loading.set(false); },
+    // Always load the FULL set (no status filter): the tab COUNT badges + `filteredPosts`
+    // both derive from `posts()` and filter client-side by tab. A server-side status
+    // filter would leave `posts()` holding only the active tab's rows → the other two
+    // tab count badges would wrongly read 0.
+    this.api.get<{ data: SocialPost[] }>('/social/posts', { site_id: sid }).subscribe({
+      next: (r) => { const posts = r.data ?? []; this.posts.set(posts); this.loading.set(false); this.prefetchAnalytics(posts); },
       error: () => { this.loading.set(false); },
     });
   }
@@ -3073,15 +3075,24 @@ export class AdminSocialComponent implements OnInit {
   }
 
   /* ── Analytics ── */
+  /** PURE reader — never fetches. Analytics are prefetched by `prefetchAnalytics` when
+   *  posts load, so this template getter can't trigger a signal write mid-render (that
+   *  fired NG0600 on the Sent tab the moment it had published posts to render). */
   analyticsFor(postId: string): AnalyticsRow[] {
-    const cached = this.analyticsCache()[postId];
-    if (cached) return cached;
-    // Lazily fetch + cache
-    this.api.get<{ data: { per_platform: AnalyticsRow[] } }>(`/social/posts/${postId}/analytics`).subscribe({
-      next: (r) => this.analyticsCache.update((m) => ({ ...m, [postId]: r.data?.per_platform ?? [] })),
-      error: () => this.analyticsCache.update((m) => ({ ...m, [postId]: [] })),
-    });
-    return [];
+    return this.analyticsCache()[postId] ?? [];
+  }
+
+  /** Fetch per-post analytics for published posts OUTSIDE change detection — called from
+   *  `loadPosts`' async subscribe callback, never a template getter. */
+  private prefetchAnalytics(posts: SocialPost[]): void {
+    const cache = this.analyticsCache();
+    for (const p of posts) {
+      if (!['published', 'partial', 'failed'].includes(p.status) || cache[p.id]) continue;
+      this.api.get<{ data: { per_platform: AnalyticsRow[] } }>(`/social/posts/${p.id}/analytics`).subscribe({
+        next: (r) => this.analyticsCache.update((m) => ({ ...m, [p.id]: r.data?.per_platform ?? [] })),
+        error: () => this.analyticsCache.update((m) => ({ ...m, [p.id]: [] })),
+      });
+    }
   }
 
   /* ── RSS ── */

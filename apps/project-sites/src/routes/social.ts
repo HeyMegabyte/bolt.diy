@@ -40,6 +40,23 @@ function requireAuth(c: { get: (k: string) => unknown }): { userId: string; orgI
   return { userId, orgId };
 }
 
+/**
+ * Parse a JSON-array text column (`account_ids`, `hashtags`, `media_keys`) into a
+ * `string[]`. Never throws — returns `[]` for null / empty / malformed input. The
+ * Pulse Social UI consumes these as arrays; returning the raw column left them
+ * `undefined`, so `post.media.length` / `@for (p of post.platforms)` crashed the
+ * Drafts/Queue/Sent list the moment `pulse_posts` had rows.
+ */
+function jsonStringArray(raw: unknown): string[] {
+  if (typeof raw !== 'string' || raw.trim() === '') return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 const platformEnum = z.enum(PLATFORMS as readonly [Platform, ...Platform[]]);
 
 /**
@@ -297,16 +314,64 @@ socialRoutes.get('/api/social/posts', async (c) => {
     where += ' AND status = ?';
     params.push(status);
   }
-  const { data } = await dbQuery(
+  const { data } = await dbQuery<{
+    id: string;
+    status: string;
+    scheduled_at: string | null;
+    published_at: string | null;
+    content: string | null;
+    account_ids: string | null;
+    media_keys: string | null;
+    hashtags: string | null;
+    link: string | null;
+    site_id: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
     c.env.DB,
-    `SELECT id, status, scheduled_at, published_at, content, account_ids, hashtags, link,
-            site_id, created_at, updated_at
+    `SELECT id, status, scheduled_at, published_at, content, account_ids, media_keys,
+            hashtags, link, site_id, created_at, updated_at
        FROM pulse_posts WHERE ${where}
        ORDER BY COALESCE(scheduled_at, updated_at) DESC
        LIMIT ?`,
     [...params, limit],
   );
-  return c.json({ data });
+
+  // Shape each row into the `SocialPost` contract the Pulse Social UI renders. Rows
+  // store account UUIDs (`account_ids` JSON) + hashtags JSON; the UI reads
+  // `post.platforms[]`, `post.media[]`, `post.hashtags[]`. Returning the raw row left
+  // `platforms`/`media` undefined → the list crashed on `post.media.length` once
+  // populated. Resolve account UUID → platform once, then map every post.
+  const { data: accts } = await dbQuery<{ id: string; platform: string }>(
+    c.env.DB,
+    `SELECT id, platform FROM social_accounts WHERE org_id = ? AND deleted_at IS NULL`,
+    [ctx.orgId],
+  );
+  const platformOf = new Map(accts.map((a) => [a.id, a.platform]));
+
+  const posts = data.map((row) => ({
+    id: row.id,
+    status: row.status,
+    scheduled_at: row.scheduled_at ?? undefined,
+    published_at: row.published_at ?? undefined,
+    content: row.content ?? '',
+    platforms: Array.from(
+      new Set(
+        jsonStringArray(row.account_ids)
+          .map((id) => platformOf.get(id))
+          .filter((p): p is string => !!p),
+      ),
+    ),
+    // Social posts are overwhelmingly text. A bare <img> can't send the Bearer to the
+    // authed R2 media endpoint (per the media-thumbnail 401 fix), so surface no
+    // thumbnails rather than emit a URL that 401s. TODO(social-media-thumbs): mint
+    // signed preview URLs from media_keys.
+    media: [] as unknown[],
+    hashtags: jsonStringArray(row.hashtags),
+    link: row.link ?? undefined,
+    site_id: row.site_id ?? undefined,
+  }));
+  return c.json({ data: posts });
 });
 
 /**

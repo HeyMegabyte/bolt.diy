@@ -1003,11 +1003,13 @@ describe('AdminSocialComponent (deep-linked tabs — brief #8)', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  it('honors `?tab=queue` on load (deep-link IN) and loads its posts', () => {
+  it('honors `?tab=queue` on load (deep-link IN) and loads the FULL post set', () => {
     build('queue');
     expect(fixture.componentInstance.tab()).withContext('deep-linked tab applied').toBe('queue');
-    // queue → loadPosts('scheduled')
-    expect(get).toHaveBeenCalledWith('/social/posts', { site_id: 'site-tabs', status: 'scheduled' });
+    // loadPosts fires on site-resolve with NO status filter — the tab COUNT badges +
+    // filteredPosts both derive from the full posts() set client-side. A server-side
+    // status filter (the old behavior asserted here) zeroed the other tabs' counts.
+    expect(get).toHaveBeenCalledWith('/social/posts', { site_id: 'site-tabs' });
   });
 
   it('ignores an unknown `?tab=` value and stays on compose', () => {

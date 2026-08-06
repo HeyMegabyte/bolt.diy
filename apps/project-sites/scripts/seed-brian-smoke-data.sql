@@ -29,12 +29,15 @@ INSERT OR IGNORE INTO social_accounts (id, org_id, created_by, platform, externa
  ('smoke-sa-2','org-brian-001','user-brian-001','linkedin','li_mbs_002','megabyte-space','Megabyte Space','active',datetime('now','-25 days'),datetime('now','-2 days')),
  ('smoke-sa-3','org-brian-001','user-brian-001','instagram','ig_mbs_003','megabytespace','Megabyte Space','active',datetime('now','-20 days'),datetime('now','-3 days'));
 
-INSERT OR IGNORE INTO social_posts (id, site_id, org_id, platform, caption, hashtags, aspect_ratio, status, scheduled_for, posted_at, created_at, updated_at) VALUES
- ('smoke-sp-1','site-megabytespace-001','org-brian-001','twitter','Grand reopening Saturday! New 3D printers, laser cutter, and a fresh cold brew tap. ☕🛠️','#coworking #phoenix #makerspace','1:1','published',NULL,datetime('now','-2 days'),datetime('now','-3 days'),datetime('now','-2 days')),
- ('smoke-sp-2','site-megabytespace-001','org-brian-001','linkedin','Now offering dedicated desks for Phoenix founders. Fast fiber, meeting rooms, and a community that ships.','#startups #phoenix','16:9','published',NULL,datetime('now','-5 days'),datetime('now','-6 days'),datetime('now','-5 days')),
- ('smoke-sp-3','site-megabytespace-001','org-brian-001','instagram','Member spotlight: Priya just launched her hardware startup from Bench 12. 🚀','#buildinpublic','4:5','scheduled',datetime('now','+2 days'),NULL,datetime('now','-1 days'),datetime('now','-1 days')),
- ('smoke-sp-4','site-megabytespace-001','org-brian-001','twitter','Soldering 101 workshop next Thursday — 6pm, free for members. Limited to 12 seats.','#workshop #electronics','1:1','scheduled',datetime('now','+4 days'),NULL,datetime('now','-12 hours'),datetime('now','-12 hours')),
- ('smoke-sp-5','site-megabytespace-001','org-brian-001','linkedin','We hit 100 members this month. Thank you, Phoenix. ❤️','#milestone','16:9','draft',NULL,NULL,datetime('now','-4 hours'),datetime('now','-4 hours'));
+-- Pulse Social reads `pulse_posts` (src/routes/social.ts GET /api/social/posts), NOT the
+-- legacy `social_posts` table — seeding social_posts left Drafts/Queue/Sent at 0. account_ids
+-- reference the smoke social_accounts above so the worker resolves post.platforms[].
+INSERT OR IGNORE INTO pulse_posts (id, org_id, site_id, created_by, status, scheduled_at, published_at, content, account_ids, hashtags, link, created_at, updated_at) VALUES
+ ('smoke-pp-1','org-brian-001','site-megabytespace-001','user-brian-001','published',NULL,datetime('now','-2 days'),'Grand reopening Saturday! New 3D printers, laser cutter, and a fresh cold brew tap.','["smoke-sa-1"]','["coworking","phoenix","makerspace"]',NULL,datetime('now','-3 days'),datetime('now','-2 days')),
+ ('smoke-pp-2','org-brian-001','site-megabytespace-001','user-brian-001','published',NULL,datetime('now','-5 days'),'Now offering dedicated desks for Phoenix founders. Fast fiber, meeting rooms, and a community that ships.','["smoke-sa-2"]','["startups","phoenix"]',NULL,datetime('now','-6 days'),datetime('now','-5 days')),
+ ('smoke-pp-3','org-brian-001','site-megabytespace-001','user-brian-001','scheduled',datetime('now','+2 days'),NULL,'Member spotlight: Priya just launched her hardware startup from Bench 12.','["smoke-sa-3"]','["buildinpublic"]',NULL,datetime('now','-1 days'),datetime('now','-1 days')),
+ ('smoke-pp-4','org-brian-001','site-megabytespace-001','user-brian-001','scheduled',datetime('now','+4 days'),NULL,'Soldering 101 workshop next Thursday at 6pm, free for members. Limited to 12 seats.','["smoke-sa-1"]','["workshop","electronics"]',NULL,datetime('now','-12 hours'),datetime('now','-12 hours')),
+ ('smoke-pp-5','org-brian-001','site-megabytespace-001','user-brian-001','draft',NULL,NULL,'We hit 100 members this month. Thank you, Phoenix.','["smoke-sa-2"]','["milestone"]',NULL,datetime('now','-4 hours'),datetime('now','-4 hours'));
 
 -- ── Installed apps ───────────────────────────────────────────────────────
 INSERT OR IGNORE INTO app_instances (id, org_id, created_by, app_slug, subdomain, status, last_started_at, created_at, updated_at) VALUES
