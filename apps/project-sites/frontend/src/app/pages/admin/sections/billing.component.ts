@@ -73,7 +73,7 @@ interface ForecastBar {
         <div class="kicker">Plan &amp; usage</div>
         <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
           Billing
-          <span class="header-pill" [class.is-pro]="plan() === 'pro'" aria-label="Current plan">
+          <span class="header-pill" [class.is-pro]="plan() === 'paid'" aria-label="Current plan">
             <span class="header-pill-dot" aria-hidden="true"></span>
             {{ planLabel() }}
           </span>
@@ -161,16 +161,16 @@ interface ForecastBar {
                 <div class="text-[0.7rem] text-text-secondary uppercase tracking-wider font-bold mb-2">Entitlements</div>
                 <div class="grid sm:grid-cols-3 gap-2 text-[0.78rem]">
                   <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
-                    <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Sites</div>
-                    <div class="text-white font-bold" data-testid="entitlement-sites"><app-rolling-counter [value]="ent.sites" [duration]="800" /></div>
+                    <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Custom domains</div>
+                    <div class="text-white font-bold" data-testid="entitlement-custom_domains"><app-rolling-counter [value]="ent.maxCustomDomains" [duration]="800" /></div>
                   </div>
                   <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
-                    <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Storage (GB)</div>
-                    <div class="text-white font-bold" data-testid="entitlement-storage_gb"><app-rolling-counter [value]="ent.storage_gb" [duration]="800" /></div>
+                    <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Team seats</div>
+                    <div class="text-white font-bold" data-testid="entitlement-seats"><app-rolling-counter [value]="ent.maxTeamSeats" [duration]="800" /></div>
                   </div>
                   <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
-                    <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Seats</div>
-                    <div class="text-white font-bold" data-testid="entitlement-seats"><app-rolling-counter [value]="ent.seats" [duration]="800" /></div>
+                    <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Analytics</div>
+                    <div class="text-white font-bold" data-testid="entitlement-analytics">{{ ent.analyticsEnabled ? 'Included' : '—' }}</div>
                   </div>
                 </div>
               </div>
@@ -428,7 +428,7 @@ interface ForecastBar {
             <h3 class="m-0 text-base font-semibold text-white">Plan</h3>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">Currently on <strong class="text-white">{{ planLabel() }}</strong>. Cancel any time.</p>
           </div>
-          @if (plan() === 'pro') {
+          @if (plan() === 'paid') {
             <button class="btn-ghost" type="button" (click)="manage()" aria-label="Open Stripe billing portal" title="Open Stripe billing portal">Manage subscription</button>
           }
         </div>
@@ -479,7 +479,7 @@ interface ForecastBar {
               </div>
             </button>
           } @else {
-            <div class="card-light p-4" [class.tier-active]="plan() === 'pro'">
+            <div class="card-light p-4" [class.tier-active]="plan() === 'paid'">
               <div class="flex items-baseline justify-between">
                 <div class="text-base font-bold text-white">Pro</div>
                 <div class="text-lg font-bold text-white">$50<span class="text-[0.7rem] text-text-secondary">/mo</span></div>
@@ -1529,7 +1529,7 @@ export class AdminBillingComponent implements OnInit {
   } | null>(null);
 
   /** Shape returned by GET /api/billing/entitlements. */
-  entitlements = signal<{ sites: number; storage_gb: number; seats: number } | null>(null);
+  entitlements = signal<{ maxCustomDomains: number; maxTeamSeats: number; analyticsEnabled: boolean } | null>(null);
 
   /** Whether the cancel confirm dialog is open. */
   cancelConfirmOpen = signal(false);
@@ -1772,13 +1772,24 @@ export class AdminBillingComponent implements OnInit {
       },
       error: () => {},
     });
-    this.api.get<{ data?: { sites?: number; storage_gb?: number; seats?: number } }>('/billing/entitlements').subscribe({
-      next: (r) => {
-        const d = r.data ?? (r as { sites?: number; storage_gb?: number; seats?: number });
-        this.entitlements.set({ sites: d.sites ?? 0, storage_gb: d.storage_gb ?? 0, seats: d.seats ?? 0 });
-      },
-      error: () => {},
-    });
+    this.api
+      .get<{ data?: { maxCustomDomains?: number; maxTeamSeats?: number; analyticsEnabled?: boolean } }>(
+        '/billing/entitlements',
+      )
+      .subscribe({
+        // The entitlements payload is the resolver's shape (maxCustomDomains /
+        // maxTeamSeats / analyticsEnabled), NOT sites/storage/seats — reading the latter
+        // pinned every entitlement to 0. Show what the plan actually grants.
+        next: (r) => {
+          const d = r.data ?? {};
+          this.entitlements.set({
+            maxCustomDomains: d.maxCustomDomains ?? 0,
+            maxTeamSeats: d.maxTeamSeats ?? 0,
+            analyticsEnabled: !!d.analyticsEnabled,
+          });
+        },
+        error: () => {},
+      });
 
     // Wallet balance (BILL-16)
     this.loadWallet();
@@ -1952,13 +1963,13 @@ export class AdminBillingComponent implements OnInit {
   slackConnected = signal<boolean>(false);
   siteCosts = signal<CostRow[]>([]);
   buying = signal<string | null>(null);
-  plan = signal<'free' | 'pro'>('free');
+  plan = signal<'free' | 'paid'>('free');
   upgrading = signal(false);
   savingCap = signal<string | null>(null);
   loadingCredits = signal(false);
   loadingCosts = signal(false);
   capDraft: Record<string, number | ''> = {};
-  planLabel = computed(() => (this.plan() === 'pro' ? 'Pro · $50/mo' : 'Free'));
+  planLabel = computed(() => (this.plan() === 'paid' ? 'Pro · $50/mo' : 'Free'));
 
   /** Locale-aware credit/count formatter (`Intl.NumberFormat`). */
   private readonly numberFormatter = new Intl.NumberFormat(undefined);
@@ -2204,8 +2215,12 @@ export class AdminBillingComponent implements OnInit {
         /* api.service already toasted */
       },
     });
-    this.api.get<{ data: { subscription?: { status?: string } | null } }>('/billing/subscription').subscribe({
-      next: (r) => this.plan.set(r.data?.subscription?.status === 'active' ? 'pro' : 'free'),
+    this.api.get<{ data?: { plan?: string; status?: string } | null }>('/billing/subscription').subscribe({
+      // The /billing/subscription payload is FLAT (`{ data: { plan, status } }`) and the
+      // paid plan value is 'paid' (matches the D1 CHECK + entitlement resolver), NOT
+      // 'pro'. Reading a nested `data.subscription.status` (never present) pinned the
+      // header badge + Plan section to "Free" on every paid account.
+      next: (r) => this.plan.set(r.data?.plan === 'paid' && r.data?.status === 'active' ? 'paid' : 'free'),
       error: () => this.plan.set('free'),
     });
     // Rolling 30-day forecast v2 (Bundle B finish — separate route, separate UI).

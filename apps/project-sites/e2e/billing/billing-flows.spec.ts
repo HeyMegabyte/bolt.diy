@@ -56,18 +56,21 @@ test.describe('Subscription — $50/mo plan', () => {
     await expect(page.getByTestId('subscription-plan')).toContainText(/pro/i);
   });
 
-  test('BILL-04 — Entitlements panel shows sites/storage/seats limits', async ({ authedPage: page }) => {
+  test('BILL-04 — Entitlements panel shows the plan grants (domains/seats/analytics)', async ({ authedPage: page }) => {
+    // Mock the REAL /api/billing/entitlements shape ({ data: { maxCustomDomains,
+    // maxTeamSeats, analyticsEnabled } }). The prior mock invented a sites/storage/seats
+    // shape the backend NEVER returns, so this spec passed while the panel rendered 0s.
     await page.route('**/api/billing/entitlements', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ sites: 10, storage_gb: 50, seats: 3 }),
+        body: JSON.stringify({ data: { maxCustomDomains: 10, maxTeamSeats: 10, analyticsEnabled: true } }),
       });
     });
     await page.goto('/admin/billing');
-    await expect(page.getByTestId('entitlement-sites')).toContainText('10');
-    await expect(page.getByTestId('entitlement-storage_gb')).toContainText('50');
-    await expect(page.getByTestId('entitlement-seats')).toContainText('3');
+    await expect(page.getByTestId('entitlement-custom_domains')).toContainText('10');
+    await expect(page.getByTestId('entitlement-seats')).toContainText('10');
+    await expect(page.getByTestId('entitlement-analytics')).toContainText('Included');
   });
 
   test('BILL-05 — Billing portal opens Stripe portal in new tab', async ({ authedPage: page }) => {
