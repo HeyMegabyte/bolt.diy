@@ -38,7 +38,7 @@ const SECTIONS = [
   { path: '/admin/settings', site: false, expectData: true },
   { path: '/admin/domains', site: true, expectData: true },
   { path: '/admin/forms', site: true, expectData: true },
-  { path: '/admin/social', site: false, expectData: true },
+  { path: '/admin/social', site: true, expectData: true },
   // /admin/leads = the Lead SCANNER (external-prospect scanning, scored) — a DIFFERENT
   // concept than inbound leads; populated by running a scan, not by the leads table.
   { path: '/admin/leads', site: false, expectData: false },

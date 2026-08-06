@@ -89,7 +89,12 @@ socialRoutes.get('/api/social/accounts', async (c) => {
        ORDER BY platform, created_at DESC`,
     [ctx.orgId],
   );
-  return c.json({ data });
+  // The Pulse Social UI reads `connected` per account (its SocialAccount contract) —
+  // an account is connected once the OAuth/paste-key flow marks it `status = 'active'`.
+  // Without deriving it here the panel rendered every platform "Not connected" even
+  // with a live account row (the worker returned `status`, the UI read `connected`).
+  const accounts = data.map((a) => ({ ...a, connected: a.status === 'active' }));
+  return c.json({ data: accounts });
 });
 
 /**
