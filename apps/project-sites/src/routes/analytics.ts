@@ -20,6 +20,8 @@ import { Hono } from 'hono';
 import { IncomingEventSchema, type IncomingEvent } from '../services/analytics_events.js';
 import { ensureAnalyticsSchema } from '../services/analytics_schema.js';
 import type { Env } from '../types/env.js';
+import { dbQueryOne } from '../services/db.js';
+import { recordVisitorEvent } from '../../libs/features/visitor_events_core/service.js';
 
 export const analyticsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -122,6 +124,57 @@ analyticsRoutes.post('/api/events', async (c) => {
       c.executionCtx.waitUntil(dbWrite);
     } catch {
       void dbWrite;
+    }
+  }
+
+  // Mirror CONVERSION events into `visitor_events` — the table the admin analytics
+  // actually reads for its conversion count. Conversions are emitted ONLY by the
+  // client beacon (CTA-click detection); without this they'd be lost (the beacon's
+  // `analytics_events` store is a separate pipeline the admin doesn't read). Pageviews
+  // are NOT mirrored — the server-side `recordPageviewFromRequest` already records
+  // them per page-serve, so mirroring would double-count.
+  if (env.DB && event.eventType === 'conversion') {
+    const convWrite = (async () => {
+      try {
+        const site = await dbQueryOne<{ id: string; org_id: string }>(
+          env.DB,
+          'SELECT id, org_id FROM sites WHERE (id = ? OR slug = ?) AND deleted_at IS NULL',
+          [event.siteId, event.siteId],
+        );
+        if (!site?.org_id) return;
+        const p = event.payload as
+          | { kind?: unknown; section?: unknown; href?: unknown; channel?: unknown }
+          | undefined;
+        await recordVisitorEvent(
+          env,
+          { orgId: site.org_id, siteId: site.id },
+          {
+            sessionId: event.sessionId ?? event.userId ?? event.eventId,
+            eventType: 'conversion',
+            path: typeof p?.href === 'string' ? p.href.slice(0, 2048) : undefined,
+            referrer: event.referer ?? undefined,
+            metadata: {
+              kind: typeof p?.kind === 'string' ? p.kind : undefined,
+              section: typeof p?.section === 'string' ? p.section : undefined,
+              channel: typeof p?.channel === 'string' ? p.channel : undefined,
+            },
+          },
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            msg: 'analytics.conversion_visitor_write_failed',
+            siteId: event.siteId,
+            error: String(err),
+          }),
+        );
+      }
+    })();
+    try {
+      c.executionCtx.waitUntil(convWrite);
+    } catch {
+      void convWrite;
     }
   }
 
