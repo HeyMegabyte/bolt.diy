@@ -354,21 +354,28 @@ interface BoltMediaAttachMessage {
                     <div class="med-thumb">
                       @switch (a.kind) {
                         @case ('image') {
-                          <img
-                            [src]="a.thumb_url || a.url || rawUrl(a)"
-                            [alt]="a.name"
-                            loading="lazy"
-                            decoding="async"
-                          />
+                          @if (a.thumb_url || a.url) {
+                            <img
+                              [src]="a.thumb_url || a.url"
+                              [alt]="a.name"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          }
+                          <!-- No public URL → render nothing rather than fall back to the
+                               authed /raw endpoint: a bare image element cannot send the
+                               Bearer, so that fallback is a guaranteed 401 + broken thumbnail. -->
                         }
                         @case ('video') {
-                          <video
-                            [src]="a.url || rawUrl(a)"
-                            muted
-                            preload="metadata"
-                            playsinline
-                            [attr.aria-label]="a.name"
-                          ></video>
+                          @if (a.url) {
+                            <video
+                              [src]="a.url"
+                              muted
+                              preload="metadata"
+                              playsinline
+                              [attr.aria-label]="a.name"
+                            ></video>
+                          }
                           <span class="med-thumb__badge">▶</span>
                         }
                         @case ('audio') {
@@ -585,8 +592,10 @@ interface BoltMediaAttachMessage {
                   @for (a of imageResults(); track a.id) {
                     <article class="med-card">
                       <div class="med-thumb">
-                        <img [src]="a.thumb_url || a.url || rawUrl(a)" [alt]="a.name"
-                             loading="lazy" decoding="async" />
+                        @if (a.thumb_url || a.url) {
+                          <img [src]="a.thumb_url || a.url" [alt]="a.name"
+                               loading="lazy" decoding="async" />
+                        }
                         <div class="med-overlay">
                           <button type="button" class="btn-overlay" (click)="sendOneToBolt(a)">
                             Send to Editor
@@ -771,7 +780,9 @@ interface BoltMediaAttachMessage {
                     <strong>{{ p.name }}</strong>
                     <span class="chip chip--source">{{ sourceLabel(p.source) }}</span>
                   </div>
-                  <audio controls preload="metadata" [src]="p.url || rawUrl(p)"></audio>
+                  @if (p.url) {
+                    <audio controls preload="metadata" [src]="p.url"></audio>
+                  }
                   <button type="button" class="btn-ghost btn-ghost--sm" (click)="sendOneToBolt(p)">
                     Send to Editor
                   </button>
