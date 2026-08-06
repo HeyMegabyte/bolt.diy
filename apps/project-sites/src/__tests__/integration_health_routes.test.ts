@@ -18,7 +18,6 @@ function mockEnv(overrides: Partial<Env> = {}): Env {
     TWENTY_API_KEY: 'test-jwt',
     STRIPE_SECRET_KEY: 'sk_test_...',
     RESEND_API_KEY: 're_test_...',
-    DITTOFEED_ADMIN_API_KEY: 'df_test_...',
     DEEPGRAM_API_KEY: 'dg_test_...',
     LAGO_API_KEY: 'lago_test_...',
     ...overrides,
@@ -69,7 +68,6 @@ describe('GET /api/integrations/health', () => {
     const env = mockEnv({
       TWENTY_API_KEY: '',
       RESEND_API_KEY: '',
-      DITTOFEED_ADMIN_API_KEY: '',
       DEEPGRAM_API_KEY: '',
       LAGO_API_KEY: '',
     });

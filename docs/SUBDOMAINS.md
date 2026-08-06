@@ -109,7 +109,6 @@ Durable Object (Dockerfile + wrangler `[[containers]]` binding) + explicit
 |---|---|---|---|
 | `projects.projectsites.dev` | **Plane** | Project management (Jira/Linear alt) | scaffold (Fly draft → convert to CF Container) |
 | `webhooks.projectsites.dev` | **Svix** | Webhook delivery (managed) | PLANNED — note: our own `outbound_webhooks.ts` already does signed+retried delivery; Svix adds a managed UI/dashboard |
-| `engage.projectsites.dev` | **Dittofeed** | Customer messaging / marketing automation | PLANNED |
 | `integrations.projectsites.dev` | **Nango** | Unified OAuth / integrations gateway | PLANNED |
 | `auth.projectsites.dev` | **Better Auth** | Default consumer auth (OIDC) | **code built** — `auth/better-auth.ts` (ADR-0006), dark behind `BETTER_AUTH_*`; needs subdomain + activation |
 | Enterprise SSO / SCIM | **Better Auth** | Enterprise SSO + SCIM provisioning | **code built** — `auth/better-auth.ts` (ADR-0006), dark behind `BETTER_AUTH_*` |

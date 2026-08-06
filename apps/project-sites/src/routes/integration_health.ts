@@ -32,7 +32,6 @@ const KNOWN_INTEGRATIONS = new Set([
   'payload', // CF Container — cms.projectsites.dev
   // Removed / deprecated (probe returns 410 Gone)
   'resend', // Deprecated → SES (ADR-0019)
-  'dittofeed', // Removed → Novu+Listmonk (ADR-0034)
   'lago', // Removed → Stripe Meters (ADR-0034)
   'nango', // Removed → Native OAuth (ADR-0034)
   'inngest', // Removed → CF Workflows v2 (ADR-0034)
@@ -137,18 +136,6 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       const configured = Boolean(c.env.RESEND_API_KEY);
       signals.push({
         provider: 'resend',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'dittofeed': {
-      const configured = Boolean(c.env.DITTOFEED_ADMIN_API_KEY);
-      signals.push({
-        provider: 'dittofeed',
         lastStatus: 0,
         tokenValid: configured,
         lastCallOk: configured,

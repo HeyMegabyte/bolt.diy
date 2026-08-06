@@ -78,5 +78,5 @@ Workflows / Browser Rendering → **CF primitives**.
 
 > **Job planes:** `events.projectsites.dev` = **Inngest** (event-driven durable jobs — already built as
 > `InngestContainer` DO with Neon + Upstash). `jobs.projectsites.dev` = **Hatchet**, the heavy/stateful/
-> browser/AI execution plane (Hatchet Cloud preferred). **Dittofeed** replaces Novu for lifecycle
-> messaging. **Deepcrawl** replaces Firecrawl for website-context extraction.
+> browser/AI execution plane (Hatchet Cloud preferred). Lifecycle messaging is handled by the
+> native notification stack + Listmonk (ADR-0034). **Deepcrawl** replaces Firecrawl for website-context extraction.

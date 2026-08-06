@@ -67,9 +67,9 @@ The internal Browserbase MCP bridge stays at `mcp.megabyte.space` (behind CF Acc
 | `social.projectsites.dev` | **Postiz** — social-media scheduling / social add-on | `ghcr.io/gitroomhq/postiz-app:latest` | 🔵 | SHIP |
 | `billing.projectsites.dev` | **Lago** — usage-based billing (api+front on CF Container, worker on Fly) | `ghcr.io/getlago/lago-api:latest` + built front-end | 🔵 | SHIP |
 
-Lifecycle messaging (journeys, segmentation, campaign orchestration) is **Dittofeed** — it
-**replaces Novu** and rides the platform plane (no dedicated public subdomain by default; product
-code calls it as a service). Listmonk stays the list/newsletter send rail.
+Lifecycle messaging (journeys, segmentation, campaign orchestration) is handled by the native
+notification stack (Dittofeed and Novu were both evaluated and removed per ADR-0034 — no redundant
+third-party engagement container). Listmonk stays the list/newsletter send rail.
 
 ## Monitoring / status
 

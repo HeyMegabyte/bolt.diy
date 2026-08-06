@@ -485,19 +485,6 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
       'CF-NATIVE — NOT self-hosted Svix. A complete Svix/Stripe-style webhook delivery engine on D1/Workers: signed payloads (t=,v1= HMAC over timestamp+body, replay-safe), exponential backoff + bounded retries (6 attempts), SSRF guard (isSafeWebhookUrl), customer endpoint CRUD (/api/sites/:siteId/webhooks, flag-gated outbound_webhooks), admin UI (/admin/webhooks), D1 tables 0534/0535. A self-hosted Svix Rust container (Neon+Upstash) would be redundant infra — REJECTED per cloudflare-lock-in-is-leverage (same call as Better-Auth-on-D1). webhooks.projectsites.dev is an optional future public-ingress alias over the main worker.',
   },
   {
-    id: 'engage-dittofeed',
-    name: 'Dittofeed — customer engagement (DEFERRED — overlaps Novu+Listmonk)',
-    domain: 'engage.projectsites.dev',
-    category: 'notifications',
-    runtime: 'cloudflare-container',
-    datastore: ['Neon:dittofeed', 'Upstash:dittofeed', 'Tinybird'],
-    secretsNamespace: '/dittofeed',
-    status: 'planned',
-    access: 'internal-access',
-    notes:
-      'DEFERRED pending a genuine gap — its core (journeys/broadcasts/segmentation/multi-channel) overlaps the EXISTING CF-native stack: Novu (notify.projectsites.dev, multi-channel triggers + inbox) + Listmonk (mail.projectsites.dev, LIVE — campaigns/segments) + native segment/audience/sequence code (14+15+3 files) + Inngest/Workflows for orchestration. Heaviest container of the brief (3 datastores incl. Tinybird/ClickHouse). Per cloudflare-lock-in-is-leverage (same call as Svix→native + Nango deferred), do NOT deploy redundant infra; a managed-Dittofeed container is justified only if visual journey-builder UX those tools lack becomes a real product need.',
-  },
-  {
     id: 'projects-plane',
     name: 'Plane — self-hosted project management (OPTIONAL — doctrine prefers in-repo)',
     domain: 'projects.projectsites.dev',

@@ -14,7 +14,6 @@ export const INTEGRATION_TARGETS: HealthTarget[] = [
   { name: 'Listmonk', url: 'https://mail.projectsites.dev/api/health', category: 'email' },
   { name: 'Lago', url: 'https://billing.projectsites.dev/health', category: 'billing' },
   { name: 'Nango', url: 'https://integrations.projectsites.dev/health', category: 'auth' },
-  { name: 'Dittofeed', url: 'https://engage.projectsites.dev/api/health', category: 'email' },
   { name: 'LiteLLM', url: 'https://llm.megabyte.space/health', category: 'ai' },
   { name: 'Plane', url: 'https://pm.projectsites.dev/api/instances/', category: 'collab' },
   { name: 'Twenty CRM', url: 'https://crm.projectsites.dev/health', category: 'collab' },

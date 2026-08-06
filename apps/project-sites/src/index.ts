@@ -46,7 +46,6 @@ import { idempotencyMiddleware } from './middleware/idempotency.js';
 import { health } from './routes/health.js';
 import { platformServiceLanding, resolvePlatformService } from './routes/platform_services.js';
 import { api } from './routes/api.js';
-import { dittofeedRoutes } from './routes/dittofeed.js';
 // EMBEDDED Better Auth (full-cutover rebuild) — dark behind the `better_auth` flag.
 // Lazy-imported at the /api/auth/* handler below: the better-auth npm pkg pulls a
 // deep ESM-only dep tree that @swc/jest can't load, so a top-level import here
@@ -1074,7 +1073,6 @@ app.get('/api/activity', async (c) => {
 });
 
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
-app.route('/', dittofeedRoutes); // /api/dittofeed/* — Dittofeed customer engagement event pipeline (flag: dittofeed_integration)
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
 app.route('/', analyticsRoutes); // Unified Analytics ingestion: POST /api/events (202 fast-ack) + /api/analytics-debug (Plane H)

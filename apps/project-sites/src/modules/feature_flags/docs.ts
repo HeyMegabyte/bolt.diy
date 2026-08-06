@@ -1144,13 +1144,13 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
   },
   system_status: {
     checklist: [
-      '10 integration health targets',
+      '9 integration health targets',
       '5s timeout per probe',
       'Parallel aggregation via Promise.all',
       'Returns overall + per-integration status',
     ],
     explanation:
-      'Aggregated health checks for all platform integrations (Listmonk, Lago, Nango, Dittofeed, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
+      'Aggregated health checks for all platform integrations (Listmonk, Lago, Nango, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
     smoke_test: [
       'Enable flag → GET /api/system/status → 200 with overall+integrations array',
       'Each integration has status (healthy/degraded/down/unknown) + latencyMs',
@@ -1329,21 +1329,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Enable flag → GET /api/onboarding → 200 with steps[], completed, total, pct',
       'Fresh org returns pct=0',
       'Fully onboarded org returns pct=100',
-    ],
-  },
-  dittofeed_integration: {
-    checklist: [
-      'Segment-compatible event pipeline',
-      'Fan-out from platform events to Dittofeed',
-      'Identify/track/page + Admin API (journey/segment/template CRUD)',
-      'Flag-gated with default-off rollout',
-    ],
-    explanation:
-      'Dittofeed customer engagement event pipeline. Fans out platform events (site created, build completed, first lead, billing changes) to Dittofeed via its Segment-compatible API. Also exposes Admin API for journey, segment, and template management. Uses outbox dispatch alongside Tinybird + Hatchet.',
-    smoke_test: [
-      'Enable flag → trigger a platform event → verify Dittofeed receives the event',
-      'GET /api/dittofeed/status → returns workspace health',
-      'Flag off → events are not dispatched to Dittofeed',
     ],
   },
   log_explorer: {

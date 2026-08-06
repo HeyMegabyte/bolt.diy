@@ -19,11 +19,9 @@ import type { ProjectSitesEvent, EventType } from './event_bus.js';
 import { readPendingOutbox, markDispatched, markFailed, nextOutboxAction } from './event_bus.js';
 import { ingestTinybirdEvent, resolveTinybird } from './tinybird.js';
 import { pushHatchetEvent, resolveHatchet } from './hatchet.js';
-import { dispatchToDittofeed } from './dittofeed_dispatch.js';
-import { buildDittofeedConfig } from './dittofeed_dispatch.js';
 
 /** Where an event is fanned. */
-export type DispatchTarget = 'tinybird' | 'hatchet' | 'dittofeed';
+export type DispatchTarget = 'tinybird' | 'hatchet';
 
 /** Tinybird datasource that receives the unified event stream. */
 export const OUTBOX_TINYBIRD_DATASOURCE = 'projectsites_events';
@@ -54,7 +52,7 @@ const HATCHET_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
  * @example eventDispatchTargets({ type:'site.published', ... }) // ['tinybird','hatchet']
  */
 export function eventDispatchTargets(event: ProjectSitesEvent): DispatchTarget[] {
-  const targets: DispatchTarget[] = ['tinybird', 'dittofeed'];
+  const targets: DispatchTarget[] = ['tinybird'];
   if (HATCHET_EVENT_TYPES.has(event.type)) targets.push('hatchet');
   return targets;
 }
@@ -73,7 +71,6 @@ export interface DispatchResult {
 export interface DispatchDeps {
   ingestTinybird?: typeof ingestTinybirdEvent;
   pushHatchet?: typeof pushHatchetEvent;
-  dispatchDittofeed?: typeof dispatchToDittofeed;
 }
 
 /**
@@ -124,22 +121,6 @@ export async function dispatchOutboxEvent(
       metadata: meta,
     });
     if (!r.ok) failures.push({ target: 'hatchet', reason: r.reason ?? 'unknown' });
-  }
-
-  if (targets.includes('dittofeed') && buildDittofeedConfig(env)) {
-    attempted.push('dittofeed');
-    try {
-      const dispatchFn = deps.dispatchDittofeed ?? dispatchToDittofeed;
-      await dispatchFn(env, {
-        type: event.type,
-        tenantId: event.tenantId,
-        siteId: event.siteId,
-        userId: event.userId,
-        data: event.data,
-      });
-    } catch (e) {
-      failures.push({ target: 'dittofeed', reason: e instanceof Error ? e.message : String(e) });
-    }
   }
 
   return { ok: failures.length === 0, attempted, failures };

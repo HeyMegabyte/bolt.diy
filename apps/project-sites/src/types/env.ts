@@ -884,14 +884,6 @@ export interface Env {
   TWILIO_API_SECRET?: string;
   /** TwiML App SID (AP…) — required by Voice Access Tokens for outgoing calls. */
   TWILIO_TWIML_APP_SID?: string;
-  /** Dittofeed Admin API key — provisions workspaces, journeys, segments, templates. */
-  DITTOFEED_ADMIN_API_KEY?: string;
-  /** Dittofeed public write key (Segment-compatible) — identify, track, page, screen. */
-  DITTOFEED_PUBLIC_WRITE_KEY?: string;
-  /** Dittofeed workspace ID — scopes all engagement data. */
-  DITTOFEED_WORKSPACE_ID?: string;
-  /** Dittofeed base URL (default: https://engage.projectsites.dev). */
-  DITTOFEED_BASE_URL?: string;
   /** Deepgram API key for low-latency real-time STT (falls back to Workers AI Whisper). */
   DEEPGRAM_API_KEY?: string;
   // NOTE: ELEVENLABS_API_KEY is already declared above for image/voiceover generation —

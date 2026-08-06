@@ -685,15 +685,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'stable',
     owner_email: 'brian@megabyte.space',
   },
-  dittofeed_integration: {
-    key: 'dittofeed_integration',
-    description:
-      'Dittofeed customer engagement event pipeline. Fans out platform events to Dittofeed via Segment-compatible API. Wired through src/services/dittofeed.ts + dispatch + wiring + outbox.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   site_tags: {
     key: 'site_tags',
     description:
@@ -706,7 +697,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   system_status: {
     key: 'system_status',
     description:
-      'System Status Strip (#12): aggregated health checks for all platform integrations (Listmonk, Lago, Nango, Dittofeed, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Returns per-integration green/yellow/red status for the admin top bar.',
+      'System Status Strip (#12): aggregated health checks for all platform integrations (Listmonk, Lago, Nango, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Returns per-integration green/yellow/red status for the admin top bar.',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

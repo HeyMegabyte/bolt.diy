@@ -25,7 +25,6 @@ const HEALTH_PROBES: HealthProbe[] = [
   { name: 'Deepgram (voice)', path: '/api/integrations/deepgram/health', expectedStatus: 200, required: false },
   { name: 'Lago (removed→Stripe Meters)', path: '/api/integrations/lago/health', expectedStatus: 200, required: false },
   { name: 'Resend (deprecated→SES)', path: '/api/integrations/resend/health', expectedStatus: 200, required: false },
-  { name: 'Dittofeed (removed)', path: '/api/integrations/dittofeed/health', expectedStatus: 200, required: false },
   { name: 'API health', path: '/api/health', expectedStatus: 200, required: true },
 ] as const;
 

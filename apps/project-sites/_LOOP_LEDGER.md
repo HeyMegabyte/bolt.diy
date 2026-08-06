@@ -59,7 +59,14 @@ site_tags · system_status · activity_feed · mru_cards · usage_gauges · onbo
 
 Full specs with implementation spines in new `## 🏗 Monumental Platform Initiatives` section (inserted after Lead Scanner, before Tier 2).
 
-### Dittofeed deployed + integration foundation shipped (2026-07-01)
+### Dittofeed deployed + integration foundation shipped (2026-07-01) — ⛔ REMOVED 2026-08-06
+
+> **Dittofeed was COMPLETELY REMOVED 2026-08-06** (Brian directive). Deleted: all `dittofeed_*`
+> services (`dittofeed`, `_dispatch`, `_wiring`, `_outbox`, `_embed`, `_site_lifecycle`), the
+> `/api/dittofeed/*` route, `DITTOFEED_*` env vars, the outbox `dittofeed` dispatch target, the
+> `dittofeed_integration` flag (migration `0612_remove_dittofeed.sql` drops the row), the platform
+> service-registry `engage-dittofeed` entry, and the system-status probe. Lifecycle messaging is the
+> native notification stack + Listmonk per ADR-0034. The table below is a HISTORICAL record only.
 
 | What | Status | Files |
 |------|--------|-------|
@@ -152,7 +159,9 @@ Default placement order:
 
 **Enterprise exception:** Dedicated DBs or stronger isolation only when justified by plan, compliance, or customer requirement.
 
-### Dittofeed integration architecture (2026-07-01)
+### Dittofeed integration architecture (2026-07-01) — ⛔ REMOVED 2026-08-06
+
+> Historical only — Dittofeed was COMPLETELY REMOVED 2026-08-06 (see the removal note above). Kept as a record of the abandoned design.
 
 **Normal customers:** One shared Dittofeed workspace. Model each site with `site_id` + `org_id` + site-scoped contacts/events/segments/journeys/templates. userId pattern: `site:{site_id}:contact:{contact_id}`. Never raw email as global userId.
 
