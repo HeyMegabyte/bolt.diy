@@ -137,7 +137,7 @@ forms.post('/api/v1/forms/submit', async (c) => {
           ? 'failed'
           : 'partial';
 
-  await dbInsert(c.env.DB, 'form_submissions', {
+  const { error: insertError } = await dbInsert(c.env.DB, 'form_submissions', {
     id: submissionId,
     site_id: site.id,
     org_id: site.org_id,
@@ -151,6 +151,22 @@ forms.post('/api/v1/forms/submit', async (c) => {
     status,
     created_at: submittedAt,
   });
+  // Never return a lying-success: a failed persist means the submission is LOST (the
+  // owner would never see it in /admin/forms). Surface a 500 so the visitor can retry
+  // + the operator sees it — instead of silently dropping the row behind a 200.
+  if (insertError) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'forms-submit',
+        message: 'form_submissions insert failed — submission NOT recorded',
+        error: insertError,
+        site_id: site.id,
+        slug: site.slug,
+      }),
+    );
+    throw new Error('Failed to record the submission. Please try again.');
+  }
 
   // Audit: form submission processed (routes to integrations or just recorded)
   const successfulProviders = successful.map((r) => r.provider).join(', ');

@@ -233,8 +233,16 @@ export async function dbInsert(
 
   // Default path: prepend created_at/updated_at (caller values win via spread).
   const first = await buildAndExec({ created_at: now, updated_at: now, ...row });
-  if (first.error && /no such column:\s*(created_at|updated_at)/i.test(first.error)) {
-    // This table has no timestamp columns — remember it + retry with the raw row.
+  // D1/SQLite reports a missing column as EITHER "no such column: X" OR
+  // "table T has no column named X" — match BOTH wordings. Matching only the former
+  // meant a table with created_at but no updated_at (e.g. form_submissions) never
+  // retried → the insert failed → any caller that ignores the returned error returned
+  // a lying-success and silently DROPPED the row (every form submission was lost).
+  if (
+    first.error &&
+    /(?:no such column:\s*|has no column named\s+)(?:created_at|updated_at)/i.test(first.error)
+  ) {
+    // This table is missing a timestamp column — remember it + retry with the raw row.
     NO_TIMESTAMP_TABLES.add(table);
     return { error: (await buildAndExec(row)).error };
   }
