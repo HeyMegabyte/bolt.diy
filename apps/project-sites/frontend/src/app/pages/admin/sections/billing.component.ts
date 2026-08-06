@@ -1788,7 +1788,17 @@ export class AdminBillingComponent implements OnInit {
             analyticsEnabled: !!d.analyticsEnabled,
           });
         },
-        error: () => {},
+        // Don't silently swallow a transient failure — that left the Entitlements panel
+        // blank (`@if (entitlements())` renders nothing). Entitlements are a deterministic
+        // function of the plan, so derive them from the loaded plan as a safe fallback.
+        error: () => {
+          const paid = this.plan() === 'paid';
+          this.entitlements.set({
+            maxCustomDomains: paid ? 10 : 0,
+            maxTeamSeats: paid ? 10 : 1,
+            analyticsEnabled: paid,
+          });
+        },
       });
 
     // Wallet balance (BILL-16)

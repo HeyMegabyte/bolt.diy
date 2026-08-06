@@ -90,7 +90,14 @@ try {
       const info = await page.evaluate(() => {
         const body = document.body.innerText || '';
         const counters = Array.from(document.querySelectorAll('app-rolling-counter, .stat, .kpi, .status-count')).map((e) => (e.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24)).filter(Boolean).slice(0, 12);
-        const rows = document.querySelectorAll('tbody tr, [role="row"], .data-row, li[data-testid]').length;
+        // Count table rows AND card-layout data items — card sections (apps-instances,
+        // social posts/accounts) render as <a>/<article> cards, not <tr>, so a table-only
+        // heuristic false-flags them EMPTY (the "scanner row-heuristic gap").
+        const rows = document.querySelectorAll(
+          'tbody tr, [role="row"], .data-row, li[data-testid], ' +
+          '[data-testid^="apps-instance-"], [data-testid^="site-card-"], ' +
+          'article.post-card, .acct-card.is-on, .instance-card, .member-row',
+        ).length;
         const empty = ['not available', 'no traffic', 'not run', 'coming soon', 'nothing yet', 'no data', 'never had', 'not configured', 'no results', 'stub'].filter((p) => new RegExp(p, 'i').test(body));
         return { h1: (document.querySelector('h1,h2')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40), mainLen: (document.querySelector('main')?.innerText || body).trim().length, rows, counters, empty, crashed: /ran into a problem|something went wrong/i.test(body) };
       });
