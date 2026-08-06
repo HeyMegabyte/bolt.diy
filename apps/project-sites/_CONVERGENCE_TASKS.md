@@ -10,6 +10,24 @@ Generated 2026-07-30 (Pass 1). Updated 2026-07-30 (Pass 2: 5-agent repo scan + p
 
 > **The prior loop verified unauth GATES + a11y, but NOT that admin features actually WORK and are POPULATED with real data.** New mandate: **every single feature in the admin section must WORK and be POPULATED with real data in the `brian@megabyte.space` account, verified via REAL BROWSER (Browserbase / `@cloudflare/playwright` + BROWSER binding) both TECHNICALLY and VISUALLY.** No "not available yet" / empty / stub states where real data should exist. No console errors, no visible errors, no broken UI.
 
+---
+
+### 🔁 Pass 2026-08-06 — GROUND-TRUTH RECONCILIATION (auto-finder + self-populating ledger)
+
+**Why the analytics + dashboard-counter bugs slipped ~30 render-integrity fires:** prior verification proved "the UI renders what its endpoint returns, 0 errors" but NEVER "the display equals the AUTHORITATIVE STORE." An empty state / a stuck-0 counter passes every render gate. Fix the CLASS = reconcile display-vs-store + scan every rendered counter, per rule `[[verify-against-source-of-truth]]`.
+
+**THE FINDER — run EVERY fire (as brian@megabyte.space):**
+- **D1 ground-truth sweep** — brian's real record COUNT per concept (org-brian-001) = the objective "must-show-data" map: `sites 1 · visitor_events 109pv · analytics_daily 9 · media_assets 2 · site_snapshots 4 · audit_logs 1129 · voice_numbers 1 · mcp_connections 2 · api_tokens 1` · (forms/leads/social/subs/apps/notifications = 0 → honest-empty). Re-run: `wrangler d1 execute project-sites-db-production --remote --command "SELECT COUNT(*) …"` per table.
+- **`e2e/admin-verify/reconcile-surfaces.mjs`** — each DISPLAY endpoint (fetched as brian in a real browser) vs its ground-truth count. Flags LYING-EMPTY (gt>0, shows 0) + WRONG-SOURCE.
+- **`e2e/admin-verify/scan-admin-hub.mjs`** — reads EVERY rendered counter/KPI on `/admin` as brian. Catches FRONTEND-computed-counter bugs the endpoint reconciler CANNOT (endpoint returns 1, UI renders 0).
+- Any counter/list/chart showing 0 / empty / "not available" / "no traffic" / "not run" while D1 has data = **bug**. Any console error / failed request / crashed section = **bug**.
+
+**Fixed this pass (deployed + real-browser verified as brian, 0 console errors):**
+- [x] **Analytics "never had any traffic" LYING-EMPTY** — UI read empty CF-zone `httpRequestsAdaptiveGroups`-per-host; now falls back to `/api/sites/:id/analytics` (+`/daily`) → visitor_events. 7d=1, 90d=109. (c82271bb)
+- [x] **Dashboard "0 site in your account" stuck counter** — `app-rolling-counter` sat at 0 for below-fold values that resolved 0→real off-screen; fixed app-wide (`ngOnChanges` `!started` → reflect value + disconnect). Caught by `scan-admin-hub.mjs`.
+
+**SELF-POPULATING:** each fire APPENDS every NEW divergence the finders surface as a `[ ]` item below (dedupe vs existing), fans out 4-5 agents to fix, deploys, re-verifies, commits. The ledger grows itself until the whole app reconciles clean. Next fire: extend `scan-admin-hub.mjs` to scan ALL admin routes (not just `/admin`), reconcile each section's counters vs ground truth.
+
 ### How the loop works (each fire)
 1. **Take the FULL admin section into context** — for the assigned section(s), read the component + its API endpoint(s) + determine what it SHOULD look like and do (UI + technical). Write that intended-behavior spec on the section's board line before verifying.
 2. **Authenticate as `brian@megabyte.space`** (sysadmin; `helpers/auth.ts` E2E_API_KEY peek → real session, or Browserbase real-login) and **navigate from the homepage** through the UI to the section (never `page.goto()` deep-links after initial load — directive #4).

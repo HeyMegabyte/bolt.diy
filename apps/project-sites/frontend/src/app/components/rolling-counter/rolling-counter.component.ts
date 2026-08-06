@@ -81,6 +81,7 @@ export class RollingCounterComponent implements OnInit, OnDestroy, OnChanges {
   initialText = '';
   private observer?: IntersectionObserver;
   private rafId?: number;
+  private fallbackTimer?: number;
   private started = false;
 
   ngOnInit(): void {
@@ -109,6 +110,7 @@ export class RollingCounterComponent implements OnInit, OnDestroy, OnChanges {
         for (const entry of entries) {
           if (entry.isIntersecting && !this.started) {
             this.started = true;
+            if (this.fallbackTimer != null) clearTimeout(this.fallbackTimer);
             this.observer?.disconnect();
             this.run();
           }
@@ -117,11 +119,26 @@ export class RollingCounterComponent implements OnInit, OnDestroy, OnChanges {
       { threshold: this.threshold }
     );
     this.observer.observe(this.host.nativeElement);
+
+    // Fallback: a below-fold counter never scrolled into view would sit at its
+    // initial 0 forever (the observer only fires on intersection). Snap to the real
+    // value after a short grace period so an off-screen counter is still correct —
+    // a footer "0 site in your account" while the account HAS a site is a bug the
+    // roll-from-0 effect must never cause. (Above-fold counters intersect within a
+    // tick and roll well before this fires.)
+    this.fallbackTimer = window.setTimeout(() => {
+      if (!this.started) {
+        this.started = true;
+        this.observer?.disconnect();
+        this.snapToEnd();
+      }
+    }, 2500);
   }
 
   ngOnDestroy(): void {
     this.observer?.disconnect();
     if (this.rafId != null) cancelAnimationFrame(this.rafId);
+    if (this.fallbackTimer != null) clearTimeout(this.fallbackTimer);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -140,6 +157,15 @@ export class RollingCounterComponent implements OnInit, OnDestroy, OnChanges {
     if (this.started) {
       if (this.rafId != null) cancelAnimationFrame(this.rafId);
       this.run();
+    } else {
+      // Below-fold counter whose bound value resolved late (0 → real) BEFORE it ever
+      // scrolled into view: without this it sits at a stale 0 forever (the observer
+      // never fires off-screen). Reflect the resolved value immediately and stop
+      // waiting to roll — a footer "0 site in your account" while the account HAS a
+      // site (caught by scan-admin-hub) is worse than skipping the roll animation.
+      this.write(this.value);
+      this.started = true;
+      this.observer?.disconnect();
     }
   }
 
