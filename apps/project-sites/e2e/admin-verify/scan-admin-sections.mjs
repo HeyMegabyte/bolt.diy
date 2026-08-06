@@ -36,9 +36,14 @@ const SECTIONS = [
   { path: '/admin/voice', site: true, expectData: true },
   { path: '/admin/mcp', site: false, expectData: true },
   { path: '/admin/settings', site: false, expectData: true },
-  { path: '/admin/domains', site: true, expectData: false },
-  { path: '/admin/forms', site: true, expectData: false },
-  { path: '/admin/social', site: false, expectData: false },
+  { path: '/admin/domains', site: true, expectData: true },
+  { path: '/admin/forms', site: true, expectData: true },
+  { path: '/admin/social', site: false, expectData: true },
+  // /admin/leads = the Lead SCANNER (external-prospect scanning, scored) — a DIFFERENT
+  // concept than inbound leads; populated by running a scan, not by the leads table.
+  { path: '/admin/leads', site: false, expectData: false },
+  { path: '/admin/apps', site: false, expectData: true },
+  { path: '/admin/billing', site: false, expectData: true },
   { path: '/admin/site-features', site: true, expectData: false },
   { path: '/admin/seo', site: true, expectData: false },
   { path: '/admin/feature-flags', site: false, expectData: false },
@@ -55,9 +60,11 @@ const errs = {}, failed = {};
 try {
   const ctx = browser.contexts()[0] ?? await browser.newContext();
   const page = ctx.pages()[0] ?? await ctx.newPage();
-  page.on('console', (m) => { const t = m.type(); if (t === 'error' || (t === 'warning' && /ran into a problem|GlobalErrorHandler|Unhandled/i.test(m.text()))) (errs[current] ??= []).push(`[${t}] ${m.text().slice(0, 110)}`); });
+  page.on('console', (m) => { const t = m.type(); const txt = m.text(); if (/Failed to load resource/i.test(txt)) return; /* network 4xx/5xx already tracked by the response handler, which filters 3rd-party (gstatic) noise */ if (t === 'error' || (t === 'warning' && /ran into a problem|GlobalErrorHandler|Unhandled/i.test(txt))) (errs[current] ??= []).push(`[${t}] ${txt.slice(0, 110)}`); });
   page.on('pageerror', (e) => (errs[current] ??= []).push('[pageerror] ' + (e.message || String(e)).slice(0, 110)));
-  page.on('response', (res) => { if (res.status() >= 400 && !/google-analytics|\/g\/collect|posthog/.test(res.url())) (failed[current] ??= []).push(res.status() + ' ' + res.url().replace('https://projectsites.dev', '').slice(0, 70)); });
+  // Exclude 3rd-party noise: analytics beacons + Google's gstatic favicon service
+  // (t*.gstatic.com/faviconV2) which 404s for domains it lacks — not an app bug.
+  page.on('response', (res) => { if (res.status() >= 400 && !/google-analytics|\/g\/collect|posthog|gstatic\.com|faviconV2/.test(res.url())) (failed[current] ??= []).push(res.status() + ' ' + res.url().replace('https://projectsites.dev', '').slice(0, 70)); });
 
   await page.goto('https://projectsites.dev/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(7000);
