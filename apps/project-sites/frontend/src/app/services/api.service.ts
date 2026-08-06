@@ -808,6 +808,30 @@ export class ApiService {
   }
 
   /**
+   * Owner per-site analytics summary backed by the D1 `visitor_events` store —
+   * the AUTHORITATIVE per-site pageview signal, recorded on every site-serve.
+   * (The CF-zone per-host dataset behind {@link getMultiUrlAnalytics} is empty for
+   * `*.projectsites.dev` subdomains, so it under-reports real traffic; this is the
+   * source of truth the analytics panel falls back to.) Flag-gated `site_analytics`
+   * (404 when off). Silent — the component renders its own inline empty/error state.
+   */
+  getSiteAnalytics(siteId: string, windowDays = 30): Observable<SiteAnalyticsSummary> {
+    return this.get(`/sites/${siteId}/analytics`, { windowDays: windowDays.toString() }, { silent: true });
+  }
+
+  /**
+   * Per-day pageview/session series from the `analytics_daily` rollup — feeds the
+   * analytics chart when the CF-zone series is empty (subdomain sites). Flag-gated
+   * `site_analytics` (404 when off); silent. Returns `{ days: [] }` on any miss.
+   */
+  getSiteAnalyticsDaily(
+    siteId: string,
+    days = 30,
+  ): Observable<{ days: { day: string; pageviews: number; uniqueSessions: number; conversions: number }[] }> {
+    return this.get(`/sites/${siteId}/analytics/daily`, { days: days.toString() }, { silent: true });
+  }
+
+  /**
    * Zone-level ("Network Overview") analytics for the whole platform. Silent:
    * the analytics component renders a calm inline state for the empty/error
    * case, so the generic network-blame toast would be a redundant double-signal.
@@ -1494,6 +1518,35 @@ export interface MultiUrlAnalyticsEnvelope {
    * UI should surface a "connect Cloudflare credentials" CTA.
    */
   any_real_data: boolean;
+}
+
+/**
+ * Per-site traffic totals from the D1 `visitor_events` store (populated on every
+ * site-serve). The `.traffic` block of {@link SiteAnalyticsSummary}.
+ */
+export interface SiteTrafficSummary {
+  pageviews: number;
+  uniqueSessions: number;
+  conversions: number;
+  topPaths: { path: string; count: number; uniques: number }[];
+  byType: { type: string; count: number }[];
+  byDevice: { label: string; count: number }[];
+  byChannel: { label: string; count: number }[];
+  byCountry: { label: string; count: number }[];
+  previous: { pageviews: number; uniqueSessions: number; conversions: number };
+  windowDays: number;
+}
+
+/**
+ * Owner per-site analytics summary returned by `GET /api/sites/:id/analytics`
+ * (the `site_analytics` feature). Only `.traffic` is consumed by the analytics
+ * panel today; the other blocks (contacts/forms/newsletter/donations) are present
+ * on the wire but unused here.
+ */
+export interface SiteAnalyticsSummary {
+  siteId: string;
+  windowDays: number;
+  traffic: SiteTrafficSummary;
 }
 
 /**

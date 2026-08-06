@@ -10,6 +10,8 @@ import {
   type AnalyticsRange,
   type CloudflareCredentialStatus,
   type MultiUrlAnalyticsEnvelope,
+  type SiteAnalyticsSummary,
+  type SiteTrafficSummary,
   type NetworkAnalyticsEnvelope,
   type SiteUrlRow,
 } from '../../../services/api.service';
@@ -43,10 +45,13 @@ function formatCount(n: number | null | undefined): string {
  * Build a 0..maxX × 0..maxY normalized SVG path from an array of numeric samples.
  */
 function sparklinePath(values: number[], width: number, height: number, peak?: number): { line: string; area: string } {
-  if (values.length === 0) return { line: '', area: '' };
-  const max = Math.max(1, peak ?? Math.max(...values));
-  const step = values.length > 1 ? width / (values.length - 1) : 0;
-  const pts = values.map((v, i) => ({ x: i * step, y: height - (v / max) * (height - 2) - 1 }));
+  // Coerce non-finite samples to 0 so a single point, an all-equal series, or a
+  // missing field can never produce a `NaN` SVG path coordinate (console error).
+  const vals = values.map((v) => (Number.isFinite(v) ? v : 0));
+  if (vals.length === 0) return { line: '', area: '' };
+  const max = Math.max(1, peak ?? Math.max(...vals));
+  const step = vals.length > 1 ? width / (vals.length - 1) : 0;
+  const pts = vals.map((v, i) => ({ x: i * step, y: height - (v / max) * (height - 2) - 1 }));
   const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   const last = pts[pts.length - 1]!;
   const first = pts[0]!;
@@ -1285,10 +1290,36 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
           return of({ data: null as MultiUrlAnalyticsEnvelope | null });
         }),
       ),
+      // AUTHORITATIVE per-site pageviews from the D1 `visitor_events` store,
+      // recorded on every site-serve. The CF-zone dataset above is empty for
+      // `*.projectsites.dev` subdomains, so a real site showed "No traffic yet"
+      // while it had hundreds of recorded pageviews. Never throws (404/off → null).
+      site: this.api.getSiteAnalytics(site.id, this.rangeDays()).pipe(
+        timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
+        catchError(() => of(null as SiteAnalyticsSummary | null)),
+      ),
+      // Daily rollup for the chart series — empty when the site has no rollup yet.
+      daily: this.api.getSiteAnalyticsDaily(site.id, this.rangeDays()).pipe(
+        timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
+        catchError(() =>
+          of({ days: [] as { day: string; pageviews: number; uniqueSessions: number; conversions: number }[] }),
+        ),
+      ),
     }).subscribe({
       next: (r) => {
-        if (r.analytics.data) {
-          this.envelope.set(r.analytics.data);
+        let env = r.analytics.data;
+        const traffic = r.site?.traffic;
+        // Fall back to visitor_events whenever the CF-zone envelope is missing or
+        // reports no real data but the site actually HAS recorded pageviews — this
+        // is the fix for the "never had any traffic" lying-empty (CF-zone is blind
+        // to subdomain traffic; visitor_events is the source of truth).
+        if ((!env || !env.any_real_data) && traffic && traffic.pageviews > 0) {
+          env = this.envelopeFromTraffic(traffic, this.rangeDays(), r.daily?.days ?? []);
+          this.notAvailable.set(false);
+          this.error.set(null);
+        }
+        if (env) {
+          this.envelope.set(env);
           this.error.set(null);
         }
         // Count ONLY genuine load errors (catchError set error() + returned null)
@@ -1299,6 +1330,65 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
         this.loading.set(false);
       },
     });
+  }
+
+  /** Map the selected range pill to a day count for the visitor_events window. */
+  private rangeDays(): number {
+    switch (this.range()) {
+      case '24h':
+        return 1;
+      case '30d':
+        return 30;
+      case '90d':
+        return 90;
+      default:
+        return 7;
+    }
+  }
+
+  /**
+   * Adapt a visitor_events {@link SiteTrafficSummary} into the CF-zone
+   * {@link MultiUrlAnalyticsEnvelope} the KPI cards already render, so the real
+   * per-site pageviews surface with zero template changes.
+   */
+  private envelopeFromTraffic(
+    t: SiteTrafficSummary,
+    rangeDays: number,
+    daily: { day: string; pageviews: number; uniqueSessions: number; conversions: number }[] = [],
+  ): MultiUrlAnalyticsEnvelope {
+    let series = daily.map((d) => ({
+      date: d.day,
+      page_views: d.pageviews,
+      unique_visitors: d.uniqueSessions,
+      requests: d.pageviews,
+    }));
+    // The daily rollup can lag behind live visitor_events; when it is empty but the
+    // site HAS pageviews in the window, plot a single point so the chart renders real
+    // data instead of the "No traffic yet" empty-state (which gates on an empty series).
+    if (series.length === 0 && t.pageviews > 0) {
+      series = [
+        {
+          date: new Date().toISOString().slice(0, 10),
+          page_views: t.pageviews,
+          unique_visitors: t.uniqueSessions,
+          requests: t.pageviews,
+        },
+      ];
+    }
+    return {
+      range_days: rangeDays,
+      urls_included: [],
+      pageviews: t.pageviews,
+      uniques: t.uniqueSessions,
+      total_requests: t.pageviews,
+      series,
+      top_pages: (t.topPaths ?? []).map((p) => ({ path: p.path, views: p.count })),
+      top_countries: (t.byCountry ?? [])
+        .filter((c) => c.label && c.label !== 'unknown')
+        .map((c) => ({ country: c.label, views: c.count })),
+      top_referrers: [],
+      any_real_data: t.pageviews > 0,
+    };
   }
 
   /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
