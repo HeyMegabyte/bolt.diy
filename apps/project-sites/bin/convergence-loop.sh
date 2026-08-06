@@ -12,15 +12,23 @@ LOG_FILE="$PROJECT_DIR/_CONVERGENCE_LOOP.log"
 
 log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
 
-# ── DONE gate: check if convergence is complete ──────────────────────────
+# ── DONE gate: derived from the admin section CONTRACT, not hand-ticked markdown ──
+# The old gate counted unchecked '[ ]' boxes in FEATURES_TO_TEST.md — a number
+# decoupled from whether a section actually WORKS (730 boxes → never DONE, and a
+# ticked box never proved a prod render). The real gate has two halves:
+#   1. drift clean  — every live /admin route has an admin-contract row (0 slip-through)
+#   2. sweep done   — every HARD section passed on PROD in the latest sweep report
+# See docs/admin-convergence-tdd.md. Run scripts/validate-admin-contract.mjs +
+# e2e/admin-verify/contract-sweep.mjs each fire to refresh both halves.
 check_done() {
-  local untested remaining
-  untested=$(grep -c '^\- \[ \]' "$PROJECT_DIR/FEATURES_TO_TEST.md" 2>/dev/null || echo "999")
-  remaining=$(grep -c '^\- \[ \]' "$PROJECT_DIR/_CONVERGENCE_TASKS.md" 2>/dev/null || echo "999")
+  local drift sweep_done report="$PROJECT_DIR/_ADMIN_CONTRACT_REPORT.json"
+  if node "$PROJECT_DIR/scripts/validate-admin-contract.mjs" >/dev/null 2>&1; then drift=clean; else drift=DRIFT; fi
+  if /usr/bin/grep -q '"done": true' "$report" 2>/dev/null; then sweep_done=true; else sweep_done=false; fi
+  # Log to stderr — this fn's STDOUT is captured by `$(check_done)`, so it must emit
+  # ONLY the DONE/NOT_DONE token (the old gate leaked its log line into the token).
+  log "admin-contract gate: drift=$drift · sweep_done=$sweep_done" >&2
 
-  log "Untested features: $untested, Remaining tasks: $remaining"
-
-  if [ "$untested" -eq 0 ] && [ "$remaining" -eq 0 ]; then
+  if [ "$drift" = "clean" ] && [ "$sweep_done" = "true" ]; then
     echo "DONE"
   else
     echo "NOT_DONE"

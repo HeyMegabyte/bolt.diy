@@ -32,6 +32,9 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   deliverability: 'Deliverability', webhooks: 'Webhooks',
   'api-tokens': 'API Tokens',
   'accept-invite': 'Accept Invite',
+  // Route↔label coverage gap closed via validate-admin-contract.mjs (WCAG 2.4.2):
+  // these routed sections had no label → document title fell back to 'Dashboard'.
+  audit: 'Audit Log', team: 'Team', 'auth-security': 'Auth Security',
   'system-services': 'System Services',
   // Operator sections — nav-linked but were missing labels → title fell back to
   // 'Dashboard' (WCAG 2.4.2 Page Titled). Found via the route↔nav↔label coverage diff.
