@@ -287,3 +287,77 @@ jobs:
             apps/project-sites/e2e/screenshots/browserbase/
             apps/project-sites/playwright-report/
           retention-days: 14
+
+  # Browserbase real-Chrome sweep AS brian@megabyte.space — the mandate's CONTINUOUS
+  # verification that every admin section is POPULATED WITH BRIAN'S REAL DATA (not just
+  # the e2e-org's, which is cross-org-scoped and proves render/data-domain only, NOT
+  # brian's account — see e2e/browserbase/admin-section-sweep-brian.spec.ts header +
+  # memory [[e2e-key-is-not-brians-account]]). Real login via /api/auth/test-login, then
+  # sweeps all 23 sections (22 shared + operator-only) asserting brian's real data +
+  # 0 console errors + 0 CRITICAL axe + a per-section screenshot. Burns ONE billed
+  # session (~15 min) — nightly + manual only, never per-push. QUAD-gated fail-open:
+  # E2E_API_KEY + BROWSERBASE_API_KEY + BROWSERBASE_PROJECT_ID + E2E_TEST_PASSWORD (the
+  # brian test-login) all present, else the run step SKIPS (never fails).
+  prod-visual-browserbase-brian:
+    name: Browserbase real-Chrome sweep AS brian @ prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Browserbase + E2E + brian-login secrets are configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          BROWSERBASE_API_KEY: ${{ secrets.BROWSERBASE_API_KEY }}
+          BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: |
+          if [ -n "$E2E_API_KEY" ] && [ -n "$BROWSERBASE_API_KEY" ] && [ -n "$BROWSERBASE_PROJECT_ID" ] && [ -n "$E2E_TEST_PASSWORD" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Browserbase/E2E/brian-login secrets not all set — skipping brian sweep (fail-open)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/package-lock.json
+
+      - name: Install deps
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
+
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/project-sites
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Browserbase sweep AS brian
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/project-sites
+        env:
+          RUN_BROWSERBASE: '1'
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          BROWSERBASE_API_KEY: ${{ secrets.BROWSERBASE_API_KEY }}
+          BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          PROD_URL: https://projectsites.dev
+        run: |
+          npx playwright test --config=playwright.prod.config.ts \
+            browserbase/admin-section-sweep-brian --workers=1
+
+      - name: Upload brian section screenshots + report
+        if: steps.gate.outputs.ready == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browserbase-visual-sweep-brian
+          path: |
+            apps/project-sites/e2e/screenshots/browserbase/
+            apps/project-sites/playwright-report/
+          retention-days: 14
