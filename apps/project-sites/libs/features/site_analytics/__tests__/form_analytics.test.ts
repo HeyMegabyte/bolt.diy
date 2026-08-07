@@ -81,8 +81,9 @@ describe('getFormAnalytics (AN17 — per-form completion rate + abandonment)', (
   it('scopes the query to the site + form events + clamps the window (SQL + params)', async () => {
     const cap: Cap = { sql: '', params: [] };
     await getFormAnalytics(stubEnv([], cap), 'site_1', 9999);
-    expect(cap.sql).toContain("eventType IN ('form_start', 'form_submit')");
-    expect(cap.sql).toContain("json_extract(payload, '$.form')");
-    expect(cap.params).toEqual(['site_1', 30 * 86_400]);
+    expect(cap.sql).toContain("event_type IN ('form_start', 'form_submit')");
+    expect(cap.sql).toContain("json_extract(metadata, '$.form')");
+    expect(cap.sql).toContain('FROM visitor_events');
+    expect(cap.params).toEqual(['site_1', '-30 days']);
   });
 });

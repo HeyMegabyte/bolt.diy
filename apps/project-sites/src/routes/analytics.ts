@@ -23,6 +23,17 @@ import type { Env } from '../types/env.js';
 import { dbQueryOne } from '../services/db.js';
 import { recordVisitorEvent } from '../../libs/features/visitor_events_core/service.js';
 
+/**
+ * Beacon event kinds mirrored into `visitor_events` (the store the admin analytics
+ * actually reads). Narrowing type-guard: `IncomingEvent.eventType` is a wider union
+ * (adds `error`/`scroll`), so the guard both filters AND narrows to a valid
+ * `VisitorEventType` before we call `recordVisitorEvent`.
+ */
+const VISITOR_MIRROR_TYPES = ['conversion', 'form_start', 'form_submit'] as const;
+type VisitorMirrorType = (typeof VISITOR_MIRROR_TYPES)[number];
+const isVisitorMirrorType = (t: string): t is VisitorMirrorType =>
+  (VISITOR_MIRROR_TYPES as readonly string[]).includes(t);
+
 export const analyticsRoutes = new Hono<{ Bindings: Env }>();
 
 /**
@@ -127,14 +138,19 @@ analyticsRoutes.post('/api/events', async (c) => {
     }
   }
 
-  // Mirror CONVERSION events into `visitor_events` — the table the admin analytics
-  // actually reads for its conversion count. Conversions are emitted ONLY by the
-  // client beacon (CTA-click detection); without this they'd be lost (the beacon's
-  // `analytics_events` store is a separate pipeline the admin doesn't read). Pageviews
-  // are NOT mirrored — the server-side `recordPageviewFromRequest` already records
-  // them per page-serve, so mirroring would double-count.
-  if (env.DB && event.eventType === 'conversion') {
-    const convWrite = (async () => {
+  // Mirror the beacon-only funnel events into `visitor_events` — the table the
+  // admin analytics ACTUALLY reads (conversion count + AN27 section attribution +
+  // AN19 visitor funnel + AN17 form completion). `conversion`, `form_start`, and
+  // `form_submit` are emitted ONLY by the client beacon; without this mirror they'd
+  // be lost — the beacon's `analytics_events` store is a separate pipeline the admin
+  // doesn't read (and isn't even provisioned in prod). Pageviews are NOT mirrored:
+  // the server-side `recordPageviewFromRequest` records them per serve, so mirroring
+  // would double-count.
+  if (env.DB && isVisitorMirrorType(event.eventType)) {
+    // Capture the narrowed type in a const — property narrowing is not preserved
+    // into the async closure below.
+    const mirrorType: VisitorMirrorType = event.eventType;
+    const mirrorWrite = (async () => {
       try {
         const site = await dbQueryOne<{ id: string; org_id: string }>(
           env.DB,
@@ -143,38 +159,45 @@ analyticsRoutes.post('/api/events', async (c) => {
         );
         if (!site?.org_id) return;
         const p = event.payload as
-          | { kind?: unknown; section?: unknown; href?: unknown; channel?: unknown }
+          | { kind?: unknown; section?: unknown; href?: unknown; channel?: unknown; form?: unknown }
           | undefined;
+        // Conversions carry kind/section/channel (AN27 attribution); form events
+        // carry the form key (AN17 completion) — build the metadata per event type.
+        const metadata: Record<string, unknown> =
+          mirrorType === 'conversion'
+            ? {
+                kind: typeof p?.kind === 'string' ? p.kind : undefined,
+                section: typeof p?.section === 'string' ? p.section : undefined,
+                channel: typeof p?.channel === 'string' ? p.channel : undefined,
+              }
+            : { form: typeof p?.form === 'string' ? p.form : undefined };
         await recordVisitorEvent(
           env,
           { orgId: site.org_id, siteId: site.id },
           {
             sessionId: event.sessionId ?? event.userId ?? event.eventId,
-            eventType: 'conversion',
+            eventType: mirrorType,
             path: typeof p?.href === 'string' ? p.href.slice(0, 2048) : undefined,
             referrer: event.referer ?? undefined,
-            metadata: {
-              kind: typeof p?.kind === 'string' ? p.kind : undefined,
-              section: typeof p?.section === 'string' ? p.section : undefined,
-              channel: typeof p?.channel === 'string' ? p.channel : undefined,
-            },
+            metadata,
           },
         );
       } catch (err) {
         console.warn(
           JSON.stringify({
             level: 'warn',
-            msg: 'analytics.conversion_visitor_write_failed',
+            msg: 'analytics.visitor_mirror_failed',
             siteId: event.siteId,
+            eventType: event.eventType,
             error: String(err),
           }),
         );
       }
     })();
     try {
-      c.executionCtx.waitUntil(convWrite);
+      c.executionCtx.waitUntil(mirrorWrite);
     } catch {
-      void convWrite;
+      void mirrorWrite;
     }
   }
 

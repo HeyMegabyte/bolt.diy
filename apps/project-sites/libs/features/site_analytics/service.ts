@@ -102,7 +102,7 @@ export async function getDailySeries(
 /**
  * AN27 — section-level conversion attribution. Aggregates the AN18 click-to-call/
  * directions/email `conversion` events (each tagged with the AN26
- * `data-ps-section`) from `analytics_events`, grouped by section + kind, ranked
+ * `data-ps-section`) from `visitor_events`, grouped by section + kind, ranked
  * by total desc with each section's share of all attributed conversions. Powers
  * the owner moat widget "Services drives 40% of calls".
  *
@@ -126,14 +126,14 @@ export async function getConversionsBySection(
   const n = Number.isInteger(windowDays) && windowDays > 0 && windowDays <= 365 ? windowDays : 30;
   const { data, error } = await dbQuery<{ section: string | null; kind: string | null; n: number }>(
     env.DB,
-    `SELECT COALESCE(json_extract(payload, '$.section'), '(unattributed)') AS section,
-            json_extract(payload, '$.kind') AS kind,
+    `SELECT COALESCE(json_extract(metadata, '$.section'), '(unattributed)') AS section,
+            json_extract(metadata, '$.kind') AS kind,
             COUNT(*) AS n
-       FROM analytics_events
-      WHERE siteId = ? AND eventType = 'conversion'
-        AND timestamp >= (unixepoch() - ?) * 1000
+       FROM visitor_events
+      WHERE site_id = ? AND event_type = 'conversion'
+        AND created_at >= datetime('now', ?)
       GROUP BY section, kind`,
-    [siteId, n * 86_400],
+    [siteId, `-${n} days`],
   );
 
   const bySection = new Map<string, { count: number; calls: number; directions: number; emails: number }>();
@@ -175,8 +175,9 @@ export async function getConversionsBySection(
 /**
  * AN19 — per-site visitor funnel by distinct session: landing (≥1 pageview) →
  * engaged (≥2 pageviews) → converted (≥1 conversion event). Reads
- * `analytics_events` (sessionId set by the tracker), one GROUP BY pass per
- * session. Each stage carries its share of the landing (top) sessions, so the
+ * `visitor_events` (session_id set server-side per pageview + on mirrored beacon
+ * conversions), one GROUP BY pass per session. Each stage carries its share of the
+ * landing (top) sessions, so the
  * owner sees the drop-off. Defensive → all-zero on D1 error.
  *
  * @param env        - Worker env (uses `env.DB`).
@@ -195,13 +196,13 @@ export async function getVisitorFunnel(
   const n = Number.isInteger(windowDays) && windowDays > 0 && windowDays <= 365 ? windowDays : 30;
   const { data, error } = await dbQuery<{ pv: number; conv: number }>(
     env.DB,
-    `SELECT SUM(CASE WHEN eventType = 'pageview' THEN 1 ELSE 0 END) AS pv,
-            MAX(CASE WHEN eventType = 'conversion' THEN 1 ELSE 0 END) AS conv
-       FROM analytics_events
-      WHERE siteId = ? AND sessionId IS NOT NULL
-        AND timestamp >= (unixepoch() - ?) * 1000
-      GROUP BY sessionId`,
-    [siteId, n * 86_400],
+    `SELECT SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pv,
+            MAX(CASE WHEN event_type = 'conversion' THEN 1 ELSE 0 END) AS conv
+       FROM visitor_events
+      WHERE site_id = ? AND session_id IS NOT NULL
+        AND created_at >= datetime('now', ?)
+      GROUP BY session_id`,
+    [siteId, `-${n} days`],
   );
 
   let landing = 0;
@@ -273,8 +274,9 @@ export function summaryToCsv(summary: SiteAnalyticsSummary): string {
 
 /**
  * AN17 — per-form completion rate + abandonment. Counts the tracker's
- * `form_start` (first focus) vs `form_submit` events from `analytics_events`,
- * grouped by the form key (`payload.form`), and derives completion rate +
+ * `form_start` (first focus) vs `form_submit` events from `visitor_events`
+ * (mirrored from the client beacon via `/api/events`), grouped by the form key
+ * (`metadata.form`), and derives completion rate +
  * abandonment per form. Bridges the pageview→lead gap: shows which forms get
  * started but not finished. Ranked by starts desc.
  *
@@ -298,14 +300,14 @@ export async function getFormAnalytics(
   const n = Number.isInteger(windowDays) && windowDays > 0 && windowDays <= 365 ? windowDays : 30;
   const { data, error } = await dbQuery<{ form: string | null; eventType: string; n: number }>(
     env.DB,
-    `SELECT COALESCE(json_extract(payload, '$.form'), '(unnamed)') AS form,
-            eventType,
+    `SELECT COALESCE(json_extract(metadata, '$.form'), '(unnamed)') AS form,
+            event_type AS eventType,
             COUNT(*) AS n
-       FROM analytics_events
-      WHERE siteId = ? AND eventType IN ('form_start', 'form_submit')
-        AND timestamp >= (unixepoch() - ?) * 1000
+       FROM visitor_events
+      WHERE site_id = ? AND event_type IN ('form_start', 'form_submit')
+        AND created_at >= datetime('now', ?)
       GROUP BY form, eventType`,
-    [siteId, n * 86_400],
+    [siteId, `-${n} days`],
   );
 
   const byForm = new Map<string, { starts: number; submits: number }>();

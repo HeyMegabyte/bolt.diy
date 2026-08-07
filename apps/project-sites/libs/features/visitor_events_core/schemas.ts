@@ -8,8 +8,19 @@
 
 import { z } from 'zod';
 
-/** Event kinds a published-site beacon may emit. */
-export const VisitorEventTypeSchema = z.enum(['pageview', 'click', 'conversion', 'custom']);
+/**
+ * Event kinds a published-site beacon may emit. `form_start`/`form_submit` back
+ * the AN17 form-funnel (mirrored from the client beacon via `/api/events`); the
+ * admin reads them out of `visitor_events`, not the dead `analytics_events` store.
+ */
+export const VisitorEventTypeSchema = z.enum([
+  'pageview',
+  'click',
+  'conversion',
+  'custom',
+  'form_start',
+  'form_submit',
+]);
 export type VisitorEventType = z.infer<typeof VisitorEventTypeSchema>;
 
 /** Public ingest payload from a published site's beacon. Org/site resolved server-side. */

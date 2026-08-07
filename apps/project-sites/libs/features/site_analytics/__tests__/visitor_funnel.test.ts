@@ -63,9 +63,10 @@ describe('getVisitorFunnel (AN19 — per-site visitor funnel)', () => {
   it('scopes to the site + non-null session + clamps the window (SQL + params)', async () => {
     const cap: Cap = { sql: '', params: [] };
     await getVisitorFunnel(stubEnv([], cap), 'site_1', 9999);
-    expect(cap.sql).toContain('GROUP BY sessionId');
-    expect(cap.sql).toContain('sessionId IS NOT NULL');
-    expect(cap.sql).toContain("eventType = 'pageview'");
-    expect(cap.params).toEqual(['site_1', 30 * 86_400]);
+    expect(cap.sql).toContain('GROUP BY session_id');
+    expect(cap.sql).toContain('session_id IS NOT NULL');
+    expect(cap.sql).toContain("event_type = 'pageview'");
+    expect(cap.sql).toContain('FROM visitor_events');
+    expect(cap.params).toEqual(['site_1', '-30 days']);
   });
 });

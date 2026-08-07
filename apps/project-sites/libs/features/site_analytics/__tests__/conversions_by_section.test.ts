@@ -67,19 +67,20 @@ describe('getConversionsBySection (AN27 — section-level conversion attribution
     expect(out.sections).toEqual([]);
   });
 
-  it('clamps an out-of-range window to 30 days in the seconds-offset bound', async () => {
+  it('clamps an out-of-range window to 30 days in the datetime bound', async () => {
     const cap: Cap = { sql: '', params: [] };
     await getConversionsBySection(stubEnv([], cap), 'site_1', 9999);
-    expect(cap.params).toEqual(['site_1', 30 * 86_400]);
+    expect(cap.params).toEqual(['site_1', '-30 days']);
     await getConversionsBySection(stubEnv([], cap), 'site_1', 7);
-    expect(cap.params).toEqual(['site_1', 7 * 86_400]);
+    expect(cap.params).toEqual(['site_1', '-7 days']);
   });
 
   it('only counts conversion events scoped to the site (SQL asserts the filter)', async () => {
     const cap: Cap = { sql: '', params: [] };
     await getConversionsBySection(stubEnv([], cap), 'site_1');
-    expect(cap.sql).toContain("eventType = 'conversion'");
-    expect(cap.sql).toContain('siteId = ?');
-    expect(cap.sql).toContain("json_extract(payload, '$.section')");
+    expect(cap.sql).toContain("event_type = 'conversion'");
+    expect(cap.sql).toContain('site_id = ?');
+    expect(cap.sql).toContain('FROM visitor_events');
+    expect(cap.sql).toContain("json_extract(metadata, '$.section')");
   });
 });
