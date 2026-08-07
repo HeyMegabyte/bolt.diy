@@ -114,6 +114,40 @@ const CASES: readonly RenderCase[] = [
     wrap: (rows) => ({ data: rows }),
     rowSelector: '[data-testid^="snap-row-"]',
   },
+  {
+    name: 'ai-endpoints',
+    route: '/admin/ai-endpoints',
+    glob: '**/api/sites/*/ai-endpoints**',
+    base: {
+      endpoint_slug: 'lead-scorer',
+      method: 'POST',
+      description: 'Scores leads 0-100',
+      language: 'ts',
+      deploy_status: 'live',
+      updated_at: '2026-07-30T12:00:00Z',
+      auth_mode: 'open',
+      rate_limit_per_sec: 60,
+      cache_ttl_seconds: 0,
+    },
+    field: 'description',
+    wrap: (rows) => ({ data: rows }),
+    rowSelector: 'li.endpoint-row',
+  },
+  {
+    name: 'api-tokens',
+    route: '/admin/api-tokens',
+    glob: '**/api/v1-tokens**',
+    base: {
+      name: 'CI Deploy Bot',
+      scopes: ['sites:read'],
+      last_used_at: '2026-07-30T12:00:00Z',
+      expires_at: null,
+      created_at: '2026-07-01T00:00:00Z',
+    },
+    field: 'name',
+    wrap: (rows) => ({ data: rows }),
+    rowSelector: '[data-testid="at-revoke-btn"]',
+  },
 ];
 
 function attachConsole(page: Page): string[] {
