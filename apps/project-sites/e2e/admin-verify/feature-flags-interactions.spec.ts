@@ -88,9 +88,11 @@ test.describe('Admin · feature-flags interactions (P0-ADMIN)', () => {
     test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
     await gotoFlags(page);
 
-    await page.locator('[data-testid="ff-nav-site-features"]').click();
-    await expect(page, 'the cross-link must navigate to Site Features').toHaveURL(/\/admin\/site-features/, {
-      timeout: 8000,
-    });
+    const link = page.locator('[data-testid="ff-nav-site-features"]');
+    await expect(link, 'the cross-link renders before we click it').toBeVisible();
+    await link.click();
+    // waitForURL is the canonical async-nav wait; 15s tolerates full-suite parallel prod load
+    // (an 8s toHaveURL was the file's lone flake — self-healed on retry under lighter load).
+    await page.waitForURL(/\/admin\/site-features/, { timeout: 15000 });
   });
 });
