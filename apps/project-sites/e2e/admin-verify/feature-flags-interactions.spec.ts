@@ -22,6 +22,10 @@ const gotoFlags = async (page: import('@playwright/test').Page) => {
   await setupRealDataPage(page, { passthrough: /\/api\// });
   await page.goto('/admin/feature-flags', { waitUntil: 'domcontentloaded' });
   await page.locator('.ff-card').first().waitFor({ state: 'visible', timeout: 15000 });
+  // Wait for the full async registry to settle before any test interacts with the cards —
+  // a mid-load count / first-card under 4-worker parallel prod load is the file's flake
+  // class (gotcha 5). One poll here makes every test in the file load-robust.
+  await expect.poll(() => page.locator('.ff-card').count(), { timeout: 8000 }).toBeGreaterThan(5);
 };
 
 test.describe('Admin · feature-flags interactions (P0-ADMIN)', () => {

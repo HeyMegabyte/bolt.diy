@@ -5,8 +5,9 @@
  * checkout / cancel / topup are never clicked).
  *
  * Billing (verified request-shape CLEAN + populated in P0.56) is a tabbed section:
- * a plan pill + `subscription-plan` + `entitlement-{sites,storage_gb,seats}` rolling
- * counters on the Subscription tab, and a `role="tablist"` of `billing-tab-*` tabs
+ * a plan pill + `subscription-plan` + `entitlement-{custom_domains,seats,analytics}`
+ * (the REAL resolver shape per board 06e — the pre-06e `{sites,storage_gb}` testids were
+ * removed) on the Subscription tab, and a `role="tablist"` of `billing-tab-*` tabs
  * with `billing-tab-panel-*` panels. Tabs are discovered at runtime (no hard-coded
  * ids). Real session (E2E_API_KEY) → the e2e-test-org is a real FREE plan.
  *
@@ -37,13 +38,17 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
       /\w/,
     );
 
-    // Entitlements render as real numeric counters (0 is valid for a fresh Free org —
-    // that is populated real data, NOT an empty/stub state).
-    for (const key of ['sites', 'storage_gb', 'seats']) {
+    // Entitlements render the REAL resolver shape (board 06e): custom_domains + seats as
+    // numeric rolling counters (0 is valid for a fresh Free org — populated real data, NOT
+    // an empty/stub state), and analytics as an "Included" / "—" indicator.
+    for (const key of ['custom_domains', 'seats']) {
       const ent = page.locator(`[data-testid="entitlement-${key}"]`);
       await expect(ent, `entitlement ${key} must render`).toBeVisible({ timeout: 10000 });
       await expect(ent, `entitlement ${key} must be a real number`).toHaveText(/\d/);
     }
+    const analytics = page.locator('[data-testid="entitlement-analytics"]');
+    await expect(analytics, 'entitlement analytics must render').toBeVisible({ timeout: 10000 });
+    await expect(analytics, 'entitlement analytics shows a real state (Included / —)').toHaveText(/\S/);
   });
 
   test('every billing tab switches and renders its panel', async ({ page }) => {

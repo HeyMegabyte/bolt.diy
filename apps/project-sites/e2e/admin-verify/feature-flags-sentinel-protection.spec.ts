@@ -58,6 +58,9 @@ test.describe('Admin · feature-flags sentinel protection (P0-ADMIN)', () => {
     await page.goto('/admin/feature-flags', { waitUntil: 'domcontentloaded' });
 
     await page.locator('.ff-card').first().waitFor({ state: 'visible', timeout: 15000 });
+    // Let the full list settle before picking the first non-sentinel — a mid-load count
+    // under parallel prod load made this flaky (gotcha 5).
+    await expect.poll(() => page.locator('.ff-card').count(), { timeout: 8000 }).toBeGreaterThan(5);
 
     // First card that is NOT a core_* sentinel.
     const regularCard = page.locator('.ff-card').filter({ hasNot: page.locator(CORE_KEY_BTN) }).first();
