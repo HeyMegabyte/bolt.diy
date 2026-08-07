@@ -123,7 +123,7 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
   describe('buildSiteMcpManifest', () => {
     it('uses real site slug + name when the row is present', async () => {
       const h = makeDb();
-      h.firstQueue.push({ slug: 'acme', name: 'Acme Co' });
+      h.firstQueue.push({ slug: 'acme', business_name: 'Acme Co' });
       const m = await buildSiteMcpManifest(envFrom(h), 'site-123');
       expect(m.name).toBe('acme.projectsites.dev');
       expect(m.description).toContain('Acme Co');

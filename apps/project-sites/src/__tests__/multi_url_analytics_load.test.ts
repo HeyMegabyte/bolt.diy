@@ -117,11 +117,15 @@ describe('loadMultiUrlAnalytics — creds present but zone resolution fails (fai
 
 describe('loadMultiUrlAnalytics — GraphQL happy-path merge across hosts', () => {
   const originalFetch = global.fetch;
+  let dateSpy: { mockRestore(): void } | undefined;
   afterEach(() => {
     global.fetch = originalFetch;
+    dateSpy?.mockRestore();
   });
 
   it('sums per-host aggregates, merges by-day + top-N, and flags any_real_data', async () => {
+    // Pin "now" so the per-day alias window date (d0 = today) is deterministic.
+    dateSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 5, 1, 12));
     mockResolve.mockResolvedValue({ kind: 'token', token: 't' });
     const zone = { zone_id: 'z1', account_id: 'acc1' };
     // Two hosts sharing apex example.com → both resolve the SAME primed zone.
@@ -160,27 +164,19 @@ describe('loadMultiUrlAnalytics — GraphQL happy-path merge across hosts', () =
       },
     } as unknown as Env;
 
+    // Current CF-GraphQL shape (worker be3b12e0): per-day aliases d0..dN, each
+    // `httpRequestsAdaptiveGroups { count sum { visits } }` — count = requests,
+    // sum.visits ≈ page views. paths/geo/refs breakdowns carry `{ count dimensions }`.
+    // Per-host uniques are NOT exposed by this dataset on the zone plan → 0.
     const gql = {
       data: {
         viewer: {
           zones: [
             {
-              totals: [{ sum: { pageViews: 100, requests: 120 }, uniq: { uniques: 80 } }],
-              byDay: [
-                {
-                  dimensions: { date: '2026-06-01' },
-                  sum: { pageViews: 100, requests: 120 },
-                  uniq: { uniques: 80 },
-                },
-              ],
-              topPaths: [{ dimensions: { clientRequestPath: '/' }, sum: { pageViews: 60 } }],
-              byCountry: [{ dimensions: { clientCountryName: 'US' }, sum: { requests: 90 } }],
-              byReferer: [
-                {
-                  dimensions: { clientRequestReferer: 'https://google.com/' },
-                  sum: { requests: 40 },
-                },
-              ],
+              d0: [{ count: 120, sum: { visits: 100 } }],
+              paths: [{ count: 60, dimensions: { clientRequestPath: '/' } }],
+              geo: [{ count: 90, dimensions: { clientCountryName: 'US' } }],
+              refs: [{ count: 40, dimensions: { clientRequestReferer: 'https://google.com/' } }],
             },
           ],
         },
@@ -196,9 +192,9 @@ describe('loadMultiUrlAnalytics — GraphQL happy-path merge across hosts', () =
     expect(out.any_real_data).toBe(true);
     expect(out.pageviews).toBe(200); // 2 hosts × 100
     expect(out.total_requests).toBe(240);
-    expect(out.uniques).toBe(160);
+    expect(out.uniques).toBe(0); // per-host uniques not exposed on this zone plan
     expect(out.series).toEqual([
-      { date: '2026-06-01', page_views: 200, requests: 240, unique_visitors: 160 },
+      { date: '2026-06-01', page_views: 200, requests: 240, unique_visitors: 0 },
     ]);
     expect(out.top_pages).toEqual([{ path: '/', views: 120 }]); // merged 60 + 60
     expect(out.top_countries).toEqual([{ country: 'US', views: 180 }]);

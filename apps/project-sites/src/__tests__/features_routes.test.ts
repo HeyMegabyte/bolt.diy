@@ -148,7 +148,10 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
       // (P1 feature #3 in FEATURE_CATALOG). It is intentionally in the
       // registry now — not a trim violation.
       'membership_paywall',
-      'swarm_editor',
+      // NOTE: swarm_editor is NOT in this list — it is an INTENTIONAL deprecated
+      // drift-shim flag that stays registered on purpose (Brian: never delete;
+      // memory feedback_alias_modules_intentional). Asserting its removal was the
+      // stale part of this guard.
       'public_api_v1',
     ]) {
       expect(keys).not.toContain(k);

@@ -143,6 +143,14 @@ Team: brian = 1 owner + 1 pending invite (2/10 seats) — populated, no seed. **
 - **Detector 10 HIGH → 0.** Typecheck clean, 289 affected unit tests green, prod health 200, touched GET routes (social/accounts, voice/numbers) 200 as brian (happy path intact). Detector left advisory (fresh gate) — ready to Promote to `check:dbinsert:ci` after stability.
 - **⚠️ Pre-existing concurrent-drift (NOT mine, NOT fixed):** 3 unit suites fail on shared main — `multi_url_analytics_load` (any_real_data), `brilliant` (mcp manifest name), `features_routes` (flag-registry trim includes swarm_editor). None touch dbInsert or my 9 files; other sessions' drift. Flag for a cleanup fire.
 
+### 🔁 Pass 2026-08-06n — the 3 red suites on main were STALE TESTS (code correct); main → 11570/11570 green
+
+**Fixed the concurrent-drift cleanup I flagged last fire. 3 agents root-caused (one per suite); verify-first confirmed each — all were STALE TESTS asserting a removed/old contract, NOT code bugs. Test-only changes → no deploy.**
+- **`brilliant.test.ts`** — mock pushed `{slug,name:'Acme Co'}` but `buildSiteMcpManifest` reads `business_name` (brilliant.ts:33) → fell back to demo text. Fix: mock `business_name`. (1-word test bug.)
+- **`features_routes.test.ts`** — the "EXCLUDES 2026-06-07 removed flags" guard asserted `swarm_editor` removed, but per [[feedback_alias_modules_intentional]] swarm_editor is an INTENTIONAL deprecated drift-shim (registry keeps it; Brian: never delete). Registry + memory AGREE → the test was the outlier. Fix: removed `swarm_editor` from the exclusion list (did NOT touch the registry — memory-safe).
+- **`multi_url_analytics_load.test.ts`** — the CF-zone contract changed (worker be3b12e0, the P0.1 fix): per-day `d0..dN` aliases with `count`/`sum.visits` (NOT `totals`/`byDay`/`sum.pageViews`), per-host **uniques no longer exposed → 0**, series dates are `Date.now()`-based. Rewrote the fixture to the `d0`/`paths`/`geo`/`refs` shape + `jest.spyOn(Date,'now')` for a deterministic `d0` date + updated assertions (`uniques 160→0`, series `unique_visitors 160→0`). Verified against the actual parser (multi_url_analytics.ts:341-364, 512-525).
+- **⇒ full suite 736 suites / 11570 tests GREEN, typecheck clean.** Main CI is clean again. No source touched (code was already correct).
+
 ### How the loop works (each fire)
 1. **Take the FULL admin section into context** — for the assigned section(s), read the component + its API endpoint(s) + determine what it SHOULD look like and do (UI + technical). Write that intended-behavior spec on the section's board line before verifying.
 2. **Authenticate as `brian@megabyte.space`** (sysadmin; `helpers/auth.ts` E2E_API_KEY peek → real session, or Browserbase real-login) and **navigate from the homepage** through the UI to the section (never `page.goto()` deep-links after initial load — directive #4).
