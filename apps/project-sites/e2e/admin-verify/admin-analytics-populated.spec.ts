@@ -25,7 +25,7 @@ interface AnalyticsCase {
   readonly glob: string;
   readonly body: string; // a populated response with one hostile-labelled row
   readonly populatedSelector: string;
-  readonly emptyTestid: string;
+  readonly emptyTestid?: string; // assert absent when populated (omit for sections with no clean empty testid)
 }
 
 const CASES: readonly AnalyticsCase[] = [
@@ -78,6 +78,45 @@ const CASES: readonly AnalyticsCase[] = [
     populatedSelector: '[data-testid="section-attribution-rows"] li',
     emptyTestid: 'section-attribution-empty',
   },
+  {
+    name: 'analytics-live',
+    route: '/admin/analytics?tab=live',
+    glob: '**/api/analytics-data**',
+    body: JSON.stringify({
+      events: [
+        { id: 'e1', eventId: 'evt-1', eventType: 'pageview', userId: 'user-1', timestamp: 1786112000000 },
+        { id: 'e2', eventId: 'evt-2', eventType: 'pageview', userId: XSS, timestamp: 1786112050000 },
+      ],
+      count: 2,
+      has_more: false,
+    }),
+    populatedSelector: '[data-testid="al-table"]',
+    emptyTestid: 'al-empty',
+  },
+  {
+    name: 'activation-funnel',
+    route: '/admin/analytics?tab=funnel',
+    glob: '**/api/admin/activation-funnel**',
+    body: JSON.stringify({
+      degraded: false,
+      count: 4,
+      stages: [
+        { stage: 'discovered', label: 'Discovered', ordinal: 1, events: 1000, sites: 50 },
+        { stage: 'engaged', label: XSS, ordinal: 2, events: 750, sites: 38 },
+      ],
+      conversion: {
+        steps: [
+          { stage: 'discovered', label: 'Discovered', ordinal: 1, sites: 50, fromPrevPct: null, fromTopPct: 100 },
+          { stage: 'engaged', label: XSS, ordinal: 2, sites: 38, fromPrevPct: 76, fromTopPct: 76 },
+        ],
+        topSites: 50,
+        bottomSites: 38,
+        overallPct: 76,
+      },
+    }),
+    populatedSelector: '[data-testid="funnel-bars"]',
+    // no clean store-empty testid (the non-loading non-populated case is a degraded/zero state) — omit.
+  },
 ];
 
 function attachConsole(page: Page): string[] {
@@ -115,10 +154,12 @@ test.describe('Admin · analytics populated-render + XSS (P0-ADMIN)', () => {
         page.locator(c.populatedSelector).first(),
         `${c.name}: the populated rows render on a non-empty response`,
       ).toBeVisible({ timeout: 15000 });
-      await expect(
-        page.locator(`[data-testid="${c.emptyTestid}"]`),
-        `${c.name}: the empty state is absent when data is present`,
-      ).toHaveCount(0);
+      if (c.emptyTestid) {
+        await expect(
+          page.locator(`[data-testid="${c.emptyTestid}"]`),
+          `${c.name}: the empty state is absent when data is present`,
+        ).toHaveCount(0);
+      }
 
       // 2. Hostile label rendered inert.
       const xssHit = await page.evaluate(() => (window as unknown as { __xssHit?: number }).__xssHit ?? 0);
