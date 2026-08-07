@@ -110,7 +110,18 @@ export default defineConfig({
   // tarpit has cleared), ending the "3-6 false fails per cert" churn. A REAL
   // failure is deterministic → fails ALL 3 attempts, never masked; Playwright
   // still marks any retried test "flaky" for audit. (Board Pass-16 queue head.)
-  retries: 2,
+  // retries:3 (was 2): the first sharded prod cert (run 31196899625) still leaked 4
+  // timeout-class flakes past a 2-retry window when the per-IP tarpit stayed hot across
+  // both immediate retries. A third attempt lands after the rate-limit has almost always
+  // cleared. A REAL failure is deterministic → fails ALL 4 attempts, never masked;
+  // Playwright still marks any retried test "flaky" for audit.
+  retries: 3,
+  // 45s test timeout (up from Playwright's 30s default) — the sharded cert's failures were
+  // "Test timeout of 30000ms exceeded" on slow-under-load navigations against the live edge,
+  // not hung pages. The headroom lets a rate-limited-but-progressing nav finish; a truly
+  // stuck page still fails at 45s. Only slow/failing tests consume it, so shard runtime is
+  // ~unchanged.
+  timeout: 45_000,
   reporter: 'line',
   use: {
     baseURL: process.env.PROD_URL ?? 'https://projectsites.dev',
