@@ -99,7 +99,13 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
           await page.goto(`${PROD}/admin/${section.path}`, { waitUntil: 'domcontentloaded' });
           await page
             .waitForFunction(() => (document.querySelector('main')?.innerText?.length ?? 0) > 150, {
-              timeout: 25_000,
+              // 10s (was 25s): 23 sections × a 25s worst-case tail blew the 900s test budget →
+              // attempt 1 timed out mid-sweep → retries:1 then burned a 2nd Browserbase session
+              // (observed 2026-08-07, ~20min run). The >150-char bar is basic-render, hit in <3s
+              // normally; 10s caps the slow-section tail so all 23 finish well within 900s. The
+              // `.catch` still proceeds if a section is genuinely slower (its screenshot/axe run
+              // regardless), so this only bounds waits — it never turns a slow render into a fail.
+              timeout: 10_000,
             })
             .catch(() => {});
 
