@@ -219,6 +219,18 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
 
 ### Known perf-budget items (tracked 2026-06-02 — `ng build` WARNS, does not fail)
 
+- **✅ RESOLVED 2026-08-07 (commit `fe90fa69`) — budget CLOSED, warning GONE.**
+  Initial bundle now **1.11 MB raw / 243.6 KB transfer** (was 1.81 MB / 436 KB).
+  Fix: moved ag-grid's `ModuleRegistry.registerModules` out of the EAGER `main.ts`
+  into a lazy-only `app/pages/admin/sections/_ag-grid-setup.ts` (imported ONLY by
+  the two `loadComponent`-lazy grids audit + ai-logs) and removed main.ts's ag-grid
+  import entirely → esbuild put ag-grid in an 864 KB LAZY chunk. Deployed +
+  Browserbase-as-brian verified both grids still render with 0 console errors (no
+  #200). **⚠️ The round-41/42/49 "dead ends" below were CONFOUNDED — they failed
+  ONLY because `main.ts` STILL eagerly imported ag-grid the whole time; removing
+  THAT was the missing piece.** The TanStack migration
+  (`docs/perf-wave-ag-grid-to-tanstack.md`) is now needed ONLY for the known-tracked
+  critical axe, NOT the budget. Historical detail (now known-confounded):
 - **Initial bundle 1.81 MB raw / 436 KB transfer — 205 KB over the 1.6 MB
   `initial` budget** (`angular.json` `budgets`). **ROOT CAUSE PINPOINTED (round 41
   via `--stats-json`):** the 800 KB initial `chunk-GGAROBNS.js` is **782 KB of

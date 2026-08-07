@@ -14,10 +14,14 @@
    `[role=presentation]` descendants does NOT clear it; the grid role itself is
    flagged. Currently TOLERATED via a narrow `checkA11y` known-tracked filter so
    the brian sweep stays useful; removing ag-grid is the only real fix.
-2. **205 KB bundle overage** — `ag-grid-community` is 782 KB, EAGER-hoisted into
-   the initial bundle by esbuild even from a single lazy route (frontend/CLAUDE.md
-   § Known perf-budget items). TanStack Table is headless (~15 KB) → removing
-   ag-grid closes the budget.
+2. ~~**205 KB bundle overage**~~ **✅ ALREADY CLOSED 2026-08-07 (commit `fe90fa69`), NOT
+   a migration goal anymore.** The overage was `ag-grid-community` (~782 KB) hoisted
+   into the initial bundle — but the cause was `main.ts` EAGERLY registering the
+   modules, not the lazy grids. Moving registration to a lazy-only
+   `sections/_ag-grid-setup.ts` de-hoisted ag-grid into an 864 KB LAZY chunk →
+   initial bundle 1.81 MB → 1.11 MB raw, warning gone (deployed + Browserbase-verified).
+   So this migration now buys ONLY the critical-axe fix (#1). TanStack is still
+   lighter (~15 KB lazy vs 782 KB lazy) — a nice-to-have, no longer budget-critical.
 3. **Doctrine** — `package-preference-registry`: "ag-grid Community ONLY for 100k+
    row enterprise grids." These are admin LOG tables → ag-grid is over-engineered.
 
