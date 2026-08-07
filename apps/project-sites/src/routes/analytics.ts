@@ -287,14 +287,16 @@ analyticsRoutes.get('/api/analytics-debug', async (c) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Return the most recent stored events for a site — what the admin Analytics
- * tab renders. Reads the `analytics_events` D1 table directly (independent of
- * the dispatcher DO). Never throws: a missing table / DB yields an empty feed.
+ * Return the most recent stored events for a site — what the admin Live Events
+ * tab renders. Reads the canonical `visitor_events` D1 store (the old beacon
+ * `analytics_events` table is not provisioned in prod — reading it returned a
+ * lying-empty feed). Accepts a slug OR record id. Never throws: any DB error
+ * yields an empty feed.
  *
- * @param siteId - Required query param.
+ * @param siteId - Required query param (site slug or record id).
  * @param limit - Optional, default 100, capped at 500.
  * @returns 200 `{ events: [...], count, has_more }` or `{ events: [], note }`.
- * @example GET /api/analytics-data?siteId=s1&limit=50
+ * @example GET /api/analytics-data?siteId=megabytespace&limit=50
  */
 analyticsRoutes.get('/api/analytics-data', async (c) => {
   const siteId = c.req.query('siteId');
@@ -306,12 +308,22 @@ analyticsRoutes.get('/api/analytics-data', async (c) => {
   if (!db) return c.json({ events: [], count: 0, has_more: false, note: 'db_unavailable' }, 200);
 
   try {
+    // Read the durable visitor_events feed (the canonical store). The old beacon
+    // table `analytics_events` does not exist in prod — reading it returned a
+    // lying-empty feed. Resolve slug-or-id (the tab passes the slug; visitor_events
+    // .site_id is always the record id) and map rows to the LiveEvent shape.
     const { results } = await db
       .prepare(
-        `SELECT id, eventId, eventType, userId, sessionId, timestamp, payload, status
-           FROM analytics_events WHERE siteId = ? ORDER BY timestamp DESC LIMIT ?`,
+        `SELECT id, id AS eventId, event_type AS eventType, NULL AS userId,
+                session_id AS sessionId,
+                CAST(strftime('%s', created_at) AS INTEGER) * 1000 AS timestamp,
+                metadata AS payload, 'ingested' AS status
+           FROM visitor_events
+          WHERE site_id = ?
+             OR site_id = (SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL LIMIT 1)
+          ORDER BY created_at DESC LIMIT ?`,
       )
-      .bind(siteId, limit + 1)
+      .bind(siteId, siteId, limit + 1)
       .all();
     const rows = (results ?? []) as Array<Record<string, unknown>>;
     const hasMore = rows.length > limit;
