@@ -152,7 +152,12 @@ socialPostRoutes.post(
         }),
       );
       return c.json(
-        { error: { code: 'INTERNAL_ERROR', message: 'Failed to create the post. Please try again.' } },
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to create the post. Please try again.',
+          },
+        },
         500,
       );
     }
@@ -316,7 +321,12 @@ socialPostRoutes.post(
         }),
       );
       return c.json(
-        { error: { code: 'INTERNAL_ERROR', message: 'Failed to schedule the post. Please try again.' } },
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to schedule the post. Please try again.',
+          },
+        },
         500,
       );
     }
