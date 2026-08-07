@@ -478,17 +478,28 @@ async function visitorEventsFallback(
     const hit = byDay.get(pt.date);
     if (!hit) return pt;
     const views = Number(hit.page_views);
-    return { date: pt.date, page_views: views, requests: views, unique_visitors: Number(hit.uniques) };
+    return {
+      date: pt.date,
+      page_views: views,
+      requests: views,
+      unique_visitors: Number(hit.uniques),
+    };
   });
 
   return {
     pageviews,
     series,
-    top_countries: countryRows.map((r) => ({ country: r.country ?? 'Unknown', views: Number(r.views) })),
+    top_countries: countryRows.map((r) => ({
+      country: r.country ?? 'Unknown',
+      views: Number(r.views),
+    })),
     top_pages: pathRows
       .filter((r) => r.path)
       .map((r) => ({ path: r.path as string, views: Number(r.views) })),
-    top_referrers: refRows.map((r) => ({ referrer: r.referrer ?? '(direct)', views: Number(r.views) })),
+    top_referrers: refRows.map((r) => ({
+      referrer: r.referrer ?? '(direct)',
+      views: Number(r.views),
+    })),
     // `visitor_events` has no CF "requests" concept — each pageview is at least
     // one request, so pageviews is an honest lower-bound proxy for the stat.
     total_requests: pageviews,
@@ -579,7 +590,11 @@ export async function loadMultiUrlAnalytics(
     >();
     for (const agg of aggregates) {
       for (const [date, bucket] of agg.by_day) {
-        const existing = mergedByDay.get(date) ?? { page_views: 0, requests: 0, unique_visitors: 0 };
+        const existing = mergedByDay.get(date) ?? {
+          page_views: 0,
+          requests: 0,
+          unique_visitors: 0,
+        };
         mergedByDay.set(date, {
           page_views: existing.page_views + bucket.page_views,
           requests: existing.requests + bucket.requests,
