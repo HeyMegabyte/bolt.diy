@@ -14,14 +14,6 @@ import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import {
-  ClientSideRowModelModule,
-  ModuleRegistry,
-  PaginationModule,
-  TextFilterModule,
-  NumberFilterModule,
-  DateFilterModule,
-  ValidationModule,
-  RowSelectionModule,
   colorSchemeDarkBlue,
   themeQuartz,
   type ColDef,
@@ -32,21 +24,14 @@ import {
   type ICellRendererParams,
   type RowHeightParams,
 } from 'ag-grid-community';
+import { registerAgGridModules } from './_ag-grid-setup';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
-ModuleRegistry.registerModules([
-  ClientSideRowModelModule,
-  PaginationModule,
-  TextFilterModule,
-  NumberFilterModule,
-  DateFilterModule,
-  RowSelectionModule,
-  ValidationModule,
-]);
+registerAgGridModules();
 
 /**
  * One AI invocation as returned by `GET /api/sites/:id/ai-logs`.

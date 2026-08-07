@@ -1,8 +1,6 @@
 import { Component, computed, effect, inject, signal, type OnInit, type OnDestroy } from '@angular/core';
 import { AgGridAngular } from 'ag-grid-angular';
 import {
-  ClientSideRowModelModule,
-  ModuleRegistry,
   themeQuartz,
   colorSchemeDarkBlue,
   type ColDef,
@@ -12,30 +10,15 @@ import {
   type IsFullWidthRowParams,
   type ICellRendererParams,
   type RowHeightParams,
-  CsvExportModule,
-  PaginationModule,
-  TextFilterModule,
-  NumberFilterModule,
-  DateFilterModule,
-  ValidationModule,
-  RowSelectionModule,
 } from 'ag-grid-community';
+import { registerAgGridModules } from './_ag-grid-setup';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
 
-ModuleRegistry.registerModules([
-  ClientSideRowModelModule,
-  CsvExportModule,
-  PaginationModule,
-  TextFilterModule,
-  NumberFilterModule,
-  DateFilterModule,
-  RowSelectionModule,
-  ValidationModule,
-]);
+registerAgGridModules();
 
 /**
  * Shape of an audit row as returned by `GET /api/audit-logs`. The `site`
