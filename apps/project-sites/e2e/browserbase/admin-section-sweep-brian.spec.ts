@@ -50,7 +50,11 @@ test.describe('Browserbase real-Chrome — admin sweep AS brian@megabyte.space (
 
   test('every section renders brian’s real data + 0 console errors + 0 critical axe (real Chrome)', async () => {
     test.skip(!GATE, 'on-demand — RUN_BROWSERBASE=1 + creds + E2E_TEST_PASSWORD');
-    test.setTimeout(600_000); // 10 min — login + 22 sections × (nav + render + screenshot + axe)
+    // 15 min — 23 sections × (nav + up-to-25s render wait + screenshot + axe) plus
+    // login empirically runs ~10 min and SIGTERM'd at the old 600s ceiling mid-final-
+    // section (2026-08-07). Match the Browserbase session's own 900s lifetime so the
+    // test completes + reports its per-section verdict instead of dying at the buzzer.
+    test.setTimeout(900_000);
 
     const session = await createBrowserbaseSession({ timeoutSec: 900 });
     const browser: Browser = await chromium.connectOverCDP(browserbaseConnectUrl(session.id));
