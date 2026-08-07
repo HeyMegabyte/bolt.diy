@@ -3403,6 +3403,13 @@ search.post('/api/donate', async (c) => {
   params.append('metadata[slug]', body.slug);
   params.append('metadata[donor_name]', body.donorName || 'Anonymous');
   params.append('metadata[source]', 'projectsites_donation');
+  // Donation-recording metadata read by the Stripe webhook (`checkout.session.completed`
+  // → handleDonationCheckout) to PERSIST the completed donation. `kind` routes to the
+  // isolated donation branch; `site_id` attributes it to the site's campaign (resolved-
+  // or-created there); `amount_cents` is the fallback when Stripe omits `amount_total`.
+  params.append('metadata[kind]', 'donation');
+  if (site?.id) params.append('metadata[site_id]', site.id);
+  params.append('metadata[amount_cents]', String(body.amount));
 
   try {
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
