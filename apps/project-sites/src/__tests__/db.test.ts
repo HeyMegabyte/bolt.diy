@@ -388,6 +388,37 @@ describe('dbInsert', () => {
     expect(result.error).toBe('UNIQUE constraint failed: sites.slug');
   });
 
+  // Regression guard for the missing-timestamp RETRY (db.ts dbInsert). A table
+  // that lacks created_at/updated_at makes the default insert fail with SQLite's
+  // "table T has no column named updated_at". dbInsert MUST detect that, cache the
+  // table, and retry with the RAW row so the insert PERSISTS. Without this retry,
+  // callers that ignore the returned {error} (super-admin broadcasts/announcements,
+  // mcp_calls, and historically form_submissions) return a lying-success and
+  // silently DROP the row. This locks the dual-wording regex ("has no column named"
+  // AND "no such column") so a future "simplification" can't reintroduce the drop.
+  // (Verified 2026-08-07: this retry is exactly why an unchecked dbInsert on an
+  // updated_at-less table is NOT a lying-success — the row persists on the retry.)
+  it('retries without timestamps when the table lacks an updated_at column (persists, not a lying-success)', async () => {
+    const { db, run, prepare } = createMockD1();
+    // First attempt (with created_at/updated_at) fails on the missing column;
+    // the retry (raw row) succeeds.
+    run
+      .mockRejectedValueOnce(new Error('table gadgets_no_ts has no column named updated_at'))
+      .mockResolvedValue({ meta: { changes: 1 } });
+
+    const result = await dbInsert(db, 'gadgets_no_ts', { id: 'g1', label: 'x' });
+
+    // Retry fired → row persisted → error cleared (NOT a silent drop).
+    expect(result.error).toBeNull();
+    expect(run).toHaveBeenCalledTimes(2);
+    // First SQL carried the timestamp columns; the retry SQL stripped them.
+    const firstSql = prepare.mock.calls[0][0] as string;
+    const retrySql = prepare.mock.calls[1][0] as string;
+    expect(firstSql).toContain('updated_at');
+    expect(retrySql).not.toContain('updated_at');
+    expect(retrySql).not.toContain('created_at');
+  });
+
   it('binds values in the same order as keys', async () => {
     const { db, prepare, bind } = createMockD1({ runResult: { meta: { changes: 1 } } });
 
