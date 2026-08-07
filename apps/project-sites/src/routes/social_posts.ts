@@ -120,7 +120,7 @@ socialPostRoutes.post(
 
     // Create pulse_posts row
     const postId = crypto.randomUUID();
-    await dbInsert(c.env.DB, 'pulse_posts', {
+    const { error: postErr } = await dbInsert(c.env.DB, 'pulse_posts', {
       id: postId,
       org_id: ctx.orgId,
       site_id: body.site_id ?? null,
@@ -138,6 +138,24 @@ socialPostRoutes.post(
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
       link: body.link ?? null,
     });
+    // PRIMARY durable record — a silent drop here is a lying-success (the response
+    // below claims the post was created). Surface the failure instead of dropping it.
+    if (postErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'social_posts',
+          message: 'pulse_posts_insert_failed',
+          post_id: postId,
+          org_id: ctx.orgId,
+          error: postErr,
+        }),
+      );
+      return c.json(
+        { error: { code: 'INTERNAL_ERROR', message: 'Failed to create the post. Please try again.' } },
+        500,
+      );
+    }
 
     // Enqueue to per-platform Upstash sorted sets
     const now = Date.now();
@@ -173,8 +191,9 @@ socialPostRoutes.post(
         }
         deliveries.push({ platform, account_id: acc.id, status: 'queued' });
 
-        // Record social_publishes row
-        await dbInsert(c.env.DB, 'social_publishes', {
+        // Record social_publishes row (delivery breadcrumb — best-effort; the
+        // primary pulse_posts row above is the durable record).
+        const { error: pubErr } = await dbInsert(c.env.DB, 'social_publishes', {
           id: crypto.randomUUID(),
           post_id: postId,
           account_id: acc.id,
@@ -182,6 +201,18 @@ socialPostRoutes.post(
           status: 'queued',
           correlation_id: correlationId,
         });
+        if (pubErr) {
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              service: 'social_posts',
+              message: 'social_publishes_insert_failed',
+              post_id: postId,
+              platform,
+              error: pubErr,
+            }),
+          );
+        }
       }
     }
 
@@ -254,7 +285,7 @@ socialPostRoutes.post(
 
     // Create pulse_posts row
     const postId = crypto.randomUUID();
-    await dbInsert(c.env.DB, 'pulse_posts', {
+    const { error: postErr } = await dbInsert(c.env.DB, 'pulse_posts', {
       id: postId,
       org_id: ctx.orgId,
       site_id: body.site_id ?? null,
@@ -272,6 +303,23 @@ socialPostRoutes.post(
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
       link: body.link ?? null,
     });
+    // PRIMARY durable record — surface a drop instead of a lying-success.
+    if (postErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'social_posts',
+          message: 'pulse_posts_insert_failed',
+          post_id: postId,
+          org_id: ctx.orgId,
+          error: postErr,
+        }),
+      );
+      return c.json(
+        { error: { code: 'INTERNAL_ERROR', message: 'Failed to schedule the post. Please try again.' } },
+        500,
+      );
+    }
 
     // Spawn CF Workflow v2 instance — sleeps until scheduled_at, then publishes.
     let workflowId: string | null = null;
@@ -294,13 +342,27 @@ socialPostRoutes.post(
         return true; // We'll refine this when accounts carry platform in the query above
       });
       for (const acc of platformAccounts) {
-        await dbInsert(c.env.DB, 'social_publishes', {
+        // Delivery breadcrumb — best-effort; the scheduled pulse_posts row is the
+        // durable record. Capture + log so a drop isn't silent.
+        const { error: pubErr } = await dbInsert(c.env.DB, 'social_publishes', {
           id: crypto.randomUUID(),
           post_id: postId,
           account_id: acc.id,
           platform,
           status: 'queued',
         });
+        if (pubErr) {
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              service: 'social_posts',
+              message: 'social_publishes_insert_failed',
+              post_id: postId,
+              platform,
+              error: pubErr,
+            }),
+          );
+        }
       }
     }
 

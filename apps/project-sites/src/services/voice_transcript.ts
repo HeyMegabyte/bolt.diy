@@ -84,7 +84,7 @@ export async function recordVoiceTranscript(
       ? Math.max(0, Math.round((req.endedAtMs - req.startedAtMs) / 1000))
       : null);
 
-  await dbInsert(env.DB, 'voice_calls', {
+  const { error: callErr } = await dbInsert(env.DB, 'voice_calls', {
     direction: 'inbound',
     duration_seconds: duration,
     ended_at: endedAt,
@@ -99,16 +99,32 @@ export async function recordVoiceTranscript(
     transcript_json: JSON.stringify(req.transcript),
     twilio_call_sid: req.callId,
     voice_number_id: num.id,
-  }).catch(() => {
-    /* duplicate callId (retry) — idempotent, fine */
   });
+  // A duplicate twilio_call_sid (webhook retry) is expected + idempotent — the call
+  // is already stored. Any OTHER error is a real failure the owner must not lose
+  // silently: this is the PRIMARY call record the Conversations list reads. NOTE the
+  // old `.catch(() => {})` was DEAD — dbInsert returns { error } and never rejects,
+  // so every real failure was swallowed AND returned a lying `stored: true`.
+  const isDuplicate = callErr != null && /UNIQUE|duplicate|already exists/i.test(callErr);
+  if (callErr && !isDuplicate) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'voice_transcript',
+        message: 'voice_calls_insert_failed',
+        callId: req.callId,
+        org_id: num.org_id,
+        error: callErr,
+      }),
+    );
+  }
 
   return {
     callId: req.callId,
     durationSeconds: duration ?? undefined,
     orgId: num.org_id,
     siteId: num.site_id,
-    stored: true,
+    stored: !callErr || isDuplicate,
     turnCount: req.transcript.length,
   };
 }

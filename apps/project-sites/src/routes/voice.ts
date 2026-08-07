@@ -239,7 +239,7 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  await dbInsert(c.env.DB, 'voice_numbers', {
+  const { error: numErr } = await dbInsert(c.env.DB, 'voice_numbers', {
     id,
     site_id: body.siteId,
     org_id: orgId,
@@ -254,6 +254,31 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
     purchased_at: now,
     status: 'active',
   });
+  // PRIMARY durable record — the number the user just paid Twilio for. A silent
+  // drop = paid-but-invisible number (lying-success). Surface it so support can
+  // reconcile the Twilio purchase against the missing D1 row.
+  if (numErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'voice',
+        message: 'voice_numbers_insert_failed',
+        id,
+        org_id: orgId,
+        error: numErr,
+      }),
+    );
+    return c.json(
+      {
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'The number was purchased but could not be saved. Contact support with this ID.',
+          id,
+        },
+      },
+      500,
+    );
+  }
 
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,

@@ -258,7 +258,7 @@ export async function runHourlyPulseAnalyticsCron(env: Env): Promise<{
       }
       const publisher = getPublisher(pub.platform as Platform);
       const snap = await publisher.fetchAnalytics(env, account, pub.external_post_id);
-      await dbInsert(env.DB, 'social_analytics_snapshots', {
+      const { error: snapErr } = await dbInsert(env.DB, 'social_analytics_snapshots', {
         id: uuid(),
         publish_id: pub.id,
         captured_at: new Date().toISOString(),
@@ -271,6 +271,21 @@ export async function runHourlyPulseAnalyticsCron(env: Env): Promise<{
         saves: snap.saves,
         raw_json: snap.raw ? JSON.stringify(snap.raw).slice(0, 4000) : null,
       });
+      // dbInsert returns { error } (never rejects) — the outer try/catch won't see
+      // an insert failure. Count only real successes; log a drop.
+      if (snapErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'pulse_analytics.cron',
+            message: 'social_analytics_snapshots_insert_failed',
+            publish_id: pub.id,
+            error: snapErr,
+          }),
+        );
+        failed += 1;
+        continue;
+      }
       fetched += 1;
     } catch (err) {
       failed += 1;

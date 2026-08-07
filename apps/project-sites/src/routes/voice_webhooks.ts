@@ -142,7 +142,7 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
       await c.env.SITES_BUCKET.put(r2Key, dl.bytes, {
         httpMetadata: { contentType: dl.mime },
       });
-      await dbInsert(c.env.DB, 'voice_recordings', {
+      const { error: recErr } = await dbInsert(c.env.DB, 'voice_recordings', {
         call_id: call.id,
         duration_seconds: meta.duration,
         id: crypto.randomUUID(),
@@ -151,6 +151,19 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
         r2_key: r2Key,
         size_bytes: dl.bytes.byteLength,
       });
+      // Recording breadcrumb — best-effort (fire-and-forget; the R2 audio + the
+      // voice_calls row already exist). Log a drop so it isn't silent.
+      if (recErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'voice_webhooks',
+            message: 'voice_recordings_insert_failed',
+            call_id: call.id,
+            error: recErr,
+          }),
+        );
+      }
       await dbUpdate(
         c.env.DB,
         'voice_calls',
@@ -284,7 +297,7 @@ voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
   if (!payload.callId || !payload.kind || !payload.r2Key) {
     return c.json({ error: 'missing fields' }, 400);
   }
-  await dbInsert(c.env.DB, 'voice_recordings', {
+  const { error: recErr } = await dbInsert(c.env.DB, 'voice_recordings', {
     call_id: payload.callId,
     duration_seconds: payload.durationSeconds ?? null,
     id: crypto.randomUUID(),
@@ -293,6 +306,19 @@ voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
     r2_key: payload.r2Key,
     size_bytes: payload.sizeBytes ?? null,
   });
+  // Recording breadcrumb — best-effort (the R2 asset already exists); the Twilio
+  // webhook must still return 200 regardless. Log a drop so it isn't silent.
+  if (recErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'voice_webhooks',
+        message: 'voice_recordings_insert_failed',
+        call_id: payload.callId,
+        error: recErr,
+      }),
+    );
+  }
   if (payload.kind === 'video') {
     await dbUpdate(
       c.env.DB,

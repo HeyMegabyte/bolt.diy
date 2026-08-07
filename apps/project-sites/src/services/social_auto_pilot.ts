@@ -347,7 +347,7 @@ export async function runAutoPilotIfDue(
           network,
           effectivePrompt,
         );
-        await dbInsert(env.DB, 'pulse_posts', {
+        const { error: draftErr } = await dbInsert(env.DB, 'pulse_posts', {
           id: crypto.randomUUID(),
           org_id: row.org_id,
           site_id: null,
@@ -362,6 +362,21 @@ export async function runAutoPilotIfDue(
           link: null,
           thread_id: `auto-pilot-${Date.now()}`,
         });
+        // dbInsert returns { error } (never rejects), so the outer try/catch does
+        // NOT catch an insert failure — capture it here + only count real successes.
+        if (draftErr) {
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              service: 'social_auto_pilot',
+              message: 'pulse_posts_draft_insert_failed',
+              org_id: row.org_id,
+              network,
+              error: draftErr,
+            }),
+          );
+          continue;
+        }
         drafts_created++;
       } catch (err) {
         console.warn(

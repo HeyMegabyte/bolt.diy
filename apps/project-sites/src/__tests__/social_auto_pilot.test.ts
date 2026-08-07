@@ -19,7 +19,7 @@ import type { Env } from '../types/env.js';
 jest.mock('../services/db.js', () => ({
   dbQuery: jest.fn(),
   dbQueryOne: jest.fn(),
-  dbInsert: jest.fn(),
+  dbInsert: jest.fn(async () => ({ error: null })),
   dbUpdate: jest.fn(),
 }));
 jest.mock('../services/external_llm.js', () => ({

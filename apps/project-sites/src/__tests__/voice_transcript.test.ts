@@ -5,7 +5,7 @@
  */
 jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn(),
-  dbInsert: jest.fn(async () => undefined),
+  dbInsert: jest.fn(async () => ({ error: null })),
 }));
 jest.mock('../lib/posthog.js', () => ({ capture: jest.fn() }));
 
@@ -32,7 +32,7 @@ const TRANSCRIPT = [
 
 beforeEach(() => {
   mockQueryOne.mockReset();
-  mockInsert.mockReset().mockResolvedValue(undefined);
+  mockInsert.mockReset().mockResolvedValue({ error: null });
   mockCapture.mockReset();
 });
 

@@ -24,7 +24,7 @@ jest.mock('../services/voice_orchestrator.js', () => ({
 
 jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn(),
-  dbInsert: jest.fn(),
+  dbInsert: jest.fn(async () => ({ error: null })),
   dbUpdate: jest.fn(),
 }));
 
@@ -245,7 +245,7 @@ describe('POST /webhooks/voice/recording-ready', () => {
       download_url: 'https://api.twilio/x.mp3',
     });
     mockDownloadRecordingBytes.mockResolvedValue({ bytes: new ArrayBuffer(8), mime: 'audio/mpeg' });
-    mockDbInsert.mockResolvedValue(undefined);
+    mockDbInsert.mockResolvedValue({ error: null });
     mockDbUpdate.mockResolvedValue(undefined);
 
     const env = makeEnv();
@@ -460,7 +460,7 @@ describe('POST /internal/voice/recording-saved', () => {
   });
 
   it('inserts an audio recording on a valid signed payload', async () => {
-    mockDbInsert.mockResolvedValue(undefined);
+    mockDbInsert.mockResolvedValue({ error: null });
     const body = JSON.stringify({
       callId: 'call-7',
       kind: 'audio',
@@ -493,7 +493,7 @@ describe('POST /internal/voice/recording-saved', () => {
   });
 
   it('also updates voice_calls with the video URL when kind is video', async () => {
-    mockDbInsert.mockResolvedValue(undefined);
+    mockDbInsert.mockResolvedValue({ error: null });
     mockDbUpdate.mockResolvedValue(undefined);
     const body = JSON.stringify({
       callId: 'call-8',
