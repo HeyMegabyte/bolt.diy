@@ -1225,6 +1225,38 @@ search.post('/api/contact-form/:slug', async (c) => {
     );
     if (!site) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
+    // Persist a durable `contacts` row FIRST — the CRM record the owner sees in
+    // /admin analytics (contacts total + bySource). The email + in-app bell below
+    // are best-effort DELIVERY on top; a real submission must never be lost to an
+    // email misconfig or provider failure (the same data-loss class as the forms
+    // lying-success bug). Error-checked → never a lying-success; failure logs,
+    // never throws (the submitter's response is unaffected).
+    if (site.org_id) {
+      const { dbInsert } = await import('../services/db.js');
+      const { error: contactErr } = await dbInsert(c.env.DB, 'contacts', {
+        id: crypto.randomUUID(),
+        org_id: site.org_id,
+        site_id: site.id,
+        name: body.name,
+        email: body.email,
+        phone: body.phone ?? null,
+        source: 'form',
+        metadata: JSON.stringify({ message: body.message, slug }),
+      });
+      if (contactErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'contact-form',
+            message: 'contacts_persist_failed',
+            slug,
+            site_id: site.id,
+            error: contactErr,
+          }),
+        );
+      }
+    }
+
     const toEmail = site.contact_email || '';
     if (!toEmail)
       return c.json(

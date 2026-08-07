@@ -33,6 +33,7 @@ try {
     return {
       loginStatus: login.status,
       overview_traffic: summary?.traffic ? { pageviews: summary.traffic.pageviews, uniqueSessions: summary.traffic.uniqueSessions, conversions: summary.traffic.conversions } : summary,
+      overview_contacts: summary?.contacts ? { total: summary.contacts.total, newInWindow: summary.contacts.newInWindow, bySource: summary.contacts.bySource } : null,
       live_feed: live ? { count: live.count, note: live.note, first: (live.events || [])[0] ?? null } : live,
       cf_zone: cf ? { any_real_data: cf.data?.any_real_data ?? cf.any_real_data, pageviews: cf.data?.pageviews ?? cf.pageviews } : cf,
     };
