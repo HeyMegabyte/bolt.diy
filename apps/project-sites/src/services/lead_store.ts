@@ -54,7 +54,7 @@ export async function createLead(
 ): Promise<{ leadId: string }> {
   const validated = ClaimLeadProfileSchema.parse(profile); // throws on missing businessName
   const leadId = crypto.randomUUID();
-  await dbInsert(db, TABLE, {
+  const { error } = await dbInsert(db, TABLE, {
     id: leadId,
     business_name: validated.businessName,
     profile_json: JSON.stringify(validated),
@@ -66,6 +66,11 @@ export async function createLead(
     email_status: meta.emailStatus ?? null,
     source: meta.source ?? null,
   });
+  // Surface a persist failure instead of a lying-success: scanResultsToLeads counts a
+  // returned leadId as `created`, so a silently-dropped insert would inflate the scan
+  // summary (created > actually-stored). Throw → the caller's per-lead catch counts it
+  // as `errors`, consistent with the ClaimLeadProfileSchema.parse throw above.
+  if (error) throw new Error(`createLead: failed to persist to ${TABLE}: ${error}`);
   return { leadId };
 }
 

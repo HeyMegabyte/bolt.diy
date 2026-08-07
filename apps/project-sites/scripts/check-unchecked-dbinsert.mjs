@@ -65,10 +65,23 @@ for (const dir of SCAN_DIRS) {
     while ((m = re.exec(text)) !== null) {
       const before = text.slice(Math.max(0, m.index - 90), m.index);
       if (ASSIGNED_RE.test(before)) continue; // captured → assumed checked
-      // Extract the target table (2nd arg string literal).
+      // Extract the target table — a 2nd-arg string literal, OR an identifier
+      // resolved from a same-file `const TABLE = 'literal'` (the lead_store.ts:57
+      // case the literal-only regex missed → a false-negative on an ingestion table).
       const after = text.slice(m.index, m.index + 160);
-      const tableM = after.match(/dbInsert\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/);
-      const table = tableM ? tableM[1] : '(dynamic)';
+      const litM = after.match(/dbInsert\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/);
+      let table = '(dynamic)';
+      if (litM) {
+        table = litM[1];
+      } else {
+        const identM = after.match(/dbInsert\s*\(\s*[^,]+,\s*([A-Za-z_$][\w$]*)\s*[,)]/);
+        if (identM) {
+          const constM = text.match(
+            new RegExp(`(?:const|let|var)\\s+${identM[1]}\\s*=\\s*['"]([^'"]+)['"]`),
+          );
+          if (constM) table = constM[1];
+        }
+      }
       const line = text.slice(0, m.index).split('\n').length;
       findings.push({
         file: rel,
