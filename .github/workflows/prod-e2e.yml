@@ -22,12 +22,17 @@ on:
 env:
   NODE_VERSION: '22'
 
-# A newer push (the convergence cron pushes often) cancels an in-flight run for the
-# same ref so 30-min regression runs never pile up — the LATEST commit's run is the
-# one that must go green. Nightly schedule runs have no newer push, so they always
-# complete.
+# Concurrency is EVENT-SCOPED (not ref-only). A newer PUSH cancels an older in-flight
+# PUSH run (the convergence cron pushes often → the latest commit's run must go green,
+# no pile-up), BUT schedule (nightly) and workflow_dispatch runs get their OWN groups so
+# a cron push CANNOT cancel them. This fixes the gate NEVER once completing: with a
+# ref-only group, a ~07:20 UTC cron push cancelled the 07:13 nightly EVERY day (every
+# scheduled run 2026-08-03→08-07 was `cancelled`, and the gate has zero `success` runs
+# ever), so the tarpit fix + the Browserbase brian sweep never produced a real green/red
+# signal. Now the nightly + any on-demand dispatch run to completion as the authoritative
+# signal, while push runs still supersede each other.
 concurrency:
-  group: prod-e2e-${{ github.ref }}
+  group: prod-e2e-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
