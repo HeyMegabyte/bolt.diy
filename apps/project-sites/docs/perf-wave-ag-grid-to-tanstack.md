@@ -136,7 +136,8 @@ seam). Add the two ai-logs-only bits: the latency fill-bar cell + the quick-filt
 search box; no CSV. Delete ag-grid from the component.
 
 **Step 3 — remove the dep** (the budget-closing step): ag-grid is imported in
-FIVE files (verified 2026-08-07 `grep -rl ag-grid frontend/src`):
+SEVEN files (verified 2026-08-07 `grep -rl ag-grid frontend/src` → 2 comps +
+`main.ts` + 4 specs):
 `main.ts` (global registration — **remove the import + `registerModules` block**),
 `audit.component.ts` + `ai-logs.component.ts` (Steps 1-2), and the two
 `*.component.spec.ts` (+ `api-tokens`/`logs-dashboard` specs referencing it —
