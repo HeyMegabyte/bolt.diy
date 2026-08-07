@@ -24,9 +24,18 @@ env:
 
 jobs:
   prod-e2e:
-    name: Playwright @ prod
+    name: Playwright @ prod (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The prod suite has grown past ~960 tests — a single job hit the 20-min timeout and was
+    # CANCELLED on every push (never completing the regression). Shard it 4 ways so each job runs
+    # ~240 tests (well under 20 min at CI's ~2 workers). fail-fast:false so one shard's failure
+    # still lets the others report. Playwright merges shard results via the blob reporter locally;
+    # in CI each shard uploads its own report artifact.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -67,13 +76,13 @@ jobs:
         env:
           E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
           PROD_URL: https://projectsites.dev
-        run: npm run test:e2e:prod
+        run: npm run test:e2e:prod -- --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report
         if: steps.gate.outputs.has_key == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-prod-report
+          name: playwright-prod-report-shard-${{ matrix.shard }}
           path: apps/project-sites/playwright-report/
           retention-days: 7
 
