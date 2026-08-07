@@ -32,24 +32,25 @@ concurrency:
 
 jobs:
   prod-e2e:
-    name: Playwright @ prod (shard ${{ matrix.shard }}/4)
+    name: Playwright @ prod (shard ${{ matrix.shard }}/8)
     runs-on: ubuntu-latest
     # 30 (not 20): the sharded run's slowest shard clocked ~17-20 min and shard 1 was
     # CANCELLED at the 20-min ceiling on the first sharded cert (run 31196899625). The
     # 10-min margin lets a slow-under-load shard finish instead of cancelling mid-suite.
     timeout-minutes: 30
-    # The prod suite has grown past ~960 tests. Shard it 4 ways (~240 tests/shard) AND cap
-    # max-parallel:2 so only two shards hit the LIVE rate-limited edge at once — the first
-    # sharded cert failed 4 timeout-class tests (per-IP tarpit + origin load), all of which
-    # pass in isolation (see the standalone prod-e2e-signin job going green). Halving the
-    # concurrent origin load + the retries:3 backstop in playwright.prod.config.ts clears the
-    # rotating transport-timeout flakes. fail-fast:false so one shard's failure still lets the
-    # others report; each shard uploads its own report artifact.
+    # The prod suite (~1030 tests) tarpits the LIVE rate-limited edge under CONCURRENCY: the
+    # isolated prod-e2e-signin job (1-2 concurrent) passes, but 4-way × default-2-workers
+    # (4 concurrent from 2 IPs) leaked ~5 rotating timeout-class fails EVERY run even with
+    # retries:3 — a perpetually-red gate gets ignored (conditional-ci-gates). Fix: --workers=1
+    # (1 request/IP — see the run step) + max-parallel:2 = only 2 concurrent AGGREGATE, below
+    # the tarpit threshold; 8 shards (~130 tests each) keep each serial shard ~15-18 min, well
+    # under the 30-min timeout. fail-fast:false so one shard's failure still lets the others
+    # report; each shard uploads its own report artifact.
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
 
@@ -90,7 +91,7 @@ jobs:
         env:
           E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
           PROD_URL: https://projectsites.dev
-        run: npm run test:e2e:prod -- --shard=${{ matrix.shard }}/4
+        run: npm run test:e2e:prod -- --shard=${{ matrix.shard }}/8 --workers=1
 
       - name: Upload Playwright report
         if: steps.gate.outputs.has_key == 'true' && always()
