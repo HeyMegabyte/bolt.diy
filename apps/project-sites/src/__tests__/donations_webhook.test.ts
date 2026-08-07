@@ -91,7 +91,12 @@ describe('handleDonationCheckout', () => {
       session({
         amount_total: null,
         mode: 'subscription',
-        metadata: { kind: 'donation', site_id: 's1', amount_cents: '5000', donor_name: 'Anonymous' },
+        metadata: {
+          kind: 'donation',
+          site_id: 's1',
+          amount_cents: '5000',
+          donor_name: 'Anonymous',
+        },
       }),
     );
     const donationRow = mInsert.mock.calls.find((c) => c[1] === 'donations')![2];

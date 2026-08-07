@@ -50,14 +50,24 @@ export async function handleDonationCheckout(env: Env, session: DonationSession)
   const siteId = meta.site_id;
   if (!siteId) {
     console.warn(
-      JSON.stringify({ level: 'warn', service: 'donations', message: 'donation_missing_site_id', session: session.id }),
+      JSON.stringify({
+        level: 'warn',
+        service: 'donations',
+        message: 'donation_missing_site_id',
+        session: session.id,
+      }),
     );
     return;
   }
   const amountCents = Number(session.amount_total ?? meta.amount_cents ?? 0) || 0;
   if (amountCents <= 0) {
     console.warn(
-      JSON.stringify({ level: 'warn', service: 'donations', message: 'donation_zero_amount', session: session.id }),
+      JSON.stringify({
+        level: 'warn',
+        service: 'donations',
+        message: 'donation_zero_amount',
+        session: session.id,
+      }),
     );
     return;
   }
@@ -92,7 +102,13 @@ export async function handleDonationCheckout(env: Env, session: DonationSession)
     });
     if (campErr) {
       console.warn(
-        JSON.stringify({ level: 'warn', service: 'donations', message: 'campaign_create_failed', site_id: siteId, error: campErr }),
+        JSON.stringify({
+          level: 'warn',
+          service: 'donations',
+          message: 'campaign_create_failed',
+          site_id: siteId,
+          error: campErr,
+        }),
       );
       return;
     }
@@ -109,7 +125,13 @@ export async function handleDonationCheckout(env: Env, session: DonationSession)
   });
   if (error) {
     console.warn(
-      JSON.stringify({ level: 'warn', service: 'donations', message: 'donation_insert_failed', session: session.id, error }),
+      JSON.stringify({
+        level: 'warn',
+        service: 'donations',
+        message: 'donation_insert_failed',
+        session: session.id,
+        error,
+      }),
     );
     return;
   }
@@ -123,7 +145,13 @@ export async function handleDonationCheckout(env: Env, session: DonationSession)
   );
   if (bumpErr) {
     console.warn(
-      JSON.stringify({ level: 'warn', service: 'donations', message: 'campaign_bump_failed', campaign_id: campaignId, error: bumpErr }),
+      JSON.stringify({
+        level: 'warn',
+        service: 'donations',
+        message: 'campaign_bump_failed',
+        campaign_id: campaignId,
+        error: bumpErr,
+      }),
     );
   }
 }
