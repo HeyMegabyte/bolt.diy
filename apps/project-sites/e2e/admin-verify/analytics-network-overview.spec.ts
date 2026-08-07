@@ -5,10 +5,16 @@
  * page-view / visitor counts show real numbers.
  *
  * VERIFIED OUT-OF-BAND (P0.104, real brian via Browserbase + CF GraphQL): the Network
- * Overview shows ~5.8M requests / 144K page views / 2.1K visitors (real); the per-SITE
- * "NO DATA YET" for a zero-traffic demo host (megabytespace.projectsites.dev — CF
- * GraphQL confirmed 0 requests, absent from the zone top-10) is a DELIBERATE honest
- * empty state (analytics.component:184,229-233), NOT the P0.1 bug.
+ * Overview shows ~5.8M requests / 144K page views / 2.1K visitors (real, zone-level).
+ *
+ * CORRECTION (2026-08-07): the earlier note here claimed the per-SITE "NO DATA YET" for
+ * megabytespace.projectsites.dev was a "DELIBERATE honest empty" because CF GraphQL
+ * showed 0 requests. That was a verify-against-source-of-truth miss — it reconciled
+ * against the SAME source the UI read (CF per-host adaptive, which is EMPTY for every
+ * *.projectsites.dev subdomain) instead of the authoritative store (D1 visitor_events,
+ * which had 125 real pageviews for that site). It was the lying-empty bug, now fixed by
+ * the visitor_events fallback in loadMultiUrlAnalytics — see
+ * {@link ./multi-url-analytics-fallback.spec.ts}.
  *
  * NON-MUTATING: read-only analytics view. The empty-state absence proves `any_real_data`.
  *

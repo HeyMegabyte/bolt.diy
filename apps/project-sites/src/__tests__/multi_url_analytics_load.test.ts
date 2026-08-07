@@ -201,3 +201,105 @@ describe('loadMultiUrlAnalytics — GraphQL happy-path merge across hosts', () =
     expect(out.urls_included.every((u) => u.resolved_zone)).toBe(true);
   });
 });
+
+describe('loadMultiUrlAnalytics — CF empty but visitor_events has rows (D1 lying-empty fallback)', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('surfaces first-party visitor_events when CF returns no real data (subdomain fix)', async () => {
+    // The *.projectsites.dev subdomain case: creds + zone resolve, but the
+    // per-host adaptive dataset is EMPTY → CF any_real_data would be false. The
+    // site nonetheless has real first-party pageviews in visitor_events, so the
+    // envelope must surface THOSE instead of lying empty. (Before the fallback,
+    // this returned any_real_data:false + pageviews:0 — see the zone-fails test.)
+    mockResolve.mockResolvedValue({ kind: 'token', token: 't' });
+    const zone = { zone_id: 'z1', account_id: 'acc1' };
+    // CF GraphQL returns a zone row with NO day/paths/geo/refs → empty aggregate.
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { viewer: { zones: [{}] } } }), { status: 200 }),
+      ) as unknown as typeof fetch;
+
+    // DB mock switches on the SQL: site_urls for listSiteUrls, visitor_events
+    // rows for the fallback's six queries (specific patterns before the generic
+    // COUNT(*) pageview branch).
+    const env = {
+      DB: {
+        prepare: jest.fn((sql: string) => ({
+          bind: jest.fn(() => ({
+            all: jest.fn().mockResolvedValue({
+              results: sql.includes('FROM site_urls')
+                ? [urlRow('megabytespace.projectsites.dev', 1)]
+                : sql.includes('GROUP BY DATE(created_at)')
+                  ? [{ date: '2026-06-01', page_views: 131, uniques: 40 }]
+                  : sql.includes('GROUP BY path')
+                    ? [{ path: '/', views: 90 }]
+                    : sql.includes('$.country')
+                      ? [{ country: 'US', views: 100 }]
+                      : sql.includes('$.channel')
+                        ? [{ referrer: 'organic', views: 50 }]
+                        : sql.includes('COUNT(DISTINCT session_id)')
+                          ? [{ n: 40 }]
+                          : sql.includes("event_type = 'pageview'")
+                            ? [{ n: 131 }] // COUNT(*) pageviews
+                            : [],
+            }),
+          })),
+        })),
+      },
+      CACHE_KV: {
+        get: jest.fn(async (key: string) => (key.startsWith('zone:') ? zone : null)),
+        put: jest.fn().mockResolvedValue(undefined),
+      },
+    } as unknown as Env;
+
+    const out = await loadMultiUrlAnalytics(env, 'site-megabytespace-001', 'o1', '7d');
+    expect(out.any_real_data).toBe(true); // was false (lying-empty) before the fallback
+    expect(out.pageviews).toBe(131);
+    expect(out.uniques).toBe(40); // CF per-host can't give uniques; D1 can
+    expect(out.total_requests).toBe(131); // pageviews proxy
+    expect(out.top_pages).toEqual([{ path: '/', views: 90 }]);
+    expect(out.top_countries).toEqual([{ country: 'US', views: 100 }]);
+    expect(out.top_referrers).toEqual([{ referrer: 'organic', views: 50 }]);
+    expect(out.series).toHaveLength(7); // one point per day in the 7d window
+  });
+
+  it('keeps the zeroed envelope + any_real_data:false when visitor_events is also empty (honest-empty)', async () => {
+    // CF empty AND zero first-party pageviews → genuinely no traffic; must NOT
+    // fabricate data. The fallback returns null (pageviews===0) and the envelope
+    // stays zeroed.
+    mockResolve.mockResolvedValue({ kind: 'token', token: 't' });
+    const zone = { zone_id: 'z1', account_id: 'acc1' };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { viewer: { zones: [{}] } } }), { status: 200 }),
+      ) as unknown as typeof fetch;
+    const env = {
+      DB: {
+        prepare: jest.fn((sql: string) => ({
+          bind: jest.fn(() => ({
+            all: jest.fn().mockResolvedValue({
+              results: sql.includes('FROM site_urls')
+                ? [urlRow('quiet.projectsites.dev', 1)]
+                : sql.includes("event_type = 'pageview'")
+                  ? [{ n: 0 }] // zero pageviews everywhere
+                  : [],
+            }),
+          })),
+        })),
+      },
+      CACHE_KV: {
+        get: jest.fn(async (key: string) => (key.startsWith('zone:') ? zone : null)),
+        put: jest.fn().mockResolvedValue(undefined),
+      },
+    } as unknown as Env;
+
+    const out = await loadMultiUrlAnalytics(env, 'quiet-site', 'o1', '7d');
+    expect(out.any_real_data).toBe(false);
+    expect(out.pageviews).toBe(0);
+  });
+});

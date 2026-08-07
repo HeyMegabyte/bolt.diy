@@ -400,6 +400,103 @@ export async function listSiteUrls(env: Env, siteId: string): Promise<SiteUrl[]>
 }
 
 /**
+ * D1 `visitor_events` fallback for the multi-URL envelope.
+ *
+ * Cloudflare's per-host `httpRequestsAdaptiveGroups` dataset is EMPTY for
+ * `*.projectsites.dev` subdomains — every generated site shares the one zone and
+ * the `clientRequestHTTPHost` filter matches nothing — so a subdomain site with
+ * real first-party pageviews in `visitor_events` would render "no traffic yet"
+ * despite having traffic. This mirrors the network-overview's visitor_events
+ * fallback (see `libs/features/visitor_events_core`): when CF yields no real
+ * data, surface the site's own first-party tracking instead of lying empty.
+ *
+ * Returns `null` when the site genuinely has zero pageviews in the window
+ * (honest-empty — the caller keeps the zeroed CF envelope + `any_real_data:false`).
+ *
+ * @param env - Worker bindings (needs `DB`).
+ * @param siteId - Site UUID (`sites.id`), the key `visitor_events` is bucketed by.
+ * @param days - Trailing window length in days.
+ * @returns The data-bearing slice of {@link MultiUrlAnalytics} from D1, or `null`.
+ * @remarks Impure — reads D1.
+ * @example
+ * const fb = await visitorEventsFallback(env, 'site-abc', 7);
+ * if (fb) envelope = { ...envelope, ...fb, any_real_data: true };
+ */
+async function visitorEventsFallback(
+  env: Env,
+  siteId: string,
+  days: number,
+): Promise<Pick<
+  MultiUrlAnalytics,
+  | 'pageviews'
+  | 'uniques'
+  | 'total_requests'
+  | 'series'
+  | 'top_pages'
+  | 'top_countries'
+  | 'top_referrers'
+> | null> {
+  const since = `-${Math.max(days, 1)} days`;
+  const w = "site_id = ? AND created_at >= datetime('now', ?)";
+  const params = [siteId, since];
+  const q = async <T>(sql: string): Promise<T[]> => {
+    const { data, error } = await dbQuery<T>(env.DB, sql, params);
+    return error ? [] : data;
+  };
+
+  const [pv, uniq, dayRows, pathRows, countryRows, refRows] = await Promise.all([
+    q<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'pageview'`,
+    ),
+    q<{ n: number }>(`SELECT COUNT(DISTINCT session_id) AS n FROM visitor_events WHERE ${w}`),
+    q<{ date: string; page_views: number; uniques: number }>(
+      `SELECT DATE(created_at) AS date, COUNT(*) AS page_views, COUNT(DISTINCT session_id) AS uniques
+       FROM visitor_events WHERE ${w} AND event_type = 'pageview'
+       GROUP BY DATE(created_at) ORDER BY date`,
+    ),
+    q<{ path: string | null; views: number }>(
+      `SELECT path, COUNT(*) AS views FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' AND path IS NOT NULL
+       GROUP BY path ORDER BY views DESC LIMIT 15`,
+    ),
+    q<{ country: string | null; views: number }>(
+      `SELECT json_extract(metadata, '$.country') AS country, COUNT(*) AS views FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' GROUP BY country ORDER BY views DESC LIMIT 15`,
+    ),
+    q<{ referrer: string | null; views: number }>(
+      `SELECT json_extract(metadata, '$.channel') AS referrer, COUNT(*) AS views FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' GROUP BY referrer ORDER BY views DESC LIMIT 15`,
+    ),
+  ]);
+
+  const pageviews = Number(pv[0]?.n ?? 0);
+  if (pageviews === 0) return null; // honest-empty — nothing to surface
+
+  // Fill day gaps so the chart always has one point per day in the window.
+  const byDay = new Map(dayRows.map((r) => [r.date, r]));
+  const series: SeriesPoint[] = emptySeries(days).map((pt) => {
+    const hit = byDay.get(pt.date);
+    if (!hit) return pt;
+    const views = Number(hit.page_views);
+    return { date: pt.date, page_views: views, requests: views, unique_visitors: Number(hit.uniques) };
+  });
+
+  return {
+    pageviews,
+    series,
+    top_countries: countryRows.map((r) => ({ country: r.country ?? 'Unknown', views: Number(r.views) })),
+    top_pages: pathRows
+      .filter((r) => r.path)
+      .map((r) => ({ path: r.path as string, views: Number(r.views) })),
+    top_referrers: refRows.map((r) => ({ referrer: r.referrer ?? '(direct)', views: Number(r.views) })),
+    // `visitor_events` has no CF "requests" concept — each pageview is at least
+    // one request, so pageviews is an honest lower-bound proxy for the stat.
+    total_requests: pageviews,
+    uniques: Number(uniq[0]?.n ?? 0),
+  };
+}
+
+/**
  * Aggregate CF GraphQL Analytics across every URL bound to the site.
  *
  * Caches the envelope in KV for 5 minutes keyed by
@@ -449,9 +546,13 @@ export async function loadMultiUrlAnalytics(
 
   const auth = await resolveCfCredentials(env, orgId);
 
-  // No credentials at all → empty envelope, flagged so the UI shows the CTA.
+  let envelope: MultiUrlAnalytics;
+
   if (!auth) {
-    const empty: MultiUrlAnalytics = {
+    // No CF credentials → a zeroed CF envelope. The visitor_events fallback
+    // below still surfaces first-party traffic for *.projectsites.dev subdomains
+    // (which never have CF per-host data regardless of credentials).
+    envelope = {
       any_real_data: false,
       pageviews: 0,
       range_days: days,
@@ -463,66 +564,76 @@ export async function loadMultiUrlAnalytics(
       uniques: 0,
       urls_included: filteredUrls.map((u) => ({ hostname: u.hostname, resolved_zone: false })),
     };
-    return empty;
-  }
+  } else {
+    // Parallel fan-out — one query per URL. Promise.all so the slowest host
+    // gates the response (acceptable: typical query is 400-800ms; running
+    // 3 URLs sequentially would push past 2s easily).
+    const aggregates = await Promise.all(
+      filteredUrls.map((u) => loadHostAggregate(env, auth, u.hostname, days)),
+    );
 
-  // Parallel fan-out — one query per URL. Promise.all so the slowest host
-  // gates the response (acceptable: typical query is 400-800ms; running
-  // 3 URLs sequentially would push past 2s easily).
-  const aggregates = await Promise.all(
-    filteredUrls.map((u) => loadHostAggregate(env, auth, u.hostname, days)),
-  );
-
-  // Merge by-day buckets across all hosts.
-  const mergedByDay = new Map<
-    string,
-    { page_views: number; unique_visitors: number; requests: number }
-  >();
-  for (const agg of aggregates) {
-    for (const [date, bucket] of agg.by_day) {
-      const existing = mergedByDay.get(date) ?? { page_views: 0, requests: 0, unique_visitors: 0 };
-      mergedByDay.set(date, {
-        page_views: existing.page_views + bucket.page_views,
-        requests: existing.requests + bucket.requests,
-        unique_visitors: existing.unique_visitors + bucket.unique_visitors,
-      });
+    // Merge by-day buckets across all hosts.
+    const mergedByDay = new Map<
+      string,
+      { page_views: number; unique_visitors: number; requests: number }
+    >();
+    for (const agg of aggregates) {
+      for (const [date, bucket] of agg.by_day) {
+        const existing = mergedByDay.get(date) ?? { page_views: 0, requests: 0, unique_visitors: 0 };
+        mergedByDay.set(date, {
+          page_views: existing.page_views + bucket.page_views,
+          requests: existing.requests + bucket.requests,
+          unique_visitors: existing.unique_visitors + bucket.unique_visitors,
+        });
+      }
     }
+    const series = [...mergedByDay.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, b]) => ({
+        date,
+        page_views: b.page_views,
+        requests: b.requests,
+        unique_visitors: b.unique_visitors,
+      }));
+
+    // Top pages / countries / referrers: sum across hosts, then top-15.
+    const topPages = sumMaps(aggregates.map((a) => a.top_paths))
+      .slice(0, 15)
+      .map(([path, views]) => ({ path, views }));
+    const topCountries = sumMaps(aggregates.map((a) => a.top_countries))
+      .slice(0, 15)
+      .map(([country, views]) => ({ country, views }));
+    const topReferrers = sumMaps(aggregates.map((a) => a.top_referrers))
+      .slice(0, 15)
+      .map(([referrer, views]) => ({ referrer, views }));
+
+    envelope = {
+      any_real_data: aggregates.some((a) => a.resolved && a.total_requests > 0),
+      pageviews: aggregates.reduce((sum, a) => sum + a.page_views, 0),
+      range_days: days,
+      series,
+      top_countries: topCountries,
+      top_pages: topPages,
+      top_referrers: topReferrers,
+      total_requests: aggregates.reduce((sum, a) => sum + a.total_requests, 0),
+      uniques: aggregates.reduce((sum, a) => sum + a.unique_visitors, 0),
+      urls_included: filteredUrls.map((u, i) => ({
+        hostname: u.hostname,
+        resolved_zone: aggregates[i]?.resolved ?? false,
+      })),
+    };
   }
-  const series = [...mergedByDay.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, b]) => ({
-      date,
-      page_views: b.page_views,
-      requests: b.requests,
-      unique_visitors: b.unique_visitors,
-    }));
 
-  // Top pages / countries / referrers: sum across hosts, then top-15.
-  const topPages = sumMaps(aggregates.map((a) => a.top_paths))
-    .slice(0, 15)
-    .map(([path, views]) => ({ path, views }));
-  const topCountries = sumMaps(aggregates.map((a) => a.top_countries))
-    .slice(0, 15)
-    .map(([country, views]) => ({ country, views }));
-  const topReferrers = sumMaps(aggregates.map((a) => a.top_referrers))
-    .slice(0, 15)
-    .map(([referrer, views]) => ({ referrer, views }));
-
-  const envelope: MultiUrlAnalytics = {
-    any_real_data: aggregates.some((a) => a.resolved && a.total_requests > 0),
-    pageviews: aggregates.reduce((sum, a) => sum + a.page_views, 0),
-    range_days: days,
-    series,
-    top_countries: topCountries,
-    top_pages: topPages,
-    top_referrers: topReferrers,
-    total_requests: aggregates.reduce((sum, a) => sum + a.total_requests, 0),
-    uniques: aggregates.reduce((sum, a) => sum + a.unique_visitors, 0),
-    urls_included: filteredUrls.map((u, i) => ({
-      hostname: u.hostname,
-      resolved_zone: aggregates[i]?.resolved ?? false,
-    })),
-  };
+  // Lying-empty guard (verify-against-source-of-truth, 2026-08-06): CF's per-host
+  // adaptive dataset is empty for *.projectsites.dev subdomains, so when CF
+  // surfaced no real data, fall back to the site's own first-party
+  // visitor_events before caching — otherwise a subdomain site with real
+  // pageviews renders "no traffic yet". Honest-empty sites (0 pageviews) keep
+  // the zeroed envelope + any_real_data:false.
+  if (!envelope.any_real_data) {
+    const fb = await visitorEventsFallback(env, siteId, days);
+    if (fb) envelope = { ...envelope, ...fb, any_real_data: true };
+  }
 
   try {
     await env.CACHE_KV.put(cacheKey, JSON.stringify(envelope), { expirationTtl: 300 });
