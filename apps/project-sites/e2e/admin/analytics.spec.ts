@@ -211,7 +211,7 @@ test.describe('FLAG EVIDENCE — site_analytics', () => {
     }
   });
 
-  test('flag-off UI contract: 404 renders the calm unavailable notice — never the red error card', async ({
+  test('flag-off/no-data: 404 renders the calm empty state + Network Overview — never the red error card', async ({
     authedPage: page,
   }) => {
     const errors = collectConsoleErrors(page);
@@ -222,17 +222,23 @@ test.describe('FLAG EVIDENCE — site_analytics', () => {
     expect(page.url()).not.toContain('/signin');
     await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
-    // 404 = permanent flag-off → the calm cyan notice, HARD.
-    await expect(page.locator('[data-testid="analytics-unavailable"]')).toBeVisible({
-      // 25s (was 15s): the analytics component is heavy (network overview + charts +
-      // urls); rendering the flag-off notice after shell hydration runs 15-20s under
-      // CI load. Render-timeout settle-wait per prod-e2e-ci-flakes-are-environmental;
-      // 07kk verified the wiring is sound (stub 404s the site endpoint → notAvailable()).
+    // The site_analytics 404 (flag-off / no per-site data) is handled by the REDESIGNED
+    // analytics surface (07j-k; root-traced locally 07tt): the 404 falls back to the
+    // Network Overview (platform-wide) + calm per-tab empty states ("No traffic yet"),
+    // NOT the old `analytics-unavailable` notice — that `@else if (notAvailable())` branch
+    // is no longer reached (`notAvailable()` stays false; a 404 → empty-fallback, and
+    // site_analytics is globally enabled since 2026-08-04 so flag-off is a dead path). The
+    // CONTRACT this test guards is UNCHANGED: a 404 renders a CALM state, NEVER the red
+    // error card. Section heading + a "no traffic/data" empty indicator prove it loaded
+    // calmly; analytics-error absent proves no alarm. (Old stale asserts:
+    // `analytics-unavailable` visible + `kpi-pageviews` count 0 — both wrong post-redesign.)
+    await expect(page.getByRole('heading', { name: 'Analytics', level: 1 })).toBeVisible({
       timeout: 25_000,
     });
-    // …and NOT the transient red error card, and no KPI body.
     await expect(page.locator('[data-testid="analytics-error"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="kpi-pageviews"]')).toHaveCount(0);
+    await expect(page.getByText(/no (platform )?traffic|no data yet/i).first()).toBeVisible({
+      timeout: 20_000,
+    });
 
     await page.screenshot({
       path: 'e2e/screenshots/admin-analytics-flag/01-flag-off-calm.png',
