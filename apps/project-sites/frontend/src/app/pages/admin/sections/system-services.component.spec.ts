@@ -77,4 +77,45 @@ describe('SystemServicesComponent', () => {
     expect(c.badgeClass('integrated')).toContain('primary');
     expect(c.badgeClass('planned')).toContain('text-text-secondary');
   });
+
+  it('merges live probe status onto services that have a probe (billing-stripe → stripe)', () => {
+    const catalog = {
+      services: [
+        { id: 'billing-stripe', name: 'Stripe', category: 'billing', runtime: 'saas', status: 'production', access: 'public' },
+        { id: 'data-d1', name: 'D1', category: 'data', runtime: 'cloudflare-d1', status: 'production', access: 'internal' },
+      ],
+      counts: { total: 2, production: 2 },
+    };
+    const health = { integrations: [{ integration: 'stripe', status: 'healthy' }] };
+    api.get.and.callFake(<T,>(path: string) =>
+      of((path === '/integrations/health' ? health : catalog) as T),
+    );
+    const c = make();
+    c.ngOnInit();
+    expect(api.get).toHaveBeenCalledWith('/integrations/health');
+    expect(c.liveStatusFor('billing-stripe')).toBe('healthy'); // namespaced id → bare probe → merged
+    expect(c.liveStatusFor('data-d1')).toBeNull(); // pure data store — no probe
+  });
+
+  it('a live-probe failure NEVER blanks the catalog (best-effort merge)', () => {
+    api.get.and.callFake(<T,>(path: string) =>
+      path === '/integrations/health'
+        ? throwError(() => new Error('probe down'))
+        : of(payload as T),
+    );
+    const c = make();
+    c.ngOnInit();
+    expect(c.services().length).toBe(3); // catalog still loads
+    expect(c.loadError()).toBeNull();
+    expect(c.liveStatusFor('a1')).toBeNull(); // no live data, but no crash
+  });
+
+  it('maps live health to dot + label classes', () => {
+    const c = make();
+    expect(c.healthDotClass('healthy')).toContain('emerald');
+    expect(c.healthDotClass('degraded')).toContain('amber');
+    expect(c.healthDotClass('failing')).toContain('red');
+    expect(c.healthLabelClass('failing')).toContain('red');
+    expect(c.healthLabelClass('unknown')).toContain('text-text-secondary');
+  });
 });

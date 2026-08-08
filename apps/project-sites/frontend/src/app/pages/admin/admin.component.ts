@@ -406,19 +406,24 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Resolve a favicon URL for a site. Sites don't carry a `favicon_url` on
-   * the API model (yet) — fall back to Google's S2 favicon service keyed by
-   * the primary hostname or the `{slug}.projectsites.dev` default.
+   * Resolve a favicon URL for a site. Sites don't carry a self-hosted
+   * `favicon_url` on the API model yet, so we render the monogram tile for
+   * every site — NO external favicon fetch.
+   *
+   * Why not Google's S2 service: `s2/favicons?domain=X` 302-redirects to
+   * `t3.gstatic.com/faviconV2?client=SOCIAL&url=X`, which returns **404 for any
+   * domain gstatic hasn't cached** — including real custom domains (e.g.
+   * `megabytespace.com`) AND every `*.projectsites.dev` subdomain. That 404 logs
+   * a console error on EVERY admin page (failing the console-error gate) and the
+   * image element falls back to the monogram anyway. Rendering the monogram directly is
+   * deterministic, network-free, and clean. (A prior fix guarded only the
+   * `*.projectsites.dev` case; the custom-domain 404 slipped through — surfaced by
+   * the Browserbase System Services verify 2026-08-08, board had mis-closed it.)
+   * The real enhancement is a self-hosted per-site `favicon_url` (built asset) or
+   * a worker proxy that guarantees a 200 fallback — tracked, not this fire.
    */
-  siteFaviconUrl(site: Site): string {
-    const host = (site.primary_hostname || '').trim();
-    // Only ask Google's S2 service for a favicon on REAL custom domains.
-    // Generated `*.projectsites.dev` subdomains (and the slug default) aren't
-    // crawled by Google → it 404s, which logs a console error AND falls back to
-    // the monogram anyway. Returning '' renders the monogram tile directly with
-    // no network request, keeping the console clean (console-error gate).
-    if (!host || /\.projectsites\.dev$/i.test(host)) return '';
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  siteFaviconUrl(_site: Site): string {
+    return '';
   }
 
   /** First letter of business name, fallback "?". Used by the monogram tile. */

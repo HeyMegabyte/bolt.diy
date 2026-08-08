@@ -1,5 +1,7 @@
 import { Component, computed, signal, inject, DestroyRef, type OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../../services/api.service';
 import { ErrorCardComponent } from '../../../components/states/error-card.component';
 
@@ -20,6 +22,30 @@ interface ServicesResponse {
   readonly services: readonly PlatformService[];
   readonly counts: Record<string, number>;
 }
+
+/** Live health of one integration from `GET /api/integrations/health`. */
+type LiveHealth = 'healthy' | 'degraded' | 'failing' | 'unknown' | 'removed';
+interface IntegrationHealthResponse {
+  readonly integrations: ReadonlyArray<{ integration: string; status: LiveHealth }>;
+}
+
+/**
+ * Maps a SERVICE_REGISTRY id (namespaced, e.g. `billing-stripe`) to its bare
+ * integration-health probe name (`stripe`). Only services with a live probe in
+ * `GET /api/integrations/health` appear here; the rest show their declared
+ * lifecycle status only. Keep in lockstep with integration_health.ts
+ * KNOWN_INTEGRATIONS + service-registry.ts ids.
+ */
+const LIVE_PROBE_NAME: Readonly<Record<string, string>> = {
+  'email-listmonk': 'listmonk',
+  'crm-twenty': 'twenty',
+  'billing-stripe': 'stripe',
+  'traces-langfuse': 'langfuse',
+  'keys-unkey': 'unkey',
+  'email-resend': 'resend',
+  'oauth-nango': 'nango',
+  'jobs-inngest': 'inngest',
+};
 
 /** Display order: live first, planned last. */
 const STATUS_ORDER: Record<string, number> = {
@@ -83,6 +109,17 @@ const STATUS_ORDER: Record<string, number> = {
                   <span class="text-[0.92rem] font-bold text-white">{{ s.name }}</span>
                   <span class="px-2 py-0.5 rounded-md text-[0.68rem] font-bold uppercase tracking-wide border"
                     [class]="badgeClass(s.status)">{{ s.status }}</span>
+                  @if (liveStatusFor(s.id); as h) {
+                    <span
+                      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[0.62rem] font-semibold uppercase tracking-wide border"
+                      [class]="healthLabelClass(h)"
+                      [attr.data-testid]="'service-health-' + s.id"
+                      [attr.data-health]="h"
+                      [attr.title]="'Live health probe: ' + h">
+                      <span class="w-1.5 h-1.5 rounded-full" [class]="healthDotClass(h)" aria-hidden="true"></span>
+                      {{ h }}
+                    </span>
+                  }
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap mt-1 text-[0.74rem] text-text-secondary">
                   @if (s.domain) {
@@ -116,6 +153,8 @@ export class SystemServicesComponent implements OnInit {
   readonly loadError = signal<string | null>(null);
   private readonly raw = signal<readonly PlatformService[]>([]);
   private readonly counts = signal<Record<string, number>>({});
+  /** Live probe status keyed by bare integration name (empty until aggregate resolves). */
+  private readonly liveHealth = signal<ReadonlyMap<string, LiveHealth>>(new Map());
 
   /** Sorted live-first for the operator scan. */
   readonly services = computed(() =>
@@ -139,13 +178,21 @@ export class SystemServicesComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    this.api
-      .get<ServicesResponse>('/super-admin/services')
+    forkJoin({
+      catalog: this.api.get<ServicesResponse>('/super-admin/services'),
+      // Live probe is best-effort — a probe failure must NEVER blank the catalog.
+      health: this.api
+        .get<IntegrationHealthResponse>('/integrations/health')
+        .pipe(catchError(() => of<IntegrationHealthResponse>({ integrations: [] }))),
+    })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (res) => {
-          this.raw.set(Array.isArray(res?.services) ? res.services : []);
-          this.counts.set(res?.counts ?? {});
+        next: ({ catalog, health }) => {
+          this.raw.set(Array.isArray(catalog?.services) ? catalog.services : []);
+          this.counts.set(catalog?.counts ?? {});
+          const map = new Map<string, LiveHealth>();
+          for (const i of health?.integrations ?? []) map.set(i.integration, i.status);
+          this.liveHealth.set(map);
           this.loading.set(false);
         },
         error: () => {
@@ -153,6 +200,26 @@ export class SystemServicesComponent implements OnInit {
           this.loading.set(false);
         },
       });
+  }
+
+  /** Live probe status for a service row, or null if the service has no probe. */
+  liveStatusFor(id: string): LiveHealth | null {
+    const probe = LIVE_PROBE_NAME[id];
+    return probe ? (this.liveHealth().get(probe) ?? null) : null;
+  }
+
+  healthDotClass(h: LiveHealth): string {
+    if (h === 'healthy') return 'bg-emerald-400';
+    if (h === 'degraded') return 'bg-amber-400';
+    if (h === 'failing') return 'bg-red-400';
+    return 'bg-white/25'; // unknown / removed
+  }
+
+  healthLabelClass(h: LiveHealth): string {
+    if (h === 'healthy') return 'border-emerald-400/30 text-emerald-300 bg-emerald-400/10';
+    if (h === 'degraded') return 'border-amber-400/30 text-amber-300 bg-amber-400/10';
+    if (h === 'failing') return 'border-red-400/30 text-red-300 bg-red-400/10';
+    return 'border-white/15 text-text-secondary bg-white/[0.03]'; // unknown / removed
   }
 
   /** Strip a wildcard prefix (`*.projectsites.dev`) for the href. */
