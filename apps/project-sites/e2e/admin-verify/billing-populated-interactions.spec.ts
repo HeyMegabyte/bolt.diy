@@ -20,7 +20,9 @@ import { setupRealDataPage, realDataAvailable } from '../helpers/realdata.js';
 const gotoBilling = async (page: import('@playwright/test').Page) => {
   await setupRealDataPage(page, { passthrough: /\/api\// });
   await page.goto('/admin/billing', { waitUntil: 'domcontentloaded' });
-  await page.locator('[data-testid="subscription-plan"]').waitFor({ state: 'visible', timeout: 15000 });
+  await page
+    .locator('[data-testid="subscription-plan"]')
+    .waitFor({ state: 'visible', timeout: 15000 });
 };
 
 test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
@@ -31,12 +33,18 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
     // The current-plan pill shows a real plan label.
     const planPill = page.locator('[aria-label="Current plan"]');
     await expect(planPill).toBeVisible();
-    await expect(planPill, 'the plan pill must name a real plan').toHaveText(/free|pro|business|enterprise/i);
-
-    // The subscription card names the plan (falls back to planLabel — always real).
-    await expect(page.locator('[data-testid="subscription-plan"]'), 'the subscription plan must be populated').toHaveText(
-      /\w/,
+    await expect(planPill, 'the plan pill must name a real plan').toHaveText(
+      /free|pro|business|enterprise/i,
     );
+
+    // The subscription card names the plan with the FRIENDLY label (planLabel), matching the
+    // pill above — NOT the raw D1 enum. A loose /\w/ here let the raw 'paid' enum leak into the
+    // PLAN field (fixed 2026-08-08: line 142 now uses planLabel()); assert the human label so
+    // the raw-enum leak can't regress.
+    await expect(
+      page.locator('[data-testid="subscription-plan"]'),
+      'the subscription plan must show the friendly label, not the raw enum',
+    ).toHaveText(/free|pro|business|enterprise/i);
 
     // Entitlements render the REAL resolver shape (board 06e): custom_domains + seats as
     // numeric rolling counters (0 is valid for a fresh Free org — populated real data, NOT
@@ -48,7 +56,9 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
     }
     const analytics = page.locator('[data-testid="entitlement-analytics"]');
     await expect(analytics, 'entitlement analytics must render').toBeVisible({ timeout: 10000 });
-    await expect(analytics, 'entitlement analytics shows a real state (Included / —)').toHaveText(/\S/);
+    await expect(analytics, 'entitlement analytics shows a real state (Included / —)').toHaveText(
+      /\S/,
+    );
   });
 
   test('every billing tab switches and renders its panel', async ({ page }) => {
@@ -63,7 +73,9 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
       const tab = tabs.nth(i);
       const id = (await tab.getAttribute('data-testid'))!.replace('billing-tab-', '');
       await tab.click();
-      await expect(tab, `tab ${id} becomes selected`).toHaveAttribute('aria-selected', 'true', { timeout: 6000 });
+      await expect(tab, `tab ${id} becomes selected`).toHaveAttribute('aria-selected', 'true', {
+        timeout: 6000,
+      });
       await expect(
         page.locator(`#billing-tab-panel-${id}`),
         `tab ${id} reveals its panel`,
@@ -71,12 +83,17 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
     }
   });
 
-  test('the subscription card shows a real plan + billing status (no empty/stub)', async ({ page }) => {
+  test('the subscription card shows a real plan + billing status (no empty/stub)', async ({
+    page,
+  }) => {
     test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
     await gotoBilling(page);
 
     // The subscription card renders (not an empty/error placeholder).
-    await expect(page.locator('[data-testid="subscription-card"]'), 'the subscription card must render').toBeVisible({
+    await expect(
+      page.locator('[data-testid="subscription-card"]'),
+      'the subscription card must render',
+    ).toBeVisible({
       timeout: 10000,
     });
     // The renewal/period field is always populated ("No renewal" for Free, or a date).
@@ -86,7 +103,9 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
     ).toHaveText(/\w/);
   });
 
-  test('the Free plan surfaces its plan-gated Upgrade CTA (subscription card, not clicked)', async ({ page }) => {
+  test('the Free plan surfaces its plan-gated Upgrade CTA (subscription card, not clicked)', async ({
+    page,
+  }) => {
     test.skip(!realDataAvailable(), 'needs E2E_API_KEY for a real session');
     await gotoBilling(page);
 
@@ -97,7 +116,9 @@ test.describe('Admin · billing populated + interactions (P0-ADMIN)', () => {
     // Never clicked — upgrade() opens a real Stripe checkout (money path).
     const card = page.locator('[data-testid="subscription-card"]');
     const upgrade = card.getByRole('button', { name: /upgrade to pro/i });
-    await expect(upgrade, 'a Free plan must surface the Upgrade CTA').toBeVisible({ timeout: 8000 });
+    await expect(upgrade, 'a Free plan must surface the Upgrade CTA').toBeVisible({
+      timeout: 8000,
+    });
     await expect(upgrade, 'the Upgrade CTA must be actionable').toBeEnabled();
     await expect(
       card.getByRole('button', { name: /manage billing/i }),

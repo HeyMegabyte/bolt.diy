@@ -261,6 +261,25 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
       .toBe('No renewal');
   });
 
+  it('a PAID subscription shows the friendly "Pro · $50/mo" label, NOT the raw "paid" enum', () => {
+    // Regression guard for the raw-enum leak fixed 2026-08-08: the PLAN field read
+    // `subStatus()?.plan ?? planLabel()`, so an active PAID org rendered the raw D1 enum
+    // "paid" instead of the human planLabel. Every OTHER plan surface (header pill, "Currently
+    // on …", the plan cards) already used planLabel — only this box leaked. Assert the label.
+    build();
+    const c = fixture.componentInstance;
+    c.plan.set('paid');
+    c.subStatus.set({ status: 'active', plan: 'paid' } as never);
+    fixture.detectChanges();
+    const txt = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="subscription-plan"]')
+      ?.textContent?.trim();
+    expect(txt)
+      .withContext('the PLAN field shows the friendly planLabel, not the raw enum')
+      .toBe('Pro · $50/mo');
+    expect(txt).withContext('the raw "paid" enum must never leak into the UI').not.toBe('paid');
+  });
+
   it('a wallet-load failure shows "—" (null), never a fake $0.00 balance', () => {
     build(true, /* failWallet */ true);
     const c = fixture.componentInstance;
