@@ -19,7 +19,7 @@ export interface MenuCategory {
   standalone: true,
   imports: [NgFor, NgIf, CurrencyPipe],
   template: `
-    <section [attr.aria-labelledby]="headingId" style="padding: 48px 24px; max-width: 800px; margin: 0 auto;">
+    <section *ngIf="categories.length" [attr.aria-labelledby]="headingId" style="padding: 48px 24px; max-width: 800px; margin: 0 auto;">
       <h2
         *ngIf="heading"
         [id]="headingId"
@@ -113,21 +113,9 @@ export interface MenuCategory {
 export class MenuBoardComponent {
   @Input() heading = 'Our Menu';
   @Input() headingId = 'sk-menu-heading';
-  @Input() categories: MenuCategory[] = [
-    {
-      title: 'Starters',
-      items: [
-        { name: 'Garden Salad', description: 'Mixed greens, cherry tomatoes, cucumber, house vinaigrette.', price: 9, dietary: ['V', 'GF'] },
-        { name: 'Soup of the Day', description: 'Ask your server for today\'s selection.', price: 7 },
-      ],
-    },
-    {
-      title: 'Mains',
-      items: [
-        { name: 'Grilled Salmon', description: 'Citrus-herb salmon with roasted vegetables and wild rice.', price: 24, badge: 'Popular', dietary: ['GF'] },
-        { name: 'Pasta Primavera', description: 'Seasonal vegetables, olive oil, garlic, parmesan.', price: 18, dietary: ['V'] },
-        { name: 'BBQ Ribs', description: 'Full rack slow-smoked, house BBQ sauce, coleslaw, fries.', price: 32, badge: 'Chef\'s Pick' },
-      ],
-    },
-  ];
+  // No fabricated defaults — a kit menu board must NEVER ship invented dishes/prices
+  // (Grilled Salmon $24 …) to a real restaurant's site; a diner would read a fake menu
+  // as fact. Empty by default → the <section> self-hides (*ngIf). The consumer passes
+  // the restaurant's REAL menu. (anti-fabrication mandate)
+  @Input() categories: MenuCategory[] = [];
 }

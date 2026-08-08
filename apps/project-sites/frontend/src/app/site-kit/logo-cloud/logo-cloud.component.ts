@@ -24,6 +24,7 @@ export interface LogoItem { name: string; src?: string; }
   `],
   template: `
     <section
+      *ngIf="logos.length"
       [style.background]="'var(--ps-bg,#060610)'"
       [style.borderTop]="'1px solid var(--ps-hairline,rgba(255,255,255,.08))'"
       [style.borderBottom]="'1px solid var(--ps-hairline,rgba(255,255,255,.08))'"
@@ -59,15 +60,11 @@ export interface LogoItem { name: string; src?: string; }
 })
 export class SkLogoCloudComponent {
   @Input() label = 'Trusted by teams at';
-  @Input() logos: LogoItem[] = [
-    { name: 'Acme Corp' },
-    { name: 'Globex' },
-    { name: 'Initech' },
-    { name: 'Umbrella' },
-    { name: 'Hooli' },
-    { name: 'Pied Piper' },
-    { name: 'Dunder Mifflin' },
-  ];
+  // No fabricated defaults — a "trusted by" logo cloud must NEVER ship a fake
+  // client roster (Globex / Hooli / Pied Piper …) to a generated business site.
+  // The consumer passes REAL client logos; with none the <section> self-hides
+  // (*ngIf). Demo data lives in the Storybook story. (anti-fabrication mandate)
+  @Input() logos: LogoItem[] = [];
 
   get doubledLogos(): LogoItem[] {
     return [...this.logos, ...this.logos];

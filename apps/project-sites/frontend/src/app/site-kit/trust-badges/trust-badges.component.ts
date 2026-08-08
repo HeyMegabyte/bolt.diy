@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { NgFor } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 
 export interface TrustBadge {
   label: string;
@@ -9,9 +9,10 @@ export interface TrustBadge {
 @Component({
   selector: 'sk-trust-badges',
   standalone: true,
-  imports: [NgFor],
+  imports: [NgFor, NgIf],
   template: `
     <section
+      *ngIf="badges.length"
       [attr.aria-label]="ariaLabel"
       style="
         padding: 24px 16px;
@@ -78,12 +79,10 @@ export interface TrustBadge {
   `,
 })
 export class TrustBadgesComponent {
-  @Input() badges: TrustBadge[] = [
-    { label: 'Licensed & Insured' },
-    { label: '5-Star Rated' },
-    { label: '24/7 Support' },
-    { label: 'Free Estimates' },
-    { label: 'Satisfaction Guaranteed' },
-  ];
+  // No fabricated defaults — trust badges assert claims ABOUT the business
+  // (Licensed & Insured / 5-Star Rated …). Shipping them unverified to a generated
+  // site is a false claim. The consumer passes only TRUE, verified badges; with
+  // none the <section> self-hides (*ngIf). (anti-fabrication mandate)
+  @Input() badges: TrustBadge[] = [];
   @Input() ariaLabel = 'Trust badges';
 }

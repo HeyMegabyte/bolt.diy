@@ -53,7 +53,10 @@ import { CommonModule } from '@angular/common';
 })
 export class SkCtaBandComponent {
   @Input() heading = 'Ready to get started?';
-  @Input() subheading = 'Join over 10,000 teams building the future. Start for free today.';
+  // No fabricated stat — "over 10,000 teams" is an invented metric that would ship to a
+  // real business site as fact. Empty → the <p> self-hides (*ngIf="subheading"); the
+  // consumer passes real copy. (anti-fabrication mandate)
+  @Input() subheading = '';
   @Input() primaryCtaLabel = 'Start free trial';
   @Input() primaryCtaHref = '#signup';
   @Input() secondaryCtaLabel = 'Talk to sales';

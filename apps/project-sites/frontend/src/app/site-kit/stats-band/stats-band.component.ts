@@ -9,6 +9,7 @@ export interface Stat { value: string; label: string; }
   imports: [CommonModule],
   template: `
     <section
+      *ngIf="stats.length"
       [style.background]="'var(--ps-surface-1,rgba(255,255,255,.03))'"
       [style.borderTop]="'1px solid var(--ps-hairline,rgba(255,255,255,.08))'"
       [style.borderBottom]="'1px solid var(--ps-hairline,rgba(255,255,255,.08))'"
@@ -40,10 +41,9 @@ export interface Stat { value: string; label: string; }
 })
 export class SkStatsBandComponent {
   @Input() heading = '';
-  @Input() stats: Stat[] = [
-    { value: '10M+', label: 'Active users' },
-    { value: '99.9%', label: 'Uptime SLA' },
-    { value: '<50ms', label: 'Median latency' },
-    { value: '180+', label: 'Countries served' },
-  ];
+  // No fabricated defaults — a stats band must NEVER ship invented metrics
+  // (10M+ users / 99.9% uptime …) to a generated business site. The consumer/
+  // generator passes REAL, verifiable numbers; with none the <section> self-hides
+  // (*ngIf). Demo data lives in the Storybook story. (anti-fabrication mandate)
+  @Input() stats: Stat[] = [];
 }

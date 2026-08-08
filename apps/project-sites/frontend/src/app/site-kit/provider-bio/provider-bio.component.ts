@@ -11,6 +11,7 @@ export interface ProviderCredential {
   imports: [NgFor, NgIf],
   template: `
     <article
+      *ngIf="name"
       [attr.aria-labelledby]="headingId"
       itemscope
       itemtype="https://schema.org/Person"
@@ -162,21 +163,18 @@ export interface ProviderCredential {
   `,
 })
 export class ProviderBioComponent {
-  @Input() name = 'Dr. Sarah Okafor, MD';
+  // No fabricated defaults — this shipped a FAKE DOCTOR: "Dr. Sarah Okafor, MD"
+  // with invented Howard University / Johns Hopkins credentials. Fabricating a
+  // named person + professional bio + medical credentials is the most deceptive
+  // default in the kit (and the fabricated-people gate missed it — bio, not quote).
+  // Empty `name` self-hides the <article> (*ngIf); the consumer passes the REAL
+  // provider's verified name/bio/credentials or nothing. (anti-fabrication mandate)
+  @Input() name = '';
   @Input() headingId = 'sk-provider-heading';
-  @Input() title = 'Board-Certified Family Physician';
-  @Input() bio = 'With over 15 years of experience in family medicine, Dr. Okafor specializes in preventive care, chronic disease management, and patient wellness. She earned her medical degree from Howard University and completed her residency at Johns Hopkins.';
-  @Input() credentials: ProviderCredential[] = [
-    { label: 'MD' },
-    { label: 'Board Certified' },
-    { label: 'ABFM' },
-  ];
-  @Input() specialties: string[] = [
-    'Preventive Care',
-    'Chronic Disease',
-    'Pediatrics',
-    'Women\'s Health',
-  ];
+  @Input() title = '';
+  @Input() bio = '';
+  @Input() credentials: ProviderCredential[] = [];
+  @Input() specialties: string[] = [];
   @Input() ctaText = 'Book an Appointment';
   @Input() ctaHref = '#book';
 }

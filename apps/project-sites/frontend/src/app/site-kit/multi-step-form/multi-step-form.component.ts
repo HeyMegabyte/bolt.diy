@@ -22,6 +22,7 @@ export interface FormField {
   imports: [NgIf, NgFor, FormsModule],
   template: `
     <div
+      *ngIf="steps.length"
       style="
         background: var(--ps-surface-1, rgba(13,13,40,0.8));
         border: 1px solid rgba(0,229,255,0.15);
@@ -181,29 +182,11 @@ export interface FormField {
   `,
 })
 export class MultiStepFormComponent {
-  @Input() steps: FormStep[] = [
-    {
-      title: 'About You',
-      fields: [
-        { key: 'name', label: 'Full Name', type: 'text', placeholder: 'Jane Smith', required: true },
-        { key: 'email', label: 'Email', type: 'email', placeholder: 'jane@example.com', required: true },
-      ],
-    },
-    {
-      title: 'Your Project',
-      fields: [
-        { key: 'service', label: 'Service Needed', type: 'select', options: ['Repair', 'Installation', 'Inspection'], required: true },
-        { key: 'notes', label: 'Tell us more', type: 'textarea', placeholder: 'Any details that help us prepare…' },
-      ],
-    },
-    {
-      title: 'Contact Preference',
-      fields: [
-        { key: 'phone', label: 'Phone', type: 'tel', placeholder: '(555) 555-0100' },
-        { key: 'bestTime', label: 'Best time to reach you', type: 'select', options: ['Morning', 'Afternoon', 'Evening'] },
-      ],
-    },
-  ];
+  // No fabricated defaults — a kit multi-step form must NEVER ship a hardcoded intake
+  // flow to a real business site. Empty by default → the root <div> self-hides (*ngIf),
+  // which also guards the `currentStep` getter from indexing an empty array. The
+  // consumer defines the business's REAL intake steps/fields. (anti-fabrication mandate)
+  @Input() steps: FormStep[] = [];
   @Input() submitLabel = 'Submit Request';
   @Output() formSubmit = new EventEmitter<Record<string, string>>();
 

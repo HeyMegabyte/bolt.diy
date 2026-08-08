@@ -23,7 +23,8 @@ export interface NavLink { label: string; href: string; }
         </a>
 
         <!-- Links -->
-        <ul style="display:flex;gap:2rem;list-style:none;margin:0;padding:0;"
+        <ul *ngIf="links.length"
+            style="display:flex;gap:2rem;list-style:none;margin:0;padding:0;"
             role="list">
           <li *ngFor="let link of links">
             <a [href]="link.href"
@@ -57,9 +58,8 @@ export class SkSiteNavbarComponent {
   @Input() logoHref = '/';
   @Input() ctaLabel = 'Get Started';
   @Input() ctaHref = '#contact';
-  @Input() links: NavLink[] = [
-    { label: 'Features', href: '#features' },
-    { label: 'Pricing', href: '#pricing' },
-    { label: 'FAQ', href: '#faq' },
-  ];
+  // No fabricated defaults — a kit navbar must NEVER ship invented nav links (#features
+  // / #pricing anchors that may not exist on the real site). Empty by default → the
+  // <ul> self-hides (*ngIf). The consumer passes the business's REAL nav. (anti-fabrication mandate)
+  @Input() links: NavLink[] = [];
 }

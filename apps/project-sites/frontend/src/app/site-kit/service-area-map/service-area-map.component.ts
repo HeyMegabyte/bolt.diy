@@ -150,9 +150,9 @@ export class ServiceAreaMapComponent {
   @Input() centerLabel = 'Our Coverage Area';
   @Input() ctaText = 'Check Your Address';
   @Input() ctaHref = '#contact';
-  @Input() zones: ServiceZone[] = [
-    { label: 'Core Zone (same-day)', color: 'var(--ps-accent,#00e5ff)', highlight: true },
-    { label: 'Primary Zone (next-day)', color: 'rgba(0,229,255,0.55)' },
-    { label: 'Extended Zone (scheduled)', color: 'rgba(0,229,255,0.25)' },
-  ];
+  // No fabricated defaults — a kit service-area map must NEVER ship invented coverage
+  // zones/SLAs (same-day / next-day …) to a real business site; a visitor would read
+  // fabricated service promises as fact. Empty by default → the zone legend self-hides
+  // (*ngIf="zones.length"). The consumer passes the business's REAL zones. (anti-fabrication mandate)
+  @Input() zones: ServiceZone[] = [];
 }

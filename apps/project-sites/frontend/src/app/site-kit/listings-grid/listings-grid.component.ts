@@ -24,6 +24,7 @@ export interface Listing {
   imports: [NgFor, NgIf, CurrencyPipe],
   template: `
     <section
+      *ngIf="listings.length"
       [attr.aria-labelledby]="headingId"
       style="padding: 48px 24px; max-width: 1100px; margin: 0 auto;"
     >
@@ -221,37 +222,11 @@ export class ListingsGridComponent {
   @Input() heading = 'Featured Listings';
   @Input() headingId = 'sk-listings-heading';
   @Input() subtitle = 'Browse our current available properties.';
-  @Input() listings: Listing[] = [
-    {
-      title: '3BR / 2BA Modern Townhome',
-      price: 425000,
-      location: 'East Nashville, TN',
-      description: 'Light-filled end-unit with rooftop terrace and 2-car garage.',
-      details: ['3 bed', '2 bath', '1,840 sq ft'],
-      badge: { label: 'New', variant: 'new' },
-      ctaLabel: 'View Details',
-      ctaHref: '#listing-1',
-    },
-    {
-      title: 'Historic Bungalow on Corner Lot',
-      price: 312000,
-      location: 'Germantown, TN',
-      description: 'Restored 1920s bungalow with original hardwood and renovated kitchen.',
-      details: ['2 bed', '1 bath', '1,100 sq ft'],
-      ctaLabel: 'View Details',
-      ctaHref: '#listing-2',
-    },
-    {
-      title: 'New Construction Estate Home',
-      price: 890000,
-      location: 'Brentwood, TN',
-      description: 'Builder-grade finishes, open-plan design, and large wooded lot.',
-      details: ['5 bed', '4 bath', '3,700 sq ft'],
-      badge: { label: 'Featured', variant: 'featured' },
-      ctaLabel: 'View Details',
-      ctaHref: '#listing-3',
-    },
-  ];
+  // No fabricated defaults — a kit listings grid must NEVER ship invented properties
+  // (fake addresses, prices, bed/bath) to a real agent's site; a buyer would read fake
+  // listings as real inventory. Empty by default → the <section> self-hides (*ngIf).
+  // The consumer passes the business's REAL listings. (anti-fabrication mandate)
+  @Input() listings: Listing[] = [];
 
   getBadgeBg(variant?: string): string {
     const map: Record<string, string> = {

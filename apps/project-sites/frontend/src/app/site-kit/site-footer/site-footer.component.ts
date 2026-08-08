@@ -118,58 +118,14 @@ export class SkSiteFooterComponent {
   @Input() tagline = 'Building great products for the people who matter most.';
   @Input() copyright = `© ${new Date().getFullYear()} Acme Co. All rights reserved.`;
 
-  @Input() groups: FooterGroup[] = [
-    {
-      heading: 'Product',
-      links: [
-        { label: 'Features', href: '#features' },
-        { label: 'Pricing', href: '#pricing' },
-        { label: 'Changelog', href: '#changelog' },
-        { label: 'Roadmap', href: '#roadmap' },
-      ],
-    },
-    {
-      heading: 'Company',
-      links: [
-        { label: 'About', href: '#about' },
-        { label: 'Blog', href: '#blog' },
-        { label: 'Careers', href: '#careers' },
-        { label: 'Press', href: '#press' },
-      ],
-    },
-    {
-      heading: 'Support',
-      links: [
-        { label: 'Docs', href: '#docs' },
-        { label: 'Status', href: '#status' },
-        { label: 'Contact', href: '#contact' },
-      ],
-    },
-  ];
+  // No fabricated defaults — a kit footer must NEVER ship invented nav links, fake
+  // social accounts (generic x.com / github.com / linkedin.com — not the business's),
+  // or fake legal links to a real site. Empty by default → each list self-hides
+  // (*ngFor renders nothing / *ngIf on socials + legalLinks). The consumer passes the
+  // business's REAL links. (anti-fabrication mandate)
+  @Input() groups: FooterGroup[] = [];
 
-  @Input() socials: FooterSocial[] = [
-    {
-      label: 'Twitter / X',
-      href: 'https://x.com',
-      svgPath: 'M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z',
-    },
-    {
-      label: 'GitHub',
-      href: 'https://github.com',
-      svgPath:
-        'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
-    },
-    {
-      label: 'LinkedIn',
-      href: 'https://linkedin.com',
-      svgPath:
-        'M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z M4 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
-    },
-  ];
+  @Input() socials: FooterSocial[] = [];
 
-  @Input() legalLinks: FooterLink[] = [
-    { label: 'Privacy Policy', href: '#privacy' },
-    { label: 'Terms of Service', href: '#terms' },
-    { label: 'Cookie Policy', href: '#cookies' },
-  ];
+  @Input() legalLinks: FooterLink[] = [];
 }

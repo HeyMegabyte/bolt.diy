@@ -75,11 +75,12 @@ export interface SocialProofEntry {
   `,
 })
 export class SocialProofToastComponent implements OnInit, OnDestroy {
-  @Input() entries: SocialProofEntry[] = [
-    { name: 'Maria S.', action: 'just booked a consultation', location: 'Austin, TX', ago: '2 min ago' },
-    { name: 'James K.', action: 'requested a free estimate', location: 'Denver, CO', ago: '5 min ago' },
-    { name: 'Priya L.', action: 'left a 5-star review', ago: 'Just now' },
-  ];
+  // No fabricated defaults — a social-proof toast asserting "Maria S. just booked
+  // … 2 min ago" is a FAKE-ACTIVITY dark pattern (invented people + invented live
+  // events) the moment it ships without real data. Empty by default → ngOnInit
+  // early-returns on `!entries.length` so the toast never renders. The consumer
+  // passes REAL, recent, consented activity or nothing. (anti-fabrication mandate)
+  @Input() entries: SocialProofEntry[] = [];
   @Input() intervalMs = 5000;
   @Input() displayMs = 3500;
 

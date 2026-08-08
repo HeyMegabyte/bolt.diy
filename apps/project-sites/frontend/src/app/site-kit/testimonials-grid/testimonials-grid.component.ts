@@ -62,7 +62,9 @@ export interface Testimonial { quote: string; name: string; title: string; avata
 })
 export class SkTestimonialsGridComponent {
   @Input() heading = 'What our customers say';
-  @Input() subheading = 'Join thousands of teams that ship faster with us.';
+  // No fabricated stat — "thousands of teams" is an invented metric. Empty → the <p>
+  // self-hides (*ngIf="subheading"). (anti-fabrication mandate)
+  @Input() subheading = '';
   // No fabricated defaults — a site-kit testimonials grid must NEVER ship invented
   // customer quotes to a generated business site (anti-fabrication mandate). Consumers
   // pass real, permission-collected testimonials; with none, the <section> self-hides

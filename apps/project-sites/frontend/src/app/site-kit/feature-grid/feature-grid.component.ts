@@ -9,6 +9,7 @@ export interface FeatureCard { icon: string; title: string; description: string;
   imports: [CommonModule],
   template: `
     <section
+      *ngIf="features.length"
       [style.background]="'var(--ps-bg,#060610)'"
       [style.color]="'var(--ps-ink,#f4f4ff)'"
       style="padding:5rem 1.5rem;">
@@ -52,12 +53,9 @@ export interface FeatureCard { icon: string; title: string; description: string;
 export class SkFeatureGridComponent {
   @Input() heading = 'Everything you need';
   @Input() subheading = 'Powerful features to help your team build better products, faster.';
-  @Input() features: FeatureCard[] = [
-    { icon: '⚡', title: 'Lightning Fast', description: 'Sub-second response times on every request, globally distributed.' },
-    { icon: '🔒', title: 'Secure by Default', description: 'End-to-end encryption and zero-trust security baked in from day one.' },
-    { icon: '📊', title: 'Rich Analytics', description: 'Real-time dashboards that surface the insights your business needs.' },
-    { icon: '🤖', title: 'AI-Powered', description: 'Intelligent automation that learns and adapts to your workflows.' },
-    { icon: '🌍', title: 'Global Scale', description: 'Deploy to 200+ edge locations with a single command.' },
-    { icon: '🔧', title: 'Easy Integration', description: 'Connect with your existing stack in minutes, not months.' },
-  ];
+  // No fabricated defaults — a kit feature grid must NEVER ship invented product claims
+  // ("Sub-second response times", "200+ edge locations") to a real business site. Empty
+  // by default → the <section> self-hides (*ngIf). The consumer passes the business's
+  // REAL features. (anti-fabrication mandate)
+  @Input() features: FeatureCard[] = [];
 }

@@ -18,6 +18,7 @@ export interface PricingTier {
   imports: [CommonModule],
   template: `
     <section
+      *ngIf="tiers.length"
       [style.background]="'var(--ps-bg,#060610)'"
       [style.color]="'var(--ps-ink,#f4f4ff)'"
       style="padding:5rem 1.5rem;">
@@ -88,24 +89,9 @@ export interface PricingTier {
 export class SkPricingTableComponent {
   @Input() heading = 'Simple, transparent pricing';
   @Input() subheading = 'No hidden fees. Cancel anytime.';
-  @Input() tiers: PricingTier[] = [
-    {
-      name: 'Starter', price: '$0', period: '/month',
-      description: 'Perfect for side projects and personal use.',
-      features: ['3 projects', '10k requests/mo', 'Community support'],
-      ctaLabel: 'Get started free', ctaHref: '#signup',
-    },
-    {
-      name: 'Pro', price: '$49', period: '/month',
-      description: 'For growing teams that need more power.',
-      features: ['Unlimited projects', '1M requests/mo', 'Priority support', 'Custom domains', 'Analytics'],
-      ctaLabel: 'Start free trial', ctaHref: '#trial', popular: true,
-    },
-    {
-      name: 'Enterprise', price: 'Custom', period: '',
-      description: 'Tailored for large organizations.',
-      features: ['Unlimited everything', 'SLA guarantee', 'Dedicated support', 'SSO', 'On-prem option'],
-      ctaLabel: 'Contact sales', ctaHref: '#contact',
-    },
-  ];
+  // No fabricated defaults — a kit pricing table must NEVER ship invented prices/plans
+  // ($0/$49/Custom) to a real business site; a visitor would read fabricated pricing as
+  // fact. Empty by default → the <section> self-hides (*ngIf). The consumer passes the
+  // business's REAL pricing. (anti-fabrication mandate)
+  @Input() tiers: PricingTier[] = [];
 }

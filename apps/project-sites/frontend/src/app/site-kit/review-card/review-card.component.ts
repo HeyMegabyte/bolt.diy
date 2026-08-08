@@ -7,6 +7,7 @@ import { NgFor, NgIf } from '@angular/common';
   imports: [NgFor, NgIf],
   template: `
     <article
+      *ngIf="body"
       [attr.aria-label]="'Review by ' + reviewer"
       itemscope
       itemtype="https://schema.org/Review"
@@ -98,11 +99,15 @@ import { NgFor, NgIf } from '@angular/common';
   `,
 })
 export class ReviewCardComponent {
-  @Input() reviewer = 'Happy Customer';
+  // No fabricated defaults — a review card must NEVER ship an invented reviewer,
+  // invented quote, or a "Google" source badge for a review that doesn't exist.
+  // Empty `body` self-hides the <article> (*ngIf); the consumer passes a REAL,
+  // permission-collected review or renders nothing. (anti-fabrication mandate)
+  @Input() reviewer = '';
   @Input() role = '';
-  @Input() body = 'Outstanding service from start to finish. The team was professional, punctual, and the results exceeded every expectation.';
+  @Input() body = '';
   @Input() rating = 5;
-  @Input() platform = 'Google';
+  @Input() platform = '';
 
   get stars(): number[] { return [1, 2, 3, 4, 5]; }
 }

@@ -16,6 +16,7 @@ export interface SplitItem {
   imports: [CommonModule],
   template: `
     <section
+      *ngIf="items.length"
       [style.background]="'var(--ps-bg,#060610)'"
       [style.color]="'var(--ps-ink,#f4f4ff)'"
       style="padding:5rem 1.5rem;">
@@ -52,22 +53,9 @@ export interface SplitItem {
   `,
 })
 export class SkFeatureSplitComponent {
-  @Input() items: SplitItem[] = [
-    {
-      eyebrow: 'Collaboration',
-      heading: 'Work together, ship together',
-      body: 'Real-time collaboration tools that keep your team aligned across every timezone. No more merge conflicts, no more lost context.',
-      imageSrc: 'https://picsum.photos/seed/feat1/800/500',
-      imageAlt: 'Collaboration dashboard',
-      imageRight: false,
-    },
-    {
-      eyebrow: 'Automation',
-      heading: 'Let the machine do the heavy lifting',
-      body: 'Automate repetitive tasks with powerful workflow tools. Free your team to focus on what only humans can do.',
-      imageSrc: 'https://picsum.photos/seed/feat2/800/500',
-      imageAlt: 'Automation workflow',
-      imageRight: true,
-    },
-  ];
+  // No fabricated defaults — a kit feature-split must NEVER ship invented copy + random
+  // picsum placeholder images to a real business site. Empty by default → the <section>
+  // self-hides (*ngIf). The consumer passes the business's REAL feature narrative +
+  // images. (anti-fabrication mandate)
+  @Input() items: SplitItem[] = [];
 }

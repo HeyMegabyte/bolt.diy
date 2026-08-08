@@ -37,6 +37,7 @@ export interface FaqItem { question: string; answer: string; }
   `],
   template: `
     <section
+      *ngIf="items.length"
       [style.background]="'var(--ps-bg,#060610)'"
       [style.color]="'var(--ps-ink,#f4f4ff)'"
       style="padding:5rem 1.5rem;">
@@ -70,11 +71,9 @@ export interface FaqItem { question: string; answer: string; }
 export class SkFaqAccordionComponent {
   @Input() heading = 'Frequently asked questions';
   @Input() subheading = "Can't find what you're looking for? Reach out to our team.";
-  @Input() items: FaqItem[] = [
-    { question: 'Is there a free plan?', answer: 'Yes — our Starter plan is completely free with no credit card required. You can upgrade anytime.' },
-    { question: 'How does billing work?', answer: 'We bill monthly or annually. Annual plans include a 20% discount. You can cancel at any time from your account settings.' },
-    { question: 'Can I import my existing data?', answer: 'Absolutely. We support CSV, JSON, and direct integrations with 50+ popular tools.' },
-    { question: 'Do you offer enterprise pricing?', answer: 'Yes — contact our sales team for custom pricing, SLAs, and dedicated support options.' },
-    { question: 'Is my data secure?', answer: 'All data is encrypted at rest and in transit. We are SOC 2 Type II certified and GDPR compliant.' },
-  ];
+  // No fabricated defaults — a kit FAQ accordion must NEVER ship invented Q&A to a
+  // generated business site (it would also emit fake FAQPage JSON-LD asserting Q&A
+  // that doesn't exist). Empty by default → the <section> self-hides (*ngIf). The
+  // consumer passes the business's REAL, published FAQs. (anti-fabrication mandate)
+  @Input() items: FaqItem[] = [];
 }

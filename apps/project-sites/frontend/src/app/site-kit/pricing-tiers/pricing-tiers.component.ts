@@ -24,6 +24,7 @@ export interface PricingTier {
   imports: [NgFor, NgIf, CurrencyPipe],
   template: `
     <section
+      *ngIf="tiers.length"
       [attr.aria-labelledby]="headingId"
       style="padding: 48px 24px; max-width: 1040px; margin: 0 auto;"
     >
@@ -182,53 +183,9 @@ export class PricingTiersComponent {
   @Input() heading = 'Choose Your Plan';
   @Input() headingId = 'sk-pricing-heading';
   @Input() subtitle = 'No hidden fees. Cancel anytime.';
-  @Input() tiers: PricingTier[] = [
-    {
-      name: 'Starter',
-      price: 0,
-      period: 'mo',
-      description: 'Perfect for individuals getting started.',
-      features: [
-        { text: '1 project', included: true },
-        { text: 'Basic analytics', included: true },
-        { text: '5 GB storage', included: true },
-        { text: 'Priority support', included: false },
-        { text: 'Custom domain', included: false },
-      ],
-      ctaLabel: 'Get Started Free',
-      ctaHref: '#signup',
-    },
-    {
-      name: 'Pro',
-      price: 49,
-      period: 'mo',
-      description: 'For professionals who need more power.',
-      badge: 'Most Popular',
-      highlighted: true,
-      features: [
-        { text: 'Unlimited projects', included: true },
-        { text: 'Advanced analytics', included: true },
-        { text: '50 GB storage', included: true },
-        { text: 'Priority support', included: true },
-        { text: 'Custom domain', included: true },
-      ],
-      ctaLabel: 'Start Pro Trial',
-      ctaHref: '#pro',
-    },
-    {
-      name: 'Enterprise',
-      price: 199,
-      period: 'mo',
-      description: 'For teams and organizations at scale.',
-      features: [
-        { text: 'Unlimited projects', included: true },
-        { text: 'Advanced analytics', included: true },
-        { text: 'Unlimited storage', included: true },
-        { text: 'Dedicated support', included: true },
-        { text: 'Custom domain + SSO', included: true },
-      ],
-      ctaLabel: 'Contact Sales',
-      ctaHref: '#contact',
-    },
-  ];
+  // No fabricated defaults — a kit pricing table must NEVER ship invented prices/plans
+  // ($0/$49/$199) to a real business site; a visitor would read fabricated pricing as
+  // fact. Empty by default → the <section> self-hides (*ngIf). The consumer passes the
+  // business's REAL pricing. (anti-fabrication mandate)
+  @Input() tiers: PricingTier[] = [];
 }

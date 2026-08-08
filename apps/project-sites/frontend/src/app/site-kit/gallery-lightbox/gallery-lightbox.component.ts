@@ -13,7 +13,7 @@ export interface GalleryImage {
   imports: [NgFor, NgIf],
   template: `
     <!-- Grid -->
-    <section [attr.aria-label]="ariaLabel" style="padding: 0;">
+    <section *ngIf="images.length" [attr.aria-label]="ariaLabel" style="padding: 0;">
       <ul
         role="list"
         style="
@@ -120,11 +120,11 @@ export interface GalleryImage {
   `,
 })
 export class GalleryLightboxComponent {
-  @Input() images: GalleryImage[] = [
-    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23444"/><text x="200" y="200" text-anchor="middle" dominant-baseline="middle" fill="%23fff" font-size="20" font-family="sans-serif">Photo 1</text></svg>', alt: 'Gallery photo 1' },
-    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23336"/><text x="200" y="200" text-anchor="middle" dominant-baseline="middle" fill="%23fff" font-size="20" font-family="sans-serif">Photo 2</text></svg>', alt: 'Gallery photo 2' },
-    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23363"/><text x="200" y="200" text-anchor="middle" dominant-baseline="middle" fill="%23fff" font-size="20" font-family="sans-serif">Photo 3</text></svg>', alt: 'Gallery photo 3' },
-  ];
+  // No fabricated defaults — a kit gallery must NEVER ship placeholder "Photo 1/2/3"
+  // images to a real business site. Empty by default → the grid <section> self-hides
+  // (*ngIf); the getter stays guarded (activeIndex starts null). The consumer passes
+  // the business's REAL photos. (anti-fabrication mandate)
+  @Input() images: GalleryImage[] = [];
   @Input() ariaLabel = 'Photo gallery';
 
   activeIndex: number | null = null;

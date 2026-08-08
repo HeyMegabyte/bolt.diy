@@ -157,6 +157,19 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/validate-no-fabricated-people.mjs
 
+      # Fabricated-kit-defaults gate — a site-kit primitive (frontend/src/app/site-kit/*)
+      # must default its array @Input()s to [] (empty → self-hide via *ngIf), never a
+      # populated demo array. A populated default ships fabricated prices/menus/listings/
+      # FAQs/testimonials/features/stats VERBATIM to a real business's generated site the
+      # moment the consumer forgets to pass real data — a silent trust violation that
+      # passes every render gate. Drained to 0 (21 kit components fixed same fire) + a
+      # precise, low-false-positive detector (populated array @Input() default; empty []
+      # + scalar labels pass; *.stories.ts excluded) → gates on --ci. Companion to the
+      # fabricated-people gate (which catches the person+quote sub-class). Pure Node.
+      - name: Fabricated-kit-defaults gate
+        working-directory: apps/project-sites
+        run: node scripts/check-fabricated-kit-defaults.mjs --ci
+
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
         if: always()

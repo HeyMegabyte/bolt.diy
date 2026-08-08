@@ -13,7 +13,7 @@ export interface ProcessStep {
   standalone: true,
   imports: [NgFor, NgIf],
   template: `
-    <section [attr.aria-labelledby]="headingId" style="padding: 48px 24px;">
+    <section *ngIf="steps.length" [attr.aria-labelledby]="headingId" style="padding: 48px 24px;">
       <h2
         *ngIf="heading"
         [id]="headingId"
@@ -90,10 +90,9 @@ export interface ProcessStep {
 export class ProcessStepsComponent {
   @Input() heading = 'How It Works';
   @Input() headingId = 'ps-process-heading';
-  @Input() steps: ProcessStep[] = [
-    { title: 'Schedule', description: 'Book online in under 2 minutes — pick the date and time that works for you.' },
-    { title: 'We Show Up', description: 'Our licensed team arrives on time, fully equipped and ready to work.' },
-    { title: 'Quality Work', description: 'We complete the job with care, keeping your space clean throughout.' },
-    { title: 'Your Approval', description: 'We walk you through everything before we leave. 100% satisfaction guaranteed.' },
-  ];
+  // No fabricated defaults — a kit process-steps must NEVER ship invented process copy
+  // ("licensed team", "100% satisfaction guaranteed") to a real business site. Empty by
+  // default → the <section> self-hides (*ngIf). The consumer passes the business's REAL
+  // process. (anti-fabrication mandate)
+  @Input() steps: ProcessStep[] = [];
 }
