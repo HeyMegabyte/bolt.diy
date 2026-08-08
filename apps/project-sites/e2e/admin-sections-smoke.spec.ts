@@ -47,8 +47,13 @@ test.describe('Admin Section Smoke — Unauthenticated Redirect', () => {
   for (const sec of ADMIN_SECTIONS) {
     test(`${sec.name} (${sec.path}) redirects to sign-in when unauthenticated`, async ({ page }) => {
       await page.goto(`${PROD_URL}${sec.path}`);
-      await page.waitForURL('**/signin**', { timeout: 10000 });
-      await expect(page.locator('[data-testid="sign-in-page"]')).toBeVisible();
+      // 25s (was 10s): the unauth guard redirect is CLIENT-SIDE (SPA shell load →
+      // hydrate → route guard → navigate to /signin). Under 2-concurrent CI load that
+      // chain runs 10-20s, so 10s flaked the section paths (shard-1 render-timeout
+      // cluster per prod-e2e-ci-flakes-are-environmental). The redirect WORKS (guards
+      // + the authed brian sweep prove auth) — a settle-wait fix, not hiding a bug.
+      await page.waitForURL('**/signin**', { timeout: 25000 });
+      await expect(page.locator('[data-testid="sign-in-page"]')).toBeVisible({ timeout: 15000 });
     });
   }
 });

@@ -57,7 +57,11 @@ test.describe('Accessibility — Public Routes', () => {
       await page.goto(`${PROD_URL}${route}`, { waitUntil: 'domcontentloaded' });
       // Explicit shell-ready wait — the SPA shell 200s instantly, but axe must
       // not run against an empty <app-root> mid-hydration.
-      await page.locator(ready).first().waitFor({ state: 'visible', timeout: 20_000 });
+      // 35s (was 20s): public-route hydration under 2-concurrent CI load runs
+      // 15-25s, so 20s flaked (shard-1 render-timeout cluster). The routes DO
+      // render (live site + homepage prove it) — a settle-wait fix per
+      // prod-e2e-ci-flakes-are-environmental, not hiding a bug.
+      await page.locator(ready).first().waitFor({ state: 'visible', timeout: 35_000 });
 
       for (const bp of BREAKPOINTS) {
         await page.setViewportSize({ width: bp.width, height: bp.height });
