@@ -399,12 +399,15 @@ app.use('*', async (c, next) => {
   if (url.hostname !== 'storybook.projectsites.dev') return next();
   const fwd = new Headers(c.req.raw.headers);
   fwd.delete('host');
-  const pagesRes = await fetch(`https://projectsites-storybook.pages.dev${url.pathname}${url.search}`, {
-    method: c.req.method,
-    headers: fwd,
-    body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
-    redirect: 'manual',
-  });
+  const pagesRes = await fetch(
+    `https://projectsites-storybook.pages.dev${url.pathname}${url.search}`,
+    {
+      method: c.req.method,
+      headers: fwd,
+      body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
+      redirect: 'manual',
+    },
+  );
   return new Response(pagesRes.body, { status: pagesRes.status, headers: pagesRes.headers });
 });
 
