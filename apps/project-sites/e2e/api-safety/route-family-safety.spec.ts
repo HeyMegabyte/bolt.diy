@@ -23,6 +23,7 @@
  * @see {@link ../../src/index.ts}
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet, resilientPost } from '../helpers/api-request.js';
 import type { APIResponse } from '@playwright/test';
 
 const PROD = process.env.PROD_URL ?? 'https://projectsites.dev';
@@ -45,53 +46,53 @@ async function expectGatedOrEmpty(res: APIResponse, key: string): Promise<void> 
 
 test.describe('Flag-gated route families — unauthenticated safety gate (P10 coverage)', () => {
   test('GET /api/sites/:id/products — unauth gated or empty (storefront)', async ({ request }) => {
-    await expectGatedOrEmpty(await request.get(`${PROD}/api/sites/${ID}/products`), 'products');
+    await expectGatedOrEmpty(await resilientGet(request, `${PROD}/api/sites/${ID}/products`), 'products');
   });
 
   test('GET /api/storefront/products — unauth is gated (storefront alt)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/storefront/products`);
+    const res = await resilientGet(request, `${PROD}/api/storefront/products`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('POST /api/sites/:id/concierge — unauth is gated (RAG concierge)', async ({ request }) => {
-    const res = await request.post(`${PROD}/api/sites/${ID}/concierge`, { data: { query: 'hi' } });
+    const res = await resilientPost(request, `${PROD}/api/sites/${ID}/concierge`, { data: { query: 'hi' } });
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/sites/:id/commerce/feed — unauth is gated (agentic-commerce)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/sites/${ID}/commerce/feed`);
+    const res = await resilientGet(request, `${PROD}/api/sites/${ID}/commerce/feed`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/site-dna/:id/history — unauth is gated (site-dna)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/site-dna/${ID}/history`);
+    const res = await resilientGet(request, `${PROD}/api/site-dna/${ID}/history`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/sites/:id/experiments — unauth is gated 402 pro (experiments)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/sites/${ID}/experiments`);
+    const res = await resilientGet(request, `${PROD}/api/sites/${ID}/experiments`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/domains/:hostname/stack-status — unauth is gated (domain-stack)', async ({
     request,
   }) => {
-    const res = await request.get(`${PROD}/api/domains/${HOST}/stack-status`);
+    const res = await resilientGet(request, `${PROD}/api/domains/${HOST}/stack-status`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/sites/:id/review-links — unauth is gated (review-links)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/sites/${ID}/review-links`);
+    const res = await resilientGet(request, `${PROD}/api/sites/${ID}/review-links`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('POST /api/jobs — unauth is gated (jobs)', async ({ request }) => {
-    const res = await request.post(`${PROD}/api/jobs`, { data: { type: 'noop' } });
+    const res = await resilientPost(request, `${PROD}/api/jobs`, { data: { type: 'noop' } });
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/jobs/:id/status — unauth is gated (jobs)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/jobs/${ID}/status`);
+    const res = await resilientGet(request, `${PROD}/api/jobs/${ID}/status`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
@@ -102,7 +103,7 @@ test.describe('Flag-gated route families — unauthenticated safety gate (P10 co
     test(`GET /api/sites/:id/products value-domain — ${raw.slice(0, 20)} never leaks, never 5xx`, async ({
       request,
     }) => {
-      const res = await request.get(`${PROD}/api/sites/${encodeURIComponent(raw)}/products`);
+      const res = await resilientGet(request, `${PROD}/api/sites/${encodeURIComponent(raw)}/products`);
       expect(res.status(), `malformed id must never 5xx — got ${res.status()}`).toBeLessThan(500);
       await expectGatedOrEmpty(res, 'products');
     });

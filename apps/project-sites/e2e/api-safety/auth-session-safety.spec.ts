@@ -14,12 +14,13 @@
  * @see {@link ../../src/routes/api.ts}
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet, resilientPost } from '../helpers/api-request.js';
 
 const PROD = process.env.PROD_URL ?? 'https://projectsites.dev';
 
 test.describe('Auth session surface — unauthenticated safety (P10 coverage)', () => {
   test('GET /api/auth/me — unauth never leaks a user', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/auth/me`);
+    const res = await resilientGet(request, `${PROD}/api/auth/me`);
     expect([200, 401], `unexpected status ${res.status()}`).toContain(res.status());
     if (res.status() === 200) {
       const body = await res.json().catch(() => ({}));
@@ -40,7 +41,7 @@ test.describe('Auth session surface — unauthenticated safety (P10 coverage)', 
   ];
   for (const [i, data] of INVALID_BODIES.entries()) {
     test(`POST /api/auth/magic-link — invalid body #${i} rejected, never sends`, async ({ request }) => {
-      const res = await request.post(`${PROD}/api/auth/magic-link`, { data });
+      const res = await resilientPost(request, `${PROD}/api/auth/magic-link`, { data });
       expect(
         res.status(),
         `invalid magic-link body must be rejected (non-2xx) — got ${res.status()}`,
@@ -53,7 +54,7 @@ test.describe('Auth session surface — unauthenticated safety (P10 coverage)', 
     test(`GET /api/auth/magic-link/verify — garbage token "${tok.slice(0, 16)}" grants nothing`, async ({
       request,
     }) => {
-      const res = await request.get(
+      const res = await resilientGet(request, 
         `${PROD}/api/auth/magic-link/verify?token=${encodeURIComponent(tok)}`,
         { maxRedirects: 0 },
       );

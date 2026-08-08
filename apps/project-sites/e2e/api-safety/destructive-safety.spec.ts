@@ -14,6 +14,7 @@
  * @see {@link ../../src/routes/api.ts}
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet, resilientPost } from '../helpers/api-request.js';
 
 const PROD = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -29,12 +30,12 @@ test.describe('Destructive site routes — unauthenticated safety gate (P10 cove
   });
 
   test('POST /api/sites/:id/reset — unauth is gated, never resets', async ({ request }) => {
-    const res = await request.post(`${PROD}/api/sites/${ID}/reset`, { data: {} });
+    const res = await resilientPost(request, `${PROD}/api/sites/${ID}/reset`, { data: {} });
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('POST /api/sites/:id/publish-bolt — unauth is gated, never publishes', async ({ request }) => {
-    const res = await request.post(`${PROD}/api/sites/${ID}/publish-bolt`, { data: {} });
+    const res = await resilientPost(request, `${PROD}/api/sites/${ID}/publish-bolt`, { data: {} });
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
@@ -44,7 +45,7 @@ test.describe('Destructive site routes — unauthenticated safety gate (P10 cove
   });
 
   test('GET /api/sites/:id — unauth is gated, never leaks org-scoped data', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/sites/${ID}`);
+    const res = await resilientGet(request, `${PROD}/api/sites/${ID}`);
     expect(GATE, `unauth must be gated — got ${res.status()}`).toContain(res.status());
   });
 
@@ -62,7 +63,7 @@ test.describe('Destructive site routes — unauthenticated safety gate (P10 cove
     test(`GET /api/sites/:id value-domain — ${raw.slice(0, 24)} stays gated, never 5xx`, async ({
       request,
     }) => {
-      const res = await request.get(`${PROD}/api/sites/${encodeURIComponent(raw)}`);
+      const res = await resilientGet(request, `${PROD}/api/sites/${encodeURIComponent(raw)}`);
       const s = res.status();
       expect(s, `malformed id must be 4xx-gated — got ${s}`).toBeGreaterThanOrEqual(400);
       expect(s, `malformed id must never 5xx — got ${s}`).toBeLessThan(500);

@@ -5,6 +5,7 @@
  * OG tags, JSON-LD blocks, and correct status codes.
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet } from './helpers/api-request.js';
 
 const PROD_URL = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -62,14 +63,14 @@ test.describe('SEO — Public Route Metadata', () => {
 
 test.describe('SEO — Critical Files', () => {
   test('robots.txt exists and references sitemap', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/robots.txt`);
+    const res = await resilientGet(request, `${PROD_URL}/robots.txt`);
     expect(res.status()).toBe(200);
     const text = await res.text();
     expect(text).toContain('sitemap');
   });
 
   test('sitemap.xml returns valid XML', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/sitemap.xml`);
+    const res = await resilientGet(request, `${PROD_URL}/sitemap.xml`);
     expect(res.status()).toBe(200);
     const text = await res.text();
     expect(text).toContain('<urlset');
@@ -77,17 +78,17 @@ test.describe('SEO — Critical Files', () => {
   });
 
   test('humans.txt exists', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/humans.txt`);
+    const res = await resilientGet(request, `${PROD_URL}/humans.txt`);
     expect(res.status()).toBe(200);
   });
 
   test('security.txt exists', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/.well-known/security.txt`);
+    const res = await resilientGet(request, `${PROD_URL}/.well-known/security.txt`);
     expect([200, 301, 302]).toContain(res.status());
   });
 
   test('llms.txt exists for AI agent discovery', async ({ request }) => {
-    const res = await request.get(`${PROD_URL}/llms.txt`);
+    const res = await resilientGet(request, `${PROD_URL}/llms.txt`);
     // May 404 if not yet implemented — not a hard failure
     expect([200, 404]).toContain(res.status());
   });

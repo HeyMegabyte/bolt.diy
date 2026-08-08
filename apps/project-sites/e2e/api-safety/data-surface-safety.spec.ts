@@ -15,6 +15,7 @@
  * @see {@link ../../src/routes/api.ts}
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet, resilientPost } from '../helpers/api-request.js';
 
 const PROD = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -81,7 +82,7 @@ test.describe('inbox (support conversations + tasks) — unauth safety gate (P10
   // an unauth caller (orgId='') gets an EMPTY list — safe-by-design, never a leak.
   // Accept a gate OR a 200 whose conversations are empty (a populated 200 = FAIL).
   test('GET /api/inbox/conversations — unauth gated or empty (no leak)', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/inbox/conversations`);
+    const res = await resilientGet(request, `${PROD}/api/inbox/conversations`);
     const s = res.status();
     if (!GATE.includes(s)) {
       expect(s, `must be a gate or an empty 200 — got ${s}`).toBe(200);
@@ -96,7 +97,7 @@ test.describe('internal build-status callback — forgery gate (P10 coverage)', 
   test('POST /api/internal/build-status — unsigned callback is rejected, never processed', async ({
     request,
   }) => {
-    const res = await request.post(`${PROD}/api/internal/build-status`, {
+    const res = await resilientPost(request, `${PROD}/api/internal/build-status`, {
       data: { siteId: ID, status: 'published' },
     });
     expect(SIG_GATE, `unsigned build callback must reject — got ${res.status()}`).toContain(

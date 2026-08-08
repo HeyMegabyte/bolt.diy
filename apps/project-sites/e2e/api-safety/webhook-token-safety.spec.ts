@@ -17,6 +17,7 @@
  * @see {@link ../../src/routes/mcp_oauth.ts}
  */
 import { test, expect } from '@playwright/test';
+import { resilientGet, resilientPost } from '../helpers/api-request.js';
 
 const PROD = process.env.PROD_URL ?? 'https://projectsites.dev';
 
@@ -27,12 +28,12 @@ const AUTH_GATE = [401, 403, 404];
 
 test.describe('Webhook + MCP-OAuth callback — forgery/unauth safety (P10 coverage)', () => {
   test('POST /webhooks/stripe — no signature is rejected, never processed', async ({ request }) => {
-    const res = await request.post(`${PROD}/webhooks/stripe`, { data: {} });
+    const res = await resilientPost(request, `${PROD}/webhooks/stripe`, { data: {} });
     expect(SIG_GATE, `unsigned stripe webhook must reject — got ${res.status()}`).toContain(res.status());
   });
 
   test('POST /webhooks/stripe — forged signature is rejected', async ({ request }) => {
-    const res = await request.post(`${PROD}/webhooks/stripe`, {
+    const res = await resilientPost(request, `${PROD}/webhooks/stripe`, {
       headers: { 'stripe-signature': 't=1,v1=deadbeef' },
       data: { type: 'checkout.session.completed' },
     });
@@ -40,7 +41,7 @@ test.describe('Webhook + MCP-OAuth callback — forgery/unauth safety (P10 cover
   });
 
   test('POST /webhooks/stripe — empty body + no header is rejected', async ({ request }) => {
-    const res = await request.post(`${PROD}/webhooks/stripe`, { headers: {}, data: '' });
+    const res = await resilientPost(request, `${PROD}/webhooks/stripe`, { headers: {}, data: '' });
     expect(SIG_GATE, `empty stripe webhook must reject — got ${res.status()}`).toContain(res.status());
   });
 
@@ -48,7 +49,7 @@ test.describe('Webhook + MCP-OAuth callback — forgery/unauth safety (P10 cover
     test(`GET /api/mcp/${provider}/callback — forged state never completes a connection`, async ({
       request,
     }) => {
-      const res = await request.get(
+      const res = await resilientGet(request, 
         `${PROD}/api/mcp/${provider}/callback?code=fake&state=forged`,
         { maxRedirects: 0 },
       );
@@ -65,12 +66,12 @@ test.describe('Webhook + MCP-OAuth callback — forgery/unauth safety (P10 cover
   }
 
   test('POST /api/mcp/:provider/paste — unauth never stores a key', async ({ request }) => {
-    const res = await request.post(`${PROD}/api/mcp/resend/paste`, { data: { apiKey: 'fake' } });
+    const res = await resilientPost(request, `${PROD}/api/mcp/resend/paste`, { data: { apiKey: 'fake' } });
     expect(AUTH_GATE, `unauth paste must be gated — got ${res.status()}`).toContain(res.status());
   });
 
   test('GET /api/mcp/connections — unauth never lists connections', async ({ request }) => {
-    const res = await request.get(`${PROD}/api/mcp/connections`);
+    const res = await resilientGet(request, `${PROD}/api/mcp/connections`);
     expect(AUTH_GATE, `unauth connections list must be gated — got ${res.status()}`).toContain(res.status());
   });
 });

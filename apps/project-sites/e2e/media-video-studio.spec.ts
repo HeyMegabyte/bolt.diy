@@ -110,7 +110,11 @@ async function stubMediaApis(page: Page, model = 'sora'): Promise<{ calls: strin
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data: queued }),
+      // Real worker returns `{ assets }` (src/routes/media.ts GET /assets +
+      // media_routes.test.ts) — the component reads `r.assets` (media.component
+      // .ts:1471 `assets.set(r.assets ?? [])`). The old `{ data }` key left
+      // r.assets undefined → list always empty → the queued row never rendered.
+      body: JSON.stringify({ assets: queued }),
     });
   });
 
@@ -127,9 +131,14 @@ async function stubMediaApis(page: Page, model = 'sora'): Promise<{ calls: strin
     const asset = queuedVideoAsset(body.model ?? model, body.prompt ?? '');
     queued.unshift(asset);
     await route.fulfill({
-      status: 200,
+      // Real worker: `c.json({ ok: true, asset }, 202)` (src/routes/media.ts:444).
+      // The component reads `r.asset` (media.component.ts:1842 typed
+      // `.post<{ asset: MediaAsset }>`) and prepends it into assets(). The old
+      // `{ data: asset }` at 200 left r.asset undefined → nothing prepended →
+      // no video-job-row. Match the real key + 202 status exactly.
+      status: 202,
       contentType: 'application/json',
-      body: JSON.stringify({ data: asset }),
+      body: JSON.stringify({ ok: true, asset }),
     });
   };
   // The REAL worker route is POST /api/media/generate/video. Register the exact
