@@ -49,6 +49,15 @@ const KNOWN_INTEGRATIONS = new Set([
 const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz']);
 
 /**
+ * Per-probe network timeout (ms). A health endpoint must never hang the aggregate
+ * (`GET /api/integrations/health`, which the System Services admin page reads) on a
+ * single down dependency — bound each LIVE probe (listmonk + twenty) so a hung
+ * mail/crm host degrades to `failing` within the budget instead of stalling the
+ * whole response. Matches the codebase idiom (cf_registrar / rdap / redis_failover).
+ */
+const PROBE_TIMEOUT_MS = 4000;
+
+/**
  * Env-var whose presence marks a config-only integration as "configured".
  * listmonk + twenty are probed with a LIVE fetch instead (see {@link buildSignal}).
  */
@@ -95,7 +104,12 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
   switch (name) {
     case 'listmonk': {
       const cfg = listmonkCfg(env);
-      const result = await listmonkHealth(cfg);
+      // Bound the probe via listmonkHealth's DI seam — a timeout-wrapping fetch so a
+      // hung mail.projectsites.dev can't stall the aggregate. listmonkHealth already
+      // catches the AbortError and returns { ok: false } → scored `failing`.
+      const result = await listmonkHealth(cfg, (input, init) =>
+        fetch(input, { ...init, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) }),
+      );
       return {
         provider: 'listmonk',
         lastStatus: result.ok ? 200 : 503,
@@ -120,6 +134,7 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
       try {
         const res = await fetch(`${env.TWENTY_API_URL}/rest/companies?limit=1`, {
           headers: { Authorization: `Bearer ${env.TWENTY_API_KEY}` },
+          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
         });
         return {
           provider: 'twenty',

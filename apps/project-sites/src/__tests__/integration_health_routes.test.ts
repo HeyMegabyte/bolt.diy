@@ -31,8 +31,9 @@ function mockEnv(overrides: Partial<Env> = {}): Env {
 // `marks listmonk as unknown` test flaked on Jest's 5s timeout (reddened Project Sites
 // CI/CD). Unit tests must mock external deps (CLAUDE.md PART 10.2). A 200/ok stub keeps
 // every assertion valid (they check unconfigured→unknown + response shape, not live status).
+let fetchSpy: ReturnType<typeof jest.spyOn>;
 beforeEach(() => {
-  jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+  fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
     ok: true,
     status: 200,
     json: async () => ({}),
@@ -115,5 +116,28 @@ describe('GET /api/integrations/health', () => {
     const lm = body.integrations.find((i: any) => i.integration === 'listmonk');
     expect(lm.status).toBe('unknown');
     expect(lm.configured).toBe(false);
+  });
+
+  it('degrades gracefully when a live probe times out (bounded, never hangs the aggregate)', async () => {
+    // Simulate a hung/aborted probe: the timeout-wrapped fetch rejects like AbortSignal.timeout.
+    fetchSpy.mockRejectedValue(
+      Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }),
+    );
+    const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+    app.route('/', integrationHealth);
+    const req = new Request('https://projectsites.dev/api/integrations/health');
+    // twenty is configured (mockEnv default) → a LIVE probe that now times out.
+    const res = await app.fetch(req, mockEnv());
+    expect(res.status).toBe(200); // aggregate resolves — a probe failure never throws/hangs
+    const body = (await res.json()) as any;
+    const twenty = body.integrations.find((i: any) => i.integration === 'twenty');
+    expect(twenty.configured).toBe(true);
+    // configured + probe failed → scored 'failing' (degraded signal), never a crash
+    expect(twenty.status).not.toBe('healthy');
+    // the live probe was invoked with an abort signal (timeout wired)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/rest/companies'),
+      expect.objectContaining({ signal: expect.anything() }),
+    );
   });
 });
