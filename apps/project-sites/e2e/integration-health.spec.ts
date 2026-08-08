@@ -19,12 +19,42 @@ interface HealthProbe {
 }
 
 const HEALTH_PROBES: HealthProbe[] = [
-  { name: 'Listmonk (mail)', path: '/api/integrations/listmonk/health', expectedStatus: 200, required: true },
-  { name: 'Twenty CRM (crm)', path: '/api/integrations/twenty/health', expectedStatus: 200, required: false }, // May 501 if probe not yet wired
-  { name: 'Stripe (billing)', path: '/api/integrations/stripe/health', expectedStatus: 200, required: false },
-  { name: 'Deepgram (voice)', path: '/api/integrations/deepgram/health', expectedStatus: 200, required: false },
-  { name: 'Lago (removed→Stripe Meters)', path: '/api/integrations/lago/health', expectedStatus: 200, required: false },
-  { name: 'Resend (deprecated→SES)', path: '/api/integrations/resend/health', expectedStatus: 200, required: false },
+  {
+    name: 'Listmonk (mail)',
+    path: '/api/integrations/listmonk/health',
+    expectedStatus: 200,
+    required: true,
+  },
+  {
+    name: 'Twenty CRM (crm)',
+    path: '/api/integrations/twenty/health',
+    expectedStatus: 200,
+    required: false,
+  }, // May 501 if probe not yet wired
+  {
+    name: 'Stripe (billing)',
+    path: '/api/integrations/stripe/health',
+    expectedStatus: 200,
+    required: false,
+  },
+  {
+    name: 'Deepgram (voice)',
+    path: '/api/integrations/deepgram/health',
+    expectedStatus: 200,
+    required: false,
+  },
+  {
+    name: 'Lago (removed→Stripe Meters)',
+    path: '/api/integrations/lago/health',
+    expectedStatus: 200,
+    required: false,
+  },
+  {
+    name: 'Resend (deprecated→SES)',
+    path: '/api/integrations/resend/health',
+    expectedStatus: 200,
+    required: false,
+  },
   { name: 'API health', path: '/api/health', expectedStatus: 200, required: true },
 ] as const;
 
@@ -41,10 +71,15 @@ test.describe('Integration Health Probes', () => {
         // tarpits — either surfaces a transient upstream/gateway/timeout status
         // (500/502/504) or a throttle (408/429). All are acceptable for an OPTIONAL
         // integration: "unavailable is OK" is this probe's whole contract. 200=live,
-        // 404/501=not-wired, 503=down, 5xx/408/429=transient. resilientGet already
-        // retries pure transport stalls; this widens the tolerated HTTP surface so a
-        // cold container can't red the shard. Required probes stay strict-200 above.
-        expect([200, 404, 408, 429, 500, 501, 502, 503, 504]).toContain(res.status());
+        // 404/501=not-wired, 503=down, 5xx/408/429=transient, 410=removed/decommissioned.
+        // resilientGet already retries pure transport stalls; this widens the tolerated HTTP
+        // surface so a cold container can't red the shard. Required probes stay strict-200 above.
+        // ⚠️ 410 is DELIBERATE: decommissioned integrations (lago/nango/inngest/postiz per
+        // ADR-0034) correctly return `410 Gone` from /api/integrations/:name/health — the
+        // Lago probe below is one, and omitting 410 made it fail DETERMINISTICALLY every run
+        // (not an env flake). The removed-*status* correctness is guarded separately by
+        // e2e/admin-verify/verify-integration-health-statuses.mjs (asserts they read 'removed').
+        expect([200, 404, 408, 410, 429, 500, 501, 502, 503, 504]).toContain(res.status());
       }
     });
   }
