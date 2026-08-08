@@ -28,9 +28,14 @@ const KEY = process.env.E2E_API_KEY ?? '';
 async function seed(page: Page): Promise<void> {
   await page.addInitScript((k: string) => {
     try {
-      localStorage.setItem('ps_session', JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
+      );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
@@ -69,24 +74,24 @@ test.describe('admin — 4-state-kit conversions (campaign regression guard)', (
     test.setTimeout(60000);
     await seed(page);
     await page.goto('/admin/social/analytics', { waitUntil: 'load' });
-    await expect(page.locator('[data-testid="social-analytics-section"]').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="social-analytics-section"]').first()).toBeVisible({
+      timeout: 30000,
+    });
     await expect(page.locator(STATE_SELECTOR).first()).toBeVisible({ timeout: 20000 });
     // The old bare copy "Loading the receipts." must be gone (replaced by app-skeleton).
     await expect(page.getByText('Loading the receipts.', { exact: true })).toHaveCount(0);
   });
 
-  test('marketplace (5576feb): valid state, never a silent blank on data failure', async ({ page }) => {
-    test.setTimeout(60000);
-    await seed(page);
-    await page.goto('/admin/marketplace', { waitUntil: 'load' });
-    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-    // Either real catalog cards, an empty-state, or an error-card — never blank.
-    await expect(
-      page.locator('[data-testid="error-card"], app-error-card, app-empty-state, .mkt-card, .mkt-section').first(),
-    ).toBeVisible({ timeout: 20000 });
-  });
+  // NOTE: the 'marketplace' sub-test was REMOVED 2026-08-08 — /admin/marketplace is a
+  // DELETED section (see admin-section-labels.spec.ts). Its route falls to the admin
+  // catch-all (AdminNotFoundComponent), which renders NONE of the test's selectors
+  // (.mkt-card/.mkt-section are gone from src; the not-found page shows no
+  // app-error-card/app-empty-state) → it failed DETERMINISTICALLY every run — stale
+  // cruft from a removed feature, not a real "silent blank on data failure" regression.
 
-  test('feature-flags (5576feb/67b02e44): full flag list renders with live state', async ({ page }) => {
+  test('feature-flags (5576feb/67b02e44): full flag list renders with live state', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     await seed(page);
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });
@@ -94,7 +99,9 @@ test.describe('admin — 4-state-kit conversions (campaign regression guard)', (
     await expect(page.locator('.ff-card').first()).toBeVisible({ timeout: 20000 });
     // The registry is large (150+ flags). Assert the list actually populated.
     const cards = await page.locator('.ff-card').count();
-    expect(cards, 'feature-flags list must render the full registry, not a stub').toBeGreaterThan(50);
+    expect(cards, 'feature-flags list must render the full registry, not a stub').toBeGreaterThan(
+      50,
+    );
     // Each card exposes the three real controls (disable/inspect/killswitch).
     const first = page.locator('.ff-card').first();
     await expect(first.getByRole('button', { name: /inspect/i })).toBeVisible();
