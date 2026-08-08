@@ -34,7 +34,7 @@ const KNOWN_INTEGRATIONS = new Set([
   'twenty', // CF Container — crm.projectsites.dev
   'stripe', // Managed SaaS — billing
   'deepgram', // Managed SaaS — STT
-  'unkey', // Managed SaaS — API keys
+  'unkey', // CF Container — api.projectsites.dev
   'langfuse', // CF Container — traces.projectsites.dev
   'payload', // CF Container — cms.projectsites.dev
   // Removed / deprecated (probe returns 410 Gone)
@@ -46,7 +46,7 @@ const KNOWN_INTEGRATIONS = new Set([
 ]);
 
 /** Services fully decommissioned per ADR-0034 — probe returns 410 Gone. */
-const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz']);
+const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz', 'lago']);
 
 /**
  * Per-probe network timeout (ms). A health endpoint must never hang the aggregate
@@ -65,10 +65,19 @@ const CONFIG_ENV_KEY: Readonly<Record<string, string>> = {
   stripe: 'STRIPE_SECRET_KEY',
   resend: 'RESEND_API_KEY',
   deepgram: 'DEEPGRAM_API_KEY',
-  lago: 'LAGO_API_KEY',
-  unkey: 'UNKEY_ROOT_KEY',
   langfuse: 'LANGFUSE_PUBLIC_KEY',
-  payload: 'PAYLOAD_API_URL',
+};
+
+/**
+ * Platform services (CF Containers) with a PUBLIC liveness endpoint (no auth) — probed
+ * LIVE like listmonk/twenty. Reports `healthy` when the endpoint 200s, `failing` when
+ * down, instead of a misleading `unknown` from a config-presence check on a secret the
+ * worker env may not carry (both are LIVE but their admin keys aren't Worker secrets).
+ * Hosts are our own stable platform subdomains.
+ */
+const LIVENESS_URL: Readonly<Record<string, string>> = {
+  unkey: 'https://api.projectsites.dev/api/health',
+  payload: 'https://cms.projectsites.dev/healthz',
 };
 
 /**
@@ -83,15 +92,42 @@ function listmonkCfg(env: Env): ListmonkConfig {
 }
 
 /**
+ * Probe a PUBLIC liveness endpoint (no auth) and score it. A 200 → healthy; any other
+ * outcome (non-2xx, or a thrown/aborted fetch) → failing. Bounded by {@link PROBE_TIMEOUT_MS}.
+ * Used for platform CF Containers that expose a health path (see {@link LIVENESS_URL}).
+ *
+ * @param provider - integration slug
+ * @param url - the service's public health URL
+ * @returns a {@link ConnectionSignal} — never throws
+ */
+async function probeLiveness(provider: string, url: string): Promise<ConnectionSignal> {
+  let ok = false;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
+    ok = res.ok;
+  } catch {
+    ok = false;
+  }
+  return {
+    provider,
+    lastStatus: ok ? 200 : 503,
+    tokenValid: ok,
+    lastCallOk: ok,
+    daysSinceLastUse: 0,
+    isConfigured: true,
+  };
+}
+
+/**
  * Probe ONE integration and return its health {@link ConnectionSignal}.
  *
  * The single source of truth shared by BOTH the per-service endpoint and the
  * aggregate, so they can never report different statuses for the same service.
  *
- * - `listmonk` / `twenty` → LIVE fetch against the service.
- * - config-only services (stripe, deepgram, unkey, langfuse, payload, …) →
+ * - `listmonk` / `twenty` / `unkey` / `payload` → LIVE public-liveness probe.
+ * - config-only services (stripe, deepgram, langfuse, resend) →
  *   presence of their {@link CONFIG_ENV_KEY} secret marks them configured.
- * - decommissioned services (nango/inngest/postiz) → the literal `'removed'`,
+ * - decommissioned services (nango/inngest/postiz/lago) → the literal `'removed'`,
  *   which callers render as 410 Gone / `status: 'removed'`.
  *
  * @param name - lowercased integration name (must be in {@link KNOWN_INTEGRATIONS})
@@ -100,6 +136,10 @@ function listmonkCfg(env: Env): ListmonkConfig {
  */
 async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | 'removed'> {
   if (REMOVED_INTEGRATIONS.has(name)) return 'removed';
+
+  // Platform CF Containers with a public liveness endpoint → LIVE probe (like listmonk/twenty).
+  const livenessUrl = LIVENESS_URL[name];
+  if (livenessUrl) return probeLiveness(name, livenessUrl);
 
   switch (name) {
     case 'listmonk': {

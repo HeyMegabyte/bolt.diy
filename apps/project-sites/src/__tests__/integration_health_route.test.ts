@@ -50,11 +50,8 @@ describe('buildSignal — config-only services reflect their secret presence', (
   for (const [name, envKey] of [
     ['stripe', 'STRIPE_SECRET_KEY'],
     ['deepgram', 'DEEPGRAM_API_KEY'],
-    ['unkey', 'UNKEY_ROOT_KEY'],
     ['langfuse', 'LANGFUSE_PUBLIC_KEY'],
-    ['payload', 'PAYLOAD_API_URL'],
     ['resend', 'RESEND_API_KEY'],
-    ['lago', 'LAGO_API_KEY'],
   ] as const) {
     it(`${name}: configured when ${envKey} is set, not-configured when unset`, async () => {
       const on = await buildSignal(name, configuredEnv());
@@ -68,8 +65,28 @@ describe('buildSignal — config-only services reflect their secret presence', (
   }
 
   it('decommissioned services return the "removed" sentinel', async () => {
-    for (const name of ['nango', 'inngest', 'postiz']) {
+    for (const name of ['nango', 'inngest', 'postiz', 'lago']) {
       expect(await buildSignal(name, configuredEnv())).toBe('removed');
+    }
+  });
+
+  it('unkey + payload are LIVE-probed (public liveness), not config-presence', async () => {
+    // Both are CF Containers with a public health endpoint → probed live, so they report
+    // healthy + configured regardless of whether an admin secret sits in the worker env.
+    for (const name of ['unkey', 'payload'] as const) {
+      const on = await buildSignal(name, configuredEnv());
+      expect(on).not.toBe('removed');
+      if (on !== 'removed') {
+        expect(on.isConfigured).toBe(true);
+        expect(on.lastCallOk).toBe(true); // beforeEach stubs fetch → 200
+      }
+      // still configured even with NO admin secret — liveness is not gated on config
+      const off = await buildSignal(
+        name,
+        configuredEnv({ UNKEY_ROOT_KEY: undefined, PAYLOAD_API_URL: undefined }),
+      );
+      expect(off).not.toBe('removed');
+      if (off !== 'removed') expect(off.isConfigured).toBe(true);
     }
   });
 });
