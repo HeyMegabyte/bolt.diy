@@ -12,7 +12,6 @@
  *   - pSEO            `fa1863f` — bare `.ps-error` div → `<app-error-card (retry)>`
  *   - social-analytics `d9ffebd` — bare `.error`/`.loading` → `app-error-card` + `app-skeleton`
  *   - content-freshness `79e0a32` — bare `.cf-error` div → `<app-error-card (retry)>`
- *   - marketplace      `5576feb` — silent-empty-on-error → `<app-error-card (retry)>`
  *   - feature-flags    `5576feb`/`67b02e44` — full flag list + persisted-override merge
  *
  * Contract: on every covered route a VALID 4-state container must render
