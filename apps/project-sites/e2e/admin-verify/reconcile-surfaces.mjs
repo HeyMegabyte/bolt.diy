@@ -37,13 +37,21 @@ const SITE = 'site-megabytespace-001';
 // Each surface: the DISPLAY endpoint the admin UI actually calls, the D1 ground-truth
 // count for brian, and how to pull the displayed count from the JSON envelope.
 // `extract` returns a number (rows displayed) from the parsed response body.
+// `mode: 'populated'` — for WINDOWED / SUBSET surfaces whose exact count legitimately
+// drifts (a hardcoded gt goes stale → recurring FALSE 🟠 PARTIALs that erode the
+// finder's trust, per validator-precision-discipline). Verify populated (display > 0),
+// NOT an exact count. The all-time total is reconciled by its own stable surface.
+// Confirmed 2026-08-08 vs live D1: per-site /analytics `pageviews` is a WINDOWED metric
+// (D1 visitor_events all-time=131, the endpoint shows the window); per-site logs is
+// TARGET_ID-scoped (D1 audit_logs target_id=site = 22, endpoint correctly returns all 22
+// — the old gt=200 was stale). Both were false PARTIALs, not product bugs.
 const SURFACES = [
   { name: 'sites', endpoint: '/api/sites', gt: 1, extract: (d) => arr(d, 'data', 'sites').length },
-  { name: 'analytics (CORRECT /sites/:id/analytics)', endpoint: `/api/sites/${SITE}/analytics`, gt: 109, extract: (d) => num(d?.traffic ?? d, 'pageviews') },
-  { name: 'analytics (UI overview source)', endpoint: '/api/network-analytics', gt: 109, extract: (d) => firstNumberish(d) },
+  { name: 'analytics (CORRECT /sites/:id/analytics)', endpoint: `/api/sites/${SITE}/analytics`, gt: 1, mode: 'populated', extract: (d) => num(d?.traffic ?? d, 'pageviews') },
+  { name: 'analytics (UI overview source)', endpoint: '/api/network-analytics', gt: 1, mode: 'populated', extract: (d) => firstNumberish(d) },
   { name: 'media', endpoint: '/api/media/assets', gt: 2, extract: (d) => arr(d, 'data', 'assets', 'items').length },
   { name: 'snapshots', endpoint: `/api/sites/${SITE}/snapshots`, gt: 4, extract: (d) => arr(d, 'data', 'snapshots').length },
-  { name: 'audit (per-site logs)', endpoint: `/api/sites/${SITE}/logs?limit=200`, gt: 200, extract: (d) => arr(d, 'data', 'logs').length },
+  { name: 'audit (per-site logs)', endpoint: `/api/sites/${SITE}/logs?limit=200`, gt: 1, mode: 'populated', extract: (d) => arr(d, 'data', 'logs').length },
   { name: 'audit (org audit-logs)', endpoint: '/api/audit-logs?limit=50', gt: 50, extract: (d) => arr(d, 'data', 'logs').length },
   { name: 'voice numbers', endpoint: `/api/voice/numbers?siteId=${SITE}`, gt: 1, extract: (d) => arr(d, 'numbers', 'data').length },
   { name: 'mcp connections', endpoint: '/api/mcp/connections', gt: 2, extract: (d) => arr(d, 'data', 'connections').length },
@@ -111,6 +119,9 @@ try {
     const displayN = typeof display === 'number' && !Number.isNaN(display) ? display : 0;
     let verdict;
     if (res.status >= 400 || res.status === 0) verdict = `❌ HTTP ${res.status}${res.error ? ' ' + res.error : ''}`;
+    // Windowed/subset surfaces: the only failure is lying-empty (shows 0 while data
+    // exists). Any populated value is correct — the exact count drifts by design.
+    else if (s.mode === 'populated') verdict = displayN > 0 ? `✅ OK (populated: ${displayN})` : '🔴 LYING-EMPTY (data exists, shows 0)';
     else if (s.gt > 0 && displayN === 0) verdict = '🔴 LYING-EMPTY (gt>0, shows 0)';
     else if (s.gt > 0 && displayN < s.gt * 0.5) verdict = `🟠 PARTIAL (gt=${s.gt}, shows ${displayN})`;
     else verdict = '✅ OK';
