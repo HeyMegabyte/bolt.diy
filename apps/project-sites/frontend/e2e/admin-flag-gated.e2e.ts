@@ -28,7 +28,9 @@ async function seed(page: Page): Promise<void> {
         JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
       );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
@@ -36,76 +38,65 @@ test.describe('admin — flag-gated sections do not fetch org data when disabled
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  test('inbox (flag off): no /api/inbox/conversations fetch; disabled message shows', async ({ page }) => {
+  test('inbox (flag off): no /api/inbox/conversations fetch; disabled message shows', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     const orgFetches: string[] = [];
-    page.on('request', (r) => { if (/\/api\/inbox\/conversations/.test(r.url())) orgFetches.push(r.url()); });
+    page.on('request', (r) => {
+      if (/\/api\/inbox\/conversations/.test(r.url())) orgFetches.push(r.url());
+    });
     await seed(page);
     await page.goto('/admin/inbox', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
     // The disabled state must render (proves the flag resolved off + section handled it).
     await expect(page.getByText(/behind the/i).first()).toBeVisible({ timeout: 15000 });
     await page.waitForTimeout(2500); // window for any (incorrect) fetch to fire
-    expect(orgFetches, `inbox must NOT fetch org data when unified_inbox is off:\n${orgFetches.join('\n')}`).toEqual([]);
+    expect(
+      orgFetches,
+      `inbox must NOT fetch org data when unified_inbox is off:\n${orgFetches.join('\n')}`,
+    ).toEqual([]);
   });
 
-  test('site-dna (flag off): no /api/site-dna fetch; disabled message shows (or skip without a site)', async ({ page }) => {
+  test('site-dna (flag off): no /api/site-dna fetch; disabled message shows (or skip without a site)', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     const orgFetches: string[] = [];
-    page.on('request', (r) => { if (/\/api\/site-dna\//.test(r.url())) orgFetches.push(r.url()); });
+    page.on('request', (r) => {
+      if (/\/api\/site-dna\//.test(r.url())) orgFetches.push(r.url());
+    });
     await seed(page);
     await page.goto('/admin/sites', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
     const siteLink = page.locator('a[href^="/admin/sites/"]').first();
-    await siteLink.waitFor({ state: 'visible', timeout: 15000 }).catch(() => { /* may be empty */ });
+    await siteLink.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {
+      /* may be empty */
+    });
     if ((await siteLink.count()) === 0) {
       test.skip(true, 'No site rows from the test token — site-dna param route needs a site id.');
       return;
     }
     const id = ((await siteLink.getAttribute('href')) ?? '').match(/\/admin\/sites\/([^/]+)/)?.[1];
-    if (!id) { test.skip(true, 'Could not parse a site id.'); return; }
+    if (!id) {
+      test.skip(true, 'Could not parse a site id.');
+      return;
+    }
 
     await page.goto(`/admin/sites/${id}/dna`, { waitUntil: 'load' });
     await expect(page.getByText(/behind the/i).first()).toBeVisible({ timeout: 15000 });
     await page.waitForTimeout(2500);
-    expect(orgFetches, `site-dna must NOT fetch org data when the flag is off:\n${orgFetches.join('\n')}`).toEqual([]);
+    expect(
+      orgFetches,
+      `site-dna must NOT fetch org data when the flag is off:\n${orgFetches.join('\n')}`,
+    ).toEqual([]);
   });
 
-  test('enterprise (flag off): no /api/enterprise/* fetch; disabled message shows', async ({ page }) => {
-    test.setTimeout(60000);
-    const orgFetches: string[] = [];
-    page.on('request', (r) => { if (/\/api\/enterprise\//.test(r.url())) orgFetches.push(r.url()); });
-    await seed(page);
-    await page.goto('/admin/enterprise', { waitUntil: 'load' });
-    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-    // The disabled-state card must render (proves the enterprise_plan flag
-    // resolved off + the section gated the fetch client-side).
-    await expect(page.getByText(/Enterprise plan is disabled/i).first()).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(2500); // window for any (incorrect) fetch to fire
-    expect(orgFetches, `enterprise must NOT fetch org data when enterprise_plan is off:\n${orgFetches.join('\n')}`).toEqual([]);
-  });
-
-  test('trust-center (flag off): no /api/trust/* fetch; disabled message shows', async ({ page }) => {
-    test.setTimeout(60000);
-    const orgFetches: string[] = [];
-    page.on('request', (r) => { if (/\/api\/trust\//.test(r.url())) orgFetches.push(r.url()); });
-    await seed(page);
-    await page.goto('/admin/trust', { waitUntil: 'load' });
-    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText(/Trust Center is disabled/i).first()).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(2500);
-    expect(orgFetches, `trust-center must NOT fetch org data when trust_center is off:\n${orgFetches.join('\n')}`).toEqual([]);
-  });
-
-  test('stripe-app-status (flag off): no /api/stripe-app/* fetch; disabled message shows', async ({ page }) => {
-    test.setTimeout(60000);
-    const orgFetches: string[] = [];
-    page.on('request', (r) => { if (/\/api\/stripe-app\//.test(r.url())) orgFetches.push(r.url()); });
-    await seed(page);
-    await page.goto('/admin/stripe-app-status', { waitUntil: 'load' });
-    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText(/Stripe App marketplace status is disabled/i).first()).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(2500);
-    expect(orgFetches, `stripe-app-status must NOT fetch org data when stripe_app_status is off:\n${orgFetches.join('\n')}`).toEqual([]);
-  });
+  // NOTE: the enterprise / trust-center / stripe-app-status sub-tests were REMOVED
+  // 2026-08-08. Those three admin sections were DELETED (see admin-section-labels.spec.ts:
+  // "bulk-ops/enterprise/trust/stripe-app-status/marketplace deleted → segment unmapped").
+  // The tests navigated to now-undefined routes (/admin/{enterprise,trust,stripe-app-status})
+  // and asserted disabled-message strings absent from src → they failed DETERMINISTICALLY
+  // every nightly (element-not-found on the deleted section), red-noise not a real regression.
+  // The round-111 fetch-gating guard they encoded still lives via inbox + site-dna above.
 });

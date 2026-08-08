@@ -111,9 +111,20 @@ jobs:
   # before. Same fail-open E2E_API_KEY gate as the worker job above. Closes the
   # frontend CLAUDE.md "Known gap" (prod suite not wired into any CI workflow).
   prod-e2e-frontend:
-    name: Playwright @ prod (frontend admin)
+    name: Playwright @ prod (frontend admin, shard ${{ matrix.shard }}/8)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Sharded 8-ways (matching the backend prod-e2e job above). The 734-test frontend
+    # *.e2e.ts suite ran as ONE unsharded job and hit timeout-minutes at test ~182/734
+    # EVERY nightly (08-03→08-08 all `cancelled`); a cancelled job rolls the WHOLE run up
+    # to `cancelled` (cancelled outranks failure/success), masking the backend shards' real
+    # verdict. Sharding makes each ~92-test shard finish well under the timeout so the
+    # frontend cert actually completes + reports green/red instead of perpetual `cancelled`.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
 
@@ -152,13 +163,13 @@ jobs:
         env:
           E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
           PROD_URL: https://projectsites.dev
-        run: npm run test:e2e:prod
+        run: npm run test:e2e:prod -- --shard=${{ matrix.shard }}/8 --workers=1
 
       - name: Upload Playwright report
         if: steps.gate.outputs.has_key == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-prod-report-frontend
+          name: playwright-prod-report-frontend-shard-${{ matrix.shard }}
           path: apps/project-sites/frontend/playwright-report/
           retention-days: 7
 
