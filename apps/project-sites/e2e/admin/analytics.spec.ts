@@ -128,6 +128,12 @@ async function stubAnalyticsOn(page: Page): Promise<void> {
   };
   await page.route(`**/api/sites/${SITE_ID}/analytics**`, serve);
   await page.route(`**/api/sites/${SITE_ID}/analytics/**`, serve);
+  // The KPI envelope now comes from getMultiUrlAnalytics → GET
+  // `/api/sites/:id/multi-url-analytics` (api.service.ts:807 — a DISTINCT path from
+  // `/analytics` so the summary handler can't shadow it). The old stub only covered
+  // `/analytics**`, so the envelope call hit the real endpoint → {data:null} →
+  // skeleton → empty KPIs. Stub the multi-url path too so the KPIs populate. (07tt)
+  await page.route(`**/api/sites/${SITE_ID}/multi-url-analytics**`, serve);
 
   // Site URL list — one bound hostname so the multi-URL fan-out has a selection.
   const urls = async (route: Route) => {
