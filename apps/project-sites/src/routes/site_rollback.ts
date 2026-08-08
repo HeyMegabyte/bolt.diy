@@ -11,6 +11,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { getHistory, rollback } from '../services/github_repo.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 import { z } from 'zod';
 
 const rollbackSchema = z.object({
@@ -26,6 +27,11 @@ export const siteRollbackRoutes = new Hono<{ Bindings: Env; Variables: Variables
     const orgId = c.get('orgId');
 
     if (!(await isFlagOn(c.env, 'github_repo_sync', { orgId: orgId, siteId: siteId }))) {
+      return c.notFound();
+    }
+
+    // IDOR guard: never let a caller read another org's commit history.
+    if (!(await assertSiteOwned(c.env, orgId, siteId))) {
       return c.notFound();
     }
 
@@ -52,6 +58,11 @@ export const siteRollbackRoutes = new Hono<{ Bindings: Env; Variables: Variables
     const orgId = c.get('orgId');
 
     if (!(await isFlagOn(c.env, 'github_repo_sync', { orgId: orgId, siteId: siteId }))) {
+      return c.notFound();
+    }
+
+    // IDOR guard: never let a caller roll back a site their org does not own.
+    if (!(await assertSiteOwned(c.env, orgId, siteId))) {
       return c.notFound();
     }
 

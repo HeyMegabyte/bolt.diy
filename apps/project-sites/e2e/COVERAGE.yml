@@ -197,3 +197,176 @@ subdir_inventory:
   voice: { status: covered, specs: [voice/voice-sms.spec.ts] }
   webhook: { status: covered, specs: [webhook/webhooks.spec.ts] }
   work: { status: covered, specs: [work/workflow-steps.spec.ts] }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Convergence admin-verification + safety sweeps — authed/Browserbase real-browser
+# E2E accumulated toward the >=400 target (Brian 2026-08-02 admin mandate). Registered
+# here so scripts/validate-e2e-inventory.mjs stays green. One block per directory.
+# ─────────────────────────────────────────────────────────────────────────────
+admin_verification_sweeps:
+  admin_verify:
+    status: covered
+    specs:
+      - admin-verify/accept-invite.spec.ts
+      - admin-verify/admin-a11y-critical-more.spec.ts
+      - admin-verify/admin-a11y-critical-overlays.spec.ts
+      - admin-verify/admin-a11y-critical-site-scoped.spec.ts
+      - admin-verify/admin-a11y-critical.spec.ts
+      - admin-verify/admin-advertised-routes.spec.ts
+      - admin-verify/admin-ag-grid-populated.spec.ts
+      - admin-verify/admin-alias-and-editor-media.spec.ts
+      - admin-verify/admin-alias-redirects.spec.ts
+      - admin-verify/admin-analytics-populated.spec.ts
+      - admin-verify/admin-homepage-journey.spec.ts
+      - admin-verify/admin-input-value-domains.spec.ts
+      - admin-verify/admin-keyboard-nav.spec.ts
+      - admin-verify/admin-keyboard-shortcuts.spec.ts
+      - admin-verify/admin-loading-skeletons.spec.ts
+      - admin-verify/admin-mobile-nav.spec.ts
+      - admin-verify/admin-modal-close-affordances.spec.ts
+      - admin-verify/admin-modal-lifecycle.spec.ts
+      - admin-verify/admin-nav-shell.spec.ts
+      - admin-verify/admin-populated-render-xss.spec.ts
+      - admin-verify/admin-tabs.spec.ts
+      - admin-verify/ai-endpoints-empty-state.spec.ts
+      - admin-verify/ai-endpoints-error-state.spec.ts
+      - admin-verify/ai-endpoints-interactions.spec.ts
+      - admin-verify/ai-endpoints-slug-value-domains.spec.ts
+      - admin-verify/ai-logs-error-state.spec.ts
+      - admin-verify/analytics-network-overview.spec.ts
+      - admin-verify/analytics-populated.spec.ts
+      - admin-verify/analytics-tabs.spec.ts
+      - admin-verify/analytics-visual.spec.ts
+      - admin-verify/api-tokens-interactions.spec.ts
+      - admin-verify/api-tokens-value-domains.spec.ts
+      - admin-verify/apps-card-detail-nav.spec.ts
+      - admin-verify/apps-catalog-filter.spec.ts
+      - admin-verify/apps-category-keyboard.spec.ts
+      - admin-verify/apps-detail-pager.spec.ts
+      - admin-verify/apps-detail.spec.ts
+      - admin-verify/apps-instances-error-state.spec.ts
+      - admin-verify/apps-instances-interactions.spec.ts
+      - admin-verify/apps-search-filter.spec.ts
+      - admin-verify/audit-empty-state.spec.ts
+      - admin-verify/audit-error-state.spec.ts
+      - admin-verify/audit-interactions.spec.ts
+      - admin-verify/auth-security-empty-state.spec.ts
+      - admin-verify/auth-security-interactions.spec.ts
+      - admin-verify/billing-empty-states.spec.ts
+      - admin-verify/billing-error-state.spec.ts
+      - admin-verify/billing-populated-interactions.spec.ts
+      - admin-verify/billing-value-domains.spec.ts
+      - admin-verify/branch-name-value-domains.spec.ts
+      - admin-verify/command-palette-lifecycle.spec.ts
+      - admin-verify/command-palette-shortcuts.spec.ts
+      - admin-verify/copy-to-clipboard.spec.ts
+      - admin-verify/dashboard-hub-interactions.spec.ts
+      - admin-verify/dashboard-hub-search.spec.ts
+      - admin-verify/dashboard-pin-roundtrip.spec.ts
+      - admin-verify/deliverability-domain-value-domains.spec.ts
+      - admin-verify/deliverability-flow.spec.ts
+      - admin-verify/deliverability-populated.spec.ts
+      - admin-verify/docs-endpoint-search.spec.ts
+      - admin-verify/docs-interactions.spec.ts
+      - admin-verify/docs-verb-filter.spec.ts
+      - admin-verify/domains-ai-search.spec.ts
+      - admin-verify/domains-empty-state.spec.ts
+      - admin-verify/domains-error-state.spec.ts
+      - admin-verify/domains-interactions.spec.ts
+      - admin-verify/domains-value-domains.spec.ts
+      - admin-verify/empty-state-first-action.spec.ts
+      - admin-verify/env-vars-value-domains.spec.ts
+      - admin-verify/feature-flags-empty-state.spec.ts
+      - admin-verify/feature-flags-interactions.spec.ts
+      - admin-verify/feature-flags-search-domain.spec.ts
+      - admin-verify/feature-flags-search-filter.spec.ts
+      - admin-verify/feature-flags-sentinel-protection.spec.ts
+      - admin-verify/form-analytics-empty-state.spec.ts
+      - admin-verify/forms-empty-state.spec.ts
+      - admin-verify/forms-error-state.spec.ts
+      - admin-verify/forms-interactions.spec.ts
+      - admin-verify/forms-name-value-domains.spec.ts
+      - admin-verify/forms-submissions-filter.spec.ts
+      - admin-verify/gated-sections-render.spec.ts
+      - admin-verify/leads-empty-state.spec.ts
+      - admin-verify/leads-interactions.spec.ts
+      - admin-verify/logs-explorer-search-flow.spec.ts
+      - admin-verify/logs-explorer.spec.ts
+      - admin-verify/multi-url-analytics-fallback.spec.ts
+      - admin-verify/network-overview.spec.ts
+      - admin-verify/refresh-actions.spec.ts
+      - admin-verify/responsive-admin.spec.ts
+      - admin-verify/responsive-breakpoints.spec.ts
+      - admin-verify/responsive-site-scoped.spec.ts
+      - admin-verify/responsive-tables.spec.ts
+      - admin-verify/section-attribution-empty-state.spec.ts
+      - admin-verify/sections-populated.spec.ts
+      - admin-verify/sections-visual.spec.ts
+      - admin-verify/settings-business-value-domains.spec.ts
+      - admin-verify/settings-tab-redirects.spec.ts
+      - admin-verify/settings-tabs.spec.ts
+      - admin-verify/settings-upload-affordances.spec.ts
+      - admin-verify/settings-value-domains.spec.ts
+      - admin-verify/site-branches-error-state.spec.ts
+      - admin-verify/site-copilot-error-state.spec.ts
+      - admin-verify/site-detail-sql-starters.spec.ts
+      - admin-verify/site-detail-sql-value-domains.spec.ts
+      - admin-verify/site-detail-tabs.spec.ts
+      - admin-verify/site-features-error-state.spec.ts
+      - admin-verify/site-features-filter.spec.ts
+      - admin-verify/site-features-interactions.spec.ts
+      - admin-verify/site-mcp-populated-render.spec.ts
+      - admin-verify/site-mcp-server-error-state.spec.ts
+      - admin-verify/site-mcp-server-interactions.spec.ts
+      - admin-verify/site-mcp-tools-empty-state.spec.ts
+      - admin-verify/site-subroutes-populated.spec.ts
+      - admin-verify/snapshots-diff-error-state.spec.ts
+      - admin-verify/snapshots-diff-populated.spec.ts
+      - admin-verify/snapshots-diff-render.spec.ts
+      - admin-verify/snapshots-empty-state.spec.ts
+      - admin-verify/snapshots-error-state.spec.ts
+      - admin-verify/snapshots-interactions.spec.ts
+      - admin-verify/snapshots-name-value-domains.spec.ts
+      - admin-verify/social-analytics-error-state.spec.ts
+      - admin-verify/social-composer-value-domains.spec.ts
+      - admin-verify/social-interactions.spec.ts
+      - admin-verify/social-voice-routes.spec.ts
+      - admin-verify/system-services-error-state.spec.ts
+      - admin-verify/system-services-interactions.spec.ts
+      - admin-verify/team-empty-state.spec.ts
+      - admin-verify/team-interactions.spec.ts
+      - admin-verify/team-invite-value-domains.spec.ts
+      - admin-verify/user-sessions.spec.ts
+      - admin-verify/user-settings-interactions.spec.ts
+      - admin-verify/user-settings-keys-error-state.spec.ts
+      - admin-verify/user-settings-value-domains.spec.ts
+      - admin-verify/visitor-funnel-empty-state.spec.ts
+      - admin-verify/voice-interactions.spec.ts
+      - admin-verify/webhooks-empty-state.spec.ts
+      - admin-verify/webhooks-error-state.spec.ts
+      - admin-verify/webhooks-url-value-domains.spec.ts
+  ai_actions:
+    status: covered
+    specs:
+      - ai-actions/export-safety.spec.ts
+      - ai-actions/payment-safety.spec.ts
+  api_safety:
+    status: covered
+    specs:
+      - api-safety/auth-session-safety.spec.ts
+      - api-safety/billing-safety.spec.ts
+      - api-safety/data-surface-safety.spec.ts
+      - api-safety/destructive-safety.spec.ts
+      - api-safety/route-family-safety.spec.ts
+      - api-safety/webhook-token-safety.spec.ts
+  auth_surface:
+    status: covered
+    specs:
+      - auth-surface-journey.spec.ts
+  browserbase:
+    status: covered
+    specs:
+      - browserbase/admin-deep-visual.spec.ts
+      - browserbase/admin-section-sweep-brian.spec.ts
+      - browserbase/admin-section-sweep.spec.ts
+      - browserbase/admin-site-detail-sweep-brian.spec.ts

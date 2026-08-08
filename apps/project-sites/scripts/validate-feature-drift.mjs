@@ -262,6 +262,14 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // featureE2e — operator per-feature E2E check runner (drives Browser Rendering
     // to verify OTHER features); test/ops infra, not itself a flag-gated feature.
     'featureE2e',
+    // Auth session/org management + health probe + webhook receiver — same infra
+    // class as 'authIdp'/'adminAnalytics' (auth/admin, org-auth gated) + 'health' +
+    // 'webhooks'/'sesWebhooks' (inbound receivers). None are dark-launched features:
+    //   authSessions      — /api/auth/list-sessions + revoke-session (custom-auth Active Sessions, /admin/auth-security)
+    //   authOrg           — /api/auth/organization/* (custom-auth Team over memberships+users+invites, /admin/team)
+    //   integrationHealth — GET /api/integrations/[:name/]health (observability probe, same class as 'health')
+    //   chatwootAgentBot  — /webhooks/chatwoot/agent_bot receiver (same class as 'webhooks'/'sesWebhooks')
+    'authSessions', 'authOrg', 'integrationHealth', 'chatwootAgentBot',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

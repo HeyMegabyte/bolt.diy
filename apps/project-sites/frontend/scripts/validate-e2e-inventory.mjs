@@ -36,7 +36,12 @@ if (!coverage) errors.push('e2e/COVERAGE.yml is missing.');
 if (!features) errors.push('e2e/FEATURES.md is missing.');
 
 if (coverage) {
-  const referenced = new Set(coverage.match(SPEC_RE) ?? []);
+  // Strip unit_specs:[...] arrays first — those reference src/ Karma unit specs
+  // (e.g. input-dialog.component.spec.ts) that this script does NOT walk, so the
+  // basename regex must not pull their names into the e2e orphan/dangling check
+  // (it would false-extract `component.spec.ts` and flag a non-existent e2e file).
+  const coverageE2e = coverage.replace(/unit_specs:\s*\[[^\]]*\]/g, '');
+  const referenced = new Set(coverageE2e.match(SPEC_RE) ?? []);
   for (const spec of onDisk) {
     if (!referenced.has(spec)) errors.push(`Orphan spec (not in COVERAGE.yml): ${spec}`);
   }

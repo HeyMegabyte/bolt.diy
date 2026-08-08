@@ -97,3 +97,34 @@ regression_suites:
   quality:           { status: covered, specs: [quality-features.spec.ts] }
   requirements:      { status: covered, specs: [requirements.spec.ts] }
   comprehensive:     { status: covered, specs: [comprehensive.spec.ts] }
+
+# Convergence admin-verification + signin/nav sweeps — authed real-browser
+# E2E accumulated toward the admin mandate (Brian 2026-08-02). Registered so
+# scripts/validate-e2e-inventory.mjs stays green (bookkeeping inventory).
+admin_verification_sweeps:
+  status: covered
+  specs:
+    - admin-audit-grid.e2e.ts
+    - admin-console-errors.e2e.ts
+    - admin-docs-prose.e2e.ts
+    - admin-forced-colors.e2e.ts
+    - admin-nav-links.e2e.ts
+    - admin-notif-bell-keyboard.e2e.ts
+    - admin-palette-highlight.e2e.ts
+    - admin-reduced-motion.e2e.ts
+    - admin-sidebar-nav.e2e.ts
+    - admin-site-detail.e2e.ts
+    - admin-task-tray.e2e.ts
+    - admin-two-layer-settings.e2e.ts
+    - analytics-tabs.spec.ts
+    - developers.spec.ts
+    - feature-flags-all-on.e2e.ts
+    - navbar-site-actions.e2e.ts
+    - pricing.spec.ts
+    - share-link.e2e.ts
+    - signin-chrome.e2e.ts
+    - signin-clean.e2e.ts
+    - signin-console-check.e2e.ts
+    - signin-final.e2e.ts
+    - signin-green.e2e.ts
+    - signin-real-chrome.e2e.ts

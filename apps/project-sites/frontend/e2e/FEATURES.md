@@ -186,3 +186,27 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
   host; not changed unilaterally under concurrent sessions).
 
 - **All feature flags ON + working** — `e2e/feature-flags-all-on.e2e.ts` — every registry flag resolves enabled (`/api/feature-flags/:key`); homepage + admin render clean (no app console errors) with all flags on.
+
+## Admin-verification + signin/nav sweeps (convergence, authed real-browser)
+
+- **admin audit grid** — `e2e/admin-audit-grid.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin console errors** — `e2e/admin-console-errors.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin docs prose** — `e2e/admin-docs-prose.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin forced colors** — `e2e/admin-forced-colors.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin nav links** — `e2e/admin-nav-links.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin notif bell keyboard** — `e2e/admin-notif-bell-keyboard.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin palette highlight** — `e2e/admin-palette-highlight.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin reduced motion** — `e2e/admin-reduced-motion.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin sidebar nav** — `e2e/admin-sidebar-nav.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin site detail** — `e2e/admin-site-detail.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin task tray** — `e2e/admin-task-tray.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **admin two layer settings** — `e2e/admin-two-layer-settings.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **analytics tabs** — `e2e/analytics-tabs.spec.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **developers** — `e2e/developers.spec.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **navbar site actions** — `e2e/navbar-site-actions.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **pricing** — `e2e/pricing.spec.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **share link** — `e2e/share-link.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **signin chrome** — `e2e/signin-chrome.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **signin clean** — `e2e/signin-clean.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **signin console check** — `e2e/signin-console-check.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+- **signin final** — `e2e/signin-final.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
