@@ -127,6 +127,20 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-unwired-endpoints.mjs --ci
 
+      # Unchecked-dbInsert ingestion gate — every dbInsert() into a user-generated
+      # INGESTION table (contacts / form_submissions / donations / orders / voice_* /
+      # pulse_posts / leads …) MUST capture the returned `{ error }` and surface it,
+      # never a bare `await`. A bare await silently drops the row + returns a lying-200
+      # (the 2026-08-06 contact-form incident: visitors' submissions accepted then
+      # lost, invisible in /admin/forms). Drained to 0 HIGH (worker 1d98d418) + stable;
+      # gates HIGH-only (a precise curated ingestion-table list) so it fires ONLY on a
+      # NEW ingestion caller that forgets the check — never on the ~78 best-effort/
+      # bookkeeping writes. Pure Node, no deps. (Promotes check:dbinsert:ci from the
+      # advisory `npm run check` variant per audit-arc-maturity-ladder Detect→Gate.)
+      - name: Unchecked-dbInsert ingestion gate
+        working-directory: apps/project-sites
+        run: node scripts/check-unchecked-dbinsert.mjs --ci
+
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
         if: always()
