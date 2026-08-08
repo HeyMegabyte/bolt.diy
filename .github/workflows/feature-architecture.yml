@@ -141,6 +141,22 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-unchecked-dbinsert.mjs --ci
 
+      # HTML-injection gate — no unescaped user-data interpolation into an HTML sink
+      # (innerHTML / template-string → served HTML). Guards stored/reflected XSS on
+      # generated + admin surfaces. Exits 1 on any finding; 0 now. Pure Node, no deps.
+      - name: HTML-injection gate
+        working-directory: apps/project-sites
+        run: node scripts/check-html-injection.mjs
+
+      # Fabricated-people gate — no invented person + testimonial/quote on a shippable
+      # surface without a _confirmations.json entry (anti-fabrication / trust mandate;
+      # Storybook *.stories.ts demo data excluded). Just caught the site-kit
+      # testimonials-grid shipping 3 fake DEFAULT testimonials (fixed same commit).
+      # Exits 1 on any finding; 0 now. Pure Node, no deps.
+      - name: Fabricated-people gate
+        working-directory: apps/project-sites
+        run: node scripts/validate-no-fabricated-people.mjs
+
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
         if: always()

@@ -9,6 +9,7 @@ export interface Testimonial { quote: string; name: string; title: string; avata
   imports: [CommonModule],
   template: `
     <section
+      *ngIf="testimonials.length"
       [style.background]="'var(--ps-bg,#060610)'"
       [style.color]="'var(--ps-ink,#f4f4ff)'"
       style="padding:5rem 1.5rem;">
@@ -62,9 +63,9 @@ export interface Testimonial { quote: string; name: string; title: string; avata
 export class SkTestimonialsGridComponent {
   @Input() heading = 'What our customers say';
   @Input() subheading = 'Join thousands of teams that ship faster with us.';
-  @Input() testimonials: Testimonial[] = [
-    { quote: 'This platform cut our deployment time by 80%. We ship features every day now.', name: 'Sarah K.', title: 'CTO, Fintech Startup' },
-    { quote: 'The DX is unmatched. Our engineers love it — onboarding is down to 20 minutes.', name: 'Marcus T.', title: 'VP Engineering, SaaS Co.' },
-    { quote: 'Finally, a tool that does what it says on the tin. No hidden complexity.', name: 'Aisha R.', title: 'Lead Developer, Agency' },
-  ];
+  // No fabricated defaults — a site-kit testimonials grid must NEVER ship invented
+  // customer quotes to a generated business site (anti-fabrication mandate). Consumers
+  // pass real, permission-collected testimonials; with none, the <section> self-hides
+  // (*ngIf). Realistic demo data lives in the Storybook story, not a shippable default.
+  @Input() testimonials: Testimonial[] = [];
 }

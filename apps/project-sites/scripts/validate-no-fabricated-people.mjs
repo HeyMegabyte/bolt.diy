@@ -76,7 +76,10 @@ export function* walk(dir) {
     } else if (
       entry.isFile() &&
       /\.(html|ts|tsx)$/.test(entry.name) &&
-      !/\.test\.tsx?$/.test(entry.name)
+      // Skip test files AND Storybook stories: a *.stories.ts legitimately holds
+      // realistic demo data to showcase a component (it renders only in the internal
+      // Storybook, never as a live-site claim) — flagging it is a false positive.
+      !/\.(test|stories)\.tsx?$/.test(entry.name)
     ) {
       yield full;
     }
