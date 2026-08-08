@@ -66,17 +66,21 @@ const CONFIG_ENV_KEY: Readonly<Record<string, string>> = {
   resend: 'RESEND_API_KEY',
   deepgram: 'DEEPGRAM_API_KEY',
   langfuse: 'LANGFUSE_PUBLIC_KEY',
+  // unkey stays config-presence: api.projectsites.dev has NO Worker-probeable health path
+  // (`/api/health` returns the MAIN worker's own health — a self-subrequest LOOP that fails;
+  // `/v1/liveness` is a landing page). Live-probing it falsely reported 'failing' for a live
+  // service. Shows 'unknown' until UNKEY_ROOT_KEY is a Worker secret.
+  unkey: 'UNKEY_ROOT_KEY',
 };
 
 /**
  * Platform services (CF Containers) with a PUBLIC liveness endpoint (no auth) — probed
  * LIVE like listmonk/twenty. Reports `healthy` when the endpoint 200s, `failing` when
- * down, instead of a misleading `unknown` from a config-presence check on a secret the
- * worker env may not carry (both are LIVE but their admin keys aren't Worker secrets).
- * Hosts are our own stable platform subdomains.
+ * down, instead of a misleading `unknown` from a config-presence check. Only services
+ * whose health path is reachable FROM THE WORKER belong here — NOT `api.projectsites.dev`
+ * (its `/api/health` is the main worker's own health → a self-subrequest loop that fails).
  */
 const LIVENESS_URL: Readonly<Record<string, string>> = {
-  unkey: 'https://api.projectsites.dev/api/health',
   payload: 'https://cms.projectsites.dev/healthz',
 };
 
@@ -124,8 +128,8 @@ async function probeLiveness(provider: string, url: string): Promise<ConnectionS
  * The single source of truth shared by BOTH the per-service endpoint and the
  * aggregate, so they can never report different statuses for the same service.
  *
- * - `listmonk` / `twenty` / `unkey` / `payload` → LIVE public-liveness probe.
- * - config-only services (stripe, deepgram, langfuse, resend) →
+ * - `listmonk` / `twenty` / `payload` → LIVE public-liveness probe.
+ * - config-only services (stripe, deepgram, langfuse, resend, unkey) →
  *   presence of their {@link CONFIG_ENV_KEY} secret marks them configured.
  * - decommissioned services (nango/inngest/postiz/lago) → the literal `'removed'`,
  *   which callers render as 410 Gone / `status: 'removed'`.
