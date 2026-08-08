@@ -42,9 +42,14 @@ jobs:
         run: npm run build-storybook
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/project-sites/frontend
-          command: pages deploy storybook-static --project-name=projectsites-storybook --branch=main
+        # The scoped CLOUDFLARE_API_TOKEN lacks Pages:Edit → Cloudflare API auth
+        # error 10000 (deploy failed on every run). Deploy with the GLOBAL key
+        # (Pages-capable) via wrangler's env-var auth — the identical pattern the
+        # Worker + R2 deploys use in project-sites.yaml. Runs in the job's default
+        # working-directory (apps/project-sites/frontend). --yes auto-installs
+        # wrangler (a bare `npx wrangler` prompted + cancelled on the old run).
+        run: npx --yes wrangler@4 pages deploy storybook-static --project-name=projectsites-storybook --branch=main
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
