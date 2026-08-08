@@ -58,6 +58,15 @@ const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz', 'lago']);
 const PROBE_TIMEOUT_MS = 4000;
 
 /**
+ * Patient retry budget (ms) for a probe's SECOND attempt. CF Containers
+ * (mail/crm/cms) hibernate after ~30m idle; the first probe hits them cold and
+ * its boot can exceed {@link PROBE_TIMEOUT_MS}. The first attempt TRIGGERS the
+ * boot; this longer budget lets the retry land after the container has woken,
+ * so a healthy-but-sleeping service is never mis-reported as `failing`.
+ */
+const COLD_START_TIMEOUT_MS = 12_000;
+
+/**
  * Env-var whose presence marks a config-only integration as "configured".
  * listmonk + twenty are probed with a LIVE fetch instead (see {@link buildSignal}).
  */
@@ -96,8 +105,37 @@ function listmonkCfg(env: Env): ListmonkConfig {
 }
 
 /**
+ * Fetch a liveness endpoint with a single COLD-START retry.
+ *
+ * CF Containers hibernate after ~30m idle, so the first probe of an idle service
+ * hits it cold — the boot can exceed {@link PROBE_TIMEOUT_MS} (timeout) or briefly
+ * 502 behind the edge. Either way the first attempt TRIGGERS the boot; one patient
+ * retry ({@link COLD_START_TIMEOUT_MS}) then lands on the now-warm container. A
+ * genuinely-down service fails BOTH attempts → deterministic `failing`, never masked.
+ * (Live-proven 2026-08-08: mail/health + cms/healthz both 200 in <300ms while the
+ * aggregate reported them `failing` — the single 4s probe gave up on the cold boot.)
+ *
+ * @param input - the health URL to probe
+ * @param init - optional fetch init (the AbortSignal is supplied here per-attempt)
+ * @returns the 2xx Response from either attempt, else the last (non-2xx) Response
+ * @throws only when BOTH attempts throw — callers already catch → `failing`
+ */
+async function fetchWithColdStartRetry(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    const res = await fetch(input, { ...init, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
+    if (res.ok) return res;
+    // Non-2xx on the cold hit (e.g. a 502 while the container boots behind the edge)
+    // — fall through to one patient retry now that the boot has been triggered.
+  } catch {
+    // Timeout/network on the cold hit — the attempt started the boot; retry patiently.
+  }
+  return fetch(input, { ...init, signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
+}
+
+/**
  * Probe a PUBLIC liveness endpoint (no auth) and score it. A 200 → healthy; any other
- * outcome (non-2xx, or a thrown/aborted fetch) → failing. Bounded by {@link PROBE_TIMEOUT_MS}.
+ * outcome (non-2xx, or a thrown/aborted fetch) → failing. Bounded by {@link PROBE_TIMEOUT_MS}
+ * plus one {@link COLD_START_TIMEOUT_MS} cold-start retry via {@link fetchWithColdStartRetry}.
  * Used for platform CF Containers that expose a health path (see {@link LIVENESS_URL}).
  *
  * @param provider - integration slug
@@ -107,7 +145,7 @@ function listmonkCfg(env: Env): ListmonkConfig {
 async function probeLiveness(provider: string, url: string): Promise<ConnectionSignal> {
   let ok = false;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
+    const res = await fetchWithColdStartRetry(url);
     ok = res.ok;
   } catch {
     ok = false;
@@ -148,11 +186,11 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
   switch (name) {
     case 'listmonk': {
       const cfg = listmonkCfg(env);
-      // Bound the probe via listmonkHealth's DI seam — a timeout-wrapping fetch so a
-      // hung mail.projectsites.dev can't stall the aggregate. listmonkHealth already
-      // catches the AbortError and returns { ok: false } → scored `failing`.
+      // Bound the probe via listmonkHealth's DI seam — a cold-start-retrying fetch so a
+      // hung OR hibernating mail.projectsites.dev can't stall OR falsely-fail the aggregate.
+      // listmonkHealth catches a final AbortError and returns { ok: false } → `failing`.
       const result = await listmonkHealth(cfg, (input, init) =>
-        fetch(input, { ...init, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) }),
+        fetchWithColdStartRetry(String(input), init),
       );
       return {
         provider: 'listmonk',
@@ -181,10 +219,9 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
       try {
         // Probe twenty's PUBLIC /healthz liveness endpoint (200, no auth) — NOT the
         // authed /rest/companies, which 403s ("WWW-Authenticate") for the platform
-        // probe's token and mis-reported a LIVE twenty CRM as failing.
-        const res = await fetch(`${env.TWENTY_API_URL}/healthz`, {
-          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-        });
+        // probe's token and mis-reported a LIVE twenty CRM as failing. Cold-start retry
+        // covers crm.projectsites.dev's ~30m-idle hibernation the same way.
+        const res = await fetchWithColdStartRetry(`${env.TWENTY_API_URL}/healthz`);
         return {
           provider: 'twenty',
           lastStatus: res.status,
@@ -276,20 +313,20 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
  * status here — never a degraded `unknown` from a divergent code path.
  */
 integrationHealth.get('/api/integrations/health', async (c) => {
-  const results: Array<{ integration: string; status: string; configured: boolean }> = [];
-
-  for (const name of KNOWN_INTEGRATIONS) {
-    const sig = await buildSignal(name, c.env);
-    if (sig === 'removed') {
-      results.push({ integration: name, status: 'removed', configured: false });
-      continue;
-    }
-    results.push({
-      integration: name,
-      status: scoreConnectionHealth(sig),
-      configured: sig.isConfigured,
-    });
-  }
+  // Probe every integration CONCURRENTLY. Each live liveness probe (listmonk/twenty/
+  // payload) can now spend up to PROBE_TIMEOUT_MS + COLD_START_TIMEOUT_MS on a cold
+  // container; a sequential loop would SUM those (~48s worst case) and blow the admin
+  // page's own fetch timeout. Promise.all bounds the aggregate to the SLOWEST single
+  // probe while preserving order (map keeps index; removed/config-presence resolve
+  // instantly, so only the cold live probes cost anything).
+  const results = await Promise.all(
+    [...KNOWN_INTEGRATIONS].map(async (name) => {
+      const sig = await buildSignal(name, c.env);
+      return sig === 'removed'
+        ? { integration: name, status: 'removed', configured: false }
+        : { integration: name, status: scoreConnectionHealth(sig), configured: sig.isConfigured };
+    }),
+  );
 
   return c.json({
     integrations: results,

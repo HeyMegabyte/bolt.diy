@@ -87,6 +87,58 @@ describe('buildSignal — config-only services reflect their secret presence', (
   });
 });
 
+describe('buildSignal — cold-start retry for hibernating CF containers', () => {
+  // CF Containers (mail/crm/cms) hibernate after ~30m idle. The FIRST liveness probe
+  // hits them COLD and the container boot can exceed PROBE_TIMEOUT_MS, so a
+  // healthy-but-sleeping service was mis-reported as `failing` — a lying-status false
+  // alarm (the reverse of the authed-endpoint-403 lying-status the earlier arc killed).
+  // The probe now retries ONCE: the first attempt triggers the boot, the patient retry
+  // lands warm. Live-proven 2026-08-08 (mail/health + cms/healthz both 200 in <300ms
+  // yet the aggregate showed them `failing` until warmed).
+  it('payload: 1st probe fails (cold boot), 2nd succeeds → healthy, not a false failing', async () => {
+    let calls = 0;
+    global.fetch = jest.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('The operation was aborted due to timeout');
+      return new Response('{"status":"ok","db":"up"}', { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const sig = await buildSignal('payload', configuredEnv());
+    expect(sig).not.toBe('removed');
+    if (sig !== 'removed') {
+      expect(sig.lastCallOk).toBe(true); // the retry caught the cold-start → healthy
+      expect(sig.isConfigured).toBe(true);
+    }
+    expect(calls).toBe(2); // proves it retried rather than giving up on the cold hit
+  });
+
+  it('payload: BOTH probes fail → failing (the retry never MASKS a genuine outage)', async () => {
+    global.fetch = jest.fn(async () => {
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof fetch;
+
+    const sig = await buildSignal('payload', configuredEnv());
+    expect(sig).not.toBe('removed');
+    if (sig !== 'removed') expect(sig.lastCallOk).toBe(false); // deterministic honest failing
+  });
+
+  it('twenty: cold 502 on 1st probe, 200 on retry → healthy (non-2xx cold hit also retries)', async () => {
+    let calls = 0;
+    global.fetch = jest.fn(async () => {
+      calls += 1;
+      // A container booting behind the CF edge can 502 before it is ready — the retry
+      // must fire on a non-2xx cold hit too, not only on a thrown/aborted timeout.
+      if (calls === 1) return new Response('bad gateway', { status: 502 });
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const sig = await buildSignal('twenty', configuredEnv());
+    expect(sig).not.toBe('removed');
+    if (sig !== 'removed') expect(sig.lastCallOk).toBe(true);
+    expect(calls).toBe(2);
+  });
+});
+
 describe('GET /api/integrations/health — aggregate reflects real per-service status', () => {
   it('configured live services are NOT reported as unknown (the regression)', async () => {
     const res = await integrationHealth.request('/api/integrations/health', {}, configuredEnv());
