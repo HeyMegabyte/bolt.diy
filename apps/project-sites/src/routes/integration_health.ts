@@ -143,9 +143,7 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
     default: {
       // Config-presence probe: the service is "configured" iff its secret is set.
       const key = CONFIG_ENV_KEY[name];
-      const configured = key
-        ? Boolean((env as unknown as Record<string, unknown>)[key])
-        : false;
+      const configured = key ? Boolean((env as unknown as Record<string, unknown>)[key]) : false;
       return {
         provider: name,
         lastStatus: 0,

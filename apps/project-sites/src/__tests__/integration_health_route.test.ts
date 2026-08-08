@@ -40,7 +40,9 @@ function configuredEnv(overrides: Record<string, unknown> = {}): Env {
 
 beforeEach(() => {
   // twenty probes fetch(`${TWENTY_API_URL}/rest/companies`) — return a 200.
-  global.fetch = jest.fn(async () => new Response('{}', { status: 200 })) as unknown as typeof fetch;
+  global.fetch = jest.fn(
+    async () => new Response('{}', { status: 200 }),
+  ) as unknown as typeof fetch;
 });
 
 describe('buildSignal — config-only services reflect their secret presence', () => {
@@ -100,11 +102,7 @@ describe('GET /api/integrations/health — aggregate reflects real per-service s
     const aggByName = new Map(agg.integrations.map((i) => [i.integration, i.status]));
 
     for (const name of ['deepgram', 'unkey', 'langfuse', 'payload', 'stripe']) {
-      const perRes = await integrationHealth.request(
-        `/api/integrations/${name}/health`,
-        {},
-        env,
-      );
+      const perRes = await integrationHealth.request(`/api/integrations/${name}/health`, {}, env);
       expect(perRes.status).toBe(200);
       const per = (await perRes.json()) as { status: string };
       expect(per.status).toBe(aggByName.get(name));
@@ -112,7 +110,11 @@ describe('GET /api/integrations/health — aggregate reflects real per-service s
   });
 
   it('per-service endpoint returns 410 for decommissioned services', async () => {
-    const res = await integrationHealth.request('/api/integrations/nango/health', {}, configuredEnv());
+    const res = await integrationHealth.request(
+      '/api/integrations/nango/health',
+      {},
+      configuredEnv(),
+    );
     expect(res.status).toBe(410);
     const body = (await res.json()) as { status: string };
     expect(body.status).toBe('removed');
