@@ -25,11 +25,13 @@ describe('adminSectionLabel (per-route title map)', () => {
   });
 
   it('retired sections (removed from the sidebar 2026-06-08) fall back to Dashboard', () => {
-    // bulk-ops/enterprise/trust/stripe-app-status/marketplace deleted; audit
-    // redirects to /admin/logs so its bare segment is no longer mapped.
+    // bulk-ops/enterprise/trust/stripe-app-status/marketplace deleted → segment unmapped.
     // review-links: page removed 2026-06-08 (sharing is now a modal).
     // recipes: Automation Builder feature removed 2026-06-08 → segment unmapped.
-    for (const seg of ['bulk-ops', 'enterprise', 'trust', 'stripe-app-status', 'marketplace', 'audit', 'review-links', 'recipes']) {
+    // NOTE: 'audit' is intentionally NOT here — /admin/audit is still a LIVE route
+    // (AdminAuditComponent, app.routes.ts), just removed from the SIDEBAR; it keeps
+    // its real 'Audit Log' title (validate-admin-contract requires the label).
+    for (const seg of ['bulk-ops', 'enterprise', 'trust', 'stripe-app-status', 'marketplace', 'review-links', 'recipes']) {
       expect(adminSectionLabel(seg)).withContext(seg).toBe('Dashboard');
     }
   });

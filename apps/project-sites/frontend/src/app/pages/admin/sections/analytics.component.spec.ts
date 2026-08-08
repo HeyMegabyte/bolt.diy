@@ -35,6 +35,8 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
             getMultiUrlAnalytics: getAnalytics,
             listSiteUrls: listUrls,
             getCloudflareCredentialStatus: credStatus,
+            getSiteAnalytics: () => of(null),
+            getSiteAnalyticsDaily: () => of(null),
             addSiteUrl: jasmine.createSpy('addSiteUrl').and.returnValue(of({})),
             // loadNetwork() runs on mount (zone-level, fail-soft) — stub so
             // detectChanges() doesn't crash on an undefined ApiService method.
@@ -369,6 +371,8 @@ describe('AdminAnalyticsComponent (top-pages/countries cyan mini-empty cohesion)
             getMultiUrlAnalytics: () => of({ data: null }),
             listSiteUrls: () => of({ data: [] }),
             getCloudflareCredentialStatus: () => of({ data: null }),
+            getSiteAnalytics: () => of(null),
+            getSiteAnalyticsDaily: () => of(null),
             addSiteUrl: () => of({}),
             getNetworkAnalytics: () => of({ data: null }),
           },
@@ -414,6 +418,8 @@ describe('AdminAnalyticsComponent — bounded auto-refresh retry (error-recovery
           getMultiUrlAnalytics: getAnalytics,
           listSiteUrls: () => of({ data: [] }),
           getCloudflareCredentialStatus: () => of({ data: null }),
+          getSiteAnalytics: () => of(null),
+          getSiteAnalyticsDaily: () => of(null),
           addSiteUrl: () => of({}),
           getNetworkAnalytics: () => of({ data: null }),
         } },
