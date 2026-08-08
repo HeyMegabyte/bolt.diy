@@ -41,11 +41,11 @@ interface SqlFailure {
 
 type SqlResponse = SqlSuccess | SqlFailure;
 
-const SqlTab = memo(function SqlTab() {
+const SqlTab = memo(() => {
   const [account, setAccount] = useState('');
   const [databases, setDatabases] = useState<D1Database[]>([]);
   const [selectedDb, setSelectedDb] = useState<string | null>(null);
-  const [sql, setSql] = useState('SELECT name FROM sqlite_master WHERE type = \'table\' LIMIT 50;');
+  const [sql, setSql] = useState("SELECT name FROM sqlite_master WHERE type = 'table' LIMIT 50;");
   const [result, setResult] = useState<SqlResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
@@ -54,10 +54,15 @@ const SqlTab = memo(function SqlTab() {
   const loadDatabases = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const q = account.trim() ? `?account=${encodeURIComponent(account.trim())}` : '';
       const res = await fetch(`/api/bolt-tabs/sql${q}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as DatabaseListResponse;
       setDatabases(data.databases ?? []);
     } catch (err) {
@@ -73,9 +78,13 @@ const SqlTab = memo(function SqlTab() {
   }, [loadDatabases]);
 
   const runQuery = useCallback(async () => {
-    if (!selectedDb || !sql.trim()) return;
+    if (!selectedDb || !sql.trim()) {
+      return;
+    }
+
     setRunning(true);
     setResult(null);
+
     try {
       const res = await fetch('/api/bolt-tabs/sql', {
         method: 'POST',
@@ -93,7 +102,10 @@ const SqlTab = memo(function SqlTab() {
   }, [selectedDb, sql]);
 
   const columns = useMemo<string[]>(() => {
-    if (!result || !result.ok || !result.results || result.results.length === 0) return [];
+    if (!result || !result.ok || !result.results || result.results.length === 0) {
+      return [];
+    }
+
     return Object.keys(result.results[0]);
   }, [result]);
 
@@ -181,7 +193,9 @@ const SqlTab = memo(function SqlTab() {
               <thead className="sticky top-0 bg-bolt-elements-background-depth-2 text-bolt-elements-textTertiary uppercase tracking-wide">
                 <tr>
                   {columns.map((c) => (
-                    <th key={c} className="text-left px-3 py-2 font-medium">{c}</th>
+                    <th key={c} className="text-left px-3 py-2 font-medium">
+                      {c}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -189,7 +203,9 @@ const SqlTab = memo(function SqlTab() {
                 {result.results!.map((row, i) => (
                   <tr key={i} className="border-t border-bolt-elements-borderColor">
                     {columns.map((c) => (
-                      <td key={c} className="px-3 py-1.5 font-mono text-bolt-elements-textSecondary">{String(row[c] ?? '')}</td>
+                      <td key={c} className="px-3 py-1.5 font-mono text-bolt-elements-textSecondary">
+                        {String(row[c] ?? '')}
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -198,7 +214,8 @@ const SqlTab = memo(function SqlTab() {
           )}
           {result && result.ok && columns.length === 0 && (
             <div className="m-3 p-3 rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 text-bolt-elements-textSecondary text-sm font-mono">
-              OK — rows_read={result.meta?.rows_read ?? 0} · rows_written={result.meta?.rows_written ?? 0} · {result.meta?.duration ?? 0}ms
+              OK — rows_read={result.meta?.rows_read ?? 0} · rows_written={result.meta?.rows_written ?? 0} ·{' '}
+              {result.meta?.duration ?? 0}ms
             </div>
           )}
         </div>

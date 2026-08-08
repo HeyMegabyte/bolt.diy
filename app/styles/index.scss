@@ -125,51 +125,51 @@ header.border-transparent {
   /* Text — high-contrast on dark */
   --bolt-elements-textPrimary: #f4f4ff;
   --bolt-elements-textSecondary: rgba(244, 244, 255, 0.65);
-  --bolt-elements-textTertiary: rgba(244, 244, 255, 0.40);
+  --bolt-elements-textTertiary: rgba(244, 244, 255, 0.4);
 
   /* Borders — subtle cyan-tinted rule */
-  --bolt-elements-borderColor: rgba(0, 229, 255, 0.10);
-  --bolt-elements-borderColorActive: #00E5FF;
+  --bolt-elements-borderColor: rgba(0, 229, 255, 0.1);
+  --bolt-elements-borderColorActive: #00e5ff;
 
   /* Accent — cyan everywhere accent.* was used */
   --bolt-elements-button-primary-background: rgba(0, 229, 255, 0.12);
   --bolt-elements-button-primary-backgroundHover: rgba(0, 229, 255, 0.22);
-  --bolt-elements-button-primary-text: #00E5FF;
+  --bolt-elements-button-primary-text: #00e5ff;
 
-  --bolt-elements-item-contentAccent: #00E5FF;
+  --bolt-elements-item-contentAccent: #00e5ff;
   --bolt-elements-item-backgroundAccent: rgba(0, 229, 255, 0.12);
 
-  --bolt-elements-messages-linkColor: #00E5FF;
-  --bolt-elements-loader-progress: #00E5FF;
+  --bolt-elements-messages-linkColor: #00e5ff;
+  --bolt-elements-loader-progress: #00e5ff;
 
-  --bolt-elements-sidebar-buttonBackgroundDefault: rgba(0, 229, 255, 0.10);
-  --bolt-elements-sidebar-buttonBackgroundHover: rgba(0, 229, 255, 0.20);
-  --bolt-elements-sidebar-buttonText: #00E5FF;
+  --bolt-elements-sidebar-buttonBackgroundDefault: rgba(0, 229, 255, 0.1);
+  --bolt-elements-sidebar-buttonBackgroundHover: rgba(0, 229, 255, 0.2);
+  --bolt-elements-sidebar-buttonText: #00e5ff;
 
   /* Code surfaces */
   --bolt-elements-code-background: #0a0a18;
   --bolt-elements-code-text: #f4f4ff;
   --bolt-elements-artifacts-background: #0a0a18;
   --bolt-elements-artifacts-inlineCode-background: #131322;
-  --bolt-elements-artifacts-inlineCode-text: #00E5FF;
+  --bolt-elements-artifacts-inlineCode-text: #00e5ff;
   --bolt-elements-actions-background: #0a0a18;
   --bolt-elements-actions-code-background: #131322;
   --bolt-elements-messages-background: #0a0a18;
   --bolt-elements-messages-code-background: #060610;
   --bolt-elements-messages-inlineCode-background: rgba(0, 229, 255, 0.08);
-  --bolt-elements-messages-inlineCode-text: #00E5FF;
+  --bolt-elements-messages-inlineCode-text: #00e5ff;
 
   /* Terminal — neon-on-near-black per project palette */
   --bolt-terminal-background: #060610;
   --bolt-terminal-foreground: #f4f4ff;
-  --bolt-terminal-selection-background: rgba(0, 229, 255, 0.20);
-  --bolt-terminal-cyan: #00E5FF;
-  --bolt-terminal-brightCyan: #4DEEFF;
-  --bolt-terminal-blue: #50AAE3;
-  --bolt-terminal-magenta: #7C3AED;
-  --bolt-terminal-brightMagenta: #A678FF;
+  --bolt-terminal-selection-background: rgba(0, 229, 255, 0.2);
+  --bolt-terminal-cyan: #00e5ff;
+  --bolt-terminal-brightCyan: #4deeff;
+  --bolt-terminal-blue: #50aae3;
+  --bolt-terminal-magenta: #7c3aed;
+  --bolt-terminal-brightMagenta: #a678ff;
   --bolt-terminal-green: #5af78e;
-  --bolt-terminal-yellow: #FFD166;
+  --bolt-terminal-yellow: #ffd166;
 
   /* Icons */
   --bolt-elements-icon-primary: #f4f4ff;
@@ -186,14 +186,14 @@ header.border-transparent {
   --bolt-elements-preview-addressBar-backgroundActive: #131322;
 
   --bolt-elements-cta-background: rgba(0, 229, 255, 0.14);
-  --bolt-elements-cta-text: #00E5FF;
+  --bolt-elements-cta-text: #00e5ff;
 
   /* Brand-tokens — usable inside component styles for new surfaces */
   --ps-bg: #060610;
   --ps-ink: #f4f4ff;
-  --ps-accent: #00E5FF;
-  --ps-accent-secondary: #7C3AED;
-  --ps-accent-tertiary: #50AAE3;
+  --ps-accent: #00e5ff;
+  --ps-accent-secondary: #7c3aed;
+  --ps-accent-tertiary: #50aae3;
   --ps-radius-sm: 8px;
   --ps-radius-md: 12px;
   --ps-radius-lg: 16px;
@@ -209,7 +209,12 @@ header.border-transparent {
 html,
 body {
   /* Use the brand font stack across the embedded IDE */
-  font-family: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    'Space Grotesk',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   font-feature-settings: 'ss01', 'ss02', 'cv11';
   background:
     radial-gradient(ellipse 80% 50% at top, rgba(0, 229, 255, 0.04), transparent 60%),
@@ -218,7 +223,12 @@ body {
 }
 
 /* Headings + display surfaces use Sora */
-h1, h2, h3, h4, h5, h6,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
 .bolt-display,
 [class*='font-bold'],
 [class*='font-semibold'] {
@@ -228,12 +238,22 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* Body text reads tighter + larger weight on dark */
-p, span, li, button, input, textarea, select, label {
+p,
+span,
+li,
+button,
+input,
+textarea,
+select,
+label {
   font-family: inherit;
 }
 
 /* Code + mono in JetBrains Mono everywhere — terminal, code blocks, file paths */
-code, pre, kbd, samp,
+code,
+pre,
+kbd,
+samp,
 [class*='font-mono'],
 [class*='Codemirror'],
 .cm-editor,
@@ -291,8 +311,7 @@ textarea[placeholder*='ask'] {
 /* Message author labels + status pills feel more like the admin */
 .bg-bolt-elements-messages-background {
   background:
-    linear-gradient(180deg, rgba(0, 229, 255, 0.02), transparent 60%),
-    var(--bolt-elements-messages-background) !important;
+    linear-gradient(180deg, rgba(0, 229, 255, 0.02), transparent 60%), var(--bolt-elements-messages-background) !important;
 }
 
 /* Tab strip + slider — cyan-glow on active */
@@ -310,7 +329,9 @@ textarea[placeholder*='ask'] {
 
 /* Reduced motion respect */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -320,11 +341,16 @@ textarea[placeholder*='ask'] {
 /* ── Editor toolbar "⋯" more-menu (Download / Export / Sync) ──────────
    Consolidates the three legacy buttons into one branded dropdown so the
    editor toolbar reads as one tight strip, not a row of competing CTAs. */
-.ps-more-wrap { position: relative; }
+.ps-more-wrap {
+  position: relative;
+}
 
 .ps-more-trigger {
-  width: 32px; height: 32px;
-  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--ps-radius-sm);
   background: rgba(0, 229, 255, 0.06);
   border: 1px solid rgba(0, 229, 255, 0.18);
@@ -346,7 +372,7 @@ textarea[placeholder*='ask'] {
   outline: 2px solid var(--ps-accent);
   outline-offset: 2px;
 }
-.ps-more-trigger[data-state="open"] {
+.ps-more-trigger[data-state='open'] {
   background: rgba(0, 229, 255, 0.18);
   border-color: rgba(0, 229, 255, 0.55);
 }
@@ -360,7 +386,7 @@ textarea[placeholder*='ask'] {
     linear-gradient(180deg, rgba(20, 20, 42, 0.96), rgba(10, 10, 28, 0.98));
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
-  border: 1px solid color-mix(in oklch, #00E5FF 22%, transparent);
+  border: 1px solid color-mix(in oklch, #00e5ff 22%, transparent);
   box-shadow:
     0 24px 60px -16px rgba(0, 0, 0, 0.85),
     0 0 80px rgba(0, 229, 255, 0.05),
@@ -372,13 +398,26 @@ textarea[placeholder*='ask'] {
   position: relative;
 }
 .ps-more-menu::before {
-  content: ''; position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.55) 30%, rgba(124, 58, 237, 0.4) 70%, transparent);
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 229, 255, 0.55) 30%,
+    rgba(124, 58, 237, 0.4) 70%,
+    transparent
+  );
   pointer-events: none;
 }
 
 .ps-more-item {
-  display: flex; align-items: flex-start; gap: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: var(--ps-radius-sm);
   cursor: pointer;
@@ -396,15 +435,23 @@ textarea[placeholder*='ask'] {
 }
 
 .ps-more-glyph {
-  width: 28px; height: 28px;
-  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--ps-radius-sm);
   background: rgba(0, 229, 255, 0.1);
   border: 1px solid rgba(0, 229, 255, 0.22);
   color: var(--ps-accent);
   flex-shrink: 0;
 }
-.ps-more-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ps-more-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
 .ps-more-label {
   font-family: 'Sora', system-ui, sans-serif;
   font-size: 0.78rem;
@@ -418,13 +465,25 @@ textarea[placeholder*='ask'] {
   font-family: 'Space Grotesk', system-ui, sans-serif;
 }
 
-.ps-spin { animation: psSpin 0.7s linear infinite; }
+.ps-spin {
+  animation: psSpin 0.7s linear infinite;
+}
 
 @keyframes psMoreIn {
-  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-@keyframes psSpin { to { transform: rotate(360deg); } }
+@keyframes psSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    Cross-surface beauty pass — second wave
@@ -447,9 +506,9 @@ textarea[placeholder*='ask'] {
 }
 [class*='PromptEffectContainer']:focus-within {
   box-shadow:
-    0 0 0 1px rgba(0, 229, 255, 0.30),
+    0 0 0 1px rgba(0, 229, 255, 0.3),
     0 12px 36px -16px rgba(0, 229, 255, 0.35),
-    0 0 48px -12px rgba(124, 58, 237, 0.20),
+    0 0 48px -12px rgba(124, 58, 237, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
@@ -459,13 +518,15 @@ textarea[placeholder*='ask'] {
 [class*='PromptEffectContainer']::before {
   content: '';
   position: absolute;
-  top: 0; left: 12%; right: 12%;
+  top: 0;
+  left: 12%;
+  right: 12%;
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(0, 229, 255, 0.40) 30%,
-    rgba(124, 58, 237, 0.30) 70%,
+    rgba(0, 229, 255, 0.4) 30%,
+    rgba(124, 58, 237, 0.3) 70%,
     transparent 100%
   );
   opacity: 0.55;
@@ -473,7 +534,9 @@ textarea[placeholder*='ask'] {
   z-index: 1;
   transition: opacity var(--ps-dur-med) var(--ps-ease-emphasized);
 }
-[class*='PromptEffectContainer']:focus-within::before { opacity: 1; }
+[class*='PromptEffectContainer']:focus-within::before {
+  opacity: 1;
+}
 
 /* Send button gradient hover pulse */
 [class*='PromptEffectContainer'] button[type='submit'],
@@ -514,7 +577,8 @@ button[aria-label*='end message' i]:hover:not(:disabled) {
 [role='tablist'] [role='tab']::after {
   content: '';
   position: absolute;
-  left: 12px; right: 12px;
+  left: 12px;
+  right: 12px;
   bottom: 0;
   height: 2px;
   background: linear-gradient(90deg, var(--ps-accent), var(--ps-accent-secondary));
@@ -570,20 +634,34 @@ button[aria-label*='end message' i]:hover:not(:disabled) {
    File tree rows in bolt.diy use `[data-id]` with file path. Color
    hints surface the file type quickly. */
 [data-id$='.ts'] [class*='icon'],
-[data-id$='.tsx'] [class*='icon'] { color: #3178c6; }
+[data-id$='.tsx'] [class*='icon'] {
+  color: #3178c6;
+}
 [data-id$='.js'] [class*='icon'],
 [data-id$='.jsx'] [class*='icon'],
 [data-id$='.mjs'] [class*='icon'],
-[data-id$='.cjs'] [class*='icon'] { color: #f7df1e; }
-[data-id$='.json'] [class*='icon'] { color: #fbbf24; }
+[data-id$='.cjs'] [class*='icon'] {
+  color: #f7df1e;
+}
+[data-id$='.json'] [class*='icon'] {
+  color: #fbbf24;
+}
 [data-id$='.css'] [class*='icon'],
-[data-id$='.scss'] [class*='icon'] { color: #ff79c6; }
-[data-id$='.md'] [class*='icon'] { color: rgba(244, 244, 255, 0.6); }
-[data-id$='.html'] [class*='icon'] { color: #e34c26; }
+[data-id$='.scss'] [class*='icon'] {
+  color: #ff79c6;
+}
+[data-id$='.md'] [class*='icon'] {
+  color: rgba(244, 244, 255, 0.6);
+}
+[data-id$='.html'] [class*='icon'] {
+  color: #e34c26;
+}
 [data-id$='.svg'] [class*='icon'],
 [data-id$='.png'] [class*='icon'],
 [data-id$='.jpg'] [class*='icon'],
-[data-id$='.webp'] [class*='icon'] { color: #00E5FF; }
+[data-id$='.webp'] [class*='icon'] {
+  color: #00e5ff;
+}
 
 /* Active file row — left cyan accent bar */
 [data-id][aria-selected='true'],
@@ -595,7 +673,9 @@ button[aria-label*='end message' i]:hover:not(:disabled) {
 .file-active::before {
   content: '';
   position: absolute;
-  left: 0; top: 4px; bottom: 4px;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
   width: 2px;
   background: linear-gradient(180deg, var(--ps-accent), var(--ps-accent-secondary));
   border-radius: 0 2px 2px 0;
@@ -673,13 +753,15 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   transition: background-color var(--ps-dur-fast) var(--ps-ease-emphasized);
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 229, 255, 0.40);
+  background: rgba(0, 229, 255, 0.4);
   background-clip: content-box;
 }
-*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 229, 255, 0.20) transparent;
+  scrollbar-color: rgba(0, 229, 255, 0.2) transparent;
 }
 
 /* ── 10. Preview address bar — subtle inner glow on focus ────────────
@@ -706,7 +788,7 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   background: linear-gradient(
     90deg,
     var(--ps-accent),
-    var(--ps-accent-secondary, #7C3AED),
+    var(--ps-accent-secondary, #7c3aed),
     var(--ps-accent)
   ) !important;
   background-size: 200% 100%;
@@ -714,7 +796,9 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
 }
 @keyframes bolt-loader-shine {
-  to { background-position: -200% 0; }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /* ── 13. Action menus + dropdowns — premium dark glass ───────────────
@@ -726,7 +810,7 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow:
     0 24px 64px -16px rgba(0, 0, 0, 0.72),
-    0 0 0 1px rgba(0, 229, 255, 0.10),
+    0 0 0 1px rgba(0, 229, 255, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -735,7 +819,7 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
    shift hue to match the brand-cool palette. */
 [class*='DiffView'] [class*='added'],
 [class*='diff-added'] {
-  background: rgba(34, 197, 94, 0.10) !important;
+  background: rgba(34, 197, 94, 0.1) !important;
   border-left: 2px solid #22c55e !important;
 }
 [class*='DiffView'] [class*='removed'],
@@ -779,8 +863,8 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   background: linear-gradient(
     100deg,
     var(--ps-ink, var(--bolt-elements-textPrimary)) 20%,
-    var(--ps-accent, #00E5FF) 60%,
-    var(--ps-accent-secondary, #7C3AED) 95%
+    var(--ps-accent, #00e5ff) 60%,
+    var(--ps-accent-secondary, #7c3aed) 95%
   );
   background-clip: text;
   -webkit-background-clip: text;
@@ -801,18 +885,18 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   z-index: 9999;
   display: grid;
   place-items: center;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(6, 6, 16, 0.96) 0%,
-    rgba(6, 6, 16, 1) 70%
-  );
+  background: radial-gradient(ellipse at center, rgba(6, 6, 16, 0.96) 0%, rgba(6, 6, 16, 1) 70%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   animation: ps-boot-fade-in 0.18s ease-out;
 }
 @keyframes ps-boot-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .ps-boot-skeleton__inner {
   display: flex;
@@ -855,17 +939,16 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
 .ps-boot-skeleton__bar > span {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--ps-accent, #00E5FF) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, var(--ps-accent, #00e5ff) 50%, transparent 100%);
   animation: ps-boot-slide 1.2s ease-in-out infinite;
 }
 @keyframes ps-boot-slide {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(200%); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(200%);
+  }
 }
 
 /* ── Item 33 — Gradient mesh behind chat input ────────────────────── */
@@ -876,24 +959,20 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(
-      ellipse 60% 40% at 25% 40%,
-      rgba(0, 229, 255, 0.10) 0%,
-      transparent 70%
-    ),
-    radial-gradient(
-      ellipse 50% 50% at 75% 60%,
-      rgba(124, 58, 237, 0.10) 0%,
-      transparent 70%
-    );
+    radial-gradient(ellipse 60% 40% at 25% 40%, rgba(0, 229, 255, 0.1) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 75% 60%, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
   filter: blur(28px);
   animation: ps-mesh-drift 14s ease-in-out infinite alternate;
   border-radius: 28px;
   opacity: 0.85;
 }
 @keyframes ps-mesh-drift {
-  from { transform: translate3d(-2%, 0, 0) scale(1); }
-  to   { transform: translate3d(2%, -1%, 0) scale(1.04); }
+  from {
+    transform: translate3d(-2%, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(2%, -1%, 0) scale(1.04);
+  }
 }
 
 /* ── Item 34 — AI cursor particle trail (CodeMirror) ──────────────── */
@@ -910,31 +989,31 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    var(--ps-accent, #00E5FF) 0%,
-    rgba(0, 229, 255, 0.0) 70%
-  );
+  background: radial-gradient(circle, var(--ps-accent, #00e5ff) 0%, rgba(0, 229, 255, 0) 70%);
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
   opacity: 1;
   animation: ps-ai-trail-fade 0.8s ease-out forwards;
   will-change: transform, opacity;
 }
 @keyframes ps-ai-trail-fade {
-  0%   { opacity: 1; transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(0.6); }
-  35%  { opacity: 1; }
-  100% { opacity: 0; transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(2.4); }
+  0% {
+    opacity: 1;
+    transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(0.6);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(2.4);
+  }
 }
 
 /* ── Item 35 — CodeMirror line numbers + gutter tint ──────────────── */
 .cm-editor .cm-gutters {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 229, 255, 0.04) 0%,
-    rgba(0, 229, 255, 0.0) 100%
-  ) !important;
-  border-right: 1px solid rgba(0, 229, 255, 0.10) !important;
-  color: color-mix(in oklch, var(--ps-accent, #00E5FF) 60%, var(--bolt-elements-textSecondary) 40%);
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.04) 0%, rgba(0, 229, 255, 0) 100%) !important;
+  border-right: 1px solid rgba(0, 229, 255, 0.1) !important;
+  color: color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, var(--bolt-elements-textSecondary) 40%);
 }
 .cm-editor .cm-lineNumbers .cm-gutterElement {
   font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
@@ -949,7 +1028,7 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
 }
 .cm-editor .cm-activeLineGutter {
   background: rgba(0, 229, 255, 0.08) !important;
-  color: var(--ps-accent, #00E5FF) !important;
+  color: var(--ps-accent, #00e5ff) !important;
   opacity: 1 !important;
 }
 
@@ -963,11 +1042,7 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   font-size: 11.5px;
   line-height: 1;
   color: var(--bolt-elements-textSecondary);
-  background: linear-gradient(
-    180deg,
-    rgba(0, 229, 255, 0.03) 0%,
-    rgba(0, 0, 0, 0.18) 100%
-  );
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.03) 0%, rgba(0, 0, 0, 0.18) 100%);
   border-top: 1px solid var(--bolt-elements-borderColor);
   user-select: none;
 }
@@ -977,10 +1052,12 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   border-radius: 50%;
   background: var(--bolt-elements-textTertiary);
   box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .ps-statusbar__dot.is-online {
-  background: var(--ps-accent, #00E5FF);
+  background: var(--ps-accent, #00e5ff);
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.55);
 }
 .ps-statusbar__seg {
@@ -1006,12 +1083,26 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   view-transition-name: workbench;
 }
 @keyframes ps-workbench-swoosh-in {
-  from { transform: translateX(24%); opacity: 0; filter: blur(2px); }
-  to   { transform: translateX(0); opacity: 1; filter: blur(0); }
+  from {
+    transform: translateX(24%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 @keyframes ps-workbench-swoosh-out {
-  from { transform: translateX(0); opacity: 1; }
-  to   { transform: translateX(24%); opacity: 0; }
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(24%);
+    opacity: 0;
+  }
 }
 ::view-transition-new(workbench) {
   animation: ps-workbench-swoosh-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1039,16 +1130,16 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
 .ps-msg--user::before {
   background: linear-gradient(
     180deg,
-    var(--ps-accent, #00E5FF) 0%,
-    color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent) 100%
+    var(--ps-accent, #00e5ff) 0%,
+    color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent) 100%
   );
   box-shadow: 0 0 6px rgba(0, 229, 255, 0.35);
 }
 .ps-msg--ai::before {
   background: linear-gradient(
     180deg,
-    var(--ps-accent-secondary, #7C3AED) 0%,
-    color-mix(in oklch, var(--ps-accent-secondary, #7C3AED) 30%, transparent) 100%
+    var(--ps-accent-secondary, #7c3aed) 0%,
+    color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 30%, transparent) 100%
   );
   box-shadow: 0 0 6px rgba(124, 58, 237, 0.35);
 }
@@ -1074,7 +1165,7 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
 }
 .ps-send-ring__bar {
   fill: none;
-  stroke: var(--ps-accent, #00E5FF);
+  stroke: var(--ps-accent, #00e5ff);
   stroke-width: 2;
   stroke-linecap: round;
   filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.6));
@@ -1085,7 +1176,9 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
   transform-origin: 16px 16px;
 }
 @keyframes ps-send-ring-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Reduced-motion safety for the items above */

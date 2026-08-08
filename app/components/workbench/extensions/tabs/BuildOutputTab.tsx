@@ -47,15 +47,18 @@ function BuildOutputTab(): JSX.Element {
   // Load scripts from package.json on mount.
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
         const wc = await webcontainer;
         const raw = await wc.fs.readFile(`${WORK_DIR}/package.json`, 'utf-8');
         const pkg = JSON.parse(raw) as { scripts?: Record<string, string> };
         const keys = Object.keys(pkg.scripts ?? {});
+
         if (cancelled) {
           return;
         }
+
         if (keys.length > 0) {
           setScripts(keys);
           setScript((prev) => (keys.includes(prev) ? prev : keys[0]));
@@ -64,11 +67,13 @@ function BuildOutputTab(): JSX.Element {
         }
       } catch (err) {
         console.warn('BuildOutputTab: could not load package.json scripts', err);
+
         if (!cancelled) {
           setScripts(FALLBACK_SCRIPTS);
         }
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -90,10 +95,13 @@ function BuildOutputTab(): JSX.Element {
   const appendChunk = useCallback((chunk: string) => {
     setLines((prev) => {
       const incoming = chunk.split(/\r?\n/);
-      const merged = prev.length > 0 ? [...prev.slice(0, -1), prev[prev.length - 1] + incoming[0], ...incoming.slice(1)] : incoming;
+      const merged =
+        prev.length > 0 ? [...prev.slice(0, -1), prev[prev.length - 1] + incoming[0], ...incoming.slice(1)] : incoming;
+
       if (merged.length > MAX_LINES) {
         return merged.slice(merged.length - MAX_LINES);
       }
+
       return merged;
     });
   }, []);
@@ -101,8 +109,10 @@ function BuildOutputTab(): JSX.Element {
   const runScript = useCallback(async () => {
     procRef.current?.kill();
     setLines([]);
+
     const startedAt = Date.now();
     setRun({ running: true, exitCode: null, startedAt, elapsedMs: null });
+
     try {
       const wc = await webcontainer;
       const proc = await wc.spawn('npm', ['run', script]);
@@ -114,8 +124,10 @@ function BuildOutputTab(): JSX.Element {
           },
         }),
       );
+
       const exitCode = await proc.exit;
       setRun({ running: false, exitCode, startedAt, elapsedMs: Date.now() - startedAt });
+
       if (procRef.current === proc) {
         procRef.current = null;
       }
@@ -184,9 +196,7 @@ function BuildOutputTab(): JSX.Element {
       <div className="flex-1 overflow-auto bg-bolt-elements-terminals-background px-3 py-2">
         <pre className="font-mono text-xs leading-relaxed text-bolt-elements-textPrimary whitespace-pre-wrap break-words">
           {lines.length === 0 ? (
-            <span className="text-bolt-elements-textTertiary">
-              No output yet. Pick a script and click Run Build.
-            </span>
+            <span className="text-bolt-elements-textTertiary">No output yet. Pick a script and click Run Build.</span>
           ) : (
             lines.join('\n')
           )}

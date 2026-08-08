@@ -36,8 +36,14 @@ const RedisTab = memo(() => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const filtered = MOCK_KEYS.filter((k) => {
-    if (search && !k.key.toLowerCase().includes(search.toLowerCase())) return false;
-    if (typeFilter !== 'all' && k.type !== typeFilter) return false;
+    if (search && !k.key.toLowerCase().includes(search.toLowerCase())) {
+      return false;
+    }
+
+    if (typeFilter !== 'all' && k.type !== typeFilter) {
+      return false;
+    }
+
     return true;
   });
 
@@ -92,9 +98,7 @@ const RedisTab = memo(() => {
                   key={k.key}
                   className="border-b border-bolt-elements-borderColor/50 hover:bg-bolt-elements-item-backgroundActive cursor-pointer"
                 >
-                  <td className="px-3 py-1.5 text-bolt-elements-textPrimary truncate max-w-[300px]">
-                    {k.key}
-                  </td>
+                  <td className="px-3 py-1.5 text-bolt-elements-textPrimary truncate max-w-[300px]">{k.key}</td>
                   <td className="px-3 py-1.5">
                     <span className="inline-flex items-center gap-1 text-bolt-elements-textSecondary">
                       <div className={classNames(TYPE_ICONS[k.type], 'text-sm')} />

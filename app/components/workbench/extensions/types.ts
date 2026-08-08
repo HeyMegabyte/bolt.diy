@@ -13,12 +13,16 @@ import type { ComponentType } from 'react';
 export interface ExtensionTabDescriptor {
   /** Stable slug used in URL + state — never change. */
   id: string;
+
   /** Human label shown on the tab strip. */
   label: string;
+
   /** UnoCSS icon class, e.g. `i-ph:database-duotone`. */
   icon: string;
+
   /** Lazy-imported tab body. */
   component: ComponentType;
+
   /** Optional tooltip for the trigger button. */
   hint?: string;
 }

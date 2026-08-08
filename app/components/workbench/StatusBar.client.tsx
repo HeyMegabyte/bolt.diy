@@ -40,7 +40,9 @@ const EXT_TO_LANG: Record<string, string> = {
 };
 
 function inferLanguage(filePath: string | undefined): string {
-  if (!filePath) return '—';
+  if (!filePath) {
+    return '—';
+  }
 
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
 
@@ -48,9 +50,13 @@ function inferLanguage(filePath: string | undefined): string {
 }
 
 function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
+  if (n < 1024) {
+    return `${n} B`;
+  }
 
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024) {
+    return `${(n / 1024).toFixed(1)} KB`;
+  }
 
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -62,7 +68,9 @@ export function StatusBar() {
   const [branch, setBranch] = useState('main');
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
 
     setOnline(navigator.onLine);
 
@@ -75,7 +83,9 @@ export function StatusBar() {
     const params = new URLSearchParams(window.location.search);
     const b = params.get('branch');
 
-    if (b) setBranch(b);
+    if (b) {
+      setBranch(b);
+    }
 
     return () => {
       window.removeEventListener('online', on);
@@ -91,15 +101,23 @@ export function StatusBar() {
     <div className="ps-statusbar" role="status" aria-label="Workbench status">
       <div className={classNames('ps-statusbar__dot', { 'is-online': online })} aria-hidden="true" />
       <span className="ps-statusbar__seg">{online ? 'connected' : 'offline'}</span>
-      <span className="ps-statusbar__sep" aria-hidden="true">·</span>
+      <span className="ps-statusbar__sep" aria-hidden="true">
+        ·
+      </span>
       <span className="ps-statusbar__seg ps-statusbar__seg--mono" title={selectedFile ?? ''}>
         {shortPath}
       </span>
-      <span className="ps-statusbar__sep" aria-hidden="true">·</span>
+      <span className="ps-statusbar__sep" aria-hidden="true">
+        ·
+      </span>
       <span className="ps-statusbar__seg">{formatBytes(size)}</span>
-      <span className="ps-statusbar__sep" aria-hidden="true">·</span>
+      <span className="ps-statusbar__sep" aria-hidden="true">
+        ·
+      </span>
       <span className="ps-statusbar__seg">{lang}</span>
-      <span className="ps-statusbar__sep" aria-hidden="true">·</span>
+      <span className="ps-statusbar__sep" aria-hidden="true">
+        ·
+      </span>
       <span className="ps-statusbar__seg">UTF-8</span>
       <span className="ps-statusbar__spacer" />
       <span className="ps-statusbar__seg ps-statusbar__seg--mono">

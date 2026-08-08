@@ -34,20 +34,27 @@ import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 export interface EditorToolContext {
   /** Resolve a workbench-relative path to absolute (`src/App.tsx` -> `/home/project/src/App.tsx`). */
   resolvePath(path: string): string | undefined;
+
   /** Read a text file's UTF-8 contents from the workbench. */
   readFile(absolutePath: string): Promise<string | undefined>;
+
   /** Open `absolutePath` in the editor + reveal the workbench panel. */
   openInEditor(absolutePath: string): void;
+
   /** Scroll CodeMirror to (1-based) line/column. */
   scrollTo(absolutePath: string, line: number, column?: number): void;
+
   /** Run `command` in the WebContainer's bolt terminal; resolve with raw output + exitCode. */
   runShell(command: string, cwd?: string): Promise<{ output: string; exitCode: number }>;
+
   /** Enumerate every text file in the workbench (path + size in bytes). */
   listFiles(): { path: string; size: number }[];
+
   /** Read CodeMirror's current selection. `undefined` when nothing is open. */
   getEditorSelection():
     | { path: string; text: string; from: { line: number; column: number }; to: { line: number; column: number } }
     | undefined;
+
   /** Replace the current selection in the active editor with `text`. */
   replaceEditorSelection(text: string): boolean;
 }
@@ -65,42 +72,47 @@ export interface EditorTool<Schema extends ZodTypeAny = ZodTypeAny> {
 
 /** Max bytes returned per `runCommand`. Keeps a runaway `npm run dev` from blowing the prompt budget. */
 export const MAX_COMMAND_OUTPUT_BYTES = 8 * 1024;
+
 /** Max matches returned per `search`. */
 export const MAX_SEARCH_MATCHES = 50;
+
 /** Max files scanned per `search` to bound CPU. */
 const MAX_SEARCH_FILES = 2000;
 
 function truncate(output: string, max = MAX_COMMAND_OUTPUT_BYTES): string {
-  if (output.length <= max) return output;
+  if (output.length <= max) {
+    return output;
+  }
+
   return `${output.slice(0, max)}\n…[truncated ${output.length - max} bytes]`;
 }
 
 // ── Tool schemas ─────────────────────────────────────────────────────────
 
-const OpenFileArgs = z.object({
+const openFileArgs = z.object({
   path: z.string().min(1, 'path is required'),
 });
 
-const JumpToLineArgs = z.object({
+const jumpToLineArgs = z.object({
   path: z.string().min(1, 'path is required'),
   line: z.number().int().positive('line must be a positive integer'),
   column: z.number().int().nonnegative().optional(),
 });
 
-const RunCommandArgs = z.object({
+const runCommandArgs = z.object({
   command: z.string().min(1, 'command is required').max(4000, 'command must be ≤ 4000 chars'),
   cwd: z.string().optional(),
 });
 
-const SearchArgs = z.object({
+const searchArgs = z.object({
   query: z.string().min(1, 'query is required').max(500, 'query must be ≤ 500 chars'),
   regex: z.boolean().optional(),
   file_pattern: z.string().optional(),
 });
 
-const GetSelectionArgs = z.object({});
+const getSelectionArgs = z.object({});
 
-const ReplaceSelectionArgs = z.object({
+const replaceSelectionArgs = z.object({
   text: z.string(),
 });
 
@@ -109,49 +121,65 @@ const ReplaceSelectionArgs = z.object({
 function globToRegExp(glob: string): RegExp {
   // Cheap globber covering the common cases: `*.tsx`, `src/**/*.ts`, `**/*.md`.
   // Anything fancier is out-of-scope for an LLM convenience filter.
-  const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '__STARSTAR__').replace(/\*/g, '[^/]*').replace(/__STARSTAR__/g, '.*');
+  const escaped = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '__STARSTAR__')
+    .replace(/\*/g, '[^/]*')
+    .replace(/__STARSTAR__/g, '.*');
   return new RegExp(`^${escaped}$`);
 }
 
 // ── Tool implementations ─────────────────────────────────────────────────
 
-export const openFileTool: EditorTool<typeof OpenFileArgs> = {
+export const openFileTool: EditorTool<typeof openFileArgs> = {
   name: 'openFile',
   description: 'Open a file in the bolt.diy editor and return its contents, detected language, and line count.',
-  parameters: OpenFileArgs,
+  parameters: openFileArgs,
   async handler(args, ctx) {
     const absolute = ctx.resolvePath(args.path);
+
     if (!absolute) {
       throw new Error(`File not found in workbench: ${args.path}`);
     }
+
     const contents = await ctx.readFile(absolute);
+
     if (typeof contents !== 'string') {
       throw new Error(`File is binary or unreadable: ${args.path}`);
     }
+
     ctx.openInEditor(absolute);
+
     const language = getLanguageFromExtension(absolute) ?? 'plaintext';
     const lineCount = contents.length === 0 ? 0 : contents.split('\n').length;
+
     return JSON.stringify({ path: absolute, contents, language, line_count: lineCount });
   },
 };
 
-export const jumpToLineTool: EditorTool<typeof JumpToLineArgs> = {
+export const jumpToLineTool: EditorTool<typeof jumpToLineArgs> = {
   name: 'jumpToLine',
   description: 'Scroll the editor to a specific line (1-based) and optional column in the named file.',
-  parameters: JumpToLineArgs,
+  parameters: jumpToLineArgs,
   async handler(args, ctx) {
     const absolute = ctx.resolvePath(args.path);
-    if (!absolute) throw new Error(`File not found in workbench: ${args.path}`);
+
+    if (!absolute) {
+      throw new Error(`File not found in workbench: ${args.path}`);
+    }
+
     ctx.openInEditor(absolute);
     ctx.scrollTo(absolute, args.line, args.column);
+
     return JSON.stringify({ ok: true, path: absolute, line: args.line, column: args.column ?? 0 });
   },
 };
 
-export const runCommandTool: EditorTool<typeof RunCommandArgs> = {
+export const runCommandTool: EditorTool<typeof runCommandArgs> = {
   name: 'runCommand',
-  description: 'Run a shell command in the WebContainer terminal. Returns stdout/stderr (truncated at 8KB) and the exit code.',
-  parameters: RunCommandArgs,
+  description:
+    'Run a shell command in the WebContainer terminal. Returns stdout/stderr (truncated at 8KB) and the exit code.',
+  parameters: runCommandArgs,
   async handler(args, ctx) {
     const result = await ctx.runShell(args.command, args.cwd);
     return JSON.stringify({
@@ -162,10 +190,10 @@ export const runCommandTool: EditorTool<typeof RunCommandArgs> = {
   },
 };
 
-export const searchTool: EditorTool<typeof SearchArgs> = {
+export const searchTool: EditorTool<typeof searchArgs> = {
   name: 'search',
   description: 'Grep across the WebContainer files. Returns up to 50 {path, line, match} hits.',
-  parameters: SearchArgs,
+  parameters: searchArgs,
   async handler(args, ctx) {
     const matcher = args.regex
       ? new RegExp(args.query, 'm')
@@ -176,43 +204,63 @@ export const searchTool: EditorTool<typeof SearchArgs> = {
     const hits: { path: string; line: number; match: string }[] = [];
 
     for (const { path } of files) {
-      if (filter && !filter.test(path) && !filter.test(path.replace(/^.*\//, ''))) continue;
+      if (filter && !filter.test(path) && !filter.test(path.replace(/^.*\//, ''))) {
+        continue;
+      }
+
       const contents = await ctx.readFile(path);
-      if (typeof contents !== 'string') continue;
+
+      if (typeof contents !== 'string') {
+        continue;
+      }
+
       const lines = contents.split('\n');
+
       for (let i = 0; i < lines.length; i += 1) {
         if (matcher.test(lines[i])) {
           hits.push({ path, line: i + 1, match: lines[i].slice(0, 240) });
-          if (hits.length >= MAX_SEARCH_MATCHES) break;
+
+          if (hits.length >= MAX_SEARCH_MATCHES) {
+            break;
+          }
         }
       }
-      if (hits.length >= MAX_SEARCH_MATCHES) break;
+
+      if (hits.length >= MAX_SEARCH_MATCHES) {
+        break;
+      }
     }
 
     return JSON.stringify({ matches: hits, truncated: hits.length >= MAX_SEARCH_MATCHES });
   },
 };
 
-export const getSelectionTool: EditorTool<typeof GetSelectionArgs> = {
+export const getSelectionTool: EditorTool<typeof getSelectionArgs> = {
   name: 'getSelection',
   description: 'Return the editor selection: text, path, and 1-based from/to line/column.',
-  parameters: GetSelectionArgs,
+  parameters: getSelectionArgs,
   async handler(_args, ctx) {
     const selection = ctx.getEditorSelection();
+
     if (!selection) {
       return JSON.stringify({ ok: false, reason: 'no_active_selection' });
     }
+
     return JSON.stringify({ ok: true, ...selection });
   },
 };
 
-export const replaceSelectionTool: EditorTool<typeof ReplaceSelectionArgs> = {
+export const replaceSelectionTool: EditorTool<typeof replaceSelectionArgs> = {
   name: 'replaceSelection',
   description: 'Replace the current editor selection with the supplied text. Use after getSelection to confirm scope.',
-  parameters: ReplaceSelectionArgs,
+  parameters: replaceSelectionArgs,
   async handler(args, ctx) {
     const replaced = ctx.replaceEditorSelection(args.text);
-    if (!replaced) throw new Error('No active selection to replace');
+
+    if (!replaced) {
+      throw new Error('No active selection to replace');
+    }
+
     return JSON.stringify({ ok: true, bytes_written: args.text.length });
   },
 };
@@ -244,7 +292,11 @@ export function getTool(name: string): EditorTool | undefined {
  * `tools[].parameters`. We do a hand-rolled shallow walk because the official
  * `zod-to-json-schema` package is overkill for the 6 tools shipped here.
  */
-function toolToJsonSchema(tool: EditorTool): { type: 'object'; properties: Record<string, unknown>; required: string[] } {
+function toolToJsonSchema(tool: EditorTool): {
+  type: 'object';
+  properties: Record<string, unknown>;
+  required: string[];
+} {
   const shape = (tool.parameters as unknown as z.ZodObject<z.ZodRawShape>)._def?.shape?.();
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
@@ -252,6 +304,7 @@ function toolToJsonSchema(tool: EditorTool): { type: 'object'; properties: Recor
   if (shape) {
     for (const [key, schema] of Object.entries(shape)) {
       properties[key] = zodFieldToJsonSchema(schema as ZodTypeAny);
+
       if (!(schema instanceof z.ZodOptional) && !(schema instanceof z.ZodDefault)) {
         required.push(key);
       }
@@ -262,12 +315,30 @@ function toolToJsonSchema(tool: EditorTool): { type: 'object'; properties: Recor
 }
 
 function zodFieldToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
-  if (schema instanceof z.ZodOptional) return zodFieldToJsonSchema(schema._def.innerType);
-  if (schema instanceof z.ZodDefault) return zodFieldToJsonSchema(schema._def.innerType);
-  if (schema instanceof z.ZodString) return { type: 'string' };
-  if (schema instanceof z.ZodNumber) return { type: 'number' };
-  if (schema instanceof z.ZodBoolean) return { type: 'boolean' };
-  if (schema instanceof z.ZodArray) return { type: 'array', items: zodFieldToJsonSchema(schema._def.type) };
+  if (schema instanceof z.ZodOptional) {
+    return zodFieldToJsonSchema(schema._def.innerType);
+  }
+
+  if (schema instanceof z.ZodDefault) {
+    return zodFieldToJsonSchema(schema._def.innerType);
+  }
+
+  if (schema instanceof z.ZodString) {
+    return { type: 'string' };
+  }
+
+  if (schema instanceof z.ZodNumber) {
+    return { type: 'number' };
+  }
+
+  if (schema instanceof z.ZodBoolean) {
+    return { type: 'boolean' };
+  }
+
+  if (schema instanceof z.ZodArray) {
+    return { type: 'array', items: zodFieldToJsonSchema(schema._def.type) };
+  }
+
   return { type: 'string' };
 }
 

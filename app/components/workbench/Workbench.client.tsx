@@ -3,20 +3,29 @@ import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-// Item 9 (perf): View Transitions API — native browser cross-fade for the
-// Code↔Preview slider. Replaces a framer-motion `<motion.div>` per-frame
-// JS animation with a CSS-driven `::view-transition-*` pseudo paint. Chrome
-// 111+ + Safari 18+ ship natively; Firefox falls back to instant swap.
+
+/*
+ * Item 9 (perf): View Transitions API — native browser cross-fade for the
+ * Code↔Preview slider. Replaces a framer-motion `<motion.div>` per-frame
+ * JS animation with a CSS-driven `::view-transition-*` pseudo paint. Chrome
+ * 111+ + Safari 18+ ship natively; Firefox falls back to instant swap.
+ */
 type StartViewTransition = (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
+
 function runViewTransition(cb: () => void): void {
-  if (typeof document === 'undefined') { cb(); return; }
+  if (typeof document === 'undefined') {
+    cb();
+    return;
+  }
+
   const doc = document as Document & { startViewTransition?: StartViewTransition };
-  const reduced = typeof window !== 'undefined'
-    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
   if (doc.startViewTransition && !reduced) {
     doc.startViewTransition(cb);
     return;
   }
+
   cb();
 }
 import type { FileHistory } from '~/types/actions';
@@ -137,11 +146,13 @@ export const Workbench = memo(
     const { paletteOpen, shortcutsOpen, setPaletteOpen, setShortcutsOpen } = useEditorHotkeys();
 
     const setSelectedView = (view: WorkbenchViewType) => {
-      // Item 9: route the Code↔Preview swap through the View Transitions API
-      // so the cross-fade is done in the compositor (off main thread) instead
-      // of via per-frame JS in framer-motion. The existing `<View>` motion
-      // wrappers stay intact for users on browsers that don't support VT —
-      // they'll still see the existing slide.
+      /*
+       * Item 9: route the Code↔Preview swap through the View Transitions API
+       * so the cross-fade is done in the compositor (off main thread) instead
+       * of via per-frame JS in framer-motion. The existing `<View>` motion
+       * wrappers stay intact for users on browsers that don't support VT —
+       * they'll still see the existing slide.
+       */
       runViewTransition(() => workbenchStore.currentView.set(view));
     };
 
@@ -202,205 +213,223 @@ export const Workbench = memo(
     return (
       chatStarted && (
         <>
-        <QuickJumpPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-        <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-        <motion.div
-          initial="closed"
-          animate={showWorkbench ? 'open' : 'closed'}
-          variants={workbenchVariants}
-          className="z-workbench"
-        >
-          <div
-            className={classNames(
-              'fixed top-[calc(var(--header-height)+1.2rem)] bottom-6 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
-              {
-                'w-full': isSmallViewport,
-                'left-0': showWorkbench && isSmallViewport,
-                'left-[var(--workbench-left)]': showWorkbench,
-                'left-[100%]': !showWorkbench,
-              },
-            )}
+          <QuickJumpPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+          <motion.div
+            initial="closed"
+            animate={showWorkbench ? 'open' : 'closed'}
+            variants={workbenchVariants}
+            className="z-workbench"
           >
-            <div className="absolute inset-0 px-2 lg:px-4">
-              <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
-                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1">
-                  <button
-                    className={`${showChat ? 'i-ph:sidebar-simple-fill' : 'i-ph:sidebar-simple'} text-lg text-bolt-elements-textSecondary mr-1`}
-                    disabled={!canHideChat || isSmallViewport}
-                    onClick={() => {
-                      if (canHideChat) {
-                        chatStore.setKey('showChat', !showChat);
-                      }
-                    }}
-                  />
-                  {/* Top tab strip — Code | Visual | Preview | Media | Functions | Data | Settings */}
-                  <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
-                    {TOP_TABS.map((tab) => {
-                      const active = selectedView === tab.value;
-                      return (
-                        <button
-                          key={tab.value}
-                          type="button"
-                          onClick={() => setSelectedView(tab.value)}
-                          aria-pressed={active}
-                          className={classNames(
-                            'flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
-                            active
-                              ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
-                              : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
-                          )}
-                        >
-                          <div className={classNames(tab.icon, 'text-base')} />
-                          {tab.text}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="ml-auto flex items-center gap-1">
-                  {selectedView === 'code' && (
-                    <>
-                      <IconButton
-                        icon="i-ph:magnifying-glass"
-                        size="xl"
-                        title="Quick-jump to file (Cmd+P / Ctrl+P)"
-                        onClick={() => setPaletteOpen(true)}
-                      />
-                      <IconButton
-                        icon="i-ph:lightning"
-                        size="xl"
-                        title="Open in StackBlitz"
-                        onClick={openInStackBlitz}
-                      />
-                      <IconButton
-                        icon="i-ph:keyboard"
-                        size="xl"
-                        title="Keyboard shortcuts (?)"
-                        onClick={() => setShortcutsOpen(true)}
-                      />
-                    </>
-                  )}
-                  {selectedView === 'code' && (
-                    /*
-                     * Unified "more" menu — the workbench used to ship three
-                     * separate buttons here (Export → Download Code, Export →
-                     * Export Chat, Sync → Sync Files). They competed for
-                     * visual weight + crowded the editor toolbar. Consolidated
-                     * into one branded ⋯ menu styled to match the projectsites
-                     * dark + cyan palette.
-                     */
-                    <div className="ps-more-wrap">
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger
-                          aria-label="Editor actions"
-                          title="Editor actions — download code, export chat, sync to disk"
-                          className="ps-more-trigger"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
-                            <circle cx="5" cy="12" r="1.4"/>
-                            <circle cx="12" cy="12" r="1.4"/>
-                            <circle cx="19" cy="12" r="1.4"/>
-                          </svg>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content className="ps-more-menu" sideOffset={6} align="end">
-                            <DropdownMenu.Item
-                              className="ps-more-item"
-                              onClick={() => workbenchStore.downloadZip()}
-                            >
-                              <span className="ps-more-glyph"><div className="i-ph:file-zip size-4" /></span>
-                              <div className="ps-more-text">
-                                <div className="ps-more-label">Download code</div>
-                                <div className="ps-more-sub">Zip of all files in the workspace</div>
-                              </div>
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Item
-                              className="ps-more-item"
-                              onClick={() => exportChat?.()}
-                            >
-                              <span className="ps-more-glyph"><div className="i-ph:chat-text size-4" /></span>
-                              <div className="ps-more-text">
-                                <div className="ps-more-label">Export chat</div>
-                                <div className="ps-more-sub">JSON transcript of every message</div>
-                              </div>
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Item
-                              className={classNames('ps-more-item', { 'is-disabled': isSyncing || streaming })}
-                              onClick={handleSyncFiles}
-                              disabled={isSyncing || streaming}
-                            >
-                              <span className="ps-more-glyph">
-                                {isSyncing
-                                  ? <div className="i-ph:spinner ps-spin size-4" />
-                                  : <div className="i-ph:cloud-arrow-down size-4" />}
-                              </span>
-                              <div className="ps-more-text">
-                                <div className="ps-more-label">{isSyncing ? 'Syncing to disk…' : 'Sync to local folder'}</div>
-                                <div className="ps-more-sub">Mirror workspace into a chosen directory</div>
-                              </div>
-                            </DropdownMenu.Item>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
-                    </div>
-                  )}
-                  </div>
-                  <IconButton
-                    icon="i-ph:x-circle"
-                    className="-mr-1"
-                    size="xl"
-                    onClick={() => {
-                      workbenchStore.showWorkbench.set(false);
-                    }}
-                  />
-                </div>
-                <div className="relative flex-1 overflow-hidden">
-                  {/* Code view — full editor panel */}
-                  <View initial={{ x: '0%' }} animate={{ x: getViewX('code', selectedView) }}>
-                    <EditorPanel
-                      editorDocument={currentDocument}
-                      isStreaming={isStreaming}
-                      selectedFile={selectedFile}
-                      files={files}
-                      unsavedFiles={unsavedFiles}
-                      fileHistory={fileHistory}
-                      onFileSelect={onFileSelect}
-                      onEditorScroll={onEditorScroll}
-                      onEditorChange={onEditorChange}
-                      onFileSave={onFileSave}
-                      onFileReset={onFileReset}
+            <div
+              className={classNames(
+                'fixed top-[calc(var(--header-height)+1.2rem)] bottom-6 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
+                {
+                  'w-full': isSmallViewport,
+                  'left-0': showWorkbench && isSmallViewport,
+                  'left-[var(--workbench-left)]': showWorkbench,
+                  'left-[100%]': !showWorkbench,
+                },
+              )}
+            >
+              <div className="absolute inset-0 px-2 lg:px-4">
+                <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
+                  <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1">
+                    <button
+                      className={`${showChat ? 'i-ph:sidebar-simple-fill' : 'i-ph:sidebar-simple'} text-lg text-bolt-elements-textSecondary mr-1`}
+                      disabled={!canHideChat || isSmallViewport}
+                      onClick={() => {
+                        if (canHideChat) {
+                          chatStore.setKey('showChat', !showChat);
+                        }
+                      }}
                     />
-                  </View>
-                  {/* Visual — GrapesJS-powered drag-and-drop editor */}
-                  <View initial={{ x: '100%' }} animate={{ x: getViewX('visual', selectedView) }}>
-                    {selectedView === 'visual' ? <VisualEditor /> : <div className="h-full bg-bolt-elements-background-depth-1" />}
-                  </View>
-                  {/* Preview — read-only rendered output */}
-                  <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
-                    <Preview setSelectedElement={setSelectedElement} />
-                  </View>
-                  {/* Media — site-scoped media manager */}
-                  <View initial={{ x: '100%' }} animate={{ x: getViewX('media', selectedView) }}>
-                    <MediaPanel />
-                  </View>
-                  {/* Functions — Workers/functions manager */}
-                  <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>
-                    <FunctionsPanel />
-                  </View>
-                  {/* Data — resource health overview */}
-                  <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
-                    <DataPanel />
-                  </View>
-                  {/* Settings — site configuration */}
-                  <View initial={{ x: '100%' }} animate={{ x: getViewX('settings', selectedView) }}>
-                    <SettingsPanel />
-                  </View>
+                    {/* Top tab strip — Code | Visual | Preview | Media | Functions | Data | Settings */}
+                    <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
+                      {TOP_TABS.map((tab) => {
+                        const active = selectedView === tab.value;
+                        return (
+                          <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => setSelectedView(tab.value)}
+                            aria-pressed={active}
+                            className={classNames(
+                              'flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                              active
+                                ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                                : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                            )}
+                          >
+                            <div className={classNames(tab.icon, 'text-base')} />
+                            {tab.text}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="ml-auto flex items-center gap-1">
+                      {selectedView === 'code' && (
+                        <>
+                          <IconButton
+                            icon="i-ph:magnifying-glass"
+                            size="xl"
+                            title="Quick-jump to file (Cmd+P / Ctrl+P)"
+                            onClick={() => setPaletteOpen(true)}
+                          />
+                          <IconButton
+                            icon="i-ph:lightning"
+                            size="xl"
+                            title="Open in StackBlitz"
+                            onClick={openInStackBlitz}
+                          />
+                          <IconButton
+                            icon="i-ph:keyboard"
+                            size="xl"
+                            title="Keyboard shortcuts (?)"
+                            onClick={() => setShortcutsOpen(true)}
+                          />
+                        </>
+                      )}
+                      {selectedView === 'code' && (
+                        <div className="ps-more-wrap">
+                          {/*
+                           * Unified "more" menu — the workbench used to ship three
+                           * separate buttons here (Export → Download Code, Export →
+                           * Export Chat, Sync → Sync Files). They competed for
+                           * visual weight + crowded the editor toolbar. Consolidated
+                           * into one branded ⋯ menu styled to match the projectsites
+                           * dark + cyan palette.
+                           */}
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger
+                              aria-label="Editor actions"
+                              title="Editor actions — download code, export chat, sync to disk"
+                              className="ps-more-trigger"
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.8}
+                                strokeLinecap="round"
+                                aria-hidden="true"
+                              >
+                                <circle cx="5" cy="12" r="1.4" />
+                                <circle cx="12" cy="12" r="1.4" />
+                                <circle cx="19" cy="12" r="1.4" />
+                              </svg>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content className="ps-more-menu" sideOffset={6} align="end">
+                                <DropdownMenu.Item
+                                  className="ps-more-item"
+                                  onClick={() => workbenchStore.downloadZip()}
+                                >
+                                  <span className="ps-more-glyph">
+                                    <div className="i-ph:file-zip size-4" />
+                                  </span>
+                                  <div className="ps-more-text">
+                                    <div className="ps-more-label">Download code</div>
+                                    <div className="ps-more-sub">Zip of all files in the workspace</div>
+                                  </div>
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Item className="ps-more-item" onClick={() => exportChat?.()}>
+                                  <span className="ps-more-glyph">
+                                    <div className="i-ph:chat-text size-4" />
+                                  </span>
+                                  <div className="ps-more-text">
+                                    <div className="ps-more-label">Export chat</div>
+                                    <div className="ps-more-sub">JSON transcript of every message</div>
+                                  </div>
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Item
+                                  className={classNames('ps-more-item', { 'is-disabled': isSyncing || streaming })}
+                                  onClick={handleSyncFiles}
+                                  disabled={isSyncing || streaming}
+                                >
+                                  <span className="ps-more-glyph">
+                                    {isSyncing ? (
+                                      <div className="i-ph:spinner ps-spin size-4" />
+                                    ) : (
+                                      <div className="i-ph:cloud-arrow-down size-4" />
+                                    )}
+                                  </span>
+                                  <div className="ps-more-text">
+                                    <div className="ps-more-label">
+                                      {isSyncing ? 'Syncing to disk…' : 'Sync to local folder'}
+                                    </div>
+                                    <div className="ps-more-sub">Mirror workspace into a chosen directory</div>
+                                  </div>
+                                </DropdownMenu.Item>
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu.Root>
+                        </div>
+                      )}
+                    </div>
+                    <IconButton
+                      icon="i-ph:x-circle"
+                      className="-mr-1"
+                      size="xl"
+                      onClick={() => {
+                        workbenchStore.showWorkbench.set(false);
+                      }}
+                    />
+                  </div>
+                  <div className="relative flex-1 overflow-hidden">
+                    {/* Code view — full editor panel */}
+                    <View initial={{ x: '0%' }} animate={{ x: getViewX('code', selectedView) }}>
+                      <EditorPanel
+                        editorDocument={currentDocument}
+                        isStreaming={isStreaming}
+                        selectedFile={selectedFile}
+                        files={files}
+                        unsavedFiles={unsavedFiles}
+                        fileHistory={fileHistory}
+                        onFileSelect={onFileSelect}
+                        onEditorScroll={onEditorScroll}
+                        onEditorChange={onEditorChange}
+                        onFileSave={onFileSave}
+                        onFileReset={onFileReset}
+                      />
+                    </View>
+                    {/* Visual — GrapesJS-powered drag-and-drop editor */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('visual', selectedView) }}>
+                      {selectedView === 'visual' ? (
+                        <VisualEditor />
+                      ) : (
+                        <div className="h-full bg-bolt-elements-background-depth-1" />
+                      )}
+                    </View>
+                    {/* Preview — read-only rendered output */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
+                      <Preview setSelectedElement={setSelectedElement} />
+                    </View>
+                    {/* Media — site-scoped media manager */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('media', selectedView) }}>
+                      <MediaPanel />
+                    </View>
+                    {/* Functions — Workers/functions manager */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>
+                      <FunctionsPanel />
+                    </View>
+                    {/* Data — resource health overview */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
+                      <DataPanel />
+                    </View>
+                    {/* Settings — site configuration */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('settings', selectedView) }}>
+                      <SettingsPanel />
+                    </View>
+                  </div>
+                  {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
+                  <StatusBar />
                 </div>
-                {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
-                <StatusBar />
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
         </>
       )
     );

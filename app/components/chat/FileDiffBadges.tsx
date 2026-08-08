@@ -12,7 +12,8 @@ interface FileDiffBadgesProps {
   content: string;
 }
 
-const FILE_ACTION_RE = /<boltAction[^>]*type="file"[^>]*filePath="([^"]+)"[^>]*>([\s\S]*?)(?=<\/boltAction>|<boltAction|$)/g;
+const FILE_ACTION_RE =
+  /<boltAction[^>]*type="file"[^>]*filePath="([^"]+)"[^>]*>([\s\S]*?)(?=<\/boltAction>|<boltAction|$)/g;
 
 /**
  * Parses streaming assistant content for `<boltAction type="file" filePath="X">`
@@ -70,10 +71,7 @@ export const FileDiffBadges: React.FC<FileDiffBadgesProps> = ({ content }) => {
   };
 
   return (
-    <div
-      data-testid="file-diff-badges"
-      className="flex flex-wrap gap-1.5 mt-2 mb-1 text-xs"
-    >
+    <div data-testid="file-diff-badges" className="flex flex-wrap gap-1.5 mt-2 mb-1 text-xs">
       {files.map((f) => (
         <button
           key={f.filePath}

@@ -30,16 +30,21 @@ const PRICING_TABLE: Record<string, ModelPricing> = {
   'claude-opus-4-6': { inputPer1M: 15, outputPer1M: 75 },
   'claude-sonnet-4-6': { inputPer1M: 3, outputPer1M: 15 },
   'claude-haiku-4-5': { inputPer1M: 1, outputPer1M: 5 },
+
   // OpenAI
   'gpt-4o': { inputPer1M: 2.5, outputPer1M: 10 },
   'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.6 },
   'gpt-5': { inputPer1M: 12, outputPer1M: 36 },
+
   // Google
   'gemini-2.0-flash': { inputPer1M: 0.1, outputPer1M: 0.4 },
   'gemini-1.5-pro': { inputPer1M: 1.25, outputPer1M: 5 },
-  // Workers AI pricing entries removed 2026-05-24 — provider no longer wired
-  // into the editor surface. Worker-side (apps/project-sites/src/) still uses
-  // env.AI bindings; that path is separate and unaffected.
+
+  /*
+   * Workers AI pricing entries removed 2026-05-24 — provider no longer wired
+   * into the editor surface. Worker-side (apps/project-sites/src/) still uses
+   * env.AI bindings; that path is separate and unaffected.
+   */
 };
 
 const FALLBACK_PRICING: ModelPricing = { inputPer1M: 3, outputPer1M: 15 };

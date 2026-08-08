@@ -53,24 +53,39 @@ export async function runTool(
   ctx: EditorToolContext,
   id?: string,
 ): Promise<DispatchResult> {
-  const callId = id ?? (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `t_${Date.now()}`);
+  const callId =
+    id ?? (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `t_${Date.now()}`);
   const started = Date.now();
 
   const tool = getTool(name);
+
   if (!tool) {
     const ms = Date.now() - started;
     postTelemetryToParent('editor.tool_call', { name, ok: false, ms, error: 'unknown_tool' });
     postErrorToParent({ code: 'editor.tool_unknown', message: `Unknown tool: ${name}` });
-    return { ok: false, name, id: callId, error: { code: 'unknown_tool', message: `Unknown tool: ${name}` }, durationMs: ms };
+
+    return {
+      ok: false,
+      name,
+      id: callId,
+      error: { code: 'unknown_tool', message: `Unknown tool: ${name}` },
+      durationMs: ms,
+    };
   }
 
-  // Validate args via Zod. Wrap the error in a readable shape so the LLM can
-  // self-correct from the message alone.
+  /*
+   * Validate args via Zod. Wrap the error in a readable shape so the LLM can
+   * self-correct from the message alone.
+   */
   const parsed = tool.parameters.safeParse(args ?? {});
+
   if (!parsed.success) {
     const ms = Date.now() - started;
-    const message = parsed.error.issues.map((i: z.ZodIssue) => `${i.path.join('.') || '<root>'}: ${i.message}`).join('; ');
+    const message = parsed.error.issues
+      .map((i: z.ZodIssue) => `${i.path.join('.') || '<root>'}: ${i.message}`)
+      .join('; ');
     postTelemetryToParent('editor.tool_call', { name, ok: false, ms, error: 'invalid_args' });
+
     return { ok: false, name, id: callId, error: { code: 'invalid_args', message }, durationMs: ms };
   }
 
@@ -78,6 +93,7 @@ export async function runTool(
     const result = await tool.handler(parsed.data, ctx);
     const ms = Date.now() - started;
     postTelemetryToParent('editor.tool_call', { name, ok: true, ms });
+
     return { ok: true, name, id: callId, result, durationMs: ms };
   } catch (err) {
     const ms = Date.now() - started;
@@ -85,6 +101,7 @@ export async function runTool(
     logger.warn(`tool '${name}' failed: ${message}`);
     postTelemetryToParent('editor.tool_call', { name, ok: false, ms, error: 'handler_failed' });
     postErrorToParent({ code: `editor.tool_failed:${name}`, message });
+
     return { ok: false, name, id: callId, error: { code: 'handler_failed', message }, durationMs: ms };
   }
 }

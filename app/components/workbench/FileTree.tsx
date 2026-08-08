@@ -154,6 +154,7 @@ export const FileTree = memo(
       if (!e.dataTransfer.types.includes('Files')) {
         return;
       }
+
       e.preventDefault();
       setIsRootDragging(true);
     }, []);
@@ -192,12 +193,9 @@ export const FileTree = memo(
 
     return (
       <div
-        className={classNames(
-          'text-sm relative',
-          className,
-          'overflow-y-auto modern-scrollbar',
-          { 'ring-2 ring-inset ring-bolt-elements-item-contentAccent': isRootDragging },
-        )}
+        className={classNames('text-sm relative', className, 'overflow-y-auto modern-scrollbar', {
+          'ring-2 ring-inset ring-bolt-elements-item-contentAccent': isRootDragging,
+        })}
         onDragOver={handleRootDragOver}
         onDragLeave={handleRootDragLeave}
         onDrop={handleRootDrop}
@@ -487,6 +485,7 @@ function FileContextMenu({
         if (files[newPath]) {
           toast.error(`A ${isFolder ? 'folder' : 'file'} named "${newName}" already exists`);
           setIsRenaming(false);
+
           return;
         }
 
@@ -544,6 +543,7 @@ function FileContextMenu({
       const makeUnique = (base: string): string => {
         let candidate = base;
         let n = 2;
+
         while (files[path.join(parentDir, candidate)]) {
           if (isFolder) {
             candidate = `${path.basename(base)} (${n})`;
@@ -552,8 +552,10 @@ function FileContextMenu({
             const stem = base.substring(0, base.length - ext.length);
             candidate = `${stem} (${n})${ext}`;
           }
+
           n++;
         }
+
         return candidate;
       };
 
@@ -616,6 +618,7 @@ function FileContextMenu({
         if (files[newPath]) {
           toast.error(`Target already exists at "${newPath}"`);
           setIsMoving(false);
+
           return;
         }
 
@@ -1028,8 +1031,7 @@ function File({
         })}
         depth={depth}
         iconClasses={classNames(
-          /* Item 38 — per-extension icon + tint via fileIcons.tsx */
-          getFileIconSpec(name).iconClass,
+          getFileIconSpec(name).iconClass, // Item 38 — per-extension icon + tint via fileIcons.tsx
           'scale-98',
           !selected && getFileIconSpec(name).tint,
           {

@@ -5,6 +5,7 @@
 import type { JSONValue, Message } from 'ai';
 import React, { lazy, Suspense, type RefCallback, useEffect, useState } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
+
 /**
  * Items 2 + 3 (perf): Code-split the Workbench (CodeMirror + Preview +
  * lazy-loaded TerminalTabs) into its own chunk. The chat surface paints
@@ -12,9 +13,7 @@ import { ClientOnly } from 'remix-utils/client-only';
  * ~500KB off the chat route's initial bundle so the chat box appears
  * faster on cold loads.
  */
-const Workbench = lazy(() =>
-  import('~/components/workbench/Workbench.client').then((m) => ({ default: m.Workbench })),
-);
+const Workbench = lazy(() => import('~/components/workbench/Workbench.client').then((m) => ({ default: m.Workbench })));
 import { classNames } from '~/utils/classNames';
 import { PROVIDER_LIST } from '~/utils/constants';
 import { Messages } from './Messages.client';
@@ -23,9 +22,7 @@ import Cookies from 'js-cookie';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import styles from './BaseChat.module.scss';
 import overlayStyles from './ChatOverlay.module.scss';
-import { useOverlayState, type OverlayState } from '~/lib/hooks/useOverlayState';
-import { ImportButtons } from '~/components/chat/chatExportAndImport/ImportButtons';
-import GitCloneButton from './GitCloneButton';
+import { useOverlayState } from '~/lib/hooks/useOverlayState';
 import type { ProviderInfo } from '~/types/model';
 import type { ActionAlert, SupabaseAlert, DeployAlert, LlmErrorAlertType } from '~/types/actions';
 import DeployChatAlert from '~/components/deploy/DeployAlert';
@@ -49,8 +46,10 @@ import { chatId } from '~/lib/persistence/useChatHistory';
 import { describeImage } from '~/lib/chat/voice-vision';
 import { isEmbedded } from '~/lib/embed/embedded-mode';
 
-// Single-line default for the cinematic-persona input redesign (2026-05-24);
-// the textarea expands on focus/content up to TEXTAREA_MAX_HEIGHT.
+/*
+ * Single-line default for the cinematic-persona input redesign (2026-05-24);
+ * the textarea expands on focus/content up to TEXTAREA_MAX_HEIGHT.
+ */
 const TEXTAREA_MIN_HEIGHT = 52;
 
 interface BaseChatProps {
@@ -122,7 +121,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       enhancePrompt,
       sendMessage,
       handleStop,
-      importChat,
       exportChat,
       uploadedFiles = [],
       setUploadedFiles,
@@ -169,7 +167,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     // Start IDB→D1 mirror (item 12)
     useEffect(() => {
       if (!chatStarted || !currentChatId) {
-        return;
+        return undefined;
       }
 
       // Derive a stable slug from chat id; admin worker accepts any slug-shape
@@ -250,8 +248,12 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
      * admin owns onboarding — render nothing here.
      */
     const heroState = (() => {
-      if (typeof window === 'undefined') return { embedded: false, slug: null as string | null };
+      if (typeof window === 'undefined') {
+        return { embedded: false, slug: null as string | null };
+      }
+
       const params = new URLSearchParams(window.location.search);
+
       return {
         embedded: params.get('embedded') === 'true',
         slug: params.get('slug'),
@@ -324,15 +326,18 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           Cookies.remove('apiKeys');
         }
 
-        // Embedded mode (projectsites.dev admin iframe) hides the model picker
-        // entirely, so the client-side `/api/models` fetch is pure waste — and
-        // on the static editor deploy that route 404s, logging an
-        // un-suppressable "Failed to load resource: 404" in the parent admin's
-        // console on every load. Skip the fetch when embedded; bolt falls back
-        // to its static model list (unused in this surface anyway).
+        /*
+         * Embedded mode (projectsites.dev admin iframe) hides the model picker
+         * entirely, so the client-side `/api/models` fetch is pure waste — and
+         * on the static editor deploy that route 404s, logging an
+         * un-suppressable "Failed to load resource: 404" in the parent admin's
+         * console on every load. Skip the fetch when embedded; bolt falls back
+         * to its static model list (unused in this surface anyway).
+         */
         if (isEmbedded) {
           setModelList([]);
           setIsModelLoading(undefined);
+
           return;
         }
 
@@ -341,10 +346,13 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           .then((response) => (response.ok ? response.json() : { modelList: [] }))
           .then((data) => {
             const typedData = data as { modelList?: ModelInfo[] };
-            // /api/models can 404 (e.g. when the route isn't served on a given
-            // deploy). Never let an undefined modelList reach the render path —
-            // it cascades into `.length`/`.filter`/`.some` crashes across the
-            // model UI (caught by the React Router error boundary).
+
+            /*
+             * /api/models can 404 (e.g. when the route isn't served on a given
+             * deploy). Never let an undefined modelList reach the render path —
+             * it cascades into `.length`/`.filter`/`.some` crashes across the
+             * model UI (caught by the React Router error boundary).
+             */
             setModelList(Array.isArray(typedData.modelList) ? typedData.modelList : []);
           })
           .catch((error) => {
@@ -362,11 +370,13 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       setApiKeys(newApiKeys);
       Cookies.set('apiKeys', JSON.stringify(newApiKeys));
 
-      // Embedded mode (projectsites.dev admin iframe) hides the model picker /
-      // API-key manager, and the static editor deploy 404s on `/api/models/*`,
-      // logging an un-suppressable "Failed to load resource: 404" in the parent
-      // admin console. Skip the per-provider refresh when embedded — mirrors the
-      // `/api/models` guard above so the whole model-fetch class is closed.
+      /*
+       * Embedded mode (projectsites.dev admin iframe) hides the model picker /
+       * API-key manager, and the static editor deploy 404s on `/api/models/*`,
+       * logging an un-suppressable "Failed to load resource: 404" in the parent
+       * admin console. Skip the per-provider refresh when embedded — mirrors the
+       * `/api/models` guard above so the whole model-fetch class is closed.
+       */
       if (isEmbedded) {
         return;
       }
@@ -510,7 +520,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           <ClientOnly>
             {() => (
               <Suspense fallback={null}>
-                <Workbench chatStarted={chatStarted} isStreaming={isStreaming} setSelectedElement={setSelectedElement} />
+                <Workbench
+                  chatStarted={chatStarted}
+                  isStreaming={isStreaming}
+                  setSelectedElement={setSelectedElement}
+                />
               </Suspense>
             )}
           </ClientOnly>
@@ -518,13 +532,10 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
         {/* Chat + prompt — sidebar when !chatStarted, floating overlay when chatStarted */}
         {chatStarted ? (
-          /* ── Floating overlay mode ── */
           <>
+            {/* ── Floating overlay mode ── */}
             <div className={overlayStyles['ChatOverlay-backdrop']} />
-            <div
-              className={overlayStyles['ChatOverlay-chat']}
-              onMouseEnter={overlay.overlayProps.onMouseEnter}
-            >
+            <div className={overlayStyles['ChatOverlay-chat']} onMouseEnter={overlay.overlayProps.onMouseEnter}>
               <Messages
                 className="flex flex-col w-full max-w-chat mx-auto"
                 messages={messages}
@@ -550,21 +561,30 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     <DeployChatAlert
                       alert={deployAlert}
                       clearAlert={() => clearDeployAlert?.()}
-                      postMessage={(message: string | undefined) => { sendMessage?.({} as any, message); clearSupabaseAlert?.(); }}
+                      postMessage={(message: string | undefined) => {
+                        sendMessage?.({} as any, message);
+                        clearSupabaseAlert?.();
+                      }}
                     />
                   )}
                   {supabaseAlert && (
                     <SupabaseChatAlert
                       alert={supabaseAlert}
                       clearAlert={() => clearSupabaseAlert?.()}
-                      postMessage={(message) => { sendMessage?.({} as any, message); clearSupabaseAlert?.(); }}
+                      postMessage={(message) => {
+                        sendMessage?.({} as any, message);
+                        clearSupabaseAlert?.();
+                      }}
                     />
                   )}
                   {actionAlert && (
                     <ChatAlert
                       alert={actionAlert}
                       clearAlert={() => clearAlert?.()}
-                      postMessage={(message) => { sendMessage?.({} as any, message); clearAlert?.(); }}
+                      postMessage={(message) => {
+                        sendMessage?.({} as any, message);
+                        clearAlert?.();
+                      }}
                     />
                   )}
                   {llmErrorAlert && (
@@ -580,35 +600,60 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 <div className="relative">
                   <FileMentionMenu query={mentionQuery} onSelect={pickMention} onClose={() => setMentionQuery(null)} />
                   {input && input.length > 0 && (
-                    <div className="flex justify-end mb-1 px-1"><CostEstimateBadge input={input} model={model} /></div>
+                    <div className="flex justify-end mb-1 px-1">
+                      <CostEstimateBadge input={input} model={model} />
+                    </div>
                   )}
                 </div>
                 <ChatBox
-                  isModelSettingsCollapsed={isModelSettingsCollapsed} setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
-                  provider={provider} setProvider={setProvider} providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
-                  model={model} setModel={setModel} modelList={modelList} apiKeys={apiKeys}
-                  isModelLoading={isModelLoading} onApiKeysChange={onApiKeysChange}
-                  uploadedFiles={uploadedFiles} setUploadedFiles={setUploadedFiles}
-                  imageDataList={imageDataList} setImageDataList={setImageDataList}
-                  textareaRef={textareaRef} input={input}
-                  handleInputChange={handleInputChange} handlePaste={handlePaste}
-                  TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT} TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
-                  isStreaming={isStreaming} handleStop={handleStop} handleSendMessage={handleSendMessage}
-                  enhancingPrompt={enhancingPrompt} enhancePrompt={enhancePrompt}
-                  isListening={isListening} startListening={startListening} stopListening={stopListening}
-                  chatStarted={chatStarted} exportChat={exportChat}
-                  qrModalOpen={qrModalOpen} setQrModalOpen={setQrModalOpen}
-                  handleFileUpload={handleFileUpload} chatMode={chatMode} setChatMode={setChatMode}
-                  designScheme={designScheme} setDesignScheme={setDesignScheme}
-                  selectedElement={selectedElement} setSelectedElement={setSelectedElement}
+                  isModelSettingsCollapsed={isModelSettingsCollapsed}
+                  setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
+                  provider={provider}
+                  setProvider={setProvider}
+                  providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
+                  model={model}
+                  setModel={setModel}
+                  modelList={modelList}
+                  apiKeys={apiKeys}
+                  isModelLoading={isModelLoading}
+                  onApiKeysChange={onApiKeysChange}
+                  uploadedFiles={uploadedFiles}
+                  setUploadedFiles={setUploadedFiles}
+                  imageDataList={imageDataList}
+                  setImageDataList={setImageDataList}
+                  textareaRef={textareaRef}
+                  input={input}
+                  handleInputChange={handleInputChange}
+                  handlePaste={handlePaste}
+                  TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
+                  TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
+                  isStreaming={isStreaming}
+                  handleStop={handleStop}
+                  handleSendMessage={handleSendMessage}
+                  enhancingPrompt={enhancingPrompt}
+                  enhancePrompt={enhancePrompt}
+                  isListening={isListening}
+                  startListening={startListening}
+                  stopListening={stopListening}
+                  chatStarted={chatStarted}
+                  exportChat={exportChat}
+                  qrModalOpen={qrModalOpen}
+                  setQrModalOpen={setQrModalOpen}
+                  handleFileUpload={handleFileUpload}
+                  chatMode={chatMode}
+                  setChatMode={setChatMode}
+                  designScheme={designScheme}
+                  setDesignScheme={setDesignScheme}
+                  selectedElement={selectedElement}
+                  setSelectedElement={setSelectedElement}
                   onWebSearchResult={onWebSearchResult}
                 />
               </div>
             </div>
           </>
         ) : (
-          /* ── Sidebar mode (pre-chat) ── */
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
+            {/* ── Sidebar mode (pre-chat) ── */}
             <StickToBottom
               className="pt-0 px-2 sm:px-6 relative h-full flex flex-col modern-scrollbar"
               resize="smooth"
@@ -620,9 +665,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     <h1 className="ps-hero-title">
                       {heroState.slug ? `Build for ${heroState.slug}` : 'Where ideas begin'}
                     </h1>
-                    <p className="ps-hero-sub">
-                      Describe what you want to make and the AI will scaffold it.
-                    </p>
+                    <p className="ps-hero-sub">Describe what you want to make and the AI will scaffold it.</p>
                   </div>
                 )}
                 <ScrollToBottom />

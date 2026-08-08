@@ -137,7 +137,9 @@ function BootSkeleton() {
   const [slug, setSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
 
     const params = new URLSearchParams(window.location.search);
     setSlug(params.get('slug'));
@@ -148,6 +150,7 @@ function BootSkeleton() {
     const interval = window.setInterval(async () => {
       try {
         const mod = await import('~/lib/webcontainer');
+
         if (mod.webcontainerContext.loaded) {
           markReady();
           window.clearInterval(interval);
@@ -160,8 +163,7 @@ function BootSkeleton() {
     // Embedded mode never boots WC — listen for the chat-ready text probe.
     const READY_TEXT = 'Build a professional website for';
     const probe = () =>
-      document.body?.innerText?.includes(READY_TEXT) ||
-      !!document.querySelector(`[placeholder*="${READY_TEXT}"]`);
+      document.body?.innerText?.includes(READY_TEXT) || !!document.querySelector(`[placeholder*="${READY_TEXT}"]`);
     const textInterval = window.setInterval(() => {
       if (probe()) {
         markReady();
@@ -179,7 +181,9 @@ function BootSkeleton() {
     };
   }, []);
 
-  if (ready) return null;
+  if (ready) {
+    return null;
+  }
 
   return (
     <div className="ps-boot-skeleton" aria-live="polite" aria-busy="true">
@@ -187,7 +191,9 @@ function BootSkeleton() {
         <img src="/favicon.svg" alt="" width={28} height={28} className="ps-boot-skeleton__favicon" />
         <div className="ps-boot-skeleton__text">
           <div className="ps-boot-skeleton__title">Booting {slug ?? 'workspace'}</div>
-          <div className="ps-boot-skeleton__bar"><span /></div>
+          <div className="ps-boot-skeleton__bar">
+            <span />
+          </div>
         </div>
       </div>
     </div>
@@ -233,7 +239,9 @@ export default function App() {
      *   "Build a professional website for" has painted, so the admin
      *   can dismiss its loading overlay.
      */
-    if (typeof window === 'undefined' || window.parent === window) return;
+    if (typeof window === 'undefined' || window.parent === window) {
+      return;
+    }
 
     const PARENT_ORIGIN = 'https://projectsites.dev';
     const INTERACTIVE = 'a, button, input, textarea, select, [role="button"], [data-tooltip]';
@@ -251,7 +259,10 @@ export default function App() {
       lastX = ev.clientX;
       lastY = ev.clientY;
       lastHover = !!(ev.target as HTMLElement | null)?.closest?.(INTERACTIVE);
-      if (!pendingFrame) pendingFrame = requestAnimationFrame(send);
+
+      if (!pendingFrame) {
+        pendingFrame = requestAnimationFrame(send);
+      }
     };
 
     window.addEventListener('pointermove', onMove, { passive: true });
@@ -266,16 +277,19 @@ export default function App() {
     const READY_TEXT = 'Build a professional website for';
     const fireReady = () => {
       window.parent.postMessage({ type: 'PS_BOLT_CHAT_READY' }, PARENT_ORIGIN);
-      // Item 48: editor.boot_done — second event in the PostHog funnel,
-      // fires the moment the chat placeholder paints (the same signal the
-      // admin uses to dismiss its loading overlay).
+
+      /*
+       * Item 48: editor.boot_done — second event in the PostHog funnel,
+       * fires the moment the chat placeholder paints (the same signal the
+       * admin uses to dismiss its loading overlay).
+       */
       window.parent.postMessage(
         { type: 'PS_TELEMETRY', event: 'editor.boot_done', props: { embedded: true } },
         PARENT_ORIGIN,
       );
     };
-    const probe = () => document.body?.innerText?.includes(READY_TEXT) ||
-                        !!document.querySelector(`[placeholder*="${READY_TEXT}"]`);
+    const probe = () =>
+      document.body?.innerText?.includes(READY_TEXT) || !!document.querySelector(`[placeholder*="${READY_TEXT}"]`);
 
     if (probe()) {
       fireReady();
@@ -286,7 +300,14 @@ export default function App() {
           observer.disconnect();
         }
       });
-      observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder'] });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['placeholder'],
+      });
+
       // Safety net — fire after 25s even if we never spot the string.
       setTimeout(() => {
         fireReady();

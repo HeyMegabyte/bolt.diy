@@ -73,7 +73,11 @@ function fail(code: string, message: string, status: number): Response {
   return json(body, { status });
 }
 
-async function cfFetch<T>(url: string, init: RequestInit, token: string): Promise<{ data: CfResponse<T>; status: number }> {
+async function cfFetch<T>(
+  url: string,
+  init: RequestInit,
+  token: string,
+): Promise<{ data: CfResponse<T>; status: number }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -100,7 +104,10 @@ function isScopeError(status: number, data: CfResponse<unknown>): boolean {
     return true;
   }
 
-  const msg = (data.errors ?? []).map((e) => e.message).join(' ').toLowerCase();
+  const msg = (data.errors ?? [])
+    .map((e) => e.message)
+    .join(' ')
+    .toLowerCase();
 
   return msg.includes('not authorized') || msg.includes('scope') || msg.includes('permission');
 }

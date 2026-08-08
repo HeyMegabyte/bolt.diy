@@ -37,13 +37,16 @@ function fileToPath(file: string): string {
 
 async function walk(fs: Awaited<typeof webcontainer>['fs'], dir: string, acc: string[]): Promise<void> {
   let entries: { name: string; isDirectory(): boolean; isFile(): boolean }[];
+
   try {
     entries = (await fs.readdir(dir, { withFileTypes: true })) as never;
   } catch {
     return;
   }
+
   for (const e of entries) {
     const full = `${dir}/${e.name}`;
+
     if (e.isDirectory()) {
       await walk(fs, full, acc);
     } else if (e.isFile() && /^api\..+\.(ts|tsx)$/.test(e.name)) {
@@ -52,7 +55,7 @@ async function walk(fs: Awaited<typeof webcontainer>['fs'], dir: string, acc: st
   }
 }
 
-const ApiExplorerTab = memo(function ApiExplorerTab() {
+const ApiExplorerTab = memo(() => {
   const [routes, setRoutes] = useState<ApiRoute[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,16 +70,23 @@ const ApiExplorerTab = memo(function ApiExplorerTab() {
   const scan = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const wc = await webcontainer;
       const files: string[] = [];
       await walk(wc.fs, '/app/routes', files);
+
       const sourced: ApiRoute[] = [];
+
       for (const f of files) {
         let inferred: 'GET' | 'POST' = 'GET';
+
         try {
           const src = await wc.fs.readFile(`/${f}`, 'utf-8');
-          if (/export\s+(const|async\s+function)\s+action\b/.test(src)) inferred = 'POST';
+
+          if (/export\s+(const|async\s+function)\s+action\b/.test(src)) {
+            inferred = 'POST';
+          }
         } catch {
           // ignore unreadable files
         }
@@ -106,11 +116,17 @@ const ApiExplorerTab = memo(function ApiExplorerTab() {
   const send = useCallback(async () => {
     setSending(true);
     setResult(null);
+
     const start = performance.now();
+
     try {
       const parsedHeaders = headers.trim() ? (JSON.parse(headers) as Record<string, string>) : {};
       const init: RequestInit = { method, headers: parsedHeaders };
-      if (method !== 'GET' && method !== 'DELETE' && body.trim()) init.body = body;
+
+      if (method !== 'GET' && method !== 'DELETE' && body.trim()) {
+        init.body = body;
+      }
+
       const res = await fetch(url, init);
       const text = await res.text();
       const hdrs: Record<string, string> = {};
@@ -142,11 +158,20 @@ const ApiExplorerTab = memo(function ApiExplorerTab() {
         <div className="i-ph:plug-duotone text-lg text-bolt-elements-textSecondary" />
         <span className="text-xs text-bolt-elements-textSecondary font-medium">API Explorer</span>
         <span className="text-xs text-bolt-elements-textTertiary">({routes.length} routes)</span>
-        <IconButton className="ml-auto" icon="i-ph:arrow-clockwise" title="Rescan" size="md" onClick={scan} disabled={loading} />
+        <IconButton
+          className="ml-auto"
+          icon="i-ph:arrow-clockwise"
+          title="Rescan"
+          size="md"
+          onClick={scan}
+          disabled={loading}
+        />
       </div>
 
       <div className="flex-1 overflow-auto">
-        {error && <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>}
+        {error && (
+          <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>
+        )}
 
         {loading && (
           <div className="p-3 space-y-2">
@@ -160,7 +185,9 @@ const ApiExplorerTab = memo(function ApiExplorerTab() {
           <div className="flex flex-col items-center justify-center h-full text-bolt-elements-textTertiary p-6">
             <div className="i-ph:plugs-duotone text-4xl mb-2 opacity-50" />
             <div className="text-sm">No API routes detected.</div>
-            <div className="text-xs mt-1">Add a file under <code>app/routes/api.*.ts</code> to populate this view.</div>
+            <div className="text-xs mt-1">
+              Add a file under <code>app/routes/api.*.ts</code> to populate this view.
+            </div>
           </div>
         )}
 
@@ -182,7 +209,9 @@ const ApiExplorerTab = memo(function ApiExplorerTab() {
               </span>
               <span className="text-bolt-elements-textPrimary font-mono text-xs flex-1 truncate">{r.path}</span>
               <span className="text-bolt-elements-textTertiary text-[10px] truncate max-w-[50%]">{r.file}</span>
-              <div className={classNames('i-ph:caret-down transition-transform', activeFile === r.file && 'rotate-180')} />
+              <div
+                className={classNames('i-ph:caret-down transition-transform', activeFile === r.file && 'rotate-180')}
+              />
             </button>
 
             {activeFile === r.file && (
@@ -194,7 +223,9 @@ const ApiExplorerTab = memo(function ApiExplorerTab() {
                     className="bg-bolt-elements-background-depth-2 text-bolt-elements-textPrimary text-xs px-2 py-1 rounded border border-bolt-elements-borderColor"
                   >
                     {(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const).map((m) => (
-                      <option key={m} value={m}>{m}</option>
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
                     ))}
                   </select>
                   <input

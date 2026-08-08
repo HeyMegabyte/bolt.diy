@@ -82,12 +82,14 @@ function getClientIP(request: Request): string {
  */
 export function createSecurityHeaders() {
   return {
-    // Clickjacking — bolt.diy must be embeddable in the projectsites admin
-    // shell (editor.projectsites.dev iframe inside projectsites.dev/admin).
-    // Use CSP frame-ancestors (modern replacement for X-Frame-Options) so
-    // only OUR origins can frame it.
-    // X-Frame-Options is intentionally OMITTED — its `DENY` would override
-    // frame-ancestors in older browsers and break the admin embed.
+    /*
+     * Clickjacking — bolt.diy must be embeddable in the projectsites admin
+     * shell (editor.projectsites.dev iframe inside projectsites.dev/admin).
+     * Use CSP frame-ancestors (modern replacement for X-Frame-Options) so
+     * only OUR origins can frame it.
+     * X-Frame-Options is intentionally OMITTED — its `DENY` would override
+     * frame-ancestors in older browsers and break the admin embed.
+     */
 
     // Prevent MIME type sniffing
     'X-Content-Type-Options': 'nosniff',
@@ -108,12 +110,14 @@ export function createSecurityHeaders() {
      */
     'Content-Security-Policy': [
       "default-src 'self'",
+
       // static.cloudflareinsights.com: CF Web Analytics auto-injects its beacon.
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com", // inline scripts for React
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",     // inline + Google Fonts CSS
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // inline + Google Fonts CSS
       "img-src 'self' data: https: blob:",
       "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https://api.github.com https://api.netlify.com https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io wss://*.webcontainer-api.io wss://*.local-credentialless.webcontainer-api.io https://cloudflareinsights.com",
+
       // bare stackblitz.com: root.tsx sets WEBCONTAINER_API_IFRAME_URL to it (no subdomain → *.stackblitz.com doesn't match).
       "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://stackblitz.com https://*.stackblitz.com",
       "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",

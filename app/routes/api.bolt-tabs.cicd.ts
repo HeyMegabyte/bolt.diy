@@ -87,8 +87,7 @@ async function ghFetch<T>(url: string, init: RequestInit, token: string): Promis
     const body = (await res.json().catch(() => null)) as T | null;
 
     if (!res.ok) {
-      const msg =
-        (body as { message?: string } | null)?.message ?? `GitHub API error: ${res.status} ${res.statusText}`;
+      const msg = (body as { message?: string } | null)?.message ?? `GitHub API error: ${res.status} ${res.statusText}`;
       throw new Error(msg);
     }
 
@@ -156,11 +155,7 @@ export async function action({ request, context }: ActionFunctionArgs): Promise<
   const { owner, repo, workflow_run_id: runId, action: cmd } = body;
 
   if (!owner || !repo || !runId || (cmd !== 're-run' && cmd !== 'cancel')) {
-    return fail(
-      'invalid_params',
-      'owner, repo, workflow_run_id, and action="re-run"|"cancel" are required',
-      400,
-    );
+    return fail('invalid_params', 'owner, repo, workflow_run_id, and action="re-run"|"cancel" are required', 400);
   }
 
   try {

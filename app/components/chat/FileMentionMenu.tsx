@@ -81,6 +81,7 @@ export const FileMentionMenu: React.FC<FileMentionMenuProps> = ({ query, onSelec
     }
 
     const all = listFiles();
+
     return fuzzyRank(all, query.trim());
   }, [query]);
 
@@ -90,7 +91,7 @@ export const FileMentionMenu: React.FC<FileMentionMenuProps> = ({ query, onSelec
 
   useEffect(() => {
     if (query === null || results.length === 0) {
-      return;
+      return undefined;
     }
 
     const onKey = (e: KeyboardEvent) => {
@@ -109,6 +110,7 @@ export const FileMentionMenu: React.FC<FileMentionMenuProps> = ({ query, onSelec
     };
 
     window.addEventListener('keydown', onKey, true);
+
     return () => window.removeEventListener('keydown', onKey, true);
   }, [query, results, activeIdx, onSelect, onClose]);
 

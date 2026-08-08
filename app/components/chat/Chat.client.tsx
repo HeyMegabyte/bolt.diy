@@ -28,7 +28,13 @@ import type { ElementInfo } from '~/components/workbench/Inspector';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
 import type { LlmErrorAlertType } from '~/types/actions';
-import { isEmbedded, onParentMessage, postToParent, postTelemetryToParent, type ParentToChildMessage } from '~/lib/embed/embedded-mode';
+import {
+  isEmbedded,
+  onParentMessage,
+  postToParent,
+  postTelemetryToParent,
+  type ParentToChildMessage,
+} from '~/lib/embed/embedded-mode';
 import { parseToolCallEnvelopes } from '~/lib/runtime/message-parser';
 import { dispatchResultToEnvelope, runTool } from '~/lib/tools/dispatcher';
 import { createEditorToolContext } from '~/lib/tools/editor-context';
@@ -91,10 +97,16 @@ interface ChatProps {
  * `PS_OPEN_FILE` postMessage from the admin shell.
  */
 function openFileInWorkbench(file: string, line?: number): void {
-  if (!file) return;
+  if (!file) {
+    return;
+  }
+
   const fileMap = workbenchStore.files.get();
-  // Workbench paths are absolute under /home/project — accept either
-  // shorthand ("src/App.tsx") or full path and resolve to the live entry.
+
+  /*
+   * Workbench paths are absolute under /home/project — accept either
+   * shorthand ("src/App.tsx") or full path and resolve to the live entry.
+   */
   const targetPath = Object.keys(fileMap).find((p) => p === file || p.endsWith(`/${file.replace(/^\/+/, '')}`));
 
   if (!targetPath) {
@@ -108,8 +120,10 @@ function openFileInWorkbench(file: string, line?: number): void {
   workbenchStore.setSelectedFile(targetPath);
 
   if (line && Number.isFinite(line) && line > 0) {
-    // CodeMirror scroll position is line-based when `top` is absent; the
-    // editor consumes the `scroll.line` field on the next render.
+    /*
+     * CodeMirror scroll position is line-based when `top` is absent; the
+     * editor consumes the `scroll.line` field on the next render.
+     */
     workbenchStore.setCurrentDocumentScrollPosition({ line: Math.max(0, line - 1), column: 0 });
   }
 }
@@ -423,6 +437,7 @@ export const ChatImpl = memo(
               message: 'Snapshot open requires a site slug',
               correlationId: msg.correlationId,
             });
+
             return;
           }
 
@@ -430,13 +445,20 @@ export const ChatImpl = memo(
           toast.info(`Loading snapshot ${msg.snapshot_id.slice(0, 8)}...`);
           fetch(chatUrl)
             .then((res) => {
-              if (!res.ok) throw new Error(`Snapshot fetch failed (${res.status})`);
+              if (!res.ok) {
+                throw new Error(`Snapshot fetch failed (${res.status})`);
+              }
+
               return res.json();
             })
             .then((data) => {
               const chatData = data as { messages?: unknown[]; description?: string };
+
               if (chatData?.messages && Array.isArray(chatData.messages)) {
-                importChat(chatData.description || `Snapshot ${msg.snapshot_id.slice(0, 8)}`, chatData.messages as Message[]);
+                importChat(
+                  chatData.description || `Snapshot ${msg.snapshot_id.slice(0, 8)}`,
+                  chatData.messages as Message[],
+                );
                 postToParent({
                   type: 'PS_TOAST',
                   kind: 'success',
@@ -474,10 +496,16 @@ export const ChatImpl = memo(
         } else if (msg.type === 'PS_TOAST') {
           // Item 44 — surface admin toasts inside the editor.
           const kind = msg.kind ?? msg.level ?? 'info';
-          if (kind === 'error') toast.error(msg.message);
-          else if (kind === 'success') toast.success(msg.message);
-          else if (kind === 'warning') toast.warning(msg.message);
-          else toast.info(msg.message);
+
+          if (kind === 'error') {
+            toast.error(msg.message);
+          } else if (kind === 'success') {
+            toast.success(msg.message);
+          } else if (kind === 'warning') {
+            toast.warning(msg.message);
+          } else {
+            toast.info(msg.message);
+          }
         }
       });
 
@@ -508,22 +536,29 @@ export const ChatImpl = memo(
     const fileDeepLinkRef = useRef(false);
     useEffect(() => {
       const file = searchParams.get('file');
-      if (!file || fileDeepLinkRef.current) return;
+
+      if (!file || fileDeepLinkRef.current) {
+        return;
+      }
+
       const lineRaw = searchParams.get('line');
       const line = lineRaw ? Number.parseInt(lineRaw, 10) : undefined;
 
       const tryOpen = (attempt: number): void => {
         const fileMap = workbenchStore.files.get();
+
         if (Object.keys(fileMap).length === 0 && attempt < 20) {
           window.setTimeout(() => tryOpen(attempt + 1), 500);
           return;
         }
+
         fileDeepLinkRef.current = true;
         openFileInWorkbench(file, line && Number.isFinite(line) ? line : undefined);
         setSearchParams((curr) => {
           const next = new URLSearchParams(curr);
           next.delete('file');
           next.delete('line');
+
           return next;
         });
       };
@@ -664,20 +699,32 @@ export const ChatImpl = memo(
     const dispatchedToolIdsRef = useRef<Set<string>>(new Set());
     useEffect(() => {
       const assistantMessages = messages.filter((m) => m.role === 'assistant');
-      if (assistantMessages.length === 0) return;
 
-      const envelopes = assistantMessages.flatMap((m) => parseToolCallEnvelopes(typeof m.content === 'string' ? m.content : ''));
+      if (assistantMessages.length === 0) {
+        return;
+      }
+
+      const envelopes = assistantMessages.flatMap((m) =>
+        parseToolCallEnvelopes(typeof m.content === 'string' ? m.content : ''),
+      );
       const fresh = envelopes.filter((e) => !dispatchedToolIdsRef.current.has(e.id));
-      if (fresh.length === 0) return;
+
+      if (fresh.length === 0) {
+        return;
+      }
 
       const ctx = createEditorToolContext();
+
       for (const envelope of fresh) {
         dispatchedToolIdsRef.current.add(envelope.id);
         runTool(envelope.name, envelope.args, ctx, envelope.id)
           .then((result) => {
             const resultEnvelope = dispatchResultToEnvelope(result);
-            // Stream the result back to the model as a fresh user turn so
-            // useChat issues a follow-up completion containing the response.
+
+            /*
+             * Stream the result back to the model as a fresh user turn so
+             * useChat issues a follow-up completion containing the response.
+             */
             append({
               role: 'user',
               content: resultEnvelope,
@@ -888,9 +935,11 @@ export const ChatImpl = memo(
 
       runAnimation();
 
-      // Item 48: editor.first_message — fires only once per session, on the
-      // first user prompt. `chatStarted` is the canonical "have we asked
-      // anything yet?" signal in this component.
+      /*
+       * Item 48: editor.first_message — fires only once per session, on the
+       * first user prompt. `chatStarted` is the canonical "have we asked
+       * anything yet?" signal in this component.
+       */
       if (!chatStarted && isEmbedded) {
         postTelemetryToParent('editor.first_message', { provider: provider.name, model });
       }

@@ -36,9 +36,18 @@ interface ListObjectsResponse {
 }
 
 function fmtSize(b: number): string {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  if (b < 1024) {
+    return `${b} B`;
+  }
+
+  if (b < 1024 * 1024) {
+    return `${(b / 1024).toFixed(1)} KB`;
+  }
+
+  if (b < 1024 * 1024 * 1024) {
+    return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  }
+
   return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
@@ -50,7 +59,7 @@ function fmtWhen(iso: string): string {
   }
 }
 
-const StorageTab = memo(function StorageTab() {
+const StorageTab = memo(() => {
   const [buckets, setBuckets] = useState<R2Bucket[]>([]);
   const [bucket, setBucket] = useState<string | null>(null);
   const [prefix, setPrefix] = useState('');
@@ -64,9 +73,14 @@ const StorageTab = memo(function StorageTab() {
   const loadBuckets = useCallback(async () => {
     setLoadingBuckets(true);
     setError(null);
+
     try {
       const res = await fetch('/api/bolt-tabs/storage?action=list-buckets');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as ListBucketsResponse;
       setBuckets(data.buckets ?? []);
     } catch (err) {
@@ -81,15 +95,22 @@ const StorageTab = memo(function StorageTab() {
     if (!bucket) {
       setObjects([]);
       setPrefixes([]);
+
       return;
     }
+
     setLoadingObjects(true);
     setError(null);
+
     try {
       const res = await fetch(
         `/api/bolt-tabs/storage?bucket=${encodeURIComponent(bucket)}&prefix=${encodeURIComponent(prefix)}`,
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as ListObjectsResponse;
       setObjects(data.objects ?? []);
       setPrefixes(data.delimited_prefixes ?? []);
@@ -119,13 +140,20 @@ const StorageTab = memo(function StorageTab() {
 
   const remove = useCallback(
     async (key: string) => {
-      if (!bucket || !confirm(`Delete ${key}?`)) return;
+      if (!bucket || !confirm(`Delete ${key}?`)) {
+        return;
+      }
+
       try {
         const res = await fetch(
           `/api/bolt-tabs/storage?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(key)}`,
           { method: 'DELETE' },
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         await loadObjects();
       } catch (err) {
         console.warn('[StorageTab] delete failed', err);
@@ -176,7 +204,10 @@ const StorageTab = memo(function StorageTab() {
 
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-xs">
-          <button onClick={() => setPrefix('')} className="text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary">
+          <button
+            onClick={() => setPrefix('')}
+            className="text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary"
+          >
             {bucket ?? '—'}
           </button>
           {segments.map((seg, i) => (
@@ -194,7 +225,9 @@ const StorageTab = memo(function StorageTab() {
         </div>
 
         <div className="flex-1 overflow-auto">
-          {error && <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>}
+          {error && (
+            <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>
+          )}
 
           {!bucket && (
             <div className="flex flex-col items-center justify-center h-full text-bolt-elements-textTertiary p-6">
@@ -250,8 +283,12 @@ const StorageTab = memo(function StorageTab() {
                 {objects.map((o) => {
                   const name = o.key.replace(prefix, '');
                   const dl = downloadBase ? `${downloadBase}${encodeURIComponent(o.key)}` : '#';
+
                   return (
-                    <tr key={o.key} className="border-t border-bolt-elements-borderColor hover:bg-bolt-elements-background-depth-1">
+                    <tr
+                      key={o.key}
+                      className="border-t border-bolt-elements-borderColor hover:bg-bolt-elements-background-depth-1"
+                    >
                       <td className="px-3 py-2 text-bolt-elements-textPrimary flex items-center gap-2 truncate">
                         <div className="i-ph:file-duotone text-bolt-elements-textTertiary" />
                         {name || o.key}

@@ -27,16 +27,22 @@ async function importWith(opts: { embedded: boolean }): Promise<{
   parentPostMessage: ReturnType<typeof vi.fn>;
 }> {
   vi.resetModules();
+
   const parentPostMessage = vi.fn();
-  // Always present a DISTINCT parent (parent !== window) so the only variable
-  // under test is the `?embedded` query param. detectEmbedded() requires BOTH
-  // parent !== window AND ?embedded — so toggling the param alone flips it.
+
+  /*
+   * Always present a DISTINCT parent (parent !== window) so the only variable
+   * under test is the `?embedded` query param. detectEmbedded() requires BOTH
+   * parent !== window AND ?embedded — so toggling the param alone flips it.
+   */
   Object.defineProperty(window, 'parent', {
     value: { postMessage: parentPostMessage },
     configurable: true,
   });
   window.history.replaceState(null, '', opts.embedded ? '/?embedded=true' : '/');
+
   const mod = (await import('./embedded-mode')) as EmbedModule;
+
   return { mod, parentPostMessage };
 }
 
@@ -99,10 +105,7 @@ describe('embedded-mode — embedded iframe', () => {
 
   it('postToParent posts to the parent with a wildcard target', () => {
     mod.postToParent({ type: 'PS_BOLT_READY' });
-    expect(parentPostMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'PS_BOLT_READY' }),
-      '*',
-    );
+    expect(parentPostMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'PS_BOLT_READY' }), '*');
   });
 
   it('postToastToParent sends both kind + level aliases', () => {

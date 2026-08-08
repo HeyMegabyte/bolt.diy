@@ -14,7 +14,7 @@ describe('logger level filtering', () => {
   let spy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    spy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
   afterEach(() => {

@@ -161,8 +161,10 @@ if (!import.meta.env.SSR) {
         .then(() => bootContainer())
         .then(wireContainer)
         .catch((err: unknown) => {
-          // Item 47: boot failure auto-triggers recovery once. Subsequent
-          // failures bubble up so the UI can surface "Editor unavailable".
+          /*
+           * Item 47: boot failure auto-triggers recovery once. Subsequent
+           * failures bubble up so the UI can surface "Editor unavailable".
+           */
           const message = err instanceof Error ? err.message : String(err);
           console.warn('[webcontainer] boot failed; attempting recovery:', message);
 

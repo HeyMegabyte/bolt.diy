@@ -19,8 +19,8 @@ import { themeStore } from '~/lib/stores/theme';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { createScopedLogger } from '~/utils/logger';
-import { Terminal, type TerminalRef } from '../terminal/Terminal';
-import { TerminalManager } from '../terminal/TerminalManager';
+import { Terminal, type TerminalRef } from '~/components/workbench/terminal/Terminal';
+import { TerminalManager } from '~/components/workbench/terminal/TerminalManager';
 import type { ExtensionTabDescriptor } from './types';
 import * as Tooltip from '@radix-ui/react-tooltip';
 
@@ -42,13 +42,49 @@ const SearchTab = lazy(() => import('./tabs/SearchTab'));
  * Each tab is icon-only in the strip; the label field drives the tooltip + ARIA label.
  */
 const EXTENSION_TABS: readonly ExtensionTabDescriptor[] = [
-  { id: 'problems', label: 'Problems', icon: 'i-ph:warning-duotone', component: ProblemsTab, hint: 'TypeScript, lint, build, manifest errors' },
-  { id: 'logs', label: 'Logs', icon: 'i-ph:list-bullets-duotone', component: LogsTab, hint: 'Worker, preview, build, and deploy logs' },
-  { id: 'sqlite', label: 'SQLite', icon: 'i-ph:database-duotone', component: SqlTab, hint: 'SQLite / D1 schema browser + query console' },
-  { id: 'postgres', label: 'Postgres', icon: 'i-ph:cylinder-duotone', component: PostgresTab, hint: 'Postgres connection profiles + query tool' },
-  { id: 'redis', label: 'Redis', icon: 'i-ph:stack-duotone', component: RedisTab, hint: 'Redis key browser + type-aware editors' },
+  {
+    id: 'problems',
+    label: 'Problems',
+    icon: 'i-ph:warning-duotone',
+    component: ProblemsTab,
+    hint: 'TypeScript, lint, build, manifest errors',
+  },
+  {
+    id: 'logs',
+    label: 'Logs',
+    icon: 'i-ph:list-bullets-duotone',
+    component: LogsTab,
+    hint: 'Worker, preview, build, and deploy logs',
+  },
+  {
+    id: 'sqlite',
+    label: 'SQLite',
+    icon: 'i-ph:database-duotone',
+    component: SqlTab,
+    hint: 'SQLite / D1 schema browser + query console',
+  },
+  {
+    id: 'postgres',
+    label: 'Postgres',
+    icon: 'i-ph:cylinder-duotone',
+    component: PostgresTab,
+    hint: 'Postgres connection profiles + query tool',
+  },
+  {
+    id: 'redis',
+    label: 'Redis',
+    icon: 'i-ph:stack-duotone',
+    component: RedisTab,
+    hint: 'Redis key browser + type-aware editors',
+  },
   { id: 'kv', label: 'KV', icon: 'i-ph:cube-duotone', component: KvTab, hint: 'Cloudflare KV namespace manager' },
-  { id: 'search', label: 'Search', icon: 'i-ph:magnifying-glass-duotone', component: SearchTab, hint: 'Search code, routes, bindings, schemas' },
+  {
+    id: 'search',
+    label: 'Search',
+    icon: 'i-ph:magnifying-glass-duotone',
+    component: SearchTab,
+    hint: 'Search code, routes, bindings, schemas',
+  },
 ];
 
 type ActiveTab = { kind: 'terminal'; index: number } | { kind: 'extension'; id: string };
@@ -71,25 +107,39 @@ export const BottomPanelTabs = memo(() => {
     }
   }, [terminalCount]);
 
-  const closeTerminal = useCallback(
-    (index: number) => {
-      if (index === 0) return; // can't close Bolt terminal
-      const ref = terminalRefs.current.get(index);
-      if (ref?.getTerminal) {
-        const terminal = ref.getTerminal();
-        if (terminal) workbenchStore.detachTerminal(terminal);
+  const closeTerminal = useCallback((index: number) => {
+    if (index === 0) {
+      return;
+    } // can't close Bolt terminal
+
+    const ref = terminalRefs.current.get(index);
+
+    if (ref?.getTerminal) {
+      const terminal = ref.getTerminal();
+
+      if (terminal) {
+        workbenchStore.detachTerminal(terminal);
       }
-      terminalRefs.current.delete(index);
-      setTerminalCount((c) => c - 1);
-      setActiveTab((prev) => {
-        if (prev.kind !== 'terminal') return prev;
-        if (prev.index === index) return { kind: 'terminal', index: Math.max(0, index - 1) };
-        if (prev.index > index) return { kind: 'terminal', index: prev.index - 1 };
+    }
+
+    terminalRefs.current.delete(index);
+    setTerminalCount((c) => c - 1);
+    setActiveTab((prev) => {
+      if (prev.kind !== 'terminal') {
         return prev;
-      });
-    },
-    [],
-  );
+      }
+
+      if (prev.index === index) {
+        return { kind: 'terminal', index: Math.max(0, index - 1) };
+      }
+
+      if (prev.index > index) {
+        return { kind: 'terminal', index: prev.index - 1 };
+      }
+
+      return prev;
+    });
+  }, []);
 
   // Cleanup detached terminals on unmount.
   useEffect(() => {
@@ -97,22 +147,32 @@ export const BottomPanelTabs = memo(() => {
       terminalRefs.current.forEach((ref, index) => {
         if (index > 0 && ref?.getTerminal) {
           const terminal = ref.getTerminal();
-          if (terminal) workbenchStore.detachTerminal(terminal);
+
+          if (terminal) {
+            workbenchStore.detachTerminal(terminal);
+          }
         }
       });
     };
   }, []);
 
-  // Bottom panel collapse/expand mirrors workbenchStore.showTerminal. Defers
-  // by one animation frame to avoid the lazy-mount race that produced the
-  // historical "Panel size not found for panel :rq:" error.
+  /*
+   * Bottom panel collapse/expand mirrors workbenchStore.showTerminal. Defers
+   * by one animation frame to avoid the lazy-mount race that produced the
+   * historical "Panel size not found for panel :rq:" error.
+   */
   useEffect(() => {
     let rafId = 0;
     rafId = requestAnimationFrame(() => {
       const panel = panelRef.current;
-      if (!panel) return;
+
+      if (!panel) {
+        return;
+      }
+
       try {
         const collapsed = panel.isCollapsed();
+
         if (!showTerminal && !collapsed) {
           panel.collapse();
         } else if (showTerminal && collapsed) {
@@ -125,6 +185,7 @@ export const BottomPanelTabs = memo(() => {
       }
       panelToggledByShortcut.current = false;
     });
+
     return () => cancelAnimationFrame(rafId);
   }, [showTerminal]);
 
@@ -135,6 +196,7 @@ export const BottomPanelTabs = memo(() => {
     const offTheme = themeStore.subscribe(() => {
       terminalRefs.current.forEach((ref) => ref?.reloadStyles());
     });
+
     return () => {
       offShortcut();
       offTheme();
@@ -169,6 +231,7 @@ export const BottomPanelTabs = memo(() => {
           {Array.from({ length: terminalCount + 1 }, (_, index) => {
             const active = isTerminalTab && (activeTab as { index: number }).index === index;
             const label = index === 0 ? 'Terminal' : `Terminal ${index}`;
+
             return (
               <Tooltip.Root key={`term-${index}`} delayDuration={400}>
                 <Tooltip.Trigger asChild>
@@ -312,6 +375,7 @@ export const BottomPanelTabs = memo(() => {
             {Array.from({ length: terminalCount + 1 }, (_, index) => {
               const active = isTerminalTab && (activeTab as { index: number }).index === index;
               const isBolt = index === 0;
+
               return (
                 <React.Fragment key={`terminal-body-${index}`}>
                   <Terminal
@@ -322,11 +386,16 @@ export const BottomPanelTabs = memo(() => {
                       { hidden: !active },
                     )}
                     ref={(ref) => {
-                      if (ref) terminalRefs.current.set(index, ref);
+                      if (ref) {
+                        terminalRefs.current.set(index, ref);
+                      }
                     }}
                     onTerminalReady={(terminal) => {
-                      if (isBolt) workbenchStore.attachBoltTerminal(terminal);
-                      else workbenchStore.attachTerminal(terminal);
+                      if (isBolt) {
+                        workbenchStore.attachBoltTerminal(terminal);
+                      } else {
+                        workbenchStore.attachTerminal(terminal);
+                      }
                     }}
                     onTerminalResize={(cols, rows) => workbenchStore.onTerminalResize(cols, rows)}
                     theme={theme}
@@ -346,8 +415,13 @@ export const BottomPanelTabs = memo(() => {
               quiet skeleton so the chunk swap is invisible. */}
           {EXTENSION_TABS.map((tab) => {
             const active = activeTab.kind === 'extension' && activeTab.id === tab.id;
-            if (!active) return null;
+
+            if (!active) {
+              return null;
+            }
+
             const TabBody = tab.component;
+
             return (
               <div key={tab.id} className="h-full">
                 <Suspense

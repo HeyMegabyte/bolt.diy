@@ -27,10 +27,7 @@ export interface PromptSuggestion {
   prompt: string;
 }
 
-export async function fetchPromptSuggestions(
-  messages: Message[],
-  token?: string,
-): Promise<PromptSuggestion[]> {
+export async function fetchPromptSuggestions(messages: Message[], token?: string): Promise<PromptSuggestion[]> {
   if (!messages.length) {
     return [];
   }

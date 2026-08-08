@@ -41,10 +41,17 @@ const CONCLUSION_TONE: Record<string, string> = {
 };
 
 function formatDuration(s: number | null): string {
-  if (s == null) return '—';
-  if (s < 60) return `${s}s`;
+  if (s == null) {
+    return '—';
+  }
+
+  if (s < 60) {
+    return `${s}s`;
+  }
+
   const m = Math.floor(s / 60);
   const r = s % 60;
+
   return `${m}m ${r}s`;
 }
 
@@ -52,17 +59,28 @@ function formatWhen(iso: string): string {
   try {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
+
+    if (mins < 1) {
+      return 'just now';
+    }
+
+    if (mins < 60) {
+      return `${mins}m ago`;
+    }
+
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
+
+    if (hrs < 24) {
+      return `${hrs}h ago`;
+    }
+
     return new Date(iso).toLocaleDateString();
   } catch {
     return iso;
   }
 }
 
-const CICDTab = memo(function CICDTab() {
+const CicdTab = memo(() => {
   const [slug, setSlug] = useState('');
   const [rows, setRows] = useState<RunRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,13 +97,19 @@ const CICDTab = memo(function CICDTab() {
       setRows([]);
       return;
     }
+
     setLoading(true);
     setError(null);
+
     try {
       const res = await fetch(
         `/api/bolt-tabs/cicd?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`,
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as CICDResponse;
       setRows(data.runs ?? []);
     } catch (err) {
@@ -97,19 +121,26 @@ const CICDTab = memo(function CICDTab() {
   }, [owner, repo]);
 
   useEffect(() => {
-    if (owner && repo) fetchRuns();
+    if (owner && repo) {
+      fetchRuns();
+    }
   }, [owner, repo, fetchRuns]);
 
   const act = useCallback(
     async (runId: number, action: 're-run' | 'cancel') => {
       setBusyIds((p) => new Set(p).add(runId));
+
       try {
         const res = await fetch('/api/bolt-tabs/cicd', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ owner, repo, run_id: runId, action }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         await fetchRuns();
       } catch (err) {
         console.warn(`[CICDTab] ${action} failed`, err);
@@ -118,6 +149,7 @@ const CICDTab = memo(function CICDTab() {
         setBusyIds((p) => {
           const n = new Set(p);
           n.delete(runId);
+
           return n;
         });
       }
@@ -140,7 +172,9 @@ const CICDTab = memo(function CICDTab() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        {error && <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>}
+        {error && (
+          <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>
+        )}
 
         {loading && rows.length === 0 && (
           <div className="p-3 space-y-2">
@@ -176,18 +210,29 @@ const CICDTab = memo(function CICDTab() {
               {rows.map((r) => {
                 const badge = r.status === 'completed' && r.conclusion ? r.conclusion : r.status;
                 const busy = busyIds.has(r.id);
+
                 return (
-                  <tr key={r.id} className="border-t border-bolt-elements-borderColor hover:bg-bolt-elements-background-depth-1">
+                  <tr
+                    key={r.id}
+                    className="border-t border-bolt-elements-borderColor hover:bg-bolt-elements-background-depth-1"
+                  >
                     <td className="px-3 py-2 text-bolt-elements-textPrimary">{r.workflow_name}</td>
                     <td className="px-3 py-2 font-mono text-xs text-bolt-elements-textSecondary">#{r.run_number}</td>
                     <td className="px-3 py-2 text-bolt-elements-textSecondary">{r.branch}</td>
                     <td className="px-3 py-2">
-                      <span className={classNames('inline-block px-2 py-0.5 rounded-full text-xs border', CONCLUSION_TONE[badge] ?? CONCLUSION_TONE.neutral)}>
+                      <span
+                        className={classNames(
+                          'inline-block px-2 py-0.5 rounded-full text-xs border',
+                          CONCLUSION_TONE[badge] ?? CONCLUSION_TONE.neutral,
+                        )}
+                      >
                         {badge.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-bolt-elements-textTertiary text-xs">{r.trigger}</td>
-                    <td className="px-3 py-2 text-bolt-elements-textTertiary text-xs">{formatDuration(r.duration_seconds)}</td>
+                    <td className="px-3 py-2 text-bolt-elements-textTertiary text-xs">
+                      {formatDuration(r.duration_seconds)}
+                    </td>
                     <td className="px-3 py-2 text-bolt-elements-textTertiary text-xs">{formatWhen(r.created_at)}</td>
                     <td className="px-3 py-2 text-right space-x-1">
                       <button
@@ -216,4 +261,4 @@ const CICDTab = memo(function CICDTab() {
   );
 });
 
-export default CICDTab;
+export default CicdTab;

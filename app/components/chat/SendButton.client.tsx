@@ -6,6 +6,7 @@ interface SendButtonProps {
   disabled?: boolean;
   onClick?: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
   onImagesSelected?: (images: File[]) => void;
+
   /**
    * Item 40 — token budget ring. When supplied, the streaming state shows
    * a determinate ring (`tokensUsed/maxTokens`). When omitted, falls back

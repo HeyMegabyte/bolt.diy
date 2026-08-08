@@ -9,9 +9,11 @@
 import React, { memo, useMemo, useState } from 'react';
 import { classNames } from '~/utils/classNames';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Types
+ * ---------------------------------------------------------------------------
+ */
 
 type MediaKind = 'uploaded' | 'ai_generated' | 'external_url' | 'r2_object';
 type MediaApproval = 'pending' | 'approved' | 'rejected';
@@ -31,21 +33,79 @@ interface MediaItem {
   createdAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Mock data
+ * ---------------------------------------------------------------------------
+ */
 
 const MOCK_MEDIA: MediaItem[] = [
-  { id: '1', filename: 'hero-banner.avif', kind: 'ai_generated', mimeType: 'image/avif', sizeBytes: 245_000, width: 1920, height: 1080, altText: 'Construction crew at work', approvalStatus: 'approved', createdAt: '2026-06-30T00:00:00Z' },
-  { id: '2', filename: 'logo-dark.svg', kind: 'uploaded', mimeType: 'image/svg+xml', sizeBytes: 4_200, width: 240, height: 80, altText: 'BrickLabor logo', approvalStatus: 'approved', createdAt: '2026-06-30T00:00:00Z' },
-  { id: '3', filename: 'job-site-1.jpg', kind: 'uploaded', mimeType: 'image/jpeg', sizeBytes: 1_200_000, width: 4000, height: 3000, altText: '', approvalStatus: 'pending', createdAt: '2026-06-29T00:00:00Z' },
-  { id: '4', filename: 'power-washing.jpg', kind: 'external_url', mimeType: 'image/jpeg', sizeBytes: 0, width: 800, height: 600, altText: 'Power washing service', sourceUrl: 'https://images.unsplash.com/photo-example', approvalStatus: 'approved', createdAt: '2026-06-28T00:00:00Z' },
-  { id: '5', filename: 'hero-video.mp4', kind: 'r2_object', mimeType: 'video/mp4', sizeBytes: 8_500_000, r2Key: 'media/bricklabor/hero-video.mp4', approvalStatus: 'approved', createdAt: '2026-06-27T00:00:00Z' },
+  {
+    id: '1',
+    filename: 'hero-banner.avif',
+    kind: 'ai_generated',
+    mimeType: 'image/avif',
+    sizeBytes: 245_000,
+    width: 1920,
+    height: 1080,
+    altText: 'Construction crew at work',
+    approvalStatus: 'approved',
+    createdAt: '2026-06-30T00:00:00Z',
+  },
+  {
+    id: '2',
+    filename: 'logo-dark.svg',
+    kind: 'uploaded',
+    mimeType: 'image/svg+xml',
+    sizeBytes: 4_200,
+    width: 240,
+    height: 80,
+    altText: 'BrickLabor logo',
+    approvalStatus: 'approved',
+    createdAt: '2026-06-30T00:00:00Z',
+  },
+  {
+    id: '3',
+    filename: 'job-site-1.jpg',
+    kind: 'uploaded',
+    mimeType: 'image/jpeg',
+    sizeBytes: 1_200_000,
+    width: 4000,
+    height: 3000,
+    altText: '',
+    approvalStatus: 'pending',
+    createdAt: '2026-06-29T00:00:00Z',
+  },
+  {
+    id: '4',
+    filename: 'power-washing.jpg',
+    kind: 'external_url',
+    mimeType: 'image/jpeg',
+    sizeBytes: 0,
+    width: 800,
+    height: 600,
+    altText: 'Power washing service',
+    sourceUrl: 'https://images.unsplash.com/photo-example',
+    approvalStatus: 'approved',
+    createdAt: '2026-06-28T00:00:00Z',
+  },
+  {
+    id: '5',
+    filename: 'hero-video.mp4',
+    kind: 'r2_object',
+    mimeType: 'video/mp4',
+    sizeBytes: 8_500_000,
+    r2Key: 'media/bricklabor/hero-video.mp4',
+    approvalStatus: 'approved',
+    createdAt: '2026-06-27T00:00:00Z',
+  },
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Helpers
+ * ---------------------------------------------------------------------------
+ */
 
 const KIND_LABELS: Record<MediaKind, string> = {
   uploaded: 'Uploaded',
@@ -68,20 +128,34 @@ const APPROVAL_ICONS: Record<MediaApproval, string> = {
 };
 
 function formatSize(bytes: number): string {
-  if (bytes === 0) return 'external';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1_048_576) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes === 0) {
+    return 'external';
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1_048_576) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
 function formatDims(w?: number, h?: number): string {
-  if (!w || !h) return '—';
+  if (!w || !h) {
+    return '—';
+  }
+
   return `${w}×${h}`;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Component
+ * ---------------------------------------------------------------------------
+ */
 
 export const MediaPanel = memo(() => {
   const [kindFilter, setKindFilter] = useState<MediaKind | 'all'>('all');
@@ -89,11 +163,16 @@ export const MediaPanel = memo(() => {
 
   const filtered = useMemo(() => {
     let items = MOCK_MEDIA;
-    if (kindFilter !== 'all') items = items.filter((m) => m.kind === kindFilter);
+
+    if (kindFilter !== 'all') {
+      items = items.filter((m) => m.kind === kindFilter);
+    }
+
     if (search) {
       const q = search.toLowerCase();
       items = items.filter((m) => m.filename.toLowerCase().includes(q) || (m.altText ?? '').toLowerCase().includes(q));
     }
+
     return items;
   }, [kindFilter, search]);
 

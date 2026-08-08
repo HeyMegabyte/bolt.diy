@@ -62,15 +62,7 @@ function fail(code: string, message: string, status: number): Response {
   return json(body, { status });
 }
 
-interface CfFetchOptions {
-  json?: boolean;
-}
-
-async function cfFetchJson<T>(
-  url: string,
-  init: RequestInit,
-  token: string,
-): Promise<T> {
+async function cfFetchJson<T>(url: string, init: RequestInit, token: string): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

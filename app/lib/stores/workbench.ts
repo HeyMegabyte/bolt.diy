@@ -265,8 +265,10 @@ export class WorkbenchStore {
 
     await this.#filesStore.saveFile(filePath, document.value);
 
-    // Item 47: ring-buffer the last 3 edits so a WebContainer crash can
-    // replay them after auto-recovery.
+    /*
+     * Item 47: ring-buffer the last 3 edits so a WebContainer crash can
+     * replay them after auto-recovery.
+     */
     recordFileEdit(filePath, document.value);
 
     // Item 48: editor.first_save (once per session, in embedded mode only).

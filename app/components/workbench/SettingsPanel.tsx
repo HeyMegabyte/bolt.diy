@@ -11,9 +11,11 @@ import React, { memo, useCallback, useState } from 'react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 
-// ---------------------------------------------------------------------------
-// Section component
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Section component
+ * ---------------------------------------------------------------------------
+ */
 
 interface SettingsSectionProps {
   title: string;
@@ -35,7 +37,11 @@ const SettingsSection = memo(({ title, icon, children, defaultOpen = true }: Set
       >
         <div className={classNames(icon, 'text-bolt-elements-textSecondary text-base')} />
         {title}
-        <div className={classNames('i-ph:caret-down ml-auto text-bolt-elements-textTertiary transition-transform', { 'rotate-180': open })} />
+        <div
+          className={classNames('i-ph:caret-down ml-auto text-bolt-elements-textTertiary transition-transform', {
+            'rotate-180': open,
+          })}
+        />
       </button>
       {open && <div className="px-4 pb-3 space-y-3">{children}</div>}
     </div>
@@ -44,9 +50,11 @@ const SettingsSection = memo(({ title, icon, children, defaultOpen = true }: Set
 
 SettingsSection.displayName = 'SettingsSection';
 
-// ---------------------------------------------------------------------------
-// Field component
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Field component
+ * ---------------------------------------------------------------------------
+ */
 
 interface SettingsFieldProps {
   label: string;
@@ -66,7 +74,9 @@ const SettingsField = memo(({ label, value, placeholder, readonly = true, monosp
       readOnly={readonly}
       className={classNames(
         'w-full bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor rounded px-2.5 py-1.5 text-sm',
-        readonly ? 'text-bolt-elements-textSecondary cursor-default' : 'text-bolt-elements-textPrimary focus:outline-none focus:border-bolt-elements-borderColorActive',
+        readonly
+          ? 'text-bolt-elements-textSecondary cursor-default'
+          : 'text-bolt-elements-textPrimary focus:outline-none focus:border-bolt-elements-borderColorActive',
         monospace && 'font-mono text-xs',
       )}
     />
@@ -75,9 +85,11 @@ const SettingsField = memo(({ label, value, placeholder, readonly = true, monosp
 
 SettingsField.displayName = 'SettingsField';
 
-// ---------------------------------------------------------------------------
-// Settings panel
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Settings panel
+ * ---------------------------------------------------------------------------
+ */
 
 export const SettingsPanel = memo(() => {
   const files = useStore(workbenchStore.files);
@@ -92,8 +104,10 @@ export const SettingsPanel = memo(() => {
     setToast({ kind: 'info', message: 'Preparing export…' });
 
     try {
-      // In production, this calls exportService.zipSite() with the actual repository
-      // For now, trigger the existing workbench download
+      /*
+       * In production, this calls exportService.zipSite() with the actual repository
+       * For now, trigger the existing workbench download
+       */
       await new Promise((r) => setTimeout(r, 500));
       workbenchStore.downloadZip();
       setToast({ kind: 'info', message: 'Export downloaded successfully' });
@@ -109,8 +123,10 @@ export const SettingsPanel = memo(() => {
     setImporting(true);
     setToast({ kind: 'info', message: 'Select a .zip export to import…' });
 
-    // In production, this opens a file picker, runs importService.dryRun(),
-    // shows the dry-run summary, then applies with backup-before-overwrite.
+    /*
+     * In production, this opens a file picker, runs importService.dryRun(),
+     * shows the dry-run summary, then applies with backup-before-overwrite.
+     */
     setTimeout(() => {
       setToast({ kind: 'info', message: 'Import ready — dry-run would show conflicts here' });
       setImporting(false);
@@ -177,7 +193,10 @@ export const SettingsPanel = memo(() => {
       {/* SEO */}
       <SettingsSection title="SEO Defaults" icon="i-ph:magnifying-glass-duotone" defaultOpen={false}>
         <SettingsField label="Default Title" value="BrickLabor — Labor When You Need It" />
-        <SettingsField label="Default Description" value="On-demand labor and crew support. Book skilled labor by the hour — general labor at $50/hour." />
+        <SettingsField
+          label="Default Description"
+          value="On-demand labor and crew support. Book skilled labor by the hour — general labor at $50/hour."
+        />
         <SettingsField label="Sitemap" value="Auto-generated from routes" />
         <SettingsField label="JSON-LD" value="LocalBusiness + WebSite + BreadcrumbList" />
       </SettingsSection>
@@ -186,8 +205,8 @@ export const SettingsPanel = memo(() => {
       <SettingsSection title="Export / Import" icon="i-ph:file-zip-duotone">
         <div className="space-y-2">
           <p className="text-xs text-bolt-elements-textSecondary">
-            Export creates a versioned .zip with manifest, checksums, and redacted credentials.
-            Import overwrites by default — a dry-run preview is shown before applying.
+            Export creates a versioned .zip with manifest, checksums, and redacted credentials. Import overwrites by
+            default — a dry-run preview is shown before applying.
           </p>
           <div className="flex gap-2">
             <button
@@ -201,7 +220,12 @@ export const SettingsPanel = memo(() => {
                 exporting && 'opacity-50',
               )}
             >
-              <div className={classNames('text-sm', exporting ? 'i-ph:spinner animate-spin' : 'i-ph:download-simple-duotone')} />
+              <div
+                className={classNames(
+                  'text-sm',
+                  exporting ? 'i-ph:spinner animate-spin' : 'i-ph:download-simple-duotone',
+                )}
+              />
               {exporting ? 'Exporting…' : 'Export .zip'}
             </button>
             <button
@@ -215,7 +239,12 @@ export const SettingsPanel = memo(() => {
                 importing && 'opacity-50',
               )}
             >
-              <div className={classNames('text-sm', importing ? 'i-ph:spinner animate-spin' : 'i-ph:upload-simple-duotone')} />
+              <div
+                className={classNames(
+                  'text-sm',
+                  importing ? 'i-ph:spinner animate-spin' : 'i-ph:upload-simple-duotone',
+                )}
+              />
               {importing ? 'Importing…' : 'Import .zip'}
             </button>
           </div>

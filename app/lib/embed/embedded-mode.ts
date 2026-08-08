@@ -245,10 +245,12 @@ export function onParentMessage(handler: MessageHandler): () => void {
 }
 
 function handleMessage(event: MessageEvent): void {
-  // (Removed the per-message "[embed] Received postMessage" debug warn — it
-  // fired on EVERY PS_ message in embedded mode, spamming the editor console.
-  // The origin-reject + handler-error logs below remain — those are rare,
-  // diagnostic, and security-relevant.)
+  /*
+   * (Removed the per-message "[embed] Received postMessage" debug warn — it
+   * fired on EVERY PS_ message in embedded mode, spamming the editor console.
+   * The origin-reject + handler-error logs below remain — those are rare,
+   * diagnostic, and security-relevant.)
+   */
   if (!isAllowedOrigin(event)) {
     if (isEmbedded && event.data?.type?.startsWith?.('PS_')) {
       console.warn('[embed] REJECTED — origin not allowed:', event.origin, 'Allowed:', [...ALLOWED_ORIGINS]);
@@ -296,8 +298,10 @@ export function postTelemetryToParent(event: string, props?: Record<string, unkn
 
 /** Toast bridge — admin renders via its ToastService. */
 export function postToastToParent(level: NonNullable<PSToastMessage['kind']>, message: string): void {
-  // Send both `kind` (canonical) and `level` (legacy alias) so either
-  // side of the bridge can match without coordination.
+  /*
+   * Send both `kind` (canonical) and `level` (legacy alias) so either
+   * side of the bridge can match without coordination.
+   */
   postToParent({ type: 'PS_TOAST', kind: level, level, message });
 }
 
@@ -319,7 +323,8 @@ if (isEmbedded && typeof window !== 'undefined') {
 
   window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
     const reason = event.reason;
-    const message = reason instanceof Error ? reason.message : typeof reason === 'string' ? reason : 'Unhandled promise rejection';
+    const message =
+      reason instanceof Error ? reason.message : typeof reason === 'string' ? reason : 'Unhandled promise rejection';
     const stack = reason instanceof Error ? reason.stack : undefined;
     postErrorToParent({ code: 'window.unhandledrejection', message, stack });
   });
@@ -330,6 +335,7 @@ if (isEmbedded && typeof window !== 'undefined') {
    */
   requestAnimationFrame(() => {
     postToParent({ type: 'PS_BOLT_READY' });
+
     // Item 48: editor.boot_started — first event in the PostHog funnel.
     postTelemetryToParent('editor.boot_started', { embedded: true });
   });

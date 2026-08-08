@@ -38,17 +38,28 @@ function formatWhen(iso: string): string {
     const date = new Date(iso);
     const diff = Date.now() - date.getTime();
     const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
+
+    if (mins < 1) {
+      return 'just now';
+    }
+
+    if (mins < 60) {
+      return `${mins}m ago`;
+    }
+
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
+
+    if (hrs < 24) {
+      return `${hrs}h ago`;
+    }
+
     return date.toLocaleDateString();
   } catch {
     return iso;
   }
 }
 
-const DeployHistoryTab = memo(function DeployHistoryTab() {
+const DeployHistoryTab = memo(() => {
   const [project, setProject] = useState('');
   const [rows, setRows] = useState<DeployRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,11 +70,17 @@ const DeployHistoryTab = memo(function DeployHistoryTab() {
       setRows([]);
       return;
     }
+
     setLoading(true);
     setError(null);
+
     try {
       const res = await fetch(`/api/bolt-tabs/deploy?project=${encodeURIComponent(project.trim())}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as DeployResponse;
       setRows(data.deployments ?? []);
     } catch (err) {
@@ -75,19 +92,26 @@ const DeployHistoryTab = memo(function DeployHistoryTab() {
   }, [project]);
 
   useEffect(() => {
-    if (project.trim()) fetchHistory();
+    if (project.trim()) {
+      fetchHistory();
+    }
   }, [project, fetchHistory]);
 
   const rollback = useCallback(
     async (deploymentId: string) => {
       setRows((prev) => prev.map((r) => (r.id === deploymentId ? { ...r, status: 'rolling_back' } : r)));
+
       try {
         const res = await fetch('/api/bolt-tabs/deploy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ deployment_id: deploymentId, action: 'rollback' }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         await fetchHistory();
       } catch (err) {
         console.warn('[DeployHistoryTab] rollback failed', err);

@@ -47,27 +47,31 @@ const PARTICLE_LIFE_MS = 800;
 
 const trailPlugin = ViewPlugin.fromClass(
   class {
-    private host: HTMLDivElement | null = null;
-    private particles = 0;
-    private reduced = false;
+    private _host: HTMLDivElement | null = null;
+    private _particles = 0;
+    private _reduced = false;
 
     constructor(view: EditorView) {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') {
+        return;
+      }
 
-      this.reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+      this._reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-      this.host = document.createElement('div');
-      this.host.className = 'ps-ai-trail-host';
-      this.host.setAttribute('aria-hidden', 'true');
+      this._host = document.createElement('div');
+      this._host.className = 'ps-ai-trail-host';
+      this._host.setAttribute('aria-hidden', 'true');
 
       const editorEl = view.dom;
       const parent = editorEl.parentElement ?? editorEl;
       parent.style.position = parent.style.position || 'relative';
-      parent.appendChild(this.host);
+      parent.appendChild(this._host);
     }
 
     update(update: ViewUpdate) {
-      if (this.reduced || !this.host) return;
+      if (this._reduced || !this._host) {
+        return;
+      }
 
       const isAiEdit =
         update.docChanged &&
@@ -83,38 +87,44 @@ const trailPlugin = ViewPlugin.fromClass(
           );
         });
 
-      if (!isAiEdit) return;
+      if (!isAiEdit) {
+        return;
+      }
 
       const head = update.state.selection.main.head;
       const coords = update.view.coordsAtPos(head);
 
-      if (!coords) return;
+      if (!coords) {
+        return;
+      }
 
-      const hostRect = this.host.getBoundingClientRect();
+      const hostRect = this._host.getBoundingClientRect();
       const x = coords.left - hostRect.left;
       const y = coords.top - hostRect.top;
 
-      this.emitParticle(x, y);
+      this._emitParticle(x, y);
     }
 
-    private emitParticle(x: number, y: number) {
-      if (!this.host || this.particles >= MAX_PARTICLES) return;
+    private _emitParticle(x: number, y: number) {
+      if (!this._host || this._particles >= MAX_PARTICLES) {
+        return;
+      }
 
       const dot = document.createElement('span');
       dot.className = 'ps-ai-trail-dot';
       dot.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-      this.host.appendChild(dot);
-      this.particles += 1;
+      this._host.appendChild(dot);
+      this._particles += 1;
 
       window.setTimeout(() => {
         dot.remove();
-        this.particles -= 1;
+        this._particles -= 1;
       }, PARTICLE_LIFE_MS);
     }
 
     destroy() {
-      this.host?.remove();
-      this.host = null;
+      this._host?.remove();
+      this._host = null;
     }
   },
 );

@@ -22,6 +22,7 @@ interface UseOverlayStateOptions {
   hasError?: boolean;
   hasPendingConfirmation?: boolean;
   isGenerating?: boolean;
+
   /** Whether the user prefers reduced motion */
   reducedMotion?: boolean;
 }
@@ -48,19 +49,18 @@ export function useOverlayState(opts: UseOverlayStateOptions = {}): OverlayState
   const busy = isStreaming || hasError || hasPendingConfirmation || isGenerating;
 
   // Derive state
-  const overlayState: OverlayState = busy
-    ? 'busy'
-    : focused
-      ? 'focused'
-      : hovering
-        ? 'visible'
-        : 'hidden';
+  const overlayState: OverlayState = busy ? 'busy' : focused ? 'focused' : hovering ? 'visible' : 'hidden';
 
   // Cleanup timers
   useEffect(() => {
     return () => {
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      if (leaveTimer.current) clearTimeout(leaveTimer.current);
+      if (hoverTimer.current) {
+        clearTimeout(hoverTimer.current);
+      }
+
+      if (leaveTimer.current) {
+        clearTimeout(leaveTimer.current);
+      }
     };
   }, []);
 
@@ -95,6 +95,7 @@ export function useOverlayState(opts: UseOverlayStateOptions = {}): OverlayState
   const onFocus = useCallback(() => setFocused(true), []);
   const onBlur = useCallback(() => {
     setFocused(false);
+
     if (!hovering && !busy) {
       setHovering(false);
     }

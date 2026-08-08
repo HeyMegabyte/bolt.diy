@@ -10,12 +10,15 @@
 import type { Message } from 'ai';
 
 const SYNC_INTERVAL_MS = 30_000;
-// Absolute URL targeting the projectsites.dev worker. The iframe runs on
-// editor.projectsites.dev where the zone WAF blocks every POST; we must
-// hit the API on the projectsites.dev zone instead. The `/api/bolt/`
-// prefix avoids the legacy `/admin-api/` WAF block. See
-// `apps/project-sites/src/routes/bolt_admin.ts` JSDoc for the full
-// auth + path-migration contract.
+
+/*
+ * Absolute URL targeting the projectsites.dev worker. The iframe runs on
+ * editor.projectsites.dev where the zone WAF blocks every POST; we must
+ * hit the API on the projectsites.dev zone instead. The `/api/bolt/`
+ * prefix avoids the legacy `/admin-api/` WAF block. See
+ * `apps/project-sites/src/routes/bolt_admin.ts` JSDoc for the full
+ * auth + path-migration contract.
+ */
 const ENDPOINT_BASE = 'https://projectsites.dev/api/bolt/sites/by-slug';
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -50,6 +53,7 @@ async function pushOnce(slug: string, chatId: string, messages: Message[], token
         message_count: messages.length,
         last_message_id: messages[messages.length - 1]?.id,
         updated_at: new Date().toISOString(),
+
         // Truncated tail — never sync full body to avoid 4xx on large chats
         tail: messages.slice(-4).map((m) => ({
           id: m.id,

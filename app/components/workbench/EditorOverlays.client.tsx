@@ -13,7 +13,7 @@
  * element with focus-trap fallback for Safari < 17.
  */
 import { useStore } from '@nanostores/react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
@@ -158,17 +158,20 @@ export const QuickJumpPalette = memo(({ open, onClose }: QuickJumpProps) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlight((h) => Math.min(h + 1, results.length - 1));
+
       return;
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlight((h) => Math.max(h - 1, 0));
+
       return;
     }
 
     if (e.key === 'Enter') {
       e.preventDefault();
+
       const target = results[highlight];
 
       if (target) {
@@ -364,6 +367,7 @@ export function useEditorHotkeys(): {
         e.preventDefault();
         setPaletteOpen(true);
         setShortcutsOpen(false);
+
         return;
       }
 

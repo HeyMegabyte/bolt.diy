@@ -79,34 +79,44 @@ export const TerminalTabs = memo(() => {
   }, []);
 
   useEffect(() => {
-    // `TerminalTabsLazy` is conditionally mounted by the parent (EditorPanel
-    // gates it on `terminalEverOpened`). On first mount the panel ref is
-    // assigned synchronously but `react-resizable-panels` doesn't register
-    // the panel with its parent `PanelGroup` until the panel's own layout
-    // effect runs. If this `showTerminal` effect fires in the same tick,
-    // `terminal.isCollapsed()` throws "Panel size not found for panel :rq:".
-    // Defer by one animation frame so the registration completes, and wrap
-    // the imperative call in try/catch as a belt-and-braces guard.
+    /*
+     * `TerminalTabsLazy` is conditionally mounted by the parent (EditorPanel
+     * gates it on `terminalEverOpened`). On first mount the panel ref is
+     * assigned synchronously but `react-resizable-panels` doesn't register
+     * the panel with its parent `PanelGroup` until the panel's own layout
+     * effect runs. If this `showTerminal` effect fires in the same tick,
+     * `terminal.isCollapsed()` throws "Panel size not found for panel :rq:".
+     * Defer by one animation frame so the registration completes, and wrap
+     * the imperative call in try/catch as a belt-and-braces guard.
+     */
     let rafId = 0;
     rafId = requestAnimationFrame(() => {
       const terminal = terminalPanelRef.current;
-      if (!terminal) return;
+
+      if (!terminal) {
+        return;
+      }
+
       try {
         const isCollapsed = terminal.isCollapsed();
+
         if (!showTerminal && !isCollapsed) {
           terminal.collapse();
         } else if (showTerminal && isCollapsed) {
           terminal.resize(DEFAULT_TERMINAL_SIZE);
         }
       } catch (err) {
-        // Panel still not registered (very fast toggle / Strict-Mode double
-        // mount). The next `showTerminal` change will retry.
+        /*
+         * Panel still not registered (very fast toggle / Strict-Mode double
+         * mount). The next `showTerminal` change will retry.
+         */
         if (process.env.NODE_ENV !== 'production') {
           logger.warn('TerminalTabs: imperative call skipped (panel not registered yet)', err);
         }
       }
       terminalToggledByShortcut.current = false;
     });
+
     return () => cancelAnimationFrame(rafId);
   }, [showTerminal]);
 

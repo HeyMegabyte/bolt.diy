@@ -35,9 +35,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       const lastUser = [...messages].reverse().find((m) => m.role === 'user');
 
       if (lastUser?.id) {
-        const nextAssistantIdx = messages.findIndex(
-          (m, i) => m.role === 'assistant' && i > messages.indexOf(lastUser),
-        );
+        const nextAssistantIdx = messages.findIndex((m, i) => m.role === 'assistant' && i > messages.indexOf(lastUser));
         const targetId = nextAssistantIdx >= 0 ? messages[nextAssistantIdx].id : `pending-${lastUser.id}`;
 
         if (targetId) {

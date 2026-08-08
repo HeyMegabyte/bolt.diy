@@ -295,7 +295,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
             {props.chatStarted && (
               <button
                 type="button"
-                title={props.chatMode === 'discuss' ? 'Mode: discuss · click to build' : 'Mode: build · click to discuss'}
+                title={
+                  props.chatMode === 'discuss' ? 'Mode: discuss · click to build' : 'Mode: build · click to discuss'
+                }
                 className={classNames(
                   'font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors leading-none',
                   props.chatMode === 'discuss'
@@ -335,7 +337,10 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                * the primary input row. Each renders its own trigger inside.
                */}
               <div className="flex items-center gap-1 px-2 py-1">
-                <WebSearch onSearchResult={(result) => props.onWebSearchResult?.(result)} disabled={props.isStreaming} />
+                <WebSearch
+                  onSearchResult={(result) => props.onWebSearchResult?.(result)}
+                  disabled={props.isStreaming}
+                />
                 <McpTools />
                 <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
                 <SpeechRecognitionButton

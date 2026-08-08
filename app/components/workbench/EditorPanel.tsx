@@ -76,13 +76,18 @@ export const EditorPanel = memo(
 
     const theme = useStore(themeStore);
     const showTerminal = useStore(workbenchStore.showTerminal);
-    // Item 7: only mount the heavy `TerminalTabsLazy` chunk after the user
-    // has opened the terminal at least once in this session. Once mounted,
-    // we keep it mounted (sticky-true) so toggling off + back on doesn't pay
-    // the import cost again — xterm holds its own state.
+
+    /*
+     * Item 7: only mount the heavy `TerminalTabsLazy` chunk after the user
+     * has opened the terminal at least once in this session. Once mounted,
+     * we keep it mounted (sticky-true) so toggling off + back on doesn't pay
+     * the import cost again — xterm holds its own state.
+     */
     const [terminalEverOpened, setTerminalEverOpened] = useState(showTerminal);
     useEffect(() => {
-      if (showTerminal && !terminalEverOpened) setTerminalEverOpened(true);
+      if (showTerminal && !terminalEverOpened) {
+        setTerminalEverOpened(true);
+      }
     }, [showTerminal, terminalEverOpened]);
 
     const activeFileSegments = useMemo(() => {
@@ -122,19 +127,19 @@ export const EditorPanel = memo(
     useEffect(() => {
       if (!stickyEnabled || !editorDocument || editorDocument.isBinary) {
         setStickyScope('');
-        return;
+        return undefined;
       }
 
       const wrap = editorWrapRef.current;
 
       if (!wrap) {
-        return;
+        return undefined;
       }
 
       const scrollDom = wrap.querySelector('.cm-scroller') as HTMLElement | null;
 
       if (!scrollDom) {
-        return;
+        return undefined;
       }
 
       const lines = editorDocument.value.split('\n');
@@ -204,7 +209,14 @@ export const EditorPanel = memo(
       <PanelGroup direction="vertical" id="editor-vertical">
         <Panel id="editor" order={1} defaultSize={showTerminal ? DEFAULT_EDITOR_SIZE : 100} minSize={20}>
           <PanelGroup direction="horizontal" id="editor-horizontal">
-            <Panel id="file-tree" order={1} defaultSize={20} minSize={15} collapsible className="border-r border-bolt-elements-borderColor">
+            <Panel
+              id="file-tree"
+              order={1}
+              defaultSize={20}
+              minSize={15}
+              collapsible
+              className="border-r border-bolt-elements-borderColor"
+            >
               <div className="h-full">
                 <Tabs.Root defaultValue="files" className="flex flex-col h-full">
                   <PanelHeader className="w-full text-sm font-medium text-bolt-elements-textSecondary px-1">

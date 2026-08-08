@@ -28,12 +28,15 @@ const CODE_BLOCK_RE = /^\s*```\w*\n([\s\S]*?)\n\s*```\s*$/;
 const ESCAPED_LT_RE = /&lt;/g;
 const ESCAPED_GT_RE = /&gt;/g;
 const ATTR_CACHE = new Map<string, RegExp>();
+
 function attrRegex(attr: string): RegExp {
   let re = ATTR_CACHE.get(attr);
+
   if (!re) {
     re = new RegExp(`${attr}="([^"]*)"`, 'i');
     ATTR_CACHE.set(attr, re);
   }
+
   return re;
 }
 
@@ -83,8 +86,10 @@ interface MessageState {
 }
 
 function cleanoutMarkdownSyntax(content: string) {
-  // Item 5: use the module-level precompiled CODE_BLOCK_RE — same semantics
-  // as the previous inline literal, zero per-call compile cost.
+  /*
+   * Item 5: use the module-level precompiled CODE_BLOCK_RE — same semantics
+   * as the previous inline literal, zero per-call compile cost.
+   */
   const match = content.match(CODE_BLOCK_RE);
 
   if (match) {
@@ -98,22 +103,25 @@ function cleanEscapedTags(content: string) {
   return content.replace(ESCAPED_LT_RE, '<').replace(ESCAPED_GT_RE, '>');
 }
 
-// ── Tool-call envelope (Rec 5 — Phase 4a) ──────────────────────────────
-//
-// Recognized envelopes (paired across the LLM ↔ client boundary):
-//
-//   <tool_call name="openFile" id="t_42">{"args":{"path":"src/App.tsx"}}</tool_call>
-//   <tool_result id="t_42">{"path":"…","contents":"…"}</tool_result>
-//
-// The streaming-aware parser doesn't dispatch tools itself — it surfaces
-// fully-formed envelopes via {@link parseToolCallEnvelopes} so the chat
-// client can route them through `~/lib/tools/dispatcher`. Capture groups
-// are: 1=name, 2=id, 3=body. The `s` flag matches multi-line JSON bodies.
+/*
+ * ── Tool-call envelope (Rec 5 — Phase 4a) ──────────────────────────────
+ *
+ * Recognized envelopes (paired across the LLM ↔ client boundary):
+ *
+ *   <tool_call name="openFile" id="t_42">{"args":{"path":"src/App.tsx"}}</tool_call>
+ *   <tool_result id="t_42">{"path":"…","contents":"…"}</tool_result>
+ *
+ * The streaming-aware parser doesn't dispatch tools itself — it surfaces
+ * fully-formed envelopes via {@link parseToolCallEnvelopes} so the chat
+ * client can route them through `~/lib/tools/dispatcher`. Capture groups
+ * are: 1=name, 2=id, 3=body. The `s` flag matches multi-line JSON bodies.
+ */
 const TOOL_CALL_RE = /<tool_call\s+name="([^"]+)"\s+id="([^"]+)"\s*>([\s\S]*?)<\/tool_call>/g;
 
 export interface ToolCallEnvelope {
   name: string;
   id: string;
+
   /** Raw JSON args from the envelope body. `{}` when parsing fails (handler will Zod-reject). */
   args: Record<string, unknown>;
 }
@@ -126,24 +134,32 @@ export interface ToolCallEnvelope {
 export function parseToolCallEnvelopes(text: string): ToolCallEnvelope[] {
   const envelopes: ToolCallEnvelope[] = [];
   TOOL_CALL_RE.lastIndex = 0;
+
   let match: RegExpExecArray | null;
+
   while ((match = TOOL_CALL_RE.exec(text)) !== null) {
     const [, name, id, body] = match;
     let args: Record<string, unknown> = {};
+
     if (body && body.trim()) {
       try {
         const parsed = JSON.parse(body);
+
         // Accept either `{args: {...}}` or `{...}` for ergonomic LLM emission.
         if (parsed && typeof parsed === 'object') {
           args = (parsed.args && typeof parsed.args === 'object' ? parsed.args : parsed) as Record<string, unknown>;
         }
       } catch {
-        // Malformed JSON — fall through with empty args; the Zod validator
-        // in the dispatcher will reject with a self-correcting message.
+        /*
+         * Malformed JSON — fall through with empty args; the Zod validator
+         * in the dispatcher will reject with a self-correcting message.
+         */
       }
     }
+
     envelopes.push({ name, id, args });
   }
+
   return envelopes;
 }
 export class StreamingMessageParser {
@@ -179,10 +195,13 @@ export class StreamingMessageParser {
         if (actionsBlockEnd !== -1) {
           const actionsBlockContent = input.slice(i + BOLT_QUICK_ACTIONS_OPEN.length, actionsBlockEnd);
 
-          // Item 5: reset the shared stateful regex's lastIndex instead of
-          // allocating a fresh RegExp every parse cycle. `exec()` on a `g`
-          // regex mutates state, so we set lastIndex=0 before reusing.
+          /*
+           * Item 5: reset the shared stateful regex's lastIndex instead of
+           * allocating a fresh RegExp every parse cycle. `exec()` on a `g`
+           * regex mutates state, so we set lastIndex=0 before reusing.
+           */
           QUICK_ACTION_RE.lastIndex = 0;
+
           let match;
           const buttons = [];
 
@@ -456,9 +475,11 @@ export class StreamingMessageParser {
   }
 
   #extractAttribute(tag: string, attributeName: string): string | undefined {
-    // Item 5: pull the compiled regex from the module-level cache. With ~15
-    // distinct attribute names across the parser surface, the cache settles
-    // after the first message and every subsequent call is a Map lookup.
+    /*
+     * Item 5: pull the compiled regex from the module-level cache. With ~15
+     * distinct attribute names across the parser surface, the cache settles
+     * after the first message and every subsequent call is a Map lookup.
+     */
     const match = tag.match(attrRegex(attributeName));
     return match ? match[1] : undefined;
   }

@@ -35,6 +35,7 @@ function loadSnapshots(): Snapshot[] {
   if (typeof window === 'undefined') {
     return [];
   }
+
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as Snapshot[]) : [];
@@ -56,9 +57,11 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} B`;
   }
+
   if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
+
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
@@ -78,9 +81,11 @@ function SnapshotsTab(): JSX.Element {
 
   const takeSnapshot = useCallback(() => {
     const label = window.prompt('Snapshot label', `Snapshot ${new Date().toLocaleTimeString()}`);
+
     if (label === null) {
       return;
     }
+
     const payload = JSON.stringify(files);
     const snap: Snapshot = {
       id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -99,10 +104,13 @@ function SnapshotsTab(): JSX.Element {
     if (!window.confirm(`Restore "${snap.label}"? This overwrites current files in the editor store.`)) {
       return;
     }
+
     const current = workbenchStore.files.get();
+
     for (const path of Object.keys(current)) {
       workbenchStore.files.setKey(path, undefined);
     }
+
     for (const [path, dirent] of Object.entries(snap.files)) {
       if (dirent) {
         workbenchStore.files.setKey(path, dirent);

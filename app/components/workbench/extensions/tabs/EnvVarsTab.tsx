@@ -20,6 +20,7 @@ import { WORK_DIR } from '~/utils/constants';
 import { classNames } from '~/utils/classNames';
 
 type EnvFile = '.env' | '.env.local' | '.env.production';
+
 const ENV_FILES: readonly EnvFile[] = ['.env', '.env.local', '.env.production'] as const;
 
 interface EnvRow {
@@ -33,36 +34,44 @@ interface EnvRow {
 
 function parseEnv(text: string): Array<{ key: string; value: string }> {
   const rows: Array<{ key: string; value: string }> = [];
+
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
+
     if (!line || line.startsWith('#')) {
       continue;
     }
+
     const eq = line.indexOf('=');
+
     if (eq <= 0) {
       continue;
     }
+
     const key = line.slice(0, eq).trim();
     let value = line.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
+
     rows.push({ key, value });
   }
+
   return rows;
 }
 
 function serializeEnv(rows: EnvRow[]): string {
-  return rows
-    .map((r) => {
-      const needsQuote = /[\s#]/.test(r.value);
-      const v = needsQuote ? `"${r.value.replace(/"/g, '\\"')}"` : r.value;
-      return `${r.key}=${v}`;
-    })
-    .join('\n') + '\n';
+  return (
+    rows
+      .map((r) => {
+        const needsQuote = /[\s#]/.test(r.value);
+        const v = needsQuote ? `"${r.value.replace(/"/g, '\\"')}"` : r.value;
+
+        return `${r.key}=${v}`;
+      })
+      .join('\n') + '\n'
+  );
 }
 
 function EnvVarsTab(): JSX.Element {
@@ -74,9 +83,11 @@ function EnvVarsTab(): JSX.Element {
   const loadFile = useCallback(async (file: EnvFile) => {
     setLoading(true);
     setStatus('');
+
     try {
       const wc = await webcontainer;
       let text = '';
+
       try {
         text = await wc.fs.readFile(`${WORK_DIR}/${file}`, 'utf-8');
       } catch {
@@ -116,21 +127,17 @@ function EnvVarsTab(): JSX.Element {
   );
 
   const addRow = useCallback(() => {
-    setRows((prev) => [
-      ...prev,
-      { key: '', value: '', revealed: true, editing: true, draftKey: '', draftValue: '' },
-    ]);
+    setRows((prev) => [...prev, { key: '', value: '', revealed: true, editing: true, draftKey: '', draftValue: '' }]);
   }, []);
 
   const commitRow = useCallback(
     (idx: number) => {
       setRows((prev) => {
         const next = prev.map((r, i) =>
-          i === idx
-            ? { ...r, key: r.draftKey.trim(), value: r.draftValue, editing: false }
-            : r,
+          i === idx ? { ...r, key: r.draftKey.trim(), value: r.draftValue, editing: false } : r,
         );
         void persist(next.filter((r) => r.key));
+
         return next;
       });
     },
@@ -142,6 +149,7 @@ function EnvVarsTab(): JSX.Element {
       setRows((prev) => {
         const next = prev.filter((_, i) => i !== idx);
         void persist(next);
+
         return next;
       });
     },
@@ -202,9 +210,7 @@ function EnvVarsTab(): JSX.Element {
                       placeholder="KEY"
                       value={row.draftKey}
                       onChange={(e) =>
-                        setRows((prev) =>
-                          prev.map((r, i) => (i === idx ? { ...r, draftKey: e.target.value } : r)),
-                        )
+                        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, draftKey: e.target.value } : r)))
                       }
                     />
                     <input
@@ -212,9 +218,7 @@ function EnvVarsTab(): JSX.Element {
                       placeholder="value"
                       value={row.draftValue}
                       onChange={(e) =>
-                        setRows((prev) =>
-                          prev.map((r, i) => (i === idx ? { ...r, draftValue: e.target.value } : r)),
-                        )
+                        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, draftValue: e.target.value } : r)))
                       }
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -237,9 +241,7 @@ function EnvVarsTab(): JSX.Element {
                       size="md"
                       title={row.revealed ? 'Hide value' : 'Reveal value'}
                       onClick={() =>
-                        setRows((prev) =>
-                          prev.map((r, i) => (i === idx ? { ...r, revealed: !r.revealed } : r)),
-                        )
+                        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, revealed: !r.revealed } : r)))
                       }
                     />
                     <IconButton

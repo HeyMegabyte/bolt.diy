@@ -18,7 +18,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({ messages, 
 
   useEffect(() => {
     if (isStreaming || messages.length === 0) {
-      return;
+      return undefined;
     }
 
     let cancelled = false;

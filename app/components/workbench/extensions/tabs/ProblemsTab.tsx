@@ -46,6 +46,7 @@ function useProblems(): ProblemEntry[] {
 
     // Surface unsaved-files as info entries
     const unsaved = workbenchStore.unsavedFiles.get();
+
     if (unsaved && unsaved.size > 0) {
       for (const path of unsaved) {
         problems.push({
@@ -60,8 +61,12 @@ function useProblems(): ProblemEntry[] {
     // Surface empty files
     if (files) {
       for (const [path, entry] of Object.entries(files)) {
-        if (!entry || entry.type !== 'file') continue;
+        if (!entry || entry.type !== 'file') {
+          continue;
+        }
+
         const file = entry;
+
         if (!file.content?.trim()) {
           problems.push({
             severity: 'warning',
@@ -75,7 +80,11 @@ function useProblems(): ProblemEntry[] {
 
     return problems.sort((a, b) => {
       const orderDiff = (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9);
-      if (orderDiff !== 0) return orderDiff;
+
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+
       return (a.file ?? '').localeCompare(b.file ?? '');
     });
   }, [currentDocument, files]);
@@ -86,15 +95,20 @@ const ProblemsTab = memo(() => {
   const [severityFilter, setSeverityFilter] = useState<'all' | ProblemEntry['severity']>('all');
 
   const filtered = useMemo(() => {
-    if (severityFilter === 'all') return problems;
+    if (severityFilter === 'all') {
+      return problems;
+    }
+
     return problems.filter((p) => p.severity === severityFilter);
   }, [problems, severityFilter]);
 
   const counts = useMemo(() => {
     const c = { error: 0, warning: 0, info: 0 };
+
     for (const p of problems) {
       c[p.severity]++;
     }
+
     return c;
   }, [problems]);
 
@@ -185,9 +199,7 @@ const ProblemsTab = memo(() => {
                   <td className="py-1.5 pr-2 text-bolt-elements-textTertiary w-16 text-right tabular-nums">
                     {p.line != null ? `L${p.line}${p.col != null ? `:${p.col}` : ''}` : ''}
                   </td>
-                  <td className="py-1.5 pr-3 text-bolt-elements-textSecondary truncate max-w-[400px]">
-                    {p.message}
-                  </td>
+                  <td className="py-1.5 pr-3 text-bolt-elements-textSecondary truncate max-w-[400px]">{p.message}</td>
                 </tr>
               ))}
             </tbody>

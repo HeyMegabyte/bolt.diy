@@ -12,7 +12,6 @@
 import { useStore } from '@nanostores/react';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { classNames } from '~/utils/classNames';
 
 interface RouteVisualState {
   html: string;
@@ -23,9 +22,11 @@ function getRouteKey(filePath: string | undefined): string {
   return filePath ?? '__default__';
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Component
+ * ---------------------------------------------------------------------------
+ */
 
 export const VisualEditor = memo(() => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,7 +41,10 @@ export const VisualEditor = memo(() => {
 
   // Bootstrap GrapesJS after first mount
   useEffect(() => {
-    if (mounted) return;
+    if (mounted) {
+      return undefined;
+    }
+
     setMounted(true);
 
     let cancelled = false;
@@ -52,12 +56,17 @@ export const VisualEditor = memo(() => {
         const grapesjs = (await import('grapesjs')).default;
         await import('grapesjs/dist/css/grapes.min.css');
 
-        if (cancelled || !containerRef.current) return;
+        if (cancelled || !containerRef.current) {
+          return;
+        }
 
-        // Seed: prefer current document content (Code → Visual sync),
-        // fall back to store-persisted per-route state, then default template
+        /*
+         * Seed: prefer current document content (Code → Visual sync),
+         * fall back to store-persisted per-route state, then default template
+         */
         const stored = workbenchStore.visualStates?.get(routeKey);
         let seedHtml: string | undefined;
+
         if (currentDocument?.value && currentDocument.value.trim().length > 10) {
           seedHtml = currentDocument.value;
         } else if (stored) {
@@ -100,9 +109,7 @@ export const VisualEditor = memo(() => {
             ],
           },
           canvas: {
-            styles: [
-              'https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css',
-            ],
+            styles: ['https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css'],
           },
           pluginsOpts: {},
         });
@@ -110,7 +117,10 @@ export const VisualEditor = memo(() => {
         // Restore state or seed from current document
         if (seedHtml && seedHtml.trim().length > 10) {
           editor.setComponents(seedHtml);
-          if (stored?.css) editor.setStyle(stored.css);
+
+          if (stored?.css) {
+            editor.setStyle(stored.css);
+          }
         } else {
           editor.setComponents(`
             <div style="padding:2rem;font-family:system-ui;max-width:960px;margin:0 auto">
@@ -126,11 +136,14 @@ export const VisualEditor = memo(() => {
             html: editor.getHtml(),
             css: editor.getCss() ?? '',
           };
+
           // Write to workbench store for cross-session persistence
           if (!workbenchStore.visualStates) {
             workbenchStore.visualStates = new Map();
           }
+
           workbenchStore.visualStates.set(routeKey, state);
+
           // Bidirectional sync: Visual → Code
           workbenchStore.setCurrentDocumentContent(state.html);
         });
@@ -164,12 +177,19 @@ export const VisualEditor = memo(() => {
   // When route changes, update editor from store or current document
   useEffect(() => {
     const editor = editorRef.current as { setComponents?: (h: string) => void; setStyle?: (c: string) => void } | null;
-    if (!editor || loading) return;
+
+    if (!editor || loading) {
+      return;
+    }
 
     const stored = workbenchStore.visualStates?.get(routeKey);
+
     if (stored && editor.setComponents) {
       editor.setComponents(stored.html);
-      if (stored.css && editor.setStyle) editor.setStyle(stored.css);
+
+      if (stored.css && editor.setStyle) {
+        editor.setStyle(stored.css);
+      }
     } else if (currentDocument?.value && editor.setComponents) {
       editor.setComponents(currentDocument.value);
     }
@@ -218,7 +238,10 @@ export const VisualEditor = memo(() => {
   return (
     <div className="h-full flex flex-col bg-bolt-elements-background-depth-1">
       {/* Top bar — basic actions */}
-      <div id="visual-panel-basic" className="flex items-center gap-1 px-2 py-1 border-b border-bolt-elements-borderColor min-h-[32px]" />
+      <div
+        id="visual-panel-basic"
+        className="flex items-center gap-1 px-2 py-1 border-b border-bolt-elements-borderColor min-h-[32px]"
+      />
 
       {/* Main area: canvas + sidebar */}
       <div className="flex-1 flex overflow-hidden">
@@ -248,7 +271,9 @@ export const VisualEditor = memo(() => {
       {/* Status bar */}
       <div className="flex items-center justify-between px-3 py-1 border-t border-bolt-elements-borderColor/50 text-[10px] text-bolt-elements-textTertiary">
         <span>Route: {routeKey === '__default__' ? 'default' : routeKey}</span>
-        <span>{workbenchStore.visualStates?.size ?? 0} page{workbenchStore.visualStates?.size !== 1 ? 's' : ''} stored</span>
+        <span>
+          {workbenchStore.visualStates?.size ?? 0} page{workbenchStore.visualStates?.size !== 1 ? 's' : ''} stored
+        </span>
       </div>
     </div>
   );

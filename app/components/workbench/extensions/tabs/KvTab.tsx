@@ -47,7 +47,7 @@ function prettyMaybe(raw: string): string {
   }
 }
 
-const KvTab = memo(function KvTab() {
+const KvTab = memo(() => {
   const [namespaces, setNamespaces] = useState<KvNamespace[]>([]);
   const [namespace, setNamespace] = useState<string | null>(null);
   const [prefix, setPrefix] = useState('');
@@ -64,9 +64,14 @@ const KvTab = memo(function KvTab() {
   const loadNamespaces = useCallback(async () => {
     setLoadingNs(true);
     setError(null);
+
     try {
       const res = await fetch('/api/bolt-tabs/kv?action=list-namespaces');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as NamespaceListResponse;
       setNamespaces(data.namespaces ?? []);
     } catch (err) {
@@ -82,13 +87,19 @@ const KvTab = memo(function KvTab() {
       setKeys([]);
       return;
     }
+
     setLoadingKeys(true);
     setError(null);
+
     try {
       const res = await fetch(
         `/api/bolt-tabs/kv?namespace=${encodeURIComponent(namespace)}&prefix=${encodeURIComponent(prefix)}`,
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as KeyListResponse;
       setKeys(data.keys ?? []);
     } catch (err) {
@@ -101,14 +112,22 @@ const KvTab = memo(function KvTab() {
 
   const loadValue = useCallback(
     async (key: string) => {
-      if (!namespace) return;
+      if (!namespace) {
+        return;
+      }
+
       setLoadingValue(true);
       setActiveKey(key);
+
       try {
         const res = await fetch(
           `/api/bolt-tabs/kv?namespace=${encodeURIComponent(namespace)}&key=${encodeURIComponent(key)}`,
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         const data = (await res.json()) as ValueResponse;
         const pretty = prettyMaybe(data.value);
         setValue(pretty);
@@ -124,15 +143,23 @@ const KvTab = memo(function KvTab() {
   );
 
   const save = useCallback(async () => {
-    if (!namespace || !activeKey) return;
+    if (!namespace || !activeKey) {
+      return;
+    }
+
     setSaving(true);
+
     try {
       const res = await fetch('/api/bolt-tabs/kv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ namespace_id: namespace, key: activeKey, value }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       setOriginalValue(value);
     } catch (err) {
       console.warn('[KvTab] save failed', err);
@@ -158,7 +185,13 @@ const KvTab = memo(function KvTab() {
         <div className="flex items-center gap-2 px-2 py-2 border-b border-bolt-elements-borderColor bg-bolt-elements-background-depth-2">
           <div className="i-ph:key-duotone text-lg text-bolt-elements-textSecondary" />
           <span className="text-xs text-bolt-elements-textSecondary font-medium">Namespaces</span>
-          <IconButton className="ml-auto" icon="i-ph:arrow-clockwise" title="Refresh" size="sm" onClick={loadNamespaces} />
+          <IconButton
+            className="ml-auto"
+            icon="i-ph:arrow-clockwise"
+            title="Refresh"
+            size="sm"
+            onClick={loadNamespaces}
+          />
         </div>
         <div className="flex-1 overflow-auto">
           {loadingNs && (
@@ -206,7 +239,9 @@ const KvTab = memo(function KvTab() {
           <IconButton icon="i-ph:arrow-clockwise" title="Reload keys" size="sm" onClick={loadKeys} />
         </div>
         <div className="flex-1 overflow-auto">
-          {!namespace && <div className="p-3 text-xs text-bolt-elements-textTertiary text-center">Pick a namespace.</div>}
+          {!namespace && (
+            <div className="p-3 text-xs text-bolt-elements-textTertiary text-center">Pick a namespace.</div>
+          )}
           {loadingKeys && (
             <div className="p-2 space-y-1">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -235,7 +270,9 @@ const KvTab = memo(function KvTab() {
       </div>
 
       <main className="flex-1 flex flex-col min-w-0">
-        {error && <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>}
+        {error && (
+          <div className="m-3 p-3 rounded border border-red-400/30 bg-red-400/10 text-red-300 text-sm">{error}</div>
+        )}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-bolt-elements-borderColor bg-bolt-elements-background-depth-2">
           <span className="text-xs text-bolt-elements-textTertiary truncate">
             {activeKey ? <span className="font-mono">{activeKey}</span> : 'Select a key to edit'}
@@ -254,7 +291,9 @@ const KvTab = memo(function KvTab() {
             <div className="text-sm">Pick a key on the left to view + edit its value.</div>
           </div>
         )}
-        {activeKey && loadingValue && <div className="p-3 m-3 h-32 bg-bolt-elements-background-depth-2 animate-pulse rounded" />}
+        {activeKey && loadingValue && (
+          <div className="p-3 m-3 h-32 bg-bolt-elements-background-depth-2 animate-pulse rounded" />
+        )}
         {activeKey && !loadingValue && (
           <textarea
             value={value}

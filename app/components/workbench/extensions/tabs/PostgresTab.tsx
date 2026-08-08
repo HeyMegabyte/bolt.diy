@@ -42,6 +42,7 @@ const PostgresTab = memo(() => {
 
   const runQuery = async () => {
     setRunning(true);
+
     // In mock mode, simulate a query result
     await new Promise((r) => setTimeout(r, 300));
     setResults([{ '?column?': 1 }]);
@@ -56,7 +57,7 @@ const PostgresTab = memo(() => {
         <select
           className="bg-transparent text-bolt-elements-textPrimary text-xs border border-bolt-elements-borderColor rounded px-2 py-0.5"
           value={activeProfile?.id ?? ''}
-          onChange={() => {}}
+          onChange={() => undefined}
         >
           {MOCK_PROFILES.map((p) => (
             <option key={p.id} value={p.id}>
@@ -120,7 +121,10 @@ const PostgresTab = memo(() => {
               </thead>
               <tbody>
                 {results.map((row, i) => (
-                  <tr key={i} className="border-b border-bolt-elements-borderColor/50 hover:bg-bolt-elements-item-backgroundActive">
+                  <tr
+                    key={i}
+                    className="border-b border-bolt-elements-borderColor/50 hover:bg-bolt-elements-item-backgroundActive"
+                  >
                     {Object.values(row).map((val, j) => (
                       <td key={j} className="px-2 py-1 text-bolt-elements-textPrimary">
                         {String(val)}

@@ -8,10 +8,12 @@
  *   stays live for future debug/support workflows but is no longer wired.
  */
 
-// Absolute URL targeting the projectsites.dev worker — `editor.projectsites.dev`
-// POSTs are blocked by zone WAF and `/admin-api/*` is blocked by path WAF.
-// See `apps/project-sites/src/routes/bolt_admin.ts` JSDoc for the
-// auth + path-migration contract.
+/*
+ * Absolute URL targeting the projectsites.dev worker — `editor.projectsites.dev`
+ * POSTs are blocked by zone WAF and `/admin-api/*` is blocked by path WAF.
+ * See `apps/project-sites/src/routes/bolt_admin.ts` JSDoc for the
+ * auth + path-migration contract.
+ */
 const VISION_ENDPOINT = 'https://projectsites.dev/api/bolt/vision-ocr';
 
 export interface VisionResult {

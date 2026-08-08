@@ -21,11 +21,51 @@ interface ResourceCard {
 }
 
 const RESOURCES: ResourceCard[] = [
-  { id: 'bricklabor_sqlite', name: 'SQLite / D1', type: 'sqlite', mode: 'local', status: 'healthy', detail: '2 tables · bookings, contacts · 0 rows', bottomTab: 'SQLite' },
-  { id: 'bricklabor_pg', name: 'Postgres (Neon)', type: 'postgres', mode: 'local', status: 'healthy', detail: 'Project: jolly-pine-24431114 · pooled', bottomTab: 'Postgres' },
-  { id: 'bricklabor_redis', name: 'Redis (Upstash)', type: 'redis', mode: 'local', status: 'healthy', detail: 'Prefix: bricklabor: · 4 keys', bottomTab: 'Redis' },
-  { id: 'bricklabor_kv', name: 'KV', type: 'kv', mode: 'local', status: 'healthy', detail: '1 namespace · 0 entries', bottomTab: 'KV' },
-  { id: 'bricklabor_media', name: 'R2 Media', type: 'r2', mode: 'local', status: 'healthy', detail: '5 assets · 10.0 MB total', bottomTab: '—' },
+  {
+    id: 'bricklabor_sqlite',
+    name: 'SQLite / D1',
+    type: 'sqlite',
+    mode: 'local',
+    status: 'healthy',
+    detail: '2 tables · bookings, contacts · 0 rows',
+    bottomTab: 'SQLite',
+  },
+  {
+    id: 'bricklabor_pg',
+    name: 'Postgres (Neon)',
+    type: 'postgres',
+    mode: 'local',
+    status: 'healthy',
+    detail: 'Project: jolly-pine-24431114 · pooled',
+    bottomTab: 'Postgres',
+  },
+  {
+    id: 'bricklabor_redis',
+    name: 'Redis (Upstash)',
+    type: 'redis',
+    mode: 'local',
+    status: 'healthy',
+    detail: 'Prefix: bricklabor: · 4 keys',
+    bottomTab: 'Redis',
+  },
+  {
+    id: 'bricklabor_kv',
+    name: 'KV',
+    type: 'kv',
+    mode: 'local',
+    status: 'healthy',
+    detail: '1 namespace · 0 entries',
+    bottomTab: 'KV',
+  },
+  {
+    id: 'bricklabor_media',
+    name: 'R2 Media',
+    type: 'r2',
+    mode: 'local',
+    status: 'healthy',
+    detail: '5 assets · 10.0 MB total',
+    bottomTab: '—',
+  },
 ];
 
 const STATUS_COLORS: Record<ResourceCard['status'], string> = {
@@ -61,6 +101,7 @@ export const DataPanel = memo(() => {
   const openBottomTab = useCallback((tabLabel: string) => {
     // Open bottom panel — user clicks the target tab
     workbenchStore.toggleTerminal(true);
+
     // Future: dispatch event to switch to specific bottom tab
     void tabLabel;
   }, []);
@@ -91,7 +132,12 @@ export const DataPanel = memo(() => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-bolt-elements-textPrimary">{r.name}</span>
-                  <span className={classNames('px-1.5 py-px rounded-full text-[9px] font-medium border', STATUS_COLORS[r.status])}>
+                  <span
+                    className={classNames(
+                      'px-1.5 py-px rounded-full text-[9px] font-medium border',
+                      STATUS_COLORS[r.status],
+                    )}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <div className={STATUS_ICONS[r.status]} />
                       {r.status}
@@ -100,7 +146,9 @@ export const DataPanel = memo(() => {
                 </div>
                 <div className="text-[10px] text-bolt-elements-textTertiary mt-0.5">{r.detail}</div>
               </div>
-              <span className="text-[10px] text-bolt-elements-textTertiary uppercase tracking-wider">{MODE_LABELS[r.mode]}</span>
+              <span className="text-[10px] text-bolt-elements-textTertiary uppercase tracking-wider">
+                {MODE_LABELS[r.mode]}
+              </span>
             </div>
 
             {/* Card footer */}
@@ -142,7 +190,9 @@ export const DataPanel = memo(() => {
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-bolt-elements-textTertiary">Binding validation</span>
-          <span className="text-green-400 flex items-center gap-1"><div className="i-ph:check-circle" /> All valid</span>
+          <span className="text-green-400 flex items-center gap-1">
+            <div className="i-ph:check-circle" /> All valid
+          </span>
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-bolt-elements-textTertiary">Last backup</span>

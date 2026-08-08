@@ -107,7 +107,8 @@ export const AssistantMessage = memo(
       append?.({
         id: `continue-${Date.now()}`,
         role: 'user',
-        content: 'Continue from where you left off. Pick up exactly where the previous response stopped — do not repeat content.',
+        content:
+          'Continue from where you left off. Pick up exactly where the previous response stopped — do not repeat content.',
       } as Message);
     };
 

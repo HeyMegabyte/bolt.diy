@@ -32,20 +32,26 @@ const SearchTab = memo(() => {
   const files = useStore(workbenchStore.files);
 
   const results = useMemo((): SearchResult[] => {
-    if (!query || query.length < 2) return [];
+    if (!query || query.length < 2) {
+      return [];
+    }
 
     const q = query.toLowerCase();
     const out: SearchResult[] = [];
 
     if (files) {
       for (const [path, entry] of Object.entries(files)) {
-        if (!entry || entry.type !== 'file') continue;
+        if (!entry || entry.type !== 'file') {
+          continue;
+        }
+
         const file = entry;
         const nameMatch = path.toLowerCase().includes(q);
         let contentMatch = false;
 
         if (file.content) {
           const lines = file.content.split('\n');
+
           for (let i = 0; i < lines.length; i++) {
             if ((lines[i] ?? '').toLowerCase().includes(q)) {
               contentMatch = true;
@@ -56,7 +62,10 @@ const SearchTab = memo(() => {
                 preview: (lines[i] ?? '').trim().slice(0, 120),
                 kind: 'code',
               });
-              if (out.length >= 50) break;
+
+              if (out.length >= 50) {
+                break;
+              }
             }
           }
         }
@@ -76,7 +85,10 @@ const SearchTab = memo(() => {
   }, [query, files]);
 
   const filtered = useMemo(() => {
-    if (kindFilter === 'all') return results;
+    if (kindFilter === 'all') {
+      return results;
+    }
+
     return results.filter((r) => r.kind === kindFilter);
   }, [results, kindFilter]);
 
@@ -134,9 +146,7 @@ const SearchTab = memo(() => {
                   <div className={classNames(KIND_ICONS[r.kind], 'text-bolt-elements-textTertiary text-sm')} />
                   <span className="text-xs font-mono text-bolt-elements-textSecondary truncate">
                     {r.path}
-                    {r.line != null && (
-                      <span className="text-bolt-elements-textTertiary ml-1">:{r.line}</span>
-                    )}
+                    {r.line != null && <span className="text-bolt-elements-textTertiary ml-1">:{r.line}</span>}
                   </span>
                 </div>
                 <div className="text-xs text-bolt-elements-textPrimary mt-0.5 truncate pl-6">{r.preview}</div>

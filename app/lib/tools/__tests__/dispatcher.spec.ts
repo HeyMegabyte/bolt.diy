@@ -15,15 +15,19 @@ vi.mock('../../embed/embedded-mode', () => ({
   postTelemetryToParent: vi.fn(),
 }));
 
-// Mock the language detector — keep the spec independent of Remix module
-// resolution. The test only needs a stable string back.
+/*
+ * Mock the language detector — keep the spec independent of Remix module
+ * resolution. The test only needs a stable string back.
+ */
 vi.mock('../../../utils/getLanguageFromExtension', () => ({
   getLanguageFromExtension: (p: string) => (p.endsWith('.tsx') ? 'tsx' : 'plaintext'),
 }));
 
+/* eslint-disable no-restricted-imports -- vitest's tsconfigPaths does not resolve the ~ alias during this spec's collect phase; relative imports to the module-under-test are required here */
 import { dispatchResultToEnvelope, runTool } from '../dispatcher';
 import type { EditorToolContext } from '../editor-tools';
 import { parseToolCallEnvelopes } from '../../runtime/message-parser';
+/* eslint-enable no-restricted-imports */
 
 function makeCtx(overrides: Partial<EditorToolContext> = {}): EditorToolContext {
   const files: Record<string, string> = {
@@ -32,8 +36,12 @@ function makeCtx(overrides: Partial<EditorToolContext> = {}): EditorToolContext 
   };
   return {
     resolvePath: (p) => {
-      if (files[p]) return p;
+      if (files[p]) {
+        return p;
+      }
+
       const cleaned = p.replace(/^\/+/, '');
+
       return Object.keys(files).find((f) => f.endsWith(`/${cleaned}`));
     },
     readFile: async (p) => files[p],
@@ -61,7 +69,11 @@ describe('runTool', () => {
     const ctx = makeCtx();
     const result = await runTool('openFile', { path: 'foo.tsx' }, ctx, 't_1');
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+
+    if (!result.ok) {
+      return;
+    }
+
     const parsed = JSON.parse(result.result);
     expect(parsed.contents).toContain('const a = 1');
     expect(parsed.language).toBe('tsx');
@@ -73,7 +85,11 @@ describe('runTool', () => {
     const ctx = makeCtx();
     const result = await runTool('openFile', { wrong: 'shape' }, ctx, 't_2');
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+
+    if (result.ok) {
+      return;
+    }
+
     expect(result.error.code).toBe('invalid_args');
     expect(result.error.message).toMatch(/path/);
     expect(ctx.openInEditor).not.toHaveBeenCalled();
@@ -82,7 +98,11 @@ describe('runTool', () => {
   it('unknown tool returns an unknown_tool error', async () => {
     const result = await runTool('doesNotExist', {}, makeCtx(), 't_3');
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+
+    if (result.ok) {
+      return;
+    }
+
     expect(result.error.code).toBe('unknown_tool');
   });
 
@@ -91,7 +111,11 @@ describe('runTool', () => {
     const ctx = makeCtx({ runShell: async () => ({ output: huge, exitCode: 0 }) });
     const result = await runTool('runCommand', { command: 'cat big.txt' }, ctx, 't_4');
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+
+    if (!result.ok) {
+      return;
+    }
+
     const parsed = JSON.parse(result.result);
     expect(parsed.output.length).toBeLessThan(huge.length);
     expect(parsed.output).toContain('truncated');
@@ -102,7 +126,11 @@ describe('runTool', () => {
     const ctx = makeCtx();
     const result = await runTool('search', { query: 'const' }, ctx, 't_5');
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+
+    if (!result.ok) {
+      return;
+    }
+
     const parsed = JSON.parse(result.result);
     expect(parsed.matches.length).toBeGreaterThan(0);
     expect(parsed.matches[0]).toHaveProperty('line');
@@ -112,7 +140,11 @@ describe('runTool', () => {
   it('getSelection round-trips the editor selection shape', async () => {
     const result = await runTool('getSelection', {}, makeCtx(), 't_6');
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+
+    if (!result.ok) {
+      return;
+    }
+
     const parsed = JSON.parse(result.result);
     expect(parsed.ok).toBe(true);
     expect(parsed.text).toBe('const a = 1;');
@@ -127,7 +159,11 @@ describe('runTool', () => {
     });
     const result = await runTool('openFile', { path: 'foo.tsx' }, ctx, 't_7');
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+
+    if (result.ok) {
+      return;
+    }
+
     expect(result.error.code).toBe('handler_failed');
     expect(result.error.message).toBe('disk on fire');
   });

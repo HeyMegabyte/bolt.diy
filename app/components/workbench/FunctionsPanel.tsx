@@ -23,7 +23,12 @@ interface BindingEntry {
 
 const MOCK_ROUTES: RouteEntry[] = [
   { path: '/', methods: ['GET'], handlerFile: 'routes/home.ts', usesResources: [] },
-  { path: '/api/booking', methods: ['GET', 'POST'], handlerFile: 'routes/booking.ts', usesResources: ['bricklabor_sqlite'] },
+  {
+    path: '/api/booking',
+    methods: ['GET', 'POST'],
+    handlerFile: 'routes/booking.ts',
+    usesResources: ['bricklabor_sqlite'],
+  },
   { path: '/api/contact', methods: ['POST'], handlerFile: 'routes/contact.ts', usesResources: [] },
   { path: '/api/health', methods: ['GET'], handlerFile: 'routes/health.ts', usesResources: [] },
 ];
@@ -61,9 +66,13 @@ export const FunctionsPanel = memo(() => {
         <div className="i-ph:lightning-duotone text-xl text-bolt-elements-textSecondary" />
         <div>
           <h2 className="text-sm font-semibold text-bolt-elements-textPrimary">Functions</h2>
-          <p className="text-[10px] text-bolt-elements-textTertiary">1 Worker · {MOCK_ROUTES.length} routes · {MOCK_BINDINGS.length} bindings</p>
+          <p className="text-[10px] text-bolt-elements-textTertiary">
+            1 Worker · {MOCK_ROUTES.length} routes · {MOCK_BINDINGS.length} bindings
+          </p>
         </div>
-        <span className="ml-auto text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">deploy ready</span>
+        <span className="ml-auto text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
+          deploy ready
+        </span>
       </div>
 
       {/* WFP metadata */}
@@ -97,7 +106,13 @@ export const FunctionsPanel = memo(() => {
             >
               <div className="flex gap-0.5">
                 {r.methods.map((m) => (
-                  <span key={m} className={classNames('px-1 py-px rounded text-[9px] font-mono', METHOD_COLORS[m] ?? 'text-bolt-elements-textTertiary')}>
+                  <span
+                    key={m}
+                    className={classNames(
+                      'px-1 py-px rounded text-[9px] font-mono',
+                      METHOD_COLORS[m] ?? 'text-bolt-elements-textTertiary',
+                    )}
+                  >
                     {m}
                   </span>
                 ))}
@@ -106,7 +121,12 @@ export const FunctionsPanel = memo(() => {
               {r.usesResources.length > 0 && (
                 <span className="text-bolt-elements-textTertiary text-[9px]">{r.usesResources.length} resources</span>
               )}
-              <div className={classNames('i-ph:caret-down text-bolt-elements-textTertiary transition-transform', active && 'rotate-180')} />
+              <div
+                className={classNames(
+                  'i-ph:caret-down text-bolt-elements-textTertiary transition-transform',
+                  active && 'rotate-180',
+                )}
+              />
             </button>
           );
         })}
@@ -123,7 +143,9 @@ export const FunctionsPanel = memo(() => {
             <div>
               <span className="text-bolt-elements-textTertiary">Resources: </span>
               {selectedRoute.usesResources.map((r) => (
-                <span key={r} className="font-mono text-bolt-elements-item-contentAccent">{r} </span>
+                <span key={r} className="font-mono text-bolt-elements-item-contentAccent">
+                  {r}{' '}
+                </span>
               ))}
             </div>
           )}
@@ -134,7 +156,10 @@ export const FunctionsPanel = memo(() => {
       <div className="border-b border-bolt-elements-borderColor/50">
         <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary">Bindings</div>
         {MOCK_BINDINGS.map((b) => (
-          <div key={b.name} className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-bolt-elements-item-backgroundActive transition-colors">
+          <div
+            key={b.name}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-bolt-elements-item-backgroundActive transition-colors"
+          >
             <div className={classNames(TYPE_ICONS[b.type] ?? 'i-ph:plug', 'text-bolt-elements-textTertiary text-sm')} />
             <span className="text-bolt-elements-textPrimary font-mono">{b.name}</span>
             <span className="text-bolt-elements-textTertiary text-[10px]">{b.type}</span>

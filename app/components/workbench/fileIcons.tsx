@@ -13,6 +13,7 @@
 
 interface IconSpec {
   iconClass: string;
+
   /**
    * Optional Tailwind/UnoCSS color utility. When omitted the icon
    * inherits the surrounding row's text color (selected/active states).
@@ -65,7 +66,9 @@ export function getFileIconSpec(fileName: string): IconSpec {
   const lower = fileName.toLowerCase();
   const bySpecial = SPECIAL_NAMES[lower];
 
-  if (bySpecial) return bySpecial;
+  if (bySpecial) {
+    return bySpecial;
+  }
 
   const ext = lower.split('.').pop() ?? '';
 

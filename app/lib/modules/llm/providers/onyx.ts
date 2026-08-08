@@ -104,10 +104,7 @@ export default class OnyxProvider extends BaseProvider {
     const onyxBase = baseUrl || 'https://ai.projectsites.dev';
 
     if (!apiKey) {
-      throw new Error(
-        `Missing ONYX_API_KEY for ${this.name} provider. ` +
-        `Get one at ${this.getApiKeyLink}`
-      );
+      throw new Error(`Missing ONYX_API_KEY for ${this.name} provider. ` + `Get one at ${this.getApiKeyLink}`);
     }
 
     const openai = createOpenAI({

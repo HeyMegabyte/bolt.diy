@@ -34,7 +34,7 @@ const LEVEL_TONE: Record<LogLine['level'], string> = {
 const POLL_INTERVAL_MS = 5000;
 const NEAR_BOTTOM_PX = 40;
 
-const LogsTab = memo(function LogsTab() {
+const LogsTab = memo(() => {
   const [project, setProject] = useState('');
   const [lines, setLines] = useState<LogLine[]>([]);
   const [live, setLive] = useState(true);
@@ -45,15 +45,24 @@ const LogsTab = memo(function LogsTab() {
   const sinceCursorRef = useRef<string | null>(null);
 
   const fetchOnce = useCallback(async () => {
-    if (!project.trim()) return;
+    if (!project.trim()) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
     try {
       const since = sinceCursorRef.current ? `&since=${encodeURIComponent(sinceCursorRef.current)}` : '';
       const res = await fetch(`/api/bolt-tabs/logs?project=${encodeURIComponent(project.trim())}${since}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = (await res.json()) as LogsResponse;
       const next = data.lines ?? [];
+
       if (next.length) {
         sinceCursorRef.current = next[next.length - 1].timestamp;
         setLines((prev) => [...prev, ...next].slice(-2000));
@@ -67,15 +76,24 @@ const LogsTab = memo(function LogsTab() {
   }, [project]);
 
   useEffect(() => {
-    if (!live || !project.trim()) return undefined;
+    if (!live || !project.trim()) {
+      return undefined;
+    }
+
     fetchOnce();
+
     const id = setInterval(fetchOnce, POLL_INTERVAL_MS);
+
     return () => clearInterval(id);
   }, [live, project, fetchOnce]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
+
+    if (!el) {
+      return;
+    }
+
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = distFromBottom < NEAR_BOTTOM_PX;
   }, []);
@@ -110,16 +128,19 @@ const LogsTab = memo(function LogsTab() {
               : 'bg-bolt-elements-background-depth-1 border-bolt-elements-borderColor text-bolt-elements-textTertiary',
           )}
         >
-          <div className={classNames('w-1.5 h-1.5 rounded-full', live ? 'bg-green-400 animate-pulse' : 'bg-bolt-elements-textTertiary')} />
+          <div
+            className={classNames(
+              'w-1.5 h-1.5 rounded-full',
+              live ? 'bg-green-400 animate-pulse' : 'bg-bolt-elements-textTertiary',
+            )}
+          />
           {live ? 'Live' : 'Paused'}
         </button>
         <IconButton icon="i-ph:trash" title="Clear" size="md" onClick={clear} />
       </div>
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto font-mono text-xs leading-relaxed p-3">
-        {error && (
-          <div className="mb-2 p-2 rounded border border-red-400/30 bg-red-400/10 text-red-300">{error}</div>
-        )}
+        {error && <div className="mb-2 p-2 rounded border border-red-400/30 bg-red-400/10 text-red-300">{error}</div>}
         {!error && lines.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-bolt-elements-textTertiary">
             <div className="i-ph:terminal-window-duotone text-4xl mb-2 opacity-50" />

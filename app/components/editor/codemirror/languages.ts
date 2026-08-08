@@ -19,22 +19,39 @@ import { LanguageDescription } from '@codemirror/language';
  */
 
 function idleImport<T>(factory: () => Promise<T>): Promise<T> {
-  if (typeof window === 'undefined' || typeof (window as Window & typeof globalThis & { requestIdleCallback?: (cb: IdleRequestCallback) => number }).requestIdleCallback !== 'function') {
+  if (
+    typeof window === 'undefined' ||
+    typeof (window as Window & typeof globalThis & { requestIdleCallback?: (cb: IdleRequestCallback) => number })
+      .requestIdleCallback !== 'function'
+  ) {
     return factory();
   }
-  const ric = (window as Window & typeof globalThis & { requestIdleCallback: (cb: IdleRequestCallback, opts?: { timeout: number }) => number }).requestIdleCallback;
+
+  const ric = (
+    window as Window &
+      typeof globalThis & { requestIdleCallback: (cb: IdleRequestCallback, opts?: { timeout: number }) => number }
+  ).requestIdleCallback;
+
   return new Promise<T>((resolve, reject) => {
-    ric(() => {
-      factory().then(resolve, reject);
-    }, { timeout: 500 });
+    ric(
+      () => {
+        factory().then(resolve, reject);
+      },
+      { timeout: 500 },
+    );
   });
 }
 
 function heavySyntaxEnabled(): boolean {
-  // `?syntax=on` flag enables the C++/Wasm bundles. Anything else (default)
-  // keeps them out of the bundle graph entirely. We check `location.search`
-  // lazily because this module is imported during SSR too.
-  if (typeof window === 'undefined') return false;
+  /*
+   * `?syntax=on` flag enables the C++/Wasm bundles. Anything else (default)
+   * keeps them out of the bundle graph entirely. We check `location.search`
+   * lazily because this module is imported during SSR too.
+   */
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
   try {
     return new URLSearchParams(window.location.search).get('syntax') === 'on';
   } catch {
@@ -54,7 +71,9 @@ const baseLanguages = [
     name: 'TS',
     extensions: ['ts'],
     async load() {
-      return idleImport(() => import('@codemirror/lang-javascript').then((module) => module.javascript({ typescript: true })));
+      return idleImport(() =>
+        import('@codemirror/lang-javascript').then((module) => module.javascript({ typescript: true })),
+      );
     },
   }),
   LanguageDescription.of({
@@ -68,7 +87,9 @@ const baseLanguages = [
     name: 'TSX',
     extensions: ['tsx'],
     async load() {
-      return idleImport(() => import('@codemirror/lang-javascript').then((module) => module.javascript({ jsx: true, typescript: true })));
+      return idleImport(() =>
+        import('@codemirror/lang-javascript').then((module) => module.javascript({ jsx: true, typescript: true })),
+      );
     },
   }),
   LanguageDescription.of({
@@ -129,10 +150,12 @@ const baseLanguages = [
   }),
 ];
 
-// Item 10: heavy syntax modes (Wasm ~800KB, C++ ~1.2MB raw) only load when
-// the user explicitly opts in via `?syntax=on`. Dropping these from the
-// default bundle graph saves ~2MB of code-split chunks that 99% of website-
-// builder users never touch.
+/*
+ * Item 10: heavy syntax modes (Wasm ~800KB, C++ ~1.2MB raw) only load when
+ * the user explicitly opts in via `?syntax=on`. Dropping these from the
+ * default bundle graph saves ~2MB of code-split chunks that 99% of website-
+ * builder users never touch.
+ */
 const heavyLanguages = [
   LanguageDescription.of({
     name: 'Wasm',
@@ -150,9 +173,7 @@ const heavyLanguages = [
   }),
 ];
 
-export const supportedLanguages = heavySyntaxEnabled()
-  ? [...baseLanguages, ...heavyLanguages]
-  : baseLanguages;
+export const supportedLanguages = heavySyntaxEnabled() ? [...baseLanguages, ...heavyLanguages] : baseLanguages;
 
 export async function getLanguage(fileName: string) {
   const languageDescription = LanguageDescription.matchFilename(supportedLanguages, fileName);
@@ -161,8 +182,10 @@ export async function getLanguage(fileName: string) {
     return await languageDescription.load();
   }
 
-  // TODO(perf-10): if a user opens a .cpp/.wat without `?syntax=on`, we could
-  // surface a one-time toast offering to enable the heavy syntax bundle and
-  // reload with the flag set. Out of scope for this performance pass.
+  /*
+   * TODO(perf-10): if a user opens a .cpp/.wat without `?syntax=on`, we could
+   * surface a one-time toast offering to enable the heavy syntax bundle and
+   * reload with the flag set. Out of scope for this performance pass.
+   */
   return undefined;
 }

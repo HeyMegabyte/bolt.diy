@@ -14,11 +14,13 @@ import type { EditorView } from '@codemirror/view';
 import { workbenchStore } from '~/lib/stores/workbench';
 import type { EditorToolContext } from './editor-tools';
 
-// ── Active CodeMirror view registry ─────────────────────────────────────
-//
-// CodeMirror calls `setActiveEditorView` on mount + destroy so the tool
-// context can reach into the live selection / dispatch. Module-level
-// singleton — there's only ever one CodeMirror editor in the workbench.
+/*
+ * ── Active CodeMirror view registry ─────────────────────────────────────
+ *
+ * CodeMirror calls `setActiveEditorView` on mount + destroy so the tool
+ * context can reach into the live selection / dispatch. Module-level
+ * singleton — there's only ever one CodeMirror editor in the workbench.
+ */
 
 let activeView: EditorView | undefined;
 let activeViewPath: string | undefined;
@@ -37,17 +39,29 @@ export function getActiveEditorView(): EditorView | undefined {
 export function createEditorToolContext(): EditorToolContext {
   return {
     resolvePath(path) {
-      if (!path) return undefined;
+      if (!path) {
+        return undefined;
+      }
+
       const fileMap = workbenchStore.files.get();
       const direct = fileMap[path];
-      if (direct?.type === 'file') return path;
+
+      if (direct?.type === 'file') {
+        return path;
+      }
+
       const cleaned = path.replace(/^\/+/, '');
+
       return Object.keys(fileMap).find((p) => p === path || p.endsWith(`/${cleaned}`));
     },
 
     async readFile(absolutePath) {
       const dirent = workbenchStore.files.get()[absolutePath];
-      if (!dirent || dirent.type !== 'file' || dirent.isBinary) return undefined;
+
+      if (!dirent || dirent.type !== 'file' || dirent.isBinary) {
+        return undefined;
+      }
+
       return dirent.content;
     },
 
@@ -64,33 +78,46 @@ export function createEditorToolContext(): EditorToolContext {
 
     async runShell(command) {
       const term = workbenchStore.boltTerminal;
+
       if (!term || typeof term.executeCommand !== 'function') {
         throw new Error('WebContainer terminal not ready');
       }
+
       const sessionId = `tool-${Date.now()}`;
       const result = await term.executeCommand(sessionId, command);
+
       return { output: result?.output ?? '', exitCode: result?.exitCode ?? 0 };
     },
 
     listFiles() {
       const fileMap = workbenchStore.files.get();
       const out: { path: string; size: number }[] = [];
+
       for (const [path, dirent] of Object.entries(fileMap)) {
-        if (dirent?.type !== 'file' || dirent.isBinary) continue;
+        if (dirent?.type !== 'file' || dirent.isBinary) {
+          continue;
+        }
+
         const content = dirent.content ?? '';
         out.push({ path, size: new TextEncoder().encode(content).length });
       }
+
       return out;
     },
 
     getEditorSelection() {
       const view = activeView;
       const path = activeViewPath;
-      if (!view || !path) return undefined;
+
+      if (!view || !path) {
+        return undefined;
+      }
+
       const range = view.state.selection.main;
       const text = view.state.sliceDoc(range.from, range.to);
       const fromLine = view.state.doc.lineAt(range.from);
       const toLine = view.state.doc.lineAt(range.to);
+
       return {
         path,
         text,
@@ -101,9 +128,14 @@ export function createEditorToolContext(): EditorToolContext {
 
     replaceEditorSelection(text) {
       const view = activeView;
-      if (!view) return false;
+
+      if (!view) {
+        return false;
+      }
+
       const range = view.state.selection.main;
       view.dispatch({ changes: { from: range.from, to: range.to, insert: text } });
+
       return true;
     },
   };
