@@ -118,4 +118,28 @@ describe('SystemServicesComponent', () => {
     expect(c.healthLabelClass('failing')).toContain('red');
     expect(c.healthLabelClass('unknown')).toContain('text-text-secondary');
   });
+
+  it('healthSummary tallies probed integrations worst-first and excludes removed', () => {
+    const health = {
+      integrations: [
+        { integration: 'stripe', status: 'healthy' },
+        { integration: 'langfuse', status: 'healthy' },
+        { integration: 'twenty', status: 'failing' },
+        { integration: 'unkey', status: 'unknown' },
+        { integration: 'nango', status: 'removed' }, // decommissioned — excluded
+      ],
+    };
+    api.get.and.callFake(<T,>(path: string) =>
+      of((path === '/integrations/health' ? health : payload) as T),
+    );
+    const c = make();
+    c.ngOnInit();
+    const summary = c.healthSummary();
+    // worst-first order (failing → degraded → unknown → healthy), removed dropped.
+    // 'removed' is absent from the keys — the type itself excludes it (the .toEqual
+    // above is the assertion; TS proves 'removed' can never appear in the summary).
+    expect(summary.map((s) => s.key)).toEqual(['failing', 'unknown', 'healthy']);
+    expect(summary.find((s) => s.key === 'healthy')?.value).toBe(2);
+    expect(summary.find((s) => s.key === 'failing')?.value).toBe(1);
+  });
 });

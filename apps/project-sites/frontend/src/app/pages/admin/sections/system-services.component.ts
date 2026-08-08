@@ -87,8 +87,8 @@ const STATUS_ORDER: Record<string, number> = {
       } @else if (loadError()) {
         <app-error-card title="Service catalog unavailable" [message]="loadError()!" (retry)="load()" />
       } @else {
-        <!-- counts strip -->
-        <div class="flex flex-wrap gap-2 mb-4" data-testid="system-services-counts">
+        <!-- lifecycle-status counts strip -->
+        <div class="flex flex-wrap gap-2 mb-2" data-testid="system-services-counts">
           @for (c of countChips(); track c.key) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[0.78rem] font-semibold border"
               [class]="chipClass(c.key)">
@@ -97,6 +97,22 @@ const STATUS_ORDER: Record<string, number> = {
             </span>
           }
         </div>
+
+        <!-- live-health summary across the probed integrations (at-a-glance platform health) -->
+        @if (healthSummary().length) {
+          <div class="flex flex-wrap items-center gap-2 mb-4" data-testid="system-services-health-summary">
+            <span class="text-[0.6rem] font-bold uppercase tracking-wider text-text-secondary/70">Live health</span>
+            @for (h of healthSummary(); track h.key) {
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[0.72rem] font-semibold border"
+                [class]="healthLabelClass(h.key)" [attr.data-health]="h.key"
+                [attr.data-testid]="'health-summary-' + h.key">
+                <span class="w-1.5 h-1.5 rounded-full" [class]="healthDotClass(h.key)" aria-hidden="true"></span>
+                <span class="tabular-nums">{{ h.value }}</span>
+                <span class="opacity-80">{{ h.key }}</span>
+              </span>
+            }
+          </div>
+        }
 
         <div class="grid gap-2" role="list">
           @for (s of services(); track s.id) {
@@ -170,6 +186,22 @@ export class SystemServicesComponent implements OnInit {
       .map((key) => ({ key, value: this.counts()[key] ?? 0 }))
       .filter((c) => c.value > 0),
   );
+
+  /**
+   * Live-health summary across the probed integrations — platform health at a
+   * glance, WORST-first (failing → degraded → unknown → healthy). Excludes
+   * decommissioned services (they're a lifecycle state, not a health signal).
+   */
+  readonly healthSummary = computed(() => {
+    const tally: Partial<Record<LiveHealth, number>> = {};
+    for (const h of this.liveHealth().values()) {
+      if (h === 'removed') continue;
+      tally[h] = (tally[h] ?? 0) + 1;
+    }
+    return (['failing', 'degraded', 'unknown', 'healthy'] as const)
+      .map((key) => ({ key, value: tally[key] ?? 0 }))
+      .filter((c) => c.value > 0);
+  });
 
   ngOnInit(): void {
     this.load();

@@ -100,7 +100,13 @@ try {
         health: el.getAttribute('data-health'),
       }),
     );
-    return { rowCount: rows.length, chips };
+    const summary = Array.from(
+      document.querySelectorAll('[data-testid="system-services-health-summary"] [data-health]'),
+    ).map((el) => ({
+      key: el.getAttribute('data-health'),
+      text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+    }));
+    return { rowCount: rows.length, chips, summary };
   });
 
   await page.screenshot({ path: '/tmp/psvis/system-services.png', fullPage: true });
@@ -113,6 +119,7 @@ try {
         liveHealthChips: result.chips,
         liveProbedCount: result.chips.length,
         activeProbes: healthyish.length,
+        healthSummary: result.summary,
         consoleErrors: errors,
         failed404: failed404,
       },
