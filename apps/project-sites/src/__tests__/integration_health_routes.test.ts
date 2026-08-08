@@ -121,7 +121,9 @@ describe('GET /api/integrations/health', () => {
   it('degrades gracefully when a live probe times out (bounded, never hangs the aggregate)', async () => {
     // Simulate a hung/aborted probe: the timeout-wrapped fetch rejects like AbortSignal.timeout.
     fetchSpy.mockRejectedValue(
-      Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }),
+      Object.assign(new Error('The operation was aborted due to timeout'), {
+        name: 'TimeoutError',
+      }),
     );
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.route('/', integrationHealth);
