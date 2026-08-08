@@ -7,6 +7,13 @@
  * {@link ../services/integration_health.ts}. No auth required — this is a
  * lightweight operational endpoint.
  *
+ * Both the per-service endpoint and the `/api/integrations/health` aggregate
+ * build their signals through the SINGLE {@link buildSignal} function, so the
+ * two can never diverge. (Historically the aggregate had its own degraded
+ * switch that fell to a `default: unconfigured` branch and mis-reported live,
+ * configured services — deepgram/unkey/langfuse/payload — as `unknown`, a
+ * display-vs-source-of-truth divergence per rule verify-against-source-of-truth.)
+ *
  * @packageDocumentation
  */
 
@@ -38,6 +45,23 @@ const KNOWN_INTEGRATIONS = new Set([
   'postiz', // Removed → Native social (ADR-0034)
 ]);
 
+/** Services fully decommissioned per ADR-0034 — probe returns 410 Gone. */
+const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz']);
+
+/**
+ * Env-var whose presence marks a config-only integration as "configured".
+ * listmonk + twenty are probed with a LIVE fetch instead (see {@link buildSignal}).
+ */
+const CONFIG_ENV_KEY: Readonly<Record<string, string>> = {
+  stripe: 'STRIPE_SECRET_KEY',
+  resend: 'RESEND_API_KEY',
+  deepgram: 'DEEPGRAM_API_KEY',
+  lago: 'LAGO_API_KEY',
+  unkey: 'UNKEY_ROOT_KEY',
+  langfuse: 'LANGFUSE_PUBLIC_KEY',
+  payload: 'PAYLOAD_API_URL',
+};
+
 /**
  * Build a Listmonk config from Worker env vars.
  */
@@ -50,10 +74,95 @@ function listmonkCfg(env: Env): ListmonkConfig {
 }
 
 /**
+ * Probe ONE integration and return its health {@link ConnectionSignal}.
+ *
+ * The single source of truth shared by BOTH the per-service endpoint and the
+ * aggregate, so they can never report different statuses for the same service.
+ *
+ * - `listmonk` / `twenty` → LIVE fetch against the service.
+ * - config-only services (stripe, deepgram, unkey, langfuse, payload, …) →
+ *   presence of their {@link CONFIG_ENV_KEY} secret marks them configured.
+ * - decommissioned services (nango/inngest/postiz) → the literal `'removed'`,
+ *   which callers render as 410 Gone / `status: 'removed'`.
+ *
+ * @param name - lowercased integration name (must be in {@link KNOWN_INTEGRATIONS})
+ * @param env - Worker env bindings
+ * @returns the connection signal, or `'removed'` for decommissioned services
+ */
+async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | 'removed'> {
+  if (REMOVED_INTEGRATIONS.has(name)) return 'removed';
+
+  switch (name) {
+    case 'listmonk': {
+      const cfg = listmonkCfg(env);
+      const result = await listmonkHealth(cfg);
+      return {
+        provider: 'listmonk',
+        lastStatus: result.ok ? 200 : 503,
+        tokenValid: Boolean(cfg.apiToken),
+        lastCallOk: result.ok,
+        daysSinceLastUse: 0,
+        isConfigured: Boolean(cfg.apiToken),
+      };
+    }
+    case 'twenty': {
+      const configured = Boolean(env.TWENTY_API_KEY && env.TWENTY_API_URL);
+      if (!configured) {
+        return {
+          provider: 'twenty',
+          lastStatus: 0,
+          tokenValid: false,
+          lastCallOk: false,
+          daysSinceLastUse: 0,
+          isConfigured: false,
+        };
+      }
+      try {
+        const res = await fetch(`${env.TWENTY_API_URL}/rest/companies?limit=1`, {
+          headers: { Authorization: `Bearer ${env.TWENTY_API_KEY}` },
+        });
+        return {
+          provider: 'twenty',
+          lastStatus: res.status,
+          tokenValid: true,
+          lastCallOk: res.ok,
+          daysSinceLastUse: 0,
+          isConfigured: true,
+        };
+      } catch {
+        return {
+          provider: 'twenty',
+          lastStatus: 503,
+          tokenValid: true,
+          lastCallOk: false,
+          daysSinceLastUse: 0,
+          isConfigured: true,
+        };
+      }
+    }
+    default: {
+      // Config-presence probe: the service is "configured" iff its secret is set.
+      const key = CONFIG_ENV_KEY[name];
+      const configured = key
+        ? Boolean((env as unknown as Record<string, unknown>)[key])
+        : false;
+      return {
+        provider: name,
+        lastStatus: 0,
+        tokenValid: configured,
+        lastCallOk: configured,
+        daysSinceLastUse: 0,
+        isConfigured: configured,
+      };
+    }
+  }
+}
+
+/**
  * `GET /api/integrations/:name/health`
  *
  * Probes a named integration and returns health signals. Unknown names
- * return 404; known-but-unconfigured return an `unknown` status.
+ * return 404; decommissioned services return 410 Gone.
  *
  * Response: `{ integration, status, signals, timestamp }`
  */
@@ -67,164 +176,22 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
     );
   }
 
-  const signals: ConnectionSignal[] = [];
+  const sig = await buildSignal(name, c.env);
 
-  switch (name) {
-    case 'listmonk': {
-      const cfg = listmonkCfg(c.env);
-      const result = await listmonkHealth(cfg);
-      signals.push({
-        provider: 'listmonk',
-        lastStatus: result.ok ? 200 : 503,
-        tokenValid: Boolean(cfg.apiToken),
-        lastCallOk: result.ok,
-        daysSinceLastUse: 0,
-        isConfigured: Boolean(cfg.apiToken),
-      });
-      break;
-    }
-    case 'twenty': {
-      const configured = Boolean(c.env.TWENTY_API_KEY && c.env.TWENTY_API_URL);
-      if (configured) {
-        try {
-          const res = await fetch(`${c.env.TWENTY_API_URL}/rest/companies?limit=1`, {
-            headers: { Authorization: `Bearer ${c.env.TWENTY_API_KEY}` },
-          });
-          signals.push({
-            provider: 'twenty',
-            lastStatus: res.status,
-            tokenValid: true,
-            lastCallOk: res.ok,
-            daysSinceLastUse: 0,
-            isConfigured: true,
-          });
-        } catch {
-          signals.push({
-            provider: 'twenty',
-            lastStatus: 503,
-            tokenValid: true,
-            lastCallOk: false,
-            daysSinceLastUse: 0,
-            isConfigured: true,
-          });
-        }
-      } else {
-        signals.push({
-          provider: 'twenty',
-          lastStatus: 0,
-          tokenValid: false,
-          lastCallOk: false,
-          daysSinceLastUse: 0,
-          isConfigured: false,
-        });
-      }
-      break;
-    }
-    case 'stripe': {
-      const configured = Boolean(c.env.STRIPE_SECRET_KEY);
-      signals.push({
-        provider: 'stripe',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'resend': {
-      const configured = Boolean(c.env.RESEND_API_KEY);
-      signals.push({
-        provider: 'resend',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'deepgram': {
-      const configured = Boolean(c.env.DEEPGRAM_API_KEY);
-      signals.push({
-        provider: 'deepgram',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'lago': {
-      const configured = Boolean(c.env.LAGO_API_KEY);
-      signals.push({
-        provider: 'lago',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'unkey': {
-      const configured = Boolean((c.env as unknown as Record<string, unknown>)['UNKEY_ROOT_KEY']);
-      signals.push({
-        provider: 'unkey',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'langfuse': {
-      const configured = Boolean(
-        (c.env as unknown as Record<string, unknown>)['LANGFUSE_PUBLIC_KEY'],
-      );
-      signals.push({
-        provider: 'langfuse',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    case 'payload': {
-      const configured = Boolean((c.env as unknown as Record<string, unknown>)['PAYLOAD_API_URL']);
-      signals.push({
-        provider: 'payload',
-        lastStatus: 0,
-        tokenValid: configured,
-        lastCallOk: configured,
-        daysSinceLastUse: 0,
-        isConfigured: configured,
-      });
-      break;
-    }
-    // Removed services — return 410 Gone with deprecation notice
-    case 'nango':
-    case 'inngest':
-    case 'postiz':
-      return c.json(
-        {
-          integration: name,
-          status: 'removed',
-          message: `${name} was decommissioned per ADR-0034 (2026-07-27). See docs/decisions/0034-platform-consolidation-cf-native.md`,
-          timestamp: new Date().toISOString(),
-        },
-        410,
-      );
-    default:
-      break;
+  if (sig === 'removed') {
+    return c.json(
+      {
+        integration: name,
+        status: 'removed',
+        message: `${name} was decommissioned per ADR-0034 (2026-07-27). See docs/decisions/0034-platform-consolidation-cf-native.md`,
+        timestamp: new Date().toISOString(),
+      },
+      410,
+    );
   }
 
+  const signals: ConnectionSignal[] = [sig];
   const aggregate = aggregateConnectionHealth(signals);
-  const timestamp = new Date().toISOString();
 
   return c.json({
     integration: name,
@@ -234,7 +201,7 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
       health: scoreConnectionHealth(s),
       configured: s.isConfigured,
     })),
-    timestamp,
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -242,71 +209,24 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
  * `GET /api/integrations/health` — aggregate health across all known integrations.
  *
  * Returns a rolled-up status for every registered integration in one call.
+ * Uses the SAME {@link buildSignal} probe as the per-service endpoint, so a
+ * configured live service (deepgram/unkey/langfuse/payload) reports its real
+ * status here — never a degraded `unknown` from a divergent code path.
  */
 integrationHealth.get('/api/integrations/health', async (c) => {
   const results: Array<{ integration: string; status: string; configured: boolean }> = [];
 
   for (const name of KNOWN_INTEGRATIONS) {
-    const signals: ConnectionSignal[] = [];
-    let status = 'unknown';
-
-    switch (name) {
-      case 'listmonk': {
-        const cfg = listmonkCfg(c.env);
-        const result = await listmonkHealth(cfg);
-        const s: ConnectionSignal = {
-          provider: 'listmonk',
-          lastStatus: result.ok ? 200 : 503,
-          tokenValid: Boolean(cfg.apiToken),
-          lastCallOk: result.ok,
-          daysSinceLastUse: 0,
-          isConfigured: Boolean(cfg.apiToken),
-        };
-        status = scoreConnectionHealth(s);
-        break;
-      }
-      case 'twenty': {
-        const configured = Boolean(c.env.TWENTY_API_KEY);
-        const s: ConnectionSignal = {
-          provider: 'twenty',
-          lastStatus: 0,
-          tokenValid: configured,
-          lastCallOk: configured,
-          daysSinceLastUse: 0,
-          isConfigured: configured,
-        };
-        status = scoreConnectionHealth(s);
-        break;
-      }
-      case 'stripe': {
-        const configured = Boolean(c.env.STRIPE_SECRET_KEY);
-        const s: ConnectionSignal = {
-          provider: 'stripe',
-          lastStatus: 0,
-          tokenValid: configured,
-          lastCallOk: configured,
-          daysSinceLastUse: 0,
-          isConfigured: configured,
-        };
-        status = scoreConnectionHealth(s);
-        break;
-      }
-      default: {
-        const configured = false;
-        const s: ConnectionSignal = {
-          provider: name,
-          lastStatus: 0,
-          tokenValid: false,
-          lastCallOk: false,
-          daysSinceLastUse: 0,
-          isConfigured: configured,
-        };
-        status = scoreConnectionHealth(s);
-        break;
-      }
+    const sig = await buildSignal(name, c.env);
+    if (sig === 'removed') {
+      results.push({ integration: name, status: 'removed', configured: false });
+      continue;
     }
-
-    results.push({ integration: name, status, configured: status !== 'unknown' });
+    results.push({
+      integration: name,
+      status: scoreConnectionHealth(sig),
+      configured: sig.isConfigured,
+    });
   }
 
   return c.json({
@@ -315,4 +235,4 @@ integrationHealth.get('/api/integrations/health', async (c) => {
   });
 });
 
-export { integrationHealth, KNOWN_INTEGRATIONS };
+export { integrationHealth, KNOWN_INTEGRATIONS, buildSignal };

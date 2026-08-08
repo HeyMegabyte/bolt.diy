@@ -1484,7 +1484,7 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 
 ## P5 — Platform Services
 
-- [ ] Integration health probes cover all 14 services; System Services shows REAL probed status
+- [~] Integration health probes cover all 14 services; System Services shows REAL probed status _(2026-08-08xx: aggregate `/api/integrations/health` FIXED — was lying `unknown` for configured deepgram/langfuse/resend; now reconciles with per-service, deployed+live-verified. REMAINING: `/admin/system-services` UI still renders the static catalog, not the live probe.)_
 - [ ] Inngest container + secrets deleted, CF Workflows v2 active
 - [ ] Postiz Fly machine deleted, native social on CF Workflows v2
 - [ ] Lago Fly app + billing proxy deleted

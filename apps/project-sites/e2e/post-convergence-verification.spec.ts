@@ -30,6 +30,32 @@ test.describe('Post-Convergence — Platform Health', () => {
     expect(body.integrations).toBeDefined();
     expect(body.integrations.length).toBeGreaterThan(5);
   });
+
+  // Reconcile the aggregate against the per-service endpoint (the source of
+  // truth). This closes the display-vs-truth blind spot fixed 2026-08-08: the
+  // aggregate previously fell to a degraded default branch and reported live
+  // configured services (deepgram/langfuse/…) as `unknown` while the per-service
+  // probe reported them healthy. A `length > 5` check never caught it — this
+  // does. See rule verify-against-source-of-truth.
+  test('integration health aggregate reconciles with per-service probes', async ({ request }) => {
+    const aggRes = await request.get(`${PROD_URL}/api/integrations/health`);
+    expect(aggRes.status()).toBe(200);
+    const agg = (await aggRes.json()) as {
+      integrations: Array<{ integration: string; status: string }>;
+    };
+
+    for (const { integration, status } of agg.integrations) {
+      const perRes = await request.get(`${PROD_URL}/api/integrations/${integration}/health`);
+      if (status === 'removed') {
+        // Decommissioned services: aggregate says 'removed', per-service 410 Gone.
+        expect(perRes.status(), `${integration} removed → 410`).toBe(410);
+        continue;
+      }
+      expect(perRes.status(), `${integration} per-service 200`).toBe(200);
+      const per = (await perRes.json()) as { status: string };
+      expect(per.status, `${integration}: aggregate '${status}' == per-service`).toBe(status);
+    }
+  });
 });
 
 test.describe('Post-Convergence — Auth Surface', () => {
