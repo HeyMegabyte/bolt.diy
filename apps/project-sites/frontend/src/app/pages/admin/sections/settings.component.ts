@@ -69,7 +69,7 @@ const PROVIDERS = MCP_PROVIDERS;
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div class="kicker">Project</div>
-          <h2 class="section-h text-lg font-bold text-white m-0">Settings</h2>
+          <h1 class="section-h text-lg font-bold text-white m-0">Settings</h1>
           @if (state.selectedSite(); as site) {
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
               Scoped to <strong class="text-white">{{ site.business_name || site.slug }}</strong>
@@ -124,7 +124,7 @@ const PROVIDERS = MCP_PROVIDERS;
       @if (tab() === 'general') {
         <section class="card grid md:grid-cols-2 gap-5" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <div class="md:col-span-2">
-            <h3 class="m-0 text-base font-semibold text-white mb-1">General</h3>
+            <h2 class="m-0 text-base font-semibold text-white mb-1">General</h2>
             <p class="text-[0.7rem] text-text-secondary m-0">Public-facing details + how the AI router responds.</p>
           </div>
           <label class="block">
@@ -213,7 +213,7 @@ const PROVIDERS = MCP_PROVIDERS;
       <!-- ─────────────────── TEAM ─────────────────── -->
       @else if (tab() === 'team') {
         <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
-          <h3 class="m-0 text-base font-semibold text-white mb-3">Team members</h3>
+          <h2 class="m-0 text-base font-semibold text-white mb-3">Team members</h2>
           <!-- 2FA + Invite live in twin card rows so heights match (min-height 64px). -->
           <div class="team-actions-grid mb-4">
             <div class="team-action-row" [brnTooltip]="'Require every member of this workspace to enroll a TOTP authenticator before signing in.'">
@@ -275,7 +275,7 @@ const PROVIDERS = MCP_PROVIDERS;
           } @else if (members().length === 0 && invites().length === 0) {
             <div class="empty-state">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-              <h4>Just you on this workspace</h4>
+              <h3>Just you on this workspace</h3>
               <p>Invite teammates to collaborate on sites, content, and AI settings.</p>
               <button class="btn-primary" (click)="inviting.set(true)" [brnTooltip]="'Open the invite form'">+ Invite teammate</button>
             </div>
@@ -323,7 +323,7 @@ const PROVIDERS = MCP_PROVIDERS;
       @else if (tab() === 'ai-chat') {
         <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <header class="mb-4">
-            <h3 class="m-0 text-base font-semibold text-white mb-1">AI Chat</h3>
+            <h2 class="m-0 text-base font-semibold text-white mb-1">AI Chat</h2>
             <p class="text-[0.7rem] text-text-secondary m-0">Persona + system prompt + knowledge files for the AI chat widget on your published site.</p>
           </header>
 
@@ -430,7 +430,7 @@ const PROVIDERS = MCP_PROVIDERS;
       @else if (tab() === 'business') {
         <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <header class="mb-4">
-            <h3 class="m-0 text-base font-semibold text-white mb-1">Business</h3>
+            <h2 class="m-0 text-base font-semibold text-white mb-1">Business</h2>
             <p class="text-[0.7rem] text-text-secondary m-0">Identity, web, and brand assets used by the AI when it rebuilds or refines this site.</p>
           </header>
 
@@ -566,7 +566,7 @@ const PROVIDERS = MCP_PROVIDERS;
       <!-- ─────────────────── MCP ─────────────────── -->
       @else if (tab() === 'mcp') {
         <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
-          <h3 class="m-0 text-base font-semibold text-white mb-1">MCP integrations</h3>
+          <h2 class="m-0 text-base font-semibold text-white mb-1">MCP integrations</h2>
           <p class="text-[0.7rem] text-text-secondary m-0 mb-4">
             Connect the tools your AI form router + custom endpoints can call. Tokens are encrypted at rest (AES-GCM).
             OAuth follows the MCP authorization spec (OAuth 2.1 + PKCE where supported); paste-key for the rest.
@@ -639,7 +639,7 @@ const PROVIDERS = MCP_PROVIDERS;
       @else if (tab() === 'env-vars') {
         <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <header class="mb-4">
-            <h3 class="m-0 text-base font-semibold text-white mb-1">AI environment variables</h3>
+            <h2 class="m-0 text-base font-semibold text-white mb-1">AI environment variables</h2>
             <p class="text-[0.7rem] text-text-secondary m-0">
               Env vars marked <strong>Exposed to AI</strong> flow into LLM tool calls + AI endpoints + MCP requests
               for this organization. Values are encrypted at rest (AES-GCM). Org-scope vars apply everywhere;
@@ -670,7 +670,7 @@ const PROVIDERS = MCP_PROVIDERS;
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ps-accent, #00e5ff)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m4 7 8 6 8-6"/></svg>
               </span>
               <div>
-                <h3 class="m-0 text-base font-semibold text-white mb-1">Email sending</h3>
+                <h2 class="m-0 text-base font-semibold text-white mb-1">Email sending</h2>
                 <p class="text-[0.72rem] text-text-secondary m-0 leading-relaxed">
                   ProjectSites sends your transactional email — magic links + form notifications —
                   from <strong class="text-accent">{{ providedEmailSender }}</strong> on your behalf.
@@ -695,7 +695,7 @@ const PROVIDERS = MCP_PROVIDERS;
           <section class="card mt-4" data-testid="email-smtp-card">
             <header class="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h3 class="m-0 text-base font-semibold text-white mb-1">Bring your own SMTP</h3>
+                <h2 class="m-0 text-base font-semibold text-white mb-1">Bring your own SMTP</h2>
                 <p class="text-[0.7rem] text-text-secondary m-0">
                   Send from your own mail server instead of the shared sender — encrypted credentials, set per project.
                 </p>

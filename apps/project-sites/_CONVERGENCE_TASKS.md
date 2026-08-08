@@ -1499,6 +1499,7 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 - [ ] AI vision ≥9/10 on ALL surfaces at ALL 6 breakpoints
 - [ ] Screenshot coverage: every journey spec screenshots every major step (wave-2 specs comply; legacy specs at 3.7%)
 - [ ] Brand tokens consistent (--ps-bg, --ps-ink, --ps-accent); no hard-coded colors outside `_polish.scss`
+- [~] Heading hierarchy: every routed admin section page has EXACTLY one `<h1>` + no heading-order skip _(2026-08-08zz: domains+settings re-leveled + live-verified; systemic pass remaining — use the real-browser visual-sweep `h1` field as the detector, NOT static grep (sub-widgets legitimately lack h1; analytics' h1 is DOM-only). Advisory per Brian.)_
 - [ ] Every interactive element: data-testid + aria-label + focus-visible ring (94% of sections have testids; close the 4 missing)
 - [ ] All modals use DialogShellComponent
 - [ ] Compact density: less whitespace, more data per viewport

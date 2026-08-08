@@ -123,7 +123,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div class="kicker">Reach</div>
-          <h2 class="section-h text-lg font-bold text-white m-0">Domains</h2>
+          <h1 class="section-h text-lg font-bold text-white m-0">Domains</h1>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Manage the live domain, search creative names with AI, and port any custom domain in or out.
           </p>
@@ -147,7 +147,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         <section class="card p-5 space-y-3" appReveal>
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h3 class="section-h text-base font-semibold text-white m-0">Provisioned backup domain</h3>
+              <h2 class="section-h text-base font-semibold text-white m-0">Provisioned backup domain</h2>
               <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
                 Every site ships with a free, always-on subdomain. Use it while a custom domain propagates or as a permanent home.
               </p>
@@ -169,7 +169,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         <!-- ── 2. Add a domain ───────────────────────────────────── -->
         <section class="card p-5 space-y-5" appReveal>
           <div>
-            <h3 class="section-h text-base font-semibold text-white m-0">Add a domain</h3>
+            <h2 class="section-h text-base font-semibold text-white m-0">Add a domain</h2>
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
               Connect a domain you already own, or search for an available one with AI.
             </p>
@@ -286,7 +286,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         <section class="card p-5 space-y-4" appReveal>
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h3 class="section-h text-base font-semibold text-white m-0">Connected domains</h3>
+              <h2 class="section-h text-base font-semibold text-white m-0">Connected domains</h2>
               <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
                 Every domain currently pointing to this site. The primary domain is what visitors see first.
               </p>
@@ -424,7 +424,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             (click)="$event.stopPropagation()"
           >
             <header class="modal-head">
-              <h3 id="transfer-modal-title" class="m-0 text-base font-semibold text-white">Port {{ t.hostname.hostname }} to another registrar</h3>
+              <h2 id="transfer-modal-title" class="m-0 text-base font-semibold text-white">Port {{ t.hostname.hostname }} to another registrar</h2>
               <button class="modal-close" type="button" (click)="closeTransferModal()" aria-label="Close dialog">×</button>
             </header>
             <div class="p-5 space-y-4 text-[0.82rem]">
