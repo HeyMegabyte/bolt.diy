@@ -491,7 +491,7 @@ export async function resolveSite(
 
   // Extract slug from hostname (e.g., slug.projectsites.dev)
   let slug: string | null = null;
-  const RESERVED_SLUGS = new Set(['editor', 'www', 'api', 'admin', 'staging', 'mail', 'smtp']);
+  const RESERVED_SLUGS = new Set(['editor', 'storybook', 'www', 'api', 'admin', 'staging', 'mail', 'smtp']);
 
   if (hostname.endsWith(DOMAINS.SITES_SUFFIX)) {
     slug = hostname.slice(0, -DOMAINS.SITES_SUFFIX.length);

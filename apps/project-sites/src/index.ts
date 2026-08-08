@@ -386,6 +386,28 @@ app.use('*', async (c, next) => {
   return res;
 });
 
+// storybook.projectsites.dev → proxy to the projectsites-storybook Cloudflare
+// Pages project. The worker's `*.projectsites.dev/*` route (wrangler.toml) shadows
+// the Pages custom domain (Workers routes win over Pages custom domains), so
+// without this the worker tries to resolve "storybook" as a site slug and 404s.
+// Same host-gated pattern as the editor proxy above; static Storybook needs no
+// CORS/WebContainer/CSP headers, so pass the Pages response through verbatim.
+// Host stripped so the pages.dev origin routes by its own hostname (no custom-
+// domain redirect loop back to storybook.projectsites.dev).
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.hostname !== 'storybook.projectsites.dev') return next();
+  const fwd = new Headers(c.req.raw.headers);
+  fwd.delete('host');
+  const pagesRes = await fetch(`https://projectsites-storybook.pages.dev${url.pathname}${url.search}`, {
+    method: c.req.method,
+    headers: fwd,
+    body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
+    redirect: 'manual',
+  });
+  return new Response(pagesRes.body, { status: pagesRes.status, headers: pagesRes.headers });
+});
+
 // Request ID on every request
 app.use('*', requestIdMiddleware);
 
