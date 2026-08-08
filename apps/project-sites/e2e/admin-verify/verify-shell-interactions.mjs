@@ -53,17 +53,31 @@ try {
     if (await findBtn.count()) await findBtn.click(); else await page.keyboard.press('Meta+k');
     await page.waitForTimeout(1200);
     const paletteOpen = await page.locator('[data-testid="palette-input"]').count();
-    let optCount = 0, navigated = false;
+    let optCount = 0, navigated = false, navMethod = 'none';
     if (paletteOpen) {
-      await page.locator('[data-testid="palette-input"]').fill('billing');
-      await page.waitForTimeout(1200);
-      optCount = await page.locator('[data-testid="palette-results"] [role="option"], [data-testid="palette-results"] button').count();
+      const input = page.locator('[data-testid="palette-input"]');
+      const results = page.locator('[data-testid="palette-results"] [role="option"], [data-testid="palette-results"] button');
+      await input.fill('billing');
+      await page.waitForTimeout(1500);
+      optCount = await results.count();
       const urlBefore = page.url();
-      await page.keyboard.press('Enter');
+      // (a) ArrowDown to highlight a real result, then Enter (target the INPUT so onKey fires).
+      await input.press('ArrowDown');
+      await page.waitForTimeout(300);
+      await input.press('Enter');
       await page.waitForTimeout(2500);
-      navigated = page.url() !== urlBefore;
+      if (page.url() !== urlBefore) { navigated = true; navMethod = 'arrowEnter'; }
+      // (b) fallback — CLICK the first result (the primary user interaction).
+      if (!navigated && optCount > 0) {
+        if (!(await input.count())) {
+          const fb = page.locator('button[aria-label="Open command palette"]').first();
+          if (await fb.count()) { await fb.click(); await page.waitForTimeout(800); await input.fill('billing'); await page.waitForTimeout(1200); }
+        }
+        if (await results.count()) { await results.first().click(); await page.waitForTimeout(2500); }
+        if (page.url() !== urlBefore) { navigated = true; navMethod = 'click'; }
+      }
     }
-    out.palette = { opened: !!paletteOpen, optionCount: optCount, navigated, url: page.url().replace('https://projectsites.dev', '') };
+    out.palette = { opened: !!paletteOpen, optionCount: optCount, navigated, navMethod, url: page.url().replace('https://projectsites.dev', '') };
     await page.screenshot({ path: '/tmp/psvis/int-palette.png', fullPage: false });
   } catch (e) { out.palette = { FAIL: String(e).slice(0, 90) }; }
 
