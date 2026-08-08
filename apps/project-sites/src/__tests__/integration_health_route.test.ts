@@ -39,7 +39,8 @@ function configuredEnv(overrides: Record<string, unknown> = {}): Env {
 }
 
 beforeEach(() => {
-  // twenty probes fetch(`${TWENTY_API_URL}/rest/companies`) — return a 200.
+  // twenty + listmonk do LIVE liveness probes (`${TWENTY_API_URL}/healthz`,
+  // `${LISTMONK_API_URL}/health`) — return a 200 so the config-only aggregate is hermetic.
   global.fetch = jest.fn(
     async () => new Response('{}', { status: 200 }),
   ) as unknown as typeof fetch;

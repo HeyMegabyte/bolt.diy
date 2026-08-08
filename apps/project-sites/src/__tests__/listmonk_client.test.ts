@@ -43,13 +43,14 @@ describe('listmonkHealth', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('returns not_configured when apiToken is missing', async () => {
-    const fetchMock = jest.fn();
+  it('probes /health even without an apiToken — public liveness needs no auth', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(makeResponse(200));
     const cfg: ListmonkConfig = { baseUrl: 'https://x.com', apiUser: 'u', apiToken: '' };
     const result = await listmonkHealth(cfg, fetchMock as unknown as typeof fetch);
-    expect(result.ok).toBe(false);
-    expect((result as { reason: string }).reason).toBe('not_configured');
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0] as [string, ...unknown[]];
+    expect(url).toBe('https://x.com/health');
   });
 
   it('returns ok:true when the health endpoint responds 200', async () => {
@@ -58,7 +59,7 @@ describe('listmonkHealth', () => {
     expect(result.ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url] = fetchMock.mock.calls[0] as [string, ...unknown[]];
-    expect(url).toBe('https://listmonk.megabyte.space/api/health');
+    expect(url).toBe('https://listmonk.megabyte.space/health');
   });
 
   it('returns unhealthy when the health endpoint responds 500', async () => {

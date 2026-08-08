@@ -106,7 +106,10 @@ describe('GET /api/integrations/health', () => {
     expect(body.timestamp).toBeDefined();
   });
 
-  it('marks listmonk as unknown when unconfigured', async () => {
+  it('probes listmonk /health regardless of admin API key (public liveness → healthy)', async () => {
+    // listmonk is a platform service — health is the public /health endpoint, not gated
+    // on the admin token. baseUrl is always defaulted, so it's probed + (stub 200)
+    // reports healthy even with no admin key set.
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.route('/', integrationHealth);
     const req = new Request('https://projectsites.dev/api/integrations/health');
@@ -114,8 +117,8 @@ describe('GET /api/integrations/health', () => {
     const res = await app.fetch(req, env);
     const body = (await res.json()) as any;
     const lm = body.integrations.find((i: any) => i.integration === 'listmonk');
-    expect(lm.status).toBe('unknown');
-    expect(lm.configured).toBe(false);
+    expect(lm.status).toBe('healthy');
+    expect(lm.configured).toBe(true);
   });
 
   it('degrades gracefully when a live probe times out (bounded, never hangs the aggregate)', async () => {
@@ -138,7 +141,7 @@ describe('GET /api/integrations/health', () => {
     expect(twenty.status).not.toBe('healthy');
     // the live probe was invoked with an abort signal (timeout wired)
     expect(fetchSpy).toHaveBeenCalledWith(
-      expect.stringContaining('/rest/companies'),
+      expect.stringContaining('/healthz'),
       expect.objectContaining({ signal: expect.anything() }),
     );
   });

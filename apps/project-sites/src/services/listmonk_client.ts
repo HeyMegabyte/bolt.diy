@@ -96,12 +96,17 @@ export async function listmonkHealth(
   cfg: ListmonkConfig,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ListmonkHealthResult> {
-  if (!isConfigured(cfg)) {
+  // listmonk's `/health` is a PUBLIC liveness endpoint ({"data":true}, no auth) — a
+  // health probe needs only the base URL, NOT the admin API token. The authed API at
+  // `/api/*` 403s "invalid session" without credentials, so probing `/api/health`
+  // mis-reported a LIVE listmonk as unhealthy/unknown. Auth'd ops (upsert/campaign/…)
+  // still gate on the full credential set via `isConfigured`; only liveness is relaxed.
+  if (!cfg.baseUrl) {
     return { ok: false, reason: 'not_configured' };
   }
 
   try {
-    const res = await fetchImpl(`${cfg.baseUrl}/api/health`);
+    const res = await fetchImpl(`${cfg.baseUrl}/health`);
     if (!res.ok) {
       return { ok: false, reason: 'unhealthy' };
     }

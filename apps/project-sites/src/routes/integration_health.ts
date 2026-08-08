@@ -113,10 +113,13 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
       return {
         provider: 'listmonk',
         lastStatus: result.ok ? 200 : 503,
-        tokenValid: Boolean(cfg.apiToken),
+        // listmonk is a self-hosted PLATFORM service — its health is the public
+        // /health probe, not gated on the admin API token. Present iff baseUrl set;
+        // `tokenValid` reflects the live probe (there is no token in a public check).
+        tokenValid: result.ok,
         lastCallOk: result.ok,
         daysSinceLastUse: 0,
-        isConfigured: Boolean(cfg.apiToken),
+        isConfigured: Boolean(cfg.baseUrl),
       };
     }
     case 'twenty': {
@@ -132,8 +135,10 @@ async function buildSignal(name: string, env: Env): Promise<ConnectionSignal | '
         };
       }
       try {
-        const res = await fetch(`${env.TWENTY_API_URL}/rest/companies?limit=1`, {
-          headers: { Authorization: `Bearer ${env.TWENTY_API_KEY}` },
+        // Probe twenty's PUBLIC /healthz liveness endpoint (200, no auth) — NOT the
+        // authed /rest/companies, which 403s ("WWW-Authenticate") for the platform
+        // probe's token and mis-reported a LIVE twenty CRM as failing.
+        const res = await fetch(`${env.TWENTY_API_URL}/healthz`, {
           signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
         });
         return {
