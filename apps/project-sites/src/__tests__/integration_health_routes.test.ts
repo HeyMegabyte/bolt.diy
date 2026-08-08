@@ -24,6 +24,26 @@ function mockEnv(overrides: Partial<Env> = {}): Env {
   } as unknown as Env;
 }
 
+// Stub global fetch so integration probes never hit the real network. `buildSignal`
+// does a LIVE fetch for `listmonk` (via listmonkHealth) and `twenty`, so the aggregate
+// `GET /api/integrations/health` would otherwise probe mail.projectsites.dev +
+// crm.projectsites.dev on every run — ~756ms locally, >5000ms under CI egress → the
+// `marks listmonk as unknown` test flaked on Jest's 5s timeout (reddened Project Sites
+// CI/CD). Unit tests must mock external deps (CLAUDE.md PART 10.2). A 200/ok stub keeps
+// every assertion valid (they check unconfigured→unknown + response shape, not live status).
+beforeEach(() => {
+  jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({}),
+    text: async () => '{}',
+  } as unknown as Response);
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 describe('GET /api/integrations/:name/health', () => {
   it('rejects unknown integration with 404', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
