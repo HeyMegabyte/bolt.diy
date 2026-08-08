@@ -232,7 +232,7 @@ test.describe('Site MCP Server — admin UI (stub-authed journey)', () => {
       timeout: 25_000,
     });
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // ── Step 1: section renders from stubbed data ──
     const section = page.getByTestId('site-mcp-server');

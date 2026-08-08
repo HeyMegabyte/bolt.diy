@@ -68,7 +68,7 @@ async function interceptMutations(page: Page): Promise<{ method: string; url: st
 async function gotoEditor(page: Page): Promise<void> {
   await page.goto(`${PROD_URL}/admin/editor`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   expect(page.url()).not.toContain('/signin');
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
   // appReveal keeps elements opacity:0 until IntersectionObserver fires
   await page.mouse.wheel(0, 200);
 }

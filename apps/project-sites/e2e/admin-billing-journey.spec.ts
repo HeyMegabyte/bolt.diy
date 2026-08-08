@@ -75,7 +75,7 @@ test.describe('Admin — Billing (authenticated journey)', () => {
     expect(page.url()).not.toContain('/signin');
 
     // Admin shell must be visible
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Subscription card (conditional — may not exist yet)
     const subscriptionCard = page.locator('[data-testid="subscription-card"]');

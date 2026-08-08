@@ -65,7 +65,7 @@ test.describe('Admin — Dashboard (authenticated)', () => {
     expect(url).not.toContain('/signin');
 
     // Admin shell must render
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Dashboard should show some content (not blank) — this deterministic wait
     // replaces the old fixed 3s sleep.

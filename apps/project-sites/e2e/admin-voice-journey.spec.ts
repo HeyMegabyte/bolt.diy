@@ -323,7 +323,7 @@ test.describe('Admin — Voice (authenticated journey)', () => {
     await signInAndStubVoice(page);
     await page.goto(`${PROD_URL}/admin/voice`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     const voiceSection = page.locator('app-voice');
     await expect(voiceSection).toBeVisible({ timeout: 15_000 });

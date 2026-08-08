@@ -137,7 +137,7 @@ test.describe('Admin — Apps journey (authenticated)', () => {
     });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Apps catalog is static — cards should render immediately.
     // appReveal directive starts elements at opacity:0; nudge IntersectionObserver
@@ -186,7 +186,7 @@ test.describe('Admin — Apps journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Same appReveal scroll nudge needed before first assertion in test 2
     await page.mouse.wheel(0, 200);
@@ -230,7 +230,7 @@ test.describe('Admin — Apps journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await expect(page.locator('[data-testid="apps-search-input"]')).toBeVisible({ timeout: 15_000 });
 
     // Click "Live" tab
@@ -273,7 +273,7 @@ test.describe('Admin — Apps journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await expect(page.locator('[data-testid="apps-search-input"]')).toBeVisible({ timeout: 15_000 });
 
     const categoryBtn = page.locator('[data-testid="apps-category-filter"]');
@@ -316,7 +316,7 @@ test.describe('Admin — Apps journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await expect(page.locator('[data-testid="apps-search-input"]')).toBeVisible({ timeout: 15_000 });
 
     await checkA11y(page, 'apps-1280');
@@ -335,7 +335,7 @@ test.describe('Admin — Apps journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await expect(page.locator('[data-testid="apps-search-input"]')).toBeVisible({ timeout: 15_000 });
 
     await checkA11y(page, 'apps-375');

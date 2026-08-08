@@ -165,7 +165,7 @@ test.describe('pSEO Matrix v2 — Features-layer card (stub-authed journey)', ()
       timeout: 25_000,
     });
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // ── Step 1: stub-driven render — card + static capability checklist ──
     await expect(page.getByTestId('sf-root')).toBeVisible({ timeout: 20_000 });

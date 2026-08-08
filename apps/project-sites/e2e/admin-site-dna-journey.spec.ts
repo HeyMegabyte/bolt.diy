@@ -228,7 +228,7 @@ async function openDna(page: Page): Promise<void> {
     timeout: 25_000,
   });
   expect(page.url()).not.toContain('/signin');
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
   // Scroll-nudge triggers appReveal (opacity: 0 on mount).
   await page.mouse.wheel(0, 200);
   await expect(

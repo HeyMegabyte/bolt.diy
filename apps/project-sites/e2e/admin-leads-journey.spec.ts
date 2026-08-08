@@ -243,7 +243,7 @@ test.describe('Admin — Leads (authenticated journey)', () => {
     await signInAndStubLeads(page);
     await page.goto(`${PROD_URL}/admin/leads`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await expect(page.locator('app-admin-leads')).toBeVisible({ timeout: 15_000 });
 
     await page.screenshot({ path: path.join(dir, '01-section-loaded.png') });

@@ -56,7 +56,7 @@ test.describe('Admin — Domains (authenticated journey)', () => {
     await page.goto(`${PROD_URL}/admin/domains`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Hostnames table or loading state — no hard error
     const hostnameError = page.locator('[data-testid="hostnames-load-error"]');

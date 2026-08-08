@@ -211,7 +211,7 @@ test.describe('Admin — Logs dashboard (authenticated journey)', () => {
     await page.goto(`${PROD_URL}/admin/logs`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // ── Step 1: tab shell — both named tabs present, Audit Trail selected ──
     const dashboard = page.locator('[data-testid="logs-dashboard"]');

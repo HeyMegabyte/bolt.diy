@@ -141,7 +141,7 @@ test.describe('Admin — API Tokens (authenticated journey)', () => {
     await page.goto(`${PROD_URL}/admin/api-tokens`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // ── Step 1: list renders the stubbed tokens with actual cell text ──
     await expect(page.getByRole('heading', { name: 'API Tokens' })).toBeVisible({ timeout: 15_000 });

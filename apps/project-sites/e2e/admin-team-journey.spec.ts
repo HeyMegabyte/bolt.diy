@@ -58,7 +58,7 @@ test.describe('Admin — Team (authenticated journey)', () => {
     await page.goto(`${PROD_URL}/admin/team`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Team page container (conditional — may be admin/settings/members)
     const teamPage = page.locator('[data-testid="team-page"], [data-testid="members-section"]');
@@ -144,7 +144,7 @@ test.describe('Admin — Team (authenticated journey)', () => {
   test('invite form rejects empty email', async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`${PROD_URL}/admin/team`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     const inviteSubmit = page.locator('[data-testid="invite-submit-btn"]');
     if (await inviteSubmit.isVisible({ timeout: 5_000 }).catch(() => false)) {

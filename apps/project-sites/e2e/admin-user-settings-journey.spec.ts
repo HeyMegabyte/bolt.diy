@@ -124,7 +124,7 @@ async function stubUserSettingsApis(
 
 async function gotoUserSettings(page: Page): Promise<void> {
   await page.goto(`${PROD_URL}/admin/user`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
   await expect(page.getByTestId('us-profile-card')).toBeVisible({ timeout: 15_000 });
 }
 

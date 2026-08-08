@@ -298,7 +298,7 @@ async function goToDocs(page: any): Promise<void> {
     waitUntil: 'domcontentloaded',
     timeout: 30_000,
   });
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
   // appReveal keeps section content at opacity:0 until IntersectionObserver
   // fires — a small scroll nudge makes reveal deterministic under load.
   await page.mouse.wheel(0, 200);
@@ -449,7 +449,7 @@ test.describe('Admin — Docs (OpenAPI Explorer) journey', () => {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
     });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     // appReveal directive: nudge IntersectionObserver before asserting visibility
     await page.mouse.wheel(0, 200);
     await page.mouse.wheel(0, -200);

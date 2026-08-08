@@ -244,7 +244,7 @@ test.describe('Admin — Social (authenticated journey)', () => {
     await signInAndStubSocial(page);
     await page.goto(`${PROD_URL}/admin/social`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Social component should be visible
     const socialSection = page.locator('app-admin-social');

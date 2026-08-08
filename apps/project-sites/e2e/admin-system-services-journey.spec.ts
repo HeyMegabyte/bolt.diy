@@ -198,7 +198,7 @@ async function goToSystemServices(page: any): Promise<void> {
     waitUntil: 'domcontentloaded',
     timeout: 30_000,
   });
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +304,7 @@ test.describe('Admin — System Services journey', () => {
       waitUntil: 'networkidle',
       timeout: 30_000,
     });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await expect(page.getByTestId('system-services')).toBeVisible({ timeout: 15_000 });
 
     const realErrors = errors.filter(

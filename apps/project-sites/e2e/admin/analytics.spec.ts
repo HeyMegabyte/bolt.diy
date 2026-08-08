@@ -220,11 +220,15 @@ test.describe('FLAG EVIDENCE — site_analytics', () => {
     await page.goto(`${BASE}/admin/analytics`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // 404 = permanent flag-off → the calm cyan notice, HARD.
     await expect(page.locator('[data-testid="analytics-unavailable"]')).toBeVisible({
-      timeout: 15_000,
+      // 25s (was 15s): the analytics component is heavy (network overview + charts +
+      // urls); rendering the flag-off notice after shell hydration runs 15-20s under
+      // CI load. Render-timeout settle-wait per prod-e2e-ci-flakes-are-environmental;
+      // 07kk verified the wiring is sound (stub 404s the site endpoint → notAvailable()).
+      timeout: 25_000,
     });
     // …and NOT the transient red error card, and no KPI body.
     await expect(page.locator('[data-testid="analytics-error"]')).toHaveCount(0);
@@ -247,12 +251,12 @@ test.describe('FLAG EVIDENCE — site_analytics', () => {
     await page.goto(`${BASE}/admin/analytics`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // All three KPI cards render, HARD — this is the enabled-surface proof.
-    await expect(page.locator('[data-testid="kpi-pageviews"]')).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('[data-testid="kpi-visitors"]')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('[data-testid="kpi-requests"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-testid="kpi-pageviews"]')).toBeVisible({ timeout: 25_000 });
+    await expect(page.locator('[data-testid="kpi-visitors"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-testid="kpi-requests"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-testid="kpi-pageviews"]')).not.toHaveText('');
 
     // The flag-off states must NOT render alongside the data.

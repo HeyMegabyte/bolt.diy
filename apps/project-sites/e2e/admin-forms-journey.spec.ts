@@ -208,7 +208,7 @@ test.describe('Admin — Forms journey (authenticated)', () => {
     });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     await page.screenshot({
       path: 'e2e/screenshots/admin-forms/01-loaded.png',
@@ -237,7 +237,7 @@ test.describe('Admin — Forms journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Wait for section content: table, empty state, or loading indicator to resolve
     const contentLocator = page.locator(
@@ -279,7 +279,7 @@ test.describe('Admin — Forms journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Wait for section to settle
     await page
@@ -325,7 +325,7 @@ test.describe('Admin — Forms journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     await page
       .locator('[data-testid="forms-loading"]')
@@ -371,7 +371,7 @@ test.describe('Admin — Forms journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page
       .locator('[data-testid="forms-loading"]')
       .waitFor({ state: 'hidden', timeout: 15_000 })
@@ -393,7 +393,7 @@ test.describe('Admin — Forms journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page
       .locator('[data-testid="forms-loading"]')
       .waitFor({ state: 'hidden', timeout: 15_000 })

@@ -194,7 +194,7 @@ test.describe('Admin — Analytics journey (authenticated)', () => {
     });
 
     expect(page.url()).not.toContain('/signin');
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Either KPI cards or the unavailable notice must render
     const kpiOrMsg = page.locator(
@@ -229,7 +229,7 @@ test.describe('Admin — Analytics journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     const pageviewsCard = page.locator('[data-testid="kpi-pageviews"]');
     const unavailable = page.locator('[data-testid="analytics-unavailable"]');
@@ -264,7 +264,7 @@ test.describe('Admin — Analytics journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     const rangeList = page.locator('[role="tablist"][aria-label="Date range"]');
     const rangeListVisible = await rangeList.isVisible({ timeout: 12_000 }).catch(() => false);
@@ -306,7 +306,7 @@ test.describe('Admin — Analytics journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page
       .locator('[data-testid="kpi-pageviews"], [data-testid="analytics-unavailable"]')
       .first()
@@ -329,7 +329,7 @@ test.describe('Admin — Analytics journey (authenticated)', () => {
       timeout: 30_000,
     });
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page
       .locator('[data-testid="kpi-pageviews"], [data-testid="analytics-unavailable"]')
       .first()

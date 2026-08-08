@@ -128,7 +128,7 @@ async function gotoDeliverability(page: Page): Promise<void> {
     timeout: 25_000,
   });
   expect(page.url()).not.toContain('/signin');
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
   await expect(page.locator('[data-testid="settings-email-panel"]')).toBeVisible({
     timeout: 20_000,
   });

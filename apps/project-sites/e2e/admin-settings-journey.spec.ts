@@ -235,7 +235,7 @@ async function goToSettings(page: any): Promise<void> {
     waitUntil: 'domcontentloaded',
     timeout: 30_000,
   });
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 }
 
 async function waitForSettingsPanel(page: any): Promise<void> {
@@ -435,7 +435,7 @@ test.describe('Admin — Settings journey', () => {
       waitUntil: 'networkidle',
       timeout: 30_000,
     });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await waitForSettingsPanel(page);
 
     const realErrors = errors.filter(

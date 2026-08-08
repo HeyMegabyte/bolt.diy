@@ -112,7 +112,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await page.goto(`${PROD_URL}/admin/sites/e2e-site-001`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
     expect(page.url()).not.toContain('/signin');
 
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
 
     // Scroll-nudge to trigger appReveal
     await page.mouse.wheel(0, 200);
@@ -232,7 +232,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     });
 
     await page.goto(`${PROD_URL}/admin/sites/e2e-site-001`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page.mouse.wheel(0, 200);
 
     // Default panel: logs (the tab signal defaults to 'logs'). The log stream
@@ -347,7 +347,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     });
 
     await page.goto(`${PROD_URL}/admin/sites/e2e-site-001`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page.mouse.wheel(0, 200);
 
     const tabIntegrations = page.locator('[id="sd-tab-integrations"], [data-testid="sd-tab-integrations"]');
@@ -426,7 +426,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     });
 
     await page.goto(`${PROD_URL}/admin/sites/e2e-site-001?tab=sql`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
     await page.mouse.wheel(0, 200);
 
     // ?tab=sql is applied via queryParamMap → the SQL panel renders directly.

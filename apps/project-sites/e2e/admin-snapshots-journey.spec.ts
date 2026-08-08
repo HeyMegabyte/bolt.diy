@@ -231,7 +231,7 @@ async function gotoSnapshots(page: Page): Promise<void> {
     timeout: 30_000,
   });
   expect(page.url()).not.toContain('/signin');
-  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('app-admin, [data-cockpit="v2"]')).toBeVisible({ timeout: 35_000 });
   await page.mouse.wheel(0, 200);
 }
 
