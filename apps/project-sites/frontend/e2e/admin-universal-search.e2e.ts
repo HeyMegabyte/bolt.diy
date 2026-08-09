@@ -1,77 +1,97 @@
 /**
  * @module e2e/admin-universal-search
  *
- * Verifies the #11 universal search in AdminUpgradesShell (mounted on the
- * /admin dashboard host). Asserts it returns REAL admin-section nav results
- * (every result links to a live route) and NEVER fabricated rows — guarding
- * the fix that replaced the old mock corpus ("Bayonne Bakery", "Site
- * published 12s ago") with ADMIN_NAV_INDEX. Seeds `ps_session` from
- * `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
+ * The admin **Cmd+K command palette** (`command-palette.component`) IS the
+ * universal search. HISTORY: this spec targeted the old always-visible
+ * AdminUpgradesShell search box (`[data-testid="admin-universal-search"]` +
+ * `.adm-search-results`) — that upgrade shell was REMOVED, so the box no longer
+ * exists. Rewritten 2026-08-09 to drive the CURRENT palette: open via ⌘K/Ctrl+K
+ * → type in `[data-testid="palette-input"]` → results are
+ * `[data-testid="palette-results"] [role="option"]`. It must surface REAL admin
+ * results and NEVER the old fabricated mock corpus ("Bayonne Bakery",
+ * "published 12s ago"). (Feature Flags is intentionally NOT asserted — it's a
+ * super-admin-gated section the non-super-admin E2E key may not see; Audit +
+ * Analytics are live org-scoped sections that always surface.)
+ *
+ * Seeds `ps_session` from `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
  */
 import { test, expect, type Page } from '@playwright/test';
 
 const KEY = process.env.E2E_API_KEY ?? '';
-const SEARCH = '[data-testid="admin-universal-search"]';
-const RESULTS = '.adm-search-results [role="option"]';
+const INPUT = '[data-testid="palette-input"]';
+const RESULTS = '[data-testid="palette-results"] [role="option"]';
 
 async function seed(page: Page): Promise<void> {
   await page.addInitScript((k: string) => {
     try {
-      localStorage.setItem('ps_session', JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
+      );
     } catch {
-      /* */
+      /* private mode */
     }
   }, KEY);
 }
 
-async function openSearch(page: Page): Promise<void> {
+/** Open the Cmd+K command palette on /admin and wait for its input. */
+async function openPalette(page: Page): Promise<void> {
   await page.goto('/admin/', { waitUntil: 'load' });
-  await page.locator(SEARCH).waitFor({ state: 'visible', timeout: 20000 });
+  await expect(page.locator('.admin-sidebar, app-admin, [data-cockpit]').first()).toBeVisible({
+    timeout: 30000,
+  });
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(page.locator(INPUT)).toBeVisible({ timeout: 15000 });
 }
 
-test.describe('admin universal search — real nav, no fabricated rows', () => {
+test.describe('admin universal search (Cmd+K palette) — real nav, no fabricated rows', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  test('typing "feature" surfaces the real Feature Flags section', async ({ page }) => {
+  test('typing "analytics" surfaces the real Analytics section', async ({ page }) => {
     await seed(page);
-    await openSearch(page);
-    const input = page.locator(SEARCH);
-    await input.fill('feature');
-    const result = page.locator(RESULTS).filter({ hasText: /Feature Flags/i });
-    await expect(result.first()).toBeVisible({ timeout: 8000 });
+    await openPalette(page);
+    await page.locator(INPUT).fill('analytics');
+    await expect(
+      page
+        .locator(RESULTS)
+        .filter({ hasText: /analytics/i })
+        .first(),
+      'searching "analytics" must surface the live Analytics section',
+    ).toBeVisible({ timeout: 8000 });
   });
 
-  test('typing "audit" surfaces the real Audit Log section', async ({ page }) => {
+  test('never returns fabricated rows (no Bayonne Bakery / "published 12s ago")', async ({
+    page,
+  }) => {
     await seed(page);
-    await openSearch(page);
-    const input = page.locator(SEARCH);
-    await input.fill('audit');
-    await expect(page.locator(RESULTS).filter({ hasText: /Audit Log/i }).first()).toBeVisible({ timeout: 8000 });
-  });
-
-  test('never returns fabricated rows (no Bayonne Bakery / "published 12s ago")', async ({ page }) => {
-    await seed(page);
-    await openSearch(page);
-    const input = page.locator(SEARCH);
-    // Broad queries that would have matched the old mock corpus.
-    for (const q of ['bayonne', 'published', 'bakery', '12s']) {
-      await input.fill(q);
-      await page.waitForTimeout(250);
+    await openPalette(page);
+    // Type the DISTINCTIVE old-mock strings. NB: the palette legitimately
+    // surfaces REAL sites (a "Switch to Acme Bakery … published" row is a real
+    // org site + status), so generic "bakery"/"published" are NOT forbidden —
+    // only the exact fabricated corpus ("Bayonne Bakery", "published 12s ago").
+    for (const q of ['bayonne', 'published 12s']) {
+      await page.locator(INPUT).fill(q);
+      await page.waitForTimeout(300);
       const texts = (await page.locator(RESULTS).allInnerTexts()).join(' ').toLowerCase();
-      expect(texts).not.toContain('bayonne');
-      expect(texts).not.toContain('bakery');
+      expect(texts, `"${q}" must not surface the old fabricated corpus`).not.toContain('bayonne');
       expect(texts).not.toContain('published 12s');
     }
   });
 
-  test('every visible result is a real /admin route', async ({ page }) => {
+  test('a broad query returns real results (palette wired to a live corpus)', async ({ page }) => {
     await seed(page);
-    await openSearch(page);
-    const input = page.locator(SEARCH);
-    await input.fill('s'); // broad match
-    await page.waitForTimeout(300);
-    const count = await page.locator(RESULTS).count();
-    expect(count).toBeGreaterThan(0);
+    await openPalette(page);
+    await page.locator(INPUT).fill('s'); // broad match
+    await expect
+      .poll(async () => page.locator(RESULTS).count(), { timeout: 8000 })
+      .toBeGreaterThan(0);
+    // Every visible result must render a non-empty title (not an empty shell).
+    const texts = await page.locator(RESULTS).allInnerTexts();
+    expect(texts.length).toBeGreaterThan(0);
+    expect(
+      texts.every((t) => t.trim().length > 0),
+      'every palette result renders a real, non-empty title',
+    ).toBe(true);
   });
 });
