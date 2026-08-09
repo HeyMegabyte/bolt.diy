@@ -700,7 +700,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparen
   // Faint cyan shimmer (tokenized off --ps-accent) so loading skeletons read as
   // part of the cyan/black cockpit, not a generic gray pulse. Low alpha keeps it
   // subtle — it's a placeholder, not a focal point. Shared across every section's
-  // skeleton (site-dna, content-freshness, inbox, site-copilot, …) in one place.
+  // skeleton (site-dna, inbox, site-copilot, …) in one place.
   background: linear-gradient(
     90deg,
     color-mix(in oklab, var(--ps-accent, #00e5ff) 4%, transparent) 0%,

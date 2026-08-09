@@ -89,10 +89,10 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     // Unified logging dashboard (audit + log explorer merged 2026-06-08).
     '/admin/logs',
     '/admin/media', '/admin/site-features',
-    // NOTE: /admin/pseo + /admin/content-freshness are NOT here — they have section
-    // labels but no route, no sidebar nav item, and no palette Navigation command
-    // (never built). Re-add each here the same turn a route + a `go(...)` command
-    // ships for it, so this stays a true "every sidebar section is navigable" gate.
+    // NOTE: /admin/pseo is NOT here — it has a section label but no route, no sidebar
+    // nav item, and no palette Navigation command (never built). Re-add it here the
+    // same turn a route + a `go(...)` command ships for it, so this stays a true
+    // "every sidebar section is navigable" gate.
   ];
 
   it('has a Navigation command that navigates to every sidebar route', () => {
