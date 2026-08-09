@@ -26,14 +26,14 @@ type LogsTab = 'audit' | 'explorer' | 'traces';
       <p class="text-[0.82rem] text-text-secondary mt-1 mb-3">
         Audit trail + structured request / AI / job logs — one place for everything that happened.
       </p>
-      <div class="inline-flex gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Logs view">
+      <div class="flex overflow-x-auto max-w-full min-w-0 gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Logs view">
         @for (t of tabs; track t.id) {
           <button
             type="button"
             role="tab"
             [attr.aria-selected]="tab() === t.id"
             [attr.data-testid]="'logs-tab-' + t.id"
-            class="px-3.5 py-1.5 rounded-lg text-[0.8rem] font-semibold transition-all cursor-pointer"
+            class="px-3.5 py-1.5 rounded-lg text-[0.8rem] font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap"
             [class.bg-primary]="tab() === t.id"
             [class.text-dark]="tab() === t.id"
             [class.text-text-secondary]="tab() !== t.id"

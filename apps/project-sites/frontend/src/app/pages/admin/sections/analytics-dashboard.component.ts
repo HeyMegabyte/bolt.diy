@@ -53,14 +53,14 @@ type AnalyticsTab =
         Traffic, the live event stream, the activation funnel, and social performance — all in one place.
       </p>
       <div class="flex items-center gap-2 flex-wrap mb-3">
-        <div class="inline-flex gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Analytics view">
+        <div class="flex overflow-x-auto max-w-full min-w-0 gap-1 p-1 rounded-xl border border-white/[0.06] bg-white/[0.02]" role="tablist" aria-label="Analytics view">
         @for (t of tabs; track t.id) {
           <button
             type="button"
             role="tab"
             [attr.aria-selected]="tab() === t.id"
             [attr.data-testid]="'analytics-tab-' + t.id"
-            class="px-3.5 py-1.5 rounded-lg text-[0.8rem] font-semibold transition-all cursor-pointer"
+            class="px-3.5 py-1.5 rounded-lg text-[0.8rem] font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap"
             [class.bg-primary]="tab() === t.id"
             [class.text-dark]="tab() === t.id"
             [class.text-text-secondary]="tab() !== t.id"
