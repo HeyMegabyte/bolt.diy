@@ -28,8 +28,17 @@ export async function isSessionSuperAdmin(request: APIRequestContext): Promise<b
   if (!key) return false;
   const base = process.env.PROD_URL ?? 'https://projectsites.dev';
   try {
+    // Explicit short timeout so a tarpitted probe FAILS-FAST to `false` (→ the caller
+    // `test.skip`s) instead of hanging until the Playwright HOOK timeout (45s) aborts the
+    // `beforeAll` externally — a hook abort `try/catch` cannot intercept, which marks EVERY
+    // test in the file `failed` instead of `skipped` under concurrent CI load (the per-IP CF
+    // tarpit on `/api/auth/me`). The E2E key's correct answer is always `false` (never
+    // super-admin), so a fast timeout→false is always correct; super-admin surfaces are
+    // covered by the Browserbase brian-login sweep regardless. See
+    // memory/prod-e2e-ci-flakes-are-environmental.md (guard-hook-timeout class).
     const res = await request.get(`${base}/api/auth/me`, {
       headers: { Authorization: `Bearer ${key}` },
+      timeout: 10_000,
     });
     if (!res.ok()) return false;
     const body = (await res.json()) as { data?: { is_super_admin?: boolean } };
