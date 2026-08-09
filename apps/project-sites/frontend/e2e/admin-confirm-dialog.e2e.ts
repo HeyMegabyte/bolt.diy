@@ -15,16 +15,31 @@
  * Seeds `ps_session` from `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
  */
 import { test, expect } from '@playwright/test';
+import { isSessionSuperAdmin } from './helpers/super-admin.js';
 
 const KEY = process.env.E2E_API_KEY ?? '';
+// Both specs below drive the feature-flags killswitch — a SUPER-ADMIN surface
+// (sysAdminGuard redirects non-super-admins), so they SKIP for the non-super-admin
+// E2E key; ConfirmService on super-admin surfaces is covered by the Browserbase brian
+// sweep. Follow-up: also exercise ConfirmService via a NON-super-admin destructive
+// trigger (e.g. domains remove-hostname) so the E2E-key suite keeps direct coverage.
+let SUPER_ADMIN = false;
 
 test.describe('admin ConfirmService — branded confirm, no native confirm()', () => {
   test.describe.configure({ retries: 1 });
+
+  test.beforeAll(async ({ request }) => {
+    SUPER_ADMIN = await isSessionSuperAdmin(request);
+  });
 
   let nativeDialogFired = false;
   let killswitchPosted = false;
 
   test.beforeEach(async ({ page }) => {
+    test.skip(
+      !!KEY && !SUPER_ADMIN,
+      'killswitch lives on the super-admin feature-flags surface — E2E key is not super-admin; covered by the Browserbase brian sweep',
+    );
     nativeDialogFired = false;
     killswitchPosted = false;
     page.on('dialog', (d) => {
@@ -79,9 +94,10 @@ test.describe('admin ConfirmService — branded confirm, no native confirm()', (
     await expect(message).toBeHidden({ timeout: 5000 });
 
     // Safety + correctness invariants.
-    expect(nativeDialogFired, 'no native confirm()/alert() may fire — must be the branded dialog').toBe(
-      false,
-    );
+    expect(
+      nativeDialogFired,
+      'no native confirm()/alert() may fire — must be the branded dialog',
+    ).toBe(false);
     expect(killswitchPosted, 'cancelling/Esc must NOT execute the killswitch mutation').toBe(false);
   });
 

@@ -9,7 +9,6 @@
  * conversion is live and never regresses back to flat text.
  *
  * Covered fixes:
- *   - pSEO            `fa1863f` — bare `.ps-error` div → `<app-error-card (retry)>`
  *   - social-analytics `d9ffebd` — bare `.error`/`.loading` → `app-error-card` + `app-skeleton`
  *   - content-freshness `79e0a32` — bare `.cf-error` div → `<app-error-card (retry)>`
  *   - feature-flags    `5576feb`/`67b02e44` — full flag list + persisted-override merge
@@ -51,8 +50,11 @@ test.describe('admin — 4-state-kit conversions (campaign regression guard)', (
   test.describe.configure({ retries: 2 });
 
   // route → the bare error class we REMOVED (must never reappear).
+  // NOTE: the '/admin/pseo' entry was REMOVED 2026-08-08 — the pSEO route + component
+  // were deleted (no `path: 'pseo'` in app.routes.ts, no pseo.component.ts), so the test
+  // navigated to the admin catch-all (AdminNotFoundComponent) which renders NONE of the
+  // 4-state STATE_SELECTOR → deterministic false-red. content-freshness stays (live route).
   const BARE_CLASS_GONE: { path: string; bare: string; label: string }[] = [
-    { path: '/admin/pseo', bare: '.ps-error', label: 'pSEO (fa1863f)' },
     { path: '/admin/content-freshness', bare: '.cf-error', label: 'content-freshness (79e0a32)' },
   ];
 

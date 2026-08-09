@@ -17,22 +17,49 @@
  * Seeds `ps_session` from `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { isSessionSuperAdmin } from './helpers/super-admin.js';
 
 const KEY = process.env.E2E_API_KEY ?? '';
+
+// `/admin/feature-flags` is a SUPER-ADMIN operator surface — `sysAdminGuard`
+// (app.routes.ts) redirects non-super-admins away before it mounts, so `.ff-card`
+// never renders for the E2E-key session (e2e@megabyte.space is NOT super-admin).
+// These specs therefore SKIP for the E2E key; the super-admin feature-flags surface
+// is verified by the Browserbase brian-login sweep (a real super-admin session).
+// (Root-caused 2026-08-08 after sharding un-masked the frontend cert — see memory
+// prod-e2e-ci-flakes-are-environmental § "UN-MASKING SURFACED A LARGE REAL BACKLOG".)
+let SUPER_ADMIN = false;
+test.beforeAll(async ({ request }) => {
+  SUPER_ADMIN = await isSessionSuperAdmin(request);
+});
+test.beforeEach(() => {
+  test.skip(
+    !!KEY && !SUPER_ADMIN,
+    'super-admin surface (sysAdminGuard) — E2E key is not super-admin; covered by the Browserbase brian sweep',
+  );
+});
 
 async function seed(page: Page): Promise<void> {
   await page.addInitScript((k: string) => {
     try {
-      localStorage.setItem('ps_session', JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
+      );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
 /** Open the first flag card's detail panel (the "Inspect" toggle). */
 async function openFirstDetail(page: Page): Promise<void> {
   await expect(page.locator('.ff-card').first()).toBeVisible({ timeout: 30000 });
-  const inspect = page.locator('.ff-card').first().getByRole('button', { name: /inspect/i });
+  const inspect = page
+    .locator('.ff-card')
+    .first()
+    .getByRole('button', { name: /inspect/i });
   await inspect.click();
   await expect(page.locator('.ff-detail').first()).toBeVisible({ timeout: 15000 });
 }
@@ -52,9 +79,9 @@ test.describe('admin /feature-flags — flag-control regressions (rounds 140-143
     await expect(resolved).toBeVisible({ timeout: 10000 });
     await expect(resolved).toContainText(/resolved via/i);
     // …and NO raw JSON `<pre>` with an "enabled" key anywhere in a detail panel.
-    const rawJson = await page.locator('.ff-detail pre').evaluateAll(
-      (els) => els.some((e) => /\{[\s\S]*"enabled"/.test(e.textContent ?? '')),
-    );
+    const rawJson = await page
+      .locator('.ff-detail pre')
+      .evaluateAll((els) => els.some((e) => /\{[\s\S]*"enabled"/.test(e.textContent ?? '')));
     expect(rawJson, 'resolved-state must not be a raw JSON <pre>').toBe(false);
   });
 
@@ -71,7 +98,9 @@ test.describe('admin /feature-flags — flag-control regressions (rounds 140-143
     await expect(page.locator('.ff-controls input[type="range"]').first()).toBeVisible();
   });
 
-  test('flag mutation POSTs to the real /api/super-admin/feature-flags endpoint', async ({ page }) => {
+  test('flag mutation POSTs to the real /api/super-admin/feature-flags endpoint', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     await seed(page);
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });
@@ -103,7 +132,9 @@ test.describe('admin /feature-flags — loading parity + chip removal + enable-a
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  test('loading skeleton renders the SAME column width as the loaded grid (360px min)', async ({ page }) => {
+  test('loading skeleton renders the SAME column width as the loaded grid (360px min)', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     await seed(page);
     // Delay the flag-registry read so the card skeleton stays on screen long
@@ -125,13 +156,15 @@ test.describe('admin /feature-flags — loading parity + chip removal + enable-a
 
     // After data lands, the loaded grid renders with a usable column track.
     await expect(page.locator('.ff-grid')).toBeVisible({ timeout: 15000 });
-    const gridCols = await page.locator('.ff-grid').evaluate((el) =>
-      getComputedStyle(el).gridTemplateColumns,
-    );
+    const gridCols = await page
+      .locator('.ff-grid')
+      .evaluate((el) => getComputedStyle(el).gridTemplateColumns);
     expect(gridCols.length).toBeGreaterThan(0);
   });
 
-  test('the "N of M" filter-count chip (.ff-count) is gone — even while filtering', async ({ page }) => {
+  test('the "N of M" filter-count chip (.ff-count) is gone — even while filtering', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     await seed(page);
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });
@@ -144,7 +177,9 @@ test.describe('admin /feature-flags — loading parity + chip removal + enable-a
     await expect(page.locator('[data-testid="ff-filter-count"]')).toHaveCount(0);
   });
 
-  test('every non-sentinel flag can be enabled from the UI (each click POSTs the super-admin endpoint)', async ({ page }) => {
+  test('every non-sentinel flag can be enabled from the UI (each click POSTs the super-admin endpoint)', async ({
+    page,
+  }) => {
     test.setTimeout(120000);
     await seed(page);
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });

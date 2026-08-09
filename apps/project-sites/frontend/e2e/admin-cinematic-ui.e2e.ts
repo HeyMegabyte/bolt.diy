@@ -18,9 +18,16 @@ import { test, expect, type Page } from '@playwright/test';
 const KEY = process.env.E2E_API_KEY ?? '';
 
 // section → a container scope + the min number of rolling counters expected.
+// NOTE: the '/admin/seo' (#126) entry was REMOVED 2026-08-08 — `/admin/seo` is a
+// redirect (→ /admin/site-features) and the `.seo-score` selector no longer exists in
+// src, so the test asserted a scope that can never render → deterministic false-red.
 const COUNTER_SECTIONS: { path: string; scope: string; min: number; label: string }[] = [
-  { path: '/admin/api-tokens', scope: '.at-stat-value', min: 2, label: 'api-tokens stat chips (#125)' },
-  { path: '/admin/seo', scope: '.seo-score', min: 1, label: 'seo health score (#126)' },
+  {
+    path: '/admin/api-tokens',
+    scope: '.at-stat-value',
+    min: 2,
+    label: 'api-tokens stat chips (#125)',
+  },
   { path: '/admin/traces', scope: '.card', min: 1, label: 'ai-logs/traces KPI tiles (#134)' },
   { path: '/admin/audit', scope: '.card', min: 1, label: 'audit KPI tiles (#134)' },
 ];
@@ -28,9 +35,14 @@ const COUNTER_SECTIONS: { path: string; scope: string; min: number; label: strin
 async function seed(page: Page): Promise<void> {
   await page.addInitScript((k: string) => {
     try {
-      localStorage.setItem('ps_session', JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
+      );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
@@ -46,7 +58,10 @@ test.describe('admin — cinematic-ui rolling-counter drift guard', () => {
       await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
       const counters = page.locator(`${s.scope} app-rolling-counter`);
       await expect(counters.first()).toBeVisible({ timeout: 15000 });
-      expect(await counters.count(), `${s.path} expected ≥${s.min} rolling counters in ${s.scope}`).toBeGreaterThanOrEqual(s.min);
+      expect(
+        await counters.count(),
+        `${s.path} expected ≥${s.min} rolling counters in ${s.scope}`,
+      ).toBeGreaterThanOrEqual(s.min);
       // The counter must render a numeric value (not be an empty shell).
       await expect(counters.first()).toHaveText(/[0-9]/, { timeout: 5000 });
     });
