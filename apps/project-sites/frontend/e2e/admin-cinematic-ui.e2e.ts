@@ -58,10 +58,17 @@ test.describe('admin — cinematic-ui rolling-counter drift guard', () => {
       await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
       const counters = page.locator(`${s.scope} app-rolling-counter`);
       await expect(counters.first()).toBeVisible({ timeout: 15000 });
-      expect(
-        await counters.count(),
-        `${s.path} expected ≥${s.min} rolling counters in ${s.scope}`,
-      ).toBeGreaterThanOrEqual(s.min);
+      // POLL the count (don't snapshot it once): some counter chips are behind an
+      // async data-load gate (e.g. api-tokens chip 1 renders `…` while the token
+      // fetch is in flight, then swaps to the counter once it resolves — even to a
+      // "0" for an empty org). A single `await counters.count()` can catch that chip
+      // mid-skeleton and under-count; poll until the loaded state settles.
+      await expect
+        .poll(async () => counters.count(), {
+          timeout: 15000,
+          message: `${s.path} expected ≥${s.min} rolling counters in ${s.scope} (after data-load)`,
+        })
+        .toBeGreaterThanOrEqual(s.min);
       // The counter must render a numeric value (not be an empty shell).
       await expect(counters.first()).toHaveText(/[0-9]/, { timeout: 5000 });
     });

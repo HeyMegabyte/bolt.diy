@@ -8,8 +8,9 @@ import { test, expect, type Page } from '@playwright/test';
  * content". This locks the actual behaviours a reader depends on:
  *   1. Exactly ONE valid state renders (grid XOR empty XOR error) — never a
  *      silent blank, never a redundant ag-grid "No Rows" overlay under the card.
- *   2. "Export CSV" is always present + actionable (it lives in the header, not
- *      gated on row count) and clicking it never crashes the page.
+ *   2. "Export CSV" is always PRESENT in the header; it's ENABLED only when there
+ *      are rows to export (`canExport = rows>0`), disabled (never a headers-only
+ *      CSV) when empty — and clicking the enabled button never crashes the page.
  *   3. The faux master/detail contract: clicking a row's expand kebab opens the
  *      matching full-width detail panel (aria-expanded flips true); clicking
  *      again collapses it. This is the HARDEST thing the gated ag-grid →
@@ -32,7 +33,9 @@ async function seed(page: Page): Promise<void> {
         JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
       );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
@@ -40,7 +43,9 @@ test.describe('admin — audit-log grid behavioural contract', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  test('audit renders exactly one valid state + CSV export is always actionable', async ({ page }) => {
+  test('audit renders exactly one valid state + CSV export reflects row availability', async ({
+    page,
+  }) => {
     test.setTimeout(45000);
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -53,26 +58,41 @@ test.describe('admin — audit-log grid behavioural contract', () => {
     const empty = page.locator('[data-testid="audit-empty"]');
     const errCard = page.locator('[data-testid="audit-error"]');
     await expect
-      .poll(async () =>
-        (await grid.count()) + (await empty.count()) + (await errCard.count()),
-        { timeout: 30000, message: 'audit shows grid OR empty OR error — never a blank' },
-      )
+      .poll(async () => (await grid.count()) + (await empty.count()) + (await errCard.count()), {
+        timeout: 30000,
+        message: 'audit shows grid OR empty OR error — never a blank',
+      })
       .toBeGreaterThan(0);
-    const states =
-      (await grid.count()) + (await empty.count()) + (await errCard.count());
+    const states = (await grid.count()) + (await empty.count()) + (await errCard.count());
     expect(states, 'exactly one audit state renders (no stacked grid+empty)').toBe(1);
 
-    // Export CSV lives in the header (not gated on rows) → always actionable.
+    // Export CSV lives in the header always, but is ENABLED only when there are
+    // rows to export (`[disabled]="!canExport()"`, canExport = rows>0) — it never
+    // emits a headers-only CSV. The e2e-test-org has no audit rows (build-derived;
+    // an honest empty), so CSV is correctly DISABLED here. Assert the button
+    // reflects row availability: enabled + clickable when a grid is mounted,
+    // disabled (with its explanatory affordance) when the empty-state shows.
     const csv = page.getByRole('button', { name: /export csv/i });
     await expect(csv).toBeVisible();
-    await expect(csv).toBeEnabled();
-    // Clicking is a guarded no-op when no grid is mounted; must never crash.
-    await csv.click();
-    await page.waitForTimeout(300);
-    expect(pageErrors, `Export CSV click produced no page error:\n${pageErrors.join('\n')}`).toEqual([]);
+    if ((await grid.count()) > 0) {
+      await expect(csv).toBeEnabled();
+      await csv.click(); // real export — must never crash
+      await page.waitForTimeout(300);
+    } else {
+      await expect(
+        csv,
+        'CSV is disabled with no rows — never a headers-only export',
+      ).toBeDisabled();
+    }
+    expect(
+      pageErrors,
+      `audit / CSV must not throw a page error:\n${pageErrors.join('\n')}`,
+    ).toEqual([]);
   });
 
-  test('row expand kebab opens + collapses the matching detail panel (master/detail contract)', async ({ page }) => {
+  test('row expand kebab opens + collapses the matching detail panel (master/detail contract)', async ({
+    page,
+  }) => {
     test.setTimeout(45000);
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -83,9 +103,15 @@ test.describe('admin — audit-log grid behavioural contract', () => {
     const grid = page.locator('[data-testid="audit-grid"]');
     // No audit rows for the test org → characterize the empty contract instead.
     if ((await grid.count()) === 0) {
-      await expect(page.locator('[data-testid="audit-empty"], [data-testid="audit-error"]').first())
-        .toBeVisible({ timeout: 30000 });
-      test.info().annotations.push({ type: 'note', description: 'no audit rows — empty-state contract verified, master/detail skipped' });
+      await expect(
+        page.locator('[data-testid="audit-empty"], [data-testid="audit-error"]').first(),
+      ).toBeVisible({ timeout: 30000 });
+      test
+        .info()
+        .annotations.push({
+          type: 'note',
+          description: 'no audit rows — empty-state contract verified, master/detail skipped',
+        });
       return;
     }
 
@@ -112,6 +138,8 @@ test.describe('admin — audit-log grid behavioural contract', () => {
     await expect(detail).toHaveCount(0, { timeout: 5000 });
     await expect(firstKebab).toHaveAttribute('aria-expanded', 'false');
 
-    expect(pageErrors, `expand/collapse produced no page error:\n${pageErrors.join('\n')}`).toEqual([]);
+    expect(pageErrors, `expand/collapse produced no page error:\n${pageErrors.join('\n')}`).toEqual(
+      [],
+    );
   });
 });

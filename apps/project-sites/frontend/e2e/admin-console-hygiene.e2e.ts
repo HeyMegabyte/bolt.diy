@@ -19,9 +19,14 @@ const KEY = process.env.E2E_API_KEY ?? '';
 async function seed(page: Page): Promise<void> {
   await page.addInitScript((k: string) => {
     try {
-      localStorage.setItem('ps_session', JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
+      );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
@@ -72,9 +77,14 @@ test.describe('admin — console hygiene', () => {
 
     await seed(page);
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });
-    // Registry still renders from the public GET /api/feature-flags.
-    await expect(page.locator('.ff-card').first()).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(2000);
+    // A non-super-admin is REDIRECTED away from this super-admin surface by
+    // `sysAdminGuard` (app.routes.ts) — so `.ff-card` never renders for this session
+    // (the E2E key is not super-admin). That's fine: the POINT of this test is the
+    // NETWORK invariant — the guard/redirect path must never fire the super-admin
+    // override endpoint, so no uncatchable 401 is ever logged. Just settle, then
+    // assert the invariants below. (The super-admin registry render is covered by
+    // the Browserbase brian-login sweep.)
+    await page.waitForTimeout(2500);
 
     expect(
       superAdminReqs,
