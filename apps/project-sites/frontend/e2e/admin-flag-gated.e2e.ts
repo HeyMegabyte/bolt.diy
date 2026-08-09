@@ -42,6 +42,15 @@ test.describe('admin — flag-gated sections do not fetch org data when disabled
     page,
   }) => {
     test.setTimeout(60000);
+    // This guards the flag-OFF behavior. `unified_inbox` is now resolved ENABLED in
+    // prod (beta, turned on via override in the all-flags-on campaign), so the
+    // disabled "behind the flag" state no longer renders — skip cleanly rather than
+    // false-fail. The flag-ON inbox is exercised by admin-console-errors (/admin/inbox
+    // renders clean) + the Browserbase sweep, and GET /api/inbox/conversations returns
+    // 200 (honest-empty). (public flag probe — no auth needed.)
+    const flagRes = await page.request.get('/api/feature-flags/unified_inbox').catch(() => null);
+    const flagOn = flagRes?.ok() ? (await flagRes.json())?.resolved?.enabled === true : false;
+    test.skip(flagOn, 'unified_inbox is ON in prod — the flag-OFF regression guard cannot run');
     const orgFetches: string[] = [];
     page.on('request', (r) => {
       if (/\/api\/inbox\/conversations/.test(r.url())) orgFetches.push(r.url());

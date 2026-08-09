@@ -20,6 +20,7 @@
  * Seeds `ps_session` from `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { isSessionSuperAdmin } from './helpers/super-admin';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
@@ -78,8 +79,17 @@ test.describe('admin — 4-state-kit conversions (campaign regression guard)', (
 
   test('feature-flags (5576feb/67b02e44): full flag list renders with live state', async ({
     page,
+    request,
   }) => {
     test.setTimeout(60000);
+    // /admin/feature-flags is the operator-only System Admin layer (sysAdminGuard):
+    // a non-super-admin session redirects to /admin/site-features, so the `.ff-card`
+    // registry never renders for the E2E key. Skip cleanly — the flag registry render
+    // is verified for super-admins via the Browserbase brian-login sweep.
+    test.skip(
+      !(await isSessionSuperAdmin(request)),
+      'feature-flags is super-admin-gated; the E2E key is not super-admin',
+    );
     await seed(page);
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
