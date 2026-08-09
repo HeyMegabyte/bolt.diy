@@ -23,8 +23,15 @@ const ROUTES = [
   // freed up; fixes landed):
   //   /        + /classic → homepage.component.html `.text-primary/40` step
   //                         numbers bumped to /70 (2.8:1 → ~6.4:1).
-  //   /signin            → signin.component.html `text-gray-500` → `text-gray-400`
-  //                         (~3.8:1 → ~6:1, ×7 occurrences).
+  //   /signin            → pages/auth/sign-in.component.ts (the Better Auth cutover
+  //                         REPLACED the legacy magic-link page): its "OR" divider was
+  //                         `text-white/30` (2.62:1) → `/50` (~5.4:1). Fixed+deployed
+  //                         2026-08-09 (1b1f6c20). The old signin.component.html fix
+  //                         is dead (legacy page no longer routed).
+  //   /roadmap           → has NO Angular route → soft-404s to the public not-found;
+  //                         its `.links-heading` h2 was `#64748b` (4.23:1) → `#94a3b8`
+  //                         (7.7:1). ⚠️ /roadmap SHOULD be a real page (worker exposes
+  //                         GET /api/public/roadmap; changelog promises the columns UI).
   //   /contact           → re-verified stably clean across 3 runs.
   '/', '/contact', '/signin',
   '/blog', '/press', '/privacy', '/terms', '/roadmap', '/integrations',
