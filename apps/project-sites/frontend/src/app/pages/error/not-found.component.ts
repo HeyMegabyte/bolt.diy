@@ -226,7 +226,8 @@ import { Title, Meta } from '@angular/platform-browser';
       font-family: 'Space Grotesk', sans-serif;
       font-size: 0.875rem;
       font-weight: 500;
-      color: #64748b;
+      /* #64748b was 4.23:1 on the dark bg (WCAG AA fail for 14px). #94a3b8 = 7.7:1. */
+      color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin: 0 0 1rem;

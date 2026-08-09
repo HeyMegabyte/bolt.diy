@@ -219,7 +219,8 @@ import { RouterLink } from '@angular/router';
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      color: #64748b;
+      /* #64748b was 4.23:1 (AA fail for 12.8px). #94a3b8 = 7.7:1. */
+      color: #94a3b8;
       font-family: 'Sora', sans-serif;
       font-size: 0.8rem;
     }

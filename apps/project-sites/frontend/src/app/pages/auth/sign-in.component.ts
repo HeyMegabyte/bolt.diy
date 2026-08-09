@@ -131,7 +131,7 @@ export function sanitizeReturnUrl(raw: string | null | undefined): string {
           </button>
         </form>
 
-        <div class="my-5 flex items-center gap-3 text-[0.72rem] text-white/30" aria-hidden="true">
+        <div class="my-5 flex items-center gap-3 text-[0.72rem] text-white/50" aria-hidden="true">
           <span class="h-px flex-1 bg-white/[0.08]"></span>
           OR
           <span class="h-px flex-1 bg-white/[0.08]"></span>

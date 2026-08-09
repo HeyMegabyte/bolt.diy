@@ -165,7 +165,8 @@ import { RouterLink } from '@angular/router';
     .correlation-label {
       font-family: 'Sora', sans-serif;
       font-size: 0.75rem;
-      color: #64748b;
+      /* #64748b was 4.23:1 (AA fail for 12px). #94a3b8 = 7.7:1. */
+      color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
