@@ -106,12 +106,10 @@ test.describe('admin — audit-log grid behavioural contract', () => {
       await expect(
         page.locator('[data-testid="audit-empty"], [data-testid="audit-error"]').first(),
       ).toBeVisible({ timeout: 30000 });
-      test
-        .info()
-        .annotations.push({
-          type: 'note',
-          description: 'no audit rows — empty-state contract verified, master/detail skipped',
-        });
+      test.info().annotations.push({
+        type: 'note',
+        description: 'no audit rows — empty-state contract verified, master/detail skipped',
+      });
       return;
     }
 
