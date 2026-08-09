@@ -35,8 +35,12 @@ test.describe('admin topbar — Spartan (brain) tooltip', () => {
     await page.goto('/admin', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 20000 });
 
+    // Scope to the command-palette button by aria-label: the `.cmdk-btn` class is
+    // now shared by a second topbar button (the "Enter full-width mode" toggle), so
+    // a bare `.cmdk-btn` locator is a strict-mode violation (resolves to 2 buttons).
+    const cmdk = page.locator('button[aria-label="Open command palette"]');
     // native `title` is GONE (replaced by the Spartan tooltip) — proves the swap
-    await expect(page.locator('.cmdk-btn')).not.toHaveAttribute('title', /.+/);
+    await expect(cmdk).not.toHaveAttribute('title', /.+/);
 
     // hover → brain renders the tooltip into the CDK overlay (showDelay 200ms).
     // Re-hover each poll: a single .hover() fires only one mouseenter, which can
@@ -46,7 +50,7 @@ test.describe('admin topbar — Spartan (brain) tooltip', () => {
     // renders "Open command palette …").
     await expect(async () => {
       await page.mouse.move(4, 4);
-      await page.locator('.cmdk-btn').hover();
+      await cmdk.hover();
       await expect(page.locator('.cdk-overlay-container'))
         .toContainText(/Open command palette/i, { timeout: 1500 });
     }).toPass({ timeout: 15000 });

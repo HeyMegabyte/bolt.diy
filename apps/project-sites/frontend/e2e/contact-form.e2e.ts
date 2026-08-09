@@ -45,11 +45,17 @@ test.describe('public contact form — validation (no real submit)', () => {
     await expect(page.locator('#contact-message')).toHaveValue('');
   });
 
-  test('toast region is aria-live (announced to screen readers)', async ({ page }) => {
+  test('the validation error toast is its own live region (role=alert → announced)', async ({ page }) => {
     test.setTimeout(45000);
     await page.locator('#contact-section button[type="submit"]').click();
-    await expect(page.locator('[data-testid="toast-item"]').first()).toBeVisible({ timeout: 5000 });
-    const live = await page.locator('.toast-container').first().getAttribute('aria-live');
-    expect(live, 'toast container must announce via aria-live').toBe('polite');
+    const toast = page.locator('[data-testid="toast-item"]').first();
+    await expect(toast).toBeVisible({ timeout: 5000 });
+    // The toast CONTAINER deliberately carries no aria-live — each toast is its
+    // OWN live region via [role] (the APG toast pattern, toast.component.ts:20):
+    // an error toast is role="alert" (implicit aria-live=assertive) so a screen
+    // reader is interrupted with the validation failure; info/success are
+    // role="status" (polite). Asserting a polite CONTAINER was wrong on both
+    // counts — no such attribute exists, and an error must announce assertively.
+    await expect(toast).toHaveAttribute('role', 'alert');
   });
 });
