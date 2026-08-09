@@ -40,17 +40,54 @@ async function allFlagKeys(request: import('@playwright/test').APIRequestContext
 // them on prematurely would route live traffic at an unmigrated system.
 const CUTOVER_FLAGS = new Set(['better_auth']);
 
-test('every feature flag resolves ENABLED (except in-progress cutover flags)', async ({ request }) => {
-  const keys = (await allFlagKeys(request)).filter((k) => !CUTOVER_FLAGS.has(k));
+// Flags that are INTENTIONALLY dark right now (NOT a regression) — the test
+// tolerates them being off. Each carries a one-line reason; when one should go
+// live, just flip the flag (an ENABLED flag already passes the assertion) and
+// drop it from this set. Keeps the cert honest+green without masking a real
+// "shipped feature we forgot to enable" — these three are deliberate.
+const INTENTIONALLY_OFF = new Set([
+  // deprecated drift-shim / alias (superseded) — stays off; see feedback_alias_modules_intentional.
+  'swarm_editor',
+  // in-progress concurrent-agent system — enabling would route traffic at an
+  // unfinished feature (the same risk CUTOVER_FLAGS guards against).
+  'multi_agent_concurrent',
+  // shipped /admin monetization strip, deliberately dark. Enable-or-retire is a
+  // pending PRODUCT decision (Brian, revenue surface) — surfaced in convergence reports.
+  'upgrade_moments',
+]);
+
+test('every feature flag resolves ENABLED (except cutover + intentionally-dark flags)', async ({ request }) => {
+  const keys = (await allFlagKeys(request)).filter(
+    (k) => !CUTOVER_FLAGS.has(k) && !INTENTIONALLY_OFF.has(k),
+  );
   const off: string[] = [];
   for (const key of keys) {
-    const res = await request.get(`/api/feature-flags/${encodeURIComponent(key)}`);
-    if (!res.ok()) {
-      off.push(`${key} (HTTP ${res.status()})`);
+    // Resilient per-key GET: among ~50 sequential prod calls, a single transient
+    // blip — a 429/5xx status OR a network-timeout THROW — must NOT fail the whole
+    // assertion (that was the flake source; it passed on the outer retry). Retry
+    // BOTH failure modes 3× with backoff, then count as a real HTTP failure.
+    let ok = false;
+    let status: number | string = 'no-response';
+    let body: Resolution | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await request.get(`/api/feature-flags/${encodeURIComponent(key)}`);
+        if (res.ok()) {
+          ok = true;
+          body = (await res.json()) as Resolution;
+          break;
+        }
+        status = res.status();
+      } catch {
+        status = 'timeout';
+      }
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 400));
+    }
+    if (!ok) {
+      off.push(`${key} (HTTP ${status})`);
       continue;
     }
-    const body = (await res.json()) as Resolution;
-    if (!body.resolved?.enabled) off.push(key);
+    if (!body?.resolved?.enabled) off.push(key);
   }
   expect(off, `flags still OFF: ${off.join(', ')}`).toHaveLength(0);
 });
