@@ -33,9 +33,12 @@ function isRealError(msg: string): boolean {
 }
 
 test.describe('Real Chrome — real-credentials sign-in', () => {
+  // Real password login — skip cleanly (never hard-fail) when E2E_TEST_PASSWORD
+  // isn't exported into the env. Per conditional-ci-gates: fail-open.
+  test.skip(!process.env.E2E_TEST_PASSWORD, 'Requires E2E_TEST_PASSWORD (real password login)');
+
   test('test-login → /admin with zero console errors', async ({ page }) => {
     const password = process.env.E2E_TEST_PASSWORD;
-    expect(password).toBeTruthy();
 
     // ── Step 1: Navigate to homepage (gets CF clearance cookie) ──
     await page.goto('/');

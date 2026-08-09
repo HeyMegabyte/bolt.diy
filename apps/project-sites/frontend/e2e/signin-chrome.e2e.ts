@@ -33,11 +33,15 @@ function isRealError(msg: string): boolean {
 }
 
 test.describe('Real Chrome — test-login sign-in', () => {
+  // Real password login — skip cleanly (never hard-fail) when E2E_TEST_PASSWORD
+  // isn't exported into the env: CI without the repo secret, or a local run
+  // without `E2E_TEST_PASSWORD=$(get-secret …)`. Per conditional-ci-gates: fail-open.
+  test.skip(!process.env.E2E_TEST_PASSWORD, 'Requires E2E_TEST_PASSWORD (real password login)');
+
   test('sign in with ?test=1 password seam, admin loads, zero console errors', async ({
     page,
   }) => {
     const password = process.env.E2E_TEST_PASSWORD;
-    expect(password).toBeTruthy();
 
     const errors: string[] = [];
     page.on('console', (msg) => {

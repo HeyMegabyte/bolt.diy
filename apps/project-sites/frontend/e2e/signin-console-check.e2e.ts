@@ -28,8 +28,10 @@ test.describe('Sign-in — zero console errors', () => {
   test('sign in with E2E_API_KEY, admin loads, zero console errors', async ({
     page,
   }) => {
+    // Needs the real API key seeded as a session — skip cleanly (don't hard-fail)
+    // when E2E_API_KEY isn't in the env. The other two tests here need no secret.
+    test.skip(!process.env.E2E_API_KEY, 'Requires E2E_API_KEY');
     const apiKey = process.env.E2E_API_KEY;
-    expect(apiKey).toBeTruthy();
 
     const errors: string[] = [];
     page.on('console', (msg) => {
