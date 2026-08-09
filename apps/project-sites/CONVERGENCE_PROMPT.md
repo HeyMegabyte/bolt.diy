@@ -187,9 +187,16 @@ The `_LOOP_LEDGER.md` is the authoritative feature inventory. Every open `[ ]` i
 - [ ] Agent-native positioning: MCP server at mcp.projectsites.dev, OAuth 2.1
 - [ ] No feature permanently-on at launch without a flag
 
-## Loop Termination
+## Loop Termination → now a PERMANENT MONITORING net (Brian 2026-08-06)
 
-Self-cancel when ALL DONE conditions are met across 2 consecutive passes with zero changes, OR when 5 consecutive passes produce 0 changes. Write `_CONVERGENCE_DONE` sentinel with timestamp. Maximum 300 passes.
+**The BUILD/convergence phase is DONE.** `_CONVERGENCE_DONE` was written 2026-07-27 (39 passes; all autonomous admin-verify gaps closed; remaining = Brian-gated: CF-API auth, Docker, pricing/`upgrade_moments`, infra decommissions, and the dedicated-session ag-grid→TanStack wave). Per `loop-driven-development`'s no-progress-streak stop, the build loop correctly ended when only human-held items remained.
+
+**This cron has since transitioned to a permanent prod-MONITORING net** (memory `convergence-loop-never-stops-until-everything-finished`, Brian 2026-08-06 — "the loop should basically never stop until everything is completely finished AND fully real-world tested on production"). So:
+
+- **Do NOT `CronDelete`, and do NOT write a new stop-sentinel.** The net stays armed to catch prod regressions (lying-empty, stale-deploy-revert). "Admin verified + ≥400 E2E" was ONE arc, never the terminal condition.
+- **Do NOT pad.** Re-reconciling a clean, unchanged HEAD, or adding marginal E2E breakpoints of the same passing check, is the FORBIDDEN padding (memory §16/§22 logs 5 fires wasted this way). A green→green no-op on an unchanged prod state is a STOP-grinding signal, not "keep working."
+- **Each monitoring fire:** (a) cheap liveness of the flagship data surfaces (`curl /api/network-analytics` populated + `/api/health` 200 — NOT a full Browserbase re-sweep every fire); (b) advance the real `[ ]` backlog ONLY where genuinely autonomous-bounded (currently ~none — the wire-me services are removed/premature/redundant/against-doctrine; ag-grid→TanStack is a dedicated session; infra + pricing are Brian-gated); (c) report honestly + surface the human-held blockers.
+- **Terminal condition (still):** the WHOLE product feature-complete + deployed + prod-E2E-green — not one sub-arc. The old "self-cancel after 5 zero-change passes / max 300 passes" backstop no longer applies (this is a monitoring net, not a build loop).
 
 ## Progress
 
