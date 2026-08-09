@@ -5,7 +5,7 @@
  * FAKE → REAL, and proves it against the LIVE deployed bundle.
  *
  * Convergence fix (commit "feat(admin): real AI FAB …"):
- *   - FAB returned a MOCK echo string → now streams the real `/api/dashboard/chat`
+ *   - FAB returned a MOCK echo string → now streams the real `/api/admin/ai/stream/chat`
  *     SSE copilot with route context + busy/error/offline handling.
  *   - Share-view used `window.alert()` → now a real ToastService toast.
  *   - The unreachable dead bulk-actions toolbar (+ its alert() stub) was removed.
@@ -86,7 +86,7 @@ test.describe('admin AI FAB + share — de-faked, verified on the live bundle', 
           const txt = await fetch(u).then((r) => r.text());
           scanned++;
           if (txt.includes('Echo for') || txt.includes('Production wires this')) hasMock = true;
-          if (txt.includes('/api/dashboard/chat')) hasRealEndpoint = true;
+          if (txt.includes('/api/admin/ai/stream/chat')) hasRealEndpoint = true;
         } catch {
           /* cross-origin or transient — skip */
         }
@@ -96,8 +96,9 @@ test.describe('admin AI FAB + share — de-faked, verified on the live bundle', 
 
     expect(scanned, 'should have scanned at least one JS chunk').toBeGreaterThan(0);
     expect(hasMock, 'the old FAB mock echo literals must be gone from production').toBe(false);
-    expect(hasRealEndpoint, 'the FAB must be wired to the real /api/dashboard/chat copilot').toBe(
-      true,
-    );
+    expect(
+      hasRealEndpoint,
+      'the FAB must be wired to the real /api/admin/ai/stream/chat copilot',
+    ).toBe(true);
   });
 });

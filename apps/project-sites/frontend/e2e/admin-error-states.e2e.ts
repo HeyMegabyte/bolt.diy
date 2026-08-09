@@ -49,27 +49,13 @@ test.describe('admin — 4-state-kit conversions (campaign regression guard)', (
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  // route → the bare error class we REMOVED (must never reappear).
-  // NOTE: the '/admin/pseo' entry was REMOVED 2026-08-08 — the pSEO route + component
-  // were deleted (no `path: 'pseo'` in app.routes.ts, no pseo.component.ts), so the test
-  // navigated to the admin catch-all (AdminNotFoundComponent) which renders NONE of the
-  // 4-state STATE_SELECTOR → deterministic false-red. content-freshness stays (live route).
-  const BARE_CLASS_GONE: { path: string; bare: string; label: string }[] = [
-    { path: '/admin/content-freshness', bare: '.cf-error', label: 'content-freshness (79e0a32)' },
-  ];
-
-  for (const r of BARE_CLASS_GONE) {
-    test(`${r.label}: renders a valid state + the bare error class is gone`, async ({ page }) => {
-      test.setTimeout(60000);
-      await seed(page);
-      await page.goto(r.path, { waitUntil: 'load' });
-      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-      // A valid 4-state container must appear (never a blank section).
-      await expect(page.locator(STATE_SELECTOR).first()).toBeVisible({ timeout: 20000 });
-      // The removed bare-error div must NOT exist.
-      await expect(page.locator(r.bare)).toHaveCount(0);
-    });
-  }
+  // NOTE: the route-driven BARE_CLASS_GONE loop (pSEO + content-freshness) was
+  // REMOVED 2026-08-08 — BOTH `/admin/pseo` and `/admin/content-freshness` are
+  // DELETED sections (no route + no component in src), so each navigated to the
+  // admin not-found catch-all which renders none of the 4-state STATE_SELECTOR →
+  // deterministic false-red. Their 4-state-kit conversions are historical (the
+  // sections no longer exist). The STATE_SELECTOR contract is still exercised by
+  // the live social-analytics + feature-flags tests below.
 
   test('social-analytics (d9ffebd): valid state, no bare loading/error text', async ({ page }) => {
     test.setTimeout(60000);

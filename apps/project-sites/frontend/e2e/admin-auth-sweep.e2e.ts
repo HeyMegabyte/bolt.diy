@@ -16,8 +16,8 @@
  * If any of these sections regresses to raw `HttpClient`, the Bearer header
  * disappears and this fails.
  *
- * Reliable hard-asserts: content-freshness + inbox both fire their `/api` call
- * unconditionally in `ngOnInit`. site-detail is best-effort (needs a real site
+ * Reliable hard-assert: the sites list (`listSites` → GET /api/sites) fires
+ * unconditionally on admin init. site-detail is best-effort (needs a real site
  * id reached via the /admin/sites list; skips cleanly when the test token
  * surfaces no site rows).
  *
@@ -36,7 +36,9 @@ async function seed(page: Page): Promise<void> {
         JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
       );
       localStorage.setItem('ps_feedback_dismissed', 'true');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }, KEY);
 }
 
@@ -46,15 +48,16 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  // Sections whose /api call fires UNCONDITIONALLY on load → hard-assert the
-  // Bearer header. NOTE: inbox was here, but round 111 (flag-gating) made it
-  // fire its /api/inbox/conversations fetch ONLY when unified_inbox is on — so
-  // with the flag off (test env) there's no request to assert against (that
-  // no-fetch-when-off behavior is now covered by admin-flag-gated.e2e.ts). When
-  // the flag IS on, inbox routes through the same ApiService as content-freshness
-  // (which still represents the Bearer-attachment guarantee here).
+  // A section whose /api call fires UNCONDITIONALLY on load → hard-assert the
+  // Bearer header. Uses the sites list (`ApiService.listSites()` → GET /api/sites),
+  // fired by AdminStateService on every admin init — the most reliable always-on
+  // org-scoped GET. (The prior `content-freshness` example was removed 2026-08-08:
+  // its route + component were DELETED, so /admin/content-freshness now hits the
+  // admin not-found catch-all and fires no /api/content/freshness request. inbox
+  // was likewise dropped when round 111 flag-gated its fetch — the flag-off
+  // no-fetch behavior is covered by admin-flag-gated.e2e.ts.)
   const ON_LOAD: { path: string; match: RegExp; label: string }[] = [
-    { path: '/admin/content-freshness', match: /\/api\/content\/freshness/, label: 'content-freshness' },
+    { path: '/admin/sites', match: /\/api\/sites/, label: 'sites (listSites via ApiService)' },
   ];
 
   for (const s of ON_LOAD) {
@@ -65,11 +68,15 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
       await page.goto(s.path, { waitUntil: 'load' });
       const req = await reqP;
       const auth = req.headers()['authorization'] ?? '';
-      expect(auth, `${s.label} must attach a Bearer token (regressed to raw HttpClient?)`).toMatch(BEARER);
+      expect(auth, `${s.label} must attach a Bearer token (regressed to raw HttpClient?)`).toMatch(
+        BEARER,
+      );
     });
   }
 
-  test('site-detail: tab /api requests carry Authorization: Bearer (or skip when no site row)', async ({ page }) => {
+  test('site-detail: tab /api requests carry Authorization: Bearer (or skip when no site row)', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     await seed(page);
     await page.goto('/admin/sites', { waitUntil: 'load' });
@@ -77,7 +84,10 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
 
     const siteLink = page.locator('a[href^="/admin/sites/"]').first();
     if ((await siteLink.count()) === 0) {
-      test.skip(true, 'No site rows from the test token — site-detail deep-link needs a real site id.');
+      test.skip(
+        true,
+        'No site rows from the test token — site-detail deep-link needs a real site id.',
+      );
       return;
     }
     const href = (await siteLink.getAttribute('href')) ?? '';
@@ -88,7 +98,10 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
     }
 
     // The Logs tab loads on mount → /api/sites/:id/logs/tail (+ /snapshots).
-    const reqP = page.waitForRequest((r) => /\/api\/sites\/[^/]+\/(logs\/tail|snapshots)/.test(r.url()), { timeout: 25000 });
+    const reqP = page.waitForRequest(
+      (r) => /\/api\/sites\/[^/]+\/(logs\/tail|snapshots)/.test(r.url()),
+      { timeout: 25000 },
+    );
     await page.goto(`/admin/sites/${id}`, { waitUntil: 'load' });
     const req = await reqP;
     const auth = req.headers()['authorization'] ?? '';
@@ -104,10 +117,22 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
   // wire at send-time regardless. If any regresses to raw HttpClient, the Bearer
   // vanishes and this fails.
   const SUBROUTES: { route: (id: string) => string; match: RegExp; label: string }[] = [
-    { route: (id) => `/admin/sites/${id}/mcp-server`, match: /\/api\/sites\/[^/]+\/mcp\/tokens/, label: 'site-mcp-server' },
-    { route: (id) => `/admin/sites/${id}/branches`, match: /\/api\/sites\/[^/]+\/branches/, label: 'site-branches' },
+    {
+      route: (id) => `/admin/sites/${id}/mcp-server`,
+      match: /\/api\/sites\/[^/]+\/mcp\/tokens/,
+      label: 'site-mcp-server',
+    },
+    {
+      route: (id) => `/admin/sites/${id}/branches`,
+      match: /\/api\/sites\/[^/]+\/branches/,
+      label: 'site-branches',
+    },
     { route: (id) => `/admin/swarm/${id}`, match: /\/api\/swarm\/[^/]+\/runs/, label: 'swarm' },
-    { route: (id) => `/admin/sites/${id}/copilot`, match: /\/api\/sites\/[^/]+\/copilot\/(config|sessions)/, label: 'site-copilot' },
+    {
+      route: (id) => `/admin/sites/${id}/copilot`,
+      match: /\/api\/sites\/[^/]+\/copilot\/(config|sessions)/,
+      label: 'site-copilot',
+    },
   ];
 
   async function firstSiteId(page: Page): Promise<string | null> {
@@ -123,12 +148,17 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
       test.setTimeout(60000);
       await seed(page);
       const id = await firstSiteId(page);
-      if (!id) { test.skip(true, 'No site rows from the test token — param sub-route needs a real site id.'); return; }
+      if (!id) {
+        test.skip(true, 'No site rows from the test token — param sub-route needs a real site id.');
+        return;
+      }
       const reqP = page.waitForRequest((r) => s.match.test(r.url()), { timeout: 25000 });
       await page.goto(s.route(id), { waitUntil: 'load' });
       const req = await reqP;
       const auth = req.headers()['authorization'] ?? '';
-      expect(auth, `${s.label} must attach a Bearer token (regressed to raw HttpClient?)`).toMatch(BEARER);
+      expect(auth, `${s.label} must attach a Bearer token (regressed to raw HttpClient?)`).toMatch(
+        BEARER,
+      );
     });
   }
 });
