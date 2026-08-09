@@ -48,6 +48,12 @@ test.describe('Clean sign-in — zero console errors', () => {
   test('sign-in via stub, admin panel loads, zero console errors', async ({
     page,
   }) => {
+    // A fake token 401s on the admin shell's REAL /api GETs (→ "Failed to load
+    // resource: 401" console errors + a bounce to /signin). Seed the real E2E_API_KEY
+    // so those calls succeed (200) — a genuinely signed-in, console-clean /admin.
+    // Skip when the key isn't exported (conditional-ci-gates: fail-open).
+    test.skip(!process.env.E2E_API_KEY, 'requires E2E_API_KEY for a valid /admin session');
+    const KEY = process.env.E2E_API_KEY as string;
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
@@ -55,7 +61,7 @@ test.describe('Clean sign-in — zero console errors', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     // Intercept /api/auth/me — return a valid user so the SPA sees
-    // an authenticated session without needing a real D1 row.
+    // an authenticated session immediately.
     await page.route('**/api/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
@@ -64,19 +70,13 @@ test.describe('Clean sign-in — zero console errors', () => {
       });
     });
 
-    // Seed ps_session before the SPA boots
+    // Seed ps_session with the REAL key before the SPA boots.
     await page.addInitScript(
-      (user: typeof TEST_USER) => {
-        localStorage.setItem(
-          'ps_session',
-          JSON.stringify({ token: 'e2e-stub-token', email: user.email }),
-        );
-        localStorage.setItem(
-          'ps_user',
-          JSON.stringify(user),
-        );
+      ({ user, key }: { user: typeof TEST_USER; key: string }) => {
+        localStorage.setItem('ps_session', JSON.stringify({ token: key, email: user.email }));
+        localStorage.setItem('ps_user', JSON.stringify(user));
       },
-      TEST_USER,
+      { user: TEST_USER, key: KEY },
     );
 
     await page.goto('/');

@@ -49,14 +49,20 @@ async function setupStubAuth(page: Parameters<Parameters<typeof test>[1]>[0]['pa
   await stubEmpty('**/api/audit/rows**', { data: [], total: 0 });
   await stubEmpty(/\/api\/admin\/domains\/summary(\?.*)?$/);
 
-  await page.addInitScript((user: typeof TEST_USER) => {
-    localStorage.setItem(
-      'ps_session',
-      JSON.stringify({ token: 'e2e-stub-token', email: user.data.email }),
-    );
-    localStorage.setItem('ps_user', JSON.stringify(user.data));
-    localStorage.setItem('ps_feedback_dismissed', 'true');
-  }, TEST_USER);
+  // Seed the REAL E2E_API_KEY as the token so any admin /api GET NOT stubbed above
+  // still succeeds (200) instead of 401-ing on a fake token — the individual-stub
+  // list is brittle (new admin endpoints appear + 401 → "Failed to load resource"
+  // console errors + a bounce to /signin). Falls back to the stub token when the
+  // key is absent (the caller test.skip's that case).
+  const realKey = process.env.E2E_API_KEY ?? 'e2e-stub-token';
+  await page.addInitScript(
+    ({ user, k }: { user: typeof TEST_USER; k: string }) => {
+      localStorage.setItem('ps_session', JSON.stringify({ token: k, email: user.data.email }));
+      localStorage.setItem('ps_user', JSON.stringify(user.data));
+      localStorage.setItem('ps_feedback_dismissed', 'true');
+    },
+    { user: TEST_USER, k: realKey },
+  );
 }
 
 /** Filter benign console noise that's expected in a headless browser. */
@@ -117,6 +123,9 @@ test.describe('Sign-in — zero console errors', () => {
   });
 
   test('stub-auth → /admin loads with no console errors', async ({ page }) => {
+    // setupStubAuth seeds the real key so unstubbed admin /api GETs 200 (not 401).
+    // Skip cleanly when the key is absent (conditional-ci-gates: fail-open).
+    test.skip(!process.env.E2E_API_KEY, 'requires E2E_API_KEY for a valid /admin session');
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());

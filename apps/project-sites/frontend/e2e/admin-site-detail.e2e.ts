@@ -51,17 +51,24 @@ test.describe('admin — per-site detail reliability (prod lock)', () => {
     });
   }
 
-  test('swarm: when unavailable for the site, Start Swarm + Connect-stream are disabled (no dead button)', async ({ page }) => {
+  test('swarm: buttons are never dead — disabled-with-reason when unavailable, enabled when available', async ({ page }) => {
     await seed(page);
     await page.goto(`/admin/swarm/${SID}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(5000);
-    const body = await page.locator('body').innerText();
-    if (/isn.t available|not available/i.test(body)) {
-      await expect(page.locator('.swarm-header__start')).toBeDisabled();
+    const start = page.locator('.swarm-header__start');
+    await expect(start).toBeVisible({ timeout: 15000 });
+    // Detect availability from the button's actual disabled STATE — NOT body.innerText:
+    // when swarm is unavailable the "not available" reason lives in the button's
+    // title/aria-label ATTRIBUTES, which innerText never surfaces (that mis-detection
+    // wrongly took the "available" branch for the E2E org's site, whose swarm is off).
+    if (await start.isDisabled()) {
+      // Unavailable → the disabled button MUST carry a human reason (proving it's a
+      // deliberate affordance, not a dead button); Connect-stream is disabled too.
+      await expect(start).toHaveAttribute('title', /not available|isn.t available/i);
       await expect(page.locator('.swarm-preview__connect')).toBeDisabled();
     } else {
-      // Swarm IS available for this site → the launch button must be enabled.
-      await expect(page.locator('.swarm-header__start')).toBeEnabled();
+      // Available → the launch button is enabled + clickable.
+      await expect(start).toBeEnabled();
     }
   });
 });
