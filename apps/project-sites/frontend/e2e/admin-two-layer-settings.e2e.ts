@@ -6,12 +6,14 @@ import { test, expect, type Page } from '@playwright/test';
  *
  *  - System Admin (LAYER 1, platform-ops flags) is operator-only — hidden in the
  *    nav + /admin/feature-flags redirects to /admin/site-features for non-operators.
- *  - The retired Features Hub (/admin/features) redirects to /admin/site-features.
+ *  - The retired Features Hub (/admin/features) has NO route → the admin `**`
+ *    catch-all renders the friendly not-found (it was NOT given a redirect,
+ *    unlike seo/mcp/webhooks; the owner Features layer lives at /admin/site-features).
  *  - Webhooks moved under Settings → /admin/settings#webhooks (legacy
  *    /admin/webhooks redirects there).
- *  - Deliverability moved under Settings → the "Email" tab /admin/settings#email
- *    (allowance card + bring-your-own-SMTP affordance + embedded deliverability);
- *    legacy /admin/deliverability redirects there.
+ *  - Email Deliverability is its OWN standalone route (/admin/deliverability →
+ *    AdminDeliverabilityComponent, the #12 SPF/DKIM/DMARC wizard) — it was pulled
+ *    back OUT of Settings, so it no longer redirects to /admin/settings#email.
  *
  * Seeds `ps_session` from E2E_API_KEY as `test@megabyte.space` — a NON-operator
  * identity (not in SYS_ADMIN_EMAILS), so this exercises the locked-down branch.
@@ -61,10 +63,14 @@ test.describe('admin — two-layer feature plane + Settings consolidation (prod 
     expect(page.url()).toContain('/admin/site-features');
   });
 
-  test('the retired Features Hub redirects to the owner Features layer', async ({ page }) => {
+  test('the retired Features Hub (/admin/features) degrades gracefully to the admin not-found', async ({ page }) => {
     await seedNonOperator(page);
-    await goExpectingRedirect(page, '/admin/features', '/admin/site-features');
-    expect(page.url()).toContain('/admin/site-features');
+    // /admin/features was RETIRED with NO redirect (unlike seo/mcp/webhooks/ai-chat,
+    // which redirect to their real surfaces). It has no route → the admin `**`
+    // catch-all renders the friendly not-found (never a white screen). The owner
+    // Features layer lives at /admin/site-features (covered by the LAYER 1 test).
+    await go(page, '/admin/features');
+    await expect(page.locator('[data-testid="admin-not-found"]')).toBeVisible({ timeout: 15000 });
   });
 
   test('Webhooks lives under Settings — /admin/webhooks redirects to the Webhooks tab', async ({ page }) => {
@@ -76,17 +82,14 @@ test.describe('admin — two-layer feature plane + Settings consolidation (prod 
     await expect(page.locator('button[role="tab"]', { hasText: 'Webhooks' })).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('Email tab consolidates allowance + SMTP affordance + deliverability — /admin/deliverability redirects here', async ({ page }) => {
+  test('Email Deliverability is its own live section — /admin/deliverability renders the wizard (no redirect)', async ({ page }) => {
     await seedNonOperator(page);
-    await goExpectingRedirect(page, '/admin/deliverability', '/admin/settings');
-    expect(page.url()).toContain('/admin/settings');
-    await expect(page.locator('[data-testid="settings-email-panel"]')).toBeVisible();
-    // Free-send allowance card surfaces the shared sender.
-    await expect(page.locator('[data-testid="email-allowance-card"]')).toContainText('noreply@projectsites.dev');
-    // The bring-your-own-SMTP control is a graceful, disabled coming-soon affordance — never a live dead button.
-    const smtp = page.locator('[data-testid="email-smtp-configure"]');
-    await expect(smtp).toBeDisabled();
-    // Deliverability (SPF/DKIM/DMARC) is embedded under the same tab.
+    // Deliverability was pulled back OUT of Settings into a standalone route (#12
+    // Email Deliverability Wizard: app.routes.ts `path: 'deliverability'` →
+    // AdminDeliverabilityComponent, no sysAdminGuard) — it no longer redirects to
+    // /admin/settings. Assert the URL stays put + the component mounted.
+    await go(page, '/admin/deliverability');
+    expect(page.url()).toContain('/admin/deliverability');
     await expect(page.locator('app-admin-deliverability')).toHaveCount(1);
   });
 });
