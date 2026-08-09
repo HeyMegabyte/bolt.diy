@@ -613,6 +613,14 @@ export const routes: Routes = [
       import('./pages/integrations/integrations.component').then((m) => m.IntegrationsComponent),
   },
   {
+    // Public product roadmap — Trello-style board (Planned / In Progress / Shipped)
+    // backed by GET /api/public/roadmap. The API + MetaService `roadmap` entry +
+    // changelog announcement all pre-existed; this route was the missing piece
+    // (/roadmap previously soft-404'd to the not-found page). Lazy-loaded.
+    path: 'roadmap',
+    loadComponent: () => import('./pages/roadmap/roadmap.component').then((m) => m.RoadmapComponent),
+  },
+  {
     // Public press kit — 8-slide 1920×1080 cinematic picture walkthrough,
     // brand assets, founder bio, fact sheet, press releases, media contacts.
     // Lazy-loaded so press traffic doesn't pay for the walkthrough chunk
