@@ -63,7 +63,10 @@ const STATE_SELECTOR = [
   '.section-h',
   '[data-testid="site-mcp-server"]',
   '[data-testid="apps-instances"]',
+  '[data-testid="logs-dashboard"]',
+  '[data-testid="sf-root"]',
   // broad fallback — any heading means the section painted something real
+  'h1',
   'h2',
   'h3',
 ].join(', ');
@@ -175,17 +178,13 @@ test.describe('admin — section-states round-1 coverage', () => {
     await page.goto('/admin/logs', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
 
-    // Flag off → worker 404s → the component must show an honest disabled-state
-    // card (with a Feature Flags link). Flag on → the search bar renders. Either
-    // way the page must NOT be a silent blank (the bug this round fixed: loadCosts
-    // swallowed the 404 and left an empty page).
-    await expect(
-      page
-        .getByText(/Log Explorer isn.t enabled/i)
-        .or(page.locator('.search-bar'))
-        .or(page.locator('.empty-card'))
-        .first(),
-    ).toBeVisible({ timeout: 20000 });
+    // The logs surface is now the UNIFIED tabbed dashboard (Audit Trail + Log
+    // Explorer tabs — logs-dashboard.component, `?tab=audit|explorer`). The old
+    // standalone log-explorer selectors (.search-bar / .empty-card / "Log Explorer
+    // isn't enabled") are gone. The durable contract this test guards is unchanged:
+    // /admin/logs must NEVER be a silent blank (the bug this round fixed: loadCosts
+    // swallowed a 404 and left an empty page). Assert the dashboard shell renders.
+    await expect(page.locator('[data-testid="logs-dashboard"]')).toBeVisible({ timeout: 20000 });
 
     const bodyLen = await page.evaluate(() => (document.body.textContent ?? '').trim().length);
     expect(bodyLen, 'logs-explorer must render non-empty content').toBeGreaterThan(30);
@@ -196,44 +195,68 @@ test.describe('admin — section-states round-1 coverage', () => {
   test('smoke — 12 core admin routes: sidebar alive + valid state + no pageerror', async ({ page }) => {
     test.setTimeout(180_000);
 
+    // Real owner-facing content sections that render a section container for the
+    // non-super-admin E2E token. Deliberately EXCLUDED (they can't render a section
+    // container for this token, so they belong in dedicated specs, not this smoke):
+    //   • /admin/feature-flags — operator-only; sysAdminGuard redirects a
+    //     non-super-admin to /admin/site-features.
+    //   • /admin/media — redirects to /admin/editor (the bolt iframe "Booting
+    //     workspace" card has NO section container — the exact reason
+    //     /admin/dashboard was already excluded).
+    //   • /admin/seo — redirects to /admin/site-features (redundant with it).
     const ROUTES: string[] = [
-      // NOTE: /admin/dashboard is a redirect alias to the Editor (bolt iframe
-      // "Booting workspace" card, no section container) — exercise a real
-      // content-rich section instead so the smoke asserts a true render.
-      '/admin/feature-flags',
       '/admin/sites',
       '/admin/analytics',
       '/admin/billing',
       '/admin/audit',
       '/admin/snapshots',
       '/admin/domains',
-      '/admin/seo',
-      '/admin/media',
       '/admin/forms',
       '/admin/voice',
       '/admin/settings',
+      '/admin/user',
+      '/admin/logs',
+      '/admin/site-features',
     ];
 
+    // Self-diagnosing: collect EVERY failing route (not just the first) so a
+    // regression names the exact section(s) rather than an opaque timeout.
+    const failures: string[] = [];
     for (const route of ROUTES) {
-      // Fresh error collector per route so failures are route-specific.
       const pageErrors: string[] = [];
-      page.once('pageerror', (e) => pageErrors.push(`${route}: ${e.message}`));
+      page.once('pageerror', (e) => pageErrors.push(e.message));
 
       await seed(page);
       await page.goto(route, { waitUntil: 'load' });
 
       // (a) Sidebar must be alive.
-      await expect(
-        page.locator('.admin-sidebar').first(),
-      ).toBeVisible({ timeout: 30000 });
+      const sidebarOk = await page
+        .locator('.admin-sidebar')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!sidebarOk) {
+        failures.push(`${route}: sidebar never visible`);
+        continue;
+      }
 
-      // (b) A valid state container OR real heading text must appear within 20s.
-      await expect(
-        page.locator(STATE_SELECTOR).first(),
-      ).toBeVisible({ timeout: 20000 });
+      // (b) A valid state container OR real heading must appear within 20s.
+      const stateOk = await page
+        .locator(STATE_SELECTOR)
+        .first()
+        .waitFor({ state: 'visible', timeout: 20000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!stateOk) {
+        failures.push(`${route}: no valid state container rendered`);
+        continue;
+      }
 
       // (c) No pageerror.
-      expect(pageErrors, `Pageerror on ${route}: ${pageErrors.join('; ')}`).toEqual([]);
+      if (pageErrors.length) failures.push(`${route}: pageerror — ${pageErrors.join('; ')}`);
     }
+
+    expect(failures, `smoke failures:\n${failures.join('\n')}`).toEqual([]);
   });
 });
