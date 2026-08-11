@@ -35,7 +35,7 @@ import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
-import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
+import { EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { type DisclosureMode } from './feature-flags/mode-switcher.component';
@@ -108,7 +108,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
   imports: [
     CommonModule, FormsModule, RouterLink, RevealDirective, A11yModule,
     HlmInputDirective, HlmTablistDirective,
-    SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
+    EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
     FlagBadgeRowComponent, FlagAuditTimelineComponent,
     FeatureDossierComponent,
   ],
@@ -176,9 +176,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
         <span class="sr-only" role="status" aria-live="polite" data-testid="ff-filter-status">{{ filterAnnouncement() }}</span>
       </div>
 
-      @if (loading()) {
-        <app-skeleton variant="card" [rows]="6" [cardMinPx]="360" label="Loading flags from the worker…" />
-      } @else if (error()) {
+      @if (error()) {
         <app-error-card
           title="Couldn't load feature flags"
           [message]="error()!"

@@ -1313,15 +1313,7 @@
            (analytics, forms, billing) leaves the rest of the admin shell
            working. Captures via the GlobalErrorHandler bus. -->
         <app-section-error-boundary>
-          <!-- Skeleton only while lazy chunk loads — hidden once section component mounts.
-             The section components own their data-loading skeleton; this shell skeleton
-             is purely for the route-transition gap. Previous unconditional render caused
-             skeletons to persist indefinitely when a section component failed to mount
-             (e.g. auth race condition on first load). -->
-          @if (isSectionLoading()) {
-            <app-section-skeleton />
-          }
-          <router-outlet (activate)="onSectionActivated()"></router-outlet>
+          <router-outlet></router-outlet>
         </app-section-error-boundary>
 
         <!-- Tier 1 #6: "Jump back" floating button. Shows after the first

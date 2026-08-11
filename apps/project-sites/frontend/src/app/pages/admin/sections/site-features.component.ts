@@ -28,7 +28,7 @@ import { HlmInputDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
-import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
+import { EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { type DisclosureMode } from './feature-flags/mode-switcher.component';
@@ -180,7 +180,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterLink, RevealDirective, HlmInputDirective,
-    SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
+    EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
     FlagBadgeRowComponent, FeatureDossierComponent,
   ],
   template: `
@@ -216,11 +216,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
         <span class="sr-only" role="status" aria-live="polite">{{ filterAnnouncement() }}</span>
       </div>
 
-      @if (loading()) {
-        <!-- cardMinPx 340 matches the sf-grid minmax(340px) so the skeleton
-             renders the SAME column count as the real cards (was 4-vs-2). -->
-        <app-skeleton variant="card" [rows]="6" [cardMinPx]="340" label="Loading your site features…" />
-      } @else if (error()) {
+      @if (error()) {
         <app-error-card
           title="Couldn't load features"
           [message]="error()!"

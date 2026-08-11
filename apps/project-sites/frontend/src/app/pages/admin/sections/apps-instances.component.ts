@@ -20,7 +20,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmInputDirective } from '../../../ui';
-import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
+import { ErrorCardComponent } from '../../../components/states';
 import { APPS_CATALOG, findApp, type CatalogApp } from './apps-catalog.data';
 
 type InstanceStatus = 'provisioning' | 'running' | 'error' | 'stopped';
@@ -643,7 +643,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 @Component({
   selector: 'app-admin-apps-instance-detail',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, RevealDirective, HlmInputDirective, SkeletonComponent, ErrorCardComponent],
+  imports: [DatePipe, FormsModule, RouterLink, RevealDirective, HlmInputDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -767,8 +767,6 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
             </div>
           </aside>
         </div>
-      } @else if (loading()) {
-        <app-skeleton variant="card" [rows]="4" label="Loading instance…" />
       } @else if (loadFailed()) {
         <app-error-card
           title="Couldn't load this instance"

@@ -18,7 +18,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
+import { ErrorCardComponent } from '../../../components/states';
 import { BestTimeToPostComponent } from './best-time-to-post.component';
 import { BestPostsComponent } from './best-posts.component';
 import {
@@ -61,7 +61,7 @@ interface AggregateResponse {
   selector: 'app-social-analytics',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, SkeletonComponent, ErrorCardComponent, BestTimeToPostComponent, BestPostsComponent],
+  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, ErrorCardComponent, BestTimeToPostComponent, BestPostsComponent],
   template: `
     <section class="page" appReveal data-testid="social-analytics-section">
       <header class="page-hd">
@@ -80,9 +80,7 @@ interface AggregateResponse {
         </nav>
       </header>
 
-      @if (loading()) {
-        <app-skeleton variant="table" [rows]="6" [columns]="5" label="Loading social analytics" />
-      } @else if (error()) {
+      @if (error()) {
         <app-error-card
           title="Couldn't load social analytics"
           [message]="error()"

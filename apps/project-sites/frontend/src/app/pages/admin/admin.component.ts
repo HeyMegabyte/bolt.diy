@@ -17,7 +17,6 @@ import { CommandPaletteComponent } from './command-palette.component';
 import { ShortcutsOverlayComponent } from '../../components/shortcuts-overlay/shortcuts-overlay.component';
 import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-widget.component';
 import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
-import { SectionSkeletonComponent } from '../../components/section-skeleton/section-skeleton.component';
 import { HoverPreloadingStrategy } from '../../services/hover-preloading-strategy';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
@@ -58,7 +57,7 @@ export const G_CHORD_ROUTES: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, SectionSkeletonComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
   providers: [AdminStateService, provideHlmTooltip()],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -122,10 +121,6 @@ export class AdminComponent implements OnInit, OnDestroy {
   /** Previous route path — powers the "Jump back" floating button (Tier 1 #6). */
   previousRoute = signal<{ label: string; url: string } | null>(null);
   isEditorRoute = signal(false);
-  /** True while a lazy-loaded section chunk is loading — gates the shell skeleton. */
-  isSectionLoading = signal(true);
-  /** Safety timeout — auto-hides skeleton if component never activates. */
-  private skeletonTimeout: ReturnType<typeof setTimeout> | null = null;
   currentSection = signal('Editor');
   /** Full current admin URL — feeds the real-name title/announcer (P2). */
   readonly currentUrl = signal('');
@@ -227,22 +222,10 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
   closeShareLink(): void { this.shareLinkOpen.set(false); }
 
-  /** Called by (activate) on router-outlet — lazy chunk resolved, hide the shell skeleton. */
-  onSectionActivated(): void {
-    if (this.skeletonTimeout) { clearTimeout(this.skeletonTimeout); this.skeletonTimeout = null; }
-    this.isSectionLoading.set(false);
-  }
-
   private updateRouteState(url: string): void {
     // `/admin` is the DASHBOARD, not the editor — only `/admin/editor[/...]`
     // lifts the persistent bolt iframe into place. See isEditorPath().
     this.isEditorRoute.set(isEditorPath(url));
-    // Show skeleton during lazy chunk load for next section
-    this.isSectionLoading.set(true);
-    // Safety net: auto-hide skeleton after 10s if component never activates
-    // (lazy chunk 404, JS error, redirect without activation, etc.)
-    if (this.skeletonTimeout) clearTimeout(this.skeletonTimeout);
-    this.skeletonTimeout = setTimeout(() => { this.isSectionLoading.set(false); }, 10_000);
     // Mobile: auto-close the overlay drawer after navigating so the user sees
     // the section they just picked instead of the nav covering it.
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -323,7 +306,6 @@ export class AdminComponent implements OnInit, OnDestroy {
   });
 
   ngOnDestroy(): void {
-    if (this.skeletonTimeout) clearTimeout(this.skeletonTimeout);
     this.routerSub?.unsubscribe();
     this.shareLinkSub?.unsubscribe();
     this.state.stopPolling();

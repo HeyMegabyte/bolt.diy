@@ -7,8 +7,7 @@ import { isSysAdminEmail } from '../../pages/admin/sys-admin';
  * Shared flag-gate notice — the calm cyan "this section is behind a platform
  * feature flag (currently disabled)" banner that ~14 admin sections previously
  * hand-rolled as a near-identical 200-char `<div>`. Part of the cockpit state
- * kit ({@link SkeletonComponent} / {@link EmptyStateComponent} /
- * {@link ErrorCardComponent}).
+ * kit ({@link EmptyStateComponent} / {@link ErrorCardComponent}).
  *
  * Renders a "PLATFORM FLAG" eyebrow + cyan lock glyph, the disabled-feature
  * sentence, and a SPA link to the operator's **Feature Flags** layer (renamed

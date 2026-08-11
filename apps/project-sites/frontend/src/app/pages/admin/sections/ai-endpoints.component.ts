@@ -52,7 +52,7 @@ import { DialogShellComponent } from '../../../components/dialog-shell/dialog-sh
 import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
+import { ErrorCardComponent } from '../../../components/states';
 import { CharCountComponent } from '../../../components/char-count/char-count.component';
 import {
   LANGUAGE_OPTIONS,
@@ -83,9 +83,7 @@ interface InlineEdit {
     CommonModule,
     FormsModule,
     DatePipe,
-    EmptyStateComponent,
-    SkeletonComponent,
-    ErrorCardComponent,
+    EmptyStateComponent,    ErrorCardComponent,
     IdeComponent,
     FullscreenOverlayComponent,
     DialogShellComponent,
@@ -164,11 +162,7 @@ interface InlineEdit {
       }
 
       <section class="card p-0 overflow-visible" appReveal data-testid="ai-endpoints-list-card">
-        @if (loading()) {
-          <div class="p-4">
-            <app-skeleton variant="card" [rows]="4" label="Loading AI agents…" />
-          </div>
-        } @else if (loadError()) {
+        @if (loadError()) {
           <app-error-card
             data-testid="ai-endpoints-load-error"
             class="block p-4 m-4"

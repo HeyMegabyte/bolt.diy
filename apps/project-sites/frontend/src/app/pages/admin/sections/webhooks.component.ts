@@ -17,7 +17,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
-import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
+import { EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
 
 /** Mirrors the worker's WEBHOOK_EVENT_TYPES allowlist. */
 const EVENT_TYPES = ['site.published', 'form.submitted', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -42,7 +42,7 @@ interface Delivery {
 @Component({
   selector: 'app-admin-webhooks',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -121,9 +121,7 @@ interface Delivery {
         }
 
         <!-- List -->
-        @if (loading()) {
-          <app-skeleton variant="table" [rows]="3" />
-        } @else if (!error() && !flagDisabled() && endpoints().length === 0) {
+        @if (!error() && !flagDisabled() && endpoints().length === 0) {
           <app-empty-state icon="↪" title="No webhook endpoints"
             message="Add an endpoint above to receive a signed callback whenever your selected events fire." />
         } @else if (endpoints().length > 0) {
