@@ -14,7 +14,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
-import { SavingsCalculatorComponent } from './savings-calculator.component';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -59,7 +58,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
 @Component({
   selector: 'app-admin-apps',
   standalone: true,
-  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective, HlmTablistDirective, SavingsCalculatorComponent, ...BrnTooltipImports],
+  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -208,9 +207,6 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
         }
         <span class="sr-only" role="status" aria-live="polite" data-testid="apps-result-status">{{ resultAnnouncement() }}</span>
       </div>
-
-      <!-- A12 — replace-your-SaaS savings calculator (above the grid, filter-independent) -->
-      <app-savings-calculator />
 
 
       <!-- ─────────────────── GRID ─────────────────── -->
