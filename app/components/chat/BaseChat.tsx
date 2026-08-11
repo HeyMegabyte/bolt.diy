@@ -21,8 +21,6 @@ import { getApiKeysFromCookies } from './APIKeyManager';
 import Cookies from 'js-cookie';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import styles from './BaseChat.module.scss';
-import overlayStyles from './ChatOverlay.module.scss';
-import { useOverlayState } from '~/lib/hooks/useOverlayState';
 import type { ProviderInfo } from '~/types/model';
 import type { ActionAlert, SupabaseAlert, DeployAlert, LlmErrorAlertType } from '~/types/actions';
 import DeployChatAlert from '~/components/deploy/DeployAlert';
@@ -503,20 +501,14 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     };
 
-    const overlay = useOverlayState({
-      isStreaming,
-      hasError: !!actionAlert || !!llmErrorAlert,
-    });
-
     const baseChat = (
       <div
         ref={ref}
         className={classNames(styles.BaseChat, 'relative flex h-full w-full overflow-hidden')}
         data-chat-visible={showChat}
-        data-overlay-state={chatStarted ? overlay.overlayState : undefined}
       >
-        {/* Workbench — full-width when chatStarted, behind the overlay */}
-        <div className={classNames('flex-1 h-full', { 'w-full absolute inset-0': chatStarted })}>
+        {/* Workbench — flex child to the RIGHT of the persistent chat panel */}
+        <div className="flex-1 h-full min-w-0">
           <ClientOnly>
             {() => (
               <Suspense fallback={null}>
@@ -532,10 +524,19 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
         {/* Chat + prompt — sidebar when !chatStarted, floating overlay when chatStarted */}
         {chatStarted ? (
-          <>
-            {/* ── Floating overlay mode ── */}
-            <div className={overlayStyles['ChatOverlay-backdrop']} />
-            <div className={overlayStyles['ChatOverlay-chat']} onMouseEnter={overlay.overlayProps.onMouseEnter}>
+          <div
+            className={classNames(
+              styles.Chat,
+              'flex flex-col h-full w-full order-first shrink-0 lg:w-[420px] lg:min-w-[360px] border-r border-bolt-elements-borderColor overflow-hidden',
+            )}
+          >
+            {/* ── Persistent chat panel, docked left of the workbench/preview ── */}
+            <StickToBottom
+              className="pt-2 px-2 sm:px-4 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
+              resize="smooth"
+              initial="smooth"
+            >
+              <StickToBottom.Content className="flex flex-col gap-4 relative">
               <Messages
                 className="flex flex-col w-full max-w-chat mx-auto"
                 messages={messages}
@@ -547,14 +548,10 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 model={model}
                 addToolResult={addToolResult}
               />
-            </div>
-            <div
-              className={overlayStyles['ChatOverlay-prompt']}
-              onMouseEnter={overlay.overlayProps.onMouseEnter}
-              onMouseLeave={overlay.overlayProps.onMouseLeave}
-              onFocusCapture={overlay.overlayProps.onFocus}
-              onBlurCapture={overlay.overlayProps.onBlur}
-            >
+                <ScrollToBottom />
+              </StickToBottom.Content>
+            </StickToBottom>
+            <div className="flex flex-col gap-2 w-full px-2 sm:px-4 pb-4 z-prompt">
               <div className="flex flex-col gap-2 w-full max-w-chat mx-auto">
                 <div className="flex flex-col gap-2">
                   {deployAlert && (
@@ -650,7 +647,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 />
               </div>
             </div>
-          </>
+          </div>
         ) : (
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
             {/* ── Sidebar mode (pre-chat) ── */}
