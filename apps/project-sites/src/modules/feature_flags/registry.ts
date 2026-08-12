@@ -100,6 +100,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
+  native_editor: {
+    key: 'native_editor',
+    description:
+      'Phase-1 native Angular port of the bolt.diy editor at admin/editor-native (chat skeleton + 3-provider LLM streaming + D1 chat persistence). When OFF (default) the route sends users to the classic iframe editor; developers preview via the ?native=1 opt-in. Promote only after the workbench (file tree + CodeMirror + WebContainer + preview) lands per the editor-native README.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   site_analytics: {
     key: 'site_analytics',
     description:
