@@ -2,7 +2,6 @@ import { inject } from '@angular/core';
 import { type Routes, Router } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { sysAdminGuard } from './guards/sys-admin.guard';
-import { featureFlagGuard } from './services/feature-flag.service';
 
 export const routes: Routes = [
   {
@@ -116,22 +115,6 @@ export const routes: Routes = [
         path: 'editor',
         loadComponent: () =>
           import('./pages/admin/sections/editor.component').then((m) => m.AdminEditorComponent),
-      },
-      {
-        // Phase-1 native Angular port of the bolt.diy editor. Server-side
-        // flag-gated via `native_editor` flag — admin can killswitch without
-        // redeploy. The guard ADMITS a developer local opt-in (`?native=1` or
-        // `localStorage['editor.native']`) so the dark feature stays previewable
-        // by URL; everyone else redirects to
-        // /admin/feature-flags?disabled=native_editor when the flag is off.
-        path: 'editor-native',
-        canActivate: [
-          featureFlagGuard('native_editor', { localOptInKey: 'editor.native', queryParam: 'native' }),
-        ],
-        loadComponent: () =>
-          import('./editor-native/pages/editor-native-page.component').then(
-            (m) => m.EditorNativePageComponent,
-          ),
       },
       { path: 'dashboard', redirectTo: '', pathMatch: 'full' },
       {

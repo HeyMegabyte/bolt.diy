@@ -41,7 +41,6 @@ import { renderLogger } from '~/utils/logger';
 import { DataPanel } from './DataPanel';
 import { EditorPanel } from './EditorPanel';
 import { FunctionsPanel } from './FunctionsPanel';
-import { MediaPanel } from './MediaPanel';
 import { Preview } from './Preview';
 import { SettingsPanel } from './SettingsPanel';
 import { StatusBar } from './StatusBar.client';
@@ -71,7 +70,6 @@ const viewTransition = { ease: cubicEasingFn };
 const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
   { value: 'code', text: 'Code', icon: 'i-ph:code-duotone' },
   { value: 'preview', text: 'Preview', icon: 'i-ph:eye-duotone' },
-  { value: 'media', text: 'Media', icon: 'i-ph:image-duotone' },
   { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
   { value: 'data', text: 'Data', icon: 'i-ph:chart-bar-duotone' },
   { value: 'settings', text: 'Settings', icon: 'i-ph:gear-duotone' },
@@ -396,10 +394,6 @@ export const Workbench = memo(
                     {/* Preview — read-only rendered output */}
                     <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
                       <Preview setSelectedElement={setSelectedElement} />
-                    </View>
-                    {/* Media — site-scoped media manager */}
-                    <View initial={{ x: '100%' }} animate={{ x: getViewX('media', selectedView) }}>
-                      <MediaPanel />
                     </View>
                     {/* Functions — Workers/functions manager */}
                     <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>

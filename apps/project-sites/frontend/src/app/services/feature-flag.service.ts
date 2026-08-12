@@ -67,46 +67,15 @@ export class FeatureFlagService {
  * the flag is on; redirects to `/admin/feature-flags?disabled=<key>` when
  * off. Fail-safe on network error (treats as off).
  *
- * Optional `opts` enable a **developer local opt-in** so a dark feature stays
- * previewable by URL without flipping the server flag (and without exposing it
- * to anyone who doesn't opt in). When `opts.queryParam` is present in the URL
- * (`?<param>=1`) OR `opts.localOptInKey` is `'true'` in `localStorage`, the
- * guard admits immediately, bypassing the server flag. The `queryParam` match
- * persists the `localOptInKey` (done inside the target component) so later
- * visits without the param still resolve.
- *
  * @example
  *   {
- *     path: 'editor-native',
- *     canActivate: [featureFlagGuard('native_editor', {
- *       localOptInKey: 'editor.native', queryParam: 'native',
- *     })],
- *     loadComponent: () => import('./editor-native/...').then(m => m.X),
+ *     path: 'beta-feature',
+ *     canActivate: [featureFlagGuard('beta_feature')],
+ *     loadComponent: () => import('./beta/...').then(m => m.X),
  *   }
  */
-export function featureFlagGuard(
-  key: string,
-  opts?: { localOptInKey?: string; queryParam?: string },
-): CanActivateFn {
-  return (route) => {
-    // Developer/local opt-in bypass: a declared opt-in that's active admits
-    // WITHOUT the server flag so the dark feature stays previewable by URL.
-    // Everyone who doesn't opt in still hits the flag gate below. The target
-    // component is expected to re-honor the same opt-in for its own rendering.
-    if (opts?.queryParam || opts?.localOptInKey) {
-      const qp = opts.queryParam ? route.queryParamMap.get(opts.queryParam) : null;
-      const queryOptIn = qp === '1' || qp === 'true';
-      let storedOptIn = false;
-      if (opts.localOptInKey) {
-        try {
-          storedOptIn = localStorage.getItem(opts.localOptInKey) === 'true';
-        } catch {
-          // Private mode / SSR — no local opt-in available.
-        }
-      }
-      if (queryOptIn || storedOptIn) return of(true);
-    }
-
+export function featureFlagGuard(key: string): CanActivateFn {
+  return () => {
     const svc = inject(FeatureFlagService);
     const router = inject(Router);
     return svc.isOn(key).pipe(

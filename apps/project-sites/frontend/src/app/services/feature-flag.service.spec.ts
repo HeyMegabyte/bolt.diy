@@ -27,7 +27,7 @@ describe('FeatureFlagService (gate resolution + fail-safe)', () => {
 
   it('resolves ON when the flag is enabled', (done) => {
     const { svc } = setup(jasmine.createSpy('get').and.returnValue(of({ resolved: { enabled: true } })));
-    svc.isOn('native_editor').subscribe((on) => { expect(on).toBe(true); done(); });
+    svc.isOn('token_burn_meter').subscribe((on) => { expect(on).toBe(true); done(); });
   });
 
   it('resolves OFF when disabled or the shape is missing', (done) => {
@@ -84,55 +84,5 @@ describe('FeatureFlagService (gate resolution + fail-safe)', () => {
     tick();
     expect(result).toBe(tree);
     expect(createUrlTree).toHaveBeenCalledWith(['/admin/feature-flags'], { queryParams: { disabled: 'beta_x' } });
-  }));
-
-  it('guard admits via the ?native=1 dev opt-in WITHOUT hitting the server flag (dark feature stays previewable)', fakeAsync(() => {
-    const get = jasmine.createSpy('get'); // must NEVER be called — the opt-in short-circuits
-    setup(get);
-    const route = { queryParamMap: { get: (k: string) => (k === 'native' ? '1' : null) } };
-    let result: boolean | UrlTree | undefined;
-    TestBed.runInInjectionContext(() => {
-      (featureFlagGuard('native_editor', { localOptInKey: 'editor.native', queryParam: 'native' })(route as never, null as never) as { subscribe: (f: (v: boolean | UrlTree) => void) => void })
-        .subscribe((v) => (result = v));
-    });
-    tick();
-    expect(result).toBe(true);
-    expect(get).not.toHaveBeenCalled();
-  }));
-
-  it('guard admits via localStorage[editor.native]=true when the ?native param is absent', fakeAsync(() => {
-    const get = jasmine.createSpy('get');
-    setup(get);
-    spyOn(localStorage, 'getItem').and.callFake((k: string) => (k === 'editor.native' ? 'true' : null));
-    const route = { queryParamMap: { get: () => null } };
-    let result: boolean | UrlTree | undefined;
-    TestBed.runInInjectionContext(() => {
-      (featureFlagGuard('native_editor', { localOptInKey: 'editor.native', queryParam: 'native' })(route as never, null as never) as { subscribe: (f: (v: boolean | UrlTree) => void) => void })
-        .subscribe((v) => (result = v));
-    });
-    tick();
-    expect(result).toBe(true);
-    expect(get).not.toHaveBeenCalled();
-  }));
-
-  it('guard with opts STILL redirects when off and no opt-in is active (the bypass never leaks)', fakeAsync(() => {
-    const tree = { __urlTree: true } as unknown as UrlTree;
-    const createUrlTree = jasmine.createSpy('createUrlTree').and.returnValue(tree);
-    TestBed.configureTestingModule({
-      providers: [
-        FeatureFlagService,
-        { provide: HttpClient, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ resolved: { enabled: false } })) } },
-        { provide: Router, useValue: { createUrlTree } },
-      ],
-    });
-    spyOn(localStorage, 'getItem').and.returnValue(null);
-    const route = { queryParamMap: { get: () => null } };
-    let result: boolean | UrlTree | undefined;
-    TestBed.runInInjectionContext(() => {
-      (featureFlagGuard('native_editor', { localOptInKey: 'editor.native', queryParam: 'native' })(route as never, null as never) as { subscribe: (f: (v: boolean | UrlTree) => void) => void })
-        .subscribe((v) => (result = v));
-    });
-    tick();
-    expect(result).toBe(tree);
   }));
 });

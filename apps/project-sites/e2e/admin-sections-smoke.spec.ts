@@ -32,7 +32,6 @@ const ADMIN_SECTIONS = [
   { path: '/admin/domains', name: 'Domains' },
   { path: '/admin/api-tokens', name: 'API Tokens' },
   { path: '/admin/super-admin', name: 'Super Admin' },
-  { path: '/admin/editor-native', name: 'Editor (native)' },
   // Secondary routes
   { path: '/admin/team', name: 'Team' },
   { path: '/admin/auth-security', name: 'Auth Security' },

@@ -13,7 +13,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   // `/admin` (path:'') now renders the AI Dashboard, NOT the editor — the editor
   // moved to `/admin/editor`. Label the index route 'Dashboard' so the breadcrumb
   // + document title match what's on screen (WCAG 2.4.2). editor* stay 'Editor'.
-  '': 'Dashboard', admin: 'Dashboard', editor: 'Editor', 'editor-native': 'Editor',
+  '': 'Dashboard', admin: 'Dashboard', editor: 'Editor',
   snapshots: 'Snapshots', analytics: 'Analytics',
   forms: 'Forms', traces: 'AI Traces', 'ai-logs': 'AI Traces',
   'ai-endpoints': 'AI Agents', domains: 'Domains', docs: 'Docs',

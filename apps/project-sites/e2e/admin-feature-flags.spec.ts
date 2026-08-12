@@ -38,7 +38,7 @@ const STUB_FLAGS_PUBLIC = {
   flags: {
     ai_site_generation: true,
     bulk_operations: false,
-    native_editor: false,
+    token_burn_meter: false,
     core_auth: true,
     core_admin_detail: true,
   },
@@ -66,8 +66,8 @@ const STUB_FLAGS_DEF = {
       kill_switch: false,
     },
     {
-      key: 'native_editor',
-      description: 'Native code editor powered by Monaco replacing bolt.diy iframe',
+      key: 'token_burn_meter',
+      description: 'Live token-burn meter in editor with monthly projection',
       default_enabled: false,
       default_rollout_percent: 0,
       stage: 'experimental',
@@ -82,7 +82,7 @@ const STUB_SUPER_ADMIN_FLAGS = {
   flags: [
     { key: 'ai_site_generation', enabled_globally: true, rollout_pct: 100, kill_switch: false },
     { key: 'bulk_operations', enabled_globally: false, rollout_pct: 0, kill_switch: false },
-    { key: 'native_editor', enabled_globally: false, rollout_pct: 0, kill_switch: false },
+    { key: 'token_burn_meter', enabled_globally: false, rollout_pct: 0, kill_switch: false },
   ],
 };
 

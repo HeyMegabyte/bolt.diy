@@ -57,7 +57,6 @@ describe('adminSectionLabel (per-route title map)', () => {
     expect(adminSectionLabel('admin')).toBe('Dashboard');
     // the editor moved to /admin/editor — those segments stay "Editor"
     expect(adminSectionLabel('editor')).toBe('Editor');
-    expect(adminSectionLabel('editor-native')).toBe('Editor');
   });
 
   it('falls back to Dashboard (the home) for genuinely-unknown segments', () => {

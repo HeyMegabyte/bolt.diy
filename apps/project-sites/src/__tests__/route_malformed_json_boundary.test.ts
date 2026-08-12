@@ -1,6 +1,6 @@
 /**
  * Input-boundary coverage for the POST/PUT handlers OUTSIDE `api.ts` (apps,
- * editor_chats, site_detail_tabs, voice) that read the body with an INLINE
+ * site_detail_tabs, voice) that read the body with an INLINE
  * `SomeSchema.parse(await c.req.json())` — so a malformed JSON body throws an
  * uncaught SyntaxError at the parse → 500 instead of a clean 4xx.
  *
@@ -24,7 +24,6 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { apps } from '../routes/apps.js';
-import { editorChats } from '../routes/editor_chats.js';
 import { siteDetailTabs } from '../routes/site_detail_tabs.js';
 import { voiceRoutes } from '../routes/voice.js';
 
@@ -59,7 +58,6 @@ app.use('*', async (c, next) => {
   await next();
 });
 app.route('/', apps);
-app.route('/', editorChats);
 app.route('/', siteDetailTabs);
 app.route('/', voiceRoutes);
 
@@ -78,9 +76,6 @@ describe('routes (non-api.ts) — malformed JSON body → 4xx (not 500)', () => 
   const cases: Array<[string, string]> = [
     ['POST', '/api/apps/instances'],
     ['PATCH', '/api/apps/instances/inst-1/env'],
-    ['POST', '/api/editor-chats'],
-    ['POST', '/api/editor-chats/chat-1/messages'],
-    ['POST', '/api/editor-chats/chat-1/stream'],
     ['POST', '/api/sites/site-1/sql/exec'],
     ['POST', '/api/voice/numbers/purchase'],
     ['PUT', '/api/voice/agent-settings'],

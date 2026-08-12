@@ -154,10 +154,10 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
       url.includes('/auth/me') ? of({ is_super_admin: false }) : of({ flags: [], count: 0 }));
 
   it('ngOnInit surfaces ?disabled=<key> as a banner + pre-filters the search to that flag', async () => {
-    const c = make(flagsGet(), { disabled: 'native_editor' });
+    const c = make(flagsGet(), { disabled: 'token_burn_meter' });
     await c.ngOnInit();
-    expect(c.blockedFeature()).toBe('native_editor'); // explains the guard bounce
-    expect(c.search()).toBe('native_editor'); // list jumps straight to that flag
+    expect(c.blockedFeature()).toBe('token_burn_meter'); // explains the guard bounce
+    expect(c.search()).toBe('token_burn_meter'); // list jumps straight to that flag
   });
 
   it('shows no blocked banner when ?disabled is absent', async () => {

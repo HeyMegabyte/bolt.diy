@@ -99,7 +99,6 @@ interface PendingDangerous {
  */
 const FLAG_CONSTRAINTS: FlagConstraint[] = [
   { key: 'crdt_coedit', requires: ['tenant_hot_state'] },
-  { key: 'native_editor', conflictsWith: ['ide_sandbox'] },
 ];
 
 @Component({

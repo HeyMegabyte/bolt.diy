@@ -127,7 +127,7 @@ describe('feature-flag flag-logic (pure)', () => {
   describe('validateConstraints', () => {
     const constraints = [
       { key: 'crdt_coedit', requires: ['tenant_hot_state'] },
-      { key: 'native_editor', conflictsWith: ['ide_sandbox'] },
+      { key: 'flag_alpha', conflictsWith: ['flag_beta'] },
     ];
 
     it('flags a missing dependency', () => {
@@ -143,7 +143,7 @@ describe('feature-flag flag-logic (pure)', () => {
     });
 
     it('flags an incompatibility when both are on', () => {
-      const v = validateConstraints({ native_editor: true, ide_sandbox: true }, constraints);
+      const v = validateConstraints({ flag_alpha: true, flag_beta: true }, constraints);
       expect(v.length).toBe(1);
       expect(v[0].kind).toBe('incompatible');
     });

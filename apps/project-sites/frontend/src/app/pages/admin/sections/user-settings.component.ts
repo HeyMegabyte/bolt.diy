@@ -422,36 +422,6 @@ interface NotificationGroup {
         </div>
       </section>
 
-      <!-- ─────────────────── LABS ─────────────────── -->
-      <section class="card" data-testid="labs-card">
-        <div class="kicker">Labs</div>
-        <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Experimental features</h3>
-        <p class="text-[0.7rem] text-text-secondary m-0 mb-3 max-w-prose leading-relaxed">
-          Opt into in-flight work. These flags persist in <code class="text-[0.7rem]">localStorage</code> and live on this device only — clear them by toggling off.
-        </p>
-
-        <ul role="list" class="notif-list">
-          <li class="notif-row">
-            <label class="flex-1 cursor-pointer">
-              <div class="font-medium text-white text-[0.82rem]">Native editor</div>
-              <div class="text-[0.7rem] text-text-secondary mt-0.5 leading-relaxed">
-                Replaces the bolt.diy iframe at <code>/admin/editor-native</code> with a pure Angular port. Faster cold load, D1-backed chat. Phase 1 of 6.
-              </div>
-            </label>
-            <button class="switch"
-                    type="button"
-                    role="switch"
-                    [attr.aria-checked]="nativeEditorFlag()"
-                    [attr.aria-label]="(nativeEditorFlag() ? 'Disable' : 'Enable') + ' experimental native editor'"
-                    (click)="toggleNativeEditor()"
-                    [class.is-on]="nativeEditorFlag()"
-                    data-testid="labs-native-editor-toggle">
-              <span class="switch-thumb"></span>
-            </button>
-          </li>
-        </ul>
-      </section>
-
       <!-- ─────────────────── DANGER ZONE ─────────────────── -->
       <section class="card danger-card">
         <div class="kicker text-red-300">Danger zone</div>
@@ -1107,32 +1077,6 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     try { localStorage.setItem('ps_theme', t); } catch { /* private mode / quota */ }
     const msg = t === 'system' ? 'Theme set to system' : `Theme changed to ${t}`;
     this.toast.info(msg);
-  }
-
-  // ── Labs: native editor opt-in ──
-  /**
-   * Persisted in `localStorage['editor.native']`. When `true`, the
-   * `/admin/editor-native` route renders the experimental Angular port
-   * instead of the iframe gate page. Flag survives refresh; opt-out by
-   * toggling off (no page reload needed — the next visit to the route
-   * re-reads the flag).
-   */
-  nativeEditorFlag = signal<boolean>(((): boolean => {
-    try { return localStorage.getItem('editor.native') === 'true'; } catch { return false; }
-  })());
-
-  toggleNativeEditor(): void {
-    const next = !this.nativeEditorFlag();
-    this.nativeEditorFlag.set(next);
-    try {
-      if (next) localStorage.setItem('editor.native', 'true');
-      else localStorage.removeItem('editor.native');
-    } catch { /* SSR / private mode */ }
-    this.toast.info(
-      next
-        ? 'Native editor enabled — visit /admin/editor-native'
-        : 'Native editor disabled',
-    );
   }
 
   // ── API keys ──

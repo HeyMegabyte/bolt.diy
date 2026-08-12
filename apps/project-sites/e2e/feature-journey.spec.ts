@@ -14,12 +14,12 @@
  *      • the section rendered *something* (not a blank crash)
  *  - GUARD-REDIRECT TOLERANCE: a click that lands on a DIFFERENT /admin URL
  *    than targeted is a route guard doing its job (sysAdminGuard bounces
- *    non-operators to /admin/site-features; featureFlagGuard('native_editor')
- *    chains /admin/editor-native → /admin/feature-flags → /admin/site-features
- *    when the flag is dark). The contract for those routes is "no crash, no
- *    full reload, shell intact at the DESTINATION" — never "URL equals target".
+ *    non-operators to /admin/site-features; featureFlagGuard redirects a dark
+ *    flag-gated route to /admin/feature-flags). The contract for those routes
+ *    is "no crash, no full reload, shell intact at the DESTINATION" — never
+ *    "URL equals target".
  *  - verifies the recent fixes explicitly: Preview tab removed, editor tabs =
- *    code/media/agents, topbar stays put on scroll.
+ *    code/agents, topbar stays put on scroll.
  *
  * Auth is the stub fixture, so data APIs 401 with the stub token — sections may
  * render empty/error states; that is EXPECTED and not a failure. We fail only
@@ -150,8 +150,8 @@ test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
         .waitFor({ state: 'attached', timeout: 10_000 })
         .catch(() => {});
       const reloaded = after.spa === null || after.spa !== before.spa || after.navs > before.navs;
-      // Bounded WAITS, not instant isVisible: guard-gated routes (editor-native,
-      // super-admin) hop a multi-redirect chain (flag guard → feature-flags →
+      // Bounded WAITS, not instant isVisible: guard-gated routes (super-admin)
+      // hop a multi-redirect chain (flag guard → feature-flags →
       // sysAdmin guard → site-features), each hop hitting the live per-key
       // flags endpoint — an instant check mid-chain mis-scored the shell as
       // missing.
