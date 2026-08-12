@@ -17,14 +17,9 @@
  *      `bolt-frame--visible` and src containing editor.projectsites.dev
  *  (b) the SAME iframe element survives /admin/editor → /admin/forms →
  *      /admin/editor (data-ps-e2e-marker persists; element never re-created)
- *  (c) editor chrome renders: `[data-testid="editor-tabs-host"]` (mounted
- *      only on the editor route)
  *
  * Selectors (grepped from admin.component.html + editor.component.ts):
  *  - `.bolt-frame` / `.bolt-frame--visible`  — persistent iframe
- *  - `[data-testid="editor-tabs-host"]`      — tab strip above the iframe
- *  - `[data-testid="editor-overlay-media"]`  — media overlay aside (tab-gated)
- *  - `[data-testid="editor-overlay-agents"]` — agents overlay aside (tab-gated)
  *  - `.ed-veil`                              — boot veil (PS_BOLT_READY-driven)
  *  - `.empty-state-pretty`                   — no-site-selected state
  *  - `a.nav-item[routerLink="/admin/forms"]` — sidebar nav (no testid yet)
@@ -164,35 +159,7 @@ test.describe('Admin — Editor (bolt.diy iframe journey)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Test 3: editor chrome — tabs host hard; overlay asides tolerant (tab-gated)
-  // -------------------------------------------------------------------------
-  test('editor chrome renders: tabs host mounted on the editor route', async ({ page }) => {
-    await signInAsTestUser(page);
-    await interceptMutations(page);
-    await gotoEditor(page);
-
-    // `@if (isEditorRoute())` in admin.component.html — the tab strip is a
-    // HARD mount-contract element on /admin/editor.
-    const tabsHost = page.locator('[data-testid="editor-tabs-host"]');
-    await expect(tabsHost).toBeVisible({ timeout: 20_000 });
-
-    // Overlay asides only exist while their tab is ACTIVE — presence is
-    // tolerant, but when present they must be visible.
-    for (const overlay of ['editor-overlay-media', 'editor-overlay-agents']) {
-      const el = page.locator(`[data-testid="${overlay}"]`);
-      if (await el.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await expect(el).toBeVisible();
-      }
-    }
-
-    await page.screenshot({
-      path: 'e2e/screenshots/admin-editor/admin-chrome.png',
-      fullPage: false,
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // Test 4: tolerant boot probe — PS_BOLT_READY veil, 20s soft, log-only
+  // Test 3: tolerant boot probe — PS_BOLT_READY veil, 20s soft, log-only
   // -------------------------------------------------------------------------
   test('boot probe (tolerant): PS_BOLT_READY veil state logged, never failed', async ({ page }) => {
     await signInAsTestUser(page);

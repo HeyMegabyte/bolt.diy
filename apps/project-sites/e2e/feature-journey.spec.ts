@@ -188,24 +188,24 @@ test.describe('Admin feature journey (single comprehensive SPA pass)', () => {
     await page.waitForTimeout(150);
     const topbarStuckAfterScroll = await page.locator('.admin-topbar').isVisible();
 
-    // 4) Editor-specific fixes: Preview removed, tabs = code/media/agents.
+    // 4) Editor: the Angular tab strip was removed — the editor is now the
+    //    bare persistent bolt.diy iframe.
     const link = page.locator('a[routerlink="/admin/editor"], a[href="/admin/editor"]').first();
     if (await link.count()) await link.click().catch(() => {});
     await page.waitForURL(/\/admin\/editor/, { timeout: 10_000 }).catch(() => {});
-    const hasPreviewTab = await page.locator('[data-testid="editor-tab-preview"]').count();
-    const hasCodeTab = await page.locator('[data-testid="editor-tab-code"]').count();
+    const hasBoltFrame = await page.locator('.bolt-frame').count();
 
     // ---- Report + assert ----
     const failed = results.filter((r) => !r.ok);
     // eslint-disable-next-line no-console
     console.warn('FEATURE JOURNEY RESULTS:\n' + results.map((r) => `  ${r.ok ? 'PASS' : 'FAIL'}  ${r.label}  ${r.note}`).join('\n'));
-    console.warn(`sticky-topbar-after-scroll=${topbarStuckAfterScroll}  preview-tab-removed=${hasPreviewTab === 0}  code-tab-present=${hasCodeTab > 0}`);
+    console.warn(`sticky-topbar-after-scroll=${topbarStuckAfterScroll}  bolt-frame-present=${hasBoltFrame > 0}`);
     console.warn(`uncaught-page-errors=${pageErrors.length}  unexpected-console-errors=${consoleErrors.length}`);
 
     expect(pageErrors, `Uncaught JS errors: ${pageErrors.join(' | ')}`).toHaveLength(0);
     expect(failed, `Routes that full-reloaded/crashed/blanked: ${failed.map((f) => f.label + '(' + f.note + ')').join(', ')}`).toHaveLength(0);
     expect(topbarStuckAfterScroll, 'topbar must stay visible after scrolling (sticky fix)').toBe(true);
-    expect(hasPreviewTab, 'Preview tab must be removed').toBe(0);
+    expect(hasBoltFrame, 'the bolt editor iframe must mount on /admin/editor').toBeGreaterThan(0);
     expect(consoleErrors, `Unexpected console errors: ${consoleErrors.join(' | ')}`).toHaveLength(0);
   });
 });

@@ -17,9 +17,9 @@
  *    pushState probes asserted vacuously. Replaced with real deep-link
  *    goto() entries (house pattern per e2e/admin/mcp.spec.ts; the authed
  *    context's init script + route stubs persist across navigations).
- *  - ADV-AI-19 RETIRED: /admin/ai-endpoints route no longer exists —
- *    AdminAiEndpointsComponent is now an editor-overlay surface imported by
- *    the admin shell, with no standalone route in app.routes.ts.
+ *  - ADV-AI-19 RETIRED (kept retired): AdminAiEndpointsComponent renders as
+ *    the standalone /admin/ai-endpoints routed section; the old editor-tab
+ *    overlay that also mounted it was removed.
  *
  * Rules:
  *  - authedPage fixture: signInAsTestUser + catch-all /api/** stubs run
@@ -210,7 +210,6 @@ test.describe('ADV-AI-18 — Site Copilot with invalid site ID graceful', () => 
 });
 
 // ─── ADV-AI-19 — RETIRED 2026-07-31 ─────────────────────────────────────────
-// /admin/ai-endpoints has no route in app.routes.ts anymore — the AI
-// Endpoints surface became an editor-overlay component (AdminAiEndpointsComponent
-// imported directly by admin.component.ts), so the "hard reload the
-// /admin/ai-endpoints route" contract has no surface to exercise.
+// AdminAiEndpointsComponent renders as the standalone /admin/ai-endpoints
+// routed section (app.routes.ts). The editor-tab overlay that also mounted it
+// was removed; this retired probe is left as a historical marker.
