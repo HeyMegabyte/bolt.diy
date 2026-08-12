@@ -432,11 +432,14 @@ describe('AdminWebhooksComponent', () => {
     expect(boxes.every((b) => !b.className.includes('accent-primary'))).toBeTrue();
   });
 
-  it('renders a shimmering skeleton (not bare "Loading…" text) while loading', () => {
+  it('while loading, shows the real surface and no bare "Loading…" text (skeleton removed)', () => {
     build({ id: 's1' });
     fixture.componentInstance.loading.set(true);
     fixture.detectChanges();
-    expect(q('app-skeleton')).withContext('uses the reusable skeleton primitive').not.toBeNull();
+    // Skeleton primitive removed platform-wide — the real surface (the add-endpoint
+    // form) renders directly during load; never a shimmer or bare "Loading…" text.
+    expect(q('[data-testid="webhooks-create-btn"]')).withContext('real surface renders, not a shimmer').not.toBeNull();
+    expect(q('app-skeleton')).withContext('the removed skeleton stays gone').toBeNull();
     expect(host.textContent ?? '').not.toContain('Loading endpoints…');
   });
 

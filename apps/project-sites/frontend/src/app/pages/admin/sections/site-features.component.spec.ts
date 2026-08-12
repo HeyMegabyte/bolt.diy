@@ -80,10 +80,12 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     TestBed.resetTestingModule();
   });
 
-  it('shows a loading skeleton until the catalog resolves', async () => {
+  it('shows a loading state until the catalog resolves', async () => {
     await build(null); // do not flush yet
     expect(component.loading()).toBeTrue();
-    expect(fixture.nativeElement.querySelector('app-skeleton')).not.toBeNull();
+    // The skeleton primitive was removed platform-wide — during load the header
+    // shows the honest "…" dots affordance (statsLoading), not a shimmer.
+    expect(fixture.nativeElement.querySelector('.sf-stat-dots')).not.toBeNull();
     httpMock.expectOne(GET_URL).flush({ features: [], plan: 'free' });
     await fixture.whenStable();
     fixture.detectChanges();

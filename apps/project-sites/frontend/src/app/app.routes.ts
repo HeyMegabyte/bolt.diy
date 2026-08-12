@@ -120,11 +120,14 @@ export const routes: Routes = [
       {
         // Phase-1 native Angular port of the bolt.diy editor. Server-side
         // flag-gated via `native_editor` flag — admin can killswitch without
-        // redeploy. Guard redirects to /admin/feature-flags?disabled=native_editor
-        // when off. Local opt-in (`localStorage['editor.native']` or `?native=1`)
-        // is preserved inside the component itself for developer testing.
+        // redeploy. The guard ADMITS a developer local opt-in (`?native=1` or
+        // `localStorage['editor.native']`) so the dark feature stays previewable
+        // by URL; everyone else redirects to
+        // /admin/feature-flags?disabled=native_editor when the flag is off.
         path: 'editor-native',
-        canActivate: [featureFlagGuard('native_editor')],
+        canActivate: [
+          featureFlagGuard('native_editor', { localOptInKey: 'editor.native', queryParam: 'native' }),
+        ],
         loadComponent: () =>
           import('./editor-native/pages/editor-native-page.component').then(
             (m) => m.EditorNativePageComponent,
