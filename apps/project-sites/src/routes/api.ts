@@ -10165,8 +10165,8 @@ api.get('/api/auth/google-drive/callback', async (c) => {
  *
  * Accepts uncaught client-side render errors forwarded by the Angular
  * {@link components/section-error-boundary.SectionErrorBoundaryComponent}
- * and fans them out to Sentry via the Worker's Toucan client. Best-effort;
- * never throws.
+ * and fans them out to Sentry via the Worker's Sentry client
+ * (`@sentry/cloudflare`, `lib/sentry.ts`). Best-effort; never throws.
  *
  * @route POST /api/internal/client-error
  * @public Anyone with a session can self-report. Bodies are size-capped at
