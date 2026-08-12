@@ -88,7 +88,7 @@ src/
 │   │   │   └── sections/               # forms, snapshots, billing, audit, docs,
 │   │   │                               # ai-endpoints, ai-logs, settings, analytics,
 │   │   │                               # mcp, user-settings, editor (iframe-host),
-│   │   │                               # media (Media library + studios), apps, social,
+│   │   │                               # apps, social,
 │   │   │                               # voice, dashboard, domains, seo, sites,
 │   │   │                               # feature-flags (System Administrator layer +
 │   │   │                               # feature-flags/ primitives), site-features

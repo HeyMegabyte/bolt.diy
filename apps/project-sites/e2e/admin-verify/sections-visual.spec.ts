@@ -31,7 +31,6 @@ const SECTIONS = [
   'billing',
   'domains',
   'feature-flags',
-  'media',
   'mcp',
   'seo',
   'system-services',
@@ -58,7 +57,7 @@ const BROKEN = [
  * Harness-only console/page noise that NEVER fires in a real browser (0 in the
  * Browserbase sweep) — see [[admin-verify-e2e-authoring-gotchas]]:
  *  - fixtures.ts BLOCKS external CDN/Stripe/GA → net::ERR_FAILED / "Failed to load resource"
- *  - cross-origin iframes (bolt.diy editor / send-to-bolt on /admin/media) read
+ *  - cross-origin iframes (bolt.diy editor / send-to-bolt on /admin/editor) read
  *    localStorage in the partitioned fixture context → "Access is denied" SecurityError
  *  - GA/PostHog analytics beacons fail in automation by design
  */

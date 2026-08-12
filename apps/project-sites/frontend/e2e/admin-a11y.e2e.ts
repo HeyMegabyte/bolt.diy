@@ -38,7 +38,7 @@ const SECTIONS = [
   // targets ARE scanned —
   // dashboard→'', mcp→settings/mcp, github→snapshots, ai-chat→settings — and the
   // welcome/editor bolt.diy iframe (separate origin, excluded via .exclude('iframe')).
-  '/admin/features', '/admin/traces', '/admin/media', '/admin/apps',
+  '/admin/features', '/admin/traces', '/admin/apps',
   '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
   '/admin/user', '/admin/logs',
   // Coverage gap closed (round 32): these two routed admin sections had real

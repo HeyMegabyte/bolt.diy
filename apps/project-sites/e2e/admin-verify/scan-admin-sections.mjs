@@ -27,10 +27,6 @@ mkdirSync('/tmp/psvis', { recursive: true });
 // real data (so "empty" here = a bug) · concepts that are honestly empty (0 is fine).
 const SECTIONS = [
   { path: '/admin/analytics', site: true, expectData: true },
-  // /admin/media aliases to the editor (Code tab); media is the editor's MEDIA TAB,
-  // not a standalone section — so a section-scan false-flags it. Media is verified
-  // separately by verify-media-tab.mjs (clicks the tab → 7 real assets render).
-  { path: '/admin/media', site: false, expectData: false },
   { path: '/admin/snapshots', site: true, expectData: true },
   { path: '/admin/logs', site: false, expectData: true },
   { path: '/admin/voice', site: true, expectData: true },

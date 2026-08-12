@@ -5,11 +5,9 @@
  * Listens to window `dragenter`/`dragover`/`dragleave`/`drop` and reveals a
  * fullscreen overlay when files are dragged anywhere over the admin chrome.
  * On drop, each file is POSTed to `/api/media/upload` as multipart FormData;
- * progress is surfaced via {@link ToastService}. After all uploads complete
- * the router navigates to `/admin/media` so the user lands in the Library
- * with their new assets — unless we're already on `/admin/media`, in which
- * case we fire a `window.dispatchEvent(new CustomEvent('ps:media:refresh'))`
- * so the Library tab picks them up without a route change.
+ * progress is surfaced via {@link ToastService}. Uploaded assets land in the
+ * org media library (consumed by the bolt editor); a result toast reports how
+ * many landed.
  *
  * Ignores any drag whose `dataTransfer.types` doesn't include `'Files'` —
  * dragging text/links/HTML never triggers the overlay.
@@ -27,15 +25,11 @@ import {
   type OnDestroy,
   type OnInit,
 } from '@angular/core';
-import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
 
 /** Window-level events the overlay listens to. */
 const DRAG_EVENTS = ['dragenter', 'dragover', 'dragleave', 'drop'] as const;
-
-/** Window-level event the Media section listens to when it should refresh. */
-const REFRESH_EVENT = 'ps:media:refresh';
 
 @Component({
   selector: 'app-global-drop-zone',
@@ -125,7 +119,6 @@ const REFRESH_EVENT = 'ps:media:refresh';
 export class GlobalDropZoneComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
-  private readonly router = inject(Router);
 
   /** Overlay visibility — flips true while the user drags files over the page. */
   readonly visible = signal(false);
@@ -193,9 +186,8 @@ export class GlobalDropZoneComponent implements OnInit, OnDestroy {
 
   /**
    * Upload each file sequentially (most browsers cap parallel multipart POSTs
-   * to ~6 anyway, and sequential keeps toast feedback legible). After all
-   * uploads finish, navigate to /admin/media — unless we're already there,
-   * in which case dispatch a refresh event the Media section listens for.
+   * to ~6 anyway, and sequential keeps toast feedback legible). Uploaded
+   * assets land in the org media library (consumed by the bolt editor).
    */
   private async uploadFiles(files: File[]): Promise<void> {
     const total = files.length;
@@ -238,18 +230,6 @@ export class GlobalDropZoneComponent implements OnInit, OnDestroy {
       this.toast.error(
         failed === 1 ? 'Upload failed' : `${failed} uploads failed`,
       );
-    }
-
-    if (succeeded === 0) return;
-
-    const currentUrl = this.router.url.split('?')[0];
-    if (currentUrl === '/admin/media') {
-      // Already on the Media route — let the section refresh itself.
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent(REFRESH_EVENT));
-      }
-    } else {
-      void this.router.navigate(['/admin/media']);
     }
   }
 }

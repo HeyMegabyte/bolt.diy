@@ -897,7 +897,6 @@ export class AdminDashboardComponent {
       cards: [
         { label: 'Editor', desc: 'Edit your site’s code and content in the live Bolt editor.', link: '/admin/editor', glyph: 'code', keywords: ['bolt', 'code', 'content', 'build'] },
         { label: 'Snapshots', desc: 'Frozen versions of every build — preview, restore, or roll back.', link: '/admin/snapshots', glyph: 'camera', keywords: ['versions', 'restore', 'rollback', 'history'] },
-        { label: 'Media', desc: 'Upload, generate, and organize images, video, and audio.', link: '/admin/media', glyph: 'image', keywords: ['images', 'video', 'audio', 'assets', 'upload'] },
         { label: 'Domains', desc: 'Connect a custom domain and manage your hostnames.', link: '/admin/domains', glyph: 'globe', keywords: ['dns', 'hostname', 'custom', 'ssl'] },
       ],
     },

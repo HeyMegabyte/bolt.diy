@@ -88,7 +88,7 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     '/admin/feature-flags',
     // Unified logging dashboard (audit + log explorer merged 2026-06-08).
     '/admin/logs',
-    '/admin/media', '/admin/site-features',
+    '/admin/site-features',
     // NOTE: /admin/pseo is NOT here — it has a section label but no route, no sidebar
     // nav item, and no palette Navigation command (never built). Re-add it here the
     // same turn a route + a `go(...)` command ships for it, so this stays a true

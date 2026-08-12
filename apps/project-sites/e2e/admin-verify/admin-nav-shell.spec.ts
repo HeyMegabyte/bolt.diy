@@ -28,7 +28,6 @@ const SECTIONS: Array<{ route: string; name: string; token: RegExp }> = [
   { route: '/admin/apps', name: 'apps', token: /app|catalog|install|instance/i },
   { route: '/admin/social', name: 'social', token: /social|connected|compose|post|platform/i },
   { route: '/admin/voice', name: 'voice', token: /voice|call|number|agent|sms/i },
-  { route: '/admin/media', name: 'media', token: /media|library|stock|studio|asset/i },
   { route: '/admin/snapshots', name: 'snapshots', token: /snapshot|version|revert|quality/i },
   { route: '/admin/domains', name: 'domains', token: /domain|subdomain|hostname|connect/i },
   { route: '/admin/billing', name: 'billing', token: /billing|plan|subscription|entitlement|credit|free|pro/i },

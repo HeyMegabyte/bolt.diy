@@ -3,14 +3,15 @@
  *
  * @description
  * Slim horizontal tab strip rendered ABOVE the persistent bolt.diy editor
- * when the user is on `/admin/editor`. Three tabs: Code · Media · Agents.
+ * when the user is on `/admin/editor`. Two tabs: Code · Agents.
  * (Preview was removed — bolt.diy's own workbench owns the code↔preview
- * toggle, so a second Preview tab here was redundant.)
+ * toggle, so a second Preview tab here was redundant. Media was removed —
+ * the editor no longer hosts a media library overlay.)
  *
  * - **Code** delegates to bolt's internal view by posting a
  *   `PS_EDITOR_VIEW` message into the editor's `contentWindow`.
- * - **Media** + **Agents** emit `tabChange` so the admin shell can mount
- *   FULL-WIDTH overlay panels (`<app-admin-media>` / `<app-admin-ai-endpoints>`)
+ * - **Agents** emits `tabChange` so the admin shell can mount a
+ *   FULL-WIDTH overlay panel (`<app-admin-ai-endpoints>`)
  *   in front of the editor without unmounting it.
  *
  * Active tab persists to `localStorage['editor.tab']`. Default = `code`.
@@ -34,7 +35,7 @@ import {
  * workbench owns the code↔preview toggle, so a second Preview tab here was
  * redundant. Legacy persisted `'preview'` values normalize to `'code'`.
  */
-export type EditorTab = 'code' | 'media' | 'agents';
+export type EditorTab = 'code' | 'agents';
 
 /** Persisted localStorage key for the active editor tab. */
 const STORAGE_KEY = 'editor.tab';
@@ -70,7 +71,7 @@ interface TabDef {
           class="et-tab"
           [class.is-active]="activeTab() === t.id"
           [class.et-tab--panel]="t.id !== 'code'"
-          [class.et-tab--lead]="t.id === 'media'"
+          [class.et-tab--lead]="t.id === 'agents'"
           [attr.aria-selected]="activeTab() === t.id"
           [attr.aria-label]="t.aria"
           [attr.tabindex]="activeTab() === t.id ? 0 : -1"
@@ -93,22 +94,6 @@ interface TabDef {
                 >
                   <polyline points="16 18 22 12 16 6" />
                   <polyline points="8 6 2 12 8 18" />
-                </svg>
-              }
-              @case ('media') {
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <rect x="2" y="6" width="20" height="14" rx="2" />
-                  <circle cx="8.5" cy="11.5" r="1.5" />
-                  <polyline points="21 16 16 11 5 22" />
                 </svg>
               }
               @case ('agents') {
@@ -149,7 +134,6 @@ export class EditorTabsComponent implements OnInit {
   /** Tab definitions rendered in document order. */
   readonly tabs: readonly TabDef[] = [
     { id: 'code', label: 'Code', aria: 'Show bolt code editor (includes preview)' },
-    { id: 'media', label: 'Media', aria: 'Open media library overlay' },
     { id: 'agents', label: 'Agents', aria: 'Open AI agents overlay' },
   ];
 
@@ -245,13 +229,13 @@ export class EditorTabsComponent implements OnInit {
    * iframe's `contentWindow` so bolt swaps its internal pane. The iframe
    * lives in the admin shell — we grab it via the `BoltEmbedService`.
    *
-   * For `media` / `agents`: no iframe message — the admin shell renders an
+   * For `agents`: no iframe message — the admin shell renders an
    * Angular overlay component on top.
    *
    * `fromInit` is true for the boot-time broadcast and prevents firing
-   * `tabChange` when the persisted tab is `media` / `agents` (we DO want to
-   * re-open the overlay) — kept the same as user-initiated selects for now;
-   * the param is reserved for future divergence.
+   * `tabChange` when the persisted tab is `agents` (we DO want to re-open
+   * the overlay) — kept the same as user-initiated selects for now; the
+   * param is reserved for future divergence.
    */
   private dispatch(id: EditorTab, _fromInit: boolean): void {
     if (id === 'code') {
@@ -295,6 +279,6 @@ export class EditorTabsComponent implements OnInit {
   /** Type-guard for persisted-storage values. Legacy `'preview'` is rejected
    *  here so it normalizes back to the `'code'` default on restore. */
   private isValidTab(v: string): v is EditorTab {
-    return v === 'code' || v === 'media' || v === 'agents';
+    return v === 'code' || v === 'agents';
   }
 }

@@ -32,7 +32,7 @@ const ROUTES = [
   '/admin/feature-flags', '/admin/api-tokens', '/admin/settings', '/admin/billing',
   '/admin/voice', '/admin/social', '/admin/domains', '/admin/content-freshness',
   '/admin/pseo', '/admin/ai-endpoints', '/admin/seo', '/admin/docs',
-  '/admin/features', '/admin/traces', '/admin/media', '/admin/apps',
+  '/admin/features', '/admin/traces', '/admin/apps',
   '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
   '/admin/user', '/admin/logs', '/admin/bulk-ops', '/admin/deliverability',
   '/admin/webhooks', '/admin/stripe-app-status',

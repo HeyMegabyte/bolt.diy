@@ -45,7 +45,6 @@ import { MediaPanel } from './MediaPanel';
 import { Preview } from './Preview';
 import { SettingsPanel } from './SettingsPanel';
 import { StatusBar } from './StatusBar.client';
-import { VisualEditor } from './VisualEditor.client';
 import { QuickJumpPalette, ShortcutsOverlay, openInStackBlitz, useEditorHotkeys } from './EditorOverlays.client';
 import useViewport from '~/lib/hooks';
 
@@ -71,7 +70,6 @@ const viewTransition = { ease: cubicEasingFn };
 /** Top editor tabs — order drives the tab strip left-to-right. */
 const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
   { value: 'code', text: 'Code', icon: 'i-ph:code-duotone' },
-  { value: 'visual', text: 'Visual', icon: 'i-ph:paint-brush-duotone' },
   { value: 'preview', text: 'Preview', icon: 'i-ph:eye-duotone' },
   { value: 'media', text: 'Media', icon: 'i-ph:image-duotone' },
   { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
@@ -244,7 +242,7 @@ export const Workbench = memo(
                         }
                       }}
                     />
-                    {/* Top tab strip — Code | Visual | Preview | Media | Functions | Data | Settings */}
+                    {/* Top tab strip — Code | Preview | Media | Functions | Data | Settings */}
                     <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
                       {TOP_TABS.map((tab) => {
                         const active = selectedView === tab.value;
@@ -394,14 +392,6 @@ export const Workbench = memo(
                         onFileSave={onFileSave}
                         onFileReset={onFileReset}
                       />
-                    </View>
-                    {/* Visual — GrapesJS-powered drag-and-drop editor */}
-                    <View initial={{ x: '100%' }} animate={{ x: getViewX('visual', selectedView) }}>
-                      {selectedView === 'visual' ? (
-                        <VisualEditor />
-                      ) : (
-                        <div className="h-full bg-bolt-elements-background-depth-1" />
-                      )}
                     </View>
                     {/* Preview — read-only rendered output */}
                     <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>

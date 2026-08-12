@@ -20,7 +20,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'domains', label: 'Domains' },
   { path: 'social', label: 'Social' },
   { path: 'voice', label: 'Voice' },
-  { path: 'media', label: 'Media' },
   { path: 'forms', label: 'Forms' },
   { path: 'webhooks', label: 'Webhooks' },
   { path: 'api-tokens', label: 'API Tokens' },

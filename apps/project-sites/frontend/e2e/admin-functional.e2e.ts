@@ -80,7 +80,6 @@ const SECTIONS: { path: string; label: string }[] = [
   { path: '/admin/traces', label: 'traces' },
   { path: '/admin/ai-endpoints', label: 'ai-endpoints' },
   { path: '/admin/voice', label: 'voice' },
-  { path: '/admin/media', label: 'media' },
   { path: '/admin/domains', label: 'domains' },
   { path: '/admin/logs', label: 'logs' },
   { path: '/admin/social', label: 'social' },

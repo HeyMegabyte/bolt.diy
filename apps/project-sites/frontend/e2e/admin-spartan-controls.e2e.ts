@@ -40,7 +40,6 @@ const ROUTES = [
   '/admin/billing',
   '/admin/social',
   '/admin/user',
-  '/admin/media',
 ];
 // NOTE: site-dna lives at /admin/sites/:id/dna (needs a site id), not a
 // top-level route — its select is already hlmSelect (verified in source), so

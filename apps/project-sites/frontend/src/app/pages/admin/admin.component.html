@@ -553,11 +553,6 @@
           </svg>
           <span>Voice</span>
         </a>
-        <!-- Media nav item moved into the in-editor tab strip
-           (Code · Preview · Media · Agents) so dropped files + stock + AI
-           studios surface right next to the code being edited. Standalone
-           route /admin/media still resolves for deep links / bookmarks. -->
-
         <p class="nav-group-label" aria-hidden="true">Operations</p>
 
         <!-- Unified logging dashboard — Audit Trail + structured Log Explorer
@@ -1363,47 +1358,16 @@
 
       <!-- Editor tab strip + half-screen overlay panels.
          Mounted only on /admin/editor. The slim strip sits flush above the
-         bolt iframe (height ~44px). Code + Preview tabs delegate to bolt via
-         postMessage; Media + Agents render OUR Angular components as a
-         right-side half-screen overlay positioned in front of the iframe
-         (`.editor-overlay`). Closing the overlay (X) resets the active tab
-         to `code`. -->
+         bolt iframe (height ~44px). Code delegates to bolt via postMessage;
+         Agents renders OUR Angular component as a right-side half-screen
+         overlay positioned in front of the iframe (`.editor-overlay`).
+         Closing the overlay (X) resets the active tab to `code`. -->
       @if (isEditorRoute()) {
         <div class="editor-tabs-host" data-testid="editor-tabs-host">
           <app-editor-tabs (tabChange)="onEditorTabChange($event)" />
         </div>
 
-        @if (editorActiveTab() === 'media') {
-          <aside
-            class="editor-overlay editor-overlay--media"
-            role="complementary"
-            aria-label="Media library"
-            data-testid="editor-overlay-media"
-          >
-            <button
-              type="button"
-              class="editor-overlay__close"
-              (click)="closeEditorOverlay()"
-              aria-label="Close media overlay"
-              title="Close (returns to Code)"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-            <app-admin-media [compact]="true" />
-          </aside>
-        } @else if (editorActiveTab() === 'agents') {
+        @if (editorActiveTab() === 'agents') {
           <aside
             class="editor-overlay editor-overlay--agents"
             role="complementary"
@@ -1441,8 +1405,8 @@
   <app-ai-chat-widget />
 
   <!-- Global drag-and-drop overlay — accepts file drops anywhere in the admin
-     shell, uploads via /api/media/upload, then routes the user to
-     /admin/media so they land in the Library with their new assets. -->
+     shell and uploads them via /api/media/upload (assets land in the org
+     media library, consumed by the bolt editor). -->
   <app-global-drop-zone />
 
   <!-- AI Task Tray — passive top-right overlay (renders nothing when empty)

@@ -200,9 +200,6 @@ test.describe('admin — section-states round-1 coverage', () => {
     // container for this token, so they belong in dedicated specs, not this smoke):
     //   • /admin/feature-flags — operator-only; sysAdminGuard redirects a
     //     non-super-admin to /admin/site-features.
-    //   • /admin/media — redirects to /admin/editor (the bolt iframe "Booting
-    //     workspace" card has NO section container — the exact reason
-    //     /admin/dashboard was already excluded).
     //   • /admin/seo — redirects to /admin/site-features (redundant with it).
     const ROUTES: string[] = [
       '/admin/sites',

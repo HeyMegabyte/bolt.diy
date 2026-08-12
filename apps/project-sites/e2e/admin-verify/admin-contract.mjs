@@ -67,8 +67,8 @@ export const ADMIN_CONTRACT = [
     api: [], signal: 'getting started|guide|quick|welcome|next|explore', shell: 'dashboard-shell', minLen: 200, severity: 'hard',
     notes: 'Getting-Started hub (AI-chat dashboard removed). Section-guide grid.' },
   { slug: 'editor', route: '/admin/editor', label: 'Editor', kind: 'section', guard: 'auth', flag: null,
-    api: [], signal: 'editor|bolt|preview|file|project|media', shell: 'editor-shell', minLen: 80, severity: 'hard',
-    notes: 'bolt.diy iframe host — WebContainer cold-boot; render proof = iframe mount + Media tab.' },
+    api: [], signal: 'editor|bolt|preview|file|project', shell: 'editor-shell', minLen: 80, severity: 'hard',
+    notes: 'bolt.diy iframe host — WebContainer cold-boot; render proof = iframe mount.' },
   { slug: 'welcome', route: '/admin/welcome', label: 'Welcome', kind: 'section', guard: 'auth', flag: null,
     api: [], signal: 'editor|bolt|preview|welcome|start', shell: 'editor-shell', minLen: 80, severity: 'soft',
     notes: 'Onboarding empty-state of the editor.' },
@@ -168,8 +168,6 @@ export const ADMIN_CONTRACT = [
     notes: 'Server-gated on users.is_super_admin=1; non-super sees a Restricted page (not a crash).' },
 
   // ── Aliases — assert the REDIRECT resolves, never a not-found shell ───────────
-  { slug: 'alias-media', route: '/admin/media', label: 'Media', kind: 'alias', guard: 'auth', flag: null,
-    api: [], signal: '', shell: '', minLen: 0, redirectTo: '/admin/editor', severity: 'hard' },
   { slug: 'alias-traces', route: '/admin/traces', label: 'AI Traces', kind: 'alias', guard: 'auth', flag: null,
     api: [], signal: '', shell: '', minLen: 0, redirectTo: '/admin/logs?tab=traces', severity: 'hard' },
   { slug: 'alias-seo', route: '/admin/seo', label: 'SEO', kind: 'alias', guard: 'auth', flag: null,

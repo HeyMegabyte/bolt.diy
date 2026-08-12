@@ -25,7 +25,6 @@ import { TaskTrayComponent } from '../../components/task-tray/task-tray.componen
 import { ShareLinkDialogComponent } from '../../components/share-link-dialog/share-link-dialog.component';
 import { ShareLinkService } from '../../services/share-link.service';
 import { EditorTabsComponent, type EditorTab } from '../../components/editor-tabs/editor-tabs.component';
-import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
 import { adminSectionLabelFromPath, isSiteDetailPath } from './admin-section-labels';
 import { isSysAdminEmail } from './sys-admin';
@@ -57,7 +56,7 @@ export const G_CHORD_ROUTES: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
   providers: [AdminStateService, provideHlmTooltip()],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -163,16 +162,15 @@ export class AdminComponent implements OnInit, OnDestroy {
    * Active editor tab — bound to the slim tab strip rendered above the bolt
    * editor when the user is on `/admin/editor`. Initialised from
    * `localStorage['editor.tab']` so a hard reload restores the last view.
-   * Valid values: `code` (default), `media`, `agents`. The Media + Agents
-   * tabs swap in FULL-WIDTH overlay panels rendered by the template; Code
-   * delegates to bolt via postMessage (handled inside
-   * `EditorTabsComponent.dispatch`). Legacy persisted `'preview'` normalizes
-   * to `'code'`.
+   * Valid values: `code` (default), `agents`. The Agents tab swaps in a
+   * FULL-WIDTH overlay panel rendered by the template; Code delegates to
+   * bolt via postMessage (handled inside `EditorTabsComponent.dispatch`).
+   * Legacy persisted `'preview'` / `'media'` normalize to `'code'`.
    */
   editorActiveTab = signal<EditorTab>(((): EditorTab => {
     try {
       const saved = localStorage.getItem('editor.tab');
-      if (saved === 'code' || saved === 'media' || saved === 'agents') {
+      if (saved === 'code' || saved === 'agents') {
         return saved;
       }
     } catch {
@@ -320,9 +318,9 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   /**
    * Receive the user's tab selection from `<app-editor-tabs>` and mirror it
-   * into our local signal so the template can mount/unmount the Media or
-   * Agents overlay panel. Persistence + the iframe-side postMessage are
-   * already handled inside `EditorTabsComponent`.
+   * into our local signal so the template can mount/unmount the Agents
+   * overlay panel. Persistence + the iframe-side postMessage are already
+   * handled inside `EditorTabsComponent`.
    *
    * @param tab The newly-active editor tab.
    */
@@ -331,9 +329,9 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Close the active editor overlay (Media / Agents) and reset the tab
-   * strip back to `code` so the bolt iframe regains full focus. Wired to
-   * the X button rendered in the overlay header.
+   * Close the active editor overlay (Agents) and reset the tab strip back
+   * to `code` so the bolt iframe regains full focus. Wired to the X button
+   * rendered in the overlay header.
    */
   closeEditorOverlay(): void {
     this.editorActiveTab.set('code');

@@ -21,7 +21,6 @@ import { setupRealDataPage, realDataAvailable } from '../helpers/realdata.js';
 const TABBED: Array<{ route: string; name: string; minTabs: number }> = [
   { route: '/admin/billing', name: 'billing', minTabs: 5 }, // Subscription/Add-ons/Wallet/Usage/Agency/Affiliates
   { route: '/admin/analytics', name: 'analytics', minTabs: 6 }, // Overview/Live/Funnel/By Section/Forms/Visitor/Health/Social
-  { route: '/admin/media', name: 'media', minTabs: 3 }, // Library/Stock/Image/Video/Podcast (prod renders ≥3)
   { route: '/admin/voice', name: 'voice', minTabs: 3 }, // agent/console/numbers/…
 ];
 

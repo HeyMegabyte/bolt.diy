@@ -1,10 +1,11 @@
 /**
  * ADMIN FEATURE VERIFICATION (P0-ADMIN) — the REMAINING admin alias redirects.
- * mcp/ai-chat are covered by settings-tab-redirects.spec; media/traces/seo by
- * admin-alias-and-editor-media.spec. This closes the gap on the four NOT yet
- * asserted: social/analytics, ai-logs, webhooks, dashboard — so every advertised
- * alias is proven to land on the right route (pairs with the orphan-route build
- * gate, see [[admin-advertised-route-orphans]]).
+ * mcp/ai-chat are covered by settings-tab-redirects.spec. This asserts the rest:
+ * social/analytics, ai-logs, traces, seo, webhooks, dashboard — so every
+ * advertised alias is proven to land on the right route (pairs with the
+ * orphan-route build gate, see [[admin-advertised-route-orphans]]).
+ *
+ * (The /admin/media alias was removed together with the editor Media section.)
  *
  * A stale app.routes.ts edit is how these silently 404 (gotcha #6) — this spec
  * fails the moment one loses its redirect.
@@ -21,6 +22,8 @@ const NOT_FOUND = /this admin page doesn't exist|page does not exist/i;
 const QUERY_ALIASES: ReadonlyArray<{ from: string; pathname: string; query?: string }> = [
   { from: '/admin/social/analytics', pathname: '/admin/analytics', query: 'tab=social' },
   { from: '/admin/ai-logs', pathname: '/admin/logs', query: 'tab=traces' },
+  { from: '/admin/traces', pathname: '/admin/logs', query: 'tab=traces' },
+  { from: '/admin/seo', pathname: '/admin/site-features' },
   { from: '/admin/dashboard', pathname: '/admin' },
 ];
 
