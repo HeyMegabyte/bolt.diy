@@ -201,13 +201,12 @@ export const routes: Routes = [
           import('./pages/admin/sections/billing.component').then((m) => m.AdminBillingComponent),
       },
                               {
-        // Public API token management — create / list / revoke psk_* tokens.
-        // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
+        // API Tokens folded into Settings (2026-08-12) — this standalone route
+        // redirects to the #api-tokens tab. Backend GET|POST|DELETE /api/v1-tokens
+        // stays flag-gated on public_api_v1; the embedded tab self-gates too.
         path: 'api-tokens',
-        loadComponent: () =>
-          import('./pages/admin/sections/api-tokens.component').then(
-            (m) => m.AdminApiTokensComponent,
-          ),
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#api-tokens'),
+        pathMatch: 'full',
       },
       {
         // Two-layer control plane — LAYER 1 (Feature Flags). Platform-ops
@@ -307,13 +306,14 @@ export const routes: Routes = [
             (m) => m.AdminUserSettingsComponent,
           ),
       },
-      // Per-project Domain Management — backup subdomain + AI creative search
-      // + connected domains table with transfer-out flow. See
-      // sections/domains.component.ts.
+      // Per-project Domain Management folded into Settings (2026-08-12) — this
+      // standalone route redirects to the #domains tab. The component itself
+      // (sections/domains.component.ts) is now rendered inside settings.
+      // pathMatch:'full' so the more-specific domains/:id/stack still routes.
       {
         path: 'domains',
-        loadComponent: () =>
-          import('./pages/admin/sections/domains.component').then((m) => m.AdminDomainsComponent),
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#domains'),
+        pathMatch: 'full',
       },
       // Domain Stack Wizard — 7-tile progress board (DNS→SSL→email-auth→GSC).
       // Feature-flagged: domain_stack_wizard.

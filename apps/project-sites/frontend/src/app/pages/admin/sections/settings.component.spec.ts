@@ -9,6 +9,8 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { AdminWebhooksComponent } from './webhooks.component';
 import { AdminDeliverabilityComponent } from './deliverability.component';
+import { AdminDomainsComponent } from './domains.component';
+import { AdminApiTokensComponent } from './api-tokens.component';
 
 /**
  * Convergence r23 cohesion guard for the Settings section.
@@ -134,14 +136,17 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     const nav = el.querySelector('nav[role="tablist"]');
     expect(nav).toBeTruthy();
     const tabs = el.querySelectorAll('button[role="tab"]');
-    // 8 since Webhooks + Email moved under Settings (2026-06-07): General ·
-    // Business · Team · AI Chat · MCP · AI Env Vars · Webhooks · Email.
-    expect(tabs.length).toBe(8);
+    // 10 since Webhooks + Email (2026-06-07) then Domains + API Tokens
+    // (2026-08-12) moved under Settings: General · Business · Team · AI Chat ·
+    // MCP · AI Env Vars · Webhooks · Email · Domains · API Tokens.
+    expect(tabs.length).toBe(10);
     const selected = Array.from(tabs).filter((t) => t.getAttribute('aria-selected') === 'true');
     expect(selected.length).toBe(1);
     const labels = Array.from(tabs).map((t) => t.textContent?.trim());
     expect(labels).withContext('Webhooks now a Settings tab').toContain('Webhooks');
     expect(labels).withContext('Email now a Settings tab').toContain('Email');
+    expect(labels).withContext('Domains now a Settings tab').toContain('Domains');
+    expect(labels).withContext('API Tokens now a Settings tab').toContain('API Tokens');
   });
 
   it('embeds the Webhooks surface under its own Settings tab (moved from top-level nav)', () => {
@@ -170,6 +175,65 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(panel!.getAttribute('role')).toBe('tabpanel');
     expect(panel!.getAttribute('aria-labelledby')).toBe('settings-tab-webhooks');
     expect(el.querySelector('app-admin-webhooks')).withContext('webhooks component embedded').toBeTruthy();
+  });
+
+  it('embeds the Domains surface under its own Settings tab (moved from top-level nav 2026-08-12)', () => {
+    // Isolate from AdminDomainsComponent's own DI graph — assert it MOUNTS in
+    // the tabpanel, not its internals.
+    selectedSite = signal({ id: 's', slug: 'demo' });
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'domains', url: [], queryParamMap: { get: () => null } } } },
+        { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDomainsComponent, { set: { template: '<div data-testid="dom-stub"></div>', imports: [] } });
+    fixture = TestBed.createComponent(AdminSettingsComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.setTab('domains');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const panel = el.querySelector('[data-testid="settings-domains-panel"]');
+    expect(panel).withContext('domains tabpanel renders').toBeTruthy();
+    expect(panel!.getAttribute('role')).toBe('tabpanel');
+    expect(panel!.getAttribute('aria-labelledby')).toBe('settings-tab-domains');
+    expect(el.querySelector('app-admin-domains')).withContext('domains component embedded').toBeTruthy();
+  });
+
+  it('embeds the API Tokens surface under its own Settings tab (moved from top-level nav 2026-08-12)', () => {
+    // Isolate from AdminApiTokensComponent's own DI graph — assert it MOUNTS in
+    // the tabpanel, not its internals (the component self-gates on public_api_v1).
+    // ActivatedRoute stub carries queryParamMap: the component reads ?sort= at
+    // field-init (bookmarkable sort), so a bare snapshot would throw on construct.
+    selectedSite = signal({ id: 's', slug: 'demo' });
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'api-tokens', url: [], queryParamMap: { get: () => null } } } },
+        // orgId() is read by AdminApiTokensComponent.loadTokens (constructor effect).
+        { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined, orgId: () => 'org-1' } },
+      ],
+    });
+    TestBed.overrideComponent(AdminApiTokensComponent, { set: { template: '<div data-testid="tok-stub"></div>', imports: [] } });
+    fixture = TestBed.createComponent(AdminSettingsComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.setTab('api-tokens');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const panel = el.querySelector('[data-testid="settings-api-tokens-panel"]');
+    expect(panel).withContext('api-tokens tabpanel renders').toBeTruthy();
+    expect(panel!.getAttribute('role')).toBe('tabpanel');
+    expect(panel!.getAttribute('aria-labelledby')).toBe('settings-tab-api-tokens');
+    expect(el.querySelector('app-admin-api-tokens')).withContext('api-tokens component embedded').toBeTruthy();
   });
 
   it('Email tab shows the free-send allowance + a NON-dead SMTP affordance + embeds Deliverability', () => {

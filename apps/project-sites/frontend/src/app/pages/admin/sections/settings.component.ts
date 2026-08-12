@@ -13,6 +13,8 @@ import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 import { AdminWebhooksComponent } from './webhooks.component';
 import { AdminDeliverabilityComponent } from './deliverability.component';
+import { AdminDomainsComponent } from './domains.component';
+import { AdminApiTokensComponent } from './api-tokens.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -32,17 +34,20 @@ interface Conn { id: string; provider: string; display_name: string; status: str
 
 // Settings tabs are SCOPED TO THE CURRENTLY-SELECTED PROJECT. Each tab loads
 // data filtered by `state.selectedSite().id`. Theme + API keys are USER-level
-// (see /admin/user). 2FA + Security defaults moved to the Team tab. Domain
-// management is its own route at /admin/domains.
+// (see /admin/user). 2FA + Security defaults moved to the Team tab. Domains +
+// API Tokens are folded in here as tabs (the standalone /admin/domains and
+// /admin/api-tokens routes now redirect to #domains / #api-tokens).
 const TABS = [
-  { id: 'general',  label: 'General',     desc: 'Brand · contact email · tone · locale (this project)' },
-  { id: 'business', label: 'Business',    desc: 'Business identity · address · brand assets · original prompt' },
-  { id: 'team',     label: 'Team',        desc: 'Members · roles · invitations · 2FA' },
-  { id: 'ai-chat',  label: 'AI Chat',     desc: 'System prompt · persona · web search · knowledge files (this project)' },
-  { id: 'mcp',      label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
-  { id: 'env-vars', label: 'AI Env Vars', desc: 'Custom key-value store surfaced to AI + MCP at inference time (org-wide)' },
-  { id: 'webhooks', label: 'Webhooks',    desc: 'Signed, retried event notifications to your endpoints (this project)' },
-  { id: 'email',    label: 'Email',       desc: 'Sending limits · bring your own SMTP · deliverability (SPF/DKIM/DMARC)' },
+  { id: 'general',    label: 'General',     desc: 'Brand · contact email · tone · locale (this project)' },
+  { id: 'business',   label: 'Business',    desc: 'Business identity · address · brand assets · original prompt' },
+  { id: 'team',       label: 'Team',        desc: 'Members · roles · invitations · 2FA' },
+  { id: 'ai-chat',    label: 'AI Chat',     desc: 'System prompt · persona · web search · knowledge files (this project)' },
+  { id: 'mcp',        label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
+  { id: 'env-vars',   label: 'AI Env Vars', desc: 'Custom key-value store surfaced to AI + MCP at inference time (org-wide)' },
+  { id: 'webhooks',   label: 'Webhooks',    desc: 'Signed, retried event notifications to your endpoints (this project)' },
+  { id: 'email',      label: 'Email',       desc: 'Sending limits · bring your own SMTP · deliverability (SPF/DKIM/DMARC)' },
+  { id: 'domains',    label: 'Domains',     desc: 'Backup subdomain · connect a custom domain · AI domain search (this project)' },
+  { id: 'api-tokens', label: 'API Tokens',  desc: 'Create · list · revoke psk_ Public API v1 tokens (org-wide)' },
 ] as const;
 
 /**
@@ -63,7 +68,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, AdminWebhooksComponent, AdminDeliverabilityComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, AdminWebhooksComponent, AdminDeliverabilityComponent, AdminDomainsComponent, AdminApiTokensComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -728,13 +733,29 @@ const PROVIDERS = MCP_PROVIDERS;
           </section>
         </div>
       }
+      @else if (tab() === 'domains') {
+        <!-- Domains moved under Settings (2026-08-12): backup subdomain + connect
+             a custom domain + AI domain search, scoped to the selected project.
+             The standalone /admin/domains route now redirects to
+             /admin/settings#domains. -->
+        <div appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()" data-testid="settings-domains-panel">
+          <app-admin-domains />
+        </div>
+      }
+      @else if (tab() === 'api-tokens') {
+        <!-- API Tokens moved under Settings (2026-08-12): create / list / revoke
+             psk_ Public API v1 tokens (org-wide). The standalone /admin/api-tokens
+             route now redirects to /admin/settings#api-tokens. The embedded
+             component self-gates on the public_api_v1 flag. -->
+        <div appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()" data-testid="settings-api-tokens-panel">
+          <app-admin-api-tokens />
+        </div>
+      }
 
       <!-- Security tab removed entirely:
            · API keys → /admin/user
            · 2FA toggle → Team tab (next to Invite)
            · Session lifetime + idle timeout removed (too complex for our users) -->
-
-      <!-- Domains UI moved to its own per-project route at /admin/domains. -->
 
       <!-- Danger zone removed — export / transfer / delete-org flows live outside
            the admin shell now. -->
