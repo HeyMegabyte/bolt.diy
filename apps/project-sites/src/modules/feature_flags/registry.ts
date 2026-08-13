@@ -252,7 +252,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   agentic_commerce: {
     key: 'agentic_commerce',
     description:
-      'AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn(\'agentic_commerce\') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn('agentic_commerce') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -261,7 +261,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   page_audio: {
     key: 'page_audio',
     description:
-      'Page Audio — auto-generates a short narrated (TTS) audio version of each page for better dwell time + an audio-first accessible experience. Its route (src/routes/page_audio.ts) checks isFlagOn(\'page_audio\') which was never registered (the registry had the distinct page_audio_summary), so the feature was dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Page Audio — auto-generates a short narrated (TTS) audio version of each page for better dwell time + an audio-first accessible experience. Its route (src/routes/page_audio.ts) checks isFlagOn('page_audio') which was never registered (the registry had the distinct page_audio_summary), so the feature was dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
