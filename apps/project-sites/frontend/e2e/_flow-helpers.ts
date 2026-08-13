@@ -51,6 +51,7 @@ const BENIGN = [
   'net::err_blocked',
   'status of 429',
   'status of 401', // benign: super-admin-only / unauth probes for the e2e-test-org key
+  'status of 403', // benign: the e2e-test-org key is is_super_admin:false → operator/super-admin endpoints 403 (the gate working)
   'status of 404', // benign BY DESIGN: flag-gated reads 404 when dark (feature-flag doctrine), per admin-nav-links.e2e.ts
 ];
 export function isRealError(text: string): boolean {
