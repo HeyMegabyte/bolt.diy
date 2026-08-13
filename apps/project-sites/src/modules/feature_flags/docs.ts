@@ -805,6 +805,529 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Flag on (+ backend) → run history loads and Start swarm run is enabled',
     ],
   },
+  // ── Restored 2026-08-13 (1:1 with registry.ts): docs for the 33 over-pruned dark-launch flags.
+  abuse_takedown: {
+    checklist: [
+      'Public abuse-report intake for published sites',
+      'DMCA / illegal-content takedown workflow',
+      'Status pipeline: reported → reviewing → actioned',
+      'Hosting-platform legal necessity',
+    ],
+    explanation:
+      'Abuse report intake + content takedown workflow for published sites (DMCA / illegal-content handling). A hosting-platform necessity: a public report form, a review queue, and a takedown action that can unpublish a site.',
+    smoke_test: [
+      'POST /api/abuse/report {site_id, reason} → 202 + case id',
+      'Operator review queue shows the case; actioning it unpublishes the site',
+    ],
+  },
+  aeo_pass: {
+    checklist: [
+      'Answer-Engine-Optimization audit on every publish',
+      'Structured-data tuning for AI-citation',
+      'Targets ChatGPT / Perplexity / AI-Overviews',
+      'Extends seo_autopilot',
+    ],
+    explanation:
+      'Runs an Answer-Engine-Optimization audit plus structured-data tuning on every publish, targeting citation in ChatGPT / Perplexity / Google AI-Overviews (quotable answer blocks, FAQPage schema, EEAT signals) — extending the existing seo_autopilot pass. Reports per-page AEO gaps. When off, the AEO step is skipped and the route 404s.',
+    smoke_test: [
+      'Publish a site → the AEO pass runs and writes per-page audit results',
+      'GET /api/sites/:id/aeo → {score, gaps:[{page, issue, fix}]}',
+      'Disable the flag → the AEO step is skipped, the route 404s',
+    ],
+  },
+  ai_gateway_guardrails: {
+    checklist: [
+      'Llama Guard middleware on /ai/* routes',
+      'Blocks prompt-injection / hate / off-brand input + output',
+      'Runs before publish',
+      'No-redeploy killswitch',
+    ],
+    explanation:
+      'Mounts Llama Guard middleware on the /ai/* routes, blocking prompt-injection, hateful, and off-brand input AND output before it reaches publish, with a no-redeploy killswitch (per rules/ai-agent-security). Every block is logged. When off, the guard is bypassed (the killswitch state) and requests pass through to the model directly.',
+    smoke_test: [
+      'POST an /ai/* route with an injection payload ("ignore previous instructions…") → blocked, logged',
+      'POST a benign prompt → passes through to the model',
+      'Flip the killswitch → the guard disables instantly with no redeploy',
+    ],
+  },
+  audit_trail_export: {
+    checklist: [
+      'Org-scoped audit-log export for compliance reviews',
+      'Filter by action and date range',
+      'Download as JSON or CSV',
+      'Read-only; never mutates the audit trail',
+    ],
+    explanation:
+      'Lets org admins export the audit trail for compliance reviews — filter by action and date range, then download as JSON or CSV. Strictly read-only over the append-only audit_logs table and scoped to the caller’s org (no cross-tenant rows). When off, the export route 404s.',
+    smoke_test: [
+      'GET /api/audit/export?format=csv&action=site.publish&from=2026-01-01 → CSV attachment',
+      'GET /api/audit/export?format=json → JSON array of audit rows for the org',
+      'Disable the flag → the export route 404s',
+    ],
+  },
+  cmdk_ai_actions: {
+    checklist: [
+      'AI actions layer on the existing Cmd+K palette',
+      'Natural language → navigation, bulk mutations, or agent tasks',
+      'Palette + focus gate already ship',
+      'Resolve endpoint maps NL to a typed action',
+    ],
+    explanation:
+      'Adds an AI actions layer to the existing Cmd+K palette: natural language routes to navigation, bulk mutations, or agent tasks (the palette and its focus gate already ship). A resolve endpoint maps the typed phrase to a structured action the UI executes. When off, Cmd+K stays a plain navigation palette and the resolve route 404s.',
+    smoke_test: [
+      'Open Cmd+K, type "publish all draft sites" → POST /api/cmdk/resolve → a typed bulk action',
+      'Type "go to billing" → resolves to a navigation action',
+      'Disable the flag → Cmd+K is navigation-only, the resolve route 404s',
+    ],
+  },
+  cms_content: {
+    checklist: [
+      'Edge-cached /api/cms/blog.json feed for generated sites',
+      'HMAC-verified /api/cms/revalidate receiver',
+      'Cache purges when Payload publishes content',
+      'Safe disabled behavior: routes 404 when the flag is off',
+    ],
+    explanation:
+      'CMS content bridge — serves an edge-cached /api/cms/blog.json feed to generated sites and exposes an HMAC-verified /api/cms/revalidate receiver that purges the cache when Payload publishes new content. Decouples generated-site blog content from rebuilds.',
+    smoke_test: [
+      'GET /api/cms/blog.json → 200 cached JSON feed (cache-control set)',
+      'POST /api/cms/revalidate with a valid HMAC signature → 200 + cache purged',
+      'POST /api/cms/revalidate with a bad signature → 401',
+      'Re-GET /api/cms/blog.json after publish → reflects the new content',
+    ],
+  },
+  credit_wallet_rollover: {
+    checklist: [
+      'AI-credit wallet with monthly rollover',
+      'Promo credit grants stack on top',
+      'Expiring balances surface urgency in the billing wallet',
+      'Read model over the credits ledger',
+    ],
+    explanation:
+      'Extends the AI-credit wallet with rollover — unused monthly credits carry forward, promo grants stack, and expiring balances surface urgency in the billing wallet. Computed over the credits ledger; the wallet UI shows current, rolled-over, promo, and expiring buckets. When off, the wallet shows the flat monthly balance only and the rollover route 404s.',
+    smoke_test: [
+      'GET /api/billing/wallet → {balance, rolled_over, promo, expiring:[{amount, expires_at}]}',
+      'Spend less than the monthly grant → next period’s wallet shows the carried-forward credits',
+      'Disable the flag → the rollover fields drop, the route 404s',
+    ],
+  },
+  deploy_buttons: {
+    checklist: [
+      'One-click "Deploy to projectsites.dev" button snippets',
+      '"Hosted on projectsites.dev" badge for READMEs / footers',
+      'Copy-paste Markdown + HTML embed codes',
+      'Viral growth loop — every embed links back',
+    ],
+    explanation:
+      'Generates one-click "Deploy to projectsites.dev" button snippets and a "Hosted on projectsites.dev" badge for READMEs and site footers — a viral growth loop where every embed links back to the platform. Owners copy Markdown or HTML embed codes from the admin. When off, the snippet endpoint 404s and no badge renders.',
+    smoke_test: [
+      'GET /api/deploy-button?slug=demo → {markdown, html, svg_url}',
+      'Paste the Markdown into a README → the badge renders and links to the deploy flow',
+      'Disable the flag → the snippet route 404s',
+    ],
+  },
+  edge_personalization: {
+    checklist: [
+      'No-PII edge swap of hero / sub / image / CTA / sticky-bar',
+      'Signals: geo / device / referrer / time / return visit',
+      'Sub-10ms Workers-AI decision',
+      'A/B-eval looped to the winning variant',
+    ],
+    explanation:
+      'No-PII edge personalization that swaps the hero headline, sub-headline, image, primary CTA, and sticky bar based on geo / device / referrer / time-of-day / return-visit signals via a sub-10ms Workers-AI call, with an A/B-eval loop that shifts traffic to the winning variant. Runs at the edge on serve. When off, the published site renders its default static hero.',
+    smoke_test: [
+      'Request a published site with different Referer / geo headers → the hero variant changes',
+      'GET /api/sites/:id/personalization/report → per-variant conversion + the current winner',
+      'Disable the flag → every visitor gets the default hero',
+    ],
+  },
+  figma_import: {
+    checklist: [
+      'POST /api/figma/import — pull design tokens + component metadata from a Figma file',
+      'Caller supplies a Figma personal-access token (no shared vault yet)',
+      'Imported tokens flow into the generated site (no manual copy-paste)',
+      'Off by default → the route 404s; Sentry + logs on import',
+    ],
+    explanation:
+      'Figma Import pulls design tokens and component metadata from a Figma file via the Figma REST API (POST /api/figma/import), letting designers push brand tokens into a generated site without manual copy-paste. The caller supplies a Figma PAT (enable per-user in dev until a token-vault UX exists). Figma rate-limits at 100 req/min, so heavy imports may hit the cap. Disabled by default → the route 404s. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/figma_import module.',
+    smoke_test: [
+      'POST /api/figma/import {fileKey, token} → 200 with extracted tokens',
+      'Invalid/expired token → 4xx with a clear message (no crash)',
+      'Disable the flag → the route 404s',
+    ],
+  },
+  generative_ui_stream: {
+    checklist: [
+      'POST /api/copilot/ui — Workers AI returns schema-bound UI descriptors',
+      'Every LLM output Zod-validated before return (invalid → rejected, never rendered)',
+      'Off by default → the route 404s (never 403)',
+      'Sentry + structured logs on every generation; no persistent state',
+    ],
+    explanation:
+      'Generative UI Stream composes copilot-driven interfaces dynamically: POST /api/copilot/ui calls Workers AI to produce schema-bound UI descriptors, which are Zod-validated before reaching the client so a malformed LLM output can never render. Disabled by default → the route 404s. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/generative_ui_stream module.',
+    smoke_test: [
+      'POST /api/copilot/ui {prompt:"..."} → 200 with a Zod-valid UI descriptor',
+      'Force an invalid LLM output (mock) → request rejected, nothing rendered',
+      'Disable the flag → the route 404s',
+    ],
+  },
+  mcp_oauth_provider: {
+    checklist: [
+      'OAuth 2.1 authorization server for MCP clients',
+      'PKCE flow instead of pasting psk_ tokens',
+      'Scoped, revocable access tokens bound to one org',
+      'Standard /authorize + /token + metadata endpoints',
+    ],
+    explanation:
+      'Turns the worker into an OAuth 2.1 authorization server so MCP clients (Claude Code) authenticate via the PKCE authorization-code flow instead of pasting a long-lived psk_ token. Issues scoped, revocable access tokens bound to a single org, with the standard discovery + /authorize + /token endpoints. When off, clients fall back to the psk_ paste flow and the OAuth endpoints 404.',
+    smoke_test: [
+      'GET /.well-known/oauth-authorization-server → metadata document',
+      'GET /authorize?…&code_challenge=… → consent → code → POST /token → access token',
+      'Disable the flag → the OAuth endpoints 404, psk_ paste-token auth still works',
+    ],
+  },
+  model_registry: {
+    checklist: [
+      'OpenAI-compatible GET /v1/models catalog',
+      'ProviderCapabilityRegistry + ModelAliasRegistry',
+      'Aliases: deepseek / anthropic / openai / gemini / grok / workers-ai',
+      'Per-provider availability gating (key present → listed)',
+    ],
+    explanation:
+      'Serves an OpenAI-compatible GET /v1/models catalog backed by the ProviderCapabilityRegistry + ModelAliasRegistry — the deepseek / anthropic / openai / gemini / grok / workers-ai alias map with per-provider availability gating (a provider only lists its models when its key is configured). The catalog the AI router reads to resolve an alias to a concrete model. When off, /v1/models 404s.',
+    smoke_test: [
+      'GET /v1/models → {object:"list", data:[{id, owned_by, …}]} for configured providers only',
+      'Unset a provider key → that provider’s models drop from the list',
+      'Disable the flag → /v1/models 404s',
+    ],
+  },
+  native_booking_engine: {
+    checklist: [
+      'First-class booking / availability engine',
+      'Slots, holds, reminders + optional deposit via payments_rail',
+      'Eliminates the third-party scheduler dependency',
+      'Owner-managed availability rules',
+    ],
+    explanation:
+      'A first-class booking and availability engine — bookable slots, short-lived holds, reminders, and an optional deposit charged through payments_rail — eliminating the third-party scheduler dependency. Owners define availability; visitors book on the published site. When off, the booking routes 404 and the booking UI is hidden.',
+    smoke_test: [
+      'GET /api/sites/:id/availability?date=… → open slots',
+      'POST /api/sites/:id/bookings {slot} → hold created, reminder scheduled, deposit (if set) via payments_rail',
+      'Disable the flag → the booking routes 404',
+    ],
+  },
+  observability_gateway: {
+    checklist: [
+      'POST /monitoring/:provider — customer sites forward Sentry/PostHog events',
+      'Raw vendor keys never ship to the browser (worker-side forward only)',
+      'Every event tenant-tagged + PII-redacted + sampled + quota-capped',
+      'Rollup datapoints → Analytics Engine keyed by {orgId, siteId, provider}',
+      'Fail-soft: vendor 5xx → customer site still gets 202 (event dropped, never errored)',
+    ],
+    explanation:
+      'Customer-site observability gateway. Customer sites POST their Sentry/PostHog events to POST /monitoring/:provider so raw vendor ingest keys never appear in the customer browser bundle. The worker tenant-tags, PII-redacts (best-effort regex sweep), samples, and quota-caps each event before forwarding server-side to the vendor; rollups are written to Analytics Engine keyed by org/site/provider. Disabled by default → the route 404s (never 403). Registered (fire-3) to satisfy the feature-drift + docs guards for the concurrently-built libs/features/observability_gateway module.',
+    smoke_test: [
+      'POST /monitoring/posthog {batch:[...]} → 202 (forwarded server-side)',
+      'Inspect forwarded payload → no raw vendor key in the response, PII fields redacted',
+      'Exceed the per-site quota → events past the cap are dropped (still 202)',
+      'Disable the flag → the route 404s',
+    ],
+    e2e_tests: ['e2e/observability_gateway.spec.ts'],
+  },
+  onboarding_copilot: {
+    checklist: [
+      'PLG activation checklist for a new org',
+      'Computes next-best actions (create → publish → custom domain)',
+      'Per-step completion state + a dismiss control',
+      'Drives time-to-first-published-site down',
+    ],
+    explanation:
+      'Product-led-growth activation checklist that computes a new org’s next-best actions — create a site, publish it, add a custom domain — with per-step completion state and a dismiss control. Shortens time-to-first-published-site, the key activation metric. Read-only over existing org state. When off, the route 404s and no checklist renders.',
+    smoke_test: [
+      'GET /api/onboarding/checklist → {steps:[{id, done, cta_href}], dismissed}',
+      'Publish a site → re-fetch → the publish step flips to done',
+      'Disable the flag → the checklist route 404s',
+    ],
+  },
+  page_audio_summary: {
+    checklist: [
+      'POST /api/audio-summary/:siteId — generate a per-route TTS summary',
+      'GET /api/audio-summary/:siteId — fetch the stored MP3 for playback',
+      'MP3 persisted to R2 under audio-summary/{siteId}/',
+      'Fail-soft when no TTS provider is configured; off by default → 404',
+    ],
+    explanation:
+      'Page Audio Summary generates per-route text-to-speech summaries via the media service and stores the MP3s in R2 (audio-summary/{siteId}/) for visitor playback. Requires a TTS provider (ElevenLabs or OpenAI); when unconfigured it degrades gracefully rather than erroring. Disabled by default → the routes 404. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/page_audio_summary module.',
+    smoke_test: [
+      'POST /api/audio-summary/:siteId → 200, MP3 written to R2',
+      'GET /api/audio-summary/:siteId → 200 audio/mpeg stream',
+      'Unset the TTS provider → graceful failure, no 5xx',
+      'Disable the flag → the routes 404',
+    ],
+  },
+  payments_rail: {
+    checklist: [
+      'Unified payments seam over Square (accept) + Stripe (SaaS/payouts)',
+      'One idempotency key, one webhook verifier',
+      'Single entitlement-grant path per rules/payments-routing',
+      'Provider chosen by money-flow, not per-feature',
+    ],
+    explanation:
+      'A unified payments seam that routes accept-money through Square Web Payments and SaaS billing / payouts through Stripe, behind one idempotency key, one webhook verifier, and a single entitlement-grant path (per rules/payments-routing). Features call the rail, not a provider directly, so the routing decision lives in one place. When off, the rail endpoints 404.',
+    smoke_test: [
+      'POST /api/payments/intent {amount_cents, purpose} → provider-routed intent + idempotency key',
+      'Replay the same idempotency key → the same intent is returned, no double-charge',
+      'Disable the flag → the rail routes 404',
+    ],
+  },
+  platform_mcp: {
+    checklist: [
+      'Account-level MCP server for Claude Code / Cursor / MCP clients',
+      'Auth via a scoped psk_ API token',
+      'Tools: list / inspect sites + build-status (deploy next)',
+      'Tenant-scoped to the token’s org',
+    ],
+    explanation:
+      'Account-level MCP server so external MCP clients (Claude Code, Cursor) connect with a scoped psk_ API token and manage their sites — list, inspect, and read build-status today, deploy next. Every tool call is bound to the token’s org (no cross-tenant access). When off, the MCP endpoints 404 so the surface’s existence isn’t leaked.',
+    smoke_test: [
+      'POST /api/mcp (initialize) with Authorization: Bearer psk_… → MCP handshake',
+      'tools/list → list_sites, get_site, get_build_status',
+      'Disable the flag → the MCP endpoint 404s',
+    ],
+  },
+  preview_share_card: {
+    checklist: [
+      'Honest, slop-free share messages (SMS / WhatsApp / email / copy)',
+      'One-tap platform deep-links (SMS, WhatsApp, mailto, X, Facebook), URL-encoded',
+      'OG-card params (title / subtitle / host / theme) for the edge renderer',
+      'Free-tier owner viral loop — the shared link is the ad',
+    ],
+    explanation:
+      'Owner-driven viral loop. After a build the owner gets pre-written share copy, one-tap platform deep-links, and OG-card params for a branded 1200x630 card, so they share their new site to real customers in seconds. Pure builder over the site slug + business name; XSS-safe substitution; degrades gracefully when a field is missing.',
+    smoke_test: [
+      'GET /api/sites/:siteId/share-card → {messages, links:{sms,whatsapp,email,x,facebook,copy}, og}',
+      'links.copy === https://<slug>.projectsites.dev',
+      'Unauth → 401; flag off → 404; not-owned siteId → 404',
+      'UI (follow-on): build-complete "Share my preview" button renders the deep-links + OG card',
+    ],
+  },
+  prod_readiness_score: {
+    checklist: [
+      'Production Readiness Score (0-100 + letter grade) per site',
+      'Checks: published, custom domain, performance, sitemap',
+      'Surfaces a prioritized "what to fix before launch" list',
+      'Read-only; recomputed on demand',
+    ],
+    explanation:
+      'Computes a 0-100 Production Readiness Score plus a letter grade for each site by running launch checks — published state, custom domain attached, performance budget, sitemap presence — and surfaces a prioritized list of what to fix before going live. Read-only and site-scoped; recomputed on demand. When off, the route 404s.',
+    smoke_test: [
+      'GET /api/sites/:id/readiness → {score, grade, checks:[{id, pass, fix}]}',
+      'Attach a custom domain → re-fetch → score rises, the domain check flips to pass',
+      'Disable the flag → the readiness route 404s',
+    ],
+  },
+  prompt_studio: {
+    checklist: [
+      'Admin surface over the existing prompt registry',
+      'Versioned templates with A/B variants',
+      'KV hot-patch without a redeploy',
+      'One-click rollback for non-engineers',
+    ],
+    explanation:
+      'An admin surface over the existing prompt registry: versioned templates with A/B variants, KV hot-patching that takes effect without a redeploy, and one-click rollback so non-engineers can tune prompts safely. Reads and writes the same registry the build pipeline consumes. When off, the studio routes 404 and prompts are edited in code only.',
+    smoke_test: [
+      'GET /api/admin/prompts → versioned templates with active variant',
+      'Hot-patch a template via the studio → the next generation uses it with no redeploy; rollback restores the prior version',
+      'Disable the flag → the studio routes 404',
+    ],
+  },
+  referral_loop: {
+    checklist: [
+      'In-product refer-a-friend with tracked codes/links',
+      'Attributed signups from a referral code',
+      'Credit rewards granted through the wallet on conversion',
+      'Per-org referral dashboard',
+    ],
+    explanation:
+      'In-product refer-a-friend: each org gets tracked referral codes and links, signups are attributed to the referrer, and a credit reward is granted through the wallet (credit_wallet_rollover) on a referred conversion. A growth loop with an in-app referral dashboard. When off, the referral routes 404 and no code is issued.',
+    smoke_test: [
+      'GET /api/referrals/code → the org’s referral code + share link',
+      'Sign up via ?ref=CODE then convert → the referrer’s wallet receives the reward credit',
+      'Disable the flag → the referral routes 404',
+    ],
+  },
+  site_analytics: {
+    checklist: [
+      'Owner-facing per-site analytics summary',
+      'Aggregates contacts, form submissions, subscribers + donations',
+      'Traffic block fed by the visitor-events beacon',
+      'When off, /api/sites/:id/analytics returns 404',
+    ],
+    explanation:
+      "Owner-facing per-site analytics dashboard. Aggregates the contacts core, form submissions, newsletter subscribers and donations into one summary, plus a traffic block fed by visitor_events_core. Read-only; never exposes another tenant's numbers (site-scoped query). When off the route 404s (never 403 — don't leak existence).",
+    smoke_test: [
+      'GET /api/sites/:id/analytics → {contacts, submissions, subscribers, donations, traffic}',
+      'Submit a form on the published site → counts increment within the refresh window',
+      'Disable the flag → the route 404s',
+    ],
+    e2e_tests: ['e2e/admin/analytics.spec.ts'],
+  },
+  site_doctor: {
+    checklist: [
+      'Owner-facing A–F site health report with a 0-100 score',
+      'Prioritized, plain-English one-tap fixes (severity-ranked)',
+      'Generous-free lock: free sees the top issue, rest locked behind Pro',
+      'Reuses production-readiness signals — no duplicate scoring',
+    ],
+    explanation:
+      'Owner-facing health report card — translates the production-readiness signals (published / custom domain / performance / sitemap) into an A–F grade plus prioritized, plain-English fixes. Free plan unlocks the top issue; the rest carry locked:true (the analytics_pro/paid upsell). Sharp, professional voice; pure scoring + lock core.',
+    smoke_test: [
+      'GET /api/sites/:siteId/doctor?plan=free → {grade, score, issues:[{locked:false},{locked:true}…], locked_count}',
+      'GET …?plan=pro → every issue locked:false, locked_count:0',
+      'Unauth → 401; flag off → 404; not-owned siteId → 404',
+      'UI: "Site Health" tab (?tab=health) renders the grade + fixes + Unlock-with-Pro on locked rows',
+    ],
+  },
+  site_semantic_search: {
+    checklist: [
+      'Semantic search over a published site’s own content',
+      'Backed by Vectorize / AutoRAG',
+      'Re-indexed on content change',
+      'Answers, not just keyword match',
+    ],
+    explanation:
+      'Auto-installs semantic search over a published site’s own R2 content via Vectorize / AutoRAG, re-indexed on content change — returning answers rather than keyword matches. A search box on the published site queries the site’s vector index. When off, the search route 404s and no search box renders.',
+    smoke_test: [
+      'POST /api/sites/:id/search {query:"opening hours"} → ranked passages + an answer',
+      'Edit the site content → re-index → the new content becomes searchable',
+      'Disable the flag → the search route 404s',
+    ],
+  },
+  site_thumbnail_grid: {
+    checklist: [
+      'Real-browser thumbnail of every site in the admin catalog',
+      'Captured via Cloudflare Browser-Rendering screenshot',
+      'Cached in R2 and reused from the snapshot path',
+      'Falls back to a placeholder tile when off',
+    ],
+    explanation:
+      'Renders a real-browser screenshot thumbnail for each site in the /admin catalog grid, captured via the Browser-Rendering REST API and cached in R2 (reusing the snapshot-quality screenshot path, no duplicate render). Gives owners an at-a-glance visual catalog instead of a text list. When off, tiles show a neutral placeholder.',
+    smoke_test: [
+      'GET /api/sites/:id/thumbnail → 302/200 to the cached R2 screenshot',
+      'Open /admin/sites → each card shows a live screenshot tile',
+      'Disable the flag → cards render the placeholder tile, the thumbnail route 404s',
+    ],
+  },
+  status_page_live: {
+    checklist: [
+      'Public status page backed by real uptime/incident data',
+      'Subscriber alerts on incident open/resolve',
+      'Extends the existing /status route shell',
+      'Frontend-primary with a status-feed endpoint',
+    ],
+    explanation:
+      'Public status page fed by real uptime + incident data rather than a static shell. Owners (and their visitors) see component health, open incidents, and a history feed; subscribers receive alerts when an incident opens or resolves. Builds on the existing /status route — when off, the route renders the static placeholder shell only.',
+    smoke_test: [
+      'GET /api/status/feed → {components[], incidents[], uptime_pct}',
+      'Visit /status → live component health + incident history render',
+      'Disable the flag → /status falls back to the static shell, the feed route 404s',
+    ],
+  },
+  url_clone_seed: {
+    checklist: [
+      'Paste a URL to seed the builder from it',
+      'Browser-Rendering extracts layout + copy + structured data',
+      'Prefills a new site as an acquisition fast-start',
+      'A starting point, not a literal copy',
+    ],
+    explanation:
+      'Paste a URL and seed the builder from it: Browser-Rendering extracts the layout, copy, and structured-data JSON to prefill a new site — an acquisition fast-start that turns an existing site into a starting point (improved, not literally copied). When off, the seed route 404s and /create starts blank.',
+    smoke_test: [
+      'POST /api/clone-seed {url} → {layout, copy, structured_data} prefill payload',
+      'Start /create with the seed → sections prefill from the source, ready to improve',
+      'Disable the flag → the seed route 404s',
+    ],
+  },
+  visitor_dsar: {
+    checklist: [
+      'GDPR/CCPA data-subject-access endpoint',
+      'Export OR soft-delete a visitor’s data by email or visitor_id',
+      'Writes an audit-log entry for every request',
+      'Site-owner scoped — only their own visitors',
+    ],
+    explanation:
+      'GDPR/CCPA data-subject-access endpoint: a site owner exports or soft-deletes a visitor’s data by email or visitor_id, with an audit-log entry recorded for every request (the compliance receipt). Scoped to the owner’s own visitors — never another tenant’s. When off, the route 404s so the capability isn’t exposed.',
+    smoke_test: [
+      'POST /api/sites/:id/dsar {email} action=export → {visitor_events, contacts, submissions}',
+      'POST /api/sites/:id/dsar {email} action=delete → soft-deletes + writes an audit entry',
+      'Disable the flag → the DSAR route 404s',
+    ],
+  },
+  visitor_events_core: {
+    checklist: [
+      'Public pageview / click / conversion beacon ingest',
+      'Feeds the site_analytics traffic block',
+      'Powers edge behavioral personalization (hero/CTA/proof swap by referral+UTM+geo)',
+      'Powers autonomous bandit CRO (AI variants, traffic auto-shifts to the winner)',
+      'Tenant-scoped; no cross-site bleed',
+    ],
+    explanation:
+      'Public beacon endpoint (POST /api/v1/events) that ingests pageviews, clicks and conversions from published sites. It is the data spine for two merged capabilities: (1) edge behavioral personalization — segment a visitor by referral source + UTM + geo + return-status and swap hero/CTA/social-proof at the edge; and (2) autonomous bandit CRO — AI generates variant copy, a multi-armed bandit shifts live traffic to the winner, and the winner auto-promotes. Events are tenant-namespaced.',
+    smoke_test: [
+      'POST /api/v1/events {site_id, type:"pageview", path:"/"} → 202 accepted',
+      'GET the site_analytics traffic block → reflects the beacon',
+      'Personalization: load with ?utm_source=ads vs direct → hero variant differs',
+    ],
+  },
+  visual_point_edit: {
+    checklist: [
+      'Click any live-preview element to edit it',
+      'AI mutates only that node (copy / style / layout)',
+      'No full-site regeneration',
+      'Backed by a scoped edit endpoint',
+    ],
+    explanation:
+      'Click any element in the live preview and have AI mutate only that node — its copy, style, or layout — without a full-site regeneration. Frontend-primary, backed by a scoped server edit endpoint that patches just the targeted node. When off, the point-edit affordance is hidden and the scoped edit route 404s.',
+    smoke_test: [
+      'Click a heading in the preview → request "make this shorter and bold" → only that node changes',
+      'POST /api/sites/:id/edit-node {selector, instruction} → a scoped patch, not a regeneration',
+      'Disable the flag → the point-edit UI is hidden, the route 404s',
+    ],
+  },
+  wireframe_planning: {
+    checklist: [
+      'Pre-generation sitemap + page-level wireframe plan',
+      'Surfaced as an approval gate in /create',
+      'Catches IA problems before section generation',
+      'Owner edits the plan before building',
+    ],
+    explanation:
+      'Surfaces a sitemap plus page-level wireframe plan as an approval gate in /create BEFORE section generation, so information-architecture problems are caught up front instead of after a full build. The owner reviews and edits the plan, then approves to generate. When off, /create generates directly without the planning gate.',
+    smoke_test: [
+      'Start a build in /create → the sitemap + wireframe plan renders for approval',
+      'Edit the plan and approve → generation follows the approved structure',
+      'Disable the flag → /create skips the planning gate and generates directly',
+    ],
+  },
+
+  // ── Restored 2026-08-13 (1:1 with registry.ts): docs for the 33 over-pruned dark-launch flags.
+  mcp_server: {
+    checklist: [
+      'Platform MCP discovery at /.well-known/mcp',
+      '5 tools: list_sites / create_site / deploy_site / get_site_metrics / regenerate_section',
+      'OAuth 2.1 + RFC 8707 resource indicators',
+      'Connect from Claude / Cursor / Windsurf',
+      'Stable',
+    ],
+    explanation:
+      'Model Context Protocol server discovery at /.well-known/mcp. Lists 5 tools (list_sites, create_site, deploy_site, get_site_metrics, regenerate_section). Claude / Cursor / Windsurf users connect their projectsites account via MCP. OAuth 2.1 + RFC 8707 Resource Indicators at /.well-known/oauth-protected-resource. Stage=stable.',
+    smoke_test: [
+      'curl https://projectsites.dev/.well-known/mcp → 200 JSON with tools[] array',
+      'curl https://projectsites.dev/.well-known/oauth-protected-resource → 200 JSON with resource + authorization_servers + scopes_supported',
+    ],
+    e2e_tests: ['e2e/mcp/mcp-providers.spec.ts'],
+  },
+
 };
 
 export function getDocs(key: string): FlagDocs | undefined {
