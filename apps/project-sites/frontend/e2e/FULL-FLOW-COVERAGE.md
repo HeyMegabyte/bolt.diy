@@ -748,3 +748,14 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     naming-mismatches would create duplicate flags; dead code shouldn't be registered). `npm run
     audit:flag-registration` maps it.
   - Running total unchanged: **527 REAL green** (this fire hardened the flag system, added no flows).
+- **Fire 33 (2026-08-13)** — DEPTH pass #21: **drained the dead-feature backlog 29→6 + ENABLED 26 features
+  (Brian directive).** E2E count holds at **527**.
+  - **Registered 23 dead flags from their MANIFESTS** — 22 of the 29 dead flags had a
+    `libs/features/<x>/manifest.ts` declaring that flagKey (the registry had drifted from the manifests).
+    Generated entries from each manifest's name+description → registry 78→101. Detector
+    `audit-flag-registration` dropped **29→6 HIGH** (the 6 remaining have no manifest = dead code / inline).
+  - **⚠️ Brian directive mid-fire: "automatically enable each feature so I can see it in the admin."** Flipped
+    all 26 this-session registrations to `default_enabled:true, rollout:100` + deployed. Verified live via
+    `GET /api/feature-flags`: **12/12 sampled → enabled=True, rollout=100.** Now ON + visible in
+    /admin/site-features + /admin/feature-flags. **STANDING: enable each feature I finish so Brian can see it.**
+  - Running total unchanged: **527 REAL green** (feature-enablement + registry-drain fire).

@@ -249,21 +249,228 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
   },
 
+  ab_testing: {
+    key: 'ab_testing',
+    description:
+      'Deterministic variant assignment via hashed visitor ID + statistical significance calculator with z-test. Its route checks isFlagOn(\'ab_testing\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  ai_content_strategist: {
+    key: 'ai_content_strategist',
+    description:
+      'Content gap analysis against competitors + 90-day content calendar with SEO-briefed outlines. Covers 14 industries with tailored content pillars. Its route checks isFlagOn(\'ai_content_strategist\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  ai_site_critic: {
+    key: 'ai_site_critic',
+    description:
+      'AI-powered site critique with per-dimension scoring, A-F grading, industry benchmarking, and prioritized auto-fix suggestions. Uses CF Browser Rendering + Workers AI vision. Its route checks isFlagOn(\'ai_site_critic\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  ai_video_hero: {
+    key: 'ai_video_hero',
+    description:
+      'AI-generated 60-second cinematic brand video script with 8 clips, visual prompts for Sora/Veo, Piper TTS narration, transitions, and credit cost estimation. Its route checks isFlagOn(\'ai_video_hero\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  app_launcher: {
+    key: 'app_launcher',
+    description:
+      'Per-tenant app provisioning planner: 11 apps cataloged (Plane, Twenty, Listmonk, Chatwoot, Lago, Unkey, Nango, Payload, LiteLLM, Better Auth, Native Social). CNAME→credential→container launch pipeline. Cost estimation per app.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  builtin_crm: {
+    key: 'builtin_crm',
+    description:
+      'Lead scoring engine (0-100, hot/warm/cold) from 7 source types and 8 behavioral signals. Pipeline stage manager (7 stages), deal value tracker, next-action recommender. Pure, deterministic, zero I/O. Its route checks isFlagOn(\'builtin_crm\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  cms_collections: {
+    key: 'cms_collections',
+    description:
+      'Dynamic content types with rich relationships. 7 built-in templates (team, services, testimonials, portfolio, events, faq, menu_items) with reference fields, dynamic routing, JSON-LD mapping, and relationship auto-detection.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  code_export: {
+    key: 'code_export',
+    description:
+      'One-click export of any generated site as a self-contained, deployable Cloudflare Worker project. Includes wrangler.toml, Worker source (Hono), D1 migrations, R2 assets, and deploy instructions. Its route checks isFlagOn(\'code_export\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  conversational_analytics: {
+    key: 'conversational_analytics',
+    description:
+      'Natural language → analytics query intent parser. Ask questions like "how many visitors last week?" and get structured query intents. Regex-based for 80% of queries, LLM fallback for ambiguous ones. Its route checks isFlagOn(\'conversational_analytics\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  customer_portal: {
+    key: 'customer_portal',
+    description:
+      'Client portal access engine: magic-link auth, per-client page access control, 30-day expiry, sub-page path matching. Use case: agencies sharing invoices/projects/files with clients. Its route checks isFlagOn(\'customer_portal\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  geo_toolkit: {
+    key: 'geo_toolkit',
+    description:
+      'Dual-scoring content analyzer for traditional SEO + AI answer engine discoverability. Factual claim extraction, citation checking, AI formatting quality scoring, and prioritized GEO suggestions. Its route checks isFlagOn(\'geo_toolkit\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  lifecycle_agent: {
+    key: 'lifecycle_agent',
+    description:
+      'Pure site health monitoring rule engine. Checks content freshness, SEO fundamentals, performance, security, trust signals, competitive gaps, and broken links. Generates health scores, severity-ranked issues, and auto-fixable recommendations.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  local_seo_suite: {
+    key: 'local_seo_suite',
+    description:
+      'NAP consistency auditor + review response suggester + directory coverage tracker. Detects name/address/phone discrepancies across directories (Google, Yelp, Facebook, Bing), generates rating-aware review replies, and tracks directory claiming status.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  marketing_dashboard: {
+    key: 'marketing_dashboard',
+    description:
+      'Widget-based analytics dashboard with 11 default widgets across 6 sources (website/email/social/ads/crm/booking). Metric change computation with trend detection, source filtering, and grid/list layouts.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  mcp_per_tenant: {
+    key: 'mcp_per_tenant',
+    description:
+      'Every generated site becomes an MCP server at mcp.{slug}.projectsites.dev. AI agents connect via OAuth 2.1 and get 9 typed tools: read_page, list_pages, create_page, update_page, delete_page, upload_media, list_media, read_analytics, manage_seo.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  native_booking: {
+    key: 'native_booking',
+    description:
+      'Pure availability calculator + slot generator + booking validator. Generates 15-min increment time slots with buffer time, detects conflicts, validates against business hours, and produces booking confirmations with cancellation policy.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  nl_site_management: {
+    key: 'nl_site_management',
+    description:
+      'Natural language → site edit intent parser. Commands like "change my hero headline to Best Pizza" are parsed into structured edit intents (change_text, add_section, remove_element, update_info) with target section resolution.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  seo_agent: {
+    key: 'seo_agent',
+    description:
+      'SEO health monitoring: indexing checks (sitemap/robots/index rate), on-page checks (meta/H1/alt/schema), keyword rank tracking (wins/losses/drops), competitor gap detection. Generates A-F grade with prioritized fix suggestions.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  social_agent: {
+    key: 'social_agent',
+    description:
+      'Content proposal generator with platform-aware captions, hashtags, image prompts, and optimal posting times for 10 platforms. Engagement scoring with trend detection (growing/stable/declining). Its route checks isFlagOn(\'social_agent\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  social_publishing_native: {
+    key: 'social_publishing_native',
+    description:
+      'Native social media posting (instant + scheduled) across 14 platforms. Replaces Postiz. CF Workflows v2 + Upstash + D1 + Tinybird. Its route checks isFlagOn(\'social_publishing_native\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  visual_automation: {
+    key: 'visual_automation',
+    description:
+      'Journey validation engine: 7 action types, 6 trigger types, step delay estimation, linear journey validation with error reporting. Its route checks isFlagOn(\'visual_automation\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  voice_site_mgmt: {
+    key: 'voice_site_mgmt',
+    description:
+      'Voice command parser for site editing: 9 intent types (change_text, update_info, add_section, remove_section, publish_site, check_health). Filler-word filtering, verbal confirmation generation, confidence scoring.',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+  white_label: {
+    key: 'white_label',
+    description:
+      'Agency dashboard: MRR calculation, churn rate, client site management, branded reselling. Agencies resell ProjectSites under their own brand. Its route checks isFlagOn(\'white_label\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
   agentic_commerce: {
     key: 'agentic_commerce',
     description:
-      "AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn('agentic_commerce') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: false,
-    default_rollout_percent: 0,
+      'AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn(\'agentic_commerce\') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
   page_audio: {
     key: 'page_audio',
     description:
-      "Page Audio — auto-generates a short narrated (TTS) audio version of each page for better dwell time + an audio-first accessible experience. Its route (src/routes/page_audio.ts) checks isFlagOn('page_audio') which was never registered (the registry had the distinct page_audio_summary), so the feature was dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: false,
-    default_rollout_percent: 0,
+      'Page Audio — auto-generates a short narrated (TTS) audio version of each page for better dwell time + an audio-first accessible experience. Its route (src/routes/page_audio.ts) checks isFlagOn(\'page_audio\') which was never registered (the registry had the distinct page_audio_summary), so the feature was dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+    default_enabled: true,
+    default_rollout_percent: 100,
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
@@ -271,8 +478,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'i18n_localization',
     description:
       'Per-site AI localization: translate page snippets into a target language via Workers AI m2m100 (POST /api/sites/:id/i18n/translate) with correct text-direction (LTR/RTL), plus pure hreflang generation. The translation tester lives in the feature dossier. Was complete but UNREGISTERED (resolveFlag short-circuits off for unregistered keys) — registered 2026-08-13.',
-    default_enabled: false,
-    default_rollout_percent: 0,
+    default_enabled: true,
+    default_rollout_percent: 100,
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
