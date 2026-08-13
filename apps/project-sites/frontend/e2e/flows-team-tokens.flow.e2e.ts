@@ -304,7 +304,7 @@ test.describe('Full-flow · team + api-tokens', () => {
    * testid is attached. An empty table is fine — that is an honest empty state.
    * We do NOT assert row count > 0 (the e2e-test-org may have zero tokens).
    */
-  test.fixme('TOK-02 · api-tokens-table is present (honest-empty valid)', async ({ page }) => {
+  test('TOK-02 · api-tokens-table is present (honest-empty valid)', async ({ page }) => {
     const errors = attachConsole(page);
     await gotoSettings(page, '#api-tokens');
 
@@ -320,7 +320,7 @@ test.describe('Full-flow · team + api-tokens', () => {
     // Either way it must be in the DOM — not entirely absent (which would mean
     // the component failed to render).
     const isVisible = await table.isVisible().catch(() => false);
-    const isAttached = await table.isAttached().catch(() => false);
+    const isAttached = (await table.count().catch(() => 0)) > 0;
     expect(isAttached || isVisible, 'tokens table or empty state is rendered').toBeTruthy();
 
     await snap(page, 'tok-02-table-present');
@@ -334,7 +334,7 @@ test.describe('Full-flow · team + api-tokens', () => {
    * assert a dialog/form appears (name input or dialog role) → Escape →
    * assert the dialog is gone. NEVER submit — no real token is created.
    */
-  test.fixme('TOK-03 · at-create-open opens create-token dialog then Escape dismisses', async ({ page }) => {
+  test('TOK-03 · at-create-open opens create-token dialog then Escape dismisses', async ({ page }) => {
     const errors = attachConsole(page);
     await gotoSettings(page, '#api-tokens');
 

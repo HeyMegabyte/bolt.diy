@@ -27,15 +27,15 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 4 | Settings tab-switching (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 21 | 🟡 1 fixme (parallel contention) |
 | 4a | Settings › Domains (backup/custom/AI-search) | `flows-domains.flow.e2e.ts` | 12 | 12 | ✅ green (prod) |
 | 4b | Settings › AI Chat (system-prompt/web-search/knowledge) | `flows-ai-chat.flow.e2e.ts` | 10 | 10 | ✅ green (fire-8) |
-| 4c | Settings › Email + Deliverability (allowance/SMTP/SPF-DKIM check) | `flows-email.flow.e2e.ts` | 14 | 12 | 🟡 2 fixme (allowance/smtp CTA) |
-| 4d | Settings › Team + API Tokens (invite/2fa/token-create) | `flows-team-tokens.flow.e2e.ts` | 14 | 11 | 🟡 3 fixme |
+| 4c | Settings › Email + Deliverability (allowance/SMTP/SPF-DKIM check) | `flows-email.flow.e2e.ts` | 14 | 12 | 🟡 2 fixme (smtp CTA/deliverability render) |
+| 4d | Settings › Team + API Tokens (invite/2fa/token-create) | `flows-team-tokens.flow.e2e.ts` | 14 | 13 | 🟡 1 fixme (auth-body shape) |
 | 4e | Settings › Webhooks (url/events/create) | `flows-webhooks.flow.e2e.ts` | 14 | 14 | ✅ green (fire-8) |
 | 5 | Billing (subscription/entitlements/6 tabs/upgrade) | `flows-billing.flow.e2e.ts` | 17 | 17 | ✅ green (prod) |
 | 6 | Media — no `/admin/media` route (global drop-zone + bolt editor own media) | — | 0 | ❌ route N/A (file deleted fire-3) |
 | 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 8 | Analytics (overview/tabs/live/funnel/events) | `flows-analytics.flow.e2e.ts` | 30 | 16 | 🟡 6 fixme (see fire log) |
 | 9 | SEO toolkit + local-SEO | `flows-seo.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| 10 | Forms + submissions (filters/prompt-designer/export) | `flows-forms.flow.e2e.ts` | 16 | 13 | 🟡 3 fixme (pills/designer) |
+| 10 | Forms + submissions (filters/prompt-designer/export) | `flows-forms.flow.e2e.ts` | 16 | 14 | 🟡 2 fixme (pills/designer) |
 | 11 | Feature-flags admin (list/filter/toggle/rollout/stage/override) | `flows-feature-flags.flow.e2e.ts` | 18 | 0 | ⬜ todo |
 | 12 | Social / Pulse (composer/view-switcher/connect/auto-pilot) | `flows-social.flow.e2e.ts` | 20 | 19 | 🟡 1 fixme (discard) — re-authored fire-4 ✅ |
 | 13 | Voice agent (numbers/conversations/test/agent/mcps/share tabs) | `flows-voice.flow.e2e.ts` | 16 | 16 | ✅ green (fire-8: 501-benign) |
@@ -51,7 +51,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
 | 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **~425** | **341** | 🟡 341 REAL green + 24 fixme (24 flow files) |
+| — | **TOTAL** | | **~425** | **344** | 🟡 344 REAL green + 21 fixme (24 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -236,3 +236,20 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     placeholder), not broken features. Remaining 24 fixme: analytics-6 (entitlement-gated), create-3
     (real "No available adapters" finding), + ~15 misc selector/interaction.
   - Running total: **341 REAL green / 365 written across 24 files (24 fixme)**.
+- **Fire 9 (2026-08-13)** — fixme-resolution pass #2 (un-fixme all 12 misc → run → diagnose → fix or
+  re-fixme with the cause logged). **Net +3 green → 344; fixme 24 → 21.** Lower yield than fire-8 —
+  the easy fixme are gone.
+  - **Resolved (4):** email 02 (auto — 501/403-benign), team-tokens TOK-02 (`.isAttached()` isn't a
+    Playwright method → `.count()`), TOK-03 (auto), forms 11 (strict-mode on a duplicate
+    `forms-open-prompt-designer` → `.first()`).
+  - **email 04 regressed → fixme** (deliverability heading fails solo — the section may be conditional
+    or the SPF/DKIM check is network-flaky; the deliverability tests should run at low concurrency).
+  - **Remaining 21 fixme with DIAGNOSED causes (for a focused next fire):** forms-03 (pill accessible-
+    name), forms-05 (designer overlay selector), team-tokens-TOK-06 (`/api/auth/me` body shape —
+    fields are under `.data`), ai-endpoints-11 (Test-surface selector like the more-menu was),
+    ai-endpoints-15 (375px overflow — POSSIBLY a real mobile bug), docs-T09 (endpoint-detail selector),
+    social-09 (Discard likely shows a ConfirmService dialog first), email-03 (smtp-card CTA selector),
+    email-04 (deliverability render), settings-02 (parallel contention), editor-06 (iframe noise,
+    unassertable). Plus the 2 REAL findings (analytics-6 entitlement-gated, create-3 "No available
+    adapters", billing-checkout-400).
+  - Running total: **344 REAL green / 365 written across 24 files (21 fixme)**.

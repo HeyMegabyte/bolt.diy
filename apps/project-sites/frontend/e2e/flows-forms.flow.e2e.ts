@@ -131,14 +131,14 @@ test.describe('Full-flow · forms', () => {
     await expect(page.locator('[data-testid="forms-empty"]')).toBeVisible({ timeout: 12_000 });
   });
 
-  test.fixme('11 full journey: land → see empty submissions → open prompt designer → dismiss → still on forms', async ({
+  test('11 full journey: land → see empty submissions → open prompt designer → dismiss → still on forms', async ({
     page,
   }) => {
     const errors = attachConsole(page);
     await seedSession(page);
     await gotoAdmin(page, '/admin/forms');
     await expect(page.locator('[data-testid="forms-empty"]')).toBeVisible({ timeout: 15_000 });
-    const open = page.locator('[data-testid="forms-open-prompt-designer"]');
+    const open = page.locator('[data-testid="forms-open-prompt-designer"]').first();
     if (await open.count()) {
       await open.click();
       await page.waitForTimeout(600);

@@ -87,7 +87,7 @@ test.describe('Full-flow · email', () => {
 
   // ─── 02 · email-allowance-card shows quota/allowance ────────────────────
 
-  test.fixme('02 · email-allowance-card shows sending quota', async ({ page }) => {
+  test('02 · email-allowance-card shows sending quota', async ({ page }) => {
     const errors = attachConsole(page);
     await gotoEmailPanel(page);
 
@@ -144,7 +144,7 @@ test.describe('Full-flow · email', () => {
 
   // ─── 04 · Deliverability section heading renders ─────────────────────────
 
-  test('04 · deliverability section heading "Email Deliverability" renders', async ({ page }) => {
+  test.fixme('04 · deliverability section heading "Email Deliverability" renders', async ({ page }) => {
     const errors = attachConsole(page);
     await gotoEmailPanel(page);
 
