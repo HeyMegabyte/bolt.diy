@@ -51,7 +51,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Admin 404 recovery (suggest/renamed/soft-404/quick-jump/cockpit-retained) | `flows-states.flow.e2e.ts` | 17 | 17 | ✅ green (fire-12) — target 26→17 (error-boundary crash cards are unit-owned, not prod-forceable) |
 | 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
-| — | **TOTAL** | | **~416** | **386** | 🟡 386 REAL green + 12 fixme (26 flow files) — every surface row green |
+| 23 | **Onboarding checklist** (`onboarding_copilot`) — activation steps/progress/next-CTA/dismiss on the hub | `flows-onboarding.flow.e2e.ts` | 10 | 10 | ✅ green (fire-14 — FINISHED the feature: built+wired+shipped the UI) |
+| — | **TOTAL** | | **~416** | **396** | 🟡 396 REAL green + 12 fixme (27 flow files) — every surface row green |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -66,8 +67,8 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   **69 IMPROVE** = "wired via manifest, no `isFlagOn` reader" — i.e. the module has a
   manifest + handlers but the route/UI isn't gated/reachable yet. Those are the primary
   finish-the-feature targets (gate the route + surface the UI + seed sample data).
-- Order by user value: onboarding_copilot, activity_feed, batch_operations, cmd_k_actions,
-  local_seo_suite, marketing_dashboard, customer_portal, referral_loop, then the rest.
+- Order by user value: ~~onboarding_copilot~~ ✅ DONE (fire-14), activity_feed, batch_operations,
+  cmd_k_actions, local_seo_suite, marketing_dashboard, customer_portal, referral_loop, then the rest.
 
 ---
 
@@ -336,7 +337,33 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Lesson:** a "POSSIBLY real" fixme flagged during a coverage pass is worth un-fixme'ing + measuring with an
     offender-finder BEFORE deciding artifact-vs-bug — this one was a genuine defect shipping to every mobile user.
   - Running total: **385 REAL green / 398 written across 26 files (13 fixme)**.
-  - **+ auth-security-05 (2FA enroll) resolved same fire → 386 green, fixme 12.** The 2FA feature is FULLY
+  - **+ auth-security-05 (2FA enroll) resolved same fire → 386 green, fixme 12.** — see below.
+- **Fire 14 (2026-08-13)** — DEPTH pass #2: **FINISHED a partial dark-launch module end-to-end** —
+  `onboarding_copilot` (the #1 user-value backlog item). **Net +10 green → 396; new file #27.** All 10 green
+  on prod + AI-vision ~9/10 on the rendered widget.
+  - **The gap:** the worker API (`GET /api/onboarding/checklist` + `POST /api/onboarding/dismiss`) + the
+    global flag override were ALREADY LIVE, but NOTHING consumed them — a half-finished feature (backend
+    done, zero UI). Built `components/onboarding-checklist/onboarding-checklist.component.ts` (self-contained,
+    signals, OnPush — the API 404 IS the flag gate, so it renders nothing when off/complete/dismissed) +
+    wired ONE line into the dashboard hub (`<app-onboarding-checklist />` after `<app-upgrade-moments />`).
+  - **Caught + fixed a real defect while finishing:** the worker service ships STALE `cta_url`s
+    (`/admin/sites`, `/admin/domains`) that resolve to the admin 404 (this single-site admin has no
+    sites-list/domains route). Remapped CTAs by stable step id to real routes in the component
+    (`/create`, `/admin`, `/admin/settings#domains`, `/admin/settings#team`) — frontend-only, no worker
+    (Docker) deploy needed. (A proper backend cta_url fix is a follow-up when a worker deploy is in play.)
+  - **Dismiss safety:** `POST /dismiss` persists to KV for 1 YEAR → test 06 MOCKS the endpoint
+    (`route.fulfill`) so it proves the optimistic-hide UX WITHOUT writing the shared e2e-test-org's
+    permanent dismissal (which would hide the widget on every future run).
+  - **Proven:** built → deployed frontend R2 (CDN purged) → 10 elaborate journeys GREEN @ workers=3
+    (render, 4 steps done/next states, progress reconciles vs API store, CTA-points-at-real-route,
+    CTA-navigates, dismiss-optimistic-mocked, ground-truth 200, console-clean, reload-persist, full-journey).
+    Screenshot AI-vision: cyan "GETTING STARTED" card, 3 done + 1 highlighted next-action, on-brand, AA, no
+    overflow — ~9/10.
+  - **Product note (not fixed — no Docker this fire):** `invite_or_explore` step is hardcoded `done:false`
+    in the worker `buildChecklist`, so the checklist can NEVER reach `complete:true` (always shows until
+    dismissed). Minor; log for a backend follow-up.
+  - Running total: **396 REAL green / 408 written across 27 files (12 fixme)**.
+  - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The
     fixme was a MIS-MODELED test (it hunted for an immediate QR/`role=dialog`), not a feature gap. Rewrote

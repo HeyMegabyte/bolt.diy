@@ -17,6 +17,7 @@ import { CmdGlyphComponent } from '../../../components/cmd-glyph/cmd-glyph.compo
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { QuotaChipComponent } from '../quota-chip.component';
 import { UpgradeMomentsComponent } from './upgrade-moments.component';
+import { OnboardingChecklistComponent } from '../../../components/onboarding-checklist/onboarding-checklist.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
 import { isSysAdminEmail } from '../sys-admin';
@@ -76,13 +77,16 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent],
   template: `
     <section class="dash" aria-label="Getting started">
       <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
       <div class="flex justify-end mb-1"><app-quota-chip /></div>
       <!-- Upgrade moments — contextual, dismissible power-up nudges (Tier-1 conversion) -->
       <app-upgrade-moments />
+      <!-- Onboarding activation checklist (feature: onboarding_copilot) — self-hides
+           when the flag is off (API 404), complete, or dismissed. -->
+      <app-onboarding-checklist />
       <!-- ── Search ─────────────────────────────────────────────── -->
       <div class="search-wrap" appReveal role="search">
         <span class="search-ic" aria-hidden="true"><app-cmd-glyph name="search" /></span>
