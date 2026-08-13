@@ -50,8 +50,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 19 | `libs/features/*` dark modules — surfaced at `/admin/site-features` (sf-card/toggle/locked) | `flows-site-features.flow.e2e.ts` | 24 | 16 | ✅ green — proves the module hub |
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
-| 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **~425** | **351** | 🟡 351 REAL green + 14 fixme (24 flow files) |
+| 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
+| — | **TOTAL** | | **~425** | **367** | 🟡 367 REAL green + 14 fixme (25 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -276,3 +276,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     recovery) + flows-shell-widgets (16: notifications/task-tray/command-palette/network-status) — are
     42 un-written full-flow tests. Build those next; then the 375px + 2FA diagnosable fixme.
   - Running total: **351 REAL green / 365 written across 24 files (14 fixme)**.
+- **Fire 11 (2026-08-13)** — greenfield: built the ⬜ todo **flows-shell-widgets** surface (16 tests) from a
+  live template probe of `admin.component.html` + the widget components. **Net +16 green → 367; new file
+  #25.** All 16 green on prod, ZERO flakes on the confirm run (16.7s @ workers=3).
+  - **Real selectors probed (no fake-green):** admin has its OWN `./command-palette.component`
+    (Cmd+K via a window-keydown HostListener → `palette-input` auto-focused, `palette-results` /
+    `palette-special`, `palette-action-ask-ai` → `cmdk-ai-pane`); `user-avatar-btn` → `user-menu`
+    (items shortcuts/billing/api-keys/user-settings/signout); `?` OR `user-menu-shortcuts` →
+    `shortcuts-overlay`; the marketing `notification-bell` is NOT on /admin — admin has its own
+    header button `aria-label="Notifications"` → `notif-empty`/`.notif-item`; `<app-task-tray>` →
+    `role="region"` "AI task tray"; global `network-status-banner` (app.component, offline-gated);
+    `admin-route-announcer`; `site-actions-btn` → `site-actions-menu` (sa-preview/deploy/copy-url/share).
+  - **Covers E2E-blueprint Group A gaps** (CLAUDE.md PART 11.3): #7 keyboard shortcuts, #9 error/announcer,
+    plus offline awareness + command palette — the shell chrome every /admin section shares.
+  - **Flake fixed same-fire:** tests 02–05 pressed Cmd+K before shell hydration (01/15/16 waited on a
+    heading first) → added a `getByRole('heading').first().waitFor()` gate before every immediate Cmd+K.
+    Confirm run: 16/16 clean, 0 flaky.
+  - **Next (toward 500):** the last ⬜ todo surface — **flows-states** (26: error-boundary crash cards
+    `section-error-*` / 404 `admin-not-found-*` recovery / honest-empty states / loading). Error-boundary
+    crashes are hard to force in prod — model the 404 + empty-state journeys deterministically, assert the
+    boundary is MOUNTED rather than forcing a crash.
+  - Running total: **367 REAL green / 381 written across 25 files (14 fixme)**.
