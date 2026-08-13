@@ -727,3 +727,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     masking a broken translation. Investigating the note (→ m2m100 capacity → Llama fallback) turned a
     fake-green into a real proof. **Always view the screenshot; a tolerant AI-assertion can hide a dead feature.**
   - Running total: **527 REAL green / 539 written across 44 files (12 fixme)**. **500+ 🎉**
+- **Fire 32 (2026-08-13)** — DEPTH pass #20: **built a detector that found a MAJOR systemic class — ~31
+  features are DEAD (not just dark).** No new E2E (systemic bug-discovery fire); count stays **527**.
+  - The i18n fix (fire-31) exposed that `resolveFlag` short-circuits `enabled:false` for any UNregistered
+    key BEFORE checking overrides. Built `scripts/audit-flag-registration.mjs` (npm `audit:flag-registration`)
+    — diffs every flag CHECKED by a route (`isFlagOn(env,'x')`/`requireFlag('x')`) + every site-features CARD
+    key against `FLAG_REGISTRY`. **Result: ~31 routes check a flag that was NEVER registered → those features
+    are DEAD (always 404), un-enable-able even by an admin override.** (`ab_testing`, `agentic_commerce`,
+    `code_export`, `white_label`, `native_booking`, `local_seo_suite`, `page_audio`, `pseo_matrix_builder`,
+    `customer_portal`, `cms_collections`, +21 more.)
+  - ⚠️ **This CONTRADICTS the CLAUDE.md Known-Issue-#10 note** that features.ts handlers are "requireFlag-gated
+    on default_enabled:false flags." Spot-checked 8 keys → ALL have 0 registry entries: the flags were never
+    registered, so the features aren't dark-launched-but-promotable — they're dead. (Live behavior is the same
+    404, but they can NEVER be turned on.)
+  - **Fixed the 2 fully-diagnosed genuine features** — registered `agentic_commerce` + `page_audio` in
+    `registry.ts` (default-off = promotable dark-launch) so their routes can actually be enabled. Deployed.
+  - **The ~29 remaining are a documented backlog for careful per-flag triage** — register genuine dark-launch
+    features / rename the route for naming-mismatches (e.g. `native_booking` → the registered
+    `native_booking_engine`) / remove dead code. NOT bulk-registered blindly (validator-precision:
+    naming-mismatches would create duplicate flags; dead code shouldn't be registered). `npm run
+    audit:flag-registration` maps it.
+  - Running total unchanged: **527 REAL green** (this fire hardened the flag system, added no flows).
