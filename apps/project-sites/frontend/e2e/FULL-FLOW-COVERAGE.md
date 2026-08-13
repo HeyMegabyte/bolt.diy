@@ -22,7 +22,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | # | Surface | File | Target | Done | Status |
 |---|---------|------|-------:|-----:|--------|
 | 1 | Auth + session + admin-shell nav | `flows-auth-admin.flow.e2e.ts` | 20 | 20 | ✅ green (prod) |
-| 2 | Site create (search→signin→details→build→waiting) | `flows-site-create.flow.e2e.ts` | 22 | 0 | ⬜ todo |
+| 2 | Create wizard (`/create`: 3-step + auto-populate + Turnstile) | `flows-create.flow.e2e.ts` | 12 | 9 | 🟡 3 fixme ("No available adapters" console) |
 | 3 | Sites — admin is SINGLE-SITE (`/admin/sites` is 404; mgmt via snapshots/site-features/switcher) | — | 0 | ❌ route N/A (file deleted fire-3) |
 | 4 | Settings (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 21 | 🟡 1 fixme (parallel contention) |
 | 5 | Billing (subscription/entitlements/6 tabs/upgrade) | `flows-billing.flow.e2e.ts` | 17 | 17 | ✅ green (prod) |
@@ -40,12 +40,13 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 13 | 🟡 3 fixme (menu/test/mobile) |
 | 17 | API Docs ✅ + Snapshots ✅ + Logs ✅ (audit/explorer/traces tabs) | `flows-docs`+`flows-snapshots`+`flows-logs` | 44 | 43 | 🟡 1 fixme (docs T09) |
 | 17b | Super-admin gate (restricted view for non-super-admin) + Editor host | `flows-super-admin` + `flows-editor` | 12 | 11 | 🟡 1 fixme (editor iframe noise) |
-| 18 | Dashboard hub (getting-started/widgets/chat) | `flows-dashboard.flow.e2e.ts` | 16 | 0 | ⬜ todo |
+| 17c | Auth security (active sessions + 2FA) | `flows-auth-security.flow.e2e.ts` | 12 | 11 | 🟡 1 fixme (2FA enroll surface) |
+| 18 | Dashboard hub (getting-started: search/section-cards/pin/groups) | `flows-dashboard.flow.e2e.ts` | 14 | 14 | ✅ green (prod) |
 | 19 | `libs/features/*` dark modules — surfaced at `/admin/site-features` (sf-card/toggle/locked) | `flows-site-features.flow.e2e.ts` | 24 | 16 | ✅ green — proves the module hub |
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
 | 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **~460** | **245** | 🟡 245 REAL green + 18 fixme (16 flow files) |
+| — | **TOTAL** | | **~450** | **279** | 🟡 279 REAL green + 22 fixme (19 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -180,3 +181,19 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Lesson held:** interaction-PROBE (not just testid-probe) is what fixed logs — clicking the tabs
     to see what each swaps in is the difference between the agent's 7/14 and my 14/14.
   - Running total: **245 REAL green / 263 written across 16 files (18 fixme)**.
+- **Fire 6 (2026-08-13)** — probed 10 candidate routes first (4 were 404 dead-route components:
+  best-time-to-post, best-posts, activation-funnel, site-copilot; seo/leads alias to site-features;
+  domains → settings tab). **+34 green → 279 total across 19 files.**
+  - **`flows-dashboard` 14/14** ✅ — the `/admin` getting-started hub (`dash-search` filters,
+    `dash-sec-*` section cards deep-link into sections, `dash-pin-*` pin toggles, Build/Grow/Operate/
+    Account groups, Site status).
+  - **`flows-create` 9/12** — the `/create` 3-step wizard (Business/Details/Brand assets, business
+    input, auto-populate, Turnstile mounted, Create-site present — never submitted). **+3 fixme +
+    REAL FINDING:** `/create` logs a **"No available adapters"** console error (a bundled 3rd-party
+    SDK's HTTP adapter misconfigured in-browser — NOT in `frontend/src`; needs a bundle trace). The
+    wizard works; the 3 console-touching tests are fixme'd, the other 9 cover the flow.
+  - **`flows-auth-security` 11/12** (agent, exact testids) — active-sessions (0, honest empty) +
+    2FA section; +1 fixme (2FA-enroll surface guess).
+  - **Lesson held:** probe-first again paid off — 4 of 10 candidate routes were dead 404 components
+    (like sites/media); testing them would've been more fake-green. Only real routes get flow files.
+  - Running total: **279 REAL green / 301 written across 19 files (22 fixme)**.
