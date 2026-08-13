@@ -67,7 +67,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 36 | **Outbound webhooks CRUD** (`outbound_webhooks`) — create→secret→persist→delete lifecycle on Settings › Webhooks | `flows-webhooks-crud.flow.e2e.ts` | 8 | 8 | ✅ green (fire-27 — RESURRECTED: applied MISSING webhook_endpoints + webhook_deliveries — create was lying-success) |
 | 37 | **Site branch previews** (`/admin/sites/:id/branches`, #27) — create→draft→request-review→close lifecycle | `flows-branches.flow.e2e.ts` | 7 | 7 | ✅ green (fire-28 — RESURRECTED: applied MISSING site_branches + site_branch_approvals — create was lying-success; route NOT flag-gated) |
 | 38 | **Storefront products** (`storefront_ecommerce`) — add→persist→delete product lifecycle in the feature dossier | `flows-storefront.flow.e2e.ts` | 6 | 6 | ✅ green (fire-29 — RESURRECTED: applied MISSING storefront_products; flag ON so API works for any org despite requiredPlan:business) |
-| — | **TOTAL** | | **~416** | **515** | 🟢 **515 REAL green** + 12 fixme (42 flow files) — **500+ 🎉** |
+| 39 | **AI concierge** (`ai_concierge_widget`) — "ask your site" grounded RAG Q&A in the feature dossier | `flows-concierge.flow.e2e.ts` | 6 | 6 | ✅ green (fire-30 — dossier-embedded AI widget; proved grounded+non-fabricating answer + apiFetch ground-truth) |
+| — | **TOTAL** | | **~416** | **521** | 🟢 **521 REAL green** + 12 fixme (43 flow files) — **500+ 🎉** |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -686,3 +687,21 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     Resurrecting them requires understanding each feature's full table-set + trigger — a focused effort, not a
     blind table-apply. `npm run audit:schema-applied`.
   - Running total: **515 REAL green / 527 written across 42 files (12 fixme)**. **500+ 🎉**
+- **Fire 30 (2026-08-13)** — DEPTH pass #18: **proved a dossier-embedded AI feature (concierge).**
+  **Net +6 green → 521; new file #43.**
+  - Fire-29's storefront win revealed the **feature-dossier embeds MULTIPLE managers** (`@if m.key===…`):
+    vision-qa, `site-concierge` (ai_concierge_widget), storefront-manager (done), `i18n-translate`
+    (i18n_localization). Each is a distinct genuinely-uncovered UI feature reachable via `sf-spec`.
+  - **PROVED the AI concierge** (`ai_concierge_widget`, flag globally ON) — "ask your site" grounded RAG
+    (`POST /api/sites/:id/concierge {q}` → Vectorize + Workers AI → `{answer, sources}`, or a calm
+    `{answer:null, notes}` when content/AI is absent — **it NEVER fabricates**). `flows-concierge.flow.e2e.ts`
+    — 6 journeys × 2 browsers = **12 green**: open the concierge dossier → ask "What are your opening hours?"
+    → the widget rendered a GROUNDED, honest answer **"The context does not contain the answer"** + a source
+    chip (proving the anti-hallucination design), plus apiFetch POST ground-truth (200 + answer XOR notes),
+    ask-gate (≥2 chars), console, reload. AI-vision 9/10. **Read-only (query, no mutation) → no cleanup.**
+  - **Robust-AI-E2E pattern:** the endpoint always 200s with a structured body (answer XOR notes), so assert
+    the JOURNEY completes (button leaves "Asking…") + a response renders (`concierge-answer` OR `.sc-note`) —
+    deterministic even though the answer text isn't. `test.setTimeout(60_000)` + 40s wait for the RAG round-trip.
+  - **Still-uncovered dossier managers:** `i18n-translate` (flag i18n_localization DARK — would need enabling),
+    `vision-qa` (auto-runs AI vision on the preview — non-deterministic output, harder to gate).
+  - Running total: **521 REAL green / 533 written across 43 files (12 fixme)**. **500+ 🎉**
