@@ -526,6 +526,8 @@ async function readOrgPlan(
       .bind(orgId)
       .first<{ plan: string | null }>();
     const plan = (row?.plan ?? 'free').toLowerCase();
+    // A generic 'paid' subscription (legacy value) is a full paid tier, not free.
+    if (plan === 'paid') return 'enterprise';
     return plan === 'pro' || plan === 'business' || plan === 'enterprise' ? plan : 'free';
   } catch {
     return 'free';
@@ -578,7 +580,13 @@ features.get('/api/site-features', async (c) => {
         : f.isAddon
           ? 'addon-required'
           : 'upgrade-required';
-    const s = state[f.key] ?? { enabled: false, preview: false };
+    // A site's per-feature state = its explicit tenant override, else the platform
+    // registry default (default_enabled). Without this fallback a feature enabled at
+    // the registry level shows OFF in the admin even though isFlagOn resolves true.
+    const s = state[f.key] ?? {
+      enabled: FLAG_REGISTRY[f.key]?.default_enabled ?? false,
+      preview: false,
+    };
     return { ...f, entitled, enabled: s.enabled, preview: s.preview };
   });
   return c.json({ features: featureList, plan });
