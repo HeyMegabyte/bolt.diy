@@ -32,8 +32,7 @@ const LIVE_ROUTE_FLAGS = [
   'ai_auto_router',
   // libs/features modules
   'gbp_assist',
-  // stable discovery / quality surfaces
-  'public_api',
+  // (public_api un-flagged 2026-08-13 — removed from registry; had no route gate)
   // NOTE (2026-08-12 dead-flag prune): 8 keys removed from this list — abuse_takedown,
   // visitor_events_core, llms_txt, mcp_server, accessibility_statement, speculation_rules,
   // structured_data_autopilot, quotable_answer_block. Verified via audit-feature-flags.mjs
@@ -51,8 +50,7 @@ const LIVE_ROUTE_FLAGS = [
  */
 const PENDING_REGISTRATION: Array<{ flag: string; routeFile: string }> = [
   { flag: 'approval_workflow', routeFile: '../routes/review_links.ts' },
-  { flag: 'multimodal_copilot', routeFile: '../routes/copilot.ts' },
-  { flag: 'domain_stack_wizard', routeFile: '../routes/domain_stack.ts' },
+  // multimodal_copilot + domain_stack_wizard un-flagged 2026-08-13 (route gates removed).
 ];
 
 describe('flag ↔ route coherence', () => {

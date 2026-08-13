@@ -154,18 +154,8 @@ describe('POST /api/sites/:slug/copilot/intent', () => {
     expect(mockProcessIntent).not.toHaveBeenCalled();
   });
 
-  it('returns 404 when the feature flag is off (never leaks existence)', async () => {
-    const env = makeEnv({ DB: makeDb({ first: () => ({ id: 'site-1', org_id: 'org-1' }) }) });
-    mockIsFlagOn.mockResolvedValue(false);
-    const res = await postJson(makeApp(), env, { text: 'hi' });
-    expect(res.status).toBe(404);
-    // Scope is the authenticated org/site resolved from the slug (object form).
-    expect(mockIsFlagOn).toHaveBeenCalledWith(env, 'multimodal_copilot', {
-      orgId: 'org-1',
-      siteId: 'site-1',
-    });
-    expect(mockProcessIntent).not.toHaveBeenCalled();
-  });
+  // (removed 2026-08-13) "404 when multimodal_copilot off" — un-flagged: the gate
+  // was removed from copilot.ts, so the feature is unconditional (no flag-off path).
 
   it('returns 400 when no text|audio|image input is provided', async () => {
     const env = makeEnv({ DB: makeDb({ first: () => ({ id: 'site-1', org_id: 'org-1' }) }) });
@@ -317,13 +307,8 @@ describe('GET /api/sites/:siteId/copilot/sessions', () => {
     expect(mockIsFlagOn).not.toHaveBeenCalled();
   });
 
-  it('returns 404 when ownership passes but the flag is off', async () => {
-    const env = makeEnv();
-    mockAssertSiteOwned.mockResolvedValue(true);
-    mockIsFlagOn.mockResolvedValue(false);
-    const res = await get(makeApp(AUTH), env);
-    expect(res.status).toBe(404);
-  });
+  // (removed 2026-08-13) "404 when flag off" — multimodal_copilot un-flagged; the
+  // feature is unconditional now (ownership is still enforced above).
 
   it('reads the tenant org from the SESSION, never a client x-org-id header', async () => {
     const env = makeEnv();

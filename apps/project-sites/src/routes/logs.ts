@@ -14,7 +14,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
 import { costByRoute, parseLogRange, searchLogs } from '../services/logs_explorer.js';
 
 export const logsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -44,7 +43,7 @@ const SearchBody = z.object({
 logsRoutes.post('/api/logs/search', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-  if (!(await isFlagOn(c.env, 'log_explorer', { orgId: ctx.orgId }))) return c.notFound();
+  // log_explorer un-flagged 2026-08-13 (was stable/100%) — always available.
 
   const parsed = SearchBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
@@ -67,7 +66,7 @@ logsRoutes.post('/api/logs/search', async (c) => {
 logsRoutes.get('/api/logs/cost-by-route', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
-  if (!(await isFlagOn(c.env, 'log_explorer', { orgId: ctx.orgId }))) return c.notFound();
+  // log_explorer un-flagged 2026-08-13 (was stable/100%) — always available.
 
   const data = await costByRoute(c.env, parseLogRange(c.req.query('range')));
   return c.json({ data });

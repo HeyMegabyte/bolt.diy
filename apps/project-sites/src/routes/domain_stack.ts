@@ -18,7 +18,6 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { unauthorized, notFound, badRequest } from '@project-sites/shared';
-import { isFlagOn } from '../modules/feature_flags/services.js';
 import { createStackRun, advanceStackRun, getStackStatus } from '../services/domain_stack.js';
 import { dbQueryOne } from '../services/db.js';
 import * as auditService from '../services/audit.js';
@@ -42,12 +41,7 @@ domainStack.post('/api/domains/:hostname/stack', zValidator('json', startSchema)
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const flagOn = await isFlagOn(c.env, 'domain_stack_wizard', { orgId });
-  if (!flagOn)
-    return c.json(
-      { error: { code: 'feature_disabled', message: 'Domain stack wizard is not enabled.' } },
-      404,
-    );
+  // domain_stack_wizard un-flagged 2026-08-13 (was stable/100%) — always available.
 
   const hostname = decodeURIComponent(c.req.param('hostname'));
   const body = c.req.valid('json');
@@ -100,12 +94,7 @@ domainStack.get('/api/domains/:hostname/stack-status', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const flagOn = await isFlagOn(c.env, 'domain_stack_wizard', { orgId });
-  if (!flagOn)
-    return c.json(
-      { error: { code: 'feature_disabled', message: 'Domain stack wizard is not enabled.' } },
-      404,
-    );
+  // domain_stack_wizard un-flagged 2026-08-13 (was stable/100%) — always available.
 
   const hostname = decodeURIComponent(c.req.param('hostname'));
   const run = await getStackStatus(c.env, hostname);

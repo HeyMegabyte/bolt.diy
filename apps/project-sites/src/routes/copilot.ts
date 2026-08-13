@@ -19,14 +19,15 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
-import { isFlagOn, invalidateFlagCache } from '../modules/feature_flags/services.js';
+import { invalidateFlagCache } from '../modules/feature_flags/services.js';
 import { assertSiteOwned } from '../services/site_ownership.js';
 import { processMultimodalIntent, saveCopilotSession } from '../services/multimodal_intent.js';
 
 const copilotRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-async function guardFlag(env: Env, orgId?: string, siteId?: string): Promise<boolean> {
-  return isFlagOn(env, 'multimodal_copilot', { orgId, siteId });
+// multimodal_copilot un-flagged 2026-08-13 (was stable/100%) — always on.
+async function guardFlag(_env: Env, _orgId?: string, _siteId?: string): Promise<boolean> {
+  return true;
 }
 
 /**

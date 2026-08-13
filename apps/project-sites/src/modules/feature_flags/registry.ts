@@ -109,14 +109,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // Observability (items 39-42)
   // Media gen (items 43-46)
   // Platform extension (items 47-50, 47 + 48-slice + 49-slice already stable)
-  public_api: {
-    key: 'public_api',
-    description: 'Public REST + GraphQL API + OpenAPI 3.1 + webhooks',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
   // Gap surface (re-folded back from the trim pass)
   pwa_manifest_full: {
     key: 'pwa_manifest_full',
@@ -294,15 +286,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  collab_editing: {
-    key: 'collab_editing',
-    description:
-      'Enables real-time collaborative editing of a site via a Yjs CRDT synced over a PartyServer Durable Object WebSocket (GET /api/sites/:id/collab). One CollabRoomDO instance per site (keyed site:<id>) fans Yjs document updates to every connected client; the Angular CollabService connects with a vanilla PartySocket. Server returns 404 (never 403) when the flag is off, and 503 when the COLLAB_ROOM Durable Object binding is absent (it ships INERT — the wrangler.toml binding+migration are commented because a new DO class is a watched one-way-door deploy). Failure mode disabled: the editor stays single-player; nothing else breaks. Acceptance: the WS handshake upgrades to 101 and two clients converge on shared document state.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   social_publishing: {
     key: 'social_publishing',
     description:
@@ -450,60 +433,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Flags referenced in frontend components but missing from registry ──
   // These were discovered by the convergence loop: the frontend checks these
   // flag keys via app-flag-gate-notice, but the keys never existed in D1.
-  log_explorer: {
-    key: 'log_explorer',
-    description:
-      'Log Explorer — Worker tail log search with cost-by-route breakdown. Feature flag gate on the Explorer tab inside /admin/logs.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  domain_stack_wizard: {
-    key: 'domain_stack_wizard',
-    description:
-      'Domain Stack Wizard — 7-tile progress board for DNS→SSL→email-auth→GSC. Feature flag gate on /admin/domains/:id/stack.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  multimodal_copilot: {
-    key: 'multimodal_copilot',
-    description:
-      'Multimodal AI Site Copilot — per-site copilot admin with intent distribution + sessions. Feature flag gate on /admin/sites/:id/copilot.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  section_marketplace: {
-    key: 'section_marketplace',
-    description:
-      'Section Marketplace — browsable catalog of installable site sections (hero, FAQ, pricing, etc.). Feature flag gate on the section picker.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  site_dna_taste_graph: {
-    key: 'site_dna_taste_graph',
-    description:
-      'Site DNA Taste Graph — per-site taste-signal admin with feedback history + preference bars. Feature flag gate on /admin/sites/:id/dna.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  swarm_editor: {
-    key: 'swarm_editor',
-    description:
-      'Multi-Agent Swarm Editor — the 7-column parallel-specialist editing board + live component stream at /admin/swarm/:siteId. DARK: the /api/swarm/* backend is roadmap; the panel is a simulated preview and the run-history fetch is gated on this flag until live multi-agent execution ships.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   // ── Restored 2026-08-13: dark-launch flags for WIRED built-ahead modules that
   // commit 442e1d82 (flag prune) over-removed. All 33 have libs/features/* manifests
   // + are imported in src (index.ts). default_enabled:false → zero runtime change.

@@ -97,20 +97,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Unsubscribe link → contact suppressed from future sends',
     ],
   },
-  public_api: {
-    checklist: [
-      'Public REST API with OpenAPI 3.1 spec at /api/openapi.json',
-      'Bearer-token auth',
-      'Webhook events: site.published / lead.captured / deploy.failed',
-      'Stable',
-    ],
-    explanation:
-      'Public REST API with OpenAPI 3.1 spec at /api/openapi.json. Bearer-token auth. Webhook system for every site event (site.published, lead.captured, deploy.failed). Stage=stable.',
-    smoke_test: [
-      'curl https://projectsites.dev/api/openapi.json → 200 OpenAPI 3.1 JSON',
-      'Spec has paths /api/v1/sites + /api/v1/sites/{id}/deploy',
-    ],
-  },
   pwa_manifest_full: {
     checklist: [
       'Full PWA manifest per site',
@@ -458,23 +444,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → GET /api/sites/:id/search?q=test → 404',
     ],
   },
-  collab_editing: {
-    checklist: [
-      'GET /api/sites/:id/collab — WebSocket upgrade gateway to CollabRoomDO (PartyServer + Yjs)',
-      'One DO instance per site (keyed site:<id>); Yjs CRDT syncs document updates to all clients',
-      'Angular CollabService connects with a vanilla PartySocket + Y.Doc',
-      'Requires the COLLAB_ROOM Durable Object binding — ships INERT (wrangler.toml block commented)',
-      'Server returns 404 (never 403) when flag is off; 503 when COLLAB_ROOM binding is absent; 426 on non-WS request',
-    ],
-    explanation:
-      'Enables real-time collaborative editing of a site via a Yjs CRDT synced over a PartyServer Durable Object WebSocket (GET /api/sites/:id/collab). A CollabRoomDO (extends y-partyserver YServer = PartyServer + Yjs) instance per site fans document updates to every connected client. The route guards: auth (401) → requireOwnedSite (404) → collab_editing flag (404 when off) → COLLAB_ROOM binding (503 when absent) → WebSocket upgrade (426 otherwise) → forward to the DO. Ships INERT: the wrangler.toml binding + migration are commented because activating a NEW Durable Object class is a watched one-way-door deploy (a wrong migration tag blocks ALL deploys). Disabled failure mode: the editor stays single-player, nothing else breaks.',
-    smoke_test: [
-      'Enable flag + bind COLLAB_ROOM → wscat -c wss://host/api/sites/:id/collab → 101 Switching Protocols',
-      'Two clients on the same site → a Y.Doc edit on client A appears on client B',
-      'Disable the flag → GET /api/sites/:id/collab → 404; binding absent → 503; plain HTTP GET → 426',
-    ],
-    e2e_tests: ['e2e/collab.spec.ts'],
-  },
   social_publishing: {
     checklist: [
       'KILL-SWITCH (defaults ENABLED) for Pulse Social publishing',
@@ -707,102 +676,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Enable flag → GET /api/onboarding → 200 with steps[], completed, total, pct',
       'Fresh org returns pct=0',
       'Fully onboarded org returns pct=100',
-    ],
-  },
-  log_explorer: {
-    checklist: [
-      'Worker tail-log search with free-text + level filtering',
-      'Cost-by-route breakdown surfaces the expensive endpoints',
-      'Explorer tab inside /admin/logs, gated via app-flag-gate-notice',
-      'Read-only over the existing log pipeline — no new write path',
-    ],
-    explanation:
-      'Log Explorer — searchable Worker tail logs with a cost-by-route breakdown inside /admin/logs. Turns raw structured log lines into an operator surface: filter by route, level, and free text, then rank routes by estimated request cost to spot the endpoints burning the budget. Read-only over the existing log pipeline; the flag only gates the Explorer tab, so disabling hides the UI without touching ingestion.',
-    smoke_test: [
-      'GET /api/feature-flags/log_explorer → enabled:true (stable, 100%)',
-      'UI: /admin/logs → Explorer tab renders search + results (no flag-gate notice)',
-      'Search a known route (e.g. /api/health) → matching tail lines + cost-by-route table',
-      'Flag off → the Explorer tab shows the flag-gate notice instead',
-    ],
-    e2e_tests: ['e2e/logs/logs-explorer.spec.ts'],
-  },
-  domain_stack_wizard: {
-    checklist: [
-      '7-tile progress board: DNS → SSL → email auth (SPF/DKIM/DMARC) → GSC',
-      'Per-tile live status with plain-English fix instructions',
-      'Lives at /admin/domains/:id/stack, gated via app-flag-gate-notice',
-      'Stack API routes 404 when the flag is off — existence never leaks',
-    ],
-    explanation:
-      'Domain Stack Wizard — a 7-tile progress board that walks a custom domain from raw registration to fully-armed production: DNS pointing, SSL issuance, SPF/DKIM/DMARC email auth, and Google Search Console verification. Each tile reports its live status and translates failures into plain-English next steps, replacing the "why is my domain broken" support loop with self-serve diagnosis at /admin/domains/:id/stack.',
-    smoke_test: [
-      'GET /api/feature-flags/domain_stack_wizard → enabled:true (stable, 100%)',
-      'UI: /admin/domains/:id/stack → 7 tiles render with per-step status',
-      'Flag off → POST /api/domains/:hostname/stack returns 404 (never 403)',
-    ],
-    e2e_tests: ['e2e/domain-stack/domain-stack.spec.ts'],
-  },
-  multimodal_copilot: {
-    checklist: [
-      'Per-site AI copilot console at /admin/sites/:id/copilot',
-      'Intent-distribution breakdown over captured visitor questions',
-      'Session list with per-conversation drill-in',
-      'Visitor widget ships as a standalone JS bundle on generated sites',
-    ],
-    explanation:
-      'Multimodal AI Site Copilot — the per-site copilot console at /admin/sites/:id/copilot. Owners see what visitors actually ask their site: an intent-distribution breakdown over captured copilot conversations plus a session list with drill-in. The visitor-facing widget ships as a standalone JS bundle on generated sites; this flag gates the admin console that reads those sessions, so disabling hides the console without breaking the widget.',
-    smoke_test: [
-      'GET /api/feature-flags/multimodal_copilot → enabled:true (stable, 100%)',
-      'UI: /admin/sites/:id/copilot → intent distribution + sessions render (no flag-gate notice)',
-      'Copilot widget JS bundle still serves on a published site regardless of the admin flag',
-    ],
-    e2e_tests: ['e2e/copilot/copilot.spec.ts'],
-  },
-  section_marketplace: {
-    checklist: [
-      'Browsable catalog of installable site sections (hero, FAQ, pricing, …)',
-      'Industry filter tailors the catalog (?industry=nonprofit etc.)',
-      'Gates the section picker in the editor surface',
-      'GET /api/section-marketplace returns 404 when the flag is off',
-    ],
-    explanation:
-      'Section Marketplace — a browsable catalog of installable site sections (hero, FAQ, pricing, testimonials, …) behind the section picker. Owners browse by industry and install a proven section into their site instead of prompting one from scratch; catalog rows carry preview metadata so the picker renders real thumbnails. The flag gates both the picker UI and GET /api/section-marketplace, which returns 404 (never 403) when off.',
-    smoke_test: [
-      'GET /api/feature-flags/section_marketplace → enabled:true (stable, 100%)',
-      'GET /api/section-marketplace?industry=nonprofit → section list for the industry',
-      'Flag off → GET /api/section-marketplace 404s and the picker hides',
-    ],
-    e2e_tests: ['e2e/marketplace/marketplace.spec.ts'],
-  },
-  site_dna_taste_graph: {
-    checklist: [
-      'Per-site taste-signal console at /admin/sites/:id/dna',
-      'Feedback history timeline of owner reactions to generated output',
-      'Preference bars aggregate signals into a durable taste profile',
-      "Profile steers future AI edits toward the owner's taste",
-    ],
-    explanation:
-      "Site DNA Taste Graph — the per-site taste-signal console at /admin/sites/:id/dna. Every owner reaction to generated output (likes, dislikes, edit patterns) accumulates into a feedback history plus aggregated preference bars: a durable taste profile for the site. Future AI edits read that profile so regeneration converges on the owner's taste instead of resetting to platform defaults. The flag gates the admin surface via app-flag-gate-notice.",
-    smoke_test: [
-      'GET /api/feature-flags/site_dna_taste_graph → enabled:true (stable, 100%)',
-      'UI: /admin/sites/:id/dna → feedback history + preference bars render (no flag-gate notice)',
-      'Flag off → the DNA admin tab shows the flag-gate notice instead',
-    ],
-    e2e_tests: ['e2e/site-dna/site-dna.spec.ts'],
-  },
-  swarm_editor: {
-    checklist: [
-      'Simulated-preview board of the Multi-Agent Swarm Editor at /admin/swarm/:siteId',
-      '7-column parallel-specialist grid + live component-stream preview',
-      'Run-history fetch (/api/swarm/:id/runs) gated on this flag — dark = no fetch',
-      'Launch + SSE stream disabled while dark (the /api/swarm/* backend is roadmap)',
-    ],
-    explanation:
-      'Multi-Agent Swarm Editor — the 7-column parallel-specialist editing board plus live component-stream preview at /admin/swarm/:siteId. The panel is a simulated preview: real multi-agent execution (the /api/swarm/* backend) is on the roadmap. This flag gates the run-history fetch and the launch/stream actions, so while dark the section renders a clean gate notice and never fires a 404. Paired with multi_agent_concurrent; both must be on to run a live swarm.',
-    smoke_test: [
-      'GET /api/feature-flags/swarm_editor → enabled:false (experimental, 0%)',
-      'UI: /admin/swarm/:id → simulated preview + gate notice, 0 console errors, NO /api/swarm/:id/runs request',
-      'Flag on (+ backend) → run history loads and Start swarm run is enabled',
     ],
   },
   // ── Restored 2026-08-13 (1:1 with registry.ts): docs for the 33 over-pruned dark-launch flags.
