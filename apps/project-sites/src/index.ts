@@ -656,7 +656,6 @@ app.post('/api/sites/:siteId/analytics/ask', async (c) => {
   return c.json({ data: result });
 });
 
-
 // NL Site Management — NL→edit-intent parser (flag: nl_site_management)
 app.post('/api/sites/:siteId/nl-command', async (c) => {
   const siteId = c.req.param('siteId');
