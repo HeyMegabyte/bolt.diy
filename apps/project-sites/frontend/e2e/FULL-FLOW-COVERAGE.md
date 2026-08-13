@@ -55,7 +55,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 24 | **Recent activity feed** (`activity_feed`) — org timeline (kinds/tones/relative-time) on the hub | `flows-activity.flow.e2e.ts` | 9 | 9 | ✅ green (fire-15 — FINISHED: built UI + seeded 7 sample events) |
 | 25 | **Refer-a-friend** (`referral_loop`) — code/share-link/copy/stats on the hub | `flows-referral.flow.e2e.ts` | 9 | 9 | ✅ green (fire-16 — FINISHED: fixed a REAL 500 in the worker + built UI) |
 | 26 | **Production readiness** (`prod_readiness_score`) — site grade + weighted checks + fix-hints on Snapshots | `flows-readiness.flow.e2e.ts` | 8 | 8 | ✅ green (fire-17 — FINISHED: built the panel on a non-hub surface) |
-| — | **TOTAL** | | **~416** | **422** | 🟢 422 REAL green + 12 fixme (30 flow files) |
+| 27 | **Plan usage gauges** (`usage_gauges`) — sites/builds/media/bandwidth used-vs-limit + overage on Billing | `flows-usage.flow.e2e.ts` | 8 | 8 | ✅ green (fire-18 — FINISHED: built gauges on the Billing tab) |
+| — | **TOTAL** | | **~416** | **430** | 🟢 430 REAL green + 12 fixme (31 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -429,6 +430,21 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     `effect(() => selectedSite())` to react to the active site; integrate into the owning section component
     (one line + import), not the hub.
   - Running total: **422 REAL green / 434 written across 30 files (12 fixme)**.
+- **Fire 18 (2026-08-13)** — DEPTH pass #6: **FINISHED `usage_gauges`** on the Billing "Plan & usage" tab.
+  **Net +8 green → 430; new file #31.**
+  - `GET /api/usage` + flag were live + returned REAL data (no seed): 4 gauges — sites {4/3, OVER},
+    builds {0/10}, media_gb {0/1 GB}, bandwidth_gb {0/5 GB}. No UI consumed it (richer than the sites-only
+    quota-chip, so additive not a dup).
+  - **Built** `components/usage-gauges/usage-gauges.component.ts` — labelled progress bars (used/limit +
+    tone ok/warn/danger by fill/overage) with an explicit over-limit note + danger bar. Wired ONE line under
+    the subscription card on `billing.component.ts` (+ import + imports array).
+  - **Proven:** frontend build+deploy → 8 elaborate journeys GREEN @ workers=3 (render, 4 gauges,
+    **ground-truth reconciliation** each value vs /api/usage store, **over-limit danger path** (sites 4/3 →
+    red bar + overage note), bounded bar widths, console-clean, reload, full-journey beside the subscription
+    card). AI-vision ~9/10: full red Sites bar + "Over your plan limit" note, clean gauge stack.
+  - **Five features finished this session** (onboarding + activity + referral + readiness + usage) — hub,
+    snapshots, and billing surfaces all materially more complete.
+  - Running total: **430 REAL green / 442 written across 31 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The

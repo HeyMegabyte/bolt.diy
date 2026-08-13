@@ -5,6 +5,7 @@ import { DatePipe, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
+import { UsageGaugesComponent } from '../../../components/usage-gauges/usage-gauges.component';
 import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -66,7 +67,7 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, AiSparkComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, AiSparkComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, UsageGaugesComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header appReveal>
@@ -192,6 +193,10 @@ interface ForecastBar {
               }
             </div>
           </div>
+
+          <!-- Plan-usage gauges (feature: usage_gauges) — usage vs limits; self-hides
+               when the flag is off (API 404). -->
+          <app-usage-gauges />
 
           <!-- Cancel confirmation dialog -->
           @if (cancelConfirmOpen()) {
