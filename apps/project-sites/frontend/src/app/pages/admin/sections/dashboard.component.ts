@@ -18,6 +18,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { QuotaChipComponent } from '../quota-chip.component';
 import { UpgradeMomentsComponent } from './upgrade-moments.component';
 import { OnboardingChecklistComponent } from '../../../components/onboarding-checklist/onboarding-checklist.component';
+import { RecentActivityComponent } from '../../../components/recent-activity/recent-activity.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
 import { isSysAdminEmail } from '../sys-admin';
@@ -77,7 +78,7 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent, RecentActivityComponent],
   template: `
     <section class="dash" aria-label="Getting started">
       <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
@@ -218,6 +219,10 @@ const RECENT_KEY = 'ps_dash_recents';
             </ul>
           </section>
         }
+
+        <!-- Recent activity (feature: activity_feed) — org timeline; self-hides
+             when the flag is off (API 404) or the org has no activity yet. -->
+        <app-recent-activity />
 
         <!-- ── Section guide ──────────────────────────────────── -->
         @for (group of displayGroups(); track group.title) {

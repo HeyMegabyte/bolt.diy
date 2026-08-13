@@ -52,7 +52,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 21 | Admin 404 recovery (suggest/renamed/soft-404/quick-jump/cockpit-retained) | `flows-states.flow.e2e.ts` | 17 | 17 | ✅ green (fire-12) — target 26→17 (error-boundary crash cards are unit-owned, not prod-forceable) |
 | 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
 | 23 | **Onboarding checklist** (`onboarding_copilot`) — activation steps/progress/next-CTA/dismiss on the hub | `flows-onboarding.flow.e2e.ts` | 10 | 10 | ✅ green (fire-14 — FINISHED the feature: built+wired+shipped the UI) |
-| — | **TOTAL** | | **~416** | **396** | 🟡 396 REAL green + 12 fixme (27 flow files) — every surface row green |
+| 24 | **Recent activity feed** (`activity_feed`) — org timeline (kinds/tones/relative-time) on the hub | `flows-activity.flow.e2e.ts` | 9 | 9 | ✅ green (fire-15 — FINISHED: built UI + seeded 7 sample events) |
+| — | **TOTAL** | | **~416** | **405** | 🟢 405 REAL green + 12 fixme (28 flow files) — crossed 400 |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -67,8 +68,9 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   **69 IMPROVE** = "wired via manifest, no `isFlagOn` reader" — i.e. the module has a
   manifest + handlers but the route/UI isn't gated/reachable yet. Those are the primary
   finish-the-feature targets (gate the route + surface the UI + seed sample data).
-- Order by user value: ~~onboarding_copilot~~ ✅ DONE (fire-14), activity_feed, batch_operations,
-  cmd_k_actions, local_seo_suite, marketing_dashboard, customer_portal, referral_loop, then the rest.
+- Order by user value: ~~onboarding_copilot~~ ✅ (fire-14), ~~activity_feed~~ ✅ (fire-15),
+  batch_operations, cmd_k_actions, local_seo_suite, marketing_dashboard, customer_portal,
+  referral_loop, then the rest.
 
 ---
 
@@ -363,6 +365,25 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     in the worker `buildChecklist`, so the checklist can NEVER reach `complete:true` (always shows until
     dismissed). Minor; log for a backend follow-up.
   - Running total: **396 REAL green / 408 written across 27 files (12 fixme)**.
+- **Fire 15 (2026-08-13)** — DEPTH pass #3: **FINISHED `activity_feed`** (backlog #2). **Net +9 green → 405
+  — CROSSED 400; new file #28.** Same recipe as onboarding: API (`GET /api/activity`) + flag were already
+  live but had NO UI consumer, AND `audit_logs` was empty for the test org (honest-empty, verified 0 rows).
+  - **Seeded realistic SAMPLE data** (the loop's explicit ask): 7 idempotent activity rows for e2e-test-org
+    (`e2e-act-seed-1..7`) — site.published / build.completed / build.failed / hostname.added / member.added /
+    integration.connected / billing.subscription_updated → the service maps these to the 7 display kinds.
+    ⚠️ `audit_logs` has FKs `actor_id→users(id)` + `org_id→orgs(id)` — seed with `actor_id=NULL` +
+    `metadata_json.actor_email` (the service reads the email first), NOT an email in actor_id.
+  - **Built** `components/recent-activity/recent-activity.component.ts` (self-contained, signals, OnPush —
+    API 404 IS the gate, self-hides when off/empty) with semantic tone dots (ok/info/warn/danger by kind) +
+    compact relative-time + kind label + actor. Wired ONE line into the hub (after Site status, before the
+    section-guide cards) + one import.
+  - **Proven:** built → deployed frontend R2 (CDN purged) → 9 elaborate journeys GREEN @ workers=3 (render,
+    seeded-entries, ground-truth count reconciliation display-vs-store, kind-tone mapping failed=danger/
+    published=ok, relative-time, ≥4 distinct kinds, console-clean, reload, full-journey with onboarding).
+    AI-vision ~9/10: clean timeline, green/red/cyan tone dots, on-brand.
+  - **Both hub widgets this loop finished (onboarding + activity) now render together** on the getting-started
+    hub — a genuinely more-complete dashboard.
+  - Running total: **405 REAL green / 417 written across 28 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The
