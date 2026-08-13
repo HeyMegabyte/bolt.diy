@@ -1327,7 +1327,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     ],
     e2e_tests: ['e2e/mcp/mcp-providers.spec.ts'],
   },
-
 };
 
 export function getDocs(key: string): FlagDocs | undefined {

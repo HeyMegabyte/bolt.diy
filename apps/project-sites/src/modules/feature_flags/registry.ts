@@ -816,7 +816,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'stable',
     owner_email: 'brian@megabyte.space',
   },
-
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;
