@@ -113,7 +113,6 @@ import { envVarsRoutes } from './routes/env_vars.js';
 import { docs } from './routes/docs.js';
 import { autofill } from './routes/autofill.js';
 import { bolt } from './routes/bolt_admin.js';
-import { collabRoutes } from './routes/collab.js';
 import { openapiRoutes } from './routes/openapi.js';
 import { apps as appsRoutes } from './routes/apps.js';
 import { snapshotQuality } from './routes/snapshot_quality.js';
@@ -542,7 +541,6 @@ app.notFound((c) => c.html(notFoundHtml(), 404));
 app.route('/', health);
 app.route('/api', health); // /api/health alias for external consumers who expect RESTful path
 app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
-app.route('/', collabRoutes); // /api/sites/:id/collab WS gateway → CollabRoomDO (collab_editing flag; 503 inert until COLLAB_ROOM bound)
 app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 3.1 spec (zod-to-openapi + hono-openapi describeRoute)
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner

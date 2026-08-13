@@ -15,7 +15,6 @@ export default defineConfig({
     'golden-path.spec.ts',
     'e2e/voice.spec.ts',                   // ANCHORED: bare 'voice.spec.ts' also pulled in e2e/admin/voice.spec.ts (stale, deleted)
     'observability_gateway.spec.ts',
-    'collab.spec.ts',
     'adversarial/**/*.spec.ts',
     // BLOCKING CWV gate — re-enabled 2026-06-23 (perf loop #14) after the homepage
     // held all-green for 2 fires (fire 8 enabled critical-CSS inlining → FCP 1349→

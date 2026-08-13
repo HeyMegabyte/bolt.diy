@@ -113,21 +113,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV31['generate
     },
   });
 
-  registry.registerPath({
-    method: 'get',
-    path: '/api/sites/{id}/collab',
-    summary: 'Real-time collaborative editing WebSocket gateway (flag: collab_editing)',
-    security: [{ [bearer.name]: [] }],
-    request: { params: z.object({ id: z.string().openapi({ example: 'e2e-site-1' }) }) },
-    responses: {
-      101: { description: 'WebSocket upgrade — Yjs CRDT session begins' },
-      401: { description: 'Unauthenticated' },
-      404: { description: 'Site not owned, or the flag is off' },
-      426: { description: 'WebSocket upgrade required' },
-      503: { description: 'COLLAB_ROOM Durable Object binding absent (feature inert)' },
-    },
-  });
-
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',
     info: {
