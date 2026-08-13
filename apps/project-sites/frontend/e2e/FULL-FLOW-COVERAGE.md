@@ -57,7 +57,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 26 | **Production readiness** (`prod_readiness_score`) — site grade + weighted checks + fix-hints on Snapshots | `flows-readiness.flow.e2e.ts` | 8 | 8 | ✅ green (fire-17 — FINISHED: built the panel on a non-hub surface) |
 | 27 | **Plan usage gauges** (`usage_gauges`) — sites/builds/media/bandwidth used-vs-limit + overage on Billing | `flows-usage.flow.e2e.ts` | 8 | 8 | ✅ green (fire-18 — FINISHED: built gauges on the Billing tab) |
 | 28 | **AI budget meter** (`token_burn_meter`) — spend vs cap + killswitch state on AI Agents | `flows-budget.flow.e2e.ts` | 8 | 8 | ✅ green (fire-19 — FINISHED: built the meter atop ai-endpoints) |
-| — | **TOTAL** | | **~416** | **438** | 🟢 438 REAL green + 12 fixme (32 flow files) |
+| 29 | **Visits sparkline** (`site_health_sparklines`) — 7-day SVG traffic trend + total/peak on Snapshots | `flows-sparkline.flow.e2e.ts` | 7 | 7 | ✅ green (fire-20 — FINISHED: built SVG sparkline + seeded 7 days traffic) |
+| — | **TOTAL** | | **~416** | **445** | 🟢 445 REAL green + 12 fixme (33 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -460,6 +461,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Six features finished this session** (onboarding + activity + referral + readiness + usage + budget) —
     hub, snapshots, billing, and ai-endpoints surfaces all materially more complete.
   - Running total: **438 REAL green / 450 written across 32 files (12 fixme)**.
+- **Fire 20 (2026-08-13)** — DEPTH pass #8: **FINISHED `site_health_sparklines`** on Snapshots (beside
+  readiness — the second per-site panel). **Net +7 green → 445; new file #33. 55 from 500.**
+  - `GET /api/sites/:id/sparkline` + flag were live but read an EMPTY `analytics_daily` for the site.
+    **Seeded** 7 days of traffic for the default site (e2e-site-3): visits [14,22,18,31,27,44,38] = 194 total,
+    peak 44 (idempotent DELETE-then-INSERT; `analytics_daily` org_id NOT NULL, no FKs).
+  - **⚠️ Cross-surface safety verified BEFORE seeding:** confirmed `any_real_data`/`/api/analytics/network`
+    read CF-zone + `visitor_events` (via `getTrafficSummary`), NOT `analytics_daily` — so the seed can't
+    flip the analytics section's honest-empty. **Re-ran flows-analytics after the seed → 16 pass / 6 skip
+    (unchanged), proving no regression.** (Seed a rollup/aggregate table only after checking who else reads it.)
+  - **Built** `components/health-sparkline/health-sparkline.component.ts` — a hand-rolled SVG sparkline
+    (polyline + area fill + trailing dot, normalized to a viewBox) + total + peak, reacting to
+    `selectedSite()` via `effect()`. Wired ONE line under the readiness panel on snapshots.
+  - **Proven:** frontend build+deploy → 7 elaborate journeys GREEN @ workers=3 (render+total, multi-point
+    polyline, **ground-truth reconciliation** total & peak vs the store, console-clean, reload, full-journey
+    with readiness). AI-vision ~9/10: smooth cyan trend line + "194 total · 44 peak/day".
+  - **Seven features finished this session** (onboarding + activity + referral + readiness + usage + budget +
+    sparkline). Snapshots now carries BOTH per-site panels (readiness + traffic).
+  - Running total: **445 REAL green / 457 written across 33 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The
