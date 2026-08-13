@@ -28,6 +28,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..');
 const REGISTRY = resolve(APP, 'src/modules/feature_flags/registry.ts');
 const JSON_OUT = process.argv.includes('--json');
+const LIST_OUT = process.argv.includes('--list');
 const DESC_FLOOR = 240;
 
 // ── Parse the registry (clean object literal; anchor on each `key: '...'`). ──
@@ -41,7 +42,15 @@ const flags = anchors.map((a, i) => {
   const rollout = Number(block.match(/default_rollout_percent:\s*(\d+)/)?.[1] ?? 0);
   const desc = block.match(/description:\s*([\s\S]*?),\s*\n\s*default_enabled/)?.[1] ?? '';
   const descLen = desc.replace(/['"\s+]/g, '').length; // rough char count after joining concat
-  return { key: a.key, stage, enabled, rollout, descLen };
+  // Human-readable concise summary: join TS string concatenation, strip outer
+  // quotes, collapse whitespace, take the first sentence, cap at 120 chars.
+  const clean = desc
+    .replace(/'\s*\+\s*'/g, '')
+    .replace(/^\s*['"]|['"]\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const concise = (clean.split(/(?<=\.)\s/)[0] || clean).slice(0, 120);
+  return { key: a.key, stage, enabled, rollout, descLen, concise };
 });
 
 // ── Find readers of each key (one grep over real code, minus registry/tests/migrations). ──
@@ -95,7 +104,15 @@ const summary = {
   no_e2e_field: 'registry interface has NO e2e_tests/smoke_steps field (doctrine requires both)',
 };
 
-if (JSON_OUT) {
+if (LIST_OUT) {
+  const line = (r) => `  ${r.key.padEnd(30)} (${r.stage}${r.enabled ? '/on' : '/off'}) — ${r.concise}`;
+  const keep = rows.filter((r) => r.verdict !== 'REMOVE').sort((a, b) => a.key.localeCompare(b.key));
+  const remove = rows.filter((r) => r.verdict === 'REMOVE').sort((a, b) => a.key.localeCompare(b.key));
+  console.log(`\n══ KEEP (${keep.length}) — has code readers or is a core_* sentinel ══`);
+  keep.forEach((r) => console.log(line(r)));
+  console.log(`\n══ REMOVE (${remove.length}) — DEAD (no code reads the flag) ══`);
+  remove.forEach((r) => console.log(line(r)));
+} else if (JSON_OUT) {
   console.log(JSON.stringify({ summary, rows }, null, 2));
 } else {
   console.log(`\n═══ Feature-Flag Audit — ${rows.length} flags ═══`);
