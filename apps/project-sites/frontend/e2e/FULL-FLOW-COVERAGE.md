@@ -56,7 +56,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 25 | **Refer-a-friend** (`referral_loop`) — code/share-link/copy/stats on the hub | `flows-referral.flow.e2e.ts` | 9 | 9 | ✅ green (fire-16 — FINISHED: fixed a REAL 500 in the worker + built UI) |
 | 26 | **Production readiness** (`prod_readiness_score`) — site grade + weighted checks + fix-hints on Snapshots | `flows-readiness.flow.e2e.ts` | 8 | 8 | ✅ green (fire-17 — FINISHED: built the panel on a non-hub surface) |
 | 27 | **Plan usage gauges** (`usage_gauges`) — sites/builds/media/bandwidth used-vs-limit + overage on Billing | `flows-usage.flow.e2e.ts` | 8 | 8 | ✅ green (fire-18 — FINISHED: built gauges on the Billing tab) |
-| — | **TOTAL** | | **~416** | **430** | 🟢 430 REAL green + 12 fixme (31 flow files) |
+| 28 | **AI budget meter** (`token_burn_meter`) — spend vs cap + killswitch state on AI Agents | `flows-budget.flow.e2e.ts` | 8 | 8 | ✅ green (fire-19 — FINISHED: built the meter atop ai-endpoints) |
+| — | **TOTAL** | | **~416** | **438** | 🟢 438 REAL green + 12 fixme (32 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -445,6 +446,20 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Five features finished this session** (onboarding + activity + referral + readiness + usage) — hub,
     snapshots, and billing surfaces all materially more complete.
   - Running total: **430 REAL green / 442 written across 31 files (12 fixme)**.
+- **Fire 19 (2026-08-13)** — DEPTH pass #7: **FINISHED `token_burn_meter`** atop the AI Agents page.
+  **Net +8 green → 438; new file #32.**
+  - `GET /api/usage/budget` + flag were live + returned REAL data (no seed): plan "free", meter
+    {allowed:true, spentUsd:0, capUsd:5, remainingUsd:5, pct:0}. No UI consumed it.
+  - **Built** `components/ai-budget-meter/ai-budget-meter.component.ts` — AI spend vs cap (USD), remaining,
+    a tone bar (ok/warn/danger by fill), the budget-killswitch "runs paused" alert when `!allowed`, and an
+    Unlimited state. Wired ONE line under the ai-endpoints header (+ import + imports array).
+  - **Proven:** frontend build+deploy → 8 elaborate journeys GREEN @ workers=3 (render, USD spend+cap,
+    **ground-truth reconciliation** spent/cap vs the store, remaining, bounded bar, **killswitch-state
+    reconciliation** (blocked msg IFF store says !allowed), console-clean, full-journey beside the agents
+    list). AI-vision ~9/10: "AI BUDGET · FREE · $0.00 of $5.00 · $5.00 left" strip.
+  - **Six features finished this session** (onboarding + activity + referral + readiness + usage + budget) —
+    hub, snapshots, billing, and ai-endpoints surfaces all materially more complete.
+  - Running total: **438 REAL green / 450 written across 32 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The

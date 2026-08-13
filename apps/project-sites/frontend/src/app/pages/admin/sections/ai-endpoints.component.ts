@@ -42,6 +42,7 @@ import { copyToClipboard } from '../../../utils/clipboard';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
+import { AiBudgetMeterComponent } from '../../../components/ai-budget-meter/ai-budget-meter.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -91,6 +92,7 @@ interface InlineEdit {
     HlmInputDirective,
     HlmSelectDirective,
     CharCountComponent,
+    AiBudgetMeterComponent,
   ],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" [class.agents--compact]="compact()" data-testid="ai-endpoints-page">
@@ -153,6 +155,10 @@ interface InlineEdit {
           }
         </div>
       </header>
+
+      <!-- AI budget meter (feature: token_burn_meter) — spend vs cap + killswitch
+           state; self-hides when the flag is off (API 404). -->
+      <app-ai-budget-meter />
 
       @if (!wfpConfigured()) {
         <div class="card bg-amber-500/[0.06] border-amber-500/30 text-[0.78rem]">
