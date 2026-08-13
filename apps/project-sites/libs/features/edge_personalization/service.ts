@@ -17,6 +17,24 @@ export async function upsertVariants(env: Env, siteId: string, variants: Variant
   return variants.length;
 }
 
+export async function listVariants(
+  env: Env,
+  siteId: string,
+): Promise<Array<{ id: string; name: string; conditions: Record<string, unknown>; priority: number }>> {
+  const { data } = await dbQuery<{ id: string; name: string; conditions: string; priority: number }>(
+    env.DB,
+    'SELECT id, name, conditions, priority FROM site_personalization_variants WHERE site_id = ? ORDER BY priority DESC',
+    [siteId],
+  ).catch(() => ({ data: [] as { id: string; name: string; conditions: string; priority: number }[] }));
+
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    conditions: JSON.parse(row.conditions ?? '{}') as Record<string, unknown>,
+    priority: row.priority,
+  }));
+}
+
 export async function resolveVariant(
   env: Env,
   siteId: string,

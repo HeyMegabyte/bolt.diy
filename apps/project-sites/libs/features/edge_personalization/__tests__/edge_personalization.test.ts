@@ -5,7 +5,7 @@ import { describe, it, expect } from '@jest/globals';
 // D1Database returns a queued `{results}` per `.all()` (dbQuery reads it and
 // catches internally, so a queued Error simulates a D1 outage); dbExecute uses
 // .run().
-import { upsertVariants, resolveVariant, FLAG_KEY } from '../service.js';
+import { upsertVariants, listVariants, resolveVariant, FLAG_KEY } from '../service.js';
 import type { Env } from '../../../../src/types/env.js';
 
 function makeDb(queue: Array<{ results: unknown[] } | Error> = []) {
@@ -36,6 +36,28 @@ describe('edge_personalization', () => {
       { id: 'v1', name: 'Mobile', conditions: { device: 'mobile' }, priority: 10 },
     ]);
     expect(count).toBe(1);
+  });
+
+  it('listVariants() parses conditions JSON and returns priority-ordered rules', async () => {
+    const env = envWith(
+      makeDb([
+        {
+          results: [
+            { id: 'v1', name: 'VIP', conditions: '{"isReturn":true}', priority: 40 },
+            { id: 'v2', name: 'Mobile', conditions: '{"device":"mobile"}', priority: 30 },
+          ],
+        },
+      ]),
+    );
+    const rules = await listVariants(env, 'site1');
+    expect(rules).toHaveLength(2);
+    expect(rules[0]).toEqual({ id: 'v1', name: 'VIP', conditions: { isReturn: true }, priority: 40 });
+    expect(rules[1].conditions).toEqual({ device: 'mobile' });
+  });
+
+  it('listVariants() returns [] on DB error (missing table degrades soft)', async () => {
+    const rules = await listVariants(envWith(makeDb([new Error('no such table')])), 'site1');
+    expect(rules).toEqual([]);
   });
 
   it('resolveVariant() returns default when no variants match', async () => {

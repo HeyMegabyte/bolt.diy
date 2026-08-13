@@ -3,10 +3,11 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { assertSiteOwned } from '../../../src/services/site_ownership.js';
-import { FLAG_KEY, upsertVariants, resolveVariant } from './service.js';
+import { FLAG_KEY, upsertVariants, listVariants, resolveVariant } from './service.js';
 import {
   UpsertVariantsRequestSchema,
   UpsertVariantsResponseSchema,
+  ListVariantsResponseSchema,
   PersonalizationSignalsSchema,
   ResolveVariantResponseSchema,
 } from './schemas.js';
@@ -35,6 +36,15 @@ edgePersonalization.post('/api/personalize/:siteId/variants', zValidator('json',
   const { variants } = c.req.valid('json');
   const count = await upsertVariants(c.env, siteId, variants);
   return c.json(UpsertVariantsResponseSchema.parse({ siteId, count }));
+});
+
+edgePersonalization.get('/api/personalize/:siteId/variants', async (c) => {
+  const blocked = await guard(c);
+  if (blocked) return blocked;
+  const { siteId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return notFound(c);
+  const variants = await listVariants(c.env, siteId);
+  return c.json(ListVariantsResponseSchema.parse({ siteId, variants, count: variants.length }));
 });
 
 edgePersonalization.get('/api/personalize/:siteId/resolve', async (c) => {

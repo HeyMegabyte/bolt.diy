@@ -62,7 +62,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 31 | **Site labels** (`site_tags`) — create+assign+remove coloured tags on Snapshots (MUTATION) | `flows-tags.flow.e2e.ts` | 8 | 8 | ✅ green (fire-22 — RESURRECTED: created 2 missing tables + built CRUD UI) |
 | 32 | **Bookings** (`native_booking_engine`) — org appointments (visitor/status) widget on the hub | `flows-bookings.flow.e2e.ts` | 8 | 8 | ✅ green (fire-23 — RESURRECTED: created booking_appointments + seeded + widget) |
 | 33 | **Credit wallet** (`credit_wallet_rollover`) — AI-credit balance + ledger on Billing | `flows-credits.flow.e2e.ts` | 8 | 8 | ✅ green (fire-24 — RESURRECTED: created credit_wallet_ledger + seeded + widget) |
-| — | **TOTAL** | | **~416** | **477** | 🟢 477 REAL green + 12 fixme (37 flow files) |
+| 34 | **Edge personalization** (`edge_personalization`) — visitor variant rules + live resolver on Snapshots | `flows-personalization.flow.e2e.ts` | 8 | 8 | ✅ green (fire-25 — RESURRECTED: created site_personalization_variants + GET /variants endpoint + seeded + panel) |
+| — | **TOTAL** | | **~416** | **485** | 🟢 485 REAL green + 12 fixme (38 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -572,3 +573,27 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Eleven features finished this session** (7 clean + 4 resurrections). Billing now hosts subscription +
     plan-usage gauges + credit wallet.
   - Running total: **477 REAL green / 489 written across 37 files (12 fixme)**.
+- **Fire 25 (2026-08-13)** — DEPTH pass #13: **RESURRECTED `edge_personalization`** (5th & last non-money
+  missing-table module). **Net +8 green → 485; new file #38. 15 from 500.**
+  - `site_personalization_variants` did not exist in prod → `/resolve` ALWAYS lied "Default" + `/variants`
+    upsert failed. Added `migrations/0624_create_site_personalization_variants.sql` + applied. Flag was
+    already globally ON (`{enabled:true,rollout:100}` since 2026-06-24).
+  - **Finished the feature, not just wired it:** the module had `POST /variants` (upsert) + `GET /resolve` but
+    **no way to LIST rules** — an admin can't manage rules it can't read. Added `GET /api/personalize/:siteId/variants`
+    (+ `listVariants()` service + `ListVariantsResponseSchema` + 2 unit tests). **Worker deployed** (Docker up,
+    version 845b67bc). **Seeded** 4 priority-ordered rules for e2e-site-3 (Returning VIP P40 / Mobile Welcome P30 /
+    US Desktop Promo P20 / Google Organic P10).
+  - **Built** `components/edge-personalization-panel/edge-personalization-panel.component.ts` — a per-site panel
+    (rules list w/ condition chips + priority badges + a **live visitor resolver**: pick device/geo/returning →
+    calls `/resolve` → highlights the matched rule + "Sees: <variant>"). Injects AdminStateService +
+    `effect(selectedSite)`. Wired onto **Snapshots** (now 5 per-site panels).
+  - **Proven:** worker+frontend deploy → 8 journeys GREEN @ workers=3 across 2 browsers (16/16). Test 02
+    proves the WHOLE resolve logic on the store (mobile→Mobile Welcome, returning→VIP-highest-priority,
+    US+desktop→US Desktop Promo, none→Default); 03-08 **reconcile the panel + live resolver against `/variants`
+    + `/resolve` ground truth**. AI-vision 9/10. (1 test-only fix: `apiFetch` takes the FULL `/api/...` path —
+    my first pass omitted `/api` → SPA-HTML; 8 fail→16 pass.)
+  - **Detector backlog now 1:** only `payments_rail` (→ payments_rail_events) remains — MONEY-sensitive →
+    approval-required, log don't auto-seed. `scripts/audit-missing-tables.mjs` confirms.
+  - **Twelve features finished this session** (7 clean + 5 resurrections). Snapshots is now a full per-site
+    hub (readiness + sparkline + timeline-notes + labels + personalization).
+  - Running total: **485 REAL green / 497 written across 38 files (12 fixme)**.

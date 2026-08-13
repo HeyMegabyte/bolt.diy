@@ -28,6 +28,20 @@ export const UpsertVariantsResponseSchema = z.object({
 }).strict();
 export type UpsertVariantsResponse = z.infer<typeof UpsertVariantsResponseSchema>;
 
+export const ListVariantsResponseSchema = z.object({
+  siteId: z.string(),
+  variants: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      conditions: PersonalizationSignalsSchema.partial(),
+      priority: z.number(),
+    }),
+  ),
+  count: z.number(),
+}).strict();
+export type ListVariantsResponse = z.infer<typeof ListVariantsResponseSchema>;
+
 export const ResolveVariantResponseSchema = z.object({
   siteId: z.string(),
   variantId: z.string(),

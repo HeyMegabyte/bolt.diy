@@ -20,6 +20,7 @@ import { ReadinessPanelComponent } from '../../../components/readiness-panel/rea
 import { HealthSparklineComponent } from '../../../components/health-sparkline/health-sparkline.component';
 import { TimelineNotesComponent } from '../../../components/timeline-notes/timeline-notes.component';
 import { SiteLabelsComponent } from '../../../components/site-labels/site-labels.component';
+import { EdgePersonalizationPanelComponent } from '../../../components/edge-personalization-panel/edge-personalization-panel.component';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -118,7 +119,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, SiteLabelsComponent, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, SiteLabelsComponent, EdgePersonalizationPanelComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -261,6 +262,10 @@ interface GhStatus {
       <!-- Site labels (feature: site_tags) — coloured org tags assigned to this
            site; self-hides when off. -->
       <app-site-labels />
+
+      <!-- Edge personalization (feature: edge_personalization) — rules-based
+           visitor variants + live resolver; self-hides when off. -->
+      <app-edge-personalization-panel />
 
       <!-- Snapshot Timeline -->
       <div class="snap-card" appReveal>
