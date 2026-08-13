@@ -403,15 +403,6 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
     category: 'Grow',
   },
   {
-    key: 'seo_autopilot',
-    name: 'AI SEO Autopilot',
-    description:
-      'AI writes titles, meta, and answer blocks per page and keeps stale sections fresh — you approve before it applies.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Grow',
-  },
-  {
     key: 'gbp_assist',
     name: 'Google Business Profile',
     description:
@@ -456,28 +447,10 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
   },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
   {
-    key: 'page_audio',
-    name: 'Page Audio',
-    description:
-      'Auto-generate a short narrated audio version of each page — better dwell time and an accessible, audio-first experience.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Engage',
-  },
-  {
     key: 'a11y_autopilot',
     name: 'Accessibility Autopilot',
     description:
       'Continuous accessibility scans with one-click fixes and an ADA-ready compliance report for your site.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Grow',
-  },
-  {
-    key: 'i18n_localization',
-    name: 'Languages',
-    description:
-      'Mirror your site into more languages with AI translation, correct hreflang tags, and right-to-left support.',
     requiredPlan: 'pro',
     isAddon: false,
     category: 'Grow',

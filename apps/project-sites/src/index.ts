@@ -58,7 +58,6 @@ import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
 import { inngestApp } from './inngest/serve.js'; // jobs./events.projectsites.dev + /api/inngest serve (§13 automation plane; inert until watched deploy)
 import { createJobsRoutes } from './routes/jobs.js'; // POST /api/jobs dispatch seam (§20 WorkflowRouter)
-import { pageAudio } from './routes/page_audio.js';
 import { aiActions } from './routes/ai_actions.js';
 import { adminLeads } from './routes/admin_leads.js';
 import { adminOutbox } from './routes/admin_outbox.js';
@@ -66,7 +65,6 @@ import { adminFunnel } from './routes/admin_funnel.js';
 import { adminAnalytics } from './routes/admin_analytics.js';
 import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
-import { i18n } from './routes/i18n.js';
 import { siteRollbackRoutes } from './routes/site_rollback.js';
 import { handleCodeExport } from '../libs/features/code_export/handlers.js';
 import { buildCritique } from '../libs/features/ai_site_critic/service.js';
@@ -146,7 +144,6 @@ import { emailDeliverabilityRoutes } from './routes/email_deliverability.js';
 import { reviewPublic } from './routes/review_public.js';
 import { reviewLinks } from './routes/review_links.js';
 import { webhooksAdmin } from './routes/webhooks_admin.js';
-import { seoAutopilot } from './routes/seo_autopilot.js';
 import { integrationHealth } from './routes/integration_health.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
 // Feature modules (libs/features/*) — ideas #33, #34, #36, #46
@@ -171,7 +168,6 @@ import { modelRegistry } from '../libs/features/model_registry/handlers.js'; // 
 // Drift-fix (2026-08-07): 3 complete, flag-REGISTERED feature modules that were built but never mounted — their routes were unreachable (404 even with the flag on). Mounting behind their dark flags resolves the drift-detection "dead feature folder" class + makes them reachable on flag promotion. Prod-unchanged: flags are experimental → isFlagOn false → 404, exactly as now.
 import { figmaImport } from '../libs/features/figma_import/handlers.js'; // POST /api/figma/import — import a Figma frame → site section (flag: figma_import)
 import { generativeUiStream } from '../libs/features/generative_ui_stream/handlers.js'; // POST /api/copilot/ui — streamed generative UI blocks (flag: generative_ui_stream)
-import { pageAudioSummary } from '../libs/features/page_audio_summary/handlers.js'; // POST /api/audio-summary/:siteId — TTS audio summary of a page (flag: page_audio_summary)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
 import { nativeBookingEngine } from '../libs/features/native_booking_engine/handlers.js'; // booking/availability (flag: native_booking_engine)
@@ -540,14 +536,12 @@ app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)
-app.route('/', pageAudio); // /api/sites/:id/page-audio — TTS page narration → R2 (flag: page_audio)
 app.route('/', aiActions); // /api/ai-actions/payment-command — safety-gated AI payment-command (flag: ai_payment_command)
 app.route('/', adminLeads); // /api/admin/leads/scan — Super-Admin lead scanner (flag: lead_scanner)
 app.route('/', adminOutbox); // /api/admin/outbox — Super-Admin event-bus DLQ observability (read-only)
 app.route('/', adminFunnel); // /api/admin/activation-funnel — Super-Admin revenue-funnel rollup (Tinybird, read-only)
 app.route('/', adminAnalytics); // /api/admin/analytics/* — Super-Admin events-daily + publishes-by-source + claims-by-source rollups (Tinybird, read-only)
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
-app.route('/', i18n); // /api/sites/:id/i18n/* — AI translation + hreflang (flag: i18n_localization)
 app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
 app.get('/api/sites/:siteId/export', async (c) => {
   const siteId = c.req.param('siteId');
@@ -1133,7 +1127,6 @@ app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads,
 app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
 app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
 app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id/pseo/v2/* — user-tasks + 40% unique-data floor
-app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.
@@ -1157,7 +1150,6 @@ app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all
 app.route('/', figmaImport); // POST /api/figma/import — Figma frame → site section (flag: figma_import, dark)
 app.route('/', generativeUiStream); // POST /api/copilot/ui — streamed generative UI blocks (flag: generative_ui_stream, dark)
-app.route('/', pageAudioSummary); // POST /api/audio-summary/:siteId — TTS page audio summary (flag: page_audio_summary, dark)
 app.route('/', browserService); // POST /v1/browser/* — product browser-automation abstraction (browser.projectsites.dev); routes CF→Stagehand→Browserbase-fallback, never Skyvern in product paths — must precede the catch-all
 // System-service status page at the bare root `/` — registered BEFORE inngestApp
 // so `jobs.projectsites.dev/` returns the branded 200 status page instead of the

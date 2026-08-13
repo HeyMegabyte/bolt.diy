@@ -41,7 +41,6 @@ import { hardenExternalLinks } from '../agent-message/harden-links';
 import { ToastService } from '../../services/toast.service';
 import { ApiService } from '../../services/api.service';
 import { VisionQaComponent } from '../vision-qa/vision-qa.component';
-import { I18nTranslateComponent } from '../i18n-translate/i18n-translate.component';
 import {
   buildDossierMarkdown,
   coverageSignal,
@@ -61,7 +60,7 @@ interface E2eSpec {
 @Component({
   selector: 'app-feature-dossier',
   standalone: true,
-  imports: [CommonModule, A11yModule, VisionQaComponent, I18nTranslateComponent],
+  imports: [CommonModule, A11yModule, VisionQaComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open() && model(); as m) {
@@ -193,9 +192,6 @@ interface E2eSpec {
             @if (m.previewUrl) {
               <app-vision-qa [url]="m.previewUrl" />
             }
-            @if (m.key === 'i18n_localization' && m.siteId) {
-              <app-i18n-translate [siteId]="m.siteId" />
-            }
 
             <article #body class="fd-paper" data-testid="fd-body" [innerHTML]="html()"></article>
           </div>
@@ -300,7 +296,7 @@ interface E2eSpec {
     .fd-e2e-status[data-st="failed"] { background: #f87171; color: #190606; }
     /* Print / Save-as-PDF — drop chrome, white paper, black ink. */
     @media print {
-      .fd-bar, .fd-rail, .fd-e2e, app-vision-qa, app-i18n-translate { display: none !important; }
+      .fd-bar, .fd-rail, .fd-e2e, app-vision-qa { display: none !important; }
       .fd-root { position: static; background: #fff; color: #111; }
       .fd-scroll { display: block; padding: 0; }
       .fd-paper { box-shadow: none; border: 0; background: #fff; color: #111; max-width: none; }

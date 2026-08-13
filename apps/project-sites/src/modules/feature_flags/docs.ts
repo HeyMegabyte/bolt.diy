@@ -698,10 +698,10 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Answer-Engine-Optimization audit on every publish',
       'Structured-data tuning for AI-citation',
       'Targets ChatGPT / Perplexity / AI-Overviews',
-      'Extends seo_autopilot',
+      'Extends the on-publish SEO pass',
     ],
     explanation:
-      'Runs an Answer-Engine-Optimization audit plus structured-data tuning on every publish, targeting citation in ChatGPT / Perplexity / Google AI-Overviews (quotable answer blocks, FAQPage schema, EEAT signals) — extending the existing seo_autopilot pass. Reports per-page AEO gaps. When off, the AEO step is skipped and the route 404s.',
+      'Runs an Answer-Engine-Optimization audit plus structured-data tuning on every publish, targeting citation in ChatGPT / Perplexity / Google AI-Overviews (quotable answer blocks, FAQPage schema, EEAT signals) — extending the existing on-publish SEO pass. Reports per-page AEO gaps. When off, the AEO step is skipped and the route 404s.',
     smoke_test: [
       'Publish a site → the AEO pass runs and writes per-page audit results',
       'GET /api/sites/:id/aeo → {score, gaps:[{page, issue, fix}]}',
@@ -920,22 +920,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET /api/onboarding/checklist → {steps:[{id, done, cta_href}], dismissed}',
       'Publish a site → re-fetch → the publish step flips to done',
       'Disable the flag → the checklist route 404s',
-    ],
-  },
-  page_audio_summary: {
-    checklist: [
-      'POST /api/audio-summary/:siteId — generate a per-route TTS summary',
-      'GET /api/audio-summary/:siteId — fetch the stored MP3 for playback',
-      'MP3 persisted to R2 under audio-summary/{siteId}/',
-      'Fail-soft when no TTS provider is configured; off by default → 404',
-    ],
-    explanation:
-      'Page Audio Summary generates per-route text-to-speech summaries via the media service and stores the MP3s in R2 (audio-summary/{siteId}/) for visitor playback. Requires a TTS provider (ElevenLabs or OpenAI); when unconfigured it degrades gracefully rather than erroring. Disabled by default → the routes 404. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/page_audio_summary module.',
-    smoke_test: [
-      'POST /api/audio-summary/:siteId → 200, MP3 written to R2',
-      'GET /api/audio-summary/:siteId → 200 audio/mpeg stream',
-      'Unset the TTS provider → graceful failure, no 5xx',
-      'Disable the flag → the routes 404',
     ],
   },
   payments_rail: {

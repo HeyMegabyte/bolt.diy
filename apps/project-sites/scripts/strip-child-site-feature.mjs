@@ -95,6 +95,7 @@ function removeCatalogSection(src, key) {
 
 const targets = [
   { file: 'src/modules/feature_flags/registry.ts', fn: removeKeyedEntry, label: 'registry' },
+  { file: 'src/modules/feature_flags/docs.ts', fn: removeKeyedEntry, label: 'docs' },
   { file: 'src/routes/features.ts', fn: removeArrayEntry, label: 'catalog' },
   { file: 'libs/features/CATALOG.md', fn: removeCatalogSection, label: 'CATALOG.md' },
 ];

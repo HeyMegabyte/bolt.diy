@@ -61,16 +61,13 @@ interface SiteFeature {
 const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' | 'enabled' | 'preview'>> = [
   { key: 'donations_engine', name: 'Donations', description: 'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
   { key: 'email_marketing', name: 'Newsletter', description: 'Collect subscribers and send branded email campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'seo_autopilot', name: 'AI SEO Autopilot', description: 'AI writes titles, meta, and answer blocks per page and keeps stale sections fresh — you approve before it applies.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
   { key: 'gbp_assist', name: 'Google Business Profile', description: 'One-click setup + AI-optimized content for your Google Business Profile so you show up in local search and Maps.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
   { key: 'search_engine_submit', name: 'Instant Indexing', description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.', requiredPlan: 'free', isAddon: false, category: 'Grow' },
   { key: 'pseo_matrix_v2', name: 'Local SEO Pages', description: 'Auto-generate location and service landing pages from real data to rank for "near me" searches.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
   { key: 'unified_inbox', name: 'Visitor Inbox', description: 'Every form, chat, and message from your site in one inbox, with AI-drafted replies.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
   { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
-  { key: 'page_audio', name: 'Page Audio', description: 'Auto-generate a short narrated audio version of each page — better dwell time and an accessible, audio-first experience.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
   { key: 'a11y_autopilot', name: 'Accessibility Autopilot', description: 'Continuous accessibility scans with one-click fixes and an ADA-ready compliance report for your site.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'i18n_localization', name: 'Languages', description: 'Mirror your site into more languages with AI translation, correct hreflang tags, and right-to-left support.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
 ];
 
 /**
@@ -91,12 +88,6 @@ const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
     'Campaign composer — send from your own domain',
     'Subscriber list with consent tracking',
     'Open + click reporting',
-  ],
-  seo_autopilot: [
-    'AI-written titles + meta descriptions per page',
-    'AI-search "quotable answer" blocks',
-    'Stale-section refresh suggestions',
-    'You approve every change before it ships',
   ],
   gbp_assist: [
     'Guided Google Business Profile setup',
@@ -128,23 +119,11 @@ const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
     'Read-only by default',
     'Token-gated access you control',
   ],
-  page_audio: [
-    'Short narrated audio version of each page',
-    'Generated automatically on publish',
-    'Accessible, audio-first experience',
-    'Improves dwell time + time-on-page',
-  ],
   a11y_autopilot: [
     'Continuous automated accessibility scans',
     'One-click fix suggestions',
     'ADA Title II-ready compliance report',
     'Per-page issue tracking over time',
-  ],
-  i18n_localization: [
-    'AI translation into your chosen languages',
-    'Correct hreflang + canonical per locale',
-    'Right-to-left layout support',
-    'Language switcher on your live site',
   ],
 };
 
