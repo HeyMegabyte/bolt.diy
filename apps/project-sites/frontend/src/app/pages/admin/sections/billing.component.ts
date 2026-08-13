@@ -6,6 +6,7 @@ import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { UsageGaugesComponent } from '../../../components/usage-gauges/usage-gauges.component';
+import { CreditsWidgetComponent } from '../../../components/credits-widget/credits-widget.component';
 import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -67,7 +68,7 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, AiSparkComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, UsageGaugesComponent],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, AiSparkComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, UsageGaugesComponent, CreditsWidgetComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header appReveal>
@@ -197,6 +198,10 @@ interface ForecastBar {
           <!-- Plan-usage gauges (feature: usage_gauges) — usage vs limits; self-hides
                when the flag is off (API 404). -->
           <app-usage-gauges />
+
+          <!-- Credit wallet (feature: credit_wallet_rollover) — AI-credit balance +
+               ledger; self-hides when the flag is off (API 404). -->
+          <app-credits-widget />
 
           <!-- Cancel confirmation dialog -->
           @if (cancelConfirmOpen()) {

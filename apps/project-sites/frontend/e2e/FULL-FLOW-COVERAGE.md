@@ -61,7 +61,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 30 | **Timeline notes** (`analytics_annotations`) — add/list/delete site annotations on Snapshots (MUTATION) | `flows-annotations.flow.e2e.ts` | 8 | 8 | ✅ green (fire-21 — RESURRECTED: 3 backend fixes + built CRUD UI) |
 | 31 | **Site labels** (`site_tags`) — create+assign+remove coloured tags on Snapshots (MUTATION) | `flows-tags.flow.e2e.ts` | 8 | 8 | ✅ green (fire-22 — RESURRECTED: created 2 missing tables + built CRUD UI) |
 | 32 | **Bookings** (`native_booking_engine`) — org appointments (visitor/status) widget on the hub | `flows-bookings.flow.e2e.ts` | 8 | 8 | ✅ green (fire-23 — RESURRECTED: created booking_appointments + seeded + widget) |
-| — | **TOTAL** | | **~416** | **469** | 🟢 469 REAL green + 12 fixme (36 flow files) |
+| 33 | **Credit wallet** (`credit_wallet_rollover`) — AI-credit balance + ledger on Billing | `flows-credits.flow.e2e.ts` | 8 | 8 | ✅ green (fire-24 — RESURRECTED: created credit_wallet_ledger + seeded + widget) |
+| — | **TOTAL** | | **~416** | **477** | 🟢 477 REAL green + 12 fixme (37 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -552,3 +553,22 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     are either a quick real fix or a selector correction. A 375px `_probe-375` sweep of all 13 core admin
     sections confirmed the overflow was ISOLATED to ai-endpoints (all others OK) — no systemic mobile bug.
   - Running total: **386 REAL green / 398 written across 26 files (12 fixme)**.
+- **Fire 24 (2026-08-13)** — DEPTH pass #12: **RESURRECTED `credit_wallet_rollover`** (4th missing-table
+  module). **Net +8 green → 477; new file #37. 23 from 500.**
+  - `credit_wallet_ledger` did not exist in prod → `GET /api/credits/balance` + `/history` + every apply/grant
+    lied-empty/lied-success. Added `migrations/0623_create_credit_wallet_ledger.sql` + applied. **Seeded a
+    realistic ledger** (rollover +40, grant +100, three debits −8/−15/−6) → balance **111**, allowance 100,
+    rollover_cap 300 for e2e-test-org.
+  - **Built** `components/credits-widget/credits-widget.component.ts` — AI-credit balance (with monthly
+    allowance + rollover cap) + a coloured ledger (kind chip + description + signed amount; debits white,
+    grants green). Consumes `/credits/balance` (the API IS the flag gate — 404 when off → widget renders
+    nothing) + `/credits/history` (response key `rows`). Wired onto the **Billing** tab after usage-gauges.
+  - **Proven:** frontend build+deploy → 8 journeys GREEN @ workers=3 (render+numeric balance, **ground-truth
+    balance reconcile** vs `/api/credits/balance`, seeded ledger entries, **row-count reconcile** vs
+    `/api/credits/history`, signed debit/grant amounts, console-clean, reload, full-journey with an
+    **accounting-integrity check** — ledger SUM == balance). AI-vision ~9/10.
+  - **Detector backlog now 2:** `edge_personalization` (→ site_personalization_variants) + `payments_rail`
+    (→ payments_rail_events, MONEY-sensitive) remain unbuilt — `scripts/audit-missing-tables.mjs` confirms.
+  - **Eleven features finished this session** (7 clean + 4 resurrections). Billing now hosts subscription +
+    plan-usage gauges + credit wallet.
+  - Running total: **477 REAL green / 489 written across 37 files (12 fixme)**.
