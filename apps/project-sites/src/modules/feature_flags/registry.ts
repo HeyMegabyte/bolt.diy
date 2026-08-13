@@ -110,14 +110,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
   },
   // ── 10 brilliant — site-as-MCP, cold-tier, AI-auto-router, ghost-routes, speed-compare, auto-gen-files, hallucination-guard, visitor-recognition, faq-from-tickets, competitor-monitor
-  site_mcp_server: {
-    key: 'site_mcp_server',
-    description: 'Per-customer-site MCP server — Siri/Claude/Cursor query the site directly',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/site-mcp/site-mcp.spec.ts (green live),
-    owner_email: 'brian@megabyte.space',
-  },
   ai_auto_router: {
     key: 'ai_auto_router',
     description:
@@ -144,15 +136,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   // ── Domain & Logs (items #10 + #14)
   // ── #24 Unified Visitor Inbox + #25 Multimodal Site Copilot
-  unified_inbox: {
-    key: 'unified_inbox',
-    description:
-      'Unified Visitor Inbox: forms+chat+voice+email+SMS under one identity, assignable, SLA-tracked, AI-drafted replies',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/_fortress/unified_inbox/* (happy+adversarial live; flag already ON at 100% via operator override),
-    owner_email: 'brian@megabyte.space',
-  },
   // ── #5+#6+#7+#8 Swarm editor + live stream + Site DNA + section marketplace
   // ── Native editor enforcement (rec #3 from 2026-05-28 close-the-loop) — was localStorage-only; now real server-side flag so killswitch works without redeploy
   // ── AI wave (ideas #1/#23/#24, 2026-05-28)
@@ -325,15 +308,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'marketing_dashboard',
     description:
       'Widget-based analytics dashboard with 11 default widgets across 6 sources (website/email/social/ads/crm/booking). Metric change computation with trend detection, source filtering, and grid/list layouts.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  mcp_per_tenant: {
-    key: 'mcp_per_tenant',
-    description:
-      'Every generated site becomes an MCP server at mcp.{slug}.projectsites.dev. AI agents connect via OAuth 2.1 and get 9 typed tools: read_page, list_pages, create_page, update_page, delete_page, upload_media, list_media, read_analytics, manage_seo.',
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',

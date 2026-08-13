@@ -403,23 +403,6 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
     isAddon: false,
     category: 'Grow',
   },
-  {
-    key: 'unified_inbox',
-    name: 'Visitor Inbox',
-    description:
-      'Every form, chat, and message from your site in one inbox, with AI-drafted replies.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Engage',
-  },
-  {
-    key: 'site_mcp_server',
-    name: 'AI Assistant Access',
-    description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.',
-    requiredPlan: 'business',
-    isAddon: false,
-    category: 'Grow',
-  },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
   {
     key: 'a11y_autopilot',

@@ -72,7 +72,6 @@ import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
 import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
 import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
 import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
-import { generateMcpManifest } from '../libs/features/mcp_per_tenant/service.js';
 import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
 import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
 import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
@@ -128,7 +127,6 @@ import { agency } from './routes/agency.js';
 import { billingAddons } from './routes/billing_addons.js';
 import { agents } from './routes/agents.js';
 import { templates as templatesRoutes } from './routes/templates.js';
-import { mcpSite } from './routes/mcp_site.js';
 import { siteBranchesApp } from './routes/site_branches.js';
 import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
@@ -136,7 +134,6 @@ import { publicRoutes } from './routes/public.js';
 import { pseoRoutes } from './routes/pseo.js';
 import { pseoMatrixV2Routes } from './routes/pseo_matrix_v2.js';
 import features from './routes/features.js';
-import { inbox } from './routes/inbox.js';
 import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
 import { siteDna } from './routes/site_dna.js';
@@ -659,17 +656,6 @@ app.post('/api/sites/:siteId/analytics/ask', async (c) => {
   return c.json({ data: result });
 });
 
-// MCP Per Tenant — per-site MCP server manifest (flag: mcp_per_tenant)
-app.get('/api/sites/:siteId/mcp-manifest', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'mcp_per_tenant', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const slug = c.req.query('slug') || siteId;
-  const manifest = generateMcpManifest(siteId, slug);
-  return c.json({ data: manifest });
-});
 
 // NL Site Management — NL→edit-intent parser (flag: nl_site_management)
 app.post('/api/sites/:siteId/nl-command', async (c) => {
@@ -1113,11 +1099,9 @@ app.route('/', agency); // /api/agency/* — white-label / agency surface (Pro-g
 app.route('/', billingAddons); // /api/billing/addons/*, /api/billing/checkout/topup, /api/billing/usage/*, /api/billing/invoices/*, /api/billing/subscription/cancel, /api/agency/stripe-connect/onboard, /api/affiliates/payouts
 app.route('/', agents); // /api/(sites/:siteId/agents|agents/:id)/* — AI Agents (per-site autonomous maintenance, Pro-gated)
 app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-template — templates marketplace
-app.route('/', inbox); // /api/inbox/* — Unified Visitor Inbox (flag: unified_inbox)
 app.route('/', copilot); // /api/sites/:slug/copilot/* + /sites/:slug/copilot.js — Multimodal Copilot (flag: multimodal_copilot)
-app.route('/', features); // Feature endpoints (every /api/* path flag-gated via isFlagOn) + public discovery surfaces (llms.txt, /accessibility, /.well-known/mcp, /api/openapi.json). Must precede mcpSite so marketing-root /.well-known/mcp wins.
-app.route('/', platformMcp); // GET+POST /api/mcp — platform MCP (flag: platform_mcp). MUST precede mcpSite: mcpSite's POST /:slug/mcp matches /api/mcp (slug='api') and would shadow the platform MCP's POST handler.
-app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
+app.route('/', features); // Feature endpoints (every /api/* path flag-gated via isFlagOn) + public discovery surfaces (llms.txt, /accessibility, /.well-known/mcp, /api/openapi.json).
+app.route('/', platformMcp); // GET+POST /api/mcp — platform MCP (flag: platform_mcp).
 app.route('/', siteBranchesApp); // /api/sites/:siteId/branches — branch-style site previews (#27)
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)

@@ -96,24 +96,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     ],
     e2e_tests: ['e2e/pwa.spec.ts'],
   },
-  site_mcp_server: {
-    checklist: [
-      'Per-site MCP server at {slug}.projectsites.dev/.well-known/mcp',
-      'Tools built from the site research (get_hours / get_menu / book_appointment / submit_lead)',
-      'NLWeb /ask endpoint — natural-language → Schema.org JSON for any agent (merged scope)',
-      'Queryable by Siri / Claude / Cursor / Perplexity',
-      'Read-only by default, token-gated',
-    ],
-    explanation:
-      "Per-customer-site MCP server auto-emitted at {slug}.projectsites.dev/.well-known/mcp. Tools are built from the site's _research.json (get_hours, get_menu, book_appointment, submit_lead, ask_about) so Siri / Claude / Cursor can query it. Merged scope: the NLWeb /ask endpoint (natural-language query → Schema.org JSON) so any MCP/agent client can read the site without a custom integration. Compounding moat: every shipped customer site instantly joins the agent-discoverable network. No competitor (Bolt/V0/Lovable/Webflow) ships this.",
-    smoke_test: [
-      'POST /api/sites/{siteId}/mcp/discovery to (re)generate the MCP manifest from research_data',
-      'GET /api/sites/{siteId}/mcp/discovery → returns {name, version, tools[], transport, authorization_server}',
-      'GET {slug}.projectsites.dev/.well-known/mcp from a Claude/Cursor client → tool list resolves',
-      'POST {slug}.projectsites.dev/ask {"q":"what are your hours?"} → Schema.org JSON answer',
-    ],
-    e2e_tests: ['e2e/site-mcp/site-mcp.spec.ts'],
-  },
   ai_auto_router: {
     checklist: [
       'Classifies each prompt (simple / complex / creative / free-eligible)',
@@ -143,26 +125,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Generated page renders real Places/review/pricing data, not boilerplate',
     ],
     e2e_tests: ['e2e/pseo/pseo-matrix.spec.ts'],
-  },
-  unified_inbox: {
-    checklist: [
-      'Forms + chat + voice + email + SMS under one visitor identity',
-      'Assignable to team members, SLA-tracked',
-      'AI-drafted replies',
-      'When off, /api/inbox/* returns 404',
-    ],
-    explanation:
-      'Unified Visitor Inbox: forms + chat + voice + email + SMS captures collapse under one visitor identity, assignable to team members, SLA-tracked, with AI-drafted replies. Dedupes via the shared contacts core. When OFF the /api/inbox/* routes 404.',
-    smoke_test: [
-      'Submit a contact form on a published site → a thread appears in /admin → Inbox',
-      'GET /api/inbox/tasks → returns open threads for the org',
-      'Assign a thread + draft an AI reply → status transitions',
-      'POST /api/inbox/tasks/:id/resolve → thread closes',
-    ],
-    e2e_tests: [
-      'e2e/_fortress/unified_inbox/happy-path.spec.ts',
-      'e2e/_fortress/unified_inbox/adversarial.spec.ts',
-    ],
   },
   email_deliverability_wizard: {
     checklist: [
