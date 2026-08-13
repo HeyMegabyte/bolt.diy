@@ -456,33 +456,6 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
   },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
   {
-    key: 'storefront_ecommerce',
-    name: 'Online Store',
-    description:
-      'Sell products from your site — catalog, cart, and secure checkout, with inventory tracking.',
-    requiredPlan: 'business',
-    isAddon: false,
-    category: 'Sell',
-  },
-  {
-    key: 'agentic_commerce',
-    name: 'AI Checkout',
-    description:
-      'Let shoppers buy from your store right inside ChatGPT and Gemini via the Agentic Commerce + Universal Commerce protocols.',
-    requiredPlan: 'business',
-    isAddon: false,
-    category: 'Sell',
-  },
-  {
-    key: 'ai_concierge_widget',
-    name: 'AI Concierge',
-    description:
-      'A visitor-facing chat that answers questions using your own content — hours, pricing, services — grounded, never made up.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Engage',
-  },
-  {
     key: 'page_audio',
     name: 'Page Audio',
     description:

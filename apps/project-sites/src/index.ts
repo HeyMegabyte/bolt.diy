@@ -58,10 +58,7 @@ import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
 import { inngestApp } from './inngest/serve.js'; // jobs./events.projectsites.dev + /api/inngest serve (§13 automation plane; inert until watched deploy)
 import { createJobsRoutes } from './routes/jobs.js'; // POST /api/jobs dispatch seam (§20 WorkflowRouter)
-import { concierge } from './routes/concierge.js';
 import { pageAudio } from './routes/page_audio.js';
-import { storefront } from './routes/storefront.js';
-import { agenticCommerce } from './routes/agentic_commerce.js';
 import { aiActions } from './routes/ai_actions.js';
 import { adminLeads } from './routes/admin_leads.js';
 import { adminOutbox } from './routes/admin_outbox.js';
@@ -177,14 +174,12 @@ import { generativeUiStream } from '../libs/features/generative_ui_stream/handle
 import { pageAudioSummary } from '../libs/features/page_audio_summary/handlers.js'; // POST /api/audio-summary/:siteId — TTS audio summary of a page (flag: page_audio_summary)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
-import { storefrontEcommerce } from '../libs/features/storefront_ecommerce/handlers.js'; // native storefront (flag: storefront_ecommerce)
 import { nativeBookingEngine } from '../libs/features/native_booking_engine/handlers.js'; // booking/availability (flag: native_booking_engine)
 import { creditWalletRollover } from '../libs/features/credit_wallet_rollover/handlers.js'; // wallet rollover+promo (flag: credit_wallet_rollover)
 import { referralLoop } from '../libs/features/referral_loop/handlers.js'; // refer-a-friend (flag: referral_loop)
 import { upgradeMoments } from '../libs/features/upgrade_moments/handlers.js'; // contextual upsell engine (flag: upgrade_moments)
 import { siteDoctor } from '../libs/features/site_doctor/handlers.js'; // owner-facing A-F health report (flag: site_doctor)
 import { previewShareCard } from '../libs/features/preview_share_card/handlers.js'; // GET /api/sites/:siteId/share-card — owner share messages+links+OG (flag: preview_share_card)
-import { aiConciergeWidget } from '../libs/features/ai_concierge_widget/handlers.js'; // visitor-facing concierge (flag: ai_concierge_widget)
 import { siteSemanticSearch } from '../libs/features/site_semantic_search/handlers.js'; // per-site RAG search (flag: site_semantic_search)
 import { edgePersonalization } from '../libs/features/edge_personalization/handlers.js'; // no-PII hero/CTA swap (flag: edge_personalization)
 import { promptStudio } from '../libs/features/prompt_studio/handlers.js'; // prompt versioning surface (flag: prompt_studio)
@@ -545,10 +540,7 @@ app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)
-app.route('/', concierge); // /api/sites/:id/concierge — "Ask my site" RAG concierge (flag: ai_concierge_widget)
 app.route('/', pageAudio); // /api/sites/:id/page-audio — TTS page narration → R2 (flag: page_audio)
-app.route('/', storefront); // /api/sites/:id/products[/:productId] — product catalog CRUD (flag: storefront_ecommerce)
-app.route('/', agenticCommerce); // /api/sites/:id/commerce/feed — agent-readable product feed (flag: agentic_commerce)
 app.route('/', aiActions); // /api/ai-actions/payment-command — safety-gated AI payment-command (flag: ai_payment_command)
 app.route('/', adminLeads); // /api/admin/leads/scan — Super-Admin lead scanner (flag: lead_scanner)
 app.route('/', adminOutbox); // /api/admin/outbox — Super-Admin event-bus DLQ observability (read-only)
@@ -1222,14 +1214,12 @@ app.route('/', observabilityGateway); // POST /monitoring/:provider — customer
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
-app.route('/', storefrontEcommerce); // /api/storefront/* (flag: storefront_ecommerce)
 app.route('/', nativeBookingEngine); // /api/booking/* (flag: native_booking_engine)
 app.route('/', creditWalletRollover); // /api/credits/* (flag: credit_wallet_rollover)
 app.route('/', referralLoop); // /api/referrals/* (flag: referral_loop)
 app.route('/', upgradeMoments); // /api/upgrade-moments/* (flag: upgrade_moments)
 app.route('/', siteDoctor); // /api/sites/:siteId/doctor (flag: site_doctor)
 app.route('/', previewShareCard); // /api/sites/:siteId/share-card (flag: preview_share_card)
-app.route('/', aiConciergeWidget); // /api/concierge/* (flag: ai_concierge_widget)
 app.route('/', siteSemanticSearch); // /api/site-search/* (flag: site_semantic_search)
 app.route('/', edgePersonalization); // /api/personalize/* (flag: edge_personalization)
 app.route('/', promptStudio); // /api/prompt-studio/* (flag: prompt_studio)

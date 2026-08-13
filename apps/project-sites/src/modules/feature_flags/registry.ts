@@ -219,15 +219,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
 
   // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
   // Commerce & money rail (payments_rail is foundational — unblocks the rest)
-  storefront_ecommerce: {
-    key: 'storefront_ecommerce',
-    description:
-      'Lightweight native storefront for generated sites: products/variants in D1, assets in R2, checkout via Square Web Payments behind payments_rail (not MedusaJS)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   upgrade_moments: {
     key: 'upgrade_moments',
     description:
@@ -239,15 +230,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
 
   // Visitor-facing AI + platform AI UX
-  ai_concierge_widget: {
-    key: 'ai_concierge_widget',
-    description:
-      'Visitor-facing per-site AI concierge grounded in the site own content with real tool-calls (book/quote/route) — stateful agent, not a chatbot placeholder',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
 
   ab_testing: {
     key: 'ab_testing',
@@ -451,15 +433,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'white_label',
     description:
       "Agency dashboard: MRR calculation, churn rate, client site management, branded reselling. Agencies resell ProjectSites under their own brand. Its route checks isFlagOn('white_label'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  agentic_commerce: {
-    key: 'agentic_commerce',
-    description:
-      "AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn('agentic_commerce') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
