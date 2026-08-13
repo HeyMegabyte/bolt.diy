@@ -58,7 +58,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 27 | **Plan usage gauges** (`usage_gauges`) — sites/builds/media/bandwidth used-vs-limit + overage on Billing | `flows-usage.flow.e2e.ts` | 8 | 8 | ✅ green (fire-18 — FINISHED: built gauges on the Billing tab) |
 | 28 | **AI budget meter** (`token_burn_meter`) — spend vs cap + killswitch state on AI Agents | `flows-budget.flow.e2e.ts` | 8 | 8 | ✅ green (fire-19 — FINISHED: built the meter atop ai-endpoints) |
 | 29 | **Visits sparkline** (`site_health_sparklines`) — 7-day SVG traffic trend + total/peak on Snapshots | `flows-sparkline.flow.e2e.ts` | 7 | 7 | ✅ green (fire-20 — FINISHED: built SVG sparkline + seeded 7 days traffic) |
-| — | **TOTAL** | | **~416** | **445** | 🟢 445 REAL green + 12 fixme (33 flow files) |
+| 30 | **Timeline notes** (`analytics_annotations`) — add/list/delete site annotations on Snapshots (MUTATION) | `flows-annotations.flow.e2e.ts` | 8 | 8 | ✅ green (fire-21 — RESURRECTED: 3 backend fixes + built CRUD UI) |
+| — | **TOTAL** | | **~416** | **453** | 🟢 453 REAL green + 12 fixme (34 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -479,6 +480,26 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Seven features finished this session** (onboarding + activity + referral + readiness + usage + budget +
     sparkline). Snapshots now carries BOTH per-site panels (readiness + traffic).
   - Running total: **445 REAL green / 457 written across 33 files (12 fixme)**.
+- **Fire 21 (2026-08-13)** — DEPTH pass #9: **RESURRECTED `analytics_annotations`** — the first MUTATION
+  feature + the loop's ideal create→persist→delete journey. **Net +8 green → 453; new file #34. 47 from 500.**
+  - **This module was never actually finished — THREE real backend defects found + fixed** (curling the
+    endpoints revealed lying-success): (1) `CreateAnnotationSchema` required `siteId: z.string().uuid()` →
+    500'd legitimate non-uuid site ids → relaxed to a bounded string (worker deploy `390a8fb8`); (2) the
+    `analytics_annotations` TABLE did NOT exist in prod and had NO migration — create/list/delete all
+    SWALLOWED "no such table" as a lying 201 → wrote `migrations/0620_create_analytics_annotations.sql` +
+    applied to prod; (3) the DELETE route is `/api/annotations/:id` (site-agnostic), not the nested path.
+    Verified the full CRUD in-browser (curl POST is CF bot-challenged) before building UI.
+  - **Built** `components/timeline-notes/timeline-notes.component.ts` — add form (note + category select) +
+    list + per-row delete, reacting to `selectedSite()`, optimistic add/remove. Wired onto Snapshots (3rd
+    per-site panel, after readiness + sparkline).
+  - **Proven:** 8 journeys GREEN @ workers=1 serial (render+form, 4 categories, add-disabled-until-typed,
+    **the MUTATION journey add→assert-persisted(store)→assert-UI→delete→assert-gone**, second-add w/ category
+    chip, reload, tri-panel journey, **self-cleaning cleanup test** → 0 probe rows left). AI-vision ~9/10.
+  - **⚠️ Mutation-E2E hygiene on a SHARED org:** unique `e2e-note` marker per row, self-delete each test,
+    a final cleanup test that removes any leftover marked rows. `mode: 'serial'` for deterministic ordering.
+  - **Eight features finished this session** (onboarding + activity + referral + readiness + usage + budget +
+    sparkline + annotations). Snapshots now hosts THREE per-site panels.
+  - Running total: **453 REAL green / 465 written across 34 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The

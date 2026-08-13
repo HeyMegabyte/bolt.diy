@@ -18,6 +18,7 @@ import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { ReadinessPanelComponent } from '../../../components/readiness-panel/readiness-panel.component';
 import { HealthSparklineComponent } from '../../../components/health-sparkline/health-sparkline.component';
+import { TimelineNotesComponent } from '../../../components/timeline-notes/timeline-notes.component';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -116,7 +117,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -251,6 +252,10 @@ interface GhStatus {
       <!-- Visits sparkline (feature: site_health_sparklines) — last-7-day traffic
            trend for the selected site; self-hides when off / no traffic. -->
       <app-health-sparkline />
+
+      <!-- Timeline notes (feature: analytics_annotations) — annotate the site's
+           timeline (deploys / campaigns / incidents); self-hides when off. -->
+      <app-timeline-notes />
 
       <!-- Snapshot Timeline -->
       <div class="snap-card" appReveal>
