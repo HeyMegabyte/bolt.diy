@@ -249,6 +249,16 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
   },
 
+  i18n_localization: {
+    key: 'i18n_localization',
+    description:
+      'Per-site AI localization: translate page snippets into a target language via Workers AI m2m100 (POST /api/sites/:id/i18n/translate) with correct text-direction (LTR/RTL), plus pure hreflang generation. The translation tester lives in the feature dossier. Was complete but UNREGISTERED (resolveFlag short-circuits off for unregistered keys) — registered 2026-08-13.',
+    default_enabled: false,
+    default_rollout_percent: 0,
+    stage: 'experimental',
+    owner_email: 'brian@megabyte.space',
+  },
+
   // Generation/editing + growth + Cloudflare quick wins
   ai_payment_command: {
     key: 'ai_payment_command',

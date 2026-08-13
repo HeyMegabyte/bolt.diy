@@ -68,7 +68,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 37 | **Site branch previews** (`/admin/sites/:id/branches`, #27) — create→draft→request-review→close lifecycle | `flows-branches.flow.e2e.ts` | 7 | 7 | ✅ green (fire-28 — RESURRECTED: applied MISSING site_branches + site_branch_approvals — create was lying-success; route NOT flag-gated) |
 | 38 | **Storefront products** (`storefront_ecommerce`) — add→persist→delete product lifecycle in the feature dossier | `flows-storefront.flow.e2e.ts` | 6 | 6 | ✅ green (fire-29 — RESURRECTED: applied MISSING storefront_products; flag ON so API works for any org despite requiredPlan:business) |
 | 39 | **AI concierge** (`ai_concierge_widget`) — "ask your site" grounded RAG Q&A in the feature dossier | `flows-concierge.flow.e2e.ts` | 6 | 6 | ✅ green (fire-30 — dossier-embedded AI widget; proved grounded+non-fabricating answer + apiFetch ground-truth) |
-| — | **TOTAL** | | **~416** | **521** | 🟢 **521 REAL green** + 12 fixme (43 flow files) — **500+ 🎉** |
+| 40 | **i18n translation** (`i18n_localization`) — AI translate-a-snippet tester in the feature dossier | `flows-i18n.flow.e2e.ts` | 6 | 6 | ✅ green (fire-31 — FINISHED: registered the missing flag + added Llama fallback for m2m100 capacity → real EN→ES translation) |
+| — | **TOTAL** | | **~416** | **527** | 🟢 **527 REAL green** + 12 fixme (44 flow files) — **500+ 🎉** |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -705,3 +706,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Still-uncovered dossier managers:** `i18n-translate` (flag i18n_localization DARK — would need enabling),
     `vision-qa` (auto-runs AI vision on the preview — non-deterministic output, harder to gate).
   - Running total: **521 REAL green / 533 written across 43 files (12 fixme)**. **500+ 🎉**
+- **Fire 31 (2026-08-13)** — DEPTH pass #19: **FINISHED the i18n translation feature end-to-end (2 real bugs
+  fixed).** **Net +6 green → 527; new file #44.**
+  - Targeted the last dossier-embedded manager (`i18n-translate`, flag `i18n_localization` was DARK). Two real
+    incompleteness bugs found + fixed:
+  - **Bug 1 — the flag was never REGISTERED.** `resolveFlag` short-circuits to `enabled:false` for any key not
+    in `FLAG_REGISTRY` — BEFORE checking overrides. So i18n could NEVER be enabled (a tenant/org/global override
+    can't win an unregistered flag). Added `i18n_localization` to `registry.ts` + a tenant override for
+    e2e-site-3 (`flag_overrides` id=`e2e-i18n-loc-site3`) → the feature resolves ON for the test site.
+  - **Bug 2 — the m2m100 model is consistently capacity-exceeded** (`AiError 3040`, 4/4 direct probes), so the
+    translation ALWAYS degraded to "Couldn't translate right now." Added a **Llama 3.3 70B fp8-fast fallback**
+    (`translateText()` in `i18n.ts`) — when m2m100 is unavailable, translate via the always-on instruct model
+    (system-prompted for translation-only output). Now genuinely translates: EN "Hello, welcome to our fitness
+    studio." → ES **"Hola, bienvenido a nuestro estudio de fitness."** (verified live).
+  - `flows-i18n.flow.e2e.ts` — 6 journeys × 2 browsers = **12 green**: open the i18n dossier → enter English →
+    Translate → **a REAL translation renders** (test 04 REQUIRES `it-out` differing from the input, not the
+    error-note) + apiFetch ground-truth + ask-gate + console + reload. AI-vision 9/10. Read-only (no cleanup).
+  - **⚠️ Anti-lying-green: the screenshot caught it.** The first pass was green on the tolerant "translation OR
+    note" assertion, but the screenshot showed "Couldn't translate right now" — the tolerant assertion was
+    masking a broken translation. Investigating the note (→ m2m100 capacity → Llama fallback) turned a
+    fake-green into a real proof. **Always view the screenshot; a tolerant AI-assertion can hide a dead feature.**
+  - Running total: **527 REAL green / 539 written across 44 files (12 fixme)**. **500+ 🎉**

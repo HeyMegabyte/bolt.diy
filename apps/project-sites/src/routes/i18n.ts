@@ -16,7 +16,61 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 
 const PROD = 'https://projectsites.dev';
 const TRANSLATE_MODEL = '@cf/meta/m2m100-1.2b';
+// Resilience fallback: m2m100 is frequently capacity-limited (AiError 3040). When it
+// is unavailable, translate via the always-on instruct model so the feature keeps
+// working instead of degrading to a "couldn't translate" note.
+const FALLBACK_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const RTL_LANGS = new Set(['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'yi']);
+
+/** Base-code → English language name for the instruct-model fallback prompt. */
+const LANG_NAMES: Record<string, string> = {
+  es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese',
+  nl: 'Dutch', ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ar: 'Arabic',
+  he: 'Hebrew', hi: 'Hindi', ru: 'Russian', pl: 'Polish', tr: 'Turkish',
+  vi: 'Vietnamese', th: 'Thai', sv: 'Swedish', uk: 'Ukrainian', el: 'Greek',
+};
+
+/**
+ * Translate `text` into `target` (base locale code), preferring the dedicated
+ * m2m100 model and falling back to the instruct model when m2m100 is unavailable.
+ * Returns the translated string, or null when both paths fail.
+ * @remarks Impure — calls Workers AI.
+ */
+async function translateText(
+  ai: Env['AI'],
+  text: string,
+  source: string,
+  target: string,
+): Promise<string | null> {
+  try {
+    const res = (await ai.run(TRANSLATE_MODEL, {
+      text,
+      source_lang: source,
+      target_lang: target,
+    })) as { translated_text?: string };
+    if (res?.translated_text?.trim()) return res.translated_text.trim();
+  } catch {
+    /* fall through to the instruct-model fallback */
+  }
+  try {
+    const lang = LANG_NAMES[target] ?? target;
+    const res = (await ai.run(FALLBACK_MODEL, {
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a professional translator. Translate the user text into the requested language. Respond with ONLY the translation — no preamble, no quotes, no notes.',
+        },
+        { role: 'user', content: `Translate into ${lang}:\n\n${text}` },
+      ],
+      max_tokens: 1024,
+    })) as { response?: string };
+    const out = res?.response?.trim();
+    return out && out.length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
 
 const TranslateBody = z.object({
   text: z.string().trim().min(1).max(5000),
@@ -90,20 +144,15 @@ i18n.post('/api/sites/:id/i18n/translate', async (c) => {
       { translated: null, notes: 'Translation is provisioning for this account.' },
       200,
     );
-  try {
-    const res = (await c.env.AI.run(TRANSLATE_MODEL, {
-      text: parsed.data.text,
-      source_lang: normalizeLocale(parsed.data.source),
-      target_lang: normalizeLocale(parsed.data.target),
-    })) as { translated_text?: string };
-    return c.json({
-      translated: res?.translated_text ?? null,
-      target: normalizeLocale(parsed.data.target),
-      dir: dirFor(parsed.data.target),
-    });
-  } catch {
-    return c.json({ translated: null, notes: 'Couldn’t translate right now.' }, 200);
-  }
+  const target = normalizeLocale(parsed.data.target);
+  const translated = await translateText(
+    c.env.AI,
+    parsed.data.text,
+    normalizeLocale(parsed.data.source) || 'en',
+    target,
+  );
+  if (translated) return c.json({ translated, target, dir: dirFor(parsed.data.target) });
+  return c.json({ translated: null, notes: 'Couldn’t translate right now.' }, 200);
 });
 
 i18n.get('/api/sites/:id/i18n/hreflang', async (c) => {
