@@ -270,6 +270,10 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     //   integrationHealth — GET /api/integrations/[:name/]health (observability probe, same class as 'health')
     //   chatwootAgentBot  — /webhooks/chatwoot/agent_bot receiver (same class as 'webhooks'/'sesWebhooks')
     'authSessions', 'authOrg', 'integrationHealth', 'chatwootAgentBot',
+    // Un-flagged 2026-08-13 (were stable/100% — the isFlagOn gate was removed, feature stays on):
+    //   logsRoutes  — /api/logs/{search,cost-by-route} (Log Explorer, was log_explorer)
+    //   domainStack — /api/domains/:hostname/stack[-status] (was domain_stack_wizard)
+    'logsRoutes', 'domainStack',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
