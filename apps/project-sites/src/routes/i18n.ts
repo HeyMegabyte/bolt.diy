@@ -24,10 +24,26 @@ const RTL_LANGS = new Set(['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'yi']);
 
 /** Base-code → English language name for the instruct-model fallback prompt. */
 const LANG_NAMES: Record<string, string> = {
-  es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese',
-  nl: 'Dutch', ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ar: 'Arabic',
-  he: 'Hebrew', hi: 'Hindi', ru: 'Russian', pl: 'Polish', tr: 'Turkish',
-  vi: 'Vietnamese', th: 'Thai', sv: 'Swedish', uk: 'Ukrainian', el: 'Greek',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German',
+  it: 'Italian',
+  pt: 'Portuguese',
+  nl: 'Dutch',
+  ja: 'Japanese',
+  ko: 'Korean',
+  zh: 'Chinese',
+  ar: 'Arabic',
+  he: 'Hebrew',
+  hi: 'Hindi',
+  ru: 'Russian',
+  pl: 'Polish',
+  tr: 'Turkish',
+  vi: 'Vietnamese',
+  th: 'Thai',
+  sv: 'Swedish',
+  uk: 'Ukrainian',
+  el: 'Greek',
 };
 
 /**
