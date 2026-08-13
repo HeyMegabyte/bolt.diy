@@ -125,7 +125,7 @@ test.describe('Full-flow · voice', () => {
   });
 
   // ─── 06 · Numbers tab: search field accepts vanity + area-code input ───────
-  test.fixme('06 · Numbers tab search accepts vanity text and area-code input', async ({ page }) => {
+  test('06 · Numbers tab search accepts vanity text and area-code input', async ({ page }) => {
     const logs = attachConsole(page);
     await seedSession(page);
     await gotoAdmin(page, '/admin/voice');
@@ -155,7 +155,7 @@ test.describe('Full-flow · voice', () => {
   });
 
   // ─── 07 · Numbers tab: search does NOT purchase a number ──────────────────
-  test.fixme('07 · Numbers tab search triggers a lookup but never purchases a number', async ({ page }) => {
+  test('07 · Numbers tab search triggers a lookup but never purchases a number', async ({ page }) => {
     const logs = attachConsole(page);
     await seedSession(page);
     await gotoAdmin(page, '/admin/voice');

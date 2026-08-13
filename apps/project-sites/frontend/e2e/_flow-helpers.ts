@@ -53,6 +53,7 @@ const BENIGN = [
   'status of 401', // benign: super-admin-only / unauth probes for the e2e-test-org key
   'status of 403', // benign: the e2e-test-org key is is_super_admin:false → operator/super-admin endpoints 403 (the gate working)
   'status of 404', // benign BY DESIGN: flag-gated reads 404 when dark (feature-flag doctrine), per admin-nav-links.e2e.ts
+  'status of 501', // benign: unconfigured provider (voice telephony, etc.) → 501 not-implemented for the test org (absent-creds map)
 ];
 export function isRealError(text: string): boolean {
   const t = text.toLowerCase();

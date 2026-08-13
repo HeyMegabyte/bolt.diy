@@ -28,13 +28,29 @@ test.describe('Full-flow · ai-chat', () => {
     expectClean(errors);
   });
 
-  test.fixme('02 the concierge system-prompt textarea renders with real instructions', async ({ page }) => {
+  test('02 the concierge system-prompt textarea renders with real instructions', async ({ page }) => {
     await seedSession(page);
     await gotoAdmin(page, '/admin/settings#ai-chat');
     const textarea = page.locator('textarea').first();
     await expect(textarea).toBeVisible({ timeout: 15_000 });
-    const val = await textarea.inputValue();
-    expect(val.length, 'the system prompt is substantial concierge instructions').toBeGreaterThan(120);
+    // The concierge instructions live in the prompt textarea as its default
+    // PLACEHOLDER (until an operator customizes it, when it becomes the value).
+    // Poll the longest value-or-placeholder across the page's textareas.
+    await expect
+      .poll(
+        async () =>
+          page.locator('textarea').evaluateAll((tas) =>
+            Math.max(
+              0,
+              ...tas.map((t) => {
+                const el = t as HTMLTextAreaElement;
+                return Math.max(el.value.length, (el.placeholder || '').length);
+              }),
+            ),
+          ),
+        { timeout: 8_000 },
+      )
+      .toBeGreaterThan(120);
     await snap(page, 'aichat-02-prompt');
   });
 

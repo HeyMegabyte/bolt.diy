@@ -310,7 +310,7 @@ test.describe('Full-flow · ai-endpoints', () => {
   });
 
   // ── TEST 09 ────────────────────────────────────────────────────────────────
-  test.fixme('09 · ai-endpoint-more-e2e-probe opens a context menu then dismisses', async ({ page }) => {
+  test('09 · ai-endpoint-more-e2e-probe opens a context menu then dismisses', async ({ page }) => {
     const errors = attachConsole(page);
     await seedSession(page);
     await gotoAdmin(page, ROUTE);
@@ -335,21 +335,11 @@ test.describe('Full-flow · ai-endpoints', () => {
     await moreBtn.first().click();
     await page.waitForTimeout(400);
 
-    // A context menu / dropdown must appear — look for common menu patterns
-    const menuVisible = await page
-      .locator('[role="menu"], [role="listbox"], [data-testid*="dropdown"], [data-testid*="context-menu"]')
-      .first()
-      .isVisible()
-      .catch(() => false);
-
-    // Also accept if an options popover or action list is visible
-    const anyPopoverVisible = await page
-      .locator('[data-testid*="more-menu"], [data-testid*="overflow-menu"], [aria-haspopup="menu"]')
-      .first()
-      .isVisible()
-      .catch(() => false);
-
-    expect(menuVisible || anyPopoverVisible, 'More button opens some kind of dropdown/menu').toBeTruthy();
+    // The overflow menu reveals code-snippet + management actions (real testids).
+    const menuItem = page.locator(
+      '[data-testid="ai-endpoint-curl-e2e-probe"], [data-testid="ai-endpoint-python-e2e-probe"], [data-testid="ai-endpoint-openapi-e2e-probe"], [data-testid="ai-endpoint-duplicate-e2e-probe"], [data-testid="ai-endpoint-delete-e2e-probe"]',
+    );
+    await expect(menuItem.first(), 'the more button opens the overflow action menu').toBeVisible({ timeout: 8_000 });
 
     await snap(page, '09-more-menu-open');
 
@@ -357,13 +347,9 @@ test.describe('Full-flow · ai-endpoints', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
-    // Verify menu closed (role=menu no longer visible)
-    const menuStillOpen = await page
-      .locator('[role="menu"]')
-      .first()
-      .isVisible()
-      .catch(() => false);
-    expect(menuStillOpen, 'Escape closes the context menu').toBeFalsy();
+    // Escape closes the menu — the action items are no longer visible.
+    const stillOpen = await menuItem.first().isVisible().catch(() => false);
+    expect(stillOpen, 'Escape closes the overflow menu').toBeFalsy();
 
     expectClean(errors);
   });
