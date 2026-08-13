@@ -66,7 +66,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 35 | **Per-site MCP server** (`/admin/sites/:id/mcp-server`) — token mint/revoke + tool playground for external agents | `flows-mcp-server.flow.e2e.ts` | 9 | 9 | ✅ green (fire-26 — RESURRECTED: applied MISSING site_mcp_tokens table — minting was lying-success) |
 | 36 | **Outbound webhooks CRUD** (`outbound_webhooks`) — create→secret→persist→delete lifecycle on Settings › Webhooks | `flows-webhooks-crud.flow.e2e.ts` | 8 | 8 | ✅ green (fire-27 — RESURRECTED: applied MISSING webhook_endpoints + webhook_deliveries — create was lying-success) |
 | 37 | **Site branch previews** (`/admin/sites/:id/branches`, #27) — create→draft→request-review→close lifecycle | `flows-branches.flow.e2e.ts` | 7 | 7 | ✅ green (fire-28 — RESURRECTED: applied MISSING site_branches + site_branch_approvals — create was lying-success; route NOT flag-gated) |
-| — | **TOTAL** | | **~416** | **509** | 🟢 **509 REAL green** + 12 fixme (41 flow files) — **500+ 🎉** |
+| 38 | **Storefront products** (`storefront_ecommerce`) — add→persist→delete product lifecycle in the feature dossier | `flows-storefront.flow.e2e.ts` | 6 | 6 | ✅ green (fire-29 — RESURRECTED: applied MISSING storefront_products; flag ON so API works for any org despite requiredPlan:business) |
+| — | **TOTAL** | | **~416** | **515** | 🟢 **515 REAL green** + 12 fixme (42 flow files) — **500+ 🎉** |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -664,3 +665,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     surfaced honestly for future-fire triage (need per-feature flag-state check before resurrecting; some may
     be intentionally-dark). `npm run audit:schema-applied`.
   - Running total: **509 REAL green / 521 written across 41 files (12 fixme)**. **500+ 🎉**
+- **Fire 29 (2026-08-13)** — DEPTH pass #17: **mapped the whole never-applied migration ERA + resurrected
+  storefront.** **Net +6 green → 515; new file #42.**
+  - Acted on fire-28's Rec: `grep -lE "INSERT (OR IGNORE )?INTO feature_flags \(key" migrations/*.sql` →
+    **16 migrations** all end with the legacy flag-schema INSERT that fails on prod's `flag_overrides` →
+    each likely never applied: 0509/0510/**0513**/**0514**/0517/0518/0519/0520/0521/0522/0523/0525/0563/0564/
+    **0565**/**0609** (bold = already resurrected in prior fires). That legacy INSERT is the single root cause
+    of the entire missing-table arc.
+  - **RESURRECTED storefront** (`storefront_products`, migration 0564) — flag `storefront_ecommerce` is
+    globally ON; the API gates on the FLAG (not the card's `requiredPlan:business`), so it works for the free
+    e2e-test-org. `flows-storefront.flow.e2e.ts` — 6 journeys × 2 browsers = **12 green**: open the storefront
+    **feature-dossier** (`sf-card-storefront_ecommerce` → `sf-spec`) → the embedded `<app-storefront-manager>`
+    renders → **add product ($24.99) → catalog row → ground-truth persisted → DELETE → gone** lifecycle +
+    add-gate + console + self-healing cleanup. AI-vision 9/10. (Key insight: `sf-spec` opens the spec-dossier
+    even for a plan-LOCKED feature, and the manager inside works because the API is flag-gated, not plan-gated.)
+  - **4 HIGH remain — surfaced honestly, NOT blind-applied** (validator-precision): `domain_stack_runs`,
+    `pseo_axes`, `pseo_pages`, `seo_meta_drafts` are backend-GENERATION features (pSEO / SEO-autopilot /
+    domain-stack) — routed but workflow-driven, needing per-feature flag triage + a generation-trigger
+    verification (not a UI CRUD journey); `pseo_pages` (v1) has no route file → likely superseded/dead.
+    Resurrecting them requires understanding each feature's full table-set + trigger — a focused effort, not a
+    blind table-apply. `npm run audit:schema-applied`.
+  - Running total: **515 REAL green / 527 written across 42 files (12 fixme)**. **500+ 🎉**
