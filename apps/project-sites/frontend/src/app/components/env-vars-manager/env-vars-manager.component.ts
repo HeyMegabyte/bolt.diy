@@ -107,12 +107,14 @@ const EMPTY_DRAFT: NewVarDraft = {
           }
         </div>
         <div class="ev-head-actions">
-          <button type="button" class="ev-btn-ghost" (click)="openImport()" aria-label="Import .env file">
-            Import .env
-          </button>
-          <button type="button" class="ev-btn-ghost" (click)="exportDotenv()" aria-label="Download .env">
-            Export .env
-          </button>
+          @if (showDotenv()) {
+            <button type="button" class="ev-btn-ghost" (click)="openImport()" aria-label="Import .env file">
+              Import .env
+            </button>
+            <button type="button" class="ev-btn-ghost" (click)="exportDotenv()" aria-label="Download .env">
+              Export .env
+            </button>
+          }
           <button
             type="button"
             class="ev-btn-primary"
@@ -418,6 +420,9 @@ export class EnvVarsManagerComponent implements OnInit {
   endpointId = input<string | undefined>(undefined);
   /** Required when scope='agent'. */
   agentId = input<string | undefined>(undefined);
+  /** Show the Import/Export .env bulk actions. Hidden in the MCP tab, where the
+   *  canonical place to bulk-manage vars is the project-wide AI Env Vars tab. */
+  showDotenv = input<boolean>(true);
 
   /** Active list of vars in this scope (refreshed via {@link load}). */
   vars = signal<EnvVarDto[]>([]);

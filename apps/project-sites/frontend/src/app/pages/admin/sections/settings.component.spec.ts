@@ -51,14 +51,6 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  it('renders three rolling-counter stat cells in the overview strip', () => {
-    build({ id: 's', slug: 'demo' });
-    const el = fixture.nativeElement as HTMLElement;
-    const cells = el.querySelectorAll('.stat-strip .stat-cell');
-    expect(cells.length).toBe(3);
-    expect(el.querySelectorAll('.stat-strip app-rolling-counter').length).toBe(3);
-  });
-
   // The MCP env-vars manager is a full-width component; inside a 1/3-width
   // provider card it squished ("all the other content was squished on one
   // side"). Opening it makes the card span the full grid row
@@ -72,6 +64,23 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(c.isMcpEnvVarsOpen('mailchimp')).toBeTrue();
     c.toggleMcpEnvVars('mailchimp'); // toggles closed again
     expect(c.isMcpEnvVarsOpen('mailchimp')).toBeFalse();
+  });
+
+  it('MCP tab conveys project AI vars: callout + link + a >8 expand toggle', () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    c.orgEnvVars.set(Array.from({ length: 10 }, (_, i) => ({ key: 'VAR_' + i, exposed_to_ai: i % 2 === 0 })));
+    c.setTab('mcp');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="mcp-aivars-link"]')).withContext('link to AI Env Vars').not.toBeNull();
+    // First 8 shown; the >8 toggle appears and expands to all 10.
+    expect(el.querySelectorAll('[data-testid="mcp-aivars-list"] li').length).withContext('first 8 shown').toBe(8);
+    const toggle = el.querySelector('[data-testid="mcp-aivars-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).withContext('>8 → expand toggle present').not.toBeNull();
+    toggle!.click();
+    fixture.detectChanges();
+    expect(el.querySelectorAll('[data-testid="mcp-aivars-list"] li').length).withContext('expands to all 10').toBe(10);
   });
 
   it('emailInvalid flags a malformed contact email (empty optional = valid); saveGeneral no-ops when invalid', () => {
@@ -99,23 +108,6 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
       '/sites/s/ai-settings', { contact_email: 'hi@acme.com', reply_email: 'hi@acme.com' });
   });
 
-  it('does not show a premature "0" count (or announce it) while connections/team load', () => {
-    build({ id: 's', slug: 'demo' });
-    // Initial loads in-flight: the two list-derived stats have no resolved data yet.
-    fixture.componentInstance.loadingConnections.set(true);
-    fixture.componentInstance.loadingTeam.set(true);
-    fixture.componentInstance.connections.set([]);
-    fixture.componentInstance.members.set([]);
-    fixture.detectChanges();
-    const el = fixture.nativeElement as HTMLElement;
-    // Only the STATIC "available integrations" stat shows a count; the two
-    // list-derived stats show a loading placeholder, not a definitive "0".
-    expect(el.querySelectorAll('.stat-strip app-rolling-counter').length).withContext('list-derived counts withheld while loading').toBe(1);
-    const labels = Array.from(el.querySelectorAll('.stat-strip .stat-val')).map((s) => s.getAttribute('aria-label') ?? '');
-    expect(labels.some((l) => l.includes('0 connected MCPs'))).withContext('no false "0 connected MCPs" SR announcement').toBeFalse();
-    expect(labels.some((l) => l.includes('0 team members'))).withContext('no false "0 team members" SR announcement').toBeFalse();
-  });
-
   // Team + invite emails are reply targets ([[always]] mailto mandate). The team
   // rows aren't clickable, so a plain mailto link is the clean fix (no propagation).
   it('renders team member + pending-invite emails as mailto: links', () => {
@@ -132,13 +124,6 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
       .map((a) => a.getAttribute('href'));
     expect(hrefs).withContext('member email is a mailto link').toContain('mailto:team@example.com');
     expect(hrefs).withContext('pending-invite email is a mailto link').toContain('mailto:invite@example.com');
-  });
-
-  it('marks the overview strip as a labelled group for AT users', () => {
-    build({ id: 's', slug: 'demo' });
-    const strip = (fixture.nativeElement as HTMLElement).querySelector('.stat-strip');
-    expect(strip?.getAttribute('role')).toBe('group');
-    expect(strip?.getAttribute('aria-label')).toBe('Settings overview');
   });
 
   it('exposes the tabs as a tablist with one selected tab', () => {

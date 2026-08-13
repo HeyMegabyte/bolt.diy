@@ -1,4 +1,4 @@
-import { Component, DestroyRef, HostListener, inject, signal, type OnInit } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, inject, signal, type OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { isValidEmail as isSharedValidEmail } from '../../../utils/validators/email';
 import { DatePipe, SlicePipe } from '@angular/common';
@@ -79,37 +79,6 @@ const PROVIDERS = MCP_PROVIDERS;
         </div>
         <!-- Filter-tabs search bar removed — Cmd-K palette is the search entry point now. -->
       </header>
-
-      <!-- Cyan/black stat strip — animated counts give the section a cockpit
-           pulse + an at-a-glance read of project integration state. Counters
-           roll on first paint per the cinematic-ui mandate; aria-labels carry
-           the meaning for AT users. -->
-      <div class="stat-strip" appReveal role="group" aria-label="Settings overview">
-        <div class="stat-cell">
-          <span class="stat-val" [attr.aria-label]="loadingConnections() && connections().length === 0 ? 'Loading connected MCPs…' : connections().length + ' connected MCPs'">
-            @if (loadingConnections() && connections().length === 0) {
-              <span aria-hidden="true" class="stat-loading">…</span>
-            } @else {
-              <app-rolling-counter [value]="connections().length" />
-            }
-          </span>
-          <span class="stat-lbl">Connected MCPs</span>
-        </div>
-        <div class="stat-cell">
-          <span class="stat-val" [attr.aria-label]="providers.length + ' available integrations'"><app-rolling-counter [value]="providers.length" /></span>
-          <span class="stat-lbl">Available integrations</span>
-        </div>
-        <div class="stat-cell">
-          <span class="stat-val" [attr.aria-label]="loadingTeam() && members().length === 0 ? 'Loading team members…' : members().length + ' team members'">
-            @if (loadingTeam() && members().length === 0) {
-              <span aria-hidden="true" class="stat-loading">…</span>
-            } @else {
-              <app-rolling-counter [value]="members().length" />
-            }
-          </span>
-          <span class="stat-lbl">Team members</span>
-        </div>
-      </div>
 
       <nav class="flex gap-2 flex-wrap text-[0.78rem]" role="tablist" hlmTablist aria-label="Settings sections">
         @for (t of tabs; track t.id) {
@@ -425,6 +394,36 @@ const PROVIDERS = MCP_PROVIDERS;
             Connect the tools your AI form router + custom endpoints can call. Tokens are encrypted at rest (AES-GCM).
             OAuth follows the MCP authorization spec (OAuth 2.1 + PKCE where supported); paste-key for the rest.
           </p>
+
+          <!-- MCPs ALSO receive the project-wide AI variables — convey that + show them. -->
+          <div class="mcp-aivars" role="note">
+            <div class="mcp-aivars-head">
+              <span class="mcp-aivars-title"><span aria-hidden="true">🔑</span> MCPs also use your project AI variables</span>
+              <a routerLink="." [fragment]="'env-vars'" class="mcp-aivars-link" data-testid="mcp-aivars-link">Manage in AI Env Vars →</a>
+            </div>
+            <p class="mcp-aivars-sub">
+              Every variable marked <strong class="text-light">exposed to AI</strong> is injected into these MCPs' tool calls — no need to re-enter them per integration.
+            </p>
+            @if (orgEnvVars().length > 0) {
+              <ul class="mcp-aivars-list" aria-label="Project AI variables available to MCPs" data-testid="mcp-aivars-list">
+                @for (v of shownOrgEnvVars(); track v.key) {
+                  <li class="mcp-aivars-item">
+                    <code class="mcp-aivars-key">{{ v.key }}</code>
+                    <span class="mcp-aivars-badge" [class.on]="v.exposed_to_ai" [title]="v.exposed_to_ai ? 'Exposed to AI + MCP tool calls' : 'Stored but not exposed to AI'">{{ v.exposed_to_ai ? 'exposed' : 'hidden' }}</span>
+                  </li>
+                }
+              </ul>
+              @if (orgEnvVars().length > 8) {
+                <button type="button" class="mcp-aivars-toggle" (click)="showAllOrgEnvVars.set(!showAllOrgEnvVars())"
+                        [attr.aria-expanded]="showAllOrgEnvVars()" data-testid="mcp-aivars-toggle">
+                  {{ showAllOrgEnvVars() ? 'Show fewer' : 'Show all ' + orgEnvVars().length + ' variables' }}
+                </button>
+              }
+            } @else {
+              <p class="mcp-aivars-empty">No project AI variables yet — add them in <a routerLink="." [fragment]="'env-vars'" class="text-primary underline">AI Env Vars</a>.</p>
+            }
+          </div>
+
           <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             @for (p of providers; track p.id) {
               <!-- Span the full grid row when the env-vars manager is open — it's a
@@ -462,7 +461,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   </div>
                   @if (isMcpEnvVarsOpen(p.id)) {
                     <div class="mt-3">
-                      <app-env-vars-manager [scope]="'mcp'" [mcpProvider]="p.id" />
+                      <app-env-vars-manager [scope]="'mcp'" [mcpProvider]="p.id" [showDotenv]="false" />
                     </div>
                   }
                 } @else if (pasteMode() === p.id) {
@@ -612,23 +611,20 @@ const PROVIDERS = MCP_PROVIDERS;
   `,
   styles: [`
     :host { display: block; --accent: var(--ps-accent, #00E5FF); }
-    /* Cyan/black overview stat strip — cockpit pulse above the tabs. */
-    .stat-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
-    @media (max-width: 640px) { .stat-strip { grid-template-columns: 1fr; } }
-    .stat-cell {
-      display: flex; flex-direction: column; gap: 0.15rem;
-      padding: 0.85rem 1.1rem;
-      border-radius: var(--ps-radius-md, 12px);
-      background: linear-gradient(135deg, color-mix(in oklch, var(--accent) 8%, transparent), transparent);
-      border: 1px solid color-mix(in oklch, var(--accent) 18%, transparent);
-      box-shadow: var(--ps-shadow-card, inset 0 0 0 1px rgba(255,255,255,0.02));
-      transition: border-color 200ms ease, transform 200ms ease;
-    }
-    .stat-cell:hover { border-color: color-mix(in oklch, var(--accent) 34%, transparent); transform: translateY(-1px); }
-    .stat-val { font-family: 'Sora', system-ui, sans-serif; font-weight: 700; font-size: 1.5rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
-    .stat-loading { opacity: 0.5; letter-spacing: 0.1em; }
-    .stat-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
-    @media (prefers-reduced-motion: reduce) { .stat-cell { transition: none; } .stat-cell:hover { transform: none; } }
+    /* MCP tab — project-wide AI vars callout (MCPs receive these at tool-call time). */
+    .mcp-aivars { margin-bottom: 1rem; padding: 0.9rem 1.05rem; border-radius: var(--ps-radius-md, 12px); background: linear-gradient(135deg, color-mix(in oklch, var(--accent) 7%, transparent), transparent); border: 1px solid color-mix(in oklch, var(--accent) 20%, transparent); }
+    .mcp-aivars-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+    .mcp-aivars-title { font-size: 0.82rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); }
+    .mcp-aivars-link { font-size: 0.72rem; color: var(--accent); text-decoration: underline; white-space: nowrap; }
+    .mcp-aivars-sub { font-size: 0.68rem; color: rgba(255,255,255,0.6); margin: 0.35rem 0 0; line-height: 1.5; }
+    .mcp-aivars-list { list-style: none; margin: 0.7rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .mcp-aivars-item { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); }
+    .mcp-aivars-key { font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 0.68rem; color: rgba(255,255,255,0.85); }
+    .mcp-aivars-badge { font-size: 0.56rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; padding: 0.05rem 0.35rem; border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); }
+    .mcp-aivars-badge.on { background: color-mix(in oklch, var(--accent) 22%, transparent); color: var(--accent); }
+    .mcp-aivars-toggle { margin-top: 0.6rem; font-size: 0.7rem; color: var(--accent); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
+    .mcp-aivars-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+    .mcp-aivars-empty { font-size: 0.68rem; color: rgba(255,255,255,0.6); margin: 0.5rem 0 0; }
     h2, h3 { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid color-mix(in oklch, var(--accent) 14%, transparent); border-radius: 14px; padding: 1.4rem; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02); transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; }
     .card:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 28%, transparent); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px rgba(0,229,255,0.18); }
@@ -1069,6 +1065,12 @@ export class AdminSettingsComponent implements OnInit {
 
   providers = PROVIDERS;
   connections = signal<Conn[]>([]);
+  /** Project-wide (org-scope) AI env vars, surfaced READ-ONLY in the MCP tab so
+   *  the owner sees what flows into MCP tool calls. Values are never fetched. */
+  orgEnvVars = signal<{ key: string; exposed_to_ai: boolean }[]>([]);
+  showAllOrgEnvVars = signal(false);
+  /** First 8 unless expanded (the >8 toggle). */
+  shownOrgEnvVars = computed(() => this.showAllOrgEnvVars() ? this.orgEnvVars() : this.orgEnvVars().slice(0, 8));
   /** Connection ids with an in-flight disconnect — guards the toast-armed action
    *  against a double-DELETE + drives the row's "Disconnecting…" state. */
   private readonly disconnectingIds = signal<ReadonlySet<string>>(new Set());
@@ -1098,6 +1100,7 @@ export class AdminSettingsComponent implements OnInit {
     this.loadGeneral();
     this.loadTeam();
     this.loadConnections();
+    this.loadOrgEnvVars();
     this.handleMcpReturn();
   }
 
@@ -1275,6 +1278,14 @@ export class AdminSettingsComponent implements OnInit {
   }
 
   // ── MCP ──
+  /** Read-only fetch of the project's org-scope AI vars for the MCP-tab callout. */
+  loadOrgEnvVars(): void {
+    this.api.get<{ vars: { key: string; exposed_to_ai: boolean }[] }>('/env-vars', { scope: 'org' }).subscribe({
+      next: (r) => this.orgEnvVars.set((r.vars ?? []).map((v) => ({ key: v.key, exposed_to_ai: !!v.exposed_to_ai }))),
+      error: () => { /* api.service already toasted; leave empty → calm empty state */ },
+    });
+  }
+
   loadConnections(): void {
     const s = this.state.selectedSite(); if (!s) return;
     this.loadingConnections.set(true);

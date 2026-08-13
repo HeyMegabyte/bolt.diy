@@ -70,8 +70,25 @@ function readersFor(key) {
     .filter((f) => !/registry\.ts$|\/__tests__\/|\.spec\.ts$|feature_flags\/services\.ts$/.test(f));
 }
 
+// ── Manifest wiring: a libs/features/*/feature.manifest.ts declaring this flagKey
+// means a WIRED built-ahead module OWNS the flag — it is NOT dead even with 0
+// isFlagOn readers. Guards the 442e1d82 over-prune (stripping flags off wired
+// modules made validate-feature-manifests fail on 33 modules). ──
+function hasManifestRef(key) {
+  try {
+    const out = execSync(
+      `/usr/bin/grep -rlE "flagKey:\\s*['\\"]${key}['\\"]" libs/features 2>/dev/null || true`,
+      { cwd: APP, encoding: 'utf8' },
+    );
+    return out.split('\n').filter(Boolean).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 const rows = flags.map((f) => {
   const readers = readersFor(f.key);
+  const wiredViaManifest = hasManifestRef(f.key);
   const isSentinel = f.key.startsWith('core_');
   const onlyGrabbag = readers.length > 0 && readers.every((r) => /routes\/features\.ts$/.test(r));
   const hasUi = readers.some((r) => /frontend\//.test(r));
@@ -80,8 +97,16 @@ const rows = flags.map((f) => {
   let verdict, reason;
   if (isSentinel) {
     verdict = 'KEEP'; reason = 'core_* sentinel (always-on, protected)';
+  } else if (readers.length === 0 && !wiredViaManifest && !f.enabled) {
+    verdict = 'REMOVE'; reason = 'DEAD — no reader, no feature manifest, default-off';
   } else if (readers.length === 0) {
-    verdict = 'REMOVE'; reason = 'DEAD — no code reads this flag';
+    // NOT dead: a wired libs/features manifest owns it, OR it's a live (default-on)
+    // flag — but nothing calls isFlagOn, so it's incompletely gated. NEVER
+    // auto-remove (removing the flag alone is the 442e1d82 bug).
+    verdict = 'IMPROVE';
+    reason = wiredViaManifest
+      ? 'wired via libs/features manifest, no isFlagOn reader — gate the route or remove the whole module (never just the flag)'
+      : 'default-on (live) but no isFlagOn reader — gate it or make it a core_* sentinel';
   } else if (onlyGrabbag && !f.enabled) {
     verdict = 'IMPROVE'; reason = 'grab-bag only (features.ts, default-off) — validate boundary or retire';
   } else if (f.descLen < DESC_FLOOR) {
