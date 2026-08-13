@@ -45,13 +45,13 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 16 | ✅ green (fire-13 — fixed a REAL 375px mobile overflow) |
 | 17 | API Docs ✅ + Snapshots ✅ + Logs ✅ (audit/explorer/traces tabs) | `flows-docs`+`flows-snapshots`+`flows-logs` | 44 | 44 | ✅ green (fire-10) |
 | 17b | Super-admin gate (restricted view for non-super-admin) + Editor host | `flows-super-admin` + `flows-editor` | 12 | 11 | 🟡 1 fixme (editor iframe noise) |
-| 17c | Auth security (active sessions + 2FA) | `flows-auth-security.flow.e2e.ts` | 12 | 11 | 🟡 1 fixme (2FA enroll surface) |
+| 17c | Auth security (active sessions + 2FA) | `flows-auth-security.flow.e2e.ts` | 12 | 12 | ✅ green (fire-13 — 2FA enroll dialog properly tested) |
 | 18 | Dashboard hub (getting-started: search/section-cards/pin/groups) | `flows-dashboard.flow.e2e.ts` | 14 | 14 | ✅ green (prod) |
 | 19 | `libs/features/*` dark modules — surfaced at `/admin/site-features` (sf-card/toggle/locked) | `flows-site-features.flow.e2e.ts` | 24 | 16 | ✅ green — proves the module hub |
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Admin 404 recovery (suggest/renamed/soft-404/quick-jump/cockpit-retained) | `flows-states.flow.e2e.ts` | 17 | 17 | ✅ green (fire-12) — target 26→17 (error-boundary crash cards are unit-owned, not prod-forceable) |
 | 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
-| — | **TOTAL** | | **~416** | **385** | 🟡 385 REAL green + 13 fixme (26 flow files) — every surface row green |
+| — | **TOTAL** | | **~416** | **386** | 🟡 386 REAL green + 12 fixme (26 flow files) — every surface row green |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -336,3 +336,15 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Lesson:** a "POSSIBLY real" fixme flagged during a coverage pass is worth un-fixme'ing + measuring with an
     offender-finder BEFORE deciding artifact-vs-bug — this one was a genuine defect shipping to every mobile user.
   - Running total: **385 REAL green / 398 written across 26 files (13 fixme)**.
+  - **+ auth-security-05 (2FA enroll) resolved same fire → 386 green, fixme 12.** The 2FA feature is FULLY
+    BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
+    `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The
+    fixme was a MIS-MODELED test (it hunted for an immediate QR/`role=dialog`), not a feature gap. Rewrote
+    it against the real testids: open → assert the password-confirm step is shown + NO secret minted before
+    confirm → Cancel (never types a password, never enrolls). 12/12 green.
+  - **Fire-13 lesson (2 fixme cleared):** both ai-endpoints-15 AND auth-security-05 were fixme'd during
+    coverage passes but were NOT gaps — one was a real CSS bug (fixed), one was a mis-modeled test of a
+    built feature (rewritten). Un-fixme + investigate BEFORE assuming "hard/blocked"; most diagnosed fixme
+    are either a quick real fix or a selector correction. A 375px `_probe-375` sweep of all 13 core admin
+    sections confirmed the overflow was ISOLATED to ai-endpoints (all others OK) — no systemic mobile bug.
+  - Running total: **386 REAL green / 398 written across 26 files (12 fixme)**.

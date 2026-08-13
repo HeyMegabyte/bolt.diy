@@ -179,7 +179,7 @@ test.describe('Full-flow · auth-security', () => {
 
   // ── 05 · "Enable two-factor" OPENS enrollment surface; Escape dismisses ──
 
-  test.fixme('05 · "Enable two-factor" button opens enrollment surface (QR/secret); Escape dismisses without enrolling', async ({
+  test('05 · "Enable two-factor" opens the enrollment dialog (password-confirm step); Cancel dismisses without enrolling', async ({
     page,
   }) => {
     const errors = attachConsole(page);
@@ -187,47 +187,24 @@ test.describe('Full-flow · auth-security', () => {
     await waitForPage(page);
 
     const enrollBtn = page.locator('[data-testid="as-2fa-enroll"]');
-    const enrollBtnFallback = page.getByRole('button', { name: /enable two.?factor/i }).first();
+    await expect(enrollBtn, 'the Enable two-factor entry point is present').toBeVisible({ timeout: 15_000 });
+    await enrollBtn.click();
 
-    const btn = (await enrollBtn.count()) ? enrollBtn : enrollBtnFallback;
-    if (!(await btn.count())) {
-      test.skip(true, 'Enable two-factor button not present — surface may not be active');
-      return;
-    }
-    await expect(btn).toBeVisible({ timeout: 10_000 });
+    // The real enrollment surface is `app-dialog-shell` (data-testid="as-2fa-dialog"),
+    // which opens on the PASSWORD-CONFIRM step (not an immediate QR) — the feature
+    // requires re-authentication before it mints a TOTP secret.
+    const dialog = page.locator('[data-testid="as-2fa-dialog"]');
+    await expect(dialog, 'the 2FA enrollment dialog opens').toBeVisible({ timeout: 10_000 });
+    // Step 1 is the password gate: the password field + Continue button are present,
+    // the TOTP URI is NOT shown yet (nothing is enrolled).
+    await expect(page.locator('[data-testid="as-2fa-password"]'), 'password-confirm step is shown').toBeVisible();
+    await expect(page.locator('[data-testid="as-2fa-continue"]'), 'Continue is offered').toBeVisible();
+    await expect(page.locator('[data-testid="as-2fa-totp-uri"]'), 'no secret is minted before confirm').toHaveCount(0);
+    await snap(page, '05-2fa-enroll-open');
 
-    // Click opens an enrollment surface (dialog / sheet / page segment with QR or secret).
-    await btn.click();
-
-    // Assert the enrollment surface opened — QR code, TOTP secret, or a dialog.
-    const enrollSurface = page
-      .locator('[role="dialog"]')
-      .or(page.locator('[aria-modal="true"]'))
-      .or(page.locator('[data-testid*="2fa-enroll"], [data-testid*="totp"], [data-testid*="qr"]'))
-      .or(page.getByText(/scan the qr|authenticator app|secret key|setup code/i).first())
-      .first();
-
-    const opened = await enrollSurface.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false);
-
-    // If the surface opened, assert and dismiss — NEVER complete enrollment.
-    if (opened) {
-      await expect(enrollSurface, 'enrollment surface is open').toBeVisible();
-      await snap(page, '05-2fa-enroll-open');
-
-      // Dismiss via Escape key — never confirm or submit the form.
-      await page.keyboard.press('Escape');
-
-      // Confirm the enrollment surface is gone.
-      const stillOpen = await enrollSurface.isVisible().catch(() => false);
-      expect(stillOpen, 'Escape dismissed the enrollment surface').toBeFalsy();
-    } else {
-      // Surface may open as a new route segment or accordion — assert the page changed.
-      const bodyText = await page.textContent('body');
-      const hasEnrollContent = /authenticator|secret|qr|totp|scan/i.test(bodyText ?? '');
-      expect(hasEnrollContent, 'enrollment content appeared after clicking Enable two-factor').toBeTruthy();
-      await snap(page, '05-2fa-enroll-inline');
-      await page.keyboard.press('Escape');
-    }
+    // Dismiss via Cancel — NEVER type a password, NEVER click Continue → never enrolls.
+    await page.locator('[data-testid="as-2fa-cancel"]').click();
+    await expect(dialog, 'Cancel dismisses the enrollment dialog').toBeHidden({ timeout: 6_000 });
 
     // The auth-security page must still be present after dismiss.
     await expect(page).toHaveURL(/\/admin\/auth-security/);
