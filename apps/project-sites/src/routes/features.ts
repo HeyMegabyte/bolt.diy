@@ -395,31 +395,6 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
     category: 'Sell',
   },
   {
-    key: 'email_marketing',
-    name: 'Newsletter',
-    description: 'Collect subscribers and send branded email campaigns from your own domain.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Grow',
-  },
-  {
-    key: 'gbp_assist',
-    name: 'Google Business Profile',
-    description:
-      'One-click setup + AI-optimized content for your Google Business Profile so you show up in local search and Maps.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Grow',
-  },
-  {
-    key: 'search_engine_submit',
-    name: 'Instant Indexing',
-    description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.',
-    requiredPlan: 'free',
-    isAddon: false,
-    category: 'Grow',
-  },
-  {
     key: 'pseo_matrix_v2',
     name: 'Local SEO Pages',
     description:

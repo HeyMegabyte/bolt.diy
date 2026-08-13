@@ -60,9 +60,6 @@ interface SiteFeature {
  */
 const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' | 'enabled' | 'preview'>> = [
   { key: 'donations_engine', name: 'Donations', description: 'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
-  { key: 'email_marketing', name: 'Newsletter', description: 'Collect subscribers and send branded email campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'gbp_assist', name: 'Google Business Profile', description: 'One-click setup + AI-optimized content for your Google Business Profile so you show up in local search and Maps.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'search_engine_submit', name: 'Instant Indexing', description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.', requiredPlan: 'free', isAddon: false, category: 'Grow' },
   { key: 'pseo_matrix_v2', name: 'Local SEO Pages', description: 'Auto-generate location and service landing pages from real data to rank for "near me" searches.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
   { key: 'unified_inbox', name: 'Visitor Inbox', description: 'Every form, chat, and message from your site in one inbox, with AI-drafted replies.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
   { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
@@ -82,24 +79,6 @@ const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
     'Stripe-secured cards + Apple Pay / Google Pay',
     'One-time and recurring gifts',
     'Automatic emailed receipts',
-  ],
-  email_marketing: [
-    'Branded signup form embedded on your site',
-    'Campaign composer — send from your own domain',
-    'Subscriber list with consent tracking',
-    'Open + click reporting',
-  ],
-  gbp_assist: [
-    'Guided Google Business Profile setup',
-    'AI-optimized description + posts',
-    'Local-search + Maps visibility',
-    'Drafted replies to customer reviews',
-  ],
-  search_engine_submit: [
-    'Auto-ping Google + Bing the moment you publish',
-    'New and updated URLs submitted automatically',
-    'Index-status tracking per page',
-    'No manual Search Console steps',
   ],
   pseo_matrix_v2: [
     'Auto-built location landing pages',

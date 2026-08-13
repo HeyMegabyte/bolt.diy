@@ -151,10 +151,7 @@ import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; 
 import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
-import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; // real campaign send to consented audience (flag: email_marketing)
 // IDEAS-50 wave 3 — GEO + reputation + growth
-import { searchSubmit } from '../libs/features/search_submit/handlers.js'; // #3 IndexNow + Bing/Google submit on publish (flag: search_engine_submit)
-import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Google Business Profile setup + optimizer (flag: gbp_assist)
 import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // abuse + takedown intake (flag: abuse_takedown)
 import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js'; // OAuth 2.1 AS for MCP one-click connect (flag: mcp_oauth_provider)
@@ -1131,14 +1128,11 @@ app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.
 app.route('/', visitorEvents); // POST /api/v1/events — public beacon ingest (flag: visitor_events_core)
-app.route('/', emailMarketing); // /api/marketing/campaigns/:id/{recipients,send} + /api/marketing/unsubscribe — real campaign send (flag: email_marketing)
 app.route('/', emailDeliverabilityRoutes); // /api/sites/:siteId/deliverability — SPF/DKIM/DMARC score + fixes (flag: email_deliverability_wizard)
 app.route('/', reviewPublic); // GET/POST /api/review/:id{,/decision} — public reviewer approve/reject (flag: approval_workflow, scoped to review's org)
 app.route('/', reviewLinks); // GET/POST /api/sites/:siteId/review-links — admin create/list review links (flag: approval_workflow, assertSiteOwned)
 app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webhook subscription CRUD (flag: outbound_webhooks)
 // ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
-app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)
-app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
 app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`

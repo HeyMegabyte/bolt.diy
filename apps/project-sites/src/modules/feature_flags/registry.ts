@@ -91,15 +91,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  email_marketing: {
-    key: 'email_marketing',
-    description:
-      'Real newsletter-campaign send to consented contacts + confirmed subscribers via Resend (replaces the stub recipient count)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   // Multi-tenant + agency (items 9-13)
   // CWV (items 14-19, 15 already shipped)
   // GEO (items 20-24, 20-22 already stable)
@@ -141,24 +132,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── IDE + multi-agent + progressive build (3 new flags)
   // ── Content Freshness + pSEO (items #16 + #17) — flag registry restoration after content-pseo agent shipped the impl without registering the flag (caught by validate-feature-manifests 2026-05-28)
   // ── IDEAS-50 wave 3: GEO + reputation + growth (3 + 9 + 10/11/13 + 18 + 32 + 34)
-  search_engine_submit: {
-    key: 'search_engine_submit',
-    description:
-      'Auto-submit published sites to IndexNow (Bing+Yandex) + Bing/Google sitemap pings on publish',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  gbp_assist: {
-    key: 'gbp_assist',
-    description:
-      'One-click Google Business Profile setup + optimizer: detect, claim/create deep-link, AI SEO content pack + guided checklist',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   // ── #29 pSEO v2 (post-March-2026), #30 Integration Directory, #31 Comparison Pages, #32 Vertical Templates, #35 Public Changelog
   pseo_matrix_v2: {
     key: 'pseo_matrix_v2',

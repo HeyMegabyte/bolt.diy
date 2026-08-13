@@ -28,7 +28,6 @@ import { postAskUser } from '../services/task_inbox.js';
 import { appendBuildEvent, type BuildEvent } from '../services/build_events.js';
 import { checkBudget, recordSpend } from '../services/build_budget.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import { submitSite } from '../../libs/features/search_submit/service.js';
 import { indexSiteFiles } from '../services/rag_publish.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 
@@ -1185,21 +1184,6 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           type: 'preview.updated',
           url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
         });
-
-        // Best-effort: auto-submit the freshly-published site to search + AI
-        // engines (IndexNow → Bing+Yandex, Bing+Google sitemap pings). Idea #3.
-        // Flag-gated so it's a no-op when search_engine_submit is off; awaited
-        // but error-swallowed so a submission failure NEVER fails the publish.
-        try {
-          const submitOn = await isFlagOn(env, 'search_engine_submit', {
-            orgId: params.orgId,
-          }).catch(() => false);
-          if (submitOn) {
-            await submitSite(env, params.siteId).catch(() => []);
-          }
-        } catch {
-          // search-engine submission must never break the publish path
-        }
 
         // Best-effort: accumulate the build's AI spend into the token-burn meter.
         // The container build's exact token usage isn't surfaced here yet, so we

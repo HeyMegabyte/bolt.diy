@@ -82,21 +82,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'UI: editor header chip shows live "$X / $Y this month" with projection — click expands per-model breakdown modal',
     ],
   },
-  email_marketing: {
-    checklist: [
-      'Branded subscriber signup form on the site',
-      'Campaign composer — send from the owner domain via Resend',
-      'CAN-SPAM one-click unsubscribe baked in',
-      'Sends only to consented contacts + confirmed subscribers',
-    ],
-    explanation:
-      "Real newsletter-campaign send pipeline (replaces the earlier stub recipient count). Collects consented subscribers, composes branded campaigns, and sends via Resend batch from the owner's verified domain. Every send carries RFC 8058 one-click unsubscribe + List-Unsubscribe headers per the email-deliverability gate. Off → /api/campaigns 404s.",
-    smoke_test: [
-      'POST /api/campaigns {subject, html} → queued; recipients = consented contacts',
-      'Check a delivered message has List-Unsubscribe + one-click POST headers',
-      'Unsubscribe link → contact suppressed from future sends',
-    ],
-  },
   pwa_manifest_full: {
     checklist: [
       'Full PWA manifest per site',
@@ -142,34 +127,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'POST /api/router/pick with body {prompt:"Add a pricing section"} → returns {classification, picked_model, estimated_cost_usd, alternatives}',
       'Compare a simple prompt vs complex refactor request — should route to free Llama vs Opus respectively',
       'GET /api/router/stats?org_id=demo-org → savings vs always-Opus baseline',
-    ],
-  },
-  search_engine_submit: {
-    checklist: [
-      'Auto-submit new + updated URLs to IndexNow (Bing + Yandex)',
-      'Bing + Google sitemap pings on publish',
-      'No manual Search Console steps',
-      'Per-page index-status tracking',
-    ],
-    explanation:
-      'Auto-submit published sites to IndexNow (Bing+Yandex) + Bing/Google sitemap pings on publish. New and updated URLs are submitted the moment the owner publishes — no manual Search Console round-trip. Off → the publish hook skips submission.',
-    smoke_test: [
-      'Publish a site → POST to IndexNow fires for changed URLs',
-      'GET /api/sites/:id/indexing → per-URL submission status',
-    ],
-  },
-  gbp_assist: {
-    checklist: [
-      'Guided Google Business Profile claim / create deep-link',
-      'AI-optimized description + posts',
-      'Drafted replies to customer reviews (merged: reputation engine)',
-      'Pulls Google / Yelp reviews into testimonial sections (merged)',
-    ],
-    explanation:
-      'One-click Google Business Profile setup + optimizer: detect, claim/create deep-link, AI SEO content pack + guided checklist. Merged scope: the reputation / review-synthesis engine — pull Google + Yelp reviews, AI-synthesize them into testimonial sections, and draft owner responses with a sentiment view.',
-    smoke_test: [
-      'GET /api/sites/:id/gbp → detection + claim/create deep-link + checklist',
-      'POST /api/sites/:id/gbp/reviews/sync → pulls reviews; AI drafts replies',
     ],
   },
   pseo_matrix_v2: {
