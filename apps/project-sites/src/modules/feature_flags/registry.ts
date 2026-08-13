@@ -246,7 +246,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
   },
 
-
   // Visitor-facing AI + platform AI UX
   ai_concierge_widget: {
     key: 'ai_concierge_widget',
