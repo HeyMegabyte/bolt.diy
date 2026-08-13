@@ -64,7 +64,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 33 | **Credit wallet** (`credit_wallet_rollover`) — AI-credit balance + ledger on Billing | `flows-credits.flow.e2e.ts` | 8 | 8 | ✅ green (fire-24 — RESURRECTED: created credit_wallet_ledger + seeded + widget) |
 | 34 | **Edge personalization** (`edge_personalization`) — visitor variant rules + live resolver on Snapshots | `flows-personalization.flow.e2e.ts` | 8 | 8 | ✅ green (fire-25 — RESURRECTED: created site_personalization_variants + GET /variants endpoint + seeded + panel) |
 | 35 | **Per-site MCP server** (`/admin/sites/:id/mcp-server`) — token mint/revoke + tool playground for external agents | `flows-mcp-server.flow.e2e.ts` | 9 | 9 | ✅ green (fire-26 — RESURRECTED: applied MISSING site_mcp_tokens table — minting was lying-success) |
-| — | **TOTAL** | | **~416** | **494** | 🟢 494 REAL green + 12 fixme (39 flow files) |
+| 36 | **Outbound webhooks CRUD** (`outbound_webhooks`) — create→secret→persist→delete lifecycle on Settings › Webhooks | `flows-webhooks-crud.flow.e2e.ts` | 8 | 8 | ✅ green (fire-27 — RESURRECTED: applied MISSING webhook_endpoints + webhook_deliveries — create was lying-success) |
+| — | **TOTAL** | | **~416** | **502** | 🟢 **502 REAL green** + 12 fixme (40 flow files) — **CROSSED 500** |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -623,3 +624,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     `/admin/seo` REDIRECTS to `/admin/site-features` and `/admin/mcp` REDIRECTS to `/admin/settings#mcp`, so
     both are route-N/A (already covered), not uncovered work. Marked accordingly.
   - Running total: **494 REAL green / 506 written across 39 files (12 fixme)**. **6 from 500.**
+- **Fire 27 (2026-08-13)** — DEPTH pass #15: **built the missing-table DETECTOR, it found MORE broken features,
+  fixed the whole class + CROSSED 500.** **Net +8 green → 502; new file #40.**
+  - Acted on fire-26's Rec: wrote `scripts/audit-schema-migrations-applied.mjs` (npm `audit:schema-applied`) —
+    diffs every `CREATE TABLE` in `migrations/*.sql` (minus `DROP TABLE` + `*_new`/`*_v2` intermediates) against
+    prod `sqlite_master`, flags **HIGH** any missing table a LIVE `src/` route INSERTs into. First run: **70
+    declared-but-missing, 7 with live write paths.**
+  - **Validator-precision refinement (fixed in-turn):** 4 of the 7 (`activity_events`/`trace_events`/`app_logs`/
+    `app_meta`) write to **Durable-Object SQLite** (`this.sql`/`ctx.storage.sql`, self-schema'd at boot), NOT
+    D1 — false positives. Excluded `durable_objects/` from the detector. Left 3 genuine D1 misses.
+  - **RESURRECTED the user-facing one — outbound webhooks:** `webhook_endpoints` + `webhook_deliveries`
+    (migrations 0534/0535 authored but never applied — prod migrations are ad-hoc). Flag `outbound_webhooks`
+    was globally ON, so `POST /api/sites/:id/webhooks` was **lying-success** — external agents' webhook
+    endpoints never persisted. Applied both tables. `flows-webhooks-crud.flow.e2e.ts` — 8 journeys × 2 browsers
+    = **16 green**: a full **create → reveal-once signing-secret (`whsec_…`) → list row → ground-truth persisted
+    → REMOVE (confirm dialog) → gone** lifecycle, plus URL-validation + event-toggle + console + reload +
+    self-healing cleanup. AI-vision 9/10. (The existing flows-webhooks 14/14 tested the FORM but never
+    persistence → fake-green on a broken feature; this proves it actually works now.)
+  - **Also resurrected the backend one:** `email_events` + `email_suppressions` (migration 0575) — SES
+    bounce/complaint suppression via `env.DB` was silently dropping rows. Applied; no UI journey (SES-webhook
+    driven), so correctness-fix only. **Detector now reports 0 HIGH — every live feature has its table.**
+  - Running total: **502 REAL green / 514 written across 40 files (12 fixme)**. 🎉 **CROSSED 500.**
