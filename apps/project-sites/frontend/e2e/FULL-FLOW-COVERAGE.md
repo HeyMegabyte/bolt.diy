@@ -49,9 +49,9 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 18 | Dashboard hub (getting-started: search/section-cards/pin/groups) | `flows-dashboard.flow.e2e.ts` | 14 | 14 | ✅ green (prod) |
 | 19 | `libs/features/*` dark modules — surfaced at `/admin/site-features` (sf-card/toggle/locked) | `flows-site-features.flow.e2e.ts` | 24 | 16 | ✅ green — proves the module hub |
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
-| 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
+| 21 | Admin 404 recovery (suggest/renamed/soft-404/quick-jump/cockpit-retained) | `flows-states.flow.e2e.ts` | 17 | 17 | ✅ green (fire-12) — target 26→17 (error-boundary crash cards are unit-owned, not prod-forceable) |
 | 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
-| — | **TOTAL** | | **~425** | **367** | 🟡 367 REAL green + 14 fixme (25 flow files) |
+| — | **TOTAL** | | **~416** | **384** | 🟡 384 REAL green + 14 fixme (26 flow files) — every surface row green |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -297,3 +297,26 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     crashes are hard to force in prod — model the 404 + empty-state journeys deterministically, assert the
     boundary is MOUNTED rather than forcing a crash.
   - Running total: **367 REAL green / 381 written across 25 files (14 fixme)**.
+- **Fire 12 (2026-08-13)** — greenfield: built the last ⬜ todo, **flows-states** (17 tests), from a live
+  read of `sections/not-found.component.ts`. **Net +17 green → 384; new file #26. Every surface row is now
+  green.** All 17 green on prod (15.7s @ workers=3).
+  - **Surface = the admin-scoped 404 recovery** (`AdminNotFoundComponent`): unknown `/admin/*` renders a
+    cockpit-retained 404 (not the marketing "search a business" 404); `admin-not-found-home` → dashboard;
+    `admin-not-found-suggest` is a Levenshtein "Did you mean" pill (typo `analitics`→Analytics recovers;
+    renamed `github`→Snapshots recovers) that correctly ABSTAINS on a garbage path (no false guess);
+    quick-jump links; soft-404 `<meta robots=noindex>`; 4 parametrized bogus paths; real routes never
+    false-404; session survives reload without a signin bounce.
+  - **2 fixes on the verify loop (both taught real product behavior):** (05) `/admin/ai-logs` is a LIVE
+    renamed route (renders content), NOT a fall-through 404 → flipped the test to assert the old bookmark
+    still resolves; (08) the 404's "Feature Flags" quick-jump lands on `/admin/site-features` because the
+    System-Admin `feature-flags` layer redirects a non-super-admin owner to the owner-facing Features hub
+    (the two-layer features plane) → assertion accepts either.
+  - **Honest target revision (26→17):** the other ~9 "states" ideas were error-boundary CRASH cards
+    (`section-error-*`, `@if(hasError())`-only — owned by `section-error-boundary.component.spec.ts`, not
+    deterministically prod-forceable) + skeleton-timing (non-deterministic). Not padded with forced/fake
+    tests per the report-honestly mandate; the per-surface empty states are already covered in their own
+    flow files (forms-empty, social 0-connected, …).
+  - **Milestone: all 26 surface rows green.** Remaining incompletes are the 14 scattered fixme (diagnosed).
+    Next toward 500: the diagnosable fixme (ai-endpoints-15 375px real-look, auth-security 2FA-enroll),
+    then broaden per-app coverage (each of the 67 catalog apps → deeper lifecycle journeys).
+  - Running total: **384 REAL green / 398 written across 26 files (14 fixme)**.
