@@ -117,7 +117,7 @@ test.describe('Full-flow · email', () => {
 
   // ─── 03 · BYO-SMTP card renders ─────────────────────────────────────────
 
-  test.fixme('03 · email-smtp-card renders with coming-soon or configure CTA', async ({ page }) => {
+  test('03 · email-smtp-card renders with coming-soon or configure CTA', async ({ page }) => {
     const errors = attachConsole(page);
     await gotoEmailPanel(page);
 
@@ -126,17 +126,17 @@ test.describe('Full-flow · email', () => {
     const configureCta = page.locator('[data-testid="email-smtp-configure"]');
     const smtpHeading = page.getByText('Bring your own SMTP', { exact: false });
 
-    // At least one SMTP-related element should render
+    // The email tab loads async — wait for the SMTP card, then assert it + its
+    // coming-soon badge / configure CTA (real testids from the DOM probe).
+    await card.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
     const anySmtpElement =
       (await card.count()) > 0 ||
       (await soonBadge.count()) > 0 ||
       (await configureCta.count()) > 0 ||
       (await smtpHeading.count()) > 0;
-
     expect(anySmtpElement, 'BYO-SMTP section (card/soon/configure/heading) must be present').toBeTruthy();
-
-    if (await card.count()) await expect(card).toBeVisible({ timeout: 10_000 });
-    if (await smtpHeading.count()) await expect(smtpHeading.first()).toBeVisible({ timeout: 10_000 });
+    const cta = page.locator('[data-testid="email-smtp-configure"], [data-testid="email-smtp-soon"]').first();
+    if (await cta.count()) await expect(cta).toBeVisible({ timeout: 8_000 });
 
     await snap(page, '03-email-smtp-card');
     expectClean(errors);

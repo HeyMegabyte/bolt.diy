@@ -411,7 +411,7 @@ test.describe('Full-flow · ai-endpoints', () => {
   });
 
   // ── TEST 11 ────────────────────────────────────────────────────────────────
-  test.fixme('11 · clicking Test opens a test surface panel then dismisses', async ({ page }) => {
+  test('11 · clicking Test opens a test surface panel then dismisses', async ({ page }) => {
     const errors = attachConsole(page);
     await seedSession(page);
     await gotoAdmin(page, ROUTE);
@@ -436,26 +436,11 @@ test.describe('Full-flow · ai-endpoints', () => {
     await testBtn.first().click();
     await page.waitForTimeout(600);
 
-    // Look for a dialog, drawer, sheet, or panel that appeared
-    const testSurfaceVisible = await page
-      .locator(
-        '[role="dialog"], [data-testid*="test-panel"], [data-testid*="test-modal"], [data-testid*="test-drawer"], .dialog-shell, [aria-modal="true"]',
-      )
-      .first()
-      .isVisible()
-      .catch(() => false);
-
-    // Also look for a visible panel with test-related content
-    const testContentVisible = await page
-      .getByText(/test agent|run test|test endpoint|endpoint test/i)
-      .first()
-      .isVisible()
-      .catch(() => false);
-
-    expect(
-      testSurfaceVisible || testContentVisible,
-      'clicking Test opens a test surface',
-    ).toBeTruthy();
+    // The Test action reveals the quick-test runner (real testid from the DOM probe).
+    await expect(
+      page.locator('[data-testid="ai-endpoint-quick-test-run"]').first(),
+      'clicking Test opens the quick-test surface',
+    ).toBeVisible({ timeout: 8_000 });
 
     await snap(page, '11-test-surface-open');
 

@@ -27,23 +27,23 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 4 | Settings tab-switching (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 21 | 🟡 1 fixme (parallel contention) |
 | 4a | Settings › Domains (backup/custom/AI-search) | `flows-domains.flow.e2e.ts` | 12 | 12 | ✅ green (prod) |
 | 4b | Settings › AI Chat (system-prompt/web-search/knowledge) | `flows-ai-chat.flow.e2e.ts` | 10 | 10 | ✅ green (fire-8) |
-| 4c | Settings › Email + Deliverability (allowance/SMTP/SPF-DKIM check) | `flows-email.flow.e2e.ts` | 14 | 12 | 🟡 2 fixme (smtp CTA/deliverability render) |
-| 4d | Settings › Team + API Tokens (invite/2fa/token-create) | `flows-team-tokens.flow.e2e.ts` | 14 | 13 | 🟡 1 fixme (auth-body shape) |
+| 4c | Settings › Email + Deliverability (allowance/SMTP/SPF-DKIM check) | `flows-email.flow.e2e.ts` | 14 | 13 | 🟡 1 fixme (deliverability render — network flaky) |
+| 4d | Settings › Team + API Tokens (invite/2fa/token-create) | `flows-team-tokens.flow.e2e.ts` | 14 | 14 | ✅ green (fire-10) |
 | 4e | Settings › Webhooks (url/events/create) | `flows-webhooks.flow.e2e.ts` | 14 | 14 | ✅ green (fire-8) |
 | 5 | Billing (subscription/entitlements/6 tabs/upgrade) | `flows-billing.flow.e2e.ts` | 17 | 17 | ✅ green (prod) |
 | 6 | Media — no `/admin/media` route (global drop-zone + bolt editor own media) | — | 0 | ❌ route N/A (file deleted fire-3) |
 | 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 8 | Analytics (overview/tabs/live/funnel/events) | `flows-analytics.flow.e2e.ts` | 30 | 16 | 🟡 6 fixme (see fire log) |
 | 9 | SEO toolkit + local-SEO | `flows-seo.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| 10 | Forms + submissions (filters/prompt-designer/export) | `flows-forms.flow.e2e.ts` | 16 | 14 | 🟡 2 fixme (pills/designer) |
+| 10 | Forms + submissions (filters/prompt-designer/export) | `flows-forms.flow.e2e.ts` | 16 | 16 | ✅ green (fire-10) |
 | 11 | Feature-flags admin (list/filter/toggle/rollout/stage/override) | `flows-feature-flags.flow.e2e.ts` | 18 | 0 | ⬜ todo |
 | 12 | Social / Pulse (composer/view-switcher/connect/auto-pilot) | `flows-social.flow.e2e.ts` | 20 | 19 | 🟡 1 fixme (discard) — re-authored fire-4 ✅ |
 | 13 | Voice agent (numbers/conversations/test/agent/mcps/share tabs) | `flows-voice.flow.e2e.ts` | 16 | 16 | ✅ green (fire-8: 501-benign) |
 | 14 | MCP (connect/paste-key/oauth/per-tenant) | `flows-mcp.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 15 | Editor (bolt iframe host + shell nav-persistence) | `flows-editor.flow.e2e.ts` | 6 | 5 | 🟡 1 fixme (iframe console noise) |
 | 16 | Apps (67-app catalog: search/lifecycle/category/card) | `flows-apps.flow.e2e.ts` | 18 | 18 | ✅ green (prod) |
-| 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 14 | 🟡 2 fixme (test/mobile) |
-| 17 | API Docs ✅ + Snapshots ✅ + Logs ✅ (audit/explorer/traces tabs) | `flows-docs`+`flows-snapshots`+`flows-logs` | 44 | 43 | 🟡 1 fixme (docs T09) |
+| 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 15 | 🟡 1 fixme (375px overflow — poss. real) |
+| 17 | API Docs ✅ + Snapshots ✅ + Logs ✅ (audit/explorer/traces tabs) | `flows-docs`+`flows-snapshots`+`flows-logs` | 44 | 44 | ✅ green (fire-10) |
 | 17b | Super-admin gate (restricted view for non-super-admin) + Editor host | `flows-super-admin` + `flows-editor` | 12 | 11 | 🟡 1 fixme (editor iframe noise) |
 | 17c | Auth security (active sessions + 2FA) | `flows-auth-security.flow.e2e.ts` | 12 | 11 | 🟡 1 fixme (2FA enroll surface) |
 | 18 | Dashboard hub (getting-started: search/section-cards/pin/groups) | `flows-dashboard.flow.e2e.ts` | 14 | 14 | ✅ green (prod) |
@@ -51,7 +51,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
 | 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **~425** | **344** | 🟡 344 REAL green + 21 fixme (24 flow files) |
+| — | **TOTAL** | | **~425** | **351** | 🟡 351 REAL green + 14 fixme (24 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -253,3 +253,26 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     unassertable). Plus the 2 REAL findings (analytics-6 entitlement-gated, create-3 "No available
     adapters", billing-checkout-400).
   - Running total: **344 REAL green / 365 written across 24 files (21 fixme)**.
+- **Fire 10 (2026-08-13)** — fixme-resolution pass #3 (probe live DOM for real selectors → un-fixme the
+  7 diagnosed → fix → solo-verify each). **Net +7 green → 351; fixme 21 → 14.** Every fix confirmed
+  green individually; the 6-file regression sweep was 95 pass / 1 fail / 2 skip, the 1 fail being
+  team-tokens TOK-03 (the known contention-flake, solo-green — retries cover it in CI).
+  - **Resolved (7):** forms-03 (role/name pill count → text-based label scan of the panel),
+    forms-05 (designer overlay → `forms-designer-save`/`fullscreen-overlay-close`/`textarea:visible`
+    + `.first()` on the open button), team-tokens-TOK-06 (`/api/auth/me` identity fields read from
+    `body.data ?? body`), docs-T09 (`docs-endpoint-root` is 0-height → target the visible
+    copy-curl/copy-path/send buttons + 700ms settle), ai-endpoints-11 (Test opens
+    `ai-endpoint-quick-test-run`), email-03 (`email-smtp-configure`/`email-smtp-soon` after a 15s
+    visible wait), social-09 (Discard clears the DRAFT not the live composer → assert control present
+    + operable + composer stays usable).
+  - **Remaining 14 fixme (all diagnosed):** ai-endpoints-15 (375px overflow — POSSIBLY a real mobile
+    bug, worth a real look next), email-04 (deliverability render — network-flaky, run at low
+    concurrency), settings-02 (parallel contention), editor-06 (iframe noise, unassertable),
+    super-admin/auth-security 2FA-enroll surface, analytics-6× (entitlement-gated —
+    `analyticsEnabled:false`, needs siteId + upgrade-state assertions), create-3× ("No available
+    adapters" console error — bundled 3rd-party SDK, Brian-gated), billing-checkout-400 (free-org
+    embedded-checkout 400, Brian-gated).
+  - **Next (toward 500):** the two ⬜ todo surfaces — flows-states (26: error/empty/loading + 404
+    recovery) + flows-shell-widgets (16: notifications/task-tray/command-palette/network-status) — are
+    42 un-written full-flow tests. Build those next; then the 375px + 2FA diagnosable fixme.
+  - Running total: **351 REAL green / 365 written across 24 files (14 fixme)**.

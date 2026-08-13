@@ -477,7 +477,7 @@ test.describe('Full-flow · team + api-tokens', () => {
    * Per verify-against-source-of-truth: we cannot rely on UI alone — the API
    * must confirm the session is valid.
    */
-  test.fixme('TOK-06 · apiFetch /api/auth/me returns 200 for e2e-test-org session', async ({ page }) => {
+  test('TOK-06 · apiFetch /api/auth/me returns 200 for e2e-test-org session', async ({ page }) => {
     await seedSession(page);
     await gotoAdmin(page, '/admin/settings#api-tokens');
 
@@ -492,8 +492,10 @@ test.describe('Full-flow · team + api-tokens', () => {
     // Ground-truth check: the identity must exist and not be a 401/403 ghost.
     const body = me.body as Record<string, unknown> | null;
     if (body && typeof body === 'object') {
+      // The identity fields live under body.data (the API envelope), not top-level.
+      const identity = ((body.data as Record<string, unknown> | undefined) ?? body) || {};
       const hasIdentity =
-        'user' in body || 'email' in body || 'org_id' in body || 'id' in body;
+        'user' in identity || 'user_id' in identity || 'email' in identity || 'org_id' in identity || 'id' in identity;
       expect(hasIdentity, '/api/auth/me body contains identity fields').toBeTruthy();
     }
 

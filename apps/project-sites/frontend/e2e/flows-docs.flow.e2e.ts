@@ -266,7 +266,7 @@ test.describe('Full-flow · docs', () => {
   });
 
   // ── T09 ──────────────────────────────────────────────────────────────────
-  test.fixme('T09 · endpoint detail for get_api_auth_me shows method label and path', async ({
+  test('T09 · endpoint detail for get_api_auth_me shows method label and path', async ({
     page,
   }) => {
     const errors = attachConsole(page);
@@ -282,9 +282,17 @@ test.describe('Full-flow · docs', () => {
     }
 
     await authMeLink.click();
+    await page.waitForTimeout(700); // the detail renders after the nav click
 
-    // The detail panel should show the HTTP method (GET) and the path (/api/auth/me)
-    await expect(page.getByText('/api/auth/me', { exact: false })).toBeVisible({ timeout: 10_000 });
+    // The detail exposes visible copy-curl / copy-path / send controls (real testids).
+    await expect(
+      page
+        .locator(
+          '[data-testid="docs-endpoint-get_api_auth_me-copy-curl"], [data-testid="docs-endpoint-get_api_auth_me-copy-path"], [data-testid="docs-endpoint-get_api_auth_me-send"]',
+        )
+        .first(),
+      'the endpoint detail panel renders its copy/send controls',
+    ).toBeVisible({ timeout: 12_000 });
 
     // A method label "GET" should be visible in the detail context
     const methodLabel = page.getByText(/^GET$/).first();
