@@ -60,7 +60,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 29 | **Visits sparkline** (`site_health_sparklines`) — 7-day SVG traffic trend + total/peak on Snapshots | `flows-sparkline.flow.e2e.ts` | 7 | 7 | ✅ green (fire-20 — FINISHED: built SVG sparkline + seeded 7 days traffic) |
 | 30 | **Timeline notes** (`analytics_annotations`) — add/list/delete site annotations on Snapshots (MUTATION) | `flows-annotations.flow.e2e.ts` | 8 | 8 | ✅ green (fire-21 — RESURRECTED: 3 backend fixes + built CRUD UI) |
 | 31 | **Site labels** (`site_tags`) — create+assign+remove coloured tags on Snapshots (MUTATION) | `flows-tags.flow.e2e.ts` | 8 | 8 | ✅ green (fire-22 — RESURRECTED: created 2 missing tables + built CRUD UI) |
-| — | **TOTAL** | | **~416** | **461** | 🟢 461 REAL green + 12 fixme (35 flow files) |
+| 32 | **Bookings** (`native_booking_engine`) — org appointments (visitor/status) widget on the hub | `flows-bookings.flow.e2e.ts` | 8 | 8 | ✅ green (fire-23 — RESURRECTED: created booking_appointments + seeded + widget) |
+| — | **TOTAL** | | **~416** | **469** | 🟢 469 REAL green + 12 fixme (36 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -520,6 +521,25 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Nine features finished this session** (…+ annotations + site_tags). Snapshots now hosts FOUR per-site
     panels (readiness + sparkline + timeline-notes + site-labels) — a genuinely complete site-management hub.
   - Running total: **461 REAL green / 473 written across 35 files (12 fixme)**.
+- **Fire 23 (2026-08-13)** — DEPTH pass #11: **RESURRECTED `native_booking_engine`** (3rd missing-table
+  module, highest-value backlog item). **Net +8 green → 469; new file #36. 31 from 500.**
+  - `booking_slots` existed but `booking_appointments` was MISSING → added
+    `migrations/0622_create_booking_appointments.sql` + applied. **Seeded 3 realistic appointments** (Marcus
+    Lee ✓, Dana Reeves ✓, Priya Shah ✗cancelled) for e2e-test-org.
+  - **Built** `components/bookings-widget/bookings-widget.component.ts` — a read-only org-scoped feed (avatar
+    initials + visitor + relative time + confirmed/cancelled status chips + confirmed-count), consuming
+    `GET /api/booking/appointments` (response key `appointments`, not `data`). Wired onto the hub after the
+    activity feed. (Reserve/cancel mutation = a follow-up — the visitor booking flow lives on the public site.)
+  - **Proven:** frontend build+deploy → 8 journeys GREEN @ workers=3 (render+count, seeded appts, **ground-truth
+    reconciliation** count + confirmed-subset vs the store, status chips incl. cancelled, specific-booking,
+    console-clean, reload, full-journey asserting every store visitor appears). AI-vision ~9/10. (1 test-only
+    fix: the "Bookings" label is a styled `<p id="bk-heading">` eyebrow, not an `<h2>` → assert `#bk-heading`
+    text, not heading role.)
+  - **Detector backlog now 3:** `credit_wallet_rollover`, `edge_personalization`, `payments_rail` remain
+    unbuilt (missing tables) — run `scripts/audit-missing-tables.mjs` to confirm.
+  - **Ten features finished this session** (7 clean + 3 resurrections). Hub now hosts onboarding + activity +
+    bookings + referral; Snapshots hosts 4 per-site panels.
+  - Running total: **469 REAL green / 481 written across 36 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The

@@ -19,6 +19,7 @@ import { QuotaChipComponent } from '../quota-chip.component';
 import { UpgradeMomentsComponent } from './upgrade-moments.component';
 import { OnboardingChecklistComponent } from '../../../components/onboarding-checklist/onboarding-checklist.component';
 import { RecentActivityComponent } from '../../../components/recent-activity/recent-activity.component';
+import { BookingsWidgetComponent } from '../../../components/bookings-widget/bookings-widget.component';
 import { ReferralCardComponent } from '../../../components/referral-card/referral-card.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
@@ -79,7 +80,7 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent, RecentActivityComponent, ReferralCardComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent, RecentActivityComponent, ReferralCardComponent, BookingsWidgetComponent],
   template: `
     <section class="dash" aria-label="Getting started">
       <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
@@ -224,6 +225,10 @@ const RECENT_KEY = 'ps_dash_recents';
         <!-- Recent activity (feature: activity_feed) — org timeline; self-hides
              when the flag is off (API 404) or the org has no activity yet. -->
         <app-recent-activity />
+
+        <!-- Bookings (feature: native_booking_engine) — recent inbound appointments;
+             self-hides when the flag is off or there are no bookings yet. -->
+        <app-bookings-widget />
 
         <!-- ── Section guide ──────────────────────────────────── -->
         @for (group of displayGroups(); track group.title) {
