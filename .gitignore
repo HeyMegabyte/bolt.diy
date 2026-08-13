@@ -88,3 +88,5 @@ docs/site/
 apps/project-sites/e2e/screenshots/
 apps/project-sites/test-results*/
 apps/project-sites/test-results-*
+apps/project-sites/frontend/e2e/screenshots/
+apps/project-sites/frontend/test-results*/

@@ -1,0 +1,89 @@
+# Full-Flow E2E Coverage — projectsites.dev
+
+Living map for the **finish-everything + prove-it** loop (cron `a9127245`). Each row
+is a SURFACE; the target is the number of **elaborate, realistic full-flow** tests
+that surface needs. A full-flow test = a specific multi-step USER JOURNEY:
+
+> `seedSession → gotoAdmin → navigate by UI → act → assert UI → assert ground-truth
+> via apiFetch → snap (visual)`.
+
+NOT element-presence. Files: `*.flow.e2e.ts` (run under `playwright.prod.config.ts`).
+Harness: `_flow-helpers.ts`. Auth: Pathway C (`E2E_API_KEY`, e2e-test-org owner — not
+super-admin). Screenshots → `e2e/screenshots/flows/`.
+
+**Target: 500+ full-flow tests.** Update the Done column + the total each fire.
+
+Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=playwright.prod.config.ts *.flow`
+
+---
+
+## Coverage map
+
+| # | Surface | File | Target | Done | Status |
+|---|---------|------|-------:|-----:|--------|
+| 1 | Auth + session + admin-shell nav | `flows-auth-admin.flow.e2e.ts` | 20 | 20 | ✅ green (prod) |
+| 2 | Site create (search→signin→details→build→waiting) | `flows-site-create.flow.e2e.ts` | 22 | 0 | ⬜ todo |
+| 3 | Sites list + detail (filter/sort/branches/snapshots/reset/delete) | `flows-sites.flow.e2e.ts` | 26 | 0 | ⬜ todo |
+| 4 | Settings (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 0 | ⬜ todo |
+| 5 | Billing (checkout/portal/subscription/entitlements/upgrade) | `flows-billing.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 6 | Media library (upload/stock/generate/send-to-bolt/delete) | `flows-media.flow.e2e.ts` | 24 | 0 | ⬜ todo |
+| 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 8 | Analytics (overview/tabs/live/funnel/events) | `flows-analytics.flow.e2e.ts` | 30 | 16 | 🟡 6 fixme (see fire log) |
+| 9 | SEO toolkit + local-SEO | `flows-seo.flow.e2e.ts` | 16 | 0 | ⬜ todo |
+| 10 | Forms + form-analytics + leads | `flows-forms.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 11 | Feature-flags admin (list/filter/toggle/rollout/stage/override) | `flows-feature-flags.flow.e2e.ts` | 18 | 0 | ⬜ todo |
+| 12 | Social / Pulse (connect/compose/schedule/best-time/best-posts) | `flows-social.flow.e2e.ts` | 24 | 0 | ⬜ todo |
+| 13 | Voice agent | `flows-voice.flow.e2e.ts` | 10 | 0 | ⬜ todo |
+| 14 | MCP (connect/paste-key/oauth/per-tenant) | `flows-mcp.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 15 | Editor (bolt iframe boot + generate + publish) | `flows-editor.flow.e2e.ts` | 12 | 0 | ⬜ todo |
+| 16 | Apps (catalog/detail/instances/launcher) | `flows-apps.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 17 | Docs + audit log + AI endpoints/logs | `flows-observability.flow.e2e.ts` | 18 | 0 | ⬜ todo |
+| 18 | Dashboard hub (getting-started/widgets/chat) | `flows-dashboard.flow.e2e.ts` | 16 | 0 | ⬜ todo |
+| 19 | `libs/features/*` dark-launch modules (flag-off 404 + flag-on flow) | `flows-features-{a..d}.flow.e2e.ts` | 90 | 0 | ⬜ todo |
+| 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
+| 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
+| 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
+| — | **TOTAL** | | **520** | **60** | 🟡 60 green + 6 fixme |
+
+Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
+
+---
+
+## Finish-the-feature backlog (partial code → complete, then flow-test)
+
+Discovered from the 88 `libs/features/*` modules + admin sections. As each is finished
+(flag wired end-to-end + sample-data seed + UI reachable), move its flow to the map above.
+
+- Surveyed 2026-08-13: 88 `libs/features/*` modules exist; `audit-feature-flags` reports
+  **69 IMPROVE** = "wired via manifest, no `isFlagOn` reader" — i.e. the module has a
+  manifest + handlers but the route/UI isn't gated/reachable yet. Those are the primary
+  finish-the-feature targets (gate the route + surface the UI + seed sample data).
+- Order by user value: onboarding_copilot, activity_feed, batch_operations, cmd_k_actions,
+  local_seo_suite, marketing_dashboard, customer_portal, referral_loop, then the rest.
+
+---
+
+## Fire log
+
+- **Fire 1 (2026-08-13)** — Backbone (`_flow-helpers.ts` harness + this map) + 3 elaborate
+  flow files, **60 tests GREEN on live prod**:
+  - `flows-auth-admin.flow.e2e.ts` — 20/20 (session persist, stale-token, unauth bounce,
+    shell boot, navigate EVERY section by UI, active-state, aria-live, deep-link, 404
+    recovery, back/forward, Cmd+K open+focus+results, keyboard nav, /api/auth/me+/api/sites+
+    /api/inbox/tasks ground-truth, dashboard hub, cross-section console hygiene). Authored
+    directly; hardened with `reducedMotion:'reduce'` (kills the View-Transition click-flake).
+  - `flows-marketing.flow.e2e.ts` — 24/24 (home/blog/changelog/privacy/terms/developers,
+    SPA nav, SEO H1+canonical+title, 375px reflow, 404 recovery). Agent `abf584f1`.
+  - `flows-analytics.flow.e2e.ts` — 16 green + **6 `.fixme` (tracked RED)**. Agent `a95e008d`.
+  - Harness fix: `isRealError` treats `status of 404` as benign (flag-gated reads 404 by
+    design, per `admin-nav-links.e2e.ts`).
+  - **RED findings to resolve next fire** (all `.fixme` in `flows-analytics`): 03 network-
+    overview reconcile (unconfirmed kpi-*/net-* selectors + possible lying-empty vs D1
+    `visitor_events`), 07 live-events wrong-source (`analytics_events` vs `visitor_events`),
+    09 funnel-tab mount, 10 sections-tab flag-dark graceful state, 15 `?tab=` URL sync,
+    21 8-tab tour (confirm real tab set + genuine console error on a tab).
+  - **Deferred to next fire** (agents did NOT deliver): `flows-settings.flow.e2e.ts`
+    (agent `a6890ee1` context-saturated → 3-line stub) + `flows-sites.flow.e2e.ts`
+    (agent `a0f0e362` explored but never wrote the file). Both are high-value built surfaces
+    — re-author with tighter, write-first briefs (or directly).
+  - Running total: **60 / 500+ green** (+6 fixme tracked).
