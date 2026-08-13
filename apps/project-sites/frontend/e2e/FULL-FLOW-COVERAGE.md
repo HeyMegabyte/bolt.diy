@@ -23,10 +23,10 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 |---|---------|------|-------:|-----:|--------|
 | 1 | Auth + session + admin-shell nav | `flows-auth-admin.flow.e2e.ts` | 20 | 20 | ✅ green (prod) |
 | 2 | Site create (search→signin→details→build→waiting) | `flows-site-create.flow.e2e.ts` | 22 | 0 | ⬜ todo |
-| 3 | Sites list + detail (filter/sort/branches/snapshots/reset/delete) | `flows-sites.flow.e2e.ts` | 26 | 0 | ⬜ todo |
-| 4 | Settings (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 0 | ⬜ todo |
-| 5 | Billing (checkout/portal/subscription/entitlements/upgrade) | `flows-billing.flow.e2e.ts` | 20 | 0 | ⬜ todo |
-| 6 | Media library (upload/stock/generate/send-to-bolt/delete) | `flows-media.flow.e2e.ts` | 24 | 0 | ⬜ todo |
+| 3 | Sites list + detail (filter/sort/branches/snapshots/reset/delete) | `flows-sites.flow.e2e.ts` | 26 | 19 | 🟡 3 fixme (row selector) |
+| 4 | Settings (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 21 | 🟡 1 fixme (parallel contention) |
+| 5 | Billing (checkout/portal/subscription/entitlements/upgrade) | `flows-billing.flow.e2e.ts` | 20 | 0 | ⬜ deferred (agent saturated → deleted) |
+| 6 | Media library (upload/stock/generate/send-to-bolt/delete) | `flows-media.flow.e2e.ts` | 24 | 17 | 🟡 1 fixme (upload selector) |
 | 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 8 | Analytics (overview/tabs/live/funnel/events) | `flows-analytics.flow.e2e.ts` | 30 | 16 | 🟡 6 fixme (see fire log) |
 | 9 | SEO toolkit + local-SEO | `flows-seo.flow.e2e.ts` | 16 | 0 | ⬜ todo |
@@ -43,7 +43,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
 | 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **520** | **60** | 🟡 60 green + 6 fixme |
+| — | **TOTAL** | | **520** | **117** | 🟡 117 green + 11 fixme |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -87,3 +87,37 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     (agent `a0f0e362` explored but never wrote the file). Both are high-value built surfaces
     — re-author with tighter, write-first briefs (or directly).
   - Running total: **60 / 500+ green** (+6 fixme tracked).
+- **Fire 2 (2026-08-13)** — 4 background agents authored settings/sites/billing/media
+  with lean write-first briefs (read only the 2 e2e reference files, NO component source —
+  the fire-1 saturation lesson). **Ground-truth cheatsheet for the e2e-test-org bearer**
+  (probed via curl, use when folding + fixing reconcile assertions):
+  - `/api/auth/me` → 200 `{user_id:e2e-test-user, org_id:e2e-test-org, is_super_admin:false}`.
+  - `/api/sites` → 200 HAS data (`e2e-site-3` slug `urban-fitness` "Urban Fitness Co"; phone/
+    email/address null) → sites reconcile asserts REAL rows; settings general-save reconcile
+    starts from null fields.
+  - `/api/billing/subscription` → 200 `data:null`; `/api/billing/entitlements` → 200
+    `{plan:free, analyticsEnabled:FALSE, maxCustomDomains:0, chatEnabled:true, maxTeamSeats:1}`
+    → billing asserts honest free-plan; domains custom-add is gated off.
+  - `/api/media/assets` → 200 key is **`assets`** (NOT `data`; has `pixel-test.png`) →
+    media reconcile MUST read `.assets` (response-key-mismatch guard).
+  - **Analytics fixme RESOLVED as NOT-a-bug**: `/api/analytics/network` → 404 without a site,
+    `/api/analytics-data` → 400 needs `siteId`, and entitlement `analyticsEnabled:false` for
+    this org → the 6 analytics fixme are honest gating + missing-param, NOT the lying-empty
+    class. Next analytics fire: pass `siteId=e2e-site-3` + assert the entitlement-disabled
+    upgrade state (that IS the correct behavior to prove).
+  - Fold plan: retrieve each agent worktree → run vs prod → `.fixme` genuine RED → keep green
+    → update the map + total → commit.
+  - **RESULT: +57 green this fire → running total 117 green / 128 written (11 fixme).**
+    - `flows-settings` 21 green + 1 fixme (test 02 passes SOLO but fails under parallel prod
+      contention — the flow suite is heavy on prod; run at `--workers≤3`).
+    - `flows-media` 17 green + 1 fixme (upload-control selector guessed wrong; reads `.assets` OK).
+    - `flows-sites` 19 green + 3 fixme (01/02 reconcile + 05 row-click — the agent's site-row
+      selector doesn't match live DOM; these 4 FAIL SOLO too = real selector mismatch, NOT
+      contention → next fire: inspect live `/admin/sites` DOM for the real row selector, then the
+      reconcile confirms rows vs `/api/sites` real data (`e2e-site-3` exists — so a genuine 0-row
+      render would be lying-empty; more likely just the selector).
+    - `flows-billing` DELETED — agent context-saturated + authored blind (14/18 RED). Re-author
+      next fire with real selectors (probe `/admin/billing` DOM first).
+  - **Lesson (fire-2):** lean write-first briefs fixed 3/4 agent saturations vs fire-1's 2/4, but
+    the 2 that read/guessed heaviest (settings once, billing) still saturated → next fire give
+    agents the EXACT selector list (pre-probe the live DOM myself, pass it in the brief).
