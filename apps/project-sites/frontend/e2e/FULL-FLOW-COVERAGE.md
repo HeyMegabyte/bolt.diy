@@ -53,7 +53,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
 | 23 | **Onboarding checklist** (`onboarding_copilot`) — activation steps/progress/next-CTA/dismiss on the hub | `flows-onboarding.flow.e2e.ts` | 10 | 10 | ✅ green (fire-14 — FINISHED the feature: built+wired+shipped the UI) |
 | 24 | **Recent activity feed** (`activity_feed`) — org timeline (kinds/tones/relative-time) on the hub | `flows-activity.flow.e2e.ts` | 9 | 9 | ✅ green (fire-15 — FINISHED: built UI + seeded 7 sample events) |
-| — | **TOTAL** | | **~416** | **405** | 🟢 405 REAL green + 12 fixme (28 flow files) — crossed 400 |
+| 25 | **Refer-a-friend** (`referral_loop`) — code/share-link/copy/stats on the hub | `flows-referral.flow.e2e.ts` | 9 | 9 | ✅ green (fire-16 — FINISHED: fixed a REAL 500 in the worker + built UI) |
+| — | **TOTAL** | | **~416** | **414** | 🟢 414 REAL green + 12 fixme (29 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -69,8 +70,9 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   manifest + handlers but the route/UI isn't gated/reachable yet. Those are the primary
   finish-the-feature targets (gate the route + surface the UI + seed sample data).
 - Order by user value: ~~onboarding_copilot~~ ✅ (fire-14), ~~activity_feed~~ ✅ (fire-15),
-  batch_operations, cmd_k_actions, local_seo_suite, marketing_dashboard, customer_portal,
-  referral_loop, then the rest.
+  batch_operations (⚠️ destructive — bulk delete/rebuild, defer), cmd_k_actions (overlaps the live
+  palette, defer), local_seo_suite, marketing_dashboard, customer_portal, ~~referral_loop~~ ✅ (fire-16),
+  then the rest.
 
 ---
 
@@ -384,6 +386,30 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Both hub widgets this loop finished (onboarding + activity) now render together** on the getting-started
     hub — a genuinely more-complete dashboard.
   - Running total: **405 REAL green / 417 written across 28 files (12 fixme)**.
+- **Fire 16 (2026-08-13)** — DEPTH pass #4: **FINISHED `referral_loop`** (backlog #7) — and it took a REAL
+  WORKER BUG FIX, not just a UI. **Net +9 green → 414; new file #29.**
+  - **The bug:** `GET /api/referral/code` returned **500 for EVERY org**. Root cause: the org-scoped service
+    `INSERT`ed into the SITE-scoped `referral_codes` table (`site_id TEXT NOT NULL`, no default) WITHOUT
+    `site_id` → NOT NULL violation → uncaught throw → 500. (`/stats` degraded gracefully via `.catch`, so
+    only `/code` — the code-minting path — crashed, masking it.) Found by curling the endpoint (500) then
+    diffing the prod table schema vs the INSERT.
+  - **The fix (worker `service.ts`, deployed via Docker):** anchor the org's referral code to its FIRST site
+    (`SELECT id FROM sites WHERE org_id=? … LIMIT 1`) + include `site_id` in the INSERT; for a site-less org
+    return an empty code gracefully (UI hides) instead of 500. Verified: `/code` now 200 `{code:"E8EF2BD9",
+    referral_url:…}` for all orgs. Worker deploy = version 12f4c08e.
+  - **Then built** `components/referral-card/referral-card.component.ts` (self-contained, API-gated,
+    violet "Grow with rewards" theme to differentiate from the cyan onboarding/activity cards) — share
+    URL + one-click copy (Clipboard API, robust "Copied ✓" state even if permission denied) + clicks/
+    signups stats + the code. Wired ONE line into the hub (before Tips & tricks).
+  - **Proven:** worker deploy → frontend build+deploy → 9 elaborate journeys GREEN @ workers=3 (render+code,
+    URL-embeds-code, ground-truth reconciliation (proves no more 500), copy-action confirms, stats-are-numbers,
+    console-clean, reload, **code-STABLE-across-reloads** (idempotent getOrCreate), full-journey with all 3
+    finished widgets). AI-vision ~9/10.
+  - **The /admin hub now hosts all THREE widgets this loop finished** (onboarding + activity + referral) —
+    a materially more-complete, more-useful getting-started surface.
+  - **Deferred with reason:** `batch_operations` (destructive bulk delete/rebuild — unsafe to E2E on the
+    shared org), `cmd_k_actions` (overlaps the already-live command palette). Not padding-skipped — logged.
+  - Running total: **414 REAL green / 426 written across 29 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The

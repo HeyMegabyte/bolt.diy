@@ -104,12 +104,29 @@ export async function getOrCreateReferralCode(
     };
   }
 
+  // The `referral_codes` table is site-scoped (`site_id` is NOT NULL), so anchor
+  // the org's referral code to its first site. Previously the INSERT omitted
+  // `site_id` → NOT NULL violation → 500 on the first `GET /api/referral/code`
+  // for EVERY org. An org with no site yet can't hold a code — return an empty
+  // response (the UI hides the widget) instead of crashing.
+  const site = await dbQueryOne<{ id: string }>(
+    env.DB,
+    'SELECT id FROM sites WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1',
+    [orgId],
+  ).catch(() => null);
+
+  if (!site) {
+    return { code: '', referral_url: '', clicks: 0, conversions: 0 };
+  }
+
   // Create a new code. INSERT OR IGNORE handles the rare concurrent race.
   const id = crypto.randomUUID();
   const code = generateCode();
 
-  await env.DB.prepare('INSERT OR IGNORE INTO referral_codes (id, org_id, code) VALUES (?, ?, ?)')
-    .bind(id, orgId, code)
+  await env.DB.prepare(
+    'INSERT OR IGNORE INTO referral_codes (id, site_id, org_id, code) VALUES (?, ?, ?, ?)',
+  )
+    .bind(id, site.id, orgId, code)
     .run();
 
   // Re-read to handle the case where INSERT OR IGNORE skipped (concurrent insert).

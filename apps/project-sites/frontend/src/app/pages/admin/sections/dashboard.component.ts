@@ -19,6 +19,7 @@ import { QuotaChipComponent } from '../quota-chip.component';
 import { UpgradeMomentsComponent } from './upgrade-moments.component';
 import { OnboardingChecklistComponent } from '../../../components/onboarding-checklist/onboarding-checklist.component';
 import { RecentActivityComponent } from '../../../components/recent-activity/recent-activity.component';
+import { ReferralCardComponent } from '../../../components/referral-card/referral-card.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
 import { isSysAdminEmail } from '../sys-admin';
@@ -78,7 +79,7 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent, RecentActivityComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, UpgradeMomentsComponent, OnboardingChecklistComponent, RecentActivityComponent, ReferralCardComponent],
   template: `
     <section class="dash" aria-label="Getting started">
       <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
@@ -237,6 +238,10 @@ const RECENT_KEY = 'ps_dash_recents';
             </ul>
           </section>
         }
+
+        <!-- Refer-a-friend (feature: referral_loop) — growth card; self-hides
+             when the flag is off (API 404) or the org has no site yet. -->
+        <app-referral-card />
 
         <!-- ── Tips & tricks ──────────────────────────────────── -->
         <section class="group" appReveal aria-labelledby="grp-tips">
