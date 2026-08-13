@@ -54,7 +54,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 23 | **Onboarding checklist** (`onboarding_copilot`) — activation steps/progress/next-CTA/dismiss on the hub | `flows-onboarding.flow.e2e.ts` | 10 | 10 | ✅ green (fire-14 — FINISHED the feature: built+wired+shipped the UI) |
 | 24 | **Recent activity feed** (`activity_feed`) — org timeline (kinds/tones/relative-time) on the hub | `flows-activity.flow.e2e.ts` | 9 | 9 | ✅ green (fire-15 — FINISHED: built UI + seeded 7 sample events) |
 | 25 | **Refer-a-friend** (`referral_loop`) — code/share-link/copy/stats on the hub | `flows-referral.flow.e2e.ts` | 9 | 9 | ✅ green (fire-16 — FINISHED: fixed a REAL 500 in the worker + built UI) |
-| — | **TOTAL** | | **~416** | **414** | 🟢 414 REAL green + 12 fixme (29 flow files) |
+| 26 | **Production readiness** (`prod_readiness_score`) — site grade + weighted checks + fix-hints on Snapshots | `flows-readiness.flow.e2e.ts` | 8 | 8 | ✅ green (fire-17 — FINISHED: built the panel on a non-hub surface) |
+| — | **TOTAL** | | **~416** | **422** | 🟢 422 REAL green + 12 fixme (30 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -410,6 +411,24 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Deferred with reason:** `batch_operations` (destructive bulk delete/rebuild — unsafe to E2E on the
     shared org), `cmd_k_actions` (overlaps the already-live command palette). Not padding-skipped — logged.
   - Running total: **414 REAL green / 426 written across 29 files (12 fixme)**.
+- **Fire 17 (2026-08-13)** — DEPTH pass #5: **FINISHED `prod_readiness_score`** on a NON-HUB surface (variety —
+  the hub now has 3 widgets; this one belongs on Snapshots). **Net +8 green → 422; new file #30.**
+  - The endpoint (`GET /api/sites/:id/readiness`) + flag were live + returned REAL computed data (no seed
+    needed): grade "F", score 0, 4 weighted checks (published/custom_domain/performance/sitemap) all failing
+    with actionable hints. No UI consumed it.
+  - **Built** `components/readiness-panel/readiness-panel.component.ts` — a per-SITE panel (grade badge A–F
+    tone-coloured + score + the failing checks as an actionable fix-list). It reacts to
+    `AdminStateService.selectedSite()` via an `effect()` (re-fetches when the site changes), so it needed the
+    admin-state plumbing (unlike the hub widgets). Self-hides when off / no site.
+  - **Wired** ONE line into `snapshots.component.ts` above the version timeline (+ import + imports array).
+  - **Proven:** frontend build+deploy → 8 elaborate journeys GREEN @ workers=3 (render grade+score,
+    score-0–100, **ground-truth reconciliation** panel-grade ∈ the org sites' API grades, actionable
+    fix-list with prose hints, known-check present, console-clean, reload, full-journey). AI-vision ~9/10:
+    red "F" badge + "4 things left…" + × hints, clean above Version History.
+  - **Pattern extension:** a NON-hub, per-site widget = same recipe but inject `AdminStateService` +
+    `effect(() => selectedSite())` to react to the active site; integrate into the owning section component
+    (one line + import), not the hub.
+  - Running total: **422 REAL green / 434 written across 30 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The

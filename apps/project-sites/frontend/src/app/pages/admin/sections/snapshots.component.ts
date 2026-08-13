@@ -16,6 +16,7 @@ import { CharCountComponent } from '../../../components/char-count/char-count.co
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { ReadinessPanelComponent } from '../../../components/readiness-panel/readiness-panel.component';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -114,7 +115,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -241,6 +242,10 @@ interface GhStatus {
           </div>
         </app-dialog-shell>
       }
+
+      <!-- Production-readiness (feature: prod_readiness_score) — grades the selected
+           site + surfaces the next fixes; self-hides when off / no site selected. -->
+      <app-readiness-panel />
 
       <!-- Snapshot Timeline -->
       <div class="snap-card" appReveal>
