@@ -62,15 +62,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  analytics_rollup_read: {
-    key: 'analytics_rollup_read',
-    description:
-      'AN3: when ON, the owner traffic summary reads O(days) from the analytics_daily rollup (today refreshed on demand) instead of scanning O(events) of visitor_events. OFF (default) keeps the live scan. Calendar-day window; uniques summed across days (approximate).',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   core_feature_flags: {
     key: 'core_feature_flags',
     description: 'Always-on sentinel: feature-flags admin UI. isFlagOn always true.',
@@ -100,24 +91,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  site_analytics: {
-    key: 'site_analytics',
-    description:
-      'Owner-facing per-site analytics summary aggregating contacts, form submissions, newsletter subs and donations',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/admin/analytics.spec.ts (green live),
-    owner_email: 'brian@megabyte.space',
-  },
-  visitor_events_core: {
-    key: 'visitor_events_core',
-    description:
-      'Public pageview/click/conversion beacon ingest from published sites; feeds site_analytics traffic block',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   email_marketing: {
     key: 'email_marketing',
     description:
@@ -129,61 +102,13 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
   // Multi-tenant + agency (items 9-13)
   // CWV (items 14-19, 15 already shipped)
-  speculation_rules: {
-    key: 'speculation_rules',
-    description: 'Speculation Rules auto-injection on marketing HTML',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
   // GEO (items 20-24, 20-22 already stable)
-  structured_data_autopilot: {
-    key: 'structured_data_autopilot',
-    description: 'Auto-emit Org+WebSite+WebPage+FAQPage JSON-LD',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  quotable_answer_block: {
-    key: 'quotable_answer_block',
-    description: 'AI-search-optimized 40-60 word quotable block per page',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  llms_txt: {
-    key: 'llms_txt',
-    description: '/llms.txt + /llms-full.txt + AI-crawler robots.txt',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
   // Accessibility (items 25-29, 29 stable)
-  accessibility_statement: {
-    key: 'accessibility_statement',
-    description: '/accessibility page with WCAG 2.2 + IRS §44 explainer',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
   // Editor UX (items 30-34)
   // Monetization (items 35-38)
   // Observability (items 39-42)
   // Media gen (items 43-46)
   // Platform extension (items 47-50, 47 + 48-slice + 49-slice already stable)
-  mcp_server: {
-    key: 'mcp_server',
-    description: '/.well-known/mcp + OAuth 2.1 RFC 8707 resource discovery',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
   public_api: {
     key: 'public_api',
     description: 'Public REST + GraphQL API + OpenAPI 3.1 + webhooks',
@@ -288,26 +213,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Viral + Billing + Audit-Chain (ideas #33, #34, #36, #46 — 2026-05-28)
   // ── Enterprise wave (Trust Center / Enterprise Plan / Stripe App status / Agent SDK+MCP, 2026-05-28)
   // ── Compliance / safety / revenue (added 2026-06-07 per UNFINISHED_FEATURES §9b)
-  abuse_takedown: {
-    key: 'abuse_takedown',
-    description:
-      'Abuse report intake + content takedown workflow for published sites (DMCA / illegal-content handling). Hosting-platform necessity.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   // ── Idea-merge wave 2026-06-08: genuinely-new platform flags (the rest of the
   //    30 ideas fold into existing flag scopes as extra checklist checkpoints).
-  site_video_gen: {
-    key: 'site_video_gen',
-    description:
-      'Per-site narrative video: storyboard → Veo clips → ~56s brand film assembled in the build Workflow, delivered device-adaptive via Media Transformations.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/media-video-studio.spec.ts (green live, editor-overlay path),
-    owner_email: 'brian@megabyte.space',
-  },
   editor_vision_qa: {
     key: 'editor_vision_qa',
     description:
@@ -320,46 +227,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
 
   // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
   // Commerce & money rail (payments_rail is foundational — unblocks the rest)
-  payments_rail: {
-    key: 'payments_rail',
-    description:
-      'Unified payments seam over Square (accept) + Stripe (SaaS/payouts): one idempotency key, one webhook verifier, one entitlement grant path per rules/payments-routing',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   storefront_ecommerce: {
     key: 'storefront_ecommerce',
     description:
       'Lightweight native storefront for generated sites: products/variants in D1, assets in R2, checkout via Square Web Payments behind payments_rail (not MedusaJS)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  native_booking_engine: {
-    key: 'native_booking_engine',
-    description:
-      'First-class booking/availability engine with slots, holds, reminders and optional deposit via payments_rail — eliminates the third-party scheduler dependency',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  credit_wallet_rollover: {
-    key: 'credit_wallet_rollover',
-    description:
-      'AI-credit wallet rollover + promo credits + expiry: unused monthly credits carry forward, promo grants stack, expiring balances surface urgency in the billing wallet',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  referral_loop: {
-    key: 'referral_loop',
-    description:
-      'In-product refer-a-friend: tracked referral codes/links, attributed signups, and credit rewards granted through the wallet on a referred conversion',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -374,25 +245,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  site_doctor: {
-    key: 'site_doctor',
-    description:
-      'Owner-facing A-F site health report with prioritized, plain-English one-tap fixes. Translates production-readiness signals (published, custom domain, performance, sitemap) into owner language; free plan sees the top issue, the rest locked behind a paid power-up. Sharp professional voice; reuses prod_readiness_score scoring.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
 
-  preview_share_card: {
-    key: 'preview_share_card',
-    description:
-      'Owner-driven viral loop. After a build the owner gets honest pre-written share messages (SMS/WhatsApp/email/copy), one-tap platform deep-links (SMS, WhatsApp, mailto, X, Facebook), and OG-card params for a branded 1200x630 card — sharing their new site to real customers in seconds. The shared link is the ad. Free-tier; 404 when off.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
 
   // Visitor-facing AI + platform AI UX
   ai_concierge_widget: {
@@ -404,188 +257,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  site_semantic_search: {
-    key: 'site_semantic_search',
-    description:
-      'Auto-installed semantic search over a published site own R2 content via Vectorize/AutoRAG, re-indexed on content change — answers, not just keyword match',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  edge_personalization: {
-    key: 'edge_personalization',
-    description:
-      'No-PII edge swap of hero headline/sub/image/primary-CTA/sticky-bar from geo/device/referrer/time/return signals via sub-10ms Workers-AI call, A/B-eval looped',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  prompt_studio: {
-    key: 'prompt_studio',
-    description:
-      'Admin surface over the existing prompt registry: versioned templates with A/B variants, KV hot-patch, and one-click rollback for non-engineers',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  ai_gateway_guardrails: {
-    key: 'ai_gateway_guardrails',
-    description:
-      'Llama Guard middleware on /ai/* routes blocking prompt-injection/hate/off-brand input+output before publish, with a no-redeploy killswitch per rules/ai-agent-security',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
 
   // Generation/editing + growth + Cloudflare quick wins
-  visual_point_edit: {
-    key: 'visual_point_edit',
-    description:
-      'Click any live-preview element and have AI mutate only that node (copy/style/layout) without a full regeneration — frontend-primary, backed by a scoped edit endpoint',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  wireframe_planning: {
-    key: 'wireframe_planning',
-    description:
-      'Pre-generation sitemap + page-level wireframe plan surfaced as an approval gate in /create before section generation, so IA problems are caught up front',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  url_clone_seed: {
-    key: 'url_clone_seed',
-    description:
-      'Paste a URL and seed the builder from it: Browser-Rendering extracts layout + copy + structured-data JSON to prefill a new site as an acquisition fast-start',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  cmdk_ai_actions: {
-    key: 'cmdk_ai_actions',
-    description:
-      'AI actions layer on the existing Cmd+K palette: natural language routes to navigation, bulk mutations, or agent tasks (the palette + focus gate already ship)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  aeo_pass: {
-    key: 'aeo_pass',
-    description:
-      'Answer-Engine-Optimization audit + structured-data tuning on every publish targeting ChatGPT/Perplexity/AI-Overviews citation, extending seo_autopilot',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  status_page_live: {
-    key: 'status_page_live',
-    description:
-      'Public status page backed by real uptime/incident data with subscriber alerts; extends the existing /status route shell — frontend-primary with a status feed endpoint',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  site_thumbnail_grid: {
-    key: 'site_thumbnail_grid',
-    description:
-      'Real-browser thumbnail of every site in the admin catalog via Browser-Rendering screenshot, cached in R2 and reused from the snapshot path',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  platform_mcp: {
-    key: 'platform_mcp',
-    description:
-      'Account-level MCP server so Claude Code/Cursor/MCP clients connect with a scoped psk_ API token and manage their sites (list/inspect/build-status; deploy next)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  mcp_oauth_provider: {
-    key: 'mcp_oauth_provider',
-    description:
-      'OAuth 2.1 authorization server so MCP clients (Claude Code) authenticate via PKCE instead of pasting psk_ tokens',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  prod_readiness_score: {
-    key: 'prod_readiness_score',
-    description:
-      'Production Readiness Score (0-100 + grade) per site: published, custom domain, performance, sitemap checks — surfaces what to fix before launch',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  cms_content: {
-    key: 'cms_content',
-    description:
-      'CMS content bridge: edge-cached /api/cms/blog.json feed for generated sites + HMAC-verified /api/cms/revalidate receiver that purges the cache when Payload publishes content',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  deploy_buttons: {
-    key: 'deploy_buttons',
-    description:
-      'Generates one-click "Deploy to projectsites.dev" buttons + a "Hosted on projectsites.dev" badge snippet for READMEs/footers (viral growth loop)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  visitor_dsar: {
-    key: 'visitor_dsar',
-    description:
-      'GDPR/CCPA data-subject-access endpoint: a site owner can export or soft-delete a visitor’s data by email or visitor_id, with an audit-log entry',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  onboarding_copilot: {
-    key: 'onboarding_copilot',
-    description:
-      'PLG activation checklist: computes a new org’s next-best actions (create site → publish → add custom domain) with a dismiss control',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  audit_trail_export: {
-    key: 'audit_trail_export',
-    description:
-      'Org-scoped audit-log export: admins filter by action/date and download the audit trail as JSON or CSV for compliance reviews',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  model_registry: {
-    key: 'model_registry',
-    description:
-      'OpenAI-compatible GET /v1/models — the ProviderCapabilityRegistry + ModelAliasRegistry catalog (deepseek/anthropic/openai/gemini/grok/workers-ai aliases) with per-provider availability gating',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   ai_payment_command: {
     key: 'ai_payment_command',
     description:
@@ -599,42 +272,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'lead_scanner',
     description:
       'Super-Admin lead scanner (POST /api/admin/leads/scan): a Google Places text-search query → score each result → keep the no-website businesses → persist as claim-able leads via createLead. Default-off → the route 404s; outreach send is a separate, explicitly-enabled step (never auto-sends).',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  observability_gateway: {
-    key: 'observability_gateway',
-    description:
-      'Customer-site observability gateway (POST /monitoring/:provider): worker proxy customer sites POST Sentry/PostHog events to so raw vendor keys never ship to the browser. Tenant-tagged + PII-redacted + sampled + quota-capped before server-side forward; rollups to Analytics Engine. Default-off → route 404s. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/observability_gateway module.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'hey@megabyte.space',
-  },
-  generative_ui_stream: {
-    key: 'generative_ui_stream',
-    description:
-      'Returns schema-bound UI descriptors generated by Workers AI LLM for dynamic copilot-driven interface composition (POST /api/copilot/ui). Zod-validated outputs; off by default. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/generative_ui_stream module.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  page_audio_summary: {
-    key: 'page_audio_summary',
-    description:
-      'Generates per-route TTS audio summaries via the media service and stores MP3 files in R2 for visitor playback (POST/GET /api/audio-summary/:siteId). Requires a TTS provider; off by default. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/page_audio_summary module.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  figma_import: {
-    key: 'figma_import',
-    description:
-      'Import design tokens and component metadata from a Figma file via the Figma REST API (POST /api/figma/import), letting designers push brand tokens into a generated site. Caller-supplied Figma PAT; off by default. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/figma_import module.',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -863,15 +500,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'swarm_editor',
     description:
       'Multi-Agent Swarm Editor — the 7-column parallel-specialist editing board + live component stream at /admin/swarm/:siteId. DARK: the /api/swarm/* backend is roadmap; the panel is a simulated preview and the run-history fetch is gated on this flag until live multi-agent execution ships.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  multi_agent_concurrent: {
-    key: 'multi_agent_concurrent',
-    description:
-      'Concurrent multi-agent execution for the Swarm Editor (paired with swarm_editor; both must be on to run a live swarm). DARK until the swarm orchestration backend ships — registered so the FE flag-resolution endpoint returns 200 (not 404) while the feature is dark.',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

@@ -31,17 +31,14 @@ const LIVE_ROUTE_FLAGS = [
   'pwa_manifest_full',
   'ai_auto_router',
   // libs/features modules
-  'abuse_takedown',
-  'visitor_events_core',
   'gbp_assist',
   // stable discovery / quality surfaces
-  'llms_txt',
-  'mcp_server',
   'public_api',
-  'accessibility_statement',
-  'speculation_rules',
-  'structured_data_autopilot',
-  'quotable_answer_block',
+  // NOTE (2026-08-12 dead-flag prune): 8 keys removed from this list — abuse_takedown,
+  // visitor_events_core, llms_txt, mcp_server, accessibility_statement, speculation_rules,
+  // structured_data_autopilot, quotable_answer_block. Verified via audit-feature-flags.mjs
+  // + grep(routes/,index.ts): NONE gate a route (0 requireFlag/isFlagOn refs). This list
+  // had drifted into a "flag exists in registry" check rather than a real route-gate check.
 ];
 
 /**
