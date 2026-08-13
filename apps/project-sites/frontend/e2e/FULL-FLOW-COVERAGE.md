@@ -24,7 +24,12 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 1 | Auth + session + admin-shell nav | `flows-auth-admin.flow.e2e.ts` | 20 | 20 | ✅ green (prod) |
 | 2 | Create wizard (`/create`: 3-step + auto-populate + Turnstile) | `flows-create.flow.e2e.ts` | 12 | 9 | 🟡 3 fixme ("No available adapters" console) |
 | 3 | Sites — admin is SINGLE-SITE (`/admin/sites` is 404; mgmt via snapshots/site-features/switcher) | — | 0 | ❌ route N/A (file deleted fire-3) |
-| 4 | Settings (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 21 | 🟡 1 fixme (parallel contention) |
+| 4 | Settings tab-switching (general/AI-chat/MCP/env-vars/domains/api-tokens/deliverability) | `flows-settings.flow.e2e.ts` | 30 | 21 | 🟡 1 fixme (parallel contention) |
+| 4a | Settings › Domains (backup/custom/AI-search) | `flows-domains.flow.e2e.ts` | 12 | 12 | ✅ green (prod) |
+| 4b | Settings › AI Chat (system-prompt/web-search/knowledge) | `flows-ai-chat.flow.e2e.ts` | 10 | 9 | 🟡 1 fixme (async prompt) |
+| 4c | Settings › Email + Deliverability (allowance/SMTP/SPF-DKIM check) | `flows-email.flow.e2e.ts` | 14 | 12 | 🟡 2 fixme (allowance/smtp CTA) |
+| 4d | Settings › Team + API Tokens (invite/2fa/token-create) | `flows-team-tokens.flow.e2e.ts` | 14 | 11 | 🟡 3 fixme |
+| 4e | Settings › Webhooks (url/events/create) | `flows-webhooks.flow.e2e.ts` | 14 | 13 | 🟡 1 fixme (Tab nav) |
 | 5 | Billing (subscription/entitlements/6 tabs/upgrade) | `flows-billing.flow.e2e.ts` | 17 | 17 | ✅ green (prod) |
 | 6 | Media — no `/admin/media` route (global drop-zone + bolt editor own media) | — | 0 | ❌ route N/A (file deleted fire-3) |
 | 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
@@ -46,7 +51,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
 | 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **~450** | **279** | 🟡 279 REAL green + 22 fixme (19 flow files) |
+| — | **TOTAL** | | **~430** | **336** | 🟡 336 REAL green + 29 fixme (24 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -197,3 +202,22 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Lesson held:** probe-first again paid off — 4 of 10 candidate routes were dead 404 components
     (like sites/media); testing them would've been more fake-green. Only real routes get flow files.
   - Running total: **279 REAL green / 301 written across 19 files (22 fixme)**.
+- **Fire 7 (2026-08-13)** — deepened the rich Settings sub-tabs (features explicitly in the goal:
+  domains/email/MCP/team). Needed a **fresh-context-per-tab probe** — hash-only re-nav within one
+  loaded page does NOT switch tabs (flow tests use fresh contexts, so cold-load deep-links work).
+  **+44 green → 323 total across 23 files.**
+  - **`flows-domains` 12/12** ✅ (authored) — backup domain reconciles with the real site slug,
+    custom-domain input, AI domain search, free-plan cap (maxCustomDomains:0), never purchases.
+  - **`flows-ai-chat` 9/10** (authored) — the concierge system-prompt textarea + web-search toggle
+    (flip-then-revert, no mutation) + knowledge dropzone. +1 fixme (async prompt value).
+  - **`flows-email` 12/14** (agent) — Email + **Deliverability** (allowance card, BYO-SMTP, SPF/DKIM
+    check-btn). +2 fixme. **`flows-team-tokens` 11/14** (agent) — team invite + 2FA + API-token
+    create (all assert-open-never-submit). +3 fixme.
+  - **`flows-webhooks` 13/14** (agent) — url input + 6 event checkboxes + create-btn-enable (never
+    submits); +1 fixme (brittle Tab-count nav). Its completion notification arrived AFTER I'd pruned
+    the worktree, but the file survived on disk — folded in.
+  - **Process note:** a `find | head -1` retrieval grabbed each worktree's base `flows-social`
+    (present in every worktree) instead of the agent's new file, overwriting main's copy 3× — caught
+    it, restored `flows-social` from git, copied the 3 by EXACT name. Lesson: retrieve worktree files
+    by exact filename, never a glob.
+  - Running total: **336 REAL green / 365 written across 24 files (29 fixme)**.
