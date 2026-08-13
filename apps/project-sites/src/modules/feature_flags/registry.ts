@@ -252,7 +252,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   ab_testing: {
     key: 'ab_testing',
     description:
-      'Deterministic variant assignment via hashed visitor ID + statistical significance calculator with z-test. Its route checks isFlagOn(\'ab_testing\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Deterministic variant assignment via hashed visitor ID + statistical significance calculator with z-test. Its route checks isFlagOn('ab_testing'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -261,7 +261,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   ai_content_strategist: {
     key: 'ai_content_strategist',
     description:
-      'Content gap analysis against competitors + 90-day content calendar with SEO-briefed outlines. Covers 14 industries with tailored content pillars. Its route checks isFlagOn(\'ai_content_strategist\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Content gap analysis against competitors + 90-day content calendar with SEO-briefed outlines. Covers 14 industries with tailored content pillars. Its route checks isFlagOn('ai_content_strategist'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -270,7 +270,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   ai_site_critic: {
     key: 'ai_site_critic',
     description:
-      'AI-powered site critique with per-dimension scoring, A-F grading, industry benchmarking, and prioritized auto-fix suggestions. Uses CF Browser Rendering + Workers AI vision. Its route checks isFlagOn(\'ai_site_critic\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "AI-powered site critique with per-dimension scoring, A-F grading, industry benchmarking, and prioritized auto-fix suggestions. Uses CF Browser Rendering + Workers AI vision. Its route checks isFlagOn('ai_site_critic'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -279,7 +279,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   ai_video_hero: {
     key: 'ai_video_hero',
     description:
-      'AI-generated 60-second cinematic brand video script with 8 clips, visual prompts for Sora/Veo, Piper TTS narration, transitions, and credit cost estimation. Its route checks isFlagOn(\'ai_video_hero\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "AI-generated 60-second cinematic brand video script with 8 clips, visual prompts for Sora/Veo, Piper TTS narration, transitions, and credit cost estimation. Its route checks isFlagOn('ai_video_hero'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -297,7 +297,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   builtin_crm: {
     key: 'builtin_crm',
     description:
-      'Lead scoring engine (0-100, hot/warm/cold) from 7 source types and 8 behavioral signals. Pipeline stage manager (7 stages), deal value tracker, next-action recommender. Pure, deterministic, zero I/O. Its route checks isFlagOn(\'builtin_crm\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Lead scoring engine (0-100, hot/warm/cold) from 7 source types and 8 behavioral signals. Pipeline stage manager (7 stages), deal value tracker, next-action recommender. Pure, deterministic, zero I/O. Its route checks isFlagOn('builtin_crm'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -315,7 +315,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   code_export: {
     key: 'code_export',
     description:
-      'One-click export of any generated site as a self-contained, deployable Cloudflare Worker project. Includes wrangler.toml, Worker source (Hono), D1 migrations, R2 assets, and deploy instructions. Its route checks isFlagOn(\'code_export\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "One-click export of any generated site as a self-contained, deployable Cloudflare Worker project. Includes wrangler.toml, Worker source (Hono), D1 migrations, R2 assets, and deploy instructions. Its route checks isFlagOn('code_export'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -333,7 +333,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   customer_portal: {
     key: 'customer_portal',
     description:
-      'Client portal access engine: magic-link auth, per-client page access control, 30-day expiry, sub-page path matching. Use case: agencies sharing invoices/projects/files with clients. Its route checks isFlagOn(\'customer_portal\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Client portal access engine: magic-link auth, per-client page access control, 30-day expiry, sub-page path matching. Use case: agencies sharing invoices/projects/files with clients. Its route checks isFlagOn('customer_portal'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -342,7 +342,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   geo_toolkit: {
     key: 'geo_toolkit',
     description:
-      'Dual-scoring content analyzer for traditional SEO + AI answer engine discoverability. Factual claim extraction, citation checking, AI formatting quality scoring, and prioritized GEO suggestions. Its route checks isFlagOn(\'geo_toolkit\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Dual-scoring content analyzer for traditional SEO + AI answer engine discoverability. Factual claim extraction, citation checking, AI formatting quality scoring, and prioritized GEO suggestions. Its route checks isFlagOn('geo_toolkit'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -414,7 +414,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   social_agent: {
     key: 'social_agent',
     description:
-      'Content proposal generator with platform-aware captions, hashtags, image prompts, and optimal posting times for 10 platforms. Engagement scoring with trend detection (growing/stable/declining). Its route checks isFlagOn(\'social_agent\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Content proposal generator with platform-aware captions, hashtags, image prompts, and optimal posting times for 10 platforms. Engagement scoring with trend detection (growing/stable/declining). Its route checks isFlagOn('social_agent'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -423,7 +423,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   social_publishing_native: {
     key: 'social_publishing_native',
     description:
-      'Native social media posting (instant + scheduled) across 14 platforms. Replaces Postiz. CF Workflows v2 + Upstash + D1 + Tinybird. Its route checks isFlagOn(\'social_publishing_native\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Native social media posting (instant + scheduled) across 14 platforms. Replaces Postiz. CF Workflows v2 + Upstash + D1 + Tinybird. Its route checks isFlagOn('social_publishing_native'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -432,7 +432,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   visual_automation: {
     key: 'visual_automation',
     description:
-      'Journey validation engine: 7 action types, 6 trigger types, step delay estimation, linear journey validation with error reporting. Its route checks isFlagOn(\'visual_automation\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Journey validation engine: 7 action types, 6 trigger types, step delay estimation, linear journey validation with error reporting. Its route checks isFlagOn('visual_automation'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -450,7 +450,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   white_label: {
     key: 'white_label',
     description:
-      'Agency dashboard: MRR calculation, churn rate, client site management, branded reselling. Agencies resell ProjectSites under their own brand. Its route checks isFlagOn(\'white_label\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Agency dashboard: MRR calculation, churn rate, client site management, branded reselling. Agencies resell ProjectSites under their own brand. Its route checks isFlagOn('white_label'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -459,7 +459,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   agentic_commerce: {
     key: 'agentic_commerce',
     description:
-      'AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn(\'agentic_commerce\') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "AI Checkout — lets shoppers buy from the site storefront inside ChatGPT + Gemini via the Agentic Commerce + Universal Commerce protocols. Its route (src/routes/agentic_commerce.ts) checks isFlagOn('agentic_commerce') — the flag was never registered, so resolveFlag short-circuited it dead (always 404). Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -468,7 +468,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   page_audio: {
     key: 'page_audio',
     description:
-      'Page Audio — auto-generates a short narrated (TTS) audio version of each page for better dwell time + an audio-first accessible experience. Its route (src/routes/page_audio.ts) checks isFlagOn(\'page_audio\') which was never registered (the registry had the distinct page_audio_summary), so the feature was dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
+      "Page Audio — auto-generates a short narrated (TTS) audio version of each page for better dwell time + an audio-first accessible experience. Its route (src/routes/page_audio.ts) checks isFlagOn('page_audio') which was never registered (the registry had the distinct page_audio_summary), so the feature was dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
