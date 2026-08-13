@@ -66,10 +66,14 @@ const missing = [...declared]
 // ctx.storage.sql, self-schema'd at boot) — those tables are NOT in D1 by design, so
 // a DO-storage INSERT is NOT a missing-D1-table bug (validator-precision, fire-27).
 function liveInsert(table) {
+  // Match BOTH raw `INSERT INTO <table>` AND the `dbInsert(db, '<table>', …)` /
+  // `dbUpsert(db, '<table>', …)` helper pattern (many routes write via the helper —
+  // a raw-INSERT-only scan under-reports, a false-negative that hides real bugs).
+  const pattern = `INSERT INTO \`?${table}\`?( |\\()|db(Insert|Upsert)\\([^,]+,[[:space:]]*['\\"]${table}['\\"]`;
   try {
     const hit = execFileSync(
       'grep',
-      ['-rlE', `INSERT INTO \`?${table}\`?( |\\()`, 'src/'],
+      ['-rlE', pattern, 'src/'],
       { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
     )
       .split('\n')

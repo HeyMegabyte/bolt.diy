@@ -65,7 +65,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 34 | **Edge personalization** (`edge_personalization`) — visitor variant rules + live resolver on Snapshots | `flows-personalization.flow.e2e.ts` | 8 | 8 | ✅ green (fire-25 — RESURRECTED: created site_personalization_variants + GET /variants endpoint + seeded + panel) |
 | 35 | **Per-site MCP server** (`/admin/sites/:id/mcp-server`) — token mint/revoke + tool playground for external agents | `flows-mcp-server.flow.e2e.ts` | 9 | 9 | ✅ green (fire-26 — RESURRECTED: applied MISSING site_mcp_tokens table — minting was lying-success) |
 | 36 | **Outbound webhooks CRUD** (`outbound_webhooks`) — create→secret→persist→delete lifecycle on Settings › Webhooks | `flows-webhooks-crud.flow.e2e.ts` | 8 | 8 | ✅ green (fire-27 — RESURRECTED: applied MISSING webhook_endpoints + webhook_deliveries — create was lying-success) |
-| — | **TOTAL** | | **~416** | **502** | 🟢 **502 REAL green** + 12 fixme (40 flow files) — **CROSSED 500** |
+| 37 | **Site branch previews** (`/admin/sites/:id/branches`, #27) — create→draft→request-review→close lifecycle | `flows-branches.flow.e2e.ts` | 7 | 7 | ✅ green (fire-28 — RESURRECTED: applied MISSING site_branches + site_branch_approvals — create was lying-success; route NOT flag-gated) |
+| — | **TOTAL** | | **~416** | **509** | 🟢 **509 REAL green** + 12 fixme (41 flow files) — **500+ 🎉** |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -645,3 +646,21 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     bounce/complaint suppression via `env.DB` was silently dropping rows. Applied; no UI journey (SES-webhook
     driven), so correctness-fix only. **Detector now reports 0 HIGH — every live feature has its table.**
   - Running total: **502 REAL green / 514 written across 40 files (12 fixme)**. 🎉 **CROSSED 500.**
+- **Fire 28 (2026-08-13)** — DEPTH pass #16: **improved the detector's recall → it found 7 MORE broken
+  features → resurrected the user-facing one (site branch previews).** **Net +7 green → 509; new file #41.**
+  - **Detector recall fix (completeness-critic):** fire-27's detector only matched raw `INSERT INTO` — but
+    many routes write via the `dbInsert(db, 'table', …)` HELPER, a false-negative blind spot. Added
+    `dbInsert`/`dbUpsert` matching → jumped from 1 to **7 more HIGH** (domain_stack_runs, pseo_axes, pseo_pages,
+    seo_meta_drafts, site_branch_approvals, site_branches, storefront_products) — all silently broken.
+  - **RESURRECTED site branch previews (#27)** — `site_branches` + `site_branch_approvals` (migration 0513,
+    authored but never applied — died on the SAME legacy `INSERT INTO feature_flags(key,…)` as 0514; confirms
+    a whole ERA of migrations 0513/0514/… never applied). **The route is NOT flag-gated (always live)**, so
+    GET /branches lied-empty + POST lied-success — branches never persisted. Applied the DDL (skipped the flag
+    insert). `flows-branches.flow.e2e.ts` — 7 journeys × 2 browsers = **14 green**: a full **create draft →
+    ground-truth persisted → Request review → review → Close → closed** lifecycle with status-pill + approval-
+    progress reconciliation, plus DNS-label validation + console + reload + reconcile. AI-vision 9/10. Swept
+    the `e2e-br-*` rows via D1 (the API only closes, not hard-deletes).
+  - **5 HIGH remain** (domain_stack_runs / pseo_axes / pseo_pages / seo_meta_drafts / storefront_products) —
+    surfaced honestly for future-fire triage (need per-feature flag-state check before resurrecting; some may
+    be intentionally-dark). `npm run audit:schema-applied`.
+  - Running total: **509 REAL green / 521 written across 41 files (12 fixme)**. **500+ 🎉**
