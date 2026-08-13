@@ -34,12 +34,12 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 6 | Media — no `/admin/media` route (global drop-zone + bolt editor own media) | — | 0 | ❌ route N/A (file deleted fire-3) |
 | 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 8 | Analytics (overview/tabs/live/funnel/events) | `flows-analytics.flow.e2e.ts` | 30 | 16 | 🟡 6 fixme (see fire log) |
-| 9 | SEO toolkit + local-SEO | `flows-seo.flow.e2e.ts` | 16 | 0 | ⬜ todo |
+| 9 | SEO — `/admin/seo` REDIRECTS to `/admin/site-features` (search-readiness capabilities toggle there) | — | 0 | ❌ route N/A (redirect → covered by flows-site-features) |
 | 10 | Forms + submissions (filters/prompt-designer/export) | `flows-forms.flow.e2e.ts` | 16 | 16 | ✅ green (fire-10) |
 | 11 | Feature-flags admin (list/filter/toggle/rollout/stage/override) | `flows-feature-flags.flow.e2e.ts` | 18 | 0 | ⬜ todo |
 | 12 | Social / Pulse (composer/view-switcher/connect/auto-pilot) | `flows-social.flow.e2e.ts` | 20 | 19 | 🟡 1 fixme (discard) — re-authored fire-4 ✅ |
 | 13 | Voice agent (numbers/conversations/test/agent/mcps/share tabs) | `flows-voice.flow.e2e.ts` | 16 | 16 | ✅ green (fire-8: 501-benign) |
-| 14 | MCP (connect/paste-key/oauth/per-tenant) | `flows-mcp.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 14 | MCP providers (connect/paste-key/oauth) — `/admin/mcp` REDIRECTS to `/admin/settings#mcp` tab | — | 0 | ❌ route N/A (redirect → MCP tab under Settings); per-site MCP server = row 35 |
 | 15 | Editor (bolt iframe host + shell nav-persistence) | `flows-editor.flow.e2e.ts` | 6 | 5 | 🟡 1 fixme (iframe console noise) |
 | 16 | Apps (67-app catalog: search/lifecycle/category/card) | `flows-apps.flow.e2e.ts` | 18 | 18 | ✅ green (prod) |
 | 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 16 | ✅ green (fire-13 — fixed a REAL 375px mobile overflow) |
@@ -63,7 +63,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 32 | **Bookings** (`native_booking_engine`) — org appointments (visitor/status) widget on the hub | `flows-bookings.flow.e2e.ts` | 8 | 8 | ✅ green (fire-23 — RESURRECTED: created booking_appointments + seeded + widget) |
 | 33 | **Credit wallet** (`credit_wallet_rollover`) — AI-credit balance + ledger on Billing | `flows-credits.flow.e2e.ts` | 8 | 8 | ✅ green (fire-24 — RESURRECTED: created credit_wallet_ledger + seeded + widget) |
 | 34 | **Edge personalization** (`edge_personalization`) — visitor variant rules + live resolver on Snapshots | `flows-personalization.flow.e2e.ts` | 8 | 8 | ✅ green (fire-25 — RESURRECTED: created site_personalization_variants + GET /variants endpoint + seeded + panel) |
-| — | **TOTAL** | | **~416** | **485** | 🟢 485 REAL green + 12 fixme (38 flow files) |
+| 35 | **Per-site MCP server** (`/admin/sites/:id/mcp-server`) — token mint/revoke + tool playground for external agents | `flows-mcp-server.flow.e2e.ts` | 9 | 9 | ✅ green (fire-26 — RESURRECTED: applied MISSING site_mcp_tokens table — minting was lying-success) |
+| — | **TOTAL** | | **~416** | **494** | 🟢 494 REAL green + 12 fixme (39 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -597,3 +598,28 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Twelve features finished this session** (7 clean + 5 resurrections). Snapshots is now a full per-site
     hub (readiness + sparkline + timeline-notes + labels + personalization).
   - Running total: **485 REAL green / 497 written across 38 files (12 fixme)**.
+- **Fire 26 (2026-08-13)** — DEPTH pass #14: **covered the per-site MCP server surface + UNCOVERED & FIXED a
+  real bug.** **Net +9 green → 494; new file #39. 6 from 500.**
+  - Picked a genuinely-uncovered rich surface: `/admin/sites/:id/mcp-server` (SiteMcpServerComponent —
+    token mint/revoke + tool playground for external agents). While probing, found `/api/sites/:id/mcp/tokens`
+    mint was **lying-success**: the `site_mcp_tokens` + `site_mcp_tool_usage` tables were **MISSING in prod** —
+    migration `0514` authored the DDL but ENDED with an `INSERT INTO feature_flags (enabled_globally,rollout_pct)`
+    on a legacy flag schema that doesn't exist in prod → the whole migration failed & was never applied. So
+    minted tokens never persisted → external agents could never authenticate to a site's MCP endpoint.
+  - **Fix:** applied both tables to prod + wrote corrective migration `0625_apply_site_mcp_tokens_tables.sql`
+    (idempotent DDL, legacy flag INSERT omitted). No worker/frontend code change — the handlers were already
+    correct; the table was the only missing piece.
+  - **Proven:** authored `flows-mcp-server.flow.e2e.ts` — 9 journeys × 2 browsers = **18 green**: surface +
+    endpoint URL, tool-list **reconcile** vs `/mcp/tools` (9 built-in CRUD tools), honest empty tokens state,
+    a full **MUTATION journey** (mint uniquely-labelled token → reveal-once banner → tokens-table row →
+    ground-truth persisted → REVOKE via confirm-accept → gone from store), tool playground opens for a
+    read-only tool, console-clean, reload, cleanup. AI-vision 9/10.
+  - **Mutation-hygiene lessons (re-confirmed):** the confirm dialog's accept is `data-testid="confirm-accept"`
+    (NOT a generic role-button matcher); a long mint+2-polls+revoke journey needs `test.setTimeout(60_000)`;
+    poll after-mint ground-truth with `toPass` (D1 read-replica lag on a fresh cross-request GET); make the
+    "clean start" test SELF-HEALING (revoke leftovers before asserting) so a mid-run crash can't wedge the
+    serial suite. Swept 4 leaked tokens from the crashed pre-fix runs.
+  - **Coverage-doc correction (verify-against-source-of-truth):** rows 9 (SEO) + 14 (MCP) were stale "todo"s —
+    `/admin/seo` REDIRECTS to `/admin/site-features` and `/admin/mcp` REDIRECTS to `/admin/settings#mcp`, so
+    both are route-N/A (already covered), not uncovered work. Marked accordingly.
+  - Running total: **494 REAL green / 506 written across 39 files (12 fixme)**. **6 from 500.**
