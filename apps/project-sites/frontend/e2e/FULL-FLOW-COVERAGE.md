@@ -42,7 +42,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 14 | MCP (connect/paste-key/oauth/per-tenant) | `flows-mcp.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 15 | Editor (bolt iframe host + shell nav-persistence) | `flows-editor.flow.e2e.ts` | 6 | 5 | 🟡 1 fixme (iframe console noise) |
 | 16 | Apps (67-app catalog: search/lifecycle/category/card) | `flows-apps.flow.e2e.ts` | 18 | 18 | ✅ green (prod) |
-| 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 15 | 🟡 1 fixme (375px overflow — poss. real) |
+| 16b | AI Agents / ai-endpoints (filters/cards/create/test) | `flows-ai-endpoints.flow.e2e.ts` | 16 | 16 | ✅ green (fire-13 — fixed a REAL 375px mobile overflow) |
 | 17 | API Docs ✅ + Snapshots ✅ + Logs ✅ (audit/explorer/traces tabs) | `flows-docs`+`flows-snapshots`+`flows-logs` | 44 | 44 | ✅ green (fire-10) |
 | 17b | Super-admin gate (restricted view for non-super-admin) + Editor host | `flows-super-admin` + `flows-editor` | 12 | 11 | 🟡 1 fixme (editor iframe noise) |
 | 17c | Auth security (active sessions + 2FA) | `flows-auth-security.flow.e2e.ts` | 12 | 11 | 🟡 1 fixme (2FA enroll surface) |
@@ -51,7 +51,7 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Admin 404 recovery (suggest/renamed/soft-404/quick-jump/cockpit-retained) | `flows-states.flow.e2e.ts` | 17 | 17 | ✅ green (fire-12) — target 26→17 (error-boundary crash cards are unit-owned, not prod-forceable) |
 | 22 | Shell widgets (palette/user-menu/shortcuts/notifs/task-tray/network/announcer/site-actions) | `flows-shell-widgets.flow.e2e.ts` | 16 | 16 | ✅ green (fire-11) |
-| — | **TOTAL** | | **~416** | **384** | 🟡 384 REAL green + 14 fixme (26 flow files) — every surface row green |
+| — | **TOTAL** | | **~416** | **385** | 🟡 385 REAL green + 13 fixme (26 flow files) — every surface row green |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -320,3 +320,19 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     Next toward 500: the diagnosable fixme (ai-endpoints-15 375px real-look, auth-security 2FA-enroll),
     then broaden per-app coverage (each of the 67 catalog apps → deeper lifecycle journeys).
   - Running total: **384 REAL green / 398 written across 26 files (14 fixme)**.
+- **Fire 13 (2026-08-13)** — DEPTH pass #1: turned the flagged-POSSIBLY-real **ai-endpoints-15 (375px overflow)**
+  fixme into a real product fix. **This was a REAL mobile layout bug, not a test artifact.** **Net +1 green →
+  385; fixme 14 → 13; ai-endpoints now fully green (16/16).**
+  - **Diagnosis:** un-fixme'd the test + added an in-page offender-finder → at 375px the endpoint `.url-row`
+    (method badge · long base-URL `.url-host` · `.url-slug` link · edit btn · spacer · status pill · timestamp)
+    laid out to 542px with NO shrink/truncate, forcing the list card to 582px — a ~207px horizontal overflow
+    on every mobile viewport. Classic flexbox: children lacked `min-width:0`, so the flex container's min-content
+    = sum of children.
+  - **Fix (`ai-endpoints.component.ts` styles):** `.url-row { min-width:0 }` + `@media(max-width:640px){ .url-row{ flex-wrap:wrap } }`
+    (trailing meta drops to a 2nd line on mobile) + `.url-host`/`.url-slug { min-width:0; flex-shrink:1; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap }` (long URLs truncate instead of forcing width). Desktop (≥768px) unchanged.
+  - **Proven:** built + deployed to prod R2 (CDN purged) → re-ran the 375px test → GREEN (0 overflow offenders),
+    full file 16/16 @ workers=3. A real "finish the feature + prove it" fire — exactly the loop's intent.
+  - **Lesson:** a "POSSIBLY real" fixme flagged during a coverage pass is worth un-fixme'ing + measuring with an
+    offender-finder BEFORE deciding artifact-vs-bug — this one was a genuine defect shipping to every mobile user.
+  - Running total: **385 REAL green / 398 written across 26 files (13 fixme)**.

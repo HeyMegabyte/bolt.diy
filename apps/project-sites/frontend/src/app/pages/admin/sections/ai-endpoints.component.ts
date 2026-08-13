@@ -589,7 +589,10 @@ interface InlineEdit {
     .endpoint-row:hover { background: rgba(255,255,255,0.018); transform: translateY(-1px); box-shadow: 0 6px 18px -12px rgba(0,229,255,0.30); }
     .endpoint-row.row-open { background: rgba(0,229,255,0.025); transform: none; }
     @media (prefers-reduced-motion: reduce) { .endpoint-row { transition: none; } .endpoint-row:hover { transform: none; } }
-    .url-row { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: "calt", "liga"; font-size: 0.82rem; }
+    .url-row { display: flex; align-items: center; gap: 8px; min-width: 0; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: "calt", "liga"; font-size: 0.82rem; }
+    /* Mobile: let the trailing meta (status pill + timestamp) wrap to a second
+       line instead of forcing the row past the viewport (375px overflow fix). */
+    @media (max-width: 640px) { .url-row { flex-wrap: wrap; } }
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; }
     /* Per-method colors, shared across the display badge, the IDE-overlay badge,
        AND the method-picker <select> so the picker recolors to match the chosen
@@ -601,8 +604,8 @@ interface InlineEdit {
     .badge.badge-patch, .overlay-method-badge.badge-patch, .badge-select.badge-patch { background: rgba(45,212,191,0.16); color: #2dd4bf; border-color: rgba(45,212,191,0.3); }
     .badge.badge-delete, .overlay-method-badge.badge-delete, .badge-select.badge-delete { background: rgba(248,113,113,0.16); color: #f87171; border-color: rgba(248,113,113,0.3); }
     .badge-select { font-size: 0.62rem; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
-    .url-host { color: rgba(255,255,255,0.55); }
-    .url-slug { color: #00E5FF; text-decoration: none; margin-left: -8px; }
+    .url-host { color: rgba(255,255,255,0.55); min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-slug { color: #00E5FF; text-decoration: none; margin-left: -8px; min-width: 0; max-width: 100%; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .url-slug:hover { text-decoration: underline; }
     .slug-input { background: transparent; border: 1px dashed rgba(0,229,255,0.4); color: #00E5FF; font-family: inherit; font-size: inherit; padding: 2px 6px; border-radius: 6px; outline: none; min-width: 140px; }
     .icon-edit { background: transparent; border: 0; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 0.85rem; display: inline-flex; align-items: center; }

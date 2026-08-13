@@ -563,7 +563,7 @@ test.describe('Full-flow · ai-endpoints', () => {
   });
 
   // ── TEST 15 ────────────────────────────────────────────────────────────────
-  test.fixme('15 · page renders correctly at 375 px mobile breakpoint', async ({ page }) => {
+  test('15 · page renders correctly at 375 px mobile breakpoint', async ({ page }) => {
     const errors = attachConsole(page);
     await page.setViewportSize({ width: 375, height: 812 });
     await seedSession(page);
@@ -571,6 +571,29 @@ test.describe('Full-flow · ai-endpoints', () => {
 
     // Page root must appear at mobile viewport
     await expect(page.locator(PAGE_ROOT)).toBeVisible({ timeout: 15_000 });
+
+    // Diagnostic: identify the widest element that breaches the viewport (helps
+    // pinpoint a real overflow source vs a test artifact).
+    const diag = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const offenders: { tag: string; testid: string; cls: string; w: number }[] = [];
+      document.querySelectorAll('[data-testid="ai-endpoints-page"] *').forEach((n) => {
+        const e = n as HTMLElement;
+        const right = e.getBoundingClientRect().right;
+        if (e.scrollWidth > vw + 1 || right > vw + 1) {
+          offenders.push({
+            tag: e.tagName.toLowerCase(),
+            testid: e.getAttribute('data-testid') ?? '',
+            cls: (e.className || '').toString().slice(0, 60),
+            w: Math.round(Math.max(e.scrollWidth, right)),
+          });
+        }
+      });
+      return { vw, offenders: offenders.slice(0, 8) };
+    });
+    if (diag.offenders.length) {
+      console.warn('375px overflow offenders:', JSON.stringify(diag));
+    }
 
     // The page root must not overflow beyond the viewport width
     const overflows = await page.evaluate(() => {
