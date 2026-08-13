@@ -59,7 +59,8 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 28 | **AI budget meter** (`token_burn_meter`) — spend vs cap + killswitch state on AI Agents | `flows-budget.flow.e2e.ts` | 8 | 8 | ✅ green (fire-19 — FINISHED: built the meter atop ai-endpoints) |
 | 29 | **Visits sparkline** (`site_health_sparklines`) — 7-day SVG traffic trend + total/peak on Snapshots | `flows-sparkline.flow.e2e.ts` | 7 | 7 | ✅ green (fire-20 — FINISHED: built SVG sparkline + seeded 7 days traffic) |
 | 30 | **Timeline notes** (`analytics_annotations`) — add/list/delete site annotations on Snapshots (MUTATION) | `flows-annotations.flow.e2e.ts` | 8 | 8 | ✅ green (fire-21 — RESURRECTED: 3 backend fixes + built CRUD UI) |
-| — | **TOTAL** | | **~416** | **453** | 🟢 453 REAL green + 12 fixme (34 flow files) |
+| 31 | **Site labels** (`site_tags`) — create+assign+remove coloured tags on Snapshots (MUTATION) | `flows-tags.flow.e2e.ts` | 8 | 8 | ✅ green (fire-22 — RESURRECTED: created 2 missing tables + built CRUD UI) |
+| — | **TOTAL** | | **~416** | **461** | 🟢 461 REAL green + 12 fixme (35 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -500,6 +501,25 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
   - **Eight features finished this session** (onboarding + activity + referral + readiness + usage + budget +
     sparkline + annotations). Snapshots now hosts THREE per-site panels.
   - Running total: **453 REAL green / 465 written across 34 files (12 fixme)**.
+- **Fire 22 (2026-08-13)** — DEPTH pass #10: **RESURRECTED `site_tags`** (2nd missing-table module) + wrote a
+  systemic detector. **Net +8 green → 461; new file #35. 39 from 500.**
+  - **Audit-arc move:** fire-21's missing-table finding is a CLASS → wrote `scripts/audit-missing-tables.mjs`
+    (maps every `libs/features/*` INSERT target → checks `sqlite_master` on prod). It found **6 unbuilt
+    modules total**: annotations ✅(fire-21) + site_tags ✅(fire-22) now fixed; **still-broken backlog =
+    credit_wallet_rollover, edge_personalization, native_booking_engine, payments_rail** (each needs a
+    CREATE TABLE migration before its writes persist — future fires).
+  - **site_tags fix:** BOTH `site_tags` + `site_tag_assignments` tables were missing → added
+    `migrations/0621_create_site_tags.sql` + applied. Verified create→assign→delete in-browser (curl writes
+    bot-challenged). Tag ids ARE real uuids so no schema relaxation needed (unlike annotations' siteId).
+  - **Built** `components/site-labels/site-labels.component.ts` — coloured label pills + create-and-assign
+    form + remove, reacting to `selectedSite()`. "Add label" creates an org tag AND assigns it to the site
+    in one step; ✕ deletes the tag. Wired onto Snapshots (4th per-site panel).
+  - **Proven:** 8 journeys GREEN @ workers=1 serial (render+form, colours, add-disabled, **the MUTATION
+    journey add→assert-persisted(site tags store)→assert-UI(pill)→remove→assert-gone**, 2nd label w/ colour,
+    reload, quad-panel journey, self-cleaning cleanup → 0 probe labels). AI-vision ~9/10.
+  - **Nine features finished this session** (…+ annotations + site_tags). Snapshots now hosts FOUR per-site
+    panels (readiness + sparkline + timeline-notes + site-labels) — a genuinely complete site-management hub.
+  - Running total: **461 REAL green / 473 written across 35 files (12 fixme)**.
   - **auth-security-05 detail:** The 2FA feature is FULLY
     BUILT (`as-2fa-enroll` → `app-dialog-shell#as-2fa-dialog` opens on a password-confirm step
     `as-2fa-password`/`as-2fa-continue`, then mints `as-2fa-totp-uri` + backup codes after re-auth). The
