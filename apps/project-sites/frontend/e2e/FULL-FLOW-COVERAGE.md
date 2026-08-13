@@ -30,20 +30,20 @@ Run all: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=pla
 | 7 | Domains (search/purchase/hostname/primary/delete) | `flows-domains.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 8 | Analytics (overview/tabs/live/funnel/events) | `flows-analytics.flow.e2e.ts` | 30 | 16 | 🟡 6 fixme (see fire log) |
 | 9 | SEO toolkit + local-SEO | `flows-seo.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| 10 | Forms + form-analytics + leads | `flows-forms.flow.e2e.ts` | 20 | 0 | ⬜ todo |
+| 10 | Forms + submissions (filters/prompt-designer/export) | `flows-forms.flow.e2e.ts` | 16 | 13 | 🟡 3 fixme (pills/designer) |
 | 11 | Feature-flags admin (list/filter/toggle/rollout/stage/override) | `flows-feature-flags.flow.e2e.ts` | 18 | 0 | ⬜ todo |
-| 12 | Social / Pulse (compose/drafts/connect/auto-pilot) | `flows-social.flow.e2e.ts` | 24 | 0 | ⬜ deferred (8/18 — wrong interaction model, re-probe) |
+| 12 | Social / Pulse (composer/view-switcher/connect/auto-pilot) | `flows-social.flow.e2e.ts` | 20 | 19 | 🟡 1 fixme (discard) — re-authored fire-4 ✅ |
 | 13 | Voice agent (numbers/conversations/test/agent/mcps/share tabs) | `flows-voice.flow.e2e.ts` | 16 | 14 | 🟡 2 fixme (search input) |
 | 14 | MCP (connect/paste-key/oauth/per-tenant) | `flows-mcp.flow.e2e.ts` | 20 | 0 | ⬜ todo |
 | 15 | Editor (bolt iframe boot + generate + publish) | `flows-editor.flow.e2e.ts` | 12 | 0 | ⬜ todo |
 | 16 | Apps (67-app catalog: search/lifecycle/category/card) | `flows-apps.flow.e2e.ts` | 18 | 18 | ✅ green (prod) |
-| 17 | Docs + audit log + AI endpoints/logs | `flows-observability.flow.e2e.ts` | 18 | 0 | ⬜ todo |
+| 17 | API Docs (51-endpoint browser) ✅ + Snapshots ✅ + Logs | `flows-docs` + `flows-snapshots` (logs deferred) | 30 | 29 | 🟡 1 fixme + logs deferred (tab model) |
 | 18 | Dashboard hub (getting-started/widgets/chat) | `flows-dashboard.flow.e2e.ts` | 16 | 0 | ⬜ todo |
 | 19 | `libs/features/*` dark modules — surfaced at `/admin/site-features` (sf-card/toggle/locked) | `flows-site-features.flow.e2e.ts` | 24 | 16 | ✅ green — proves the module hub |
 | 20 | Marketing (home/blog/changelog/status/privacy/terms/contact) | `flows-marketing.flow.e2e.ts` | 24 | 24 | ✅ green (prod) |
 | 21 | Error/empty/loading states + 404 recovery | `flows-states.flow.e2e.ts` | 26 | 0 | ⬜ todo |
 | 22 | Notifications / task-tray / command-palette / network-status | `flows-shell-widgets.flow.e2e.ts` | 16 | 0 | ⬜ todo |
-| — | **TOTAL** | | **~480** | **146** | 🟡 146 REAL green + 9 fixme (fire-3 removed 36 fake-green on 404 routes) |
+| — | **TOTAL** | | **~470** | **207** | 🟡 207 REAL green + 14 fixme (12 flow files) |
 
 Legend: ⬜ todo · 🟡 in progress · ✅ complete (Done ≥ Target, all green on prod).
 
@@ -145,3 +145,18 @@ Discovered from the 88 `libs/features/*` modules + admin sections. As each is fi
     INTERACTION behavior (social 8/18, what-clicking-does) → the surfaces I author myself (understand
     the interaction) hit 100%. Author the interaction-heavy surfaces; delegate the catalog/list ones.
   - Running total: **146 real green / 155 written across 8 files (9 fixme)**.
+- **Fire 4 (2026-08-13)** — probed 5 surfaces first (all real, no 404), then split by the fire-3 rule
+  (interaction-heavy → me, catalog/list → agents). **+61 green → 207 total across 12 files.**
+  - **Authored myself:** `flows-social` re-authored 19/20 (the fire-3 agent modeled Drafts/Queue/
+    Sent/Calendar as PANELS — they're VIEW-SWITCHER buttons; fixed the model → green) + 1 fixme
+    (discard-clears); `flows-forms` 13/16 + 3 fixme (filter-pill accessible-name, prompt-designer
+    overlay selector — my assertions slightly off, not product bugs).
+  - **Agents w/ exact-testid briefs:** `flows-docs` 17/18 ✅ (51-endpoint API browser: search + verb
+    chips + endpoint nav), `flows-snapshots` 12/12 ✅ (empty-state + create-dialog-cancel, no
+    mutation). `flows-logs` 7/14 → DELETED (agent guessed the audit/explorer/traces tab→panel
+    model wrong — same class as fire-3 social; re-probe the tab interaction next fire).
+  - **Lesson (fire-4):** the interaction-heavy/catalog split HELD — I hit 19/20 + 13/16 on the
+    stateful surfaces (social/forms), agents nailed the catalog/list ones (docs 17/18, snapshots
+    12/12) but again missed a tab→panel interaction (logs). Tab-strip surfaces (logs, and earlier
+    social/analytics) need ME or an interaction-probe, not a blind agent.
+  - Running total: **207 REAL green / 221 written across 12 files (14 fixme)**.
