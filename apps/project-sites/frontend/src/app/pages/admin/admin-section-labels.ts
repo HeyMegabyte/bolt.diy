@@ -25,7 +25,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   pseo: 'pSEO', logs: 'Logs',
   mcp: 'MCP', seo: 'SEO', inbox: 'Inbox',
   import: 'Import', sites: 'Sites', welcome: 'Welcome', email: 'Email',
-  swarm: 'Swarm', copilot: 'Copilot', dna: 'Site DNA', branches: 'Branches',
+  copilot: 'Copilot', dna: 'Site DNA', branches: 'Branches',
   'mcp-server': 'MCP Server', stack: 'Domain Stack', diff: 'Snapshot Diff',
   // Coverage gap closed: these routed sections fell back to 'Editor' → stale
   // document title (WCAG 2.4.2). Verified live the titles stayed "Editor".

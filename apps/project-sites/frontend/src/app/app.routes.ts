@@ -477,14 +477,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/site-dna.component').then((m) => m.AdminSiteDnaComponent),
       },
-      // ── Swarm-stream-marketplace-DNA (Wave 2C — features #5-8) ─────────
-      {
-        // #5 Multi-Agent Swarm Editor + #6 Live-stream Preview.
-        // Per-site live board; :siteId is the slug or UUID.
-        path: 'swarm/:siteId',
-        loadComponent: () =>
-          import('./pages/admin/sections/swarm.component').then((m) => m.AdminSwarmComponent),
-      },
       {
         // Super-admin — gated server-side on `users.is_super_admin = 1` (the
         // worker routes return 403 to non-super-admins; the component shows a

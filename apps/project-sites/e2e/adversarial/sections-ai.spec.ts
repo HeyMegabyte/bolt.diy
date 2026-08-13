@@ -115,57 +115,7 @@ test.describe('ADV-AI-12 — Voice navigate back-and-forth 3×', () => {
   });
 });
 
-// ─── ADV-AI-13: Swarm with invalid site ID ──────────────────────────────────
-
-test.describe('ADV-AI-13 — Swarm with invalid site ID', () => {
-  test('/admin/swarm/invalid-site-id-999 does not render white screen', async ({
-    authedPage: page,
-  }) => {
-    const errors = collectErrors(page);
-    await gotoAdmin(page);
-
-    // Real deep-link navigation (route exists: swarm/:siteId)
-    await page.goto(`${BASE}/admin/swarm/invalid-site-id-999`, {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(page.locator('aside').first()).toBeVisible({ timeout: 15_000 });
-    const bodyText = await page.locator('body').textContent();
-    expect(bodyText?.trim().length).toBeGreaterThan(0);
-    await shot(page, 'ai-13-swarm-invalid-id');
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// ─── ADV-AI-14: Swarm navigate away mid-load ────────────────────────────────
-
-test.describe('ADV-AI-14 — Swarm navigate away mid-load', () => {
-  test('leaving a swarm route before it fully loads leaves no zombie state', async ({
-    authedPage: page,
-  }) => {
-    const errors = collectErrors(page);
-    await gotoAdmin(page);
-
-    // Deep-link into swarm, then IMMEDIATELY click away via the sidebar
-    // while the section is still lazy-loading.
-    await page.goto(`${BASE}/admin/swarm/e2e-site-001`, {
-      waitUntil: 'commit',
-    });
-    const sentinel = await injectSentinel(page);
-
-    const analyticsLink = page.locator('a[routerLink="/admin/analytics"]').first();
-    if (await analyticsLink.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      await analyticsLink.click();
-      await page.waitForURL(/\/admin\/analytics/, { timeout: 8_000 }).catch(() => undefined);
-    }
-
-    await expect(page.locator('aside').first()).toBeVisible({ timeout: 15_000 });
-    // Sentinel survival proves the click-away was SPA routing, not a reload
-    await assertSentinel(page, sentinel);
-    await shot(page, 'ai-14-swarm-bounce');
-    expect(errors).toHaveLength(0);
-  });
-});
+// ─── ADV-AI-13/14 (Swarm) removed 2026-08-13 — the swarm editor feature was cut.
 
 // ─── ADV-AI-15: Site DNA with invalid site ID ───────────────────────────────
 

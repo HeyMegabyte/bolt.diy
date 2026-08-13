@@ -79,7 +79,6 @@ export default defineConfig({
     'admin/analytics.spec.ts',              // site_analytics evidence (Pass-15 tails fixed)
     'admin/deliverability.spec.ts',         // email_deliverability_wizard evidence
     'site-mcp/site-mcp.spec.ts',            // site_mcp_server evidence
-    'swarm/swarm.spec.ts',                  // P1 secondary — swarm_editor unauth dark-gate (401/403/404) + shape-on-2xx + admin auth guard (repaired + enrolled Pass 22)
     'pseo/pseo-matrix.spec.ts',             // pseo_matrix_v2 evidence
     'media-video-studio.spec.ts',           // site_video_gen evidence (editor-overlay path)
     // ── Residual-admin triage (2026-07-31) — the remaining 19 unexecuting

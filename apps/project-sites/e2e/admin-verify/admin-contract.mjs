@@ -143,9 +143,6 @@ export const ADMIN_CONTRACT = [
     api: [], signal: 'dns|ssl|email|gsc|stack|wizard|step', shell: 'domain-stack-shell', minLen: 80, severity: 'soft' },
   { slug: 'apps-instance-detail', route: '/admin/apps/instances/:id', label: 'App Instance', kind: 'dynamic', guard: 'auth', flag: null,
     api: [], signal: 'instance|log|env|restart|status|deploy', shell: 'apps-instance-detail-shell', minLen: 80, severity: 'soft' },
-  { slug: 'swarm', route: '/admin/swarm/:siteId', label: 'Swarm Editor', kind: 'dynamic', guard: 'auth', flag: null,
-    api: [], signal: 'swarm|agent|stream|board|preview', shell: 'swarm-shell', minLen: 80, severity: 'soft',
-    notes: 'Deprecated drift-shim per alias-modules memory — keep, do not delete.' },
 
   // ── Operator sections (sysAdmin / superAdmin) — sweep must auth as brian ──────
   { slug: 'feature-flags', route: '/admin/feature-flags', label: 'Feature Flags', kind: 'section', guard: 'sysAdmin', flag: null,
