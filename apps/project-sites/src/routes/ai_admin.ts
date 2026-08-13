@@ -503,17 +503,15 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
     throw new HTTPError(400, 'contact_email and reply_email must be valid email addresses');
   }
   const allowed = [
-    'chat_persona',
+    // chat_persona + brand_tone/brand_primary/brand_accent + timezone/default_locale
+    // were removed from Settings (2026-08-12): persona is inferred from the system
+    // prompt, and brand + locale are auto-detected from the logo/content — the
+    // Settings UI no longer writes them, so they're dropped from the write path.
+    // The columns remain for existing rows + the build pipeline that READS them.
     'chat_system_prompt',
     'form_router_prompt',
     'reply_email',
     'contact_email',
-    'brand_tone',
-    // Settings → General fields the FE sends; were silently dropped before (0611).
-    'brand_primary',
-    'brand_accent',
-    'timezone',
-    'default_locale',
   ] as const;
   const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) if (k in body) fields[k] = body[k];

@@ -35,6 +35,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
             put: jasmine.createSpy('put').and.returnValue(of({})),
             post: jasmine.createSpy('post').and.returnValue(of({})),
             delete: jasmine.createSpy('delete').and.returnValue(of({})),
+            updateSite: jasmine.createSpy('updateSite').and.returnValue(of({})),
           },
         },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success'), info: jasmine.createSpy('info'), warning: jasmine.createSpy('warning') } },
@@ -73,19 +74,29 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(c.isMcpEnvVarsOpen('mailchimp')).toBeFalse();
   });
 
-  it('generalEmailsInvalid flags a malformed contact/reply email (empty optional = valid); save() no-ops + toasts when invalid', () => {
+  it('emailInvalid flags a malformed contact email (empty optional = valid); saveGeneral no-ops when invalid', () => {
     build({ id: 's', slug: 'demo' });
     const c = fixture.componentInstance;
-    c.settings.contact_email = '';
-    c.settings.reply_email = '';
-    expect(c.generalEmailsInvalid()).withContext('empty optional emails are valid').toBeFalse();
-    c.settings.contact_email = 'not-an-email';
-    expect(c.generalEmailsInvalid()).withContext('malformed contact email → invalid').toBeTrue();
-    const api = TestBed.inject(ApiService) as unknown as { put: jasmine.Spy };
-    const toast = TestBed.inject(ToastService) as unknown as { error: jasmine.Spy };
-    c.save();
-    expect(api.put).withContext('no PUT with an invalid email — real validation, not a silent garbage save').not.toHaveBeenCalled();
-    expect(toast.error).withContext('useful inline error').toHaveBeenCalled();
+    c.business.contact_email = '';
+    expect(c.emailInvalid(c.business.contact_email)).withContext('empty optional email is valid').toBeFalse();
+    c.business.business_name = 'Acme';
+    c.business.contact_email = 'not-an-email';
+    expect(c.emailInvalid(c.business.contact_email)).withContext('malformed contact email → invalid').toBeTrue();
+    const api = TestBed.inject(ApiService) as unknown as { updateSite: jasmine.Spy };
+    c.saveGeneral(new Event('submit'));
+    expect(api.updateSite).withContext('no save with an invalid email — real validation, not a silent garbage save').not.toHaveBeenCalled();
+  });
+
+  it('saveGeneral persists identity + MIRRORS contact_email → reply_email (one email field, not two)', () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    const api = TestBed.inject(ApiService) as unknown as { updateSite: jasmine.Spy; put: jasmine.Spy };
+    c.business.business_name = 'Acme';
+    c.business.contact_email = 'hi@acme.com';
+    c.saveGeneral(new Event('submit'));
+    expect(api.updateSite).withContext('business identity persists to the site record').toHaveBeenCalled();
+    expect(api.put).withContext('contact + reply written as the SAME value').toHaveBeenCalledWith(
+      '/sites/s/ai-settings', { contact_email: 'hi@acme.com', reply_email: 'hi@acme.com' });
   });
 
   it('does not show a premature "0" count (or announce it) while connections/team load', () => {
@@ -136,10 +147,9 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     const nav = el.querySelector('nav[role="tablist"]');
     expect(nav).toBeTruthy();
     const tabs = el.querySelectorAll('button[role="tab"]');
-    // 10 since Webhooks + Email (2026-06-07) then Domains + API Tokens
-    // (2026-08-12) moved under Settings: General · Business · Team · AI Chat ·
-    // MCP · AI Env Vars · Webhooks · Email · Domains · API Tokens.
-    expect(tabs.length).toBe(10);
+    // 9 tabs: the Business tab was folded into General (2026-08-12), so:
+    // General · Team · AI Chat · MCP · AI Env Vars · Webhooks · Email · Domains · API Tokens.
+    expect(tabs.length).toBe(9);
     const selected = Array.from(tabs).filter((t) => t.getAttribute('aria-selected') === 'true');
     expect(selected.length).toBe(1);
     const labels = Array.from(tabs).map((t) => t.textContent?.trim());
@@ -147,6 +157,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(labels).withContext('Email now a Settings tab').toContain('Email');
     expect(labels).withContext('Domains now a Settings tab').toContain('Domains');
     expect(labels).withContext('API Tokens now a Settings tab').toContain('API Tokens');
+    expect(labels).withContext('Business tab folded into General').not.toContain('Business');
   });
 
   it('embeds the Webhooks surface under its own Settings tab (moved from top-level nav)', () => {
@@ -336,32 +347,6 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(fixture.componentInstance.tab()).toBe('mcp');
   });
 
-  /**
-   * a11y form-label sweep: the brand-color rows nest TWO controls (the native
-   * color swatch + the hex text field) inside ONE <label>. HTML associates a
-   * label with only its first control, so the hex inputs were unnamed for AT.
-   * Every brand-color control must carry its own accessible name.
-   */
-  it('gives every brand-color control a distinct accessible name', () => {
-    build({ id: 's', slug: 'demo' });
-    const el = fixture.nativeElement as HTMLElement;
-    const colorInputs = Array.from(el.querySelectorAll('input[type="color"]')) as HTMLInputElement[];
-    const hexInputs = Array.from(
-      el.querySelectorAll('input.font-mono[type="text"]'),
-    ) as HTMLInputElement[];
-    expect(colorInputs.length).toBe(2);
-    expect(hexInputs.length).toBeGreaterThanOrEqual(2);
-    for (const inp of [...colorInputs, ...hexInputs.slice(0, 2)]) {
-      const name = inp.getAttribute('aria-label');
-      expect(name && name.trim().length > 0)
-        .withContext(`accessible name on ${inp.getAttribute('placeholder') ?? inp.type}`)
-        .toBeTrue();
-    }
-    // The swatch + hex field for one color must NOT share an identical name.
-    expect(colorInputs[0].getAttribute('aria-label')).not.toBe(
-      hexInputs[0].getAttribute('aria-label'),
-    );
-  });
 });
 
 /**
@@ -647,55 +632,6 @@ describe('AdminSettingsComponent (disconnect in-flight guard)', () => {
     pd({ id: 'conn9', provider: 'stripe' }, 's1');
     expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
     expect((c as unknown as { isDisconnecting: (id: string) => boolean }).isDisconnecting('conn9')).toBeTrue();
-  });
-});
-
-import { HexColorSchema } from './settings.component';
-
-/**
- * P6 validation: brand color hex inputs are free text. A malformed value
- * ("blue", "#zzz") must NOT round-trip to the worker / corrupt the generated
- * theme — `hexInvalid` gates the General-settings Save (mirrors the email gate).
- */
-describe('HexColorSchema (brand color boundary)', () => {
-  it('accepts #rrggbb and #rgb', () => {
-    expect(HexColorSchema.safeParse('#00E5FF').success).toBe(true);
-    expect(HexColorSchema.safeParse('#0ef').success).toBe(true);
-    expect(HexColorSchema.safeParse('  #7C3AED  ').success).toBe(true); // trimmed
-  });
-  it('rejects non-hex / wrong-length / missing-hash', () => {
-    for (const bad of ['blue', '#zzz', '00E5FF', '#12', '#1234', '#1234567', 'rgb(0,0,0)']) {
-      expect(HexColorSchema.safeParse(bad).success).withContext(bad).toBe(false);
-    }
-  });
-});
-
-describe('AdminSettingsComponent (brand hex validation gate)', () => {
-  function build(): AdminSettingsComponent {
-    TestBed.configureTestingModule({
-      imports: [AdminSettingsComponent],
-      providers: [
-        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
-        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
-        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
-        { provide: Router, useValue: { navigate: () => undefined } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
-        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
-      ],
-    });
-    return TestBed.createComponent(AdminSettingsComponent).componentInstance;
-  }
-  afterEach(() => TestBed.resetTestingModule());
-
-  it('flags a malformed brand hex + gates Save; blank/valid pass', () => {
-    const c = build();
-    c.settings.brand_primary = 'blue';
-    expect(c.hexInvalid('blue')).toBe(true);
-    expect(c.brandColorsInvalid()).toBe(true);
-    expect(c.generalSettingsInvalid()).toBe(true);
-    c.settings.brand_primary = '#00E5FF';
-    c.settings.brand_accent = '';
-    expect(c.brandColorsInvalid()).toBe(false);
   });
 });
 

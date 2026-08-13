@@ -1,6 +1,5 @@
 import { Component, DestroyRef, HostListener, inject, signal, type OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { z } from 'zod';
 import { isValidEmail as isSharedValidEmail } from '../../../utils/validators/email';
 import { DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -24,12 +23,6 @@ import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.componen
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
-interface GeneralSettings { contact_email: string | null; reply_email: string | null; brand_tone: string | null; brand_primary?: string | null; brand_accent?: string | null; timezone?: string | null; default_locale?: string | null; }
-
-/** Brand color must be a 3- or 6-digit hex (`#abc` / `#00E5FF`). The free-text
- *  hex input accepts anything; this guards the value the worker persists + the
- *  site renders (a garbage color would corrupt the generated theme). */
-export const HexColorSchema = z.string().trim().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
 
 // Settings tabs are SCOPED TO THE CURRENTLY-SELECTED PROJECT. Each tab loads
@@ -38,10 +31,9 @@ interface Conn { id: string; provider: string; display_name: string; status: str
 // API Tokens are folded in here as tabs (the standalone /admin/domains and
 // /admin/api-tokens routes now redirect to #domains / #api-tokens).
 const TABS = [
-  { id: 'general',    label: 'General',     desc: 'Brand · contact email · tone · locale (this project)' },
-  { id: 'business',   label: 'Business',    desc: 'Business identity · address · brand assets · original prompt' },
+  { id: 'general',    label: 'General',     desc: 'Contact email · business identity · address · brand assets (this project)' },
   { id: 'team',       label: 'Team',        desc: 'Members · roles · invitations · 2FA' },
-  { id: 'ai-chat',    label: 'AI Chat',     desc: 'System prompt · persona · web search · knowledge files (this project)' },
+  { id: 'ai-chat',    label: 'AI Chat',     desc: 'System prompt · web search · knowledge files (this project)' },
   { id: 'mcp',        label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
   { id: 'env-vars',   label: 'AI Env Vars', desc: 'Custom key-value store surfaced to AI + MCP at inference time (org-wide)' },
   { id: 'webhooks',   label: 'Webhooks',    desc: 'Signed, retried event notifications to your endpoints (this project)' },
@@ -127,91 +119,91 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── GENERAL ─────────────────── -->
       @if (tab() === 'general') {
-        <section class="card grid md:grid-cols-2 gap-5" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
-          <div class="md:col-span-2">
+        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
+          <header class="mb-4">
             <h2 class="m-0 text-base font-semibold text-white mb-1">General</h2>
-            <p class="text-[0.7rem] text-text-secondary m-0">Public-facing details + how the AI router responds.</p>
-          </div>
-          <label class="block">
-            <span class="muted-h">Contact email <small class="text-text-secondary">(shown on your site)</small></span>
-            <input hlmInput type="email" class="w-full mt-1" placeholder="hello@yourbiz.com" [(ngModel)]="settings.contact_email"
-              [attr.aria-invalid]="emailInvalid(settings.contact_email) || null" [attr.aria-describedby]="emailInvalid(settings.contact_email) ? 'contact-email-hint' : null" />
-            @if (emailInvalid(settings.contact_email)) {
-              <span id="contact-email-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a valid email address (or leave blank).</span>
-            }
-          </label>
-          <label class="block">
-            <span class="muted-h">Reply email <small class="text-text-secondary">(where the AI router sends contact-form messages)</small></span>
-            <input hlmInput type="email" class="w-full mt-1" placeholder="owner@yourbiz.com" [(ngModel)]="settings.reply_email"
-              [attr.aria-invalid]="emailInvalid(settings.reply_email) || null" [attr.aria-describedby]="emailInvalid(settings.reply_email) ? 'reply-email-hint' : null" />
-            @if (emailInvalid(settings.reply_email)) {
-              <span id="reply-email-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a valid email address (or leave blank).</span>
-            }
-          </label>
-          <label class="block">
-            <span class="muted-h">Brand tone</span>
-            <input hlmInput type="text" class="w-full mt-1" placeholder="warm · plainspoken · never pushy" [(ngModel)]="settings.brand_tone" />
-          </label>
-          <label class="block">
-            <span class="muted-h">Timezone</span>
-            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.timezone">
-              <option value="">Auto-detect</option>
-              <option value="America/New_York">America/New_York</option>
-              <option value="America/Los_Angeles">America/Los_Angeles</option>
-              <option value="America/Chicago">America/Chicago</option>
-              <option value="Europe/London">Europe/London</option>
-              <option value="Europe/Berlin">Europe/Berlin</option>
-              <option value="Asia/Singapore">Asia/Singapore</option>
-              <option value="Australia/Sydney">Australia/Sydney</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="muted-h">Default locale</span>
-            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.default_locale">
-              <option value="en-US">English (US)</option>
-              <option value="en-GB">English (UK)</option>
-              <option value="es-ES">Español</option>
-              <option value="fr-FR">Français</option>
-              <option value="de-DE">Deutsch</option>
-              <option value="ja-JP">日本語</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="muted-h">Brand primary color</span>
-            <div class="flex items-center gap-2 mt-1">
-              <input type="color" aria-label="Brand primary color swatch" class="ps-swatch h-9 w-12 cursor-pointer" [(ngModel)]="settings.brand_primary" />
-              <input hlmInput type="text" aria-label="Brand primary color hex value" class="flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary"
-                [attr.aria-invalid]="hexInvalid(settings.brand_primary) || null" [attr.aria-describedby]="hexInvalid(settings.brand_primary) ? 'brand-primary-hint' : null" />
-            </div>
-            @if (hexInvalid(settings.brand_primary)) {
-              <span id="brand-primary-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a hex color like #00E5FF or #0EF (or leave blank).</span>
-            }
-          </label>
-          <label class="block">
-            <span class="muted-h">Brand accent color</span>
-            <div class="flex items-center gap-2 mt-1">
-              <input type="color" aria-label="Brand accent color swatch" class="ps-swatch h-9 w-12 cursor-pointer" [(ngModel)]="settings.brand_accent" />
-              <input hlmInput type="text" aria-label="Brand accent color hex value" class="flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent"
-                [attr.aria-invalid]="hexInvalid(settings.brand_accent) || null" [attr.aria-describedby]="hexInvalid(settings.brand_accent) ? 'brand-accent-hint' : null" />
-            </div>
-            @if (hexInvalid(settings.brand_accent)) {
-              <span id="brand-accent-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a hex color like #7C3AED or #ABC (or leave blank).</span>
-            }
-          </label>
-          <!-- Live brand preview -->
-          <div class="md:col-span-2">
-            <span class="muted-h">Brand preview</span>
-            <div class="brand-preview mt-1" [style.--bp-primary]="settings.brand_primary || '#00E5FF'" [style.--bp-accent]="settings.brand_accent || '#7C3AED'">
-              <div class="bp-bar"><span class="bp-dot"></span><span class="bp-dot bp-dot-accent"></span><span class="bp-flush">{{ settings.contact_email || 'hello@yourbiz.com' }}</span></div>
-              <div class="bp-cta">Book a call →</div>
-              <div class="bp-chip">{{ settings.brand_tone || 'warm · plainspoken · brief' }}</div>
-            </div>
-          </div>
+            <p class="text-[0.7rem] text-text-secondary m-0">Contact + business identity used by the AI when it builds or refines this site. Brand colours, tone, and locale are auto-detected from your logo + content.</p>
+          </header>
+          @if (state.selectedSite(); as site) {
+            <form (submit)="saveGeneral($event)" class="space-y-5" aria-label="General details">
+              <!-- Group: Contact + identity -->
+              <fieldset class="biz-group">
+                <legend class="biz-legend">Identity</legend>
+                <div class="grid md:grid-cols-2 gap-4">
+                  <label class="block md:col-span-2">
+                    <span class="muted-h">Contact email <small class="text-text-secondary">(shown on your site · the AI router also replies here)</small></span>
+                    <input hlmInput type="email" class="w-full mt-1" placeholder="hello@yourbiz.com"
+                           data-testid="general-contact-email" name="contact_email"
+                           [(ngModel)]="business.contact_email" (ngModelChange)="markBusinessDirty()"
+                           [attr.aria-invalid]="emailInvalid(business.contact_email) || null"
+                           [attr.aria-describedby]="emailInvalid(business.contact_email) ? 'contact-email-hint' : null" />
+                    @if (emailInvalid(business.contact_email)) {
+                      <span id="contact-email-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a valid email address (or leave blank).</span>
+                    }
+                  </label>
+                  <label class="block">
+                    <span class="muted-h">Business name</span>
+                    <input hlmInput type="text" maxlength="200" required class="w-full mt-1"
+                           data-testid="business-name" name="business_name"
+                           [(ngModel)]="business.business_name" (ngModelChange)="markBusinessDirty()"
+                           [attr.aria-invalid]="businessErrors().business_name ? 'true' : null" aria-describedby="biz-err-name" />
+                    <p id="biz-err-name" class="biz-err" aria-live="polite">{{ businessErrors().business_name || '' }}</p>
+                  </label>
+                  <label class="block">
+                    <span class="muted-h">Business phone</span>
+                    <input hlmInput type="text" maxlength="32" class="w-full mt-1"
+                           data-testid="business-phone" name="business_phone"
+                           [(ngModel)]="business.business_phone" (ngModelChange)="markBusinessDirty()"
+                           [attr.aria-invalid]="businessErrors().business_phone ? 'true' : null" aria-describedby="biz-err-phone" />
+                    <p id="biz-err-phone" class="biz-err" aria-live="polite">{{ businessErrors().business_phone || '' }}</p>
+                  </label>
+                  <label class="block md:col-span-2">
+                    <span class="muted-h">Business address</span>
+                    <input hlmInput type="text" maxlength="500" class="w-full mt-1"
+                           data-testid="business-address" name="business_address"
+                           [(ngModel)]="business.business_address" (ngModelChange)="markBusinessDirty()"
+                           [attr.aria-invalid]="businessErrors().business_address ? 'true' : null" aria-describedby="biz-err-addr" />
+                    <p id="biz-err-addr" class="biz-err" aria-live="polite">{{ businessErrors().business_address || '' }}</p>
+                  </label>
+                </div>
+              </fieldset>
 
-          <div class="md:col-span-2 flex justify-end gap-2">
-            <button class="btn-ghost" (click)="loadGeneral()">Cancel</button>
-            <button class="btn-primary" [disabled]="saving() || generalSettingsInvalid()" (click)="save()">{{ saving() ? 'Saving…' : 'Save general settings' }}</button>
-          </div>
+              <!-- Group: Brand assets -->
+              <fieldset class="biz-group">
+                <legend class="biz-legend">Brand assets</legend>
+                <div class="grid md:grid-cols-2 gap-4">
+                  <label class="block">
+                    <span class="muted-h">Logo</span>
+                    <div class="biz-file-wrap mt-1">
+                      <input type="file" accept="image/*" data-testid="business-logo-upload"
+                             (change)="onBusinessLogo($any($event.target).files)" aria-describedby="biz-err-logo" />
+                      @if (business.logoFile) { <span class="biz-file-pill">{{ business.logoFile.name }}</span> }
+                    </div>
+                    <p id="biz-err-logo" class="biz-err" aria-live="polite">{{ businessErrors().logo || '' }}</p>
+                  </label>
+                  <label class="block">
+                    <span class="muted-h">App icon</span>
+                    <div class="biz-file-wrap mt-1">
+                      <input type="file" accept="image/png,image/jpeg,image/webp" data-testid="business-icon-upload"
+                             (change)="onBusinessIcon($any($event.target).files)" aria-describedby="biz-err-icon" />
+                      @if (business.iconFile) { <span class="biz-file-pill">{{ business.iconFile.name }}</span> }
+                    </div>
+                    <p id="biz-err-icon" class="biz-err" aria-live="polite">{{ businessErrors().icon || '' }}</p>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div class="flex justify-end gap-2">
+                <button type="button" class="btn-ghost" (click)="resetBusiness()" [disabled]="!businessDirty()">Cancel</button>
+                <button type="submit" class="btn-primary" data-testid="general-save"
+                        [disabled]="!businessDirty() || savingBusiness() || emailInvalid(business.contact_email)">{{ savingBusiness() ? 'Saving…' : 'Save' }}</button>
+              </div>
+            </form>
+          } @else {
+            <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+              <p class="text-text-secondary text-sm">Select a site from <strong class="text-light">Sites</strong> to edit its details.</p>
+            </div>
+          }
         </section>
       }
 
@@ -348,15 +340,6 @@ const PROVIDERS = MCP_PROVIDERS;
                   Tip: leave this empty and tap <strong>Improve with AI</strong> to load the v2 best-prompt default as a starting point — no AI credits used.
                 </p>
               </label>
-
-              <label class="block">
-                <div class="flex items-center justify-between">
-                  <span class="muted-h">Persona (one line)</span>
-                  <button class="btn-ghost text-[0.66rem] inline-flex items-center gap-1" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" [brnTooltip]="'Rewrite this persona with the brand AI'">@if (improvingField() !== 'persona') { <app-ai-spark /> }<span>{{ improvingField() === 'persona' ? 'Improving…' : 'Improve with AI' }}</span></button>
-                </div>
-                <input hlmInput type="text" class="w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
-                <p class="text-[0.62rem] text-text-secondary mt-2 leading-relaxed">A one-line voice cue — the AI uses this to set tone on every reply.</p>
-              </label>
             </div>
 
             <!-- RIGHT COLUMN — Web search checkbox (top) + Knowledge files drop zone (below Persona) -->
@@ -431,140 +414,6 @@ const PROVIDERS = MCP_PROVIDERS;
         </section>
       }
 
-      <!-- ─────────────────── BUSINESS ─────────────────── -->
-      @else if (tab() === 'business') {
-        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
-          <header class="mb-4">
-            <h2 class="m-0 text-base font-semibold text-white mb-1">Business</h2>
-            <p class="text-[0.7rem] text-text-secondary m-0">Identity, web, and brand assets used by the AI when it rebuilds or refines this site.</p>
-          </header>
-
-          @if (state.selectedSite(); as site) {
-            <form (submit)="saveBusiness($event)" class="space-y-5" aria-label="Business details">
-              <!-- Group: Identity -->
-              <fieldset class="biz-group">
-                <legend class="biz-legend">Identity</legend>
-                <div class="grid md:grid-cols-2 gap-4">
-                  <label class="block">
-                    <span class="muted-h">Business name</span>
-                    <input hlmInput type="text" maxlength="200" required
-                           class="w-full mt-1"
-                           data-testid="business-name"
-                           [(ngModel)]="business.business_name"
-                           (ngModelChange)="markBusinessDirty()"
-                           name="business_name"
-                           [attr.aria-invalid]="businessErrors().business_name ? 'true' : null"
-                           aria-describedby="biz-err-name" />
-                    <p id="biz-err-name" class="biz-err" aria-live="polite">{{ businessErrors().business_name || '' }}</p>
-                  </label>
-                  <label class="block">
-                    <span class="muted-h">Business phone</span>
-                    <input hlmInput type="text" maxlength="32"
-                           class="w-full mt-1"
-                           data-testid="business-phone"
-                           [(ngModel)]="business.business_phone"
-                           (ngModelChange)="markBusinessDirty()"
-                           name="business_phone"
-                           [attr.aria-invalid]="businessErrors().business_phone ? 'true' : null"
-                           aria-describedby="biz-err-phone" />
-                    <p id="biz-err-phone" class="biz-err" aria-live="polite">{{ businessErrors().business_phone || '' }}</p>
-                  </label>
-                  <label class="block md:col-span-2">
-                    <span class="muted-h">Business address</span>
-                    <input hlmInput type="text" maxlength="500"
-                           class="w-full mt-1"
-                           data-testid="business-address"
-                           [(ngModel)]="business.business_address"
-                           (ngModelChange)="markBusinessDirty()"
-                           name="business_address"
-                           [attr.aria-invalid]="businessErrors().business_address ? 'true' : null"
-                           aria-describedby="biz-err-addr" />
-                    <p id="biz-err-addr" class="biz-err" aria-live="polite">{{ businessErrors().business_address || '' }}</p>
-                  </label>
-                </div>
-              </fieldset>
-
-              <!-- Group: Web -->
-              <fieldset class="biz-group">
-                <legend class="biz-legend">Web</legend>
-                <div class="grid md:grid-cols-1 gap-4">
-                  <label class="block">
-                    <span class="muted-h">Original / former website</span>
-                    <input hlmInput type="url"
-                           class="w-full mt-1"
-                           placeholder="https://example.com"
-                           data-testid="business-website"
-                           [(ngModel)]="business.business_website"
-                           (ngModelChange)="markBusinessDirty()"
-                           name="business_website"
-                           [attr.aria-invalid]="businessErrors().business_website ? 'true' : null"
-                           aria-describedby="biz-err-web" />
-                    <p id="biz-err-web" class="biz-err" aria-live="polite">{{ businessErrors().business_website || '' }}</p>
-                  </label>
-                  <label class="block">
-                    <span class="muted-h">Original website prompt</span>
-                    <textarea hlmInput [multiline]="true" rows="6" maxlength="4000"
-                              class="w-full mt-1 font-mono text-[0.72rem]"
-                              placeholder="The brief you originally gave us — what you wanted the site to be, who it serves, the vibe, anything off-limits…"
-                              data-testid="business-prompt"
-                              [(ngModel)]="business.original_prompt"
-                              (ngModelChange)="markBusinessDirty()"
-                              name="original_prompt"
-                              [attr.aria-invalid]="businessErrors().original_prompt ? 'true' : null"
-                              aria-describedby="biz-err-prompt"></textarea>
-                    <div class="flex justify-between items-center gap-3 mt-1">
-                      <p id="biz-err-prompt" class="biz-err m-0" aria-live="polite">{{ businessErrors().original_prompt || '' }}</p>
-                      <app-char-count class="shrink-0" [value]="business.original_prompt" [max]="4000" />
-                    </div>
-                  </label>
-                </div>
-              </fieldset>
-
-              <!-- Group: Brand assets -->
-              <fieldset class="biz-group">
-                <legend class="biz-legend">Brand assets</legend>
-                <div class="grid md:grid-cols-2 gap-4">
-                  <label class="block">
-                    <span class="muted-h">Logo</span>
-                    <div class="biz-file-wrap mt-1">
-                      <input type="file" accept="image/*"
-                             data-testid="business-logo-upload"
-                             (change)="onBusinessLogo($any($event.target).files)"
-                             aria-describedby="biz-err-logo" />
-                      @if (business.logoFile) {
-                        <span class="biz-file-pill">{{ business.logoFile.name }}</span>
-                      }
-                    </div>
-                    <p id="biz-err-logo" class="biz-err" aria-live="polite">{{ businessErrors().logo || '' }}</p>
-                  </label>
-                  <label class="block">
-                    <span class="muted-h">App icon</span>
-                    <div class="biz-file-wrap mt-1">
-                      <input type="file" accept="image/png,image/jpeg,image/webp"
-                             data-testid="business-icon-upload"
-                             (change)="onBusinessIcon($any($event.target).files)"
-                             aria-describedby="biz-err-icon" />
-                      @if (business.iconFile) {
-                        <span class="biz-file-pill">{{ business.iconFile.name }}</span>
-                      }
-                    </div>
-                    <p id="biz-err-icon" class="biz-err" aria-live="polite">{{ businessErrors().icon || '' }}</p>
-                  </label>
-                </div>
-              </fieldset>
-
-              <div class="flex justify-end gap-2">
-                <button type="button" class="btn-ghost" (click)="resetBusiness()" [disabled]="!businessDirty()">Cancel</button>
-                <button type="submit" class="btn-primary"
-                        data-testid="business-save"
-                        [disabled]="!businessDirty() || savingBusiness()">{{ savingBusiness() ? 'Saving…' : 'Save business' }}</button>
-              </div>
-            </form>
-          } @else {
-            <p class="text-[0.78rem] text-text-secondary">Select a project from the top dropdown to edit its business details.</p>
-          }
-        </section>
-      }
 
       <!-- Theme moved → /admin/user (user-level, not per-project). -->
 
@@ -843,22 +692,6 @@ const PROVIDERS = MCP_PROVIDERS;
       .btn-primary:hover, .btn-ghost:hover { transform: none; box-shadow: none; }
     }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
-    /* Cockpit-native color swatch: frame the native picker with a subtle border +
-       rounded corners so it reads as part of the cyan/black system instead of a
-       bare OS default, and keep a cyan focus-visible ring for keyboard users. */
-    .ps-swatch { border: 1px solid rgba(255,255,255,0.16); border-radius: var(--ps-radius-sm, 8px); background: transparent; padding: 2px; transition: border-color 0.15s ease; }
-    .ps-swatch:hover { border-color: color-mix(in oklab, var(--accent) 55%, transparent); }
-    .ps-swatch::-webkit-color-swatch-wrapper { padding: 0; }
-    .ps-swatch::-webkit-color-swatch { border: none; border-radius: 5px; }
-    .ps-swatch::-moz-color-swatch { border: none; border-radius: 5px; }
-    input[type="color"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--ps-radius-sm, 8px); }
-    .brand-preview { display: flex; align-items: center; gap: 0.85rem; padding: 0.95rem 1.1rem; border-radius: 12px; background: linear-gradient(135deg, color-mix(in oklab, var(--bp-primary) 22%, transparent), color-mix(in oklab, var(--bp-accent) 14%, transparent)); border: 1px solid color-mix(in oklab, var(--bp-primary) 28%, transparent); }
-    .bp-bar { display: inline-flex; align-items: center; gap: 6px; padding: 0.32rem 0.7rem; border-radius: 999px; background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.8); font-size: 0.72rem; }
-    .bp-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bp-primary); box-shadow: 0 0 8px var(--bp-primary); }
-    .bp-dot-accent { background: var(--bp-accent); box-shadow: 0 0 8px var(--bp-accent); }
-    .bp-flush { font-family: ui-monospace, monospace; font-size: 0.66rem; opacity: 0.8; }
-    .bp-cta { padding: 0.4rem 0.95rem; border-radius: 999px; background: linear-gradient(135deg, var(--bp-primary), var(--bp-accent)); color: #060610; font-weight: 700; font-size: 0.78rem; }
-    .bp-chip { padding: 0.18rem 0.6rem; border-radius: 999px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); font-size: 0.66rem; }
     .theme-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; padding: 0.85rem; border-radius: 12px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 160ms ease; text-align: left; }
     .theme-card:hover { border-color: rgba(0,229,255,0.35); transform: translateY(-1px); }
     .theme-card.active { border-color: rgba(0,229,255,0.6); background: rgba(0,229,255,0.08); box-shadow: 0 0 0 3px rgba(0,229,255,0.12); }
@@ -1028,14 +861,13 @@ export class AdminSettingsComponent implements OnInit {
   /** Email tab — free transactional-send allowance + shared sender (template-readonly). */
   readonly freeEmailCap = FREE_EMAIL_CAP_PER_MONTH;
   readonly providedEmailSender = PROVIDED_EMAIL_SENDER;
-  saving = signal(false);
   savingChat = signal(false);
   inviting = signal(false);
   loadingTeam = signal(false);
   loadingConnections = signal(false);
 
   // AI Chat tab
-  chat: { persona: string; system_prompt: string; system_prompt_default: string } = { persona: '', system_prompt: '', system_prompt_default: '' };
+  chat: { system_prompt: string; system_prompt_default: string } = { system_prompt: '', system_prompt_default: '' };
 
   // Web search toggle — persists to /sites/:id/ai-settings (field: allow_web_research).
   allowWebResearch = signal<boolean>(false);
@@ -1117,22 +949,21 @@ export class AdminSettingsComponent implements OnInit {
   saveChat(): void {
     const s = this.state.selectedSite(); if (!s) return;
     this.savingChat.set(true);
-    this.api.put(`/sites/${s.id}/ai-settings`, { chat_persona: this.chat.persona, chat_system_prompt: this.chat.system_prompt }).subscribe({
+    this.api.put(`/sites/${s.id}/ai-settings`, { chat_system_prompt: this.chat.system_prompt }).subscribe({
       next: () => { this.toast.success('Saved'); this.savingChat.set(false); },
       error: () => { this.savingChat.set(false); /* api.service already toasted */ },
     });
   }
 
-  // ── Business tab ──
+  // ── Business identity (rendered in the General tab) ──
   business: {
+    contact_email: string;
     business_name: string;
     business_address: string;
     business_phone: string;
-    business_website: string;
-    original_prompt: string;
     logoFile: File | null;
     iconFile: File | null;
-  } = { business_name: '', business_address: '', business_phone: '', business_website: '', original_prompt: '', logoFile: null, iconFile: null };
+  } = { contact_email: '', business_name: '', business_address: '', business_phone: '', logoFile: null, iconFile: null };
 
   private businessSnapshot = JSON.stringify(this.business);
   businessDirty = signal<boolean>(false);
@@ -1141,31 +972,9 @@ export class AdminSettingsComponent implements OnInit {
     business_name?: string;
     business_address?: string;
     business_phone?: string;
-    business_website?: string;
-    original_prompt?: string;
     logo?: string;
     icon?: string;
   }>({});
-
-  loadBusiness(): void {
-    const s = this.state.selectedSite(); if (!s) return;
-    // Hydrate from the selected site record. Original-prompt + asset URLs are
-    // not yet exposed on the Site DTO — they round-trip via the AI settings
-    // endpoint when the backend ships persistence (see deferred note).
-    const extra = s as unknown as { original_prompt?: string };
-    this.business = {
-      business_name: s.business_name ?? '',
-      business_address: s.business_address ?? '',
-      business_phone: s.business_phone ?? '',
-      business_website: s.business_website ?? '',
-      original_prompt: extra.original_prompt ?? '',
-      logoFile: null,
-      iconFile: null,
-    };
-    this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
-    this.businessDirty.set(false);
-    this.businessErrors.set({});
-  }
 
   markBusinessDirty(): void {
     const cur = JSON.stringify({ ...this.business, logoFile: this.business.logoFile?.name ?? null, iconFile: this.business.iconFile?.name ?? null });
@@ -1186,7 +995,7 @@ export class AdminSettingsComponent implements OnInit {
     this.markBusinessDirty();
   }
 
-  resetBusiness(): void { this.loadBusiness(); }
+  resetBusiness(): void { this.loadGeneral(); }
 
   private validateBusiness(): boolean {
     const errs: ReturnType<typeof this.businessErrors> = {};
@@ -1195,42 +1004,44 @@ export class AdminSettingsComponent implements OnInit {
     else if (b.business_name.length > 200) errs.business_name = 'Maximum 200 characters.';
     if (b.business_address.length > 500) errs.business_address = 'Maximum 500 characters.';
     if (b.business_phone.length > 32) errs.business_phone = 'Maximum 32 characters.';
-    if (b.business_website) {
-      try { new URL(b.business_website); } catch { errs.business_website = 'Enter a valid URL (https://…).'; }
-    }
-    if (b.original_prompt.length > 4000) errs.original_prompt = 'Maximum 4000 characters.';
     this.businessErrors.set(errs);
-    return Object.keys(errs).length === 0;
+    // Contact email is optional but must be valid when present (inline field hint).
+    return Object.keys(errs).length === 0 && !this.emailInvalid(b.contact_email);
   }
 
-  saveBusiness(ev: Event): void {
+  saveGeneral(ev: Event): void {
     ev.preventDefault();
     const s = this.state.selectedSite(); if (!s) return;
     if (!this.validateBusiness()) return;
     this.savingBusiness.set(true);
+    // Contact email persists to ai-settings, MIRRORED to reply_email so the
+    // contact-form router (which reads reply_email) uses the same address —
+    // one email field, not two.
+    const email = this.business.contact_email.trim() || null;
     const payload: Record<string, unknown> = {
       business_name: this.business.business_name.trim(),
       business_address: this.business.business_address.trim() || null,
       business_phone: this.business.business_phone.trim() || null,
-      business_website: this.business.business_website.trim() || null,
-      original_prompt: this.business.original_prompt.trim() || null,
     };
     this.api.updateSite(s.id, payload as Partial<typeof s>).subscribe({
       next: () => {
-        // Brand assets — upload separately via the existing knowledge upload
-        // route, tagged as brand assets. If the dedicated brand-asset route
-        // isn't wired yet, this still surfaces the file in audit logs.
-        const uploads: Promise<void>[] = [];
-        if (this.business.logoFile) uploads.push(this.uploadBrandAsset(s.id, 'logo', this.business.logoFile));
-        if (this.business.iconFile) uploads.push(this.uploadBrandAsset(s.id, 'app_icon', this.business.iconFile));
-        Promise.all(uploads).finally(() => {
-          this.savingBusiness.set(false);
-          this.toast.success('Business saved');
-          this.state.loadData();
-          this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
-          this.business.logoFile = null;
-          this.business.iconFile = null;
-          this.businessDirty.set(false);
+        this.api.put(`/sites/${s.id}/ai-settings`, { contact_email: email, reply_email: email }).subscribe({
+          next: () => {
+            // Brand assets upload via the existing context-upload route.
+            const uploads: Promise<void>[] = [];
+            if (this.business.logoFile) uploads.push(this.uploadBrandAsset(s.id, 'logo', this.business.logoFile));
+            if (this.business.iconFile) uploads.push(this.uploadBrandAsset(s.id, 'app_icon', this.business.iconFile));
+            Promise.all(uploads).finally(() => {
+              this.savingBusiness.set(false);
+              this.toast.success('Saved');
+              this.state.loadData();
+              this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
+              this.business.logoFile = null;
+              this.business.iconFile = null;
+              this.businessDirty.set(false);
+            });
+          },
+          error: () => { this.savingBusiness.set(false); /* api.service already toasted */ },
         });
       },
       error: () => { this.savingBusiness.set(false); /* api.service already toasted */ },
@@ -1251,7 +1062,6 @@ export class AdminSettingsComponent implements OnInit {
   }
 
   // Theme picker moved to /admin/user (user-level, not per-project).
-  settings: GeneralSettings = { contact_email: '', reply_email: '', brand_tone: '', brand_primary: '#00E5FF', brand_accent: '#7C3AED', timezone: '', default_locale: 'en-US' };
   security: { session_hours: number; idle_minutes: number; allowed_domains: string; require_2fa: boolean } = { session_hours: 168, idle_minutes: 60, allowed_domains: '', require_2fa: false };
   members = signal<Member[]>([]);
   invites = signal<Invite[]>([]);
@@ -1296,7 +1106,6 @@ export class AdminSettingsComponent implements OnInit {
     this.router.navigate([], { fragment: id, replaceUrl: true });
     // Lazy-load per-tab data on open.
     if (id === 'team') this.loadSecurity();
-    if (id === 'business') this.loadBusiness();
   }
 
   /**
@@ -1344,72 +1153,45 @@ export class AdminSettingsComponent implements OnInit {
 
   loadGeneral(): void {
     const s = this.state.selectedSite(); if (!s) return;
-    this.api.get<{ data: GeneralSettings & { chat_persona?: string; chat_system_prompt?: string; chat_system_prompt_default?: string; allow_web_research?: boolean } }>(`/sites/${s.id}/ai-settings`).subscribe({
+    // Business identity comes from the site record (synchronous); contact email +
+    // chat come from ai-settings. contact_email falls back to the legacy reply_email
+    // so existing rows keep their address after the two fields were merged into one.
+    const identity = {
+      business_name: s.business_name ?? '',
+      business_address: s.business_address ?? '',
+      business_phone: s.business_phone ?? '',
+    };
+    this.api.get<{ data: { contact_email?: string | null; reply_email?: string | null; chat_system_prompt?: string; chat_system_prompt_default?: string; allow_web_research?: boolean } }>(`/sites/${s.id}/ai-settings`).subscribe({
       next: (r) => {
-        this.settings = {
-          contact_email: r.data?.contact_email ?? '',
-          reply_email: r.data?.reply_email ?? '',
-          brand_tone: r.data?.brand_tone ?? '',
-          brand_primary: r.data?.brand_primary ?? '#00E5FF',
-          brand_accent: r.data?.brand_accent ?? '#7C3AED',
-          timezone: r.data?.timezone ?? '',
-          default_locale: r.data?.default_locale ?? 'en-US',
+        this.business = {
+          contact_email: r.data?.contact_email ?? r.data?.reply_email ?? '',
+          ...identity,
+          logoFile: null,
+          iconFile: null,
         };
         this.chat = {
-          persona: r.data?.chat_persona ?? '',
           system_prompt: r.data?.chat_system_prompt ?? '',
           system_prompt_default: r.data?.chat_system_prompt_default ?? '',
         };
         this.allowWebResearch.set(!!r.data?.allow_web_research);
+        this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
+        this.businessDirty.set(false);
+        this.businessErrors.set({});
       },
-      error: () => { /* api.service already toasted */ },
+      error: () => {
+        // Still surface identity from the site record if ai-settings fails.
+        this.business = { contact_email: '', ...identity, logoFile: null, iconFile: null };
+        this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
+        this.businessDirty.set(false);
+      },
     });
   }
-  /** Per-field: a non-empty value that isn't a valid email (blank = valid; both
-   *  General emails are optional). Drives the inline hint on each field. */
+  /** Per-field: a non-empty value that isn't a valid email (blank = valid; the
+   *  contact email is optional). Drives the inline hint + the Save-button gate. */
   emailInvalid(v: string | null | undefined): boolean {
     return !!v && v.trim() !== '' && !this.isValidEmail(v);
   }
 
-  /** True when EITHER General email is malformed — gates the Save button. */
-  generalEmailsInvalid(): boolean {
-    return this.emailInvalid(this.settings.contact_email) || this.emailInvalid(this.settings.reply_email);
-  }
-
-  /** True when a brand hex is present but not a valid #rgb / #rrggbb. */
-  hexInvalid(v: string | null | undefined): boolean {
-    return !!v && v.trim() !== '' && !HexColorSchema.safeParse(v).success;
-  }
-
-  /** True when EITHER brand color is a malformed hex — also gates Save. */
-  brandColorsInvalid(): boolean {
-    return this.hexInvalid(this.settings.brand_primary) || this.hexInvalid(this.settings.brand_accent);
-  }
-
-  /** Single gate for the General-settings Save button (emails + brand hex). */
-  generalSettingsInvalid(): boolean {
-    return this.generalEmailsInvalid() || this.brandColorsInvalid();
-  }
-
-  save(): void {
-    // Real client-side validation before the PUT — a typo'd contact/reply email
-    // otherwise round-trips as a silent garbage save (the CRUD "real validation +
-    // useful errors" bar; mirrors the invite-email gate in this same component).
-    if (this.generalEmailsInvalid()) {
-      this.toast.error('Enter valid contact + reply email addresses (or leave them blank).');
-      return;
-    }
-    if (this.brandColorsInvalid()) {
-      this.toast.error('Brand colors must be a hex value like #00E5FF (or leave them blank).');
-      return;
-    }
-    const s = this.state.selectedSite(); if (!s) return;
-    this.saving.set(true);
-    this.api.put(`/sites/${s.id}/ai-settings`, this.settings).subscribe({
-      next: () => { this.toast.success('Saved'); this.saving.set(false); },
-      error: () => { this.saving.set(false); /* api.service already toasted */ },
-    });
-  }
   loadTeam(): void {
     this.loadingTeam.set(true);
     this.api.get<{ data: { members: Member[]; invites: Invite[] } }>('/team').subscribe({
@@ -1665,8 +1447,8 @@ export class AdminSettingsComponent implements OnInit {
   // ── Security defaults (only 2FA toggle is surfaced — see toggleRequire2FA above) ──
   savingSecurity = signal(false);
 
-  // ── AI Chat: Improve persona / system prompt + MCP allow-list ──
-  improvingField = signal<'persona' | 'system' | null>(null);
+  // ── AI Chat: Improve system prompt + MCP allow-list ──
+  improvingField = signal<'system' | null>(null);
   chatMcps = signal<string[]>(((): string[] => {
     try { return JSON.parse(localStorage.getItem('ps_chat_mcps') ?? '[]'); } catch { return []; }
   })());
@@ -1677,21 +1459,19 @@ export class AdminSettingsComponent implements OnInit {
     try { localStorage.setItem('ps_chat_mcps', JSON.stringify(next)); } catch { /* */ }
   }
   /**
-   * "Improve with AI" — overloaded so that an empty system-prompt field
-   * loads the v2 best-prompt default for free (no AI credits used) as a
-   * ready-to-edit starting point, while a non-empty field calls the worker
-   * AI to rewrite. Persona doesn't ship a v2 default, so empty + persona
-   * falls through to the AI call with a friendly toast on no-op response.
+   * "Improve with AI" — an empty system-prompt field loads the v2 best-prompt
+   * default for free (no AI credits) as a ready-to-edit starting point, while a
+   * non-empty field calls the worker AI to rewrite it.
    */
-  improveChatField(field: 'persona' | 'system'): void {
+  improveChatField(field: 'system'): void {
     const s = this.state.selectedSite();
     if (!s) { this.toast.error('Select a site first'); return; }
-    const value = field === 'persona' ? this.chat.persona : this.chat.system_prompt;
+    const value = this.chat.system_prompt;
     const trimmed = (value ?? '').trim();
 
     // Shortcut: empty system prompt + v2 default available → seed it locally.
     // Saves an AI round-trip and shows the user the canonical starting point.
-    if (field === 'system' && trimmed.length === 0 && this.chat.system_prompt_default?.trim()) {
+    if (trimmed.length === 0 && this.chat.system_prompt_default?.trim()) {
       this.chat.system_prompt = this.chat.system_prompt_default;
       this.toast.success('Loaded v2 best-prompt default — review + save');
       return;
@@ -1706,8 +1486,7 @@ export class AdminSettingsComponent implements OnInit {
         this.improvingField.set(null);
         const improved = r.data?.improved?.trim();
         if (!improved) { this.toast.info('No improvement suggested'); return; }
-        if (field === 'persona') this.chat.persona = improved;
-        else this.chat.system_prompt = improved;
+        this.chat.system_prompt = improved;
         this.toast.success('Improved with AI — review + save');
       },
       error: () => { this.improvingField.set(null); /* api.service already toasted */ },
