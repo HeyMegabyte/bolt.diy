@@ -274,9 +274,19 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
   but eager in `app.component` — `@defer (when …){ @if(…){…} }` trims ~30 KB but
   risks the SUPREME Cmd+K-focus gate (`e2e/cmdk-focus`, dev-suite, can't gate
   locally); easter-eggs already deferred (round 40, ~1 KB).
-- **`social.component.ts` styles 30.18 KB > 28 KB** `anyComponentStyle` budget
-  (+2.18 KB). The component is 2349 lines; trim redundant CSS or split styles
-  when next editing it — not a blind trim.
+- **`social.component.ts` styles 32.86 KB > 28 KB** `anyComponentStyle` budget
+  (+4.86 KB; verified 2026-08-14 build). The component is now **3267 lines**
+  (grew from 2349); the real CSS block is lines **1064–1697 (~633 lines)**.
+  **INVESTIGATED 2026-08-14 → NOT a blind trim, and NOT a cold quick-win.** The
+  CSS is dense + well-written: zero dead rules, zero duplicate selectors, zero
+  comment bloat (line 1181 documents already-removed classes). The only
+  byte-lever is stripping `var(--ps-accent,#00e5ff)` token fallbacks (~2 KB max
+  — insufficient for 4.86 KB) and that's a visual-adjacent change to a deep
+  authed component (`::ng-deep`/`innerHTML`-styled classes make static dead-CSS
+  detection unsafe). **Correct fix = split the god component** into sub-sections
+  (each under budget), verified live via a Browserbase `/admin/social` sweep at
+  6 breakpoints — a real wave, mirroring the ag-grid→TanStack `perf-wave`
+  handling above. Until then this stays a build WARNING (non-failing).
 
 Heavy libs stay lazy: never add monaco/echarts/ag-grid/jszip/@codemirror to an
 eager `imports:` array — they belong in `@defer` blocks or lazy-routed sections.
