@@ -49,6 +49,27 @@ function baseUrl(c: Context<AppContext>): string {
   return `${proto}://${host}`;
 }
 
+/**
+ * Write-endpoint preamble for /oauth/register + /oauth/token: 404 when the flag
+ * is off, then per-IP rate-limit via `OAUTH_RATELIMIT`. Returns a `Response` to
+ * short-circuit (404 or 429), or `null` to proceed.
+ */
+async function oauthGate(c: Context<AppContext>): Promise<Response | null> {
+  if (!(await flagGuard(c))) return c.json({ error: { code: 'NOT_FOUND' } }, 404);
+  const ip =
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'unknown';
+  const rl = await c.env.OAUTH_RATELIMIT?.limit({ key: `oauth:${ip}` });
+  if (rl && !rl.success) {
+    return c.json(
+      { error: 'rate_limited', error_description: 'Too many requests — slow down and retry shortly.' },
+      429,
+    );
+  }
+  return null;
+}
+
 // ── RFC 8414 metadata ─────────────────────────────────────────────────────────
 oauthProvider.get('/.well-known/oauth-authorization-server', async (c) => {
   if (!(await flagGuard(c))) return c.json({ error: { code: 'NOT_FOUND' } }, 404);
@@ -69,13 +90,8 @@ oauthProvider.get('/.well-known/oauth-authorization-server', async (c) => {
 
 // ── RFC 7591 Dynamic Client Registration ─────────────────────────────────────
 oauthProvider.post('/oauth/register', async (c) => {
-  if (!(await flagGuard(c))) return c.json({ error: { code: 'NOT_FOUND' } }, 404);
-
-  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const rl = await c.env.OAUTH_RATELIMIT?.limit({ key: `oauth:${ip}` });
-  if (rl && !rl.success) {
-    return c.json({ error: 'rate_limited', error_description: 'Too many requests — slow down and retry shortly.' }, 429);
-  }
+  const blocked = await oauthGate(c);
+  if (blocked) return blocked;
 
   let body: unknown;
   try {
@@ -226,13 +242,8 @@ oauthProvider.post('/api/oauth/authorize', async (c) => {
 
 // ── Token endpoint — exchange code for access_token ──────────────────────────
 oauthProvider.post('/oauth/token', async (c) => {
-  if (!(await flagGuard(c))) return c.json({ error: { code: 'NOT_FOUND' } }, 404);
-
-  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const rl = await c.env.OAUTH_RATELIMIT?.limit({ key: `oauth:${ip}` });
-  if (rl && !rl.success) {
-    return c.json({ error: 'rate_limited', error_description: 'Too many requests — slow down and retry shortly.' }, 429);
-  }
+  const blocked = await oauthGate(c);
+  if (blocked) return blocked;
 
   // Accept both JSON and application/x-www-form-urlencoded
   let rawBody: unknown;
