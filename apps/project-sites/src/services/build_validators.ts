@@ -404,7 +404,10 @@ export const validateColorScheme = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
     if (!isHtml(file.path) || !file.text) continue;
-    if (!/<meta\s+name=["']color-scheme["']/i.test(file.text)) {
+    // Attribute-order-robust: `<meta content="dark" name="color-scheme">` is valid
+    // + present. The old /<meta\s+name=.../ required name to be the FIRST attribute
+    // (same class as the metaDescLength apostrophe bug, iter 53).
+    if (!/<meta\s+[^>]*\bname=["']color-scheme["']/i.test(file.text)) {
       out.push({
         code: 'meta.color_scheme_missing',
         severity: 'warn',

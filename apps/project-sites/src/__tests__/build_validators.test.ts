@@ -252,6 +252,18 @@ describe('validateColorScheme', () => {
     );
     expect(validateColorScheme([f])).toEqual([]);
   });
+
+  it('passes when the color-scheme meta lists content BEFORE name (attribute order)', () => {
+    // HTML attribute order is arbitrary — `<meta content="dark light" name="color-scheme">`
+    // is valid + present. The old /<meta\s+name=["']color-scheme["']/ required name to
+    // be the FIRST attribute → false meta.color_scheme_missing (same attribute-order
+    // class as the metaDescLength apostrophe bug fixed iter 53).
+    const f = file(
+      'index.html',
+      '<!DOCTYPE html><html><head><meta content="dark light" name="color-scheme"><title>x</title></head><body></body></html>',
+    );
+    expect(validateColorScheme([f])).toEqual([]);
+  });
 });
 
 describe('validateSitemapLastmod', () => {
