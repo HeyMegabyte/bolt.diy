@@ -1,13 +1,12 @@
 /**
  * @module e2e/apps/ai_features
- * @description Convergence E2E — AI feature routes (code_export, ai_site_critic, geo_toolkit, ai_video_hero, conversational_analytics, lifecycle_agent, seo_agent, nl_site_management).
+ * @description Convergence E2E — AI feature routes (ai_site_critic, geo_toolkit, ai_video_hero, conversational_analytics, lifecycle_agent, seo_agent, nl_site_management).
  * All flag-gated (404 when off). Tests assert routes exist + auth gates work.
  */
 import { test, expect } from '../fixtures.js';
 
 test.describe('AI Features — convergence', () => {
   const routes = [
-    { method: 'GET', path: '/api/sites/test/export', flag: 'code_export' },
     { method: 'POST', path: '/api/sites/test/critic', flag: 'ai_site_critic' },
     { method: 'POST', path: '/api/sites/test/geo-analyze', flag: 'geo_toolkit' },
     { method: 'POST', path: '/api/sites/test/video-hero', flag: 'ai_video_hero' },
@@ -35,7 +34,7 @@ test.describe('AI Features — convergence', () => {
 
   test('all AI routes reject unauthenticated requests', async ({ page }) => {
     const res = await page.evaluate(async () => {
-      const r = await fetch('/api/sites/test/export');
+      const r = await fetch('/api/sites/test/critic', { method: 'POST' });
       return r.status;
     });
     expect([401, 404]).toContain(res);

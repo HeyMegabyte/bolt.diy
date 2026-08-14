@@ -569,14 +569,15 @@ features.post('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server')
   c.json(await B.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
 );
 
-// #3 AI auto-router
-features.post('/api/router/pick', requireFlag('ai_auto_router'), async (c) => {
+// AI model router — folded under model_registry (the AI-model platform flag);
+// the standalone ai_auto_router flag was retired 2026-08-14 as a duplicate.
+features.post('/api/router/pick', requireFlag('model_registry'), async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { prompt?: string; org_id?: string };
   return c.json(
     await B.autoRoutePrompt(c.env, { prompt: body.prompt ?? 'demo prompt', orgId: body.org_id }),
   );
 });
-features.get('/api/router/stats', requireFlag('ai_auto_router'), async (c) =>
+features.get('/api/router/stats', requireFlag('model_registry'), async (c) =>
   c.json(await B.getRouterStats(c.env, c.req.query('org_id') ?? 'demo-org')),
 );
 

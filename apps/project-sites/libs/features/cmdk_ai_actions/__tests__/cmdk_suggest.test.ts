@@ -1,13 +1,18 @@
-import { suggestActions } from '../service.js';
+import { suggestActions } from '../cmdk_suggest.js';
 import type { Env } from '../../../../src/types/env.js';
 jest.mock('../../../../src/services/db.js', () => ({ dbQuery: jest.fn() }));
 import { dbQuery } from '../../../../src/services/db.js';
-function env(): Env { return { DB: {} as D1Database } as unknown as Env; }
+function env(): Env {
+  return { DB: {} as D1Database } as unknown as Env;
+}
 beforeEach(() => jest.clearAllMocks());
 
-const sites = [{ id: 's1', slug: 'njsk', name: 'NJSK Soup Kitchen' }, { id: 's2', slug: 'vitos', name: 'Vitos Salon' }];
+const sites = [
+  { id: 's1', slug: 'njsk', name: 'NJSK Soup Kitchen' },
+  { id: 's2', slug: 'vitos', name: 'Vitos Salon' },
+];
 
-describe('suggestActions', () => {
+describe('suggestActions (Cmd+K suggestions, folded under cmdk_ai_actions)', () => {
   it('returns scored matches for query', async () => {
     (dbQuery as jest.Mock).mockResolvedValue({ data: sites });
     const r = await suggestActions(env(), 'o1', 'njsk');
@@ -17,8 +22,8 @@ describe('suggestActions', () => {
   it('returns default suggestions for short queries', async () => {
     (dbQuery as jest.Mock).mockResolvedValue({ data: sites });
     const r = await suggestActions(env(), 'o1', 'x');
-    expect(r.some(s => s.id === 'sites')).toBe(true);
-    expect(r.some(s => s.id === 'billing')).toBe(true);
+    expect(r.some((s) => s.id === 'sites')).toBe(true);
+    expect(r.some((s) => s.id === 'billing')).toBe(true);
   });
   it('caps results at 20', async () => {
     (dbQuery as jest.Mock).mockResolvedValue({ data: sites });

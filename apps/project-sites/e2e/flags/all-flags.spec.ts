@@ -32,7 +32,8 @@ const FLAGS: FlagDefinition[] = Object.values(FLAG_REGISTRY);
 // ---------------------------------------------------------------------------
 
 const FLAG_PRIMARY_PATH: Record<string, { method: 'GET' | 'POST'; path: string }> = {
-  multi_model_router:          { method: 'GET',  path: '/api/models' },
+  model_registry:              { method: 'GET',  path: '/v1/models' },
+  cmdk_ai_actions:             { method: 'POST', path: '/api/cmdk' },
   db_provisioning:             { method: 'GET',  path: '/api/db-providers' },
   audit_hash_chain:            { method: 'POST', path: '/api/audit/append' },
   github_sync:                 { method: 'GET',  path: '/api/integrations/github/status' },
@@ -80,7 +81,6 @@ const FLAG_PRIMARY_PATH: Record<string, { method: 'GET' | 'POST'; path: string }
   tier_rate_limit:             { method: 'GET',  path: '/api/tier-rate-limit/status' },
   site_mcp_server:             { method: 'GET',  path: '/api/sites/demo-site/mcp/discovery' },
   cold_tier_thaw:              { method: 'GET',  path: '/api/cold-tier/status/demo-site' },
-  ai_auto_router:              { method: 'POST', path: '/api/router/pick' },
   ghost_routes:                { method: 'GET',  path: '/api/ghost-routes/list/demo-site' },
   speed_compare_widget:        { method: 'POST', path: '/api/speed-compare' },
   auto_gen_static_files:       { method: 'GET',  path: '/api/auto-files/list/demo-site' },

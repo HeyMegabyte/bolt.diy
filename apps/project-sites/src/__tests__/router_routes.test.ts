@@ -1,11 +1,12 @@
 /**
- * Route-layer coverage for the `ai_auto_router` flag's two endpoints in
- * `src/routes/features.ts`:
+ * Route-layer coverage for the AI model router's two endpoints in
+ * `src/routes/features.ts`, gated by the `model_registry` flag (the standalone
+ * ai_auto_router flag was folded into model_registry 2026-08-14):
  *   - POST /api/router/pick   → B.autoRoutePrompt
  *   - GET  /api/router/stats  → B.getRouterStats
  *
  * The SERVICE layer (autoRoutePrompt / getRouterStats) is already covered by
- * brilliant.test.ts. The ROUTE layer — the `requireFlag('ai_auto_router')` gate
+ * brilliant.test.ts. The ROUTE layer — the `requireFlag('model_registry')` gate
  * (404 when off, no leak) + request wiring (body parse + defaults + query) — had
  * ZERO tests. Mocks only the two boundaries: the flag resolver and the brilliant
  * service; everything else (the real Hono sub-app) runs.
@@ -54,7 +55,7 @@ beforeEach(() => {
   mockStats.mockResolvedValue({ total: 0, savings_usd: 0 } as never);
 });
 
-describe('POST /api/router/pick (ai_auto_router)', () => {
+describe('POST /api/router/pick (model_registry)', () => {
   it('404s (not_found, no leak) when the flag is off + never calls the service', async () => {
     mockIsFlagOn.mockResolvedValue(false);
     const res = await post('/api/router/pick', { prompt: 'x' });
@@ -77,7 +78,7 @@ describe('POST /api/router/pick (ai_auto_router)', () => {
   });
 });
 
-describe('GET /api/router/stats (ai_auto_router)', () => {
+describe('GET /api/router/stats (model_registry)', () => {
   it('404s when the flag is off', async () => {
     mockIsFlagOn.mockResolvedValue(false);
     const res = await get('/api/router/stats');

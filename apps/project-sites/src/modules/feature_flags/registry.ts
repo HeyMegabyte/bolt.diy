@@ -50,16 +50,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },
-  // ── 10 brilliant — site-as-MCP, cold-tier, AI-auto-router, ghost-routes, speed-compare, auto-gen-files, hallucination-guard, visitor-recognition, faq-from-tickets, competitor-monitor
-  ai_auto_router: {
-    default_enabled: false,
-    default_rollout_percent: 0,
-    description:
-      "Workload-aware AI model auto-router: classifies each prompt (simple / complex / creative / free-eligible) and routes to the cheapest sufficient model without manual model selection.\n\n• Worker route POST /api/router/pick (returns classification, picked_model, estimated_cost_usd, alternatives) behind requireFlag('ai_auto_router').\n• Worker route GET /api/router/stats reports savings vs an always-Opus baseline, same flag gate.\n• Extends the multi_model_router with automatic per-prompt routing.\n• Backend-only — no admin section; off (default) → both routes 404.",
-    key: 'ai_auto_router',
-    owner_email: 'brian@megabyte.space',
-    stage: 'experimental',
-  },
+  // ── 10 brilliant — site-as-MCP, cold-tier, ghost-routes, speed-compare, auto-gen-files, hallucination-guard, visitor-recognition, faq-from-tickets, competitor-monitor
   ai_gateway_guardrails: {
     default_enabled: false,
     default_rollout_percent: 0,
@@ -105,30 +96,12 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },
-  cmd_k_actions: {
-    default_enabled: false,
-    default_rollout_percent: 0,
-    description:
-      'Natural-language matcher that scores org sites against admin verbs for the Cmd+K palette.\n\n• POST /api/cmdk takes {q}, returns up to 20 ranked suggestions across 6 verbs: rebuild/snapshot/delete/view/edit/publish.\n• Scoring is slug/name substring + prefix bonus; short queries return default nav (Sites, Billing).\n• Handler handleCmdK in libs/features/cmd_k_actions; 404s when off.\n• No frontend consumer: command-palette navigates client-side, never calls /api/cmdk.',
-    key: 'cmd_k_actions',
-    owner_email: 'brian@megabyte.space',
-    stage: 'experimental',
-  },
   cmdk_ai_actions: {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'AI-resolve layer on the Cmd+K palette: natural language maps to a typed nav, bulk-mutation, or agent action.\n\n• POST /api/cmdk/resolve takes a phrase, returns a structured action; Workers AI, Zod-validated output + JSON fallbacks.\n• When off, Cmd+K stays nav-only and the resolve route 404s.\n• Overlaps cmd_k_actions (POST /api/cmdk) — same NL-to-action concept, split across two flags.\n• No frontend consumer: command-palette navigates client-side, never calls resolve.',
+      'Cmd+K natural-language actions — the single flag for both palette action surfaces (folded in the retired cmd_k_actions duplicate 2026-08-14).\n\n• POST /api/cmdk ranks org sites against 6 admin verbs (rebuild/snapshot/delete/view/edit/publish), returns up to 20 scored suggestions; short queries return default nav.\n• POST /api/cmdk/resolve maps a typed phrase to a structured nav/bulk-mutation/agent action via Workers AI (Zod-validated + JSON fallback).\n• Off (default) → both routes 404 and Cmd+K stays a plain client-side navigation palette.',
     key: 'cmdk_ai_actions',
-    owner_email: 'brian@megabyte.space',
-    stage: 'experimental',
-  },
-  code_export: {
-    default_enabled: true,
-    default_rollout_percent: 100,
-    description:
-      "One-click export of any generated site as a self-contained, deployable Cloudflare Worker project. Includes wrangler.toml, Worker source (Hono), D1 migrations, R2 assets, and deploy instructions. Its route checks isFlagOn('code_export'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    key: 'code_export',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },
@@ -265,7 +238,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      "OpenAI-compatible GET /v1/models catalog backed by the provider-capability + model-alias registries with per-provider availability gating.\n\n• Handler mounted in index.ts before the site catch-all; isFlagOn-gated — off returns 404.\n• GET /v1/models returns {object:'list', data:[...]} of deepseek/anthropic/openai/gemini/grok/workers-ai aliases; a provider lists only when its key is set.\n• Backend-only alias catalog the AI router reads; no admin UI.",
+      "OpenAI-compatible GET /v1/models catalog plus the workload-aware AI model router, both gated by this one flag (the standalone ai_auto_router duplicate was folded in 2026-08-14).\n\n• GET /v1/models returns {object:'list', data:[...]} of deepseek/anthropic/openai/gemini/grok/workers-ai aliases; a provider lists only when its key is set.\n• POST /api/router/pick classifies a prompt (simple/complex/creative/free-eligible) and routes to the cheapest sufficient model; GET /api/router/stats reports savings vs an always-Opus baseline.\n• Backend-only alias catalog + router the AI stack reads; no admin UI. Off (default) → all three routes 404.",
     key: 'model_registry',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',

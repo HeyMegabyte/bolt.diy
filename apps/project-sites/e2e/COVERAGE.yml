@@ -167,7 +167,6 @@ subdir_inventory:
   auth: { status: covered, specs: [auth/auth-flows.spec.ts] }
   billing: { status: covered, specs: [billing/billing-flows.spec.ts] }
   branches: { status: covered, specs: [branches/branches.spec.ts] }
-  code_export: { status: covered, specs: [code_export/export-download.spec.ts] }
   content: { status: covered, specs: [content/content-freshness.spec.ts] }
   copilot: { status: covered, specs: [copilot/copilot.spec.ts] }
   domain: { status: covered, specs: [domain/domain-flows.spec.ts] }

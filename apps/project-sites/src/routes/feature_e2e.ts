@@ -100,26 +100,6 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
       url: '/admin',
     },
   ],
-  ai_auto_router: [
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: 'Router pick endpoint gated — 404 when ai_auto_router OFF (default)',
-      url: '/api/router/pick',
-    },
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: 'Router stats endpoint gated — 404 when OFF (default)',
-      url: '/api/router/stats?org_id=demo-org',
-    },
-    {
-      kind: 'browser',
-      label: 'Feature Flags admin lists ai_auto_router (passes today)',
-      textIncludes: 'ai_auto_router',
-      url: '/admin/feature-flags',
-    },
-  ],
   ai_gateway_guardrails: [
     {
       expectStatus: 404,
@@ -228,65 +208,24 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
       url: '/admin/auth-security',
     },
   ],
-  cmd_k_actions: [
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: '/api/cmdk returns 404 when flag OFF (expected in prod)',
-      url: '/api/cmdk',
-    },
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: 'Route is mounted (not a soft-404 SPA shell)',
-      url: '/api/cmdk',
-    },
-    {
-      kind: 'browser',
-      label: 'Command palette opens client-side (does not consume this endpoint)',
-      selector: '[data-testid=dash-search]',
-      url: '/admin',
-    },
-  ],
   cmdk_ai_actions: [
     {
       expectStatus: 404,
       kind: 'http',
-      label: '/api/cmdk/resolve returns 404 when flag OFF (expected in prod)',
-      url: '/api/cmdk/resolve',
+      label: '/api/cmdk (suggestions) returns 404 when flag OFF (expected in prod)',
+      url: '/api/cmdk',
     },
     {
       expectStatus: 404,
       kind: 'http',
-      label: 'Route is mounted (not a soft-404 SPA shell)',
+      label: '/api/cmdk/resolve (AI resolve) returns 404 when flag OFF (expected in prod)',
       url: '/api/cmdk/resolve',
     },
     {
       kind: 'browser',
-      label: 'Command palette opens client-side (does not consume this endpoint)',
+      label: 'Command palette opens client-side (does not consume these endpoints)',
       selector: '[data-testid=dash-search]',
       url: '/admin',
-    },
-  ],
-  code_export: [
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label:
-        'Export route not wired — /api/sites/:id/export 404s (handler imported but never called)',
-      url: '/api/sites/demo-site/export',
-    },
-    {
-      kind: 'browser',
-      label: 'Feature Flags admin lists code_export (passes today)',
-      textIncludes: 'code_export',
-      url: '/admin/feature-flags',
-    },
-    {
-      expectStatus: 200,
-      kind: 'http',
-      label: 'Marketing homepage reachable (baseline 200)',
-      url: '/',
     },
   ],
   core_admin_detail: [
@@ -569,6 +508,18 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
       kind: 'http',
       label: '/v1/models flag-gated OFF today → 404',
       url: '/v1/models',
+    },
+    {
+      expectStatus: 404,
+      kind: 'http',
+      label: '/api/router/pick flag-gated OFF today → 404 (folded ai_auto_router)',
+      url: '/api/router/pick',
+    },
+    {
+      expectStatus: 404,
+      kind: 'http',
+      label: '/api/router/stats flag-gated OFF today → 404',
+      url: '/api/router/stats?org_id=demo-org',
     },
     {
       expectStatus: 200,

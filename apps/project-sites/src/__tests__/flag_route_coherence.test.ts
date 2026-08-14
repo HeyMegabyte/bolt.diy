@@ -28,7 +28,9 @@ const LIVE_ROUTE_FLAGS = [
   // features.ts grab-bag (wired + tested in prior loop iters)
   'token_burn_meter',
   'pwa_manifest_full',
-  'ai_auto_router',
+  // model_registry gates /v1/models + the folded AI router (/api/router/pick|stats,
+  // ex-ai_auto_router, merged into this flag 2026-08-14)
+  'model_registry',
   // libs/features modules
   // (public_api un-flagged 2026-08-13 — removed from registry; had no route gate)
   // NOTE (2026-08-12 dead-flag prune): 8 keys removed from this list — abuse_takedown,

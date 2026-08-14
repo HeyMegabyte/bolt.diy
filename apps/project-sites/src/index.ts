@@ -63,7 +63,6 @@ import { adminAnalytics } from './routes/admin_analytics.js';
 import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { siteRollbackRoutes } from './routes/site_rollback.js';
-import { handleCodeExport } from '../libs/features/code_export/handlers.js';
 import {
   defaultDashboard,
   filterBySource,
@@ -606,9 +605,11 @@ app.delete('/api/annotations/:id', async (c) => {
 });
 
 app.post('/api/cmdk', async (c) => {
+  // Cmd+K action suggestions — folded under cmdk_ai_actions (was the retired
+  // duplicate cmd_k_actions flag). Sibling of /api/cmdk/resolve; one flag now.
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'cmd_k_actions', { orgId: c.get('orgId')! }))) return c.notFound();
-  const { handleCmdK } = await import('../libs/features/cmd_k_actions/handlers.js');
+  if (!(await isFlagOn(c.env, 'cmdk_ai_actions', { orgId: c.get('orgId')! }))) return c.notFound();
+  const { handleCmdK } = await import('../libs/features/cmdk_ai_actions/cmdk_suggest.js');
   return handleCmdK(c);
 });
 

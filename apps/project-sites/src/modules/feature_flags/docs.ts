@@ -66,21 +66,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Pass ?cursor=<ts> to paginate',
     ],
   },
-  ai_auto_router: {
-    checklist: [
-      'Classifies each prompt (simple / complex / creative / free-eligible)',
-      'Routes to the cheapest sufficient model automatically',
-      '~80% AI cost reduction at scale, no quality loss',
-      'Customer never picks a model manually',
-    ],
-    explanation:
-      'Extends multi_model_router with AUTOMATIC routing per prompt shape. Classifies (simple / complex / creative / free-eligible) via Workers AI classifier → routes to cheapest sufficient model. ~80% AI cost reduction at scale with no quality loss; customer never picks manually.',
-    smoke_test: [
-      'POST /api/router/pick with body {prompt:"Add a pricing section"} → returns {classification, picked_model, estimated_cost_usd, alternatives}',
-      'Compare a simple prompt vs complex refactor request — should route to free Llama vs Opus respectively',
-      'GET /api/router/stats?org_id=demo-org → savings vs always-Opus baseline',
-    ],
-  },
   ai_gateway_guardrails: {
     checklist: [
       'Llama Guard middleware on /ai/* routes',
@@ -158,51 +143,19 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Flip OFF again: legacy auth resumes with no migration needed',
     ],
   },
-  cmd_k_actions: {
-    checklist: [
-      'NL query to ranked admin action suggestions',
-      '6 verbs: rebuild/snapshot/delete/view/edit/publish',
-      'Slug/name substring scoring with prefix bonus',
-      'Returns top 20 matches for command palette',
-    ],
-    explanation:
-      'Natural language to admin action matching for the Cmd+K command palette. Queries the org sites and scores each against 6 action verbs using slug and name substring matching. Short queries return default navigation suggestions (Sites, Billing). Results are ranked by match score and capped at 20.',
-    smoke_test: [
-      'Enable flag -> POST /api/cmdk {"q":"rebuild njsk"} -> 200 with scored suggestions',
-      'Empty query returns defaults',
-      'No matches returns empty array',
-    ],
-  },
   cmdk_ai_actions: {
     checklist: [
-      'AI actions layer on the existing Cmd+K palette',
-      'Natural language → navigation, bulk mutations, or agent tasks',
-      'Palette + focus gate already ship',
-      'Resolve endpoint maps NL to a typed action',
+      'Two Cmd+K action surfaces under one flag (folded the retired cmd_k_actions duplicate)',
+      'POST /api/cmdk — NL query ranked against 6 admin verbs, top 20 scored suggestions',
+      'POST /api/cmdk/resolve — NL phrase → typed navigation, bulk-mutation, or agent action',
+      'Off → both routes 404, Cmd+K stays a plain navigation palette',
     ],
     explanation:
-      'Adds an AI actions layer to the existing Cmd+K palette: natural language routes to navigation, bulk mutations, or agent tasks (the palette and its focus gate already ship). A resolve endpoint maps the typed phrase to a structured action the UI executes. When off, Cmd+K stays a plain navigation palette and the resolve route 404s.',
+      'The single flag for Cmd+K natural-language actions (the duplicate cmd_k_actions flag was folded in 2026-08-14). POST /api/cmdk scores the org sites against 6 admin verbs (rebuild/snapshot/delete/view/edit/publish) and returns up to 20 ranked suggestions; POST /api/cmdk/resolve maps a typed phrase to a structured navigation, bulk-mutation, or agent action via Workers AI. When off, both routes 404 and Cmd+K stays a plain navigation palette.',
     smoke_test: [
-      'Open Cmd+K, type "publish all draft sites" → POST /api/cmdk/resolve → a typed bulk action',
-      'Type "go to billing" → resolves to a navigation action',
-      'Disable the flag → Cmd+K is navigation-only, the resolve route 404s',
-    ],
-  },
-  code_export: {
-    checklist: [
-      'One-click export of a generated site as a self-contained, deployable Cloudflare Worker project',
-      'ON -> GET /api/sites/:id/export streams a zip of R2 assets + D1 schema for the caller org',
-      'OFF (default) -> 404 with no existence leak; unauth -> 401/403 (never a zip)',
-      'Ownership-gated: only the site owner org can export it',
-    ],
-    e2e_tests: ['e2e/ai-actions/export-safety.spec.ts'],
-    explanation:
-      'Packages a published site into a deployable CF Worker zip (R2 assets + D1 schema). When ON, GET /api/sites/:id/export returns the archive for an authenticated owner; when OFF (default) or unauthenticated it returns 401/403/404 and never leaks a zip. Serves site portability, a core builder capability.',
-    smoke_test: [
-      'Flag ON, authed owner: GET /api/sites/:id/export streams a valid zip',
-      'Flag ON, wrong org: 404 (no cross-org leak)',
-      'Unauthenticated: 401/403/404, never a zip body',
-      'Flag OFF (default): 404',
+      'Enable flag → POST /api/cmdk {"q":"rebuild njsk"} → 200 with scored suggestions (empty query returns defaults)',
+      'Type "publish all draft sites" → POST /api/cmdk/resolve → a typed bulk action',
+      'Disable the flag → both /api/cmdk and /api/cmdk/resolve 404',
     ],
   },
   core_admin_detail: {
@@ -401,13 +354,14 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'ProviderCapabilityRegistry + ModelAliasRegistry',
       'Aliases: deepseek / anthropic / openai / gemini / grok / workers-ai',
       'Per-provider availability gating (key present → listed)',
+      'Workload-aware AI router (POST /api/router/pick + GET /api/router/stats), same flag',
     ],
     explanation:
-      'Serves an OpenAI-compatible GET /v1/models catalog backed by the ProviderCapabilityRegistry + ModelAliasRegistry — the deepseek / anthropic / openai / gemini / grok / workers-ai alias map with per-provider availability gating (a provider only lists its models when its key is configured). The catalog the AI router reads to resolve an alias to a concrete model. When off, /v1/models 404s.',
+      'Serves an OpenAI-compatible GET /v1/models catalog backed by the ProviderCapabilityRegistry + ModelAliasRegistry — the deepseek / anthropic / openai / gemini / grok / workers-ai alias map with per-provider availability gating (a provider only lists its models when its key is configured). This one flag also gates the workload-aware AI router (the standalone ai_auto_router duplicate was folded in 2026-08-14): POST /api/router/pick classifies a prompt and picks the cheapest sufficient model, GET /api/router/stats reports savings vs an always-Opus baseline. When off, /v1/models and both /api/router/* routes 404.',
     smoke_test: [
       'GET /v1/models → {object:"list", data:[{id, owned_by, …}]} for configured providers only',
-      'Unset a provider key → that provider’s models drop from the list',
-      'Disable the flag → /v1/models 404s',
+      'POST /api/router/pick {"prompt":"Add a pricing section"} → {classification, picked_model, estimated_cost_usd, alternatives}',
+      'Disable the flag → /v1/models and /api/router/* all 404',
     ],
   },
   observability_gateway: {
@@ -726,13 +680,6 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
       },
     ],
   },
-  ai_auto_router: {
-    e2e_tests: [
-      'Router pick endpoint gated — 404 when ai_auto_router OFF (default)',
-      'Router stats endpoint gated — 404 when OFF (default)',
-      'Feature Flags admin lists ai_auto_router (passes today)',
-    ],
-  },
   ai_gateway_guardrails: {
     e2e_tests: [
       'POST /api/guardrails/check returns 404 when flag OFF (killswitch/expected)',
@@ -776,25 +723,12 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
       'Admin auth-security session UI renders (adjacent surface)',
     ],
   },
-  cmd_k_actions: {
-    e2e_tests: [
-      'POST /api/cmdk returns 404 when flag OFF (expected in prod)',
-      'Route is mounted (not a soft-404 SPA shell)',
-      'Command palette opens client-side (does not consume this endpoint)',
-    ],
-  },
   cmdk_ai_actions: {
     e2e_tests: [
-      'POST /api/cmdk/resolve returns 404 when flag OFF (expected in prod)',
-      'Route is mounted (not a soft-404 SPA shell)',
-      'Command palette opens client-side (does not consume this endpoint)',
-    ],
-  },
-  code_export: {
-    e2e_tests: [
-      'Export route not wired — /api/sites/:id/export 404s (handler imported but never called)',
-      'Feature Flags admin lists code_export (passes today)',
-      'Marketing homepage reachable (baseline 200)',
+      'POST /api/cmdk (suggestions) returns 404 when flag OFF (expected in prod)',
+      'POST /api/cmdk/resolve (AI resolve) returns 404 when flag OFF (expected in prod)',
+      'Both routes are mounted (not a soft-404 SPA shell)',
+      'Command palette opens client-side (does not consume these endpoints)',
     ],
   },
   core_admin_detail: {
@@ -901,6 +835,8 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
   model_registry: {
     e2e_tests: [
       'GET /v1/models flag-gated OFF today → 404',
+      'POST /api/router/pick flag-gated OFF today → 404 (folded ai_auto_router)',
+      'GET /api/router/stats flag-gated OFF today → 404',
       'registry entry present for model_registry',
       'worker health responds',
       'unknown /v1 path stays 404 (not SPA soft-200)',
