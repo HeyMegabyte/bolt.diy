@@ -177,9 +177,20 @@ async function stableHashPercent(input: string): Promise<number> {
 }
 
 export async function invalidateFlagCache(env: Env, flagKey: string): Promise<void> {
-  // KV list-then-delete; simple sweep for the dev surface.
-  const keys = await env.CACHE_KV.list({ prefix: `flag:${flagKey}:` }).catch(() => ({ keys: [] }));
-  await Promise.all((keys.keys ?? []).map((k) => env.CACHE_KV.delete(k.name).catch(() => {})));
+  // KV `list` is paginated (≤1000 keys/page). Walk EVERY page via the cursor so a
+  // flag cached across >1000 (siteId,orgId) scopes is FULLY busted on an admin
+  // toggle — deleting only the first page would leave later scopes serving the
+  // stale value until their 60s TTL lapses (a laggy toggle for large tenants).
+  const prefix = `flag:${flagKey}:`;
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await env.CACHE_KV.list({ prefix, cursor }).catch(() => null);
+    if (!page) return; // list failed → the 60s TTL is the backstop
+    await Promise.all((page.keys ?? []).map((k) => env.CACHE_KV.delete(k.name).catch(() => {})));
+    // Real KV always sets `list_complete`; a mock/absent field ends the sweep too.
+    if (page.list_complete !== false) return;
+    cursor = page.cursor;
+  }
 }
 
 export { FLAG_REGISTRY } from './registry.js';

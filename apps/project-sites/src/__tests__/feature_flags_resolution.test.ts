@@ -165,4 +165,34 @@ describe('invalidateFlagCache', () => {
     await expect(invalidateFlagCache(env, 'my_flag')).resolves.toBeUndefined();
     expect(deletes).toEqual([]);
   });
+
+  it('walks EVERY KV page via the cursor so >1000-scope flags fully bust', async () => {
+    // Real KV paginates at 1000 keys/page. A single-page delete would leave later
+    // scopes serving the stale value until their TTL lapses — so the sweep must
+    // follow `cursor` until `list_complete`.
+    const deletes: string[] = [];
+    const listCursors: Array<string | undefined> = [];
+    const pages = [
+      { keys: [{ name: 'flag:big:a:1' }], list_complete: false, cursor: 'c1' },
+      { keys: [{ name: 'flag:big:b:2' }], list_complete: true },
+    ];
+    let call = 0;
+    const env = {
+      CACHE_KV: {
+        list: async ({ cursor }: { prefix: string; cursor?: string }) => {
+          listCursors.push(cursor);
+          return pages[call++];
+        },
+        delete: async (name: string) => {
+          deletes.push(name);
+        },
+      },
+    } as never;
+
+    await invalidateFlagCache(env, 'big');
+
+    expect(call).toBe(2); // both pages walked
+    expect(listCursors).toEqual([undefined, 'c1']); // 2nd list used the 1st page's cursor
+    expect(deletes).toEqual(['flag:big:a:1', 'flag:big:b:2']); // keys from BOTH pages deleted
+  });
 });
