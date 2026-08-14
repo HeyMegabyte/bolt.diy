@@ -11248,17 +11248,17 @@ api.delete('/api/admin/account', async (c) => {
   // all-or-nothing + rejects on failure, so a partial delete can never land; the caller
   // retries. (The Stripe cancel below stays best-effort — it's an external, non-D1 call.)
   await c.env.DB.batch([
-    c.env.DB
-      .prepare(
-        "UPDATE sites SET deleted_at = ?, status = 'archived', updated_at = ? WHERE org_id = ? AND deleted_at IS NULL",
-      )
-      .bind(nowIso, nowIso, orgId),
-    c.env.DB
-      .prepare('UPDATE sessions SET deleted_at = ? WHERE user_id = ? AND deleted_at IS NULL')
-      .bind(nowIso, userId),
-    c.env.DB
-      .prepare('UPDATE users SET deleted_at = ?, updated_at = ? WHERE id = ?')
-      .bind(nowIso, nowIso, userId),
+    c.env.DB.prepare(
+      "UPDATE sites SET deleted_at = ?, status = 'archived', updated_at = ? WHERE org_id = ? AND deleted_at IS NULL",
+    ).bind(nowIso, nowIso, orgId),
+    c.env.DB.prepare(
+      'UPDATE sessions SET deleted_at = ? WHERE user_id = ? AND deleted_at IS NULL',
+    ).bind(nowIso, userId),
+    c.env.DB.prepare('UPDATE users SET deleted_at = ?, updated_at = ? WHERE id = ?').bind(
+      nowIso,
+      nowIso,
+      userId,
+    ),
   ]);
 
   // 4. Best-effort: cancel the org subscription at period end. A Stripe failure
