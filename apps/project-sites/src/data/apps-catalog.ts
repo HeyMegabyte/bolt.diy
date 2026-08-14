@@ -242,7 +242,11 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
         auto: 'secret',
       },
       { key: 'OLLAMA_BASE_URL', description: 'Optional Ollama endpoint', required: false },
-      { key: 'OPENAI_API_KEY', description: 'OpenAI-compatible API key (or set OLLAMA_BASE_URL)', required: true },
+      {
+        key: 'OPENAI_API_KEY',
+        description: 'OpenAI-compatible API key (or set OLLAMA_BASE_URL)',
+        required: true,
+      },
     ],
     memoryMB: 512,
     volumeMB: 256,
