@@ -221,22 +221,38 @@ async function callOpenAI(
  * Extract JSON from a text response (handles markdown code fences).
  */
 function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-
-  if (fenced) {
-    return JSON.parse(fenced[1].trim());
-  }
-
-  // Try direct parse
   const trimmed = text.trim();
+  const candidates: string[] = [];
+
+  // Strategy 1: a fenced ```json ... ``` (or bare ```) block.
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (fenced) candidates.push(fenced[1].trim());
+
+  // Strategy 2: the widest `{ ... }` span — strips prose/preamble around an object.
   const start = trimmed.indexOf('{');
   const end = trimmed.lastIndexOf('}');
+  if (start >= 0 && end > start) candidates.push(trimmed.slice(start, end + 1));
 
-  if (start >= 0 && end > start) {
-    return JSON.parse(trimmed.slice(start, end + 1));
+  // Strategy 3: the whole trimmed body (bare object / array / primitive JSON).
+  candidates.push(trimmed);
+
+  // Try each strategy in turn — a malformed FIRST fence must not abort the
+  // parse when a valid `{...}` span still exists later in the response.
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // fall through to the next strategy
+    }
   }
 
-  return JSON.parse(trimmed);
+  // Every strategy failed. Surface a DIAGNOSABLE error — the bare
+  // `SyntaxError: Unexpected end of JSON input` otherwise leaks to a 500 with
+  // zero context. The common cause is a response truncated at
+  // `max_completion_tokens` mid-JSON (invalid even in json_object mode).
+  throw new Error(
+    `extractJson: model returned unparseable JSON (first 200 chars: ${trimmed.slice(0, 200)})`,
+  );
 }
 
 /**

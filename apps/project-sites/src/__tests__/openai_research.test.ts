@@ -229,6 +229,28 @@ describe('researchAndFormulatePrompt — JSON extraction', () => {
 
     await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Bad' })).rejects.toThrow();
   });
+
+  it('recovers the real object when a non-JSON fenced block precedes it', async () => {
+    // The fence regex greedily grabs the FIRST ``` ... ``` (here a non-JSON
+    // note). The old extractJson JSON.parse'd that and threw with NO fallback;
+    // the widest {...} span still holds the real object further down.
+    queueFullPipeline({
+      profile: '```\nreasoning: not json\n```\n\nResult: {"business_type":"cafe"}',
+    });
+
+    const result = await researchAndFormulatePrompt(keyEnv(), { businessName: 'Cafe' });
+    expect(result.profile).toEqual({ business_type: 'cafe' });
+  });
+
+  it('throws a DIAGNOSABLE error (not a raw SyntaxError) on total parse failure', async () => {
+    queueFullPipeline({ profile: 'totally not json at all' });
+
+    // The message must name the failure + carry a snippet so the resulting 500
+    // is debuggable — a bare "Unexpected token" SyntaxError is not.
+    await expect(researchAndFormulatePrompt(keyEnv(), { businessName: 'Bad' })).rejects.toThrow(
+      /unparseable JSON/,
+    );
+  });
 });
 
 // ─── No key / unconfigured ───────────────────────────────────
