@@ -51,6 +51,14 @@ const EXEMPT_SHAPES = new Set([
   'GET /api/v1-tokens', // api-tokens — "Public API v1 token management" UI, built ahead of the Public-Developer-API worker (monumental initiative)
   'POST /api/v1-tokens', // api-tokens — same (mint)
   'DELETE /api/v1-tokens/*', // api-tokens — same (revoke)
+  // site-mcp-server.component — per-site MCP token CRUD + tools/usage read, built ahead
+  // of its worker routes; the `site_mcp_server` flag is DARK (not in the registry → 404s
+  // regardless), so these are INTENTIONAL built-ahead gaps. Wire on flag promotion
+  // (convert-on-promotion). Remove these 4 the turn the site-mcp worker routes are built.
+  'DELETE /api/sites/*/mcp/tokens/*',
+  'GET /api/sites/*/mcp/tokens',
+  'GET /api/sites/*/mcp/tools',
+  'GET /api/sites/*/mcp/tool-usage',
   // (social AI-assist FIXED 2026-08-02: generate() now calls the real
   //  POST /api/social/:siteId/posts/generate — no longer exempted.)
 ]);
@@ -107,6 +115,26 @@ for (const dir of WORKER_DIRS) {
   }
 }
 
+// ── Prefix-mounted sub-routers ──
+// `app.route('/api/x', subRouter)` mounts a router whose OWN registrations use RELATIVE
+// paths (`subRouter.post('/dismiss')` → collected above as the shape `/dismiss`, NOT
+// `/api/x/dismiss`). Collect these mount prefixes so a FE call to the FULL path can be
+// resolved by stripping the prefix + matching the relative shape. Without this, every
+// prefix-mounted route (onboarding_copilot, audit_trail_export, …) is a false positive.
+const mountPrefixes = [];
+const mountRe = /\.route\(\s*[`'"](\/api\/[^`'"]+)[`'"]/g;
+for (const dir of WORKER_DIRS) {
+  for (const f of walk(dir)) {
+    const src = readFileSync(f, 'utf8');
+    let m;
+    while ((m = mountRe.exec(src))) {
+      if (onCommentLine(src, m.index)) continue;
+      const pfx = shape(m[1]);
+      if (pfx) mountPrefixes.push(pfx);
+    }
+  }
+}
+
 // ── FE calls ──
 // Match an optional TS generic between the method and `(` — e.g.
 // `api.get<{ data: ApiToken[] }>('/x')` — so generic-typed calls aren't missed
@@ -126,8 +154,20 @@ for (const f of walk(FE_DIR)) {
     if (kind === 'api') path = '/api' + path;
     if (!path.startsWith('/api')) continue;
     const s = shape(path);
-    if (!s || EXEMPT_SHAPES.has(exemptKey(method, s))) continue;
+    // `/*` = the whole path is one dynamic segment — i.e. the ApiService GENERIC verb
+    // helpers (`get<T>(path) => http.get(\`/api${path}\`)`) + any fully-dynamic call.
+    // These are unresolvable + not concrete endpoints (the docstring promises to skip
+    // "fully-dynamic variable paths") — never a real unwired route. Skip to kill the
+    // GET|POST|PUT|PATCH|DELETE `/*` false positives on api.service.ts.
+    if (!s || s === '/*' || EXEMPT_SHAPES.has(exemptKey(method, s))) continue;
     if (!workerShapes.has(s)) {
+      // Resolve prefix-mounted sub-routers: strip a known `/api/x` mount prefix and
+      // match the remainder against the relative shapes (`/api/onboarding/dismiss` →
+      // strip `/api/onboarding` → `/dismiss`, which IS registered by onboardingCopilot).
+      const wiredViaMount = mountPrefixes.some(
+        (pfx) => s.startsWith(pfx + '/') && workerShapes.has(s.slice(pfx.length)),
+      );
+      if (wiredViaMount) continue;
       const key = method + ' ' + s;
       if (!seen.has(key)) {
         seen.add(key);
