@@ -53,15 +53,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'stable',
     owner_email: 'brian@megabyte.space',
   },
-  turnstile_build_gate: {
-    key: 'turnstile_build_gate',
-    description:
-      'Dark-launch bot-gate on create-from-search: when ON, a valid Cloudflare Turnstile token is required before kicking a paid build. OFF (default) means no verification.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   core_feature_flags: {
     key: 'core_feature_flags',
     description: 'Always-on sentinel: feature-flags admin UI. isFlagOn always true.',
@@ -166,67 +157,13 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
 
   // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
   // Commerce & money rail (payments_rail is foundational — unblocks the rest)
-  upgrade_moments: {
-    key: 'upgrade_moments',
-    description:
-      'Contextual friction-point upgrade prompts: maps free-plan friction (custom domain, branding removal, page cap, AI credits, build priority, analytics depth) to honest, value-led, trigger-attributed upsells. Paid plans never nagged; dismissals persist in KV. The generous-free + paid-power-ups monetization seam.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
 
   // Visitor-facing AI + platform AI UX
 
-  ab_testing: {
-    key: 'ab_testing',
-    description:
-      "Deterministic variant assignment via hashed visitor ID + statistical significance calculator with z-test. Its route checks isFlagOn('ab_testing'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  ai_content_strategist: {
-    key: 'ai_content_strategist',
-    description:
-      "Content gap analysis against competitors + 90-day content calendar with SEO-briefed outlines. Covers 14 industries with tailored content pillars. Its route checks isFlagOn('ai_content_strategist'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  ai_site_critic: {
-    key: 'ai_site_critic',
-    description:
-      "AI-powered site critique with per-dimension scoring, A-F grading, industry benchmarking, and prioritized auto-fix suggestions. Uses CF Browser Rendering + Workers AI vision. Its route checks isFlagOn('ai_site_critic'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  ai_video_hero: {
-    key: 'ai_video_hero',
-    description:
-      "AI-generated 60-second cinematic brand video script with 8 clips, visual prompts for Sora/Veo, Piper TTS narration, transitions, and credit cost estimation. Its route checks isFlagOn('ai_video_hero'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   app_launcher: {
     key: 'app_launcher',
     description:
       'Per-tenant app provisioning planner: 11 apps cataloged (Plane, Twenty, Listmonk, Chatwoot, Lago, Unkey, Nango, Payload, LiteLLM, Better Auth, Native Social). CNAME→credential→container launch pipeline. Cost estimation per app.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  builtin_crm: {
-    key: 'builtin_crm',
-    description:
-      "Lead scoring engine (0-100, hot/warm/cold) from 7 source types and 8 behavioral signals. Pipeline stage manager (7 stages), deal value tracker, next-action recommender. Pure, deterministic, zero I/O. Its route checks isFlagOn('builtin_crm'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -241,15 +178,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  conversational_analytics: {
-    key: 'conversational_analytics',
-    description:
-      'Natural language → analytics query intent parser. Ask questions like "how many visitors last week?" and get structured query intents. Regex-based for 80% of queries, LLM fallback for ambiguous ones. Its route checks isFlagOn(\'conversational_analytics\'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   customer_portal: {
     key: 'customer_portal',
     description:
@@ -259,46 +187,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  geo_toolkit: {
-    key: 'geo_toolkit',
-    description:
-      "Dual-scoring content analyzer for traditional SEO + AI answer engine discoverability. Factual claim extraction, citation checking, AI formatting quality scoring, and prioritized GEO suggestions. Its route checks isFlagOn('geo_toolkit'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  lifecycle_agent: {
-    key: 'lifecycle_agent',
-    description:
-      'Pure site health monitoring rule engine. Checks content freshness, SEO fundamentals, performance, security, trust signals, competitive gaps, and broken links. Generates health scores, severity-ranked issues, and auto-fixable recommendations.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   marketing_dashboard: {
     key: 'marketing_dashboard',
     description:
       'Widget-based analytics dashboard with 11 default widgets across 6 sources (website/email/social/ads/crm/booking). Metric change computation with trend detection, source filtering, and grid/list layouts.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  nl_site_management: {
-    key: 'nl_site_management',
-    description:
-      'Natural language → site edit intent parser. Commands like "change my hero headline to Best Pizza" are parsed into structured edit intents (change_text, add_section, remove_element, update_info) with target section resolution.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  seo_agent: {
-    key: 'seo_agent',
-    description:
-      'SEO health monitoring: indexing checks (sitemap/robots/index rate), on-page checks (meta/H1/alt/schema), keyword rank tracking (wins/losses/drops), competitor gap detection. Generates A-F grade with prioritized fix suggestions.',
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -326,24 +218,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'visual_automation',
     description:
       "Journey validation engine: 7 action types, 6 trigger types, step delay estimation, linear journey validation with error reporting. Its route checks isFlagOn('visual_automation'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  voice_site_mgmt: {
-    key: 'voice_site_mgmt',
-    description:
-      'Voice command parser for site editing: 9 intent types (change_text, update_info, add_section, remove_section, publish_site, check_health). Filler-word filtering, verbal confirmation generation, confidence scoring.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  white_label: {
-    key: 'white_label',
-    description:
-      "Agency dashboard: MRR calculation, churn rate, client site management, branded reselling. Agencies resell ProjectSites under their own brand. Its route checks isFlagOn('white_label'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -403,15 +277,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'stable',
-    owner_email: 'brian@megabyte.space',
-  },
-  site_tags: {
-    key: 'site_tags',
-    description:
-      'Site Tags & Labels (#11): per-site colored label pills with custom names, colors (22 hues), and emoji icons. Org-scoped, filterable in the site list. CRUD at /api/site-tags + /api/sites/:siteId/tags.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
   system_status: {
@@ -582,33 +447,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  deploy_buttons: {
-    key: 'deploy_buttons',
-    description:
-      'Generates one-click "Deploy to projectsites.dev" buttons + a "Hosted on projectsites.dev" badge snippet for READMEs/footers (viral growth loop)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  figma_import: {
-    key: 'figma_import',
-    description:
-      'Import design tokens and component metadata from a Figma file via the Figma REST API (POST /api/figma/import), letting designers push brand tokens into a generated site. Caller-supplied Figma PAT; off by default. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/figma_import module.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  generative_ui_stream: {
-    key: 'generative_ui_stream',
-    description:
-      'Returns schema-bound UI descriptors generated by Workers AI LLM for dynamic copilot-driven interface composition (POST /api/copilot/ui). Zod-validated outputs; off by default. Registered to satisfy the feature-drift gate for the concurrently-built libs/features/generative_ui_stream module.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   mcp_oauth_provider: {
     key: 'mcp_oauth_provider',
     description:
@@ -717,55 +555,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  site_thumbnail_grid: {
-    key: 'site_thumbnail_grid',
-    description:
-      'Real-browser thumbnail of every site in the admin catalog via Browser-Rendering screenshot, cached in R2 and reused from the snapshot path',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  status_page_live: {
-    key: 'status_page_live',
-    description:
-      'Public status page backed by real uptime/incident data with subscriber alerts; extends the existing /status route shell — frontend-primary with a status feed endpoint',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  url_clone_seed: {
-    key: 'url_clone_seed',
-    description:
-      'Paste a URL and seed the builder from it: Browser-Rendering extracts layout + copy + structured-data JSON to prefill a new site as an acquisition fast-start',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  visitor_dsar: {
-    key: 'visitor_dsar',
-    description:
-      'GDPR/CCPA data-subject-access endpoint: a site owner can export or soft-delete a visitor’s data by email or visitor_id, with an audit-log entry',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   visitor_events_core: {
     key: 'visitor_events_core',
     description:
       'Public pageview/click/conversion beacon ingest from published sites; feeds site_analytics traffic block',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  visual_point_edit: {
-    key: 'visual_point_edit',
-    description:
-      'Click any live-preview element and have AI mutate only that node (copy/style/layout) without a full regeneration — frontend-primary, backed by a scoped edit endpoint',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

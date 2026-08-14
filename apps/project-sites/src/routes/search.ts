@@ -598,39 +598,6 @@ search.post('/api/sites/create-from-search', async (c) => {
 
   const body = (await c.req.json().catch(() => ({}))) as CreateFromSearchBody;
 
-  // #32 — dark-launched Turnstile bot-gate. When `turnstile_build_gate` is OFF
-  // (default) this is a no-op, so live create is untouched until the frontend
-  // ships the token + Brian flips the flag. Even with the flag ON it SOFT-ALLOWS
-  // when the secret isn't configured (`not_configured`), so flipping the flag
-  // can never break create before the secret + widget are both in place — only a
-  // CONFIGURED secret + missing/invalid token rejects.
-  let buildGateOn = false;
-  try {
-    const { isFlagOn } = await import('../modules/feature_flags/services.js');
-    buildGateOn = await isFlagOn(c.env, 'turnstile_build_gate', {});
-  } catch {
-    buildGateOn = false; // a flag-check failure must never break the create funnel
-  }
-  if (buildGateOn) {
-    const { verifyTurnstileToken } = await import('../services/turnstile.js');
-    const v = await verifyTurnstileToken({
-      token: (body as { turnstile_token?: string }).turnstile_token,
-      secret: c.env.TURNSTILE_SECRET_KEY,
-      remoteIp: c.req.header('cf-connecting-ip') ?? null,
-    });
-    if (!v.ok && v.reason !== 'not_configured') {
-      return c.json(
-        {
-          error: {
-            code: 'TURNSTILE_REQUIRED',
-            message: 'Please complete the verification challenge and try again.',
-          },
-        },
-        403,
-      );
-    }
-  }
-
   // Normalize: support both v1 (flat) and v2 (nested business object) payload formats
   const mode = body.mode ?? null;
   const businessName =

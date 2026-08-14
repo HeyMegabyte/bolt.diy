@@ -6,8 +6,8 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
   /* ------------------------------------------------------------------ */
 
   describe('FEATURE_GATES', () => {
-    it('exports exactly 7 features', () => {
-      expect(FEATURE_GATES).toHaveLength(7);
+    it('exports exactly 6 features', () => {
+      expect(FEATURE_GATES).toHaveLength(6);
     });
 
     it('every entry has all required fields', () => {
@@ -29,7 +29,6 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
         'priority_support',
         'remove_branding',
         'team_seats',
-        'white_label',
       ]);
     });
 
@@ -53,7 +52,7 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
       }
     });
 
-    it('pro plan enables all 7 features', () => {
+    it('pro plan enables all 6 features', () => {
       for (const g of FEATURE_GATES) {
         expect(g.pro).toBe(true);
       }
@@ -74,7 +73,6 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
         'priority_support',
         'api_access',
         'team_seats',
-        'white_label',
       ];
       for (const f of all) {
         expect(featureEnabled(f, 'free')).toBe(false);
@@ -106,10 +104,6 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
       expect(featureEnabled('team_seats', 'starter')).toBe(false);
     });
 
-    it('returns false for white_label on starter', () => {
-      expect(featureEnabled('white_label', 'starter')).toBe(false);
-    });
-
     /* ----- Pro plan ----- */
     it('returns true for all features on pro plan', () => {
       const all: import('../services/feature_gate.js').Feature[] = [
@@ -119,7 +113,6 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
         'priority_support',
         'api_access',
         'team_seats',
-        'white_label',
       ];
       for (const f of all) {
         expect(featureEnabled(f, 'pro')).toBe(true);
@@ -178,9 +171,9 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
       expect(enabled).toContain('custom_domain');
     });
 
-    it('pro returns all 7 features', () => {
+    it('pro returns all 6 features', () => {
       const enabled = listEnabled('pro');
-      expect(enabled).toHaveLength(7);
+      expect(enabled).toHaveLength(6);
       expect(enabled.sort()).toEqual([
         'analytics_export',
         'api_access',
@@ -188,7 +181,6 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
         'priority_support',
         'remove_branding',
         'team_seats',
-        'white_label',
       ]);
     });
 
@@ -200,7 +192,7 @@ describe('FeatureGate — plan-gated feature access evaluator', () => {
 
     it('trims whitespace from plan', () => {
       expect(listEnabled('  starter  ')).toHaveLength(2);
-      expect(listEnabled('\tpro\n')).toHaveLength(7);
+      expect(listEnabled('\tpro\n')).toHaveLength(6);
     });
 
     it('returns empty array for unknown plan names', () => {

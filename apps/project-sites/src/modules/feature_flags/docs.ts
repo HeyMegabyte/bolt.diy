@@ -34,22 +34,6 @@ export interface FlagDocs {
 }
 
 export const FLAG_DOCS: Record<string, FlagDocs> = {
-  upgrade_moments: {
-    checklist: [
-      'Contextual upgrade prompts at each free-plan friction point',
-      'Six triggers: custom_domain / remove_branding / more_pages / ai_credits / priority_build / analytics_pro',
-      'Trigger-attributed CTA (/admin/billing?upsell=<trigger>) for funnel tracking',
-      'Paid plans never nagged (eligible:false); dismissals persist 90d in KV',
-    ],
-    explanation:
-      'Contextual upsell engine — maps a free-plan friction point to an honest, value-led, trigger-attributed upgrade prompt. The generous-free + paid-power-ups monetization seam for solo owners. Paid plans resolve eligible:false (never nag payers); dismissals persist in CACHE_KV (90-day TTL). Pure catalog + eligibility core.',
-    smoke_test: [
-      'GET /api/upgrade-moments/custom_domain?plan=free → eligible:true + headline/benefits/cta_url',
-      'GET /api/upgrade-moments/custom_domain?plan=pro → eligible:false (payer not nagged)',
-      'GET /api/upgrade-moments?plan=free → list of eligible, non-dismissed moments',
-      'POST /api/upgrade-moments/custom_domain/dismiss → {dismissed:true}; re-GET list excludes it',
-    ],
-  },
   better_auth: {
     checklist: [
       'CUTOVER flag for the embedded Better Auth rebuild (auth/better-auth.ts)',
@@ -213,21 +197,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'e2e/_fortress/admin-detail/adversarial.spec.ts',
     ],
   },
-  turnstile_build_gate: {
-    checklist: [
-      'OFF by default — create-from-search behaves exactly as before',
-      'When ON + TURNSTILE_SECRET_KEY set: missing/invalid token → 403 TURNSTILE_REQUIRED before any build',
-      'When ON but secret unset: soft-allows (not_configured) so a premature flip never breaks create',
-      'Flag-check failure fails open (gate stays off) — never blocks the funnel',
-    ],
-    explanation:
-      'Dark-launched bot-gate (#32) on POST /api/sites/create-from-search: when ON, a valid Cloudflare Turnstile token is required before a $5-15 build is kicked, stopping bots/abuse. Default OFF; flip to beta only after the frontend Turnstile widget ships the token and TURNSTILE_SECRET_KEY is set. Soft-allows on not_configured + fails open on a flag-check error so it can never break the live create funnel.',
-    smoke_test: [
-      'With flag OFF: create a site from search → builds normally (no challenge)',
-      'Flip flag ON (secret set) + POST create-from-search without a token → 403 TURNSTILE_REQUIRED',
-      'Flip flag ON with secret UNSET → create still works (soft-allow)',
-    ],
-  },
   core_feature_flags: {
     checklist: [
       'Lists every registry flag with default state + stage',
@@ -376,21 +345,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Flag on (default) → POST /api/social/auto-pilot/run-now → 200 (or 409 if no networks)',
       'Set global override enabled=false → same call → 503 FEATURE_DISABLED',
       'Re-enable → 200 again',
-    ],
-  },
-  site_tags: {
-    checklist: [
-      '22-color label pills per site',
-      'Org-scoped, reusable across sites',
-      'D1-backed site_tag_assignments',
-      'Filterable in site list',
-    ],
-    explanation:
-      'Per-site colored label pills with custom names, colors (22 hues), and optional emoji icons. Tags are org-scoped — defined once, assigned to many sites. CRUD at /api/site-tags and /api/sites/:id/tags. Designed for the admin site list filter picker.',
-    smoke_test: [
-      'Enable flag → POST /api/site-tags {"name":"Production","color":"green"} → 201',
-      'PUT /api/sites/:id/tags {"tagIds":["<id>"]} → 200 with tag list',
-      'GET /api/site-tags → returns tag with site_count',
     ],
   },
   system_status: {
@@ -657,51 +611,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the rollover fields drop, the route 404s',
     ],
   },
-  deploy_buttons: {
-    checklist: [
-      'One-click "Deploy to projectsites.dev" button snippets',
-      '"Hosted on projectsites.dev" badge for READMEs / footers',
-      'Copy-paste Markdown + HTML embed codes',
-      'Viral growth loop — every embed links back',
-    ],
-    explanation:
-      'Generates one-click "Deploy to projectsites.dev" button snippets and a "Hosted on projectsites.dev" badge for READMEs and site footers — a viral growth loop where every embed links back to the platform. Owners copy Markdown or HTML embed codes from the admin. When off, the snippet endpoint 404s and no badge renders.',
-    smoke_test: [
-      'GET /api/deploy-button?slug=demo → {markdown, html, svg_url}',
-      'Paste the Markdown into a README → the badge renders and links to the deploy flow',
-      'Disable the flag → the snippet route 404s',
-    ],
-  },
-  figma_import: {
-    checklist: [
-      'POST /api/figma/import — pull design tokens + component metadata from a Figma file',
-      'Caller supplies a Figma personal-access token (no shared vault yet)',
-      'Imported tokens flow into the generated site (no manual copy-paste)',
-      'Off by default → the route 404s; Sentry + logs on import',
-    ],
-    explanation:
-      'Figma Import pulls design tokens and component metadata from a Figma file via the Figma REST API (POST /api/figma/import), letting designers push brand tokens into a generated site without manual copy-paste. The caller supplies a Figma PAT (enable per-user in dev until a token-vault UX exists). Figma rate-limits at 100 req/min, so heavy imports may hit the cap. Disabled by default → the route 404s. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/figma_import module.',
-    smoke_test: [
-      'POST /api/figma/import {fileKey, token} → 200 with extracted tokens',
-      'Invalid/expired token → 4xx with a clear message (no crash)',
-      'Disable the flag → the route 404s',
-    ],
-  },
-  generative_ui_stream: {
-    checklist: [
-      'POST /api/copilot/ui — Workers AI returns schema-bound UI descriptors',
-      'Every LLM output Zod-validated before return (invalid → rejected, never rendered)',
-      'Off by default → the route 404s (never 403)',
-      'Sentry + structured logs on every generation; no persistent state',
-    ],
-    explanation:
-      'Generative UI Stream composes copilot-driven interfaces dynamically: POST /api/copilot/ui calls Workers AI to produce schema-bound UI descriptors, which are Zod-validated before reaching the client so a malformed LLM output can never render. Disabled by default → the route 404s. Registered to satisfy the feature-drift + docs guards for the concurrently-built libs/features/generative_ui_stream module.',
-    smoke_test: [
-      'POST /api/copilot/ui {prompt:"..."} → 200 with a Zod-valid UI descriptor',
-      'Force an invalid LLM output (mock) → request rejected, nothing rendered',
-      'Disable the flag → the route 404s',
-    ],
-  },
   mcp_oauth_provider: {
     checklist: [
       'OAuth 2.1 authorization server for MCP clients',
@@ -888,66 +797,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'UI: "Site Health" tab (?tab=health) renders the grade + fixes + Unlock-with-Pro on locked rows',
     ],
   },
-  site_thumbnail_grid: {
-    checklist: [
-      'Real-browser thumbnail of every site in the admin catalog',
-      'Captured via Cloudflare Browser-Rendering screenshot',
-      'Cached in R2 and reused from the snapshot path',
-      'Falls back to a placeholder tile when off',
-    ],
-    explanation:
-      'Renders a real-browser screenshot thumbnail for each site in the /admin catalog grid, captured via the Browser-Rendering REST API and cached in R2 (reusing the snapshot-quality screenshot path, no duplicate render). Gives owners an at-a-glance visual catalog instead of a text list. When off, tiles show a neutral placeholder.',
-    smoke_test: [
-      'GET /api/sites/:id/thumbnail → 302/200 to the cached R2 screenshot',
-      'Open /admin/sites → each card shows a live screenshot tile',
-      'Disable the flag → cards render the placeholder tile, the thumbnail route 404s',
-    ],
-  },
-  status_page_live: {
-    checklist: [
-      'Public status page backed by real uptime/incident data',
-      'Subscriber alerts on incident open/resolve',
-      'Extends the existing /status route shell',
-      'Frontend-primary with a status-feed endpoint',
-    ],
-    explanation:
-      'Public status page fed by real uptime + incident data rather than a static shell. Owners (and their visitors) see component health, open incidents, and a history feed; subscribers receive alerts when an incident opens or resolves. Builds on the existing /status route — when off, the route renders the static placeholder shell only.',
-    smoke_test: [
-      'GET /api/status/feed → {components[], incidents[], uptime_pct}',
-      'Visit /status → live component health + incident history render',
-      'Disable the flag → /status falls back to the static shell, the feed route 404s',
-    ],
-  },
-  url_clone_seed: {
-    checklist: [
-      'Paste a URL to seed the builder from it',
-      'Browser-Rendering extracts layout + copy + structured data',
-      'Prefills a new site as an acquisition fast-start',
-      'A starting point, not a literal copy',
-    ],
-    explanation:
-      'Paste a URL and seed the builder from it: Browser-Rendering extracts the layout, copy, and structured-data JSON to prefill a new site — an acquisition fast-start that turns an existing site into a starting point (improved, not literally copied). When off, the seed route 404s and /create starts blank.',
-    smoke_test: [
-      'POST /api/clone-seed {url} → {layout, copy, structured_data} prefill payload',
-      'Start /create with the seed → sections prefill from the source, ready to improve',
-      'Disable the flag → the seed route 404s',
-    ],
-  },
-  visitor_dsar: {
-    checklist: [
-      'GDPR/CCPA data-subject-access endpoint',
-      'Export OR soft-delete a visitor’s data by email or visitor_id',
-      'Writes an audit-log entry for every request',
-      'Site-owner scoped — only their own visitors',
-    ],
-    explanation:
-      'GDPR/CCPA data-subject-access endpoint: a site owner exports or soft-deletes a visitor’s data by email or visitor_id, with an audit-log entry recorded for every request (the compliance receipt). Scoped to the owner’s own visitors — never another tenant’s. When off, the route 404s so the capability isn’t exposed.',
-    smoke_test: [
-      'POST /api/sites/:id/dsar {email} action=export → {visitor_events, contacts, submissions}',
-      'POST /api/sites/:id/dsar {email} action=delete → soft-deletes + writes an audit entry',
-      'Disable the flag → the DSAR route 404s',
-    ],
-  },
   visitor_events_core: {
     checklist: [
       'Public pageview / click / conversion beacon ingest',
@@ -962,21 +811,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'POST /api/v1/events {site_id, type:"pageview", path:"/"} → 202 accepted',
       'GET the site_analytics traffic block → reflects the beacon',
       'Personalization: load with ?utm_source=ads vs direct → hero variant differs',
-    ],
-  },
-  visual_point_edit: {
-    checklist: [
-      'Click any live-preview element to edit it',
-      'AI mutates only that node (copy / style / layout)',
-      'No full-site regeneration',
-      'Backed by a scoped edit endpoint',
-    ],
-    explanation:
-      'Click any element in the live preview and have AI mutate only that node — its copy, style, or layout — without a full-site regeneration. Frontend-primary, backed by a scoped server edit endpoint that patches just the targeted node. When off, the point-edit affordance is hidden and the scoped edit route 404s.',
-    smoke_test: [
-      'Click a heading in the preview → request "make this shorter and bold" → only that node changes',
-      'POST /api/sites/:id/edit-node {selector, instruction} → a scoped patch, not a regeneration',
-      'Disable the flag → the point-edit UI is hidden, the route 404s',
     ],
   },
   wireframe_planning: {

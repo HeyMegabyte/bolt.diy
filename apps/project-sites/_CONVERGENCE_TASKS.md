@@ -1550,7 +1550,7 @@ Every admin section needs a journey spec per the TDD Contract. Wave 2 (2026-07-3
 - [ ] 9. Skip/fixme triage (see P0)
 - [ ] 10. Consolidate helpers: `visitAdmin()`, `assertA11y()`, `screenshotAt6bp()` — kill per-file boilerplate
 
-## P12 — Unabsorbed Requirements (from _LOOP_LEDGER / _LOOP_PROGRESS / _100_IDEAS)
+## P12 — Unabsorbed Requirements (from _LOOP_LEDGER / _LOOP_PROGRESS)
 
 Tracked here so the loop never loses them; each graduates to its own P-section when work starts:
 

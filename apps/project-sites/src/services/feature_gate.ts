@@ -14,8 +14,7 @@ export type Feature =
   | 'remove_branding'
   | 'priority_support'
   | 'api_access'
-  | 'team_seats'
-  | 'white_label';
+  | 'team_seats';
 
 /** Per-feature availability across all three plan tiers. */
 export interface FeatureGate {
@@ -35,7 +34,7 @@ export interface FeatureGate {
  *
  * - free:     0 features enabled
  * - starter:  custom_domain + analytics_export
- * - pro:      all 7 features
+ * - pro:      all 6 features
  */
 export const FEATURE_GATES: readonly FeatureGate[] = Object.freeze([
   { feature: 'analytics_export', free: false, pro: true, starter: true },
@@ -44,7 +43,6 @@ export const FEATURE_GATES: readonly FeatureGate[] = Object.freeze([
   { feature: 'priority_support', free: false, pro: true, starter: false },
   { feature: 'api_access', free: false, pro: true, starter: false },
   { feature: 'team_seats', free: false, pro: true, starter: false },
-  { feature: 'white_label', free: false, pro: true, starter: false },
 ]);
 
 /** Helper to find a FeatureGate by key. Never throws — returns undefined for unknown keys. */

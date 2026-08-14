@@ -12,7 +12,7 @@
 > Canonical positioning + the agent-grade feature backlog for projectsites.dev.
 > Authored 2026-06-17. Pricing model + curated ideas integrated from the AI-native
 > positioning pass. Actionable items flow into `ROADMAP.md`; this file is the WHY +
-> the full idea catalog. Statuses live in `FEATURE_CATALOG.md`.
+> the full idea catalog. Statuses live in `libs/features/CATALOG.md`.
 
 ---
 

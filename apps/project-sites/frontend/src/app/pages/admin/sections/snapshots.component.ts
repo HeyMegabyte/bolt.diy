@@ -19,7 +19,6 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 import { ReadinessPanelComponent } from '../../../components/readiness-panel/readiness-panel.component';
 import { HealthSparklineComponent } from '../../../components/health-sparkline/health-sparkline.component';
 import { TimelineNotesComponent } from '../../../components/timeline-notes/timeline-notes.component';
-import { SiteLabelsComponent } from '../../../components/site-labels/site-labels.component';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -118,7 +117,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, SiteLabelsComponent, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -258,9 +257,6 @@ interface GhStatus {
            timeline (deploys / campaigns / incidents); self-hides when off. -->
       <app-timeline-notes />
 
-      <!-- Site labels (feature: site_tags) — coloured org tags assigned to this
-           site; self-hides when off. -->
-      <app-site-labels />
 
 
       <!-- Snapshot Timeline -->

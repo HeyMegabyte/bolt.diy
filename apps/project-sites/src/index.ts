@@ -35,8 +35,6 @@ import { requestLogger } from './lib/log.js';
 import { notFoundHtml } from './lib/not_found_page.js';
 import { llmLandingPage } from './lib/llm_landing_page.js';
 import { renderDocsReferencePage } from './lib/docs_reference_page.js';
-import { renderStatusPage } from './lib/status_page.js';
-import { getStatusFeed } from '../libs/features/status_page_live/service.js';
 import { resolveSystemService, systemServiceLanding } from './lib/system_service_landing.js';
 import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
@@ -67,25 +65,13 @@ import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { siteRollbackRoutes } from './routes/site_rollback.js';
 import { handleCodeExport } from '../libs/features/code_export/handlers.js';
-import { buildCritique } from '../libs/features/ai_site_critic/service.js';
-import { analyzeGeo } from '../libs/features/geo_toolkit/service.js';
-import { generateVideoScript } from '../libs/features/ai_video_hero/service.js';
-import { buildContentStrategy } from '../libs/features/ai_content_strategist/service.js';
-import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
-import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
-import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
-import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
 import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
-import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
 import {
   defaultDashboard,
   filterBySource,
   buildMetric,
 } from '../libs/features/marketing_dashboard/service.js';
 import { generateProposals, scoreEngagement } from '../libs/features/social_agent/service.js';
-import { parseVoiceCommand } from '../libs/features/voice_site_mgmt/service.js';
-import { assignVariant, computeSignificance } from '../libs/features/ab_testing/service.js';
-import { agencyMrr, buildAgencyDashboard } from '../libs/features/white_label/service.js';
 import { validateJourney } from '../libs/features/visual_automation/service.js';
 import { planLaunch, listApps } from '../libs/features/app_launcher/service.js';
 import { webhooks } from './routes/webhooks.js';
@@ -148,29 +134,20 @@ import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // 
 import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js'; // OAuth 2.1 AS for MCP one-click connect (flag: mcp_oauth_provider)
 import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: prod_readiness_score)
-import { deployButtons } from '../libs/features/deploy_buttons/handlers.js'; // GET /api/deploy-buttons/:siteId — deploy buttons + "Hosted on" badge (flag: deploy_buttons)
-import { visitorDsar } from '../libs/features/visitor_dsar/handlers.js'; // POST /api/sites/:siteId/dsar — GDPR data-subject export/delete (flag: visitor_dsar)
 import { onboardingCopilot } from '../libs/features/onboarding_copilot/handlers.js'; // /api/onboarding/{checklist,dismiss} — PLG activation checklist (flag: onboarding_copilot)
 import { auditTrailExport } from '../libs/features/audit_trail_export/handlers.js'; // GET /api/audit/export — filterable audit-log JSON/CSV export (flag: audit_trail_export)
 import { modelRegistry } from '../libs/features/model_registry/handlers.js'; // GET /v1/models — OpenAI-compatible model/provider alias catalog (flag: model_registry)
 // Drift-fix (2026-08-07): 3 complete, flag-REGISTERED feature modules that were built but never mounted — their routes were unreachable (404 even with the flag on). Mounting behind their dark flags resolves the drift-detection "dead feature folder" class + makes them reachable on flag promotion. Prod-unchanged: flags are experimental → isFlagOn false → 404, exactly as now.
-import { figmaImport } from '../libs/features/figma_import/handlers.js'; // POST /api/figma/import — import a Figma frame → site section (flag: figma_import)
-import { generativeUiStream } from '../libs/features/generative_ui_stream/handlers.js'; // POST /api/copilot/ui — streamed generative UI blocks (flag: generative_ui_stream)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
 import { creditWalletRollover } from '../libs/features/credit_wallet_rollover/handlers.js'; // wallet rollover+promo (flag: credit_wallet_rollover)
 import { referralLoop } from '../libs/features/referral_loop/handlers.js'; // refer-a-friend (flag: referral_loop)
-import { upgradeMoments } from '../libs/features/upgrade_moments/handlers.js'; // contextual upsell engine (flag: upgrade_moments)
 import { siteDoctor } from '../libs/features/site_doctor/handlers.js'; // owner-facing A-F health report (flag: site_doctor)
 import { previewShareCard } from '../libs/features/preview_share_card/handlers.js'; // GET /api/sites/:siteId/share-card — owner share messages+links+OG (flag: preview_share_card)
 import { promptStudio } from '../libs/features/prompt_studio/handlers.js'; // prompt versioning surface (flag: prompt_studio)
 import { aiGatewayGuardrails } from '../libs/features/ai_gateway_guardrails/handlers.js'; // Llama Guard middleware (flag: ai_gateway_guardrails)
-import { visualPointEdit } from '../libs/features/visual_point_edit/handlers.js'; // point-and-click AI edit (flag: visual_point_edit)
 import { wireframePlanning } from '../libs/features/wireframe_planning/handlers.js'; // pre-gen wireframe plan (flag: wireframe_planning)
-import { urlCloneSeedRouter } from '../libs/features/url_clone_seed/handlers.js'; // paste-URL seed (flag: url_clone_seed)
 import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.js'; // Cmd+K AI actions (flag: cmdk_ai_actions)
-import { statusPageLive } from '../libs/features/status_page_live/handlers.js'; // live status feed (flag: status_page_live)
-import { siteThumbnailGrid } from '../libs/features/site_thumbnail_grid/handlers.js'; // browser-rendered thumbnails (flag: site_thumbnail_grid)
 import { observabilityGateway } from '../libs/features/observability_gateway/handlers.js'; // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveAppHost } from './services/app_host_resolver.js';
@@ -526,181 +503,6 @@ app.route('/', adminFunnel); // /api/admin/activation-funnel — Super-Admin rev
 app.route('/', adminAnalytics); // /api/admin/analytics/* — Super-Admin events-daily + publishes-by-source + claims-by-source rollups (Tinybird, read-only)
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
 app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
-app.get('/api/sites/:siteId/export', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  // Gate the export: flag-on AND the caller's org owns the site. Any miss → 404
-  // (never leak the route's existence, never stream a zip of the site's R2 assets
-  // + the D1 schema to an anonymous or foreign caller). assertSiteOwned returns
-  // false for an undefined orgId, so this also enforces authentication.
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'code_export', { orgId, siteId }))) return c.notFound();
-  const { assertSiteOwned } = await import('./services/site_ownership.js');
-  if (!(await assertSiteOwned(c.env, orgId, siteId))) return c.notFound();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return handleCodeExport(c as any, siteId);
-}); // ZIP download — deployable CF Worker project (flag: code_export)
-
-// AI Website Critic — structured site critique with A-F grading (flag: ai_site_critic)
-app.post('/api/sites/:siteId/critic', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ai_site_critic', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  const dimensions = Array.isArray(body.dimensions) ? body.dimensions : [];
-  const critique = buildCritique(
-    siteId,
-    body.url || `https://${siteId}.projectsites.dev`,
-    dimensions,
-    {
-      industry: body.industry,
-      competitorUrls: body.competitorUrls,
-    },
-  );
-  return c.json({ data: critique });
-});
-
-// GEO Toolkit — dual-score content analyzer for AI answer engine visibility (flag: geo_toolkit)
-app.post('/api/sites/:siteId/geo-analyze', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'geo_toolkit', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.content || typeof body.content !== 'string') {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'content is required' } }, 400);
-  }
-  const analysis = analyzeGeo(
-    body.url || `https://${siteId}.projectsites.dev`,
-    body.content,
-    body.existingJsonLd || [],
-  );
-  return c.json({ data: analysis });
-});
-
-// AI Video Hero — cinematic brand video script generator (flag: ai_video_hero)
-app.post('/api/sites/:siteId/video-hero', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ai_video_hero', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.businessName || !body.description) {
-    return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'businessName and description are required' } },
-      400,
-    );
-  }
-  const script = generateVideoScript(
-    siteId,
-    body.businessName,
-    body.description,
-    body.sellingPoints || [],
-    { style: body.style, colors: body.colors, assetKeywords: body.assetKeywords },
-  );
-  return c.json({ data: script });
-});
-
-// AI Content Strategist — gap analysis + 90-day calendar (flag: ai_content_strategist)
-app.post('/api/sites/:siteId/content-strategy', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'ai_content_strategist', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.siteName || !body.industry) {
-    return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'siteName and industry are required' } },
-      400,
-    );
-  }
-  const strategy = buildContentStrategy(
-    siteId,
-    body.siteName,
-    body.industry,
-    body.siteTopics || [],
-    body.competitorTopics || [],
-    body.startDate ? new Date(body.startDate) : undefined,
-  );
-  return c.json({ data: strategy });
-});
-
-// Conversational Analytics — NL→query intent parser (flag: conversational_analytics)
-app.post('/api/sites/:siteId/analytics/ask', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'conversational_analytics', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.query || typeof body.query !== 'string') {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'query is required' } }, 400);
-  }
-  const result = parseAnalyticsQuery(body.query);
-  return c.json({ data: result });
-});
-
-// NL Site Management — NL→edit-intent parser (flag: nl_site_management)
-app.post('/api/sites/:siteId/nl-command', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'nl_site_management', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.command || typeof body.command !== 'string') {
-    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'command is required' } }, 400);
-  }
-  const result = parseSiteCommand(body.command, body.page || '/');
-  return c.json({ data: result });
-});
-
-// Lifecycle Agent — site health check (flag: lifecycle_agent)
-app.post('/api/sites/:siteId/health-check', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'lifecycle_agent', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  const report = runLifecycleCheck(siteId, body.signals || {});
-  return c.json({ data: report });
-});
-
-// Built-in CRM — lead scoring + pipeline (flag: builtin_crm)
-app.post('/api/sites/:siteId/crm/score', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: scoreLead(body) });
-});
-app.post('/api/sites/:siteId/crm/pipeline', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: pipelineSummary(body.contacts || []) });
-});
-app.post('/api/sites/:siteId/crm/next-action', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'builtin_crm', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: nextAction(body) });
-});
-
 // Customer Portal — magic-link access (flag: customer_portal)
 app.post('/api/sites/:siteId/portal/create', async (c) => {
   const siteId = c.req.param('siteId');
@@ -719,16 +521,6 @@ app.post('/api/sites/:siteId/portal/validate', async (c) => {
     return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: { valid: validateAccess(body.portal, body.token, body.page) } });
-});
-
-// SEO Agent — autonomous SEO health check (flag: seo_agent)
-app.post('/api/sites/:siteId/seo/health', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'seo_agent', { orgId: orgId, siteId: siteId }))) return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: runSeoHealthCheck(siteId, body) });
 });
 
 // Marketing Dashboard — widget config + metrics (flag: marketing_dashboard)
@@ -773,47 +565,6 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
   return c.json({ data: scoreEngagement(body.account, body.metrics) });
 });
 
-// Voice Site Mgmt — voice command parser (flag: voice_site_mgmt)
-app.post('/api/sites/:siteId/voice-command', async (c) => {
-  const siteId = c.req.param('siteId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'voice_site_mgmt', { orgId: c.get('orgId'), siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: parseVoiceCommand(body.transcript || '') });
-});
-
-// A/B Testing (flag: ab_testing) + White Label (flag: white_label) + Visual Automation (flag: visual_automation)
-app.post('/api/sites/:siteId/ab/assign', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (
-    !(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))
-  )
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: assignVariant(body.experiment, body.visitorId) });
-});
-app.post('/api/sites/:siteId/ab/significance', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (
-    !(await isFlagOn(c.env, 'ab_testing', { orgId: c.get('orgId'), siteId: c.req.param('siteId') }))
-  )
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: computeSignificance(body.control, body.variant) });
-});
-app.post('/api/sites/:siteId/agency/dashboard', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (
-    !(await isFlagOn(c.env, 'white_label', {
-      orgId: c.get('orgId'),
-      siteId: c.req.param('siteId'),
-    }))
-  )
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: buildAgencyDashboard(body.brand, body.sites || []) });
-});
 app.post('/api/sites/:siteId/automation/validate', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (
@@ -840,43 +591,6 @@ app.post('/api/apps/launch', async (c) => {
     return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: planLaunch(body) });
-});
-
-// Site Tags — org-scoped colored label pills (flag: site_tags)
-app.get('/api/site-tags', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
-  const { handleListTags } = await import('../libs/features/site_tags/handlers.js');
-  return handleListTags(c);
-});
-app.post('/api/site-tags', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
-  const { handleCreateTag } = await import('../libs/features/site_tags/handlers.js');
-  return handleCreateTag(c);
-});
-app.patch('/api/site-tags/:tagId', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
-  const { handleUpdateTag } = await import('../libs/features/site_tags/handlers.js');
-  return handleUpdateTag(c);
-});
-app.delete('/api/site-tags/:tagId', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId') }))) return c.notFound();
-  const { handleDeleteTag } = await import('../libs/features/site_tags/handlers.js');
-  return handleDeleteTag(c);
-});
-app.put('/api/sites/:siteId/tags', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  const siteId = c.req.param('siteId');
-  if (!(await isFlagOn(c.env, 'site_tags', { orgId: c.get('orgId'), siteId }))) return c.notFound();
-  const { handleSetSiteTags } = await import('../libs/features/site_tags/handlers.js');
-  return handleSetSiteTags(c);
-});
-app.get('/api/sites/:siteId/tags', async (c) => {
-  const { handleGetSiteTags } = await import('../libs/features/site_tags/handlers.js');
-  return handleGetSiteTags(c);
 });
 
 // System Status — aggregated integration health (flag: system_status)
@@ -1052,13 +766,9 @@ app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webho
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
 app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`
-app.route('/api/deploy-buttons', deployButtons); // GET /api/deploy-buttons/:siteId (flag: deploy_buttons)
-app.route('/', visitorDsar); // POST /api/sites/:siteId/dsar (flag: visitor_dsar) — must precede `api`
 app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,dismiss} (flag: onboarding_copilot)
 app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all
-app.route('/', figmaImport); // POST /api/figma/import — Figma frame → site section (flag: figma_import, dark)
-app.route('/', generativeUiStream); // POST /api/copilot/ui — streamed generative UI blocks (flag: generative_ui_stream, dark)
 app.route('/', browserService); // POST /v1/browser/* — product browser-automation abstraction (browser.projectsites.dev); routes CF→Stagehand→Browserbase-fallback, never Skyvern in product paths — must precede the catch-all
 // System-service status page at the bare root `/` — registered BEFORE inngestApp
 // so `jobs.projectsites.dev/` returns the branded 200 status page instead of the
@@ -1117,17 +827,12 @@ app.route('/', observabilityGateway); // POST /monitoring/:provider — customer
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
 app.route('/', creditWalletRollover); // /api/credits/* (flag: credit_wallet_rollover)
 app.route('/', referralLoop); // /api/referrals/* (flag: referral_loop)
-app.route('/', upgradeMoments); // /api/upgrade-moments/* (flag: upgrade_moments)
 app.route('/', siteDoctor); // /api/sites/:siteId/doctor (flag: site_doctor)
 app.route('/', previewShareCard); // /api/sites/:siteId/share-card (flag: preview_share_card)
 app.route('/', promptStudio); // /api/prompt-studio/* (flag: prompt_studio)
 app.route('/', aiGatewayGuardrails); // /api/guardrails/* (flag: ai_gateway_guardrails)
-app.route('/', visualPointEdit); // /api/editor/point-edit (flag: visual_point_edit)
 app.route('/', wireframePlanning); // /api/wireframe/* (flag: wireframe_planning)
-app.route('/', urlCloneSeedRouter); // /api/clone/seed (flag: url_clone_seed)
 app.route('/', cmdkAiActionsRouter); // /api/cmdk/resolve (flag: cmdk_ai_actions)
-app.route('/', statusPageLive); // /api/status/* (flag: status_page_live)
-app.route('/', siteThumbnailGrid); // /api/thumbnails/* (flag: site_thumbnail_grid)
 app.route('/', integrationHealth); // GET /api/integrations/:name/health + /api/integrations/health
 
 app.route('/', api);
@@ -1530,14 +1235,6 @@ a{color:#00e5ff;text-decoration:none}a:hover{text-decoration:underline}
 <div class="card"><h2>Status</h2><p>Check real-time system health for all ProjectSites services.</p><a href="https://projectsites.dev/status" style="color:#00e5ff">System status →</a></div>
 <p class="foot">&larr; <a href="https://projectsites.dev/">projectsites.dev</a></p>
 </div></body></html>`);
-});
-
-// ─── status.projectsites.dev — Public Platform Status ──────
-app.all('*', async (c, next) => {
-  const hostname = (c.req.header('host') ?? '').toLowerCase();
-  if (hostname !== `status.${DOMAINS.SITES_BASE}`) return next();
-  const feed = await getStatusFeed(c.env);
-  return c.html(renderStatusPage(feed.status, feed.incidents));
 });
 
 // ─── API soft-404 guard ──────────────────────────────────────

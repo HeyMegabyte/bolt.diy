@@ -22,7 +22,7 @@ interface DoctorReport {
  * #59 Site Doctor — owner-facing A–F health report card. Reads
  * `/api/sites/:siteId/doctor?plan=` for the selected site and renders the grade,
  * score, summary, and prioritized one-tap fixes. Locked issues (free plan) show
- * a blurred upsell that deep-links to billing (`upgrade_moments` attribution).
+ * a blurred upsell that deep-links to billing.
  */
 @Component({
   selector: 'app-site-doctor',
