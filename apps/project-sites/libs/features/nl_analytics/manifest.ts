@@ -1,1 +1,0 @@
-export const manifest = { slug: 'nl_analytics', name: 'Natural Language Analytics', description: 'Natural-language → SQL analytics queries. "How many sites do I have?" → D1 query with results and explanation. Stateless intent parser, no AI dependency.', flagKey: 'nl_analytics', owner: 'brian@megabyte.space', stage: 'experimental' as const, createdAt: '2026-07-15' };

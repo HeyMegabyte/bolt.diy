@@ -349,7 +349,6 @@ admin_verification_sweeps:
     status: covered
     specs:
       - ai-actions/export-safety.spec.ts
-      - ai-actions/payment-safety.spec.ts
   api_safety:
     status: covered
     specs:

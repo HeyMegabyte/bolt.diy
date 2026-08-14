@@ -56,7 +56,6 @@ import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
 import { inngestApp } from './inngest/serve.js'; // jobs./events.projectsites.dev + /api/inngest serve (§13 automation plane; inert until watched deploy)
 import { createJobsRoutes } from './routes/jobs.js'; // POST /api/jobs dispatch seam (§20 WorkflowRouter)
-import { aiActions } from './routes/ai_actions.js';
 import { adminLeads } from './routes/admin_leads.js';
 import { adminOutbox } from './routes/admin_outbox.js';
 import { adminFunnel } from './routes/admin_funnel.js';
@@ -65,7 +64,6 @@ import { maybeCompleteClaimBuild } from './services/claim_build_callback.js';
 import { claimRoutes } from './routes/claim.js';
 import { siteRollbackRoutes } from './routes/site_rollback.js';
 import { handleCodeExport } from '../libs/features/code_export/handlers.js';
-import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import {
   defaultDashboard,
   filterBySource,
@@ -233,6 +231,7 @@ export {
   NocodbContainer,
   OpenWebuiContainer,
   OutlineContainer,
+  PayloadContainer,
   PerplexicaContainer,
   PlaneContainer,
   PlausibleContainer,
@@ -496,33 +495,12 @@ app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)
-app.route('/', aiActions); // /api/ai-actions/payment-command — safety-gated AI payment-command (flag: ai_payment_command)
 app.route('/', adminLeads); // /api/admin/leads/scan — Super-Admin lead scanner (flag: lead_scanner)
 app.route('/', adminOutbox); // /api/admin/outbox — Super-Admin event-bus DLQ observability (read-only)
 app.route('/', adminFunnel); // /api/admin/activation-funnel — Super-Admin revenue-funnel rollup (Tinybird, read-only)
 app.route('/', adminAnalytics); // /api/admin/analytics/* — Super-Admin events-daily + publishes-by-source + claims-by-source rollups (Tinybird, read-only)
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
 app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
-// Customer Portal — magic-link access (flag: customer_portal)
-app.post('/api/sites/:siteId/portal/create', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: createPortal(body.clientId, body.clientName, body.pages || []) });
-});
-app.post('/api/sites/:siteId/portal/validate', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'customer_portal', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: { valid: validateAccess(body.portal, body.token, body.page) } });
-});
-
 // Marketing Dashboard — widget config + metrics (flag: marketing_dashboard)
 app.get('/api/sites/:siteId/dashboard', async (c) => {
   const siteId = c.req.param('siteId');
@@ -670,14 +648,6 @@ app.post('/api/sites/clone', async (c) => {
   if (!(await isFlagOn(c.env, 'site_clone', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleSiteClone } = await import('../libs/features/site_clone/handlers.js');
   return handleSiteClone(c);
-});
-
-// NL Analytics — natural language → SQL (flag: nl_analytics)
-app.post('/api/analytics/query', async (c) => {
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'nl_analytics', { orgId: c.get('orgId')! }))) return c.notFound();
-  const { handleAnalyticsQuery } = await import('../libs/features/nl_analytics/handlers.js');
-  return handleAnalyticsQuery(c);
 });
 
 // Onboarding Progress — org setup completion (flag: onboarding_progress)

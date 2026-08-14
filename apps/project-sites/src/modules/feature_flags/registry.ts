@@ -178,15 +178,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  customer_portal: {
-    key: 'customer_portal',
-    description:
-      "Client portal access engine: magic-link auth, per-client page access control, 30-day expiry, sub-page path matching. Use case: agencies sharing invoices/projects/files with clients. Its route checks isFlagOn('customer_portal'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   marketing_dashboard: {
     key: 'marketing_dashboard',
     description:
@@ -225,15 +216,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   },
 
   // Generation/editing + growth + Cloudflare quick wins
-  ai_payment_command: {
-    key: 'ai_payment_command',
-    description:
-      'Safety-gated AI payment-command endpoint (POST /api/ai-actions/payment-command): NL→intent policy engine that refuses raw card / last4-only, requires an intent-bound confirmation token for live charges, and runs only saved-PM-ref charges via the constrained Stripe tool layer (create+confirm / refund / get_status)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   lead_scanner: {
     key: 'lead_scanner',
     description:
@@ -373,15 +355,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'site_clone',
     description:
       'Site Clone One-Click (#19): copies pages/settings/metadata to a new slug. POST /api/sites/clone.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  nl_analytics: {
-    key: 'nl_analytics',
-    description:
-      'Natural Language Analytics (#17): stateless NL→SQL intent parser. "How many sites?" → D1 query with results + explanation. 7 recognized patterns. POST /api/analytics/query.',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

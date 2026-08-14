@@ -266,24 +266,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the widget is absent from the published HTML, the route 404s',
     ],
   },
-  ai_payment_command: {
-    checklist: [
-      'POST /api/ai-actions/payment-command — NL→intent payment policy engine',
-      'Refuses raw card numbers and last4-only references',
-      'Live charge requires an intent-bound confirmation token',
-      'Charges only saved-PM refs via the constrained Stripe tool layer',
-      'dry-run by default (preview + token, never charges)',
-      'Tenant bound to the authed session org (client tenant_id ignored)',
-    ],
-    explanation:
-      'Safety-gated AI payment-command endpoint. Parses a natural-language payment instruction into a typed intent, then runs a policy engine that refuses raw card numbers (Luhn + digit-run detection) and last4-only references, requires a positive integer-cent amount + a saved payment-method ref, and demands an intent-bound confirmation token (cnf_…hash) before any live charge — so a $5 preview can’t be swapped to a $5000 charge. dry-run is the default (returns a preview + token, never charges); a live charge runs only through the constrained Stripe tool layer (create+confirm / refund / get_status) with a mandatory idempotency key. The tenant is bound to the authed session org; a client-supplied tenant_id is ignored. Disabled by default → the route 404s.',
-    smoke_test: [
-      'POST /api/ai-actions/payment-command {command:"charge the customer $20 on their saved card", dry_run:true} → 200 preview + confirmation_token, executed:false',
-      'Repeat with a raw 16-digit card number in the command → 400 raw_card_forbidden',
-      'POST with dry_run:false and the matching confirmation_token → 200 charged (idempotency_key present)',
-      'Disable the flag → the endpoint 404s',
-    ],
-  },
   lead_scanner: {
     checklist: [
       'POST /api/admin/leads/scan — Google Places text-search → scored leads',
@@ -506,20 +488,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Enable flag → POST /api/sites/clone {"sourceSiteId":"<id>","targetSlug":"my-clone","targetName":"My Clone"} → 201',
       'Duplicate slug → 409',
       'Missing source → 404',
-    ],
-  },
-  nl_analytics: {
-    checklist: [
-      '7 NL patterns recognized (sites/builds/activity/members/status)',
-      'Stateless regex→SQL parser — zero AI cost',
-      'Returns generated SQL + explanation + results',
-    ],
-    explanation:
-      'Natural-language analytics intent parser. Maps common questions ("how many sites?", "builds this month", "most active site") to parameterized D1 SQL queries with human-readable explanations. Stateless and free — no AI call needed. Designed to be progressively enhanced with Workers AI for fuzzy matching.',
-    smoke_test: [
-      'Enable flag → POST /api/analytics/query {"question":"how many sites"} → 200 with sql+explanation+results',
-      'Try "builds this month", "most active site", "sites by status" — each returns different SQL',
-      'Unrecognized question returns hint with supported patterns',
     ],
   },
   onboarding_progress: {
