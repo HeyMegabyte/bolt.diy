@@ -36,7 +36,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Abuse-report intake and content-takedown workflow for published sites (DMCA / illegal-content).\n\n• POST /api/abuse/report is public + rate-limited (20/min); body {site, category, reason, ...} → 202 {id}, 404 if site unknown.\n• GET /api/abuse/reports (super-admin) is the review queue; POST /api/abuse/reports/:id/resolve actions dismiss|takedown.\n• takedown archives the site (sites.status=\'archived\'). Table abuse_reports (migration 0536).\n• Handler abuseTakedown in libs/features/abuse_takedown.',
+      "Abuse-report intake and content-takedown workflow for published sites (DMCA / illegal-content).\n\n• POST /api/abuse/report is public + rate-limited (20/min); body {site, category, reason, ...} → 202 {id}, 404 if site unknown.\n• GET /api/abuse/reports (super-admin) is the review queue; POST /api/abuse/reports/:id/resolve actions dismiss|takedown.\n• takedown archives the site (sites.status='archived'). Table abuse_reports (migration 0536).\n• Handler abuseTakedown in libs/features/abuse_takedown.",
     key: 'abuse_takedown',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -55,7 +55,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Workload-aware AI model auto-router: classifies each prompt (simple / complex / creative / free-eligible) and routes to the cheapest sufficient model without manual model selection.\n\n• Worker route POST /api/router/pick (returns classification, picked_model, estimated_cost_usd, alternatives) behind requireFlag(\'ai_auto_router\').\n• Worker route GET /api/router/stats reports savings vs an always-Opus baseline, same flag gate.\n• Extends the multi_model_router with automatic per-prompt routing.\n• Backend-only — no admin section; off (default) → both routes 404.',
+      "Workload-aware AI model auto-router: classifies each prompt (simple / complex / creative / free-eligible) and routes to the cheapest sufficient model without manual model selection.\n\n• Worker route POST /api/router/pick (returns classification, picked_model, estimated_cost_usd, alternatives) behind requireFlag('ai_auto_router').\n• Worker route GET /api/router/stats reports savings vs an always-Opus baseline, same flag gate.\n• Extends the multi_model_router with automatic per-prompt routing.\n• Backend-only — no admin section; off (default) → both routes 404.",
     key: 'ai_auto_router',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -73,7 +73,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: true,
     default_rollout_percent: 100,
     description:
-      'Account-level app catalog and launch planner over the companion-app catalog (Plane, Twenty, Listmonk, Chatwoot, Lago, Unkey, Nango, Payload, and more); planner only, hands a provisioning plan to the operator.\n\n• Worker routes GET /api/apps/catalog (lists apps) and POST /api/apps/launch (returns a structured launch plan), both gated by isFlagOn(\'app_launcher\') at src/index.ts.\n• The /admin/apps section renders the catalog with search, lifecycle filters, and category menu.\n• Off → both /api/apps/* routes 404 (no existence leak).\n• Off-vision relative to the core site builder — it is the Apps expansion surface.',
+      "Account-level app catalog and launch planner over the companion-app catalog (Plane, Twenty, Listmonk, Chatwoot, Lago, Unkey, Nango, Payload, and more); planner only, hands a provisioning plan to the operator.\n\n• Worker routes GET /api/apps/catalog (lists apps) and POST /api/apps/launch (returns a structured launch plan), both gated by isFlagOn('app_launcher') at src/index.ts.\n• The /admin/apps section renders the catalog with search, lifecycle filters, and category menu.\n• Off → both /api/apps/* routes 404 (no existence leak).\n• Off-vision relative to the core site builder — it is the Apps expansion surface.",
     key: 'app_launcher',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -82,7 +82,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Org-scoped, read-only export of the append-only audit trail for compliance reviews.\n\n• GET /api/audit/export filters by action + date range, downloads as JSON or CSV (format=csv → attachment).\n• Read-only over audit_logs, scoped to caller\'s org_id (no cross-tenant rows); 404s when off.\n• Handler auditTrailExport in libs/features/audit_trail_export, mounted at /api/audit/export.\n• Backend-only: no dedicated export UI yet (audit.component covers the in-app log view).',
+      "Org-scoped, read-only export of the append-only audit trail for compliance reviews.\n\n• GET /api/audit/export filters by action + date range, downloads as JSON or CSV (format=csv → attachment).\n• Read-only over audit_logs, scoped to caller's org_id (no cross-tenant rows); 404s when off.\n• Handler auditTrailExport in libs/features/audit_trail_export, mounted at /api/audit/export.\n• Backend-only: no dedicated export UI yet (audit.component covers the in-app log view).",
     key: 'audit_trail_export',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -141,7 +141,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   core_admin_detail: {
     default_enabled: true,
     default_rollout_percent: 100,
-    description: 'Always-on sentinel for the admin site-detail split view: left rail sections nav, right pane the selected section (Logs / Snapshots+Rollback / SQL / Integrations). isFlagOn always true.\n\n• Route: /admin/sites/:id (site-detail.component) with 4 tabs; siteId read from ActivatedRoute.\n• The persistent bolt.diy iframe lives in the admin shell so WebContainer cold-boot happens once per session.\n• Section navigation is SPA (routerLink) — no full reload.\n• Sibling per-site routes: /admin/sites/:id/branches, /admin/sites/:id/mcp-server.\n• Core sentinel — the admin detail plane can\'t be flagged off.',
+    description:
+      "Always-on sentinel for the admin site-detail split view: left rail sections nav, right pane the selected section (Logs / Snapshots+Rollback / SQL / Integrations). isFlagOn always true.\n\n• Route: /admin/sites/:id (site-detail.component) with 4 tabs; siteId read from ActivatedRoute.\n• The persistent bolt.diy iframe lives in the admin shell so WebContainer cold-boot happens once per session.\n• Section navigation is SPA (routerLink) — no full reload.\n• Sibling per-site routes: /admin/sites/:id/branches, /admin/sites/:id/mcp-server.\n• Core sentinel — the admin detail plane can't be flagged off.",
     key: 'core_admin_detail',
     owner_email: 'brian@megabyte.space',
     stage: 'stable',
@@ -152,7 +153,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: true,
     default_rollout_percent: 100,
     description:
-      'Always-on sentinel for the auth surface: passwordless magic-link (Resend/SendGrid) + Google OAuth + D1 session cookies. isFlagOn always returns true.\n\n• Sessions resolve userId/orgId in auth middleware without rejecting unauthed requests — route guards decide access.\n• Magic links single-use, 15-min TTL; OAuth uses PKCE state in oauth_states.\n• Surface: /signin (Better Auth sign-in UI) + POST /api/auth/magic-link + GET /api/auth/me.\n• Protected 401s bounce to /signin?returnUrl=… via ApiService.\n• Core sentinel — the auth plane can\'t be flagged off.',
+      "Always-on sentinel for the auth surface: passwordless magic-link (Resend/SendGrid) + Google OAuth + D1 session cookies. isFlagOn always returns true.\n\n• Sessions resolve userId/orgId in auth middleware without rejecting unauthed requests — route guards decide access.\n• Magic links single-use, 15-min TTL; OAuth uses PKCE state in oauth_states.\n• Surface: /signin (Better Auth sign-in UI) + POST /api/auth/magic-link + GET /api/auth/me.\n• Protected 401s bounce to /signin?returnUrl=… via ApiService.\n• Core sentinel — the auth plane can't be flagged off.",
     key: 'core_auth',
     owner_email: 'brian@megabyte.space',
     stage: 'stable',
@@ -161,7 +162,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: true,
     default_rollout_percent: 100,
     description:
-      'Always-on sentinel for the Stripe billing surface: checkout, subscriptions, entitlements, billing portal and donation payouts. isFlagOn always true.\n\n• Worker: POST /api/billing/checkout returns a Stripe Checkout session URL; GET /api/billing/entitlements returns the plan entitlement set; POST /api/billing/portal opens the billing portal.\n• Webhook-first: POST /webhooks/stripe verifies signature + idempotency; duplicate events ignored.\n• Entitlements gate the per-site Features plane.\n• Admin surface: /admin/billing (billing.component).\n• Core sentinel — the billing plane can\'t be flagged off.',
+      "Always-on sentinel for the Stripe billing surface: checkout, subscriptions, entitlements, billing portal and donation payouts. isFlagOn always true.\n\n• Worker: POST /api/billing/checkout returns a Stripe Checkout session URL; GET /api/billing/entitlements returns the plan entitlement set; POST /api/billing/portal opens the billing portal.\n• Webhook-first: POST /webhooks/stripe verifies signature + idempotency; duplicate events ignored.\n• Entitlements gate the per-site Features plane.\n• Admin surface: /admin/billing (billing.component).\n• Core sentinel — the billing plane can't be flagged off.",
     key: 'core_billing',
     owner_email: 'brian@megabyte.space',
     stage: 'stable',
@@ -169,7 +170,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   core_feature_flags: {
     default_enabled: true,
     default_rollout_percent: 100,
-    description: 'Always-on sentinel for the feature-flags admin UI at /admin/feature-flags. isFlagOn always true — the control plane can\'t be flagged off.\n\n• Lists every registry flag with default state + stage; search + stage-filter pills.\n• Per-flag detail shows resolved state + docs (checklist/explanation/smoke_test/e2e_tests).\n• Override mutations global / org / tenant via POST /api/admin/feature-flags/:key/override; KV cache invalidates immediately.\n• GET /api/feature-flags returns the full registry with has_docs; GET /api/feature-flags/:key returns detail.\n• sysAdminGuard hides it from site owners (operator-only); non-operators bounce to /admin/site-features.',
+    description:
+      "Always-on sentinel for the feature-flags admin UI at /admin/feature-flags. isFlagOn always true — the control plane can't be flagged off.\n\n• Lists every registry flag with default state + stage; search + stage-filter pills.\n• Per-flag detail shows resolved state + docs (checklist/explanation/smoke_test/e2e_tests).\n• Override mutations global / org / tenant via POST /api/admin/feature-flags/:key/override; KV cache invalidates immediately.\n• GET /api/feature-flags returns the full registry with has_docs; GET /api/feature-flags/:key returns detail.\n• sysAdminGuard hides it from site owners (operator-only); non-operators bounce to /admin/site-features.",
     key: 'core_feature_flags',
     owner_email: 'brian@megabyte.space',
     stage: 'stable',
@@ -177,7 +179,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   core_site_create: {
     default_enabled: true,
     default_rollout_percent: 100,
-    description: 'Always-on sentinel for the homepage site-creation funnel: search business → select → sign in → provide details/upload → AI build workflow starts. isFlagOn always true.\n\n• Homepage SPA (public/index.html) 4-screen state machine: search → signin → details → waiting.\n• POST /api/sites/create-from-search seeds a site row (status=draft) + starts SITE_WORKFLOW (workflow_jobs row).\n• Search calls /api/search/businesses + /api/sites/search in parallel; 300ms debounce, min 2 chars.\n• Drives the golden path; redirect to /waiting shows real-time build progress.\n• Core sentinel — the create funnel can\'t be flagged off.',
+    description:
+      "Always-on sentinel for the homepage site-creation funnel: search business → select → sign in → provide details/upload → AI build workflow starts. isFlagOn always true.\n\n• Homepage SPA (public/index.html) 4-screen state machine: search → signin → details → waiting.\n• POST /api/sites/create-from-search seeds a site row (status=draft) + starts SITE_WORKFLOW (workflow_jobs row).\n• Search calls /api/search/businesses + /api/sites/search in parallel; 300ms debounce, min 2 chars.\n• Drives the golden path; redirect to /waiting shows real-time build progress.\n• Core sentinel — the create funnel can't be flagged off.",
     key: 'core_site_create',
     owner_email: 'brian@megabyte.space',
     stage: 'stable',
@@ -202,7 +205,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Real-time in-editor AI vision critique: screenshots the current editor preview via Cloudflare Browser Rendering, scores layout / contrast / brand 0-10 with a vision model, and returns inline fix suggestions per finding.\n\n• Worker route POST /api/vision-qa gated by isFlagOn(\'editor_vision_qa\') (routes/vision_qa.ts).\n• Response carries {score, findings[]} with each finding categorized (layout/contrast/brand) plus a suggested fix.\n• Distinct from the post-build async snapshot-quality workflow.\n• Backend-only — no dedicated admin section; off (default) → the endpoint 404s.',
+      "Real-time in-editor AI vision critique: screenshots the current editor preview via Cloudflare Browser Rendering, scores layout / contrast / brand 0-10 with a vision model, and returns inline fix suggestions per finding.\n\n• Worker route POST /api/vision-qa gated by isFlagOn('editor_vision_qa') (routes/vision_qa.ts).\n• Response carries {score, findings[]} with each finding categorized (layout/contrast/brand) plus a suggested fix.\n• Distinct from the post-build async snapshot-quality workflow.\n• Backend-only — no dedicated admin section; off (default) → the endpoint 404s.",
     key: 'editor_vision_qa',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -222,7 +225,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Read-only Email Deliverability Wizard: checks a sending domain\'s SPF, DKIM and DMARC over DNS-over-HTTPS and returns a 0-100 score plus concrete copy-paste DNS fixes. Persists nothing.\n\n• Worker route GET /api/sites/:siteId/deliverability gated by isFlagOn(\'email_deliverability_wizard\') (404 when off).\n• The /admin/deliverability section renders the domain-check form and score UI.\n• When the flag is off the section shows a calm cyan flag-gate notice instead of a red error.\n• e2e/admin/deliverability.spec.ts covers it (green live).',
+      "Read-only Email Deliverability Wizard: checks a sending domain's SPF, DKIM and DMARC over DNS-over-HTTPS and returns a 0-100 score plus concrete copy-paste DNS fixes. Persists nothing.\n\n• Worker route GET /api/sites/:siteId/deliverability gated by isFlagOn('email_deliverability_wizard') (404 when off).\n• The /admin/deliverability section renders the domain-check form and score UI.\n• When the flag is off the section shows a calm cyan flag-gate notice instead of a red error.\n• e2e/admin/deliverability.spec.ts covers it (green live).",
     key: 'email_deliverability_wizard',
     owner_email: 'brian@megabyte.space',
     stage: 'beta', // beta 2026-07-31: e2e verified — e2e/admin/deliverability.spec.ts (green live),
@@ -252,7 +255,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   mcp_server: {
     default_enabled: true,
     default_rollout_percent: 100,
-    description: 'Gates the platform Model Context Protocol server so Claude / Cursor / Windsurf users can drive their projectsites account over MCP.\n\n• Worker: libs/features/platform_mcp/handlers.ts (FLAG_KEY=\'mcp_server\') gates GET+POST /api/mcp (JSON-RPC) — 404s when off.\n• Exposes 5 tools: list_sites, create_site, deploy_site, get_site_metrics, regenerate_section.\n• Public discovery at /.well-known/mcp (served ungated in features.ts) + OAuth 2.1 / RFC 8707 resource indicators at /.well-known/oauth-protected-resource.\n• Stage=stable, default_enabled=true / rollout=100.\n• e2e: e2e/mcp/mcp-providers.spec.ts.',
+    description:
+      "Gates the platform Model Context Protocol server so Claude / Cursor / Windsurf users can drive their projectsites account over MCP.\n\n• Worker: libs/features/platform_mcp/handlers.ts (FLAG_KEY='mcp_server') gates GET+POST /api/mcp (JSON-RPC) — 404s when off.\n• Exposes 5 tools: list_sites, create_site, deploy_site, get_site_metrics, regenerate_section.\n• Public discovery at /.well-known/mcp (served ungated in features.ts) + OAuth 2.1 / RFC 8707 resource indicators at /.well-known/oauth-protected-resource.\n• Stage=stable, default_enabled=true / rollout=100.\n• e2e: e2e/mcp/mcp-providers.spec.ts.",
     key: 'mcp_server',
     owner_email: 'brian@megabyte.space',
     stage: 'stable',
@@ -261,7 +265,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'OpenAI-compatible GET /v1/models catalog backed by the provider-capability + model-alias registries with per-provider availability gating.\n\n• Handler mounted in index.ts before the site catch-all; isFlagOn-gated — off returns 404.\n• GET /v1/models returns {object:\'list\', data:[...]} of deepseek/anthropic/openai/gemini/grok/workers-ai aliases; a provider lists only when its key is set.\n• Backend-only alias catalog the AI router reads; no admin UI.',
+      "OpenAI-compatible GET /v1/models catalog backed by the provider-capability + model-alias registries with per-provider availability gating.\n\n• Handler mounted in index.ts before the site catch-all; isFlagOn-gated — off returns 404.\n• GET /v1/models returns {object:'list', data:[...]} of deepseek/anthropic/openai/gemini/grok/workers-ai aliases; a provider lists only when its key is set.\n• Backend-only alias catalog the AI router reads; no admin UI.",
     key: 'model_registry',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -279,7 +283,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Product-led-growth activation checklist computing a new org\'s next-best actions with per-step completion state and a dismiss control.\n\n• Handler mounted at /api/onboarding in index.ts; isFlagOn-gated — off returns 404.\n• GET /api/onboarding/checklist returns {steps:[{id, done, cta_href}], dismissed}; POST /api/onboarding/dismiss hides it.\n• Admin dashboard renders <app-onboarding-checklist>, self-hiding on 404. Read-only over org state.',
+      "Product-led-growth activation checklist computing a new org's next-best actions with per-step completion state and a dismiss control.\n\n• Handler mounted at /api/onboarding in index.ts; isFlagOn-gated — off returns 404.\n• GET /api/onboarding/checklist returns {steps:[{id, done, cta_href}], dismissed}; POST /api/onboarding/dismiss hides it.\n• Admin dashboard renders <app-onboarding-checklist>, self-hiding on 404. Read-only over org state.",
     key: 'onboarding_copilot',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -288,7 +292,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Outbound webhooks: customers subscribe their own https endpoints to site events; deliveries are HMAC-signed, replay-safe, and retried with backoff, with the endpoint secret AES-GCM encrypted at rest.\n\n• Worker CRUD at /api/sites/:siteId/webhooks (GET/POST/DELETE) plus GET /api/sites/:siteId/webhooks/deliveries, each behind isFlagOn(\'outbound_webhooks\') (404 when off).\n• The Webhooks surface renders as a tab under /admin/settings#webhooks (top-level /admin/webhooks redirects there).\n• Flag off → the tab shows a calm cyan flag-gate notice.\n• e2e/webhook/webhooks.spec.ts covers it (7/7).',
+      "Outbound webhooks: customers subscribe their own https endpoints to site events; deliveries are HMAC-signed, replay-safe, and retried with backoff, with the endpoint secret AES-GCM encrypted at rest.\n\n• Worker CRUD at /api/sites/:siteId/webhooks (GET/POST/DELETE) plus GET /api/sites/:siteId/webhooks/deliveries, each behind isFlagOn('outbound_webhooks') (404 when off).\n• The Webhooks surface renders as a tab under /admin/settings#webhooks (top-level /admin/webhooks redirects there).\n• Flag off → the tab shows a calm cyan flag-gate notice.\n• e2e/webhook/webhooks.spec.ts covers it (7/7).",
     key: 'outbound_webhooks',
     owner_email: 'brian@megabyte.space',
     stage: 'beta', // beta 2026-07-31: e2e verified — e2e/webhook/webhooks.spec.ts (7/7 live),
@@ -333,7 +337,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   pwa_manifest_full: {
     default_enabled: false,
     default_rollout_percent: 0,
-    description: 'Serves a full per-site PWA manifest (screenshots, shortcuts, share_target, file_handlers, protocol_handlers) required for App Store / Play Store listings.\n\n• Worker route GET /api/pwa/manifest behind requireFlag(\'pwa_manifest_full\') returns the enriched manifest JSON.\n• feature_e2e.test asserts the manifest response includes rel="manifest"; e2e/pwa.spec.ts covers it (5/5).\n• Backend-only surface — no dedicated admin section renders it.\n• Off (default) → the manifest endpoint 404s.',
+    description:
+      'Serves a full per-site PWA manifest (screenshots, shortcuts, share_target, file_handlers, protocol_handlers) required for App Store / Play Store listings.\n\n• Worker route GET /api/pwa/manifest behind requireFlag(\'pwa_manifest_full\') returns the enriched manifest JSON.\n• feature_e2e.test asserts the manifest response includes rel="manifest"; e2e/pwa.spec.ts covers it (5/5).\n• Backend-only surface — no dedicated admin section renders it.\n• Off (default) → the manifest endpoint 404s.',
     key: 'pwa_manifest_full',
     owner_email: 'brian@megabyte.space',
     stage: 'beta', // beta 2026-07-31: e2e verified — e2e/pwa.spec.ts (5/5 live),
@@ -342,7 +347,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'In-product refer-a-friend: tracked referral codes/links, attributed signups, and credit rewards granted through the wallet on conversion.\n\n• Handlers mounted in index.ts; isFlagOn-gated — off returns 404.\n• GET /api/referral/code returns the org\'s code + share link; POST /api/referral/track attributes a signup; GET /api/referral/stats powers the dashboard.\n• Rewards granted via credit_wallet_rollover. Admin dashboard renders <app-referral-card>, self-hiding on 404.',
+      "In-product refer-a-friend: tracked referral codes/links, attributed signups, and credit rewards granted through the wallet on conversion.\n\n• Handlers mounted in index.ts; isFlagOn-gated — off returns 404.\n• GET /api/referral/code returns the org's code + share link; POST /api/referral/track attributes a signup; GET /api/referral/stats powers the dashboard.\n• Rewards granted via credit_wallet_rollover. Admin dashboard renders <app-referral-card>, self-hiding on 404.",
     key: 'referral_loop',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -351,7 +356,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Owner-facing per-site analytics summary that aggregates a site\'s contacts, form submissions, newsletter subscribers, donations and traffic into one read-only dashboard.\n\n• Worker: libs/features/site_analytics/handlers.ts mounts GET /api/sites/:siteId/analytics (+ /daily, /sections, /forms, /funnel, /export) and POST /api/sites/:siteId/analytics/share.\n• Traffic block reads visitor_events_core; other tiles read the contacts/submissions/subscribers/donations cores.\n• Admin surface: /admin/analytics (analytics-dashboard.component) with overview + live tabs.\n• Site-scoped query — never exposes another tenant\'s numbers; when the flag is off the route 404s (never 403).\n• Stage=beta; e2e verified via e2e/admin/analytics.spec.ts.',
+      "Owner-facing per-site analytics summary that aggregates a site's contacts, form submissions, newsletter subscribers, donations and traffic into one read-only dashboard.\n\n• Worker: libs/features/site_analytics/handlers.ts mounts GET /api/sites/:siteId/analytics (+ /daily, /sections, /forms, /funnel, /export) and POST /api/sites/:siteId/analytics/share.\n• Traffic block reads visitor_events_core; other tiles read the contacts/submissions/subscribers/donations cores.\n• Admin surface: /admin/analytics (analytics-dashboard.component) with overview + live tabs.\n• Site-scoped query — never exposes another tenant's numbers; when the flag is off the route 404s (never 403).\n• Stage=beta; e2e verified via e2e/admin/analytics.spec.ts.",
     key: 'site_analytics',
     owner_email: 'brian@megabyte.space',
     stage: 'beta', // beta 2026-07-31: e2e verified — e2e/admin/analytics.spec.ts (green live),
@@ -408,7 +413,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   token_burn_meter: {
     default_enabled: false,
     default_rollout_percent: 0,
-    description: 'Live monthly AI-token spend meter surfaced in the editor and the AI Endpoints admin section, tracking per-model burn against the tier cap.\n\n• Worker routes GET /api/usage/burn (used_usd, projected_monthly_usd, by_model, 80%/100% thresholds) and POST /api/usage/record, both behind requireFlag(\'token_burn_meter\').\n• site-generation workflow gates its token accounting on the flag (services/build_budget.ts records feature_slug \'token_burn_meter\').\n• The /admin/ai-endpoints section renders a spend-vs-cap budget meter tied to this feature.\n• Off (default) → both usage endpoints 404 (no existence leak).',
+    description:
+      "Live monthly AI-token spend meter surfaced in the editor and the AI Endpoints admin section, tracking per-model burn against the tier cap.\n\n• Worker routes GET /api/usage/burn (used_usd, projected_monthly_usd, by_model, 80%/100% thresholds) and POST /api/usage/record, both behind requireFlag('token_burn_meter').\n• site-generation workflow gates its token accounting on the flag (services/build_budget.ts records feature_slug 'token_burn_meter').\n• The /admin/ai-endpoints section renders a spend-vs-cap budget meter tied to this feature.\n• Off (default) → both usage endpoints 404 (no existence leak).",
     key: 'token_burn_meter',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',

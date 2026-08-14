@@ -699,7 +699,6 @@ export function getDocs(key: string): FlagDocs | undefined {
   return extra ? { ...base, ...extra } : base;
 }
 
-
 /**
  * Auto-folded E2E check labels (mirroring the parallel runner's CHECK_REGISTRY) +
  * captioned UI screenshots per flag. Merged over FLAG_DOCS by the worker's
@@ -707,135 +706,382 @@ export function getDocs(key: string): FlagDocs | undefined {
  */
 export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'screenshots'>> = {
   abuse_takedown: {
-    e2e_tests: ['POST /api/abuse/report returns 404 when flag OFF (expected in prod)', 'GET /api/abuse/reports (super-admin queue) 404s when OFF', 'Admin shell renders (operator review-queue host surface)'],
+    e2e_tests: [
+      'POST /api/abuse/report returns 404 when flag OFF (expected in prod)',
+      'GET /api/abuse/reports (super-admin queue) 404s when OFF',
+      'Admin shell renders (operator review-queue host surface)',
+    ],
   },
   activity_feed: {
-    e2e_tests: ['GET /api/activity returns 404 when flag OFF (expected in prod)', 'GET /api/mru (same flag) 404s when OFF', 'Admin dashboard renders; recent-activity self-hides when flag off'],
-    screenshots: [{ alt: 'Dashboard Recent Activity widget (visible only when flag on + entries exist)', caption: 'Dashboard Recent Activity widget (visible only when flag on + entries exist)', url: '/assets/flag-shots/activity_feed-1.png' }],
+    e2e_tests: [
+      'GET /api/activity returns 404 when flag OFF (expected in prod)',
+      'GET /api/mru (same flag) 404s when OFF',
+      'Admin dashboard renders; recent-activity self-hides when flag off',
+    ],
+    screenshots: [
+      {
+        alt: 'Dashboard Recent Activity widget (visible only when flag on + entries exist)',
+        caption: 'Dashboard Recent Activity widget (visible only when flag on + entries exist)',
+        url: '/assets/flag-shots/activity_feed-1.png',
+      },
+    ],
   },
   ai_auto_router: {
-    e2e_tests: ['Router pick endpoint gated — 404 when ai_auto_router OFF (default)', 'Router stats endpoint gated — 404 when OFF (default)', 'Feature Flags admin lists ai_auto_router (passes today)'],
+    e2e_tests: [
+      'Router pick endpoint gated — 404 when ai_auto_router OFF (default)',
+      'Router stats endpoint gated — 404 when OFF (default)',
+      'Feature Flags admin lists ai_auto_router (passes today)',
+    ],
   },
   ai_gateway_guardrails: {
-    e2e_tests: ['POST /api/guardrails/check returns 404 when flag OFF (killswitch/expected)', 'Route is mounted (not a soft-404 SPA shell)', 'Admin shell renders (guardrails is backend-only, no UI)'],
+    e2e_tests: [
+      'POST /api/guardrails/check returns 404 when flag OFF (killswitch/expected)',
+      'Route is mounted (not a soft-404 SPA shell)',
+      'Admin shell renders (guardrails is backend-only, no UI)',
+    ],
   },
   app_launcher: {
-    e2e_tests: ['Apps admin catalog shell renders (passes today)', 'Apps catalog endpoint returns catalog when app_launcher ON (default_enabled true)', 'Apps lifecycle filter control present in section', 'Feature Flags admin lists app_launcher'],
-    screenshots: [{ alt: 'Apps section: catalog grid with search, lifecycle filters, and category menu', caption: 'Apps section: catalog grid with search, lifecycle filters, and category menu', url: '/assets/flag-shots/app_launcher-1.png' }],
+    e2e_tests: [
+      'Apps admin catalog shell renders (passes today)',
+      'Apps catalog endpoint returns catalog when app_launcher ON (default_enabled true)',
+      'Apps lifecycle filter control present in section',
+      'Feature Flags admin lists app_launcher',
+    ],
+    screenshots: [
+      {
+        alt: 'Apps section: catalog grid with search, lifecycle filters, and category menu',
+        caption: 'Apps section: catalog grid with search, lifecycle filters, and category menu',
+        url: '/assets/flag-shots/app_launcher-1.png',
+      },
+    ],
   },
   audit_trail_export: {
-    e2e_tests: ['GET /api/audit/export returns 404 when flag OFF (expected in prod)', 'CSV export path 404s when OFF (route mounted, not soft-404)', 'Admin Audit section renders (in-app audit-log host surface)'],
+    e2e_tests: [
+      'GET /api/audit/export returns 404 when flag OFF (expected in prod)',
+      'CSV export path 404s when OFF (route mounted, not soft-404)',
+      'Admin Audit section renders (in-app audit-log host surface)',
+    ],
   },
   batch_operations: {
-    e2e_tests: ['POST /api/batch returns 404 when flag OFF (expected in prod)', 'POST /api/sites/compare (same flag) 404s when OFF', 'Admin shell renders (bulk-ops section was removed from nav)'],
+    e2e_tests: [
+      'POST /api/batch returns 404 when flag OFF (expected in prod)',
+      'POST /api/sites/compare (same flag) 404s when OFF',
+      'Admin shell renders (bulk-ops section was removed from nav)',
+    ],
   },
   better_auth: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Legacy auth serves while flag OFF — /api/auth/sign-up/email not the live path (expect non-200)', 'Admin auth-security session UI renders (adjacent surface)'],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Legacy auth serves while flag OFF — /api/auth/sign-up/email not the live path (expect non-200)',
+      'Admin auth-security session UI renders (adjacent surface)',
+    ],
   },
   cmd_k_actions: {
-    e2e_tests: ['POST /api/cmdk returns 404 when flag OFF (expected in prod)', 'Route is mounted (not a soft-404 SPA shell)', 'Command palette opens client-side (does not consume this endpoint)'],
+    e2e_tests: [
+      'POST /api/cmdk returns 404 when flag OFF (expected in prod)',
+      'Route is mounted (not a soft-404 SPA shell)',
+      'Command palette opens client-side (does not consume this endpoint)',
+    ],
   },
   cmdk_ai_actions: {
-    e2e_tests: ['POST /api/cmdk/resolve returns 404 when flag OFF (expected in prod)', 'Route is mounted (not a soft-404 SPA shell)', 'Command palette opens client-side (does not consume this endpoint)'],
+    e2e_tests: [
+      'POST /api/cmdk/resolve returns 404 when flag OFF (expected in prod)',
+      'Route is mounted (not a soft-404 SPA shell)',
+      'Command palette opens client-side (does not consume this endpoint)',
+    ],
   },
   code_export: {
-    e2e_tests: ['Export route not wired — /api/sites/:id/export 404s (handler imported but never called)', 'Feature Flags admin lists code_export (passes today)', 'Marketing homepage reachable (baseline 200)'],
+    e2e_tests: [
+      'Export route not wired — /api/sites/:id/export 404s (handler imported but never called)',
+      'Feature Flags admin lists code_export (passes today)',
+      'Marketing homepage reachable (baseline 200)',
+    ],
   },
   core_admin_detail: {
-    e2e_tests: ['Site-detail split view renders', 'Per-site logs endpoint', 'Feature-flags API lists the sentinel', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Site-detail split view renders',
+      'Per-site logs endpoint',
+      'Feature-flags API lists the sentinel',
+      'Health endpoint (passes today)',
+    ],
   },
   core_auth: {
-    e2e_tests: ['Sign-in page renders', 'Auth me endpoint responds (unauth ok)', 'Feature-flags API lists the sentinel', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Sign-in page renders',
+      'Auth me endpoint responds (unauth ok)',
+      'Feature-flags API lists the sentinel',
+      'Health endpoint (passes today)',
+    ],
   },
   core_billing: {
-    e2e_tests: ['Entitlements endpoint', 'Subscription status endpoint', 'Billing admin page renders', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Entitlements endpoint',
+      'Subscription status endpoint',
+      'Billing admin page renders',
+      'Health endpoint (passes today)',
+    ],
   },
   core_feature_flags: {
-    e2e_tests: ['Feature-flags registry API', 'Single-flag detail', 'Feature-flags admin UI renders', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Feature-flags registry API',
+      'Single-flag detail',
+      'Feature-flags admin UI renders',
+      'Health endpoint (passes today)',
+    ],
   },
   core_site_create: {
-    e2e_tests: ['Homepage renders the funnel', 'Business search endpoint (public)', 'Pre-built site search (public)', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Homepage renders the funnel',
+      'Business search endpoint (public)',
+      'Pre-built site search (public)',
+      'Health endpoint (passes today)',
+    ],
   },
   credit_wallet_rollover: {
-    e2e_tests: ['credits balance route flag-gated OFF today → 404', 'admin billing page loads (wallet widget self-hides when flag off)', 'registry entry present for credit_wallet_rollover', 'credits apply route flag-gated OFF today → 404'],
+    e2e_tests: [
+      'credits balance route flag-gated OFF today → 404',
+      'admin billing page loads (wallet widget self-hides when flag off)',
+      'registry entry present for credit_wallet_rollover',
+      'credits apply route flag-gated OFF today → 404',
+    ],
   },
   editor_vision_qa: {
-    e2e_tests: ['Vision-QA endpoint gated — 404 when editor_vision_qa OFF (default)', 'Feature Flags admin lists editor_vision_qa (passes today)', 'Editor admin shell reachable (baseline)'],
+    e2e_tests: [
+      'Vision-QA endpoint gated — 404 when editor_vision_qa OFF (default)',
+      'Feature Flags admin lists editor_vision_qa (passes today)',
+      'Editor admin shell reachable (baseline)',
+    ],
   },
   email_deliverability_wizard: {
-    e2e_tests: ['Deliverability admin shell renders (passes today, shows flag-gate notice when off)', 'Deliverability endpoint gated — 404 when email_deliverability_wizard OFF (default)', 'Flag-gate notice present in deliverability section when off', 'Feature Flags admin lists email_deliverability_wizard'],
-    screenshots: [{ alt: 'Deliverability wizard section: domain input, check button, and flag-gate notice / score', caption: 'Deliverability wizard section: domain input, check button, and flag-gate notice / score', url: '/assets/flag-shots/email_deliverability_wizard-1.png' }],
+    e2e_tests: [
+      'Deliverability admin shell renders (passes today, shows flag-gate notice when off)',
+      'Deliverability endpoint gated — 404 when email_deliverability_wizard OFF (default)',
+      'Flag-gate notice present in deliverability section when off',
+      'Feature Flags admin lists email_deliverability_wizard',
+    ],
+    screenshots: [
+      {
+        alt: 'Deliverability wizard section: domain input, check button, and flag-gate notice / score',
+        caption:
+          'Deliverability wizard section: domain input, check button, and flag-gate notice / score',
+        url: '/assets/flag-shots/email_deliverability_wizard-1.png',
+      },
+    ],
   },
   lead_scanner: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Scan route 404s while flag OFF (default off)', 'Admin Leads section renders scan form (super-admin)', 'Leads empty-state / submit control present'],
-    screenshots: [{ alt: 'Lead scanner query input + only-no-website toggle + submit', caption: 'Lead scanner query input + only-no-website toggle + submit', url: '/assets/flag-shots/lead_scanner-1.png' }],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Scan route 404s while flag OFF (default off)',
+      'Admin Leads section renders scan form (super-admin)',
+      'Leads empty-state / submit control present',
+    ],
+    screenshots: [
+      {
+        alt: 'Lead scanner query input + only-no-website toggle + submit',
+        caption: 'Lead scanner query input + only-no-website toggle + submit',
+        url: '/assets/flag-shots/lead_scanner-1.png',
+      },
+    ],
   },
   marketing_dashboard: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Dashboard endpoint 404s while flag OFF (default)', 'Admin shell renders (AI dashboard, not this flag\'s UI)'],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Dashboard endpoint 404s while flag OFF (default)',
+      "Admin shell renders (AI dashboard, not this flag's UI)",
+    ],
   },
   mcp_server: {
-    e2e_tests: ['MCP discovery document (public)', 'OAuth protected-resource metadata', 'Platform MCP JSON-RPC endpoint live (flag on)', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'MCP discovery document (public)',
+      'OAuth protected-resource metadata',
+      'Platform MCP JSON-RPC endpoint live (flag on)',
+      'Health endpoint (passes today)',
+    ],
   },
   model_registry: {
-    e2e_tests: ['GET /v1/models flag-gated OFF today → 404', 'registry entry present for model_registry', 'worker health responds', 'unknown /v1 path stays 404 (not SPA soft-200)'],
+    e2e_tests: [
+      'GET /v1/models flag-gated OFF today → 404',
+      'registry entry present for model_registry',
+      'worker health responds',
+      'unknown /v1 path stays 404 (not SPA soft-200)',
+    ],
   },
   observability_gateway: {
-    e2e_tests: ['POST /monitoring/posthog flag-gated OFF today → 404', 'POST /monitoring/sentry flag-gated OFF today → 404', 'registry entry present for observability_gateway', 'worker health responds'],
+    e2e_tests: [
+      'POST /monitoring/posthog flag-gated OFF today → 404',
+      'POST /monitoring/sentry flag-gated OFF today → 404',
+      'registry entry present for observability_gateway',
+      'worker health responds',
+    ],
   },
   onboarding_copilot: {
-    e2e_tests: ['checklist route flag-gated OFF today → 404', 'admin dashboard loads (checklist self-hides when flag off)', 'registry entry present for onboarding_copilot', 'dismiss route flag-gated OFF today → 404'],
+    e2e_tests: [
+      'checklist route flag-gated OFF today → 404',
+      'admin dashboard loads (checklist self-hides when flag off)',
+      'registry entry present for onboarding_copilot',
+      'dismiss route flag-gated OFF today → 404',
+    ],
   },
   outbound_webhooks: {
-    e2e_tests: ['Webhooks Settings tab renders (passes today, flag-gate notice when off)', 'Webhooks list endpoint gated — 404 when outbound_webhooks OFF (default)', 'Webhook deliveries endpoint gated — 404 when OFF (default)', 'Feature Flags admin lists outbound_webhooks'],
-    screenshots: [{ alt: 'Webhooks tab under Settings: endpoint URL + events form or flag-gate notice', caption: 'Webhooks tab under Settings: endpoint URL + events form or flag-gate notice', url: '/assets/flag-shots/outbound_webhooks-1.png' }],
+    e2e_tests: [
+      'Webhooks Settings tab renders (passes today, flag-gate notice when off)',
+      'Webhooks list endpoint gated — 404 when outbound_webhooks OFF (default)',
+      'Webhook deliveries endpoint gated — 404 when OFF (default)',
+      'Feature Flags admin lists outbound_webhooks',
+    ],
+    screenshots: [
+      {
+        alt: 'Webhooks tab under Settings: endpoint URL + events form or flag-gate notice',
+        caption: 'Webhooks tab under Settings: endpoint URL + events form or flag-gate notice',
+        url: '/assets/flag-shots/outbound_webhooks-1.png',
+      },
+    ],
   },
   payments_rail: {
-    e2e_tests: ['POST /api/payments/intent flag-gated OFF today → 404', 'GET /api/payments/methods flag-gated OFF today → 404', 'registry entry present for payments_rail', 'worker health responds'],
+    e2e_tests: [
+      'POST /api/payments/intent flag-gated OFF today → 404',
+      'GET /api/payments/methods flag-gated OFF today → 404',
+      'registry entry present for payments_rail',
+      'worker health responds',
+    ],
   },
   preview_share_card: {
-    e2e_tests: ['share-card unauth → 401 (flag gate is behind auth check)', 'registry entry present for preview_share_card', 'worker health responds', 'marketing homepage renders'],
+    e2e_tests: [
+      'share-card unauth → 401 (flag gate is behind auth check)',
+      'registry entry present for preview_share_card',
+      'worker health responds',
+      'marketing homepage renders',
+    ],
   },
   prompt_studio: {
-    e2e_tests: ['templates route unauth → 401 (flag gate behind auth)', 'registry entry present for prompt_studio', 'worker health responds', 'admin shell loads'],
+    e2e_tests: [
+      'templates route unauth → 401 (flag gate behind auth)',
+      'registry entry present for prompt_studio',
+      'worker health responds',
+      'admin shell loads',
+    ],
   },
   pwa_manifest_full: {
-    e2e_tests: ['PWA manifest endpoint gated — 404 when pwa_manifest_full OFF (default)', 'Feature Flags admin lists pwa_manifest_full (passes today)', 'Marketing homepage reachable (baseline 200)'],
+    e2e_tests: [
+      'PWA manifest endpoint gated — 404 when pwa_manifest_full OFF (default)',
+      'Feature Flags admin lists pwa_manifest_full (passes today)',
+      'Marketing homepage reachable (baseline 200)',
+    ],
   },
   referral_loop: {
-    e2e_tests: ['referral code route flag-gated OFF today → 404', 'admin dashboard loads (referral card self-hides when flag off)', 'registry entry present for referral_loop', 'referral stats route flag-gated OFF today → 404'],
+    e2e_tests: [
+      'referral code route flag-gated OFF today → 404',
+      'admin dashboard loads (referral card self-hides when flag off)',
+      'registry entry present for referral_loop',
+      'referral stats route flag-gated OFF today → 404',
+    ],
   },
   site_analytics: {
-    e2e_tests: ['Owner analytics summary endpoint', 'Daily analytics series', 'Analytics admin dashboard renders', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Owner analytics summary endpoint',
+      'Daily analytics series',
+      'Analytics admin dashboard renders',
+      'Health endpoint (passes today)',
+    ],
   },
   site_doctor: {
-    e2e_tests: ['Free-plan doctor report', 'Pro-plan unlocks all issues', 'Health sparkline (shared flag)', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Free-plan doctor report',
+      'Pro-plan unlocks all issues',
+      'Health sparkline (shared flag)',
+      'Health endpoint (passes today)',
+    ],
   },
   social_autopilot: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Admin Social auto-pilot prompt control renders', 'Composer textarea present (manual compose unaffected by kill-switch)'],
-    screenshots: [{ alt: 'Auto-Pilot prompt/run control gated by the social_autopilot kill-switch', caption: 'Auto-Pilot prompt/run control gated by the social_autopilot kill-switch', url: '/assets/flag-shots/social_autopilot-1.png' }],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Admin Social auto-pilot prompt control renders',
+      'Composer textarea present (manual compose unaffected by kill-switch)',
+    ],
+    screenshots: [
+      {
+        alt: 'Auto-Pilot prompt/run control gated by the social_autopilot kill-switch',
+        caption: 'Auto-Pilot prompt/run control gated by the social_autopilot kill-switch',
+        url: '/assets/flag-shots/social_autopilot-1.png',
+      },
+    ],
   },
   social_publishing: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Admin Social composer publish hint renders', 'Composer textarea present (drafting works regardless of kill-switch)'],
-    screenshots: [{ alt: 'Publish-now action + hint gated by the social_publishing kill-switch', caption: 'Publish-now action + hint gated by the social_publishing kill-switch', url: '/assets/flag-shots/social_publishing-1.png' }],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Admin Social composer publish hint renders',
+      'Composer textarea present (drafting works regardless of kill-switch)',
+    ],
+    screenshots: [
+      {
+        alt: 'Publish-now action + hint gated by the social_publishing kill-switch',
+        caption: 'Publish-now action + hint gated by the social_publishing kill-switch',
+        url: '/assets/flag-shots/social_publishing-1.png',
+      },
+    ],
   },
   social_publishing_native: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Native publish route 404s while flag OFF (default off in registry note; gate present)', 'Admin Social composer shell renders', 'Composer character counter present'],
-    screenshots: [{ alt: 'Native social composer textarea + character counter', caption: 'Native social composer textarea + character counter', url: '/assets/flag-shots/social_publishing_native-1.png' }, { alt: 'RSS import → drafts control on the composer', caption: 'RSS import → drafts control on the composer', url: '/assets/flag-shots/social_publishing_native-2.png' }],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Native publish route 404s while flag OFF (default off in registry note; gate present)',
+      'Admin Social composer shell renders',
+      'Composer character counter present',
+    ],
+    screenshots: [
+      {
+        alt: 'Native social composer textarea + character counter',
+        caption: 'Native social composer textarea + character counter',
+        url: '/assets/flag-shots/social_publishing_native-1.png',
+      },
+      {
+        alt: 'RSS import → drafts control on the composer',
+        caption: 'RSS import → drafts control on the composer',
+        url: '/assets/flag-shots/social_publishing_native-2.png',
+      },
+    ],
   },
   system_status: {
-    e2e_tests: ['GET /api/system/status returns 404 when flag OFF (expected in prod)', 'System status route is mounted (not a soft-404 SPA shell)', 'Admin dashboard shell renders (host surface for the future status strip)'],
+    e2e_tests: [
+      'GET /api/system/status returns 404 when flag OFF (expected in prod)',
+      'System status route is mounted (not a soft-404 SPA shell)',
+      'Admin dashboard shell renders (host surface for the future status strip)',
+    ],
   },
   token_burn_meter: {
-    e2e_tests: ['AI Endpoints admin shell renders (passes today, flag-independent)', 'Burn endpoint gated — 404 when token_burn_meter OFF (default)', 'Record endpoint exists and is flag-gated (404 default-off)', 'Feature Flags admin lists token_burn_meter'],
-    screenshots: [{ alt: 'AI Endpoints section showing the token-burn budget meter (spend vs cap)', caption: 'AI Endpoints section showing the token-burn budget meter (spend vs cap)', url: '/assets/flag-shots/token_burn_meter-1.png' }],
+    e2e_tests: [
+      'AI Endpoints admin shell renders (passes today, flag-independent)',
+      'Burn endpoint gated — 404 when token_burn_meter OFF (default)',
+      'Record endpoint exists and is flag-gated (404 default-off)',
+      'Feature Flags admin lists token_burn_meter',
+    ],
+    screenshots: [
+      {
+        alt: 'AI Endpoints section showing the token-burn budget meter (spend vs cap)',
+        caption: 'AI Endpoints section showing the token-burn budget meter (spend vs cap)',
+        url: '/assets/flag-shots/token_burn_meter-1.png',
+      },
+    ],
   },
   vectorize_search: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Search route 404s while flag OFF (default off)', 'Admin shell renders (flag is backend-only)'],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Search route 404s while flag OFF (default off)',
+      'Admin shell renders (flag is backend-only)',
+    ],
   },
   visual_automation: {
-    e2e_tests: ['Public health endpoint 200 (always passes)', 'Automation validate route 404s while flag OFF (default)', 'Admin shell renders (flag has no dedicated UI)'],
+    e2e_tests: [
+      'Public health endpoint 200 (always passes)',
+      'Automation validate route 404s while flag OFF (default)',
+      'Admin shell renders (flag has no dedicated UI)',
+    ],
   },
   wireframe_planning: {
-    e2e_tests: ['Feature-flags API lists the flag', 'Flag detail resolves', 'Flag appears in admin feature-flags UI', 'Health endpoint (passes today)'],
+    e2e_tests: [
+      'Feature-flags API lists the flag',
+      'Flag detail resolves',
+      'Flag appears in admin feature-flags UI',
+      'Health endpoint (passes today)',
+    ],
   },
 };

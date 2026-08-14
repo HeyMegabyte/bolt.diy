@@ -26,7 +26,9 @@ describe('feature_e2e check registry', () => {
 
   it('mcp_server exercises the platform MCP discovery + JSON-RPC surface', () => {
     const checks = checksFor('mcp_server');
-    expect(checks.some((c) => c.url.includes('/.well-known/mcp') || c.url === '/api/mcp')).toBe(true);
+    expect(checks.some((c) => c.url.includes('/.well-known/mcp') || c.url === '/api/mcp')).toBe(
+      true,
+    );
   });
 
   it('a UI flag carries a browser check with a selector', () => {
