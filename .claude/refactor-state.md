@@ -24,6 +24,7 @@
 | account deletion (`api.ts DELETE /api/admin/account`) | CONVERGED | atomic 3-table soft-delete batch (21). |
 | soft-delete filters (authz) | CONVERGED | 2 membership authz bugs fixed (23-24); sessions/site-serving/subscriptions verified clean. |
 | billing/entitlements | CONVERGED | `getOrgEntitlements` requires paid+active+`deleted_at IS NULL` (verified 25); subs never soft-deleted → status-based lifecycle correct. |
+| voice conversations (FE↔worker) | CONVERGED | iter 26 added the MISSING `GET /api/voice/conversations/:id` — FE detail fetch 404'd → transcript NEVER showed (list omits transcript). Worker returns mapped `{data: Conversation}` incl. parsed transcript. FE unchanged. 4/4. |
 | dead code (`knip`) | CONVERGED | knip hits = only known built-ahead (chatwoot_*/deepcrawl/partysocket) + false-positives (redis_failover/social_queue_enqueuer have real importers). Verified 6+25. |
 | billing/wallet (`wallet.ts`) | AUDITING | debit path CORRECT (atomic). SURFACED (approval-tier): `creditWallet` double-credit — see SURFACED below. |
 | sidebar / admin shell | BLOCKED | Concurrent session owns it (per loop prompt). Do NOT touch. |
@@ -37,6 +38,7 @@
 - **Atomicity vein** (iters 17-22): 5 LIVE bugs — all "multi-step D1 mutation that should be atomic but wasn't + swallowed the `{error}`", each fixed with `db.batch([...])` (implicit txn, rejects+rolls-back). db.ts dbUpdate timestamp-fallback (data loss) · team_seats transferOwnership (ownerless org) · domains setSolePrimary (primary-less site) · site_branches mergeBranch (half-merged) · api.ts account-delete (half-deleted acct, sessions kept). Vein verified exhausted (22: remaining consecutive-mutation sites are non-bugs).
 - **Soft-delete filters** (iters 23-24): 2 LIVE membership authz bugs (transfer gate + impersonation org-scope missing `deleted_at IS NULL`). Only 2 genuine instances (<3) → no detector (high false-positive risk given legit admin/recovery/serving views).
 - **Verified-CLEAN surfaces (do NOT re-hunt):** auth `getSession` (expiry+revocation), webhook dedup (`UNIQUE(provider,event_id)`), site-serving host resolution, subscription→entitlement gate, dead-code (knip).
+- **FE↔worker contract** (iter 26, ONGOING): a FE call to a NON-existent worker route (or a response-key mismatch) silently shows empty. Found+fixed the missing `/api/voice/conversations/:id` (transcript detail). ⚠️ The unwired-endpoint gate did NOT catch it (matched the FE dynamic path to the list-route prefix). Sibling precedent: `/api/voice/meta-prompt` (was 404 → stale FE fallback). Class: audit FE `.get`/`.post` paths vs real worker routes (esp. `:id` detail routes the list route omits).
 
 ## Lessons (hard-won)
 - **`db.batch([stmt,stmt])`** is THE atomic-multi-write pattern (implicit txn, rejects+rolls-back on any failure). Convention ref: `credits.ts`. Test it by giving the D1 mock a capturing `prepare`+`batch` jest.fn (+ `mockRejectedValueOnce` for the atomicity/rollback assertion).
@@ -52,8 +54,9 @@
 2. `social.component.ts` inline styles **32.86 kB > 28 kB** budget. iter-5 proved NOT a safe cold trim (dense CSS, no dead rules; deep authed component). Resolution = god-component SPLIT behind a Browserbase 6bp visual gate (fresh context) — mirror the ag-grid→TanStack perf-wave precedent. Do NOT blind-trim.
 
 ## Next target
-Worker-correctness domain heavily converged (atomicity · soft-delete · auth · webhooks · entitlements · dead-code all swept + verified). Genuinely-NEW surfaces for future iters, honestly ranked:
-- **FE↔worker lying-empty display bugs** (priority #1, user-facing) per `[[verify-against-source-of-truth]]` — a static response-key-mismatch grep (FE reads `r.data`/`res.X` vs worker returns `{Y}`) is a safe worker-side start; a full reconcile needs authed real-browser. Admin-shell BLOCKED, but other FE surfaces are fair game.
+**FE↔worker contract axis OPENED (iter 26)** — priority #1 user-facing, a productive new vein (1 real bug found). Continue it:
+- **Sweep more FE-call-vs-worker-route mismatches**: grep FE `api.get/post/put(...)` paths + `r.data`/`r.items` reads, cross-check each resolves to a real worker route returning that key. Prioritize `:id` DETAIL routes (the list route often omits fields → detail fetch is where the gap hides) + the other unwired-gate FAILs (onboarding checklist/dismiss, site-mcp tokens/tools — verify if genuinely missing or path-normalization false-positives).
+- **NOTE**: the check-unwired-endpoints gate has false-negatives on FE dynamic paths that prefix-match a list route (missed voice/conversations/:id) — a detector-precision improvement candidate if the class recurs.
 - **Bigger waves (fresh context + Browserbase visual gate):** social.component split; ag-grid→TanStack.
 - **Careful-only:** `build_validators` / `voice_webhooks` jscpd clones (sensitive; extract only with full test verification).
 - If nothing safe+high-value surfaces: an honest verification checkpoint is legitimate — do NOT force marginal/risky changes. Future ≥3-instance bug classes → add a `check-*.mjs` detector + fixture + CI step.

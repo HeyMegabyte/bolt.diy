@@ -489,6 +489,117 @@ voiceRoutes.get('/api/voice/conversations', async (c) => {
   return c.json({ items: merged.slice(0, 300) });
 });
 
+// ─── conversation detail (call transcript OR sms) ────────────────
+
+/**
+ * Map `voice_calls.transcript_json` (`[{role,text,ts_ms}]`, role ∈ user|assistant|system)
+ * to the Conversations UI's `TranscriptTurn` shape (`[{speaker,text,t_ms}]`): the human
+ * `user` → `caller`, everything else (assistant/system) → `agent`. Malformed/absent JSON
+ * → `[]` (never throws — a bad transcript must not 500 the detail view).
+ */
+function parseTranscript(
+  raw: unknown,
+): Array<{ speaker: 'caller' | 'agent'; text: string; t_ms: number }> {
+  if (typeof raw !== 'string' || !raw) return [];
+  let turns: unknown;
+  try {
+    turns = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(turns)) return [];
+  return turns
+    .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+    .map((t) => ({
+      speaker: t['role'] === 'user' ? ('caller' as const) : ('agent' as const),
+      text: typeof t['text'] === 'string' ? t['text'] : '',
+      t_ms: typeof t['ts_ms'] === 'number' ? t['ts_ms'] : 0,
+    }))
+    .filter((t) => t.text.length > 0);
+}
+
+/**
+ * `GET /api/voice/conversations/:id` — full detail for ONE conversation: a voice CALL
+ * with its parsed transcript, or an SMS. The list route (`GET /api/voice/conversations`)
+ * serves only summary-level items with NO transcript, so the admin detail pane fetches
+ * this route on open to load the transcript. It was MISSING — the FE `openDetail` 404'd
+ * and fell back to the transcript-less list row, so opening a conversation NEVER showed
+ * the transcript. Org-scoped (`id` + `org_id` + not-deleted → both missing AND foreign-org
+ * collapse to 404, no existence leak). Returns `{ data: Conversation }` in the shape the
+ * detail view consumes directly.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 404 NOT_FOUND when no owned call/message matches the id.
+ */
+voiceRoutes.get('/api/voice/conversations/:id', async (c) => {
+  const { orgId } = requireAuth(c);
+  const id = c.req.param('id');
+  if (!id) throw badRequest('id required');
+
+  const call = await dbQueryOne<{
+    id: string;
+    from_number: string | null;
+    to_number: string | null;
+    started_at: string | null;
+    duration_seconds: number | null;
+    status: string | null;
+    sentiment: string | null;
+    summary: string | null;
+    transcript_json: string | null;
+  }>(
+    c.env.DB,
+    `SELECT id, from_number, to_number, started_at, duration_seconds, status,
+            sentiment, summary, transcript_json
+       FROM voice_calls WHERE id = ? AND org_id = ? AND deleted_at IS NULL LIMIT 1`,
+    [id, orgId],
+  );
+  if (call) {
+    return c.json({
+      data: {
+        id: call.id,
+        channel: 'call',
+        from_number: call.from_number ?? '',
+        to_number: call.to_number ?? '',
+        started_at: call.started_at ?? '',
+        duration_s: call.duration_seconds ?? undefined,
+        status: call.status ?? 'completed',
+        sentiment: call.sentiment ?? undefined,
+        summary: call.summary ?? undefined,
+        transcript: parseTranscript(call.transcript_json),
+      },
+    });
+  }
+
+  const msg = await dbQueryOne<{
+    id: string;
+    from_number: string | null;
+    to_number: string | null;
+    sent_at: string | null;
+    status: string | null;
+    body: string | null;
+  }>(
+    c.env.DB,
+    `SELECT id, from_number, to_number, sent_at, status, body
+       FROM voice_messages WHERE id = ? AND org_id = ? AND deleted_at IS NULL LIMIT 1`,
+    [id, orgId],
+  );
+  if (msg) {
+    return c.json({
+      data: {
+        id: msg.id,
+        channel: 'sms',
+        from_number: msg.from_number ?? '',
+        to_number: msg.to_number ?? '',
+        started_at: msg.sent_at ?? '',
+        status: msg.status ?? 'completed',
+        message_preview: msg.body ?? undefined,
+      },
+    });
+  }
+
+  throw notFound('Conversation not found');
+});
+
 // ─── call detail ────────────────────────────────────────────────
 
 /**
