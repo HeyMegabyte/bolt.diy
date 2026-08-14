@@ -14,21 +14,30 @@ jest.mock('../services/db.js', () => ({
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
-import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
+import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { provisionCustomDomain } from '../services/domains.js';
 import { AppError } from '@project-sites/shared';
 
 const mockQuery = dbQuery as jest.MockedFunction<typeof dbQuery>;
 const mockQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
-const mockUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
 
 const mockEnv = {
   CF_API_TOKEN: 'test-cf-token',
   CF_ZONE_ID: 'test-zone-id',
 } as any;
 
-const mockDb = {} as D1Database;
+// The auto-primary path runs an atomic `db.batch([db.prepare(...).bind(...)])` swap
+// (domains.ts `setSolePrimary`), so the DB double needs prepare (capturing) + a batch
+// jest.fn — NOT the module-mocked dbUpdate. (A stale `{}` mock threw "db.prepare is not
+// a function" — regression surfaced iter 22.)
+const mockBatch = jest.fn(async (stmts: unknown[]) =>
+  stmts.map(() => ({ success: true, meta: { changes: 1 } })),
+);
+const mockDb = {
+  prepare: (sql: string) => ({ bind: (...args: unknown[]) => ({ sql, args }) }),
+  batch: mockBatch,
+} as unknown as D1Database;
 
 const originalFetch = global.fetch;
 
@@ -62,10 +71,6 @@ describe('provisionCustomDomain — auto-primary', () => {
     // DB insert for hostname
     mockInsert.mockResolvedValueOnce({ error: null });
 
-    // DB update to set as primary (clear existing, then set)
-    mockUpdate.mockResolvedValueOnce({ error: null, changes: 0 }); // clear
-    mockUpdate.mockResolvedValueOnce({ error: null, changes: 1 }); // set
-
     const result = await provisionCustomDomain(mockDb, mockEnv, {
       org_id: 'org-1',
       site_id: 'site-1',
@@ -74,6 +79,12 @@ describe('provisionCustomDomain — auto-primary', () => {
 
     expect(result.hostname).toBe('www.example.com');
     expect(result.is_primary).toBe(true);
+    // The auto-primary swap ran as ONE atomic batch (clear all → set this hostname).
+    expect(mockBatch).toHaveBeenCalledTimes(1);
+    const stmts = mockBatch.mock.calls[0][0] as Array<{ sql: string }>;
+    expect(stmts).toHaveLength(2);
+    expect(stmts[0].sql).toContain('is_primary = 0');
+    expect(stmts[1].sql).toContain('is_primary = 1');
   });
 
   it('does NOT set as primary when custom domains already exist for the site', async () => {
@@ -111,7 +122,7 @@ describe('provisionCustomDomain — auto-primary', () => {
     expect(result.hostname).toBe('app.example.com');
     expect(result.is_primary).toBe(false);
 
-    // Should NOT have called dbUpdate for primary
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Should NOT run the primary-swap batch when the site already has custom domains.
+    expect(mockBatch).not.toHaveBeenCalled();
   });
 });
