@@ -15,14 +15,14 @@
 | Subsystem | Status | Notes / next step |
 |---|---|---|
 | feature flags | CONVERGED | 54→41 grouped (7 anchors) + 26 removed. registry↔docs parity restored (iter 2). |
-| worker test suite | VERIFYING | 8→1 failing suite (iters 1-2). Only referral_loop left (below). |
-| sidebar / admin shell | BLOCKED | ⚠️ Concurrent session actively editing `admin.component.*`, `nav-icon`, `admin-navigation-responsive.e2e.ts`. DO NOT TOUCH until it lands. |
+| worker test suite | CONVERGED | ✅ 670/670 suites green, 10,780 tests, 0 fail (iters 1-3). |
+| sidebar / admin shell | AUDITING | Concurrent session LANDED it (`e3a0f8e3` "responsive navigation shell, 3 modes"). Now reviewable — verify 3-breakpoint UX + a11y + E2E, don't reflexively rewrite fresh work. |
 | Angular admin | UNREVIEWED | Spartan/helm partial; ag-grid→TanStack migration pending (bundle-budget doc `docs/perf-wave-ag-grid-to-tanstack.md`). |
 | referral_loop feature | AUDITING | Removal candidate (credits unwired). Test red (below). |
 | everything else | UNREVIEWED | rotate through per loop priority. |
 
 ## Failing tests (live)
-1. `referral_loop.test.ts` — "throws when DB fails after insert" resolves. Impl now returns empty for no-site orgs (deliberate, see service.ts:25 comment); test's mock hits that path. Removal-candidate feature → fix test OR remove feature. NOT blindly change expectation. **LAST remaining red suite.**
+None — worker suite is fully green (iter 3). Frontend (Karma) + E2E not yet observed this loop → next.
 
 ## Done this session (don't redo)
 - Removed 26 off-vision/incomplete features (23 + nl_analytics/customer_portal/ai_payment_command). See `[[offvision-23-features-removed]]`.
@@ -32,5 +32,8 @@
 ## iter 2 (2026-08-14)
 Reconciled `feature_flags_docs` parity: removed 2 orphan docs (ai_concierge_widget, storefront_ecommerce = removed flags), authored 5 real docs entries (app_launcher, code_export, marketing_dashboard, social_publishing_native, visual_automation) with checklist+explanation+smoke_test. Test green (61), typecheck clean. Cron `ff940094` (every 20m) drives future iterations.
 
+## iter 3 (2026-08-14)
+Worker suite → GREEN. Fixed the last red (`referral_loop` "throws when DB fails"): the test mocked `.first()` but the impl reads via `.all()`+data[0] — so it never hit the throw path. Re-mocked `.all()` to set up no-existing-code → site-exists → empty re-read → throw. Test-only change (no deploy). tsc clean.
+
 ## Next target
-Resolve `referral_loop.test.ts` (fix the throw-path mock OR remove the feature — it's a removal candidate per the flag audit). Then rotate to the first UNREVIEWED subsystem that is NOT the blocked sidebar (candidates: Angular admin ag-grid→TanStack bundle-budget wave; dependency/Knip audit; API client). Re-check constant-based FLAG_KEY drift after any flag change.
+Rotate to FRONTEND health (unobserved this loop): run `cd frontend && npx tsc --noEmit -p tsconfig.app.json` + `npm run test:ci` (Karma, 26 specs) + `npm run build:prod` — get a clean baseline, fix any red. Then a repo-wide **Knip** dead-code pass (loop emphasizes deletion) and the ag-grid→TanStack bundle-budget wave (`docs/perf-wave-ag-grid-to-tanstack.md`). Sidebar is AUDITING (landed) — review its 3-breakpoint UX/a11y but don't rewrite fresh work.

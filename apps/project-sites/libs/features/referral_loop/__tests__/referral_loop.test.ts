@@ -139,8 +139,16 @@ describe('referral_loop/service — getOrCreateReferralCode', () => {
   });
 
   it('throws when DB fails to return a row after insert', async () => {
+    // The impl reads rows via .all() + data[0] (not .first()), so mock .all():
+    // no existing code (call 1), a site EXISTS (call 2 → passes the no-site early
+    // return), then the post-insert re-read returns nothing (call 3) → throw fires.
     const db = makeDb();
-    db._prepared.first.mockResolvedValue(null);
+    let callCount = 0;
+    db._prepared.all.mockImplementation(() => {
+      callCount += 1;
+      if (callCount === 2) return Promise.resolve({ results: [{ id: 'site1' }] });
+      return Promise.resolve({ results: [] });
+    });
 
     const env = { DB: db } as unknown as import('../../../../src/types/env.js').Env;
     const { getOrCreateReferralCode } = await import('../service.js');
