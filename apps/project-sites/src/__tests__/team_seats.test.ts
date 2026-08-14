@@ -24,11 +24,19 @@ function mockCountEnv(counts: { members: number; invites: number }): Env {
   } as unknown as Env;
 }
 
-/** Mock D1: SELECT role via .first() keyed by user_id (bind arg 1); UPDATE records {role,user} (args 0,2). */
+/**
+ * Mock D1: SELECT role via .all() keyed by user_id (bind arg 1). Writes record
+ * {role,user} (bind args 0,2) — captured whether the SUT uses `.run()` OR `.batch()`
+ * (transferOwnership uses an ATOMIC batch so a partial write can never leave the org
+ * ownerless). `writeThrows` simulates a failed write: `.run()` rejects and `.batch()`
+ * throws (rolling back) so the failed-transfer path can be asserted.
+ */
 function mockEnv(
   roles: Record<string, string | undefined>,
   updates: Array<{ role: string; user: string }>,
+  opts: { writeThrows?: boolean } = {},
 ): Env {
+  const rec = (args: unknown[]) => ({ role: args[0] as string, user: args[2] as string });
   return {
     DB: {
       prepare: (_sql: string) => ({
@@ -38,11 +46,19 @@ function mockEnv(
             return { results: role ? [{ role }] : [] };
           },
           run: async () => {
-            updates.push({ role: args[0] as string, user: args[2] as string });
+            if (opts.writeThrows) throw new Error('D1_ERROR: simulated write failure');
+            updates.push(rec(args));
             return { meta: { changes: 1 } };
           },
+          _rec: rec(args),
         }),
       }),
+      // Atomic batch: throws (rolls back → no writes recorded) when writeThrows.
+      batch: async (stmts: Array<{ _rec: { role: string; user: string } }>) => {
+        if (opts.writeThrows) throw new Error('D1_ERROR: simulated batch failure');
+        for (const s of stmts) updates.push(s._rec);
+        return stmts.map(() => ({ success: true, meta: { changes: 1 } }));
+      },
     },
   } as unknown as Env;
 }
@@ -182,6 +198,22 @@ describe('transferOwnership', () => {
     const env = mockEnv({ u_owner: 'owner' }, updates);
     const res = await transferOwnership(env, 'org1', 'u_owner', 'u_owner');
     expect(res.ok).toBe(false);
+    expect(updates).toEqual([]);
+  });
+
+  // Regression guard: the transfer is two role UPDATEs (demote owner → promote member).
+  // Done as two separate, error-ignoring dbExecute calls, a mid-transfer failure could
+  // leave the org with ZERO owners (demote succeeded, promote failed) — an authz-integrity
+  // corruption — while still returning a lying `{ok:true}`. The atomic D1 batch makes both
+  // changes all-or-nothing AND surfaces failure, so a failed write keeps the org's owner.
+  it('is atomic + honest on write failure — no ownerless org, no lying ok:true', async () => {
+    const updates: Array<{ role: string; user: string }> = [];
+    const env = mockEnv({ u_owner: 'owner', u_member: 'member' }, updates, { writeThrows: true });
+    const res = await transferOwnership(env, 'org1', 'u_owner', 'u_member');
+    // A failed/partial write MUST report failure, never a silent ok:true ...
+    expect(res.ok).toBe(false);
+    expect(res.error).toBeTruthy();
+    // ... and the atomic batch rolls back → neither role change persists (owner retained).
     expect(updates).toEqual([]);
   });
 });

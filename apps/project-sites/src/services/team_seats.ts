@@ -17,7 +17,7 @@
  */
 
 import type { Env } from '../types/env.js';
-import { dbQueryOne, dbExecute } from './db.js';
+import { dbQueryOne } from './db.js';
 
 /** A seat limit `< 0` means unlimited (e.g. enterprise). */
 export interface SeatUsage {
@@ -161,7 +161,27 @@ export async function transferOwnership(
 
   const upd =
     "UPDATE memberships SET role = ?, updated_at = datetime('now') WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL";
-  await dbExecute(env.DB, upd, ['admin', orgId, actorUserId]); // step the old owner down
-  await dbExecute(env.DB, upd, ['owner', orgId, targetUserId]); // promote the new owner
+  // ATOMIC — demote-owner + promote-member run in one D1 batch (implicit transaction).
+  // As two separate error-ignoring dbExecute calls, a mid-transfer failure could leave
+  // the org with ZERO owners (demote committed, promote failed) while still returning a
+  // lying `{ok:true}`. batch() rolls back on any failure AND rejects, so a failed write
+  // keeps the org's current owner and the caller sees the honest error.
+  try {
+    await env.DB.batch([
+      env.DB.prepare(upd).bind('admin', orgId, actorUserId), // step the old owner down
+      env.DB.prepare(upd).bind('owner', orgId, targetUserId), // promote the new owner
+    ]);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'team_seats',
+        event: 'ownership_transfer_failed',
+        org_id: orgId,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { ok: false, error: 'Ownership transfer failed — no changes were applied' };
+  }
   return { ok: true };
 }
