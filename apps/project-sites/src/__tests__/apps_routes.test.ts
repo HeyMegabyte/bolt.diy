@@ -373,17 +373,17 @@ describe('POST /api/apps/instances', () => {
   });
 
   it('returns 424 (coming soon) for an unsupported but cataloged app id', async () => {
-    // `matomo` is in the catalog but NOT in SUPPORTED_APP_SLUGS.
+    // `stirling-pdf` is in the catalog but NOT in this mock`s SUPPORTED_APP_SLUGS.
     const res = await req(
       makeApp(AUTH),
       '/api/apps/instances',
-      jsonInit('POST', { app_id: 'matomo', subdomain: 'my-matomo' }),
+      jsonInit('POST', { app_id: 'stirling-pdf', subdomain: 'my-stirlingpdf' }),
       makeEnv(),
     );
     expect(res.status).toBe(424);
     const json = (await res.json()) as { error?: string; app_id?: string };
     expect(json.error).toBe('app_not_supported');
-    expect(json.app_id).toBe('matomo');
+    expect(json.app_id).toBe('stirling-pdf');
     expect(mockProvision).not.toHaveBeenCalled();
   });
 

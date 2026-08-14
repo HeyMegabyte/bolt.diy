@@ -237,6 +237,11 @@ export class StirlingPdfContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'stirling-pdf';
   override defaultPort = 8080;
 }
+
+export class PayloadContainer extends AppRuntimeContainer {
+  static readonly APP_SLUG = 'payload';
+  override defaultPort = 3000;
+}
 /** Tabby — `tabbyml/tabby:latest` port 8080 */
 export class TabbyContainer extends AppRuntimeContainer {
   static readonly APP_SLUG = 'tabby';
@@ -327,6 +332,7 @@ export const SUPPORTED_APP_SLUGS = [
   'nocodb',
   'open-webui',
   'outline',
+  'payload',
   'perplexica',
   'phoenix',
   'plane',

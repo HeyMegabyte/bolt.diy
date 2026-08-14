@@ -22,6 +22,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   voice: 'Voice',
   'feature-flags': 'Feature Flags',
   'site-features': 'Features', social: 'Social',
+  swarm: 'Swarm',
   logs: 'Logs',
   mcp: 'MCP', seo: 'SEO', inbox: 'Inbox',
   import: 'Import', sites: 'Sites', welcome: 'Welcome', email: 'Email',

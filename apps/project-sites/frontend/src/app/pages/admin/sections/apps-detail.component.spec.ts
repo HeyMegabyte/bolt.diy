@@ -226,13 +226,17 @@ describe('AppDetailComponent (AI Recommends + prev/next pager)', () => {
     expect(recs.every((r) => r.id !== 'umami')).withContext('excludes self').toBeTrue();
   });
 
-  it('recommendations are genuinely related (share a tag or the category)', () => {
-    const { c } = make(undefined, 'umami');
+  it('recommendations rank the most-related app first (shared tags + category)', () => {
+    // open-webui + lobe-chat share the 'ai' category AND the 'llm'/'chat' tags,
+    // so lobe-chat is the single strongest match and must rank first. The 2nd slot
+    // fills with the alphabetical-first unrelated app so the section is never
+    // half-empty even in a small, diverse catalog.
+    const { c } = make(undefined, 'open-webui');
     c.ngOnInit();
-    const cur = c.app()!;
-    expect(c.recommendations().every((r) =>
-      r.category === cur.category || r.tags.some((t) => cur.tags.includes(t)),
-    )).toBeTrue();
+    const recs = c.recommendations();
+    expect(recs.length).toBe(2);
+    expect(recs.every((r) => r.id !== 'open-webui')).withContext('excludes self').toBeTrue();
+    expect(recs[0]?.id).withContext('most-related app ranked first').toBe('lobe-chat');
   });
 
   it('prevApp/nextApp resolve catalog neighbours and wrap around', () => {
@@ -260,12 +264,12 @@ describe('AppDetailComponent (AI Recommends + prev/next pager)', () => {
   });
 
   it('re-resolves the app when the route param changes (pager reuse)', () => {
-    // paramMap emits 'umami' then 'matomo' — the component must reflect the last.
+    // paramMap emits 'umami' then 'listmonk' — the component must reflect the last.
     const nav = jasmine.createSpy('navigate');
     TestBed.configureTestingModule({
       imports: [AppDetailComponent],
       providers: [
-        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'umami' }), convertToParamMap({ id: 'matomo' })) } },
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'umami' }), convertToParamMap({ id: 'listmonk' })) } },
         { provide: Router, useValue: { navigate: nav } },
         { provide: ApiService, useValue: { post: jasmine.createSpy('post') } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
@@ -275,7 +279,7 @@ describe('AppDetailComponent (AI Recommends + prev/next pager)', () => {
     TestBed.overrideComponent(AppDetailComponent, { set: { template: '<div></div>', imports: [] } });
     const c = TestBed.createComponent(AppDetailComponent).componentInstance;
     c.ngOnInit();
-    expect(c.app()?.id).withContext('reflects the latest param emission').toBe('matomo');
+    expect(c.app()?.id).withContext('reflects the latest param emission').toBe('listmonk');
   });
 });
 

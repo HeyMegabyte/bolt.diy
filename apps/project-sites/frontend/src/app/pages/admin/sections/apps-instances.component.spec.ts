@@ -344,11 +344,12 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
   // "Save & restart" PATCHes env_overrides then restarts the container. A catalog
   // env var that is required AND has no `auto` (platform-filled) AND no `default`
   // MUST be supplied by the user — saving it empty restarts the app into a broken
-  // boot loop. `morphic` is the one catalog app with such a var (OPENAI_API_KEY),
-  // so saveEnv must block + flag the gap instead of silently restarting broken.
+  // boot loop. `open-webui` is the catalog app with such a var (OPENAI_API_KEY — no
+  // Ollama sidecar is provisioned, so an LLM backend key is genuinely required), so
+  // saveEnv must block + flag the gap instead of silently restarting broken.
   it('saveEnv blocks the PATCH/restart when a user-required env var (no auto/default) is empty', () => {
     const { c, patch } = makeDetail(() => Promise.resolve(true));
-    c.instance.set({ id: 'i1', app_id: 'morphic', status: 'running' } as never);
+    c.instance.set({ id: 'i1', app_id: 'open-webui', status: 'running' } as never);
     c.envValues = {}; // OPENAI_API_KEY unfilled
     expect(c.requiredEnvMissing()).toContain('OPENAI_API_KEY');
     c.saveEnv();
@@ -357,7 +358,7 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
 
   it('saveEnv PATCHes once the required env var is filled', () => {
     const { c, patch } = makeDetail(() => Promise.resolve(true));
-    c.instance.set({ id: 'i1', app_id: 'morphic', status: 'running' } as never);
+    c.instance.set({ id: 'i1', app_id: 'open-webui', status: 'running' } as never);
     c.envValues = { OPENAI_API_KEY: 'sk-test' };
     expect(c.requiredEnvMissing()).toEqual([]);
     c.saveEnv();
@@ -366,8 +367,8 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
 
   it('requiredEnvMissing ignores auto-filled + defaulted required vars (only truly-user-required count)', () => {
     const { c } = makeDetail(() => Promise.resolve(true));
-    // medusa: every required var is auto-filled or has a default → nothing to demand from the user
-    c.instance.set({ id: 'i1', app_id: 'medusa', status: 'running' } as never);
+    // umami: every required var (DATABASE_URL, APP_SECRET, HASH_SALT) is auto-filled → nothing to demand from the user
+    c.instance.set({ id: 'i1', app_id: 'umami', status: 'running' } as never);
     c.envValues = {};
     expect(c.requiredEnvMissing()).toEqual([]);
   });
