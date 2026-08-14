@@ -41,7 +41,6 @@ import {
 // import `pickSafeRedirect` directly from the shared package.
 export { pickSafeRedirect };
 
-
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { gatewayFetch } from '../services/ai_gateway.js';
 import { writeAuditLog } from '../services/audit.js';
@@ -3298,6 +3297,5 @@ search.get('/api/container-script', async (c) => {
     headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' },
   });
 });
-
 
 export { search };
