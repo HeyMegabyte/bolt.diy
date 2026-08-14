@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../../directives/reveal.directive';
 import { ToastService } from '../../../../services/toast.service';
+import { ApiService } from '../../../../services/api.service';
 import { DocsSpecService, renderMarkdown, type Operation } from '../docs.component';
 
 /**
@@ -44,10 +45,10 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
             <span>Grab an API key</span>
           </a>
-          <a class="ov-btn is-secondary" href="/api/admin/docs/openapi.json" target="_blank" rel="noopener noreferrer">
+          <button class="ov-btn is-secondary" type="button" (click)="openRawSpec()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5-5 5 5"/><path d="M12 5v14"/></svg>
             <span>Raw OpenAPI</span>
-          </a>
+          </button>
         </div>
       </header>
 
@@ -220,7 +221,7 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
       display: inline-flex; align-items: center; gap: 7px;
       min-height: 36px; padding: 0 1rem;
       border-radius: 8px; cursor: pointer;
-      font-size: 0.8rem; font-weight: 600;
+      font-family: inherit; font-size: 0.8rem; font-weight: 600;
       text-decoration: none;
       transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
     }
@@ -473,6 +474,7 @@ export class DocsOverviewComponent implements OnInit {
   private title = inject(Title);
   private meta = inject(Meta);
   private toast = inject(ToastService);
+  private api = inject(ApiService);
   readonly specService = inject(DocsSpecService);
 
   /** Copy-paste curl shown in step 3 of the quick-start. */
@@ -545,6 +547,31 @@ export class DocsOverviewComponent implements OnInit {
     const weeks = Math.floor(days / 7);
     if (weeks === 1) return '1w ago';
     return `${weeks}w ago`;
+  }
+
+  /**
+   * Open the raw OpenAPI spec in a new tab. The `/api/admin/docs/openapi.json`
+   * route is BEARER-authed, so a plain `<a target="_blank" href>` would 401 (a new
+   * tab carries no Authorization header — auth is bearer-only, not cookie). We open
+   * a blank tab SYNCHRONOUSLY inside the click gesture (else the popup is blocked),
+   * fetch the spec WITH auth via {@link ApiService.getBlobAbsolute}, then point the
+   * tab at the resulting blob URL. See the `plain-navigation-cant-carry-bearer` memory.
+   */
+  openRawSpec(): void {
+    const tab = window.open('', '_blank');
+    this.api.getBlobAbsolute('/api/admin/docs/openapi.json').subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        if (tab) tab.location.href = url;
+        else window.open(url, '_blank');
+        // Revoke after the tab has had time to load the JSON.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => {
+        tab?.close();
+        this.toast.error('Could not load the OpenAPI spec.');
+      },
+    });
   }
 
   /** Copy a snippet to the clipboard and flip the button into a "Copied ✓" state. */
