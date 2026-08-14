@@ -50,11 +50,21 @@ export const ALLOWLIST = {
   'GET /api/apps/catalog': 'intentional',
   // domain_purchase mounted before `api` so the wallet-aware purchase wins over legacy.
   'POST /api/domains/purchase': 'intentional',
-  // aiAdmin wins over api.ts — likely accidental; resolve which handler is canonical.
+  // COLLISION (iter 33 analysis): aiAdmin.ts:2329 (`{data:{sites}}`, sites-grouped, wins)
+  // shadows api.ts:5838 (`{data}`, flat hostnames + pagination + status/type filters,
+  // DOCUMENTED w/ curl example + 5 tests in domain_admin.test.ts). BOTH are FE-unconsumed
+  // (only `/admin/domains/summary` is called) → no live consumer disambiguates the
+  // canonical contract. Resolving = a DELIBERATE API-contract decision (one-way door:
+  // changing a documented response shape), NOT a quick delete. Not a live bug (FE-unused).
   'GET /api/admin/domains': 'review',
-  // Two GET / handlers in index.ts: :747 (system-service landings) shadows :976
-  // (richer — adds llm + platform-service landings). Needs a careful host-routing
-  // merge; llm root is served by its container so that branch is moot in practice.
+  // Two GET / handlers in index.ts: :747 (system-service landings, WINS) shadows :976
+  // (superset — adds llm + platform-service landings). VERIFIED (iter 33 prod curls):
+  // :976 is moot — logs/webhooks/links/analytics roots already serve 200 (via containers,
+  // NOT :976), llm root is container-served, billing 404s regardless. So the fix is DELETE
+  // :976 (a merge into :747 would HIJACK the 4 working platform hosts). But :976's helpers
+  // (llmLandingPage + resolvePlatformService + platformServiceLanding) are used ONLY by :976
+  // AND llm_landing_page has its own test → the clean delete has a 2-module + 1-test tail;
+  // a focused host-routing slice, not a loop step. Not a live bug.
   'GET /': 'review',
 };
 
