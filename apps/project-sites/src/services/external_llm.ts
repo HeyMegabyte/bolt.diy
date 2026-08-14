@@ -241,7 +241,7 @@ export function aiGatewayUrl(env: Env, provider: 'openai' | 'anthropic'): string
  */
 async function fetchWithGatewayFallback(
   env: Env,
-  provider: 'openai' | 'anthropic',
+  provider: 'openai' | 'anthropic' | 'deepseek',
   pathSuffix: string,
   init: RequestInit,
   gatewayOptions: GatewayCallOptions = {},
@@ -417,6 +417,11 @@ async function callOpenAI(
   model: string,
   options: ExternalLLMOptions,
   messages?: Array<Record<string, unknown>>,
+  // DeepSeek is OpenAI-wire-compatible (`/v1/chat/completions`) — same call path,
+  // only the base URL differs. Passing the real provider routes the fetch to the
+  // DeepSeek base URL via the gateway map, instead of POSTing a DeepSeek key to
+  // OpenAI (→ 401) and silently falling back to premium OpenAI.
+  provider: 'openai' | 'deepseek' = 'openai',
 ): Promise<{
   text: string;
   tokens: number;
@@ -455,7 +460,7 @@ async function callOpenAI(
   try {
     [res, gatewayUsed] = await fetchWithGatewayFallback(
       env,
-      'openai',
+      provider,
       '/v1/chat/completions',
       {
         method: 'POST',
@@ -474,7 +479,9 @@ async function callOpenAI(
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`OpenAI API error ${res.status}: ${text}`);
+    throw new Error(
+      `${provider === 'deepseek' ? 'DeepSeek' : 'OpenAI'} API error ${res.status}: ${text}`,
+    );
   }
 
   const data = (await res.json()) as {
@@ -828,7 +835,7 @@ export async function callExternalLLM(
       const result = await withRetry(
         () =>
           provider === 'openai' || provider === 'deepseek'
-            ? callOpenAI(env, apiKey, model, options)
+            ? callOpenAI(env, apiKey, model, options, undefined, provider)
             : callAnthropic(env, apiKey, model, options),
         {
           maxRetries: 3,

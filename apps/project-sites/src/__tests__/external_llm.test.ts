@@ -142,6 +142,29 @@ describe('provider routing', () => {
     expect(res.provider).toBe('openai');
   });
 
+  it('routes provider=deepseek to the DeepSeek base URL + key, NOT OpenAI (regression)', async () => {
+    // Bug: callOpenAI hardcoded provider='openai' into gatewayFetch, so a DeepSeek
+    // call POSTed the DeepSeek key to OpenAI's URL → 401 → silent fallback to
+    // premium OpenAI (the whole cost-tier was dead). gatewayFetch resolves the base
+    // URL from its provider arg, so that arg MUST be 'deepseek'.
+    mockGatewayFetch.mockResolvedValueOnce(gwOk(openAIBody('ds-hi')));
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-ds-test' });
+    const res = await callExternalLLM(env, { system: 's', user: 'u', provider: 'deepseek' });
+    expect(res.provider).toBe('deepseek');
+    expect(mockGatewayFetch.mock.calls[0][1]).toBe('deepseek'); // → api.deepseek.com
+    expect(mockGatewayFetch.mock.calls[0][2]).toBe('/v1/chat/completions'); // OpenAI-wire-compatible
+    const init = mockGatewayFetch.mock.calls[0][3] as RequestInit;
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sk-ds-test');
+  });
+
+  it('the standard tier resolves to DeepSeek and routes there when DEEPSEEK_API_KEY is set', async () => {
+    mockGatewayFetch.mockResolvedValueOnce(gwOk(openAIBody('ds-hi')));
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-ds-test' });
+    const res = await callExternalLLM(env, { system: 's', user: 'u', tier: 'standard' });
+    expect(res.provider).toBe('deepseek');
+    expect(mockGatewayFetch.mock.calls[0][1]).toBe('deepseek');
+  });
+
   it('falls back to anthropic when only ANTHROPIC_API_KEY is set', async () => {
     mockGatewayFetch.mockResolvedValueOnce(gwOk(anthropicBody()));
     const env = makeEnv({ OPENAI_API_KEY: undefined });
