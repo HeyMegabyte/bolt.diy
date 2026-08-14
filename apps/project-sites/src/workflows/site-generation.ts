@@ -1502,13 +1502,15 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         try {
           // Look up user email for notification
           const siteRow = (await env.DB.prepare(
-            'SELECT o.id as org_id FROM sites s JOIN orgs o ON s.org_id = o.id WHERE s.id = ?',
+            'SELECT o.id as org_id FROM sites s JOIN orgs o ON s.org_id = o.id WHERE s.id = ? AND s.deleted_at IS NULL AND o.deleted_at IS NULL',
           )
             .bind(params.siteId)
             .first()) as { org_id: string } | null;
           if (siteRow) {
+            // Notify an ACTIVE org member — filter soft-deleted memberships/users so a
+            // person removed from the org never receives this "your site is built" email.
             const userRow = (await env.DB.prepare(
-              'SELECT u.email FROM memberships m JOIN users u ON m.user_id = u.id WHERE m.org_id = ? LIMIT 1',
+              'SELECT u.email FROM memberships m JOIN users u ON m.user_id = u.id WHERE m.org_id = ? AND m.deleted_at IS NULL AND u.deleted_at IS NULL LIMIT 1',
             )
               .bind(siteRow.org_id)
               .first()) as { email: string } | null;

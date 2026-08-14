@@ -15,6 +15,15 @@ const makeDb = (email: string | null) =>
     prepare: () => ({ bind: () => ({ first: async () => (email ? { email } : null) }) }),
   }) as unknown as D1Database;
 
+/** Like makeDb but records every prepared SQL string so tests can assert on it. */
+const capturingDb = (calls: string[], email: string | null) =>
+  ({
+    prepare: (sql: string) => {
+      calls.push(sql);
+      return { bind: () => ({ first: async () => (email ? { email } : null) }) };
+    },
+  }) as unknown as D1Database;
+
 const throwingDb = () =>
   ({
     prepare: () => {
@@ -100,5 +109,17 @@ describe('notifySiteOwner', () => {
       body: 'b',
     });
     expect(res).toEqual({ ok: false, detail: 'lookup_failed' });
+  });
+
+  it('excludes soft-deleted memberships/users from the owner lookup (a removed member is never notified)', async () => {
+    const calls: string[] = [];
+    const res = await notifySiteOwner(baseEnv, capturingDb(calls, 'owner@org.com'), {
+      orgId: 'org_1',
+      subject: 's',
+      body: 'b',
+    });
+    expect(res.ok).toBe(true);
+    expect(calls[0]).toContain('m.deleted_at IS NULL');
+    expect(calls[0]).toContain('u.deleted_at IS NULL');
   });
 });

@@ -15,7 +15,7 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQuery, dbQueryOne } from '../services/db.js';
-import { checkBuildLimit } from '../services/build_limits.js';
+import { checkBuildLimit, isUnlimitedOrgOwner } from '../services/build_limits.js';
 
 const mockDbQuery = dbQuery as unknown as jest.Mock;
 const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;
@@ -103,6 +103,17 @@ describe('checkBuildLimit — unlimited orgs', () => {
     const second = await checkBuildLimit(db, 'org-brian-cached', 'free');
     expect(second.limit).toBe(Infinity);
     expect(second.allowed).toBe(true);
+  });
+});
+
+describe('isUnlimitedOrgOwner — owner lookup excludes soft-deleted rows', () => {
+  it('filters deleted_at so a removed owner membership never confers unlimited compute', async () => {
+    mockDbQueryOne.mockResolvedValue({ email: 'brian@megabyte.space' } as never);
+    const res = await isUnlimitedOrgOwner(db, 'org-softdelete-check');
+    expect(res).toBe(true);
+    const sql = String(mockDbQueryOne.mock.calls[0][1]);
+    expect(sql).toContain('m.deleted_at IS NULL');
+    expect(sql).toContain('u.deleted_at IS NULL');
   });
 });
 

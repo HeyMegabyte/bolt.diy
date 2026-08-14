@@ -34,5 +34,10 @@ describe('runAbandonedNudgesForEnv (dark-launch safety)', () => {
 
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(res).toEqual({ scanned: 0, nudged: 0 });
+    // The recipient sub-select must exclude soft-deleted memberships/users so a person
+    // removed from the org never receives an abandoned-build nudge email.
+    const sql = String(prepare.mock.calls[0][0]);
+    expect(sql).toContain('m.deleted_at IS NULL');
+    expect(sql).toContain('u.deleted_at IS NULL');
   });
 });

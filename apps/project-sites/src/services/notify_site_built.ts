@@ -25,7 +25,7 @@ export async function resolveOwnerEmail(env: Env, orgId: string): Promise<string
   const row = await dbQueryOne<{ email: string }>(
     env.DB,
     `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id
-     WHERE m.org_id = ? AND m.role = 'owner' LIMIT 1`,
+     WHERE m.org_id = ? AND m.role = 'owner' AND m.deleted_at IS NULL AND u.deleted_at IS NULL LIMIT 1`,
     [orgId],
   );
   return row?.email ?? null;

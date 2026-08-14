@@ -41,7 +41,7 @@ const UNLIMITED_ORGS = new Set<string>();
 export async function isUnlimitedOrgOwner(db: D1Database, orgId: string): Promise<boolean> {
   const owner = await dbQueryOne<{ email: string }>(
     db,
-    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' LIMIT 1`,
+    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' AND m.deleted_at IS NULL AND u.deleted_at IS NULL LIMIT 1`,
     [orgId],
   ).catch(() => null);
   return owner?.email === 'brian@megabyte.space';

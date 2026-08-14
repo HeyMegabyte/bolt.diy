@@ -1,4 +1,10 @@
-import { notifyOwnerSiteBuilt } from '../services/notify_site_built';
+// Global `jest` (NOT @jest/globals) so @swc/jest hoists the mock above the import.
+jest.mock('../services/db.js', () => ({ dbQueryOne: jest.fn() }));
+
+import { notifyOwnerSiteBuilt, resolveOwnerEmail } from '../services/notify_site_built';
+import { dbQueryOne } from '../services/db.js';
+
+const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;
 
 /**
  * Golden-path "customer notified" for the embedded-bolt publish path. Notifies
@@ -89,5 +95,24 @@ describe('notifyOwnerSiteBuilt', () => {
       d,
     );
     expect(r.belled).toBe(false);
+  });
+});
+
+describe('resolveOwnerEmail (recipient soft-delete filter)', () => {
+  beforeEach(() => mockDbQueryOne.mockReset());
+
+  it('excludes soft-deleted memberships/users so a removed owner is never emailed', async () => {
+    mockDbQueryOne.mockResolvedValue({ email: 'owner@acme.com' });
+    const email = await resolveOwnerEmail(env, 'org-1');
+    expect(email).toBe('owner@acme.com');
+    // The owner lookup SQL (2nd arg) must scope out soft-deleted rows.
+    const sql = String(mockDbQueryOne.mock.calls[0][1]);
+    expect(sql).toContain('m.deleted_at IS NULL');
+    expect(sql).toContain('u.deleted_at IS NULL');
+  });
+
+  it('returns null when no active owner membership resolves', async () => {
+    mockDbQueryOne.mockResolvedValue(null);
+    expect(await resolveOwnerEmail(env, 'org-x')).toBeNull();
   });
 });

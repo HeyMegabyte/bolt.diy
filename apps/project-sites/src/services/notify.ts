@@ -77,7 +77,7 @@ export async function notifySiteOwner(
   try {
     const row = await db
       .prepare(
-        'SELECT u.email AS email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? ORDER BY u.created_at ASC LIMIT 1',
+        'SELECT u.email AS email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.deleted_at IS NULL AND u.deleted_at IS NULL ORDER BY u.created_at ASC LIMIT 1',
       )
       .bind(input.orgId)
       .first<{ email: string }>();

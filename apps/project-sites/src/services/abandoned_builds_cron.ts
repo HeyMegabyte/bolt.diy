@@ -55,7 +55,8 @@ export async function runAbandonedNudgesForEnv(
       const { results } = await env.DB.prepare(
         `SELECT s.id AS site_id, s.org_id, s.status, s.slug, s.business_name, s.updated_at, s.nudged_at,
                 (SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id
-                 WHERE m.org_id = s.org_id ORDER BY u.created_at ASC LIMIT 1) AS email,
+                 WHERE m.org_id = s.org_id AND m.deleted_at IS NULL AND u.deleted_at IS NULL
+                 ORDER BY u.created_at ASC LIMIT 1) AS email,
                 (SELECT COUNT(*) FROM subscriptions sub
                  WHERE sub.org_id = s.org_id AND sub.status = 'active'
                    AND sub.deleted_at IS NULL) AS active_subs
