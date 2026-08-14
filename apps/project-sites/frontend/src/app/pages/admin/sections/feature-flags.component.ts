@@ -22,36 +22,37 @@
  * (no column) so it is read-only here.
  */
 
-import { Component, OnInit, HostListener, computed, inject, signal } from '@angular/core';
 import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { Component, computed, HostListener, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
-import { HttpClient } from '@angular/common/http';
-import { AuthService } from '../../../services/auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { ToastService } from '../../../services/toast.service';
-import { AdminStateService } from '../admin-state.service';
-import { FeatureFlagService } from '../../../services/feature-flag.service';
+
+import { type DossierModel, englishSmoke } from '../../../components/feature-dossier/dossier.model';
+import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { type DisclosureMode } from './feature-flags/mode-switcher.component';
-import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
-import { FlagAuditTimelineComponent, type AuditEntry } from './feature-flags/audit-timeline.component';
-import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
-import { type DossierModel, englishSmoke } from '../../../components/feature-dossier/dossier.model';
+import { AuthService } from '../../../services/auth.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
+import { ToastService } from '../../../services/toast.service';
+import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
+import { AdminStateService } from '../admin-state.service';
+import { type AuditEntry, FlagAuditTimelineComponent } from './feature-flags/audit-timeline.component';
+import { type FlagBadge, FlagBadgeRowComponent } from './feature-flags/badge-row.component';
 import {
   bucketFor,
-  classifyChange,
-  evaluationTrace,
-  validateConstraints,
   type ChangeRisk,
+  classifyChange,
   type EvalStep,
+  evaluationTrace,
   type FlagConstraint,
+  validateConstraints,
 } from './feature-flags/flag-logic';
+import { type DisclosureMode } from './feature-flags/mode-switcher.component';
 
 interface FlagDefinition {
   key: string;
@@ -76,6 +77,7 @@ interface FlagDocs {
   explanation: string;
   smoke_test: string[];
   e2e_tests?: string[];
+  screenshots?: { url: string; caption: string; alt?: string }[];
   references?: string[];
 }
 
@@ -102,8 +104,6 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
 ];
 
 @Component({
-  selector: 'app-admin-feature-flags',
-  standalone: true,
   imports: [
     CommonModule, FormsModule, RouterLink, RevealDirective, A11yModule,
     HlmInputDirective, HlmTablistDirective,
@@ -111,6 +111,171 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     FlagBadgeRowComponent, FlagAuditTimelineComponent,
     FeatureDossierComponent,
   ],
+  selector: 'app-admin-feature-flags',
+  standalone: true,
+  styles: [`
+    :host { display: block; box-sizing: border-box; width: 100%; min-width: 0; padding: 1.5rem; max-width: 1280px; margin: 0 auto; }
+    .ff-page { color: var(--ps-ink, #f4f4ff); }
+    .ff-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+    .ff-head-left { min-width: 0; }
+    .ff-head-right { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .ff-kicker { margin: 0 0 .25rem; font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); opacity: 0.85; }
+    .ff-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
+    .ff-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); max-width: 66ch; }
+    .ff-sub strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
+    .ff-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
+    .ff-cross-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
+    .ff-cross-link:hover { color: var(--ps-ink, #f4f4ff); }
+    .ff-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
+    .ff-refresh, .ff-emergency { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
+    .ff-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
+    .ff-refresh:disabled { opacity: .5; cursor: not-allowed; }
+    .ff-emergency { border-color: color-mix(in oklch, #ff5555 45%, transparent); color: #ff8888; }
+    .ff-ic { display: inline-flex; vertical-align: -0.15em; margin-right: .4rem; }
+    .ff-ic svg { width: 1em; height: 1em; display: block; }
+    .ff-emergency:hover { background: color-mix(in oklch, #ff5555 12%, transparent); }
+    .ff-refresh:focus-visible, .ff-emergency:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    .ff-blocked { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; padding: 0.7rem 0.9rem; border-radius: 12px;
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent); }
+    .ff-blocked-icon { display: inline-flex; align-items: center; line-height: 1; flex: none; }
+    .ff-blocked-text { flex: 1; font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 88%, transparent); }
+    .ff-blocked-text code { font-family: 'JetBrains Mono', monospace; color: var(--ps-accent, #00E5FF); font-size: 0.74rem; }
+    .ff-blocked-dismiss { background: none; border: 0; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); cursor: pointer; font-size: 0.85rem; padding: 0.2rem 0.35rem; border-radius: 6px; min-height: 24px; min-width: 24px; }
+    .ff-blocked-dismiss:hover { color: var(--ps-ink, #f4f4ff); }
+    .ff-blocked-dismiss:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 1px; }
+    .ff-coherence { margin-bottom: 1.25rem; padding: .7rem .9rem; border-radius: 12px;
+      border: 1px solid color-mix(in oklch, #fbbf24 40%, transparent); background: color-mix(in oklch, #fbbf24 8%, transparent); font-size: .82rem; }
+    .ff-coherence ul { margin: .35rem 0 0; padding-left: 1.2rem; }
+    .ff-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .ff-stages { display: flex; gap: .375rem; flex-wrap: wrap; min-width: 0; }
+    .ff-stage-chip { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 18%, transparent); border-radius: 999px; padding: .375rem .75rem; cursor: pointer; font: inherit; font-size: .875rem; display: inline-flex; align-items: center; gap: .375rem; min-height: 24px; }
+    .ff-stage-chip:hover { border-color: color-mix(in oklch, currentColor 40%, transparent); }
+    .ff-stage-chip:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    .ff-stage-chip-active { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
+    .ff-stage-count { background: color-mix(in oklch, currentColor 18%, transparent); padding: .05rem .4rem; border-radius: 999px; font-size: .75rem; }
+    .ff-stage-chip-active .ff-stage-count { background: color-mix(in oklch, currentColor 25%, transparent); }
+    .ff-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 1rem; }
+    .ff-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: .65rem; transition: border-color .15s ease; }
+    .ff-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); }
+    .ff-card[data-stage="killswitch"] { border-color: #ff5555; }
+    .ff-card[data-stage="stable"] { border-color: color-mix(in oklch, #4ade80 40%, transparent); }
+    .ff-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 18%, transparent); }
+    .ff-card-killed { border-color: #ff5555 !important; background: color-mix(in oklch, #ff5555 7%, color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent)); }
+    .ff-card-killed .ff-key, .ff-card-killed .ff-desc { opacity: .7; }
+    .ff-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+    .ff-key { font-family: var(--ps-mono, ui-monospace, monospace); font-size: 1rem; margin: 0; word-break: break-all; }
+    .ff-key-btn { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; display: inline-flex; align-items: baseline; gap: .4em; word-break: break-all; text-align: left; border-radius: 4px; }
+    .ff-key-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 3px; }
+    .ff-key-copy { font-size: .8em; opacity: .35; transition: opacity .12s, color .12s; }
+    .ff-key-btn:hover .ff-key-copy, .ff-key-btn:focus-visible .ff-key-copy { opacity: 1; color: var(--ps-accent, #00e5ff); }
+    .ff-desc { color: color-mix(in oklch, currentColor 70%, transparent); margin: 0; font-size: .9rem; line-height: 1.45; }
+    .ff-why { color: color-mix(in oklch, currentColor 58%, transparent); margin: 0; font-size: .8rem; font-style: italic; }
+    .ff-state-badge { font-weight: 600; font-size: .8rem; padding: .15rem .5rem; border-radius: 6px; font-family: var(--ps-mono, ui-monospace, monospace); }
+    .ff-state-on { background: #4ade80; color: #052e16; }
+    .ff-state-off { background: color-mix(in oklch, currentColor 18%, transparent); }
+    .ff-rollout { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .85rem; color: color-mix(in oklch, currentColor 65%, transparent); }
+    /* At-a-glance rollout progress on each flag card. */
+    .ff-rollout-bar { height: 4px; border-radius: 999px; overflow: hidden; margin: -.15rem 0 .1rem;
+      background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); }
+    .ff-rollout-fill { display: block; height: 100%; border-radius: 999px; background: var(--ps-accent, #00e5ff); transition: width .35s ease; }
+    .ff-rollout-fill--off { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 28%, transparent); }
+    @media (prefers-reduced-motion: reduce) { .ff-rollout-fill { transition: none; } }
+    .ff-owner { font-size: .75rem; color: color-mix(in oklch, currentColor 50%, transparent); }
+    /* Owner email → mailto (in-text link needs a default underline per WCAG 1.4.1). */
+    .ff-owner-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
+    .ff-owner-link:hover { color: var(--ps-ink, #f4f4ff); }
+    .ff-owner-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 3px; }
+    .ff-resolved { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+    .ff-resolved-source { font-size: .72rem; color: color-mix(in oklch, currentColor 60%, transparent); font-style: italic; }
+    .ff-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
+    .ff-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .4rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .85rem; min-height: 24px; }
+    .ff-btn:hover { border-color: color-mix(in oklch, currentColor 50%, transparent); }
+    .ff-btn:disabled { opacity: .5; cursor: progress; }
+    .ff-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    .ff-btn-primary { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
+    .ff-btn-danger:hover { border-color: #ff5555; color: #ff5555; }
+    .ff-btn-danger-solid { background: #ff5555; color: #190606; border-color: #ff5555; font-weight: 600; }
+    .ff-btn-danger-solid:hover { filter: brightness(1.08); }
+    .ff-btn-danger-solid:disabled { opacity: .5; }
+    .ff-btn-restore { border-color: color-mix(in oklch, #4ade80 50%, transparent); color: #4ade80; }
+    .ff-btn-restore:hover { border-color: #4ade80; background: color-mix(in oklch, #4ade80 12%, transparent); }
+    .ff-detail { background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); border-radius: 8px; padding: .85rem 1rem; margin-top: .5rem; }
+    .ff-detail h3 { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; margin: 1rem 0 .5rem; color: var(--ps-accent, #00e5ff); font-weight: 600; }
+    .ff-detail h3:first-child { margin-top: 0; }
+    .ff-explanation { line-height: 1.55; margin: 0; color: color-mix(in oklch, currentColor 85%, transparent); font-size: .9rem; }
+    .ff-smoke { padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: .35rem; }
+    .ff-smoke li { line-height: 1.45; font-size: .85rem; }
+    /* "What it does" checkpoint list — the scannable contract above the prose. */
+    .ff-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .ff-check { display: flex; align-items: flex-start; gap: .45rem; font-size: .85rem; line-height: 1.4; color: color-mix(in oklch, currentColor 82%, transparent); }
+    .ff-check-ic { flex: none; margin-top: .12rem; color: var(--ps-accent, #00e5ff); }
+    .ff-step { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .82rem; background: color-mix(in oklch, currentColor 8%, transparent); padding: .15rem .4rem; border-radius: 4px; word-break: break-word; }
+    .ff-e2e, .ff-refs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .ff-e2e li, .ff-refs li { font-size: .8rem; }
+    .ff-refs a { color: var(--ps-accent, #00e5ff); word-break: break-all; }
+    .ff-ctl { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .65rem; }
+    .ff-ctl-label { font-size: .8rem; color: color-mix(in oklch, currentColor 80%, transparent); }
+    .ff-ctl-label strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
+    .ff-range { width: 100%; max-width: 320px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; }
+    .ff-range:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 4px; border-radius: 4px; }
+    .ff-sched { max-width: 320px; background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 20%, transparent); border-radius: 8px; padding: .35rem .5rem; font: inherit; font-size: .82rem; }
+    .ff-sched:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    .ff-ctl-hint { font-size: .72rem; color: color-mix(in oklch, currentColor 50%, transparent); margin: 0; line-height: 1.4; }
+    .ff-trace-ctx { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .55rem; }
+    .ff-trace-ctx-label { font-size: .72rem; letter-spacing: .02em; text-transform: uppercase; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+    .ff-trace-input {
+      flex: 1 1 9rem; min-width: 7rem; font: inherit; font-size: .8rem;
+      color: var(--ps-ink, #f4f4ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
+      border-radius: 7px; padding: .3rem .55rem; font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .ff-trace-input:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; border-color: var(--ps-accent, #00e5ff); }
+    .ff-trace-input::placeholder { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 40%, transparent); }
+    .ff-trace-bucket {
+      font-size: .72rem; font-family: 'JetBrains Mono', ui-monospace, monospace; white-space: nowrap;
+      color: var(--ps-accent, #00e5ff); padding: .25rem .5rem; border-radius: 6px;
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent);
+    }
+    .ff-eval-trace { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .ff-eval-trace li { display: flex; gap: .5rem; align-items: baseline; font-size: .8rem; padding: .25rem .5rem; border-radius: 6px; background: color-mix(in oklch, currentColor 5%, transparent); }
+    .ff-eval-trace li[data-outcome="block"], .ff-eval-trace li[data-outcome="final-off"] { background: color-mix(in oklch, #f87171 14%, transparent); }
+    .ff-eval-trace li[data-outcome="pass"], .ff-eval-trace li[data-outcome="final-on"] { background: color-mix(in oklch, #4ade80 12%, transparent); }
+    .ff-eval-label { font-weight: 600; min-width: 92px; flex: none; }
+    .ff-eval-detail { color: color-mix(in oklch, currentColor 72%, transparent); }
+    .ff-json { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .78rem; margin: 0; overflow: auto; max-height: 200px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent); padding: .6rem; border-radius: 6px; }
+    .ff-json-editor { width: 100%; box-sizing: border-box; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .78rem; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 20%, transparent); border-radius: 6px; padding: .55rem; resize: vertical; }
+    .ff-json-editor:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    .ff-json-error { color: #fca5a5; font-size: .78rem; margin: .4rem 0 0; }
+    .ff-json-diff { margin: .5rem 0 .2rem; padding: .5rem .65rem; border-radius: 6px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); }
+    .ff-diff-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ps-accent, #00e5ff); font-weight: 600; }
+    .ff-diff-list { list-style: none; margin: .35rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .76rem; }
+    .ff-diff-list code { color: var(--ps-ink, #f4f4ff); }
+    .ff-diff-from { color: color-mix(in oklch, #fca5a5 90%, transparent); text-decoration: line-through; }
+    .ff-diff-arrow { color: color-mix(in oklch, currentColor 50%, transparent); }
+    .ff-diff-to { color: #6ee7b7; }
+    .ff-expert-actions { margin-top: .6rem; }
+    .ff-danger-overlay { position: fixed; inset: 0; z-index: var(--ps-z-overlay-takeover, 100000); display: grid; place-items: center; padding: 1rem;
+      background: color-mix(in oklch, #000 72%, transparent); backdrop-filter: blur(4px); }
+    .ff-danger { width: min(560px, 100%); background: color-mix(in oklch, var(--ps-bg, #060610) 96%, #ff5555 4%); border: 1px solid color-mix(in oklch, #ff5555 45%, transparent); border-radius: var(--ps-radius-xl, 18px); padding: 1.5rem; box-shadow: var(--ps-shadow-modal, 0 24px 60px rgba(0,0,0,.6)); color: var(--ps-ink, #f4f4ff); }
+    .ff-danger h2 { margin: 0 0 .5rem; font-size: 1.25rem; color: #ff8888; }
+    .ff-danger-flag { margin: 0 0 1rem; font-size: .9rem; }
+    .ff-danger-flag code { font-family: var(--ps-mono, ui-monospace, monospace); color: var(--ps-accent, #00e5ff); }
+    .ff-danger-section { margin-bottom: 1rem; }
+    .ff-danger-section h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 .25rem; color: color-mix(in oklch, currentColor 60%, transparent); }
+    .ff-danger-section p { margin: 0; font-size: .85rem; line-height: 1.45; }
+    .ff-danger-reason-label { display: block; font-size: .78rem; margin-bottom: .35rem; color: color-mix(in oklch, currentColor 75%, transparent); }
+    .ff-danger-reason { width: 100%; box-sizing: border-box; background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); border-radius: 8px; padding: .55rem; font: inherit; font-size: .85rem; resize: vertical; }
+    .ff-danger-reason:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    .ff-danger-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
+    .ff-emergency-count { font-size: .9rem; }
+    .ff-emergency-count strong { color: #ff8888; font-family: var(--ps-mono, ui-monospace, monospace); }
+    @media (prefers-reduced-motion: reduce) {
+      .ff-card { transition: none; }
+      .ff-danger-overlay { backdrop-filter: none; }
+    }
+  `],
   template: `
     <section class="ff-page" appReveal>
       <header class="ff-header">
@@ -441,169 +606,6 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
       <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="closeDossier()" />
     </section>
   `,
-  styles: [`
-    :host { display: block; box-sizing: border-box; width: 100%; min-width: 0; padding: 1.5rem; max-width: 1280px; margin: 0 auto; }
-    .ff-page { color: var(--ps-ink, #f4f4ff); }
-    .ff-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-    .ff-head-left { min-width: 0; }
-    .ff-head-right { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-    .ff-kicker { margin: 0 0 .25rem; font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); opacity: 0.85; }
-    .ff-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
-    .ff-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); max-width: 66ch; }
-    .ff-sub strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
-    .ff-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
-    .ff-cross-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
-    .ff-cross-link:hover { color: var(--ps-ink, #f4f4ff); }
-    .ff-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
-    .ff-refresh, .ff-emergency { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
-    .ff-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
-    .ff-refresh:disabled { opacity: .5; cursor: not-allowed; }
-    .ff-emergency { border-color: color-mix(in oklch, #ff5555 45%, transparent); color: #ff8888; }
-    .ff-ic { display: inline-flex; vertical-align: -0.15em; margin-right: .4rem; }
-    .ff-ic svg { width: 1em; height: 1em; display: block; }
-    .ff-emergency:hover { background: color-mix(in oklch, #ff5555 12%, transparent); }
-    .ff-refresh:focus-visible, .ff-emergency:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .ff-blocked { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; padding: 0.7rem 0.9rem; border-radius: 12px;
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent);
-      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent); }
-    .ff-blocked-icon { display: inline-flex; align-items: center; line-height: 1; flex: none; }
-    .ff-blocked-text { flex: 1; font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 88%, transparent); }
-    .ff-blocked-text code { font-family: 'JetBrains Mono', monospace; color: var(--ps-accent, #00E5FF); font-size: 0.74rem; }
-    .ff-blocked-dismiss { background: none; border: 0; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); cursor: pointer; font-size: 0.85rem; padding: 0.2rem 0.35rem; border-radius: 6px; min-height: 24px; min-width: 24px; }
-    .ff-blocked-dismiss:hover { color: var(--ps-ink, #f4f4ff); }
-    .ff-blocked-dismiss:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 1px; }
-    .ff-coherence { margin-bottom: 1.25rem; padding: .7rem .9rem; border-radius: 12px;
-      border: 1px solid color-mix(in oklch, #fbbf24 40%, transparent); background: color-mix(in oklch, #fbbf24 8%, transparent); font-size: .82rem; }
-    .ff-coherence ul { margin: .35rem 0 0; padding-left: 1.2rem; }
-    .ff-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .ff-stages { display: flex; gap: .375rem; flex-wrap: wrap; min-width: 0; }
-    .ff-stage-chip { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 18%, transparent); border-radius: 999px; padding: .375rem .75rem; cursor: pointer; font: inherit; font-size: .875rem; display: inline-flex; align-items: center; gap: .375rem; min-height: 24px; }
-    .ff-stage-chip:hover { border-color: color-mix(in oklch, currentColor 40%, transparent); }
-    .ff-stage-chip:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .ff-stage-chip-active { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
-    .ff-stage-count { background: color-mix(in oklch, currentColor 18%, transparent); padding: .05rem .4rem; border-radius: 999px; font-size: .75rem; }
-    .ff-stage-chip-active .ff-stage-count { background: color-mix(in oklch, currentColor 25%, transparent); }
-    .ff-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 1rem; }
-    .ff-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: .65rem; transition: border-color .15s ease; }
-    .ff-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); }
-    .ff-card[data-stage="killswitch"] { border-color: #ff5555; }
-    .ff-card[data-stage="stable"] { border-color: color-mix(in oklch, #4ade80 40%, transparent); }
-    .ff-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 18%, transparent); }
-    .ff-card-killed { border-color: #ff5555 !important; background: color-mix(in oklch, #ff5555 7%, color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent)); }
-    .ff-card-killed .ff-key, .ff-card-killed .ff-desc { opacity: .7; }
-    .ff-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-    .ff-key { font-family: var(--ps-mono, ui-monospace, monospace); font-size: 1rem; margin: 0; word-break: break-all; }
-    .ff-key-btn { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; display: inline-flex; align-items: baseline; gap: .4em; word-break: break-all; text-align: left; border-radius: 4px; }
-    .ff-key-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 3px; }
-    .ff-key-copy { font-size: .8em; opacity: .35; transition: opacity .12s, color .12s; }
-    .ff-key-btn:hover .ff-key-copy, .ff-key-btn:focus-visible .ff-key-copy { opacity: 1; color: var(--ps-accent, #00e5ff); }
-    .ff-desc { color: color-mix(in oklch, currentColor 70%, transparent); margin: 0; font-size: .9rem; line-height: 1.45; }
-    .ff-why { color: color-mix(in oklch, currentColor 58%, transparent); margin: 0; font-size: .8rem; font-style: italic; }
-    .ff-state-badge { font-weight: 600; font-size: .8rem; padding: .15rem .5rem; border-radius: 6px; font-family: var(--ps-mono, ui-monospace, monospace); }
-    .ff-state-on { background: #4ade80; color: #052e16; }
-    .ff-state-off { background: color-mix(in oklch, currentColor 18%, transparent); }
-    .ff-rollout { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .85rem; color: color-mix(in oklch, currentColor 65%, transparent); }
-    /* At-a-glance rollout progress on each flag card. */
-    .ff-rollout-bar { height: 4px; border-radius: 999px; overflow: hidden; margin: -.15rem 0 .1rem;
-      background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); }
-    .ff-rollout-fill { display: block; height: 100%; border-radius: 999px; background: var(--ps-accent, #00e5ff); transition: width .35s ease; }
-    .ff-rollout-fill--off { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 28%, transparent); }
-    @media (prefers-reduced-motion: reduce) { .ff-rollout-fill { transition: none; } }
-    .ff-owner { font-size: .75rem; color: color-mix(in oklch, currentColor 50%, transparent); }
-    /* Owner email → mailto (in-text link needs a default underline per WCAG 1.4.1). */
-    .ff-owner-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
-    .ff-owner-link:hover { color: var(--ps-ink, #f4f4ff); }
-    .ff-owner-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 3px; }
-    .ff-resolved { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-    .ff-resolved-source { font-size: .72rem; color: color-mix(in oklch, currentColor 60%, transparent); font-style: italic; }
-    .ff-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
-    .ff-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .4rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .85rem; min-height: 24px; }
-    .ff-btn:hover { border-color: color-mix(in oklch, currentColor 50%, transparent); }
-    .ff-btn:disabled { opacity: .5; cursor: progress; }
-    .ff-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .ff-btn-primary { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
-    .ff-btn-danger:hover { border-color: #ff5555; color: #ff5555; }
-    .ff-btn-danger-solid { background: #ff5555; color: #190606; border-color: #ff5555; font-weight: 600; }
-    .ff-btn-danger-solid:hover { filter: brightness(1.08); }
-    .ff-btn-danger-solid:disabled { opacity: .5; }
-    .ff-btn-restore { border-color: color-mix(in oklch, #4ade80 50%, transparent); color: #4ade80; }
-    .ff-btn-restore:hover { border-color: #4ade80; background: color-mix(in oklch, #4ade80 12%, transparent); }
-    .ff-detail { background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); border-radius: 8px; padding: .85rem 1rem; margin-top: .5rem; }
-    .ff-detail h3 { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; margin: 1rem 0 .5rem; color: var(--ps-accent, #00e5ff); font-weight: 600; }
-    .ff-detail h3:first-child { margin-top: 0; }
-    .ff-explanation { line-height: 1.55; margin: 0; color: color-mix(in oklch, currentColor 85%, transparent); font-size: .9rem; }
-    .ff-smoke { padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: .35rem; }
-    .ff-smoke li { line-height: 1.45; font-size: .85rem; }
-    /* "What it does" checkpoint list — the scannable contract above the prose. */
-    .ff-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
-    .ff-check { display: flex; align-items: flex-start; gap: .45rem; font-size: .85rem; line-height: 1.4; color: color-mix(in oklch, currentColor 82%, transparent); }
-    .ff-check-ic { flex: none; margin-top: .12rem; color: var(--ps-accent, #00e5ff); }
-    .ff-step { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .82rem; background: color-mix(in oklch, currentColor 8%, transparent); padding: .15rem .4rem; border-radius: 4px; word-break: break-word; }
-    .ff-e2e, .ff-refs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
-    .ff-e2e li, .ff-refs li { font-size: .8rem; }
-    .ff-refs a { color: var(--ps-accent, #00e5ff); word-break: break-all; }
-    .ff-ctl { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .65rem; }
-    .ff-ctl-label { font-size: .8rem; color: color-mix(in oklch, currentColor 80%, transparent); }
-    .ff-ctl-label strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
-    .ff-range { width: 100%; max-width: 320px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; }
-    .ff-range:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 4px; border-radius: 4px; }
-    .ff-sched { max-width: 320px; background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 20%, transparent); border-radius: 8px; padding: .35rem .5rem; font: inherit; font-size: .82rem; }
-    .ff-sched:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
-    .ff-ctl-hint { font-size: .72rem; color: color-mix(in oklch, currentColor 50%, transparent); margin: 0; line-height: 1.4; }
-    .ff-trace-ctx { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .55rem; }
-    .ff-trace-ctx-label { font-size: .72rem; letter-spacing: .02em; text-transform: uppercase; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
-    .ff-trace-input {
-      flex: 1 1 9rem; min-width: 7rem; font: inherit; font-size: .8rem;
-      color: var(--ps-ink, #f4f4ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent);
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
-      border-radius: 7px; padding: .3rem .55rem; font-family: 'JetBrains Mono', ui-monospace, monospace;
-    }
-    .ff-trace-input:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; border-color: var(--ps-accent, #00e5ff); }
-    .ff-trace-input::placeholder { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 40%, transparent); }
-    .ff-trace-bucket {
-      font-size: .72rem; font-family: 'JetBrains Mono', ui-monospace, monospace; white-space: nowrap;
-      color: var(--ps-accent, #00e5ff); padding: .25rem .5rem; border-radius: 6px;
-      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent);
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent);
-    }
-    .ff-eval-trace { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
-    .ff-eval-trace li { display: flex; gap: .5rem; align-items: baseline; font-size: .8rem; padding: .25rem .5rem; border-radius: 6px; background: color-mix(in oklch, currentColor 5%, transparent); }
-    .ff-eval-trace li[data-outcome="block"], .ff-eval-trace li[data-outcome="final-off"] { background: color-mix(in oklch, #f87171 14%, transparent); }
-    .ff-eval-trace li[data-outcome="pass"], .ff-eval-trace li[data-outcome="final-on"] { background: color-mix(in oklch, #4ade80 12%, transparent); }
-    .ff-eval-label { font-weight: 600; min-width: 92px; flex: none; }
-    .ff-eval-detail { color: color-mix(in oklch, currentColor 72%, transparent); }
-    .ff-json { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .78rem; margin: 0; overflow: auto; max-height: 200px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent); padding: .6rem; border-radius: 6px; }
-    .ff-json-editor { width: 100%; box-sizing: border-box; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .78rem; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 20%, transparent); border-radius: 6px; padding: .55rem; resize: vertical; }
-    .ff-json-editor:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
-    .ff-json-error { color: #fca5a5; font-size: .78rem; margin: .4rem 0 0; }
-    .ff-json-diff { margin: .5rem 0 .2rem; padding: .5rem .65rem; border-radius: 6px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); }
-    .ff-diff-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ps-accent, #00e5ff); font-weight: 600; }
-    .ff-diff-list { list-style: none; margin: .35rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .76rem; }
-    .ff-diff-list code { color: var(--ps-ink, #f4f4ff); }
-    .ff-diff-from { color: color-mix(in oklch, #fca5a5 90%, transparent); text-decoration: line-through; }
-    .ff-diff-arrow { color: color-mix(in oklch, currentColor 50%, transparent); }
-    .ff-diff-to { color: #6ee7b7; }
-    .ff-expert-actions { margin-top: .6rem; }
-    .ff-danger-overlay { position: fixed; inset: 0; z-index: var(--ps-z-overlay-takeover, 100000); display: grid; place-items: center; padding: 1rem;
-      background: color-mix(in oklch, #000 72%, transparent); backdrop-filter: blur(4px); }
-    .ff-danger { width: min(560px, 100%); background: color-mix(in oklch, var(--ps-bg, #060610) 96%, #ff5555 4%); border: 1px solid color-mix(in oklch, #ff5555 45%, transparent); border-radius: var(--ps-radius-xl, 18px); padding: 1.5rem; box-shadow: var(--ps-shadow-modal, 0 24px 60px rgba(0,0,0,.6)); color: var(--ps-ink, #f4f4ff); }
-    .ff-danger h2 { margin: 0 0 .5rem; font-size: 1.25rem; color: #ff8888; }
-    .ff-danger-flag { margin: 0 0 1rem; font-size: .9rem; }
-    .ff-danger-flag code { font-family: var(--ps-mono, ui-monospace, monospace); color: var(--ps-accent, #00e5ff); }
-    .ff-danger-section { margin-bottom: 1rem; }
-    .ff-danger-section h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 .25rem; color: color-mix(in oklch, currentColor 60%, transparent); }
-    .ff-danger-section p { margin: 0; font-size: .85rem; line-height: 1.45; }
-    .ff-danger-reason-label { display: block; font-size: .78rem; margin-bottom: .35rem; color: color-mix(in oklch, currentColor 75%, transparent); }
-    .ff-danger-reason { width: 100%; box-sizing: border-box; background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); border-radius: 8px; padding: .55rem; font: inherit; font-size: .85rem; resize: vertical; }
-    .ff-danger-reason:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
-    .ff-danger-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
-    .ff-emergency-count { font-size: .9rem; }
-    .ff-emergency-count strong { color: #ff8888; font-family: var(--ps-mono, ui-monospace, monospace); }
-    @media (prefers-reduced-motion: reduce) {
-      .ff-card { transition: none; }
-      .ff-danger-overlay { backdrop-filter: none; }
-    }
-  `],
 })
 export class AdminFeatureFlagsComponent implements OnInit {
   private readonly http = inject(HttpClient);
@@ -685,13 +687,13 @@ export class AdminFeatureFlagsComponent implements OnInit {
   badgesFor(flag: FlagDefinition): FlagBadge[] {
     const on = this.resolvedOn(flag);
     const badges: FlagBadge[] = [
-      { label: on ? 'ON' : 'OFF', tone: on ? 'on' : 'off', title: `${flag.key} is ${on ? 'on' : 'off'}` },
-      { label: flag.stage, tone: 'stage', title: `Lifecycle stage: ${flag.stage}` },
-      { label: `${flag.default_rollout_percent}%`, tone: 'neutral', title: 'Rollout percent' },
-      { label: 'platform', tone: 'scope', title: 'Platform-ops scope (operator-managed)' },
+      { label: on ? 'ON' : 'OFF', title: `${flag.key} is ${on ? 'on' : 'off'}`, tone: on ? 'on' : 'off' },
+      { label: flag.stage, title: `Lifecycle stage: ${flag.stage}`, tone: 'stage' },
+      { label: `${flag.default_rollout_percent}%`, title: 'Rollout percent', tone: 'neutral' },
+      { label: 'platform', title: 'Platform-ops scope (operator-managed)', tone: 'scope' },
     ];
-    if (flag.kill_switch) badges.push({ label: 'killswitch', tone: 'risk', title: 'Hard kill switch active' });
-    if (flag.stage === 'experimental') badges.push({ label: 'high risk', tone: 'risk', title: 'Experimental — rollout-gated' });
+    if (flag.kill_switch) badges.push({ label: 'killswitch', title: 'Hard kill switch active', tone: 'risk' });
+    if (flag.stage === 'experimental') badges.push({ label: 'high risk', title: 'Experimental — rollout-gated', tone: 'risk' });
     return badges;
   }
 
@@ -724,26 +726,26 @@ export class AdminFeatureFlagsComponent implements OnInit {
   traceFor(flag: FlagDefinition): EvalStep[] {
     return evaluationTrace({
       enabled: flag.default_enabled,
+      flagKey: flag.key,
       killSwitch: !!flag.kill_switch,
       rolloutPercent: flag.default_rollout_percent,
-      flagKey: flag.key,
       subject: this.resolvedSubject(),
     });
   }
 
   jsonFor(flag: FlagDefinition): string {
     return JSON.stringify(
-      { key: flag.key, stage: flag.stage, enabled: flag.default_enabled, rollout_percent: flag.default_rollout_percent, kill_switch: !!flag.kill_switch, owner: flag.owner_email },
+      { enabled: flag.default_enabled, key: flag.key, kill_switch: !!flag.kill_switch, owner: flag.owner_email, rollout_percent: flag.default_rollout_percent, stage: flag.stage },
       null, 2,
     );
   }
 
   jsonPayloadFor(flag: FlagDefinition): string {
     const payload: Record<string, unknown> = {
-      key: flag.key,
       enabled_globally: flag.default_enabled,
-      rollout_pct: flag.default_rollout_percent,
+      key: flag.key,
       kill_switch: !!flag.kill_switch,
+      rollout_pct: flag.default_rollout_percent,
     };
     // Carry the Advanced-mode "Expires (optional)" intent into the payload so it
     // rides in the JSON view + curl + the next POST (was a dead input). The
@@ -956,7 +958,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
       this.resolvedDetail.set(res.resolved);
       this.docsDetail.set(res.docs ?? null);
     } catch {
-      this.resolvedDetail.set({ enabled: flag.default_enabled, rollout_percent: flag.default_rollout_percent, stage: flag.stage, source: 'registry' });
+      this.resolvedDetail.set({ enabled: flag.default_enabled, rollout_percent: flag.default_rollout_percent, source: 'registry', stage: flag.stage });
     }
     // Per-flag audit history (super-admin only; fail-soft to empty).
     try {
@@ -990,26 +992,27 @@ export class AdminFeatureFlagsComponent implements OnInit {
       this.dossierBusy.update((b) => ({ ...b, [flag.key]: false }));
     }
     this.dossier.set({
-      kind: 'Feature Flag',
-      key: flag.key,
-      name: flag.key,
-      summary: flag.description,
-      explanation: docs?.explanation,
       checklist: docs?.checklist,
-      smokeTest: docs?.smoke_test,
       e2eTests: docs?.e2e_tests,
-      references: docs?.references,
-      stage: resolved?.stage ?? flag.stage,
-      rolloutPercent: resolved?.rollout_percent ?? flag.default_rollout_percent,
-      owner: flag.owner_email,
       enabled: this.resolvedOn(flag),
+      explanation: docs?.explanation,
+      key: flag.key,
+      kind: 'Feature Flag',
+      name: flag.key,
+      owner: flag.owner_email,
+      references: docs?.references,
+      rolloutPercent: resolved?.rollout_percent ?? flag.default_rollout_percent,
+      screenshots: docs?.screenshots,
+      smokeTest: docs?.smoke_test,
+      stage: resolved?.stage ?? flag.stage,
+      summary: flag.description,
     });
     this.dossierOpen.set(true);
     // Reflect the open spec sheet in the URL so it's shareable/bookmarkable.
     void this.router.navigate([], {
-      relativeTo: this.route,
       queryParams: { spec: flag.key },
       queryParamsHandling: 'merge',
+      relativeTo: this.route,
       replaceUrl: true,
     });
   }
@@ -1018,9 +1021,9 @@ export class AdminFeatureFlagsComponent implements OnInit {
   closeDossier(): void {
     this.dossierOpen.set(false);
     void this.router.navigate([], {
-      relativeTo: this.route,
       queryParams: { spec: null },
       queryParamsHandling: 'merge',
+      relativeTo: this.route,
       replaceUrl: true,
     });
   }
@@ -1043,7 +1046,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
       { enabled: patch.enabled_globally, killSwitch: patch.kill_switch, rolloutPercent: patch.rollout_pct },
     );
     if (risk === 'dangerous') {
-      this.pending.set({ flag, patch, label, optimistic, blast, rollback });
+      this.pending.set({ blast, flag, label, optimistic, patch, rollback });
       this.dangerReason.set('');
       return;
     }
@@ -1145,7 +1148,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
       flag,
       { enabled_globally: clamped > 0, rollout_pct: clamped },
       `rollout → ${clamped}%`,
-      (f) => ({ ...f, default_rollout_percent: clamped, default_enabled: clamped > 0 }),
+      (f) => ({ ...f, default_enabled: clamped > 0, default_rollout_percent: clamped }),
       `Changes the audience size to ~${clamped}% for ${flag.key}.`,
       `Slide rollout back down — bucketing is stable so the same users keep/lose access predictably.`,
     );
@@ -1155,7 +1158,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
     if (this.isSentinel(flag)) return; // protected — see isSentinel()
     this.requestOverride(
       flag,
-      { kill_switch: true, enabled_globally: false, rollout_pct: 0 },
+      { enabled_globally: false, kill_switch: true, rollout_pct: 0 },
       'KILLSWITCH — disabled for all users',
       (f) => ({ ...f, default_enabled: false, default_rollout_percent: 0, kill_switch: true, stage: 'killswitch' }),
       `Instantly disables ${flag.key} for EVERY user platform-wide, ignoring rollout.`,
@@ -1235,7 +1238,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
     let fail = 0;
     for (const f of targets) {
       try {
-        await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { key: f.key, kill_switch: true, enabled_globally: false, rollout_pct: 0, reason }, { headers: this.superAdminHeaders() }));
+        await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { enabled_globally: false, key: f.key, kill_switch: true, reason, rollout_pct: 0 }, { headers: this.superAdminHeaders() }));
         this.flagSvc.invalidate(f.key);
         ok += 1;
       } catch {

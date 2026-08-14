@@ -24,6 +24,8 @@ export interface DossierModel {
   smokeTest?: readonly string[];
   /** Playwright spec paths covering this capability. */
   e2eTests?: readonly string[];
+  /** One captioned screenshot per distinct UI change the capability enables. */
+  screenshots?: readonly { url: string; caption: string; alt?: string }[];
   /** External docs / research links. */
   references?: readonly string[];
   stage?: string;
@@ -54,22 +56,22 @@ export function coverageSignal(m: DossierModel): {
   label: string;
   parts: ReadonlyArray<{ label: string; got: boolean; pts: number }>;
 } {
-  const stageBase: Record<string, number> = { experimental: 25, beta: 55, stable: 90, deprecated: 70, killswitch: 10 };
+  const stageBase: Record<string, number> = { beta: 55, deprecated: 70, experimental: 25, killswitch: 10, stable: 90 };
   const base = stageBase[m.stage ?? 'experimental'] ?? 25;
   const e2e = m.e2eTests?.length ?? 0;
   const parts = [
-    { label: 'Lifecycle stage', got: true, pts: Math.round(base * 0.4) },
-    { label: 'Checklist documented', got: (m.checklist?.length ?? 0) > 0, pts: 10 },
-    { label: 'Smoke test steps', got: (m.smokeTest?.length ?? 0) > 0, pts: 10 },
-    { label: 'E2E spec linked', got: e2e >= 1, pts: 15 },
-    { label: 'E2E specs ≥ 2', got: e2e >= 2, pts: 5 },
-    { label: 'Mechanism explained', got: (m.explanation?.length ?? 0) > 0, pts: 5 },
-    { label: 'Sources cited', got: (m.references?.length ?? 0) > 0, pts: 5 },
+    { got: true, label: 'Lifecycle stage', pts: Math.round(base * 0.4) },
+    { got: (m.checklist?.length ?? 0) > 0, label: 'Checklist documented', pts: 10 },
+    { got: (m.smokeTest?.length ?? 0) > 0, label: 'Smoke test steps', pts: 10 },
+    { got: e2e >= 1, label: 'E2E spec linked', pts: 15 },
+    { got: e2e >= 2, label: 'E2E specs ≥ 2', pts: 5 },
+    { got: (m.explanation?.length ?? 0) > 0, label: 'Mechanism explained', pts: 5 },
+    { got: (m.references?.length ?? 0) > 0, label: 'Sources cited', pts: 5 },
   ];
   const earned = parts.reduce((s, p) => s + (p.got ? p.pts : 0), 0);
   const score = Math.max(0, Math.min(100, earned));
   const label = score >= 85 ? 'Well covered' : score >= 60 ? 'Adequately covered' : score >= 35 ? 'Partially covered' : 'Lightly covered';
-  return { score, label, parts };
+  return { label, parts, score };
 }
 
 /** Estimated read time in minutes from a word count (≈220 wpm, min 1). */
@@ -154,6 +156,19 @@ export function buildDossierMarkdown(m: DossierModel): string {
     out.push(m.checklist.map((c) => `- [x] ${c}`).join('\n'));
   }
 
+  if (m.screenshots?.length) {
+    out.push('');
+    out.push('## Screenshots');
+    out.push(
+      `${m.screenshots.length} view${m.screenshots.length === 1 ? '' : 's'} of the UI this ${isFlag ? 'flag' : 'feature'} turns on:`,
+    );
+    for (const s of m.screenshots) {
+      out.push('');
+      out.push(`![${(s.alt ?? s.caption).replace(/[[\]]/g, '')}](${s.url})`);
+      out.push(`*${s.caption}*`);
+    }
+  }
+
   out.push('');
   out.push('## Lifecycle & rollout');
   out.push(
@@ -235,7 +250,7 @@ export function tableOfContents(md: string): ReadonlyArray<{ title: string; slug
     .map((l) => {
       const title = l.replace(/^##\s+/, '').trim();
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      return { title, slug };
+      return { slug, title };
     });
 }
 

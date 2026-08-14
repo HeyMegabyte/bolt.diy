@@ -17,38 +17,39 @@
  * ```
  */
 
+import { A11yModule } from '@angular/cdk/a11y';
+import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
-  HostListener,
-  type OnDestroy,
   computed,
   effect,
+  ElementRef,
+  HostListener,
   inject,
   input,
+  type OnDestroy,
   output,
   signal,
   viewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { A11yModule } from '@angular/cdk/a11y';
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
-import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { hardenExternalLinks } from '../agent-message/harden-links';
-import { ToastService } from '../../services/toast.service';
+import { marked } from 'marked';
+import { firstValueFrom } from 'rxjs';
+
 import { ApiService } from '../../services/api.service';
+import { ToastService } from '../../services/toast.service';
+import { hardenExternalLinks } from '../agent-message/harden-links';
 import { VisionQaComponent } from '../vision-qa/vision-qa.component';
 import {
   buildDossierMarkdown,
   coverageSignal,
+  type DossierModel,
   readMinutes,
+  STAGES,
   tableOfContents,
   wordCount,
-  STAGES,
-  type DossierModel,
 } from './dossier.model';
 
 interface E2eSpec {
@@ -58,147 +59,10 @@ interface E2eSpec {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, A11yModule, VisionQaComponent],
   selector: 'app-feature-dossier',
   standalone: true,
-  imports: [CommonModule, A11yModule, VisionQaComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    @if (open() && model(); as m) {
-      <div #root class="fd-root" role="dialog" aria-modal="true" [attr.aria-label]="'Spec sheet — ' + m.name"
-           cdkTrapFocus [cdkTrapFocusAutoCapture]="true" data-testid="feature-dossier">
-        <header class="fd-bar">
-          <div class="fd-bar-id">
-            <span class="fd-kind">{{ m.kind }}</span>
-            <h1 class="fd-title">{{ m.name }}</h1>
-            <code class="fd-key">{{ m.key }}</code>
-          </div>
-          <div class="fd-bar-actions">
-            <button type="button" class="fd-btn" (click)="copyMarkdown()" data-testid="fd-copy" aria-label="Copy the full spec as Markdown">⧉ Copy MD</button>
-            <button type="button" class="fd-btn" (click)="print()" data-testid="fd-print" aria-label="Print or save as PDF">⎙ Save PDF</button>
-            <button type="button" class="fd-btn fd-btn-close" (click)="closed.emit()" data-testid="fd-close" aria-label="Close spec sheet">✕</button>
-          </div>
-        </header>
-
-        <div class="fd-scroll">
-          <aside class="fd-rail" aria-label="Spec metrics">
-            <!-- Coverage donut -->
-            <div class="fd-metric fd-cov">
-              <svg viewBox="0 0 120 120" class="fd-donut" role="img" [attr.aria-label]="'Coverage signal ' + cov().score + ' out of 100, ' + cov().label">
-                <circle class="fd-donut-track" cx="60" cy="60" r="52" />
-                <circle class="fd-donut-fill" cx="60" cy="60" r="52"
-                        [attr.stroke-dasharray]="circumference"
-                        [attr.stroke-dashoffset]="dashOffset()" />
-                <text x="60" y="56" class="fd-donut-num">{{ cov().score }}</text>
-                <text x="60" y="74" class="fd-donut-unit">/ 100</text>
-              </svg>
-              <p class="fd-cov-label">{{ cov().label }}</p>
-              <p class="fd-cov-sub">Documentation &amp; test coverage signal</p>
-            </div>
-
-            <!-- Metric chips -->
-            <ul class="fd-chips" aria-label="Key facts">
-              @if (m.stage) { <li><span>Stage</span><strong>{{ m.stage }}</strong></li> }
-              @if (m.rolloutPercent !== undefined) { <li><span>Rollout</span><strong>{{ m.rolloutPercent }}%</strong></li> }
-              @if (m.requiredPlan) { <li><span>Plan</span><strong>{{ m.requiredPlan }}</strong></li> }
-              <li><span>Checkpoints</span><strong>{{ m.checklist?.length || 0 }}</strong></li>
-              <li><span>E2E specs</span><strong>{{ m.e2eTests?.length || 0 }}</strong></li>
-              <li><span>Read</span><strong>{{ readTime() }} min</strong></li>
-            </ul>
-
-            <!-- Stage timeline -->
-            @if (m.kind === 'Feature Flag') {
-              <div class="fd-metric">
-                <p class="fd-rail-h">Lifecycle</p>
-                <ol class="fd-stages">
-                  @for (s of stages; track s) {
-                    <li class="fd-stage" [class.fd-stage-now]="s === m.stage" [class.fd-stage-done]="stageIndex(m.stage) > stages.indexOf(s)">
-                      <span class="fd-stage-dot" aria-hidden="true"></span>{{ s }}
-                    </li>
-                  }
-                </ol>
-              </div>
-            }
-
-            <!-- Request-flow diagram -->
-            <div class="fd-metric">
-              <p class="fd-rail-h">{{ m.kind === 'Feature Flag' ? 'Resolution flow' : 'Enablement flow' }}</p>
-              <svg viewBox="0 0 220 132" class="fd-flow" role="img" [attr.aria-label]="m.kind === 'Feature Flag' ? 'Request to flag resolve to on route or off 404' : 'Owner toggle to entitlement check to live on site'">
-                @if (m.kind === 'Feature Flag') {
-                  <g class="fd-flow-g">
-                    <rect x="6" y="10" width="92" height="26" rx="6"/><text x="52" y="27">Request</text>
-                    <line x1="98" y1="23" x2="122" y2="23"/><polygon points="122,19 130,23 122,27"/>
-                    <rect x="130" y="10" width="84" height="26" rx="6"/><text x="172" y="27">isFlagOn()</text>
-                    <line x1="172" y1="36" x2="172" y2="56"/><polygon points="168,56 172,64 176,56"/>
-                    <rect x="118" y="64" width="96" height="26" rx="6" class="fd-flow-ok"/><text x="166" y="81">on → serve</text>
-                    <line x1="118" y1="77" x2="100" y2="77"/><polygon points="100,73 92,77 100,81"/>
-                    <rect x="6" y="64" width="86" height="26" rx="6" class="fd-flow-no"/><text x="49" y="81">off → 404</text>
-                  </g>
-                } @else {
-                  <g class="fd-flow-g">
-                    <rect x="6" y="10" width="100" height="26" rx="6"/><text x="56" y="27">Owner toggle</text>
-                    <line x1="106" y1="23" x2="128" y2="23"/><polygon points="128,19 136,23 128,27"/>
-                    <rect x="120" y="10" width="94" height="26" rx="6"/><text x="167" y="27">entitlement</text>
-                    <line x1="167" y1="36" x2="167" y2="56"/><polygon points="163,56 167,64 171,56"/>
-                    <rect x="118" y="64" width="96" height="26" rx="6" class="fd-flow-ok"/><text x="166" y="81">live on site</text>
-                  </g>
-                }
-              </svg>
-            </div>
-
-            <!-- Table of contents -->
-            <nav class="fd-toc" aria-label="On this page">
-              <p class="fd-rail-h">On this page</p>
-              <ul>
-                @for (t of toc(); track t.slug) {
-                  <li><button type="button" class="fd-toc-link" [class.fd-toc-link--active]="activeToc() === t.slug" [attr.aria-current]="activeToc() === t.slug ? 'true' : null" (click)="goTo(t.slug)">{{ t.title }}</button></li>
-                }
-              </ul>
-            </nav>
-          </aside>
-
-          <div class="fd-main">
-            <!-- E2E coverage table + parallel runner (Cloudflare-backed) -->
-            <section class="fd-e2e" data-testid="fd-e2e" aria-label="End-to-end test coverage">
-              <header class="fd-e2e-head">
-                <h2>E2E coverage</h2>
-                <button type="button" class="fd-run-btn" data-testid="fd-run-e2e"
-                        (click)="runE2e()" [disabled]="e2eSpecs().length === 0 || e2eRunning()"
-                        [attr.aria-label]="'Run all ' + e2eSpecs().length + ' E2E tests for ' + m.name + ' in parallel'">
-                  {{ e2eRunning() ? 'Running…' : 'Run all in parallel ▶' }}
-                </button>
-              </header>
-              @if (e2eError(); as err) {
-                <p class="fd-e2e-note" role="status">{{ err }}</p>
-              }
-              @if (e2eSpecs().length === 0) {
-                <p class="fd-e2e-empty">No E2E specs linked yet. A flag must carry at least one before it reaches <code>beta</code>.</p>
-              } @else {
-                <p class="fd-e2e-sub">{{ e2eSpecs().length }} spec{{ e2eSpecs().length === 1 ? '' : 's' }} cover this {{ m.kind === 'Feature Flag' ? 'flag' : 'feature' }}. They run concurrently on Cloudflare — status updates live.</p>
-                <table class="fd-e2e-table">
-                  <thead><tr><th>Spec</th><th>Status</th><th class="fd-e2e-dur">Time</th></tr></thead>
-                  <tbody>
-                    @for (s of e2eSpecs(); track s.path) {
-                      <tr>
-                        <td><code [attr.title]="s.path">{{ s.path }}</code></td>
-                        <td><span class="fd-e2e-status" [attr.data-st]="s.status">{{ s.status }}</span></td>
-                        <td class="fd-e2e-dur">{{ s.durationMs ? (s.durationMs + 'ms') : '—' }}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              }
-            </section>
-
-            @if (m.previewUrl) {
-              <app-vision-qa [url]="m.previewUrl" />
-            }
-
-            <article #body class="fd-paper" data-testid="fd-body" [innerHTML]="html()"></article>
-          </div>
-        </div>
-      </div>
-    }
-  `,
   styles: [`
     .fd-root { position: fixed; inset: 0; z-index: var(--ps-z-overlay-takeover, 100000); display: flex; flex-direction: column;
       background: color-mix(in oklch, var(--ps-bg, #060610) 97%, #000); color: var(--ps-ink, #f4f4ff); }
@@ -273,6 +137,11 @@ interface E2eSpec {
     .fd-paper th { color: var(--ps-accent, #00e5ff); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
     .fd-paper a { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
     .fd-paper a:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    /* Screenshots — captioned UI shots. Picture then italic caption (marked wraps the image + caption in one paragraph). */
+    .fd-paper img { display: block; max-width: 100%; height: auto; margin: .9rem auto .25rem; border-radius: 12px; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); box-shadow: 0 10px 34px rgba(0,0,0,.45); }
+    .fd-paper img ~ em, .fd-paper p:has(img) em { display: block; text-align: center; font-size: .8rem; font-style: normal; color: color-mix(in oklch, currentColor 58%, transparent); margin: 0 0 1.4rem; }
+    /* On-this-page pinned to the top of the rail. */
+    .fd-toc--top { padding-bottom: .9rem; margin-bottom: .2rem; border-bottom: 1px solid color-mix(in oklch, currentColor 12%, transparent); }
     .fd-main { min-width: 0; display: flex; flex-direction: column; gap: 1.5rem; }
     /* E2E coverage panel + parallel runner. */
     .fd-e2e { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); border-radius: 16px; padding: 1.1rem 1.25rem; }
@@ -307,6 +176,144 @@ interface E2eSpec {
       .fd-paper a { color: #06c; }
     }
   `],
+  template: `
+    @if (open() && model(); as m) {
+      <div #root class="fd-root" role="dialog" aria-modal="true" [attr.aria-label]="'Spec sheet — ' + m.name"
+           cdkTrapFocus [cdkTrapFocusAutoCapture]="true" data-testid="feature-dossier">
+        <header class="fd-bar">
+          <div class="fd-bar-id">
+            <span class="fd-kind">{{ m.kind }}</span>
+            <h1 class="fd-title">{{ m.name }}</h1>
+            <code class="fd-key">{{ m.key }}</code>
+          </div>
+          <div class="fd-bar-actions">
+            <button type="button" class="fd-btn" (click)="copyMarkdown()" data-testid="fd-copy" aria-label="Copy the full spec as Markdown">⧉ Copy MD</button>
+            <button type="button" class="fd-btn" (click)="print()" data-testid="fd-print" aria-label="Print or save as PDF">⎙ Save PDF</button>
+            <button type="button" class="fd-btn fd-btn-close" (click)="closed.emit()" data-testid="fd-close" aria-label="Close spec sheet">✕</button>
+          </div>
+        </header>
+
+        <div class="fd-scroll">
+          <aside class="fd-rail" aria-label="Spec metrics">
+            <!-- Table of contents — pinned to the TOP of the rail so the section
+                 jump-list is the first thing in view. -->
+            <nav class="fd-toc fd-toc--top" aria-label="On this page">
+              <p class="fd-rail-h">On this page</p>
+              <ul>
+                @for (t of toc(); track t.slug) {
+                  <li><button type="button" class="fd-toc-link" [class.fd-toc-link--active]="activeToc() === t.slug" [attr.aria-current]="activeToc() === t.slug ? 'true' : null" (click)="goTo(t.slug)">{{ t.title }}</button></li>
+                }
+              </ul>
+            </nav>
+
+            <!-- Coverage donut -->
+            <div class="fd-metric fd-cov">
+              <svg viewBox="0 0 120 120" class="fd-donut" role="img" [attr.aria-label]="'Coverage signal ' + cov().score + ' out of 100, ' + cov().label">
+                <circle class="fd-donut-track" cx="60" cy="60" r="52" />
+                <circle class="fd-donut-fill" cx="60" cy="60" r="52"
+                        [attr.stroke-dasharray]="circumference"
+                        [attr.stroke-dashoffset]="dashOffset()" />
+                <text x="60" y="56" class="fd-donut-num">{{ cov().score }}</text>
+                <text x="60" y="74" class="fd-donut-unit">/ 100</text>
+              </svg>
+              <p class="fd-cov-label">{{ cov().label }}</p>
+              <p class="fd-cov-sub">Documentation &amp; test coverage signal</p>
+            </div>
+
+            <!-- Metric chips -->
+            <ul class="fd-chips" aria-label="Key facts">
+              @if (m.stage) { <li><span>Stage</span><strong>{{ m.stage }}</strong></li> }
+              @if (m.rolloutPercent !== undefined) { <li><span>Rollout</span><strong>{{ m.rolloutPercent }}%</strong></li> }
+              @if (m.requiredPlan) { <li><span>Plan</span><strong>{{ m.requiredPlan }}</strong></li> }
+              <li><span>Checkpoints</span><strong>{{ m.checklist?.length || 0 }}</strong></li>
+              <li><span>E2E specs</span><strong>{{ m.e2eTests?.length || 0 }}</strong></li>
+              <li><span>Read</span><strong>{{ readTime() }} min</strong></li>
+            </ul>
+
+            <!-- Stage timeline -->
+            @if (m.kind === 'Feature Flag') {
+              <div class="fd-metric">
+                <p class="fd-rail-h">Lifecycle</p>
+                <ol class="fd-stages">
+                  @for (s of stages; track s) {
+                    <li class="fd-stage" [class.fd-stage-now]="s === m.stage" [class.fd-stage-done]="stageIndex(m.stage) > stages.indexOf(s)">
+                      <span class="fd-stage-dot" aria-hidden="true"></span>{{ s }}
+                    </li>
+                  }
+                </ol>
+              </div>
+            }
+
+            <!-- Request-flow diagram -->
+            <div class="fd-metric">
+              <p class="fd-rail-h">{{ m.kind === 'Feature Flag' ? 'Resolution flow' : 'Enablement flow' }}</p>
+              <svg viewBox="0 0 220 132" class="fd-flow" role="img" [attr.aria-label]="m.kind === 'Feature Flag' ? 'Request to flag resolve to on route or off 404' : 'Owner toggle to entitlement check to live on site'">
+                @if (m.kind === 'Feature Flag') {
+                  <g class="fd-flow-g">
+                    <rect x="6" y="10" width="92" height="26" rx="6"/><text x="52" y="27">Request</text>
+                    <line x1="98" y1="23" x2="122" y2="23"/><polygon points="122,19 130,23 122,27"/>
+                    <rect x="130" y="10" width="84" height="26" rx="6"/><text x="172" y="27">isFlagOn()</text>
+                    <line x1="172" y1="36" x2="172" y2="56"/><polygon points="168,56 172,64 176,56"/>
+                    <rect x="118" y="64" width="96" height="26" rx="6" class="fd-flow-ok"/><text x="166" y="81">on → serve</text>
+                    <line x1="118" y1="77" x2="100" y2="77"/><polygon points="100,73 92,77 100,81"/>
+                    <rect x="6" y="64" width="86" height="26" rx="6" class="fd-flow-no"/><text x="49" y="81">off → 404</text>
+                  </g>
+                } @else {
+                  <g class="fd-flow-g">
+                    <rect x="6" y="10" width="100" height="26" rx="6"/><text x="56" y="27">Owner toggle</text>
+                    <line x1="106" y1="23" x2="128" y2="23"/><polygon points="128,19 136,23 128,27"/>
+                    <rect x="120" y="10" width="94" height="26" rx="6"/><text x="167" y="27">entitlement</text>
+                    <line x1="167" y1="36" x2="167" y2="56"/><polygon points="163,56 167,64 171,56"/>
+                    <rect x="118" y="64" width="96" height="26" rx="6" class="fd-flow-ok"/><text x="166" y="81">live on site</text>
+                  </g>
+                }
+              </svg>
+            </div>
+          </aside>
+
+          <div class="fd-main">
+            <!-- E2E coverage table + parallel runner (Cloudflare-backed) -->
+            <section class="fd-e2e" data-testid="fd-e2e" aria-label="End-to-end test coverage">
+              <header class="fd-e2e-head">
+                <h2>E2E coverage</h2>
+                <button type="button" class="fd-run-btn" data-testid="fd-run-e2e"
+                        (click)="runE2e()" [disabled]="e2eSpecs().length === 0 || e2eRunning()"
+                        [attr.aria-label]="'Run all ' + e2eSpecs().length + ' E2E tests for ' + m.name + ' in parallel'">
+                  {{ e2eRunning() ? 'Running…' : 'Run all in parallel ▶' }}
+                </button>
+              </header>
+              @if (e2eError(); as err) {
+                <p class="fd-e2e-note" role="status">{{ err }}</p>
+              }
+              @if (e2eSpecs().length === 0) {
+                <p class="fd-e2e-empty">No E2E specs linked yet. A flag must carry at least one before it reaches <code>beta</code>.</p>
+              } @else {
+                <p class="fd-e2e-sub">{{ e2eSpecs().length }} spec{{ e2eSpecs().length === 1 ? '' : 's' }} cover this {{ m.kind === 'Feature Flag' ? 'flag' : 'feature' }}. They run concurrently on Cloudflare — status updates live.</p>
+                <table class="fd-e2e-table">
+                  <thead><tr><th>Spec</th><th>Status</th><th class="fd-e2e-dur">Time</th></tr></thead>
+                  <tbody>
+                    @for (s of e2eSpecs(); track s.path) {
+                      <tr>
+                        <td><code [attr.title]="s.path">{{ s.path }}</code></td>
+                        <td><span class="fd-e2e-status" [attr.data-st]="s.status">{{ s.status }}</span></td>
+                        <td class="fd-e2e-dur">{{ s.durationMs ? (s.durationMs + 'ms') : '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </section>
+
+            @if (m.previewUrl) {
+              <app-vision-qa [url]="m.previewUrl" />
+            }
+
+            <article #body class="fd-paper" data-testid="fd-body" [innerHTML]="html()"></article>
+          </div>
+        </div>
+      </div>
+    }
+  `,
 })
 export class FeatureDossierComponent implements OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
@@ -420,7 +427,7 @@ export class FeatureDossierComponent implements OnDestroy {
 
   readonly cov = computed(() => {
     const m = this.model();
-    return m ? coverageSignal(m) : { score: 0, label: '', parts: [] };
+    return m ? coverageSignal(m) : { label: '', parts: [], score: 0 };
   });
 
   readonly toc = computed(() => tableOfContents(this.markdown()));

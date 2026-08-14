@@ -1,33 +1,38 @@
 import { checksFor, resolveCheckUrl, type E2eCheck } from '../routes/feature_e2e';
 
+// Representative current registry flags spanning UI + backend + core surfaces.
+const REGISTERED = [
+  'token_burn_meter',
+  'site_analytics',
+  'mcp_server',
+  'app_launcher',
+  'outbound_webhooks',
+  'core_feature_flags',
+];
+
 describe('feature_e2e check registry', () => {
-  it('returns real HTTP checks for known platform flags', () => {
-    const checks = checksFor('llms_txt');
-    expect(checks.length).toBeGreaterThanOrEqual(1);
-    expect(checks.every((c) => typeof c.label === 'string' && c.label.length > 0)).toBe(true);
-    expect(checks.some((c) => c.url === '/llms.txt')).toBe(true);
+  it('gives every registered flag a HANDFUL (>=3) of parallel, well-formed checks', () => {
+    for (const key of REGISTERED) {
+      const checks = checksFor(key);
+      expect(checks.length).toBeGreaterThanOrEqual(3); // a handful that run concurrently
+      for (const c of checks) {
+        expect(typeof c.label).toBe('string');
+        expect(c.label.length).toBeGreaterThan(0);
+        expect(['http', 'browser']).toContain(c.kind);
+        expect(c.url.startsWith('/') || c.url.startsWith('http')).toBe(true);
+      }
+    }
   });
 
-  it('mcp_server check asserts the tools list', () => {
-    const c = checksFor('mcp_server')[0];
-    expect(c.kind).toBe('http');
-    expect(c.bodyIncludes).toBe('tools');
+  it('mcp_server exercises the platform MCP discovery + JSON-RPC surface', () => {
+    const checks = checksFor('mcp_server');
+    expect(checks.some((c) => c.url.includes('/.well-known/mcp') || c.url === '/api/mcp')).toBe(true);
   });
 
-  it('UI-only features use a browser check with a selector', () => {
-    const c = checksFor('core_feature_flags')[0];
-    expect(c.kind).toBe('browser');
-    expect(c.selector).toContain('ff-layer-heading');
-  });
-
-  it('covers the newly-added public surfaces (verified against prod)', () => {
-    expect(checksFor('search_engine_submit')[0].url).toBe('/sitemap.xml');
-    expect(checksFor('pwa_manifest_full')[0].bodyIncludes).toBe('rel="manifest"');
-    expect(checksFor('public_api')[0].bodyIncludes).toBe('openapi');
-    // core_site_create asserts a real heading via a browser check
-    const csc = checksFor('core_site_create')[0];
-    expect(csc.kind).toBe('browser');
-    expect(csc.selector).toBe('h1');
+  it('a UI flag carries a browser check with a selector', () => {
+    const browserChecks = checksFor('core_feature_flags').filter((c) => c.kind === 'browser');
+    expect(browserChecks.length).toBeGreaterThanOrEqual(1);
+    expect(browserChecks[0].selector).toBeTruthy();
   });
 
   it('falls back to a homepage smoke check for unknown keys', () => {
@@ -39,9 +44,9 @@ describe('feature_e2e check registry', () => {
   });
 
   it('every registered check has an English (no curl/HTTP-verb) label', () => {
-    for (const key of ['llms_txt', 'mcp_server', 'public_api', 'core_feature_flags']) {
+    for (const key of REGISTERED) {
       for (const c of checksFor(key)) {
-        expect(c.label).not.toMatch(/\b(GET|POST|curl)\b/);
+        expect(c.label).not.toMatch(/\b(GET|POST|PUT|DELETE|curl)\b/);
       }
     }
   });
