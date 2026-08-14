@@ -1,34 +1,66 @@
-import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, ViewChildren, ElementRef, HostListener, type QueryList, afterNextRender, Injector } from '@angular/core';
-import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { Title, Meta } from '@angular/platform-browser';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  HostListener,
+  inject,
+  Injector,
+  type OnDestroy,
+  type OnInit,
+  type QueryList,
+  signal,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription, filter } from 'rxjs';
+import { Meta, Title } from '@angular/platform-browser';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
-import { ApiService, type Site } from '../../services/api.service';
-import { AuthService } from '../../services/auth.service';
-import { ToastService } from '../../services/toast.service';
-import { NovuInboxService } from '../../services/novu-inbox.service';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
-import { provideHlmTooltip } from '../../ui';
-import { AppShellService, type AppLanguage } from '../../services/app-shell.service';
-import { BoltEmbedService } from '../../services/bolt-embed.service';
-import { AdminStateService } from './admin-state.service';
-import { CommandPaletteComponent } from './command-palette.component';
-import { ShortcutsOverlayComponent } from '../../components/shortcuts-overlay/shortcuts-overlay.component';
+import { filter, Subscription } from 'rxjs';
+
 import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-widget.component';
-import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
-import { HoverPreloadingStrategy } from '../../services/hover-preloading-strategy';
-import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
 import { GlobalDropZoneComponent } from '../../components/global-drop-zone/global-drop-zone.component';
-import { TaskTrayComponent } from '../../components/task-tray/task-tray.component';
+import { NavIconComponent } from '../../components/nav-icon/nav-icon.component';
+import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
 import { ShareLinkDialogComponent } from '../../components/share-link-dialog/share-link-dialog.component';
+import { ShortcutsOverlayComponent } from '../../components/shortcuts-overlay/shortcuts-overlay.component';
+import { TaskTrayComponent } from '../../components/task-tray/task-tray.component';
+import { FocusTrapDirective } from '../../directives/focus-trap.directive';
+import { ApiService, type Site } from '../../services/api.service';
+import { type AppLanguage, AppShellService } from '../../services/app-shell.service';
+import { AuthService } from '../../services/auth.service';
+import { BoltEmbedService } from '../../services/bolt-embed.service';
+import { HoverPreloadingStrategy } from '../../services/hover-preloading-strategy';
+import { NavigationModeService } from '../../services/navigation-mode.service';
+import { NovuInboxService } from '../../services/novu-inbox.service';
 import { ShareLinkService } from '../../services/share-link.service';
-import { adminSectionLabelFromPath, isSiteDetailPath } from './admin-section-labels';
-import { isSysAdminEmail } from './sys-admin';
+import { ToastService } from '../../services/toast.service';
+import { provideHlmTooltip } from '../../ui';
 import { isEditorPath } from './admin-route.util';
+import { adminSectionLabelFromPath, isSiteDetailPath } from './admin-section-labels';
+import { AdminStateService } from './admin-state.service';
+import { CommandPaletteComponent } from './command-palette.component';
+import {
+  ADMIN_NAV_GROUPS,
+  type AdminNavItem,
+  navItemTestId,
+  visibleNavGroups,
+} from './navigation/admin-nav.model';
+import { isSysAdminEmail } from './sys-admin';
 
-interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
+interface Notification {
+  id: string;
+  title: string;
+  time: string;
+  kind: 'info' | 'warn' | 'ok';
+  read: boolean;
+  ts?: number;
+  href?: string;
+}
 
 /**
  * `g`-chord navigation targets — each MUST match the route the shortcuts-overlay
@@ -39,29 +71,43 @@ interface Notification { id: string; title: string; time: string; kind: 'info' |
  * without instantiating the heavy admin shell.
  */
 export const G_CHORD_ROUTES: Readonly<Record<string, string>> = {
-  e: '/admin/editor',
-  s: '/admin/snapshots',
   a: '/admin/analytics',
+  b: '/admin/billing',
+  c: '/admin/ai-chat',
+  d: '/admin/domains',
+  e: '/admin/editor',
   f: '/admin/forms',
   l: '/admin/traces',
-  c: '/admin/ai-chat',
-  b: '/admin/billing',
-  v: '/admin/voice',
-  d: '/admin/domains',
+  s: '/admin/snapshots',
   u: '/admin/user',
+  v: '/admin/voice',
 };
 
 @Component({
-  selector: 'app-admin',
-  standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, ...BrnTooltipImports],
-  providers: [AdminStateService, provideHlmTooltip()],
-  templateUrl: './admin.component.html',
-  styleUrl: './admin.component.scss',
   // Activates the black+cyan compact cockpit token layer (_cockpit.scss) for
   // the entire admin subtree ONLY — the marketing surface keeps its own theme.
   // Tokens cascade to all 54 sections + overlays via the shared --ps-* remap.
   host: { 'data-cockpit': 'v2' },
+  imports: [
+    FormsModule,
+    RouterModule,
+    CommandPaletteComponent,
+    ShortcutsOverlayComponent,
+    AiChatWidgetComponent,
+    SectionErrorBoundaryComponent,
+    FocusTrapDirective,
+    DomainPickerComponent,
+    GlobalDropZoneComponent,
+    TaskTrayComponent,
+    ShareLinkDialogComponent,
+    NavIconComponent,
+    ...BrnTooltipImports,
+  ],
+  providers: [AdminStateService, provideHlmTooltip()],
+  selector: 'app-admin',
+  standalone: true,
+  styleUrl: './admin.component.scss',
+  templateUrl: './admin.component.html',
 })
 export class AdminComponent implements OnInit, OnDestroy {
   // AfterViewInit is declared via the hook below; no need for a separate
@@ -76,6 +122,8 @@ export class AdminComponent implements OnInit, OnDestroy {
    */
   isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   router = inject(Router);
+  /** Centralised responsive navigation mode + mobile-drawer state (CDK-driven). */
+  nav = inject(NavigationModeService);
   bolt = inject(BoltEmbedService);
   private hoverPreloader = inject(HoverPreloadingStrategy);
   private toast = inject(ToastService);
@@ -95,26 +143,41 @@ export class AdminComponent implements OnInit, OnDestroy {
   faviconFailed = signal<Set<string>>(new Set());
 
   /** Active UI language — used by the avatar-menu toggle to render the chip. */
-  currentLang = signal<AppLanguage>(((): AppLanguage => {
-    try {
-      const stored = localStorage.getItem('ps_language');
-      return stored === 'es' ? 'es' : 'en';
-    } catch {
-      return 'en';
-    }
-  })());
+  currentLang = signal<AppLanguage>(
+    ((): AppLanguage => {
+      try {
+        const stored = localStorage.getItem('ps_language');
+        return stored === 'es' ? 'es' : 'en';
+      } catch {
+        return 'en';
+      }
+    })(),
+  );
 
   siteDropdownOpen = signal(false);
   siteSearchQuery = signal('');
   /**
-   * Mobile (`max-md`) drives the sidebar as a fixed overlay drawer
-   * (`-translate-x-full` when collapsed); desktop ignores the flag and always
-   * shows the rail. Default collapsed on mobile so a phone user lands on the
-   * SECTION, not a drawer covering it. SSR-safe (guards `window`).
+   * Full-width mode. In `expanded` mode this collapses the labelled 272px
+   * sidebar to the SAME 72px icon rail used automatically at tablet widths, so
+   * a desktop user can reclaim horizontal space. No-op in `compact` (already a
+   * rail) and `mobile` (a drawer). Toggled by ⌘B and the `g w` chord.
    */
-  sidebarCollapsed = signal(typeof window !== 'undefined' && window.innerWidth < 768);
-  /** Full-width mode — sidebar collapses to a 4px hover-zone, content expands to viewport width. */
   fullWidth = signal(false);
+
+  /** The nav model filtered for the current viewer (operator-only items gated). */
+  readonly navGroups = computed(() => visibleNavGroups(ADMIN_NAV_GROUPS, this.isSysAdmin()));
+  /**
+   * True ⇒ render the 72px icon-only rail (tooltips enabled). Automatic at
+   * tablet widths (`compact`) OR when a desktop user collapses the sidebar
+   * (`expanded` + {@link fullWidth}). Mobile is a drawer, never a rail.
+   */
+  readonly railCollapsed = computed(
+    () => this.nav.isCompact() || (this.nav.isExpanded() && this.fullWidth()),
+  );
+  /** `data-testid` for a nav item (explicit `testid` or the `nav-<id>` default). */
+  navTestId(item: AdminNavItem): string {
+    return navItemTestId(item);
+  }
   /** Previous route path — powers the "Jump back" floating button (Tier 1 #6). */
   previousRoute = signal<{ label: string; url: string } | null>(null);
   isEditorRoute = signal(false);
@@ -176,9 +239,15 @@ export class AdminComponent implements OnInit, OnDestroy {
   shortcutsOpen = signal(false);
 
   // Theme toggle — persisted to localStorage, sets data-theme on <html>.
-  theme = signal<'dark' | 'light' | 'system'>(((): 'dark' | 'light' | 'system' => {
-    try { return (localStorage.getItem('ps_theme') as 'dark' | 'light' | 'system') || 'dark'; } catch { return 'dark'; }
-  })());
+  theme = signal<'dark' | 'light' | 'system'>(
+    ((): 'dark' | 'light' | 'system' => {
+      try {
+        return (localStorage.getItem('ps_theme') as 'dark' | 'light' | 'system') || 'dark';
+      } catch {
+        return 'dark';
+      }
+    })(),
+  );
 
   private routerSub?: Subscription;
 
@@ -194,17 +263,19 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.siteActionsOpen.set(false);
     if (this.state.selectedSite()) this.shareLinkOpen.set(true);
   }
-  closeShareLink(): void { this.shareLinkOpen.set(false); }
+  closeShareLink(): void {
+    this.shareLinkOpen.set(false);
+  }
 
   private updateRouteState(url: string): void {
     // `/admin` is the DASHBOARD, not the editor — only `/admin/editor[/...]`
     // lifts the persistent bolt iframe into place. See isEditorPath().
     this.isEditorRoute.set(isEditorPath(url));
-    // Mobile: auto-close the overlay drawer after navigating so the user sees
-    // the section they just picked instead of the nav covering it.
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      this.sidebarCollapsed.set(true);
-    }
+    // Selecting a destination closes the mobile overlay drawer so the user sees
+    // the section, not the nav covering it. `closeDrawer()` is safe in every
+    // mode (it just clears the signal) — no `window.innerWidth` check, the
+    // CDK-backed service owns the breakpoint.
+    this.nav.closeDrawer();
     // Capture previous route BEFORE updating, for the jump-back button (Tier 1 #6).
     const prevUrl = this.currentUrl();
     const prevLabel = this.currentSection();
@@ -222,17 +293,23 @@ export class AdminComponent implements OnInit, OnDestroy {
     // once `selectedSite` resolves on a hard refresh). The shell (sidebar +
     // topbar) is never touched — each tab stays a distinct, bookmark-correct view.
     this.metaService.updateTag({
-      name: 'description',
       content: `${section} — your ProjectSites admin dashboard.`,
+      name: 'description',
     });
     // Fire-and-forget route telemetry. { silent: true } so a 404/transient
     // failure never surfaces ApiService's generic "resource wasn't found" error
     // toast — this posts on EVERY admin route nav, so without it a single
     // telemetry hiccup would spam the toast across the whole admin.
-    this.api.post('/analytics/track', {
-      route: url.split('?')[0],
-      site_id: this.state.selectedSite()?.id ?? null,
-    }, { silent: true }).subscribe({ error: () => {} });
+    this.api
+      .post(
+        '/analytics/track',
+        {
+          route: url.split('?')[0],
+          site_id: this.state.selectedSite()?.id ?? null,
+        },
+        { silent: true },
+      )
+      .subscribe({ error: () => {} });
   }
 
   ngOnInit(): void {
@@ -279,11 +356,23 @@ export class AdminComponent implements OnInit, OnDestroy {
     }
   });
 
+  /**
+   * Lock background scroll while the mobile overlay drawer is open so the page
+   * behind it can't scroll under the finger. Cleared on close / when leaving
+   * mobile mode. Guarded for non-browser rendering.
+   */
+  private readonly _drawerScrollLock = effect(() => {
+    if (typeof document === 'undefined') return;
+    const locked = this.nav.isMobile() && this.nav.drawerOpen();
+    document.body.classList.toggle('drawer-scroll-lock', locked);
+  });
+
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
     this.shareLinkSub?.unsubscribe();
     this.state.stopPolling();
     this.bolt.teardown();
+    if (typeof document !== 'undefined') document.body.classList.remove('drawer-scroll-lock');
   }
 
   // ── Editor save ─────────────────────────────────────
@@ -298,28 +387,60 @@ export class AdminComponent implements OnInit, OnDestroy {
     event.stopPropagation();
     const willOpen = !this.siteDropdownOpen();
     this.siteDropdownOpen.set(willOpen);
-    if (!willOpen) { this.siteSearchQuery.set(''); return; }
+    if (!willOpen) {
+      this.siteSearchQuery.set('');
+      return;
+    }
     // Auto-focus the search input on open — no extra click required. Use
     // afterNextRender so the @if-mounted input is present in the DOM.
-    afterNextRender({
-      read: () => {
-        requestAnimationFrame(() => {
-          this.siteSearchInputRef?.nativeElement.focus({ preventScroll: true });
-        });
+    afterNextRender(
+      {
+        read: () => {
+          requestAnimationFrame(() => {
+            this.siteSearchInputRef?.nativeElement.focus({ preventScroll: true });
+          });
+        },
       },
-    }, { injector: this.injector });
+      { injector: this.injector },
+    );
   }
 
   get filteredSites(): Site[] {
     const q = this.siteSearchQuery().toLowerCase().trim();
     if (!q) return this.state.sites();
-    return this.state.sites().filter((s) =>
-      (s.business_name || '').toLowerCase().includes(q) || (s.slug || '').toLowerCase().includes(q),
-    );
+    return this.state
+      .sites()
+      .filter(
+        (s) =>
+          (s.business_name || '').toLowerCase().includes(q) ||
+          (s.slug || '').toLowerCase().includes(q),
+      );
   }
 
-  closeSiteDropdown(): void { this.siteDropdownOpen.set(false); }
-  toggleSidebar(): void { this.sidebarCollapsed.update((v) => !v); }
+  closeSiteDropdown(): void {
+    this.siteDropdownOpen.set(false);
+  }
+
+  /**
+   * ⌘B / the mobile hamburger. Behaviour is mode-aware:
+   * - `mobile`   → open/close the overlay drawer.
+   * - `expanded` → collapse to / expand from the 72px icon rail (full-width).
+   * - `compact`  → no-op (it's already an icon rail).
+   */
+  toggleSidebar(): void {
+    if (this.nav.isMobile()) {
+      this.nav.toggleDrawer();
+      return;
+    }
+    if (this.nav.isExpanded()) {
+      this.toggleFullWidth();
+    }
+  }
+
+  /** Selecting a nav destination closes the mobile overlay drawer. */
+  onNavItemClick(): void {
+    this.nav.closeDrawer();
+  }
 
   closeDropdowns(): void {
     this.siteDropdownOpen.set(false);
@@ -448,9 +569,14 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   // ── Palette ─────────────────────────────────────────
 
-  openPalette(): void { this.palette?.openIt(); }
+  openPalette(): void {
+    this.palette?.openIt();
+  }
 
-  openShortcuts(): void { this.shortcutsOpen.set(true); this.userMenuOpen.set(false); }
+  openShortcuts(): void {
+    this.shortcutsOpen.set(true);
+    this.userMenuOpen.set(false);
+  }
 
   /**
    * Flip the active UI language between English and Spanish, push the change
@@ -462,8 +588,8 @@ export class AdminComponent implements OnInit, OnDestroy {
     const next: AppLanguage = this.currentLang() === 'en' ? 'es' : 'en';
     this.currentLang.set(next);
     this.translate.use(next).subscribe({
-      next: () => undefined,
       error: () => undefined,
+      next: () => undefined,
     });
     this.appShell.applyLanguage(next);
     this.userMenuOpen.set(false);
@@ -475,7 +601,11 @@ export class AdminComponent implements OnInit, OnDestroy {
     const next = order[(order.indexOf(this.theme()) + 1) % order.length]!;
     this.theme.set(next);
     this.applyTheme(next);
-    try { localStorage.setItem('ps_theme', next); } catch { /* ignore */ }
+    try {
+      localStorage.setItem('ps_theme', next);
+    } catch {
+      /* ignore */
+    }
     this.toast.info(`Theme: ${next}`);
   }
   private applyTheme(t: 'dark' | 'light' | 'system'): void {
@@ -505,10 +635,18 @@ export class AdminComponent implements OnInit, OnDestroy {
     return '?';
   }
   /** Back-compat alias — older templates/tests may still reference `userInitial()`. */
-  userInitial(): string { return this.userInitials(); }
-  userEmail(): string { return (this.auth as unknown as { user?: { email?: string } }).user?.email ?? ''; }
-  userName(): string { return (this.auth as unknown as { user?: { name?: string } }).user?.name ?? ''; }
-  planLabel(): string { return 'Free'; }
+  userInitial(): string {
+    return this.userInitials();
+  }
+  userEmail(): string {
+    return (this.auth as unknown as { user?: { email?: string } }).user?.email ?? '';
+  }
+  userName(): string {
+    return (this.auth as unknown as { user?: { name?: string } }).user?.name ?? '';
+  }
+  planLabel(): string {
+    return 'Free';
+  }
   toggleUserMenu(ev: MouseEvent): void {
     ev.stopPropagation();
     this.userMenuOpen.update((v) => !v);
@@ -533,7 +671,9 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.notifOpen.set(false);
     this.userMenuOpen.set(false);
   }
-  closeSiteActions(): void { this.siteActionsOpen.set(false); }
+  closeSiteActions(): void {
+    this.siteActionsOpen.set(false);
+  }
   /** Preview the live site in a new tab, then close the menu. */
   previewSite(site: Site): void {
     this.state.visitSite(site);
@@ -564,21 +704,36 @@ export class AdminComponent implements OnInit, OnDestroy {
     // Propagate read receipts to Novu for any Novu-sourced items (best-effort).
     for (const id of ids) if (id.startsWith('novu-')) void this.novuInbox.read(id);
     this.notifications.update((ns) => ns.map((n) => ({ ...n, read: true })));
-    try { localStorage.setItem('ps_notif_read', JSON.stringify(ids)); } catch { /* */ }
+    try {
+      localStorage.setItem('ps_notif_read', JSON.stringify(ids));
+    } catch {
+      /* */
+    }
   }
   openNotification(n: Notification): void {
     if (n.id.startsWith('novu-')) void this.novuInbox.read(n.id);
-    this.notifications.update((ns) => ns.map((m) => m.id === n.id ? { ...m, read: true } : m));
+    this.notifications.update((ns) => ns.map((m) => (m.id === n.id ? { ...m, read: true } : m)));
     try {
       const prev = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[];
-      if (!prev.includes(n.id)) localStorage.setItem('ps_notif_read', JSON.stringify([...prev, n.id]));
-    } catch { /* */ }
-    if (n.href) { this.router.navigateByUrl(n.href); this.notifOpen.set(false); }
+      if (!prev.includes(n.id))
+        localStorage.setItem('ps_notif_read', JSON.stringify([...prev, n.id]));
+    } catch {
+      /* */
+    }
+    if (n.href) {
+      this.router.navigateByUrl(n.href);
+      this.notifOpen.set(false);
+    }
   }
   groupedNotifications(): { label: string; items: Notification[] }[] {
     const now = Date.now();
-    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
-    const groups = { Today: [] as Notification[], 'This week': [] as Notification[], Earlier: [] as Notification[] };
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const groups = {
+      Earlier: [] as Notification[],
+      'This week': [] as Notification[],
+      Today: [] as Notification[],
+    };
     for (const n of this.notifications()) {
       const ts = n.ts ?? now;
       if (ts >= dayStart.getTime()) groups['Today'].push(n);
@@ -587,13 +742,24 @@ export class AdminComponent implements OnInit, OnDestroy {
     }
     return (['Today', 'This week', 'Earlier'] as const)
       .filter((k) => groups[k].length)
-      .map((label) => ({ label, items: groups[label] }));
+      .map((label) => ({ items: groups[label], label }));
   }
   private seedNotifications(): void {
     let readIds: string[] = [];
-    try { readIds = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[]; } catch { /* */ }
+    try {
+      readIds = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[];
+    } catch {
+      /* */
+    }
     const seeded: Notification[] = [
-      { id: 'welcome', title: 'Welcome — press ⌘K to find anything.', time: 'just now', kind: 'info', read: readIds.includes('welcome'), ts: Date.now() },
+      {
+        id: 'welcome',
+        kind: 'info',
+        read: readIds.includes('welcome'),
+        time: 'just now',
+        title: 'Welcome — press ⌘K to find anything.',
+        ts: Date.now(),
+      },
     ];
     this.notifications.set(seeded);
     // Pull recent audit log entries as notifications (last 5). Background,
@@ -602,45 +768,60 @@ export class AdminComponent implements OnInit, OnDestroy {
     // ApiService's generic "resource wasn't found" error toast on every admin
     // page load. The error handler below is already silent — but without this
     // opt the generic toast fires anyway.
-    this.api.get<{ data: { id: string; action: string; target_type: string; created_at: string }[] }>('/audit/rows?limit=5', undefined, { silent: true }).subscribe({
-      next: (r) => {
-        const now = Date.now();
-        const items: Notification[] = (r.data ?? []).map((row) => {
-          const t = new Date(row.created_at).getTime();
-          return {
-            id: `audit-${row.id}`,
-            title: this.humanizeAction(row.action) + this.targetSuffix(row.target_type),
-            time: this.relativeTime(now - t),
-            kind: row.action.includes('delete') ? 'warn' : row.action.includes('error') ? 'warn' : 'info',
-            read: readIds.includes(`audit-${row.id}`),
-            ts: t,
-            href: '/admin/audit',
-          };
-        });
-        if (items.length) this.notifications.update((cur) => [...items, ...cur]);
-      },
-      error: () => { /* no audit available — silent */ },
-    });
+    this.api
+      .get<{
+        data: { id: string; action: string; target_type: string; created_at: string }[];
+      }>('/audit/rows?limit=5', undefined, { silent: true })
+      .subscribe({
+        error: () => {
+          /* no audit available — silent */
+        },
+        next: (r) => {
+          const now = Date.now();
+          const items: Notification[] = (r.data ?? []).map((row) => {
+            const t = new Date(row.created_at).getTime();
+            return {
+              href: '/admin/audit',
+              id: `audit-${row.id}`,
+              kind: row.action.includes('delete')
+                ? 'warn'
+                : row.action.includes('error')
+                  ? 'warn'
+                  : 'info',
+              read: readIds.includes(`audit-${row.id}`),
+              time: this.relativeTime(now - t),
+              title: this.humanizeAction(row.action) + this.targetSuffix(row.target_type),
+              ts: t,
+            };
+          });
+          if (items.length) this.notifications.update((cur) => [...items, ...cur]);
+        },
+      });
     // Merge the Novu Cloud inbox (the doctrine notification backbone) as an
     // ADDITIVE source — local audit/seed feed stays primary, so the bell never
     // regresses if Novu is empty/unreachable. Fully guarded inside the service.
-    this.novuInbox.list(20).then((rows) => {
-      if (!rows.length) return;
-      const mapped: Notification[] = rows.map((n) => ({
-        id: n.id,
-        title: n.title,
-        time: this.relativeTime(Date.now() - n.ts),
-        kind: 'info',
-        read: n.read || readIds.includes(n.id),
-        ts: n.ts,
-        href: n.href ?? undefined,
-      }));
-      this.notifications.update((cur) => {
-        const seen = new Set(cur.map((c) => c.id));
-        const fresh = mapped.filter((m) => !seen.has(m.id));
-        return [...fresh, ...cur].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+    this.novuInbox
+      .list(20)
+      .then((rows) => {
+        if (!rows.length) return;
+        const mapped: Notification[] = rows.map((n) => ({
+          href: n.href ?? undefined,
+          id: n.id,
+          kind: 'info',
+          read: n.read || readIds.includes(n.id),
+          time: this.relativeTime(Date.now() - n.ts),
+          title: n.title,
+          ts: n.ts,
+        }));
+        this.notifications.update((cur) => {
+          const seen = new Set(cur.map((c) => c.id));
+          const fresh = mapped.filter((m) => !seen.has(m.id));
+          return [...fresh, ...cur].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+        });
+      })
+      .catch(() => {
+        /* swallow — Novu is additive, never blocks the local feed */
       });
-    }).catch(() => { /* swallow — Novu is additive, never blocks the local feed */ });
   }
   /**
    * Build the "· {site}" suffix for a notification title. When the audit row's
@@ -654,7 +835,8 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!targetType) return '';
     if (targetType.toLowerCase() === 'site') {
       const site = this.state.selectedSite();
-      const label = site?.business_name?.trim() || (site?.slug ? `${site.slug}.projectsites.dev` : '');
+      const label =
+        site?.business_name?.trim() || (site?.slug ? `${site.slug}.projectsites.dev` : '');
       return label ? ` · ${label}` : '';
     }
     return ` · ${targetType}`;
@@ -682,31 +864,76 @@ export class AdminComponent implements OnInit, OnDestroy {
   private gPressedAt = 0;
   @HostListener('document:keydown', ['$event'])
   onGlobalKey(ev: KeyboardEvent): void {
-    const inField = (ev.target as HTMLElement | null)?.matches('input, textarea, [contenteditable]');
-    if (ev.key === 'Escape' && (this.siteActionsOpen() || this.notifOpen() || this.userMenuOpen())) {
-      this.siteActionsOpen.set(false); this.notifOpen.set(false); this.userMenuOpen.set(false); return;
+    const inField = (ev.target as HTMLElement | null)?.matches(
+      'input, textarea, [contenteditable]',
+    );
+    if (ev.key === 'Escape') {
+      // Mobile drawer first — FocusTrapDirective restores focus to the hamburger.
+      if (this.nav.isMobile() && this.nav.drawerOpen()) {
+        ev.preventDefault();
+        this.nav.closeDrawer();
+        return;
+      }
+      if (this.siteActionsOpen() || this.notifOpen() || this.userMenuOpen()) {
+        this.siteActionsOpen.set(false);
+        this.notifOpen.set(false);
+        this.userMenuOpen.set(false);
+        return;
+      }
     }
-    if (ev.key === '?' && !inField) { ev.preventDefault(); this.shortcutsOpen.set(true); return; }
-    if (ev.key === '/' && !inField) {
+    if (ev.key === '?' && !inField) {
       ev.preventDefault();
-      (document.querySelector('input[placeholder*="Search sites" i]') as HTMLInputElement | null)?.focus();
+      this.shortcutsOpen.set(true);
       return;
     }
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === '.') { ev.preventDefault(); this.toggleTheme(); return; }
-    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'b') { ev.preventDefault(); this.toggleSidebar(); return; }
-    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's' && this.isEditorRoute()) { ev.preventDefault(); this.saveEditor(); return; }
+    if (ev.key === '/' && !inField) {
+      ev.preventDefault();
+      (
+        document.querySelector('input[placeholder*="Search sites" i]') as HTMLInputElement | null
+      )?.focus();
+      return;
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === '.') {
+      ev.preventDefault();
+      this.toggleTheme();
+      return;
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'b') {
+      ev.preventDefault();
+      this.toggleSidebar();
+      return;
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's' && this.isEditorRoute()) {
+      ev.preventDefault();
+      this.saveEditor();
+      return;
+    }
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
-      if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
+      if (ev.key === 'g') {
+        this.gPressedAt = Date.now();
+        return;
+      }
       if (Date.now() - this.gPressedAt < 900) {
-        if (ev.key.toLowerCase() === 'w') { ev.preventDefault(); this.toggleFullWidth(); this.gPressedAt = 0; return; }
+        if (ev.key.toLowerCase() === 'w') {
+          ev.preventDefault();
+          this.toggleFullWidth();
+          this.gPressedAt = 0;
+          return;
+        }
         const path = G_CHORD_ROUTES[ev.key.toLowerCase()];
-        if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
+        if (path) {
+          ev.preventDefault();
+          this.router.navigateByUrl(path);
+          this.gPressedAt = 0;
+        }
       }
     }
   }
 
   /** Toggle full-width mode — sidebar collapses to icon rail. */
-  toggleFullWidth(): void { this.fullWidth.update((v) => !v); }
+  toggleFullWidth(): void {
+    this.fullWidth.update((v) => !v);
+  }
 
   /**
    * Tier 1 #4: Trigger route preloading on sidebar link hover.
@@ -714,7 +941,9 @@ export class AdminComponent implements OnInit, OnDestroy {
    * `<a>` with a `routerLink` attribute and queues it for background download.
    */
   onSidebarNavHover(ev: MouseEvent): void {
-    const target = (ev.target as HTMLElement | null)?.closest('a[routerlink]') as HTMLAnchorElement | null;
+    const target = (ev.target as HTMLElement | null)?.closest(
+      'a[routerlink]',
+    ) as HTMLAnchorElement | null;
     if (!target) return;
     const path = target.getAttribute('routerlink') ?? '';
     this.hoverPreloader.preloadRoute(path);

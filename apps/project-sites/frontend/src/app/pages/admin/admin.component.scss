@@ -625,23 +625,180 @@ aside::before {
 }
 
 
-// ═══════════════════════════════════════════════
-// Tier 1 #10: Full-width mode
-// ═══════════════════════════════════════════════
-// When full-width is active, the sidebar collapses to a 4px hover-zone.
-// Mouse near the left edge reveals it temporarily.
-.admin-sidebar.\!w-\[56px\] {
-  overflow: hidden;
-  // Hide all text, keep icons only
-  .nav-item span,
+// ═══════════════════════════════════════════════════════════════════
+// Responsive application shell — THREE intentional navigation modes.
+// Mode is decided ONCE by NavigationModeService (CDK BreakpointObserver)
+// and expressed as classes on <aside.admin-sidebar>:
+//   (base)                 → expanded 272px labelled sidebar   (>= 1200px)
+//   .admin-sidebar--rail   → 72px icon rail + right tooltips    (768–1199 OR desktop full-width)
+//   .admin-sidebar--drawer → fixed overlay drawer               (< 768px)
+// Widths are tokens so content (a flex sibling) reflows smoothly as the
+// sidebar changes width — no margin math, no duplicated markup.
+// ═══════════════════════════════════════════════════════════════════
+.admin-sidebar {
+  --admin-sidebar-w: 272px;
+  --admin-rail-w: 72px;
+  --admin-drawer-w: min(320px, calc(100vw - 48px));
+
+  position: sticky;
+  top: 0;
+  width: var(--admin-sidebar-w);
+  min-width: var(--admin-sidebar-w);
+  height: 100dvh;
+  z-index: 100;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--ck-bg-alt, #060610);
+  border-right: 1px solid var(--ck-border, rgba(0, 229, 255, 0.14));
+  // 200ms sits inside the 160–240ms band; content resizes in lockstep via flex.
+  transition:
+    width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    min-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 220ms ease;
+}
+
+// ── Mode 2: compact icon rail (72px) ──────────────────────────────
+.admin-sidebar--rail {
+  width: var(--admin-rail-w);
+  min-width: var(--admin-rail-w);
+
+  // Hide every text affordance; icons carry the meaning, tooltips carry the label.
+  .nav-item > span,
   .nav-group-label,
-  .site-dropdown-row,
-  .nav-sub,
-  details summary span { display: none; }
-  // Center the icons
-  .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
-  // Shrink the site selector
-  > div:first-of-type { padding: 0.5rem 0.25rem; }
+  .site-dropdown-row { display: none; }
+
+  // Center each control; keep a comfortable ≥44px touch target.
+  .nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+    min-height: 44px;
+  }
+  .nav-item:hover { transform: none; } // no horizontal nudge when centered
+
+  // Site selector → centered monogram only (no cramped text/badge/caret).
+  .admin-site-selector {
+    > button {
+      justify-content: center;
+      padding: 0.5rem 0;
+      gap: 0;
+    }
+    > button > .flex-1,
+    > button > .nav-badge,
+    > button > svg,
+    > button > .site-favicon-tile:not(.site-favicon-tile--lg) { display: none; }
+
+    // Its dropdown re-anchors as a right-side flyout (there's no room below).
+    > div:not(.site-dropdown-row) {
+      position: absolute;
+      left: calc(100% + 8px);
+      right: auto;
+      top: 8px;
+      width: 288px;
+      max-width: calc(100vw - var(--admin-rail-w) - 16px);
+    }
+  }
+
+  // Group separators replace the (hidden) text group labels.
+  .nav-rail-divider { display: block; }
+}
+
+// ── Mode 3: mobile overlay drawer (< 768px) ───────────────────────
+.admin-sidebar--drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--admin-drawer-w);
+  min-width: var(--admin-drawer-w);
+  height: 100dvh;
+  z-index: 1000;
+  transform: translateX(-100%);
+  border-right: 1px solid var(--ck-border, rgba(0, 229, 255, 0.16));
+  // Keep controls clear of the notch / home indicator.
+  padding-left: env(safe-area-inset-left);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.admin-sidebar--drawer.admin-sidebar--open {
+  transform: translateX(0);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.72);
+}
+
+// Drawer chrome (brand + close), scrim, and the header hamburger.
+.admin-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 10px 16px;
+  border-bottom: 1px solid var(--ck-border, rgba(0, 229, 255, 0.12));
+  // Respect the status-bar / notch inset at the very top of the drawer.
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+.admin-drawer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  color: var(--ck-text, #e8fbff);
+}
+.admin-drawer-close,
+.admin-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--ck-radius-sm, 8px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ck-muted, #7aa7b3);
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+  &:hover { color: var(--ck-text, #e8fbff); background: var(--ck-cyan-soft, rgba(0, 229, 255, 0.12)); }
+  &:focus-visible { outline: none; box-shadow: 0 0 0 2px #0a0a1a, 0 0 0 3px rgba(0, 229, 255, 0.55); }
+}
+.admin-hamburger {
+  border-color: var(--ck-border, rgba(0, 229, 255, 0.12));
+  &:hover { border-color: var(--ck-border-strong, rgba(0, 229, 255, 0.4)); color: var(--ck-cyan-500, #00e5ff); }
+}
+.admin-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(3, 7, 10, 0.56);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: adminBackdropIn 160ms ease both;
+}
+@keyframes adminBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+
+// Lock background scroll while the drawer is open (toggled from the component).
+body.drawer-scroll-lock { overflow: hidden; }
+
+// ── Nav model chrome shared across modes ──────────────────────────
+.nav-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.nav-rail-divider {
+  display: none; // shown only in rail mode
+  height: 1px;
+  width: 60%;
+  margin: 10px auto 6px;
+  background: var(--ck-border, rgba(0, 229, 255, 0.14));
+}
+
+// Reduced motion → transitions snap. The mode still changes; it just doesn't animate.
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar,
+  .admin-sidebar--drawer { transition-duration: 0.01ms !important; }
+  .admin-drawer-backdrop { animation-duration: 0.01ms !important; }
 }
 
 // Tier 1 #6: Jump-back floating button

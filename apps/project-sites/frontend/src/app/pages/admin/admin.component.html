@@ -78,49 +78,54 @@
     <span class="sr-only" role="status" aria-live="polite" data-testid="admin-route-announcer">{{
       routeAnnouncement()
     }}</span>
-    <!-- Mobile hamburger -->
-    <button
-      aria-label="Open navigation menu"
-      class="fixed top-3 left-3 z-[1001] p-2 rounded-md border border-white/[0.06] bg-dark/95 text-text-secondary backdrop-blur-lg cursor-pointer hover:text-primary hover:border-primary/30 hidden max-md:flex"
-      (click)="toggleSidebar(); $event.stopPropagation()"
-    >
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <line x1="3" y1="6" x2="21" y2="6" />
-        <line x1="3" y1="12" x2="21" y2="12" />
-        <line x1="3" y1="18" x2="21" y2="18" />
-      </svg>
-    </button>
+    <!-- The mobile hamburger lives INSIDE the header (`.admin-topbar`) so the
+         header + sidebar read as one application shell — see the topbar below.
+         It is only rendered in `mobile` mode (never compact/expanded). -->
 
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- LEFT SIDEBAR                                        -->
     <!-- ═══════════════════════════════════════════════════ -->
     <aside
-      aria-label="Sidebar"
-      class="admin-sidebar w-[232px] min-w-[232px] bg-dark border-r border-white/[0.06] flex flex-col h-screen sticky top-0 z-[100] overflow-y-auto overflow-x-hidden flex-shrink-0 sidebar-scrollbar max-md:fixed max-md:left-0 max-md:top-0 max-md:bottom-0 max-md:z-[1000] max-md:transition-transform max-md:duration-[250ms] max-md:ease-[cubic-bezier(0.4,0,0.2,1)]"
-      [class.!w-[56px]]="fullWidth()"
-      [class.!min-w-[56px]]="fullWidth()"
-      [class.max-md:-translate-x-full]="sidebarCollapsed()"
+      id="admin-primary-nav"
+      class="admin-sidebar sidebar-scrollbar flex flex-col"
+      [class.admin-sidebar--rail]="railCollapsed()"
+      [class.admin-sidebar--drawer]="nav.isMobile()"
+      [class.admin-sidebar--open]="nav.isMobile() && nav.drawerOpen()"
+      aria-label="Primary navigation"
+      [attr.aria-hidden]="nav.isMobile() && !nav.drawerOpen() ? 'true' : null"
+      [attr.inert]="nav.isMobile() && !nav.drawerOpen() ? '' : null"
+      [focusTrap]="nav.isMobile() && nav.drawerOpen()"
     >
-      <!-- Logo removed — the navigation uses the full sidebar width and renders
-         flush at the top. On mobile we still need a way to dismiss the drawer,
-         so a dedicated close button sits at the top (desktop hides it since the
-         sidebar is always visible there). -->
-      @if (!sidebarCollapsed()) {
-        <div
-          class="hidden max-md:flex justify-end px-3 pt-3"
-          data-testid="admin-sidebar-mobile-close"
-        >
+      <!-- Mobile drawer header: brand + close. Rendered only in `mobile` mode —
+         the compact rail + expanded sidebar are always visible, so they need no
+         dismiss control. FocusTrapDirective moves focus here on open and
+         restores it to the header hamburger on close. -->
+      @if (nav.isMobile()) {
+        <div class="admin-drawer-head" data-testid="admin-sidebar-mobile-close">
+          <span class="admin-drawer-brand">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#00E5FF"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            <span>ProjectSites</span>
+          </span>
           <button
+            type="button"
             aria-label="Close navigation menu"
-            class="flex items-center justify-center min-w-[44px] min-h-[44px] bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded hover:text-white"
-            (click)="sidebarCollapsed.set(true); $event.stopPropagation()"
+            class="admin-drawer-close"
+            (click)="nav.closeDrawer(); $event.stopPropagation()"
           >
             <svg
               width="18"
@@ -129,6 +134,7 @@
               fill="none"
               stroke="currentColor"
               stroke-width="2"
+              aria-hidden="true"
             >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -137,8 +143,9 @@
         </div>
       }
 
-      <!-- Site Selector -->
-      <div class="px-3 pt-3 relative" (click)="$event.stopPropagation()">
+      <!-- Site Selector — collapses to a centred monogram in the 72px rail; its
+         dropdown re-anchors as a right-side flyout there (see `_admin-polish`). -->
+      <div class="admin-site-selector px-3 pt-3 relative" (click)="$event.stopPropagation()">
         <button
           aria-label="Select site"
           [attr.aria-expanded]="siteDropdownOpen()"
@@ -321,414 +328,54 @@
         }
       </div>
 
-      <!-- Navigation -->
+      <!-- Navigation — rendered from the ONE typed model (navigation/admin-nav.model.ts).
+         The SAME @for drives all three presentations: the mobile drawer, the
+         72px compact rail (labels hidden via CSS, right-anchored tooltips on),
+         and the 272px expanded sidebar. Router owns active state
+         (routerLinkActive + aria-current); operator items are pre-filtered. -->
       <nav
-        class="px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1"
+        class="admin-nav px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1"
         aria-label="Admin sections"
         (mouseover)="onSidebarNavHover($event)"
       >
-        <p class="nav-group-label" aria-hidden="true">Workspace</p>
-        <a
-          class="nav-item nav-item-dashboard"
-          routerLink="/admin"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-          </svg>
-          <span>Dashboard</span>
-        </a>
-        <a
-          class="nav-item"
-          routerLink="/admin/editor"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Bolt editor — edit your site code + content (g e)'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <polyline points="16 18 22 12 16 6" />
-            <polyline points="8 6 2 12 8 18" />
-          </svg>
-          <span>Editor</span>
-        </a>
-        <a
-          class="nav-item"
-          routerLink="/admin/snapshots"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <line x1="6" y1="3" x2="6" y2="15" />
-            <circle cx="18" cy="6" r="3" />
-            <circle cx="6" cy="18" r="3" />
-            <path d="M18 9a9 9 0 0 1-9 9" />
-          </svg>
-          <span>Snapshots</span>
-        </a>
-        <a
-          class="nav-item"
-          routerLink="/admin/analytics"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <path d="M18 20V10" />
-            <path d="M12 20V4" />
-            <path d="M6 20v-6" />
-          </svg>
-          <span>Analytics</span>
-        </a>
-        <!-- "Live Events" merged into Analytics as a ?tab=live tab (2026-06-23) —
-             /admin/analytics-live redirects there. No standalone nav item.
-             "Activation Funnel" merged into Analytics as a ?tab=funnel tab
-             (2026-06-24) — /admin/activation-funnel redirects there. No standalone
-             nav item. -->
-
-        <p class="nav-group-label" aria-hidden="true">Capabilities</p>
-        <a
-          class="nav-item"
-          routerLink="/admin/forms"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Form submissions + routing'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-          </svg>
-          <span>Forms</span>
-        </a>
-        <!-- "Traces" merged into Logs as a ?tab=traces tab (2026-06-24) —
-             /admin/traces + /admin/ai-logs redirect there. No standalone nav item. -->
-        <!-- AI Agents nav item moved into the in-editor tab strip
-           (Code · Preview · Media · Agents) so the editor surface owns the
-           creation workflow. Standalone route /admin/ai-endpoints still
-           resolves for deep links / bookmarks. -->
-        <!-- App store — catalog of self-hostable apps (Umami, Mattermost,
-           Outline, etc.) deployable to CF Workers Containers in <5 min.
-           Cyan shopping-bag glyph matches sibling icon weight (stroke 1.5). -->
-        <a
-          class="nav-item"
-          routerLink="/admin/apps"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Self-hostable app store — Cloudflare Workers Containers'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <path d="M16 10a4 4 0 0 1-8 0" />
-          </svg>
-          <span>Apps</span>
-        </a>
-        <!-- Features (site-scoped, plan-aware) sits directly under Apps — they're
-           the two "turn capabilities on for your site" surfaces. -->
-        <a
-          class="nav-item"
-          routerLink="/admin/site-features"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          data-testid="nav-features"
-          [brnTooltip]="'Features — turn site capabilities on for your hosted site (plan-aware)'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 2 2 7l10 5 10-5-10-5z" />
-            <path d="m2 17 10 5 10-5" />
-            <path d="m2 12 10 5 10-5" />
-          </svg>
-          <span>Features</span>
-        </a>
-        <!-- Pulse Social — compose once, publish to 11 networks (X, LinkedIn,
-           Facebook, Instagram, Threads, Bluesky, Reddit, Mastodon, Discord,
-           Slack, Telegram). Megaphone glyph signals outbound broadcast.
-           Sibling backend at
-           apps/project-sites/src/routes/social.ts + social_publishers/*. -->
-        <a
-          class="nav-item"
-          routerLink="/admin/social"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Pulse Social — compose, schedule, measure posts across 11 networks'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M3 11l18-8v18l-18-8z" />
-            <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
-          </svg>
-          <span>Social</span>
-        </a>
-        <!-- Voice — phone + SMS hotline powered by the same AI agent. Numbers,
-           unified conversation feed, browser-mic test console, agent prompt
-           editor (with immutable safety meta-prompt), MCP tool attachment,
-           and a Share surface. Phone-receiver glyph matches sibling stroke
-           weight. Shortcut: `g v`. -->
-        <a
-          class="nav-item"
-          routerLink="/admin/voice"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Voice — phone number, SMS, browser test console (g v)'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"
-            />
-          </svg>
-          <span>Voice</span>
-        </a>
-        <p class="nav-group-label" aria-hidden="true">Operations</p>
-
-        <!-- Unified logging dashboard — Audit Trail + structured Log Explorer
-           combined into one tabbed /admin/logs surface. -->
-        <a
-          class="nav-item"
-          routerLink="/admin/logs"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Logs — audit trail + structured request / AI / job logs in one dashboard'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="m7 8 3 3-3 3" />
-            <line x1="13" y1="14" x2="17" y2="14" />
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-          </svg>
-          <span>Logs</span>
-        </a>
-        <!-- Email Deliverability moved under Settings (2026-06-07) → /admin/settings#email
-           (the /admin/deliverability route redirects there). Removed as a top-level nav item. -->
-
-        <!-- Outbound Webhooks moved under Settings (2026-06-07) → /admin/settings#webhooks
-           (the /admin/webhooks route redirects there). Removed as a top-level nav item. -->
-        <!-- Automation Builder removed 2026-06-08 (feature deleted). -->
-        <!-- "Share link" lives in the navbar "Actions" dropdown — it opens a modal
-           (the /admin/review-links page was removed 2026-06-08). -->
-        <!-- Two-layer feature control plane. LAYER 1 "Feature Flags" (platform-ops
-           flags) is operator-only — gated to sys-admin identities. LAYER 2
-           "Features" (site-scoped, plan-aware) shows to every site owner. The
-           old combined "Features Hub" was retired 2026-06-07. -->
-        @if (isSysAdmin()) {
-          <a
-            class="nav-item"
-            routerLink="/admin/feature-flags"
-            routerLinkActive="nav-item-active"
-            ariaCurrentWhenActive="page"
-            data-testid="nav-system-admin"
-            [brnTooltip]="'Feature Flags — platform-ops flags: toggle, roll out, killswitch any feature (operator only)'"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        @for (group of navGroups(); track group.id) {
+          @if (railCollapsed()) {
+            @if (!$first) {
+              <div class="nav-rail-divider" role="separator" aria-hidden="true"></div>
+            }
+          } @else {
+            <p class="nav-group-label" aria-hidden="true">{{ group.label }}</p>
+          }
+          @for (item of group.items; track item.id) {
+            <a
+              class="nav-item"
+              [class.nav-item-dashboard]="item.accent"
+              [routerLink]="item.route"
+              routerLinkActive="nav-item-active"
+              ariaCurrentWhenActive="page"
+              [routerLinkActiveOptions]="{ exact: !!item.exact }"
+              [attr.data-testid]="navTestId(item)"
+              [brnTooltip]="railCollapsed() ? item.label : null"
+              position="right"
+              [tooltipDisabled]="!railCollapsed()"
+              (click)="onNavItemClick()"
             >
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-              <line x1="4" y1="22" x2="4" y2="15" />
-            </svg>
-            <span>Feature Flags</span>
-          </a>
-          <a
-            class="nav-item"
-            routerLink="/admin/leads"
-            routerLinkActive="nav-item-active"
-            ariaCurrentWhenActive="page"
-            data-testid="nav-lead-scanner"
-            [brnTooltip]="'Lead Scanner — find no-website local businesses, score them, mint outreach claim links (operator only)'"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <span>Lead Scanner</span>
-          </a>
-          <a
-            class="nav-item"
-            routerLink="/admin/system-services"
-            routerLinkActive="nav-item-active"
-            ariaCurrentWhenActive="page"
-            data-testid="nav-system-services"
-            [brnTooltip]="'System Services — platform service catalog: edge, data, auth, billing, AI, and self-hosted subdomain containers (operator only)'"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <rect x="2" y="2" width="20" height="8" rx="2" />
-              <rect x="2" y="14" width="20" height="8" rx="2" />
-              <line x1="6" y1="6" x2="6.01" y2="6" />
-              <line x1="6" y1="18" x2="6.01" y2="18" />
-            </svg>
-            <span>System Services</span>
-          </a>
+              <app-nav-icon [name]="item.icon" />
+              <span>{{ item.label }}</span>
+            </a>
+          }
         }
-        <!-- Removed from the sidebar (2026-06-08): Marketplace, Log Explorer
-           (merged into Logs), Enterprise, Trust Center, Stripe App. -->
-        <!-- ZALEWSKI-UNIQ-MARKER-PXQVT8 -->
-        <p class="nav-group-label" aria-hidden="true">Account</p>
-        <a
-          class="nav-item"
-          routerLink="/admin/docs"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-          [brnTooltip]="'Interactive API explorer — every endpoint, live calls from your session'"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-          </svg>
-          <span>Docs</span>
-        </a>
-        <a
-          class="nav-item"
-          routerLink="/admin/settings"
-          routerLinkActive="nav-item-active"
-          ariaCurrentWhenActive="page"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <path
-              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-            />
-          </svg>
-          <span>Settings</span>
-        </a>
-
-        <!-- More tools — every admin section, including ones without a primary
-             nav slot (campaign generator, analytics, audit, media, integrations,
-             traces, …). Collapsed by default so nothing is orphaned yet the
-             sidebar stays scannable. -->
-        <details class="nav-more">
-          <summary class="nav-item nav-more-summary"><span>More tools</span></summary>
-          <a class="nav-item nav-sub" routerLink="/admin/super-admin" routerLinkActive="nav-item-active"><span>Super admin</span></a>
-        </details>
       </nav>
     </aside>
 
-    <!-- Sidebar overlay for mobile -->
-    @if (!sidebarCollapsed()) {
+    <!-- Mobile drawer backdrop — subtle scrim; click to dismiss. Only exists in
+         mobile mode while the drawer is open, so it can never linger over the
+         compact/expanded shell. -->
+    @if (nav.isMobile() && nav.drawerOpen()) {
       <div
-        class="hidden max-md:block fixed inset-0 bg-black/50 z-[999] backdrop-blur-sm"
-        (click)="sidebarCollapsed.set(true)"
+        class="admin-drawer-backdrop"
+        aria-hidden="true"
+        (click)="nav.closeDrawer()"
       ></div>
     }
 
@@ -750,9 +397,39 @@
          this, `backdrop-blur-lg` creates a stacking context at z:auto and
          the user menu's z:99950 only resolves inside that context. -->
       <div
-        class="admin-topbar sticky top-0 z-50 flex items-center justify-between px-7 py-3 border-b border-white/[0.06] bg-dark/80 backdrop-blur-lg flex-shrink-0 gap-3 flex-wrap max-md:px-4 max-md:pl-[52px]"
+        class="admin-topbar sticky top-0 z-50 flex items-center justify-between px-7 py-3 border-b border-white/[0.06] bg-dark/80 backdrop-blur-lg flex-shrink-0 gap-3 flex-wrap max-md:px-4"
       >
         <div class="flex items-center gap-1.5 text-[0.82rem] text-text-secondary">
+          <!-- Header hamburger — mobile mode ONLY. Toggles the overlay drawer;
+             `aria-expanded` mirrors the drawer state. Focus returns here on
+             close (FocusTrapDirective restores the previously-focused element).
+             Never rendered in compact/expanded mode (no persistent sidebar to
+             toggle there). -->
+          @if (nav.isMobile()) {
+            <button
+              type="button"
+              class="admin-hamburger"
+              [attr.aria-label]="nav.drawerOpen() ? 'Close navigation menu' : 'Open navigation menu'"
+              [attr.aria-expanded]="nav.drawerOpen()"
+              aria-controls="admin-primary-nav"
+              (click)="toggleSidebar(); $event.stopPropagation()"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          }
           <!-- Domain picker collapses "ProjectSites › {site name}" into one
              home-icon + dropdown widget. The current section name stays
              to the right as the third breadcrumb segment. -->
