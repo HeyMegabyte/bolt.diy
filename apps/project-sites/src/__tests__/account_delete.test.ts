@@ -50,17 +50,35 @@ const mockDbExecute = dbExecute as jest.Mock;
 const mockDbQueryOne = dbQueryOne as jest.Mock;
 const mockWriteAuditLog = writeAuditLog as jest.Mock;
 
+// The 3 core soft-deletes (sites + sessions + user) run in ONE atomic `DB.batch()`.
+// `prepare(sql).bind(...args)` returns a tagged descriptor; `batch([...])` records them
+// so tests assert the account delete is a single all-or-nothing transaction. A test can
+// make batch reject to prove a mid-delete D1 failure aborts (no partial/half-deleted acct).
+const mockBatch = jest.fn(async (stmts: Array<{ sql: string; args: unknown[] }>) =>
+  stmts.map(() => ({ success: true, meta: { changes: 1 } })),
+);
+
 const originalFetch = global.fetch;
 let mockFetch: jest.Mock;
 
 function createMockEnv(overrides: Partial<Env> = {}): Env {
   return {
     ENVIRONMENT: 'test',
-    DB: {} as D1Database,
+    DB: {
+      prepare: (sql: string) => ({ bind: (...args: unknown[]) => ({ sql, args }) }),
+      batch: mockBatch,
+    } as unknown as D1Database,
     CACHE_KV: { delete: jest.fn().mockResolvedValue(undefined) } as unknown as KVNamespace,
     STRIPE_SECRET_KEY: 'sk_test_123',
     ...overrides,
   } as unknown as Env;
+}
+
+/** Flatten every SQL string across all recorded batch calls. */
+function batchSqls(): string[] {
+  return mockBatch.mock.calls.flatMap((call) =>
+    (call[0] as Array<{ sql: string }>).map((s) => s.sql),
+  );
 }
 
 function createAuthenticatedApp(vars: Partial<Variables> = {}, envOverrides: Partial<Env> = {}) {
@@ -85,6 +103,11 @@ beforeEach(() => {
   jest.spyOn(console, 'warn').mockImplementation(() => {});
   mockDbQueryOne.mockResolvedValue(null);
   mockDbExecute.mockResolvedValue({ error: null, changes: 1 });
+  // Full reset (clears the once-queue too) then restore the default all-success batch.
+  mockBatch.mockReset();
+  mockBatch.mockImplementation(async (stmts: Array<{ sql: string; args: unknown[] }>) =>
+    stmts.map(() => ({ success: true, meta: { changes: 1 } })),
+  );
   mockFetch = jest.fn().mockResolvedValue(
     new Response(JSON.stringify({ id: 'sub_mock' }), {
       status: 200,
@@ -106,7 +129,7 @@ describe('DELETE /api/admin/account', () => {
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe('UNAUTHORIZED');
-    expect(mockDbExecute).not.toHaveBeenCalled();
+    expect(mockBatch).not.toHaveBeenCalled();
   });
 
   it('returns 403 when userId resolves but orgId does not', async () => {
@@ -115,7 +138,7 @@ describe('DELETE /api/admin/account', () => {
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe('FORBIDDEN');
-    expect(mockDbExecute).not.toHaveBeenCalled();
+    expect(mockBatch).not.toHaveBeenCalled();
   });
 
   it('soft-deletes user, archives org sites, revokes sessions, audits, returns deleted:true', async () => {
@@ -128,8 +151,10 @@ describe('DELETE /api/admin/account', () => {
     expect(body.data?.deleted).toBe(true);
     expect(body.data?.subscription_canceled).toBe(false);
 
-    // Three soft-delete UPDATEs ran: sites, sessions, user.
-    const sqls = mockDbExecute.mock.calls.map((call) => String(call[1]));
+    // The three soft-deletes ran as ONE atomic batch (sites, sessions, user).
+    expect(mockBatch).toHaveBeenCalledTimes(1);
+    expect((mockBatch.mock.calls[0][0] as unknown[]).length).toBe(3);
+    const sqls = batchSqls();
     expect(
       sqls.some((s) => /UPDATE sites SET.*deleted_at.*org_id = \?/i.test(s) && /archived/i.test(s)),
     ).toBe(true);
@@ -171,8 +196,24 @@ describe('DELETE /api/admin/account', () => {
     };
     expect(body.data?.deleted).toBe(true);
     expect(body.data?.subscription_canceled).toBe(false);
-    // The user soft-delete still ran despite the Stripe failure.
-    const sqls = mockDbExecute.mock.calls.map((call) => String(call[1]));
-    expect(sqls.some((s) => /UPDATE users SET.*deleted_at/i.test(s))).toBe(true);
+    // The soft-delete batch still ran despite the Stripe failure (Stripe is step 4).
+    expect(batchSqls().some((s) => /UPDATE users SET.*deleted_at/i.test(s))).toBe(true);
+  });
+
+  // Regression guard: the 3 soft-deletes were three separate error-ignoring dbExecute
+  // calls. A mid-delete D1 failure (e.g. sites archived + user deleted but the SESSION
+  // revoke failed) left a half-deleted account — most dangerously a soft-deleted user
+  // whose sessions were NOT revoked → the "deleted" account keeps access. The atomic
+  // batch aborts the whole delete on any failure — no partial state, no lying deleted:true.
+  it('is atomic — a D1 failure during the soft-delete batch aborts with no partial delete', async () => {
+    mockBatch.mockRejectedValueOnce(new Error('D1_ERROR: batch failed'));
+    const { app, env } = createAuthenticatedApp({ userId: 'user-1', orgId: 'org-1' });
+    const res = await del(app, env);
+    // The batch rejects → error_handler → 5xx, NEVER a lying { deleted: true }.
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    const body = (await res.json()) as { data?: { deleted?: boolean } };
+    expect(body.data?.deleted).toBeUndefined();
+    // No audit log + no Stripe cancel on a failed deletion (handler aborts at the batch).
+    expect(mockWriteAuditLog).not.toHaveBeenCalled();
   });
 });
