@@ -117,6 +117,16 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-idor-gates.mjs --ci
 
+      # Hardcoded super-admin-email detector — every admin/whitelist CHECK must go
+      # through isSuperAdmin() or the shared org-owner whitelist helper, never a fresh
+      # email literal (caps the 2026-08-14 convergence arc: iters 9 + 11 fixed 3
+      # divergent hardcodes — token_burn_meter admin gate wrongly 404'd hey@, and
+      # build_budget/build_limits duplicated the unlimited-compute whitelist).
+      # 0-finding-stable after the fixes → ships as a blocking gate. Pure Node, no deps.
+      - name: Hardcoded admin-email gate
+        working-directory: apps/project-sites
+        run: node scripts/check-hardcoded-admin-email.mjs --ci
+
       # Unwired-endpoint detector — every FE `/api/*` call must resolve to a
       # registered worker route (caps the 2026-08-02 admin-verification arc:
       # P0.20 `PATCH /api/admin/profile` + P0.21 `GET/PUT /api/voice/mcp-attachments`
