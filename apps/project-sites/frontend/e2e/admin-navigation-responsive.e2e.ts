@@ -123,6 +123,25 @@ test.describe('admin navigation — responsive modes', () => {
     await expect(page.locator('[data-testid="nav-forms"] span').first()).toHaveText('Forms');
   });
 
+  test('breakpoint boundary: full labelled sidebar only at >= 1297px', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await gotoAdmin(page);
+    const sidebar = page.locator('#admin-primary-nav');
+
+    // 1296px — one below the threshold — stays the compact icon rail.
+    await page.setViewportSize({ width: 1296, height: 900 });
+    await expect(sidebar).toHaveClass(/admin-sidebar--rail/);
+    await expect(page.locator('.nav-group-label').first()).toBeHidden();
+
+    // 1297px — the full labelled sidebar takes over.
+    await page.setViewportSize({ width: 1297, height: 900 });
+    await expect(sidebar).not.toHaveClass(/admin-sidebar--rail/);
+    await expect(page.locator('.nav-group-label').first()).toBeVisible();
+    const box = await sidebar.boundingBox();
+    expect(box && box.width).toBeGreaterThan(255);
+  });
+
   test('keyboard-only: open, close, and focus restoration (390px)', async ({ page }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width: 390, height: 844 });

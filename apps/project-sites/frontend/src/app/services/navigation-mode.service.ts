@@ -7,8 +7,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
  * The three intentional navigation presentations. Each maps to a distinct form
  * factor, not merely a width:
  * - `mobile`   — overlay drawer + header hamburger (`< 768px`)
- * - `compact`  — permanent 72px icon rail with tooltips (`768px–1199px`)
- * - `expanded` — full 272px labelled sidebar (`>= 1200px`)
+ * - `compact`  — permanent 72px icon rail with tooltips (`768px–1296px`)
+ * - `expanded` — full 272px labelled sidebar (`>= 1297px`)
  */
 export type NavigationMode = 'mobile' | 'compact' | 'expanded';
 
@@ -21,8 +21,8 @@ export type NavigationMode = 'mobile' | 'compact' | 'expanded';
 export const NAV_BREAKPOINTS = {
   /** Below this ⇒ `mobile`. */
   compactMin: 768,
-  /** At/above this ⇒ `expanded`. */
-  expandedMin: 1200,
+  /** At/above this ⇒ `expanded` (full labelled sidebar). Below ⇒ compact icon rail. */
+  expandedMin: 1297,
 } as const;
 
 const MOBILE_QUERY = `(max-width: ${NAV_BREAKPOINTS.compactMin - 0.02}px)`;

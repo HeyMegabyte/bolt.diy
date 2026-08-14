@@ -12,7 +12,7 @@ import { NavigationModeService } from './navigation-mode.service';
 
 // Must mirror the exact media queries the service observes.
 const MOBILE = '(max-width: 767.98px)';
-const EXPANDED = '(min-width: 1200px)';
+const EXPANDED = '(min-width: 1297px)';
 
 function stateFor(mode: 'mobile' | 'compact' | 'expanded'): BreakpointState {
   return {
