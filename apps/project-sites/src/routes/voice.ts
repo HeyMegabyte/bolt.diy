@@ -600,6 +600,74 @@ voiceRoutes.get('/api/voice/conversations/:id', async (c) => {
   throw notFound('Conversation not found');
 });
 
+/** ms → WebVTT timestamp `HH:MM:SS.mmm`. */
+function vttTime(ms: number): string {
+  const clamped = Math.max(0, Math.floor(ms));
+  const totalS = Math.floor(clamped / 1000);
+  const hh = String(Math.floor(totalS / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((totalS % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalS % 60).padStart(2, '0');
+  const mmm = String(clamped % 1000).padStart(3, '0');
+  return `${hh}:${mm}:${ss}.${mmm}`;
+}
+
+/**
+ * `GET /api/voice/conversations/:id/download.:kind` — download a conversation's
+ * transcript (`txt`/`vtt`, generated from `transcript_json`) or its recording
+ * (`mp3` audio / `mp4` video, streamed from R2 via the recordings route). Backs the
+ * detail-view download buttons, which were UNWIRED (route missing → every button 404'd).
+ * Registered as `:id/:file` because Hono treats `download.mp3` as one segment; the kind
+ * is parsed + allow-listed off `:file` (anything else → 404). Org-scoped via the owning
+ * call. Sibling of the `/api/voice/conversations/:id` detail route.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 404 NOT_FOUND for an unknown kind, a foreign/missing call, or an absent recording.
+ */
+voiceRoutes.get('/api/voice/conversations/:id/:file', async (c) => {
+  const { orgId } = requireAuth(c);
+  const id = c.req.param('id');
+  const kind = /^download\.(txt|vtt|mp3|mp4)$/.exec(c.req.param('file'))?.[1];
+  if (!id || !kind) throw notFound('Not found');
+
+  const call = await dbQueryOne<{ id: string; transcript_json: string | null }>(
+    c.env.DB,
+    `SELECT id, transcript_json FROM voice_calls
+       WHERE id = ? AND org_id = ? AND deleted_at IS NULL LIMIT 1`,
+    [id, orgId],
+  );
+  if (!call) throw notFound('Conversation not found');
+
+  if (kind === 'txt' || kind === 'vtt') {
+    const turns = parseTranscript(call.transcript_json);
+    const who = (s: 'caller' | 'agent') => (s === 'agent' ? 'AI' : 'Caller');
+    const body =
+      kind === 'txt'
+        ? turns.map((t) => `${who(t.speaker)}: ${t.text}`).join('\n')
+        : `WEBVTT\n\n${turns
+            .map(
+              (t, i) =>
+                `${i + 1}\n${vttTime(t.t_ms)} --> ${vttTime(turns[i + 1]?.t_ms ?? t.t_ms + 3000)}\n<v ${who(t.speaker)}>${t.text}`,
+            )
+            .join('\n\n')}`;
+    return new Response(body || (kind === 'vtt' ? 'WEBVTT\n' : ''), {
+      headers: {
+        'Content-Type': kind === 'vtt' ? 'text/vtt; charset=utf-8' : 'text/plain; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${id}.${kind}"`,
+      },
+    });
+  }
+
+  // mp3 → audio recording, mp4 → video recording; both stream from R2 via the
+  // proven recordings route (range-aware). Absent → 404 (never fabricate bytes).
+  const rec = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    `SELECT id FROM voice_recordings WHERE call_id = ? AND kind = ? AND deleted_at IS NULL LIMIT 1`,
+    [id, kind === 'mp3' ? 'audio' : 'video'],
+  );
+  if (!rec) throw notFound('Recording not available for this conversation');
+  return c.redirect(`/api/voice/recordings/${rec.id}/stream`, 302);
+});
+
 // ─── call detail ────────────────────────────────────────────────
 
 /**

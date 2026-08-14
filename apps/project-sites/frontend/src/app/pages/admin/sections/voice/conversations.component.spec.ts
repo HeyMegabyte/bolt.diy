@@ -215,3 +215,61 @@ describe('VoiceConversationsComponent (detail caller is click-to-call)', () => {
     expect(link!.textContent?.trim()).withContext('shows the formatted number').toBe('(201) 555-1234');
   });
 });
+
+// The download buttons hit a bearer-authenticated worker route, so the OLD
+// implementation (a bare `<a download href="/api/…">` navigation) always 401'd —
+// a browser navigation can't send the Authorization header. download() must fetch
+// the bytes WITH auth (getBlob), object-URL them, and click a transient link.
+describe('VoiceConversationsComponent (authenticated artifact download)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithBlob(getBlob: jasmine.Spy): VoiceConversationsComponent {
+    TestBed.configureTestingModule({
+      imports: [VoiceConversationsComponent],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: { get: jasmine.createSpy('get').and.returnValue(of({ items: [] })), getBlob },
+        },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(VoiceConversationsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(VoiceConversationsComponent).componentInstance;
+  }
+
+  it('download() fetches the artifact WITH auth (getBlob) and object-URL clicks it — never a bare <a href> that 401s', () => {
+    const blob = new Blob(['Caller: hi'], { type: 'text/plain' });
+    const getBlob = jasmine.createSpy('getBlob').and.returnValue(of(blob));
+    const c = makeWithBlob(getBlob);
+
+    const createSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:fake');
+    spyOn(URL, 'revokeObjectURL');
+    let clickedHref: string | null = null;
+    let clickedDownload: string | null = null;
+    const clickSpy = spyOn(HTMLAnchorElement.prototype, 'click').and.callFake(function (this: HTMLAnchorElement) {
+      clickedHref = this.getAttribute('href');
+      clickedDownload = this.download;
+    });
+
+    c.download({ id: 'call-1', channel: 'call' } as never, 'txt');
+
+    expect(getBlob).withContext('authed blob fetch, relative to /api').toHaveBeenCalledWith(
+      '/voice/conversations/call-1/download.txt',
+    );
+    expect(createSpy).withContext('bytes wrapped in an object URL').toHaveBeenCalledWith(blob);
+    expect(clickSpy).toHaveBeenCalled();
+    // Cast restores the string|null union — TS flow-narrows a closure-assigned
+    // `let x: string|null = null` back to `null` at read sites in the outer scope.
+    expect(clickedHref as string | null).withContext('clicks the object URL, not the /api path').toBe('blob:fake');
+    expect(clickedDownload as string | null).withContext('suggested filename = {id}.{kind}').toBe('call-1.txt');
+  });
+
+  it('download() swallows a fetch failure (ApiService owns the toast) — never throws', () => {
+    const getBlob = jasmine.createSpy('getBlob').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = makeWithBlob(getBlob);
+    expect(() => c.download({ id: 'call-1', channel: 'call' } as never, 'vtt')).not.toThrow();
+    expect(getBlob).toHaveBeenCalledWith('/voice/conversations/call-1/download.vtt');
+  });
+});

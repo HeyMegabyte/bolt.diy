@@ -197,6 +197,26 @@ export class ApiService {
   }
 
   /**
+   * Authenticated binary GET → `Blob`, for endpoints that stream a file the user
+   * downloads (e.g. a voice transcript or recording export). A plain
+   * `<a download href>` navigation can't carry the `Authorization: Bearer` header
+   * (auth here is bearer-only, not cookie), so those routes would 401 — the caller
+   * must fetch WITH auth, then object-URL + click the resulting blob. The shared
+   * 30s-timeout + `http.failure` telemetry + 401-redirect handling still apply.
+   *
+   * @param path - Relative to `/api` (e.g. `/voice/conversations/abc/download.txt`).
+   * @example
+   * ```ts
+   * this.api.getBlob(`/voice/conversations/${id}/download.txt`).subscribe((b) => saveBlob(b));
+   * ```
+   */
+  getBlob(path: string, opts?: { silent?: boolean }): Observable<Blob> {
+    return this.http
+      .get(`/api${path}`, { headers: this.headers(), responseType: 'blob' })
+      .pipe(this.handleError(opts?.silent));
+  }
+
+  /**
    * Worker `/health` probe (KV + R2). Lives OUTSIDE `/api`, needs no auth, and
    * must fail SAFE — a probe error resolves to `null` so the topbar status pill
    * shows "unknown" rather than spamming a toast. Zod-validated at the boundary

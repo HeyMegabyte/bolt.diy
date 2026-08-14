@@ -559,15 +559,28 @@ export class VoiceConversationsComponent implements OnDestroy {
   closeDetail(): void { this.detail.set(null); }
 
   /**
-   * Trigger a download for the chosen artifact via a transient `<a>` element.
+   * Download the chosen artifact (transcript txt/vtt, or mp3/mp4 recording).
+   *
+   * The worker route is bearer-authenticated, so a plain `<a download href>`
+   * navigation — which can't send the `Authorization` header — would 401. We fetch
+   * the bytes WITH auth via {@link ApiService.getBlob}, wrap them in an object URL,
+   * click a transient link, then revoke the URL. Errors surface through the shared
+   * ApiService toast; nothing else to do here.
    * @param c Conversation to download.
    * @param kind File kind — mp3, mp4, txt, or vtt.
    */
   download(c: Conversation, kind: 'mp3' | 'mp4' | 'txt' | 'vtt'): void {
-    const url = `/api/voice/conversations/${c.id}/download.${kind}`;
-    const a = document.createElement('a');
-    a.href = url; a.download = `${c.id}.${kind}`;
-    document.body.appendChild(a); a.click(); a.remove();
+    this.api.getBlob(`/voice/conversations/${c.id}/download.${kind}`).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${c.id}.${kind}`;
+        document.body.appendChild(a); a.click(); a.remove();
+        // Revoke on the next macrotask so the download has committed first.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: () => { /* ApiService already toasted the failure. */ },
+    });
   }
 
   format(e164: string): string {
