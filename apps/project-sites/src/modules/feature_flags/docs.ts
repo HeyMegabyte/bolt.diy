@@ -236,36 +236,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'e2e/_fortress/billing/adversarial.spec.ts',
     ],
   },
-  storefront_ecommerce: {
-    checklist: [
-      'Lightweight native storefront for generated sites',
-      'Products + variants in D1, assets in R2',
-      'Checkout via Square Web Payments behind payments_rail',
-      'Native (not MedusaJS) — no third-party storefront dep',
-    ],
-    explanation:
-      'A lightweight native storefront for generated sites — products and variants in D1, media in R2, and checkout via Square Web Payments behind the payments_rail seam (no MedusaJS or third-party storefront dependency). Owners add products in the admin and a cart renders on the published site. When off, the storefront routes 404 and no cart renders.',
-    smoke_test: [
-      'POST /api/sites/:id/products {title, price_cents, variants} → product row',
-      'Add to cart on the published site → checkout opens a Square payment via payments_rail',
-      'Disable the flag → the storefront routes 404',
-    ],
-  },
-  ai_concierge_widget: {
-    checklist: [
-      'Visitor-facing per-site AI concierge',
-      'Grounded in the site’s own content (RAG)',
-      'Real tool-calls: book / quote / route',
-      'Stateful agent, not a chatbot placeholder',
-    ],
-    explanation:
-      'A visitor-facing per-site AI concierge grounded in the site’s own content with real tool-calls (book a slot, request a quote, route to the right page) — a stateful agent, not a scripted chatbot. Injected into the published site when enabled; answers come from the site’s indexed content. When off, the widget is not injected and the concierge route 404s.',
-    smoke_test: [
-      'POST /api/sites/:id/concierge {message:"do you take walk-ins?"} → grounded answer',
-      'Ask to book → the concierge invokes the booking tool (native_booking_engine)',
-      'Disable the flag → the widget is absent from the published HTML, the route 404s',
-    ],
-  },
   lead_scanner: {
     checklist: [
       'POST /api/admin/leads/scan — Google Places text-search → scored leads',
@@ -637,6 +607,84 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'curl https://projectsites.dev/.well-known/oauth-protected-resource → 200 JSON with resource + authorization_servers + scopes_supported',
     ],
     e2e_tests: ['e2e/mcp/mcp-providers.spec.ts'],
+  },
+  app_launcher: {
+    checklist: [
+      'Per-tenant app provisioning planner over the 11-app catalog (Plane, Twenty, Listmonk, Chatwoot, Lago, Unkey, Nango, Payload, ...)',
+      'ON -> GET /api/apps/catalog lists apps; POST /api/apps/launch returns a provisioning plan',
+      'OFF (default) -> both routes 404 (no existence leak)',
+      'Planner only: hands a plan to the operator, does not itself provision',
+    ],
+    explanation:
+      'Account-level app catalog + launch planner. When ON, an org browses the 11 provisionable companion apps and requests a launch plan; when OFF (default) the /api/apps/* routes 404. Off-vision relative to the core site builder -- it is the Apps expansion surface, not site generation.',
+    smoke_test: [
+      'Flag ON: GET /api/apps/catalog returns the 11-app catalog',
+      'Flag ON: POST /api/apps/launch with an app id returns a structured plan',
+      'Flag OFF (default): both routes return 404',
+    ],
+  },
+  code_export: {
+    checklist: [
+      'One-click export of a generated site as a self-contained, deployable Cloudflare Worker project',
+      'ON -> GET /api/sites/:id/export streams a zip of R2 assets + D1 schema for the caller org',
+      'OFF (default) -> 404 with no existence leak; unauth -> 401/403 (never a zip)',
+      'Ownership-gated: only the site owner org can export it',
+    ],
+    explanation:
+      'Packages a published site into a deployable CF Worker zip (R2 assets + D1 schema). When ON, GET /api/sites/:id/export returns the archive for an authenticated owner; when OFF (default) or unauthenticated it returns 401/403/404 and never leaks a zip. Serves site portability, a core builder capability.',
+    smoke_test: [
+      'Flag ON, authed owner: GET /api/sites/:id/export streams a valid zip',
+      'Flag ON, wrong org: 404 (no cross-org leak)',
+      'Unauthenticated: 401/403/404, never a zip body',
+      'Flag OFF (default): 404',
+    ],
+    e2e_tests: ['e2e/ai-actions/export-safety.spec.ts'],
+  },
+  marketing_dashboard: {
+    checklist: [
+      'Widget-based analytics dashboard: 11 default widgets across 6 sources (website/email/social/ads/crm/booking)',
+      'ON -> GET /api/sites/:id/dashboard returns widget config + metrics; POST .../metric adds a metric',
+      'OFF (default) -> both routes 404',
+      'Source filter (?sources=) narrows the returned widgets',
+    ],
+    explanation:
+      'Owner-facing marketing dashboard aggregating widgets across website, email, social, ads, CRM and booking sources. When ON, GET/POST /api/sites/:id/dashboard serve + mutate the widget config; when OFF (default) they 404. The non-website sources make it an SMB-suite surface beyond the core site builder.',
+    smoke_test: [
+      'Flag ON: GET /api/sites/:id/dashboard returns 11 default widgets',
+      'Flag ON: ?sources=website,email filters the widget set',
+      'Flag ON: POST /api/sites/:id/dashboard/metric adds a metric',
+      'Flag OFF (default): both routes 404',
+    ],
+  },
+  social_publishing_native: {
+    checklist: [
+      'Native social posting (instant + scheduled) across 14 platforms: the CF-native replacement for Postiz',
+      'ANCHOR flag: also gates the folded social_agent (content proposals + engagement scoring)',
+      'ON -> /api/sites/:id/social/* proposal + publishing surfaces resolve',
+      'OFF (default) -> the social surfaces 404',
+    ],
+    explanation:
+      'Native social publishing on CF primitives (D1 + Upstash + Workflows v2 + MCP OAuth), replacing the Postiz escape-hatch. Group ANCHOR flag: the social_agent content-proposal module folds under it, so one flag toggles the whole native-social area. Off-vision relative to the core site builder -- it is the Social expansion.',
+    smoke_test: [
+      'Flag ON: POST /api/sites/:id/social/proposals returns platform-aware content proposals',
+      'Flag ON: the native social publishing surface accepts an instant + a scheduled post',
+      'Flag OFF (default): the social surfaces 404',
+    ],
+  },
+  visual_automation: {
+    checklist: [
+      'Journey validation engine: 7 action types, 6 trigger types, linear journey validation with error reporting',
+      'ON -> POST /api/sites/:id/automation/validate checks a journey definition',
+      'OFF (default) -> the route 404s',
+      'Validation only: reports structural errors + step-delay estimates, does not execute journeys',
+    ],
+    explanation:
+      'Validates visual-automation journey definitions: 7 action types and 6 trigger types, linear-journey structural validation, and step-delay estimation. When ON, POST /api/sites/:id/automation/validate returns validation results; when OFF (default) it 404s. It validates journeys rather than running them.',
+    smoke_test: [
+      'Flag ON: POST /api/sites/:id/automation/validate with a valid journey returns ok',
+      'Flag ON: an invalid journey returns structured validation errors',
+      'Flag OFF (default): the route 404s',
+    ],
   },
 };
 
