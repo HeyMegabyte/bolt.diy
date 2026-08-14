@@ -115,115 +115,12 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 
-// ─── GET /api/admin/domains — List all domains (org-scoped) ───
-
-describe('GET /api/admin/domains', () => {
-  it('returns 401 when not authenticated', async () => {
-    const app = new Hono<{ Bindings: Env; Variables: Variables }>();
-    app.onError(errorHandler);
-    app.route('/', api);
-    const env = createMockEnv();
-
-    const res = await makeRequest(app, env, '/api/admin/domains');
-    expect(res.status).toBe(401);
-  });
-
-  it('returns all domains for the org with pagination', async () => {
-    const domains = [
-      {
-        id: 'h-1',
-        hostname: 'test.projectsites.dev',
-        type: 'free_subdomain',
-        status: 'active',
-        ssl_status: 'active',
-        site_id: 'site-1',
-        org_id: 'org-1',
-        is_primary: 1,
-        cf_custom_hostname_id: 'cf-1',
-        created_at: '2026-01-01T00:00:00Z',
-      },
-      {
-        id: 'h-2',
-        hostname: 'custom.example.com',
-        type: 'custom_cname',
-        status: 'pending',
-        ssl_status: 'pending',
-        site_id: 'site-1',
-        org_id: 'org-1',
-        is_primary: 0,
-        cf_custom_hostname_id: 'cf-2',
-        created_at: '2026-01-02T00:00:00Z',
-      },
-    ];
-
-    mockDbQuery.mockResolvedValueOnce({ data: domains, error: null });
-
-    const { app, env } = createAuthenticatedApp({
-      userId: 'user-1',
-      orgId: 'org-1',
-      userRole: 'owner',
-    });
-
-    const res = await makeRequest(app, env, '/api/admin/domains?limit=50&offset=0');
-    expect(res.status).toBe(200);
-
-    const body = await res.json();
-    expect(body.data).toHaveLength(2);
-    expect(body.data[0].hostname).toBe('test.projectsites.dev');
-    expect(body.data[1].hostname).toBe('custom.example.com');
-  });
-
-  it('returns empty array when no domains exist', async () => {
-    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
-
-    const { app, env } = createAuthenticatedApp({
-      userId: 'user-1',
-      orgId: 'org-1',
-    });
-
-    const res = await makeRequest(app, env, '/api/admin/domains');
-    expect(res.status).toBe(200);
-
-    const body = await res.json();
-    expect(body.data).toEqual([]);
-  });
-
-  it('supports filtering by status', async () => {
-    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
-
-    const { app, env } = createAuthenticatedApp({
-      userId: 'user-1',
-      orgId: 'org-1',
-    });
-
-    const res = await makeRequest(app, env, '/api/admin/domains?status=pending');
-    expect(res.status).toBe(200);
-
-    expect(mockDbQuery).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining('status = ?'),
-      expect.arrayContaining(['pending']),
-    );
-  });
-
-  it('supports filtering by type', async () => {
-    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
-
-    const { app, env } = createAuthenticatedApp({
-      userId: 'user-1',
-      orgId: 'org-1',
-    });
-
-    const res = await makeRequest(app, env, '/api/admin/domains?type=custom_cname');
-    expect(res.status).toBe(200);
-
-    expect(mockDbQuery).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining('type = ?'),
-      expect.arrayContaining(['custom_cname']),
-    );
-  });
-});
+// NOTE: `GET /api/admin/domains` (base list) was REMOVED from the `api` router
+// iter 48 — it was a dead shadow of aiAdmin's sites-grouped handler (which mounts
+// first and wins in the real worker). Its 5 isolation tests here only passed
+// because this file mounts `api` alone. The live handler is covered end-to-end by
+// platform/admin E2E; the routes below (verify/delete/health/summary) remain unique
+// to this router and are exercised here.
 
 // ─── POST /api/admin/domains/:hostnameId/verify — Re-verify domain ───
 

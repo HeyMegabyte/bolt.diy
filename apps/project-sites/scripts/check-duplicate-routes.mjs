@@ -50,13 +50,11 @@ export const ALLOWLIST = {
   'GET /api/apps/catalog': 'intentional',
   // domain_purchase mounted before `api` so the wallet-aware purchase wins over legacy.
   'POST /api/domains/purchase': 'intentional',
-  // COLLISION (iter 33 analysis): aiAdmin.ts:2329 (`{data:{sites}}`, sites-grouped, wins)
-  // shadows api.ts:5838 (`{data}`, flat hostnames + pagination + status/type filters,
-  // DOCUMENTED w/ curl example + 5 tests in domain_admin.test.ts). BOTH are FE-unconsumed
-  // (only `/admin/domains/summary` is called) → no live consumer disambiguates the
-  // canonical contract. Resolving = a DELIBERATE API-contract decision (one-way door:
-  // changing a documented response shape), NOT a quick delete. Not a live bug (FE-unused).
-  'GET /api/admin/domains': 'review',
+  // RESOLVED iter 48 — the shadowed flat-list handler in api.ts was DELETED (dead:
+  // aiAdmin.ts:2329's sites-grouped `{data:{sites}}` mounts first + WINS, prod-verified
+  // via authed curl). aiAdmin is now the sole registration. Its 5 isolation tests +
+  // lying flat-shape JSDoc were removed with it. The verify/delete/health/summary
+  // `/api/admin/domains/*` routes in api.ts are unique (not shadowed) and stay.
   // RESOLVED iter 47 — the duplicate `GET /` in index.ts was CONSOLIDATED into a
   // single handler, so it no longer appears here. ⚠️ The prior iter-33 analysis
   // ("2nd handler is moot, DELETE it") was WRONG: prod curls (iter 47) proved the

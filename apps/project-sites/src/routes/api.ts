@@ -5790,80 +5790,14 @@ api.get('/api/admin/profile/:site_id/context', async (c) => {
 
 // ─── Admin Domain Management Routes ─────────────────────────
 
-/**
- * List all hostnames (free subdomains + custom CNAMEs) attached to the
- * caller's organization with optional status/type filtering and
- * keyset-paginated by descending `created_at`.
- *
- * @route GET /api/admin/domains
- * @auth Bearer orgId required — query is org-scoped via
- *   `WHERE org_id = ?`. Despite the `/admin/` path prefix, no
- *   platform-admin role is enforced here — this is per-org admin
- *   surface for self-service domain management. True platform admin
- *   surfaces (cross-org listing, takedown) live behind a separate
- *   role check elsewhere.
- * @queryParam status - Optional filter: `active` | `pending` |
- *   `verification_failed` | `archived` etc. Passed through as exact
- *   match — no whitelist enforcement at the route layer (Zod schemas
- *   in the hostnames service guarantee only valid status values
- *   ever get persisted).
- * @queryParam type - Optional filter: `free_subdomain` (default
- *   `*.projectsites.dev`) | `custom_cname` (user-purchased domain
- *   via `/api/domains/purchase`).
- * @queryParam limit - Page size, default 50, capped at 200 to bound
- *   D1 row-read cost.
- * @queryParam offset - Skip count for offset-based pagination,
- *   floored at 0. (Offset pagination is fine here — domain lists
- *   are typically small, no need for keyset complexity.)
- * @returns 200 OK `{ data: Hostname[] }` ordered by `created_at` DESC
- *   (newest provisions first). Each row includes the full hostname
- *   record from D1 (id, hostname, status, type, ssl_status, etc.).
- *   Soft-deleted rows (`deleted_at IS NOT NULL`) are excluded.
- * @throws UNAUTHORIZED — missing/invalid Bearer token.
- *
- * @remarks
- * Filters compose via parameterized SQL fragments — never concatenated
- * into the query string. This route is the read surface that pairs
- * with the write surface in
- * `POST/PUT/DELETE /api/sites/:siteId/hostnames/*` (route-level
- * site-scoped); use this endpoint for org-wide views (e.g. "all
- * domains across all sites for billing reconciliation").
- *
- * @example
- * ```bash
- * curl -H "Authorization: Bearer $TOKEN" \
- *   'https://projectsites.dev/api/admin/domains?status=active&type=custom_cname&limit=100'
- * ```
- */
-api.get('/api/admin/domains', async (c) => {
-  const orgId = c.get('orgId');
-  if (!orgId) throw unauthorized('Must be authenticated');
-
-  const limit = Math.min(Number(c.req.query('limit') ?? '50'), 200);
-  const offset = Math.max(Number(c.req.query('offset') ?? '0'), 0);
-  const statusFilter = c.req.query('status');
-  const typeFilter = c.req.query('type');
-
-  let sql = 'SELECT * FROM hostnames WHERE org_id = ? AND deleted_at IS NULL';
-  const params: unknown[] = [orgId];
-
-  if (statusFilter) {
-    sql += ' AND status = ?';
-    params.push(statusFilter);
-  }
-
-  if (typeFilter) {
-    sql += ' AND type = ?';
-    params.push(typeFilter);
-  }
-
-  sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(limit, offset);
-
-  const { data } = await dbQuery<Record<string, unknown>>(c.env.DB, sql, params);
-
-  return c.json({ data });
-});
+// NOTE: `GET /api/admin/domains` (org-wide hostname list) is served by aiAdmin
+// (routes/ai_admin.ts:~2329), which mounts BEFORE this `api` router and returns
+// the sites-grouped `{data:{sites:[{site,hostnames}]}}` shape the Settings→Domains
+// UI renders. A second, flat-paginated handler formerly lived HERE but was dead
+// (first-registered aiAdmin always shadowed it — prod-verified iter 48) with docs
+// that described its never-served shape. Removed iter 48 to resolve the last
+// duplicate-route allowlist entry. The `/summary` + `/:hostnameId` verify/health/
+// delete surfaces below are unique to this router and LIVE.
 
 /**
  * Aggregate counts of hostnames attached to the caller's org, bucketed
