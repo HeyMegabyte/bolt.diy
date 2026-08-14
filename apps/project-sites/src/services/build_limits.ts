@@ -28,6 +28,26 @@ const PAID_LIMIT = 50;
 const UNLIMITED_ORGS = new Set<string>();
 
 /**
+ * Whether the org's OWNER is on the unlimited whitelist (platform-operator
+ * dogfooding orgs get unlimited builds + AI budget). Currently
+ * `brian@megabyte.space` only. Shared by build_limits + build_budget so the
+ * whitelist lives in ONE place (was duplicated + hardcoded in both).
+ *
+ * @remarks Broadening this to the full super-admin set (`SYS_ADMIN_EMAILS`,
+ * which adds `hey@megabyte.space`) is a COST/business decision — it grants free
+ * unlimited compute — so it stays brian-only until Brian decides. Fail-closed:
+ * a DB error denies (returns false).
+ */
+export async function isUnlimitedOrgOwner(db: D1Database, orgId: string): Promise<boolean> {
+  const owner = await dbQueryOne<{ email: string }>(
+    db,
+    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' LIMIT 1`,
+    [orgId],
+  ).catch(() => null);
+  return owner?.email === 'brian@megabyte.space';
+}
+
+/**
  * Check whether the org can create another site without exceeding its plan.
  *
  * @param db    - D1Database binding.
@@ -52,13 +72,8 @@ export async function checkBuildLimit(
     return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
   }
 
-  // Check if the org owner's email is in the unlimited list
-  const owner = await dbQueryOne<{ email: string }>(
-    db,
-    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' LIMIT 1`,
-    [orgId],
-  );
-  if (owner?.email === 'brian@megabyte.space') {
+  // Owner on the unlimited whitelist → unlimited builds (shared with build_budget).
+  if (await isUnlimitedOrgOwner(db, orgId)) {
     UNLIMITED_ORGS.add(orgId);
     return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
   }

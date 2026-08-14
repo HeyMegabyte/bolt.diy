@@ -25,6 +25,7 @@
  */
 import { z } from 'zod';
 import { dbExecute, dbQueryOne } from './db.js';
+import { isUnlimitedOrgOwner } from './build_limits.js';
 
 /** Metric name used to accumulate AI spend rows in `usage_events`. */
 export const AI_SPEND_METRIC = 'ai_spend_micro_usd';
@@ -110,13 +111,8 @@ async function hasUnlimitedBudget(
   plan: 'free' | 'paid' | 'unlimited',
 ): Promise<boolean> {
   if (plan === 'unlimited' || UNLIMITED_ORGS.has(orgId)) return true;
-  const owner = await dbQueryOne<{ email: string }>(
-    db,
-    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id
-     WHERE m.org_id = ? AND m.role = 'owner' LIMIT 1`,
-    [orgId],
-  ).catch(() => null);
-  if (owner?.email === 'brian@megabyte.space') {
+  // Owner on the unlimited whitelist (shared single-source with build_limits).
+  if (await isUnlimitedOrgOwner(db, orgId)) {
     UNLIMITED_ORGS.add(orgId);
     return true;
   }
