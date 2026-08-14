@@ -4635,13 +4635,13 @@ Surveyed ~50 themes across the unified-LLM-proxy space: OpenAI-compatible passth
 
 - [ ] LOOP-LLM-024: Migrate all existing AI features onto the gateway + decommission direct calls [parked]
   - Why: The plane only delivers value when site-gen, concierge, content, support-triage, social posts ALL route through it — no shadow paths.
-  - Acceptance criteria: every existing AI caller (`ai_workflows`, `chat_synthesis`, `image_generation` text parts, `openai_research`, social) uses `routeForTier`/LiteLLM base URL; LOOP-LLM-006 gate passes repo-wide; per-feature tier mapping documented; E2E proves each feature still works post-migration.
+  - Acceptance criteria: every existing AI caller (`ai_workflows`, `image_generation` text parts, `openai_research`, social) uses `routeForTier`/LiteLLM base URL; LOOP-LLM-006 gate passes repo-wide; per-feature tier mapping documented; E2E proves each feature still works post-migration.
   - Implementation notes: incremental, feature-by-feature behind a `llm_gateway_<feature>` flag; grep full include-list per [[feedback_convergence_overclaim]] to avoid over-claiming "migrated".
   - Hosting notes: in-worker callers → LiteLLM/gateway.
   - Backing services: all of the above.
   - Observability: pre/post tier-mix + cost delta per feature to Tinybird.
   - Dependencies: LOOP-LLM-002, LOOP-LLM-006, LOOP-LLM-020.
-  - Related files: `apps/project-sites/src/services/ai_workflows.ts`, `chat_synthesis.ts`, `openai_research.ts`, `image_generation.ts`, `workflows/site-generation.ts`.
+  - Related files: `apps/project-sites/src/services/ai_workflows.ts`, `openai_research.ts`, `image_generation.ts`, `workflows/site-generation.ts`.
 
 ## browser.projectsites.dev — Browser Automation
 

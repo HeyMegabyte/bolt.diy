@@ -75,7 +75,7 @@ bolt.diy/
 │       │   ├── types/env.ts      # Env bindings + Variables
 │       │   ├── middleware/       # auth, error_handler, payload_limit, request_id, security_headers
 │       │   ├── routes/           # api.ts, health.ts, search.ts, webhooks.ts
-│       │   ├── services/         # ai_workflows, analytics, audit, auth, billing, build_context, build_limits, chat_synthesis, confidence, contact, db, domains, external_llm, google_places, image_discovery, image_generation, notifications, openai_research, sentry, site_serving, template_cache, webhook
+│       │   ├── services/         # ai_workflows, analytics, audit, auth, billing, build_limits, confidence, contact, db, domains, external_llm, google_places, image_generation, media, notifications, openai_research, rag, site_serving, webhook
 │       │   ├── prompts/          # TS infra: parser, renderer, registry, schemas, observability, types
 │       │   ├── workflows/        # site-generation.ts (Cloudflare Workflow)
 │       │   ├── lib/              # posthog.ts, sentry.ts

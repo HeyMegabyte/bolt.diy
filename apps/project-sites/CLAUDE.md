@@ -517,25 +517,20 @@ src/
 │   ├── audit.ts                # Append-only audit log writes
 │   ├── auth.ts                 # Custom auth: magic link, Google OAuth, D1 sessions (fallback rail)
 │   ├── billing.ts              # Stripe checkout, subscriptions, entitlements
-│   ├── build_context.ts        # Build context assembly for container builds
 │   ├── build_limits.ts         # Build rate limiting + concurrency
-│   ├── chat_synthesis.ts       # Chat context synthesis for AI
 │   ├── confidence.ts           # Confidence scoring for research data
 │   ├── contact.ts              # Contact form handling
 │   ├── db.ts                   # D1 query helpers (dbQuery, dbInsert, dbUpdate, dbExecute)
 │   ├── domains.ts              # CF for SaaS custom hostname provisioning
 │   ├── external_llm.ts         # External LLM provider routing (OpenAI, Anthropic, etc.)
 │   ├── google_places.ts        # Google Places API integration
-│   ├── image_discovery.ts      # Multi-API image discovery (Unsplash, Pexels, etc.)
 │   ├── image_generation.ts     # AI image generation (DALL-E, Stability, etc.)
 │   ├── media.ts                # Unified media library (uploads + stock + DALL·E + Sora + TTS + send-to-bolt)
 │   ├── notifications.ts        # Email notifications (Resend/SendGrid)
 │   ├── openai_research.ts      # OpenAI-powered research pipeline
 │   ├── rag.ts                  # Vectorize + AutoRAG (embed, indexChunk, semanticSearch, autoRagQuery)
-│   ├── sentry.ts               # Error tracking (Toucan SDK)
 │   ├── site_serving.ts         # R2 static file serving + top bar injection for unpaid
 │   ├── task_inbox.ts           # Task tray: postAskUser, resolveTask, applyExpiredDefaults
-│   ├── template_cache.ts       # R2 template caching for container builds
 │   └── webhook.ts              # Stripe signature verification, idempotency
 ├── prompts/
 │   ├── index.ts                # Registry initialization (registerAllPrompts)
