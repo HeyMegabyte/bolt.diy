@@ -273,3 +273,69 @@ describe('VoiceConversationsComponent (authenticated artifact download)', () => 
     expect(getBlob).toHaveBeenCalledWith('/voice/conversations/call-1/download.vtt');
   });
 });
+
+// Inline <audio>/<video> playback has the SAME bearer-nav problem as downloads —
+// a plain <audio src="/api/…"> can't send the Authorization header. openDetail must
+// fetch the recording as an authed blob (getBlob) and bind an object URL; the players
+// gate on the resulting signal, and closeDetail/destroy must revoke it (no leak).
+describe('VoiceConversationsComponent (authenticated media playback)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeMedia(detailData: Record<string, unknown>, getBlob: jasmine.Spy): VoiceConversationsComponent {
+    TestBed.configureTestingModule({
+      imports: [VoiceConversationsComponent],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: { get: jasmine.createSpy('get').and.returnValue(of({ data: detailData })), getBlob },
+        },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(VoiceConversationsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(VoiceConversationsComponent).componentInstance;
+  }
+
+  const listRow = (id: string) => ({ id, channel: 'call' }) as never;
+
+  it('openDetail on a call WITH a recording fetches the audio blob (authed) and binds an object URL', () => {
+    const getBlob = jasmine.createSpy('getBlob').and.returnValue(of(new Blob(['x'])));
+    const c = makeMedia({ id: 'call-1', channel: 'call', has_recording: true, from_number: '', to_number: '', started_at: '', status: 'completed' }, getBlob);
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:aud');
+    c.openDetail(listRow('call-1'));
+    expect(getBlob).withContext('authed blob fetch for the mp3, not a bare <audio src>').toHaveBeenCalledWith('/voice/conversations/call-1/download.mp3');
+    expect(c.audioUrl()).withContext('object URL bound for playback').toBe('blob:aud');
+    expect(c.videoUrl()).withContext('no video → null').toBeNull();
+  });
+
+  it('openDetail on a call WITH a video fetches the video blob and binds videoUrl', () => {
+    const getBlob = jasmine.createSpy('getBlob').and.returnValue(of(new Blob(['x'])));
+    const c = makeMedia({ id: 'call-2', channel: 'call', has_video: true, from_number: '', to_number: '', started_at: '', status: 'completed' }, getBlob);
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:vid');
+    c.openDetail(listRow('call-2'));
+    expect(getBlob).toHaveBeenCalledWith('/voice/conversations/call-2/download.mp4');
+    expect(c.videoUrl()).toBe('blob:vid');
+  });
+
+  it('a call with NO recording never fetches a blob (players stay hidden)', () => {
+    const getBlob = jasmine.createSpy('getBlob');
+    const c = makeMedia({ id: 'call-3', channel: 'call', from_number: '', to_number: '', started_at: '', status: 'completed' }, getBlob);
+    c.openDetail(listRow('call-3'));
+    expect(getBlob).not.toHaveBeenCalled();
+    expect(c.audioUrl()).toBeNull();
+  });
+
+  it('closeDetail revokes + clears the bound media URL (no object-URL leak)', () => {
+    const getBlob = jasmine.createSpy('getBlob').and.returnValue(of(new Blob(['x'])));
+    const c = makeMedia({ id: 'call-1', channel: 'call', has_recording: true, from_number: '', to_number: '', started_at: '', status: 'completed' }, getBlob);
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:aud');
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    c.openDetail(listRow('call-1'));
+    expect(c.audioUrl()).toBe('blob:aud');
+    c.closeDetail();
+    expect(revoke).withContext('revokes the object URL on close').toHaveBeenCalledWith('blob:aud');
+    expect(c.audioUrl()).toBeNull();
+    expect(c.detail()).toBeNull();
+  });
+});

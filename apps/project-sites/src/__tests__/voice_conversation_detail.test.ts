@@ -20,9 +20,10 @@ jest.mock('../services/db.js', () => ({
 import { Hono } from 'hono';
 import { voiceRoutes } from '../routes/voice.js';
 import { errorHandler } from '../middleware/error_handler.js';
-import { dbQueryOne } from '../services/db.js';
+import { dbQueryOne, dbQuery } from '../services/db.js';
 
 const mockQueryOne = dbQueryOne as jest.Mock;
+const mockQuery = dbQuery as jest.Mock;
 const ENV = { DB: {} } as unknown as Record<string, unknown>;
 
 function makeApp(vars: { orgId?: string; userId?: string } = { orgId: 'org-1', userId: 'user-1' }) {
@@ -60,18 +61,71 @@ describe('GET /api/voice/conversations/:id', () => {
     const res = await makeApp().request('/api/voice/conversations/call-1', {}, ENV);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      data: { channel: string; transcript: Array<{ speaker: string; text: string; t_ms: number }> };
+      data: {
+        channel: string;
+        transcript: Array<{ speaker: string; text: string; t_ms: number }>;
+        has_recording: boolean;
+        has_video: boolean;
+      };
     };
     expect(body.data.channel).toBe('call');
     expect(body.data.transcript).toEqual([
       { speaker: 'caller', text: 'hi', t_ms: 100 },
       { speaker: 'agent', text: 'hello', t_ms: 200 },
     ]);
+    // No recordings for this call → both media flags false (dbQuery → { data: [] }).
+    expect(body.data.has_recording).toBe(false);
+    expect(body.data.has_video).toBe(false);
     // Org-scoped, non-deleted query (no cross-org / soft-deleted leak).
     const sql = String(mockQueryOne.mock.calls[0][1]);
     expect(sql).toContain('org_id = ?');
     expect(sql).toContain('deleted_at IS NULL');
     expect(mockQueryOne.mock.calls[0][2]).toEqual(['call-1', 'org-1']);
+  });
+
+  it('a call WITH audio+video recordings sets has_recording + has_video (from voice_recordings)', async () => {
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'call-9',
+      from_number: '',
+      to_number: '',
+      started_at: '',
+      duration_seconds: null,
+      status: null,
+      sentiment: null,
+      summary: null,
+      transcript_json: null,
+    });
+    mockQuery.mockResolvedValueOnce({ data: [{ kind: 'audio' }, { kind: 'video' }] });
+    const res = await makeApp().request('/api/voice/conversations/call-9', {}, ENV);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { has_recording: boolean; has_video: boolean } };
+    expect(body.data.has_recording).toBe(true);
+    expect(body.data.has_video).toBe(true);
+    // The recordings lookup scopes to this call + media kinds only (not transcript rows).
+    const recSql = String(mockQuery.mock.calls[0][1]);
+    expect(recSql).toContain('voice_recordings');
+    expect(recSql).toContain("kind IN ('audio', 'video')");
+    expect(recSql).toContain('deleted_at IS NULL');
+    expect(mockQuery.mock.calls[0][2]).toEqual(['call-9']);
+  });
+
+  it('a call with only an audio recording → has_recording true, has_video false', async () => {
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'call-10',
+      from_number: '',
+      to_number: '',
+      started_at: '',
+      duration_seconds: null,
+      status: null,
+      sentiment: null,
+      summary: null,
+      transcript_json: null,
+    });
+    mockQuery.mockResolvedValueOnce({ data: [{ kind: 'audio' }] });
+    const res = await makeApp().request('/api/voice/conversations/call-10', {}, ENV);
+    const body = (await res.json()) as { data: { has_recording: boolean; has_video: boolean } };
+    expect(body.data.has_recording).toBe(true);
+    expect(body.data.has_video).toBe(false);
   });
 
   it('falls through to an SMS when no call matches', async () => {

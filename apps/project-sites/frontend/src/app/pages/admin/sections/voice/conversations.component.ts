@@ -56,8 +56,6 @@ interface Conversation {
   sentiment?: 'positive' | 'neutral' | 'negative';
   has_recording?: boolean;
   has_video?: boolean;
-  recording_url?: string;
-  video_url?: string;
   transcript?: TranscriptTurn[];
   summary?: string;
   escalation_reason?: string;
@@ -225,17 +223,27 @@ type DayGroup = { label: string; items: Conversation[] };
             </div>
           }
 
-          @if (d.recording_url) {
+          @if (audioUrl(); as au) {
             <div class="panel-block">
               <h5 class="block-h">Recording</h5>
-              <audio controls preload="metadata" class="w-full" [src]="d.recording_url"></audio>
+              <audio controls preload="metadata" class="w-full" [src]="au"></audio>
+            </div>
+          } @else if (d.has_recording) {
+            <div class="panel-block">
+              <h5 class="block-h">Recording</h5>
+              <p class="muted-help">Loading audio…</p>
             </div>
           }
 
-          @if (d.video_url) {
+          @if (videoUrl(); as vu) {
             <div class="panel-block">
               <h5 class="block-h">Video browse session</h5>
-              <video controls preload="metadata" class="w-full rounded-md" [src]="d.video_url"></video>
+              <video controls preload="metadata" class="w-full rounded-md" [src]="vu"></video>
+            </div>
+          } @else if (d.has_video) {
+            <div class="panel-block">
+              <h5 class="block-h">Video browse session</h5>
+              <p class="muted-help">Loading video…</p>
             </div>
           }
 
@@ -255,8 +263,8 @@ type DayGroup = { label: string; items: Conversation[] };
           }
 
           <div class="flex flex-wrap gap-2">
-            <button class="btn-ghost text-xs" type="button" (click)="download(d, 'mp3')" [disabled]="!d.recording_url">Download MP3</button>
-            <button class="btn-ghost text-xs" type="button" (click)="download(d, 'mp4')" [disabled]="!d.video_url">Download MP4</button>
+            <button class="btn-ghost text-xs" type="button" (click)="download(d, 'mp3')" [disabled]="!d.has_recording">Download MP3</button>
+            <button class="btn-ghost text-xs" type="button" (click)="download(d, 'mp4')" [disabled]="!d.has_video">Download MP4</button>
             <button class="btn-ghost text-xs" type="button" (click)="download(d, 'txt')">Transcript (TXT)</button>
             <button class="btn-ghost text-xs" type="button" (click)="download(d, 'vtt')">Subtitles (VTT)</button>
           </div>
@@ -382,6 +390,15 @@ export class VoiceConversationsComponent implements OnDestroy {
   loadError = signal<string | null>(null);
   detail = signal<Conversation | null>(null);
 
+  /**
+   * Object URLs for authed-blob media playback. A plain `<audio src="/api/…">` /
+   * `<video src>` can't carry the `Authorization: Bearer` header (auth is bearer-only),
+   * so those would 401 — we fetch the recording as a blob and bind an object URL
+   * instead. Revoked on detail-change / close / destroy to avoid leaks.
+   */
+  audioUrl = signal<string | null>(null);
+  videoUrl = signal<string | null>(null);
+
   // Signals (not plain props) so the list re-filters LIVE on keystroke and a
   // Clear button that resets them actually updates the view (a `computed`
   // doesn't react to plain-property mutation).
@@ -492,6 +509,7 @@ export class VoiceConversationsComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.clearMedia();
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.visibilityHandler);
   }
 
@@ -549,14 +567,50 @@ export class VoiceConversationsComponent implements OnDestroy {
 
 
   openDetail(c: Conversation): void {
-    if (c.transcript) { this.detail.set(c); return; }
+    this.clearMedia();
+    if (c.transcript) { this.detail.set(c); this.loadMedia(c); return; }
     this.api.get<{ data: Conversation }>(`/voice/conversations/${c.id}`).subscribe({
-      next: (r) => this.detail.set(r.data),
+      next: (r) => { this.detail.set(r.data); this.loadMedia(r.data); },
       error: () => this.detail.set(c),
     });
   }
 
-  closeDetail(): void { this.detail.set(null); }
+  closeDetail(): void { this.clearMedia(); this.detail.set(null); }
+
+  /**
+   * Fetch the call's audio/video recordings as authed blobs (only when the detail
+   * reports one is present) and bind object URLs for inline playback. A plain
+   * `<audio src="/api/…">` can't send the Bearer — the exact class the download()
+   * fix solved — so playback must also go through an authed blob fetch.
+   */
+  private loadMedia(conv: Conversation): void {
+    if (conv.has_recording) {
+      this.api.getBlob(`/voice/conversations/${conv.id}/download.mp3`).subscribe({
+        next: (b) => this.setMedia('audio', b),
+        error: () => { /* ApiService already surfaced it; player stays hidden. */ },
+      });
+    }
+    if (conv.has_video) {
+      this.api.getBlob(`/voice/conversations/${conv.id}/download.mp4`).subscribe({
+        next: (b) => this.setMedia('video', b),
+        error: () => { /* player stays hidden */ },
+      });
+    }
+  }
+
+  private setMedia(kind: 'audio' | 'video', blob: Blob): void {
+    const sig = kind === 'audio' ? this.audioUrl : this.videoUrl;
+    const prev = sig(); if (prev) URL.revokeObjectURL(prev);
+    sig.set(URL.createObjectURL(blob));
+  }
+
+  /** Revoke + clear any bound media object URLs (detail-change / close / destroy). */
+  private clearMedia(): void {
+    const a = this.audioUrl(); if (a) URL.revokeObjectURL(a);
+    const v = this.videoUrl(); if (v) URL.revokeObjectURL(v);
+    this.audioUrl.set(null);
+    this.videoUrl.set(null);
+  }
 
   /**
    * Download the chosen artifact (transcript txt/vtt, or mp3/mp4 recording).

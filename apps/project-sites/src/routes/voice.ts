@@ -554,6 +554,16 @@ voiceRoutes.get('/api/voice/conversations/:id', async (c) => {
     [id, orgId],
   );
   if (call) {
+    // Surface recording presence so the detail pane can enable the mp3/mp4
+    // download buttons + render the audio/video players. `voice_recordings.kind`
+    // ∈ audio|video|transcript_text|transcript_vtt — we only care about media here.
+    const recs = await dbQuery<{ kind: string }>(
+      c.env.DB,
+      `SELECT kind FROM voice_recordings
+         WHERE call_id = ? AND deleted_at IS NULL AND kind IN ('audio', 'video')`,
+      [call.id],
+    );
+    const kinds = new Set((recs.data ?? []).map((r) => r.kind));
     return c.json({
       data: {
         id: call.id,
@@ -566,6 +576,10 @@ voiceRoutes.get('/api/voice/conversations/:id', async (c) => {
         sentiment: call.sentiment ?? undefined,
         summary: call.summary ?? undefined,
         transcript: parseTranscript(call.transcript_json),
+        // `has_recording` = an audio recording exists (the FE's existing vocabulary +
+        // "Recording" player); `has_video` = a browse-session video exists.
+        has_recording: kinds.has('audio'),
+        has_video: kinds.has('video'),
       },
     });
   }
