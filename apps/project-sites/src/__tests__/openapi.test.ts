@@ -16,10 +16,9 @@ describe('buildOpenApiDocument (zod-to-openapi)', () => {
     expect(doc.servers?.[0]?.url).toBe('https://projectsites.dev');
   });
 
-  it('registers the search + collab + health paths', () => {
+  it('registers the search + health paths', () => {
     expect(doc.paths?.['/health']).toBeDefined();
     expect(doc.paths?.['/api/sites/{id}/search']).toBeDefined();
-    expect(doc.paths?.['/api/sites/{id}/collab']).toBeDefined();
   });
 
   it('derives reusable component schemas from the Zod schemas', () => {

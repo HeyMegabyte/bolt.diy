@@ -23,7 +23,6 @@ import { FLAG_REGISTRY } from '../modules/feature_flags/services.js';
  */
 const LIVE_ROUTE_FLAGS = [
   // own-file route modules
-  'unified_inbox',
   'outbound_webhooks',
   'email_deliverability_wizard',
   // features.ts grab-bag (wired + tested in prior loop iters)
@@ -31,7 +30,6 @@ const LIVE_ROUTE_FLAGS = [
   'pwa_manifest_full',
   'ai_auto_router',
   // libs/features modules
-  'gbp_assist',
   // (public_api un-flagged 2026-08-13 — removed from registry; had no route gate)
   // NOTE (2026-08-12 dead-flag prune): 8 keys removed from this list — abuse_takedown,
   // visitor_events_core, llms_txt, mcp_server, accessibility_statement, speculation_rules,

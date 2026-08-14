@@ -76,7 +76,7 @@ async function publishSiteFiles(
 }
 
 /** Flag key gating the whole platform MCP surface. */
-export const FLAG_KEY = 'platform_mcp';
+export const FLAG_KEY = 'mcp_server';
 
 /** MCP content-block result (text). */
 interface ToolResult {

@@ -124,7 +124,6 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
       'core_billing',
       'core_feature_flags',
       'mcp_server',
-      'public_api',
       'abuse_takedown',
     ]) {
       expect(keys).toContain(k);

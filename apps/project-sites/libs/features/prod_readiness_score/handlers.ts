@@ -19,7 +19,7 @@ import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { fetchOwnedSite, computeReadiness } from './service.js';
 
-const FLAG_KEY = 'prod_readiness_score';
+const FLAG_KEY = 'site_doctor';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 

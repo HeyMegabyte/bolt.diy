@@ -97,7 +97,7 @@ function makeEnv(opts: { throwAll?: boolean } = {}): { env: Env; events: Ev[] } 
 
 describe('visitor_events_core service', () => {
   it('exposes the flag key', () => {
-    expect(FLAG_KEY).toBe('visitor_events_core');
+    expect(FLAG_KEY).toBe('site_analytics');
   });
 
   it('records an event and rolls up traffic', async () => {

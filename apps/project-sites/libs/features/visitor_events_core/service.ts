@@ -20,7 +20,7 @@ import {
 import type { z } from 'zod';
 
 /** Flag key gating this feature. */
-export const FLAG_KEY = 'visitor_events_core';
+export const FLAG_KEY = 'site_analytics';
 
 /** Append one visitor event. Org/site resolved by the caller (handler), not the body. */
 export async function recordVisitorEvent(

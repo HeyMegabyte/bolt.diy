@@ -9,7 +9,7 @@
 // tree resolves a second copy (TS2345 "KVNamespace not assignable to KVNamespace").
 import type { OAuthClient, OAuthCode } from './schemas.js';
 
-export const FLAG_KEY = 'mcp_oauth_provider' as const;
+export const FLAG_KEY = 'mcp_server' as const;
 
 /** Code lives 600 seconds (10 minutes) — single-use. */
 export const CODE_TTL_SECONDS = 600;
