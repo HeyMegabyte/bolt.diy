@@ -23,7 +23,8 @@ import { dbExecute, dbQuery } from './db.js';
 /**
  * Per-vector metadata stored alongside the 768-dim embedding in Vectorize.
  *
- * Vectorize metadata filters are exact-match only — keep keys lowercase
+ * Vectorize metadata filters support exact-match (`orgId`) and `$in`
+ * set-membership (`kind`, see {@link semanticSearch}) — keep keys lowercase
  * strings or numbers. `text` is truncated to 500 chars so we never blow past
  * the 10 KiB per-vector metadata cap when paired with other fields.
  */
@@ -161,6 +162,11 @@ export async function indexChunk(
  *
  * Optional `kinds[]` and `orgId` translate into Vectorize metadata filters.
  * The `$in` operator scopes a kind list; `orgId` is exact-match.
+ *
+ * @remarks `topK` is clamped to [1, 20]. Vectorize caps `topK` at 20 whenever
+ * `returnMetadata: 'all'` is set (which this query needs, to read back the
+ * `text`/`kind`/`sourceId` preview) — a larger value is a hard 400, so we
+ * degrade to 20 results instead of failing the whole search.
  */
 export async function semanticSearch(
   env: Env,
@@ -168,7 +174,7 @@ export async function semanticSearch(
   opts: { topK?: number; kinds?: string[]; orgId?: string } = {},
 ): Promise<RagSearchResult[]> {
   if (!env.RAG_INDEX) throw new Error('semanticSearch: RAG_INDEX binding missing');
-  const topK = opts.topK ?? 10;
+  const topK = Math.min(Math.max(opts.topK ?? 10, 1), 20);
   const vector = await embedText(env, query);
 
   const filter: Record<string, unknown> = {};

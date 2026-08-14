@@ -122,4 +122,25 @@ describe('services/rag', () => {
     expect(results[1].kind).toBe('voice');
     expect(typeof results[1].metadata).toBe('object');
   });
+
+  it('clamps topK to Vectorize’s 20-max (returnMetadata:"all" 400s above 20)', async () => {
+    const { env, query } = makeEnv();
+
+    // A caller asking for 50 must NOT reach Vectorize with topK:50 — that is a
+    // hard 400 because the query sets returnMetadata:'all'. Degrade to 20.
+    await semanticSearch(env, 'big result set', { topK: 50, orgId: 'org-1' });
+
+    const [, options] = query.mock.calls[0];
+    expect(options.topK).toBe(20);
+    expect(options.returnMetadata).toBe('all');
+  });
+
+  it('clamps a zero/negative topK up to 1 (Vectorize requires topK >= 1)', async () => {
+    const { env, query } = makeEnv();
+
+    await semanticSearch(env, 'edge', { topK: 0 });
+
+    const [, options] = query.mock.calls[0];
+    expect(options.topK).toBe(1);
+  });
 });
