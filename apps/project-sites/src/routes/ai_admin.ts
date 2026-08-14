@@ -2627,8 +2627,14 @@ aiAdmin.post('/api/team/transfer', async (c) => {
   if (!toEmail.includes('@')) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'valid to_email required' } }, 400);
   }
-  // Caller must be owner.
-  const me = await c.env.DB.prepare(`SELECT role FROM memberships WHERE org_id = ? AND user_id = ?`)
+  // Caller must be a CURRENT owner. `deleted_at IS NULL` excludes soft-deleted
+  // memberships — a member removed via /api/auth/organization/remove-member is
+  // soft-deleted with their `role` intact, so without this filter a removed owner
+  // could still pass this gate and initiate a transfer of an org they no longer
+  // belong to. Matches every other membership role check in the worker.
+  const me = await c.env.DB.prepare(
+    `SELECT role FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL`,
+  )
     .bind(orgId, userId)
     .first<{ role: string }>();
   if (me?.role !== 'owner') {

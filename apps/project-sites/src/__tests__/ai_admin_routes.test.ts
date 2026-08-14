@@ -368,6 +368,55 @@ describe('POST /api/team/transfer-ownership', () => {
   });
 });
 
+// ─── Initiate ownership transfer (14-day pending request) ─────────────────────
+
+describe('POST /api/team/transfer (initiate 14-day pending request)', () => {
+  it('lets a current owner initiate a transfer (200, pending)', async () => {
+    const env = makeEnv(
+      makeDb([
+        { match: 'SELECT role FROM memberships', resp: { first: { role: 'owner' } } },
+        { match: 'INSERT INTO org_transfers', resp: { run: { success: true } } },
+      ]),
+    );
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/transfer', env, {
+      to_email: 'new-owner@example.com',
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { data?: { status?: string } }).toMatchObject({
+      data: { status: 'pending' },
+    });
+  });
+
+  it('rejects a non-owner (403)', async () => {
+    const env = makeEnv(
+      makeDb([{ match: 'SELECT role FROM memberships', resp: { first: { role: 'admin' } } }]),
+    );
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/transfer', env, {
+      to_email: 'x@example.com',
+    });
+    expect(res.status).toBe(403);
+  });
+
+  // Regression guard: the owner gate MUST exclude soft-deleted memberships. A member
+  // removed via /api/auth/organization/remove-member is SOFT-deleted with role intact
+  // (auth_org.ts), so without `deleted_at IS NULL` a removed owner could still pass this
+  // gate and initiate a transfer of an org they no longer belong to.
+  it('scopes the owner check to non-deleted memberships (deleted_at IS NULL)', async () => {
+    const db = makeDb([
+      { match: 'SELECT role FROM memberships', resp: { first: { role: 'owner' } } },
+      { match: 'INSERT INTO org_transfers', resp: { run: { success: true } } },
+    ]);
+    await req(makeApp(AUTH), 'POST', '/api/team/transfer', makeEnv(db), {
+      to_email: 'y@example.com',
+    });
+    const roleSql = (db.prepare as jest.Mock).mock.calls
+      .map((call) => String(call[0]))
+      .find((s) => /SELECT role FROM memberships/.test(s));
+    expect(roleSql).toBeDefined();
+    expect(roleSql).toMatch(/deleted_at IS NULL/i);
+  });
+});
+
 // ─── Member removal (last-owner guard) ────────────────────────────────────────
 
 describe('DELETE /api/team/members/:userId', () => {
