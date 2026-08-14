@@ -148,7 +148,7 @@ import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.j
 import { observabilityGateway } from '../libs/features/observability_gateway/handlers.js'; // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveAppHost } from './services/app_host_resolver.js';
-import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
+import { getContentType, resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS, escapeHtml } from '@project-sites/shared';
@@ -1256,20 +1256,6 @@ app.all('*', async (c) => {
     if (marketingAsset) {
       const resolvedPath = marketingAsset.key;
       const ext = resolvedPath.split('.').pop()?.toLowerCase() ?? 'html';
-      const mimeTypes: Record<string, string> = {
-        html: 'text/html',
-        css: 'text/css',
-        js: 'application/javascript',
-        json: 'application/json',
-        png: 'image/png',
-        jpg: 'image/jpeg',
-        svg: 'image/svg+xml',
-        ico: 'image/x-icon',
-        xml: 'application/xml',
-        webmanifest: 'application/manifest+json',
-        txt: 'text/plain',
-        woff2: 'font/woff2',
-      };
 
       // For HTML, inject runtime env vars (PostHog key, Stripe publishable
       // key) so the SPA shell can read them from meta tags before first paint.
@@ -1377,8 +1363,11 @@ app.all('*', async (c) => {
       }
 
       return new Response(marketingAsset.body, {
+        // Content-type via the canonical getContentType SSOT — the former inline
+        // marketing map had drifted (missing jpeg/gif/webp/woff/ttf/eot/avif/wasm),
+        // silently serving those as octet-stream so browsers downloaded them.
         headers: {
-          'Content-Type': mimeTypes[ext] ?? 'application/octet-stream',
+          'Content-Type': getContentType(resolvedPath),
           'Cache-Control': 'public, max-age=3600',
         },
       });

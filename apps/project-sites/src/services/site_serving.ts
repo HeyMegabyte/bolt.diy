@@ -770,19 +770,13 @@ export async function serveSiteFromR2(
       const assetPath = `sites/${site.slug}${requestPath}`;
       const asset = await env.SITES_BUCKET.get(assetPath);
       if (asset) {
-        const ext = requestPath.split('.').pop()?.toLowerCase() || '';
-        const ct =
-          {
-            png: 'image/png',
-            jpg: 'image/jpeg',
-            jpeg: 'image/jpeg',
-            gif: 'image/gif',
-            svg: 'image/svg+xml',
-            webp: 'image/webp',
-            ico: 'image/x-icon',
-          }[ext] || 'application/octet-stream';
+        // Content-type via the canonical getContentType SSOT (was a hand-rolled
+        // image-only map that lacked avif/woff/etc.).
         return new Response(asset.body, {
-          headers: { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' },
+          headers: {
+            'Content-Type': getContentType(requestPath),
+            'Cache-Control': 'public, max-age=86400',
+          },
         });
       }
     }
@@ -1284,12 +1278,32 @@ async function buildSiteResponse(
  * @param path - File path or URL pathname.
  * @returns MIME type string (defaults to `application/octet-stream`).
  */
-function getContentType(path: string): string {
+/**
+ * Resolve the `Content-Type` header for a served file from its extension.
+ *
+ * This is the SINGLE SOURCE OF TRUTH for static-asset MIME typing across the
+ * worker — generated-site serving (`serveSiteFromR2`), the `/assets/` fallback,
+ * AND the base-domain marketing serve path in `index.ts` all route through it.
+ * Hand-rolled per-call-site maps drift (a `.webp`/`.woff`/`.avif` silently
+ * degrading to `application/octet-stream` makes the browser download the asset
+ * instead of rendering it) — never inline a second map, always call this.
+ *
+ * @param path - File path or name; only the extension after the last `.` matters.
+ * @returns The MIME type, or `application/octet-stream` for unknown extensions.
+ *
+ * @example
+ * getContentType('/assets/hero.avif'); // 'image/avif'
+ * getContentType('marketing/main.js'); // 'application/javascript'
+ * getContentType('/');                 // 'application/octet-stream' (no extension)
+ */
+export function getContentType(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase();
   const types: Record<string, string> = {
     html: 'text/html; charset=utf-8',
     css: 'text/css',
     js: 'application/javascript',
+    mjs: 'application/javascript',
+    map: 'application/json',
     json: 'application/json',
     png: 'image/png',
     jpg: 'image/jpeg',
@@ -1298,10 +1312,12 @@ function getContentType(path: string): string {
     svg: 'image/svg+xml',
     ico: 'image/x-icon',
     webp: 'image/webp',
+    avif: 'image/avif',
     woff: 'font/woff',
     woff2: 'font/woff2',
     ttf: 'font/ttf',
     eot: 'application/vnd.ms-fontobject',
+    wasm: 'application/wasm',
     xml: 'application/xml',
     txt: 'text/plain',
     webmanifest: 'application/manifest+json',

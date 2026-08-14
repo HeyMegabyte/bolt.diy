@@ -156,6 +156,44 @@ describe('marketing serve — guardrails', () => {
   });
 });
 
+describe('marketing serve — content-type SSOT (no octet-stream on real web assets)', () => {
+  // The marketing block hand-rolled a SECOND, incomplete MIME map that had
+  // drifted from the canonical getContentType — jpeg/gif/webp/woff/ttf/eot and
+  // modern avif/wasm all fell to application/octet-stream, so the browser
+  // DOWNLOADED them (or icon-fonts + AVIF images silently failed) instead of
+  // rendering. Every extension the canonical map knows must resolve correctly
+  // through the real serve path, not just the ~12 the old marketing map listed.
+  const cases: [ext: string, expected: string][] = [
+    ['webp', 'image/webp'],
+    ['avif', 'image/avif'],
+    ['jpeg', 'image/jpeg'],
+    ['gif', 'image/gif'],
+    ['woff', 'font/woff'],
+    ['woff2', 'font/woff2'],
+    ['ttf', 'font/ttf'],
+    ['eot', 'application/vnd.ms-fontobject'],
+    ['wasm', 'application/wasm'],
+    ['css', 'text/css'],
+    ['js', 'application/javascript'],
+    ['svg', 'image/svg+xml'],
+  ];
+
+  for (const [ext, expected] of cases) {
+    it(`serves marketing/*.${ext} as ${expected} (never octet-stream)`, async () => {
+      const key = `marketing/asset.${ext}`;
+      const env = makeEnv({
+        SITES_BUCKET: {
+          get: async (k: string) =>
+            k === key ? { key, body: new Uint8Array([1, 2, 3]), text: async () => 'x' } : null,
+        },
+      });
+      const res = await serve(`/asset.${ext}`, env);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toBe(expected);
+    });
+  }
+});
+
 describe('API soft-404 guard — unknown /api/* never falls to the SPA shell', () => {
   it('returns a machine-readable JSON 404 for an unknown API path', async () => {
     const res = await serve('/api/definitely-not-a-route');
