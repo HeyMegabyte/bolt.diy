@@ -17,6 +17,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { unauthorized, notFound } from '../../../src/lib/feature_guard.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { FLAG_KEY, getOrCreateReferralCode, trackReferral, getReferralStats } from './service.js';
 import { TrackReferralBodySchema } from './schemas.js';
@@ -28,12 +29,6 @@ export const referralLoop = new Hono<AppContext>();
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-const unauthorized = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
-
-const notFound = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
 const badRequest = (c: import('hono').Context<AppContext>, message: string) =>
   c.json({ error: { code: 'BAD_REQUEST', message } }, 400);

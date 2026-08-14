@@ -14,6 +14,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { unauthorized, notFound } from '../../../src/lib/feature_guard.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { FLAG_KEY, resolveNlAction } from './service.js';
 import { CmdkResolveBodySchema, CmdkResolveResponseSchema } from './schemas.js';
@@ -21,12 +22,6 @@ import { CmdkResolveBodySchema, CmdkResolveResponseSchema } from './schemas.js';
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const cmdkAiActionsRouter = new Hono<AppContext>();
-
-const notFound = (c: import('hono').Context<AppContext>) =>
-  c.json({ ok: false, error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
-
-const unauthorized = (c: import('hono').Context<AppContext>) =>
-  c.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
 /** Auth + flag gate. Returns a Response to short-circuit, or null to proceed. */
 async function guard(c: import('hono').Context<AppContext>): Promise<Response | null> {

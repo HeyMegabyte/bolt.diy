@@ -23,16 +23,11 @@ import {
   OrgBudgetResponseSchema,
   AdminBudgetResponseSchema,
 } from './schemas.js';
+import { unauthorized, notFound } from '../../../src/lib/feature_guard.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const tokenBurnMeter = new Hono<AppContext>();
-
-const unauthorized = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
-
-const notFound = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
 /** Auth + flag gate. Returns a Response to short-circuit, or null to proceed. */
 async function guard(c: import('hono').Context<AppContext>): Promise<Response | null> {

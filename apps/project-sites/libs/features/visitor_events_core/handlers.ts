@@ -17,6 +17,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { notFound } from '../../../src/lib/feature_guard.js';
 import { DOMAINS } from '@project-sites/shared';
 import { dbQuery, dbQueryOne } from '../../../src/services/db.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
@@ -28,8 +29,6 @@ type AppContext = { Bindings: Env; Variables: Variables };
 
 export const visitorEvents = new Hono<AppContext>();
 
-const notFound = (c: Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 const badRequest = (c: Context<AppContext>, details: unknown) =>
   c.json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid event', details } }, 400);
 

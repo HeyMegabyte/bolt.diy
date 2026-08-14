@@ -21,6 +21,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { notFound } from '../../../src/lib/feature_guard.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { resolveSite } from '../../../src/services/site_serving.js';
 import {
@@ -41,9 +42,6 @@ import {
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const observabilityGateway = new Hono<AppContext>();
-
-const notFound = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
 const badRequest = (c: import('hono').Context<AppContext>, message: string) =>
   c.json({ error: { code: 'BAD_REQUEST', message } }, 400);

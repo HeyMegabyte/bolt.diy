@@ -18,6 +18,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { unauthorized, notFound } from '../../../src/lib/feature_guard.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { rateLimitMiddleware } from '../../../src/middleware/rate_limit.js';
 import { dbQueryOne } from '../../../src/services/db.js';
@@ -34,12 +35,8 @@ type AppContext = { Bindings: Env; Variables: Variables };
 
 export const abuseTakedown = new Hono<AppContext>();
 
-const unauthorized = (c: Context<AppContext>) =>
-  c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 const forbidden = (c: Context<AppContext>) =>
   c.json({ error: { code: 'FORBIDDEN', message: 'Super-admin access required' } }, 403);
-const notFound = (c: Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 const badRequest = (c: Context<AppContext>, details: unknown) =>
   c.json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details } }, 400);
 

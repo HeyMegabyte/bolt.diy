@@ -18,6 +18,7 @@
 import { Hono } from 'hono';
 import { randomUUID } from 'node:crypto';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { unauthorized, notFound } from '../../../src/lib/feature_guard.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import {
   FLAG_KEY,
@@ -36,12 +37,6 @@ import {
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const paymentsRail = new Hono<AppContext>();
-
-const unauthorized = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
-
-const notFound = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
 const badRequest = (c: import('hono').Context<AppContext>, message: string) =>
   c.json({ error: { code: 'BAD_REQUEST', message } }, 400);

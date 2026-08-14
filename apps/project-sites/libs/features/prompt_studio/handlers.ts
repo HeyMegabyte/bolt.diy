@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../../../src/types/env.js';
+import { unauthorized, notFound } from '../../../src/lib/feature_guard.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { FLAG_KEY, listTemplates, setVariantWeights, rollbackToVersion } from './service.js';
 import {
@@ -12,11 +13,6 @@ import {
 
 type AppContext = { Bindings: Env; Variables: Variables };
 export const promptStudio = new Hono<AppContext>();
-
-const unauthorized = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
-const notFound = (c: import('hono').Context<AppContext>) =>
-  c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
 async function guard(c: import('hono').Context<AppContext>): Promise<Response | null> {
   const userId = c.get('userId');
