@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 
@@ -33,6 +33,13 @@ export interface FormField {
         box-shadow: var(--ps-shadow-card, 0 4px 24px rgba(0,0,0,0.3));
       "
       >
+        <!-- Screen-reader-only live region: announces step changes + validation summary. -->
+        <p
+          aria-live="polite"
+          style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;"
+        >
+          {{ announcement }}
+        </p>
         <!-- Progress -->
         <div
           style="margin-bottom:28px;"
@@ -61,7 +68,7 @@ export interface FormField {
           </div>
         </div>
         <!-- Fields -->
-        <div style="display:flex;flex-direction:column;gap:16px;">
+        <div #fieldsWrap style="display:flex;flex-direction:column;gap:16px;">
           @for (field of currentStep.fields; track field) {
             <div style="display:flex;flex-direction:column;gap:6px;">
               <label
@@ -79,7 +86,10 @@ export interface FormField {
                   [id]="'skf-' + field.key"
                   [placeholder]="field.placeholder || ''"
                   [required]="!!field.required"
+                  [attr.aria-invalid]="errors.has(field.key) || null"
+                  [attr.aria-describedby]="errors.has(field.key) ? 'skf-err-' + field.key : null"
                   [(ngModel)]="formData[field.key]"
+                  (ngModelChange)="clearError(field.key)"
                   rows="3"
                   style="
               background: rgba(244,244,255,0.05);
@@ -101,7 +111,10 @@ export interface FormField {
                 <select
                   [id]="'skf-' + field.key"
                   [required]="!!field.required"
+                  [attr.aria-invalid]="errors.has(field.key) || null"
+                  [attr.aria-describedby]="errors.has(field.key) ? 'skf-err-' + field.key : null"
                   [(ngModel)]="formData[field.key]"
+                  (ngModelChange)="clearError(field.key)"
                   style="
               background: rgba(244,244,255,0.05);
               border: 1px solid rgba(0,229,255,0.2);
@@ -128,7 +141,10 @@ export interface FormField {
                   [type]="field.type"
                   [placeholder]="field.placeholder || ''"
                   [required]="!!field.required"
+                  [attr.aria-invalid]="errors.has(field.key) || null"
+                  [attr.aria-describedby]="errors.has(field.key) ? 'skf-err-' + field.key : null"
                   [(ngModel)]="formData[field.key]"
+                  (ngModelChange)="clearError(field.key)"
                   style="
               background: rgba(244,244,255,0.05);
               border: 1px solid rgba(0,229,255,0.2);
@@ -143,6 +159,15 @@ export interface FormField {
                   onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
                   onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
                 />
+              }
+              @if (errors.has(field.key)) {
+                <p
+                  [id]="'skf-err-' + field.key"
+                  role="alert"
+                  style="color:#ff8c8c;font-size:0.78rem;margin:0;"
+                >
+                  {{ field.label }} is required.
+                </p>
               }
             </div>
           }
@@ -213,7 +238,7 @@ export interface FormField {
 })
 export class MultiStepFormComponent {
   // No fabricated defaults — a kit multi-step form must NEVER ship a hardcoded intake
-  // flow to a real business site. Empty by default → the root <div> self-hides (),
+  // flow to a real business site. Empty by default → the root <div> self-hides (via @if),
   // which also guards the `currentStep` getter from indexing an empty array. The
   // consumer defines the business's REAL intake steps/fields. (anti-fabrication mandate)
   @Input() steps: FormStep[] = [];
@@ -222,6 +247,12 @@ export class MultiStepFormComponent {
 
   stepIndex = 0;
   formData: Record<string, string> = {};
+  /** Keys of required fields left empty at the last next()/submit() attempt. */
+  errors = new Set<string>();
+  /** Screen-reader announcement (aria-live) — step changes + validation summaries. */
+  announcement = '';
+
+  @ViewChild('fieldsWrap') private fieldsWrap?: ElementRef<HTMLElement>;
 
   get currentStep(): FormStep {
     return this.steps[this.stepIndex];
@@ -230,13 +261,74 @@ export class MultiStepFormComponent {
     return this.stepIndex === this.steps.length - 1;
   }
 
+  /** Required fields in the current step whose value is blank (the gate for advancing). */
+  private missingRequired(): string[] {
+    return this.currentStep.fields
+      .filter((f) => f.required && !(this.formData[f.key] ?? '').trim())
+      .map((f) => f.key);
+  }
+
+  /** Block advance/submit when required fields are empty; announce + focus the first. */
+  private failValidation(missing: string[]): void {
+    this.errors = new Set(missing);
+    this.announcement = `Please fill in ${missing.length} required field${missing.length > 1 ? 's' : ''} before continuing.`;
+    this.focusField(missing[0]);
+  }
+
+  clearError(key: string): void {
+    this.errors.delete(key);
+  }
+
   next(): void {
-    if (this.stepIndex < this.steps.length - 1) this.stepIndex++;
+    const missing = this.missingRequired();
+    if (missing.length) {
+      this.failValidation(missing);
+      return;
+    }
+    this.errors.clear();
+    if (this.stepIndex < this.steps.length - 1) {
+      this.stepIndex++;
+      this.announceStep();
+      this.focusFirstField();
+    }
   }
   prev(): void {
-    if (this.stepIndex > 0) this.stepIndex--;
+    if (this.stepIndex > 0) {
+      this.errors.clear();
+      this.stepIndex--;
+      this.announceStep();
+      this.focusFirstField();
+    }
   }
   submit(): void {
+    const missing = this.missingRequired();
+    if (missing.length) {
+      this.failValidation(missing);
+      return;
+    }
     this.formSubmit.emit({ ...this.formData });
+  }
+
+  private announceStep(): void {
+    this.announcement = `Step ${this.stepIndex + 1} of ${this.steps.length}: ${this.currentStep.title}`;
+  }
+
+  private focusFirstField(): void {
+    this.afterRender(() =>
+      this.fieldsWrap?.nativeElement
+        .querySelector<HTMLElement>('input, select, textarea')
+        ?.focus(),
+    );
+  }
+  private focusField(key: string): void {
+    this.afterRender(() =>
+      this.fieldsWrap?.nativeElement.querySelector<HTMLElement>(`[id="skf-${key}"]`)?.focus(),
+    );
+  }
+
+  /** Run `fn` after the next paint so the (re-rendered) step fields exist to focus. */
+  private afterRender(fn: () => void): void {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fn);
+    else queueMicrotask(fn);
   }
 }
