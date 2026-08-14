@@ -527,7 +527,9 @@ app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
 app.post('/api/sites/:siteId/social/proposals', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId })))
+  if (
+    !(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId }))
+  )
     return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({
@@ -537,7 +539,9 @@ app.post('/api/sites/:siteId/social/proposals', async (c) => {
 app.post('/api/sites/:siteId/social/engagement', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId })))
+  if (
+    !(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId }))
+  )
     return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: scoreEngagement(body.account, body.metrics) });
@@ -581,24 +585,21 @@ app.get('/api/system/status', async (c) => {
 
 app.get('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
-    return c.notFound();
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleListAnnotations } =
     await import('../libs/features/analytics_annotations/handlers.js');
   return handleListAnnotations(c);
 });
 app.post('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
-    return c.notFound();
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleCreateAnnotation } =
     await import('../libs/features/analytics_annotations/handlers.js');
   return handleCreateAnnotation(c);
 });
 app.delete('/api/annotations/:id', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
-    return c.notFound();
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleDeleteAnnotation } =
     await import('../libs/features/analytics_annotations/handlers.js');
   return handleDeleteAnnotation(c);
@@ -613,16 +614,14 @@ app.post('/api/cmdk', async (c) => {
 
 app.get('/api/sites/:siteId/sparkline', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_doctor', { orgId: c.get('orgId')! })))
-    return c.notFound();
+  if (!(await isFlagOn(c.env, 'site_doctor', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleSparkline } = await import('../libs/features/site_health_sparklines/handlers.js');
   return handleSparkline(c);
 });
 
 app.get('/api/notifications/badge', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
-    return c.notFound();
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleBadge } = await import('../libs/features/notification_badge/handlers.js');
   return handleBadge(c);
 });
