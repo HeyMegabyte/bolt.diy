@@ -8,7 +8,8 @@
 -- Travel (30-day window) if ever needed.
 
 -- ── Orphaned flag rows (legacy seed table + both override tables) ──
-DELETE FROM feature_flags WHERE key IN (
+-- NOTE: prod feature_flags keys on `flag_name` (PK is `id`), not `key`.
+DELETE FROM feature_flags WHERE flag_name IN (
   'voice_site_mgmt','white_label','ab_testing','ai_content_strategist','builtin_crm',
   'site_tags','seo_agent','nl_site_management','geo_toolkit','lifecycle_agent',
   'conversational_analytics','turnstile_build_gate','upgrade_moments','ai_video_hero',
