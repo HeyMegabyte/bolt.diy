@@ -14,6 +14,7 @@
  */
 
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { DOMAINS } from '@project-sites/shared';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { requireOrgFlag, notFound } from '../../../src/lib/feature_guard.js';
@@ -35,88 +36,77 @@ const SHARE_TTL_MS = 30 * 86_400_000;
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
-export const siteAnalytics = new Hono<AppContext>();
-
-siteAnalytics.get('/api/sites/:siteId/analytics', async (c) => {
+/**
+ * Owner-gate: enforce the `site_analytics` flag, resolve `:siteId`, and verify
+ * the caller's org owns it. Returns a 404 `Response` when the flag is off, the
+ * site is missing, or another org owns it (never leaks existence); otherwise
+ * returns the authorized `{ orgId, siteId }` context.
+ */
+async function requireOwnedSite(
+  c: Context<AppContext>,
+): Promise<Response | { orgId: string; siteId: string }> {
   const g = await requireOrgFlag(c, FLAG_KEY);
   if (g instanceof Response) return g;
-
   const siteId = c.req.param('siteId');
   const owner = await siteOrgId(c.env, siteId);
   if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+  return { orgId: g.orgId, siteId };
+}
 
-  const windowParam = Number(c.req.query('windowDays'));
-  const windowDays =
-    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
+/** Parse a bounded day-window query param (integer 1–365, default 30). */
+function parseWindowDays(c: Context<AppContext>, param: string): number {
+  const raw = Number(c.req.query(param));
+  return Number.isInteger(raw) && raw > 0 && raw <= 365 ? raw : 30;
+}
 
-  const summary = await getSiteAnalyticsSummary(c.env, g.orgId, siteId, windowDays);
+export const siteAnalytics = new Hono<AppContext>();
+
+siteAnalytics.get('/api/sites/:siteId/analytics', async (c) => {
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
+
+  const windowDays = parseWindowDays(c, 'windowDays');
+  const summary = await getSiteAnalyticsSummary(c.env, gate.orgId, gate.siteId, windowDays);
   return c.json(summary);
 });
 
 // AN5 follow-on — per-day traffic series from the analytics_daily rollup.
 siteAnalytics.get('/api/sites/:siteId/analytics/daily', async (c) => {
-  const g = await requireOrgFlag(c, FLAG_KEY);
-  if (g instanceof Response) return g;
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
 
-  const siteId = c.req.param('siteId');
-  const owner = await siteOrgId(c.env, siteId);
-  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
-
-  const daysParam = Number(c.req.query('days'));
-  const days = Number.isInteger(daysParam) && daysParam > 0 && daysParam <= 365 ? daysParam : 30;
-
-  const series = await getDailySeries(c.env, siteId, days);
+  const days = parseWindowDays(c, 'days');
+  const series = await getDailySeries(c.env, gate.siteId, days);
   return c.json(series);
 });
 
 // AN27 — section-level conversion attribution ("Services drives 40% of calls").
 siteAnalytics.get('/api/sites/:siteId/analytics/sections', async (c) => {
-  const g = await requireOrgFlag(c, FLAG_KEY);
-  if (g instanceof Response) return g;
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
 
-  const siteId = c.req.param('siteId');
-  const owner = await siteOrgId(c.env, siteId);
-  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
-
-  const windowParam = Number(c.req.query('windowDays'));
-  const windowDays =
-    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
-
-  const breakdown = await getConversionsBySection(c.env, siteId, windowDays);
+  const windowDays = parseWindowDays(c, 'windowDays');
+  const breakdown = await getConversionsBySection(c.env, gate.siteId, windowDays);
   return c.json(breakdown);
 });
 
 // AN17 — per-form completion rate + abandonment.
 siteAnalytics.get('/api/sites/:siteId/analytics/forms', async (c) => {
-  const g = await requireOrgFlag(c, FLAG_KEY);
-  if (g instanceof Response) return g;
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
 
-  const siteId = c.req.param('siteId');
-  const owner = await siteOrgId(c.env, siteId);
-  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
-
-  const windowParam = Number(c.req.query('windowDays'));
-  const windowDays =
-    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
-
-  const forms = await getFormAnalytics(c.env, siteId, windowDays);
+  const windowDays = parseWindowDays(c, 'windowDays');
+  const forms = await getFormAnalytics(c.env, gate.siteId, windowDays);
   return c.json(forms);
 });
 
 // AN19 — per-site visitor funnel (landing → engaged → converted), owner-scoped.
 siteAnalytics.get('/api/sites/:siteId/analytics/funnel', async (c) => {
-  const g = await requireOrgFlag(c, FLAG_KEY);
-  if (g instanceof Response) return g;
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
 
-  const siteId = c.req.param('siteId');
-  const owner = await siteOrgId(c.env, siteId);
-  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
-
-  const windowParam = Number(c.req.query('windowDays'));
-  const windowDays =
-    Number.isInteger(windowParam) && windowParam > 0 && windowParam <= 365 ? windowParam : 30;
-
-  const funnel = await getVisitorFunnel(c.env, siteId, windowDays);
+  const windowDays = parseWindowDays(c, 'windowDays');
+  const funnel = await getVisitorFunnel(c.env, gate.siteId, windowDays);
   return c.json(funnel);
 });
 
@@ -124,34 +114,26 @@ siteAnalytics.get('/api/sites/:siteId/analytics/funnel', async (c) => {
 // portable CSV (non-PII counts) for download. Owner+flag gated. The delete half
 // of GDPR portability is the existing owner site-delete + per-visitor dsar.
 siteAnalytics.get('/api/sites/:siteId/analytics/export', async (c) => {
-  const g = await requireOrgFlag(c, FLAG_KEY);
-  if (g instanceof Response) return g;
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
 
-  const siteId = c.req.param('siteId');
-  const owner = await siteOrgId(c.env, siteId);
-  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
-
-  const summary = await getSiteAnalyticsSummary(c.env, g.orgId, siteId, 30);
+  const summary = await getSiteAnalyticsSummary(c.env, gate.orgId, gate.siteId, 30);
   const csv = summaryToCsv(summary);
-  return c.json({ filename: `analytics-${siteId}.csv`, csv });
+  return c.json({ filename: `analytics-${gate.siteId}.csv`, csv });
 });
 
 // AN48 — mint a public, read-only, time-boxed share link for this site's
 // analytics (owner-gated). The token is the capability; see the public route.
 siteAnalytics.post('/api/sites/:siteId/analytics/share', async (c) => {
-  const g = await requireOrgFlag(c, FLAG_KEY);
-  if (g instanceof Response) return g;
-
-  const siteId = c.req.param('siteId');
-  const owner = await siteOrgId(c.env, siteId);
-  if (!owner || owner !== g.orgId) return notFound(c); // not found OR not yours → 404
+  const gate = await requireOwnedSite(c);
+  if (gate instanceof Response) return gate;
 
   const secret = manifestSecret(c.env);
   if (!secret) {
     return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Sharing is not configured.' } }, 500);
   }
   const expiresAt = Date.now() + SHARE_TTL_MS;
-  const token = await mintShareToken(secret, siteId, expiresAt);
+  const token = await mintShareToken(secret, gate.siteId, expiresAt);
   const url = `https://${DOMAINS.SITES_BASE}/shared/analytics/${token}`;
   return c.json({ token, url, expiresAt });
 });
