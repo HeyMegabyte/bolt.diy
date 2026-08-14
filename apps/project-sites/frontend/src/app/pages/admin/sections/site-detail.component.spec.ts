@@ -386,7 +386,7 @@ describe('AdminSiteDetailComponent (integration disconnect — confirm-gated via
     const { c, del, confirm } = build(true);
     await c.onDisconnect(PROV);
     expect(confirm).toHaveBeenCalled();
-    expect(del).toHaveBeenCalledWith('/sites/s1/integrations/mailchimp', { silent: true });
+    expect(del).toHaveBeenCalledWith('/sites/s1/integration-providers/mailchimp', { silent: true });
   });
 
   it('a failed disconnect surfaces the specific error + does NOT optimistically flip the chip', async () => {

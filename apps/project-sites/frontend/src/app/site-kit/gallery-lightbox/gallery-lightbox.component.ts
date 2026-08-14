@@ -1,4 +1,4 @@
-import { Component, Input, HostListener } from '@angular/core';
+import { Component, Input, HostListener, ViewChild, ElementRef } from '@angular/core';
 
 export interface GalleryImage {
   src: string;
@@ -60,6 +60,7 @@ export interface GalleryImage {
     <!-- Lightbox overlay -->
     @if (activeIndex !== null) {
       <div
+        #dialogRoot
         role="dialog"
         aria-modal="true"
         [attr.aria-label]="activeImage?.alt || 'Image viewer'"
@@ -122,6 +123,7 @@ export interface GalleryImage {
             </button>
           </div>
           <button
+            #closeBtn
             type="button"
             (click)="close()"
             aria-label="Close image viewer"
@@ -147,22 +149,37 @@ export interface GalleryImage {
 export class GalleryLightboxComponent {
   // No fabricated defaults — a kit gallery must NEVER ship placeholder "Photo 1/2/3"
   // images to a real business site. Empty by default → the grid <section> self-hides
-  // (); the getter stays guarded (activeIndex starts null). The consumer passes
+  // (via @if); the getter stays guarded (activeIndex starts null). The consumer passes
   // the business's REAL photos. (anti-fabrication mandate)
   @Input() images: GalleryImage[] = [];
   @Input() ariaLabel = 'Photo gallery';
 
   activeIndex: number | null = null;
 
+  /** The dialog root — queried for its focusable controls to trap Tab within the modal. */
+  @ViewChild('dialogRoot') private dialogRoot?: ElementRef<HTMLElement>;
+  /** The close button — focus lands here when the lightbox opens. */
+  @ViewChild('closeBtn') private closeBtn?: ElementRef<HTMLButtonElement>;
+  /** The element focused before open, so focus can be RESTORED to it on close (WCAG 2.4.3). */
+  private triggerEl: HTMLElement | null = null;
+
   get activeImage(): GalleryImage | null {
     return this.activeIndex !== null ? this.images[this.activeIndex] : null;
   }
 
   open(i: number): void {
+    // Remember what had focus (the thumbnail button) so close() can restore it.
+    this.triggerEl = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
     this.activeIndex = i;
+    // Move focus INTO the dialog once it renders — otherwise a keyboard/SR user is
+    // left focused on the now-obscured thumbnail behind the overlay.
+    this.focusAfterRender(() => this.closeBtn?.nativeElement.focus());
   }
   close(): void {
     this.activeIndex = null;
+    // Return focus to the trigger so keyboard flow continues where it left off.
+    this.triggerEl?.focus?.();
+    this.triggerEl = null;
   }
   prev(): void {
     if (this.activeIndex === null) return;
@@ -177,15 +194,45 @@ export class GalleryLightboxComponent {
   onKey(e: KeyboardEvent): void {
     if (this.activeIndex === null) return;
     if (e.key === 'Escape') this.close();
-    if (e.key === 'ArrowLeft') this.prev();
-    if (e.key === 'ArrowRight') this.next();
-    if (e.key === 'Home') {
+    else if (e.key === 'ArrowLeft') this.prev();
+    else if (e.key === 'ArrowRight') this.next();
+    else if (e.key === 'Home') {
       e.preventDefault();
       this.activeIndex = 0;
-    }
-    if (e.key === 'End') {
+    } else if (e.key === 'End') {
       e.preventDefault();
       this.activeIndex = this.images.length - 1;
+    } else if (e.key === 'Tab') {
+      this.trapTab(e);
     }
+  }
+
+  /** Cycle Tab focus among the dialog's controls so it never escapes to the page behind. */
+  private trapTab(e: KeyboardEvent): void {
+    const root = this.dialogRoot?.nativeElement;
+    if (!root) return;
+    const focusables = Array.from(
+      root.querySelectorAll<HTMLElement>('button:not([disabled])'),
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = typeof document !== 'undefined' ? (document.activeElement as HTMLElement) : null;
+    if (!active || !root.contains(active)) {
+      e.preventDefault();
+      first.focus();
+    } else if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  /** Run `fn` after the next paint (the @if dialog has rendered by then). */
+  private focusAfterRender(fn: () => void): void {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fn);
+    else queueMicrotask(fn);
   }
 }
