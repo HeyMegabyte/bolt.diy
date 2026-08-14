@@ -232,15 +232,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  cms_collections: {
-    key: 'cms_collections',
-    description:
-      'Dynamic content types with rich relationships. 7 built-in templates (team, services, testimonials, portfolio, events, faq, menu_items) with reference fields, dynamic routing, JSON-LD mapping, and relationship auto-detection.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   code_export: {
     key: 'code_export',
     description:
@@ -281,15 +272,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'lifecycle_agent',
     description:
       'Pure site health monitoring rule engine. Checks content freshness, SEO fundamentals, performance, security, trust signals, competitive gaps, and broken links. Generates health scores, severity-ranked issues, and auto-fixable recommendations.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  local_seo_suite: {
-    key: 'local_seo_suite',
-    description:
-      'NAP consistency auditor + review response suggester + directory coverage tracker. Detects name/address/phone discrepancies across directories (Google, Yelp, Facebook, Bing), generates rating-aware review replies, and tracks directory claiming status.',
     default_enabled: true,
     default_rollout_percent: 100,
     stage: 'experimental',
@@ -586,15 +568,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'cmdk_ai_actions',
     description:
       'AI actions layer on the existing Cmd+K palette: natural language routes to navigation, bulk mutations, or agent tasks (the palette + focus gate already ship)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  cms_content: {
-    key: 'cms_content',
-    description:
-      'CMS content bridge: edge-cached /api/cms/blog.json feed for generated sites + HMAC-verified /api/cms/revalidate receiver that purges the cache when Payload publishes content',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

@@ -642,22 +642,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → Cmd+K is navigation-only, the resolve route 404s',
     ],
   },
-  cms_content: {
-    checklist: [
-      'Edge-cached /api/cms/blog.json feed for generated sites',
-      'HMAC-verified /api/cms/revalidate receiver',
-      'Cache purges when Payload publishes content',
-      'Safe disabled behavior: routes 404 when the flag is off',
-    ],
-    explanation:
-      'CMS content bridge — serves an edge-cached /api/cms/blog.json feed to generated sites and exposes an HMAC-verified /api/cms/revalidate receiver that purges the cache when Payload publishes new content. Decouples generated-site blog content from rebuilds.',
-    smoke_test: [
-      'GET /api/cms/blog.json → 200 cached JSON feed (cache-control set)',
-      'POST /api/cms/revalidate with a valid HMAC signature → 200 + cache purged',
-      'POST /api/cms/revalidate with a bad signature → 401',
-      'Re-GET /api/cms/blog.json after publish → reflects the new content',
-    ],
-  },
   credit_wallet_rollover: {
     checklist: [
       'AI-credit wallet with monthly rollover',

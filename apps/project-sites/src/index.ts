@@ -74,8 +74,6 @@ import { buildContentStrategy } from '../libs/features/ai_content_strategist/ser
 import { parseAnalyticsQuery } from '../libs/features/conversational_analytics/service.js';
 import { parseSiteCommand } from '../libs/features/nl_site_management/service.js';
 import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
-import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
-import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
 import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
 import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
@@ -151,7 +149,6 @@ import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // 
 import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js'; // OAuth 2.1 AS for MCP one-click connect (flag: mcp_oauth_provider)
 import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: prod_readiness_score)
-import { cmsContent } from '../libs/features/cms_content/handlers.js'; // GET /api/cms/blog.json + POST /api/cms/revalidate — Payload CMS bridge (flag: cms_content)
 import { deployButtons } from '../libs/features/deploy_buttons/handlers.js'; // GET /api/deploy-buttons/:siteId — deploy buttons + "Hosted on" badge (flag: deploy_buttons)
 import { visitorDsar } from '../libs/features/visitor_dsar/handlers.js'; // POST /api/sites/:siteId/dsar — GDPR data-subject export/delete (flag: visitor_dsar)
 import { onboardingCopilot } from '../libs/features/onboarding_copilot/handlers.js'; // /api/onboarding/{checklist,dismiss} — PLG activation checklist (flag: onboarding_copilot)
@@ -677,33 +674,7 @@ app.post('/api/sites/:siteId/health-check', async (c) => {
   return c.json({ data: report });
 });
 
-// CMS Collections — content type model generator (flag: cms_collections)
-app.get('/api/sites/:siteId/cms-model', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'cms_collections', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const slugs = c.req.query('collections')?.split(',') || availableCollections();
-  return c.json({ data: buildCmsModel(siteId, slugs) });
-});
 
-// Local SEO Suite — NAP audit + review replies (flag: local_seo_suite)
-app.post('/api/sites/:siteId/seo/audit', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'local_seo_suite', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  const audit = runLocalSeoAudit(
-    siteId,
-    body.canonical || {},
-    body.sources || [],
-    body.reviews || [],
-  );
-  return c.json({ data: audit });
-});
 
 // Built-in CRM — lead scoring + pipeline (flag: builtin_crm)
 app.post('/api/sites/:siteId/crm/score', async (c) => {
@@ -1086,7 +1057,6 @@ app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webho
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
 app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`
-app.route('/', cmsContent); // GET /api/cms/blog.json + POST /api/cms/revalidate (flag: cms_content) — must precede `api`
 app.route('/api/deploy-buttons', deployButtons); // GET /api/deploy-buttons/:siteId (flag: deploy_buttons)
 app.route('/', visitorDsar); // POST /api/sites/:siteId/dsar (flag: visitor_dsar) — must precede `api`
 app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,dismiss} (flag: onboarding_copilot)
