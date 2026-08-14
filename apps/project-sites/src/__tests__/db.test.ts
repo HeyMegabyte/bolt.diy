@@ -582,4 +582,41 @@ describe('dbUpdate', () => {
     expect(sql).toContain('updated_at = ?');
     expect(sql).toContain('WHERE id = ?');
   });
+
+  // Regression guard for the missing-updated_at RETRY (db.ts dbUpdate) — the sibling
+  // of dbInsert's retry above. `site_benchmarks` has created_at but NO updated_at, so a
+  // plain `UPDATE ... SET x = ?, updated_at = ?` fails with "no such column: updated_at".
+  // recordRetrospectivePath ignores the returned {error} → without this retry the update
+  // is a lying no-op and retrospective_path is silently NEVER persisted (data loss).
+  // dbUpdate MUST detect the missing column, cache the table, and retry with the raw
+  // updates so the write PERSISTS. Locks the dual-wording regex against a future
+  // "simplification". Uses a unique table name so the per-isolate cache stays test-order
+  // independent (no cross-test pollution).
+  it('retries without updated_at when the table lacks that column (persists, not a lying no-op)', async () => {
+    const { db, run, prepare } = createMockD1();
+    // First attempt (with updated_at) fails on the missing column; the retry (raw
+    // updates) succeeds.
+    run
+      .mockRejectedValueOnce(new Error('no such column: updated_at'))
+      .mockResolvedValue({ meta: { changes: 1 } });
+
+    const result = await dbUpdate(
+      db,
+      'benchmarks_no_ts',
+      { retrospective_path: '/r/x.md' },
+      'id = ?',
+      ['b1'],
+    );
+
+    // Retry fired → row updated → error cleared + changes surfaced (NOT a silent no-op).
+    expect(result.error).toBeNull();
+    expect(result.changes).toBe(1);
+    expect(run).toHaveBeenCalledTimes(2);
+    // First SQL carried updated_at; the retry SQL stripped it but kept the real column.
+    const firstSql = prepare.mock.calls[0][0] as string;
+    const retrySql = prepare.mock.calls[1][0] as string;
+    expect(firstSql).toContain('updated_at');
+    expect(retrySql).not.toContain('updated_at');
+    expect(retrySql).toContain('retrospective_path = ?');
+  });
 });

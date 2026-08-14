@@ -182,8 +182,17 @@ export async function dbQueryOne<T = Record<string, unknown>>(
   return data[0] ?? null;
 }
 
-/** Per-isolate cache of tables known to LACK created_at/updated_at columns. */
+/** Per-isolate cache of tables known to LACK created_at/updated_at columns (dbInsert). */
 const NO_TIMESTAMP_TABLES = new Set<string>();
+
+/**
+ * Per-isolate cache of tables known to LACK an `updated_at` column (dbUpdate).
+ * Kept SEPARATE from {@link NO_TIMESTAMP_TABLES} — that set means "lacks created_at
+ * OR updated_at" (dbInsert strips both on retry), whereas dbUpdate only ever appends
+ * `updated_at`. A shared set would wrongly suppress the `updated_at` bump on a table
+ * that lacks `created_at` but HAS `updated_at`.
+ */
+const NO_UPDATED_AT_TABLES = new Set<string>();
 
 /**
  * Insert a row into a table using a plain object.
@@ -252,7 +261,13 @@ export async function dbInsert(
 /**
  * Update rows in a table matching a WHERE clause.
  *
- * Automatically appends `updated_at = ?` with the current timestamp.
+ * Automatically appends `updated_at = ?` with the current timestamp. A table WITHOUT
+ * an `updated_at` column (e.g. `site_benchmarks`, which has only `created_at`) is
+ * detected on first use, cached, and re-updated without the timestamp — so the write
+ * never silently fails on `no such column: updated_at`. Genuine drift on any OTHER
+ * column stays loud. Mirrors {@link dbInsert}'s timestamp-fallback so a caller that
+ * ignores the returned `error` (e.g. `recordRetrospectivePath`) never returns a
+ * lying no-op that silently drops the update.
  *
  * @param db          - The D1Database binding.
  * @param table       - Table name.
@@ -276,15 +291,30 @@ export async function dbUpdate(
   whereClause: string,
   whereParams: unknown[] = [],
 ): Promise<{ error: string | null; changes: number }> {
-  const withTimestamp: Record<string, unknown> = {
-    ...updates,
-    updated_at: new Date().toISOString(),
+  const buildAndExec = (record: Record<string, unknown>) => {
+    const keys = Object.keys(record);
+    const setClause = keys.map((k) => `${k} = ?`).join(', ');
+    const values = keys.map((k) => record[k]);
+    const sql = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}`;
+    return dbExecute(db, sql, [...values, ...whereParams]);
   };
 
-  const keys = Object.keys(withTimestamp);
-  const setClause = keys.map((k) => `${k} = ?`).join(', ');
-  const values = keys.map((k) => withTimestamp[k]);
+  // Tables already learned to lack updated_at skip the doomed timestamped attempt.
+  if (NO_UPDATED_AT_TABLES.has(table)) {
+    return buildAndExec(updates);
+  }
 
-  const sql = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}`;
-  return dbExecute(db, sql, [...values, ...whereParams]);
+  // Default path: append updated_at (auto-timestamp wins over any caller value via
+  // spread order).
+  const first = await buildAndExec({ ...updates, updated_at: new Date().toISOString() });
+  // D1/SQLite reports a missing column as EITHER "no such column: X" OR "table T has
+  // no column named X" — match BOTH wordings (same regex as dbInsert). A table with no
+  // updated_at otherwise fails EVERY update → any caller that ignores the returned error
+  // returns a lying no-op and silently drops the write (site_benchmarks.retrospective_path
+  // was never persisted). Learn the table + retry with the raw updates so it PERSISTS.
+  if (first.error && /(?:no such column:\s*|has no column named\s+)updated_at/i.test(first.error)) {
+    NO_UPDATED_AT_TABLES.add(table);
+    return buildAndExec(updates);
+  }
+  return first;
 }
