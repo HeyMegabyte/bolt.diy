@@ -127,6 +127,15 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-hardcoded-admin-email.mjs --ci
 
+      # Local-error-helper gate — every feature handler must import unauthorized/notFound
+      # from src/lib/feature_guard.ts, never re-define them locally (caps iter 15: 12
+      # modules re-defined identical local helpers that drifted from the canonical
+      # envelope — missing request_id, referral_loop diverged 'Authentication required'
+      # vs 'Auth required'). 0-finding-stable after the consolidation → blocking gate.
+      - name: Local error-helper gate
+        working-directory: apps/project-sites
+        run: node scripts/check-local-error-helpers.mjs --ci
+
       # Unwired-endpoint detector — every FE `/api/*` call must resolve to a
       # registered worker route (caps the 2026-08-02 admin-verification arc:
       # P0.20 `PATCH /api/admin/profile` + P0.21 `GET/PUT /api/voice/mcp-attachments`

@@ -103,8 +103,15 @@ Executed the deferred batched consolidation (iter-14's last #12 item). De-risked
 - Delegated the bulk to code-simplifier (converted 8, turn-limited); I finished the 3 remaining (referral_loop half-done + observability_gateway/visitor_events_core notFound-only) + FIXED the agent's abuse_takedown regression (it dropped `import type { Context }` that forbidden/badRequest/flagOn/isSuperAdmin still need).
 - **−44 net lines** (11 files, 11 ins / 55 del — biggest reduction of the arc). VERIFIED: worker `tsc` **0 errors**; jest **514 feature-module tests + 49 src tests pass**; no unused imports; no local defs remain. Deployed worker.
 
+## iter 16 (2026-08-14) — regression gate for the iter-15 consolidation (audit-arc "Codify" step, SHIPPED)
+OBSERVE: tree quiet, drift 0, detector gates green. #12 FULLY CONVERGED → pivoted to hardening. Confirmed the surface is at 0 (no feature handler re-defines local unauthorized/notFound after iter 15). Per `[[audit-arc-detector-finds-bugs]]` (iter 15 fixed 12 instances → write a detector), locked in the convergence so no NEW feature module reintroduces the class.
+- **`scripts/check-local-error-helpers.mjs`** — flags any `libs/features/*/handlers.ts` re-defining a local `const unauthorized`/`notFound` (must import from feature_guard). Precise: does NOT flag imports, call sites, `notFoundHandler`, or local `badRequest` (message varies legitimately → not single-source). Exported `isLocalErrorHelperDef` + main-guarded CLI + **6-case fixture test**.
+- Wired: `package.json` `check:local-error-helpers` → the `check` aggregator; `feature-architecture.yml` CI gate. Self-tested (catches a planted violation, clean on the real tree).
+- VERIFIED: detector exit 0 clean; `test:scripts` **22/22 pass**; package.json valid. **NO deploy** — build-time CI gate, zero worker-bundle change. Also confirmed feature_guard's request_id/envelope is ALREADY directly tested (`feature_guard.test.ts` asserts `request_id: 'req-1'`/null) — no coverage gap.
+- **6 detector gates now guard convergence classes**: fitness, idor, unwired, dbinsert, admin-email, local-error-helpers.
+
 ## Next target
-**#12 duplication is now FULLY CONVERGED** (6 single-file DRYs + the 11-module error-envelope consolidation + 1 detector gate, iters 7-15). Remaining/other bands, honestly ranked:
+**#12 FULLY CONVERGED + regression-gated** (6 single-file DRYs + the 11-module error-envelope consolidation + 2 detector gates, iters 7-16). Remaining/other bands, honestly ranked:
 - ⚠️ **Brian decision**: hey@ unlimited? (1-line in the centralized `isUnlimitedOrgOwner`).
 - **Batched (fresh session, ~3 agents)**: 11-module `unauthorized`/`notFound` → `feature_guard` (adds request_id; tests assert `.error.code` so mostly safe; LOW value — experimental features).
 - **Careful-only**: `build_validators` / `voice_webhooks` clones (sensitive; extract only with a clear need + full test verification, ideally fresh context).
