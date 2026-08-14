@@ -31,7 +31,19 @@ const mockEnv = {
   CF_ZONE_ID: 'test-zone-id',
 } as any;
 
-const mockDb = {} as D1Database;
+// D1 mock that captures atomic-batch statements. `prepare(sql).bind(...args)` returns a
+// tagged descriptor; `batch([...])` records the descriptors so tests assert the primary
+// swap ran in ONE all-or-nothing batch (setSolePrimary). `batch` is a jest.fn so a test
+// can make it reject (simulating a mid-swap D1 failure → the op must NOT partial-write).
+const mockDb = {
+  prepare: (sql: string) => ({
+    bind: (...args: unknown[]) => ({ sql, args }),
+  }),
+  batch: jest.fn(async (stmts: Array<{ sql: string; args: unknown[] }>) =>
+    stmts.map(() => ({ success: true, meta: { changes: 1 } })),
+  ),
+} as unknown as D1Database;
+const mockBatch = (mockDb as unknown as { batch: jest.Mock }).batch;
 
 const originalFetch = global.fetch;
 
@@ -426,17 +438,13 @@ describe('provisionCustomDomain', () => {
       }),
     );
 
-    // Auto-primary dbUpdate calls
-    expect(mockUpdate).toHaveBeenCalledWith(mockDb, 'hostnames', { is_primary: 0 }, 'site_id = ?', [
-      'site-3',
-    ]);
-    expect(mockUpdate).toHaveBeenCalledWith(
-      mockDb,
-      'hostnames',
-      { is_primary: 1 },
-      'id = ?',
-      expect.any(Array),
-    );
+    // Auto-primary runs as ONE atomic batch: clear all (is_primary = 0) then set one.
+    expect(mockBatch).toHaveBeenCalledTimes(1);
+    const stmts = mockBatch.mock.calls[0][0] as Array<{ sql: string; args: unknown[] }>;
+    expect(stmts).toHaveLength(2);
+    expect(stmts[0].sql).toContain('is_primary = 0');
+    expect(stmts[0].args).toContain('site-3');
+    expect(stmts[1].sql).toContain('is_primary = 1');
   });
 
   it('does NOT auto-set primary when site already has custom domains', async () => {
@@ -465,8 +473,8 @@ describe('provisionCustomDomain', () => {
     });
 
     expect(result.is_primary).toBe(false);
-    // Should NOT call dbUpdate for primary
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Should NOT run the primary-swap batch when the site already has custom domains
+    expect(mockBatch).not.toHaveBeenCalled();
   });
 });
 
@@ -628,10 +636,8 @@ describe('verifyPendingHostnames', () => {
 // setPrimaryHostname
 // ---------------------------------------------------------------------------
 describe('setPrimaryHostname', () => {
-  it('sets a hostname as primary and clears others', async () => {
+  it('clears all primaries then sets the chosen one in ONE atomic batch', async () => {
     mockQueryOne.mockResolvedValueOnce({ id: 'h-123' });
-    mockUpdate.mockResolvedValueOnce({ error: null, changes: 3 });
-    mockUpdate.mockResolvedValueOnce({ error: null, changes: 1 });
 
     await setPrimaryHostname(mockDb, 'site-1', 'h-123');
 
@@ -641,15 +647,25 @@ describe('setPrimaryHostname', () => {
       ['h-123', 'site-1'],
     );
 
-    // First call: clear all primary
-    expect(mockUpdate).toHaveBeenCalledWith(mockDb, 'hostnames', { is_primary: 0 }, 'site_id = ?', [
-      'site-1',
-    ]);
+    // The clear-all + set-one swap is a single all-or-nothing batch (no partial write).
+    expect(mockBatch).toHaveBeenCalledTimes(1);
+    const stmts = mockBatch.mock.calls[0][0] as Array<{ sql: string; args: unknown[] }>;
+    expect(stmts).toHaveLength(2);
+    expect(stmts[0].sql).toContain('is_primary = 0');
+    expect(stmts[0].args).toContain('site-1');
+    expect(stmts[1].sql).toContain('is_primary = 1');
+    expect(stmts[1].args).toContain('h-123');
+  });
 
-    // Second call: set primary
-    expect(mockUpdate).toHaveBeenCalledWith(mockDb, 'hostnames', { is_primary: 1 }, 'id = ?', [
-      'h-123',
-    ]);
+  // Regression guard: the primary swap was two separate error-ignoring dbUpdate calls, so a
+  // mid-swap D1 failure (clear committed, set failed) could leave the site with ZERO primary
+  // hostnames — broken canonical-host resolution — with no error surfaced. The atomic batch
+  // rejects (rolls back) so the failure is LOUD and no partial write lands.
+  it('propagates a mid-swap failure (atomic — never a silent partial write)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'h-123' });
+    mockBatch.mockRejectedValueOnce(new Error('D1_ERROR: batch failed'));
+
+    await expect(setPrimaryHostname(mockDb, 'site-1', 'h-123')).rejects.toThrow();
   });
 
   it('throws notFound if hostname does not belong to site', async () => {
@@ -659,6 +675,8 @@ describe('setPrimaryHostname', () => {
 
     expect(err).toBeInstanceOf(AppError);
     expect((err as AppError).statusCode).toBe(404);
+    // notFound short-circuits BEFORE any write.
+    expect(mockBatch).not.toHaveBeenCalled();
   });
 });
 

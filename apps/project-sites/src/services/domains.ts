@@ -367,10 +367,9 @@ export async function provisionCustomDomain(
     deleted_at: null,
   });
 
-  // Auto-set as primary if this is the first custom domain for the site
+  // Auto-set as primary if this is the first custom domain for the site (atomic swap).
   if (isFirstCustomDomain) {
-    await dbUpdate(db, 'hostnames', { is_primary: 0 }, 'site_id = ?', [opts.site_id]);
-    await dbUpdate(db, 'hostnames', { is_primary: 1 }, 'id = ?', [hostnameId]);
+    await setSolePrimary(db, opts.site_id, hostnameId);
   }
 
   console.warn(
@@ -428,10 +427,32 @@ export async function getSiteHostnames(
 }
 
 /**
+ * Atomically make `hostnameId` the SOLE primary hostname for `siteId`: clears
+ * `is_primary` on every hostname of the site then sets it on the chosen one, in ONE
+ * D1 batch (implicit transaction). All-or-nothing — a partial write can never leave the
+ * site with ZERO primary hostnames (broken canonical-host resolution) or two. On any
+ * failure the batch rejects AND rolls back, so the caller surfaces an honest error with
+ * the previous primary intact — vs the old two-separate-dbUpdate path, which caught the
+ * D1 error, ignored it, and could silently commit the clear, drop the set, and leave the
+ * site primary-less.
+ *
+ * @param db         - D1Database binding.
+ * @param siteId     - The site whose hostnames are being re-primaried.
+ * @param hostnameId - The hostname to become the sole primary.
+ */
+async function setSolePrimary(db: D1Database, siteId: string, hostnameId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare('UPDATE hostnames SET is_primary = 0, updated_at = ? WHERE site_id = ?').bind(now, siteId),
+    db.prepare('UPDATE hostnames SET is_primary = 1, updated_at = ? WHERE id = ?').bind(now, hostnameId),
+  ]);
+}
+
+/**
  * Set a hostname as the primary for its site.
  *
  * Clears primary from all other hostnames on the same site, then sets the
- * specified hostname as primary.
+ * specified hostname as primary — atomically via {@link setSolePrimary}.
  *
  * @param db         - D1Database binding.
  * @param siteId     - The site ID.
@@ -454,11 +475,7 @@ export async function setPrimaryHostname(
     throw notFound('Hostname not found for this site');
   }
 
-  // Clear primary from all hostnames on this site
-  await dbUpdate(db, 'hostnames', { is_primary: 0 }, 'site_id = ?', [siteId]);
-
-  // Set the selected hostname as primary
-  await dbUpdate(db, 'hostnames', { is_primary: 1 }, 'id = ?', [hostnameId]);
+  await setSolePrimary(db, siteId, hostnameId);
 }
 
 /**
