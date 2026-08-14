@@ -1073,9 +1073,12 @@ superAdmin.post(
     const body = c.req.valid('json');
     const userId = c.get('userId') as string;
     const id = `imp_${crypto.randomUUID()}`;
+    // Scope impersonation to a CURRENT membership: `deleted_at IS NULL` excludes orgs
+    // the target user has DEPARTED (removal soft-deletes the membership, role intact).
+    // Without it a super-admin could be placed into an org the user no longer belongs to.
     const targetOrg = await dbQueryOne<{ org_id: string }>(
       c.env.DB,
-      `SELECT m.org_id FROM memberships m WHERE m.user_id = ? ORDER BY m.created_at LIMIT 1`,
+      `SELECT m.org_id FROM memberships m WHERE m.user_id = ? AND m.deleted_at IS NULL ORDER BY m.created_at LIMIT 1`,
       [body.target_user_id],
     );
     await dbInsert(c.env.DB, 'impersonation_sessions', {

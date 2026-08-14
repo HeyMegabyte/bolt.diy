@@ -781,6 +781,12 @@ describe('impersonation', () => {
     expect(json.target_org_id).toBe('org-target');
     expect(json.token).toBeNull(); // no secret configured → token omitted (fail-soft)
     expect(mockDbInsert.mock.calls[0][1]).toBe('impersonation_sessions');
+    // The target-org resolution MUST exclude soft-deleted memberships — else a super-admin
+    // could be scoped into an org the target user DEPARTED (removal soft-deletes it).
+    const memSql = mockDbQueryOne.mock.calls
+      .map((call) => String(call[1]))
+      .find((s) => /FROM memberships/i.test(s));
+    expect(memSql).toMatch(/deleted_at IS NULL/i);
   });
 
   it('issues a 30-min signed token when IMPERSONATION_JWT_SECRET is set', async () => {
