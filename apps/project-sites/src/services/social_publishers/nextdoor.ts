@@ -18,7 +18,13 @@ import type {
   Publisher,
   SocialAccountCtx,
 } from './types.js';
-import { BROWSER_HEADERS, composeContent, emptyAnalytics, requireEnv } from './types.js';
+import {
+  BROWSER_HEADERS,
+  composeContent,
+  emptyAnalytics,
+  noopUploadMedia,
+  requireEnv,
+} from './types.js';
 
 const PLATFORM: Platform = 'nextdoor';
 
@@ -119,9 +125,7 @@ export const nextdoor: Publisher = {
     return emptyAnalytics();
   },
 
-  async uploadMedia(_env, _account, _file) {
-    return { mediaId: '' };
-  },
+  uploadMedia: noopUploadMedia,
 
   async getProfile(env, account) {
     const pageId = (account.metadata as Record<string, unknown>).page_id as string | undefined;

@@ -8,6 +8,8 @@ import {
   BROWSER_HEADERS,
   composeContent,
   emptyAnalytics,
+  getProfileFromContext,
+  noopUploadMedia,
   type AnalyticsSnapshot,
   type Publisher,
   type PublishResult,
@@ -116,20 +118,8 @@ export const bluesky: Publisher = {
     };
   },
 
-  async uploadMedia(_env, _account, _file) {
-    return { mediaId: '' };
-  },
-
-  async getProfile(_env, account) {
-    return {
-      handle: account.handle ?? '',
-      display_name:
-        ((account.metadata as Record<string, unknown>).display_name as string) ??
-        account.handle ??
-        '',
-      avatar_url: ((account.metadata as Record<string, unknown>).avatar_url as string) ?? '',
-    };
-  },
+  uploadMedia: noopUploadMedia,
+  getProfile: getProfileFromContext,
 };
 
 /** Bluesky-specific login helper, called by the social.ts paste route. */

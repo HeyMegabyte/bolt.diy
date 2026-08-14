@@ -234,3 +234,19 @@ export const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
   google_business: 1500,
   nextdoor: 5000,
 };
+
+/** Shared no-op media upload — platforms serving media from R2 URLs use this. */
+export const noopUploadMedia: NonNullable<Publisher['uploadMedia']> = async () => ({
+  mediaId: '',
+});
+
+/** Shared profile reader — handle/display_name/avatar_url from the account context (no extra API call). */
+export const getProfileFromContext: NonNullable<Publisher['getProfile']> = async (
+  _env,
+  account,
+) => ({
+  handle: account.handle ?? '',
+  display_name:
+    ((account.metadata as Record<string, unknown>).display_name as string) ?? account.handle ?? '',
+  avatar_url: ((account.metadata as Record<string, unknown>).avatar_url as string) ?? '',
+});

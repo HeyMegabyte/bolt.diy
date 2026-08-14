@@ -7,6 +7,8 @@ import {
   BROWSER_HEADERS,
   composeContent,
   emptyAnalytics,
+  getProfileFromContext,
+  noopUploadMedia,
   MissingAppCredsError,
   requireEnv,
   type AnalyticsSnapshot,
@@ -182,22 +184,9 @@ export const twitter: Publisher = {
     };
   },
 
-  /** No-op: media served from R2 URLs — platform fetches on publish. */
-  async uploadMedia(_env, _account, _file) {
-    return { mediaId: '' };
-  },
+  uploadMedia: noopUploadMedia,
 
-  /** Return profile info from the account context (no extra API call). */
-  async getProfile(_env, account) {
-    return {
-      handle: account.handle ?? '',
-      display_name:
-        ((account.metadata as Record<string, unknown>).display_name as string) ??
-        account.handle ??
-        '',
-      avatar_url: ((account.metadata as Record<string, unknown>).avatar_url as string) ?? '',
-    };
-  },
+  getProfile: getProfileFromContext,
 };
 
 void MissingAppCredsError;

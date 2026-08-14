@@ -17,7 +17,13 @@ import type {
   Publisher,
   SocialAccountCtx,
 } from './types.js';
-import { BROWSER_HEADERS, composeContent, emptyAnalytics, requireEnv } from './types.js';
+import {
+  BROWSER_HEADERS,
+  composeContent,
+  emptyAnalytics,
+  noopUploadMedia,
+  requireEnv,
+} from './types.js';
 
 const PLATFORM: Platform = 'google_business';
 
@@ -149,10 +155,7 @@ export const google_business: Publisher = {
     }
   },
 
-  async uploadMedia(_env, _account, _file) {
-    // GBP uses external URLs, not direct upload. Media is served from R2.
-    return { mediaId: '' };
-  },
+  uploadMedia: noopUploadMedia,
 
   async getProfile(env, account) {
     const accountId = (account.metadata as Record<string, unknown>).account_id as
