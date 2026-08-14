@@ -674,8 +674,6 @@ app.post('/api/sites/:siteId/health-check', async (c) => {
   return c.json({ data: report });
 });
 
-
-
 // Built-in CRM — lead scoring + pipeline (flag: builtin_crm)
 app.post('/api/sites/:siteId/crm/score', async (c) => {
   const siteId = c.req.param('siteId');
