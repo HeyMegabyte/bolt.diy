@@ -304,15 +304,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  native_booking: {
-    key: 'native_booking',
-    description:
-      'Pure availability calculator + slot generator + booking validator. Generates 15-min increment time slots with buffer time, detects conflicts, validates against business hours, and produces booking confirmations with cancellation policy.',
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   nl_site_management: {
     key: 'nl_site_management',
     description:
@@ -573,15 +564,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  aeo_pass: {
-    key: 'aeo_pass',
-    description:
-      'Answer-Engine-Optimization audit + structured-data tuning on every publish targeting ChatGPT/Perplexity/AI-Overviews citation, extending the on-publish SEO pass',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   ai_gateway_guardrails: {
     key: 'ai_gateway_guardrails',
     description:
@@ -636,15 +618,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  edge_personalization: {
-    key: 'edge_personalization',
-    description:
-      'No-PII edge swap of hero headline/sub/image/primary-CTA/sticky-bar from geo/device/referrer/time/return signals via sub-10ms Workers-AI call, A/B-eval looped',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   figma_import: {
     key: 'figma_import',
     description:
@@ -676,15 +649,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'model_registry',
     description:
       'OpenAI-compatible GET /v1/models — the ProviderCapabilityRegistry + ModelAliasRegistry catalog (deepseek/anthropic/openai/gemini/grok/workers-ai aliases) with per-provider availability gating',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  native_booking_engine: {
-    key: 'native_booking_engine',
-    description:
-      'First-class booking/availability engine with slots, holds, reminders and optional deposit via payments_rail — eliminates the third-party scheduler dependency',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -775,15 +739,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'site_doctor',
     description:
       'Owner-facing A-F site health report with prioritized, plain-English one-tap fixes. Translates production-readiness signals (published, custom domain, performance, sitemap) into owner language; free plan sees the top issue, the rest locked behind a paid power-up. Sharp professional voice; reuses prod_readiness_score scoring.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  site_semantic_search: {
-    key: 'site_semantic_search',
-    description:
-      'Auto-installed semantic search over a published site own R2 content via Vectorize/AutoRAG, re-indexed on content change — answers, not just keyword match',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

@@ -597,21 +597,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Operator review queue shows the case; actioning it unpublishes the site',
     ],
   },
-  aeo_pass: {
-    checklist: [
-      'Answer-Engine-Optimization audit on every publish',
-      'Structured-data tuning for AI-citation',
-      'Targets ChatGPT / Perplexity / AI-Overviews',
-      'Extends the on-publish SEO pass',
-    ],
-    explanation:
-      'Runs an Answer-Engine-Optimization audit plus structured-data tuning on every publish, targeting citation in ChatGPT / Perplexity / Google AI-Overviews (quotable answer blocks, FAQPage schema, EEAT signals) — extending the existing on-publish SEO pass. Reports per-page AEO gaps. When off, the AEO step is skipped and the route 404s.',
-    smoke_test: [
-      'Publish a site → the AEO pass runs and writes per-page audit results',
-      'GET /api/sites/:id/aeo → {score, gaps:[{page, issue, fix}]}',
-      'Disable the flag → the AEO step is skipped, the route 404s',
-    ],
-  },
   ai_gateway_guardrails: {
     checklist: [
       'Llama Guard middleware on /ai/* routes',
@@ -703,21 +688,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the snippet route 404s',
     ],
   },
-  edge_personalization: {
-    checklist: [
-      'No-PII edge swap of hero / sub / image / CTA / sticky-bar',
-      'Signals: geo / device / referrer / time / return visit',
-      'Sub-10ms Workers-AI decision',
-      'A/B-eval looped to the winning variant',
-    ],
-    explanation:
-      'No-PII edge personalization that swaps the hero headline, sub-headline, image, primary CTA, and sticky bar based on geo / device / referrer / time-of-day / return-visit signals via a sub-10ms Workers-AI call, with an A/B-eval loop that shifts traffic to the winning variant. Runs at the edge on serve. When off, the published site renders its default static hero.',
-    smoke_test: [
-      'Request a published site with different Referer / geo headers → the hero variant changes',
-      'GET /api/sites/:id/personalization/report → per-variant conversion + the current winner',
-      'Disable the flag → every visitor gets the default hero',
-    ],
-  },
   figma_import: {
     checklist: [
       'POST /api/figma/import — pull design tokens + component metadata from a Figma file',
@@ -776,21 +746,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET /v1/models → {object:"list", data:[{id, owned_by, …}]} for configured providers only',
       'Unset a provider key → that provider’s models drop from the list',
       'Disable the flag → /v1/models 404s',
-    ],
-  },
-  native_booking_engine: {
-    checklist: [
-      'First-class booking / availability engine',
-      'Slots, holds, reminders + optional deposit via payments_rail',
-      'Eliminates the third-party scheduler dependency',
-      'Owner-managed availability rules',
-    ],
-    explanation:
-      'A first-class booking and availability engine — bookable slots, short-lived holds, reminders, and an optional deposit charged through payments_rail — eliminating the third-party scheduler dependency. Owners define availability; visitors book on the published site. When off, the booking routes 404 and the booking UI is hidden.',
-    smoke_test: [
-      'GET /api/sites/:id/availability?date=… → open slots',
-      'POST /api/sites/:id/bookings {slot} → hold created, reminder scheduled, deposit (if set) via payments_rail',
-      'Disable the flag → the booking routes 404',
     ],
   },
   observability_gateway: {
@@ -947,21 +902,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET …?plan=pro → every issue locked:false, locked_count:0',
       'Unauth → 401; flag off → 404; not-owned siteId → 404',
       'UI: "Site Health" tab (?tab=health) renders the grade + fixes + Unlock-with-Pro on locked rows',
-    ],
-  },
-  site_semantic_search: {
-    checklist: [
-      'Semantic search over a published site’s own content',
-      'Backed by Vectorize / AutoRAG',
-      'Re-indexed on content change',
-      'Answers, not just keyword match',
-    ],
-    explanation:
-      'Auto-installs semantic search over a published site’s own R2 content via Vectorize / AutoRAG, re-indexed on content change — returning answers rather than keyword matches. A search box on the published site queries the site’s vector index. When off, the search route 404s and no search box renders.',
-    smoke_test: [
-      'POST /api/sites/:id/search {query:"opening hours"} → ranked passages + an answer',
-      'Edit the site content → re-index → the new content becomes searchable',
-      'Disable the flag → the search route 404s',
     ],
   },
   site_thumbnail_grid: {

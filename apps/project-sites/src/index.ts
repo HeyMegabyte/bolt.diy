@@ -76,7 +76,6 @@ import { parseSiteCommand } from '../libs/features/nl_site_management/service.js
 import { runLifecycleCheck } from '../libs/features/lifecycle_agent/service.js';
 import { buildCmsModel, availableCollections } from '../libs/features/cms_collections/service.js';
 import { runLocalSeoAudit } from '../libs/features/local_seo_suite/service.js';
-import { generateSlots, confirmBooking } from '../libs/features/native_booking/service.js';
 import { scoreLead, pipelineSummary, nextAction } from '../libs/features/builtin_crm/service.js';
 import { createPortal, validateAccess } from '../libs/features/customer_portal/service.js';
 import { runSeoHealthCheck } from '../libs/features/seo_agent/service.js';
@@ -163,21 +162,17 @@ import { figmaImport } from '../libs/features/figma_import/handlers.js'; // POST
 import { generativeUiStream } from '../libs/features/generative_ui_stream/handlers.js'; // POST /api/copilot/ui — streamed generative UI blocks (flag: generative_ui_stream)
 // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
-import { nativeBookingEngine } from '../libs/features/native_booking_engine/handlers.js'; // booking/availability (flag: native_booking_engine)
 import { creditWalletRollover } from '../libs/features/credit_wallet_rollover/handlers.js'; // wallet rollover+promo (flag: credit_wallet_rollover)
 import { referralLoop } from '../libs/features/referral_loop/handlers.js'; // refer-a-friend (flag: referral_loop)
 import { upgradeMoments } from '../libs/features/upgrade_moments/handlers.js'; // contextual upsell engine (flag: upgrade_moments)
 import { siteDoctor } from '../libs/features/site_doctor/handlers.js'; // owner-facing A-F health report (flag: site_doctor)
 import { previewShareCard } from '../libs/features/preview_share_card/handlers.js'; // GET /api/sites/:siteId/share-card — owner share messages+links+OG (flag: preview_share_card)
-import { siteSemanticSearch } from '../libs/features/site_semantic_search/handlers.js'; // per-site RAG search (flag: site_semantic_search)
-import { edgePersonalization } from '../libs/features/edge_personalization/handlers.js'; // no-PII hero/CTA swap (flag: edge_personalization)
 import { promptStudio } from '../libs/features/prompt_studio/handlers.js'; // prompt versioning surface (flag: prompt_studio)
 import { aiGatewayGuardrails } from '../libs/features/ai_gateway_guardrails/handlers.js'; // Llama Guard middleware (flag: ai_gateway_guardrails)
 import { visualPointEdit } from '../libs/features/visual_point_edit/handlers.js'; // point-and-click AI edit (flag: visual_point_edit)
 import { wireframePlanning } from '../libs/features/wireframe_planning/handlers.js'; // pre-gen wireframe plan (flag: wireframe_planning)
 import { urlCloneSeedRouter } from '../libs/features/url_clone_seed/handlers.js'; // paste-URL seed (flag: url_clone_seed)
 import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.js'; // Cmd+K AI actions (flag: cmdk_ai_actions)
-import { aeoPass } from '../libs/features/aeo_pass/handlers.js'; // answer-engine optimization (flag: aeo_pass)
 import { statusPageLive } from '../libs/features/status_page_live/handlers.js'; // live status feed (flag: status_page_live)
 import { siteThumbnailGrid } from '../libs/features/site_thumbnail_grid/handlers.js'; // browser-rendered thumbnails (flag: site_thumbnail_grid)
 import { observabilityGateway } from '../libs/features/observability_gateway/handlers.js'; // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway)
@@ -710,31 +705,6 @@ app.post('/api/sites/:siteId/seo/audit', async (c) => {
   return c.json({ data: audit });
 });
 
-// Native Booking — slots + confirmation (flag: native_booking)
-app.post('/api/sites/:siteId/booking/slots', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  const slots = generateSlots(
-    body.service || {},
-    new Date(body.date + 'T00:00:00'),
-    body.existing || [],
-  );
-  return c.json({ data: slots });
-});
-app.post('/api/sites/:siteId/booking/confirm', async (c) => {
-  const siteId = c.req.param('siteId');
-  const orgId = c.get('orgId');
-  const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'native_booking', { orgId: orgId, siteId: siteId })))
-    return c.notFound();
-  const body = await c.req.json().catch(() => ({}));
-  const result = confirmBooking(body, body.service || {}, body.existing || []);
-  return c.json('error' in result ? { error: result } : { data: result });
-});
 
 // Built-in CRM — lead scoring + pipeline (flag: builtin_crm)
 app.post('/api/sites/:siteId/crm/score', async (c) => {
@@ -1181,21 +1151,17 @@ app.route('/', observabilityGateway); // POST /monitoring/:provider — customer
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
-app.route('/', nativeBookingEngine); // /api/booking/* (flag: native_booking_engine)
 app.route('/', creditWalletRollover); // /api/credits/* (flag: credit_wallet_rollover)
 app.route('/', referralLoop); // /api/referrals/* (flag: referral_loop)
 app.route('/', upgradeMoments); // /api/upgrade-moments/* (flag: upgrade_moments)
 app.route('/', siteDoctor); // /api/sites/:siteId/doctor (flag: site_doctor)
 app.route('/', previewShareCard); // /api/sites/:siteId/share-card (flag: preview_share_card)
-app.route('/', siteSemanticSearch); // /api/site-search/* (flag: site_semantic_search)
-app.route('/', edgePersonalization); // /api/personalize/* (flag: edge_personalization)
 app.route('/', promptStudio); // /api/prompt-studio/* (flag: prompt_studio)
 app.route('/', aiGatewayGuardrails); // /api/guardrails/* (flag: ai_gateway_guardrails)
 app.route('/', visualPointEdit); // /api/editor/point-edit (flag: visual_point_edit)
 app.route('/', wireframePlanning); // /api/wireframe/* (flag: wireframe_planning)
 app.route('/', urlCloneSeedRouter); // /api/clone/seed (flag: url_clone_seed)
 app.route('/', cmdkAiActionsRouter); // /api/cmdk/resolve (flag: cmdk_ai_actions)
-app.route('/', aeoPass); // /api/aeo/* (flag: aeo_pass)
 app.route('/', statusPageLive); // /api/status/* (flag: status_page_live)
 app.route('/', siteThumbnailGrid); // /api/thumbnails/* (flag: site_thumbnail_grid)
 app.route('/', integrationHealth); // GET /api/integrations/:name/health + /api/integrations/health
