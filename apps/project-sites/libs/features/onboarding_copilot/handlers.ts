@@ -13,6 +13,7 @@
  * @packageDocumentation
  */
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
 import { dbQueryOne } from '../../../src/services/db.js';
@@ -21,6 +22,22 @@ import { FLAG_KEY, buildChecklist, dismissedKey, DISMISS_TTL } from './service.j
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const onboardingCopilot = new Hono<AppContext>();
+
+/**
+ * Flag-gate then resolve the caller's org. Returns a 404 `Response` when the
+ * `onboarding_copilot` flag is off, a 401 `Response` when no org context is
+ * present; otherwise the authorized `{ orgId }`.
+ */
+async function gate(c: Context<AppContext>): Promise<{ orgId: string } | Response> {
+  if (!(await isFlagOn(c.env, FLAG_KEY, {}))) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Resource not found.' } }, 404);
+  }
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }, 401);
+  }
+  return { orgId };
+}
 
 /**
  * GET /api/onboarding/checklist
@@ -34,14 +51,9 @@ export const onboardingCopilot = new Hono<AppContext>();
  * @throws 401 when no authenticated orgId is present.
  */
 onboardingCopilot.get('/checklist', async (c) => {
-  if (!(await isFlagOn(c.env, FLAG_KEY, {}))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Resource not found.' } }, 404);
-  }
-
-  const orgId = c.get('orgId');
-  if (!orgId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }, 401);
-  }
+  const g = await gate(c);
+  if (g instanceof Response) return g;
+  const { orgId } = g;
 
   const [siteRow, publishedRow, domainRow, rawDismissed] = await Promise.all([
     dbQueryOne<{ n: number }>(
@@ -83,14 +95,9 @@ onboardingCopilot.get('/checklist', async (c) => {
  * @throws 401 when no authenticated orgId is present.
  */
 onboardingCopilot.post('/dismiss', async (c) => {
-  if (!(await isFlagOn(c.env, FLAG_KEY, {}))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Resource not found.' } }, 404);
-  }
-
-  const orgId = c.get('orgId');
-  if (!orgId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }, 401);
-  }
+  const g = await gate(c);
+  if (g instanceof Response) return g;
+  const { orgId } = g;
 
   await c.env.CACHE_KV.put(dismissedKey(orgId), '1', { expirationTtl: DISMISS_TTL });
 
