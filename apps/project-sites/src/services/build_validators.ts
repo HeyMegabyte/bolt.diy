@@ -254,8 +254,16 @@ const titleLength = (html: string): number => {
 };
 
 const metaDescLength = (html: string): number => {
-  const m = html.match(/<meta\s+name=["']description["'][^>]*content=["']([^"']*)["']/i);
-  return m ? m[1].trim().length : 0;
+  // Find the description meta tag (any attribute order), then extract its
+  // `content` value respecting the value's OWN delimiter via a backreference.
+  // The old /content=["']([^"']*)["']/ stopped the capture at the first
+  // apostrophe OR quote — not the actual delimiter — so a valid double-quoted
+  // value like content="Vito's Salon…" truncated to "Vito" (len 4) and produced
+  // a FALSE meta.description_length violation on every possessive/contraction.
+  const tag = html.match(/<meta\s+[^>]*\bname=["']description["'][^>]*>/i);
+  if (!tag) return 0;
+  const c = tag[0].match(/\bcontent=(["'])([\s\S]*?)\1/i);
+  return c ? c[2].trim().length : 0;
 };
 
 /** Title 50-60, description 120-156. */

@@ -171,6 +171,26 @@ describe('validateMetaLengths', () => {
   it('passes valid lengths', () => {
     expect(validateMetaLengths([file('index.html', html(''))])).toEqual([]);
   });
+
+  it('does NOT flag a valid description whose content contains an apostrophe', () => {
+    // A double-quoted content value with an apostrophe (possessive) is valid
+    // HTML. The old /content=["']([^"']*)["']/ capture stopped at the FIRST
+    // apostrophe OR quote — not the actual delimiter — so `content="Vito's ..."`
+    // truncated to "Vito" (len 4) → a FALSE meta.description_length violation.
+    // Every possessive/contraction hits this; the canonical test biz is "Vito's".
+    const desc = "Vito's " + 'a'.repeat(125); // 132 chars, apostrophe at index 4, within 120-156
+    expect(desc.length).toBe(132);
+    const f = [
+      file(
+        'index.html',
+        '<!DOCTYPE html><html><head><title>' +
+          'x'.repeat(55) +
+          `</title><meta name="description" content="${desc}"></head><body></body></html>`,
+      ),
+    ];
+    const v = validateMetaLengths(f);
+    expect(v.some((x) => x.code === 'meta.description_length')).toBe(false);
+  });
 });
 
 describe('validateJsonLdCount', () => {
