@@ -117,53 +117,17 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.loadErrorRef()).withContext('support reference captured').toBe('req-sf-9');
   });
 
-  it('a 404 (catalog route not provisioned for this site yet) → calm read-only fallback, NOT a scary red error card', async () => {
-    // A 404 is permanent until the worker route is live — a red "Couldn't load /
-    // Retry / check you're signed in" card is the wrong signal (Retry is futile,
-    // the user IS signed in). Treat it like the no-JSON fall-through: show the
-    // read-only catalog + a calm "provisioning" notice. Addresses "Features shows
-    // nothing" — the owner still sees what's available on their plan.
+  it('404 (catalog route not provisioned) → calm read-only fallback, never a scary red error card', async () => {
+    // The SITE_FEATURE_CATALOG (child-site features) was fully removed 2026-08-13, so the
+    // degraded read-only fallback now maps an EMPTY hardcoded catalog → the "No features yet"
+    // empty state. A 404 must still never surface a red error/Retry card (Retry is futile).
     await build({ features: [] }, 404);
     expect(component.error()).withContext('404 is not a transient error — no error string set').toBeNull();
-    expect(component.degraded()).withContext('404 → read-only provisioning fallback').toBeTrue();
+    expect(component.degraded()).withContext('404 → read-only fallback flag still set').toBeTrue();
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('app-error-card')).withContext('no scary red error card for a 404').toBeNull();
-    expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('calm provisioning banner instead').not.toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(14);
-  });
-
-  it('renders a "What you get" ✓ capability checklist on each feature card', async () => {
-    await build({ features: [] }, 404); // read-only fallback shows the full 14-card catalog
-    const host = fixture.nativeElement as HTMLElement;
-    const donations = host.querySelector('[data-testid="sf-card-donations_engine"]') as HTMLElement;
-    expect(donations).withContext('donations card present').not.toBeNull();
-    const checklist = donations.querySelector('[data-testid="sf-checklist"]') as HTMLElement;
-    expect(checklist).withContext('capability checklist rendered').not.toBeNull();
-    const items = checklist.querySelectorAll('.sf-check');
-    expect(items.length).withContext('several concrete capability bullets').toBeGreaterThanOrEqual(3);
-    expect(checklist.textContent ?? '').toContain('Stripe');
-    // every bullet carries the ✓ glyph (checklist affordance)
-    expect(checklist.querySelectorAll('.sf-check-ic').length).toBe(items.length);
-  });
-
-  it('falls back to the read-only catalog + provisioning banner when the route returns no JSON catalog', async () => {
-    // The live worker route isn't deployed yet → the SPA serves HTML / a shapeless
-    // body with no features[]. The page must show the catalog, never blank.
-    await build({} as unknown as { features: unknown[] });
-    expect(component.degraded()).withContext('degraded fallback active').toBeTrue();
-    const host = fixture.nativeElement as HTMLElement;
-    expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('provisioning banner shown').not.toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('14-feature catalog rendered, not blank').toBe(14);
-    expect(host.querySelector('app-empty-state')).withContext('no misleading "No features yet" empty-state').toBeNull();
-  });
-
-  it('degraded catalog toggles are disabled (live management not yet active)', async () => {
-    await build({} as unknown as { features: unknown[] });
-    expect(component.degraded()).toBeTrue();
-    const sw = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="sf-toggle"]') as HTMLButtonElement | null;
-    // donations_engine is free-plan → entitled 'available' → a switch renders, but disabled in fallback.
-    expect(sw).withContext('the free-plan feature renders a switch').not.toBeNull();
-    expect(sw!.disabled).withContext('toggle disabled in read-only fallback').toBeTrue();
+    expect(host.querySelectorAll('.sf-card').length).withContext('emptied child-site catalog → no cards').toBe(0);
+    expect(host.querySelector('app-empty-state')).withContext('empty catalog → calm empty state, not a crash').not.toBeNull();
   });
 
   it('renders the empty state when there are no features', async () => {

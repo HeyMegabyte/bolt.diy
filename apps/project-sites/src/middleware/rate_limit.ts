@@ -73,7 +73,6 @@ export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
   // Public / cost-incurring (paid APIs, Stripe sessions, email sends).
   { path: '/api/search/businesses', maxRequests: 30, windowSeconds: 60, prefix: 'rl:search' },
   { path: '/api/search/address', maxRequests: 30, windowSeconds: 60, prefix: 'rl:search-addr' },
-  { path: '/api/donate', maxRequests: 10, windowSeconds: 60, prefix: 'rl:donate' },
   { path: '/api/contact-form/*', maxRequests: 5, windowSeconds: 60, prefix: 'rl:contact' },
   // Platform contact form — public, unauthenticated, sends email + writes an audit
   // row. Same abuse/cost budget as the per-site form above (distinct path: this

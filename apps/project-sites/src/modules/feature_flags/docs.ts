@@ -111,21 +111,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET /api/router/stats?org_id=demo-org → savings vs always-Opus baseline',
     ],
   },
-  pseo_matrix_v2: {
-    checklist: [
-      'User-task pages (not bare keywords)',
-      '≥40% unique data floor per page (live Places, real reviews, real pricing)',
-      'Covers comparison / alternative + integration-directory page sets (merged)',
-      'Cap 200 per axis',
-    ],
-    explanation:
-      "pSEO v2: user-tasks (not keywords) + ≥40% unique data floor per page from live Google Places, real reviews, real pricing. Cap 200 per axis. Merged scope: the comparison/alternative ('X vs Y') and integration-directory page sets ride this same generator.",
-    smoke_test: [
-      'POST /api/sites/:id/pseo/generate → returns the planned page matrix + unique-data ratio per page',
-      'Generated page renders real Places/review/pricing data, not boilerplate',
-    ],
-    e2e_tests: ['e2e/pseo/pseo-matrix.spec.ts'],
-  },
   email_deliverability_wizard: {
     checklist: [
       'Checks a sending domain SPF + DKIM + DMARC via DNS-over-HTTPS',

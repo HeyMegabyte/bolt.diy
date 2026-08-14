@@ -132,7 +132,6 @@ import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
 import { publicRoutes } from './routes/public.js';
 import { pseoRoutes } from './routes/pseo.js';
-import { pseoMatrixV2Routes } from './routes/pseo_matrix_v2.js';
 import features from './routes/features.js';
 import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
@@ -1106,7 +1105,6 @@ app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experi
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
 app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
 app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
-app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id/pseo/v2/* — user-tasks + 40% unique-data floor
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.

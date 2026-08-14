@@ -59,10 +59,7 @@ interface SiteFeature {
  * with the worker catalog when features are added/removed.
  */
 const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' | 'enabled' | 'preview'>> = [
-  { key: 'donations_engine', name: 'Donations', description: 'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
-  { key: 'pseo_matrix_v2', name: 'Local SEO Pages', description: 'Auto-generate location and service landing pages from real data to rank for "near me" searches.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
-  { key: 'a11y_autopilot', name: 'Accessibility Autopilot', description: 'Continuous accessibility scans with one-click fixes and an ADA-ready compliance report for your site.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
 ];
 
 /**
@@ -72,24 +69,6 @@ const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' |
  * both the live `/api/site-features` catalog and the read-only fallback.
  */
 const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
-  donations_engine: [
-    'One-tap donate page with suggested amounts',
-    'Stripe-secured cards + Apple Pay / Google Pay',
-    'One-time and recurring gifts',
-    'Automatic emailed receipts',
-  ],
-  pseo_matrix_v2: [
-    'Auto-built location landing pages',
-    'Service × city page matrix',
-    'Content generated from real data',
-    'Targets "near me" / local intent queries',
-  ],
-  a11y_autopilot: [
-    'Continuous automated accessibility scans',
-    'One-click fix suggestions',
-    'ADA Title II-ready compliance report',
-    'Per-page issue tracking over time',
-  ],
 };
 
 /** Mirror of the worker's entitlement logic for the read-only fallback (assumes the free tier — the live API supplies the real plan). */

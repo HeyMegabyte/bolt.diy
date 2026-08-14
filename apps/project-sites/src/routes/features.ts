@@ -385,34 +385,7 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
   isAddon: boolean;
   category: string;
 }> = [
-  {
-    key: 'donations_engine',
-    name: 'Donations',
-    description:
-      'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.',
-    requiredPlan: 'free',
-    isAddon: false,
-    category: 'Sell',
-  },
-  {
-    key: 'pseo_matrix_v2',
-    name: 'Local SEO Pages',
-    description:
-      'Auto-generate location and service landing pages from real data to rank for "near me" searches.',
-    requiredPlan: 'business',
-    isAddon: false,
-    category: 'Grow',
-  },
   // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
-  {
-    key: 'a11y_autopilot',
-    name: 'Accessibility Autopilot',
-    description:
-      'Continuous accessibility scans with one-click fixes and an ADA-ready compliance report for your site.',
-    requiredPlan: 'pro',
-    isAddon: false,
-    category: 'Grow',
-  },
 ];
 
 const PLAN_RANK: Record<string, number> = { free: 0, pro: 1, business: 2, enterprise: 3 };

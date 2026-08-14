@@ -61,7 +61,7 @@ describe('requireOrgFlag — flag gating', () => {
 describe('requireFlag — public gate', () => {
   it('returns a 404 Response when the flag is OFF', async () => {
     mockIsFlagOn.mockResolvedValue(false);
-    const r = (await requireFlag(ctx({ requestId: 'r1' }), 'donations_engine')) as unknown as {
+    const r = (await requireFlag(ctx({ requestId: 'r1' }), 'site_analytics')) as unknown as {
       status: number;
       body: { error: { code: string } };
     };
@@ -71,7 +71,7 @@ describe('requireFlag — public gate', () => {
 
   it('returns true when the flag is ON', async () => {
     mockIsFlagOn.mockResolvedValue(true);
-    expect(await requireFlag(ctx({}), 'donations_engine')).toBe(true);
+    expect(await requireFlag(ctx({}), 'site_analytics')).toBe(true);
   });
 
   it('resolves the flag against whatever scope the context carries', async () => {

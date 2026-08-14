@@ -125,15 +125,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Content Freshness + pSEO (items #16 + #17) — flag registry restoration after content-pseo agent shipped the impl without registering the flag (caught by validate-feature-manifests 2026-05-28)
   // ── IDEAS-50 wave 3: GEO + reputation + growth (3 + 9 + 10/11/13 + 18 + 32 + 34)
   // ── #29 pSEO v2 (post-March-2026), #30 Integration Directory, #31 Comparison Pages, #32 Vertical Templates, #35 Public Changelog
-  pseo_matrix_v2: {
-    key: 'pseo_matrix_v2',
-    description:
-      'pSEO v2: user-tasks (not keywords) + >=40% unique data floor per page from live Google Places, real reviews, real pricing. Cap 200 per axis. Covers comparison/alternative + integration-directory page sets.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/pseo/pseo-matrix.spec.ts (green live),
-    owner_email: 'brian@megabyte.space',
-  },
   // ── Domain & Logs (items #10 + #14)
   // ── #24 Unified Visitor Inbox + #25 Multimodal Site Copilot
   // ── #5+#6+#7+#8 Swarm editor + live stream + Site DNA + section marketplace

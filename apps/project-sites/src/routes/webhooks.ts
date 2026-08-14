@@ -43,7 +43,6 @@ import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
 import * as connectService from '../services/stripe_connect.js';
 import { handleWalletStripeEvent } from '../services/wallet_webhook.js';
-import { handleDonationCheckout, type DonationSession } from '../services/donations.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 import { safeWaitUntil } from '../lib/wait-until.js';
 import type { EventType } from '../services/event_bus.js';
@@ -167,14 +166,6 @@ webhooks.post('/webhooks/stripe', async (c) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const meta = (obj.metadata as Record<string, string> | undefined) ?? {};
-        // Donation checkouts carry `metadata.kind = 'donation'` (set by /api/donate).
-        // Isolated branch — record the donation into `donations`, then break. Never
-        // runs the billing / wallet paths below (a donation is not a plan upgrade or
-        // wallet top-up), so it cannot affect subscription/entitlement handling.
-        if (meta.kind === 'donation') {
-          await handleDonationCheckout(c.env, obj as unknown as DonationSession);
-          break;
-        }
         // Wallet-subscription checkouts carry `metadata.kind = 'wallet'`
         // (set by `wallet.startSubscription`). Route those to the wallet
         // handler; everything else stays on the existing billing path.

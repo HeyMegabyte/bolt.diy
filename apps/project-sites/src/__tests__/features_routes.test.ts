@@ -139,7 +139,6 @@ describe('GET /api/feature-flags (registry list + trim regression guard)', () =>
       'crm_engine',
       'cdp_engine',
       'lms_engine',
-      'donations_engine',
       'dunning_recovery',
       'stripe_meters',
       'ecommerce_engine',
@@ -185,8 +184,9 @@ describe('GET /api/site-features (owner catalog, plan-aware)', () => {
       plan: string;
     };
     expect(json.plan).toBe('free');
-    expect(json.features.length).toBeGreaterThanOrEqual(8); // the trimmed "handful"
-    expect(json.features.map((f) => f.key)).toContain('donations_engine');
+    // The SITE_FEATURE_CATALOG (child-site features) was fully removed 2026-08-13
+    // per Brian's directive; the endpoint still returns a well-formed empty catalog.
+    expect(Array.isArray(json.features)).toBe(true);
   });
 });
 
@@ -206,7 +206,7 @@ describe('POST /api/site-features/:key', () => {
     expect((await post('/api/site-features/not_a_feature', { site_id: 's1' })).status).toBe(404);
   });
 
-  it('400s on an invalid body (missing site_id) for a real catalog key', async () => {
-    expect((await post('/api/site-features/donations_engine', {})).status).toBe(400);
-  });
+  // The 400-on-invalid-body-for-a-real-key case was dropped when the child-site
+  // SITE_FEATURE_CATALOG was fully removed (2026-08-13) — no catalog keys remain,
+  // so every key now takes the not-in-catalog 404 path covered above.
 });

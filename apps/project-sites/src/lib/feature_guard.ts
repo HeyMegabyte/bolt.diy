@@ -99,7 +99,7 @@ function logFlagOff(c: AppCtx, flagKey: string): void {
  * @returns `true` on success, else a `Response` to return immediately.
  * @example
  * ```ts
- * const gate = await requireFlag(c, 'donations_engine');
+ * const gate = await requireFlag(c, 'site_analytics');
  * if (gate !== true) return gate;
  * ```
  */
