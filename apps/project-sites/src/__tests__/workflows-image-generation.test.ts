@@ -209,7 +209,9 @@ describe('ImageGenerationWorkflow', () => {
       } as Parameters<typeof wf.run>[0],
       step as unknown as Parameters<typeof wf.run>[1],
     );
-    expect((mockFetch.mock.calls[1][1] as { body: FormData }).body.get('aspect_ratio')).toBe('9:16');
+    expect((mockFetch.mock.calls[1][1] as { body: FormData }).body.get('aspect_ratio')).toBe(
+      '9:16',
+    );
   });
 
   it('returns ok:false when both providers fail', async () => {
