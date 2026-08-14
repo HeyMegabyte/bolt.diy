@@ -1,10 +1,9 @@
 import { Component, Input, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
-import { NgIf } from '@angular/common';
 
 @Component({
   selector: 'sk-before-after-slider',
   standalone: true,
-  imports: [NgIf],
+  imports: [],
   template: `
     <figure
       style="
@@ -50,7 +49,8 @@ import { NgIf } from '@angular/common';
           backdrop-filter:blur(4px);
         "
         aria-hidden="true"
-      >{{ beforeLabel }}</span>
+        >{{ beforeLabel }}</span
+      >
       <span
         style="
           position:absolute;top:12px;right:16px;
@@ -61,7 +61,8 @@ import { NgIf } from '@angular/common';
           backdrop-filter:blur(4px);
         "
         aria-hidden="true"
-      >{{ afterLabel }}</span>
+        >{{ afterLabel }}</span
+      >
       <!-- Divider + handle -->
       <div
         style="
@@ -93,9 +94,22 @@ import { NgIf } from '@angular/common';
           "
           (keydown)="onKey($event)"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ps-bg,#060610)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="15 18 9 12 15 6"/>
-            <polyline points="9 18 15 12 9 6" style="transform:scaleX(-1);transform-origin:50% 50%"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--ps-bg,#060610)"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="15 18 9 12 15 6" />
+            <polyline
+              points="9 18 15 12 9 6"
+              style="transform:scaleX(-1);transform-origin:50% 50%"
+            />
           </svg>
         </div>
       </div>
@@ -109,8 +123,10 @@ import { NgIf } from '@angular/common';
   `,
 })
 export class BeforeAfterSliderComponent implements AfterViewInit, OnDestroy {
-  @Input() beforeSrc = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="800" height="450" fill="%23888"/><text x="400" y="225" text-anchor="middle" dominant-baseline="middle" fill="%23fff" font-size="24" font-family="sans-serif">Before</text></svg>';
-  @Input() afterSrc = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="800" height="450" fill="%2300E5FF"/><text x="400" y="225" text-anchor="middle" dominant-baseline="middle" fill="%23060610" font-size="24" font-family="sans-serif">After</text></svg>';
+  @Input() beforeSrc =
+    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="800" height="450" fill="%23888"/><text x="400" y="225" text-anchor="middle" dominant-baseline="middle" fill="%23fff" font-size="24" font-family="sans-serif">Before</text></svg>';
+  @Input() afterSrc =
+    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="800" height="450" fill="%2300E5FF"/><text x="400" y="225" text-anchor="middle" dominant-baseline="middle" fill="%23060610" font-size="24" font-family="sans-serif">After</text></svg>';
   @Input() beforeAlt = 'Before';
   @Input() afterAlt = 'After';
   @Input() beforeLabel = 'Before';
@@ -156,10 +172,22 @@ export class BeforeAfterSliderComponent implements AfterViewInit, OnDestroy {
   onKey(e: KeyboardEvent): void {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const step = e.shiftKey ? 10 : 2;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); this.pct = Math.max(0, this.pct - step); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); this.pct = Math.min(100, this.pct + step); }
-    if (e.key === 'Home') { e.preventDefault(); this.pct = 0; }
-    if (e.key === 'End') { e.preventDefault(); this.pct = 100; }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      this.pct = Math.max(0, this.pct - step);
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      this.pct = Math.min(100, this.pct + step);
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      this.pct = 0;
+    }
+    if (e.key === 'End') {
+      e.preventDefault();
+      this.pct = 100;
+    }
   }
 
   private updatePct(clientX: number): void {

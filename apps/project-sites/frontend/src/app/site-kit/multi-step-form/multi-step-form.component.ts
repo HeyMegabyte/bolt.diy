@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { NgIf, NgFor } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 export interface FormStep {
@@ -19,11 +19,11 @@ export interface FormField {
 @Component({
   selector: 'sk-multi-step-form',
   standalone: true,
-  imports: [NgIf, NgFor, FormsModule],
+  imports: [FormsModule],
   template: `
-    <div
-      *ngIf="steps.length"
-      style="
+    @if (steps.length) {
+      <div
+        style="
         background: var(--ps-surface-1, rgba(13,13,40,0.8));
         border: 1px solid rgba(0,229,255,0.15);
         border-radius: var(--ps-radius-xl, 22px);
@@ -32,41 +32,56 @@ export interface FormField {
         margin: 0 auto;
         box-shadow: var(--ps-shadow-card, 0 4px 24px rgba(0,0,0,0.3));
       "
-    >
-      <!-- Progress -->
-      <div style="margin-bottom:28px;" role="group" [attr.aria-label]="'Step ' + (stepIndex + 1) + ' of ' + steps.length">
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <div
-            *ngFor="let s of steps; let i = index"
-            style="flex:1;height:4px;border-radius:2px;transition:background 0.3s;"
-            [style.background]="i <= stepIndex ? 'var(--ps-accent,#00e5ff)' : 'rgba(244,244,255,0.1)'"
-          ></div>
+      >
+        <!-- Progress -->
+        <div
+          style="margin-bottom:28px;"
+          role="group"
+          [attr.aria-label]="'Step ' + (stepIndex + 1) + ' of ' + steps.length"
+        >
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            @for (s of steps; track s; let i = $index) {
+              <div
+                style="flex:1;height:4px;border-radius:2px;transition:background 0.3s;"
+                [style.background]="
+                  i <= stepIndex ? 'var(--ps-accent,#00e5ff)' : 'rgba(244,244,255,0.1)'
+                "
+              ></div>
+            }
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <p
+              style="color:var(--ps-accent,#00e5ff);font-size:0.8rem;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:.06em;"
+            >
+              Step {{ stepIndex + 1 }} of {{ steps.length }}
+            </p>
+            <h3 style="color:var(--ps-ink,#f4f4ff);font-size:1.1rem;font-weight:700;margin:0;">
+              {{ currentStep.title }}
+            </h3>
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <p style="color:var(--ps-accent,#00e5ff);font-size:0.8rem;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:.06em;">
-            Step {{ stepIndex + 1 }} of {{ steps.length }}
-          </p>
-          <h3 style="color:var(--ps-ink,#f4f4ff);font-size:1.1rem;font-weight:700;margin:0;">
-            {{ currentStep.title }}
-          </h3>
-        </div>
-      </div>
-
-      <!-- Fields -->
-      <div style="display:flex;flex-direction:column;gap:16px;">
-        <div *ngFor="let field of currentStep.fields" style="display:flex;flex-direction:column;gap:6px;">
-          <label
-            [for]="'skf-' + field.key"
-            style="color:var(--ps-ink,#f4f4ff);font-size:0.85rem;font-weight:600;"
-          >{{ field.label }}<span *ngIf="field.required" aria-hidden="true" style="color:var(--ps-accent,#00e5ff);margin-left:3px;">*</span></label>
-          <textarea
-            *ngIf="field.type === 'textarea'"
-            [id]="'skf-' + field.key"
-            [placeholder]="field.placeholder || ''"
-            [required]="!!field.required"
-            [(ngModel)]="formData[field.key]"
-            rows="3"
-            style="
+        <!-- Fields -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          @for (field of currentStep.fields; track field) {
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label
+                [for]="'skf-' + field.key"
+                style="color:var(--ps-ink,#f4f4ff);font-size:0.85rem;font-weight:600;"
+                >{{ field.label }}
+                @if (field.required) {
+                  <span aria-hidden="true" style="color:var(--ps-accent,#00e5ff);margin-left:3px;"
+                    >*</span
+                  >
+                }
+              </label>
+              @if (field.type === 'textarea') {
+                <textarea
+                  [id]="'skf-' + field.key"
+                  [placeholder]="field.placeholder || ''"
+                  [required]="!!field.required"
+                  [(ngModel)]="formData[field.key]"
+                  rows="3"
+                  style="
               background: rgba(244,244,255,0.05);
               border: 1px solid rgba(0,229,255,0.2);
               border-radius: var(--ps-radius-sm, 8px);
@@ -78,15 +93,16 @@ export interface FormField {
               resize: vertical;
               outline: none;
             "
-            onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
-            onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
-          ></textarea>
-          <select
-            *ngIf="field.type === 'select'"
-            [id]="'skf-' + field.key"
-            [required]="!!field.required"
-            [(ngModel)]="formData[field.key]"
-            style="
+                  onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
+                  onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
+                ></textarea>
+              }
+              @if (field.type === 'select') {
+                <select
+                  [id]="'skf-' + field.key"
+                  [required]="!!field.required"
+                  [(ngModel)]="formData[field.key]"
+                  style="
               background: rgba(244,244,255,0.05);
               border: 1px solid rgba(0,229,255,0.2);
               border-radius: var(--ps-radius-sm, 8px);
@@ -97,20 +113,23 @@ export interface FormField {
               box-sizing: border-box;
               outline: none;
             "
-            onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
-            onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
-          >
-            <option value="">{{ field.placeholder || 'Select…' }}</option>
-            <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
-          </select>
-          <input
-            *ngIf="field.type !== 'textarea' && field.type !== 'select'"
-            [id]="'skf-' + field.key"
-            [type]="field.type"
-            [placeholder]="field.placeholder || ''"
-            [required]="!!field.required"
-            [(ngModel)]="formData[field.key]"
-            style="
+                  onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
+                  onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
+                >
+                  <option value="">{{ field.placeholder || 'Select…' }}</option>
+                  @for (opt of field.options; track opt) {
+                    <option [value]="opt">{{ opt }}</option>
+                  }
+                </select>
+              }
+              @if (field.type !== 'textarea' && field.type !== 'select') {
+                <input
+                  [id]="'skf-' + field.key"
+                  [type]="field.type"
+                  [placeholder]="field.placeholder || ''"
+                  [required]="!!field.required"
+                  [(ngModel)]="formData[field.key]"
+                  style="
               background: rgba(244,244,255,0.05);
               border: 1px solid rgba(0,229,255,0.2);
               border-radius: var(--ps-radius-sm, 8px);
@@ -121,19 +140,20 @@ export interface FormField {
               box-sizing: border-box;
               outline: none;
             "
-            onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
-            onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
-          />
+                  onfocus="this.style.borderColor='var(--ps-accent,#00e5ff)'"
+                  onblur="this.style.borderColor='rgba(0,229,255,0.2)'"
+                />
+              }
+            </div>
+          }
         </div>
-      </div>
-
-      <!-- Navigation -->
-      <div style="display:flex;justify-content:space-between;margin-top:28px;gap:12px;">
-        <button
-          *ngIf="stepIndex > 0"
-          type="button"
-          (click)="prev()"
-          style="
+        <!-- Navigation -->
+        <div style="display:flex;justify-content:space-between;margin-top:28px;gap:12px;">
+          @if (stepIndex > 0) {
+            <button
+              type="button"
+              (click)="prev()"
+              style="
             flex: 1;
             padding: 12px;
             border: 1px solid rgba(0,229,255,0.3);
@@ -144,12 +164,15 @@ export interface FormField {
             font-weight: 600;
             cursor: pointer;
           "
-        >Back</button>
-        <button
-          *ngIf="!isLast"
-          type="button"
-          (click)="next()"
-          style="
+            >
+              Back
+            </button>
+          }
+          @if (!isLast) {
+            <button
+              type="button"
+              (click)="next()"
+              style="
             flex: 2;
             padding: 12px;
             border: none;
@@ -160,12 +183,15 @@ export interface FormField {
             font-weight: 700;
             cursor: pointer;
           "
-        >Next →</button>
-        <button
-          *ngIf="isLast"
-          type="button"
-          (click)="submit()"
-          style="
+            >
+              Next →
+            </button>
+          }
+          @if (isLast) {
+            <button
+              type="button"
+              (click)="submit()"
+              style="
             flex: 2;
             padding: 12px;
             border: none;
@@ -176,14 +202,18 @@ export interface FormField {
             font-weight: 700;
             cursor: pointer;
           "
-        >{{ submitLabel }}</button>
+            >
+              {{ submitLabel }}
+            </button>
+          }
+        </div>
       </div>
-    </div>
+    }
   `,
 })
 export class MultiStepFormComponent {
   // No fabricated defaults — a kit multi-step form must NEVER ship a hardcoded intake
-  // flow to a real business site. Empty by default → the root <div> self-hides (*ngIf),
+  // flow to a real business site. Empty by default → the root <div> self-hides (),
   // which also guards the `currentStep` getter from indexing an empty array. The
   // consumer defines the business's REAL intake steps/fields. (anti-fabrication mandate)
   @Input() steps: FormStep[] = [];
@@ -193,10 +223,20 @@ export class MultiStepFormComponent {
   stepIndex = 0;
   formData: Record<string, string> = {};
 
-  get currentStep(): FormStep { return this.steps[this.stepIndex]; }
-  get isLast(): boolean { return this.stepIndex === this.steps.length - 1; }
+  get currentStep(): FormStep {
+    return this.steps[this.stepIndex];
+  }
+  get isLast(): boolean {
+    return this.stepIndex === this.steps.length - 1;
+  }
 
-  next(): void { if (this.stepIndex < this.steps.length - 1) this.stepIndex++; }
-  prev(): void { if (this.stepIndex > 0) this.stepIndex--; }
-  submit(): void { this.formSubmit.emit({ ...this.formData }); }
+  next(): void {
+    if (this.stepIndex < this.steps.length - 1) this.stepIndex++;
+  }
+  prev(): void {
+    if (this.stepIndex > 0) this.stepIndex--;
+  }
+  submit(): void {
+    this.formSubmit.emit({ ...this.formData });
+  }
 }

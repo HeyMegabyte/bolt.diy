@@ -1,5 +1,4 @@
 import { Component, Input, OnInit, OnDestroy } from '@angular/core';
-import { NgIf, NgFor } from '@angular/common';
 
 export interface SocialProofEntry {
   name: string;
@@ -11,14 +10,14 @@ export interface SocialProofEntry {
 @Component({
   selector: 'sk-social-proof-toast',
   standalone: true,
-  imports: [NgIf, NgFor],
+  imports: [],
   template: `
-    <div
-      *ngIf="visible && current"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-      style="
+    @if (visible && current) {
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style="
         position: fixed;
         bottom: 80px;
         left: 24px;
@@ -34,9 +33,9 @@ export interface SocialProofEntry {
         box-shadow: var(--ps-shadow-lg, 0 12px 40px rgba(0,0,0,0.4));
         animation: spToastIn var(--ps-dur-slow, 380ms) var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)) both;
       "
-    >
-      <div
-        style="
+      >
+        <div
+          style="
           width: 38px;
           height: 38px;
           border-radius: 50%;
@@ -49,27 +48,47 @@ export interface SocialProofEntry {
           font-weight: 700;
           color: var(--ps-bg, #060610);
         "
-        aria-hidden="true"
-      >{{ current.name.charAt(0).toUpperCase() }}</div>
-      <div style="min-width:0">
-        <div style="color:var(--ps-ink,#f4f4ff);font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          {{ current.name }}
+          aria-hidden="true"
+        >
+          {{ current.name.charAt(0).toUpperCase() }}
         </div>
-        <div style="color:rgba(244,244,255,0.7);font-size:0.8rem;margin-top:2px;">
-          {{ current.action }}<span *ngIf="current.location"> in {{ current.location }}</span>
-        </div>
-        <div *ngIf="current.ago" style="color:var(--ps-accent,#00e5ff);font-size:0.75rem;margin-top:3px;font-weight:600;">
-          {{ current.ago }}
+        <div style="min-width:0">
+          <div
+            style="color:var(--ps-ink,#f4f4ff);font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+          >
+            {{ current.name }}
+          </div>
+          <div style="color:rgba(244,244,255,0.7);font-size:0.8rem;margin-top:2px;">
+            {{ current.action }}
+            @if (current.location) {
+              <span> in {{ current.location }}</span>
+            }
+          </div>
+          @if (current.ago) {
+            <div
+              style="color:var(--ps-accent,#00e5ff);font-size:0.75rem;margin-top:3px;font-weight:600;"
+            >
+              {{ current.ago }}
+            </div>
+          }
         </div>
       </div>
-    </div>
+    }
     <style>
       @keyframes spToastIn {
-        from { opacity: 0; transform: translateY(16px) scale(0.97); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
+        from {
+          opacity: 0;
+          transform: translateY(16px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       }
       @media (prefers-reduced-motion: reduce) {
-        [role="status"] { animation: none !important; }
+        [role='status'] {
+          animation: none !important;
+        }
       }
     </style>
   `,
@@ -92,7 +111,9 @@ export class SocialProofToastComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (!this.entries.length) return;
-    const prefersReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
     this.showNext();
   }
