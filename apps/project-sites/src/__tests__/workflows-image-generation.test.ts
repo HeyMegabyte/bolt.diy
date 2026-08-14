@@ -167,6 +167,51 @@ describe('ImageGenerationWorkflow', () => {
     expect(result).toMatchObject({ ok: true, provider: 'stability' });
   });
 
+  it('maps a SQUARE request to Stability aspect_ratio 1:1 (regression — was wrongly 16:9)', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve('rate limit') }) // DALL-E fails
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(32)) }); // Stability ok
+    (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
+
+    const env = makeEnv({ hasDalle: true, hasStability: true });
+    const wf = new ImageGenerationWorkflow({} as unknown as DurableObjectState, env);
+    const { step } = makeStep();
+    await wf.run(
+      {
+        payload: { ...baseParams, size: '1024x1024' as const },
+        timestamp: new Date(),
+        instanceId: 'i1',
+      } as Parameters<typeof wf.run>[0],
+      step as unknown as Parameters<typeof wf.run>[1],
+    );
+
+    // 2nd fetch = the Stability call; its FormData must ask for a square image.
+    expect(mockFetch.mock.calls[1][0]).toContain('api.stability.ai');
+    expect((mockFetch.mock.calls[1][1] as { body: FormData }).body.get('aspect_ratio')).toBe('1:1');
+  });
+
+  it('maps a TALL request to Stability aspect_ratio 9:16', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve('x') })
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+    (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
+
+    const env = makeEnv({ hasDalle: true, hasStability: true });
+    const wf = new ImageGenerationWorkflow({} as unknown as DurableObjectState, env);
+    const { step } = makeStep();
+    await wf.run(
+      {
+        payload: { ...baseParams, size: '1024x1792' as const },
+        timestamp: new Date(),
+        instanceId: 'i1',
+      } as Parameters<typeof wf.run>[0],
+      step as unknown as Parameters<typeof wf.run>[1],
+    );
+    expect((mockFetch.mock.calls[1][1] as { body: FormData }).body.get('aspect_ratio')).toBe('9:16');
+  });
+
   it('returns ok:false when both providers fail', async () => {
     (global as unknown as { fetch: jest.Mock }).fetch = jest
       .fn()

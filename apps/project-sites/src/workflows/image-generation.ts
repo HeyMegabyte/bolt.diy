@@ -171,7 +171,11 @@ export class ImageGenerationWorkflow extends WorkflowEntrypoint<Env, ImageGenera
             const fd = new FormData();
             fd.set('prompt', validated.prompt);
             fd.set('output_format', 'png');
-            fd.set('aspect_ratio', width >= height ? '16:9' : '9:16');
+            // Map the requested DALL-E pixel size to a Stability aspect_ratio. A
+            // SQUARE request (1024x1024 — the default + most common: logos, icons,
+            // favicons, most section images) MUST map to '1:1', not '16:9' — the
+            // old `width >= height` test wrongly widened every square fallback.
+            fd.set('aspect_ratio', width === height ? '1:1' : width > height ? '16:9' : '9:16');
             return fd;
           })(),
         });
