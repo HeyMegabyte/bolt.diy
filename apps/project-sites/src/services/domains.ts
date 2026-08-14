@@ -443,8 +443,12 @@ export async function getSiteHostnames(
 async function setSolePrimary(db: D1Database, siteId: string, hostnameId: string): Promise<void> {
   const now = new Date().toISOString();
   await db.batch([
-    db.prepare('UPDATE hostnames SET is_primary = 0, updated_at = ? WHERE site_id = ?').bind(now, siteId),
-    db.prepare('UPDATE hostnames SET is_primary = 1, updated_at = ? WHERE id = ?').bind(now, hostnameId),
+    db
+      .prepare('UPDATE hostnames SET is_primary = 0, updated_at = ? WHERE site_id = ?')
+      .bind(now, siteId),
+    db
+      .prepare('UPDATE hostnames SET is_primary = 1, updated_at = ? WHERE id = ?')
+      .bind(now, hostnameId),
   ]);
 }
 
