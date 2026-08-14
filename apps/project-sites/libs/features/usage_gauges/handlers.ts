@@ -14,7 +14,7 @@ import { computeUsageGauges } from './service.js';
 export async function handleUsageGauges(
   c: Context<{ Bindings: Env; Variables: Variables }>,
 ): Promise<Response> {
-  if (!(await isFlagOn(c.env, 'usage_gauges', { orgId: c.get('orgId')! }))) {
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) {
     return c.notFound();
   }
   const gauges = await computeUsageGauges(c.env, c.get('orgId')!);

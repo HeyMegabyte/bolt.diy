@@ -11,7 +11,7 @@ export const manifest = {
   name: 'Continue Where You Left Off (MRU Cards)',
   description:
     'Most-recently-active sites for the current org, ordered by last audit_log entry. Returns site name, slug, last action summary, and quick-jump link. Drives the dashboard "Continue where you left off" widget.',
-  flagKey: 'mru_cards',
+  flagKey: 'activity_feed',
   owner: 'brian@megabyte.space',
   stage: 'experimental' as const,
   createdAt: '2026-07-15',

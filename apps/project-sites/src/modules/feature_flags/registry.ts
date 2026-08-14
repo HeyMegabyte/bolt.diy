@@ -187,15 +187,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  social_agent: {
-    key: 'social_agent',
-    description:
-      "Content proposal generator with platform-aware captions, hashtags, image prompts, and optimal posting times for 10 platforms. Engagement scoring with trend detection (growing/stable/declining). Its route checks isFlagOn('social_agent'); the flag was never in FLAG_REGISTRY so resolveFlag short-circuited it dead. Registered 2026-08-13 (default-off = promotable dark-launch).",
-    default_enabled: true,
-    default_rollout_percent: 100,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   social_publishing_native: {
     key: 'social_publishing_native',
     description:
@@ -279,33 +270,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  mru_cards: {
-    key: 'mru_cards',
-    description:
-      'MRU Cards (#14): "Continue where you left off" — most-recently-active sites per org, ordered by last audit_log entry. Returns site name, slug, last action, and timestamp for dashboard quick-jump cards. GET /api/mru.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  usage_gauges: {
-    key: 'usage_gauges',
-    description:
-      'Usage Gauge Rings (#15): per-org usage metrics — sites, builds, media GB, bandwidth GB — computed from D1 with pct-of-limit for SVG gauge-ring dashboard visualization. GET /api/usage.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  analytics_annotations: {
-    key: 'analytics_annotations',
-    description:
-      'Analytics Annotations (#24): CRUD for chart annotations tied to analytics events. GET/POST/DELETE /api/sites/:siteId/annotations.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   cmd_k_actions: {
     key: 'cmd_k_actions',
     description:
@@ -315,55 +279,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  site_health_sparklines: {
-    key: 'site_health_sparklines',
-    description:
-      'Site Health Sparklines (#22): 7-day traffic trend per site from analytics_daily. GET /api/sites/:siteId/sparkline.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  notification_badge: {
-    key: 'notification_badge',
-    description:
-      'Notification Badge Count (#21): unread alert + failed-build count per org for admin nav badge. GET /api/notifications/badge.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   batch_operations: {
     key: 'batch_operations',
     description:
       'Batch Site Operations (#20): bulk rebuild/snapshot/delete for up to 50 sites. Validates org ownership per site. POST /api/batch.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  site_comparison: {
-    key: 'site_comparison',
-    description:
-      'Site Comparison View (#18): side-by-side diff of two sites — pages, builds, domains, status, last activity. POST /api/sites/compare.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  site_clone: {
-    key: 'site_clone',
-    description:
-      'Site Clone One-Click (#19): copies pages/settings/metadata to a new slug. POST /api/sites/clone.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  onboarding_progress: {
-    key: 'onboarding_progress',
-    description:
-      'Onboarding Progress Ring (#16): tracks org onboarding completion — site created, first build, domain added, billing set, team invited — returns pct complete with per-step detail. GET /api/onboarding.',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -420,15 +339,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  mcp_oauth_provider: {
-    key: 'mcp_oauth_provider',
-    description:
-      'OAuth 2.1 authorization server so MCP clients (Claude Code) authenticate via PKCE instead of pasting psk_ tokens',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   model_registry: {
     key: 'model_registry',
     description:
@@ -465,28 +375,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
     owner_email: 'brian@megabyte.space',
   },
-  platform_mcp: {
-    key: 'platform_mcp',
-    description:
-      'Account-level MCP server so Claude Code/Cursor/MCP clients connect with a scoped psk_ API token and manage their sites (list/inspect/build-status; deploy next)',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
   preview_share_card: {
     key: 'preview_share_card',
     description:
       'Owner-driven viral loop. After a build the owner gets honest pre-written share messages (SMS/WhatsApp/email/copy), one-tap platform deep-links (SMS, WhatsApp, mailto, X, Facebook), and OG-card params for a branded 1200x630 card — sharing their new site to real customers in seconds. The shared link is the ad. Free-tier; 404 when off.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  prod_readiness_score: {
-    key: 'prod_readiness_score',
-    description:
-      'Production Readiness Score (0-100 + grade) per site: published, custom domain, performance, sitemap checks — surfaces what to fix before launch',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',
@@ -523,15 +415,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     key: 'site_doctor',
     description:
       'Owner-facing A-F site health report with prioritized, plain-English one-tap fixes. Translates production-readiness signals (published, custom domain, performance, sitemap) into owner language; free plan sees the top issue, the rest locked behind a paid power-up. Sharp professional voice; reuses prod_readiness_score scoring.',
-    default_enabled: false,
-    default_rollout_percent: 0,
-    stage: 'experimental',
-    owner_email: 'brian@megabyte.space',
-  },
-  visitor_events_core: {
-    key: 'visitor_events_core',
-    description:
-      'Public pageview/click/conversion beacon ingest from published sites; feeds site_analytics traffic block',
     default_enabled: false,
     default_rollout_percent: 0,
     stage: 'experimental',

@@ -527,7 +527,7 @@ app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
 app.post('/api/sites/:siteId/social/proposals', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId })))
+  if (!(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId })))
     return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({
@@ -537,7 +537,7 @@ app.post('/api/sites/:siteId/social/proposals', async (c) => {
 app.post('/api/sites/:siteId/social/engagement', async (c) => {
   const siteId = c.req.param('siteId');
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'social_agent', { orgId: c.get('orgId'), siteId: siteId })))
+  if (!(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId })))
     return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: scoreEngagement(body.account, body.metrics) });
@@ -581,7 +581,7 @@ app.get('/api/system/status', async (c) => {
 
 app.get('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! })))
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
     return c.notFound();
   const { handleListAnnotations } =
     await import('../libs/features/analytics_annotations/handlers.js');
@@ -589,7 +589,7 @@ app.get('/api/sites/:siteId/annotations', async (c) => {
 });
 app.post('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! })))
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
     return c.notFound();
   const { handleCreateAnnotation } =
     await import('../libs/features/analytics_annotations/handlers.js');
@@ -597,7 +597,7 @@ app.post('/api/sites/:siteId/annotations', async (c) => {
 });
 app.delete('/api/annotations/:id', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'analytics_annotations', { orgId: c.get('orgId')! })))
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
     return c.notFound();
   const { handleDeleteAnnotation } =
     await import('../libs/features/analytics_annotations/handlers.js');
@@ -613,7 +613,7 @@ app.post('/api/cmdk', async (c) => {
 
 app.get('/api/sites/:siteId/sparkline', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_health_sparklines', { orgId: c.get('orgId')! })))
+  if (!(await isFlagOn(c.env, 'site_doctor', { orgId: c.get('orgId')! })))
     return c.notFound();
   const { handleSparkline } = await import('../libs/features/site_health_sparklines/handlers.js');
   return handleSparkline(c);
@@ -621,7 +621,7 @@ app.get('/api/sites/:siteId/sparkline', async (c) => {
 
 app.get('/api/notifications/badge', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'notification_badge', { orgId: c.get('orgId')! })))
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! })))
     return c.notFound();
   const { handleBadge } = await import('../libs/features/notification_badge/handlers.js');
   return handleBadge(c);
@@ -637,7 +637,7 @@ app.post('/api/batch', async (c) => {
 // Site Comparison — side-by-side diff (flag: site_comparison)
 app.post('/api/sites/compare', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_comparison', { orgId: c.get('orgId')! }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleSiteCompare } = await import('../libs/features/site_comparison/handlers.js');
   return handleSiteCompare(c);
 });
@@ -645,7 +645,7 @@ app.post('/api/sites/compare', async (c) => {
 // Site Clone — one-click copy (flag: site_clone)
 app.post('/api/sites/clone', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'site_clone', { orgId: c.get('orgId')! }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleSiteClone } = await import('../libs/features/site_clone/handlers.js');
   return handleSiteClone(c);
 });
@@ -653,7 +653,7 @@ app.post('/api/sites/clone', async (c) => {
 // Onboarding Progress — org setup completion (flag: onboarding_progress)
 app.get('/api/onboarding', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'onboarding_progress', { orgId: c.get('orgId')! })))
+  if (!(await isFlagOn(c.env, 'onboarding_copilot', { orgId: c.get('orgId')! })))
     return c.notFound();
   const { handleOnboardingProgress } =
     await import('../libs/features/onboarding_progress/handlers.js');
@@ -663,7 +663,7 @@ app.get('/api/onboarding', async (c) => {
 // Usage Gauges — per-org usage metrics (flag: usage_gauges)
 app.get('/api/usage', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'usage_gauges', { orgId: c.get('orgId')! }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleUsageGauges } = await import('../libs/features/usage_gauges/handlers.js');
   return handleUsageGauges(c);
 });
@@ -671,7 +671,7 @@ app.get('/api/usage', async (c) => {
 // MRU Cards — recently-active sites for dashboard (flag: mru_cards)
 app.get('/api/mru', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
-  if (!(await isFlagOn(c.env, 'mru_cards', { orgId: c.get('orgId')! }))) return c.notFound();
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
   const { handleMruCards } = await import('../libs/features/mru_cards/handlers.js');
   return handleMruCards(c);
 });

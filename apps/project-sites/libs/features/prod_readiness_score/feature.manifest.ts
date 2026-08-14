@@ -13,7 +13,7 @@ export default defineFeatureManifest({
   description:
     'Returns a 0-100 score, A-F letter grade, and per-check breakdown (published / custom domain / performance / sitemap) that tells site owners exactly what to fix before launch.',
   lifecycle: 'alpha',
-  flagKey: 'prod_readiness_score',
+  flagKey: 'site_doctor',
   owner: 'brian@megabyte.space',
   createdAt: '2026-06-18',
   updatedAt: '2026-06-18',

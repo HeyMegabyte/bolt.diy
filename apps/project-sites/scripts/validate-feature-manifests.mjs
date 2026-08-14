@@ -253,6 +253,18 @@ function detectDuplicates(manifests) {
   const seenSlugs = new Map();
   const seenFlagKeys = new Map();
   const errors = [];
+  // Intentional flag groups (keep in sync with scripts/validate-feature-drift.mjs +
+  // scripts/group-flags.mjs). An anchor flag deliberately gates several modules, so a
+  // shared flagKey across their manifests is intentional grouping, not drift.
+  const GROUPED_FLAG_KEYS = new Set([
+    'site_analytics',
+    'site_doctor',
+    'onboarding_copilot',
+    'mcp_server',
+    'activity_feed',
+    'batch_operations',
+    'social_publishing_native',
+  ]);
 
   for (const { slug, manifest } of manifests) {
     if (!manifest) continue;
@@ -263,7 +275,7 @@ function detectDuplicates(manifests) {
       seenSlugs.set(slug, slug);
     }
 
-    if (manifest.flagKey) {
+    if (manifest.flagKey && !GROUPED_FLAG_KEYS.has(manifest.flagKey)) {
       if (seenFlagKeys.has(manifest.flagKey)) {
         errors.push(`DUPLICATE FLAG KEY: "${manifest.flagKey}" declared in both "${seenFlagKeys.get(manifest.flagKey)}" and "${slug}"`);
       } else {

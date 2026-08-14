@@ -14,7 +14,7 @@ import { getMruCards } from './service.js';
 export async function handleMruCards(
   c: Context<{ Bindings: Env; Variables: Variables }>,
 ): Promise<Response> {
-  if (!(await isFlagOn(c.env, 'mru_cards', { orgId: c.get('orgId')! }))) {
+  if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) {
     return c.notFound();
   }
   const limit = Math.min(Number(c.req.query('limit') ?? '5'), 20);

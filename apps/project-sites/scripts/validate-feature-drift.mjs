@@ -370,6 +370,20 @@ async function checkFortressTests() {
 
 // ─── 7. Duplicate detection ───────────────────────────────────────────────────
 
+// Intentional flag GROUPS: an anchor flag deliberately gates several feature
+// modules (a "feature area"), the same way __core__ gates core surfaces. Members
+// re-point their flagKey → anchor, so a shared flagKey here is intentional, not
+// drift. Keep this list in sync with scripts/group-flags.mjs GROUPS anchors.
+const GROUPED_FLAG_KEYS = new Set([
+  'site_analytics',
+  'site_doctor',
+  'onboarding_copilot',
+  'mcp_server',
+  'activity_feed',
+  'batch_operations',
+  'social_publishing_native',
+]);
+
 function detectDuplicates(manifests) {
   const seenSlugs = new Map();
   const seenFlagKeys = new Map();
@@ -392,6 +406,7 @@ function detectDuplicates(manifests) {
     // feature-flags UI, site-create) that are not flag-gated by design.
     // Multiple manifests legitimately share it.
     if (manifest.flagKey === '__core__') continue;
+    if (GROUPED_FLAG_KEYS.has(manifest.flagKey)) continue;
     if (seenFlagKeys.has(manifest.flagKey)) {
       violations.push({
         type: 'DUPLICATE_FLAG_KEY',

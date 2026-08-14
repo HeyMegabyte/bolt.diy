@@ -11,7 +11,7 @@ export const manifest = {
   name: 'Usage Gauge Rings',
   description:
     'Per-org usage metrics — build count, media storage estimate, site count, bandwidth — computed from D1 and served for SVG gauge-ring visualization in the admin dashboard.',
-  flagKey: 'usage_gauges',
+  flagKey: 'activity_feed',
   owner: 'brian@megabyte.space',
   stage: 'experimental' as const,
   createdAt: '2026-07-15',

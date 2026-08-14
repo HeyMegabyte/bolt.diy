@@ -17,7 +17,7 @@ export default defineFeatureManifest({
     'Public beacon ingest for pageview/click/conversion events from published sites, deduped per session and aggregated ' +
     'per site over a trailing window. Origin-allow-listed + rate-limited + flag-gated; feeds the site_analytics traffic block.',
   lifecycle: 'alpha',
-  flagKey: 'visitor_events_core',
+  flagKey: 'site_analytics',
   owner: 'brian@megabyte.space',
   createdAt: '2026-05-29',
   updatedAt: '2026-05-29',

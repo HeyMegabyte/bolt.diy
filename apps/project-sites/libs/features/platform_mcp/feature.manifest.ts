@@ -14,7 +14,7 @@ export default defineFeatureManifest({
   description:
     'Account-level MCP server so Claude Code + other MCP clients connect to projectsites.dev with a scoped API token and manage their sites (list, inspect, build-status; deploy next).',
   lifecycle: 'alpha',
-  flagKey: 'platform_mcp',
+  flagKey: 'mcp_server',
   owner: 'brian@megabyte.space',
   createdAt: '2026-06-17',
   updatedAt: '2026-06-17',

@@ -4,7 +4,7 @@ export default defineFeatureManifest({
   slug: 'mcp_oauth_provider',
   name: 'MCP OAuth 2.1 authorization server',
   description: 'OAuth 2.1 AS so MCP clients (Claude Code) get tokens via PKCE instead of pasting psk_ tokens.',
-  flagKey: 'mcp_oauth_provider',
+  flagKey: 'mcp_server',
   owner: 'brian@megabyte.space',
   createdAt: '2026-06-17',
   updatedAt: '2026-06-17',
