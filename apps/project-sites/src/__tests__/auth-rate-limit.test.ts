@@ -101,6 +101,10 @@ describe('auth rate-limit (item #6)', () => {
     ['/api/auth/google/callback', 20, 'GET'],
     ['/api/auth/github', 20, 'GET'],
     ['/api/auth/github/callback', 20, 'GET'],
+    // Media generation cost shields (external paid AI) — video is tightest.
+    ['/api/media/generate/image', 10, 'POST'],
+    ['/api/media/generate/video', 3, 'POST'],
+    ['/api/media/generate/podcast', 8, 'POST'],
   ])('allows requests under the budget on %s (budget=%i)', async (path, budget, method) => {
     for (let i = 0; i < budget; i++) {
       const res = await hit(path, method as 'GET' | 'POST');
@@ -134,6 +138,15 @@ describe('auth rate-limit (item #6)', () => {
     const blocked = await hit('/api/auth/github/callback?code=x&state=y', 'GET');
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('throttles the expensive Sora/Veo video-generation endpoint past its 3/min shield', async () => {
+    for (let i = 0; i < 3; i++) {
+      expect((await hit('/api/media/generate/video')).status).toBe(200);
+    }
+    const blocked = await hit('/api/media/generate/video');
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('X-RateLimit-Limit')).toBe('3');
   });
 
   it('sliding window forgets after 60s (TTL expiry)', async () => {

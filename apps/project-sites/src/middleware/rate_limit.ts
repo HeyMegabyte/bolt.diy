@@ -91,6 +91,19 @@ export const RATE_LIMIT_RULES: readonly RateLimitRule[] = [
   { path: '/api/v1/forms/submit', maxRequests: 30, windowSeconds: 60, prefix: 'rl:forms' },
   { path: '/api/ai/*', maxRequests: 20, windowSeconds: 60, prefix: 'rl:ai' },
   { path: '/api/sites/autofill', maxRequests: 20, windowSeconds: 60, prefix: 'rl:autofill' },
+  // Media generation — external PAID AI (DALL-E image, Sora/Veo video, TTS podcast).
+  // Authed but previously UN-metered, so a single org could flood the most expensive
+  // endpoints in the app for unbounded provider cost. Per-IP flood shields (video is
+  // tightest — Sora/Veo runs dollars-per-clip); total-per-plan budgeting stays a
+  // separate entitlement concern.
+  { path: '/api/media/generate/image', maxRequests: 10, windowSeconds: 60, prefix: 'rl:media-image' },
+  { path: '/api/media/generate/video', maxRequests: 3, windowSeconds: 60, prefix: 'rl:media-video' },
+  {
+    path: '/api/media/generate/podcast',
+    maxRequests: 8,
+    windowSeconds: 60,
+    prefix: 'rl:media-podcast',
+  },
   // Bolt admin (Workers AI + D1 abuse vectors) — legacy + current aliases.
   { path: '/admin-api/vision-ocr', maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' },
   { path: '/api/bolt/vision-ocr', maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' },
