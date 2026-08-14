@@ -698,7 +698,7 @@ app.route('/', authOrg); // /api/auth/organization/* — custom-auth Team (get-f
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
-app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
+app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integration-providers} — must precede `api` so the param order matches first
 app.route('/', siteDna); // /api/site-dna/:siteId/{feedback,preferences,history} — #7 Site DNA Taste Graph
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls

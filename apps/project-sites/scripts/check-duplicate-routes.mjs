@@ -52,8 +52,6 @@ export const ALLOWLIST = {
   'POST /api/domains/purchase': 'intentional',
   // aiAdmin wins over api.ts — likely accidental; resolve which handler is canonical.
   'GET /api/admin/domains': 'review',
-  // forms wins over site_detail_tabs — likely accidental; confirm identical behavior.
-  'GET /api/sites/:siteId/integrations': 'review',
   // Two GET / handlers in index.ts: :747 (system-service landings) shadows :976
   // (richer — adds llm + platform-service landings). Needs a careful host-routing
   // merge; llm root is served by its container so that branch is moot in practice.

@@ -844,7 +844,7 @@ export class AdminSiteDetailComponent {
   // ── Integrations ─────────────────────────────────────────────────────
   private loadIntegrations(id: string): void {
     this.api
-      .get<{ providers: IntegrationProvider[] }>(`/sites/${id}/integrations`, undefined, { silent: true })
+      .get<{ providers: IntegrationProvider[] }>(`/sites/${id}/integration-providers`, undefined, { silent: true })
       .pipe(
         catchError(() => of({ providers: DEFAULT_PROVIDERS })),
         takeUntilDestroyed(this.destroyRef),
@@ -932,7 +932,7 @@ export class AdminSiteDetailComponent {
     this.api
       // {silent} — the catchError below shows the specific 'Could not disconnect'
       // toast, so the generic ApiService toast must not also fire (no double-toast).
-      .delete(`/sites/${this.siteId()}/integrations/${p.key}`, { silent: true })
+      .delete(`/sites/${this.siteId()}/integration-providers/${p.key}`, { silent: true })
       .pipe(
         // Return null on error (don't fabricate { ok: true }) so a failed
         // disconnect never optimistically flips the chip to "disconnected".

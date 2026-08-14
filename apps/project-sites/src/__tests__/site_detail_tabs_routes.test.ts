@@ -11,8 +11,8 @@
  *   POST   /api/sites/:siteId/snapshots/:snapId/rollback — auth 401, 404 non-leak, success
  *   POST   /api/sites/:siteId/sql/exec                   — auth 401, Zod 400, read-only 400,
  *                                                          DDL 400, 404 non-leak, success, error
- *   GET    /api/sites/:siteId/integrations               — auth 401, status mapping, empty
- *   DELETE /api/sites/:siteId/integrations/:key          — auth 401, soft-delete + audit
+ *   GET    /api/sites/:siteId/integration-providers      — auth 401, ownership 404, status mapping, empty
+ *   DELETE /api/sites/:siteId/integration-providers/:key — auth 401, ownership 404, soft-delete + audit
  */
 
 jest.mock('../services/db.js', () => ({
@@ -322,8 +322,8 @@ describe('POST /api/sites/:siteId/sql/exec', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('GET /api/sites/:siteId/integrations', () => {
-  const PATH = `/api/sites/${SITE}/integrations`;
+describe('GET /api/sites/:siteId/integration-providers', () => {
+  const PATH = `/api/sites/${SITE}/integration-providers`;
 
   it('returns 401 when unauthenticated', async () => {
     const env = makeEnv(makeDb());
@@ -332,7 +332,16 @@ describe('GET /api/sites/:siteId/integrations', () => {
     expect(mockDbQuery).not.toHaveBeenCalled();
   });
 
+  it('404s when the site is not owned by the caller org (no cross-org read)', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(null); // ownership lookup → not owned
+    const env = makeEnv(makeDb());
+    const res = await req(makeApp(AUTH), PATH, { method: 'GET' }, env);
+    expect(res.status).toBe(404);
+    expect(mockDbQuery).not.toHaveBeenCalled(); // never reaches the providers query
+  });
+
   it('marks connected providers and leaves the rest disconnected', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: SITE }); // owned
     mockDbQuery.mockResolvedValueOnce({ data: [{ provider: 'stripe' }, { provider: 'github' }] });
     const env = makeEnv(makeDb());
     const res = await req(makeApp(AUTH), PATH, { method: 'GET' }, env);
@@ -350,6 +359,7 @@ describe('GET /api/sites/:siteId/integrations', () => {
   });
 
   it('returns every provider disconnected when no connections exist', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: SITE }); // owned
     mockDbQuery.mockResolvedValueOnce({ data: [] });
     const env = makeEnv(makeDb());
     const res = await req(makeApp(AUTH), PATH, { method: 'GET' }, env);
@@ -360,8 +370,8 @@ describe('GET /api/sites/:siteId/integrations', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('DELETE /api/sites/:siteId/integrations/:key', () => {
-  const PATH = `/api/sites/${SITE}/integrations/stripe`;
+describe('DELETE /api/sites/:siteId/integration-providers/:key', () => {
+  const PATH = `/api/sites/${SITE}/integration-providers/stripe`;
   const del = (app: Hono<{ Bindings: Env; Variables: Variables }>, env: Env) =>
     req(app, PATH, { method: 'DELETE' }, env);
 
@@ -373,7 +383,17 @@ describe('DELETE /api/sites/:siteId/integrations/:key', () => {
     expect(mockWriteAuditLog).not.toHaveBeenCalled();
   });
 
+  it('404s when the site is not owned by the caller org (no cross-org delete)', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(null); // ownership lookup → not owned
+    const env = makeEnv(makeDb());
+    const res = await del(makeApp(AUTH), env);
+    expect(res.status).toBe(404);
+    expect(mockDbExecute).not.toHaveBeenCalled(); // never reaches the soft-delete
+    expect(mockWriteAuditLog).not.toHaveBeenCalled();
+  });
+
   it('soft-deletes the connection and writes a disconnect audit row', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: SITE }); // owned
     mockDbExecute.mockResolvedValueOnce(undefined);
     const env = makeEnv(makeDb());
     const res = await del(makeApp(AUTH), env);

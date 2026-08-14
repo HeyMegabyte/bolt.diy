@@ -6,8 +6,8 @@
  *   GET    /api/sites/:siteId/logs/tail                  — polled live tail
  *   POST   /api/sites/:siteId/snapshots/:snapId/rollback — promote snapshot to current
  *   POST   /api/sites/:siteId/sql/exec                   — read-only D1 console
- *   GET    /api/sites/:siteId/integrations               — per-site MCP providers
- *   DELETE /api/sites/:siteId/integrations/:key          — disconnect MCP provider
+ *   GET    /api/sites/:siteId/integration-providers      — per-site MCP providers
+ *   DELETE /api/sites/:siteId/integration-providers/:key — disconnect MCP provider
  *
  * Auth-required, org-scoped via the existing `authMiddleware` on `/api/*`.
  */
@@ -190,12 +190,24 @@ const PROVIDERS: Array<{ key: string; name: string; oauth_supported: boolean }> 
   { key: 'resend', name: 'Resend', oauth_supported: false },
 ];
 
-tabs.get('/api/sites/:siteId/integrations', async (c) => {
+tabs.get('/api/sites/:siteId/integration-providers', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.get('orgId');
   if (!orgId) {
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required' } }, 401);
   }
+  // Org-scope the site. This handler used to sit at `/integrations`, where the
+  // newsletter-integrations route (forms.ts, registered first) SHADOWED it — so it
+  // never ran and its missing ownership check was harmless. On its own
+  // `/integration-providers` path it is reachable, so it MUST verify the site
+  // belongs to the caller's org (else any authed user could read another org's
+  // per-site provider status by guessing siteId).
+  const owned = await dbQueryOne(
+    c.env.DB,
+    `SELECT id FROM sites WHERE id = ?1 AND org_id = ?2 AND deleted_at IS NULL`,
+    [siteId, orgId],
+  );
+  if (!owned) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
   const conns = await dbQuery<{ provider: string }>(
     c.env.DB,
@@ -214,10 +226,10 @@ tabs.get('/api/sites/:siteId/integrations', async (c) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/sites/:siteId/integrations/:key
+// DELETE /api/sites/:siteId/integration-providers/:key
 // Soft-delete the mcp_connections row for this site + provider.
 // ─────────────────────────────────────────────────────────────────────────────
-tabs.delete('/api/sites/:siteId/integrations/:key', async (c) => {
+tabs.delete('/api/sites/:siteId/integration-providers/:key', async (c) => {
   const siteId = c.req.param('siteId');
   const provider = c.req.param('key');
   const orgId = c.get('orgId');
@@ -225,6 +237,12 @@ tabs.delete('/api/sites/:siteId/integrations/:key', async (c) => {
   if (!orgId || !userId) {
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required' } }, 401);
   }
+  const owned = await dbQueryOne(
+    c.env.DB,
+    `SELECT id FROM sites WHERE id = ?1 AND org_id = ?2 AND deleted_at IS NULL`,
+    [siteId, orgId],
+  );
+  if (!owned) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
   await dbExecute(
     c.env.DB,
