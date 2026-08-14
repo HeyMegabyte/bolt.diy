@@ -16,6 +16,7 @@ import { CharCountComponent } from '../../../components/char-count/char-count.co
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { AuthImageSrcDirective } from '../../../directives/auth-image-src.directive';
 import { ReadinessPanelComponent } from '../../../components/readiness-panel/readiness-panel.component';
 import { HealthSparklineComponent } from '../../../components/health-sparkline/health-sparkline.component';
 import { TimelineNotesComponent } from '../../../components/timeline-notes/timeline-notes.component';
@@ -117,7 +118,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, ...BrnTooltipImports],
+  imports: [RevealDirective, AuthImageSrcDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, VisionRadarComponent, ReadinessPanelComponent, HealthSparklineComponent, TimelineNotesComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -527,7 +528,7 @@ interface GhStatus {
                                 [attr.data-testid]="'snapshot-screenshot-thumb-' + snap.id"
                                 [brnTooltip]="'Click to view full 1920×1080 screenshot'">
                                 <img
-                                  [src]="screenshotUrl(snap, m)"
+                                  [appAuthImageSrc]="screenshotUrl(snap, m)"
                                   [alt]="'Screenshot of ' + snap.snapshot_name + ' captured ' + (m.captured_at || 'recently')"
                                   loading="lazy"
                                   decoding="async"
@@ -725,7 +726,7 @@ interface GhStatus {
         <!-- Body — click-to-close on the wrapper AND the image both fire. -->
         <div class="snap-screenshot-stage" (click)="closeScreenshot()" data-testid="snapshot-screenshot-stage">
           @if (screenshotOpenUrl(); as url) {
-            <img [src]="url"
+            <img [appAuthImageSrc]="url"
                  [alt]="'Full-resolution screenshot of ' + (screenshotOpenSnapshot()?.snapshot_name || 'snapshot')"
                  class="snap-screenshot-img"
                  (click)="closeScreenshot()"
@@ -1868,12 +1869,19 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     const url = this.screenshotOpenUrl();
     const site = this.state.selectedSite();
     if (!snap || !url || !site) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${site.slug}-${snap.snapshot_name}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // The screenshot route is bearer-authed; a plain `<a href download>` can't send
+    // the token → 401. Fetch the PNG WITH auth, then object-URL + click.
+    this.api.getBlobAbsolute(url).subscribe({
+      next: (blob) => {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = `${site.slug}-${snap.snapshot_name}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+      },
+      error: () => { /* ApiService already surfaced the failure. */ },
+    });
     this.telemetry.track('snapshot.screenshot_downloaded', {
       snapshot_id: snap.id,
       site_id: site.id,

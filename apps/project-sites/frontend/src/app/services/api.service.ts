@@ -217,6 +217,25 @@ export class ApiService {
   }
 
   /**
+   * Authenticated binary GET for an ALREADY-ABSOLUTE same-origin path (e.g. an
+   * `/api/sites/…/screenshot.png` a component built itself). Same purpose as
+   * {@link getBlob} but does NOT prepend `/api` — use when the caller holds the full
+   * path. Backs the `AuthImageSrcDirective` (authed images) + authed file downloads,
+   * because a plain image element / download anchor can't carry the Bearer.
+   *
+   * @param path - Full same-origin path beginning with `/api/`.
+   * @example
+   * ```ts
+   * this.api.getBlobAbsolute('/api/sites/s1/snapshots/x/screenshot.png').subscribe(saveBlob);
+   * ```
+   */
+  getBlobAbsolute(path: string, opts?: { silent?: boolean }): Observable<Blob> {
+    return this.http
+      .get(path, { headers: this.headers(), responseType: 'blob' })
+      .pipe(this.handleError(opts?.silent));
+  }
+
+  /**
    * Worker `/health` probe (KV + R2). Lives OUTSIDE `/api`, needs no auth, and
    * must fail SAFE — a probe error resolves to `null` so the topbar status pill
    * shows "unknown" rather than spamming a toast. Zod-validated at the boundary
