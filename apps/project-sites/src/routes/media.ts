@@ -52,6 +52,30 @@ const mediaRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 /** Hard cap for the multipart upload endpoint (25 MB). */
 const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 
+/**
+ * MIME types safe to render inline when streaming a stored asset (raster images +
+ * audio/video the browser renders as media). Anything NOT in this set — notably
+ * `image/svg+xml`, `text/html`, `application/pdf`, `application/octet-stream` — is
+ * served `Content-Disposition: attachment` so a malicious upload can never execute
+ * as a document. (`<img>`/`fetch` consumers ignore the disposition, so inline
+ * display in the media library is unaffected.)
+ */
+const INLINE_SAFE_TYPES = new Set<string>([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+]);
+
 /** Extract `orgId` from the Hono context or return a 401 envelope. */
 function getOrgScope(
   c: Context<{ Bindings: Env; Variables: Variables }>,
@@ -174,10 +198,22 @@ mediaRoutes.get('/api/media/assets/:id/raw', async (c) => {
       404,
     );
   }
+  // This streams user-uploaded bytes with a caller-supplied MIME (upload trusts
+  // `file.type`), so a malicious SVG/HTML upload could execute as script if a
+  // rendering context ever navigates to this URL. Ship the standard user-content
+  // safety headers: nosniff (no MIME-sniffing a declared image into HTML), a
+  // locked-down CSP + `sandbox` (no script even for text/html or image/svg+xml),
+  // and force any non-inline-safe type to download rather than render.
+  const rawMime = (asset.mime || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+  const inlineSafe = INLINE_SAFE_TYPES.has(rawMime);
+  const safeName = (asset.name || 'download').replace(/[^\w.\- ]+/g, '_').slice(0, 200) || 'download';
   const headers: Record<string, string> = {
     'Content-Type': asset.mime || 'application/octet-stream',
     'Content-Length': String(asset.size_bytes || obj.size),
     'Cache-Control': 'private, max-age=300',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    'Content-Disposition': `${inlineSafe ? 'inline' : 'attachment'}; filename="${safeName}"`,
   };
   return new Response(obj.body, { headers });
 });

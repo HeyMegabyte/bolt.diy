@@ -105,6 +105,57 @@ describe('GET /api/media/assets/:id/raw', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('image/png');
   });
+
+  it('ships user-content XSS-defense headers (nosniff + CSP sandbox); an image renders inline', async () => {
+    m.getAsset.mockResolvedValue({
+      r2_key: 'k',
+      mime: 'image/png',
+      size_bytes: 3,
+      name: 'logo.png',
+    } as never);
+    const res = await authed().request(
+      '/api/media/assets/a1/raw',
+      {},
+      env({ get: async () => ({ body: 'abc', size: 3 }) }),
+    );
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(res.headers.get('Content-Security-Policy')).toContain('sandbox');
+    expect(res.headers.get('Content-Disposition')).toContain('inline'); // png is inline-safe
+  });
+
+  it('forces a dangerous MIME (svg) to download rather than render as a document', async () => {
+    m.getAsset.mockResolvedValue({
+      r2_key: 'k',
+      mime: 'image/svg+xml',
+      size_bytes: 5,
+      name: 'x.svg',
+    } as never);
+    const res = await authed().request(
+      '/api/media/assets/a1/raw',
+      {},
+      env({ get: async () => ({ body: '<svg/>', size: 5 }) }),
+    );
+    expect(res.headers.get('Content-Disposition')).toContain('attachment');
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it('sanitizes the Content-Disposition filename (no header injection via asset name)', async () => {
+    m.getAsset.mockResolvedValue({
+      r2_key: 'k',
+      mime: 'text/html',
+      size_bytes: 1,
+      name: 'a"\r\n.html',
+    } as never);
+    const res = await authed().request(
+      '/api/media/assets/a1/raw',
+      {},
+      env({ get: async () => ({ body: 'x', size: 1 }) }),
+    );
+    const cd = res.headers.get('Content-Disposition') ?? '';
+    expect(cd).toContain('attachment');
+    expect(cd).not.toContain('a"'); // the injected quote/CRLF were stripped from the name
+    expect(cd).not.toContain('\n');
+  });
 });
 
 describe('POST /api/media/upload', () => {

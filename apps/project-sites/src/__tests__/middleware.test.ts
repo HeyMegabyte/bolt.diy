@@ -257,6 +257,26 @@ describe('securityHeadersMiddleware', () => {
     expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
   });
 
+  it('sets a default Content-Security-Policy on dashboard responses', async () => {
+    const res = await createApp().request('/test');
+    expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+  });
+
+  it('preserves a stricter CSP the handler already set (does not clobber it)', async () => {
+    const app = new Hono<{ Bindings: any; Variables: any }>();
+    app.use('*', securityHeadersMiddleware);
+    app.get(
+      '/raw',
+      () =>
+        new Response('bytes', {
+          headers: { 'Content-Security-Policy': "default-src 'none'; sandbox" },
+        }),
+    );
+    const res = await app.request('/raw');
+    // The media raw-stream handler's sandbox CSP must survive the middleware's global set.
+    expect(res.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
+  });
+
   it('sets Permissions-Policy', async () => {
     const app = createApp();
     const res = await app.request('/test');

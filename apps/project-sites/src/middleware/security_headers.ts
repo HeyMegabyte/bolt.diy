@@ -129,22 +129,27 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
   // embeds bolt.diy in iframes, loads images from R2/CDN, and integrates
   // Stripe, PostHog, Google Analytics, Transloadit, etc.
   c.header('X-Frame-Options', 'SAMEORIGIN');
-  c.header(
-    'Content-Security-Policy',
-    [
-      "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:",
-      "style-src 'self' 'unsafe-inline' https: blob:",
-      'img-src * data: blob:',
-      "font-src 'self' https: data:",
-      'connect-src * data: blob:',
-      'media-src * data: blob:',
-      "worker-src 'self' blob:",
-      "child-src 'self' blob: https:",
-      'frame-src *',
-      "frame-ancestors 'self' https://*.projectsites.dev",
-      "object-src 'none'",
-      "base-uri 'self'",
-    ].join('; '),
-  );
+  // Honor a stricter CSP the handler already set (e.g. the media raw-stream endpoint
+  // sandboxes user-uploaded bytes) — the "handler can override" contract above only
+  // held for headers this block doesn't set; CSP was clobbered unconditionally.
+  if (!c.res.headers.get('Content-Security-Policy')) {
+    c.header(
+      'Content-Security-Policy',
+      [
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:",
+        "style-src 'self' 'unsafe-inline' https: blob:",
+        'img-src * data: blob:',
+        "font-src 'self' https: data:",
+        'connect-src * data: blob:',
+        'media-src * data: blob:',
+        "worker-src 'self' blob:",
+        "child-src 'self' blob: https:",
+        'frame-src *',
+        "frame-ancestors 'self' https://*.projectsites.dev",
+        "object-src 'none'",
+        "base-uri 'self'",
+      ].join('; '),
+    );
+  }
 };
