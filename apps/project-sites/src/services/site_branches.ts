@@ -259,11 +259,20 @@ export async function mergeBranch(
   );
   if (!branch || (branch.status !== 'review' && branch.status !== 'draft')) return null;
 
-  await dbUpdate(db, 'site_branches', { status: 'merged' }, 'id = ?', [branchId]);
-
-  // Bump the site's build version to the merged content.
-  await dbUpdate(db, 'sites', { current_build_version: newBuildVersion }, 'id = ?', [
-    branch.site_id,
+  // Atomic cross-table transition: flip the branch to 'merged' AND bump the site's
+  // build version in ONE D1 batch (implicit transaction). As two separate error-ignoring
+  // dbUpdate calls, a partial failure (branch flips to 'merged' but the version bump
+  // fails) would leave the site serving the OLD build while the branch shows merged — a
+  // silent consistency corruption returned as success. batch() is all-or-nothing and
+  // rejects on failure, so a mid-merge error rolls both writes back + surfaces loudly.
+  const now = new Date().toISOString();
+  await db.batch([
+    db
+      .prepare("UPDATE site_branches SET status = 'merged', updated_at = ? WHERE id = ?")
+      .bind(now, branchId),
+    db
+      .prepare('UPDATE sites SET current_build_version = ?, updated_at = ? WHERE id = ?')
+      .bind(newBuildVersion, now, branch.site_id),
   ]);
 
   return dbQueryOne<SiteBranch>(db, 'SELECT * FROM site_branches WHERE id = ?', [branchId]);

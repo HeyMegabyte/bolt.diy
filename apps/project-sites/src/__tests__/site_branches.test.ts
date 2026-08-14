@@ -31,11 +31,19 @@ const mockQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;
 const mockUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
 
-// approveBranch increments the counter via raw `db.prepare().bind().run()`,
-// so the DB double needs a prepare chain (the db.js helpers are jest-mocked).
+// approveBranch increments the counter via raw `db.prepare().bind().run()`, and
+// mergeBranch commits its cross-table transition via `db.batch([...])` — so the DB
+// double needs a prepare chain (capturing sql+args) AND a jest.fn batch that records
+// the statements (a test can make it reject to simulate a mid-merge D1 failure).
 const DB = {
-  prepare: () => ({ bind: () => ({ run: async () => ({ meta: {} }) }) }),
+  prepare: (sql: string) => ({
+    bind: (...args: unknown[]) => ({ sql, args, run: async () => ({ meta: {} }) }),
+  }),
+  batch: jest.fn(async (stmts: unknown[]) =>
+    stmts.map(() => ({ success: true, meta: { changes: 1 } })),
+  ),
 } as unknown as D1Database;
+const mockBatch = (DB as unknown as { batch: jest.Mock }).batch;
 const SITE = 'site-a';
 const BRANCH = 'branch-1';
 
@@ -132,7 +140,37 @@ describe('mergeBranch (tenant-scoped)', () => {
   it('returns null for a foreign branch and never bumps a build version', async () => {
     mockQueryOne.mockResolvedValueOnce(null);
     expect(await mergeBranch(DB, 'other-site', BRANCH, 'v2')).toBeNull();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockBatch).not.toHaveBeenCalled();
+  });
+
+  it('commits the branch-merge + site-version bump in ONE atomic batch', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce(draftBranch({ status: 'review' }) as never) // lookup
+      .mockResolvedValueOnce(draftBranch({ status: 'merged' }) as never); // re-read
+    await mergeBranch(DB, SITE, BRANCH, 'v2');
+    expect(mockBatch).toHaveBeenCalledTimes(1);
+    const stmts = mockBatch.mock.calls[0]![0] as Array<{ sql: string; args: unknown[] }>;
+    expect(stmts).toHaveLength(2);
+    // stmt 0 flips the branch to merged; stmt 1 bumps the SITE build version.
+    expect(stmts[0].sql).toContain('site_branches');
+    expect(stmts[0].sql).toContain("status = 'merged'");
+    expect(stmts[0].args).toContain(BRANCH);
+    expect(stmts[1].sql).toContain('UPDATE sites');
+    expect(stmts[1].sql).toContain('current_build_version');
+    expect(stmts[1].args).toContain('v2');
+    expect(stmts[1].args).toContain(SITE);
+  });
+
+  // Regression guard: the merge was two separate error-ignoring cross-table dbUpdate
+  // calls (site_branches.status + sites.current_build_version). A mid-merge D1 failure
+  // (branch flips to 'merged' but the version bump fails) would leave the site serving
+  // the OLD build while the branch shows merged — a silent consistency corruption
+  // returned as success. The atomic batch rejects + rolls back → the failure is loud
+  // and no half-merged state lands.
+  it('is atomic — a mid-merge D1 failure rolls back both writes (no half-merged state)', async () => {
+    mockQueryOne.mockResolvedValueOnce(draftBranch({ status: 'review' }) as never);
+    mockBatch.mockRejectedValueOnce(new Error('D1_ERROR: batch failed'));
+    await expect(mergeBranch(DB, SITE, BRANCH, 'v2')).rejects.toThrow();
   });
 });
 
