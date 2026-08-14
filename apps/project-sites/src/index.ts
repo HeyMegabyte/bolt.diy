@@ -128,7 +128,6 @@ import { siteBranchesApp } from './routes/site_branches.js';
 import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
 import { publicRoutes } from './routes/public.js';
-import { pseoRoutes } from './routes/pseo.js';
 import features from './routes/features.js';
 import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
@@ -185,7 +184,6 @@ export { DriveSyncWorkflow } from './workflows/drive-sync.js';
 export { ImageGenerationWorkflow } from './workflows/image-generation.js';
 export { SnapshotQualityWorkflow } from './workflows/snapshot-quality.js';
 export { SocialPublishWorkflow } from './workflows/social-publish.js';
-export { PseoGenerationWorkflow } from './workflows/pseo-generation-workflow.js';
 export { SiteBuilderContainer } from './container.js';
 export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
 export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
@@ -1042,7 +1040,6 @@ app.route('/', siteBranchesApp); // /api/sites/:siteId/branches — branch-style
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
 app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
-app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.

@@ -145,12 +145,6 @@ name = "social-publish-workflow"
 binding = "SOCIAL_PUBLISH_WORKFLOW"
 class_name = "SocialPublishWorkflow"
 
-# ─── pSEO Matrix Generation workflow (#17) ─────────────────────
-[[workflows]]
-name = "pseo-generation-workflow"
-binding = "PSEO_GENERATION_WORKFLOW"
-class_name = "PseoGenerationWorkflow"
-
 # ─── AI binding for Cloudflare Workers AI ─────────────────────
 [ai]
 binding = "AI"
@@ -275,13 +269,6 @@ class_name = "SnapshotQualityWorkflow"
 name = "social-publish-workflow-production"
 binding = "SOCIAL_PUBLISH_WORKFLOW"
 class_name = "SocialPublishWorkflow"
-
-# pSEO Matrix Generation workflow (#17) — same top-level-only gap; mirrored so
-# /admin/pseo "Generate matrix" works in prod.
-[[env.production.workflows]]
-name = "pseo-generation-workflow-production"
-binding = "PSEO_GENERATION_WORKFLOW"
-class_name = "PseoGenerationWorkflow"
 
 [env.production.ai]
 binding = "AI"
